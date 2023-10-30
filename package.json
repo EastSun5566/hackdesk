@@ -10,7 +10,9 @@
     "frontend:preview": "vite preview"
   },
   "dependencies": {
+    "@radix-ui/react-popover": "^1.0.7",
     "@tauri-apps/api": "^1.5.0",
+    "cmdk": "^0.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.17.0"

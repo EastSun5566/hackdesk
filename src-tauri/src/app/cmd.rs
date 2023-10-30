@@ -5,20 +5,22 @@ use tauri::{
     // api::dialog,
     command,
     Manager,
-    WindowEvent
+    WindowEvent,
+    WindowUrl
 };
 
-// #[cfg(not(target_os = "linux"))]
-// use window_shadows::set_shadow;
-// #[cfg(not(target_os = "linux"))]
-// use window_vibrancy::{self, NSVisualEffectMaterial};
+#[cfg(not(target_os = "linux"))]
+use window_shadows::set_shadow;
+#[cfg(not(target_os = "linux"))]
+use window_vibrancy::{self, NSVisualEffectMaterial};
 
 use crate::{
-    utils,
-    app::conf::INIT_SCRIPT
+    // utils,
+    app::conf::{INIT_SCRIPT, COMMAND_PALETTE_WINDOW_LABEL}
 };
-// #[cfg(target_os = "macos")]
-// use crate::app::mac::set_transparent_titlebar;
+
+#[cfg(target_os = "macos")]
+use crate::app::mac::set_transparent_title_bar;
 
 #[command]
 pub async fn open_app_window(
@@ -48,7 +50,7 @@ pub async fn open_app_window(
         let _window = WindowBuilder::new(
             &app,
             label,
-            tauri::WindowUrl::App(url.parse().unwrap()),
+            WindowUrl::App(url.parse().unwrap()),
         )
         .initialization_script(&user_script)
         .title(title)
@@ -64,12 +66,12 @@ pub async fn open_app_window(
 
 #[command]
 pub fn open_command_palette_window(app: AppHandle) {
-    let win: Option<tauri::Window> = app.get_window("command-palette");
+    let win: Option<tauri::Window> = app.get_window(COMMAND_PALETTE_WINDOW_LABEL);
     if win.is_none() {
         let search_win = WindowBuilder::new(
             &app,
-            "command-palette",
-            tauri::WindowUrl::App("/command-palette".parse().unwrap()),
+            COMMAND_PALETTE_WINDOW_LABEL,
+            WindowUrl::App("/command-palette".parse().unwrap()),
         )
         .inner_size(560.0, 60.0)
         .always_on_top(true)
@@ -81,83 +83,83 @@ pub fn open_command_palette_window(app: AppHandle) {
         // search_win.on_window_event(move |event| match event {
         //     WindowEvent::Focused(is_focused) => {
         //         if !is_focused {
-        //             app.get_window("search").unwrap().close().unwrap();
+        //             app.get_window(COMMAND_PALETTE_WINDOW_LABEL).unwrap().close().unwrap();
         //         }
         //     }
         //     _ => (),
         // });
         search_win.on_window_event(move |event| if let WindowEvent::Focused(is_focused) = event {
             if !is_focused {
-                app.get_window("search").unwrap().close().unwrap();
+                app.get_window(COMMAND_PALETTE_WINDOW_LABEL).unwrap().close().unwrap();
             }
         });
 
-        // #[cfg(target_os = "macos")]
-        // set_transparent_titlebar(&search_win, true, true);
+        #[cfg(target_os = "macos")]
+        set_transparent_title_bar(&search_win, true, true);
 
-        // #[cfg(target_os = "macos")]
-        // window_vibrancy::apply_vibrancy(
-        //     &search_win,
-        //     NSVisualEffectMaterial::FullScreenUI,
-        //     None,
-        //     None,
-        // )
-        // .expect("Unsupported platform! 'apply_vibrancy' is only supported on macOS");
+        #[cfg(target_os = "macos")]
+        window_vibrancy::apply_vibrancy(
+            &search_win,
+            NSVisualEffectMaterial::FullScreenUI,
+            None,
+            None,
+        )
+        .expect("Unsupported platform! 'apply_vibrancy' is only supported on macOS");
 
-        // #[cfg(not(target_os = "linux"))]
-        // set_shadow(&search_win, true).expect("Unsupported platform!");
+        #[cfg(not(target_os = "linux"))]
+        set_shadow(&search_win, true).expect("Unsupported platform!");
 
-        // #[cfg(target_os = "windows")]
-        // window_vibrancy::apply_blur(&search_win, Some((18, 18, 18, 125)))
-        //     .expect("Unsupported platform! 'apply_blur' is only supported on Windows");
-    }
-}
-
-#[command]
-pub fn open_config_window(app: AppHandle) {
-    let win = app.get_window("setting");
-    if win.is_none() {
-        std::thread::spawn(move || {
-            tauri::WindowBuilder::new(
-                &app,
-                "setting",
-                tauri::WindowUrl::App("/setting?mode=shortcut".parse().unwrap()),
-            )
-            .inner_size(800.0, 600.0)
-            .center()
-            .title("WA+ Setting")
-            .build()
-            .unwrap()
-            .on_window_event(move |event| if let WindowEvent::Destroyed { .. } = event {
-                utils::init_config(app.clone());
-                app.get_window("main")
-                    .unwrap()
-                    .emit("WA_EVENT", "SETTING_RELOAD")
-                    .unwrap();
-            });
-            // .on_window_event(move |event| match event {
-            //     WindowEvent::Destroyed { .. } => {
-            //         utils::setting_init(app.clone());
-            //         app.get_window("main")
-            //             .unwrap()
-            //             .emit("WA_EVENT", "SETTING_RELOAD")
-            //             .unwrap();
-            //     }
-            //     _ => (),
-            // });
-        });
+        #[cfg(target_os = "windows")]
+        window_vibrancy::apply_blur(&search_win, Some((18, 18, 18, 125)))
+            .expect("Unsupported platform! 'apply_blur' is only supported on Windows");
     }
 }
 
 // #[command]
-// pub fn new_window(app: tauri::AppHandle, label: String, title: String, url: String) {
+// pub fn open_config_window(app: AppHandle) {
+//     let win = app.get_window("setting");
+//     if win.is_none() {
+//         std::thread::spawn(move || {
+//             WindowBuilder::new(
+//                 &app,
+//                 "setting",
+//                 WindowUrl::App("/setting?mode=shortcut".parse().unwrap()),
+//             )
+//             .inner_size(800.0, 600.0)
+//             .center()
+//             .title("WA+ Setting")
+//             .build()
+//             .unwrap()
+//             .on_window_event(move |event| if let WindowEvent::Destroyed { .. } = event {
+//                 utils::init_config(app.clone());
+//                 app.get_window("main")
+//                     .unwrap()
+//                     .emit("WA_EVENT", "SETTING_RELOAD")
+//                     .unwrap();
+//             });
+//             // .on_window_event(move |event| match event {
+//             //     WindowEvent::Destroyed { .. } => {
+//             //         utils::setting_init(app.clone());
+//             //         app.get_window("main")
+//             //             .unwrap()
+//             //             .emit("WA_EVENT", "SETTING_RELOAD")
+//             //             .unwrap();
+//             //     }
+//             //     _ => (),
+//             // });
+//         });
+//     }
+// }
+
+// #[command]
+// pub fn new_window(app: AppHandle, label: String, title: String, url: String) {
 //     let win = app.get_window(&label);
 //     if win.is_none() {
 //         std::thread::spawn(move || {
-//             tauri::WindowBuilder::new(
+//             WindowBuilder::new(
 //                 &app,
 //                 label,
-//                 tauri::WindowUrl::App(url.parse().unwrap()),
+//                 WindowUrl::App(url.parse().unwrap()),
 //             )
 //             .inner_size(800.0, 600.0)
 //             .center()
