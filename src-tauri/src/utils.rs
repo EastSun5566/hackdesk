@@ -5,12 +5,12 @@ use std::path::{Path, PathBuf};
 use tauri::{
     AppHandle,
     api::path,
-    // GlobalShortcutManager,
+    GlobalShortcutManager,
     Manager
 };
 
 use crate::app::{
-    // cmd::search_window,
+    cmd::open_command_palette_window,
     conf::{HMD_ROOT, HMD_CONFIG_NAME, DEFAULT_TITLE}
 };
 
@@ -30,9 +30,9 @@ pub fn get_path(path: &str) -> PathBuf {
     path::home_dir().unwrap().join(HMD_ROOT).join(path)
 }
 
-pub fn get_script_path(path: &str) -> PathBuf {
-    path::home_dir().unwrap().join(HMD_ROOT).join("scripts").join(path)
-}
+// pub fn get_script_path(path: &str) -> PathBuf {
+//     path::home_dir().unwrap().join(HMD_ROOT).join("scripts").join(path)
+// }
 
 pub fn read_json(content: &str) -> serde_json::Result<serde_json::Value> {
     let v: serde_json::Value = serde_json::from_str(content)?;
@@ -50,19 +50,19 @@ pub fn init_config(app: AppHandle) {
     main_window.set_title(title).unwrap();
 
     // set shortcut
-    // let command_palette_shortcut = &config_json["shortcut.command-palette"].as_str();
-    // if !command_palette_shortcut.is_none() {
-    //     let mut shortcut = app.global_shortcut_manager();
-    //     let _search_shortcut = command_palette_shortcut.unwrap();
-    //     shortcut.unregister_all().unwrap();
-    //     let is_search_key = shortcut.is_registered(_search_shortcut);
+    let command_palette_shortcut = &config_json["shortcut.command-palette"].as_str();
+    if !command_palette_shortcut.is_none() {
+        let mut shortcut_manager = app.global_shortcut_manager();
+        let shortcut = command_palette_shortcut.unwrap();
+        shortcut_manager.unregister_all().unwrap();
+        let is_registered = shortcut_manager.is_registered(shortcut);
 
-    //     if !is_search_key.unwrap() {
-    //         shortcut
-    //             .register(_search_shortcut, move || {
-    //                 search_window(main_window.app_handle());
-    //             })
-    //             .unwrap();
-    //     }
-    // }
+        if !is_registered.unwrap() {
+            shortcut_manager
+                .register(shortcut, move || {
+                    open_command_palette_window(main_window.app_handle());
+                })
+                .unwrap();
+        }
+    }
 }

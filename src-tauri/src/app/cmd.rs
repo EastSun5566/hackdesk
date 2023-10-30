@@ -1,6 +1,7 @@
-use std::fs;
+// use std::fs;
 use tauri::{
     AppHandle,
+    WindowBuilder,
     // api::dialog,
     command,
     Manager,
@@ -20,31 +21,31 @@ use crate::{
 // use crate::app::mac::set_transparent_titlebar;
 
 #[command]
-pub async fn app_window(
+pub async fn open_app_window(
     app: AppHandle,
     label: String,
     title: String,
     url: String,
-    script: Option<String>,
+    // script: Option<String>,
 ) {
     // window.open not working: https://github.com/tauri-apps/wry/issues/649
     let mut user_script = INIT_SCRIPT.to_string();
-    if script.is_some() && !script.as_ref().unwrap().is_empty() {
-        let script = utils::get_script_path(&script.unwrap());
-        let script_path = script.to_string_lossy().to_string();
-        let content = fs::read_to_string(script).unwrap_or_else(|msg| {
-            let main_window = app.get_window("main").unwrap();
-            let err_msg = format!("[app.items.script] {}\n{}", script_path, msg);
-            // dialog::message(Some(&main_window), &title, err_msg);
-            "".to_string()
-        });
-        user_script = format!("{}\n\n// ***** [{}] User Script Inject ***** \n\n{}\n", user_script, title, content);
-    }
+    // if script.is_some() && !script.as_ref().unwrap().is_empty() {
+    //     let script = utils::get_script_path(&script.unwrap());
+    //     let script_path = script.to_string_lossy().to_string();
+    //     let content = fs::read_to_string(script).unwrap_or_else(|msg| {
+    //         let main_window = app.get_window("main").unwrap();
+    //         let err_msg = format!("[app.items.script] {}\n{}", script_path, msg);
+    //         dialog::message(Some(&main_window), &title, err_msg);
+    //         "".to_string()
+    //     });
+    //     user_script = format!("{}\n\n// ***** [{}] User Script Inject ***** \n\n{}\n", user_script, title, content);
+    // }
 
     user_script = format!("(function() {{window.addEventListener('DOMContentLoaded', function() {{{}}})}})();", user_script);
 
     std::thread::spawn(move || {
-        let _window = tauri::WindowBuilder::new(
+        let _window = WindowBuilder::new(
             &app,
             label,
             tauri::WindowUrl::App(url.parse().unwrap()),
@@ -62,13 +63,13 @@ pub async fn app_window(
 }
 
 #[command]
-pub fn search_window(app: tauri::AppHandle) {
-    let win: Option<tauri::Window> = app.get_window("search");
+pub fn open_command_palette_window(app: AppHandle) {
+    let win: Option<tauri::Window> = app.get_window("command-palette");
     if win.is_none() {
-        let search_win = tauri::WindowBuilder::new(
+        let search_win = WindowBuilder::new(
             &app,
-            "search",
-            tauri::WindowUrl::App("/search".parse().unwrap()),
+            "command-palette",
+            tauri::WindowUrl::App("/command-palette".parse().unwrap()),
         )
         .inner_size(560.0, 60.0)
         .always_on_top(true)
@@ -112,57 +113,57 @@ pub fn search_window(app: tauri::AppHandle) {
     }
 }
 
-// #[command]
-// pub fn setting_window(app: tauri::AppHandle) {
-//     let win = app.get_window("setting");
-//     if win.is_none() {
-//         std::thread::spawn(move || {
-//             tauri::WindowBuilder::new(
-//                 &app,
-//                 "setting",
-//                 tauri::WindowUrl::App("/setting?mode=shortcut".parse().unwrap()),
-//             )
-//             .inner_size(800.0, 600.0)
-//             .center()
-//             .title("WA+ Setting")
-//             .build()
-//             .unwrap()
-//             .on_window_event(move |event| if let WindowEvent::Destroyed { .. } = event {
-//                 utils::setting_init(app.clone());
-//                 app.get_window("main")
-//                     .unwrap()
-//                     .emit("WA_EVENT", "SETTING_RELOAD")
-//                     .unwrap();
-//             });
-//             // .on_window_event(move |event| match event {
-//             //     WindowEvent::Destroyed { .. } => {
-//             //         utils::setting_init(app.clone());
-//             //         app.get_window("main")
-//             //             .unwrap()
-//             //             .emit("WA_EVENT", "SETTING_RELOAD")
-//             //             .unwrap();
-//             //     }
-//             //     _ => (),
-//             // });
-//         });
-//     }
-// }
-
 #[command]
-pub fn new_window(app: tauri::AppHandle, label: String, title: String, url: String) {
-    let win = app.get_window(&label);
+pub fn open_config_window(app: AppHandle) {
+    let win = app.get_window("setting");
     if win.is_none() {
         std::thread::spawn(move || {
             tauri::WindowBuilder::new(
                 &app,
-                label,
-                tauri::WindowUrl::App(url.parse().unwrap()),
+                "setting",
+                tauri::WindowUrl::App("/setting?mode=shortcut".parse().unwrap()),
             )
             .inner_size(800.0, 600.0)
             .center()
-            .title(title)
+            .title("WA+ Setting")
             .build()
-            .unwrap();
+            .unwrap()
+            .on_window_event(move |event| if let WindowEvent::Destroyed { .. } = event {
+                utils::init_config(app.clone());
+                app.get_window("main")
+                    .unwrap()
+                    .emit("WA_EVENT", "SETTING_RELOAD")
+                    .unwrap();
+            });
+            // .on_window_event(move |event| match event {
+            //     WindowEvent::Destroyed { .. } => {
+            //         utils::setting_init(app.clone());
+            //         app.get_window("main")
+            //             .unwrap()
+            //             .emit("WA_EVENT", "SETTING_RELOAD")
+            //             .unwrap();
+            //     }
+            //     _ => (),
+            // });
         });
     }
 }
+
+// #[command]
+// pub fn new_window(app: tauri::AppHandle, label: String, title: String, url: String) {
+//     let win = app.get_window(&label);
+//     if win.is_none() {
+//         std::thread::spawn(move || {
+//             tauri::WindowBuilder::new(
+//                 &app,
+//                 label,
+//                 tauri::WindowUrl::App(url.parse().unwrap()),
+//             )
+//             .inner_size(800.0, 600.0)
+//             .center()
+//             .title(title)
+//             .build()
+//             .unwrap();
+//         });
+//     }
+// }

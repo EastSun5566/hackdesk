@@ -38,7 +38,7 @@ async fn main() {
         .manage(conf::HMDState::default())
         .setup(setup::init)
         .invoke_handler(tauri::generate_handler![
-            cmd::app_window,
+            cmd::open_app_window,
             // tray::tray_blink,
         ])
         // .menu(menu::init(&content))
