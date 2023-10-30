@@ -36,9 +36,11 @@
       {
         "fullscreen": false,
         "resizable": true,
-        "title": "hackmd-desktop-app",
+        "title": "HackMD",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "label": "main",
+        "url": "https://hackmd.io"
       }
     ]
   }

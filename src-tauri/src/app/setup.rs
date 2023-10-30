@@ -1,49 +1,55 @@
-// use crate::{App, AppConf, AppManager};
-use log::{error, info};
-use tauri::{utils::config::WindowUrl, window::WindowBuilder, App};
-// use wry::application::accelerator::Accelerator;
+use tauri::{
+  App, 
+  // GlobalShortcutManager,
+  Manager
+};
 
-pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
-  info!("Setting up HackMD");
+use crate::{
+  utils,
+  app::conf::{HMD_CONFIG_NAME, DEFAULT_CONFIG},
+  // app::cmd
+};
 
-  // let app_conf = AppConf::read();
-  // let theme = AppConf::theme_mode();
-
-  // if !app_conf.hide_dock_icon {
+pub fn init(app: &mut App) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    // check `~/.hackmd/config.json`
     let app = app.handle();
-    tauri::async_runtime::spawn(async move {
-      let url = "https://hackmd.io";
-      let main_win = WindowBuilder::new(&app, "core", WindowUrl::App(url.into()))
-        .title("HackMD")
-        .resizable(true)
-        .fullscreen(false);
-        // .inner_size(app_conf.main_width, app_conf.main_height)
-        // .theme(Some(theme))
-        // .always_on_top(app_conf.stay_on_top)
-        // .initialization_script(&utils::user_script())
-        // .initialization_script(&load_script("core.js"))
-        // .user_agent(&app_conf.ua_window);
+    let config_file = &utils::get_path(HMD_CONFIG_NAME);
 
-      // if url == "https://hackmd.io" {
-      //   main_win = main_win
-      //     .initialization_script(include_str!("../vendors/floating-ui-core.js"))
-      //     .initialization_script(include_str!("../vendors/floating-ui-dom.js"))
-      //     .initialization_script(include_str!("../vendors/html2canvas.js"))
-      //     .initialization_script(include_str!("../vendors/jspdf.js"))
-      //     .initialization_script(include_str!("../vendors/turndown.js"))
-      //     .initialization_script(include_str!("../vendors/turndown-plugin-gfm.js"))
-      //     .initialization_script(&load_script("popup.core.js"))
-      //     .initialization_script(&load_script("export.js"))
-      //     .initialization_script(&load_script("markdown.export.js"))
-      //     .initialization_script(&load_script("cmd.js"))
-      //     .initialization_script(&load_script("chat.js"))
-      // }
+    if !utils::exists(config_file) {
+        // create config.json
+        utils::create_file(config_file).unwrap();
+        std::fs::write(config_file, DEFAULT_CONFIG).unwrap();
 
-      if let Err(err) = main_win.build() {
-        error!("core_build_error: {}", err);
-      }
-    });
-  // }
+        // init config
+        let setting_json = utils::read_json(DEFAULT_CONFIG).unwrap();
+        
+        // TODO: theme: https://github.com/tauri-apps/tauri/issues/5279
+        // let theme = &setting_json["theme"].as_str().unwrap();
 
-  Ok(())
+        let title = &setting_json["title"].as_str().unwrap();
+
+        // let command_palette_shortcut = &setting_json["shortcut.command-palette"].as_str().unwrap();
+        // let mut shortcut = app.global_shortcut_manager();
+        // let is_search_key = shortcut.is_registered(command_palette_shortcut);
+
+        let main_window = app.get_window("main").unwrap();
+        main_window.set_title(title).unwrap();
+        // let app = main_window.app_handle();
+
+        // std::thread::spawn(move|| {
+        //     cmd::new_window(app, "help".to_string(), "WA+ Help".to_string(), "/help".to_string())
+        // });
+
+        // if !is_search_key.unwrap() {
+        //     shortcut
+        //         .register(search_shortcut, move|| {
+        //             cmd::search_window(main_window.app_handle());
+        //         })
+        //         .unwrap();
+        // }
+    } else {
+        utils::init_config(app);
+    }
+
+    Ok(())
 }

@@ -1,5 +1,8 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(
+    not(debug_assertions),
+    windows_subsystem = "windows"
+)]
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 // #[tauri::command]
@@ -15,12 +18,13 @@
 // }
 
 mod app;
+mod utils;
 // mod conf;
-// mod utils;
 
 use app::{
-    // cmd,
+    cmd,
     setup,
+    conf
     // window
 };
 // use conf::AppConf;
@@ -29,34 +33,18 @@ use app::{
 
 #[tokio::main]
 async fn main() {
-//   let app_conf = AppConf::read().write();
-    let context = tauri::generate_context!();
-
-//   let mut log = tauri_plugin_log::Builder::default()
-//     .targets([
-//       LogTarget::Folder(utils::app_root()),
-//       LogTarget::Stdout,
-//       LogTarget::Webview,
-//     ])
-//     .level(log::LevelFilter::Debug);
-
-//   if cfg!(debug_assertions) {
-//     log = log.with_colors(ferng::colors::ColoredLevelConfig::new());
-//   }
-
-    let builder = tauri::Builder::default()
-    // .plugin(log.build())
-    // .plugin(tauri_plugin_autostart::init(
-    //   MacosLauncher::LaunchAgent,
-    //   None,
-    // ))
-    // .invoke_handler(tauri::generate_handler![
-    //   cmd::wa_window,
-    //   window::cmd::window_reload,
-    // ])
-    .setup(setup::init);
-
-    builder
-        .run(context)
-        .expect("error while running HackMD app");
+    let content = tauri::generate_context!();
+    tauri::Builder::default()
+        .manage(conf::HMDState::default())
+        .setup(setup::init)
+        .invoke_handler(tauri::generate_handler![
+            cmd::app_window,
+            // tray::tray_blink,
+        ])
+        // .menu(menu::init(&content))
+        // .on_menu_event(menu::handler)
+        // .system_tray(tauri::SystemTray::default())
+        // .plugin(plugins::WaExtra::default())
+        .run(content)
+        .expect("error while running HackMD application");
 }
