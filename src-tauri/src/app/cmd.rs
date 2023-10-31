@@ -66,9 +66,9 @@ pub async fn open_app_window(
 
 #[command]
 pub fn open_command_palette_window(app: AppHandle) {
-    let win: Option<tauri::Window> = app.get_window(COMMAND_PALETTE_WINDOW_LABEL);
+    let win = app.get_window(COMMAND_PALETTE_WINDOW_LABEL);
     if win.is_none() {
-        let search_win = WindowBuilder::new(
+        let command_palette_win = WindowBuilder::new(
             &app,
             COMMAND_PALETTE_WINDOW_LABEL,
             WindowUrl::App("/command-palette".parse().unwrap()),
@@ -76,7 +76,7 @@ pub fn open_command_palette_window(app: AppHandle) {
         .inner_size(560.0, 60.0)
         .always_on_top(true)
         .resizable(false)
-        // .transparent(true)
+        .transparent(true)
         .build()
         .unwrap();
 
@@ -88,18 +88,18 @@ pub fn open_command_palette_window(app: AppHandle) {
         //     }
         //     _ => (),
         // });
-        search_win.on_window_event(move |event| if let WindowEvent::Focused(is_focused) = event {
+        command_palette_win.on_window_event(move |event| if let WindowEvent::Focused(is_focused) = event {
             if !is_focused {
                 app.get_window(COMMAND_PALETTE_WINDOW_LABEL).unwrap().close().unwrap();
             }
         });
 
         #[cfg(target_os = "macos")]
-        set_transparent_title_bar(&search_win, true, true);
+        set_transparent_title_bar(&command_palette_win, true, true);
 
         #[cfg(target_os = "macos")]
         window_vibrancy::apply_vibrancy(
-            &search_win,
+            &command_palette_win,
             NSVisualEffectMaterial::FullScreenUI,
             None,
             None,
@@ -107,10 +107,10 @@ pub fn open_command_palette_window(app: AppHandle) {
         .expect("Unsupported platform! 'apply_vibrancy' is only supported on macOS");
 
         #[cfg(not(target_os = "linux"))]
-        set_shadow(&search_win, true).expect("Unsupported platform!");
+        set_shadow(&command_palette_win, true).expect("Unsupported platform!");
 
         #[cfg(target_os = "windows")]
-        window_vibrancy::apply_blur(&search_win, Some((18, 18, 18, 125)))
+        window_vibrancy::apply_blur(&command_palette_win, Some((18, 18, 18, 125)))
             .expect("Unsupported platform! 'apply_blur' is only supported on Windows");
     }
 }
