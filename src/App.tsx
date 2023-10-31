@@ -1,8 +1,9 @@
 // import { useState } from "react";
 // import { invoke } from "@tauri-apps/api/tauri";
 
-import Routes from './routes';
-import './App.css';
+import Routes from '@/routes';
+import { ThemeProvider } from '@/components/theme-provider';
+import '@/App.css';
 
 function App() {
   // async function greet() {
@@ -11,7 +12,9 @@ function App() {
   // }
 
   return (
-    <Routes />
+    <ThemeProvider defaultTheme="dark" storageKey="hackmd-ui-theme">
+      <Routes />
+    </ThemeProvider>
   );
 }
 

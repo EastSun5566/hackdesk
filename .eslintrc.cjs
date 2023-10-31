@@ -54,5 +54,6 @@ module.exports = {
       2,
       'always-multiline',
     ],
+    'react/prop-types': 'off',
   },
 };
