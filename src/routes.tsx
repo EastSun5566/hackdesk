@@ -28,7 +28,7 @@ export default () => {
 
   useLayoutEffect(() => {
     const name = pathname.substring(1).replace(/\//gi, '_');
-    document.body.className = `${name ? name : 'main'}-screen`
+    document.body.className = `${name ? name : 'main'}-screen`;
   }, [pathname]);
 
   return useRoutes(routes);

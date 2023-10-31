@@ -2,7 +2,7 @@
 // import { invoke } from "@tauri-apps/api/tauri";
 
 import Routes from './routes';
-import "./App.css";
+import './App.css';
 
 function App() {
   // async function greet() {

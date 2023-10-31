@@ -1,27 +1,28 @@
+/* eslint-disable react/no-unknown-property */
 import { useState, useRef, useEffect } from 'react';
-import { Command } from 'cmdk'
-import * as Popover from '@radix-ui/react-popover'
+import { Command } from 'cmdk';
+import * as Popover from '@radix-ui/react-popover';
 
 // import { invoke } from '@tauri-apps/api/tauri';
 import { LogicalSize, WebviewWindow } from '@tauri-apps/api/window';
 
 export function CommandPalette(): JSX.Element {
-  const [value, setValue] = useState('linear')
+  const [value, setValue] = useState('linear');
 
-  const inputRef = useRef<HTMLInputElement | null>(null)
+  const inputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
-    inputRef?.current?.focus()
-  }, [])
+    inputRef?.current?.focus();
+  }, []);
 
-  const listRef = useRef(null)
+  const listRef = useRef(null);
 
   const searchWindow = WebviewWindow.getByLabel('command-palette');
   const setSearchWindow = (h: number) => {
     searchWindow?.setSize(new LogicalSize(560, h));
-  }
+  };
   useEffect(() => {
     setSearchWindow(60);
-  }, [])
+  }, []);
 
   return (
     <div className="raycast">
@@ -75,7 +76,7 @@ export function CommandPalette(): JSX.Element {
         </div>
       </Command>
     </div>
-  )
+  );
 }
 
 function Item({
@@ -92,7 +93,7 @@ function Item({
       {children}
       <span cmdk-raycast-meta="">{isCommand ? 'Command' : 'Application'}</span>
     </Command.Item>
-  )
+  );
 }
 
 function SubCommand({
@@ -104,34 +105,34 @@ function SubCommand({
   listRef: React.RefObject<HTMLElement>
   selectedValue: string
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     function listener(e: KeyboardEvent) {
       if (e.key === 'k' && e.metaKey) {
-        e.preventDefault()
-        setOpen((o) => !o)
+        e.preventDefault();
+        setOpen((o) => !o);
       }
     }
 
-    document.addEventListener('keydown', listener)
+    document.addEventListener('keydown', listener);
 
     return () => {
-      document.removeEventListener('keydown', listener)
-    }
-  }, [])
+      document.removeEventListener('keydown', listener);
+    };
+  }, []);
 
   useEffect(() => {
-    const el = listRef.current
+    const el = listRef.current;
 
-    if (!el) return
+    if (!el) return;
 
     if (open) {
-      el.style.overflow = 'hidden'
+      el.style.overflow = 'hidden';
     } else {
-      el.style.overflow = ''
+      el.style.overflow = '';
     }
-  }, [open, listRef])
+  }, [open, listRef]);
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen} modal>
@@ -147,8 +148,8 @@ function SubCommand({
         sideOffset={16}
         alignOffset={0}
         onCloseAutoFocus={(e) => {
-          e.preventDefault()
-          inputRef?.current?.focus()
+          e.preventDefault();
+          inputRef?.current?.focus();
         }}
       >
         <Command>
@@ -176,7 +177,7 @@ function SubCommand({
         </Command>
       </Popover.Content>
     </Popover.Root>
-  )
+  );
 }
 
 function SubItem({ children, shortcut }: { children: React.ReactNode; shortcut: string }) {
@@ -185,11 +186,11 @@ function SubItem({ children, shortcut }: { children: React.ReactNode; shortcut: 
       {children}
       <div cmdk-raycast-submenu-shortcuts="">
         {shortcut.split(' ').map((key) => {
-          return <kbd key={key}>{key}</kbd>
+          return <kbd key={key}>{key}</kbd>;
         })}
       </div>
     </Command.Item>
-  )
+  );
 }
 
 function WindowIcon() {
@@ -203,7 +204,7 @@ function WindowIcon() {
         strokeLinejoin="round"
       />
     </svg>
-  )
+  );
 }
 
 function FinderIcon() {
@@ -217,7 +218,7 @@ function FinderIcon() {
         strokeLinejoin="round"
       />
     </svg>
-  )
+  );
 }
 
 function StarIcon() {
@@ -231,7 +232,7 @@ function StarIcon() {
         strokeLinejoin="round"
       />
     </svg>
-  )
+  );
 }
 
 function HammerIcon() {
@@ -247,5 +248,5 @@ function HammerIcon() {
         />
       </svg>
     </div>
-  )
+  );
 }
