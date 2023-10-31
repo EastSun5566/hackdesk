@@ -73,7 +73,7 @@ pub fn open_command_palette_window(app: AppHandle) {
             COMMAND_PALETTE_WINDOW_LABEL,
             WindowUrl::App("/command-palette".parse().unwrap()),
         )
-        .inner_size(560.0, 60.0)
+        .inner_size(560.0, 312.0)
         .always_on_top(true)
         .resizable(false)
         .transparent(true)

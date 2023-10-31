@@ -1,7 +1,10 @@
 // import { useEffect } from 'react';
 
+import { 
+// LogicalSize,
+// WebviewWindow,
+} from '@tauri-apps/api/window';
 // import { invoke } from '@tauri-apps/api/tauri';
-// import { LogicalSize, WebviewWindow } from '@tauri-apps/api/window';
 
 import {
   Calculator,
@@ -24,17 +27,27 @@ import {
 } from '@/components/ui/command';
 
 export function CommandPalette() {
-  // const searchWindow = WebviewWindow.getByLabel('command-palette');
-  // const setSearchWindow = (h: number) => {
-  //   searchWindow?.setSize(new LogicalSize(560, h));
+  // const commandWindow = WebviewWindow.getByLabel('command-palette');
+  // const setCommandWindowHeight = (height: number) => {
+  //   commandWindow?.setSize(new LogicalSize(560, height));
   // };
   // useEffect(() => {
-  //   setSearchWindow(60);
+  //   setCommandWindowHeight(60);
   // }, []);
 
   return (
-    <Command className="rounded-lg border shadow-md">
-      <CommandInput placeholder="Type a command or search..." />
+    <Command
+      className="rounded-lg border shadow-md"
+      onKeyDown={async ({ key }) => {
+        if (key === 'Escape') {
+          // commandWindow?.close();
+        }
+      }}
+    >
+      <CommandInput
+        placeholder="Type a command or search..."
+        autoFocus
+      />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
         <CommandGroup heading="Suggestions">
