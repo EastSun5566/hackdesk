@@ -18,9 +18,9 @@ new MutationObserver(function (mutationsList) {
               } else {
                 i.querySelectorAll('a').forEach(setAttr);
               }
-            })
+            });
           }
-        })
+        });
       }
     }
   }
@@ -35,9 +35,9 @@ function waKey(e, key, callback) {
   }
 }
 document.addEventListener('keyup', function (e) {
-  waKey(e, 'r', function() {window.location.reload()});
-  waKey(e, 'ArrowUp', function() {window.scroll({ top: 0, left: 0, behavior: 'smooth' })});
-  waKey(e, 'ArrowDown', function() {window.scroll({ top: document.body.scrollHeight, left: 0, behavior: 'smooth' })});
-  waKey(e, 'ArrowLeft', function() {window.history.go(-1)});
-  waKey(e, 'ArrowRight', function() {window.history.go(1)});
+  waKey(e, 'r', function() {window.location.reload();});
+  waKey(e, 'ArrowUp', function() {window.scroll({ top: 0, left: 0, behavior: 'smooth' });});
+  waKey(e, 'ArrowDown', function() {window.scroll({ top: document.body.scrollHeight, left: 0, behavior: 'smooth' });});
+  waKey(e, 'ArrowLeft', function() {window.history.go(-1);});
+  waKey(e, 'ArrowRight', function() {window.history.go(1);});
 });

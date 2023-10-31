@@ -11,7 +11,7 @@ use tauri::{
 
 use crate::app::{
     cmd::open_command_palette_window,
-    conf::{HMD_ROOT, HMD_CONFIG_NAME, DEFAULT_TITLE}
+    conf::{HMD_ROOT, HMD_SETTINGS_NAME, DEFAULT_TITLE}
 };
 
 pub fn exists(path: &Path) -> bool {
@@ -39,18 +39,18 @@ pub fn read_json(content: &str) -> serde_json::Result<serde_json::Value> {
     Ok(v)
 }
 
-pub fn init_config(app: AppHandle) {
-    let config_path = get_path(HMD_CONFIG_NAME);
-    let content = fs::read_to_string(config_path).unwrap();
-    let config_json = read_json(&content).unwrap_or_else(|_| json!({ "title": DEFAULT_TITLE }));
-    let title = &config_json["title"].as_str().unwrap_or(DEFAULT_TITLE);
+pub fn init_settings(app: AppHandle) {
+    let settings_path = get_path(HMD_SETTINGS_NAME);
+    let content = fs::read_to_string(settings_path).unwrap();
+    let settings_json = read_json(&content).unwrap_or_else(|_| json!({ "title": DEFAULT_TITLE }));
+    let title = &settings_json["title"].as_str().unwrap_or(DEFAULT_TITLE);
     let main_window = app.get_window("main").unwrap();
 
     // set title
     main_window.set_title(title).unwrap();
 
     // set shortcut
-    let command_palette_shortcut = &config_json["shortcut.command-palette"].as_str();
+    let command_palette_shortcut = &settings_json["shortcut.command-palette"].as_str();
     if !command_palette_shortcut.is_none() {
         let mut shortcut_manager = app.global_shortcut_manager();
         let shortcut = command_palette_shortcut.unwrap();
