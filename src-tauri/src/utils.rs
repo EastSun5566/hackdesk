@@ -11,7 +11,7 @@ use tauri::{
 
 use crate::app::{
     cmd::open_command_palette_window,
-    conf::{HMD_ROOT, HMD_SETTINGS_NAME, DEFAULT_TITLE}
+    conf::{HMD_ROOT, HMD_SETTINGS_NAME, DEFAULT_TITLE, MAIN_WINDOW_LABEL}
 };
 
 pub fn exists(path: &Path) -> bool {
@@ -44,7 +44,7 @@ pub fn init_settings(app: AppHandle) {
     let content = fs::read_to_string(settings_path).unwrap();
     let settings_json = read_json(&content).unwrap_or_else(|_| json!({ "title": DEFAULT_TITLE }));
     let title = &settings_json["title"].as_str().unwrap_or(DEFAULT_TITLE);
-    let main_window = app.get_window("main").unwrap();
+    let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
 
     // set title
     main_window.set_title(title).unwrap();

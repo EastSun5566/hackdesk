@@ -4,19 +4,6 @@
     windows_subsystem = "windows"
 )]
 
-// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-// #[tauri::command]
-// fn greet(name: &str) -> String {
-//     format!("Hello, {}! You've been greeted from Rust!", name)
-// }
-
-// fn main() {
-//     tauri::Builder::default()
-//         .invoke_handler(tauri::generate_handler![greet])
-//         .run(tauri::generate_context!())
-//         .expect("error while running tauri application");
-// }
-
 mod app;
 mod utils;
 // mod conf;
@@ -36,11 +23,12 @@ async fn main() {
     let content = tauri::generate_context!();
     tauri::Builder::default()
         .manage(conf::HMDState::default())
-        .setup(setup::init)
         .invoke_handler(tauri::generate_handler![
-            cmd::open_app_window,
+            cmd::open_main_window,
+            cmd::redirect_main_window,
             // tray::tray_blink,
-        ])
+            ])
+        .setup(setup::init)
         // .menu(menu::init(&content))
         // .on_menu_event(menu::handler)
         // .system_tray(tauri::SystemTray::default())

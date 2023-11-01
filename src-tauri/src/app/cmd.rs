@@ -5,7 +5,7 @@ use tauri::{
     // api::dialog,
     command,
     Manager,
-    WindowEvent,
+    // WindowEvent,
     WindowUrl
 };
 
@@ -16,20 +16,19 @@ use window_vibrancy::{self, NSVisualEffectMaterial};
 
 use crate::{
     // utils,
-    app::conf::{INIT_SCRIPT, COMMAND_PALETTE_WINDOW_LABEL}
+    app::conf::{
+        MAIN_WINDOW_LABEL,
+        COMMAND_PALETTE_WINDOW_LABEL,
+        DEFAULT_URL,
+        INIT_SCRIPT,
+    }
 };
 
 #[cfg(target_os = "macos")]
 use crate::app::mac::set_transparent_title_bar;
 
 #[command]
-pub async fn open_app_window(
-    app: AppHandle,
-    label: String,
-    title: String,
-    url: String,
-    // script: Option<String>,
-) {
+pub async fn open_main_window(app: AppHandle) {
     // window.open not working: https://github.com/tauri-apps/wry/issues/649
     let mut user_script = INIT_SCRIPT.to_string();
     // if script.is_some() && !script.as_ref().unwrap().is_empty() {
@@ -47,13 +46,12 @@ pub async fn open_app_window(
     user_script = format!("(function() {{window.addEventListener('DOMContentLoaded', function() {{{}}})}})();", user_script);
 
     std::thread::spawn(move || {
-        let _window = WindowBuilder::new(
+        let _main_win = WindowBuilder::new(
             &app,
-            label,
-            WindowUrl::App(url.parse().unwrap()),
+            MAIN_WINDOW_LABEL,
+            WindowUrl::App(DEFAULT_URL.parse().unwrap()),
         )
         .initialization_script(&user_script)
-        .title(title)
         .build()
         .unwrap();
 
@@ -88,11 +86,11 @@ pub fn open_command_palette_window(app: AppHandle) {
         //     }
         //     _ => (),
         // });
-        command_palette_win.on_window_event(move |event| if let WindowEvent::Focused(is_focused) = event {
-            if !is_focused {
-                app.get_window(COMMAND_PALETTE_WINDOW_LABEL).unwrap().close().unwrap();
-            }
-        });
+        // command_palette_win.on_window_event(move |event| if let WindowEvent::Focused(is_focused) = event {
+        //     if !is_focused {
+        //         app.get_window(COMMAND_PALETTE_WINDOW_LABEL).unwrap().close().unwrap();
+        //     }
+        // });
 
         #[cfg(target_os = "macos")]
         set_transparent_title_bar(&command_palette_win, true, true);
@@ -115,6 +113,12 @@ pub fn open_command_palette_window(app: AppHandle) {
     }
 }
 
+#[command]
+pub fn redirect_main_window(app: AppHandle, path: &str) {
+    let win = app.get_window(MAIN_WINDOW_LABEL);
+    win.unwrap().eval(&format!("window.location.href = '{}'", path)).unwrap();
+}
+
 // #[command]
 // pub fn open_config_window(app: AppHandle) {
 //     let win = app.get_window("setting");
@@ -134,7 +138,7 @@ pub fn open_command_palette_window(app: AppHandle) {
 //                 utils::init_config(app.clone());
 //                 app.get_window("main")
 //                     .unwrap()
-//                     .emit("WA_EVENT", "SETTING_RELOAD")
+//                     .emit("HMD_EVENT", "SETTING_RELOAD")
 //                     .unwrap();
 //             });
 //             // .on_window_event(move |event| match event {
@@ -142,7 +146,7 @@ pub fn open_command_palette_window(app: AppHandle) {
 //             //         utils::setting_init(app.clone());
 //             //         app.get_window("main")
 //             //             .unwrap()
-//             //             .emit("WA_EVENT", "SETTING_RELOAD")
+//             //             .emit("HMD_EVENT", "SETTING_RELOAD")
 //             //             .unwrap();
 //             //     }
 //             //     _ => (),

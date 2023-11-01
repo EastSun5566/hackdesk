@@ -1,56 +1,117 @@
-// import { useEffect } from 'react';
+// import { useState, useEffect } from 'react';
 
 import { 
 // LogicalSize,
-// WebviewWindow,
+  WebviewWindow,
 } from '@tauri-apps/api/window';
-// import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '@tauri-apps/api/tauri';
 
 import {
-  Calculator,
-  Calendar,
-  CreditCard,
+  Cross,
+  Home,
+  Users2,
+  Trash,
+  Bookmark,
+  History,
   Settings,
-  Smile,
-  User,
+  UserPlus2Icon,
 } from 'lucide-react';
-
 import {
   Command,
   CommandEmpty,
-  CommandGroup,
+  // CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
+  // CommandSeparator,
   CommandShortcut,
 } from '@/components/ui/command';
 
+const DEFAULT_COMMANDS = [
+  {
+    value: '/new',
+    label: 'New Note',
+    Icon: <Cross className="mr-2 h-4 w-4" />,
+    shortcut: '⌘N',
+  },
+  {
+    value: '/',
+    label: 'Go home',
+    Icon: <Home className="mr-2 h-4 w-4" />,
+  },
+  {
+    value: '/?nav=collab',
+    label: 'Go to my collaborations',
+    Icon: <UserPlus2Icon className="mr-2 h-4 w-4" />,
+  },
+  {
+    value: '/?nav=trash',
+    label: 'Go to my trash',
+    Icon: <Trash className="mr-2 h-4 w-4" />,
+  },
+  {
+    value: '/bookmark',
+    label: 'Go to my bookmarks',
+    Icon: <Bookmark className="mr-2 h-4 w-4" />,
+  },
+  {
+    value: '/recent',
+    label: 'Go to my history',
+    Icon: <History className="mr-2 h-4 w-4" />,
+  },
+  {
+    value: '/settings',
+    label: 'Go to my settings',
+    Icon: <Settings className="mr-2 h-4 w-4" />,
+  },
+  {
+    value: '/?nav=myTeams',
+    label: 'Go to my teams',
+    Icon: <Users2 className="mr-2 h-4 w-4" />,
+  },
+];
+
+const commandPalletteWindow = WebviewWindow.getByLabel('command-palette');
+
 export function CommandPalette() {
-  // const commandWindow = WebviewWindow.getByLabel('command-palette');
-  // const setCommandWindowHeight = (height: number) => {
-  //   commandWindow?.setSize(new LogicalSize(560, height));
-  // };
-  // useEffect(() => {
-  //   setCommandWindowHeight(60);
-  // }, []);
+  const handleRedirect = async (path: string) => {
+    invoke('redirect_main_window', { path });
+    commandPalletteWindow?.close();
+  };
 
   return (
     <Command
       className="rounded-lg border shadow-md"
       onKeyDown={async ({ key }) => {
         if (key === 'Escape') {
-          // commandWindow?.close();
+          commandPalletteWindow?.close();
         }
       }}
     >
-      <CommandInput
+      <CommandInput 
         placeholder="Type a command or search..."
         autoFocus
+        autoComplete="off"
+        spellCheck={false}
       />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
-        <CommandGroup heading="Suggestions">
+
+        {
+          DEFAULT_COMMANDS.map(({ value, label, Icon, shortcut }) => (
+            <CommandItem 
+              key={value}
+              value={`${value}:${label}`}
+              onSelect={(value) => handleRedirect(value.split(':')[0])}
+            >
+              {Icon}
+              <span>{label}</span>
+              {shortcut && (<CommandShortcut>{shortcut}</CommandShortcut>)}
+            </CommandItem>
+          ))
+        }
+
+        {/* <CommandGroup heading="Suggestions">
           <CommandItem>
             <Calendar className="mr-2 h-4 w-4" />
             <span>Calendar</span>
@@ -81,7 +142,7 @@ export function CommandPalette() {
             <span>Settings</span>
             <CommandShortcut>⌘S</CommandShortcut>
           </CommandItem>
-        </CommandGroup>
+        </CommandGroup> */}
       </CommandList>
     </Command>
   );
