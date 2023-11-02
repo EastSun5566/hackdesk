@@ -56,14 +56,14 @@ pub fn read_settings(app: AppHandle) {
 
     let command_palette_shortcut = &settings_json["shortcut.command-palette"].as_str();
     if !command_palette_shortcut.is_none() {
-        let shortcut = command_palette_shortcut.unwrap();
-        let is_registered = shortcut_manager.is_registered(shortcut);
-
-        if !is_registered.unwrap() {
+        let shortcut_key = command_palette_shortcut.unwrap();
+        if !shortcut_manager.is_registered(shortcut_key).unwrap() {
             let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
             shortcut_manager
-                .register(shortcut, move || {
-                    open_command_palette_window(main_window.app_handle());
+                .register(shortcut_key, move || {
+                    if main_window.is_focused().unwrap() {
+                        open_command_palette_window(main_window.app_handle());
+                    }
                 })
                 .unwrap();
         }
@@ -71,14 +71,14 @@ pub fn read_settings(app: AppHandle) {
 
     let settings_shortcut = &settings_json["shortcut.settings"].as_str();
     if !settings_shortcut.is_none() {
-        let shortcut = settings_shortcut.unwrap();
-        let is_registered = shortcut_manager.is_registered(shortcut);
-
-        if !is_registered.unwrap() {
+        let shortcut_key = settings_shortcut.unwrap();
+        if !shortcut_manager.is_registered(shortcut_key).unwrap() {
             let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
             shortcut_manager
-                .register(shortcut, move || {
-                    open_settings_window(main_window.app_handle());
+                .register(shortcut_key, move || {
+                    if main_window.is_focused().unwrap() {
+                        open_settings_window(main_window.app_handle());
+                    }
                 })
                 .unwrap();
         }
