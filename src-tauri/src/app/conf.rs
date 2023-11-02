@@ -1,6 +1,5 @@
 // use std::sync::Mutex;
 
-
 pub const ROOT: &str = ".hackdesk";
 pub const SETTINGS_NAME: &str = "settings.json";
 

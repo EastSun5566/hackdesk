@@ -1,12 +1,12 @@
 // use std::fs;
 use tauri::{
-    AppHandle,
-    WindowBuilder,
     // api::dialog,
     command,
+    AppHandle,
     Manager,
+    WindowBuilder,
     WindowEvent,
-    WindowUrl
+    WindowUrl,
 };
 
 #[cfg(not(target_os = "linux"))]
@@ -15,15 +15,15 @@ use window_shadows::set_shadow;
 use window_vibrancy::{self, NSVisualEffectMaterial};
 
 use crate::{
-    utils,
     app::conf::{
-        MAIN_WINDOW_LABEL,
         COMMAND_PALETTE_WINDOW_LABEL,
+        MAIN_WINDOW_LABEL,
         SETTINGS_WINDOW_LABEL,
         // DEFAULT_TITLE,
         // DEFAULT_URL,
         // INIT_SCRIPT,
-    }
+    },
+    utils,
 };
 
 #[cfg(target_os = "macos")]
@@ -48,7 +48,10 @@ pub fn open_command_palette_window(app: AppHandle) {
         command_palette_win.on_window_event(move |event| match event {
             WindowEvent::Focused(is_focused) => {
                 if !is_focused {
-                    app.get_window(COMMAND_PALETTE_WINDOW_LABEL).unwrap().close().unwrap();
+                    app.get_window(COMMAND_PALETTE_WINDOW_LABEL)
+                        .unwrap()
+                        .close()
+                        .unwrap();
                 }
             }
             _ => (),
@@ -78,7 +81,9 @@ pub fn open_command_palette_window(app: AppHandle) {
 #[command]
 pub fn redirect_main_window(app: AppHandle, path: &str) {
     let win = app.get_window(MAIN_WINDOW_LABEL);
-    win.unwrap().eval(&format!("window.location.href = '{}'", path)).unwrap();
+    win.unwrap()
+        .eval(&format!("window.location.href = '{}'", path))
+        .unwrap();
 }
 
 #[command]
@@ -96,12 +101,14 @@ pub fn open_settings_window(app: AppHandle) {
             .title("Settings")
             .build()
             .unwrap()
-            .on_window_event(move |event| if let WindowEvent::Destroyed { .. } = event {
-                utils::apply_settings(app.clone());
-                app.get_window(MAIN_WINDOW_LABEL)
-                    .unwrap()
-                    .emit("HMD_EVENT", "RELOAD")
-                    .unwrap();
+            .on_window_event(move |event| {
+                if let WindowEvent::Destroyed { .. } = event {
+                    utils::apply_settings(app.clone());
+                    app.get_window(MAIN_WINDOW_LABEL)
+                        .unwrap()
+                        .emit("HMD_EVENT", "RELOAD")
+                        .unwrap();
+                }
             });
             // .on_window_event(move |event| match event {
             //     WindowEvent::Destroyed { .. } => {

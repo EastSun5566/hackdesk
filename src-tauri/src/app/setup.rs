@@ -1,11 +1,7 @@
-
-use tauri::App;
 use log::info;
+use tauri::App;
 
-use crate::{
-    utils,
-    app::conf::SETTINGS_NAME,
-};
+use crate::{app::conf::SETTINGS_NAME, utils};
 
 pub fn init(app: &mut App) -> std::result::Result<(), Box<dyn std::error::Error>> {
     info!("stepup");

@@ -1,8 +1,5 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
-#![cfg_attr(
-    not(debug_assertions),
-    windows_subsystem = "windows"
-)]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app;
 mod utils;
@@ -22,7 +19,7 @@ async fn main() {
             cmd::redirect_main_window,
             cmd::open_settings_window,
             // tray::tray_blink,
-            ])
+        ])
         .setup(setup::init)
         // .menu(menu::init(&content))
         // .on_menu_event(menu::handler)

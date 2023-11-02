@@ -6,10 +6,12 @@
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
+    "build": "tauri build",
     "frontend:dev": "vite",
     "frontend:build": "tsc && vite build",
     "frontend:preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx --fix"
+    "lint": "eslint . --ext ts,tsx --fix",
+    "lint:rs": "cd src-tauri && cargo fmt && cargo clippy --fix --allow-dirty && cd --"
   },
   "author": "Michael Wang <michael19920327@gmail.com> (https://github.com/EastSun5566)",
   "repository": {

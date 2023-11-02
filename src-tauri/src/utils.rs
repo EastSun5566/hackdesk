@@ -3,16 +3,11 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use serde_json::{self, json};
-use tauri::{
-    AppHandle,
-    api::path,
-    GlobalShortcutManager,
-    Manager
-};
+use tauri::{api::path, AppHandle, GlobalShortcutManager, Manager};
 
 use crate::app::{
     cmd::{open_command_palette_window, open_settings_window},
-    conf::{ROOT, SETTINGS_NAME, DEFAULT_TITLE, MAIN_WINDOW_LABEL, DEFAULT_SETTINGS}
+    conf::{DEFAULT_SETTINGS, DEFAULT_TITLE, MAIN_WINDOW_LABEL, ROOT, SETTINGS_NAME},
 };
 
 pub fn exists(path: &Path) -> bool {
@@ -47,7 +42,7 @@ pub fn create_settings(app: AppHandle, settings_file: &Path) {
 
     // read settings
     let settings_json = read_json(DEFAULT_SETTINGS).unwrap();
-    
+
     // TODO: theme: https://github.com/tauri-apps/tauri/issues/5279
     // let theme = &setting_json["theme"].as_str().unwrap();
 
@@ -60,10 +55,13 @@ pub fn create_settings(app: AppHandle, settings_file: &Path) {
     let mut shortcut_manager = app.global_shortcut_manager();
 
     let command_palette_shortcut = &settings_json["shortcut.command-palette"].as_str().unwrap();
-    if !shortcut_manager.is_registered(command_palette_shortcut).unwrap() {
+    if !shortcut_manager
+        .is_registered(command_palette_shortcut)
+        .unwrap()
+    {
         let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
         shortcut_manager
-            .register(command_palette_shortcut, move|| {
+            .register(command_palette_shortcut, move || {
                 if main_window.is_focused().unwrap() {
                     open_command_palette_window(main_window.app_handle());
                 }
@@ -75,7 +73,7 @@ pub fn create_settings(app: AppHandle, settings_file: &Path) {
     if !shortcut_manager.is_registered(settings_shortcut).unwrap() {
         let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
         shortcut_manager
-            .register(settings_shortcut, move|| {
+            .register(settings_shortcut, move || {
                 if main_window.is_focused().unwrap() {
                     open_settings_window(main_window.app_handle());
                 }
