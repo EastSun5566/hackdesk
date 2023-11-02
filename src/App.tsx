@@ -1,10 +1,9 @@
 import Routes from '@/routes';
 import { ThemeProvider } from '@/components/theme-provider';
-import '@/App.css';
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="dark" storageKey="hackmd-ui-theme">
+    <ThemeProvider defaultTheme="dark" storageKey="theme">
       <Routes />
     </ThemeProvider>
   );

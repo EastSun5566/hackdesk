@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+// use std::sync::Mutex;
 
 
 pub const HMD_ROOT: &str = ".hackmd";
@@ -13,14 +13,14 @@ pub const DEFAULT_TITLE: &str = "HackMD";
 // pub const DEFAULT_URL: &str = "https://hackmd.io/login";
 pub const DEFAULT_SETTINGS: &str = include_str!("settings.json");
 
-pub struct HMDState {
-    pub tray_blink_id: Mutex<Option<tokio::task::JoinHandle<()>>>,
-}
+// pub struct HMDState {
+//     pub tray_blink_id: Mutex<Option<tokio::task::JoinHandle<()>>>,
+// }
 
-impl HMDState {
-    pub fn default() -> Self {
-        HMDState {
-            tray_blink_id: Mutex::new(None),
-        }
-    }
-}
+// impl HMDState {
+//     pub fn default() -> Self {
+//         HMDState {
+//             tray_blink_id: Mutex::new(None),
+//         }
+//     }
+// }

@@ -10,14 +10,14 @@ mod utils;
 use app::{
     cmd,
     setup,
-    conf,
+    // conf,
 };
 
 #[tokio::main]
 async fn main() {
     let content = tauri::generate_context!();
     tauri::Builder::default()
-        .manage(conf::HMDState::default())
+        // .manage(conf::HMDState::default())
         .invoke_handler(tauri::generate_handler![
             cmd::redirect_main_window,
             cmd::open_settings_window,

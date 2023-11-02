@@ -45,19 +45,14 @@ pub fn open_command_palette_window(app: AppHandle) {
         .build()
         .unwrap();
 
-        // search_win.on_window_event(move |event| match event {
-        //     WindowEvent::Focused(is_focused) => {
-        //         if !is_focused {
-        //             app.get_window(COMMAND_PALETTE_WINDOW_LABEL).unwrap().close().unwrap();
-        //         }
-        //     }
-        //     _ => (),
-        // });
-        // command_palette_win.on_window_event(move |event| if let WindowEvent::Focused(is_focused) = event {
-        //     if !is_focused {
-        //         app.get_window(COMMAND_PALETTE_WINDOW_LABEL).unwrap().close().unwrap();
-        //     }
-        // });
+        command_palette_win.on_window_event(move |event| match event {
+            WindowEvent::Focused(is_focused) => {
+                if !is_focused {
+                    app.get_window(COMMAND_PALETTE_WINDOW_LABEL).unwrap().close().unwrap();
+                }
+            }
+            _ => (),
+        });
 
         #[cfg(target_os = "macos")]
         set_transparent_title_bar(&command_palette_win, true, true);
@@ -105,7 +100,7 @@ pub fn open_settings_window(app: AppHandle) {
                 utils::apply_settings(app.clone());
                 app.get_window(MAIN_WINDOW_LABEL)
                     .unwrap()
-                    .emit("HMD_EVENT", "SETTING_RELOAD")
+                    .emit("HMD_EVENT", "RELOAD")
                     .unwrap();
             });
             // .on_window_event(move |event| match event {

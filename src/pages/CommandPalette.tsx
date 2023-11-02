@@ -1,9 +1,5 @@
-// import { useState, useEffect } from 'react';
-
-import { 
-// LogicalSize,
-  WebviewWindow,
-} from '@tauri-apps/api/window';
+import { useEffect } from 'react';
+import { WebviewWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/tauri';
 
 import {
@@ -74,20 +70,27 @@ const DEFAULT_COMMANDS = [
 const commandPalletteWindow = WebviewWindow.getByLabel('command-palette');
 
 export function CommandPalette() {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        commandPalletteWindow?.close();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   const handleRedirect = async (path: string) => {
     invoke('redirect_main_window', { path });
     commandPalletteWindow?.close();
   };
 
   return (
-    <Command
-      className="rounded-lg border shadow-md"
-      onKeyDown={async ({ key }) => {
-        if (key === 'Escape') {
-          commandPalletteWindow?.close();
-        }
-      }}
-    >
+    <Command className="rounded-lg border shadow-md">
       <CommandInput 
         placeholder="Type a command or search..."
         autoFocus
