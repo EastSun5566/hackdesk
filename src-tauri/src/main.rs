@@ -29,5 +29,5 @@ async fn main() {
         // .system_tray(tauri::SystemTray::default())
         // .plugin(plugins::WaExtra::default())
         .run(content)
-        .expect("error while running HackMD application");
+        .expect("error while running HackDesk application");
 }

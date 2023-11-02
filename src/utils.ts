@@ -3,6 +3,7 @@ import { readTextFile, writeTextFile } from '@tauri-apps/api/fs';
 
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { ROOT, SETTINGS_NAME } from './constants';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -24,7 +25,7 @@ export function debounce<Params extends unknown[]>(
 
 export async function getSettingsPath() {
   const home = await homeDir();
-  return join(home, '.hackmd', 'settings.json');
+  return join(home, ROOT, SETTINGS_NAME);
 }
 
 export async function readSettings() {

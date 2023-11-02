@@ -7,7 +7,7 @@
     "withGlobalTauri": false
   },
   "package": {
-    "productName": "HackMD",
+    "productName": "HackDesk",
     "version": "0.0.0"
   },
   "tauri": {
@@ -19,7 +19,7 @@
         "open": true
       },
       "fs": {
-        "scope": ["$HOME/.hackmd/*"]
+        "scope": ["$HOME/.hackdesk/*"]
       },
       "globalShortcut": {
         "all": true
@@ -43,7 +43,7 @@
       {
         "fullscreen": false,
         "resizable": true,
-        "title": "HackMD",
+        "title": "HackDesk",
         "width": 800,
         "height": 600,
         "label": "main",

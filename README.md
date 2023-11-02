@@ -1,6 +1,6 @@
-# HackMD Desktop App
+# HackDesk
 
-> 📄 An unofficial HackMD desktop app powered by Tauri & Vite
+> 📝 An unofficial HackMD desktop app powered by [Tauri](https://tauri.app/)
 
 ## Intro
 

@@ -4,15 +4,15 @@ use log::info;
 
 use crate::{
     utils,
-    app::conf::HMD_SETTINGS_NAME,
+    app::conf::SETTINGS_NAME,
 };
 
 pub fn init(app: &mut App) -> std::result::Result<(), Box<dyn std::error::Error>> {
     info!("stepup");
 
-    // check `~/.hackmd/settings.json`
+    // check `~/.hackdesk/settings.json`
     let app = app.handle();
-    let settings_file = &utils::get_root_path(HMD_SETTINGS_NAME);
+    let settings_file = &utils::get_root_path(SETTINGS_NAME);
 
     if !utils::exists(settings_file) {
         info!("settings.json not found, creating...");

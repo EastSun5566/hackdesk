@@ -1,5 +1,6 @@
 {
-  "name": "hackmd-desktop-app",
+  "name": "hackdesk",
+  "description": "📝 An unofficial HackMD desktop app",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,6 +11,12 @@
     "frontend:preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --fix"
   },
+  "author": "Michael Wang <michael19920327@gmail.com> (https://github.com/EastSun5566)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EastSun5566/hackdesk"
+  },
+  "license": "LGPL-2.1-or-later",
   "dependencies": {
     "@monaco-editor/react": "^4.6.0",
     "@radix-ui/react-dialog": "^1.0.5",

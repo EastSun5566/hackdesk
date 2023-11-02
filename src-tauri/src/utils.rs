@@ -12,7 +12,7 @@ use tauri::{
 
 use crate::app::{
     cmd::{open_command_palette_window, open_settings_window},
-    conf::{HMD_ROOT, HMD_SETTINGS_NAME, DEFAULT_TITLE, MAIN_WINDOW_LABEL, DEFAULT_SETTINGS}
+    conf::{ROOT, SETTINGS_NAME, DEFAULT_TITLE, MAIN_WINDOW_LABEL, DEFAULT_SETTINGS}
 };
 
 pub fn exists(path: &Path) -> bool {
@@ -28,7 +28,7 @@ pub fn create_file(path: &Path) -> Result<File> {
 }
 
 pub fn get_root_path(path: &str) -> PathBuf {
-    path::home_dir().unwrap().join(HMD_ROOT).join(path)
+    path::home_dir().unwrap().join(ROOT).join(path)
 }
 
 // pub fn get_script_path(path: &str) -> PathBuf {
@@ -85,7 +85,7 @@ pub fn create_settings(app: AppHandle, settings_file: &Path) {
 }
 
 pub fn apply_settings(app: AppHandle) {
-    let settings_path = get_root_path(HMD_SETTINGS_NAME);
+    let settings_path = get_root_path(SETTINGS_NAME);
     let content = fs::read_to_string(settings_path).unwrap();
     let settings_json = read_json(&content).unwrap_or_else(|_| json!({ "title": DEFAULT_TITLE }));
     let title = &settings_json["title"].as_str().unwrap_or(DEFAULT_TITLE);

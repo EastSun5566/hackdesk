@@ -1422,7 +1422,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "hackmd-desktop-app"
+name = "hackdesk"
 version = "0.0.0"
 dependencies = [
  "anyhow",

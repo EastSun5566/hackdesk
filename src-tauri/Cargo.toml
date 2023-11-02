@@ -1,10 +1,10 @@
 [package]
-name = "hackmd-desktop-app"
+name = "hackdesk"
 version = "0.0.0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
+description = "📝 An unofficial HackMD desktop app"
+authors = ["Michael Wang <michael19920327@gmail.com> (https://github.com/EastSun5566)"]
+license = "LGPL-2.1-or-later"
+repository = "https://github.com/EastSun5566/hackdesk"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
