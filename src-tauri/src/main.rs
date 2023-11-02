@@ -6,17 +6,12 @@
 
 mod app;
 mod utils;
-// mod conf;
 
 use app::{
     cmd,
     setup,
-    conf
-    // window
+    conf,
 };
-// use conf::AppConf;
-// use tauri_plugin_autostart::MacosLauncher;
-// use tauri_plugin_log::LogTarget;
 
 #[tokio::main]
 async fn main() {
@@ -24,8 +19,8 @@ async fn main() {
     tauri::Builder::default()
         .manage(conf::HMDState::default())
         .invoke_handler(tauri::generate_handler![
-            cmd::open_main_window,
             cmd::redirect_main_window,
+            cmd::open_settings_window,
             // tray::tray_blink,
             ])
         .setup(setup::init)

@@ -43,8 +43,12 @@
       {
         "fullscreen": false,
         "resizable": true,
+        "title": "HackMD",
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
         "width": 800,
         "height": 600,
+        "label": "main",
         "url": "https://hackmd.io/login"
       }
     ]

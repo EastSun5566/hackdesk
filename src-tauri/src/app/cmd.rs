@@ -5,7 +5,7 @@ use tauri::{
     // api::dialog,
     command,
     Manager,
-    // WindowEvent,
+    WindowEvent,
     WindowUrl
 };
 
@@ -15,52 +15,19 @@ use window_shadows::set_shadow;
 use window_vibrancy::{self, NSVisualEffectMaterial};
 
 use crate::{
-    // utils,
+    utils,
     app::conf::{
         MAIN_WINDOW_LABEL,
         COMMAND_PALETTE_WINDOW_LABEL,
-        DEFAULT_URL,
-        INIT_SCRIPT,
+        SETTINGS_WINDOW_LABEL,
+        // DEFAULT_TITLE,
+        // DEFAULT_URL,
+        // INIT_SCRIPT,
     }
 };
 
 #[cfg(target_os = "macos")]
 use crate::app::mac::set_transparent_title_bar;
-
-#[command]
-pub async fn open_main_window(app: AppHandle) {
-    // window.open not working: https://github.com/tauri-apps/wry/issues/649
-    let mut user_script = INIT_SCRIPT.to_string();
-    // if script.is_some() && !script.as_ref().unwrap().is_empty() {
-    //     let script = utils::get_script_path(&script.unwrap());
-    //     let script_path = script.to_string_lossy().to_string();
-    //     let content = fs::read_to_string(script).unwrap_or_else(|msg| {
-    //         let main_window = app.get_window("main").unwrap();
-    //         let err_msg = format!("[app.items.script] {}\n{}", script_path, msg);
-    //         dialog::message(Some(&main_window), &title, err_msg);
-    //         "".to_string()
-    //     });
-    //     user_script = format!("{}\n\n// ***** [{}] User Script Inject ***** \n\n{}\n", user_script, title, content);
-    // }
-
-    user_script = format!("(function() {{window.addEventListener('DOMContentLoaded', function() {{{}}})}})();", user_script);
-
-    std::thread::spawn(move || {
-        let _main_win = WindowBuilder::new(
-            &app,
-            MAIN_WINDOW_LABEL,
-            WindowUrl::App(DEFAULT_URL.parse().unwrap()),
-        )
-        .initialization_script(&user_script)
-        .build()
-        .unwrap();
-
-        // TODO: window - menu event
-        // window.on_menu_event(move|event| {
-        //     dbg!(event);
-        // });
-    });
-}
 
 #[command]
 pub fn open_command_palette_window(app: AppHandle) {
@@ -119,57 +86,38 @@ pub fn redirect_main_window(app: AppHandle, path: &str) {
     win.unwrap().eval(&format!("window.location.href = '{}'", path)).unwrap();
 }
 
-// #[command]
-// pub fn open_config_window(app: AppHandle) {
-//     let win = app.get_window("setting");
-//     if win.is_none() {
-//         std::thread::spawn(move || {
-//             WindowBuilder::new(
-//                 &app,
-//                 "setting",
-//                 WindowUrl::App("/setting?mode=shortcut".parse().unwrap()),
-//             )
-//             .inner_size(800.0, 600.0)
-//             .center()
-//             .title("WA+ Setting")
-//             .build()
-//             .unwrap()
-//             .on_window_event(move |event| if let WindowEvent::Destroyed { .. } = event {
-//                 utils::init_config(app.clone());
-//                 app.get_window("main")
-//                     .unwrap()
-//                     .emit("HMD_EVENT", "SETTING_RELOAD")
-//                     .unwrap();
-//             });
-//             // .on_window_event(move |event| match event {
-//             //     WindowEvent::Destroyed { .. } => {
-//             //         utils::setting_init(app.clone());
-//             //         app.get_window("main")
-//             //             .unwrap()
-//             //             .emit("HMD_EVENT", "SETTING_RELOAD")
-//             //             .unwrap();
-//             //     }
-//             //     _ => (),
-//             // });
-//         });
-//     }
-// }
-
-// #[command]
-// pub fn new_window(app: AppHandle, label: String, title: String, url: String) {
-//     let win = app.get_window(&label);
-//     if win.is_none() {
-//         std::thread::spawn(move || {
-//             WindowBuilder::new(
-//                 &app,
-//                 label,
-//                 WindowUrl::App(url.parse().unwrap()),
-//             )
-//             .inner_size(800.0, 600.0)
-//             .center()
-//             .title(title)
-//             .build()
-//             .unwrap();
-//         });
-//     }
-// }
+#[command]
+pub fn open_settings_window(app: AppHandle) {
+    let win = app.get_window(SETTINGS_WINDOW_LABEL);
+    if win.is_none() {
+        std::thread::spawn(move || {
+            WindowBuilder::new(
+                &app,
+                "setting",
+                WindowUrl::App("/settings".parse().unwrap()),
+            )
+            .inner_size(800.0, 600.0)
+            .center()
+            .title("Settings")
+            .build()
+            .unwrap()
+            .on_window_event(move |event| if let WindowEvent::Destroyed { .. } = event {
+                utils::read_settings(app.clone());
+                app.get_window(MAIN_WINDOW_LABEL)
+                    .unwrap()
+                    .emit("HMD_EVENT", "SETTING_RELOAD")
+                    .unwrap();
+            });
+            // .on_window_event(move |event| match event {
+            //     WindowEvent::Destroyed { .. } => {
+            //         utils::setting_init(app.clone());
+            //         app.get_window("main")
+            //             .unwrap()
+            //             .emit("HMD_EVENT", "SETTING_RELOAD")
+            //             .unwrap();
+            //     }
+            //     _ => (),
+            // });
+        });
+    }
+}

@@ -1,4 +1,5 @@
 {
   "title": "HackMD",
-  "shortcut.command-palette": "CmdOrCtrl+K"
+  "shortcut.command-palette": "CmdOrCtrl+K",
+  "shortcut.settings": "CmdOrCtrl+,"
 }

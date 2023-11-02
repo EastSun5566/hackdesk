@@ -1,7 +1,8 @@
-use anyhow::Result;
-use serde_json::{self, json};
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
+
+use anyhow::Result;
+use serde_json::{self, json};
 use tauri::{
     AppHandle,
     api::path,
@@ -10,7 +11,7 @@ use tauri::{
 };
 
 use crate::app::{
-    cmd::open_command_palette_window,
+    cmd::{open_command_palette_window, open_settings_window},
     conf::{HMD_ROOT, HMD_SETTINGS_NAME, DEFAULT_TITLE, MAIN_WINDOW_LABEL}
 };
 
@@ -39,7 +40,7 @@ pub fn read_json(content: &str) -> serde_json::Result<serde_json::Value> {
     Ok(v)
 }
 
-pub fn init_settings(app: AppHandle) {
+pub fn read_settings(app: AppHandle) {
     let settings_path = get_path(HMD_SETTINGS_NAME);
     let content = fs::read_to_string(settings_path).unwrap();
     let settings_json = read_json(&content).unwrap_or_else(|_| json!({ "title": DEFAULT_TITLE }));
@@ -50,17 +51,34 @@ pub fn init_settings(app: AppHandle) {
     main_window.set_title(title).unwrap();
 
     // set shortcut
+    let mut shortcut_manager = app.global_shortcut_manager();
+    shortcut_manager.unregister_all().unwrap();
+
     let command_palette_shortcut = &settings_json["shortcut.command-palette"].as_str();
     if !command_palette_shortcut.is_none() {
-        let mut shortcut_manager = app.global_shortcut_manager();
         let shortcut = command_palette_shortcut.unwrap();
-        shortcut_manager.unregister_all().unwrap();
         let is_registered = shortcut_manager.is_registered(shortcut);
 
         if !is_registered.unwrap() {
+            let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
             shortcut_manager
                 .register(shortcut, move || {
                     open_command_palette_window(main_window.app_handle());
+                })
+                .unwrap();
+        }
+    }
+
+    let settings_shortcut = &settings_json["shortcut.settings"].as_str();
+    if !settings_shortcut.is_none() {
+        let shortcut = settings_shortcut.unwrap();
+        let is_registered = shortcut_manager.is_registered(shortcut);
+
+        if !is_registered.unwrap() {
+            let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
+            shortcut_manager
+                .register(shortcut, move || {
+                    open_settings_window(main_window.app_handle());
                 })
                 .unwrap();
         }
