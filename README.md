@@ -1,4 +1,4 @@
-<img src="./public/logo.png" alt="HackDesk Logo" width="180">
+<img src="./logo.png" alt="HackDesk Logo" width="180">
 
 # HackDesk (WIP)
 
