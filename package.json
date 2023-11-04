@@ -11,7 +11,7 @@
     "frontend:build": "tsc && vite build",
     "frontend:preview": "vite preview",
     "lint:ts": "eslint . --ext ts,tsx --fix --cache",
-    "lint:rs": "cd src-tauri && cargo fmt && cargo clippy --fix --allow-dirty && cd -",
+    "lint:rs": "cd src-tauri && cargo fmt && cargo clippy --fix --allow-dirty --allow-staged && cd -",
     "lint": "npm run lint:ts && npm run lint:rs"
   },
   "author": "Michael Wang <michael19920327@gmail.com> (https://github.com/EastSun5566)",
