@@ -6,7 +6,7 @@ on:
       - "v*"
 
 jobs:
-  publish-tauri:
+  publish:
     permissions:
       contents: write
     strategy:
