@@ -12,9 +12,8 @@ use app::{
 
 #[tokio::main]
 async fn main() {
-    let content = tauri::generate_context!();
     tauri::Builder::default()
-        // .manage(conf::HMDState::default())
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             cmd::redirect_main_window,
             cmd::open_settings_window,
@@ -24,7 +23,6 @@ async fn main() {
         // .menu(menu::init(&content))
         // .on_menu_event(menu::handler)
         // .system_tray(tauri::SystemTray::default())
-        // .plugin(plugins::WaExtra::default())
-        .run(content)
+        .run(tauri::generate_context!())
         .expect("error while running HackDesk application");
 }

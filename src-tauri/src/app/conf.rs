@@ -11,15 +11,3 @@ pub const SETTINGS_WINDOW_LABEL: &str = "settings";
 pub const DEFAULT_TITLE: &str = "HackDesk";
 // pub const DEFAULT_URL: &str = "https://hackmd.io/login";
 pub const DEFAULT_SETTINGS: &str = include_str!("settings.json");
-
-// pub struct HMDState {
-//     pub tray_blink_id: Mutex<Option<tokio::task::JoinHandle<()>>>,
-// }
-
-// impl HMDState {
-//     pub fn default() -> Self {
-//         HMDState {
-//             tray_blink_id: Mutex::new(None),
-//         }
-//     }
-// }
