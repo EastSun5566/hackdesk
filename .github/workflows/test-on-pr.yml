@@ -4,7 +4,7 @@ on:
   - pull_request
 
 jobs:
-  test-tauri:
+  build:
     strategy:
       fail-fast: false
       matrix:
