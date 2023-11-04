@@ -97,7 +97,7 @@ pub fn apply_settings(app: AppHandle) {
     shortcut_manager.unregister_all().unwrap();
 
     let command_palette_shortcut = settings_json["shortcut.command-palette"].as_str();
-    if !command_palette_shortcut.is_none() {
+    if command_palette_shortcut.is_some() {
         let shortcut_key = command_palette_shortcut.unwrap();
         if !shortcut_manager.is_registered(shortcut_key).unwrap() {
             let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
@@ -112,7 +112,7 @@ pub fn apply_settings(app: AppHandle) {
     }
 
     let settings_shortcut = settings_json["shortcut.settings"].as_str();
-    if !settings_shortcut.is_none() {
+    if settings_shortcut.is_some() {
         let shortcut_key = settings_shortcut.unwrap();
         if !shortcut_manager.is_registered(shortcut_key).unwrap() {
             let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
