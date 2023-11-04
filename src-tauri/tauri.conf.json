@@ -4,7 +4,7 @@
     "beforeBuildCommand": "pnpm frontend:build",
     "devPath": "http://localhost:1420",
     "distDir": "../dist",
-    "withGlobalTauri": false
+    "withGlobalTauri": true
   },
   "package": {
     "productName": "HackDesk",
@@ -37,7 +37,14 @@
       ]
     },
     "security": {
-      "csp": null
+      "csp": null,
+      "dangerousRemoteDomainIpcAccess": [
+        {
+          "windows": ["main"],
+          "domain": "hackmd.io",
+          "enableTauriAPI": true
+        }
+      ]
     },
     "windows": []
   }

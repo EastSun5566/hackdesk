@@ -20,7 +20,7 @@ async fn main() {
             cmd::open_link // tray::tray_blink,
         ])
         .setup(setup::init)
-        // .menu(menu::init(&content))
+        // .menu(menu::init)
         // .on_menu_event(menu::handler)
         // .system_tray(tauri::SystemTray::default())
         .run(tauri::generate_context!())
