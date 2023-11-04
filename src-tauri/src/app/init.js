@@ -1,5 +1,6 @@
-
 function init() {
+  if (window._HD_INIT) return;
+
   const invoke = window.__TAURI__.invoke;
 
   document.addEventListener('click', ({ target }) => {
@@ -9,6 +10,8 @@ function init() {
       invoke('open_link', { url: origin.href });
     }
   });
+
+  window._HD_INIT = true;
 }
 
 if (document.readyState === 'complete' || document.readyState === 'interactive') {

@@ -9,16 +9,12 @@ use crate::{
 pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     info!("stepup");
 
-    let init_script = format!(
-        "(function() {{window.addEventListener('DOMContentLoaded', function() {{{}}})}})();",
-        INIT_SCRIPT
-    );
     WindowBuilder::new(app, MAIN_WINDOW_LABEL, WindowUrl::App(DEFAULT_URL.parse()?))
         .inner_size(800.0, 600.0)
         .fullscreen(false)
         .resizable(true)
         .title(DEFAULT_TITLE)
-        .initialization_script(&init_script)
+        .initialization_script(INIT_SCRIPT)
         .build()?;
 
     let app = app.handle();
