@@ -81,6 +81,10 @@ pub fn open_command_palette_window(app: AppHandle) {
 #[command]
 pub fn redirect_main_window(app: AppHandle, path: &str) {
     let win = app.get_window(MAIN_WINDOW_LABEL);
+    if win.is_none() {
+        return;
+    }
+
     win.unwrap()
         .eval(&format!("window.location.href = '{}'", path))
         .unwrap();

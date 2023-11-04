@@ -12,7 +12,7 @@ pub fn init(app: &mut App) -> std::result::Result<(), Box<dyn std::error::Error>
 
     if !utils::exists(settings_file) {
         info!("settings.json not found, creating...");
-        utils::create_settings(app, settings_file);
+        utils::init_settings(app, settings_file);
     } else {
         info!("settings.json found, applying...");
         utils::apply_settings(app);
