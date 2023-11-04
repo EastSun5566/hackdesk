@@ -39,16 +39,6 @@
     "security": {
       "csp": null
     },
-    "windows": [
-      {
-        "fullscreen": false,
-        "resizable": true,
-        "title": "HackDesk",
-        "width": 800,
-        "height": 600,
-        "label": "main",
-        "url": "https://hackmd.io/login"
-      }
-    ]
+    "windows": []
   }
 }

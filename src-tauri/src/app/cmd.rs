@@ -87,7 +87,7 @@ pub fn open_settings_window(app: AppHandle) {
             .unwrap()
             .on_window_event(move |event| {
                 if let WindowEvent::Destroyed { .. } = event {
-                    utils::apply_settings(app.clone());
+                    utils::apply_settings(app.clone()).unwrap();
                     app.get_window(MAIN_WINDOW_LABEL)
                         .unwrap()
                         .emit("HMD_EVENT", "RELOAD")

@@ -35,13 +35,15 @@ pub fn read_json(content: &str) -> serde_json::Result<serde_json::Value> {
     Ok(value)
 }
 
-pub fn init_settings(app: AppHandle, settings_file: &Path) {
+pub fn init_settings(app: AppHandle) -> Result<()> {
+    let settings_path = &get_root_path(SETTINGS_NAME);
+
     // create `settings.json`
-    create_file(settings_file).unwrap();
-    fs::write(settings_file, DEFAULT_SETTINGS).unwrap();
+    create_file(settings_path)?;
+    fs::write(settings_path, DEFAULT_SETTINGS)?;
 
     // read settings
-    let settings_json = read_json(DEFAULT_SETTINGS).unwrap();
+    let settings_json = read_json(DEFAULT_SETTINGS)?;
 
     // TODO: theme: https://github.com/tauri-apps/tauri/issues/5279
     // let theme = &setting_json["theme"].as_str().unwrap();
@@ -49,28 +51,23 @@ pub fn init_settings(app: AppHandle, settings_file: &Path) {
     // title
     let title = settings_json["title"].as_str().unwrap();
     let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
-    main_window.set_title(title).unwrap();
+    main_window.set_title(title)?;
 
     // shortcuts
     let mut shortcut_manager = app.global_shortcut_manager();
 
     let command_palette_shortcut = settings_json["shortcut.command-palette"].as_str().unwrap();
-    if !shortcut_manager
-        .is_registered(command_palette_shortcut)
-        .unwrap()
-    {
+    if !shortcut_manager.is_registered(command_palette_shortcut)? {
         let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
-        shortcut_manager
-            .register(command_palette_shortcut, move || {
-                if main_window.is_focused().unwrap() {
-                    open_command_palette_window(main_window.app_handle());
-                }
-            })
-            .unwrap();
+        shortcut_manager.register(command_palette_shortcut, move || {
+            if main_window.is_focused().unwrap() {
+                open_command_palette_window(main_window.app_handle());
+            }
+        })?;
     }
 
     let settings_shortcut = settings_json["shortcut.settings"].as_str().unwrap();
-    if !shortcut_manager.is_registered(settings_shortcut).unwrap() {
+    if !shortcut_manager.is_registered(settings_shortcut)? {
         let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
         shortcut_manager
             .register(settings_shortcut, move || {
@@ -80,49 +77,47 @@ pub fn init_settings(app: AppHandle, settings_file: &Path) {
             })
             .unwrap();
     }
+
+    Ok(())
 }
 
-pub fn apply_settings(app: AppHandle) {
+pub fn apply_settings(app: AppHandle) -> Result<()> {
     let settings_path = get_root_path(SETTINGS_NAME);
-    let content = fs::read_to_string(settings_path).unwrap();
-    let settings_json = read_json(&content).unwrap_or_else(|_| json!({ "title": DEFAULT_TITLE }));
-    let title = settings_json["title"].as_str().unwrap_or(DEFAULT_TITLE);
-    let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
+    let settings = fs::read_to_string(settings_path)?;
+    let settings_json = read_json(&settings).unwrap_or_else(|_| json!({ "title": DEFAULT_TITLE }));
 
     // set title
-    main_window.set_title(title).unwrap();
+    let title = settings_json["title"].as_str().unwrap_or(DEFAULT_TITLE);
+    let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
+    main_window.set_title(title)?;
 
     // set shortcut
     let mut shortcut_manager = app.global_shortcut_manager();
-    shortcut_manager.unregister_all().unwrap();
+    shortcut_manager.unregister_all()?;
 
     let command_palette_shortcut = settings_json["shortcut.command-palette"].as_str();
-    if command_palette_shortcut.is_some() {
-        let shortcut_key = command_palette_shortcut.unwrap();
-        if !shortcut_manager.is_registered(shortcut_key).unwrap() {
+    if let Some(shortcut_key) = command_palette_shortcut {
+        if !shortcut_manager.is_registered(shortcut_key)? {
             let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
-            shortcut_manager
-                .register(shortcut_key, move || {
-                    if main_window.is_focused().unwrap() {
-                        open_command_palette_window(main_window.app_handle());
-                    }
-                })
-                .unwrap();
+            shortcut_manager.register(shortcut_key, move || {
+                if main_window.is_focused().unwrap() {
+                    open_command_palette_window(main_window.app_handle());
+                }
+            })?;
         }
     }
 
     let settings_shortcut = settings_json["shortcut.settings"].as_str();
-    if settings_shortcut.is_some() {
-        let shortcut_key = settings_shortcut.unwrap();
-        if !shortcut_manager.is_registered(shortcut_key).unwrap() {
+    if let Some(shortcut_key) = settings_shortcut {
+        if !shortcut_manager.is_registered(shortcut_key)? {
             let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
-            shortcut_manager
-                .register(shortcut_key, move || {
-                    if main_window.is_focused().unwrap() {
-                        open_settings_window(main_window.app_handle());
-                    }
-                })
-                .unwrap();
+            shortcut_manager.register(shortcut_key, move || {
+                if main_window.is_focused().unwrap() {
+                    open_settings_window(main_window.app_handle());
+                }
+            })?;
         }
     }
+
+    Ok(())
 }

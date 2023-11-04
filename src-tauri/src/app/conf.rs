@@ -9,5 +9,5 @@ pub const SETTINGS_WINDOW_LABEL: &str = "settings";
 
 // pub const INIT_SCRIPT: &str = include_str!("init.js");
 pub const DEFAULT_TITLE: &str = "HackDesk";
-// pub const DEFAULT_URL: &str = "https://hackmd.io/login";
+pub const DEFAULT_URL: &str = "https://hackmd.io/login";
 pub const DEFAULT_SETTINGS: &str = include_str!("settings.json");

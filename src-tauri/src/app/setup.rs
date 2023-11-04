@@ -1,21 +1,28 @@
 use log::info;
-use tauri::App;
+use tauri::{App, WindowBuilder, WindowUrl};
 
-use crate::{app::conf::SETTINGS_NAME, utils};
+use crate::{
+    app::conf::{DEFAULT_TITLE, DEFAULT_URL, MAIN_WINDOW_LABEL, SETTINGS_NAME},
+    utils,
+};
 
-pub fn init(app: &mut App) -> std::result::Result<(), Box<dyn std::error::Error>> {
+pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     info!("stepup");
 
-    // check `~/.hackdesk/settings.json`
-    let app = app.handle();
-    let settings_file = &utils::get_root_path(SETTINGS_NAME);
+    WindowBuilder::new(app, MAIN_WINDOW_LABEL, WindowUrl::App(DEFAULT_URL.parse()?))
+        .inner_size(800.0, 600.0)
+        .fullscreen(false)
+        .resizable(true)
+        .title(DEFAULT_TITLE)
+        .build()?;
 
-    if !utils::exists(settings_file) {
-        info!("settings.json not found, creating...");
-        utils::init_settings(app, settings_file);
-    } else {
-        info!("settings.json found, applying...");
-        utils::apply_settings(app);
+    let app = app.handle();
+
+    // check `~/.hackdesk/settings.json`
+    let settings_path = &utils::get_root_path(SETTINGS_NAME);
+    match utils::exists(settings_path) {
+        true => utils::apply_settings(app)?,
+        false => utils::init_settings(app)?,
     }
 
     Ok(())
