@@ -1,6 +1,7 @@
 use cocoa::appkit::{NSWindow, NSWindowStyleMask, NSWindowTitleVisibility};
 use tauri::Window;
 
+// from {@link https://github.com/lencx/WA/blob/main/src-tauri/src/wa/mac.rs}
 #[cfg(target_os = "macos")]
 pub fn set_transparent_title_bar(window: &Window, title_transparent: bool, remove_tool_bar: bool) {
     unsafe {

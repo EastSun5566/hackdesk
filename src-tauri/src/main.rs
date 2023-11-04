@@ -4,25 +4,20 @@
 mod app;
 mod utils;
 
-use app::{
-    cmd,
-    setup,
-    // conf,
-};
+use app::{cmd, setup};
 
 #[tokio::main]
 async fn main() {
     tauri::Builder::default()
+        // persist the window position and size
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             cmd::open_settings_window,
             cmd::redirect,
-            cmd::open_link // tray::tray_blink,
+            // because window.open not working {@link https://github.com/tauri-apps/wry/issues/649}
+            cmd::open_link
         ])
         .setup(setup::init)
-        // .menu(menu::init)
-        // .on_menu_event(menu::handler)
-        // .system_tray(tauri::SystemTray::default())
         .run(tauri::generate_context!())
         .expect("error while running HackDesk application");
 }

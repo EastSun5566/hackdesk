@@ -3,6 +3,7 @@ function init() {
 
   const invoke = window.__TAURI__.invoke;
 
+  /** from {@link https://github.com/lencx/ChatGPT/blob/fac5a4399ed553424be5388fe5eb24d5e5c0e98c/scripts/core.js#L102-L108} */
   document.addEventListener('click', ({ target }) => {
     const origin = target.closest('a');
     if (!origin || !origin.target) return;

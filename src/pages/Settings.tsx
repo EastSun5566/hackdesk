@@ -42,7 +42,7 @@ function Editor ({
   );
 }
 
-const SETTING_JSON_STRING = JSON.stringify(SETTINGS_JSON, null, 4);
+const SETTING_JSON_STRING = JSON.stringify(SETTINGS_JSON, null, 2);
 
 export function Settings() {
   // const navigate = useNavigate();
@@ -56,13 +56,13 @@ export function Settings() {
         window.location.reload();
         return;
       }
+
       isInit.current = false;
     };
   }, []);
 
   const writeContent = async (value?: string) => {
-    const _data = value || SETTING_JSON_STRING;
-    writeSettings(_data);
+    writeSettings(value || SETTING_JSON_STRING);
   };
 
   const handleEdit = debounce(writeContent, 500);
@@ -70,13 +70,13 @@ export function Settings() {
   useEffect(() => {
     (async () => {
       setFilePath(await getSettingsPath());
-      const _content = await readSettings();
-      if (!_content) {
+      const settings = await readSettings();
+      if (!settings) {
         writeContent(SETTING_JSON_STRING);
         setContent(SETTING_JSON_STRING);
         return;
       }
-      setContent(_content);
+      setContent(settings);
     })();
   }, []);
 

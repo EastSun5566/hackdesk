@@ -9,6 +9,7 @@ use crate::{
 pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     info!("stepup");
 
+    // main window
     WindowBuilder::new(app, MAIN_WINDOW_LABEL, WindowUrl::App(DEFAULT_URL.parse()?))
         .inner_size(800.0, 600.0)
         .fullscreen(false)

@@ -7,14 +7,7 @@ use window_shadows::set_shadow;
 use window_vibrancy::{self, NSVisualEffectMaterial};
 
 use crate::{
-    app::conf::{
-        COMMAND_PALETTE_WINDOW_LABEL,
-        MAIN_WINDOW_LABEL,
-        SETTINGS_WINDOW_LABEL,
-        // DEFAULT_TITLE,
-        // DEFAULT_URL,
-        // INIT_SCRIPT,
-    },
+    app::conf::{COMMAND_PALETTE_WINDOW_LABEL, MAIN_WINDOW_LABEL, SETTINGS_WINDOW_LABEL},
     utils,
 };
 
@@ -88,22 +81,12 @@ pub fn open_settings_window(app: AppHandle) {
             .on_window_event(move |event| {
                 if let WindowEvent::Destroyed { .. } = event {
                     utils::apply_settings(app.clone()).unwrap();
-                    app.get_window(MAIN_WINDOW_LABEL)
-                        .unwrap()
-                        .emit("HMD_EVENT", "RELOAD")
-                        .unwrap();
+                    // app.get_window(MAIN_WINDOW_LABEL)
+                    //     .unwrap()
+                    //     .emit("HMD_EVENT", "RELOAD")
+                    //     .unwrap();
                 }
             });
-            // .on_window_event(move |event| match event {
-            //     WindowEvent::Destroyed { .. } => {
-            //         utils::setting_init(app.clone());
-            //         app.get_window("main")
-            //             .unwrap()
-            //             .emit("HMD_EVENT", "SETTING_RELOAD")
-            //             .unwrap();
-            //     }
-            //     _ => (),
-            // });
         });
     }
 }

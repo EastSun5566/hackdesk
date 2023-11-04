@@ -45,15 +45,16 @@ pub fn init_settings(app: AppHandle) -> Result<()> {
     // read settings
     let settings_json = read_json(DEFAULT_SETTINGS)?;
 
-    // TODO: theme: https://github.com/tauri-apps/tauri/issues/5279
+    // TODO: theme {@link https://github.com/tauri-apps/tauri/issues/5279}
     // let theme = &setting_json["theme"].as_str().unwrap();
 
-    // title
+    // set title
     let title = settings_json["title"].as_str().unwrap();
     let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
     main_window.set_title(title)?;
 
-    // shortcuts
+    // TODO: should has better way to register shortcuts
+    // set shortcuts
     let mut shortcut_manager = app.global_shortcut_manager();
 
     let command_palette_shortcut = settings_json["shortcut.command-palette"].as_str().unwrap();
@@ -69,13 +70,11 @@ pub fn init_settings(app: AppHandle) -> Result<()> {
     let settings_shortcut = settings_json["shortcut.settings"].as_str().unwrap();
     if !shortcut_manager.is_registered(settings_shortcut)? {
         let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
-        shortcut_manager
-            .register(settings_shortcut, move || {
-                if main_window.is_focused().unwrap() {
-                    open_settings_window(main_window.app_handle());
-                }
-            })
-            .unwrap();
+        shortcut_manager.register(settings_shortcut, move || {
+            if main_window.is_focused().unwrap() {
+                open_settings_window(main_window.app_handle());
+            }
+        })?;
     }
 
     Ok(())
@@ -91,6 +90,7 @@ pub fn apply_settings(app: AppHandle) -> Result<()> {
     let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
     main_window.set_title(title)?;
 
+    // TODO: should has better way to register shortcuts
     // set shortcut
     let mut shortcut_manager = app.global_shortcut_manager();
     shortcut_manager.unregister_all()?;
