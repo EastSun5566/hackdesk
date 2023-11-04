@@ -10,7 +10,7 @@
     "frontend:dev": "vite",
     "frontend:build": "tsc && vite build",
     "frontend:preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx --fix",
+    "lint": "eslint . --ext ts,tsx --fix --cache",
     "lint:rs": "cd src-tauri && cargo fmt && cargo clippy --fix --allow-dirty && cd --"
   },
   "author": "Michael Wang <michael19920327@gmail.com> (https://github.com/EastSun5566)",
@@ -45,9 +45,17 @@
     "eslint": "^8.52.0",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
+    "lint-staged": "^15.0.2",
     "postcss": "^8.4.31",
+    "simple-git-hooks": "^2.9.0",
     "tailwindcss": "^3.3.5",
     "typescript": "^5.0.2",
     "vite": "^4.4.4"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npx lint-staged"
+  },
+  "lint-staged": {
+    "*.js": "pnpm run lint"
   }
 }
