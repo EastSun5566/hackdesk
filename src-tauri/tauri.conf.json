@@ -27,14 +27,29 @@
     },
     "bundle": {
       "active": true,
+      "category": "DeveloperTool",
       "targets": "all",
-      "identifier": "com.eastsun5566.hackmd",
+      "identifier": "eastsun5566.github.hackdesk",
       "icon": [
         "icons/32x32.png",
         "icons/128x128.png",
         "icons/icon.icns",
         "icons/icon.ico"
-      ]
+      ],
+      "longDescription": "📄 An unofficial HackMD desktop app",
+      "shortDescription": "HackMD desktop app",
+      "macOS": {
+        "entitlements": null,
+        "exceptionDomain": "",
+        "frameworks": [],
+        "providerShortName": null,
+        "signingIdentity": null
+      },
+      "windows": {
+        "certificateThumbprint": null,
+        "digestAlgorithm": "sha256",
+        "timestampUrl": ""
+      }
     },
     "security": {
       "csp": null,
