@@ -57,6 +57,6 @@
     "pre-commit": "npx lint-staged"
   },
   "lint-staged": {
-    "*.js": "pnpm run lint"
+    "*.(ts|tsx|rs)": "pnpm run lint"
   }
 }
