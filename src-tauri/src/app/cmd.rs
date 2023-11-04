@@ -30,8 +30,8 @@ pub fn open_command_palette_window(app: AppHandle) {
         .build()
         .unwrap();
 
-        command_palette_win.on_window_event(move |event| match event {
-            WindowEvent::Focused(is_focused) => {
+        command_palette_win.on_window_event(move |event| {
+            if let WindowEvent::Focused(is_focused) = event {
                 if !is_focused {
                     app.get_window(COMMAND_PALETTE_WINDOW_LABEL)
                         .unwrap()
@@ -39,7 +39,6 @@ pub fn open_command_palette_window(app: AppHandle) {
                         .unwrap();
                 }
             }
-            _ => (),
         });
 
         #[cfg(target_os = "macos")]
