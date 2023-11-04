@@ -15,9 +15,9 @@ async fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
-            cmd::redirect_main_window,
             cmd::open_settings_window,
-            // tray::tray_blink,
+            cmd::redirect,
+            cmd::open_link // tray::tray_blink,
         ])
         .setup(setup::init)
         // .menu(menu::init(&content))

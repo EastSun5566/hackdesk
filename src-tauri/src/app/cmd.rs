@@ -1,13 +1,5 @@
 // use std::fs;
-use tauri::{
-    // api::dialog,
-    command,
-    AppHandle,
-    Manager,
-    WindowBuilder,
-    WindowEvent,
-    WindowUrl,
-};
+use tauri::{api, command, AppHandle, Manager, WindowBuilder, WindowEvent, WindowUrl};
 
 #[cfg(not(target_os = "linux"))]
 use window_shadows::set_shadow;
@@ -79,18 +71,6 @@ pub fn open_command_palette_window(app: AppHandle) {
 }
 
 #[command]
-pub fn redirect_main_window(app: AppHandle, path: &str) {
-    let win = app.get_window(MAIN_WINDOW_LABEL);
-    if win.is_none() {
-        return;
-    }
-
-    win.unwrap()
-        .eval(&format!("window.location.href = '{}'", path))
-        .unwrap();
-}
-
-#[command]
 pub fn open_settings_window(app: AppHandle) {
     let win = app.get_window(SETTINGS_WINDOW_LABEL);
     if win.is_none() {
@@ -126,4 +106,17 @@ pub fn open_settings_window(app: AppHandle) {
             // });
         });
     }
+}
+
+#[command]
+pub fn redirect(app: AppHandle, path: &str) {
+    app.get_window(MAIN_WINDOW_LABEL)
+        .unwrap()
+        .eval(&format!("window.location.href = '{}'", path))
+        .unwrap();
+}
+
+#[command]
+pub fn open_link(app: AppHandle, url: String) {
+    api::shell::open(&app.shell_scope(), url, None).unwrap();
 }

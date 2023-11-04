@@ -85,7 +85,7 @@ export function CommandPalette() {
   }, []);
 
   const handleRedirect = async (path: string) => {
-    invoke('redirect_main_window', { path });
+    invoke('redirect', { path });
     commandPalletteWindow?.close();
   };
 
