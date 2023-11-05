@@ -3,23 +3,23 @@
 layout: home
 
 hero:
-  name: "HackDesk | HackMD Desktop App"
-  text: "📝 An unofficial HackMD desktop app"
-  tagline: My great project tagline
+  name: "HackDesk"
+  text: "HackMD Desktop App"
+  tagline: "📝 An unofficial HackMD desktop app"
+  image:
+    src: ./logo.png
+    alt: HackDesk Logo
   actions:
     - theme: brand
-      text: Markdown Examples
-      link: /markdown-examples
+      text: Installation
+      link: /Install
     - theme: alt
-      text: API Examples
-      link: /api-examples
+      text: Introduction
+      link: /intro
 
 features:
-  - title: Feature A
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-  - title: Feature B
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-  - title: Feature C
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
+  - title: Command palette
+    details: "CmdOrCtrl+K to open the command palette."
+  - title: Custom settings
+    details: "CmdOrCtrl+, to open the settings."
 ---
-
