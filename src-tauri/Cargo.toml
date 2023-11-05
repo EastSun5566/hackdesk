@@ -1,6 +1,6 @@
 [package]
 name = "hackdesk"
-version = "0.0.2"
+version = "0.0.3"
 description = "📝 An unofficial HackMD desktop app"
 authors = ["Michael Wang <michael19920327@gmail.com> (https://github.com/EastSun5566)"]
 license = "AGPL-3.0"
