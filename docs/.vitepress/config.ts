@@ -1,9 +1,22 @@
 import { defineConfig } from 'vitepress'
 
+const title = 'HackDesk'
+const description = 'A HackMD desktop app'
+
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  title: "HackDesk",
-  description: "📝 An unofficial HackMD desktop app",
+  title,
+  description,
+
+  head: [
+    ['link', { rel: 'icon', type: 'image/png', href: '/logo.png' }],
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:title', content: title }],
+    ['meta', { property: 'og:image', content: 'https://hackdesk.vercel.app/logo.png' }],
+    ['meta', { property: 'og:url', content: 'https://hackdesk.vercel.app' }],
+    ['meta', { property: 'og:description', content: description }],
+  ],
+
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     logo: '/logo.png',
