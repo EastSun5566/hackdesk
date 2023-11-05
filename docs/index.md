@@ -15,7 +15,7 @@ hero:
   actions:
     - theme: brand
       text: Install Now
-      link: /Install
+      link: /install
     - theme: alt
       text: Learn More
       link: /intro
