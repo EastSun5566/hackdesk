@@ -80,6 +80,9 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Add rust target
+        run: rustup target add ${{ matrix.target }}
+
       - name: Cache Rust
         uses: swatinem/rust-cache@v2
         with:
