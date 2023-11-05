@@ -1,4 +1,4 @@
-name: "release"
+name: Release and publish
 
 on:
   push:
@@ -60,6 +60,11 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
       - name: Install Pnpm
         uses: pnpm/action-setup@v2
         with:
@@ -70,6 +75,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
+          cache: pnpm
 
       - name: Install frontend deps
         run: pnpm install --frozen-lockfile

@@ -1,10 +1,13 @@
-name: "build"
+name: Testing build
 
 on:
-  - pull_request
+  pull_request:
+    types: [labeled]
 
 jobs:
   build:
+    if: ${{ github.event.label.name == 'build' }}
+
     strategy:
       fail-fast: false
       matrix:
@@ -35,7 +38,7 @@ jobs:
           version: 8
           run_install: false
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 18
