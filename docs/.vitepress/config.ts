@@ -2,7 +2,6 @@ import { defineConfig } from 'vitepress'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  base: '/hackdesk/',
   title: "HackDesk",
   description: "📝 An unofficial HackMD desktop app",
   themeConfig: {
