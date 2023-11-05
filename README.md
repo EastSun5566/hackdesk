@@ -26,3 +26,7 @@ This project was largely inspired by [ChatGPT](https://github.com/lencx/ChatGPT)
 - Should support all [hackmd.io](http://hackmd.io) features
 - Should be command-line-friendly
 - Should be configurable and extensible
+
+## License
+
+[AGPL](./LICENSE)
