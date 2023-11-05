@@ -2,24 +2,33 @@
 # https://vitepress.dev/reference/default-theme-home-page
 layout: home
 
+title: HackDesk
+titleTemplate: HackMD Desktop App
+
 hero:
-  name: "HackDesk"
-  text: "HackMD Desktop App"
-  tagline: "📝 An unofficial HackMD desktop app"
+  name: HackDesk (WIP)
+  text: HackMD Desktop App
+  tagline: You'll find everything you love about HackMD but in a desktop app.
   image:
     src: ./logo.png
     alt: HackDesk Logo
   actions:
     - theme: brand
-      text: Installation
+      text: Install Now
       link: /Install
     - theme: alt
-      text: Introduction
+      text: Learn More
       link: /intro
+    - theme: alt
+      text: GitHub
+      link: https://github.com/EastSun5566/hackdesk
 
 features:
-  - title: Command palette
-    details: "CmdOrCtrl+K to open the command palette."
-  - title: Custom settings
-    details: "CmdOrCtrl+, to open the settings."
+  - icon: 🎨
+    title: Command palette
+    details: "A command palette is a quick way to execute commands or search. Press CmdOrCtrl+K to open the command palette."
+
+  - icon: ⚙️
+    title: Custom settings
+    details: "You can change the theme, shortcut, preferences. Press CmdOrCtrl+, to open the settings."
 ---

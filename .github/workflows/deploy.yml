@@ -49,7 +49,7 @@ jobs:
 
       - name: Build with VitePress
         run: |
-          pnpm run docs:build
+          pnpm run docs:build --base '/hackdesk/'
           touch docs/.vitepress/dist/.nojekyll
 
       - name: Upload artifact
