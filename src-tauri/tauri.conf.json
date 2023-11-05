@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "HackDesk",
-    "version": "0.0.2"
+    "version": "../package.json"
   },
   "tauri": {
     "macOSPrivateApi": true,
