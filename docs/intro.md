@@ -1,12 +1,8 @@
-<img src="./docs/public/logo.png" alt="HackDesk Logo" width="180">
+---
+outline: deep
+---
 
-<sub>The credit for the logo goes entirely to [@Yukaii](https://github.com/Yukaii)</sub>
-
-# HackDesk (WIP)
-
-> 📝 An unofficial HackMD desktop app
-
-## Introduction
+# Introduction
 
 HackDesk is an unofficial desktop application for HackMD, powered by [Tauri](https://tauri.app/). It serves as a lightweight wrapper for [hackmd.io](http://hackmd.io). So, you'll find everything you love about HackMD and some additional features.
 
@@ -26,7 +22,3 @@ This project was largely inspired by [ChatGPT](https://github.com/lencx/ChatGPT)
 - Should support all [hackmd.io](http://hackmd.io) features
 - Should be command-line-friendly
 - Should be configurable and extensible
-
-## License
-
-[AGPL](./LICENSE)

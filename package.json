@@ -13,7 +13,10 @@
     "lint:ts": "eslint . --ext ts,tsx --fix --cache",
     "lint:rs": "cd src-tauri && cargo fmt && cargo clippy --fix --allow-dirty --allow-staged && cd -",
     "lint": "npm run lint:ts && npm run lint:rs",
-    "release": "npx standard-version && git push --follow-tags"
+    "release": "npx standard-version && git push --follow-tags",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "author": "Michael Wang <michael19920327@gmail.com> (https://github.com/EastSun5566)",
   "repository": {
@@ -52,7 +55,8 @@
     "simple-git-hooks": "^2.9.0",
     "tailwindcss": "^3.3.5",
     "typescript": "^5.0.2",
-    "vite": "^4.4.4"
+    "vite": "^4.4.4",
+    "vitepress": "1.0.0-rc.24"
   },
   "simple-git-hooks": {
     "pre-commit": "npx lint-staged"
