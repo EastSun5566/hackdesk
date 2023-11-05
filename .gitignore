@@ -23,4 +23,12 @@ dist-ssr
 *.sln
 *.sw?
 
+# eslint cache
 .eslintcache
+
+# vitepress
+docs/.vitepress/dist
+docs/.vitepress/cache
+
+# cargo
+src-tauri/target/
