@@ -1,16 +1,15 @@
 import { useEffect } from 'react';
 import { WebviewWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/tauri';
+import { Cmd } from '@/constants';
 
 import {
   Cross,
-  Home,
-  Users2,
-  Trash,
-  Bookmark,
-  History,
+  ArrowRight,
+  ArrowRightCircle,
+  ArrowLeftCircle,
+  RefreshCcw,
   Settings,
-  UserPlus2Icon,
 } from 'lucide-react';
 import {
   Command,
@@ -23,37 +22,44 @@ import {
   CommandShortcut,
 } from '@/components/ui/command';
 
-const DEFAULT_COMMANDS = [
+interface Command {
+  value: string;
+  label: string;
+  Icon: React.ReactNode;
+  shortcut?: string;
+}
+
+const DEFAULT_COMMANDS: Command[] = [
   {
     value: '/new',
     label: 'New Note',
     Icon: <Cross className="mr-2 h-4 w-4" />,
-    shortcut: '⌘N',
+    // shortcut: '⌘ N',
   },
   {
     value: '/',
-    label: 'Go home',
-    Icon: <Home className="mr-2 h-4 w-4" />,
+    label: 'Go to my notes',
+    Icon: <ArrowRight className="mr-2 h-4 w-4" />,
   },
   {
     value: '/?nav=collab',
     label: 'Go to my collaborations',
-    Icon: <UserPlus2Icon className="mr-2 h-4 w-4" />,
+    Icon: <ArrowRight className="mr-2 h-4 w-4" />,
   },
   {
     value: '/?nav=trash',
     label: 'Go to my trash',
-    Icon: <Trash className="mr-2 h-4 w-4" />,
+    Icon: <ArrowRight className="mr-2 h-4 w-4" />,
   },
   {
     value: '/bookmark',
     label: 'Go to my bookmarks',
-    Icon: <Bookmark className="mr-2 h-4 w-4" />,
+    Icon: <ArrowRight className="mr-2 h-4 w-4" />,
   },
   {
     value: '/recent',
     label: 'Go to my history',
-    Icon: <History className="mr-2 h-4 w-4" />,
+    Icon: <ArrowRight className="mr-2 h-4 w-4" />,
   },
   {
     value: '/settings',
@@ -63,9 +69,41 @@ const DEFAULT_COMMANDS = [
   {
     value: '/?nav=myTeams',
     label: 'Go to my teams',
-    Icon: <Users2 className="mr-2 h-4 w-4" />,
+    Icon: <ArrowRight className="mr-2 h-4 w-4" />,
+  },
+  {
+    value: '/s/release-notes',
+    label: 'Show release notes',
+    Icon: <ArrowRight className="mr-2 h-4 w-4" />,
+  },
+  {
+    value: 'forward',
+    label: 'Go forward',
+    Icon: <ArrowRightCircle className="mr-2 h-4 w-4" />,
+  },
+  {
+    value: 'back',
+    label: 'Go back',
+    Icon: <ArrowLeftCircle className="mr-2 h-4 w-4" />,
+  },
+  {
+    value: 'reload',
+    label: 'Reload',
+    Icon: <RefreshCcw className="mr-2 h-4 w-4" />,
   },
 ];
+
+function redirect(path: string) {
+  invoke(Cmd.RUN_SCRIPT, { script: `window.location.href = '${path}'` });
+}
+
+function go(direction: 'forward' | 'back') {
+  invoke(Cmd.RUN_SCRIPT, { script: `window.history.${direction}()` });
+}
+
+function reload() {
+  invoke(Cmd.RUN_SCRIPT, { script: 'window.location.reload()' });
+}
 
 const commandPalletteWindow = WebviewWindow.getByLabel('command-palette');
 
@@ -84,8 +122,21 @@ export function CommandPalette() {
     };
   }, []);
 
-  const handleRedirect = async (path: string) => {
-    invoke('redirect', { path });
+  const handleSelect = async (value: string) => {
+    switch (value) {
+    case 'forward':
+      go(value);
+      break;
+    case 'back':
+      go(value);
+      break;
+    case 'reload':
+      reload();
+      break;
+    default:
+      redirect(value);
+    }
+
     commandPalletteWindow?.close();
   };
 
@@ -97,15 +148,16 @@ export function CommandPalette() {
         autoComplete="off"
         spellCheck={false}
       />
-      <CommandList>
+      
+      <CommandList className='max-h-[267px] overflow-y-auto'>
         <CommandEmpty>No results found.</CommandEmpty>
 
         {
           DEFAULT_COMMANDS.map(({ value, label, Icon, shortcut }) => (
-            <CommandItem 
+            <CommandItem
               key={value}
               value={`${value}:${label}`}
-              onSelect={(value) => handleRedirect(value.split(':')[0])}
+              onSelect={(value) => handleSelect(value.split(':')[0])}
             >
               {Icon}
               <span>{label}</span>
