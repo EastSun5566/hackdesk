@@ -1,8 +1,6 @@
 import { useEffect } from 'react';
 import { WebviewWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/tauri';
-import { Cmd } from '@/constants';
-
 import {
   Cross,
   ArrowRight,
@@ -10,17 +8,22 @@ import {
   ArrowLeftCircle,
   RefreshCcw,
   Settings,
+  Sun,
+  Moon,
 } from 'lucide-react';
+
 import {
   Command,
   CommandEmpty,
-  // CommandGroup,
+  CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
-  // CommandSeparator,
+  CommandSeparator,
   CommandShortcut,
 } from '@/components/ui/command';
+import { useTheme } from '@/components/theme-provider';
+import { Cmd } from '@/constants';
 
 interface Command {
   value: string;
@@ -107,41 +110,44 @@ function reload() {
 
 const commandPalletteWindow = WebviewWindow.getByLabel('command-palette');
 
-export function CommandPalette() {
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        commandPalletteWindow?.close();
-      }
-    };
+const handleKeyDown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    commandPalletteWindow?.close();
+  }
+};
 
-    window.addEventListener('keydown', handleKeyDown);
+const handleSelect = async (value: string) => {
+  switch (value) {
+  case 'forward':
+    go(value);
+    break;
+  case 'back':
+    go(value);
+    break;
+  case 'reload':
+    reload();
+    break;
+  default:
+    redirect(value);
+  }
+
+  commandPalletteWindow?.close();
+};
+
+export function CommandPalette() {
+  const { theme, setTheme } = useTheme();
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 
-  const handleSelect = async (value: string) => {
-    switch (value) {
-    case 'forward':
-      go(value);
-      break;
-    case 'back':
-      go(value);
-      break;
-    case 'reload':
-      reload();
-      break;
-    default:
-      redirect(value);
-    }
-
-    commandPalletteWindow?.close();
-  };
-
   return (
-    <Command className="rounded-lg border shadow-md">
+    <Command className="rounded-lg border shadow-md" loop>
       <CommandInput 
         placeholder="Type a command or search..."
         autoFocus
@@ -151,53 +157,39 @@ export function CommandPalette() {
       
       <CommandList className='max-h-[267px] overflow-y-auto'>
         <CommandEmpty>No results found.</CommandEmpty>
+        <CommandGroup heading="Navigation">
+          {
+            DEFAULT_COMMANDS.map(({ value, label, Icon, shortcut }) => (
+              <CommandItem
+                key={value}
+                value={`${value}:${label}`}
+                onSelect={(value) => handleSelect(value.split(':')[0])}
+              >
+                {Icon}
+                <span>{label}</span>
+                {shortcut && (<CommandShortcut>{shortcut}</CommandShortcut>)}
+              </CommandItem>
+            ))
+          } 
+        </CommandGroup>
 
-        {
-          DEFAULT_COMMANDS.map(({ value, label, Icon, shortcut }) => (
-            <CommandItem
-              key={value}
-              value={`${value}:${label}`}
-              onSelect={(value) => handleSelect(value.split(':')[0])}
-            >
-              {Icon}
-              <span>{label}</span>
-              {shortcut && (<CommandShortcut>{shortcut}</CommandShortcut>)}
-            </CommandItem>
-          ))
-        }
+        <CommandSeparator />
 
-        {/* <CommandGroup heading="Suggestions">
-          <CommandItem>
-            <Calendar className="mr-2 h-4 w-4" />
-            <span>Calendar</span>
-          </CommandItem>
-          <CommandItem>
-            <Smile className="mr-2 h-4 w-4" />
-            <span>Search Emoji</span>
-          </CommandItem>
-          <CommandItem>
-            <Calculator className="mr-2 h-4 w-4" />
-            <span>Calculator</span>
+        <CommandGroup heading="Preference">
+          <CommandItem
+            value="theme:Toggle theme"
+            onSelect={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          >
+            {theme === 'dark' 
+              ? <Sun className="mr-2 h-4 w-4" /> 
+              : <Moon className="mr-2 h-4 w-4" />}
+            <span>{
+              theme === 'dark' 
+                ? 'Light theme' 
+                : 'Dark theme'
+            }</span>
           </CommandItem>
         </CommandGroup>
-        <CommandSeparator />
-        <CommandGroup heading="Settings">
-          <CommandItem>
-            <User className="mr-2 h-4 w-4" />
-            <span>Profile</span>
-            <CommandShortcut>⌘P</CommandShortcut>
-          </CommandItem>
-          <CommandItem>
-            <CreditCard className="mr-2 h-4 w-4" />
-            <span>Billing</span>
-            <CommandShortcut>⌘B</CommandShortcut>
-          </CommandItem>
-          <CommandItem>
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Settings</span>
-            <CommandShortcut>⌘S</CommandShortcut>
-          </CommandItem>
-        </CommandGroup> */}
       </CommandList>
     </Command>
   );
