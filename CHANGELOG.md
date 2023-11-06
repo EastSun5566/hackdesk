@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.5](https://github.com/EastSun5566/hackdesk/compare/v0.0.4...v0.0.5) (2023-11-06)
+
+
+### Features
+
+* add theme ([c97375a](https://github.com/EastSun5566/hackdesk/commit/c97375ae035027751ad19944eaf226597eef18b1))
+* change cmd `redirect` to `run_script` ([31f28b2](https://github.com/EastSun5566/hackdesk/commit/31f28b28803f1d4456e4a8fbe5f1e1000e87a1ee))
+
 ### [0.0.4](https://github.com/EastSun5566/hackdesk/compare/v0.0.3...v0.0.4) (2023-11-05)
 
 ### [0.0.3](https://github.com/EastSun5566/hackdesk/compare/v0.0.2...v0.0.3) (2023-11-05)
