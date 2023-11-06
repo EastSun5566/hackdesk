@@ -12,8 +12,9 @@ async fn main() {
         // persist the window position and size
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
+            cmd::open_command_palette_window,
             cmd::open_settings_window,
-            cmd::redirect,
+            cmd::run_script,
             // because window.open not working {@link https://github.com/tauri-apps/wry/issues/649}
             cmd::open_link
         ])

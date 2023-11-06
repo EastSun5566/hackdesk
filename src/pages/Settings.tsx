@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import MonacoEditor from '@monaco-editor/react';
 
-import SETTINGS_JSON from '@/../src-tauri/src/app/settings.json';
+import { useTheme } from '@/components/theme-provider';
 import { 
   debounce,
   getSettingsPath,
   readSettings,
   writeSettings,
 } from '@/utils';
+import SETTINGS_JSON from '@/../src-tauri/src/app/settings.json';
 
 interface EditorProps {
   lang?: string;
@@ -20,6 +21,8 @@ function Editor ({
   defaultValue = '',
   onChange,
 }: EditorProps) {
+  const { theme } = useTheme();
+
   const [content, setContent] = useState('');
   useEffect(() => {
     setContent(defaultValue);
@@ -31,9 +34,12 @@ function Editor ({
     setContent(value);
   };
 
+  console.log(theme);
+
   return (
     <div className="w-full h-screen">
       <MonacoEditor
+        theme={theme === 'dark' ? 'vs-dark' : 'light'}
         defaultLanguage={lang}
         value={content}
         onChange={handleChange}
@@ -45,7 +51,6 @@ function Editor ({
 const SETTING_JSON_STRING = JSON.stringify(SETTINGS_JSON, null, 2);
 
 export function Settings() {
-  // const navigate = useNavigate();
   const isInit = useRef(true);
   const [content, setContent] = useState('');
   const [, setFilePath] = useState('');
@@ -79,10 +84,6 @@ export function Settings() {
       setContent(settings);
     })();
   }, []);
-
-  // const handleScript = () => {
-  //   navigate('/script');
-  // };
 
   return (
     <Editor

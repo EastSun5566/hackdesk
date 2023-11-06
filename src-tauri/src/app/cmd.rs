@@ -91,10 +91,10 @@ pub fn open_settings_window(app: AppHandle) {
 }
 
 #[command]
-pub fn redirect(app: AppHandle, path: &str) {
+pub fn run_script(app: AppHandle, script: &str) {
     app.get_window(MAIN_WINDOW_LABEL)
         .unwrap()
-        .eval(&format!("window.location.href = '{}'", path))
+        .eval(script)
         .unwrap();
 }
 
