@@ -1,5 +1,11 @@
 {
   "title": "HackDesk",
   "shortcut.command-palette": "CmdOrCtrl+K",
-  "shortcut.settings": "CmdOrCtrl+,"
+  "shortcut.settings": "CmdOrCtrl+,",
+
+  "about": {
+    "docs": "https://hackdesk.vercel.app",
+    "github": "https://github.com/EastSun5566/hackdesk",
+    "author": "https://github.com/EastSun5566"
+  }
 }
