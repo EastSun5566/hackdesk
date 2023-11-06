@@ -8,7 +8,7 @@ titleTemplate: HackMD Desktop App
 hero:
   name: HackDesk (WIP)
   text: HackMD Desktop App
-  tagline: You'll find everything you love about HackMD but in a desktop app.
+  tagline: Everything you love about HackMD but in a desktop app.
   image:
     src: ./logo.png
     alt: HackDesk Logo

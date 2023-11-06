@@ -12,6 +12,8 @@
 
 ## Introduction
 
+### 📚 Docs: <https://hackdesk.vercel.app>
+
 HackDesk is an unofficial desktop application for HackMD, powered by [Tauri](https://tauri.app/). It serves as a lightweight wrapper for [hackmd.io](http://hackmd.io). So, you'll find everything you love about HackMD and some additional features ✨.
 
 Thanks to Tauri utilizing the OS's native WebView, the bundle size remains [small](https://tauri.app/v1/references/benchmarks#binary-size), and it's memory-efficient. Please keep in mind that this project is actively under development, so expect some bugs & missing features.
@@ -22,24 +24,41 @@ This project was largely inspired by [ChatGPT](https://github.com/lencx/ChatGPT)
 
 And You can also follow me on [HackMD](https://hackmd.io/@EastSun5566) 😎
 
+## Installation
+
+[Installation Guide](https://hackdesk.vercel.app/install.html)
+
+## Features
+
+[Feature Overview](https://hackdesk.vercel.app/features.html)
+
 ## Design Goals
 
 - Should support all [hackmd.io](http://hackmd.io) features
 - Should be command-line-friendly
 - Should be configurable and extensible
 
-# Features
+## Development
 
-- Multi-platform: macOS Linux Windows
+### Prerequisites
 
-- Command Palette
+- [Rust](https://www.rust-lang.org/learn/get-started)
+- [Node.js v16+](https://github.com/nvm-sh/nvm?tab=readme-ov-file#installing-and-updating)
+- Pnpm
 
-  - <kbd>CmdOrCtrl</kbd> + <kbd>K</kbd>
-  - A quick way to execute commands or search.
+```sh
+corepack enable
+```
 
-- Custom settings
-  - <kbd>CmdOrCtrl</kbd> + <kbd>,</kbd>
-  - You can change the theme, shortcut, and preferences.
+### Getting Started
+
+```sh
+# install deps
+pnpm i
+
+# start dev server for vite and tauri
+pnpm dev
+```
 
 ## License
 

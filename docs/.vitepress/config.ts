@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitepress'
 
 const title = 'HackDesk'
-const description = 'A HackMD desktop app'
+const description = 'Everything you love about HackMD but in a desktop app'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -35,7 +35,8 @@ export default defineConfig({
         items: [
           { text: 'Introduction', link: '/intro' },
           { text: 'Installation', link: '/install' },
-          { text: 'Features', link: '/features' }
+          { text: 'Features', link: '/features' },
+          { text: 'Known Issues', link: '/issues' },
         ]
       }
     ],
@@ -47,6 +48,8 @@ export default defineConfig({
     footer: {
       message: 'Released under the <a href="https://github.com/EastSun5566/hackdesk/blob/main/LICENSE" target="_blank">AGPL License</a>.',
       copyright: 'Made with ❤️ By <a href="https://github.com/EastSun5566" target="_blank">@EastSun5566</a> | The logo credit goes to <a href="https://github.com/EastSun5566" target="_blank">@Yukaii</a>'
-    }
-  }
+    },
+  },
+
+  lastUpdated: true,
 })
