@@ -35,7 +35,8 @@ export default defineConfig({
         items: [
           { text: 'Introduction', link: '/intro' },
           { text: 'Installation', link: '/install' },
-          { text: 'Features', link: '/features' }
+          { text: 'Features', link: '/features' },
+          { text: 'Known Issues', link: '/issues' },
         ]
       }
     ],

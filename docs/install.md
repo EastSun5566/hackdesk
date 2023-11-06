@@ -18,7 +18,10 @@ Developer cannot be verified?
 :::
 
 ::: tip
-If you encounter the error message `"HackDesk" is damaged and can't be opened. You should move it to the Trash`. while installing software on macOS, it may be due to security settings restrictions in macOS. To solve this problem, please try the following command in Terminal:
+
+> `"HackDesk" is damaged and can't be opened. You should move it to the Trash.`
+
+If you encounter this error message while installing software on macOS, it may be due to security settings restrictions in macOS. To solve this problem, please try the following command in Terminal:
 
 ```sh
 xattr -cr /Applications/HackDesk.app
@@ -40,9 +43,23 @@ Download `.deb` installer, advantage small size, disadvantage poor compatibility
 `tar.gz` Works reliably, you can try it if `.deb` fails to run.
 :::
 
+::: tip
+
+> `error while loading shared libraries: libthai.so.0: cannot open shared object file: No such file or directory`
+
+If you encounter this problem, please install the libthai package.It's a issue caused by AppImage packaging.
+:::
+
 ## Windows
 
 - [HackDesk_0.0.5_x64-setup.exe](https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v0.0.5/HackDesk_0.0.5_x64-setup.exe)
 - [HackDesk_0.0.5_x64_en-US.msi](https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v0.0.5/HackDesk_0.0.5_x64_en-US.msi)
 - winget
   > WIP
+
+::: tip
+
+> `error code: STATUS_INVALID_IMAGE_HASH`
+
+<https://github.com/tauri-apps/tauri/issues/4659#issuecomment-1452897588>
+:::

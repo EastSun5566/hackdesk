@@ -24,21 +24,19 @@ This project was largely inspired by [ChatGPT](https://github.com/lencx/ChatGPT)
 
 And You can also follow me on [HackMD](https://hackmd.io/@EastSun5566) 😎
 
+## Installation
+
+[Installation Guide](https://hackdesk.vercel.app/install.html)
+
+## Features
+
+[Feature Overview](https://hackdesk.vercel.app/features.html)
+
 ## Design Goals
 
 - Should support all [hackmd.io](http://hackmd.io) features
 - Should be command-line-friendly
 - Should be configurable and extensible
-
-## Features
-
-- Multi-platform: macOS Linux Windows
-- Command Palette
-  - <kbd>CmdOrCtrl</kbd> + <kbd>K</kbd>
-  - A quick way to execute commands or search.
-- Custom settings
-  - <kbd>CmdOrCtrl</kbd> + <kbd>,</kbd>
-  - You can change the theme, shortcut, and preferences.
 
 ## Development
 
