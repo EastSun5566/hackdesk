@@ -19,7 +19,7 @@ Developer cannot be verified?
 
 ::: tip
 
-> "HackDesk" is damaged and can't be opened. You should move it to the Trash.
+`"HackDesk" is damaged and can't be opened. You should move it to the Trash.`
 
 If you encounter this error message while installing software on macOS, it may be due to security settings restrictions in macOS. To solve this problem, please try the following command in Terminal:
 
@@ -45,7 +45,7 @@ Download `.deb` installer, advantage small size, disadvantage poor compatibility
 
 ::: tip
 
-> error while loading shared libraries: libthai.so.0: cannot open shared object file: No such file or directory
+`error while loading shared libraries: libthai.so.0: cannot open shared object file: No such file or directory`
 
 If you encounter this problem, please install the libthai package.It's a issue caused by AppImage packaging.
 :::
@@ -59,7 +59,7 @@ If you encounter this problem, please install the libthai package.It's a issue c
 
 ::: tip
 
-> error code: STATUS_INVALID_IMAGE_HASH
+`error code: STATUS_INVALID_IMAGE_HASH`
 
 <https://github.com/tauri-apps/tauri/issues/4659#issuecomment-1452897588>
 :::

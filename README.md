@@ -14,6 +14,9 @@
 
 ### 📚 Docs: <https://hackdesk.vercel.app>
 
+> **Warning**
+> This project is actively under development, so expect some bugs & missing features.
+
 HackDesk is an unofficial desktop application for HackMD, powered by [Tauri](https://tauri.app/). It serves as a lightweight wrapper for [hackmd.io](http://hackmd.io). So, you'll find everything you love about HackMD and some additional features ✨.
 
 Thanks to Tauri utilizing the OS's native WebView, the bundle size remains [small](https://tauri.app/v1/references/benchmarks#binary-size), and it's memory-efficient. Please keep in mind that this project is actively under development, so expect some bugs & missing features.
