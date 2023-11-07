@@ -6,12 +6,12 @@ outline: deep
 
 ## Command Palette
 
-> <kbd>CmdOrCtrl</kbd> + <kbd>K</kbd>
+`CmdOrCtrl` + `K`
 
 A quick way to execute commands or search.
 
 ## Custom settings
 
-> <kbd>CmdOrCtrl</kbd> + <kbd>,</kbd>
+`CmdOrCtrl` + `,`
 
 You can change the theme, shortcut, and preferences.

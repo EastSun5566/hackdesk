@@ -8,7 +8,7 @@ titleTemplate: HackMD Desktop App
 hero:
   name: HackDesk (WIP)
   text: HackMD Desktop App
-  tagline: Everything you love about HackMD but in a desktop app.
+  tagline: Everything you love about <a href="https://hackmd.io" target="_blank">HackMD</a> but in a desktop app.
   image:
     src: ./logo.png
     alt: HackDesk Logo
@@ -26,9 +26,9 @@ hero:
 features:
   - icon: 🎨
     title: Command palette
-    details: "A command palette is a quick way to execute commands or search. Press CmdOrCtrl+K to open the command palette."
+    details: A command palette is a quick way to execute commands or search. Press `CmdOrCtrl+K` to open the command palette.
 
   - icon: ⚙️
     title: Custom settings
-    details: "You can change the theme, shortcut, preferences. Press CmdOrCtrl+, to open the settings."
+    details: You can change the theme, shortcut, preferences. Press `CmdOrCtrl+,` to open the settings.
 ---
