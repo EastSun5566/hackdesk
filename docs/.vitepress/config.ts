@@ -15,6 +15,16 @@ export default defineConfig({
     ['meta', { property: 'og:image', content: 'https://hackdesk.vercel.app/logo.png' }],
     ['meta', { property: 'og:url', content: 'https://hackdesk.vercel.app' }],
     ['meta', { property: 'og:description', content: description }],
+
+    // Google Analytics
+    ['script', { async: 'true', src: 'https://www.googletagmanager.com/gtag/js?id=G-EL56FQ1YWP' }],
+    ['script', {}, `
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-EL56FQ1YWP');
+    `],
   ],
 
   themeConfig: {
