@@ -47,7 +47,7 @@ export default defineConfig({
 
     footer: {
       message: 'Released under the <a href="https://github.com/EastSun5566/hackdesk/blob/main/LICENSE" target="_blank">AGPL License</a>.',
-      copyright: 'Made with ❤️ By <a href="https://github.com/EastSun5566" target="_blank">@EastSun5566</a> | The logo credit goes to <a href="https://github.com/EastSun5566" target="_blank">@Yukaii</a>'
+      copyright: 'Made with ❤️ By <a href="https://github.com/EastSun5566" target="_blank">@EastSun5566</a> | The logo credit goes to <a href="https://github.com/Yukaii" target="_blank">@Yukaii</a>'
     },
   },
 
