@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.6](https://github.com/EastSun5566/hackdesk/compare/v0.0.5...v0.0.6) (2023-11-08)
+
+
+### Features
+
+* add system tray and menu ([adfcada](https://github.com/EastSun5566/hackdesk/commit/adfcada17fb021bbca272c3ee7a068818223d3ff))
+* use menu register shortcut ([ee705b7](https://github.com/EastSun5566/hackdesk/commit/ee705b746271e5ebc21b81ab8277eda79a3b7d1e))
+
 ### [0.0.5](https://github.com/EastSun5566/hackdesk/compare/v0.0.4...v0.0.5) (2023-11-06)
 
 
