@@ -36,7 +36,7 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "longDescription": "📄 An unofficial HackMD desktop app",
+      "longDescription": "📝 A hackable HackMD desktop application",
       "shortDescription": "HackMD desktop app",
       "macOS": {
         "entitlements": null,

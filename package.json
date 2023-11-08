@@ -1,6 +1,6 @@
 {
   "name": "hackdesk",
-  "description": "📝 An unofficial HackMD desktop app",
+  "description": "📝 A hackable HackMD desktop application",
   "private": true,
   "version": "0.0.5",
   "type": "module",

@@ -8,7 +8,7 @@
 [![Build Status](https://img.shields.io/github/actions/workflow/status/EastSun5566/hackdesk/release.yml?style=for-the-badge)](https://github.com/EastSun5566/cc-gram/actions/workflows/release.yml)
 [![License](https://img.shields.io/github/license/EastSun5566/hackdesk.svg?style=for-the-badge)](https://github.com/EastSun5566/hackdesk/blob/main/LICENSE)
 
-> 📝 An unofficial HackMD desktop app
+> 📝 A hackable HackMD desktop application
 
 > **Warning**
 > This project is actively under development, so expect some bugs & missing features.
