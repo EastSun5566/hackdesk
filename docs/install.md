@@ -24,7 +24,7 @@ Developer cannot be verified?
 If you encounter this error message while installing software on macOS, it may be due to security settings restrictions in macOS. To solve this problem, please try the following command in Terminal:
 
 ```sh
-xattr -cr /Applications/HackDesk.app
+xattr -cr ~/Applications/HackDesk.app
 ```
 
 :::
