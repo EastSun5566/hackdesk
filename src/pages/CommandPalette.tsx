@@ -37,7 +37,7 @@ const DEFAULT_COMMANDS: Command[] = [
     value: '/new',
     label: 'New Note',
     Icon: <Cross className="mr-2 h-4 w-4" />,
-    // shortcut: '⌘ N',
+    shortcut: '⌘ N',
   },
   {
     value: '/',
@@ -108,12 +108,12 @@ function reload() {
   invoke(Cmd.RUN_SCRIPT, { script: 'window.location.reload()' });
 }
 
-const commandPalletteWindow = WebviewWindow.getByLabel('command-palette');
+const commandPaletteWindow = WebviewWindow.getByLabel('command-palette');
 
 const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key === 'Escape') {
     event.preventDefault();
-    commandPalletteWindow?.close();
+    commandPaletteWindow?.close();
   }
 };
 
@@ -132,7 +132,7 @@ const handleSelect = async (value: string) => {
     redirect(value);
   }
 
-  commandPalletteWindow?.close();
+  commandPaletteWindow?.close();
 };
 
 export function CommandPalette() {
