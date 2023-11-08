@@ -63,3 +63,7 @@ If you encounter this problem, please install the libthai package.It's a issue c
 
 <https://github.com/tauri-apps/tauri/issues/4659#issuecomment-1452897588>
 :::
+
+## All Releases
+
+<https://github.com/EastSun5566/hackdesk/releases/tag/hackdesk-v0.0.6>
