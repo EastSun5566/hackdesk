@@ -3,12 +3,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use serde_json::{self, json};
-use tauri::{api::path, AppHandle, GlobalShortcutManager, Manager};
+use tauri::{api::path, AppHandle, Manager};
 
-use crate::app::{
-    cmd::{open_command_palette_window, open_settings_window},
-    conf::{DEFAULT_SETTINGS, DEFAULT_TITLE, MAIN_WINDOW_LABEL, ROOT, SETTINGS_NAME},
-};
+use crate::app::conf::{DEFAULT_SETTINGS, DEFAULT_TITLE, MAIN_WINDOW_LABEL, ROOT, SETTINGS_NAME};
 
 pub fn exists(path: &Path) -> bool {
     Path::new(path).exists()
@@ -53,30 +50,6 @@ pub fn init_settings(app: AppHandle) -> Result<()> {
     let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
     main_window.set_title(title)?;
 
-    // TODO: should has better way to register shortcuts
-    // set shortcuts
-    let mut shortcut_manager = app.global_shortcut_manager();
-
-    let command_palette_shortcut = settings_json["shortcut.command-palette"].as_str().unwrap();
-    if !shortcut_manager.is_registered(command_palette_shortcut)? {
-        let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
-        shortcut_manager.register(command_palette_shortcut, move || {
-            if main_window.is_focused().unwrap() {
-                open_command_palette_window(main_window.app_handle());
-            }
-        })?;
-    }
-
-    let settings_shortcut = settings_json["shortcut.settings"].as_str().unwrap();
-    if !shortcut_manager.is_registered(settings_shortcut)? {
-        let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
-        shortcut_manager.register(settings_shortcut, move || {
-            if main_window.is_focused().unwrap() {
-                open_settings_window(main_window.app_handle());
-            }
-        })?;
-    }
-
     Ok(())
 }
 
@@ -89,35 +62,6 @@ pub fn apply_settings(app: AppHandle) -> Result<()> {
     let title = settings_json["title"].as_str().unwrap_or(DEFAULT_TITLE);
     let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
     main_window.set_title(title)?;
-
-    // TODO: should has better way to register shortcuts
-    // set shortcut
-    let mut shortcut_manager = app.global_shortcut_manager();
-    shortcut_manager.unregister_all()?;
-
-    let command_palette_shortcut = settings_json["shortcut.command-palette"].as_str();
-    if let Some(shortcut_key) = command_palette_shortcut {
-        if !shortcut_manager.is_registered(shortcut_key)? {
-            let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
-            shortcut_manager.register(shortcut_key, move || {
-                if main_window.is_focused().unwrap() {
-                    open_command_palette_window(main_window.app_handle());
-                }
-            })?;
-        }
-    }
-
-    let settings_shortcut = settings_json["shortcut.settings"].as_str();
-    if let Some(shortcut_key) = settings_shortcut {
-        if !shortcut_manager.is_registered(shortcut_key)? {
-            let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
-            shortcut_manager.register(shortcut_key, move || {
-                if main_window.is_focused().unwrap() {
-                    open_settings_window(main_window.app_handle());
-                }
-            })?;
-        }
-    }
 
     Ok(())
 }
