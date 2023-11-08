@@ -46,7 +46,8 @@ export default defineConfig({
           { text: 'Introduction', link: '/intro' },
           { text: 'Installation', link: '/install' },
           { text: 'Features', link: '/features' },
-          { text: 'Known Issues', link: '/issues' },
+          { text: 'Config', link: '/config' },
+          { text: 'Issues', link: '/issues' },
         ]
       }
     ],

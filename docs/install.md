@@ -24,7 +24,7 @@ Developer cannot be verified?
 If you encounter this error message while installing software on macOS, it may be due to security settings restrictions in macOS. To solve this problem, please try the following command in Terminal:
 
 ```sh
-xattr -cr ~/Applications/HackDesk.app
+xattr -cr /Applications/HackDesk.app
 ```
 
 :::
@@ -64,6 +64,6 @@ If you encounter this problem, please install the libthai package.It's a issue c
 <https://github.com/tauri-apps/tauri/issues/4659#issuecomment-1452897588>
 :::
 
-## All Releases
+---
 
-<https://github.com/EastSun5566/hackdesk/releases/tag/hackdesk-v0.0.6>
+You can see all releases on [GitHub](https://github.com/EastSun5566/hackdesk/releases/tag/hackdesk-v0.0.6)

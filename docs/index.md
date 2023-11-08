@@ -20,7 +20,7 @@ hero:
       text: Learn More
       link: /intro
     - theme: alt
-      text: GitHub
+      text: View on GitHub
       link: https://github.com/EastSun5566/hackdesk
 
 features:
