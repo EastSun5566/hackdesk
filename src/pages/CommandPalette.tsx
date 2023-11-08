@@ -175,7 +175,7 @@ export function CommandPalette() {
 
         <CommandSeparator />
 
-        <CommandGroup heading="Preference">
+        <CommandGroup heading="Appearance">
           <CommandItem
             value="theme:Toggle theme"
             onSelect={() => setTheme(theme === 'dark' ? 'light' : 'dark')}

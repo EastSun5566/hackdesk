@@ -45,13 +45,9 @@ And You can also follow me on [HackMD](https://hackmd.io/@EastSun5566) 😎
 
 ### Prerequisites
 
-- [Rust](https://www.rust-lang.org/learn/get-started)
+- [Rust v1.71](https://www.rust-lang.org/learn/get-started)
 - [Node.js v16+](https://github.com/nvm-sh/nvm?tab=readme-ov-file#installing-and-updating)
-- Pnpm
-
-```sh
-corepack enable
-```
+- [Pnpm v8+](https://pnpm.io/installation#using-corepack)
 
 ### Getting Started
 
