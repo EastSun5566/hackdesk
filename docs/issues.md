@@ -4,9 +4,9 @@ outline: deep
 
 # Known Issues
 
-- SSO login (Google login, Facebook login, etc.) [not working](https://github.com/tauri-apps/tauri/discussions/5251)
-- Buttons that use JavaScript for redirection are [not working](https://github.com/tauri-apps/wry/issues/649).
-- Downloading files is not working
+- SSO login (Google login, Facebook login, etc.) not working ([#9](https://github.com/EastSun5566/hackdesk/issues/9))
+- Buttons that use JavaScript for redirection are not working ([#10](https://github.com/EastSun5566/hackdesk/issues/10))
+- Downloading files is not working ([#11](https://github.com/EastSun5566/hackdesk/issues/11))
 
 ---
 
