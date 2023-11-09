@@ -2,8 +2,9 @@
 
 <sub>The logo credit goes to [@Yukaii](https://github.com/Yukaii)</sub>
 
-# HackDesk (WIP)
+# HackDesk
 
+[![HackDesk Version](https://img.shields.io/github/package-json/v/EastSun5566/hackdesk?style=for-the-badge)](https://github.com/EastSun5566/hackdesk/releases)
 [![HackDesk Downloads](https://img.shields.io/github/downloads/EastSun5566/hackdesk/total.svg?style=for-the-badge)](https://github.com/EastSun5566/hackdesk/releases)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/EastSun5566/hackdesk/release.yml?style=for-the-badge)](https://github.com/EastSun5566/cc-gram/actions/workflows/release.yml)
 [![License](https://img.shields.io/github/license/EastSun5566/hackdesk.svg?style=for-the-badge)](https://github.com/EastSun5566/hackdesk/blob/main/LICENSE)

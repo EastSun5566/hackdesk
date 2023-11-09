@@ -6,7 +6,7 @@ title: HackDesk
 titleTemplate: HackMD Desktop App
 
 hero:
-  name: HackDesk (WIP)
+  name: HackDesk
   text: HackMD Desktop App
   tagline: Everything you love about <a href="https://hackmd.io" target="_blank">HackMD</a> but in a desktop app.
   image:
