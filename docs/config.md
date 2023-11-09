@@ -13,8 +13,8 @@ outline: deep
 ```sh
 tree ~/.hackdesk
 
-.hackdesk/ # Application config directory
-└── settings.json # Application settings file
+.hackdesk/ # App config directory
+└── settings.json # App settings file
 ```
 
 ```sh

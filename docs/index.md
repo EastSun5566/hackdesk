@@ -3,11 +3,11 @@
 layout: home
 
 title: HackDesk
-titleTemplate: HackMD Desktop App
+titleTemplate: HackMD Desktop Application
 
 hero:
   name: HackDesk
-  text: HackMD Desktop App
+  text: HackMD Desktop Application
   tagline: Everything you love about <a href="https://hackmd.io" target="_blank">HackMD</a> but in a desktop app.
   image:
     src: ./logo.png
