@@ -4,7 +4,7 @@
 mod app;
 mod utils;
 
-use app::{cmd, menu, setup};
+use app::{cmd, menu, setup, tray};
 
 #[tokio::main]
 async fn main() {
@@ -23,7 +23,8 @@ async fn main() {
         .setup(setup::init)
         .menu(menu::init(&context))
         .on_menu_event(menu::handler)
-        .system_tray(tauri::SystemTray::default())
+        .system_tray(tray::init())
+        .on_system_tray_event(tray::handler)
         .run(context)
         .expect("error while running HackDesk application");
 }
