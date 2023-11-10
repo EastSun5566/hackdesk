@@ -19,10 +19,13 @@
         "open": true
       },
       "fs": {
-        "scope": ["$HOME/.hackdesk/*"]
+        "all": false,
+        "scope": ["$HOME/.hackdesk/*"],
+        "readFile": true,
+        "writeFile": true
       },
       "globalShortcut": {
-        "all": true
+        "all": false
       }
     },
     "systemTray": {
