@@ -1,20 +1,24 @@
+import { join } from 'path';
+import { writeFile } from 'node:fs/promises';
+
 import { defineConfig } from 'vitepress'
 
-const title = 'HackDesk'
-const description = 'Everything you love about HackMD but in a desktop app'
+const TITLE = 'HackDesk'
+const DESCRIPTION = 'Everything you love about HackMD but in a desktop app'
+const GITHUB_LATEST_RELEASE_URL = 'https://api.github.com/repos/eastsun5566/hackdesk/releases/latest';
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  title,
-  description,
+  title: TITLE,
+  description: DESCRIPTION,
 
   head: [
     ['link', { rel: 'icon', type: 'image/png', href: '/logo.png' }],
     ['meta', { property: 'og:type', content: 'website' }],
-    ['meta', { property: 'og:title', content: title }],
+    ['meta', { property: 'og:title', content: TITLE }],
     ['meta', { property: 'og:image', content: 'https://hackdesk.vercel.app/logo.png' }],
     ['meta', { property: 'og:url', content: 'https://hackdesk.vercel.app' }],
-    ['meta', { property: 'og:description', content: description }],
+    ['meta', { property: 'og:description', content: DESCRIPTION }],
 
     // Google Analytics
     ['script', { async: 'true', src: 'https://www.googletagmanager.com/gtag/js?id=G-EL56FQ1YWP' }],
@@ -63,4 +67,11 @@ export default defineConfig({
   },
 
   lastUpdated: true,
+
+  async buildEnd({ outDir }) {
+    // write the latest release json to dist
+    const res = await fetch(GITHUB_LATEST_RELEASE_URL)
+    const json = await res.json()
+    await writeFile(join(outDir, 'release.json'), JSON.stringify(json))
+  },
 })
