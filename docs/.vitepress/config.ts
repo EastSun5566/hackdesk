@@ -1,11 +1,11 @@
 import { join } from 'path';
 import { writeFile } from 'node:fs/promises';
-
 import { defineConfig } from 'vitepress'
+
+import { GITHUB_LATEST_RELEASE_URL } from './constans';
 
 const TITLE = 'HackDesk'
 const DESCRIPTION = 'Everything you love about HackMD but in a desktop app'
-const GITHUB_LATEST_RELEASE_URL = 'https://api.github.com/repos/eastsun5566/hackdesk/releases/latest';
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -70,8 +70,7 @@ export default defineConfig({
 
   async buildEnd({ outDir }) {
     // write the latest release json to dist
-    const res = await fetch(GITHUB_LATEST_RELEASE_URL)
-    const json = await res.json()
+    const json = await (await fetch(GITHUB_LATEST_RELEASE_URL)).json()
     await writeFile(join(outDir, 'release.json'), JSON.stringify(json))
   },
 })
