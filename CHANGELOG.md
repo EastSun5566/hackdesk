@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.7](https://github.com/EastSun5566/hackdesk/compare/v0.0.6...v0.0.7) (2023-11-17)
+
+
+### Features
+
+* add items to tray ([7818cb2](https://github.com/EastSun5566/hackdesk/commit/7818cb2692c484e683f29eae57bed77d34f4952b))
+* add key to test build action ([4589c91](https://github.com/EastSun5566/hackdesk/commit/4589c91e02f40ce2f8030e4d6dadb5bfddf01359))
+* add support for labeled and ready_for_review pull ([a0d1c6f](https://github.com/EastSun5566/hackdesk/commit/a0d1c6f6c0642d58b149c8a3fe58cbce0729933a))
+* update deps ([e7c9c62](https://github.com/EastSun5566/hackdesk/commit/e7c9c62f12627e6dde01e3d60d4da8d7294c077c))
+* update Tauri action and latest release JSON ([c9f28d7](https://github.com/EastSun5566/hackdesk/commit/c9f28d7dd4769fc667f0a0a6e35ec07295e3f21b))
+* use dynamic version form data loader ([328dbe5](https://github.com/EastSun5566/hackdesk/commit/328dbe5e976de015df11101157fcbd40859ddbac))
+
+
+### Bug Fixes
+
+* remove hide item ([88a592a](https://github.com/EastSun5566/hackdesk/commit/88a592a52d599b372f92e6e4b7f9920952d65587))
+
 ### [0.0.6](https://github.com/EastSun5566/hackdesk/compare/v0.0.5...v0.0.6) (2023-11-08)
 
 
