@@ -1,30 +1,34 @@
+import { join } from 'path';
+import { writeFile } from 'node:fs/promises';
 import { defineConfig } from 'vitepress'
 
-const title = 'HackDesk'
-const description = 'Everything you love about HackMD but in a desktop app'
+import { getLatestGithubRelease, getUpdaterJson } from './utils';
+import { 
+  TITLE,
+  DESCRIPTION,
+  DOCS_URL,
+  GITHUB_AUTHOR_URL,
+  REPO_URL,
+  GA_URL,
+  GA_SCRIPT
+} from './constans';
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  title,
-  description,
+  title: TITLE,
+  description: DESCRIPTION,
 
   head: [
     ['link', { rel: 'icon', type: 'image/png', href: '/logo.png' }],
     ['meta', { property: 'og:type', content: 'website' }],
-    ['meta', { property: 'og:title', content: title }],
-    ['meta', { property: 'og:image', content: 'https://hackdesk.vercel.app/logo.png' }],
-    ['meta', { property: 'og:url', content: 'https://hackdesk.vercel.app' }],
-    ['meta', { property: 'og:description', content: description }],
+    ['meta', { property: 'og:title', content: TITLE }],
+    ['meta', { property: 'og:image', content: `${DOCS_URL}/logo.png` }],
+    ['meta', { property: 'og:url', content: DOCS_URL }],
+    ['meta', { property: 'og:description', content: DESCRIPTION }],
 
     // Google Analytics
-    ['script', { async: 'true', src: 'https://www.googletagmanager.com/gtag/js?id=G-EL56FQ1YWP' }],
-    ['script', {}, `
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-
-      gtag('config', 'G-EL56FQ1YWP');
-    `],
+    ['script', { async: 'true', src: GA_URL }],
+    ['script', {}, GA_SCRIPT],
   ],
 
   themeConfig: {
@@ -53,14 +57,20 @@ export default defineConfig({
     ],
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/EastSun5566/hackdesk' }
+      { icon: 'github', link: REPO_URL }
     ],
 
     footer: {
-      message: 'Released under the <a href="https://github.com/EastSun5566/hackdesk/blob/main/LICENSE" target="_blank">AGPL License</a>.',
-      copyright: 'Made with ❤️ By <a href="https://github.com/EastSun5566" target="_blank">@EastSun5566</a> | The logo credit goes to <a href="https://github.com/Yukaii" target="_blank">@Yukaii</a>'
+      message: `Released under the <a href="${REPO_URL}/blob/main/LICENSE" target="_blank">AGPL License</a>.`,
+      copyright: `Made with ❤️ By <a href="${GITHUB_AUTHOR_URL}" target="_blank">@EastSun5566</a> | The logo credit goes to <a href="https://github.com/Yukaii" target="_blank">@Yukaii</a>`
     },
   },
 
   lastUpdated: true,
+
+  async buildEnd({ outDir }) {
+    // write the latest release json to dist
+    const updaterJson = await getUpdaterJson()
+    await writeFile(join(outDir, 'latest.json'), updaterJson)
+  },
 })
