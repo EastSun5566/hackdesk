@@ -6,8 +6,7 @@ export async function getLatestGithubRelease(): Promise<GitHubRelease> {
   return response.json();
 }
 
-// get the signature file content
-async function getSignature(url: string) {
+async function get(url: string): Promise<string> {
   try {
     const response = await fetch(url, {
       method: 'GET',
@@ -19,30 +18,8 @@ async function getSignature(url: string) {
   }
 }
 
-export function generateUpdaterJson(
-  githubRelease: GitHubRelease
-): UpdaterJson {
-  return {
-    version: githubRelease.tag_name.split('v')[1],
-    notes: githubRelease.body,
-    pub_date: githubRelease.published_at,
-    platforms: {
-      'darwin-x86_64': {
-        signature: '',
-        url: githubRelease.assets.find((asset) => asset.name.includes('x64.dmg'))?.browser_download_url || '',
-      },
-      'darwin-aarch64': {
-        signature: '',
-        url: githubRelease.assets.find((asset) => asset.name.includes('aarch64.dmg'))?.browser_download_url || '',
-      },
-      'linux-x86_64': {
-        signature: '',
-        url: githubRelease.assets.find((asset) => asset.name.includes('AppImage'))?.browser_download_url || '',
-      },
-      'windows-x86_64': {
-        signature: '',
-        url: githubRelease.assets.find((asset) => asset.name.includes('exe'))?.browser_download_url || '',
-      },
-    },
-  };
+export async function getUpdaterJson() {
+  const { assets } = await getLatestGithubRelease();
+  const url = assets.find((asset) => asset.name === 'latest.json')?.browser_download_url || '';
+  return await get(url)
 }

@@ -2,7 +2,7 @@ import { join } from 'path';
 import { writeFile } from 'node:fs/promises';
 import { defineConfig } from 'vitepress'
 
-import { getLatestGithubRelease, generateUpdaterJson } from './utils';
+import { getLatestGithubRelease, getUpdaterJson } from './utils';
 import { 
   TITLE,
   DESCRIPTION,
@@ -70,8 +70,7 @@ export default defineConfig({
 
   async buildEnd({ outDir }) {
     // write the latest release json to dist
-    const githubRelease = await getLatestGithubRelease()
-    const updaterJson = generateUpdaterJson(githubRelease)
-    await writeFile(join(outDir, 'latest.json'), JSON.stringify(updaterJson))
+    const updaterJson = await getUpdaterJson()
+    await writeFile(join(outDir, 'latest.json'), updaterJson)
   },
 })
