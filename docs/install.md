@@ -10,8 +10,8 @@ import { data } from './release.data.ts'
 
 ## MacOS
 
-- Apple Chip: <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v0.0.6/HackDesk_${data.version}_aarch64.dmg`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_aarch64.dmg</a>
-- Intel Chip: <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v0.0.6/HackDesk_${data.version}_x64.dmg`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_x64.dmg</a>
+- Apple Chip: <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/HackDesk_${data.version}_aarch64.dmg`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_aarch64.dmg</a>
+- Intel Chip: <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/HackDesk_${data.version}_x64.dmg`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_x64.dmg</a>
 - Homebrew
   > WIP
 
@@ -35,10 +35,8 @@ xattr -cr /Applications/HackDesk.app
 
 ## Linux
 
-- <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v0.0.6/hack-desk_${data.version}_amd64.AppImage`" target="_blank" rel="noreferrer">hack-desk\_{{data.version}}\_amd64.AppImage</a>
-- <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v0.0.6/hack-desk_${data.version}_amd64.deb`" target="_blank" rel="noreferrer">hack-desk\_{{data.version}}\_amd64.deb</a>
-- <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v0.0.6/HackDesk_${data.version}_aarch64.app.tar.gz`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_aarch64.app.tar.gz</a>
-- <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v0.0.6/HackDesk_${data.version}_x64.app.tar.gz`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_x64.app.tar.gz</a>
+- <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/hack-desk_${data.version}_amd64.AppImage`" target="_blank" rel="noreferrer">hack-desk\_{{data.version}}\_amd64.AppImage</a>
+- <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/hack-desk_${data.version}_amd64.deb`" target="_blank" rel="noreferrer">hack-desk\_{{data.version}}\_amd64.deb</a>
 - AUR
   > WIP
 
@@ -56,8 +54,8 @@ If you encounter this problem, please install the libthai package.It's a issue c
 
 ## Windows
 
-- <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v0.0.6/HackDesk_${data.version}_x64-setup.exe`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_x64-setup.exe</a>
-- <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v0.0.6/HackDesk_${data.version}_x64_en-US.msi`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_x64_en-US.msi</a>
+- <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/HackDesk_${data.version}_x64-setup.exe`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_x64-setup.exe</a>
+- <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/HackDesk_${data.version}_x64_en-US.msi`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_x64_en-US.msi</a>
 - winget
   > WIP
 
@@ -70,4 +68,4 @@ If you encounter this problem, please install the libthai package.It's a issue c
 
 ---
 
-You can see all releases on [GitHub](https://github.com/EastSun5566/hackdesk/releases/tag/hackdesk-v0.0.6)
+You can see all releases on [GitHub](https://github.com/EastSun5566/hackdesk/releases)
