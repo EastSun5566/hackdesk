@@ -2,11 +2,14 @@ name: Testing build
 
 on:
   pull_request:
+    types:
+      - labeled
+      - ready_for_review
   workflow_dispatch:
 
 jobs:
   build:
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'build') || github.event_name == 'workflow_dispatch' }}
+    if: github.event.label.name == 'build' || github.event.action == 'ready_for_review'
 
     strategy:
       fail-fast: false
