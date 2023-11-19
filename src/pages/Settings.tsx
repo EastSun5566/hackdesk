@@ -1,93 +1,49 @@
-import { useState, useRef, useEffect } from 'react';
 import MonacoEditor from '@monaco-editor/react';
 
 import { useTheme } from '@/components/theme-provider';
 import { 
   debounce,
-  getSettingsPath,
-  readSettings,
   writeSettings,
 } from '@/utils';
-import SETTINGS_JSON from '@/../src-tauri/src/app/settings.json';
+import DEFAULT_SETTINGS from '@/../src-tauri/src/app/settings.json';
+import { useSettings } from '@/hooks';
 
 interface EditorProps {
   lang?: string;
-  defaultValue?: string;
-  onChange?: (content?: string) => void;
+  value?: string;
+  onChange?: (value?: string) => void;
 }
 
 function Editor ({
   lang = 'json',
-  defaultValue = '',
-  onChange,
+  ...restProps
 }: EditorProps) {
   const { theme } = useTheme();
-
-  const [content, setContent] = useState('');
-  useEffect(() => {
-    setContent(defaultValue);
-    onChange && onChange(defaultValue);
-  }, [defaultValue, onChange]);
-
-  const handleChange = (value: string = '') => {
-    onChange && onChange(value);
-    setContent(value);
-  };
-
-  console.log(theme);
 
   return (
     <div className="w-full h-screen">
       <MonacoEditor
         theme={theme === 'dark' ? 'vs-dark' : 'light'}
         defaultLanguage={lang}
-        value={content}
-        onChange={handleChange}
+        {...restProps}
       />
     </div>
   );
 }
 
-const SETTING_JSON_STRING = JSON.stringify(SETTINGS_JSON, null, 2);
+const DEFAULT_SETTING_STRING = JSON.stringify(DEFAULT_SETTINGS, null, 2);
 
 export function Settings() {
-  const isInit = useRef(true);
-  const [content, setContent] = useState('');
-  const [, setFilePath] = useState('');
+  const { settings, setSettings } = useSettings();
 
-  useEffect(() => {
-    return () => {
-      if (!isInit.current) {
-        window.location.reload();
-        return;
-      }
-
-      isInit.current = false;
-    };
-  }, []);
-
-  const writeContent = async (value?: string) => {
-    writeSettings(value || SETTING_JSON_STRING);
+  const handleEdit = (content?: string) => {
+    setSettings(content || DEFAULT_SETTING_STRING);
+    debounce(writeSettings, 500)(content || DEFAULT_SETTING_STRING);
   };
-
-  const handleEdit = debounce(writeContent, 500);
-
-  useEffect(() => {
-    (async () => {
-      setFilePath(await getSettingsPath());
-      const settings = await readSettings();
-      if (!settings) {
-        writeContent(SETTING_JSON_STRING);
-        setContent(SETTING_JSON_STRING);
-        return;
-      }
-      setContent(settings);
-    })();
-  }, []);
 
   return (
     <Editor
-      defaultValue={content}
+      value={settings}
       onChange={handleEdit}
     />
   );
