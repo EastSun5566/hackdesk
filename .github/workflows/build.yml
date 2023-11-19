@@ -1,12 +1,13 @@
 name: Testing build
 
 on:
-  pull_request:
-  workflow_dispatch:
+  issue_comment:
+    types:
+      - created
 
 jobs:
   build:
-    if: contains(github.event.pull_request.labels.*.name, 'build') || github.event_name == 'workflow_dispatch'
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/build')
 
     strategy:
       fail-fast: false
