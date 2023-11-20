@@ -22,7 +22,7 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from '@/components/ui/command';
-import { useTheme } from '@/components/theme-provider';
+import { useTheme } from '@/hooks';
 import { Cmd } from '@/constants';
 
 interface Command {
