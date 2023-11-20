@@ -1,12 +1,11 @@
 import MonacoEditor from '@monaco-editor/react';
 
-import { useTheme } from '@/components/theme-provider';
 import { 
   debounce,
   writeSettings,
 } from '@/utils';
 import DEFAULT_SETTINGS from '@/../src-tauri/src/app/settings.json';
-import { useSettings } from '@/hooks';
+import { useSettings, useTheme } from '@/hooks';
 
 interface EditorProps {
   lang?: string;
@@ -23,6 +22,9 @@ function Editor ({
   return (
     <div className="w-full h-screen">
       <MonacoEditor
+        onMount={(editor) => {
+          editor.focus();
+        }}
         theme={theme === 'dark' ? 'vs-dark' : 'light'}
         defaultLanguage={lang}
         {...restProps}
@@ -36,7 +38,7 @@ const DEFAULT_SETTING_STRING = JSON.stringify(DEFAULT_SETTINGS, null, 2);
 export function Settings() {
   const { settings, setSettings } = useSettings();
 
-  const handleEdit = (content?: string) => {
+  const handleChange = (content?: string) => {
     setSettings(content || DEFAULT_SETTING_STRING);
     debounce(writeSettings, 500)(content || DEFAULT_SETTING_STRING);
   };
@@ -44,7 +46,7 @@ export function Settings() {
   return (
     <Editor
       value={settings}
-      onChange={handleEdit}
+      onChange={handleChange}
     />
   );
 }
