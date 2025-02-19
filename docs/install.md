@@ -13,7 +13,14 @@ import { data } from './release.data.ts'
 - Apple Chip: <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/HackDesk_${data.version}_aarch64.dmg`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_aarch64.dmg</a>
 - Intel Chip: <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/HackDesk_${data.version}_x64.dmg`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_x64.dmg</a>
 - Homebrew
-  > WIP
+
+  ```sh
+  # Tap repo
+  brew tap eastsun5566/hackdesk
+
+  # Install app (use `--no-quarantine` for unsigned apps)
+  brew install --cask hackdesk --no-quarantine
+  ```
 
 ::: tip
 Developer cannot be verified?
@@ -37,6 +44,8 @@ xattr -cr /Applications/HackDesk.app
 
 - <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/hack-desk_${data.version}_amd64.AppImage`" target="_blank" rel="noreferrer">hack-desk\_{{data.version}}\_amd64.AppImage</a>
 - <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/hack-desk_${data.version}_amd64.deb`" target="_blank" rel="noreferrer">hack-desk\_{{data.version}}\_amd64.deb</a>
+- Flatpak
+  > WIP
 - AUR
   > WIP
 
