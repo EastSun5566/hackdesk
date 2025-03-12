@@ -6,12 +6,16 @@ outline: deep
 
 ## Command Palette
 
+![Command Palette](./public/command-palette.png)
+
 `CmdOrCtrl` + `K`
 
 A quick way to execute commands or search.
 
-## Custom settings
+## Custom Settings
+
+![Custom Settings](./public/custom-settings.png)
 
 `CmdOrCtrl` + `,`
 
-You can change the theme, shortcut, and preferences.
+You can change the theme, shortcuts, and preferences.
