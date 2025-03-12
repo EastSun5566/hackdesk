@@ -44,9 +44,7 @@ xattr -cr /Applications/HackDesk.app
 
 - <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/hack-desk_${data.version}_amd64.AppImage`" target="_blank" rel="noreferrer">hack-desk\_{{data.version}}\_amd64.AppImage</a>
 - <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/hack-desk_${data.version}_amd64.deb`" target="_blank" rel="noreferrer">hack-desk\_{{data.version}}\_amd64.deb</a>
-- Flatpak
-  > WIP
-- AUR
+- Flatpak / AUR
   > WIP
 
 ::: tip
@@ -66,7 +64,10 @@ If you encounter this problem, please install the libthai package.It's a issue c
 - <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/HackDesk_${data.version}_x64-setup.exe`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_x64-setup.exe</a>
 - <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/HackDesk_${data.version}_x64_en-US.msi`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_x64_en-US.msi</a>
 - winget
-  > WIP
+
+  ```sh
+  winget install EastSun5566.HackDesk
+  ```
 
 ::: tip
 
