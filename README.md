@@ -11,7 +11,7 @@
 
 > 📝 A hackable HackMD desktop application
 
-> **Warning**
+> [!WARNING]
 > This project is actively under development, so expect some bugs & missing features.
 
 ## Introduction
