@@ -6,7 +6,7 @@ outline: deep
 
 | OS      | Path                            |
 | ------- | ------------------------------- |
-| MacOS   | `/Users/<USERNAME>/.hackdesk`   |
+| macOS   | `/Users/<USERNAME>/.hackdesk`   |
 | Linux   | `/home/<USERNAME>/.hackdesk`    |
 | Windows | `C:\Users\<USERNAME>\.hackdesk` |
 
