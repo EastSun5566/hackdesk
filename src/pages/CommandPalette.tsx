@@ -22,7 +22,7 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from '@/components/ui/command';
-import { useTheme } from '@/components/theme-provider';
+import { useTheme, useHistory } from '@/hooks';
 import { Cmd } from '@/constants';
 
 interface Command {
@@ -137,6 +137,8 @@ const handleSelect = async (value: string) => {
 
 export function CommandPalette() {
   const { theme, setTheme } = useTheme();
+  const { data } = useHistory();
+  console.log(data);
 
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);
