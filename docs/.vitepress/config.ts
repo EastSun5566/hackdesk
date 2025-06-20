@@ -2,7 +2,7 @@ import { join } from 'path';
 import { writeFile } from 'node:fs/promises';
 import { defineConfig } from 'vitepress'
 
-import { getLatestGithubRelease, getUpdaterJson } from './utils';
+import { getUpdaterJson } from './utils';
 import { 
   TITLE,
   DESCRIPTION,

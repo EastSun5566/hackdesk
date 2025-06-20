@@ -1,7 +1,7 @@
 export const TITLE = 'HackDesk'
 export const DESCRIPTION = 'Everything you love about HackMD but in a desktop app'
 
-export const DOCS_URL = 'https://hackdesk.vercel.app';
+export const DOCS_URL = 'https://hackdesk.eastsun.me';
 export const GITHUB_AUTHOR_URL = 'https://github.com/EastSun5566';
 export const REPO_URL = `${GITHUB_AUTHOR_URL}/hackdesk`;
 
