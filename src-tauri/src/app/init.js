@@ -1,18 +1,19 @@
 // Check if the script has already been loaded and executed.
 // If so, return immediately to prevent re-initialization.
 if (window._HD_APP_INIT_SCRIPT_LOADED) {
-  // console.log("DEBUG: init.js already loaded, skipping."); // Optional: for debugging
   return;
 }
 window._HD_APP_INIT_SCRIPT_LOADED = true;
-
-// console.log("DEBUG: init.js executing."); // Optional: for debugging
 
 function init() {
   const invoke = window.__TAURI__.invoke;
 
   /** from {@link https://github.com/lencx/ChatGPT/blob/fac5a4399ed553424be5388fe5eb24d5e5c0e98c/scripts/core.js#L102-L108} */
   document.addEventListener('click', ({ target }) => {
+    // Ensure target is an Element before calling closest on it.
+    if (!(target instanceof Element)) {
+      return;
+    }
     const origin = target.closest('a');
 
     // Ensure the link is valid (has href, target) and not targeting _self before invoking open_link.
