@@ -1,7 +1,6 @@
 // Check if already initialized at the script level
 if (window._HD_APP_INIT_SCRIPT_LOADED) {
   // Script has already run, do nothing.
-  // console.log("HD_APP_INIT_SCRIPT_LOADED: init.js already loaded, skipping re-initialization.");
 } else {
   // Mark this script as loaded and processed immediately.
   window._HD_APP_INIT_SCRIPT_LOADED = true;
