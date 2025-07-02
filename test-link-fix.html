@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link Fix Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-link {
+            display: inline-block;
+            margin: 5px;
+            padding: 10px 15px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 3px;
+        }
+        .test-link:hover {
+            background: #0056b3;
+        }
+        .console-output {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 3px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .stats {
+            background: #e7f5ff;
+            padding: 10px;
+            border-radius: 3px;
+            margin: 10px 0;
+        }
+        button {
+            padding: 8px 15px;
+            margin: 5px;
+            border: none;
+            background: #28a745;
+            color: white;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #218838;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            border-radius: 3px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>HackMD Desktop App - Link Fix Test</h1>
+    
+    <div class="warning">
+        <strong>Note:</strong> This test page is designed to verify the duplicate `open_link` fix. 
+        Use this within the HackMD desktop app to test the behavior.
+    </div>
+
+    <div class="test-section">
+        <h2>Test Links</h2>
+        <p>Click these links to test the duplicate prevention:</p>
+        <a href="https://hackmd.io" target="_blank" class="test-link">HackMD.io</a>
+        <a href="https://github.com/EastSun5566/hackmd-desktop-app" target="_blank" class="test-link">GitHub Repo</a>
+        <a href="https://google.com" target="_blank" class="test-link">Google</a>
+        <a href="mailto:test@example.com" target="_blank" class="test-link">Email Link</a>
+        
+        <h3>Nested Link Test</h3>
+        <p>This tests event bubbling prevention:</p>
+        <a href="https://example.com" target="_blank" class="test-link">
+            Outer Link
+            <span style="background: #dc3545; padding: 2px 5px; border-radius: 2px;">
+                Inner Text
+            </span>
+        </a>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Controls</h2>
+        <button onclick="rapidClickTest()">Rapid Click Test</button>
+        <button onclick="clearLogs()">Clear Console</button>
+        <button onclick="getDebugReport()">Get Debug Report</button>
+        <button onclick="testTauriCommands()">Test Tauri Commands</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Live Console Output</h2>
+        <div id="console-output" class="console-output">Console output will appear here...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Statistics</h2>
+        <div id="stats" class="stats">
+            <div>Total Clicks: <span id="total-clicks">0</span></div>
+            <div>Duplicate Blocks: <span id="duplicate-blocks">0</span></div>
+            <div>Tauri Calls: <span id="tauri-calls">0</span></div>
+            <div>Last Action: <span id="last-action">None</span></div>
+        </div>
+    </div>
+
+    <script>
+        // Test page state
+        let totalClicks = 0;
+        let duplicateBlocks = 0;
+        let tauriCalls = 0;
+        let lastRapidTest = 0;
+
+        // Console output capture
+        const consoleOutput = document.getElementById('console-output');
+        const originalConsoleLog = console.log;
+        const originalConsoleWarn = console.warn;
+        const originalConsoleError = console.error;
+
+        function logToPage(level, ...args) {
+            const timestamp = new Date().toLocaleTimeString();
+            const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            
+            consoleOutput.textContent += `[${timestamp}] ${level.toUpperCase()}: ${message}\n`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+
+            // Call original console method
+            switch(level) {
+                case 'log': originalConsoleLog.apply(console, args); break;
+                case 'warn': originalConsoleWarn.apply(console, args); break;
+                case 'error': originalConsoleError.apply(console, args); break;
+            }
+        }
+
+        // Override console methods
+        console.log = (...args) => logToPage('log', ...args);
+        console.warn = (...args) => logToPage('warn', ...args);
+        console.error = (...args) => logToPage('error', ...args);
+
+        // Update statistics display
+        function updateStats() {
+            document.getElementById('total-clicks').textContent = totalClicks;
+            document.getElementById('duplicate-blocks').textContent = duplicateBlocks;
+            document.getElementById('tauri-calls').textContent = tauriCalls;
+            document.getElementById('last-action').textContent = new Date().toLocaleTimeString();
+        }
+
+        // Monitor all clicks on the page
+        document.addEventListener('click', (event) => {
+            const target = event.target;
+            const link = target.closest('a');
+            
+            if (link && link.href) {
+                totalClicks++;
+                console.log(`[Test Page] Click detected: ${link.href}`);
+                updateStats();
+            }
+        }, true);
+
+        // Rapid click test
+        function rapidClickTest() {
+            const testLink = document.querySelector('.test-link');
+            if (!testLink) {
+                console.error('No test link found');
+                return;
+            }
+
+            const now = Date.now();
+            lastRapidTest = now;
+            
+            console.log('[Test Page] Starting rapid click test...');
+            
+            // Simulate 5 rapid clicks
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    // Only proceed if this is still the latest test
+                    if (lastRapidTest === now) {
+                        console.log(`[Test Page] Rapid click ${i + 1}/5`);
+                        testLink.click();
+                    }
+                }, i * 50); // 50ms intervals
+            }
+        }
+
+        // Clear console output
+        function clearLogs() {
+            consoleOutput.textContent = 'Console cleared...\n';
+            totalClicks = 0;
+            duplicateBlocks = 0;
+            tauriCalls = 0;
+            updateStats();
+        }
+
+        // Get debug report
+        async function getDebugReport() {
+            console.log('[Test Page] Generating debug report...');
+            
+            const report = {
+                pageStats: {
+                    totalClicks,
+                    duplicateBlocks,
+                    tauriCalls
+                },
+                windowState: {
+                    hackmdInitialized: window.hackmdLinkHandlerInitialized,
+                    hackmdInitCount: window.hackmdInitCount,
+                    tauriAvailable: !!window.__TAURI__
+                },
+                eventListeners: typeof getEventListeners === 'function' ? 
+                    getEventListeners(document) : 'getEventListeners not available'
+            };
+
+            // Try to get debug tool report if available
+            if (window.linkDebugTool) {
+                report.debugTool = window.linkDebugTool.getReport();
+            }
+
+            console.log('[Test Page] Debug Report:', report);
+        }
+
+        // Test Tauri commands
+        async function testTauriCommands() {
+            if (!window.__TAURI__) {
+                console.error('[Test Page] Tauri not available');
+                return;
+            }
+
+            console.log('[Test Page] Testing Tauri commands...');
+
+            try {
+                // Test URL validation
+                const validUrl = await window.__TAURI__.invoke('validate_url', { 
+                    url: 'https://hackmd.io' 
+                });
+                console.log('[Test Page] URL validation result:', validUrl);
+
+                // Test link stats
+                const stats = await window.__TAURI__.invoke('get_link_stats');
+                console.log('[Test Page] Link statistics:', stats);
+
+            } catch (error) {
+                console.error('[Test Page] Tauri command error:', error);
+            }
+        }
+
+        // Monitor Tauri calls
+        if (window.__TAURI__) {
+            const originalInvoke = window.__TAURI__.invoke;
+            window.__TAURI__.invoke = function(...args) {
+                if (args[0] === 'open_link') {
+                    tauriCalls++;
+                    console.log('[Test Page] Tauri open_link called:', args[1]);
+                    updateStats();
+                }
+                return originalInvoke.apply(this, args);
+            };
+        }
+
+        // Check for duplicate prevention
+        const originalAddEventListener = document.addEventListener;
+        document.addEventListener = function(type, listener, options) {
+            if (type === 'click') {
+                console.log('[Test Page] New click listener registered');
+            }
+            return originalAddEventListener.call(this, type, listener, options);
+        };
+
+        // Initialize
+        console.log('[Test Page] Link fix test page loaded');
+        console.log('[Test Page] Checking for HackMD link handler...');
+        
+        if (window.hackmdLinkHandlerInitialized) {
+            console.log('[Test Page] ✅ HackMD link handler is initialized');
+        } else {
+            console.warn('[Test Page] ⚠️ HackMD link handler not detected');
+        }
+
+        updateStats();
+    </script>
+</body>
+</html>
