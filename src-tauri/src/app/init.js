@@ -1,5 +1,5 @@
 function init() {
-  if (window._HD_INIT) return;
+  if (sessionStorage.getItem('_HD_INIT')) return;
 
   const invoke = window.__TAURI__.invoke;
 
@@ -12,7 +12,7 @@ function init() {
     }
   });
 
-  window._HD_INIT = true;
+  sessionStorage.setItem('_HD_INIT', 'true');
 }
 
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
