@@ -7,7 +7,7 @@ use crate::{
 };
 
 pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
-    info!("stepup");
+    info!("setup");
 
     // main window
     WebviewWindowBuilder::new(
