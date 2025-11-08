@@ -40,14 +40,7 @@
     "windows": [],
     "security": {
       "csp": null,
-      "capabilities": ["main-capability"],
-      "dangerousRemoteDomainIpcAccess": [
-        {
-          "windows": ["main"],
-          "domain": "hackmd.io",
-          "enableTauriAPI": true
-        }
-      ]
+      "capabilities": ["main-capability"]
     },
     "trayIcon": {
       "iconPath": "icons/icon.png"
