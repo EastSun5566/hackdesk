@@ -1,13 +1,16 @@
 name: Testing build
 
 on:
+  pull_request:
+    branches:
+      - main
   issue_comment:
     types:
       - created
 
 jobs:
   build:
-    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '/build') }}
+    if: ${{ github.event_name == 'pull_request' || (github.event.issue.pull_request && contains(github.event.comment.body, '/build')) }}
 
     strategy:
       fail-fast: false
@@ -18,6 +21,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-latest'
@@ -49,8 +54,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build the app
-        uses: tauri-apps/tauri-action@dev
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
