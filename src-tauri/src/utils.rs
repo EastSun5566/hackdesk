@@ -46,7 +46,7 @@ pub fn init_settings(app: &AppHandle) -> Result<()> {
     // let theme = &setting_json["theme"].as_str().unwrap();
 
     // set title
-    let title = settings_json["title"].as_str().unwrap();
+    let title = settings_json["title"].as_str().unwrap_or(DEFAULT_TITLE);
     if let Some(main_window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
         main_window.set_title(title)?;
     }
