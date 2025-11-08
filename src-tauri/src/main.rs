@@ -4,7 +4,7 @@
 mod app;
 mod utils;
 
-use app::{cmd, menu, setup, tray};
+use app::{cmd, menu, setup};
 
 #[tokio::main]
 async fn main() {

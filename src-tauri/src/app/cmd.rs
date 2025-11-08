@@ -2,8 +2,6 @@
 use tauri::{command, AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 #[cfg(not(target_os = "linux"))]
-use window_shadows::set_shadow;
-#[cfg(not(target_os = "linux"))]
 use window_vibrancy::{self, NSVisualEffectMaterial};
 
 use crate::{
@@ -53,9 +51,6 @@ pub fn open_command_palette_window(app: AppHandle) {
         )
         .expect("Unsupported platform! 'apply_vibrancy' is only supported on macOS");
 
-        #[cfg(not(target_os = "linux"))]
-        set_shadow(&command_palette_win, true).expect("Unsupported platform!");
-
         #[cfg(target_os = "windows")]
         window_vibrancy::apply_blur(&command_palette_win, Some((18, 18, 18, 125)))
             .expect("Unsupported platform! 'apply_blur' is only supported on Windows");
@@ -80,7 +75,7 @@ pub fn open_settings_window(app: AppHandle) {
 
             let app_clone = app.clone();
             settings_win.on_window_event(move |event| {
-                if let tauri::WindowEvent::Destroyed { .. } = event {
+                if let tauri::WindowEvent::Destroyed = event {
                     let _ = utils::apply_settings(&app_clone);
                     // app.get_webview_window(MAIN_WINDOW_LABEL)
                     //     .unwrap()
