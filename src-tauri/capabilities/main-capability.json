@@ -87,13 +87,18 @@
     "core:tray:allow-set-temp-dir-path",
     "core:tray:allow-set-icon-as-template",
     "core:tray:allow-set-show-menu-on-left-click",
-    "opener:allow-open-url",
+    "opener:default",
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",
     "fs:allow-exists",
     "fs:allow-create",
     "fs:allow-mkdir",
-    "fs:scope-home",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "$HOME/.hackdesk/*" }
+      ]
+    },
     "window-state:allow-restore-state",
     "window-state:allow-save-window-state"
   ],

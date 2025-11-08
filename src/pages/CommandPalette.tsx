@@ -113,7 +113,7 @@ const commandPaletteWindow = getCurrentWebviewWindow();
 const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key === 'Escape') {
     event.preventDefault();
-    commandPaletteWindow?.close();
+    commandPaletteWindow.close();
   }
 };
 
@@ -132,7 +132,7 @@ const handleSelect = async (value: string) => {
     redirect(value);
   }
 
-  commandPaletteWindow?.close();
+  commandPaletteWindow.close();
 };
 
 export function CommandPalette() {

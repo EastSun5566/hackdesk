@@ -20,11 +20,11 @@ pub fn create_file(path: &Path) -> Result<File> {
 }
 
 pub fn get_root_path(path: &str) -> PathBuf {
-    tauri::api::path::home_dir().unwrap().join(ROOT).join(path)
+    dirs::home_dir().unwrap().join(ROOT).join(path)
 }
 
 // pub fn get_script_path(path: &str) -> PathBuf {
-//     tauri::api::path::home_dir().unwrap().join(HMD_ROOT).join("scripts").join(path)
+//     dirs::home_dir().unwrap().join(HMD_ROOT).join("scripts").join(path)
 // }
 
 pub fn read_json(content: &str) -> serde_json::Result<serde_json::Value> {
