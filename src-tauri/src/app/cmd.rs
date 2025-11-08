@@ -1,5 +1,5 @@
 // use std::fs;
-use tauri::{api, command, AppHandle, Manager, WindowBuilder, WindowEvent, WindowUrl};
+use tauri::{command, AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 #[cfg(not(target_os = "linux"))]
 use window_shadows::set_shadow;
@@ -16,12 +16,12 @@ use crate::app::mac::set_transparent_title_bar;
 
 #[command]
 pub fn open_command_palette_window(app: AppHandle) {
-    let win = app.get_window(COMMAND_PALETTE_WINDOW_LABEL);
+    let win = app.get_webview_window(COMMAND_PALETTE_WINDOW_LABEL);
     if win.is_none() {
-        let command_palette_win = WindowBuilder::new(
+        let command_palette_win = WebviewWindowBuilder::new(
             &app,
             COMMAND_PALETTE_WINDOW_LABEL,
-            WindowUrl::App("/command-palette".parse().unwrap()),
+            WebviewUrl::App("/command-palette".parse().unwrap()),
         )
         .inner_size(560.0, 312.0)
         .always_on_top(true)
@@ -30,13 +30,13 @@ pub fn open_command_palette_window(app: AppHandle) {
         .build()
         .unwrap();
 
+        let app_clone = app.clone();
         command_palette_win.on_window_event(move |event| {
-            if let WindowEvent::Focused(is_focused) = event {
+            if let tauri::WindowEvent::Focused(is_focused) = event {
                 if !is_focused {
-                    app.get_window(COMMAND_PALETTE_WINDOW_LABEL)
-                        .unwrap()
-                        .close()
-                        .unwrap();
+                    if let Some(win) = app_clone.get_webview_window(COMMAND_PALETTE_WINDOW_LABEL) {
+                        let _ = win.close();
+                    }
                 }
             }
         });
@@ -64,23 +64,25 @@ pub fn open_command_palette_window(app: AppHandle) {
 
 #[command]
 pub fn open_settings_window(app: AppHandle) {
-    let win = app.get_window(SETTINGS_WINDOW_LABEL);
+    let win = app.get_webview_window(SETTINGS_WINDOW_LABEL);
     if win.is_none() {
         std::thread::spawn(move || {
-            WindowBuilder::new(
+            let settings_win = WebviewWindowBuilder::new(
                 &app,
                 "setting",
-                WindowUrl::App("/settings".parse().unwrap()),
+                WebviewUrl::App("/settings".parse().unwrap()),
             )
             .inner_size(800.0, 600.0)
             .center()
             .title("Settings")
             .build()
-            .unwrap()
-            .on_window_event(move |event| {
-                if let WindowEvent::Destroyed { .. } = event {
-                    utils::apply_settings(app.clone()).unwrap();
-                    // app.get_window(MAIN_WINDOW_LABEL)
+            .unwrap();
+
+            let app_clone = app.clone();
+            settings_win.on_window_event(move |event| {
+                if let tauri::WindowEvent::Destroyed { .. } = event {
+                    let _ = utils::apply_settings(&app_clone);
+                    // app.get_webview_window(MAIN_WINDOW_LABEL)
                     //     .unwrap()
                     //     .emit("HMD_EVENT", "RELOAD")
                     //     .unwrap();
@@ -92,13 +94,13 @@ pub fn open_settings_window(app: AppHandle) {
 
 #[command]
 pub fn run_script(app: AppHandle, script: &str) {
-    app.get_window(MAIN_WINDOW_LABEL)
-        .unwrap()
-        .eval(script)
-        .unwrap();
+    if let Some(win) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+        let _ = win.eval(script);
+    }
 }
 
 #[command]
-pub fn open_link(app: AppHandle, url: String) {
-    api::shell::open(&app.shell_scope(), url, None).unwrap();
+pub fn open_link(_app: AppHandle, url: String) {
+    use tauri_plugin_opener::OpenerExt;
+    let _ = _app.opener().open_url(url, None::<&str>);
 }

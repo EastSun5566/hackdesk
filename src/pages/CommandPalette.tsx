@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { WebviewWindow } from '@tauri-apps/api/window';
-import { invoke } from '@tauri-apps/api/tauri';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { invoke } from '@tauri-apps/api/core';
 import {
   Cross,
   ArrowRight,
@@ -108,7 +108,7 @@ function reload() {
   invoke(Cmd.RUN_SCRIPT, { script: 'window.location.reload()' });
 }
 
-const commandPaletteWindow = WebviewWindow.getByLabel('command-palette');
+const commandPaletteWindow = getCurrentWebviewWindow();
 
 const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key === 'Escape') {

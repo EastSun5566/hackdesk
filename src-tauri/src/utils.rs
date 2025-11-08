@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use serde_json::{self, json};
-use tauri::{api::path, AppHandle, Manager};
+use tauri::{AppHandle, Manager};
 
 use crate::app::conf::{DEFAULT_SETTINGS, DEFAULT_TITLE, MAIN_WINDOW_LABEL, ROOT, SETTINGS_NAME};
 
@@ -20,11 +20,11 @@ pub fn create_file(path: &Path) -> Result<File> {
 }
 
 pub fn get_root_path(path: &str) -> PathBuf {
-    path::home_dir().unwrap().join(ROOT).join(path)
+    tauri::api::path::home_dir().unwrap().join(ROOT).join(path)
 }
 
 // pub fn get_script_path(path: &str) -> PathBuf {
-//     path::home_dir().unwrap().join(HMD_ROOT).join("scripts").join(path)
+//     tauri::api::path::home_dir().unwrap().join(HMD_ROOT).join("scripts").join(path)
 // }
 
 pub fn read_json(content: &str) -> serde_json::Result<serde_json::Value> {
@@ -32,7 +32,7 @@ pub fn read_json(content: &str) -> serde_json::Result<serde_json::Value> {
     Ok(value)
 }
 
-pub fn init_settings(app: AppHandle) -> Result<()> {
+pub fn init_settings(app: &AppHandle) -> Result<()> {
     let settings_path = &get_root_path(SETTINGS_NAME);
 
     // create `settings.json`
@@ -47,21 +47,23 @@ pub fn init_settings(app: AppHandle) -> Result<()> {
 
     // set title
     let title = settings_json["title"].as_str().unwrap();
-    let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
-    main_window.set_title(title)?;
+    if let Some(main_window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+        main_window.set_title(title)?;
+    }
 
     Ok(())
 }
 
-pub fn apply_settings(app: AppHandle) -> Result<()> {
+pub fn apply_settings(app: &AppHandle) -> Result<()> {
     let settings_path = get_root_path(SETTINGS_NAME);
     let settings = fs::read_to_string(settings_path)?;
     let settings_json = read_json(&settings).unwrap_or_else(|_| json!({ "title": DEFAULT_TITLE }));
 
     // set title
     let title = settings_json["title"].as_str().unwrap_or(DEFAULT_TITLE);
-    let main_window = app.get_window(MAIN_WINDOW_LABEL).unwrap();
-    main_window.set_title(title)?;
+    if let Some(main_window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+        main_window.set_title(title)?;
+    }
 
     Ok(())
 }

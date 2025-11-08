@@ -1,107 +1,108 @@
 use tauri::{
-    utils::assets::EmbeddedAssets, AboutMetadata, Context, CustomMenuItem, Manager, Menu, MenuItem,
-    Submenu, WindowMenuEvent, Wry,
+    menu::{Menu, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder},
+    AppHandle, Manager, Runtime, Wry,
 };
 
 use crate::cmd;
 
-pub fn init(context: &Context<EmbeddedAssets>) -> Menu {
-    let name = &context.package_info().name;
-    let app_menu = Submenu::new(
-        name,
-        Menu::new()
-            .add_native_item(MenuItem::About(name.into(), AboutMetadata::default()))
-            .add_native_item(MenuItem::Separator)
-            .add_item(
-                CustomMenuItem::new("settings".to_string(), "Settings")
-                    .accelerator("CmdOrCtrl+,".to_string()),
-            )
-            .add_native_item(MenuItem::Separator)
-            .add_native_item(MenuItem::Hide)
-            .add_native_item(MenuItem::HideOthers)
-            .add_native_item(MenuItem::ShowAll)
-            .add_native_item(MenuItem::Separator)
-            .add_native_item(MenuItem::Quit),
-    );
+pub fn init<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
+    let name = app.package_info().name.clone();
+    
+    let about = PredefinedMenuItem::about(app, Some(&name), None)?;
+    let separator1 = PredefinedMenuItem::separator(app)?;
+    let settings = MenuItemBuilder::with_id("settings", "Settings")
+        .accelerator("CmdOrCtrl+,")
+        .build(app)?;
+    let separator2 = PredefinedMenuItem::separator(app)?;
+    let hide = PredefinedMenuItem::hide(app, None)?;
+    let hide_others = PredefinedMenuItem::hide_others(app, None)?;
+    let show_all = PredefinedMenuItem::show_all(app, None)?;
+    let separator3 = PredefinedMenuItem::separator(app)?;
+    let quit = PredefinedMenuItem::quit(app, None)?;
+    
+    let app_menu = SubmenuBuilder::new(app, &name)
+        .items(&[
+            &about,
+            &separator1,
+            &settings,
+            &separator2,
+            &hide,
+            &hide_others,
+            &show_all,
+            &separator3,
+            &quit,
+        ])
+        .build()?;
 
-    let file_menu = Submenu::new(
-        "File",
-        Menu::new()
-            .add_item(
-                CustomMenuItem::new("new_note".to_string(), "New Note").accelerator("CmdOrCtrl+N"),
-            )
-            .add_native_item(MenuItem::Separator)
-            .add_native_item(MenuItem::CloseWindow),
-    );
+    let new_note = MenuItemBuilder::with_id("new_note", "New Note")
+        .accelerator("CmdOrCtrl+N")
+        .build(app)?;
+    let separator4 = PredefinedMenuItem::separator(app)?;
+    let close_window = PredefinedMenuItem::close_window(app, None)?;
+    
+    let file_menu = SubmenuBuilder::new(app, "File")
+        .items(&[&new_note, &separator4, &close_window])
+        .build()?;
 
-    let edit_menu = Submenu::new(
-        "Edit",
-        Menu::new()
-            .add_native_item(MenuItem::Undo)
-            .add_native_item(MenuItem::Redo)
-            .add_native_item(MenuItem::Separator)
-            .add_native_item(MenuItem::Cut)
-            .add_native_item(MenuItem::Copy)
-            .add_native_item(MenuItem::Paste)
-            .add_native_item(MenuItem::SelectAll),
-    );
+    let undo = PredefinedMenuItem::undo(app, None)?;
+    let redo = PredefinedMenuItem::redo(app, None)?;
+    let separator5 = PredefinedMenuItem::separator(app)?;
+    let cut = PredefinedMenuItem::cut(app, None)?;
+    let copy = PredefinedMenuItem::copy(app, None)?;
+    let paste = PredefinedMenuItem::paste(app, None)?;
+    let select_all = PredefinedMenuItem::select_all(app, None)?;
+    
+    let edit_menu = SubmenuBuilder::new(app, "Edit")
+        .items(&[&undo, &redo, &separator5, &cut, &copy, &paste, &select_all])
+        .build()?;
 
-    let view_menu = Submenu::new(
-        "View",
-        Menu::new()
-            .add_item(
-                CustomMenuItem::new("command_palette".to_string(), "Command Palette")
-                    .accelerator("CmdOrCtrl+K"),
-            )
-            .add_native_item(MenuItem::Separator)
-            .add_item(
-                CustomMenuItem::new("reload".to_string(), "Reload This Page")
-                    .accelerator("CmdOrCtrl+R"),
-            ),
-    );
+    let command_palette = MenuItemBuilder::with_id("command_palette", "Command Palette")
+        .accelerator("CmdOrCtrl+K")
+        .build(app)?;
+    let separator6 = PredefinedMenuItem::separator(app)?;
+    let reload = MenuItemBuilder::with_id("reload", "Reload This Page")
+        .accelerator("CmdOrCtrl+R")
+        .build(app)?;
+    
+    let view_menu = SubmenuBuilder::new(app, "View")
+        .items(&[&command_palette, &separator6, &reload])
+        .build()?;
 
-    let help_menu = Submenu::new(
-        "Help",
-        Menu::new()
-            .add_item(CustomMenuItem::new("docs".to_string(), "Documentation"))
-            .add_item(CustomMenuItem::new("source".to_string(), "View on GitHub"))
-            .add_item(CustomMenuItem::new("issues".to_string(), "Report Issue"))
-            .add_native_item(MenuItem::Separator),
-    );
+    let docs = MenuItemBuilder::with_id("docs", "Documentation").build(app)?;
+    let source = MenuItemBuilder::with_id("source", "View on GitHub").build(app)?;
+    let issues = MenuItemBuilder::with_id("issues", "Report Issue").build(app)?;
+    let separator7 = PredefinedMenuItem::separator(app)?;
+    
+    let help_menu = SubmenuBuilder::new(app, "Help")
+        .items(&[&docs, &source, &issues, &separator7])
+        .build()?;
 
-    Menu::new()
-        .add_submenu(app_menu)
-        .add_submenu(file_menu)
-        .add_submenu(edit_menu)
-        .add_submenu(view_menu)
-        .add_submenu(help_menu)
+    Menu::with_items(app, &[&app_menu, &file_menu, &edit_menu, &view_menu, &help_menu])
 }
 
-pub fn handler(event: WindowMenuEvent<Wry>) {
-    let win = Some(event.window()).unwrap();
-    let app = win.app_handle();
-    match event.menu_item_id() {
+pub fn handler(app: &AppHandle<Wry>, event: tauri::menu::MenuEvent) {
+    match event.id().as_ref() {
         "new_note" => {
-            cmd::run_script(app, "window.location.href = '/new'");
+            cmd::run_script(app.clone(), "window.location.href = '/new'");
         }
         "settings" => {
-            cmd::open_settings_window(app);
+            cmd::open_settings_window(app.clone());
         }
         "command_palette" => {
-            cmd::open_command_palette_window(app);
+            cmd::open_command_palette_window(app.clone());
         }
         "reload" => {
-            cmd::run_script(app, "window.location.reload()");
+            cmd::run_script(app.clone(), "window.location.reload()");
         }
         "docs" => {
-            cmd::open_link(app, "https://hackdesk.vercel.app".to_string());
+            cmd::open_link(app.clone(), "https://hackdesk.vercel.app".to_string());
         }
         "source" => {
-            cmd::open_link(app, "https://github.com/EastSun5566/hackdesk".to_string());
+            cmd::open_link(app.clone(), "https://github.com/EastSun5566/hackdesk".to_string());
         }
         "issues" => {
             cmd::open_link(
-                app,
+                app.clone(),
                 "https://github.com/EastSun5566/hackdesk/issues/new".to_string(),
             );
         }

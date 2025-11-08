@@ -8,11 +8,11 @@ use app::{cmd, menu, setup, tray};
 
 #[tokio::main]
 async fn main() {
-    let context = tauri::generate_context!();
-
     tauri::Builder::default()
-        // persist the window position and size
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             cmd::open_command_palette_window,
             cmd::open_settings_window,
@@ -21,10 +21,8 @@ async fn main() {
             cmd::open_link
         ])
         .setup(setup::init)
-        .menu(menu::init(&context))
+        .menu(menu::init)
         .on_menu_event(menu::handler)
-        .system_tray(tray::init())
-        .on_system_tray_event(tray::handler)
-        .run(context)
+        .run(tauri::generate_context!())
         .expect("error while running HackDesk application");
 }
