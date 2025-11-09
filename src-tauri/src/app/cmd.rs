@@ -64,7 +64,7 @@ pub fn open_settings_window(app: AppHandle) {
         std::thread::spawn(move || {
             let settings_win = WebviewWindowBuilder::new(
                 &app,
-                "setting",
+                SETTINGS_WINDOW_LABEL,
                 WebviewUrl::App("/settings".parse().unwrap()),
             )
             .inner_size(800.0, 600.0)
