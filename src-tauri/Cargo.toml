@@ -25,7 +25,6 @@ log = "0.4.20"
 anyhow = "1.0.75"
 dirs = "5.0"
 window-vibrancy = "0.5.0"
-window-shadows = { version = "0.2.2", optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.24.0"
@@ -34,4 +33,4 @@ cocoa = "0.24.0"
 # this feature is used for production builds or when `devPath` points to the filesystem
 # DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
-window-shadows = ["dep:window-shadows"]
+window-shadows = []
