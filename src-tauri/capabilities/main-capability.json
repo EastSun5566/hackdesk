@@ -96,7 +96,7 @@
     {
       "identifier": "fs:scope",
       "allow": [
-        { "path": "$HOME/.hackdesk/*" }
+        { "path": "$HOME/.hackdesk/**" }
       ]
     },
     "window-state:allow-restore-state",
