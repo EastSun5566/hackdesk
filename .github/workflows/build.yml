@@ -19,31 +19,10 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - name: Get PR info
-        if: github.event_name == 'issue_comment'
-        id: pr
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const issue = await github.rest.issues.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number
-            });
-            if (issue.data.pull_request) {
-              const pr = await github.rest.pulls.get({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: context.issue.number
-              });
-              core.setOutput('sha', pr.data.head.sha);
-              core.setOutput('ref', pr.data.head.ref);
-            }
-      
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || steps.pr.outputs.sha || github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-latest'
