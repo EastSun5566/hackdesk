@@ -1,74 +1,52 @@
 {
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "HackDesk",
+  "version": "../package.json",
+  "identifier": "eastsun5566.github.hackdesk",
   "build": {
     "beforeDevCommand": "pnpm frontend:dev",
     "beforeBuildCommand": "pnpm frontend:build",
-    "devPath": "http://localhost:1420",
-    "distDir": "../dist",
-    "withGlobalTauri": true
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
   },
-  "package": {
-    "productName": "HackDesk",
-    "version": "../package.json"
+  "bundle": {
+    "active": true,
+    "category": "DeveloperTool",
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "longDescription": "📝 A hackable HackMD desktop application",
+    "shortDescription": "HackMD desktop app",
+    "macOS": {
+      "entitlements": null,
+      "exceptionDomain": "",
+      "frameworks": [],
+      "providerShortName": null,
+      "signingIdentity": null
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    }
   },
-  "tauri": {
+  "app": {
     "macOSPrivateApi": true,
-    "allowlist": {
-      "all": true,
-      "shell": {
-        "all": false,
-        "open": true
-      },
-      "fs": {
-        "all": false,
-        "scope": ["$HOME/.hackdesk/*"],
-        "readFile": true,
-        "writeFile": true
-      },
-      "globalShortcut": {
-        "all": false
-      }
-    },
-    "systemTray": {
-      "iconPath": "icons/icon.png"
-    },
-    "bundle": {
-      "active": true,
-      "category": "DeveloperTool",
-      "targets": "all",
-      "identifier": "eastsun5566.github.hackdesk",
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ],
-      "longDescription": "📝 A hackable HackMD desktop application",
-      "shortDescription": "HackMD desktop app",
-      "macOS": {
-        "entitlements": null,
-        "exceptionDomain": "",
-        "frameworks": [],
-        "providerShortName": null,
-        "signingIdentity": null
-      },
-      "windows": {
-        "certificateThumbprint": null,
-        "digestAlgorithm": "sha256",
-        "timestampUrl": ""
-      }
-    },
+    "windows": [],
     "security": {
       "csp": null,
-      "dangerousRemoteDomainIpcAccess": [
-        {
-          "windows": ["main"],
-          "domain": "hackmd.io",
-          "enableTauriAPI": true
-        }
-      ]
+      "capabilities": ["main-capability"]
     },
-    "windows": [],
+    "trayIcon": {
+      "iconPath": "icons/icon.png"
+    }
+  },
+  "plugins": {
     "updater": {
       "active": true,
       "endpoints": ["https://hackdesk.vercel.app/latest.json"],

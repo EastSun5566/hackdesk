@@ -1,5 +1,5 @@
 import { homeDir, join } from '@tauri-apps/api/path';
-import { readTextFile, writeTextFile } from '@tauri-apps/api/fs';
+import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';

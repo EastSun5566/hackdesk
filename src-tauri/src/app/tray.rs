@@ -1,20 +1,38 @@
-use tauri::{AppHandle, CustomMenuItem, SystemTray, SystemTrayEvent, SystemTrayMenu};
+use tauri::{
+    menu::{Menu, MenuItemBuilder},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    AppHandle, Manager,
+};
 
-pub fn init() -> SystemTray {
-    let quit = CustomMenuItem::new("quit".to_string(), "Quit");
-    let tray_menu = SystemTrayMenu::new().add_item(quit);
+pub fn init(app: &tauri::AppHandle) -> tauri::Result<()> {
+    let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+    let menu = Menu::with_items(app, &[&quit])?;
 
-    SystemTray::new().with_menu(tray_menu)
+    let tray_builder = TrayIconBuilder::new()
+        .menu(&menu)
+        .on_menu_event(handler)
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                let app = tray.app_handle();
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+        });
+
+    let _tray = tray_builder.build(app)?;
+
+    Ok(())
 }
 
-pub fn handler(app: &AppHandle, event: SystemTrayEvent) {
-    match event {
-        SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
-            "quit" => {
-                app.exit(0);
-            }
-            _ => {}
-        },
-        _ => {}
+fn handler(app: &AppHandle, event: tauri::menu::MenuEvent) {
+    if event.id().as_ref() == "quit" {
+        app.exit(0);
     }
 }
