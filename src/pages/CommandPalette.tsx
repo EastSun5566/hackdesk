@@ -147,7 +147,7 @@ export function CommandPalette() {
   }, []);
 
   return (
-    <Command className="rounded-lg border shadow-md" loop>
+    <Command className="rounded-lg shadow-md" loop>
       <CommandInput 
         placeholder="Type a command or search..."
         autoFocus

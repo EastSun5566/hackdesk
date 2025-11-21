@@ -2,75 +2,220 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
+@layer components {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.5rem;
+    --hmd-tw-text-default: theme("colors.zinc.700");
+    --hmd-tw-text-subtle: theme("colors.zinc.500");
+    --hmd-tw-text-subtler: theme("colors.zinc.400");
+    --hmd-tw-text-emphasize: theme("colors.zinc.800");
+    --hmd-tw-text-primary: theme("colors.primary.500");
+    --hmd-tw-text-pink: theme("colors.pink.500");
+    --hmd-tw-background-default: theme("colors.zinc.25");
+    --hmd-tw-background-subtle: theme("colors.zinc.100");
+    --hmd-tw-background-subtler: theme("colors.zinc.50");
+    --hmd-tw-background-sunken: theme("colors.zinc.100");
+    --hmd-tw-background-selected: theme("colors.zinc.100");
+    --hmd-tw-background-primary-default: theme("colors.primary.500");
+    --hmd-tw-background-primary-subtler: theme("colors.primary.50");
+    --hmd-tw-background-primary-subtle: theme("colors.primary.100");
+    --hmd-tw-background-primary-hover: theme("colors.primary.800");
+    --hmd-tw-background-primary-disabled: theme("colors.primary.300");
+    --hmd-tw-background-primary-focus: theme("colors.primary.800");
+    --hmd-tw-background-blur: rgba(253, 253, 253, 0.6);
+    --hmd-tw-icon-default: theme("colors.zinc.500");
+    --hmd-tw-icon-subtle: theme("colors.zinc.400");
+    --hmd-tw-icon-subtler: theme("colors.zinc.300");
+    --hmd-tw-icon-subtlest: theme("colors.zinc.200");
+    --hmd-tw-icon-disabled: theme("colors.zinc.400");
+    --hmd-tw-icon-primary: var(--hmd-tw-text-primary);
+    --hmd-tw-icon-emphasize: theme("colors.zinc.800");
+    --hmd-tw-border-default: theme("colors.zinc.300");
+    --hmd-tw-border-bold: theme("colors.zinc.600");
+    --hmd-tw-border-subtle: theme("colors.zinc.500");
+    --hmd-tw-border-subtler: theme("colors.zinc.400");
+    --hmd-tw-border-subtlest: theme("colors.zinc.200");
+    --hmd-tw-border-primary-focus: theme("colors.primary.400");
+    --hmd-tw-border-primary-default: theme("colors.primary.500");
+    --hmd-tw-border-primary-subtler: theme("colors.primary.400");
+    --hmd-tw-border-primary-subtlest: theme("colors.primary.500-60");
+    --hmd-tw-overlay: rgba(0, 0, 0, 0.3);
+    --hmd-tw-state-info-text: theme("colors.sky.600");
+    --hmd-tw-state-info-icon: theme("colors.sky.500");
+    --hmd-tw-state-info-background: theme("colors.sky.100");
+    --hmd-tw-state-info-border: theme("colors.sky.200");
+    --hmd-tw-state-info-border-subtle: rgb(186, 230, 253);
+    --hmd-tw-state-info-default: theme("colors.sky.500");
+    --hmd-tw-state-success-text: theme("colors.green.600");
+    --hmd-tw-state-success-icon: theme("colors.green.400");
+    --hmd-tw-state-success-background: theme("colors.emerald.75");
+    --hmd-tw-state-success-border: theme("colors.green.200");
+    --hmd-tw-state-success-border-subtle: rgba(182, 231, 166, 1);
+    --hmd-tw-state-success-default: theme("colors.green.400");
+    --hmd-tw-state-warning-text: theme("colors.amber.600");
+    --hmd-tw-state-warning-icon: theme("colors.amber.400");
+    --hmd-tw-state-warning-background: theme("colors.amber.75");
+    --hmd-tw-state-warning-border: theme("colors.amber.300");
+    --hmd-tw-state-warning-border-subtle: rgba(253, 230, 138, 1);
+    --hmd-tw-state-warning-default: theme("colors.amber.400");
+    --hmd-tw-state-danger-text: theme("colors.red.500");
+    --hmd-tw-state-danger-icon: theme("colors.red.500");
+    --hmd-tw-state-danger-bg-light: theme("colors.red.75");
+    --hmd-tw-state-danger-bg-default: theme("colors.red.500");
+    --hmd-tw-state-danger-bg-hover: theme("colors.red.600");
+    --hmd-tw-state-danger-border: theme("colors.red.300");
+    --hmd-tw-state-danger-border-subtle: rgba(254, 202, 202, 1);
+    --hmd-tw-state-danger-default: theme("colors.red.500");
+    --hmd-tw-state-default-background: theme("colors.zinc.300");
+    --hmd-tw-element-text-selected: theme("colors.primary.500");
+    --hmd-tw-element-text-disabled: theme("colors.zinc.400");
+    --hmd-tw-element-bg-default: theme("colors.white");
+    --hmd-tw-element-bg-hover: theme("colors.zinc.100");
+    --hmd-tw-element-bg-disabled: theme("colors.zinc.200");
+    --hmd-tw-element-border-hover: theme("colors.zinc.500");
+    --hmd-tw-element-border-focus: theme("colors.zinc.500");
+    --hmd-tw-element-border-error: theme("colors.red.600");
+    --hmd-tw-element-border-disabled: var(--hmd-tw-border-subtler);
+    --hmd-tw-raised-bg-default: theme("colors.zinc.200");
+    --hmd-tw-raised-bg-hover: theme("colors.zinc.300");
+    --hmd-tw-raised-border-default: theme("colors.zinc.300");
+    --hmd-tw-raised-border-hover: theme("colors.zinc.400");
+    --hmd-tw-raised-icon-hover: theme("colors.zinc.600");
+    --hmd-tw-raised-icon-default: theme("colors.zinc.500");
+    --hmd-tw-link-text-default: theme("colors.primary.500");
+    --hmd-tw-link-text-hover: theme("colors.primary.800");
+    --hmd-tw-link-text-pressed: theme("colors.primary.800");
+    --hmd-tw-text-mark-comment-default: theme("colors.primary.600-30");
+    --hmd-tw-text-mark-comment-selected: theme("colors.primary.600-45");
+    --hmd-tw-text-mark-diff-del: theme("colors.red.100");
+    --hmd-tw-text-mark-diff-ins: theme("colors.emerald.100");
+    --hmd-tw-text-mark-suggest-default: theme("colors.emerald.200");
+    --hmd-tw-text-mark-suggest-selected: theme("colors.emerald.300");
+    --hmd-tw-text-mark-suggest-border: theme("colors.emerald.600");
+    --hmd-tw-text-mark-paragraph-bookmark-default: rgba(249, 115, 22, 0.2);
+    --hmd-tw-text-mark-paragraph-bookmark-selected: rgba(249, 115, 22, 0.4);
+    --hmd-tw-text-mark-paragraph-bookmark-border: #fdba74;
+    --hmd-tw-prime-border: theme("colors.amber.500");
+    --hmd-tw-prime-default: theme("colors.amber.500");
+    --hmd-tw-palette-amber-default: theme("colors.amber.500");
+    --hmd-tw-palette-emerald-default: theme("colors.emerald.500");
+    --hmd-tw-palette-pink-default: theme("colors.pink.500");
+    --hmd-tw-palette-sky-default: theme("colors.sky.500");
+    --hmd-tw-palette-green-default: theme("colors.green.600");
+    --hmd-tw-palette-orange-default: theme("colors.orange.400");
+    --hmd-tw-graph-pie-gray-bg: theme("colors.zinc.400");
+    --hmd-tw-graph-pie-label-text: white;
+    --hmd-tw-graph-bar-bg: rgba(253, 253, 253, 0.5);
+    --hmd-tw-community-note-card-book-border: theme("colors.zinc.200");
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --hmd-tw-text-default: theme("colors.zinc.300");
+    --hmd-tw-text-subtle: theme("colors.zinc.400");
+    --hmd-tw-text-subtler: theme("colors.zinc.500");
+    --hmd-tw-text-emphasize: theme("colors.zinc.100");
+    --hmd-tw-text-primary: theme("colors.primary.300");
+    --hmd-tw-text-pink: theme("colors.pink.400");
+    --hmd-tw-background-default: theme("colors.zinc.800");
+    --hmd-tw-background-subtle: theme("colors.zinc.600");
+    --hmd-tw-background-subtler: theme("colors.zinc.750");
+    --hmd-tw-background-sunken: theme("colors.zinc.900");
+    --hmd-tw-background-selected: theme("colors.zinc.600");
+    --hmd-tw-background-primary-default: theme("colors.primary.500");
+    --hmd-tw-background-primary-subtler: #2c2a4a;
+    --hmd-tw-background-primary-subtle: #302d6a;
+    --hmd-tw-background-primary-hover: theme("colors.primary.400");
+    --hmd-tw-background-primary-disabled: #3932aa;
+    --hmd-tw-background-primary-focus: theme("colors.primary.400");
+    --hmd-tw-background-blur: rgba(39, 39, 42, 0.6);
+    --hmd-tw-icon-default: theme("colors.zinc.300");
+    --hmd-tw-icon-subtle: theme("colors.zinc.400");
+    --hmd-tw-icon-subtler: theme("colors.zinc.500");
+    --hmd-tw-icon-subtlest: theme("colors.zinc.600");
+    --hmd-tw-icon-disabled: theme("colors.zinc.500");
+    --hmd-tw-icon-primary: var(--hmd-tw-text-primary);
+    --hmd-tw-icon-emphasize: theme("colors.zinc.100");
+    --hmd-tw-border-default: theme("colors.zinc.600");
+    --hmd-tw-border-bold: theme("colors.zinc.300");
+    --hmd-tw-border-subtle: theme("colors.zinc.400");
+    --hmd-tw-border-subtler: theme("colors.zinc.500");
+    --hmd-tw-border-subtlest: theme("colors.zinc.700");
+    --hmd-tw-border-primary-focus: theme("colors.primary.400");
+    --hmd-tw-border-primary-default: theme("colors.primary.300");
+    --hmd-tw-border-primary-subtler: theme("colors.primary.400");
+    --hmd-tw-border-primary-subtlest: theme("colors.primary.500-60");
+    --hmd-tw-overlay: rgba(0, 0, 0, 0.7);
+    --hmd-tw-state-info-text: theme("colors.sky.400");
+    --hmd-tw-state-info-icon: theme("colors.sky.500");
+    --hmd-tw-state-info-background: theme("colors.sky.400-10");
+    --hmd-tw-state-info-border: theme("colors.sky.600");
+    --hmd-tw-state-info-border-subtle: rgba(56, 189, 248, 0.2);
+    --hmd-tw-state-info-default: theme("colors.sky.500");
+    --hmd-tw-state-success-text: theme("colors.green.500");
+    --hmd-tw-state-success-icon: theme("colors.green.500");
+    --hmd-tw-state-success-background: theme("colors.emerald.400-15");
+    --hmd-tw-state-success-border: theme("colors.emerald.600");
+    --hmd-tw-state-success-border-subtle: rgba(107, 209, 157, 0.2);
+    --hmd-tw-state-success-default: theme("colors.green.500");
+    --hmd-tw-state-warning-text: theme("colors.amber.400");
+    --hmd-tw-state-warning-icon: theme("colors.amber.400");
+    --hmd-tw-state-warning-background: theme("colors.amber.400-10");
+    --hmd-tw-state-warning-border: theme("colors.amber.500");
+    --hmd-tw-state-warning-border-subtle: rgba(251, 191, 36, 0.2);
+    --hmd-tw-state-warning-default: theme("colors.amber.500");
+    --hmd-tw-state-danger-text: theme("colors.red.400");
+    --hmd-tw-state-danger-icon: theme("colors.red.400");
+    --hmd-tw-state-danger-bg-light: theme("colors.red.500-20");
+    --hmd-tw-state-danger-bg-default: theme("colors.red.500");
+    --hmd-tw-state-danger-bg-hover: theme("colors.red.400");
+    --hmd-tw-state-danger-border: theme("colors.red.400");
+    --hmd-tw-state-danger-border-subtle: rgba(239, 68, 68, 0.3);
+    --hmd-tw-state-danger-default: theme("colors.red.400");
+    --hmd-tw-state-default-background: theme("colors.zinc.600");
+    --hmd-tw-element-text-selected: theme("colors.white");
+    --hmd-tw-element-text-disabled: theme("colors.zinc.500");
+    --hmd-tw-element-bg-default: var(--hmd-tw-background-subtler);
+    --hmd-tw-element-bg-hover: theme("colors.zinc.700");
+    --hmd-tw-element-bg-disabled: theme("colors.zinc.750");
+    --hmd-tw-element-border-hover: theme("colors.zinc.500");
+    --hmd-tw-element-border-focus: theme("colors.zinc.500");
+    --hmd-tw-element-border-error: theme("colors.red.400");
+    --hmd-tw-element-border-disabled: var(--hmd-tw-border-subtler);
+    --hmd-tw-raised-bg-default: theme("colors.zinc.700");
+    --hmd-tw-raised-bg-hover: theme("colors.zinc.600");
+    --hmd-tw-raised-border-default: theme("colors.zinc.600");
+    --hmd-tw-raised-border-hover: theme("colors.zinc.500");
+    --hmd-tw-raised-icon-hover: theme("colors.zinc.50");
+    --hmd-tw-raised-icon-default: theme("colors.zinc.300");
+    --hmd-tw-link-text-default: theme("colors.primary.300");
+    --hmd-tw-link-text-hover: theme("colors.primary.200");
+    --hmd-tw-link-text-pressed: theme("colors.primary.200");
+    --hmd-tw-text-mark-comment-default: theme("colors.primary.600-30");
+    --hmd-tw-text-mark-comment-selected: theme("colors.primary.600-60");
+    --hmd-tw-text-mark-diff-del: theme("colors.red.500-20");
+    --hmd-tw-text-mark-diff-ins: theme("colors.emerald.400-30");
+    --hmd-tw-text-mark-suggest-default: rgba(64, 255, 106, 0.2);
+    --hmd-tw-text-mark-suggest-selected: rgba(64, 255, 106, 0.4);
+    --hmd-tw-text-mark-suggest-border: theme("colors.emerald.400");
+    --hmd-tw-text-mark-paragraph-bookmark-default: rgba(249, 115, 22, 0.2);
+    --hmd-tw-text-mark-paragraph-bookmark-selected: rgba(249, 115, 22, 0.4);
+    --hmd-tw-text-mark-paragraph-bookmark-border: #fdba74;
+    --hmd-tw-prime-border: theme("colors.amber.400");
+    --hmd-tw-prime-default: theme("colors.amber.400");
+    --hmd-tw-palette-amber-default: theme("colors.amber.300");
+    --hmd-tw-palette-emerald-default: theme("colors.emerald.300");
+    --hmd-tw-palette-pink-default: theme("colors.pink.300");
+    --hmd-tw-palette-sky-default: theme("colors.sky.400");
+    --hmd-tw-palette-green-default: theme("colors.green.300");
+    --hmd-tw-palette-orange-default: theme("colors.orange.300");
+    --hmd-tw-graph-pie-gray-bg: #d4d4d8;
+    --hmd-tw-graph-pie-label-text: black;
+    --hmd-tw-graph-bar-bg: rgba(48, 48, 54, 0.5);
+    --hmd-tw-community-note-card-book-border: theme("colors.zinc.500");
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background-default text-text-default;
   }
 }
