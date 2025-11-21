@@ -1,19 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
-import { getSettingsPath, readSettings, writeSettings } from '@/lib/utils';
+
+import { readSettings, writeSettings } from '@/lib/utils';
 
 export const useSettings = () => {
   return useQuery({
     queryKey: ['settings'],
-    queryFn: async () => {
-      try {
-        const content = await readSettings();
-        return content;
-      } catch (error) {
-        console.error('Failed to read settings:', error);
-        throw error;
-      }
-    },
+    queryFn: readSettings,
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 1,
   });
@@ -30,6 +23,7 @@ export const useUpdateSettings = () => {
         throw new Error('Invalid JSON format');
       }
       await writeSettings(content);
+
       return content;
     },
     onSuccess: (content) => {
@@ -40,13 +34,5 @@ export const useUpdateSettings = () => {
         console.error('Failed to apply settings:', error);
       });
     },
-  });
-};
-
-export const useSettingsPath = () => {
-  return useQuery({
-    queryKey: ['settings-path'],
-    queryFn: getSettingsPath,
-    staleTime: Infinity,
   });
 };
