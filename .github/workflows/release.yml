@@ -142,19 +142,19 @@ jobs:
 
   #   steps:
   #     - name: Checkout repo
-  #       uses: actions/checkout@v4
+  #       uses: actions/checkout@v5
   #       with:
   #         fetch-depth: 0 # Not needed if lastUpdated is not enabled
 
   #     - name: Install Pnpm
   #       uses: pnpm/action-setup@v2
   #       with:
-  #         version: 8
+  #         version: 9
 
   #     - name: Setup Node
-  #       uses: actions/setup-node@v3
+  #       uses: actions/setup-node@v5
   #       with:
-  #         node-version: 18
+  #         node-version: 20
   #         cache: pnpm
 
   #     - name: Setup Pages
@@ -192,7 +192,7 @@ jobs:
   #   needs: publish-release
   #   runs-on: ubuntu-latest
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: actions/checkout@v5
   #     - name: Install Vercel CLI
   #       run: npm install --global vercel
   #     - name: Pull Vercel Environment Information
