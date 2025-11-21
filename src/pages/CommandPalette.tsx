@@ -25,14 +25,14 @@ import {
 import { useTheme } from '@/components/theme-provider';
 import { Cmd } from '@/constants';
 
-interface Command {
+interface CommandConfig {
   value: string;
   label: string;
   Icon: React.ReactNode;
   shortcut?: string;
 }
 
-const DEFAULT_COMMANDS: Command[] = [
+const DEFAULT_COMMANDS: CommandConfig[] = [
   {
     value: '/new',
     label: 'New Note',

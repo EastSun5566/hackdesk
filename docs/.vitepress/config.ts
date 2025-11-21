@@ -1,6 +1,6 @@
 import { join } from 'path';
 import { writeFile } from 'node:fs/promises';
-import { defineConfig } from 'vitepress'
+import { defineConfig } from 'vitepress';
 
 import { getUpdaterJson } from './utils';
 import { 
@@ -10,7 +10,7 @@ import {
   GITHUB_AUTHOR_URL,
   REPO_URL,
   GA_URL,
-  GA_SCRIPT
+  GA_SCRIPT,
 } from './constans';
 
 // https://vitepress.dev/reference/site-config
@@ -36,11 +36,11 @@ export default defineConfig({
     logo: '/logo.png',
 
     search: {
-      provider: 'local'
+      provider: 'local',
     },
 
     nav: [
-      { text: 'Guide', link: '/intro' }
+      { text: 'Guide', link: '/intro' },
     ],
 
     sidebar: [
@@ -52,17 +52,17 @@ export default defineConfig({
           { text: 'Features', link: '/features' },
           { text: 'Config', link: '/config' },
           { text: 'Issues', link: '/issues' },
-        ]
-      }
+        ],
+      },
     ],
 
     socialLinks: [
-      { icon: 'github', link: REPO_URL }
+      { icon: 'github', link: REPO_URL },
     ],
 
     footer: {
       message: `Released under the <a href="${REPO_URL}/blob/main/LICENSE" target="_blank">AGPL License</a>.`,
-      copyright: `Made with ❤️ By <a href="${GITHUB_AUTHOR_URL}" target="_blank">@EastSun5566</a> | The logo credit goes to <a href="https://github.com/Yukaii" target="_blank">@Yukaii</a>`
+      copyright: `Made with ❤️ By <a href="${GITHUB_AUTHOR_URL}" target="_blank">@EastSun5566</a> | The logo credit goes to <a href="https://github.com/Yukaii" target="_blank">@Yukaii</a>`,
     },
   },
 
@@ -70,7 +70,7 @@ export default defineConfig({
 
   async buildEnd({ outDir }) {
     // write the latest release json to dist
-    const updaterJson = await getUpdaterJson()
-    await writeFile(join(outDir, 'latest.json'), updaterJson)
+    const updaterJson = await getUpdaterJson();
+    await writeFile(join(outDir, 'latest.json'), updaterJson);
   },
-})
+});

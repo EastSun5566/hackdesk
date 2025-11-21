@@ -1,5 +1,5 @@
 import { GITHUB_LATEST_RELEASE_URL } from './constans';
-import { GitHubRelease, UpdaterJson } from './types';
+import type { GitHubRelease } from './types';
 
 export async function getLatestGithubRelease(): Promise<GitHubRelease> {
   const response = await fetch(GITHUB_LATEST_RELEASE_URL);
@@ -13,7 +13,7 @@ async function get(url: string): Promise<string> {
       headers: { 'Content-Type': 'application/octet-stream' },
     });
     return response.text();
-  } catch (_) {
+  } catch {
     return '';
   }
 }
@@ -21,5 +21,5 @@ async function get(url: string): Promise<string> {
 export async function getUpdaterJson() {
   const { assets } = await getLatestGithubRelease();
   const url = assets.find((asset) => asset.name === 'latest.json')?.browser_download_url || '';
-  return await get(url)
+  return await get(url);
 }
