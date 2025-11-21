@@ -74,14 +74,20 @@ export function Settings() {
 
   useEffect(() => {
     (async () => {
-      setFilePath(await getSettingsPath());
-      const settings = await readSettings();
-      if (!settings) {
-        writeContent(SETTING_JSON_STRING);
+      try {
+        setFilePath(await getSettingsPath());
+        const settings = await readSettings();
+        if (!settings) {
+          await writeContent(SETTING_JSON_STRING);
+          setContent(SETTING_JSON_STRING);
+          return;
+        }
+        setContent(settings);
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+        // Fall back to default settings on error
         setContent(SETTING_JSON_STRING);
-        return;
       }
-      setContent(settings);
     })();
   }, []);
 

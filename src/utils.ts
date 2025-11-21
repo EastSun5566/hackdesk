@@ -29,10 +29,20 @@ export async function getSettingsPath() {
 }
 
 export async function readSettings() {
-  return await readTextFile(await getSettingsPath());
+  try {
+    return await readTextFile(await getSettingsPath());
+  } catch (error) {
+    console.error('Failed to read settings:', error);
+    return null;
+  }
 }
 
 export async function writeSettings(content: string) {
-  const setting = await getSettingsPath();
-  await writeTextFile(await join(setting), content);
+  try {
+    const setting = await getSettingsPath();
+    await writeTextFile(setting, content);
+  } catch (error) {
+    console.error('Failed to write settings:', error);
+    throw error;
+  }
 }
