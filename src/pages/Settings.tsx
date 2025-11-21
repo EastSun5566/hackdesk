@@ -1,13 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import MonacoEditor from '@monaco-editor/react';
+import { toast } from 'sonner';
 
 import { useTheme } from '@/components/theme-provider';
-import { 
-  debounce,
-  getSettingsPath,
-  readSettings,
-  writeSettings,
-} from '@/utils';
+import { useSettings, useUpdateSettings } from '@/lib/query';
 import SETTINGS_JSON from '@/../src-tauri/src/app/settings.json';
 
 interface EditorProps {
@@ -26,15 +22,14 @@ function Editor ({
   const [content, setContent] = useState('');
   useEffect(() => {
     setContent(defaultValue);
-    onChange && onChange(defaultValue);
-  }, [defaultValue, onChange]);
+  }, [defaultValue]);
 
   const handleChange = (value: string = '') => {
-    onChange && onChange(value);
+    if (onChange) {
+      onChange(value);
+    }
     setContent(value);
   };
-
-  console.log(theme);
 
   return (
     <div className="w-full h-screen">
@@ -51,44 +46,62 @@ function Editor ({
 const SETTING_JSON_STRING = JSON.stringify(SETTINGS_JSON, null, 2);
 
 export function Settings() {
-  const isInit = useRef(true);
-  const [content, setContent] = useState('');
-  const [, setFilePath] = useState('');
+  const { data: settings } = useSettings();
+  const updateSettings = useUpdateSettings();
+  const [localContent, setLocalContent] = useState('');
+  const [hasChanges, setHasChanges] = useState(false);
 
+  // Initialize content when settings are loaded
   useEffect(() => {
-    return () => {
-      if (!isInit.current) {
-        window.location.reload();
-        return;
-      }
+    if (settings) {
+      setLocalContent(settings);
+    } else {
+      setLocalContent(SETTING_JSON_STRING);
+    }
+  }, [settings]);
 
-      isInit.current = false;
-    };
-  }, []);
-
-  const writeContent = async (value?: string) => {
-    writeSettings(value || SETTING_JSON_STRING);
+  // Handle content changes
+  const handleContentChange = (value?: string) => {
+    setLocalContent(value || '');
+    setHasChanges(value !== settings);
   };
 
-  const handleEdit = debounce(writeContent, 500);
+  // Save settings
+  const handleSave = useCallback(() => {
+    if (!hasChanges) {
+      toast.info('No changes to save');
+      return;
+    }
 
+    updateSettings.mutate(localContent, {
+      onSuccess: () => {
+        toast.success('Settings saved successfully');
+        setHasChanges(false);
+      },
+      onError: (error) => {
+        toast.error(`Failed to save: ${error.message}`);
+      },
+    });
+  }, [hasChanges, localContent, updateSettings]);
+
+  // Cmd+S / Ctrl+S to save
   useEffect(() => {
-    (async () => {
-      setFilePath(await getSettingsPath());
-      const settings = await readSettings();
-      if (!settings) {
-        writeContent(SETTING_JSON_STRING);
-        setContent(SETTING_JSON_STRING);
-        return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        handleSave();
       }
-      setContent(settings);
-    })();
-  }, []);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSave]);
 
   return (
-    <Editor
-      defaultValue={content}
-      onChange={handleEdit}
-    />
+    <div className="relative h-screen">
+      <Editor
+        defaultValue={localContent}
+        onChange={handleContentChange}
+      />
+    </div>
   );
 }

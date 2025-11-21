@@ -3,7 +3,7 @@ import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { ROOT, SETTINGS_NAME } from './constants';
+import { ROOT, SETTINGS_NAME } from '../constants';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -33,6 +33,5 @@ export async function readSettings() {
 }
 
 export async function writeSettings(content: string) {
-  const setting = await getSettingsPath();
-  await writeTextFile(await join(setting), content);
+  await writeTextFile(await getSettingsPath(), content);
 }

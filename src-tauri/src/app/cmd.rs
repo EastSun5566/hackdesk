@@ -99,3 +99,8 @@ pub fn open_link(_app: AppHandle, url: String) {
     use tauri_plugin_opener::OpenerExt;
     let _ = _app.opener().open_url(url, None::<&str>);
 }
+
+#[command]
+pub fn apply_settings(app: AppHandle) -> Result<(), String> {
+    utils::apply_settings(&app).map_err(|e| format!("Failed to apply settings: {}", e))
+}

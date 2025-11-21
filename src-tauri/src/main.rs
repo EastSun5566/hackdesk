@@ -17,6 +17,7 @@ async fn main() {
             cmd::open_command_palette_window,
             cmd::open_settings_window,
             cmd::run_script,
+            cmd::apply_settings,
             // because window.open not working {@link https://github.com/tauri-apps/wry/issues/649}
             cmd::open_link
         ])
