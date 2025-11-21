@@ -47,6 +47,7 @@
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.17",
     "@tauri-apps/cli": "^2.9.4",
     "@types/node": "^20.19.25",
     "@types/react": "^18.3.27",
@@ -54,7 +55,6 @@
     "@typescript-eslint/eslint-plugin": "^8.18.2",
     "@typescript-eslint/parser": "^8.18.2",
     "@vitejs/plugin-react": "^4.3.4",
-    "autoprefixer": "^10.4.22",
     "eslint": "^9.17.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.1.0",
@@ -62,7 +62,7 @@
     "lint-staged": "^15.5.2",
     "postcss": "^8.5.6",
     "simple-git-hooks": "^2.13.1",
-    "tailwindcss": "^3.4.18",
+    "tailwindcss": "^4.1.17",
     "typescript": "^5.9.3",
     "vite": "^7.2.4",
     "vitepress": "1.0.0-rc.24"
