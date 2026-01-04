@@ -88,6 +88,15 @@
     "core:tray:allow-set-icon-as-template",
     "core:tray:allow-set-show-menu-on-left-click",
     "opener:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "https://*" },
+        { "url": "http://*" },
+        { "url": "mailto:*" },
+        { "url": "tel:*" }
+      ]
+    },
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",
     "fs:allow-exists",
