@@ -1,26 +1,28 @@
 use log::info;
-use tauri::{App, WebviewUrl, WebviewWindowBuilder};
+use tauri::{App, Manager};
+
+#[cfg(target_os = "macos")]
+use crate::app::mac::set_transparent_title_bar;
 
 use crate::{
-    app::conf::{DEFAULT_TITLE, DEFAULT_URL, INIT_SCRIPT, MAIN_WINDOW_LABEL, SETTINGS_NAME},
+    app::conf::{INIT_SCRIPT, MAIN_WINDOW_LABEL, SETTINGS_NAME},
     utils,
 };
 
 pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     info!("setup");
 
-    // main window
-    WebviewWindowBuilder::new(
-        app,
-        MAIN_WINDOW_LABEL,
-        WebviewUrl::App(DEFAULT_URL.parse()?),
-    )
-    .inner_size(800.0, 600.0)
-    .fullscreen(false)
-    .resizable(true)
-    .title(DEFAULT_TITLE)
-    .initialization_script(INIT_SCRIPT)
-    .build()?;
+    // Get the main window that was created from config
+    let main_window = app
+        .get_webview_window(MAIN_WINDOW_LABEL)
+        .expect("Main window should exist");
+
+    // Apply initialization script
+    main_window.eval(INIT_SCRIPT)?;
+
+    // Apply transparent titlebar on macOS
+    #[cfg(target_os = "macos")]
+    set_transparent_title_bar(&main_window, true, false);
 
     let app_handle = app.handle();
 

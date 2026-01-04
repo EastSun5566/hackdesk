@@ -37,7 +37,19 @@
   },
   "app": {
     "macOSPrivateApi": true,
-    "windows": [],
+    "windows": [
+      {
+        "label": "main",
+        "url": "https://hackmd.io/login",
+        "width": 800,
+        "height": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "title": "HackDesk",
+        "titleBarStyle": "transparent",
+        "hiddenTitle": true
+      }
+    ],
     "security": {
       "csp": null,
       "capabilities": ["main-capability"]
