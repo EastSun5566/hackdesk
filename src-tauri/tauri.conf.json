@@ -37,6 +37,7 @@
   },
   "app": {
     "macOSPrivateApi": true,
+    "withGlobalTauri": true,
     "windows": [],
     "security": {
       "csp": null,
