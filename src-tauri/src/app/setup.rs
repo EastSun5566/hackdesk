@@ -1,5 +1,6 @@
 use log::info;
-use tauri::{App, WebviewUrl, WebviewWindowBuilder};
+use tauri::{App, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_opener::OpenerExt;
 
 #[cfg(target_os = "macos")]
 use crate::app::mac::set_transparent_title_bar;
@@ -12,6 +13,8 @@ use crate::{
 pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     info!("setup");
 
+    let app_handle_for_new_window = app.handle().clone();
+
     // main window
     let main_window = WebviewWindowBuilder::new(
         app,
@@ -23,6 +26,15 @@ pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     .resizable(true)
     .title(DEFAULT_TITLE)
     .initialization_script(INIT_SCRIPT)
+    .on_new_window(move |url, _features| {
+        // Handle window.open() and similar JavaScript navigation requests
+        // by opening URLs externally in the default browser
+        info!("New window requested for URL: {}", url);
+        let _ = app_handle_for_new_window
+            .opener()
+            .open_url(url.as_str(), None::<&str>);
+        tauri::webview::NewWindowResponse::Deny
+    })
     .build()?;
 
     // Apply transparent titlebar on macOS

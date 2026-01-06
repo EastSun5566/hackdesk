@@ -18,7 +18,8 @@ async fn main() {
             cmd::open_settings_window,
             cmd::run_script,
             cmd::apply_settings,
-            // because window.open not working {@link https://github.com/tauri-apps/wry/issues/649}
+            // Legacy workaround for links with target="_blank" {@link https://github.com/tauri-apps/wry/issues/649}
+            // window.open() is now handled via on_new_window handler in setup.rs
             cmd::open_link
         ])
         .setup(setup::init)
