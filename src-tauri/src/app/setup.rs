@@ -1,4 +1,4 @@
-use log::info;
+use log::{error, info, warn};
 use tauri::{App, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_opener::OpenerExt;
 
@@ -29,24 +29,26 @@ pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     .on_new_window(move |url, _features| {
         // Handle window.open() and similar JavaScript navigation requests
         // by opening URLs externally in the default browser
-        info!("New window requested for URL: {}", url);
 
         // Validate URL scheme for security - only allow http(s) and mailto
         let scheme = url.scheme();
         if scheme != "http" && scheme != "https" && scheme != "mailto" {
-            log::warn!(
+            warn!(
                 "Blocked new window request for unsupported scheme: {}",
                 scheme
             );
             return tauri::webview::NewWindowResponse::Deny;
         }
 
+        // Log validated URL
+        info!("New window requested for URL: {}", url);
+
         // Open URL externally and log any errors
         if let Err(e) = app_handle_for_new_window
             .opener()
             .open_url(url.as_str(), None::<&str>)
         {
-            log::error!("Failed to open URL {}: {}", url, e);
+            error!("Failed to open URL {}: {}", url, e);
         }
 
         tauri::webview::NewWindowResponse::Deny
