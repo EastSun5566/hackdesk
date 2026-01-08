@@ -30,9 +30,25 @@ pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         // Handle window.open() and similar JavaScript navigation requests
         // by opening URLs externally in the default browser
         info!("New window requested for URL: {}", url);
-        let _ = app_handle_for_new_window
+
+        // Validate URL scheme for security - only allow http(s) and mailto
+        let scheme = url.scheme();
+        if scheme != "http" && scheme != "https" && scheme != "mailto" {
+            log::warn!(
+                "Blocked new window request for unsupported scheme: {}",
+                scheme
+            );
+            return tauri::webview::NewWindowResponse::Deny;
+        }
+
+        // Open URL externally and log any errors
+        if let Err(e) = app_handle_for_new_window
             .opener()
-            .open_url(url.as_str(), None::<&str>);
+            .open_url(url.as_str(), None::<&str>)
+        {
+            log::error!("Failed to open URL {}: {}", url, e);
+        }
+
         tauri::webview::NewWindowResponse::Deny
     })
     .build()?;
