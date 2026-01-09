@@ -96,8 +96,23 @@ pub fn run_script(app: AppHandle, script: &str) {
 
 #[command]
 pub fn open_link(_app: AppHandle, url: String) {
+    use log::{error, warn};
     use tauri_plugin_opener::OpenerExt;
-    let _ = _app.opener().open_url(url, None::<&str>);
+
+    // Validate URL scheme for security - only allow http(s) and mailto
+    let scheme = url.split(':').next().unwrap_or("");
+    if scheme != "http" && scheme != "https" && scheme != "mailto" {
+        warn!(
+            "Blocked open_link request for unsupported scheme: {}",
+            scheme
+        );
+        return;
+    }
+
+    // Open validated URL externally and log any errors
+    if let Err(e) = _app.opener().open_url(&url, None::<&str>) {
+        error!("Failed to open URL {}: {}", url, e);
+    }
 }
 
 #[command]
