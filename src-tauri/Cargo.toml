@@ -1,13 +1,18 @@
 [package]
 name = "hackdesk"
-version = "0.0.3"
+version = "0.0.7"
 description = "📝 A hackable HackMD desktop application"
 authors = ["Michael Wang <michael19920327@gmail.com> (https://github.com/EastSun5566)"]
 license = "AGPL-3.0"
 repository = "https://github.com/EastSun5566/hackdesk"
 edition = "2021"
 
+[lib]
+name = "hackdesk"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -25,9 +30,18 @@ log = "0.4.20"
 anyhow = "1.0.75"
 dirs = "5.0"
 window-vibrancy = "0.5.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.24.0"
+
+[profile.release]
+opt-level = "z"     # Optimize for binary size
+lto = true          # Link Time Optimization
+codegen-units = 1   # Single codegen unit for better optimization
+strip = true        # Strip symbols from binary
+panic = "abort"     # Reduce panic handling code size
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem
