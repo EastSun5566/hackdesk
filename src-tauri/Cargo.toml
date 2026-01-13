@@ -30,6 +30,8 @@ log = "0.4.20"
 anyhow = "1.0.75"
 dirs = "5.0"
 window-vibrancy = "0.5.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.24.0"

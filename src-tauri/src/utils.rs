@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use serde_json::{self, json};
 use tauri::{AppHandle, Manager};
+use tracing::{error, info, warn};
 
 use crate::app::conf::{DEFAULT_SETTINGS, DEFAULT_TITLE, MAIN_WINDOW_LABEL, ROOT, SETTINGS_NAME};
 
@@ -13,10 +14,18 @@ pub fn exists(path: &Path) -> bool {
 
 pub fn create_file(path: &Path) -> Result<File> {
     if let Some(p) = path.parent() {
-        fs::create_dir_all(p)?
+        info!("Creating directory: {:?}", p);
+        fs::create_dir_all(p).map_err(|e| {
+            error!("Failed to create directory {:?}: {}", p, e);
+            e
+        })?;
     }
 
-    File::create(path).map_err(Into::into)
+    info!("Creating file: {:?}", path);
+    File::create(path).map_err(|e| {
+        error!("Failed to create file {:?}: {}", path, e);
+        e.into()
+    })
 }
 
 pub fn get_root_path(path: &str) -> PathBuf {
@@ -33,36 +42,53 @@ pub fn read_json(content: &str) -> serde_json::Result<serde_json::Value> {
 }
 
 pub fn init_settings(app: &AppHandle) -> Result<()> {
+    info!("Initializing settings file");
     let settings_path = &get_root_path(SETTINGS_NAME);
 
     // create `settings.json`
     create_file(settings_path)?;
-    fs::write(settings_path, DEFAULT_SETTINGS)?;
+    fs::write(settings_path, DEFAULT_SETTINGS).map_err(|e| {
+        error!("Failed to write default settings: {}", e);
+        e
+    })?;
 
     // read settings
     let settings_json = read_json(DEFAULT_SETTINGS)?;
 
-    // TODO: theme {@link https://github.com/tauri-apps/tauri/issues/5279}
-    // let theme = &setting_json["theme"].as_str().unwrap();
-
     // set title
     let title = settings_json["title"].as_str().unwrap_or(DEFAULT_TITLE);
     if let Some(main_window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
-        main_window.set_title(title)?;
+        info!("Setting window title to: {}", title);
+        main_window.set_title(title).map_err(|e| {
+            error!("Failed to set window title: {}", e);
+            e
+        })?;
     }
 
     Ok(())
 }
 
 pub fn apply_settings(app: &AppHandle) -> Result<()> {
+    info!("Applying settings from file");
     let settings_path = get_root_path(SETTINGS_NAME);
-    let settings = fs::read_to_string(settings_path)?;
-    let settings_json = read_json(&settings).unwrap_or_else(|_| json!({ "title": DEFAULT_TITLE }));
+    let settings = fs::read_to_string(&settings_path).map_err(|e| {
+        error!("Failed to read settings file: {}", e);
+        e
+    })?;
+
+    let settings_json = read_json(&settings).unwrap_or_else(|e| {
+        warn!("Failed to parse settings, using defaults: {}", e);
+        json!({ "title": DEFAULT_TITLE })
+    });
 
     // set title
     let title = settings_json["title"].as_str().unwrap_or(DEFAULT_TITLE);
     if let Some(main_window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
-        main_window.set_title(title)?;
+        info!("Setting window title to: {}", title);
+        main_window.set_title(title).map_err(|e| {
+            error!("Failed to set window title: {}", e);
+            e
+        })?;
     }
 
     Ok(())

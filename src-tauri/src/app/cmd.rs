@@ -15,6 +15,8 @@ use crate::{
 #[cfg(target_os = "macos")]
 use crate::app::mac::set_transparent_title_bar;
 
+use tracing::{error, info};
+
 /// Safe, predefined actions that can be executed in the main window
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", content = "data")]
@@ -31,9 +33,12 @@ pub enum SafeScript {
 
 #[command]
 pub fn execute_action(app: AppHandle, action: SafeScript) -> Result<(), String> {
-    let win = app
-        .get_webview_window(MAIN_WINDOW_LABEL)
-        .ok_or("Main window not found")?;
+    info!("Executing action: {:?}", action);
+
+    let win = app.get_webview_window(MAIN_WINDOW_LABEL).ok_or_else(|| {
+        error!("Main window not found");
+        "Main window not found".to_string()
+    })?;
 
     match action {
         SafeScript::Navigate { path } => {
@@ -47,20 +52,28 @@ pub fn execute_action(app: AppHandle, action: SafeScript) -> Result<(), String> 
                 path.replace('\'', "\\'")
             );
 
-            win.eval(&script)
-                .map_err(|e| format!("Failed to navigate: {}", e))?;
+            win.eval(&script).map_err(|e| {
+                error!("Failed to navigate to {}: {}", path, e);
+                format!("Failed to navigate: {}", e)
+            })?;
         }
         SafeScript::GoForward => {
-            win.eval("window.history.forward()")
-                .map_err(|e| format!("Failed to go forward: {}", e))?;
+            win.eval("window.history.forward()").map_err(|e| {
+                error!("Failed to go forward: {}", e);
+                format!("Failed to go forward: {}", e)
+            })?;
         }
         SafeScript::GoBack => {
-            win.eval("window.history.back()")
-                .map_err(|e| format!("Failed to go back: {}", e))?;
+            win.eval("window.history.back()").map_err(|e| {
+                error!("Failed to go back: {}", e);
+                format!("Failed to go back: {}", e)
+            })?;
         }
         SafeScript::Reload => {
-            win.eval("window.location.reload()")
-                .map_err(|e| format!("Failed to reload: {}", e))?;
+            win.eval("window.location.reload()").map_err(|e| {
+                error!("Failed to reload: {}", e);
+                format!("Failed to reload: {}", e)
+            })?;
         }
     }
 
@@ -69,8 +82,15 @@ pub fn execute_action(app: AppHandle, action: SafeScript) -> Result<(), String> 
 
 #[command]
 pub fn open_command_palette_window(app: AppHandle) {
+    info!("Opening command palette window");
+
     let win = app.get_webview_window(COMMAND_PALETTE_WINDOW_LABEL);
-    if win.is_none() {
+    if win.is_some() {
+        info!("Command palette window already exists");
+        return;
+    }
+
+    {
         let command_palette_win = WebviewWindowBuilder::new(
             &app,
             COMMAND_PALETTE_WINDOW_LABEL,

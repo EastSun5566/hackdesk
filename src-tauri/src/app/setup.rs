@@ -1,5 +1,5 @@
-use log::info;
 use tauri::{App, WebviewUrl, WebviewWindowBuilder};
+use tracing::{error, info};
 
 #[cfg(target_os = "macos")]
 use crate::app::mac::set_transparent_title_bar;
@@ -13,9 +13,10 @@ use crate::{
 };
 
 pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
-    info!("setup");
+    info!("Initializing HackDesk application");
 
     // main window
+    info!("Creating main window");
     let main_window = WebviewWindowBuilder::new(
         app,
         MAIN_WINDOW_LABEL,
@@ -26,7 +27,11 @@ pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     .resizable(true)
     .title(DEFAULT_TITLE)
     .initialization_script(INIT_SCRIPT)
-    .build()?;
+    .build()
+    .map_err(|e| {
+        error!("Failed to create main window: {}", e);
+        e
+    })?;
 
     // Apply transparent titlebar on macOS
     #[cfg(target_os = "macos")]
@@ -37,12 +42,23 @@ pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     // check `~/.hackdesk/settings.json`
     let settings_path = &utils::get_root_path(SETTINGS_NAME);
     match utils::exists(settings_path) {
-        true => utils::apply_settings(app_handle)?,
-        false => utils::init_settings(app_handle)?,
+        true => {
+            info!("Applying existing settings");
+            utils::apply_settings(app_handle)?
+        }
+        false => {
+            info!("Initializing default settings");
+            utils::init_settings(app_handle)?
+        }
     }
 
     // Initialize tray icon
-    crate::app::tray::init(app_handle)?;
+    info!("Initializing tray icon");
+    crate::app::tray::init(app_handle).map_err(|e| {
+        error!("Failed to initialize tray: {}", e);
+        e
+    })?;
 
+    info!("Application initialization complete");
     Ok(())
 }
