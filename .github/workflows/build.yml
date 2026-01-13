@@ -51,8 +51,14 @@ jobs:
           node-version: 20
           cache: pnpm
 
-      - name: Install frontend deps
+      - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Check version sync
+        run: pnpm run version:check
+
+      - name: Run tests
+        run: pnpm test
 
       - name: Build the app
         uses: tauri-apps/tauri-action@v0

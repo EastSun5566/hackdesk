@@ -179,3 +179,64 @@ pub fn open_link(_app: AppHandle, url: String) {
 pub fn apply_settings(app: AppHandle) -> Result<(), String> {
     utils::apply_settings(&app).map_err(|e| format!("Failed to apply settings: {}", e))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_safe_script_navigate_serialization() {
+        let action = SafeScript::Navigate {
+            path: "/new".to_string(),
+        };
+        let json = serde_json::to_string(&action).unwrap();
+        assert!(json.contains("\"type\":\"Navigate\""));
+        assert!(json.contains("\"/new\""));
+    }
+
+    #[test]
+    fn test_safe_script_navigate_deserialization() {
+        let json = r#"{"type":"Navigate","data":{"path":"/settings"}}"#;
+        let action: SafeScript = serde_json::from_str(json).unwrap();
+        match action {
+            SafeScript::Navigate { path } => assert_eq!(path, "/settings"),
+            _ => panic!("Expected Navigate variant"),
+        }
+    }
+
+    #[test]
+    fn test_safe_script_go_forward() {
+        let action = SafeScript::GoForward;
+        let json = serde_json::to_string(&action).unwrap();
+        assert!(json.contains("\"type\":\"GoForward\""));
+    }
+
+    #[test]
+    fn test_safe_script_go_back() {
+        let action = SafeScript::GoBack;
+        let json = serde_json::to_string(&action).unwrap();
+        assert!(json.contains("\"type\":\"GoBack\""));
+    }
+
+    #[test]
+    fn test_safe_script_reload() {
+        let action = SafeScript::Reload;
+        let json = serde_json::to_string(&action).unwrap();
+        assert!(json.contains("\"type\":\"Reload\""));
+    }
+
+    #[test]
+    fn test_safe_script_all_variants_deserialize() {
+        let variants = vec![
+            r#"{"type":"Navigate","data":{"path":"/"}}"#,
+            r#"{"type":"GoForward"}"#,
+            r#"{"type":"GoBack"}"#,
+            r#"{"type":"Reload"}"#,
+        ];
+
+        for json in variants {
+            let result: Result<SafeScript, _> = serde_json::from_str(json);
+            assert!(result.is_ok(), "Failed to deserialize: {}", json);
+        }
+    }
+}
