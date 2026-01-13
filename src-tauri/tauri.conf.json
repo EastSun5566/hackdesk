@@ -40,8 +40,50 @@
     "withGlobalTauri": true,
     "windows": [],
     "security": {
-      "csp": null,
-      "capabilities": ["main-capability"]
+      "csp": {
+        "default-src": "'self'",
+        "connect-src": [
+          "'self'",
+          "https://hackmd.io",
+          "https://*.hackmd.io",
+          "https://hackmd.io/*",
+          "wss://hackmd.io",
+          "wss://*.hackmd.io"
+        ],
+        "script-src": [
+          "'self'",
+          "'unsafe-eval'"
+        ],
+        "style-src": [
+          "'self'",
+          "'unsafe-inline'"
+        ],
+        "img-src": [
+          "'self'",
+          "https:",
+          "http:",
+          "data:",
+          "blob:"
+        ],
+        "font-src": [
+          "'self'",
+          "data:"
+        ],
+        "media-src": [
+          "'self'",
+          "https:",
+          "http:",
+          "data:",
+          "blob:"
+        ],
+        "worker-src": [
+          "'self'",
+          "blob:"
+        ]
+      },
+      "capabilities": [
+        "main-capability"
+      ]
     },
     "trayIcon": {
       "iconPath": "icons/icon.png"
@@ -50,7 +92,9 @@
   "plugins": {
     "updater": {
       "active": true,
-      "endpoints": ["https://hackdesk.vercel.app/latest.json"],
+      "endpoints": [
+        "https://hackdesk.vercel.app/latest.json"
+      ],
       "dialog": true,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVEMkZGNDE2MUY2MUZBQjIKUldTeSttRWZGdlF2WFkxMGlRejhwejFobnNiU0p5MGxPOTlKVmlGWS82Um5aVmszWTZNQnNmeFcK"
     }

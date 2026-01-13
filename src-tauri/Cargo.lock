@@ -1503,7 +1503,7 @@ dependencies = [
 
 [[package]]
 name = "hackdesk"
-version = "0.0.3"
+version = "0.0.7"
 dependencies = [
  "anyhow",
  "cocoa",

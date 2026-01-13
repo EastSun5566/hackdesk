@@ -1,13 +1,18 @@
 [package]
 name = "hackdesk"
-version = "0.0.3"
+version = "0.0.7"
 description = "📝 A hackable HackMD desktop application"
 authors = ["Michael Wang <michael19920327@gmail.com> (https://github.com/EastSun5566)"]
 license = "AGPL-3.0"
 repository = "https://github.com/EastSun5566/hackdesk"
 edition = "2021"
 
+[lib]
+name = "hackdesk"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

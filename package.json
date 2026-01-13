@@ -17,6 +17,8 @@
     "lint:ts": "eslint . --fix --cache",
     "lint:rs": "cd src-tauri && cargo fmt && cargo clippy --fix --allow-dirty --allow-staged && cd -",
     "lint": "pnpm run lint:ts && pnpm run lint:rs",
+    "version:check": "node scripts/check-version.js",
+    "prerelease": "pnpm run version:check",
     "release": "npx standard-version && git push --follow-tags",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
