@@ -5,7 +5,10 @@ use tauri::{App, WebviewUrl, WebviewWindowBuilder};
 use crate::app::mac::set_transparent_title_bar;
 
 use crate::{
-    app::conf::{DEFAULT_TITLE, DEFAULT_URL, INIT_SCRIPT, MAIN_WINDOW_LABEL, SETTINGS_NAME},
+    app::conf::{
+        DEFAULT_TITLE, DEFAULT_URL, INIT_SCRIPT, MAIN_WINDOW_HEIGHT, MAIN_WINDOW_LABEL,
+        MAIN_WINDOW_WIDTH, SETTINGS_NAME,
+    },
     utils,
 };
 
@@ -18,7 +21,7 @@ pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         MAIN_WINDOW_LABEL,
         WebviewUrl::App(DEFAULT_URL.parse()?),
     )
-    .inner_size(800.0, 600.0)
+    .inner_size(MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT)
     .fullscreen(false)
     .resizable(true)
     .title(DEFAULT_TITLE)

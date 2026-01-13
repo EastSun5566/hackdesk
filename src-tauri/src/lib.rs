@@ -14,9 +14,10 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
+            cmd::execute_action,
             cmd::open_command_palette_window,
             cmd::open_settings_window,
-            cmd::run_script,
+            cmd::run_script, // TODO: deprecated, remove after frontend migration
             cmd::apply_settings,
             // because window.open not working {@link https://github.com/tauri-apps/wry/issues/649}
             cmd::open_link

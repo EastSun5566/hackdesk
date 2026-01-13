@@ -97,15 +97,29 @@ const DEFAULT_COMMANDS: CommandConfig[] = [
 ];
 
 function redirect(path: string) {
-  invoke(Cmd.RUN_SCRIPT, { script: `window.location.href = '${path}'` });
+  invoke(Cmd.EXECUTE_ACTION, {
+    action: {
+      type: 'Navigate',
+      data: { path },
+    },
+  });
 }
 
 function go(direction: 'forward' | 'back') {
-  invoke(Cmd.RUN_SCRIPT, { script: `window.history.${direction}()` });
+  const actionType = direction === 'forward' ? 'GoForward' : 'GoBack';
+  invoke(Cmd.EXECUTE_ACTION, {
+    action: {
+      type: actionType,
+    },
+  });
 }
 
 function reload() {
-  invoke(Cmd.RUN_SCRIPT, { script: 'window.location.reload()' });
+  invoke(Cmd.EXECUTE_ACTION, {
+    action: {
+      type: 'Reload',
+    },
+  });
 }
 
 const commandPaletteWindow = getCurrentWebviewWindow();
@@ -145,13 +159,13 @@ export function CommandPalette() {
 
   return (
     <Command className="rounded-lg shadow-md" loop>
-      <CommandInput 
+      <CommandInput
         placeholder="Type a command or search..."
         autoFocus
         autoComplete="off"
         spellCheck={false}
       />
-      
+
       <CommandList className='max-h-[267px] overflow-y-auto'>
         <CommandEmpty>No results found.</CommandEmpty>
         <CommandGroup heading="Navigation">
@@ -167,7 +181,7 @@ export function CommandPalette() {
                 {shortcut && (<CommandShortcut>{shortcut}</CommandShortcut>)}
               </CommandItem>
             ))
-          } 
+          }
         </CommandGroup>
 
         <CommandSeparator />
@@ -177,12 +191,12 @@ export function CommandPalette() {
             value="theme:Toggle theme"
             onSelect={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           >
-            {theme === 'dark' 
-              ? <Sun className="mr-2 h-4 w-4" /> 
+            {theme === 'dark'
+              ? <Sun className="mr-2 h-4 w-4" />
               : <Moon className="mr-2 h-4 w-4" />}
             <span>{
-              theme === 'dark' 
-                ? 'Light theme' 
+              theme === 'dark'
+                ? 'Light theme'
                 : 'Dark theme'
             }</span>
           </CommandItem>

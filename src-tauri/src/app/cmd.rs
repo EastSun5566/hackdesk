@@ -5,12 +5,67 @@ use tauri::{command, AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use window_vibrancy::{self, NSVisualEffectMaterial};
 
 use crate::{
-    app::conf::{COMMAND_PALETTE_WINDOW_LABEL, MAIN_WINDOW_LABEL, SETTINGS_WINDOW_LABEL},
+    app::conf::{
+        COMMAND_PALETTE_HEIGHT, COMMAND_PALETTE_WIDTH, COMMAND_PALETTE_WINDOW_LABEL,
+        MAIN_WINDOW_LABEL, SETTINGS_WINDOW_HEIGHT, SETTINGS_WINDOW_LABEL, SETTINGS_WINDOW_WIDTH,
+    },
     utils,
 };
 
 #[cfg(target_os = "macos")]
 use crate::app::mac::set_transparent_title_bar;
+
+/// Safe, predefined actions that can be executed in the main window
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type", content = "data")]
+pub enum SafeScript {
+    /// Navigate to a specific path on HackMD
+    Navigate { path: String },
+    /// Go forward in browser history
+    GoForward,
+    /// Go back in browser history
+    GoBack,
+    /// Reload the current page
+    Reload,
+}
+
+#[command]
+pub fn execute_action(app: AppHandle, action: SafeScript) -> Result<(), String> {
+    let win = app
+        .get_webview_window(MAIN_WINDOW_LABEL)
+        .ok_or("Main window not found")?;
+
+    match action {
+        SafeScript::Navigate { path } => {
+            // Validate that the path starts with / or is a valid HackMD path
+            if !path.starts_with('/') && !path.is_empty() {
+                return Err(format!("Invalid navigation path: {}", path));
+            }
+
+            let script = format!(
+                "window.location.href = 'https://hackmd.io{}'",
+                path.replace('\'', "\\'")
+            );
+
+            win.eval(&script)
+                .map_err(|e| format!("Failed to navigate: {}", e))?;
+        }
+        SafeScript::GoForward => {
+            win.eval("window.history.forward()")
+                .map_err(|e| format!("Failed to go forward: {}", e))?;
+        }
+        SafeScript::GoBack => {
+            win.eval("window.history.back()")
+                .map_err(|e| format!("Failed to go back: {}", e))?;
+        }
+        SafeScript::Reload => {
+            win.eval("window.location.reload()")
+                .map_err(|e| format!("Failed to reload: {}", e))?;
+        }
+    }
+
+    Ok(())
+}
 
 #[command]
 pub fn open_command_palette_window(app: AppHandle) {
@@ -21,7 +76,7 @@ pub fn open_command_palette_window(app: AppHandle) {
             COMMAND_PALETTE_WINDOW_LABEL,
             WebviewUrl::App("/command-palette".parse().unwrap()),
         )
-        .inner_size(560.0, 312.0)
+        .inner_size(COMMAND_PALETTE_WIDTH, COMMAND_PALETTE_HEIGHT)
         .always_on_top(true)
         .resizable(false)
         .transparent(true)
@@ -67,7 +122,7 @@ pub fn open_settings_window(app: AppHandle) {
                 SETTINGS_WINDOW_LABEL,
                 WebviewUrl::App("/settings".parse().unwrap()),
             )
-            .inner_size(800.0, 600.0)
+            .inner_size(SETTINGS_WINDOW_WIDTH, SETTINGS_WINDOW_HEIGHT)
             .center()
             .title("Settings")
             .build()

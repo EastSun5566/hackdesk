@@ -82,7 +82,9 @@
         ]
       },
       "capabilities": [
-        "main-capability"
+        "main-capability",
+        "settings-capability",
+        "command-palette-capability"
       ]
     },
     "trayIcon": {
