@@ -1,5 +1,8 @@
 // use std::fs;
+use log::{error, warn};
 use tauri::{command, AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_opener::OpenerExt;
+use url::Url;
 
 #[cfg(not(target_os = "linux"))]
 use window_vibrancy::{self, NSVisualEffectMaterial};
@@ -95,23 +98,27 @@ pub fn run_script(app: AppHandle, script: &str) {
 }
 
 #[command]
-pub fn open_link(_app: AppHandle, url: String) {
-    use log::{error, warn};
-    use tauri_plugin_opener::OpenerExt;
-
+pub fn open_link(app: AppHandle, url: String) {
     // Validate URL scheme for security - only allow http(s) and mailto
-    let scheme = url.split(':').next().unwrap_or("");
-    if scheme != "http" && scheme != "https" && scheme != "mailto" {
-        warn!(
-            "Blocked open_link request for unsupported scheme: {}",
-            scheme
-        );
-        return;
-    }
+    match Url::parse(&url) {
+        Ok(parsed_url) => {
+            let scheme = parsed_url.scheme();
+            if scheme != "http" && scheme != "https" && scheme != "mailto" {
+                warn!(
+                    "Blocked open_link request for unsupported scheme: {}",
+                    scheme
+                );
+                return;
+            }
 
-    // Open validated URL externally and log any errors
-    if let Err(e) = _app.opener().open_url(&url, None::<&str>) {
-        error!("Failed to open URL {}: {}", url, e);
+            // Open validated URL externally and log any errors
+            if let Err(e) = app.opener().open_url(&url, None::<&str>) {
+                error!("Failed to open URL {}: {}", url, e);
+            }
+        }
+        Err(e) => {
+            warn!("Blocked open_link request for invalid URL format: {}", e);
+        }
     }
 }
 
