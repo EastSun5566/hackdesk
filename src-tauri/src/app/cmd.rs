@@ -133,6 +133,8 @@ pub fn open_command_palette_window(app: AppHandle) {
 
 #[command]
 pub fn open_settings_window(app: AppHandle) {
+    info!("Opening settings window");
+
     let win = app.get_webview_window(SETTINGS_WINDOW_LABEL);
     if win.is_none() {
         std::thread::spawn(move || {
@@ -144,8 +146,14 @@ pub fn open_settings_window(app: AppHandle) {
             .inner_size(SETTINGS_WINDOW_WIDTH, SETTINGS_WINDOW_HEIGHT)
             .center()
             .title("Settings")
+            .decorations(false) // Remove title bar for cleaner UI
             .build()
             .unwrap();
+
+            // On macOS, hide the titlebar but keep window controls
+            // (false = keep close/minimize/resize buttons to prevent crashes)
+            #[cfg(target_os = "macos")]
+            set_transparent_title_bar(&settings_win, true, false);
 
             let app_clone = app.clone();
             settings_win.on_window_event(move |event| {
