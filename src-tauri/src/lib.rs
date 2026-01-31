@@ -28,7 +28,6 @@ pub fn run() {
             cmd::execute_action,
             cmd::open_command_palette_window,
             cmd::open_settings_window,
-            cmd::run_script, // TODO: deprecated, remove after frontend migration
             cmd::apply_settings,
             // because window.open not working {@link https://github.com/tauri-apps/wry/issues/649}
             cmd::open_link

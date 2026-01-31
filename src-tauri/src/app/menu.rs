@@ -86,7 +86,12 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
 pub fn handler(app: &AppHandle<Wry>, event: tauri::menu::MenuEvent) {
     match event.id().as_ref() {
         "new_note" => {
-            cmd::run_script(app.clone(), "window.location.href = '/new'");
+            let _ = cmd::execute_action(
+                app.clone(),
+                cmd::SafeScript::Navigate {
+                    path: "/new".to_string(),
+                },
+            );
         }
         "settings" => {
             cmd::open_settings_window(app.clone());
@@ -95,7 +100,7 @@ pub fn handler(app: &AppHandle<Wry>, event: tauri::menu::MenuEvent) {
             cmd::open_command_palette_window(app.clone());
         }
         "reload" => {
-            cmd::run_script(app.clone(), "window.location.reload()");
+            let _ = cmd::execute_action(app.clone(), cmd::SafeScript::Reload);
         }
         "docs" => {
             cmd::open_link(app.clone(), "https://hackdesk.vercel.app".to_string());

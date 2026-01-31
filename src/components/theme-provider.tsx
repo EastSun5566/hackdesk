@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useMemo } from 'react';
 
 type Theme = 'dark' | 'light' | 'system'
 
@@ -20,43 +20,54 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
+function getSystemTheme(): 'dark' | 'light' {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
 export function ThemeProvider({
   children,
   defaultTheme = 'system',
   storageKey = 'theme',
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
+  const [theme, setThemeState] = useState<Theme>(
     () => (localStorage.getItem(storageKey) as Theme) || defaultTheme,
   );
 
+  // Resolve the actual theme to apply (handles 'system')
+  const resolvedTheme = useMemo(() => {
+    return theme === 'system' ? getSystemTheme() : theme;
+  }, [theme]);
+
+  // Apply theme class to document
   useEffect(() => {
     const root = window.document.documentElement;
-
     root.classList.remove('light', 'dark');
+    root.classList.add(resolvedTheme);
+  }, [resolvedTheme]);
 
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)')
-        .matches
-        ? 'dark'
-        : 'light';
+  // Listen for system theme changes when theme is 'system'
+  useEffect(() => {
+    if (theme !== 'system') return;
 
-      root.classList.add(systemTheme);
-      setTheme(systemTheme);
-      localStorage.setItem(storageKey, systemTheme);
-      return;
-    }
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = () => {
+      const root = window.document.documentElement;
+      root.classList.remove('light', 'dark');
+      root.classList.add(getSystemTheme());
+    };
 
-    root.classList.add(theme);
-  }, [theme, storageKey]);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [theme]);
 
-  const value = {
+  const value = useMemo(() => ({
     theme,
-    setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme);
-      setTheme(theme);
+    setTheme: (newTheme: Theme) => {
+      localStorage.setItem(storageKey, newTheme);
+      setThemeState(newTheme);
     },
-  };
+  }), [theme, storageKey]);
 
   return (
     <ThemeProviderContext.Provider {...props} value={value}>

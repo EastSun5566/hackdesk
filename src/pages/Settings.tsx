@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -24,21 +24,23 @@ const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: 'advanced', label: 'Advanced', icon: <Zap className="h-4 w-4" /> },
 ];
 
+const DEFAULT_SETTINGS = { title: 'HackDesk' };
+
 export function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const { data: settingsData } = useSettings();
   const { mutate: updateSettings, isPending } = useUpdateSettings();
 
-  // Parse current settings or use defaults
-  const currentSettings = settingsData
-    ? (() => {
-      try {
-        return JSON.parse(settingsData);
-      } catch {
-        return { title: 'HackDesk' };
-      }
-    })()
-    : { title: 'HackDesk' };
+  // Parse settings only once when data changes
+  const currentSettings = useMemo(() => {
+    if (!settingsData) return DEFAULT_SETTINGS;
+    try {
+      return JSON.parse(settingsData);
+    } catch {
+      console.error('Failed to parse settings, using defaults');
+      return DEFAULT_SETTINGS;
+    }
+  }, [settingsData]);
 
   const form = useForm<SettingsForm>({
     resolver: zodResolver(settingsSchema),
@@ -47,17 +49,10 @@ export function Settings() {
     },
   });
 
-  // Reset form when settings data changes
+  // Reset form when parsed settings change
   useEffect(() => {
-    if (settingsData) {
-      try {
-        const settings = JSON.parse(settingsData);
-        form.reset({ title: settings.title || 'HackDesk' });
-      } catch (error) {
-        console.error('Failed to parse settings:', error);
-      }
-    }
-  }, [settingsData, form]);
+    form.reset({ title: currentSettings.title || 'HackDesk' });
+  }, [currentSettings, form]);
 
   const onSubmit = (data: SettingsForm) => {
     const settingsJson = JSON.stringify(data, null, 2);

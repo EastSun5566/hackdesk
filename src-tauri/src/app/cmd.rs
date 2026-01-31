@@ -159,20 +159,9 @@ pub fn open_settings_window(app: AppHandle) {
             settings_win.on_window_event(move |event| {
                 if let tauri::WindowEvent::Destroyed = event {
                     let _ = utils::apply_settings(&app_clone);
-                    // app.get_webview_window(MAIN_WINDOW_LABEL)
-                    //     .unwrap()
-                    //     .emit("HMD_EVENT", "RELOAD")
-                    //     .unwrap();
                 }
             });
         });
-    }
-}
-
-#[command]
-pub fn run_script(app: AppHandle, script: &str) {
-    if let Some(win) = app.get_webview_window(MAIN_WINDOW_LABEL) {
-        let _ = win.eval(script);
     }
 }
 

@@ -28,10 +28,23 @@ export async function getSettingsPath() {
   return join(home, ROOT, SETTINGS_NAME);
 }
 
-export async function readSettings() {
-  return await readTextFile(await getSettingsPath());
+export async function readSettings(): Promise<string> {
+  try {
+    return await readTextFile(await getSettingsPath());
+  } catch (error) {
+    // If file doesn't exist, return default settings
+    if (error instanceof Error && error.message.includes('No such file')) {
+      console.warn('Settings file not found, using defaults');
+      return JSON.stringify({ title: 'HackDesk' });
+    }
+    throw new Error(`Failed to read settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
-export async function writeSettings(content: string) {
-  await writeTextFile(await getSettingsPath(), content);
+export async function writeSettings(content: string): Promise<void> {
+  try {
+    await writeTextFile(await getSettingsPath(), content);
+  } catch (error) {
+    throw new Error(`Failed to write settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
