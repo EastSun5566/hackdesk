@@ -136,32 +136,37 @@ pub fn open_settings_window(app: AppHandle) {
     info!("Opening settings window");
 
     let win = app.get_webview_window(SETTINGS_WINDOW_LABEL);
-    if win.is_none() {
-        std::thread::spawn(move || {
-            let settings_win = WebviewWindowBuilder::new(
-                &app,
-                SETTINGS_WINDOW_LABEL,
-                WebviewUrl::App("/settings".parse().unwrap()),
-            )
-            .inner_size(SETTINGS_WINDOW_WIDTH, SETTINGS_WINDOW_HEIGHT)
-            .center()
-            .title("Settings")
-            .decorations(false) // Remove title bar for cleaner UI
-            .build()
-            .unwrap();
+    if win.is_some() {
+        info!("Settings window already exists");
+        return;
+    }
 
-            // On macOS, hide the titlebar but keep window controls
-            // (false = keep close/minimize/resize buttons to prevent crashes)
-            #[cfg(target_os = "macos")]
-            set_transparent_title_bar(&settings_win, true, false);
+    {
+        let settings_win = WebviewWindowBuilder::new(
+            &app,
+            SETTINGS_WINDOW_LABEL,
+            WebviewUrl::App("/settings".parse().unwrap()),
+        )
+        .inner_size(SETTINGS_WINDOW_WIDTH, SETTINGS_WINDOW_HEIGHT)
+        .center()
+        .title("Settings")
+        .transparent(true)
+        .build()
+        .unwrap();
 
-            let app_clone = app.clone();
-            settings_win.on_window_event(move |event| {
-                if let tauri::WindowEvent::Destroyed = event {
-                    let _ = utils::apply_settings(&app_clone);
-                }
-            });
+        let app_clone = app.clone();
+        settings_win.on_window_event(move |event| {
+            if let tauri::WindowEvent::Destroyed = event {
+                let _ = utils::apply_settings(&app_clone);
+            }
         });
+
+        #[cfg(target_os = "macos")]
+        set_transparent_title_bar(&settings_win, true, false);
+
+        #[cfg(target_os = "macos")]
+        window_vibrancy::apply_vibrancy(&settings_win, NSVisualEffectMaterial::Sidebar, None, None)
+            .expect("Unsupported platform! 'apply_vibrancy' is only supported on macOS");
     }
 }
 
