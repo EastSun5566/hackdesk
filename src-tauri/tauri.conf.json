@@ -86,9 +86,6 @@
         "settings-capability",
         "command-palette-capability"
       ]
-    },
-    "trayIcon": {
-      "iconPath": "icons/icon.png"
     }
   },
   "plugins": {
