@@ -1,4 +1,6 @@
 use tauri::{command, AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_opener::OpenerExt;
+use url::Url;
 
 #[cfg(not(target_os = "linux"))]
 use window_vibrancy::{self, NSVisualEffectMaterial};
@@ -14,7 +16,7 @@ use crate::{
 #[cfg(target_os = "macos")]
 use crate::app::mac::set_transparent_title_bar;
 
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 /// Safe, predefined actions that can be executed in the main window
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -171,9 +173,28 @@ pub fn open_settings_window(app: AppHandle) {
 }
 
 #[command]
-pub fn open_link(_app: AppHandle, url: String) {
-    use tauri_plugin_opener::OpenerExt;
-    let _ = _app.opener().open_url(url, None::<&str>);
+pub fn open_link(app: AppHandle, url: String) {
+    // Validate URL scheme for security - only allow http(s) and mailto
+    match Url::parse(&url) {
+        Ok(parsed_url) => {
+            let scheme = parsed_url.scheme();
+            if scheme != "http" && scheme != "https" && scheme != "mailto" {
+                warn!(
+                    "Blocked open_link request for unsupported scheme: {}",
+                    scheme
+                );
+                return;
+            }
+
+            // Open validated URL externally and log any errors
+            if let Err(e) = app.opener().open_url(&url, None::<&str>) {
+                error!("Failed to open URL {}: {}", url, e);
+            }
+        }
+        Err(e) => {
+            warn!("Blocked open_link request for invalid URL format: {}", e);
+        }
+    }
 }
 
 #[command]
