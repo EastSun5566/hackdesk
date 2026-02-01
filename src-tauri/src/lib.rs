@@ -29,7 +29,8 @@ pub fn run() {
             cmd::open_command_palette_window,
             cmd::open_settings_window,
             cmd::apply_settings,
-            // because window.open not working {@link https://github.com/tauri-apps/wry/issues/649}
+            // Legacy workaround for links with target="_blank" {@link https://github.com/tauri-apps/wry/issues/649}
+            // window.open() is now handled via on_new_window handler in setup.rs
             cmd::open_link
         ])
         .setup(setup::init)
