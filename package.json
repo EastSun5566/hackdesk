@@ -37,21 +37,26 @@
   },
   "license": "AGPL-3.0",
   "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
     "@monaco-editor/react": "^4.7.0",
     "@radix-ui/react-dialog": "^1.1.15",
     "@tanstack/react-query": "^5.90.10",
     "@tauri-apps/api": "^2.9.0",
     "@tauri-apps/plugin-fs": "^2.4.4",
     "@tauri-apps/plugin-opener": "^2.5.2",
+    "@tauri-apps/plugin-store": "^2.4.2",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "fuse.js": "^7.1.0",
     "lucide-react": "^0.291.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-hook-form": "^7.71.1",
     "react-router-dom": "^6.30.2",
     "sonner": "^2.0.7",
     "tailwind-merge": "^2.6.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.17",
