@@ -1,22 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { toast } from 'sonner';
 import { Settings as SettingsIcon, Monitor, Keyboard, Zap, Sun, Moon, Laptop } from 'lucide-react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 
 import { useSettings, useUpdateSettings } from '@/lib/query';
+import {
+  defaultSettings,
+  settingsSchema,
+  type AppSettings,
+} from '@/lib/settings';
 import { useTheme } from '@/components/theme-provider';
-import { DEFAULT_TITLE } from '@/constants';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { version } from '../../package.json';
-
-const settingsSchema = z.object({
-  title: z.string().min(1, 'Title is required').max(50, 'Title too long'),
-});
-
-type SettingsForm = z.infer<typeof settingsSchema>;
 
 type SettingsTab = 'general' | 'appearance' | 'shortcuts' | 'advanced';
 
@@ -26,8 +23,6 @@ const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: 'shortcuts', label: 'Shortcuts', icon: <Keyboard className="h-4 w-4" /> },
   { id: 'advanced', label: 'Advanced', icon: <Zap className="h-4 w-4" /> },
 ];
-
-const DEFAULT_SETTINGS = { title: DEFAULT_TITLE };
 
 const shortcuts = [
   { action: 'Open Command Palette', keys: ['⌘', 'K'] },
@@ -65,31 +60,19 @@ export function Settings() {
   const { mutate: updateSettings, isPending } = useUpdateSettings();
   const { theme, setTheme } = useTheme();
 
-  const currentSettings = useMemo(() => {
-    if (!settingsData) return DEFAULT_SETTINGS;
-    try {
-      return JSON.parse(settingsData);
-    } catch {
-      console.error('Failed to parse settings, using defaults');
-      return DEFAULT_SETTINGS;
-    }
-  }, [settingsData]);
+  const currentSettings = settingsData ?? defaultSettings;
 
-  const form = useForm<SettingsForm>({
+  const form = useForm<AppSettings>({
     resolver: zodResolver(settingsSchema),
-    defaultValues: {
-      title: currentSettings.title || DEFAULT_TITLE,
-    },
+    defaultValues: currentSettings,
   });
 
-  // Reset form when parsed settings change
   useEffect(() => {
-    form.reset({ title: currentSettings.title || DEFAULT_TITLE });
+    form.reset(currentSettings);
   }, [currentSettings, form]);
 
-  const onSubmit = (data: SettingsForm) => {
-    const settingsJson = JSON.stringify(data, null, 2);
-    updateSettings(settingsJson, {
+  const onSubmit = (data: AppSettings) => {
+    updateSettings(data, {
       onSuccess: () => toast.success('Settings saved successfully'),
       onError: (error) => toast.error(`Failed to save: ${error.message}`),
     });
@@ -101,10 +84,9 @@ export function Settings() {
   };
 
   const handleResetToDefaults = () => {
-    form.reset(DEFAULT_SETTINGS);
+    form.reset(defaultSettings);
     setTheme('system');
-    const settingsJson = JSON.stringify(DEFAULT_SETTINGS, null, 2);
-    updateSettings(settingsJson, {
+    updateSettings(defaultSettings, {
       onSuccess: () => toast.success('All settings reset to defaults'),
       onError: (error) => toast.error(`Failed to reset: ${error.message}`),
     });

@@ -2,18 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { invoke } from '@tauri-apps/api/core';
 import Fuse from 'fuse.js';
-import {
-  Cross,
-  ArrowRight,
-  ArrowRightCircle,
-  ArrowLeftCircle,
-  RefreshCcw,
-  Settings,
-  Sun,
-  Moon,
-  Clock,
-  FileText,
-} from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 
 import {
   Command,
@@ -28,120 +17,13 @@ import {
 import { useTheme } from '@/components/theme-provider';
 import { Cmd } from '@/constants';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
-
-interface CommandConfig {
-  value: string;
-  label: string;
-  Icon: React.ReactNode;
-  shortcut?: string;
-  category: 'navigation' | 'action' | 'settings';
-  keywords?: string[];
-}
-
-const NAVIGATION_COMMANDS: CommandConfig[] = [
-  {
-    value: '/new',
-    label: 'New Note',
-    Icon: <Cross className="mr-2 h-4 w-4" />,
-    shortcut: '⌘ N',
-    category: 'navigation',
-    keywords: ['create', 'add', 'note'],
-  },
-  {
-    value: '/',
-    label: 'Go to my notes',
-    Icon: <FileText className="mr-2 h-4 w-4" />,
-    category: 'navigation',
-    keywords: ['home', 'notes', 'list'],
-  },
-  {
-    value: '/?nav=collab',
-    label: 'Go to my collaborations',
-    Icon: <ArrowRight className="mr-2 h-4 w-4" />,
-    category: 'navigation',
-    keywords: ['shared', 'team', 'collaborate'],
-  },
-  {
-    value: '/?nav=trash',
-    label: 'Go to my trash',
-    Icon: <ArrowRight className="mr-2 h-4 w-4" />,
-    category: 'navigation',
-    keywords: ['deleted', 'bin', 'remove'],
-  },
-  {
-    value: '/bookmark',
-    label: 'Go to my bookmarks',
-    Icon: <ArrowRight className="mr-2 h-4 w-4" />,
-    category: 'navigation',
-    keywords: ['starred', 'favorites', 'saved'],
-  },
-  {
-    value: '/recent',
-    label: 'Go to my history',
-    Icon: <Clock className="mr-2 h-4 w-4" />,
-    category: 'navigation',
-    keywords: ['recent', 'history', 'past'],
-  },
-  {
-    value: '/?nav=myTeams',
-    label: 'Go to my teams',
-    Icon: <ArrowRight className="mr-2 h-4 w-4" />,
-    category: 'navigation',
-    keywords: ['teams', 'groups', 'workspace'],
-  },
-  {
-    value: '/s/release-notes',
-    label: 'Show release notes',
-    Icon: <ArrowRight className="mr-2 h-4 w-4" />,
-    category: 'navigation',
-    keywords: ['changelog', 'updates', 'news'],
-  },
-];
-
-const ACTION_COMMANDS: CommandConfig[] = [
-  {
-    value: 'forward',
-    label: 'Go forward',
-    Icon: <ArrowRightCircle className="mr-2 h-4 w-4" />,
-    category: 'action',
-    keywords: ['next', 'forward', 'ahead'],
-  },
-  {
-    value: 'back',
-    label: 'Go back',
-    Icon: <ArrowLeftCircle className="mr-2 h-4 w-4" />,
-    category: 'action',
-    keywords: ['previous', 'back', 'return'],
-  },
-  {
-    value: 'reload',
-    label: 'Reload',
-    Icon: <RefreshCcw className="mr-2 h-4 w-4" />,
-    shortcut: '⌘ R',
-    category: 'action',
-    keywords: ['refresh', 'reload', 'update'],
-  },
-];
-
-const SETTINGS_COMMANDS: CommandConfig[] = [
-  {
-    value: '/settings',
-    label: 'Open Settings',
-    Icon: <Settings className="mr-2 h-4 w-4" />,
-    shortcut: '⌘ ,',
-    category: 'settings',
-    keywords: ['preferences', 'config', 'options'],
-  },
-];
-
-const ALL_COMMANDS = [
-  ...NAVIGATION_COMMANDS,
-  ...ACTION_COMMANDS,
-  ...SETTINGS_COMMANDS,
-];
-
-const RECENT_COMMANDS_KEY = 'hackdesk_recent_commands';
-const MAX_RECENT_COMMANDS = 5;
+import {
+  allCommands,
+  findCommand,
+  getRecentCommands,
+  groupCommands,
+  saveRecentCommand,
+} from './CommandPalette.config';
 
 function redirect(path: string) {
   invoke(Cmd.EXECUTE_ACTION, {
@@ -150,26 +32,6 @@ function redirect(path: string) {
       data: { path },
     },
   });
-}
-
-function getRecentCommands(): string[] {
-  try {
-    const recent = localStorage.getItem(RECENT_COMMANDS_KEY);
-    return recent ? JSON.parse(recent) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveRecentCommand(value: string) {
-  try {
-    const recent = getRecentCommands();
-    const filtered = recent.filter((v) => v !== value);
-    const updated = [value, ...filtered].slice(0, MAX_RECENT_COMMANDS);
-    localStorage.setItem(RECENT_COMMANDS_KEY, JSON.stringify(updated));
-  } catch (error) {
-    console.error('Failed to save recent command:', error);
-  }
 }
 
 export function CommandPalette() {
@@ -183,7 +45,7 @@ export function CommandPalette() {
 
   const fuse = useMemo(
     () =>
-      new Fuse(ALL_COMMANDS, {
+      new Fuse(allCommands, {
         keys: ['label', 'keywords', 'value'],
         threshold: 0.3,
         includeScore: true,
@@ -192,35 +54,17 @@ export function CommandPalette() {
   );
 
   const searchResults = useMemo(() => {
-    if (!search) return ALL_COMMANDS;
+    if (!search) return allCommands;
     return fuse.search(search).map((result) => result.item);
   }, [search, fuse]);
 
-  const groupedCommands = useMemo(() => {
-    const groups = {
-      recent: [] as CommandConfig[],
-      navigation: [] as CommandConfig[],
-      action: [] as CommandConfig[],
-      settings: [] as CommandConfig[],
-    };
-
-    if (!search && recentValues.length > 0) {
-      groups.recent = recentValues
-        .map((value) => ALL_COMMANDS.find((cmd) => cmd.value === value))
-        .filter((cmd): cmd is CommandConfig => cmd !== undefined);
-    }
-
-    searchResults.forEach((cmd) => {
-      if (!groups.recent.find((r) => r.value === cmd.value)) {
-        groups[cmd.category].push(cmd);
-      }
-    });
-
-    return groups;
-  }, [searchResults, recentValues, search]);
+  const groupedCommands = useMemo(
+    () => groupCommands(search, searchResults, recentValues),
+    [search, searchResults, recentValues],
+  );
 
   const handleSelect = (value: string) => {
-    const command = ALL_COMMANDS.find((cmd) => cmd.value === value);
+    const command = findCommand(value);
     if (!command) return;
 
     saveRecentCommand(value);

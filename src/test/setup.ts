@@ -9,6 +9,11 @@ class ResizeObserverMock {
 }
 global.ResizeObserver = ResizeObserverMock;
 
+Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+  writable: true,
+  value: vi.fn(),
+});
+
 // Mock matchMedia (required by theme-provider)
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
