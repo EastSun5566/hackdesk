@@ -1,3 +1,5 @@
+use url::Url;
+
 pub const ROOT: &str = ".hackdesk";
 pub const SETTINGS_NAME: &str = "settings.json";
 
@@ -17,3 +19,7 @@ pub const SETTINGS_WINDOW_WIDTH: f64 = 800.0;
 pub const SETTINGS_WINDOW_HEIGHT: f64 = 600.0;
 pub const MAIN_WINDOW_WIDTH: f64 = 800.0;
 pub const MAIN_WINDOW_HEIGHT: f64 = 600.0;
+
+pub fn is_safe_external_url(url: &Url) -> bool {
+    matches!(url.scheme(), "http" | "https" | "mailto")
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,6 +9,7 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { useSettings, useUpdateSettings } from '@/lib/query';
 import { useTheme } from '@/components/theme-provider';
 import { DEFAULT_TITLE } from '@/constants';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { version } from '../../package.json';
 
 const settingsSchema = z.object({
@@ -37,13 +38,33 @@ const shortcuts = [
   { action: 'Close Settings', keys: ['Esc'] },
 ];
 
+const themeOptions = [
+  {
+    id: 'light',
+    label: 'Light',
+    icon: <Sun className="h-5 w-5" />,
+    description: 'Light mode',
+  },
+  {
+    id: 'dark',
+    label: 'Dark',
+    icon: <Moon className="h-5 w-5" />,
+    description: 'Dark mode',
+  },
+  {
+    id: 'system',
+    label: 'System',
+    icon: <Laptop className="h-5 w-5" />,
+    description: 'Follow system settings',
+  },
+] as const;
+
 export function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const { data: settingsData } = useSettings();
   const { mutate: updateSettings, isPending } = useUpdateSettings();
   const { theme, setTheme } = useTheme();
 
-  // Parse settings only once when data changes
   const currentSettings = useMemo(() => {
     if (!settingsData) return DEFAULT_SETTINGS;
     try {
@@ -89,28 +110,14 @@ export function Settings() {
     });
   };
 
-  // Handle ESC key to close settings window
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        getCurrentWebviewWindow().close();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+  const closeWindow = useCallback(() => {
+    getCurrentWebviewWindow().close();
   }, []);
 
-  const themeOptions = [
-    { id: 'light', label: 'Light', icon: <Sun className="h-5 w-5" />, description: 'Light mode' },
-    { id: 'dark', label: 'Dark', icon: <Moon className="h-5 w-5" />, description: 'Dark mode' },
-    { id: 'system', label: 'System', icon: <Laptop className="h-5 w-5" />, description: 'Follow system settings' },
-  ] as const;
+  useEscapeKey(closeWindow);
 
   return (
     <div className="flex h-screen bg-background/80 pt-8" data-tauri-drag-region>
-      {/* Sidebar */}
       <aside className="w-56 border-r bg-muted/40 p-4">
         <nav className="space-y-1">
           {tabs.map((tab) => (
@@ -130,7 +137,6 @@ export function Settings() {
         </nav>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-auto">
         <div className="mx-auto max-w-2xl p-8">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">

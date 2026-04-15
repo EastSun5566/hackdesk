@@ -1,4 +1,4 @@
-import { GITHUB_LATEST_RELEASE_URL } from './constans';
+import { GITHUB_LATEST_RELEASE_URL } from './constants';
 import type { GitHubRelease } from './types';
 
 export async function getLatestGithubRelease(): Promise<GitHubRelease> {

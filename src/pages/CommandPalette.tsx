@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { invoke } from '@tauri-apps/api/core';
 import Fuse from 'fuse.js';
@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/command';
 import { useTheme } from '@/components/theme-provider';
 import { Cmd } from '@/constants';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 
 interface CommandConfig {
   value: string;
@@ -180,7 +181,6 @@ export function CommandPalette() {
     setRecentValues(getRecentCommands());
   }, []);
 
-  // Fuzzy search with Fuse.js
   const fuse = useMemo(
     () =>
       new Fuse(ALL_COMMANDS, {
@@ -196,7 +196,6 @@ export function CommandPalette() {
     return fuse.search(search).map((result) => result.item);
   }, [search, fuse]);
 
-  // Group commands by category
   const groupedCommands = useMemo(() => {
     const groups = {
       recent: [] as CommandConfig[],
@@ -205,14 +204,12 @@ export function CommandPalette() {
       settings: [] as CommandConfig[],
     };
 
-    // Add recent commands if no search
     if (!search && recentValues.length > 0) {
       groups.recent = recentValues
         .map((value) => ALL_COMMANDS.find((cmd) => cmd.value === value))
         .filter((cmd): cmd is CommandConfig => cmd !== undefined);
     }
 
-    // Group search results
     searchResults.forEach((cmd) => {
       if (!groups.recent.find((r) => r.value === cmd.value)) {
         groups[cmd.category].push(cmd);
@@ -250,18 +247,11 @@ export function CommandPalette() {
     getCurrentWebviewWindow().hide();
   };
 
-  // Handle ESC key to close command palette
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        getCurrentWebviewWindow().hide();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+  const hideWindow = useCallback(() => {
+    getCurrentWebviewWindow().hide();
   }, []);
+
+  useEscapeKey(hideWindow);
 
   return (
     <div className="p-2">
@@ -275,7 +265,6 @@ export function CommandPalette() {
         <CommandList>
           <CommandEmpty>No commands found.</CommandEmpty>
 
-          {/* Recent Commands */}
           {groupedCommands.recent.length > 0 && (
             <>
               <CommandGroup heading="Recent">
@@ -297,7 +286,6 @@ export function CommandPalette() {
             </>
           )}
 
-          {/* Navigation */}
           {groupedCommands.navigation.length > 0 && (
             <>
               <CommandGroup heading="Navigation">
@@ -319,7 +307,6 @@ export function CommandPalette() {
             </>
           )}
 
-          {/* Actions */}
           {groupedCommands.action.length > 0 && (
             <>
               <CommandGroup heading="Actions">
@@ -341,7 +328,6 @@ export function CommandPalette() {
             </>
           )}
 
-          {/* Settings */}
           {groupedCommands.settings.length > 0 && (
             <CommandGroup heading="Settings">
               {groupedCommands.settings.map((cmd) => (

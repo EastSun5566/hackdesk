@@ -7,8 +7,9 @@ use window_vibrancy::{self, NSVisualEffectMaterial};
 
 use crate::{
     app::conf::{
-        COMMAND_PALETTE_HEIGHT, COMMAND_PALETTE_WIDTH, COMMAND_PALETTE_WINDOW_LABEL,
-        MAIN_WINDOW_LABEL, SETTINGS_WINDOW_HEIGHT, SETTINGS_WINDOW_LABEL, SETTINGS_WINDOW_WIDTH,
+        is_safe_external_url, COMMAND_PALETTE_HEIGHT, COMMAND_PALETTE_WIDTH,
+        COMMAND_PALETTE_WINDOW_LABEL, MAIN_WINDOW_LABEL, SETTINGS_WINDOW_HEIGHT,
+        SETTINGS_WINDOW_LABEL, SETTINGS_WINDOW_WIDTH,
     },
     utils,
 };
@@ -174,19 +175,16 @@ pub fn open_settings_window(app: AppHandle) {
 
 #[command]
 pub fn open_link(app: AppHandle, url: String) {
-    // Validate URL scheme for security - only allow http(s) and mailto
     match Url::parse(&url) {
         Ok(parsed_url) => {
-            let scheme = parsed_url.scheme();
-            if scheme != "http" && scheme != "https" && scheme != "mailto" {
+            if !is_safe_external_url(&parsed_url) {
                 warn!(
                     "Blocked open_link request for unsupported scheme: {}",
-                    scheme
+                    parsed_url.scheme()
                 );
                 return;
             }
 
-            // Open validated URL externally and log any errors
             if let Err(e) = app.opener().open_url(&url, None::<&str>) {
                 error!("Failed to open URL {}: {}", url, e);
             }
