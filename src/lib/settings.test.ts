@@ -10,7 +10,10 @@ import {
 
 describe('settings helpers', () => {
   it('parses valid settings content', () => {
-    expect(parseSettings('{"title":"Workspace"}')).toEqual({ title: 'Workspace' });
+    expect(parseSettings('{"title":"Workspace"}')).toEqual({
+      title: 'Workspace',
+      hackmdApiToken: '',
+    });
   });
 
   it('throws a clear error for invalid JSON', () => {
@@ -29,8 +32,9 @@ describe('settings helpers', () => {
   });
 
   it('serializes validated settings with stable formatting', () => {
-    expect(serializeSettings({ title: 'Workspace' })).toBe(`{
-  "title": "Workspace"
+    expect(serializeSettings({ title: 'Workspace', hackmdApiToken: 'token-123' })).toBe(`{
+  "title": "Workspace",
+  "hackmdApiToken": "token-123"
 }`);
   });
 });

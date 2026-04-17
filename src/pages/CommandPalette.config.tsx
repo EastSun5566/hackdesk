@@ -5,15 +5,18 @@ import {
   Clock,
   Cross,
   FileText,
+  FolderSearch,
   RefreshCcw,
   Settings,
 } from 'lucide-react';
 
 const COMMAND_ICON_CLASS = 'mr-2 h-4 w-4';
 const RECENT_COMMANDS_KEY = 'hackdesk_recent_commands';
+const RECENT_NOTES_KEY = 'hackdesk_recent_notes';
 const MAX_RECENT_COMMANDS = 5;
+const MAX_RECENT_NOTES = 5;
 
-export type CommandCategory = 'navigation' | 'action' | 'settings';
+export type CommandCategory = 'navigation' | 'action' | 'settings' | 'hackmd';
 
 export interface CommandConfig {
   value: string;
@@ -29,6 +32,7 @@ export interface GroupedCommands {
   navigation: CommandConfig[];
   action: CommandConfig[];
   settings: CommandConfig[];
+  hackmd: CommandConfig[];
 }
 
 const navigationCommands: CommandConfig[] = [
@@ -127,14 +131,27 @@ const settingsCommands: CommandConfig[] = [
   },
 ];
 
-export const allCommands = [
-  ...navigationCommands,
-  ...actionCommands,
-  ...settingsCommands,
+const hackmdCommands: CommandConfig[] = [
+  {
+    value: 'hackmd:notes',
+    label: 'Manage Notes',
+    Icon: <FolderSearch className={COMMAND_ICON_CLASS} />,
+    category: 'hackmd',
+    keywords: ['hackmd', 'notes', 'browse', 'search', 'create', 'delete'],
+  },
 ];
 
-export function findCommand(value: string) {
-  return allCommands.find((command) => command.value === value);
+export function getAllCommands({ hasHackmdToken = false }: { hasHackmdToken?: boolean } = {}) {
+  return [
+    ...navigationCommands,
+    ...actionCommands,
+    ...settingsCommands,
+    ...(hasHackmdToken ? hackmdCommands : []),
+  ];
+}
+
+export function findCommand(value: string, commands = getAllCommands()) {
+  return commands.find((command) => command.value === value);
 }
 
 export function getRecentCommands(storage: Storage = window.localStorage): string[] {
@@ -161,17 +178,19 @@ export function groupCommands(
   search: string,
   searchResults: CommandConfig[],
   recentValues: string[],
+  availableCommands: CommandConfig[],
 ): GroupedCommands {
   const groups: GroupedCommands = {
     recent: [],
     navigation: [],
     action: [],
     settings: [],
+    hackmd: [],
   };
 
   if (!search && recentValues.length > 0) {
     groups.recent = recentValues
-      .map(findCommand)
+      .map((value) => findCommand(value, availableCommands))
       .filter((command): command is CommandConfig => command !== undefined);
   }
 
@@ -182,4 +201,36 @@ export function groupCommands(
   });
 
   return groups;
+}
+
+export function getRecentNotes(storage: Storage = window.localStorage): string[] {
+  try {
+    const recent = storage.getItem(RECENT_NOTES_KEY);
+    return recent ? (JSON.parse(recent) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveRecentNote(noteId: string, storage: Storage = window.localStorage) {
+  try {
+    const recent = getRecentNotes(storage);
+    const filtered = recent.filter((value) => value !== noteId);
+    const updated = [noteId, ...filtered].slice(0, MAX_RECENT_NOTES);
+    storage.setItem(RECENT_NOTES_KEY, JSON.stringify(updated));
+  } catch (error) {
+    console.error('Failed to save recent note:', error);
+  }
+}
+
+export function removeRecentNote(noteId: string, storage: Storage = window.localStorage) {
+  try {
+    const recent = getRecentNotes(storage);
+    storage.setItem(
+      RECENT_NOTES_KEY,
+      JSON.stringify(recent.filter((value) => value !== noteId)),
+    );
+  } catch (error) {
+    console.error('Failed to remove recent note:', error);
+  }
 }

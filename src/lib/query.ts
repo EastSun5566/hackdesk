@@ -31,6 +31,7 @@ export const useUpdateSettings = () => {
     },
     onSuccess: (settings) => {
       queryClient.setQueryData<AppSettings>(['settings'], settings);
+      queryClient.removeQueries({ queryKey: ['hackmd'] });
 
       invoke('apply_settings').catch((error) => {
         console.error('Failed to apply settings:', error);

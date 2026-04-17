@@ -6,10 +6,13 @@ use url::Url;
 use window_vibrancy::{self, NSVisualEffectMaterial};
 
 use crate::{
-    app::conf::{
-        is_safe_external_url, COMMAND_PALETTE_HEIGHT, COMMAND_PALETTE_WIDTH,
-        COMMAND_PALETTE_WINDOW_LABEL, MAIN_WINDOW_LABEL, SETTINGS_WINDOW_HEIGHT,
-        SETTINGS_WINDOW_LABEL, SETTINGS_WINDOW_WIDTH,
+    app::{
+        conf::{
+            is_safe_external_url, COMMAND_PALETTE_HEIGHT, COMMAND_PALETTE_WIDTH,
+            COMMAND_PALETTE_WINDOW_LABEL, MAIN_WINDOW_LABEL, SETTINGS_WINDOW_HEIGHT,
+            SETTINGS_WINDOW_LABEL, SETTINGS_WINDOW_WIDTH,
+        },
+        hackmd::{self, HackmdCreateNoteInput, HackmdNoteDto, HackmdUserDto},
     },
     utils,
 };
@@ -86,9 +89,10 @@ pub fn execute_action(app: AppHandle, action: SafeScript) -> Result<(), String> 
 pub fn open_command_palette_window(app: AppHandle) {
     info!("Opening command palette window");
 
-    let win = app.get_webview_window(COMMAND_PALETTE_WINDOW_LABEL);
-    if win.is_some() {
-        info!("Command palette window already exists");
+    if let Some(win) = app.get_webview_window(COMMAND_PALETTE_WINDOW_LABEL) {
+        info!("Command palette window already exists, showing existing instance");
+        let _ = win.show();
+        let _ = win.set_focus();
         return;
     }
 
@@ -198,6 +202,34 @@ pub fn open_link(app: AppHandle, url: String) {
 #[command]
 pub fn apply_settings(app: AppHandle) -> Result<(), String> {
     utils::apply_settings(&app).map_err(|e| format!("Failed to apply settings: {}", e))
+}
+
+#[command]
+pub async fn validate_hackmd_token(token: String) -> Result<HackmdUserDto, String> {
+    hackmd::validate_hackmd_token(&token)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[command]
+pub async fn list_hackmd_notes() -> Result<Vec<HackmdNoteDto>, String> {
+    hackmd::list_hackmd_notes()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[command]
+pub async fn create_hackmd_note(payload: HackmdCreateNoteInput) -> Result<HackmdNoteDto, String> {
+    hackmd::create_hackmd_note(payload)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[command]
+pub async fn delete_hackmd_note(note_id: String) -> Result<(), String> {
+    hackmd::delete_hackmd_note(&note_id)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 #[cfg(test)]

@@ -53,3 +53,19 @@ vi.mock('@tauri-apps/api/webviewWindow', () => ({
   })),
   WebviewWindow: vi.fn(),
 }));
+
+vi.mock('@tauri-apps/api/window', () => ({
+  getCurrentWindow: vi.fn(() => ({
+    center: vi.fn().mockResolvedValue(undefined),
+    setSize: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
+
+vi.mock('@tauri-apps/api/dpi', () => ({
+  LogicalSize: class LogicalSize {
+    constructor(
+      public width: number,
+      public height: number,
+    ) {}
+  },
+}));

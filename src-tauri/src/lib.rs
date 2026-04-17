@@ -28,7 +28,11 @@ pub fn run() {
             cmd::open_command_palette_window,
             cmd::open_settings_window,
             cmd::apply_settings,
-            cmd::open_link
+            cmd::open_link,
+            cmd::validate_hackmd_token,
+            cmd::list_hackmd_notes,
+            cmd::create_hackmd_note,
+            cmd::delete_hackmd_note
         ])
         .setup(setup::init)
         .menu(menu::init)

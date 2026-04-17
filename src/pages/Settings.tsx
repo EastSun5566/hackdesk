@@ -1,10 +1,26 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { z } from 'zod';
 import { toast } from 'sonner';
-import { Settings as SettingsIcon, Monitor, Keyboard, Zap, Sun, Moon, Laptop } from 'lucide-react';
+import {
+  AlertCircle,
+  Settings as SettingsIcon,
+  Monitor,
+  Keyboard,
+  Zap,
+  Sun,
+  Moon,
+  Laptop,
+  Shield,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  Loader2,
+} from 'lucide-react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 
+import { useValidateHackmdToken } from '@/lib/hackmd';
 import { useSettings, useUpdateSettings } from '@/lib/query';
 import {
   defaultSettings,
@@ -15,11 +31,12 @@ import { useTheme } from '@/components/theme-provider';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { version } from '../../package.json';
 
-type SettingsTab = 'general' | 'appearance' | 'shortcuts' | 'advanced';
+type SettingsTab = 'general' | 'appearance' | 'hackmd' | 'shortcuts' | 'advanced';
 
 const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: 'general', label: 'General', icon: <SettingsIcon className="h-4 w-4" /> },
   { id: 'appearance', label: 'Appearance', icon: <Monitor className="h-4 w-4" /> },
+  { id: 'hackmd', label: 'HackMD', icon: <Shield className="h-4 w-4" /> },
   { id: 'shortcuts', label: 'Shortcuts', icon: <Keyboard className="h-4 w-4" /> },
   { id: 'advanced', label: 'Advanced', icon: <Zap className="h-4 w-4" /> },
 ];
@@ -56,13 +73,22 @@ const themeOptions = [
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const [showApiToken, setShowApiToken] = useState(false);
   const { data: settingsData } = useSettings();
   const { mutate: updateSettings, isPending } = useUpdateSettings();
+  const {
+    mutate: validateHackmdToken,
+    data: validatedUser,
+    error: validationError,
+    isPending: isValidatingToken,
+    isSuccess: isTokenValid,
+    reset: resetTokenValidation,
+  } = useValidateHackmdToken();
   const { theme, setTheme } = useTheme();
 
   const currentSettings = settingsData ?? defaultSettings;
 
-  const form = useForm<AppSettings>({
+  const form = useForm<z.input<typeof settingsSchema>, unknown, AppSettings>({
     resolver: zodResolver(settingsSchema),
     defaultValues: currentSettings,
   });
@@ -70,6 +96,13 @@ export function Settings() {
   useEffect(() => {
     form.reset(currentSettings);
   }, [currentSettings, form]);
+
+  const hackmdApiToken = form.watch('hackmdApiToken');
+  const currentHackmdApiToken = hackmdApiToken ?? '';
+
+  useEffect(() => {
+    resetTokenValidation();
+  }, [currentHackmdApiToken, resetTokenValidation]);
 
   const onSubmit = (data: AppSettings) => {
     updateSettings(data, {
@@ -80,15 +113,35 @@ export function Settings() {
 
   const handleReset = () => {
     form.reset(currentSettings);
+    resetTokenValidation();
     toast.info('Settings reset to current values');
   };
 
   const handleResetToDefaults = () => {
     form.reset(defaultSettings);
     setTheme('system');
+    resetTokenValidation();
     updateSettings(defaultSettings, {
       onSuccess: () => toast.success('All settings reset to defaults'),
       onError: (error) => toast.error(`Failed to reset: ${error.message}`),
+    });
+  };
+
+  const handleTestConnection = () => {
+    const token = currentHackmdApiToken.trim();
+
+    if (!token) {
+      toast.error('Enter a HackMD API token first');
+      return;
+    }
+
+    validateHackmdToken(token, {
+      onSuccess: (user) => {
+        toast.success(`Connected to HackMD as ${user.name}`);
+      },
+      onError: (error) => {
+        toast.error(`HackMD connection failed: ${error.message}`);
+      },
     });
   };
 
@@ -191,6 +244,76 @@ export function Settings() {
               </div>
             )}
 
+            {activeTab === 'hackmd' && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-medium">HackMD Integration</h3>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="hackmdApiToken"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      API Token
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        id="hackmdApiToken"
+                        type={showApiToken ? 'text' : 'password'}
+                        {...form.register('hackmdApiToken')}
+                        placeholder="Paste your HackMD API token"
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiToken((current) => !current)}
+                        className="inline-flex h-10 items-center justify-center rounded-md border border-input px-3 text-sm hover:bg-accent hover:text-accent-foreground"
+                        aria-label={showApiToken ? 'Hide API token' : 'Show API token'}
+                      >
+                        {showApiToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    {form.formState.errors.hackmdApiToken && (
+                      <p className="text-sm text-destructive">
+                        {form.formState.errors.hackmdApiToken.message}
+                      </p>
+                    )}
+                    <div className="space-y-1 text-sm text-muted-foreground">
+                      <p>Generate a personal access token from your HackMD account settings.</p>
+                      <p>This MVP stores the token locally in <code>~/.hackdesk/settings.json</code>.</p>
+                      <p>Phase 1 supports personal HackMD Cloud notes only.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleTestConnection}
+                      disabled={isValidatingToken || !currentHackmdApiToken.trim()}
+                      className="inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      {isValidatingToken ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      {isValidatingToken ? 'Testing...' : 'Test Connection'}
+                    </button>
+
+                    {isTokenValid && validatedUser ? (
+                      <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-sm text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Connected as {validatedUser.name} (@{validatedUser.userPath})
+                      </span>
+                    ) : null}
+
+                    {validationError ? (
+                      <span className="inline-flex items-center gap-2 rounded-full bg-destructive/10 px-3 py-1 text-sm text-destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        {validationError.message}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {activeTab === 'shortcuts' && (
               <div className="space-y-6">
                 <h3 className="text-lg font-medium">Keyboard Shortcuts</h3>
@@ -243,25 +366,23 @@ export function Settings() {
               </div>
             )}
 
-            {activeTab === 'general' && (
-              <div className="flex items-center gap-4 pt-4">
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  {isPending ? 'Saving...' : 'Save Changes'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  disabled={isPending}
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground"
-                >
-                  Reset
-                </button>
-              </div>
-            )}
+            <div className="flex items-center gap-4 pt-4">
+              <button
+                type="submit"
+                disabled={isPending}
+                className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+              >
+                {isPending ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button
+                type="button"
+                onClick={handleReset}
+                disabled={isPending}
+                className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+              >
+                Reset
+              </button>
+            </div>
           </form>
         </div>
       </main>
