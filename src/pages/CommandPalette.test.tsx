@@ -4,13 +4,14 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 
 import { useTheme } from '@/components/theme-provider';
-import { useCreateHackmdNote, useDeleteHackmdNote, useHackmdNotes } from '@/lib/hackmd';
+import { useCreateHackmdNote, useDeleteHackmdNote, useHackmdNotes, useHackmdTeams } from '@/lib/hackmd';
 import { useSettings } from '@/lib/query';
 import { Cmd } from '@/constants';
 import { CommandPalette } from './CommandPalette';
 
 const useSettingsMock = useSettings as unknown as ReturnType<typeof vi.fn>;
 const useHackmdNotesMock = useHackmdNotes as unknown as ReturnType<typeof vi.fn>;
+const useHackmdTeamsMock = useHackmdTeams as unknown as ReturnType<typeof vi.fn>;
 const useCreateHackmdNoteMock = useCreateHackmdNote as unknown as ReturnType<typeof vi.fn>;
 const useDeleteHackmdNoteMock = useDeleteHackmdNote as unknown as ReturnType<typeof vi.fn>;
 const useThemeMock = useTheme as unknown as ReturnType<typeof vi.fn>;
@@ -27,17 +28,60 @@ vi.mock('@/lib/query', () => ({
 
 vi.mock('@/lib/hackmd', () => ({
   getHackmdErrorMessage: vi.fn((error: Error) => error.message),
-  getHackmdNotePath: vi.fn((note: { userPath: string; permalink: string }) => `/@${note.userPath}/${note.permalink}`),
+  getHackmdNotePath: vi.fn((note: { userPath?: string | null; teamPath?: string | null; permalink?: string | null; shortId: string; publishLink?: string | null }) => {
+    if (note.teamPath && note.publishLink) {
+      return new URL(note.publishLink).pathname;
+    }
+
+    const namePath = note.userPath || note.teamPath;
+    return namePath ? `/@${namePath}/${note.permalink || note.shortId}` : `/${note.shortId}`;
+  }),
   normalizeHackmdToken: vi.fn((token: string) => token.trim()),
   useCreateHackmdNote: vi.fn(),
   useDeleteHackmdNote: vi.fn(),
   useHackmdNotes: vi.fn(),
+  useHackmdTeams: vi.fn(),
 }));
 
 describe('CommandPalette page', () => {
   const close = vi.fn();
   const setTheme = vi.fn();
   const refetchNotes = vi.fn();
+  const refetchTeams = vi.fn();
+  const personalNote = {
+    id: 'note-1',
+    title: 'Roadmap',
+    tags: ['product'],
+    lastChangedAt: '2026-04-18T00:00:00.000Z',
+    createdAt: '2026-04-18T00:00:00.000Z',
+    lastChangeUser: null,
+    publishType: 'edit',
+    publishedAt: null,
+    userPath: 'michael',
+    teamPath: null,
+    permalink: 'roadmap',
+    shortId: 'abc123',
+    publishLink: 'https://hackmd.io/abc123',
+    readPermission: 'guest',
+    writePermission: 'signed_in',
+  };
+  const teamNote = {
+    id: 'team-note-1',
+    title: 'Engineering Plan',
+    tags: ['team'],
+    lastChangedAt: '2026-04-19T00:00:00.000Z',
+    createdAt: '2026-04-19T00:00:00.000Z',
+    lastChangeUser: null,
+    publishType: 'view',
+    publishedAt: null,
+    userPath: null,
+    teamPath: 'engineering',
+    permalink: 'team-roadmap',
+    shortId: 'team123',
+    publishLink: 'https://hackmd.io/@engineering/team-roadmap',
+    readPermission: 'guest',
+    writePermission: 'signed_in',
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -51,6 +95,13 @@ describe('CommandPalette page', () => {
       isError: false,
       isPending: false,
       refetch: refetchNotes,
+    } as never);
+    useHackmdTeamsMock.mockReturnValue({
+      data: [],
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: refetchTeams,
     } as never);
     useCreateHackmdNoteMock.mockReturnValue({
       isPending: false,
@@ -115,25 +166,7 @@ describe('CommandPalette page', () => {
       data: { title: 'HackDesk', hackmdApiToken: 'secret-token' },
     } as never);
     useHackmdNotesMock.mockReturnValue({
-      data: [
-        {
-          id: 'note-1',
-          title: 'Roadmap',
-          tags: ['product'],
-          lastChangedAt: '2026-04-18T00:00:00.000Z',
-          createdAt: '2026-04-18T00:00:00.000Z',
-          lastChangeUser: null,
-          publishType: 'edit',
-          publishedAt: null,
-          userPath: 'michael',
-          teamPath: null,
-          permalink: 'roadmap',
-          shortId: 'abc123',
-          publishLink: 'https://hackmd.io/abc123',
-          readPermission: 'guest',
-          writePermission: 'signed_in',
-        },
-      ],
+      data: [personalNote],
       error: null,
       isError: false,
       isPending: false,
@@ -152,25 +185,7 @@ describe('CommandPalette page', () => {
       data: { title: 'HackDesk', hackmdApiToken: 'secret-token' },
     } as never);
     useHackmdNotesMock.mockReturnValue({
-      data: [
-        {
-          id: 'note-1',
-          title: 'Roadmap',
-          tags: ['product'],
-          lastChangedAt: '2026-04-18T00:00:00.000Z',
-          createdAt: '2026-04-18T00:00:00.000Z',
-          lastChangeUser: null,
-          publishType: 'edit',
-          publishedAt: null,
-          userPath: 'michael',
-          teamPath: null,
-          permalink: 'roadmap',
-          shortId: 'abc123',
-          publishLink: 'https://hackmd.io/abc123',
-          readPermission: 'guest',
-          writePermission: 'signed_in',
-        },
-      ],
+      data: [personalNote],
       error: null,
       isError: false,
       isPending: false,
@@ -188,6 +203,132 @@ describe('CommandPalette page', () => {
         action: {
           type: 'Navigate',
           data: { path: '/@michael/roadmap' },
+        },
+      });
+      expect(close).toHaveBeenCalled();
+    });
+  });
+
+  it('shows team workspaces inside manage notes', () => {
+    useSettingsMock.mockReturnValue({
+      data: { title: 'HackDesk', hackmdApiToken: 'secret-token' },
+    } as never);
+    useHackmdNotesMock.mockReturnValue({
+      data: [personalNote],
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: refetchNotes,
+    } as never);
+    useHackmdTeamsMock.mockReturnValue({
+      data: [{
+        id: 'team-1',
+        ownerId: 'owner-1',
+        name: 'Engineering',
+        logo: 'https://example.com/logo.png',
+        path: 'engineering',
+        description: 'Engineering workspace',
+        visibility: 'private',
+        createdAt: '2026-04-19T00:00:00.000Z',
+        upgraded: true,
+      }],
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: refetchTeams,
+    } as never);
+
+    render(<CommandPalette />);
+
+    fireEvent.click(screen.getByText('Manage Notes'));
+
+    expect(screen.getByText('Personal Notes')).toBeInTheDocument();
+    expect(screen.getByText('Engineering')).toBeInTheDocument();
+  });
+
+  it('switches to a team workspace and shows that teams notes', () => {
+    useSettingsMock.mockReturnValue({
+      data: { title: 'HackDesk', hackmdApiToken: 'secret-token' },
+    } as never);
+    useHackmdTeamsMock.mockReturnValue({
+      data: [{
+        id: 'team-1',
+        ownerId: 'owner-1',
+        name: 'Engineering',
+        logo: 'https://example.com/logo.png',
+        path: 'engineering',
+        description: 'Engineering workspace',
+        visibility: 'private',
+        createdAt: '2026-04-19T00:00:00.000Z',
+        upgraded: true,
+      }],
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: refetchTeams,
+    } as never);
+    useHackmdNotesMock.mockImplementation((_, __, teamPath: string | null | undefined) => ({
+      data: teamPath === 'engineering' ? [teamNote] : [personalNote],
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: refetchNotes,
+    } as never));
+
+    render(<CommandPalette />);
+
+    fireEvent.click(screen.getByText('Manage Notes'));
+    fireEvent.click(screen.getByText('Engineering'));
+
+    expect(screen.getByText('Engineering Plan')).toBeInTheDocument();
+    expect(screen.queryByText('Roadmap')).not.toBeInTheDocument();
+  });
+
+  it('opens team notes and hides delete actions in phase 1', async () => {
+    useSettingsMock.mockReturnValue({
+      data: { title: 'HackDesk', hackmdApiToken: 'secret-token' },
+    } as never);
+    useHackmdTeamsMock.mockReturnValue({
+      data: [{
+        id: 'team-1',
+        ownerId: 'owner-1',
+        name: 'Engineering',
+        logo: 'https://example.com/logo.png',
+        path: 'engineering',
+        description: 'Engineering workspace',
+        visibility: 'private',
+        createdAt: '2026-04-19T00:00:00.000Z',
+        upgraded: true,
+      }],
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: refetchTeams,
+    } as never);
+    useHackmdNotesMock.mockImplementation((_, __, teamPath: string | null | undefined) => ({
+      data: teamPath === 'engineering' ? [teamNote] : [personalNote],
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: refetchNotes,
+    } as never));
+
+    render(<CommandPalette />);
+
+    fireEvent.click(screen.getByText('Manage Notes'));
+    fireEvent.click(screen.getByText('Engineering'));
+    fireEvent.click(screen.getByText('Engineering Plan'));
+
+    expect(screen.getByText('Open Note')).toBeInTheDocument();
+    expect(screen.queryByText('Delete Note')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Open Note'));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith(Cmd.EXECUTE_ACTION, {
+        action: {
+          type: 'Navigate',
+          data: { path: '/@engineering/team-roadmap' },
         },
       });
       expect(close).toHaveBeenCalled();

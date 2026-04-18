@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   Sun,
   Trash2,
+  Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -36,7 +37,9 @@ import {
   useCreateHackmdNote,
   useDeleteHackmdNote,
   useHackmdNotes,
+  useHackmdTeams,
   type HackmdNote,
+  type HackmdTeam,
 } from '@/lib/hackmd';
 import { useSettings } from '@/lib/query';
 import { defaultSettings } from '@/lib/settings';
@@ -56,14 +59,18 @@ type PaletteMode = 'root' | 'notes' | 'note-actions' | 'confirm-delete';
 const NOTE_VALUE_PREFIX = 'hackmd-note:';
 const CREATE_NOTE_VALUE_PREFIX = 'hackmd-create:';
 const BACK_TO_ROOT_VALUE = 'hackmd-back-to-root';
+const PERSONAL_SCOPE_VALUE = 'hackmd-scope-personal';
+const TEAM_SCOPE_VALUE_PREFIX = 'hackmd-scope-team:';
 const BACK_TO_NOTES_VALUE = 'hackmd-back-to-notes';
 const OPEN_NOTE_VALUE = 'hackmd-open-note';
 const DELETE_NOTE_VALUE = 'hackmd-delete-note';
 const CONFIRM_DELETE_NOTE_VALUE = 'hackmd-confirm-delete-note';
 const CANCEL_DELETE_NOTE_VALUE = 'hackmd-cancel-delete-note';
 const RETRY_NOTES_VALUE = 'hackmd-retry-notes';
+const RETRY_TEAMS_VALUE = 'hackmd-retry-teams';
 const OPEN_LOCAL_SETTINGS_VALUE = 'hackmd-open-local-settings';
 const EMPTY_NOTES: HackmdNote[] = [];
+const EMPTY_TEAMS: HackmdTeam[] = [];
 
 async function redirect(path: string) {
   await invoke(Cmd.EXECUTE_ACTION, {
@@ -89,6 +96,9 @@ function NoteCommandItem({
   onSelect: (value: string) => void;
 }) {
   const tags = note.tags.slice(0, 2).join(', ');
+  const metadata = [note.teamPath ? `Team · ${note.teamPath}` : null, tags || note.shortId]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <CommandItem
@@ -100,7 +110,7 @@ function NoteCommandItem({
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="truncate font-medium">{note.title || 'Untitled note'}</span>
         <span className="truncate text-xs text-muted-foreground">
-          {tags || note.shortId}
+          {metadata}
         </span>
       </div>
       <CommandShortcut>{formatNoteDate(note.lastChangedAt)}</CommandShortcut>
@@ -116,6 +126,7 @@ export function CommandPalette() {
   const [recentValues, setRecentValues] = useState<string[]>([]);
   const [recentNoteIds, setRecentNoteIds] = useState<string[]>([]);
   const [selectedNote, setSelectedNote] = useState<HackmdNote | null>(null);
+  const [selectedTeamPath, setSelectedTeamPath] = useState<string | null>(null);
 
   const settings = settingsData ?? defaultSettings;
   const hackmdToken = normalizeHackmdToken(settings.hackmdApiToken);
@@ -128,9 +139,15 @@ export function CommandPalette() {
 
   useCommandPaletteWindow(isNotesMode ? 'notes' : 'compact');
 
-  const notesQuery = useHackmdNotes(hackmdToken, isNotesMode && hasHackmdToken);
+  const teamsQuery = useHackmdTeams(isNotesMode && hasHackmdToken);
+  const notesQuery = useHackmdNotes(hackmdToken, isNotesMode && hasHackmdToken, selectedTeamPath);
   const createNoteMutation = useCreateHackmdNote(hackmdToken);
   const deleteNoteMutation = useDeleteHackmdNote(hackmdToken);
+  const teams = teamsQuery.data ?? EMPTY_TEAMS;
+  const selectedTeam = useMemo(
+    () => teams.find((team) => team.path === selectedTeamPath) ?? null,
+    [selectedTeamPath, teams],
+  );
 
   useEffect(() => {
     setRecentValues(getRecentCommands());
@@ -196,7 +213,8 @@ export function CommandPalette() {
     [filteredNotes, recentNoteIdsSet],
   );
   const trimmedSearch = search.trim();
-  const canCreateNote = mode === 'notes' && trimmedSearch.length > 0 && !notesQuery.isError;
+  const isTeamScope = selectedTeamPath !== null;
+  const canCreateNote = mode === 'notes' && trimmedSearch.length > 0 && !notesQuery.isError && !isTeamScope;
 
   const closePalette = useCallback(() => {
     getCurrentWebviewWindow().close();
@@ -230,6 +248,7 @@ export function CommandPalette() {
 
     if (mode === 'notes') {
       setSelectedNote(null);
+      setSelectedTeamPath(null);
       setMode('root');
       return;
     }
@@ -258,7 +277,7 @@ export function CommandPalette() {
   }, [closePalette, createNoteMutation, syncRecentNotes]);
 
   const handleDeleteSelectedNote = useCallback(async () => {
-    if (!selectedNote) {
+    if (!selectedNote || selectedNote.teamPath) {
       return;
     }
 
@@ -275,6 +294,18 @@ export function CommandPalette() {
     }
   }, [deleteNoteMutation, selectedNote, syncRecentNotes]);
 
+  const handleSelectPersonalNotes = useCallback(() => {
+    setSelectedTeamPath(null);
+    setSelectedNote(null);
+    setSearch('');
+  }, []);
+
+  const handleSelectTeam = useCallback((teamPath: string) => {
+    setSelectedTeamPath(teamPath);
+    setSelectedNote(null);
+    setSearch('');
+  }, []);
+
   const handleRootSelect = (value: string) => {
     const command = findCommand(value, availableCommands);
     if (!command) return;
@@ -286,6 +317,7 @@ export function CommandPalette() {
     case 'hackmd:notes':
       setSearch('');
       setSelectedNote(null);
+      setSelectedTeamPath(null);
       setMode('notes');
       return;
     case 'back':
@@ -317,14 +349,25 @@ export function CommandPalette() {
     case BACK_TO_ROOT_VALUE:
       handleBack();
       return;
+    case PERSONAL_SCOPE_VALUE:
+      handleSelectPersonalNotes();
+      return;
     case RETRY_NOTES_VALUE:
       void notesQuery.refetch();
+      return;
+    case RETRY_TEAMS_VALUE:
+      void teamsQuery.refetch();
       return;
     case OPEN_LOCAL_SETTINGS_VALUE:
       void openLocalSettings();
       return;
     default:
       break;
+    }
+
+    if (value.startsWith(TEAM_SCOPE_VALUE_PREFIX)) {
+      handleSelectTeam(value.slice(TEAM_SCOPE_VALUE_PREFIX.length));
+      return;
     }
 
     if (value.startsWith(CREATE_NOTE_VALUE_PREFIX)) {
@@ -360,7 +403,9 @@ export function CommandPalette() {
       void handleOpenNote(selectedNote);
       break;
     case DELETE_NOTE_VALUE:
-      setMode('confirm-delete');
+      if (!selectedNote.teamPath) {
+        setMode('confirm-delete');
+      }
       break;
     default:
       break;
@@ -385,7 +430,9 @@ export function CommandPalette() {
   const inputPlaceholder = mode === 'root'
     ? 'Search commands...'
     : mode === 'notes'
-      ? 'Search your notes or type a title to create one...'
+      ? selectedTeam
+        ? `Search ${selectedTeam.name} notes...`
+        : 'Search your notes or type a title to create one...'
       : mode === 'note-actions'
         ? 'Choose an action...'
         : 'Confirm note deletion...';
@@ -521,11 +568,56 @@ export function CommandPalette() {
 
           {mode === 'notes' && (
             <>
-              <CommandGroup heading="HackMD">
+              <CommandGroup heading="Workspaces">
                 <CommandItem value={BACK_TO_ROOT_VALUE} onSelect={handleNotesSelect}>
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back to Commands
                 </CommandItem>
+                <CommandItem value={PERSONAL_SCOPE_VALUE} onSelect={handleNotesSelect}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Personal Notes
+                  {!selectedTeam ? <CommandShortcut>Current</CommandShortcut> : null}
+                </CommandItem>
+                {teamsQuery.isPending ? (
+                  <CommandItem value="hackmd-loading-teams" disabled>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading team workspaces...
+                  </CommandItem>
+                ) : null}
+                {teams.map((team) => (
+                  <CommandItem
+                    key={team.path}
+                    value={`${TEAM_SCOPE_VALUE_PREFIX}${team.path}`}
+                    onSelect={handleNotesSelect}
+                  >
+                    <Users className="mr-2 h-4 w-4" />
+                    {team.name}
+                    {selectedTeamPath === team.path ? <CommandShortcut>Current</CommandShortcut> : null}
+                  </CommandItem>
+                ))}
+                {!teamsQuery.isPending && !teamsQuery.isError && teams.length === 0 ? (
+                  <CommandItem value="hackmd-no-teams" disabled>
+                    <Users className="mr-2 h-4 w-4" />
+                    No team workspaces available
+                  </CommandItem>
+                ) : null}
+                {teamsQuery.isError ? (
+                  <>
+                    <CommandItem value="hackmd-teams-error" disabled className="items-start gap-3 py-3">
+                      <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <span className="font-medium text-destructive">Unable to load team workspaces</span>
+                        <span className="text-xs text-muted-foreground">
+                          {getHackmdErrorMessage(teamsQuery.error, 'Please try again in a moment.')}
+                        </span>
+                      </div>
+                    </CommandItem>
+                    <CommandItem value={RETRY_TEAMS_VALUE} onSelect={handleNotesSelect}>
+                      <Loader2 className="mr-2 h-4 w-4" />
+                      Retry Team Sync
+                    </CommandItem>
+                  </>
+                ) : null}
                 {canCreateNote && (
                   <CommandItem
                     value={`${CREATE_NOTE_VALUE_PREFIX}${trimmedSearch}`}
@@ -573,13 +665,17 @@ export function CommandPalette() {
               )}
 
               {!notesQuery.isPending && !notesQuery.isError && notes.length === 0 && (
-                <CommandGroup heading="Your Notes">
+                <CommandGroup heading={selectedTeam ? `${selectedTeam.name} Notes` : 'Your Notes'}>
                   <CommandItem value="hackmd-no-notes" disabled className="items-start gap-3 py-3">
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                     <div className="flex min-w-0 flex-1 flex-col gap-1">
-                      <span className="font-medium">No notes yet</span>
+                      <span className="font-medium">
+                        {selectedTeam ? `No notes in ${selectedTeam.name} yet` : 'No notes yet'}
+                      </span>
                       <span className="text-xs text-muted-foreground">
-                        Type a title above to create your first HackMD note from the palette.
+                        {selectedTeam
+                          ? 'Select another workspace or open this team in HackMD to create notes there.'
+                          : 'Type a title above to create your first HackMD note from the palette.'}
                       </span>
                     </div>
                   </CommandItem>
@@ -598,7 +694,7 @@ export function CommandPalette() {
               )}
 
               {!notesQuery.isPending && !notesQuery.isError && noteResults.length > 0 && (
-                <CommandGroup heading={trimmedSearch ? 'Search Results' : 'Your Notes'}>
+                <CommandGroup heading={trimmedSearch ? 'Search Results' : selectedTeam ? `${selectedTeam.name} Notes` : 'Your Notes'}>
                   {noteResults.map((note) => (
                     <NoteCommandItem key={note.id} note={note} onSelect={handleNotesSelect} />
                   ))}
@@ -630,10 +726,12 @@ export function CommandPalette() {
                   <FileText className="mr-2 h-4 w-4" />
                   Open Note
                 </CommandItem>
-                <CommandItem value={DELETE_NOTE_VALUE} onSelect={handleNoteActionSelect}>
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Note
-                </CommandItem>
+                {!selectedNote.teamPath ? (
+                  <CommandItem value={DELETE_NOTE_VALUE} onSelect={handleNoteActionSelect}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Note
+                  </CommandItem>
+                ) : null}
               </CommandGroup>
             </>
           )}

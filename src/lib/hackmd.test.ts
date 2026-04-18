@@ -20,6 +20,7 @@ describe('HackMD helpers', () => {
       userPath: 'michael',
       teamPath: null,
       permalink: 'hello-world',
+      publishLink: 'https://hackmd.io/abc123',
     })).toBe('/@michael/hello-world');
   });
 
@@ -30,7 +31,19 @@ describe('HackMD helpers', () => {
       userPath: null,
       teamPath: null,
       permalink: null,
+      publishLink: 'https://hackmd.io/abc123',
     }, true)).toBe('/abc123');
+  });
+
+  it('uses publishLink for team note navigation when available', () => {
+    expect(getHackmdNotePath({
+      publishType: 'view',
+      shortId: 'team123',
+      userPath: null,
+      teamPath: 'engineering',
+      permalink: 'roadmap',
+      publishLink: 'https://hackmd.io/@engineering/roadmap',
+    })).toBe('/@engineering/roadmap');
   });
 
   it('creates starter markdown for quick note creation', () => {

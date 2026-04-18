@@ -137,7 +137,7 @@ const hackmdCommands: CommandConfig[] = [
     label: 'Manage Notes',
     Icon: <FolderSearch className={COMMAND_ICON_CLASS} />,
     category: 'hackmd',
-    keywords: ['hackmd', 'notes', 'browse', 'search', 'create', 'delete'],
+    keywords: ['hackmd', 'notes', 'browse', 'search', 'create', 'delete', 'teams', 'workspace'],
   },
 ];
 

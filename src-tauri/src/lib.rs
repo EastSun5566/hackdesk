@@ -31,6 +31,8 @@ pub fn run() {
             cmd::open_link,
             cmd::validate_hackmd_token,
             cmd::list_hackmd_notes,
+            cmd::list_hackmd_teams,
+            cmd::list_hackmd_team_notes,
             cmd::create_hackmd_note,
             cmd::delete_hackmd_note
         ])

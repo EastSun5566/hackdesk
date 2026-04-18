@@ -3,7 +3,7 @@ use std::{fs, io, time::Duration};
 use hackmd_api_client_rs::{
     error::{HttpResponseError, TooManyRequestsError},
     ApiClient, ApiClientOptions, ApiError, CreateNoteOptions, Note, NotePermissionRole,
-    NotePublishType, RetryOptions, SimpleUserProfile, User,
+    NotePublishType, RetryOptions, SimpleUserProfile, Team, TeamVisibilityType, User,
 };
 use serde::{Deserialize, Serialize};
 
@@ -63,6 +63,20 @@ pub struct HackmdUserDto {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct HackmdTeamDto {
+    pub id: String,
+    pub owner_id: Option<String>,
+    pub name: String,
+    pub logo: String,
+    pub path: String,
+    pub description: Option<String>,
+    pub visibility: String,
+    pub created_at: String,
+    pub upgraded: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct HackmdSimpleUserProfileDto {
     pub name: String,
     pub user_path: String,
@@ -99,6 +113,22 @@ impl From<User> for HackmdUserDto {
             user_path: user.user_path,
             photo: user.photo,
             upgraded: user.upgraded,
+        }
+    }
+}
+
+impl From<Team> for HackmdTeamDto {
+    fn from(team: Team) -> Self {
+        Self {
+            id: team.id,
+            owner_id: team.owner_id,
+            name: team.name,
+            logo: team.logo,
+            path: team.path,
+            description: team.description,
+            visibility: team_visibility_to_str(&team.visibility).to_string(),
+            created_at: team.created_at.to_rfc3339(),
+            upgraded: team.upgraded,
         }
     }
 }
@@ -142,6 +172,13 @@ fn note_publish_type_to_str(publish_type: &NotePublishType) -> &'static str {
         NotePublishType::View => "view",
         NotePublishType::Slide => "slide",
         NotePublishType::Book => "book",
+    }
+}
+
+fn team_visibility_to_str(visibility: &TeamVisibilityType) -> &'static str {
+    match visibility {
+        TeamVisibilityType::Public => "public",
+        TeamVisibilityType::Private => "private",
     }
 }
 
@@ -252,6 +289,18 @@ pub async fn list_hackmd_notes() -> Result<Vec<HackmdNoteDto>, HackmdBridgeError
     Ok(notes.into_iter().map(Into::into).collect())
 }
 
+pub async fn list_hackmd_teams() -> Result<Vec<HackmdTeamDto>, HackmdBridgeError> {
+    let teams = get_saved_hackmd_client()?.get_teams().await?;
+    Ok(teams.into_iter().map(Into::into).collect())
+}
+
+pub async fn list_hackmd_team_notes(
+    team_path: &str,
+) -> Result<Vec<HackmdNoteDto>, HackmdBridgeError> {
+    let notes = get_saved_hackmd_client()?.get_team_notes(team_path).await?;
+    Ok(notes.into_iter().map(Into::into).collect())
+}
+
 pub async fn create_hackmd_note(
     payload: HackmdCreateNoteInput,
 ) -> Result<HackmdNoteDto, HackmdBridgeError> {
@@ -307,6 +356,30 @@ mod tests {
         assert_eq!(dto.name, "Michael");
         assert_eq!(dto.user_path, "michael");
         assert!(dto.upgraded);
+    }
+
+    #[test]
+    fn converts_team_to_frontend_dto() {
+        let team: Team = serde_json::from_value(json!({
+            "id": "team-1",
+            "ownerId": "owner-1",
+            "name": "Engineering",
+            "logo": "https://example.com/logo.png",
+            "path": "engineering",
+            "description": "Engineering workspace",
+            "hardBreaks": false,
+            "visibility": "private",
+            "createdAt": 1713398400000u64,
+            "upgraded": true
+        }))
+        .unwrap();
+
+        let dto = HackmdTeamDto::from(team);
+
+        assert_eq!(dto.name, "Engineering");
+        assert_eq!(dto.path, "engineering");
+        assert_eq!(dto.visibility, "private");
+        assert!(dto.created_at.starts_with("2024-04-18"));
     }
 
     #[test]

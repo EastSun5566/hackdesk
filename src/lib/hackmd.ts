@@ -5,9 +5,11 @@ import type { AppSettings } from './settings';
 
 const HACKMD_QUERY_KEY = ['hackmd'] as const;
 const HACKMD_NOTES_QUERY_KEY = [...HACKMD_QUERY_KEY, 'notes'] as const;
+const HACKMD_TEAMS_QUERY_KEY = [...HACKMD_QUERY_KEY, 'teams'] as const;
 
 export type HackmdPublishType = 'edit' | 'view' | 'slide' | 'book';
 export type HackmdPermissionRole = 'owner' | 'signed_in' | 'guest';
+export type HackmdTeamVisibility = 'public' | 'private';
 
 export type HackmdSimpleUserProfile = {
   name: string;
@@ -49,6 +51,18 @@ export type HackmdUserProfile = {
   name: string;
   userPath: string;
   photo: string;
+  upgraded: boolean;
+};
+
+export type HackmdTeam = {
+  id: string;
+  ownerId: string | null;
+  name: string;
+  logo: string;
+  path: string;
+  description: string | null;
+  visibility: HackmdTeamVisibility;
+  createdAt: string;
   upgraded: boolean;
 };
 
@@ -101,7 +115,33 @@ export function getHackmdErrorMessage(error: unknown, fallback = 'Something went
   return fallback;
 }
 
-export function getHackmdNotePath(note: Pick<HackmdNote, 'publishType' | 'shortId' | 'userPath' | 'teamPath' | 'permalink'>, editMode = false) {
+function getHackmdPathFromPublishLink(publishLink?: string | null) {
+  if (!publishLink) {
+    return null;
+  }
+
+  try {
+    const url = new URL(publishLink);
+
+    if (url.origin !== 'https://hackmd.io') {
+      return null;
+    }
+
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+}
+
+export function getHackmdNotePath(note: Pick<HackmdNote, 'publishType' | 'shortId' | 'userPath' | 'teamPath' | 'permalink' | 'publishLink'>, editMode = false) {
+  if (!editMode && note.teamPath) {
+    const publishPath = getHackmdPathFromPublishLink(note.publishLink);
+
+    if (publishPath) {
+      return publishPath;
+    }
+  }
+
   const namePath = note.userPath || note.teamPath;
 
   if (namePath) {
@@ -136,11 +176,28 @@ export function useValidateHackmdToken() {
   });
 }
 
-export function useHackmdNotes(accessToken: string, enabled: boolean) {
+export function useHackmdTeams(enabled: boolean) {
   return useQuery({
-    queryKey: [...HACKMD_NOTES_QUERY_KEY, normalizeHackmdToken(accessToken)],
+    queryKey: HACKMD_TEAMS_QUERY_KEY,
     queryFn: async () => {
-      const notes = await invokeHackmdCommand<HackmdNote[]>('list_hackmd_notes');
+      return invokeHackmdCommand<HackmdTeam[]>('list_hackmd_teams');
+    },
+    enabled,
+    staleTime: 1000 * 60 * 5,
+    retry: 1,
+  });
+}
+
+export function useHackmdNotes(accessToken: string, enabled: boolean, teamPath?: string | null) {
+  const normalizedTeamPath = teamPath?.trim() || null;
+
+  return useQuery({
+    queryKey: [...HACKMD_NOTES_QUERY_KEY, normalizeHackmdToken(accessToken), normalizedTeamPath],
+    queryFn: async () => {
+      const notes = normalizedTeamPath
+        ? await invokeHackmdCommand<HackmdNote[]>('list_hackmd_team_notes', { teamPath: normalizedTeamPath })
+        : await invokeHackmdCommand<HackmdNote[]>('list_hackmd_notes');
+
       return [...notes].sort(
         (left, right) => new Date(right.lastChangedAt).valueOf() - new Date(left.lastChangedAt).valueOf(),
       );

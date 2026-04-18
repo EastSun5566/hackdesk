@@ -12,7 +12,7 @@ use crate::{
             COMMAND_PALETTE_WINDOW_LABEL, MAIN_WINDOW_LABEL, SETTINGS_WINDOW_HEIGHT,
             SETTINGS_WINDOW_LABEL, SETTINGS_WINDOW_WIDTH,
         },
-        hackmd::{self, HackmdCreateNoteInput, HackmdNoteDto, HackmdUserDto},
+        hackmd::{self, HackmdCreateNoteInput, HackmdNoteDto, HackmdTeamDto, HackmdUserDto},
     },
     utils,
 };
@@ -214,6 +214,20 @@ pub async fn validate_hackmd_token(token: String) -> Result<HackmdUserDto, Strin
 #[command]
 pub async fn list_hackmd_notes() -> Result<Vec<HackmdNoteDto>, String> {
     hackmd::list_hackmd_notes()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[command]
+pub async fn list_hackmd_teams() -> Result<Vec<HackmdTeamDto>, String> {
+    hackmd::list_hackmd_teams()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[command]
+pub async fn list_hackmd_team_notes(team_path: String) -> Result<Vec<HackmdNoteDto>, String> {
+    hackmd::list_hackmd_team_notes(&team_path)
         .await
         .map_err(|error| error.to_string())
 }
