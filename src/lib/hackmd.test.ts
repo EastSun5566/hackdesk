@@ -46,6 +46,17 @@ describe('HackMD helpers', () => {
     })).toBe('/@engineering/roadmap');
   });
 
+  it('builds an edit path for team notes from publishLink', () => {
+    expect(getHackmdNotePath({
+      publishType: 'view',
+      shortId: 'team123',
+      userPath: null,
+      teamPath: 'engineering',
+      permalink: 'roadmap',
+      publishLink: 'https://hackmd.io/@engineering/roadmap',
+    }, true)).toBe('/@engineering/roadmap/edit');
+  });
+
   it('creates starter markdown for quick note creation', () => {
     expect(createQuickNotePayload('Sprint Notes')).toEqual({
       title: 'Sprint Notes',

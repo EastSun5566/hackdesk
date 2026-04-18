@@ -134,11 +134,11 @@ function getHackmdPathFromPublishLink(publishLink?: string | null) {
 }
 
 export function getHackmdNotePath(note: Pick<HackmdNote, 'publishType' | 'shortId' | 'userPath' | 'teamPath' | 'permalink' | 'publishLink'>, editMode = false) {
-  if (!editMode && note.teamPath) {
+  if (note.teamPath) {
     const publishPath = getHackmdPathFromPublishLink(note.publishLink);
 
     if (publishPath) {
-      return publishPath;
+      return editMode ? `${publishPath.replace(/\/edit$/, '')}/edit` : publishPath;
     }
   }
 
@@ -208,14 +208,20 @@ export function useHackmdNotes(accessToken: string, enabled: boolean, teamPath?:
   });
 }
 
-export function useCreateHackmdNote(_accessToken: string) {
+export function useCreateHackmdNote(_accessToken: string, teamPath?: string | null) {
   const queryClient = useQueryClient();
+  const normalizedTeamPath = teamPath?.trim() || null;
 
   return useMutation({
     mutationFn: async (title: string) => {
-      return invokeHackmdCommand<HackmdNote>('create_hackmd_note', {
-        payload: createQuickNotePayload(title),
-      });
+      return normalizedTeamPath
+        ? invokeHackmdCommand<HackmdNote>('create_hackmd_team_note', {
+          teamPath: normalizedTeamPath,
+          payload: createQuickNotePayload(title),
+        })
+        : invokeHackmdCommand<HackmdNote>('create_hackmd_note', {
+          payload: createQuickNotePayload(title),
+        });
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: HACKMD_NOTES_QUERY_KEY });
@@ -223,14 +229,20 @@ export function useCreateHackmdNote(_accessToken: string) {
   });
 }
 
-export function useDeleteHackmdNote(_accessToken: string) {
+export function useDeleteHackmdNote(_accessToken: string, teamPath?: string | null) {
   const queryClient = useQueryClient();
+  const normalizedTeamPath = teamPath?.trim() || null;
 
   return useMutation({
     mutationFn: async (noteId: string) => {
-      return invokeHackmdCommand<void>('delete_hackmd_note', {
-        noteId,
-      });
+      return normalizedTeamPath
+        ? invokeHackmdCommand<void>('delete_hackmd_team_note', {
+          teamPath: normalizedTeamPath,
+          noteId,
+        })
+        : invokeHackmdCommand<void>('delete_hackmd_note', {
+          noteId,
+        });
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: HACKMD_NOTES_QUERY_KEY });

@@ -240,8 +240,25 @@ pub async fn create_hackmd_note(payload: HackmdCreateNoteInput) -> Result<Hackmd
 }
 
 #[command]
+pub async fn create_hackmd_team_note(
+    team_path: String,
+    payload: HackmdCreateNoteInput,
+) -> Result<HackmdNoteDto, String> {
+    hackmd::create_hackmd_team_note(&team_path, payload)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[command]
 pub async fn delete_hackmd_note(note_id: String) -> Result<(), String> {
     hackmd::delete_hackmd_note(&note_id)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[command]
+pub async fn delete_hackmd_team_note(team_path: String, note_id: String) -> Result<(), String> {
+    hackmd::delete_hackmd_team_note(&team_path, &note_id)
         .await
         .map_err(|error| error.to_string())
 }

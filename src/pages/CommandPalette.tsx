@@ -141,8 +141,8 @@ export function CommandPalette() {
 
   const teamsQuery = useHackmdTeams(isNotesMode && hasHackmdToken);
   const notesQuery = useHackmdNotes(hackmdToken, isNotesMode && hasHackmdToken, selectedTeamPath);
-  const createNoteMutation = useCreateHackmdNote(hackmdToken);
-  const deleteNoteMutation = useDeleteHackmdNote(hackmdToken);
+  const createNoteMutation = useCreateHackmdNote(hackmdToken, selectedTeamPath);
+  const deleteNoteMutation = useDeleteHackmdNote(hackmdToken, selectedTeamPath);
   const teams = teamsQuery.data ?? EMPTY_TEAMS;
   const selectedTeam = useMemo(
     () => teams.find((team) => team.path === selectedTeamPath) ?? null,
@@ -213,8 +213,7 @@ export function CommandPalette() {
     [filteredNotes, recentNoteIdsSet],
   );
   const trimmedSearch = search.trim();
-  const isTeamScope = selectedTeamPath !== null;
-  const canCreateNote = mode === 'notes' && trimmedSearch.length > 0 && !notesQuery.isError && !isTeamScope;
+  const canCreateNote = mode === 'notes' && trimmedSearch.length > 0 && !notesQuery.isError;
 
   const closePalette = useCallback(() => {
     getCurrentWebviewWindow().close();
@@ -268,16 +267,20 @@ export function CommandPalette() {
       const note = await createNoteMutation.mutateAsync(title);
       saveRecentNote(note.id);
       syncRecentNotes();
-      toast.success(`Created “${note.title || title.trim()}”`);
+      toast.success(
+        selectedTeam
+          ? `Created “${note.title || title.trim()}” in ${selectedTeam.name}`
+          : `Created “${note.title || title.trim()}”`,
+      );
       await redirect(getHackmdNotePath(note, true));
       closePalette();
     } catch (error) {
       toast.error(getHackmdErrorMessage(error, 'Failed to create the note.'));
     }
-  }, [closePalette, createNoteMutation, syncRecentNotes]);
+  }, [closePalette, createNoteMutation, selectedTeam, syncRecentNotes]);
 
   const handleDeleteSelectedNote = useCallback(async () => {
-    if (!selectedNote || selectedNote.teamPath) {
+    if (!selectedNote) {
       return;
     }
 
@@ -403,9 +406,7 @@ export function CommandPalette() {
       void handleOpenNote(selectedNote);
       break;
     case DELETE_NOTE_VALUE:
-      if (!selectedNote.teamPath) {
-        setMode('confirm-delete');
-      }
+      setMode('confirm-delete');
       break;
     default:
       break;
@@ -431,7 +432,7 @@ export function CommandPalette() {
     ? 'Search commands...'
     : mode === 'notes'
       ? selectedTeam
-        ? `Search ${selectedTeam.name} notes...`
+        ? `Search ${selectedTeam.name} notes or type a title to create one...`
         : 'Search your notes or type a title to create one...'
       : mode === 'note-actions'
         ? 'Choose an action...'
@@ -440,7 +441,7 @@ export function CommandPalette() {
 
   return (
     <div className="p-2">
-      <Command shouldFilter={false} className={isNotesMode ? 'min-h-[520px]' : undefined}>
+      <Command shouldFilter={false} loop className={isNotesMode ? 'min-h-[520px]' : undefined}>
         <CommandInput
           placeholder={inputPlaceholder}
           value={canSearchCurrentMode ? search : ''}
@@ -578,6 +579,15 @@ export function CommandPalette() {
                   Personal Notes
                   {!selectedTeam ? <CommandShortcut>Current</CommandShortcut> : null}
                 </CommandItem>
+                {canCreateNote && (
+                  <CommandItem
+                    value={`${CREATE_NOTE_VALUE_PREFIX}${trimmedSearch}`}
+                    onSelect={handleNotesSelect}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    {selectedTeam ? `Create “${trimmedSearch}” in ${selectedTeam.name}` : `Create “${trimmedSearch}”`}
+                  </CommandItem>
+                )}
                 {teamsQuery.isPending ? (
                   <CommandItem value="hackmd-loading-teams" disabled>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -618,15 +628,6 @@ export function CommandPalette() {
                     </CommandItem>
                   </>
                 ) : null}
-                {canCreateNote && (
-                  <CommandItem
-                    value={`${CREATE_NOTE_VALUE_PREFIX}${trimmedSearch}`}
-                    onSelect={handleNotesSelect}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create “{trimmedSearch}”
-                  </CommandItem>
-                )}
               </CommandGroup>
 
               {(notesQuery.isPending || notesQuery.isError || recentNotes.length > 0 || noteResults.length > 0 || (!notesQuery.isPending && !notesQuery.isError && notes.length === 0)) && (
@@ -674,7 +675,7 @@ export function CommandPalette() {
                       </span>
                       <span className="text-xs text-muted-foreground">
                         {selectedTeam
-                          ? 'Select another workspace or open this team in HackMD to create notes there.'
+                          ? 'Type a title above to create the first note in this team workspace.'
                           : 'Type a title above to create your first HackMD note from the palette.'}
                       </span>
                     </div>
@@ -726,12 +727,10 @@ export function CommandPalette() {
                   <FileText className="mr-2 h-4 w-4" />
                   Open Note
                 </CommandItem>
-                {!selectedNote.teamPath ? (
-                  <CommandItem value={DELETE_NOTE_VALUE} onSelect={handleNoteActionSelect}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete Note
-                  </CommandItem>
-                ) : null}
+                <CommandItem value={DELETE_NOTE_VALUE} onSelect={handleNoteActionSelect}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Note
+                </CommandItem>
               </CommandGroup>
             </>
           )}

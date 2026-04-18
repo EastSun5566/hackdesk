@@ -318,8 +318,39 @@ pub async fn create_hackmd_note(
     Ok(note.note.into())
 }
 
+pub async fn create_hackmd_team_note(
+    team_path: &str,
+    payload: HackmdCreateNoteInput,
+) -> Result<HackmdNoteDto, HackmdBridgeError> {
+    let note = get_saved_hackmd_client()?
+        .create_team_note(
+            team_path,
+            &CreateNoteOptions {
+                title: Some(payload.title.trim().to_string()),
+                content: Some(payload.content),
+                read_permission: None,
+                write_permission: None,
+                comment_permission: None,
+                permalink: None,
+            },
+        )
+        .await?;
+
+    Ok(note.note.into())
+}
+
 pub async fn delete_hackmd_note(note_id: &str) -> Result<(), HackmdBridgeError> {
     get_saved_hackmd_client()?.delete_note(note_id).await?;
+    Ok(())
+}
+
+pub async fn delete_hackmd_team_note(
+    team_path: &str,
+    note_id: &str,
+) -> Result<(), HackmdBridgeError> {
+    get_saved_hackmd_client()?
+        .delete_team_note(team_path, note_id)
+        .await?;
     Ok(())
 }
 

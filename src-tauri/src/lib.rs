@@ -34,7 +34,9 @@ pub fn run() {
             cmd::list_hackmd_teams,
             cmd::list_hackmd_team_notes,
             cmd::create_hackmd_note,
-            cmd::delete_hackmd_note
+            cmd::create_hackmd_team_note,
+            cmd::delete_hackmd_note,
+            cmd::delete_hackmd_team_note
         ])
         .setup(setup::init)
         .menu(menu::init)
