@@ -274,6 +274,86 @@ describe('CommandPalette page', () => {
     expect(screen.getByText('Engineering')).toBeInTheDocument();
   });
 
+  it('renders recent notes before workspaces when not searching', () => {
+    window.localStorage.setItem('hackdesk_recent_notes', JSON.stringify(['note-1']));
+    useSettingsMock.mockReturnValue({
+      data: { title: 'HackDesk', hackmdApiToken: 'secret-token' },
+    } as never);
+    useHackmdNotesMock.mockReturnValue({
+      data: [personalNote],
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: refetchNotes,
+    } as never);
+    useHackmdTeamsMock.mockReturnValue({
+      data: Array.from({ length: 6 }, (_, index) => ({
+        id: `team-${index + 1}`,
+        ownerId: 'owner-1',
+        name: `Team ${String(index + 1).padStart(2, '0')}`,
+        logo: 'https://example.com/logo.png',
+        path: `team-${index + 1}`,
+        description: 'Workspace',
+        visibility: 'private',
+        createdAt: '2026-04-19T00:00:00.000Z',
+        upgraded: true,
+      })),
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: refetchTeams,
+    } as never);
+
+    render(<CommandPalette />);
+
+    fireEvent.click(screen.getByText('Manage Notes'));
+
+    expect(isRenderedBefore(screen.getByText('Recent Notes'), screen.getByText('Workspaces'))).toBe(true);
+    expect(isRenderedBefore(screen.getByText('Roadmap'), screen.getByText('Back to Commands'))).toBe(true);
+  });
+
+  it('hides recent notes and keeps create visible when searching', () => {
+    window.localStorage.setItem('hackdesk_recent_notes', JSON.stringify(['note-1']));
+    useSettingsMock.mockReturnValue({
+      data: { title: 'HackDesk', hackmdApiToken: 'secret-token' },
+    } as never);
+    useHackmdNotesMock.mockReturnValue({
+      data: [personalNote],
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: refetchNotes,
+    } as never);
+    useHackmdTeamsMock.mockReturnValue({
+      data: [{
+        id: 'team-1',
+        ownerId: 'owner-1',
+        name: 'Engineering',
+        logo: 'https://example.com/logo.png',
+        path: 'engineering',
+        description: 'Workspace',
+        visibility: 'private',
+        createdAt: '2026-04-19T00:00:00.000Z',
+        upgraded: true,
+      }],
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: refetchTeams,
+    } as never);
+
+    render(<CommandPalette />);
+
+    fireEvent.click(screen.getByText('Manage Notes'));
+    fireEvent.change(screen.getByPlaceholderText('Search your notes or type a title to create one...'), {
+      target: { value: 'Sprint Plan' },
+    });
+
+    expect(screen.queryByText('Recent Notes')).not.toBeInTheDocument();
+    expect(screen.queryByText('Roadmap')).not.toBeInTheDocument();
+    expect(screen.getByText('Create “Sprint Plan”')).toBeInTheDocument();
+  });
+
   it('cycles to the last selectable note item and skips disabled rows in notes mode', async () => {
     useSettingsMock.mockReturnValue({
       data: { title: 'HackDesk', hackmdApiToken: 'secret-token' },
@@ -334,6 +414,45 @@ describe('CommandPalette page', () => {
 
     expect(screen.getByText('Engineering Plan')).toBeInTheDocument();
     expect(screen.queryByText('Roadmap')).not.toBeInTheDocument();
+  });
+
+  it('shows team recent notes above workspaces in the active team scope', () => {
+    window.localStorage.setItem('hackdesk_recent_notes', JSON.stringify(['team-note-1']));
+    useSettingsMock.mockReturnValue({
+      data: { title: 'HackDesk', hackmdApiToken: 'secret-token' },
+    } as never);
+    useHackmdTeamsMock.mockReturnValue({
+      data: [{
+        id: 'team-1',
+        ownerId: 'owner-1',
+        name: 'Engineering',
+        logo: 'https://example.com/logo.png',
+        path: 'engineering',
+        description: 'Engineering workspace',
+        visibility: 'private',
+        createdAt: '2026-04-19T00:00:00.000Z',
+        upgraded: true,
+      }],
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: refetchTeams,
+    } as never);
+    useHackmdNotesMock.mockImplementation((_, __, teamPath: string | null | undefined) => ({
+      data: teamPath === 'engineering' ? [teamNote] : [personalNote],
+      error: null,
+      isError: false,
+      isPending: false,
+      refetch: refetchNotes,
+    } as never));
+
+    render(<CommandPalette />);
+
+    fireEvent.click(screen.getByText('Manage Notes'));
+    fireEvent.click(screen.getByText('Engineering'));
+
+    expect(screen.getByText('Recent Notes')).toBeInTheDocument();
+    expect(isRenderedBefore(screen.getByText('Engineering Plan'), screen.getByText('Back to Commands'))).toBe(true);
   });
 
   it('opens team notes and shows delete actions', async () => {

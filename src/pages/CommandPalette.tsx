@@ -214,6 +214,11 @@ export function CommandPalette() {
   );
   const trimmedSearch = search.trim();
   const canCreateNote = mode === 'notes' && trimmedSearch.length > 0 && !notesQuery.isError;
+  const showRecentNotes = !notesQuery.isPending && !notesQuery.isError && recentNotes.length > 0;
+  const showNotesContentSeparator = notesQuery.isPending
+    || notesQuery.isError
+    || noteResults.length > 0
+    || (!notesQuery.isPending && !notesQuery.isError && notes.length === 0);
 
   const closePalette = useCallback(() => {
     getCurrentWebviewWindow().close();
@@ -569,6 +574,17 @@ export function CommandPalette() {
 
           {mode === 'notes' && (
             <>
+              {showRecentNotes && (
+                <>
+                  <CommandGroup heading="Recent Notes">
+                    {recentNotes.map((note) => (
+                      <NoteCommandItem key={note.id} note={note} onSelect={handleNotesSelect} />
+                    ))}
+                  </CommandGroup>
+                  <CommandSeparator />
+                </>
+              )}
+
               <CommandGroup heading="Workspaces">
                 <CommandItem value={BACK_TO_ROOT_VALUE} onSelect={handleNotesSelect}>
                   <ArrowLeft className="mr-2 h-4 w-4" />
@@ -630,7 +646,7 @@ export function CommandPalette() {
                 ) : null}
               </CommandGroup>
 
-              {(notesQuery.isPending || notesQuery.isError || recentNotes.length > 0 || noteResults.length > 0 || (!notesQuery.isPending && !notesQuery.isError && notes.length === 0)) && (
+              {showNotesContentSeparator && (
                 <CommandSeparator />
               )}
 
@@ -681,17 +697,6 @@ export function CommandPalette() {
                     </div>
                   </CommandItem>
                 </CommandGroup>
-              )}
-
-              {!notesQuery.isPending && !notesQuery.isError && recentNotes.length > 0 && (
-                <>
-                  <CommandGroup heading="Recent Notes">
-                    {recentNotes.map((note) => (
-                      <NoteCommandItem key={note.id} note={note} onSelect={handleNotesSelect} />
-                    ))}
-                  </CommandGroup>
-                  {noteResults.length > 0 && <CommandSeparator />}
-                </>
               )}
 
               {!notesQuery.isPending && !notesQuery.isError && noteResults.length > 0 && (
