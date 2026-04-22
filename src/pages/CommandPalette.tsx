@@ -49,6 +49,7 @@ import {
   getRecentCommands,
   getRecentNotes,
   groupCommands,
+  type RecentNoteEntry,
   removeRecentNote,
   saveRecentNote,
   saveRecentCommand,
@@ -57,6 +58,7 @@ import {
 type PaletteMode = 'root' | 'notes' | 'note-actions' | 'confirm-delete';
 
 const NOTE_VALUE_PREFIX = 'hackmd-note:';
+const RECENT_NOTE_VALUE_PREFIX = 'hackmd-recent-note:';
 const CREATE_NOTE_VALUE_PREFIX = 'hackmd-create:';
 const BACK_TO_ROOT_VALUE = 'hackmd-back-to-root';
 const PERSONAL_SCOPE_VALUE = 'hackmd-scope-personal';
@@ -91,9 +93,11 @@ function formatNoteDate(date: string) {
 function NoteCommandItem({
   note,
   onSelect,
+  valuePrefix = NOTE_VALUE_PREFIX,
 }: {
   note: HackmdNote;
   onSelect: (value: string) => void;
+  valuePrefix?: string;
 }) {
   const tags = note.tags.slice(0, 2).join(', ');
   const metadata = [note.teamPath ? `Team · ${note.teamPath}` : null, tags || note.shortId]
@@ -102,7 +106,7 @@ function NoteCommandItem({
 
   return (
     <CommandItem
-      value={`${NOTE_VALUE_PREFIX}${note.id}`}
+      value={`${valuePrefix}${note.id}`}
       onSelect={onSelect}
       className="items-start gap-3 py-3"
     >
@@ -124,7 +128,7 @@ export function CommandPalette() {
   const { theme, setTheme } = useTheme();
   const { data: settingsData } = useSettings();
   const [recentValues, setRecentValues] = useState<string[]>([]);
-  const [recentNoteIds, setRecentNoteIds] = useState<string[]>([]);
+  const [recentNoteEntries, setRecentNoteEntries] = useState<RecentNoteEntry[]>([]);
   const [selectedNote, setSelectedNote] = useState<HackmdNote | null>(null);
   const [selectedTeamPath, setSelectedTeamPath] = useState<string | null>(null);
 
@@ -151,7 +155,7 @@ export function CommandPalette() {
 
   useEffect(() => {
     setRecentValues(getRecentCommands());
-    setRecentNoteIds(getRecentNotes());
+    setRecentNoteEntries(getRecentNotes());
   }, []);
 
   const fuse = useMemo(
@@ -203,10 +207,20 @@ export function CommandPalette() {
       return [];
     }
 
-    return recentNoteIds
-      .map((noteId) => notesById.get(noteId))
+    const activeTeamPath = selectedTeamPath?.trim() || null;
+
+    return recentNoteEntries
+      .map((entry) => {
+        if (entry.legacy) {
+          return notesById.get(entry.noteId);
+        }
+
+        return entry.teamPath === activeTeamPath
+          ? notesById.get(entry.noteId)
+          : undefined;
+      })
       .filter((note): note is HackmdNote => note !== undefined);
-  }, [mode, notesById, recentNoteIds, search]);
+  }, [mode, notesById, recentNoteEntries, search, selectedTeamPath]);
   const recentNoteIdsSet = useMemo(() => new Set(recentNotes.map((note) => note.id)), [recentNotes]);
   const noteResults = useMemo(
     () => filteredNotes.filter((note) => !recentNoteIdsSet.has(note.id)),
@@ -215,6 +229,7 @@ export function CommandPalette() {
   const trimmedSearch = search.trim();
   const canCreateNote = mode === 'notes' && trimmedSearch.length > 0 && !notesQuery.isError;
   const showRecentNotes = !notesQuery.isPending && !notesQuery.isError && recentNotes.length > 0;
+  const recentNotesHeading = selectedTeam ? `Recent Notes in ${selectedTeam.name}` : 'Recent Notes';
   const showNotesContentSeparator = notesQuery.isPending
     || notesQuery.isError
     || noteResults.length > 0
@@ -234,7 +249,7 @@ export function CommandPalette() {
   }, []);
 
   const syncRecentNotes = useCallback(() => {
-    setRecentNoteIds(getRecentNotes());
+    setRecentNoteEntries(getRecentNotes());
   }, []);
 
   const handleBack = useCallback(() => {
@@ -261,7 +276,7 @@ export function CommandPalette() {
   }, [closePalette, mode]);
 
   const handleOpenNote = useCallback(async (note: HackmdNote, editMode = false) => {
-    saveRecentNote(note.id);
+    saveRecentNote(note.id, note.teamPath ?? null);
     syncRecentNotes();
     await redirect(getHackmdNotePath(note, editMode));
     closePalette();
@@ -270,7 +285,7 @@ export function CommandPalette() {
   const handleCreateNote = useCallback(async (title: string) => {
     try {
       const note = await createNoteMutation.mutateAsync(title);
-      saveRecentNote(note.id);
+      saveRecentNote(note.id, note.teamPath ?? null);
       syncRecentNotes();
       toast.success(
         selectedTeam
@@ -291,7 +306,7 @@ export function CommandPalette() {
 
     try {
       await deleteNoteMutation.mutateAsync(selectedNote.id);
-      removeRecentNote(selectedNote.id);
+      removeRecentNote(selectedNote.id, selectedNote.teamPath ?? null);
       syncRecentNotes();
       toast.success(`Deleted “${selectedNote.title || 'Untitled note'}”`);
       setSelectedNote(null);
@@ -380,6 +395,17 @@ export function CommandPalette() {
 
     if (value.startsWith(CREATE_NOTE_VALUE_PREFIX)) {
       void handleCreateNote(value.slice(CREATE_NOTE_VALUE_PREFIX.length));
+      return;
+    }
+
+    if (value.startsWith(RECENT_NOTE_VALUE_PREFIX)) {
+      const noteId = value.slice(RECENT_NOTE_VALUE_PREFIX.length);
+      const note = notesById.get(noteId);
+      if (!note) {
+        return;
+      }
+
+      void handleOpenNote(note);
       return;
     }
 
@@ -576,9 +602,14 @@ export function CommandPalette() {
             <>
               {showRecentNotes && (
                 <>
-                  <CommandGroup heading="Recent Notes">
+                  <CommandGroup heading={recentNotesHeading}>
                     {recentNotes.map((note) => (
-                      <NoteCommandItem key={note.id} note={note} onSelect={handleNotesSelect} />
+                      <NoteCommandItem
+                        key={note.id}
+                        note={note}
+                        onSelect={handleNotesSelect}
+                        valuePrefix={RECENT_NOTE_VALUE_PREFIX}
+                      />
                     ))}
                   </CommandGroup>
                   <CommandSeparator />

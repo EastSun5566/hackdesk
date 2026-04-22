@@ -16,6 +16,12 @@ const RECENT_NOTES_KEY = 'hackdesk_recent_notes';
 const MAX_RECENT_COMMANDS = 5;
 const MAX_RECENT_NOTES = 5;
 
+export interface RecentNoteEntry {
+  noteId: string;
+  teamPath?: string | null;
+  legacy?: true;
+}
+
 export type CommandCategory = 'navigation' | 'action' | 'settings' | 'hackmd';
 
 export interface CommandConfig {
@@ -203,32 +209,128 @@ export function groupCommands(
   return groups;
 }
 
-export function getRecentNotes(storage: Storage = window.localStorage): string[] {
+export function getRecentNotes(storage: Storage = window.localStorage): RecentNoteEntry[] {
   try {
     const recent = storage.getItem(RECENT_NOTES_KEY);
-    return recent ? (JSON.parse(recent) as string[]) : [];
+    if (!recent) {
+      return [];
+    }
+
+    const parsed = JSON.parse(recent) as unknown;
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.flatMap<RecentNoteEntry>((entry) => {
+      if (typeof entry === 'string') {
+        return entry.trim()
+          ? [{ noteId: entry, legacy: true }]
+          : [];
+      }
+
+      if (!entry || typeof entry !== 'object') {
+        return [];
+      }
+
+      const noteId = 'noteId' in entry && typeof entry.noteId === 'string'
+        ? entry.noteId.trim()
+        : '';
+
+      if (!noteId) {
+        return [];
+      }
+
+      const teamPath = 'teamPath' in entry
+        ? typeof entry.teamPath === 'string'
+          ? entry.teamPath.trim() || null
+          : entry.teamPath === null
+            ? null
+            : undefined
+        : undefined;
+
+      if (teamPath === undefined) {
+        return [{ noteId, legacy: true }];
+      }
+
+      return [{ noteId, teamPath }];
+    });
   } catch {
     return [];
   }
 }
 
-export function saveRecentNote(noteId: string, storage: Storage = window.localStorage) {
+function serializeRecentNotes(recentNotes: RecentNoteEntry[]) {
+  return recentNotes.map((entry) => entry.legacy
+    ? entry.noteId
+    : {
+      noteId: entry.noteId,
+      teamPath: entry.teamPath ?? null,
+    });
+}
+
+function createScopedRecentNoteEntry(noteId: string, teamPath: string | null): RecentNoteEntry | null {
+  const normalizedNoteId = noteId.trim();
+
+  if (!normalizedNoteId) {
+    return null;
+  }
+
+  return {
+    noteId: normalizedNoteId,
+    teamPath: teamPath?.trim() || null,
+  };
+}
+
+export function saveRecentNote(
+  noteId: string,
+  teamPath: string | null,
+  storage: Storage = window.localStorage,
+) {
   try {
+    const nextEntry = createScopedRecentNoteEntry(noteId, teamPath);
+
+    if (!nextEntry) {
+      return;
+    }
+
     const recent = getRecentNotes(storage);
-    const filtered = recent.filter((value) => value !== noteId);
-    const updated = [noteId, ...filtered].slice(0, MAX_RECENT_NOTES);
-    storage.setItem(RECENT_NOTES_KEY, JSON.stringify(updated));
+    const filtered = recent.filter((entry) => {
+      if (entry.legacy) {
+        return entry.noteId !== nextEntry.noteId;
+      }
+
+      return !(entry.noteId === nextEntry.noteId && entry.teamPath === nextEntry.teamPath);
+    });
+    const updated = [nextEntry, ...filtered].slice(0, MAX_RECENT_NOTES);
+    storage.setItem(RECENT_NOTES_KEY, JSON.stringify(serializeRecentNotes(updated)));
   } catch (error) {
     console.error('Failed to save recent note:', error);
   }
 }
 
-export function removeRecentNote(noteId: string, storage: Storage = window.localStorage) {
+export function removeRecentNote(
+  noteId: string,
+  teamPath: string | null,
+  storage: Storage = window.localStorage,
+) {
   try {
+    const targetEntry = createScopedRecentNoteEntry(noteId, teamPath);
+
+    if (!targetEntry) {
+      return;
+    }
+
     const recent = getRecentNotes(storage);
     storage.setItem(
       RECENT_NOTES_KEY,
-      JSON.stringify(recent.filter((value) => value !== noteId)),
+      JSON.stringify(serializeRecentNotes(recent.filter((entry) => {
+        if (entry.legacy) {
+          return entry.noteId !== targetEntry.noteId;
+        }
+
+        return !(entry.noteId === targetEntry.noteId && entry.teamPath === targetEntry.teamPath);
+      }))),
     );
   } catch (error) {
     console.error('Failed to remove recent note:', error);
