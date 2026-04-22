@@ -112,8 +112,8 @@ function NoteCommandItem({
     >
       <FileText className="mt-0.5 h-4 w-4 shrink-0" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="truncate font-medium">{note.title || 'Untitled note'}</span>
-        <span className="truncate text-xs text-text-subtle">
+        <span className="truncate font-semibold">{note.title || 'Untitled note'}</span>
+        <span className="truncate text-xs text-zinc-500 dark:text-zinc-300/80">
           {metadata}
         </span>
       </div>
