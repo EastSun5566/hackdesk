@@ -28,8 +28,18 @@
   --color-text-default: var(--text-default);
   --color-text-subtle: var(--text-subtle);
   --color-background-default: var(--background-default);
+  --color-background-muted: var(--background-muted);
+  --color-background-overlay: var(--background-overlay);
   --color-background-selected: var(--background-selected);
   --color-border-default: var(--border-default);
+  --color-primary-default: var(--primary-default);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-success-default: var(--success-default);
+  --color-success-soft: var(--success-soft);
+  --color-destructive-default: var(--destructive-default);
+  --color-destructive-soft: var(--destructive-soft);
 
   /* Animations */
   --animate-dialog-overlay-in: fadeIn 300ms ease-out;
@@ -89,8 +99,18 @@
   --text-default: var(--color-zinc-300);
   --text-subtle: var(--color-zinc-400);
   --background-default: var(--color-zinc-800);
+  --background-muted: var(--color-zinc-750);
+  --background-overlay: rgb(9 9 11 / 0.72);
   --background-selected: var(--color-zinc-600);
   --border-default: var(--color-zinc-600);
+  --primary-default: var(--color-primary-500);
+  --primary-hover: #6a63ff;
+  --primary-soft: rgb(86 77 255 / 0.18);
+  --primary-foreground: var(--color-white);
+  --success-default: #34d399;
+  --success-soft: rgb(52 211 153 / 0.18);
+  --destructive-default: #fb7185;
+  --destructive-soft: rgb(251 113 133 / 0.18);
 }
 
 @layer components {
@@ -98,8 +118,18 @@
     --text-default: var(--color-zinc-700);
     --text-subtle: var(--color-zinc-500);
     --background-default: var(--color-zinc-25);
+    --background-muted: var(--color-zinc-50);
+    --background-overlay: rgb(39 39 42 / 0.45);
     --background-selected: var(--color-zinc-100);
     --border-default: var(--color-zinc-300);
+    --primary-default: var(--color-primary-500);
+    --primary-hover: #4d45e8;
+    --primary-soft: rgb(86 77 255 / 0.1);
+    --primary-foreground: var(--color-white);
+    --success-default: #059669;
+    --success-soft: rgb(5 150 105 / 0.1);
+    --destructive-default: #e11d48;
+    --destructive-soft: rgb(225 29 72 / 0.1);
   }
 }
 

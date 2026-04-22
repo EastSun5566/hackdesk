@@ -113,7 +113,7 @@ function NoteCommandItem({
       <FileText className="mt-0.5 h-4 w-4 shrink-0" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="truncate font-medium">{note.title || 'Untitled note'}</span>
-        <span className="truncate text-xs text-muted-foreground">
+        <span className="truncate text-xs text-text-subtle">
           {metadata}
         </span>
       </div>
@@ -661,10 +661,10 @@ export function CommandPalette() {
                 {teamsQuery.isError ? (
                   <>
                     <CommandItem value="hackmd-teams-error" disabled className="items-start gap-3 py-3">
-                      <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                      <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive-default" />
                       <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <span className="font-medium text-destructive">Unable to load team workspaces</span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="font-medium text-destructive-default">Unable to load team workspaces</span>
+                        <span className="text-xs text-text-subtle">
                           {getHackmdErrorMessage(teamsQuery.error, 'Please try again in a moment.')}
                         </span>
                       </div>
@@ -693,10 +693,10 @@ export function CommandPalette() {
               {notesQuery.isError && (
                 <CommandGroup heading="Connection">
                   <CommandItem value="hackmd-notes-error" disabled className="items-start gap-3 py-3">
-                    <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                    <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive-default" />
                     <div className="flex min-w-0 flex-1 flex-col gap-1">
-                      <span className="font-medium text-destructive">Unable to load HackMD notes</span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="font-medium text-destructive-default">Unable to load HackMD notes</span>
+                      <span className="text-xs text-text-subtle">
                         {getHackmdErrorMessage(notesQuery.error, 'Please check your API token.')}
                       </span>
                     </div>
@@ -720,7 +720,7 @@ export function CommandPalette() {
                       <span className="font-medium">
                         {selectedTeam ? `No notes in ${selectedTeam.name} yet` : 'No notes yet'}
                       </span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-text-subtle">
                         {selectedTeam
                           ? 'Type a title above to create the first note in this team workspace.'
                           : 'Type a title above to create your first HackMD note from the palette.'}
@@ -747,7 +747,7 @@ export function CommandPalette() {
                   <FileText className="mt-0.5 h-4 w-4 shrink-0" />
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <span className="truncate font-medium">{selectedNote.title || 'Untitled note'}</span>
-                    <span className="truncate text-xs text-muted-foreground">
+                    <span className="truncate text-xs text-text-subtle">
                       Last changed {formatNoteDate(selectedNote.lastChangedAt)}
                     </span>
                   </div>
@@ -775,12 +775,12 @@ export function CommandPalette() {
             <>
               <CommandGroup heading="Delete Note">
                 <CommandItem value="hackmd-delete-warning" disabled className="items-start gap-3 py-3">
-                  <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                  <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive-default" />
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="truncate font-medium text-destructive">
+                    <span className="truncate font-medium text-destructive-default">
                       Delete “{selectedNote.title || 'Untitled note'}”?
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-text-subtle">
                       This action cannot be undone from HackDesk.
                     </span>
                   </div>
