@@ -2,6 +2,8 @@
 outline: deep
 ---
 
+<!-- markdownlint-disable MD033 MD041 -->
+
 <script setup>
 import { data } from './release.data.ts'
 </script>

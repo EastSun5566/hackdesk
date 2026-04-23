@@ -11,7 +11,7 @@ import {
   REPO_URL,
   GA_URL,
   GA_SCRIPT,
-} from './constans';
+} from './constants';
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({

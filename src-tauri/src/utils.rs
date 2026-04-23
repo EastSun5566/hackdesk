@@ -1,16 +1,12 @@
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde_json::{self, json};
 use tauri::{AppHandle, Manager};
 use tracing::{error, info, warn};
 
 use crate::app::conf::{DEFAULT_SETTINGS, DEFAULT_TITLE, MAIN_WINDOW_LABEL, ROOT, SETTINGS_NAME};
-
-pub fn exists(path: &Path) -> bool {
-    path.exists()
-}
 
 pub fn create_file(path: &Path) -> Result<File> {
     if let Some(p) = path.parent() {
@@ -28,30 +24,18 @@ pub fn create_file(path: &Path) -> Result<File> {
     })
 }
 
-pub fn get_root_path(path: &str) -> PathBuf {
-    dirs::home_dir().unwrap().join(ROOT).join(path)
+pub fn get_root_path(path: &str) -> Result<PathBuf> {
+    let home_dir = dirs::home_dir().context("Failed to determine home directory")?;
+    Ok(home_dir.join(ROOT).join(path))
 }
 
 pub fn read_json(content: &str) -> Result<serde_json::Value> {
     serde_json::from_str(content).map_err(Into::into)
 }
 
-pub fn init_settings(app: &AppHandle) -> Result<()> {
-    info!("Initializing settings file");
-    let settings_path = &get_root_path(SETTINGS_NAME);
-
-    // create `settings.json`
-    create_file(settings_path)?;
-    fs::write(settings_path, DEFAULT_SETTINGS).map_err(|e| {
-        error!("Failed to write default settings: {}", e);
-        e
-    })?;
-
-    // read settings
-    let settings_json = read_json(DEFAULT_SETTINGS)?;
-
-    // set title
+fn apply_window_title(app: &AppHandle, settings_json: &serde_json::Value) -> Result<()> {
     let title = settings_json["title"].as_str().unwrap_or(DEFAULT_TITLE);
+
     if let Some(main_window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
         info!("Setting window title to: {}", title);
         main_window.set_title(title).map_err(|e| {
@@ -63,9 +47,24 @@ pub fn init_settings(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
+pub fn init_settings(app: &AppHandle) -> Result<()> {
+    info!("Initializing settings file");
+    let settings_path = get_root_path(SETTINGS_NAME)?;
+
+    create_file(&settings_path)?;
+    fs::write(&settings_path, DEFAULT_SETTINGS).map_err(|e| {
+        error!("Failed to write default settings: {}", e);
+        e
+    })?;
+
+    let settings_json = read_json(DEFAULT_SETTINGS)?;
+
+    apply_window_title(app, &settings_json)
+}
+
 pub fn apply_settings(app: &AppHandle) -> Result<()> {
     info!("Applying settings from file");
-    let settings_path = get_root_path(SETTINGS_NAME);
+    let settings_path = get_root_path(SETTINGS_NAME)?;
     let settings = fs::read_to_string(&settings_path).map_err(|e| {
         error!("Failed to read settings file: {}", e);
         e
@@ -76,17 +75,7 @@ pub fn apply_settings(app: &AppHandle) -> Result<()> {
         json!({ "title": DEFAULT_TITLE })
     });
 
-    // set title
-    let title = settings_json["title"].as_str().unwrap_or(DEFAULT_TITLE);
-    if let Some(main_window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
-        info!("Setting window title to: {}", title);
-        main_window.set_title(title).map_err(|e| {
-            error!("Failed to set window title: {}", e);
-            e
-        })?;
-    }
-
-    Ok(())
+    apply_window_title(app, &settings_json)
 }
 
 #[cfg(test)]
@@ -95,7 +84,7 @@ mod tests {
 
     #[test]
     fn test_get_root_path() {
-        let path = get_root_path("test.json");
+        let path = get_root_path("test.json").unwrap();
         assert!(path.to_str().unwrap().contains(".hackdesk"));
         assert!(path.to_str().unwrap().ends_with("test.json"));
     }
@@ -124,16 +113,5 @@ mod tests {
         assert!(result.is_ok());
         let json = result.unwrap();
         assert!(json.is_object());
-    }
-
-    #[test]
-    fn test_exists() {
-        // Test that exists returns false for non-existent path
-        let non_existent = Path::new("/this/path/should/not/exist/test.json");
-        assert!(!exists(non_existent));
-
-        // Test that exists returns true for current directory
-        let current_dir = Path::new(".");
-        assert!(exists(current_dir));
     }
 }

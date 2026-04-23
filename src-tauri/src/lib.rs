@@ -8,7 +8,6 @@ use app::{cmd, menu, setup};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Initialize structured logging
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
@@ -29,9 +28,15 @@ pub fn run() {
             cmd::open_command_palette_window,
             cmd::open_settings_window,
             cmd::apply_settings,
-            // Legacy workaround for links with target="_blank" {@link https://github.com/tauri-apps/wry/issues/649}
-            // window.open() is now handled via on_new_window handler in setup.rs
-            cmd::open_link
+            cmd::open_link,
+            cmd::validate_hackmd_token,
+            cmd::list_hackmd_notes,
+            cmd::list_hackmd_teams,
+            cmd::list_hackmd_team_notes,
+            cmd::create_hackmd_note,
+            cmd::create_hackmd_team_note,
+            cmd::delete_hackmd_note,
+            cmd::delete_hackmd_team_note
         ])
         .setup(setup::init)
         .menu(menu::init)

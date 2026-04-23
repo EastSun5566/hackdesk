@@ -9,6 +9,11 @@ class ResizeObserverMock {
 }
 global.ResizeObserver = ResizeObserverMock;
 
+Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+  writable: true,
+  value: vi.fn(),
+});
+
 // Mock matchMedia (required by theme-provider)
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -47,4 +52,20 @@ vi.mock('@tauri-apps/api/webviewWindow', () => ({
     show: vi.fn(),
   })),
   WebviewWindow: vi.fn(),
+}));
+
+vi.mock('@tauri-apps/api/window', () => ({
+  getCurrentWindow: vi.fn(() => ({
+    center: vi.fn().mockResolvedValue(undefined),
+    setSize: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
+
+vi.mock('@tauri-apps/api/dpi', () => ({
+  LogicalSize: class LogicalSize {
+    constructor(
+      public width: number,
+      public height: number,
+    ) {}
+  },
 }));

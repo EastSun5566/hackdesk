@@ -4,7 +4,6 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
-// Create a query client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

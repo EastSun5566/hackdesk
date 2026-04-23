@@ -3,7 +3,7 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager,
 };
-use tracing::info;
+use tracing::{info, warn};
 
 pub fn init(app: &tauri::AppHandle) -> tauri::Result<()> {
     info!("Creating tray menu");
@@ -13,9 +13,8 @@ pub fn init(app: &tauri::AppHandle) -> tauri::Result<()> {
 
     info!("Building tray icon");
 
-    let tray_builder = TrayIconBuilder::new()
+    let mut tray_builder = TrayIconBuilder::new()
         .menu(&menu)
-        .icon(app.default_window_icon().unwrap().clone())
         .on_menu_event(handler)
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
@@ -31,6 +30,12 @@ pub fn init(app: &tauri::AppHandle) -> tauri::Result<()> {
                 }
             }
         });
+
+    if let Some(icon) = app.default_window_icon() {
+        tray_builder = tray_builder.icon(icon.clone());
+    } else {
+        warn!("Default window icon unavailable; creating tray without a custom icon");
+    }
 
     let tray = tray_builder.build(app)?;
 

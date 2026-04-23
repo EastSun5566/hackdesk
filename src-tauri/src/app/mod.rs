@@ -1,5 +1,6 @@
 pub mod cmd;
 pub mod conf;
+pub mod hackmd;
 pub mod menu;
 pub mod setup;
 pub mod tray;

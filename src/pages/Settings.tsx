@@ -1,32 +1,45 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { toast } from 'sonner';
-import { Settings as SettingsIcon, Monitor, Keyboard, Zap, Sun, Moon, Laptop } from 'lucide-react';
+import {
+  AlertCircle,
+  Settings as SettingsIcon,
+  Monitor,
+  Keyboard,
+  Zap,
+  Sun,
+  Moon,
+  Laptop,
+  Shield,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  Loader2,
+} from 'lucide-react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 
+import { useValidateHackmdToken } from '@/lib/hackmd';
 import { useSettings, useUpdateSettings } from '@/lib/query';
+import {
+  defaultSettings,
+  settingsSchema,
+  type AppSettings,
+} from '@/lib/settings';
 import { useTheme } from '@/components/theme-provider';
-import { DEFAULT_TITLE } from '@/constants';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { version } from '../../package.json';
 
-const settingsSchema = z.object({
-  title: z.string().min(1, 'Title is required').max(50, 'Title too long'),
-});
-
-type SettingsForm = z.infer<typeof settingsSchema>;
-
-type SettingsTab = 'general' | 'appearance' | 'shortcuts' | 'advanced';
+type SettingsTab = 'general' | 'appearance' | 'hackmd' | 'shortcuts' | 'advanced';
 
 const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: 'general', label: 'General', icon: <SettingsIcon className="h-4 w-4" /> },
   { id: 'appearance', label: 'Appearance', icon: <Monitor className="h-4 w-4" /> },
+  { id: 'hackmd', label: 'HackMD', icon: <Shield className="h-4 w-4" /> },
   { id: 'shortcuts', label: 'Shortcuts', icon: <Keyboard className="h-4 w-4" /> },
   { id: 'advanced', label: 'Advanced', icon: <Zap className="h-4 w-4" /> },
 ];
-
-const DEFAULT_SETTINGS = { title: DEFAULT_TITLE };
 
 const shortcuts = [
   { action: 'Open Command Palette', keys: ['⌘', 'K'] },
@@ -37,38 +50,68 @@ const shortcuts = [
   { action: 'Close Settings', keys: ['Esc'] },
 ];
 
+const themeOptions = [
+  {
+    id: 'light',
+    label: 'Light',
+    icon: <Sun className="h-5 w-5" />,
+    description: 'Light mode',
+  },
+  {
+    id: 'dark',
+    label: 'Dark',
+    icon: <Moon className="h-5 w-5" />,
+    description: 'Dark mode',
+  },
+  {
+    id: 'system',
+    label: 'System',
+    icon: <Laptop className="h-5 w-5" />,
+    description: 'Follow system settings',
+  },
+] as const;
+
+const inputClassName = 'flex h-10 w-full rounded-md border border-border-default bg-background-default px-3 py-2 text-sm text-text-default ring-offset-background-default file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50';
+const primaryButtonClassName = 'inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-primary-default px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none disabled:opacity-50';
+const secondaryButtonClassName = 'inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-border-default bg-background-default px-4 py-2 text-sm font-medium text-text-default transition-colors hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none disabled:opacity-50';
+const compactSecondaryButtonClassName = 'inline-flex h-10 items-center justify-center rounded-md border border-border-default bg-background-default px-3 text-sm text-text-default transition-colors hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none disabled:opacity-50';
+const dangerButtonClassName = 'inline-flex h-9 items-center justify-center rounded-md border border-destructive-default px-4 py-2 text-sm font-medium text-destructive-default transition-colors hover:bg-destructive-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default';
+
 export function Settings() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const [showApiToken, setShowApiToken] = useState(false);
   const { data: settingsData } = useSettings();
   const { mutate: updateSettings, isPending } = useUpdateSettings();
+  const {
+    mutate: validateHackmdToken,
+    data: validatedUser,
+    error: validationError,
+    isPending: isValidatingToken,
+    isSuccess: isTokenValid,
+    reset: resetTokenValidation,
+  } = useValidateHackmdToken();
   const { theme, setTheme } = useTheme();
 
-  // Parse settings only once when data changes
-  const currentSettings = useMemo(() => {
-    if (!settingsData) return DEFAULT_SETTINGS;
-    try {
-      return JSON.parse(settingsData);
-    } catch {
-      console.error('Failed to parse settings, using defaults');
-      return DEFAULT_SETTINGS;
-    }
-  }, [settingsData]);
+  const currentSettings = settingsData ?? defaultSettings;
 
-  const form = useForm<SettingsForm>({
+  const form = useForm<z.input<typeof settingsSchema>, unknown, AppSettings>({
     resolver: zodResolver(settingsSchema),
-    defaultValues: {
-      title: currentSettings.title || DEFAULT_TITLE,
-    },
+    defaultValues: currentSettings,
   });
 
-  // Reset form when parsed settings change
   useEffect(() => {
-    form.reset({ title: currentSettings.title || DEFAULT_TITLE });
+    form.reset(currentSettings);
   }, [currentSettings, form]);
 
-  const onSubmit = (data: SettingsForm) => {
-    const settingsJson = JSON.stringify(data, null, 2);
-    updateSettings(settingsJson, {
+  const hackmdApiToken = form.watch('hackmdApiToken');
+  const currentHackmdApiToken = hackmdApiToken ?? '';
+
+  useEffect(() => {
+    resetTokenValidation();
+  }, [currentHackmdApiToken, resetTokenValidation]);
+
+  const onSubmit = (data: AppSettings) => {
+    updateSettings(data, {
       onSuccess: () => toast.success('Settings saved successfully'),
       onError: (error) => toast.error(`Failed to save: ${error.message}`),
     });
@@ -76,42 +119,47 @@ export function Settings() {
 
   const handleReset = () => {
     form.reset(currentSettings);
+    resetTokenValidation();
     toast.info('Settings reset to current values');
   };
 
   const handleResetToDefaults = () => {
-    form.reset(DEFAULT_SETTINGS);
+    form.reset(defaultSettings);
     setTheme('system');
-    const settingsJson = JSON.stringify(DEFAULT_SETTINGS, null, 2);
-    updateSettings(settingsJson, {
+    resetTokenValidation();
+    updateSettings(defaultSettings, {
       onSuccess: () => toast.success('All settings reset to defaults'),
       onError: (error) => toast.error(`Failed to reset: ${error.message}`),
     });
   };
 
-  // Handle ESC key to close settings window
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        getCurrentWebviewWindow().close();
-      }
-    };
+  const handleTestConnection = () => {
+    const token = currentHackmdApiToken.trim();
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    if (!token) {
+      toast.error('Enter a HackMD API token first');
+      return;
+    }
+
+    validateHackmdToken(token, {
+      onSuccess: (user) => {
+        toast.success(`Connected to HackMD as ${user.name}`);
+      },
+      onError: (error) => {
+        toast.error(`HackMD connection failed: ${error.message}`);
+      },
+    });
+  };
+
+  const closeWindow = useCallback(() => {
+    getCurrentWebviewWindow().close();
   }, []);
 
-  const themeOptions = [
-    { id: 'light', label: 'Light', icon: <Sun className="h-5 w-5" />, description: 'Light mode' },
-    { id: 'dark', label: 'Dark', icon: <Moon className="h-5 w-5" />, description: 'Dark mode' },
-    { id: 'system', label: 'System', icon: <Laptop className="h-5 w-5" />, description: 'Follow system settings' },
-  ] as const;
+  useEscapeKey(closeWindow);
 
   return (
-    <div className="flex h-screen bg-background/80 pt-8" data-tauri-drag-region>
-      {/* Sidebar */}
-      <aside className="w-56 border-r bg-muted/40 p-4">
+    <div className="flex h-screen bg-background-muted pt-8 text-text-default" data-tauri-drag-region>
+      <aside className="w-56 border-r border-border-default bg-background-default p-4">
         <nav className="space-y-1">
           {tabs.map((tab) => (
             <button
@@ -119,8 +167,8 @@ export function Settings() {
               onClick={() => setActiveTab(tab.id)}
               className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
                 activeTab === tab.id
-                  ? 'bg-background font-medium shadow-sm'
-                  : 'text-muted-foreground hover:bg-background/50'
+                  ? 'bg-background-selected font-medium text-text-default shadow-sm'
+                  : 'text-text-subtle hover:bg-background-selected hover:text-text-default'
               }`}
             >
               {tab.icon}
@@ -130,7 +178,6 @@ export function Settings() {
         </nav>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-auto">
         <div className="mx-auto max-w-2xl p-8">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
@@ -151,14 +198,14 @@ export function Settings() {
                       id="title"
                       {...form.register('title')}
                       placeholder="HackDesk"
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      className={inputClassName}
                     />
                     {form.formState.errors.title && (
-                      <p className="text-sm text-destructive">
+                      <p className="text-sm text-destructive-default">
                         {form.formState.errors.title.message}
                       </p>
                     )}
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-text-subtle">
                       The title displayed in the window titlebar
                     </p>
                   </div>
@@ -173,7 +220,7 @@ export function Settings() {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Theme</label>
-                    <p className="text-sm text-muted-foreground mb-3">
+                    <p className="mb-3 text-sm text-text-subtle">
                       Select your preferred color scheme
                     </p>
                     <div className="grid grid-cols-3 gap-3">
@@ -184,20 +231,90 @@ export function Settings() {
                           onClick={() => setTheme(option.id)}
                           className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
                             theme === option.id
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                              ? 'border-primary-default bg-primary-soft'
+                              : 'border-border-default bg-background-default hover:border-primary-default hover:bg-background-selected'
                           }`}
                         >
                           <div className={`rounded-full p-2 ${
-                            theme === option.id ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                            theme === option.id ? 'bg-primary-soft text-primary-default' : 'bg-background-selected text-text-subtle'
                           }`}>
                             {option.icon}
                           </div>
                           <span className="text-sm font-medium">{option.label}</span>
-                          <span className="text-xs text-muted-foreground">{option.description}</span>
+                          <span className="text-xs text-text-subtle">{option.description}</span>
                         </button>
                       ))}
                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'hackmd' && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-medium">HackMD Integration</h3>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="hackmdApiToken"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      API Token
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        id="hackmdApiToken"
+                        type={showApiToken ? 'text' : 'password'}
+                        {...form.register('hackmdApiToken')}
+                        placeholder="Paste your HackMD API token"
+                        className={inputClassName}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiToken((current) => !current)}
+                        className={compactSecondaryButtonClassName}
+                        aria-label={showApiToken ? 'Hide API token' : 'Show API token'}
+                      >
+                        {showApiToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    {form.formState.errors.hackmdApiToken && (
+                      <p className="text-sm text-destructive-default">
+                        {form.formState.errors.hackmdApiToken.message}
+                      </p>
+                    )}
+                    <div className="space-y-1 text-sm text-text-subtle">
+                      <p>Generate a personal access token from your HackMD account settings.</p>
+                      <p>This MVP stores the token locally in <code>~/.hackdesk/settings.json</code>.</p>
+                      <p>Phase 1 supports personal HackMD Cloud notes only.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleTestConnection}
+                      disabled={isValidatingToken || !currentHackmdApiToken.trim()}
+                      className={secondaryButtonClassName}
+                    >
+                      {isValidatingToken ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      {isValidatingToken ? 'Testing...' : 'Test Connection'}
+                    </button>
+
+                    {isTokenValid && validatedUser ? (
+                      <span className="inline-flex items-center gap-2 rounded-full bg-success-soft px-3 py-1 text-sm text-success-default">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Connected as {validatedUser.name} (@{validatedUser.userPath})
+                      </span>
+                    ) : null}
+
+                    {validationError ? (
+                      <span className="inline-flex items-center gap-2 rounded-full bg-destructive-soft px-3 py-1 text-sm text-destructive-default">
+                        <AlertCircle className="h-4 w-4" />
+                        {validationError.message}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -211,14 +328,14 @@ export function Settings() {
                   {shortcuts.map((shortcut, index) => (
                     <div
                       key={index}
-                      className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-4 py-3"
+                      className="flex items-center justify-between rounded-md border border-border-default bg-background-default px-4 py-3"
                     >
                       <span className="text-sm">{shortcut.action}</span>
                       <div className="flex items-center gap-1">
                         {shortcut.keys.map((key, keyIndex) => (
                           <kbd
                             key={keyIndex}
-                            className="inline-flex h-6 min-w-6 items-center justify-center rounded border border-border bg-background px-1.5 text-xs font-medium text-muted-foreground"
+                            className="inline-flex h-6 min-w-6 items-center justify-center rounded border border-border-default bg-background-muted px-1.5 text-xs font-medium text-text-subtle"
                           >
                             {key}
                           </kbd>
@@ -237,7 +354,7 @@ export function Settings() {
                 <div className="space-y-6">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Version</label>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-text-subtle">
                       HackDesk v{version}
                     </p>
                   </div>
@@ -246,7 +363,7 @@ export function Settings() {
                     <button
                       type="button"
                       onClick={handleResetToDefaults}
-                      className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 h-9 px-4 py-2 border border-destructive text-destructive hover:bg-destructive/10"
+                      className={dangerButtonClassName}
                     >
                       Reset All Settings
                     </button>
@@ -255,25 +372,23 @@ export function Settings() {
               </div>
             )}
 
-            {activeTab === 'general' && (
-              <div className="flex items-center gap-4 pt-4">
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  {isPending ? 'Saving...' : 'Save Changes'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  disabled={isPending}
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground"
-                >
-                  Reset
-                </button>
-              </div>
-            )}
+            <div className="flex items-center gap-4 pt-4">
+              <button
+                type="submit"
+                disabled={isPending}
+                className={primaryButtonClassName}
+              >
+                {isPending ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button
+                type="button"
+                onClick={handleReset}
+                disabled={isPending}
+                className={secondaryButtonClassName}
+              >
+                Reset
+              </button>
+            </div>
           </form>
         </div>
       </main>
