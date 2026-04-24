@@ -1,13 +1,19 @@
 import {
+  Activity,
   ArrowLeftCircle,
   ArrowRight,
   ArrowRightCircle,
   Clock,
+  CreditCard,
   Cross,
   FileText,
   FolderSearch,
   RefreshCcw,
+  Search,
   Settings,
+  ShoppingCart,
+  User,
+  Users,
 } from 'lucide-react';
 
 const COMMAND_ICON_CLASS = 'mr-2 h-4 w-4';
@@ -41,6 +47,35 @@ export interface GroupedCommands {
   hackmd: CommandConfig[];
 }
 
+function createSettingsRouteCommand(
+  hash: string,
+  label: string,
+  keywords: string[],
+): CommandConfig {
+  return {
+    value: `/settings#${hash}`,
+    label,
+    Icon: <Settings className={COMMAND_ICON_CLASS} />,
+    category: 'navigation',
+    keywords,
+  };
+}
+
+const settingsNavigationCommands: CommandConfig[] = [
+  createSettingsRouteCommand('general', 'Go to general settings', ['settings', 'general', 'preferences', 'profile']),
+  createSettingsRouteCommand('note', 'Go to note settings', ['settings', 'note', 'editor', 'markdown']),
+  createSettingsRouteCommand('network', 'Go to network settings', ['settings', 'network', 'proxy', 'connection']),
+  createSettingsRouteCommand('notification', 'Go to notification settings', ['settings', 'notification', 'email', 'alerts']),
+  createSettingsRouteCommand('api', 'Go to API settings', ['settings', 'api', 'token', 'developer']),
+  createSettingsRouteCommand('integration', 'Go to integration settings', ['settings', 'integration', 'github', 'gitlab', 'sync']),
+  createSettingsRouteCommand('preview-features', 'Go to preview features', ['settings', 'preview', 'features', 'beta']),
+  createSettingsRouteCommand('appearance', 'Go to appearance settings', ['settings', 'appearance', 'theme', 'display']),
+];
+
+const settingsNavigationKeywords = Array.from(
+  new Set(settingsNavigationCommands.flatMap((command) => command.keywords ?? [])),
+);
+
 const navigationCommands: CommandConfig[] = [
   {
     value: '/new',
@@ -63,6 +98,20 @@ const navigationCommands: CommandConfig[] = [
     Icon: <ArrowRight className={COMMAND_ICON_CLASS} />,
     category: 'navigation',
     keywords: ['shared', 'team', 'collaborate'],
+  },
+  {
+    value: '/?nav=my-activity',
+    label: 'Go to my activity',
+    Icon: <Activity className={COMMAND_ICON_CLASS} />,
+    category: 'navigation',
+    keywords: ['activity', 'updates', 'timeline', 'collaboration'],
+  },
+  {
+    value: '/?nav=search',
+    label: 'Search my notes',
+    Icon: <Search className={COMMAND_ICON_CLASS} />,
+    category: 'navigation',
+    keywords: ['search', 'find', 'query', 'notes'],
   },
   {
     value: '/?nav=trash',
@@ -91,6 +140,27 @@ const navigationCommands: CommandConfig[] = [
     Icon: <ArrowRight className={COMMAND_ICON_CLASS} />,
     category: 'navigation',
     keywords: ['teams', 'groups', 'workspace'],
+  },
+  {
+    value: 'hackmd:settings',
+    label: 'Go to my settings',
+    Icon: <Settings className={COMMAND_ICON_CLASS} />,
+    category: 'navigation',
+    keywords: ['my settings', 'settings', 'account', 'preferences', 'profile settings', ...settingsNavigationKeywords],
+  },
+  {
+    value: '/?nav=billing',
+    label: 'Go to billing',
+    Icon: <CreditCard className={COMMAND_ICON_CLASS} />,
+    category: 'navigation',
+    keywords: ['billing', 'subscription', 'payment', 'invoice'],
+  },
+  {
+    value: '/?nav=purchase',
+    label: 'Go to purchase',
+    Icon: <ShoppingCart className={COMMAND_ICON_CLASS} />,
+    category: 'navigation',
+    keywords: ['purchase', 'upgrade', 'plan', 'checkout'],
   },
   {
     value: '/s/release-notes',
@@ -128,12 +198,12 @@ const actionCommands: CommandConfig[] = [
 
 const settingsCommands: CommandConfig[] = [
   {
-    value: '/settings',
-    label: 'Open Settings',
+    value: 'hackdesk:settings',
+    label: 'Open HackDesk Settings',
     Icon: <Settings className={COMMAND_ICON_CLASS} />,
     shortcut: '⌘ ,',
     category: 'settings',
-    keywords: ['preferences', 'config', 'options'],
+    keywords: ['preferences', 'config', 'options', 'local settings'],
   },
 ];
 
@@ -145,11 +215,45 @@ const hackmdCommands: CommandConfig[] = [
     category: 'hackmd',
     keywords: ['hackmd', 'notes', 'browse', 'search', 'create', 'delete', 'teams', 'workspace'],
   },
+  {
+    value: 'hackmd:team-navigation',
+    label: 'Team Navigation',
+    Icon: <Users className={COMMAND_ICON_CLASS} />,
+    category: 'hackmd',
+    keywords: ['team', 'workspace', 'routes', 'navigation', 'manage', 'search', 'trash'],
+  },
 ];
 
-export function getAllCommands({ hasHackmdToken = false }: { hasHackmdToken?: boolean } = {}) {
+function getDynamicNavigationCommands(profilePath?: string | null): CommandConfig[] {
+  if (!profilePath) {
+    return [];
+  }
+
+  return [
+    {
+      value: profilePath,
+      label: 'Go to my profile',
+      Icon: <User className={COMMAND_ICON_CLASS} />,
+      category: 'navigation',
+      keywords: ['profile', 'account', 'me', 'user'],
+    },
+  ];
+}
+
+export function getSettingsNavigationCommands() {
+  return settingsNavigationCommands;
+}
+
+export function getAllCommands({
+  hasHackmdToken = false,
+  profilePath,
+}: {
+  hasHackmdToken?: boolean;
+  profilePath?: string | null;
+} = {}) {
   return [
     ...navigationCommands,
+    ...getDynamicNavigationCommands(profilePath),
     ...actionCommands,
     ...settingsCommands,
     ...(hasHackmdToken ? hackmdCommands : []),

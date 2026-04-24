@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AppSettings } from './settings';
 
 const HACKMD_QUERY_KEY = ['hackmd'] as const;
+const HACKMD_PROFILE_QUERY_KEY = [...HACKMD_QUERY_KEY, 'profile'] as const;
 const HACKMD_NOTES_QUERY_KEY = [...HACKMD_QUERY_KEY, 'notes'] as const;
 const HACKMD_TEAMS_QUERY_KEY = [...HACKMD_QUERY_KEY, 'teams'] as const;
 
@@ -79,6 +80,12 @@ export function normalizeHackmdToken(token?: string | null) {
 
 export function hasHackmdToken(settings: Pick<AppSettings, 'hackmdApiToken'>) {
   return normalizeHackmdToken(settings.hackmdApiToken).length > 0;
+}
+
+export function getHackmdProfilePath(userPath?: string | null) {
+  const normalizedUserPath = userPath?.trim() ?? '';
+
+  return normalizedUserPath ? `/@${normalizedUserPath}` : null;
 }
 
 async function invokeHackmdCommand<T>(command: string, args?: Record<string, unknown>) {
@@ -173,6 +180,22 @@ export function useValidateHackmdToken() {
         token: normalizeHackmdToken(accessToken),
       });
     },
+  });
+}
+
+export function useHackmdProfile(accessToken: string, enabled: boolean) {
+  const normalizedAccessToken = normalizeHackmdToken(accessToken);
+
+  return useQuery({
+    queryKey: [...HACKMD_PROFILE_QUERY_KEY, normalizedAccessToken],
+    queryFn: async () => {
+      return invokeHackmdCommand<HackmdUserProfile>('validate_hackmd_token', {
+        token: normalizedAccessToken,
+      });
+    },
+    enabled: enabled && normalizedAccessToken.length > 0,
+    staleTime: 1000 * 60 * 5,
+    retry: 1,
   });
 }
 
