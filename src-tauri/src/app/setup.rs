@@ -4,8 +4,8 @@ use tracing::{error, info, warn};
 
 use crate::{
     app::conf::{
-        is_safe_external_url, DEFAULT_TITLE, DEFAULT_URL, INIT_SCRIPT, MAIN_WINDOW_HEIGHT,
-        MAIN_WINDOW_LABEL, MAIN_WINDOW_WIDTH, SETTINGS_NAME,
+        classify_url_open_target, UrlOpenTarget, DEFAULT_TITLE, DEFAULT_URL, INIT_SCRIPT,
+        MAIN_WINDOW_HEIGHT, MAIN_WINDOW_LABEL, MAIN_WINDOW_WIDTH, SETTINGS_NAME,
     },
     utils,
 };
@@ -27,21 +27,33 @@ pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     .title(DEFAULT_TITLE)
     .initialization_script(INIT_SCRIPT)
     .on_new_window(move |url, _features| {
-        if !is_safe_external_url(&url) {
-            warn!(
-                "Blocked new window request for unsupported scheme: {}",
-                url.scheme()
-            );
-            return tauri::webview::NewWindowResponse::Deny;
-        }
+        match classify_url_open_target(&url) {
+            Some(UrlOpenTarget::InlineHackmd { path }) => {
+                info!("Routing new window HackMD request inline: {}", url);
 
-        info!("New window requested for URL: {}", url);
+                if let Err(e) = crate::app::cmd::execute_action(
+                    app_handle_for_new_window.clone(),
+                    crate::app::cmd::SafeScript::Navigate { path },
+                ) {
+                    error!("Failed to route new window URL {} inline: {}", url, e);
+                }
+            }
+            Some(UrlOpenTarget::External) => {
+                info!("New window requested for URL: {}", url);
 
-        if let Err(e) = app_handle_for_new_window
-            .opener()
-            .open_url(url.as_str(), None::<&str>)
-        {
-            error!("Failed to open URL {}: {}", url, e);
+                if let Err(e) = app_handle_for_new_window
+                    .opener()
+                    .open_url(url.as_str(), None::<&str>)
+                {
+                    error!("Failed to open URL {}: {}", url, e);
+                }
+            }
+            None => {
+                warn!(
+                    "Blocked new window request for unsupported scheme: {}",
+                    url.scheme()
+                );
+            }
         }
 
         tauri::webview::NewWindowResponse::Deny

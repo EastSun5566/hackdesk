@@ -8,7 +8,7 @@ use window_vibrancy::{self, NSVisualEffectMaterial};
 use crate::{
     app::{
         conf::{
-            is_safe_external_url, COMMAND_PALETTE_HEIGHT, COMMAND_PALETTE_WIDTH,
+            classify_url_open_target, UrlOpenTarget, COMMAND_PALETTE_HEIGHT, COMMAND_PALETTE_WIDTH,
             COMMAND_PALETTE_WINDOW_LABEL, MAIN_WINDOW_LABEL, SETTINGS_WINDOW_HEIGHT,
             SETTINGS_WINDOW_LABEL, SETTINGS_WINDOW_WIDTH,
         },
@@ -180,19 +180,26 @@ pub fn open_settings_window(app: AppHandle) {
 #[command]
 pub fn open_link(app: AppHandle, url: String) {
     match Url::parse(&url) {
-        Ok(parsed_url) => {
-            if !is_safe_external_url(&parsed_url) {
+        Ok(parsed_url) => match classify_url_open_target(&parsed_url) {
+            Some(UrlOpenTarget::InlineHackmd { path }) => {
+                info!("Routing HackMD URL inline: {}", url);
+
+                if let Err(e) = execute_action(app.clone(), SafeScript::Navigate { path }) {
+                    error!("Failed to route URL {} inline: {}", url, e);
+                }
+            }
+            Some(UrlOpenTarget::External) => {
+                if let Err(e) = app.opener().open_url(&url, None::<&str>) {
+                    error!("Failed to open URL {}: {}", url, e);
+                }
+            }
+            None => {
                 warn!(
                     "Blocked open_link request for unsupported scheme: {}",
                     parsed_url.scheme()
                 );
-                return;
             }
-
-            if let Err(e) = app.opener().open_url(&url, None::<&str>) {
-                error!("Failed to open URL {}: {}", url, e);
-            }
-        }
+        },
         Err(e) => {
             warn!("Blocked open_link request for invalid URL format: {}", e);
         }

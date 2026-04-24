@@ -87,10 +87,10 @@ const navigationCommands: CommandConfig[] = [
   },
   {
     value: '/',
-    label: 'Go to my notes',
+    label: 'Go to my workspace',
     Icon: <FileText className={COMMAND_ICON_CLASS} />,
     category: 'navigation',
-    keywords: ['home', 'notes', 'list'],
+    keywords: ['home', 'workspace', 'notes', 'list'],
   },
   {
     value: '/?nav=collab',
