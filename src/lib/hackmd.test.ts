@@ -4,6 +4,7 @@ import {
   createQuickNotePayload,
   getHackmdErrorMessage,
   getHackmdNotePath,
+  getHackmdProfilePath,
   hasHackmdToken,
 } from './hackmd';
 
@@ -22,6 +23,12 @@ describe('HackMD helpers', () => {
       permalink: 'hello-world',
       publishLink: 'https://hackmd.io/abc123',
     })).toBe('/@michael/hello-world');
+  });
+
+  it('builds a profile path for the current user', () => {
+    expect(getHackmdProfilePath('michael')).toBe('/@michael');
+    expect(getHackmdProfilePath('  michael  ')).toBe('/@michael');
+    expect(getHackmdProfilePath('   ')).toBeNull();
   });
 
   it('builds an edit path for newly created notes', () => {

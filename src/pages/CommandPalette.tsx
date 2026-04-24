@@ -5,11 +5,17 @@ import Fuse from 'fuse.js';
 import {
   AlertCircle,
   ArrowLeft,
+  Bookmark,
+  Clock3,
+  CreditCard,
   FileText,
   Loader2,
   Moon,
   Plus,
+  Search,
+  Settings2,
   ShieldAlert,
+  ShoppingCart,
   Sun,
   Trash2,
   Users,
@@ -33,10 +39,12 @@ import { useCommandPaletteWindow } from '@/hooks/useCommandPaletteWindow';
 import {
   getHackmdErrorMessage,
   getHackmdNotePath,
+  getHackmdProfilePath,
   normalizeHackmdToken,
   useCreateHackmdNote,
   useDeleteHackmdNote,
   useHackmdNotes,
+  useHackmdProfile,
   useHackmdTeams,
   type HackmdNote,
   type HackmdTeam,
@@ -48,6 +56,7 @@ import {
   getAllCommands,
   getRecentCommands,
   getRecentNotes,
+  getSettingsNavigationCommands,
   groupCommands,
   type RecentNoteEntry,
   removeRecentNote,
@@ -55,12 +64,35 @@ import {
   saveRecentCommand,
 } from './CommandPalette.config';
 
-type PaletteMode = 'root' | 'notes' | 'note-actions' | 'confirm-delete';
+type PaletteMode = 'root' | 'notes' | 'notes-team-workspaces' | 'note-actions' | 'confirm-delete' | 'team-navigation' | 'team-routes' | 'route-search' | 'settings-navigation';
+
+type RouteSearchContext = {
+  basePath: string;
+  scopeLabel: string;
+  placeholder: string;
+  backMode: 'root' | 'team-routes';
+};
+
+type TeamNavigationCommand = {
+  id: string;
+  value: string;
+  label: string;
+  description: string;
+  team: HackmdTeam;
+  Icon: React.ReactNode;
+  keywords: string[];
+};
 
 const NOTE_VALUE_PREFIX = 'hackmd-note:';
 const RECENT_NOTE_VALUE_PREFIX = 'hackmd-recent-note:';
 const CREATE_NOTE_VALUE_PREFIX = 'hackmd-create:';
+const OPEN_NOTES_TEAM_WORKSPACES_VALUE = 'hackmd-open-notes-team-workspaces';
+const TEAM_NAVIGATION_VALUE = 'hackmd:team-navigation';
+const SETTINGS_NAVIGATION_VALUE = 'hackmd:settings';
+const TEAM_NAVIGATION_TEAM_VALUE_PREFIX = 'hackmd-team-navigation-team:';
 const BACK_TO_ROOT_VALUE = 'hackmd-back-to-root';
+const BACK_TO_NOTES_TEAM_WORKSPACES_VALUE = 'hackmd-back-to-notes-team-workspaces';
+const BACK_TO_TEAM_NAVIGATION_VALUE = 'hackmd-back-to-team-navigation';
 const PERSONAL_SCOPE_VALUE = 'hackmd-scope-personal';
 const TEAM_SCOPE_VALUE_PREFIX = 'hackmd-scope-team:';
 const BACK_TO_NOTES_VALUE = 'hackmd-back-to-notes';
@@ -68,9 +100,11 @@ const OPEN_NOTE_VALUE = 'hackmd-open-note';
 const DELETE_NOTE_VALUE = 'hackmd-delete-note';
 const CONFIRM_DELETE_NOTE_VALUE = 'hackmd-confirm-delete-note';
 const CANCEL_DELETE_NOTE_VALUE = 'hackmd-cancel-delete-note';
+const EXECUTE_ROUTE_SEARCH_VALUE = 'hackmd-execute-route-search';
+const BACK_FROM_ROUTE_SEARCH_VALUE = 'hackmd-back-from-route-search';
 const RETRY_NOTES_VALUE = 'hackmd-retry-notes';
 const RETRY_TEAMS_VALUE = 'hackmd-retry-teams';
-const OPEN_LOCAL_SETTINGS_VALUE = 'hackmd-open-local-settings';
+const OPEN_LOCAL_SETTINGS_VALUE = 'hackdesk:settings';
 const EMPTY_NOTES: HackmdNote[] = [];
 const EMPTY_TEAMS: HackmdTeam[] = [];
 
@@ -81,6 +115,19 @@ async function redirect(path: string) {
       data: { path },
     },
   });
+}
+
+function buildRouteSearchPath(basePath: string, query: string) {
+  const normalizedQuery = query.trim();
+
+  if (!normalizedQuery) {
+    return basePath;
+  }
+
+  const [pathWithoutHash, hashFragment] = basePath.split('#', 2);
+  const separator = pathWithoutHash.includes('?') ? '&' : '?';
+
+  return `${pathWithoutHash}${separator}q=${encodeURIComponent(normalizedQuery)}${hashFragment ? `#${hashFragment}` : ''}`;
 }
 
 function formatNoteDate(date: string) {
@@ -122,6 +169,139 @@ function NoteCommandItem({
   );
 }
 
+function TeamWorkspaceCommandItem({
+  team,
+  onSelect,
+  valuePrefix = TEAM_NAVIGATION_TEAM_VALUE_PREFIX,
+  current = false,
+}: {
+  team: HackmdTeam;
+  onSelect: (value: string) => void;
+  valuePrefix?: string;
+  current?: boolean;
+}) {
+  return (
+    <CommandItem
+      value={`${valuePrefix}${team.path}`}
+      onSelect={onSelect}
+      className="items-start gap-3 py-3"
+    >
+      <Users className="mt-0.5 h-4 w-4 shrink-0" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="truncate font-semibold">{team.name}</span>
+        <span className="truncate text-xs text-zinc-500 dark:text-zinc-300/80">
+          {team.description?.trim() || `Open ${team.name} routes`}
+        </span>
+      </div>
+      <CommandShortcut>{current ? 'Current' : `@${team.path}`}</CommandShortcut>
+    </CommandItem>
+  );
+}
+
+function getTeamRouteCommands(team: HackmdTeam): TeamNavigationCommand[] {
+  const teamBasePath = `/team/${team.path}`;
+
+  return [
+    {
+      id: `${team.path}:overview`,
+      value: teamBasePath,
+      label: 'Overview',
+      description: `${team.name} workspace overview`,
+      team,
+      Icon: <Users className="mt-0.5 h-4 w-4 shrink-0" />,
+      keywords: ['overview', 'workspace', 'team', team.name, team.path],
+    },
+    {
+      id: `${team.path}:search`,
+      value: `${teamBasePath}?nav=search`,
+      label: 'Search',
+      description: `Search notes in ${team.name}`,
+      team,
+      Icon: <Search className="mt-0.5 h-4 w-4 shrink-0" />,
+      keywords: ['search', 'find', 'notes', team.name, team.path],
+    },
+    {
+      id: `${team.path}:recent`,
+      value: `${teamBasePath}/recent`,
+      label: 'Recent',
+      description: `Open recent notes in ${team.name}`,
+      team,
+      Icon: <Clock3 className="mt-0.5 h-4 w-4 shrink-0" />,
+      keywords: ['recent', 'history', 'activity', team.name, team.path],
+    },
+    {
+      id: `${team.path}:bookmark`,
+      value: `${teamBasePath}/bookmark`,
+      label: 'Bookmarks',
+      description: `Open bookmarks in ${team.name}`,
+      team,
+      Icon: <Bookmark className="mt-0.5 h-4 w-4 shrink-0" />,
+      keywords: ['bookmark', 'favorites', 'saved', team.name, team.path],
+    },
+    {
+      id: `${team.path}:trash`,
+      value: `${teamBasePath}?nav=trash`,
+      label: 'Trash',
+      description: `Open trash in ${team.name}`,
+      team,
+      Icon: <Trash2 className="mt-0.5 h-4 w-4 shrink-0" />,
+      keywords: ['trash', 'deleted', 'bin', team.name, team.path],
+    },
+    {
+      id: `${team.path}:manage`,
+      value: `${teamBasePath}/manage`,
+      label: 'Manage Workspace',
+      description: `Open team settings for ${team.name}`,
+      team,
+      Icon: <Settings2 className="mt-0.5 h-4 w-4 shrink-0" />,
+      keywords: ['manage', 'settings', 'workspace', team.name, team.path],
+    },
+    {
+      id: `${team.path}:billing`,
+      value: `${teamBasePath}?nav=billing`,
+      label: 'Billing',
+      description: `Open billing for ${team.name}`,
+      team,
+      Icon: <CreditCard className="mt-0.5 h-4 w-4 shrink-0" />,
+      keywords: ['billing', 'payment', 'subscription', team.name, team.path],
+    },
+    {
+      id: `${team.path}:purchase`,
+      value: `${teamBasePath}?nav=purchase`,
+      label: 'Purchase',
+      description: `Open purchase options for ${team.name}`,
+      team,
+      Icon: <ShoppingCart className="mt-0.5 h-4 w-4 shrink-0" />,
+      keywords: ['purchase', 'upgrade', 'checkout', team.name, team.path],
+    },
+  ];
+}
+
+function TeamNavigationCommandItem({
+  command,
+  onSelect,
+}: {
+  command: TeamNavigationCommand;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <CommandItem
+      value={command.value}
+      onSelect={onSelect}
+      className="items-start gap-3 py-3"
+    >
+      {command.Icon}
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="truncate font-semibold">{command.label}</span>
+        <span className="truncate text-xs text-zinc-500 dark:text-zinc-300/80">
+          {command.description}
+        </span>
+      </div>
+      <CommandShortcut>{command.team.name}</CommandShortcut>
+    </CommandItem>
+  );
+}
+
 export function CommandPalette() {
   const [mode, setMode] = useState<PaletteMode>('root');
   const [search, setSearch] = useState('');
@@ -131,20 +311,34 @@ export function CommandPalette() {
   const [recentNoteEntries, setRecentNoteEntries] = useState<RecentNoteEntry[]>([]);
   const [selectedNote, setSelectedNote] = useState<HackmdNote | null>(null);
   const [selectedTeamPath, setSelectedTeamPath] = useState<string | null>(null);
+  const [selectedNavigationTeamPath, setSelectedNavigationTeamPath] = useState<string | null>(null);
+  const [routeSearchContext, setRouteSearchContext] = useState<RouteSearchContext | null>(null);
 
   const settings = settingsData ?? defaultSettings;
   const hackmdToken = normalizeHackmdToken(settings.hackmdApiToken);
   const hasHackmdToken = hackmdToken.length > 0;
+  const profileQuery = useHackmdProfile(hackmdToken, hasHackmdToken);
+  const profilePath = getHackmdProfilePath(profileQuery.data?.userPath);
   const availableCommands = useMemo(
-    () => getAllCommands({ hasHackmdToken }),
-    [hasHackmdToken],
+    () => getAllCommands({ hasHackmdToken, profilePath }),
+    [hasHackmdToken, profilePath],
   );
-  const isNotesMode = mode !== 'root';
+  const settingsNavigationCommands = useMemo(() => getSettingsNavigationCommands(), []);
+  const isNotesMode = mode === 'notes';
+  const isNotesTeamWorkspacesMode = mode === 'notes-team-workspaces';
+  const isNoteDetailMode = mode === 'note-actions' || mode === 'confirm-delete';
+  const isTeamNavigationMode = mode === 'team-navigation';
+  const isTeamRoutesMode = mode === 'team-routes';
+  const isRouteSearchMode = mode === 'route-search';
+  const isSettingsNavigationMode = mode === 'settings-navigation';
+  const isExpandedMode = isNotesMode || isNotesTeamWorkspacesMode || isNoteDetailMode || isTeamNavigationMode || isTeamRoutesMode || isSettingsNavigationMode;
+  const shouldLoadTeams = hasHackmdToken && (isNotesTeamWorkspacesMode || isTeamNavigationMode || isTeamRoutesMode || selectedTeamPath !== null);
+  const shouldLoadNotes = hasHackmdToken && isNotesMode;
 
-  useCommandPaletteWindow(isNotesMode ? 'notes' : 'compact');
+  useCommandPaletteWindow(isExpandedMode ? 'notes' : 'compact');
 
-  const teamsQuery = useHackmdTeams(isNotesMode && hasHackmdToken);
-  const notesQuery = useHackmdNotes(hackmdToken, isNotesMode && hasHackmdToken, selectedTeamPath);
+  const teamsQuery = useHackmdTeams(shouldLoadTeams);
+  const notesQuery = useHackmdNotes(hackmdToken, shouldLoadNotes, selectedTeamPath);
   const createNoteMutation = useCreateHackmdNote(hackmdToken, selectedTeamPath);
   const deleteNoteMutation = useDeleteHackmdNote(hackmdToken, selectedTeamPath);
   const teams = teamsQuery.data ?? EMPTY_TEAMS;
@@ -152,6 +346,11 @@ export function CommandPalette() {
     () => teams.find((team) => team.path === selectedTeamPath) ?? null,
     [selectedTeamPath, teams],
   );
+  const selectedNavigationTeam = useMemo(
+    () => teams.find((team) => team.path === selectedNavigationTeamPath) ?? null,
+    [selectedNavigationTeamPath, teams],
+  );
+  const selectedTeamLabel = selectedTeam?.name ?? selectedTeamPath ?? null;
 
   useEffect(() => {
     setRecentValues(getRecentCommands());
@@ -227,13 +426,98 @@ export function CommandPalette() {
     [filteredNotes, recentNoteIdsSet],
   );
   const trimmedSearch = search.trim();
+  const teamNavigationTeamFuse = useMemo(
+    () =>
+      new Fuse(teams, {
+        keys: ['name', 'path', 'description'],
+        threshold: 0.3,
+      }),
+    [teams],
+  );
+  const filteredTeamNavigationTeams = useMemo(() => {
+    if (!isTeamNavigationMode) {
+      return teams;
+    }
+
+    if (!trimmedSearch) {
+      return teams;
+    }
+
+    return teamNavigationTeamFuse.search(trimmedSearch).map((result) => result.item);
+  }, [isTeamNavigationMode, teamNavigationTeamFuse, teams, trimmedSearch]);
+  const filteredNotesTeamWorkspaces = useMemo(() => {
+    if (!isNotesTeamWorkspacesMode) {
+      return teams;
+    }
+
+    if (!trimmedSearch) {
+      return teams;
+    }
+
+    return teamNavigationTeamFuse.search(trimmedSearch).map((result) => result.item);
+  }, [isNotesTeamWorkspacesMode, teamNavigationTeamFuse, teams, trimmedSearch]);
+  const selectedNavigationTeamCommands = useMemo(
+    () => selectedNavigationTeam ? getTeamRouteCommands(selectedNavigationTeam) : [],
+    [selectedNavigationTeam],
+  );
+  const teamRouteFuse = useMemo(
+    () =>
+      new Fuse(selectedNavigationTeamCommands, {
+        keys: ['label', 'description', 'keywords', 'value'],
+        threshold: 0.3,
+      }),
+    [selectedNavigationTeamCommands],
+  );
+  const filteredSelectedNavigationTeamCommands = useMemo(() => {
+    if (!isTeamRoutesMode) {
+      return selectedNavigationTeamCommands;
+    }
+
+    if (!trimmedSearch) {
+      return selectedNavigationTeamCommands;
+    }
+
+    return teamRouteFuse.search(trimmedSearch).map((result) => result.item);
+  }, [isTeamRoutesMode, selectedNavigationTeamCommands, teamRouteFuse, trimmedSearch]);
+  const settingsNavigationFuse = useMemo(
+    () =>
+      new Fuse(settingsNavigationCommands, {
+        keys: ['label', 'keywords', 'value'],
+        threshold: 0.3,
+      }),
+    [settingsNavigationCommands],
+  );
+  const filteredSettingsNavigationCommands = useMemo(() => {
+    if (!isSettingsNavigationMode) {
+      return settingsNavigationCommands;
+    }
+
+    if (!trimmedSearch) {
+      return settingsNavigationCommands;
+    }
+
+    return settingsNavigationFuse.search(trimmedSearch).map((result) => result.item);
+  }, [isSettingsNavigationMode, settingsNavigationCommands, settingsNavigationFuse, trimmedSearch]);
   const canCreateNote = mode === 'notes' && trimmedSearch.length > 0 && !notesQuery.isError;
   const showRecentNotes = !notesQuery.isPending && !notesQuery.isError && recentNotes.length > 0;
-  const recentNotesHeading = selectedTeam ? `Recent Notes in ${selectedTeam.name}` : 'Recent Notes';
+  const recentNotesHeading = selectedTeamLabel ? `Recent Notes in ${selectedTeamLabel}` : 'Recent Notes';
+  const routeSearchPath = routeSearchContext && trimmedSearch.length > 0
+    ? buildRouteSearchPath(routeSearchContext.basePath, trimmedSearch)
+    : null;
+  const canExecuteRouteSearch = isRouteSearchMode && routeSearchPath !== null;
+  const routeSearchActionLabel = routeSearchContext && trimmedSearch.length > 0
+    ? `Search for “${trimmedSearch}” in ${routeSearchContext.scopeLabel}`
+    : null;
+  const hasSettingsNavigationResults = filteredSettingsNavigationCommands.length > 0;
   const showNotesContentSeparator = notesQuery.isPending
     || notesQuery.isError
     || noteResults.length > 0
     || (!notesQuery.isPending && !notesQuery.isError && notes.length === 0);
+  const showTeamNavigationContentSeparator = teamsQuery.isPending
+    || teamsQuery.isError
+    || filteredTeamNavigationTeams.length > 0
+    || (!teamsQuery.isPending && !teamsQuery.isError && teams.length === 0)
+    || (!teamsQuery.isPending && !teamsQuery.isError && trimmedSearch.length > 0 && teams.length > 0 && filteredTeamNavigationTeams.length === 0);
 
   const closePalette = useCallback(() => {
     getCurrentWebviewWindow().close();
@@ -250,6 +534,14 @@ export function CommandPalette() {
 
   const syncRecentNotes = useCallback(() => {
     setRecentNoteEntries(getRecentNotes());
+  }, []);
+
+  const openRouteSearch = useCallback((context: RouteSearchContext) => {
+    setSelectedNote(null);
+    setSelectedTeamPath(null);
+    setRouteSearchContext(context);
+    setSearch('');
+    setMode('route-search');
   }, []);
 
   const handleBack = useCallback(() => {
@@ -272,8 +564,42 @@ export function CommandPalette() {
       return;
     }
 
+    if (mode === 'notes-team-workspaces') {
+      setSearch('');
+      setMode('notes');
+      return;
+    }
+
+    if (mode === 'team-navigation') {
+      setSelectedNote(null);
+      setSelectedTeamPath(null);
+      setSelectedNavigationTeamPath(null);
+      setMode('root');
+      return;
+    }
+
+    if (mode === 'team-routes') {
+      setSearch('');
+      setSelectedNavigationTeamPath(null);
+      setMode('team-navigation');
+      return;
+    }
+
+    if (mode === 'route-search') {
+      const backMode = routeSearchContext?.backMode ?? 'root';
+
+      setRouteSearchContext(null);
+      setMode(backMode);
+      return;
+    }
+
+    if (mode === 'settings-navigation') {
+      setMode('root');
+      return;
+    }
+
     closePalette();
-  }, [closePalette, mode]);
+  }, [closePalette, mode, routeSearchContext]);
 
   const handleOpenNote = useCallback(async (note: HackmdNote, editMode = false) => {
     saveRecentNote(note.id, note.teamPath ?? null);
@@ -288,8 +614,8 @@ export function CommandPalette() {
       saveRecentNote(note.id, note.teamPath ?? null);
       syncRecentNotes();
       toast.success(
-        selectedTeam
-          ? `Created “${note.title || title.trim()}” in ${selectedTeam.name}`
+        selectedTeamLabel
+          ? `Created “${note.title || title.trim()}” in ${selectedTeamLabel}`
           : `Created “${note.title || title.trim()}”`,
       );
       await redirect(getHackmdNotePath(note, true));
@@ -297,7 +623,7 @@ export function CommandPalette() {
     } catch (error) {
       toast.error(getHackmdErrorMessage(error, 'Failed to create the note.'));
     }
-  }, [closePalette, createNoteMutation, selectedTeam, syncRecentNotes]);
+  }, [closePalette, createNoteMutation, selectedTeamLabel, syncRecentNotes]);
 
   const handleDeleteSelectedNote = useCallback(async () => {
     if (!selectedNote) {
@@ -341,7 +667,30 @@ export function CommandPalette() {
       setSearch('');
       setSelectedNote(null);
       setSelectedTeamPath(null);
+      setSelectedNavigationTeamPath(null);
       setMode('notes');
+      return;
+    case TEAM_NAVIGATION_VALUE:
+      setSearch('');
+      setSelectedNote(null);
+      setSelectedTeamPath(null);
+      setSelectedNavigationTeamPath(null);
+      setMode('team-navigation');
+      return;
+    case SETTINGS_NAVIGATION_VALUE:
+      setSearch('');
+      setSelectedNote(null);
+      setSelectedTeamPath(null);
+      setSelectedNavigationTeamPath(null);
+      setMode('settings-navigation');
+      return;
+    case '/?nav=search':
+      openRouteSearch({
+        basePath: value,
+        scopeLabel: 'my notes',
+        placeholder: 'Search my notes...',
+        backMode: 'root',
+      });
       return;
     case 'back':
       invoke(Cmd.EXECUTE_ACTION, { action: { type: 'GoBack' } });
@@ -352,13 +701,31 @@ export function CommandPalette() {
     case 'reload':
       invoke(Cmd.EXECUTE_ACTION, { action: { type: 'Reload' } });
       break;
-    case '/settings':
+    case OPEN_LOCAL_SETTINGS_VALUE:
       void openLocalSettings();
       return;
     default:
       void redirect(value);
     }
 
+    closePalette();
+  };
+
+  const handleSettingsNavigationSelect = (value: string) => {
+    switch (value) {
+    case BACK_TO_ROOT_VALUE:
+      handleBack();
+      return;
+    default:
+      break;
+    }
+
+    const selectedCommand = settingsNavigationCommands.find((command) => command.value === value);
+    if (!selectedCommand) {
+      return;
+    }
+
+    void redirect(selectedCommand.value);
     closePalette();
   };
 
@@ -372,14 +739,15 @@ export function CommandPalette() {
     case BACK_TO_ROOT_VALUE:
       handleBack();
       return;
+    case OPEN_NOTES_TEAM_WORKSPACES_VALUE:
+      setSearch('');
+      setMode('notes-team-workspaces');
+      return;
     case PERSONAL_SCOPE_VALUE:
       handleSelectPersonalNotes();
       return;
     case RETRY_NOTES_VALUE:
       void notesQuery.refetch();
-      return;
-    case RETRY_TEAMS_VALUE:
-      void teamsQuery.refetch();
       return;
     case OPEN_LOCAL_SETTINGS_VALUE:
       void openLocalSettings();
@@ -424,6 +792,26 @@ export function CommandPalette() {
     setMode('note-actions');
   };
 
+  const handleNotesTeamWorkspacesSelect = (value: string) => {
+    switch (value) {
+    case BACK_TO_NOTES_TEAM_WORKSPACES_VALUE:
+      handleBack();
+      return;
+    case RETRY_TEAMS_VALUE:
+      void teamsQuery.refetch();
+      return;
+    default:
+      break;
+    }
+
+    if (!value.startsWith(TEAM_SCOPE_VALUE_PREFIX)) {
+      return;
+    }
+
+    handleSelectTeam(value.slice(TEAM_SCOPE_VALUE_PREFIX.length));
+    setMode('notes');
+  };
+
   const handleNoteActionSelect = (value: string) => {
     if (!selectedNote) {
       return;
@@ -457,31 +845,173 @@ export function CommandPalette() {
     }
   };
 
+  const handleRouteSearchSelect = (value: string) => {
+    switch (value) {
+    case BACK_FROM_ROUTE_SEARCH_VALUE:
+      handleBack();
+      return;
+    case EXECUTE_ROUTE_SEARCH_VALUE:
+      if (!routeSearchPath) {
+        return;
+      }
+
+      void redirect(routeSearchPath);
+      closePalette();
+      return;
+    default:
+      break;
+    }
+  };
+
+  const handleTeamNavigationSelect = (value: string) => {
+    switch (value) {
+    case BACK_TO_ROOT_VALUE:
+      handleBack();
+      return;
+    case RETRY_TEAMS_VALUE:
+      void teamsQuery.refetch();
+      return;
+    default:
+      break;
+    }
+
+    if (!value.startsWith(TEAM_NAVIGATION_TEAM_VALUE_PREFIX)) {
+      return;
+    }
+
+    setSelectedNavigationTeamPath(value.slice(TEAM_NAVIGATION_TEAM_VALUE_PREFIX.length));
+    setSearch('');
+    setMode('team-routes');
+  };
+
+  const handleTeamRouteSelect = (value: string) => {
+    const selectedTeamRouteCommand = selectedNavigationTeamCommands.find((command) => command.value === value);
+
+    switch (value) {
+    case BACK_TO_TEAM_NAVIGATION_VALUE:
+      handleBack();
+      return;
+    case RETRY_TEAMS_VALUE:
+      void teamsQuery.refetch();
+      return;
+    default:
+      break;
+    }
+
+    if (selectedTeamRouteCommand?.id.endsWith(':search')) {
+      openRouteSearch({
+        basePath: selectedTeamRouteCommand.value,
+        scopeLabel: selectedTeamRouteCommand.team.name,
+        placeholder: `Search ${selectedTeamRouteCommand.team.name} notes...`,
+        backMode: 'team-routes',
+      });
+      return;
+    }
+
+    if (!value.startsWith('/team/')) {
+      return;
+    }
+
+    void redirect(value);
+    closePalette();
+  };
+
+  useEffect(() => {
+    if (mode === 'root') {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.key !== 'Backspace' || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+
+      if (search.length > 0) {
+        return;
+      }
+
+      const target = event.target;
+
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+        if (!target.disabled && !target.readOnly && target.value.length > 0) {
+          return;
+        }
+      }
+
+      if (target instanceof HTMLElement && target.isContentEditable && (target.textContent?.length ?? 0) > 0) {
+        return;
+      }
+
+      event.preventDefault();
+      handleBack();
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleBack, mode, search]);
+
   useEscapeKey(handleBack);
 
   const inputPlaceholder = mode === 'root'
     ? 'Search commands...'
     : mode === 'notes'
-      ? selectedTeam
-        ? `Search ${selectedTeam.name} notes or type a title to create one...`
+      ? selectedTeamLabel
+        ? `Search ${selectedTeamLabel} notes or type a title to create one...`
         : 'Search your notes or type a title to create one...'
-      : mode === 'note-actions'
-        ? 'Choose an action...'
-        : 'Confirm note deletion...';
-  const canSearchCurrentMode = mode === 'root' || mode === 'notes';
+      : mode === 'notes-team-workspaces'
+        ? 'Search team workspaces...'
+        : mode === 'team-routes'
+          ? selectedNavigationTeam
+            ? `Search ${selectedNavigationTeam.name} routes...`
+            : 'Search team routes...'
+          : mode === 'settings-navigation'
+            ? 'Search settings sections...'
+            : mode === 'route-search'
+              ? routeSearchContext?.placeholder ?? 'Search notes...'
+              : mode === 'team-navigation'
+                ? 'Search teams...'
+                : mode === 'note-actions'
+                  ? 'Choose an action...'
+                  : 'Confirm note deletion...';
+  const canSearchCurrentMode = mode === 'root'
+    || mode === 'notes'
+    || mode === 'notes-team-workspaces'
+    || mode === 'team-navigation'
+    || mode === 'team-routes'
+    || mode === 'route-search'
+    || mode === 'settings-navigation';
+  const emptyStateText = mode === 'root'
+    ? 'No commands found.'
+    : mode === 'notes-team-workspaces'
+      ? 'No team workspaces found.'
+      : mode === 'team-navigation'
+        ? 'No teams found.'
+        : mode === 'team-routes'
+          ? 'No team routes found.'
+          : mode === 'settings-navigation'
+            ? 'No settings sections found.'
+            : mode === 'route-search'
+              ? 'Type a search query to continue.'
+              : 'No notes found.';
+  const commandKey = mode;
 
   return (
     <div className="p-2">
-      <Command shouldFilter={false} loop className={isNotesMode ? 'min-h-[520px]' : undefined}>
+      <Command key={commandKey} shouldFilter={false} loop className={isExpandedMode ? 'min-h-[520px]' : undefined}>
         <CommandInput
           placeholder={inputPlaceholder}
           value={canSearchCurrentMode ? search : ''}
           onValueChange={canSearchCurrentMode ? setSearch : () => {}}
-          disabled={!canSearchCurrentMode}
+          readOnly={!canSearchCurrentMode}
+          aria-readonly={!canSearchCurrentMode}
+          className={!canSearchCurrentMode ? 'caret-transparent' : undefined}
           autoFocus
         />
-        <CommandList className={isNotesMode ? 'max-h-[480px]' : undefined}>
-          <CommandEmpty>{mode === 'root' ? 'No commands found.' : 'No notes found.'}</CommandEmpty>
+        <CommandList className={isExpandedMode ? 'max-h-[480px]' : undefined}>
+          <CommandEmpty>{emptyStateText}</CommandEmpty>
 
           {mode === 'root' && (
             <>
@@ -623,8 +1153,13 @@ export function CommandPalette() {
                 </CommandItem>
                 <CommandItem value={PERSONAL_SCOPE_VALUE} onSelect={handleNotesSelect}>
                   <FileText className="mr-2 h-4 w-4" />
-                  Personal Notes
-                  {!selectedTeam ? <CommandShortcut>Current</CommandShortcut> : null}
+                  My Workspace
+                  {!selectedTeamLabel ? <CommandShortcut>Current</CommandShortcut> : null}
+                </CommandItem>
+                <CommandItem value={OPEN_NOTES_TEAM_WORKSPACES_VALUE} onSelect={handleNotesSelect}>
+                  <Users className="mr-2 h-4 w-4" />
+                  Team Workspaces…
+                  {selectedTeamLabel ? <CommandShortcut>{selectedTeamLabel}</CommandShortcut> : null}
                 </CommandItem>
                 {canCreateNote && (
                   <CommandItem
@@ -632,49 +1167,9 @@ export function CommandPalette() {
                     onSelect={handleNotesSelect}
                   >
                     <Plus className="mr-2 h-4 w-4" />
-                    {selectedTeam ? `Create “${trimmedSearch}” in ${selectedTeam.name}` : `Create “${trimmedSearch}”`}
+                    {selectedTeamLabel ? `Create “${trimmedSearch}” in ${selectedTeamLabel}` : `Create “${trimmedSearch}”`}
                   </CommandItem>
                 )}
-                {teamsQuery.isPending ? (
-                  <CommandItem value="hackmd-loading-teams" disabled>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Loading team workspaces...
-                  </CommandItem>
-                ) : null}
-                {teams.map((team) => (
-                  <CommandItem
-                    key={team.path}
-                    value={`${TEAM_SCOPE_VALUE_PREFIX}${team.path}`}
-                    onSelect={handleNotesSelect}
-                  >
-                    <Users className="mr-2 h-4 w-4" />
-                    {team.name}
-                    {selectedTeamPath === team.path ? <CommandShortcut>Current</CommandShortcut> : null}
-                  </CommandItem>
-                ))}
-                {!teamsQuery.isPending && !teamsQuery.isError && teams.length === 0 ? (
-                  <CommandItem value="hackmd-no-teams" disabled>
-                    <Users className="mr-2 h-4 w-4" />
-                    No team workspaces available
-                  </CommandItem>
-                ) : null}
-                {teamsQuery.isError ? (
-                  <>
-                    <CommandItem value="hackmd-teams-error" disabled className="items-start gap-3 py-3">
-                      <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive-default" />
-                      <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <span className="font-medium text-destructive-default">Unable to load team workspaces</span>
-                        <span className="text-xs text-text-subtle">
-                          {getHackmdErrorMessage(teamsQuery.error, 'Please try again in a moment.')}
-                        </span>
-                      </div>
-                    </CommandItem>
-                    <CommandItem value={RETRY_TEAMS_VALUE} onSelect={handleNotesSelect}>
-                      <Loader2 className="mr-2 h-4 w-4" />
-                      Retry Team Sync
-                    </CommandItem>
-                  </>
-                ) : null}
               </CommandGroup>
 
               {showNotesContentSeparator && (
@@ -713,15 +1208,15 @@ export function CommandPalette() {
               )}
 
               {!notesQuery.isPending && !notesQuery.isError && notes.length === 0 && (
-                <CommandGroup heading={selectedTeam ? `${selectedTeam.name} Notes` : 'Your Notes'}>
+                <CommandGroup heading={selectedTeamLabel ? `${selectedTeamLabel} Notes` : 'Your Notes'}>
                   <CommandItem value="hackmd-no-notes" disabled className="items-start gap-3 py-3">
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                     <div className="flex min-w-0 flex-1 flex-col gap-1">
                       <span className="font-medium">
-                        {selectedTeam ? `No notes in ${selectedTeam.name} yet` : 'No notes yet'}
+                        {selectedTeamLabel ? `No notes in ${selectedTeamLabel} yet` : 'No notes yet'}
                       </span>
                       <span className="text-xs text-text-subtle">
-                        {selectedTeam
+                        {selectedTeamLabel
                           ? 'Type a title above to create the first note in this team workspace.'
                           : 'Type a title above to create your first HackMD note from the palette.'}
                       </span>
@@ -731,12 +1226,280 @@ export function CommandPalette() {
               )}
 
               {!notesQuery.isPending && !notesQuery.isError && noteResults.length > 0 && (
-                <CommandGroup heading={trimmedSearch ? 'Search Results' : selectedTeam ? `${selectedTeam.name} Notes` : 'Your Notes'}>
+                <CommandGroup heading={trimmedSearch ? 'Search Results' : selectedTeamLabel ? `${selectedTeamLabel} Notes` : 'Your Notes'}>
                   {noteResults.map((note) => (
                     <NoteCommandItem key={note.id} note={note} onSelect={handleNotesSelect} />
                   ))}
                 </CommandGroup>
               )}
+            </>
+          )}
+
+          {mode === 'notes-team-workspaces' && (
+            <>
+              <CommandGroup heading="Team Workspaces">
+                <CommandItem value={BACK_TO_NOTES_TEAM_WORKSPACES_VALUE} onSelect={handleNotesTeamWorkspacesSelect}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Notes
+                </CommandItem>
+              </CommandGroup>
+              <CommandSeparator />
+
+              {teamsQuery.isPending && (
+                <CommandGroup heading="Loading">
+                  <CommandItem value="hackmd-loading-note-teams" disabled>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading team workspaces...
+                  </CommandItem>
+                </CommandGroup>
+              )}
+
+              {teamsQuery.isError && (
+                <CommandGroup heading="Connection">
+                  <CommandItem value="hackmd-note-teams-error" disabled className="items-start gap-3 py-3">
+                    <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive-default" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="font-medium text-destructive-default">Unable to load team workspaces</span>
+                      <span className="text-xs text-text-subtle">
+                        {getHackmdErrorMessage(teamsQuery.error, 'Please try again in a moment.')}
+                      </span>
+                    </div>
+                  </CommandItem>
+                  <CommandItem value={RETRY_TEAMS_VALUE} onSelect={handleNotesTeamWorkspacesSelect}>
+                    <Loader2 className="mr-2 h-4 w-4" />
+                    Retry Team Sync
+                  </CommandItem>
+                </CommandGroup>
+              )}
+
+              {!teamsQuery.isPending && !teamsQuery.isError && teams.length === 0 && (
+                <CommandGroup heading="Teams">
+                  <CommandItem value="hackmd-no-notes-teams" disabled className="items-start gap-3 py-3">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="font-medium">No team workspaces available</span>
+                      <span className="text-xs text-text-subtle">
+                        Join or create a team in HackMD to manage team notes here.
+                      </span>
+                    </div>
+                  </CommandItem>
+                </CommandGroup>
+              )}
+
+              {!teamsQuery.isPending && !teamsQuery.isError && trimmedSearch.length > 0 && teams.length > 0 && filteredNotesTeamWorkspaces.length === 0 && (
+                <CommandGroup heading="Teams">
+                  <CommandItem value="hackmd-no-matching-notes-teams" disabled className="items-start gap-3 py-3">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="font-medium">{`No team workspaces match “${trimmedSearch}”`}</span>
+                      <span className="text-xs text-text-subtle">
+                        Try another team name or clear the search to browse all workspaces.
+                      </span>
+                    </div>
+                  </CommandItem>
+                </CommandGroup>
+              )}
+
+              {!teamsQuery.isPending && !teamsQuery.isError && filteredNotesTeamWorkspaces.length > 0 && (
+                <CommandGroup heading="Teams">
+                  {filteredNotesTeamWorkspaces.map((team) => (
+                    <TeamWorkspaceCommandItem
+                      key={team.path}
+                      team={team}
+                      valuePrefix={TEAM_SCOPE_VALUE_PREFIX}
+                      current={selectedTeamPath === team.path}
+                      onSelect={handleNotesTeamWorkspacesSelect}
+                    />
+                  ))}
+                </CommandGroup>
+              )}
+            </>
+          )}
+
+          {mode === 'team-navigation' && (
+            <>
+              <CommandGroup heading="Team Navigation">
+                <CommandItem value={BACK_TO_ROOT_VALUE} onSelect={handleTeamNavigationSelect}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Commands
+                </CommandItem>
+              </CommandGroup>
+
+              {showTeamNavigationContentSeparator && (
+                <CommandSeparator />
+              )}
+
+              {teamsQuery.isPending && (
+                <CommandGroup heading="Loading">
+                  <CommandItem value="hackmd-loading-team-routes" disabled>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading teams...
+                  </CommandItem>
+                </CommandGroup>
+              )}
+
+              {teamsQuery.isError && (
+                <CommandGroup heading="Connection">
+                  <CommandItem value="hackmd-team-navigation-error" disabled className="items-start gap-3 py-3">
+                    <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive-default" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="font-medium text-destructive-default">Unable to load teams</span>
+                      <span className="text-xs text-text-subtle">
+                        {getHackmdErrorMessage(teamsQuery.error, 'Please try again in a moment.')}
+                      </span>
+                    </div>
+                  </CommandItem>
+                  <CommandItem value={RETRY_TEAMS_VALUE} onSelect={handleTeamNavigationSelect}>
+                    <Loader2 className="mr-2 h-4 w-4" />
+                    Retry Team Sync
+                  </CommandItem>
+                </CommandGroup>
+              )}
+
+              {!teamsQuery.isPending && !teamsQuery.isError && teams.length === 0 && (
+                <CommandGroup heading="Teams">
+                  <CommandItem value="hackmd-no-team-destinations" disabled className="items-start gap-3 py-3">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="font-medium">No team workspaces available</span>
+                      <span className="text-xs text-text-subtle">
+                        Join or create a team in HackMD to unlock team navigation here.
+                      </span>
+                    </div>
+                  </CommandItem>
+                </CommandGroup>
+              )}
+
+              {!teamsQuery.isPending && !teamsQuery.isError && trimmedSearch.length > 0 && teams.length > 0 && filteredTeamNavigationTeams.length === 0 && (
+                <CommandGroup heading="Search Results">
+                  <CommandItem value="hackmd-no-teams-found" disabled className="items-start gap-3 py-3">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="font-medium">No teams match “{trimmedSearch}”</span>
+                      <span className="text-xs text-text-subtle">
+                        Try a team name or workspace path.
+                      </span>
+                    </div>
+                  </CommandItem>
+                </CommandGroup>
+              )}
+
+              {!teamsQuery.isPending && !teamsQuery.isError && filteredTeamNavigationTeams.length > 0 && (
+                <CommandGroup heading="Teams">
+                  {filteredTeamNavigationTeams.map((team) => (
+                    <TeamWorkspaceCommandItem
+                      key={team.path}
+                      team={team}
+                      onSelect={handleTeamNavigationSelect}
+                    />
+                  ))}
+                </CommandGroup>
+              )}
+            </>
+          )}
+
+          {mode === 'team-routes' && (
+            <>
+              <CommandGroup heading={selectedNavigationTeam ? selectedNavigationTeam.name : 'Team Routes'}>
+                <CommandItem value={BACK_TO_TEAM_NAVIGATION_VALUE} onSelect={handleTeamRouteSelect}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Teams
+                </CommandItem>
+              </CommandGroup>
+              <CommandSeparator />
+
+              {!selectedNavigationTeam && (
+                <CommandGroup heading="Selection">
+                  <CommandItem value="hackmd-missing-team-selection" disabled className="items-start gap-3 py-3">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="font-medium">Team not found</span>
+                      <span className="text-xs text-text-subtle">
+                        Please go back and choose a team workspace again.
+                      </span>
+                    </div>
+                  </CommandItem>
+                </CommandGroup>
+              )}
+
+              {selectedNavigationTeam && filteredSelectedNavigationTeamCommands.length > 0 && (
+                <CommandGroup heading="Routes">
+                  {filteredSelectedNavigationTeamCommands.map((command) => (
+                    <TeamNavigationCommandItem
+                      key={command.id}
+                      command={command}
+                      onSelect={handleTeamRouteSelect}
+                    />
+                  ))}
+                </CommandGroup>
+              )}
+
+              {selectedNavigationTeam && trimmedSearch.length > 0 && filteredSelectedNavigationTeamCommands.length === 0 && (
+                <CommandGroup heading="Search Results">
+                  <CommandItem value="hackmd-no-team-route-results" disabled className="items-start gap-3 py-3">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="font-medium">No routes match “{trimmedSearch}” in {selectedNavigationTeam.name}</span>
+                      <span className="text-xs text-text-subtle">
+                        Try a route name like search, manage, recent, or billing.
+                      </span>
+                    </div>
+                  </CommandItem>
+                </CommandGroup>
+              )}
+            </>
+          )}
+
+          {mode === 'route-search' && routeSearchContext && (
+            <>
+              <CommandGroup heading={routeSearchContext.backMode === 'team-routes' ? `Search ${routeSearchContext.scopeLabel}` : 'Search'}>
+                {canExecuteRouteSearch && routeSearchActionLabel ? (
+                  <CommandItem value={EXECUTE_ROUTE_SEARCH_VALUE} onSelect={handleRouteSearchSelect}>
+                    <Search className="mr-2 h-4 w-4" />
+                    {routeSearchActionLabel}
+                  </CommandItem>
+                ) : (
+                  <CommandItem value="hackmd-route-search-hint" disabled className="items-start gap-3 py-3">
+                    <Search className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="font-medium">Type a query to search {routeSearchContext.scopeLabel}</span>
+                      <span className="text-xs text-text-subtle">
+                        We&apos;ll navigate to the HackMD search route with the `q` parameter filled in for you.
+                      </span>
+                    </div>
+                  </CommandItem>
+                )}
+                <CommandItem value={BACK_FROM_ROUTE_SEARCH_VALUE} onSelect={handleRouteSearchSelect}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  {routeSearchContext.backMode === 'team-routes' ? 'Back to Team Routes' : 'Back to Commands'}
+                </CommandItem>
+              </CommandGroup>
+            </>
+          )}
+
+          {mode === 'settings-navigation' && (
+            <>
+              <CommandGroup heading="My Settings">
+                <CommandItem value={BACK_TO_ROOT_VALUE} onSelect={handleSettingsNavigationSelect}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Commands
+                </CommandItem>
+              </CommandGroup>
+              <CommandSeparator />
+              {hasSettingsNavigationResults ? (
+                <CommandGroup heading="Sections">
+                  {filteredSettingsNavigationCommands.map((command) => (
+                    <CommandItem
+                      key={command.value}
+                      value={command.value}
+                      onSelect={handleSettingsNavigationSelect}
+                    >
+                      {command.Icon}
+                      {command.label}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ) : null}
             </>
           )}
 
