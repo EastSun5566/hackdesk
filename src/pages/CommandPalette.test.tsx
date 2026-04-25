@@ -222,6 +222,18 @@ describe('CommandPalette page', () => {
     });
   });
 
+  it('opens the note agent window from root commands', async () => {
+    render(<CommandPalette />);
+
+    fireEvent.click(screen.getByText('Ask agent about current note'));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith(Cmd.OPEN_AGENT_WINDOW);
+      expect(window.localStorage.getItem('hackdesk_agent_launch_intent')).toBe('ask');
+      expect(close).toHaveBeenCalled();
+    });
+  });
+
   it('opens the my settings submenu from root commands', () => {
     render(<CommandPalette />);
 

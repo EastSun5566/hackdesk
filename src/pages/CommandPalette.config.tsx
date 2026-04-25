@@ -8,6 +8,7 @@ import {
   Cross,
   FileText,
   FolderSearch,
+  MessageSquare,
   RefreshCcw,
   Search,
   Settings,
@@ -193,6 +194,20 @@ const actionCommands: CommandConfig[] = [
     shortcut: '⌘ R',
     category: 'action',
     keywords: ['refresh', 'reload', 'update'],
+  },
+  {
+    value: 'hackdesk:agent:ask-current-note',
+    label: 'Ask agent about current note',
+    Icon: <MessageSquare className={COMMAND_ICON_CLASS} />,
+    category: 'action',
+    keywords: ['agent', 'assistant', 'current note', 'ask', 'chat'],
+  },
+  {
+    value: 'hackdesk:agent:summarize-current-note',
+    label: 'Summarize current note',
+    Icon: <FileText className={COMMAND_ICON_CLASS} />,
+    category: 'action',
+    keywords: ['agent', 'assistant', 'summary', 'summarize', 'current note'],
   },
 ];
 

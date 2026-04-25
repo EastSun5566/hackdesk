@@ -1,0 +1,8 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "agent-capability",
+  "description": "Capability for the note agent window",
+  "windows": ["agent"],
+  "permissions": ["core:default", "core:window:allow-close"],
+  "platforms": ["linux", "macOS", "windows"]
+}

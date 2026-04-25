@@ -23,12 +23,17 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(cmd::CurrentPageContextStore::default())
         .invoke_handler(tauri::generate_handler![
             cmd::execute_action,
             cmd::open_command_palette_window,
+            cmd::open_agent_window,
             cmd::open_settings_window,
             cmd::apply_settings,
             cmd::open_link,
+            cmd::set_current_page_context,
+            cmd::get_current_note_context,
+            cmd::send_agent_message,
             cmd::validate_hackmd_token,
             cmd::list_hackmd_notes,
             cmd::list_hackmd_teams,

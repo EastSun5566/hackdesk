@@ -1,3 +1,5 @@
+use std::sync::Mutex;
+
 use tauri::{command, AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_opener::OpenerExt;
 use url::Url;
@@ -7,12 +9,17 @@ use window_vibrancy::{self, NSVisualEffectMaterial};
 
 use crate::{
     app::{
+        agent::{self, AgentNoteContextInput},
         conf::{
-            classify_url_open_target, UrlOpenTarget, COMMAND_PALETTE_HEIGHT, COMMAND_PALETTE_WIDTH,
+            classify_url_open_target, UrlOpenTarget, AGENT_WINDOW_HEIGHT, AGENT_WINDOW_LABEL,
+            AGENT_WINDOW_WIDTH, COMMAND_PALETTE_HEIGHT, COMMAND_PALETTE_WIDTH,
             COMMAND_PALETTE_WINDOW_LABEL, MAIN_WINDOW_LABEL, SETTINGS_WINDOW_HEIGHT,
             SETTINGS_WINDOW_LABEL, SETTINGS_WINDOW_WIDTH,
         },
-        hackmd::{self, HackmdCreateNoteInput, HackmdNoteDto, HackmdTeamDto, HackmdUserDto},
+        hackmd::{
+            self, build_current_note_context, HackmdCreateNoteInput, HackmdCurrentNoteContextDto,
+            HackmdNoteDto, HackmdTeamDto, HackmdUserDto,
+        },
     },
     utils,
 };
@@ -21,6 +28,18 @@ use crate::{
 use crate::app::mac::set_transparent_title_bar;
 
 use tracing::{error, info, warn};
+
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrackedPageContext {
+    pub url: String,
+    pub title: String,
+}
+
+#[derive(Debug, Default)]
+pub struct CurrentPageContextStore {
+    pub context: Mutex<Option<TrackedPageContext>>,
+}
 
 /// Safe, predefined actions that can be executed in the main window
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -139,6 +158,51 @@ pub fn open_command_palette_window(app: AppHandle) {
 }
 
 #[command]
+pub fn open_agent_window(app: AppHandle) {
+    info!("Opening agent window");
+
+    if let Some(win) = app.get_webview_window(AGENT_WINDOW_LABEL) {
+        let _ = win.close();
+    }
+
+    let agent_win = WebviewWindowBuilder::new(
+        &app,
+        AGENT_WINDOW_LABEL,
+        WebviewUrl::App("/agent".parse().unwrap()),
+    )
+    .inner_size(AGENT_WINDOW_WIDTH, AGENT_WINDOW_HEIGHT)
+    .center()
+    .always_on_top(true)
+    .resizable(false)
+    .transparent(true)
+    .title("Note Agent")
+    .build()
+    .unwrap();
+
+    let app_clone = app.clone();
+    agent_win.on_window_event(move |event| {
+        if let tauri::WindowEvent::Focused(is_focused) = event {
+            if !is_focused {
+                if let Some(win) = app_clone.get_webview_window(AGENT_WINDOW_LABEL) {
+                    let _ = win.close();
+                }
+            }
+        }
+    });
+
+    #[cfg(target_os = "macos")]
+    set_transparent_title_bar(&agent_win, true, true);
+
+    #[cfg(target_os = "macos")]
+    window_vibrancy::apply_vibrancy(&agent_win, NSVisualEffectMaterial::FullScreenUI, None, None)
+        .expect("Unsupported platform! 'apply_vibrancy' is only supported on macOS");
+
+    #[cfg(target_os = "windows")]
+    window_vibrancy::apply_blur(&agent_win, Some((18, 18, 18, 125)))
+        .expect("Unsupported platform! 'apply_blur' is only supported on Windows");
+}
+
+#[command]
 pub fn open_settings_window(app: AppHandle) {
     info!("Opening settings window");
 
@@ -204,6 +268,51 @@ pub fn open_link(app: AppHandle, url: String) {
             warn!("Blocked open_link request for invalid URL format: {}", e);
         }
     }
+}
+
+#[command]
+pub fn set_current_page_context(
+    state: tauri::State<'_, CurrentPageContextStore>,
+    context: TrackedPageContext,
+) {
+    if let Ok(mut tracked_context) = state.context.lock() {
+        *tracked_context = Some(context);
+    }
+}
+
+#[command]
+pub async fn get_current_note_context(
+    state: tauri::State<'_, CurrentPageContextStore>,
+) -> Result<HackmdCurrentNoteContextDto, String> {
+    let tracked_context = {
+        let tracked_context = state
+            .context
+            .lock()
+            .map_err(|_| "HackDesk could not read the current page context.".to_string())?;
+
+        tracked_context.clone()
+    };
+
+    let Some(context) = tracked_context else {
+        return Err("Open a HackMD note in the main window first.".to_string());
+    };
+
+    Ok(
+        hackmd::hydrate_current_note_context(build_current_note_context(
+            &context.url,
+            &context.title,
+        ))
+        .await,
+    )
+}
+
+#[command]
+pub async fn send_agent_message(
+    prompt: String,
+    context: Option<AgentNoteContextInput>,
+    intent: Option<String>,
+) -> Result<String, String> {
+    agent::send_agent_message(&prompt, context, intent.as_deref()).await
 }
 
 #[command]

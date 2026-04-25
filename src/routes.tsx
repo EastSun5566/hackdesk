@@ -2,11 +2,16 @@ import { useLayoutEffect } from 'react';
 import { useLocation, useRoutes, type RouteObject } from 'react-router-dom';
 
 import { 
+  Agent,
   CommandPalette,
   Settings,
 } from './pages';
 
 const routes: RouteObject[] = [
+  {
+    path: '/agent',
+    element: <Agent />,
+  },
   {
     path: '/settings',
     element: <Settings />,
