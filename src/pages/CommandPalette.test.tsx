@@ -225,6 +225,8 @@ describe('CommandPalette page', () => {
   it('opens the note agent window from root commands', async () => {
     render(<CommandPalette />);
 
+    expect(screen.getByText(/⌘\s*⇧\s*I/)).toBeInTheDocument();
+
     fireEvent.click(screen.getByText('Ask agent about current note'));
 
     await waitFor(() => {

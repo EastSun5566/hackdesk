@@ -148,6 +148,16 @@ describe('Settings page', () => {
     expect(setTheme).toHaveBeenCalledWith('dark');
   });
 
+  it('shows the dedicated agent shortcut in the Shortcuts tab', () => {
+    render(<Settings />);
+
+    fireEvent.click(screen.getByText('Shortcuts'));
+
+    expect(screen.getByText('Open Agent')).toBeInTheDocument();
+    expect(screen.getByText('Shift')).toBeInTheDocument();
+    expect(screen.getByText('I')).toBeInTheDocument();
+  });
+
   it('closes the window on Escape', () => {
     render(<Settings />);
 

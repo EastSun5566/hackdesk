@@ -52,6 +52,7 @@ const tabs: { id: SettingsLaunchTab; label: string; icon: React.ReactNode }[] = 
 
 const shortcuts = [
   { action: 'Open Command Palette', keys: ['⌘', 'K'] },
+  { action: 'Open Agent', keys: ['⌘', 'Shift', 'I'] },
   { action: 'Open Settings', keys: ['⌘', ','] },
   { action: 'New Note', keys: ['⌘', 'N'] },
   { action: 'Reload', keys: ['⌘', 'R'] },

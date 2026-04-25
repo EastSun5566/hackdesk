@@ -39,10 +39,12 @@ vi.mock('@/lib/agent', () => ({
 
 describe('Agent page', () => {
   const close = vi.fn();
+  const scrollIntoViewMock = vi.mocked(HTMLElement.prototype.scrollIntoView);
 
   beforeEach(() => {
     vi.clearAllMocks();
     close.mockResolvedValue(undefined);
+    scrollIntoViewMock.mockClear();
 
     mocks.getCurrentWebviewWindow.mockReturnValue({
       close,
@@ -89,14 +91,26 @@ describe('Agent page', () => {
     mocks.openAgentSettings.mockResolvedValue(undefined);
   });
 
-  it('submits the prompt with Command+Enter', async () => {
+  it('keeps focus in the input and scrolls to the assistant reply head after submit', async () => {
+    let resolveResponse: ((value: string) => void) | undefined;
+    mocks.sendAgentMessage.mockImplementationOnce(
+      () => new Promise<string>((resolve) => {
+        resolveResponse = resolve;
+      }),
+    );
+
     render(<Agent />);
+
+    expect(await screen.findByText('⌘⇧I')).toBeInTheDocument();
 
     const promptInput = await screen.findByLabelText('Ask About This Note');
 
     await waitFor(() => {
       expect(promptInput).toBeEnabled();
+      expect(promptInput).toHaveFocus();
     });
+
+    scrollIntoViewMock.mockClear();
 
     fireEvent.change(promptInput, {
       target: { value: 'Summarize this quickly' },
@@ -117,9 +131,49 @@ describe('Agent page', () => {
         }),
         intent: 'ask',
       });
+      expect(promptInput).toHaveFocus();
+      expect(promptInput).toHaveAttribute('readonly');
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({ block: 'end' });
     });
 
+    resolveResponse?.('Agent answer');
+
     expect(await screen.findByText('Agent answer')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(promptInput).toHaveFocus();
+      expect(promptInput).not.toHaveAttribute('readonly');
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({ block: 'start' });
+    });
+  });
+
+  it('scrolls to the latest restored message when opened with history', async () => {
+    mocks.loadAgentSession.mockReturnValue({
+      id: 'session-1',
+      context: null,
+      messages: [
+        {
+          id: 'user-hello',
+          role: 'user',
+          content: 'Hello',
+          createdAt: '2026-04-25T00:00:00.000Z',
+        },
+        {
+          id: 'assistant-hi',
+          role: 'assistant',
+          content: 'Hi there',
+          createdAt: '2026-04-25T00:00:01.000Z',
+        },
+      ],
+      updatedAt: '2026-04-25T00:00:01.000Z',
+    } as never);
+
+    render(<Agent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Hi there')).toBeInTheDocument();
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({ block: 'end' });
+    });
   });
 
   it('closes the window when the close button is clicked', async () => {

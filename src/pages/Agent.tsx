@@ -32,6 +32,7 @@ const primaryButtonClassName = 'inline-flex h-10 items-center justify-center gap
 const secondaryButtonClassName = 'inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-border-default bg-background-default px-3 py-2 text-sm font-medium text-text-default transition-colors hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none disabled:opacity-50';
 const iconButtonClassName = 'inline-flex h-9 w-9 items-center justify-center rounded-md border border-border-default bg-background-default text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none disabled:opacity-50';
 const inputClassName = 'min-h-[104px] w-full rounded-xl border border-border-default bg-background-default px-3 py-2 text-sm text-text-default placeholder:text-text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:cursor-not-allowed disabled:opacity-50';
+const shortcutPillClassName = 'inline-flex items-center rounded-md border border-border-default bg-background-muted px-2 py-0.5 font-mono text-[11px] font-semibold tracking-tight text-text-default';
 
 function normalizeContextTitle(title: string) {
   return title.replace(/\s*[-–—]\s*HackMD$/i, '').trim() || 'Untitled note';
@@ -50,6 +51,10 @@ export function Agent() {
   const [contextError, setContextError] = useState<string | null>(null);
   const [runtimeStatus, setRuntimeStatus] = useState<AgentRuntimeStatus | null>(null);
   const didAutoRunSummary = useRef(false);
+  const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const latestAssistantMessageRef = useRef<HTMLElement | null>(null);
+  const previousMessageCountRef = useRef(0);
 
   const closeWindow = useCallback(() => {
     void Promise.resolve(getCurrentWebviewWindow().close()).catch((error) => {
@@ -110,6 +115,46 @@ export function Agent() {
   useEffect(() => {
     void refreshRuntimeStatus();
   }, [refreshRuntimeStatus]);
+
+  const scrollMessagesToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ block: 'end' });
+  }, []);
+
+  const scrollLatestAssistantMessageIntoView = useCallback(() => {
+    latestAssistantMessageRef.current?.scrollIntoView({ block: 'start' });
+  }, []);
+
+  useEffect(() => {
+    if (!session.context?.isNote || isLoadingContext || isSubmitting) {
+      return;
+    }
+
+    promptInputRef.current?.focus({ preventScroll: true });
+  }, [isLoadingContext, isSubmitting, session.context?.isNote]);
+
+  useEffect(() => {
+    const currentMessageCount = session.messages.length;
+    const previousMessageCount = previousMessageCountRef.current;
+
+    if (currentMessageCount === 0) {
+      previousMessageCountRef.current = 0;
+      return;
+    }
+
+    const latestMessage = session.messages[currentMessageCount - 1];
+
+    if (previousMessageCount === 0) {
+      scrollMessagesToBottom();
+    } else if (currentMessageCount > previousMessageCount) {
+      if (latestMessage?.role === 'assistant') {
+        scrollLatestAssistantMessageIntoView();
+      } else {
+        scrollMessagesToBottom();
+      }
+    }
+
+    previousMessageCountRef.current = currentMessageCount;
+  }, [scrollLatestAssistantMessageIntoView, scrollMessagesToBottom, session.messages]);
 
   const runPrompt = useCallback(async (nextPrompt: string, intent: AgentIntent = 'ask') => {
     const normalizedPrompt = nextPrompt.trim();
@@ -318,6 +363,9 @@ export function Agent() {
                 {session.messages.map((message) => (
                   <article
                     key={message.id}
+                    ref={message.role === 'assistant' && message.id === session.messages.at(-1)?.id
+                      ? latestAssistantMessageRef
+                      : undefined}
                     className={`rounded-2xl border px-4 py-3 ${message.role === 'assistant'
                       ? 'border-border-default bg-background-muted'
                       : 'border-primary-default/30 bg-primary-soft'
@@ -329,6 +377,7 @@ export function Agent() {
                     <p className="whitespace-pre-wrap wrap-break-word text-sm leading-6">{message.content}</p>
                   </article>
                 ))}
+                <div ref={messagesEndRef} aria-hidden="true" />
               </div>
             )}
           </section>
@@ -347,7 +396,13 @@ export function Agent() {
                 ) : null}
               </div>
 
+              <div className="flex flex-wrap items-center gap-2 text-xs text-text-subtle">
+                <span>Quick open anytime with</span>
+                <span className={shortcutPillClassName}>⌘⇧I</span>
+              </div>
+
               <textarea
+                ref={promptInputRef}
                 id="agent-prompt"
                 name="prompt"
                 autoComplete="off"
@@ -356,7 +411,8 @@ export function Agent() {
                 onKeyDown={handlePromptKeyDown}
                 placeholder="Ask about this note…"
                 className={inputClassName}
-                disabled={isSubmitting || isLoadingContext || !noteAvailable}
+                disabled={isLoadingContext || !noteAvailable}
+                readOnly={isSubmitting}
               />
 
               <div className="flex flex-wrap items-center justify-between gap-3">

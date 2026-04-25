@@ -59,13 +59,16 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     let command_palette = MenuItemBuilder::with_id("command_palette", "Command Palette")
         .accelerator("CmdOrCtrl+K")
         .build(app)?;
+    let agent = MenuItemBuilder::with_id("agent", "Open Agent")
+        .accelerator("CmdOrCtrl+Shift+I")
+        .build(app)?;
     let separator6 = PredefinedMenuItem::separator(app)?;
     let reload = MenuItemBuilder::with_id("reload", "Reload This Page")
         .accelerator("CmdOrCtrl+R")
         .build(app)?;
 
     let view_menu = SubmenuBuilder::new(app, "View")
-        .items(&[&command_palette, &separator6, &reload])
+        .items(&[&command_palette, &agent, &separator6, &reload])
         .build()?;
 
     let docs = MenuItemBuilder::with_id("docs", "Documentation").build(app)?;
@@ -98,6 +101,9 @@ pub fn handler(app: &AppHandle<Wry>, event: tauri::menu::MenuEvent) {
         }
         "command_palette" => {
             cmd::open_command_palette_window(app.clone());
+        }
+        "agent" => {
+            cmd::open_agent_window(app.clone());
         }
         "reload" => {
             let _ = cmd::execute_action(app.clone(), cmd::SafeScript::Reload);

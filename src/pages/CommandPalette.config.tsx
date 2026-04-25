@@ -199,6 +199,7 @@ const actionCommands: CommandConfig[] = [
     value: 'hackdesk:agent:ask-current-note',
     label: 'Ask agent about current note',
     Icon: <MessageSquare className={COMMAND_ICON_CLASS} />,
+    shortcut: '⌘ ⇧ I',
     category: 'action',
     keywords: ['agent', 'assistant', 'current note', 'ask', 'chat'],
   },
