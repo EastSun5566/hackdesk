@@ -15,12 +15,15 @@ import {
   clearAgentSession,
   createAgentMessage,
   createEmptyAgentSession,
+  getAgentRuntimeStatus,
   getCurrentNoteContext,
   getPendingAgentLaunchIntent,
   loadAgentSession,
+  openAgentSettings,
   saveAgentSession,
   sendAgentMessage,
   type AgentIntent,
+  type AgentRuntimeStatus,
   type AgentSession,
 } from '@/lib/agent';
 
@@ -45,6 +48,7 @@ export function Agent() {
   const [isLoadingContext, setIsLoadingContext] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [contextError, setContextError] = useState<string | null>(null);
+  const [runtimeStatus, setRuntimeStatus] = useState<AgentRuntimeStatus | null>(null);
   const didAutoRunSummary = useRef(false);
 
   const closeWindow = useCallback(() => {
@@ -86,9 +90,26 @@ export function Agent() {
     }
   }, []);
 
+  const refreshRuntimeStatus = useCallback(async () => {
+    try {
+      const nextStatus = await getAgentRuntimeStatus();
+      setRuntimeStatus(nextStatus);
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : 'Unable to check the agent provider status.';
+
+      toast.error(message);
+    }
+  }, []);
+
   useEffect(() => {
     void refreshContext();
   }, [refreshContext]);
+
+  useEffect(() => {
+    void refreshRuntimeStatus();
+  }, [refreshRuntimeStatus]);
 
   const runPrompt = useCallback(async (nextPrompt: string, intent: AgentIntent = 'ask') => {
     const normalizedPrompt = nextPrompt.trim();
@@ -149,6 +170,7 @@ export function Agent() {
   }, [initialIntent, isLoadingContext, isSubmitting, runPrompt, session.context, session.messages.length]);
 
   const noteAvailable = Boolean(session.context?.isNote);
+  const needsProviderSetup = runtimeStatus?.isConfigured === false && runtimeStatus.source === 'none';
   const contextTitle = session.context ? normalizeContextTitle(session.context.title) : 'Open a Note to Start';
   const contextWordCount = session.context?.content ? countWords(session.context.content) : 0;
   const contentStatusLabel = !noteAvailable
@@ -188,6 +210,18 @@ export function Agent() {
 
     void runPrompt(prompt, 'ask');
   }, [canSubmit, prompt, runPrompt]);
+
+  const handleOpenAgentSettings = useCallback(async () => {
+    try {
+      await openAgentSettings('agent');
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : 'Unable to open Settings > Agent right now.';
+
+      toast.error(message);
+    }
+  }, []);
 
   return (
     <div className="h-screen w-screen bg-background-default text-text-default">
@@ -250,6 +284,30 @@ export function Agent() {
         </header>
 
         <main className="flex min-h-0 flex-1 flex-col">
+          {needsProviderSetup ? (
+            <section className="border-b border-border-default px-4 py-3 sm:px-6">
+              <div className="flex flex-col gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0 space-y-1">
+                  <div className="inline-flex items-center gap-2 text-sm font-medium text-text-default">
+                    <AlertCircle aria-hidden="true" className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    Live provider not configured yet
+                  </div>
+                  <p className="text-sm text-text-subtle">
+                    {runtimeStatus?.reason ?? 'Open Settings > Agent to add your API key, base URL, and model.'}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void handleOpenAgentSettings()}
+                  className={secondaryButtonClassName}
+                >
+                  Open Settings
+                </button>
+              </div>
+            </section>
+          ) : null}
+
           <section aria-live="polite" className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
             {session.messages.length === 0 ? (
               <div className="flex h-full items-center justify-center py-8 text-sm text-text-subtle">

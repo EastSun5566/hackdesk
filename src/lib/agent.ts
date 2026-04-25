@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 
 import { Cmd } from '@/constants';
+import { openSettingsWindow, type SettingsLaunchTab } from '@/lib/settings-window';
 
 const AGENT_SESSION_STORAGE_KEY = 'hackdesk_agent_session';
 const AGENT_LAUNCH_INTENT_STORAGE_KEY = 'hackdesk_agent_launch_intent';
@@ -34,6 +35,12 @@ export type AgentSession = {
   context: CurrentNoteContext | null;
   messages: AgentMessage[];
   updatedAt: string;
+};
+
+export type AgentRuntimeStatus = {
+  isConfigured: boolean;
+  source: 'settings' | 'env' | 'none';
+  reason: string | null;
 };
 
 const VALID_NOTE_SCOPES = ['personal-or-team', 'short-id', 'unknown'] as const;
@@ -156,6 +163,10 @@ export async function getCurrentNoteContext() {
   return invoke<CurrentNoteContext>(Cmd.GET_CURRENT_NOTE_CONTEXT);
 }
 
+export async function getAgentRuntimeStatus() {
+  return invoke<AgentRuntimeStatus>(Cmd.GET_AGENT_RUNTIME_STATUS);
+}
+
 export async function sendAgentMessage(args: {
   prompt: string;
   context: CurrentNoteContext | null;
@@ -166,4 +177,8 @@ export async function sendAgentMessage(args: {
     context: args.context,
     intent: args.intent ?? null,
   });
+}
+
+export async function openAgentSettings(tab: SettingsLaunchTab = 'agent') {
+  await openSettingsWindow(tab);
 }

@@ -6,9 +6,11 @@ import { Agent } from './Agent';
 const mocks = vi.hoisted(() => ({
   getCurrentWebviewWindow: vi.fn(),
   createEmptyAgentSession: vi.fn(),
+  getAgentRuntimeStatus: vi.fn(),
   getCurrentNoteContext: vi.fn(),
   getPendingAgentLaunchIntent: vi.fn(),
   loadAgentSession: vi.fn(),
+  openAgentSettings: vi.fn(),
   saveAgentSession: vi.fn(),
   sendAgentMessage: vi.fn(),
 }));
@@ -26,9 +28,11 @@ vi.mock('@/lib/agent', () => ({
     createdAt: '2026-04-25T00:00:00.000Z',
   }),
   createEmptyAgentSession: mocks.createEmptyAgentSession,
+  getAgentRuntimeStatus: mocks.getAgentRuntimeStatus,
   getCurrentNoteContext: mocks.getCurrentNoteContext,
   getPendingAgentLaunchIntent: mocks.getPendingAgentLaunchIntent,
   loadAgentSession: mocks.loadAgentSession,
+  openAgentSettings: mocks.openAgentSettings,
   saveAgentSession: mocks.saveAgentSession,
   sendAgentMessage: mocks.sendAgentMessage,
 }));
@@ -53,6 +57,12 @@ describe('Agent page', () => {
 
     mocks.getPendingAgentLaunchIntent.mockReturnValue('ask');
 
+    mocks.getAgentRuntimeStatus.mockResolvedValue({
+      isConfigured: true,
+      source: 'settings',
+      reason: null,
+    } as never);
+
     mocks.loadAgentSession.mockReturnValue({
       id: 'session-1',
       context: null,
@@ -76,6 +86,7 @@ describe('Agent page', () => {
     } as never);
 
     mocks.sendAgentMessage.mockResolvedValue('Agent answer');
+    mocks.openAgentSettings.mockResolvedValue(undefined);
   });
 
   it('submits the prompt with Command+Enter', async () => {
@@ -121,5 +132,23 @@ describe('Agent page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close note agent' }));
 
     expect(close).toHaveBeenCalled();
+  });
+
+  it('shows a provider setup CTA when no live runtime is configured', async () => {
+    mocks.getAgentRuntimeStatus.mockResolvedValue({
+      isConfigured: false,
+      source: 'none',
+      reason: 'Configure Settings > Agent to add an OpenAI-compatible provider and unlock live responses.',
+    } as never);
+
+    render(<Agent />);
+
+    expect(await screen.findByText('Live provider not configured yet')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Settings' }));
+
+    await waitFor(() => {
+      expect(mocks.openAgentSettings).toHaveBeenCalledWith('agent');
+    });
   });
 });

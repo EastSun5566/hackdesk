@@ -5,9 +5,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { invoke } from '@tauri-apps/api/core';
 
-import { useSettings, useUpdateSettings } from './query';
+import { useSettings, useUpdateSettings, useValidateAgentProviderConfig } from './query';
 import type { AppSettings } from './settings';
-import { defaultSettings } from './settings';
+import { defaultAgentProviderSettings, defaultSettings } from './settings';
+import { Cmd } from '@/constants';
 import * as utils from './utils';
 
 const invokeMock = invoke as unknown as ReturnType<typeof vi.fn>;
@@ -46,7 +47,11 @@ describe('query hooks', () => {
     const { result } = renderHook(() => useSettings(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.data).toEqual({ title: 'Workspace', hackmdApiToken: '' });
+      expect(result.current.data).toEqual({
+        title: 'Workspace',
+        hackmdApiToken: '',
+        agent: defaultAgentProviderSettings,
+      });
     });
   });
 
@@ -69,16 +74,37 @@ describe('query hooks', () => {
     const { result } = renderHook(() => useUpdateSettings(), { wrapper });
 
     await act(async () => {
-      await result.current.mutateAsync({ title: 'Focus Desk', hackmdApiToken: 'secret-token' });
+      await result.current.mutateAsync({
+        title: 'Focus Desk',
+        hackmdApiToken: 'secret-token',
+        agent: {
+          ...defaultAgentProviderSettings,
+          apiKey: 'sk-agent',
+          baseUrl: 'https://openrouter.ai/api/v1',
+          model: 'openrouter/auto',
+        },
+      });
     });
 
     expect(utils.writeSettings).toHaveBeenCalledWith(`{
   "title": "Focus Desk",
-  "hackmdApiToken": "secret-token"
+  "hackmdApiToken": "secret-token",
+  "agent": {
+    "provider": "openai-compatible",
+    "apiKey": "sk-agent",
+    "baseUrl": "https://openrouter.ai/api/v1",
+    "model": "openrouter/auto"
+  }
 }`);
     expect(queryClient.getQueryData(['settings'])).toEqual({
       title: 'Focus Desk',
       hackmdApiToken: 'secret-token',
+      agent: {
+        ...defaultAgentProviderSettings,
+        apiKey: 'sk-agent',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        model: 'openrouter/auto',
+      },
     });
     expect(invokeMock).toHaveBeenCalledWith('apply_settings');
   });
@@ -93,5 +119,33 @@ describe('query hooks', () => {
     ).rejects.toThrow('Title is required');
 
     expect(utils.writeSettings).not.toHaveBeenCalled();
+  });
+
+  it('validates agent provider settings through the Tauri command', async () => {
+    invokeMock.mockResolvedValue({
+      provider: 'openai-compatible',
+      baseUrl: 'https://api.openai.com/v1',
+      model: 'gpt-5-nano',
+    });
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useValidateAgentProviderConfig(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        provider: 'openai-compatible',
+        apiKey: 'sk-test-key',
+        baseUrl: 'https://api.openai.com/v1',
+        model: 'gpt-5-nano',
+      });
+    });
+
+    expect(invokeMock).toHaveBeenCalledWith(Cmd.VALIDATE_AGENT_PROVIDER_CONFIG, {
+      config: {
+        provider: 'openai-compatible',
+        apiKey: 'sk-test-key',
+        baseUrl: 'https://api.openai.com/v1',
+        model: 'gpt-5-nano',
+      },
+    });
   });
 });

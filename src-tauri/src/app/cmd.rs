@@ -9,7 +9,10 @@ use window_vibrancy::{self, NSVisualEffectMaterial};
 
 use crate::{
     app::{
-        agent::{self, AgentNoteContextInput},
+        agent::{
+            self, AgentNoteContextInput, AgentProviderConfigInput, AgentProviderValidationResult,
+            AgentRuntimeStatus,
+        },
         conf::{
             classify_url_open_target, UrlOpenTarget, AGENT_WINDOW_HEIGHT, AGENT_WINDOW_LABEL,
             AGENT_WINDOW_WIDTH, COMMAND_PALETTE_HEIGHT, COMMAND_PALETTE_WIDTH,
@@ -206,9 +209,10 @@ pub fn open_agent_window(app: AppHandle) {
 pub fn open_settings_window(app: AppHandle) {
     info!("Opening settings window");
 
-    let win = app.get_webview_window(SETTINGS_WINDOW_LABEL);
-    if win.is_some() {
-        info!("Settings window already exists");
+    if let Some(win) = app.get_webview_window(SETTINGS_WINDOW_LABEL) {
+        info!("Settings window already exists, focusing existing instance");
+        let _ = win.show();
+        let _ = win.set_focus();
         return;
     }
 
@@ -313,6 +317,18 @@ pub async fn send_agent_message(
     intent: Option<String>,
 ) -> Result<String, String> {
     agent::send_agent_message(&prompt, context, intent.as_deref()).await
+}
+
+#[command]
+pub fn get_agent_runtime_status() -> AgentRuntimeStatus {
+    agent::get_runtime_status()
+}
+
+#[command]
+pub async fn validate_agent_provider_config(
+    config: AgentProviderConfigInput,
+) -> Result<AgentProviderValidationResult, String> {
+    agent::validate_provider_config(config).await
 }
 
 #[command]

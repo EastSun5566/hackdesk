@@ -9,6 +9,7 @@ import {
   Monitor,
   Keyboard,
   Zap,
+  Sparkles,
   Sun,
   Moon,
   Laptop,
@@ -21,22 +22,30 @@ import {
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 
 import { useValidateHackmdToken } from '@/lib/hackmd';
-import { useSettings, useUpdateSettings } from '@/lib/query';
 import {
+  useSettings,
+  useUpdateSettings,
+  useValidateAgentProviderConfig,
+} from '@/lib/query';
+import {
+  defaultAgentProviderSettings,
   defaultSettings,
   settingsSchema,
   type AppSettings,
 } from '@/lib/settings';
+import {
+  consumePendingSettingsLaunchTab,
+  type SettingsLaunchTab,
+} from '@/lib/settings-window';
 import { useTheme } from '@/components/theme-provider';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { version } from '../../package.json';
 
-type SettingsTab = 'general' | 'appearance' | 'hackmd' | 'shortcuts' | 'advanced';
-
-const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+const tabs: { id: SettingsLaunchTab; label: string; icon: React.ReactNode }[] = [
   { id: 'general', label: 'General', icon: <SettingsIcon className="h-4 w-4" /> },
   { id: 'appearance', label: 'Appearance', icon: <Monitor className="h-4 w-4" /> },
   { id: 'hackmd', label: 'HackMD', icon: <Shield className="h-4 w-4" /> },
+  { id: 'agent', label: 'Agent', icon: <Sparkles className="h-4 w-4" /> },
   { id: 'shortcuts', label: 'Shortcuts', icon: <Keyboard className="h-4 w-4" /> },
   { id: 'advanced', label: 'Advanced', icon: <Zap className="h-4 w-4" /> },
 ];
@@ -78,8 +87,9 @@ const compactSecondaryButtonClassName = 'inline-flex h-10 items-center justify-c
 const dangerButtonClassName = 'inline-flex h-9 items-center justify-center rounded-md border border-destructive-default px-4 py-2 text-sm font-medium text-destructive-default transition-colors hover:bg-destructive-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default';
 
 export function Settings() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const [activeTab, setActiveTab] = useState<SettingsLaunchTab>(() => consumePendingSettingsLaunchTab() ?? 'general');
   const [showApiToken, setShowApiToken] = useState(false);
+  const [showAgentApiKey, setShowAgentApiKey] = useState(false);
   const { data: settingsData } = useSettings();
   const { mutate: updateSettings, isPending } = useUpdateSettings();
   const {
@@ -90,6 +100,14 @@ export function Settings() {
     isSuccess: isTokenValid,
     reset: resetTokenValidation,
   } = useValidateHackmdToken();
+  const {
+    mutate: validateAgentProviderConfig,
+    data: validatedAgentProvider,
+    error: agentValidationError,
+    isPending: isValidatingAgentProvider,
+    isSuccess: isAgentProviderValid,
+    reset: resetAgentValidation,
+  } = useValidateAgentProviderConfig();
   const { theme, setTheme } = useTheme();
 
   const currentSettings = settingsData ?? defaultSettings;
@@ -105,10 +123,31 @@ export function Settings() {
 
   const hackmdApiToken = form.watch('hackmdApiToken');
   const currentHackmdApiToken = hackmdApiToken ?? '';
+  const currentAgentApiKey = form.watch('agent.apiKey') ?? '';
+  const currentAgentBaseUrl = form.watch('agent.baseUrl') ?? defaultAgentProviderSettings.baseUrl;
+  const currentAgentModel = form.watch('agent.model') ?? defaultAgentProviderSettings.model;
 
   useEffect(() => {
     resetTokenValidation();
   }, [currentHackmdApiToken, resetTokenValidation]);
+
+  useEffect(() => {
+    resetAgentValidation();
+  }, [currentAgentApiKey, currentAgentBaseUrl, currentAgentModel, resetAgentValidation]);
+
+  useEffect(() => {
+    const syncPendingTab = () => {
+      const pendingTab = consumePendingSettingsLaunchTab();
+
+      if (pendingTab) {
+        setActiveTab(pendingTab);
+      }
+    };
+
+    window.addEventListener('focus', syncPendingTab);
+
+    return () => window.removeEventListener('focus', syncPendingTab);
+  }, []);
 
   const onSubmit = (data: AppSettings) => {
     updateSettings(data, {
@@ -120,6 +159,7 @@ export function Settings() {
   const handleReset = () => {
     form.reset(currentSettings);
     resetTokenValidation();
+    resetAgentValidation();
     toast.info('Settings reset to current values');
   };
 
@@ -127,6 +167,7 @@ export function Settings() {
     form.reset(defaultSettings);
     setTheme('system');
     resetTokenValidation();
+    resetAgentValidation();
     updateSettings(defaultSettings, {
       onSuccess: () => toast.success('All settings reset to defaults'),
       onError: (error) => toast.error(`Failed to reset: ${error.message}`),
@@ -147,6 +188,29 @@ export function Settings() {
       },
       onError: (error) => {
         toast.error(`HackMD connection failed: ${error.message}`);
+      },
+    });
+  };
+
+  const handleTestAgentConnection = () => {
+    const agentConfig = {
+      provider: form.getValues('agent.provider') ?? defaultAgentProviderSettings.provider,
+      apiKey: currentAgentApiKey.trim(),
+      baseUrl: currentAgentBaseUrl.trim(),
+      model: currentAgentModel.trim(),
+    };
+
+    if (!agentConfig.apiKey) {
+      toast.error('Enter an agent API key first');
+      return;
+    }
+
+    validateAgentProviderConfig(agentConfig, {
+      onSuccess: (result) => {
+        toast.success(`Connected to ${result.baseUrl} using ${result.model}`);
+      },
+      onError: (error) => {
+        toast.error(`Agent connection failed: ${error.message}`);
       },
     });
   };
@@ -313,6 +377,132 @@ export function Settings() {
                       <span className="inline-flex items-center gap-2 rounded-full bg-destructive-soft px-3 py-1 text-sm text-destructive-default">
                         <AlertCircle className="h-4 w-4" />
                         {validationError.message}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'agent' && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-medium">Agent Provider</h3>
+
+                <div className="space-y-4">
+                  <input type="hidden" {...form.register('agent.provider')} />
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Provider Type</label>
+                    <input
+                      value="OpenAI-compatible"
+                      readOnly
+                      className={inputClassName}
+                    />
+                    <p className="text-sm text-text-subtle">
+                      This phase supports any OpenAI-compatible chat completion endpoint.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="agentApiKey"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      API Key
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        id="agentApiKey"
+                        type={showAgentApiKey ? 'text' : 'password'}
+                        {...form.register('agent.apiKey')}
+                        placeholder="Paste your provider API key"
+                        className={inputClassName}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowAgentApiKey((current) => !current)}
+                        className={compactSecondaryButtonClassName}
+                        aria-label={showAgentApiKey ? 'Hide agent API key' : 'Show agent API key'}
+                      >
+                        {showAgentApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    {form.formState.errors.agent?.apiKey && (
+                      <p className="text-sm text-destructive-default">
+                        {form.formState.errors.agent.apiKey.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="agentBaseUrl"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Base URL
+                    </label>
+                    <input
+                      id="agentBaseUrl"
+                      {...form.register('agent.baseUrl')}
+                      placeholder={defaultAgentProviderSettings.baseUrl}
+                      className={inputClassName}
+                    />
+                    {form.formState.errors.agent?.baseUrl && (
+                      <p className="text-sm text-destructive-default">
+                        {form.formState.errors.agent.baseUrl.message}
+                      </p>
+                    )}
+                    <p className="text-sm text-text-subtle">
+                      Example: <code>{defaultAgentProviderSettings.baseUrl}</code>
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="agentModel"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Model
+                    </label>
+                    <input
+                      id="agentModel"
+                      {...form.register('agent.model')}
+                      placeholder={defaultAgentProviderSettings.model}
+                      className={inputClassName}
+                    />
+                    {form.formState.errors.agent?.model && (
+                      <p className="text-sm text-destructive-default">
+                        {form.formState.errors.agent.model.message}
+                      </p>
+                    )}
+                    <div className="space-y-1 text-sm text-text-subtle">
+                      <p>This MVP stores the provider key locally in <code>~/.hackdesk/settings.json</code>.</p>
+                      <p>Saved settings are preferred over <code>.env</code>, while env vars remain a fallback.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleTestAgentConnection}
+                      disabled={isValidatingAgentProvider || !currentAgentApiKey.trim()}
+                      className={secondaryButtonClassName}
+                    >
+                      {isValidatingAgentProvider ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      {isValidatingAgentProvider ? 'Testing...' : 'Test Connection'}
+                    </button>
+
+                    {isAgentProviderValid && validatedAgentProvider ? (
+                      <span className="inline-flex items-center gap-2 rounded-full bg-success-soft px-3 py-1 text-sm text-success-default">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Connected to {validatedAgentProvider.baseUrl} with {validatedAgentProvider.model}
+                      </span>
+                    ) : null}
+
+                    {agentValidationError ? (
+                      <span className="inline-flex items-center gap-2 rounded-full bg-destructive-soft px-3 py-1 text-sm text-destructive-default">
+                        <AlertCircle className="h-4 w-4" />
+                        {agentValidationError.message}
                       </span>
                     ) : null}
                   </div>

@@ -3,9 +3,12 @@ use std::time::Duration;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
+use crate::utils;
+
 const AGENT_API_KEY_ENV: &str = "HACKDESK_AGENT_API_KEY";
 const AGENT_BASE_URL_ENV: &str = "HACKDESK_AGENT_BASE_URL";
 const AGENT_MODEL_ENV: &str = "HACKDESK_AGENT_MODEL";
+const OPENAI_COMPATIBLE_PROVIDER: &str = "openai-compatible";
 const DEFAULT_AGENT_BASE_URL: &str = "https://api.openai.com/v1";
 const DEFAULT_AGENT_MODEL: &str = "gpt-5-nano";
 const AGENT_HTTP_TIMEOUT_SECS: u64 = 45;
@@ -26,11 +29,85 @@ pub struct AgentNoteContextInput {
     pub content_reason: Option<String>,
 }
 
+fn default_agent_provider() -> String {
+    OPENAI_COMPATIBLE_PROVIDER.to_string()
+}
+
+fn default_agent_base_url() -> String {
+    DEFAULT_AGENT_BASE_URL.to_string()
+}
+
+fn default_agent_model() -> String {
+    DEFAULT_AGENT_MODEL.to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentProviderConfigInput {
+    #[serde(default = "default_agent_provider")]
+    pub provider: String,
+    #[serde(default)]
+    pub api_key: String,
+    #[serde(default = "default_agent_base_url")]
+    pub base_url: String,
+    #[serde(default = "default_agent_model")]
+    pub model: String,
+}
+
+impl Default for AgentProviderConfigInput {
+    fn default() -> Self {
+        Self {
+            provider: default_agent_provider(),
+            api_key: String::new(),
+            base_url: default_agent_base_url(),
+            model: default_agent_model(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentProviderValidationResult {
+    pub provider: String,
+    pub base_url: String,
+    pub model: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentRuntimeStatus {
+    pub is_configured: bool,
+    pub source: String,
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct PersistedAppSettings {
+    #[serde(default)]
+    agent: AgentProviderConfigInput,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct AgentRuntimeConfig {
     api_key: String,
     base_url: String,
     model: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AgentRuntimeConfigSource {
+    Settings,
+    Env,
+}
+
+impl AgentRuntimeConfigSource {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Settings => "settings",
+            Self::Env => "env",
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -70,7 +147,7 @@ struct ChatCompletionErrorPayload {
     message: Option<String>,
 }
 
-fn normalized_env_value(value: Option<String>) -> Option<String> {
+fn normalized_string_value(value: Option<String>) -> Option<String> {
     value.and_then(|value| {
         let trimmed = value.trim();
         (!trimmed.is_empty()).then(|| trimmed.to_string())
@@ -86,19 +163,48 @@ fn is_placeholder_secret(value: &str) -> bool {
         || normalized.contains("placeholder")
 }
 
+fn normalize_runtime_config_input(
+    config: &AgentProviderConfigInput,
+) -> Result<AgentRuntimeConfig, String> {
+    if config.provider.trim() != OPENAI_COMPATIBLE_PROVIDER {
+        return Err(format!(
+            "HackDesk currently supports only the {} provider in Settings > Agent.",
+            OPENAI_COMPATIBLE_PROVIDER,
+        ));
+    }
+
+    let api_key = normalized_string_value(Some(config.api_key.clone()))
+        .ok_or_else(|| "Enter an agent API key in Settings > Agent first.".to_string())?;
+
+    if is_placeholder_secret(&api_key) {
+        return Err("Replace the placeholder agent API key in Settings > Agent first.".to_string());
+    }
+
+    let base_url = normalized_string_value(Some(config.base_url.clone()))
+        .unwrap_or_else(|| DEFAULT_AGENT_BASE_URL.to_string());
+    let model = normalized_string_value(Some(config.model.clone()))
+        .unwrap_or_else(|| DEFAULT_AGENT_MODEL.to_string());
+
+    Ok(AgentRuntimeConfig {
+        api_key,
+        base_url,
+        model,
+    })
+}
+
 fn load_runtime_config_from_values<F>(get_value: F) -> Option<AgentRuntimeConfig>
 where
     F: Fn(&str) -> Option<String>,
 {
-    let api_key = normalized_env_value(get_value(AGENT_API_KEY_ENV))?;
+    let api_key = normalized_string_value(get_value(AGENT_API_KEY_ENV))?;
 
     if is_placeholder_secret(&api_key) {
         return None;
     }
 
-    let base_url = normalized_env_value(get_value(AGENT_BASE_URL_ENV))
+    let base_url = normalized_string_value(get_value(AGENT_BASE_URL_ENV))
         .unwrap_or_else(|| DEFAULT_AGENT_BASE_URL.to_string());
-    let model = normalized_env_value(get_value(AGENT_MODEL_ENV))
+    let model = normalized_string_value(get_value(AGENT_MODEL_ENV))
         .unwrap_or_else(|| DEFAULT_AGENT_MODEL.to_string());
 
     Some(AgentRuntimeConfig {
@@ -108,10 +214,86 @@ where
     })
 }
 
+fn load_runtime_config_from_settings_content(content: &str) -> Option<AgentRuntimeConfig> {
+    let settings = serde_json::from_str::<PersistedAppSettings>(content).ok()?;
+
+    normalize_runtime_config_input(&settings.agent).ok()
+}
+
+fn select_runtime_config_with_source<F>(
+    settings_content: Option<&str>,
+    get_value: F,
+) -> Option<(AgentRuntimeConfig, AgentRuntimeConfigSource)>
+where
+    F: Fn(&str) -> Option<String>,
+{
+    if let Some(content) = settings_content {
+        if let Some(config) = load_runtime_config_from_settings_content(content) {
+            return Some((config, AgentRuntimeConfigSource::Settings));
+        }
+    }
+
+    load_runtime_config_from_values(get_value).map(|config| (config, AgentRuntimeConfigSource::Env))
+}
+
+fn select_runtime_config<F>(
+    settings_content: Option<&str>,
+    get_value: F,
+) -> Option<AgentRuntimeConfig>
+where
+    F: Fn(&str) -> Option<String>,
+{
+    select_runtime_config_with_source(settings_content, get_value).map(|(config, _)| config)
+}
+
 fn load_runtime_config() -> Option<AgentRuntimeConfig> {
     let _ = dotenvy::dotenv();
 
-    load_runtime_config_from_values(|key| std::env::var(key).ok())
+    let settings_content = utils::read_settings_content().ok();
+
+    select_runtime_config(settings_content.as_deref(), |key| std::env::var(key).ok())
+}
+
+fn build_runtime_settings_prompt() -> String {
+    "Configure Settings > Agent to add an OpenAI-compatible provider and unlock live responses."
+        .to_string()
+}
+
+pub fn get_runtime_status() -> AgentRuntimeStatus {
+    let _ = dotenvy::dotenv();
+
+    let settings_content = utils::read_settings_content().ok();
+
+    match select_runtime_config_with_source(settings_content.as_deref(), |key| {
+        std::env::var(key).ok()
+    }) {
+        Some((_, source)) => AgentRuntimeStatus {
+            is_configured: true,
+            source: source.as_str().to_string(),
+            reason: None,
+        },
+        None => AgentRuntimeStatus {
+            is_configured: false,
+            source: "none".to_string(),
+            reason: Some(build_runtime_settings_prompt()),
+        },
+    }
+}
+
+fn build_chat_completion_endpoint(base_url: &str) -> String {
+    format!("{}/chat/completions", base_url.trim_end_matches('/'))
+}
+
+fn build_agent_http_client() -> Result<Client, String> {
+    Client::builder()
+        .timeout(Duration::from_secs(AGENT_HTTP_TIMEOUT_SECS))
+        .build()
+        .map_err(|error| {
+            format!(
+                "HackDesk could not initialize the configured live model client: {}",
+                error
+            )
+        })
 }
 
 fn truncate_note_content(content: &str, max_chars: usize) -> String {
@@ -190,16 +372,82 @@ fn extract_chat_completion_error(status_code: u16, body: &str) -> String {
 
 fn build_runtime_disabled_suffix() -> String {
     format!(
-        "\n\n---\nHackDesk is still using the local note formatter. Add `{}` to `.env` to enable the OpenAI-compatible runtime.",
+        "\n\n---\nHackDesk is still using the local note formatter. {} You can also keep using `{}` in `.env` as a fallback.",
+        build_runtime_settings_prompt(),
         AGENT_API_KEY_ENV,
     )
 }
 
 fn build_runtime_failure_suffix(error: &str) -> String {
     format!(
-        "\n\n---\nHackDesk fell back to the local note formatter because the configured live model request failed: {}",
+        "\n\n---\nHackDesk fell back to the local note formatter because the configured live model request failed. Review Settings > Agent and try again: {}",
         error,
     )
+}
+
+async fn validate_live_provider_with_config(
+    config: &AgentRuntimeConfig,
+) -> Result<AgentProviderValidationResult, String> {
+    let client = build_agent_http_client()?;
+    let request_body = ChatCompletionRequest {
+        model: config.model.clone(),
+        messages: vec![
+            ChatCompletionMessage {
+                role: "system".to_string(),
+                content:
+                    "You are validating a HackDesk agent connection. Reply with the single word OK."
+                        .to_string(),
+            },
+            ChatCompletionMessage {
+                role: "user".to_string(),
+                content: "Return OK to confirm the provider connection works.".to_string(),
+            },
+        ],
+    };
+    let response = client
+        .post(build_chat_completion_endpoint(&config.base_url))
+        .bearer_auth(&config.api_key)
+        .json(&request_body)
+        .send()
+        .await
+        .map_err(|error| {
+            format!(
+                "HackDesk could not reach the configured live model: {}",
+                error
+            )
+        })?;
+    let status = response.status();
+
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        return Err(extract_chat_completion_error(status.as_u16(), &body));
+    }
+
+    let payload = response
+        .json::<ChatCompletionResponse>()
+        .await
+        .map_err(|error| {
+            format!(
+                "HackDesk could not parse the configured live model response: {}",
+                error
+            )
+        })?;
+
+    let _ = extract_chat_completion_content(payload)?;
+
+    Ok(AgentProviderValidationResult {
+        provider: OPENAI_COMPATIBLE_PROVIDER.to_string(),
+        base_url: config.base_url.clone(),
+        model: config.model.clone(),
+    })
+}
+
+pub async fn validate_provider_config(
+    config: AgentProviderConfigInput,
+) -> Result<AgentProviderValidationResult, String> {
+    let normalized = normalize_runtime_config_input(&config)?;
+
+    validate_live_provider_with_config(&normalized).await
 }
 
 fn validate_agent_request<'prompt, 'context>(
@@ -235,7 +483,6 @@ async fn send_live_agent_message_with_config(
     config: &AgentRuntimeConfig,
 ) -> Result<String, String> {
     let (normalized_prompt, validated_context) = validate_agent_request(prompt, Some(context))?;
-    let endpoint = format!("{}/chat/completions", config.base_url.trim_end_matches('/'));
     let request_body = ChatCompletionRequest {
         model: config.model.clone(),
         messages: vec![
@@ -249,17 +496,9 @@ async fn send_live_agent_message_with_config(
             },
         ],
     };
-    let client = Client::builder()
-        .timeout(Duration::from_secs(AGENT_HTTP_TIMEOUT_SECS))
-        .build()
-        .map_err(|error| {
-            format!(
-                "HackDesk could not initialize the configured live model client: {}",
-                error
-            )
-        })?;
+    let client = build_agent_http_client()?;
     let response = client
-        .post(endpoint)
+        .post(build_chat_completion_endpoint(&config.base_url))
         .bearer_auth(&config.api_key)
         .json(&request_body)
         .send()
@@ -532,6 +771,98 @@ mod tests {
 
         assert_eq!(config.base_url, DEFAULT_AGENT_BASE_URL);
         assert_eq!(config.model, DEFAULT_AGENT_MODEL);
+    }
+
+    #[test]
+    fn runtime_config_prefers_settings_content_over_env_values() {
+        let settings = r#"{
+                    "title": "HackDesk",
+                    "hackmdApiToken": "",
+                    "agent": {
+                        "provider": "openai-compatible",
+                        "apiKey": "sk-settings-key",
+                        "baseUrl": "https://openrouter.ai/api/v1",
+                        "model": "openrouter/auto"
+                    }
+                }"#;
+        let vars = HashMap::from([(AGENT_API_KEY_ENV, "sk-env-key".to_string())]);
+
+        let config = select_runtime_config(Some(settings), |key| vars.get(key).cloned()).unwrap();
+
+        assert_eq!(config.api_key, "sk-settings-key");
+        assert_eq!(config.base_url, "https://openrouter.ai/api/v1");
+        assert_eq!(config.model, "openrouter/auto");
+    }
+
+    #[test]
+    fn runtime_config_falls_back_to_env_when_settings_missing_api_key() {
+        let settings = r#"{
+                    "title": "HackDesk",
+                    "hackmdApiToken": "",
+                    "agent": {
+                        "provider": "openai-compatible",
+                        "apiKey": "",
+                        "baseUrl": "https://openrouter.ai/api/v1",
+                        "model": "openrouter/auto"
+                    }
+                }"#;
+        let vars = HashMap::from([
+            (AGENT_API_KEY_ENV, "sk-env-key".to_string()),
+            (AGENT_BASE_URL_ENV, "https://api.openai.com/v1".to_string()),
+            (AGENT_MODEL_ENV, "gpt-5-nano".to_string()),
+        ]);
+
+        let config = select_runtime_config(Some(settings), |key| vars.get(key).cloned()).unwrap();
+
+        assert_eq!(config.api_key, "sk-env-key");
+        assert_eq!(config.base_url, DEFAULT_AGENT_BASE_URL);
+        assert_eq!(config.model, DEFAULT_AGENT_MODEL);
+    }
+
+    #[test]
+    fn runtime_config_reads_saved_settings_with_defaults() {
+        let settings = r#"{
+                    "title": "HackDesk",
+                    "hackmdApiToken": "",
+                    "agent": {
+                        "apiKey": "sk-settings-key"
+                    }
+                }"#;
+
+        let config = load_runtime_config_from_settings_content(settings).unwrap();
+
+        assert_eq!(config.api_key, "sk-settings-key");
+        assert_eq!(config.base_url, DEFAULT_AGENT_BASE_URL);
+        assert_eq!(config.model, DEFAULT_AGENT_MODEL);
+    }
+
+    #[test]
+    fn runtime_status_reports_missing_configuration() {
+        let status = match select_runtime_config_with_source(None, |_| None) {
+            Some((_, source)) => AgentRuntimeStatus {
+                is_configured: true,
+                source: source.as_str().to_string(),
+                reason: None,
+            },
+            None => AgentRuntimeStatus {
+                is_configured: false,
+                source: "none".to_string(),
+                reason: Some(build_runtime_settings_prompt()),
+            },
+        };
+
+        assert!(!status.is_configured);
+        assert_eq!(status.source, "none");
+        assert_eq!(status.reason, Some(build_runtime_settings_prompt()));
+    }
+
+    #[test]
+    fn runtime_status_reports_env_fallback_source() {
+        let vars = HashMap::from([(AGENT_API_KEY_ENV, "sk-env-key".to_string())]);
+        let (_, source) =
+            select_runtime_config_with_source(None, |key| vars.get(key).cloned()).unwrap();
+
+        assert_eq!(source, AgentRuntimeConfigSource::Env);
     }
 
     #[test]

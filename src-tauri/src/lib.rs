@@ -34,6 +34,8 @@ pub fn run() {
             cmd::set_current_page_context,
             cmd::get_current_note_context,
             cmd::send_agent_message,
+            cmd::get_agent_runtime_status,
+            cmd::validate_agent_provider_config,
             cmd::validate_hackmd_token,
             cmd::list_hackmd_notes,
             cmd::list_hackmd_teams,
