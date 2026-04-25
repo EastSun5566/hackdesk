@@ -1,4 +1,10 @@
 {
   "title": "HackDesk",
-  "hackmdApiToken": ""
+  "hackmdApiToken": "",
+  "agent": {
+    "provider": "openai-compatible",
+    "apiKey": "",
+    "baseUrl": "https://api.openai.com/v1",
+    "model": "gpt-5-nano"
+  }
 }

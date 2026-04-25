@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  defaultAgentProviderSettings,
   defaultSettings,
   parseSettings,
   parseSettingsOrDefault,
@@ -13,6 +14,7 @@ describe('settings helpers', () => {
     expect(parseSettings('{"title":"Workspace"}')).toEqual({
       title: 'Workspace',
       hackmdApiToken: '',
+      agent: defaultAgentProviderSettings,
     });
   });
 
@@ -32,9 +34,24 @@ describe('settings helpers', () => {
   });
 
   it('serializes validated settings with stable formatting', () => {
-    expect(serializeSettings({ title: 'Workspace', hackmdApiToken: 'token-123' })).toBe(`{
+    expect(serializeSettings({
+      title: 'Workspace',
+      hackmdApiToken: 'token-123',
+      agent: {
+        ...defaultAgentProviderSettings,
+        apiKey: 'sk-agent-token',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        model: 'openrouter/auto',
+      },
+    })).toBe(`{
   "title": "Workspace",
-  "hackmdApiToken": "token-123"
+  "hackmdApiToken": "token-123",
+  "agent": {
+    "provider": "openai-compatible",
+    "apiKey": "sk-agent-token",
+    "baseUrl": "https://openrouter.ai/api/v1",
+    "model": "openrouter/auto"
+  }
 }`);
   });
 });

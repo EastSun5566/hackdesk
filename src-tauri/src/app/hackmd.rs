@@ -6,6 +6,7 @@ use hackmd_api_client_rs::{
     NotePublishType, RetryOptions, SimpleUserProfile, Team, TeamVisibilityType, User,
 };
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 use crate::{app::conf::SETTINGS_NAME, utils};
 
@@ -16,6 +17,7 @@ const HACKMD_RETRY_BASE_DELAY_MS: u64 = 150;
 #[derive(Debug)]
 pub enum HackmdBridgeError {
     Settings(String),
+    Context(String),
     Api(ApiError),
 }
 
@@ -23,6 +25,7 @@ impl std::fmt::Display for HackmdBridgeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Settings(message) => write!(f, "{}", message),
+            Self::Context(message) => write!(f, "{}", message),
             Self::Api(error) => write!(f, "{}", get_hackmd_error_message(error)),
         }
     }
@@ -102,6 +105,21 @@ pub struct HackmdNoteDto {
     pub publish_link: String,
     pub read_permission: String,
     pub write_permission: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HackmdCurrentNoteContextDto {
+    pub url: String,
+    pub path: String,
+    pub title: String,
+    pub note_id: Option<String>,
+    pub scope: String,
+    pub team_path: Option<String>,
+    pub is_note: bool,
+    pub reason: Option<String>,
+    pub content: Option<String>,
+    pub content_reason: Option<String>,
 }
 
 impl From<User> for HackmdUserDto {
@@ -188,6 +206,213 @@ fn note_permission_to_str(permission: &NotePermissionRole) -> &'static str {
         NotePermissionRole::SignedIn => "signed_in",
         NotePermissionRole::Guest => "guest",
     }
+}
+
+fn is_reserved_root_path(path: &str) -> bool {
+    matches!(
+        path,
+        "/" | "/login" | "/new" | "/recent" | "/bookmark" | "/me" | "/explore"
+    )
+}
+
+pub fn build_current_note_context(url: &str, title: &str) -> HackmdCurrentNoteContextDto {
+    let fallback = HackmdCurrentNoteContextDto {
+        url: url.to_string(),
+        path: String::new(),
+        title: title.to_string(),
+        note_id: None,
+        scope: "unknown".to_string(),
+        team_path: None,
+        is_note: false,
+        reason: Some("Open a HackMD note in the main window first.".to_string()),
+        content: None,
+        content_reason: None,
+    };
+
+    let parsed_url = match Url::parse(url) {
+        Ok(parsed_url) => parsed_url,
+        Err(_) => {
+            return HackmdCurrentNoteContextDto {
+                reason: Some("HackDesk could not parse the current HackMD URL yet.".to_string()),
+                ..fallback
+            };
+        }
+    };
+
+    if parsed_url.scheme() != "https" || parsed_url.host_str() != Some("hackmd.io") {
+        return HackmdCurrentNoteContextDto {
+            reason: Some("The active page is not a HackMD note.".to_string()),
+            ..fallback
+        };
+    }
+
+    let path = parsed_url.path().to_string();
+    let segments = path
+        .split('/')
+        .filter(|segment| !segment.is_empty())
+        .map(|segment| segment.to_string())
+        .collect::<Vec<_>>();
+
+    if segments.is_empty()
+        || is_reserved_root_path(&path)
+        || parsed_url.query_pairs().any(|(key, _)| key == "nav")
+    {
+        return HackmdCurrentNoteContextDto {
+            path,
+            reason: Some("The active HackMD page is a workspace route, not a note.".to_string()),
+            ..fallback
+        };
+    }
+
+    if path.starts_with("/team/") {
+        return HackmdCurrentNoteContextDto {
+            path,
+            reason: Some("Open a specific team note before using the note agent.".to_string()),
+            ..fallback
+        };
+    }
+
+    if let Some(first_segment) = segments.first() {
+        if first_segment.starts_with('@') && segments.len() >= 2 {
+            let owner_or_team = first_segment.trim_start_matches('@').to_string();
+            let note_id = segments.get(1).map(|segment| segment.to_string());
+
+            return HackmdCurrentNoteContextDto {
+                url: url.to_string(),
+                path,
+                title: title.to_string(),
+                note_id,
+                scope: "personal-or-team".to_string(),
+                team_path: Some(owner_or_team),
+                is_note: true,
+                reason: None,
+                content: None,
+                content_reason: None,
+            };
+        }
+
+        let reserved_segment = matches!(
+            first_segment.as_str(),
+            "s" | "p" | "c" | "logout" | "features" | "pricing" | "contact"
+        );
+
+        if !reserved_segment {
+            return HackmdCurrentNoteContextDto {
+                url: url.to_string(),
+                path,
+                title: title.to_string(),
+                note_id: Some(first_segment.to_string()),
+                scope: "short-id".to_string(),
+                team_path: None,
+                is_note: true,
+                reason: None,
+                content: None,
+                content_reason: None,
+            };
+        }
+    }
+
+    HackmdCurrentNoteContextDto {
+        path,
+        reason: Some(
+            "HackDesk could not confidently identify the current note route yet.".to_string(),
+        ),
+        ..fallback
+    }
+}
+
+fn note_matches_current_context(note: &Note, context: &HackmdCurrentNoteContextDto) -> bool {
+    let Some(route_note_id) = context.note_id.as_deref() else {
+        return false;
+    };
+
+    match context.scope.as_str() {
+        "short-id" => note.short_id == route_note_id || note.id == route_note_id,
+        "personal-or-team" => {
+            let Some(owner_path) = context.team_path.as_deref() else {
+                return false;
+            };
+
+            let owner_matches = note.user_path.as_deref() == Some(owner_path)
+                || note.team_path.as_deref() == Some(owner_path);
+            let route_matches = note.permalink.as_deref() == Some(route_note_id)
+                || note.short_id == route_note_id
+                || note.id == route_note_id;
+
+            owner_matches && route_matches
+        }
+        _ => false,
+    }
+}
+
+fn find_note_id_for_current_context(
+    notes: &[Note],
+    context: &HackmdCurrentNoteContextDto,
+) -> Option<String> {
+    notes
+        .iter()
+        .find(|note| note_matches_current_context(note, context))
+        .map(|note| note.id.clone())
+}
+
+async fn resolve_current_note_api_id(
+    client: &ApiClient,
+    context: &HackmdCurrentNoteContextDto,
+) -> Result<String, HackmdBridgeError> {
+    let personal_notes = client.get_note_list().await?;
+
+    if let Some(note_id) = find_note_id_for_current_context(&personal_notes, context) {
+        return Ok(note_id);
+    }
+
+    if context.scope == "personal-or-team" {
+        if let Some(owner_path) = context.team_path.as_deref() {
+            let teams = client.get_teams().await?;
+
+            if teams.iter().any(|team| team.path == owner_path) {
+                let team_notes = client.get_team_notes(owner_path).await?;
+
+                if let Some(note_id) = find_note_id_for_current_context(&team_notes, context) {
+                    return Ok(note_id);
+                }
+            }
+        }
+    }
+
+    Err(HackmdBridgeError::Context(
+        "HackDesk could not resolve the current note through the HackMD API yet.".to_string(),
+    ))
+}
+
+async fn load_current_note_content(
+    context: &HackmdCurrentNoteContextDto,
+) -> Result<String, HackmdBridgeError> {
+    let client = get_saved_hackmd_client()?;
+    let note_id = resolve_current_note_api_id(&client, context).await?;
+    let note = client.get_note(&note_id).await?;
+
+    Ok(note.content)
+}
+
+pub async fn hydrate_current_note_context(
+    mut context: HackmdCurrentNoteContextDto,
+) -> HackmdCurrentNoteContextDto {
+    if !context.is_note {
+        return context;
+    }
+
+    match load_current_note_content(&context).await {
+        Ok(content) => {
+            context.content = Some(content);
+            context.content_reason = None;
+        }
+        Err(error) => {
+            context.content = None;
+            context.content_reason = Some(error.to_string());
+        }
+    }
+
+    context
 }
 
 fn create_hackmd_client(access_token: &str) -> Result<ApiClient, ApiError> {
@@ -476,6 +701,88 @@ mod tests {
         assert_eq!(
             get_hackmd_error_message(&error),
             "HackMD is rate limiting requests right now. Please try again in a moment."
+        );
+    }
+
+    #[test]
+    fn builds_current_note_context_for_named_note_paths() {
+        let context =
+            build_current_note_context("https://hackmd.io/@michael/roadmap", "Roadmap - HackMD");
+
+        assert!(context.is_note);
+        assert_eq!(context.note_id.as_deref(), Some("roadmap"));
+        assert_eq!(context.scope, "personal-or-team");
+        assert_eq!(context.team_path.as_deref(), Some("michael"));
+        assert!(context.reason.is_none());
+    }
+
+    #[test]
+    fn rejects_workspace_routes_for_current_note_context() {
+        let context =
+            build_current_note_context("https://hackmd.io/?nav=search", "Search - HackMD");
+
+        assert!(!context.is_note);
+        assert!(context.reason.unwrap().contains("workspace route"));
+    }
+
+    #[test]
+    fn finds_named_note_ids_from_note_lists() {
+        let context =
+            build_current_note_context("https://hackmd.io/@michael/roadmap", "Roadmap - HackMD");
+        let notes: Vec<Note> = serde_json::from_value(json!([
+            {
+                "id": "note-1",
+                "title": "Roadmap",
+                "tags": [],
+                "lastChangedAt": 1713398400000u64,
+                "createdAt": 1713398400000u64,
+                "lastChangeUser": null,
+                "publishType": "edit",
+                "publishedAt": null,
+                "userPath": "michael",
+                "teamPath": null,
+                "permalink": "roadmap",
+                "shortId": "abc123",
+                "publishLink": "https://hackmd.io/@michael/roadmap",
+                "readPermission": "guest",
+                "writePermission": "signed_in"
+            }
+        ]))
+        .unwrap();
+
+        assert_eq!(
+            find_note_id_for_current_context(&notes, &context).as_deref(),
+            Some("note-1")
+        );
+    }
+
+    #[test]
+    fn finds_short_id_note_ids_from_note_lists() {
+        let context = build_current_note_context("https://hackmd.io/abc123", "Roadmap - HackMD");
+        let notes: Vec<Note> = serde_json::from_value(json!([
+            {
+                "id": "note-1",
+                "title": "Roadmap",
+                "tags": [],
+                "lastChangedAt": 1713398400000u64,
+                "createdAt": 1713398400000u64,
+                "lastChangeUser": null,
+                "publishType": "edit",
+                "publishedAt": null,
+                "userPath": null,
+                "teamPath": null,
+                "permalink": null,
+                "shortId": "abc123",
+                "publishLink": "https://hackmd.io/abc123",
+                "readPermission": "guest",
+                "writePermission": "signed_in"
+            }
+        ]))
+        .unwrap();
+
+        assert_eq!(
+            find_note_id_for_current_context(&notes, &context).as_deref(),
+            Some("note-1")
         );
     }
 }
