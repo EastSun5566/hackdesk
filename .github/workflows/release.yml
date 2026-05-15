@@ -28,12 +28,14 @@ jobs:
       - name: create release
         id: create-release
         uses: actions/github-script@v6
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         with:
           script: |
             const { data } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag_name: `hackdesk-v${process.env.PACKAGE_VERSION}`,
+              tag_name: process.env.RELEASE_TAG,
               name: `HackDesk v${process.env.PACKAGE_VERSION}`,
               body: 'Take a look at the assets to download and install this app.',
               draft: true,
@@ -116,6 +118,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
+          tagName: ${{ github.ref_name }}
           args: --target ${{ matrix.target }}
 
   publish-release:
