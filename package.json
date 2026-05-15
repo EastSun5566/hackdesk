@@ -26,7 +26,7 @@
     "test:rust": "cd src-tauri && cargo test",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "release": "npx standard-version -a && git push --follow-tags",
+    "release": "node scripts/release.js",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"
