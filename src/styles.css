@@ -137,4 +137,9 @@
   body {
     @apply bg-background-default text-text-default;
   }
+
+  body.agent-screen {
+    background: transparent;
+    overflow: hidden;
+  }
 }

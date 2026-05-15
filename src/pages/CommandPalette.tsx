@@ -51,6 +51,7 @@ import {
 } from '@/lib/hackmd';
 import { useSettings } from '@/lib/query';
 import { defaultSettings } from '@/lib/settings';
+import { openAgentWindow } from '@/lib/agent';
 import {
   findCommand,
   getAllCommands,
@@ -701,6 +702,14 @@ export function CommandPalette() {
     case 'reload':
       invoke(Cmd.EXECUTE_ACTION, { action: { type: 'Reload' } });
       break;
+    case 'hackdesk:agent:ask-current-note':
+      void openAgentWindow('ask');
+      closePalette();
+      return;
+    case 'hackdesk:agent:summarize-current-note':
+      void openAgentWindow('summary');
+      closePalette();
+      return;
     case OPEN_LOCAL_SETTINGS_VALUE:
       void openLocalSettings();
       return;

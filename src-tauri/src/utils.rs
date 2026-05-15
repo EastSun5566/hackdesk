@@ -33,6 +33,15 @@ pub fn read_json(content: &str) -> Result<serde_json::Value> {
     serde_json::from_str(content).map_err(Into::into)
 }
 
+pub fn read_settings_content() -> Result<String> {
+    let settings_path = get_root_path(SETTINGS_NAME)?;
+
+    fs::read_to_string(&settings_path).map_err(|e| {
+        error!("Failed to read settings file: {}", e);
+        e.into()
+    })
+}
+
 fn apply_window_title(app: &AppHandle, settings_json: &serde_json::Value) -> Result<()> {
     let title = settings_json["title"].as_str().unwrap_or(DEFAULT_TITLE);
 
@@ -64,11 +73,7 @@ pub fn init_settings(app: &AppHandle) -> Result<()> {
 
 pub fn apply_settings(app: &AppHandle) -> Result<()> {
     info!("Applying settings from file");
-    let settings_path = get_root_path(SETTINGS_NAME)?;
-    let settings = fs::read_to_string(&settings_path).map_err(|e| {
-        error!("Failed to read settings file: {}", e);
-        e
-    })?;
+    let settings = read_settings_content()?;
 
     let settings_json = read_json(&settings).unwrap_or_else(|e| {
         warn!("Failed to parse settings, using defaults: {}", e);
