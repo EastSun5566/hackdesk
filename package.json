@@ -33,7 +33,7 @@
   },
   "standard-version": {
     "scripts": {
-      "precommit": "pnpm run sync:version && pnpm run version:check && git add src-tauri/Cargo.toml"
+      "precommit": "node scripts/sync-version.js && node scripts/check-version.js && git add -A"
     }
   },
   "author": "Michael Wang <michael19920327@gmail.com> (https://github.com/EastSun5566)",
