@@ -19,16 +19,22 @@
     "lint:cargo": "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
     "check": "pnpm run lint:ts && pnpm run lint:cargo",
     "version:check": "node scripts/check-version.js",
+    "sync:version": "node scripts/sync-version.js",
     "prerelease": "pnpm run version:check",
     "test": "pnpm run test:rust && pnpm run test:frontend",
     "test:frontend": "vitest run",
     "test:rust": "cd src-tauri && cargo test",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "release": "npx standard-version && git push --follow-tags",
+    "release": "npx standard-version -a && git push --follow-tags",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"
+  },
+  "standard-version": {
+    "scripts": {
+      "precommit": "pnpm run sync:version && pnpm run version:check && git add src-tauri/Cargo.toml"
+    }
   },
   "author": "Michael Wang <michael19920327@gmail.com> (https://github.com/EastSun5566)",
   "repository": {

@@ -36,7 +36,6 @@ interface Author {
 }
 
 export interface GitHubRelease {
-  version: string;
   url: string;
   assets_url: string;
   upload_url: string;
@@ -74,6 +73,12 @@ export interface GitHubRelease {
   tarball_url: string;
   zipball_url: string;
   body: string;
+}
+
+export interface DocsReleaseData extends GitHubRelease {
+  version: string;
+  releaseTag: string;
+  releaseDownloadBaseUrl: string;
 }
 
 export type Platform = 'win64'
