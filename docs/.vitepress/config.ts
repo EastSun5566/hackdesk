@@ -51,7 +51,7 @@ export default defineConfig({
           { text: 'Installation', link: '/install' },
           { text: 'Features', link: '/features' },
           { text: 'Config', link: '/config' },
-          { text: 'Issues', link: '/issues' },
+          { text: 'GitHub Issues', link: `${REPO_URL}/issues` },
         ],
       },
     ],

@@ -17,14 +17,18 @@ import { data } from './release.data.ts'
 - Homebrew tap ([`EastSun5566/homebrew-hackdesk`](https://github.com/EastSun5566/homebrew-hackdesk))
 
   ```sh
-  # Tap repo
+  # Tap this repo
   brew tap eastsun5566/hackdesk
 
-  # Install app (use `--no-quarantine` for unsigned apps)
-  brew install --cask hackdesk --no-quarantine
+  # Install app
+  brew install --cask hackdesk
   ```
 
 ::: tip
+Homebrew no longer supports `--no-quarantine`.
+
+HackDesk is currently unsigned, so macOS may block the first launch. If that happens, open the app once from Finder with **Right-click → Open**, or allow it in **System Settings → Privacy & Security**.
+
 Developer cannot be verified?
 
 [Open a Mac app from an unidentified developer](https://support.apple.com/en-sg/guide/mac-help/mh40616/mac)
@@ -34,10 +38,10 @@ Developer cannot be verified?
 
 `"HackDesk" is damaged and can't be opened. You should move it to the Trash.`
 
-If you encounter this error message while installing software on macOS, it may be due to security settings restrictions in macOS. To solve this problem, please try the following command in Terminal:
+If you trust the app and prefer the Terminal, you can remove the quarantine attribute manually:
 
 ```sh
-xattr -cr /Applications/HackDesk.app
+xattr -dr com.apple.quarantine /Applications/HackDesk.app
 ```
 
 :::
