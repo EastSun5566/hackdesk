@@ -11,33 +11,25 @@
 
 > 📝 A hackable HackMD desktop application
 
-> [!WARNING]
-> This project is actively under development, so expect some bugs & missing features.
+📚 Docs: <https://hackdesk.eastsun.me>
 
 ## Introduction
 
-### 📚 Docs: <https://hackdesk.eastsun.me>
-
-HackDesk is an unofficial desktop application for HackMD, powered by [Tauri](https://tauri.app/). It serves as a lightweight wrapper for [hackmd.io](http://hackmd.io). So, you'll find everything you love about HackMD and some additional features ✨.
-
-Thanks to Tauri utilizing the OS's native WebView, the bundle size remains [small](https://tauri.app/v1/references/benchmarks#binary-size), and it's memory-efficient. Please keep in mind that this project is actively under development, so expect some bugs & missing features.
-
-You should also check out the official Electron-based [HackMD desktop app](https://github.com/hackmdio/hackmd-desktop), along with some extra features inspired by the [HackMD Raycast extension](https://www.raycast.com/Yukai/hackmd) and [hackbar](https://github.com/uier/hackbar).
-
-This project was largely inspired by [ChatGPT](https://github.com/lencx/ChatGPT) 🙏.
+HackDesk is a desktop application for HackMD, powered by [Tauri](https://tauri.app/). It serves as a lightweight wrapper for [hackmd.io](http://hackmd.io), so you'll find everything you love about HackMD, plus some additional features ✨.
 
 And you can also follow me on [HackMD](https://hackmd.io/@EastSun5566) 😎
 
 ## Installation
 
-[Installation Guide](https://hackdesk.vercel.app/install.html)
+```sh
+# Tap this repo
+brew tap eastsun5566/hackdesk
 
-## Features
+# Install app
+brew install --cask hackdesk
+```
 
-[Feature Overview](https://hackdesk.vercel.app/features.html)
+> [!NOTE]
+> Homebrew no longer supports `--no-quarantine`. HackDesk is currently unsigned, so macOS may block the first launch. If that happens, open the app once from Finder with **Right-click → Open**, or allow it in **System Settings → Privacy & Security**. If you trust the app and prefer the terminal, you can run `xattr -dr com.apple.quarantine /Applications/HackDesk.app`.
 
-## Design Goals
-
-- Should support all [hackmd.io](http://hackmd.io) features
-- Should be command-line-friendly
-- Should be configurable and extensible
+[Full Guide](https://hackdesk.vercel.app/install.html)
