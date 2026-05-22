@@ -25,8 +25,6 @@ import { data } from './release.data.ts'
   ```
 
 ::: tip
-Homebrew no longer supports `--no-quarantine`.
-
 HackDesk is currently unsigned, so macOS may block the first launch. If that happens, open the app once from Finder with **Right-click → Open**, or allow it in **System Settings → Privacy & Security**.
 
 Developer cannot be verified?
