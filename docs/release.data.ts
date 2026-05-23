@@ -1,20 +1,34 @@
 import { defineLoader } from 'vitepress';
 
 import { getLatestGithubRelease } from './.vitepress/utils';
-import { GitHubRelease } from './.vitepress/types';
+import type { DocsReleaseData } from './.vitepress/types';
 
 
-declare const data: GitHubRelease;
+function getReleaseVersion(tagName: string): string {
+  if (tagName.startsWith('hackdesk-v')) {
+    return tagName.slice('hackdesk-v'.length);
+  }
+
+  if (tagName.startsWith('v')) {
+    return tagName.slice(1);
+  }
+
+  return tagName;
+}
+
+declare const data: DocsReleaseData;
 export { data };
 
 
 export default defineLoader({
-  async load(): Promise<GitHubRelease> {
+  async load(): Promise<DocsReleaseData> {
     const data = await getLatestGithubRelease();
 
     return {
       ...data,
-      version: data.tag_name.split('v')[1],
+      version: getReleaseVersion(data.tag_name),
+      releaseTag: data.tag_name,
+      releaseDownloadBaseUrl: `https://github.com/EastSun5566/hackdesk/releases/download/${data.tag_name}`,
     };
   },
 });

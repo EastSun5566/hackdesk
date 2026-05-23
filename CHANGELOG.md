@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.1.0](https://github.com/EastSun5566/hackdesk/compare/v0.0.7...v0.1.0) (2026-05-15)
+
+
+### Features
+
+* add new logo ([9a20210](https://github.com/EastSun5566/hackdesk/commit/9a20210fd1703074e1d31ec75ebc27b881e6648d))
+* add team management ([bf0e79f](https://github.com/EastSun5566/hackdesk/commit/bf0e79f1b8865697637dac0d2e4716b6d72b54af))
+* add team note creation and deletion ([b9e31c6](https://github.com/EastSun5566/hackdesk/commit/b9e31c6b49592d0bb416efbc1e76794e164a00e5))
+* enhance command palette to display recent notes and improve visibility during search ([997debb](https://github.com/EastSun5566/hackdesk/commit/997debb3c5f1118ff62d3969684186a4ba1792d8))
+* enhance command palette with team navigation and route search features ([eb5dd6a](https://github.com/EastSun5566/hackdesk/commit/eb5dd6add344346f046c0caa296ff79b94a9a0d9))
+* enhance recent notes management with team support and improved serialization ([7741ee9](https://github.com/EastSun5566/hackdesk/commit/7741ee9ed3bffd92a4ba7a2fc3989337938f5dc3))
+* enhance url handling for inline hackmd navigation and external links ([f515810](https://github.com/EastSun5566/hackdesk/commit/f51581075e673a28157c7ca562849eb1581a7015))
+* impl settings management and command palette functionality ([3ea2b80](https://github.com/EastSun5566/hackdesk/commit/3ea2b807c8c18599cbb1b2bfc41913bc3959c1b5))
+* improve log and trace ([58da880](https://github.com/EastSun5566/hackdesk/commit/58da880b786524d029fffd8351ab0c3a7876ebd7))
+* improve styling and accessibility for command components and toaster ([d0828f8](https://github.com/EastSun5566/hackdesk/commit/d0828f89c8c7c0a31a06f80dfdd9b29fce223781))
+* integrate hackmd api ([5b587cf](https://github.com/EastSun5566/hackdesk/commit/5b587cf5832796b011b4e545c2bf753148845d90))
+* make settings to ui ([7274bbd](https://github.com/EastSun5566/hackdesk/commit/7274bbddae176bacbfdc0d28d3f48b092be60cb5))
+* make settings window transparent on macos ([9331ffe](https://github.com/EastSun5566/hackdesk/commit/9331ffe6f555f44185e87b92cf8e165bd789c376))
+* new logo 2 ([3de4e8c](https://github.com/EastSun5566/hackdesk/commit/3de4e8c2fafbbd669e9a83f072a79de5d4ef3ace))
+* remove tmp logo ([e928fc7](https://github.com/EastSun5566/hackdesk/commit/e928fc78f2abe4782fc310ba9265db6f38897ea7))
+* run upgrade script ([a39cdf2](https://github.com/EastSun5566/hackdesk/commit/a39cdf25009693f86ee048338dd8e5f7a0011f90))
+* update deps and refactor settings handling ([7cf863e](https://github.com/EastSun5566/hackdesk/commit/7cf863e2ab120716fb23ee90907826a3d28be4d3))
+* update design system ([0a7794e](https://github.com/EastSun5566/hackdesk/commit/0a7794e781d1af70c451427306c6086852694700))
+* update UI components with improved styling and accessibility enhancements ([a6b9d19](https://github.com/EastSun5566/hackdesk/commit/a6b9d19c2cd56d1a9674bc38af1ea6ec3a0ff36e))
+* upgrade eslint ([7c5cf26](https://github.com/EastSun5566/hackdesk/commit/7c5cf26007f2d0f7cca8b800a8b4021c964b00f2))
+* upgrade vite ([830c9e5](https://github.com/EastSun5566/hackdesk/commit/830c9e5cc13bb2eb9cc4b1bc2918b1e97b85149b))
+
+
+### Bug Fixes
+
+* build tray ([d51fdf8](https://github.com/EastSun5566/hackdesk/commit/d51fdf84ca0229e07ae6ed9fd92b931c8cf19ed6))
+* Convert all PNG icons to RGBA format for Tauri compatibility ([0980a8a](https://github.com/EastSun5566/hackdesk/commit/0980a8a31d38f486982b38fc96276db3d861531c))
+* enhance url handling and validation in link opening functionality ([28426f1](https://github.com/EastSun5566/hackdesk/commit/28426f17eb27dc141e934a8ce743012e05158dba))
+* fix build ([089a75c](https://github.com/EastSun5566/hackdesk/commit/089a75cdacae1a74840b95da4a0a7614246b25ac))
+* improve permissions ([9cb1a70](https://github.com/EastSun5566/hackdesk/commit/9cb1a70679c6a0fd238945da5fec2de8a0713448))
+* settings loading & improve ui ([bceb3b6](https://github.com/EastSun5566/hackdesk/commit/bceb3b61ed0849219aec98f51f97d08424f6b2d5))
+* sync version ([125e334](https://github.com/EastSun5566/hackdesk/commit/125e3341a3df1acc96134ef823e30e56b7a26677))
+
 ### [0.0.7](https://github.com/EastSun5566/hackdesk/compare/v0.0.6...v0.0.7) (2023-11-17)
 
 

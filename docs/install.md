@@ -12,19 +12,21 @@ import { data } from './release.data.ts'
 
 ## macOS
 
-- Apple Chip: <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/HackDesk_${data.version}_aarch64.dmg`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_aarch64.dmg</a>
-- Intel Chip: <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/HackDesk_${data.version}_x64.dmg`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_x64.dmg</a>
-- Homebrew
+- Apple Chip: <a :href="`${data.releaseDownloadBaseUrl}/HackDesk_${data.version}_aarch64.dmg`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_aarch64.dmg</a>
+- Intel Chip: <a :href="`${data.releaseDownloadBaseUrl}/HackDesk_${data.version}_x64.dmg`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_x64.dmg</a>
+- Homebrew tap ([`EastSun5566/homebrew-hackdesk`](https://github.com/EastSun5566/homebrew-hackdesk))
 
   ```sh
-  # Tap repo
+  # Tap this repo
   brew tap eastsun5566/hackdesk
 
-  # Install app (use `--no-quarantine` for unsigned apps)
-  brew install --cask hackdesk --no-quarantine
+  # Install app
+  brew install --cask hackdesk
   ```
 
 ::: tip
+HackDesk is currently unsigned, so macOS may block the first launch. If that happens, open the app once from Finder with **Right-click → Open**, or allow it in **System Settings → Privacy & Security**.
+
 Developer cannot be verified?
 
 [Open a Mac app from an unidentified developer](https://support.apple.com/en-sg/guide/mac-help/mh40616/mac)
@@ -34,18 +36,18 @@ Developer cannot be verified?
 
 `"HackDesk" is damaged and can't be opened. You should move it to the Trash.`
 
-If you encounter this error message while installing software on macOS, it may be due to security settings restrictions in macOS. To solve this problem, please try the following command in Terminal:
+If you trust the app and prefer the Terminal, you can remove the quarantine attribute manually:
 
 ```sh
-xattr -cr /Applications/HackDesk.app
+xattr -dr com.apple.quarantine /Applications/HackDesk.app
 ```
 
 :::
 
 ## Linux
 
-- <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/hack-desk_${data.version}_amd64.AppImage`" target="_blank" rel="noreferrer">hack-desk\_{{data.version}}\_amd64.AppImage</a>
-- <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/hack-desk_${data.version}_amd64.deb`" target="_blank" rel="noreferrer">hack-desk\_{{data.version}}\_amd64.deb</a>
+- <a :href="`${data.releaseDownloadBaseUrl}/hack-desk_${data.version}_amd64.AppImage`" target="_blank" rel="noreferrer">hack-desk\_{{data.version}}\_amd64.AppImage</a>
+- <a :href="`${data.releaseDownloadBaseUrl}/hack-desk_${data.version}_amd64.deb`" target="_blank" rel="noreferrer">hack-desk\_{{data.version}}\_amd64.deb</a>
 - Flatpak / AUR
   > WIP
 
@@ -63,8 +65,8 @@ If you encounter this problem, please install the libthai package.It's a issue c
 
 ## Windows
 
-- <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/HackDesk_${data.version}_x64-setup.exe`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_x64-setup.exe</a>
-- <a :href="`https://github.com/EastSun5566/hackdesk/releases/download/hackdesk-v${data.version}/HackDesk_${data.version}_x64_en-US.msi`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_x64_en-US.msi</a>
+- <a :href="`${data.releaseDownloadBaseUrl}/HackDesk_${data.version}_x64-setup.exe`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_x64-setup.exe</a>
+- <a :href="`${data.releaseDownloadBaseUrl}/HackDesk_${data.version}_x64_en-US.msi`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_x64_en-US.msi</a>
 - winget
 
   ```sh

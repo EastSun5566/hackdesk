@@ -1,30 +1,37 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { invoke } from '@tauri-apps/api/core';
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 
-import { useTheme } from '@/components/theme-provider';
-import { useCreateHackmdNote, useDeleteHackmdNote, useHackmdNotes, useHackmdProfile, useHackmdTeams } from '@/lib/hackmd';
-import { useSettings } from '@/lib/query';
 import { Cmd } from '@/constants';
 import { CommandPalette } from './CommandPalette';
 
-const useSettingsMock = useSettings as unknown as ReturnType<typeof vi.fn>;
-const useHackmdNotesMock = useHackmdNotes as unknown as ReturnType<typeof vi.fn>;
-const useHackmdProfileMock = useHackmdProfile as unknown as ReturnType<typeof vi.fn>;
-const useHackmdTeamsMock = useHackmdTeams as unknown as ReturnType<typeof vi.fn>;
-const useCreateHackmdNoteMock = useCreateHackmdNote as unknown as ReturnType<typeof vi.fn>;
-const useDeleteHackmdNoteMock = useDeleteHackmdNote as unknown as ReturnType<typeof vi.fn>;
-const useThemeMock = useTheme as unknown as ReturnType<typeof vi.fn>;
-const getCurrentWebviewWindowMock = getCurrentWebviewWindow as unknown as ReturnType<typeof vi.fn>;
-const invokeMock = invoke as unknown as ReturnType<typeof vi.fn>;
+const {
+  useSettingsMock,
+  useHackmdNotesMock,
+  useHackmdProfileMock,
+  useHackmdTeamsMock,
+  useCreateHackmdNoteMock,
+  useDeleteHackmdNoteMock,
+  useThemeMock,
+  getCurrentWebviewWindowMock,
+  invokeMock,
+} = vi.hoisted(() => ({
+  useSettingsMock: vi.fn(),
+  useHackmdNotesMock: vi.fn(),
+  useHackmdProfileMock: vi.fn(),
+  useHackmdTeamsMock: vi.fn(),
+  useCreateHackmdNoteMock: vi.fn(),
+  useDeleteHackmdNoteMock: vi.fn(),
+  useThemeMock: vi.fn(),
+  getCurrentWebviewWindowMock: vi.fn(),
+  invokeMock: vi.fn(),
+}));
 
 vi.mock('@/components/theme-provider', () => ({
-  useTheme: vi.fn(),
+  useTheme: useThemeMock,
 }));
 
 vi.mock('@/lib/query', () => ({
-  useSettings: vi.fn(),
+  useSettings: useSettingsMock,
 }));
 
 vi.mock('@/lib/hackmd', () => ({
@@ -44,11 +51,19 @@ vi.mock('@/lib/hackmd', () => ({
     return normalizedUserPath ? `/@${normalizedUserPath}` : null;
   }),
   normalizeHackmdToken: vi.fn((token: string) => token.trim()),
-  useCreateHackmdNote: vi.fn(),
-  useDeleteHackmdNote: vi.fn(),
-  useHackmdNotes: vi.fn(),
-  useHackmdProfile: vi.fn(),
-  useHackmdTeams: vi.fn(),
+  useCreateHackmdNote: useCreateHackmdNoteMock,
+  useDeleteHackmdNote: useDeleteHackmdNoteMock,
+  useHackmdNotes: useHackmdNotesMock,
+  useHackmdProfile: useHackmdProfileMock,
+  useHackmdTeams: useHackmdTeamsMock,
+}));
+
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: invokeMock,
+}));
+
+vi.mock('@tauri-apps/api/webviewWindow', () => ({
+  getCurrentWebviewWindow: getCurrentWebviewWindowMock,
 }));
 
 function getSelectedCommandItem() {

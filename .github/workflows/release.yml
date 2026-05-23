@@ -25,17 +25,24 @@ jobs:
       - name: get version
         run: echo "PACKAGE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
 
+      - name: extract release notes
+        id: release-notes
+        run: node scripts/release-notes.js
+
       - name: create release
         id: create-release
         uses: actions/github-script@v6
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_NOTES: ${{ steps.release-notes.outputs.release_body }}
         with:
           script: |
             const { data } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag_name: `hackdesk-v${process.env.PACKAGE_VERSION}`,
+              tag_name: process.env.RELEASE_TAG,
               name: `HackDesk v${process.env.PACKAGE_VERSION}`,
-              body: 'Take a look at the assets to download and install this app.',
+              body: process.env.RELEASE_NOTES,
               draft: true,
               prerelease: false
             })
@@ -106,6 +113,10 @@ jobs:
       - name: Check version sync
         run: pnpm run version:check
 
+      - name: extract release notes
+        id: release-notes
+        run: node scripts/release-notes.js
+
       - name: Run tests
         run: pnpm test
 
@@ -116,6 +127,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
+          tagName: ${{ github.ref_name }}
+          # This also becomes latest.json.notes when uploading updater metadata.
+          releaseBody: ${{ steps.release-notes.outputs.release_body }}
           args: --target ${{ matrix.target }}
 
   publish-release:
