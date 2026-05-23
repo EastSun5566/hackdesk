@@ -61,7 +61,8 @@
       "capabilities": [
         "main-capability",
         "settings-capability",
-        "command-palette-capability"
+        "command-palette-capability",
+        "agent-capability"
       ]
     }
   },
