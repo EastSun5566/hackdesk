@@ -1,29 +1,36 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-
-import { useValidateHackmdToken } from '@/lib/hackmd';
-import { useSettings, useUpdateSettings } from '@/lib/query';
-import { useTheme } from '@/components/theme-provider';
 import { Settings } from './Settings';
 
-const useValidateHackmdTokenMock = useValidateHackmdToken as unknown as ReturnType<typeof vi.fn>;
-const useSettingsMock = useSettings as unknown as ReturnType<typeof vi.fn>;
-const useUpdateSettingsMock = useUpdateSettings as unknown as ReturnType<typeof vi.fn>;
-const useThemeMock = useTheme as unknown as ReturnType<typeof vi.fn>;
-const getCurrentWebviewWindowMock = getCurrentWebviewWindow as unknown as ReturnType<typeof vi.fn>;
+const {
+  useValidateHackmdTokenMock,
+  useSettingsMock,
+  useUpdateSettingsMock,
+  useThemeMock,
+  getCurrentWebviewWindowMock,
+} = vi.hoisted(() => ({
+  useValidateHackmdTokenMock: vi.fn(),
+  useSettingsMock: vi.fn(),
+  useUpdateSettingsMock: vi.fn(),
+  useThemeMock: vi.fn(),
+  getCurrentWebviewWindowMock: vi.fn(),
+}));
 
 vi.mock('@/lib/hackmd', () => ({
-  useValidateHackmdToken: vi.fn(),
+  useValidateHackmdToken: useValidateHackmdTokenMock,
 }));
 
 vi.mock('@/lib/query', () => ({
-  useSettings: vi.fn(),
-  useUpdateSettings: vi.fn(),
+  useSettings: useSettingsMock,
+  useUpdateSettings: useUpdateSettingsMock,
 }));
 
 vi.mock('@/components/theme-provider', () => ({
-  useTheme: vi.fn(),
+  useTheme: useThemeMock,
+}));
+
+vi.mock('@tauri-apps/api/webviewWindow', () => ({
+  getCurrentWebviewWindow: getCurrentWebviewWindowMock,
 }));
 
 describe('Settings page', () => {
@@ -93,6 +100,22 @@ describe('Settings page', () => {
     expect(setTheme).toHaveBeenCalledWith('dark');
   });
 
+  it('hides save and reset actions on non-form tabs', () => {
+    render(<Settings />);
+
+    fireEvent.click(screen.getByText('Appearance'));
+    expect(screen.queryByText('Save Changes')).not.toBeInTheDocument();
+    expect(screen.queryByText('Reset')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Shortcuts'));
+    expect(screen.queryByText('Save Changes')).not.toBeInTheDocument();
+    expect(screen.queryByText('Reset')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Advanced'));
+    expect(screen.queryByText('Save Changes')).not.toBeInTheDocument();
+    expect(screen.queryByText('Reset')).not.toBeInTheDocument();
+  });
+
   it('closes the window on Escape', () => {
     render(<Settings />);
 
@@ -104,7 +127,7 @@ describe('Settings page', () => {
   it('allows testing a HackMD API token from the HackMD tab', async () => {
     render(<Settings />);
 
-    fireEvent.click(screen.getByText('HackMD'));
+    fireEvent.click(screen.getByText('HackMD API'));
     fireEvent.change(screen.getByLabelText('API Token'), {
       target: { value: 'hackmd-token' },
     });

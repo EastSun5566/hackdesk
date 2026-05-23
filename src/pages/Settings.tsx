@@ -36,7 +36,7 @@ type SettingsTab = 'general' | 'appearance' | 'hackmd' | 'shortcuts' | 'advanced
 const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: 'general', label: 'General', icon: <SettingsIcon className="h-4 w-4" /> },
   { id: 'appearance', label: 'Appearance', icon: <Monitor className="h-4 w-4" /> },
-  { id: 'hackmd', label: 'HackMD', icon: <Shield className="h-4 w-4" /> },
+  { id: 'hackmd', label: 'HackMD API', icon: <Shield className="h-4 w-4" /> },
   { id: 'shortcuts', label: 'Shortcuts', icon: <Keyboard className="h-4 w-4" /> },
   { id: 'advanced', label: 'Advanced', icon: <Zap className="h-4 w-4" /> },
 ];
@@ -157,6 +157,8 @@ export function Settings() {
 
   useEscapeKey(closeWindow);
 
+  const showFormActions = activeTab === 'general' || activeTab === 'hackmd';
+
   return (
     <div className="flex h-screen bg-background-muted pt-8 text-text-default" data-tauri-drag-region>
       <aside className="w-56 border-r border-border-default bg-background-default p-4">
@@ -252,7 +254,7 @@ export function Settings() {
 
             {activeTab === 'hackmd' && (
               <div className="space-y-6">
-                <h3 className="text-lg font-medium">HackMD Integration</h3>
+                <h3 className="text-lg font-medium">HackMD API Integration</h3>
 
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -285,9 +287,8 @@ export function Settings() {
                       </p>
                     )}
                     <div className="space-y-1 text-sm text-text-subtle">
-                      <p>Generate a personal access token from your HackMD account settings.</p>
-                      <p>This MVP stores the token locally in <code>~/.hackdesk/settings.json</code>.</p>
-                      <p>Phase 1 supports personal HackMD Cloud notes only.</p>
+                      <p>Generate a personal access token from your <a href="https://hackmd.io/settings#api" target="_blank" rel="noopener noreferrer" className="text-primary-default underline">HackMD account settings</a>.</p>
+                      <p>The token is stored locally in <code>~/.hackdesk/settings.json</code>.</p>
                     </div>
                   </div>
 
@@ -372,23 +373,25 @@ export function Settings() {
               </div>
             )}
 
-            <div className="flex items-center gap-4 pt-4">
-              <button
-                type="submit"
-                disabled={isPending}
-                className={primaryButtonClassName}
-              >
-                {isPending ? 'Saving...' : 'Save Changes'}
-              </button>
-              <button
-                type="button"
-                onClick={handleReset}
-                disabled={isPending}
-                className={secondaryButtonClassName}
-              >
-                Reset
-              </button>
-            </div>
+            {showFormActions ? (
+              <div className="flex items-center gap-4 pt-4">
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className={primaryButtonClassName}
+                >
+                  {isPending ? 'Saving...' : 'Save Changes'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  disabled={isPending}
+                  className={secondaryButtonClassName}
+                >
+                  Reset
+                </button>
+              </div>
+            ) : null}
           </form>
         </div>
       </main>

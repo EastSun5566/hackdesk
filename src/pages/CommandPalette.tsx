@@ -159,7 +159,7 @@ function NoteCommandItem({
     >
       <FileText className="mt-0.5 h-4 w-4 shrink-0" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="truncate font-semibold">{note.title || 'Untitled note'}</span>
+        <span className="truncate font-semibold">{note.title || 'Untitled'}</span>
         <span className="truncate text-xs text-zinc-500 dark:text-zinc-300/80">
           {metadata}
         </span>
@@ -634,7 +634,7 @@ export function CommandPalette() {
       await deleteNoteMutation.mutateAsync(selectedNote.id);
       removeRecentNote(selectedNote.id, selectedNote.teamPath ?? null);
       syncRecentNotes();
-      toast.success(`Deleted “${selectedNote.title || 'Untitled note'}”`);
+      toast.success(`Deleted “${selectedNote.title || 'Untitled'}”`);
       setSelectedNote(null);
       setSearch('');
       setMode('notes');
@@ -1509,7 +1509,7 @@ export function CommandPalette() {
                 <CommandItem value="hackmd-selected-note" disabled className="items-start gap-3 py-3">
                   <FileText className="mt-0.5 h-4 w-4 shrink-0" />
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="truncate font-medium">{selectedNote.title || 'Untitled note'}</span>
+                    <span className="truncate font-medium">{selectedNote.title || 'Untitled'}</span>
                     <span className="truncate text-xs text-text-subtle">
                       Last changed {formatNoteDate(selectedNote.lastChangedAt)}
                     </span>
@@ -1541,7 +1541,7 @@ export function CommandPalette() {
                   <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-destructive-default" />
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <span className="truncate font-medium text-destructive-default">
-                      Delete “{selectedNote.title || 'Untitled note'}”?
+                      Delete “{selectedNote.title || 'Untitled'}”?
                     </span>
                     <span className="text-xs text-text-subtle">
                       This action cannot be undone from HackDesk.

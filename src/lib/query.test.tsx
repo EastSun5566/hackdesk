@@ -3,17 +3,17 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { invoke } from '@tauri-apps/api/core';
-
 import { useSettings, useUpdateSettings } from './query';
 import type { AppSettings } from './settings';
 import { defaultSettings } from './settings';
 import * as utils from './utils';
 
-const invokeMock = invoke as unknown as ReturnType<typeof vi.fn>;
+const { invokeMock } = vi.hoisted(() => ({
+  invokeMock: vi.fn(),
+}));
 
 vi.mock('@tauri-apps/api/core', () => ({
-  invoke: vi.fn(),
+  invoke: invokeMock,
 }));
 
 function createWrapper() {
