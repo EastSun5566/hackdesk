@@ -27,12 +27,15 @@ brew tap eastsun5566/hackdesk
 
 # Install app
 brew install --cask hackdesk
+
+# Optional: If you blocked by macOS
+xattr -dr com.apple.quarantine /Applications/HackDesk.app
 ```
 
 > [!NOTE]
 > HackDesk is currently unsigned, so macOS may block the first launch. If that happens, open the app once from Finder with **Right-click → Open**, or allow it in **System Settings → Privacy & Security**.
 >
-> If you trust the app and prefer the terminal, you can run
+> You can also run:
 >
 > ```sh
 > xattr -dr com.apple.quarantine /Applications/HackDesk.app

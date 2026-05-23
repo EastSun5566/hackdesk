@@ -22,21 +22,22 @@ import { data } from './release.data.ts'
 
   # Install app
   brew install --cask hackdesk
+
+  # Optional: If you blocked by macOS
+  xattr -dr com.apple.quarantine /Applications/HackDesk.app
   ```
 
 ::: tip
+
 HackDesk is currently unsigned, so macOS may block the first launch. If that happens, open the app once from Finder with **Right-click → Open**, or allow it in **System Settings → Privacy & Security**.
 
-Developer cannot be verified?
+`Developer cannot be verified?`
 
 [Open a Mac app from an unidentified developer](https://support.apple.com/en-sg/guide/mac-help/mh40616/mac)
-:::
-
-::: tip
 
 `"HackDesk" is damaged and can't be opened. You should move it to the Trash.`
 
-If you trust the app and prefer the Terminal, you can remove the quarantine attribute manually:
+You can run:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/HackDesk.app
@@ -52,15 +53,14 @@ xattr -dr com.apple.quarantine /Applications/HackDesk.app
   > WIP
 
 ::: tip
+
 Download `.deb` installer, advantage small size, disadvantage poor compatibility.
 `tar.gz` Works reliably, you can try it if `.deb` fails to run.
-:::
-
-::: tip
 
 `error while loading shared libraries: libthai.so.0: cannot open shared object file: No such file or directory`
 
 If you encounter this problem, please install the libthai package.It's a issue caused by AppImage packaging.
+
 :::
 
 ## Windows
@@ -78,6 +78,7 @@ If you encounter this problem, please install the libthai package.It's a issue c
 `error code: STATUS_INVALID_IMAGE_HASH`
 
 <https://github.com/tauri-apps/tauri/issues/4659#issuecomment-1452897588>
+
 :::
 
 ---
