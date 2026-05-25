@@ -7,6 +7,8 @@
     "core:default",
     "core:window:allow-close",
     "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
     "core:window:allow-center",
     "core:window:allow-set-size",
     "fs:allow-read-text-file",

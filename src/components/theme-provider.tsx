@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 
 type Theme = 'dark' | 'light' | 'system'
 
@@ -39,8 +39,8 @@ export function ThemeProvider({
     return theme === 'system' ? getSystemTheme() : theme;
   }, [theme]);
 
-  // Apply theme class to document
-  useEffect(() => {
+  // Apply theme class to document before paint when possible.
+  useLayoutEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
     root.classList.add(resolvedTheme);

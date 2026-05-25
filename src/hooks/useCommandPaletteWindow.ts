@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import { LogicalSize } from '@tauri-apps/api/dpi';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
@@ -15,6 +15,17 @@ export const NOTES_COMMAND_PALETTE_SIZE = {
 type CommandPaletteWindowMode = 'compact' | 'notes';
 
 export function useCommandPaletteWindow(mode: CommandPaletteWindowMode) {
+  useLayoutEffect(() => {
+    const currentWindow = getCurrentWindow();
+
+    void currentWindow
+      .show()
+      .then(() => currentWindow.setFocus())
+      .catch((error) => {
+        console.error('Failed to show command palette window:', error);
+      });
+  }, []);
+
   useEffect(() => {
     const currentWindow = getCurrentWindow();
     const size = mode === 'compact' ? COMPACT_COMMAND_PALETTE_SIZE : NOTES_COMMAND_PALETTE_SIZE;

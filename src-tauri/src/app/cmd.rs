@@ -105,6 +105,7 @@ pub fn open_command_palette_window(app: AppHandle) {
         .inner_size(COMMAND_PALETTE_WIDTH, COMMAND_PALETTE_HEIGHT)
         .always_on_top(true)
         .resizable(false)
+        .visible(false)
         .transparent(true)
         .build()
         .unwrap();
