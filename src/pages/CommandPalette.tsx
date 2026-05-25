@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { invoke } from '@tauri-apps/api/core';
 import Fuse from 'fuse.js';
@@ -956,7 +956,7 @@ export function CommandPalette() {
 
   useEscapeKey(handleBack);
 
-  const handleCommandInputKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
+  const handleCommandInputKeyDown = useCallback((event: ReactKeyboardEvent<HTMLInputElement>) => {
     if (!event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
       return;
     }
