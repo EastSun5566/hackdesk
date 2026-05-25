@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { LogicalSize } from '@tauri-apps/api/dpi';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
@@ -14,16 +14,60 @@ export const NOTES_COMMAND_PALETTE_SIZE = {
 
 type CommandPaletteWindowMode = 'compact' | 'notes';
 
-export function useCommandPaletteWindow(mode: CommandPaletteWindowMode) {
-  useLayoutEffect(() => {
-    const currentWindow = getCurrentWindow();
+function waitForNextPaint() {
+  return new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve());
+    });
+  });
+}
 
-    void currentWindow
-      .show()
-      .then(() => currentWindow.setFocus())
-      .catch((error) => {
+async function waitUntilPaintReady() {
+  try {
+    if (document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+  } catch {
+    // Ignore font readiness errors and continue with the reveal sequence.
+  }
+
+  await waitForNextPaint();
+}
+
+export function useCommandPaletteWindow(mode: CommandPaletteWindowMode) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useLayoutEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        await waitUntilPaintReady();
+        if (cancelled) {
+          return;
+        }
+
+        setIsVisible(true);
+        await waitForNextPaint();
+        if (cancelled) {
+          return;
+        }
+
+        const currentWindow = getCurrentWindow();
+        await currentWindow.show();
+        if (cancelled) {
+          return;
+        }
+
+        await currentWindow.setFocus();
+      } catch (error) {
         console.error('Failed to show command palette window:', error);
-      });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -37,4 +81,6 @@ export function useCommandPaletteWindow(mode: CommandPaletteWindowMode) {
         console.error('Failed to resize command palette window:', error);
       });
   }, [mode]);
+
+  return { isVisible };
 }

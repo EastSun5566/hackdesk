@@ -36,6 +36,7 @@ import { useTheme } from '@/components/theme-provider';
 import { Cmd } from '@/constants';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { useCommandPaletteWindow } from '@/hooks/useCommandPaletteWindow';
+import { cn } from '@/lib/utils';
 import {
   getHackmdErrorMessage,
   getHackmdNotePath,
@@ -335,7 +336,7 @@ export function CommandPalette() {
   const shouldLoadTeams = hasHackmdToken && (isNotesTeamWorkspacesMode || isTeamNavigationMode || isTeamRoutesMode || selectedTeamPath !== null);
   const shouldLoadNotes = hasHackmdToken && isNotesMode;
 
-  useCommandPaletteWindow(isExpandedMode ? 'notes' : 'compact');
+  const { isVisible } = useCommandPaletteWindow(isExpandedMode ? 'notes' : 'compact');
 
   const teamsQuery = useHackmdTeams(shouldLoadTeams);
   const notesQuery = useHackmdNotes(hackmdToken, shouldLoadNotes, selectedTeamPath);
@@ -1023,7 +1024,7 @@ export function CommandPalette() {
   const commandKey = mode;
 
   return (
-    <div className="p-2">
+    <div className={cn('p-2', !isVisible && 'pointer-events-none opacity-0')}>
       <Command key={commandKey} shouldFilter={false} loop className={isExpandedMode ? 'min-h-[520px]' : undefined}>
         <CommandInput
           placeholder={inputPlaceholder}
