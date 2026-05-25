@@ -214,6 +214,20 @@ describe('CommandPalette page', () => {
     expect(close).toHaveBeenCalled();
   });
 
+  it('supports Ctrl+P and Ctrl+N for command palette navigation', () => {
+    render(<CommandPalette />);
+
+    const input = screen.getByPlaceholderText('Search commands...');
+
+    expect(getSelectedCommandItem()).toHaveTextContent('New Note');
+
+    fireEvent.keyDown(input, { key: 'n', ctrlKey: true });
+    expect(getSelectedCommandItem()).toHaveTextContent('Go to my notes');
+
+    fireEvent.keyDown(input, { key: 'p', ctrlKey: true });
+    expect(getSelectedCommandItem()).toHaveTextContent('New Note');
+  });
+
   it('executes selected actions and remembers them', () => {
     render(<CommandPalette />);
 

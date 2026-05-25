@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { invoke } from '@tauri-apps/api/core';
 import Fuse from 'fuse.js';
@@ -955,6 +955,30 @@ export function CommandPalette() {
 
   useEscapeKey(handleBack);
 
+  const handleCommandInputKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
+    if (!event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
+      return;
+    }
+
+    const navigationKey = event.key.toLowerCase() === 'p'
+      ? 'ArrowUp'
+      : event.key.toLowerCase() === 'n'
+        ? 'ArrowDown'
+        : null;
+
+    if (!navigationKey) {
+      return;
+    }
+
+    event.preventDefault();
+
+    event.currentTarget.dispatchEvent(new KeyboardEvent('keydown', {
+      key: navigationKey,
+      bubbles: true,
+      cancelable: true,
+    }));
+  }, []);
+
   const inputPlaceholder = mode === 'root'
     ? 'Search commands...'
     : mode === 'notes'
@@ -1005,12 +1029,13 @@ export function CommandPalette() {
           placeholder={inputPlaceholder}
           value={canSearchCurrentMode ? search : ''}
           onValueChange={canSearchCurrentMode ? setSearch : () => {}}
+          onKeyDown={handleCommandInputKeyDown}
           readOnly={!canSearchCurrentMode}
           aria-readonly={!canSearchCurrentMode}
           className={!canSearchCurrentMode ? 'caret-transparent' : undefined}
           autoFocus
         />
-        <CommandList className={isExpandedMode ? 'max-h-[480px]' : undefined}>
+        <CommandList className={isExpandedMode ? 'max-h-[480px]' : 'max-h-[252px]'}>
           <CommandEmpty>{emptyStateText}</CommandEmpty>
 
           {mode === 'root' && (
