@@ -4,13 +4,11 @@ on:
   pull_request:
     branches:
       - main
-  issue_comment:
-    types:
-      - created
 
 jobs:
   build:
-    if: ${{ github.event_name == 'pull_request' || (github.event.issue.pull_request && contains(github.event.comment.body, '/build')) }}
+    permissions:
+      contents: read
 
     strategy:
       fail-fast: false
@@ -60,8 +58,4 @@ jobs:
         run: pnpm test
 
       - name: Build the app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        run: pnpm tauri build --no-bundle --ci

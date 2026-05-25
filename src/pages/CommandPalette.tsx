@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { invoke } from '@tauri-apps/api/core';
 import Fuse from 'fuse.js';
@@ -303,6 +303,7 @@ function TeamNavigationCommandItem({
 }
 
 export function CommandPalette() {
+  const rootRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<PaletteMode>('root');
   const [search, setSearch] = useState('');
   const { theme, setTheme } = useTheme();
@@ -335,7 +336,7 @@ export function CommandPalette() {
   const shouldLoadTeams = hasHackmdToken && (isNotesTeamWorkspacesMode || isTeamNavigationMode || isTeamRoutesMode || selectedTeamPath !== null);
   const shouldLoadNotes = hasHackmdToken && isNotesMode;
 
-  useCommandPaletteWindow(isExpandedMode ? 'notes' : 'compact');
+  useCommandPaletteWindow(isExpandedMode ? 'notes' : 'compact', rootRef);
 
   const teamsQuery = useHackmdTeams(shouldLoadTeams);
   const notesQuery = useHackmdNotes(hackmdToken, shouldLoadNotes, selectedTeamPath);
@@ -520,7 +521,7 @@ export function CommandPalette() {
     || (!teamsQuery.isPending && !teamsQuery.isError && trimmedSearch.length > 0 && teams.length > 0 && filteredTeamNavigationTeams.length === 0);
 
   const closePalette = useCallback(() => {
-    getCurrentWebviewWindow().close();
+    void getCurrentWebviewWindow().hide();
   }, []);
 
   const openLocalSettings = useCallback(async () => {
@@ -955,6 +956,30 @@ export function CommandPalette() {
 
   useEscapeKey(handleBack);
 
+  const handleCommandInputKeyDown = useCallback((event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (!event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
+      return;
+    }
+
+    const navigationKey = event.key.toLowerCase() === 'p'
+      ? 'ArrowUp'
+      : event.key.toLowerCase() === 'n'
+        ? 'ArrowDown'
+        : null;
+
+    if (!navigationKey) {
+      return;
+    }
+
+    event.preventDefault();
+
+    event.currentTarget.dispatchEvent(new KeyboardEvent('keydown', {
+      key: navigationKey,
+      bubbles: true,
+      cancelable: true,
+    }));
+  }, []);
+
   const inputPlaceholder = mode === 'root'
     ? 'Search commands...'
     : mode === 'notes'
@@ -999,18 +1024,19 @@ export function CommandPalette() {
   const commandKey = mode;
 
   return (
-    <div className="p-2">
+    <div ref={rootRef} className="p-2">
       <Command key={commandKey} shouldFilter={false} loop className={isExpandedMode ? 'min-h-[520px]' : undefined}>
         <CommandInput
           placeholder={inputPlaceholder}
           value={canSearchCurrentMode ? search : ''}
           onValueChange={canSearchCurrentMode ? setSearch : () => {}}
+          onKeyDown={handleCommandInputKeyDown}
           readOnly={!canSearchCurrentMode}
           aria-readonly={!canSearchCurrentMode}
           className={!canSearchCurrentMode ? 'caret-transparent' : undefined}
           autoFocus
         />
-        <CommandList className={isExpandedMode ? 'max-h-[480px]' : undefined}>
+        <CommandList className={isExpandedMode ? 'max-h-[480px]' : 'max-h-[244px]'}>
           <CommandEmpty>{emptyStateText}</CommandEmpty>
 
           {mode === 'root' && (

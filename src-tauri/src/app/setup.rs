@@ -84,6 +84,10 @@ pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         e
     })?;
 
+    if let Err(error) = crate::app::cmd::preload_command_palette_window(app_handle) {
+        error!("Failed to preload command palette window: {}", error);
+    }
+
     info!("Application initialization complete");
     Ok(())
 }

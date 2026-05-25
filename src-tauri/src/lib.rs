@@ -4,6 +4,7 @@
 mod app;
 mod utils;
 
+use app::conf::COMMAND_PALETTE_WINDOW_LABEL;
 use app::{cmd, menu, setup};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -19,13 +20,19 @@ pub fn run() {
     tracing::info!("Starting HackDesk application");
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::new()
+                .with_denylist(&[COMMAND_PALETTE_WINDOW_LABEL])
+                .skip_initial_state(COMMAND_PALETTE_WINDOW_LABEL)
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             cmd::execute_action,
             cmd::open_command_palette_window,
+            cmd::command_palette_ready,
             cmd::open_settings_window,
             cmd::apply_settings,
             cmd::open_link,

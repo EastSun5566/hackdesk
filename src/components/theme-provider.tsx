@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { COMMAND_PALETTE_SYNC_THEME_EVENT } from '@/hooks/useCommandPaletteWindow';
 
 type Theme = 'dark' | 'light' | 'system'
 
@@ -24,6 +25,10 @@ function getSystemTheme(): 'dark' | 'light' {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
+function getStoredTheme(storageKey: string, fallbackTheme: Theme) {
+  return (localStorage.getItem(storageKey) as Theme | null) || fallbackTheme;
+}
+
 export function ThemeProvider({
   children,
   defaultTheme = 'system',
@@ -31,7 +36,7 @@ export function ThemeProvider({
   ...props
 }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme,
+    () => getStoredTheme(storageKey, defaultTheme),
   );
 
   // Resolve the actual theme to apply (handles 'system')
@@ -39,12 +44,27 @@ export function ThemeProvider({
     return theme === 'system' ? getSystemTheme() : theme;
   }, [theme]);
 
-  // Apply theme class to document
-  useEffect(() => {
+  // Apply theme class to document before paint when possible.
+  useLayoutEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
     root.classList.add(resolvedTheme);
   }, [resolvedTheme]);
+
+  // Sync theme when another preloaded window changes localStorage.
+  useEffect(() => {
+    const syncTheme = () => {
+      setThemeState(getStoredTheme(storageKey, defaultTheme));
+    };
+
+    window.addEventListener(COMMAND_PALETTE_SYNC_THEME_EVENT, syncTheme);
+    window.addEventListener('storage', syncTheme);
+
+    return () => {
+      window.removeEventListener(COMMAND_PALETTE_SYNC_THEME_EVENT, syncTheme);
+      window.removeEventListener('storage', syncTheme);
+    };
+  }, [defaultTheme, storageKey]);
 
   // Listen for system theme changes when theme is 'system'
   useEffect(() => {

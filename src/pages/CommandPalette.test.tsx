@@ -93,7 +93,7 @@ function selectManageNotesTeam(teamName = 'Engineering') {
 }
 
 describe('CommandPalette page', () => {
-  const close = vi.fn();
+  const hide = vi.fn();
   const setTheme = vi.fn();
   const refetchNotes = vi.fn();
   const refetchTeams = vi.fn();
@@ -173,7 +173,7 @@ describe('CommandPalette page', () => {
       setTheme,
     } as never);
     getCurrentWebviewWindowMock.mockReturnValue({
-      close,
+      hide,
     } as never);
     invokeMock.mockResolvedValue(undefined);
   });
@@ -195,7 +195,7 @@ describe('CommandPalette page', () => {
     });
 
     expect(screen.getByText('Go to my trash')).toBeInTheDocument();
-    expect(screen.queryByText('Go to my notes')).not.toBeInTheDocument();
+    expect(screen.queryByText('Go to my workspace')).not.toBeInTheDocument();
   });
 
   it('cycles to the last root command when pressing ArrowUp from the first item', () => {
@@ -211,7 +211,21 @@ describe('CommandPalette page', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     expect(setTheme).toHaveBeenCalledWith('light');
-    expect(close).toHaveBeenCalled();
+    expect(hide).toHaveBeenCalled();
+  });
+
+  it('supports Ctrl+P and Ctrl+N for command palette navigation', () => {
+    render(<CommandPalette />);
+
+    const input = screen.getByPlaceholderText('Search commands...');
+
+    expect(getSelectedCommandItem()).toHaveTextContent('New Note');
+
+    fireEvent.keyDown(input, { key: 'n', ctrlKey: true });
+    expect(getSelectedCommandItem()).toHaveTextContent('Go to my workspace');
+
+    fireEvent.keyDown(input, { key: 'p', ctrlKey: true });
+    expect(getSelectedCommandItem()).toHaveTextContent('New Note');
   });
 
   it('executes selected actions and remembers them', () => {
@@ -223,7 +237,7 @@ describe('CommandPalette page', () => {
       action: { type: 'Reload' },
     });
     expect(window.localStorage.getItem('hackdesk_recent_commands')).toContain('reload');
-    expect(close).toHaveBeenCalled();
+    expect(hide).toHaveBeenCalled();
   });
 
   it('opens local HackDesk settings from root commands', async () => {
@@ -233,7 +247,7 @@ describe('CommandPalette page', () => {
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith('open_settings_window');
-      expect(close).toHaveBeenCalled();
+      expect(hide).toHaveBeenCalled();
     });
   });
 
@@ -260,7 +274,7 @@ describe('CommandPalette page', () => {
           data: { path: '/settings#general' },
         },
       });
-      expect(close).toHaveBeenCalled();
+      expect(hide).toHaveBeenCalled();
     });
   });
 
@@ -277,16 +291,16 @@ describe('CommandPalette page', () => {
           data: { path: '/settings#api' },
         },
       });
-      expect(close).toHaveBeenCalled();
+      expect(hide).toHaveBeenCalled();
     });
   });
 
-  it('closes on Escape', () => {
+  it('hides on Escape', () => {
     render(<CommandPalette />);
 
     fireEvent.keyDown(document, { key: 'Escape' });
 
-    expect(close).toHaveBeenCalled();
+    expect(hide).toHaveBeenCalled();
   });
 
   it('shows HackMD notes when a token is configured', () => {
@@ -337,7 +351,7 @@ describe('CommandPalette page', () => {
           data: { path: '/@michael' },
         },
       });
-      expect(close).toHaveBeenCalled();
+      expect(hide).toHaveBeenCalled();
     });
   });
 
@@ -357,7 +371,7 @@ describe('CommandPalette page', () => {
           data: { path: '/?nav=search&q=Roadmap%20draft' },
         },
       });
-      expect(close).toHaveBeenCalled();
+      expect(hide).toHaveBeenCalled();
     });
   });
 
@@ -386,7 +400,7 @@ describe('CommandPalette page', () => {
           data: { path: '/@michael/roadmap' },
         },
       });
-      expect(close).toHaveBeenCalled();
+      expect(hide).toHaveBeenCalled();
       expect(getStoredRecentNotes()).toEqual([
         {
           noteId: 'note-1',
@@ -421,7 +435,7 @@ describe('CommandPalette page', () => {
           data: { path: '/@michael/roadmap' },
         },
       });
-      expect(close).toHaveBeenCalled();
+      expect(hide).toHaveBeenCalled();
     });
 
     expect(screen.queryByText('Open Note')).not.toBeInTheDocument();
@@ -831,7 +845,7 @@ describe('CommandPalette page', () => {
           data: { path: '/team/engineering/manage' },
         },
       });
-      expect(close).toHaveBeenCalled();
+      expect(hide).toHaveBeenCalled();
     });
   });
 
@@ -874,7 +888,7 @@ describe('CommandPalette page', () => {
           data: { path: '/team/engineering?nav=search&q=Sprint%20plan' },
         },
       });
-      expect(close).toHaveBeenCalled();
+      expect(hide).toHaveBeenCalled();
     });
   });
 
@@ -975,7 +989,7 @@ describe('CommandPalette page', () => {
           data: { path: '/@engineering/team-roadmap' },
         },
       });
-      expect(close).toHaveBeenCalled();
+      expect(hide).toHaveBeenCalled();
     });
 
     expect(screen.queryByText('Open Note')).not.toBeInTheDocument();
@@ -1028,7 +1042,7 @@ describe('CommandPalette page', () => {
           data: { path: '/@engineering/team-roadmap' },
         },
       });
-      expect(close).toHaveBeenCalled();
+      expect(hide).toHaveBeenCalled();
     });
   });
 
@@ -1078,7 +1092,7 @@ describe('CommandPalette page', () => {
 
     await waitFor(() => {
       expect(deleteNote).toHaveBeenCalledWith('team-note-1');
-      expect(close).not.toHaveBeenCalled();
+      expect(hide).not.toHaveBeenCalled();
       expect(getStoredRecentNotes()).toEqual([
         {
           noteId: 'note-1',
@@ -1135,7 +1149,7 @@ describe('CommandPalette page', () => {
           data: { path: '/@engineering/team-roadmap/edit' },
         },
       });
-      expect(close).toHaveBeenCalled();
+      expect(hide).toHaveBeenCalled();
       expect(getStoredRecentNotes()).toEqual([
         {
           noteId: 'team-note-1',
