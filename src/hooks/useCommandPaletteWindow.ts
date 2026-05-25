@@ -1,6 +1,11 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { type RefObject, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { LogicalSize } from '@tauri-apps/api/dpi';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+
+export const COMMAND_PALETTE_OPEN_EVENT = 'command-palette:open';
+export const COMMAND_PALETTE_SYNC_THEME_EVENT = 'command-palette:sync-theme';
 
 export const COMPACT_COMMAND_PALETTE_SIZE = {
   width: 560,
@@ -14,61 +19,88 @@ export const NOTES_COMMAND_PALETTE_SIZE = {
 
 type CommandPaletteWindowMode = 'compact' | 'notes';
 
-function waitForNextPaint() {
+function isCommandPaletteContentReady(root: HTMLElement) {
+  return Boolean(
+    root.querySelector('[cmdk-item]')
+    && root.querySelector('[cmdk-input-wrapper] input'),
+  );
+}
+
+function waitForCommandPaletteContent(root: HTMLElement, timeoutMs = 3000) {
   return new Promise<void>((resolve) => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => resolve());
+    if (isCommandPaletteContentReady(root)) {
+      resolve();
+      return;
+    }
+
+    let settled = false;
+    const finish = () => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      observer.disconnect();
+      resolve();
+    };
+
+    const observer = new MutationObserver(() => {
+      if (isCommandPaletteContentReady(root)) {
+        finish();
+      }
     });
+
+    observer.observe(root, { childList: true, subtree: true, attributes: true });
+
+    window.setTimeout(finish, timeoutMs);
   });
 }
 
-async function waitUntilPaintReady() {
-  try {
-    if (document.fonts?.ready) {
-      await document.fonts.ready;
-    }
-  } catch {
-    // Ignore font readiness errors and continue with the reveal sequence.
+async function markCommandPaletteReady(rootRef: RefObject<HTMLElement | null>) {
+  const root = rootRef.current;
+  if (!root) {
+    return;
   }
 
-  await waitForNextPaint();
+  await waitForCommandPaletteContent(root);
+  await invoke('command_palette_ready');
 }
 
-export function useCommandPaletteWindow(mode: CommandPaletteWindowMode) {
-  const [isVisible, setIsVisible] = useState(false);
+function focusCommandPaletteInput(root: HTMLElement) {
+  root.querySelector<HTMLInputElement>('[cmdk-input-wrapper] input')?.focus();
+}
 
-  useLayoutEffect(() => {
-    let cancelled = false;
+export function useCommandPaletteWindow(
+  mode: CommandPaletteWindowMode,
+  rootRef: RefObject<HTMLElement | null>,
+) {
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
 
-    void (async () => {
-      try {
-        await waitUntilPaintReady();
-        if (cancelled) {
-          return;
-        }
-
-        setIsVisible(true);
-        await waitForNextPaint();
-        if (cancelled) {
-          return;
-        }
-
-        const currentWindow = getCurrentWindow();
-        await currentWindow.show();
-        if (cancelled) {
-          return;
-        }
-
-        await currentWindow.setFocus();
-      } catch (error) {
-        console.error('Failed to show command palette window:', error);
+    void listen(COMMAND_PALETTE_OPEN_EVENT, () => {
+      const root = rootRef.current;
+      if (!root || disposed) {
+        return;
       }
-    })();
+
+      window.dispatchEvent(new Event(COMMAND_PALETTE_SYNC_THEME_EVENT));
+      focusCommandPaletteInput(root);
+    }).then(async (cleanup) => {
+      if (disposed) {
+        cleanup();
+        return;
+      }
+
+      unlisten = cleanup;
+      await markCommandPaletteReady(rootRef);
+    });
 
     return () => {
-      cancelled = true;
+      disposed = true;
+      unlisten?.();
     };
-  }, []);
+  }, [rootRef]);
 
   useEffect(() => {
     const currentWindow = getCurrentWindow();
@@ -81,6 +113,4 @@ export function useCommandPaletteWindow(mode: CommandPaletteWindowMode) {
         console.error('Failed to resize command palette window:', error);
       });
   }, [mode]);
-
-  return { isVisible };
 }

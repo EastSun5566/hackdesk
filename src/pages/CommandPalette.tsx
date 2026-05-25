@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { invoke } from '@tauri-apps/api/core';
 import Fuse from 'fuse.js';
@@ -36,7 +36,6 @@ import { useTheme } from '@/components/theme-provider';
 import { Cmd } from '@/constants';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { useCommandPaletteWindow } from '@/hooks/useCommandPaletteWindow';
-import { cn } from '@/lib/utils';
 import {
   getHackmdErrorMessage,
   getHackmdNotePath,
@@ -304,6 +303,7 @@ function TeamNavigationCommandItem({
 }
 
 export function CommandPalette() {
+  const rootRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<PaletteMode>('root');
   const [search, setSearch] = useState('');
   const { theme, setTheme } = useTheme();
@@ -336,7 +336,7 @@ export function CommandPalette() {
   const shouldLoadTeams = hasHackmdToken && (isNotesTeamWorkspacesMode || isTeamNavigationMode || isTeamRoutesMode || selectedTeamPath !== null);
   const shouldLoadNotes = hasHackmdToken && isNotesMode;
 
-  const { isVisible } = useCommandPaletteWindow(isExpandedMode ? 'notes' : 'compact');
+  useCommandPaletteWindow(isExpandedMode ? 'notes' : 'compact', rootRef);
 
   const teamsQuery = useHackmdTeams(shouldLoadTeams);
   const notesQuery = useHackmdNotes(hackmdToken, shouldLoadNotes, selectedTeamPath);
@@ -521,7 +521,7 @@ export function CommandPalette() {
     || (!teamsQuery.isPending && !teamsQuery.isError && trimmedSearch.length > 0 && teams.length > 0 && filteredTeamNavigationTeams.length === 0);
 
   const closePalette = useCallback(() => {
-    getCurrentWebviewWindow().close();
+    void getCurrentWebviewWindow().hide();
   }, []);
 
   const openLocalSettings = useCallback(async () => {
@@ -1024,7 +1024,7 @@ export function CommandPalette() {
   const commandKey = mode;
 
   return (
-    <div className={cn('p-2', !isVisible && 'pointer-events-none opacity-0')}>
+    <div ref={rootRef} className="p-2">
       <Command key={commandKey} shouldFilter={false} loop className={isExpandedMode ? 'min-h-[520px]' : undefined}>
         <CommandInput
           placeholder={inputPlaceholder}
@@ -1036,7 +1036,7 @@ export function CommandPalette() {
           className={!canSearchCurrentMode ? 'caret-transparent' : undefined}
           autoFocus
         />
-        <CommandList className={isExpandedMode ? 'max-h-[480px]' : 'max-h-[252px]'}>
+        <CommandList className={isExpandedMode ? 'max-h-[480px]' : 'max-h-[244px]'}>
           <CommandEmpty>{emptyStateText}</CommandEmpty>
 
           {mode === 'root' && (

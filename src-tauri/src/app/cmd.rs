@@ -1,6 +1,10 @@
-use tauri::{command, AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{
+    command, AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
+};
 use tauri_plugin_opener::OpenerExt;
 use url::Url;
+
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[cfg(not(target_os = "linux"))]
 use window_vibrancy::{self, NSVisualEffectMaterial};
@@ -21,6 +25,11 @@ use crate::{
 use crate::app::mac::set_transparent_title_bar;
 
 use tracing::{error, info, warn};
+
+pub const COMMAND_PALETTE_OPEN_EVENT: &str = "command-palette:open";
+
+static COMMAND_PALETTE_UI_READY: AtomicBool = AtomicBool::new(false);
+static COMMAND_PALETTE_OPEN_PENDING: AtomicBool = AtomicBool::new(false);
 
 /// Safe, predefined actions that can be executed in the main window
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -85,58 +94,128 @@ pub fn execute_action(app: AppHandle, action: SafeScript) -> Result<(), String> 
     Ok(())
 }
 
+fn emit_command_palette_open(app: &AppHandle) {
+    if let Some(win) = app.get_webview_window(COMMAND_PALETTE_WINDOW_LABEL) {
+        if let Err(error) = win.emit(COMMAND_PALETTE_OPEN_EVENT, ()) {
+            error!("Failed to emit command palette open event: {}", error);
+        }
+    }
+}
+
+fn show_command_palette(app: &AppHandle) {
+    let Some(win) = app.get_webview_window(COMMAND_PALETTE_WINDOW_LABEL) else {
+        error!("Command palette window not found");
+        return;
+    };
+
+    if let Err(error) = win.show() {
+        error!("Failed to show command palette window: {}", error);
+        return;
+    }
+
+    if let Err(error) = win.set_focus() {
+        error!("Failed to focus command palette window: {}", error);
+    }
+
+    emit_command_palette_open(app);
+}
+
+#[command]
+pub fn command_palette_ready(app: AppHandle) {
+    COMMAND_PALETTE_UI_READY.store(true, Ordering::SeqCst);
+
+    if COMMAND_PALETTE_OPEN_PENDING.swap(false, Ordering::SeqCst) {
+        show_command_palette(&app);
+    }
+}
+
 #[command]
 pub fn open_command_palette_window(app: AppHandle) {
     info!("Opening command palette window");
 
-    if let Some(win) = app.get_webview_window(COMMAND_PALETTE_WINDOW_LABEL) {
-        info!("Command palette window already exists, showing existing instance");
-        let _ = win.show();
-        let _ = win.set_focus();
+    if let Err(error) = preload_command_palette_window(&app) {
+        error!("Failed to ensure command palette window exists: {}", error);
         return;
     }
 
-    {
-        let command_palette_win = WebviewWindowBuilder::new(
-            &app,
-            COMMAND_PALETTE_WINDOW_LABEL,
-            WebviewUrl::App("/command-palette".parse().unwrap()),
-        )
-        .inner_size(COMMAND_PALETTE_WIDTH, COMMAND_PALETTE_HEIGHT)
-        .always_on_top(true)
-        .resizable(false)
-        .visible(false)
-        .transparent(true)
-        .build()
-        .unwrap();
-
-        let app_clone = app.clone();
-        command_palette_win.on_window_event(move |event| {
-            if let tauri::WindowEvent::Focused(is_focused) = event {
-                if !is_focused {
-                    if let Some(win) = app_clone.get_webview_window(COMMAND_PALETTE_WINDOW_LABEL) {
-                        let _ = win.close();
-                    }
-                }
-            }
-        });
-
-        #[cfg(target_os = "macos")]
-        set_transparent_title_bar(&command_palette_win, true, true);
-
-        #[cfg(target_os = "macos")]
-        window_vibrancy::apply_vibrancy(
-            &command_palette_win,
-            NSVisualEffectMaterial::FullScreenUI,
-            None,
-            None,
-        )
-        .expect("Unsupported platform! 'apply_vibrancy' is only supported on macOS");
-
-        #[cfg(target_os = "windows")]
-        window_vibrancy::apply_blur(&command_palette_win, Some((18, 18, 18, 125)))
-            .expect("Unsupported platform! 'apply_blur' is only supported on Windows");
+    if !COMMAND_PALETTE_UI_READY.load(Ordering::SeqCst) {
+        COMMAND_PALETTE_OPEN_PENDING.store(true, Ordering::SeqCst);
+        return;
     }
+
+    show_command_palette(&app);
+}
+
+pub fn preload_command_palette_window(app: &AppHandle) -> Result<(), String> {
+    if app
+        .get_webview_window(COMMAND_PALETTE_WINDOW_LABEL)
+        .is_some()
+    {
+        return Ok(());
+    }
+
+    info!("Preloading command palette window");
+    build_command_palette_window(app)?;
+    Ok(())
+}
+
+fn build_command_palette_window(app: &AppHandle) -> Result<WebviewWindow, String> {
+    let command_palette_win = WebviewWindowBuilder::new(
+        app,
+        COMMAND_PALETTE_WINDOW_LABEL,
+        WebviewUrl::App("/command-palette".parse().unwrap()),
+    )
+    .inner_size(COMMAND_PALETTE_WIDTH, COMMAND_PALETTE_HEIGHT)
+    .always_on_top(true)
+    .resizable(false)
+    .visible(false)
+    .transparent(true)
+    .build()
+    .map_err(|error| error.to_string())?;
+
+    let app_clone = app.clone();
+    command_palette_win.on_window_event(move |event| {
+        if let tauri::WindowEvent::Focused(is_focused) = event {
+            if *is_focused {
+                return;
+            }
+
+            let app_clone = app_clone.clone();
+            tauri::async_runtime::spawn(async move {
+                std::thread::sleep(std::time::Duration::from_millis(150));
+
+                let Some(win) = app_clone.get_webview_window(COMMAND_PALETTE_WINDOW_LABEL) else {
+                    return;
+                };
+
+                if win.is_focused().unwrap_or(true) {
+                    return;
+                }
+
+                let _ = win.hide();
+            });
+        }
+    });
+
+    #[cfg(target_os = "macos")]
+    set_transparent_title_bar(&command_palette_win, true, true);
+
+    #[cfg(target_os = "macos")]
+    window_vibrancy::apply_vibrancy(
+        &command_palette_win,
+        NSVisualEffectMaterial::FullScreenUI,
+        None,
+        None,
+    )
+    .map_err(|error| error.to_string())?;
+
+    #[cfg(target_os = "windows")]
+    window_vibrancy::apply_blur(&command_palette_win, Some((18, 18, 18, 125)))
+        .map_err(|error| error.to_string())?;
+
+    let _ = command_palette_win.hide();
+
+    Ok(command_palette_win)
 }
 
 #[command]
