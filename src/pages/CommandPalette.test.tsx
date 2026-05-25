@@ -195,7 +195,7 @@ describe('CommandPalette page', () => {
     });
 
     expect(screen.getByText('Go to my trash')).toBeInTheDocument();
-    expect(screen.queryByText('Go to my notes')).not.toBeInTheDocument();
+    expect(screen.queryByText('Go to my workspace')).not.toBeInTheDocument();
   });
 
   it('cycles to the last root command when pressing ArrowUp from the first item', () => {
@@ -222,7 +222,7 @@ describe('CommandPalette page', () => {
     expect(getSelectedCommandItem()).toHaveTextContent('New Note');
 
     fireEvent.keyDown(input, { key: 'n', ctrlKey: true });
-    expect(getSelectedCommandItem()).toHaveTextContent('Go to my notes');
+    expect(getSelectedCommandItem()).toHaveTextContent('Go to my workspace');
 
     fireEvent.keyDown(input, { key: 'p', ctrlKey: true });
     expect(getSelectedCommandItem()).toHaveTextContent('New Note');
