@@ -37,7 +37,7 @@ function getReleaseNotes(version, changelog) {
   ).trim();
 
   if (!section) {
-    throw new Error(`CHANGELOG section for version ${version} is empty.`);
+    return `No specific release notes provided for version ${version}.`;
   }
 
   return section;
