@@ -20,7 +20,6 @@
     "check": "pnpm run lint:ts && pnpm run lint:cargo",
     "version:check": "node scripts/check-version.js",
     "sync:version": "node scripts/sync-version.js",
-    "prerelease": "pnpm run version:check",
     "test": "pnpm run test:rust && pnpm run test:frontend",
     "test:frontend": "vitest run",
     "test:rust": "cd src-tauri && cargo test",
@@ -30,12 +29,6 @@
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"
-  },
-  "standard-version": {
-    "releaseCommitMessageFormat": "chore: {{currentTag}}",
-    "scripts": {
-      "precommit": "node scripts/sync-version.js && node scripts/check-version.js && git add -A"
-    }
   },
   "author": "Michael Wang <michael19920327@gmail.com> (https://github.com/EastSun5566)",
   "repository": {
