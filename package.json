@@ -32,6 +32,7 @@
     "docs:preview": "vitepress preview docs"
   },
   "standard-version": {
+    "releaseCommitMessageFormat": "chore: {{currentTag}}",
     "scripts": {
       "precommit": "node scripts/sync-version.js && node scripts/check-version.js && git add -A"
     }

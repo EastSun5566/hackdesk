@@ -15,7 +15,10 @@ function escapeRegExp(value) {
 
 function getReleaseNotes(version, changelog) {
   const normalizedChangelog = changelog.replace(/\r\n/g, '\n');
-  const headingRegex = new RegExp(`^## \\[${escapeRegExp(version)}\\].*$`, 'm');
+  const headingRegex = new RegExp(
+    `^#{2,}\\s(?:\\[${escapeRegExp(version)}\\]|${escapeRegExp(version)}).*$`,
+    'm'
+  );
   const headingMatch = headingRegex.exec(normalizedChangelog);
 
   if (!headingMatch || headingMatch.index === undefined) {
@@ -24,7 +27,9 @@ function getReleaseNotes(version, changelog) {
 
   const sectionStart = headingMatch.index + headingMatch[0].length;
   const remainingChangelog = normalizedChangelog.slice(sectionStart);
-  const nextHeadingIndex = remainingChangelog.search(/\n## .+/);
+  const nextHeadingIndex = remainingChangelog.search(
+    /\n#{2,}\s(?:\[[^\]]+\]|\d+\.\d+\.\d+).+/
+  );
   const section = (
     nextHeadingIndex === -1
       ? remainingChangelog
