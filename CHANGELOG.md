@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.1](https://github.com/EastSun5566/hackdesk/compare/v0.1.0...v0.1.1) (2026-05-26)
+
+
+### Features
+
+* remove unnecessary action button on settings ([2232d5f](https://github.com/EastSun5566/hackdesk/commit/2232d5fdcb28f8ed519898d6588b80b8b6bf08ee))
+
+
+### Bug Fixes
+
+* **command-palette:** add Ctrl+P/N navigation and fix double scrollbar ([78f5ac4](https://github.com/EastSun5566/hackdesk/commit/78f5ac409d2208dc6773c001f928945fd2cb8a73))
+* **command-palette:** keep preloaded palette ready and themed ([e8f3ad3](https://github.com/EastSun5566/hackdesk/commit/e8f3ad35e050d60915d82542e5d11bc47c1bfa0a))
+* **command-palette:** reduce launch flash with hidden window and early theme ([5cfd6d2](https://github.com/EastSun5566/hackdesk/commit/5cfd6d2e613415ad5b75cc4711440c31eb585fb8))
+* **command-palette:** reveal window after first paint is ready ([94627d4](https://github.com/EastSun5566/hackdesk/commit/94627d42c305acf674a1d03f78cadb5d6b611f08))
+
 ## [0.1.0](https://github.com/EastSun5566/hackdesk/compare/v0.0.7...v0.1.0) (2026-05-15)
 
 
