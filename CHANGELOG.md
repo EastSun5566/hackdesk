@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.5](https://github.com/EastSun5566/hackdesk/compare/v0.1.4...v0.1.5) (2026-05-27)
+
+
+### Bug Fixes
+
+* v2 updater flow ([f238e73](https://github.com/EastSun5566/hackdesk/commit/f238e738f68085b61387fcdfe68b118be3b89f56))
+
 ### [0.1.4](https://github.com/EastSun5566/hackdesk/compare/v0.1.3...v0.1.4) (2026-05-26)
 
 
