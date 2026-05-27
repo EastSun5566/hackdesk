@@ -31,11 +31,15 @@ import { data } from './release.data.ts'
 
 HackDesk is currently unsigned, so macOS may block the first launch. If that happens, open the app once from Finder with **Right-click → Open**, or allow it in **System Settings → Privacy & Security**.
 
+---
+
 `Developer cannot be verified?`
 
 [Open a Mac app from an unidentified developer](https://support.apple.com/en-sg/guide/mac-help/mh40616/mac)
 
-`"HackDesk" is damaged and can't be opened. You should move it to the Trash.`
+---
+
+`"HackDesk.app" is damaged and can't be opened. You should move it to the Trash.`
 
 You can run:
 
@@ -56,6 +60,8 @@ xattr -dr com.apple.quarantine /Applications/HackDesk.app
 
 Download `.deb` installer, advantage small size, disadvantage poor compatibility.
 `tar.gz` Works reliably, you can try it if `.deb` fails to run.
+
+---
 
 `error while loading shared libraries: libthai.so.0: cannot open shared object file: No such file or directory`
 
@@ -82,5 +88,13 @@ If you encounter this problem, please install the libthai package.It's a issue c
 :::
 
 ---
+
+::: warning Existing v0.1.0 installs
+
+If you are already using HackDesk `v0.1.0`, please manually install the latest release once.
+
+That build did not include the explicit Tauri v2 update check yet, so it cannot prompt itself to upgrade. You do **not** need to uninstall first — just install the latest version over it. After that, future releases can use the built-in updater normally.
+
+:::
 
 You can see all releases on [GitHub](https://github.com/EastSun5566/hackdesk/releases)

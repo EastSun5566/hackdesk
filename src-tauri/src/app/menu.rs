@@ -3,36 +3,65 @@ use tauri::{
     AppHandle, Runtime, Wry,
 };
 
-use crate::cmd;
+use crate::{
+    app::{conf::DEFAULT_TITLE, updater},
+    cmd,
+};
 
 pub fn init<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
-    let name = app.package_info().name.clone();
+    let hide_label = format!("Hide {DEFAULT_TITLE}");
+    let quit_label = format!("Quit {DEFAULT_TITLE}");
 
-    let about = PredefinedMenuItem::about(app, Some(&name), None)?;
+    let about = PredefinedMenuItem::about(app, Some(&format!("About {DEFAULT_TITLE}")), None)?;
+    let check_for_updates =
+        MenuItemBuilder::with_id("check_for_updates", "Check for Updates…").build(app)?;
     let separator1 = PredefinedMenuItem::separator(app)?;
-    let settings = MenuItemBuilder::with_id("settings", "Settings")
+    let settings = MenuItemBuilder::with_id("settings", "Settings…")
         .accelerator("CmdOrCtrl+,")
         .build(app)?;
     let separator2 = PredefinedMenuItem::separator(app)?;
-    let hide = PredefinedMenuItem::hide(app, None)?;
+    let separator3 = PredefinedMenuItem::separator(app)?;
+    let hide = PredefinedMenuItem::hide(app, Some(&hide_label))?;
     let hide_others = PredefinedMenuItem::hide_others(app, None)?;
     let show_all = PredefinedMenuItem::show_all(app, None)?;
-    let separator3 = PredefinedMenuItem::separator(app)?;
-    let quit = PredefinedMenuItem::quit(app, None)?;
+    let separator4 = PredefinedMenuItem::separator(app)?;
+    let quit = PredefinedMenuItem::quit(app, Some(&quit_label))?;
 
-    let app_menu = SubmenuBuilder::new(app, &name)
-        .items(&[
-            &about,
-            &separator1,
-            &settings,
-            &separator2,
-            &hide,
-            &hide_others,
-            &show_all,
-            &separator3,
-            &quit,
-        ])
-        .build()?;
+    let app_menu = if cfg!(target_os = "macos") {
+        let services = PredefinedMenuItem::services(app, None)?;
+
+        SubmenuBuilder::new(app, DEFAULT_TITLE)
+            .items(&[
+                &about,
+                &check_for_updates,
+                &separator1,
+                &settings,
+                &separator2,
+                &services,
+                &separator3,
+                &hide,
+                &hide_others,
+                &show_all,
+                &separator4,
+                &quit,
+            ])
+            .build()?
+    } else {
+        SubmenuBuilder::new(app, DEFAULT_TITLE)
+            .items(&[
+                &about,
+                &check_for_updates,
+                &separator1,
+                &settings,
+                &separator2,
+                &hide,
+                &hide_others,
+                &show_all,
+                &separator4,
+                &quit,
+            ])
+            .build()?
+    };
 
     let new_note = MenuItemBuilder::with_id("new_note", "New Note")
         .accelerator("CmdOrCtrl+N")
@@ -71,10 +100,9 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     let docs = MenuItemBuilder::with_id("docs", "Documentation").build(app)?;
     let source = MenuItemBuilder::with_id("source", "View on GitHub").build(app)?;
     let issues = MenuItemBuilder::with_id("issues", "Report Issue").build(app)?;
-    let separator7 = PredefinedMenuItem::separator(app)?;
 
     let help_menu = SubmenuBuilder::new(app, "Help")
-        .items(&[&docs, &source, &issues, &separator7])
+        .items(&[&docs, &source, &issues])
         .build()?;
 
     Menu::with_items(
@@ -116,6 +144,9 @@ pub fn handler(app: &AppHandle<Wry>, event: tauri::menu::MenuEvent) {
                 app.clone(),
                 "https://github.com/EastSun5566/hackdesk/issues/new".to_string(),
             );
+        }
+        "check_for_updates" => {
+            updater::spawn_menu_update_check(app.clone());
         }
         _ => (),
     }

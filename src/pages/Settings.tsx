@@ -21,6 +21,7 @@ import {
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 
 import { useValidateHackmdToken } from '@/lib/hackmd';
+import { useCheckForUpdates } from '@/lib/updater';
 import { useSettings, useUpdateSettings } from '@/lib/query';
 import {
   defaultSettings,
@@ -82,6 +83,10 @@ export function Settings() {
   const [showApiToken, setShowApiToken] = useState(false);
   const { data: settingsData } = useSettings();
   const { mutate: updateSettings, isPending } = useUpdateSettings();
+  const {
+    mutate: checkForUpdates,
+    isPending: isCheckingForUpdates,
+  } = useCheckForUpdates();
   const {
     mutate: validateHackmdToken,
     data: validatedUser,
@@ -147,6 +152,31 @@ export function Settings() {
       },
       onError: (error) => {
         toast.error(`HackMD connection failed: ${error.message}`);
+      },
+    });
+  };
+
+  const handleCheckForUpdates = () => {
+    checkForUpdates(undefined, {
+      onSuccess: (result) => {
+        switch (result.status) {
+        case 'upToDate':
+          toast.info('You’re already on the latest version of HackDesk.');
+          break;
+        case 'declined':
+          toast.info(`Skipped installing HackDesk v${result.version}.`);
+          break;
+        case 'installed':
+          toast.success(
+            result.restart_required
+              ? `HackDesk v${result.version} is ready. Quit and reopen the app to finish applying the update.`
+              : `HackDesk v${result.version} installed successfully.`,
+          );
+          break;
+        }
+      },
+      onError: (error) => {
+        toast.error(`Failed to check for updates: ${error.message}`);
       },
     });
   };
@@ -355,9 +385,20 @@ export function Settings() {
                 <div className="space-y-6">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Version</label>
-                    <p className="text-sm text-text-subtle">
-                      HackDesk v{version}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <p className="text-sm text-text-subtle">
+                        HackDesk v{version}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleCheckForUpdates}
+                        disabled={isCheckingForUpdates}
+                        className={secondaryButtonClassName}
+                      >
+                        {isCheckingForUpdates ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        {isCheckingForUpdates ? 'Checking...' : 'Check for Updates'}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-2">

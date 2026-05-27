@@ -4,6 +4,7 @@ pub mod hackmd;
 pub mod menu;
 pub mod setup;
 pub mod tray;
+pub mod updater;
 
 #[cfg(target_os = "macos")]
 pub mod mac;

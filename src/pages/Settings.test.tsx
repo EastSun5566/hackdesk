@@ -4,12 +4,14 @@ import { Settings } from './Settings';
 
 const {
   useValidateHackmdTokenMock,
+  useCheckForUpdatesMock,
   useSettingsMock,
   useUpdateSettingsMock,
   useThemeMock,
   getCurrentWebviewWindowMock,
 } = vi.hoisted(() => ({
   useValidateHackmdTokenMock: vi.fn(),
+  useCheckForUpdatesMock: vi.fn(),
   useSettingsMock: vi.fn(),
   useUpdateSettingsMock: vi.fn(),
   useThemeMock: vi.fn(),
@@ -18,6 +20,10 @@ const {
 
 vi.mock('@/lib/hackmd', () => ({
   useValidateHackmdToken: useValidateHackmdTokenMock,
+}));
+
+vi.mock('@/lib/updater', () => ({
+  useCheckForUpdates: useCheckForUpdatesMock,
 }));
 
 vi.mock('@/lib/query', () => ({
@@ -35,6 +41,7 @@ vi.mock('@tauri-apps/api/webviewWindow', () => ({
 
 describe('Settings page', () => {
   const mutate = vi.fn();
+  const checkForUpdates = vi.fn();
   const validateToken = vi.fn();
   const resetValidation = vi.fn();
   const setTheme = vi.fn();
@@ -52,6 +59,10 @@ describe('Settings page', () => {
     } as never);
     useSettingsMock.mockReturnValue({
       data: { title: 'Workspace', hackmdApiToken: '' },
+    } as never);
+    useCheckForUpdatesMock.mockReturnValue({
+      mutate: checkForUpdates,
+      isPending: false,
     } as never);
     useUpdateSettingsMock.mockReturnValue({
       mutate,
@@ -136,6 +147,23 @@ describe('Settings page', () => {
     await waitFor(() => {
       expect(validateToken).toHaveBeenCalledWith(
         'hackmd-token',
+        expect.objectContaining({
+          onSuccess: expect.any(Function),
+          onError: expect.any(Function),
+        }),
+      );
+    });
+  });
+
+  it('allows checking for updates from the advanced tab', async () => {
+    render(<Settings />);
+
+    fireEvent.click(screen.getByText('Advanced'));
+    fireEvent.click(screen.getByText('Check for Updates'));
+
+    await waitFor(() => {
+      expect(checkForUpdates).toHaveBeenCalledWith(
+        undefined,
         expect.objectContaining({
           onSuccess: expect.any(Function),
           onError: expect.any(Function),

@@ -17,6 +17,7 @@ use crate::{
             SETTINGS_WINDOW_LABEL, SETTINGS_WINDOW_WIDTH,
         },
         hackmd::{self, HackmdCreateNoteInput, HackmdNoteDto, HackmdTeamDto, HackmdUserDto},
+        updater,
     },
     utils,
 };
@@ -289,6 +290,13 @@ pub fn open_link(app: AppHandle, url: String) {
 #[command]
 pub fn apply_settings(app: AppHandle) -> Result<(), String> {
     utils::apply_settings(&app).map_err(|e| format!("Failed to apply settings: {}", e))
+}
+
+#[command]
+pub async fn check_for_updates(app: AppHandle) -> Result<updater::ManualUpdateStatus, String> {
+    updater::check_for_updates_from_settings(&app)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 #[command]

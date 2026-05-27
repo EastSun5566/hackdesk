@@ -28,6 +28,7 @@ pub fn run() {
         )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             cmd::execute_action,
@@ -35,6 +36,7 @@ pub fn run() {
             cmd::command_palette_ready,
             cmd::open_settings_window,
             cmd::apply_settings,
+            cmd::check_for_updates,
             cmd::open_link,
             cmd::validate_hackmd_token,
             cmd::list_hackmd_notes,
