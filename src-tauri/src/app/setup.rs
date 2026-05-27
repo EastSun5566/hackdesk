@@ -64,29 +64,31 @@ pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         e
     })?;
 
-    let app_handle = app.handle();
+    let app_handle = app.handle().clone();
 
     let settings_path = utils::get_root_path(SETTINGS_NAME)?;
     match settings_path.exists() {
         true => {
             info!("Applying existing settings");
-            utils::apply_settings(app_handle)?
+            utils::apply_settings(&app_handle)?
         }
         false => {
             info!("Initializing default settings");
-            utils::init_settings(app_handle)?
+            utils::init_settings(&app_handle)?
         }
     }
 
     info!("Initializing tray icon");
-    crate::app::tray::init(app_handle).map_err(|e| {
+    crate::app::tray::init(&app_handle).map_err(|e| {
         error!("Failed to initialize tray: {}", e);
         e
     })?;
 
-    if let Err(error) = crate::app::cmd::preload_command_palette_window(app_handle) {
+    if let Err(error) = crate::app::cmd::preload_command_palette_window(&app_handle) {
         error!("Failed to preload command palette window: {}", error);
     }
+
+    crate::app::updater::spawn_startup_update_check(app_handle);
 
     info!("Application initialization complete");
     Ok(())
