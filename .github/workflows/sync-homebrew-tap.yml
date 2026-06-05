@@ -1,0 +1,136 @@
+name: Sync Homebrew tap
+
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: Release tag to sync, for example v0.1.5
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to sync, for example v0.1.5
+        required: true
+        type: string
+
+jobs:
+  sync-homebrew-tap:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      SOURCE_REPO: ${{ github.repository }}
+      TAP_REPO: ${{ github.repository_owner }}/homebrew-hackdesk
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      - name: Generate Homebrew tap token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.HOMEBREW_TAP_APP_CLIENT_ID }}
+          private-key: ${{ secrets.HOMEBREW_TAP_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: homebrew-hackdesk
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Checkout Homebrew tap
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ env.TAP_REPO }}
+          path: homebrew-hackdesk
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
+
+      - name: Update Homebrew cask
+        id: sync
+        run: |
+          node scripts/sync-homebrew-tap.js \
+            --release-tag "$RELEASE_TAG" \
+            --source-repo "$SOURCE_REPO" \
+            --tap-repo "$TAP_REPO" \
+            --cask-path "homebrew-hackdesk/Casks/hackdesk.rb"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Report up-to-date tap
+        if: steps.sync.outputs.changed != 'true'
+        run: echo "Homebrew tap already matches ${{ steps.sync.outputs.release_tag }}."
+
+      - name: Get Homebrew bot user ID
+        id: bot-user
+        if: steps.sync.outputs.changed == 'true'
+        run: echo "user-id=$(gh api \"/users/${{ steps.app-token.outputs.app-slug }}[bot]\" --jq .id)" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - name: Commit and push Homebrew tap update
+        if: steps.sync.outputs.changed == 'true'
+        working-directory: homebrew-hackdesk
+        run: |
+          git config user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
+          git config user.email '${{ steps.bot-user.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com'
+          gh auth setup-git
+          git checkout -B '${{ steps.sync.outputs.branch_name }}'
+          git add Casks/hackdesk.rb
+          git commit -m '${{ steps.sync.outputs.commit_message }}'
+          git push --force-with-lease --set-upstream origin '${{ steps.sync.outputs.branch_name }}'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - name: Write pull request body
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          cat <<EOF > "$RUNNER_TEMP/homebrew-tap-pr.md"
+          ## Summary
+
+          - Sync HackDesk Homebrew cask to `${{ steps.sync.outputs.release_tag }}`
+          - Update Apple Silicon SHA-256 to `${{ steps.sync.outputs.arm_sha256 }}`
+          - Update Intel SHA-256 to `${{ steps.sync.outputs.intel_sha256 }}`
+
+          ## Source release
+
+          - ${{ steps.sync.outputs.release_url }}
+          EOF
+
+      - name: Create or update Homebrew pull request
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          existing_pr=$(gh pr list \
+            --repo "$TAP_REPO" \
+            --state open \
+            --head "${{ github.repository_owner }}:${{ steps.sync.outputs.branch_name }}" \
+            --json number \
+            --jq '.[0].number')
+
+          if [[ "$existing_pr" == 'null' ]]; then
+            existing_pr=''
+          fi
+
+          if [[ -n "$existing_pr" ]]; then
+            gh pr edit "$existing_pr" \
+              --repo "$TAP_REPO" \
+              --title "${{ steps.sync.outputs.pr_title }}" \
+              --body-file "$RUNNER_TEMP/homebrew-tap-pr.md"
+          else
+            gh pr create \
+              --repo "$TAP_REPO" \
+              --base main \
+              --head "${{ github.repository_owner }}:${{ steps.sync.outputs.branch_name }}" \
+              --title "${{ steps.sync.outputs.pr_title }}" \
+              --body-file "$RUNNER_TEMP/homebrew-tap-pr.md"
+          fi
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
