@@ -20,6 +20,7 @@
     "build:electron-renderer": "vite build",
     "build:electron": "pnpm run build:electron-main && pnpm run build:electron-renderer",
     "test:electron": "vitest run electron src/lib/electron-api.test.ts src/lib/hackmd-path.test.ts",
+    "check:electron": "pnpm exec eslint electron scripts/electron-build.js scripts/electron-dev.js src/lib/electron-api.ts src/lib/electron-api.test.ts src/lib/hackmd-path.ts src/lib/hackmd-path.test.ts src/pages/NativeHome.tsx && pnpm run test:electron && pnpm run build:electron",
     "lint:ts": "eslint . --fix --cache",
     "lint:rs": "cd src-tauri && cargo fmt && cargo clippy --fix --allow-dirty --allow-staged && cd -",
     "lint:cargo": "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",

@@ -42,3 +42,34 @@ xattr -dr com.apple.quarantine /Applications/HackDesk.app
 > ```
 
 [Full Guide](https://hackdesk.vercel.app/install.html)
+
+## Electron Beta Development
+
+HackDesk still ships the Tauri app as the stable path. The Electron app is a parallel beta for the hybrid native rewrite: native workspace, search, settings, note CRUD, and HackMD web editor fallback.
+
+```sh
+pnpm install
+pnpm approve-builds --all
+pnpm run dev:electron
+```
+
+Useful checks before dogfooding or opening a PR:
+
+```sh
+pnpm run check:electron
+pnpm run test
+```
+
+`check:electron` runs the Electron-scoped ESLint check, Electron unit tests, Electron main/preload build, and renderer build. The normal `pnpm run test` command should still pass because the Tauri source is intentionally kept during Electron parity work.
+
+The Electron beta reads the same settings file at `~/.hackdesk/settings.json`. The HackMD API token stays in the Electron main process and preload API; renderer code only receives safe settings such as `hasHackmdApiToken`.
+
+If Electron fails to start because the binary was not downloaded or installed correctly, run:
+
+```sh
+pnpm approve-builds --all
+pnpm rebuild electron
+pnpm run dev:electron
+```
+
+This project uses pnpm's approved build scripts. Without approving Electron's postinstall build, `node_modules/electron/dist` can be missing and `pnpm run dev:electron` may fail before the app window opens.

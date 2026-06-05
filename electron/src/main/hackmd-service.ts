@@ -10,7 +10,6 @@ import type {
   UpdateNoteInput,
   UserSummary,
 } from '../../../src/lib/electron-api';
-import { readHackmdApiToken } from './settings';
 
 const HACKMD_API_BASE_URL = 'https://api.hackmd.io/v1';
 const HACKMD_TIMEOUT_MS = 20_000;
@@ -77,6 +76,20 @@ type CacheKey =
 
 const memoryCache = new Map<CacheKey, unknown>();
 
+type HackmdFetch = typeof fetch;
+
+type HackmdServiceOptions = {
+  baseUrl?: string;
+  timeoutMs?: number;
+  fetcher?: HackmdFetch;
+  readToken?: () => Promise<string>;
+};
+
+async function defaultReadHackmdApiToken() {
+  const { readHackmdApiToken } = await import('./settings');
+  return readHackmdApiToken();
+}
+
 function asString(value: unknown, fallback = '') {
   return typeof value === 'string' && value.trim() ? value : fallback;
 }
@@ -120,7 +133,7 @@ function getJsonArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
-function normalizeHackmdResponse(value: unknown): unknown {
+export function normalizeHackmdResponse(value: unknown): unknown {
   if (value && typeof value === 'object' && 'note' in value) {
     return value.note;
   }
@@ -204,7 +217,7 @@ function mapDocument(dto: NoteDto): DocumentSummary {
   };
 }
 
-function getHackmdErrorMessage(status: number, statusText: string) {
+export function getHackmdErrorMessage(status: number, statusText: string) {
   if (status === 401) {
     return 'Your HackMD API token is invalid or expired.';
   }
@@ -224,13 +237,17 @@ function getHackmdErrorMessage(status: number, statusText: string) {
   return `HackMD returned ${status} ${statusText}.`;
 }
 
-async function requestHackmd<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = await readHackmdApiToken();
+async function requestHackmd<T>(
+  path: string,
+  init: RequestInit = {},
+  options: Required<HackmdServiceOptions>,
+): Promise<T> {
+  const token = await options.readToken();
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), HACKMD_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
 
   try {
-    const response = await fetch(`${HACKMD_API_BASE_URL}${path}`, {
+    const response = await options.fetcher(`${options.baseUrl}${path}`, {
       ...init,
       signal: controller.signal,
       headers: {
@@ -266,7 +283,7 @@ async function requestHackmd<T>(path: string, init: RequestInit = {}): Promise<T
   }
 }
 
-function withCache<T>(cacheKey: CacheKey, promise: Promise<T>): Promise<RepositoryValue<T>> {
+export function withCache<T>(cacheKey: CacheKey, promise: Promise<T>): Promise<RepositoryValue<T>> {
   return promise
     .then((data) => {
       memoryCache.set(cacheKey, data);
@@ -284,95 +301,184 @@ function withCache<T>(cacheKey: CacheKey, promise: Promise<T>): Promise<Reposito
     });
 }
 
-function encodePathSegment(value: string) {
+export function encodePathSegment(value: string) {
   return encodeURIComponent(value.trim());
 }
 
-function sortNotes(notes: NoteSummary[]) {
+export function sortNotes(notes: NoteSummary[]) {
   return [...notes].sort((left, right) => (right.updatedAtMillis ?? 0) - (left.updatedAtMillis ?? 0));
 }
 
-export function getCurrentUser() {
-  return withCache('currentUser', requestHackmd<UserDto>('/me').then(mapUser));
+function createEmptyDocument(input: CreateNoteInput | UpdateNoteInput): DocumentSummary {
+  const now = Date.now();
+
+  return {
+    id: '',
+    title: input.title?.trim() || 'Untitled',
+    description: input.description ?? '',
+    tags: input.tags ?? [],
+    updatedAtMillis: now,
+    createdAtMillis: null,
+    content: input.content ?? '',
+    publishLink: '',
+    shortId: '',
+    permalink: null,
+    teamPath: null,
+    userPath: null,
+    publishType: 'edit',
+    readPermission: input.readPermission ?? 'owner',
+    writePermission: input.writePermission ?? 'owner',
+    folderPaths: [],
+  };
 }
 
-export function listTeams() {
-  return withCache('teams', requestHackmd<TeamDto[]>('/teams').then((teams) => teams.map(mapTeam)));
+export function createHackmdService(options: HackmdServiceOptions = {}) {
+  const serviceOptions: Required<HackmdServiceOptions> = {
+    baseUrl: options.baseUrl ?? HACKMD_API_BASE_URL,
+    timeoutMs: options.timeoutMs ?? HACKMD_TIMEOUT_MS,
+    fetcher: options.fetcher ?? fetch,
+    readToken: options.readToken ?? defaultReadHackmdApiToken,
+  };
+
+  async function createOrUpdateDocument(
+    path: string,
+    method: 'POST' | 'PATCH',
+    input: CreateNoteInput | UpdateNoteInput,
+    fetchFallback?: () => Promise<DocumentSummary>,
+  ) {
+    const response = await requestHackmd<NoteDto | undefined>(path, {
+      method,
+      body: JSON.stringify(input),
+    }, serviceOptions);
+
+    if (!response) {
+      return fetchFallback ? fetchFallback() : createEmptyDocument(input);
+    }
+
+    return mapDocument(normalizeHackmdResponse(response) as NoteDto);
+  }
+
+  return {
+    getCurrentUser() {
+      return withCache(
+        'currentUser',
+        requestHackmd<UserDto>('/me', {}, serviceOptions).then(mapUser),
+      );
+    },
+
+    listTeams() {
+      return withCache(
+        'teams',
+        requestHackmd<TeamDto[]>('/teams', {}, serviceOptions).then((teams) => teams.map(mapTeam)),
+      );
+    },
+
+    listNotes() {
+      return withCache(
+        'notes',
+        requestHackmd<NoteDto[]>('/notes', {}, serviceOptions).then((notes) => sortNotes(notes.map(mapNote))),
+      );
+    },
+
+    listHistory(limit = 20) {
+      const query = new URLSearchParams({ limit: String(limit) });
+      return withCache(
+        'history',
+        requestHackmd<NoteDto[]>(`/history?${query.toString()}`, {}, serviceOptions)
+          .then((notes) => sortNotes(notes.map(mapNote))),
+      );
+    },
+
+    listTeamNotes(teamPath: string) {
+      const normalizedTeamPath = teamPath.trim();
+      return withCache(
+        `team:${normalizedTeamPath}:notes`,
+        requestHackmd<NoteDto[]>(`/teams/${encodePathSegment(normalizedTeamPath)}/notes`, {}, serviceOptions)
+          .then((notes) => sortNotes(notes.map(mapNote))),
+      );
+    },
+
+    getNote(noteId: string, teamPath?: string | null) {
+      const normalizedNoteId = encodePathSegment(noteId);
+      const normalizedTeamPath = teamPath?.trim();
+      const path = normalizedTeamPath
+        ? `/teams/${encodePathSegment(normalizedTeamPath)}/notes/${normalizedNoteId}`
+        : `/notes/${normalizedNoteId}`;
+      const cacheKey: CacheKey = normalizedTeamPath
+        ? `team:${normalizedTeamPath}:note:${noteId}`
+        : `note:${noteId}`;
+
+      return withCache(
+        cacheKey,
+        requestHackmd<NoteDto>(path, {}, serviceOptions)
+          .then((response) => mapDocument(normalizeHackmdResponse(response) as NoteDto)),
+      );
+    },
+
+    createNote(input: CreateNoteInput) {
+      return createOrUpdateDocument('/notes', 'POST', input);
+    },
+
+    createTeamNote(teamPath: string, input: CreateNoteInput) {
+      return createOrUpdateDocument(`/teams/${encodePathSegment(teamPath)}/notes`, 'POST', input);
+    },
+
+    updateNote(noteId: string, input: UpdateNoteInput) {
+      return createOrUpdateDocument(
+        `/notes/${encodePathSegment(noteId)}`,
+        'PATCH',
+        input,
+        async () => {
+          const response = await requestHackmd<NoteDto>(
+            `/notes/${encodePathSegment(noteId)}`,
+            {},
+            serviceOptions,
+          );
+          return mapDocument(normalizeHackmdResponse(response) as NoteDto);
+        },
+      );
+    },
+
+    updateTeamNote(teamPath: string, noteId: string, input: UpdateNoteInput) {
+      const path = `/teams/${encodePathSegment(teamPath)}/notes/${encodePathSegment(noteId)}`;
+      return createOrUpdateDocument(
+        path,
+        'PATCH',
+        input,
+        async () => {
+          const response = await requestHackmd<NoteDto>(path, {}, serviceOptions);
+          return mapDocument(normalizeHackmdResponse(response) as NoteDto);
+        },
+      );
+    },
+
+    async deleteNote(noteId: string) {
+      await requestHackmd<void>(`/notes/${encodePathSegment(noteId)}`, { method: 'DELETE' }, serviceOptions);
+      memoryCache.delete('notes');
+      memoryCache.delete(`note:${noteId}`);
+    },
+
+    async deleteTeamNote(teamPath: string, noteId: string) {
+      await requestHackmd<void>(`/teams/${encodePathSegment(teamPath)}/notes/${encodePathSegment(noteId)}`, {
+        method: 'DELETE',
+      }, serviceOptions);
+      memoryCache.delete(`team:${teamPath}:notes`);
+      memoryCache.delete(`team:${teamPath}:note:${noteId}`);
+    },
+  };
 }
 
-export function listNotes() {
-  return withCache('notes', requestHackmd<NoteDto[]>('/notes').then((notes) => sortNotes(notes.map(mapNote))));
-}
+const defaultHackmdService = createHackmdService();
 
-export function listHistory(limit = 20) {
-  const query = new URLSearchParams({ limit: String(limit) });
-  return withCache('history', requestHackmd<NoteDto[]>(`/history?${query.toString()}`).then((notes) => sortNotes(notes.map(mapNote))));
-}
-
-export function listTeamNotes(teamPath: string) {
-  const normalizedTeamPath = teamPath.trim();
-  return withCache(
-    `team:${normalizedTeamPath}:notes`,
-    requestHackmd<NoteDto[]>(`/teams/${encodePathSegment(normalizedTeamPath)}/notes`)
-      .then((notes) => sortNotes(notes.map(mapNote))),
-  );
-}
-
-export function getNote(noteId: string, teamPath?: string | null) {
-  const normalizedNoteId = encodePathSegment(noteId);
-  const normalizedTeamPath = teamPath?.trim();
-  const path = normalizedTeamPath
-    ? `/teams/${encodePathSegment(normalizedTeamPath)}/notes/${normalizedNoteId}`
-    : `/notes/${normalizedNoteId}`;
-  const cacheKey: CacheKey = normalizedTeamPath
-    ? `team:${normalizedTeamPath}:note:${noteId}`
-    : `note:${noteId}`;
-
-  return withCache(
-    cacheKey,
-    requestHackmd<NoteDto>(path).then((response) => mapDocument(normalizeHackmdResponse(response) as NoteDto)),
-  );
-}
-
-async function createOrUpdateDocument(path: string, method: 'POST' | 'PATCH', input: CreateNoteInput | UpdateNoteInput) {
-  const response = await requestHackmd<NoteDto>(path, {
-    method,
-    body: JSON.stringify(input),
-  });
-
-  return mapDocument(normalizeHackmdResponse(response) as NoteDto);
-}
-
-export function createNote(input: CreateNoteInput) {
-  return createOrUpdateDocument('/notes', 'POST', input);
-}
-
-export function createTeamNote(teamPath: string, input: CreateNoteInput) {
-  return createOrUpdateDocument(`/teams/${encodePathSegment(teamPath)}/notes`, 'POST', input);
-}
-
-export function updateNote(noteId: string, input: UpdateNoteInput) {
-  return createOrUpdateDocument(`/notes/${encodePathSegment(noteId)}`, 'PATCH', input);
-}
-
-export function updateTeamNote(teamPath: string, noteId: string, input: UpdateNoteInput) {
-  return createOrUpdateDocument(
-    `/teams/${encodePathSegment(teamPath)}/notes/${encodePathSegment(noteId)}`,
-    'PATCH',
-    input,
-  );
-}
-
-export async function deleteNote(noteId: string) {
-  await requestHackmd<void>(`/notes/${encodePathSegment(noteId)}`, { method: 'DELETE' });
-  memoryCache.delete('notes');
-  memoryCache.delete(`note:${noteId}`);
-}
-
-export async function deleteTeamNote(teamPath: string, noteId: string) {
-  await requestHackmd<void>(`/teams/${encodePathSegment(teamPath)}/notes/${encodePathSegment(noteId)}`, {
-    method: 'DELETE',
-  });
-  memoryCache.delete(`team:${teamPath}:notes`);
-  memoryCache.delete(`team:${teamPath}:note:${noteId}`);
-}
+export const getCurrentUser = defaultHackmdService.getCurrentUser;
+export const listTeams = defaultHackmdService.listTeams;
+export const listNotes = defaultHackmdService.listNotes;
+export const listHistory = defaultHackmdService.listHistory;
+export const listTeamNotes = defaultHackmdService.listTeamNotes;
+export const getNote = defaultHackmdService.getNote;
+export const createNote = defaultHackmdService.createNote;
+export const createTeamNote = defaultHackmdService.createTeamNote;
+export const updateNote = defaultHackmdService.updateNote;
+export const updateTeamNote = defaultHackmdService.updateTeamNote;
+export const deleteNote = defaultHackmdService.deleteNote;
+export const deleteTeamNote = defaultHackmdService.deleteTeamNote;

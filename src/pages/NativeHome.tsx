@@ -37,6 +37,11 @@ type CommandPaletteState = {
   search: string;
 };
 
+type CreateNoteDialogState = {
+  open: boolean;
+  title: string;
+};
+
 const EMPTY_NOTES: NoteSummary[] = [];
 const EMPTY_TEAMS: TeamSummary[] = [];
 
@@ -50,6 +55,10 @@ function unwrapRepositoryValue<T>(value?: RepositoryValue<T>) {
 
 function getRepositoryError<T>(value?: RepositoryValue<T>) {
   return value?.source === 'error' ? value.error : null;
+}
+
+function isShowingCachedFallback<T>(value?: RepositoryValue<T>) {
+  return value?.source === 'error' && value.data !== undefined;
 }
 
 function formatDate(millis: number | null) {
@@ -115,15 +124,23 @@ function NotesList({
   notes,
   selectedNoteId,
   onSelect,
+  emptyTitle = 'No notes found',
+  emptyDescription,
 }: {
   notes: NoteSummary[];
   selectedNoteId: string | null;
   onSelect: (note: NoteSummary) => void;
+  emptyTitle?: string;
+  emptyDescription?: string;
 }) {
   if (notes.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center px-6 text-center text-sm text-text-subtle">
-        No notes found.
+      <div className="flex h-full items-center justify-center px-6 text-center">
+        <div className="max-w-64 space-y-2">
+          <FileText className="mx-auto h-7 w-7 text-text-subtle" />
+          <p className="text-sm font-medium text-text-default">{emptyTitle}</p>
+          {emptyDescription ? <p className="text-xs leading-5 text-text-subtle">{emptyDescription}</p> : null}
+        </div>
       </div>
     );
   }
@@ -160,6 +177,169 @@ function NotesList({
         );
       })}
     </div>
+  );
+}
+
+function RepositoryNotice({
+  error,
+  cached,
+}: {
+  error: string | null;
+  cached: boolean;
+}) {
+  if (!error) {
+    return null;
+  }
+
+  return (
+    <div className={`flex items-start gap-2 rounded-md px-3 py-2 text-sm ${
+      cached
+        ? 'bg-primary-soft text-primary-default'
+        : 'bg-destructive-soft text-destructive-default'
+    }`}
+    >
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+      <span>
+        {cached ? `Showing cached data. ${error}` : error}
+      </span>
+    </div>
+  );
+}
+
+function DialogShell({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-background-overlay px-4 pt-28">
+      <div className="w-full max-w-md rounded-lg border border-border-default bg-background-default shadow-2xl">
+        <div className="border-b border-border-default px-5 py-4">
+          <h2 className="text-sm font-semibold">{title}</h2>
+          {description ? <p className="mt-1 text-sm text-text-subtle">{description}</p> : null}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function CreateNoteDialog({
+  state,
+  scopeLabel,
+  isCreating,
+  onStateChange,
+  onCancel,
+  onCreate,
+}: {
+  state: CreateNoteDialogState;
+  scopeLabel: string;
+  isCreating: boolean;
+  onStateChange: (state: CreateNoteDialogState) => void;
+  onCancel: () => void;
+  onCreate: (title: string) => void;
+}) {
+  if (!state.open) {
+    return null;
+  }
+
+  const normalizedTitle = state.title.trim();
+
+  return (
+    <DialogShell
+      title="New Note"
+      description={`Create a note in ${scopeLabel}.`}
+    >
+      <form
+        className="space-y-5 p-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (normalizedTitle) {
+            onCreate(normalizedTitle);
+          }
+        }}
+      >
+        <label className="block space-y-2 text-sm">
+          <span className="font-medium">Title</span>
+          <input
+            autoFocus
+            value={state.title}
+            onChange={(event) => onStateChange({ ...state, title: event.target.value })}
+            className="h-10 w-full rounded-md border border-border-default bg-background-muted px-3 text-sm outline-none focus:ring-2 focus:ring-primary-default"
+            placeholder="Sprint notes"
+          />
+        </label>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-9 items-center rounded-md border border-border-default px-3 text-sm hover:bg-background-selected"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={!normalizedTitle || isCreating}
+            className="inline-flex h-9 items-center gap-2 rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground hover:bg-primary-hover disabled:opacity-50"
+          >
+            {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Create
+          </button>
+        </div>
+      </form>
+    </DialogShell>
+  );
+}
+
+function DeleteNoteDialog({
+  note,
+  isDeleting,
+  onCancel,
+  onDelete,
+}: {
+  note: DocumentSummary | null;
+  isDeleting: boolean;
+  onCancel: () => void;
+  onDelete: (note: DocumentSummary) => void;
+}) {
+  if (!note) {
+    return null;
+  }
+
+  return (
+    <DialogShell
+      title="Delete Note"
+      description="This removes the note from HackMD. This action cannot be undone from HackDesk."
+    >
+      <div className="space-y-5 p-5">
+        <div className="rounded-md border border-border-default bg-background-muted px-3 py-2 text-sm">
+          <p className="truncate font-medium">{note.title || 'Untitled'}</p>
+          <p className="mt-1 text-xs text-text-subtle">{note.teamPath ? `@${note.teamPath}` : 'My Workspace'}</p>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-9 items-center rounded-md border border-border-default px-3 text-sm hover:bg-background-selected"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={isDeleting}
+            onClick={() => onDelete(note)}
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-destructive-default px-3 text-sm font-medium text-destructive-default hover:bg-destructive-soft disabled:opacity-50"
+          >
+            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            Delete
+          </button>
+        </div>
+      </div>
+    </DialogShell>
   );
 }
 
@@ -396,6 +576,8 @@ export function NativeHome() {
   const deferredSearch = useDeferredValue(search);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [palette, setPalette] = useState<CommandPaletteState>({ open: false, search: '' });
+  const [createDialog, setCreateDialog] = useState<CreateNoteDialogState>({ open: false, title: '' });
+  const [deleteTarget, setDeleteTarget] = useState<DocumentSummary | null>(null);
 
   const settingsQuery = useQuery({
     queryKey: ['electron', 'settings'],
@@ -505,14 +687,9 @@ export function NativeHome() {
   });
 
   const createNoteMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (title: string) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
-      }
-
-      const title = window.prompt('New note title')?.trim();
-      if (!title) {
-        return null;
       }
 
       const input = { title, content: createQuickNoteContent(title) };
@@ -521,10 +698,7 @@ export function NativeHome() {
         : api.hackmd.createNote(input);
     },
     onSuccess: (createdNote) => {
-      if (!createdNote) {
-        return;
-      }
-
+      setCreateDialog({ open: false, title: '' });
       invalidateCurrentNotes();
       setSelectedNote(createdNote);
       toast.success('Note created.');
@@ -532,8 +706,8 @@ export function NativeHome() {
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to create note.'),
   });
   const handleCreateNote = useCallback(() => {
-    createNoteMutation.mutate();
-  }, [createNoteMutation]);
+    setCreateDialog({ open: true, title: '' });
+  }, []);
 
   const updateNoteMutation = useMutation({
     mutationFn: ({ note, input }: { note: DocumentSummary; input: { title: string; content: string } }) => {
@@ -564,23 +738,14 @@ export function NativeHome() {
         throw new Error('Electron API is unavailable.');
       }
 
-      if (!window.confirm(`Delete "${note.title}"?`)) {
-        return false;
-      }
-
       if (note.teamPath) {
         await api.hackmd.deleteTeamNote(note.teamPath, note.id);
       } else {
         await api.hackmd.deleteNote(note.id);
       }
-
-      return true;
     },
-    onSuccess: (deleted) => {
-      if (!deleted) {
-        return;
-      }
-
+    onSuccess: () => {
+      setDeleteTarget(null);
       setSelectedNote(null);
       invalidateCurrentNotes();
       toast.success('Note deleted.');
@@ -624,6 +789,24 @@ export function NativeHome() {
 
   const notesError = getRepositoryError(notesQuery.data);
   const userError = getRepositoryError(userQuery.data);
+  const teamsError = getRepositoryError(teamsQuery.data);
+  const activeError = notesError ?? userError ?? teamsError;
+  const showingCachedFallback =
+    isShowingCachedFallback(notesQuery.data)
+    || isShowingCachedFallback(userQuery.data)
+    || isShowingCachedFallback(teamsQuery.data);
+  const emptyTitle = !hasToken
+    ? 'Connect HackMD first'
+    : deferredSearch.trim()
+      ? 'No matching notes'
+      : 'No notes in this workspace';
+  const emptyDescription = !hasToken
+    ? 'Add an API token in Settings to load your profile, teams, notes, and history.'
+    : deferredSearch.trim()
+      ? 'Try a different title, tag, short ID, or team path.'
+      : scope.type === 'history'
+        ? 'Your HackMD history will appear here after the first successful sync.'
+        : 'Create a note from this workspace or refresh after another client changes HackMD.';
 
   return (
     <div className="flex h-screen overflow-hidden bg-background-muted text-text-default">
@@ -737,12 +920,7 @@ export function NativeHome() {
               </button>
             ) : null}
 
-            {notesError || userError ? (
-              <div className="flex items-start gap-2 rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive-default">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{notesError ?? userError}</span>
-              </div>
-            ) : null}
+            <RepositoryNotice error={activeError} cached={showingCachedFallback} />
           </header>
 
           <div className="min-h-0 flex-1 overflow-auto">
@@ -752,7 +930,13 @@ export function NativeHome() {
                 Loading notes
               </div>
             ) : (
-              <NotesList notes={filteredNotes} selectedNoteId={selectedNote?.id ?? null} onSelect={setSelectedNote} />
+              <NotesList
+                notes={filteredNotes}
+                selectedNoteId={selectedNote?.id ?? null}
+                onSelect={setSelectedNote}
+                emptyTitle={emptyTitle}
+                emptyDescription={emptyDescription}
+              />
             )}
           </div>
         </section>
@@ -762,7 +946,7 @@ export function NativeHome() {
           isLoading={documentQuery.isLoading || documentQuery.isFetching}
           onOpenEditor={handleOpenEditor}
           onSave={(note, input) => updateNoteMutation.mutate({ note, input })}
-          onDelete={(note) => deleteNoteMutation.mutate(note)}
+          onDelete={setDeleteTarget}
           isSaving={updateNoteMutation.isPending}
           isDeleting={deleteNoteMutation.isPending}
         />
@@ -782,6 +966,22 @@ export function NativeHome() {
         onStateChange={setPalette}
         onNewNote={handleCreateNote}
         onOpenSettings={() => setSettingsOpen(true)}
+      />
+
+      <CreateNoteDialog
+        state={createDialog}
+        scopeLabel={scope.label}
+        isCreating={createNoteMutation.isPending}
+        onStateChange={setCreateDialog}
+        onCancel={() => setCreateDialog({ open: false, title: '' })}
+        onCreate={(title) => createNoteMutation.mutate(title)}
+      />
+
+      <DeleteNoteDialog
+        note={deleteTarget}
+        isDeleting={deleteNoteMutation.isPending}
+        onCancel={() => setDeleteTarget(null)}
+        onDelete={(note) => deleteNoteMutation.mutate(note)}
       />
     </div>
   );
