@@ -3,10 +3,15 @@ import { useLocation, useRoutes, type RouteObject } from 'react-router-dom';
 
 import { 
   CommandPalette,
+  NativeHome,
   Settings,
 } from './pages';
 
 const routes: RouteObject[] = [
+  {
+    path: '/electron',
+    element: <NativeHome />,
+  },
   {
     path: '/settings',
     element: <Settings />,
