@@ -154,6 +154,15 @@ jobs:
               prerelease: false
             })
 
+  sync-homebrew-tap:
+    needs: publish-release
+    permissions:
+      contents: read
+    uses: ./.github/workflows/sync-homebrew-tap.yml
+    with:
+      release_tag: ${{ github.ref_name }}
+    secrets: inherit
+
   # build-docs:
   #   permissions:
   #     contents: write

@@ -20,6 +20,7 @@
     "check": "pnpm run lint:ts && pnpm run lint:cargo",
     "version:check": "node scripts/check-version.js",
     "sync:version": "node scripts/sync-version.js",
+    "sync:homebrew-tap": "node scripts/sync-homebrew-tap.js",
     "test": "pnpm run test:rust && pnpm run test:frontend",
     "test:frontend": "vitest run",
     "test:rust": "cd src-tauri && cargo test",
