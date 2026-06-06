@@ -56,6 +56,11 @@ const EMPTY_TEAMS: TeamSummary[] = [];
 const RAIL_COLLAPSED_KEY = 'hackdesk_rail_collapsed';
 const NAVIGATOR_COLLAPSED_KEY = 'hackdesk_navigator_collapsed';
 const FOLDER_COLLAPSED_PREFIX = 'hackdesk_folder_collapsed:';
+const FOCUS_RING_CLASS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default';
+const ICON_BUTTON_CLASS = `inline-flex h-8 w-8 items-center justify-center rounded-md text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`;
+const COMPACT_ICON_BUTTON_CLASS = `inline-flex h-7 w-7 items-center justify-center rounded-[6px] text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${FOCUS_RING_CLASS}`;
+const SECONDARY_BUTTON_CLASS = `inline-flex h-9 items-center gap-2 rounded-md border border-border-default px-3 text-sm transition-colors hover:bg-background-selected ${FOCUS_RING_CLASS}`;
+const PRIMARY_BUTTON_CLASS = `inline-flex h-9 items-center gap-2 rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`;
 
 function unwrapRepositoryValue<T>(value?: RepositoryValue<T>) {
   if (!value || value.source === 'error') {
@@ -273,14 +278,14 @@ function CreateNoteDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="inline-flex h-9 items-center rounded-md border border-border-default px-3 text-sm hover:bg-background-selected"
+            className={SECONDARY_BUTTON_CLASS}
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={!normalizedTitle || isCreating}
-            className="inline-flex h-9 items-center gap-2 rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground hover:bg-primary-hover disabled:opacity-50"
+            className={PRIMARY_BUTTON_CLASS}
           >
             {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             Create
@@ -320,7 +325,7 @@ function DeleteNoteDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="inline-flex h-9 items-center rounded-md border border-border-default px-3 text-sm hover:bg-background-selected"
+            className={SECONDARY_BUTTON_CLASS}
           >
             Cancel
           </button>
@@ -328,7 +333,7 @@ function DeleteNoteDialog({
             type="button"
             disabled={isDeleting}
             onClick={() => onDelete(note)}
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-destructive-default px-3 text-sm font-medium text-destructive-default hover:bg-destructive-soft disabled:opacity-50"
+            className={`inline-flex h-9 items-center gap-2 rounded-md border border-destructive-default px-3 text-sm font-medium text-destructive-default transition-colors hover:bg-destructive-soft ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`}
           >
             {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
             Delete
@@ -364,7 +369,7 @@ function SettingsPanel({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md px-2 py-1 text-sm text-text-subtle hover:bg-background-selected"
+          className={`rounded-md px-2 py-1 text-sm text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${FOCUS_RING_CLASS}`}
         >
           Close
         </button>
@@ -398,7 +403,7 @@ function SettingsPanel({
             title: title.trim(),
             ...(token.trim() ? { hackmdApiToken: token.trim() } : {}),
           })}
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-primary-default px-4 text-sm font-medium text-primary-foreground hover:bg-primary-hover disabled:opacity-50"
+          className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-primary-default px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`}
         >
           {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Save
@@ -432,7 +437,7 @@ function WorkspaceRailButton({
         active
           ? 'bg-background-selected text-text-default'
           : 'text-text-subtle hover:bg-background-selected hover:text-text-default'
-      } ${collapsed ? 'justify-center' : ''}`}
+      } ${FOCUS_RING_CLASS} ${collapsed ? 'justify-center' : ''}`}
     >
       <span className="shrink-0">{icon}</span>
       {!collapsed ? (
@@ -480,7 +485,7 @@ function TopBarIconButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="app-topbar-button flex h-7 w-7 items-center justify-center rounded-[6px] text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
+      className={`app-topbar-button ${COMPACT_ICON_BUTTON_CLASS}`}
     >
       {children}
     </button>
@@ -612,7 +617,7 @@ function NoteRow({
       onClick={() => onSelect(entry.note)}
       className={`flex w-full min-w-0 items-start text-left transition-colors ${
         selected ? 'bg-primary-soft text-text-default' : 'hover:bg-background-selected'
-      } ${compact ? 'gap-2 rounded-[6px] px-2 py-1.5' : 'gap-3 rounded-md px-3 py-2.5'}`}
+      } ${FOCUS_RING_CLASS} ${compact ? 'gap-2 rounded-[6px] px-2 py-1.5' : 'gap-3 rounded-md px-3 py-2.5'}`}
     >
       <FileText className={`${compact ? 'mt-0.5 h-3.5 w-3.5' : 'mt-0.5 h-4 w-4'} shrink-0 text-text-subtle`} />
       <span className="min-w-0 flex-1">
@@ -650,7 +655,7 @@ function FolderButton({
         type="button"
         onClick={() => onToggle(node.id)}
         disabled={!hasChildren}
-        className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default disabled:opacity-0"
+        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-0`}
         aria-label={collapsed ? `Expand ${node.name}` : `Collapse ${node.name}`}
       >
         {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -658,7 +663,7 @@ function FolderButton({
       <button
         type="button"
         onClick={() => onSelect(node.id)}
-        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        className={`flex min-w-0 flex-1 items-center gap-2 rounded-[4px] text-left ${FOCUS_RING_CLASS}`}
       >
         {collapsed ? <Folder className="h-3.5 w-3.5 shrink-0" /> : <FolderOpen className="h-3.5 w-3.5 shrink-0" />}
         <span className="min-w-0 flex-1 truncate">{node.name}</span>
@@ -801,7 +806,7 @@ function FolderNavigator({
         <button
           type="button"
           onClick={onToggleCollapsed}
-          className="rounded-md p-2 text-text-subtle hover:bg-background-selected hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
+          className={ICON_BUTTON_CLASS}
           aria-label="Expand note navigator"
           title="Expand note navigator"
         >
@@ -823,7 +828,7 @@ function FolderNavigator({
             <button
               type="button"
               onClick={onRefresh}
-              className="rounded-md p-2 text-text-subtle hover:bg-background-selected hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
+              className={ICON_BUTTON_CLASS}
               aria-label="Refresh notes"
             >
               <RefreshCcw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
@@ -832,7 +837,7 @@ function FolderNavigator({
               type="button"
               onClick={onCreate}
               disabled={!canCreate || isCreating}
-              className="rounded-md p-2 text-text-subtle hover:bg-background-selected hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default disabled:opacity-50"
+              className={ICON_BUTTON_CLASS}
               aria-label="Create note"
             >
               <Plus className="h-4 w-4" />
@@ -840,7 +845,7 @@ function FolderNavigator({
             <button
               type="button"
               onClick={onOpenPalette}
-              className="rounded-md p-2 text-text-subtle hover:bg-background-selected hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
+              className={ICON_BUTTON_CLASS}
               aria-label="Open command palette"
             >
               <MoreHorizontal className="h-4 w-4" />
@@ -848,7 +853,7 @@ function FolderNavigator({
             <button
               type="button"
               onClick={onToggleCollapsed}
-              className="rounded-md p-2 text-text-subtle hover:bg-background-selected hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
+              className={ICON_BUTTON_CLASS}
               aria-label="Collapse note navigator"
               title="Collapse note navigator"
             >
@@ -863,7 +868,7 @@ function FolderNavigator({
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
             placeholder="Search notes"
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+            className={`min-w-0 flex-1 bg-transparent text-sm outline-none ${FOCUS_RING_CLASS}`}
           />
         </div>
 
@@ -871,7 +876,7 @@ function FolderNavigator({
           <button
             type="button"
             onClick={onOpenSettings}
-            className="flex w-full items-center gap-2 rounded-md border border-border-default bg-background-default px-3 py-2 text-left text-sm text-text-subtle hover:bg-background-selected"
+            className={`flex w-full items-center gap-2 rounded-md border border-border-default bg-background-default px-3 py-2 text-left text-sm text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${FOCUS_RING_CLASS}`}
           >
             <AlertCircle className="h-4 w-4" />
             Configure HackMD API token
@@ -983,7 +988,7 @@ function DocumentDetail({
           <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            className="w-full truncate bg-transparent text-lg font-semibold outline-none"
+            className={`w-full truncate rounded-[4px] bg-transparent text-lg font-semibold outline-none ${FOCUS_RING_CLASS}`}
           />
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-subtle">
             <span>{formatDate(document.updatedAtMillis)}</span>
@@ -996,7 +1001,7 @@ function DocumentDetail({
         <button
           type="button"
           onClick={() => onOpenEditor(document)}
-          className="inline-flex h-9 items-center gap-2 rounded-md border border-border-default px-3 text-sm hover:bg-background-selected"
+          className={SECONDARY_BUTTON_CLASS}
         >
           <Edit3 className="h-4 w-4" />
           Web Editor
@@ -1005,7 +1010,7 @@ function DocumentDetail({
           type="button"
           disabled={isSaving}
           onClick={() => onSave(document, { title, content })}
-          className="inline-flex h-9 items-center gap-2 rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground hover:bg-primary-hover disabled:opacity-50"
+          className={PRIMARY_BUTTON_CLASS}
         >
           {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Save
@@ -1014,7 +1019,7 @@ function DocumentDetail({
           type="button"
           disabled={isDeleting}
           onClick={() => onDelete(document)}
-          className="inline-flex h-9 items-center justify-center rounded-md border border-destructive-default px-3 text-destructive-default hover:bg-destructive-soft disabled:opacity-50"
+          className={`inline-flex h-9 w-9 items-center justify-center rounded-md border border-destructive-default text-destructive-default transition-colors hover:bg-destructive-soft ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`}
           aria-label="Delete note"
         >
           {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
@@ -1060,7 +1065,7 @@ function CommandPalette({
                 onStateChange({ open: false, search: '' });
               }
             }}
-            className="h-12 flex-1 bg-transparent text-sm outline-none"
+            className={`h-12 flex-1 rounded-[4px] bg-transparent text-sm outline-none ${FOCUS_RING_CLASS}`}
             placeholder="Search commands"
           />
         </div>
@@ -1073,7 +1078,7 @@ function CommandPalette({
                 command.action();
                 onStateChange({ open: false, search: '' });
               }}
-              className="flex w-full items-center gap-3 rounded-md px-3 py-3 text-left text-sm hover:bg-background-selected"
+              className={`flex w-full items-center gap-3 rounded-md px-3 py-3 text-left text-sm transition-colors hover:bg-background-selected ${FOCUS_RING_CLASS}`}
             >
               {command.icon}
               {command.label}

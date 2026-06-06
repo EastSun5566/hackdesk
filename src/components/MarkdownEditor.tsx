@@ -27,30 +27,44 @@ const editorTheme = EditorView.theme({
     height: '100%',
     backgroundColor: 'var(--background-default)',
     color: 'var(--text-default)',
-    fontSize: '13px',
+    fontSize: '14px',
   },
   '.cm-scroller': {
     fontFamily: 'var(--font-editor)',
-    lineHeight: '1.7',
+    lineHeight: '1.75',
   },
   '.cm-content': {
-    padding: '18px 20px',
+    padding: '20px 24px',
     caretColor: 'var(--primary-default)',
   },
   '.cm-line': {
     padding: '0 4px',
   },
   '.cm-gutters': {
-    backgroundColor: 'var(--background-default)',
+    backgroundColor: 'var(--background-muted)',
     color: 'var(--text-subtle)',
     borderRight: '1px solid var(--border-default)',
   },
+  '.cm-gutterElement': {
+    padding: '0 10px 0 8px',
+  },
   '.cm-activeLine': {
-    backgroundColor: 'color-mix(in oklch, var(--background-selected) 55%, transparent)',
+    backgroundColor: 'color-mix(in oklch, var(--background-selected) 42%, transparent)',
   },
   '.cm-activeLineGutter': {
     backgroundColor: 'var(--background-selected)',
     color: 'var(--text-default)',
+  },
+  '.cm-foldGutter .cm-gutterElement': {
+    color: 'var(--icon-subtle)',
+  },
+  '.cm-link, .cm-url': {
+    color: 'var(--link-text-default)',
+    textDecorationColor: 'color-mix(in oklch, var(--link-text-default) 42%, transparent)',
+  },
+  '.cm-matchingBracket': {
+    backgroundColor: 'var(--primary-soft)',
+    outline: '1px solid var(--primary-default)',
   },
   '&.cm-focused': {
     outline: 'none',
@@ -59,7 +73,7 @@ const editorTheme = EditorView.theme({
     borderLeftColor: 'var(--primary-default)',
   },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
-    backgroundColor: 'color-mix(in oklch, var(--primary-default) 22%, transparent)',
+    backgroundColor: 'color-mix(in oklch, var(--primary-default) 28%, transparent)',
   },
 }, { dark: true });
 
