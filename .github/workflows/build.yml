@@ -55,11 +55,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check version sync
-        run: pnpm run version:check
+      - name: Smoke Electron binary
+        run: pnpm exec electron --version
 
-      - name: Run tests
-        run: pnpm test
+      - name: Run CI checks
+        run: pnpm run check:ci
 
       - name: Smoke build the app
         if: github.event_name == 'pull_request'

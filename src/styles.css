@@ -137,4 +137,12 @@
   body {
     @apply bg-background-default text-text-default;
   }
+
+  .markdown-editor {
+    height: 100%;
+  }
+
+  .markdown-editor .cm-editor {
+    height: 100%;
+  }
 }

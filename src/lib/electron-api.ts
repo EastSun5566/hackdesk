@@ -75,6 +75,7 @@ export type DocumentSummary = NoteSummary & {
 export type CreateNoteInput = {
   title: string;
   content: string;
+  parentFolderId?: string;
 };
 
 export type UpdateNoteInput = {
@@ -84,6 +85,7 @@ export type UpdateNoteInput = {
   tags?: string[];
   readPermission?: NotePermissionRole;
   writePermission?: NotePermissionRole;
+  parentFolderId?: string;
 };
 
 export type OpenHackmdEditorInput = Pick<

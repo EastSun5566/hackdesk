@@ -191,6 +191,7 @@ describe('hackmd-service request mapping', () => {
     const created = await service.createTeamNote('engineering', {
       title: 'Team Note',
       content: '# Team Note',
+      parentFolderId: 'folder-1',
     });
 
     expect(calls[0].url).toBe('https://api.test/v1/teams/engineering/notes');
@@ -202,6 +203,7 @@ describe('hackmd-service request mapping', () => {
     expect(JSON.parse(String(calls[0].init.body))).toEqual({
       title: 'Team Note',
       content: '# Team Note',
+      parentFolderId: 'folder-1',
     });
     expect(created).toMatchObject({
       id: 'team-note',
@@ -220,6 +222,7 @@ describe('hackmd-service request mapping', () => {
     const updated = await service.updateNote('note-1', {
       title: 'Updated',
       content: '# Updated',
+      parentFolderId: 'folder-2',
     });
 
     expect(calls).toHaveLength(2);
@@ -228,6 +231,7 @@ describe('hackmd-service request mapping', () => {
     expect(JSON.parse(String(calls[0].init.body))).toEqual({
       title: 'Updated',
       content: '# Updated',
+      parentFolderId: 'folder-2',
     });
     expect(calls[1].url).toBe('https://api.test/v1/notes/note-1');
     expect(calls[1].init.method).toBeUndefined();

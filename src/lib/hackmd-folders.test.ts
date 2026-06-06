@@ -1,0 +1,121 @@
+import { describe, expect, it } from 'vitest';
+
+import { buildHackmdFolderTree, UNFILED_FOLDER_ID } from './hackmd-folders';
+import type { NoteSummary } from './electron-api';
+
+function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id' | 'title'>): NoteSummary {
+  return {
+    id: input.id,
+    title: input.title,
+    description: input.description ?? '',
+    tags: input.tags ?? [],
+    updatedAtMillis: input.updatedAtMillis ?? null,
+    createdAtMillis: input.createdAtMillis ?? null,
+    content: input.content ?? null,
+    publishLink: input.publishLink ?? '',
+    shortId: input.shortId ?? input.id,
+    permalink: input.permalink ?? null,
+    teamPath: input.teamPath ?? null,
+    userPath: input.userPath ?? null,
+    publishType: input.publishType ?? 'edit',
+    readPermission: input.readPermission ?? 'owner',
+    writePermission: input.writePermission ?? 'owner',
+    folderPaths: input.folderPaths ?? [],
+  };
+}
+
+describe('buildHackmdFolderTree', () => {
+  it('builds nested folders from parentId and assigns notes to their folders', () => {
+    const tree = buildHackmdFolderTree([
+      note({
+        id: 'note-1',
+        title: 'Nested note',
+        updatedAtMillis: 2000,
+        folderPaths: [
+          { id: 'root', name: 'Projects', icon: null, color: null, parentId: null, clientId: null },
+          { id: 'child', name: 'Q2', icon: null, color: null, parentId: 'root', clientId: null },
+        ],
+      }),
+    ]);
+
+    expect(tree.roots).toHaveLength(1);
+    expect(tree.roots[0].id).toBe('root');
+    expect(tree.roots[0].children[0].id).toBe('child');
+    expect(tree.roots[0].notes[0].note.id).toBe('note-1');
+    expect(tree.roots[0].children[0].notes[0]).toMatchObject({
+      note: { id: 'note-1' },
+      folderLabel: 'Projects / Q2',
+    });
+  });
+
+  it('falls back missing parents to root folders', () => {
+    const tree = buildHackmdFolderTree([
+      note({
+        id: 'note-1',
+        title: 'Orphan folder note',
+        folderPaths: [
+          { id: 'orphan', name: 'Orphan', icon: null, color: null, parentId: 'missing', clientId: null },
+        ],
+      }),
+    ]);
+
+    expect(tree.roots.map((folder) => folder.id)).toEqual(['orphan']);
+    expect(tree.roots[0].parentId).toBeNull();
+  });
+
+  it('places notes without folders at the root without a visible folder label', () => {
+    const tree = buildHackmdFolderTree([
+      note({ id: 'note-1', title: 'Loose note' }),
+    ]);
+
+    expect(tree.unfiled.id).toBe(UNFILED_FOLDER_ID);
+    expect(tree.unfiled.notes).toHaveLength(1);
+    expect(tree.unfiled.notes[0]).toMatchObject({
+      note: { id: 'note-1' },
+      folderLabel: '',
+    });
+  });
+
+  it('shows multi-folder notes in every folder and in flat search metadata', () => {
+    const tree = buildHackmdFolderTree([
+      note({
+        id: 'note-1',
+        title: 'Multi folder note',
+        folderPaths: [
+          { id: 'alpha', name: 'Alpha', icon: null, color: null, parentId: null, clientId: null },
+          { id: 'beta', name: 'Beta', icon: null, color: null, parentId: null, clientId: null },
+        ],
+      }),
+    ]);
+
+    expect(tree.nodesById.get('alpha')?.notes.map((entry) => entry.note.id)).toEqual(['note-1']);
+    expect(tree.nodesById.get('beta')?.notes.map((entry) => entry.note.id)).toEqual(['note-1']);
+    expect(tree.allNotes.map((entry) => entry.folderLabel)).toEqual(['Alpha', 'Beta']);
+  });
+
+  it('sorts folders by name and notes by updated time descending', () => {
+    const tree = buildHackmdFolderTree([
+      note({
+        id: 'older',
+        title: 'Older',
+        updatedAtMillis: 1000,
+        folderPaths: [{ id: 'zeta', name: 'Zeta', icon: null, color: null, parentId: null, clientId: null }],
+      }),
+      note({
+        id: 'newer',
+        title: 'Newer',
+        updatedAtMillis: 3000,
+        folderPaths: [{ id: 'zeta', name: 'Zeta', icon: null, color: null, parentId: null, clientId: null }],
+      }),
+      note({
+        id: 'alpha-note',
+        title: 'Alpha',
+        updatedAtMillis: 2000,
+        folderPaths: [{ id: 'alpha', name: 'Alpha', icon: null, color: null, parentId: null, clientId: null }],
+      }),
+    ]);
+
+    expect(tree.roots.map((folder) => folder.name)).toEqual(['Alpha', 'Zeta']);
+    expect(tree.nodesById.get('zeta')?.notes.map((entry) => entry.note.id)).toEqual(['newer', 'older']);
+  });
+});
