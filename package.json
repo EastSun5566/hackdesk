@@ -1,5 +1,6 @@
 {
   "name": "hackdesk",
+  "productName": "HackDesk",
   "description": "📝 A hackable HackMD desktop application",
   "private": true,
   "version": "0.1.5",
@@ -15,12 +16,14 @@
     "frontend:dev": "vite",
     "frontend:build": "tsc && vite build",
     "frontend:preview": "vite preview",
+    "icons:electron": "node scripts/electron-icons.js",
     "dev:electron": "node scripts/electron-dev.js",
     "build:electron-main": "node scripts/electron-build.js",
     "build:electron-renderer": "vite build",
     "build:electron": "pnpm run build:electron-main && pnpm run build:electron-renderer",
-    "test:electron": "vitest run electron src/lib/electron-api.test.ts src/lib/hackmd-path.test.ts src/lib/hackmd-folders.test.ts src/components/MarkdownEditor.test.tsx",
-    "check:electron": "pnpm exec eslint electron scripts/electron-build.js scripts/electron-dev.js src/lib/electron-api.ts src/lib/electron-api.test.ts src/lib/hackmd-path.ts src/lib/hackmd-path.test.ts src/lib/hackmd-folders.ts src/lib/hackmd-folders.test.ts src/components/MarkdownEditor.tsx src/components/MarkdownEditor.test.tsx src/pages/Home.tsx && pnpm run test:electron && pnpm run build:electron",
+    "package:electron": "pnpm run icons:electron && pnpm run build:electron && electron-builder",
+    "test:electron": "vitest run electron src",
+    "check:electron": "pnpm exec eslint \"electron/**/*.{ts,tsx}\" \"scripts/electron-*.js\" \"src/**/*.{ts,tsx}\" && pnpm run test:electron && pnpm run build:electron",
     "lint:ts:check": "eslint .",
     "lint:ts": "eslint . --fix --cache",
     "lint:rs": "cd src-tauri && cargo fmt && cargo clippy --fix --allow-dirty --allow-staged && cd -",
@@ -45,6 +48,35 @@
     "url": "https://github.com/EastSun5566/hackdesk"
   },
   "license": "AGPL-3.0",
+  "build": {
+    "appId": "me.eastsun.hackdesk",
+    "productName": "HackDesk",
+    "directories": {
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/dist/**",
+      "dist/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/icon.png",
+        "to": "assets/icon.png"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.icns"
+    },
+    "win": {
+      "icon": "build/icon.ico"
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "category": "Office"
+    }
+  },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.10.3",

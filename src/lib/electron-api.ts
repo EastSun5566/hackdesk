@@ -93,6 +93,19 @@ export type OpenHackmdEditorInput = Pick<
   'publishType' | 'shortId' | 'userPath' | 'teamPath' | 'permalink' | 'publishLink'
 >;
 
+export type ConfirmDialogOptions = {
+  title?: string;
+  message: string;
+  detail?: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  destructive?: boolean;
+};
+
+export type ConfirmDialogResult = {
+  confirmed: boolean;
+};
+
 export type HackDeskCommandPaletteCommand =
   | { type: 'open-command-palette' }
   | { type: 'open-settings' }
@@ -123,6 +136,7 @@ export type HackDeskElectronAPI = {
     openHackmdEditor: (note: OpenHackmdEditorInput) => Promise<void>;
   };
   app: {
+    confirm: (options: ConfirmDialogOptions) => Promise<ConfirmDialogResult>;
     onCommand: (callback: (command: HackDeskCommandPaletteCommand) => void) => () => void;
   };
 };

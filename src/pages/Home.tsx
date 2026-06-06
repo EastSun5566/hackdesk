@@ -57,10 +57,12 @@ const RAIL_COLLAPSED_KEY = 'hackdesk_rail_collapsed';
 const NAVIGATOR_COLLAPSED_KEY = 'hackdesk_navigator_collapsed';
 const FOLDER_COLLAPSED_PREFIX = 'hackdesk_folder_collapsed:';
 const FOCUS_RING_CLASS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default';
-const ICON_BUTTON_CLASS = `inline-flex h-8 w-8 items-center justify-center rounded-md text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`;
-const COMPACT_ICON_BUTTON_CLASS = `inline-flex h-7 w-7 items-center justify-center rounded-[6px] text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${FOCUS_RING_CLASS}`;
-const SECONDARY_BUTTON_CLASS = `inline-flex h-9 items-center gap-2 rounded-md border border-border-default px-3 text-sm transition-colors hover:bg-background-selected ${FOCUS_RING_CLASS}`;
-const PRIMARY_BUTTON_CLASS = `inline-flex h-9 items-center gap-2 rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`;
+const PRESSED_CLASS = 'active:translate-y-px';
+const ICON_BUTTON_CLASS = `inline-flex h-8 w-8 items-center justify-center rounded-md text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${PRESSED_CLASS} ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`;
+const COMPACT_ICON_BUTTON_CLASS = `inline-flex h-7 w-7 items-center justify-center rounded-[6px] text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${PRESSED_CLASS} ${FOCUS_RING_CLASS}`;
+const SECONDARY_BUTTON_CLASS = `inline-flex h-9 items-center gap-2 rounded-md border border-border-default px-3 text-sm transition-colors active:bg-background-selected ${PRESSED_CLASS} ${FOCUS_RING_CLASS}`;
+const PRIMARY_BUTTON_CLASS = `inline-flex h-9 items-center gap-2 rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover ${PRESSED_CLASS} ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`;
+const TEXT_INPUT_CLASS = 'h-10 w-full rounded-md border border-border-default bg-background-muted px-3 text-sm outline-none transition-colors focus:border-primary-default';
 
 function unwrapRepositoryValue<T>(value?: RepositoryValue<T>) {
   if (!value || value.source === 'error') {
@@ -215,9 +217,14 @@ function DialogShell({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-background-overlay px-4 pt-28">
-      <div className="w-full max-w-md rounded-lg border border-border-default bg-background-default shadow-2xl">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`dialog-${title.toLowerCase().replace(/\s+/g, '-')}`}
+        className="w-full max-w-md rounded-lg border border-border-default bg-background-default shadow-lg"
+      >
         <div className="border-b border-border-default px-5 py-4">
-          <h2 className="text-sm font-semibold">{title}</h2>
+          <h2 id={`dialog-${title.toLowerCase().replace(/\s+/g, '-')}`} className="text-sm font-semibold">{title}</h2>
           {description ? <p className="mt-1 text-sm text-text-subtle">{description}</p> : null}
         </div>
         {children}
@@ -270,7 +277,7 @@ function CreateNoteDialog({
             autoFocus
             value={state.title}
             onChange={(event) => onStateChange({ ...state, title: event.target.value })}
-            className="h-10 w-full rounded-md border border-border-default bg-background-muted px-3 text-sm outline-none focus:ring-2 focus:ring-primary-default"
+            className={TEXT_INPUT_CLASS}
             placeholder="Sprint notes"
           />
         </label>
@@ -333,7 +340,7 @@ function DeleteNoteDialog({
             type="button"
             disabled={isDeleting}
             onClick={() => onDelete(note)}
-            className={`inline-flex h-9 items-center gap-2 rounded-md border border-destructive-default px-3 text-sm font-medium text-destructive-default transition-colors hover:bg-destructive-soft ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`}
+            className={`inline-flex h-9 items-center gap-2 rounded-md border border-destructive-default px-3 text-sm font-medium text-destructive-default transition-colors active:bg-destructive-soft ${PRESSED_CLASS} ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`}
           >
             {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
             Delete
@@ -363,25 +370,36 @@ function SettingsPanel({
   }, [settings?.title]);
 
   return (
-    <aside className="w-80 border-l border-border-default bg-background-default p-5">
-      <div className="mb-5 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Settings</h2>
-        <button
-          type="button"
-          onClick={onClose}
-          className={`rounded-md px-2 py-1 text-sm text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${FOCUS_RING_CLASS}`}
-        >
-          Close
-        </button>
-      </div>
+    <DialogShell title="Settings">
+      <form
+        className="space-y-5 p-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (title.trim()) {
+            onSave({
+              title: title.trim(),
+              ...(token.trim() ? { hackmdApiToken: token.trim() } : {}),
+            });
+          }
+        }}
+      >
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className={`rounded-md px-2 py-1 text-sm text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${FOCUS_RING_CLASS}`}
+          >
+            Close
+          </button>
+        </div>
 
-      <div className="space-y-5">
         <label className="block space-y-2 text-sm">
           <span className="font-medium">Window Title</span>
           <input
+            autoFocus
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            className="h-10 w-full rounded-md border border-border-default bg-background-muted px-3 text-sm outline-none focus:ring-2 focus:ring-primary-default"
+            className={TEXT_INPUT_CLASS}
           />
         </label>
 
@@ -392,24 +410,20 @@ function SettingsPanel({
             onChange={(event) => setToken(event.target.value)}
             type="password"
             placeholder={settings?.hasHackmdApiToken ? 'Token configured' : 'Paste token'}
-            className="h-10 w-full rounded-md border border-border-default bg-background-muted px-3 text-sm outline-none focus:ring-2 focus:ring-primary-default"
+            className={TEXT_INPUT_CLASS}
           />
         </label>
 
         <button
-          type="button"
+          type="submit"
           disabled={isSaving || !title.trim()}
-          onClick={() => onSave({
-            title: title.trim(),
-            ...(token.trim() ? { hackmdApiToken: token.trim() } : {}),
-          })}
           className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-primary-default px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`}
         >
           {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Save
         </button>
-      </div>
-    </aside>
+      </form>
+    </DialogShell>
   );
 }
 
@@ -862,13 +876,13 @@ function FolderNavigator({
           </div>
         </div>
 
-        <div className="flex h-10 items-center gap-2 rounded-md border border-border-default bg-background-default px-3">
+        <div className="flex h-10 items-center gap-2 rounded-md border border-border-default bg-background-default px-3 transition-colors focus-within:border-primary-default">
           <Search className="h-4 w-4 text-text-subtle" />
           <input
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
             placeholder="Search notes"
-            className={`min-w-0 flex-1 bg-transparent text-sm outline-none ${FOCUS_RING_CLASS}`}
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none"
           />
         </div>
 
@@ -988,7 +1002,7 @@ function DocumentDetail({
           <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            className={`w-full truncate rounded-[4px] bg-transparent text-lg font-semibold outline-none ${FOCUS_RING_CLASS}`}
+            className="w-full truncate bg-transparent text-lg font-semibold outline-none"
           />
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-subtle">
             <span>{formatDate(document.updatedAtMillis)}</span>
@@ -1019,7 +1033,7 @@ function DocumentDetail({
           type="button"
           disabled={isDeleting}
           onClick={() => onDelete(document)}
-          className={`inline-flex h-9 w-9 items-center justify-center rounded-md border border-destructive-default text-destructive-default transition-colors hover:bg-destructive-soft ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`}
+          className={`inline-flex h-9 w-9 items-center justify-center rounded-md border border-destructive-default text-destructive-default transition-colors active:bg-destructive-soft ${PRESSED_CLASS} ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`}
           aria-label="Delete note"
         >
           {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
@@ -1054,7 +1068,7 @@ function CommandPalette({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-background-overlay pt-24">
       <div className="w-[560px] overflow-hidden rounded-lg border border-border-default bg-background-default shadow-2xl">
-        <div className="flex items-center gap-2 border-b border-border-default px-3">
+        <div className="flex items-center gap-2 border-b border-border-default px-3 transition-colors focus-within:border-primary-default">
           <Search className="h-4 w-4 text-text-subtle" />
           <input
             autoFocus
@@ -1065,7 +1079,7 @@ function CommandPalette({
                 onStateChange({ open: false, search: '' });
               }
             }}
-            className={`h-12 flex-1 rounded-[4px] bg-transparent text-sm outline-none ${FOCUS_RING_CLASS}`}
+            className="h-12 flex-1 bg-transparent text-sm outline-none"
             placeholder="Search commands"
           />
         </div>
@@ -1310,6 +1324,28 @@ export function Home() {
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to delete note.'),
   });
 
+  const handleDeleteRequest = useCallback((note: DocumentSummary) => {
+    if (!api?.app.confirm) {
+      setDeleteTarget(note);
+      return;
+    }
+
+    api.app.confirm({
+      title: 'Delete Note',
+      message: `Delete “${note.title || 'Untitled'}”?`,
+      detail: 'This removes the note from HackMD. This action cannot be undone from HackDesk.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      destructive: true,
+    }).then(({ confirmed }) => {
+      if (confirmed) {
+        deleteNoteMutation.mutate(note);
+      }
+    }).catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to confirm note deletion.');
+    });
+  }, [api, deleteNoteMutation]);
+
   const handleOpenEditor = useCallback((note: DocumentSummary) => {
     api?.shell.openHackmdEditor(note).catch((error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to open HackMD editor.');
@@ -1335,6 +1371,36 @@ export function Home() {
       }
     });
   }, [api, handleCreateNote, openPalette]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+
+      if (palette.open) {
+        setPalette({ open: false, search: '' });
+        return;
+      }
+
+      if (createDialog.open) {
+        setCreateDialog({ open: false, title: '' });
+        return;
+      }
+
+      if (deleteTarget) {
+        setDeleteTarget(null);
+        return;
+      }
+
+      if (settingsOpen) {
+        setSettingsOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [createDialog.open, deleteTarget, palette.open, settingsOpen]);
 
   if (!api) {
     return (
@@ -1410,7 +1476,7 @@ export function Home() {
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background-muted text-text-default">
+    <div className="app-chrome flex h-screen flex-col overflow-hidden bg-background-muted text-text-default">
       <AppTopBar
         railCollapsed={railCollapsed}
         onToggleRail={toggleRailCollapsed}
@@ -1460,7 +1526,7 @@ export function Home() {
           isLoading={documentQuery.isLoading || documentQuery.isFetching}
           onOpenEditor={handleOpenEditor}
           onSave={(note, input) => updateNoteMutation.mutate({ note, input })}
-          onDelete={setDeleteTarget}
+          onDelete={handleDeleteRequest}
           isSaving={updateNoteMutation.isPending}
           isDeleting={deleteNoteMutation.isPending}
         />

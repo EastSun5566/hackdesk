@@ -1,7 +1,8 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, Tray } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Tray } from 'electron';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { HackDeskCommandPaletteCommand } from '../../../src/lib/electron-api';
+import type { ConfirmDialogOptions, HackDeskCommandPaletteCommand } from '../../../src/lib/electron-api';
 import { getRendererEntryUrl } from './paths';
 import { getSafeSettings, updateStoredSettings } from './settings';
 import {
@@ -23,10 +24,35 @@ import { openExternalUrl, openHackmdEditor } from './url-policy';
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
-function sendCommand(command: HackDeskCommandPaletteCommand) {
-  const focusedWindow = BrowserWindow.getFocusedWindow() ?? mainWindow;
+const WINDOW_BACKGROUND_COLOR = process.platform === 'darwin' ? '#00000000' : '#fdfdfd';
+const APP_ID = 'me.eastsun.hackdesk';
 
-  if (!focusedWindow || focusedWindow.isDestroyed()) {
+function getAppIconPath() {
+  const candidates = app.isPackaged
+    ? [join(process.resourcesPath, 'assets/icon.png')]
+    : [
+      join(__dirname, '../../build/icon.png'),
+      join(__dirname, '../../docs/public/logo.png'),
+      join(__dirname, '../../src-tauri/icons/icon.png'),
+    ];
+
+  return candidates.find((candidate) => existsSync(candidate));
+}
+
+function createAppIcon() {
+  const iconPath = getAppIconPath();
+  return iconPath ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
+}
+
+function getTargetWindow() {
+  const focusedWindow = BrowserWindow.getFocusedWindow() ?? mainWindow;
+  return focusedWindow && !focusedWindow.isDestroyed() ? focusedWindow : null;
+}
+
+function sendCommand(command: HackDeskCommandPaletteCommand) {
+  const focusedWindow = getTargetWindow();
+
+  if (!focusedWindow) {
     return;
   }
 
@@ -45,7 +71,10 @@ function createMainWindow() {
     title: 'HackDesk',
     titleBarStyle: isMac ? 'hiddenInset' : 'default',
     trafficLightPosition: isMac ? { x: 16, y: 16 } : undefined,
-    backgroundColor: '#f7f7f8',
+    backgroundColor: WINDOW_BACKGROUND_COLOR,
+    vibrancy: isMac ? 'sidebar' : undefined,
+    visualEffectState: isMac ? 'active' : undefined,
+    icon: getAppIconPath(),
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -57,6 +86,14 @@ function createMainWindow() {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
+  });
+
+  mainWindow.webContents.on('context-menu', (event, params) => {
+    if (params.isEditable || params.selectionText.trim()) {
+      return;
+    }
+
+    event.preventDefault();
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -170,8 +207,16 @@ function createMenu() {
 }
 
 function createTray() {
-  const icon = nativeImage.createFromPath(join(__dirname, '../../src-tauri/icons/32x32.png'));
-  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
+  const icon = createAppIcon();
+  const trayIcon = process.platform === 'darwin'
+    ? icon.resize({ width: 18, height: 18, quality: 'best' })
+    : icon.resize({ width: 16, height: 16, quality: 'best' });
+
+  if (process.platform === 'darwin') {
+    trayIcon.setTemplateImage(true);
+  }
+
+  tray = new Tray(trayIcon.isEmpty() ? nativeImage.createEmpty() : trayIcon);
   tray.setToolTip('HackDesk');
   tray.setContextMenu(Menu.buildFromTemplate([
     {
@@ -206,9 +251,26 @@ function registerIpcHandlers() {
   ipcMain.handle('hackmd:delete-team-note', (_event, teamPath: string, noteId: string) => deleteTeamNote(teamPath, noteId));
   ipcMain.handle('shell:open-external', (_event, url: string) => openExternalUrl(url));
   ipcMain.handle('shell:open-hackmd-editor', (_event, note) => openHackmdEditor(note));
+  ipcMain.handle('app:confirm', async (_event, options: ConfirmDialogOptions) => {
+    const confirmLabel = options.confirmLabel ?? 'OK';
+    const cancelLabel = options.cancelLabel ?? 'Cancel';
+    const result = await dialog.showMessageBox(getTargetWindow() ?? undefined, {
+      type: options.destructive ? 'warning' : 'question',
+      title: options.title ?? app.getName(),
+      message: options.message,
+      detail: options.detail,
+      buttons: [confirmLabel, cancelLabel],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+    });
+
+    return { confirmed: result.response === 0 };
+  });
 }
 
 app.setName('HackDesk');
+app.setAppUserModelId(APP_ID);
 
 const gotLock = app.requestSingleInstanceLock();
 
@@ -230,6 +292,7 @@ if (!gotLock) {
 }
 
 app.whenReady().then(() => {
+  app.dock?.setIcon(createAppIcon());
   registerIpcHandlers();
   createMenu();
   createMainWindow();

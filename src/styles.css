@@ -278,6 +278,20 @@
     -webkit-app-region: no-drag;
   }
 
+  .app-chrome {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .app-chrome input,
+  .app-chrome textarea,
+  .app-chrome [contenteditable='true'],
+  .app-chrome .markdown-editor,
+  .app-chrome .markdown-editor * {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
   .markdown-editor {
     height: 100%;
   }

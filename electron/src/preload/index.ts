@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 import type {
+  ConfirmDialogOptions,
   CreateNoteInput,
   ElectronSettingsUpdate,
   HackDeskCommandPaletteCommand,
@@ -34,6 +35,7 @@ const api: HackDeskElectronAPI = {
     openHackmdEditor: (note: OpenHackmdEditorInput) => ipcRenderer.invoke('shell:open-hackmd-editor', note),
   },
   app: {
+    confirm: (options: ConfirmDialogOptions) => ipcRenderer.invoke('app:confirm', options),
     onCommand: (callback: (command: HackDeskCommandPaletteCommand) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, command: HackDeskCommandPaletteCommand) => {
         callback(command);
