@@ -465,12 +465,54 @@ function TeamLogo({ team }: { team: TeamSummary }) {
   );
 }
 
+function TopBarIconButton({
+  children,
+  label,
+  onClick,
+}: {
+  children: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="app-topbar-button flex h-7 w-7 items-center justify-center rounded-[6px] text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
+    >
+      {children}
+    </button>
+  );
+}
+
+function AppTopBar({
+  railCollapsed,
+  onToggleRail,
+}: {
+  railCollapsed: boolean;
+  onToggleRail: () => void;
+}) {
+  return (
+    <header className="app-topbar flex h-[52px] shrink-0 items-center border-b border-border-default bg-background-default pl-[86px] pr-3">
+      <div className="flex items-center gap-1">
+        <TopBarIconButton
+          label={railCollapsed ? 'Expand workspace sidebar' : 'Collapse workspace sidebar'}
+          onClick={onToggleRail}
+        >
+          {railCollapsed ? <PanelLeftOpen className="h-[18px] w-[18px]" /> : <PanelLeftClose className="h-[18px] w-[18px]" />}
+        </TopBarIconButton>
+      </div>
+    </header>
+  );
+}
+
 function WorkspaceRail({
   scope,
   user,
   teams,
   collapsed,
-  onToggleCollapsed,
   onScopeChange,
   onOpenSettings,
 }: {
@@ -478,17 +520,16 @@ function WorkspaceRail({
   user?: { name: string; username: string };
   teams: TeamSummary[];
   collapsed: boolean;
-  onToggleCollapsed: () => void;
   onScopeChange: (scope: WorkspaceScope) => void;
   onOpenSettings: () => void;
 }) {
   return (
-    <aside className={`flex shrink-0 flex-col border-r border-border-default bg-background-default pt-8 transition-[width] ${
+    <aside className={`flex shrink-0 flex-col border-r border-border-default bg-background-default pt-5 transition-[width] ${
       collapsed ? 'w-16' : 'w-64'
     }`}
     >
       <div className={`px-3 pb-4 ${collapsed ? 'text-center' : ''}`}>
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
           {!collapsed ? (
             <div className="min-w-0">
               <h1 className="truncate text-lg font-semibold">HackDesk</h1>
@@ -497,14 +538,6 @@ function WorkspaceRail({
               </p>
             </div>
           ) : null}
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            className="rounded-md p-2 text-text-subtle hover:bg-background-selected hover:text-text-default"
-            aria-label={collapsed ? 'Expand workspace sidebar' : 'Collapse workspace sidebar'}
-          >
-            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-          </button>
         </div>
       </div>
 
@@ -723,13 +756,13 @@ function FolderNavigator({
   canCreate,
   isFetching,
   isCreating,
-  onToggleCollapsed,
   onFolderSelect,
   onFolderToggle,
   onNoteSelect,
   onSearchChange,
   onRefresh,
   onCreate,
+  onToggleCollapsed,
   onOpenPalette,
   onOpenSettings,
 }: {
@@ -750,13 +783,13 @@ function FolderNavigator({
   canCreate: boolean;
   isFetching: boolean;
   isCreating: boolean;
-  onToggleCollapsed: () => void;
   onFolderSelect: (folderId: string | null) => void;
   onFolderToggle: (folderId: string) => void;
   onNoteSelect: (note: NoteSummary) => void;
   onSearchChange: (value: string) => void;
   onRefresh: () => void;
   onCreate: () => void;
+  onToggleCollapsed: () => void;
   onOpenPalette: () => void;
   onOpenSettings: () => void;
 }) {
@@ -764,12 +797,13 @@ function FolderNavigator({
 
   if (collapsed) {
     return (
-      <section className="flex w-12 shrink-0 flex-col items-center border-r border-border-default bg-background-muted pt-8">
+      <section className="flex w-12 shrink-0 flex-col items-center border-r border-border-default bg-background-muted pt-4">
         <button
           type="button"
           onClick={onToggleCollapsed}
-          className="rounded-md p-2 text-text-subtle hover:bg-background-selected hover:text-text-default"
+          className="rounded-md p-2 text-text-subtle hover:bg-background-selected hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
           aria-label="Expand note navigator"
+          title="Expand note navigator"
         >
           <PanelLeftOpen className="h-4 w-4" />
         </button>
@@ -779,7 +813,7 @@ function FolderNavigator({
 
   return (
     <section className="flex w-[400px] shrink-0 flex-col border-r border-border-default bg-background-muted">
-      <header className="space-y-3 border-b border-border-default px-4 pb-4 pt-8">
+      <header className="space-y-3 border-b border-border-default px-4 py-4">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h2 className="truncate text-base font-semibold">{scope.label}</h2>
@@ -789,7 +823,7 @@ function FolderNavigator({
             <button
               type="button"
               onClick={onRefresh}
-              className="rounded-md p-2 text-text-subtle hover:bg-background-selected hover:text-text-default"
+              className="rounded-md p-2 text-text-subtle hover:bg-background-selected hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
               aria-label="Refresh notes"
             >
               <RefreshCcw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
@@ -798,7 +832,7 @@ function FolderNavigator({
               type="button"
               onClick={onCreate}
               disabled={!canCreate || isCreating}
-              className="rounded-md p-2 text-text-subtle hover:bg-background-selected hover:text-text-default disabled:opacity-50"
+              className="rounded-md p-2 text-text-subtle hover:bg-background-selected hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default disabled:opacity-50"
               aria-label="Create note"
             >
               <Plus className="h-4 w-4" />
@@ -806,7 +840,7 @@ function FolderNavigator({
             <button
               type="button"
               onClick={onOpenPalette}
-              className="rounded-md p-2 text-text-subtle hover:bg-background-selected hover:text-text-default"
+              className="rounded-md p-2 text-text-subtle hover:bg-background-selected hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
               aria-label="Open command palette"
             >
               <MoreHorizontal className="h-4 w-4" />
@@ -814,8 +848,9 @@ function FolderNavigator({
             <button
               type="button"
               onClick={onToggleCollapsed}
-              className="rounded-md p-2 text-text-subtle hover:bg-background-selected hover:text-text-default"
+              className="rounded-md p-2 text-text-subtle hover:bg-background-selected hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
               aria-label="Collapse note navigator"
+              title="Collapse note navigator"
             >
               <PanelLeftClose className="h-4 w-4" />
             </button>
@@ -1370,18 +1405,22 @@ export function Home() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background-muted text-text-default">
-      <WorkspaceRail
-        scope={scope}
-        user={user}
-        teams={teams}
-        collapsed={railCollapsed}
-        onToggleCollapsed={toggleRailCollapsed}
-        onScopeChange={setScope}
-        onOpenSettings={() => setSettingsOpen(true)}
+    <div className="flex h-screen flex-col overflow-hidden bg-background-muted text-text-default">
+      <AppTopBar
+        railCollapsed={railCollapsed}
+        onToggleRail={toggleRailCollapsed}
       />
 
-      <main className="flex min-w-0 flex-1">
+      <main className="flex min-h-0 min-w-0 flex-1">
+        <WorkspaceRail
+          scope={scope}
+          user={user}
+          teams={teams}
+          collapsed={railCollapsed}
+          onScopeChange={setScope}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+
         <FolderNavigator
           scope={scope}
           tree={folderTree}
@@ -1400,13 +1439,13 @@ export function Home() {
           canCreate={canCreate}
           isFetching={notesQuery.isFetching}
           isCreating={createNoteMutation.isPending}
-          onToggleCollapsed={toggleNavigatorCollapsed}
           onFolderSelect={handleFolderSelect}
           onFolderToggle={toggleFolderCollapsed}
           onNoteSelect={setSelectedNote}
           onSearchChange={setSearch}
           onRefresh={() => notesQuery.refetch()}
           onCreate={handleCreateNote}
+          onToggleCollapsed={toggleNavigatorCollapsed}
           onOpenPalette={openPalette}
           onOpenSettings={() => setSettingsOpen(true)}
         />

@@ -270,6 +270,14 @@
     font-family: var(--font-system);
   }
 
+  .app-topbar {
+    -webkit-app-region: drag;
+  }
+
+  .app-topbar-button {
+    -webkit-app-region: no-drag;
+  }
+
   .markdown-editor {
     height: 100%;
   }
