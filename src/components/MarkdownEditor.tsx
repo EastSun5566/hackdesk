@@ -30,7 +30,7 @@ const editorTheme = EditorView.theme({
     fontSize: '13px',
   },
   '.cm-scroller': {
-    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", monospace',
+    fontFamily: 'var(--font-editor)',
     lineHeight: '1.7',
   },
   '.cm-content': {
