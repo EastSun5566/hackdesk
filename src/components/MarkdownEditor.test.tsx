@@ -24,6 +24,9 @@ vi.mock('@codemirror/language', () => ({
   defaultHighlightStyle: {},
   foldGutter: () => ({}),
   foldKeymap: [],
+  HighlightStyle: {
+    define: () => ({}),
+  },
   indentOnInput: () => ({}),
   syntaxHighlighting: () => ({}),
 }));
@@ -121,6 +124,39 @@ vi.mock('@codemirror/view', () => {
     keymap: { of: () => ({}) },
     lineNumbers: () => ({}),
     rectangularSelection: () => ({}),
+  };
+});
+
+vi.mock('@lezer/highlight', () => {
+  const tag = {};
+
+  return {
+    tags: {
+      atom: tag,
+      bool: tag,
+      comment: tag,
+      contentSeparator: tag,
+      definition: () => tag,
+      emphasis: tag,
+      heading: tag,
+      heading1: tag,
+      heading2: tag,
+      heading3: tag,
+      invalid: tag,
+      keyword: tag,
+      link: tag,
+      list: tag,
+      meta: tag,
+      monospace: tag,
+      number: tag,
+      propertyName: tag,
+      quote: tag,
+      string: tag,
+      strikethrough: tag,
+      strong: tag,
+      url: tag,
+      variableName: tag,
+    },
   };
 });
 
