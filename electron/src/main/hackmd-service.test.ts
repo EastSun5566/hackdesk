@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   createHackmdService,
   getHackmdErrorMessage,
+  mapFolder,
   mapNote,
   mapTeam,
   mapUser,
@@ -155,6 +156,29 @@ describe('hackmd-service DTO mapping', () => {
     });
   });
 
+  it('maps OpenAPI folder fields to FolderSummary', () => {
+    expect(mapFolder({
+      id: 'folder-1',
+      name: 'Projects',
+      description: 'Active work',
+      icon: '1F525',
+      color: '#FF6B6B',
+      parentFolderId: 'root-folder',
+      createdAt: 1_700_000_000,
+      updatedAt: 1_700_000_050,
+    })).toEqual({
+      id: 'folder-1',
+      name: 'Projects',
+      description: 'Active work',
+      icon: '1F525',
+      color: '#FF6B6B',
+      parentId: 'root-folder',
+      clientId: null,
+      createdAtMillis: 1_700_000_000_000,
+      updatedAtMillis: 1_700_000_050_000,
+    });
+  });
+
   it('normalizes timestamps, nested note responses, and common HackMD errors', () => {
     expect(toMillis(1_700_000_000)).toBe(1_700_000_000_000);
     expect(toMillis(1_700_000_000_500)).toBe(1_700_000_000_500);
@@ -254,6 +278,76 @@ describe('hackmd-service request mapping', () => {
     expect(calls[0].init.method).toBe('PATCH');
     expect(calls[1].url).toBe('https://api.test/v1/teams/engineering/notes/note-1');
     expect(calls[1].init.method).toBe('DELETE');
+  });
+
+  it('validates a token without reading the stored token', async () => {
+    const mock = createFetchMock([
+      jsonResponse({
+        id: 'user-id',
+        name: 'Michael',
+        userPath: 'michael',
+        photo: '',
+        email: 'michael@example.com',
+        teams: [],
+      }),
+    ]);
+    const readToken = vi.fn(async () => 'stored-token');
+    const service = createHackmdService({
+      baseUrl: 'https://api.test/v1',
+      timeoutMs: 1000,
+      fetcher: mock.fetcher,
+      readToken,
+    });
+
+    const user = await service.validateToken(' pasted-token ');
+
+    expect(readToken).not.toHaveBeenCalled();
+    expect(mock.calls[0].url).toBe('https://api.test/v1/me');
+    expect(mock.calls[0].init.headers).toMatchObject({ Authorization: 'Bearer pasted-token' });
+    expect(user).toMatchObject({ id: 'user-id', username: 'michael' });
+  });
+
+  it('maps folder list/create/order/update/delete requests', async () => {
+    const { calls, service } = createService([
+      jsonResponse([{ id: 'folder-2', name: 'Zeta' }, { id: 'folder-1', name: 'Alpha' }]),
+      jsonResponse({ root: ['folder-1'] }),
+      jsonResponse({ folder: { id: 'folder-3', name: 'Roadmap', parentFolderId: 'folder-1' } }),
+      textResponse('', { status: 204 }),
+      jsonResponse({ id: 'folder-3', name: 'Roadmap Updated' }),
+      textResponse('', { status: 204 }),
+    ]);
+
+    const folders = await service.listFolders();
+    const order = await service.getFolderOrder();
+    const created = await service.createFolder({ name: 'Roadmap', parentFolderId: 'folder-1' });
+    await service.updateFolderOrder({ root: ['folder-1', 'folder-3'] });
+    const updated = await service.updateTeamFolder('engineering', 'folder-3', { name: 'Roadmap Updated' });
+    await service.deleteTeamFolder('engineering', 'folder-3');
+
+    expect(folders).toMatchObject({
+      source: 'remote',
+      data: [{ id: 'folder-1', name: 'Alpha' }, { id: 'folder-2', name: 'Zeta' }],
+    });
+    expect(order).toEqual({ source: 'remote', data: { root: ['folder-1'] } });
+    expect(created).toMatchObject({ id: 'folder-3', name: 'Roadmap', parentId: 'folder-1' });
+    expect(updated).toMatchObject({ id: 'folder-3', name: 'Roadmap Updated' });
+    expect(calls[0].url).toBe('https://api.test/v1/folders');
+    expect(calls[1].url).toBe('https://api.test/v1/folders/folder-order');
+    expect(calls[2].url).toBe('https://api.test/v1/folders');
+    expect(calls[2].init.method).toBe('POST');
+    expect(JSON.parse(String(calls[2].init.body))).toEqual({
+      name: 'Roadmap',
+      parentFolderId: 'folder-1',
+    });
+    expect(calls[3].url).toBe('https://api.test/v1/folders/folder-order');
+    expect(calls[3].init.method).toBe('PUT');
+    expect(JSON.parse(String(calls[3].init.body))).toEqual({
+      order: { root: ['folder-1', 'folder-3'] },
+    });
+    expect(calls[4].url).toBe('https://api.test/v1/teams/engineering/folders/folder-3');
+    expect(calls[4].init.method).toBe('PATCH');
+    expect(calls[5].url).toBe('https://api.test/v1/teams/engineering/folders/folder-3');
+    expect(calls[5].init.method).toBe('DELETE');
   });
 
   it('returns cached data with an error source when refresh fails', async () => {

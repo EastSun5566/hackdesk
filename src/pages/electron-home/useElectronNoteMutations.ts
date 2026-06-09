@@ -1,0 +1,173 @@
+import { useCallback } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+
+import type {
+  DocumentSummary,
+  FolderSummary,
+  HackDeskElectronAPI,
+  NoteSummary,
+} from '@/lib/electron-api';
+
+import {
+  getFoldersQueryKey,
+  getWorkspaceQueryKey,
+} from './repository';
+import type { SettingsFormInput, WorkspaceScope } from './types';
+import { createQuickNoteContent } from './ui';
+
+export function useElectronNoteMutations({
+  api,
+  scope,
+  selectedNote,
+  selectedParentFolderId,
+  onSettingsSaved,
+  onNoteCreated,
+  onFolderCreated,
+  onNoteDeleted,
+}: {
+  api?: HackDeskElectronAPI;
+  scope: WorkspaceScope;
+  selectedNote: NoteSummary | null;
+  selectedParentFolderId?: string;
+  onSettingsSaved: () => void;
+  onNoteCreated: (note: NoteSummary) => void;
+  onFolderCreated: (folder: FolderSummary) => void;
+  onNoteDeleted: () => void;
+}) {
+  const queryClient = useQueryClient();
+
+  const invalidateCurrentNotes = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope) });
+    if (selectedNote) {
+      void queryClient.invalidateQueries({
+        queryKey: ['electron', 'hackmd', 'note', selectedNote.teamPath ?? null, selectedNote.id],
+      });
+    }
+  }, [queryClient, scope, selectedNote]);
+
+  const invalidateCurrentFolders = useCallback(() => {
+    if (scope.type !== 'history') {
+      void queryClient.invalidateQueries({ queryKey: getFoldersQueryKey(scope) });
+    }
+  }, [queryClient, scope]);
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: (input: SettingsFormInput) => {
+      if (!api) {
+        throw new Error('Electron API is unavailable.');
+      }
+
+      return api.settings.update(input);
+    },
+    onSuccess: (nextSettings) => {
+      queryClient.setQueryData(['electron', 'settings'], nextSettings);
+      void queryClient.invalidateQueries({ queryKey: ['electron', 'hackmd'] });
+      onSettingsSaved();
+      toast.success('Settings saved.');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to save settings.'),
+  });
+
+  const createNoteMutation = useMutation({
+    mutationFn: async (title: string) => {
+      if (!api) {
+        throw new Error('Electron API is unavailable.');
+      }
+
+      const input = {
+        title,
+        content: createQuickNoteContent(title),
+        ...(selectedParentFolderId ? { parentFolderId: selectedParentFolderId } : {}),
+      };
+      return scope.type === 'team'
+        ? api.hackmd.createTeamNote(scope.teamPath, input)
+        : api.hackmd.createNote(input);
+    },
+    onSuccess: (createdNote) => {
+      invalidateCurrentNotes();
+      onNoteCreated(createdNote);
+      toast.success('Note created.');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to create note.'),
+  });
+
+  const createFolderMutation = useMutation({
+    mutationFn: async (name: string) => {
+      if (!api) {
+        throw new Error('Electron API is unavailable.');
+      }
+
+      if (scope.type === 'history') {
+        throw new Error('Choose My Workspace or a team before creating a folder.');
+      }
+
+      const input = {
+        name,
+        ...(selectedParentFolderId ? { parentFolderId: selectedParentFolderId } : {}),
+      };
+      return scope.type === 'team'
+        ? api.hackmd.createTeamFolder(scope.teamPath, input)
+        : api.hackmd.createFolder(input);
+    },
+    onSuccess: (createdFolder) => {
+      invalidateCurrentFolders();
+      onFolderCreated(createdFolder);
+      toast.success('Folder created.');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to create folder.'),
+  });
+
+  const updateNoteMutation = useMutation({
+    mutationFn: ({ note, input }: { note: DocumentSummary; input: { title: string; content: string } }) => {
+      if (!api) {
+        throw new Error('Electron API is unavailable.');
+      }
+
+      const payload = {
+        title: input.title.trim() || 'Untitled',
+        content: input.content,
+      };
+
+      return note.teamPath
+        ? api.hackmd.updateTeamNote(note.teamPath, note.id, payload)
+        : api.hackmd.updateNote(note.id, payload);
+    },
+    onSuccess: (updatedNote) => {
+      onNoteCreated(updatedNote);
+      invalidateCurrentNotes();
+      toast.success('Note saved.');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to save note.'),
+  });
+
+  const deleteNoteMutation = useMutation({
+    mutationFn: async (note: DocumentSummary) => {
+      if (!api) {
+        throw new Error('Electron API is unavailable.');
+      }
+
+      if (note.teamPath) {
+        await api.hackmd.deleteTeamNote(note.teamPath, note.id);
+      } else {
+        await api.hackmd.deleteNote(note.id);
+      }
+    },
+    onSuccess: () => {
+      onNoteDeleted();
+      invalidateCurrentNotes();
+      toast.success('Note deleted.');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to delete note.'),
+  });
+
+  return {
+    invalidateCurrentNotes,
+    invalidateCurrentFolders,
+    updateSettingsMutation,
+    createNoteMutation,
+    createFolderMutation,
+    updateNoteMutation,
+    deleteNoteMutation,
+  };
+}

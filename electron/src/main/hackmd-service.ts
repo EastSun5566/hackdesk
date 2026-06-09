@@ -1,12 +1,16 @@
 import type {
   CreateNoteInput,
   DocumentSummary,
+  CreateFolderInput,
+  FolderOrder,
   FolderPathSummary,
+  FolderSummary,
   NotePermissionRole,
   NotePublishType,
   NoteSummary,
   RepositoryValue,
   TeamSummary,
+  UpdateFolderInput,
   UpdateNoteInput,
   UserSummary,
 } from '../../../src/lib/electron-api';
@@ -21,6 +25,19 @@ type FolderPathDto = {
   color?: unknown;
   parentId?: unknown;
   clientId?: unknown;
+};
+
+type FolderDto = {
+  id?: unknown;
+  name?: unknown;
+  description?: unknown;
+  icon?: unknown;
+  color?: unknown;
+  parentFolderId?: unknown;
+  parentId?: unknown;
+  clientId?: unknown;
+  createdAt?: unknown;
+  updatedAt?: unknown;
 };
 
 type TeamDto = {
@@ -70,7 +87,11 @@ type CacheKey =
   | 'teams'
   | 'notes'
   | 'history'
+  | 'folders'
+  | 'folderOrder'
   | `team:${string}:notes`
+  | `team:${string}:folders`
+  | `team:${string}:folderOrder`
   | `note:${string}`
   | `team:${string}:note:${string}`;
 
@@ -138,6 +159,10 @@ export function normalizeHackmdResponse(value: unknown): unknown {
     return value.note;
   }
 
+  if (value && typeof value === 'object' && 'folder' in value) {
+    return value.folder;
+  }
+
   return value;
 }
 
@@ -149,6 +174,20 @@ export function mapFolderPath(dto: FolderPathDto): FolderPathSummary {
     color: asNullableString(dto.color),
     parentId: asNullableString(dto.parentId),
     clientId: asNullableString(dto.clientId),
+  };
+}
+
+export function mapFolder(dto: FolderDto): FolderSummary {
+  return {
+    id: asString(dto.id),
+    name: asString(dto.name, 'Folder'),
+    description: asNullableString(dto.description),
+    icon: asNullableString(dto.icon),
+    color: asNullableString(dto.color),
+    parentId: asNullableString(dto.parentFolderId ?? dto.parentId),
+    clientId: asNullableString(dto.clientId),
+    createdAtMillis: toMillis(dto.createdAt),
+    updatedAtMillis: toMillis(dto.updatedAt),
   };
 }
 
@@ -309,6 +348,10 @@ export function sortNotes(notes: NoteSummary[]) {
   return [...notes].sort((left, right) => (right.updatedAtMillis ?? 0) - (left.updatedAtMillis ?? 0));
 }
 
+export function sortFolders(folders: FolderSummary[]) {
+  return [...folders].sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
+}
+
 function createEmptyDocument(input: CreateNoteInput | UpdateNoteInput): DocumentSummary {
   const now = Date.now();
 
@@ -330,6 +373,35 @@ function createEmptyDocument(input: CreateNoteInput | UpdateNoteInput): Document
     writePermission: input.writePermission ?? 'owner',
     folderPaths: [],
   };
+}
+
+function createEmptyFolder(input: CreateFolderInput | UpdateFolderInput, folderId = ''): FolderSummary {
+  const now = Date.now();
+
+  return {
+    id: folderId,
+    name: input.name?.trim() || 'Folder',
+    description: input.description ?? null,
+    icon: input.icon ?? null,
+    color: input.color ?? null,
+    parentId: input.parentFolderId ?? null,
+    clientId: null,
+    createdAtMillis: now,
+    updatedAtMillis: now,
+  };
+}
+
+function normalizeFolderOrder(value: unknown): FolderOrder {
+  if (!value || typeof value !== 'object') {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([parentId, folderIds]) => [
+      parentId,
+      Array.isArray(folderIds) ? folderIds.filter((folderId): folderId is string => typeof folderId === 'string') : [],
+    ]),
+  );
 }
 
 export function createHackmdService(options: HackmdServiceOptions = {}) {
@@ -358,7 +430,38 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
     return mapDocument(normalizeHackmdResponse(response) as NoteDto);
   }
 
+  async function createOrUpdateFolder(
+    path: string,
+    method: 'POST' | 'PATCH',
+    input: CreateFolderInput | UpdateFolderInput,
+    folderId = '',
+  ) {
+    const response = await requestHackmd<FolderDto | undefined>(path, {
+      method,
+      body: JSON.stringify(input),
+    }, serviceOptions);
+
+    if (!response) {
+      return createEmptyFolder(input, folderId);
+    }
+
+    return mapFolder(normalizeHackmdResponse(response) as FolderDto);
+  }
+
   return {
+    validateToken(token: string) {
+      const normalizedToken = token.trim();
+
+      if (!normalizedToken) {
+        throw new Error('Enter a HackMD API token before testing it.');
+      }
+
+      return requestHackmd<UserDto>('/me', {}, {
+        ...serviceOptions,
+        readToken: async () => normalizedToken,
+      }).then(mapUser);
+    },
+
     getCurrentUser() {
       return withCache(
         'currentUser',
@@ -386,6 +489,44 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
         'history',
         requestHackmd<NoteDto[]>(`/history?${query.toString()}`, {}, serviceOptions)
           .then((notes) => sortNotes(notes.map(mapNote))),
+      );
+    },
+
+    listFolders() {
+      return withCache(
+        'folders',
+        requestHackmd<FolderDto[]>('/folders', {}, serviceOptions)
+          .then((folders) => sortFolders(folders.map(mapFolder))),
+      );
+    },
+
+    listTeamFolders(teamPath: string) {
+      const normalizedTeamPath = teamPath.trim();
+
+      return withCache(
+        `team:${normalizedTeamPath}:folders`,
+        requestHackmd<FolderDto[]>(`/teams/${encodePathSegment(normalizedTeamPath)}/folders`, {}, serviceOptions)
+          .then((folders) => sortFolders(folders.map(mapFolder))),
+      );
+    },
+
+    getFolderOrder() {
+      return withCache(
+        'folderOrder',
+        requestHackmd<FolderOrder>('/folders/folder-order', {}, serviceOptions).then(normalizeFolderOrder),
+      );
+    },
+
+    getTeamFolderOrder(teamPath: string) {
+      const normalizedTeamPath = teamPath.trim();
+
+      return withCache(
+        `team:${normalizedTeamPath}:folderOrder`,
+        requestHackmd<FolderOrder>(
+          `/teams/${encodePathSegment(normalizedTeamPath)}/folders/folder-order`,
+          {},
+          serviceOptions,
+        ).then(normalizeFolderOrder),
       );
     },
 
@@ -421,6 +562,32 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
 
     createTeamNote(teamPath: string, input: CreateNoteInput) {
       return createOrUpdateDocument(`/teams/${encodePathSegment(teamPath)}/notes`, 'POST', input);
+    },
+
+    createFolder(input: CreateFolderInput) {
+      return createOrUpdateFolder('/folders', 'POST', input);
+    },
+
+    createTeamFolder(teamPath: string, input: CreateFolderInput) {
+      return createOrUpdateFolder(`/teams/${encodePathSegment(teamPath)}/folders`, 'POST', input);
+    },
+
+    updateFolder(folderId: string, input: UpdateFolderInput) {
+      return createOrUpdateFolder(
+        `/folders/${encodePathSegment(folderId)}`,
+        'PATCH',
+        input,
+        folderId,
+      );
+    },
+
+    updateTeamFolder(teamPath: string, folderId: string, input: UpdateFolderInput) {
+      return createOrUpdateFolder(
+        `/teams/${encodePathSegment(teamPath)}/folders/${encodePathSegment(folderId)}`,
+        'PATCH',
+        input,
+        folderId,
+      );
     },
 
     updateNote(noteId: string, input: UpdateNoteInput) {
@@ -465,20 +632,67 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
       memoryCache.delete(`team:${teamPath}:notes`);
       memoryCache.delete(`team:${teamPath}:note:${noteId}`);
     },
+
+    async deleteFolder(folderId: string) {
+      await requestHackmd<void>(`/folders/${encodePathSegment(folderId)}`, { method: 'DELETE' }, serviceOptions);
+      memoryCache.delete('folders');
+      memoryCache.delete('notes');
+    },
+
+    async deleteTeamFolder(teamPath: string, folderId: string) {
+      await requestHackmd<void>(
+        `/teams/${encodePathSegment(teamPath)}/folders/${encodePathSegment(folderId)}`,
+        { method: 'DELETE' },
+        serviceOptions,
+      );
+      memoryCache.delete(`team:${teamPath}:folders`);
+      memoryCache.delete(`team:${teamPath}:notes`);
+    },
+
+    async updateFolderOrder(order: FolderOrder) {
+      await requestHackmd<void>('/folders/folder-order', {
+        method: 'PUT',
+        body: JSON.stringify({ order }),
+      }, serviceOptions);
+      memoryCache.delete('folderOrder');
+      memoryCache.delete('folders');
+    },
+
+    async updateTeamFolderOrder(teamPath: string, order: FolderOrder) {
+      await requestHackmd<void>(`/teams/${encodePathSegment(teamPath)}/folders/folder-order`, {
+        method: 'PUT',
+        body: JSON.stringify({ order }),
+      }, serviceOptions);
+      memoryCache.delete(`team:${teamPath}:folderOrder`);
+      memoryCache.delete(`team:${teamPath}:folders`);
+    },
   };
 }
 
 const defaultHackmdService = createHackmdService();
 
+export const validateToken = defaultHackmdService.validateToken;
 export const getCurrentUser = defaultHackmdService.getCurrentUser;
 export const listTeams = defaultHackmdService.listTeams;
 export const listNotes = defaultHackmdService.listNotes;
 export const listHistory = defaultHackmdService.listHistory;
 export const listTeamNotes = defaultHackmdService.listTeamNotes;
+export const listFolders = defaultHackmdService.listFolders;
+export const listTeamFolders = defaultHackmdService.listTeamFolders;
+export const getFolderOrder = defaultHackmdService.getFolderOrder;
+export const getTeamFolderOrder = defaultHackmdService.getTeamFolderOrder;
 export const getNote = defaultHackmdService.getNote;
 export const createNote = defaultHackmdService.createNote;
 export const createTeamNote = defaultHackmdService.createTeamNote;
+export const createFolder = defaultHackmdService.createFolder;
+export const createTeamFolder = defaultHackmdService.createTeamFolder;
+export const updateFolder = defaultHackmdService.updateFolder;
+export const updateTeamFolder = defaultHackmdService.updateTeamFolder;
 export const updateNote = defaultHackmdService.updateNote;
 export const updateTeamNote = defaultHackmdService.updateTeamNote;
 export const deleteNote = defaultHackmdService.deleteNote;
 export const deleteTeamNote = defaultHackmdService.deleteTeamNote;
+export const deleteFolder = defaultHackmdService.deleteFolder;
+export const deleteTeamFolder = defaultHackmdService.deleteTeamFolder;
+export const updateFolderOrder = defaultHackmdService.updateFolderOrder;
+export const updateTeamFolderOrder = defaultHackmdService.updateTeamFolderOrder;

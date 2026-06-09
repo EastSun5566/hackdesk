@@ -76,6 +76,21 @@ describe('buildHackmdFolderTree', () => {
     });
   });
 
+  it('keeps API folders even when they have no notes', () => {
+    const tree = buildHackmdFolderTree([], [
+      { id: 'folder-1', name: 'Projects', icon: null, color: null, parentId: null, clientId: null },
+      { id: 'folder-2', name: 'Q2', icon: null, color: null, parentId: 'folder-1', clientId: null },
+    ]);
+
+    expect(tree.roots).toHaveLength(1);
+    expect(tree.roots[0]).toMatchObject({ id: 'folder-1', name: 'Projects', notes: [] });
+    expect(tree.roots[0].children[0]).toMatchObject({
+      id: 'folder-2',
+      name: 'Q2',
+      notes: [],
+    });
+  });
+
   it('shows multi-folder notes in every folder and in flat search metadata', () => {
     const tree = buildHackmdFolderTree([
       note({

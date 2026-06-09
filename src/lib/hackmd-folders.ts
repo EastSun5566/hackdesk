@@ -76,7 +76,7 @@ function assignFolderPaths(node: FolderTreeNode, ancestors: FolderPathSummary[] 
   node.children.forEach((child) => assignFolderPaths(child, nextPath));
 }
 
-export function buildHackmdFolderTree(notes: NoteSummary[]): FolderTree {
+export function buildHackmdFolderTree(notes: NoteSummary[], folders: FolderPathSummary[] = []): FolderTree {
   const nodesById = new Map<string, FolderTreeNode>();
   const roots: FolderTreeNode[] = [];
   const allNotes: FolderTreeNote[] = [];
@@ -89,16 +89,19 @@ export function buildHackmdFolderTree(notes: NoteSummary[]): FolderTree {
     clientId: null,
   });
 
-  for (const note of notes) {
-    for (const rawFolder of note.folderPaths) {
-      const folder = normalizeFolder(rawFolder);
+  const knownFolders = [
+    ...folders,
+    ...notes.flatMap((note) => note.folderPaths),
+  ];
 
-      if (!folder.id || nodesById.has(folder.id)) {
-        continue;
-      }
+  for (const rawFolder of knownFolders) {
+    const folder = normalizeFolder(rawFolder);
 
-      nodesById.set(folder.id, createFolderNode(folder));
+    if (!folder.id || nodesById.has(folder.id)) {
+      continue;
     }
+
+    nodesById.set(folder.id, createFolderNode(folder));
   }
 
   for (const node of nodesById.values()) {

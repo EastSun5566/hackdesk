@@ -24,6 +24,14 @@ export type FolderPathSummary = {
   clientId: string | null;
 };
 
+export type FolderSummary = FolderPathSummary & {
+  description: string | null;
+  createdAtMillis: number | null;
+  updatedAtMillis: number | null;
+};
+
+export type FolderOrder = Record<string, string[]>;
+
 export type TeamSummary = {
   id: string;
   ownerId: string | null;
@@ -106,10 +114,33 @@ export type ConfirmDialogResult = {
   confirmed: boolean;
 };
 
+export type CreateFolderInput = {
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  parentFolderId?: string;
+};
+
+export type UpdateFolderInput = {
+  name?: string;
+  description?: string | null;
+  icon?: string | null;
+  color?: string | null;
+  parentFolderId?: string | null;
+};
+
+export type ElectronActionId =
+  | 'open-command-palette'
+  | 'open-settings'
+  | 'new-note'
+  | 'refresh'
+  | 'focus-workspace'
+  | 'focus-navigator'
+  | 'focus-editor';
+
 export type HackDeskCommandPaletteCommand =
-  | { type: 'open-command-palette' }
-  | { type: 'open-settings' }
-  | { type: 'new-note' };
+  { type: ElectronActionId };
 
 export type HackDeskElectronAPI = {
   getRuntimeEnvironment: () => RuntimeEnvironment;
@@ -118,11 +149,24 @@ export type HackDeskElectronAPI = {
     update: (settings: ElectronSettingsUpdate) => Promise<ElectronSafeSettings>;
   };
   hackmd: {
+    validateToken: (token: string) => Promise<UserSummary>;
     getCurrentUser: () => Promise<RepositoryValue<UserSummary>>;
     listTeams: () => Promise<RepositoryValue<TeamSummary[]>>;
     listNotes: () => Promise<RepositoryValue<NoteSummary[]>>;
     listTeamNotes: (teamPath: string) => Promise<RepositoryValue<NoteSummary[]>>;
     listHistory: (limit?: number) => Promise<RepositoryValue<NoteSummary[]>>;
+    listFolders: () => Promise<RepositoryValue<FolderSummary[]>>;
+    listTeamFolders: (teamPath: string) => Promise<RepositoryValue<FolderSummary[]>>;
+    getFolderOrder: () => Promise<RepositoryValue<FolderOrder>>;
+    getTeamFolderOrder: (teamPath: string) => Promise<RepositoryValue<FolderOrder>>;
+    createFolder: (input: CreateFolderInput) => Promise<FolderSummary>;
+    createTeamFolder: (teamPath: string, input: CreateFolderInput) => Promise<FolderSummary>;
+    updateFolder: (folderId: string, input: UpdateFolderInput) => Promise<FolderSummary>;
+    updateTeamFolder: (teamPath: string, folderId: string, input: UpdateFolderInput) => Promise<FolderSummary>;
+    deleteFolder: (folderId: string) => Promise<void>;
+    deleteTeamFolder: (teamPath: string, folderId: string) => Promise<void>;
+    updateFolderOrder: (order: FolderOrder) => Promise<void>;
+    updateTeamFolderOrder: (teamPath: string, order: FolderOrder) => Promise<void>;
     getNote: (noteId: string, teamPath?: string | null) => Promise<RepositoryValue<DocumentSummary>>;
     createNote: (input: CreateNoteInput) => Promise<DocumentSummary>;
     createTeamNote: (teamPath: string, input: CreateNoteInput) => Promise<DocumentSummary>;

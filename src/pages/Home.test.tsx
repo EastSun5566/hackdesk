@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { DocumentSummary, HackDeskElectronAPI, NoteSummary } from '@/lib/electron-api';
+import type { DocumentSummary, FolderSummary, HackDeskElectronAPI, NoteSummary } from '@/lib/electron-api';
 import { Home } from './Home';
 
 const note: NoteSummary = {
@@ -29,6 +29,18 @@ const document: DocumentSummary = {
   content: '# Test note',
 };
 
+const folder: FolderSummary = {
+  id: 'folder-1',
+  name: 'Projects',
+  description: null,
+  icon: null,
+  color: null,
+  parentId: null,
+  clientId: null,
+  createdAtMillis: 1_700_000_000_000,
+  updatedAtMillis: 1_700_000_000_000,
+};
+
 function renderHome(api: HackDeskElectronAPI) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -46,6 +58,10 @@ function renderHome(api: HackDeskElectronAPI) {
   );
 }
 
+function findRenderedNoteTitle() {
+  return screen.findByDisplayValue('Test note', {}, { timeout: 3000 });
+}
+
 function createApi(overrides: Partial<HackDeskElectronAPI> = {}): HackDeskElectronAPI {
   return {
     getRuntimeEnvironment: () => 'electron',
@@ -54,6 +70,7 @@ function createApi(overrides: Partial<HackDeskElectronAPI> = {}): HackDeskElectr
       update: vi.fn(),
     },
     hackmd: {
+      validateToken: vi.fn(),
       getCurrentUser: vi.fn(async () => ({
         source: 'remote',
         data: {
@@ -70,6 +87,18 @@ function createApi(overrides: Partial<HackDeskElectronAPI> = {}): HackDeskElectr
       listNotes: vi.fn(async () => ({ source: 'remote', data: [note] })),
       listTeamNotes: vi.fn(),
       listHistory: vi.fn(),
+      listFolders: vi.fn(async () => ({ source: 'remote', data: [] })),
+      listTeamFolders: vi.fn(),
+      getFolderOrder: vi.fn(),
+      getTeamFolderOrder: vi.fn(),
+      createFolder: vi.fn(async () => folder),
+      createTeamFolder: vi.fn(),
+      updateFolder: vi.fn(),
+      updateTeamFolder: vi.fn(),
+      deleteFolder: vi.fn(),
+      deleteTeamFolder: vi.fn(),
+      updateFolderOrder: vi.fn(),
+      updateTeamFolderOrder: vi.fn(),
       getNote: vi.fn(async () => ({ source: 'remote', data: document })),
       createNote: vi.fn(async () => document),
       createTeamNote: vi.fn(),
@@ -100,7 +129,7 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
 
-    await screen.findByDisplayValue('Test note');
+    await findRenderedNoteTitle();
     fireEvent.click(screen.getByRole('button', { name: 'Delete note' }));
 
     await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
@@ -120,7 +149,7 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
 
-    await screen.findByDisplayValue('Test note');
+    await findRenderedNoteTitle();
     fireEvent.click(screen.getByRole('button', { name: 'Delete note' }));
 
     await waitFor(() => expect(api.hackmd.deleteNote).toHaveBeenCalledWith('note-1'));
@@ -131,7 +160,7 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
 
-    await screen.findByDisplayValue('Test note');
+    await findRenderedNoteTitle();
     fireEvent.click(screen.getByRole('button', { name: 'Create note' }));
     expect(screen.getByRole('heading', { name: 'New Note' })).toBeInTheDocument();
 
@@ -143,5 +172,36 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
+  });
+
+  it('shows empty API folders and creates notes inside the selected folder', async () => {
+    const createdDocument = {
+      ...document,
+      id: 'created-note',
+      title: 'Folder note',
+      folderPaths: [folder],
+    };
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: [] })),
+        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        createNote: vi.fn(async () => createdDocument),
+        getNote: vi.fn(async () => ({ source: 'remote', data: createdDocument })),
+      },
+    });
+
+    renderHome(api);
+
+    fireEvent.click((await screen.findByText('Projects')).closest('button')!);
+    fireEvent.click(screen.getByRole('button', { name: 'Create note' }));
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Folder note' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => expect(api.hackmd.createNote).toHaveBeenCalledWith({
+      title: 'Folder note',
+      content: '# Folder note\n\n',
+      parentFolderId: 'folder-1',
+    }));
   });
 });

@@ -2,24 +2,15 @@ import { shell } from 'electron';
 
 import type { OpenHackmdEditorInput } from '../../../src/lib/electron-api';
 import { getHackmdNotePath } from '../../../src/lib/hackmd-path';
-
-const SAFE_EXTERNAL_PROTOCOLS = new Set(['https:', 'http:', 'mailto:']);
-
-export function classifyUrl(url: string): 'safe-external' | 'blocked' {
-  try {
-    const parsed = new URL(url);
-    return SAFE_EXTERNAL_PROTOCOLS.has(parsed.protocol) ? 'safe-external' : 'blocked';
-  } catch {
-    return 'blocked';
-  }
-}
+import { classifyExternalUrl } from './url-safety';
 
 export async function openExternalUrl(url: string) {
-  if (classifyUrl(url) !== 'safe-external') {
-    throw new Error('Blocked unsupported URL scheme.');
+  const classification = classifyExternalUrl(url);
+  if (classification.type !== 'safe-external') {
+    throw new Error(classification.reason);
   }
 
-  await shell.openExternal(url);
+  await shell.openExternal(classification.url);
 }
 
 export async function openHackmdEditor(note: OpenHackmdEditorInput) {
