@@ -3,24 +3,33 @@ import { toast } from 'sonner';
 
 import { getDesktopAPI } from '@/lib/desktop-api';
 import type { DocumentSummary, ElectronActionId, FolderSummary, NoteSummary } from '@/lib/electron-api';
-import { buildHackmdFolderTree, UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
+import type { FolderDropOperation } from '@/lib/hackmd-folder-dnd';
+import { buildHackmdFolderTree, UNFILED_FOLDER_ID, type FolderTreeNode } from '@/lib/hackmd-folders';
 
 import { AppTopBar } from './electron-home/AppTopBar';
 import { CommandPaletteDialog } from './electron-home/CommandPaletteDialog';
 import { CreateFolderDialog } from './electron-home/CreateFolderDialog';
 import { CreateNoteDialog } from './electron-home/CreateNoteDialog';
 import { DeleteNoteDialog } from './electron-home/DeleteNoteDialog';
+import { DeleteFolderDialog } from './electron-home/DeleteFolderDialog';
 import { DocumentDetail } from './electron-home/DocumentDetail';
 import { FolderNavigator } from './electron-home/FolderNavigator';
 import { PanelResizeSash } from './electron-home/PanelResizeSash';
 import { SettingsDialog } from './electron-home/SettingsDialog';
+import { RenameFolderDialog } from './electron-home/RenameFolderDialog';
 import { WorkspaceRail } from './electron-home/WorkspaceRail';
 import {
   getRepositoryError,
   getScopeStorageKey,
   isShowingCachedFallback,
 } from './electron-home/repository';
-import type { CommandPaletteState, CreateFolderDialogState, CreateNoteDialogState, WorkspaceScope } from './electron-home/types';
+import type {
+  CommandPaletteState,
+  CreateFolderDialogState,
+  CreateNoteDialogState,
+  RenameFolderDialogState,
+  WorkspaceScope,
+} from './electron-home/types';
 import {
   FOLDER_COLLAPSED_PREFIX,
   NAVIGATOR_COLLAPSED_KEY,
@@ -65,7 +74,13 @@ export function Home() {
   const [palette, setPalette] = useState<CommandPaletteState>({ open: false, search: '' });
   const [createDialog, setCreateDialog] = useState<CreateNoteDialogState>({ open: false, title: '' });
   const [createFolderDialog, setCreateFolderDialog] = useState<CreateFolderDialogState>({ open: false, name: '' });
+  const [renameFolderDialog, setRenameFolderDialog] = useState<RenameFolderDialogState>({
+    open: false,
+    folderId: null,
+    name: '',
+  });
   const [deleteTarget, setDeleteTarget] = useState<DocumentSummary | null>(null);
+  const [deleteFolderTarget, setDeleteFolderTarget] = useState<FolderTreeNode | null>(null);
   const [railCollapsed, setRailCollapsed] = useState(() => readBooleanStorage(RAIL_COLLAPSED_KEY, false));
   const [navigatorCollapsed, setNavigatorCollapsed] = useState(() => readBooleanStorage(NAVIGATOR_COLLAPSED_KEY, false));
   const [railWidth, setRailWidth] = useState(() => (
@@ -85,13 +100,14 @@ export function Home() {
     teams,
     currentNotes,
     currentFolders,
+    currentFolderOrder,
     document,
     queries,
   } = useElectronHackmdQueries({ api, scope, selectedNote });
 
   const folderTree = useMemo(
-    () => buildHackmdFolderTree(currentNotes, currentFolders),
-    [currentFolders, currentNotes],
+    () => buildHackmdFolderTree(currentNotes, currentFolders, currentFolderOrder),
+    [currentFolderOrder, currentFolders, currentNotes],
   );
   const normalizedSearch = deferredSearch.trim().toLowerCase();
   const visibleEntries = useMemo(() => {
@@ -133,6 +149,17 @@ export function Home() {
         setSelectedFolderId(folder.id);
       }
     },
+    onFolderRenamed: (folder: FolderSummary) => {
+      setRenameFolderDialog({ open: false, folderId: null, name: '' });
+      if (folder.id) {
+        setSelectedFolderId(folder.id);
+      }
+    },
+    onFolderDeleted: (_folderId, parentFolderId) => {
+      setDeleteFolderTarget(null);
+      setSelectedNote(null);
+      setSelectedFolderId(parentFolderId ?? UNFILED_FOLDER_ID);
+    },
     onNoteDeleted: () => {
       setDeleteTarget(null);
       setSelectedNote(null);
@@ -145,8 +172,9 @@ export function Home() {
     void queries.notesQuery.refetch();
     if (scope.type !== 'history') {
       void queries.foldersQuery.refetch();
+      void queries.folderOrderQuery.refetch();
     }
-  }, [queries.foldersQuery, queries.notesQuery, queries.teamsQuery, queries.userQuery, scope.type]);
+  }, [queries.folderOrderQuery, queries.foldersQuery, queries.notesQuery, queries.teamsQuery, queries.userQuery, scope.type]);
 
   const handleCreateNote = useCallback(() => {
     if (!hasToken) {
@@ -176,6 +204,58 @@ export function Home() {
     setCreateFolderDialog({ open: true, name: '' });
   }, [hasToken, scope.type]);
 
+  const handleCreateFolderInside = useCallback((folderId: string | null) => {
+    if (folderId) {
+      setSelectedFolderId(folderId);
+    } else {
+      setSelectedFolderId(UNFILED_FOLDER_ID);
+    }
+
+    handleCreateFolder();
+  }, [handleCreateFolder]);
+
+  const handleRenameFolder = useCallback((folderId: string) => {
+    const folder = folderTree.nodesById.get(folderId);
+    if (!folder) {
+      toast.info('Select a folder before renaming it.');
+      return;
+    }
+
+    setRenameFolderDialog({ open: true, folderId, name: folder.name });
+  }, [folderTree]);
+
+  const handleDeleteFolderRequest = useCallback((folderId: string) => {
+    const folder = folderTree.nodesById.get(folderId);
+    if (!folder) {
+      toast.info('Select a folder before deleting it.');
+      return;
+    }
+
+    if (!api?.app.confirm) {
+      setDeleteFolderTarget(folder);
+      return;
+    }
+
+    api.app.confirm({
+      title: 'Delete Folder',
+      message: `Delete “${folder.name}”?`,
+      detail: 'This removes the folder from HackMD. This action cannot be undone from HackDesk.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      destructive: true,
+    }).then(({ confirmed }) => {
+      if (confirmed) {
+        mutations.deleteFolderMutation.mutate({ folderId: folder.id, parentFolderId: folder.parentId });
+      }
+    }).catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to confirm folder deletion.');
+    });
+  }, [api, folderTree, mutations.deleteFolderMutation]);
+
+  const handleFolderDrop = useCallback((operation: FolderDropOperation) => {
+    mutations.moveFolderMutation.mutate(operation);
+  }, [mutations.moveFolderMutation]);
+
   const openPalette = useCallback(() => {
     setPalette({ open: true, search: '' });
   }, []);
@@ -190,6 +270,23 @@ export function Home() {
       break;
     case 'new-note':
       handleCreateNote();
+      break;
+    case 'new-folder':
+      handleCreateFolder();
+      break;
+    case 'rename-folder':
+      if (selectedFolder?.id && selectedFolder.id !== UNFILED_FOLDER_ID) {
+        handleRenameFolder(selectedFolder.id);
+      } else {
+        toast.info('Select a folder before renaming it.');
+      }
+      break;
+    case 'delete-folder':
+      if (selectedFolder?.id && selectedFolder.id !== UNFILED_FOLDER_ID) {
+        handleDeleteFolderRequest(selectedFolder.id);
+      } else {
+        toast.info('Select a folder before deleting it.');
+      }
       break;
     case 'refresh':
       refreshWorkspace();
@@ -211,7 +308,16 @@ export function Home() {
       focusRegion('editor');
       break;
     }
-  }, [api, handleCreateNote, openPalette, refreshWorkspace]);
+  }, [
+    api,
+    handleCreateFolder,
+    handleCreateNote,
+    handleDeleteFolderRequest,
+    handleRenameFolder,
+    openPalette,
+    refreshWorkspace,
+    selectedFolder,
+  ]);
 
   const handleDeleteRequest = useCallback((note: DocumentSummary) => {
     if (!api?.app.confirm) {
@@ -328,6 +434,16 @@ export function Home() {
         return;
       }
 
+      if (deleteFolderTarget) {
+        setDeleteFolderTarget(null);
+        return;
+      }
+
+      if (renameFolderDialog.open) {
+        setRenameFolderDialog({ open: false, folderId: null, name: '' });
+        return;
+      }
+
       if (settingsOpen) {
         setSettingsOpen(false);
       }
@@ -339,9 +455,11 @@ export function Home() {
     createDialog.open,
     createFolderDialog.open,
     deleteTarget,
+    deleteFolderTarget,
     handleCreateNote,
     openPalette,
     palette.open,
+    renameFolderDialog.open,
     refreshWorkspace,
     settingsOpen,
   ]);
@@ -356,12 +474,14 @@ export function Home() {
 
   const notesError = getRepositoryError(queries.notesQuery.data);
   const foldersError = getRepositoryError(queries.foldersQuery.data);
+  const folderOrderError = getRepositoryError(queries.folderOrderQuery.data);
   const userError = getRepositoryError(queries.userQuery.data);
   const teamsError = getRepositoryError(queries.teamsQuery.data);
-  const activeError = notesError ?? foldersError ?? userError ?? teamsError;
+  const activeError = notesError ?? foldersError ?? folderOrderError ?? userError ?? teamsError;
   const showingCachedFallback =
     isShowingCachedFallback(queries.notesQuery.data)
     || isShowingCachedFallback(queries.foldersQuery.data)
+    || isShowingCachedFallback(queries.folderOrderQuery.data)
     || isShowingCachedFallback(queries.userQuery.data)
     || isShowingCachedFallback(queries.teamsQuery.data);
   const emptyTitle = !hasToken
@@ -457,7 +577,7 @@ export function Home() {
           selectedFolderId={selectedFolderId}
           selectedNoteId={selectedNote?.id ?? null}
           search={search}
-          isLoading={queries.notesQuery.isLoading || queries.foldersQuery.isLoading}
+          isLoading={queries.notesQuery.isLoading || queries.foldersQuery.isLoading || queries.folderOrderQuery.isLoading}
           hasToken={hasToken}
           collapsed={navigatorCollapsed}
           width={navigatorWidth}
@@ -467,8 +587,9 @@ export function Home() {
           activeError={activeError}
           showingCachedFallback={showingCachedFallback}
           canCreate={canCreate}
-          isFetching={queries.notesQuery.isFetching || queries.foldersQuery.isFetching}
+          isFetching={queries.notesQuery.isFetching || queries.foldersQuery.isFetching || queries.folderOrderQuery.isFetching}
           isCreating={mutations.createNoteMutation.isPending || mutations.createFolderMutation.isPending}
+          isMovingFolder={mutations.moveFolderMutation.isPending}
           onFolderSelect={handleFolderSelect}
           onFolderToggle={toggleFolderCollapsed}
           onNoteSelect={setSelectedNote}
@@ -476,6 +597,10 @@ export function Home() {
           onRefresh={refreshWorkspace}
           onCreate={handleCreateNote}
           onCreateFolder={handleCreateFolder}
+          onCreateFolderInside={handleCreateFolderInside}
+          onRenameFolder={handleRenameFolder}
+          onDeleteFolder={handleDeleteFolderRequest}
+          onFolderDrop={handleFolderDrop}
           onToggleCollapsed={toggleNavigatorCollapsed}
           onOpenPalette={openPalette}
           onOpenSettings={() => setSettingsOpen(true)}
@@ -540,6 +665,23 @@ export function Home() {
         isCreating={mutations.createFolderMutation.isPending}
         onStateChange={setCreateFolderDialog}
         onCreate={(name) => mutations.createFolderMutation.mutate(name)}
+      />
+
+      <RenameFolderDialog
+        state={renameFolderDialog}
+        isRenaming={mutations.renameFolderMutation.isPending}
+        onStateChange={setRenameFolderDialog}
+        onRename={(folderId, name) => mutations.renameFolderMutation.mutate({ folderId, name })}
+      />
+
+      <DeleteFolderDialog
+        folder={deleteFolderTarget}
+        isDeleting={mutations.deleteFolderMutation.isPending}
+        onCancel={() => setDeleteFolderTarget(null)}
+        onDelete={(folder) => mutations.deleteFolderMutation.mutate({
+          folderId: folder.id,
+          parentFolderId: folder.parentId,
+        })}
       />
 
       <DeleteNoteDialog

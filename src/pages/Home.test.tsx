@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type {
@@ -95,13 +95,17 @@ function createApi(overrides: Partial<HackDeskElectronAPI> = {}): HackDeskElectr
       listHistory: vi.fn(),
       listFolders: vi.fn(async () => ({ source: 'remote', data: [] })),
       listTeamFolders: vi.fn(),
-      getFolderOrder: vi.fn(),
-      getTeamFolderOrder: vi.fn(),
+      getFolderOrder: vi.fn(async () => ({ source: 'remote', data: {} })),
+      getTeamFolderOrder: vi.fn(async () => ({ source: 'remote', data: {} })),
       createFolder: vi.fn(async () => folder),
       createTeamFolder: vi.fn(),
-      updateFolder: vi.fn(),
+      updateFolder: vi.fn(async (_folderId: string, input: { name?: string; parentFolderId?: string | null }) => ({
+        ...folder,
+        name: input.name ?? folder.name,
+        parentId: input.parentFolderId ?? folder.parentId,
+      })),
       updateTeamFolder: vi.fn(),
-      deleteFolder: vi.fn(),
+      deleteFolder: vi.fn(async () => undefined),
       deleteTeamFolder: vi.fn(),
       updateFolderOrder: vi.fn(),
       updateTeamFolderOrder: vi.fn(),
@@ -231,8 +235,80 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findRenderedNoteTitle();
-    commandHandler?.({ type: 'export-debug-logs' });
+    act(() => {
+      commandHandler?.({ type: 'export-debug-logs' });
+    });
 
     await waitFor(() => expect(api.app.exportDebugLogs).toHaveBeenCalled());
+  });
+
+  it('renames the selected folder from the shared action registry command', async () => {
+    let commandHandler: ((command: HackDeskCommandPaletteCommand) => void) | null = null;
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: [] })),
+        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        updateFolder: vi.fn(async (_folderId: string, input: { name?: string }) => ({
+          ...folder,
+          name: input.name ?? folder.name,
+        })),
+      },
+      app: {
+        confirm: vi.fn(async () => ({ confirmed: false })),
+        exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
+        recordFatalRendererError: vi.fn(async () => undefined),
+        onCommand: vi.fn((handler) => {
+          commandHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.click((await screen.findByText('Projects')).closest('button')!);
+    act(() => {
+      commandHandler?.({ type: 'rename-folder' });
+    });
+    expect(await screen.findByRole('heading', { name: 'Rename Folder' })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Renamed Projects' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+
+    await waitFor(() => expect(api.hackmd.updateFolder).toHaveBeenCalledWith('folder-1', {
+      name: 'Renamed Projects',
+    }));
+  });
+
+  it('deletes the selected folder after native confirmation succeeds', async () => {
+    let commandHandler: ((command: HackDeskCommandPaletteCommand) => void) | null = null;
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: [] })),
+        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        deleteFolder: vi.fn(async () => undefined),
+      },
+      app: {
+        confirm: vi.fn(async () => ({ confirmed: true })),
+        exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
+        recordFatalRendererError: vi.fn(async () => undefined),
+        onCommand: vi.fn((handler) => {
+          commandHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.click((await screen.findByText('Projects')).closest('button')!);
+    act(() => {
+      commandHandler?.({ type: 'delete-folder' });
+    });
+
+    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
+      destructive: true,
+      confirmLabel: 'Delete',
+    })));
+    await waitFor(() => expect(api.hackmd.deleteFolder).toHaveBeenCalledWith('folder-1'));
   });
 });

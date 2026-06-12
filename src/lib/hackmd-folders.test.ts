@@ -133,4 +133,20 @@ describe('buildHackmdFolderTree', () => {
     expect(tree.roots.map((folder) => folder.name)).toEqual(['Alpha', 'Zeta']);
     expect(tree.nodesById.get('zeta')?.notes.map((entry) => entry.note.id)).toEqual(['newer', 'older']);
   });
+
+  it('sorts folders by HackMD folder order before falling back to names', () => {
+    const tree = buildHackmdFolderTree([], [
+      { id: 'alpha', name: 'Alpha', icon: null, color: null, parentId: null, clientId: null },
+      { id: 'zeta', name: 'Zeta', icon: null, color: null, parentId: null, clientId: null },
+      { id: 'beta', name: 'Beta', icon: null, color: null, parentId: null, clientId: null },
+      { id: 'child-a', name: 'Child A', icon: null, color: null, parentId: 'zeta', clientId: null },
+      { id: 'child-b', name: 'Child B', icon: null, color: null, parentId: 'zeta', clientId: null },
+    ], {
+      root: ['zeta', 'alpha'],
+      zeta: ['child-b', 'child-a'],
+    });
+
+    expect(tree.roots.map((folder) => folder.id)).toEqual(['zeta', 'alpha', 'beta']);
+    expect(tree.nodesById.get('zeta')?.children.map((folder) => folder.id)).toEqual(['child-b', 'child-a']);
+  });
 });

@@ -11,6 +11,10 @@ describe('electron action registry', () => {
       label: 'New Note',
       menuAccelerator: 'CmdOrCtrl+N',
     });
+    expect(getElectronAction('new-folder')).toMatchObject({
+      label: 'New Folder',
+      menuAccelerator: 'Shift+CmdOrCtrl+N',
+    });
     expect(getElectronAction('open-command-palette')).toMatchObject({
       shortcut: '⌘K',
       menuAccelerator: 'CmdOrCtrl+K',

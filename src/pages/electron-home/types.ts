@@ -18,6 +18,12 @@ export type CreateFolderDialogState = {
   name: string;
 };
 
+export type RenameFolderDialogState = {
+  open: boolean;
+  folderId: string | null;
+  name: string;
+};
+
 export type SettingsFormInput = {
   title: string;
   hackmdApiToken?: string;

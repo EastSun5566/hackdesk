@@ -4,13 +4,16 @@ import { toast } from 'sonner';
 
 import type {
   DocumentSummary,
+  FolderOrder,
   FolderSummary,
   HackDeskElectronAPI,
   NoteSummary,
 } from '@/lib/electron-api';
+import type { FolderDropOperation } from '@/lib/hackmd-folder-dnd';
 
 import {
   getFoldersQueryKey,
+  getFolderOrderQueryKey,
   getWorkspaceQueryKey,
 } from './repository';
 import type { SettingsFormInput, WorkspaceScope } from './types';
@@ -24,6 +27,8 @@ export function useElectronNoteMutations({
   onSettingsSaved,
   onNoteCreated,
   onFolderCreated,
+  onFolderRenamed,
+  onFolderDeleted,
   onNoteDeleted,
 }: {
   api?: HackDeskElectronAPI;
@@ -33,6 +38,8 @@ export function useElectronNoteMutations({
   onSettingsSaved: () => void;
   onNoteCreated: (note: NoteSummary) => void;
   onFolderCreated: (folder: FolderSummary) => void;
+  onFolderRenamed: (folder: FolderSummary) => void;
+  onFolderDeleted: (folderId: string, parentFolderId: string | null) => void;
   onNoteDeleted: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -49,8 +56,37 @@ export function useElectronNoteMutations({
   const invalidateCurrentFolders = useCallback(() => {
     if (scope.type !== 'history') {
       void queryClient.invalidateQueries({ queryKey: getFoldersQueryKey(scope) });
+      void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
     }
   }, [queryClient, scope]);
+
+  const updateFolder = useCallback((folderId: string, input: { name?: string; parentFolderId?: string | null }) => {
+    if (!api) {
+      throw new Error('Electron API is unavailable.');
+    }
+
+    if (scope.type === 'history') {
+      throw new Error('Choose My Workspace or a team before changing folders.');
+    }
+
+    return scope.type === 'team'
+      ? api.hackmd.updateTeamFolder(scope.teamPath, folderId, input)
+      : api.hackmd.updateFolder(folderId, input);
+  }, [api, scope]);
+
+  const updateFolderOrder = useCallback((order: FolderOrder) => {
+    if (!api) {
+      throw new Error('Electron API is unavailable.');
+    }
+
+    if (scope.type === 'history') {
+      throw new Error('Choose My Workspace or a team before changing folder order.');
+    }
+
+    return scope.type === 'team'
+      ? api.hackmd.updateTeamFolderOrder(scope.teamPath, order)
+      : api.hackmd.updateFolderOrder(order);
+  }, [api, scope]);
 
   const updateSettingsMutation = useMutation({
     mutationFn: (input: SettingsFormInput) => {
@@ -161,12 +197,80 @@ export function useElectronNoteMutations({
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to delete note.'),
   });
 
+  const renameFolderMutation = useMutation({
+    mutationFn: async ({ folderId, name }: { folderId: string; name: string }) => {
+      const nextName = name.trim();
+      if (!nextName) {
+        throw new Error('Folder name is required.');
+      }
+
+      return updateFolder(folderId, { name: nextName });
+    },
+    onSuccess: (updatedFolder) => {
+      invalidateCurrentFolders();
+      onFolderRenamed(updatedFolder);
+      toast.success('Folder renamed.');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to rename folder.'),
+  });
+
+  const deleteFolderMutation = useMutation({
+    mutationFn: async ({ folderId, parentFolderId }: { folderId: string; parentFolderId: string | null }) => {
+      if (!api) {
+        throw new Error('Electron API is unavailable.');
+      }
+
+      if (scope.type === 'history') {
+        throw new Error('Choose My Workspace or a team before deleting folders.');
+      }
+
+      if (scope.type === 'team') {
+        await api.hackmd.deleteTeamFolder(scope.teamPath, folderId);
+      } else {
+        await api.hackmd.deleteFolder(folderId);
+      }
+
+      return { folderId, parentFolderId };
+    },
+    onSuccess: ({ folderId, parentFolderId }) => {
+      invalidateCurrentFolders();
+      onFolderDeleted(folderId, parentFolderId);
+      toast.success('Folder deleted.');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to delete folder.'),
+  });
+
+  const moveFolderMutation = useMutation({
+    mutationFn: async (operation: FolderDropOperation) => {
+      if (!operation.changed) {
+        return operation;
+      }
+
+      if (operation.parentChanged) {
+        await updateFolder(operation.folderId, { parentFolderId: operation.parentFolderId });
+      }
+      if (operation.orderChanged) {
+        await updateFolderOrder(operation.order);
+      }
+
+      return operation;
+    },
+    onSuccess: () => {
+      invalidateCurrentFolders();
+      toast.success('Folder moved.');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to move folder.'),
+  });
+
   return {
     invalidateCurrentNotes,
     invalidateCurrentFolders,
     updateSettingsMutation,
     createNoteMutation,
     createFolderMutation,
+    renameFolderMutation,
+    deleteFolderMutation,
+    moveFolderMutation,
     updateNoteMutation,
     deleteNoteMutation,
   };

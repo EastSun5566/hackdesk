@@ -19,6 +19,26 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     menuAccelerator: 'CmdOrCtrl+N',
   },
   {
+    id: 'new-folder',
+    label: 'New Folder',
+    description: 'Create a folder in the current workspace or selected folder.',
+    keywords: ['create', 'directory'],
+    shortcut: '⇧⌘N',
+    menuAccelerator: 'Shift+CmdOrCtrl+N',
+  },
+  {
+    id: 'rename-folder',
+    label: 'Rename Folder',
+    description: 'Rename the selected folder.',
+    keywords: ['edit', 'directory'],
+  },
+  {
+    id: 'delete-folder',
+    label: 'Delete Folder',
+    description: 'Delete the selected folder from HackMD.',
+    keywords: ['remove', 'directory'],
+  },
+  {
     id: 'open-settings',
     label: 'Open Settings',
     description: 'Manage the HackDesk title and HackMD API token.',

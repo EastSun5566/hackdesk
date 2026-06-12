@@ -3,9 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import type { HackDeskElectronAPI, NoteSummary } from '@/lib/electron-api';
 
 import {
+  EMPTY_FOLDER_ORDER,
   EMPTY_FOLDERS,
   EMPTY_NOTES,
   EMPTY_TEAMS,
+  getFolderOrderQueryKey,
   getFoldersQueryKey,
   getWorkspaceQueryKey,
   isTokenConfigured,
@@ -76,6 +78,22 @@ export function useElectronHackmdQueries({
     enabled: !!api && hasToken && scope.type !== 'history',
   });
 
+  const folderOrderQuery = useQuery({
+    queryKey: getFolderOrderQueryKey(scope),
+    queryFn: () => {
+      if (!api) {
+        throw new Error('Electron API is unavailable.');
+      }
+
+      if (scope.type === 'team') {
+        return api.hackmd.getTeamFolderOrder(scope.teamPath);
+      }
+
+      return api.hackmd.getFolderOrder();
+    },
+    enabled: !!api && hasToken && scope.type !== 'history',
+  });
+
   const documentQuery = useQuery({
     queryKey: ['electron', 'hackmd', 'note', selectedNote?.teamPath ?? null, selectedNote?.id],
     queryFn: () => {
@@ -95,6 +113,7 @@ export function useElectronHackmdQueries({
     teams: unwrapRepositoryValue(teamsQuery.data) ?? EMPTY_TEAMS,
     currentNotes: unwrapRepositoryValue(notesQuery.data) ?? EMPTY_NOTES,
     currentFolders: unwrapRepositoryValue(foldersQuery.data) ?? EMPTY_FOLDERS,
+    currentFolderOrder: unwrapRepositoryValue(folderOrderQuery.data) ?? EMPTY_FOLDER_ORDER,
     document: unwrapRepositoryValue(documentQuery.data),
     queries: {
       settingsQuery,
@@ -102,6 +121,7 @@ export function useElectronHackmdQueries({
       teamsQuery,
       notesQuery,
       foldersQuery,
+      folderOrderQuery,
       documentQuery,
     },
   };

@@ -1,5 +1,6 @@
 import type {
   ElectronSafeSettings,
+  FolderOrder,
   FolderSummary,
   NoteSummary,
   RepositoryValue,
@@ -11,6 +12,7 @@ import type { WorkspaceScope } from './types';
 export const EMPTY_NOTES: NoteSummary[] = [];
 export const EMPTY_TEAMS: TeamSummary[] = [];
 export const EMPTY_FOLDERS: FolderSummary[] = [];
+export const EMPTY_FOLDER_ORDER: FolderOrder = {};
 
 export function unwrapRepositoryValue<T>(value?: RepositoryValue<T>) {
   if (!value || value.source === 'error') {
@@ -42,6 +44,14 @@ export function getFoldersQueryKey(scope: WorkspaceScope) {
   }
 
   return ['electron', 'hackmd', 'folders'] as const;
+}
+
+export function getFolderOrderQueryKey(scope: WorkspaceScope) {
+  if (scope.type === 'team') {
+    return ['electron', 'hackmd', 'team-folder-order', scope.teamPath] as const;
+  }
+
+  return ['electron', 'hackmd', 'folder-order'] as const;
 }
 
 export function getScopeStorageKey(scope: WorkspaceScope) {

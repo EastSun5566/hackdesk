@@ -2,6 +2,9 @@ import {
   FileText,
   FileArchive,
   FolderTree,
+  FolderPlus,
+  FolderPen,
+  Trash2,
   Keyboard,
   PanelLeft,
   PanelRight,
@@ -32,6 +35,9 @@ import type { CommandPaletteState } from './types';
 
 const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'new-note': <FileText className="h-4 w-4" />,
+  'new-folder': <FolderPlus className="h-4 w-4" />,
+  'rename-folder': <FolderPen className="h-4 w-4" />,
+  'delete-folder': <Trash2 className="h-4 w-4" />,
   'open-settings': <Settings2 className="h-4 w-4" />,
   'open-command-palette': <Keyboard className="h-4 w-4" />,
   refresh: <RefreshCcw className="h-4 w-4" />,

@@ -40,6 +40,7 @@ export function createApplicationMenu(sendCommand: SendCommand) {
       label: 'File',
       submenu: [
         actionMenuItem('new-note', sendCommand),
+        actionMenuItem('new-folder', sendCommand),
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' },
       ],

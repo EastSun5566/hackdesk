@@ -1,6 +1,7 @@
-import type { FolderPathSummary, NoteSummary } from './electron-api';
+import type { FolderOrder, FolderPathSummary, NoteSummary } from './electron-api';
 
 export const UNFILED_FOLDER_ID = '__hackdesk_unfiled__';
+export const ROOT_FOLDER_ORDER_KEY = 'root';
 
 export type FolderTreeNote = {
   note: NoteSummary;
@@ -46,7 +47,23 @@ function createFolderNode(folder: FolderPathSummary): FolderTreeNode {
   };
 }
 
-function compareFolderNodes(left: FolderTreeNode, right: FolderTreeNode) {
+function compareFolderNodes(left: FolderTreeNode, right: FolderTreeNode, parentId: string | null, folderOrder?: FolderOrder) {
+  const orderedIds = folderOrder?.[parentId ?? ROOT_FOLDER_ORDER_KEY] ?? [];
+  const leftIndex = orderedIds.indexOf(left.id);
+  const rightIndex = orderedIds.indexOf(right.id);
+
+  if (leftIndex >= 0 && rightIndex >= 0 && leftIndex !== rightIndex) {
+    return leftIndex - rightIndex;
+  }
+
+  if (leftIndex >= 0) {
+    return -1;
+  }
+
+  if (rightIndex >= 0) {
+    return 1;
+  }
+
   return left.name.localeCompare(right.name, undefined, { sensitivity: 'base' });
 }
 
@@ -59,7 +76,7 @@ function getFolderLabel(folderPath: FolderPathSummary[]) {
   return folderPath.map((folder) => folder.name).filter(Boolean).join(' / ');
 }
 
-function assignFolderPaths(node: FolderTreeNode, ancestors: FolderPathSummary[] = []) {
+function assignFolderPaths(node: FolderTreeNode, ancestors: FolderPathSummary[] = [], folderOrder?: FolderOrder) {
   const currentFolder: FolderPathSummary = {
     id: node.id,
     name: node.name,
@@ -71,12 +88,16 @@ function assignFolderPaths(node: FolderTreeNode, ancestors: FolderPathSummary[] 
   const nextPath = node.id === UNFILED_FOLDER_ID ? [] : [...ancestors, currentFolder];
 
   node.folderPath = nextPath;
-  node.children.sort(compareFolderNodes);
+  node.children.sort((left, right) => compareFolderNodes(left, right, node.id, folderOrder));
   node.notes.sort(compareFolderTreeNotes);
-  node.children.forEach((child) => assignFolderPaths(child, nextPath));
+  node.children.forEach((child) => assignFolderPaths(child, nextPath, folderOrder));
 }
 
-export function buildHackmdFolderTree(notes: NoteSummary[], folders: FolderPathSummary[] = []): FolderTree {
+export function buildHackmdFolderTree(
+  notes: NoteSummary[],
+  folders: FolderPathSummary[] = [],
+  folderOrder?: FolderOrder,
+): FolderTree {
   const nodesById = new Map<string, FolderTreeNode>();
   const roots: FolderTreeNode[] = [];
   const allNotes: FolderTreeNote[] = [];
@@ -115,9 +136,9 @@ export function buildHackmdFolderTree(notes: NoteSummary[], folders: FolderPathS
     }
   }
 
-  roots.sort(compareFolderNodes);
-  roots.forEach((root) => assignFolderPaths(root));
-  assignFolderPaths(unfiled);
+  roots.sort((left, right) => compareFolderNodes(left, right, null, folderOrder));
+  roots.forEach((root) => assignFolderPaths(root, [], folderOrder));
+  assignFolderPaths(unfiled, [], folderOrder);
 
   for (const note of notes) {
     if (note.folderPaths.length === 0) {
