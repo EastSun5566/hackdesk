@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import type { CreateFolderInput } from '@/lib/electron-api';
 
 import type { CreateFolderDialogState } from './types';
 import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS, TEXT_INPUT_CLASS } from './ui';
@@ -25,15 +26,19 @@ export function CreateFolderDialog({
   parentFolderLabel: string | null;
   isCreating: boolean;
   onStateChange: (state: CreateFolderDialogState) => void;
-  onCreate: (name: string) => void;
+  onCreate: (input: CreateFolderInput) => void;
 }) {
   const normalizedName = state.name.trim();
+  const normalizedDescription = state.description.trim();
+  const normalizedIcon = state.icon.trim();
+  const normalizedColor = state.color.trim();
   const location = parentFolderLabel ? `${scopeLabel} / ${parentFolderLabel}` : scopeLabel;
+  const closedState = { open: false, name: '', description: '', icon: '', color: '' };
 
   return (
     <Dialog
       open={state.open}
-      onOpenChange={(open) => onStateChange(open ? state : { open: false, name: '' })}
+      onOpenChange={(open) => onStateChange(open ? state : closedState)}
     >
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -45,7 +50,12 @@ export function CreateFolderDialog({
           onSubmit={(event) => {
             event.preventDefault();
             if (normalizedName) {
-              onCreate(normalizedName);
+              onCreate({
+                name: normalizedName,
+                ...(normalizedDescription ? { description: normalizedDescription } : {}),
+                ...(normalizedIcon ? { icon: normalizedIcon } : {}),
+                ...(normalizedColor ? { color: normalizedColor } : {}),
+              });
             }
           }}
         >
@@ -59,10 +69,47 @@ export function CreateFolderDialog({
               placeholder="Projects"
             />
           </label>
+          <label className="block space-y-2 text-sm">
+            <span className="font-medium">Description</span>
+            <textarea
+              value={state.description}
+              onChange={(event) => onStateChange({ ...state, description: event.target.value })}
+              className={`${TEXT_INPUT_CLASS} min-h-20 py-2`}
+              rows={3}
+              placeholder="Active project notes"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block space-y-2 text-sm">
+              <span className="font-medium">Icon codepoint</span>
+              <input
+                value={state.icon}
+                onChange={(event) => onStateChange({ ...state, icon: event.target.value })}
+                className={TEXT_INPUT_CLASS}
+                placeholder="1F4C1"
+              />
+            </label>
+            <label className="block space-y-2 text-sm">
+              <span className="font-medium">Color</span>
+              <span className="flex items-center gap-2">
+                <span
+                  className="h-5 w-5 rounded-[4px] border border-border-default"
+                  style={{ backgroundColor: normalizedColor || 'transparent' }}
+                  aria-hidden="true"
+                />
+                <input
+                  value={state.color}
+                  onChange={(event) => onStateChange({ ...state, color: event.target.value })}
+                  className={TEXT_INPUT_CLASS}
+                  placeholder="#2F80ED"
+                />
+              </span>
+            </label>
+          </div>
           <DialogFooter>
             <button
               type="button"
-              onClick={() => onStateChange({ open: false, name: '' })}
+              onClick={() => onStateChange(closedState)}
               className={SECONDARY_BUTTON_CLASS}
             >
               Cancel

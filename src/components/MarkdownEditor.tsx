@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
@@ -192,66 +192,90 @@ const editorExtensions = [
   editorTheme,
 ];
 
-export function MarkdownEditor({
-  value,
-  onChange,
-}: {
+export type MarkdownEditorHandle = {
+  insertText: (text: string) => void;
+};
+
+export const MarkdownEditor = forwardRef<MarkdownEditorHandle, {
   value: string;
   onChange: (value: string) => void;
-}) {
-  const parentRef = useRef<HTMLDivElement | null>(null);
-  const viewRef = useRef<EditorView | null>(null);
-  const onChangeRef = useRef(onChange);
-  const initialValueRef = useRef(value);
+    }>(function MarkdownEditor({
+      value,
+      onChange,
+    }, ref) {
+      const parentRef = useRef<HTMLDivElement | null>(null);
+      const viewRef = useRef<EditorView | null>(null);
+      const onChangeRef = useRef(onChange);
+      const initialValueRef = useRef(value);
 
-  useEffect(() => {
-    onChangeRef.current = onChange;
-  }, [onChange]);
+      useEffect(() => {
+        onChangeRef.current = onChange;
+      }, [onChange]);
 
-  useEffect(() => {
-    if (!parentRef.current) {
-      return undefined;
-    }
+      useImperativeHandle(ref, () => ({
+        insertText(text: string) {
+          const view = viewRef.current;
 
-    const view = new EditorView({
-      parent: parentRef.current,
-      state: EditorState.create({
-        doc: initialValueRef.current,
-        extensions: [
-          ...editorExtensions,
-          EditorView.updateListener.of((update) => {
-            if (update.docChanged) {
-              onChangeRef.current(update.state.doc.toString());
-            }
+          if (!view) {
+            onChangeRef.current(`${initialValueRef.current}${text}`);
+            return;
+          }
+
+          const selection = view.state.selection.main;
+          const insertAt = selection.to;
+
+          view.dispatch({
+            changes: { from: selection.from, to: selection.to, insert: text },
+            selection: { anchor: insertAt + text.length },
+          });
+          view.focus();
+        },
+      }), []);
+
+      useEffect(() => {
+        if (!parentRef.current) {
+          return undefined;
+        }
+
+        const view = new EditorView({
+          parent: parentRef.current,
+          state: EditorState.create({
+            doc: initialValueRef.current,
+            extensions: [
+              ...editorExtensions,
+              EditorView.updateListener.of((update) => {
+                if (update.docChanged) {
+                  onChangeRef.current(update.state.doc.toString());
+                }
+              }),
+            ],
           }),
-        ],
-      }),
+        });
+
+        viewRef.current = view;
+
+        return () => {
+          view.destroy();
+          if (viewRef.current === view) {
+            viewRef.current = null;
+          }
+        };
+      }, []);
+
+      useEffect(() => {
+        const view = viewRef.current;
+
+        if (!view) {
+          return;
+        }
+
+        const currentValue = view.state.doc.toString();
+        if (value !== currentValue) {
+          view.dispatch({
+            changes: { from: 0, to: currentValue.length, insert: value },
+          });
+        }
+      }, [value]);
+
+      return <div ref={parentRef} className="markdown-editor min-h-0 flex-1 overflow-hidden" />;
     });
-
-    viewRef.current = view;
-
-    return () => {
-      view.destroy();
-      if (viewRef.current === view) {
-        viewRef.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    const view = viewRef.current;
-
-    if (!view) {
-      return;
-    }
-
-    const currentValue = view.state.doc.toString();
-    if (value !== currentValue) {
-      view.dispatch({
-        changes: { from: 0, to: currentValue.length, insert: value },
-      });
-    }
-  }, [value]);
-
-  return <div ref={parentRef} className="markdown-editor min-h-0 flex-1 overflow-hidden" />;
-}

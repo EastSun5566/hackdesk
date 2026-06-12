@@ -32,6 +32,13 @@ export type FolderSummary = FolderPathSummary & {
 
 export type FolderOrder = Record<string, string[]>;
 
+export type SimpleUserProfile = {
+  name: string;
+  username: string;
+  photo: string | null;
+  biography: string | null;
+};
+
 export type TeamSummary = {
   id: string;
   ownerId: string | null;
@@ -56,6 +63,9 @@ export type UserSummary = {
 
 export type NotePermissionRole = 'owner' | 'signed_in' | 'guest';
 export type NotePublishType = 'edit' | 'view' | 'slide' | 'book';
+export type CommentPermissionType = 'disabled' | 'forbidden' | 'owners' | 'signed_in_users' | 'everyone';
+export type SuggestEditPermissionType = 'disabled' | 'forbidden' | 'owners' | 'signed_in_users';
+export type NoteFeaturePermissions = Record<string, unknown>;
 
 export type NoteSummary = {
   id: string;
@@ -64,6 +74,9 @@ export type NoteSummary = {
   tags: string[];
   updatedAtMillis: number | null;
   createdAtMillis: number | null;
+  publishedAtMillis: number | null;
+  tagsUpdatedAtMillis: number | null;
+  titleUpdatedAtMillis: number | null;
   content: string | null;
   publishLink: string;
   shortId: string;
@@ -73,6 +86,7 @@ export type NoteSummary = {
   publishType: NotePublishType;
   readPermission: NotePermissionRole;
   writePermission: NotePermissionRole;
+  lastChangeUser: SimpleUserProfile | null;
   folderPaths: FolderPathSummary[];
 };
 
@@ -81,9 +95,18 @@ export type DocumentSummary = NoteSummary & {
 };
 
 export type CreateNoteInput = {
-  title: string;
-  content: string;
+  title?: string;
+  description?: string;
+  tags?: string[];
+  content?: string;
+  readPermission?: NotePermissionRole;
+  writePermission?: NotePermissionRole;
+  commentPermission?: CommentPermissionType;
+  suggestEditPermission?: SuggestEditPermissionType;
+  noteFeatures?: NoteFeaturePermissions;
+  permalink?: string;
   parentFolderId?: string;
+  origin?: string;
 };
 
 export type UpdateNoteInput = {
@@ -93,7 +116,18 @@ export type UpdateNoteInput = {
   tags?: string[];
   readPermission?: NotePermissionRole;
   writePermission?: NotePermissionRole;
+  permalink?: string;
   parentFolderId?: string;
+};
+
+export type UploadNoteImageInput = {
+  fileName: string;
+  mimeType: string;
+  bytes: ArrayBuffer;
+};
+
+export type UploadNoteImageResult = {
+  link: string;
 };
 
 export type OpenHackmdEditorInput = Pick<
@@ -170,6 +204,8 @@ export type HackDeskElectronAPI = {
     listHistory: (limit?: number) => Promise<RepositoryValue<NoteSummary[]>>;
     listFolders: () => Promise<RepositoryValue<FolderSummary[]>>;
     listTeamFolders: (teamPath: string) => Promise<RepositoryValue<FolderSummary[]>>;
+    getFolder: (folderId: string) => Promise<RepositoryValue<FolderSummary>>;
+    getTeamFolder: (teamPath: string, folderId: string) => Promise<RepositoryValue<FolderSummary>>;
     getFolderOrder: () => Promise<RepositoryValue<FolderOrder>>;
     getTeamFolderOrder: (teamPath: string) => Promise<RepositoryValue<FolderOrder>>;
     createFolder: (input: CreateFolderInput) => Promise<FolderSummary>;
@@ -187,6 +223,7 @@ export type HackDeskElectronAPI = {
     updateTeamNote: (teamPath: string, noteId: string, input: UpdateNoteInput) => Promise<DocumentSummary>;
     deleteNote: (noteId: string) => Promise<void>;
     deleteTeamNote: (teamPath: string, noteId: string) => Promise<void>;
+    uploadNoteImage: (noteId: string, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
   };
   shell: {
     openExternal: (url: string) => Promise<void>;

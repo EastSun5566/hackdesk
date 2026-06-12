@@ -4,7 +4,8 @@ import type { ReactNode } from 'react';
 import type { TeamSummary } from '@/lib/electron-api';
 
 import type { WorkspaceScope } from './types';
-import { FOCUS_RING_CLASS } from './ui';
+import { FOCUS_RING_CLASS, PANEL_TRANSITION_CLASS } from './ui';
+import { RAIL_COLLAPSED_WIDTH } from './ui-preferences';
 
 function WorkspaceRailButton({
   active,
@@ -32,7 +33,7 @@ function WorkspaceRailButton({
           : 'text-text-subtle hover:bg-background-selected hover:text-text-default'
       } ${FOCUS_RING_CLASS} ${collapsed ? 'justify-center' : ''}`}
     >
-      <span className="shrink-0">{icon}</span>
+      <span className="shrink-0" aria-hidden="true">{icon}</span>
       {!collapsed ? (
         <>
           <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -64,6 +65,7 @@ function TeamLogo({ team }: { team: TeamSummary }) {
 }
 
 export function WorkspaceRail({
+  id,
   scope,
   user,
   teams,
@@ -72,6 +74,7 @@ export function WorkspaceRail({
   onScopeChange,
   onOpenSettings,
 }: {
+  id: string;
   scope: WorkspaceScope;
   user?: { name: string; username: string };
   teams: TeamSummary[];
@@ -82,12 +85,11 @@ export function WorkspaceRail({
 }) {
   return (
     <aside
+      id={id}
       data-hackdesk-focus="workspace"
       tabIndex={-1}
-      className={`flex shrink-0 flex-col border-r border-border-default bg-background-default pt-5 outline-none transition-[width] ${
-        collapsed ? 'w-16' : ''
-      }`}
-      style={collapsed ? undefined : { width }}
+      className={`flex shrink-0 flex-col overflow-hidden border-r border-border-default bg-background-default pt-5 outline-none ${PANEL_TRANSITION_CLASS}`}
+      style={{ width: collapsed ? RAIL_COLLAPSED_WIDTH : width }}
     >
       <div className={`px-3 pb-4 ${collapsed ? 'text-center' : ''}`}>
         <div className="flex items-center gap-2">

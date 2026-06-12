@@ -12,6 +12,7 @@ import type {
   OpenHackmdEditorInput,
   UpdateFolderInput,
   UpdateNoteInput,
+  UploadNoteImageInput,
 } from '../../../src/lib/electron-api';
 import { ELECTRON_CHANNELS } from '../shared/channels';
 
@@ -30,6 +31,10 @@ const api: HackDeskElectronAPI = {
     listHistory: (limit?: number) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListHistory, limit),
     listFolders: () => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListFolders),
     listTeamFolders: (teamPath: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListTeamFolders, teamPath),
+    getFolder: (folderId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetFolder, folderId),
+    getTeamFolder: (teamPath: string, folderId: string) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetTeamFolder, teamPath, folderId)
+    ),
     getFolderOrder: () => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetFolderOrder),
     getTeamFolderOrder: (teamPath: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetTeamFolderOrder, teamPath),
     createFolder: (input: CreateFolderInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdCreateFolder, input),
@@ -66,6 +71,9 @@ const api: HackDeskElectronAPI = {
     deleteNote: (noteId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdDeleteNote, noteId),
     deleteTeamNote: (teamPath: string, noteId: string) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdDeleteTeamNote, teamPath, noteId)
+    ),
+    uploadNoteImage: (noteId: string, input: UploadNoteImageInput) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdUploadNoteImage, noteId, input)
     ),
   },
   shell: {

@@ -8,6 +8,7 @@ import type {
   UpdateFolderInput,
   UpdateNoteInput,
   FatalRendererError,
+  UploadNoteImageInput,
 } from '../../../src/lib/electron-api';
 import { ELECTRON_CHANNELS } from '../shared/channels';
 import {
@@ -20,8 +21,10 @@ import {
   deleteTeamFolder,
   deleteTeamNote,
   getCurrentUser,
+  getFolder,
   getFolderOrder,
   getNote,
+  getTeamFolder,
   getTeamFolderOrder,
   listFolders,
   listHistory,
@@ -35,6 +38,7 @@ import {
   updateTeamFolder,
   updateTeamFolderOrder,
   updateTeamNote,
+  uploadNoteImage,
   validateToken,
 } from './hackmd-service';
 import { getSafeSettings, updateStoredSettings } from './settings';
@@ -53,6 +57,10 @@ export function registerIpcHandlers(windowManager: WindowManager) {
   ipcMain.handle(ELECTRON_CHANNELS.hackmdListHistory, (_event, limit?: number) => listHistory(limit));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdListFolders, () => listFolders());
   ipcMain.handle(ELECTRON_CHANNELS.hackmdListTeamFolders, (_event, teamPath: string) => listTeamFolders(teamPath));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdGetFolder, (_event, folderId: string) => getFolder(folderId));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdGetTeamFolder, (_event, teamPath: string, folderId: string) => (
+    getTeamFolder(teamPath, folderId)
+  ));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdGetFolderOrder, () => getFolderOrder());
   ipcMain.handle(ELECTRON_CHANNELS.hackmdGetTeamFolderOrder, (_event, teamPath: string) => getTeamFolderOrder(teamPath));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdCreateFolder, (_event, input: CreateFolderInput) => createFolder(input));
@@ -94,6 +102,9 @@ export function registerIpcHandlers(windowManager: WindowManager) {
   ipcMain.handle(ELECTRON_CHANNELS.hackmdDeleteNote, (_event, noteId: string) => deleteNote(noteId));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdDeleteTeamNote, (_event, teamPath: string, noteId: string) => (
     deleteTeamNote(teamPath, noteId)
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdUploadNoteImage, (_event, noteId: string, input: UploadNoteImageInput) => (
+    uploadNoteImage(noteId, input)
   ));
   ipcMain.handle(ELECTRON_CHANNELS.shellOpenExternal, (_event, url: string) => openExternalUrl(url));
   ipcMain.handle(ELECTRON_CHANNELS.shellOpenHackmdEditor, (_event, note) => openHackmdEditor(note));

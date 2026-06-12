@@ -1,15 +1,19 @@
 export const RAIL_COLLAPSED_KEY = 'hackdesk_rail_collapsed';
 export const NAVIGATOR_COLLAPSED_KEY = 'hackdesk_navigator_collapsed';
+export const INSPECTOR_COLLAPSED_KEY = 'hackdesk_inspector_collapsed';
 export const RAIL_WIDTH_KEY = 'hackdesk_rail_width';
 export const NAVIGATOR_WIDTH_KEY = 'hackdesk_navigator_width';
 export const FOLDER_COLLAPSED_PREFIX = 'hackdesk_folder_collapsed:';
 
 export const RAIL_WIDTH_DEFAULT = 256;
+export const RAIL_COLLAPSED_WIDTH = 64;
 export const RAIL_WIDTH_MIN = 192;
 export const RAIL_WIDTH_MAX = 340;
 export const NAVIGATOR_WIDTH_DEFAULT = 400;
+export const NAVIGATOR_COLLAPSED_WIDTH = 48;
 export const NAVIGATOR_WIDTH_MIN = 300;
 export const NAVIGATOR_WIDTH_MAX = 560;
+export const INSPECTOR_WIDTH_DEFAULT = 320;
 
 export function clampPanelWidth(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, Math.round(value)));

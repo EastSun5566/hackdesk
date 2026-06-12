@@ -63,6 +63,17 @@ function focusRegion(region: 'workspace' | 'navigator' | 'editor') {
   });
 }
 
+const WORKSPACE_RAIL_PANEL_ID = 'workspace-rail-panel';
+const NOTE_NAVIGATOR_PANEL_ID = 'note-navigator-panel';
+
+function createClosedFolderDialogState(): CreateFolderDialogState {
+  return { open: false, name: '', description: '', icon: '', color: '' };
+}
+
+function createClosedRenameFolderDialogState(): RenameFolderDialogState {
+  return { open: false, folderId: null, name: '', description: '', icon: '', color: '' };
+}
+
 export function Home() {
   const api = getDesktopAPI();
   const [scope, setScope] = useState<WorkspaceScope>({ type: 'personal', label: 'My Workspace' });
@@ -73,12 +84,8 @@ export function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [palette, setPalette] = useState<CommandPaletteState>({ open: false, search: '' });
   const [createDialog, setCreateDialog] = useState<CreateNoteDialogState>({ open: false, title: '' });
-  const [createFolderDialog, setCreateFolderDialog] = useState<CreateFolderDialogState>({ open: false, name: '' });
-  const [renameFolderDialog, setRenameFolderDialog] = useState<RenameFolderDialogState>({
-    open: false,
-    folderId: null,
-    name: '',
-  });
+  const [createFolderDialog, setCreateFolderDialog] = useState<CreateFolderDialogState>(createClosedFolderDialogState);
+  const [renameFolderDialog, setRenameFolderDialog] = useState<RenameFolderDialogState>(createClosedRenameFolderDialogState);
   const [deleteTarget, setDeleteTarget] = useState<DocumentSummary | null>(null);
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<FolderTreeNode | null>(null);
   const [railCollapsed, setRailCollapsed] = useState(() => readBooleanStorage(RAIL_COLLAPSED_KEY, false));
@@ -144,13 +151,13 @@ export function Home() {
       setSelectedNote(note);
     },
     onFolderCreated: (folder: FolderSummary) => {
-      setCreateFolderDialog({ open: false, name: '' });
+      setCreateFolderDialog(createClosedFolderDialogState());
       if (folder.id) {
         setSelectedFolderId(folder.id);
       }
     },
     onFolderRenamed: (folder: FolderSummary) => {
-      setRenameFolderDialog({ open: false, folderId: null, name: '' });
+      setRenameFolderDialog(createClosedRenameFolderDialogState());
       if (folder.id) {
         setSelectedFolderId(folder.id);
       }
@@ -201,7 +208,7 @@ export function Home() {
       return;
     }
 
-    setCreateFolderDialog({ open: true, name: '' });
+    setCreateFolderDialog({ ...createClosedFolderDialogState(), open: true });
   }, [hasToken, scope.type]);
 
   const handleCreateFolderInside = useCallback((folderId: string | null) => {
@@ -221,8 +228,16 @@ export function Home() {
       return;
     }
 
-    setRenameFolderDialog({ open: true, folderId, name: folder.name });
-  }, [folderTree]);
+    const folderSummary = currentFolders.find((candidate) => candidate.id === folderId);
+    setRenameFolderDialog({
+      open: true,
+      folderId,
+      name: folder.name,
+      description: folderSummary?.description ?? '',
+      icon: folder.icon ?? '',
+      color: folder.color ?? '',
+    });
+  }, [currentFolders, folderTree]);
 
   const handleDeleteFolderRequest = useCallback((folderId: string) => {
     const folder = folderTree.nodesById.get(folderId);
@@ -425,7 +440,7 @@ export function Home() {
       }
 
       if (createFolderDialog.open) {
-        setCreateFolderDialog({ open: false, name: '' });
+        setCreateFolderDialog(createClosedFolderDialogState());
         return;
       }
 
@@ -440,7 +455,7 @@ export function Home() {
       }
 
       if (renameFolderDialog.open) {
-        setRenameFolderDialog({ open: false, folderId: null, name: '' });
+        setRenameFolderDialog(createClosedRenameFolderDialogState());
         return;
       }
 
@@ -545,11 +560,13 @@ export function Home() {
     <div className="app-chrome flex h-screen flex-col overflow-hidden bg-background-muted text-text-default">
       <AppTopBar
         railCollapsed={railCollapsed}
+        railPanelId={WORKSPACE_RAIL_PANEL_ID}
         onToggleRail={toggleRailCollapsed}
       />
 
       <main className="flex min-h-0 min-w-0 flex-1">
         <WorkspaceRail
+          id={WORKSPACE_RAIL_PANEL_ID}
           scope={scope}
           user={user}
           teams={teams}
@@ -571,6 +588,7 @@ export function Home() {
         />
 
         <FolderNavigator
+          id={NOTE_NAVIGATOR_PANEL_ID}
           scope={scope}
           tree={folderTree}
           entries={visibleEntries}
@@ -619,11 +637,16 @@ export function Home() {
 
         <DocumentDetail
           document={document}
+          folderTree={folderTree}
           isLoading={queries.documentQuery.isLoading || queries.documentQuery.isFetching}
           onOpenEditor={handleOpenEditor}
           onSave={(note, input) => mutations.updateNoteMutation.mutate({ note, input })}
+          onSaveMetadata={(note, input) => mutations.updateNoteMutation.mutate({ note, input })}
+          onUploadImage={(note, input) => mutations.uploadNoteImageMutation.mutateAsync({ note, input })}
           onDelete={handleDeleteRequest}
           isSaving={mutations.updateNoteMutation.isPending}
+          isSavingMetadata={mutations.updateNoteMutation.isPending}
+          isUploadingImage={mutations.uploadNoteImageMutation.isPending}
           isDeleting={mutations.deleteNoteMutation.isPending}
         />
       </main>
@@ -664,14 +687,14 @@ export function Home() {
         parentFolderLabel={selectedFolderLabel}
         isCreating={mutations.createFolderMutation.isPending}
         onStateChange={setCreateFolderDialog}
-        onCreate={(name) => mutations.createFolderMutation.mutate(name)}
+        onCreate={(input) => mutations.createFolderMutation.mutate(input)}
       />
 
       <RenameFolderDialog
         state={renameFolderDialog}
         isRenaming={mutations.renameFolderMutation.isPending}
         onStateChange={setRenameFolderDialog}
-        onRename={(folderId, name) => mutations.renameFolderMutation.mutate({ folderId, name })}
+        onRename={(folderId, input) => mutations.renameFolderMutation.mutate({ folderId, input })}
       />
 
       <DeleteFolderDialog

@@ -16,12 +16,18 @@ export type CreateNoteDialogState = {
 export type CreateFolderDialogState = {
   open: boolean;
   name: string;
+  description: string;
+  icon: string;
+  color: string;
 };
 
 export type RenameFolderDialogState = {
   open: boolean;
   folderId: string | null;
   name: string;
+  description: string;
+  icon: string;
+  color: string;
 };
 
 export type SettingsFormInput = {

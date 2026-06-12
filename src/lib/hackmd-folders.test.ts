@@ -11,6 +11,9 @@ function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id' | 'title'>): 
     tags: input.tags ?? [],
     updatedAtMillis: input.updatedAtMillis ?? null,
     createdAtMillis: input.createdAtMillis ?? null,
+    publishedAtMillis: input.publishedAtMillis ?? null,
+    tagsUpdatedAtMillis: input.tagsUpdatedAtMillis ?? null,
+    titleUpdatedAtMillis: input.titleUpdatedAtMillis ?? null,
     content: input.content ?? null,
     publishLink: input.publishLink ?? '',
     shortId: input.shortId ?? input.id,
@@ -20,12 +23,13 @@ function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id' | 'title'>): 
     publishType: input.publishType ?? 'edit',
     readPermission: input.readPermission ?? 'owner',
     writePermission: input.writePermission ?? 'owner',
+    lastChangeUser: input.lastChangeUser ?? null,
     folderPaths: input.folderPaths ?? [],
   };
 }
 
 describe('buildHackmdFolderTree', () => {
-  it('builds nested folders from parentId and assigns notes to their folders', () => {
+  it('builds nested folders from parentId and assigns notes only to the leaf folder', () => {
     const tree = buildHackmdFolderTree([
       note({
         id: 'note-1',
@@ -41,8 +45,13 @@ describe('buildHackmdFolderTree', () => {
     expect(tree.roots).toHaveLength(1);
     expect(tree.roots[0].id).toBe('root');
     expect(tree.roots[0].children[0].id).toBe('child');
-    expect(tree.roots[0].notes[0].note.id).toBe('note-1');
+    expect(tree.roots[0].notes).toEqual([]);
     expect(tree.roots[0].children[0].notes[0]).toMatchObject({
+      note: { id: 'note-1' },
+      folderLabel: 'Projects / Q2',
+    });
+    expect(tree.allNotes).toHaveLength(1);
+    expect(tree.allNotes[0]).toMatchObject({
       note: { id: 'note-1' },
       folderLabel: 'Projects / Q2',
     });
@@ -91,21 +100,21 @@ describe('buildHackmdFolderTree', () => {
     });
   });
 
-  it('shows multi-folder notes in every folder and in flat search metadata', () => {
+  it('treats folderPaths as one ancestry path instead of multiple folder memberships', () => {
     const tree = buildHackmdFolderTree([
       note({
         id: 'note-1',
-        title: 'Multi folder note',
+        title: 'Nested note',
         folderPaths: [
           { id: 'alpha', name: 'Alpha', icon: null, color: null, parentId: null, clientId: null },
-          { id: 'beta', name: 'Beta', icon: null, color: null, parentId: null, clientId: null },
+          { id: 'beta', name: 'Beta', icon: null, color: null, parentId: 'alpha', clientId: null },
         ],
       }),
     ]);
 
-    expect(tree.nodesById.get('alpha')?.notes.map((entry) => entry.note.id)).toEqual(['note-1']);
+    expect(tree.nodesById.get('alpha')?.notes).toEqual([]);
     expect(tree.nodesById.get('beta')?.notes.map((entry) => entry.note.id)).toEqual(['note-1']);
-    expect(tree.allNotes.map((entry) => entry.folderLabel)).toEqual(['Alpha', 'Beta']);
+    expect(tree.allNotes.map((entry) => entry.folderLabel)).toEqual(['Alpha / Beta']);
   });
 
   it('sorts folders by name and notes by updated time descending', () => {

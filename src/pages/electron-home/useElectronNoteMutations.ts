@@ -3,11 +3,15 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import type {
+  CreateFolderInput,
   DocumentSummary,
   FolderOrder,
   FolderSummary,
   HackDeskElectronAPI,
   NoteSummary,
+  UpdateFolderInput,
+  UpdateNoteInput,
+  UploadNoteImageInput,
 } from '@/lib/electron-api';
 import type { FolderDropOperation } from '@/lib/hackmd-folder-dnd';
 
@@ -60,7 +64,7 @@ export function useElectronNoteMutations({
     }
   }, [queryClient, scope]);
 
-  const updateFolder = useCallback((folderId: string, input: { name?: string; parentFolderId?: string | null }) => {
+  const updateFolder = useCallback((folderId: string, input: UpdateFolderInput) => {
     if (!api) {
       throw new Error('Electron API is unavailable.');
     }
@@ -129,7 +133,7 @@ export function useElectronNoteMutations({
   });
 
   const createFolderMutation = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async (input: CreateFolderInput) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
       }
@@ -138,13 +142,13 @@ export function useElectronNoteMutations({
         throw new Error('Choose My Workspace or a team before creating a folder.');
       }
 
-      const input = {
-        name,
+      const payload = {
+        ...input,
         ...(selectedParentFolderId ? { parentFolderId: selectedParentFolderId } : {}),
       };
       return scope.type === 'team'
-        ? api.hackmd.createTeamFolder(scope.teamPath, input)
-        : api.hackmd.createFolder(input);
+        ? api.hackmd.createTeamFolder(scope.teamPath, payload)
+        : api.hackmd.createFolder(payload);
     },
     onSuccess: (createdFolder) => {
       invalidateCurrentFolders();
@@ -155,14 +159,14 @@ export function useElectronNoteMutations({
   });
 
   const updateNoteMutation = useMutation({
-    mutationFn: ({ note, input }: { note: DocumentSummary; input: { title: string; content: string } }) => {
+    mutationFn: ({ note, input }: { note: DocumentSummary; input: UpdateNoteInput }) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
       }
 
       const payload = {
-        title: input.title.trim() || 'Untitled',
-        content: input.content,
+        ...input,
+        ...(input.title !== undefined ? { title: input.title.trim() || 'Untitled' } : {}),
       };
 
       return note.teamPath
@@ -175,6 +179,16 @@ export function useElectronNoteMutations({
       toast.success('Note saved.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to save note.'),
+  });
+
+  const uploadNoteImageMutation = useMutation({
+    mutationFn: ({ note, input }: { note: DocumentSummary; input: UploadNoteImageInput }) => {
+      if (!api) {
+        throw new Error('Electron API is unavailable.');
+      }
+
+      return api.hackmd.uploadNoteImage(note.id, input);
+    },
   });
 
   const deleteNoteMutation = useMutation({
@@ -198,13 +212,17 @@ export function useElectronNoteMutations({
   });
 
   const renameFolderMutation = useMutation({
-    mutationFn: async ({ folderId, name }: { folderId: string; name: string }) => {
+    mutationFn: async ({ folderId, input }: { folderId: string; input: UpdateFolderInput }) => {
+      const name = input.name ?? '';
       const nextName = name.trim();
       if (!nextName) {
         throw new Error('Folder name is required.');
       }
 
-      return updateFolder(folderId, { name: nextName });
+      return updateFolder(folderId, {
+        ...input,
+        name: nextName,
+      });
     },
     onSuccess: (updatedFolder) => {
       invalidateCurrentFolders();
@@ -272,6 +290,7 @@ export function useElectronNoteMutations({
     deleteFolderMutation,
     moveFolderMutation,
     updateNoteMutation,
+    uploadNoteImageMutation,
     deleteNoteMutation,
   };
 }

@@ -1,48 +1,82 @@
-import { useEffect, useState } from 'react';
-import { Edit3, Loader2, Save, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Edit3, Loader2, PanelRightClose, PanelRightOpen, Save, Trash2 } from 'lucide-react';
 
-import { MarkdownEditor } from '@/components/MarkdownEditor';
-import type { DocumentSummary } from '@/lib/electron-api';
+import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/MarkdownEditor';
+import type { DocumentSummary, UpdateNoteInput, UploadNoteImageInput, UploadNoteImageResult } from '@/lib/electron-api';
+import type { FolderTree } from '@/lib/hackmd-folders';
 
+import { NoteInspector } from './NoteInspector';
 import {
   FOCUS_RING_CLASS,
+  ICON_BUTTON_CLASS,
+  PANEL_TRANSITION_CLASS,
   PRESSED_CLASS,
   PRIMARY_BUTTON_CLASS,
   SECONDARY_BUTTON_CLASS,
   formatDate,
   getFolderPathLabel,
 } from './ui';
+import {
+  INSPECTOR_COLLAPSED_KEY,
+  INSPECTOR_WIDTH_DEFAULT,
+  readBooleanStorage,
+  writeBooleanStorage,
+} from './ui-preferences';
+
+const NOTE_INSPECTOR_PANEL_ID = 'note-inspector-panel';
 
 export function DocumentDetail({
   document,
+  folderTree,
   isLoading,
   onOpenEditor,
   onSave,
+  onSaveMetadata,
+  onUploadImage,
   onDelete,
   isSaving,
+  isSavingMetadata,
+  isUploadingImage,
   isDeleting,
 }: {
   document?: DocumentSummary;
+  folderTree: FolderTree;
   isLoading: boolean;
   onOpenEditor: (document: DocumentSummary) => void;
-  onSave: (document: DocumentSummary, input: { title: string; content: string }) => void;
+  onSave: (document: DocumentSummary, input: UpdateNoteInput) => void;
+  onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
+  onUploadImage: (document: DocumentSummary, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
   onDelete: (document: DocumentSummary) => void;
   isSaving: boolean;
+  isSavingMetadata: boolean;
+  isUploadingImage: boolean;
   isDeleting: boolean;
 }) {
+  const editorRef = useRef<MarkdownEditorHandle | null>(null);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(() => (
+    readBooleanStorage(INSPECTOR_COLLAPSED_KEY, true)
+  ));
 
   useEffect(() => {
     setTitle(document?.title ?? '');
     setContent(document?.content ?? '');
   }, [document?.id, document?.title, document?.content]);
 
+  const toggleInspector = () => {
+    setIsInspectorCollapsed((current) => {
+      const next = !current;
+      writeBooleanStorage(INSPECTOR_COLLAPSED_KEY, next);
+      return next;
+    });
+  };
+
   if (isLoading) {
     return (
       <section className="flex h-full flex-1 items-center justify-center text-text-subtle">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        Loading note
+        <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />
+        Loading note…
       </section>
     );
   }
@@ -84,7 +118,7 @@ export function DocumentDetail({
           onClick={() => onOpenEditor(document)}
           className={SECONDARY_BUTTON_CLASS}
         >
-          <Edit3 className="h-4 w-4" />
+          <Edit3 aria-hidden="true" className="h-4 w-4" />
           Web Editor
         </button>
         <button
@@ -93,8 +127,19 @@ export function DocumentDetail({
           onClick={() => onSave(document, { title, content })}
           className={PRIMARY_BUTTON_CLASS}
         >
-          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          {isSaving ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Save aria-hidden="true" className="h-4 w-4" />}
           Save
+        </button>
+        <button
+          type="button"
+          onClick={toggleInspector}
+          className={ICON_BUTTON_CLASS}
+          aria-controls={NOTE_INSPECTOR_PANEL_ID}
+          aria-expanded={!isInspectorCollapsed}
+          aria-label={isInspectorCollapsed ? 'Expand inspector' : 'Collapse inspector'}
+          title={isInspectorCollapsed ? 'Expand inspector' : 'Collapse inspector'}
+        >
+          {isInspectorCollapsed ? <PanelRightOpen aria-hidden="true" className="h-4 w-4" /> : <PanelRightClose aria-hidden="true" className="h-4 w-4" />}
         </button>
         <button
           type="button"
@@ -103,11 +148,33 @@ export function DocumentDetail({
           className={`inline-flex h-9 w-9 items-center justify-center rounded-md border border-destructive-default text-destructive-default transition-colors active:bg-destructive-soft ${PRESSED_CLASS} ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`}
           aria-label="Delete note"
         >
-          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+          {isDeleting ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Trash2 aria-hidden="true" className="h-4 w-4" />}
         </button>
       </header>
 
-      <MarkdownEditor value={content} onChange={setContent} />
+      <div className="flex min-h-0 flex-1">
+        <MarkdownEditor ref={editorRef} value={content} onChange={setContent} />
+        <div
+          id={NOTE_INSPECTOR_PANEL_ID}
+          aria-hidden={isInspectorCollapsed}
+          className={`shrink-0 overflow-hidden bg-background-muted ${PANEL_TRANSITION_CLASS} ${
+            isInspectorCollapsed ? 'border-l-0' : 'border-l border-border-default'
+          }`}
+          style={{ width: isInspectorCollapsed ? 0 : INSPECTOR_WIDTH_DEFAULT }}
+        >
+          {isInspectorCollapsed ? null : (
+            <NoteInspector
+              document={document}
+              folderTree={folderTree}
+              isSaving={isSavingMetadata}
+              isUploading={isUploadingImage}
+              onSaveMetadata={onSaveMetadata}
+              onUploadImage={onUploadImage}
+              onInsertMarkdown={(markdown) => editorRef.current?.insertText(markdown)}
+            />
+          )}
+        </div>
+      </div>
     </section>
   );
 }

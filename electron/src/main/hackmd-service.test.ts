@@ -66,6 +66,15 @@ describe('hackmd-service DTO mapping', () => {
       tags: ['planning', 'team', 42],
       lastChangedAt: 1_700_000_000,
       createdAt: 1_700_000_000_500,
+      publishedAt: 1_700_000_010,
+      tagsUpdatedAt: 1_700_000_020,
+      titleUpdatedAt: 1_700_000_030,
+      lastChangeUser: {
+        name: 'Reviewer',
+        userPath: 'reviewer',
+        photo: 'https://cdn.test/reviewer.png',
+        biography: 'Docs reviewer',
+      },
       content: '# Roadmap',
       publishLink: 'https://hackmd.io/s/note-id',
       shortId: 'short-id',
@@ -94,6 +103,9 @@ describe('hackmd-service DTO mapping', () => {
       tags: ['planning', 'team'],
       updatedAtMillis: 1_700_000_000_000,
       createdAtMillis: 1_700_000_000_500,
+      publishedAtMillis: 1_700_000_010_000,
+      tagsUpdatedAtMillis: 1_700_000_020_000,
+      titleUpdatedAtMillis: 1_700_000_030_000,
       content: '# Roadmap',
       publishLink: 'https://hackmd.io/s/note-id',
       shortId: 'short-id',
@@ -103,6 +115,12 @@ describe('hackmd-service DTO mapping', () => {
       publishType: 'view',
       readPermission: 'guest',
       writePermission: 'signed_in',
+      lastChangeUser: {
+        name: 'Reviewer',
+        username: 'reviewer',
+        photo: 'https://cdn.test/reviewer.png',
+        biography: 'Docs reviewer',
+      },
     });
     expect(note.folderPaths[0]).toEqual({
       id: 'folder-id',
@@ -237,6 +255,57 @@ describe('hackmd-service request mapping', () => {
     });
   });
 
+  it('maps full note creation fields and image upload multipart body', async () => {
+    const { calls, service } = createService([
+      jsonResponse({ note: { id: 'note-1', title: 'Spec', content: '# Spec' } }),
+      jsonResponse({ data: { link: 'https://cdn.test/spec.png' } }),
+    ]);
+
+    await service.createNote({
+      title: 'Spec',
+      description: 'API spec',
+      tags: ['api', 'desktop'],
+      content: '# Spec',
+      readPermission: 'signed_in',
+      writePermission: 'owner',
+      commentPermission: 'signed_in_users',
+      suggestEditPermission: 'owners',
+      noteFeatures: { custom: true },
+      permalink: 'spec',
+      parentFolderId: 'folder-1',
+      origin: 'hackdesk',
+    });
+    const upload = await service.uploadNoteImage('note-1', {
+      fileName: 'diagram.png',
+      mimeType: 'image/png',
+      bytes: new Uint8Array([1, 2, 3]).buffer,
+    });
+
+    expect(calls[0].url).toBe('https://api.test/v1/notes');
+    expect(calls[0].init.method).toBe('POST');
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({
+      title: 'Spec',
+      description: 'API spec',
+      tags: ['api', 'desktop'],
+      content: '# Spec',
+      readPermission: 'signed_in',
+      writePermission: 'owner',
+      commentPermission: 'signed_in_users',
+      suggestEditPermission: 'owners',
+      noteFeatures: { custom: true },
+      permalink: 'spec',
+      parentFolderId: 'folder-1',
+      origin: 'hackdesk',
+    });
+    expect(calls[1].url).toBe('https://api.test/v1/notes/note-1/images');
+    expect(calls[1].init.method).toBe('POST');
+    expect(calls[1].init.body).toBeInstanceOf(FormData);
+    expect(calls[1].init.headers).toMatchObject({ Authorization: 'Bearer test-token' });
+    expect(calls[1].init.headers).not.toHaveProperty('Content-Type');
+    expect((calls[1].init.body as FormData).get('image')).toBeTruthy();
+    expect(upload).toEqual({ link: 'https://cdn.test/spec.png' });
+  });
+
   it('fetches the note after PATCH returns an empty body', async () => {
     const { calls, service } = createService([
       textResponse('', { status: 200 }),
@@ -271,11 +340,27 @@ describe('hackmd-service request mapping', () => {
     await service.updateTeamNote('engineering', 'note-1', {
       title: 'Team Updated',
       content: '# Team Updated',
+      description: 'Updated description',
+      tags: ['team'],
+      permalink: 'team-updated',
+      readPermission: 'signed_in',
+      writePermission: 'owner',
+      parentFolderId: 'folder-2',
     });
     await service.deleteTeamNote('engineering', 'note-1');
 
     expect(calls[0].url).toBe('https://api.test/v1/teams/engineering/notes/note-1');
     expect(calls[0].init.method).toBe('PATCH');
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({
+      title: 'Team Updated',
+      content: '# Team Updated',
+      description: 'Updated description',
+      tags: ['team'],
+      permalink: 'team-updated',
+      readPermission: 'signed_in',
+      writePermission: 'owner',
+      parentFolderId: 'folder-2',
+    });
     expect(calls[1].url).toBe('https://api.test/v1/teams/engineering/notes/note-1');
     expect(calls[1].init.method).toBe('DELETE');
   });
@@ -311,17 +396,29 @@ describe('hackmd-service request mapping', () => {
     const { calls, service } = createService([
       jsonResponse([{ id: 'folder-2', name: 'Zeta' }, { id: 'folder-1', name: 'Alpha' }]),
       jsonResponse({ root: ['folder-1'] }),
+      jsonResponse({ id: 'folder-1', name: 'Alpha', description: 'Personal folder' }),
+      jsonResponse({ id: 'team-folder', name: 'Team Folder' }),
       jsonResponse({ folder: { id: 'folder-3', name: 'Roadmap', parentFolderId: 'folder-1' } }),
       textResponse('', { status: 204 }),
-      jsonResponse({ id: 'folder-3', name: 'Roadmap Updated' }),
+      jsonResponse({ id: 'folder-3', name: 'Roadmap Updated', description: 'Updated', icon: '1F4C1', color: '#2F80ED' }),
+      jsonResponse({ id: 'folder-3', name: 'Team Roadmap Updated' }),
       textResponse('', { status: 204 }),
     ]);
 
     const folders = await service.listFolders();
     const order = await service.getFolderOrder();
+    const personalFolder = await service.getFolder('folder-1');
+    const teamFolder = await service.getTeamFolder('engineering', 'team-folder');
     const created = await service.createFolder({ name: 'Roadmap', parentFolderId: 'folder-1' });
     await service.updateFolderOrder({ root: ['folder-1', 'folder-3'] });
-    const updated = await service.updateTeamFolder('engineering', 'folder-3', { name: 'Roadmap Updated' });
+    const updated = await service.updateFolder('folder-3', {
+      name: 'Roadmap Updated',
+      description: 'Updated',
+      icon: '1F4C1',
+      color: '#2F80ED',
+      parentFolderId: null,
+    });
+    const updatedTeam = await service.updateTeamFolder('engineering', 'folder-3', { name: 'Team Roadmap Updated' });
     await service.deleteTeamFolder('engineering', 'folder-3');
 
     expect(folders).toMatchObject({
@@ -329,25 +426,39 @@ describe('hackmd-service request mapping', () => {
       data: [{ id: 'folder-1', name: 'Alpha' }, { id: 'folder-2', name: 'Zeta' }],
     });
     expect(order).toEqual({ source: 'remote', data: { root: ['folder-1'] } });
+    expect(personalFolder).toMatchObject({ source: 'remote', data: { id: 'folder-1', description: 'Personal folder' } });
+    expect(teamFolder).toMatchObject({ source: 'remote', data: { id: 'team-folder', name: 'Team Folder' } });
     expect(created).toMatchObject({ id: 'folder-3', name: 'Roadmap', parentId: 'folder-1' });
-    expect(updated).toMatchObject({ id: 'folder-3', name: 'Roadmap Updated' });
+    expect(updated).toMatchObject({ id: 'folder-3', name: 'Roadmap Updated', description: 'Updated' });
+    expect(updatedTeam).toMatchObject({ id: 'folder-3', name: 'Team Roadmap Updated' });
     expect(calls[0].url).toBe('https://api.test/v1/folders');
     expect(calls[1].url).toBe('https://api.test/v1/folders/folder-order');
-    expect(calls[2].url).toBe('https://api.test/v1/folders');
-    expect(calls[2].init.method).toBe('POST');
-    expect(JSON.parse(String(calls[2].init.body))).toEqual({
+    expect(calls[2].url).toBe('https://api.test/v1/folders/folder-1');
+    expect(calls[3].url).toBe('https://api.test/v1/teams/engineering/folders/team-folder');
+    expect(calls[4].url).toBe('https://api.test/v1/folders');
+    expect(calls[4].init.method).toBe('POST');
+    expect(JSON.parse(String(calls[4].init.body))).toEqual({
       name: 'Roadmap',
       parentFolderId: 'folder-1',
     });
-    expect(calls[3].url).toBe('https://api.test/v1/folders/folder-order');
-    expect(calls[3].init.method).toBe('PUT');
-    expect(JSON.parse(String(calls[3].init.body))).toEqual({
+    expect(calls[5].url).toBe('https://api.test/v1/folders/folder-order');
+    expect(calls[5].init.method).toBe('PUT');
+    expect(JSON.parse(String(calls[5].init.body))).toEqual({
       order: { root: ['folder-1', 'folder-3'] },
     });
-    expect(calls[4].url).toBe('https://api.test/v1/teams/engineering/folders/folder-3');
-    expect(calls[4].init.method).toBe('PATCH');
-    expect(calls[5].url).toBe('https://api.test/v1/teams/engineering/folders/folder-3');
-    expect(calls[5].init.method).toBe('DELETE');
+    expect(calls[6].url).toBe('https://api.test/v1/folders/folder-3');
+    expect(calls[6].init.method).toBe('PATCH');
+    expect(JSON.parse(String(calls[6].init.body))).toEqual({
+      name: 'Roadmap Updated',
+      description: 'Updated',
+      icon: '1F4C1',
+      color: '#2F80ED',
+      parentFolderId: null,
+    });
+    expect(calls[7].url).toBe('https://api.test/v1/teams/engineering/folders/folder-3');
+    expect(calls[7].init.method).toBe('PATCH');
+    expect(calls[8].url).toBe('https://api.test/v1/teams/engineering/folders/folder-3');
+    expect(calls[8].init.method).toBe('DELETE');
   });
 
   it('returns cached data with an error source when refresh fails', async () => {

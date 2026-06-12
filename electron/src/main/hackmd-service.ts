@@ -9,9 +9,12 @@ import type {
   NotePublishType,
   NoteSummary,
   RepositoryValue,
+  SimpleUserProfile,
   TeamSummary,
   UpdateFolderInput,
   UpdateNoteInput,
+  UploadNoteImageInput,
+  UploadNoteImageResult,
   UserSummary,
 } from '../../../src/lib/electron-api';
 
@@ -62,6 +65,13 @@ type UserDto = {
   upgraded?: unknown;
 };
 
+type SimpleUserProfileDto = {
+  name?: unknown;
+  userPath?: unknown;
+  photo?: unknown;
+  biography?: unknown;
+};
+
 type NoteDto = {
   id?: unknown;
   title?: unknown;
@@ -70,6 +80,10 @@ type NoteDto = {
   lastChangedAt?: unknown;
   updatedAt?: unknown;
   createdAt?: unknown;
+  publishedAt?: unknown;
+  tagsUpdatedAt?: unknown;
+  titleUpdatedAt?: unknown;
+  lastChangeUser?: unknown;
   content?: unknown;
   publishLink?: unknown;
   shortId?: unknown;
@@ -82,6 +96,10 @@ type NoteDto = {
   folderPaths?: unknown;
 };
 
+type NoteImageUploadResponseDto = {
+  data?: unknown;
+};
+
 type CacheKey =
   | 'currentUser'
   | 'teams'
@@ -89,9 +107,11 @@ type CacheKey =
   | 'history'
   | 'folders'
   | 'folderOrder'
+  | `folder:${string}`
   | `team:${string}:notes`
   | `team:${string}:folders`
   | `team:${string}:folderOrder`
+  | `team:${string}:folder:${string}`
   | `note:${string}`
   | `team:${string}:note:${string}`;
 
@@ -105,6 +125,10 @@ type HackmdServiceOptions = {
   fetcher?: HackmdFetch;
   readToken?: () => Promise<string>;
 };
+
+function isFormDataBody(body: RequestInit['body']) {
+  return typeof FormData !== 'undefined' && body instanceof FormData;
+}
 
 async function defaultReadHackmdApiToken() {
   const { readHackmdApiToken } = await import('./settings');
@@ -223,9 +247,23 @@ export function mapUser(dto: UserDto): UserSummary {
   };
 }
 
+export function mapSimpleUserProfile(dto: SimpleUserProfileDto): SimpleUserProfile {
+  const username = asString(dto.userPath);
+
+  return {
+    name: asString(dto.name, username || 'Unknown User'),
+    username,
+    photo: asNullableString(dto.photo),
+    biography: asNullableString(dto.biography),
+  };
+}
+
 export function mapNote(dto: NoteDto): NoteSummary {
   const id = asString(dto.id);
   const shortId = asString(dto.shortId, id);
+  const lastChangeUser = dto.lastChangeUser && typeof dto.lastChangeUser === 'object'
+    ? mapSimpleUserProfile(dto.lastChangeUser as SimpleUserProfileDto)
+    : null;
 
   return {
     id,
@@ -234,6 +272,9 @@ export function mapNote(dto: NoteDto): NoteSummary {
     tags: getJsonArray(dto.tags).filter((tag): tag is string => typeof tag === 'string'),
     updatedAtMillis: toMillis(dto.lastChangedAt ?? dto.updatedAt),
     createdAtMillis: toMillis(dto.createdAt),
+    publishedAtMillis: toMillis(dto.publishedAt),
+    tagsUpdatedAtMillis: toMillis(dto.tagsUpdatedAt),
+    titleUpdatedAtMillis: toMillis(dto.titleUpdatedAt),
     content: typeof dto.content === 'string' ? dto.content : null,
     publishLink: asString(dto.publishLink),
     shortId,
@@ -243,6 +284,7 @@ export function mapNote(dto: NoteDto): NoteSummary {
     publishType: toPublishType(dto.publishType),
     readPermission: toPermission(dto.readPermission),
     writePermission: toPermission(dto.writePermission),
+    lastChangeUser,
     folderPaths: getJsonArray(dto.folderPaths).map((folderPath) => mapFolderPath(folderPath as FolderPathDto)),
   };
 }
@@ -291,7 +333,7 @@ async function requestHackmd<T>(
       signal: controller.signal,
       headers: {
         Authorization: `Bearer ${token}`,
-        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(init.body && !isFormDataBody(init.body) ? { 'Content-Type': 'application/json' } : {}),
         ...init.headers,
       },
     });
@@ -362,6 +404,9 @@ function createEmptyDocument(input: CreateNoteInput | UpdateNoteInput): Document
     tags: input.tags ?? [],
     updatedAtMillis: now,
     createdAtMillis: null,
+    publishedAtMillis: null,
+    tagsUpdatedAtMillis: null,
+    titleUpdatedAtMillis: null,
     content: input.content ?? '',
     publishLink: '',
     shortId: '',
@@ -371,6 +416,7 @@ function createEmptyDocument(input: CreateNoteInput | UpdateNoteInput): Document
     publishType: 'edit',
     readPermission: input.readPermission ?? 'owner',
     writePermission: input.writePermission ?? 'owner',
+    lastChangeUser: null,
     folderPaths: [],
   };
 }
@@ -402,6 +448,17 @@ function normalizeFolderOrder(value: unknown): FolderOrder {
       Array.isArray(folderIds) ? folderIds.filter((folderId): folderId is string => typeof folderId === 'string') : [],
     ]),
   );
+}
+
+function mapImageUploadResponse(response: NoteImageUploadResponseDto): UploadNoteImageResult {
+  const data = response.data && typeof response.data === 'object' ? response.data as { link?: unknown } : {};
+  const link = asString(data.link);
+
+  if (!link) {
+    throw new Error('HackMD did not return an uploaded image link.');
+  }
+
+  return { link };
 }
 
 export function createHackmdService(options: HackmdServiceOptions = {}) {
@@ -510,6 +567,30 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
       );
     },
 
+    getFolder(folderId: string) {
+      const normalizedFolderId = folderId.trim();
+
+      return withCache(
+        `folder:${normalizedFolderId}`,
+        requestHackmd<FolderDto>(`/folders/${encodePathSegment(normalizedFolderId)}`, {}, serviceOptions)
+          .then((folder) => mapFolder(normalizeHackmdResponse(folder) as FolderDto)),
+      );
+    },
+
+    getTeamFolder(teamPath: string, folderId: string) {
+      const normalizedTeamPath = teamPath.trim();
+      const normalizedFolderId = folderId.trim();
+
+      return withCache(
+        `team:${normalizedTeamPath}:folder:${normalizedFolderId}`,
+        requestHackmd<FolderDto>(
+          `/teams/${encodePathSegment(normalizedTeamPath)}/folders/${encodePathSegment(normalizedFolderId)}`,
+          {},
+          serviceOptions,
+        ).then((folder) => mapFolder(normalizeHackmdResponse(folder) as FolderDto)),
+      );
+    },
+
     getFolderOrder() {
       return withCache(
         'folderOrder',
@@ -557,22 +638,28 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
     },
 
     createNote(input: CreateNoteInput) {
+      memoryCache.delete('notes');
       return createOrUpdateDocument('/notes', 'POST', input);
     },
 
     createTeamNote(teamPath: string, input: CreateNoteInput) {
+      memoryCache.delete(`team:${teamPath}:notes`);
       return createOrUpdateDocument(`/teams/${encodePathSegment(teamPath)}/notes`, 'POST', input);
     },
 
     createFolder(input: CreateFolderInput) {
+      memoryCache.delete('folders');
       return createOrUpdateFolder('/folders', 'POST', input);
     },
 
     createTeamFolder(teamPath: string, input: CreateFolderInput) {
+      memoryCache.delete(`team:${teamPath}:folders`);
       return createOrUpdateFolder(`/teams/${encodePathSegment(teamPath)}/folders`, 'POST', input);
     },
 
     updateFolder(folderId: string, input: UpdateFolderInput) {
+      memoryCache.delete('folders');
+      memoryCache.delete(`folder:${folderId}`);
       return createOrUpdateFolder(
         `/folders/${encodePathSegment(folderId)}`,
         'PATCH',
@@ -582,6 +669,8 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
     },
 
     updateTeamFolder(teamPath: string, folderId: string, input: UpdateFolderInput) {
+      memoryCache.delete(`team:${teamPath}:folders`);
+      memoryCache.delete(`team:${teamPath}:folder:${folderId}`);
       return createOrUpdateFolder(
         `/teams/${encodePathSegment(teamPath)}/folders/${encodePathSegment(folderId)}`,
         'PATCH',
@@ -591,6 +680,8 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
     },
 
     updateNote(noteId: string, input: UpdateNoteInput) {
+      memoryCache.delete('notes');
+      memoryCache.delete(`note:${noteId}`);
       return createOrUpdateDocument(
         `/notes/${encodePathSegment(noteId)}`,
         'PATCH',
@@ -608,6 +699,8 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
 
     updateTeamNote(teamPath: string, noteId: string, input: UpdateNoteInput) {
       const path = `/teams/${encodePathSegment(teamPath)}/notes/${encodePathSegment(noteId)}`;
+      memoryCache.delete(`team:${teamPath}:notes`);
+      memoryCache.delete(`team:${teamPath}:note:${noteId}`);
       return createOrUpdateDocument(
         path,
         'PATCH',
@@ -637,6 +730,7 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
       await requestHackmd<void>(`/folders/${encodePathSegment(folderId)}`, { method: 'DELETE' }, serviceOptions);
       memoryCache.delete('folders');
       memoryCache.delete('notes');
+      memoryCache.delete(`folder:${folderId}`);
     },
 
     async deleteTeamFolder(teamPath: string, folderId: string) {
@@ -647,6 +741,7 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
       );
       memoryCache.delete(`team:${teamPath}:folders`);
       memoryCache.delete(`team:${teamPath}:notes`);
+      memoryCache.delete(`team:${teamPath}:folder:${folderId}`);
     },
 
     async updateFolderOrder(order: FolderOrder) {
@@ -666,6 +761,24 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
       memoryCache.delete(`team:${teamPath}:folderOrder`);
       memoryCache.delete(`team:${teamPath}:folders`);
     },
+
+    async uploadNoteImage(noteId: string, input: UploadNoteImageInput) {
+      const form = new FormData();
+      const blob = new Blob([input.bytes], { type: input.mimeType || 'application/octet-stream' });
+
+      form.append('image', blob, input.fileName || 'image');
+
+      const response = await requestHackmd<NoteImageUploadResponseDto>(
+        `/notes/${encodePathSegment(noteId)}/images`,
+        {
+          method: 'POST',
+          body: form,
+        },
+        serviceOptions,
+      );
+
+      return mapImageUploadResponse(response);
+    },
   };
 }
 
@@ -679,6 +792,8 @@ export const listHistory = defaultHackmdService.listHistory;
 export const listTeamNotes = defaultHackmdService.listTeamNotes;
 export const listFolders = defaultHackmdService.listFolders;
 export const listTeamFolders = defaultHackmdService.listTeamFolders;
+export const getFolder = defaultHackmdService.getFolder;
+export const getTeamFolder = defaultHackmdService.getTeamFolder;
 export const getFolderOrder = defaultHackmdService.getFolderOrder;
 export const getTeamFolderOrder = defaultHackmdService.getTeamFolderOrder;
 export const getNote = defaultHackmdService.getNote;
@@ -696,3 +811,4 @@ export const deleteFolder = defaultHackmdService.deleteFolder;
 export const deleteTeamFolder = defaultHackmdService.deleteTeamFolder;
 export const updateFolderOrder = defaultHackmdService.updateFolderOrder;
 export const updateTeamFolderOrder = defaultHackmdService.updateTeamFolderOrder;
+export const uploadNoteImage = defaultHackmdService.uploadNoteImage;

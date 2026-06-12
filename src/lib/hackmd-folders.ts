@@ -148,30 +148,29 @@ export function buildHackmdFolderTree(
       continue;
     }
 
-    const seenFolderIds = new Set<string>();
-
-    for (const folderPath of note.folderPaths) {
-      const node = nodesById.get(folderPath.id);
-
-      if (!node || seenFolderIds.has(node.id)) {
-        continue;
+    let targetNode: FolderTreeNode | null = null;
+    for (let index = note.folderPaths.length - 1; index >= 0; index -= 1) {
+      const node = nodesById.get(note.folderPaths[index].id);
+      if (node) {
+        targetNode = node;
+        break;
       }
-
-      seenFolderIds.add(node.id);
-      const treeNote = {
-        note,
-        folderLabel: getFolderLabel(node.folderPath) || node.name,
-        folderPath: node.folderPath,
-      };
-      node.notes.push(treeNote);
-      allNotes.push(treeNote);
     }
 
-    if (seenFolderIds.size === 0) {
+    if (!targetNode) {
       const treeNote = { note, folderLabel: '', folderPath: [] };
       unfiled.notes.push(treeNote);
       allNotes.push(treeNote);
+      continue;
     }
+
+    const treeNote = {
+      note,
+      folderLabel: getFolderLabel(targetNode.folderPath) || targetNode.name,
+      folderPath: targetNode.folderPath,
+    };
+    targetNode.notes.push(treeNote);
+    allNotes.push(treeNote);
   }
 
   for (const node of nodesById.values()) {

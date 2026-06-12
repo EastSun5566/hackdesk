@@ -5,11 +5,14 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import type { UpdateFolderInput } from '@/lib/electron-api';
 
 import type { RenameFolderDialogState } from './types';
+import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS, TEXT_INPUT_CLASS } from './ui';
 
 export function RenameFolderDialog({
   state,
@@ -20,21 +23,28 @@ export function RenameFolderDialog({
   state: RenameFolderDialogState;
   isRenaming: boolean;
   onStateChange: (state: RenameFolderDialogState) => void;
-  onRename: (folderId: string, name: string) => void;
+  onRename: (folderId: string, input: UpdateFolderInput) => void;
 }) {
   const canSubmit = Boolean(state.folderId && state.name.trim()) && !isRenaming;
+  const closedState = { open: false, folderId: null, name: '', description: '', icon: '', color: '' };
+  const normalizedColor = state.color.trim();
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (state.folderId && canSubmit) {
-      onRename(state.folderId, state.name.trim());
+      onRename(state.folderId, {
+        name: state.name.trim(),
+        description: state.description.trim() || null,
+        icon: state.icon.trim() || null,
+        color: state.color.trim() || null,
+      });
     }
   };
 
   return (
     <Dialog
       open={state.open}
-      onOpenChange={(open) => onStateChange(open ? state : { open: false, folderId: null, name: '' })}
+      onOpenChange={(open) => onStateChange(open ? state : closedState)}
     >
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -48,26 +58,62 @@ export function RenameFolderDialog({
               autoFocus
               value={state.name}
               onChange={(event) => onStateChange({ ...state, name: event.target.value })}
-              className="h-10 w-full rounded-md border border-border-default bg-background-default px-3 text-sm outline-none transition-colors focus:border-primary-default focus:ring-2 focus:ring-primary-default/20"
+              className={TEXT_INPUT_CLASS}
             />
           </label>
-          <div className="flex justify-end gap-2">
+          <label className="block space-y-2 text-sm">
+            <span className="font-medium text-text-default">Description</span>
+            <textarea
+              value={state.description}
+              onChange={(event) => onStateChange({ ...state, description: event.target.value })}
+              className={`${TEXT_INPUT_CLASS} min-h-20 py-2`}
+              rows={3}
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block space-y-2 text-sm">
+              <span className="font-medium text-text-default">Icon codepoint</span>
+              <input
+                value={state.icon}
+                onChange={(event) => onStateChange({ ...state, icon: event.target.value })}
+                className={TEXT_INPUT_CLASS}
+                placeholder="1F4C1"
+              />
+            </label>
+            <label className="block space-y-2 text-sm">
+              <span className="font-medium text-text-default">Color</span>
+              <span className="flex items-center gap-2">
+                <span
+                  className="h-5 w-5 rounded-[4px] border border-border-default"
+                  style={{ backgroundColor: normalizedColor || 'transparent' }}
+                  aria-hidden="true"
+                />
+                <input
+                  value={state.color}
+                  onChange={(event) => onStateChange({ ...state, color: event.target.value })}
+                  className={TEXT_INPUT_CLASS}
+                  placeholder="#2F80ED"
+                />
+              </span>
+            </label>
+          </div>
+          <DialogFooter>
             <button
               type="button"
-              onClick={() => onStateChange({ open: false, folderId: null, name: '' })}
-              className="rounded-md border border-border-default px-3 py-2 text-sm hover:bg-background-selected"
+              onClick={() => onStateChange(closedState)}
+              className={SECONDARY_BUTTON_CLASS}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!canSubmit}
-              className="inline-flex items-center gap-2 rounded-md bg-primary-default px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50"
+              className={PRIMARY_BUTTON_CLASS}
             >
               {isRenaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderPen className="h-4 w-4" />}
               Rename
             </button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
