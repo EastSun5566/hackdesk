@@ -114,6 +114,15 @@ export type ConfirmDialogResult = {
   confirmed: boolean;
 };
 
+export type FatalRendererError = {
+  message: string;
+  stack?: string;
+  componentStack?: string;
+  url: string;
+  userAgent: string;
+  platform: string;
+};
+
 export type CreateFolderInput = {
   name: string;
   description?: string;
@@ -135,6 +144,7 @@ export type ElectronActionId =
   | 'open-settings'
   | 'new-note'
   | 'refresh'
+  | 'export-debug-logs'
   | 'focus-workspace'
   | 'focus-navigator'
   | 'focus-editor';
@@ -181,6 +191,8 @@ export type HackDeskElectronAPI = {
   };
   app: {
     confirm: (options: ConfirmDialogOptions) => Promise<ConfirmDialogResult>;
+    exportDebugLogs: () => Promise<string>;
+    recordFatalRendererError: (error: FatalRendererError) => Promise<void>;
     onCommand: (callback: (command: HackDeskCommandPaletteCommand) => void) => () => void;
   };
 };

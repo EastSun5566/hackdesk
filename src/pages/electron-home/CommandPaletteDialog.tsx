@@ -1,5 +1,6 @@
 import {
   FileText,
+  FileArchive,
   FolderTree,
   Keyboard,
   PanelLeft,
@@ -34,6 +35,7 @@ const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'open-settings': <Settings2 className="h-4 w-4" />,
   'open-command-palette': <Keyboard className="h-4 w-4" />,
   refresh: <RefreshCcw className="h-4 w-4" />,
+  'export-debug-logs': <FileArchive className="h-4 w-4" />,
   'focus-workspace': <PanelLeft className="h-4 w-4" />,
   'focus-navigator': <FolderTree className="h-4 w-4" />,
   'focus-editor': <PanelRight className="h-4 w-4" />,

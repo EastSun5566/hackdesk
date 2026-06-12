@@ -69,6 +69,8 @@ export function createApplicationMenu(sendCommand: SendCommand) {
     {
       label: 'Help',
       submenu: [
+        actionMenuItem('export-debug-logs', sendCommand),
+        { type: 'separator' },
         {
           label: 'HackDesk Documentation',
           click: () => {

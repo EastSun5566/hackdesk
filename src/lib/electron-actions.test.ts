@@ -15,6 +15,10 @@ describe('electron action registry', () => {
       shortcut: '⌘K',
       menuAccelerator: 'CmdOrCtrl+K',
     });
+    expect(getElectronAction('export-debug-logs')).toMatchObject({
+      label: 'Export Debug Logs',
+      menuAccelerator: 'Shift+CmdOrCtrl+L',
+    });
   });
 
   it('uses the same registry for command palette actions', () => {

@@ -20,6 +20,14 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+    void window.hackdeskAPI?.app.recordFatalRendererError?.({
+      message: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack ?? undefined,
+      url: window.location.href,
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+    }).catch(() => undefined);
   }
 
   handleReset = () => {

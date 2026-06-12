@@ -194,6 +194,13 @@ export function Home() {
     case 'refresh':
       refreshWorkspace();
       break;
+    case 'export-debug-logs':
+      void api?.app.exportDebugLogs()
+        .then((path) => toast.success(`Debug logs exported to ${path}`))
+        .catch((error) => {
+          toast.error(error instanceof Error ? error.message : 'Failed to export debug logs.');
+        });
+      break;
     case 'focus-workspace':
       focusRegion('workspace');
       break;
@@ -204,7 +211,7 @@ export function Home() {
       focusRegion('editor');
       break;
     }
-  }, [handleCreateNote, openPalette, refreshWorkspace]);
+  }, [api, handleCreateNote, openPalette, refreshWorkspace]);
 
   const handleDeleteRequest = useCallback((note: DocumentSummary) => {
     if (!api?.app.confirm) {

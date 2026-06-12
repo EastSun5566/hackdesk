@@ -30,4 +30,6 @@ export const ELECTRON_CHANNELS = {
   shellOpenHackmdEditor: 'shell:open-hackmd-editor',
   appConfirm: 'app:confirm',
   appCommand: 'app:command',
+  appExportDebugLogs: 'app:export-debug-logs',
+  appRecordFatalRendererError: 'app:record-fatal-renderer-error',
 } as const;

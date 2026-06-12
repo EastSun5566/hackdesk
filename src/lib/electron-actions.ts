@@ -43,6 +43,14 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     menuAccelerator: 'Shift+CmdOrCtrl+R',
   },
   {
+    id: 'export-debug-logs',
+    label: 'Export Debug Logs',
+    description: 'Export HackDesk logs and local crash reports for debugging.',
+    keywords: ['diagnostics', 'logs', 'crash'],
+    shortcut: '⇧⌘L',
+    menuAccelerator: 'Shift+CmdOrCtrl+L',
+  },
+  {
     id: 'focus-workspace',
     label: 'Focus Workspace',
     description: 'Move keyboard focus to the workspace list.',

@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog, screen } from 'electron';
 import { join } from 'node:path';
 
 import type { HackDeskCommandPaletteCommand } from '../../../src/lib/electron-api';
@@ -6,11 +6,16 @@ import { getRendererEntryUrl } from './paths';
 import { openExternalUrl } from './url-policy';
 import { getAppIconPath } from './app-icon';
 import { ELECTRON_CHANNELS } from '../shared/channels';
+import { exportDebugLogs, writeLog } from './logging';
+import { isTrustedRendererUrl } from './renderer-url';
+import { persistWindowState, readWindowState } from './window-state';
 
 const WINDOW_BACKGROUND_COLOR = process.platform === 'darwin' ? '#00000000' : '#fdfdfd';
+const DEFAULT_WINDOW_SIZE = { width: 1180, height: 760 };
 
 export class WindowManager {
   private mainWindow: BrowserWindow | null = null;
+  private recoveryDialogShowing = false;
 
   getMainWindow() {
     return this.mainWindow && !this.mainWindow.isDestroyed() ? this.mainWindow : null;
@@ -43,11 +48,17 @@ export class WindowManager {
   createMainWindow() {
     const isMac = process.platform === 'darwin';
     const rendererUrl = getRendererEntryUrl();
-    const rendererOrigin = rendererUrl.split('#', 1)[0];
+    const workArea = screen.getPrimaryDisplay().workArea;
+    const fallbackBounds = {
+      width: DEFAULT_WINDOW_SIZE.width,
+      height: DEFAULT_WINDOW_SIZE.height,
+      x: workArea.x + Math.round((workArea.width - DEFAULT_WINDOW_SIZE.width) / 2),
+      y: workArea.y + Math.round((workArea.height - DEFAULT_WINDOW_SIZE.height) / 2),
+    };
+    const windowState = readWindowState(fallbackBounds);
 
     this.mainWindow = new BrowserWindow({
-      width: 1180,
-      height: 760,
+      ...windowState.bounds,
       minWidth: 900,
       minHeight: 620,
       show: false,
@@ -62,14 +73,25 @@ export class WindowManager {
         preload: join(__dirname, 'preload.cjs'),
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false,
+        sandbox: true,
         webviewTag: false,
       },
     });
+    persistWindowState(this.mainWindow);
+
+    if (windowState.isMaximized) {
+      this.mainWindow.maximize();
+    }
 
     this.mainWindow.once('ready-to-show', () => {
       this.mainWindow?.show();
     });
+
+    this.mainWindow.on('closed', () => {
+      this.mainWindow = null;
+    });
+
+    this.configureSessionPolicy(this.mainWindow);
 
     this.mainWindow.webContents.on('context-menu', (event, params) => {
       if (params.isEditable || params.selectionText.trim()) {
@@ -81,37 +103,146 @@ export class WindowManager {
 
     this.mainWindow.webContents.setWindowOpenHandler(({ url }) => {
       void openExternalUrl(url).catch((error) => {
-        console.warn(`Failed to open external URL: ${error instanceof Error ? error.message : String(error)}`);
+        writeLog('navigation', 'failed to open external URL', {
+          url,
+          error: error instanceof Error ? error.message : String(error),
+        }, 'warn');
       });
 
       return { action: 'deny' };
     });
 
     this.mainWindow.webContents.on('will-navigate', (event, url) => {
-      if (url === this.mainWindow?.webContents.getURL() || url.startsWith(rendererOrigin)) {
+      if (url === this.mainWindow?.webContents.getURL() || isTrustedRendererUrl(url)) {
         return;
       }
 
       event.preventDefault();
       void openExternalUrl(url).catch((error) => {
-        console.warn(`Failed to open external URL: ${error instanceof Error ? error.message : String(error)}`);
+        writeLog('navigation', 'failed to open external navigation', {
+          url,
+          error: error instanceof Error ? error.message : String(error),
+        }, 'warn');
       });
     });
 
-    this.mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedUrl) => {
-      if (validatedUrl !== rendererUrl || errorCode === -3) {
-        return;
-      }
-
-      console.warn(`Renderer failed to load: ${errorDescription}`);
-      setTimeout(() => {
-        if (!this.mainWindow?.isDestroyed()) {
-          void this.mainWindow?.loadURL(rendererUrl);
-        }
-      }, 600);
+    this.mainWindow.webContents.on(
+      'did-fail-load',
+      (_event, errorCode, errorDescription, validatedUrl, isMainFrame) => {
+        this.handleRendererLoadFailure(errorCode, errorDescription, validatedUrl, isMainFrame);
+      },
+    );
+    this.mainWindow.webContents.on(
+      'did-fail-provisional-load',
+      (_event, errorCode, errorDescription, validatedUrl, isMainFrame) => {
+        this.handleRendererLoadFailure(errorCode, errorDescription, validatedUrl, isMainFrame);
+      },
+    );
+    this.mainWindow.webContents.on('render-process-gone', (_event, details) => {
+      writeLog('renderer', 'render process gone', details, 'error');
+      this.showRecoveryDialog(
+        'HackDesk renderer stopped',
+        `Reason: ${details.reason}. Exit code: ${details.exitCode}.`,
+      );
+    });
+    this.mainWindow.webContents.on('preload-error', (_event, preloadPath, error) => {
+      writeLog('renderer', 'preload script failed', {
+        preloadPath,
+        error: error.message,
+        stack: error.stack,
+      }, 'error');
+      this.showRecoveryDialog('HackDesk preload failed', error.message);
+    });
+    this.mainWindow.on('unresponsive', () => {
+      writeLog('renderer', 'main window became unresponsive', undefined, 'warn');
+      this.showRecoveryDialog('HackDesk is not responding', 'You can wait, reload the app window, or export debug logs.', true);
+    });
+    this.mainWindow.on('responsive', () => {
+      writeLog('renderer', 'main window became responsive');
     });
 
     void this.mainWindow.loadURL(rendererUrl);
     return this.mainWindow;
+  }
+
+  private configureSessionPolicy(window: BrowserWindow) {
+    const { session } = window.webContents;
+
+    session.setPermissionRequestHandler((webContents, permission, callback, details) => {
+      writeLog('security', 'permission request denied', {
+        permission,
+        requestingUrl: details.requestingUrl,
+        currentUrl: webContents.getURL(),
+      }, 'warn');
+      callback(false);
+    });
+
+    session.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+      writeLog('security', 'permission check denied', {
+        permission,
+        requestingOrigin,
+        currentUrl: webContents?.getURL(),
+      }, 'warn');
+      return false;
+    });
+  }
+
+  private handleRendererLoadFailure(
+    errorCode: number,
+    errorDescription: string,
+    validatedUrl: string,
+    isMainFrame?: boolean,
+  ) {
+    if (errorCode === -3 || isMainFrame === false || !isTrustedRendererUrl(validatedUrl)) {
+      return;
+    }
+
+    writeLog('renderer', 'renderer failed to load', {
+      errorCode,
+      errorDescription,
+      validatedUrl,
+    }, 'error');
+    this.showRecoveryDialog('HackDesk failed to load', errorDescription);
+  }
+
+  private showRecoveryDialog(message: string, detail: string, canKeepWaiting = false) {
+    const targetWindow = this.getTargetWindow();
+    if (!targetWindow || this.recoveryDialogShowing) {
+      return;
+    }
+
+    this.recoveryDialogShowing = true;
+    const buttons = canKeepWaiting
+      ? ['Reload', 'Export Logs', 'Relaunch', 'Keep Waiting']
+      : ['Reload', 'Export Logs', 'Relaunch', 'Quit'];
+
+    void dialog.showMessageBox(targetWindow, {
+      type: 'warning',
+      title: app.getName(),
+      message,
+      detail,
+      buttons,
+      defaultId: 0,
+      cancelId: buttons.length - 1,
+      noLink: true,
+    }).then(async (result) => {
+      switch (buttons[result.response]) {
+      case 'Reload':
+        await targetWindow.loadURL(getRendererEntryUrl());
+        break;
+      case 'Export Logs':
+        await exportDebugLogs();
+        break;
+      case 'Relaunch':
+        app.relaunch();
+        app.exit(0);
+        break;
+      case 'Quit':
+        app.quit();
+        break;
+      }
+    }).finally(() => {
+      this.recoveryDialogShowing = false;
+    });
   }
 }

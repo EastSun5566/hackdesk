@@ -2,7 +2,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { DocumentSummary, FolderSummary, HackDeskElectronAPI, NoteSummary } from '@/lib/electron-api';
+import type {
+  DocumentSummary,
+  FolderSummary,
+  HackDeskCommandPaletteCommand,
+  HackDeskElectronAPI,
+  NoteSummary,
+} from '@/lib/electron-api';
 import { Home } from './Home';
 
 const note: NoteSummary = {
@@ -113,6 +119,8 @@ function createApi(overrides: Partial<HackDeskElectronAPI> = {}): HackDeskElectr
     },
     app: {
       confirm: vi.fn(async () => ({ confirmed: false })),
+      exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
+      recordFatalRendererError: vi.fn(async () => undefined),
       onCommand: vi.fn(() => () => undefined),
     },
     ...overrides,
@@ -143,6 +151,8 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       app: {
         confirm: vi.fn(async () => ({ confirmed: true })),
+        exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
+        recordFatalRendererError: vi.fn(async () => undefined),
         onCommand: vi.fn(() => () => undefined),
       },
     });
@@ -203,5 +213,26 @@ describe('Home native-feel behavior', () => {
       content: '# Folder note\n\n',
       parentFolderId: 'folder-1',
     }));
+  });
+
+  it('exports debug logs from the shared action registry command', async () => {
+    let commandHandler: ((command: HackDeskCommandPaletteCommand) => void) | null = null;
+    const api = createApi({
+      app: {
+        confirm: vi.fn(async () => ({ confirmed: false })),
+        exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
+        recordFatalRendererError: vi.fn(async () => undefined),
+        onCommand: vi.fn((handler) => {
+          commandHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    commandHandler?.({ type: 'export-debug-logs' });
+
+    await waitFor(() => expect(api.app.exportDebugLogs).toHaveBeenCalled());
   });
 });

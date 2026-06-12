@@ -5,6 +5,7 @@ import type {
   CreateFolderInput,
   CreateNoteInput,
   ElectronSettingsUpdate,
+  FatalRendererError,
   FolderOrder,
   HackDeskCommandPaletteCommand,
   HackDeskElectronAPI,
@@ -75,6 +76,10 @@ const api: HackDeskElectronAPI = {
   },
   app: {
     confirm: (options: ConfirmDialogOptions) => ipcRenderer.invoke(ELECTRON_CHANNELS.appConfirm, options),
+    exportDebugLogs: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appExportDebugLogs),
+    recordFatalRendererError: (error: FatalRendererError) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.appRecordFatalRendererError, error)
+    ),
     onCommand: (callback: (command: HackDeskCommandPaletteCommand) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, command: HackDeskCommandPaletteCommand) => {
         callback(command);

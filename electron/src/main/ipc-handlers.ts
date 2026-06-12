@@ -7,6 +7,7 @@ import type {
   FolderOrder,
   UpdateFolderInput,
   UpdateNoteInput,
+  FatalRendererError,
 } from '../../../src/lib/electron-api';
 import { ELECTRON_CHANNELS } from '../shared/channels';
 import {
@@ -39,6 +40,7 @@ import {
 import { getSafeSettings, updateStoredSettings } from './settings';
 import { openExternalUrl, openHackmdEditor } from './url-policy';
 import type { WindowManager } from './window-manager';
+import { exportDebugLogs, recordFatalRendererError } from './logging';
 
 export function registerIpcHandlers(windowManager: WindowManager) {
   ipcMain.handle(ELECTRON_CHANNELS.settingsGet, () => getSafeSettings());
@@ -95,6 +97,10 @@ export function registerIpcHandlers(windowManager: WindowManager) {
   ));
   ipcMain.handle(ELECTRON_CHANNELS.shellOpenExternal, (_event, url: string) => openExternalUrl(url));
   ipcMain.handle(ELECTRON_CHANNELS.shellOpenHackmdEditor, (_event, note) => openHackmdEditor(note));
+  ipcMain.handle(ELECTRON_CHANNELS.appExportDebugLogs, () => exportDebugLogs());
+  ipcMain.handle(ELECTRON_CHANNELS.appRecordFatalRendererError, (_event, error: FatalRendererError) => (
+    recordFatalRendererError(error)
+  ));
   ipcMain.handle(ELECTRON_CHANNELS.appConfirm, async (_event, options: ConfirmDialogOptions) => {
     const confirmLabel = options.confirmLabel ?? 'OK';
     const cancelLabel = options.cancelLabel ?? 'Cancel';
