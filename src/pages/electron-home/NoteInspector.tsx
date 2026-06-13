@@ -11,6 +11,7 @@ import type {
 } from '@/lib/electron-api';
 import type { FolderTree, FolderTreeNode } from '@/lib/hackmd-folders';
 
+import { CollapsibleSection, PanelHeader } from './interaction-primitives';
 import {
   FOCUS_RING_CLASS,
   PRIMARY_BUTTON_CLASS,
@@ -110,13 +111,19 @@ export function NoteInspector({
     currentFolderId,
   ]);
 
+  const descriptionDirty = description !== document.description;
+  const tagsDirty = !tagsEqual(tags, document.tags);
+  const permalinkDirty = permalink !== (document.permalink ?? '');
+  const locationDirty = Boolean(parentFolderId && parentFolderId !== currentFolderId);
+  const permissionsDirty =
+    readPermission !== document.readPermission
+    || writePermission !== document.writePermission;
   const metadataDirty =
-    description !== document.description
-    || permalink !== (document.permalink ?? '')
-    || !tagsEqual(tags, document.tags)
-    || readPermission !== document.readPermission
-    || writePermission !== document.writePermission
-    || Boolean(parentFolderId && parentFolderId !== currentFolderId);
+    descriptionDirty
+    || tagsDirty
+    || permalinkDirty
+    || locationDirty
+    || permissionsDirty;
 
   const addTag = (value: string) => {
     const nextTag = cleanTag(value);
@@ -124,9 +131,14 @@ export function NoteInspector({
       return;
     }
 
-    setTags((current) => current.some((tag) => tag.toLowerCase() === nextTag.toLowerCase())
-      ? current
-      : [...current, nextTag]);
+    setTags((current) => {
+      if (current.some((tag) => tag.toLowerCase() === nextTag.toLowerCase())) {
+        toast.info('Tag already exists.');
+        return current;
+      }
+
+      return [...current, nextTag];
+    });
     setTagDraft('');
   };
 
@@ -184,133 +196,151 @@ export function NoteInspector({
   };
 
   return (
-    <aside className="flex h-full w-80 flex-col bg-background-muted">
-      <div className="border-b border-border-default px-4 py-3">
-        <h2 className="text-sm font-semibold text-text-default">Inspector</h2>
-        <p className="mt-1 truncate text-xs text-text-subtle">{document.shortId}</p>
-      </div>
+    <aside
+      data-hackdesk-focus="inspector"
+      tabIndex={-1}
+      className="flex h-full w-80 flex-col bg-background-muted outline-none"
+    >
+      <PanelHeader
+        title="Inspector"
+        subtitle={document.shortId}
+        className="px-4 py-3"
+      />
 
       <div className="min-h-0 flex-1 overflow-auto px-4 py-4">
-        <form className="space-y-5" onSubmit={handleMetadataSubmit}>
-          <fieldset className="space-y-3">
-            <legend className="text-xs font-semibold uppercase tracking-wide text-text-subtle">Metadata</legend>
-            <label className="block space-y-2 text-sm" htmlFor={descriptionId}>
-              <span className="font-medium text-text-default">Description</span>
-              <textarea
-                id={descriptionId}
-                name="description"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                className={`${TEXT_INPUT_CLASS} min-h-20 py-2`}
-                rows={3}
-              />
-            </label>
-
-            <div className="space-y-2 text-sm">
-              <label className="font-medium text-text-default" htmlFor={tagsId}>Tags</label>
-              <div className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-md border border-border-default bg-background-default px-2 py-1.5">
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex h-6 items-center gap-1 rounded-[6px] bg-background-selected px-2 text-xs text-text-default"
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => removeTag(tag)}
-                      className={`text-text-subtle hover:text-text-default ${FOCUS_RING_CLASS}`}
-                      aria-label={`Remove ${tag} tag`}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))}
-                <input
-                  id={tagsId}
-                  name="tag"
-                  value={tagDraft}
-                  onChange={(event) => setTagDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ',') {
-                      event.preventDefault();
-                      addTag(tagDraft);
-                    }
-                  }}
-                  onBlur={() => addTag(tagDraft)}
-                  className="min-w-20 flex-1 bg-transparent text-sm outline-none"
-                  placeholder={tags.length === 0 ? 'Add tag' : ''}
+        <form onSubmit={handleMetadataSubmit}>
+          <CollapsibleSection title="Metadata" dirty={descriptionDirty || tagsDirty || permalinkDirty}>
+            <fieldset className="space-y-3">
+              <legend className="sr-only">Metadata</legend>
+              <label className="block space-y-2 text-sm" htmlFor={descriptionId}>
+                <span className="font-medium text-text-default">Description</span>
+                <textarea
+                  id={descriptionId}
+                  name="description"
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  className={`${TEXT_INPUT_CLASS} min-h-20 py-2`}
+                  rows={3}
                 />
+              </label>
+
+              <div className="space-y-2 text-sm">
+                <label className="font-medium text-text-default" htmlFor={tagsId}>Tags</label>
+                <div className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-md border border-border-default bg-background-default px-2 py-1.5">
+                  {tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-flex h-6 items-center gap-1 rounded-[6px] bg-background-selected px-2 text-xs text-text-default"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => removeTag(tag)}
+                        className={`text-text-subtle hover:text-text-default ${FOCUS_RING_CLASS}`}
+                        aria-label={`Remove ${tag} tag`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    id={tagsId}
+                    name="tag"
+                    value={tagDraft}
+                    onChange={(event) => setTagDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ',') {
+                        event.preventDefault();
+                        addTag(tagDraft);
+                        return;
+                      }
+
+                      if (event.key === 'Backspace' && !tagDraft && tags.length > 0) {
+                        event.preventDefault();
+                        setTags((current) => current.slice(0, -1));
+                      }
+                    }}
+                    onBlur={() => addTag(tagDraft)}
+                    className="min-w-20 flex-1 bg-transparent text-sm outline-none"
+                    placeholder={tags.length === 0 ? 'Add tag' : ''}
+                  />
+                </div>
               </div>
-            </div>
 
-            <label className="block space-y-2 text-sm" htmlFor={permalinkId}>
-              <span className="font-medium text-text-default">Permalink</span>
-              <input
-                id={permalinkId}
-                name="permalink"
-                value={permalink}
-                onChange={(event) => setPermalink(event.target.value)}
-                className={TEXT_INPUT_CLASS}
-                placeholder="custom-slug"
-              />
-            </label>
-          </fieldset>
+              <label className="block space-y-2 text-sm" htmlFor={permalinkId}>
+                <span className="font-medium text-text-default">Permalink</span>
+                <input
+                  id={permalinkId}
+                  name="permalink"
+                  value={permalink}
+                  onChange={(event) => setPermalink(event.target.value)}
+                  className={TEXT_INPUT_CLASS}
+                  placeholder="custom-slug"
+                />
+              </label>
+            </fieldset>
+          </CollapsibleSection>
 
-          <fieldset className="space-y-3">
-            <legend className="text-xs font-semibold uppercase tracking-wide text-text-subtle">Location</legend>
-            <label className="block space-y-2 text-sm" htmlFor={folderId}>
-              <span className="font-medium text-text-default">Folder</span>
-              <select
-                id={folderId}
-                name="parentFolderId"
-                value={parentFolderId}
-                onChange={(event) => setParentFolderId(event.target.value)}
-                className={TEXT_INPUT_CLASS}
-              >
-                <option value="" disabled>Choose a folder</option>
-                {folderOptions.map((option) => (
-                  <option key={option.id} value={option.id}>{option.label}</option>
-                ))}
-              </select>
-            </label>
-            <p className="text-xs leading-5 text-text-subtle">Move to Root is not enabled until the API clearing behavior is verified.</p>
-          </fieldset>
+          <CollapsibleSection title="Location" dirty={locationDirty}>
+            <fieldset className="space-y-3">
+              <legend className="sr-only">Location</legend>
+              <label className="block space-y-2 text-sm" htmlFor={folderId}>
+                <span className="font-medium text-text-default">Folder</span>
+                <select
+                  id={folderId}
+                  name="parentFolderId"
+                  value={parentFolderId}
+                  onChange={(event) => setParentFolderId(event.target.value)}
+                  className={TEXT_INPUT_CLASS}
+                >
+                  <option value="" disabled>Choose a folder</option>
+                  {folderOptions.map((option) => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <p className="text-xs leading-5 text-text-subtle">Move to Root is not enabled until the API clearing behavior is verified.</p>
+            </fieldset>
+          </CollapsibleSection>
 
-          <fieldset className="space-y-3">
-            <legend className="text-xs font-semibold uppercase tracking-wide text-text-subtle">Permissions</legend>
-            <label className="block space-y-2 text-sm" htmlFor={readPermissionId}>
-              <span className="font-medium text-text-default">Read</span>
-              <select
-                id={readPermissionId}
-                name="readPermission"
-                value={readPermission}
-                onChange={(event) => setReadPermission(event.target.value as NotePermissionRole)}
-                className={TEXT_INPUT_CLASS}
-              >
-                <option value="owner">Owner</option>
-                <option value="signed_in">Signed in</option>
-                <option value="guest">Guest</option>
-              </select>
-            </label>
-            <label className="block space-y-2 text-sm" htmlFor={writePermissionId}>
-              <span className="font-medium text-text-default">Write</span>
-              <select
-                id={writePermissionId}
-                name="writePermission"
-                value={writePermission}
-                onChange={(event) => setWritePermission(event.target.value as NotePermissionRole)}
-                className={TEXT_INPUT_CLASS}
-              >
-                <option value="owner">Owner</option>
-                <option value="signed_in">Signed in</option>
-                <option value="guest">Guest</option>
-              </select>
-            </label>
-          </fieldset>
+          <CollapsibleSection title="Permissions" dirty={permissionsDirty}>
+            <fieldset className="space-y-3">
+              <legend className="sr-only">Permissions</legend>
+              <label className="block space-y-2 text-sm" htmlFor={readPermissionId}>
+                <span className="font-medium text-text-default">Read</span>
+                <select
+                  id={readPermissionId}
+                  name="readPermission"
+                  value={readPermission}
+                  onChange={(event) => setReadPermission(event.target.value as NotePermissionRole)}
+                  className={TEXT_INPUT_CLASS}
+                >
+                  <option value="owner">Owner</option>
+                  <option value="signed_in">Signed in</option>
+                  <option value="guest">Guest</option>
+                </select>
+              </label>
+              <label className="block space-y-2 text-sm" htmlFor={writePermissionId}>
+                <span className="font-medium text-text-default">Write</span>
+                <select
+                  id={writePermissionId}
+                  name="writePermission"
+                  value={writePermission}
+                  onChange={(event) => setWritePermission(event.target.value as NotePermissionRole)}
+                  className={TEXT_INPUT_CLASS}
+                >
+                  <option value="owner">Owner</option>
+                  <option value="signed_in">Signed in</option>
+                  <option value="guest">Guest</option>
+                </select>
+              </label>
+            </fieldset>
+          </CollapsibleSection>
 
           <button
             type="submit"
             disabled={!metadataDirty || isSaving}
+            title={!metadataDirty ? 'No metadata changes.' : undefined}
             className={PRIMARY_BUTTON_CLASS}
           >
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -318,29 +348,31 @@ export function NoteInspector({
           </button>
         </form>
 
-        <form className="mt-6 space-y-3 border-t border-border-default pt-5" onSubmit={handleImageUpload}>
-          <fieldset className="space-y-3">
-            <legend className="text-xs font-semibold uppercase tracking-wide text-text-subtle">Images</legend>
-            <label className="block space-y-2 text-sm" htmlFor={imageId}>
-              <span className="font-medium text-text-default">Upload Image</span>
-              <input
-                id={imageId}
-                name="image"
-                type="file"
-                accept="image/*"
-                onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
-                className="block w-full text-sm text-text-subtle file:mr-3 file:rounded-md file:border-0 file:bg-background-selected file:px-3 file:py-2 file:text-sm file:text-text-default hover:file:bg-border-default"
-              />
-            </label>
-          </fieldset>
-          <button
-            type="submit"
-            disabled={!imageFile || isUploading}
-            className={SECONDARY_BUTTON_CLASS}
-          >
-            {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
-            Upload and Insert
-          </button>
+        <form className="mt-3" onSubmit={handleImageUpload}>
+          <CollapsibleSection title="Images" dirty={Boolean(imageFile)}>
+            <fieldset className="space-y-3">
+              <legend className="sr-only">Images</legend>
+              <label className="block space-y-2 text-sm" htmlFor={imageId}>
+                <span className="font-medium text-text-default">Upload Image</span>
+                <input
+                  id={imageId}
+                  name="image"
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
+                  className="block w-full text-sm text-text-subtle file:mr-3 file:rounded-md file:border-0 file:bg-background-selected file:px-3 file:py-2 file:text-sm file:text-text-default hover:file:bg-border-default"
+                />
+              </label>
+            </fieldset>
+            <button
+              type="submit"
+              disabled={!imageFile || isUploading}
+              className={SECONDARY_BUTTON_CLASS}
+            >
+              {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+              Upload and Insert
+            </button>
+          </CollapsibleSection>
         </form>
       </div>
     </aside>

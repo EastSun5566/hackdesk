@@ -180,11 +180,18 @@ export type ElectronActionId =
   | 'new-folder'
   | 'rename-folder'
   | 'delete-folder'
+  | 'toggle-workspace-rail'
+  | 'toggle-navigator'
+  | 'toggle-inspector'
   | 'refresh'
   | 'export-debug-logs'
   | 'focus-workspace'
   | 'focus-navigator'
-  | 'focus-editor';
+  | 'focus-editor'
+  | 'focus-inspector'
+  | 'save-note'
+  | 'open-note-web-editor'
+  | 'delete-note';
 
 export type HackDeskCommandPaletteCommand =
   { type: ElectronActionId };

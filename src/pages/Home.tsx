@@ -3,6 +3,11 @@ import { toast } from 'sonner';
 
 import { getDesktopAPI } from '@/lib/desktop-api';
 import type { DocumentSummary, ElectronActionId, FolderSummary, NoteSummary } from '@/lib/electron-api';
+import {
+  getActionDisabledReason,
+  getElectronAction,
+  type ElectronActionContext,
+} from '@/lib/electron-actions';
 import type { FolderDropOperation } from '@/lib/hackmd-folder-dnd';
 import { buildHackmdFolderTree, UNFILED_FOLDER_ID, type FolderTreeNode } from '@/lib/hackmd-folders';
 
@@ -12,7 +17,7 @@ import { CreateFolderDialog } from './electron-home/CreateFolderDialog';
 import { CreateNoteDialog } from './electron-home/CreateNoteDialog';
 import { DeleteNoteDialog } from './electron-home/DeleteNoteDialog';
 import { DeleteFolderDialog } from './electron-home/DeleteFolderDialog';
-import { DocumentDetail } from './electron-home/DocumentDetail';
+import { DocumentDetail, type DocumentDetailCommand } from './electron-home/DocumentDetail';
 import { FolderNavigator } from './electron-home/FolderNavigator';
 import { PanelResizeSash } from './electron-home/PanelResizeSash';
 import { SettingsDialog } from './electron-home/SettingsDialog';
@@ -55,13 +60,8 @@ import {
   noteMatchesSearch,
 } from './electron-home/ui';
 import { useElectronHackmdQueries } from './electron-home/useElectronHackmdQueries';
+import { useElectronFocusZones } from './electron-home/useElectronFocusZones';
 import { useElectronNoteMutations } from './electron-home/useElectronNoteMutations';
-
-function focusRegion(region: 'workspace' | 'navigator' | 'editor') {
-  window.requestAnimationFrame(() => {
-    document.querySelector<HTMLElement>(`[data-hackdesk-focus="${region}"]`)?.focus();
-  });
-}
 
 const WORKSPACE_RAIL_PANEL_ID = 'workspace-rail-panel';
 const NOTE_NAVIGATOR_PANEL_ID = 'note-navigator-panel';
@@ -88,6 +88,9 @@ export function Home() {
   const [renameFolderDialog, setRenameFolderDialog] = useState<RenameFolderDialogState>(createClosedRenameFolderDialogState);
   const [deleteTarget, setDeleteTarget] = useState<DocumentSummary | null>(null);
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<FolderTreeNode | null>(null);
+  const [noteDirty, setNoteDirty] = useState(false);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(true);
+  const [documentCommand, setDocumentCommand] = useState<DocumentDetailCommand | null>(null);
   const [railCollapsed, setRailCollapsed] = useState(() => readBooleanStorage(RAIL_COLLAPSED_KEY, false));
   const [navigatorCollapsed, setNavigatorCollapsed] = useState(() => readBooleanStorage(NAVIGATOR_COLLAPSED_KEY, false));
   const [railWidth, setRailWidth] = useState(() => (
@@ -99,6 +102,7 @@ export function Home() {
   const [collapsedFolderIds, setCollapsedFolderIds] = useState(() => (
     readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}personal`)
   ));
+  const { focusZone } = useElectronFocusZones();
 
   const {
     settings,
@@ -139,6 +143,30 @@ export function Home() {
   const selectedFolderLabel = selectedFolder ? getFolderPathLabel(selectedFolder.folderPath) : null;
   const selectedParentFolderId = selectedFolderId && selectedFolderId !== UNFILED_FOLDER_ID ? selectedFolderId : undefined;
   const canCreate = hasToken && scope.type !== 'history';
+  const canModifySelectedFolder = Boolean(selectedFolder?.id && selectedFolder.id !== UNFILED_FOLDER_ID);
+
+  const toggleRailCollapsed = useCallback(() => {
+    setRailCollapsed((current) => {
+      const next = !current;
+      writeBooleanStorage(RAIL_COLLAPSED_KEY, next);
+      return next;
+    });
+  }, []);
+
+  const toggleNavigatorCollapsed = useCallback(() => {
+    setNavigatorCollapsed((current) => {
+      const next = !current;
+      writeBooleanStorage(NAVIGATOR_COLLAPSED_KEY, next);
+      return next;
+    });
+  }, []);
+
+  const dispatchDocumentCommand = useCallback((id: DocumentDetailCommand['id']) => {
+    setDocumentCommand((current) => ({
+      id,
+      sequence: (current?.sequence ?? 0) + 1,
+    }));
+  }, []);
 
   const mutations = useElectronNoteMutations({
     api,
@@ -172,6 +200,32 @@ export function Home() {
       setSelectedNote(null);
     },
   });
+
+  const actionContext = useMemo<ElectronActionContext>(() => ({
+    hasToken,
+    canCreate,
+    scopeType: scope.type,
+    selectedFolderId,
+    canModifySelectedFolder,
+    selectedNoteId: selectedNote?.id ?? null,
+    noteDirty,
+    isSavingNote: mutations.updateNoteMutation.isPending,
+    inspectorCollapsed,
+    navigatorCollapsed,
+    workspaceRailCollapsed: railCollapsed,
+  }), [
+    canCreate,
+    canModifySelectedFolder,
+    hasToken,
+    inspectorCollapsed,
+    mutations.updateNoteMutation.isPending,
+    navigatorCollapsed,
+    noteDirty,
+    railCollapsed,
+    scope.type,
+    selectedFolderId,
+    selectedNote?.id,
+  ]);
 
   const refreshWorkspace = useCallback(() => {
     void queries.userQuery.refetch();
@@ -276,6 +330,13 @@ export function Home() {
   }, []);
 
   const runAction = useCallback((actionId: ElectronActionId) => {
+    const action = getElectronAction(actionId);
+    const disabledReason = getActionDisabledReason(action, actionContext);
+    if (disabledReason) {
+      toast.info(disabledReason);
+      return;
+    }
+
     switch (actionId) {
     case 'open-command-palette':
       openPalette();
@@ -306,6 +367,24 @@ export function Home() {
     case 'refresh':
       refreshWorkspace();
       break;
+    case 'toggle-workspace-rail':
+      toggleRailCollapsed();
+      break;
+    case 'toggle-navigator':
+      toggleNavigatorCollapsed();
+      break;
+    case 'toggle-inspector':
+      dispatchDocumentCommand('toggle-inspector');
+      break;
+    case 'save-note':
+      dispatchDocumentCommand('save-note');
+      break;
+    case 'open-note-web-editor':
+      dispatchDocumentCommand('open-note-web-editor');
+      break;
+    case 'delete-note':
+      dispatchDocumentCommand('delete-note');
+      break;
     case 'export-debug-logs':
       void api?.app.exportDebugLogs()
         .then((path) => toast.success(`Debug logs exported to ${path}`))
@@ -314,17 +393,23 @@ export function Home() {
         });
       break;
     case 'focus-workspace':
-      focusRegion('workspace');
+      focusZone('workspace');
       break;
     case 'focus-navigator':
-      focusRegion('navigator');
+      focusZone('navigator');
       break;
     case 'focus-editor':
-      focusRegion('editor');
+      focusZone('editor');
+      break;
+    case 'focus-inspector':
+      focusZone('inspector');
       break;
     }
   }, [
+    actionContext,
     api,
+    dispatchDocumentCommand,
+    focusZone,
     handleCreateFolder,
     handleCreateNote,
     handleDeleteFolderRequest,
@@ -332,6 +417,8 @@ export function Home() {
     openPalette,
     refreshWorkspace,
     selectedFolder,
+    toggleNavigatorCollapsed,
+    toggleRailCollapsed,
   ]);
 
   const handleDeleteRequest = useCallback((note: DocumentSummary) => {
@@ -407,21 +494,47 @@ export function Home() {
         return;
       }
 
+      if (isPrimaryModifier && event.key.toLowerCase() === 's') {
+        if (noteDirty) {
+          event.preventDefault();
+          runAction('save-note');
+        }
+        return;
+      }
+
       if (event.altKey && event.key === '1') {
         event.preventDefault();
-        focusRegion('workspace');
+        runAction('focus-workspace');
         return;
       }
 
       if (event.altKey && event.key === '2') {
         event.preventDefault();
-        focusRegion('navigator');
+        runAction('focus-navigator');
         return;
       }
 
       if (event.altKey && event.key === '3') {
         event.preventDefault();
-        focusRegion('editor');
+        runAction('focus-editor');
+        return;
+      }
+
+      if (event.altKey && event.key === '4') {
+        event.preventDefault();
+        runAction('focus-inspector');
+        return;
+      }
+
+      if (event.altKey && event.key.toLowerCase() === 'b') {
+        event.preventDefault();
+        runAction('toggle-navigator');
+        return;
+      }
+
+      if (event.altKey && event.key.toLowerCase() === 'i') {
+        event.preventDefault();
+        runAction('toggle-inspector');
         return;
       }
 
@@ -461,6 +574,23 @@ export function Home() {
 
       if (settingsOpen) {
         setSettingsOpen(false);
+        return;
+      }
+
+      const targetZone = event.target instanceof Element
+        ? event.target.closest<HTMLElement>('[data-hackdesk-focus]')?.dataset.hackdeskFocus
+        : null;
+      if (targetZone === 'editor' || targetZone === 'inspector') {
+        return;
+      }
+
+      if (search) {
+        setSearch('');
+        return;
+      }
+
+      if (selectedFolderId) {
+        setSelectedFolderId(null);
       }
     };
 
@@ -472,10 +602,14 @@ export function Home() {
     deleteTarget,
     deleteFolderTarget,
     handleCreateNote,
+    noteDirty,
     openPalette,
     palette.open,
     renameFolderDialog.open,
     refreshWorkspace,
+    runAction,
+    search,
+    selectedFolderId,
     settingsOpen,
   ]);
 
@@ -514,20 +648,6 @@ export function Home() {
         ? 'Your HackMD history will appear here after the first successful sync.'
         : 'Select another folder, create a note here, or refresh after another client changes HackMD.';
 
-  const toggleRailCollapsed = () => {
-    setRailCollapsed((current) => {
-      const next = !current;
-      writeBooleanStorage(RAIL_COLLAPSED_KEY, next);
-      return next;
-    });
-  };
-  const toggleNavigatorCollapsed = () => {
-    setNavigatorCollapsed((current) => {
-      const next = !current;
-      writeBooleanStorage(NAVIGATOR_COLLAPSED_KEY, next);
-      return next;
-    });
-  };
   const toggleFolderCollapsed = (folderId: string) => {
     setCollapsedFolderIds((current) => {
       const next = new Set(current);
@@ -580,6 +700,7 @@ export function Home() {
           value={railWidth}
           min={RAIL_WIDTH_MIN}
           max={RAIL_WIDTH_MAX}
+          defaultValue={RAIL_WIDTH_DEFAULT}
           disabled={railCollapsed}
           onChange={(value) => {
             setRailWidth(value);
@@ -628,6 +749,7 @@ export function Home() {
           value={navigatorWidth}
           min={NAVIGATOR_WIDTH_MIN}
           max={NAVIGATOR_WIDTH_MAX}
+          defaultValue={NAVIGATOR_WIDTH_DEFAULT}
           disabled={navigatorCollapsed}
           onChange={(value) => {
             setNavigatorWidth(value);
@@ -639,11 +761,14 @@ export function Home() {
           document={document}
           folderTree={folderTree}
           isLoading={queries.documentQuery.isLoading || queries.documentQuery.isFetching}
+          command={documentCommand}
           onOpenEditor={handleOpenEditor}
           onSave={(note, input) => mutations.updateNoteMutation.mutate({ note, input })}
           onSaveMetadata={(note, input) => mutations.updateNoteMutation.mutate({ note, input })}
           onUploadImage={(note, input) => mutations.uploadNoteImageMutation.mutateAsync({ note, input })}
           onDelete={handleDeleteRequest}
+          onDirtyStateChange={setNoteDirty}
+          onInspectorCollapsedChange={setInspectorCollapsed}
           isSaving={mutations.updateNoteMutation.isPending}
           isSavingMetadata={mutations.updateNoteMutation.isPending}
           isUploadingImage={mutations.uploadNoteImageMutation.isPending}
@@ -668,6 +793,7 @@ export function Home() {
 
       <CommandPaletteDialog
         state={palette}
+        context={actionContext}
         onStateChange={setPalette}
         onRunAction={runAction}
       />

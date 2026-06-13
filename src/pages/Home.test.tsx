@@ -324,6 +324,40 @@ describe('Home native-feel behavior', () => {
     }));
   });
 
+  it('saves a dirty note with the shared keyboard action', async () => {
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        updateNote: vi.fn(async (_noteId, input) => ({
+          ...document,
+          title: input.title ?? document.title,
+          content: input.content ?? document.content,
+        })),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Keyboard note' } });
+    fireEvent.keyDown(window, { key: 's', metaKey: true });
+
+    await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
+      title: 'Keyboard note',
+      content: '# Test note',
+    }));
+  });
+
+  it('shows disabled command palette actions with concrete reasons', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+
+    expect(await screen.findByRole('dialog', { name: 'Command Palette' })).toBeInTheDocument();
+    expect(screen.getAllByText('Select a folder first.').length).toBeGreaterThan(0);
+    expect(screen.getByText('No unsaved note changes.')).toBeInTheDocument();
+  });
+
   it('keeps the note inspector collapsed by default and toggles it from the editor header', async () => {
     const api = createApi();
 

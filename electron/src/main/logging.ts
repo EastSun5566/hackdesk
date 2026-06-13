@@ -1,17 +1,18 @@
 import { app, crashReporter, shell } from 'electron';
 import {
   appendFileSync,
-  copyFileSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   readdirSync,
-  rmSync,
   statSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, join, relative } from 'node:path';
 
 import type { FatalRendererError } from '../../../src/lib/electron-api';
+import { createZipArchive, type ZipArchiveEntry } from './zip-archive';
 
 const LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_COPIED_FILE_BYTES = 25 * 1024 * 1024;
@@ -88,25 +89,25 @@ export function writeLog(scope: string, message: string, details?: unknown, leve
   appendFileSync(join(currentRunPath, `${safeLogName(scope)}.log`), `${line}\n`);
 }
 
-function copyDebugTree(sourcePath: string, targetPath: string) {
+function collectDebugTreeEntries(sourceRoot: string, sourcePath: string, zipRoot: string, entries: ZipArchiveEntry[]) {
   if (!existsSync(sourcePath)) {
     return;
   }
 
-  mkdirSync(targetPath, { recursive: true });
-
   for (const entry of readdirSync(sourcePath, { withFileTypes: true })) {
     const sourceEntryPath = join(sourcePath, entry.name);
-    const targetEntryPath = join(targetPath, entry.name);
 
     if (entry.isDirectory()) {
-      copyDebugTree(sourceEntryPath, targetEntryPath);
+      collectDebugTreeEntries(sourceRoot, sourceEntryPath, zipRoot, entries);
       continue;
     }
 
     const stats = statSync(sourceEntryPath);
     if (stats.size <= MAX_COPIED_FILE_BYTES) {
-      copyFileSync(sourceEntryPath, targetEntryPath);
+      entries.push({
+        name: join(zipRoot, relative(sourceRoot, sourceEntryPath)),
+        data: readFileSync(sourceEntryPath),
+      });
     }
   }
 }
@@ -114,16 +115,26 @@ function copyDebugTree(sourcePath: string, targetPath: string) {
 export async function exportDebugLogs() {
   ensureLoggingPaths();
 
-  const outputPath = join(app.getPath('downloads'), `hackdesk-debug-${timestamp()}`);
-  mkdirSync(outputPath, { recursive: true });
-  copyDebugTree(logsRootPath, join(outputPath, 'logs'));
-  copyDebugTree(app.getPath('crashDumps'), join(outputPath, 'crash-dumps'));
-  writeFileSync(join(outputPath, 'manifest.json'), JSON.stringify({
+  const outputPath = join(app.getPath('downloads'), `hackdesk-debug-${timestamp()}.zip`);
+  const crashDumpsPath = app.getPath('crashDumps');
+  const manifest = JSON.stringify({
     appName: app.getName(),
     appVersion: app.getVersion(),
     generatedAt: new Date().toISOString(),
+    archiveFormat: 'zip',
     logsRoot: basename(logsRootPath),
-  }, null, 2));
+  }, null, 2);
+  const entries: ZipArchiveEntry[] = [
+    {
+      name: 'manifest.json',
+      data: Buffer.from(manifest),
+    },
+  ];
+
+  writeLog('main', 'debug log export started', { outputPath });
+  collectDebugTreeEntries(logsRootPath, logsRootPath, 'logs', entries);
+  collectDebugTreeEntries(crashDumpsPath, crashDumpsPath, 'crash-dumps', entries);
+  writeFileSync(outputPath, createZipArchive(entries));
 
   await shell.showItemInFolder(outputPath);
   writeLog('main', 'debug logs exported', { outputPath });

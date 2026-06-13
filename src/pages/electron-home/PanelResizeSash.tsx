@@ -7,6 +7,7 @@ export function PanelResizeSash({
   value,
   min,
   max,
+  defaultValue,
   disabled,
   onChange,
 }: {
@@ -14,6 +15,7 @@ export function PanelResizeSash({
   value: number;
   min: number;
   max: number;
+  defaultValue?: number;
   disabled?: boolean;
   onChange: (value: number) => void;
 }) {
@@ -28,8 +30,12 @@ export function PanelResizeSash({
       role="separator"
       aria-label={label}
       aria-orientation="vertical"
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={value}
       tabIndex={0}
-      className="group relative z-20 w-1 shrink-0 cursor-col-resize bg-transparent outline-none"
+      title={defaultValue ? `${label}. Double-click to reset.` : label}
+      className="group relative z-20 w-2 shrink-0 cursor-col-resize bg-transparent outline-none"
       onPointerDown={(event) => {
         dragStart.current = { x: event.clientX, value };
         event.currentTarget.setPointerCapture(event.pointerId);
@@ -44,19 +50,41 @@ export function PanelResizeSash({
       onPointerUp={() => {
         dragStart.current = null;
       }}
+      onDoubleClick={() => {
+        if (defaultValue) {
+          onChange(clampPanelWidth(defaultValue, min, max));
+        }
+      }}
       onKeyDown={(event) => {
+        const step = event.shiftKey ? 48 : 16;
+
         if (event.key === 'ArrowLeft') {
           event.preventDefault();
-          onChange(clampPanelWidth(value - 16, min, max));
+          onChange(clampPanelWidth(value - step, min, max));
         }
 
         if (event.key === 'ArrowRight') {
           event.preventDefault();
-          onChange(clampPanelWidth(value + 16, min, max));
+          onChange(clampPanelWidth(value + step, min, max));
+        }
+
+        if (event.key === 'Home') {
+          event.preventDefault();
+          onChange(min);
+        }
+
+        if (event.key === 'End') {
+          event.preventDefault();
+          onChange(max);
+        }
+
+        if ((event.key === 'Enter' || event.key === ' ') && defaultValue) {
+          event.preventDefault();
+          onChange(clampPanelWidth(defaultValue, min, max));
         }
       }}
     >
-      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors group-hover:bg-primary-default group-focus-visible:bg-primary-default" />
+      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border-default/50 transition-colors group-hover:bg-primary-default group-focus-visible:bg-primary-default motion-reduce:transition-none" />
     </div>
   );
 }

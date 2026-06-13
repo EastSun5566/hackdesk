@@ -3,8 +3,8 @@ import type { ReactNode } from 'react';
 
 import type { TeamSummary } from '@/lib/electron-api';
 
+import { EntityRow, PanelShell } from './interaction-primitives';
 import type { WorkspaceScope } from './types';
-import { FOCUS_RING_CLASS, PANEL_TRANSITION_CLASS } from './ui';
 import { RAIL_COLLAPSED_WIDTH } from './ui-preferences';
 
 function WorkspaceRailButton({
@@ -23,24 +23,18 @@ function WorkspaceRailButton({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <EntityRow
+      selected={active}
+      icon={icon}
+      title={collapsed ? '' : label}
+      trailing={collapsed ? null : trailing}
+      variant="compact"
       onClick={onClick}
-      title={collapsed ? label : undefined}
-      className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors ${
-        active
-          ? 'bg-background-selected text-text-default'
-          : 'text-text-subtle hover:bg-background-selected hover:text-text-default'
-      } ${FOCUS_RING_CLASS} ${collapsed ? 'justify-center' : ''}`}
-    >
-      <span className="shrink-0" aria-hidden="true">{icon}</span>
-      {!collapsed ? (
-        <>
-          <span className="min-w-0 flex-1 truncate">{label}</span>
-          {trailing ? <span className="shrink-0 text-text-subtle">{trailing}</span> : null}
-        </>
-      ) : null}
-    </button>
+      ariaLabel={label}
+      titleAttribute={collapsed ? label : undefined}
+      className={collapsed ? 'justify-center px-2' : undefined}
+      contentClassName={collapsed ? 'hidden' : undefined}
+    />
   );
 }
 
@@ -84,12 +78,14 @@ export function WorkspaceRail({
   onOpenSettings: () => void;
 }) {
   return (
-    <aside
+    <PanelShell
       id={id}
-      data-hackdesk-focus="workspace"
-      tabIndex={-1}
-      className={`flex shrink-0 flex-col overflow-hidden border-r border-border-default bg-background-default pt-5 outline-none ${PANEL_TRANSITION_CLASS}`}
-      style={{ width: collapsed ? RAIL_COLLAPSED_WIDTH : width }}
+      as="aside"
+      focusZone="workspace"
+      collapsed={collapsed}
+      width={width}
+      collapsedWidth={RAIL_COLLAPSED_WIDTH}
+      className="border-r border-border-default bg-background-default pt-5"
     >
       <div className={`px-3 pb-4 ${collapsed ? 'text-center' : ''}`}>
         <div className="flex items-center gap-2">
@@ -149,6 +145,6 @@ export function WorkspaceRail({
           onClick={onOpenSettings}
         />
       </div>
-    </aside>
+    </PanelShell>
   );
 }

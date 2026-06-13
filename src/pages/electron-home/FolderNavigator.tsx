@@ -62,13 +62,13 @@ import {
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
+import { EmptyState, EntityRow, PanelHeader, PanelShell } from './interaction-primitives';
 import type { WorkspaceScope } from './types';
 import { RepositoryNotice } from './RepositoryNotice';
 import {
   COLLAPSE_ICON_CLASS,
   FOCUS_RING_CLASS,
   ICON_BUTTON_CLASS,
-  PANEL_TRANSITION_CLASS,
   formatDate,
   getFolderTotalNoteCount,
 } from './ui';
@@ -91,20 +91,16 @@ function NoteRow({
   ].filter(Boolean).join(' · ');
 
   return (
-    <button
-      type="button"
+    <EntityRow
+      selected={selected}
+      icon={<FileText className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />}
+      title={entry.note.title || 'Untitled'}
+      subtitle={metadata || entry.note.shortId}
+      trailing={formatDate(entry.note.updatedAtMillis)}
+      variant={compact ? 'compact' : 'default'}
+      className={selected ? 'bg-primary-soft' : undefined}
       onClick={() => onSelect(entry.note)}
-      className={`flex w-full min-w-0 items-start text-left transition-colors ${
-        selected ? 'bg-primary-soft text-text-default' : 'hover:bg-background-selected'
-      } ${FOCUS_RING_CLASS} ${compact ? 'gap-2 rounded-[6px] px-2 py-1.5' : 'gap-3 rounded-md px-3 py-2.5'}`}
-    >
-      <FileText aria-hidden="true" className={`${compact ? 'mt-0.5 h-3.5 w-3.5' : 'mt-0.5 h-4 w-4'} shrink-0 text-text-subtle`} />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">{entry.note.title || 'Untitled'}</span>
-        <span className="mt-1 block truncate text-xs text-text-subtle">{metadata || entry.note.shortId}</span>
-      </span>
-      <span className="shrink-0 text-xs text-text-subtle">{formatDate(entry.note.updatedAtMillis)}</span>
-    </button>
+    />
   );
 }
 
@@ -151,42 +147,50 @@ function FolderButton({
           ref={setNodeRef}
           style={style}
           data-folder-id={node.id}
-          className={`group flex h-8 w-full min-w-0 items-center gap-1 rounded-[6px] px-1 text-sm transition-colors ${
-            selected ? 'bg-background-selected text-text-default' : 'text-text-subtle hover:bg-background-selected hover:text-text-default'
-          } ${isDragging || active ? 'opacity-40' : ''}`}
+          className={isDragging || active ? 'opacity-40' : undefined}
         >
-          <button
-            type="button"
-            onClick={() => onToggle(node.id)}
-            disabled={!hasChildren}
-            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-0`}
-            aria-hidden={!hasChildren}
-            aria-label={hasChildren ? (collapsed ? `Expand ${node.name}` : `Collapse ${node.name}`) : undefined}
-            aria-expanded={hasChildren ? !collapsed : undefined}
-          >
-            <ChevronRight
-              aria-hidden="true"
-              className={`h-3.5 w-3.5 ${COLLAPSE_ICON_CLASS} ${collapsed ? '' : 'rotate-90'}`}
-            />
-          </button>
-          <button
-            type="button"
-            className={`flex h-6 w-5 shrink-0 items-center justify-center rounded text-text-subtle opacity-0 transition-opacity hover:text-text-default group-hover:opacity-100 group-focus-within:opacity-100 ${FOCUS_RING_CLASS}`}
-            aria-label={`Drag ${node.name}`}
-            {...attributes}
-            {...listeners}
-          >
-            <GripVertical aria-hidden="true" className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => onSelect(node.id)}
-            className={`flex min-w-0 flex-1 items-center gap-2 rounded-[4px] text-left ${FOCUS_RING_CLASS}`}
-          >
-            {collapsed ? <Folder aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> : <FolderOpen aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />}
-            <span className="min-w-0 flex-1 truncate">{node.name}</span>
-          </button>
-          <span className="shrink-0 px-1 text-xs text-text-subtle">{totalNotes}</span>
+          <EntityRow
+            selected={selected}
+            variant="compact"
+            leadingControls={(
+              <span className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => onToggle(node.id)}
+                  disabled={!hasChildren}
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-0`}
+                  aria-hidden={!hasChildren}
+                  aria-label={hasChildren ? (collapsed ? `Expand ${node.name}` : `Collapse ${node.name}`) : undefined}
+                  aria-expanded={hasChildren ? !collapsed : undefined}
+                >
+                  <ChevronRight
+                    aria-hidden="true"
+                    className={`h-3.5 w-3.5 ${COLLAPSE_ICON_CLASS} ${collapsed ? '' : 'rotate-90'}`}
+                  />
+                </button>
+                <button
+                  type="button"
+                  className={`flex h-6 w-5 shrink-0 items-center justify-center rounded text-text-subtle opacity-0 transition-opacity hover:text-text-default group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none ${FOCUS_RING_CLASS}`}
+                  aria-label={`Drag ${node.name}`}
+                  {...attributes}
+                  {...listeners}
+                >
+                  <GripVertical aria-hidden="true" className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            )}
+            icon={collapsed ? <Folder className="h-3.5 w-3.5" /> : <FolderOpen className="h-3.5 w-3.5" />}
+            title={(
+              <button
+                type="button"
+                onClick={() => onSelect(node.id)}
+                className={`block min-w-0 truncate rounded-[4px] text-left ${FOCUS_RING_CLASS}`}
+              >
+                {node.name}
+              </button>
+            )}
+            trailing={totalNotes}
+          />
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
@@ -224,20 +228,16 @@ function RootFolderRow({
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <button
-          ref={setNodeRef}
-          type="button"
-          onClick={onSelect}
-          className={`flex h-8 w-full items-center gap-2 rounded-[6px] px-2 text-left text-sm transition-colors ${FOCUS_RING_CLASS} ${
-            selected || isOver
-              ? 'bg-background-selected text-text-default'
-              : 'text-text-subtle hover:bg-background-selected hover:text-text-default'
-          }`}
-        >
-          <Folder aria-hidden="true" className="h-3.5 w-3.5" />
-          <span className="min-w-0 flex-1 truncate">Root</span>
-          <span className="shrink-0 text-xs text-text-subtle">{noteCount}</span>
-        </button>
+        <div ref={setNodeRef}>
+          <EntityRow
+            selected={selected || isOver}
+            icon={<Folder className="h-3.5 w-3.5" />}
+            title="Root"
+            trailing={noteCount}
+            variant="compact"
+            onClick={onSelect}
+          />
+        </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onSelect={onCreateFolder}>
@@ -363,35 +363,41 @@ function FolderTreeView({
               onRenameFolder={onRenameFolder}
               onDeleteFolder={onDeleteFolder}
             />
-            {!collapsed && !isActiveFolder ? (
-              <div className="mt-0.5 grid gap-0.5">
-                <FolderTreeView
-                  nodes={node.children}
-                  selectedFolderId={selectedFolderId}
-                  selectedNoteId={selectedNoteId}
-                  collapsedFolderIds={collapsedFolderIds}
-                  activeFolderId={activeFolderId}
-                  depth={depth + 1}
-                  onFolderSelect={onFolderSelect}
-                  onFolderToggle={onFolderToggle}
-                  onCreateFolderInside={onCreateFolderInside}
-                  onRenameFolder={onRenameFolder}
-                  onDeleteFolder={onDeleteFolder}
-                  onNoteSelect={onNoteSelect}
-                />
-                {node.notes.map((entry) => (
-                  <div key={`${node.id}:${entry.note.id}`} className="relative pl-5">
-                    <div className="absolute left-[13px] top-1 bottom-1 w-px bg-border-default/70" aria-hidden="true" />
-                    <NoteRow
-                      entry={entry}
-                      selected={entry.note.id === selectedNoteId}
-                      onSelect={onNoteSelect}
-                      compact
-                    />
-                  </div>
-                ))}
+            <div
+              className={`grid overflow-hidden transition-[grid-template-rows,opacity] duration-150 ease-out motion-reduce:transition-none ${
+                !collapsed && !isActiveFolder ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+              }`}
+            >
+              <div className="min-h-0 overflow-hidden">
+                <div className="mt-0.5 grid gap-0.5">
+                  <FolderTreeView
+                    nodes={node.children}
+                    selectedFolderId={selectedFolderId}
+                    selectedNoteId={selectedNoteId}
+                    collapsedFolderIds={collapsedFolderIds}
+                    activeFolderId={activeFolderId}
+                    depth={depth + 1}
+                    onFolderSelect={onFolderSelect}
+                    onFolderToggle={onFolderToggle}
+                    onCreateFolderInside={onCreateFolderInside}
+                    onRenameFolder={onRenameFolder}
+                    onDeleteFolder={onDeleteFolder}
+                    onNoteSelect={onNoteSelect}
+                  />
+                  {node.notes.map((entry) => (
+                    <div key={`${node.id}:${entry.note.id}`} className="relative pl-5">
+                      <div className="absolute left-[13px] top-1 bottom-1 w-px bg-border-default/70" aria-hidden="true" />
+                      <NoteRow
+                        entry={entry}
+                        selected={entry.note.id === selectedNoteId}
+                        onSelect={onNoteSelect}
+                        compact
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-            ) : null}
+            </div>
           </div>
         );
       })}
@@ -472,6 +478,13 @@ export function FolderNavigator({
 }) {
   const isSearching = search.trim().length > 0;
   const hasTreeContent = tree.roots.length > 0 || tree.unfiled.notes.length > 0;
+  const navigatorSubtitle = isLoading
+    ? 'Loading…'
+    : isFetching
+      ? 'Syncing…'
+      : isSearching
+        ? `${entries.length} ${entries.length === 1 ? 'result' : 'results'}`
+        : `${entries.length} notes`;
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const selectedFolder = selectedFolderId && selectedFolderId !== UNFILED_FOLDER_ID
     ? tree.nodesById.get(selectedFolderId) ?? null
@@ -521,12 +534,13 @@ export function FolderNavigator({
   };
 
   return (
-    <section
+    <PanelShell
       id={id}
-      data-hackdesk-focus="navigator"
-      tabIndex={-1}
-      className={`flex shrink-0 flex-col overflow-hidden border-r border-border-default bg-background-muted outline-none ${PANEL_TRANSITION_CLASS}`}
-      style={{ width: collapsed ? NAVIGATOR_COLLAPSED_WIDTH : width }}
+      focusZone="navigator"
+      collapsed={collapsed}
+      width={width}
+      collapsedWidth={NAVIGATOR_COLLAPSED_WIDTH}
+      className="border-r border-border-default bg-background-muted"
     >
       {collapsed ? (
         <div className="flex flex-1 justify-center pt-4">
@@ -544,13 +558,12 @@ export function FolderNavigator({
         </div>
       ) : (
         <>
-          <header className="space-y-3 border-b border-border-default px-4 py-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="truncate text-base font-semibold">{scope.label}</h2>
-                <p className="text-xs text-text-subtle">{entries.length} notes</p>
-              </div>
-              <div className="flex items-center gap-1">
+          <PanelHeader
+            title={scope.label}
+            subtitle={navigatorSubtitle}
+            className="space-y-3"
+            actions={(
+              <>
                 <button
                   type="button"
                   onClick={onRefresh}
@@ -596,9 +609,10 @@ export function FolderNavigator({
                 >
                   <PanelLeftClose aria-hidden="true" className="h-4 w-4" />
                 </button>
-              </div>
-            </div>
-
+              </>
+            )}
+          />
+          <div className="space-y-3 border-b border-border-default px-4 pb-4">
             <label className="flex h-10 items-center gap-2 rounded-md border border-border-default bg-background-default px-3 transition-colors focus-within:border-primary-default">
               <Search aria-hidden="true" className="h-4 w-4 text-text-subtle" />
               <span className="sr-only">Search notes</span>
@@ -622,7 +636,7 @@ export function FolderNavigator({
             ) : null}
 
             <RepositoryNotice error={activeError} cached={showingCachedFallback} />
-          </header>
+          </div>
 
           <div className="min-h-0 flex-1 overflow-auto p-2">
             {isLoading ? (
@@ -631,13 +645,11 @@ export function FolderNavigator({
                 <span>Loading notes…</span>
               </div>
             ) : entries.length === 0 && (!hasTreeContent || isSearching) ? (
-              <div className="flex h-full items-center justify-center px-6 text-center">
-                <div className="max-w-64 space-y-2">
-                  <FileText aria-hidden="true" className="mx-auto h-7 w-7 text-text-subtle" />
-                  <p className="text-sm font-medium text-text-default">{emptyTitle}</p>
-                  <p className="text-xs leading-5 text-text-subtle">{emptyDescription}</p>
-                </div>
-              </div>
+              <EmptyState
+                icon={<FileText aria-hidden="true" className="h-7 w-7" />}
+                title={emptyTitle}
+                description={emptyDescription}
+              />
             ) : isSearching ? (
               <div className="space-y-1">
                 {entries.map((entry) => (
@@ -701,6 +713,6 @@ export function FolderNavigator({
           </div>
         </>
       )}
-    </section>
+    </PanelShell>
   );
 }

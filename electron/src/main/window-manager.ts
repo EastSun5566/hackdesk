@@ -8,6 +8,7 @@ import { getAppIconPath } from './app-icon';
 import { ELECTRON_CHANNELS } from '../shared/channels';
 import { exportDebugLogs, writeLog } from './logging';
 import { isTrustedRendererUrl } from './renderer-url';
+import { createUnresponsiveSampler } from './unresponsive-sampler';
 import { persistWindowState, readWindowState } from './window-state';
 
 const WINDOW_BACKGROUND_COLOR = process.platform === 'darwin' ? '#00000000' : '#fdfdfd';
@@ -78,6 +79,7 @@ export class WindowManager {
       },
     });
     persistWindowState(this.mainWindow);
+    const unresponsiveSampler = createUnresponsiveSampler(this.mainWindow, 'main');
 
     if (windowState.isMaximized) {
       this.mainWindow.maximize();
@@ -139,6 +141,7 @@ export class WindowManager {
       },
     );
     this.mainWindow.webContents.on('render-process-gone', (_event, details) => {
+      unresponsiveSampler.stopAndFlush();
       writeLog('renderer', 'render process gone', details, 'error');
       this.showRecoveryDialog(
         'HackDesk renderer stopped',
@@ -155,9 +158,11 @@ export class WindowManager {
     });
     this.mainWindow.on('unresponsive', () => {
       writeLog('renderer', 'main window became unresponsive', undefined, 'warn');
+      unresponsiveSampler.start();
       this.showRecoveryDialog('HackDesk is not responding', 'You can wait, reload the app window, or export debug logs.', true);
     });
     this.mainWindow.on('responsive', () => {
+      unresponsiveSampler.stopAndFlush();
       writeLog('renderer', 'main window became responsive');
     });
 
