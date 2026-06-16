@@ -117,7 +117,7 @@ export type UpdateNoteInput = {
   readPermission?: NotePermissionRole;
   writePermission?: NotePermissionRole;
   permalink?: string;
-  parentFolderId?: string;
+  parentFolderId?: string | null;
 };
 
 export type UploadNoteImageInput = {

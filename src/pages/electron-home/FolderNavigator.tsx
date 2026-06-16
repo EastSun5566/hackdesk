@@ -23,6 +23,7 @@ import {
   DragOverlay,
   KeyboardSensor,
   PointerSensor,
+  useDraggable,
   useDroppable,
   useSensor,
   useSensors,
@@ -59,6 +60,13 @@ import {
   ROOT_FOLDER_DROP_ID,
   type FolderDropOperation,
 } from '@/lib/hackmd-folder-dnd';
+import {
+  buildNoteDragId,
+  buildNoteDropOperation,
+  getNoteCurrentFolderId,
+  parseNoteDragId,
+  type NoteDropOperation,
+} from '@/lib/hackmd-note-dnd';
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
@@ -78,29 +86,115 @@ function NoteRow({
   entry,
   selected,
   onSelect,
+  onOpen,
+  onDelete,
+  onMoveToSelectedFolder,
+  selectedFolder,
+  draggable = false,
+  disabledDrag = false,
+  active = false,
   compact = false,
 }: {
   entry: FolderTreeNote;
   selected: boolean;
   onSelect: (note: NoteSummary) => void;
+  onOpen: (note: NoteSummary) => void;
+  onDelete: (note: NoteSummary) => void;
+  onMoveToSelectedFolder?: (entry: FolderTreeNote) => void;
+  selectedFolder?: FolderTreeNode | null;
+  draggable?: boolean;
+  disabledDrag?: boolean;
+  active?: boolean;
   compact?: boolean;
 }) {
   const metadata = [
     entry.folderLabel,
     entry.note.tags.slice(0, 2).join(', '),
   ].filter(Boolean).join(' · ');
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    isDragging,
+  } = useDraggable({
+    id: buildNoteDragId(entry.note.id),
+    disabled: !draggable || disabledDrag,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+  };
+  const canMoveToSelectedFolder = Boolean(
+    selectedFolder
+    && (selectedFolder.id === UNFILED_FOLDER_ID
+      ? getNoteCurrentFolderId(entry) !== null
+      : selectedFolder.id !== getNoteCurrentFolderId(entry)),
+  );
 
   return (
-    <EntityRow
-      selected={selected}
-      icon={<FileText className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />}
-      title={entry.note.title || 'Untitled'}
-      subtitle={metadata || entry.note.shortId}
-      trailing={formatDate(entry.note.updatedAtMillis)}
-      variant={compact ? 'compact' : 'default'}
-      className={selected ? 'bg-primary-soft' : undefined}
-      onClick={() => onSelect(entry.note)}
-    />
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div
+          ref={setNodeRef}
+          style={style}
+          data-note-id={entry.note.id}
+          className={isDragging || active ? 'opacity-40' : undefined}
+        >
+          <EntityRow
+            selected={selected}
+            icon={<FileText className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />}
+            leadingControls={draggable ? (
+              <button
+                type="button"
+                className={`flex h-6 w-5 shrink-0 items-center justify-center rounded text-text-subtle opacity-0 transition-opacity hover:text-text-default group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none ${FOCUS_RING_CLASS}`}
+                aria-label={`Drag ${entry.note.title || 'Untitled'}`}
+                disabled={disabledDrag}
+                {...attributes}
+                {...listeners}
+              >
+                <GripVertical aria-hidden="true" className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+            title={(
+              <button
+                type="button"
+                onClick={() => onSelect(entry.note)}
+                className={`block min-w-0 truncate rounded-[4px] text-left ${FOCUS_RING_CLASS}`}
+              >
+                {entry.note.title || 'Untitled'}
+              </button>
+            )}
+            subtitle={metadata || entry.note.shortId}
+            trailing={formatDate(entry.note.updatedAtMillis)}
+            variant={compact ? 'compact' : 'default'}
+            active={active}
+            className={selected ? 'bg-primary-soft' : undefined}
+          />
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onSelect={() => onOpen(entry.note)}>
+          <FileText aria-hidden="true" className="h-4 w-4" />
+          Open in Web Editor
+        </ContextMenuItem>
+        <ContextMenuItem
+          disabled={!canMoveToSelectedFolder}
+          onSelect={() => {
+            if (canMoveToSelectedFolder) {
+              onMoveToSelectedFolder?.(entry);
+            }
+          }}
+        >
+          <FolderOpen aria-hidden="true" className="h-4 w-4" />
+          Move to Selected Folder
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem destructive onSelect={() => onDelete(entry.note)}>
+          <Trash2 aria-hidden="true" className="h-4 w-4" />
+          Delete
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
@@ -109,6 +203,7 @@ function FolderButton({
   selected,
   collapsed,
   active,
+  noteDropTarget,
   onSelect,
   onToggle,
   onCreateFolderInside,
@@ -119,6 +214,7 @@ function FolderButton({
   selected: boolean;
   collapsed: boolean;
   active: boolean;
+  noteDropTarget: boolean;
   onSelect: (folderId: string) => void;
   onToggle: (folderId: string) => void;
   onCreateFolderInside: (folderId: string) => void;
@@ -134,6 +230,7 @@ function FolderButton({
     transform,
     transition,
     isDragging,
+    isOver,
   } = useSortable({ id: node.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -151,6 +248,7 @@ function FolderButton({
         >
           <EntityRow
             selected={selected}
+            active={noteDropTarget && isOver}
             variant="compact"
             leadingControls={(
               <span className="flex items-center gap-0.5">
@@ -215,11 +313,15 @@ function FolderButton({
 function RootFolderRow({
   selected,
   noteCount,
+  folderDragActive,
+  noteDragActive,
   onSelect,
   onCreateFolder,
 }: {
   selected: boolean;
   noteCount: number;
+  folderDragActive: boolean;
+  noteDragActive: boolean;
   onSelect: () => void;
   onCreateFolder: () => void;
 }) {
@@ -230,7 +332,7 @@ function RootFolderRow({
       <ContextMenuTrigger asChild>
         <div ref={setNodeRef}>
           <EntityRow
-            selected={selected || isOver}
+            selected={selected || ((folderDragActive || noteDragActive) && isOver)}
             icon={<Folder className="h-3.5 w-3.5" />}
             title="Root"
             trailing={noteCount}
@@ -258,6 +360,22 @@ function FolderDragOverlay({ node }: { node: FolderTreeNode | null }) {
     <div className="flex h-8 min-w-48 items-center gap-2 rounded-[6px] border border-border-default bg-background-default px-2 text-sm text-text-default shadow-lg">
       <FolderOpen aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
       <span className="truncate">{node.name}</span>
+    </div>
+  );
+}
+
+function NoteDragOverlay({ entry }: { entry: FolderTreeNote | null }) {
+  if (!entry) {
+    return null;
+  }
+
+  return (
+    <div className="flex min-h-9 min-w-56 items-center gap-2 rounded-[6px] border border-border-default bg-background-default px-3 py-2 text-sm text-text-default shadow-lg">
+      <FileText aria-hidden="true" className="h-4 w-4 shrink-0 text-text-subtle" />
+      <span className="min-w-0">
+        <span className="block truncate font-medium">{entry.note.title || 'Untitled'}</span>
+        <span className="block truncate text-xs text-text-subtle">{entry.folderLabel || entry.note.shortId}</span>
+      </span>
     </div>
   );
 }
@@ -318,6 +436,7 @@ function FolderTreeView({
   selectedNoteId,
   collapsedFolderIds,
   activeFolderId,
+  activeNoteId,
   depth,
   onFolderSelect,
   onFolderToggle,
@@ -325,12 +444,18 @@ function FolderTreeView({
   onRenameFolder,
   onDeleteFolder,
   onNoteSelect,
+  onNoteOpen,
+  onNoteDelete,
+  onNoteMoveToSelectedFolder,
+  selectedFolderForNoteMove,
+  isMovingNote,
 }: {
   nodes: FolderTreeNode[];
   selectedFolderId: string | null;
   selectedNoteId: string | null;
   collapsedFolderIds: Set<string>;
   activeFolderId: string | null;
+  activeNoteId: string | null;
   depth: number;
   onFolderSelect: (folderId: string) => void;
   onFolderToggle: (folderId: string) => void;
@@ -338,6 +463,11 @@ function FolderTreeView({
   onRenameFolder: (folderId: string) => void;
   onDeleteFolder: (folderId: string) => void;
   onNoteSelect: (note: NoteSummary) => void;
+  onNoteOpen: (note: NoteSummary) => void;
+  onNoteDelete: (note: NoteSummary) => void;
+  onNoteMoveToSelectedFolder: (entry: FolderTreeNote) => void;
+  selectedFolderForNoteMove: FolderTreeNode | null;
+  isMovingNote: boolean;
 }) {
   if (nodes.length === 0) {
     return null;
@@ -357,6 +487,7 @@ function FolderTreeView({
               selected={selectedFolderId === node.id}
               collapsed={collapsed}
               active={isActiveFolder}
+              noteDropTarget={Boolean(activeNoteId)}
               onSelect={onFolderSelect}
               onToggle={onFolderToggle}
               onCreateFolderInside={onCreateFolderInside}
@@ -376,6 +507,7 @@ function FolderTreeView({
                     selectedNoteId={selectedNoteId}
                     collapsedFolderIds={collapsedFolderIds}
                     activeFolderId={activeFolderId}
+                    activeNoteId={activeNoteId}
                     depth={depth + 1}
                     onFolderSelect={onFolderSelect}
                     onFolderToggle={onFolderToggle}
@@ -383,6 +515,11 @@ function FolderTreeView({
                     onRenameFolder={onRenameFolder}
                     onDeleteFolder={onDeleteFolder}
                     onNoteSelect={onNoteSelect}
+                    onNoteOpen={onNoteOpen}
+                    onNoteDelete={onNoteDelete}
+                    onNoteMoveToSelectedFolder={onNoteMoveToSelectedFolder}
+                    selectedFolderForNoteMove={selectedFolderForNoteMove}
+                    isMovingNote={isMovingNote}
                   />
                   {node.notes.map((entry) => (
                     <div key={`${node.id}:${entry.note.id}`} className="relative pl-5">
@@ -391,6 +528,13 @@ function FolderTreeView({
                         entry={entry}
                         selected={entry.note.id === selectedNoteId}
                         onSelect={onNoteSelect}
+                        onOpen={onNoteOpen}
+                        onDelete={onNoteDelete}
+                        onMoveToSelectedFolder={onNoteMoveToSelectedFolder}
+                        selectedFolder={selectedFolderForNoteMove}
+                        draggable
+                        disabledDrag={isMovingNote}
+                        active={activeNoteId === entry.note.id}
                         compact
                       />
                     </div>
@@ -426,6 +570,7 @@ export function FolderNavigator({
   isFetching,
   isCreating,
   isMovingFolder,
+  isMovingNote,
   onFolderSelect,
   onFolderToggle,
   onNoteSelect,
@@ -437,6 +582,9 @@ export function FolderNavigator({
   onRenameFolder,
   onDeleteFolder,
   onFolderDrop,
+  onNoteMove,
+  onOpenNote,
+  onDeleteNote,
   onToggleCollapsed,
   onOpenPalette,
   onOpenSettings,
@@ -461,6 +609,7 @@ export function FolderNavigator({
   isFetching: boolean;
   isCreating: boolean;
   isMovingFolder: boolean;
+  isMovingNote: boolean;
   onFolderSelect: (folderId: string | null) => void;
   onFolderToggle: (folderId: string) => void;
   onNoteSelect: (note: NoteSummary) => void;
@@ -472,6 +621,9 @@ export function FolderNavigator({
   onRenameFolder: (folderId: string) => void;
   onDeleteFolder: (folderId: string) => void;
   onFolderDrop: (operation: FolderDropOperation) => void;
+  onNoteMove: (operation: NoteDropOperation) => void;
+  onOpenNote: (note: NoteSummary) => void;
+  onDeleteNote: (note: NoteSummary) => void;
   onToggleCollapsed: () => void;
   onOpenPalette: () => void;
   onOpenSettings: () => void;
@@ -486,9 +638,13 @@ export function FolderNavigator({
         ? `${entries.length} ${entries.length === 1 ? 'result' : 'results'}`
         : `${entries.length} notes`;
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
-  const selectedFolder = selectedFolderId && selectedFolderId !== UNFILED_FOLDER_ID
+  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+  const selectedConcreteFolder = selectedFolderId && selectedFolderId !== UNFILED_FOLDER_ID
     ? tree.nodesById.get(selectedFolderId) ?? null
     : null;
+  const selectedFolderForNoteMove = selectedFolderId === UNFILED_FOLDER_ID
+    ? tree.unfiled
+    : selectedConcreteFolder;
   const visibleFolderItems = useMemo(
     () => flattenFolderTree(tree, collapsedFolderIds),
     [collapsedFolderIds, tree],
@@ -499,13 +655,31 @@ export function FolderNavigator({
   );
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveFolderId(String(event.active.id));
+    const activeId = String(event.active.id);
+    const noteId = parseNoteDragId(activeId);
+    if (noteId) {
+      setActiveNoteId(noteId);
+      setActiveFolderId(null);
+      return;
+    }
+
+    setActiveFolderId(activeId);
+    setActiveNoteId(null);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const activeId = String(event.active.id);
     const overId = event.over ? String(event.over.id) : null;
     setActiveFolderId(null);
+    setActiveNoteId(null);
+
+    const noteOperation = buildNoteDropOperation({ tree, activeId, overId });
+    if (noteOperation) {
+      if (!isMovingNote) {
+        onNoteMove(noteOperation);
+      }
+      return;
+    }
 
     if (!overId || activeId === overId || isMovingFolder) {
       return;
@@ -532,6 +706,25 @@ export function FolderNavigator({
       onFolderDrop(operation);
     }
   };
+  const handleDragCancel = () => {
+    setActiveFolderId(null);
+    setActiveNoteId(null);
+  };
+  const handleNoteMoveToSelectedFolder = (entry: FolderTreeNote) => {
+    if (!selectedFolderForNoteMove) {
+      return;
+    }
+
+    const targetFolderId = selectedFolderForNoteMove.id === UNFILED_FOLDER_ID ? null : selectedFolderForNoteMove.id;
+    onNoteMove({
+      note: entry,
+      targetFolderId,
+      changed: getNoteCurrentFolderId(entry) !== targetFolderId,
+    });
+  };
+  const activeNote = activeNoteId
+    ? tree.allNotes.find((entry) => entry.note.id === activeNoteId) ?? null
+    : null;
 
   return (
     <PanelShell
@@ -591,7 +784,7 @@ export function FolderNavigator({
                   <FolderPlus aria-hidden="true" className="h-4 w-4" />
                 </button>
                 <FolderActionsDropdown
-                  selectedFolder={selectedFolder}
+                  selectedFolder={selectedConcreteFolder}
                   canCreate={canCreate && !isCreating}
                   onCreateFolder={onCreateFolder}
                   onRenameFolder={onRenameFolder}
@@ -658,6 +851,10 @@ export function FolderNavigator({
                     entry={entry}
                     selected={entry.note.id === selectedNoteId}
                     onSelect={onNoteSelect}
+                    onOpen={onOpenNote}
+                    onDelete={onDeleteNote}
+                    onMoveToSelectedFolder={handleNoteMoveToSelectedFolder}
+                    selectedFolder={selectedFolderForNoteMove}
                   />
                 ))}
               </div>
@@ -666,7 +863,7 @@ export function FolderNavigator({
                 sensors={sensors}
                 collisionDetection={closestCenter}
                 onDragStart={handleDragStart}
-                onDragCancel={() => setActiveFolderId(null)}
+                onDragCancel={handleDragCancel}
                 onDragEnd={handleDragEnd}
               >
                 <SortableContext
@@ -677,6 +874,8 @@ export function FolderNavigator({
                     <RootFolderRow
                       selected={selectedFolderId === UNFILED_FOLDER_ID}
                       noteCount={tree.unfiled.notes.length}
+                      folderDragActive={Boolean(activeFolderId)}
+                      noteDragActive={Boolean(activeNoteId)}
                       onSelect={() => onFolderSelect(UNFILED_FOLDER_ID)}
                       onCreateFolder={() => onCreateFolderInside(null)}
                     />
@@ -686,6 +885,7 @@ export function FolderNavigator({
                       selectedNoteId={selectedNoteId}
                       collapsedFolderIds={collapsedFolderIds}
                       activeFolderId={activeFolderId}
+                      activeNoteId={activeNoteId}
                       depth={0}
                       onFolderSelect={onFolderSelect}
                       onFolderToggle={onFolderToggle}
@@ -693,6 +893,11 @@ export function FolderNavigator({
                       onRenameFolder={onRenameFolder}
                       onDeleteFolder={onDeleteFolder}
                       onNoteSelect={onNoteSelect}
+                      onNoteOpen={onOpenNote}
+                      onNoteDelete={onDeleteNote}
+                      onNoteMoveToSelectedFolder={handleNoteMoveToSelectedFolder}
+                      selectedFolderForNoteMove={selectedFolderForNoteMove}
+                      isMovingNote={isMovingNote}
                     />
                     {tree.unfiled.notes.map((entry) => (
                       <NoteRow
@@ -700,13 +905,24 @@ export function FolderNavigator({
                         entry={entry}
                         selected={entry.note.id === selectedNoteId}
                         onSelect={onNoteSelect}
+                        onOpen={onOpenNote}
+                        onDelete={onDeleteNote}
+                        onMoveToSelectedFolder={handleNoteMoveToSelectedFolder}
+                        selectedFolder={selectedFolderForNoteMove}
+                        draggable
+                        disabledDrag={isMovingNote}
+                        active={activeNoteId === entry.note.id}
                         compact
                       />
                     ))}
                   </div>
                 </SortableContext>
                 <DragOverlay>
-                  <FolderDragOverlay node={activeFolderId ? tree.nodesById.get(activeFolderId) ?? null : null} />
+                  {activeNote ? (
+                    <NoteDragOverlay entry={activeNote} />
+                  ) : (
+                    <FolderDragOverlay node={activeFolderId ? tree.nodesById.get(activeFolderId) ?? null : null} />
+                  )}
                 </DragOverlay>
               </DndContext>
             )}

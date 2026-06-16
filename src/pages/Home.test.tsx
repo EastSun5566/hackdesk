@@ -58,6 +58,18 @@ const childFolder: FolderSummary = {
   parentId: 'folder-1',
 };
 
+const team = {
+  id: 'team-1',
+  ownerId: null,
+  name: 'Team Workspace',
+  logo: null,
+  path: 'team-workspace',
+  description: null,
+  visibility: 'private' as const,
+  createdAtMillis: 1_700_000_000_000,
+  upgraded: false,
+};
+
 function renderHome(api: HackDeskElectronAPI) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -465,6 +477,31 @@ describe('Home native-feel behavior', () => {
     }));
   });
 
+  it('moves a note to root from the inspector with null parentFolderId', async () => {
+    const folderNote = { ...note, folderPaths: [folder] };
+    const folderDocument = { ...document, folderPaths: [folder] };
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: [folderNote] })),
+        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        getNote: vi.fn(async () => ({ source: 'remote', data: folderDocument })),
+        updateNote: vi.fn(async () => ({ ...folderDocument, folderPaths: [] })),
+      },
+    });
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    await openInspector();
+
+    fireEvent.change(await screen.findByLabelText('Folder'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Metadata' }));
+
+    await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
+      parentFolderId: null,
+    }));
+  });
+
   it('uploads an image and inserts the markdown image into the editor content', async () => {
     const api = createApi({
       hackmd: {
@@ -531,6 +568,217 @@ describe('Home native-feel behavior', () => {
       icon: '1F4C1',
       color: '#2F80ED',
     }));
+  });
+
+  it('renders note rows as draggable without breaking selection', async () => {
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: [{ ...note, folderPaths: [] }] })),
+        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+      },
+    });
+
+    const { container } = renderHome(api);
+    const row = await waitFor(() => {
+      const noteRow = container.querySelector('[data-note-id="note-1"]');
+      expect(noteRow).toBeTruthy();
+      return noteRow as HTMLElement;
+    });
+
+    expect(within(row).getByRole('button', { name: 'Drag Test note' })).toBeInTheDocument();
+    fireEvent.click(within(row).getByRole('button', { name: 'Test note' }));
+
+    expect(await findRenderedNoteTitle()).toBeInTheDocument();
+  });
+
+  it('does not expose note drag handles in search results', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    fireEvent.change(screen.getByPlaceholderText('Search notes'), { target: { value: 'Test' } });
+
+    await screen.findByText('1 result');
+    expect(screen.queryByRole('button', { name: 'Drag Test note' })).not.toBeInTheDocument();
+  });
+
+  it('moves a personal note to the selected folder from the note context menu', async () => {
+    const movedDocument = {
+      ...document,
+      folderPaths: [folder],
+    };
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: [{ ...note, folderPaths: [] }] })),
+        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        updateNote: vi.fn(async () => movedDocument),
+      },
+    });
+
+    const { container } = renderHome(api);
+    fireEvent.click((await screen.findByText('Projects')).closest('button')!);
+    const row = await waitFor(() => {
+      const noteRow = container.querySelector('[data-note-id="note-1"]');
+      expect(noteRow).toBeTruthy();
+      return noteRow as HTMLElement;
+    });
+    fireEvent.contextMenu(row);
+    fireEvent.click(await screen.findByText('Move to Selected Folder'));
+
+    await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
+      parentFolderId: 'folder-1',
+    }));
+  });
+
+  it('moves a personal note to root from the note context menu with null parentFolderId', async () => {
+    const folderNote = { ...note, folderPaths: [folder] };
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: [folderNote] })),
+        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        updateNote: vi.fn(async () => ({ ...document, folderPaths: [] })),
+      },
+    });
+
+    const { container } = renderHome(api);
+    fireEvent.click(await screen.findByRole('button', { name: 'Root' }));
+    const row = await waitFor(() => {
+      const noteRow = container.querySelector('[data-note-id="note-1"]');
+      expect(noteRow).toBeTruthy();
+      return noteRow as HTMLElement;
+    });
+    fireEvent.contextMenu(row);
+    fireEvent.click(await screen.findByText('Move to Selected Folder'));
+
+    await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
+      parentFolderId: null,
+    }));
+  });
+
+  it('moves a team note through the team update endpoint from the note context menu', async () => {
+    const teamNote = {
+      ...note,
+      teamPath: team.path,
+      userPath: null,
+      folderPaths: [],
+    };
+    const movedDocument = {
+      ...document,
+      teamPath: team.path,
+      userPath: null,
+      folderPaths: [folder],
+    };
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        getCurrentUser: vi.fn(async () => ({
+          source: 'remote',
+          data: {
+            id: 'user-1',
+            email: 'michael@example.com',
+            name: 'Michael',
+            username: 'michael',
+            photo: null,
+            upgraded: false,
+            teams: [team],
+          },
+        })),
+        listTeams: vi.fn(async () => ({ source: 'remote', data: [team] })),
+        listTeamNotes: vi.fn(async () => ({ source: 'remote', data: [teamNote] })),
+        listTeamFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        getTeamFolderOrder: vi.fn(async () => ({ source: 'remote', data: {} })),
+        getNote: vi.fn(async () => ({ source: 'remote', data: movedDocument })),
+        updateTeamNote: vi.fn(async () => movedDocument),
+      },
+    });
+
+    const { container } = renderHome(api);
+    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace' }));
+    fireEvent.click((await screen.findByText('Projects')).closest('button')!);
+    const row = await waitFor(() => {
+      const noteRow = container.querySelector('[data-note-id="note-1"]');
+      expect(noteRow).toBeTruthy();
+      return noteRow as HTMLElement;
+    });
+    fireEvent.contextMenu(row);
+    fireEvent.click(await screen.findByText('Move to Selected Folder'));
+
+    await waitFor(() => expect(api.hackmd.updateTeamNote).toHaveBeenCalledWith('team-workspace', 'note-1', {
+      parentFolderId: 'folder-1',
+    }));
+  });
+
+  it('moves a team note to root through the team update endpoint from the note context menu', async () => {
+    const teamNote = {
+      ...note,
+      teamPath: team.path,
+      userPath: null,
+      folderPaths: [folder],
+    };
+    const movedDocument = {
+      ...document,
+      teamPath: team.path,
+      userPath: null,
+      folderPaths: [],
+    };
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        getCurrentUser: vi.fn(async () => ({
+          source: 'remote',
+          data: {
+            id: 'user-1',
+            email: 'michael@example.com',
+            name: 'Michael',
+            username: 'michael',
+            photo: null,
+            upgraded: false,
+            teams: [team],
+          },
+        })),
+        listTeams: vi.fn(async () => ({ source: 'remote', data: [team] })),
+        listTeamNotes: vi.fn(async () => ({ source: 'remote', data: [teamNote] })),
+        listTeamFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        getTeamFolderOrder: vi.fn(async () => ({ source: 'remote', data: {} })),
+        getNote: vi.fn(async () => ({ source: 'remote', data: movedDocument })),
+        updateTeamNote: vi.fn(async () => movedDocument),
+      },
+    });
+
+    const { container } = renderHome(api);
+    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Root' }));
+    const row = await waitFor(() => {
+      const noteRow = container.querySelector('[data-note-id="note-1"]');
+      expect(noteRow).toBeTruthy();
+      return noteRow as HTMLElement;
+    });
+    fireEvent.contextMenu(row);
+    fireEvent.click(await screen.findByText('Move to Selected Folder'));
+
+    await waitFor(() => expect(api.hackmd.updateTeamNote).toHaveBeenCalledWith('team-workspace', 'note-1', {
+      parentFolderId: null,
+    }));
+  });
+
+  it('opens a note from the note context menu', async () => {
+    const api = createApi();
+    const { container } = renderHome(api);
+    const row = await waitFor(() => {
+      const noteRow = container.querySelector('[data-note-id="note-1"]');
+      expect(noteRow).toBeTruthy();
+      return noteRow as HTMLElement;
+    });
+
+    fireEvent.contextMenu(row);
+    fireEvent.click(await screen.findByText('Open in Web Editor'));
+
+    await waitFor(() => expect(api.shell.openHackmdEditor).toHaveBeenCalledWith(expect.objectContaining({
+      shortId: 'note-1',
+    })));
   });
 
   it('deletes the selected folder after native confirmation succeeds', async () => {

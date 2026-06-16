@@ -2,7 +2,13 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'rea
 import { toast } from 'sonner';
 
 import { getDesktopAPI } from '@/lib/desktop-api';
-import type { DocumentSummary, ElectronActionId, FolderSummary, NoteSummary } from '@/lib/electron-api';
+import type {
+  DocumentSummary,
+  ElectronActionId,
+  FolderSummary,
+  NoteSummary,
+  OpenHackmdEditorInput,
+} from '@/lib/electron-api';
 import {
   getActionDisabledReason,
   getElectronAction,
@@ -72,6 +78,13 @@ function createClosedFolderDialogState(): CreateFolderDialogState {
 
 function createClosedRenameFolderDialogState(): RenameFolderDialogState {
   return { open: false, folderId: null, name: '', description: '', icon: '', color: '' };
+}
+
+function createDeleteNoteTarget(note: NoteSummary): DocumentSummary {
+  return {
+    ...note,
+    content: note.content ?? '',
+  };
 }
 
 export function Home() {
@@ -198,6 +211,10 @@ export function Home() {
     onNoteDeleted: () => {
       setDeleteTarget(null);
       setSelectedNote(null);
+    },
+    onNoteMoved: (note, targetFolderId) => {
+      setSelectedFolderId(targetFolderId ?? UNFILED_FOLDER_ID);
+      setSelectedNote(note);
     },
   });
 
@@ -421,30 +438,35 @@ export function Home() {
     toggleRailCollapsed,
   ]);
 
-  const handleDeleteRequest = useCallback((note: DocumentSummary) => {
+  const handleDeleteRequest = useCallback((note: NoteSummary) => {
+    const deleteNote = createDeleteNoteTarget(note);
     if (!api?.app.confirm) {
-      setDeleteTarget(note);
+      setDeleteTarget(deleteNote);
       return;
     }
 
     api.app.confirm({
       title: 'Delete Note',
-      message: `Delete “${note.title || 'Untitled'}”?`,
+      message: `Delete “${deleteNote.title || 'Untitled'}”?`,
       detail: 'This removes the note from HackMD. This action cannot be undone from HackDesk.',
       confirmLabel: 'Delete',
       cancelLabel: 'Cancel',
       destructive: true,
     }).then(({ confirmed }) => {
       if (confirmed) {
-        mutations.deleteNoteMutation.mutate(note);
+        mutations.deleteNoteMutation.mutate(deleteNote);
       }
     }).catch((error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to confirm note deletion.');
     });
   }, [api, mutations.deleteNoteMutation]);
 
-  const handleOpenEditor = useCallback((note: DocumentSummary) => {
-    api?.shell.openHackmdEditor(note).catch((error) => {
+  const handleOpenEditor = useCallback((note: OpenHackmdEditorInput) => {
+    if (!api) {
+      return;
+    }
+
+    void Promise.resolve(api.shell.openHackmdEditor(note)).catch((error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to open HackMD editor.');
     });
   }, [api]);
@@ -729,6 +751,7 @@ export function Home() {
           isFetching={queries.notesQuery.isFetching || queries.foldersQuery.isFetching || queries.folderOrderQuery.isFetching}
           isCreating={mutations.createNoteMutation.isPending || mutations.createFolderMutation.isPending}
           isMovingFolder={mutations.moveFolderMutation.isPending}
+          isMovingNote={mutations.moveNoteMutation.isPending}
           onFolderSelect={handleFolderSelect}
           onFolderToggle={toggleFolderCollapsed}
           onNoteSelect={setSelectedNote}
@@ -740,6 +763,20 @@ export function Home() {
           onRenameFolder={handleRenameFolder}
           onDeleteFolder={handleDeleteFolderRequest}
           onFolderDrop={handleFolderDrop}
+          onNoteMove={(operation) => {
+            if (!operation.changed) {
+              setSelectedFolderId(operation.targetFolderId ?? UNFILED_FOLDER_ID);
+              setSelectedNote(operation.note.note);
+              return;
+            }
+
+            mutations.moveNoteMutation.mutate({
+              note: operation.note.note,
+              targetFolderId: operation.targetFolderId,
+            });
+          }}
+          onOpenNote={handleOpenEditor}
+          onDeleteNote={handleDeleteRequest}
           onToggleCollapsed={toggleNavigatorCollapsed}
           onOpenPalette={openPalette}
           onOpenSettings={() => setSettingsOpen(true)}

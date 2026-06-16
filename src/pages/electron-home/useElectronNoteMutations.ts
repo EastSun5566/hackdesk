@@ -34,6 +34,7 @@ export function useElectronNoteMutations({
   onFolderRenamed,
   onFolderDeleted,
   onNoteDeleted,
+  onNoteMoved,
 }: {
   api?: HackDeskElectronAPI;
   scope: WorkspaceScope;
@@ -45,6 +46,7 @@ export function useElectronNoteMutations({
   onFolderRenamed: (folder: FolderSummary) => void;
   onFolderDeleted: (folderId: string, parentFolderId: string | null) => void;
   onNoteDeleted: () => void;
+  onNoteMoved: (note: NoteSummary, targetFolderId: string | null) => void;
 }) {
   const queryClient = useQueryClient();
 
@@ -211,6 +213,31 @@ export function useElectronNoteMutations({
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to delete note.'),
   });
 
+  const moveNoteMutation = useMutation({
+    mutationFn: async ({ note, targetFolderId }: { note: NoteSummary; targetFolderId: string | null }) => {
+      if (!api) {
+        throw new Error('Electron API is unavailable.');
+      }
+
+      if (scope.type === 'history') {
+        throw new Error('Choose My Workspace or a team before moving notes.');
+      }
+
+      const input = { parentFolderId: targetFolderId };
+      const movedNote = scope.type === 'team'
+        ? await api.hackmd.updateTeamNote(scope.teamPath, note.id, input)
+        : await api.hackmd.updateNote(note.id, input);
+
+      return { note: movedNote, targetFolderId };
+    },
+    onSuccess: ({ note, targetFolderId }) => {
+      invalidateCurrentNotes();
+      onNoteMoved(note, targetFolderId);
+      toast.success('Note moved.');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to move note.'),
+  });
+
   const renameFolderMutation = useMutation({
     mutationFn: async ({ folderId, input }: { folderId: string; input: UpdateFolderInput }) => {
       const name = input.name ?? '';
@@ -289,6 +316,7 @@ export function useElectronNoteMutations({
     renameFolderMutation,
     deleteFolderMutation,
     moveFolderMutation,
+    moveNoteMutation,
     updateNoteMutation,
     uploadNoteImageMutation,
     deleteNoteMutation,

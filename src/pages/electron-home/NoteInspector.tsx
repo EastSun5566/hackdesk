@@ -114,7 +114,7 @@ export function NoteInspector({
   const descriptionDirty = description !== document.description;
   const tagsDirty = !tagsEqual(tags, document.tags);
   const permalinkDirty = permalink !== (document.permalink ?? '');
-  const locationDirty = Boolean(parentFolderId && parentFolderId !== currentFolderId);
+  const locationDirty = parentFolderId !== currentFolderId;
   const permissionsDirty =
     readPermission !== document.readPermission
     || writePermission !== document.writePermission;
@@ -166,8 +166,8 @@ export function NoteInspector({
     if (writePermission !== document.writePermission) {
       input.writePermission = writePermission;
     }
-    if (parentFolderId && parentFolderId !== currentFolderId) {
-      input.parentFolderId = parentFolderId;
+    if (parentFolderId !== currentFolderId) {
+      input.parentFolderId = parentFolderId || null;
     }
 
     onSaveMetadata(document, input);
@@ -293,13 +293,12 @@ export function NoteInspector({
                   onChange={(event) => setParentFolderId(event.target.value)}
                   className={TEXT_INPUT_CLASS}
                 >
-                  <option value="" disabled>Choose a folder</option>
+                  <option value="">Root</option>
                   {folderOptions.map((option) => (
                     <option key={option.id} value={option.id}>{option.label}</option>
                   ))}
                 </select>
               </label>
-              <p className="text-xs leading-5 text-text-subtle">Move to Root is not enabled until the API clearing behavior is verified.</p>
             </fieldset>
           </CollapsibleSection>
 
