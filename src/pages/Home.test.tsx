@@ -1072,6 +1072,47 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(api.app.writeClipboardText).toHaveBeenCalledWith('https://hackmd.io/@michael/note-1'));
   });
 
+  it('copies a markdown link from the share dialog', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Share Note' });
+    const copyButtons = within(dialog).getAllByRole('button', { name: 'Copy' });
+    fireEvent.click(copyButtons[1]);
+
+    await waitFor(() => expect(api.app.writeClipboardText).toHaveBeenCalledWith('[Test note](https://hackmd.io/@michael/note-1)'));
+  });
+
+  it('updates sharing permissions from the share dialog', async () => {
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        updateNote: vi.fn(async (_noteId, input) => ({
+          ...document,
+          readPermission: input.readPermission ?? document.readPermission,
+          writePermission: input.writePermission ?? document.writePermission,
+        })),
+      },
+    });
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Share Note' });
+    fireEvent.change(within(dialog).getByLabelText('Read Access'), { target: { value: 'signed_in' } });
+    fireEvent.change(within(dialog).getByLabelText('Write Access'), { target: { value: 'signed_in' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save Sharing' }));
+
+    await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
+      readPermission: 'signed_in',
+      writePermission: 'signed_in',
+    }));
+  });
+
   it('moves a note to a selected folder from the inspector', async () => {
     const api = createApi({
       hackmd: {

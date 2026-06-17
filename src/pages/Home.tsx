@@ -1167,8 +1167,14 @@ export function Home() {
           command={documentCommand}
           onOpenEditor={handleOpenEditor}
           onCopyLink={handleCopyNoteLink}
+          onCopyMarkdownLink={handleCopyNoteMarkdownLink}
           onSave={(note, input) => mutations.updateNoteMutation.mutate({ note, input })}
           onSaveMetadata={(note, input) => mutations.updateNoteMutation.mutate({ note, input })}
+          onSaveSharing={(note, input) => mutations.updateNoteMutation.mutate({
+            note,
+            input,
+            successMessage: 'Sharing settings updated.',
+          })}
           onUploadImage={(note, input) => mutations.uploadNoteImageMutation.mutateAsync({ note, input })}
           onDelete={handleDeleteRequest}
           onDirtyStateChange={setNoteDirty}

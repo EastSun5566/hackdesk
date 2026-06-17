@@ -230,7 +230,8 @@ export function useElectronNoteMutations({
   });
 
   const updateNoteMutation = useMutation({
-    mutationFn: ({ note, input }: { note: DocumentSummary; input: UpdateNoteInput }) => {
+    mutationFn: (variables: { note: DocumentSummary; input: UpdateNoteInput; successMessage?: string }) => {
+      const { note, input } = variables;
       if (!api) {
         throw new Error('Electron API is unavailable.');
       }
@@ -244,10 +245,10 @@ export function useElectronNoteMutations({
         ? api.hackmd.updateTeamNote(note.teamPath, note.id, payload)
         : api.hackmd.updateNote(note.id, payload);
     },
-    onSuccess: (updatedNote) => {
+    onSuccess: (updatedNote, variables) => {
       onNoteCreated(updatedNote);
       invalidateCurrentNotes();
-      toast.success('Note saved.');
+      toast.success(variables.successMessage ?? 'Note saved.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to save note.'),
   });

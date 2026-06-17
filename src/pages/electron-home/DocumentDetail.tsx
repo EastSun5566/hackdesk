@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Edit3, Loader2, PanelRightClose, PanelRightOpen, Save, Trash2 } from 'lucide-react';
+import { Edit3, Loader2, PanelRightClose, PanelRightOpen, Save, Share2, Trash2 } from 'lucide-react';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/MarkdownEditor';
 import type {
@@ -14,6 +14,7 @@ import type { FolderTree } from '@/lib/hackmd-folders';
 
 import { EmptyState, PanelHeader, PanelShell } from './interaction-primitives';
 import { NoteInspector } from './NoteInspector';
+import { ShareDialog } from './ShareDialog';
 import {
   ICON_BUTTON_CLASS,
   PRESSED_CLASS,
@@ -44,8 +45,10 @@ export function DocumentDetail({
   command,
   onOpenEditor,
   onCopyLink,
+  onCopyMarkdownLink,
   onSave,
   onSaveMetadata,
+  onSaveSharing,
   onUploadImage,
   onDelete,
   onDirtyStateChange,
@@ -62,8 +65,10 @@ export function DocumentDetail({
   command?: DocumentDetailCommand | null;
   onOpenEditor: (document: DocumentSummary) => void;
   onCopyLink: (document: DocumentSummary) => void;
+  onCopyMarkdownLink: (document: DocumentSummary) => void;
   onSave: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
+  onSaveSharing: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onUploadImage: (document: DocumentSummary, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
   onDelete: (document: DocumentSummary) => void;
   onDirtyStateChange?: (dirty: boolean) => void;
@@ -76,6 +81,7 @@ export function DocumentDetail({
   const editorRef = useRef<MarkdownEditorHandle | null>(null);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [shareOpen, setShareOpen] = useState(false);
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(() => (
     readBooleanStorage(INSPECTOR_COLLAPSED_KEY, true)
   ));
@@ -203,6 +209,14 @@ export function DocumentDetail({
             </button>
             <button
               type="button"
+              onClick={() => setShareOpen(true)}
+              className={SECONDARY_BUTTON_CLASS}
+            >
+              <Share2 aria-hidden="true" className="h-4 w-4" />
+              Share
+            </button>
+            <button
+              type="button"
               disabled={isSaving || !noteDirty}
               title={!noteDirty ? 'No unsaved note changes.' : undefined}
               onClick={() => onSave(document, { title, content })}
@@ -259,6 +273,17 @@ export function DocumentDetail({
           )}
         </div>
       </div>
+
+      <ShareDialog
+        open={shareOpen}
+        document={document}
+        isSaving={isSavingMetadata}
+        onOpenChange={setShareOpen}
+        onCopyLink={onCopyLink}
+        onCopyMarkdownLink={onCopyMarkdownLink}
+        onOpenEditor={onOpenEditor}
+        onSaveSharing={onSaveSharing}
+      />
     </PanelShell>
   );
 }
