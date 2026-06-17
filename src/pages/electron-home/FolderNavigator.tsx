@@ -19,6 +19,7 @@ import {
   RefreshCcw,
   Search,
   SlidersHorizontal,
+  Tag,
   Trash2,
   X,
 } from 'lucide-react';
@@ -85,10 +86,11 @@ import {
   type NoteFinderSortMode,
   type NoteFinderState,
 } from '@/lib/electron-note-finder';
+import { buildNoteTagIndex, type ElectronNoteTag } from '@/lib/electron-note-tags';
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
-import { EmptyState, EntityRow, PanelHeader, PanelShell } from './interaction-primitives';
+import { CollapsibleSection, EmptyState, EntityRow, PanelHeader, PanelShell } from './interaction-primitives';
 import type { WorkspaceScope } from './types';
 import { RepositoryNotice } from './RepositoryNotice';
 import {
@@ -110,6 +112,7 @@ const SORT_LABELS: Record<NoteFinderSortMode, string> = {
 };
 
 const SORT_MODES: NoteFinderSortMode[] = ['updated-desc', 'updated-asc', 'title-asc', 'title-desc', 'created-desc'];
+const TAG_BROWSER_LIMIT = 12;
 
 const PERMISSION_LABELS: Record<NotePermissionRole, string> = {
   owner: 'Owner',
@@ -309,6 +312,63 @@ function NoteFinderToolbar({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function TagBrowser({
+  tags,
+  activeTags,
+  isLoading,
+  onTagToggle,
+}: {
+  tags: ElectronNoteTag[];
+  activeTags: string[];
+  isLoading: boolean;
+  onTagToggle: (tag: string) => void;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const visibleTags = showAll ? tags : tags.slice(0, TAG_BROWSER_LIMIT);
+
+  if (isLoading) {
+    return null;
+  }
+
+  return (
+    <CollapsibleSection title="Tags" defaultOpen>
+      {tags.length === 0 ? (
+        <div className="rounded-md border border-border-default bg-background-default px-3 py-2 text-xs text-text-subtle">
+          No tags yet
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {visibleTags.map((entry) => {
+            const active = activeTags.includes(entry.tag);
+            return (
+              <EntityRow
+                key={entry.tag}
+                selected={active}
+                active={active}
+                variant="compact"
+                icon={<Tag className="h-3.5 w-3.5" />}
+                title={entry.tag}
+                trailing={entry.count}
+                ariaLabel={`${active ? 'Clear' : 'Filter by'} tag ${entry.tag}`}
+                onClick={() => onTagToggle(entry.tag)}
+              />
+            );
+          })}
+          {tags.length > TAG_BROWSER_LIMIT ? (
+            <button
+              type="button"
+              onClick={() => setShowAll((current) => !current)}
+              className={`mt-1 h-7 rounded-[6px] px-2 text-xs text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${FOCUS_RING_CLASS}`}
+            >
+              {showAll ? 'Show less' : `Show all ${tags.length} tags`}
+            </button>
+          ) : null}
+        </div>
+      )}
+    </CollapsibleSection>
   );
 }
 
@@ -905,6 +965,7 @@ export function FolderNavigator({
 }) {
   const isFinderMode = isNoteFinderActive(finderState);
   const finderOptions = useMemo(() => getNoteFinderOptions(tree.allNotes), [tree.allNotes]);
+  const tagIndex = useMemo(() => buildNoteTagIndex(tree.allNotes), [tree.allNotes]);
   const hasTreeContent = tree.roots.length > 0 || tree.unfiled.notes.length > 0;
   const navigatorSubtitle = isLoading
     ? 'Loading…'
@@ -1001,6 +1062,15 @@ export function FolderNavigator({
   const activeNote = activeNoteId
     ? tree.allNotes.find((entry) => entry.note.id === activeNoteId) ?? null
     : null;
+  const handleTagToggle = (tag: string) => {
+    onFinderStateChange({
+      ...finderState,
+      searchScope: 'workspace',
+      tagFilters: finderState.tagFilters.includes(tag)
+        ? finderState.tagFilters.filter((candidate) => candidate !== tag)
+        : [tag],
+    });
+  };
 
   return (
     <PanelShell
@@ -1088,6 +1158,12 @@ export function FolderNavigator({
               selectedFolderId={selectedFolderId}
               options={finderOptions}
               onChange={onFinderStateChange}
+            />
+            <TagBrowser
+              tags={tagIndex}
+              activeTags={finderState.tagFilters}
+              isLoading={isLoading}
+              onTagToggle={handleTagToggle}
             />
 
             {!hasToken ? (

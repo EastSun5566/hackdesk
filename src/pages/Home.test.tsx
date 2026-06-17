@@ -1332,6 +1332,107 @@ describe('Home native-feel behavior', () => {
     expect(screen.getByRole('button', { name: 'Design Spec' })).toBeInTheDocument();
   });
 
+  it('filters notes from the tag browser and clears the active tag when clicked again', async () => {
+    const notes = [
+      { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', tags: ['product'], updatedAtMillis: 3000 },
+      { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', tags: ['design'], updatedAtMillis: 2000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+      },
+    });
+
+    renderHome(api);
+    await screen.findByRole('button', { name: 'Filter by tag product' });
+    fireEvent.click(screen.getByRole('button', { name: 'Filter by tag product' }));
+
+    await screen.findByText('1 result');
+    expect(screen.getByRole('button', { name: 'Product Plan' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Design Spec' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear tag product' }));
+
+    await screen.findByText('2 results');
+    expect(screen.getByRole('button', { name: 'Design Spec' })).toBeInTheDocument();
+  });
+
+  it('shows filter dropdown multi-tag state in the tag browser', async () => {
+    const notes = [
+      { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', tags: ['product'], updatedAtMillis: 3000 },
+      { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', tags: ['design'], updatedAtMillis: 2000 },
+      { ...note, id: 'note-ops', title: 'Ops Runbook', shortId: 'ops', tags: ['ops'], updatedAtMillis: 1000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+      },
+    });
+
+    renderHome(api);
+    await screen.findByRole('button', { name: 'Filter by tag product' });
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Filter notes' }));
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'product' }));
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'design' }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Remove tag filter product', hidden: true })).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Clear tag product', hidden: true })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clear tag design', hidden: true })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Clear tag ops', hidden: true })).not.toBeInTheDocument();
+  });
+
+  it('toggles long tag lists with show all and show less', async () => {
+    const notes = Array.from({ length: 13 }, (_, index) => ({
+      ...note,
+      id: `note-${index + 1}`,
+      title: `Note ${index + 1}`,
+      shortId: `note-${index + 1}`,
+      tags: [`tag-${String(index + 1).padStart(2, '0')}`],
+      updatedAtMillis: 3000 - index,
+    }));
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+      },
+    });
+
+    renderHome(api);
+    await screen.findByRole('button', { name: 'Filter by tag tag-01' });
+    expect(screen.queryByRole('button', { name: 'Filter by tag tag-13' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all 13 tags' }));
+
+    expect(screen.getByRole('button', { name: 'Filter by tag tag-13' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show less' }));
+
+    expect(screen.queryByRole('button', { name: 'Filter by tag tag-13' })).not.toBeInTheDocument();
+  });
+
+  it('uses the tag browser in history scope', async () => {
+    const historyNotes = [
+      { ...note, id: 'history-product', title: 'History Product', shortId: 'history-product', tags: ['product'], updatedAtMillis: 3000 },
+      { ...note, id: 'history-design', title: 'History Design', shortId: 'history-design', tags: ['design'], updatedAtMillis: 2000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listHistory: vi.fn(async () => ({ source: 'remote', data: historyNotes })),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.click(await screen.findByRole('button', { name: 'History' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag product' }));
+
+    await screen.findByText('1 result');
+    expect(screen.getByRole('button', { name: 'History Product' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'History Design' })).not.toBeInTheDocument();
+  });
+
   it('sorts finder results by title', async () => {
     const notes = [
       { ...note, id: 'note-b', title: 'Beta', shortId: 'beta', updatedAtMillis: 3000 },
