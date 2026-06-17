@@ -49,6 +49,14 @@ describe('electron action registry', () => {
       shortcut: '⌘S',
       menuAccelerator: 'CmdOrCtrl+S',
     });
+    expect(getElectronAction('export-note-markdown')).toMatchObject({
+      label: 'Export Note as Markdown',
+      menuAccelerator: 'Shift+CmdOrCtrl+E',
+    });
+    expect(getElectronAction('import-markdown-note')).toMatchObject({
+      label: 'Import Markdown Note',
+      menuAccelerator: 'Shift+CmdOrCtrl+I',
+    });
   });
 
   it('uses the same registry for command palette actions', () => {
@@ -82,5 +90,14 @@ describe('electron action registry', () => {
       hasToken: false,
       canCreate: false,
     })).toBe('Connect HackMD in Settings first.');
+    expect(getActionDisabledReason(getElectronAction('import-markdown-note'), {
+      ...baseContext,
+      scopeType: 'history',
+      canCreate: false,
+    })).toBe('Choose My Workspace or a team first.');
+    expect(getActionDisabledReason(getElectronAction('export-note-markdown'), {
+      ...baseContext,
+      selectedNoteId: null,
+    })).toBe('Select a note first.');
   });
 });

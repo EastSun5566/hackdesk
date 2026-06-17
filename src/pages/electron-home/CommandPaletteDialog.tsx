@@ -1,6 +1,7 @@
 import {
   FileText,
   FileArchive,
+  Download,
   Folder,
   FolderTree,
   FolderPlus,
@@ -17,6 +18,7 @@ import {
   Save,
   Search,
   Settings2,
+  Upload,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -62,6 +64,8 @@ const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'rename-folder': <FolderPen className="h-4 w-4" />,
   'delete-folder': <Trash2 className="h-4 w-4" />,
   'save-note': <Save className="h-4 w-4" />,
+  'export-note-markdown': <Download className="h-4 w-4" />,
+  'import-markdown-note': <Upload className="h-4 w-4" />,
   'open-note-web-editor': <FileText className="h-4 w-4" />,
   'delete-note': <Trash2 className="h-4 w-4" />,
   'open-settings': <Settings2 className="h-4 w-4" />,

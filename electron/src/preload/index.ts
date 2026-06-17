@@ -9,7 +9,9 @@ import type {
   FolderOrder,
   HackDeskCommandPaletteCommand,
   HackDeskElectronAPI,
+  OpenTextFileInput,
   OpenHackmdEditorInput,
+  SaveTextFileInput,
   UpdateFolderInput,
   UpdateNoteInput,
   UploadNoteImageInput,
@@ -89,6 +91,8 @@ const api: HackDeskElectronAPI = {
       ipcRenderer.invoke(ELECTRON_CHANNELS.appRecordFatalRendererError, error)
     ),
     writeClipboardText: (text: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.appWriteClipboardText, text),
+    saveTextFile: (input: SaveTextFileInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.appSaveTextFile, input),
+    openTextFile: (input: OpenTextFileInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.appOpenTextFile, input),
     onCommand: (callback: (command: HackDeskCommandPaletteCommand) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, command: HackDeskCommandPaletteCommand) => {
         callback(command);

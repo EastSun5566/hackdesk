@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Copy,
   CopyPlus,
+  Download,
   FileText,
   Folder,
   FolderOpen,
@@ -21,6 +22,7 @@ import {
   SlidersHorizontal,
   Tag,
   Trash2,
+  Upload,
   X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -380,6 +382,7 @@ function NoteRow({
   onCopyLink,
   onCopyMarkdownLink,
   onDuplicate,
+  onExportMarkdown,
   onDelete,
   onMoveToSelectedFolder,
   selectedFolder,
@@ -395,6 +398,7 @@ function NoteRow({
   onCopyLink: (note: NoteSummary) => void;
   onCopyMarkdownLink: (note: NoteSummary) => void;
   onDuplicate: (note: NoteSummary) => void;
+  onExportMarkdown: (note: NoteSummary) => void;
   onDelete: (note: NoteSummary) => void;
   onMoveToSelectedFolder?: (entry: FolderTreeNote) => void;
   selectedFolder?: FolderTreeNode | null;
@@ -493,6 +497,10 @@ function NoteRow({
         <ContextMenuItem onSelect={() => onDuplicate(entry.note)}>
           <CopyPlus aria-hidden="true" className="h-4 w-4" />
           Duplicate Note
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={() => onExportMarkdown(entry.note)}>
+          <Download aria-hidden="true" className="h-4 w-4" />
+          Export Markdown
         </ContextMenuItem>
         <ContextMenuItem
           disabled={!canMoveToSelectedFolder}
@@ -701,6 +709,7 @@ function FolderActionsDropdown({
   selectedFolder,
   canCreate,
   onCreateFolder,
+  onImportMarkdown,
   onRenameFolder,
   onDeleteFolder,
   onOpenPalette,
@@ -708,6 +717,7 @@ function FolderActionsDropdown({
   selectedFolder: FolderTreeNode | null;
   canCreate: boolean;
   onCreateFolder: () => void;
+  onImportMarkdown: () => void;
   onRenameFolder: (folderId: string) => void;
   onDeleteFolder: (folderId: string) => void;
   onOpenPalette: () => void;
@@ -727,6 +737,10 @@ function FolderActionsDropdown({
         <DropdownMenuItem disabled={!canCreate} onSelect={onCreateFolder}>
           <FolderPlus aria-hidden="true" className="h-4 w-4" />
           New Folder
+        </DropdownMenuItem>
+        <DropdownMenuItem disabled={!canCreate} onSelect={onImportMarkdown}>
+          <Upload aria-hidden="true" className="h-4 w-4" />
+          Import Markdown Note
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled={!selectedFolder} onSelect={() => selectedFolder && onRenameFolder(selectedFolder.id)}>
@@ -765,6 +779,7 @@ function FolderTreeView({
   onNoteCopyLink,
   onNoteCopyMarkdownLink,
   onNoteDuplicate,
+  onNoteExportMarkdown,
   onNoteDelete,
   onNoteMoveToSelectedFolder,
   selectedFolderForNoteMove,
@@ -787,6 +802,7 @@ function FolderTreeView({
   onNoteCopyLink: (note: NoteSummary) => void;
   onNoteCopyMarkdownLink: (note: NoteSummary) => void;
   onNoteDuplicate: (note: NoteSummary) => void;
+  onNoteExportMarkdown: (note: NoteSummary) => void;
   onNoteDelete: (note: NoteSummary) => void;
   onNoteMoveToSelectedFolder: (entry: FolderTreeNote) => void;
   selectedFolderForNoteMove: FolderTreeNode | null;
@@ -842,6 +858,7 @@ function FolderTreeView({
                     onNoteCopyLink={onNoteCopyLink}
                     onNoteCopyMarkdownLink={onNoteCopyMarkdownLink}
                     onNoteDuplicate={onNoteDuplicate}
+                    onNoteExportMarkdown={onNoteExportMarkdown}
                     onNoteDelete={onNoteDelete}
                     onNoteMoveToSelectedFolder={onNoteMoveToSelectedFolder}
                     selectedFolderForNoteMove={selectedFolderForNoteMove}
@@ -858,6 +875,7 @@ function FolderTreeView({
                         onCopyLink={onNoteCopyLink}
                         onCopyMarkdownLink={onNoteCopyMarkdownLink}
                         onDuplicate={onNoteDuplicate}
+                        onExportMarkdown={onNoteExportMarkdown}
                         onDelete={onNoteDelete}
                         onMoveToSelectedFolder={onNoteMoveToSelectedFolder}
                         selectedFolder={selectedFolderForNoteMove}
@@ -916,7 +934,9 @@ export function FolderNavigator({
   onCopyNoteLink,
   onCopyNoteMarkdownLink,
   onDuplicateNote,
+  onExportNoteMarkdown,
   onDeleteNote,
+  onImportMarkdown,
   onToggleCollapsed,
   onOpenPalette,
   onOpenSettings,
@@ -958,7 +978,9 @@ export function FolderNavigator({
   onCopyNoteLink: (note: NoteSummary) => void;
   onCopyNoteMarkdownLink: (note: NoteSummary) => void;
   onDuplicateNote: (note: NoteSummary) => void;
+  onExportNoteMarkdown: (note: NoteSummary) => void;
   onDeleteNote: (note: NoteSummary) => void;
+  onImportMarkdown: () => void;
   onToggleCollapsed: () => void;
   onOpenPalette: () => void;
   onOpenSettings: () => void;
@@ -1133,6 +1155,7 @@ export function FolderNavigator({
                   selectedFolder={selectedConcreteFolder}
                   canCreate={canCreate && !isCreating}
                   onCreateFolder={onCreateFolder}
+                  onImportMarkdown={onImportMarkdown}
                   onRenameFolder={onRenameFolder}
                   onDeleteFolder={onDeleteFolder}
                   onOpenPalette={onOpenPalette}
@@ -1204,6 +1227,7 @@ export function FolderNavigator({
                     onCopyLink={onCopyNoteLink}
                     onCopyMarkdownLink={onCopyNoteMarkdownLink}
                     onDuplicate={onDuplicateNote}
+                    onExportMarkdown={onExportNoteMarkdown}
                     onDelete={onDeleteNote}
                     onMoveToSelectedFolder={handleNoteMoveToSelectedFolder}
                     selectedFolder={selectedFolderForNoteMove}
@@ -1249,6 +1273,7 @@ export function FolderNavigator({
                       onNoteCopyLink={onCopyNoteLink}
                       onNoteCopyMarkdownLink={onCopyNoteMarkdownLink}
                       onNoteDuplicate={onDuplicateNote}
+                      onNoteExportMarkdown={onExportNoteMarkdown}
                       onNoteDelete={onDeleteNote}
                       onNoteMoveToSelectedFolder={handleNoteMoveToSelectedFolder}
                       selectedFolderForNoteMove={selectedFolderForNoteMove}
@@ -1264,6 +1289,7 @@ export function FolderNavigator({
                         onCopyLink={onCopyNoteLink}
                         onCopyMarkdownLink={onCopyNoteMarkdownLink}
                         onDuplicate={onDuplicateNote}
+                        onExportMarkdown={onExportNoteMarkdown}
                         onDelete={onDeleteNote}
                         onMoveToSelectedFolder={handleNoteMoveToSelectedFolder}
                         selectedFolder={selectedFolderForNoteMove}

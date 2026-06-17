@@ -5,6 +5,8 @@ import type {
   CreateFolderInput,
   CreateNoteInput,
   FolderOrder,
+  OpenTextFileInput,
+  SaveTextFileInput,
   UpdateFolderInput,
   UpdateNoteInput,
   FatalRendererError,
@@ -44,6 +46,7 @@ import {
 import { getSafeSettings, updateStoredSettings } from './settings';
 import { openExternalUrl, openHackmdEditor } from './url-policy';
 import type { WindowManager } from './window-manager';
+import { openTextFile, saveTextFile } from './app-file-dialog';
 import { exportDebugLogs, recordFatalRendererError } from './logging';
 
 export function registerIpcHandlers(windowManager: WindowManager) {
@@ -115,6 +118,12 @@ export function registerIpcHandlers(windowManager: WindowManager) {
   ipcMain.handle(ELECTRON_CHANNELS.appWriteClipboardText, (_event, text: string) => {
     clipboard.writeText(text);
   });
+  ipcMain.handle(ELECTRON_CHANNELS.appSaveTextFile, (_event, input: SaveTextFileInput) => (
+    saveTextFile(input, windowManager.getTargetWindow())
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.appOpenTextFile, (_event, input: OpenTextFileInput) => (
+    openTextFile(input, windowManager.getTargetWindow())
+  ));
   ipcMain.handle(ELECTRON_CHANNELS.appConfirm, async (_event, options: ConfirmDialogOptions) => {
     const confirmLabel = options.confirmLabel ?? 'OK';
     const cancelLabel = options.cancelLabel ?? 'Cancel';

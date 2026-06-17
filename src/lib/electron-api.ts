@@ -148,6 +148,27 @@ export type ConfirmDialogResult = {
   confirmed: boolean;
 };
 
+export type AppFileFilter = {
+  name: string;
+  extensions: string[];
+};
+
+export type SaveTextFileInput = {
+  defaultFileName: string;
+  content: string;
+  filters?: AppFileFilter[];
+};
+
+export type OpenTextFileInput = {
+  filters?: AppFileFilter[];
+};
+
+export type OpenTextFileResult = {
+  filePath: string;
+  fileName: string;
+  content: string;
+};
+
 export type FatalRendererError = {
   message: string;
   stack?: string;
@@ -191,6 +212,8 @@ export type ElectronActionId =
   | 'focus-editor'
   | 'focus-inspector'
   | 'save-note'
+  | 'export-note-markdown'
+  | 'import-markdown-note'
   | 'open-note-web-editor'
   | 'delete-note';
 
@@ -242,6 +265,8 @@ export type HackDeskElectronAPI = {
     exportDebugLogs: () => Promise<string>;
     recordFatalRendererError: (error: FatalRendererError) => Promise<void>;
     writeClipboardText?: (text: string) => Promise<void>;
+    saveTextFile: (input: SaveTextFileInput) => Promise<string | null>;
+    openTextFile: (input: OpenTextFileInput) => Promise<OpenTextFileResult | null>;
     onCommand: (callback: (command: HackDeskCommandPaletteCommand) => void) => () => void;
   };
 };

@@ -41,7 +41,10 @@ export function createApplicationMenu(sendCommand: SendCommand) {
       submenu: [
         actionMenuItem('new-note', sendCommand),
         actionMenuItem('new-folder', sendCommand),
+        actionMenuItem('import-markdown-note', sendCommand),
+        { type: 'separator' },
         actionMenuItem('save-note', sendCommand),
+        actionMenuItem('export-note-markdown', sendCommand),
         { type: 'separator' },
         actionMenuItem('open-note-web-editor', sendCommand),
         actionMenuItem('delete-note', sendCommand),

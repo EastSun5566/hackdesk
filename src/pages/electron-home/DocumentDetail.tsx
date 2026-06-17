@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Edit3, Loader2, PanelRightClose, PanelRightOpen, Save, Share2, Trash2 } from 'lucide-react';
+import { Download, Edit3, Loader2, PanelRightClose, PanelRightOpen, Save, Share2, Trash2 } from 'lucide-react';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/MarkdownEditor';
 import type {
@@ -33,7 +33,7 @@ import {
 const NOTE_INSPECTOR_PANEL_ID = 'note-inspector-panel';
 
 export type DocumentDetailCommand = {
-  id: Extract<ElectronActionId, 'toggle-inspector' | 'focus-inspector' | 'save-note' | 'open-note-web-editor' | 'delete-note'>;
+  id: Extract<ElectronActionId, 'toggle-inspector' | 'focus-inspector' | 'save-note' | 'export-note-markdown' | 'open-note-web-editor' | 'delete-note'>;
   sequence: number;
 };
 
@@ -46,6 +46,7 @@ export function DocumentDetail({
   onOpenEditor,
   onCopyLink,
   onCopyMarkdownLink,
+  onExportMarkdown,
   onSave,
   onSaveMetadata,
   onSaveSharing,
@@ -66,6 +67,7 @@ export function DocumentDetail({
   onOpenEditor: (document: DocumentSummary) => void;
   onCopyLink: (document: DocumentSummary) => void;
   onCopyMarkdownLink: (document: DocumentSummary) => void;
+  onExportMarkdown: (document: DocumentSummary, title: string, content: string) => void;
   onSave: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveSharing: (document: DocumentSummary, input: UpdateNoteInput) => void;
@@ -127,6 +129,9 @@ export function DocumentDetail({
       if (noteDirty && !isSaving) {
         onSave(document, { title, content });
       }
+      break;
+    case 'export-note-markdown':
+      onExportMarkdown(document, title, content);
       break;
     case 'open-note-web-editor':
       onOpenEditor(document);
@@ -214,6 +219,14 @@ export function DocumentDetail({
             >
               <Share2 aria-hidden="true" className="h-4 w-4" />
               Share
+            </button>
+            <button
+              type="button"
+              onClick={() => onExportMarkdown(document, title, content)}
+              className={SECONDARY_BUTTON_CLASS}
+            >
+              <Download aria-hidden="true" className="h-4 w-4" />
+              Export
             </button>
             <button
               type="button"

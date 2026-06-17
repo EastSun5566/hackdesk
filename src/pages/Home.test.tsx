@@ -110,8 +110,15 @@ async function openInspector() {
   await screen.findByRole('heading', { name: 'Inspector' });
 }
 
-function createApi(overrides: Partial<HackDeskElectronAPI> = {}): HackDeskElectronAPI {
-  return {
+type HackDeskElectronAPIOverrides = Partial<Omit<HackDeskElectronAPI, 'settings' | 'hackmd' | 'shell' | 'app'>> & {
+  settings?: Partial<HackDeskElectronAPI['settings']>;
+  hackmd?: Partial<HackDeskElectronAPI['hackmd']>;
+  shell?: Partial<HackDeskElectronAPI['shell']>;
+  app?: Partial<HackDeskElectronAPI['app']>;
+};
+
+function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectronAPI {
+  const base: HackDeskElectronAPI = {
     getRuntimeEnvironment: () => 'electron',
     settings: {
       get: vi.fn(async () => ({ title: 'HackDesk', hasHackmdApiToken: true })),
@@ -171,9 +178,19 @@ function createApi(overrides: Partial<HackDeskElectronAPI> = {}): HackDeskElectr
       exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
       recordFatalRendererError: vi.fn(async () => undefined),
       writeClipboardText: vi.fn(async () => undefined),
+      saveTextFile: vi.fn(async () => '/tmp/test-note.md'),
+      openTextFile: vi.fn(async () => null),
       onCommand: vi.fn(() => () => undefined),
     },
+  };
+
+  return {
+    ...base,
     ...overrides,
+    settings: { ...base.settings, ...overrides.settings },
+    hackmd: { ...base.hackmd, ...overrides.hackmd },
+    shell: { ...base.shell, ...overrides.shell },
+    app: { ...base.app, ...overrides.app },
   };
 }
 
@@ -296,6 +313,92 @@ describe('Home native-feel behavior', () => {
       content: '# Folder note\n\n',
       parentFolderId: 'folder-1',
     }));
+  });
+
+  it('exports the current editor draft as markdown', async () => {
+    const api = createApi();
+
+    renderHome(api);
+
+    const titleInput = await findRenderedNoteTitle();
+    fireEvent.change(titleInput, { target: { value: 'Draft: Test note' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+
+    await waitFor(() => expect(api.app.saveTextFile).toHaveBeenCalledWith({
+      defaultFileName: 'Draft- Test note.md',
+      content: '# Test note',
+      filters: [
+        { name: 'Markdown', extensions: ['md'] },
+        { name: 'Text', extensions: ['txt'] },
+      ],
+    }));
+  });
+
+  it('imports a markdown file into the selected folder from the shared action registry command', async () => {
+    let commandHandler: ((command: HackDeskCommandPaletteCommand) => void) | null = null;
+    const importedDocument = {
+      ...document,
+      id: 'imported-note',
+      title: 'Imported Note',
+      shortId: 'imported-note',
+      content: '# Imported Note\n\nBody',
+      folderPaths: [folder],
+    };
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: [] })),
+        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        createNote: vi.fn(async () => importedDocument),
+        getNote: vi.fn(async () => ({ source: 'remote', data: importedDocument })),
+      },
+      app: {
+        openTextFile: vi.fn(async () => ({
+          filePath: '/tmp/imported.md',
+          fileName: 'imported.md',
+          content: '# Imported Note\n\nBody',
+        })),
+        onCommand: vi.fn((handler) => {
+          commandHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+
+    fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
+    act(() => {
+      commandHandler?.({ type: 'import-markdown-note' });
+    });
+
+    await waitFor(() => expect(api.hackmd.createNote).toHaveBeenCalledWith({
+      title: 'Imported Note',
+      content: '# Imported Note\n\nBody',
+      parentFolderId: 'folder-1',
+    }));
+  });
+
+  it('does not create a note when markdown import is cancelled', async () => {
+    let commandHandler: ((command: HackDeskCommandPaletteCommand) => void) | null = null;
+    const api = createApi({
+      app: {
+        openTextFile: vi.fn(async () => null),
+        onCommand: vi.fn((handler) => {
+          commandHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    act(() => {
+      commandHandler?.({ type: 'import-markdown-note' });
+    });
+
+    await waitFor(() => expect(api.app.openTextFile).toHaveBeenCalled());
+    expect(api.hackmd.createNote).not.toHaveBeenCalled();
   });
 
   it('exports debug logs from the shared action registry command', async () => {
@@ -1860,6 +1963,63 @@ describe('Home native-feel behavior', () => {
       parentFolderId: 'folder-1',
     })));
     expect(await screen.findByDisplayValue('Copy of Test note')).toBeInTheDocument();
+  });
+
+  it('imports a markdown file through the team create endpoint', async () => {
+    let commandHandler: ((command: HackDeskCommandPaletteCommand) => void) | null = null;
+    const importedDocument = {
+      ...document,
+      id: 'team-imported-note',
+      title: 'Team Imported',
+      shortId: 'team-imported-note',
+      teamPath: team.path,
+      userPath: null,
+      content: '# Team Imported',
+    };
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        getCurrentUser: vi.fn(async () => ({
+          source: 'remote',
+          data: {
+            id: 'user-1',
+            email: 'michael@example.com',
+            name: 'Michael',
+            username: 'michael',
+            photo: null,
+            upgraded: false,
+            teams: [team],
+          },
+        })),
+        listTeams: vi.fn(async () => ({ source: 'remote', data: [team] })),
+        listTeamNotes: vi.fn(async () => ({ source: 'remote', data: [] })),
+        listTeamFolders: vi.fn(async () => ({ source: 'remote', data: [] })),
+        createTeamNote: vi.fn(async () => importedDocument),
+        getNote: vi.fn(async () => ({ source: 'remote', data: importedDocument })),
+      },
+      app: {
+        openTextFile: vi.fn(async () => ({
+          filePath: '/tmp/team-imported.md',
+          fileName: 'team-imported.md',
+          content: '# Team Imported',
+        })),
+        onCommand: vi.fn((handler) => {
+          commandHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace' }, { timeout: 5_000 }));
+    act(() => {
+      commandHandler?.({ type: 'import-markdown-note' });
+    });
+
+    await waitFor(() => expect(api.hackmd.createTeamNote).toHaveBeenCalledWith('team-workspace', {
+      title: 'Team Imported',
+      content: '# Team Imported',
+    }));
   });
 
   it('opens a note from the note context menu', async () => {

@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 
 import type {
   CreateFolderInput,
+  CreateNoteInput,
   DocumentSummary,
   FolderOrder,
   FolderSummary,
@@ -203,6 +204,29 @@ export function useElectronNoteMutations({
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to duplicate note.'),
   });
 
+  const importMarkdownNoteMutation = useMutation({
+    mutationFn: async (input: CreateNoteInput) => {
+      if (!api) {
+        throw new Error('Electron API is unavailable.');
+      }
+
+      if (scope.type === 'history') {
+        throw new Error('Choose My Workspace or a team before importing notes.');
+      }
+
+      return scope.type === 'team'
+        ? api.hackmd.createTeamNote(scope.teamPath, input)
+        : api.hackmd.createNote(input);
+    },
+    onSuccess: (createdNote) => {
+      seedWorkspaceNote(createdNote);
+      onNoteCreated(createdNote);
+      void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope), refetchType: 'inactive' });
+      toast.success('Markdown note imported.');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to import markdown note.'),
+  });
+
   const createFolderMutation = useMutation({
     mutationFn: async (input: CreateFolderInput) => {
       if (!api) {
@@ -385,6 +409,7 @@ export function useElectronNoteMutations({
     updateSettingsMutation,
     createNoteMutation,
     duplicateNoteMutation,
+    importMarkdownNoteMutation,
     createFolderMutation,
     renameFolderMutation,
     deleteFolderMutation,

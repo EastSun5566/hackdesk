@@ -28,6 +28,10 @@ import {
   getHackmdNoteUrl,
   getMarkdownNoteLink,
 } from '@/lib/electron-note-links';
+import {
+  buildMarkdownExportInput,
+  buildMarkdownImportInput,
+} from '@/lib/electron-note-portability';
 import type { QuickOpenFolderResult, QuickOpenWorkspaceResult } from '@/lib/electron-quick-open';
 import {
   readRecentNotes,
@@ -501,6 +505,76 @@ export function Home() {
     setPalette({ open: true, search: '' });
   }, []);
 
+  const handleExportMarkdown = useCallback((_note: DocumentSummary, title: string, content: string) => {
+    if (!api) {
+      return;
+    }
+
+    void api.app.saveTextFile(buildMarkdownExportInput(title, content))
+      .then((filePath) => {
+        if (filePath) {
+          toast.success(`Note exported to ${filePath}`);
+        }
+      })
+      .catch((error) => {
+        toast.error(error instanceof Error ? error.message : 'Failed to export note.');
+      });
+  }, [api]);
+
+  const handleExportNoteMarkdown = useCallback((note: NoteSummary) => {
+    if (!api) {
+      return;
+    }
+
+    if (noteIdentityMatches(note, selectedNote)) {
+      dispatchDocumentCommand('export-note-markdown');
+      return;
+    }
+
+    void api.hackmd.getNote(note.id, note.teamPath ?? null)
+      .then((result) => {
+        if (result.source === 'error') {
+          throw new Error(result.error);
+        }
+
+        return api.app.saveTextFile(buildMarkdownExportInput(result.data.title, result.data.content));
+      })
+      .then((filePath) => {
+        if (filePath) {
+          toast.success(`Note exported to ${filePath}`);
+        }
+      })
+      .catch((error) => {
+        toast.error(error instanceof Error ? error.message : 'Failed to export note.');
+      });
+  }, [api, dispatchDocumentCommand, selectedNote]);
+
+  const handleImportMarkdownNote = useCallback(() => {
+    if (!api) {
+      return;
+    }
+
+    if (scope.type === 'history') {
+      toast.info('Choose My Workspace or a team before importing notes.');
+      return;
+    }
+
+    void api.app.openTextFile({
+      filters: [
+        { name: 'Markdown', extensions: ['md', 'markdown'] },
+        { name: 'Text', extensions: ['txt'] },
+      ],
+    }).then((file) => {
+      if (!file) {
+        return;
+      }
+
+      mutations.importMarkdownNoteMutation.mutate(buildMarkdownImportInput(file, selectedParentFolderId));
+    }).catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to import markdown note.');
+    });
+  }, [api, mutations.importMarkdownNoteMutation, scope.type, selectedParentFolderId]);
+
   const runAction = useCallback((actionId: ElectronActionId) => {
     const action = getElectronAction(actionId);
     const disabledReason = getActionDisabledReason(action, actionContext);
@@ -521,6 +595,9 @@ export function Home() {
       break;
     case 'new-folder':
       handleCreateFolder();
+      break;
+    case 'import-markdown-note':
+      handleImportMarkdownNote();
       break;
     case 'rename-folder':
       if (selectedFolder?.id && selectedFolder.id !== UNFILED_FOLDER_ID) {
@@ -556,6 +633,9 @@ export function Home() {
     case 'save-note':
       dispatchDocumentCommand('save-note');
       break;
+    case 'export-note-markdown':
+      dispatchDocumentCommand('export-note-markdown');
+      break;
     case 'open-note-web-editor':
       dispatchDocumentCommand('open-note-web-editor');
       break;
@@ -590,6 +670,7 @@ export function Home() {
     handleCreateFolder,
     handleCreateNote,
     handleDeleteFolderRequest,
+    handleImportMarkdownNote,
     handleRenameFolder,
     openPalette,
     refreshWorkspace,
@@ -1141,7 +1222,9 @@ export function Home() {
           onCopyNoteLink={handleCopyNoteLink}
           onCopyNoteMarkdownLink={handleCopyNoteMarkdownLink}
           onDuplicateNote={handleDuplicateNote}
+          onExportNoteMarkdown={handleExportNoteMarkdown}
           onDeleteNote={handleDeleteRequest}
+          onImportMarkdown={handleImportMarkdownNote}
           onToggleCollapsed={toggleNavigatorCollapsed}
           onOpenPalette={openPalette}
           onOpenSettings={() => setSettingsOpen(true)}
@@ -1168,6 +1251,7 @@ export function Home() {
           onOpenEditor={handleOpenEditor}
           onCopyLink={handleCopyNoteLink}
           onCopyMarkdownLink={handleCopyNoteMarkdownLink}
+          onExportMarkdown={handleExportMarkdown}
           onSave={(note, input) => mutations.updateNoteMutation.mutate({ note, input })}
           onSaveMetadata={(note, input) => mutations.updateNoteMutation.mutate({ note, input })}
           onSaveSharing={(note, input) => mutations.updateNoteMutation.mutate({
