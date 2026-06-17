@@ -23,7 +23,7 @@ import {
   writeNoteFinderState,
   type NoteFinderState,
 } from '@/lib/electron-note-finder';
-import type { QuickOpenFolderResult } from '@/lib/electron-quick-open';
+import type { QuickOpenFolderResult, QuickOpenWorkspaceResult } from '@/lib/electron-quick-open';
 import {
   readRecentNotes,
   recentNoteMatches,
@@ -61,6 +61,7 @@ import type {
 } from './electron-home/types';
 import {
   FOLDER_COLLAPSED_PREFIX,
+  LAST_WORKSPACE_SCOPE_KEY,
   NAVIGATOR_COLLAPSED_KEY,
   NAVIGATOR_WIDTH_DEFAULT,
   NAVIGATOR_WIDTH_KEY,
@@ -74,9 +75,11 @@ import {
   readBooleanStorage,
   readNumberStorage,
   readStringArrayStorage,
+  readWorkspaceScopeStorage,
   writeBooleanStorage,
   writeNumberStorage,
   writeStringArrayStorage,
+  writeWorkspaceScopeStorage,
 } from './electron-home/ui-preferences';
 import {
   getFolderNoteEntries,
@@ -88,6 +91,7 @@ import { useElectronNoteMutations } from './electron-home/useElectronNoteMutatio
 
 const WORKSPACE_RAIL_PANEL_ID = 'workspace-rail-panel';
 const NOTE_NAVIGATOR_PANEL_ID = 'note-navigator-panel';
+const DEFAULT_WORKSPACE_SCOPE: WorkspaceScope = { type: 'personal', label: 'My Workspace' };
 
 function createClosedFolderDialogState(): CreateFolderDialogState {
   return { open: false, name: '', description: '', icon: '', color: '' };
@@ -106,12 +110,14 @@ function createDeleteNoteTarget(note: NoteSummary): DocumentSummary {
 
 export function Home() {
   const api = getDesktopAPI();
-  const [scope, setScope] = useState<WorkspaceScope>({ type: 'personal', label: 'My Workspace' });
+  const initialWorkspaceScope = readWorkspaceScopeStorage(LAST_WORKSPACE_SCOPE_KEY, DEFAULT_WORKSPACE_SCOPE);
+  const [scope, setScopeState] = useState<WorkspaceScope>(() => initialWorkspaceScope);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedNote, setSelectedNote] = useState<NoteSummary | null>(null);
   const [recentNotes, setRecentNotes] = useState<ElectronRecentNote[]>(() => readRecentNotes(window.localStorage));
+  const [pendingRecentNote, setPendingRecentNote] = useState<ElectronRecentNote | null>(null);
   const [finderState, setFinderState] = useState<NoteFinderState>(() => (
-    readNoteFinderState(window.localStorage, getScopeStorageKey({ type: 'personal', label: 'My Workspace' }))
+    readNoteFinderState(window.localStorage, getScopeStorageKey(initialWorkspaceScope))
   ));
   const deferredFinderQuery = useDeferredValue(finderState.query);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -138,6 +144,11 @@ export function Home() {
   ));
   const { focusZone } = useElectronFocusZones();
   const scopeStorageKey = useMemo(() => getScopeStorageKey(scope), [scope]);
+
+  const setWorkspaceScope = useCallback((nextScope: WorkspaceScope) => {
+    setScopeState(nextScope);
+    writeWorkspaceScopeStorage(LAST_WORKSPACE_SCOPE_KEY, nextScope);
+  }, []);
 
   const {
     settings,
@@ -450,7 +461,8 @@ export function Home() {
       refreshWorkspace();
       break;
     case 'go-history':
-      setScope({ type: 'history', label: 'History' });
+      setPendingRecentNote(null);
+      setWorkspaceScope({ type: 'history', label: 'History' });
       focusZone('navigator');
       break;
     case 'toggle-workspace-rail':
@@ -503,6 +515,7 @@ export function Home() {
     openPalette,
     refreshWorkspace,
     selectedFolder,
+    setWorkspaceScope,
     toggleNavigatorCollapsed,
     toggleRailCollapsed,
   ]);
@@ -541,6 +554,29 @@ export function Home() {
     });
   }, [api, trackRecentNote]);
 
+  const revealNoteEntry = useCallback((entry: FolderTreeNote) => {
+    const folderIds = entry.folderPath.map((folder) => folder.id);
+    const leafFolderId = folderIds.at(-1) ?? UNFILED_FOLDER_ID;
+    expandNavigator();
+    revealFolderIds(folderIds);
+    setSelectedFolderId(leafFolderId);
+    selectNoteAndTrackRecent(entry.note);
+    focusZone('editor');
+  }, [expandNavigator, focusZone, revealFolderIds, selectNoteAndTrackRecent]);
+
+  useEffect(() => {
+    if (scope.type !== 'team') {
+      return;
+    }
+
+    const team = teams.find((candidate) => candidate.path === scope.teamPath);
+    if (!team || team.name === scope.label) {
+      return;
+    }
+
+    setWorkspaceScope({ type: 'team', label: team.name, teamPath: team.path });
+  }, [scope, setWorkspaceScope, teams]);
+
   useEffect(() => {
     const storageKey = `${FOLDER_COLLAPSED_PREFIX}${scopeStorageKey}`;
     setCollapsedFolderIds(readStringArrayStorage(storageKey));
@@ -574,6 +610,36 @@ export function Home() {
       setSelectedNote(visibleEntries[0]?.note ?? null);
     }
   }, [selectedNote, visibleEntries]);
+
+  useEffect(() => {
+    if (!pendingRecentNote) {
+      return;
+    }
+
+    const currentTeamPath = scope.type === 'team' ? scope.teamPath : null;
+    const isTargetScopeLoaded = scope.type !== 'history' && currentTeamPath === pendingRecentNote.teamPath;
+    if (!isTargetScopeLoaded || queries.notesQuery.isLoading || queries.notesQuery.isFetching) {
+      return;
+    }
+
+    const loadedEntry = folderTree.allNotes.find((candidate) => recentNoteMatches(candidate.note, pendingRecentNote));
+    setPendingRecentNote(null);
+    if (loadedEntry) {
+      revealNoteEntry(loadedEntry);
+      return;
+    }
+
+    removeRecentNoteEntry(pendingRecentNote.noteId, pendingRecentNote.teamPath);
+    toast.info(`“${pendingRecentNote.title || 'Untitled'}” is no longer available in this workspace.`);
+  }, [
+    folderTree.allNotes,
+    pendingRecentNote,
+    queries.notesQuery.isFetching,
+    queries.notesQuery.isLoading,
+    removeRecentNoteEntry,
+    revealNoteEntry,
+    scope,
+  ]);
 
   useEffect(() => {
     return api?.app.onCommand((command) => {
@@ -791,16 +857,6 @@ export function Home() {
     }
   };
 
-  const revealNoteEntry = (entry: FolderTreeNote) => {
-    const folderIds = entry.folderPath.map((folder) => folder.id);
-    const leafFolderId = folderIds.at(-1) ?? UNFILED_FOLDER_ID;
-    expandNavigator();
-    revealFolderIds(folderIds);
-    setSelectedFolderId(leafFolderId);
-    selectNoteAndTrackRecent(entry.note);
-    focusZone('editor');
-  };
-
   const handleQuickOpenNote = (entry: FolderTreeNote) => {
     revealNoteEntry(entry);
   };
@@ -811,6 +867,7 @@ export function Home() {
     ));
 
     if (loadedEntry) {
+      setPendingRecentNote(null);
       revealNoteEntry(loadedEntry);
       return;
     }
@@ -825,7 +882,8 @@ export function Home() {
 
     if (entry.teamPath) {
       const team = teams.find((candidate) => candidate.path === entry.teamPath);
-      setScope({
+      setPendingRecentNote(entry);
+      setWorkspaceScope({
         type: 'team',
         label: team?.name ?? entry.teamPath,
         teamPath: entry.teamPath,
@@ -835,8 +893,22 @@ export function Home() {
       return;
     }
 
-    setScope({ type: 'personal', label: 'My Workspace' });
+    setPendingRecentNote(entry);
+    setWorkspaceScope({ type: 'personal', label: 'My Workspace' });
     toast.info(`Loading My Workspace before opening “${entry.title || 'Untitled'}”.`);
+    focusZone('navigator');
+  };
+
+  const handleQuickOpenWorkspace = (workspace: QuickOpenWorkspaceResult) => {
+    setPendingRecentNote(null);
+    if (workspace.type === 'personal') {
+      setWorkspaceScope({ type: 'personal', label: workspace.label });
+    } else if (workspace.type === 'history') {
+      setWorkspaceScope({ type: 'history', label: workspace.label });
+    } else {
+      setWorkspaceScope({ type: 'team', label: workspace.label, teamPath: workspace.teamPath });
+    }
+
     focusZone('navigator');
   };
 
@@ -874,7 +946,10 @@ export function Home() {
           teams={teams}
           collapsed={railCollapsed}
           width={railWidth}
-          onScopeChange={setScope}
+          onScopeChange={(nextScope) => {
+            setPendingRecentNote(null);
+            setWorkspaceScope(nextScope);
+          }}
           onOpenSettings={() => setSettingsOpen(true)}
         />
         <PanelResizeSash
@@ -993,6 +1068,8 @@ export function Home() {
         context={actionContext}
         folderTree={folderTree}
         recentNotes={recentNotes}
+        teams={teams}
+        scope={scope}
         selectedNoteId={selectedNote?.id ?? null}
         selectedFolderId={selectedFolderId}
         onStateChange={setPalette}
@@ -1000,6 +1077,7 @@ export function Home() {
         onSelectNote={handleQuickOpenNote}
         onSelectRecentNote={handleQuickOpenRecentNote}
         onSelectFolder={handleQuickOpenFolder}
+        onSelectWorkspace={handleQuickOpenWorkspace}
         onShowFinderResults={handleShowFinderResults}
       />
 

@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ElectronActionDefinition } from './electron-actions';
-import type { FolderSummary, NoteSummary } from './electron-api';
+import type { FolderSummary, NoteSummary, TeamSummary } from './electron-api';
 import {
   getQuickOpenActionResults,
   getQuickOpenFolderResults,
   getQuickOpenNoteResults,
   getQuickOpenRecentNoteResults,
+  getQuickOpenWorkspaceResults,
   shouldShowFinderQuickAction,
 } from './electron-quick-open';
 import { buildHackmdFolderTree, UNFILED_FOLDER_ID } from './hackmd-folders';
@@ -53,6 +54,18 @@ const childFolder: FolderSummary = {
   id: 'folder-2',
   name: 'Archive',
   parentId: 'folder-1',
+};
+
+const team: TeamSummary = {
+  id: 'team-1',
+  ownerId: null,
+  name: 'Team Workspace',
+  logo: null,
+  path: 'team-workspace',
+  description: null,
+  visibility: 'private',
+  createdAtMillis: 1,
+  upgraded: false,
 };
 
 const actions: ElectronActionDefinition[] = [
@@ -124,6 +137,16 @@ describe('electron quick open', () => {
 
     expect(getQuickOpenRecentNoteResults(recentNotes, '').map((entry) => entry.noteId)).toEqual(['one', 'two']);
     expect(getQuickOpenRecentNoteResults(recentNotes, 'one')).toEqual([]);
+  });
+
+  it('lists and searches workspace switcher results', () => {
+    expect(getQuickOpenWorkspaceResults([team], '').map((entry) => entry.id)).toEqual([
+      'personal',
+      'history',
+      'team:team-workspace',
+    ]);
+    expect(getQuickOpenWorkspaceResults([team], 'history').map((entry) => entry.id)).toEqual(['history']);
+    expect(getQuickOpenWorkspaceResults([team], 'team-workspace').map((entry) => entry.id)).toEqual(['team:team-workspace']);
   });
 
   it('filters actions by label, description, and keywords', () => {

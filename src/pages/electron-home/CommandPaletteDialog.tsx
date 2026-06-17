@@ -6,6 +6,7 @@ import {
   FolderPlus,
   FolderPen,
   History,
+  Users,
   Trash2,
   Keyboard,
   PanelLeft,
@@ -39,19 +40,21 @@ import {
   getCommandPaletteActions,
   type ElectronActionContext,
 } from '@/lib/electron-actions';
-import type { ElectronActionId } from '@/lib/electron-api';
+import type { ElectronActionId, TeamSummary } from '@/lib/electron-api';
 import {
   getQuickOpenActionResults,
   getQuickOpenFolderResults,
   getQuickOpenNoteResults,
   getQuickOpenRecentNoteResults,
+  getQuickOpenWorkspaceResults,
   shouldShowFinderQuickAction,
   type QuickOpenFolderResult,
+  type QuickOpenWorkspaceResult,
 } from '@/lib/electron-quick-open';
 import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
 import type { FolderTree as HackmdFolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
 
-import type { CommandPaletteState } from './types';
+import type { CommandPaletteState, WorkspaceScope } from './types';
 
 const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'new-note': <FileText className="h-4 w-4" />,
@@ -80,6 +83,8 @@ export function CommandPaletteDialog({
   context,
   folderTree,
   recentNotes,
+  teams,
+  scope,
   selectedNoteId,
   selectedFolderId,
   onStateChange,
@@ -87,12 +92,15 @@ export function CommandPaletteDialog({
   onSelectNote,
   onSelectRecentNote,
   onSelectFolder,
+  onSelectWorkspace,
   onShowFinderResults,
 }: {
   state: CommandPaletteState;
   context: ElectronActionContext;
   folderTree: HackmdFolderTree;
   recentNotes: ElectronRecentNote[];
+  teams: TeamSummary[];
+  scope: WorkspaceScope;
   selectedNoteId: string | null;
   selectedFolderId: string | null;
   onStateChange: (state: CommandPaletteState) => void;
@@ -100,10 +108,12 @@ export function CommandPaletteDialog({
   onSelectNote: (entry: FolderTreeNote) => void;
   onSelectRecentNote: (entry: ElectronRecentNote) => void;
   onSelectFolder: (folder: QuickOpenFolderResult) => void;
+  onSelectWorkspace: (workspace: QuickOpenWorkspaceResult) => void;
   onShowFinderResults: (query: string) => void;
 }) {
   const trimmedSearch = state.search.trim();
   const recentResults = getQuickOpenRecentNoteResults(recentNotes, state.search);
+  const workspaceResults = getQuickOpenWorkspaceResults(teams, state.search);
   const noteResults = getQuickOpenNoteResults(folderTree, state.search);
   const folderResults = context.scopeType === 'history' ? [] : getQuickOpenFolderResults(folderTree, state.search);
   const actionResults = getQuickOpenActionResults(getCommandPaletteActions(), state.search);
@@ -152,6 +162,39 @@ export function CommandPaletteDialog({
                         <span className="block truncate text-xs text-text-subtle">{metadata}</span>
                       </span>
                       {selectedNoteId === entry.noteId ? <CommandShortcut>Recent</CommandShortcut> : null}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            ) : null}
+
+            {workspaceResults.length > 0 ? (
+              <CommandGroup heading="Workspaces">
+                {workspaceResults.map((workspace) => {
+                  const selected = workspace.type === scope.type
+                    && (workspace.type !== 'team' || (scope.type === 'team' && scope.teamPath === workspace.teamPath));
+
+                  return (
+                    <CommandItem
+                      key={`workspace:${workspace.id}`}
+                      value={`workspace ${workspace.label} ${workspace.description}`}
+                      onSelect={() => {
+                        onSelectWorkspace(workspace);
+                        closePalette();
+                      }}
+                    >
+                      <span className="mr-3 text-text-subtle">
+                        {workspace.type === 'history'
+                          ? <History className="h-4 w-4" />
+                          : workspace.type === 'team'
+                            ? <Users className="h-4 w-4" />
+                            : <Folder className="h-4 w-4" />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{workspace.label}</span>
+                        <span className="block truncate text-xs text-text-subtle">{workspace.description}</span>
+                      </span>
+                      {selected ? <CommandShortcut>Current</CommandShortcut> : null}
                     </CommandItem>
                   );
                 })}

@@ -1,4 +1,5 @@
 import type { ElectronActionDefinition } from './electron-actions';
+import type { TeamSummary } from './electron-api';
 import { noteMatchesFinderQuery, sortNoteFinderEntries } from './electron-note-finder';
 import type { ElectronRecentNote } from './electron-recent-notes';
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from './hackmd-folders';
@@ -11,6 +12,27 @@ export type QuickOpenFolderResult = {
   noteCount: number;
   ancestorIds: string[];
 };
+
+export type QuickOpenWorkspaceResult =
+  | {
+    id: 'personal';
+    type: 'personal';
+    label: string;
+    description: string;
+  }
+  | {
+    id: 'history';
+    type: 'history';
+    label: string;
+    description: string;
+  }
+  | {
+    id: `team:${string}`;
+    type: 'team';
+    label: string;
+    description: string;
+    teamPath: string;
+  };
 
 export const QUICK_OPEN_RESULT_LIMIT = 8;
 
@@ -75,6 +97,41 @@ export function getQuickOpenRecentNoteResults(recentNotes: ElectronRecentNote[],
   }
 
   return recentNotes.slice(0, limit);
+}
+
+export function getQuickOpenWorkspaceResults(teams: TeamSummary[], query: string, limit = QUICK_OPEN_RESULT_LIMIT): QuickOpenWorkspaceResult[] {
+  const workspaces: QuickOpenWorkspaceResult[] = [
+    {
+      id: 'personal',
+      type: 'personal',
+      label: 'My Workspace',
+      description: 'Personal HackMD notes and folders',
+    },
+    {
+      id: 'history',
+      type: 'history',
+      label: 'History',
+      description: 'Recently visited HackMD notes',
+    },
+    ...teams.map((team): QuickOpenWorkspaceResult => ({
+      id: `team:${team.path}`,
+      type: 'team',
+      label: team.name || team.path,
+      description: team.visibility === 'private' ? `Private team · ${team.path}` : `Public team · ${team.path}`,
+      teamPath: team.path,
+    })),
+  ];
+  const normalizedQuery = normalizeQuery(query);
+  const results = normalizedQuery
+    ? workspaces.filter((workspace) => [
+      workspace.label,
+      workspace.description,
+      workspace.type,
+      workspace.type === 'team' ? workspace.teamPath : '',
+    ].join(' ').toLowerCase().includes(normalizedQuery))
+    : workspaces;
+
+  return results.slice(0, limit);
 }
 
 export function getQuickOpenActionResults(actions: ElectronActionDefinition[], query: string, limit = QUICK_OPEN_RESULT_LIMIT) {

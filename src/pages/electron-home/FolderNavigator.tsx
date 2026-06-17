@@ -366,6 +366,7 @@ function NoteRow({
           ref={setNodeRef}
           style={style}
           data-note-id={entry.note.id}
+          onClick={() => onSelect(entry.note)}
           className={isDragging || active ? 'opacity-40' : undefined}
         >
           <EntityRow
@@ -377,6 +378,10 @@ function NoteRow({
                 className={`flex h-6 w-5 shrink-0 items-center justify-center rounded text-text-subtle opacity-0 transition-opacity hover:text-text-default group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none ${FOCUS_RING_CLASS}`}
                 aria-label={`Drag ${entry.note.title || 'Untitled'}`}
                 disabled={disabledDrag}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelect(entry.note);
+                }}
                 {...attributes}
                 {...listeners}
               >
@@ -386,7 +391,10 @@ function NoteRow({
             title={(
               <button
                 type="button"
-                onClick={() => onSelect(entry.note)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelect(entry.note);
+                }}
                 className={`block min-w-0 truncate rounded-[4px] text-left ${FOCUS_RING_CLASS}`}
               >
                 {entry.note.title || 'Untitled'}

@@ -10,6 +10,7 @@ import type {
   NoteSummary,
 } from '@/lib/electron-api';
 import { ELECTRON_RECENT_NOTES_STORAGE_KEY } from '@/lib/electron-recent-notes';
+import { LAST_WORKSPACE_SCOPE_KEY } from './electron-home/ui-preferences';
 import { Home } from './Home';
 
 vi.setConfig({ testTimeout: 15_000 });
@@ -584,7 +585,7 @@ describe('Home native-feel behavior', () => {
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
   });
 
-  it('switches to a team workspace from a team recent note', async () => {
+  it('switches to a team workspace and opens a pending team recent note', async () => {
     window.localStorage.setItem(ELECTRON_RECENT_NOTES_STORAGE_KEY, JSON.stringify([{
       noteId: 'team-note',
       teamPath: team.path,
@@ -617,6 +618,17 @@ describe('Home native-feel behavior', () => {
           userPath: null,
         }] })),
         listTeamFolders: vi.fn(async () => ({ source: 'remote', data: [] })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: 'Team Recent',
+            shortId: 'team-note',
+            teamPath: team.path,
+            userPath: null,
+          },
+        })),
       },
     });
 
@@ -628,6 +640,44 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(within(palette).getByText('Team Recent'));
 
     await waitFor(() => expect(api.hackmd.listTeamNotes).toHaveBeenCalledWith('team-workspace'));
+    expect(await screen.findByDisplayValue('Team Recent')).toBeInTheDocument();
+  });
+
+  it('switches workspaces from command palette workspace results', async () => {
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        getCurrentUser: vi.fn(async () => ({
+          source: 'remote',
+          data: {
+            id: 'user-1',
+            email: 'michael@example.com',
+            name: 'Michael',
+            username: 'michael',
+            photo: null,
+            upgraded: false,
+            teams: [team],
+          },
+        })),
+        listTeams: vi.fn(async () => ({ source: 'remote', data: [team] })),
+        listTeamNotes: vi.fn(async () => ({ source: 'remote', data: [] })),
+        listTeamFolders: vi.fn(async () => ({ source: 'remote', data: [] })),
+      },
+    });
+
+    renderHome(api);
+    await screen.findByRole('button', { name: 'Test note' }, { timeout: 5_000 });
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+
+    const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
+    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'team-workspace' } });
+    fireEvent.click(await within(palette).findByText('Team Workspace'));
+
+    await waitFor(() => expect(api.hackmd.listTeamNotes).toHaveBeenCalledWith('team-workspace'));
+    expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toMatchObject({
+      type: 'team',
+      teamPath: 'team-workspace',
+    });
   });
 
   it('opens History from the shared command palette action', async () => {
@@ -654,6 +704,21 @@ describe('Home native-feel behavior', () => {
     fireEvent.change(within(historyPalette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'new note' } });
 
     expect(await within(historyPalette).findByText('Choose My Workspace or a team first.')).toBeInTheDocument();
+  });
+
+  it('restores the last active history workspace on startup', async () => {
+    window.localStorage.setItem(LAST_WORKSPACE_SCOPE_KEY, JSON.stringify({ type: 'history', label: 'History' }));
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listHistory: vi.fn(async () => ({ source: 'remote', data: [] })),
+      },
+    });
+
+    renderHome(api);
+
+    await waitFor(() => expect(api.hackmd.listHistory).toHaveBeenCalledWith(40));
+    expect(await screen.findByText('No history yet')).toBeInTheDocument();
   });
 
   it('keeps the note inspector collapsed by default and toggles it from the editor header', async () => {
@@ -857,25 +922,67 @@ describe('Home native-feel behavior', () => {
   });
 
   it('renders note rows as draggable without breaking selection', async () => {
+    const firstNote = { ...note, id: 'note-first', title: 'First note', shortId: 'first', updatedAtMillis: 3000 };
+    const secondNote = { ...note, id: 'note-second', title: 'Second note', shortId: 'second', updatedAtMillis: 2000 };
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: [{ ...note, folderPaths: [] }] })),
+        listNotes: vi.fn(async () => ({ source: 'remote', data: [firstNote, secondNote] })),
         listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: noteId === 'note-second' ? 'Second note' : 'First note',
+          },
+        })),
       },
     });
 
     const { container } = renderHome(api);
+    expect(await screen.findByDisplayValue('First note')).toBeInTheDocument();
     const row = await waitFor(() => {
-      const noteRow = container.querySelector('[data-note-id="note-1"]');
+      const noteRow = container.querySelector('[data-note-id="note-second"]');
       expect(noteRow).toBeTruthy();
       return noteRow as HTMLElement;
     });
 
-    expect(within(row).getByRole('button', { name: 'Drag Test note' })).toBeInTheDocument();
-    fireEvent.click(within(row).getByRole('button', { name: 'Test note' }));
+    expect(within(row).getByRole('button', { name: 'Drag Second note' })).toBeInTheDocument();
+    fireEvent.click(row);
 
-    expect(await findRenderedNoteTitle()).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('Second note')).toBeInTheDocument();
+  });
+
+  it('selects a note when clicking its drag handle without starting a drag', async () => {
+    const firstNote = { ...note, id: 'note-first', title: 'First note', shortId: 'first', updatedAtMillis: 3000 };
+    const secondNote = { ...note, id: 'note-second', title: 'Second note', shortId: 'second', updatedAtMillis: 2000 };
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: [firstNote, secondNote] })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: noteId === 'note-second' ? 'Second note' : 'First note',
+          },
+        })),
+      },
+    });
+
+    const { container } = renderHome(api);
+    expect(await screen.findByDisplayValue('First note')).toBeInTheDocument();
+    const row = await waitFor(() => {
+      const noteRow = container.querySelector('[data-note-id="note-second"]');
+      expect(noteRow).toBeTruthy();
+      return noteRow as HTMLElement;
+    });
+
+    fireEvent.click(within(row).getByRole('button', { name: 'Drag Second note' }));
+
+    expect(await screen.findByDisplayValue('Second note')).toBeInTheDocument();
   });
 
   it('does not expose note drag handles in search results', async () => {

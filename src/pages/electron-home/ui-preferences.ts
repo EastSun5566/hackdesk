@@ -1,9 +1,12 @@
+import type { WorkspaceScope } from './types';
+
 export const RAIL_COLLAPSED_KEY = 'hackdesk_rail_collapsed';
 export const NAVIGATOR_COLLAPSED_KEY = 'hackdesk_navigator_collapsed';
 export const INSPECTOR_COLLAPSED_KEY = 'hackdesk_inspector_collapsed';
 export const RAIL_WIDTH_KEY = 'hackdesk_rail_width';
 export const NAVIGATOR_WIDTH_KEY = 'hackdesk_navigator_width';
 export const FOLDER_COLLAPSED_PREFIX = 'hackdesk_folder_collapsed:';
+export const LAST_WORKSPACE_SCOPE_KEY = 'hackdesk_last_workspace_scope';
 
 export const RAIL_WIDTH_DEFAULT = 256;
 export const RAIL_COLLAPSED_WIDTH = 64;
@@ -66,5 +69,45 @@ export function readStringArrayStorage(key: string) {
 export function writeStringArrayStorage(key: string, value: Set<string>) {
   if (typeof window !== 'undefined') {
     window.localStorage.setItem(key, JSON.stringify([...value]));
+  }
+}
+
+export function readWorkspaceScopeStorage(key: string, fallback: WorkspaceScope): WorkspaceScope {
+  if (typeof window === 'undefined') {
+    return fallback;
+  }
+
+  try {
+    const value = JSON.parse(window.localStorage.getItem(key) ?? 'null') as Partial<WorkspaceScope> | null;
+    if (!value || typeof value !== 'object') {
+      return fallback;
+    }
+
+    if (value.type === 'personal') {
+      return { type: 'personal', label: typeof value.label === 'string' && value.label ? value.label : 'My Workspace' };
+    }
+
+    if (value.type === 'history') {
+      return { type: 'history', label: typeof value.label === 'string' && value.label ? value.label : 'History' };
+    }
+
+    if (value.type === 'team' && typeof value.teamPath === 'string' && value.teamPath.trim()) {
+      const teamPath = value.teamPath.trim();
+      return {
+        type: 'team',
+        label: typeof value.label === 'string' && value.label ? value.label : teamPath,
+        teamPath,
+      };
+    }
+  } catch {
+    return fallback;
+  }
+
+  return fallback;
+}
+
+export function writeWorkspaceScopeStorage(key: string, scope: WorkspaceScope) {
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(key, JSON.stringify(scope));
   }
 }
