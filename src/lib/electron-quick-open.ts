@@ -40,6 +40,92 @@ function normalizeQuery(query: string) {
   return query.trim().toLowerCase();
 }
 
+function normalizeTitle(title: string) {
+  return title.trim().toLowerCase();
+}
+
+function compareUpdatedDesc(left: FolderTreeNote, right: FolderTreeNote) {
+  return (right.note.updatedAtMillis ?? 0) - (left.note.updatedAtMillis ?? 0);
+}
+
+function getRecentNoteRank(note: FolderTreeNote, recentNotes: ElectronRecentNote[]) {
+  const index = recentNotes.findIndex((recent) => (
+    recent.noteId === note.note.id && recent.teamPath === (note.note.teamPath ?? null)
+  ));
+  return index === -1 ? Number.POSITIVE_INFINITY : index;
+}
+
+function getNoteTextMatchRank(entry: FolderTreeNote, normalizedQuery: string) {
+  const title = normalizeTitle(entry.note.title || 'Untitled');
+  if (title === normalizedQuery) {
+    return 0;
+  }
+  if (title.startsWith(normalizedQuery)) {
+    return 1;
+  }
+  if (title.includes(normalizedQuery)) {
+    return 2;
+  }
+
+  const metadata = [
+    entry.folderLabel,
+    entry.note.tags.join(' '),
+    entry.note.shortId,
+    entry.note.description,
+    entry.note.teamPath,
+    entry.note.userPath,
+  ].join(' ').toLowerCase();
+  if (metadata.includes(normalizedQuery)) {
+    return 3;
+  }
+
+  return Number.POSITIVE_INFINITY;
+}
+
+function compareQuickOpenNotes(normalizedQuery: string, recentNotes: ElectronRecentNote[]) {
+  return (left: FolderTreeNote, right: FolderTreeNote) => {
+    if (!normalizedQuery) {
+      return compareUpdatedDesc(left, right);
+    }
+
+    const leftTextRank = getNoteTextMatchRank(left, normalizedQuery);
+    const rightTextRank = getNoteTextMatchRank(right, normalizedQuery);
+    if (leftTextRank !== rightTextRank) {
+      return leftTextRank - rightTextRank;
+    }
+
+    const leftRecentRank = getRecentNoteRank(left, recentNotes);
+    const rightRecentRank = getRecentNoteRank(right, recentNotes);
+    if (leftRecentRank !== rightRecentRank) {
+      return leftRecentRank - rightRecentRank;
+    }
+
+    return compareUpdatedDesc(left, right);
+  };
+}
+
+function getFolderTextMatchRank(folder: QuickOpenFolderResult, normalizedQuery: string) {
+  const name = folder.name.toLowerCase();
+  const label = folder.label.toLowerCase();
+  if (name === normalizedQuery || label === normalizedQuery) {
+    return 0;
+  }
+  if (name.startsWith(normalizedQuery)) {
+    return 1;
+  }
+  if (label.startsWith(normalizedQuery)) {
+    return 2;
+  }
+  if (name.includes(normalizedQuery)) {
+    return 3;
+  }
+  if (label.includes(normalizedQuery)) {
+    return 4;
+  }
+
+  return Number.POSITIVE_INFINITY;
+}
+
 function folderNoteCount(node: FolderTreeNode): number {
   return node.notes.length + node.children.reduce((total, child) => total + folderNoteCount(child), 0);
 }
@@ -60,14 +146,19 @@ function flattenFolders(nodes: FolderTreeNode[], ancestorIds: string[] = []): Qu
   });
 }
 
-export function getQuickOpenNoteResults(tree: FolderTree, query: string, limit = QUICK_OPEN_RESULT_LIMIT): FolderTreeNote[] {
+export function getQuickOpenNoteResults(
+  tree: FolderTree,
+  query: string,
+  limit = QUICK_OPEN_RESULT_LIMIT,
+  recentNotes: ElectronRecentNote[] = [],
+): FolderTreeNote[] {
   const sortedNotes = sortNoteFinderEntries(tree.allNotes, 'updated-desc');
   const normalizedQuery = normalizeQuery(query);
   const notes = normalizedQuery
     ? sortedNotes.filter((entry) => noteMatchesFinderQuery(entry, normalizedQuery))
     : sortedNotes;
 
-  return notes.slice(0, limit);
+  return [...notes].sort(compareQuickOpenNotes(normalizedQuery, recentNotes)).slice(0, limit);
 }
 
 export function getQuickOpenFolderResults(tree: FolderTree, query: string, limit = QUICK_OPEN_RESULT_LIMIT): QuickOpenFolderResult[] {
@@ -84,7 +175,15 @@ export function getQuickOpenFolderResults(tree: FolderTree, query: string, limit
     ? folders.filter((folder) => `${folder.name} ${folder.label}`.toLowerCase().includes(normalizedQuery))
     : folders;
 
-  return results.slice(0, limit);
+  return [...results]
+    .sort((left, right) => {
+      if (!normalizedQuery) {
+        return 0;
+      }
+
+      return getFolderTextMatchRank(left, normalizedQuery) - getFolderTextMatchRank(right, normalizedQuery);
+    })
+    .slice(0, limit);
 }
 
 export function shouldShowFinderQuickAction(query: string) {

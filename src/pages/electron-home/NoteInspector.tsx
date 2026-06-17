@@ -1,4 +1,4 @@
-import { ImagePlus, Loader2, Save, X } from 'lucide-react';
+import { Copy, ImagePlus, Loader2, Save, X } from 'lucide-react';
 import { type FormEvent, useEffect, useId, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -64,6 +64,7 @@ export function NoteInspector({
   isUploading,
   onSaveMetadata,
   onUploadImage,
+  onCopyLink,
   onInsertMarkdown,
 }: {
   document: DocumentSummary;
@@ -72,6 +73,7 @@ export function NoteInspector({
   isUploading: boolean;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onUploadImage: (document: DocumentSummary, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
+  onCopyLink: (document: DocumentSummary) => void;
   onInsertMarkdown: (markdown: string) => void;
 }) {
   const descriptionId = useId();
@@ -205,6 +207,16 @@ export function NoteInspector({
         title="Inspector"
         subtitle={document.shortId}
         className="px-4 py-3"
+        actions={(
+          <button
+            type="button"
+            onClick={() => onCopyLink(document)}
+            className={SECONDARY_BUTTON_CLASS}
+          >
+            <Copy aria-hidden="true" className="h-4 w-4" />
+            Copy Link
+          </button>
+        )}
       />
 
       <div className="min-h-0 flex-1 overflow-auto px-4 py-4">

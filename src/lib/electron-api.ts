@@ -241,6 +241,7 @@ export type HackDeskElectronAPI = {
     confirm: (options: ConfirmDialogOptions) => Promise<ConfirmDialogResult>;
     exportDebugLogs: () => Promise<string>;
     recordFatalRendererError: (error: FatalRendererError) => Promise<void>;
+    writeClipboardText?: (text: string) => Promise<void>;
     onCommand: (callback: (command: HackDeskCommandPaletteCommand) => void) => () => void;
   };
 };

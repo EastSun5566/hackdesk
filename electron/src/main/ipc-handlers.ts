@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain } from 'electron';
+import { app, clipboard, dialog, ipcMain } from 'electron';
 
 import type {
   ConfirmDialogOptions,
@@ -112,6 +112,9 @@ export function registerIpcHandlers(windowManager: WindowManager) {
   ipcMain.handle(ELECTRON_CHANNELS.appRecordFatalRendererError, (_event, error: FatalRendererError) => (
     recordFatalRendererError(error)
   ));
+  ipcMain.handle(ELECTRON_CHANNELS.appWriteClipboardText, (_event, text: string) => {
+    clipboard.writeText(text);
+  });
   ipcMain.handle(ELECTRON_CHANNELS.appConfirm, async (_event, options: ConfirmDialogOptions) => {
     const confirmLabel = options.confirmLabel ?? 'OK';
     const cancelLabel = options.cancelLabel ?? 'Cancel';

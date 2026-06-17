@@ -114,7 +114,7 @@ export function CommandPaletteDialog({
   const trimmedSearch = state.search.trim();
   const recentResults = getQuickOpenRecentNoteResults(recentNotes, state.search);
   const workspaceResults = getQuickOpenWorkspaceResults(teams, state.search);
-  const noteResults = getQuickOpenNoteResults(folderTree, state.search);
+  const noteResults = getQuickOpenNoteResults(folderTree, state.search, undefined, recentNotes);
   const folderResults = context.scopeType === 'history' ? [] : getQuickOpenFolderResults(folderTree, state.search);
   const actionResults = getQuickOpenActionResults(getCommandPaletteActions(), state.search);
   const showFinderAction = shouldShowFinderQuickAction(state.search);
@@ -204,8 +204,14 @@ export function CommandPaletteDialog({
             {noteResults.length > 0 ? (
               <CommandGroup heading="Notes">
                 {noteResults.map((entry) => {
+                  const workspaceLabel = context.scopeType === 'history'
+                    ? 'History'
+                    : scope.type === 'team'
+                      ? scope.label
+                      : 'My Workspace';
                   const metadata = [
-                    context.scopeType === 'history' ? 'History' : entry.folderLabel || 'Root',
+                    workspaceLabel,
+                    context.scopeType === 'history' ? null : entry.folderLabel || 'Root',
                     entry.note.tags.slice(0, 2).join(', '),
                     entry.note.shortId,
                   ].filter(Boolean).join(' · ');

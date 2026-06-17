@@ -6,6 +6,7 @@ import type {
   DocumentSummary,
   ElectronActionId,
   FolderSummary,
+  HackDeskElectronAPI,
   NoteSummary,
 } from '@/lib/electron-api';
 import {
@@ -23,6 +24,10 @@ import {
   writeNoteFinderState,
   type NoteFinderState,
 } from '@/lib/electron-note-finder';
+import {
+  getHackmdNoteUrl,
+  getMarkdownNoteLink,
+} from '@/lib/electron-note-links';
 import type { QuickOpenFolderResult, QuickOpenWorkspaceResult } from '@/lib/electron-quick-open';
 import {
   readRecentNotes,
@@ -110,6 +115,19 @@ function createDeleteNoteTarget(note: NoteSummary): DocumentSummary {
     ...note,
     content: note.content ?? '',
   };
+}
+
+async function writeClipboardText(api: HackDeskElectronAPI | undefined, text: string) {
+  if (api?.app.writeClipboardText) {
+    await api.app.writeClipboardText(text);
+    return;
+  }
+
+  if (!navigator.clipboard?.writeText) {
+    throw new Error('Clipboard is unavailable.');
+  }
+
+  await navigator.clipboard.writeText(text);
 }
 
 export function Home() {
@@ -615,6 +633,22 @@ export function Home() {
     });
   }, [api, trackRecentNote]);
 
+  const handleCopyNoteLink = useCallback((note: NoteSummary) => {
+    void writeClipboardText(api, getHackmdNoteUrl(note))
+      .then(() => toast.success('Link copied.'))
+      .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to copy link.'));
+  }, [api]);
+
+  const handleCopyNoteMarkdownLink = useCallback((note: NoteSummary) => {
+    void writeClipboardText(api, getMarkdownNoteLink(note))
+      .then(() => toast.success('Markdown link copied.'))
+      .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to copy markdown link.'));
+  }, [api]);
+
+  const handleDuplicateNote = useCallback((note: NoteSummary) => {
+    mutations.duplicateNoteMutation.mutate(note);
+  }, [mutations.duplicateNoteMutation]);
+
   const revealNoteEntry = useCallback(async (entry: FolderTreeNote, options: { skipDirtyGuard?: boolean } = {}) => {
     const folderIds = entry.folderPath.map((folder) => folder.id);
     const leafFolderId = folderIds.at(-1) ?? UNFILED_FOLDER_ID;
@@ -1104,6 +1138,9 @@ export function Home() {
             });
           }}
           onOpenNote={handleOpenEditor}
+          onCopyNoteLink={handleCopyNoteLink}
+          onCopyNoteMarkdownLink={handleCopyNoteMarkdownLink}
+          onDuplicateNote={handleDuplicateNote}
           onDeleteNote={handleDeleteRequest}
           onToggleCollapsed={toggleNavigatorCollapsed}
           onOpenPalette={openPalette}
@@ -1129,6 +1166,7 @@ export function Home() {
           isLoading={documentIsLoading}
           command={documentCommand}
           onOpenEditor={handleOpenEditor}
+          onCopyLink={handleCopyNoteLink}
           onSave={(note, input) => mutations.updateNoteMutation.mutate({ note, input })}
           onSaveMetadata={(note, input) => mutations.updateNoteMutation.mutate({ note, input })}
           onUploadImage={(note, input) => mutations.uploadNoteImageMutation.mutateAsync({ note, input })}

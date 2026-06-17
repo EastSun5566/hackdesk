@@ -93,7 +93,7 @@ const actions: ElectronActionDefinition[] = [
 ];
 
 describe('electron quick open', () => {
-  it('matches notes using finder query fields and sorts recent notes first', () => {
+  it('matches notes using finder query fields', () => {
     const tree = buildHackmdFolderTree([
       note({ id: 'older', title: 'Older', tags: ['product'], updatedAtMillis: 1, folderPaths: [folder] }),
       note({ id: 'newer', title: 'Newer', description: 'Roadmap', updatedAtMillis: 2 }),
@@ -103,6 +103,27 @@ describe('electron quick open', () => {
     expect(getQuickOpenNoteResults(tree, 'product').map((entry) => entry.note.id)).toEqual(['older']);
     expect(getQuickOpenNoteResults(tree, 'roadmap').map((entry) => entry.note.id)).toEqual(['newer']);
     expect(getQuickOpenNoteResults(tree, 'projects').map((entry) => entry.note.id)).toEqual(['older']);
+  });
+
+  it('ranks note quick-open results by title match, recent tier, metadata, and updated time', () => {
+    const tree = buildHackmdFolderTree([
+      note({ id: 'metadata', title: 'Other', tags: ['alpha'], updatedAtMillis: 100 }),
+      note({ id: 'contains-recent', title: 'Planning Alpha Ideas', updatedAtMillis: 10 }),
+      note({ id: 'contains-newer', title: 'Team Alpha Notes', updatedAtMillis: 30 }),
+      note({ id: 'prefix', title: 'Alpha Plan', updatedAtMillis: 20 }),
+      note({ id: 'exact', title: 'Alpha', updatedAtMillis: 1 }),
+    ]);
+    const recentNotes = [
+      { noteId: 'contains-recent', teamPath: null, title: 'Planning Alpha Ideas', shortId: 'contains-recent', lastOpenedAtMillis: 500 },
+    ];
+
+    expect(getQuickOpenNoteResults(tree, 'alpha', 10, recentNotes).map((entry) => entry.note.id)).toEqual([
+      'exact',
+      'prefix',
+      'contains-recent',
+      'contains-newer',
+      'metadata',
+    ]);
   });
 
   it('flattens folders with labels, ancestor ids, and root mapping', () => {
@@ -121,6 +142,19 @@ describe('electron quick open', () => {
       ancestorIds: ['folder-1'],
     });
     expect(getQuickOpenFolderResults(tree, 'archive').map((result) => result.id)).toEqual(['folder-2']);
+  });
+
+  it('ranks folders by exact, prefix, and path matches', () => {
+    const alphaRoot = { ...folder, id: 'folder-alpha', name: 'Alpha', parentId: null };
+    const alphaParent = { ...folder, id: 'folder-parent', name: 'Alpha Projects', parentId: null };
+    const alphaChild = { ...folder, id: 'folder-child', name: 'Planning', parentId: 'folder-parent' };
+    const tree = buildHackmdFolderTree([], [alphaParent, alphaChild, alphaRoot]);
+
+    expect(getQuickOpenFolderResults(tree, 'alpha', 10).map((result) => result.id)).toEqual([
+      'folder-alpha',
+      'folder-parent',
+      'folder-child',
+    ]);
   });
 
   it('shows finder quick action only when query has text', () => {

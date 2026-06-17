@@ -43,6 +43,7 @@ export function DocumentDetail({
   isLoading,
   command,
   onOpenEditor,
+  onCopyLink,
   onSave,
   onSaveMetadata,
   onUploadImage,
@@ -60,6 +61,7 @@ export function DocumentDetail({
   isLoading: boolean;
   command?: DocumentDetailCommand | null;
   onOpenEditor: (document: DocumentSummary) => void;
+  onCopyLink: (document: DocumentSummary) => void;
   onSave: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onUploadImage: (document: DocumentSummary, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
@@ -251,6 +253,7 @@ export function DocumentDetail({
               isUploading={isUploadingImage}
               onSaveMetadata={onSaveMetadata}
               onUploadImage={onUploadImage}
+              onCopyLink={onCopyLink}
               onInsertMarkdown={(markdown) => editorRef.current?.insertText(markdown)}
             />
           )}

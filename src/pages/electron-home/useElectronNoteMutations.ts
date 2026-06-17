@@ -9,6 +9,7 @@ import type {
   FolderSummary,
   HackDeskElectronAPI,
   NoteSummary,
+  RepositoryValue,
   UpdateFolderInput,
   UpdateNoteInput,
   UploadNoteImageInput,
@@ -22,6 +23,22 @@ import {
 } from './repository';
 import type { SettingsFormInput, WorkspaceScope } from './types';
 import { createQuickNoteContent } from './ui';
+
+function upsertNoteInRepositoryValue(
+  current: RepositoryValue<NoteSummary[]> | undefined,
+  note: NoteSummary,
+): RepositoryValue<NoteSummary[]> {
+  const data = current?.data ?? [];
+  const nextData = [
+    note,
+    ...data.filter((candidate) => candidate.id !== note.id || (candidate.teamPath ?? null) !== (note.teamPath ?? null)),
+  ];
+
+  return {
+    source: current?.source === 'cached' ? 'cached' : 'remote',
+    data: nextData,
+  };
+}
 
 export function useElectronNoteMutations({
   api,
@@ -58,6 +75,17 @@ export function useElectronNoteMutations({
       });
     }
   }, [queryClient, scope, selectedNote]);
+
+  const seedWorkspaceNote = useCallback((note: NoteSummary) => {
+    queryClient.setQueryData<RepositoryValue<NoteSummary[]> | undefined>(
+      getWorkspaceQueryKey(scope),
+      (current) => upsertNoteInRepositoryValue(current, note),
+    );
+    queryClient.setQueryData(
+      ['electron', 'hackmd', 'note', note.teamPath ?? null, note.id],
+      { source: 'remote', data: note },
+    );
+  }, [queryClient, scope]);
 
   const invalidateCurrentFolders = useCallback(() => {
     if (scope.type !== 'history') {
@@ -127,11 +155,52 @@ export function useElectronNoteMutations({
         : api.hackmd.createNote(input);
     },
     onSuccess: (createdNote) => {
-      invalidateCurrentNotes();
+      seedWorkspaceNote(createdNote);
       onNoteCreated(createdNote);
+      void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope), refetchType: 'inactive' });
       toast.success('Note created.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to create note.'),
+  });
+
+  const duplicateNoteMutation = useMutation({
+    mutationFn: async (note: NoteSummary) => {
+      if (!api) {
+        throw new Error('Electron API is unavailable.');
+      }
+
+      if (scope.type === 'history') {
+        throw new Error('Choose My Workspace or a team before duplicating notes.');
+      }
+
+      const documentResult = await api.hackmd.getNote(note.id, note.teamPath ?? null);
+      if (documentResult.source === 'error') {
+        throw new Error(documentResult.error);
+      }
+
+      const sourceDocument = documentResult.data;
+      const parentFolderId = sourceDocument.folderPaths.at(-1)?.id;
+      const input = {
+        title: `Copy of ${sourceDocument.title.trim() || 'Untitled'}`,
+        content: sourceDocument.content,
+        description: sourceDocument.description,
+        tags: sourceDocument.tags,
+        readPermission: sourceDocument.readPermission,
+        writePermission: sourceDocument.writePermission,
+        ...(parentFolderId ? { parentFolderId } : {}),
+      };
+
+      return scope.type === 'team'
+        ? api.hackmd.createTeamNote(scope.teamPath, input)
+        : api.hackmd.createNote(input);
+    },
+    onSuccess: (createdNote) => {
+      seedWorkspaceNote(createdNote);
+      onNoteCreated(createdNote);
+      void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope), refetchType: 'inactive' });
+      toast.success('Note duplicated.');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to duplicate note.'),
   });
 
   const createFolderMutation = useMutation({
@@ -314,6 +383,7 @@ export function useElectronNoteMutations({
     invalidateCurrentFolders,
     updateSettingsMutation,
     createNoteMutation,
+    duplicateNoteMutation,
     createFolderMutation,
     renameFolderMutation,
     deleteFolderMutation,

@@ -170,6 +170,7 @@ function createApi(overrides: Partial<HackDeskElectronAPI> = {}): HackDeskElectr
       confirm: vi.fn(async () => ({ confirmed: false })),
       exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
       recordFatalRendererError: vi.fn(async () => undefined),
+      writeClipboardText: vi.fn(async () => undefined),
       onCommand: vi.fn(() => () => undefined),
     },
     ...overrides,
@@ -1060,6 +1061,17 @@ describe('Home native-feel behavior', () => {
     }));
   });
 
+  it('copies a HackMD link from the inspector header', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    await openInspector();
+    fireEvent.click(screen.getByRole('button', { name: 'Copy Link' }));
+
+    await waitFor(() => expect(api.app.writeClipboardText).toHaveBeenCalledWith('https://hackmd.io/@michael/note-1'));
+  });
+
   it('moves a note to a selected folder from the inspector', async () => {
     const api = createApi({
       hackmd: {
@@ -1431,6 +1443,113 @@ describe('Home native-feel behavior', () => {
     }));
   });
 
+  it('copies a HackMD link from the note context menu', async () => {
+    const api = createApi();
+
+    const { container } = renderHome(api);
+    const row = await waitFor(() => {
+      const noteRow = container.querySelector('[data-note-id="note-1"]');
+      expect(noteRow).toBeTruthy();
+      return noteRow as HTMLElement;
+    });
+    fireEvent.contextMenu(row);
+    fireEvent.click(await screen.findByText('Copy HackMD Link'));
+
+    await waitFor(() => expect(api.app.writeClipboardText).toHaveBeenCalledWith('https://hackmd.io/@michael/note-1'));
+  });
+
+  it('falls back to Web Clipboard when Electron clipboard IPC is unavailable', async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    const api = createApi();
+    delete api.app.writeClipboardText;
+
+    const { container } = renderHome(api);
+    const row = await waitFor(() => {
+      const noteRow = container.querySelector('[data-note-id="note-1"]');
+      expect(noteRow).toBeTruthy();
+      return noteRow as HTMLElement;
+    });
+    fireEvent.contextMenu(row);
+    fireEvent.click(await screen.findByText('Copy HackMD Link'));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('https://hackmd.io/@michael/note-1'));
+  });
+
+  it('copies a markdown link from the note context menu', async () => {
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({
+          source: 'remote',
+          data: [{ ...note, title: 'A [Note]' }],
+        })),
+        getNote: vi.fn(async () => ({
+          source: 'remote',
+          data: { ...document, title: 'A [Note]' },
+        })),
+      },
+    });
+
+    const { container } = renderHome(api);
+    const row = await waitFor(() => {
+      const noteRow = container.querySelector('[data-note-id="note-1"]');
+      expect(noteRow).toBeTruthy();
+      return noteRow as HTMLElement;
+    });
+    fireEvent.contextMenu(row);
+    fireEvent.click(await screen.findByText('Copy Markdown Link'));
+
+    await waitFor(() => expect(api.app.writeClipboardText).toHaveBeenCalledWith('[A \\[Note\\]](https://hackmd.io/@michael/note-1)'));
+  });
+
+  it('duplicates a personal note from the note context menu and selects the copy', async () => {
+    const duplicated = {
+      ...document,
+      id: 'note-copy',
+      title: 'Copy of Test note',
+      shortId: 'note-copy',
+      folderPaths: [folder],
+      content: '# Test note',
+    };
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: [{ ...note, folderPaths: [folder] }] })),
+        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: noteId === 'note-copy' ? duplicated : { ...document, folderPaths: [folder] },
+        })),
+        createNote: vi.fn(async () => duplicated),
+      },
+    });
+
+    const { container } = renderHome(api);
+    const row = await waitFor(() => {
+      const noteRow = container.querySelector('[data-note-id="note-1"]');
+      expect(noteRow).toBeTruthy();
+      return noteRow as HTMLElement;
+    });
+    fireEvent.contextMenu(row);
+    fireEvent.click(await screen.findByText('Duplicate Note'));
+
+    await waitFor(() => expect(api.hackmd.createNote).toHaveBeenCalledWith({
+      title: 'Copy of Test note',
+      content: '# Test note',
+      description: '',
+      tags: [],
+      readPermission: 'guest',
+      writePermission: 'owner',
+      parentFolderId: 'folder-1',
+    }));
+    expect(await screen.findByDisplayValue('Copy of Test note')).toBeInTheDocument();
+    expect(window.localStorage.getItem(ELECTRON_RECENT_NOTES_STORAGE_KEY)).toContain('note-copy');
+  });
+
   it('moves a team note through the team update endpoint from the note context menu', async () => {
     const teamNote = {
       ...note,
@@ -1535,6 +1654,70 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(api.hackmd.updateTeamNote).toHaveBeenCalledWith('team-workspace', 'note-1', {
       parentFolderId: null,
     }));
+  });
+
+  it('duplicates a team note through the team create endpoint from the note context menu', async () => {
+    const teamNote = {
+      ...note,
+      teamPath: team.path,
+      userPath: null,
+      folderPaths: [folder],
+    };
+    const teamDocument = {
+      ...document,
+      teamPath: team.path,
+      userPath: null,
+      folderPaths: [folder],
+    };
+    const duplicated = {
+      ...teamDocument,
+      id: 'team-copy',
+      title: 'Copy of Test note',
+      shortId: 'team-copy',
+    };
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        getCurrentUser: vi.fn(async () => ({
+          source: 'remote',
+          data: {
+            id: 'user-1',
+            email: 'michael@example.com',
+            name: 'Michael',
+            username: 'michael',
+            photo: null,
+            upgraded: false,
+            teams: [team],
+          },
+        })),
+        listTeams: vi.fn(async () => ({ source: 'remote', data: [team] })),
+        listTeamNotes: vi.fn(async () => ({ source: 'remote', data: [teamNote] })),
+        listTeamFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        getTeamFolderOrder: vi.fn(async () => ({ source: 'remote', data: {} })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: noteId === 'team-copy' ? duplicated : teamDocument,
+        })),
+        createTeamNote: vi.fn(async () => duplicated),
+      },
+    });
+
+    const { container } = renderHome(api);
+    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace' }, { timeout: 5_000 }));
+    const row = await waitFor(() => {
+      const noteRow = container.querySelector('[data-note-id="note-1"]');
+      expect(noteRow).toBeTruthy();
+      return noteRow as HTMLElement;
+    });
+    fireEvent.contextMenu(row);
+    fireEvent.click(await screen.findByText('Duplicate Note'));
+
+    await waitFor(() => expect(api.hackmd.createTeamNote).toHaveBeenCalledWith('team-workspace', expect.objectContaining({
+      title: 'Copy of Test note',
+      content: '# Test note',
+      parentFolderId: 'folder-1',
+    })));
+    expect(await screen.findByDisplayValue('Copy of Test note')).toBeInTheDocument();
   });
 
   it('opens a note from the note context menu', async () => {

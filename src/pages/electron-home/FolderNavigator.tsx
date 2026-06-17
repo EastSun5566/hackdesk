@@ -3,6 +3,8 @@ import {
   ArrowDownUp,
   Check,
   ChevronRight,
+  Copy,
+  CopyPlus,
   FileText,
   Folder,
   FolderOpen,
@@ -315,6 +317,9 @@ function NoteRow({
   selected,
   onSelect,
   onOpen,
+  onCopyLink,
+  onCopyMarkdownLink,
+  onDuplicate,
   onDelete,
   onMoveToSelectedFolder,
   selectedFolder,
@@ -327,6 +332,9 @@ function NoteRow({
   selected: boolean;
   onSelect: (note: NoteSummary) => void;
   onOpen: (note: NoteSummary) => void;
+  onCopyLink: (note: NoteSummary) => void;
+  onCopyMarkdownLink: (note: NoteSummary) => void;
+  onDuplicate: (note: NoteSummary) => void;
   onDelete: (note: NoteSummary) => void;
   onMoveToSelectedFolder?: (entry: FolderTreeNote) => void;
   selectedFolder?: FolderTreeNode | null;
@@ -412,6 +420,19 @@ function NoteRow({
         <ContextMenuItem onSelect={() => onOpen(entry.note)}>
           <FileText aria-hidden="true" className="h-4 w-4" />
           Open in Web Editor
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={() => onCopyLink(entry.note)}>
+          <Copy aria-hidden="true" className="h-4 w-4" />
+          Copy HackMD Link
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={() => onCopyMarkdownLink(entry.note)}>
+          <Copy aria-hidden="true" className="h-4 w-4" />
+          Copy Markdown Link
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onSelect={() => onDuplicate(entry.note)}>
+          <CopyPlus aria-hidden="true" className="h-4 w-4" />
+          Duplicate Note
         </ContextMenuItem>
         <ContextMenuItem
           disabled={!canMoveToSelectedFolder}
@@ -681,6 +702,9 @@ function FolderTreeView({
   onDeleteFolder,
   onNoteSelect,
   onNoteOpen,
+  onNoteCopyLink,
+  onNoteCopyMarkdownLink,
+  onNoteDuplicate,
   onNoteDelete,
   onNoteMoveToSelectedFolder,
   selectedFolderForNoteMove,
@@ -700,6 +724,9 @@ function FolderTreeView({
   onDeleteFolder: (folderId: string) => void;
   onNoteSelect: (note: NoteSummary) => void;
   onNoteOpen: (note: NoteSummary) => void;
+  onNoteCopyLink: (note: NoteSummary) => void;
+  onNoteCopyMarkdownLink: (note: NoteSummary) => void;
+  onNoteDuplicate: (note: NoteSummary) => void;
   onNoteDelete: (note: NoteSummary) => void;
   onNoteMoveToSelectedFolder: (entry: FolderTreeNote) => void;
   selectedFolderForNoteMove: FolderTreeNode | null;
@@ -752,6 +779,9 @@ function FolderTreeView({
                     onDeleteFolder={onDeleteFolder}
                     onNoteSelect={onNoteSelect}
                     onNoteOpen={onNoteOpen}
+                    onNoteCopyLink={onNoteCopyLink}
+                    onNoteCopyMarkdownLink={onNoteCopyMarkdownLink}
+                    onNoteDuplicate={onNoteDuplicate}
                     onNoteDelete={onNoteDelete}
                     onNoteMoveToSelectedFolder={onNoteMoveToSelectedFolder}
                     selectedFolderForNoteMove={selectedFolderForNoteMove}
@@ -765,6 +795,9 @@ function FolderTreeView({
                         selected={entry.note.id === selectedNoteId}
                         onSelect={onNoteSelect}
                         onOpen={onNoteOpen}
+                        onCopyLink={onNoteCopyLink}
+                        onCopyMarkdownLink={onNoteCopyMarkdownLink}
+                        onDuplicate={onNoteDuplicate}
                         onDelete={onNoteDelete}
                         onMoveToSelectedFolder={onNoteMoveToSelectedFolder}
                         selectedFolder={selectedFolderForNoteMove}
@@ -820,6 +853,9 @@ export function FolderNavigator({
   onFolderDrop,
   onNoteMove,
   onOpenNote,
+  onCopyNoteLink,
+  onCopyNoteMarkdownLink,
+  onDuplicateNote,
   onDeleteNote,
   onToggleCollapsed,
   onOpenPalette,
@@ -859,6 +895,9 @@ export function FolderNavigator({
   onFolderDrop: (operation: FolderDropOperation) => void;
   onNoteMove: (operation: NoteDropOperation) => void;
   onOpenNote: (note: NoteSummary) => void;
+  onCopyNoteLink: (note: NoteSummary) => void;
+  onCopyNoteMarkdownLink: (note: NoteSummary) => void;
+  onDuplicateNote: (note: NoteSummary) => void;
   onDeleteNote: (note: NoteSummary) => void;
   onToggleCollapsed: () => void;
   onOpenPalette: () => void;
@@ -1086,6 +1125,9 @@ export function FolderNavigator({
                     selected={entry.note.id === selectedNoteId}
                     onSelect={onNoteSelect}
                     onOpen={onOpenNote}
+                    onCopyLink={onCopyNoteLink}
+                    onCopyMarkdownLink={onCopyNoteMarkdownLink}
+                    onDuplicate={onDuplicateNote}
                     onDelete={onDeleteNote}
                     onMoveToSelectedFolder={handleNoteMoveToSelectedFolder}
                     selectedFolder={selectedFolderForNoteMove}
@@ -1128,6 +1170,9 @@ export function FolderNavigator({
                       onDeleteFolder={onDeleteFolder}
                       onNoteSelect={onNoteSelect}
                       onNoteOpen={onOpenNote}
+                      onNoteCopyLink={onCopyNoteLink}
+                      onNoteCopyMarkdownLink={onCopyNoteMarkdownLink}
+                      onNoteDuplicate={onDuplicateNote}
                       onNoteDelete={onDeleteNote}
                       onNoteMoveToSelectedFolder={handleNoteMoveToSelectedFolder}
                       selectedFolderForNoteMove={selectedFolderForNoteMove}
@@ -1140,6 +1185,9 @@ export function FolderNavigator({
                         selected={entry.note.id === selectedNoteId}
                         onSelect={onNoteSelect}
                         onOpen={onOpenNote}
+                        onCopyLink={onCopyNoteLink}
+                        onCopyMarkdownLink={onCopyNoteMarkdownLink}
+                        onDuplicate={onDuplicateNote}
                         onDelete={onDeleteNote}
                         onMoveToSelectedFolder={handleNoteMoveToSelectedFolder}
                         selectedFolder={selectedFolderForNoteMove}

@@ -35,4 +35,5 @@ export const ELECTRON_CHANNELS = {
   appCommand: 'app:command',
   appExportDebugLogs: 'app:export-debug-logs',
   appRecordFatalRendererError: 'app:record-fatal-renderer-error',
+  appWriteClipboardText: 'app:write-clipboard-text',
 } as const;

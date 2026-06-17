@@ -88,6 +88,7 @@ const api: HackDeskElectronAPI = {
     recordFatalRendererError: (error: FatalRendererError) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.appRecordFatalRendererError, error)
     ),
+    writeClipboardText: (text: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.appWriteClipboardText, text),
     onCommand: (callback: (command: HackDeskCommandPaletteCommand) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, command: HackDeskCommandPaletteCommand) => {
         callback(command);
