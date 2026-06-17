@@ -18,6 +18,7 @@ import {
   Save,
   Search,
   Settings2,
+  BookOpen,
   Upload,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -39,6 +40,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   getActionDisabledReason,
+  getActionLabel,
   getCommandPaletteActions,
   type ElectronActionContext,
 } from '@/lib/electron-actions';
@@ -73,6 +75,7 @@ const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'toggle-workspace-rail': <PanelLeftClose className="h-4 w-4" />,
   'toggle-navigator': <PanelLeft className="h-4 w-4" />,
   'toggle-inspector': <PanelRightClose className="h-4 w-4" />,
+  'toggle-reader-mode': <BookOpen className="h-4 w-4" />,
   refresh: <RefreshCcw className="h-4 w-4" />,
   'go-history': <History className="h-4 w-4" />,
   'export-debug-logs': <FileArchive className="h-4 w-4" />,
@@ -287,11 +290,12 @@ export function CommandPaletteDialog({
               <CommandGroup heading="Actions">
                 {actionResults.map((action) => {
                   const disabledReason = getActionDisabledReason(action, context);
+                  const actionLabel = getActionLabel(action, context);
 
                   return (
                     <CommandItem
                       key={action.id}
-                      value={`${action.label} ${action.keywords.join(' ')}`}
+                      value={`${action.label} ${actionLabel} ${action.keywords.join(' ')}`}
                       disabled={Boolean(disabledReason)}
                       onSelect={() => {
                         if (disabledReason) {
@@ -304,7 +308,7 @@ export function CommandPaletteDialog({
                     >
                       <span className="mr-3 text-text-subtle">{ACTION_ICONS[action.id]}</span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate">{action.label}</span>
+                        <span className="block truncate">{actionLabel}</span>
                         <span className="block truncate text-xs text-text-subtle">
                           {disabledReason ?? action.description}
                         </span>

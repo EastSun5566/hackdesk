@@ -15,6 +15,7 @@ export type ElectronActionContext = {
   inspectorCollapsed: boolean;
   navigatorCollapsed: boolean;
   workspaceRailCollapsed: boolean;
+  readerMode: 'read' | 'edit';
 };
 
 export type ElectronActionWhen = (context: ElectronActionContext) => boolean;
@@ -29,6 +30,7 @@ export type ElectronActionDefinition = {
   shortcut?: string;
   menuAccelerator?: string;
   when?: ElectronActionWhen;
+  getLabel?: (context: ElectronActionContext) => string;
   getDisabledReason?: (context: ElectronActionContext) => string | null;
 };
 
@@ -209,6 +211,16 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     getDisabledReason: requireSelectedNote,
   },
   {
+    id: 'toggle-reader-mode',
+    label: 'Toggle View Mode',
+    description: 'Switch between viewing and editing the selected note.',
+    keywords: ['read', 'preview', 'edit', 'markdown'],
+    category: 'view',
+    scope: 'editor',
+    getLabel: (context) => context.readerMode === 'read' ? 'Switch to Edit Mode' : 'Switch to View Mode',
+    getDisabledReason: requireSelectedNote,
+  },
+  {
     id: 'refresh',
     label: 'Refresh Notes',
     description: 'Reload notes, folders, teams, and profile data from HackMD.',
@@ -301,6 +313,10 @@ export function getCommandPaletteActions() {
 
 export function getActionDisabledReason(action: ElectronActionDefinition, context: ElectronActionContext) {
   return action.getDisabledReason?.(context) ?? null;
+}
+
+export function getActionLabel(action: ElectronActionDefinition, context: ElectronActionContext) {
+  return action.getLabel?.(context) ?? action.label;
 }
 
 export function isElectronActionEnabled(action: ElectronActionDefinition, context: ElectronActionContext) {

@@ -76,6 +76,7 @@ import {
   NAVIGATOR_WIDTH_KEY,
   NAVIGATOR_WIDTH_MAX,
   NAVIGATOR_WIDTH_MIN,
+  READER_MODE_KEY,
   RAIL_COLLAPSED_KEY,
   RAIL_WIDTH_DEFAULT,
   RAIL_WIDTH_KEY,
@@ -83,12 +84,15 @@ import {
   RAIL_WIDTH_MIN,
   readBooleanStorage,
   readNumberStorage,
+  readReaderModeStorage,
   readStringArrayStorage,
   readWorkspaceScopeStorage,
   writeBooleanStorage,
   writeNumberStorage,
+  writeReaderModeStorage,
   writeStringArrayStorage,
   writeWorkspaceScopeStorage,
+  type ReaderMode,
 } from './electron-home/ui-preferences';
 import {
   getFolderNoteEntries,
@@ -155,6 +159,7 @@ export function Home() {
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<FolderTreeNode | null>(null);
   const [noteDirty, setNoteDirty] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(true);
+  const [readerMode, setReaderModeState] = useState<ReaderMode>(() => readReaderModeStorage(READER_MODE_KEY, 'edit'));
   const [documentCommand, setDocumentCommand] = useState<DocumentDetailCommand | null>(null);
   const [railCollapsed, setRailCollapsed] = useState(() => readBooleanStorage(RAIL_COLLAPSED_KEY, false));
   const [navigatorCollapsed, setNavigatorCollapsed] = useState(() => readBooleanStorage(NAVIGATOR_COLLAPSED_KEY, false));
@@ -260,6 +265,11 @@ export function Home() {
       id,
       sequence: (current?.sequence ?? 0) + 1,
     }));
+  }, []);
+
+  const setReaderMode = useCallback((mode: ReaderMode) => {
+    setReaderModeState(mode);
+    writeReaderModeStorage(READER_MODE_KEY, mode);
   }, []);
 
   const updateRecentNotes = useCallback((updater: (current: ElectronRecentNote[]) => ElectronRecentNote[]) => {
@@ -389,6 +399,7 @@ export function Home() {
     inspectorCollapsed,
     navigatorCollapsed,
     workspaceRailCollapsed: railCollapsed,
+    readerMode,
   }), [
     canCreate,
     canModifySelectedFolder,
@@ -398,6 +409,7 @@ export function Home() {
     navigatorCollapsed,
     noteDirty,
     railCollapsed,
+    readerMode,
     scope.type,
     selectedFolderId,
     selectedNote?.id,
@@ -630,6 +642,9 @@ export function Home() {
     case 'toggle-inspector':
       dispatchDocumentCommand('toggle-inspector');
       break;
+    case 'toggle-reader-mode':
+      dispatchDocumentCommand('toggle-reader-mode');
+      break;
     case 'save-note':
       dispatchDocumentCommand('save-note');
       break;
@@ -713,6 +728,16 @@ export function Home() {
       toast.error(error instanceof Error ? error.message : 'Failed to open HackMD editor.');
     });
   }, [api, trackRecentNote]);
+
+  const handleOpenExternal = useCallback((url: string) => {
+    if (!api) {
+      return;
+    }
+
+    void Promise.resolve(api.shell.openExternal(url)).catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to open link.');
+    });
+  }, [api]);
 
   const handleCopyNoteLink = useCallback((note: NoteSummary) => {
     void writeClipboardText(api, getHackmdNoteUrl(note))
@@ -1248,7 +1273,9 @@ export function Home() {
           folderTree={folderTree}
           isLoading={documentIsLoading}
           command={documentCommand}
+          readerMode={readerMode}
           onOpenEditor={handleOpenEditor}
+          onOpenExternal={handleOpenExternal}
           onCopyLink={handleCopyNoteLink}
           onCopyMarkdownLink={handleCopyNoteMarkdownLink}
           onExportMarkdown={handleExportMarkdown}
@@ -1263,6 +1290,7 @@ export function Home() {
           onDelete={handleDeleteRequest}
           onDirtyStateChange={setNoteDirty}
           onInspectorCollapsedChange={setInspectorCollapsed}
+          onReaderModeChange={setReaderMode}
           isSaving={mutations.updateNoteMutation.isPending}
           isSavingMetadata={mutations.updateNoteMutation.isPending}
           isUploadingImage={mutations.uploadNoteImageMutation.isPending}

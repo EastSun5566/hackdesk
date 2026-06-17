@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Download, Edit3, Loader2, PanelRightClose, PanelRightOpen, Save, Share2, Trash2 } from 'lucide-react';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/MarkdownEditor';
+import { MarkdownReader } from '@/components/MarkdownReader';
 import type {
   DocumentSummary,
   ElectronActionId,
@@ -26,6 +27,7 @@ import {
 import {
   INSPECTOR_COLLAPSED_KEY,
   INSPECTOR_WIDTH_DEFAULT,
+  type ReaderMode,
   readBooleanStorage,
   writeBooleanStorage,
 } from './ui-preferences';
@@ -33,7 +35,7 @@ import {
 const NOTE_INSPECTOR_PANEL_ID = 'note-inspector-panel';
 
 export type DocumentDetailCommand = {
-  id: Extract<ElectronActionId, 'toggle-inspector' | 'focus-inspector' | 'save-note' | 'export-note-markdown' | 'open-note-web-editor' | 'delete-note'>;
+  id: Extract<ElectronActionId, 'toggle-inspector' | 'toggle-reader-mode' | 'focus-inspector' | 'save-note' | 'export-note-markdown' | 'open-note-web-editor' | 'delete-note'>;
   sequence: number;
 };
 
@@ -43,7 +45,9 @@ export function DocumentDetail({
   folderTree,
   isLoading,
   command,
+  readerMode,
   onOpenEditor,
+  onOpenExternal,
   onCopyLink,
   onCopyMarkdownLink,
   onExportMarkdown,
@@ -54,6 +58,7 @@ export function DocumentDetail({
   onDelete,
   onDirtyStateChange,
   onInspectorCollapsedChange,
+  onReaderModeChange,
   isSaving,
   isSavingMetadata,
   isUploadingImage,
@@ -64,7 +69,9 @@ export function DocumentDetail({
   folderTree: FolderTree;
   isLoading: boolean;
   command?: DocumentDetailCommand | null;
+  readerMode: ReaderMode;
   onOpenEditor: (document: DocumentSummary) => void;
+  onOpenExternal: (url: string) => void;
   onCopyLink: (document: DocumentSummary) => void;
   onCopyMarkdownLink: (document: DocumentSummary) => void;
   onExportMarkdown: (document: DocumentSummary, title: string, content: string) => void;
@@ -75,6 +82,7 @@ export function DocumentDetail({
   onDelete: (document: DocumentSummary) => void;
   onDirtyStateChange?: (dirty: boolean) => void;
   onInspectorCollapsedChange?: (collapsed: boolean) => void;
+  onReaderModeChange: (mode: ReaderMode) => void;
   isSaving: boolean;
   isSavingMetadata: boolean;
   isUploadingImage: boolean;
@@ -119,6 +127,9 @@ export function DocumentDetail({
     switch (command.id) {
     case 'toggle-inspector':
       toggleInspector();
+      break;
+    case 'toggle-reader-mode':
+      onReaderModeChange(readerMode === 'read' ? 'edit' : 'read');
       break;
     case 'focus-inspector':
       window.requestAnimationFrame(() => {
@@ -182,16 +193,18 @@ export function DocumentDetail({
       <PanelHeader
         className="px-5 py-3"
         titleElement="div"
-        title={(
-          <label>
-            <span className="sr-only">Note title</span>
-            <input
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              className="w-full truncate bg-transparent text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
-            />
-          </label>
-        )}
+        title={readerMode === 'read'
+          ? <div className="truncate text-lg font-semibold">{title || 'Untitled'}</div>
+          : (
+            <label>
+              <span className="sr-only">Note title</span>
+              <input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                className="w-full truncate bg-transparent text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
+              />
+            </label>
+          )}
         subtitle={(
           <span className="flex flex-wrap items-center gap-2">
             <span>{formatDate(document.updatedAtMillis)}</span>
@@ -204,6 +217,24 @@ export function DocumentDetail({
         )}
         actions={(
           <>
+            <div className="inline-flex rounded-md border border-border-default bg-background-default p-0.5" aria-label="View mode">
+              <button
+                type="button"
+                onClick={() => onReaderModeChange('read')}
+                aria-pressed={readerMode === 'read'}
+                className={`h-8 rounded-[5px] px-2.5 text-sm transition-colors ${readerMode === 'read' ? 'bg-background-selected text-text-default' : 'text-text-subtle hover:text-text-default'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default`}
+              >
+                View
+              </button>
+              <button
+                type="button"
+                onClick={() => onReaderModeChange('edit')}
+                aria-pressed={readerMode === 'edit'}
+                className={`h-8 rounded-[5px] px-2.5 text-sm transition-colors ${readerMode === 'edit' ? 'bg-background-selected text-text-default' : 'text-text-subtle hover:text-text-default'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default`}
+              >
+                Edit
+              </button>
+            </div>
             <button
               type="button"
               onClick={() => onOpenEditor(document)}
@@ -263,7 +294,11 @@ export function DocumentDetail({
       />
 
       <div className="flex min-h-0 flex-1">
-        <MarkdownEditor ref={editorRef} value={content} onChange={setContent} />
+        {readerMode === 'read' ? (
+          <MarkdownReader value={content} onOpenExternal={onOpenExternal} />
+        ) : (
+          <MarkdownEditor ref={editorRef} value={content} onChange={setContent} />
+        )}
         <div
           id={NOTE_INSPECTOR_PANEL_ID}
           aria-hidden={isInspectorCollapsed}
@@ -281,7 +316,14 @@ export function DocumentDetail({
               onSaveMetadata={onSaveMetadata}
               onUploadImage={onUploadImage}
               onCopyLink={onCopyLink}
-              onInsertMarkdown={(markdown) => editorRef.current?.insertText(markdown)}
+              onInsertMarkdown={(markdown) => {
+                if (editorRef.current) {
+                  editorRef.current.insertText(markdown);
+                  return;
+                }
+
+                setContent((current) => `${current}${markdown}`);
+              }}
             />
           )}
         </div>

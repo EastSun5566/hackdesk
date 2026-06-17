@@ -74,6 +74,7 @@ export function createApplicationMenu(sendCommand: SendCommand) {
         actionMenuItem('toggle-workspace-rail', sendCommand),
         actionMenuItem('toggle-navigator', sendCommand),
         actionMenuItem('toggle-inspector', sendCommand),
+        actionMenuItem('toggle-reader-mode', sendCommand),
         { type: 'separator' },
         actionMenuItem('focus-workspace', sendCommand),
         actionMenuItem('focus-navigator', sendCommand),

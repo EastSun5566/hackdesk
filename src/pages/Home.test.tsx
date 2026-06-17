@@ -10,7 +10,7 @@ import type {
   NoteSummary,
 } from '@/lib/electron-api';
 import { ELECTRON_RECENT_NOTES_STORAGE_KEY } from '@/lib/electron-recent-notes';
-import { LAST_WORKSPACE_SCOPE_KEY } from './electron-home/ui-preferences';
+import { LAST_WORKSPACE_SCOPE_KEY, READER_MODE_KEY } from './electron-home/ui-preferences';
 import { Home } from './Home';
 
 vi.setConfig({ testTimeout: 15_000 });
@@ -484,6 +484,71 @@ describe('Home native-feel behavior', () => {
       title: 'Renamed note',
       content: '# Test note',
     }));
+  });
+
+  it('toggles between Edit and View mode and remembers the choice', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Draft title' } });
+    const viewButton = screen.getByRole('button', { name: 'View' });
+    const editButton = screen.getByRole('button', { name: 'Edit' });
+
+    expect(viewButton.compareDocumentPosition(editButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    fireEvent.click(viewButton);
+
+    expect(screen.getByTestId('markdown-reader')).toBeInTheDocument();
+    expect(screen.getByText('Draft title')).toBeInTheDocument();
+    expect(window.localStorage.getItem(READER_MODE_KEY)).toBe('read');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+    expect(await screen.findByDisplayValue('Draft title')).toBeInTheDocument();
+    expect(window.localStorage.getItem(READER_MODE_KEY)).toBe('edit');
+  });
+
+  it('saves the current draft while in View mode', async () => {
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        updateNote: vi.fn(async (_noteId, input) => ({
+          ...document,
+          title: input.title ?? document.title,
+          content: input.content ?? document.content,
+        })),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Reader draft' } });
+    fireEvent.click(screen.getByRole('button', { name: 'View' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
+      title: 'Reader draft',
+      content: '# Test note',
+    }));
+  });
+
+  it('opens View mode links through the Electron shell', async () => {
+    const linkDocument = {
+      ...document,
+      content: '[HackMD](https://hackmd.io)',
+    };
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        getNote: vi.fn(async () => ({ source: 'remote', data: linkDocument })),
+      },
+    });
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    fireEvent.click(screen.getByRole('button', { name: 'View' }));
+    fireEvent.click(await screen.findByRole('link', { name: 'HackMD' }));
+
+    expect(api.shell.openExternal).toHaveBeenCalledWith('https://hackmd.io/');
   });
 
   it('saves a dirty note with the shared keyboard action', async () => {
@@ -1297,6 +1362,43 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
       title: 'Test note',
       content: expect.stringContaining('![diagram](https://cdn.test/diagram.png)'),
+    }));
+  });
+
+  it('uploads an image in View mode and appends the markdown image to the draft', async () => {
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        uploadNoteImage: vi.fn(async () => ({ link: 'https://cdn.test/reader.png' })),
+        updateNote: vi.fn(async (_noteId, input) => ({
+          ...document,
+          title: input.title ?? document.title,
+          content: input.content ?? document.content,
+        })),
+      },
+    });
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    fireEvent.click(screen.getByRole('button', { name: 'View' }));
+    await openInspector();
+
+    const file = new File(['image-bytes'], 'reader.png', { type: 'image/png' });
+    Object.defineProperty(file, 'arrayBuffer', {
+      value: vi.fn(async () => new Uint8Array([1, 2, 3]).buffer),
+    });
+    fireEvent.change(screen.getByLabelText('Upload Image'), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Upload and Insert' }));
+
+    await waitFor(() => expect(api.hackmd.uploadNoteImage).toHaveBeenCalledWith('note-1', expect.objectContaining({
+      fileName: 'reader.png',
+      mimeType: 'image/png',
+    })));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
+      title: 'Test note',
+      content: expect.stringContaining('![reader](https://cdn.test/reader.png)'),
     }));
   });
 

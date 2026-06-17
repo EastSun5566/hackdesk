@@ -204,6 +204,7 @@ export type ElectronActionId =
   | 'toggle-workspace-rail'
   | 'toggle-navigator'
   | 'toggle-inspector'
+  | 'toggle-reader-mode'
   | 'refresh'
   | 'export-debug-logs'
   | 'go-history'
