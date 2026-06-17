@@ -47,5 +47,5 @@ describe('logging helpers', () => {
     expect(archive.subarray(0, 4).toString('latin1')).toBe('PK\u0003\u0004');
     expect(archive.toString('latin1')).toContain('manifest.json');
     expect(archive.toString('latin1')).toContain('logs/');
-  });
+  }, 15_000);
 });

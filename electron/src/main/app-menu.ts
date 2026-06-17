@@ -66,6 +66,7 @@ export function createApplicationMenu(sendCommand: SendCommand) {
       submenu: [
         actionMenuItem('open-command-palette', sendCommand),
         actionMenuItem('refresh', sendCommand),
+        actionMenuItem('go-history', sendCommand),
         { type: 'separator' },
         actionMenuItem('toggle-workspace-rail', sendCommand),
         actionMenuItem('toggle-navigator', sendCommand),

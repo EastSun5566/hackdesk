@@ -45,7 +45,7 @@ export function useElectronNoteMutations({
   onFolderCreated: (folder: FolderSummary) => void;
   onFolderRenamed: (folder: FolderSummary) => void;
   onFolderDeleted: (folderId: string, parentFolderId: string | null) => void;
-  onNoteDeleted: () => void;
+  onNoteDeleted: (note: DocumentSummary) => void;
   onNoteMoved: (note: NoteSummary, targetFolderId: string | null) => void;
 }) {
   const queryClient = useQueryClient();
@@ -204,9 +204,11 @@ export function useElectronNoteMutations({
       } else {
         await api.hackmd.deleteNote(note.id);
       }
+
+      return note;
     },
-    onSuccess: () => {
-      onNoteDeleted();
+    onSuccess: (note) => {
+      onNoteDeleted(note);
       invalidateCurrentNotes();
       toast.success('Note deleted.');
     },

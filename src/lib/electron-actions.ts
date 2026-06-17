@@ -200,6 +200,15 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     getDisabledReason: requireHackmd,
   },
   {
+    id: 'go-history',
+    label: 'Go to History',
+    description: 'Show recently visited HackMD notes from your history.',
+    keywords: ['recent', 'activity', 'visited'],
+    category: 'navigation',
+    scope: 'workspace',
+    getDisabledReason: requireHackmd,
+  },
+  {
     id: 'export-debug-logs',
     label: 'Export Debug Logs',
     description: 'Export HackDesk logs and local crash reports for debugging.',

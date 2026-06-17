@@ -1,9 +1,11 @@
 import {
   FileText,
   FileArchive,
+  Folder,
   FolderTree,
   FolderPlus,
   FolderPen,
+  History,
   Trash2,
   Keyboard,
   PanelLeft,
@@ -12,6 +14,7 @@ import {
   PanelRightClose,
   RefreshCcw,
   Save,
+  Search,
   Settings2,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -34,10 +37,19 @@ import {
 import {
   getActionDisabledReason,
   getCommandPaletteActions,
-  type ElectronActionCategory,
   type ElectronActionContext,
 } from '@/lib/electron-actions';
 import type { ElectronActionId } from '@/lib/electron-api';
+import {
+  getQuickOpenActionResults,
+  getQuickOpenFolderResults,
+  getQuickOpenNoteResults,
+  getQuickOpenRecentNoteResults,
+  shouldShowFinderQuickAction,
+  type QuickOpenFolderResult,
+} from '@/lib/electron-quick-open';
+import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
+import type { FolderTree as HackmdFolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
 
 import type { CommandPaletteState } from './types';
 
@@ -55,6 +67,7 @@ const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'toggle-navigator': <PanelLeft className="h-4 w-4" />,
   'toggle-inspector': <PanelRightClose className="h-4 w-4" />,
   refresh: <RefreshCcw className="h-4 w-4" />,
+  'go-history': <History className="h-4 w-4" />,
   'export-debug-logs': <FileArchive className="h-4 w-4" />,
   'focus-workspace': <PanelLeft className="h-4 w-4" />,
   'focus-navigator': <FolderTree className="h-4 w-4" />,
@@ -62,32 +75,41 @@ const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'focus-inspector': <PanelRightClose className="h-4 w-4" />,
 };
 
-const CATEGORY_LABELS: Record<ElectronActionCategory, string> = {
-  create: 'Create',
-  navigation: 'Navigation',
-  view: 'View',
-  note: 'Note',
-  folder: 'Folder',
-  app: 'App',
-};
-
-const CATEGORY_ORDER: ElectronActionCategory[] = ['create', 'note', 'folder', 'view', 'navigation', 'app'];
-
 export function CommandPaletteDialog({
   state,
   context,
+  folderTree,
+  recentNotes,
+  selectedNoteId,
+  selectedFolderId,
   onStateChange,
   onRunAction,
+  onSelectNote,
+  onSelectRecentNote,
+  onSelectFolder,
+  onShowFinderResults,
 }: {
   state: CommandPaletteState;
   context: ElectronActionContext;
+  folderTree: HackmdFolderTree;
+  recentNotes: ElectronRecentNote[];
+  selectedNoteId: string | null;
+  selectedFolderId: string | null;
   onStateChange: (state: CommandPaletteState) => void;
   onRunAction: (actionId: ElectronActionId) => void;
+  onSelectNote: (entry: FolderTreeNote) => void;
+  onSelectRecentNote: (entry: ElectronRecentNote) => void;
+  onSelectFolder: (folder: QuickOpenFolderResult) => void;
+  onShowFinderResults: (query: string) => void;
 }) {
-  const actionsByCategory = CATEGORY_ORDER.map((category) => ({
-    category,
-    actions: getCommandPaletteActions().filter((action) => action.category === category),
-  })).filter((group) => group.actions.length > 0);
+  const trimmedSearch = state.search.trim();
+  const recentResults = getQuickOpenRecentNoteResults(recentNotes, state.search);
+  const noteResults = getQuickOpenNoteResults(folderTree, state.search);
+  const folderResults = context.scopeType === 'history' ? [] : getQuickOpenFolderResults(folderTree, state.search);
+  const actionResults = getQuickOpenActionResults(getCommandPaletteActions(), state.search);
+  const showFinderAction = shouldShowFinderQuickAction(state.search);
+
+  const closePalette = () => onStateChange({ open: false, search: '' });
 
   return (
     <Dialog
@@ -103,13 +125,114 @@ export function CommandPaletteDialog({
             autoFocus
             value={state.search}
             onValueChange={(search) => onStateChange({ ...state, search })}
-            placeholder="Search commands"
+            placeholder="Search notes, folders, and commands"
           />
           <CommandList>
             <CommandEmpty>No commands found.</CommandEmpty>
-            {actionsByCategory.map(({ category, actions }) => (
-              <CommandGroup key={category} heading={CATEGORY_LABELS[category]}>
-                {actions.map((action) => {
+            {recentResults.length > 0 ? (
+              <CommandGroup heading="Recent Notes">
+                {recentResults.map((entry) => {
+                  const metadata = [
+                    entry.teamPath ? `Team: ${entry.teamPath}` : 'My Workspace',
+                    entry.shortId,
+                  ].filter(Boolean).join(' · ');
+
+                  return (
+                    <CommandItem
+                      key={`recent:${entry.teamPath ?? 'personal'}:${entry.noteId}`}
+                      value={`recent note ${entry.title} ${metadata}`}
+                      onSelect={() => {
+                        onSelectRecentNote(entry);
+                        closePalette();
+                      }}
+                    >
+                      <span className="mr-3 text-text-subtle"><History className="h-4 w-4" /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{entry.title || 'Untitled'}</span>
+                        <span className="block truncate text-xs text-text-subtle">{metadata}</span>
+                      </span>
+                      {selectedNoteId === entry.noteId ? <CommandShortcut>Recent</CommandShortcut> : null}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            ) : null}
+
+            {noteResults.length > 0 ? (
+              <CommandGroup heading="Notes">
+                {noteResults.map((entry) => {
+                  const metadata = [
+                    context.scopeType === 'history' ? 'History' : entry.folderLabel || 'Root',
+                    entry.note.tags.slice(0, 2).join(', '),
+                    entry.note.shortId,
+                  ].filter(Boolean).join(' · ');
+
+                  return (
+                    <CommandItem
+                      key={`note:${entry.note.id}:${entry.folderLabel}`}
+                      value={`note ${entry.note.title} ${metadata}`}
+                      onSelect={() => {
+                        onSelectNote(entry);
+                        closePalette();
+                      }}
+                    >
+                      <span className="mr-3 text-text-subtle"><FileText className="h-4 w-4" /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{entry.note.title || 'Untitled'}</span>
+                        <span className="block truncate text-xs text-text-subtle">{metadata}</span>
+                      </span>
+                      {selectedNoteId === entry.note.id ? <CommandShortcut>Selected</CommandShortcut> : null}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            ) : null}
+
+            {folderResults.length > 0 ? (
+              <CommandGroup heading="Folders">
+                {folderResults.map((folder) => (
+                  <CommandItem
+                    key={`folder:${folder.id}`}
+                    value={`folder ${folder.label}`}
+                    onSelect={() => {
+                      onSelectFolder(folder);
+                      closePalette();
+                    }}
+                  >
+                    <span className="mr-3 text-text-subtle"><Folder className="h-4 w-4" /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">{folder.name}</span>
+                      <span className="block truncate text-xs text-text-subtle">
+                        {folder.label}{folder.noteCount > 0 ? ` · ${folder.noteCount} ${folder.noteCount === 1 ? 'note' : 'notes'}` : ''}
+                      </span>
+                    </span>
+                    {selectedFolderId === folder.id ? <CommandShortcut>Selected</CommandShortcut> : null}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : null}
+
+            {showFinderAction ? (
+              <CommandGroup heading="Finder">
+                <CommandItem
+                  value={`show finder results ${trimmedSearch}`}
+                  onSelect={() => {
+                    onShowFinderResults(trimmedSearch);
+                    closePalette();
+                  }}
+                >
+                  <span className="mr-3 text-text-subtle"><Search className="h-4 w-4" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{`Show Finder Results for “${trimmedSearch}”`}</span>
+                    <span className="block truncate text-xs text-text-subtle">Filter the current workspace in the navigator.</span>
+                  </span>
+                </CommandItem>
+              </CommandGroup>
+            ) : null}
+
+            {actionResults.length > 0 ? (
+              <CommandGroup heading="Actions">
+                {actionResults.map((action) => {
                   const disabledReason = getActionDisabledReason(action, context);
 
                   return (
@@ -123,7 +246,7 @@ export function CommandPaletteDialog({
                         }
 
                         onRunAction(action.id);
-                        onStateChange({ open: false, search: '' });
+                        closePalette();
                       }}
                     >
                       <span className="mr-3 text-text-subtle">{ACTION_ICONS[action.id]}</span>
@@ -138,7 +261,7 @@ export function CommandPaletteDialog({
                   );
                 })}
               </CommandGroup>
-            ))}
+            ) : null}
           </CommandList>
         </Command>
       </DialogContent>

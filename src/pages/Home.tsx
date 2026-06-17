@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { getDesktopAPI } from '@/lib/desktop-api';
@@ -7,15 +7,33 @@ import type {
   ElectronActionId,
   FolderSummary,
   NoteSummary,
-  OpenHackmdEditorInput,
 } from '@/lib/electron-api';
 import {
   getActionDisabledReason,
   getElectronAction,
   type ElectronActionContext,
 } from '@/lib/electron-actions';
+import {
+  applyNoteFinder,
+  clearNoteFinderFilters,
+  clearNoteFinderQuery,
+  hasActiveNoteFinderFilters,
+  isNoteFinderActive,
+  readNoteFinderState,
+  writeNoteFinderState,
+  type NoteFinderState,
+} from '@/lib/electron-note-finder';
+import type { QuickOpenFolderResult } from '@/lib/electron-quick-open';
+import {
+  readRecentNotes,
+  recentNoteMatches,
+  removeRecentNote,
+  upsertRecentNote,
+  writeRecentNotes,
+  type ElectronRecentNote,
+} from '@/lib/electron-recent-notes';
 import type { FolderDropOperation } from '@/lib/hackmd-folder-dnd';
-import { buildHackmdFolderTree, UNFILED_FOLDER_ID, type FolderTreeNode } from '@/lib/hackmd-folders';
+import { buildHackmdFolderTree, UNFILED_FOLDER_ID, type FolderTreeNode, type FolderTreeNote } from '@/lib/hackmd-folders';
 
 import { AppTopBar } from './electron-home/AppTopBar';
 import { CommandPaletteDialog } from './electron-home/CommandPaletteDialog';
@@ -63,7 +81,6 @@ import {
 import {
   getFolderNoteEntries,
   getFolderPathLabel,
-  noteMatchesSearch,
 } from './electron-home/ui';
 import { useElectronHackmdQueries } from './electron-home/useElectronHackmdQueries';
 import { useElectronFocusZones } from './electron-home/useElectronFocusZones';
@@ -92,8 +109,11 @@ export function Home() {
   const [scope, setScope] = useState<WorkspaceScope>({ type: 'personal', label: 'My Workspace' });
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedNote, setSelectedNote] = useState<NoteSummary | null>(null);
-  const [search, setSearch] = useState('');
-  const deferredSearch = useDeferredValue(search);
+  const [recentNotes, setRecentNotes] = useState<ElectronRecentNote[]>(() => readRecentNotes(window.localStorage));
+  const [finderState, setFinderState] = useState<NoteFinderState>(() => (
+    readNoteFinderState(window.localStorage, getScopeStorageKey({ type: 'personal', label: 'My Workspace' }))
+  ));
+  const deferredFinderQuery = useDeferredValue(finderState.query);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [palette, setPalette] = useState<CommandPaletteState>({ open: false, search: '' });
   const [createDialog, setCreateDialog] = useState<CreateNoteDialogState>({ open: false, title: '' });
@@ -112,10 +132,12 @@ export function Home() {
   const [navigatorWidth, setNavigatorWidth] = useState(() => (
     readNumberStorage(NAVIGATOR_WIDTH_KEY, NAVIGATOR_WIDTH_DEFAULT, NAVIGATOR_WIDTH_MIN, NAVIGATOR_WIDTH_MAX)
   ));
+  const skipNextFinderWriteRef = useRef(false);
   const [collapsedFolderIds, setCollapsedFolderIds] = useState(() => (
     readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}personal`)
   ));
   const { focusZone } = useElectronFocusZones();
+  const scopeStorageKey = useMemo(() => getScopeStorageKey(scope), [scope]);
 
   const {
     settings,
@@ -133,15 +155,19 @@ export function Home() {
     () => buildHackmdFolderTree(currentNotes, currentFolders, currentFolderOrder),
     [currentFolderOrder, currentFolders, currentNotes],
   );
-  const normalizedSearch = deferredSearch.trim().toLowerCase();
+  const deferredFinderState = useMemo<NoteFinderState>(() => ({
+    ...finderState,
+    query: deferredFinderQuery,
+  }), [deferredFinderQuery, finderState]);
+  const finderActive = isNoteFinderActive(deferredFinderState);
   const visibleEntries = useMemo(() => {
-    const entries = normalizedSearch
-      ? folderTree.allNotes.filter((entry) => noteMatchesSearch(entry, normalizedSearch))
+    const entries = finderActive
+      ? applyNoteFinder(folderTree, deferredFinderState, selectedFolderId)
       : getFolderNoteEntries(folderTree, selectedFolderId);
 
     const seen = new Set<string>();
     return entries.filter((entry) => {
-      const key = normalizedSearch ? `${entry.folderLabel}:${entry.note.id}` : entry.note.id;
+      const key = entry.note.id;
       if (seen.has(key)) {
         return false;
       }
@@ -149,7 +175,7 @@ export function Home() {
       seen.add(key);
       return true;
     });
-  }, [folderTree, normalizedSearch, selectedFolderId]);
+  }, [deferredFinderState, finderActive, folderTree, selectedFolderId]);
   const selectedFolder = selectedFolderId === UNFILED_FOLDER_ID
     ? folderTree.unfiled
     : selectedFolderId ? folderTree.nodesById.get(selectedFolderId) ?? null : null;
@@ -174,12 +200,50 @@ export function Home() {
     });
   }, []);
 
+  const expandNavigator = useCallback(() => {
+    setNavigatorCollapsed(false);
+    writeBooleanStorage(NAVIGATOR_COLLAPSED_KEY, false);
+  }, []);
+
+  const revealFolderIds = useCallback((folderIds: string[]) => {
+    if (folderIds.length === 0) {
+      return;
+    }
+
+    setCollapsedFolderIds((current) => {
+      const next = new Set(current);
+      folderIds.forEach((folderId) => next.delete(folderId));
+      return next;
+    });
+  }, []);
+
   const dispatchDocumentCommand = useCallback((id: DocumentDetailCommand['id']) => {
     setDocumentCommand((current) => ({
       id,
       sequence: (current?.sequence ?? 0) + 1,
     }));
   }, []);
+
+  const updateRecentNotes = useCallback((updater: (current: ElectronRecentNote[]) => ElectronRecentNote[]) => {
+    setRecentNotes((current) => {
+      const next = updater(current);
+      writeRecentNotes(window.localStorage, next);
+      return next;
+    });
+  }, []);
+
+  const trackRecentNote = useCallback((note: NoteSummary) => {
+    updateRecentNotes((current) => upsertRecentNote(current, note));
+  }, [updateRecentNotes]);
+
+  const removeRecentNoteEntry = useCallback((noteId: string, teamPath: string | null) => {
+    updateRecentNotes((current) => removeRecentNote(current, noteId, teamPath));
+  }, [updateRecentNotes]);
+
+  const selectNoteAndTrackRecent = useCallback((note: NoteSummary) => {
+    setSelectedNote(note);
+    trackRecentNote(note);
+  }, [trackRecentNote]);
 
   const mutations = useElectronNoteMutations({
     api,
@@ -189,7 +253,7 @@ export function Home() {
     onSettingsSaved: () => setSettingsOpen(false),
     onNoteCreated: (note) => {
       setCreateDialog({ open: false, title: '' });
-      setSelectedNote(note);
+      selectNoteAndTrackRecent(note);
     },
     onFolderCreated: (folder: FolderSummary) => {
       setCreateFolderDialog(createClosedFolderDialogState());
@@ -208,13 +272,14 @@ export function Home() {
       setSelectedNote(null);
       setSelectedFolderId(parentFolderId ?? UNFILED_FOLDER_ID);
     },
-    onNoteDeleted: () => {
+    onNoteDeleted: (note) => {
+      removeRecentNoteEntry(note.id, note.teamPath ?? null);
       setDeleteTarget(null);
       setSelectedNote(null);
     },
     onNoteMoved: (note, targetFolderId) => {
       setSelectedFolderId(targetFolderId ?? UNFILED_FOLDER_ID);
-      setSelectedNote(note);
+      selectNoteAndTrackRecent(note);
     },
   });
 
@@ -384,6 +449,10 @@ export function Home() {
     case 'refresh':
       refreshWorkspace();
       break;
+    case 'go-history':
+      setScope({ type: 'history', label: 'History' });
+      focusZone('navigator');
+      break;
     case 'toggle-workspace-rail':
       toggleRailCollapsed();
       break;
@@ -461,27 +530,44 @@ export function Home() {
     });
   }, [api, mutations.deleteNoteMutation]);
 
-  const handleOpenEditor = useCallback((note: OpenHackmdEditorInput) => {
+  const handleOpenEditor = useCallback((note: NoteSummary) => {
     if (!api) {
       return;
     }
 
+    trackRecentNote(note);
     void Promise.resolve(api.shell.openHackmdEditor(note)).catch((error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to open HackMD editor.');
     });
-  }, [api]);
+  }, [api, trackRecentNote]);
 
   useEffect(() => {
-    const storageKey = `${FOLDER_COLLAPSED_PREFIX}${getScopeStorageKey(scope)}`;
+    const storageKey = `${FOLDER_COLLAPSED_PREFIX}${scopeStorageKey}`;
     setCollapsedFolderIds(readStringArrayStorage(storageKey));
     setSelectedFolderId(null);
     setSelectedNote(null);
-    setSearch('');
-  }, [scope]);
+    skipNextFinderWriteRef.current = true;
+    setFinderState(readNoteFinderState(window.localStorage, scopeStorageKey));
+  }, [scopeStorageKey]);
 
   useEffect(() => {
-    writeStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${getScopeStorageKey(scope)}`, collapsedFolderIds);
-  }, [collapsedFolderIds, scope]);
+    writeStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${scopeStorageKey}`, collapsedFolderIds);
+  }, [collapsedFolderIds, scopeStorageKey]);
+
+  useEffect(() => {
+    if (skipNextFinderWriteRef.current) {
+      skipNextFinderWriteRef.current = false;
+      return;
+    }
+
+    writeNoteFinderState(window.localStorage, scopeStorageKey, finderState);
+  }, [finderState, scopeStorageKey]);
+
+  useEffect(() => {
+    if (!selectedFolderId && finderState.searchScope === 'current-folder') {
+      setFinderState((current) => ({ ...current, searchScope: 'workspace' }));
+    }
+  }, [finderState.searchScope, selectedFolderId]);
 
   useEffect(() => {
     if (!selectedNote || !visibleEntries.some((entry) => entry.note.id === selectedNote.id)) {
@@ -606,8 +692,13 @@ export function Home() {
         return;
       }
 
-      if (search) {
-        setSearch('');
+      if (finderState.query) {
+        setFinderState((current) => clearNoteFinderQuery(current));
+        return;
+      }
+
+      if (hasActiveNoteFinderFilters(finderState)) {
+        setFinderState((current) => clearNoteFinderFilters(current));
         return;
       }
 
@@ -630,7 +721,7 @@ export function Home() {
     renameFolderDialog.open,
     refreshWorkspace,
     runAction,
-    search,
+    finderState,
     selectedFolderId,
     settingsOpen,
   ]);
@@ -657,15 +748,17 @@ export function Home() {
     || isShowingCachedFallback(queries.teamsQuery.data);
   const emptyTitle = !hasToken
     ? 'Connect HackMD first'
-    : normalizedSearch
+    : finderActive
       ? 'No matching notes'
-      : selectedFolder
-        ? 'No notes in this folder'
-        : 'No notes in this workspace';
+      : scope.type === 'history'
+        ? 'No history yet'
+        : selectedFolder
+          ? 'No notes in this folder'
+          : 'No notes in this workspace';
   const emptyDescription = !hasToken
     ? 'Add an API token in Settings to load your profile, teams, notes, and history.'
-    : normalizedSearch
-      ? 'Try a different title, tag, folder path, short ID, or team path.'
+    : finderActive
+      ? 'Try a different title, tag, folder path, short ID, team path, sort, or filter.'
       : scope.type === 'history'
         ? 'Your HackMD history will appear here after the first successful sync.'
         : 'Select another folder, create a note here, or refresh after another client changes HackMD.';
@@ -696,6 +789,73 @@ export function Home() {
         return next;
       });
     }
+  };
+
+  const revealNoteEntry = (entry: FolderTreeNote) => {
+    const folderIds = entry.folderPath.map((folder) => folder.id);
+    const leafFolderId = folderIds.at(-1) ?? UNFILED_FOLDER_ID;
+    expandNavigator();
+    revealFolderIds(folderIds);
+    setSelectedFolderId(leafFolderId);
+    selectNoteAndTrackRecent(entry.note);
+    focusZone('editor');
+  };
+
+  const handleQuickOpenNote = (entry: FolderTreeNote) => {
+    revealNoteEntry(entry);
+  };
+
+  const handleQuickOpenRecentNote = (entry: ElectronRecentNote) => {
+    const loadedEntry = folderTree.allNotes.find((candidate) => (
+      recentNoteMatches(candidate.note, entry)
+    ));
+
+    if (loadedEntry) {
+      revealNoteEntry(loadedEntry);
+      return;
+    }
+
+    const currentTeamPath = scope.type === 'team' ? scope.teamPath : null;
+    const isCurrentWritableScope = scope.type !== 'history' && currentTeamPath === entry.teamPath;
+    if (isCurrentWritableScope && !queries.notesQuery.isLoading && !queries.notesQuery.isFetching) {
+      removeRecentNoteEntry(entry.noteId, entry.teamPath);
+      toast.info(`“${entry.title || 'Untitled'}” is no longer available in this workspace.`);
+      return;
+    }
+
+    if (entry.teamPath) {
+      const team = teams.find((candidate) => candidate.path === entry.teamPath);
+      setScope({
+        type: 'team',
+        label: team?.name ?? entry.teamPath,
+        teamPath: entry.teamPath,
+      });
+      toast.info(`Loading ${team?.name ?? entry.teamPath} before opening “${entry.title || 'Untitled'}”.`);
+      focusZone('navigator');
+      return;
+    }
+
+    setScope({ type: 'personal', label: 'My Workspace' });
+    toast.info(`Loading My Workspace before opening “${entry.title || 'Untitled'}”.`);
+    focusZone('navigator');
+  };
+
+  const handleQuickOpenFolder = (folder: QuickOpenFolderResult) => {
+    expandNavigator();
+    revealFolderIds([...folder.ancestorIds, folder.id]);
+    setSelectedFolderId(folder.id);
+    setSelectedNote(null);
+    focusZone('navigator');
+  };
+
+  const handleShowFinderResults = (query: string) => {
+    expandNavigator();
+    setFinderState((current) => ({
+      ...current,
+      query,
+      searchScope: 'workspace',
+    }));
+    focusZone('navigator');
   };
 
   return (
@@ -737,7 +897,7 @@ export function Home() {
           entries={visibleEntries}
           selectedFolderId={selectedFolderId}
           selectedNoteId={selectedNote?.id ?? null}
-          search={search}
+          finderState={finderState}
           isLoading={queries.notesQuery.isLoading || queries.foldersQuery.isLoading || queries.folderOrderQuery.isLoading}
           hasToken={hasToken}
           collapsed={navigatorCollapsed}
@@ -754,8 +914,8 @@ export function Home() {
           isMovingNote={mutations.moveNoteMutation.isPending}
           onFolderSelect={handleFolderSelect}
           onFolderToggle={toggleFolderCollapsed}
-          onNoteSelect={setSelectedNote}
-          onSearchChange={setSearch}
+          onNoteSelect={selectNoteAndTrackRecent}
+          onFinderStateChange={setFinderState}
           onRefresh={refreshWorkspace}
           onCreate={handleCreateNote}
           onCreateFolder={handleCreateFolder}
@@ -831,8 +991,16 @@ export function Home() {
       <CommandPaletteDialog
         state={palette}
         context={actionContext}
+        folderTree={folderTree}
+        recentNotes={recentNotes}
+        selectedNoteId={selectedNote?.id ?? null}
+        selectedFolderId={selectedFolderId}
         onStateChange={setPalette}
         onRunAction={runAction}
+        onSelectNote={handleQuickOpenNote}
+        onSelectRecentNote={handleQuickOpenRecentNote}
+        onSelectFolder={handleQuickOpenFolder}
+        onShowFinderResults={handleShowFinderResults}
       />
 
       <CreateNoteDialog

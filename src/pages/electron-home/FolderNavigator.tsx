@@ -1,5 +1,7 @@
 import {
   AlertCircle,
+  ArrowDownUp,
+  Check,
   ChevronRight,
   FileText,
   Folder,
@@ -14,7 +16,9 @@ import {
   Plus,
   RefreshCcw,
   Search,
+  SlidersHorizontal,
   Trash2,
+  X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
@@ -47,12 +51,14 @@ import {
 } from '@/components/ui/context-menu';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import type { NoteSummary } from '@/lib/electron-api';
+import type { NotePermissionRole, NoteSummary } from '@/lib/electron-api';
 import {
   buildFolderDropOperation,
   flattenFolderTree,
@@ -67,6 +73,16 @@ import {
   parseNoteDragId,
   type NoteDropOperation,
 } from '@/lib/hackmd-note-dnd';
+import {
+  getActiveNoteFinderFilterCount,
+  getNoteFinderOptions,
+  hasActiveNoteFinderFilters,
+  isNoteFinderActive,
+  togglePermissionFilter,
+  toggleStringFilter,
+  type NoteFinderSortMode,
+  type NoteFinderState,
+} from '@/lib/electron-note-finder';
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
@@ -74,6 +90,7 @@ import { EmptyState, EntityRow, PanelHeader, PanelShell } from './interaction-pr
 import type { WorkspaceScope } from './types';
 import { RepositoryNotice } from './RepositoryNotice';
 import {
+  COMPACT_ICON_BUTTON_CLASS,
   COLLAPSE_ICON_CLASS,
   FOCUS_RING_CLASS,
   ICON_BUTTON_CLASS,
@@ -81,6 +98,217 @@ import {
   getFolderTotalNoteCount,
 } from './ui';
 import { NAVIGATOR_COLLAPSED_WIDTH } from './ui-preferences';
+
+const SORT_LABELS: Record<NoteFinderSortMode, string> = {
+  'updated-desc': 'Recently updated',
+  'updated-asc': 'Oldest updated',
+  'title-asc': 'Title A-Z',
+  'title-desc': 'Title Z-A',
+  'created-desc': 'Created newest',
+};
+
+const SORT_MODES: NoteFinderSortMode[] = ['updated-desc', 'updated-asc', 'title-asc', 'title-desc', 'created-desc'];
+
+const PERMISSION_LABELS: Record<NotePermissionRole, string> = {
+  owner: 'Owner',
+  signed_in: 'Signed in',
+  guest: 'Guest',
+};
+
+function CheckedIcon({ checked }: { checked: boolean }) {
+  return <Check aria-hidden="true" className={`h-3.5 w-3.5 ${checked ? 'opacity-100' : 'opacity-0'}`} />;
+}
+
+function FilterChip({
+  label,
+  removeLabel,
+  onRemove,
+}: {
+  label: string;
+  removeLabel: string;
+  onRemove: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      className={`inline-flex h-7 min-w-0 items-center gap-1 rounded-[6px] border border-border-default bg-background-default px-2 text-xs text-text-default transition-colors hover:bg-background-selected ${FOCUS_RING_CLASS}`}
+      aria-label={`Remove ${removeLabel}`}
+    >
+      <span className="truncate">{label}</span>
+      <X aria-hidden="true" className="h-3 w-3 text-text-subtle" />
+    </button>
+  );
+}
+
+function NoteFinderToolbar({
+  state,
+  resultCount,
+  selectedFolderId,
+  options,
+  onChange,
+}: {
+  state: NoteFinderState;
+  resultCount: number;
+  selectedFolderId: string | null;
+  options: ReturnType<typeof getNoteFinderOptions>;
+  onChange: (state: NoteFinderState) => void;
+}) {
+  const activeFilterCount = getActiveNoteFinderFilterCount(state);
+  const currentFolderDisabled = !selectedFolderId;
+  const updateState = (patch: Partial<NoteFinderState>) => onChange({ ...state, ...patch });
+  const removeTag = (tag: string) => updateState({ tagFilters: state.tagFilters.filter((candidate) => candidate !== tag) });
+  const removeReadPermission = (permission: NotePermissionRole) => updateState({
+    readPermissionFilters: state.readPermissionFilters.filter((candidate) => candidate !== permission),
+  });
+  const removeWritePermission = (permission: NotePermissionRole) => updateState({
+    writePermissionFilters: state.writePermissionFilters.filter((candidate) => candidate !== permission),
+  });
+
+  return (
+    <div className="space-y-3">
+      <label className="flex h-10 items-center gap-2 rounded-md border border-border-default bg-background-default px-3 transition-colors focus-within:border-primary-default">
+        <Search aria-hidden="true" className="h-4 w-4 text-text-subtle" />
+        <span className="sr-only">Search notes</span>
+        <input
+          value={state.query}
+          onChange={(event) => updateState({ query: event.target.value })}
+          placeholder="Search notes"
+          className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+        />
+        {state.query ? (
+          <button
+            type="button"
+            onClick={() => updateState({ query: '' })}
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default ${FOCUS_RING_CLASS}`}
+            aria-label="Clear search"
+          >
+            <X aria-hidden="true" className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
+      </label>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-md border border-border-default bg-background-default p-0.5" aria-label="Search scope">
+          <button
+            type="button"
+            onClick={() => updateState({ searchScope: 'workspace' })}
+            aria-pressed={state.searchScope === 'workspace'}
+            className={`h-7 rounded-[5px] px-2 text-xs transition-colors ${state.searchScope === 'workspace' ? 'bg-background-selected text-text-default' : 'text-text-subtle hover:text-text-default'} ${FOCUS_RING_CLASS}`}
+          >
+            Workspace
+          </button>
+          <button
+            type="button"
+            onClick={() => updateState({ searchScope: 'current-folder' })}
+            disabled={currentFolderDisabled}
+            aria-pressed={state.searchScope === 'current-folder'}
+            className={`h-7 rounded-[5px] px-2 text-xs transition-colors ${state.searchScope === 'current-folder' ? 'bg-background-selected text-text-default' : 'text-text-subtle hover:text-text-default'} ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`}
+          >
+            Current Folder
+          </button>
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" className={COMPACT_ICON_BUTTON_CLASS} aria-label="Sort notes">
+              <ArrowDownUp aria-hidden="true" className="h-3.5 w-3.5" />
+              <span className="sr-only">{SORT_LABELS[state.sortMode]}</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuLabel>Sort</DropdownMenuLabel>
+            {SORT_MODES.map((sortMode) => (
+              <DropdownMenuItem key={sortMode} onSelect={() => updateState({ sortMode })}>
+                <CheckedIcon checked={state.sortMode === sortMode} />
+                {SORT_LABELS[sortMode]}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" className={`${COMPACT_ICON_BUTTON_CLASS} gap-1 px-2`} aria-label="Filter notes">
+              <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
+              <span className="text-xs">{activeFilterCount || 'Filters'}</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="max-h-96 min-w-56 overflow-auto">
+            <DropdownMenuLabel>Tags</DropdownMenuLabel>
+            {options.tags.length > 0 ? options.tags.map((tag) => (
+              <DropdownMenuCheckboxItem
+                key={tag}
+                checked={state.tagFilters.includes(tag)}
+                onSelect={(event) => event.preventDefault()}
+                onCheckedChange={() => updateState({ tagFilters: toggleStringFilter(state.tagFilters, tag) })}
+              >
+                {tag}
+              </DropdownMenuCheckboxItem>
+            )) : (
+              <DropdownMenuItem disabled>No tags loaded</DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Read Permission</DropdownMenuLabel>
+            {options.readPermissions.map((permission) => (
+              <DropdownMenuCheckboxItem
+                key={`read:${permission}`}
+                checked={state.readPermissionFilters.includes(permission)}
+                onSelect={(event) => event.preventDefault()}
+                onCheckedChange={() => updateState({ readPermissionFilters: togglePermissionFilter(state.readPermissionFilters, permission) })}
+              >
+                {PERMISSION_LABELS[permission]}
+              </DropdownMenuCheckboxItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Write Permission</DropdownMenuLabel>
+            {options.writePermissions.map((permission) => (
+              <DropdownMenuCheckboxItem
+                key={`write:${permission}`}
+                checked={state.writePermissionFilters.includes(permission)}
+                onSelect={(event) => event.preventDefault()}
+                onCheckedChange={() => updateState({ writePermissionFilters: togglePermissionFilter(state.writePermissionFilters, permission) })}
+              >
+                {PERMISSION_LABELS[permission]}
+              </DropdownMenuCheckboxItem>
+            ))}
+            {hasActiveNoteFinderFilters(state) ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => updateState({
+                  tagFilters: [],
+                  readPermissionFilters: [],
+                  writePermissionFilters: [],
+                })}
+                >
+                  Clear Filters
+                </DropdownMenuItem>
+              </>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <span className="ml-auto text-xs text-text-subtle" aria-live="polite">
+          {resultCount} {resultCount === 1 ? 'result' : 'results'}
+        </span>
+      </div>
+
+      {hasActiveNoteFinderFilters(state) ? (
+        <div className="flex flex-wrap gap-1.5">
+          {state.tagFilters.map((tag) => (
+            <FilterChip key={`tag:${tag}`} label={tag} removeLabel={`tag filter ${tag}`} onRemove={() => removeTag(tag)} />
+          ))}
+          {state.readPermissionFilters.map((permission) => (
+            <FilterChip key={`read:${permission}`} label={`Read: ${PERMISSION_LABELS[permission]}`} removeLabel={`read permission filter ${PERMISSION_LABELS[permission]}`} onRemove={() => removeReadPermission(permission)} />
+          ))}
+          {state.writePermissionFilters.map((permission) => (
+            <FilterChip key={`write:${permission}`} label={`Write: ${PERMISSION_LABELS[permission]}`} removeLabel={`write permission filter ${PERMISSION_LABELS[permission]}`} onRemove={() => removeWritePermission(permission)} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 function NoteRow({
   entry,
@@ -556,7 +784,7 @@ export function FolderNavigator({
   entries,
   selectedFolderId,
   selectedNoteId,
-  search,
+  finderState,
   isLoading,
   hasToken,
   collapsed,
@@ -574,7 +802,7 @@ export function FolderNavigator({
   onFolderSelect,
   onFolderToggle,
   onNoteSelect,
-  onSearchChange,
+  onFinderStateChange,
   onRefresh,
   onCreate,
   onCreateFolder,
@@ -595,7 +823,7 @@ export function FolderNavigator({
   entries: FolderTreeNote[];
   selectedFolderId: string | null;
   selectedNoteId: string | null;
-  search: string;
+  finderState: NoteFinderState;
   isLoading: boolean;
   hasToken: boolean;
   collapsed: boolean;
@@ -613,7 +841,7 @@ export function FolderNavigator({
   onFolderSelect: (folderId: string | null) => void;
   onFolderToggle: (folderId: string) => void;
   onNoteSelect: (note: NoteSummary) => void;
-  onSearchChange: (value: string) => void;
+  onFinderStateChange: (state: NoteFinderState) => void;
   onRefresh: () => void;
   onCreate: () => void;
   onCreateFolder: () => void;
@@ -628,14 +856,15 @@ export function FolderNavigator({
   onOpenPalette: () => void;
   onOpenSettings: () => void;
 }) {
-  const isSearching = search.trim().length > 0;
+  const isFinderMode = isNoteFinderActive(finderState);
+  const finderOptions = useMemo(() => getNoteFinderOptions(tree.allNotes), [tree.allNotes]);
   const hasTreeContent = tree.roots.length > 0 || tree.unfiled.notes.length > 0;
   const navigatorSubtitle = isLoading
     ? 'Loading…'
     : isFetching
       ? 'Syncing…'
-      : isSearching
-        ? `${entries.length} ${entries.length === 1 ? 'result' : 'results'}`
+      : isFinderMode
+        ? 'Finder'
         : `${entries.length} notes`;
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
@@ -806,16 +1035,13 @@ export function FolderNavigator({
             )}
           />
           <div className="space-y-3 border-b border-border-default px-4 pb-4">
-            <label className="flex h-10 items-center gap-2 rounded-md border border-border-default bg-background-default px-3 transition-colors focus-within:border-primary-default">
-              <Search aria-hidden="true" className="h-4 w-4 text-text-subtle" />
-              <span className="sr-only">Search notes</span>
-              <input
-                value={search}
-                onChange={(event) => onSearchChange(event.target.value)}
-                placeholder="Search notes"
-                className="min-w-0 flex-1 bg-transparent text-sm outline-none"
-              />
-            </label>
+            <NoteFinderToolbar
+              state={finderState}
+              resultCount={entries.length}
+              selectedFolderId={selectedFolderId}
+              options={finderOptions}
+              onChange={onFinderStateChange}
+            />
 
             {!hasToken ? (
               <button
@@ -837,13 +1063,13 @@ export function FolderNavigator({
                 <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />
                 <span>Loading notes…</span>
               </div>
-            ) : entries.length === 0 && (!hasTreeContent || isSearching) ? (
+            ) : entries.length === 0 && (!hasTreeContent || isFinderMode) ? (
               <EmptyState
                 icon={<FileText aria-hidden="true" className="h-7 w-7" />}
                 title={emptyTitle}
                 description={emptyDescription}
               />
-            ) : isSearching ? (
+            ) : isFinderMode ? (
               <div className="space-y-1">
                 {entries.map((entry) => (
                   <NoteRow

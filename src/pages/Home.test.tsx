@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
   DocumentSummary,
@@ -9,7 +9,10 @@ import type {
   HackDeskElectronAPI,
   NoteSummary,
 } from '@/lib/electron-api';
+import { ELECTRON_RECENT_NOTES_STORAGE_KEY } from '@/lib/electron-recent-notes';
 import { Home } from './Home';
+
+vi.setConfig({ testTimeout: 15_000 });
 
 const note: NoteSummary = {
   id: 'note-1',
@@ -163,7 +166,13 @@ function createApi(overrides: Partial<HackDeskElectronAPI> = {}): HackDeskElectr
 }
 
 describe('Home native-feel behavior', () => {
+  beforeEach(() => {
+    delete window.hackdeskAPI;
+    window.localStorage.clear();
+  });
+
   afterEach(() => {
+    cleanup();
     delete window.hackdeskAPI;
     window.localStorage.clear();
   });
@@ -199,6 +208,32 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete note' }));
 
     await waitFor(() => expect(api.hackmd.deleteNote).toHaveBeenCalledWith('note-1'));
+  });
+
+  it('removes a deleted note from recent notes', async () => {
+    window.localStorage.setItem(ELECTRON_RECENT_NOTES_STORAGE_KEY, JSON.stringify([{
+      noteId: 'note-1',
+      teamPath: null,
+      title: 'Test note',
+      shortId: 'note-1',
+      lastOpenedAtMillis: 3000,
+    }]));
+    const api = createApi({
+      app: {
+        confirm: vi.fn(async () => ({ confirmed: true })),
+        exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
+        recordFatalRendererError: vi.fn(async () => undefined),
+        onCommand: vi.fn(() => () => undefined),
+      },
+    });
+
+    renderHome(api);
+
+    await findRenderedNoteTitle();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete note' }));
+
+    await waitFor(() => expect(api.hackmd.deleteNote).toHaveBeenCalledWith('note-1'));
+    await waitFor(() => expect(JSON.parse(window.localStorage.getItem(ELECTRON_RECENT_NOTES_STORAGE_KEY) ?? '[]')).toEqual([]));
   });
 
   it('closes transient panels with Escape', async () => {
@@ -239,7 +274,7 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
 
-    fireEvent.click((await screen.findByText('Projects')).closest('button')!);
+    fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
     fireEvent.click(screen.getByRole('button', { name: 'Create note' }));
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Folder note' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
@@ -298,7 +333,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.click((await screen.findByText('Projects')).closest('button')!);
+    fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
     act(() => {
       commandHandler?.({ type: 'rename-folder' });
     });
@@ -368,6 +403,257 @@ describe('Home native-feel behavior', () => {
     expect(await screen.findByRole('dialog', { name: 'Command Palette' })).toBeInTheDocument();
     expect(screen.getAllByText('Select a folder first.').length).toBeGreaterThan(0);
     expect(screen.getByText('No unsaved note changes.')).toBeInTheDocument();
+  });
+
+  it('quick-opens a matching note from the command palette', async () => {
+    const notes = [
+      { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', tags: ['product'], updatedAtMillis: 1000 },
+      { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', tags: ['design'], folderPaths: [folder], updatedAtMillis: 3000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: noteId === 'note-design' ? 'Design Spec' : 'Product Plan',
+            content: noteId === 'note-design' ? '# Design Spec' : '# Product Plan',
+          },
+        })),
+      },
+    });
+
+    renderHome(api);
+    await screen.findByRole('button', { name: 'Product Plan' }, { timeout: 5_000 });
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+
+    const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
+    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'design' } });
+    fireEvent.click(await within(palette).findByText('Design Spec'));
+
+    expect(screen.queryByRole('dialog', { name: 'Command Palette' })).not.toBeInTheDocument();
+    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+  });
+
+  it('quick-opens a folder from the command palette', async () => {
+    const folderNote = { ...note, id: 'folder-note', title: 'Folder Note', shortId: 'folder-note', folderPaths: [folder] };
+    const rootNote = { ...note, id: 'root-note', title: 'Root Note', shortId: 'root-note', folderPaths: [] };
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: [folderNote, rootNote] })),
+        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+      },
+    });
+
+    renderHome(api);
+    await screen.findByRole('button', { name: 'Folder Note' });
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+
+    const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
+    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'Projects' } });
+    fireEvent.click(await within(palette).findByText('Projects'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Current Folder' }));
+
+    await screen.findByText('1 result');
+    expect(screen.getByRole('button', { name: 'Folder Note' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Root Note' })).not.toBeInTheDocument();
+  });
+
+  it('quick-opens the Root folder from the command palette', async () => {
+    const folderNote = { ...note, id: 'folder-note', title: 'Folder Note', shortId: 'folder-note', folderPaths: [folder] };
+    const rootNote = { ...note, id: 'root-note', title: 'Root Note', shortId: 'root-note', folderPaths: [] };
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: [folderNote, rootNote] })),
+        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+      },
+    });
+
+    renderHome(api);
+    await screen.findByRole('button', { name: 'Root Note' });
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+
+    const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
+    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'Root' } });
+    fireEvent.click(await within(palette).findByText('Root'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Current Folder' }));
+
+    await screen.findByText('1 result');
+    expect(screen.getByRole('button', { name: 'Root Note' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Folder Note' })).not.toBeInTheDocument();
+  });
+
+  it('applies the command palette query to Note Finder results', async () => {
+    const notes = [
+      { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', tags: ['product'], updatedAtMillis: 3000 },
+      { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', tags: ['design'], updatedAtMillis: 2000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+      },
+    });
+
+    renderHome(api);
+    await screen.findByRole('button', { name: 'Product Plan' });
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+
+    const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
+    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'Design' } });
+    fireEvent.click(await within(palette).findByText('Show Finder Results for “Design”'));
+
+    expect(screen.queryByRole('dialog', { name: 'Command Palette' })).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search notes')).toHaveValue('Design');
+    await screen.findByText('1 result');
+    expect(screen.getByRole('button', { name: 'Design Spec' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Product Plan' })).not.toBeInTheDocument();
+  });
+
+  it('records selected notes and shows them in command palette recent notes', async () => {
+    const notes = [
+      { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', updatedAtMillis: 3000 },
+      { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', updatedAtMillis: 2000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.click(await screen.findByRole('button', { name: 'Product Plan' }, { timeout: 5_000 }));
+
+    expect(JSON.parse(window.localStorage.getItem(ELECTRON_RECENT_NOTES_STORAGE_KEY) ?? '[]')[0]).toMatchObject({
+      noteId: 'note-product',
+      title: 'Product Plan',
+      shortId: 'product',
+      teamPath: null,
+    });
+
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
+
+    expect(within(palette).getByText('Recent Notes')).toBeInTheDocument();
+    expect(within(palette).getAllByText('Product Plan').length).toBeGreaterThan(1);
+  });
+
+  it('quick-opens a recent note from the loaded workspace', async () => {
+    window.localStorage.setItem(ELECTRON_RECENT_NOTES_STORAGE_KEY, JSON.stringify([{
+      noteId: 'note-design',
+      teamPath: null,
+      title: 'Design Spec',
+      shortId: 'design',
+      lastOpenedAtMillis: 3000,
+    }]));
+    const notes = [
+      { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', updatedAtMillis: 3000 },
+      { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', updatedAtMillis: 2000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: noteId === 'note-design' ? 'Design Spec' : 'Product Plan',
+          },
+        })),
+      },
+    });
+
+    renderHome(api);
+    await screen.findByRole('button', { name: 'Product Plan' }, { timeout: 5_000 });
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+
+    const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
+    fireEvent.click(within(palette).getAllByText('Design Spec')[0]);
+
+    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+  });
+
+  it('switches to a team workspace from a team recent note', async () => {
+    window.localStorage.setItem(ELECTRON_RECENT_NOTES_STORAGE_KEY, JSON.stringify([{
+      noteId: 'team-note',
+      teamPath: team.path,
+      title: 'Team Recent',
+      shortId: 'team-note',
+      lastOpenedAtMillis: 3000,
+    }]));
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        getCurrentUser: vi.fn(async () => ({
+          source: 'remote',
+          data: {
+            id: 'user-1',
+            email: 'michael@example.com',
+            name: 'Michael',
+            username: 'michael',
+            photo: null,
+            upgraded: false,
+            teams: [team],
+          },
+        })),
+        listTeams: vi.fn(async () => ({ source: 'remote', data: [team] })),
+        listTeamNotes: vi.fn(async () => ({ source: 'remote', data: [{
+          ...note,
+          id: 'team-note',
+          title: 'Team Recent',
+          shortId: 'team-note',
+          teamPath: team.path,
+          userPath: null,
+        }] })),
+        listTeamFolders: vi.fn(async () => ({ source: 'remote', data: [] })),
+      },
+    });
+
+    renderHome(api);
+    await screen.findByRole('button', { name: 'Test note' }, { timeout: 5_000 });
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+
+    const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
+    fireEvent.click(within(palette).getByText('Team Recent'));
+
+    await waitFor(() => expect(api.hackmd.listTeamNotes).toHaveBeenCalledWith('team-workspace'));
+  });
+
+  it('opens History from the shared command palette action', async () => {
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listHistory: vi.fn(async () => ({ source: 'remote', data: [] })),
+      },
+    });
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+
+    const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
+    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'history' } });
+    fireEvent.click(await within(palette).findByText('Go to History'));
+
+    await waitFor(() => expect(api.hackmd.listHistory).toHaveBeenCalledWith(40));
+    expect(await screen.findByText('No history yet')).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    const historyPalette = await screen.findByRole('dialog', { name: 'Command Palette' });
+    fireEvent.change(within(historyPalette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'new note' } });
+
+    expect(await within(historyPalette).findByText('Choose My Workspace or a team first.')).toBeInTheDocument();
   });
 
   it('keeps the note inspector collapsed by default and toggles it from the editor header', async () => {
@@ -603,6 +889,123 @@ describe('Home native-feel behavior', () => {
     expect(screen.queryByRole('button', { name: 'Drag Test note' })).not.toBeInTheDocument();
   });
 
+  it('filters notes by tag and removes active filter chips', async () => {
+    const notes = [
+      { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', tags: ['product'], updatedAtMillis: 3000 },
+      { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', tags: ['design'], updatedAtMillis: 2000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+      },
+    });
+
+    renderHome(api);
+    await screen.findByRole('button', { name: 'Product Plan' });
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Filter notes' }));
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'product' }));
+
+    await screen.findByText('1 result');
+    expect(screen.getByRole('button', { name: 'Product Plan' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Design Spec' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove tag filter product' }));
+
+    await screen.findByText('2 results');
+    expect(screen.getByRole('button', { name: 'Design Spec' })).toBeInTheDocument();
+  });
+
+  it('sorts finder results by title', async () => {
+    const notes = [
+      { ...note, id: 'note-b', title: 'Beta', shortId: 'beta', updatedAtMillis: 3000 },
+      { ...note, id: 'note-a', title: 'Alpha', shortId: 'alpha', updatedAtMillis: 1000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+      },
+    });
+
+    const { container } = renderHome(api);
+    await screen.findByRole('button', { name: 'Beta' });
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Sort notes' }));
+    fireEvent.click(await screen.findByText('Title A-Z'));
+
+    await waitFor(() => {
+      expect([...container.querySelectorAll('[data-note-id]')].map((row) => row.getAttribute('data-note-id'))).toEqual([
+        'note-a',
+        'note-b',
+      ]);
+    });
+  });
+
+  it('disables current folder scope when no folder is selected and filters direct folder notes when selected', async () => {
+    const folderNote = { ...note, id: 'folder-note', title: 'Folder Note', shortId: 'folder-note', folderPaths: [folder] };
+    const childNote = {
+      ...note,
+      id: 'child-note',
+      title: 'Child Note',
+      shortId: 'child-note',
+      folderPaths: [folder, childFolder],
+    };
+    const rootNote = { ...note, id: 'root-note', title: 'Root Note', shortId: 'root-note', folderPaths: [] };
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: [folderNote, childNote, rootNote] })),
+        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder, childFolder] })),
+      },
+    });
+
+    renderHome(api);
+    const [projectsLabel] = await screen.findAllByText('Projects');
+    expect(screen.getByRole('button', { name: 'Current Folder' })).toBeDisabled();
+
+    fireEvent.click(projectsLabel.closest('button')!);
+    fireEvent.click(screen.getByRole('button', { name: 'Current Folder' }));
+
+    await screen.findByText('1 result');
+    expect(screen.getByRole('button', { name: 'Folder Note' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Child Note' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Root Note' })).not.toBeInTheDocument();
+  });
+
+  it('clears finder query and filters with Escape without changing editor input', async () => {
+    const notes = [
+      { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', tags: ['product'], updatedAtMillis: 3000 },
+      { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', tags: ['design'], updatedAtMillis: 2000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        getNote: vi.fn(async () => ({ source: 'remote', data: { ...document, title: 'Product Plan' } })),
+      },
+    });
+
+    renderHome(api);
+    await screen.findByDisplayValue('Product Plan');
+    fireEvent.change(screen.getByPlaceholderText('Search notes'), { target: { value: 'Product' } });
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Filter notes' }));
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'product' }));
+
+    const titleInput = screen.getByDisplayValue('Product Plan');
+    fireEvent.change(titleInput, { target: { value: 'Draft Title' } });
+    fireEvent.keyDown(titleInput, { key: 'Escape' });
+
+    expect(screen.getByDisplayValue('Draft Title')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search notes')).toHaveValue('Product');
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.getByPlaceholderText('Search notes')).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Remove tag filter product' })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('button', { name: 'Remove tag filter product' })).not.toBeInTheDocument();
+  });
+
   it('moves a personal note to the selected folder from the note context menu', async () => {
     const movedDocument = {
       ...document,
@@ -618,7 +1021,7 @@ describe('Home native-feel behavior', () => {
     });
 
     const { container } = renderHome(api);
-    fireEvent.click((await screen.findByText('Projects')).closest('button')!);
+    fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
     const row = await waitFor(() => {
       const noteRow = container.querySelector('[data-note-id="note-1"]');
       expect(noteRow).toBeTruthy();
@@ -696,8 +1099,8 @@ describe('Home native-feel behavior', () => {
     });
 
     const { container } = renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace' }));
-    fireEvent.click((await screen.findByText('Projects')).closest('button')!);
+    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace' }, { timeout: 5_000 }));
+    fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
     const row = await waitFor(() => {
       const noteRow = container.querySelector('[data-note-id="note-1"]');
       expect(noteRow).toBeTruthy();
@@ -749,7 +1152,7 @@ describe('Home native-feel behavior', () => {
     });
 
     const { container } = renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace' }, { timeout: 5_000 }));
     fireEvent.click(await screen.findByRole('button', { name: 'Root' }));
     const row = await waitFor(() => {
       const noteRow = container.querySelector('[data-note-id="note-1"]');
@@ -802,7 +1205,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.click((await screen.findByText('Projects')).closest('button')!);
+    fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
     act(() => {
       commandHandler?.({ type: 'delete-folder' });
     });

@@ -185,6 +185,7 @@ export type ElectronActionId =
   | 'toggle-inspector'
   | 'refresh'
   | 'export-debug-logs'
+  | 'go-history'
   | 'focus-workspace'
   | 'focus-navigator'
   | 'focus-editor'
