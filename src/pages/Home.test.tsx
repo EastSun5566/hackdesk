@@ -95,6 +95,16 @@ function findRenderedNoteTitle() {
   return screen.findByDisplayValue('Test note', {}, { timeout: 3000 });
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, resolve, reject };
+}
+
 async function openInspector() {
   fireEvent.click(screen.getByRole('button', { name: 'Expand inspector' }));
   await screen.findByRole('heading', { name: 'Inspector' });
@@ -440,6 +450,205 @@ describe('Home native-feel behavior', () => {
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
   });
 
+  it('does not show the previous document while the selected note is loading', async () => {
+    const secondNoteDeferred = createDeferred<{ source: 'remote'; data: DocumentSummary }>();
+    const notes = [
+      { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', updatedAtMillis: 3000 },
+      { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', updatedAtMillis: 2000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        getNote: vi.fn((noteId: string) => {
+          if (noteId === 'note-design') {
+            return secondNoteDeferred.promise;
+          }
+
+          return Promise.resolve({
+            source: 'remote' as const,
+            data: { ...document, id: noteId, title: 'Product Plan', content: '# Product Plan' },
+          });
+        }),
+      },
+    });
+
+    renderHome(api);
+    expect(await screen.findByDisplayValue('Product Plan')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
+
+    expect(screen.queryByDisplayValue('Product Plan')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Loading note…').length).toBeGreaterThan(0);
+
+    await act(async () => {
+      secondNoteDeferred.resolve({
+        source: 'remote',
+        data: { ...document, id: 'note-design', title: 'Design Spec', content: '# Design Spec' },
+      });
+    });
+
+    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+  });
+
+  it('keeps the current dirty note when note selection discard is cancelled', async () => {
+    const notes = [
+      { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', updatedAtMillis: 3000 },
+      { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', updatedAtMillis: 2000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: noteId === 'note-design' ? 'Design Spec' : 'Product Plan',
+            content: noteId === 'note-design' ? '# Design Spec' : '# Product Plan',
+          },
+        })),
+      },
+      app: {
+        confirm: vi.fn(async () => ({ confirmed: false })),
+        exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
+        recordFatalRendererError: vi.fn(async () => undefined),
+        onCommand: vi.fn(() => () => undefined),
+      },
+    });
+
+    renderHome(api);
+    const titleInput = await screen.findByDisplayValue('Product Plan');
+    fireEvent.change(titleInput, { target: { value: 'Draft Product Plan' } });
+    await screen.findByText('Unsaved');
+    fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
+
+    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'Discard unsaved changes?',
+      confirmLabel: 'Discard',
+      cancelLabel: 'Keep Editing',
+    })));
+    expect(screen.getByDisplayValue('Draft Product Plan')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Design Spec')).not.toBeInTheDocument();
+  });
+
+  it('switches notes after dirty note discard is confirmed', async () => {
+    const notes = [
+      { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', updatedAtMillis: 3000 },
+      { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', updatedAtMillis: 2000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: noteId === 'note-design' ? 'Design Spec' : 'Product Plan',
+            content: noteId === 'note-design' ? '# Design Spec' : '# Product Plan',
+          },
+        })),
+      },
+      app: {
+        confirm: vi.fn(async () => ({ confirmed: true })),
+        exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
+        recordFatalRendererError: vi.fn(async () => undefined),
+        onCommand: vi.fn(() => () => undefined),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.change(await screen.findByDisplayValue('Product Plan'), { target: { value: 'Draft Product Plan' } });
+    await screen.findByText('Unsaved');
+    fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
+
+    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'Discard unsaved changes?',
+    })));
+    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+  });
+
+  it('does not auto-select a folder note over a dirty current note when discard is cancelled', async () => {
+    const rootNote = { ...note, id: 'root-note', title: 'Root Note', shortId: 'root-note', folderPaths: [], updatedAtMillis: 3000 };
+    const folderNote = { ...note, id: 'folder-note', title: 'Folder Note', shortId: 'folder-note', folderPaths: [folder], updatedAtMillis: 2000 };
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: [rootNote, folderNote] })),
+        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: noteId === 'folder-note' ? 'Folder Note' : 'Root Note',
+            content: noteId === 'folder-note' ? '# Folder Note' : '# Root Note',
+            folderPaths: noteId === 'folder-note' ? [folder] : [],
+          },
+        })),
+      },
+      app: {
+        confirm: vi.fn(async () => ({ confirmed: false })),
+        exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
+        recordFatalRendererError: vi.fn(async () => undefined),
+        onCommand: vi.fn(() => () => undefined),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.change(await screen.findByDisplayValue('Root Note'), { target: { value: 'Draft Root Note' } });
+    await screen.findByText('Unsaved');
+    fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
+
+    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'Discard unsaved changes?',
+    })));
+    expect(screen.getByDisplayValue('Draft Root Note')).toBeInTheDocument();
+  });
+
+  it('keeps a dirty note when quick-open note selection discard is cancelled', async () => {
+    const notes = [
+      { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', updatedAtMillis: 3000 },
+      { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', updatedAtMillis: 2000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: noteId === 'note-design' ? 'Design Spec' : 'Product Plan',
+            content: noteId === 'note-design' ? '# Design Spec' : '# Product Plan',
+          },
+        })),
+      },
+      app: {
+        confirm: vi.fn(async () => ({ confirmed: false })),
+        exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
+        recordFatalRendererError: vi.fn(async () => undefined),
+        onCommand: vi.fn(() => () => undefined),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.change(await screen.findByDisplayValue('Product Plan'), { target: { value: 'Draft Product Plan' } });
+    await screen.findByText('Unsaved');
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
+    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'design' } });
+    fireEvent.click(await within(palette).findByText('Design Spec'));
+
+    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'Discard unsaved changes?',
+    })));
+    expect(screen.getByDisplayValue('Draft Product Plan')).toBeInTheDocument();
+  });
+
   it('quick-opens a folder from the command palette', async () => {
     const folderNote = { ...note, id: 'folder-note', title: 'Folder Note', shortId: 'folder-note', folderPaths: [folder] };
     const rootNote = { ...note, id: 'root-note', title: 'Root Note', shortId: 'root-note', folderPaths: [] };
@@ -583,6 +792,53 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(within(palette).getAllByText('Design Spec')[0]);
 
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+  });
+
+  it('keeps a dirty note when recent note selection discard is cancelled', async () => {
+    window.localStorage.setItem(ELECTRON_RECENT_NOTES_STORAGE_KEY, JSON.stringify([{
+      noteId: 'note-design',
+      teamPath: null,
+      title: 'Design Spec',
+      shortId: 'design',
+      lastOpenedAtMillis: 3000,
+    }]));
+    const notes = [
+      { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', updatedAtMillis: 3000 },
+      { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', updatedAtMillis: 2000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: noteId === 'note-design' ? 'Design Spec' : 'Product Plan',
+            content: noteId === 'note-design' ? '# Design Spec' : '# Product Plan',
+          },
+        })),
+      },
+      app: {
+        confirm: vi.fn(async () => ({ confirmed: false })),
+        exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
+        recordFatalRendererError: vi.fn(async () => undefined),
+        onCommand: vi.fn(() => () => undefined),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.change(await screen.findByDisplayValue('Product Plan'), { target: { value: 'Draft Product Plan' } });
+    await screen.findByText('Unsaved');
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
+    fireEvent.click(within(palette).getAllByText('Design Spec')[0]);
+
+    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'Discard unsaved changes?',
+    })));
+    expect(screen.getByDisplayValue('Draft Product Plan')).toBeInTheDocument();
   });
 
   it('switches to a team workspace and opens a pending team recent note', async () => {
@@ -1088,7 +1344,14 @@ describe('Home native-feel behavior', () => {
       hackmd: {
         ...createApi().hackmd,
         listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
-        getNote: vi.fn(async () => ({ source: 'remote', data: { ...document, title: 'Product Plan' } })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: noteId === 'note-design' ? 'Design Spec' : 'Product Plan',
+          },
+        })),
       },
     });
 

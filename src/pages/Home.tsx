@@ -93,6 +93,10 @@ const WORKSPACE_RAIL_PANEL_ID = 'workspace-rail-panel';
 const NOTE_NAVIGATOR_PANEL_ID = 'note-navigator-panel';
 const DEFAULT_WORKSPACE_SCOPE: WorkspaceScope = { type: 'personal', label: 'My Workspace' };
 
+function noteIdentityMatches(left: Pick<NoteSummary, 'id' | 'teamPath'> | undefined, right: Pick<NoteSummary, 'id' | 'teamPath'> | null) {
+  return Boolean(left && right && left.id === right.id && (left.teamPath ?? null) === (right.teamPath ?? null));
+}
+
 function createClosedFolderDialogState(): CreateFolderDialogState {
   return { open: false, name: '', description: '', icon: '', color: '' };
 }
@@ -139,6 +143,7 @@ export function Home() {
     readNumberStorage(NAVIGATOR_WIDTH_KEY, NAVIGATOR_WIDTH_DEFAULT, NAVIGATOR_WIDTH_MIN, NAVIGATOR_WIDTH_MAX)
   ));
   const skipNextFinderWriteRef = useRef(false);
+  const autoSelectSuppressionRef = useRef<string | null>(null);
   const [collapsedFolderIds, setCollapsedFolderIds] = useState(() => (
     readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}personal`)
   ));
@@ -251,10 +256,66 @@ export function Home() {
     updateRecentNotes((current) => removeRecentNote(current, noteId, teamPath));
   }, [updateRecentNotes]);
 
-  const selectNoteAndTrackRecent = useCallback((note: NoteSummary) => {
+  const getAutoSelectSuppressionKey = useCallback((note: NoteSummary | null) => [
+    scopeStorageKey,
+    selectedFolderId ?? 'workspace',
+    selectedNote?.id ?? 'none',
+    note?.id ?? 'none',
+  ].join(':'), [scopeStorageKey, selectedFolderId, selectedNote?.id]);
+
+  const confirmDiscardDirtyNote = useCallback(async (nextNote: NoteSummary) => {
+    if (!noteDirty || !selectedNote || noteIdentityMatches(nextNote, selectedNote)) {
+      return true;
+    }
+
+    if (!api?.app.confirm) {
+      return true;
+    }
+
+    try {
+      const { confirmed } = await api.app.confirm({
+        title: 'Discard Changes',
+        message: 'Discard unsaved changes?',
+        detail: `You have unsaved changes in “${selectedNote.title || 'Untitled'}”. Switching notes will discard the current draft.`,
+        confirmLabel: 'Discard',
+        cancelLabel: 'Keep Editing',
+        destructive: true,
+      });
+      return confirmed;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to confirm note selection.');
+      return false;
+    }
+  }, [api, noteDirty, selectedNote]);
+
+  const requestSelectNote = useCallback(async (
+    note: NoteSummary,
+    options: { focusEditor?: boolean; trackRecent?: boolean; skipDirtyGuard?: boolean } = {},
+  ) => {
+    const shouldConfirmDirtyNote = !options.skipDirtyGuard
+      && noteDirty
+      && Boolean(selectedNote)
+      && !noteIdentityMatches(note, selectedNote);
+    if (shouldConfirmDirtyNote && !await confirmDiscardDirtyNote(note)) {
+      return false;
+    }
+
+    autoSelectSuppressionRef.current = null;
     setSelectedNote(note);
-    trackRecentNote(note);
-  }, [trackRecentNote]);
+    if (options.trackRecent ?? true) {
+      trackRecentNote(note);
+    }
+
+    if (options.focusEditor) {
+      window.requestAnimationFrame(() => focusZone('editor'));
+    }
+
+    return true;
+  }, [confirmDiscardDirtyNote, focusZone, noteDirty, selectedNote, trackRecentNote]);
+
+  const handleNoteSelect = useCallback((note: NoteSummary) => {
+    void requestSelectNote(note, { trackRecent: true });
+  }, [requestSelectNote]);
 
   const mutations = useElectronNoteMutations({
     api,
@@ -264,7 +325,7 @@ export function Home() {
     onSettingsSaved: () => setSettingsOpen(false),
     onNoteCreated: (note) => {
       setCreateDialog({ open: false, title: '' });
-      selectNoteAndTrackRecent(note);
+      void requestSelectNote(note, { skipDirtyGuard: true, trackRecent: true });
     },
     onFolderCreated: (folder: FolderSummary) => {
       setCreateFolderDialog(createClosedFolderDialogState());
@@ -290,7 +351,7 @@ export function Home() {
     },
     onNoteMoved: (note, targetFolderId) => {
       setSelectedFolderId(targetFolderId ?? UNFILED_FOLDER_ID);
-      selectNoteAndTrackRecent(note);
+      void requestSelectNote(note, { skipDirtyGuard: true, trackRecent: true });
     },
   });
 
@@ -554,15 +615,22 @@ export function Home() {
     });
   }, [api, trackRecentNote]);
 
-  const revealNoteEntry = useCallback((entry: FolderTreeNote) => {
+  const revealNoteEntry = useCallback(async (entry: FolderTreeNote, options: { skipDirtyGuard?: boolean } = {}) => {
     const folderIds = entry.folderPath.map((folder) => folder.id);
     const leafFolderId = folderIds.at(-1) ?? UNFILED_FOLDER_ID;
+    if (!await requestSelectNote(entry.note, {
+      focusEditor: true,
+      skipDirtyGuard: options.skipDirtyGuard,
+      trackRecent: true,
+    })) {
+      return false;
+    }
+
     expandNavigator();
     revealFolderIds(folderIds);
     setSelectedFolderId(leafFolderId);
-    selectNoteAndTrackRecent(entry.note);
-    focusZone('editor');
-  }, [expandNavigator, focusZone, revealFolderIds, selectNoteAndTrackRecent]);
+    return true;
+  }, [expandNavigator, requestSelectNote, revealFolderIds]);
 
   useEffect(() => {
     if (scope.type !== 'team') {
@@ -606,10 +674,29 @@ export function Home() {
   }, [finderState.searchScope, selectedFolderId]);
 
   useEffect(() => {
-    if (!selectedNote || !visibleEntries.some((entry) => entry.note.id === selectedNote.id)) {
-      setSelectedNote(visibleEntries[0]?.note ?? null);
+    if (selectedNote && visibleEntries.some((entry) => noteIdentityMatches(entry.note, selectedNote))) {
+      autoSelectSuppressionRef.current = null;
+      return;
     }
-  }, [selectedNote, visibleEntries]);
+
+    const nextNote = visibleEntries[0]?.note ?? null;
+    if (!nextNote) {
+      setSelectedNote(null);
+      autoSelectSuppressionRef.current = null;
+      return;
+    }
+
+    const suppressionKey = getAutoSelectSuppressionKey(nextNote);
+    if (autoSelectSuppressionRef.current === suppressionKey) {
+      return;
+    }
+
+    void requestSelectNote(nextNote, { trackRecent: false }).then((selected) => {
+      if (!selected) {
+        autoSelectSuppressionRef.current = suppressionKey;
+      }
+    });
+  }, [getAutoSelectSuppressionKey, requestSelectNote, selectedNote, visibleEntries]);
 
   useEffect(() => {
     if (!pendingRecentNote) {
@@ -625,7 +712,7 @@ export function Home() {
     const loadedEntry = folderTree.allNotes.find((candidate) => recentNoteMatches(candidate.note, pendingRecentNote));
     setPendingRecentNote(null);
     if (loadedEntry) {
-      revealNoteEntry(loadedEntry);
+      void revealNoteEntry(loadedEntry);
       return;
     }
 
@@ -828,6 +915,13 @@ export function Home() {
       : scope.type === 'history'
         ? 'Your HackMD history will appear here after the first successful sync.'
         : 'Select another folder, create a note here, or refresh after another client changes HackMD.';
+  const selectedDocument = noteIdentityMatches(document, selectedNote) ? document : undefined;
+  const documentIsStale = Boolean(document && selectedNote && !noteIdentityMatches(document, selectedNote));
+  const documentIsLoading = Boolean(selectedNote) && (
+    queries.documentQuery.isLoading
+    || queries.documentQuery.isFetching
+    || documentIsStale
+  );
 
   const toggleFolderCollapsed = (folderId: string) => {
     setCollapsedFolderIds((current) => {
@@ -858,7 +952,7 @@ export function Home() {
   };
 
   const handleQuickOpenNote = (entry: FolderTreeNote) => {
-    revealNoteEntry(entry);
+    void revealNoteEntry(entry);
   };
 
   const handleQuickOpenRecentNote = (entry: ElectronRecentNote) => {
@@ -868,7 +962,7 @@ export function Home() {
 
     if (loadedEntry) {
       setPendingRecentNote(null);
-      revealNoteEntry(loadedEntry);
+      void revealNoteEntry(loadedEntry);
       return;
     }
 
@@ -916,7 +1010,6 @@ export function Home() {
     expandNavigator();
     revealFolderIds([...folder.ancestorIds, folder.id]);
     setSelectedFolderId(folder.id);
-    setSelectedNote(null);
     focusZone('navigator');
   };
 
@@ -989,7 +1082,7 @@ export function Home() {
           isMovingNote={mutations.moveNoteMutation.isPending}
           onFolderSelect={handleFolderSelect}
           onFolderToggle={toggleFolderCollapsed}
-          onNoteSelect={selectNoteAndTrackRecent}
+          onNoteSelect={handleNoteSelect}
           onFinderStateChange={setFinderState}
           onRefresh={refreshWorkspace}
           onCreate={handleCreateNote}
@@ -1001,7 +1094,7 @@ export function Home() {
           onNoteMove={(operation) => {
             if (!operation.changed) {
               setSelectedFolderId(operation.targetFolderId ?? UNFILED_FOLDER_ID);
-              setSelectedNote(operation.note.note);
+              void requestSelectNote(operation.note.note, { trackRecent: false });
               return;
             }
 
@@ -1030,9 +1123,10 @@ export function Home() {
         />
 
         <DocumentDetail
-          document={document}
+          selectedNote={selectedNote}
+          document={selectedDocument}
           folderTree={folderTree}
-          isLoading={queries.documentQuery.isLoading || queries.documentQuery.isFetching}
+          isLoading={documentIsLoading}
           command={documentCommand}
           onOpenEditor={handleOpenEditor}
           onSave={(note, input) => mutations.updateNoteMutation.mutate({ note, input })}

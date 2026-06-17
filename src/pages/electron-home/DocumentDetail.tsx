@@ -5,6 +5,7 @@ import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/Markdown
 import type {
   DocumentSummary,
   ElectronActionId,
+  NoteSummary,
   UpdateNoteInput,
   UploadNoteImageInput,
   UploadNoteImageResult,
@@ -36,6 +37,7 @@ export type DocumentDetailCommand = {
 };
 
 export function DocumentDetail({
+  selectedNote,
   document,
   folderTree,
   isLoading,
@@ -52,6 +54,7 @@ export function DocumentDetail({
   isUploadingImage,
   isDeleting,
 }: {
+  selectedNote?: NoteSummary | null;
   document?: DocumentSummary;
   folderTree: FolderTree;
   isLoading: boolean;
@@ -130,9 +133,22 @@ export function DocumentDetail({
 
   if (isLoading) {
     return (
-      <PanelShell className="h-full flex-1 items-center justify-center bg-background-default text-text-subtle">
-        <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />
-        Loading note…
+      <PanelShell
+        focusZone="editor"
+        className="h-full min-w-0 flex-1 bg-background-default"
+      >
+        {selectedNote ? (
+          <PanelHeader
+            className="px-5 py-3"
+            title={selectedNote.title || 'Untitled'}
+            subtitle="Loading note…"
+            titleElement="div"
+          />
+        ) : null}
+        <div className="flex min-h-0 flex-1 items-center justify-center text-sm text-text-subtle">
+          <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />
+          Loading note…
+        </div>
       </PanelShell>
     );
   }
