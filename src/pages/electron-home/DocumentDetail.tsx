@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { Download, Edit3, Loader2, PanelRightClose, PanelRightOpen, Save, Share2, Trash2 } from 'lucide-react';
+import { Copy, Download, Edit3, Loader2, PanelRightClose, PanelRightOpen, Save, Share2, Trash2 } from 'lucide-react';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/MarkdownEditor';
 import { MarkdownReader } from '@/components/MarkdownReader';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import type {
   DocumentSummary,
   ElectronActionId,
@@ -13,14 +19,10 @@ import type {
 } from '@/lib/electron-api';
 import type { FolderTree } from '@/lib/hackmd-folders';
 
-import { EmptyState, PanelHeader, PanelShell } from './interaction-primitives';
+import { EmptyState, PanelHeader, PanelShell, ToolbarDropdownMoreTrigger, ToolbarIconButton } from './interaction-primitives';
 import { NoteInspector } from './NoteInspector';
 import { ShareDialog } from './ShareDialog';
 import {
-  ICON_BUTTON_CLASS,
-  PRESSED_CLASS,
-  PRIMARY_BUTTON_CLASS,
-  SECONDARY_BUTTON_CLASS,
   formatDate,
   getFolderPathLabel,
 } from './ui';
@@ -92,6 +94,7 @@ export function DocumentDetail({
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [shareOpen, setShareOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(() => (
     readBooleanStorage(INSPECTOR_COLLAPSED_KEY, true)
   ));
@@ -102,6 +105,10 @@ export function DocumentDetail({
   }, [document?.id, document?.title, document?.content]);
 
   const noteDirty = Boolean(document && (title !== document.title || content !== document.content));
+  const openShareDialogFromMenu = () => {
+    setActionsOpen(false);
+    window.setTimeout(() => setShareOpen(true), 0);
+  };
 
   useEffect(() => {
     onDirtyStateChange?.(noteDirty);
@@ -163,7 +170,7 @@ export function DocumentDetail({
       >
         {selectedNote ? (
           <PanelHeader
-            className="px-5 py-3"
+            className="px-4 py-2.5"
             title={selectedNote.title || 'Untitled'}
             subtitle="Loading note…"
             titleElement="div"
@@ -191,7 +198,7 @@ export function DocumentDetail({
       className="h-full min-w-0 flex-1 bg-background-default"
     >
       <PanelHeader
-        className="px-5 py-3"
+        className="px-4 py-2.5"
         titleElement="div"
         title={readerMode === 'read'
           ? <div className="truncate text-lg font-semibold">{title || 'Untitled'}</div>
@@ -235,60 +242,58 @@ export function DocumentDetail({
                 Edit
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => onOpenEditor(document)}
-              className={SECONDARY_BUTTON_CLASS}
-            >
-              <Edit3 aria-hidden="true" className="h-4 w-4" />
-              Web Editor
-            </button>
-            <button
-              type="button"
-              onClick={() => setShareOpen(true)}
-              className={SECONDARY_BUTTON_CLASS}
-            >
-              <Share2 aria-hidden="true" className="h-4 w-4" />
-              Share
-            </button>
-            <button
-              type="button"
-              onClick={() => onExportMarkdown(document, title, content)}
-              className={SECONDARY_BUTTON_CLASS}
-            >
-              <Download aria-hidden="true" className="h-4 w-4" />
-              Export
-            </button>
-            <button
-              type="button"
+            <ToolbarIconButton
               disabled={isSaving || !noteDirty}
               title={!noteDirty ? 'No unsaved note changes.' : undefined}
               onClick={() => onSave(document, { title, content })}
-              className={PRIMARY_BUTTON_CLASS}
+              label="Save"
+              tooltip={noteDirty ? 'Save note' : 'No unsaved note changes.'}
+              className={noteDirty ? 'bg-primary-default text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground' : undefined}
             >
               {isSaving ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Save aria-hidden="true" className="h-4 w-4" />}
-              Save
-            </button>
-            <button
-              type="button"
+            </ToolbarIconButton>
+            <ToolbarIconButton
               onClick={toggleInspector}
-              className={ICON_BUTTON_CLASS}
               aria-controls={NOTE_INSPECTOR_PANEL_ID}
               aria-expanded={!isInspectorCollapsed}
-              aria-label={isInspectorCollapsed ? 'Expand inspector' : 'Collapse inspector'}
-              title={isInspectorCollapsed ? 'Expand inspector' : 'Collapse inspector'}
+              label={isInspectorCollapsed ? 'Expand inspector' : 'Collapse inspector'}
             >
               {isInspectorCollapsed ? <PanelRightOpen aria-hidden="true" className="h-4 w-4" /> : <PanelRightClose aria-hidden="true" className="h-4 w-4" />}
-            </button>
-            <button
-              type="button"
-              disabled={isDeleting}
-              onClick={() => onDelete(document)}
-              className={`inline-flex h-9 w-9 items-center justify-center rounded-md border border-destructive-default text-destructive-default transition-colors active:bg-destructive-soft ${PRESSED_CLASS} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default disabled:pointer-events-none disabled:opacity-50`}
-              aria-label="Delete note"
-            >
-              {isDeleting ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Trash2 aria-hidden="true" className="h-4 w-4" />}
-            </button>
+            </ToolbarIconButton>
+            <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
+              <ToolbarDropdownMoreTrigger />
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => onOpenEditor(document)}>
+                  <Edit3 aria-hidden="true" className="h-4 w-4" />
+                  Web Editor
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={(event) => {
+                  event.preventDefault();
+                  openShareDialogFromMenu();
+                }}>
+                  <Share2 aria-hidden="true" className="h-4 w-4" />
+                  Share
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onExportMarkdown(document, title, content)}>
+                  <Download aria-hidden="true" className="h-4 w-4" />
+                  Export Markdown
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => onCopyLink(document)}>
+                  <Copy aria-hidden="true" className="h-4 w-4" />
+                  Copy HackMD Link
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onCopyMarkdownLink(document)}>
+                  <Copy aria-hidden="true" className="h-4 w-4" />
+                  Copy Markdown Link
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem destructive disabled={isDeleting} onSelect={() => onDelete(document)}>
+                  {isDeleting ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Trash2 aria-hidden="true" className="h-4 w-4" />}
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </>
         )}
       />

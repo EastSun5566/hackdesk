@@ -1,7 +1,7 @@
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { COMPACT_ICON_BUTTON_CLASS } from './ui';
+import { ToolbarIconButton } from './interaction-primitives';
 
 function TopBarIconButton({
   children,
@@ -17,17 +17,15 @@ function TopBarIconButton({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <ToolbarIconButton
       onClick={onClick}
-      aria-label={label}
       aria-controls={controls}
       aria-expanded={expanded}
-      title={label}
-      className={`app-topbar-button ${COMPACT_ICON_BUTTON_CLASS}`}
+      label={label}
+      className="app-topbar-button h-7 w-7 rounded-[6px]"
     >
       {children}
-    </button>
+    </ToolbarIconButton>
   );
 }
 

@@ -11,11 +11,9 @@ import type {
 } from '@/lib/electron-api';
 import type { FolderTree, FolderTreeNode } from '@/lib/hackmd-folders';
 
-import { CollapsibleSection, PanelHeader } from './interaction-primitives';
+import { CollapsibleSection, PanelHeader, ToolbarIconButton } from './interaction-primitives';
 import {
   FOCUS_RING_CLASS,
-  PRIMARY_BUTTON_CLASS,
-  SECONDARY_BUTTON_CLASS,
   TEXT_INPUT_CLASS,
   getFolderPathLabel,
 } from './ui';
@@ -24,6 +22,11 @@ type FolderOption = {
   id: string;
   label: string;
 };
+
+const INSPECTOR_INPUT_CLASS = TEXT_INPUT_CLASS
+  .replace('h-10', 'h-9')
+  .replace('px-3', 'px-2.5');
+const INSPECTOR_TEXTAREA_CLASS = `${INSPECTOR_INPUT_CLASS} min-h-16 py-2`;
 
 function getDocumentFolderId(document: DocumentSummary) {
   return document.folderPaths.at(-1)?.id ?? '';
@@ -206,39 +209,37 @@ export function NoteInspector({
       <PanelHeader
         title="Inspector"
         subtitle={document.shortId}
-        className="px-4 py-3"
+        className="px-3 py-2.5"
         actions={(
-          <button
-            type="button"
+          <ToolbarIconButton
             onClick={() => onCopyLink(document)}
-            className={SECONDARY_BUTTON_CLASS}
+            label="Copy Link"
           >
             <Copy aria-hidden="true" className="h-4 w-4" />
-            Copy Link
-          </button>
+          </ToolbarIconButton>
         )}
       />
 
-      <div className="min-h-0 flex-1 overflow-auto px-4 py-4">
+      <div className="min-h-0 flex-1 overflow-auto px-3 py-2.5">
         <form onSubmit={handleMetadataSubmit}>
-          <CollapsibleSection title="Metadata" dirty={descriptionDirty || tagsDirty || permalinkDirty}>
-            <fieldset className="space-y-3">
+          <CollapsibleSection title="Metadata" dirty={descriptionDirty || tagsDirty || permalinkDirty} className="py-2" contentClassName="space-y-2 pt-2">
+            <fieldset className="space-y-2.5">
               <legend className="sr-only">Metadata</legend>
-              <label className="block space-y-2 text-sm" htmlFor={descriptionId}>
+              <label className="block space-y-1.5 text-sm" htmlFor={descriptionId}>
                 <span className="font-medium text-text-default">Description</span>
                 <textarea
                   id={descriptionId}
                   name="description"
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
-                  className={`${TEXT_INPUT_CLASS} min-h-20 py-2`}
+                  className={INSPECTOR_TEXTAREA_CLASS}
                   rows={3}
                 />
               </label>
 
-              <div className="space-y-2 text-sm">
+              <div className="space-y-1.5 text-sm">
                 <label className="font-medium text-text-default" htmlFor={tagsId}>Tags</label>
-                <div className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-md border border-border-default bg-background-default px-2 py-1.5">
+                <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-border-default bg-background-default px-2 py-1">
                   {tags.map((tag) => (
                     <span
                       key={tag}
@@ -279,31 +280,31 @@ export function NoteInspector({
                 </div>
               </div>
 
-              <label className="block space-y-2 text-sm" htmlFor={permalinkId}>
+              <label className="block space-y-1.5 text-sm" htmlFor={permalinkId}>
                 <span className="font-medium text-text-default">Permalink</span>
                 <input
                   id={permalinkId}
                   name="permalink"
                   value={permalink}
                   onChange={(event) => setPermalink(event.target.value)}
-                  className={TEXT_INPUT_CLASS}
+                  className={INSPECTOR_INPUT_CLASS}
                   placeholder="custom-slug"
                 />
               </label>
             </fieldset>
           </CollapsibleSection>
 
-          <CollapsibleSection title="Location" dirty={locationDirty}>
-            <fieldset className="space-y-3">
+          <CollapsibleSection title="Location" dirty={locationDirty} className="py-2" contentClassName="space-y-2 pt-2">
+            <fieldset className="space-y-2.5">
               <legend className="sr-only">Location</legend>
-              <label className="block space-y-2 text-sm" htmlFor={folderId}>
+              <label className="block space-y-1.5 text-sm" htmlFor={folderId}>
                 <span className="font-medium text-text-default">Folder</span>
                 <select
                   id={folderId}
                   name="parentFolderId"
                   value={parentFolderId}
                   onChange={(event) => setParentFolderId(event.target.value)}
-                  className={TEXT_INPUT_CLASS}
+                  className={INSPECTOR_INPUT_CLASS}
                 >
                   <option value="">Root</option>
                   {folderOptions.map((option) => (
@@ -314,31 +315,31 @@ export function NoteInspector({
             </fieldset>
           </CollapsibleSection>
 
-          <CollapsibleSection title="Permissions" dirty={permissionsDirty}>
-            <fieldset className="space-y-3">
+          <CollapsibleSection title="Permissions" dirty={permissionsDirty} className="py-2" contentClassName="space-y-2 pt-2">
+            <fieldset className="space-y-2.5">
               <legend className="sr-only">Permissions</legend>
-              <label className="block space-y-2 text-sm" htmlFor={readPermissionId}>
+              <label className="block space-y-1.5 text-sm" htmlFor={readPermissionId}>
                 <span className="font-medium text-text-default">Read</span>
                 <select
                   id={readPermissionId}
                   name="readPermission"
                   value={readPermission}
                   onChange={(event) => setReadPermission(event.target.value as NotePermissionRole)}
-                  className={TEXT_INPUT_CLASS}
+                  className={INSPECTOR_INPUT_CLASS}
                 >
                   <option value="owner">Owner</option>
                   <option value="signed_in">Signed in</option>
                   <option value="guest">Guest</option>
                 </select>
               </label>
-              <label className="block space-y-2 text-sm" htmlFor={writePermissionId}>
+              <label className="block space-y-1.5 text-sm" htmlFor={writePermissionId}>
                 <span className="font-medium text-text-default">Write</span>
                 <select
                   id={writePermissionId}
                   name="writePermission"
                   value={writePermission}
                   onChange={(event) => setWritePermission(event.target.value as NotePermissionRole)}
-                  className={TEXT_INPUT_CLASS}
+                  className={INSPECTOR_INPUT_CLASS}
                 >
                   <option value="owner">Owner</option>
                   <option value="signed_in">Signed in</option>
@@ -348,41 +349,58 @@ export function NoteInspector({
             </fieldset>
           </CollapsibleSection>
 
-          <button
-            type="submit"
-            disabled={!metadataDirty || isSaving}
-            title={!metadataDirty ? 'No metadata changes.' : undefined}
-            className={PRIMARY_BUTTON_CLASS}
-          >
-            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save Metadata
-          </button>
+          <div className="flex justify-end pt-2">
+            <ToolbarIconButton
+              type="submit"
+              disabled={!metadataDirty || isSaving}
+              title={!metadataDirty ? 'No metadata changes.' : undefined}
+              label="Save Metadata"
+              tooltip={metadataDirty ? 'Save metadata' : 'No metadata changes.'}
+              className={metadataDirty ? 'bg-primary-default text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground' : undefined}
+            >
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            </ToolbarIconButton>
+          </div>
         </form>
 
-        <form className="mt-3" onSubmit={handleImageUpload}>
-          <CollapsibleSection title="Images" dirty={Boolean(imageFile)}>
-            <fieldset className="space-y-3">
+        <form className="mt-1" onSubmit={handleImageUpload}>
+          <CollapsibleSection title="Images" dirty={Boolean(imageFile)} className="py-2" contentClassName="space-y-2 pt-2">
+            <fieldset className="space-y-2">
               <legend className="sr-only">Images</legend>
-              <label className="block space-y-2 text-sm" htmlFor={imageId}>
+              <label className="block space-y-1.5 text-sm" htmlFor={imageId}>
                 <span className="font-medium text-text-default">Upload Image</span>
                 <input
                   id={imageId}
                   name="image"
+                  aria-label="Upload Image"
                   type="file"
                   accept="image/*"
                   onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
-                  className="block w-full text-sm text-text-subtle file:mr-3 file:rounded-md file:border-0 file:bg-background-selected file:px-3 file:py-2 file:text-sm file:text-text-default hover:file:bg-border-default"
+                  className="peer sr-only"
                 />
+                <span className="flex items-center gap-2">
+                  <span
+                    className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-border-default text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-primary-default"
+                    aria-hidden="true"
+                  >
+                    <ImagePlus className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-xs text-text-subtle">
+                    {imageFile ? imageFile.name : 'No image selected'}
+                  </span>
+                </span>
               </label>
             </fieldset>
-            <button
-              type="submit"
-              disabled={!imageFile || isUploading}
-              className={SECONDARY_BUTTON_CLASS}
-            >
-              {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
-              Upload and Insert
-            </button>
+            <div className="flex justify-end">
+              <ToolbarIconButton
+                type="submit"
+                disabled={!imageFile || isUploading}
+                label="Upload and Insert"
+                tooltip={imageFile ? 'Upload and insert image' : 'Choose an image first.'}
+              >
+                {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+              </ToolbarIconButton>
+            </div>
           </CollapsibleSection>
         </form>
       </div>

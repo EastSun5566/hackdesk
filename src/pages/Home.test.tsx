@@ -9,6 +9,7 @@ import type {
   HackDeskElectronAPI,
   NoteSummary,
 } from '@/lib/electron-api';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ELECTRON_RECENT_NOTES_STORAGE_KEY } from '@/lib/electron-recent-notes';
 import { LAST_WORKSPACE_SCOPE_KEY, READER_MODE_KEY } from './electron-home/ui-preferences';
 import { Home } from './Home';
@@ -86,7 +87,9 @@ function renderHome(api: HackDeskElectronAPI) {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <Home />
+      <TooltipProvider delayDuration={0} skipDelayDuration={0}>
+        <Home />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
 }
@@ -108,6 +111,34 @@ function createDeferred<T>() {
 async function openInspector() {
   fireEvent.click(screen.getByRole('button', { name: 'Expand inspector' }));
   await screen.findByRole('heading', { name: 'Inspector' });
+}
+
+async function openDocumentActions() {
+  fireEvent.pointerDown(screen.getByRole('button', { name: 'More actions' }));
+  await screen.findByRole('menuitem', { name: 'Web Editor' });
+}
+
+async function openNavigatorActions() {
+  fireEvent.pointerDown(screen.getByRole('button', { name: 'Navigator actions' }));
+  await screen.findByRole('menuitem', { name: 'New Folder' });
+}
+
+async function expandTagBrowser() {
+  const trigger = await screen.findByRole('button', { name: 'Tags' });
+  if (trigger.getAttribute('aria-expanded') !== 'true') {
+    fireEvent.click(trigger);
+    await waitFor(() => expect(trigger).toHaveAttribute('aria-expanded', 'true'));
+  }
+}
+
+async function openSearchScopeMenu() {
+  fireEvent.pointerDown(screen.getByRole('button', { name: 'Search scope' }));
+  await screen.findByRole('menuitem', { name: 'Workspace' });
+}
+
+async function selectCurrentFolderScope() {
+  await openSearchScopeMenu();
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Current Folder' }));
 }
 
 type HackDeskElectronAPIOverrides = Partial<Omit<HackDeskElectronAPI, 'settings' | 'hackmd' | 'shell' | 'app'>> & {
@@ -212,7 +243,8 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
 
     await findRenderedNoteTitle();
-    fireEvent.click(screen.getByRole('button', { name: 'Delete note' }));
+    await openDocumentActions();
+    fireEvent.click(screen.getByText('Delete'));
 
     await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
       destructive: true,
@@ -234,7 +266,8 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
 
     await findRenderedNoteTitle();
-    fireEvent.click(screen.getByRole('button', { name: 'Delete note' }));
+    await openDocumentActions();
+    fireEvent.click(screen.getByText('Delete'));
 
     await waitFor(() => expect(api.hackmd.deleteNote).toHaveBeenCalledWith('note-1'));
   });
@@ -259,7 +292,8 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
 
     await findRenderedNoteTitle();
-    fireEvent.click(screen.getByRole('button', { name: 'Delete note' }));
+    await openDocumentActions();
+    fireEvent.click(screen.getByText('Delete'));
 
     await waitFor(() => expect(api.hackmd.deleteNote).toHaveBeenCalledWith('note-1'));
     await waitFor(() => expect(JSON.parse(window.localStorage.getItem(ELECTRON_RECENT_NOTES_STORAGE_KEY) ?? '[]')).toEqual([]));
@@ -322,7 +356,8 @@ describe('Home native-feel behavior', () => {
 
     const titleInput = await findRenderedNoteTitle();
     fireEvent.change(titleInput, { target: { value: 'Draft: Test note' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+    await openDocumentActions();
+    fireEvent.click(screen.getByText('Export Markdown'));
 
     await waitFor(() => expect(api.app.saveTextFile).toHaveBeenCalledWith({
       defaultFileName: 'Draft- Test note.md',
@@ -495,6 +530,11 @@ describe('Home native-feel behavior', () => {
     const editButton = screen.getByRole('button', { name: 'Edit' });
 
     expect(viewButton.compareDocumentPosition(editButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Web Editor' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Export' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete note' })).not.toBeInTheDocument();
 
     fireEvent.click(viewButton);
 
@@ -837,7 +877,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'Projects' } });
     fireEvent.click(await within(palette).findByText('Projects'));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Current Folder' }));
+    await selectCurrentFolderScope();
 
     await screen.findByText('1 result');
     expect(screen.getByRole('button', { name: 'Folder Note' })).toBeInTheDocument();
@@ -863,7 +903,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'Root' } });
     fireEvent.click(await within(palette).findByText('Root'));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Current Folder' }));
+    await selectCurrentFolderScope();
 
     await screen.findByText('1 result');
     expect(screen.getByRole('button', { name: 'Root Note' })).toBeInTheDocument();
@@ -1245,7 +1285,8 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findRenderedNoteTitle();
-    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    await openDocumentActions();
+    fireEvent.click(screen.getByText('Share'));
 
     const dialog = await screen.findByRole('dialog', { name: 'Share Note' });
     const copyButtons = within(dialog).getAllByRole('button', { name: 'Copy' });
@@ -1268,7 +1309,8 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findRenderedNoteTitle();
-    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    await openDocumentActions();
+    fireEvent.click(screen.getByText('Share'));
 
     const dialog = await screen.findByRole('dialog', { name: 'Share Note' });
     fireEvent.change(within(dialog).getByLabelText('Read Access'), { target: { value: 'signed_in' } });
@@ -1419,8 +1461,9 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findRenderedNoteTitle();
-    fireEvent.click(screen.getByRole('button', { name: 'Create folder' }));
-    const dialog = within(screen.getByRole('dialog', { name: 'New Folder' }));
+    await openNavigatorActions();
+    fireEvent.click(screen.getByText('New Folder'));
+    const dialog = within(await screen.findByRole('dialog', { name: 'New Folder' }));
     fireEvent.change(dialog.getByLabelText('Name'), { target: { value: 'Design' } });
     fireEvent.change(dialog.getByLabelText('Description'), { target: { value: 'Design notes' } });
     fireEvent.change(dialog.getByLabelText('Icon codepoint'), { target: { value: '1F4C1' } });
@@ -1550,6 +1593,9 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
+    await screen.findByRole('button', { name: 'Product Plan' });
+    expect(screen.getByRole('button', { name: 'Tags' })).toHaveAttribute('aria-expanded', 'false');
+    await expandTagBrowser();
     await screen.findByRole('button', { name: 'Filter by tag product' });
     fireEvent.click(screen.getByRole('button', { name: 'Filter by tag product' }));
 
@@ -1577,7 +1623,6 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByRole('button', { name: 'Filter by tag product' });
     fireEvent.pointerDown(screen.getByRole('button', { name: 'Filter notes' }));
     fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'product' }));
     fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'design' }));
@@ -1605,6 +1650,8 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
+    await screen.findByRole('button', { name: 'Note 1' });
+    await expandTagBrowser();
     await screen.findByRole('button', { name: 'Filter by tag tag-01' });
     expect(screen.queryByRole('button', { name: 'Filter by tag tag-13' })).not.toBeInTheDocument();
 
@@ -1631,6 +1678,8 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     fireEvent.click(await screen.findByRole('button', { name: 'History' }));
+    await screen.findByRole('button', { name: 'History Product' });
+    await expandTagBrowser();
     fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag product' }));
 
     await screen.findByText('1 result');
@@ -1683,10 +1732,13 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     const [projectsLabel] = await screen.findAllByText('Projects');
-    expect(screen.getByRole('button', { name: 'Current Folder' })).toBeDisabled();
+    await openSearchScopeMenu();
+    expect(screen.getByRole('menuitem', { name: 'Current Folder' })).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Workspace' }));
+    await waitFor(() => expect(screen.queryByRole('menuitem', { name: 'Current Folder' })).not.toBeInTheDocument());
 
     fireEvent.click(projectsLabel.closest('button')!);
-    fireEvent.click(screen.getByRole('button', { name: 'Current Folder' }));
+    await selectCurrentFolderScope();
 
     await screen.findByText('1 result');
     expect(screen.getByRole('button', { name: 'Folder Note' })).toBeInTheDocument();

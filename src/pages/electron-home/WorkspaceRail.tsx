@@ -2,6 +2,7 @@ import { Folder, History, Lock, Settings2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import type { TeamSummary } from '@/lib/electron-api';
+import { Tooltip } from '@/components/ui/tooltip';
 
 import { EntityRow, PanelShell } from './interaction-primitives';
 import type { WorkspaceScope } from './types';
@@ -22,20 +23,26 @@ function WorkspaceRailButton({
   trailing?: ReactNode;
   onClick: () => void;
 }) {
-  return (
+  const trailingContent = trailing && !collapsed ? (
+    <span className={active ? '' : 'opacity-0 transition-opacity duration-150 group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none'}>
+      {trailing}
+    </span>
+  ) : null;
+  const row = (
     <EntityRow
       selected={active}
       icon={icon}
       title={collapsed ? '' : label}
-      trailing={collapsed ? null : trailing}
+      trailing={trailingContent}
       variant="compact"
       onClick={onClick}
       ariaLabel={label}
-      titleAttribute={collapsed ? label : undefined}
       className={collapsed ? 'justify-center px-2' : undefined}
       contentClassName={collapsed ? 'hidden' : undefined}
     />
   );
+
+  return collapsed ? <Tooltip content={label} side="right">{row}</Tooltip> : row;
 }
 
 function TeamLogo({ team }: { team: TeamSummary }) {
@@ -85,9 +92,9 @@ export function WorkspaceRail({
       collapsed={collapsed}
       width={width}
       collapsedWidth={RAIL_COLLAPSED_WIDTH}
-      className="border-r border-border-default bg-background-default pt-5"
+      className="border-r border-border-default bg-background-default pt-4"
     >
-      <div className={`px-3 pb-4 ${collapsed ? 'text-center' : ''}`}>
+      <div className={`px-3 pb-3 ${collapsed ? 'text-center' : ''}`}>
         <div className="flex items-center gap-2">
           {!collapsed ? (
             <div className="min-w-0">
@@ -118,11 +125,11 @@ export function WorkspaceRail({
       </div>
 
       {!collapsed ? (
-        <div className="mt-4 px-4 text-xs font-semibold uppercase tracking-wide text-text-subtle">
+        <div className="mt-3 px-4 text-xs font-semibold uppercase tracking-wide text-text-subtle">
           Teams
         </div>
       ) : null}
-      <div className="mt-2 min-h-0 flex-1 space-y-1 overflow-auto px-2 pb-4">
+      <div className="mt-1.5 min-h-0 flex-1 space-y-0.5 overflow-auto px-2 pb-3">
         {teams.map((team) => (
           <WorkspaceRailButton
             key={team.id}

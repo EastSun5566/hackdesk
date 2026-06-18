@@ -61,7 +61,6 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { NotePermissionRole, NoteSummary } from '@/lib/electron-api';
 import {
@@ -92,14 +91,12 @@ import { buildNoteTagIndex, type ElectronNoteTag } from '@/lib/electron-note-tag
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
-import { CollapsibleSection, EmptyState, EntityRow, PanelHeader, PanelShell } from './interaction-primitives';
+import { CollapsibleSection, EmptyState, EntityRow, PanelHeader, PanelShell, ToolbarDropdownIconTrigger, ToolbarDropdownMoreTrigger, ToolbarIconButton } from './interaction-primitives';
 import type { WorkspaceScope } from './types';
 import { RepositoryNotice } from './RepositoryNotice';
 import {
-  COMPACT_ICON_BUTTON_CLASS,
   COLLAPSE_ICON_CLASS,
   FOCUS_RING_CLASS,
-  ICON_BUTTON_CLASS,
   formatDate,
   getFolderTotalNoteCount,
 } from './ui';
@@ -171,59 +168,59 @@ function NoteFinderToolbar({
   const removeWritePermission = (permission: NotePermissionRole) => updateState({
     writePermissionFilters: state.writePermissionFilters.filter((candidate) => candidate !== permission),
   });
+  const scopeLabel = state.searchScope === 'workspace' ? 'Workspace' : 'Current Folder';
 
   return (
-    <div className="space-y-3">
-      <label className="flex h-10 items-center gap-2 rounded-md border border-border-default bg-background-default px-3 transition-colors focus-within:border-primary-default">
-        <Search aria-hidden="true" className="h-4 w-4 text-text-subtle" />
-        <span className="sr-only">Search notes</span>
-        <input
-          value={state.query}
-          onChange={(event) => updateState({ query: event.target.value })}
-          placeholder="Search notes"
-          className="min-w-0 flex-1 bg-transparent text-sm outline-none"
-        />
-        {state.query ? (
-          <button
-            type="button"
-            onClick={() => updateState({ query: '' })}
-            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default ${FOCUS_RING_CLASS}`}
-            aria-label="Clear search"
-          >
-            <X aria-hidden="true" className="h-3.5 w-3.5" />
-          </button>
-        ) : null}
-      </label>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex rounded-md border border-border-default bg-background-default p-0.5" aria-label="Search scope">
-          <button
-            type="button"
-            onClick={() => updateState({ searchScope: 'workspace' })}
-            aria-pressed={state.searchScope === 'workspace'}
-            className={`h-7 rounded-[5px] px-2 text-xs transition-colors ${state.searchScope === 'workspace' ? 'bg-background-selected text-text-default' : 'text-text-subtle hover:text-text-default'} ${FOCUS_RING_CLASS}`}
-          >
-            Workspace
-          </button>
-          <button
-            type="button"
-            onClick={() => updateState({ searchScope: 'current-folder' })}
-            disabled={currentFolderDisabled}
-            aria-pressed={state.searchScope === 'current-folder'}
-            className={`h-7 rounded-[5px] px-2 text-xs transition-colors ${state.searchScope === 'current-folder' ? 'bg-background-selected text-text-default' : 'text-text-subtle hover:text-text-default'} ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`}
-          >
-            Current Folder
-          </button>
-        </div>
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md border border-border-default bg-background-default px-2 transition-colors focus-within:border-primary-default">
+          <Search aria-hidden="true" className="h-4 w-4 shrink-0 text-text-subtle" />
+          <span className="sr-only">Search notes</span>
+          <input
+            value={state.query}
+            onChange={(event) => updateState({ query: event.target.value })}
+            placeholder="Search notes"
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+          />
+          {state.query ? (
+            <button
+              type="button"
+              onClick={() => updateState({ query: '' })}
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default ${FOCUS_RING_CLASS}`}
+              aria-label="Clear search"
+            >
+              <X aria-hidden="true" className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+        </label>
 
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button type="button" className={COMPACT_ICON_BUTTON_CLASS} aria-label="Sort notes">
-              <ArrowDownUp aria-hidden="true" className="h-3.5 w-3.5" />
-              <span className="sr-only">{SORT_LABELS[state.sortMode]}</span>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
+          <ToolbarDropdownIconTrigger label="Search scope" tooltip={`Scope: ${scopeLabel}`} className="h-8 w-8">
+            {state.searchScope === 'current-folder'
+              ? <FolderOpen aria-hidden="true" className="h-4 w-4" />
+              : <FileText aria-hidden="true" className="h-4 w-4" />}
+          </ToolbarDropdownIconTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Search Scope</DropdownMenuLabel>
+            <DropdownMenuItem onSelect={() => updateState({ searchScope: 'workspace' })}>
+              <CheckedIcon checked={state.searchScope === 'workspace'} />
+              Workspace
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={currentFolderDisabled}
+              onSelect={() => updateState({ searchScope: 'current-folder' })}
+            >
+              <CheckedIcon checked={state.searchScope === 'current-folder'} />
+              Current Folder
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <ToolbarDropdownIconTrigger label="Sort notes" tooltip={SORT_LABELS[state.sortMode]} className="h-8 w-8">
+            <ArrowDownUp aria-hidden="true" className="h-3.5 w-3.5" />
+          </ToolbarDropdownIconTrigger>
+          <DropdownMenuContent align="end">
             <DropdownMenuLabel>Sort</DropdownMenuLabel>
             {SORT_MODES.map((sortMode) => (
               <DropdownMenuItem key={sortMode} onSelect={() => updateState({ sortMode })}>
@@ -235,13 +232,19 @@ function NoteFinderToolbar({
         </DropdownMenu>
 
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button type="button" className={`${COMPACT_ICON_BUTTON_CLASS} gap-1 px-2`} aria-label="Filter notes">
-              <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
-              <span className="text-xs">{activeFilterCount || 'Filters'}</span>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="max-h-96 min-w-56 overflow-auto">
+          <ToolbarDropdownIconTrigger
+            label="Filter notes"
+            tooltip={activeFilterCount ? `${activeFilterCount} active filters` : 'Filter notes'}
+            className={`relative h-8 w-8 ${activeFilterCount ? 'bg-background-selected text-text-default' : ''}`}
+          >
+            <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
+            {activeFilterCount ? (
+              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-default px-1 text-[10px] leading-none text-primary-foreground">
+                {activeFilterCount}
+              </span>
+            ) : null}
+          </ToolbarDropdownIconTrigger>
+          <DropdownMenuContent align="end" className="max-h-96 min-w-56 overflow-auto">
             <DropdownMenuLabel>Tags</DropdownMenuLabel>
             {options.tags.length > 0 ? options.tags.map((tag) => (
               <DropdownMenuCheckboxItem
@@ -295,9 +298,11 @@ function NoteFinderToolbar({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <span className="ml-auto text-xs text-text-subtle" aria-live="polite">
-          {resultCount} {resultCount === 1 ? 'result' : 'results'}
-        </span>
+      </div>
+
+      <div className="flex items-center justify-between gap-2 px-0.5 text-xs text-text-subtle">
+        <span>{scopeLabel}</span>
+        <span aria-live="polite">{resultCount} {resultCount === 1 ? 'result' : 'results'}</span>
       </div>
 
       {hasActiveNoteFinderFilters(state) ? (
@@ -335,10 +340,21 @@ function TagBrowser({
     return null;
   }
 
+  if (tags.length === 0 && activeTags.length === 0) {
+    return null;
+  }
+
   return (
-    <CollapsibleSection title="Tags" defaultOpen>
+    <CollapsibleSection
+      key={activeTags.length > 0 ? 'tags-active' : 'tags-idle'}
+      title="Tags"
+      subtitle={tags.length > 0 ? String(tags.length) : undefined}
+      defaultOpen={activeTags.length > 0}
+      className="border-b-0 py-1"
+      contentClassName="space-y-1 pt-1"
+    >
       {tags.length === 0 ? (
-        <div className="rounded-md border border-border-default bg-background-default px-3 py-2 text-xs text-text-subtle">
+        <div className="rounded-md border border-border-default bg-background-default px-2 py-1.5 text-xs text-text-subtle">
           No tags yet
         </div>
       ) : (
@@ -354,6 +370,7 @@ function TagBrowser({
                 icon={<Tag className="h-3.5 w-3.5" />}
                 title={entry.tag}
                 trailing={entry.count}
+                className="py-0.5 text-xs"
                 ariaLabel={`${active ? 'Clear' : 'Filter by'} tag ${entry.tag}`}
                 onClick={() => onTagToggle(entry.tag)}
               />
@@ -363,7 +380,7 @@ function TagBrowser({
             <button
               type="button"
               onClick={() => setShowAll((current) => !current)}
-              className={`mt-1 h-7 rounded-[6px] px-2 text-xs text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${FOCUS_RING_CLASS}`}
+              className={`mt-0.5 h-7 rounded-[6px] px-2 text-xs text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${FOCUS_RING_CLASS}`}
             >
               {showAll ? 'Show less' : `Show all ${tags.length} tags`}
             </button>
@@ -722,37 +739,54 @@ function FolderActionsDropdown({
   onDeleteFolder: (folderId: string) => void;
   onOpenPalette: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const runAfterClose = (action: () => void) => {
+    setOpen(false);
+    window.setTimeout(action, 0);
+  };
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={ICON_BUTTON_CLASS}
-          aria-label="Folder actions"
-        >
-          <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
-        </button>
-      </DropdownMenuTrigger>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <ToolbarDropdownMoreTrigger label="Navigator actions" />
       <DropdownMenuContent>
-        <DropdownMenuItem disabled={!canCreate} onSelect={onCreateFolder}>
+        <DropdownMenuItem disabled={!canCreate} onSelect={(event) => {
+          event.preventDefault();
+          runAfterClose(onCreateFolder);
+        }}>
           <FolderPlus aria-hidden="true" className="h-4 w-4" />
           New Folder
         </DropdownMenuItem>
-        <DropdownMenuItem disabled={!canCreate} onSelect={onImportMarkdown}>
+        <DropdownMenuItem disabled={!canCreate} onSelect={(event) => {
+          event.preventDefault();
+          runAfterClose(onImportMarkdown);
+        }}>
           <Upload aria-hidden="true" className="h-4 w-4" />
           Import Markdown Note
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={!selectedFolder} onSelect={() => selectedFolder && onRenameFolder(selectedFolder.id)}>
+        <DropdownMenuItem disabled={!selectedFolder} onSelect={(event) => {
+          event.preventDefault();
+          if (selectedFolder) {
+            runAfterClose(() => onRenameFolder(selectedFolder.id));
+          }
+        }}>
           <FolderPen aria-hidden="true" className="h-4 w-4" />
           Rename Selected Folder
         </DropdownMenuItem>
-        <DropdownMenuItem destructive disabled={!selectedFolder} onSelect={() => selectedFolder && onDeleteFolder(selectedFolder.id)}>
+        <DropdownMenuItem destructive disabled={!selectedFolder} onSelect={(event) => {
+          event.preventDefault();
+          if (selectedFolder) {
+            runAfterClose(() => onDeleteFolder(selectedFolder.id));
+          }
+        }}>
           <Trash2 aria-hidden="true" className="h-4 w-4" />
           Delete Selected Folder
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={onOpenPalette}>
+        <DropdownMenuItem onSelect={(event) => {
+          event.preventDefault();
+          runAfterClose(onOpenPalette);
+        }}>
           <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
           Open Command Palette
         </DropdownMenuItem>
@@ -1105,52 +1139,36 @@ export function FolderNavigator({
     >
       {collapsed ? (
         <div className="flex flex-1 justify-center pt-4">
-          <button
-            type="button"
+          <ToolbarIconButton
             onClick={onToggleCollapsed}
-            className={ICON_BUTTON_CLASS}
             aria-controls={id}
             aria-expanded={false}
-            aria-label="Expand note navigator"
-            title="Expand note navigator"
+            label="Expand note navigator"
           >
             <PanelLeftOpen aria-hidden="true" className="h-4 w-4" />
-          </button>
+          </ToolbarIconButton>
         </div>
       ) : (
         <>
           <PanelHeader
             title={scope.label}
             subtitle={navigatorSubtitle}
-            className="space-y-3"
+            className="px-3 py-3"
             actions={(
               <>
-                <button
-                  type="button"
+                <ToolbarIconButton
                   onClick={onRefresh}
-                  className={ICON_BUTTON_CLASS}
-                  aria-label="Refresh notes"
+                  label="Refresh notes"
                 >
                   <RefreshCcw aria-hidden="true" className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
-                </button>
-                <button
-                  type="button"
+                </ToolbarIconButton>
+                <ToolbarIconButton
                   onClick={onCreate}
                   disabled={!canCreate || isCreating}
-                  className={ICON_BUTTON_CLASS}
-                  aria-label="Create note"
+                  label="Create note"
                 >
                   <Plus aria-hidden="true" className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={onCreateFolder}
-                  disabled={!canCreate || isCreating}
-                  className={ICON_BUTTON_CLASS}
-                  aria-label="Create folder"
-                >
-                  <FolderPlus aria-hidden="true" className="h-4 w-4" />
-                </button>
+                </ToolbarIconButton>
                 <FolderActionsDropdown
                   selectedFolder={selectedConcreteFolder}
                   canCreate={canCreate && !isCreating}
@@ -1160,21 +1178,18 @@ export function FolderNavigator({
                   onDeleteFolder={onDeleteFolder}
                   onOpenPalette={onOpenPalette}
                 />
-                <button
-                  type="button"
+                <ToolbarIconButton
                   onClick={onToggleCollapsed}
-                  className={ICON_BUTTON_CLASS}
                   aria-controls={id}
                   aria-expanded={true}
-                  aria-label="Collapse note navigator"
-                  title="Collapse note navigator"
+                  label="Collapse note navigator"
                 >
                   <PanelLeftClose aria-hidden="true" className="h-4 w-4" />
-                </button>
+                </ToolbarIconButton>
               </>
             )}
           />
-          <div className="space-y-3 border-b border-border-default px-4 pb-4">
+          <div className="space-y-1.5 border-b border-border-default px-4 pb-2.5">
             <NoteFinderToolbar
               state={finderState}
               resultCount={entries.length}

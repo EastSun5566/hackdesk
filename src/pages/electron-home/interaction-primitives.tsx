@@ -1,16 +1,20 @@
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, MoreHorizontal } from 'lucide-react';
 import { clsx } from 'clsx';
 import type {
   ButtonHTMLAttributes,
+  Ref,
   ReactNode,
 } from 'react';
-import { useId, useState } from 'react';
+import { forwardRef, useId, useState } from 'react';
 
 import {
   COLLAPSE_ICON_CLASS,
   FOCUS_RING_CLASS,
+  ICON_BUTTON_CLASS,
   PANEL_TRANSITION_CLASS,
 } from './ui';
+import { DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipRoot, TooltipTrigger } from '@/components/ui/tooltip';
 
 type EntityRowVariant = 'default' | 'compact';
 
@@ -52,7 +56,7 @@ function entityRowClassName({
 }) {
   return clsx(
     'group/entity-row flex w-full min-w-0 items-center text-left transition-[background-color,color,opacity] duration-150 ease-out motion-reduce:transition-none',
-    variant === 'compact' ? 'gap-2 rounded-[6px] px-2 py-1.5 text-sm' : 'gap-3 rounded-md px-3 py-2.5 text-sm',
+    variant === 'compact' ? 'gap-2 rounded-[6px] px-2 py-1 text-sm' : 'gap-2.5 rounded-md px-2.5 py-2 text-sm',
     selected || active
       ? 'bg-background-selected text-text-default'
       : 'text-text-subtle hover:bg-background-selected hover:text-text-default',
@@ -101,7 +105,7 @@ function EntityRowContent({
           {badges ? <span className="shrink-0">{badges}</span> : null}
         </span>
         {subtitle ? (
-          <span className="mt-1 block min-w-0 truncate text-xs text-text-subtle">
+          <span className="mt-0.5 block min-w-0 truncate text-xs text-text-subtle">
             {subtitle}
           </span>
         ) : null}
@@ -116,7 +120,7 @@ function EntityRowContent({
   );
 }
 
-export function EntityRow({
+export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function EntityRow({
   leadingControls,
   icon,
   title,
@@ -135,7 +139,7 @@ export function EntityRow({
   onClick,
   ariaLabel,
   titleAttribute,
-}: EntityRowProps) {
+}, ref) {
   const content = (
     <EntityRowContent
       leadingControls={leadingControls}
@@ -162,6 +166,7 @@ export function EntityRow({
   if (onClick) {
     return (
       <button
+        ref={ref as Ref<HTMLButtonElement>}
         type="button"
         onClick={onClick}
         disabled={disabled}
@@ -176,6 +181,7 @@ export function EntityRow({
 
   return (
     <div
+      ref={ref as Ref<HTMLDivElement>}
       aria-label={ariaLabel}
       title={titleAttribute}
       className={rowClassName}
@@ -188,7 +194,7 @@ export function EntityRow({
       ) : content}
     </div>
   );
-}
+});
 
 export function PanelShell({
   id,
@@ -240,7 +246,7 @@ export function PanelHeader({
   className?: string;
 }) {
   return (
-    <header className={clsx('border-b border-border-default px-4 py-4', className)}>
+    <header className={clsx('border-b border-border-default px-4 py-3', className)}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <TitleElement className="truncate text-base font-semibold text-text-default">{title}</TitleElement>
@@ -249,6 +255,104 @@ export function PanelHeader({
         {actions ? <div className="flex shrink-0 items-center gap-1">{actions}</div> : null}
       </div>
     </header>
+  );
+}
+
+export function ToolbarIconButton({
+  label,
+  tooltip = label,
+  children,
+  className,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  label: string;
+  tooltip?: ReactNode;
+}) {
+  const button = (
+    <button
+      type="button"
+      aria-label={label}
+      className={clsx(ICON_BUTTON_CLASS, className)}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+
+  if (props.disabled) {
+    return button;
+  }
+
+  return (
+    <Tooltip content={tooltip}>
+      {button}
+    </Tooltip>
+  );
+}
+
+export function ToolbarMoreButton({
+  label = 'More actions',
+  tooltip = label,
+  className,
+  ...props
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {
+  label?: string;
+  tooltip?: ReactNode;
+}) {
+  return (
+    <ToolbarIconButton
+      label={label}
+      tooltip={tooltip}
+      className={className}
+      {...props}
+    >
+      <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
+    </ToolbarIconButton>
+  );
+}
+
+export function ToolbarDropdownIconTrigger({
+  label,
+  tooltip = label,
+  children,
+  className,
+}: {
+  label: string;
+  tooltip?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <TooltipRoot>
+      <TooltipTrigger asChild>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={label}
+            className={clsx(ICON_BUTTON_CLASS, className)}
+          >
+            {children}
+          </button>
+        </DropdownMenuTrigger>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{tooltip}</TooltipContent>
+    </TooltipRoot>
+  );
+}
+
+export function ToolbarDropdownMoreTrigger({
+  label = 'More actions',
+  tooltip = label,
+  className,
+}: {
+  label?: string;
+  tooltip?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <ToolbarDropdownIconTrigger label={label} tooltip={tooltip} className={className}>
+      <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
+    </ToolbarDropdownIconTrigger>
   );
 }
 
@@ -296,6 +400,8 @@ export function CollapsibleSection({
   defaultOpen = true,
   children,
   actions,
+  className,
+  contentClassName,
 }: {
   title: ReactNode;
   subtitle?: ReactNode;
@@ -303,18 +409,21 @@ export function CollapsibleSection({
   defaultOpen?: boolean;
   children: ReactNode;
   actions?: ReactNode;
+  className?: string;
+  contentClassName?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const contentId = useId();
 
   return (
-    <section className="border-b border-border-default/70 py-3 last:border-b-0">
+    <section className={clsx('border-b border-border-default/70 py-2.5 last:border-b-0', className)}>
       <SectionHeader
         title={title}
         subtitle={subtitle}
         dirty={dirty}
         actions={actions}
         buttonProps={{
+          'aria-label': typeof title === 'string' ? title : undefined,
           'aria-expanded': open,
           'aria-controls': contentId,
           onClick: () => setOpen((current) => !current),
@@ -322,13 +431,14 @@ export function CollapsibleSection({
       />
       <div
         id={contentId}
+        hidden={!open}
         className={clsx(
           'grid overflow-hidden transition-[grid-template-rows,opacity] duration-150 ease-out motion-reduce:transition-none',
           open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
         )}
       >
         <div className="min-h-0 overflow-hidden">
-          <div className="space-y-3 pt-3">
+          <div className={clsx('space-y-2.5 pt-2.5', contentClassName)}>
             {children}
           </div>
         </div>

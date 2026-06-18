@@ -29,7 +29,7 @@ export function MarkdownReader({
     return (
       <div
         data-testid="markdown-reader"
-        className="markdown-reader flex min-h-0 flex-1 items-center justify-center overflow-auto px-6 py-8 text-sm text-text-subtle"
+        className="markdown-reader flex min-h-0 flex-1 items-center justify-center overflow-auto px-6 py-6 text-sm text-text-subtle"
       >
         Nothing to read yet.
       </div>
@@ -39,7 +39,7 @@ export function MarkdownReader({
   return (
     <article
       data-testid="markdown-reader"
-      className="markdown-reader min-h-0 flex-1 overflow-auto px-8 py-7"
+      className="markdown-reader min-h-0 flex-1 overflow-auto px-7 py-5"
       onClick={handleClick}
       dangerouslySetInnerHTML={{ __html: rendered.html }}
     />
