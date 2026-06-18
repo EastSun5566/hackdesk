@@ -62,6 +62,7 @@ export function CreateFolderDialog({
           <label className="block space-y-2 text-sm">
             <span className="font-medium">Name</span>
             <input
+              name="name"
               autoFocus
               value={state.name}
               onChange={(event) => onStateChange({ ...state, name: event.target.value })}
@@ -72,6 +73,7 @@ export function CreateFolderDialog({
           <label className="block space-y-2 text-sm">
             <span className="font-medium">Description</span>
             <textarea
+              name="description"
               value={state.description}
               onChange={(event) => onStateChange({ ...state, description: event.target.value })}
               className={`${TEXT_INPUT_CLASS} min-h-20 py-2`}
@@ -79,33 +81,40 @@ export function CreateFolderDialog({
               placeholder="Active project notes"
             />
           </label>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block space-y-2 text-sm">
-              <span className="font-medium">Icon codepoint</span>
-              <input
-                value={state.icon}
-                onChange={(event) => onStateChange({ ...state, icon: event.target.value })}
-                className={TEXT_INPUT_CLASS}
-                placeholder="1F4C1"
-              />
-            </label>
-            <label className="block space-y-2 text-sm">
-              <span className="font-medium">Color</span>
-              <span className="flex items-center gap-2">
-                <span
-                  className="h-5 w-5 rounded-[4px] border border-border-default"
-                  style={{ backgroundColor: normalizedColor || 'transparent' }}
-                  aria-hidden="true"
-                />
+          <details className="rounded-md border border-border-default bg-background-muted px-3 py-2 text-sm">
+            <summary className="cursor-pointer select-none rounded-[4px] text-xs font-semibold uppercase tracking-wide text-text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default">
+              Advanced
+            </summary>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <label className="block space-y-2 text-sm">
+                <span className="font-medium">Icon codepoint</span>
                 <input
-                  value={state.color}
-                  onChange={(event) => onStateChange({ ...state, color: event.target.value })}
+                  name="icon"
+                  value={state.icon}
+                  onChange={(event) => onStateChange({ ...state, icon: event.target.value })}
                   className={TEXT_INPUT_CLASS}
-                  placeholder="#2F80ED"
+                  placeholder="1F4C1"
                 />
-              </span>
-            </label>
-          </div>
+              </label>
+              <label className="block space-y-2 text-sm">
+                <span className="font-medium">Color</span>
+                <span className="flex items-center gap-2">
+                  <span
+                    className="h-5 w-5 rounded-[4px] border border-border-default"
+                    style={{ backgroundColor: normalizedColor || 'transparent' }}
+                    aria-hidden="true"
+                  />
+                  <input
+                    name="color"
+                    value={state.color}
+                    onChange={(event) => onStateChange({ ...state, color: event.target.value })}
+                    className={TEXT_INPUT_CLASS}
+                    placeholder="#2F80ED"
+                  />
+                </span>
+              </label>
+            </div>
+          </details>
           <DialogFooter>
             <button
               type="button"

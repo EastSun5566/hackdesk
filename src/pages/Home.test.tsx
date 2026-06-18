@@ -113,6 +113,14 @@ async function openInspector() {
   await screen.findByRole('heading', { name: 'Inspector' });
 }
 
+async function expandInspectorSection(name: string) {
+  const trigger = await screen.findByRole('button', { name });
+  if (trigger.getAttribute('aria-expanded') !== 'true') {
+    fireEvent.click(trigger);
+    await waitFor(() => expect(trigger).toHaveAttribute('aria-expanded', 'true'));
+  }
+}
+
 async function openDocumentActions() {
   fireEvent.pointerDown(screen.getByRole('button', { name: 'More actions' }));
   await screen.findByRole('menuitem', { name: 'Web Editor' });
@@ -1259,6 +1267,7 @@ describe('Home native-feel behavior', () => {
     const tagInput = screen.getByLabelText('Tags');
     fireEvent.change(tagInput, { target: { value: 'desktop' } });
     fireEvent.keyDown(tagInput, { key: 'Enter' });
+    await expandInspectorSection('Permissions');
     fireEvent.change(screen.getByLabelText('Read'), { target: { value: 'signed_in' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save Metadata' }));
 
@@ -1339,6 +1348,7 @@ describe('Home native-feel behavior', () => {
     await findRenderedNoteTitle();
     await openInspector();
 
+    await expandInspectorSection('Location');
     fireEvent.change(await screen.findByLabelText('Folder'), { target: { value: 'folder-1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save Metadata' }));
 
@@ -1364,6 +1374,7 @@ describe('Home native-feel behavior', () => {
     await findRenderedNoteTitle();
     await openInspector();
 
+    await expandInspectorSection('Location');
     fireEvent.change(await screen.findByLabelText('Folder'), { target: { value: '' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save Metadata' }));
 
@@ -1388,6 +1399,7 @@ describe('Home native-feel behavior', () => {
     await findRenderedNoteTitle();
     await openInspector();
 
+    await expandInspectorSection('Images');
     const file = new File(['image-bytes'], 'diagram.png', { type: 'image/png' });
     Object.defineProperty(file, 'arrayBuffer', {
       value: vi.fn(async () => new Uint8Array([1, 2, 3]).buffer),
@@ -1425,6 +1437,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(screen.getByRole('button', { name: 'View' }));
     await openInspector();
 
+    await expandInspectorSection('Images');
     const file = new File(['image-bytes'], 'reader.png', { type: 'image/png' });
     Object.defineProperty(file, 'arrayBuffer', {
       value: vi.fn(async () => new Uint8Array([1, 2, 3]).buffer),
@@ -1466,6 +1479,7 @@ describe('Home native-feel behavior', () => {
     const dialog = within(await screen.findByRole('dialog', { name: 'New Folder' }));
     fireEvent.change(dialog.getByLabelText('Name'), { target: { value: 'Design' } });
     fireEvent.change(dialog.getByLabelText('Description'), { target: { value: 'Design notes' } });
+    fireEvent.click(dialog.getByText('Advanced'));
     fireEvent.change(dialog.getByLabelText('Icon codepoint'), { target: { value: '1F4C1' } });
     fireEvent.change(dialog.getByLabelText('Color'), { target: { value: '#2F80ED' } });
     fireEvent.click(dialog.getByRole('button', { name: 'Create' }));
@@ -1569,6 +1583,7 @@ describe('Home native-feel behavior', () => {
     await screen.findByRole('button', { name: 'Product Plan' });
     fireEvent.pointerDown(screen.getByRole('button', { name: 'Filter notes' }));
     fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'product' }));
+    fireEvent.pointerDown(window.document.body);
 
     await screen.findByText('1 result');
     expect(screen.getByRole('button', { name: 'Product Plan' })).toBeInTheDocument();
@@ -1576,7 +1591,7 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove tag filter product' }));
 
-    await screen.findByText('2 results');
+    await screen.findByText('2 notes');
     expect(screen.getByRole('button', { name: 'Design Spec' })).toBeInTheDocument();
   });
 
@@ -1605,7 +1620,7 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear tag product' }));
 
-    await screen.findByText('2 results');
+    await screen.findByText('2 notes');
     expect(screen.getByRole('button', { name: 'Design Spec' })).toBeInTheDocument();
   });
 
@@ -1655,7 +1670,7 @@ describe('Home native-feel behavior', () => {
     await screen.findByRole('button', { name: 'Filter by tag tag-01' });
     expect(screen.queryByRole('button', { name: 'Filter by tag tag-13' })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show all 13 tags' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show 7 more' }));
 
     expect(screen.getByRole('button', { name: 'Filter by tag tag-13' })).toBeInTheDocument();
 

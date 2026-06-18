@@ -39,7 +39,7 @@ export function MarkdownReader({
   return (
     <article
       data-testid="markdown-reader"
-      className="markdown-reader min-h-0 flex-1 overflow-auto px-7 py-5"
+      className="markdown-reader min-h-0 flex-1 overflow-auto px-6 py-4"
       onClick={handleClick}
       dangerouslySetInnerHTML={{ __html: rendered.html }}
     />

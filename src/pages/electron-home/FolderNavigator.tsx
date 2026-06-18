@@ -111,7 +111,7 @@ const SORT_LABELS: Record<NoteFinderSortMode, string> = {
 };
 
 const SORT_MODES: NoteFinderSortMode[] = ['updated-desc', 'updated-asc', 'title-asc', 'title-desc', 'created-desc'];
-const TAG_BROWSER_LIMIT = 12;
+const TAG_BROWSER_LIMIT = 6;
 
 const PERMISSION_LABELS: Record<NotePermissionRole, string> = {
   owner: 'Owner',
@@ -147,13 +147,11 @@ function FilterChip({
 
 function NoteFinderToolbar({
   state,
-  resultCount,
   selectedFolderId,
   options,
   onChange,
 }: {
   state: NoteFinderState;
-  resultCount: number;
   selectedFolderId: string | null;
   options: ReturnType<typeof getNoteFinderOptions>;
   onChange: (state: NoteFinderState) => void;
@@ -173,13 +171,15 @@ function NoteFinderToolbar({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5">
-        <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md border border-border-default bg-background-default px-2 transition-colors focus-within:border-primary-default">
+        <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md border border-border-default bg-background-default px-2 transition-[border-color,box-shadow] focus-within:border-primary-default focus-within:ring-2 focus-within:ring-primary-default/60">
           <Search aria-hidden="true" className="h-4 w-4 shrink-0 text-text-subtle" />
           <span className="sr-only">Search notes</span>
           <input
+            name="noteSearch"
             value={state.query}
             onChange={(event) => updateState({ query: event.target.value })}
             placeholder="Search notes"
+            enterKeyHint="search"
             className="min-w-0 flex-1 bg-transparent text-sm outline-none"
           />
           {state.query ? (
@@ -300,11 +300,6 @@ function NoteFinderToolbar({
 
       </div>
 
-      <div className="flex items-center justify-between gap-2 px-0.5 text-xs text-text-subtle">
-        <span>{scopeLabel}</span>
-        <span aria-live="polite">{resultCount} {resultCount === 1 ? 'result' : 'results'}</span>
-      </div>
-
       {hasActiveNoteFinderFilters(state) ? (
         <div className="flex flex-wrap gap-1.5">
           {state.tagFilters.map((tag) => (
@@ -350,8 +345,8 @@ function TagBrowser({
       title="Tags"
       subtitle={tags.length > 0 ? String(tags.length) : undefined}
       defaultOpen={activeTags.length > 0}
-      className="border-b-0 py-1"
-      contentClassName="space-y-1 pt-1"
+      className="border-b-0 py-0.5"
+      contentClassName="space-y-0.5 pt-0.5"
     >
       {tags.length === 0 ? (
         <div className="rounded-md border border-border-default bg-background-default px-2 py-1.5 text-xs text-text-subtle">
@@ -370,7 +365,7 @@ function TagBrowser({
                 icon={<Tag className="h-3.5 w-3.5" />}
                 title={entry.tag}
                 trailing={entry.count}
-                className="py-0.5 text-xs"
+                className="h-7 py-0 text-xs"
                 ariaLabel={`${active ? 'Clear' : 'Filter by'} tag ${entry.tag}`}
                 onClick={() => onTagToggle(entry.tag)}
               />
@@ -382,7 +377,7 @@ function TagBrowser({
               onClick={() => setShowAll((current) => !current)}
               className={`mt-0.5 h-7 rounded-[6px] px-2 text-xs text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${FOCUS_RING_CLASS}`}
             >
-              {showAll ? 'Show less' : `Show all ${tags.length} tags`}
+              {showAll ? 'Show less' : `Show ${tags.length - TAG_BROWSER_LIMIT} more`}
             </button>
           ) : null}
         </div>
@@ -455,7 +450,12 @@ function NoteRow({
           ref={setNodeRef}
           style={style}
           data-note-id={entry.note.id}
-          onClick={() => onSelect(entry.note)}
+          onClick={(event) => {
+            if (event.target instanceof Element && event.target.closest('button')) {
+              return;
+            }
+            onSelect(entry.note);
+          }}
           className={isDragging || active ? 'opacity-40' : undefined}
         >
           <EntityRow
@@ -1028,7 +1028,7 @@ export function FolderNavigator({
     : isFetching
       ? 'Syncing…'
       : isFinderMode
-        ? 'Finder'
+        ? `${entries.length} ${entries.length === 1 ? 'result' : 'results'}`
         : `${entries.length} notes`;
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
@@ -1153,7 +1153,7 @@ export function FolderNavigator({
           <PanelHeader
             title={scope.label}
             subtitle={navigatorSubtitle}
-            className="px-3 py-3"
+            className="px-3 py-2.5"
             actions={(
               <>
                 <ToolbarIconButton
@@ -1189,10 +1189,9 @@ export function FolderNavigator({
               </>
             )}
           />
-          <div className="space-y-1.5 border-b border-border-default px-4 pb-2.5">
+          <div className="space-y-1 border-b border-border-default px-3 pb-2 pt-2">
             <NoteFinderToolbar
               state={finderState}
-              resultCount={entries.length}
               selectedFolderId={selectedFolderId}
               options={finderOptions}
               onChange={onFinderStateChange}

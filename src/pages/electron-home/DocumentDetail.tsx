@@ -206,6 +206,7 @@ export function DocumentDetail({
             <label>
               <span className="sr-only">Note title</span>
               <input
+                name="title"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 className="w-full truncate bg-transparent text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-primary-default"

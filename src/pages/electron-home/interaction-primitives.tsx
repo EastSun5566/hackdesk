@@ -280,7 +280,13 @@ export function ToolbarIconButton({
   );
 
   if (props.disabled) {
-    return button;
+    return (
+      <Tooltip content={tooltip}>
+        <span className="inline-flex cursor-default">
+          {button}
+        </span>
+      </Tooltip>
+    );
   }
 
   return (

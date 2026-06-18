@@ -220,10 +220,10 @@ export function NoteInspector({
         )}
       />
 
-      <div className="min-h-0 flex-1 overflow-auto px-3 py-2.5">
+      <div className="min-h-0 flex-1 overflow-auto px-3 py-2">
         <form onSubmit={handleMetadataSubmit}>
-          <CollapsibleSection title="Metadata" dirty={descriptionDirty || tagsDirty || permalinkDirty} className="py-2" contentClassName="space-y-2 pt-2">
-            <fieldset className="space-y-2.5">
+          <CollapsibleSection title="Metadata" dirty={descriptionDirty || tagsDirty || permalinkDirty} className="py-1.5" contentClassName="space-y-2 pt-1.5">
+            <fieldset className="space-y-2">
               <legend className="sr-only">Metadata</legend>
               <label className="block space-y-1.5 text-sm" htmlFor={descriptionId}>
                 <span className="font-medium text-text-default">Description</span>
@@ -239,7 +239,7 @@ export function NoteInspector({
 
               <div className="space-y-1.5 text-sm">
                 <label className="font-medium text-text-default" htmlFor={tagsId}>Tags</label>
-                <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-border-default bg-background-default px-2 py-1">
+                <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-border-default bg-background-default px-2 py-1 transition-[border-color,box-shadow] focus-within:border-primary-default focus-within:ring-2 focus-within:ring-primary-default/60">
                   {tags.map((tag) => (
                     <span
                       key={tag}
@@ -259,6 +259,8 @@ export function NoteInspector({
                   <input
                     id={tagsId}
                     name="tag"
+                    autoComplete="off"
+                    enterKeyHint="done"
                     value={tagDraft}
                     onChange={(event) => setTagDraft(event.target.value)}
                     onKeyDown={(event) => {
@@ -294,8 +296,8 @@ export function NoteInspector({
             </fieldset>
           </CollapsibleSection>
 
-          <CollapsibleSection title="Location" dirty={locationDirty} className="py-2" contentClassName="space-y-2 pt-2">
-            <fieldset className="space-y-2.5">
+          <CollapsibleSection title="Location" dirty={locationDirty} defaultOpen={false} className="py-1.5" contentClassName="space-y-2 pt-1.5">
+            <fieldset className="space-y-2">
               <legend className="sr-only">Location</legend>
               <label className="block space-y-1.5 text-sm" htmlFor={folderId}>
                 <span className="font-medium text-text-default">Folder</span>
@@ -315,8 +317,8 @@ export function NoteInspector({
             </fieldset>
           </CollapsibleSection>
 
-          <CollapsibleSection title="Permissions" dirty={permissionsDirty} className="py-2" contentClassName="space-y-2 pt-2">
-            <fieldset className="space-y-2.5">
+          <CollapsibleSection title="Permissions" dirty={permissionsDirty} defaultOpen={false} className="py-1.5" contentClassName="space-y-2 pt-1.5">
+            <fieldset className="grid gap-2 sm:grid-cols-2">
               <legend className="sr-only">Permissions</legend>
               <label className="block space-y-1.5 text-sm" htmlFor={readPermissionId}>
                 <span className="font-medium text-text-default">Read</span>
@@ -349,7 +351,7 @@ export function NoteInspector({
             </fieldset>
           </CollapsibleSection>
 
-          <div className="flex justify-end pt-2">
+          <div className="flex justify-end pt-1.5">
             <ToolbarIconButton
               type="submit"
               disabled={!metadataDirty || isSaving}
@@ -363,8 +365,8 @@ export function NoteInspector({
           </div>
         </form>
 
-        <form className="mt-1" onSubmit={handleImageUpload}>
-          <CollapsibleSection title="Images" dirty={Boolean(imageFile)} className="py-2" contentClassName="space-y-2 pt-2">
+        <form className="mt-0.5" onSubmit={handleImageUpload}>
+          <CollapsibleSection title="Images" dirty={Boolean(imageFile)} defaultOpen={false} className="py-1.5" contentClassName="space-y-2 pt-1.5">
             <fieldset className="space-y-2">
               <legend className="sr-only">Images</legend>
               <label className="block space-y-1.5 text-sm" htmlFor={imageId}>
