@@ -1,4 +1,4 @@
-import type { BrowserWindow } from 'electron';
+import type { BrowserWindow, OpenDialogOptions } from 'electron';
 import { dialog } from 'electron';
 import { readFile, writeFile } from 'node:fs/promises';
 import { basename } from 'node:path';
@@ -40,7 +40,7 @@ export async function openTextFile(input: OpenTextFileInput, parentWindow?: Brow
   const options = {
     properties: ['openFile'],
     filters: getFilters(input.filters),
-  } as const;
+  } satisfies OpenDialogOptions;
   const result = parentWindow
     ? await dialog.showOpenDialog(parentWindow, options)
     : await dialog.showOpenDialog(options);

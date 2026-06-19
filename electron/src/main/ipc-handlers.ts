@@ -1,4 +1,5 @@
 import { app, clipboard, dialog, ipcMain } from 'electron';
+import type { MessageBoxOptions } from 'electron';
 
 import type {
   ConfirmDialogOptions,
@@ -213,7 +214,7 @@ export function registerIpcHandlers(windowManager: WindowManager) {
     const validatedOptions = validateIpcInput(ELECTRON_CHANNELS.appConfirm, confirmDialogOptionsSchema, options);
     const confirmLabel = validatedOptions.confirmLabel ?? 'OK';
     const cancelLabel = validatedOptions.cancelLabel ?? 'Cancel';
-    const result = await dialog.showMessageBox(windowManager.getTargetWindow() ?? undefined, {
+    const messageBoxOptions: MessageBoxOptions = {
       type: validatedOptions.destructive ? 'warning' : 'question',
       title: validatedOptions.title ?? app.getName(),
       message: validatedOptions.message,
@@ -222,7 +223,11 @@ export function registerIpcHandlers(windowManager: WindowManager) {
       defaultId: 1,
       cancelId: 1,
       noLink: true,
-    });
+    };
+    const targetWindow = windowManager.getTargetWindow();
+    const result = targetWindow
+      ? await dialog.showMessageBox(targetWindow, messageBoxOptions)
+      : await dialog.showMessageBox(messageBoxOptions);
 
     return { confirmed: result.response === 0 };
   });
