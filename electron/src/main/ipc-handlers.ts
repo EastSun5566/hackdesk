@@ -194,6 +194,12 @@ export function registerIpcHandlers(windowManager: WindowManager) {
   ipcMain.handle(ELECTRON_CHANNELS.appRecordFatalRendererError, (_event, error: FatalRendererError) => (
     recordFatalRendererError(validateIpcInput(ELECTRON_CHANNELS.appRecordFatalRendererError, fatalRendererErrorSchema, error))
   ));
+  ipcMain.handle(ELECTRON_CHANNELS.appConfirmClose, () => {
+    windowManager.confirmClose();
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.appCancelClose, () => {
+    windowManager.cancelClose();
+  });
   ipcMain.handle(ELECTRON_CHANNELS.appWriteClipboardText, (_event, text: string) => {
     clipboard.writeText(validateString(ELECTRON_CHANNELS.appWriteClipboardText, text));
   });

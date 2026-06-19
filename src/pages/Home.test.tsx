@@ -220,6 +220,9 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       saveTextFile: vi.fn(async () => '/tmp/test-note.md'),
       openTextFile: vi.fn(async () => null),
       onCommand: vi.fn(() => () => undefined),
+      onCloseRequest: vi.fn(() => () => undefined),
+      confirmClose: vi.fn(async () => undefined),
+      cancelClose: vi.fn(async () => undefined),
     },
   };
 
@@ -325,6 +328,164 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
+  });
+
+  it('confirms the native close request when the current note is clean', async () => {
+    let closeHandler: (() => void) | null = null;
+    const api = createApi({
+      app: {
+        onCloseRequest: vi.fn((handler) => {
+          closeHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+
+    act(() => {
+      closeHandler?.();
+    });
+
+    await waitFor(() => expect(api.app.confirmClose).toHaveBeenCalled());
+    expect(api.app.cancelClose).not.toHaveBeenCalled();
+    expect(api.app.confirm).not.toHaveBeenCalled();
+  });
+
+  it('cancels the native close request when dirty note discard is rejected', async () => {
+    let closeHandler: (() => void) | null = null;
+    const api = createApi({
+      app: {
+        confirm: vi.fn(async () => ({ confirmed: false })),
+        onCloseRequest: vi.fn((handler) => {
+          closeHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Unsaved title' } });
+
+    act(() => {
+      closeHandler?.();
+    });
+
+    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Close HackDesk',
+      confirmLabel: 'Close',
+      cancelLabel: 'Keep Editing',
+      destructive: true,
+    })));
+    await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
+    expect(api.app.confirmClose).not.toHaveBeenCalled();
+  });
+
+  it('confirms the native close request after dirty note discard is accepted', async () => {
+    let closeHandler: (() => void) | null = null;
+    const api = createApi({
+      app: {
+        confirm: vi.fn(async () => ({ confirmed: true })),
+        onCloseRequest: vi.fn((handler) => {
+          closeHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Unsaved title' } });
+
+    act(() => {
+      closeHandler?.();
+    });
+
+    await waitFor(() => expect(api.app.confirmClose).toHaveBeenCalled());
+    expect(api.app.cancelClose).not.toHaveBeenCalled();
+  });
+
+  it('closes the command palette before cancelling the native close request', async () => {
+    let closeHandler: (() => void) | null = null;
+    const api = createApi({
+      app: {
+        onCloseRequest: vi.fn((handler) => {
+          closeHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Command Palette');
+
+    act(() => {
+      closeHandler?.();
+    });
+
+    await waitFor(() => expect(screen.queryByText('Command Palette')).not.toBeInTheDocument());
+    await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
+    expect(api.app.confirmClose).not.toHaveBeenCalled();
+  });
+
+  it('closes open dialogs before cancelling the native close request', async () => {
+    let closeHandler: (() => void) | null = null;
+    const api = createApi({
+      app: {
+        onCloseRequest: vi.fn((handler) => {
+          closeHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    fireEvent.click(screen.getByRole('button', { name: 'Create note' }));
+    expect(screen.getByRole('heading', { name: 'New Note' })).toBeInTheDocument();
+
+    act(() => {
+      closeHandler?.();
+    });
+
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'New Note' })).not.toBeInTheDocument());
+    await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
+    expect(api.app.confirmClose).not.toHaveBeenCalled();
+  });
+
+  it('asks before closing when the current document save failed', async () => {
+    let closeHandler: (() => void) | null = null;
+    const api = createApi({
+      hackmd: {
+        updateNote: vi.fn(async () => {
+          throw new Error('HackMD is offline.');
+        }),
+      },
+      app: {
+        confirm: vi.fn(async () => ({ confirmed: false })),
+        onCloseRequest: vi.fn((handler) => {
+          closeHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Unsaved title' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByLabelText('Sync state: Save failed');
+
+    act(() => {
+      closeHandler?.();
+    });
+
+    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'Close with failed save?',
+    })));
+    await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
+    expect(api.app.confirmClose).not.toHaveBeenCalled();
   });
 
   it('shows empty API folders and creates notes inside the selected folder', async () => {

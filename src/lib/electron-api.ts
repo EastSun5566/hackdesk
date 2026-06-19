@@ -221,6 +221,12 @@ export type ElectronActionId =
 export type HackDeskCommandPaletteCommand =
   { type: ElectronActionId };
 
+export type HackDeskCloseRequestSource = 'window-button' | 'keyboard-shortcut';
+
+export type HackDeskCloseRequest = {
+  source: HackDeskCloseRequestSource;
+};
+
 export type HackDeskElectronAPI = {
   getRuntimeEnvironment: () => RuntimeEnvironment;
   settings: {
@@ -269,6 +275,9 @@ export type HackDeskElectronAPI = {
     saveTextFile: (input: SaveTextFileInput) => Promise<string | null>;
     openTextFile: (input: OpenTextFileInput) => Promise<OpenTextFileResult | null>;
     onCommand: (callback: (command: HackDeskCommandPaletteCommand) => void) => () => void;
+    onCloseRequest: (callback: (request: HackDeskCloseRequest) => void) => () => void;
+    confirmClose: () => Promise<void>;
+    cancelClose: () => Promise<void>;
   };
 };
 

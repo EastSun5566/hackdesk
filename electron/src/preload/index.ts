@@ -7,6 +7,7 @@ import type {
   ElectronSettingsUpdate,
   FatalRendererError,
   FolderOrder,
+  HackDeskCloseRequest,
   HackDeskCommandPaletteCommand,
   HackDeskElectronAPI,
   OpenTextFileInput,
@@ -103,6 +104,18 @@ const api: HackDeskElectronAPI = {
         ipcRenderer.removeListener(ELECTRON_CHANNELS.appCommand, listener);
       };
     },
+    onCloseRequest: (callback: (request: HackDeskCloseRequest) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, request: HackDeskCloseRequest) => {
+        callback(request);
+      };
+
+      ipcRenderer.on(ELECTRON_CHANNELS.appCloseRequested, listener);
+      return () => {
+        ipcRenderer.removeListener(ELECTRON_CHANNELS.appCloseRequested, listener);
+      };
+    },
+    confirmClose: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appConfirmClose),
+    cancelClose: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appCancelClose),
   },
 };
 

@@ -157,6 +157,7 @@ export function Home() {
   const [renameFolderDialog, setRenameFolderDialog] = useState<RenameFolderDialogState>(createClosedRenameFolderDialogState);
   const [deleteTarget, setDeleteTarget] = useState<DocumentSummary | null>(null);
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<FolderTreeNode | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
   const [noteDirty, setNoteDirty] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(true);
   const [readerMode, setReaderModeState] = useState<ReaderMode>(() => readReaderModeStorage(READER_MODE_KEY, 'edit'));
@@ -868,11 +869,146 @@ export function Home() {
     scope,
   ]);
 
+  const selectedDocument = noteIdentityMatches(document, selectedNote) ? document : undefined;
+  const documentIsStale = Boolean(document && selectedNote && !noteIdentityMatches(document, selectedNote));
+  const documentIsLoading = Boolean(selectedNote) && (
+    queries.documentQuery.isLoading
+    || queries.documentQuery.isFetching
+    || documentIsStale
+  );
+  const documentError = getRepositoryError(queries.documentQuery.data);
+  const documentSyncState: DocumentSyncState = documentIsLoading
+    ? 'loading'
+    : mutations.updateNoteMutation.isPending
+      ? 'saving'
+      : mutations.updateNoteMutation.isError
+        ? 'save_failed'
+        : documentError && !isShowingCachedFallback(queries.documentQuery.data)
+          ? 'save_failed'
+          : noteDirty
+            ? 'idle'
+            : isShowingCachedFallback(queries.documentQuery.data)
+              ? 'cached'
+              : selectedDocument
+                ? 'saved'
+                : 'idle';
+
+  const closeTransientLayer = useCallback(() => {
+    if (palette.open) {
+      setPalette({ open: false, search: '' });
+      return true;
+    }
+
+    if (shareOpen) {
+      setShareOpen(false);
+      return true;
+    }
+
+    if (createDialog.open) {
+      setCreateDialog({ open: false, title: '' });
+      return true;
+    }
+
+    if (createFolderDialog.open) {
+      setCreateFolderDialog(createClosedFolderDialogState());
+      return true;
+    }
+
+    if (deleteTarget) {
+      setDeleteTarget(null);
+      return true;
+    }
+
+    if (deleteFolderTarget) {
+      setDeleteFolderTarget(null);
+      return true;
+    }
+
+    if (renameFolderDialog.open) {
+      setRenameFolderDialog(createClosedRenameFolderDialogState());
+      return true;
+    }
+
+    if (settingsOpen) {
+      setSettingsOpen(false);
+      return true;
+    }
+
+    return false;
+  }, [
+    createDialog.open,
+    createFolderDialog.open,
+    deleteFolderTarget,
+    deleteTarget,
+    palette.open,
+    renameFolderDialog.open,
+    settingsOpen,
+    shareOpen,
+  ]);
+
+  const settleCloseRequest = useCallback(async () => {
+    if (!api) {
+      return;
+    }
+
+    const cancelClose = async () => {
+      try {
+        await api.app.cancelClose();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Failed to cancel window close.');
+      }
+    };
+
+    if (closeTransientLayer()) {
+      await cancelClose();
+      return;
+    }
+
+    const saveFailed = documentSyncState === 'save_failed';
+    const shouldConfirm = Boolean(selectedNote && (noteDirty || saveFailed));
+    if (shouldConfirm) {
+      try {
+        const detail = saveFailed
+          ? `The last save for “${selectedNote.title || 'Untitled'}” failed. Closing now may leave your local draft unsaved.`
+          : `You have unsaved changes in “${selectedNote.title || 'Untitled'}”. Closing HackDesk will discard the current draft.`;
+        const { confirmed } = await api.app.confirm({
+          title: 'Close HackDesk',
+          message: saveFailed ? 'Close with failed save?' : 'Discard unsaved changes?',
+          detail,
+          confirmLabel: 'Close',
+          cancelLabel: 'Keep Editing',
+          destructive: true,
+        });
+
+        if (!confirmed) {
+          await cancelClose();
+          return;
+        }
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Failed to confirm close.');
+        await cancelClose();
+        return;
+      }
+    }
+
+    try {
+      await api.app.confirmClose();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to close window.');
+    }
+  }, [api, closeTransientLayer, documentSyncState, noteDirty, selectedNote]);
+
   useEffect(() => {
     return api?.app.onCommand((command) => {
       runAction(command.type);
     });
   }, [api, runAction]);
+
+  useEffect(() => {
+    return api?.app.onCloseRequest(() => {
+      void settleCloseRequest();
+    });
+  }, [api, settleCloseRequest]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -968,6 +1104,11 @@ export function Home() {
         return;
       }
 
+      if (shareOpen) {
+        setShareOpen(false);
+        return;
+      }
+
       if (renameFolderDialog.open) {
         setRenameFolderDialog(createClosedRenameFolderDialogState());
         return;
@@ -1017,6 +1158,7 @@ export function Home() {
     finderState,
     selectedFolderId,
     settingsOpen,
+    shareOpen,
   ]);
 
   if (!api) {
@@ -1055,30 +1197,6 @@ export function Home() {
       : scope.type === 'history'
         ? 'Your HackMD history will appear here after the first successful sync.'
         : 'Select another folder, create a note here, or refresh after another client changes HackMD.';
-  const selectedDocument = noteIdentityMatches(document, selectedNote) ? document : undefined;
-  const documentIsStale = Boolean(document && selectedNote && !noteIdentityMatches(document, selectedNote));
-  const documentIsLoading = Boolean(selectedNote) && (
-    queries.documentQuery.isLoading
-    || queries.documentQuery.isFetching
-    || documentIsStale
-  );
-  const documentError = getRepositoryError(queries.documentQuery.data);
-  const documentSyncState: DocumentSyncState = documentIsLoading
-    ? 'loading'
-    : mutations.updateNoteMutation.isPending
-      ? 'saving'
-      : mutations.updateNoteMutation.isError
-        ? 'save_failed'
-        : documentError && !isShowingCachedFallback(queries.documentQuery.data)
-          ? 'save_failed'
-          : noteDirty
-            ? 'idle'
-            : isShowingCachedFallback(queries.documentQuery.data)
-              ? 'cached'
-              : selectedDocument
-                ? 'saved'
-                : 'idle';
-
   const toggleFolderCollapsed = (folderId: string) => {
     setCollapsedFolderIds((current) => {
       const next = new Set(current);
@@ -1291,6 +1409,7 @@ export function Home() {
           syncState={documentSyncState}
           command={documentCommand}
           readerMode={readerMode}
+          shareOpen={shareOpen}
           onOpenEditor={handleOpenEditor}
           onOpenExternal={handleOpenExternal}
           onCopyLink={handleCopyNoteLink}
@@ -1308,6 +1427,7 @@ export function Home() {
           onDirtyStateChange={setNoteDirty}
           onInspectorCollapsedChange={setInspectorCollapsed}
           onReaderModeChange={setReaderMode}
+          onShareOpenChange={setShareOpen}
           isSaving={mutations.updateNoteMutation.isPending}
           isSavingMetadata={mutations.updateNoteMutation.isPending}
           isUploadingImage={mutations.uploadNoteImageMutation.isPending}

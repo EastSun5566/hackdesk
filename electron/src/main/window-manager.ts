@@ -17,6 +17,10 @@ const DEFAULT_WINDOW_SIZE = { width: 1180, height: 760 };
 export class WindowManager {
   private mainWindow: BrowserWindow | null = null;
   private recoveryDialogShowing = false;
+  private isAppQuitting = false;
+  private keyboardCloseIntent = false;
+  private keyboardCloseIntentTimeout: NodeJS.Timeout | null = null;
+  private pendingCloseTimeout: NodeJS.Timeout | null = null;
 
   getMainWindow() {
     return this.mainWindow && !this.mainWindow.isDestroyed() ? this.mainWindow : null;
@@ -29,6 +33,26 @@ export class WindowManager {
 
   sendCommand(command: HackDeskCommandPaletteCommand) {
     this.getTargetWindow()?.webContents.send(ELECTRON_CHANNELS.appCommand, command);
+  }
+
+  setAppQuitting(isAppQuitting: boolean) {
+    this.isAppQuitting = isAppQuitting;
+  }
+
+  confirmClose() {
+    const window = this.getMainWindow();
+    this.clearPendingCloseTimeout();
+    if (!window) {
+      return;
+    }
+
+    writeLog('main', 'renderer confirmed window close');
+    window.destroy();
+  }
+
+  cancelClose() {
+    this.clearPendingCloseTimeout();
+    writeLog('main', 'renderer cancelled window close');
   }
 
   showAndFocusMainWindow() {
@@ -89,7 +113,36 @@ export class WindowManager {
       this.mainWindow?.show();
     });
 
+    this.mainWindow.webContents.on('before-input-event', (_event, input) => {
+      if (!input || input.type !== 'keyDown') {
+        return;
+      }
+
+      const isCloseShortcut = input.key?.toLowerCase() === 'w' && (
+        process.platform === 'darwin' ? input.meta : input.control
+      );
+      if (!isCloseShortcut) {
+        return;
+      }
+
+      this.keyboardCloseIntent = true;
+      if (this.keyboardCloseIntentTimeout) {
+        clearTimeout(this.keyboardCloseIntentTimeout);
+      }
+
+      this.keyboardCloseIntentTimeout = setTimeout(() => {
+        this.keyboardCloseIntent = false;
+        this.keyboardCloseIntentTimeout = null;
+      }, 500);
+    });
+
+    this.mainWindow.on('close', (event) => {
+      this.handleCloseRequest(event);
+    });
+
     this.mainWindow.on('closed', () => {
+      this.clearKeyboardCloseIntent();
+      this.clearPendingCloseTimeout();
       this.mainWindow = null;
     });
 
@@ -190,6 +243,53 @@ export class WindowManager {
       }, 'warn');
       return false;
     });
+  }
+
+  private handleCloseRequest(event: Electron.Event) {
+    const window = this.getMainWindow();
+    if (!window || this.isAppQuitting) {
+      return;
+    }
+
+    if (window.webContents.isDestroyed() || !window.webContents.mainFrame) {
+      return;
+    }
+
+    event.preventDefault();
+    const source = this.keyboardCloseIntent ? 'keyboard-shortcut' : 'window-button';
+    this.clearKeyboardCloseIntent();
+    writeLog('main', 'window close requested', { source });
+    window.webContents.send(ELECTRON_CHANNELS.appCloseRequested, { source });
+    this.startPendingCloseTimeout();
+  }
+
+  private startPendingCloseTimeout() {
+    this.clearPendingCloseTimeout();
+    this.pendingCloseTimeout = setTimeout(() => {
+      this.pendingCloseTimeout = null;
+      const window = this.getMainWindow();
+      if (!window) {
+        return;
+      }
+
+      writeLog('main', 'renderer did not respond to close request; forcing window close', undefined, 'warn');
+      window.destroy();
+    }, 3000);
+  }
+
+  private clearKeyboardCloseIntent() {
+    this.keyboardCloseIntent = false;
+    if (this.keyboardCloseIntentTimeout) {
+      clearTimeout(this.keyboardCloseIntentTimeout);
+      this.keyboardCloseIntentTimeout = null;
+    }
+  }
+
+  private clearPendingCloseTimeout() {
+    if (this.pendingCloseTimeout) {
+      clearTimeout(this.pendingCloseTimeout);
+      this.pendingCloseTimeout = null;
+    }
   }
 
   private handleRendererLoadFailure(

@@ -94,6 +94,7 @@ export function DocumentDetail({
   command,
   syncState = 'idle',
   readerMode,
+  shareOpen,
   onOpenEditor,
   onOpenExternal,
   onCopyLink,
@@ -107,6 +108,7 @@ export function DocumentDetail({
   onDirtyStateChange,
   onInspectorCollapsedChange,
   onReaderModeChange,
+  onShareOpenChange,
   isSaving,
   isSavingMetadata,
   isUploadingImage,
@@ -119,6 +121,7 @@ export function DocumentDetail({
   command?: DocumentDetailCommand | null;
   syncState?: DocumentSyncState;
   readerMode: ReaderMode;
+  shareOpen: boolean;
   onOpenEditor: (document: DocumentSummary) => void;
   onOpenExternal: (url: string) => void;
   onCopyLink: (document: DocumentSummary) => void;
@@ -132,6 +135,7 @@ export function DocumentDetail({
   onDirtyStateChange?: (dirty: boolean) => void;
   onInspectorCollapsedChange?: (collapsed: boolean) => void;
   onReaderModeChange: (mode: ReaderMode) => void;
+  onShareOpenChange: (open: boolean) => void;
   isSaving: boolean;
   isSavingMetadata: boolean;
   isUploadingImage: boolean;
@@ -140,7 +144,6 @@ export function DocumentDetail({
   const editorRef = useRef<MarkdownEditorHandle | null>(null);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [shareOpen, setShareOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(() => (
     readBooleanStorage(INSPECTOR_COLLAPSED_KEY, true)
@@ -154,7 +157,7 @@ export function DocumentDetail({
   const noteDirty = Boolean(document && (title !== document.title || content !== document.content));
   const openShareDialogFromMenu = () => {
     setActionsOpen(false);
-    window.setTimeout(() => setShareOpen(true), 0);
+    window.setTimeout(() => onShareOpenChange(true), 0);
   };
 
   useEffect(() => {
@@ -386,7 +389,7 @@ export function DocumentDetail({
         open={shareOpen}
         document={document}
         isSaving={isSavingMetadata}
-        onOpenChange={setShareOpen}
+        onOpenChange={onShareOpenChange}
         onCopyLink={onCopyLink}
         onCopyMarkdownLink={onCopyMarkdownLink}
         onOpenEditor={onOpenEditor}

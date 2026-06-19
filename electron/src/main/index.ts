@@ -56,6 +56,10 @@ app.on('window-all-closed', () => {
   }
 });
 
+app.on('before-quit', () => {
+  windowManager.setAppQuitting(true);
+});
+
 export function getTrayForTesting() {
   return tray;
 }
