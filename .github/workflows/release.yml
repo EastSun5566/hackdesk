@@ -6,7 +6,51 @@ on:
       - "v*"
 
 jobs:
+  check:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Install Pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Smoke Electron binary
+        run: pnpm exec electron --version
+
+      - name: Run CI checks
+        run: pnpm run check:ci
+
   create-release:
+    needs: check
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -20,7 +64,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
 
       - name: get version
         run: echo "PACKAGE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
@@ -96,29 +140,23 @@ jobs:
           workspaces: "./src-tauri -> target"
 
       - name: Install Pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10.33.2
           run_install: false
 
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
       - name: Install frontend deps
         run: pnpm install --frozen-lockfile
 
-      - name: Check version sync
-        run: pnpm run version:check
-
       - name: extract release notes
         id: release-notes
         run: node scripts/release-notes.js
-
-      - name: Run tests
-        run: pnpm test
 
       - uses: tauri-apps/tauri-action@v0
         env:
@@ -167,14 +205,14 @@ jobs:
   #         fetch-depth: 0 # Not needed if lastUpdated is not enabled
 
   #     - name: Install Pnpm
-  #       uses: pnpm/action-setup@v2
+  #       uses: pnpm/action-setup@v4
   #       with:
-  #         version: 9
+  #         version: 10.33.2
 
   #     - name: Setup Node
   #       uses: actions/setup-node@v5
   #       with:
-  #         node-version: 20
+  #         node-version: 24
   #         cache: pnpm
 
   #     - name: Setup Pages

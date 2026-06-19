@@ -305,27 +305,6 @@ export function ToolbarIconButton({
   );
 }
 
-export function ToolbarMoreButton({
-  label = 'More actions',
-  tooltip = label,
-  className,
-  ...props
-}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {
-  label?: string;
-  tooltip?: ReactNode;
-}) {
-  return (
-    <ToolbarIconButton
-      label={label}
-      tooltip={tooltip}
-      className={className}
-      {...props}
-    >
-      <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
-    </ToolbarIconButton>
-  );
-}
-
 export function ToolbarDropdownIconTrigger({
   label,
   tooltip = label,

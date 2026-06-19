@@ -209,7 +209,7 @@ export function DocumentDetail({
       break;
     }
   // command.sequence intentionally gates repeated command dispatches with the same action id.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // oxlint-disable-next-line react/exhaustive-deps
   }, [command?.sequence]);
 
   if (isLoading) {

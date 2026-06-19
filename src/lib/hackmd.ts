@@ -43,10 +43,6 @@ export type HackmdNote = {
   writePermission: HackmdPermissionRole;
 };
 
-export type HackmdSingleNote = HackmdNote & {
-  content: string;
-};
-
 export type HackmdUserProfile = {
   id: string;
   email: string | null;

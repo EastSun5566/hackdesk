@@ -60,7 +60,7 @@ pnpm run check:electron
 pnpm run test
 ```
 
-`check:electron` runs the Electron-scoped ESLint check, Electron unit tests, Electron main/preload build, and renderer build. The normal `pnpm run test` command should still pass because the Tauri source is intentionally kept during Electron parity work.
+`check:electron` runs the Electron-scoped Oxlint check, Electron unit tests, Electron main/preload build, and renderer build. `check:deps` runs Knip to catch unused JavaScript/TypeScript files, exports, and dependencies. The normal `pnpm run test` command should still pass because the Tauri source is intentionally kept during Electron parity work.
 
 The Electron beta reads the same settings file at `~/.hackdesk/settings.json`. The HackMD API token stays in the Electron main process and preload API; renderer code only receives safe settings such as `hasHackmdApiToken`.
 

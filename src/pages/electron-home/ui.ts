@@ -7,7 +7,6 @@ export const PRESSED_CLASS = 'active:translate-y-px';
 export const PANEL_TRANSITION_CLASS = 'transition-[width,border-color,background-color] duration-200 ease-out motion-reduce:transition-none';
 export const COLLAPSE_ICON_CLASS = 'transition-transform duration-150 ease-out motion-reduce:transition-none';
 export const ICON_BUTTON_CLASS = `inline-flex h-8 w-8 items-center justify-center rounded-md text-text-subtle transition-[background-color,border-color,color,transform] duration-150 ease-out hover:bg-background-selected hover:text-text-default motion-reduce:transition-none ${PRESSED_CLASS} ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`;
-export const COMPACT_ICON_BUTTON_CLASS = `inline-flex h-7 w-7 items-center justify-center rounded-[6px] text-text-subtle transition-[background-color,color,transform] duration-150 ease-out hover:bg-background-selected hover:text-text-default motion-reduce:transition-none ${PRESSED_CLASS} ${FOCUS_RING_CLASS}`;
 export const SECONDARY_BUTTON_CLASS = `inline-flex h-9 items-center gap-2 rounded-md border border-border-default px-3 text-sm transition-colors active:bg-background-selected ${PRESSED_CLASS} ${FOCUS_RING_CLASS}`;
 export const PRIMARY_BUTTON_CLASS = `inline-flex h-9 items-center gap-2 rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover ${PRESSED_CLASS} ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`;
 export const TEXT_INPUT_CLASS = 'h-10 w-full rounded-md border border-border-default bg-background-muted px-3 text-sm outline-none transition-[border-color,box-shadow] focus:border-primary-default focus-visible:ring-2 focus-visible:ring-primary-default/70';
@@ -31,20 +30,6 @@ export function createQuickNoteContent(title: string) {
 
 export function getFolderPathLabel(path: FolderPathSummary[]) {
   return path.length > 0 ? path.map((folder) => folder.name).join(' / ') : '';
-}
-
-export function noteMatchesSearch(entry: FolderTreeNote, search: string) {
-  const text = [
-    entry.note.title,
-    entry.note.description,
-    entry.note.shortId,
-    entry.note.teamPath,
-    entry.note.userPath,
-    entry.folderLabel,
-    ...entry.note.tags,
-  ].filter(Boolean).join(' ').toLowerCase();
-
-  return text.includes(search);
 }
 
 export function getFolderNoteEntries(tree: FolderTree, selectedFolderId: string | null): FolderTreeNote[] {

@@ -30,8 +30,7 @@ Object.defineProperty(window, 'matchMedia', {
 });
 
 // Mock Tauri APIs
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(global as any).__TAURI__ = {
+(globalThis as typeof globalThis & { __TAURI__: unknown }).__TAURI__ = {
   invoke: vi.fn(),
   event: {
     listen: vi.fn(),
