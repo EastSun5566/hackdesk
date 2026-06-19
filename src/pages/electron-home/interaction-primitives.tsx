@@ -34,6 +34,7 @@ type EntityRowProps = {
   className?: string;
   contentClassName?: string;
   titleClassName?: string;
+  trailingClassName?: string;
   onClick?: () => void;
   ariaLabel?: string;
   titleAttribute?: string;
@@ -77,6 +78,7 @@ function EntityRowContent({
   variant,
   contentClassName,
   titleClassName,
+  trailingClassName,
 }: Required<Pick<EntityRowProps, 'variant'>> & Pick<EntityRowProps,
   'leadingControls'
   | 'icon'
@@ -87,6 +89,7 @@ function EntityRowContent({
   | 'menu'
   | 'contentClassName'
   | 'titleClassName'
+  | 'trailingClassName'
 >) {
   return (
     <>
@@ -110,7 +113,11 @@ function EntityRowContent({
           </span>
         ) : null}
       </span>
-      {trailing ? <span className="shrink-0 text-xs text-text-subtle">{trailing}</span> : null}
+      {trailing ? (
+        <span className={clsx('shrink-0 text-xs text-text-subtle', trailingClassName)}>
+          {trailing}
+        </span>
+      ) : null}
       {menu ? (
         <span className="shrink-0 opacity-0 transition-opacity duration-150 group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none">
           {menu}
@@ -136,6 +143,7 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
   className,
   contentClassName,
   titleClassName,
+  trailingClassName,
   onClick,
   ariaLabel,
   titleAttribute,
@@ -152,6 +160,7 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
       variant={variant}
       contentClassName={contentClassName}
       titleClassName={titleClassName}
+      trailingClassName={trailingClassName}
     />
   );
   const rowClassName = entityRowClassName({

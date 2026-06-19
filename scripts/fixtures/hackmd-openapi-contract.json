@@ -1,0 +1,260 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/me": {
+      "get": {
+        "security": [{ "token": [] }]
+      }
+    },
+    "/teams": {
+      "get": {
+        "security": [{ "token": [] }]
+      }
+    },
+    "/notes": {
+      "get": {
+        "security": [{ "token": [] }]
+      },
+      "post": {
+        "security": [{ "token": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "title": { "type": "string" },
+                      "content": { "type": "string" },
+                      "description": { "type": "string" },
+                      "tags": { "type": "array" },
+                      "readPermission": { "$ref": "#/components/schemas/NotePermissionRole" },
+                      "writePermission": { "$ref": "#/components/schemas/NotePermissionRole" },
+                      "parentFolderId": { "type": "string" }
+                    }
+                  },
+                  { "type": "string" }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notes/{noteId}": {
+      "get": {
+        "security": [{ "token": [] }],
+        "parameters": [{ "name": "noteId", "in": "path", "required": true }]
+      },
+      "patch": {
+        "security": [{ "token": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "content": { "type": "string" },
+                  "description": { "type": "string" },
+                  "tags": { "type": "array" },
+                  "readPermission": { "$ref": "#/components/schemas/NotePermissionRole" },
+                  "writePermission": { "$ref": "#/components/schemas/NotePermissionRole" },
+                  "parentFolderId": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "security": [{ "token": [] }],
+        "parameters": [{ "name": "noteId", "in": "path", "required": true }]
+      }
+    },
+    "/notes/{noteId}/images": {
+      "post": {
+        "security": [{ "token": [] }],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/history": {
+      "get": {
+        "security": [{ "token": [] }],
+        "parameters": [{ "name": "limit", "in": "query", "required": false }]
+      }
+    },
+    "/folders": {
+      "get": {
+        "security": [{ "token": [] }]
+      },
+      "post": {
+        "security": [{ "token": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateUserFolderBody" }
+            }
+          }
+        }
+      }
+    },
+    "/folders/folder-order": {
+      "get": {
+        "security": [{ "token": [] }]
+      },
+      "put": {
+        "security": [{ "token": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateFolderOrderBody" }
+            }
+          }
+        }
+      }
+    },
+    "/folders/{folderId}": {
+      "get": {
+        "security": [{ "token": [] }],
+        "parameters": [{ "name": "folderId", "in": "path", "required": true }]
+      },
+      "patch": {
+        "security": [{ "token": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateUserFolderBody" }
+            }
+          }
+        }
+      },
+      "delete": {
+        "security": [{ "token": [] }],
+        "parameters": [{ "name": "folderId", "in": "path", "required": true }]
+      }
+    },
+    "/teams/{teampath}/notes": {
+      "get": {
+        "security": [{ "token": [] }]
+      },
+      "post": {
+        "security": [{ "token": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "anyOf": [{ "type": "object" }, { "type": "string" }] }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{teampath}/notes/{noteId}": {
+      "get": {
+        "security": [{ "token": [] }]
+      },
+      "patch": {
+        "security": [{ "token": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          }
+        }
+      },
+      "delete": {
+        "security": [{ "token": [] }]
+      }
+    },
+    "/teams/{teampath}/folders": {
+      "get": {
+        "security": [{ "token": [] }]
+      },
+      "post": {
+        "security": [{ "token": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateTeamFolderBody" }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{teampath}/folders/folder-order": {
+      "get": {
+        "security": [{ "token": [] }]
+      },
+      "put": {
+        "security": [{ "token": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateFolderOrderBody" }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{teampath}/folders/{folderId}": {
+      "get": {
+        "security": [{ "token": [] }]
+      },
+      "patch": {
+        "security": [{ "token": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateTeamFolderBody" }
+            }
+          }
+        }
+      },
+      "delete": {
+        "security": [{ "token": [] }]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "NotePermissionRole": {
+        "enum": ["owner", "signed_in", "guest"]
+      },
+      "UpdateFolderOrderBody": {
+        "type": "object",
+        "required": ["order"],
+        "properties": {
+          "order": {
+            "$ref": "#/components/schemas/ApiFolderOrder"
+          }
+        }
+      },
+      "NoteImageUploadResponse": {
+        "type": "object",
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": ["link"],
+            "properties": {
+              "link": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

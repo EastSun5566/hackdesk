@@ -65,6 +65,34 @@ describe('HackMD-flavored markdown renderer', () => {
     expect(rendered.html).toContain('bad');
   });
 
+  it('keeps HackMD reader links and images inside a narrow URL allowlist', () => {
+    const rendered = renderHackmdMarkdown([
+      '[safe](https://hackmd.io/s/safe)',
+      '[mail](mailto:support@example.com)',
+      '[file](file:///etc/passwd)',
+      '![remote](https://cdn.example.com/image.png)',
+      '![data](data:text/html,<script>alert(1)</script>)',
+    ].join('\n'));
+
+    expect(rendered.html).toContain('href="https://hackmd.io/s/safe"');
+    expect(rendered.html).toContain('href="mailto:support@example.com"');
+    expect(rendered.html).not.toContain('file:///etc/passwd');
+    expect(rendered.html).toContain('src="https://cdn.example.com/image.png"');
+    expect(rendered.html).not.toContain('data:text/html');
+  });
+
+  it('strips iframe embeds and unsafe custom data attributes', () => {
+    const rendered = renderHackmdMarkdown([
+      '<iframe src="https://example.com/embed"></iframe>',
+      '<span data-label="note" data-icon="tip" data-unsafe="x">label</span>',
+    ].join('\n'));
+
+    expect(rendered.html).not.toContain('<iframe');
+    expect(rendered.html).toContain('data-label="note"');
+    expect(rendered.html).toContain('data-icon="tip"');
+    expect(rendered.html).not.toContain('data-unsafe');
+  });
+
   it('renders highlighted code blocks with line numbers and highlighted ranges', () => {
     const rendered = renderHackmdMarkdown([
       '```ts=10 [11-12]',

@@ -2,6 +2,7 @@ import { app, Menu } from 'electron';
 
 import { getElectronAction } from '../../../src/lib/electron-actions';
 import type { HackDeskCommandPaletteCommand } from '../../../src/lib/electron-api';
+import { ELECTRON_MENU_SCHEMA, type ElectronMenuSchemaItem } from '../../../src/lib/electron-menu-schema';
 import { openExternalUrl } from './url-policy';
 
 type SendCommand = (command: HackDeskCommandPaletteCommand) => void;
@@ -16,95 +17,48 @@ function actionMenuItem(actionId: HackDeskCommandPaletteCommand['type'], sendCom
   };
 }
 
+function roleMenuItem(role: string, isMac: boolean): Electron.MenuItemConstructorOptions {
+  const resolvedRole = role === 'platform-close'
+    ? isMac ? 'close' : 'quit'
+    : role;
+
+  return { role: resolvedRole as Electron.MenuItemConstructorOptions['role'] };
+}
+
+function linkMenuItem(label: string, url: string): Electron.MenuItemConstructorOptions {
+  return {
+    label,
+    click: () => {
+      void openExternalUrl(url);
+    },
+  };
+}
+
+function schemaItemToMenuItem(
+  item: ElectronMenuSchemaItem,
+  isMac: boolean,
+  sendCommand: SendCommand,
+): Electron.MenuItemConstructorOptions {
+  switch (item.type) {
+  case 'action':
+    return actionMenuItem(item.actionId, sendCommand);
+  case 'role':
+    return roleMenuItem(item.role, isMac);
+  case 'link':
+    return linkMenuItem(item.label, item.url);
+  case 'separator':
+    return { type: 'separator' };
+  }
+}
+
 export function createApplicationMenu(sendCommand: SendCommand) {
   const isMac = process.platform === 'darwin';
-
-  const template: Electron.MenuItemConstructorOptions[] = [
-    ...(isMac
-      ? [{
-        label: app.getName(),
-        submenu: [
-          { role: 'about' as const },
-          { type: 'separator' as const },
-          actionMenuItem('open-settings', sendCommand),
-          { type: 'separator' as const },
-          { role: 'hide' as const },
-          { role: 'hideOthers' as const },
-          { role: 'unhide' as const },
-          { type: 'separator' as const },
-          { role: 'quit' as const },
-        ],
-      }]
-      : []),
-    {
-      label: 'File',
-      submenu: [
-        actionMenuItem('new-note', sendCommand),
-        actionMenuItem('new-folder', sendCommand),
-        actionMenuItem('import-markdown-note', sendCommand),
-        { type: 'separator' },
-        actionMenuItem('save-note', sendCommand),
-        actionMenuItem('export-note-markdown', sendCommand),
-        { type: 'separator' },
-        actionMenuItem('open-note-web-editor', sendCommand),
-        actionMenuItem('delete-note', sendCommand),
-        { type: 'separator' },
-        isMac ? { role: 'close' } : { role: 'quit' },
-      ],
-    },
-    {
-      label: 'Edit',
-      submenu: [
-        { role: 'undo' },
-        { role: 'redo' },
-        { type: 'separator' },
-        { role: 'cut' },
-        { role: 'copy' },
-        { role: 'paste' },
-        { role: 'selectAll' },
-      ],
-    },
-    {
-      label: 'View',
-      submenu: [
-        actionMenuItem('open-command-palette', sendCommand),
-        actionMenuItem('refresh', sendCommand),
-        actionMenuItem('go-history', sendCommand),
-        { type: 'separator' },
-        actionMenuItem('toggle-workspace-rail', sendCommand),
-        actionMenuItem('toggle-navigator', sendCommand),
-        actionMenuItem('toggle-inspector', sendCommand),
-        actionMenuItem('toggle-reader-mode', sendCommand),
-        { type: 'separator' },
-        actionMenuItem('focus-workspace', sendCommand),
-        actionMenuItem('focus-navigator', sendCommand),
-        actionMenuItem('focus-editor', sendCommand),
-        actionMenuItem('focus-inspector', sendCommand),
-        { type: 'separator' },
-        { role: 'reload' },
-        { role: 'toggleDevTools' },
-      ],
-    },
-    {
-      label: 'Help',
-      submenu: [
-        actionMenuItem('export-debug-logs', sendCommand),
-        { type: 'separator' },
-        {
-          label: 'HackDesk Documentation',
-          click: () => {
-            void openExternalUrl('https://hackdesk.eastsun.me');
-          },
-        },
-        {
-          label: 'HackMD API',
-          click: () => {
-            void openExternalUrl('https://api.hackmd.io/v1/docs/swagger.json');
-          },
-        },
-      ],
-    },
-  ];
+  const template: Electron.MenuItemConstructorOptions[] = ELECTRON_MENU_SCHEMA
+    .filter((section) => !section.macOnly || isMac)
+    .map((section) => ({
+      label: section.id === 'app' ? app.getName() : section.label,
+      submenu: section.items.map((item) => schemaItemToMenuItem(item, isMac, sendCommand)),
+    }));
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }

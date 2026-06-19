@@ -31,6 +31,8 @@
     "check": "pnpm run lint:ts && pnpm run lint:cargo",
     "check:ci": "pnpm run version:check && pnpm run lint:ts:check && pnpm run lint:cargo && pnpm run test && pnpm run check:electron",
     "version:check": "node scripts/check-version.js",
+    "contract:hackmd": "node scripts/hackmd-openapi-verify.js",
+    "contract:hackmd:live": "node scripts/hackmd-openapi-verify.js --live",
     "sync:version": "node scripts/sync-version.js",
     "test": "pnpm run test:rust && pnpm run test:frontend",
     "test:frontend": "vitest run",

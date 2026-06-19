@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import type { UpdateFolderInput } from '@/lib/electron-api';
 
+import { FolderAppearanceFields } from './FolderAppearanceFields';
 import type { RenameFolderDialogState } from './types';
 import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS, TEXT_INPUT_CLASS } from './ui';
 
@@ -27,7 +28,21 @@ export function RenameFolderDialog({
 }) {
   const canSubmit = Boolean(state.folderId && state.name.trim()) && !isRenaming;
   const closedState = { open: false, folderId: null, name: '', description: '', icon: '', color: '' };
-  const normalizedColor = state.color.trim();
+
+  const releasePointerLockAfterClose = () => {
+    window.setTimeout(() => {
+      if (!document.querySelector('[role="dialog"]')) {
+        document.body.style.pointerEvents = '';
+      }
+    }, 0);
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    onStateChange(open ? state : closedState);
+    if (!open) {
+      releasePointerLockAfterClose();
+    }
+  };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -44,12 +59,12 @@ export function RenameFolderDialog({
   return (
     <Dialog
       open={state.open}
-      onOpenChange={(open) => onStateChange(open ? state : closedState)}
+      onOpenChange={handleOpenChange}
     >
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Rename Folder</DialogTitle>
-          <DialogDescription>Update the folder name in HackMD.</DialogDescription>
+          <DialogTitle>Edit Folder</DialogTitle>
+          <DialogDescription>Update the folder name, description, icon, and color in HackMD.</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <label className="block space-y-2 text-sm">
@@ -72,40 +87,12 @@ export function RenameFolderDialog({
               rows={3}
             />
           </label>
-          <details className="rounded-md border border-border-default bg-background-muted px-3 py-2 text-sm">
-            <summary className="cursor-pointer select-none rounded-[4px] text-xs font-semibold uppercase tracking-wide text-text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default">
-              Advanced
-            </summary>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <label className="block space-y-2 text-sm">
-                <span className="font-medium text-text-default">Icon codepoint</span>
-                <input
-                  name="icon"
-                  value={state.icon}
-                  onChange={(event) => onStateChange({ ...state, icon: event.target.value })}
-                  className={TEXT_INPUT_CLASS}
-                  placeholder="1F4C1"
-                />
-              </label>
-              <label className="block space-y-2 text-sm">
-                <span className="font-medium text-text-default">Color</span>
-                <span className="flex items-center gap-2">
-                  <span
-                    className="h-5 w-5 rounded-[4px] border border-border-default"
-                    style={{ backgroundColor: normalizedColor || 'transparent' }}
-                    aria-hidden="true"
-                  />
-                  <input
-                    name="color"
-                    value={state.color}
-                    onChange={(event) => onStateChange({ ...state, color: event.target.value })}
-                    className={TEXT_INPUT_CLASS}
-                    placeholder="#2F80ED"
-                  />
-                </span>
-              </label>
-            </div>
-          </details>
+          <FolderAppearanceFields
+            icon={state.icon}
+            color={state.color}
+            onIconChange={(icon) => onStateChange({ ...state, icon })}
+            onColorChange={(color) => onStateChange({ ...state, color })}
+          />
           <DialogFooter>
             <button
               type="button"
@@ -120,7 +107,7 @@ export function RenameFolderDialog({
               className={PRIMARY_BUTTON_CLASS}
             >
               {isRenaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderPen className="h-4 w-4" />}
-              Rename
+              Save Changes
             </button>
           </DialogFooter>
         </form>

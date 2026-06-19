@@ -243,6 +243,7 @@ describe('Home native-feel behavior', () => {
     cleanup();
     delete window.hackdeskAPI;
     window.localStorage.clear();
+    globalThis.document.body.style.pointerEvents = '';
   });
 
   it('does not delete a note when native confirmation is cancelled', async () => {
@@ -467,7 +468,7 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(api.app.exportDebugLogs).toHaveBeenCalled());
   });
 
-  it('renames the selected folder from the shared action registry command', async () => {
+  it('edits the selected folder from the shared action registry command', async () => {
     let commandHandler: ((command: HackDeskCommandPaletteCommand) => void) | null = null;
     const api = createApi({
       hackmd: {
@@ -495,9 +496,9 @@ describe('Home native-feel behavior', () => {
     act(() => {
       commandHandler?.({ type: 'rename-folder' });
     });
-    expect(await screen.findByRole('heading', { name: 'Rename Folder' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Edit Folder' })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Renamed Projects' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
     await waitFor(() => expect(api.hackmd.updateFolder).toHaveBeenCalledWith('folder-1', {
       name: 'Renamed Projects',
@@ -505,6 +506,39 @@ describe('Home native-feel behavior', () => {
       icon: null,
       color: null,
     }));
+  });
+
+  it('releases pointer lock after closing the folder edit dialog', async () => {
+    let commandHandler: ((command: HackDeskCommandPaletteCommand) => void) | null = null;
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: [] })),
+        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+      },
+      app: {
+        confirm: vi.fn(async () => ({ confirmed: false })),
+        exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
+        recordFatalRendererError: vi.fn(async () => undefined),
+        onCommand: vi.fn((handler) => {
+          commandHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
+    act(() => {
+      commandHandler?.({ type: 'rename-folder' });
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Edit Folder' })).toBeInTheDocument();
+    globalThis.document.body.style.pointerEvents = 'none';
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+    await waitFor(() => expect(globalThis.document.body.style.pointerEvents).toBe(''));
+    expect(screen.queryByRole('heading', { name: 'Edit Folder' })).not.toBeInTheDocument();
   });
 
   it('renames the current note through the editor header save action', async () => {
@@ -527,6 +561,42 @@ describe('Home native-feel behavior', () => {
       title: 'Renamed note',
       content: '# Test note',
     }));
+  });
+
+  it('shows document sync states for loaded, cached, and failed saves', async () => {
+    const updateFailure = new Error('HackMD rejected the save.');
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        getNote: vi.fn(async () => ({
+          source: 'error',
+          error: 'HackMD is offline.',
+          data: document,
+        })),
+        updateNote: vi.fn(async () => {
+          throw updateFailure;
+        }),
+      },
+    });
+
+    renderHome(api);
+
+    expect(await screen.findByLabelText('Sync state: Cached')).toBeInTheDocument();
+
+    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Save failure' } });
+    await waitFor(() => expect(screen.getByLabelText('Sync state: Unsaved')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByLabelText('Sync state: Save failed')).toBeInTheDocument();
+  });
+
+  it('shows saved sync state after loading a remote document', async () => {
+    const api = createApi();
+
+    renderHome(api);
+
+    expect(await screen.findByLabelText('Sync state: Saved')).toBeInTheDocument();
   });
 
   it('toggles between Edit and View mode and remembers the choice', async () => {
@@ -1006,7 +1076,8 @@ describe('Home native-feel behavior', () => {
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
-    fireEvent.click(within(palette).getAllByText('Design Spec')[0]);
+    const recentGroup = within(palette).getByText('Recent Notes').closest('[cmdk-group]')!;
+    fireEvent.click(within(recentGroup as HTMLElement).getByRole('option', { name: /Design Spec/ }));
 
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
   });
@@ -1479,9 +1550,8 @@ describe('Home native-feel behavior', () => {
     const dialog = within(await screen.findByRole('dialog', { name: 'New Folder' }));
     fireEvent.change(dialog.getByLabelText('Name'), { target: { value: 'Design' } });
     fireEvent.change(dialog.getByLabelText('Description'), { target: { value: 'Design notes' } });
-    fireEvent.click(dialog.getByText('Advanced'));
-    fireEvent.change(dialog.getByLabelText('Icon codepoint'), { target: { value: '1F4C1' } });
-    fireEvent.change(dialog.getByLabelText('Color'), { target: { value: '#2F80ED' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Folder' }));
+    fireEvent.click(dialog.getByRole('button', { name: 'Use folder color #2F80ED' }));
     fireEvent.click(dialog.getByRole('button', { name: 'Create' }));
 
     await waitFor(() => expect(api.hackmd.createFolder).toHaveBeenCalledWith({
@@ -1490,6 +1560,28 @@ describe('Home native-feel behavior', () => {
       icon: '1F4C1',
       color: '#2F80ED',
     }));
+  });
+
+  it('renders folder icon and color metadata in the folder tree', async () => {
+    const folderWithMetadata = {
+      ...folder,
+      icon: '1F4C1',
+      color: '#2F80ED',
+    };
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listFolders: vi.fn(async () => ({ source: 'remote', data: [folderWithMetadata] })),
+      },
+    });
+
+    const { container } = renderHome(api);
+
+    expect(await screen.findByText('Projects')).toBeInTheDocument();
+    const glyph = container.querySelector('[data-folder-id="folder-1"] [data-folder-glyph="1F4C1"]');
+
+    expect(glyph).toHaveTextContent('📁');
+    expect(glyph).toHaveAttribute('data-folder-color', '#2F80ED');
   });
 
   it('renders note rows as draggable without breaking selection', async () => {

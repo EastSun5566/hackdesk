@@ -9,6 +9,7 @@ import {
   isElectronActionEnabled,
   type ElectronActionContext,
 } from './electron-actions';
+import { ELECTRON_MENU_SCHEMA } from './electron-menu-schema';
 
 const baseContext: ElectronActionContext = {
   hasToken: true,
@@ -67,6 +68,19 @@ describe('electron action registry', () => {
 
   it('uses the same registry for command palette actions', () => {
     expect(getCommandPaletteActions().map((action) => action.id)).toEqual(ELECTRON_ACTIONS.map((action) => action.id));
+  });
+
+  it('keeps the native menu schema linked to registered actions', () => {
+    const actionIds = new Set(ELECTRON_ACTIONS.map((action) => action.id));
+    const menuActionIds = ELECTRON_MENU_SCHEMA.flatMap((section) => (
+      section.items.flatMap((item) => item.type === 'action' ? [item.actionId] : [])
+    ));
+
+    expect(menuActionIds.length).toBeGreaterThan(0);
+    expect(menuActionIds.every((actionId) => actionIds.has(actionId))).toBe(true);
+    expect(ELECTRON_MENU_SCHEMA.find((section) => section.id === 'help')?.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'link', url: 'https://api.hackmd.io/v1/docs/swagger.json' }),
+    ]));
   });
 
   it('exposes categories for grouped command palette rendering', () => {

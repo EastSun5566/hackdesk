@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Copy, Download, Edit3, Loader2, PanelRightClose, PanelRightOpen, Save, Share2, Trash2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, CloudOff, Copy, Download, Edit3, Loader2, PanelRightClose, PanelRightOpen, Save, Share2, Trash2 } from 'lucide-react';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/MarkdownEditor';
 import { MarkdownReader } from '@/components/MarkdownReader';
@@ -41,12 +41,58 @@ export type DocumentDetailCommand = {
   sequence: number;
 };
 
+export type DocumentSyncState = 'idle' | 'loading' | 'cached' | 'saving' | 'saved' | 'save_failed' | 'conflict';
+
+const SYNC_STATE_LABELS: Record<DocumentSyncState, string> = {
+  idle: 'Unsaved',
+  loading: 'Loading',
+  cached: 'Cached',
+  saving: 'Saving',
+  saved: 'Saved',
+  save_failed: 'Save failed',
+  conflict: 'Conflict',
+};
+
+function SyncStateBadge({
+  state,
+}: {
+  state: DocumentSyncState;
+}) {
+  const className = {
+    idle: 'border-border-default bg-background-default text-text-subtle',
+    loading: 'border-border-default bg-background-default text-text-subtle',
+    cached: 'border-primary-default/30 bg-primary-soft text-primary-default',
+    saving: 'border-primary-default/30 bg-primary-soft text-primary-default',
+    saved: 'border-success-default/30 bg-success-soft text-success-default',
+    save_failed: 'border-destructive-default/30 bg-destructive-soft text-destructive-default',
+    conflict: 'border-destructive-default/30 bg-destructive-soft text-destructive-default',
+  }[state];
+  const icon = state === 'loading' || state === 'saving'
+    ? <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />
+    : state === 'cached'
+      ? <CloudOff aria-hidden="true" className="h-3 w-3" />
+      : state === 'save_failed' || state === 'conflict'
+        ? <AlertCircle aria-hidden="true" className="h-3 w-3" />
+        : <CheckCircle2 aria-hidden="true" className="h-3 w-3" />;
+
+  return (
+    <span
+      className={`inline-flex h-7 shrink-0 items-center gap-1 rounded-[6px] border px-2 text-xs font-medium ${className}`}
+      aria-label={`Sync state: ${SYNC_STATE_LABELS[state]}`}
+    >
+      {icon}
+      {SYNC_STATE_LABELS[state]}
+    </span>
+  );
+}
+
 export function DocumentDetail({
   selectedNote,
   document,
   folderTree,
   isLoading,
   command,
+  syncState = 'idle',
   readerMode,
   onOpenEditor,
   onOpenExternal,
@@ -71,6 +117,7 @@ export function DocumentDetail({
   folderTree: FolderTree;
   isLoading: boolean;
   command?: DocumentDetailCommand | null;
+  syncState?: DocumentSyncState;
   readerMode: ReaderMode;
   onOpenEditor: (document: DocumentSummary) => void;
   onOpenExternal: (url: string) => void;
@@ -220,11 +267,11 @@ export function DocumentDetail({
             <span>{document.writePermission} write</span>
             {document.teamPath ? <span>@{document.teamPath}</span> : null}
             {document.folderPaths.length > 0 ? <span>{getFolderPathLabel(document.folderPaths)}</span> : null}
-            {noteDirty ? <span className="text-primary-default">Unsaved</span> : null}
           </span>
         )}
         actions={(
           <>
+            <SyncStateBadge state={syncState} />
             <div className="inline-flex rounded-md border border-border-default bg-background-default p-0.5" aria-label="View mode">
               <button
                 type="button"

@@ -50,7 +50,7 @@ import { CreateFolderDialog } from './electron-home/CreateFolderDialog';
 import { CreateNoteDialog } from './electron-home/CreateNoteDialog';
 import { DeleteNoteDialog } from './electron-home/DeleteNoteDialog';
 import { DeleteFolderDialog } from './electron-home/DeleteFolderDialog';
-import { DocumentDetail, type DocumentDetailCommand } from './electron-home/DocumentDetail';
+import { DocumentDetail, type DocumentDetailCommand, type DocumentSyncState } from './electron-home/DocumentDetail';
 import { FolderNavigator } from './electron-home/FolderNavigator';
 import { PanelResizeSash } from './electron-home/PanelResizeSash';
 import { SettingsDialog } from './electron-home/SettingsDialog';
@@ -1062,6 +1062,22 @@ export function Home() {
     || queries.documentQuery.isFetching
     || documentIsStale
   );
+  const documentError = getRepositoryError(queries.documentQuery.data);
+  const documentSyncState: DocumentSyncState = documentIsLoading
+    ? 'loading'
+    : mutations.updateNoteMutation.isPending
+      ? 'saving'
+      : mutations.updateNoteMutation.isError
+        ? 'save_failed'
+        : documentError && !isShowingCachedFallback(queries.documentQuery.data)
+          ? 'save_failed'
+          : noteDirty
+            ? 'idle'
+            : isShowingCachedFallback(queries.documentQuery.data)
+              ? 'cached'
+              : selectedDocument
+                ? 'saved'
+                : 'idle';
 
   const toggleFolderCollapsed = (folderId: string) => {
     setCollapsedFolderIds((current) => {
@@ -1272,6 +1288,7 @@ export function Home() {
           document={selectedDocument}
           folderTree={folderTree}
           isLoading={documentIsLoading}
+          syncState={documentSyncState}
           command={documentCommand}
           readerMode={readerMode}
           onOpenEditor={handleOpenEditor}

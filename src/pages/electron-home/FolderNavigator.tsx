@@ -46,6 +46,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { clsx } from 'clsx';
 
 import {
   ContextMenu,
@@ -456,7 +457,7 @@ function NoteRow({
             }
             onSelect(entry.note);
           }}
-          className={isDragging || active ? 'opacity-40' : undefined}
+          className={clsx('min-w-0', (isDragging || active) && 'opacity-40')}
         >
           <EntityRow
             selected={selected}
@@ -491,6 +492,7 @@ function NoteRow({
             )}
             subtitle={metadata || entry.note.shortId}
             trailing={formatDate(entry.note.updatedAtMillis)}
+            trailingClassName="w-[7.25rem] truncate text-right"
             variant={compact ? 'compact' : 'default'}
             active={active}
             className={selected ? 'bg-primary-soft' : undefined}
@@ -540,6 +542,72 @@ function NoteRow({
   );
 }
 
+const folderColorPattern = /^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+const folderIconPattern = /^[0-9A-Fa-f]{4,6}(?:-[0-9A-Fa-f]{4,6})*$/;
+
+function normalizeFolderColor(color: string | null) {
+  return color && folderColorPattern.test(color) ? color : null;
+}
+
+function decodeFolderIcon(icon: string | null) {
+  if (!icon || !folderIconPattern.test(icon)) {
+    return null;
+  }
+
+  try {
+    return String.fromCodePoint(...icon.split('-').map((segment) => Number.parseInt(segment, 16)));
+  } catch {
+    return null;
+  }
+}
+
+function FolderGlyph({
+  icon,
+  color,
+  open,
+}: {
+  icon: string | null;
+  color: string | null;
+  open?: boolean;
+}) {
+  const folderColor = normalizeFolderColor(color);
+  const folderIcon = decodeFolderIcon(icon);
+
+  if (folderIcon) {
+    return (
+      <span
+        className="relative flex h-4 w-4 shrink-0 items-center justify-center text-[13px] leading-none"
+        data-folder-glyph={icon ?? undefined}
+        data-folder-color={folderColor ?? undefined}
+      >
+        {folderIcon}
+        {folderColor ? (
+          <span
+            aria-hidden="true"
+            className="absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: folderColor }}
+          />
+        ) : null}
+      </span>
+    );
+  }
+
+  const Icon = open ? FolderOpen : Folder;
+
+  return (
+    <Icon
+      className="h-3.5 w-3.5"
+      data-folder-glyph="default"
+      data-folder-color={folderColor ?? undefined}
+      style={folderColor ? { color: folderColor } : undefined}
+    />
+  );
+}
+
+function runAfterMenuClose(action: () => void) {
+  window.setTimeout(action, 0);
+}
+
 function FolderButton({
   node,
   selected,
@@ -586,7 +654,7 @@ function FolderButton({
           ref={setNodeRef}
           style={style}
           data-folder-id={node.id}
-          className={isDragging || active ? 'opacity-40' : undefined}
+          className={clsx('min-w-0', (isDragging || active) && 'opacity-40')}
         >
           <EntityRow
             selected={selected}
@@ -619,7 +687,7 @@ function FolderButton({
                 </button>
               </span>
             )}
-            icon={collapsed ? <Folder className="h-3.5 w-3.5" /> : <FolderOpen className="h-3.5 w-3.5" />}
+            icon={<FolderGlyph icon={node.icon} color={node.color} open={!collapsed} />}
             title={(
               <button
                 type="button"
@@ -639,9 +707,9 @@ function FolderButton({
           New Folder Inside
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem onSelect={() => onRenameFolder(node.id)}>
+        <ContextMenuItem onSelect={() => runAfterMenuClose(() => onRenameFolder(node.id))}>
           <FolderPen aria-hidden="true" className="h-4 w-4" />
-          Rename
+          Edit Folder
         </ContextMenuItem>
         <ContextMenuItem destructive onSelect={() => onDeleteFolder(node.id)}>
           <Trash2 aria-hidden="true" className="h-4 w-4" />
@@ -672,7 +740,7 @@ function RootFolderRow({
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div ref={setNodeRef}>
+        <div ref={setNodeRef} className="min-w-0">
           <EntityRow
             selected={selected || ((folderDragActive || noteDragActive) && isOver)}
             icon={<Folder className="h-3.5 w-3.5" />}
@@ -700,7 +768,7 @@ function FolderDragOverlay({ node }: { node: FolderTreeNode | null }) {
 
   return (
     <div className="flex h-8 min-w-48 items-center gap-2 rounded-[6px] border border-border-default bg-background-default px-2 text-sm text-text-default shadow-lg">
-      <FolderOpen aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+      <FolderGlyph icon={node.icon} color={node.color} open />
       <span className="truncate">{node.name}</span>
     </div>
   );
@@ -771,7 +839,7 @@ function FolderActionsDropdown({
           }
         }}>
           <FolderPen aria-hidden="true" className="h-4 w-4" />
-          Rename Selected Folder
+          Edit Selected Folder
         </DropdownMenuItem>
         <DropdownMenuItem destructive disabled={!selectedFolder} onSelect={(event) => {
           event.preventDefault();
@@ -847,7 +915,7 @@ function FolderTreeView({
   }
 
   return (
-    <div className={`grid gap-0.5 ${depth > 0 ? 'relative pl-5' : ''}`}>
+    <div className={`grid min-w-0 gap-0.5 ${depth > 0 ? 'relative pl-5' : ''}`}>
       {depth > 0 ? <div className="absolute left-[13px] top-1 bottom-1 w-px bg-border-default/70" aria-hidden="true" /> : null}
       {nodes.map((node) => {
         const collapsed = collapsedFolderIds.has(node.id);
@@ -873,7 +941,7 @@ function FolderTreeView({
               }`}
             >
               <div className="min-h-0 overflow-hidden">
-                <div className="mt-0.5 grid gap-0.5">
+                <div className="mt-0.5 grid min-w-0 gap-0.5">
                   <FolderTreeView
                     nodes={node.children}
                     selectedFolderId={selectedFolderId}
@@ -899,7 +967,7 @@ function FolderTreeView({
                     isMovingNote={isMovingNote}
                   />
                   {node.notes.map((entry) => (
-                    <div key={`${node.id}:${entry.note.id}`} className="relative pl-5">
+                    <div key={`${node.id}:${entry.note.id}`} className="relative min-w-0 pl-5">
                       <div className="absolute left-[13px] top-1 bottom-1 w-px bg-border-default/70" aria-hidden="true" />
                       <NoteRow
                         entry={entry}
@@ -1217,7 +1285,7 @@ export function FolderNavigator({
             <RepositoryNotice error={activeError} cached={showingCachedFallback} />
           </div>
 
-          <div className="min-h-0 flex-1 overflow-auto p-2">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2">
             {isLoading ? (
               <div className="flex h-full items-center justify-center text-sm text-text-subtle">
                 <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />
@@ -1230,7 +1298,7 @@ export function FolderNavigator({
                 description={emptyDescription}
               />
             ) : isFinderMode ? (
-              <div className="space-y-1">
+              <div className="min-w-0 space-y-1">
                 {entries.map((entry) => (
                   <NoteRow
                     key={`${entry.folderLabel}:${entry.note.id}`}
@@ -1260,7 +1328,7 @@ export function FolderNavigator({
                   items={visibleFolderItems.map((item) => item.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div className="grid gap-0.5">
+                  <div className="grid min-w-0 gap-0.5">
                     <RootFolderRow
                       selected={selectedFolderId === UNFILED_FOLDER_ID}
                       noteCount={tree.unfiled.notes.length}

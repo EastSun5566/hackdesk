@@ -85,8 +85,8 @@ const actions: ElectronActionDefinition[] = [
   },
   {
     id: 'rename-folder',
-    label: 'Rename Folder',
-    description: 'Rename selected folder.',
+    label: 'Edit Folder',
+    description: 'Edit selected folder.',
     keywords: ['directory'],
     category: 'folder',
   },

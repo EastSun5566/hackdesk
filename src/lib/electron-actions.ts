@@ -87,9 +87,9 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
   },
   {
     id: 'rename-folder',
-    label: 'Rename Folder',
-    description: 'Rename the selected folder.',
-    keywords: ['edit', 'directory'],
+    label: 'Edit Folder',
+    description: 'Edit the selected folder name, icon, and color.',
+    keywords: ['edit', 'rename', 'directory', 'icon', 'color'],
     category: 'folder',
     scope: 'navigator',
     getDisabledReason: requireSelectedFolder,

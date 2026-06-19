@@ -57,6 +57,8 @@ const highlightLanguages = [
   ['xml', xml],
 ] as const;
 
+const blockedMarkdownUrlSchemePattern = /^(?:javascript|data|blob|file):/i;
+
 highlightLanguages.forEach(([name, language]) => {
   hljs.registerLanguage(name, language);
 });
@@ -189,6 +191,21 @@ function isHighlighted(lineNumber: number, lines: HighlightRange[]) {
 
 function safeLanguageClass(lang: string) {
   return lang.replace(/[^a-z0-9_-]/gi, '').toLowerCase();
+}
+
+function stripUnsafeMarkdownUrls(source: string) {
+  return source.replace(
+    /(!?)\[([^\]\n]*)\]\((\s*<?[^)\s>]+>?\s*)([^)]*)\)/g,
+    (match, marker: string, label: string, destination: string) => {
+      const normalizedDestination = destination.trim().replace(/^<|>$/g, '');
+
+      if (!blockedMarkdownUrlSchemePattern.test(normalizedDestination)) {
+        return match;
+      }
+
+      return label;
+    },
+  );
 }
 
 function parseImageSize(source: string, pos: number, max: number) {
@@ -764,14 +781,16 @@ export type RenderedHackmdMarkdown = {
 
 export function renderHackmdMarkdown(source = ''): RenderedHackmdMarkdown {
   const { content, data } = parseFrontmatter(source);
-  const rawHtml = md.render(content);
+  const safeContent = stripUnsafeMarkdownUrls(content);
+  const rawHtml = md.render(safeContent);
   const html = DOMPurify.sanitize(rawHtml, {
     ADD_ATTR: ['data-label', 'data-icon', 'data-line-number'],
+    ALLOW_DATA_ATTR: false,
   });
 
   return {
     html,
     data,
-    content,
+    content: safeContent,
   };
 }
