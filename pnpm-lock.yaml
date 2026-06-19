@@ -189,9 +189,6 @@ importers:
       '@vitest/ui':
         specifier: ^4.1.9
         version: 4.1.9(vitest@4.1.9)
-      baseline-browser-mapping:
-        specifier: ^2.10.38
-        version: 2.10.38
       electron:
         specifier: ^42.4.1
         version: 42.4.1

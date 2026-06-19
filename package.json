@@ -144,7 +144,6 @@
     "@typescript/native-preview": "^7.0.0-dev.20260619.1",
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/ui": "^4.1.9",
-    "baseline-browser-mapping": "^2.10.38",
     "electron": "^42.4.1",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.1",
