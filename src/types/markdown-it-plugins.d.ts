@@ -12,3 +12,4 @@ declare module 'markdown-it-container';
 declare module 'markdown-it-ruby';
 declare module 'markdown-it-task-lists';
 declare module 'markdown-it-html5-embed';
+declare module 'markdown-it-emoji';

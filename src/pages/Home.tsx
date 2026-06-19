@@ -965,12 +965,12 @@ export function Home() {
     }
 
     const saveFailed = documentSyncState === 'save_failed';
-    const shouldConfirm = Boolean(selectedNote && (noteDirty || saveFailed));
-    if (shouldConfirm) {
+    if (selectedNote && (noteDirty || saveFailed)) {
       try {
+        const noteTitle = selectedNote.title || 'Untitled';
         const detail = saveFailed
-          ? `The last save for “${selectedNote.title || 'Untitled'}” failed. Closing now may leave your local draft unsaved.`
-          : `You have unsaved changes in “${selectedNote.title || 'Untitled'}”. Closing HackDesk will discard the current draft.`;
+          ? `The last save for “${noteTitle}” failed. Closing now may leave your local draft unsaved.`
+          : `You have unsaved changes in “${noteTitle}”. Closing HackDesk will discard the current draft.`;
         const { confirmed } = await api.app.confirm({
           title: 'Close HackDesk',
           message: saveFailed ? 'Close with failed save?' : 'Discard unsaved changes?',

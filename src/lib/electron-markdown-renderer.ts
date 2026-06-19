@@ -32,8 +32,17 @@ import markdownItSub from 'markdown-it-sub';
 import markdownItSup from 'markdown-it-sup';
 import markdownItTaskLists from 'markdown-it-task-lists';
 import markdownItToc from 'markdown-it-toc-done-right';
+import type MarkdownItInstance from 'markdown-it/lib/index.mjs';
+import type { Options } from 'markdown-it/lib/index.mjs';
+import type Renderer from 'markdown-it/lib/renderer.mjs';
+import type { RenderRule } from 'markdown-it/lib/renderer.mjs';
+import type StateBlock from 'markdown-it/lib/rules_block/state_block.mjs';
+import type StateInline from 'markdown-it/lib/rules_inline/state_inline.mjs';
+import type Token from 'markdown-it/lib/token.mjs';
 
 type HighlightRange = number | [number, number];
+type InlineRule = (state: StateInline, silent: boolean) => boolean;
+type BlockRule = (state: StateBlock, startLine: number, endLine: number, silent: boolean) => boolean;
 
 const highlightLanguages = [
   ['javascript', javascript],
@@ -196,7 +205,7 @@ function safeLanguageClass(lang: string) {
 function stripUnsafeMarkdownUrls(source: string) {
   return source.replace(
     /(!?)\[([^\]\n]*)\]\((\s*<?[^)\s>]+>?\s*)([^)]*)\)/g,
-    (match, marker: string, label: string, destination: string) => {
+    (match, _marker: string, label: string, destination: string) => {
       const normalizedDestination = destination.trim().replace(/^<|>$/g, '');
 
       if (!blockedMarkdownUrlSchemePattern.test(normalizedDestination)) {
@@ -250,8 +259,8 @@ function parseImageSize(source: string, pos: number, max: number) {
   return { width, height, pos: cursor };
 }
 
-function imageSizePlugin(md: MarkdownIt) {
-  const imageWithSize: MarkdownIt.ParserInline.RuleInline = (state, silent) => {
+function imageSizePlugin(md: MarkdownItInstance) {
+  const imageWithSize: InlineRule = (state, silent) => {
     let title = '';
     let width = '';
     let height = '';
@@ -361,7 +370,7 @@ function imageSizePlugin(md: MarkdownIt) {
       state.pos = labelStart;
       state.posMax = labelEnd;
 
-      const tokens: MarkdownIt.Token[] = [];
+      const tokens: Token[] = [];
       const nestedState = new state.md.inline.State(
         state.src.slice(labelStart, labelEnd),
         state.md,
@@ -482,7 +491,7 @@ function createMarkdownIt() {
       validate(params: string) {
         return Boolean(params.trim().match(/^spoiler(\s+.*)?$/));
       },
-      render(tokens: MarkdownIt.Token[], idx: number) {
+      render(tokens: Token[], idx: number) {
         const match = tokens[idx].info.trim().match(/^spoiler(\s+.*)?$/);
 
         if (tokens[idx].nesting === 1) {
@@ -514,11 +523,11 @@ const containerClassNamesMap = {
 } as const;
 
 function containerRenderer(
-  tokens: MarkdownIt.Token[],
+  tokens: Token[],
   idx: number,
-  options: MarkdownIt.Options,
-  env: unknown,
-  self: MarkdownIt.Renderer,
+  options: Options,
+  _env: unknown,
+  self: Renderer,
 ) {
   const token = tokens[idx];
   const type = token.info.trim() as keyof typeof containerClassNamesMap;
@@ -548,7 +557,7 @@ const calloutToIconMap = {
   todo: 'todo',
 } as const;
 
-const renderCalloutOpen: MarkdownIt.Renderer.RenderRule = (tokens, idx) => {
+const renderCalloutOpen: RenderRule = (tokens, idx) => {
   const token = tokens[idx];
   const info = token.info.trim().toLowerCase();
   const className =
@@ -562,10 +571,10 @@ const renderCalloutOpen: MarkdownIt.Renderer.RenderRule = (tokens, idx) => {
   );
 };
 
-const renderCalloutClose: MarkdownIt.Renderer.RenderRule = () => '</div>';
+const renderCalloutClose: RenderRule = () => '</div>';
 
-function calloutPlugin(md: MarkdownIt) {
-  const calloutRule: MarkdownIt.ParserBlock.RuleBlock = (state, startLine, endLine, silent) => {
+function calloutPlugin(md: MarkdownItInstance) {
+  const calloutRule: BlockRule = (state, startLine, endLine, silent) => {
     let adjustTab = false;
     let ch = 0;
     let initial = 0;

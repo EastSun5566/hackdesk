@@ -15,7 +15,7 @@
     "dev": "tauri dev",
     "build": "tauri build",
     "frontend:dev": "vite",
-    "frontend:build": "tsc && vite build",
+    "frontend:build": "tsc -p tsconfig.app.json && vite build",
     "frontend:preview": "vite preview",
     "icons:electron": "node scripts/electron-icons.js",
     "dev:electron": "node scripts/electron-dev.js",
