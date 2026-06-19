@@ -8,8 +8,7 @@
   "packageManager": "pnpm@10.33.2",
   "main": "electron/dist/main.cjs",
   "engines": {
-    "node": ">=20.19",
-    "pnpm": ">=8"
+    "node": ">=22"
   },
   "scripts": {
     "dev": "tauri dev",
@@ -142,9 +141,9 @@
     "@types/node": "^20.19.25",
     "@types/react": "^18.3.27",
     "@types/react-dom": "^18.3.7",
-    "@typescript/native-preview": "7.0.0-dev.20260619.1",
+    "@typescript/native-preview": "^7.0.0-dev.20260619.1",
     "@vitejs/plugin-react": "^4.3.4",
-    "@vitest/ui": "4.1.9",
+    "@vitest/ui": "^4.1.9",
     "electron": "^39.2.7",
     "electron-builder": "^26.0.12",
     "esbuild": "^0.27.0",
@@ -157,7 +156,7 @@
     "tailwindcss": "^4.1.17",
     "vite": "^7.3.2",
     "vitepress": "^1.6.4",
-    "vitest": "4.1.9"
+    "vitest": "^4.1.9"
   },
   "simple-git-hooks": {
     "pre-commit": "npx lint-staged"

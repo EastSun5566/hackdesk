@@ -181,13 +181,13 @@ importers:
         specifier: ^18.3.7
         version: 18.3.7(@types/react@18.3.27)
       '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260619.1
+        specifier: ^7.0.0-dev.20260619.1
         version: 7.0.0-dev.20260619.1
       '@vitejs/plugin-react':
         specifier: ^4.3.4
         version: 4.7.0(vite@7.3.2(@types/node@20.19.25)(jiti@2.7.0)(lightningcss@1.30.2)(yaml@2.9.0))
       '@vitest/ui':
-        specifier: 4.1.9
+        specifier: ^4.1.9
         version: 4.1.9(vitest@4.1.9)
       electron:
         specifier: ^39.2.7
@@ -226,7 +226,7 @@ importers:
         specifier: ^1.6.4
         version: 1.6.4(@algolia/client-search@5.44.0)(@types/node@20.19.25)(@types/react@18.3.27)(axios@1.15.0)(fuse.js@7.1.0)(lightningcss@1.30.2)(postcss@8.5.6)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(typescript@5.9.3)
       vitest:
-        specifier: 4.1.9
+        specifier: ^4.1.9
         version: 4.1.9(@types/node@20.19.25)(@vitest/ui@4.1.9)(jsdom@27.4.0)(vite@7.3.2(@types/node@20.19.25)(jiti@2.7.0)(lightningcss@1.30.2)(yaml@2.9.0))
 
 packages:
