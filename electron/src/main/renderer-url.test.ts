@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
+import { resolve } from 'node:path';
 
 import { getProductionRendererUrl, isTrustedRendererUrl, resolveRendererFile } from './renderer-url';
 
@@ -22,7 +23,7 @@ describe('renderer URL helpers', () => {
   });
 
   it('resolves renderer files without allowing path traversal', () => {
-    expect(resolveRendererFile('hackdesk://renderer/index.html', '/app/dist')).toBe('/app/dist/index.html');
+    expect(resolveRendererFile('hackdesk://renderer/index.html', '/app/dist')).toBe(resolve('/app/dist/index.html'));
     expect(() => resolveRendererFile('hackdesk://renderer/../../secret.txt', '/app/dist')).toThrow(
       'Blocked renderer path traversal.',
     );
