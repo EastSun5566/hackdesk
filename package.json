@@ -8,7 +8,7 @@
   "packageManager": "pnpm@10.33.2",
   "main": "electron/dist/main.cjs",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "dev": "tauri dev",
@@ -29,9 +29,10 @@
     "lint:ts": "oxlint .",
     "lint:ts:fix": "oxlint --fix .",
     "check:deps": "knip",
-    "lint:rs": "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
+    "check:actions": "github-actionlint",
+    "lint:rs": "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
     "lint:rs:fix": "cd src-tauri && cargo fmt && cargo clippy --fix --allow-dirty --allow-staged && cd -",
-    "check": "pnpm run typecheck && pnpm run lint:ts && pnpm run check:deps && pnpm run lint:rs",
+    "check": "pnpm run typecheck && pnpm run lint:ts && pnpm run check:deps && pnpm run check:actions && pnpm run contract:hackmd && pnpm run lint:rs",
     "check:ci": "pnpm run version:check && pnpm run check && pnpm run test && pnpm run build:electron",
     "version:check": "node scripts/check-version.ts",
     "contract:hackmd": "node scripts/hackmd-openapi-verify.ts",
@@ -149,6 +150,7 @@
     "electron": "^42.4.1",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.1",
+    "github-actionlint": "^1.7.12",
     "jsdom": "^27.4.0",
     "knip": "^6.17.1",
     "lint-staged": "^15.5.2",

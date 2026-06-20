@@ -5,6 +5,10 @@ on:
     tags:
       - "v*"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     permissions:
@@ -64,7 +68,7 @@ jobs:
           node-version: 24
 
       - name: get version
-        run: echo "PACKAGE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+        run: node -e "console.log('PACKAGE_VERSION=' + require('./package.json').version)" >> "$GITHUB_ENV"
 
       - name: extract release notes
         id: release-notes
@@ -72,7 +76,7 @@ jobs:
 
       - name: create release
         id: create-release
-        uses: actions/github-script@v6
+        uses: actions/github-script@v9
         env:
           RELEASE_TAG: ${{ github.ref_name }}
           RELEASE_NOTES: ${{ steps.release-notes.outputs.release_body }}
@@ -176,7 +180,7 @@ jobs:
     steps:
       - name: publish release
         id: publish-release
-        uses: actions/github-script@v6
+        uses: actions/github-script@v9
         env:
           release_id: ${{ needs.create-release.outputs.release_id }}
         with:

@@ -61,11 +61,11 @@ pnpm run package:electron:check
 pnpm run test
 ```
 
-`check:electron` runs the `tsgo` typecheck, Electron-scoped Oxlint check, Electron unit tests, Electron main/preload build, and renderer build. `check:deps` runs Knip to catch unused JavaScript/TypeScript files, exports, and dependencies. The normal `pnpm run test` command should still pass because the Tauri source is intentionally kept during Electron parity work.
+`pnpm run check` runs the `tsgo` typecheck, Oxlint, Knip, GitHub Actions workflow lint, the pinned HackMD OpenAPI contract check, Rust format check, and Clippy. `check:electron` runs the same typecheck baseline, Electron-scoped Oxlint check, Electron unit tests, Electron main/preload build, and renderer build. The normal `pnpm run test` command should still pass because the Tauri source is intentionally kept during Electron parity work.
 
 `package:electron:check` runs the Electron icon generation, bundles the Electron app, and asks electron-builder for an unpacked package with `--dir --publish never`. CI uses it as a package smoke test only; it does not upload or publish Electron artifacts.
 
-HackDesk uses `@typescript/native-preview` for `tsgo`, the TypeScript native preview CLI. It is used like `tsc` for typechecking, but it is still a preview toolchain.
+HackDesk requires Node.js 24 or newer. It uses Node 24's native TypeScript type stripping for local scripts and `@typescript/native-preview` for `tsgo`, the TypeScript native preview CLI. `tsgo` is used like `tsc` for typechecking, but it is still a preview toolchain.
 
 The Electron beta reads the same settings file at `~/.hackdesk/settings.json`. The HackMD API token stays in the Electron main process and preload API; renderer code only receives safe settings such as `hasHackmdApiToken`.
 
