@@ -26,12 +26,12 @@
     "typecheck:app": "tsgo -p tsconfig.app.json --noEmit",
     "typecheck:node": "tsgo -p tsconfig.node.json --noEmit",
     "typecheck:electron": "tsgo -p tsconfig.electron.json --noEmit",
-    "lint:ts:check": "oxlint .",
-    "lint:ts": "oxlint --fix .",
+    "lint:ts": "oxlint .",
+    "lint:ts:fix": "oxlint --fix .",
     "check:deps": "knip",
-    "lint:rs": "cd src-tauri && cargo fmt && cargo clippy --fix --allow-dirty --allow-staged && cd -",
-    "lint:cargo": "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
-    "check": "pnpm run typecheck && pnpm run lint:ts:check && pnpm run check:deps && pnpm run lint:cargo",
+    "lint:rs": "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
+    "lint:rs:fix": "cd src-tauri && cargo fmt && cargo clippy --fix --allow-dirty --allow-staged && cd -",
+    "check": "pnpm run typecheck && pnpm run lint:ts && pnpm run check:deps && pnpm run lint:rs",
     "check:ci": "pnpm run version:check && pnpm run check && pnpm run test && pnpm run build:electron",
     "version:check": "node scripts/check-version.ts",
     "contract:hackmd": "node scripts/hackmd-openapi-verify.ts",
@@ -165,6 +165,6 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,cjs,mjs}": "oxlint --fix",
-    "*.rs": "pnpm run lint:rs"
+    "*.rs": "pnpm run lint:rs:fix"
   }
 }
