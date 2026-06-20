@@ -68,7 +68,7 @@ jobs:
 
       - name: extract release notes
         id: release-notes
-        run: node scripts/release-notes.js
+        run: node scripts/release-notes.ts
 
       - name: create release
         id: create-release
@@ -153,7 +153,7 @@ jobs:
 
       - name: extract release notes
         id: release-notes
-        run: node scripts/release-notes.js
+        run: node scripts/release-notes.ts
 
       - uses: tauri-apps/tauri-action@v0
         env:

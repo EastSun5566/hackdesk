@@ -1,7 +1,7 @@
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, type ExecFileSyncOptions } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -12,13 +12,13 @@ const buildDir = join(rootDir, 'build');
 const tempDir = mkdtempSync(join(tmpdir(), 'hackdesk-electron-icons-'));
 const pnpmArgs = ['exec', 'tauri', 'icon', sourceIcon, '-o', tempDir];
 const pnpmExecPath = process.env.npm_config_user_agent?.startsWith('pnpm') ? process.env.npm_execpath : undefined;
-const commandOptions = { cwd: rootDir, stdio: 'inherit' };
+const commandOptions: ExecFileSyncOptions = { cwd: rootDir, stdio: 'inherit' };
 
-function quoteCmdArg(arg) {
+function quoteCmdArg(arg: string): string {
   return `"${arg.replaceAll('"', '""')}"`;
 }
 
-function runPnpm(args) {
+function runPnpm(args: readonly string[]): void {
   if (pnpmExecPath) {
     execFileSync(process.execPath, [pnpmExecPath, ...args], commandOptions);
     return;

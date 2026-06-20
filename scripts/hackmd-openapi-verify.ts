@@ -7,7 +7,40 @@ const __dirname = dirname(__filename);
 const DEFAULT_CONTRACT_PATH = join(__dirname, 'fixtures', 'hackmd-openapi-contract.json');
 const LIVE_SWAGGER_URL = 'https://api.hackmd.io/v1/docs/swagger.json';
 
-const REQUIRED_OPERATIONS = [
+type JsonRecord = Record<string, unknown>;
+
+type OpenApiSchema = JsonRecord & {
+  $ref?: string;
+  properties?: Record<string, OpenApiSchema | undefined>;
+  anyOf?: OpenApiSchema[];
+  oneOf?: OpenApiSchema[];
+  allOf?: OpenApiSchema[];
+  enum?: unknown[];
+};
+
+type OpenApiOperation = JsonRecord & {
+  security?: unknown[];
+  requestBody?: {
+    content?: {
+      'application/json'?: {
+        schema?: OpenApiSchema;
+      };
+      'multipart/form-data'?: {
+        schema?: OpenApiSchema;
+      };
+    };
+  };
+};
+
+export type OpenApiContract = JsonRecord & {
+  openapi?: string;
+  paths?: Record<string, Record<string, OpenApiOperation | undefined> | undefined>;
+  components?: {
+    schemas?: Record<string, OpenApiSchema | undefined>;
+  };
+};
+
+const REQUIRED_OPERATIONS: Array<readonly [string, string]> = [
   ['GET', '/me'],
   ['GET', '/teams'],
   ['GET', '/notes'],
@@ -38,43 +71,62 @@ const REQUIRED_OPERATIONS = [
   ['DELETE', '/teams/{teampath}/folders/{folderId}'],
 ];
 
-function readContract(path = DEFAULT_CONTRACT_PATH) {
-  return JSON.parse(readFileSync(path, 'utf8'));
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === 'object' && value !== null;
 }
 
-async function fetchLiveContract() {
+function asSchema(value: unknown): OpenApiSchema | null {
+  return isRecord(value) ? value as OpenApiSchema : null;
+}
+
+function readContract(path = DEFAULT_CONTRACT_PATH): OpenApiContract {
+  return JSON.parse(readFileSync(path, 'utf8')) as OpenApiContract;
+}
+
+async function fetchLiveContract(): Promise<OpenApiContract> {
   const response = await fetch(LIVE_SWAGGER_URL);
   if (!response.ok) {
     throw new Error(`Failed to fetch HackMD swagger: ${response.status} ${response.statusText}`);
   }
 
-  return response.json();
+  return await response.json() as OpenApiContract;
 }
 
-function getOperation(contract, method, path) {
+function getOperation(contract: OpenApiContract, method: string, path: string): OpenApiOperation | null {
   return contract.paths?.[path]?.[method.toLowerCase()] ?? null;
 }
 
-function hasJsonBody(operation) {
+function hasJsonBody(operation: OpenApiOperation | null): boolean {
   return Boolean(operation?.requestBody?.content?.['application/json']);
 }
 
-function hasMultipartBody(operation) {
+function hasMultipartBody(operation: OpenApiOperation | null): boolean {
   return Boolean(operation?.requestBody?.content?.['multipart/form-data']);
 }
 
-function resolveRef(contract, ref) {
+function resolveRef(contract: OpenApiContract, ref: string): OpenApiSchema | null {
   if (typeof ref !== 'string' || !ref.startsWith('#/')) {
     return null;
   }
 
-  return ref
-    .slice(2)
-    .split('/')
-    .reduce((current, segment) => current?.[segment], contract);
+  let current: unknown = contract;
+  for (const segment of ref.slice(2).split('/')) {
+    if (!isRecord(current)) {
+      return null;
+    }
+
+    current = current[segment];
+  }
+
+  return asSchema(current);
 }
 
-function schemaContainsProperty(contract, schema, propertyName, seenRefs = new Set()) {
+function schemaContainsProperty(
+  contract: OpenApiContract,
+  schema: OpenApiSchema | null,
+  propertyName: string,
+  seenRefs = new Set<string>(),
+): boolean {
   if (!schema || typeof schema !== 'object') {
     return false;
   }
@@ -92,27 +144,28 @@ function schemaContainsProperty(contract, schema, propertyName, seenRefs = new S
     return true;
   }
 
-  return ['anyOf', 'oneOf', 'allOf'].some((key) => (
-    Array.isArray(schema[key]) && schema[key].some((child) => schemaContainsProperty(contract, child, propertyName, seenRefs))
+  return (['anyOf', 'oneOf', 'allOf'] as const).some((key) => (
+    Array.isArray(schema[key])
+    && schema[key].some((child) => schemaContainsProperty(contract, child, propertyName, seenRefs))
   ));
 }
 
-function getJsonSchema(operation) {
+function getJsonSchema(operation: OpenApiOperation | null): OpenApiSchema | null {
   return operation?.requestBody?.content?.['application/json']?.schema ?? null;
 }
 
-function getMultipartSchema(operation) {
+function getMultipartSchema(operation: OpenApiOperation | null): OpenApiSchema | null {
   return operation?.requestBody?.content?.['multipart/form-data']?.schema ?? null;
 }
 
-function assert(condition, message, failures) {
+function assert(condition: unknown, message: string, failures: string[]): void {
   if (!condition) {
     failures.push(message);
   }
 }
 
-export function verifyHackmdOpenApiContract(contract) {
-  const failures = [];
+export function verifyHackmdOpenApiContract(contract: OpenApiContract): void {
+  const failures: string[] = [];
 
   assert(contract?.openapi?.startsWith('3.'), 'Expected an OpenAPI 3.x contract.', failures);
 

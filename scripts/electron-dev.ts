@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import http from 'node:http';
 import { once } from 'node:events';
 
@@ -7,9 +7,13 @@ const isWindows = process.platform === 'win32';
 const npmCommand = isWindows ? 'pnpm.cmd' : 'pnpm';
 const electronCommand = isWindows ? 'electron.cmd' : 'electron';
 
-const children = new Set();
+type RunOptions = {
+  env?: NodeJS.ProcessEnv;
+};
 
-function run(command, args, options = {}) {
+const children = new Set<ChildProcess>();
+
+function run(command: string, args: readonly string[], options: RunOptions = {}): ChildProcess {
   const child = spawn(command, args, {
     stdio: 'inherit',
     env: {
@@ -29,11 +33,11 @@ function stopAll() {
   }
 }
 
-async function waitForUrl(url, timeoutMs = 30_000) {
+async function waitForUrl(url: string, timeoutMs = 30_000): Promise<void> {
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < timeoutMs) {
-    const ok = await new Promise((resolve) => {
+    const ok = await new Promise<boolean>((resolve) => {
       const request = http.get(url, (response) => {
         response.resume();
         resolve(response.statusCode !== undefined && response.statusCode < 500);
@@ -71,7 +75,7 @@ const renderer = run(npmCommand, ['run', 'frontend:dev'], {
     HACKDESK_VITE_PORT: '1421',
   },
 });
-const builder = run(process.execPath, ['scripts/electron-build.js', '--watch']);
+const builder = run(process.execPath, ['scripts/electron-build.ts', '--watch']);
 
 Promise.race([
   once(renderer, 'exit').then(([code]) => {

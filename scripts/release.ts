@@ -1,5 +1,5 @@
 import { readFileSync } from 'fs';
-import { spawnSync } from 'child_process';
+import { spawnSync, type SpawnSyncReturns } from 'child_process';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -22,7 +22,11 @@ const releaseFiles = [
   'src-tauri/Cargo.lock',
 ];
 
-function run(command, commandArgs, { captureOutput = false } = {}) {
+type RunOptions = {
+  captureOutput?: boolean;
+};
+
+function run(command: string, commandArgs: readonly string[], { captureOutput = false }: RunOptions = {}): SpawnSyncReturns<string> {
   const result = spawnSync(command, commandArgs, {
     cwd: rootDir,
     encoding: 'utf-8',
@@ -54,7 +58,7 @@ function readCurrentVersion() {
   return JSON.parse(readFileSync(join(rootDir, 'package.json'), 'utf-8')).version;
 }
 
-function parsePlannedVersion(output) {
+function parsePlannedVersion(output: string): string {
   const match = output.match(
     /bumping version in package\.json from [^\s]+ to ([^\s]+)/i
   );
@@ -68,7 +72,7 @@ function parsePlannedVersion(output) {
   return match[1];
 }
 
-function buildGitCommitArgs(message) {
+function buildGitCommitArgs(message: string): string[] {
   const commitArgs = ['commit'];
 
   if (useNoVerify) {
@@ -84,11 +88,11 @@ function buildGitCommitArgs(message) {
   return commitArgs;
 }
 
-function buildGitTagArgs(tagName) {
+function buildGitTagArgs(tagName: string): string[] {
   return ['tag', shouldSign ? '-s' : '-a', tagName, '-m', tagName];
 }
 
-function logDryRunPlan(version) {
+function logDryRunPlan(version: string): void {
   const tagName = `v${version}`;
   const commitMessage = `chore(release): ${tagName}`;
 
@@ -125,10 +129,10 @@ function main() {
   }
 
   console.log(`ℹ️ Syncing Cargo release files to ${version}...`);
-  run(process.execPath, ['scripts/sync-version.js']);
+  run(process.execPath, ['scripts/sync-version.ts']);
 
   console.log('ℹ️ Verifying synchronized version files...');
-  run(process.execPath, ['scripts/check-version.js']);
+  run(process.execPath, ['scripts/check-version.ts']);
 
   console.log('ℹ️ Staging release artifacts...');
   run(gitCommand, ['add', '--', ...releaseFiles]);

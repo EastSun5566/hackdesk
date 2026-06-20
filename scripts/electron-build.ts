@@ -1,7 +1,7 @@
-import { build, context } from 'esbuild';
+import { build, context, type BuildOptions } from 'esbuild';
 
 const isWatch = process.argv.includes('--watch');
-const common = {
+const common: BuildOptions = {
   bundle: true,
   platform: 'node',
   format: 'cjs',
@@ -10,13 +10,13 @@ const common = {
   logLevel: 'info',
 };
 
-async function buildTargets() {
-  const mainOptions = {
+async function buildTargets(): Promise<void> {
+  const mainOptions: BuildOptions = {
     ...common,
     entryPoints: ['electron/src/main/index.ts'],
     outfile: 'electron/dist/main.cjs',
   };
-  const preloadOptions = {
+  const preloadOptions: BuildOptions = {
     ...common,
     entryPoints: ['electron/src/preload/index.ts'],
     outfile: 'electron/dist/preload.cjs',

@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import { verifyHackmdOpenApiContract } from '../../../scripts/hackmd-openapi-verify.js';
+import { verifyHackmdOpenApiContract } from '../../../scripts/hackmd-openapi-verify.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

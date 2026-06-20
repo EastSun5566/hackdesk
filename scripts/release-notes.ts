@@ -9,11 +9,11 @@ const rootDir = join(__dirname, '..');
 const packageJsonPath = join(rootDir, 'package.json');
 const changelogPath = join(rootDir, 'CHANGELOG.md');
 
-function escapeRegExp(value) {
+function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function getReleaseNotes(version, changelog) {
+function getReleaseNotes(version: string, changelog: string): string {
   const normalizedChangelog = changelog.replace(/\r\n/g, '\n');
   const headingRegex = new RegExp(
     `^#{2,}\\s(?:\\[${escapeRegExp(version)}\\]|${escapeRegExp(version)}).*$`,

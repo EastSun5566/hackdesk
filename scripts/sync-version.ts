@@ -10,7 +10,7 @@ const packageJsonPath = join(rootDir, 'package.json');
 const cargoTomlPath = join(rootDir, 'src-tauri', 'Cargo.toml');
 const cargoLockPath = join(rootDir, 'src-tauri', 'Cargo.lock');
 
-function escapeRegExp(value) {
+function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
