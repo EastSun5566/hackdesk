@@ -62,6 +62,12 @@ jobs:
         if: github.event_name == 'pull_request'
         run: pnpm tauri build --no-bundle --ci
 
+      - name: Smoke package Electron app
+        if: github.event_name == 'pull_request'
+        run: pnpm run package:electron:check
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
       - name: Build the app
         if: github.event_name == 'push'
         uses: tauri-apps/tauri-action@v0

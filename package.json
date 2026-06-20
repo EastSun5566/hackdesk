@@ -20,6 +20,7 @@
     "dev:electron": "node scripts/electron-dev.js",
     "build:electron": "node scripts/electron-build.js && vite build",
     "package:electron": "pnpm run icons:electron && pnpm run build:electron && electron-builder",
+    "package:electron:check": "pnpm run icons:electron && pnpm run build:electron && electron-builder --dir --publish never",
     "check:electron": "pnpm run typecheck && oxlint electron scripts src && pnpm run test:js && pnpm run build:electron",
     "typecheck": "pnpm run typecheck:app && pnpm run typecheck:node && pnpm run typecheck:electron",
     "typecheck:app": "tsgo -p tsconfig.app.json --noEmit",
@@ -56,7 +57,8 @@
     "appId": "me.eastsun.hackdesk",
     "productName": "HackDesk",
     "directories": {
-      "buildResources": "build"
+      "buildResources": "build",
+      "output": "release/electron"
     },
     "files": [
       "electron/dist/**",

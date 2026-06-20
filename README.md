@@ -57,10 +57,13 @@ Useful checks before dogfooding or opening a PR:
 
 ```sh
 pnpm run check:electron
+pnpm run package:electron:check
 pnpm run test
 ```
 
 `check:electron` runs the `tsgo` typecheck, Electron-scoped Oxlint check, Electron unit tests, Electron main/preload build, and renderer build. `check:deps` runs Knip to catch unused JavaScript/TypeScript files, exports, and dependencies. The normal `pnpm run test` command should still pass because the Tauri source is intentionally kept during Electron parity work.
+
+`package:electron:check` runs the Electron icon generation, bundles the Electron app, and asks electron-builder for an unpacked package with `--dir --publish never`. CI uses it as a package smoke test only; it does not upload or publish Electron artifacts.
 
 HackDesk uses `@typescript/native-preview` for `tsgo`, the TypeScript native preview CLI. It is used like `tsc` for typechecking, but it is still a preview toolchain.
 
