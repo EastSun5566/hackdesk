@@ -53,12 +53,18 @@ function schemaItemToMenuItem(
 
 export function createApplicationMenu(sendCommand: SendCommand) {
   const isMac = process.platform === 'darwin';
-  const template: Electron.MenuItemConstructorOptions[] = ELECTRON_MENU_SCHEMA
-    .filter((section) => !section.macOnly || isMac)
-    .map((section) => ({
+  const template: Electron.MenuItemConstructorOptions[] = [];
+
+  for (const section of ELECTRON_MENU_SCHEMA) {
+    if (section.macOnly && !isMac) {
+      continue;
+    }
+
+    template.push({
       label: section.id === 'app' ? app.getName() : section.label,
       submenu: section.items.map((item) => schemaItemToMenuItem(item, isMac, sendCommand)),
-    }));
+    });
+  }
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }

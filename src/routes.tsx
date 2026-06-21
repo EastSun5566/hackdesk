@@ -1,11 +1,9 @@
 import { useLayoutEffect } from 'react';
 import { useLocation, useRoutes, type RouteObject } from 'react-router-dom';
 
-import { 
-  CommandPalette,
-  Home,
-  Settings,
-} from './pages';
+import { CommandPalette } from './pages/CommandPalette';
+import { Home } from './pages/Home';
+import { Settings } from './pages/Settings';
 
 const routes: RouteObject[] = [
   {
@@ -22,7 +20,7 @@ const routes: RouteObject[] = [
   },
 ];
 
-export default () => {
+export default function AppRoutes() {
   const location = useLocation();
   const pathname = location.pathname;
 
@@ -32,4 +30,4 @@ export default () => {
   }, [pathname]);
 
   return useRoutes(routes);
-};
+}

@@ -15,7 +15,7 @@ const noteFeaturesSchema = z.record(z.string(), z.unknown()).optional();
 const folderColorSchema = z.string().regex(/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/);
 const folderIconSchema = z.string().regex(/^[0-9A-Fa-f]{4,6}(?:-[0-9A-Fa-f]{4,6})*$/);
 
-export const createNoteInputSchema = z.object({
+export const createNoteInputSchema = z.strictObject({
   title: optionalStringSchema,
   description: optionalStringSchema,
   tags: optionalStringArraySchema,
@@ -28,9 +28,9 @@ export const createNoteInputSchema = z.object({
   permalink: optionalStringSchema,
   parentFolderId: optionalStringSchema,
   origin: optionalStringSchema,
-}).strict();
+});
 
-export const updateNoteInputSchema = z.object({
+export const updateNoteInputSchema = z.strictObject({
   title: optionalStringSchema,
   content: optionalStringSchema,
   description: optionalStringSchema,
@@ -39,73 +39,73 @@ export const updateNoteInputSchema = z.object({
   writePermission: notePermissionSchema.optional(),
   permalink: optionalStringSchema,
   parentFolderId: z.string().nullable().optional(),
-}).strict();
+});
 
-export const createFolderInputSchema = z.object({
+export const createFolderInputSchema = z.strictObject({
   name: nonEmptyStringSchema,
   description: optionalStringSchema,
   icon: folderIconSchema.optional(),
   color: folderColorSchema.optional(),
   parentFolderId: optionalStringSchema,
-}).strict();
+});
 
-export const updateFolderInputSchema = z.object({
+export const updateFolderInputSchema = z.strictObject({
   name: optionalStringSchema,
   description: nullableStringSchema.optional(),
   icon: folderIconSchema.nullable().optional(),
   color: folderColorSchema.nullable().optional(),
   parentFolderId: nullableStringSchema.optional(),
-}).strict();
+});
 
 export const folderOrderSchema = z.record(z.string(), z.array(z.string()));
 
-export const appFileFilterSchema = z.object({
+export const appFileFilterSchema = z.strictObject({
   name: nonEmptyStringSchema,
   extensions: z.array(nonEmptyStringSchema).min(1),
-}).strict();
+});
 
-export const saveTextFileInputSchema = z.object({
+export const saveTextFileInputSchema = z.strictObject({
   defaultFileName: nonEmptyStringSchema,
   content: z.string(),
   filters: z.array(appFileFilterSchema).optional(),
-}).strict();
+});
 
-export const openTextFileInputSchema = z.object({
+export const openTextFileInputSchema = z.strictObject({
   filters: z.array(appFileFilterSchema).optional(),
-}).strict();
+});
 
-export const confirmDialogOptionsSchema = z.object({
+export const confirmDialogOptionsSchema = z.strictObject({
   title: optionalStringSchema,
   message: nonEmptyStringSchema,
   detail: optionalStringSchema,
   confirmLabel: optionalStringSchema,
   cancelLabel: optionalStringSchema,
   destructive: z.boolean().optional(),
-}).strict();
+});
 
-export const fatalRendererErrorSchema = z.object({
+export const fatalRendererErrorSchema = z.strictObject({
   message: nonEmptyStringSchema,
   stack: optionalStringSchema,
   componentStack: optionalStringSchema,
   url: z.string(),
   userAgent: z.string(),
   platform: z.string(),
-}).strict();
+});
 
-export const uploadNoteImageInputSchema = z.object({
+export const uploadNoteImageInputSchema = z.strictObject({
   fileName: nonEmptyStringSchema,
   mimeType: z.string(),
   bytes: z.instanceof(ArrayBuffer),
-}).strict();
+});
 
-export const openHackmdEditorInputSchema = z.object({
+export const openHackmdEditorInputSchema = z.strictObject({
   publishType: z.enum(['edit', 'view', 'slide', 'book']),
   shortId: z.string(),
   userPath: z.string().nullable(),
   teamPath: z.string().nullable(),
   permalink: z.string().nullable(),
   publishLink: z.string(),
-}).strict();
+});
 
 export function validateIpcInput<T>(channel: string, schema: z.ZodType<T>, input: unknown): T {
   const result = schema.safeParse(input);

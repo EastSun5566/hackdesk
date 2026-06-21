@@ -2,7 +2,7 @@ import type { FolderTreeNote } from './hackmd-folders';
 import { ROOT_FOLDER_DROP_ID } from './hackmd-folder-dnd';
 import { UNFILED_FOLDER_ID, type FolderTree } from './hackmd-folders';
 
-export const NOTE_DRAG_ID_PREFIX = 'note:';
+const NOTE_DRAG_ID_PREFIX = 'note:';
 
 export type NoteDropOperation = {
   note: FolderTreeNote;

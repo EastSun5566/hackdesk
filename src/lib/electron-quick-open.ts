@@ -34,7 +34,7 @@ export type QuickOpenWorkspaceResult =
     teamPath: string;
   };
 
-export const QUICK_OPEN_RESULT_LIMIT = 8;
+const QUICK_OPEN_RESULT_LIMIT = 8;
 
 function normalizeQuery(query: string) {
   return query.trim().toLowerCase();

@@ -350,7 +350,7 @@ export function ToolbarDropdownMoreTrigger({
   );
 }
 
-export function SectionHeader({
+function SectionHeader({
   title,
   subtitle,
   dirty,

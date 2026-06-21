@@ -25,17 +25,16 @@ export function PanelResizeSash({
     return null;
   }
 
+  const resizeLabel = `${label}. Current width ${value}px. Use arrow keys to resize.${
+    defaultValue ? ' Press Enter or Space to reset.' : ''
+  }`;
+
   return (
-    <div
-      role="separator"
-      aria-label={label}
-      aria-orientation="vertical"
-      aria-valuemin={min}
-      aria-valuemax={max}
-      aria-valuenow={value}
-      tabIndex={0}
+    <button
+      type="button"
+      aria-label={resizeLabel}
       title={defaultValue ? `${label}. Double-click to reset.` : label}
-      className="group relative z-20 w-2 shrink-0 cursor-col-resize bg-transparent outline-none"
+      className="relative z-20 h-auto w-2 shrink-0 cursor-col-resize border-0 bg-transparent outline-none before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-border-default/50 before:transition-colors before:content-[''] hover:before:bg-primary-default focus-visible:before:bg-primary-default motion-reduce:before:transition-none"
       onPointerDown={(event) => {
         dragStart.current = { x: event.clientX, value };
         event.currentTarget.setPointerCapture(event.pointerId);
@@ -83,8 +82,6 @@ export function PanelResizeSash({
           onChange(clampPanelWidth(defaultValue, min, max));
         }
       }}
-    >
-      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border-default/50 transition-colors group-hover:bg-primary-default group-focus-visible:bg-primary-default motion-reduce:transition-none" />
-    </div>
+    />
   );
 }

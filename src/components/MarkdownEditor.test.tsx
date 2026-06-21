@@ -161,12 +161,12 @@ vi.mock('@lezer/highlight', () => {
 });
 
 describe('MarkdownEditor', () => {
-  it('writes editor changes back to React state', () => {
+  it('writes editor changes back to React state', async () => {
     const onChange = vi.fn();
 
     render(<MarkdownEditor value="# Hello" onChange={onChange} />);
 
-    const editor = screen.getByLabelText('markdown-editor');
+    const editor = await screen.findByLabelText('markdown-editor');
     expect(editor).toHaveValue('# Hello');
 
     fireEvent.input(editor, { target: { value: '# Updated' } });
@@ -174,10 +174,10 @@ describe('MarkdownEditor', () => {
     expect(onChange).toHaveBeenCalledWith('# Updated');
   });
 
-  it('syncs external value changes into the editor', () => {
+  it('syncs external value changes into the editor', async () => {
     const { rerender } = render(<MarkdownEditor value="# First" onChange={vi.fn()} />);
 
-    const editor = screen.getByLabelText('markdown-editor');
+    const editor = await screen.findByLabelText('markdown-editor');
     expect(editor).toHaveValue('# First');
 
     rerender(<MarkdownEditor value="# Second" onChange={vi.fn()} />);

@@ -25,7 +25,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   closestCenter,
   DndContext,
@@ -420,6 +420,7 @@ function NoteRow({
   active?: boolean;
   compact?: boolean;
 }) {
+  const rowRef = useRef<HTMLDivElement | null>(null);
   const metadata = [
     entry.folderLabel,
     entry.note.tags.slice(0, 2).join(', '),
@@ -444,19 +445,37 @@ function NoteRow({
       : selectedFolder.id !== getNoteCurrentFolderId(entry)),
   );
 
+  useEffect(() => {
+    const row = rowRef.current;
+
+    if (!row) {
+      return undefined;
+    }
+
+    const handleClick = (event: MouseEvent) => {
+      if (event.target instanceof Element && event.target.closest('button')) {
+        return;
+      }
+      onSelect(entry.note);
+    };
+
+    row.addEventListener('click', handleClick);
+
+    return () => {
+      row.removeEventListener('click', handleClick);
+    };
+  }, [entry.note, onSelect]);
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
-          ref={setNodeRef}
+          ref={(node) => {
+            setNodeRef(node);
+            rowRef.current = node;
+          }}
           style={style}
           data-note-id={entry.note.id}
-          onClick={(event) => {
-            if (event.target instanceof Element && event.target.closest('button')) {
-              return;
-            }
-            onSelect(entry.note);
-          }}
           className={clsx('min-w-0', (isDragging || active) && 'opacity-40')}
         >
           <EntityRow
@@ -667,7 +686,6 @@ function FolderButton({
                   onClick={() => onToggle(node.id)}
                   disabled={!hasChildren}
                   className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-0`}
-                  aria-hidden={!hasChildren}
                   aria-label={hasChildren ? (collapsed ? `Expand ${node.name}` : `Collapse ${node.name}`) : undefined}
                   aria-expanded={hasChildren ? !collapsed : undefined}
                 >

@@ -12,6 +12,8 @@ import {
 import type { CreateNoteDialogState } from './types';
 import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS, TEXT_INPUT_CLASS } from './ui';
 
+const CLOSED_CREATE_NOTE_DIALOG_STATE = { open: false, title: '' } as const;
+
 export function CreateNoteDialog({
   state,
   scopeLabel,
@@ -33,7 +35,7 @@ export function CreateNoteDialog({
   return (
     <Dialog
       open={state.open}
-      onOpenChange={(open) => onStateChange(open ? state : { open: false, title: '' })}
+      onOpenChange={(open) => onStateChange(open ? state : CLOSED_CREATE_NOTE_DIALOG_STATE)}
     >
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -52,7 +54,6 @@ export function CreateNoteDialog({
           <label className="block space-y-2 text-sm">
             <span className="font-medium">Title</span>
             <input
-              autoFocus
               value={state.title}
               onChange={(event) => onStateChange({ ...state, title: event.target.value })}
               className={TEXT_INPUT_CLASS}
@@ -62,7 +63,7 @@ export function CreateNoteDialog({
           <DialogFooter>
             <button
               type="button"
-              onClick={() => onStateChange({ open: false, title: '' })}
+              onClick={() => onStateChange(CLOSED_CREATE_NOTE_DIALOG_STATE)}
               className={SECONDARY_BUTTON_CLASS}
             >
               Cancel

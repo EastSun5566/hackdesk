@@ -43,12 +43,12 @@ const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
 ];
 
 const shortcuts = [
-  { action: 'Open Command Palette', keys: ['⌘', 'K'] },
-  { action: 'Open Settings', keys: ['⌘', ','] },
-  { action: 'New Note', keys: ['⌘', 'N'] },
-  { action: 'Reload', keys: ['⌘', 'R'] },
-  { action: 'Close Window', keys: ['⌘', 'W'] },
-  { action: 'Close Settings', keys: ['Esc'] },
+  { id: 'command-palette', action: 'Open Command Palette', keys: ['⌘', 'K'] },
+  { id: 'settings', action: 'Open Settings', keys: ['⌘', ','] },
+  { id: 'new-note', action: 'New Note', keys: ['⌘', 'N'] },
+  { id: 'reload', action: 'Reload', keys: ['⌘', 'R'] },
+  { id: 'close-window', action: 'Close Window', keys: ['⌘', 'W'] },
+  { id: 'close-settings', action: 'Close Settings', keys: ['Esc'] },
 ];
 
 const themeOptions = [
@@ -195,6 +195,7 @@ export function Settings() {
         <nav className="space-y-1">
           {tabs.map((tab) => (
             <button
+              type="button"
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
@@ -250,8 +251,8 @@ export function Settings() {
                 <h3 className="text-lg font-medium">Appearance</h3>
 
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Theme</label>
+                  <fieldset className="space-y-2">
+                    <legend className="text-sm font-medium">Theme</legend>
                     <p className="mb-3 text-sm text-text-subtle">
                       Select your preferred color scheme
                     </p>
@@ -277,7 +278,7 @@ export function Settings() {
                         </button>
                       ))}
                     </div>
-                  </div>
+                  </fieldset>
                 </div>
               </div>
             )}
@@ -356,16 +357,16 @@ export function Settings() {
                 <h3 className="text-lg font-medium">Keyboard Shortcuts</h3>
 
                 <div className="space-y-2">
-                  {shortcuts.map((shortcut, index) => (
+                  {shortcuts.map((shortcut) => (
                     <div
-                      key={index}
+                      key={shortcut.id}
                       className="flex items-center justify-between rounded-md border border-border-default bg-background-default px-4 py-3"
                     >
                       <span className="text-sm">{shortcut.action}</span>
                       <div className="flex items-center gap-1">
                         {shortcut.keys.map((key, keyIndex) => (
                           <kbd
-                            key={keyIndex}
+                            key={`${shortcut.id}:${key}:${keyIndex}`}
                             className="inline-flex h-6 min-w-6 items-center justify-center rounded border border-border-default bg-background-muted px-1.5 text-xs font-medium text-text-subtle"
                           >
                             {key}
@@ -384,7 +385,7 @@ export function Settings() {
 
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Version</label>
+                    <p className="text-sm font-medium">Version</p>
                     <div className="flex flex-wrap items-center gap-3">
                       <p className="text-sm text-text-subtle">
                         HackDesk v{version}

@@ -10,18 +10,19 @@ export const ICON_BUTTON_CLASS = `inline-flex h-8 w-8 items-center justify-cente
 export const SECONDARY_BUTTON_CLASS = `inline-flex h-9 items-center gap-2 rounded-md border border-border-default px-3 text-sm transition-colors active:bg-background-selected ${PRESSED_CLASS} ${FOCUS_RING_CLASS}`;
 export const PRIMARY_BUTTON_CLASS = `inline-flex h-9 items-center gap-2 rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover ${PRESSED_CLASS} ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`;
 export const TEXT_INPUT_CLASS = 'h-10 w-full rounded-md border border-border-default bg-background-muted px-3 text-sm outline-none transition-[border-color,box-shadow] focus:border-primary-default focus-visible:ring-2 focus-visible:ring-primary-default/70';
+const noteDateFormatter = new Intl.DateTimeFormat(undefined, {
+  month: 'short',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+});
 
 export function formatDate(millis: number | null) {
   if (!millis) {
     return 'No date';
   }
 
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(millis));
+  return noteDateFormatter.format(new Date(millis));
 }
 
 export function createQuickNoteContent(title: string) {

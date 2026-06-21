@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import type { HackDeskElectronAPI, NoteSummary } from '@/lib/electron-api';
@@ -24,27 +25,46 @@ export function useElectronHackmdQueries({
   scope: WorkspaceScope;
   selectedNote: NoteSummary | null;
 }) {
-  const settingsQuery = useQuery({
+  const {
+    data: settings,
+    isFetching: settingsIsFetching,
+    isLoading: settingsIsLoading,
+    refetch: refetchSettings,
+  } = useQuery({
     queryKey: ['electron', 'settings'],
     queryFn: () => api?.settings.get(),
     enabled: !!api,
   });
-  const settings = settingsQuery.data;
   const hasToken = isTokenConfigured(settings);
 
-  const userQuery = useQuery({
+  const {
+    data: userData,
+    isFetching: userIsFetching,
+    isLoading: userIsLoading,
+    refetch: refetchUser,
+  } = useQuery({
     queryKey: ['electron', 'hackmd', 'current-user'],
     queryFn: () => api?.hackmd.getCurrentUser(),
     enabled: !!api && hasToken,
   });
 
-  const teamsQuery = useQuery({
+  const {
+    data: teamsData,
+    isFetching: teamsIsFetching,
+    isLoading: teamsIsLoading,
+    refetch: refetchTeams,
+  } = useQuery({
     queryKey: ['electron', 'hackmd', 'teams'],
     queryFn: () => api?.hackmd.listTeams(),
     enabled: !!api && hasToken,
   });
 
-  const notesQuery = useQuery({
+  const {
+    data: notesData,
+    isFetching: notesIsFetching,
+    isLoading: notesIsLoading,
+    refetch: refetchNotes,
+  } = useQuery({
     queryKey: getWorkspaceQueryKey(scope),
     queryFn: () => {
       if (!api) {
@@ -62,7 +82,12 @@ export function useElectronHackmdQueries({
     enabled: !!api && hasToken,
   });
 
-  const foldersQuery = useQuery({
+  const {
+    data: foldersData,
+    isFetching: foldersIsFetching,
+    isLoading: foldersIsLoading,
+    refetch: refetchFolders,
+  } = useQuery({
     queryKey: getFoldersQueryKey(scope),
     queryFn: () => {
       if (!api) {
@@ -78,7 +103,12 @@ export function useElectronHackmdQueries({
     enabled: !!api && hasToken && scope.type !== 'history',
   });
 
-  const folderOrderQuery = useQuery({
+  const {
+    data: folderOrderData,
+    isFetching: folderOrderIsFetching,
+    isLoading: folderOrderIsLoading,
+    refetch: refetchFolderOrder,
+  } = useQuery({
     queryKey: getFolderOrderQueryKey(scope),
     queryFn: () => {
       if (!api) {
@@ -94,7 +124,12 @@ export function useElectronHackmdQueries({
     enabled: !!api && hasToken && scope.type !== 'history',
   });
 
-  const documentQuery = useQuery({
+  const {
+    data: documentData,
+    isFetching: documentIsFetching,
+    isLoading: documentIsLoading,
+    refetch: refetchDocument,
+  } = useQuery({
     queryKey: ['electron', 'hackmd', 'note', selectedNote?.teamPath ?? null, selectedNote?.id],
     queryFn: () => {
       if (!api || !selectedNote) {
@@ -106,23 +141,89 @@ export function useElectronHackmdQueries({
     enabled: !!api && !!selectedNote,
   });
 
+  const queries = useMemo(() => ({
+    settingsQuery: {
+      data: settings,
+      isFetching: settingsIsFetching,
+      isLoading: settingsIsLoading,
+      refetch: refetchSettings,
+    },
+    userQuery: {
+      data: userData,
+      isFetching: userIsFetching,
+      isLoading: userIsLoading,
+      refetch: refetchUser,
+    },
+    teamsQuery: {
+      data: teamsData,
+      isFetching: teamsIsFetching,
+      isLoading: teamsIsLoading,
+      refetch: refetchTeams,
+    },
+    notesQuery: {
+      data: notesData,
+      isFetching: notesIsFetching,
+      isLoading: notesIsLoading,
+      refetch: refetchNotes,
+    },
+    foldersQuery: {
+      data: foldersData,
+      isFetching: foldersIsFetching,
+      isLoading: foldersIsLoading,
+      refetch: refetchFolders,
+    },
+    folderOrderQuery: {
+      data: folderOrderData,
+      isFetching: folderOrderIsFetching,
+      isLoading: folderOrderIsLoading,
+      refetch: refetchFolderOrder,
+    },
+    documentQuery: {
+      data: documentData,
+      isFetching: documentIsFetching,
+      isLoading: documentIsLoading,
+      refetch: refetchDocument,
+    },
+  }), [
+    documentData,
+    documentIsFetching,
+    documentIsLoading,
+    folderOrderData,
+    folderOrderIsFetching,
+    folderOrderIsLoading,
+    foldersData,
+    foldersIsFetching,
+    foldersIsLoading,
+    notesData,
+    notesIsFetching,
+    notesIsLoading,
+    refetchDocument,
+    refetchFolderOrder,
+    refetchFolders,
+    refetchNotes,
+    refetchSettings,
+    refetchTeams,
+    refetchUser,
+    settings,
+    settingsIsFetching,
+    settingsIsLoading,
+    teamsData,
+    teamsIsFetching,
+    teamsIsLoading,
+    userData,
+    userIsFetching,
+    userIsLoading,
+  ]);
+
   return {
     settings,
     hasToken,
-    user: unwrapRepositoryValue(userQuery.data),
-    teams: unwrapRepositoryValue(teamsQuery.data) ?? EMPTY_TEAMS,
-    currentNotes: unwrapRepositoryValue(notesQuery.data) ?? EMPTY_NOTES,
-    currentFolders: unwrapRepositoryValue(foldersQuery.data) ?? EMPTY_FOLDERS,
-    currentFolderOrder: unwrapRepositoryValue(folderOrderQuery.data) ?? EMPTY_FOLDER_ORDER,
-    document: unwrapRepositoryValue(documentQuery.data),
-    queries: {
-      settingsQuery,
-      userQuery,
-      teamsQuery,
-      notesQuery,
-      foldersQuery,
-      folderOrderQuery,
-      documentQuery,
-    },
+    user: unwrapRepositoryValue(userData),
+    teams: unwrapRepositoryValue(teamsData) ?? EMPTY_TEAMS,
+    currentNotes: unwrapRepositoryValue(notesData) ?? EMPTY_NOTES,
+    currentFolders: unwrapRepositoryValue(foldersData) ?? EMPTY_FOLDERS,
+    currentFolderOrder: unwrapRepositoryValue(folderOrderData) ?? EMPTY_FOLDER_ORDER,
+    document: unwrapRepositoryValue(documentData),
+    queries,
   };
 }

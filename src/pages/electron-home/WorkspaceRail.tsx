@@ -1,4 +1,5 @@
 import { Folder, History, Lock, Settings2 } from 'lucide-react';
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import type { TeamSummary } from '@/lib/electron-api';
@@ -23,11 +24,13 @@ function WorkspaceRailButton({
   trailing?: ReactNode;
   onClick: () => void;
 }) {
-  const trailingContent = trailing && !collapsed ? (
-    <span className={active ? '' : 'opacity-0 transition-opacity duration-150 group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none'}>
-      {trailing}
-    </span>
-  ) : null;
+  const trailingContent = useMemo(() => (
+    trailing && !collapsed ? (
+      <span className={active ? '' : 'opacity-0 transition-opacity duration-150 group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none'}>
+        {trailing}
+      </span>
+    ) : null
+  ), [active, collapsed, trailing]);
   const row = (
     <EntityRow
       selected={active}

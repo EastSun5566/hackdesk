@@ -145,7 +145,7 @@ export function Home() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedNote, setSelectedNote] = useState<NoteSummary | null>(null);
   const [recentNotes, setRecentNotes] = useState<ElectronRecentNote[]>(() => readRecentNotes(window.localStorage));
-  const [pendingRecentNote, setPendingRecentNote] = useState<ElectronRecentNote | null>(null);
+  const pendingRecentNoteRef = useRef<ElectronRecentNote | null>(null);
   const [finderState, setFinderState] = useState<NoteFinderState>(() => (
     readNoteFinderState(window.localStorage, getScopeStorageKey(initialWorkspaceScope))
   ));
@@ -630,7 +630,7 @@ export function Home() {
       refreshWorkspace();
       break;
     case 'go-history':
-      setPendingRecentNote(null);
+      pendingRecentNoteRef.current = null;
       setWorkspaceScope({ type: 'history', label: 'History' });
       focusZone('navigator');
       break;
@@ -840,6 +840,7 @@ export function Home() {
   }, [getAutoSelectSuppressionKey, requestSelectNote, selectedNote, visibleEntries]);
 
   useEffect(() => {
+    const pendingRecentNote = pendingRecentNoteRef.current;
     if (!pendingRecentNote) {
       return;
     }
@@ -851,7 +852,7 @@ export function Home() {
     }
 
     const loadedEntry = folderTree.allNotes.find((candidate) => recentNoteMatches(candidate.note, pendingRecentNote));
-    setPendingRecentNote(null);
+    pendingRecentNoteRef.current = null;
     if (loadedEntry) {
       void revealNoteEntry(loadedEntry);
       return;
@@ -861,7 +862,6 @@ export function Home() {
     toast.info(`“${pendingRecentNote.title || 'Untitled'}” is no longer available in this workspace.`);
   }, [
     folderTree.allNotes,
-    pendingRecentNote,
     queries.notesQuery.isFetching,
     queries.notesQuery.isLoading,
     removeRecentNoteEntry,
@@ -1235,7 +1235,7 @@ export function Home() {
     ));
 
     if (loadedEntry) {
-      setPendingRecentNote(null);
+      pendingRecentNoteRef.current = null;
       void revealNoteEntry(loadedEntry);
       return;
     }
@@ -1250,7 +1250,7 @@ export function Home() {
 
     if (entry.teamPath) {
       const team = teams.find((candidate) => candidate.path === entry.teamPath);
-      setPendingRecentNote(entry);
+      pendingRecentNoteRef.current = entry;
       setWorkspaceScope({
         type: 'team',
         label: team?.name ?? entry.teamPath,
@@ -1261,14 +1261,14 @@ export function Home() {
       return;
     }
 
-    setPendingRecentNote(entry);
+    pendingRecentNoteRef.current = entry;
     setWorkspaceScope({ type: 'personal', label: 'My Workspace' });
     toast.info(`Loading My Workspace before opening “${entry.title || 'Untitled'}”.`);
     focusZone('navigator');
   };
 
   const handleQuickOpenWorkspace = (workspace: QuickOpenWorkspaceResult) => {
-    setPendingRecentNote(null);
+    pendingRecentNoteRef.current = null;
     if (workspace.type === 'personal') {
       setWorkspaceScope({ type: 'personal', label: workspace.label });
     } else if (workspace.type === 'history') {
@@ -1314,7 +1314,7 @@ export function Home() {
           collapsed={railCollapsed}
           width={railWidth}
           onScopeChange={(nextScope) => {
-            setPendingRecentNote(null);
+            pendingRecentNoteRef.current = null;
             setWorkspaceScope(nextScope);
           }}
           onOpenSettings={() => setSettingsOpen(true)}

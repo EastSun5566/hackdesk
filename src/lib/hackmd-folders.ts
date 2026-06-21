@@ -73,7 +73,7 @@ function compareFolderTreeNotes(left: FolderTreeNote, right: FolderTreeNote) {
 }
 
 function getFolderLabel(folderPath: FolderPathSummary[]) {
-  return folderPath.map((folder) => folder.name).filter(Boolean).join(' / ');
+  return folderPath.flatMap((folder) => (folder.name ? [folder.name] : [])).join(' / ');
 }
 
 function assignFolderPaths(node: FolderTreeNode, ancestors: FolderPathSummary[] = [], folderOrder?: FolderOrder) {

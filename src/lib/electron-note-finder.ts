@@ -45,7 +45,7 @@ export function getNoteFinderStorageKey(scopeKey: string) {
   return `${NOTE_FINDER_STORAGE_PREFIX}${scopeKey}`;
 }
 
-export function normalizeNoteFinderState(value: unknown): NoteFinderState {
+function normalizeNoteFinderState(value: unknown): NoteFinderState {
   if (!value || typeof value !== 'object') {
     return DEFAULT_NOTE_FINDER_STATE;
   }
@@ -190,9 +190,12 @@ function getFinderBaseEntries(tree: FolderTree, state: NoteFinderState, selected
 }
 
 export function applyNoteFinder(tree: FolderTree, state: NoteFinderState, selectedFolderId: string | null) {
-  const entries = getFinderBaseEntries(tree, state, selectedFolderId)
-    .filter((entry) => noteMatchesFinderQuery(entry, state.query))
-    .filter((entry) => noteMatchesFilters(entry, state));
+  const entries: FolderTreeNote[] = [];
+  for (const entry of getFinderBaseEntries(tree, state, selectedFolderId)) {
+    if (noteMatchesFinderQuery(entry, state.query) && noteMatchesFilters(entry, state)) {
+      entries.push(entry);
+    }
+  }
 
   const seen = new Set<string>();
   return sortNoteFinderEntries(entries, state.sortMode).filter((entry) => {

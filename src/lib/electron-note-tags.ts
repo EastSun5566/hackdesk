@@ -18,20 +18,24 @@ export function buildNoteTagIndex(entries: FolderTreeNote[]): ElectronNoteTag[] 
   const tagsByName = new Map<string, ElectronNoteTag>();
 
   for (const entry of entries) {
-    const noteTags = new Set(entry.note.tags.map(normalizeTag).filter(Boolean));
+    const updatedAtMillis = entry.note.updatedAtMillis;
+    const noteTags = new Set(entry.note.tags.flatMap((tag) => {
+      const normalized = normalizeTag(tag);
+      return normalized ? [normalized] : [];
+    }));
 
     for (const tag of noteTags) {
       const existing = tagsByName.get(tag);
       if (existing) {
         existing.count += 1;
-        if ((entry.note.updatedAtMillis ?? 0) > (existing.latestUpdatedAtMillis ?? 0)) {
-          existing.latestUpdatedAtMillis = entry.note.updatedAtMillis;
+        if ((updatedAtMillis ?? 0) > (existing.latestUpdatedAtMillis ?? 0)) {
+          existing.latestUpdatedAtMillis = updatedAtMillis;
         }
       } else {
         tagsByName.set(tag, {
           tag,
           count: 1,
-          latestUpdatedAtMillis: entry.note.updatedAtMillis,
+          latestUpdatedAtMillis: updatedAtMillis,
         });
       }
     }

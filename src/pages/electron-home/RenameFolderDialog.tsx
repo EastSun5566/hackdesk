@@ -15,6 +15,16 @@ import { FolderAppearanceFields } from './FolderAppearanceFields';
 import type { RenameFolderDialogState } from './types';
 import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS, TEXT_INPUT_CLASS } from './ui';
 
+const CLOSED_RENAME_FOLDER_DIALOG_STATE = { open: false, folderId: null, name: '', description: '', icon: '', color: '' } as const;
+
+function releasePointerLockAfterClose() {
+  window.setTimeout(() => {
+    if (!document.querySelector('[role="dialog"]')) {
+      document.body.style.pointerEvents = '';
+    }
+  }, 0);
+}
+
 export function RenameFolderDialog({
   state,
   isRenaming,
@@ -27,18 +37,9 @@ export function RenameFolderDialog({
   onRename: (folderId: string, input: UpdateFolderInput) => void;
 }) {
   const canSubmit = Boolean(state.folderId && state.name.trim()) && !isRenaming;
-  const closedState = { open: false, folderId: null, name: '', description: '', icon: '', color: '' };
-
-  const releasePointerLockAfterClose = () => {
-    window.setTimeout(() => {
-      if (!document.querySelector('[role="dialog"]')) {
-        document.body.style.pointerEvents = '';
-      }
-    }, 0);
-  };
 
   const handleOpenChange = (open: boolean) => {
-    onStateChange(open ? state : closedState);
+    onStateChange(open ? state : CLOSED_RENAME_FOLDER_DIALOG_STATE);
     if (!open) {
       releasePointerLockAfterClose();
     }
@@ -71,7 +72,6 @@ export function RenameFolderDialog({
             <span className="font-medium text-text-default">Name</span>
             <input
               name="name"
-              autoFocus
               value={state.name}
               onChange={(event) => onStateChange({ ...state, name: event.target.value })}
               className={TEXT_INPUT_CLASS}
@@ -96,7 +96,7 @@ export function RenameFolderDialog({
           <DialogFooter>
             <button
               type="button"
-              onClick={() => onStateChange(closedState)}
+              onClick={() => onStateChange(CLOSED_RENAME_FOLDER_DIALOG_STATE)}
               className={SECONDARY_BUTTON_CLASS}
             >
               Cancel

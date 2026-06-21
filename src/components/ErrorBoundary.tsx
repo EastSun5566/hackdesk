@@ -48,12 +48,14 @@ export class ErrorBoundary extends Component<Props, State> {
             </p>
             <div className="flex justify-center gap-2">
               <button
+                type="button"
                 onClick={this.handleReset}
                 className="rounded-md bg-primary-default px-4 py-2 text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default"
               >
                 Try Again
               </button>
               <button
+                type="button"
                 onClick={() => window.location.reload()}
                 className="rounded-md border border-border-default bg-background-default px-4 py-2 text-text-default transition-colors hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default"
               >

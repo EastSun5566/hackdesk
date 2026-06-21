@@ -68,7 +68,7 @@ export function useElectronNoteMutations({
 }) {
   const queryClient = useQueryClient();
 
-  const invalidateCurrentNotes = useCallback(() => {
+  const invalidateCurrentNoteQueries = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope) });
     if (selectedNote) {
       void queryClient.invalidateQueries({
@@ -88,7 +88,7 @@ export function useElectronNoteMutations({
     );
   }, [queryClient, scope]);
 
-  const invalidateCurrentFolders = useCallback(() => {
+  const invalidateCurrentFolderQueries = useCallback(() => {
     if (scope.type !== 'history') {
       void queryClient.invalidateQueries({ queryKey: getFoldersQueryKey(scope) });
       void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
@@ -246,7 +246,10 @@ export function useElectronNoteMutations({
         : api.hackmd.createFolder(payload);
     },
     onSuccess: (createdFolder) => {
-      invalidateCurrentFolders();
+      if (scope.type !== 'history') {
+        void queryClient.invalidateQueries({ queryKey: getFoldersQueryKey(scope) });
+        void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
+      }
       onFolderCreated(createdFolder);
       toast.success('Folder created.');
     },
@@ -271,7 +274,12 @@ export function useElectronNoteMutations({
     },
     onSuccess: (updatedNote, variables) => {
       onNoteCreated(updatedNote);
-      invalidateCurrentNotes();
+      void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope) });
+      if (selectedNote) {
+        void queryClient.invalidateQueries({
+          queryKey: ['electron', 'hackmd', 'note', selectedNote.teamPath ?? null, selectedNote.id],
+        });
+      }
       toast.success(variables.successMessage ?? 'Note saved.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to save note.'),
@@ -284,6 +292,11 @@ export function useElectronNoteMutations({
       }
 
       return api.hackmd.uploadNoteImage(note.id, input);
+    },
+    onSuccess: (_uploadedImage, { note }) => {
+      void queryClient.invalidateQueries({
+        queryKey: ['electron', 'hackmd', 'note', note.teamPath ?? null, note.id],
+      });
     },
   });
 
@@ -303,7 +316,12 @@ export function useElectronNoteMutations({
     },
     onSuccess: (note) => {
       onNoteDeleted(note);
-      invalidateCurrentNotes();
+      void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope) });
+      if (selectedNote) {
+        void queryClient.invalidateQueries({
+          queryKey: ['electron', 'hackmd', 'note', selectedNote.teamPath ?? null, selectedNote.id],
+        });
+      }
       toast.success('Note deleted.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to delete note.'),
@@ -327,7 +345,12 @@ export function useElectronNoteMutations({
       return { note: movedNote, targetFolderId };
     },
     onSuccess: ({ note, targetFolderId }) => {
-      invalidateCurrentNotes();
+      void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope) });
+      if (selectedNote) {
+        void queryClient.invalidateQueries({
+          queryKey: ['electron', 'hackmd', 'note', selectedNote.teamPath ?? null, selectedNote.id],
+        });
+      }
       onNoteMoved(note, targetFolderId);
       toast.success('Note moved.');
     },
@@ -348,7 +371,10 @@ export function useElectronNoteMutations({
       });
     },
     onSuccess: (updatedFolder) => {
-      invalidateCurrentFolders();
+      if (scope.type !== 'history') {
+        void queryClient.invalidateQueries({ queryKey: getFoldersQueryKey(scope) });
+        void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
+      }
       onFolderRenamed(updatedFolder);
       toast.success('Folder renamed.');
     },
@@ -374,7 +400,10 @@ export function useElectronNoteMutations({
       return { folderId, parentFolderId };
     },
     onSuccess: ({ folderId, parentFolderId }) => {
-      invalidateCurrentFolders();
+      if (scope.type !== 'history') {
+        void queryClient.invalidateQueries({ queryKey: getFoldersQueryKey(scope) });
+        void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
+      }
       onFolderDeleted(folderId, parentFolderId);
       toast.success('Folder deleted.');
     },
@@ -397,15 +426,18 @@ export function useElectronNoteMutations({
       return operation;
     },
     onSuccess: () => {
-      invalidateCurrentFolders();
+      if (scope.type !== 'history') {
+        void queryClient.invalidateQueries({ queryKey: getFoldersQueryKey(scope) });
+        void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
+      }
       toast.success('Folder moved.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to move folder.'),
   });
 
   return {
-    invalidateCurrentNotes,
-    invalidateCurrentFolders,
+    invalidateCurrentNotes: invalidateCurrentNoteQueries,
+    invalidateCurrentFolders: invalidateCurrentFolderQueries,
     updateSettingsMutation,
     createNoteMutation,
     duplicateNoteMutation,

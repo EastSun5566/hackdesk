@@ -3,7 +3,7 @@ import type { FolderTree, FolderTreeNode } from './hackmd-folders';
 import { ROOT_FOLDER_ORDER_KEY } from './hackmd-folders';
 
 export const ROOT_FOLDER_DROP_ID = '__hackdesk_root_folder_drop__';
-export const FOLDER_DND_INDENT_WIDTH = 20;
+const FOLDER_DND_INDENT_WIDTH = 20;
 
 export type FlattenedFolderItem = {
   id: string;
@@ -129,7 +129,7 @@ export function getProjectedFolderDrop({
   };
 }
 
-export function buildFolderOrderFromTree(tree: FolderTree): FolderOrder {
+function buildFolderOrderFromTree(tree: FolderTree): FolderOrder {
   const order: FolderOrder = {
     [ROOT_FOLDER_ORDER_KEY]: tree.roots.map((node) => node.id),
   };
@@ -193,9 +193,17 @@ export function buildFolderDropOperation({
     return null;
   }
 
-  const descendants = new Set(flattenFolderTree(tree, new Set(), true)
-    .filter((item) => item.ancestorIds.includes(activeId))
-    .map((item) => item.id));
+  const descendants = new Set<string>();
+  const descendantStack = [...activeNode.children];
+  while (descendantStack.length > 0) {
+    const descendant = descendantStack.pop();
+    if (!descendant) {
+      continue;
+    }
+
+    descendants.add(descendant.id);
+    descendantStack.push(...descendant.children);
+  }
   if (projection.parentId && descendants.has(projection.parentId)) {
     return null;
   }

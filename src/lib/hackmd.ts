@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { useCallback, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { AppSettings } from './settings';
@@ -64,6 +65,11 @@ export type HackmdTeam = {
   upgraded: boolean;
 };
 
+type ImperativeQueryCallbacks<TData, TVariables> = {
+  onSuccess?: (data: TData, variables: TVariables) => void;
+  onError?: (error: Error, variables: TVariables) => void;
+};
+
 export function normalizeHackmdToken(token?: string | null) {
   return token?.trim() ?? '';
 }
@@ -124,13 +130,71 @@ export function createQuickNotePayload(title: string): HackmdCreateNoteInput {
 }
 
 export function useValidateHackmdToken() {
-  return useMutation({
-    mutationFn: async (accessToken: string) => {
-      return invokeHackmdCommand<HackmdUserProfile>('validate_hackmd_token', {
-        token: normalizeHackmdToken(accessToken),
-      });
-    },
+  const queryClient = useQueryClient();
+  const [state, setState] = useState<{
+    data?: HackmdUserProfile;
+    error: Error | null;
+    isPending: boolean;
+    isSuccess: boolean;
+  }>({
+    data: undefined,
+    error: null,
+    isPending: false,
+    isSuccess: false,
   });
+
+  const mutate = useCallback((
+    accessToken: string,
+    callbacks?: ImperativeQueryCallbacks<HackmdUserProfile, string>,
+  ) => {
+    const normalizedAccessToken = normalizeHackmdToken(accessToken);
+    setState({
+      data: undefined,
+      error: null,
+      isPending: true,
+      isSuccess: false,
+    });
+
+    void queryClient.fetchQuery({
+      queryKey: [...HACKMD_PROFILE_QUERY_KEY, normalizedAccessToken],
+      queryFn: async () => invokeHackmdCommand<HackmdUserProfile>('validate_hackmd_token', {
+        token: normalizedAccessToken,
+      }),
+      staleTime: 1000 * 60 * 5,
+    }).then((user) => {
+      setState({
+        data: user,
+        error: null,
+        isPending: false,
+        isSuccess: true,
+      });
+      callbacks?.onSuccess?.(user, accessToken);
+    }).catch((error: unknown) => {
+      const nextError = error instanceof Error ? error : new Error(getHackmdErrorMessage(error));
+      setState({
+        data: undefined,
+        error: nextError,
+        isPending: false,
+        isSuccess: false,
+      });
+      callbacks?.onError?.(nextError, accessToken);
+    });
+  }, [queryClient]);
+
+  const reset = useCallback(() => {
+    setState({
+      data: undefined,
+      error: null,
+      isPending: false,
+      isSuccess: false,
+    });
+  }, []);
+
+  return {
+    ...state,
+    mutate,
+    reset,
+  };
 }
 
 export function useHackmdProfile(accessToken: string, enabled: boolean) {

@@ -1,4 +1,4 @@
-import { useMemo, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { renderHackmdMarkdown } from '@/lib/electron-markdown-renderer';
 
@@ -11,19 +11,34 @@ export function MarkdownReader({
 }) {
   const rendered = useMemo(() => renderHackmdMarkdown(value), [value]);
   const empty = rendered.content.trim().length === 0;
+  const readerRef = useRef<HTMLElement | null>(null);
 
-  const handleClick = (event: MouseEvent<HTMLElement>) => {
-    const link = event.target instanceof Element
-      ? event.target.closest<HTMLAnchorElement>('a[href]')
-      : null;
+  useEffect(() => {
+    const reader = readerRef.current;
 
-    if (!link) {
-      return;
+    if (!reader || empty) {
+      return undefined;
     }
 
-    event.preventDefault();
-    onOpenExternal(link.href);
-  };
+    const handleClick = (event: MouseEvent) => {
+      const link = event.target instanceof Element
+        ? event.target.closest<HTMLAnchorElement>('a[href]')
+        : null;
+
+      if (!link || !reader.contains(link)) {
+        return;
+      }
+
+      event.preventDefault();
+      onOpenExternal(link.href);
+    };
+
+    reader.addEventListener('click', handleClick);
+
+    return () => {
+      reader.removeEventListener('click', handleClick);
+    };
+  }, [empty, onOpenExternal]);
 
   if (empty) {
     return (
@@ -38,10 +53,10 @@ export function MarkdownReader({
 
   return (
     <article
+      ref={readerRef}
       data-testid="markdown-reader"
       className="markdown-reader min-h-0 flex-1 overflow-auto px-6 py-4"
-      onClick={handleClick}
-      dangerouslySetInnerHTML={{ __html: rendered.html }}
+      dangerouslySetInnerHTML={{ __html: rendered.sanitizedHtml }}
     />
   );
 }

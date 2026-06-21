@@ -23,7 +23,7 @@ export function debounce<Params extends unknown[]>(
   };
 }
 
-export async function getSettingsPath() {
+async function getSettingsPath() {
   const home = await homeDir();
   return join(home, ROOT, SETTINGS_NAME);
 }

@@ -171,8 +171,10 @@ function parseHighlightedRanges(langAttrs = ''): HighlightRange[] {
 
   return match[1]
     .split(',')
-    .map((segment) => segment.trim())
-    .filter(Boolean)
+    .flatMap((segment) => {
+      const trimmed = segment.trim();
+      return trimmed ? [trimmed] : [];
+    })
     .map<HighlightRange | null>((segment) => {
       if (!segment.includes('-')) {
         const lineNumber = Number.parseInt(segment, 10);
@@ -784,6 +786,7 @@ const md = createMarkdownIt();
 
 export type RenderedHackmdMarkdown = {
   html: string;
+  sanitizedHtml: string;
   data: Record<string, unknown>;
   content: string;
 };
@@ -792,13 +795,14 @@ export function renderHackmdMarkdown(source = ''): RenderedHackmdMarkdown {
   const { content, data } = parseFrontmatter(source);
   const safeContent = stripUnsafeMarkdownUrls(content);
   const rawHtml = md.render(safeContent);
-  const html = DOMPurify.sanitize(rawHtml, {
+  const sanitizedHtml = DOMPurify.sanitize(rawHtml, {
     ADD_ATTR: ['data-label', 'data-icon', 'data-line-number'],
     ALLOW_DATA_ATTR: false,
   });
 
   return {
-    html,
+    html: sanitizedHtml,
+    sanitizedHtml,
     data,
     content: safeContent,
   };

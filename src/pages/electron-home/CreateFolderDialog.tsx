@@ -14,6 +14,8 @@ import { FolderAppearanceFields } from './FolderAppearanceFields';
 import type { CreateFolderDialogState } from './types';
 import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS, TEXT_INPUT_CLASS } from './ui';
 
+const CLOSED_CREATE_FOLDER_DIALOG_STATE = { open: false, name: '', description: '', icon: '', color: '' } as const;
+
 export function CreateFolderDialog({
   state,
   scopeLabel,
@@ -34,12 +36,11 @@ export function CreateFolderDialog({
   const normalizedIcon = state.icon.trim();
   const normalizedColor = state.color.trim();
   const location = parentFolderLabel ? `${scopeLabel} / ${parentFolderLabel}` : scopeLabel;
-  const closedState = { open: false, name: '', description: '', icon: '', color: '' };
 
   return (
     <Dialog
       open={state.open}
-      onOpenChange={(open) => onStateChange(open ? state : closedState)}
+      onOpenChange={(open) => onStateChange(open ? state : CLOSED_CREATE_FOLDER_DIALOG_STATE)}
     >
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -64,7 +65,6 @@ export function CreateFolderDialog({
             <span className="font-medium">Name</span>
             <input
               name="name"
-              autoFocus
               value={state.name}
               onChange={(event) => onStateChange({ ...state, name: event.target.value })}
               className={TEXT_INPUT_CLASS}
@@ -91,7 +91,7 @@ export function CreateFolderDialog({
           <DialogFooter>
             <button
               type="button"
-              onClick={() => onStateChange(closedState)}
+              onClick={() => onStateChange(CLOSED_CREATE_FOLDER_DIALOG_STATE)}
               className={SECONDARY_BUTTON_CLASS}
             >
               Cancel

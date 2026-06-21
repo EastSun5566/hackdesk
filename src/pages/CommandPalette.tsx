@@ -308,8 +308,8 @@ export function CommandPalette() {
   const [search, setSearch] = useState('');
   const { theme, setTheme } = useTheme();
   const { data: settingsData } = useSettings();
-  const [recentValues, setRecentValues] = useState<string[]>([]);
-  const [recentNoteEntries, setRecentNoteEntries] = useState<RecentNoteEntry[]>([]);
+  const [recentValues, setRecentValues] = useState<string[]>(() => getRecentCommands());
+  const [recentNoteEntries, setRecentNoteEntries] = useState<RecentNoteEntry[]>(() => getRecentNotes());
   const [selectedNote, setSelectedNote] = useState<HackmdNote | null>(null);
   const [selectedTeamPath, setSelectedTeamPath] = useState<string | null>(null);
   const [selectedNavigationTeamPath, setSelectedNavigationTeamPath] = useState<string | null>(null);
@@ -352,11 +352,6 @@ export function CommandPalette() {
     [selectedNavigationTeamPath, teams],
   );
   const selectedTeamLabel = selectedTeam?.name ?? selectedTeamPath ?? null;
-
-  useEffect(() => {
-    setRecentValues(getRecentCommands());
-    setRecentNoteEntries(getRecentNotes());
-  }, []);
 
   const fuse = useMemo(
     () =>
