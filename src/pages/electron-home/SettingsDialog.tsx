@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { CheckCircle2, Loader2, Save } from 'lucide-react';
 
 import {
@@ -14,7 +14,20 @@ import { SettingsInput, SettingsRow, SettingsSecretInput, SettingsSection } from
 import type { SettingsFormInput } from './types';
 import { FOCUS_RING_CLASS } from './ui';
 
-export function SettingsDialog({
+type SettingsDialogProps = {
+  open: boolean;
+  settings?: ElectronSafeSettings;
+  isSaving: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (input: SettingsFormInput) => void;
+  onValidateToken: (token: string) => Promise<UserSummary>;
+};
+
+export function SettingsDialog(props: SettingsDialogProps) {
+  return <SettingsDialogContent key={props.settings?.title ?? 'HackDesk'} {...props} />;
+}
+
+function SettingsDialogContent({
   open,
   settings,
   isSaving,
@@ -36,10 +49,6 @@ export function SettingsDialog({
     status: 'idle',
     message: '',
   });
-
-  useEffect(() => {
-    setTitle(settings?.title ?? 'HackDesk');
-  }, [settings?.title]);
 
   const normalizedToken = token.trim();
 

@@ -312,5 +312,3 @@ export const MarkdownEditorCore = forwardRef<MarkdownEditorHandle, MarkdownEdito
 
   return <div ref={parentRef} className="markdown-editor min-h-0 flex-1 overflow-hidden" />;
 });
-
-export default MarkdownEditorCore;

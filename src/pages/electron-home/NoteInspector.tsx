@@ -1,5 +1,5 @@
 import { Copy, ImagePlus, Loader2, Save, X } from 'lucide-react';
-import { type FormEvent, useEffect, useId, useMemo, useState } from 'react';
+import { type FormEvent, useId, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import type {
@@ -60,16 +60,7 @@ function escapeAltText(value: string) {
   return value.replace(/\.[^.]+$/, '').replace(/[[\]]/g, '').trim() || 'image';
 }
 
-export function NoteInspector({
-  document,
-  folderTree,
-  isSaving,
-  isUploading,
-  onSaveMetadata,
-  onUploadImage,
-  onCopyLink,
-  onInsertMarkdown,
-}: {
+type NoteInspectorProps = {
   document: DocumentSummary;
   folderTree: FolderTree;
   isSaving: boolean;
@@ -78,7 +69,22 @@ export function NoteInspector({
   onUploadImage: (document: DocumentSummary, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
   onCopyLink: (document: DocumentSummary) => void;
   onInsertMarkdown: (markdown: string) => void;
-}) {
+};
+
+export function NoteInspector(props: NoteInspectorProps) {
+  return <NoteInspectorPanel key={props.document.id} {...props} />;
+}
+
+function NoteInspectorPanel({
+  document,
+  folderTree,
+  isSaving,
+  isUploading,
+  onSaveMetadata,
+  onUploadImage,
+  onCopyLink,
+  onInsertMarkdown,
+}: NoteInspectorProps) {
   const descriptionId = useId();
   const tagsId = useId();
   const permalinkId = useId();
@@ -88,33 +94,14 @@ export function NoteInspector({
   const imageId = useId();
   const folderOptions = useMemo(() => getFolderOptions(folderTree), [folderTree]);
   const currentFolderId = getDocumentFolderId(document);
-  const [description, setDescription] = useState(document.description);
-  const [tags, setTags] = useState(document.tags);
+  const [description, setDescription] = useState(() => document.description);
+  const [tags, setTags] = useState(() => [...document.tags]);
   const [tagDraft, setTagDraft] = useState('');
-  const [permalink, setPermalink] = useState(document.permalink ?? '');
-  const [parentFolderId, setParentFolderId] = useState(currentFolderId);
-  const [readPermission, setReadPermission] = useState<NotePermissionRole>(document.readPermission);
-  const [writePermission, setWritePermission] = useState<NotePermissionRole>(document.writePermission);
+  const [permalink, setPermalink] = useState(() => document.permalink ?? '');
+  const [parentFolderId, setParentFolderId] = useState(() => currentFolderId);
+  const [readPermission, setReadPermission] = useState<NotePermissionRole>(() => document.readPermission);
+  const [writePermission, setWritePermission] = useState<NotePermissionRole>(() => document.writePermission);
   const [imageFile, setImageFile] = useState<File | null>(null);
-
-  useEffect(() => {
-    setDescription(document.description);
-    setTags(document.tags);
-    setTagDraft('');
-    setPermalink(document.permalink ?? '');
-    setParentFolderId(currentFolderId);
-    setReadPermission(document.readPermission);
-    setWritePermission(document.writePermission);
-    setImageFile(null);
-  }, [
-    document.id,
-    document.description,
-    document.tags,
-    document.permalink,
-    document.readPermission,
-    document.writePermission,
-    currentFolderId,
-  ]);
 
   const descriptionDirty = description !== document.description;
   const tagsDirty = !tagsEqual(tags, document.tags);

@@ -50,7 +50,7 @@ import { CreateFolderDialog } from './electron-home/CreateFolderDialog';
 import { CreateNoteDialog } from './electron-home/CreateNoteDialog';
 import { DeleteNoteDialog } from './electron-home/DeleteNoteDialog';
 import { DeleteFolderDialog } from './electron-home/DeleteFolderDialog';
-import { DocumentDetail, type DocumentDetailCommand, type DocumentSyncState } from './electron-home/DocumentDetail';
+import { DocumentDetail, type DocumentSyncState } from './electron-home/DocumentDetail';
 import { FolderNavigator } from './electron-home/FolderNavigator';
 import { PanelResizeSash } from './electron-home/PanelResizeSash';
 import { SettingsDialog } from './electron-home/SettingsDialog';
@@ -70,6 +70,7 @@ import type {
 } from './electron-home/types';
 import {
   FOLDER_COLLAPSED_PREFIX,
+  INSPECTOR_COLLAPSED_KEY,
   LAST_WORKSPACE_SCOPE_KEY,
   NAVIGATOR_COLLAPSED_KEY,
   NAVIGATOR_WIDTH_DEFAULT,
@@ -104,6 +105,11 @@ import { useElectronNoteMutations } from './electron-home/useElectronNoteMutatio
 
 const WORKSPACE_RAIL_PANEL_ID = 'workspace-rail-panel';
 const NOTE_NAVIGATOR_PANEL_ID = 'note-navigator-panel';
+type DocumentDraft = {
+  documentId: string;
+  title: string;
+  content: string;
+};
 const DEFAULT_WORKSPACE_SCOPE: WorkspaceScope = { type: 'personal', label: 'My Workspace' };
 
 function noteIdentityMatches(left: Pick<NoteSummary, 'id' | 'teamPath'> | undefined, right: Pick<NoteSummary, 'id' | 'teamPath'> | null) {
@@ -149,7 +155,7 @@ export function Home() {
   const [finderState, setFinderState] = useState<NoteFinderState>(() => (
     readNoteFinderState(window.localStorage, getScopeStorageKey(initialWorkspaceScope))
   ));
-  const deferredFinderQuery = useDeferredValue(finderState.query);
+  const initialScopeStorageKey = getScopeStorageKey(initialWorkspaceScope);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [palette, setPalette] = useState<CommandPaletteState>({ open: false, search: '' });
   const [createDialog, setCreateDialog] = useState<CreateNoteDialogState>({ open: false, title: '' });
@@ -158,10 +164,9 @@ export function Home() {
   const [deleteTarget, setDeleteTarget] = useState<DocumentSummary | null>(null);
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<FolderTreeNode | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
-  const [noteDirty, setNoteDirty] = useState(false);
-  const [inspectorCollapsed, setInspectorCollapsed] = useState(true);
+  const [documentDraft, setDocumentDraft] = useState<DocumentDraft | null>(null);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(() => readBooleanStorage(INSPECTOR_COLLAPSED_KEY, true));
   const [readerMode, setReaderModeState] = useState<ReaderMode>(() => readReaderModeStorage(READER_MODE_KEY, 'edit'));
-  const [documentCommand, setDocumentCommand] = useState<DocumentDetailCommand | null>(null);
   const [railCollapsed, setRailCollapsed] = useState(() => readBooleanStorage(RAIL_COLLAPSED_KEY, false));
   const [navigatorCollapsed, setNavigatorCollapsed] = useState(() => readBooleanStorage(NAVIGATOR_COLLAPSED_KEY, false));
   const [railWidth, setRailWidth] = useState(() => (
@@ -173,14 +178,26 @@ export function Home() {
   const skipNextFinderWriteRef = useRef(false);
   const autoSelectSuppressionRef = useRef<string | null>(null);
   const [collapsedFolderIds, setCollapsedFolderIds] = useState(() => (
-    readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}personal`)
+    readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${initialScopeStorageKey}`)
   ));
   const { focusZone } = useElectronFocusZones();
   const scopeStorageKey = useMemo(() => getScopeStorageKey(scope), [scope]);
+  const activeFinderState = useMemo<NoteFinderState>(() => (
+    !selectedFolderId && finderState.searchScope === 'current-folder'
+      ? { ...finderState, searchScope: 'workspace' }
+      : finderState
+  ), [finderState, selectedFolderId]);
+  const deferredFinderQuery = useDeferredValue(activeFinderState.query);
 
   const setWorkspaceScope = useCallback((nextScope: WorkspaceScope) => {
+    const nextScopeStorageKey = getScopeStorageKey(nextScope);
     setScopeState(nextScope);
     writeWorkspaceScopeStorage(LAST_WORKSPACE_SCOPE_KEY, nextScope);
+    setCollapsedFolderIds(readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${nextScopeStorageKey}`));
+    setSelectedFolderId(null);
+    setSelectedNote(null);
+    skipNextFinderWriteRef.current = true;
+    setFinderState(readNoteFinderState(window.localStorage, nextScopeStorageKey));
   }, []);
 
   const {
@@ -195,14 +212,25 @@ export function Home() {
     queries,
   } = useElectronHackmdQueries({ api, scope, selectedNote });
 
+  const displayScope = useMemo<WorkspaceScope>(() => {
+    if (scope.type !== 'team') {
+      return scope;
+    }
+
+    const team = teams.find((candidate) => candidate.path === scope.teamPath);
+    return team && team.name !== scope.label
+      ? { type: 'team', label: team.name, teamPath: team.path }
+      : scope;
+  }, [scope, teams]);
+
   const folderTree = useMemo(
     () => buildHackmdFolderTree(currentNotes, currentFolders, currentFolderOrder),
     [currentFolderOrder, currentFolders, currentNotes],
   );
   const deferredFinderState = useMemo<NoteFinderState>(() => ({
-    ...finderState,
+    ...activeFinderState,
     query: deferredFinderQuery,
-  }), [deferredFinderQuery, finderState]);
+  }), [activeFinderState, deferredFinderQuery]);
   const finderActive = isNoteFinderActive(deferredFinderState);
   const visibleEntries = useMemo(() => {
     const entries = finderActive
@@ -227,6 +255,15 @@ export function Home() {
   const selectedParentFolderId = selectedFolderId && selectedFolderId !== UNFILED_FOLDER_ID ? selectedFolderId : undefined;
   const canCreate = hasToken && scope.type !== 'history';
   const canModifySelectedFolder = Boolean(selectedFolder?.id && selectedFolder.id !== UNFILED_FOLDER_ID);
+  const selectedDocument = noteIdentityMatches(document, selectedNote) ? document : undefined;
+  const selectedDocumentDraft = selectedDocument && documentDraft?.documentId === selectedDocument.id ? documentDraft : null;
+  const documentTitle = selectedDocumentDraft?.title ?? selectedDocument?.title ?? '';
+  const documentContent = selectedDocumentDraft?.content ?? selectedDocument?.content ?? '';
+  const noteDirty = Boolean(
+    selectedDocument
+    && selectedDocumentDraft
+    && (documentTitle !== selectedDocument.title || documentContent !== selectedDocument.content),
+  );
 
   const toggleRailCollapsed = useCallback(() => {
     setRailCollapsed((current) => {
@@ -240,6 +277,14 @@ export function Home() {
     setNavigatorCollapsed((current) => {
       const next = !current;
       writeBooleanStorage(NAVIGATOR_COLLAPSED_KEY, next);
+      return next;
+    });
+  }, []);
+
+  const toggleInspectorCollapsed = useCallback(() => {
+    setInspectorCollapsed((current) => {
+      const next = !current;
+      writeBooleanStorage(INSPECTOR_COLLAPSED_KEY, next);
       return next;
     });
   }, []);
@@ -259,13 +304,6 @@ export function Home() {
       folderIds.forEach((folderId) => next.delete(folderId));
       return next;
     });
-  }, []);
-
-  const dispatchDocumentCommand = useCallback((id: DocumentDetailCommand['id']) => {
-    setDocumentCommand((current) => ({
-      id,
-      sequence: (current?.sequence ?? 0) + 1,
-    }));
   }, []);
 
   const setReaderMode = useCallback((mode: ReaderMode) => {
@@ -539,8 +577,8 @@ export function Home() {
       return;
     }
 
-    if (noteIdentityMatches(note, selectedNote)) {
-      dispatchDocumentCommand('export-note-markdown');
+    if (noteIdentityMatches(note, selectedNote) && selectedDocument) {
+      handleExportMarkdown(selectedDocument, documentTitle, documentContent);
       return;
     }
 
@@ -560,7 +598,7 @@ export function Home() {
       .catch((error) => {
         toast.error(error instanceof Error ? error.message : 'Failed to export note.');
       });
-  }, [api, dispatchDocumentCommand, selectedNote]);
+  }, [api, documentContent, documentTitle, handleExportMarkdown, selectedDocument, selectedNote]);
 
   const handleImportMarkdownNote = useCallback(() => {
     if (!api) {
@@ -641,22 +679,55 @@ export function Home() {
       toggleNavigatorCollapsed();
       break;
     case 'toggle-inspector':
-      dispatchDocumentCommand('toggle-inspector');
+      toggleInspectorCollapsed();
       break;
     case 'toggle-reader-mode':
-      dispatchDocumentCommand('toggle-reader-mode');
+      setReaderMode(readerMode === 'read' ? 'edit' : 'read');
       break;
     case 'save-note':
-      dispatchDocumentCommand('save-note');
+      if (selectedDocument && noteDirty && !mutations.updateNoteMutation.isPending) {
+        mutations.updateNoteMutation.mutate({
+          note: selectedDocument,
+          input: { title: documentTitle, content: documentContent },
+        });
+      }
       break;
     case 'export-note-markdown':
-      dispatchDocumentCommand('export-note-markdown');
+      if (selectedDocument) {
+        handleExportMarkdown(selectedDocument, documentTitle, documentContent);
+      }
       break;
     case 'open-note-web-editor':
-      dispatchDocumentCommand('open-note-web-editor');
+      if (api && selectedDocument) {
+        trackRecentNote(selectedDocument);
+        void Promise.resolve(api.shell.openHackmdEditor(selectedDocument)).catch((error) => {
+          toast.error(error instanceof Error ? error.message : 'Failed to open HackMD editor.');
+        });
+      }
       break;
     case 'delete-note':
-      dispatchDocumentCommand('delete-note');
+      if (selectedDocument) {
+        const deleteNote = createDeleteNoteTarget(selectedDocument);
+        if (!api?.app.confirm) {
+          setDeleteTarget(deleteNote);
+          break;
+        }
+
+        api.app.confirm({
+          title: 'Delete Note',
+          message: `Delete “${deleteNote.title || 'Untitled'}”?`,
+          detail: 'This removes the note from HackMD. This action cannot be undone from HackDesk.',
+          confirmLabel: 'Delete',
+          cancelLabel: 'Cancel',
+          destructive: true,
+        }).then(({ confirmed }) => {
+          if (confirmed) {
+            mutations.deleteNoteMutation.mutate(deleteNote);
+          }
+        }).catch((error) => {
+          toast.error(error instanceof Error ? error.message : 'Failed to confirm note deletion.');
+        });
+      }
       break;
     case 'export-debug-logs':
       void api?.app.exportDebugLogs()
@@ -681,19 +752,29 @@ export function Home() {
   }, [
     actionContext,
     api,
-    dispatchDocumentCommand,
+    documentContent,
+    documentTitle,
     focusZone,
     handleCreateFolder,
     handleCreateNote,
     handleDeleteFolderRequest,
+    handleExportMarkdown,
     handleImportMarkdownNote,
     handleRenameFolder,
+    mutations.deleteNoteMutation,
+    mutations.updateNoteMutation,
+    noteDirty,
     openPalette,
     refreshWorkspace,
+    readerMode,
+    selectedDocument,
     selectedFolder,
+    setReaderMode,
     setWorkspaceScope,
+    toggleInspectorCollapsed,
     toggleNavigatorCollapsed,
     toggleRailCollapsed,
+    trackRecentNote,
   ]);
 
   const handleDeleteRequest = useCallback((note: NoteSummary) => {
@@ -774,28 +855,6 @@ export function Home() {
   }, [expandNavigator, requestSelectNote, revealFolderIds]);
 
   useEffect(() => {
-    if (scope.type !== 'team') {
-      return;
-    }
-
-    const team = teams.find((candidate) => candidate.path === scope.teamPath);
-    if (!team || team.name === scope.label) {
-      return;
-    }
-
-    setWorkspaceScope({ type: 'team', label: team.name, teamPath: team.path });
-  }, [scope, setWorkspaceScope, teams]);
-
-  useEffect(() => {
-    const storageKey = `${FOLDER_COLLAPSED_PREFIX}${scopeStorageKey}`;
-    setCollapsedFolderIds(readStringArrayStorage(storageKey));
-    setSelectedFolderId(null);
-    setSelectedNote(null);
-    skipNextFinderWriteRef.current = true;
-    setFinderState(readNoteFinderState(window.localStorage, scopeStorageKey));
-  }, [scopeStorageKey]);
-
-  useEffect(() => {
     writeStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${scopeStorageKey}`, collapsedFolderIds);
   }, [collapsedFolderIds, scopeStorageKey]);
 
@@ -805,14 +864,8 @@ export function Home() {
       return;
     }
 
-    writeNoteFinderState(window.localStorage, scopeStorageKey, finderState);
-  }, [finderState, scopeStorageKey]);
-
-  useEffect(() => {
-    if (!selectedFolderId && finderState.searchScope === 'current-folder') {
-      setFinderState((current) => ({ ...current, searchScope: 'workspace' }));
-    }
-  }, [finderState.searchScope, selectedFolderId]);
+    writeNoteFinderState(window.localStorage, scopeStorageKey, activeFinderState);
+  }, [activeFinderState, scopeStorageKey]);
 
   useEffect(() => {
     if (selectedNote && visibleEntries.some((entry) => noteIdentityMatches(entry.note, selectedNote))) {
@@ -869,7 +922,6 @@ export function Home() {
     scope,
   ]);
 
-  const selectedDocument = noteIdentityMatches(document, selectedNote) ? document : undefined;
   const documentIsStale = Boolean(document && selectedNote && !noteIdentityMatches(document, selectedNote));
   const documentIsLoading = Boolean(selectedNote) && (
     queries.documentQuery.isLoading
@@ -892,6 +944,30 @@ export function Home() {
               : selectedDocument
                 ? 'saved'
                 : 'idle';
+
+  const handleDocumentTitleChange = useCallback((nextTitle: string) => {
+    if (!selectedDocument) {
+      return;
+    }
+
+    setDocumentDraft((current) => ({
+      documentId: selectedDocument.id,
+      title: nextTitle,
+      content: current?.documentId === selectedDocument.id ? current.content : selectedDocument.content,
+    }));
+  }, [selectedDocument]);
+
+  const handleDocumentContentChange = useCallback((nextContent: string) => {
+    if (!selectedDocument) {
+      return;
+    }
+
+    setDocumentDraft((current) => ({
+      documentId: selectedDocument.id,
+      title: current?.documentId === selectedDocument.id ? current.title : selectedDocument.title,
+      content: nextContent,
+    }));
+  }, [selectedDocument]);
 
   const closeTransientLayer = useCallback(() => {
     if (palette.open) {
@@ -1010,156 +1086,121 @@ export function Home() {
     });
   }, [api, settleCloseRequest]);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const isPrimaryModifier = event.metaKey || event.ctrlKey;
-      if (isPrimaryModifier && event.key.toLowerCase() === 'k') {
+  const handleGlobalKeyDown = useCallback((event: KeyboardEvent) => {
+    const isPrimaryModifier = event.metaKey || event.ctrlKey;
+    if (isPrimaryModifier && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      openPalette();
+      return;
+    }
+
+    if (isPrimaryModifier && event.key.toLowerCase() === 'n') {
+      event.preventDefault();
+      handleCreateNote();
+      return;
+    }
+
+    if (isPrimaryModifier && event.shiftKey && event.key.toLowerCase() === 'r') {
+      event.preventDefault();
+      refreshWorkspace();
+      return;
+    }
+
+    if (isPrimaryModifier && event.key.toLowerCase() === 's') {
+      if (noteDirty) {
         event.preventDefault();
-        openPalette();
-        return;
+        runAction('save-note');
       }
+      return;
+    }
 
-      if (isPrimaryModifier && event.key.toLowerCase() === 'n') {
-        event.preventDefault();
-        handleCreateNote();
-        return;
-      }
+    if (event.altKey && event.key === '1') {
+      event.preventDefault();
+      runAction('focus-workspace');
+      return;
+    }
 
-      if (isPrimaryModifier && event.shiftKey && event.key.toLowerCase() === 'r') {
-        event.preventDefault();
-        refreshWorkspace();
-        return;
-      }
+    if (event.altKey && event.key === '2') {
+      event.preventDefault();
+      runAction('focus-navigator');
+      return;
+    }
 
-      if (isPrimaryModifier && event.key.toLowerCase() === 's') {
-        if (noteDirty) {
-          event.preventDefault();
-          runAction('save-note');
-        }
-        return;
-      }
+    if (event.altKey && event.key === '3') {
+      event.preventDefault();
+      runAction('focus-editor');
+      return;
+    }
 
-      if (event.altKey && event.key === '1') {
-        event.preventDefault();
-        runAction('focus-workspace');
-        return;
-      }
+    if (event.altKey && event.key === '4') {
+      event.preventDefault();
+      runAction('focus-inspector');
+      return;
+    }
 
-      if (event.altKey && event.key === '2') {
-        event.preventDefault();
-        runAction('focus-navigator');
-        return;
-      }
+    if (event.altKey && event.key.toLowerCase() === 'b') {
+      event.preventDefault();
+      runAction('toggle-navigator');
+      return;
+    }
 
-      if (event.altKey && event.key === '3') {
-        event.preventDefault();
-        runAction('focus-editor');
-        return;
-      }
+    if (event.altKey && event.key.toLowerCase() === 'i') {
+      event.preventDefault();
+      runAction('toggle-inspector');
+      return;
+    }
 
-      if (event.altKey && event.key === '4') {
-        event.preventDefault();
-        runAction('focus-inspector');
-        return;
-      }
+    if (event.key !== 'Escape') {
+      return;
+    }
 
-      if (event.altKey && event.key.toLowerCase() === 'b') {
-        event.preventDefault();
-        runAction('toggle-navigator');
-        return;
-      }
+    if (closeTransientLayer()) {
+      return;
+    }
 
-      if (event.altKey && event.key.toLowerCase() === 'i') {
-        event.preventDefault();
-        runAction('toggle-inspector');
-        return;
-      }
+    const targetZone = event.target instanceof Element
+      ? event.target.closest<HTMLElement>('[data-hackdesk-focus]')?.dataset.hackdeskFocus
+      : null;
+    if (targetZone === 'editor' || targetZone === 'inspector') {
+      return;
+    }
 
-      if (event.key !== 'Escape') {
-        return;
-      }
+    if (activeFinderState.query) {
+      setFinderState((current) => clearNoteFinderQuery(current));
+      return;
+    }
 
-      if (palette.open) {
-        setPalette({ open: false, search: '' });
-        return;
-      }
+    if (hasActiveNoteFinderFilters(activeFinderState)) {
+      setFinderState((current) => clearNoteFinderFilters(current));
+      return;
+    }
 
-      if (createDialog.open) {
-        setCreateDialog({ open: false, title: '' });
-        return;
-      }
-
-      if (createFolderDialog.open) {
-        setCreateFolderDialog(createClosedFolderDialogState());
-        return;
-      }
-
-      if (deleteTarget) {
-        setDeleteTarget(null);
-        return;
-      }
-
-      if (deleteFolderTarget) {
-        setDeleteFolderTarget(null);
-        return;
-      }
-
-      if (shareOpen) {
-        setShareOpen(false);
-        return;
-      }
-
-      if (renameFolderDialog.open) {
-        setRenameFolderDialog(createClosedRenameFolderDialogState());
-        return;
-      }
-
-      if (settingsOpen) {
-        setSettingsOpen(false);
-        return;
-      }
-
-      const targetZone = event.target instanceof Element
-        ? event.target.closest<HTMLElement>('[data-hackdesk-focus]')?.dataset.hackdeskFocus
-        : null;
-      if (targetZone === 'editor' || targetZone === 'inspector') {
-        return;
-      }
-
-      if (finderState.query) {
-        setFinderState((current) => clearNoteFinderQuery(current));
-        return;
-      }
-
-      if (hasActiveNoteFinderFilters(finderState)) {
-        setFinderState((current) => clearNoteFinderFilters(current));
-        return;
-      }
-
-      if (selectedFolderId) {
-        setSelectedFolderId(null);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    if (selectedFolderId) {
+      setSelectedFolderId(null);
+    }
   }, [
-    createDialog.open,
-    createFolderDialog.open,
-    deleteTarget,
-    deleteFolderTarget,
+    closeTransientLayer,
     handleCreateNote,
     noteDirty,
     openPalette,
-    palette.open,
-    renameFolderDialog.open,
     refreshWorkspace,
     runAction,
-    finderState,
+    activeFinderState,
     selectedFolderId,
-    settingsOpen,
-    shareOpen,
   ]);
+
+  const globalKeyDownHandlerRef = useRef(handleGlobalKeyDown);
+
+  useEffect(() => {
+    globalKeyDownHandlerRef.current = handleGlobalKeyDown;
+  });
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => globalKeyDownHandlerRef.current(event);
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   if (!api) {
     return (
@@ -1308,7 +1349,7 @@ export function Home() {
       <main className="flex min-h-0 min-w-0 flex-1">
         <WorkspaceRail
           id={WORKSPACE_RAIL_PANEL_ID}
-          scope={scope}
+          scope={displayScope}
           user={user}
           teams={teams}
           collapsed={railCollapsed}
@@ -1334,12 +1375,12 @@ export function Home() {
 
         <FolderNavigator
           id={NOTE_NAVIGATOR_PANEL_ID}
-          scope={scope}
+          scope={displayScope}
           tree={folderTree}
           entries={visibleEntries}
           selectedFolderId={selectedFolderId}
           selectedNoteId={selectedNote?.id ?? null}
-          finderState={finderState}
+          finderState={activeFinderState}
           isLoading={queries.notesQuery.isLoading || queries.foldersQuery.isLoading || queries.folderOrderQuery.isLoading}
           hasToken={hasToken}
           collapsed={navigatorCollapsed}
@@ -1405,11 +1446,13 @@ export function Home() {
           selectedNote={selectedNote}
           document={selectedDocument}
           folderTree={folderTree}
+          title={documentTitle}
+          content={documentContent}
           isLoading={documentIsLoading}
           syncState={documentSyncState}
-          command={documentCommand}
           readerMode={readerMode}
           shareOpen={shareOpen}
+          isInspectorCollapsed={inspectorCollapsed}
           onOpenEditor={handleOpenEditor}
           onOpenExternal={handleOpenExternal}
           onCopyLink={handleCopyNoteLink}
@@ -1424,8 +1467,9 @@ export function Home() {
           })}
           onUploadImage={(note, input) => mutations.uploadNoteImageMutation.mutateAsync({ note, input })}
           onDelete={handleDeleteRequest}
-          onDirtyStateChange={setNoteDirty}
-          onInspectorCollapsedChange={setInspectorCollapsed}
+          onTitleChange={handleDocumentTitleChange}
+          onContentChange={handleDocumentContentChange}
+          onToggleInspector={toggleInspectorCollapsed}
           onReaderModeChange={setReaderMode}
           onShareOpenChange={setShareOpen}
           isSaving={mutations.updateNoteMutation.isPending}
@@ -1456,7 +1500,7 @@ export function Home() {
         folderTree={folderTree}
         recentNotes={recentNotes}
         teams={teams}
-        scope={scope}
+        scope={displayScope}
         selectedNoteId={selectedNote?.id ?? null}
         selectedFolderId={selectedFolderId}
         onStateChange={setPalette}
@@ -1470,7 +1514,7 @@ export function Home() {
 
       <CreateNoteDialog
         state={createDialog}
-        scopeLabel={scope.label}
+        scopeLabel={displayScope.label}
         folderLabel={selectedFolderLabel}
         isCreating={mutations.createNoteMutation.isPending}
         onStateChange={setCreateDialog}
@@ -1479,7 +1523,7 @@ export function Home() {
 
       <CreateFolderDialog
         state={createFolderDialog}
-        scopeLabel={scope.label}
+        scopeLabel={displayScope.label}
         parentFolderLabel={selectedFolderLabel}
         isCreating={mutations.createFolderMutation.isPending}
         onStateChange={setCreateFolderDialog}

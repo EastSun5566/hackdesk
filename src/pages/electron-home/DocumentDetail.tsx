@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, CloudOff, Copy, Download, Edit3, Loader2, PanelRightClose, PanelRightOpen, Save, Share2, Trash2 } from 'lucide-react';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/MarkdownEditor';
@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type {
   DocumentSummary,
-  ElectronActionId,
   NoteSummary,
   UpdateNoteInput,
   UploadNoteImageInput,
@@ -27,19 +26,11 @@ import {
   getFolderPathLabel,
 } from './ui';
 import {
-  INSPECTOR_COLLAPSED_KEY,
   INSPECTOR_WIDTH_DEFAULT,
   type ReaderMode,
-  readBooleanStorage,
-  writeBooleanStorage,
 } from './ui-preferences';
 
 const NOTE_INSPECTOR_PANEL_ID = 'note-inspector-panel';
-
-export type DocumentDetailCommand = {
-  id: Extract<ElectronActionId, 'toggle-inspector' | 'toggle-reader-mode' | 'focus-inspector' | 'save-note' | 'export-note-markdown' | 'open-note-web-editor' | 'delete-note'>;
-  sequence: number;
-};
 
 export type DocumentSyncState = 'idle' | 'loading' | 'cached' | 'saving' | 'saved' | 'save_failed' | 'conflict';
 
@@ -90,11 +81,13 @@ export function DocumentDetail({
   selectedNote,
   document,
   folderTree,
+  title,
+  content,
   isLoading,
-  command,
   syncState = 'idle',
   readerMode,
   shareOpen,
+  isInspectorCollapsed,
   onOpenEditor,
   onOpenExternal,
   onCopyLink,
@@ -105,8 +98,9 @@ export function DocumentDetail({
   onSaveSharing,
   onUploadImage,
   onDelete,
-  onDirtyStateChange,
-  onInspectorCollapsedChange,
+  onTitleChange,
+  onContentChange,
+  onToggleInspector,
   onReaderModeChange,
   onShareOpenChange,
   isSaving,
@@ -117,11 +111,13 @@ export function DocumentDetail({
   selectedNote?: NoteSummary | null;
   document?: DocumentSummary;
   folderTree: FolderTree;
+  title: string;
+  content: string;
   isLoading: boolean;
-  command?: DocumentDetailCommand | null;
   syncState?: DocumentSyncState;
   readerMode: ReaderMode;
   shareOpen: boolean;
+  isInspectorCollapsed: boolean;
   onOpenEditor: (document: DocumentSummary) => void;
   onOpenExternal: (url: string) => void;
   onCopyLink: (document: DocumentSummary) => void;
@@ -132,8 +128,9 @@ export function DocumentDetail({
   onSaveSharing: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onUploadImage: (document: DocumentSummary, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
   onDelete: (document: DocumentSummary) => void;
-  onDirtyStateChange?: (dirty: boolean) => void;
-  onInspectorCollapsedChange?: (collapsed: boolean) => void;
+  onTitleChange: (title: string) => void;
+  onContentChange: (content: string) => void;
+  onToggleInspector: () => void;
   onReaderModeChange: (mode: ReaderMode) => void;
   onShareOpenChange: (open: boolean) => void;
   isSaving: boolean;
@@ -142,75 +139,13 @@ export function DocumentDetail({
   isDeleting: boolean;
 }) {
   const editorRef = useRef<MarkdownEditorHandle | null>(null);
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
   const [actionsOpen, setActionsOpen] = useState(false);
-  const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(() => (
-    readBooleanStorage(INSPECTOR_COLLAPSED_KEY, true)
-  ));
-
-  useEffect(() => {
-    setTitle(document?.title ?? '');
-    setContent(document?.content ?? '');
-  }, [document?.id, document?.title, document?.content]);
 
   const noteDirty = Boolean(document && (title !== document.title || content !== document.content));
   const openShareDialogFromMenu = () => {
     setActionsOpen(false);
     window.setTimeout(() => onShareOpenChange(true), 0);
   };
-
-  useEffect(() => {
-    onDirtyStateChange?.(noteDirty);
-  }, [noteDirty, onDirtyStateChange]);
-
-  useEffect(() => {
-    onInspectorCollapsedChange?.(isInspectorCollapsed);
-  }, [isInspectorCollapsed, onInspectorCollapsedChange]);
-
-  const toggleInspector = () => {
-    setIsInspectorCollapsed((current) => {
-      const next = !current;
-      writeBooleanStorage(INSPECTOR_COLLAPSED_KEY, next);
-      return next;
-    });
-  };
-
-  useEffect(() => {
-    if (!document || !command) {
-      return;
-    }
-
-    switch (command.id) {
-    case 'toggle-inspector':
-      toggleInspector();
-      break;
-    case 'toggle-reader-mode':
-      onReaderModeChange(readerMode === 'read' ? 'edit' : 'read');
-      break;
-    case 'focus-inspector':
-      window.requestAnimationFrame(() => {
-        window.document.querySelector<HTMLElement>('[data-hackdesk-focus="inspector"]')?.focus();
-      });
-      break;
-    case 'save-note':
-      if (noteDirty && !isSaving) {
-        onSave(document, { title, content });
-      }
-      break;
-    case 'export-note-markdown':
-      onExportMarkdown(document, title, content);
-      break;
-    case 'open-note-web-editor':
-      onOpenEditor(document);
-      break;
-    case 'delete-note':
-      onDelete(document);
-      break;
-    }
-  // command.sequence intentionally gates repeated command dispatches with the same action id.
-  // oxlint-disable-next-line react/exhaustive-deps
-  }, [command?.sequence]);
 
   if (isLoading) {
     return (
@@ -258,7 +193,7 @@ export function DocumentDetail({
               <input
                 name="title"
                 value={title}
-                onChange={(event) => setTitle(event.target.value)}
+                onChange={(event) => onTitleChange(event.target.value)}
                 className="w-full truncate bg-transparent text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
               />
             </label>
@@ -304,7 +239,7 @@ export function DocumentDetail({
               {isSaving ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Save aria-hidden="true" className="h-4 w-4" />}
             </ToolbarIconButton>
             <ToolbarIconButton
-              onClick={toggleInspector}
+              onClick={onToggleInspector}
               aria-controls={NOTE_INSPECTOR_PANEL_ID}
               aria-expanded={!isInspectorCollapsed}
               label={isInspectorCollapsed ? 'Expand inspector' : 'Collapse inspector'}
@@ -353,7 +288,7 @@ export function DocumentDetail({
         {readerMode === 'read' ? (
           <MarkdownReader value={content} onOpenExternal={onOpenExternal} />
         ) : (
-          <MarkdownEditor ref={editorRef} value={content} onChange={setContent} />
+          <MarkdownEditor ref={editorRef} value={content} onChange={onContentChange} />
         )}
         <div
           id={NOTE_INSPECTOR_PANEL_ID}
@@ -378,7 +313,7 @@ export function DocumentDetail({
                   return;
                 }
 
-                setContent((current) => `${current}${markdown}`);
+                onContentChange(`${content}${markdown}`);
               }}
             />
           )}

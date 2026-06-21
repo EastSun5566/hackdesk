@@ -1,5 +1,5 @@
 import { Copy, Edit3, Loader2, Save, Share2 } from 'lucide-react';
-import { type FormEvent, useEffect, useId, useState } from 'react';
+import { type FormEvent, useId, useState } from 'react';
 
 import {
   Dialog,
@@ -47,16 +47,7 @@ function getWritePermissionLabel(permission: NotePermissionRole) {
   }
 }
 
-export function ShareDialog({
-  open,
-  document,
-  isSaving,
-  onOpenChange,
-  onCopyLink,
-  onCopyMarkdownLink,
-  onOpenEditor,
-  onSaveSharing,
-}: {
+type ShareDialogProps = {
   open: boolean;
   document: DocumentSummary;
   isSaving: boolean;
@@ -65,16 +56,26 @@ export function ShareDialog({
   onCopyMarkdownLink: (document: DocumentSummary) => void;
   onOpenEditor: (document: DocumentSummary) => void;
   onSaveSharing: (document: DocumentSummary, input: UpdateNoteInput) => void;
-}) {
+};
+
+export function ShareDialog(props: ShareDialogProps) {
+  return <ShareDialogContent key={props.document.id} {...props} />;
+}
+
+function ShareDialogContent({
+  open,
+  document,
+  isSaving,
+  onOpenChange,
+  onCopyLink,
+  onCopyMarkdownLink,
+  onOpenEditor,
+  onSaveSharing,
+}: ShareDialogProps) {
   const readPermissionId = useId();
   const writePermissionId = useId();
-  const [readPermission, setReadPermission] = useState<NotePermissionRole>(document.readPermission);
-  const [writePermission, setWritePermission] = useState<NotePermissionRole>(document.writePermission);
-
-  useEffect(() => {
-    setReadPermission(document.readPermission);
-    setWritePermission(document.writePermission);
-  }, [document.id, document.readPermission, document.writePermission]);
+  const [readPermission, setReadPermission] = useState<NotePermissionRole>(() => document.readPermission);
+  const [writePermission, setWritePermission] = useState<NotePermissionRole>(() => document.writePermission);
 
   const permissionsDirty =
     readPermission !== document.readPermission
