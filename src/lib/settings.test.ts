@@ -13,6 +13,21 @@ describe('settings helpers', () => {
     expect(parseSettings('{"title":"Workspace"}')).toEqual({
       title: 'Workspace',
       hackmdApiToken: '',
+      appearance: defaultSettings.appearance,
+    });
+  });
+
+  it('parses appearance settings when present', () => {
+    expect(parseSettings('{"title":"Workspace","appearance":{"theme":"dark","presetId":"forest","customSeed":{"primary":"#123ABC"}}}')).toEqual({
+      title: 'Workspace',
+      hackmdApiToken: '',
+      appearance: {
+        theme: 'dark',
+        presetId: 'forest',
+        customSeed: {
+          primary: '#123ABC',
+        },
+      },
     });
   });
 
@@ -34,7 +49,12 @@ describe('settings helpers', () => {
   it('serializes validated settings with stable formatting', () => {
     expect(serializeSettings({ title: 'Workspace', hackmdApiToken: 'token-123' })).toBe(`{
   "title": "Workspace",
-  "hackmdApiToken": "token-123"
+  "hackmdApiToken": "token-123",
+  "appearance": {
+    "theme": "system",
+    "presetId": "hackmd",
+    "customSeed": {}
+  }
 }`);
   });
 });

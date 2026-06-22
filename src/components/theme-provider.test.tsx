@@ -1,16 +1,32 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { defaultSettings } from '@/lib/settings';
 import { ThemeProvider, useTheme } from './theme-provider';
 
 // Helper component to test useTheme hook
 function ThemeConsumer() {
-  const { theme, setTheme } = useTheme();
+  const {
+    theme,
+    presetId,
+    customSeed,
+    previewTheme,
+    cancelPreview,
+    setCustomSeed,
+    setPresetId,
+    setTheme,
+  } = useTheme();
   return (
     <div>
       <span data-testid="current-theme">{theme}</span>
+      <span data-testid="current-preset">{presetId}</span>
+      <span data-testid="current-primary">{customSeed.primary ?? ''}</span>
       <button onClick={() => setTheme('dark')}>Set Dark</button>
       <button onClick={() => setTheme('light')}>Set Light</button>
       <button onClick={() => setTheme('system')}>Set System</button>
+      <button onClick={() => setPresetId('forest')}>Set Forest</button>
+      <button onClick={() => setCustomSeed({ primary: '#123ABC' })}>Set Primary</button>
+      <button onClick={() => previewTheme({ theme: 'dark', presetId: 'solarized' })}>Preview Solarized Dark</button>
+      <button onClick={cancelPreview}>Cancel Preview</button>
     </div>
   );
 }
@@ -19,6 +35,10 @@ describe('ThemeProvider', () => {
   beforeEach(() => {
     localStorage.clear();
     document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.removeAttribute('data-theme-preset');
+    document.getElementById('hackdesk-theme')?.remove();
+    document.getElementById('hackdesk-theme-preload')?.remove();
+    delete window.hackdeskAPI;
   });
 
   it('should provide default theme from localStorage', () => {
@@ -65,6 +85,7 @@ describe('ThemeProvider', () => {
     expect(screen.getByTestId('current-theme').textContent).toBe('dark');
     expect(document.documentElement.classList.contains('dark')).toBe(true);
     expect(localStorage.getItem('theme')).toBe('dark');
+    expect(localStorage.getItem('theme-mode')).toBe('dark');
   });
 
   it('should log error when useTheme is used outside provider', () => {
@@ -91,5 +112,122 @@ describe('ThemeProvider', () => {
     fireEvent.click(screen.getByText('Set Light'));
     
     expect(localStorage.getItem('custom-theme')).toBe('light');
+  });
+
+  it('persists preset and custom seed values', () => {
+    render(
+      <ThemeProvider defaultTheme="light">
+        <ThemeConsumer />
+      </ThemeProvider>,
+    );
+
+    fireEvent.click(screen.getByText('Set Forest'));
+    fireEvent.click(screen.getByText('Set Primary'));
+
+    expect(screen.getByTestId('current-preset').textContent).toBe('forest');
+    expect(screen.getByTestId('current-primary').textContent).toBe('#123ABC');
+    expect(localStorage.getItem('theme-preset-id')).toBe('forest');
+    expect(localStorage.getItem('theme-custom-seed')).toContain('#123ABC');
+  });
+
+  it('persists committed appearance through the Electron settings API', async () => {
+    const settingsUpdate = vi.fn(async (update) => ({
+      title: 'HackDesk',
+      appearance: update.appearance ?? defaultSettings.appearance,
+      hasHackmdApiToken: false,
+      hasAppearanceSettings: true,
+    }));
+    window.hackdeskAPI = {
+      settings: {
+        get: vi.fn(async () => ({
+          title: 'HackDesk',
+          appearance: defaultSettings.appearance,
+          hasHackmdApiToken: false,
+          hasAppearanceSettings: true,
+        })),
+        update: settingsUpdate,
+      },
+      app: {
+        setThemeSurface: vi.fn(),
+      },
+    } as never;
+
+    render(
+      <ThemeProvider defaultTheme="light">
+        <ThemeConsumer />
+      </ThemeProvider>,
+    );
+
+    fireEvent.click(screen.getByText('Set Forest'));
+
+    expect(settingsUpdate).toHaveBeenCalledWith({
+      appearance: {
+        theme: 'light',
+        presetId: 'forest',
+        customSeed: {},
+      },
+    });
+    expect(localStorage.getItem('theme-preset-id')).toBeNull();
+  });
+
+  it('migrates legacy localStorage appearance into Electron settings once', async () => {
+    const settingsUpdate = vi.fn(async (update) => ({
+      title: 'HackDesk',
+      appearance: update.appearance ?? defaultSettings.appearance,
+      hasHackmdApiToken: false,
+      hasAppearanceSettings: true,
+    }));
+    localStorage.setItem('theme-mode', 'dark');
+    localStorage.setItem('theme-preset-id', 'forest');
+    window.hackdeskAPI = {
+      settings: {
+        get: vi.fn(async () => ({
+          title: 'HackDesk',
+          appearance: defaultSettings.appearance,
+          hasHackmdApiToken: false,
+          hasAppearanceSettings: false,
+        })),
+        update: settingsUpdate,
+      },
+      app: {
+        setThemeSurface: vi.fn(),
+      },
+    } as never;
+
+    render(
+      <ThemeProvider defaultTheme="light">
+        <ThemeConsumer />
+      </ThemeProvider>,
+    );
+
+    await vi.waitFor(() => {
+      expect(settingsUpdate).toHaveBeenCalledWith({
+        appearance: {
+          theme: 'dark',
+          presetId: 'forest',
+          customSeed: {},
+        },
+      });
+    });
+  });
+
+  it('previews a theme without persisting it and can cancel back to saved values', () => {
+    render(
+      <ThemeProvider defaultTheme="light">
+        <ThemeConsumer />
+      </ThemeProvider>,
+    );
+
+    fireEvent.click(screen.getByText('Preview Solarized Dark'));
+
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(document.documentElement.dataset.themePreset).toBe('solarized');
+    expect(screen.getByTestId('current-theme').textContent).toBe('light');
+    expect(localStorage.getItem('theme-preset-id')).toBeNull();
+
+    fireEvent.click(screen.getByText('Cancel Preview'));
+
+    expect(document.documentElement.classList.contains('light')).toBe(true);
+    expect(document.documentElement.dataset.themePreset).toBe('hackmd');
   });
 });

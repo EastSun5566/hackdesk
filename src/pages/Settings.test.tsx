@@ -9,6 +9,7 @@ const {
   useUpdateSettingsMock,
   useThemeMock,
   getCurrentWebviewWindowMock,
+  toastSuccessMock,
 } = vi.hoisted(() => ({
   useValidateHackmdTokenMock: vi.fn(),
   useCheckForUpdatesMock: vi.fn(),
@@ -16,6 +17,15 @@ const {
   useUpdateSettingsMock: vi.fn(),
   useThemeMock: vi.fn(),
   getCurrentWebviewWindowMock: vi.fn(),
+  toastSuccessMock: vi.fn(),
+}));
+
+vi.mock('sonner', () => ({
+  toast: {
+    error: vi.fn(),
+    info: vi.fn(),
+    success: toastSuccessMock,
+  },
 }));
 
 vi.mock('@/lib/hackmd', () => ({
@@ -45,6 +55,11 @@ describe('Settings page', () => {
   const validateToken = vi.fn();
   const resetValidation = vi.fn();
   const setTheme = vi.fn();
+  const setPresetId = vi.fn();
+  const setCustomSeed = vi.fn();
+  const setAppearance = vi.fn();
+  const previewTheme = vi.fn();
+  const cancelPreview = vi.fn();
   const close = vi.fn();
 
   beforeEach(() => {
@@ -58,7 +73,15 @@ describe('Settings page', () => {
       reset: resetValidation,
     } as never);
     useSettingsMock.mockReturnValue({
-      data: { title: 'Workspace', hackmdApiToken: '' },
+      data: {
+        title: 'Workspace',
+        hackmdApiToken: '',
+        appearance: {
+          theme: 'system',
+          presetId: 'hackmd',
+          customSeed: {},
+        },
+      },
     } as never);
     useCheckForUpdatesMock.mockReturnValue({
       mutate: checkForUpdates,
@@ -70,7 +93,56 @@ describe('Settings page', () => {
     } as never);
     useThemeMock.mockReturnValue({
       theme: 'system',
+      resolvedMode: 'light',
+      presetId: 'hackmd',
+      customSeed: {},
+      presets: [
+        {
+          id: 'hackmd',
+          name: 'HackMD',
+          description: 'The default HackDesk palette.',
+          light: {
+            neutral: '#71717A',
+            primary: '#5D54E8',
+            success: '#22C55E',
+            warning: '#F59E0B',
+            destructive: '#EF4444',
+          },
+          dark: {
+            neutral: '#71717A',
+            primary: '#A8A2FF',
+            success: '#22C55E',
+            warning: '#FBBF24',
+            destructive: '#F87171',
+          },
+        },
+        {
+          id: 'forest',
+          name: 'Forest',
+          description: 'Green accent for long-form notes.',
+          light: {
+            neutral: '#6B7280',
+            primary: '#15803D',
+            success: '#16A34A',
+            warning: '#CA8A04',
+            destructive: '#DC2626',
+          },
+          dark: {
+            neutral: '#94A3B8',
+            primary: '#4ADE80',
+            success: '#22C55E',
+            warning: '#EAB308',
+            destructive: '#FB7185',
+          },
+        },
+      ],
       setTheme,
+      setPresetId,
+      setCustomSeed,
+      setAppearance,
+      previewTheme,
+      commitPreview: vi.fn(),
+      cancelPreview,
     } as never);
     getCurrentWebviewWindowMock.mockReturnValue({
       close,
@@ -93,7 +165,15 @@ describe('Settings page', () => {
 
     await waitFor(() => {
       expect(mutate).toHaveBeenCalledWith(
-        { title: 'Focus Desk', hackmdApiToken: '' },
+        {
+          title: 'Focus Desk',
+          hackmdApiToken: '',
+          appearance: {
+            theme: 'system',
+            presetId: 'hackmd',
+            customSeed: {},
+          },
+        },
         expect.objectContaining({
           onSuccess: expect.any(Function),
           onError: expect.any(Function),
@@ -102,13 +182,35 @@ describe('Settings page', () => {
     });
   });
 
-  it('switches theme from the appearance tab', () => {
+  it('previews and applies theme changes from the appearance tab', () => {
     render(<Settings />);
 
     fireEvent.click(screen.getByText('Appearance'));
     fireEvent.click(screen.getByText('Dark'));
 
-    expect(setTheme).toHaveBeenCalledWith('dark');
+    expect(previewTheme).toHaveBeenCalledWith(expect.objectContaining({ theme: 'dark' }));
+    expect(setTheme).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('Apply Theme'));
+
+    expect(setAppearance).toHaveBeenCalledWith({
+      theme: 'dark',
+      presetId: 'hackmd',
+      customSeed: {},
+    });
+    expect(toastSuccessMock).toHaveBeenCalledWith('Theme applied');
+  });
+
+  it('shows inline validation for invalid custom theme seed colors', () => {
+    render(<Settings />);
+
+    fireEvent.click(screen.getByText('Appearance'));
+    fireEvent.change(screen.getByLabelText('Primary'), {
+      target: { value: 'blue' },
+    });
+
+    expect(screen.getByText('Use a 6-digit hex color, for example #5D54E8.')).toBeInTheDocument();
+    expect(screen.getByText('Apply Theme')).toBeDisabled();
   });
 
   it('hides save and reset actions on non-form tabs', () => {

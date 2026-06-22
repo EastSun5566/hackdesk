@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CheckCircle2, Loader2, Save } from 'lucide-react';
+import { toast } from 'sonner';
 
 import {
   Dialog,
@@ -8,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ThemeAppearanceControls } from '@/components/ThemeAppearanceControls';
 import type { ElectronSafeSettings, UserSummary } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
 
@@ -59,7 +61,7 @@ function SettingsDialogContent({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[min(860px,calc(100dvh-4rem))] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
@@ -91,6 +93,18 @@ function SettingsDialogContent({
                 spellCheck
               />
             </SettingsRow>
+          </SettingsSection>
+
+          <SettingsSection
+            title="Appearance"
+            description="Preview and apply a local HackDesk theme."
+          >
+            <ThemeAppearanceControls
+              onApplied={() => {
+                toast.success('Theme applied');
+                onOpenChange(false);
+              }}
+            />
           </SettingsSection>
 
           <SettingsSection

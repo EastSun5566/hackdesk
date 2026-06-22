@@ -1,10 +1,49 @@
 import { z } from 'zod';
 
 import { DEFAULT_TITLE } from '@/constants';
+import {
+  normalizeThemeMode,
+  normalizeThemePresetId,
+  normalizeThemeSeed,
+  type ThemeMode,
+  type ThemePresetId,
+  type ThemeSeed,
+} from '@/lib/themes';
+
+export type AppearanceSettings = {
+  theme: ThemeMode;
+  presetId: ThemePresetId;
+  customSeed: Partial<ThemeSeed>;
+};
+
+export const defaultAppearanceSettings: AppearanceSettings = {
+  theme: 'system',
+  presetId: 'hackmd',
+  customSeed: {},
+};
+
+const hexColorSchema = z.string().regex(/^#[\da-fA-F]{6}$/);
+
+export const appearanceSettingsSchema = z.object({
+  theme: z.enum(['dark', 'light', 'system']).default(defaultAppearanceSettings.theme),
+  presetId: z.enum(['hackmd', 'mono', 'solarized', 'forest']).default(defaultAppearanceSettings.presetId),
+  customSeed: z.object({
+    neutral: hexColorSchema.optional(),
+    primary: hexColorSchema.optional(),
+    success: hexColorSchema.optional(),
+    warning: hexColorSchema.optional(),
+    destructive: hexColorSchema.optional(),
+  }).default(defaultAppearanceSettings.customSeed),
+}).default(defaultAppearanceSettings).transform((value): AppearanceSettings => ({
+  theme: normalizeThemeMode(value.theme, defaultAppearanceSettings.theme),
+  presetId: normalizeThemePresetId(value.presetId, defaultAppearanceSettings.presetId),
+  customSeed: normalizeThemeSeed(value.customSeed),
+}));
 
 export const settingsSchema = z.object({
   title: z.string().min(1, 'Title is required').max(50, 'Title too long'),
   hackmdApiToken: z.string().trim().default(''),
+  appearance: appearanceSettingsSchema,
 });
 
 export type AppSettings = z.infer<typeof settingsSchema>;
@@ -12,7 +51,21 @@ export type AppSettings = z.infer<typeof settingsSchema>;
 export const defaultSettings: AppSettings = {
   title: DEFAULT_TITLE,
   hackmdApiToken: '',
+  appearance: defaultAppearanceSettings,
 };
+
+export function normalizeAppearanceSettings(
+  appearance: unknown,
+  fallback: AppearanceSettings = defaultAppearanceSettings,
+): AppearanceSettings {
+  const result = appearanceSettingsSchema.safeParse(appearance);
+
+  if (!result.success) {
+    return fallback;
+  }
+
+  return result.data;
+}
 
 function getSettingsError(error: unknown) {
   if (error instanceof z.ZodError) {

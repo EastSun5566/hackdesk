@@ -14,6 +14,23 @@ const noteFeaturesSchema = z.record(z.string(), z.unknown()).optional();
 
 const folderColorSchema = z.string().regex(/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/);
 const folderIconSchema = z.string().regex(/^[0-9A-Fa-f]{4,6}(?:-[0-9A-Fa-f]{4,6})*$/);
+const themeSeedSchema = z.strictObject({
+  neutral: z.string().regex(/^#[\da-fA-F]{6}$/).optional(),
+  primary: z.string().regex(/^#[\da-fA-F]{6}$/).optional(),
+  success: z.string().regex(/^#[\da-fA-F]{6}$/).optional(),
+  warning: z.string().regex(/^#[\da-fA-F]{6}$/).optional(),
+  destructive: z.string().regex(/^#[\da-fA-F]{6}$/).optional(),
+});
+
+export const settingsUpdateSchema = z.strictObject({
+  title: optionalStringSchema,
+  hackmdApiToken: optionalStringSchema,
+  appearance: z.strictObject({
+    theme: z.enum(['dark', 'light', 'system']),
+    presetId: z.enum(['hackmd', 'mono', 'solarized', 'forest']),
+    customSeed: themeSeedSchema,
+  }).optional(),
+});
 
 export const createNoteInputSchema = z.strictObject({
   title: optionalStringSchema,
@@ -90,6 +107,11 @@ export const fatalRendererErrorSchema = z.strictObject({
   url: z.string(),
   userAgent: z.string(),
   platform: z.string(),
+});
+
+export const themeSurfaceInputSchema = z.strictObject({
+  mode: z.enum(['dark', 'light']),
+  background: z.string().regex(/^(?:#[\da-fA-F]{6}|rgb\(\d{1,3} \d{1,3} \d{1,3}(?: \/ (?:0|1|0?\.\d+))?\))$/),
 });
 
 export const uploadNoteImageInputSchema = z.strictObject({

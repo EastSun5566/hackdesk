@@ -9,9 +9,6 @@ import {
   Monitor,
   Keyboard,
   Zap,
-  Sun,
-  Moon,
-  Laptop,
   Shield,
   Eye,
   EyeOff,
@@ -30,6 +27,7 @@ import {
 } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
+import { ThemeAppearanceControls } from '@/components/ThemeAppearanceControls';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { version } from '../../package.json';
 
@@ -51,27 +49,6 @@ const shortcuts = [
   { id: 'close-window', action: 'Close Window', keys: ['⌘', 'W'] },
   { id: 'close-settings', action: 'Close Settings', keys: ['Esc'] },
 ];
-
-const themeOptions = [
-  {
-    id: 'light',
-    label: 'Light',
-    icon: <Sun className="h-5 w-5" />,
-    description: 'Light mode',
-  },
-  {
-    id: 'dark',
-    label: 'Dark',
-    icon: <Moon className="h-5 w-5" />,
-    description: 'Dark mode',
-  },
-  {
-    id: 'system',
-    label: 'System',
-    icon: <Laptop className="h-5 w-5" />,
-    description: 'Follow system settings',
-  },
-] as const;
 
 const inputClassName = 'flex h-10 w-full rounded-md border border-border-default bg-background-default px-3 py-2 text-sm text-text-default ring-offset-background-default file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 disabled:opacity-50';
 const primaryButtonClassName = 'inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-primary-default px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none disabled:opacity-50';
@@ -96,7 +73,7 @@ export function Settings() {
     isSuccess: isTokenValid,
     reset: resetTokenValidation,
   } = useValidateHackmdToken();
-  const { theme, setTheme } = useTheme();
+  const { setAppearance } = useTheme();
 
   const currentSettings = settingsData ?? defaultSettings;
 
@@ -131,7 +108,7 @@ export function Settings() {
 
   const handleResetToDefaults = () => {
     form.reset(defaultSettings);
-    setTheme('system');
+    setAppearance(defaultSettings.appearance);
     resetTokenValidation();
     updateSettings(defaultSettings, {
       onSuccess: () => toast.success('All settings reset to defaults'),
@@ -251,39 +228,7 @@ export function Settings() {
             {activeTab === 'appearance' && (
               <div className="space-y-6">
                 <h3 className="text-lg font-medium">Appearance</h3>
-
-                <div className="space-y-4">
-                  <fieldset className="space-y-2">
-                    <legend className="text-sm font-medium">Theme</legend>
-                    <p className="mb-3 text-sm text-text-subtle">
-                      Select your preferred color scheme
-                    </p>
-                    <div className="grid grid-cols-3 gap-3">
-                      {themeOptions.map((option) => (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => setTheme(option.id)}
-                          className={cn(
-                            'flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-[background-color,border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none',
-                            theme === option.id
-                              ? 'border-primary-default bg-primary-soft'
-                              : 'border-border-default bg-background-default hover:border-primary-default hover:bg-element-bg-hover',
-                          )}
-                        >
-                          <div className={cn(
-                            'rounded-full p-2',
-                            theme === option.id ? 'bg-primary-soft text-primary-default' : 'bg-background-muted text-text-subtle',
-                          )}>
-                            {option.icon}
-                          </div>
-                          <span className="text-sm font-medium">{option.label}</span>
-                          <span className="text-xs text-text-subtle">{option.description}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </fieldset>
-                </div>
+                <ThemeAppearanceControls onApplied={() => toast.success('Theme applied')} />
               </div>
             )}
 

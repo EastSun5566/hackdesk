@@ -2,11 +2,12 @@ import type { AppSettings } from './settings';
 
 export type RuntimeEnvironment = 'electron' | 'tauri' | 'web';
 
-export type ElectronSafeSettings = Pick<AppSettings, 'title'> & {
+export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance'> & {
   hasHackmdApiToken: boolean;
+  hasAppearanceSettings?: boolean;
 };
 
-export type ElectronSettingsUpdate = Pick<AppSettings, 'title'> & {
+export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance'>> & {
   hackmdApiToken?: string;
 };
 
@@ -202,6 +203,7 @@ export type UpdateFolderInput = {
 export type ElectronActionId =
   | 'open-command-palette'
   | 'open-settings'
+  | 'toggle-theme'
   | 'new-note'
   | 'new-folder'
   | 'rename-folder'
@@ -230,6 +232,11 @@ export type HackDeskCloseRequestSource = 'window-button' | 'keyboard-shortcut';
 
 export type HackDeskCloseRequest = {
   source: HackDeskCloseRequestSource;
+};
+
+export type ThemeSurfaceInput = {
+  mode: 'dark' | 'light';
+  background: string;
 };
 
 export type HackDeskElectronAPI = {
@@ -284,6 +291,7 @@ export type HackDeskElectronAPI = {
     confirmClose: () => Promise<void>;
     cancelClose: () => Promise<void>;
     checkForUpdates: () => Promise<CheckForUpdatesResult>;
+    setThemeSurface?: (input: ThemeSurfaceInput) => Promise<void>;
   };
 };
 

@@ -10,6 +10,7 @@ import {
   folderOrderSchema,
   openHackmdEditorInputSchema,
   saveTextFileInputSchema,
+  themeSurfaceInputSchema,
   updateNoteInputSchema,
   uploadNoteImageInputSchema,
   validateIpcInput,
@@ -77,6 +78,11 @@ describe('IPC runtime validation', () => {
       mimeType: 'image/png',
       bytes: new ArrayBuffer(4),
     })).toMatchObject({ fileName: 'diagram.png' });
+
+    expect(validateIpcInput('app:set-theme-surface', themeSurfaceInputSchema, {
+      mode: 'dark',
+      background: '#27272A',
+    })).toMatchObject({ mode: 'dark', background: '#27272A' });
   });
 
   it('rejects unsafe native file and image upload shapes', () => {
@@ -90,5 +96,10 @@ describe('IPC runtime validation', () => {
       mimeType: 'image/png',
       bytes: [1, 2, 3],
     })).toThrow(/expected ArrayBuffer/);
+
+    expect(() => validateIpcInput('app:set-theme-surface', themeSurfaceInputSchema, {
+      mode: 'purple',
+      background: 'javascript:alert(1)',
+    })).toThrow(/Invalid/);
   });
 });

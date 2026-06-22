@@ -306,7 +306,7 @@ export function CommandPalette() {
   const rootRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<PaletteMode>('root');
   const [search, setSearch] = useState('');
-  const { theme, setTheme } = useTheme();
+  const { resolvedMode, setTheme } = useTheme();
   const { data: settingsData } = useSettings();
   const [recentValues, setRecentValues] = useState<string[]>(() => getRecentCommands());
   const [recentNoteEntries, setRecentNoteEntries] = useState<RecentNoteEntry[]>(() => getRecentNotes());
@@ -726,7 +726,7 @@ export function CommandPalette() {
   };
 
   const handleThemeToggle = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
+    setTheme(resolvedMode === 'dark' ? 'light' : 'dark');
     closePalette();
   };
 
@@ -1136,7 +1136,7 @@ export function CommandPalette() {
                     </CommandItem>
                   ))}
                   <CommandItem value="toggle-theme" onSelect={handleThemeToggle}>
-                    {theme === 'dark' ? (
+                    {resolvedMode === 'dark' ? (
                       <Sun className="mr-2 h-4 w-4" />
                     ) : (
                       <Moon className="mr-2 h-4 w-4" />

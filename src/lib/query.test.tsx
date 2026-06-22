@@ -46,7 +46,11 @@ describe('query hooks', () => {
     const { result } = renderHook(() => useSettings(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.data).toEqual({ title: 'Workspace', hackmdApiToken: '' });
+      expect(result.current.data).toEqual({
+        title: 'Workspace',
+        hackmdApiToken: '',
+        appearance: defaultSettings.appearance,
+      });
     });
   });
 
@@ -74,11 +78,17 @@ describe('query hooks', () => {
 
     expect(utils.writeSettings).toHaveBeenCalledWith(`{
   "title": "Focus Desk",
-  "hackmdApiToken": "secret-token"
+  "hackmdApiToken": "secret-token",
+  "appearance": {
+    "theme": "system",
+    "presetId": "hackmd",
+    "customSeed": {}
+  }
 }`);
     expect(queryClient.getQueryData(['settings'])).toEqual({
       title: 'Focus Desk',
       hackmdApiToken: 'secret-token',
+      appearance: defaultSettings.appearance,
     });
     expect(invokeMock).toHaveBeenCalledWith('apply_settings');
   });

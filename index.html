@@ -7,8 +7,9 @@
     <title>HackDesk</title>
     <script>
       (function () {
-        var storageKey = 'theme';
-        var theme = localStorage.getItem(storageKey) || 'system';
+        var theme = localStorage.getItem('theme-mode') || localStorage.getItem('theme') || 'system';
+        var presetId = localStorage.getItem('theme-preset-id') || 'hackmd';
+        var cachedCss = localStorage.getItem('hackdesk-theme-css');
         var resolved = theme === 'system'
           ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
           : theme;
@@ -18,7 +19,18 @@
         if (colorSchemeMeta) {
           colorSchemeMeta.setAttribute('content', resolved);
         }
+        if (cachedCss) {
+          var style = document.createElement('style');
+          style.id = 'hackdesk-theme-preload';
+          style.textContent = cachedCss;
+          document.head.appendChild(style);
+          var backgroundMatch = cachedCss.match(/--background-default:\s*([^;]+);/);
+          if (backgroundMatch) {
+            background = backgroundMatch[1].trim();
+          }
+        }
         document.documentElement.classList.add(resolved);
+        document.documentElement.dataset.themePreset = presetId;
         document.documentElement.style.backgroundColor = background;
         document.documentElement.style.colorScheme = resolved;
       })();

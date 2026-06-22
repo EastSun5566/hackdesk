@@ -11,6 +11,7 @@ import type {
 } from '@/lib/electron-api';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ELECTRON_RECENT_NOTES_STORAGE_KEY } from '@/lib/electron-recent-notes';
+import { defaultSettings } from '@/lib/settings';
 import { LAST_WORKSPACE_SCOPE_KEY, READER_MODE_KEY } from './electron-home/ui-preferences';
 import { Home } from './Home';
 
@@ -160,7 +161,12 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
   const base: HackDeskElectronAPI = {
     getRuntimeEnvironment: () => 'electron',
     settings: {
-      get: vi.fn(async () => ({ title: 'HackDesk', hasHackmdApiToken: true })),
+      get: vi.fn(async () => ({
+        title: 'HackDesk',
+        appearance: defaultSettings.appearance,
+        hasHackmdApiToken: true,
+        hasAppearanceSettings: true,
+      })),
       update: vi.fn(),
     },
     hackmd: {

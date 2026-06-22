@@ -42,4 +42,5 @@ export const ELECTRON_CHANNELS = {
   appSaveTextFile: 'app:save-text-file',
   appOpenTextFile: 'app:open-text-file',
   appCheckForUpdates: 'app:check-for-updates',
+  appSetThemeSurface: 'app:set-theme-surface',
 } as const;

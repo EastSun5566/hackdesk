@@ -43,6 +43,11 @@ describe('electron action registry', () => {
       shortcut: '⌘K',
       menuAccelerator: 'CmdOrCtrl+K',
     });
+    expect(getElectronAction('toggle-theme')).toMatchObject({
+      label: 'Toggle Theme',
+      shortcut: '⌘T',
+      menuAccelerator: 'CmdOrCtrl+T',
+    });
     expect(getElectronAction('export-debug-logs')).toMatchObject({
       label: 'Export Debug Logs',
       menuAccelerator: 'Shift+CmdOrCtrl+L',

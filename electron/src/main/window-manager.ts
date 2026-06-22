@@ -39,6 +39,15 @@ export class WindowManager {
     this.isAppQuitting = isAppQuitting;
   }
 
+  setThemeSurface(background: string) {
+    const window = this.getMainWindow();
+    if (!window) {
+      return;
+    }
+
+    window.setBackgroundColor(background);
+  }
+
   confirmClose() {
     const window = this.getMainWindow();
     this.clearPendingCloseTimeout();

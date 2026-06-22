@@ -11,6 +11,7 @@ import type {
   UpdateFolderInput,
   UpdateNoteInput,
   FatalRendererError,
+  ThemeSurfaceInput,
   UploadNoteImageInput,
 } from '../../../src/lib/electron-api';
 import { ELECTRON_CHANNELS } from '../shared/channels';
@@ -59,6 +60,8 @@ import {
   openHackmdEditorInputSchema,
   openTextFileInputSchema,
   saveTextFileInputSchema,
+  settingsUpdateSchema,
+  themeSurfaceInputSchema,
   updateFolderInputSchema,
   updateNoteInputSchema,
   uploadNoteImageInputSchema,
@@ -70,7 +73,9 @@ import {
 
 export function registerIpcHandlers(windowManager: WindowManager) {
   ipcMain.handle(ELECTRON_CHANNELS.settingsGet, () => getSafeSettings());
-  ipcMain.handle(ELECTRON_CHANNELS.settingsUpdate, (_event, settings) => updateStoredSettings(settings));
+  ipcMain.handle(ELECTRON_CHANNELS.settingsUpdate, (_event, settings) => (
+    updateStoredSettings(validateIpcInput(ELECTRON_CHANNELS.settingsUpdate, settingsUpdateSchema, settings))
+  ));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdValidateToken, (_event, token: string) => (
     validateToken(validateNonEmptyString(ELECTRON_CHANNELS.hackmdValidateToken, token))
   ));
@@ -212,6 +217,10 @@ export function registerIpcHandlers(windowManager: WindowManager) {
     openTextFile(validateIpcInput(ELECTRON_CHANNELS.appOpenTextFile, openTextFileInputSchema, input), windowManager.getTargetWindow())
   ));
   ipcMain.handle(ELECTRON_CHANNELS.appCheckForUpdates, () => checkForElectronUpdates(windowManager.getTargetWindow()));
+  ipcMain.handle(ELECTRON_CHANNELS.appSetThemeSurface, (_event, input: ThemeSurfaceInput) => {
+    const themeSurface = validateIpcInput(ELECTRON_CHANNELS.appSetThemeSurface, themeSurfaceInputSchema, input);
+    windowManager.setThemeSurface(themeSurface.background);
+  });
   ipcMain.handle(ELECTRON_CHANNELS.appConfirm, async (_event, options: ConfirmDialogOptions) => {
     const validatedOptions = validateIpcInput(ELECTRON_CHANNELS.appConfirm, confirmDialogOptionsSchema, options);
     const confirmLabel = validatedOptions.confirmLabel ?? 'OK';

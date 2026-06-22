@@ -1,6 +1,7 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { useTheme } from '@/components/theme-provider';
 import { getDesktopAPI } from '@/lib/desktop-api';
 import type {
   DocumentSummary,
@@ -145,6 +146,7 @@ async function writeClipboardText(api: HackDeskElectronAPI | undefined, text: st
 }
 
 export function Home() {
+  const { resolvedMode, setTheme } = useTheme();
   const api = getDesktopAPI();
   const initialWorkspaceScope = readWorkspaceScopeStorage(LAST_WORKSPACE_SCOPE_KEY, DEFAULT_WORKSPACE_SCOPE);
   const [scope, setScopeState] = useState<WorkspaceScope>(() => initialWorkspaceScope);
@@ -641,6 +643,9 @@ export function Home() {
     case 'open-settings':
       setSettingsOpen(true);
       break;
+    case 'toggle-theme':
+      setTheme(resolvedMode === 'dark' ? 'light' : 'dark');
+      break;
     case 'new-note':
       handleCreateNote();
       break;
@@ -766,10 +771,12 @@ export function Home() {
     noteDirty,
     openPalette,
     refreshWorkspace,
+    resolvedMode,
     readerMode,
     selectedDocument,
     selectedFolder,
     setReaderMode,
+    setTheme,
     setWorkspaceScope,
     toggleInspectorCollapsed,
     toggleNavigatorCollapsed,

@@ -170,6 +170,7 @@ describe('CommandPalette page', () => {
     } as never);
     useThemeMock.mockReturnValue({
       theme: 'dark',
+      resolvedMode: 'dark',
       setTheme,
     } as never);
     getCurrentWebviewWindowMock.mockReturnValue({
@@ -212,6 +213,22 @@ describe('CommandPalette page', () => {
 
     expect(setTheme).toHaveBeenCalledWith('light');
     expect(hide).toHaveBeenCalled();
+  });
+
+  it('toggles from system dark to light using the resolved theme mode', () => {
+    useThemeMock.mockReturnValue({
+      theme: 'system',
+      resolvedMode: 'dark',
+      setTheme,
+    } as never);
+
+    render(<CommandPalette />);
+
+    const input = screen.getByPlaceholderText('Search commands...');
+    fireEvent.keyDown(input, { key: 'ArrowUp' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(setTheme).toHaveBeenCalledWith('light');
   });
 
   it('supports Ctrl+P and Ctrl+N for command palette navigation', () => {

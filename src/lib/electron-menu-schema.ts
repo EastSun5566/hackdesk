@@ -65,6 +65,7 @@ export const ELECTRON_MENU_SCHEMA: ElectronMenuSchemaSection[] = [
     label: 'View',
     items: [
       { type: 'action', actionId: 'open-command-palette' },
+      { type: 'action', actionId: 'toggle-theme' },
       { type: 'action', actionId: 'refresh' },
       { type: 'action', actionId: 'go-history' },
       { type: 'separator' },

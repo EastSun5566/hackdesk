@@ -10,6 +10,7 @@ import type {
   HackDeskCloseRequest,
   HackDeskCommandPaletteCommand,
   HackDeskElectronAPI,
+  ThemeSurfaceInput,
   OpenTextFileInput,
   OpenHackmdEditorInput,
   SaveTextFileInput,
@@ -95,6 +96,7 @@ const api: HackDeskElectronAPI = {
     saveTextFile: (input: SaveTextFileInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.appSaveTextFile, input),
     openTextFile: (input: OpenTextFileInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.appOpenTextFile, input),
     checkForUpdates: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appCheckForUpdates),
+    setThemeSurface: (input: ThemeSurfaceInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.appSetThemeSurface, input),
     onCommand: (callback: (command: HackDeskCommandPaletteCommand) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, command: HackDeskCommandPaletteCommand) => {
         callback(command);
