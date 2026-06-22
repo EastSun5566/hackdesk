@@ -32,6 +32,7 @@ export type NoteWorkspaceState = {
   panes: NotePane[];
   activePaneId: string;
   drafts: Record<string, NoteDocumentDraft>;
+  recentlyClosedTabs: OpenNoteTab[];
 };
 
 export type PersistedNoteWorkspaceLayout = Pick<
@@ -41,6 +42,9 @@ export type PersistedNoteWorkspaceLayout = Pick<
 
 const NOTE_WORKSPACE_LAYOUT_PREFIX = 'hackdesk_note_workspace:';
 const MAX_PANES = 2;
+const MAX_RECENTLY_CLOSED_TABS = 10;
+const MIN_PANE_SIZE = 10;
+const MAX_PANE_SIZE = 90;
 
 let nextTabId = 0;
 let nextPaneId = 0;
@@ -71,7 +75,7 @@ function createInitialPane(paneId = createPaneId()): NotePane {
     paneId,
     tabIds: [],
     activeTabId: null,
-    size: 1,
+    size: 100,
   };
 }
 
@@ -84,6 +88,7 @@ export function createEmptyNoteWorkspaceState(scopeKey: string): NoteWorkspaceSt
     panes: [pane],
     activePaneId: pane.paneId,
     drafts: {},
+    recentlyClosedTabs: [],
   };
 }
 
@@ -146,15 +151,26 @@ function createTab(note: NoteSummary): OpenNoteTab {
 
 function normalizePanes(state: NoteWorkspaceState): NotePane[] {
   const tabs = state.tabs;
-  const panes = state.panes.slice(0, MAX_PANES).map((pane) => {
+  const inputPanes = state.panes.slice(0, MAX_PANES);
+  const panes = inputPanes.map((pane) => {
     const tabIds = pane.tabIds.filter((tabId, index, ids) => tabs[tabId] && ids.indexOf(tabId) === index);
     const activeTabId = pane.activeTabId && tabIds.includes(pane.activeTabId)
       ? pane.activeTabId
       : tabIds[0] ?? null;
-    return { ...pane, size: Number.isFinite(pane.size) && pane.size > 0 ? pane.size : 1, tabIds, activeTabId };
+    return { ...pane, size: normalizePaneSize(pane.size, inputPanes.length), tabIds, activeTabId };
   });
 
   return panes.length > 0 ? panes : [createInitialPane('note-pane-primary')];
+}
+
+function normalizePaneSize(size: number, paneCount: number) {
+  if (paneCount <= 1) {
+    return 100;
+  }
+
+  return Number.isFinite(size)
+    ? Math.min(Math.max(size, MIN_PANE_SIZE), MAX_PANE_SIZE)
+    : 50;
 }
 
 function normalizeState(state: NoteWorkspaceState): NoteWorkspaceState {
@@ -168,6 +184,16 @@ function normalizeState(state: NoteWorkspaceState): NoteWorkspaceState {
   );
 
   return { ...state, panes, activePaneId, drafts };
+}
+
+function pushRecentlyClosedTab(state: NoteWorkspaceState, tab: OpenNoteTab) {
+  const identityKey = getNoteIdentityKey({ id: tab.noteId, teamPath: tab.teamPath });
+  return [
+    tab,
+    ...state.recentlyClosedTabs.filter((candidate) => (
+      getNoteIdentityKey({ id: candidate.noteId, teamPath: candidate.teamPath }) !== identityKey
+    )),
+  ].slice(0, MAX_RECENTLY_CLOSED_TABS);
 }
 
 export function openNoteTab(state: NoteWorkspaceState, note: NoteSummary, paneId = state.activePaneId) {
@@ -222,6 +248,7 @@ export function closeNoteTab(state: NoteWorkspaceState, tabId: string) {
   }
 
   const tabs = { ...state.tabs };
+  const closedTab = tabs[tabId];
   delete tabs[tabId];
   const drafts = { ...state.drafts };
   delete drafts[tabId];
@@ -244,6 +271,7 @@ export function closeNoteTab(state: NoteWorkspaceState, tabId: string) {
     tabs,
     drafts,
     panes,
+    recentlyClosedTabs: pushRecentlyClosedTab(state, closedTab),
   });
 }
 
@@ -254,6 +282,11 @@ export function closeOtherNoteTabs(state: NoteWorkspaceState, paneId: string, ke
   }
 
   const closingTabIds = new Set(targetPane.tabIds.filter((tabId) => tabId !== keepTabId));
+  const recentlyClosedTabs = targetPane.tabIds
+    .filter((tabId) => closingTabIds.has(tabId))
+    .map((tabId) => state.tabs[tabId])
+    .filter((tab): tab is OpenNoteTab => Boolean(tab))
+    .reduce((nextRecentlyClosedTabs, tab) => pushRecentlyClosedTab({ ...state, recentlyClosedTabs: nextRecentlyClosedTabs }, tab), state.recentlyClosedTabs);
   const tabs = Object.fromEntries(
     Object.entries(state.tabs).filter(([tabId]) => !closingTabIds.has(tabId)),
   );
@@ -269,14 +302,82 @@ export function closeOtherNoteTabs(state: NoteWorkspaceState, paneId: string, ke
       : pane),
     activePaneId: paneId,
     drafts,
+    recentlyClosedTabs,
+  });
+}
+
+export function closeTabsToRight(state: NoteWorkspaceState, paneId: string, tabId: string) {
+  const targetPane = state.panes.find((pane) => pane.paneId === paneId);
+  const tabIndex = targetPane?.tabIds.indexOf(tabId) ?? -1;
+  if (!targetPane || tabIndex < 0) {
+    return state;
+  }
+
+  const closingTabIds = new Set(targetPane.tabIds.slice(tabIndex + 1));
+  if (closingTabIds.size === 0) {
+    return state;
+  }
+
+  const recentlyClosedTabs = targetPane.tabIds
+    .filter((candidate) => closingTabIds.has(candidate))
+    .map((candidate) => state.tabs[candidate])
+    .filter((tab): tab is OpenNoteTab => Boolean(tab))
+    .reduce((nextRecentlyClosedTabs, tab) => pushRecentlyClosedTab({ ...state, recentlyClosedTabs: nextRecentlyClosedTabs }, tab), state.recentlyClosedTabs);
+  const tabs = Object.fromEntries(
+    Object.entries(state.tabs).filter(([candidate]) => !closingTabIds.has(candidate)),
+  );
+  const drafts = Object.fromEntries(
+    Object.entries(state.drafts).filter(([candidate]) => !closingTabIds.has(candidate)),
+  );
+
+  return normalizeState({
+    ...state,
+    tabs,
+    panes: state.panes.map((pane) => pane.paneId === paneId
+      ? { ...pane, tabIds: pane.tabIds.filter((candidate) => !closingTabIds.has(candidate)) }
+      : pane),
+    drafts,
+    recentlyClosedTabs,
   });
 }
 
 export function closeTabsByNoteIdentity(state: NoteWorkspaceState, note: NoteIdentity) {
   const identityKey = getNoteIdentityKey(note);
-  return Object.values(state.tabs)
+  const closed = Object.values(state.tabs)
     .filter((tab) => getNoteIdentityKey({ id: tab.noteId, teamPath: tab.teamPath }) === identityKey)
     .reduce((nextState, tab) => closeNoteTab(nextState, tab.tabId), state);
+  return {
+    ...closed,
+    recentlyClosedTabs: closed.recentlyClosedTabs.filter((tab) => (
+      getNoteIdentityKey({ id: tab.noteId, teamPath: tab.teamPath }) !== identityKey
+    )),
+  };
+}
+
+export function reopenLastClosedTab(state: NoteWorkspaceState) {
+  const [lastClosedTab, ...remainingClosedTabs] = state.recentlyClosedTabs;
+  if (!lastClosedTab) {
+    return state;
+  }
+
+  const pane = getActivePane(state);
+  const reopenedTab = { ...lastClosedTab, tabId: createTabId() };
+  return normalizeState({
+    ...state,
+    tabs: {
+      ...state.tabs,
+      [reopenedTab.tabId]: reopenedTab,
+    },
+    panes: state.panes.map((candidate) => candidate.paneId === pane.paneId
+      ? {
+        ...candidate,
+        tabIds: [...candidate.tabIds, reopenedTab.tabId],
+        activeTabId: reopenedTab.tabId,
+      }
+      : candidate),
+    activePaneId: pane.paneId,
+    recentlyClosedTabs: remainingClosedTabs,
+  });
 }
 
 export function splitActiveTabRight(state: NoteWorkspaceState) {
@@ -300,11 +401,12 @@ export function splitActiveTabRight(state: NoteWorkspaceState) {
         ? { ...state.drafts, [clonedTab.tabId]: state.drafts[activeTabId] }
         : state.drafts,
       panes: [
-        ...state.panes,
+        ...state.panes.map((pane) => pane.paneId === activePane.paneId ? { ...pane, size: 50 } : pane),
         {
           ...nextPane,
           tabIds: [clonedTab.tabId],
           activeTabId: clonedTab.tabId,
+          size: 50,
         },
       ],
       activePaneId: nextPane.paneId,
@@ -315,12 +417,13 @@ export function splitActiveTabRight(state: NoteWorkspaceState) {
     ...state,
     panes: [
       ...state.panes.map((pane) => pane.paneId === activePane.paneId
-        ? { ...pane, tabIds: pane.tabIds.filter((tabId) => tabId !== activeTabId) }
+        ? { ...pane, tabIds: pane.tabIds.filter((tabId) => tabId !== activeTabId), size: 50 }
         : pane),
       {
         ...nextPane,
         tabIds: [activeTabId],
         activeTabId,
+        size: 50,
       },
     ],
     activePaneId: nextPane.paneId,
@@ -361,9 +464,7 @@ export function resizeNotePanes(state: NoteWorkspaceState, sizes: Record<string,
     ...state,
     panes: state.panes.map((pane) => ({
       ...pane,
-      size: Number.isFinite(sizes[pane.paneId]) && sizes[pane.paneId] > 0
-        ? sizes[pane.paneId]
-        : pane.size,
+      size: Number.isFinite(sizes[pane.paneId]) ? normalizePaneSize(sizes[pane.paneId], state.panes.length) : pane.size,
     })),
   });
 }
@@ -483,7 +584,7 @@ export function hydrateNoteWorkspaceLayout(scopeKey: string, layout: unknown): N
       && pane.tabIds.every((tabId) => typeof tabId === 'string')
       && (typeof pane.activeTabId === 'string' || pane.activeTabId === null),
     ))
-    .map((pane) => ({ ...pane, size: Number.isFinite(pane.size) && pane.size > 0 ? pane.size : 1 }))
+    .map((pane) => ({ ...pane, size: normalizePaneSize(pane.size, value.panes?.length ?? 1) }))
     .slice(0, MAX_PANES);
 
   return normalizeState({
@@ -493,6 +594,7 @@ export function hydrateNoteWorkspaceLayout(scopeKey: string, layout: unknown): N
     panes,
     activePaneId: typeof value.activePaneId === 'string' ? value.activePaneId : panes[0]?.paneId ?? 'note-pane-primary',
     drafts: {},
+    recentlyClosedTabs: [],
   });
 }
 

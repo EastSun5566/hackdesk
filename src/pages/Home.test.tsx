@@ -123,7 +123,7 @@ async function expandInspectorSection(name: string) {
 }
 
 async function openDocumentActions() {
-  fireEvent.pointerDown(screen.getByRole('button', { name: 'More actions' }));
+  fireEvent.pointerDown(screen.getAllByRole('button', { name: 'More actions' })[0]);
   await screen.findByRole('menuitem', { name: 'Web Editor' });
 }
 
@@ -458,6 +458,58 @@ describe('Home native-feel behavior', () => {
       confirmLabel: 'Close',
       cancelLabel: 'Keep Editing',
       destructive: true,
+    })));
+    await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
+    expect(api.app.confirmClose).not.toHaveBeenCalled();
+  });
+
+  it('asks before closing when an inactive document save failed', async () => {
+    let closeHandler: (() => void) | null = null;
+    const notes = [
+      { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', updatedAtMillis: 3000 },
+      { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', updatedAtMillis: 2000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: noteId === 'note-design' ? 'Design Spec' : 'Product Plan',
+            content: noteId === 'note-design' ? '# Design Spec' : '# Product Plan',
+          },
+        })),
+        updateNote: vi.fn(async () => {
+          throw new Error('HackMD is offline.');
+        }),
+      },
+      app: {
+        confirm: vi.fn(async () => ({ confirmed: false })),
+        onCloseRequest: vi.fn((handler) => {
+          closeHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.change(await screen.findByDisplayValue('Product Plan'), { target: { value: 'Draft Product Plan' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByLabelText('Sync state: Save failed');
+    fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
+    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+
+    act(() => {
+      closeHandler?.();
+    });
+
+    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Close HackDesk',
+      detail: expect.stringContaining('1 note has a failed save'),
+      confirmLabel: 'Close',
     })));
     await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
     expect(api.app.confirmClose).not.toHaveBeenCalled();
@@ -841,7 +893,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(viewButton);
 
     expect(screen.getByTestId('markdown-reader')).toBeInTheDocument();
-    expect(screen.getByText('Draft title')).toBeInTheDocument();
+    expect(screen.getAllByText('Draft title').length).toBeGreaterThan(0);
     expect(window.localStorage.getItem(READER_MODE_KEY)).toBe('read');
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
@@ -1036,7 +1088,7 @@ describe('Home native-feel behavior', () => {
 
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
     expect(api.app.confirm).not.toHaveBeenCalled();
-    fireEvent.click(await screen.findByRole('button', { name: 'Select Product Plan tab' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Select Draft Product Plan tab' }));
     expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
   });
 
@@ -1111,6 +1163,29 @@ describe('Home native-feel behavior', () => {
     expect(api.app.confirm).not.toHaveBeenCalled();
   });
 
+  it('cancels the native keyboard close request after closing the last clean tab', async () => {
+    let closeHandler: ((request: HackDeskCloseRequest) => void) | null = null;
+    const api = createApi({
+      app: {
+        onCloseRequest: vi.fn((handler) => {
+          closeHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+
+    act(() => {
+      closeHandler?.({ source: 'keyboard-shortcut' });
+    });
+
+    await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
+    expect(api.app.confirmClose).not.toHaveBeenCalled();
+    expect(await screen.findByText('Select a note.')).toBeInTheDocument();
+  });
+
   it('keeps a dirty tab open when Cmd+W discard is cancelled', async () => {
     const api = createApi({
       app: {
@@ -1144,6 +1219,129 @@ describe('Home native-feel behavior', () => {
 
     expect(await screen.findAllByRole('button', { name: 'Select Test note tab' })).toHaveLength(2);
     expect(screen.getAllByText('Test note').length).toBeGreaterThan(1);
+  });
+
+  it('updates the tab title from the draft title', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Draft title' } });
+
+    expect(await screen.findByRole('button', { name: 'Select Draft title tab' })).toBeInTheDocument();
+  });
+
+  it('closes tabs to the right and reopens the last closed tab', async () => {
+    let commandHandler: ((command: HackDeskCommandPaletteCommand) => void) | null = null;
+    const notes = [
+      { ...note, id: 'note-a', title: 'Alpha', shortId: 'alpha', updatedAtMillis: 3000 },
+      { ...note, id: 'note-b', title: 'Beta', shortId: 'beta', updatedAtMillis: 2000 },
+      { ...note, id: 'note-c', title: 'Gamma', shortId: 'gamma', updatedAtMillis: 1000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: noteId === 'note-a' ? 'Alpha' : noteId === 'note-b' ? 'Beta' : 'Gamma',
+            content: `# ${noteId}`,
+          },
+        })),
+      },
+      app: {
+        onCommand: vi.fn((handler) => {
+          commandHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    await screen.findByDisplayValue('Alpha');
+    fireEvent.click(await screen.findByRole('button', { name: 'Beta' }));
+    await screen.findByDisplayValue('Beta');
+    fireEvent.click(await screen.findByRole('button', { name: 'Gamma' }));
+    await screen.findByDisplayValue('Gamma');
+    fireEvent.click(await screen.findByRole('button', { name: 'Select Alpha tab' }));
+
+    act(() => {
+      commandHandler?.({ type: 'close-tabs-to-right' });
+    });
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Select Beta tab' })).not.toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: 'Select Gamma tab' })).not.toBeInTheDocument();
+
+    act(() => {
+      commandHandler?.({ type: 'reopen-last-closed-tab' });
+    });
+
+    expect(await screen.findByRole('button', { name: 'Select Gamma tab' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Select Beta tab' })).not.toBeInTheDocument();
+  });
+
+  it('restores note tabs after remounting the same workspace scope', async () => {
+    const notes = [
+      { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', updatedAtMillis: 3000 },
+      { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', updatedAtMillis: 2000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: noteId === 'note-design' ? 'Design Spec' : 'Product Plan',
+            content: noteId === 'note-design' ? '# Design Spec' : '# Product Plan',
+          },
+        })),
+      },
+    });
+
+    renderHome(api);
+    await screen.findByDisplayValue('Product Plan');
+    fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
+    await screen.findByDisplayValue('Design Spec');
+    await waitFor(() => expect(Array.from({ length: window.localStorage.length }, (_value, index) => window.localStorage.key(index)).some((key) => (
+      key?.startsWith('hackdesk_note_workspace:personal')
+    ))).toBe(true));
+
+    cleanup();
+    renderHome(api);
+
+    expect(await screen.findByRole('button', { name: 'Select Product Plan tab' })).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+  });
+
+  it('closes duplicated matching tabs after deleting a note', async () => {
+    let commandHandler: ((command: HackDeskCommandPaletteCommand) => void) | null = null;
+    const api = createApi({
+      app: {
+        confirm: vi.fn(async () => ({ confirmed: true })),
+        exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
+        recordFatalRendererError: vi.fn(async () => undefined),
+        onCommand: vi.fn((handler) => {
+          commandHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    fireEvent.keyDown(window, { key: '\\', metaKey: true, shiftKey: true });
+    expect(await screen.findAllByRole('button', { name: 'Select Test note tab' })).toHaveLength(2);
+    act(() => {
+      commandHandler?.({ type: 'delete-note' });
+    });
+
+    await waitFor(() => expect(api.hackmd.deleteNote).toHaveBeenCalledWith('note-1'));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Select Test note tab' })).not.toBeInTheDocument());
   });
 
   it('does not auto-select a folder note over a dirty current tab', async () => {
@@ -1219,7 +1417,7 @@ describe('Home native-feel behavior', () => {
 
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
     expect(api.app.confirm).not.toHaveBeenCalled();
-    fireEvent.click(await screen.findByRole('button', { name: 'Select Product Plan tab' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Select Draft Product Plan tab' }));
     expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
   });
 
@@ -1412,7 +1610,7 @@ describe('Home native-feel behavior', () => {
 
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
     expect(api.app.confirm).not.toHaveBeenCalled();
-    fireEvent.click(await screen.findByRole('button', { name: 'Select Product Plan tab' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Select Draft Product Plan tab' }));
     expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
   });
 

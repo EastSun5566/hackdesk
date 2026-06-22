@@ -2,6 +2,7 @@ import { ArrowLeftRight, Columns2, FileText, MoreHorizontal, X } from 'lucide-re
 import { Fragment } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 
+import { Tooltip } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,18 +53,20 @@ function getSyncStateLabel(state: DocumentSyncState) {
 
 function TabStatusDot({ state }: { state: DocumentSyncState }) {
   return (
-    <span
-      aria-label={getSyncStateLabel(state)}
-      className={cn(
-        'h-2 w-2 shrink-0 rounded-full',
-        state === 'idle' && 'bg-warning-default',
-        state === 'loading' && 'bg-text-subtle',
-        state === 'cached' && 'bg-primary-default',
-        state === 'saving' && 'bg-primary-default',
-        state === 'saved' && 'bg-success-default',
-        (state === 'save_failed' || state === 'conflict') && 'bg-destructive-default',
-      )}
-    />
+    <Tooltip content={getSyncStateLabel(state)}>
+      <span
+        aria-label={getSyncStateLabel(state)}
+        className={cn(
+          'h-2 w-2 shrink-0 rounded-full',
+          state === 'idle' && 'bg-warning-default',
+          state === 'loading' && 'bg-text-subtle',
+          state === 'cached' && 'bg-primary-default',
+          state === 'saving' && 'bg-primary-default',
+          state === 'saved' && 'bg-success-default',
+          (state === 'save_failed' || state === 'conflict') && 'bg-destructive-default',
+        )}
+      />
+    </Tooltip>
   );
 }
 
@@ -124,12 +127,15 @@ function PaneTabBar({
   getTabSyncState,
   canSplit,
   canMoveToOtherPane,
+  canReopenLastClosedTab,
   onFocusPane,
   onSelectTab,
   onCloseTab,
   onCloseOtherTabs,
+  onCloseTabsToRight,
   onSplitPane,
   onMoveTabToOtherPane,
+  onReopenLastClosedTab,
 }: {
   activePane: boolean;
   tabs: OpenNoteTab[];
@@ -137,18 +143,24 @@ function PaneTabBar({
   getTabSyncState: (tab: OpenNoteTab) => DocumentSyncState;
   canSplit: boolean;
   canMoveToOtherPane: boolean;
+  canReopenLastClosedTab: boolean;
   onFocusPane: () => void;
   onSelectTab: (tabId: string) => void;
   onCloseTab: (tabId: string) => void;
   onCloseOtherTabs: (tabId: string) => void;
+  onCloseTabsToRight: (tabId: string) => void;
   onSplitPane: () => void;
   onMoveTabToOtherPane: () => void;
+  onReopenLastClosedTab: () => void;
 }) {
+  const activeTabIndex = activeTab ? tabs.findIndex((tab) => tab.tabId === activeTab.tabId) : -1;
+  const hasTabsToRight = activeTabIndex >= 0 && activeTabIndex < tabs.length - 1;
+
   return (
     <div
       className={cn(
         'flex h-12 shrink-0 items-center gap-2 border-b border-border-default bg-background-muted px-2',
-        activePane && 'bg-background-default',
+        activePane && 'bg-background-default ring-1 ring-inset ring-primary-default/35',
       )}
       onPointerDown={onFocusPane}
     >
@@ -184,6 +196,14 @@ function PaneTabBar({
             <X aria-hidden="true" className="h-4 w-4" />
             Close Other Tabs
           </DropdownMenuItem>
+          <DropdownMenuItem disabled={!activeTab || !hasTabsToRight} onSelect={() => activeTab && onCloseTabsToRight(activeTab.tabId)}>
+            <X aria-hidden="true" className="h-4 w-4" />
+            Close Tabs to Right
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={!canReopenLastClosedTab} onSelect={onReopenLastClosedTab}>
+            <FileText aria-hidden="true" className="h-4 w-4" />
+            Reopen Last Closed Tab
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -200,13 +220,16 @@ export function DocumentWorkspace({
   getPaneView,
   getPaneTabs,
   getTabSyncState,
+  canReopenLastClosedTab,
   onResizePanes,
   onFocusPane,
   onSelectTab,
   onCloseTab,
   onCloseOtherTabs,
+  onCloseTabsToRight,
   onSplitPane,
   onMoveTabToOtherPane,
+  onReopenLastClosedTab,
   onOpenEditor,
   onOpenExternal,
   onCopyLink,
@@ -232,13 +255,16 @@ export function DocumentWorkspace({
   getPaneView: (pane: NotePane) => DocumentPaneView;
   getPaneTabs: (pane: NotePane) => OpenNoteTab[];
   getTabSyncState: (tab: OpenNoteTab) => DocumentSyncState;
+  canReopenLastClosedTab: boolean;
   onResizePanes: (sizes: Record<string, number>) => void;
   onFocusPane: (paneId: string) => void;
   onSelectTab: (paneId: string, tabId: string) => void;
   onCloseTab: (tabId: string) => void;
   onCloseOtherTabs: (paneId: string, tabId: string) => void;
+  onCloseTabsToRight: (paneId: string, tabId: string) => void;
   onSplitPane: () => void;
   onMoveTabToOtherPane: () => void;
+  onReopenLastClosedTab: () => void;
   onOpenEditor: (document: DocumentSummary) => void;
   onOpenExternal: (url: string) => void;
   onCopyLink: (document: DocumentSummary) => void;
@@ -306,12 +332,15 @@ export function DocumentWorkspace({
                   getTabSyncState={getTabSyncState}
                   canSplit={panes.length < 2}
                   canMoveToOtherPane={panes.length > 1}
+                  canReopenLastClosedTab={canReopenLastClosedTab}
                   onFocusPane={() => onFocusPane(pane.paneId)}
                   onSelectTab={(tabId) => onSelectTab(pane.paneId, tabId)}
                   onCloseTab={onCloseTab}
                   onCloseOtherTabs={(tabId) => onCloseOtherTabs(pane.paneId, tabId)}
+                  onCloseTabsToRight={(tabId) => onCloseTabsToRight(pane.paneId, tabId)}
                   onSplitPane={onSplitPane}
                   onMoveTabToOtherPane={onMoveTabToOtherPane}
+                  onReopenLastClosedTab={onReopenLastClosedTab}
                 />
                 <DocumentDetail
                   focusZone={isActivePane ? 'editor' : undefined}

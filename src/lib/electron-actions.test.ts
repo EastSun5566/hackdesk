@@ -22,6 +22,8 @@ const baseContext: ElectronActionContext = {
   isSavingNote: false,
   openTabCount: 2,
   activePaneTabCount: 2,
+  activePaneTabsToRightCount: 1,
+  recentlyClosedTabCount: 1,
   paneCount: 1,
   inspectorCollapsed: false,
   navigatorCollapsed: false,
@@ -75,6 +77,10 @@ describe('electron action registry', () => {
     expect(getElectronAction('close-tab')).toMatchObject({
       label: 'Close Tab',
       menuAccelerator: 'CmdOrCtrl+W',
+    });
+    expect(getElectronAction('reopen-last-closed-tab')).toMatchObject({
+      label: 'Reopen Last Closed Tab',
+      menuAccelerator: 'Shift+CmdOrCtrl+T',
     });
     expect(getElectronAction('split-pane-right')).toMatchObject({
       label: 'Split Pane Right',
@@ -139,6 +145,14 @@ describe('electron action registry', () => {
       ...baseContext,
       openTabCount: 0,
     })).toBe('Open a note tab first.');
+    expect(getActionDisabledReason(getElectronAction('close-tabs-to-right'), {
+      ...baseContext,
+      activePaneTabsToRightCount: 0,
+    })).toBe('No tabs to the right in this pane.');
+    expect(getActionDisabledReason(getElectronAction('reopen-last-closed-tab'), {
+      ...baseContext,
+      recentlyClosedTabCount: 0,
+    })).toBe('No recently closed note tabs.');
     expect(getActionDisabledReason(getElectronAction('split-pane-right'), {
       ...baseContext,
       paneCount: 2,

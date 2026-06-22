@@ -14,6 +14,8 @@ export type ElectronActionContext = {
   isSavingNote: boolean;
   openTabCount: number;
   activePaneTabCount: number;
+  activePaneTabsToRightCount: number;
+  recentlyClosedTabCount: number;
   paneCount: number;
   inspectorCollapsed: boolean;
   navigatorCollapsed: boolean;
@@ -76,6 +78,19 @@ function requireOtherTabs(context: ElectronActionContext) {
   }
 
   return context.activePaneTabCount > 1 ? null : 'Open another tab in this pane first.';
+}
+
+function requireTabsToRight(context: ElectronActionContext) {
+  const tabReason = requireOpenTab(context);
+  if (tabReason) {
+    return tabReason;
+  }
+
+  return context.activePaneTabsToRightCount > 0 ? null : 'No tabs to the right in this pane.';
+}
+
+function requireRecentlyClosedTab(context: ElectronActionContext) {
+  return context.recentlyClosedTabCount > 0 ? null : 'No recently closed note tabs.';
 }
 
 function requireSplitAvailable(context: ElectronActionContext) {
@@ -216,6 +231,26 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     category: 'note',
     scope: 'editor',
     getDisabledReason: requireOtherTabs,
+  },
+  {
+    id: 'close-tabs-to-right',
+    label: 'Close Tabs to Right',
+    description: 'Close note tabs to the right of the active tab in this pane.',
+    keywords: ['tab', 'close', 'right'],
+    category: 'note',
+    scope: 'editor',
+    getDisabledReason: requireTabsToRight,
+  },
+  {
+    id: 'reopen-last-closed-tab',
+    label: 'Reopen Last Closed Tab',
+    description: 'Reopen the most recently closed note tab.',
+    keywords: ['tab', 'restore', 'reopen', 'undo'],
+    category: 'note',
+    scope: 'editor',
+    shortcut: '⇧⌘T',
+    menuAccelerator: 'Shift+CmdOrCtrl+T',
+    getDisabledReason: requireRecentlyClosedTab,
   },
   {
     id: 'split-pane-right',

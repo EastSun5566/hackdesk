@@ -46,6 +46,8 @@ export const ELECTRON_MENU_SCHEMA: ElectronMenuSchemaSection[] = [
       { type: 'separator' },
       { type: 'action', actionId: 'close-tab' },
       { type: 'action', actionId: 'close-other-tabs' },
+      { type: 'action', actionId: 'close-tabs-to-right' },
+      { type: 'action', actionId: 'reopen-last-closed-tab' },
       { type: 'separator' },
       { type: 'role', role: 'platform-close' },
     ],

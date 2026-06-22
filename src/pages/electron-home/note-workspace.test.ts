@@ -5,6 +5,7 @@ import type { NoteSummary } from '@/lib/electron-api';
 import {
   closeNoteTab,
   closeOtherNoteTabs,
+  closeTabsToRight,
   closeTabsByNoteIdentity,
   createEmptyNoteWorkspaceState,
   focusAdjacentTab,
@@ -13,6 +14,7 @@ import {
   hydrateNoteWorkspaceLayout,
   moveActiveTabToOtherPane,
   openNoteTab,
+  reopenLastClosedTab,
   splitActiveTabRight,
   toPersistedNoteWorkspaceLayout,
   updateNoteTabDraft,
@@ -100,12 +102,37 @@ describe('note workspace tabs', () => {
     expect(getPaneActiveTab(closed, closed.panes[1].paneId)?.title).toBe('B');
   });
 
+  it('closes tabs to the right inside the target pane', () => {
+    const state = [note({ id: 'a', title: 'A' }), note({ id: 'b', title: 'B' }), note({ id: 'c', title: 'C' })]
+      .reduce((current, item) => openNoteTab(current, item), createEmptyNoteWorkspaceState('personal'));
+    const paneId = state.panes[0].paneId;
+    const firstTabId = state.panes[0].tabIds[0];
+    const closed = closeTabsToRight(state, paneId, firstTabId);
+
+    expect(closed.panes[0].tabIds).toEqual([firstTabId]);
+    expect(Object.values(closed.tabs).map((tab) => tab.title)).toEqual(['A']);
+    expect(closed.recentlyClosedTabs.map((tab) => tab.title)).toEqual(['C', 'B']);
+  });
+
+  it('reopens the last closed tab in the active pane', () => {
+    const state = [note({ id: 'a', title: 'A' }), note({ id: 'b', title: 'B' })]
+      .reduce((current, item) => openNoteTab(current, item), createEmptyNoteWorkspaceState('personal'));
+    const closed = closeNoteTab(state, getActiveTab(state)?.tabId ?? '');
+    const reopened = reopenLastClosedTab(closed);
+
+    expect(getActiveTab(reopened)?.title).toBe('B');
+    expect(Object.values(reopened.tabs).map((tab) => tab.title)).toEqual(['A', 'B']);
+    expect(reopened.recentlyClosedTabs).toEqual([]);
+  });
+
   it('closes every tab for a deleted note identity', () => {
     const state = splitActiveTabRight(openNoteTab(createEmptyNoteWorkspaceState('personal'), note({ id: 'note-1', title: 'Alpha' })));
-    const closed = closeTabsByNoteIdentity(state, { id: 'note-1', teamPath: null });
+    const closedOnce = closeNoteTab(state, state.panes[0].tabIds[0]);
+    const closed = closeTabsByNoteIdentity(closedOnce, { id: 'note-1', teamPath: null });
 
     expect(Object.values(closed.tabs)).toHaveLength(0);
     expect(closed.panes).toHaveLength(1);
+    expect(closed.recentlyClosedTabs).toEqual([]);
   });
 
   it('persists layout without drafts and hydrates valid panes', () => {
@@ -117,6 +144,40 @@ describe('note workspace tabs', () => {
 
     expect(hydrated.drafts).toEqual({});
     expect(getActiveTab(hydrated)?.title).toBe('Alpha');
+  });
+
+  it('falls back from invalid persisted layouts', () => {
+    const hydrated = hydrateNoteWorkspaceLayout('personal', {
+      version: 1,
+      scopeKey: 'personal',
+      tabs: {
+        'tab-1': { tabId: 'different', noteId: 'note-1', teamPath: null, title: 'Invalid' },
+      },
+      panes: [{ paneId: 'pane-1', tabIds: ['missing-tab'], activeTabId: 'missing-tab', size: Number.NaN }],
+      activePaneId: 'pane-1',
+    });
+
+    expect(Object.values(hydrated.tabs)).toHaveLength(0);
+    expect(hydrated.panes).toHaveLength(1);
+    expect(hydrated.panes[0]).toMatchObject({ tabIds: [], activeTabId: null, size: 100 });
+  });
+
+  it('normalizes corrupted pane sizes on hydrate and resize', () => {
+    const withTabs = [note({ id: 'a', title: 'A' }), note({ id: 'b', title: 'B' })]
+      .reduce((current, item) => openNoteTab(current, item), createEmptyNoteWorkspaceState('personal'));
+    const split = splitActiveTabRight(withTabs);
+    const hydrated = hydrateNoteWorkspaceLayout('personal', {
+      version: 1,
+      scopeKey: 'personal',
+      tabs: split.tabs,
+      panes: [
+        { ...split.panes[0], size: -20 },
+        { ...split.panes[1], size: 120 },
+      ],
+      activePaneId: split.activePaneId,
+    });
+
+    expect(hydrated.panes.map((pane) => pane.size)).toEqual([10, 90]);
   });
 
   it('cycles tabs inside the active pane', () => {

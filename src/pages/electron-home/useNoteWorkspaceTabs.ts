@@ -6,6 +6,7 @@ import {
   clearNoteTabDraft,
   closeNoteTab,
   closeOtherNoteTabs,
+  closeTabsToRight,
   closeTabsByNoteIdentity,
   createEmptyNoteWorkspaceState,
   focusAdjacentPane,
@@ -19,6 +20,7 @@ import {
   noteIdentityMatches,
   openNoteTab,
   readNoteWorkspaceLayoutStorage,
+  reopenLastClosedTab,
   resizeNotePanes,
   selectNoteTab,
   splitActiveTabRight,
@@ -81,8 +83,16 @@ export function useNoteWorkspaceTabs(scopeKey: string) {
     setState((current) => closeOtherNoteTabs(current, paneId, keepTabId));
   }, []);
 
+  const closeTabsRight = useCallback((paneId: string, tabId: string) => {
+    setState((current) => closeTabsToRight(current, paneId, tabId));
+  }, []);
+
   const closeByNoteIdentity = useCallback((note: NoteIdentity) => {
     setState((current) => closeTabsByNoteIdentity(current, note));
+  }, []);
+
+  const reopenLastClosed = useCallback(() => {
+    setState(reopenLastClosedTab);
   }, []);
 
   const splitActiveTab = useCallback(() => {
@@ -148,7 +158,9 @@ export function useNoteWorkspaceTabs(scopeKey: string) {
     selectTab,
     closeTab,
     closeOtherTabs,
+    closeTabsToRight: closeTabsRight,
     closeByNoteIdentity,
+    reopenLastClosed,
     splitActiveTab,
     moveActiveTabToOtherPane: moveActiveTabToOtherPaneAction,
     focusNextPane,

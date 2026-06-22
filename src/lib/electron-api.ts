@@ -226,6 +226,8 @@ export type ElectronActionId =
   | 'delete-note'
   | 'close-tab'
   | 'close-other-tabs'
+  | 'close-tabs-to-right'
+  | 'reopen-last-closed-tab'
   | 'split-pane-right'
   | 'move-tab-to-other-pane'
   | 'focus-next-tab'

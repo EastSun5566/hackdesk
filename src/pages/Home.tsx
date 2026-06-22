@@ -182,6 +182,7 @@ export function Home() {
   ));
   const skipNextFinderWriteRef = useRef(false);
   const autoSelectSuppressionRef = useRef<string | null>(null);
+  const manualEmptyWorkspaceRef = useRef(false);
   const [collapsedFolderIds, setCollapsedFolderIds] = useState(() => (
     readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${initialScopeStorageKey}`)
   ));
@@ -201,6 +202,7 @@ export function Home() {
 
   const setWorkspaceScope = useCallback((nextScope: WorkspaceScope) => {
     const nextScopeStorageKey = getScopeStorageKey(nextScope);
+    manualEmptyWorkspaceRef.current = false;
     setScopeState(nextScope);
     writeWorkspaceScopeStorage(LAST_WORKSPACE_SCOPE_KEY, nextScope);
     setCollapsedFolderIds(readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${nextScopeStorageKey}`));
@@ -389,6 +391,7 @@ export function Home() {
     options: { focusEditor?: boolean; trackRecent?: boolean } = {},
   ) => {
     autoSelectSuppressionRef.current = null;
+    manualEmptyWorkspaceRef.current = false;
     openNoteInWorkspace(note);
     if (options.trackRecent ?? true) {
       trackRecentNote(note);
@@ -444,6 +447,14 @@ export function Home() {
   });
 
   const actionContext = useMemo<ElectronActionContext>(() => ({
+    ...(() => {
+      const activePane = noteWorkspace.state.panes.find((pane) => pane.paneId === noteWorkspace.state.activePaneId);
+      const activeTabIndex = activePane?.activeTabId ? activePane.tabIds.indexOf(activePane.activeTabId) : -1;
+      return {
+        activePaneTabCount: activePane?.tabIds.length ?? 0,
+        activePaneTabsToRightCount: activePane && activeTabIndex >= 0 ? activePane.tabIds.length - activeTabIndex - 1 : 0,
+      };
+    })(),
     hasToken,
     canCreate,
     scopeType: scope.type,
@@ -453,7 +464,7 @@ export function Home() {
     noteDirty,
     isSavingNote: mutations.updateNoteMutation.isPending,
     openTabCount: Object.keys(noteWorkspace.state.tabs).length,
-    activePaneTabCount: noteWorkspace.state.panes.find((pane) => pane.paneId === noteWorkspace.state.activePaneId)?.tabIds.length ?? 0,
+    recentlyClosedTabCount: noteWorkspace.state.recentlyClosedTabs.length,
     paneCount: noteWorkspace.state.panes.length,
     inspectorCollapsed,
     navigatorCollapsed,
@@ -469,6 +480,7 @@ export function Home() {
     noteDirty,
     noteWorkspace.state.activePaneId,
     noteWorkspace.state.panes,
+    noteWorkspace.state.recentlyClosedTabs.length,
     noteWorkspace.state.tabs,
     railCollapsed,
     readerMode,
@@ -754,6 +766,10 @@ export function Home() {
       return;
     }
 
+    if (manualEmptyWorkspaceRef.current) {
+      return;
+    }
+
     const suppressionKey = getAutoSelectSuppressionKey(nextNote);
     if (autoSelectSuppressionRef.current === suppressionKey) {
       return;
@@ -904,9 +920,15 @@ export function Home() {
       return false;
     }
 
+    if (Object.keys(noteWorkspace.state.tabs).length <= 1) {
+      const nextNote = visibleEntries[0]?.note ?? null;
+      manualEmptyWorkspaceRef.current = true;
+      autoSelectSuppressionRef.current = nextNote ? getAutoSelectSuppressionKey(nextNote) : null;
+    }
+
     noteWorkspace.closeTab(tabId);
     return true;
-  }, [confirmCloseUnsafeTabs, noteWorkspace]);
+  }, [confirmCloseUnsafeTabs, getAutoSelectSuppressionKey, noteWorkspace, visibleEntries]);
 
   const requestCloseOtherTabs = useCallback(async (paneId: string, keepTabId: string) => {
     const pane = noteWorkspace.state.panes.find((candidate) => candidate.paneId === paneId);
@@ -923,6 +945,24 @@ export function Home() {
     }
 
     noteWorkspace.closeOtherTabs(paneId, keepTabId);
+  }, [confirmCloseUnsafeTabs, noteWorkspace]);
+
+  const requestCloseTabsToRight = useCallback(async (paneId: string, tabId: string) => {
+    const pane = noteWorkspace.state.panes.find((candidate) => candidate.paneId === paneId);
+    const tabIndex = pane?.tabIds.indexOf(tabId) ?? -1;
+    if (!pane || tabIndex < 0) {
+      return;
+    }
+
+    const closingTabs = pane.tabIds
+      .slice(tabIndex + 1)
+      .map((candidate) => noteWorkspace.state.tabs[candidate])
+      .filter((tab): tab is OpenNoteTab => Boolean(tab));
+    if (!await confirmCloseUnsafeTabs(closingTabs, 'Close Tabs to Right', 'Close Tabs')) {
+      return;
+    }
+
+    noteWorkspace.closeTabsToRight(paneId, tabId);
   }, [confirmCloseUnsafeTabs, noteWorkspace]);
 
   const runAction = useCallback((actionId: ElectronActionId) => {
@@ -1022,6 +1062,15 @@ export function Home() {
         void requestCloseOtherTabs(noteWorkspace.state.activePaneId, activeTab.tabId);
       }
       break;
+    case 'close-tabs-to-right':
+      if (activeTab) {
+        void requestCloseTabsToRight(noteWorkspace.state.activePaneId, activeTab.tabId);
+      }
+      break;
+    case 'reopen-last-closed-tab':
+      noteWorkspace.reopenLastClosed();
+      focusZone('editor');
+      break;
     case 'split-pane-right':
       noteWorkspace.splitActiveTab();
       focusZone('editor');
@@ -1087,6 +1136,7 @@ export function Home() {
     refreshWorkspace,
     requestCloseOtherTabs,
     requestCloseTab,
+    requestCloseTabsToRight,
     resolvedMode,
     readerMode,
     selectedDocument,
@@ -1172,17 +1222,12 @@ export function Home() {
     }
 
     if (request.source === 'keyboard-shortcut' && activeTab) {
-      const openTabCount = Object.keys(noteWorkspace.state.tabs).length;
       const closed = await requestCloseTab(activeTab.tabId);
+      await cancelClose();
       if (!closed) {
-        await cancelClose();
         return;
       }
-
-      if (openTabCount > 1) {
-        await cancelClose();
-        return;
-      }
+      return;
     } else {
       const allTabs = Object.values(noteWorkspace.state.tabs);
       if (!await confirmCloseUnsafeTabs(allTabs, 'Close HackDesk', 'Close')) {
@@ -1241,6 +1286,12 @@ export function Home() {
     if (isPrimaryModifier && event.key.toLowerCase() === 'w') {
       event.preventDefault();
       runAction('close-tab');
+      return;
+    }
+
+    if (isPrimaryModifier && event.shiftKey && event.key.toLowerCase() === 't') {
+      event.preventDefault();
+      runAction('reopen-last-closed-tab');
       return;
     }
 
@@ -1493,7 +1544,10 @@ export function Home() {
   };
 
   const getPaneTabs = (pane: NotePane) => (
-    pane.tabIds.map((tabId) => noteWorkspace.state.tabs[tabId]).filter((tab): tab is OpenNoteTab => Boolean(tab))
+    pane.tabIds
+      .map((tabId) => noteWorkspace.state.tabs[tabId])
+      .filter((tab): tab is OpenNoteTab => Boolean(tab))
+      .map((tab) => ({ ...tab, title: getTabTitle(tab) }))
   );
 
   const getPaneView = (pane: NotePane): DocumentPaneView => {
@@ -1639,6 +1693,7 @@ export function Home() {
           getPaneView={getPaneView}
           getPaneTabs={getPaneTabs}
           getTabSyncState={getTabSyncState}
+          canReopenLastClosedTab={noteWorkspace.state.recentlyClosedTabs.length > 0}
           onResizePanes={noteWorkspace.resizePanes}
           onFocusPane={noteWorkspace.focusPane}
           onSelectTab={noteWorkspace.selectTab}
@@ -1648,8 +1703,12 @@ export function Home() {
           onCloseOtherTabs={(paneId, tabId) => {
             void requestCloseOtherTabs(paneId, tabId);
           }}
+          onCloseTabsToRight={(paneId, tabId) => {
+            void requestCloseTabsToRight(paneId, tabId);
+          }}
           onSplitPane={noteWorkspace.splitActiveTab}
           onMoveTabToOtherPane={noteWorkspace.moveActiveTabToOtherPane}
+          onReopenLastClosedTab={noteWorkspace.reopenLastClosed}
           onOpenEditor={handleOpenEditor}
           onOpenExternal={handleOpenExternal}
           onCopyLink={handleCopyNoteLink}

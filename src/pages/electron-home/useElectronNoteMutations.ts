@@ -42,6 +42,26 @@ function upsertNoteInRepositoryValue(
   };
 }
 
+function removeNoteFromRepositoryValue(
+  current: RepositoryValue<NoteSummary[]> | undefined,
+  note: NoteIdentity,
+): RepositoryValue<NoteSummary[]> | undefined {
+  if (!current) {
+    return current;
+  }
+
+  if (!Array.isArray(current.data)) {
+    return current;
+  }
+
+  return {
+    ...current,
+    data: current.data.filter((candidate) => (
+      candidate.id !== note.id || (candidate.teamPath ?? null) !== (note.teamPath ?? null)
+    )),
+  };
+}
+
 export function useElectronNoteMutations({
   api,
   scope,
@@ -314,6 +334,10 @@ export function useElectronNoteMutations({
       return note;
     },
     onSuccess: (note) => {
+      queryClient.setQueryData<RepositoryValue<NoteSummary[]> | undefined>(
+        getWorkspaceQueryKey(scope),
+        (current) => removeNoteFromRepositoryValue(current, note),
+      );
       onNoteDeleted(note);
       void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope) });
       void queryClient.invalidateQueries({
