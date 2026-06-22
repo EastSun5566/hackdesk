@@ -46,7 +46,6 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { clsx } from 'clsx';
 
 import {
   ContextMenu,
@@ -91,6 +90,7 @@ import {
 import { buildNoteTagIndex, type ElectronNoteTag } from '@/lib/electron-note-tags';
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
+import { cn } from '@/lib/utils';
 
 import { CollapsibleSection, EmptyState, EntityRow, PanelHeader, PanelShell, ToolbarDropdownIconTrigger, ToolbarDropdownMoreTrigger, ToolbarIconButton } from './interaction-primitives';
 import type { WorkspaceScope } from './types';
@@ -121,7 +121,7 @@ const PERMISSION_LABELS: Record<NotePermissionRole, string> = {
 };
 
 function CheckedIcon({ checked }: { checked: boolean }) {
-  return <Check aria-hidden="true" className={`h-3.5 w-3.5 ${checked ? 'opacity-100' : 'opacity-0'}`} />;
+  return <Check aria-hidden="true" className={cn('h-3.5 w-3.5', checked ? 'opacity-100' : 'opacity-0')} />;
 }
 
 function FilterChip({
@@ -137,7 +137,10 @@ function FilterChip({
     <button
       type="button"
       onClick={onRemove}
-      className={`inline-flex h-7 min-w-0 items-center gap-1 rounded-[6px] border border-border-default bg-background-default px-2 text-xs text-text-default transition-colors hover:bg-element-bg-hover ${FOCUS_RING_CLASS}`}
+      className={cn(
+        'inline-flex h-7 min-w-0 items-center gap-1 rounded-[6px] border border-border-default bg-background-default px-2 text-xs text-text-default transition-colors hover:bg-element-bg-hover',
+        FOCUS_RING_CLASS,
+      )}
       aria-label={`Remove ${removeLabel}`}
     >
       <span className="truncate">{label}</span>
@@ -187,7 +190,7 @@ function NoteFinderToolbar({
             <button
               type="button"
               onClick={() => updateState({ query: '' })}
-              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default ${FOCUS_RING_CLASS}`}
+              className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default', FOCUS_RING_CLASS)}
               aria-label="Clear search"
             >
               <X aria-hidden="true" className="h-3.5 w-3.5" />
@@ -236,7 +239,7 @@ function NoteFinderToolbar({
           <ToolbarDropdownIconTrigger
             label="Filter notes"
             tooltip={activeFilterCount ? `${activeFilterCount} active filters` : 'Filter notes'}
-            className={`relative h-8 w-8 ${activeFilterCount ? 'bg-background-selected text-text-default' : ''}`}
+            className={cn('relative h-8 w-8', activeFilterCount && 'bg-background-selected text-text-default')}
           >
             <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
             {activeFilterCount ? (
@@ -376,7 +379,10 @@ function TagBrowser({
             <button
               type="button"
               onClick={() => setShowAll((current) => !current)}
-              className={`mt-0.5 h-7 rounded-[6px] px-2 text-xs text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default ${FOCUS_RING_CLASS}`}
+              className={cn(
+                'mt-0.5 h-7 rounded-[6px] px-2 text-xs text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default',
+                FOCUS_RING_CLASS,
+              )}
             >
               {showAll ? 'Show less' : `Show ${tags.length - TAG_BROWSER_LIMIT} more`}
             </button>
@@ -476,7 +482,7 @@ function NoteRow({
           }}
           style={style}
           data-note-id={entry.note.id}
-          className={clsx('min-w-0', (isDragging || active) && 'opacity-40')}
+          className={cn('min-w-0', (isDragging || active) && 'opacity-40')}
         >
           <EntityRow
             selected={selected}
@@ -484,7 +490,10 @@ function NoteRow({
             leadingControls={draggable ? (
               <button
                 type="button"
-                className={`flex h-6 w-5 shrink-0 items-center justify-center rounded text-text-subtle opacity-0 transition-opacity hover:text-text-default group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none ${FOCUS_RING_CLASS}`}
+                className={cn(
+                  'flex h-6 w-5 shrink-0 items-center justify-center rounded text-text-subtle opacity-0 transition-opacity hover:text-text-default group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none',
+                  FOCUS_RING_CLASS,
+                )}
                 aria-label={`Drag ${entry.note.title || 'Untitled'}`}
                 disabled={disabledDrag}
                 onClick={(event) => {
@@ -504,7 +513,7 @@ function NoteRow({
                   event.stopPropagation();
                   onSelect(entry.note);
                 }}
-                className={`block min-w-0 truncate rounded-[4px] text-left ${FOCUS_RING_CLASS}`}
+                className={cn('block min-w-0 truncate rounded-[4px] text-left', FOCUS_RING_CLASS)}
               >
                 {entry.note.title || 'Untitled'}
               </button>
@@ -673,7 +682,7 @@ function FolderButton({
           ref={setNodeRef}
           style={style}
           data-folder-id={node.id}
-          className={clsx('min-w-0', (isDragging || active) && 'opacity-40')}
+          className={cn('min-w-0', (isDragging || active) && 'opacity-40')}
         >
           <EntityRow
             selected={selected}
@@ -685,18 +694,24 @@ function FolderButton({
                   type="button"
                   onClick={() => onToggle(node.id)}
                   disabled={!hasChildren}
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-0`}
+                  className={cn(
+                    'flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default disabled:pointer-events-none disabled:opacity-0',
+                    FOCUS_RING_CLASS,
+                  )}
                   aria-label={hasChildren ? (collapsed ? `Expand ${node.name}` : `Collapse ${node.name}`) : undefined}
                   aria-expanded={hasChildren ? !collapsed : undefined}
                 >
                   <ChevronRight
                     aria-hidden="true"
-                    className={`h-3.5 w-3.5 ${COLLAPSE_ICON_CLASS} ${collapsed ? '' : 'rotate-90'}`}
+                    className={cn('h-3.5 w-3.5', COLLAPSE_ICON_CLASS, !collapsed && 'rotate-90')}
                   />
                 </button>
                 <button
                   type="button"
-                  className={`flex h-6 w-5 shrink-0 items-center justify-center rounded text-text-subtle opacity-0 transition-opacity hover:text-text-default group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none ${FOCUS_RING_CLASS}`}
+                  className={cn(
+                    'flex h-6 w-5 shrink-0 items-center justify-center rounded text-text-subtle opacity-0 transition-opacity hover:text-text-default group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none',
+                    FOCUS_RING_CLASS,
+                  )}
                   aria-label={`Drag ${node.name}`}
                   {...attributes}
                   {...listeners}
@@ -710,7 +725,7 @@ function FolderButton({
               <button
                 type="button"
                 onClick={() => onSelect(node.id)}
-                className={`block min-w-0 truncate rounded-[4px] text-left ${FOCUS_RING_CLASS}`}
+                className={cn('block min-w-0 truncate rounded-[4px] text-left', FOCUS_RING_CLASS)}
               >
                 {node.name}
               </button>
@@ -933,7 +948,7 @@ function FolderTreeView({
   }
 
   return (
-    <div className={`grid min-w-0 gap-0.5 ${depth > 0 ? 'relative pl-5' : ''}`}>
+    <div className={cn('grid min-w-0 gap-0.5', depth > 0 && 'relative pl-5')}>
       {depth > 0 ? <div className="absolute left-[13px] top-1 bottom-1 w-px bg-border-default/70" aria-hidden="true" /> : null}
       {nodes.map((node) => {
         const collapsed = collapsedFolderIds.has(node.id);
@@ -954,9 +969,10 @@ function FolderTreeView({
               onDeleteFolder={onDeleteFolder}
             />
             <div
-              className={`grid overflow-hidden transition-[grid-template-rows,opacity] duration-150 ease-out motion-reduce:transition-none ${
-                !collapsed && !isActiveFolder ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-              }`}
+              className={cn(
+                'grid overflow-hidden transition-[grid-template-rows,opacity] duration-150 ease-out motion-reduce:transition-none',
+                !collapsed && !isActiveFolder ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+              )}
             >
               <div className="min-h-0 overflow-hidden">
                 <div className="mt-0.5 grid min-w-0 gap-0.5">
@@ -1246,7 +1262,7 @@ export function FolderNavigator({
                   onClick={onRefresh}
                   label="Refresh notes"
                 >
-                  <RefreshCcw aria-hidden="true" className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+                  <RefreshCcw aria-hidden="true" className={cn('h-4 w-4', isFetching && 'animate-spin')} />
                 </ToolbarIconButton>
                 <ToolbarIconButton
                   onClick={onCreate}
@@ -1293,7 +1309,10 @@ export function FolderNavigator({
               <button
                 type="button"
                 onClick={onOpenSettings}
-                className={`flex w-full items-center gap-2 rounded-md border border-border-default bg-background-default px-3 py-2 text-left text-sm text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default ${FOCUS_RING_CLASS}`}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-md border border-border-default bg-background-default px-3 py-2 text-left text-sm text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default',
+                  FOCUS_RING_CLASS,
+                )}
               >
                 <AlertCircle aria-hidden="true" className="h-4 w-4" />
                 <span>Configure HackMD API Token</span>

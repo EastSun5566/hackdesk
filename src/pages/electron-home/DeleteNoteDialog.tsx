@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { DocumentSummary } from '@/lib/electron-api';
+import { cn } from '@/lib/utils';
 
 import { FOCUS_RING_CLASS, PRESSED_CLASS, SECONDARY_BUTTON_CLASS } from './ui';
 
@@ -50,7 +51,11 @@ export function DeleteNoteDialog({
                 type="button"
                 disabled={isDeleting}
                 onClick={() => onDelete(note)}
-                className={`inline-flex h-9 items-center gap-2 rounded-md border border-destructive-default px-3 text-sm font-medium text-destructive-default transition-colors active:bg-destructive-soft ${PRESSED_CLASS} ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`}
+                className={cn(
+                  'inline-flex h-9 items-center gap-2 rounded-md border border-destructive-default px-3 text-sm font-medium text-destructive-default transition-colors active:bg-destructive-soft disabled:pointer-events-none disabled:opacity-50',
+                  PRESSED_CLASS,
+                  FOCUS_RING_CLASS,
+                )}
               >
                 {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                 Delete

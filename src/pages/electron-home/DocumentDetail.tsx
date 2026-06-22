@@ -17,6 +17,7 @@ import type {
   UploadNoteImageResult,
 } from '@/lib/electron-api';
 import type { FolderTree } from '@/lib/hackmd-folders';
+import { cn } from '@/lib/utils';
 
 import { EmptyState, PanelHeader, PanelShell, ToolbarDropdownMoreTrigger, ToolbarIconButton } from './interaction-primitives';
 import { NoteInspector } from './NoteInspector';
@@ -68,7 +69,7 @@ function SyncStateBadge({
 
   return (
     <span
-      className={`inline-flex h-7 shrink-0 items-center gap-1 rounded-[6px] border px-2 text-xs font-medium ${className}`}
+      className={cn('inline-flex h-7 shrink-0 items-center gap-1 rounded-[6px] border px-2 text-xs font-medium', className)}
       aria-label={`Sync state: ${SYNC_STATE_LABELS[state]}`}
     >
       {icon}
@@ -215,7 +216,10 @@ export function DocumentDetail({
                 type="button"
                 onClick={() => onReaderModeChange('read')}
                 aria-pressed={readerMode === 'read'}
-                className={`h-8 rounded-[5px] px-2.5 text-sm transition-colors ${readerMode === 'read' ? 'bg-background-selected text-text-default' : 'text-text-subtle hover:text-text-default'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default`}
+                className={cn(
+                  'h-8 rounded-[5px] px-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default',
+                  readerMode === 'read' ? 'bg-background-selected text-text-default' : 'text-text-subtle hover:text-text-default',
+                )}
               >
                 View
               </button>
@@ -223,7 +227,10 @@ export function DocumentDetail({
                 type="button"
                 onClick={() => onReaderModeChange('edit')}
                 aria-pressed={readerMode === 'edit'}
-                className={`h-8 rounded-[5px] px-2.5 text-sm transition-colors ${readerMode === 'edit' ? 'bg-background-selected text-text-default' : 'text-text-subtle hover:text-text-default'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default`}
+                className={cn(
+                  'h-8 rounded-[5px] px-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default',
+                  readerMode === 'edit' ? 'bg-background-selected text-text-default' : 'text-text-subtle hover:text-text-default',
+                )}
               >
                 Edit
               </button>
@@ -293,9 +300,10 @@ export function DocumentDetail({
         <div
           id={NOTE_INSPECTOR_PANEL_ID}
           aria-hidden={isInspectorCollapsed}
-          className={`shrink-0 overflow-hidden bg-background-muted transition-[width,border-color,background-color] duration-200 ease-out motion-reduce:transition-none ${
-            isInspectorCollapsed ? 'border-l-0' : 'border-l border-border-default'
-          }`}
+          className={cn(
+            'shrink-0 overflow-hidden bg-background-muted transition-[width,border-color,background-color] duration-200 ease-out motion-reduce:transition-none',
+            isInspectorCollapsed ? 'border-l-0' : 'border-l border-border-default',
+          )}
           style={{ width: isInspectorCollapsed ? 0 : INSPECTOR_WIDTH_DEFAULT }}
         >
           {isInspectorCollapsed ? null : (

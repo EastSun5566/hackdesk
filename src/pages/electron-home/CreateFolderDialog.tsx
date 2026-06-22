@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { CreateFolderInput } from '@/lib/electron-api';
+import { cn } from '@/lib/utils';
 
 import { FolderAppearanceFields } from './FolderAppearanceFields';
 import type { CreateFolderDialogState } from './types';
@@ -77,7 +78,7 @@ export function CreateFolderDialog({
               name="description"
               value={state.description}
               onChange={(event) => onStateChange({ ...state, description: event.target.value })}
-              className={`${TEXT_INPUT_CLASS} min-h-20 py-2`}
+              className={cn(TEXT_INPUT_CLASS, 'min-h-20 py-2')}
               rows={3}
               placeholder="Active project notes"
             />

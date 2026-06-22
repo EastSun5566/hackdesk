@@ -28,6 +28,7 @@ import {
   settingsSchema,
   type AppSettings,
 } from '@/lib/settings';
+import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { version } from '../../package.json';
@@ -198,11 +199,12 @@ export function Settings() {
               type="button"
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
+              className={cn(
+                'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
                 activeTab === tab.id
                   ? 'bg-background-selected font-medium text-text-default shadow-sm'
-                  : 'text-text-subtle hover:bg-element-bg-hover hover:text-text-default'
-              }`}
+                  : 'text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
+              )}
             >
               {tab.icon}
               {tab.label}
@@ -262,15 +264,17 @@ export function Settings() {
                           key={option.id}
                           type="button"
                           onClick={() => setTheme(option.id)}
-                          className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
+                          className={cn(
+                            'flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all',
                             theme === option.id
                               ? 'border-primary-default bg-primary-soft'
-                              : 'border-border-default bg-background-default hover:border-primary-default hover:bg-element-bg-hover'
-                          }`}
+                              : 'border-border-default bg-background-default hover:border-primary-default hover:bg-element-bg-hover',
+                          )}
                         >
-                          <div className={`rounded-full p-2 ${
-                            theme === option.id ? 'bg-primary-soft text-primary-default' : 'bg-background-muted text-text-subtle'
-                          }`}>
+                          <div className={cn(
+                            'rounded-full p-2',
+                            theme === option.id ? 'bg-primary-soft text-primary-default' : 'bg-background-muted text-text-subtle',
+                          )}>
                             {option.icon}
                           </div>
                           <span className="text-sm font-medium">{option.label}</span>

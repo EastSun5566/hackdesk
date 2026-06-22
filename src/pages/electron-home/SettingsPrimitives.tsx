@@ -1,5 +1,7 @@
 import type { InputHTMLAttributes, ReactNode } from 'react';
 
+import { cn } from '@/lib/utils';
+
 import { FOCUS_RING_CLASS, TEXT_INPUT_CLASS } from './ui';
 
 export function SettingsSection({
@@ -62,7 +64,10 @@ export function SettingsSecretInput({
       <button
         type="button"
         onClick={() => onVisibleChange(!visible)}
-        className={`border-l border-border-default px-3 text-xs font-medium text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default ${FOCUS_RING_CLASS}`}
+        className={cn(
+          'border-l border-border-default px-3 text-xs font-medium text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default',
+          FOCUS_RING_CLASS,
+        )}
       >
         {visible ? 'Hide' : 'Show'}
       </button>

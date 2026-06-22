@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { UpdateFolderInput } from '@/lib/electron-api';
+import { cn } from '@/lib/utils';
 
 import { FolderAppearanceFields } from './FolderAppearanceFields';
 import type { RenameFolderDialogState } from './types';
@@ -83,7 +84,7 @@ export function RenameFolderDialog({
               name="description"
               value={state.description}
               onChange={(event) => onStateChange({ ...state, description: event.target.value })}
-              className={`${TEXT_INPUT_CLASS} min-h-20 py-2`}
+              className={cn(TEXT_INPUT_CLASS, 'min-h-20 py-2')}
               rows={3}
             />
           </label>

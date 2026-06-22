@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import type { TeamSummary } from '@/lib/electron-api';
+import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui/tooltip';
 
 import { EntityRow, PanelShell } from './interaction-primitives';
@@ -97,7 +98,7 @@ export function WorkspaceRail({
       collapsedWidth={RAIL_COLLAPSED_WIDTH}
       className="border-r border-border-default bg-background-default pt-4"
     >
-      <div className={`px-3 pb-3 ${collapsed ? 'text-center' : ''}`}>
+      <div className={cn('px-3 pb-3', collapsed && 'text-center')}>
         <div className="flex items-center gap-2">
           {!collapsed ? (
             <div className="min-w-0">

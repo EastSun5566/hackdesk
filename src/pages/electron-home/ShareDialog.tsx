@@ -17,6 +17,7 @@ import {
   getHackmdNoteUrl,
   getMarkdownNoteLink,
 } from '@/lib/electron-note-links';
+import { cn } from '@/lib/utils';
 
 import {
   FOCUS_RING_CLASS,
@@ -123,7 +124,7 @@ function ShareDialogContent({
                   id="share-hackmd-link"
                   readOnly
                   value={hackmdLink}
-                  className={`${TEXT_INPUT_CLASS} bg-background-muted`}
+                  className={cn(TEXT_INPUT_CLASS, 'bg-background-muted')}
                 />
                 <button
                   type="button"
@@ -145,7 +146,7 @@ function ShareDialogContent({
                   id="share-markdown-link"
                   readOnly
                   value={markdownLink}
-                  className={`${TEXT_INPUT_CLASS} bg-background-muted`}
+                  className={cn(TEXT_INPUT_CLASS, 'bg-background-muted')}
                 />
                 <button
                   type="button"
@@ -210,7 +211,7 @@ function ShareDialogContent({
                 type="submit"
                 disabled={!permissionsDirty || isSaving}
                 title={!permissionsDirty ? 'No sharing changes.' : undefined}
-                className={`${PRIMARY_BUTTON_CLASS} ${FOCUS_RING_CLASS}`}
+                className={cn(PRIMARY_BUTTON_CLASS, FOCUS_RING_CLASS)}
               >
                 {isSaving ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Save aria-hidden="true" className="h-4 w-4" />}
                 Save Sharing

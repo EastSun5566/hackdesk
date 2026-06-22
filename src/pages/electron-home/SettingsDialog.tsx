@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { ElectronSafeSettings, UserSummary } from '@/lib/electron-api';
+import { cn } from '@/lib/utils';
 
 import { SettingsInput, SettingsRow, SettingsSecretInput, SettingsSection } from './SettingsPrimitives';
 import type { SettingsFormInput } from './types';
@@ -102,9 +103,11 @@ function SettingsDialogContent({
               />
             </SettingsRow>
             <div className="flex items-center justify-between gap-3">
-              <p className={`min-h-5 text-xs ${
-                tokenTest.status === 'error' ? 'text-destructive-default' : 'text-text-subtle'
-              }`}
+              <p
+                className={cn(
+                  'min-h-5 text-xs',
+                  tokenTest.status === 'error' ? 'text-destructive-default' : 'text-text-subtle',
+                )}
               >
                 {tokenTest.message}
               </p>
@@ -127,7 +130,10 @@ function SettingsDialogContent({
                       });
                     });
                 }}
-                className={`inline-flex h-9 items-center gap-2 rounded-md border border-border-default px-3 text-sm text-text-default transition-colors hover:bg-element-bg-hover ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`}
+                className={cn(
+                  'inline-flex h-9 items-center gap-2 rounded-md border border-border-default px-3 text-sm text-text-default transition-colors hover:bg-element-bg-hover disabled:pointer-events-none disabled:opacity-50',
+                  FOCUS_RING_CLASS,
+                )}
               >
                 {tokenTest.status === 'testing' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                 Test Token
@@ -138,7 +144,10 @@ function SettingsDialogContent({
           <button
             type="submit"
             disabled={isSaving || !title.trim()}
-            className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-primary-default px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`}
+            className={cn(
+              'inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-primary-default px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50',
+              FOCUS_RING_CLASS,
+            )}
           >
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Save

@@ -10,6 +10,7 @@ import type {
   UploadNoteImageResult,
 } from '@/lib/electron-api';
 import type { FolderTree, FolderTreeNode } from '@/lib/hackmd-folders';
+import { cn } from '@/lib/utils';
 
 import { CollapsibleSection, PanelHeader, ToolbarIconButton } from './interaction-primitives';
 import {
@@ -26,7 +27,7 @@ type FolderOption = {
 const INSPECTOR_INPUT_CLASS = TEXT_INPUT_CLASS
   .replace('h-10', 'h-9')
   .replace('px-3', 'px-2.5');
-const INSPECTOR_TEXTAREA_CLASS = `${INSPECTOR_INPUT_CLASS} min-h-16 py-2`;
+const INSPECTOR_TEXTAREA_CLASS = cn(INSPECTOR_INPUT_CLASS, 'min-h-16 py-2');
 
 function getDocumentFolderId(document: DocumentSummary) {
   return document.folderPaths.at(-1)?.id ?? '';
@@ -236,7 +237,7 @@ function NoteInspectorPanel({
                       <button
                         type="button"
                         onClick={() => removeTag(tag)}
-                        className={`text-text-subtle hover:text-text-default ${FOCUS_RING_CLASS}`}
+                        className={cn('text-text-subtle hover:text-text-default', FOCUS_RING_CLASS)}
                         aria-label={`Remove ${tag} tag`}
                       >
                         <X className="h-3 w-3" />
