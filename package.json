@@ -39,7 +39,7 @@
     "contract:hackmd:live": "node scripts/hackmd-openapi-verify.ts --live",
     "sync:version": "node scripts/sync-version.ts",
     "test": "pnpm run test:rust && pnpm run test:js",
-    "test:js": "vitest run electron src",
+    "test:js": "vitest run electron src docs/.vitepress",
     "test:rust": "cd src-tauri && cargo test",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
@@ -66,6 +66,12 @@
       "dist/**",
       "package.json"
     ],
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://hackdesk.eastsun.me/electron-updates/"
+      }
+    ],
     "extraResources": [
       {
         "from": "build/icon.png",
@@ -74,14 +80,27 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "build/icon.icns"
+      "icon": "build/icon.icns",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "notarize": true
     },
     "win": {
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis"
+      ]
     },
     "linux": {
       "icon": "build/icon.png",
-      "category": "Office"
+      "category": "Office",
+      "target": [
+        "AppImage"
+      ]
     }
   },
   "dependencies": {
@@ -107,6 +126,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "dompurify": "^3.4.11",
+    "electron-updater": "^6.8.9",
     "fuse.js": "^7.1.0",
     "highlight.js": "^11.11.1",
     "lucide-react": "^1.17.0",

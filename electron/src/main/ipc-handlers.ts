@@ -48,6 +48,7 @@ import { getSafeSettings, updateStoredSettings } from './settings';
 import { openExternalUrl, openHackmdEditor } from './url-policy';
 import type { WindowManager } from './window-manager';
 import { openTextFile, saveTextFile } from './app-file-dialog';
+import { checkForElectronUpdates } from './app-updater';
 import { exportDebugLogs, recordFatalRendererError } from './logging';
 import {
   confirmDialogOptionsSchema,
@@ -210,6 +211,7 @@ export function registerIpcHandlers(windowManager: WindowManager) {
   ipcMain.handle(ELECTRON_CHANNELS.appOpenTextFile, (_event, input: OpenTextFileInput) => (
     openTextFile(validateIpcInput(ELECTRON_CHANNELS.appOpenTextFile, openTextFileInputSchema, input), windowManager.getTargetWindow())
   ));
+  ipcMain.handle(ELECTRON_CHANNELS.appCheckForUpdates, () => checkForElectronUpdates(windowManager.getTargetWindow()));
   ipcMain.handle(ELECTRON_CHANNELS.appConfirm, async (_event, options: ConfirmDialogOptions) => {
     const validatedOptions = validateIpcInput(ELECTRON_CHANNELS.appConfirm, confirmDialogOptionsSchema, options);
     const confirmLabel = validatedOptions.confirmLabel ?? 'OK';

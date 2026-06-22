@@ -148,6 +148,11 @@ export type ConfirmDialogResult = {
   confirmed: boolean;
 };
 
+export type CheckForUpdatesResult =
+  | { status: 'upToDate' }
+  | { status: 'declined'; version: string }
+  | { status: 'installed'; version: string; restart_required: boolean };
+
 export type AppFileFilter = {
   name: string;
   extensions: string[];
@@ -278,6 +283,7 @@ export type HackDeskElectronAPI = {
     onCloseRequest: (callback: (request: HackDeskCloseRequest) => void) => () => void;
     confirmClose: () => Promise<void>;
     cancelClose: () => Promise<void>;
+    checkForUpdates: () => Promise<CheckForUpdatesResult>;
   };
 };
 

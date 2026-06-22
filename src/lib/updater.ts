@@ -1,15 +1,31 @@
 import { invoke } from '@tauri-apps/api/core';
 import { useCallback, useState } from 'react';
 
-export type CheckForUpdatesResult =
-  | { status: 'upToDate' }
-  | { status: 'declined'; version: string }
-  | { status: 'installed'; version: string; restart_required: boolean };
+import { getHackDeskAPI, getRuntimeEnvironment, type CheckForUpdatesResult } from './electron-api';
 
 type CheckForUpdatesCallbacks = {
   onSuccess?: (data: CheckForUpdatesResult, variables: undefined) => void;
   onError?: (error: Error, variables: undefined) => void;
 };
+
+export async function checkForUpdatesForRuntime(): Promise<CheckForUpdatesResult> {
+  const runtime = getRuntimeEnvironment();
+
+  if (runtime === 'electron') {
+    const api = getHackDeskAPI();
+    if (!api) {
+      throw new Error('Electron update API is unavailable.');
+    }
+
+    return api.app.checkForUpdates();
+  }
+
+  if (runtime === 'tauri') {
+    return invoke<CheckForUpdatesResult>('check_for_updates');
+  }
+
+  throw new Error('Update checks are only available in the desktop app.');
+}
 
 export function useCheckForUpdates() {
   const [state, setState] = useState<{
@@ -32,7 +48,7 @@ export function useCheckForUpdates() {
       isSuccess: false,
     });
 
-    void invoke<CheckForUpdatesResult>('check_for_updates')
+    void checkForUpdatesForRuntime()
       .then((result) => {
         setState({
           data: result,

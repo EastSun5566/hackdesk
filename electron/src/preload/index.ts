@@ -94,6 +94,7 @@ const api: HackDeskElectronAPI = {
     writeClipboardText: (text: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.appWriteClipboardText, text),
     saveTextFile: (input: SaveTextFileInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.appSaveTextFile, input),
     openTextFile: (input: OpenTextFileInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.appOpenTextFile, input),
+    checkForUpdates: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appCheckForUpdates),
     onCommand: (callback: (command: HackDeskCommandPaletteCommand) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, command: HackDeskCommandPaletteCommand) => {
         callback(command);

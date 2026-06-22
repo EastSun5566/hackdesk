@@ -1,4 +1,4 @@
-interface Asset {
+export interface Asset {
   url: string;
   id: number;
   node_id: string;

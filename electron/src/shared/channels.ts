@@ -41,4 +41,5 @@ export const ELECTRON_CHANNELS = {
   appWriteClipboardText: 'app:write-clipboard-text',
   appSaveTextFile: 'app:save-text-file',
   appOpenTextFile: 'app:open-text-file',
+  appCheckForUpdates: 'app:check-for-updates',
 } as const;
