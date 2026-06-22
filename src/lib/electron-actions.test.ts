@@ -20,6 +20,9 @@ const baseContext: ElectronActionContext = {
   selectedNoteId: 'note-1',
   noteDirty: true,
   isSavingNote: false,
+  openTabCount: 2,
+  activePaneTabCount: 2,
+  paneCount: 1,
   inspectorCollapsed: false,
   navigatorCollapsed: false,
   workspaceRailCollapsed: false,
@@ -68,6 +71,14 @@ describe('electron action registry', () => {
     expect(getElectronAction('toggle-reader-mode')).toMatchObject({
       label: 'Toggle View Mode',
       category: 'view',
+    });
+    expect(getElectronAction('close-tab')).toMatchObject({
+      label: 'Close Tab',
+      menuAccelerator: 'CmdOrCtrl+W',
+    });
+    expect(getElectronAction('split-pane-right')).toMatchObject({
+      label: 'Split Pane Right',
+      menuAccelerator: 'Shift+CmdOrCtrl+\\',
     });
   });
 
@@ -124,6 +135,18 @@ describe('electron action registry', () => {
       ...baseContext,
       selectedNoteId: null,
     })).toBe('Select a note first.');
+    expect(getActionDisabledReason(getElectronAction('close-tab'), {
+      ...baseContext,
+      openTabCount: 0,
+    })).toBe('Open a note tab first.');
+    expect(getActionDisabledReason(getElectronAction('split-pane-right'), {
+      ...baseContext,
+      paneCount: 2,
+    })).toBe('HackDesk supports two note panes in this version.');
+    expect(getActionDisabledReason(getElectronAction('move-tab-to-other-pane'), {
+      ...baseContext,
+      paneCount: 1,
+    })).toBe('Split the editor before moving tabs between panes.');
   });
 
   it('uses reader mode context for dynamic action labels', () => {

@@ -7,6 +7,7 @@ import type {
   DocumentSummary,
   ElectronActionId,
   FolderSummary,
+  HackDeskCloseRequest,
   HackDeskElectronAPI,
   NoteSummary,
 } from '@/lib/electron-api';
@@ -51,7 +52,8 @@ import { CreateFolderDialog } from './electron-home/CreateFolderDialog';
 import { CreateNoteDialog } from './electron-home/CreateNoteDialog';
 import { DeleteNoteDialog } from './electron-home/DeleteNoteDialog';
 import { DeleteFolderDialog } from './electron-home/DeleteFolderDialog';
-import { DocumentDetail, type DocumentSyncState } from './electron-home/DocumentDetail';
+import { type DocumentSyncState } from './electron-home/DocumentDetail';
+import { DocumentWorkspace, type DocumentPaneView } from './electron-home/DocumentWorkspace';
 import { FolderNavigator } from './electron-home/FolderNavigator';
 import { PanelResizeSash } from './electron-home/PanelResizeSash';
 import { SettingsDialog } from './electron-home/SettingsDialog';
@@ -61,7 +63,16 @@ import {
   getRepositoryError,
   getScopeStorageKey,
   isShowingCachedFallback,
+  unwrapRepositoryValue,
 } from './electron-home/repository';
+import {
+  getNoteIdentityKey,
+  getPaneActiveTab,
+  noteIdentityMatches,
+  type NoteIdentity,
+  type NotePane,
+  type OpenNoteTab,
+} from './electron-home/note-workspace';
 import type {
   CommandPaletteState,
   CreateFolderDialogState,
@@ -103,19 +114,11 @@ import {
 import { useElectronHackmdQueries } from './electron-home/useElectronHackmdQueries';
 import { useElectronFocusZones } from './electron-home/useElectronFocusZones';
 import { useElectronNoteMutations } from './electron-home/useElectronNoteMutations';
+import { useNoteWorkspaceTabs } from './electron-home/useNoteWorkspaceTabs';
 
 const WORKSPACE_RAIL_PANEL_ID = 'workspace-rail-panel';
 const NOTE_NAVIGATOR_PANEL_ID = 'note-navigator-panel';
-type DocumentDraft = {
-  documentId: string;
-  title: string;
-  content: string;
-};
 const DEFAULT_WORKSPACE_SCOPE: WorkspaceScope = { type: 'personal', label: 'My Workspace' };
-
-function noteIdentityMatches(left: Pick<NoteSummary, 'id' | 'teamPath'> | undefined, right: Pick<NoteSummary, 'id' | 'teamPath'> | null) {
-  return Boolean(left && right && left.id === right.id && (left.teamPath ?? null) === (right.teamPath ?? null));
-}
 
 function createClosedFolderDialogState(): CreateFolderDialogState {
   return { open: false, name: '', description: '', icon: '', color: '' };
@@ -150,8 +153,9 @@ export function Home() {
   const api = getDesktopAPI();
   const initialWorkspaceScope = readWorkspaceScopeStorage(LAST_WORKSPACE_SCOPE_KEY, DEFAULT_WORKSPACE_SCOPE);
   const [scope, setScopeState] = useState<WorkspaceScope>(() => initialWorkspaceScope);
+  const scopeStorageKey = useMemo(() => getScopeStorageKey(scope), [scope]);
+  const noteWorkspace = useNoteWorkspaceTabs(scopeStorageKey);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  const [selectedNote, setSelectedNote] = useState<NoteSummary | null>(null);
   const [recentNotes, setRecentNotes] = useState<ElectronRecentNote[]>(() => readRecentNotes(window.localStorage));
   const pendingRecentNoteRef = useRef<ElectronRecentNote | null>(null);
   const [finderState, setFinderState] = useState<NoteFinderState>(() => (
@@ -166,7 +170,6 @@ export function Home() {
   const [deleteTarget, setDeleteTarget] = useState<DocumentSummary | null>(null);
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<FolderTreeNode | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
-  const [documentDraft, setDocumentDraft] = useState<DocumentDraft | null>(null);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(() => readBooleanStorage(INSPECTOR_COLLAPSED_KEY, true));
   const [readerMode, setReaderModeState] = useState<ReaderMode>(() => readReaderModeStorage(READER_MODE_KEY, 'edit'));
   const [railCollapsed, setRailCollapsed] = useState(() => readBooleanStorage(RAIL_COLLAPSED_KEY, false));
@@ -183,7 +186,12 @@ export function Home() {
     readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${initialScopeStorageKey}`)
   ));
   const { focusZone } = useElectronFocusZones();
-  const scopeStorageKey = useMemo(() => getScopeStorageKey(scope), [scope]);
+  const selectedNote = useMemo<NoteIdentity | null>(() => (
+    noteWorkspace.activeTab
+      ? { id: noteWorkspace.activeTab.noteId, teamPath: noteWorkspace.activeTab.teamPath }
+      : null
+  ), [noteWorkspace.activeTab]);
+  const openNoteInWorkspace = noteWorkspace.openNote;
   const activeFinderState = useMemo<NoteFinderState>(() => (
     !selectedFolderId && finderState.searchScope === 'current-folder'
       ? { ...finderState, searchScope: 'workspace' }
@@ -197,7 +205,6 @@ export function Home() {
     writeWorkspaceScopeStorage(LAST_WORKSPACE_SCOPE_KEY, nextScope);
     setCollapsedFolderIds(readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${nextScopeStorageKey}`));
     setSelectedFolderId(null);
-    setSelectedNote(null);
     skipNextFinderWriteRef.current = true;
     setFinderState(readNoteFinderState(window.localStorage, nextScopeStorageKey));
   }, []);
@@ -210,9 +217,18 @@ export function Home() {
     currentNotes,
     currentFolders,
     currentFolderOrder,
-    document,
+    documentsByKey,
+    documentQueries,
     queries,
-  } = useElectronHackmdQueries({ api, scope, selectedNote });
+  } = useElectronHackmdQueries({
+    api,
+    scope,
+    selectedNote,
+    activeDocumentNotes: noteWorkspace.visibleActiveTabs.map((tab) => ({
+      id: tab.noteId,
+      teamPath: tab.teamPath,
+    })),
+  });
 
   const displayScope = useMemo<WorkspaceScope>(() => {
     if (scope.type !== 'team') {
@@ -229,6 +245,10 @@ export function Home() {
     () => buildHackmdFolderTree(currentNotes, currentFolders, currentFolderOrder),
     [currentFolderOrder, currentFolders, currentNotes],
   );
+  const syncOpenNoteSummaries = noteWorkspace.syncNoteSummaries;
+  useEffect(() => {
+    syncOpenNoteSummaries(currentNotes);
+  }, [currentNotes, syncOpenNoteSummaries]);
   const deferredFinderState = useMemo<NoteFinderState>(() => ({
     ...activeFinderState,
     query: deferredFinderQuery,
@@ -257,15 +277,43 @@ export function Home() {
   const selectedParentFolderId = selectedFolderId && selectedFolderId !== UNFILED_FOLDER_ID ? selectedFolderId : undefined;
   const canCreate = hasToken && scope.type !== 'history';
   const canModifySelectedFolder = Boolean(selectedFolder?.id && selectedFolder.id !== UNFILED_FOLDER_ID);
-  const selectedDocument = noteIdentityMatches(document, selectedNote) ? document : undefined;
-  const selectedDocumentDraft = selectedDocument && documentDraft?.documentId === selectedDocument.id ? documentDraft : null;
-  const documentTitle = selectedDocumentDraft?.title ?? selectedDocument?.title ?? '';
-  const documentContent = selectedDocumentDraft?.content ?? selectedDocument?.content ?? '';
-  const noteDirty = Boolean(
-    selectedDocument
-    && selectedDocumentDraft
-    && (documentTitle !== selectedDocument.title || documentContent !== selectedDocument.content),
-  );
+  const activeTab = noteWorkspace.activeTab;
+  const getTabIdentity = useCallback((tab: OpenNoteTab): NoteIdentity => ({
+    id: tab.noteId,
+    teamPath: tab.teamPath,
+  }), []);
+  const getTabDocumentResult = useCallback((tab: OpenNoteTab) => (
+    documentsByKey.get(getNoteIdentityKey(getTabIdentity(tab)))
+  ), [documentsByKey, getTabIdentity]);
+  const getTabDocument = useCallback((tab: OpenNoteTab) => {
+    const documentResult = unwrapRepositoryValue(getTabDocumentResult(tab));
+    return documentResult && noteIdentityMatches(documentResult, getTabIdentity(tab)) ? documentResult : undefined;
+  }, [getTabDocumentResult, getTabIdentity]);
+  const getTabDraft = useCallback((tab: OpenNoteTab) => noteWorkspace.state.drafts[tab.tabId] ?? null, [noteWorkspace.state.drafts]);
+  const getTabTitle = useCallback((tab: OpenNoteTab) => {
+    const documentResult = getTabDocument(tab);
+    return getTabDraft(tab)?.title ?? documentResult?.title ?? tab.title;
+  }, [getTabDocument, getTabDraft]);
+  const getTabContent = useCallback((tab: OpenNoteTab) => {
+    const documentResult = getTabDocument(tab);
+    return getTabDraft(tab)?.content ?? documentResult?.content ?? '';
+  }, [getTabDocument, getTabDraft]);
+  const isTabDirty = useCallback((tab: OpenNoteTab) => {
+    const documentResult = getTabDocument(tab);
+    const draft = getTabDraft(tab);
+    const baseTitle = documentResult?.title ?? draft?.baseTitle;
+    const baseContent = documentResult?.content ?? draft?.baseContent;
+    return Boolean(
+      draft
+      && typeof baseTitle === 'string'
+      && typeof baseContent === 'string'
+      && (draft.title !== baseTitle || draft.content !== baseContent),
+    );
+  }, [getTabDocument, getTabDraft]);
+  const selectedDocument = activeTab ? getTabDocument(activeTab) : undefined;
+  const documentTitle = activeTab ? getTabTitle(activeTab) : '';
+  const documentContent = activeTab ? getTabContent(activeTab) : '';
+  const noteDirty = activeTab ? isTabDirty(activeTab) : false;
 
   const toggleRailCollapsed = useCallback(() => {
     setRailCollapsed((current) => {
@@ -336,45 +384,12 @@ export function Home() {
     note?.id ?? 'none',
   ].join(':'), [scopeStorageKey, selectedFolderId, selectedNote?.id]);
 
-  const confirmDiscardDirtyNote = useCallback(async (nextNote: NoteSummary) => {
-    if (!noteDirty || !selectedNote || noteIdentityMatches(nextNote, selectedNote)) {
-      return true;
-    }
-
-    if (!api?.app.confirm) {
-      return true;
-    }
-
-    try {
-      const { confirmed } = await api.app.confirm({
-        title: 'Discard Changes',
-        message: 'Discard unsaved changes?',
-        detail: `You have unsaved changes in “${selectedNote.title || 'Untitled'}”. Switching notes will discard the current draft.`,
-        confirmLabel: 'Discard',
-        cancelLabel: 'Keep Editing',
-        destructive: true,
-      });
-      return confirmed;
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to confirm note selection.');
-      return false;
-    }
-  }, [api, noteDirty, selectedNote]);
-
   const requestSelectNote = useCallback(async (
     note: NoteSummary,
-    options: { focusEditor?: boolean; trackRecent?: boolean; skipDirtyGuard?: boolean } = {},
+    options: { focusEditor?: boolean; trackRecent?: boolean } = {},
   ) => {
-    const shouldConfirmDirtyNote = !options.skipDirtyGuard
-      && noteDirty
-      && Boolean(selectedNote)
-      && !noteIdentityMatches(note, selectedNote);
-    if (shouldConfirmDirtyNote && !await confirmDiscardDirtyNote(note)) {
-      return false;
-    }
-
     autoSelectSuppressionRef.current = null;
-    setSelectedNote(note);
+    openNoteInWorkspace(note);
     if (options.trackRecent ?? true) {
       trackRecentNote(note);
     }
@@ -384,7 +399,7 @@ export function Home() {
     }
 
     return true;
-  }, [confirmDiscardDirtyNote, focusZone, noteDirty, selectedNote, trackRecentNote]);
+  }, [focusZone, openNoteInWorkspace, trackRecentNote]);
 
   const handleNoteSelect = useCallback((note: NoteSummary) => {
     void requestSelectNote(note, { trackRecent: true });
@@ -398,7 +413,7 @@ export function Home() {
     onSettingsSaved: () => setSettingsOpen(false),
     onNoteCreated: (note) => {
       setCreateDialog({ open: false, title: '' });
-      void requestSelectNote(note, { skipDirtyGuard: true, trackRecent: true });
+      void requestSelectNote(note, { trackRecent: true });
     },
     onFolderCreated: (folder: FolderSummary) => {
       setCreateFolderDialog(createClosedFolderDialogState());
@@ -414,17 +429,17 @@ export function Home() {
     },
     onFolderDeleted: (_folderId, parentFolderId) => {
       setDeleteFolderTarget(null);
-      setSelectedNote(null);
       setSelectedFolderId(parentFolderId ?? UNFILED_FOLDER_ID);
     },
     onNoteDeleted: (note) => {
       removeRecentNoteEntry(note.id, note.teamPath ?? null);
+      noteWorkspace.closeByNoteIdentity(note);
       setDeleteTarget(null);
-      setSelectedNote(null);
     },
     onNoteMoved: (note, targetFolderId) => {
       setSelectedFolderId(targetFolderId ?? UNFILED_FOLDER_ID);
-      void requestSelectNote(note, { skipDirtyGuard: true, trackRecent: true });
+      noteWorkspace.syncNoteSummary(note);
+      void requestSelectNote(note, { trackRecent: true });
     },
   });
 
@@ -437,6 +452,9 @@ export function Home() {
     selectedNoteId: selectedNote?.id ?? null,
     noteDirty,
     isSavingNote: mutations.updateNoteMutation.isPending,
+    openTabCount: Object.keys(noteWorkspace.state.tabs).length,
+    activePaneTabCount: noteWorkspace.state.panes.find((pane) => pane.paneId === noteWorkspace.state.activePaneId)?.tabIds.length ?? 0,
+    paneCount: noteWorkspace.state.panes.length,
     inspectorCollapsed,
     navigatorCollapsed,
     workspaceRailCollapsed: railCollapsed,
@@ -449,6 +467,9 @@ export function Home() {
     mutations.updateNoteMutation.isPending,
     navigatorCollapsed,
     noteDirty,
+    noteWorkspace.state.activePaneId,
+    noteWorkspace.state.panes,
+    noteWorkspace.state.tabs,
     railCollapsed,
     readerMode,
     scope.type,
@@ -628,6 +649,282 @@ export function Home() {
     });
   }, [api, mutations.importMarkdownNoteMutation, scope.type, selectedParentFolderId]);
 
+  const handleDeleteRequest = useCallback((note: NoteSummary) => {
+    const deleteNote = createDeleteNoteTarget(note);
+    if (!api?.app.confirm) {
+      setDeleteTarget(deleteNote);
+      return;
+    }
+
+    api.app.confirm({
+      title: 'Delete Note',
+      message: `Delete “${deleteNote.title || 'Untitled'}”?`,
+      detail: 'This removes the note from HackMD. This action cannot be undone from HackDesk.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      destructive: true,
+    }).then(({ confirmed }) => {
+      if (confirmed) {
+        mutations.deleteNoteMutation.mutate(deleteNote);
+      }
+    }).catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to confirm note deletion.');
+    });
+  }, [api, mutations.deleteNoteMutation]);
+
+  const handleOpenEditor = useCallback((note: NoteSummary) => {
+    if (!api) {
+      return;
+    }
+
+    trackRecentNote(note);
+    void Promise.resolve(api.shell.openHackmdEditor(note)).catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to open HackMD editor.');
+    });
+  }, [api, trackRecentNote]);
+
+  const handleOpenExternal = useCallback((url: string) => {
+    if (!api) {
+      return;
+    }
+
+    void Promise.resolve(api.shell.openExternal(url)).catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to open link.');
+    });
+  }, [api]);
+
+  const handleCopyNoteLink = useCallback((note: NoteSummary) => {
+    void writeClipboardText(api, getHackmdNoteUrl(note))
+      .then(() => toast.success('Link copied.'))
+      .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to copy link.'));
+  }, [api]);
+
+  const handleCopyNoteMarkdownLink = useCallback((note: NoteSummary) => {
+    void writeClipboardText(api, getMarkdownNoteLink(note))
+      .then(() => toast.success('Markdown link copied.'))
+      .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to copy markdown link.'));
+  }, [api]);
+
+  const handleDuplicateNote = useCallback((note: NoteSummary) => {
+    mutations.duplicateNoteMutation.mutate(note);
+  }, [mutations.duplicateNoteMutation]);
+
+  const revealNoteEntry = useCallback(async (entry: FolderTreeNote) => {
+    const folderIds = entry.folderPath.map((folder) => folder.id);
+    const leafFolderId = folderIds.at(-1) ?? UNFILED_FOLDER_ID;
+    if (!await requestSelectNote(entry.note, {
+      focusEditor: true,
+      trackRecent: true,
+    })) {
+      return false;
+    }
+
+    expandNavigator();
+    revealFolderIds(folderIds);
+    setSelectedFolderId(leafFolderId);
+    return true;
+  }, [expandNavigator, requestSelectNote, revealFolderIds]);
+
+  useEffect(() => {
+    writeStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${scopeStorageKey}`, collapsedFolderIds);
+  }, [collapsedFolderIds, scopeStorageKey]);
+
+  useEffect(() => {
+    if (skipNextFinderWriteRef.current) {
+      skipNextFinderWriteRef.current = false;
+      return;
+    }
+
+    writeNoteFinderState(window.localStorage, scopeStorageKey, activeFinderState);
+  }, [activeFinderState, scopeStorageKey]);
+
+  useEffect(() => {
+    if (selectedNote && visibleEntries.some((entry) => noteIdentityMatches(entry.note, selectedNote))) {
+      autoSelectSuppressionRef.current = null;
+      return;
+    }
+
+    const nextNote = visibleEntries[0]?.note ?? null;
+    if (!nextNote) {
+      autoSelectSuppressionRef.current = null;
+      return;
+    }
+
+    if (selectedNote) {
+      return;
+    }
+
+    const suppressionKey = getAutoSelectSuppressionKey(nextNote);
+    if (autoSelectSuppressionRef.current === suppressionKey) {
+      return;
+    }
+
+    void requestSelectNote(nextNote, { trackRecent: false }).then((selected) => {
+      if (!selected) {
+        autoSelectSuppressionRef.current = suppressionKey;
+      }
+    });
+  }, [getAutoSelectSuppressionKey, requestSelectNote, selectedNote, visibleEntries]);
+
+  useEffect(() => {
+    const pendingRecentNote = pendingRecentNoteRef.current;
+    if (!pendingRecentNote) {
+      return;
+    }
+
+    const currentTeamPath = scope.type === 'team' ? scope.teamPath : null;
+    const isTargetScopeLoaded = scope.type !== 'history' && currentTeamPath === pendingRecentNote.teamPath;
+    if (!isTargetScopeLoaded || queries.notesQuery.isLoading || queries.notesQuery.isFetching) {
+      return;
+    }
+
+    const loadedEntry = folderTree.allNotes.find((candidate) => recentNoteMatches(candidate.note, pendingRecentNote));
+    pendingRecentNoteRef.current = null;
+    if (loadedEntry) {
+      void revealNoteEntry(loadedEntry);
+      return;
+    }
+
+    removeRecentNoteEntry(pendingRecentNote.noteId, pendingRecentNote.teamPath);
+    toast.info(`“${pendingRecentNote.title || 'Untitled'}” is no longer available in this workspace.`);
+  }, [
+    folderTree.allNotes,
+    queries.notesQuery.isFetching,
+    queries.notesQuery.isLoading,
+    removeRecentNoteEntry,
+    revealNoteEntry,
+    scope,
+  ]);
+
+  const getTabSyncState = useCallback((tab: OpenNoteTab): DocumentSyncState => {
+    const identity = getTabIdentity(tab);
+    const documentResult = getTabDocumentResult(tab);
+    const documentResultValue = unwrapRepositoryValue(documentResult);
+    const documentIsStale = Boolean(documentResultValue && !noteIdentityMatches(documentResultValue, identity));
+    const documentQuery = documentQueries.byKey.get(getNoteIdentityKey(identity));
+    const isSavingTab = mutations.updateNoteMutation.isPending
+      && noteIdentityMatches(mutations.updateNoteMutation.variables?.note, identity);
+    const saveFailedTab = mutations.updateNoteMutation.isError
+      && noteIdentityMatches(mutations.updateNoteMutation.variables?.note, identity);
+
+    if (documentQuery?.isLoading || documentQuery?.isFetching || documentIsStale) {
+      return 'loading';
+    }
+
+    if (isSavingTab) {
+      return 'saving';
+    }
+
+    if (saveFailedTab || (getRepositoryError(documentResult) && !isShowingCachedFallback(documentResult))) {
+      return 'save_failed';
+    }
+
+    if (isTabDirty(tab)) {
+      return 'idle';
+    }
+
+    if (isShowingCachedFallback(documentResult)) {
+      return 'cached';
+    }
+
+    return documentResultValue ? 'saved' : 'idle';
+  }, [documentQueries.byKey, getTabDocumentResult, getTabIdentity, isTabDirty, mutations.updateNoteMutation.isError, mutations.updateNoteMutation.isPending, mutations.updateNoteMutation.variables]);
+
+  const handleDocumentTitleChange = useCallback((tab: OpenNoteTab, nextTitle: string) => {
+    const documentResult = getTabDocument(tab);
+    if (!documentResult) {
+      return;
+    }
+
+    const currentDraft = getTabDraft(tab);
+    noteWorkspace.updateDraft(tab.tabId, {
+      title: nextTitle,
+      content: currentDraft?.content ?? documentResult.content,
+      baseTitle: currentDraft?.baseTitle ?? documentResult.title,
+      baseContent: currentDraft?.baseContent ?? documentResult.content,
+    });
+  }, [getTabDocument, getTabDraft, noteWorkspace]);
+
+  const handleDocumentContentChange = useCallback((tab: OpenNoteTab, nextContent: string) => {
+    const documentResult = getTabDocument(tab);
+    if (!documentResult) {
+      return;
+    }
+
+    const currentDraft = getTabDraft(tab);
+    noteWorkspace.updateDraft(tab.tabId, {
+      title: currentDraft?.title ?? documentResult.title,
+      content: nextContent,
+      baseTitle: currentDraft?.baseTitle ?? documentResult.title,
+      baseContent: currentDraft?.baseContent ?? documentResult.content,
+    });
+  }, [getTabDocument, getTabDraft, noteWorkspace]);
+
+  const getUnsafeTabs = useCallback((tabs: OpenNoteTab[]) => (
+    tabs.filter((tab) => isTabDirty(tab) || getTabSyncState(tab) === 'save_failed')
+  ), [getTabSyncState, isTabDirty]);
+
+  const confirmCloseUnsafeTabs = useCallback(async (tabs: OpenNoteTab[], title: string, confirmLabel: string) => {
+    const unsafeTabs = getUnsafeTabs(tabs);
+    if (unsafeTabs.length === 0 || !api?.app.confirm) {
+      return true;
+    }
+
+    const firstTitle = getTabTitle(unsafeTabs[0]) || 'Untitled';
+    const failedCount = unsafeTabs.filter((tab) => getTabSyncState(tab) === 'save_failed').length;
+    const dirtyCount = unsafeTabs.length - failedCount;
+    const detailParts = [
+      dirtyCount > 0 ? `${dirtyCount} note${dirtyCount === 1 ? ' has' : 's have'} unsaved changes` : null,
+      failedCount > 0 ? `${failedCount} note${failedCount === 1 ? ' has' : 's have'} a failed save` : null,
+    ].filter(Boolean);
+
+    try {
+      const { confirmed } = await api.app.confirm({
+        title,
+        message: unsafeTabs.length === 1 ? `Close “${firstTitle}”?` : `Close ${unsafeTabs.length} unsaved notes?`,
+        detail: `${detailParts.join(' and ')}. Closing will discard local drafts that have not been saved to HackMD.`,
+        confirmLabel,
+        cancelLabel: 'Keep Editing',
+        destructive: true,
+      });
+      return confirmed;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to confirm close.');
+      return false;
+    }
+  }, [api, getTabSyncState, getTabTitle, getUnsafeTabs]);
+
+  const requestCloseTab = useCallback(async (tabId: string) => {
+    const tab = noteWorkspace.state.tabs[tabId];
+    if (!tab) {
+      return false;
+    }
+
+    if (!await confirmCloseUnsafeTabs([tab], 'Close Tab', 'Close Tab')) {
+      return false;
+    }
+
+    noteWorkspace.closeTab(tabId);
+    return true;
+  }, [confirmCloseUnsafeTabs, noteWorkspace]);
+
+  const requestCloseOtherTabs = useCallback(async (paneId: string, keepTabId: string) => {
+    const pane = noteWorkspace.state.panes.find((candidate) => candidate.paneId === paneId);
+    if (!pane) {
+      return;
+    }
+
+    const closingTabs = pane.tabIds
+      .filter((tabId) => tabId !== keepTabId)
+      .map((tabId) => noteWorkspace.state.tabs[tabId])
+      .filter((tab): tab is OpenNoteTab => Boolean(tab));
+    if (!await confirmCloseUnsafeTabs(closingTabs, 'Close Other Tabs', 'Close Other Tabs')) {
+      return;
+    }
+
+    noteWorkspace.closeOtherTabs(paneId, keepTabId);
+  }, [confirmCloseUnsafeTabs, noteWorkspace]);
+
   const runAction = useCallback((actionId: ElectronActionId) => {
     const action = getElectronAction(actionId);
     const disabledReason = getActionDisabledReason(action, actionContext);
@@ -712,27 +1009,42 @@ export function Home() {
       break;
     case 'delete-note':
       if (selectedDocument) {
-        const deleteNote = createDeleteNoteTarget(selectedDocument);
-        if (!api?.app.confirm) {
-          setDeleteTarget(deleteNote);
-          break;
-        }
-
-        api.app.confirm({
-          title: 'Delete Note',
-          message: `Delete “${deleteNote.title || 'Untitled'}”?`,
-          detail: 'This removes the note from HackMD. This action cannot be undone from HackDesk.',
-          confirmLabel: 'Delete',
-          cancelLabel: 'Cancel',
-          destructive: true,
-        }).then(({ confirmed }) => {
-          if (confirmed) {
-            mutations.deleteNoteMutation.mutate(deleteNote);
-          }
-        }).catch((error) => {
-          toast.error(error instanceof Error ? error.message : 'Failed to confirm note deletion.');
-        });
+        handleDeleteRequest(selectedDocument);
       }
+      break;
+    case 'close-tab':
+      if (activeTab) {
+        void requestCloseTab(activeTab.tabId);
+      }
+      break;
+    case 'close-other-tabs':
+      if (activeTab) {
+        void requestCloseOtherTabs(noteWorkspace.state.activePaneId, activeTab.tabId);
+      }
+      break;
+    case 'split-pane-right':
+      noteWorkspace.splitActiveTab();
+      focusZone('editor');
+      break;
+    case 'move-tab-to-other-pane':
+      noteWorkspace.moveActiveTabToOtherPane();
+      focusZone('editor');
+      break;
+    case 'focus-next-tab':
+      noteWorkspace.focusNextTab();
+      focusZone('editor');
+      break;
+    case 'focus-previous-tab':
+      noteWorkspace.focusPreviousTab();
+      focusZone('editor');
+      break;
+    case 'focus-next-pane':
+      noteWorkspace.focusNextPane();
+      focusZone('editor');
+      break;
+    case 'focus-previous-pane':
+      noteWorkspace.focusPreviousPane();
+      focusZone('editor');
       break;
     case 'export-debug-logs':
       void api?.app.exportDebugLogs()
@@ -756,6 +1068,7 @@ export function Home() {
     }
   }, [
     actionContext,
+    activeTab,
     api,
     documentContent,
     documentTitle,
@@ -763,14 +1076,17 @@ export function Home() {
     handleCreateFolder,
     handleCreateNote,
     handleDeleteFolderRequest,
+    handleDeleteRequest,
     handleExportMarkdown,
     handleImportMarkdownNote,
     handleRenameFolder,
-    mutations.deleteNoteMutation,
     mutations.updateNoteMutation,
     noteDirty,
+    noteWorkspace,
     openPalette,
     refreshWorkspace,
+    requestCloseOtherTabs,
+    requestCloseTab,
     resolvedMode,
     readerMode,
     selectedDocument,
@@ -783,198 +1099,6 @@ export function Home() {
     toggleRailCollapsed,
     trackRecentNote,
   ]);
-
-  const handleDeleteRequest = useCallback((note: NoteSummary) => {
-    const deleteNote = createDeleteNoteTarget(note);
-    if (!api?.app.confirm) {
-      setDeleteTarget(deleteNote);
-      return;
-    }
-
-    api.app.confirm({
-      title: 'Delete Note',
-      message: `Delete “${deleteNote.title || 'Untitled'}”?`,
-      detail: 'This removes the note from HackMD. This action cannot be undone from HackDesk.',
-      confirmLabel: 'Delete',
-      cancelLabel: 'Cancel',
-      destructive: true,
-    }).then(({ confirmed }) => {
-      if (confirmed) {
-        mutations.deleteNoteMutation.mutate(deleteNote);
-      }
-    }).catch((error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to confirm note deletion.');
-    });
-  }, [api, mutations.deleteNoteMutation]);
-
-  const handleOpenEditor = useCallback((note: NoteSummary) => {
-    if (!api) {
-      return;
-    }
-
-    trackRecentNote(note);
-    void Promise.resolve(api.shell.openHackmdEditor(note)).catch((error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to open HackMD editor.');
-    });
-  }, [api, trackRecentNote]);
-
-  const handleOpenExternal = useCallback((url: string) => {
-    if (!api) {
-      return;
-    }
-
-    void Promise.resolve(api.shell.openExternal(url)).catch((error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to open link.');
-    });
-  }, [api]);
-
-  const handleCopyNoteLink = useCallback((note: NoteSummary) => {
-    void writeClipboardText(api, getHackmdNoteUrl(note))
-      .then(() => toast.success('Link copied.'))
-      .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to copy link.'));
-  }, [api]);
-
-  const handleCopyNoteMarkdownLink = useCallback((note: NoteSummary) => {
-    void writeClipboardText(api, getMarkdownNoteLink(note))
-      .then(() => toast.success('Markdown link copied.'))
-      .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to copy markdown link.'));
-  }, [api]);
-
-  const handleDuplicateNote = useCallback((note: NoteSummary) => {
-    mutations.duplicateNoteMutation.mutate(note);
-  }, [mutations.duplicateNoteMutation]);
-
-  const revealNoteEntry = useCallback(async (entry: FolderTreeNote, options: { skipDirtyGuard?: boolean } = {}) => {
-    const folderIds = entry.folderPath.map((folder) => folder.id);
-    const leafFolderId = folderIds.at(-1) ?? UNFILED_FOLDER_ID;
-    if (!await requestSelectNote(entry.note, {
-      focusEditor: true,
-      skipDirtyGuard: options.skipDirtyGuard,
-      trackRecent: true,
-    })) {
-      return false;
-    }
-
-    expandNavigator();
-    revealFolderIds(folderIds);
-    setSelectedFolderId(leafFolderId);
-    return true;
-  }, [expandNavigator, requestSelectNote, revealFolderIds]);
-
-  useEffect(() => {
-    writeStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${scopeStorageKey}`, collapsedFolderIds);
-  }, [collapsedFolderIds, scopeStorageKey]);
-
-  useEffect(() => {
-    if (skipNextFinderWriteRef.current) {
-      skipNextFinderWriteRef.current = false;
-      return;
-    }
-
-    writeNoteFinderState(window.localStorage, scopeStorageKey, activeFinderState);
-  }, [activeFinderState, scopeStorageKey]);
-
-  useEffect(() => {
-    if (selectedNote && visibleEntries.some((entry) => noteIdentityMatches(entry.note, selectedNote))) {
-      autoSelectSuppressionRef.current = null;
-      return;
-    }
-
-    const nextNote = visibleEntries[0]?.note ?? null;
-    if (!nextNote) {
-      setSelectedNote(null);
-      autoSelectSuppressionRef.current = null;
-      return;
-    }
-
-    const suppressionKey = getAutoSelectSuppressionKey(nextNote);
-    if (autoSelectSuppressionRef.current === suppressionKey) {
-      return;
-    }
-
-    void requestSelectNote(nextNote, { trackRecent: false }).then((selected) => {
-      if (!selected) {
-        autoSelectSuppressionRef.current = suppressionKey;
-      }
-    });
-  }, [getAutoSelectSuppressionKey, requestSelectNote, selectedNote, visibleEntries]);
-
-  useEffect(() => {
-    const pendingRecentNote = pendingRecentNoteRef.current;
-    if (!pendingRecentNote) {
-      return;
-    }
-
-    const currentTeamPath = scope.type === 'team' ? scope.teamPath : null;
-    const isTargetScopeLoaded = scope.type !== 'history' && currentTeamPath === pendingRecentNote.teamPath;
-    if (!isTargetScopeLoaded || queries.notesQuery.isLoading || queries.notesQuery.isFetching) {
-      return;
-    }
-
-    const loadedEntry = folderTree.allNotes.find((candidate) => recentNoteMatches(candidate.note, pendingRecentNote));
-    pendingRecentNoteRef.current = null;
-    if (loadedEntry) {
-      void revealNoteEntry(loadedEntry);
-      return;
-    }
-
-    removeRecentNoteEntry(pendingRecentNote.noteId, pendingRecentNote.teamPath);
-    toast.info(`“${pendingRecentNote.title || 'Untitled'}” is no longer available in this workspace.`);
-  }, [
-    folderTree.allNotes,
-    queries.notesQuery.isFetching,
-    queries.notesQuery.isLoading,
-    removeRecentNoteEntry,
-    revealNoteEntry,
-    scope,
-  ]);
-
-  const documentIsStale = Boolean(document && selectedNote && !noteIdentityMatches(document, selectedNote));
-  const documentIsLoading = Boolean(selectedNote) && (
-    queries.documentQuery.isLoading
-    || queries.documentQuery.isFetching
-    || documentIsStale
-  );
-  const documentError = getRepositoryError(queries.documentQuery.data);
-  const documentSyncState: DocumentSyncState = documentIsLoading
-    ? 'loading'
-    : mutations.updateNoteMutation.isPending
-      ? 'saving'
-      : mutations.updateNoteMutation.isError
-        ? 'save_failed'
-        : documentError && !isShowingCachedFallback(queries.documentQuery.data)
-          ? 'save_failed'
-          : noteDirty
-            ? 'idle'
-            : isShowingCachedFallback(queries.documentQuery.data)
-              ? 'cached'
-              : selectedDocument
-                ? 'saved'
-                : 'idle';
-
-  const handleDocumentTitleChange = useCallback((nextTitle: string) => {
-    if (!selectedDocument) {
-      return;
-    }
-
-    setDocumentDraft((current) => ({
-      documentId: selectedDocument.id,
-      title: nextTitle,
-      content: current?.documentId === selectedDocument.id ? current.content : selectedDocument.content,
-    }));
-  }, [selectedDocument]);
-
-  const handleDocumentContentChange = useCallback((nextContent: string) => {
-    if (!selectedDocument) {
-      return;
-    }
-
-    setDocumentDraft((current) => ({
-      documentId: selectedDocument.id,
-      title: current?.documentId === selectedDocument.id ? current.title : selectedDocument.title,
-      content: nextContent,
-    }));
-  }, [selectedDocument]);
 
   const closeTransientLayer = useCallback(() => {
     if (palette.open) {
@@ -1029,7 +1153,7 @@ export function Home() {
     shareOpen,
   ]);
 
-  const settleCloseRequest = useCallback(async () => {
+  const settleCloseRequest = useCallback(async (request: HackDeskCloseRequest = { source: 'window-button' }) => {
     if (!api) {
       return;
     }
@@ -1047,28 +1171,21 @@ export function Home() {
       return;
     }
 
-    const saveFailed = documentSyncState === 'save_failed';
-    if (selectedNote && (noteDirty || saveFailed)) {
-      try {
-        const noteTitle = selectedNote.title || 'Untitled';
-        const detail = saveFailed
-          ? `The last save for “${noteTitle}” failed. Closing now may leave your local draft unsaved.`
-          : `You have unsaved changes in “${noteTitle}”. Closing HackDesk will discard the current draft.`;
-        const { confirmed } = await api.app.confirm({
-          title: 'Close HackDesk',
-          message: saveFailed ? 'Close with failed save?' : 'Discard unsaved changes?',
-          detail,
-          confirmLabel: 'Close',
-          cancelLabel: 'Keep Editing',
-          destructive: true,
-        });
+    if (request.source === 'keyboard-shortcut' && activeTab) {
+      const openTabCount = Object.keys(noteWorkspace.state.tabs).length;
+      const closed = await requestCloseTab(activeTab.tabId);
+      if (!closed) {
+        await cancelClose();
+        return;
+      }
 
-        if (!confirmed) {
-          await cancelClose();
-          return;
-        }
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Failed to confirm close.');
+      if (openTabCount > 1) {
+        await cancelClose();
+        return;
+      }
+    } else {
+      const allTabs = Object.values(noteWorkspace.state.tabs);
+      if (!await confirmCloseUnsafeTabs(allTabs, 'Close HackDesk', 'Close')) {
         await cancelClose();
         return;
       }
@@ -1079,7 +1196,7 @@ export function Home() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to close window.');
     }
-  }, [api, closeTransientLayer, documentSyncState, noteDirty, selectedNote]);
+  }, [activeTab, api, closeTransientLayer, confirmCloseUnsafeTabs, noteWorkspace.state.tabs, requestCloseTab]);
 
   useEffect(() => {
     return api?.app.onCommand((command) => {
@@ -1088,8 +1205,8 @@ export function Home() {
   }, [api, runAction]);
 
   useEffect(() => {
-    return api?.app.onCloseRequest(() => {
-      void settleCloseRequest();
+    return api?.app.onCloseRequest((request) => {
+      void settleCloseRequest(request);
     });
   }, [api, settleCloseRequest]);
 
@@ -1118,6 +1235,36 @@ export function Home() {
         event.preventDefault();
         runAction('save-note');
       }
+      return;
+    }
+
+    if (isPrimaryModifier && event.key.toLowerCase() === 'w') {
+      event.preventDefault();
+      runAction('close-tab');
+      return;
+    }
+
+    if (isPrimaryModifier && event.shiftKey && event.key === '\\') {
+      event.preventDefault();
+      runAction('split-pane-right');
+      return;
+    }
+
+    if (event.ctrlKey && event.key === 'Tab') {
+      event.preventDefault();
+      runAction(event.shiftKey ? 'focus-previous-tab' : 'focus-next-tab');
+      return;
+    }
+
+    if (event.altKey && event.key === ']') {
+      event.preventDefault();
+      runAction('focus-next-pane');
+      return;
+    }
+
+    if (event.altKey && event.key === '[') {
+      event.preventDefault();
+      runAction('focus-previous-pane');
       return;
     }
 
@@ -1345,6 +1492,39 @@ export function Home() {
     focusZone('navigator');
   };
 
+  const getPaneTabs = (pane: NotePane) => (
+    pane.tabIds.map((tabId) => noteWorkspace.state.tabs[tabId]).filter((tab): tab is OpenNoteTab => Boolean(tab))
+  );
+
+  const getPaneView = (pane: NotePane): DocumentPaneView => {
+    const tab = getPaneActiveTab(noteWorkspace.state, pane.paneId);
+    const documentResult = tab ? getTabDocumentResult(tab) : undefined;
+    const documentValue = tab ? getTabDocument(tab) : undefined;
+    const syncState = tab ? getTabSyncState(tab) : 'idle';
+    const identity = tab ? getTabIdentity(tab) : null;
+    const isSavingTab = Boolean(identity && mutations.updateNoteMutation.isPending
+      && noteIdentityMatches(mutations.updateNoteMutation.variables?.note, identity));
+    const isUploadingTab = Boolean(identity && mutations.uploadNoteImageMutation.isPending
+      && noteIdentityMatches(mutations.uploadNoteImageMutation.variables?.note, identity));
+    const isDeletingTab = Boolean(identity && mutations.deleteNoteMutation.isPending
+      && noteIdentityMatches(mutations.deleteNoteMutation.variables, identity));
+
+    return {
+      pane,
+      activeTab: tab,
+      selectedNote: tab ? { title: getTabTitle(tab) } : null,
+      document: documentValue,
+      title: tab ? getTabTitle(tab) : '',
+      content: tab ? getTabContent(tab) : '',
+      isLoading: syncState === 'loading' && !isShowingCachedFallback(documentResult),
+      syncState,
+      isSaving: isSavingTab,
+      isSavingMetadata: isSavingTab,
+      isUploadingImage: isUploadingTab,
+      isDeleting: isDeletingTab,
+    };
+  };
+
   return (
     <div className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
       <AppTopBar
@@ -1449,17 +1629,27 @@ export function Home() {
           }}
         />
 
-        <DocumentDetail
-          selectedNote={selectedNote}
-          document={selectedDocument}
+        <DocumentWorkspace
+          panes={noteWorkspace.state.panes}
+          activePaneId={noteWorkspace.state.activePaneId}
           folderTree={folderTree}
-          title={documentTitle}
-          content={documentContent}
-          isLoading={documentIsLoading}
-          syncState={documentSyncState}
           readerMode={readerMode}
           shareOpen={shareOpen}
           isInspectorCollapsed={inspectorCollapsed}
+          getPaneView={getPaneView}
+          getPaneTabs={getPaneTabs}
+          getTabSyncState={getTabSyncState}
+          onResizePanes={noteWorkspace.resizePanes}
+          onFocusPane={noteWorkspace.focusPane}
+          onSelectTab={noteWorkspace.selectTab}
+          onCloseTab={(tabId) => {
+            void requestCloseTab(tabId);
+          }}
+          onCloseOtherTabs={(paneId, tabId) => {
+            void requestCloseOtherTabs(paneId, tabId);
+          }}
+          onSplitPane={noteWorkspace.splitActiveTab}
+          onMoveTabToOtherPane={noteWorkspace.moveActiveTabToOtherPane}
           onOpenEditor={handleOpenEditor}
           onOpenExternal={handleOpenExternal}
           onCopyLink={handleCopyNoteLink}
@@ -1479,10 +1669,6 @@ export function Home() {
           onToggleInspector={toggleInspectorCollapsed}
           onReaderModeChange={setReaderMode}
           onShareOpenChange={setShareOpen}
-          isSaving={mutations.updateNoteMutation.isPending}
-          isSavingMetadata={mutations.updateNoteMutation.isPending}
-          isUploadingImage={mutations.uploadNoteImageMutation.isPending}
-          isDeleting={mutations.deleteNoteMutation.isPending}
         />
       </main>
 

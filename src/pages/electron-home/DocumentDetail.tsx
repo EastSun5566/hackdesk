@@ -79,6 +79,8 @@ function SyncStateBadge({
 }
 
 export function DocumentDetail({
+  focusZone = 'editor',
+  inspectorPanelId = NOTE_INSPECTOR_PANEL_ID,
   selectedNote,
   document,
   folderTree,
@@ -109,7 +111,9 @@ export function DocumentDetail({
   isUploadingImage,
   isDeleting,
 }: {
-  selectedNote?: NoteSummary | null;
+  focusZone?: string;
+  inspectorPanelId?: string;
+  selectedNote?: Pick<NoteSummary, 'title'> | null;
   document?: DocumentSummary;
   folderTree: FolderTree;
   title: string;
@@ -151,7 +155,7 @@ export function DocumentDetail({
   if (isLoading) {
     return (
       <PanelShell
-        focusZone="editor"
+        focusZone={focusZone}
         className="h-full min-w-0 flex-1 bg-background-default"
       >
         {selectedNote ? (
@@ -185,7 +189,7 @@ export function DocumentDetail({
 
   return (
     <PanelShell
-      focusZone="editor"
+      focusZone={focusZone}
       className="h-full min-w-0 flex-1 bg-background-default"
     >
       <PanelHeader
@@ -252,7 +256,7 @@ export function DocumentDetail({
             </ToolbarIconButton>
             <ToolbarIconButton
               onClick={onToggleInspector}
-              aria-controls={NOTE_INSPECTOR_PANEL_ID}
+              aria-controls={inspectorPanelId}
               aria-expanded={!isInspectorCollapsed}
               label={isInspectorCollapsed ? 'Expand inspector' : 'Collapse inspector'}
             >
@@ -303,7 +307,7 @@ export function DocumentDetail({
           <MarkdownEditor ref={editorRef} value={content} onChange={onContentChange} />
         )}
         <div
-          id={NOTE_INSPECTOR_PANEL_ID}
+          id={inspectorPanelId}
           aria-hidden={isInspectorCollapsed}
           className={cn(
             'shrink-0 overflow-hidden bg-background-muted transition-[border-color,background-color] duration-150 ease-out motion-reduce:transition-none',

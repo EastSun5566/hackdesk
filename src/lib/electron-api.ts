@@ -223,7 +223,15 @@ export type ElectronActionId =
   | 'export-note-markdown'
   | 'import-markdown-note'
   | 'open-note-web-editor'
-  | 'delete-note';
+  | 'delete-note'
+  | 'close-tab'
+  | 'close-other-tabs'
+  | 'split-pane-right'
+  | 'move-tab-to-other-pane'
+  | 'focus-next-tab'
+  | 'focus-previous-tab'
+  | 'focus-next-pane'
+  | 'focus-previous-pane';
 
 export type HackDeskCommandPaletteCommand =
   { type: ElectronActionId };

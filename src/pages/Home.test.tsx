@@ -411,6 +411,58 @@ describe('Home native-feel behavior', () => {
     expect(api.app.cancelClose).not.toHaveBeenCalled();
   });
 
+  it('summarizes every dirty tab before closing the window', async () => {
+    let closeHandler: (() => void) | null = null;
+    const notes = [
+      { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', updatedAtMillis: 3000 },
+      { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', updatedAtMillis: 2000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: noteId === 'note-design' ? 'Design Spec' : 'Product Plan',
+            content: noteId === 'note-design' ? '# Design Spec' : '# Product Plan',
+          },
+        })),
+      },
+      app: {
+        confirm: vi.fn(async () => ({ confirmed: false })),
+        onCloseRequest: vi.fn((handler) => {
+          closeHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.change(await screen.findByDisplayValue('Product Plan'), { target: { value: 'Draft Product Plan' } });
+    await screen.findByText('Unsaved');
+    fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
+    fireEvent.change(await screen.findByDisplayValue('Design Spec'), { target: { value: 'Draft Design Spec' } });
+    await screen.findAllByText('Unsaved');
+
+    act(() => {
+      closeHandler?.();
+    });
+
+    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Close HackDesk',
+      message: 'Close 2 unsaved notes?',
+      detail: expect.stringContaining('2 notes have unsaved changes'),
+      confirmLabel: 'Close',
+      cancelLabel: 'Keep Editing',
+      destructive: true,
+    })));
+    await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
+    expect(api.app.confirmClose).not.toHaveBeenCalled();
+  });
+
   it('closes the command palette before cancelling the native close request', async () => {
     let closeHandler: (() => void) | null = null;
     const api = createApi({
@@ -488,7 +540,12 @@ describe('Home native-feel behavior', () => {
     });
 
     await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      message: 'Close with failed save?',
+      title: 'Close HackDesk',
+      message: 'Close “Unsaved title”?',
+      detail: expect.stringContaining('1 note has a failed save'),
+      confirmLabel: 'Close',
+      cancelLabel: 'Keep Editing',
+      destructive: true,
     })));
     await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
     expect(api.app.confirmClose).not.toHaveBeenCalled();
@@ -944,7 +1001,7 @@ describe('Home native-feel behavior', () => {
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
   });
 
-  it('keeps the current dirty note when note selection discard is cancelled', async () => {
+  it('opens another note in a tab without discarding the dirty current tab', async () => {
     const notes = [
       { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', updatedAtMillis: 3000 },
       { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', updatedAtMillis: 2000 },
@@ -977,16 +1034,13 @@ describe('Home native-feel behavior', () => {
     await screen.findByText('Unsaved');
     fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
 
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      message: 'Discard unsaved changes?',
-      confirmLabel: 'Discard',
-      cancelLabel: 'Keep Editing',
-    })));
-    expect(screen.getByDisplayValue('Draft Product Plan')).toBeInTheDocument();
-    expect(screen.queryByDisplayValue('Design Spec')).not.toBeInTheDocument();
+    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+    expect(api.app.confirm).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('button', { name: 'Select Product Plan tab' }));
+    expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
   });
 
-  it('switches notes after dirty note discard is confirmed', async () => {
+  it('focuses an existing tab when the same note is selected again', async () => {
     const notes = [
       { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', updatedAtMillis: 3000 },
       { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', updatedAtMillis: 2000 },
@@ -1017,14 +1071,82 @@ describe('Home native-feel behavior', () => {
     fireEvent.change(await screen.findByDisplayValue('Product Plan'), { target: { value: 'Draft Product Plan' } });
     await screen.findByText('Unsaved');
     fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
-
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      message: 'Discard unsaved changes?',
-    })));
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Product Plan' }));
+
+    expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
+    expect(api.app.confirm).not.toHaveBeenCalled();
   });
 
-  it('does not auto-select a folder note over a dirty current note when discard is cancelled', async () => {
+  it('closes the active clean tab with Cmd+W and focuses the previous tab', async () => {
+    const notes = [
+      { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', updatedAtMillis: 3000 },
+      { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', updatedAtMillis: 2000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: noteId === 'note-design' ? 'Design Spec' : 'Product Plan',
+            content: noteId === 'note-design' ? '# Design Spec' : '# Product Plan',
+          },
+        })),
+      },
+    });
+
+    renderHome(api);
+    await screen.findByDisplayValue('Product Plan');
+    fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
+    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'w', metaKey: true });
+
+    expect(await screen.findByDisplayValue('Product Plan')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Select Design Spec tab' })).not.toBeInTheDocument();
+    expect(api.app.confirm).not.toHaveBeenCalled();
+  });
+
+  it('keeps a dirty tab open when Cmd+W discard is cancelled', async () => {
+    const api = createApi({
+      app: {
+        confirm: vi.fn(async () => ({ confirmed: false })),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Unsaved title' } });
+    await screen.findByText('Unsaved');
+
+    fireEvent.keyDown(window, { key: 'w', metaKey: true });
+
+    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Close Tab',
+      message: 'Close “Unsaved title”?',
+      confirmLabel: 'Close Tab',
+      cancelLabel: 'Keep Editing',
+      destructive: true,
+    })));
+    expect(screen.getByDisplayValue('Unsaved title')).toBeInTheDocument();
+  });
+
+  it('splits the active note into a second editor pane', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+
+    fireEvent.keyDown(window, { key: '\\', metaKey: true, shiftKey: true });
+
+    expect(await screen.findAllByRole('button', { name: 'Select Test note tab' })).toHaveLength(2);
+    expect(screen.getAllByText('Test note').length).toBeGreaterThan(1);
+  });
+
+  it('does not auto-select a folder note over a dirty current tab', async () => {
     const rootNote = { ...note, id: 'root-note', title: 'Root Note', shortId: 'root-note', folderPaths: [], updatedAtMillis: 3000 };
     const folderNote = { ...note, id: 'folder-note', title: 'Folder Note', shortId: 'folder-note', folderPaths: [folder], updatedAtMillis: 2000 };
     const api = createApi({
@@ -1056,13 +1178,11 @@ describe('Home native-feel behavior', () => {
     await screen.findByText('Unsaved');
     fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
 
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      message: 'Discard unsaved changes?',
-    })));
+    expect(api.app.confirm).not.toHaveBeenCalled();
     expect(screen.getByDisplayValue('Draft Root Note')).toBeInTheDocument();
   });
 
-  it('keeps a dirty note when quick-open note selection discard is cancelled', async () => {
+  it('quick-opens another note without discarding a dirty current tab', async () => {
     const notes = [
       { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', updatedAtMillis: 3000 },
       { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', updatedAtMillis: 2000 },
@@ -1097,10 +1217,10 @@ describe('Home native-feel behavior', () => {
     fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'design' } });
     fireEvent.click(await within(palette).findByText('Design Spec'));
 
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      message: 'Discard unsaved changes?',
-    })));
-    expect(screen.getByDisplayValue('Draft Product Plan')).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+    expect(api.app.confirm).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('button', { name: 'Select Product Plan tab' }));
+    expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
   });
 
   it('quick-opens a folder from the command palette', async () => {
@@ -1249,7 +1369,7 @@ describe('Home native-feel behavior', () => {
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
   });
 
-  it('keeps a dirty note when recent note selection discard is cancelled', async () => {
+  it('quick-opens a recent note without discarding a dirty current tab', async () => {
     window.localStorage.setItem(ELECTRON_RECENT_NOTES_STORAGE_KEY, JSON.stringify([{
       noteId: 'note-design',
       teamPath: null,
@@ -1290,10 +1410,10 @@ describe('Home native-feel behavior', () => {
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
     fireEvent.click(within(palette).getAllByText('Design Spec')[0]);
 
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      message: 'Discard unsaved changes?',
-    })));
-    expect(screen.getByDisplayValue('Draft Product Plan')).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+    expect(api.app.confirm).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('button', { name: 'Select Product Plan tab' }));
+    expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
   });
 
   it('switches to a team workspace and opens a pending team recent note', async () => {

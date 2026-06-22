@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useCallback, useMemo } from 'react';
+import { useQueries, useQuery } from '@tanstack/react-query';
 
-import type { HackDeskElectronAPI, NoteSummary } from '@/lib/electron-api';
+import type { HackDeskElectronAPI } from '@/lib/electron-api';
 
+import { getNoteIdentityKey, type NoteIdentity } from './note-workspace';
 import {
   EMPTY_FOLDER_ORDER,
   EMPTY_FOLDERS,
@@ -20,10 +21,12 @@ export function useElectronHackmdQueries({
   api,
   scope,
   selectedNote,
+  activeDocumentNotes,
 }: {
   api?: HackDeskElectronAPI;
   scope: WorkspaceScope;
-  selectedNote: NoteSummary | null;
+  selectedNote: NoteIdentity | null;
+  activeDocumentNotes?: NoteIdentity[];
 }) {
   const {
     data: settings,
@@ -124,22 +127,92 @@ export function useElectronHackmdQueries({
     enabled: !!api && hasToken && scope.type !== 'history',
   });
 
-  const {
+  const selectedDocumentNotes = useMemo(() => {
+    const notes = [...(activeDocumentNotes ?? [])];
+    if (selectedNote && !notes.some((note) => getNoteIdentityKey(note) === getNoteIdentityKey(selectedNote))) {
+      notes.unshift(selectedNote);
+    }
+
+    const seen = new Set<string>();
+    return notes.filter((note) => {
+      const key = getNoteIdentityKey(note);
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    }).slice(0, 2);
+  }, [activeDocumentNotes, selectedNote]);
+
+  const documentQueryResults = useQueries({
+    queries: selectedDocumentNotes.map((note) => ({
+      queryKey: ['electron', 'hackmd', 'note', note.teamPath ?? null, note.id],
+      queryFn: () => {
+        if (!api) {
+          throw new Error('Electron API is unavailable.');
+        }
+
+        return api.hackmd.getNote(note.id, note.teamPath);
+      },
+      enabled: !!api && !!note,
+    })),
+  });
+
+  const documentQueriesByKey = useMemo(() => {
+    const entries = selectedDocumentNotes.map((note, index) => [
+      getNoteIdentityKey(note),
+      documentQueryResults[index],
+    ] as const);
+    return new Map(entries);
+  }, [documentQueryResults, selectedDocumentNotes]);
+
+  const selectedDocumentQuery = selectedNote
+    ? documentQueriesByKey.get(getNoteIdentityKey(selectedNote))
+    : undefined;
+  const documentData = selectedDocumentQuery?.data;
+  const documentIsFetching = selectedDocumentQuery?.isFetching ?? false;
+  const documentIsLoading = selectedDocumentQuery?.isLoading ?? false;
+  const documentsByKey = useMemo(() => {
+    const entries = selectedDocumentNotes.map((note, index) => [
+      getNoteIdentityKey(note),
+      documentQueryResults[index]?.data,
+    ] as const);
+    return new Map(entries);
+  }, [documentQueryResults, selectedDocumentNotes]);
+
+  const refetchDocumentByIdentity = useCallback((note: NoteIdentity) => {
+    const query = documentQueriesByKey.get(getNoteIdentityKey(note));
+    if (query) {
+      return query.refetch();
+    }
+
+    if (!api) {
+      return Promise.reject(new Error('Electron API is unavailable.'));
+    }
+
+    return api.hackmd.getNote(note.id, note.teamPath);
+  }, [api, documentQueriesByKey]);
+  const refetchSelectedDocument = useCallback(() => {
+    if (!selectedNote) {
+      return Promise.reject(new Error('No note selected.'));
+    }
+
+    return refetchDocumentByIdentity(selectedNote);
+  }, [refetchDocumentByIdentity, selectedNote]);
+
+  const documentQuery = useMemo(() => ({
     data: documentData,
     isFetching: documentIsFetching,
     isLoading: documentIsLoading,
-    refetch: refetchDocument,
-  } = useQuery({
-    queryKey: ['electron', 'hackmd', 'note', selectedNote?.teamPath ?? null, selectedNote?.id],
-    queryFn: () => {
-      if (!api || !selectedNote) {
-        throw new Error('No note selected.');
-      }
+    refetch: refetchSelectedDocument,
+  }), [documentData, documentIsFetching, documentIsLoading, refetchSelectedDocument]);
 
-      return api.hackmd.getNote(selectedNote.id, selectedNote.teamPath);
-    },
-    enabled: !!api && !!selectedNote,
-  });
+  const documentQueries = useMemo(() => ({
+    byKey: documentQueriesByKey,
+    documentsByKey,
+    refetchByIdentity: refetchDocumentByIdentity,
+  }), [documentQueriesByKey, documentsByKey, refetchDocumentByIdentity]);
 
   const queries = useMemo(() => ({
     settingsQuery: {
@@ -178,16 +251,9 @@ export function useElectronHackmdQueries({
       isLoading: folderOrderIsLoading,
       refetch: refetchFolderOrder,
     },
-    documentQuery: {
-      data: documentData,
-      isFetching: documentIsFetching,
-      isLoading: documentIsLoading,
-      refetch: refetchDocument,
-    },
+    documentQuery,
   }), [
-    documentData,
-    documentIsFetching,
-    documentIsLoading,
+    documentQuery,
     folderOrderData,
     folderOrderIsFetching,
     folderOrderIsLoading,
@@ -197,7 +263,6 @@ export function useElectronHackmdQueries({
     notesData,
     notesIsFetching,
     notesIsLoading,
-    refetchDocument,
     refetchFolderOrder,
     refetchFolders,
     refetchNotes,
@@ -224,6 +289,8 @@ export function useElectronHackmdQueries({
     currentFolders: unwrapRepositoryValue(foldersData) ?? EMPTY_FOLDERS,
     currentFolderOrder: unwrapRepositoryValue(folderOrderData) ?? EMPTY_FOLDER_ORDER,
     document: unwrapRepositoryValue(documentData),
+    documentsByKey,
+    documentQueries,
     queries,
   };
 }

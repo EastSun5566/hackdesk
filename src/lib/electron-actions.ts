@@ -12,6 +12,9 @@ export type ElectronActionContext = {
   selectedNoteId: string | null;
   noteDirty: boolean;
   isSavingNote: boolean;
+  openTabCount: number;
+  activePaneTabCount: number;
+  paneCount: number;
   inspectorCollapsed: boolean;
   navigatorCollapsed: boolean;
   workspaceRailCollapsed: boolean;
@@ -60,6 +63,37 @@ function requireSelectedFolder(context: ElectronActionContext) {
 
 function requireSelectedNote(context: ElectronActionContext) {
   return context.selectedNoteId ? null : 'Select a note first.';
+}
+
+function requireOpenTab(context: ElectronActionContext) {
+  return context.openTabCount > 0 ? null : 'Open a note tab first.';
+}
+
+function requireOtherTabs(context: ElectronActionContext) {
+  const tabReason = requireOpenTab(context);
+  if (tabReason) {
+    return tabReason;
+  }
+
+  return context.activePaneTabCount > 1 ? null : 'Open another tab in this pane first.';
+}
+
+function requireSplitAvailable(context: ElectronActionContext) {
+  const tabReason = requireOpenTab(context);
+  if (tabReason) {
+    return tabReason;
+  }
+
+  return context.paneCount < 2 ? null : 'HackDesk supports two note panes in this version.';
+}
+
+function requireOtherPane(context: ElectronActionContext) {
+  const tabReason = requireOpenTab(context);
+  if (tabReason) {
+    return tabReason;
+  }
+
+  return context.paneCount > 1 ? null : 'Split the editor before moving tabs between panes.';
 }
 
 export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
@@ -162,6 +196,86 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     category: 'note',
     scope: 'editor',
     getDisabledReason: requireSelectedNote,
+  },
+  {
+    id: 'close-tab',
+    label: 'Close Tab',
+    description: 'Close the active note tab.',
+    keywords: ['tab', 'close'],
+    category: 'note',
+    scope: 'editor',
+    shortcut: '⌘W',
+    menuAccelerator: 'CmdOrCtrl+W',
+    getDisabledReason: requireOpenTab,
+  },
+  {
+    id: 'close-other-tabs',
+    label: 'Close Other Tabs',
+    description: 'Close other note tabs in the active pane.',
+    keywords: ['tab', 'close', 'others'],
+    category: 'note',
+    scope: 'editor',
+    getDisabledReason: requireOtherTabs,
+  },
+  {
+    id: 'split-pane-right',
+    label: 'Split Pane Right',
+    description: 'Move the active note tab into a second editor pane.',
+    keywords: ['pane', 'split', 'layout'],
+    category: 'view',
+    scope: 'editor',
+    shortcut: '⇧⌘\\',
+    menuAccelerator: 'Shift+CmdOrCtrl+\\',
+    getDisabledReason: requireSplitAvailable,
+  },
+  {
+    id: 'move-tab-to-other-pane',
+    label: 'Move Tab to Other Pane',
+    description: 'Move the active note tab to the other editor pane.',
+    keywords: ['pane', 'move', 'tab'],
+    category: 'view',
+    scope: 'editor',
+    getDisabledReason: requireOtherPane,
+  },
+  {
+    id: 'focus-next-tab',
+    label: 'Next Tab',
+    description: 'Focus the next note tab in the active pane.',
+    keywords: ['tab', 'next'],
+    category: 'navigation',
+    scope: 'editor',
+    shortcut: '⌃Tab',
+    getDisabledReason: requireOtherTabs,
+  },
+  {
+    id: 'focus-previous-tab',
+    label: 'Previous Tab',
+    description: 'Focus the previous note tab in the active pane.',
+    keywords: ['tab', 'previous'],
+    category: 'navigation',
+    scope: 'editor',
+    shortcut: '⌃⇧Tab',
+    getDisabledReason: requireOtherTabs,
+  },
+  {
+    id: 'focus-next-pane',
+    label: 'Next Pane',
+    description: 'Focus the next editor pane.',
+    keywords: ['pane', 'next'],
+    category: 'navigation',
+    scope: 'editor',
+    shortcut: '⌥]',
+    getDisabledReason: (context) => context.paneCount > 1 ? null : 'Split the editor before switching panes.',
+  },
+  {
+    id: 'focus-previous-pane',
+    label: 'Previous Pane',
+    description: 'Focus the previous editor pane.',
+    keywords: ['pane', 'previous'],
+    category: 'navigation',
+    scope: 'editor',
+    shortcut: '⌥[',
+    getDisabledReason: (context) => context.paneCount > 1 ? null : 'Split the editor before switching panes.',
   },
   {
     id: 'open-settings',

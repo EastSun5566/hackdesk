@@ -22,6 +22,7 @@ import {
   getFolderOrderQueryKey,
   getWorkspaceQueryKey,
 } from './repository';
+import type { NoteIdentity } from './note-workspace';
 import type { SettingsFormInput, WorkspaceScope } from './types';
 import { createQuickNoteContent } from './ui';
 
@@ -56,7 +57,7 @@ export function useElectronNoteMutations({
 }: {
   api?: HackDeskElectronAPI;
   scope: WorkspaceScope;
-  selectedNote: NoteSummary | null;
+  selectedNote: NoteIdentity | null;
   selectedParentFolderId?: string;
   onSettingsSaved: () => void;
   onNoteCreated: (note: NoteSummary) => void;
@@ -275,11 +276,9 @@ export function useElectronNoteMutations({
     onSuccess: (updatedNote, variables) => {
       onNoteCreated(updatedNote);
       void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope) });
-      if (selectedNote) {
-        void queryClient.invalidateQueries({
-          queryKey: ['electron', 'hackmd', 'note', selectedNote.teamPath ?? null, selectedNote.id],
-        });
-      }
+      void queryClient.invalidateQueries({
+        queryKey: ['electron', 'hackmd', 'note', variables.note.teamPath ?? null, variables.note.id],
+      });
       toast.success(variables.successMessage ?? 'Note saved.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to save note.'),
@@ -317,11 +316,9 @@ export function useElectronNoteMutations({
     onSuccess: (note) => {
       onNoteDeleted(note);
       void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope) });
-      if (selectedNote) {
-        void queryClient.invalidateQueries({
-          queryKey: ['electron', 'hackmd', 'note', selectedNote.teamPath ?? null, selectedNote.id],
-        });
-      }
+      void queryClient.invalidateQueries({
+        queryKey: ['electron', 'hackmd', 'note', note.teamPath ?? null, note.id],
+      });
       toast.success('Note deleted.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to delete note.'),
@@ -346,11 +343,9 @@ export function useElectronNoteMutations({
     },
     onSuccess: ({ note, targetFolderId }) => {
       void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope) });
-      if (selectedNote) {
-        void queryClient.invalidateQueries({
-          queryKey: ['electron', 'hackmd', 'note', selectedNote.teamPath ?? null, selectedNote.id],
-        });
-      }
+      void queryClient.invalidateQueries({
+        queryKey: ['electron', 'hackmd', 'note', note.teamPath ?? null, note.id],
+      });
       onNoteMoved(note, targetFolderId);
       toast.success('Note moved.');
     },
