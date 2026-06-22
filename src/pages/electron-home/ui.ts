@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 
 export const FOCUS_RING_CLASS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default';
 export const PRESSED_CLASS = 'active:translate-y-px';
-export const PANEL_TRANSITION_CLASS = 'transition-[width,border-color,background-color] duration-200 ease-out motion-reduce:transition-none';
+export const PANEL_TRANSITION_CLASS = 'transition-[border-color,background-color] duration-150 ease-out motion-reduce:transition-none';
 export const COLLAPSE_ICON_CLASS = 'transition-transform duration-150 ease-out motion-reduce:transition-none';
 export const ICON_BUTTON_CLASS = cn(
   'inline-flex h-8 w-8 items-center justify-center rounded-md text-text-subtle transition-[background-color,border-color,color,transform] duration-150 ease-out hover:bg-element-bg-hover hover:text-text-default motion-reduce:transition-none disabled:pointer-events-none disabled:opacity-50',

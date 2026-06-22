@@ -4,6 +4,9 @@ import { cn } from '@/lib/utils';
 
 import { FOCUS_RING_CLASS, TEXT_INPUT_CLASS } from './ui';
 
+const CUSTOM_FOLDER_COLOR_ID = 'custom-folder-color';
+const CUSTOM_FOLDER_ICON_ID = 'custom-folder-icon';
+
 const folderIconOptions = [
   { label: 'Folder', value: '1F4C1', glyph: '📁' },
   { label: 'Fire', value: '1F525', glyph: '🔥' },
@@ -51,7 +54,7 @@ export function FolderAppearanceFields({
               aria-pressed={icon.trim().toUpperCase() === option.value}
               onClick={() => onIconChange(option.value)}
               className={cn(
-                'flex h-10 items-center justify-center rounded-md border text-lg transition-colors hover:bg-element-bg-hover aria-pressed:border-primary-default aria-pressed:bg-primary-soft',
+                'flex size-10 items-center justify-center rounded-md border text-lg transition-colors hover:bg-element-bg-hover aria-pressed:border-primary-default aria-pressed:bg-primary-soft',
                 FOCUS_RING_CLASS,
               )}
               title={option.label}
@@ -85,7 +88,7 @@ export function FolderAppearanceFields({
               aria-pressed={normalizedColor.toUpperCase() === option}
               onClick={() => onColorChange(option)}
               className={cn(
-                'h-8 rounded-md border border-border-default transition-transform hover:scale-105 aria-pressed:ring-2 aria-pressed:ring-primary-default aria-pressed:ring-offset-2 aria-pressed:ring-offset-background-default',
+                'size-8 rounded-md border border-border-default transition-transform hover:scale-105 aria-pressed:ring-2 aria-pressed:ring-primary-default aria-pressed:ring-offset-2 aria-pressed:ring-offset-background-default',
                 FOCUS_RING_CLASS,
               )}
               style={{ backgroundColor: option }}
@@ -106,37 +109,45 @@ export function FolderAppearanceFields({
       </fieldset>
 
       <details className="rounded-md border border-border-default bg-background-muted px-3 py-2 text-sm">
-        <summary className={cn('cursor-pointer select-none rounded-[4px] text-xs font-semibold uppercase tracking-wide text-text-subtle', FOCUS_RING_CLASS)}>
+        <summary className={cn('cursor-pointer select-none rounded-[4px] text-xs font-semibold uppercase text-text-subtle', FOCUS_RING_CLASS)}>
           Custom values
         </summary>
         <div className="mt-3 grid grid-cols-2 gap-3">
-          <label className="block space-y-2 text-sm">
-            <span className="font-medium text-text-default">Icon codepoint</span>
+          <div className="space-y-2 text-sm">
+            <label htmlFor={CUSTOM_FOLDER_ICON_ID} className="font-medium text-text-default">Icon codepoint</label>
             <input
+              id={CUSTOM_FOLDER_ICON_ID}
               name="icon"
               value={icon}
               onChange={(event) => onIconChange(event.target.value)}
               className={TEXT_INPUT_CLASS}
-              placeholder="1F4C1"
+              placeholder="1F4C1…"
+              autoComplete="off"
+              spellCheck={false}
+              inputMode="text"
             />
-          </label>
-          <label className="block space-y-2 text-sm">
-            <span className="font-medium text-text-default">Color hex</span>
+          </div>
+          <div className="space-y-2 text-sm">
+            <label htmlFor={CUSTOM_FOLDER_COLOR_ID} className="font-medium text-text-default">Color hex</label>
             <span className="flex items-center gap-2">
               <span
-                className="h-5 w-5 rounded-[4px] border border-border-default"
+                className="size-5 rounded-[4px] border border-border-default"
                 style={{ backgroundColor: normalizedColor || 'transparent' }}
                 aria-hidden="true"
               />
               <input
+                id={CUSTOM_FOLDER_COLOR_ID}
                 name="color"
                 value={color}
                 onChange={(event) => onColorChange(event.target.value)}
                 className={TEXT_INPUT_CLASS}
-                placeholder="#2F80ED"
+                placeholder="#2F80ED…"
+                autoComplete="off"
+                spellCheck={false}
+                inputMode="text"
               />
             </span>
-          </label>
+          </div>
         </div>
       </details>
     </div>

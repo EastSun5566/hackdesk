@@ -27,18 +27,20 @@ export function SettingsSection({
 export function SettingsRow({
   label,
   description,
+  htmlFor,
   children,
 }: {
   label: string;
   description?: string;
+  htmlFor?: string;
   children: ReactNode;
 }) {
   return (
-    <label className="grid gap-2 text-sm">
-      <span className="font-medium">{label}</span>
+    <div className="grid gap-2 text-sm">
+      <label htmlFor={htmlFor} className="font-medium">{label}</label>
       {description ? <span className="text-xs leading-5 text-text-subtle">{description}</span> : null}
       {children}
-    </label>
+    </div>
   );
 }
 
@@ -59,6 +61,7 @@ export function SettingsSecretInput({
       <input
         className="h-10 min-w-0 flex-1 bg-transparent px-3 text-sm outline-none"
         type={visible ? 'text' : 'password'}
+        spellCheck={false}
         {...props}
       />
       <button

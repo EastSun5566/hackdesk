@@ -1,5 +1,6 @@
 import { useTheme } from '@/components/theme-provider';
 import { Toaster as Sonner } from 'sonner';
+import { ELEVATED_SURFACE_CLASS } from './layers';
 
 type ToasterProps = React.ComponentProps<typeof Sonner>
 
@@ -14,7 +15,7 @@ export function Toaster({ ...props }: ToasterProps) {
         unstyled: true,
         classNames: {
           toast:
-            'group pointer-events-auto flex w-full items-center gap-3 rounded-md border border-border-default bg-background-default p-4 text-text-default shadow-[0_3px_15px_rgb(0_0_0/0.15)]',
+            `group pointer-events-auto flex w-full items-center gap-3 rounded-md border border-border-default bg-background-default p-4 text-text-default ${ELEVATED_SURFACE_CLASS}`,
           title: 'text-sm font-medium text-text-default',
           description: 'text-sm text-text-subtle',
           actionButton:

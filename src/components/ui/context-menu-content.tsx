@@ -3,6 +3,7 @@ import * as ContextMenuPrimitive from '@radix-ui/react-context-menu';
 
 import { cn } from '@/lib/utils';
 
+import { ELEVATED_SURFACE_CLASS, FLOATING_LAYER_CLASS } from './layers';
 import { ContextMenuPortal } from './context-menu-root';
 
 const ContextMenuContent = React.forwardRef<
@@ -13,7 +14,9 @@ const ContextMenuContent = React.forwardRef<
     <ContextMenuPrimitive.Content
       ref={ref}
       className={cn(
-        'z-50 min-w-44 overflow-hidden rounded-md border border-border-default bg-background-default p-1 text-text-default shadow-[0_3px_15px_rgb(0_0_0/0.15)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+        'min-w-44 origin-[var(--radix-context-menu-content-transform-origin)] overflow-hidden rounded-md border border-border-default bg-background-default p-1 text-text-default data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 motion-reduce:animate-none',
+        FLOATING_LAYER_CLASS,
+        ELEVATED_SURFACE_CLASS,
         className,
       )}
       {...props}

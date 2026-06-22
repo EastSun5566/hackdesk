@@ -191,7 +191,7 @@ export function Settings() {
   const showFormActions = activeTab === 'general' || activeTab === 'hackmd';
 
   return (
-    <div className="flex h-screen bg-background-muted pt-8 text-text-default" data-tauri-drag-region>
+    <div className="flex h-dvh bg-background-muted pt-[max(2rem,env(safe-area-inset-top))] text-text-default" data-tauri-drag-region>
       <aside className="w-56 border-r border-border-default bg-background-default p-4">
         <nav className="space-y-1">
           {tabs.map((tab) => (
@@ -265,7 +265,7 @@ export function Settings() {
                           type="button"
                           onClick={() => setTheme(option.id)}
                           className={cn(
-                            'flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all',
+                            'flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-[background-color,border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none',
                             theme === option.id
                               ? 'border-primary-default bg-primary-soft'
                               : 'border-border-default bg-background-default hover:border-primary-default hover:bg-element-bg-hover',

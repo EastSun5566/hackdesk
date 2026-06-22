@@ -15,6 +15,10 @@ import { SettingsInput, SettingsRow, SettingsSecretInput, SettingsSection } from
 import type { SettingsFormInput } from './types';
 import { FOCUS_RING_CLASS } from './ui';
 
+const SETTINGS_TITLE_ID = 'settings-title';
+const SETTINGS_TOKEN_ID = 'settings-hackmd-token';
+const SETTINGS_TOKEN_STATUS_ID = 'settings-hackmd-token-status';
+
 type SettingsDialogProps = {
   open: boolean;
   settings?: ElectronSafeSettings;
@@ -76,11 +80,15 @@ function SettingsDialogContent({
           }}
         >
           <SettingsSection title="App">
-            <SettingsRow label="Window Title">
+            <SettingsRow label="Window Title" htmlFor={SETTINGS_TITLE_ID}>
               <SettingsInput
+                id={SETTINGS_TITLE_ID}
+                name="window-title"
                 autoFocus
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
+                autoComplete="off"
+                spellCheck
               />
             </SettingsRow>
           </SettingsSection>
@@ -89,8 +97,10 @@ function SettingsDialogContent({
             title="HackMD"
             description={settings?.hasHackmdApiToken ? 'A token is configured. Paste a new token only when rotating it.' : 'Paste a HackMD API token to sync notes and folders.'}
           >
-            <SettingsRow label="API Token">
+            <SettingsRow label="API Token" htmlFor={SETTINGS_TOKEN_ID}>
               <SettingsSecretInput
+                id={SETTINGS_TOKEN_ID}
+                name="hackmd-api-token"
                 visible={tokenVisible}
                 onVisibleChange={setTokenVisible}
                 value={token}
@@ -100,10 +110,14 @@ function SettingsDialogContent({
                 }}
                 placeholder={settings?.hasHackmdApiToken ? 'Token configured' : 'Paste token'}
                 autoComplete="off"
+                aria-describedby={SETTINGS_TOKEN_STATUS_ID}
+                aria-invalid={tokenTest.status === 'error'}
               />
             </SettingsRow>
             <div className="flex items-center justify-between gap-3">
               <p
+                id={SETTINGS_TOKEN_STATUS_ID}
+                aria-live="polite"
                 className={cn(
                   'min-h-5 text-xs',
                   tokenTest.status === 'error' ? 'text-destructive-default' : 'text-text-subtle',

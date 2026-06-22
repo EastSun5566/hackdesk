@@ -129,7 +129,7 @@ export function WorkspaceRail({
       </div>
 
       {!collapsed ? (
-        <div className="mt-3 px-4 text-xs font-semibold uppercase tracking-wide text-text-subtle">
+        <div className="mt-3 px-4 text-xs font-semibold uppercase text-text-subtle">
           Teams
         </div>
       ) : null}

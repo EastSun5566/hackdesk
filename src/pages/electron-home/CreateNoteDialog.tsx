@@ -13,6 +13,8 @@ import type { CreateNoteDialogState } from './types';
 import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS, TEXT_INPUT_CLASS } from './ui';
 
 const CLOSED_CREATE_NOTE_DIALOG_STATE = { open: false, title: '' } as const;
+const CREATE_NOTE_TITLE_ID = 'create-note-title';
+const CREATE_NOTE_LOCATION_ID = 'create-note-location';
 
 export function CreateNoteDialog({
   state,
@@ -40,7 +42,7 @@ export function CreateNoteDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>New Note</DialogTitle>
-          <DialogDescription>Create a note in {location}.</DialogDescription>
+          <DialogDescription id={CREATE_NOTE_LOCATION_ID}>Create a note in {location}.</DialogDescription>
         </DialogHeader>
         <form
           className="space-y-5"
@@ -51,15 +53,20 @@ export function CreateNoteDialog({
             }
           }}
         >
-          <label className="block space-y-2 text-sm">
-            <span className="font-medium">Title</span>
+          <div className="space-y-2 text-sm">
+            <label htmlFor={CREATE_NOTE_TITLE_ID} className="font-medium">Title</label>
             <input
+              id={CREATE_NOTE_TITLE_ID}
+              name="title"
               value={state.title}
               onChange={(event) => onStateChange({ ...state, title: event.target.value })}
               className={TEXT_INPUT_CLASS}
-              placeholder="Sprint notes"
+              placeholder="Sprint notes…"
+              autoComplete="off"
+              spellCheck
+              aria-describedby={CREATE_NOTE_LOCATION_ID}
             />
-          </label>
+          </div>
           <DialogFooter>
             <button
               type="button"

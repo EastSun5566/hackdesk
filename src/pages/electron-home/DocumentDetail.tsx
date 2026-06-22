@@ -162,9 +162,14 @@ export function DocumentDetail({
             titleElement="div"
           />
         ) : null}
-        <div className="flex min-h-0 flex-1 items-center justify-center text-sm text-text-subtle">
-          <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />
-          Loading note…
+        <div className="flex min-h-0 flex-1 flex-col gap-4 p-6" aria-label="Loading note">
+          <div className="h-4 w-2/3 animate-pulse rounded bg-background-selected motion-reduce:animate-none" />
+          <div className="h-4 w-1/2 animate-pulse rounded bg-background-selected motion-reduce:animate-none" />
+          <div className="mt-4 space-y-3">
+            <div className="h-3 w-full animate-pulse rounded bg-background-muted motion-reduce:animate-none" />
+            <div className="h-3 w-11/12 animate-pulse rounded bg-background-muted motion-reduce:animate-none" />
+            <div className="h-3 w-4/5 animate-pulse rounded bg-background-muted motion-reduce:animate-none" />
+          </div>
         </div>
       </PanelShell>
     );
@@ -173,7 +178,7 @@ export function DocumentDetail({
   if (!document) {
     return (
       <PanelShell className="h-full flex-1 bg-background-default">
-        <EmptyState title="Select a note." />
+        <EmptyState title="Select a note." description="Choose a note from the navigator to read or edit it." />
       </PanelShell>
     );
   }
@@ -201,7 +206,7 @@ export function DocumentDetail({
           )}
         subtitle={(
           <span className="flex flex-wrap items-center gap-2">
-            <span>{formatDate(document.updatedAtMillis)}</span>
+            <span className="tabular-nums">{formatDate(document.updatedAtMillis)}</span>
             <span>{document.readPermission} read</span>
             <span>{document.writePermission} write</span>
             {document.teamPath ? <span>@{document.teamPath}</span> : null}
@@ -301,7 +306,7 @@ export function DocumentDetail({
           id={NOTE_INSPECTOR_PANEL_ID}
           aria-hidden={isInspectorCollapsed}
           className={cn(
-            'shrink-0 overflow-hidden bg-background-muted transition-[width,border-color,background-color] duration-200 ease-out motion-reduce:transition-none',
+            'shrink-0 overflow-hidden bg-background-muted transition-[border-color,background-color] duration-150 ease-out motion-reduce:transition-none',
             isInspectorCollapsed ? 'border-l-0' : 'border-l border-border-default',
           )}
           style={{ width: isInspectorCollapsed ? 0 : INSPECTOR_WIDTH_DEFAULT }}

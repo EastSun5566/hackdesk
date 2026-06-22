@@ -1204,7 +1204,7 @@ export function Home() {
 
   if (!api) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background-muted text-sm text-text-subtle">
+      <div className="flex h-dvh items-center justify-center bg-background-muted text-sm text-text-subtle">
         Electron API is unavailable.
       </div>
     );
@@ -1339,7 +1339,7 @@ export function Home() {
   };
 
   return (
-    <div className="app-chrome flex h-screen flex-col overflow-hidden bg-background-muted text-text-default">
+    <div className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
       <AppTopBar
         railCollapsed={railCollapsed}
         railPanelId={WORKSPACE_RAIL_PANEL_ID}

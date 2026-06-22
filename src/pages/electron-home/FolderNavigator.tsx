@@ -12,7 +12,6 @@ import {
   FolderPen,
   FolderPlus,
   GripVertical,
-  Loader2,
   MoreHorizontal,
   PanelLeftClose,
   PanelLeftOpen,
@@ -78,6 +77,7 @@ import {
   type NoteDropOperation,
 } from '@/lib/hackmd-note-dnd';
 import {
+  DEFAULT_NOTE_FINDER_STATE,
   getActiveNoteFinderFilterCount,
   getNoteFinderOptions,
   hasActiveNoteFinderFilters,
@@ -113,6 +113,23 @@ const SORT_LABELS: Record<NoteFinderSortMode, string> = {
 
 const SORT_MODES: NoteFinderSortMode[] = ['updated-desc', 'updated-asc', 'title-asc', 'title-desc', 'created-desc'];
 const TAG_BROWSER_LIMIT = 6;
+
+function NoteListSkeleton() {
+  return (
+    <div className="space-y-2 px-2 py-3" aria-label="Loading notes">
+      {Array.from({ length: 8 }).map((_, index) => (
+        <div key={index} className="flex items-center gap-3 rounded-md px-2 py-2">
+          <div className="size-4 animate-pulse rounded bg-background-selected motion-reduce:animate-none" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="h-3 animate-pulse rounded bg-background-selected motion-reduce:animate-none" />
+            <div className="h-2 w-1/2 animate-pulse rounded bg-background-default motion-reduce:animate-none" />
+          </div>
+          <div className="h-3 w-14 animate-pulse rounded bg-background-selected motion-reduce:animate-none" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const PERMISSION_LABELS: Record<NotePermissionRole, string> = {
   owner: 'Owner',
@@ -800,7 +817,7 @@ function FolderDragOverlay({ node }: { node: FolderTreeNode | null }) {
   }
 
   return (
-    <div className="flex h-8 min-w-48 items-center gap-2 rounded-[6px] border border-border-default bg-background-default px-2 text-sm text-text-default shadow-[0_3px_15px_rgb(0_0_0/0.15)]">
+    <div className="flex h-8 min-w-48 items-center gap-2 rounded-[6px] border border-border-default bg-background-default px-2 text-sm text-text-default shadow-lg">
       <FolderGlyph icon={node.icon} color={node.color} open />
       <span className="truncate">{node.name}</span>
     </div>
@@ -813,7 +830,7 @@ function NoteDragOverlay({ entry }: { entry: FolderTreeNote | null }) {
   }
 
   return (
-    <div className="flex min-h-9 min-w-56 items-center gap-2 rounded-[6px] border border-border-default bg-background-default px-3 py-2 text-sm text-text-default shadow-[0_3px_15px_rgb(0_0_0/0.15)]">
+    <div className="flex min-h-9 min-w-56 items-center gap-2 rounded-[6px] border border-border-default bg-background-default px-3 py-2 text-sm text-text-default shadow-lg">
       <FileText aria-hidden="true" className="h-4 w-4 shrink-0 text-text-subtle" />
       <span className="min-w-0">
         <span className="block truncate font-medium">{entry.note.title || 'Untitled'}</span>
@@ -1229,6 +1246,52 @@ export function FolderNavigator({
         : [tag],
     });
   };
+  const emptyAction = !hasToken ? (
+    <button
+      type="button"
+      onClick={onOpenSettings}
+      className={cn(
+        'inline-flex h-9 items-center justify-center rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover',
+        FOCUS_RING_CLASS,
+      )}
+    >
+      Configure Token
+    </button>
+  ) : isFinderMode ? (
+    <button
+      type="button"
+      onClick={() => onFinderStateChange(DEFAULT_NOTE_FINDER_STATE)}
+      className={cn(
+        'inline-flex h-9 items-center justify-center rounded-md border border-border-default px-3 text-sm font-medium text-text-default transition-colors hover:bg-element-bg-hover',
+        FOCUS_RING_CLASS,
+      )}
+    >
+      Clear Filters
+    </button>
+  ) : canCreate ? (
+    <button
+      type="button"
+      onClick={onCreate}
+      disabled={isCreating}
+      className={cn(
+        'inline-flex h-9 items-center justify-center rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50',
+        FOCUS_RING_CLASS,
+      )}
+    >
+      Create Note
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={onRefresh}
+      className={cn(
+        'inline-flex h-9 items-center justify-center rounded-md border border-border-default px-3 text-sm font-medium text-text-default transition-colors hover:bg-element-bg-hover',
+        FOCUS_RING_CLASS,
+      )}
+    >
+      Refresh
+    </button>
+  );
 
   return (
     <PanelShell
@@ -1324,15 +1387,13 @@ export function FolderNavigator({
 
           <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2">
             {isLoading ? (
-              <div className="flex h-full items-center justify-center text-sm text-text-subtle">
-                <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />
-                <span>Loading notes…</span>
-              </div>
+              <NoteListSkeleton />
             ) : entries.length === 0 && (!hasTreeContent || isFinderMode) ? (
               <EmptyState
                 icon={<FileText aria-hidden="true" className="h-7 w-7" />}
                 title={emptyTitle}
                 description={emptyDescription}
+                action={emptyAction}
               />
             ) : isFinderMode ? (
               <div className="min-w-0 space-y-1">

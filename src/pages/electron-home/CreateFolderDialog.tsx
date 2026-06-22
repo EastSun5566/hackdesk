@@ -16,6 +16,9 @@ import type { CreateFolderDialogState } from './types';
 import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS, TEXT_INPUT_CLASS } from './ui';
 
 const CLOSED_CREATE_FOLDER_DIALOG_STATE = { open: false, name: '', description: '', icon: '', color: '' } as const;
+const CREATE_FOLDER_DESCRIPTION_ID = 'create-folder-description';
+const CREATE_FOLDER_NAME_ID = 'create-folder-name';
+const CREATE_FOLDER_LOCATION_ID = 'create-folder-location';
 
 export function CreateFolderDialog({
   state,
@@ -46,7 +49,7 @@ export function CreateFolderDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>New Folder</DialogTitle>
-          <DialogDescription>Create a folder in {location}.</DialogDescription>
+          <DialogDescription id={CREATE_FOLDER_LOCATION_ID}>Create a folder in {location}.</DialogDescription>
         </DialogHeader>
         <form
           className="space-y-5"
@@ -62,27 +65,33 @@ export function CreateFolderDialog({
             }
           }}
         >
-          <label className="block space-y-2 text-sm">
-            <span className="font-medium">Name</span>
+          <div className="space-y-2 text-sm">
+            <label htmlFor={CREATE_FOLDER_NAME_ID} className="font-medium">Name</label>
             <input
+              id={CREATE_FOLDER_NAME_ID}
               name="name"
               value={state.name}
               onChange={(event) => onStateChange({ ...state, name: event.target.value })}
               className={TEXT_INPUT_CLASS}
-              placeholder="Projects"
+              placeholder="Projects…"
+              autoComplete="off"
+              spellCheck
+              aria-describedby={CREATE_FOLDER_LOCATION_ID}
             />
-          </label>
-          <label className="block space-y-2 text-sm">
-            <span className="font-medium">Description</span>
+          </div>
+          <div className="space-y-2 text-sm">
+            <label htmlFor={CREATE_FOLDER_DESCRIPTION_ID} className="font-medium">Description</label>
             <textarea
+              id={CREATE_FOLDER_DESCRIPTION_ID}
               name="description"
               value={state.description}
               onChange={(event) => onStateChange({ ...state, description: event.target.value })}
               className={cn(TEXT_INPUT_CLASS, 'min-h-20 py-2')}
               rows={3}
-              placeholder="Active project notes"
+              placeholder="Active project notes…"
+              spellCheck
             />
-          </label>
+          </div>
           <FolderAppearanceFields
             icon={state.icon}
             color={state.color}

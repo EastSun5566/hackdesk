@@ -1,13 +1,15 @@
 import { Loader2, Trash2 } from 'lucide-react';
 
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import type { DocumentSummary } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
 
@@ -25,30 +27,28 @@ export function DeleteNoteDialog({
   onDelete: (note: DocumentSummary) => void;
 }) {
   return (
-    <Dialog open={!!note} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Delete Note</DialogTitle>
-          <DialogDescription>
+    <AlertDialog open={!!note} onOpenChange={(open) => !open && onCancel()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Note</AlertDialogTitle>
+          <AlertDialogDescription>
             This removes the note from HackMD. This action cannot be undone from HackDesk.
-          </DialogDescription>
-        </DialogHeader>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
         {note ? (
           <div className="space-y-5">
             <div className="rounded-md border border-border-default bg-background-muted px-3 py-2 text-sm">
               <p className="truncate font-medium">{note.title || 'Untitled'}</p>
               <p className="mt-1 text-xs text-text-subtle">{note.teamPath ? `@${note.teamPath}` : 'My Workspace'}</p>
             </div>
-            <DialogFooter>
-              <button
-                type="button"
+            <AlertDialogFooter>
+              <AlertDialogCancel
                 onClick={onCancel}
                 className={SECONDARY_BUTTON_CLASS}
               >
                 Cancel
-              </button>
-              <button
-                type="button"
+              </AlertDialogCancel>
+              <AlertDialogAction
                 disabled={isDeleting}
                 onClick={() => onDelete(note)}
                 className={cn(
@@ -59,11 +59,11 @@ export function DeleteNoteDialog({
               >
                 {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                 Delete
-              </button>
-            </DialogFooter>
+              </AlertDialogAction>
+            </AlertDialogFooter>
           </div>
         ) : null}
-      </DialogContent>
-    </Dialog>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

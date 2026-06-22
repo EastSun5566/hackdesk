@@ -17,6 +17,9 @@ import type { RenameFolderDialogState } from './types';
 import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS, TEXT_INPUT_CLASS } from './ui';
 
 const CLOSED_RENAME_FOLDER_DIALOG_STATE = { open: false, folderId: null, name: '', description: '', icon: '', color: '' } as const;
+const EDIT_FOLDER_DESCRIPTION_ID = 'edit-folder-description';
+const EDIT_FOLDER_FORM_DESCRIPTION_ID = 'edit-folder-form-description';
+const EDIT_FOLDER_NAME_ID = 'edit-folder-name';
 
 function releasePointerLockAfterClose() {
   window.setTimeout(() => {
@@ -66,28 +69,34 @@ export function RenameFolderDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Edit Folder</DialogTitle>
-          <DialogDescription>Update the folder name, description, icon, and color in HackMD.</DialogDescription>
+          <DialogDescription id={EDIT_FOLDER_FORM_DESCRIPTION_ID}>Update the folder name, description, icon, and color in HackMD.</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={handleSubmit}>
-          <label className="block space-y-2 text-sm">
-            <span className="font-medium text-text-default">Name</span>
+          <div className="space-y-2 text-sm">
+            <label htmlFor={EDIT_FOLDER_NAME_ID} className="font-medium text-text-default">Name</label>
             <input
+              id={EDIT_FOLDER_NAME_ID}
               name="name"
               value={state.name}
               onChange={(event) => onStateChange({ ...state, name: event.target.value })}
               className={TEXT_INPUT_CLASS}
+              autoComplete="off"
+              spellCheck
+              aria-describedby={EDIT_FOLDER_FORM_DESCRIPTION_ID}
             />
-          </label>
-          <label className="block space-y-2 text-sm">
-            <span className="font-medium text-text-default">Description</span>
+          </div>
+          <div className="space-y-2 text-sm">
+            <label htmlFor={EDIT_FOLDER_DESCRIPTION_ID} className="font-medium text-text-default">Description</label>
             <textarea
+              id={EDIT_FOLDER_DESCRIPTION_ID}
               name="description"
               value={state.description}
               onChange={(event) => onStateChange({ ...state, description: event.target.value })}
               className={cn(TEXT_INPUT_CLASS, 'min-h-20 py-2')}
               rows={3}
+              spellCheck
             />
-          </label>
+          </div>
           <FolderAppearanceFields
             icon={state.icon}
             color={state.color}

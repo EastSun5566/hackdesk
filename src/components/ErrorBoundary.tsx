@@ -38,8 +38,8 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-background-muted p-8 text-center text-text-default">
-          <div className="max-w-md space-y-4 rounded-md border border-border-default bg-background-default p-8 shadow-[0_3px_15px_rgb(0_0_0/0.15)]">
+        <div className="flex min-h-dvh flex-col items-center justify-center bg-background-muted p-8 text-center text-text-default">
+          <div className="max-w-md space-y-4 rounded-md border border-border-default bg-background-default p-8 shadow-lg">
             <h1 className="text-2xl font-bold text-destructive-default">
               Oops! Something went wrong
             </h1>

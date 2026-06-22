@@ -369,7 +369,7 @@ function SectionHeader({
         type="button"
         {...buttonProps}
         className={cn(
-          'flex min-w-0 flex-1 items-center gap-2 rounded-[6px] text-left text-xs font-semibold uppercase tracking-wide text-text-subtle transition-colors hover:text-text-default',
+          'flex min-w-0 flex-1 items-center gap-2 rounded-[6px] text-left text-xs font-semibold uppercase text-text-subtle transition-colors hover:text-text-default',
           FOCUS_RING_CLASS,
           buttonProps?.className,
         )}
@@ -380,7 +380,7 @@ function SectionHeader({
         />
         <span className="min-w-0 truncate">{title}</span>
         {dirty ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary-default" aria-label="Unsaved changes" /> : null}
-        {subtitle ? <span className="min-w-0 truncate normal-case tracking-normal text-text-subtle">{subtitle}</span> : null}
+        {subtitle ? <span className="min-w-0 truncate normal-case text-text-subtle">{subtitle}</span> : null}
       </button>
       {actions ? <div className="shrink-0">{actions}</div> : null}
     </div>
@@ -455,7 +455,7 @@ export function EmptyState({
   return (
     <div className="flex h-full items-center justify-center px-6 text-center">
       <div className="max-w-72 space-y-2">
-        {icon ? <div className="mx-auto flex h-8 w-8 items-center justify-center text-text-subtle">{icon}</div> : null}
+        {icon ? <div className="mx-auto flex size-8 items-center justify-center text-text-subtle">{icon}</div> : null}
         <p className="text-sm font-medium text-text-default">{title}</p>
         {description ? <p className="text-xs leading-5 text-text-subtle">{description}</p> : null}
         {action ? <div className="pt-2">{action}</div> : null}
