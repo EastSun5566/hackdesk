@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { CheckCircle2, Loader2, Save } from 'lucide-react';
+import { forwardRef, useRef, useState, type ReactNode } from 'react';
+import { AlertCircle, CheckCircle2, Loader2, Monitor, Save, Settings as SettingsIcon, Shield, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -9,9 +9,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ThemeAppearanceControls } from '@/components/ThemeAppearanceControls';
+import {
+  ThemeAppearanceControls,
+  type ThemeAppearanceControlsHandle,
+  type ThemeAppearanceControlsState,
+} from '@/components/ThemeAppearanceControls';
+import { useTheme } from '@/components/theme-provider';
 import type { ElectronSafeSettings, UserSummary } from '@/lib/electron-api';
+import { getHackDeskAPI } from '@/lib/electron-api';
+import { defaultSettings } from '@/lib/settings';
 import { cn } from '@/lib/utils';
+import { version } from '../../../package.json';
 
 import { SettingsInput, SettingsRow, SettingsSecretInput, SettingsSection } from './SettingsPrimitives';
 import type { SettingsFormInput } from './types';
@@ -20,6 +28,21 @@ import { FOCUS_RING_CLASS } from './ui';
 const SETTINGS_TITLE_ID = 'settings-title';
 const SETTINGS_TOKEN_ID = 'settings-hackmd-token';
 const SETTINGS_TOKEN_STATUS_ID = 'settings-hackmd-token-status';
+const SETTINGS_DIALOG_BODY_ID = 'settings-dialog-body';
+
+type SettingsTab = 'general' | 'appearance' | 'hackmd' | 'advanced';
+
+const SETTINGS_TABS: {
+  id: SettingsTab;
+  label: string;
+  description: string;
+  icon: ReactNode;
+}[] = [
+  { id: 'general', label: 'General', description: 'Window title and local app defaults.', icon: <SettingsIcon className="h-4 w-4" /> },
+  { id: 'appearance', label: 'Appearance', description: 'Theme mode, presets, and color seeds.', icon: <Monitor className="h-4 w-4" /> },
+  { id: 'hackmd', label: 'HackMD', description: 'API token and connection test.', icon: <Shield className="h-4 w-4" /> },
+  { id: 'advanced', label: 'Advanced', description: 'Version, updates, and reset actions.', icon: <Zap className="h-4 w-4" /> },
+];
 
 type SettingsDialogProps = {
   open: boolean;
@@ -49,139 +72,458 @@ function SettingsDialogContent({
   onSave: (input: SettingsFormInput) => void;
   onValidateToken: (token: string) => Promise<UserSummary>;
 }) {
-  const [title, setTitle] = useState(settings?.title ?? 'HackDesk');
-  const [token, setToken] = useState('');
-  const [tokenVisible, setTokenVisible] = useState(false);
-  const [tokenTest, setTokenTest] = useState<{ status: 'idle' | 'testing' | 'success' | 'error'; message: string }>({
-    status: 'idle',
-    message: '',
+  const { setAppearance } = useTheme();
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const [formState, setFormState] = useState(() => ({
+    title: settings?.title ?? 'HackDesk',
+    token: '',
+    tokenVisible: false,
+    tokenTest: {
+      status: 'idle',
+      message: '',
+    } as TokenTestState,
+  }));
+  const appearanceControlsRef = useRef<ThemeAppearanceControlsHandle>(null);
+  const [appearanceState, setAppearanceState] = useState<ThemeAppearanceControlsState>({
+    canApply: true,
+    hasDraftChanges: false,
+    hasErrors: false,
   });
+  const { title, token, tokenTest, tokenVisible } = formState;
 
   const normalizedToken = token.trim();
+  const activeTabDefinition = getSettingsTab(activeTab);
+
+  const handleSaveSettings = () => {
+    if (!title.trim()) {
+      return;
+    }
+
+    onSave({
+      title: title.trim(),
+      ...(normalizedToken ? { hackmdApiToken: normalizedToken } : {}),
+    });
+  };
+
+  const handleResetAllSettings = () => {
+    setFormState({
+      title: defaultSettings.title,
+      token: '',
+      tokenVisible: false,
+      tokenTest: { status: 'idle', message: '' },
+    });
+    setAppearance(defaultSettings.appearance);
+    onSave({
+      title: defaultSettings.title,
+      hackmdApiToken: '',
+      appearance: defaultSettings.appearance,
+    });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(860px,calc(100dvh-4rem))] max-w-3xl overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[min(760px,calc(100dvh-4rem))] w-[min(760px,calc(100dvw-2rem))] max-w-3xl flex-col overflow-hidden p-0">
+        <DialogHeader className="border-b border-border-default px-5 pb-4 pt-5">
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
             Configure the local Electron app and HackMD API access.
           </DialogDescription>
+          <SettingsTabs activeTab={activeTab} onActiveTabChange={setActiveTab} />
         </DialogHeader>
 
         <form
-          className="space-y-6"
+          className="flex min-h-0 flex-1 flex-col"
           onSubmit={(event) => {
             event.preventDefault();
-            if (title.trim()) {
-              onSave({
-                title: title.trim(),
-                ...(normalizedToken ? { hackmdApiToken: normalizedToken } : {}),
-              });
+            if (activeTab === 'general' || activeTab === 'hackmd') {
+              handleSaveSettings();
             }
           }}
         >
-          <SettingsSection title="App">
-            <SettingsRow label="Window Title" htmlFor={SETTINGS_TITLE_ID}>
-              <SettingsInput
-                id={SETTINGS_TITLE_ID}
-                name="window-title"
-                autoFocus
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                autoComplete="off"
-                spellCheck
-              />
-            </SettingsRow>
-          </SettingsSection>
-
-          <SettingsSection
-            title="Appearance"
-            description="Preview and apply a local HackDesk theme."
+          <div
+            id={SETTINGS_DIALOG_BODY_ID}
+            role="tabpanel"
+            aria-label={activeTabDefinition.label}
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 [scrollbar-gutter:stable]"
           >
-            <ThemeAppearanceControls
-              onApplied={() => {
-                toast.success('Theme applied');
-                onOpenChange(false);
-              }}
-            />
-          </SettingsSection>
-
-          <SettingsSection
-            title="HackMD"
-            description={settings?.hasHackmdApiToken ? 'A token is configured. Paste a new token only when rotating it.' : 'Paste a HackMD API token to sync notes and folders.'}
-          >
-            <SettingsRow label="API Token" htmlFor={SETTINGS_TOKEN_ID}>
-              <SettingsSecretInput
-                id={SETTINGS_TOKEN_ID}
-                name="hackmd-api-token"
-                visible={tokenVisible}
-                onVisibleChange={setTokenVisible}
-                value={token}
-                onChange={(event) => {
-                  setToken(event.target.value);
-                  setTokenTest({ status: 'idle', message: '' });
-                }}
-                placeholder={settings?.hasHackmdApiToken ? 'Token configured' : 'Paste token'}
-                autoComplete="off"
-                aria-describedby={SETTINGS_TOKEN_STATUS_ID}
-                aria-invalid={tokenTest.status === 'error'}
+            {activeTab === 'general' ? (
+              <GeneralSettingsPanel
+                title={title}
+                onTitleChange={(nextTitle) => setFormState((current) => ({ ...current, title: nextTitle }))}
               />
-            </SettingsRow>
-            <div className="flex items-center justify-between gap-3">
-              <p
-                id={SETTINGS_TOKEN_STATUS_ID}
-                aria-live="polite"
-                className={cn(
-                  'min-h-5 text-xs',
-                  tokenTest.status === 'error' ? 'text-destructive-default' : 'text-text-subtle',
-                )}
-              >
-                {tokenTest.message}
-              </p>
-              <button
-                type="button"
-                disabled={!normalizedToken || tokenTest.status === 'testing'}
-                onClick={() => {
-                  setTokenTest({ status: 'testing', message: 'Testing token…' });
-                  onValidateToken(normalizedToken)
-                    .then((user) => {
-                      setTokenTest({
-                        status: 'success',
-                        message: `Token works for ${user.name} @${user.username}.`,
-                      });
-                    })
-                    .catch((error) => {
-                      setTokenTest({
-                        status: 'error',
-                        message: error instanceof Error ? error.message : 'Failed to validate token.',
-                      });
-                    });
-                }}
-                className={cn(
-                  'inline-flex h-9 items-center gap-2 rounded-md border border-border-default px-3 text-sm text-text-default transition-colors hover:bg-element-bg-hover disabled:pointer-events-none disabled:opacity-50',
-                  FOCUS_RING_CLASS,
-                )}
-              >
-                {tokenTest.status === 'testing' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                Test Token
-              </button>
-            </div>
-          </SettingsSection>
+            ) : null}
 
+            {activeTab === 'appearance' ? (
+              <AppearanceSettingsPanel
+                ref={appearanceControlsRef}
+                onStateChange={setAppearanceState}
+                onApplied={() => {
+                  toast.success('Theme applied');
+                  onOpenChange(false);
+                }}
+              />
+            ) : null}
+
+            {activeTab === 'hackmd' ? (
+              <HackmdSettingsPanel
+                hasHackmdApiToken={Boolean(settings?.hasHackmdApiToken)}
+                token={token}
+                tokenVisible={tokenVisible}
+                tokenTest={tokenTest}
+                onTokenChange={(nextToken) => setFormState((current) => ({ ...current, token: nextToken }))}
+                onTokenVisibleChange={(nextVisible) => setFormState((current) => ({ ...current, tokenVisible: nextVisible }))}
+                onTokenTestChange={(nextTokenTest) => setFormState((current) => ({ ...current, tokenTest: nextTokenTest }))}
+                onValidateToken={onValidateToken}
+              />
+            ) : null}
+
+            {activeTab === 'advanced' ? (
+              <AdvancedSettingsPanel onResetAllSettings={handleResetAllSettings} />
+            ) : null}
+          </div>
+
+          <SettingsDialogFooter
+            activeTab={activeTab}
+            activeTabDescription={activeTabDefinition.description}
+            appearanceState={appearanceState}
+            canSaveTitle={Boolean(title.trim())}
+            isSaving={isSaving}
+            onApplyTheme={() => appearanceControlsRef.current?.apply()}
+            onCancelPreview={() => appearanceControlsRef.current?.cancel()}
+            onClose={() => onOpenChange(false)}
+          />
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type TokenTestState = {
+  status: 'idle' | 'testing' | 'success' | 'error';
+  message: string;
+};
+
+function getSettingsTab(tabId: SettingsTab) {
+  return SETTINGS_TABS.find((tab) => tab.id === tabId) ?? SETTINGS_TABS[0];
+}
+
+function SettingsTabs({
+  activeTab,
+  onActiveTabChange,
+}: {
+  activeTab: SettingsTab;
+  onActiveTabChange: (tab: SettingsTab) => void;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="Settings sections"
+      className="mt-4 grid grid-cols-4 gap-1 rounded-lg bg-background-muted p-1"
+    >
+      {SETTINGS_TABS.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === tab.id}
+          aria-controls={SETTINGS_DIALOG_BODY_ID}
+          onClick={() => onActiveTabChange(tab.id)}
+          className={cn(
+            'inline-flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors hover:bg-element-bg-hover',
+            FOCUS_RING_CLASS,
+            activeTab === tab.id
+              ? 'bg-background-default text-text-default shadow-sm'
+              : 'text-text-subtle',
+          )}
+        >
+          <span aria-hidden="true">{tab.icon}</span>
+          <span className="truncate">{tab.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function GeneralSettingsPanel({
+  title,
+  onTitleChange,
+}: {
+  title: string;
+  onTitleChange: (title: string) => void;
+}) {
+  return (
+    <SettingsSection title="General" description="Local app identity and window preferences.">
+      <SettingsRow label="Window Title" htmlFor={SETTINGS_TITLE_ID}>
+        <SettingsInput
+          id={SETTINGS_TITLE_ID}
+          name="window-title"
+          autoFocus
+          value={title}
+          onChange={(event) => onTitleChange(event.target.value)}
+          autoComplete="off"
+          spellCheck
+        />
+      </SettingsRow>
+    </SettingsSection>
+  );
+}
+
+const AppearanceSettingsPanel = forwardRef<ThemeAppearanceControlsHandle, {
+  onApplied: () => void;
+  onStateChange: (state: ThemeAppearanceControlsState) => void;
+}>(function AppearanceSettingsPanel({ onApplied, onStateChange }, ref) {
+  return (
+    <SettingsSection title="Appearance" description="Preview and apply a local HackDesk theme.">
+      <ThemeAppearanceControls
+        ref={ref}
+        density="compact"
+        actions="none"
+        customSeedsDefaultOpen={false}
+        onStateChange={onStateChange}
+        onApplied={onApplied}
+      />
+    </SettingsSection>
+  );
+});
+
+function HackmdSettingsPanel({
+  hasHackmdApiToken,
+  token,
+  tokenVisible,
+  tokenTest,
+  onTokenChange,
+  onTokenVisibleChange,
+  onTokenTestChange,
+  onValidateToken,
+}: {
+  hasHackmdApiToken: boolean;
+  token: string;
+  tokenVisible: boolean;
+  tokenTest: TokenTestState;
+  onTokenChange: (token: string) => void;
+  onTokenVisibleChange: (visible: boolean) => void;
+  onTokenTestChange: (state: TokenTestState) => void;
+  onValidateToken: (token: string) => Promise<UserSummary>;
+}) {
+  const normalizedToken = token.trim();
+
+  const handleTestToken = () => {
+    onTokenTestChange({ status: 'testing', message: 'Testing token…' });
+    onValidateToken(normalizedToken)
+      .then((user) => {
+        onTokenTestChange({
+          status: 'success',
+          message: `Token works for ${user.name} @${user.username}.`,
+        });
+      })
+      .catch((error) => {
+        onTokenTestChange({
+          status: 'error',
+          message: error instanceof Error ? error.message : 'Failed to validate token.',
+        });
+      });
+  };
+
+  return (
+    <SettingsSection
+      title="HackMD"
+      description={hasHackmdApiToken ? 'A token is configured. Paste a new token only when rotating it.' : 'Paste a HackMD API token to sync notes and folders.'}
+    >
+      <SettingsRow label="API Token" htmlFor={SETTINGS_TOKEN_ID}>
+        <SettingsSecretInput
+          id={SETTINGS_TOKEN_ID}
+          name="hackmd-api-token"
+          visible={tokenVisible}
+          onVisibleChange={onTokenVisibleChange}
+          value={token}
+          onChange={(event) => {
+            onTokenChange(event.target.value);
+            onTokenTestChange({ status: 'idle', message: '' });
+          }}
+          placeholder={hasHackmdApiToken ? 'Token configured' : 'Paste token'}
+          autoComplete="off"
+          aria-describedby={SETTINGS_TOKEN_STATUS_ID}
+          aria-invalid={tokenTest.status === 'error'}
+        />
+      </SettingsRow>
+      <div className="flex items-center justify-between gap-3">
+        <p
+          id={SETTINGS_TOKEN_STATUS_ID}
+          aria-live="polite"
+          className={cn(
+            'min-h-5 text-xs',
+            tokenTest.status === 'error' ? 'text-destructive-default' : 'text-text-subtle',
+          )}
+        >
+          {tokenTest.message}
+        </p>
+        <button
+          type="button"
+          disabled={!normalizedToken || tokenTest.status === 'testing'}
+          onClick={handleTestToken}
+          className={cn(
+            'inline-flex h-9 shrink-0 items-center gap-2 rounded-md border border-border-default px-3 text-sm text-text-default transition-colors hover:bg-element-bg-hover disabled:pointer-events-none disabled:opacity-50',
+            FOCUS_RING_CLASS,
+          )}
+        >
+          {tokenTest.status === 'testing' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+          Test Token
+        </button>
+      </div>
+    </SettingsSection>
+  );
+}
+
+function AdvancedSettingsPanel({
+  onResetAllSettings,
+}: {
+  onResetAllSettings: () => void;
+}) {
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
+
+  const handleCheckForUpdates = () => {
+    const api = getHackDeskAPI();
+    if (!api?.app.checkForUpdates) {
+      toast.error('Update checks are available only in the packaged Electron app.');
+      return;
+    }
+
+    setIsCheckingUpdates(true);
+    api.app.checkForUpdates()
+      .then((result) => {
+        switch (result.status) {
+        case 'upToDate':
+          toast.info('You’re already on the latest version of HackDesk.');
+          break;
+        case 'declined':
+          toast.info(`Skipped installing HackDesk v${result.version}.`);
+          break;
+        case 'installed':
+          toast.success(
+            result.restart_required
+              ? `HackDesk v${result.version} is ready. Quit and reopen the app to finish applying the update.`
+              : `HackDesk v${result.version} installed successfully.`,
+          );
+          break;
+        }
+      })
+      .catch((error) => {
+        toast.error(error instanceof Error ? error.message : 'Failed to check for updates.');
+      })
+      .finally(() => setIsCheckingUpdates(false));
+  };
+
+  return (
+    <div className="space-y-4">
+      <SettingsSection title="Version" description="Check for Electron app updates.">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-default bg-background-default px-3 py-2">
+          <span className="text-sm text-text-subtle">HackDesk v{version}</span>
+          <button
+            type="button"
+            onClick={handleCheckForUpdates}
+            disabled={isCheckingUpdates}
+            className={cn(
+              'inline-flex h-9 items-center gap-2 rounded-md border border-border-default px-3 text-sm text-text-default transition-colors hover:bg-element-bg-hover disabled:pointer-events-none disabled:opacity-50',
+              FOCUS_RING_CLASS,
+            )}
+          >
+            {isCheckingUpdates ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {isCheckingUpdates ? 'Checking…' : 'Check for Updates'}
+          </button>
+        </div>
+      </SettingsSection>
+
+      <SettingsSection title="Reset" description="Restore local app preferences and clear the configured token.">
+        <button
+          type="button"
+          onClick={onResetAllSettings}
+          className={cn(
+            'inline-flex h-9 items-center gap-2 rounded-md border border-destructive-default px-3 text-sm font-medium text-destructive-default transition-colors hover:bg-destructive-soft',
+            FOCUS_RING_CLASS,
+          )}
+        >
+          <AlertCircle className="h-4 w-4" />
+          Reset All Settings
+        </button>
+      </SettingsSection>
+    </div>
+  );
+}
+
+function SettingsDialogFooter({
+  activeTab,
+  activeTabDescription,
+  appearanceState,
+  canSaveTitle,
+  isSaving,
+  onApplyTheme,
+  onCancelPreview,
+  onClose,
+}: {
+  activeTab: SettingsTab;
+  activeTabDescription: string;
+  appearanceState: ThemeAppearanceControlsState;
+  canSaveTitle: boolean;
+  isSaving: boolean;
+  onApplyTheme: () => void;
+  onCancelPreview: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-t border-border-default px-5 py-4">
+      <p className="min-w-0 truncate text-xs text-text-subtle">{activeTabDescription}</p>
+      <div className="flex shrink-0 items-center gap-2">
+        {activeTab === 'appearance' && appearanceState.hasDraftChanges ? (
+          <button
+            type="button"
+            onClick={onCancelPreview}
+            className={cn(
+              'inline-flex h-9 items-center rounded-md border border-border-default bg-background-default px-3 text-sm text-text-default transition-colors hover:bg-element-bg-hover',
+              FOCUS_RING_CLASS,
+            )}
+          >
+            Cancel Preview
+          </button>
+        ) : null}
+        {activeTab === 'appearance' ? (
+          <button
+            type="button"
+            onClick={onApplyTheme}
+            disabled={!appearanceState.canApply}
+            className={cn(
+              'inline-flex h-9 items-center justify-center rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50',
+              FOCUS_RING_CLASS,
+            )}
+          >
+            Apply Theme
+          </button>
+        ) : null}
+        {(activeTab === 'general' || activeTab === 'hackmd') ? (
           <button
             type="submit"
-            disabled={isSaving || !title.trim()}
+            disabled={isSaving || !canSaveTitle}
             className={cn(
-              'inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-primary-default px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50',
+              'inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50',
               FOCUS_RING_CLASS,
             )}
           >
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Save
           </button>
-        </form>
-      </DialogContent>
-    </Dialog>
+        ) : null}
+        {activeTab === 'advanced' ? (
+          <button
+            type="button"
+            onClick={onClose}
+            className={cn(
+              'inline-flex h-9 items-center rounded-md border border-border-default bg-background-default px-3 text-sm text-text-default transition-colors hover:bg-element-bg-hover',
+              FOCUS_RING_CLASS,
+            )}
+          >
+            Close
+          </button>
+        ) : null}
+      </div>
+    </div>
   );
 }

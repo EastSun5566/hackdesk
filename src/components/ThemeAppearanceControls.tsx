@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Laptop, Moon, Sun } from 'lucide-react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useState, type ReactNode } from 'react';
+import { ChevronRight, Laptop, Moon, Sun } from 'lucide-react';
 
 import { useTheme } from '@/components/theme-provider';
 import { normalizeThemeSeed, type ThemeMode, type ThemePresetId, type ThemeSeed } from '@/lib/themes';
@@ -50,7 +50,6 @@ function getInputErrors(inputs: Record<keyof ThemeSeed, string>) {
   }, {});
 }
 
-const controlButtonClassName = 'flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-[background-color,border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none';
 const focusClassName = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default';
 const secondaryButtonClassName = cn(
   'inline-flex h-9 items-center justify-center rounded-md border border-border-default bg-background-default px-3 text-sm font-medium text-text-default transition-colors hover:bg-element-bg-hover',
@@ -61,11 +60,35 @@ const primaryButtonClassName = cn(
   focusClassName,
 );
 
-export function ThemeAppearanceControls({
-  onApplied,
-}: {
+export type ThemeAppearanceControlsState = {
+  canApply: boolean;
+  hasDraftChanges: boolean;
+  hasErrors: boolean;
+};
+
+export type ThemeAppearanceControlsHandle = {
+  apply: () => void;
+  cancel: () => void;
+  reset: () => void;
+};
+
+function seedInputsEqual(left: Record<keyof ThemeSeed, string>, right: Record<keyof ThemeSeed, string>) {
+  return seedFields.every((field) => left[field.key] === right[field.key]);
+}
+
+export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle, {
   onApplied?: () => void;
-}) {
+  actions?: 'inline' | 'none';
+  density?: 'comfortable' | 'compact';
+  customSeedsDefaultOpen?: boolean;
+  onStateChange?: (state: ThemeAppearanceControlsState) => void;
+}>(function ThemeAppearanceControls({
+  onApplied,
+  actions = 'inline',
+  density = 'comfortable',
+  customSeedsDefaultOpen = true,
+  onStateChange,
+}, ref) {
   const {
     theme,
     presetId,
@@ -80,9 +103,15 @@ export function ThemeAppearanceControls({
     presetId,
     seedInputs: seedToInputs(customSeed),
   }));
+  const [customSeedsOpen, setCustomSeedsOpen] = useState(customSeedsDefaultOpen);
   const { mode: draftMode, presetId: draftPresetId, seedInputs: draftSeedInputs } = draft;
+  const savedSeedInputs = useMemo(() => seedToInputs(customSeed), [customSeed]);
   const errors = useMemo(() => getInputErrors(draftSeedInputs), [draftSeedInputs]);
   const hasErrors = Object.keys(errors).length > 0;
+  const hasDraftChanges = draftMode !== theme
+    || draftPresetId !== presetId
+    || !seedInputsEqual(draftSeedInputs, savedSeedInputs);
+  const compact = density === 'compact';
 
   useEffect(() => {
     setDraft({
@@ -162,12 +191,32 @@ export function ThemeAppearanceControls({
     });
   };
 
+  useImperativeHandle(ref, () => ({
+    apply: handleApply,
+    cancel: handleCancel,
+    reset: handleReset,
+  }));
+
+  useEffect(() => {
+    onStateChange?.({
+      canApply: !hasErrors,
+      hasDraftChanges,
+      hasErrors,
+    });
+  }, [hasDraftChanges, hasErrors, onStateChange]);
+
   return (
-    <div className="space-y-6">
+    <div className={cn(compact ? 'space-y-4' : 'space-y-6')}>
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Mode</legend>
-        <p className="mb-3 text-sm text-text-subtle">Choose how HackDesk resolves light and dark mode.</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <p className={cn('text-text-subtle', compact ? 'text-xs' : 'mb-3 text-sm')}>
+          Choose how HackDesk resolves light and dark mode.
+        </p>
+        <div className={cn(
+          compact
+            ? 'inline-flex rounded-md border border-border-default bg-background-muted p-0.5'
+            : 'grid grid-cols-1 gap-3 sm:grid-cols-3',
+        )}>
           {themeModeOptions.map((option) => (
             <button
               key={option.id}
@@ -175,21 +224,26 @@ export function ThemeAppearanceControls({
               onClick={() => handleModeChange(option.id)}
               aria-pressed={draftMode === option.id}
               className={cn(
-                controlButtonClassName,
                 focusClassName,
-                draftMode === option.id
-                  ? 'border-primary-default bg-primary-soft'
-                  : 'border-border-default bg-background-default hover:border-primary-default hover:bg-element-bg-hover',
+                compact
+                  ? 'inline-flex h-8 items-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors hover:bg-element-bg-hover'
+                  : 'flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-[background-color,border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none',
+                draftMode === option.id && compact ? 'bg-background-default text-text-default shadow-sm' : null,
+                draftMode === option.id && !compact ? 'border-primary-default bg-primary-soft' : null,
+                draftMode !== option.id && compact ? 'text-text-subtle' : null,
+                draftMode !== option.id && !compact ? 'border-border-default bg-background-default hover:border-primary-default hover:bg-element-bg-hover' : null,
               )}
             >
-              <div className={cn(
-                'rounded-full p-2',
-                draftMode === option.id ? 'bg-primary-soft text-primary-default' : 'bg-background-muted text-text-subtle',
-              )}>
-                {option.icon}
-              </div>
-              <span className="text-sm font-medium">{option.label}</span>
-              <span className="text-xs text-text-subtle">{option.description}</span>
+              {compact ? option.icon : (
+                <div className={cn(
+                  'rounded-full p-2',
+                  draftMode === option.id ? 'bg-primary-soft text-primary-default' : 'bg-background-muted text-text-subtle',
+                )}>
+                  {option.icon}
+                </div>
+              )}
+              <span className={cn(compact ? null : 'text-sm font-medium')}>{option.label}</span>
+              {compact ? null : <span className="text-xs text-text-subtle">{option.description}</span>}
             </button>
           ))}
         </div>
@@ -197,8 +251,10 @@ export function ThemeAppearanceControls({
 
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Preset</legend>
-        <p className="mb-3 text-sm text-text-subtle">Start from a preset, then tune the seed colors below.</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <p className={cn('text-text-subtle', compact ? 'text-xs' : 'mb-3 text-sm')}>
+          Start from a preset, then tune the seed colors below.
+        </p>
+        <div className={cn(compact ? 'space-y-2' : 'grid grid-cols-1 gap-3 sm:grid-cols-2')}>
           {presets.map((preset) => (
             <button
               key={preset.id}
@@ -206,12 +262,13 @@ export function ThemeAppearanceControls({
               onClick={() => handlePresetChange(preset.id)}
               aria-pressed={draftPresetId === preset.id}
               className={cn(
-                'rounded-lg border-2 bg-background-default p-3 text-left transition-[background-color,border-color] duration-150 ease-out hover:bg-element-bg-hover motion-reduce:transition-none',
+                'w-full rounded-lg border bg-background-default text-left transition-[background-color,border-color] duration-150 ease-out hover:bg-element-bg-hover motion-reduce:transition-none',
                 focusClassName,
+                compact ? 'flex items-center gap-3 p-2.5' : 'border-2 p-3',
                 draftPresetId === preset.id ? 'border-primary-default' : 'border-border-default',
               )}
             >
-              <span className="mb-3 flex gap-1" aria-hidden="true">
+              <span className={cn('flex shrink-0 gap-1', compact ? null : 'mb-3')} aria-hidden="true">
                 {seedFields.slice(0, 4).map((field) => (
                   <span
                     key={field.key}
@@ -220,50 +277,80 @@ export function ThemeAppearanceControls({
                   />
                 ))}
               </span>
-              <span className="block text-sm font-medium">{preset.name}</span>
-              <span className="mt-1 block text-xs leading-5 text-text-subtle">{preset.description}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium">{preset.name}</span>
+                <span className="mt-0.5 block truncate text-xs text-text-subtle">{preset.description}</span>
+              </span>
+              {draftPresetId === preset.id && compact ? (
+                <span className="text-xs font-medium text-primary-default">Selected</span>
+              ) : null}
             </button>
           ))}
         </div>
       </fieldset>
 
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">Custom Seeds</legend>
-        <p className="mb-3 text-sm text-text-subtle">Leave a seed empty to use the selected preset value.</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {seedFields.map((field) => {
-            const fieldId = `theme-seed-${field.key}`;
-            const errorId = `${fieldId}-error`;
-            return (
-              <div key={field.key} className="space-y-2 text-sm">
-                <label htmlFor={fieldId} className="font-medium">{field.label}</label>
-                <div className="flex items-center gap-2">
-                  <span
-                    className="size-5 rounded border border-border-default"
-                    style={{ backgroundColor: draftSeedInputs[field.key] || 'transparent' }}
-                    aria-hidden="true"
-                  />
-                  <input
-                    id={fieldId}
-                    value={draftSeedInputs[field.key]}
-                    onChange={(event) => handleSeedChange(field.key, event.target.value)}
-                    className="h-9 min-w-0 flex-1 rounded-md border border-border-default bg-background-default px-2 text-sm text-text-default outline-none transition-[border-color,box-shadow] focus:border-primary-default focus-visible:ring-2 focus-visible:ring-primary-default/70"
-                    placeholder="#5D54E8…"
-                    autoComplete="off"
-                    spellCheck={false}
-                    aria-invalid={Boolean(errors[field.key])}
-                    aria-describedby={errors[field.key] ? errorId : undefined}
-                  />
+        <legend className={compact ? 'sr-only' : 'text-sm font-medium'}>Custom Seeds</legend>
+        {compact ? (
+          <button
+            type="button"
+            aria-expanded={customSeedsOpen}
+            aria-controls="theme-custom-seeds"
+            onClick={() => setCustomSeedsOpen((current) => !current)}
+            className={cn(
+              'flex w-full items-center justify-between rounded-md border border-border-default bg-background-default px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-element-bg-hover',
+              focusClassName,
+            )}
+          >
+            <span>Customize Colors</span>
+            <ChevronRight className={cn(
+              'h-4 w-4 text-text-subtle transition-transform motion-reduce:transition-none',
+              customSeedsOpen ? 'rotate-90' : null,
+            )} />
+          </button>
+        ) : (
+          <p className="mb-3 text-sm text-text-subtle">Leave a seed empty to use the selected preset value.</p>
+        )}
+        {(!compact || customSeedsOpen) ? (
+          <div
+            id="theme-custom-seeds"
+            className={cn('grid grid-cols-1 gap-3', compact ? null : 'sm:grid-cols-2')}
+          >
+            {seedFields.map((field) => {
+              const fieldId = `theme-seed-${field.key}`;
+              const errorId = `${fieldId}-error`;
+              return (
+                <div key={field.key} className="space-y-2 text-sm">
+                  <label htmlFor={fieldId} className="font-medium">{field.label}</label>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="size-5 rounded border border-border-default"
+                      style={{ backgroundColor: draftSeedInputs[field.key] || 'transparent' }}
+                      aria-hidden="true"
+                    />
+                    <input
+                      id={fieldId}
+                      value={draftSeedInputs[field.key]}
+                      onChange={(event) => handleSeedChange(field.key, event.target.value)}
+                      className="h-9 min-w-0 flex-1 rounded-md border border-border-default bg-background-default px-2 text-sm text-text-default outline-none transition-[border-color,box-shadow] focus:border-primary-default focus-visible:ring-2 focus-visible:ring-primary-default/70"
+                      placeholder="#5D54E8…"
+                      autoComplete="off"
+                      spellCheck={false}
+                      aria-invalid={Boolean(errors[field.key])}
+                      aria-describedby={errors[field.key] ? errorId : undefined}
+                    />
+                  </div>
+                  {errors[field.key] ? (
+                    <p id={errorId} className="text-xs text-destructive-default">{errors[field.key]}</p>
+                  ) : null}
                 </div>
-                {errors[field.key] ? (
-                  <p id={errorId} className="text-xs text-destructive-default">{errors[field.key]}</p>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        ) : null}
       </fieldset>
 
+      {actions === 'inline' ? (
       <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-default pt-4">
         <button type="button" onClick={handleReset} className={secondaryButtonClassName}>
           Reset Theme
@@ -275,6 +362,7 @@ export function ThemeAppearanceControls({
           Apply Theme
         </button>
       </div>
+      ) : null}
     </div>
   );
-}
+});

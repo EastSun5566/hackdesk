@@ -1,3 +1,5 @@
+import type { AppearanceSettings } from '@/lib/settings';
+
 export type WorkspaceScope =
   | { type: 'personal'; label: string }
   | { type: 'history'; label: string }
@@ -33,4 +35,5 @@ export type RenameFolderDialogState = {
 export type SettingsFormInput = {
   title: string;
   hackmdApiToken?: string;
+  appearance?: AppearanceSettings;
 };
