@@ -1,6 +1,12 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": [],
+  "jsPlugins": [
+    {
+      "name": "react-doctor",
+      "specifier": "oxlint-plugin-react-doctor"
+    }
+  ],
   "categories": {
     "correctness": "off"
   },
@@ -73,6 +79,13 @@
     "no-useless-catch": "error",
     "no-useless-escape": "error",
     "no-with": "error",
+    "react-doctor/no-cascading-set-state": "warn",
+    "react-doctor/no-chain-state-updates": "warn",
+    "react-doctor/no-event-handler": "warn",
+    "react-doctor/no-giant-component": "warn",
+    "react-doctor/no-many-boolean-props": "warn",
+    "react-doctor/prefer-explicit-variants": "warn",
+    "react-doctor/prefer-useReducer": "warn",
     "require-yield": "error",
     "use-isnan": "error",
     "valid-typeof": "error"
@@ -153,23 +166,6 @@
       ],
       "env": {
         "node": true
-      }
-    },
-    {
-      "files": [
-        "src-tauri/src/app/init.js"
-      ],
-      "globals": {
-        "AudioWorkletGlobalScope": "readonly",
-        "AudioWorkletProcessor": "readonly",
-        "currentFrame": "readonly",
-        "currentTime": "readonly",
-        "registerProcessor": "readonly",
-        "sampleRate": "readonly",
-        "WorkletGlobalScope": "readonly"
-      },
-      "env": {
-        "browser": true
       }
     }
   ]
