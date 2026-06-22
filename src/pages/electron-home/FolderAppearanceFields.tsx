@@ -48,7 +48,7 @@ export function FolderAppearanceFields({
               type="button"
               aria-pressed={icon.trim().toUpperCase() === option.value}
               onClick={() => onIconChange(option.value)}
-              className={`flex h-10 items-center justify-center rounded-md border text-lg transition-colors hover:bg-background-selected aria-pressed:border-primary-default aria-pressed:bg-primary-soft ${FOCUS_RING_CLASS}`}
+              className={`flex h-10 items-center justify-center rounded-md border text-lg transition-colors hover:bg-element-bg-hover aria-pressed:border-primary-default aria-pressed:bg-primary-soft ${FOCUS_RING_CLASS}`}
               title={option.label}
             >
               <span aria-hidden="true">{option.glyph}</span>
@@ -59,7 +59,7 @@ export function FolderAppearanceFields({
         <button
           type="button"
           onClick={() => onIconChange('')}
-          className={`inline-flex h-8 items-center gap-2 rounded-md border border-border-default px-2 text-xs text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${FOCUS_RING_CLASS}`}
+          className={`inline-flex h-8 items-center gap-2 rounded-md border border-border-default px-2 text-xs text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default ${FOCUS_RING_CLASS}`}
         >
           <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />
           Use default icon
@@ -84,7 +84,7 @@ export function FolderAppearanceFields({
         <button
           type="button"
           onClick={() => onColorChange('')}
-          className={`inline-flex h-8 items-center gap-2 rounded-md border border-border-default px-2 text-xs text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${FOCUS_RING_CLASS}`}
+          className={`inline-flex h-8 items-center gap-2 rounded-md border border-border-default px-2 text-xs text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default ${FOCUS_RING_CLASS}`}
         >
           <Palette aria-hidden="true" className="h-3.5 w-3.5" />
           Use default color

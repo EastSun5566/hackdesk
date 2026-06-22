@@ -127,7 +127,7 @@ function SettingsDialogContent({
                       });
                     });
                 }}
-                className={`inline-flex h-9 items-center gap-2 rounded-md border border-border-default px-3 text-sm text-text-default transition-colors hover:bg-background-selected ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`}
+                className={`inline-flex h-9 items-center gap-2 rounded-md border border-border-default px-3 text-sm text-text-default transition-colors hover:bg-element-bg-hover ${FOCUS_RING_CLASS} disabled:pointer-events-none disabled:opacity-50`}
               >
                 {tokenTest.status === 'testing' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                 Test Token

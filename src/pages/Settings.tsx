@@ -74,8 +74,8 @@ const themeOptions = [
 
 const inputClassName = 'flex h-10 w-full rounded-md border border-border-default bg-background-default px-3 py-2 text-sm text-text-default ring-offset-background-default file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 disabled:opacity-50';
 const primaryButtonClassName = 'inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-primary-default px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none disabled:opacity-50';
-const secondaryButtonClassName = 'inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-border-default bg-background-default px-4 py-2 text-sm font-medium text-text-default transition-colors hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none disabled:opacity-50';
-const compactSecondaryButtonClassName = 'inline-flex h-10 items-center justify-center rounded-md border border-border-default bg-background-default px-3 text-sm text-text-default transition-colors hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none disabled:opacity-50';
+const secondaryButtonClassName = 'inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-border-default bg-background-default px-4 py-2 text-sm font-medium text-text-default transition-colors hover:bg-element-bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none disabled:opacity-50';
+const compactSecondaryButtonClassName = 'inline-flex h-10 items-center justify-center rounded-md border border-border-default bg-background-default px-3 text-sm text-text-default transition-colors hover:bg-element-bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none disabled:opacity-50';
 const dangerButtonClassName = 'inline-flex h-9 items-center justify-center rounded-md border border-destructive-default px-4 py-2 text-sm font-medium text-destructive-default transition-colors hover:bg-destructive-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default';
 
 export function Settings() {
@@ -201,7 +201,7 @@ export function Settings() {
               className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
                 activeTab === tab.id
                   ? 'bg-background-selected font-medium text-text-default shadow-sm'
-                  : 'text-text-subtle hover:bg-background-selected hover:text-text-default'
+                  : 'text-text-subtle hover:bg-element-bg-hover hover:text-text-default'
               }`}
             >
               {tab.icon}
@@ -265,11 +265,11 @@ export function Settings() {
                           className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
                             theme === option.id
                               ? 'border-primary-default bg-primary-soft'
-                              : 'border-border-default bg-background-default hover:border-primary-default hover:bg-background-selected'
+                              : 'border-border-default bg-background-default hover:border-primary-default hover:bg-element-bg-hover'
                           }`}
                         >
                           <div className={`rounded-full p-2 ${
-                            theme === option.id ? 'bg-primary-soft text-primary-default' : 'bg-background-selected text-text-subtle'
+                            theme === option.id ? 'bg-primary-soft text-primary-default' : 'bg-background-muted text-text-subtle'
                           }`}>
                             {option.icon}
                           </div>

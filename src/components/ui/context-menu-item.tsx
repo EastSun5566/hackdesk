@@ -12,7 +12,7 @@ const ContextMenuItem = React.forwardRef<
   <ContextMenuPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-background-selected focus:text-text-default data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      'relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-element-bg-hover focus:text-text-default data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       destructive && 'text-destructive-default focus:text-destructive-default',
       className,
     )}

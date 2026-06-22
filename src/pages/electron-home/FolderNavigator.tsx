@@ -137,7 +137,7 @@ function FilterChip({
     <button
       type="button"
       onClick={onRemove}
-      className={`inline-flex h-7 min-w-0 items-center gap-1 rounded-[6px] border border-border-default bg-background-default px-2 text-xs text-text-default transition-colors hover:bg-background-selected ${FOCUS_RING_CLASS}`}
+      className={`inline-flex h-7 min-w-0 items-center gap-1 rounded-[6px] border border-border-default bg-background-default px-2 text-xs text-text-default transition-colors hover:bg-element-bg-hover ${FOCUS_RING_CLASS}`}
       aria-label={`Remove ${removeLabel}`}
     >
       <span className="truncate">{label}</span>
@@ -376,7 +376,7 @@ function TagBrowser({
             <button
               type="button"
               onClick={() => setShowAll((current) => !current)}
-              className={`mt-0.5 h-7 rounded-[6px] px-2 text-xs text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${FOCUS_RING_CLASS}`}
+              className={`mt-0.5 h-7 rounded-[6px] px-2 text-xs text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default ${FOCUS_RING_CLASS}`}
             >
               {showAll ? 'Show less' : `Show ${tags.length - TAG_BROWSER_LIMIT} more`}
             </button>
@@ -785,7 +785,7 @@ function FolderDragOverlay({ node }: { node: FolderTreeNode | null }) {
   }
 
   return (
-    <div className="flex h-8 min-w-48 items-center gap-2 rounded-[6px] border border-border-default bg-background-default px-2 text-sm text-text-default shadow-lg">
+    <div className="flex h-8 min-w-48 items-center gap-2 rounded-[6px] border border-border-default bg-background-default px-2 text-sm text-text-default shadow-[0_3px_15px_rgb(0_0_0/0.15)]">
       <FolderGlyph icon={node.icon} color={node.color} open />
       <span className="truncate">{node.name}</span>
     </div>
@@ -798,7 +798,7 @@ function NoteDragOverlay({ entry }: { entry: FolderTreeNote | null }) {
   }
 
   return (
-    <div className="flex min-h-9 min-w-56 items-center gap-2 rounded-[6px] border border-border-default bg-background-default px-3 py-2 text-sm text-text-default shadow-lg">
+    <div className="flex min-h-9 min-w-56 items-center gap-2 rounded-[6px] border border-border-default bg-background-default px-3 py-2 text-sm text-text-default shadow-[0_3px_15px_rgb(0_0_0/0.15)]">
       <FileText aria-hidden="true" className="h-4 w-4 shrink-0 text-text-subtle" />
       <span className="min-w-0">
         <span className="block truncate font-medium">{entry.note.title || 'Untitled'}</span>
@@ -1293,7 +1293,7 @@ export function FolderNavigator({
               <button
                 type="button"
                 onClick={onOpenSettings}
-                className={`flex w-full items-center gap-2 rounded-md border border-border-default bg-background-default px-3 py-2 text-left text-sm text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${FOCUS_RING_CLASS}`}
+                className={`flex w-full items-center gap-2 rounded-md border border-border-default bg-background-default px-3 py-2 text-left text-sm text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default ${FOCUS_RING_CLASS}`}
               >
                 <AlertCircle aria-hidden="true" className="h-4 w-4" />
                 <span>Configure HackMD API Token</span>

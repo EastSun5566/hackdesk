@@ -60,7 +60,7 @@ function entityRowClassName({
     variant === 'compact' ? 'gap-2 rounded-[6px] px-2 py-1 text-sm' : 'gap-2.5 rounded-md px-2.5 py-2 text-sm',
     selected || active
       ? 'bg-background-selected text-text-default'
-      : 'text-text-subtle hover:bg-background-selected hover:text-text-default',
+      : 'text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
     clickable && FOCUS_RING_CLASS,
     disabled && 'pointer-events-none opacity-50',
     className,

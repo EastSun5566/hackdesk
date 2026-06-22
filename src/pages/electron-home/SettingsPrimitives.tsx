@@ -62,7 +62,7 @@ export function SettingsSecretInput({
       <button
         type="button"
         onClick={() => onVisibleChange(!visible)}
-        className={`border-l border-border-default px-3 text-xs font-medium text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default ${FOCUS_RING_CLASS}`}
+        className={`border-l border-border-default px-3 text-xs font-medium text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default ${FOCUS_RING_CLASS}`}
       >
         {visible ? 'Hide' : 'Show'}
       </button>

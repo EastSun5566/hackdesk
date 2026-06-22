@@ -19,7 +19,7 @@ const DropdownMenuContent = React.forwardRef<
       align={align}
       sideOffset={sideOffset}
       className={cn(
-        'z-50 min-w-44 overflow-hidden rounded-md border border-border-default bg-background-default p-1 text-text-default shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1',
+        'z-50 min-w-44 overflow-hidden rounded-md border border-border-default bg-background-default p-1 text-text-default shadow-[0_3px_15px_rgb(0_0_0/0.15)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1',
         className,
       )}
       {...props}
@@ -37,7 +37,7 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-background-selected focus:text-text-default data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      'relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-element-bg-hover focus:text-text-default data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       destructive && 'text-destructive-default focus:text-destructive-default',
       className,
     )}
@@ -53,7 +53,7 @@ const DropdownMenuCheckboxItem = React.forwardRef<
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-background-selected focus:text-text-default data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      'relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-element-bg-hover focus:text-text-default data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className,
     )}
     {...props}

@@ -369,7 +369,7 @@ function NoteInspectorPanel({
                 />
                 <span className="flex items-center gap-2">
                   <span
-                    className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-border-default text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-primary-default"
+                    className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-border-default text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-primary-default"
                     aria-hidden="true"
                   >
                     <ImagePlus className="h-4 w-4" />

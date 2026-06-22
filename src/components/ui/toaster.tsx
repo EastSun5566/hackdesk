@@ -14,15 +14,15 @@ export function Toaster({ ...props }: ToasterProps) {
         unstyled: true,
         classNames: {
           toast:
-            'group pointer-events-auto flex w-full items-center gap-3 rounded-md border border-border-default bg-background-default p-4 text-text-default shadow-lg',
+            'group pointer-events-auto flex w-full items-center gap-3 rounded-md border border-border-default bg-background-default p-4 text-text-default shadow-[0_3px_15px_rgb(0_0_0/0.15)]',
           title: 'text-sm font-medium text-text-default',
           description: 'text-sm text-text-subtle',
           actionButton:
             'inline-flex h-8 shrink-0 items-center justify-center rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default',
           cancelButton:
-            'inline-flex h-8 shrink-0 items-center justify-center rounded-md border border-border-default bg-background-selected px-3 text-sm font-medium text-text-default transition-colors hover:bg-background-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default',
+            'inline-flex h-8 shrink-0 items-center justify-center rounded-md border border-border-default bg-primary-soft px-3 text-sm font-medium text-primary-default transition-colors hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default',
           closeButton:
-            'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-text-subtle transition-colors hover:bg-background-selected hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default',
+            'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default',
           success: 'border-success-default/40',
           error: 'border-destructive-default/40',
           warning: 'border-primary-default/30',

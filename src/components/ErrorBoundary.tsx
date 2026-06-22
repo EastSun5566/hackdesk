@@ -39,7 +39,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-background-muted p-8 text-center text-text-default">
-          <div className="max-w-md space-y-4 rounded-lg border border-border-default bg-background-default p-8 shadow-lg">
+          <div className="max-w-md space-y-4 rounded-md border border-border-default bg-background-default p-8 shadow-[0_3px_15px_rgb(0_0_0/0.15)]">
             <h1 className="text-2xl font-bold text-destructive-default">
               Oops! Something went wrong
             </h1>
@@ -57,7 +57,7 @@ export class ErrorBoundary extends Component<Props, State> {
               <button
                 type="button"
                 onClick={() => window.location.reload()}
-                className="rounded-md border border-border-default bg-background-default px-4 py-2 text-text-default transition-colors hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default"
+                className="rounded-md border border-border-default bg-background-default px-4 py-2 text-text-default transition-colors hover:bg-element-bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default"
               >
                 Reload App
               </button>

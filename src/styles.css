@@ -67,6 +67,8 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-success-default: var(--success-default);
   --color-success-soft: var(--success-soft);
+  --color-warning-default: var(--warning-default);
+  --color-warning-soft: var(--warning-soft);
   --color-destructive-default: var(--destructive-default);
   --color-destructive-soft: var(--destructive-soft);
   --color-icon-default: var(--icon-default);
@@ -134,6 +136,8 @@
 @layer components {
   :root,
   :root.light {
+    color-scheme: light;
+
     --font-system: Inter, system-ui, sans-serif;
     --font-editor: "Source Code Pro", ui-monospace, monospace;
 
@@ -146,14 +150,14 @@
     --hmd-tw-background-subtle: var(--color-zinc-300);
     --hmd-tw-background-subtler: var(--color-zinc-100);
     --hmd-tw-background-sunken: var(--color-zinc-50);
-    --hmd-tw-background-selected: var(--color-zinc-100);
+    --hmd-tw-background-selected: var(--color-primary-50);
     --hmd-tw-background-primary-default: var(--color-primary-500);
     --hmd-tw-background-primary-subtler: var(--color-primary-50);
     --hmd-tw-background-primary-subtle: var(--color-primary-100);
     --hmd-tw-background-primary-hover: var(--color-primary-800);
     --hmd-tw-background-primary-disabled: var(--color-primary-300);
     --hmd-tw-background-primary-focus: var(--color-primary-800);
-    --hmd-tw-background-blur: rgb(253 253 253 / 0.6);
+    --hmd-tw-background-blur: rgb(253 253 253 / 0.72);
     --hmd-tw-icon-default: var(--color-zinc-500);
     --hmd-tw-icon-subtle: var(--color-zinc-400);
     --hmd-tw-icon-subtler: var(--color-zinc-300);
@@ -182,8 +186,8 @@
     --hmd-tw-state-danger-bg-hover: var(--color-red-600);
     --hmd-tw-state-danger-border: var(--color-red-300);
     --hmd-tw-state-danger-default: var(--color-red-500);
-    --hmd-tw-element-bg-hover: var(--color-zinc-200);
-    --hmd-tw-element-border-hover: var(--color-zinc-500);
+    --hmd-tw-element-bg-hover: var(--color-zinc-100);
+    --hmd-tw-element-border-hover: var(--color-zinc-300);
     --hmd-tw-link-text-default: var(--color-primary-500);
     --hmd-tw-link-text-hover: var(--color-primary-800);
 
@@ -201,6 +205,8 @@
     --primary-foreground: var(--color-white);
     --success-default: var(--hmd-tw-state-success-default);
     --success-soft: var(--hmd-tw-state-success-background);
+    --warning-default: var(--color-amber-400);
+    --warning-soft: var(--color-amber-75);
     --destructive-default: var(--hmd-tw-state-danger-default);
     --destructive-soft: var(--hmd-tw-state-danger-bg-light);
     --icon-default: var(--hmd-tw-icon-default);
@@ -212,6 +218,8 @@
   }
 
   :root.dark {
+    color-scheme: dark;
+
     --hmd-tw-text-default: var(--color-zinc-300);
     --hmd-tw-text-subtle: var(--color-zinc-400);
     --hmd-tw-text-subtler: var(--color-zinc-500);
@@ -221,7 +229,7 @@
     --hmd-tw-background-subtle: var(--color-zinc-600);
     --hmd-tw-background-subtler: var(--color-zinc-750);
     --hmd-tw-background-sunken: var(--color-zinc-900);
-    --hmd-tw-background-selected: var(--color-zinc-600);
+    --hmd-tw-background-selected: #302d6a;
     --hmd-tw-background-primary-default: var(--color-primary-500);
     --hmd-tw-background-primary-subtler: #2c2a4a;
     --hmd-tw-background-primary-subtle: #302d6a;
@@ -257,7 +265,7 @@
     --hmd-tw-state-danger-bg-hover: var(--color-red-400);
     --hmd-tw-state-danger-border: var(--color-red-400);
     --hmd-tw-state-danger-default: var(--color-red-400);
-    --hmd-tw-element-bg-hover: var(--color-zinc-700);
+    --hmd-tw-element-bg-hover: var(--color-zinc-750);
     --hmd-tw-element-border-hover: var(--color-zinc-500);
     --hmd-tw-link-text-default: var(--color-primary-300);
     --hmd-tw-link-text-hover: var(--color-primary-100);
@@ -265,6 +273,11 @@
 }
 
 @layer base {
+  html {
+    accent-color: var(--primary-default);
+    scrollbar-color: var(--border-bold) var(--background-muted);
+  }
+
   body {
     @apply bg-background-default text-text-default;
     font-family: var(--font-system);
@@ -474,7 +487,7 @@
   }
 
   .markdown-reader :where(.flash-warn, .callout-warning) {
-    border-left-color: var(--primary-default);
+    border-left-color: var(--warning-default);
   }
 
   .markdown-reader :where(.flash-error, .callout-danger) {

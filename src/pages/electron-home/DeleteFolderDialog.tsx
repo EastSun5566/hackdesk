@@ -34,7 +34,7 @@ export function DeleteFolderDialog({
             type="button"
             onClick={onCancel}
             disabled={isDeleting}
-            className="rounded-md border border-border-default px-3 py-2 text-sm hover:bg-background-selected disabled:opacity-50"
+            className="rounded-md border border-border-default px-3 py-2 text-sm hover:bg-element-bg-hover disabled:opacity-50"
           >
             Cancel
           </button>
