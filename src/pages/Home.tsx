@@ -5,15 +5,9 @@ import { useTheme } from '@/components/theme-provider';
 import { getDesktopAPI } from '@/lib/desktop-api';
 import type {
   DocumentSummary,
-  ElectronActionId,
   FolderSummary,
   NoteSummary,
 } from '@/lib/electron-api';
-import {
-  getActionDisabledReason,
-  getElectronAction,
-  type ElectronActionContext,
-} from '@/lib/electron-actions';
 import {
   applyNoteFinder,
 } from '@/lib/electron-note-finder';
@@ -99,9 +93,16 @@ import { useElectronFocusZones } from './electron-home/useElectronFocusZones';
 import { useElectronNoteMutations } from './electron-home/useElectronNoteMutations';
 import { useDocumentCommands } from './electron-home/useDocumentCommands';
 import { useNoteWorkspaceTabs } from './electron-home/useNoteWorkspaceTabs';
+import {
+  exportDebugLogs,
+  openHackmdWebEditor,
+  useWorkbenchActions,
+  type WorkbenchActionHandlers,
+} from './electron-home/useWorkbenchActions';
 import { useWorkbenchClosePolicy } from './electron-home/useWorkbenchClosePolicy';
 import { useWorkbenchFinder } from './electron-home/useWorkbenchFinder';
 import { useWorkbenchShortcuts } from './electron-home/useWorkbenchShortcuts';
+import { useWorkbenchTabLifecycle } from './electron-home/useWorkbenchTabLifecycle';
 
 const WORKSPACE_RAIL_PANEL_ID = 'workspace-rail-panel';
 const NOTE_NAVIGATOR_PANEL_ID = 'note-navigator-panel';
@@ -411,49 +412,6 @@ export function Home() {
     },
   });
 
-  const actionContext = useMemo<ElectronActionContext>(() => ({
-    ...(() => {
-      const activePane = noteWorkspace.state.panes.find((pane) => pane.paneId === noteWorkspace.state.activePaneId);
-      const activeTabIndex = activePane?.activeTabId ? activePane.tabIds.indexOf(activePane.activeTabId) : -1;
-      return {
-        activePaneTabCount: activePane?.tabIds.length ?? 0,
-        activePaneTabsToRightCount: activePane && activeTabIndex >= 0 ? activePane.tabIds.length - activeTabIndex - 1 : 0,
-      };
-    })(),
-    hasToken,
-    canCreate,
-    scopeType: scope.type,
-    selectedFolderId,
-    canModifySelectedFolder,
-    selectedNoteId: selectedNote?.id ?? null,
-    noteDirty,
-    isSavingNote: mutations.updateNoteMutation.isPending,
-    openTabCount: Object.keys(noteWorkspace.state.tabs).length,
-    recentlyClosedTabCount: noteWorkspace.state.recentlyClosedTabs.length,
-    paneCount: noteWorkspace.state.panes.length,
-    inspectorCollapsed,
-    navigatorCollapsed,
-    workspaceRailCollapsed: railCollapsed,
-    readerMode,
-  }), [
-    canCreate,
-    canModifySelectedFolder,
-    hasToken,
-    inspectorCollapsed,
-    mutations.updateNoteMutation.isPending,
-    navigatorCollapsed,
-    noteDirty,
-    noteWorkspace.state.activePaneId,
-    noteWorkspace.state.panes,
-    noteWorkspace.state.recentlyClosedTabs.length,
-    noteWorkspace.state.tabs,
-    railCollapsed,
-    readerMode,
-    scope.type,
-    selectedFolderId,
-    selectedNote?.id,
-  ]);
-
   const refreshWorkspace = useCallback(() => {
     void queries.userQuery.refetch();
     void queries.teamsQuery.refetch();
@@ -727,279 +685,136 @@ export function Home() {
     });
   }, [getTabDocument, getTabDraft, noteWorkspace]);
 
-  const getUnsafeTabs = useCallback((tabs: OpenNoteTab[]) => (
-    tabs.filter((tab) => isTabDirty(tab) || getTabSyncState(tab) === 'save_failed')
-  ), [getTabSyncState, isTabDirty]);
+  const {
+    confirmCloseUnsafeTabs,
+    focusTabAtIndex,
+    requestCloseOtherTabs,
+    requestCloseTab,
+    requestCloseTabsToRight,
+  } = useWorkbenchTabLifecycle({
+    activePaneId: noteWorkspace.state.activePaneId,
+    api,
+    autoSelectSuppressionRef,
+    closeOtherTabs: noteWorkspace.closeOtherTabs,
+    closeTab: noteWorkspace.closeTab,
+    closeTabsToRight: noteWorkspace.closeTabsToRight,
+    focusEditor: () => focusZone('editor'),
+    getAutoSelectSuppressionKey,
+    getTabSyncState,
+    getTabTitle,
+    isTabDirty,
+    manualEmptyWorkspaceRef,
+    panes: noteWorkspace.state.panes,
+    selectTab: noteWorkspace.selectTab,
+    tabs: noteWorkspace.state.tabs,
+    visibleEntries,
+  });
 
-  const confirmCloseUnsafeTabs = useCallback(async (tabs: OpenNoteTab[], title: string, confirmLabel: string) => {
-    const unsafeTabs = getUnsafeTabs(tabs);
-    if (unsafeTabs.length === 0 || !api?.app.confirm) {
-      return true;
-    }
-
-    const firstTitle = getTabTitle(unsafeTabs[0]) || 'Untitled';
-    const failedCount = unsafeTabs.filter((tab) => getTabSyncState(tab) === 'save_failed').length;
-    const dirtyCount = unsafeTabs.length - failedCount;
-    const detailParts = [
-      dirtyCount > 0 ? `${dirtyCount} note${dirtyCount === 1 ? ' has' : 's have'} unsaved changes` : null,
-      failedCount > 0 ? `${failedCount} note${failedCount === 1 ? ' has' : 's have'} a failed save` : null,
-    ].filter(Boolean);
-
-    try {
-      const { confirmed } = await api.app.confirm({
-        title,
-        message: unsafeTabs.length === 1 ? `Close “${firstTitle}”?` : `Close ${unsafeTabs.length} unsaved notes?`,
-        detail: `${detailParts.join(' and ')}. Closing will discard local drafts that have not been saved to HackMD.`,
-        confirmLabel,
-        cancelLabel: 'Keep Editing',
-        destructive: true,
-      });
-      return confirmed;
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to confirm close.');
-      return false;
-    }
-  }, [api, getTabSyncState, getTabTitle, getUnsafeTabs]);
-
-  const requestCloseTab = useCallback(async (tabId: string) => {
-    const tab = noteWorkspace.state.tabs[tabId];
-    if (!tab) {
-      return false;
-    }
-
-    if (!await confirmCloseUnsafeTabs([tab], 'Close Tab', 'Close Tab')) {
-      return false;
-    }
-
-    if (Object.keys(noteWorkspace.state.tabs).length <= 1) {
-      const nextNote = visibleEntries[0]?.note ?? null;
-      manualEmptyWorkspaceRef.current = true;
-      autoSelectSuppressionRef.current = nextNote ? getAutoSelectSuppressionKey(nextNote) : null;
-    }
-
-    noteWorkspace.closeTab(tabId);
-    return true;
-  }, [confirmCloseUnsafeTabs, getAutoSelectSuppressionKey, noteWorkspace, visibleEntries]);
-
-  const requestCloseOtherTabs = useCallback(async (paneId: string, keepTabId: string) => {
-    const pane = noteWorkspace.state.panes.find((candidate) => candidate.paneId === paneId);
-    if (!pane) {
-      return;
-    }
-
-    const closingTabs = pane.tabIds
-      .filter((tabId) => tabId !== keepTabId)
-      .map((tabId) => noteWorkspace.state.tabs[tabId])
-      .filter((tab): tab is OpenNoteTab => Boolean(tab));
-    if (!await confirmCloseUnsafeTabs(closingTabs, 'Close Other Tabs', 'Close Other Tabs')) {
-      return;
-    }
-
-    noteWorkspace.closeOtherTabs(paneId, keepTabId);
-  }, [confirmCloseUnsafeTabs, noteWorkspace]);
-
-  const requestCloseTabsToRight = useCallback(async (paneId: string, tabId: string) => {
-    const pane = noteWorkspace.state.panes.find((candidate) => candidate.paneId === paneId);
-    const tabIndex = pane?.tabIds.indexOf(tabId) ?? -1;
-    if (!pane || tabIndex < 0) {
-      return;
-    }
-
-    const closingTabs = pane.tabIds
-      .slice(tabIndex + 1)
-      .map((candidate) => noteWorkspace.state.tabs[candidate])
-      .filter((tab): tab is OpenNoteTab => Boolean(tab));
-    if (!await confirmCloseUnsafeTabs(closingTabs, 'Close Tabs to Right', 'Close Tabs')) {
-      return;
-    }
-
-    noteWorkspace.closeTabsToRight(paneId, tabId);
-  }, [confirmCloseUnsafeTabs, noteWorkspace]);
-
-  const focusTabAtIndex = useCallback((tabIndex: number) => {
-    const activePane = noteWorkspace.state.panes.find((pane) => pane.paneId === noteWorkspace.state.activePaneId);
-    if (!activePane) {
-      return false;
-    }
-
-    const normalizedIndex = tabIndex === -1 ? activePane.tabIds.length - 1 : tabIndex;
-    const tabId = activePane.tabIds[normalizedIndex];
-    if (!tabId) {
-      return false;
-    }
-
-    noteWorkspace.selectTab(activePane.paneId, tabId);
-    focusZone('editor');
-    return true;
-  }, [focusZone, noteWorkspace]);
-
-  const runAction = useCallback((actionId: ElectronActionId) => {
-    const action = getElectronAction(actionId);
-    const disabledReason = getActionDisabledReason(action, actionContext);
-    if (disabledReason) {
-      toast.info(disabledReason);
-      return;
-    }
-
-    switch (actionId) {
-    case 'open-command-palette':
-      openPalette();
-      break;
-    case 'open-settings':
-      setSettingsOpen(true);
-      break;
-    case 'toggle-theme':
-      setTheme(resolvedMode === 'dark' ? 'light' : 'dark');
-      break;
-    case 'new-tab':
+  const actionHandlers = useMemo<WorkbenchActionHandlers>(() => ({
+    closeActiveTab: () => {
       if (activeTab) {
-        noteWorkspace.duplicateActiveTab();
-        focusZone('editor');
-      } else {
-        openPalette();
+        void requestCloseTab(activeTab.tabId);
       }
-      break;
-    case 'new-note':
-      handleCreateNote();
-      break;
-    case 'new-folder':
-      handleCreateFolder();
-      break;
-    case 'import-markdown-note':
-      handleImportMarkdownNote();
-      break;
-    case 'rename-folder':
-      if (selectedFolder?.id && selectedFolder.id !== UNFILED_FOLDER_ID) {
-        handleRenameFolder(selectedFolder.id);
-      } else {
-        toast.info('Select a folder before renaming it.');
+    },
+    closeOtherTabs: () => {
+      if (activeTab) {
+        void requestCloseOtherTabs(noteWorkspace.state.activePaneId, activeTab.tabId);
       }
-      break;
-    case 'delete-folder':
+    },
+    closeTabsToRight: () => {
+      if (activeTab) {
+        void requestCloseTabsToRight(noteWorkspace.state.activePaneId, activeTab.tabId);
+      }
+    },
+    createFolder: handleCreateFolder,
+    createNote: handleCreateNote,
+    deleteSelectedFolder: () => {
       if (selectedFolder?.id && selectedFolder.id !== UNFILED_FOLDER_ID) {
         handleDeleteFolderRequest(selectedFolder.id);
       } else {
         toast.info('Select a folder before deleting it.');
       }
-      break;
-    case 'refresh':
-      refreshWorkspace();
-      break;
-    case 'search-notes':
-      focusWorkspaceSearch();
-      break;
-    case 'go-history':
+    },
+    deleteSelectedNote: () => {
+      if (selectedDocument) {
+        handleDeleteRequest(selectedDocument);
+      }
+    },
+    duplicateActiveTab: noteWorkspace.duplicateActiveTab,
+    exportDebugLogs: () => exportDebugLogs(api),
+    exportSelectedMarkdown: () => {
+      if (selectedDocument) {
+        handleExportMarkdown(selectedDocument, documentTitle, documentContent);
+      }
+    },
+    findInNote: () => {
+      setReaderMode('edit');
+      setEditorSearchRequestId((current) => current + 1);
+    },
+    focusEditor: () => focusZone('editor'),
+    focusInspector: () => focusZone('inspector'),
+    focusNavigator: () => focusZone('navigator'),
+    focusNextPane: () => {
+      noteWorkspace.focusNextPane();
+      focusZone('editor');
+    },
+    focusNextTab: () => {
+      noteWorkspace.focusNextTab();
+      focusZone('editor');
+    },
+    focusPreviousPane: () => {
+      noteWorkspace.focusPreviousPane();
+      focusZone('editor');
+    },
+    focusPreviousTab: () => {
+      noteWorkspace.focusPreviousTab();
+      focusZone('editor');
+    },
+    focusWorkspace: () => focusZone('workspace'),
+    focusWorkspaceSearch,
+    goHistory: () => {
       pendingRecentNoteRef.current = null;
       setWorkspaceScope({ type: 'history', label: 'History' });
       focusZone('navigator');
-      break;
-    case 'toggle-workspace-rail':
-      toggleRailCollapsed();
-      break;
-    case 'toggle-navigator':
-      toggleNavigatorCollapsed();
-      break;
-    case 'toggle-inspector':
-      toggleInspectorCollapsed();
-      break;
-    case 'toggle-reader-mode':
-      setReaderMode(readerMode === 'read' ? 'edit' : 'read');
-      break;
-    case 'save-note':
+    },
+    importMarkdownNote: handleImportMarkdownNote,
+    moveTabToOtherPane: () => {
+      noteWorkspace.moveActiveTabToOtherPane();
+      focusZone('editor');
+    },
+    openPalette,
+    openSelectedWebEditor: () => openHackmdWebEditor(api, selectedDocument, trackRecentNote),
+    openSettings: () => setSettingsOpen(true),
+    refreshWorkspace,
+    renameSelectedFolder: () => {
+      if (selectedFolder?.id && selectedFolder.id !== UNFILED_FOLDER_ID) {
+        handleRenameFolder(selectedFolder.id);
+      } else {
+        toast.info('Select a folder before renaming it.');
+      }
+    },
+    reopenLastClosedTab: () => {
+      noteWorkspace.reopenLastClosed();
+      focusZone('editor');
+    },
+    saveNote: () => {
       if (selectedDocument && noteDirty && !mutations.updateNoteMutation.isPending) {
         mutations.updateNoteMutation.mutate({
           note: selectedDocument,
           input: { title: documentTitle, content: documentContent },
         });
       }
-      break;
-    case 'find-in-note':
-      setReaderMode('edit');
-      setEditorSearchRequestId((current) => current + 1);
-      break;
-    case 'export-note-markdown':
-      if (selectedDocument) {
-        handleExportMarkdown(selectedDocument, documentTitle, documentContent);
-      }
-      break;
-    case 'open-note-web-editor':
-      if (api && selectedDocument) {
-        trackRecentNote(selectedDocument);
-        void Promise.resolve(api.shell.openHackmdEditor(selectedDocument)).catch((error) => {
-          toast.error(error instanceof Error ? error.message : 'Failed to open HackMD editor.');
-        });
-      }
-      break;
-    case 'delete-note':
-      if (selectedDocument) {
-        handleDeleteRequest(selectedDocument);
-      }
-      break;
-    case 'close-tab':
-      if (activeTab) {
-        void requestCloseTab(activeTab.tabId);
-      }
-      break;
-    case 'close-other-tabs':
-      if (activeTab) {
-        void requestCloseOtherTabs(noteWorkspace.state.activePaneId, activeTab.tabId);
-      }
-      break;
-    case 'close-tabs-to-right':
-      if (activeTab) {
-        void requestCloseTabsToRight(noteWorkspace.state.activePaneId, activeTab.tabId);
-      }
-      break;
-    case 'reopen-last-closed-tab':
-      noteWorkspace.reopenLastClosed();
-      focusZone('editor');
-      break;
-    case 'split-pane-right':
+    },
+    splitPaneRight: () => {
       noteWorkspace.splitActiveTab();
       focusZone('editor');
-      break;
-    case 'move-tab-to-other-pane':
-      noteWorkspace.moveActiveTabToOtherPane();
-      focusZone('editor');
-      break;
-    case 'focus-next-tab':
-      noteWorkspace.focusNextTab();
-      focusZone('editor');
-      break;
-    case 'focus-previous-tab':
-      noteWorkspace.focusPreviousTab();
-      focusZone('editor');
-      break;
-    case 'focus-next-pane':
-      noteWorkspace.focusNextPane();
-      focusZone('editor');
-      break;
-    case 'focus-previous-pane':
-      noteWorkspace.focusPreviousPane();
-      focusZone('editor');
-      break;
-    case 'export-debug-logs':
-      void api?.app.exportDebugLogs()
-        .then((path) => toast.success(`Debug logs exported to ${path}`))
-        .catch((error) => {
-          toast.error(error instanceof Error ? error.message : 'Failed to export debug logs.');
-        });
-      break;
-    case 'focus-workspace':
-      focusZone('workspace');
-      break;
-    case 'focus-navigator':
-      focusZone('navigator');
-      break;
-    case 'focus-editor':
-      focusZone('editor');
-      break;
-    case 'focus-inspector':
-      focusZone('inspector');
-      break;
-    }
-  }, [
-    actionContext,
+    },
+    toggleInspector: toggleInspectorCollapsed,
+    toggleNavigator: toggleNavigatorCollapsed,
+    toggleReaderMode: () => setReaderMode(readerMode === 'read' ? 'edit' : 'read'),
+    toggleTheme: () => setTheme(resolvedMode === 'dark' ? 'light' : 'dark'),
+    toggleWorkspaceRail: toggleRailCollapsed,
+  }), [
     activeTab,
     api,
     documentContent,
@@ -1017,12 +832,12 @@ export function Home() {
     noteDirty,
     noteWorkspace,
     openPalette,
+    readerMode,
     refreshWorkspace,
     requestCloseOtherTabs,
     requestCloseTab,
     requestCloseTabsToRight,
     resolvedMode,
-    readerMode,
     selectedDocument,
     selectedFolder,
     setReaderMode,
@@ -1033,6 +848,24 @@ export function Home() {
     toggleRailCollapsed,
     trackRecentNote,
   ]);
+
+  const { actionContext, runAction } = useWorkbenchActions({
+    canCreate,
+    canModifySelectedFolder,
+    hasActiveTab: Boolean(activeTab),
+    handlers: actionHandlers,
+    hasToken,
+    inspectorCollapsed,
+    isSavingNote: mutations.updateNoteMutation.isPending,
+    navigatorCollapsed,
+    noteDirty,
+    readerMode,
+    scopeType: scope.type,
+    selectedFolderId,
+    selectedNoteId: selectedNote?.id ?? null,
+    workspaceRailCollapsed: railCollapsed,
+    workspaceState: noteWorkspace.state,
+  });
 
   const closeTransientLayer = useCallback(() => {
     if (palette.open) {
@@ -1407,15 +1240,9 @@ export function Home() {
           onResizePanes={noteWorkspace.resizePanes}
           onFocusPane={noteWorkspace.focusPane}
           onSelectTab={noteWorkspace.selectTab}
-          onCloseTab={(tabId) => {
-            void requestCloseTab(tabId);
-          }}
-          onCloseOtherTabs={(paneId, tabId) => {
-            void requestCloseOtherTabs(paneId, tabId);
-          }}
-          onCloseTabsToRight={(paneId, tabId) => {
-            void requestCloseTabsToRight(paneId, tabId);
-          }}
+          onCloseTab={requestCloseTab}
+          onCloseOtherTabs={requestCloseOtherTabs}
+          onCloseTabsToRight={requestCloseTabsToRight}
           onSplitPane={noteWorkspace.splitActiveTab}
           onMoveTabToOtherPane={noteWorkspace.moveActiveTabToOtherPane}
           onReopenLastClosedTab={noteWorkspace.reopenLastClosed}
