@@ -1,0 +1,175 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+
+import { TooltipProvider } from '@/components/ui/tooltip';
+import type { DocumentSummary } from '@/lib/electron-api';
+import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
+
+import { DocumentDetail, type DocumentDetailProps } from './DocumentDetail';
+
+vi.mock('@/components/MarkdownEditor', async () => {
+  const React = await import('react');
+
+  return {
+    MarkdownEditor: React.forwardRef((props: { value: string; onChange: (value: string) => void }, ref) => {
+      React.useImperativeHandle(ref, () => ({
+        insertText: vi.fn(),
+        openSearch: vi.fn(),
+      }));
+
+      return (
+        <textarea
+          aria-label="Markdown editor"
+          value={props.value}
+          onChange={(event) => props.onChange(event.target.value)}
+        />
+      );
+    }),
+  };
+});
+
+vi.mock('@/components/MarkdownReader', () => ({
+  MarkdownReader: ({ value }: { value: string }) => <article aria-label="Markdown reader">{value}</article>,
+}));
+
+function documentSummary(overrides: Partial<DocumentSummary> = {}): DocumentSummary {
+  return {
+    content: '# Hello',
+    createdAtMillis: null,
+    description: '',
+    folderPaths: [],
+    id: 'note-1',
+    lastChangeUser: null,
+    permalink: null,
+    publishLink: 'https://hackmd.io/note-1',
+    publishedAtMillis: null,
+    publishType: 'edit',
+    readPermission: 'owner',
+    shortId: 'note-1',
+    tags: [],
+    tagsUpdatedAtMillis: null,
+    teamPath: null,
+    title: 'Hello',
+    titleUpdatedAtMillis: null,
+    updatedAtMillis: 1_700_000_000_000,
+    userPath: null,
+    writePermission: 'owner',
+    ...overrides,
+  };
+}
+
+function renderDocumentDetail(overrides: Partial<DocumentDetailProps> = {}) {
+  const document = documentSummary();
+  const props: DocumentDetailProps = {
+    actions: {
+      onContentChange: vi.fn(),
+      onCopyLink: vi.fn(),
+      onCopyMarkdownLink: vi.fn(),
+      onDelete: vi.fn(),
+      onExportMarkdown: vi.fn(),
+      onOpenEditor: vi.fn(),
+      onOpenExternal: vi.fn(),
+      onReaderModeChange: vi.fn(),
+      onSave: vi.fn(),
+      onSaveMetadata: vi.fn(),
+      onSaveSharing: vi.fn(),
+      onShareOpenChange: vi.fn(),
+      onTitleChange: vi.fn(),
+      onToggleInspector: vi.fn(),
+      onUploadImage: vi.fn(),
+    },
+    documentState: {
+      content: document.content,
+      document,
+      selectedNote: { title: document.title },
+      syncState: 'idle',
+      title: document.title,
+    },
+    folderTree: buildHackmdFolderTree([]),
+    layout: {
+      focusZone: 'editor',
+      inspectorCollapsed: true,
+      inspectorPanelId: 'inspector-test',
+      readerMode: 'edit',
+      searchRequestId: 0,
+      shareOpen: false,
+    },
+    status: {
+      deleting: false,
+      loading: false,
+      saving: false,
+      savingMetadata: false,
+      uploadingImage: false,
+    },
+  };
+  const mergedProps: DocumentDetailProps = {
+    ...props,
+    ...overrides,
+    actions: { ...props.actions, ...overrides.actions },
+    documentState: { ...props.documentState, ...overrides.documentState },
+    layout: { ...props.layout, ...overrides.layout },
+    status: { ...props.status, ...overrides.status },
+  };
+
+  render(
+    <TooltipProvider>
+      <DocumentDetail {...mergedProps} />
+    </TooltipProvider>,
+  );
+
+  return mergedProps;
+}
+
+describe('DocumentDetail', () => {
+  it('renders loading and empty branches explicitly', () => {
+    renderDocumentDetail({ status: { loading: true } });
+    expect(screen.getByLabelText('Loading note')).toBeInTheDocument();
+
+    renderDocumentDetail({
+      documentState: {
+        document: undefined,
+        selectedNote: null,
+      },
+    });
+    expect(screen.getByText('Select a note.')).toBeInTheDocument();
+  });
+
+  it('saves dirty title and content through the structured actions', () => {
+    const onSave = vi.fn();
+    const document = documentSummary();
+    renderDocumentDetail({
+      actions: { onSave },
+      documentState: {
+        content: 'Changed content',
+        document,
+        title: 'Changed title',
+      },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(onSave).toHaveBeenCalledWith(document, {
+      content: 'Changed content',
+      title: 'Changed title',
+    });
+  });
+
+  it('keeps reader/edit mode and inspector actions wired', () => {
+    const onReaderModeChange = vi.fn();
+    const onToggleInspector = vi.fn();
+    renderDocumentDetail({
+      actions: { onReaderModeChange, onToggleInspector },
+      layout: {
+        inspectorCollapsed: false,
+        readerMode: 'read',
+      },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse inspector' }));
+
+    expect(screen.getByLabelText('Markdown reader')).toHaveTextContent('# Hello');
+    expect(onReaderModeChange).toHaveBeenCalledWith('edit');
+    expect(onToggleInspector).toHaveBeenCalledOnce();
+  });
+});

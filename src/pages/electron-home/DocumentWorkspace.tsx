@@ -345,38 +345,46 @@ export function DocumentWorkspace({
                   onReopenLastClosedTab={onReopenLastClosedTab}
                 />
                 <DocumentDetail
-                  focusZone={isActivePane ? 'editor' : undefined}
-                  inspectorPanelId={`note-inspector-panel-${pane.paneId}`}
-                  selectedNote={view.selectedNote}
-                  document={view.document}
                   folderTree={folderTree}
-                  title={view.title}
-                  content={view.content}
-                  isLoading={view.isLoading}
-                  syncState={view.syncState}
-                  readerMode={readerMode}
-                  searchRequestId={isActivePane ? editorSearchRequestId : 0}
-                  shareOpen={isActivePane && shareOpen}
-                  isInspectorCollapsed={!isActivePane || isInspectorCollapsed}
-                  onOpenEditor={onOpenEditor}
-                  onOpenExternal={onOpenExternal}
-                  onCopyLink={onCopyLink}
-                  onCopyMarkdownLink={onCopyMarkdownLink}
-                  onExportMarkdown={onExportMarkdown}
-                  onSave={onSave}
-                  onSaveMetadata={onSaveMetadata}
-                  onSaveSharing={onSaveSharing}
-                  onUploadImage={onUploadImage}
-                  onDelete={onDelete}
-                  onTitleChange={(title) => view.activeTab && onTitleChange(view.activeTab, title)}
-                  onContentChange={(content) => view.activeTab && onContentChange(view.activeTab, content)}
-                  onToggleInspector={onToggleInspector}
-                  onReaderModeChange={onReaderModeChange}
-                  onShareOpenChange={onShareOpenChange}
-                  isSaving={view.isSaving}
-                  isSavingMetadata={view.isSavingMetadata}
-                  isUploadingImage={view.isUploadingImage}
-                  isDeleting={view.isDeleting}
+                  documentState={{
+                    selectedNote: view.selectedNote,
+                    document: view.document,
+                    title: view.title,
+                    content: view.content,
+                    syncState: view.syncState,
+                  }}
+                  layout={{
+                    focusZone: isActivePane ? 'editor' : undefined,
+                    inspectorPanelId: `note-inspector-panel-${pane.paneId}`,
+                    readerMode,
+                    searchRequestId: isActivePane ? editorSearchRequestId : 0,
+                    shareOpen: isActivePane && shareOpen,
+                    inspectorCollapsed: !isActivePane || isInspectorCollapsed,
+                  }}
+                  status={{
+                    loading: view.isLoading,
+                    saving: view.isSaving,
+                    savingMetadata: view.isSavingMetadata,
+                    uploadingImage: view.isUploadingImage,
+                    deleting: view.isDeleting,
+                  }}
+                  actions={{
+                    onOpenEditor,
+                    onOpenExternal,
+                    onCopyLink,
+                    onCopyMarkdownLink,
+                    onExportMarkdown,
+                    onSave,
+                    onSaveMetadata,
+                    onSaveSharing,
+                    onUploadImage,
+                    onDelete,
+                    onTitleChange: (title) => view.activeTab && onTitleChange(view.activeTab, title),
+                    onContentChange: (content) => view.activeTab && onContentChange(view.activeTab, content),
+                    onToggleInspector,
+                    onReaderModeChange,
+                    onShareOpenChange,
+                  }}
                 />
               </section>
             </Panel>
