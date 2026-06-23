@@ -48,10 +48,19 @@ describe('electron action registry', () => {
       shortcut: '⌘K',
       menuAccelerator: 'CmdOrCtrl+K',
     });
-    expect(getElectronAction('toggle-theme')).toMatchObject({
-      label: 'Toggle Theme',
+    expect(getElectronAction('new-tab')).toMatchObject({
+      label: 'New Tab',
       shortcut: '⌘T',
       menuAccelerator: 'CmdOrCtrl+T',
+    });
+    expect(getElectronAction('toggle-theme')).toMatchObject({
+      label: 'Toggle Theme',
+    });
+    expect(getElectronAction('toggle-theme').shortcut).toBeUndefined();
+    expect(getElectronAction('toggle-theme').menuAccelerator).toBeUndefined();
+    expect(getElectronAction('toggle-workspace-rail')).toMatchObject({
+      shortcut: '⌘B',
+      menuAccelerator: 'CmdOrCtrl+B',
     });
     expect(getElectronAction('export-debug-logs')).toMatchObject({
       label: 'Export Debug Logs',
@@ -61,6 +70,14 @@ describe('electron action registry', () => {
       category: 'note',
       shortcut: '⌘S',
       menuAccelerator: 'CmdOrCtrl+S',
+    });
+    expect(getElectronAction('find-in-note')).toMatchObject({
+      shortcut: '⌘F',
+      menuAccelerator: 'CmdOrCtrl+F',
+    });
+    expect(getElectronAction('search-notes')).toMatchObject({
+      shortcut: '⇧⌘F',
+      menuAccelerator: 'Shift+CmdOrCtrl+F',
     });
     expect(getElectronAction('export-note-markdown')).toMatchObject({
       label: 'Export Note as Markdown',
@@ -82,9 +99,18 @@ describe('electron action registry', () => {
       label: 'Reopen Last Closed Tab',
       menuAccelerator: 'Shift+CmdOrCtrl+T',
     });
+    expect(getElectronAction('focus-next-tab')).toMatchObject({
+      shortcut: '⌥⌘→',
+      menuAccelerator: 'CmdOrCtrl+Alt+Right',
+    });
+    expect(getElectronAction('focus-previous-tab')).toMatchObject({
+      shortcut: '⌥⌘←',
+      menuAccelerator: 'CmdOrCtrl+Alt+Left',
+    });
     expect(getElectronAction('split-pane-right')).toMatchObject({
       label: 'Split Pane Right',
-      menuAccelerator: 'Shift+CmdOrCtrl+\\',
+      shortcut: '⌘\\',
+      menuAccelerator: 'CmdOrCtrl+\\',
     });
   });
 

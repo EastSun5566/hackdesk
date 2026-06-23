@@ -1,7 +1,10 @@
+import { createRef } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { MarkdownEditor } from './MarkdownEditor';
+import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor';
+
+const openSearchPanelMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@codemirror/autocomplete', () => ({
   closeBrackets: () => ({}),
@@ -33,6 +36,7 @@ vi.mock('@codemirror/language', () => ({
 
 vi.mock('@codemirror/search', () => ({
   highlightSelectionMatches: () => ({}),
+  openSearchPanel: openSearchPanelMock,
   searchKeymap: [],
 }));
 
@@ -93,6 +97,8 @@ vi.mock('@codemirror/view', () => {
     dispatch({ changes }: { changes: { insert: string } }) {
       this.applyValue(changes.insert, false);
     }
+
+    focus() {}
 
     destroy() {
       this.textarea.remove();
@@ -183,5 +189,16 @@ describe('MarkdownEditor', () => {
     rerender(<MarkdownEditor value="# Second" onChange={vi.fn()} />);
 
     expect(editor).toHaveValue('# Second');
+  });
+
+  it('opens CodeMirror search through the imperative handle', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+
+    render(<MarkdownEditor ref={ref} value="# First" onChange={vi.fn()} />);
+    await screen.findByLabelText('markdown-editor');
+
+    ref.current?.openSearch();
+
+    expect(openSearchPanelMock).toHaveBeenCalledOnce();
   });
 });

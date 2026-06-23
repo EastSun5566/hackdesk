@@ -69,11 +69,13 @@ import type { FolderTree as HackmdFolderTree, FolderTreeNote } from '@/lib/hackm
 import type { CommandPaletteState, WorkspaceScope } from './types';
 
 const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
+  'new-tab': <FileText className="h-4 w-4" />,
   'new-note': <FileText className="h-4 w-4" />,
   'new-folder': <FolderPlus className="h-4 w-4" />,
   'rename-folder': <FolderPen className="h-4 w-4" />,
   'delete-folder': <Trash2 className="h-4 w-4" />,
   'save-note': <Save className="h-4 w-4" />,
+  'find-in-note': <Search className="h-4 w-4" />,
   'export-note-markdown': <Download className="h-4 w-4" />,
   'import-markdown-note': <Upload className="h-4 w-4" />,
   'open-note-web-editor': <FileText className="h-4 w-4" />,
@@ -96,6 +98,7 @@ const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'toggle-inspector': <PanelRightClose className="h-4 w-4" />,
   'toggle-reader-mode': <BookOpen className="h-4 w-4" />,
   refresh: <RefreshCcw className="h-4 w-4" />,
+  'search-notes': <Search className="h-4 w-4" />,
   'go-history': <History className="h-4 w-4" />,
   'export-debug-logs': <FileArchive className="h-4 w-4" />,
   'focus-workspace': <PanelLeft className="h-4 w-4" />,

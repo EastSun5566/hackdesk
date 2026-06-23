@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, CloudOff, Copy, Download, Edit3, Loader2, PanelRightClose, PanelRightOpen, Save, Share2, Trash2 } from 'lucide-react';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/MarkdownEditor';
@@ -89,6 +89,7 @@ export function DocumentDetail({
   isLoading,
   syncState = 'idle',
   readerMode,
+  searchRequestId,
   shareOpen,
   isInspectorCollapsed,
   onOpenEditor,
@@ -121,6 +122,7 @@ export function DocumentDetail({
   isLoading: boolean;
   syncState?: DocumentSyncState;
   readerMode: ReaderMode;
+  searchRequestId: number;
   shareOpen: boolean;
   isInspectorCollapsed: boolean;
   onOpenEditor: (document: DocumentSummary) => void;
@@ -144,6 +146,7 @@ export function DocumentDetail({
   isDeleting: boolean;
 }) {
   const editorRef = useRef<MarkdownEditorHandle | null>(null);
+  const lastHandledSearchRequestRef = useRef(0);
   const [actionsOpen, setActionsOpen] = useState(false);
 
   const noteDirty = Boolean(document && (title !== document.title || content !== document.content));
@@ -151,6 +154,22 @@ export function DocumentDetail({
     setActionsOpen(false);
     window.setTimeout(() => onShareOpenChange(true), 0);
   };
+  const setEditorRef = useCallback((handle: MarkdownEditorHandle | null) => {
+    editorRef.current = handle;
+    if (handle && searchRequestId > lastHandledSearchRequestRef.current) {
+      lastHandledSearchRequestRef.current = searchRequestId;
+      handle.openSearch();
+    }
+  }, [searchRequestId]);
+
+  useEffect(() => {
+    if (searchRequestId <= lastHandledSearchRequestRef.current) {
+      return;
+    }
+
+    lastHandledSearchRequestRef.current = searchRequestId;
+    editorRef.current?.openSearch();
+  }, [searchRequestId]);
 
   if (isLoading) {
     return (
@@ -304,7 +323,7 @@ export function DocumentDetail({
         {readerMode === 'read' ? (
           <MarkdownReader value={content} onOpenExternal={onOpenExternal} />
         ) : (
-          <MarkdownEditor ref={editorRef} value={content} onChange={onContentChange} />
+          <MarkdownEditor ref={setEditorRef} value={content} onChange={onContentChange} />
         )}
         <div
           id={inspectorPanelId}

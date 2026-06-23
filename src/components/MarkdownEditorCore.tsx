@@ -10,7 +10,7 @@ import {
   indentOnInput,
   syntaxHighlighting,
 } from '@codemirror/language';
-import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
+import { searchKeymap, highlightSelectionMatches, openSearchPanel } from '@codemirror/search';
 import { tags } from '@lezer/highlight';
 
 type EditorExtension = import('@codemirror/state').Extension;
@@ -216,6 +216,7 @@ function loadEditorSetup() {
 
 export type MarkdownEditorHandle = {
   insertText: (text: string) => void;
+  openSearch: () => void;
 };
 
 export type MarkdownEditorProps = {
@@ -253,6 +254,14 @@ export const MarkdownEditorCore = forwardRef<MarkdownEditorHandle, MarkdownEdito
         selection: { anchor: insertAt + text.length },
       });
       view.focus();
+    },
+    openSearch() {
+      const view = viewRef.current;
+      if (!view) {
+        return;
+      }
+
+      openSearchPanel(view);
     },
   }), []);
 

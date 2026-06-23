@@ -354,6 +354,40 @@ export function closeTabsByNoteIdentity(state: NoteWorkspaceState, note: NoteIde
   };
 }
 
+export function duplicateActiveNoteTab(state: NoteWorkspaceState) {
+  const activePane = getActivePane(state);
+  const activeTabId = activePane.activeTabId;
+  const activeTab = activeTabId ? state.tabs[activeTabId] : null;
+  if (!activeTab || !activeTabId) {
+    return state;
+  }
+
+  const duplicateTab = { ...activeTab, tabId: createTabId() };
+  const activeIndex = activePane.tabIds.indexOf(activeTabId);
+  const nextTabIds = activeIndex >= 0
+    ? [
+      ...activePane.tabIds.slice(0, activeIndex + 1),
+      duplicateTab.tabId,
+      ...activePane.tabIds.slice(activeIndex + 1),
+    ]
+    : [...activePane.tabIds, duplicateTab.tabId];
+
+  return normalizeState({
+    ...state,
+    tabs: {
+      ...state.tabs,
+      [duplicateTab.tabId]: duplicateTab,
+    },
+    panes: state.panes.map((pane) => pane.paneId === activePane.paneId
+      ? { ...pane, tabIds: nextTabIds, activeTabId: duplicateTab.tabId }
+      : pane),
+    activePaneId: activePane.paneId,
+    drafts: state.drafts[activeTabId]
+      ? { ...state.drafts, [duplicateTab.tabId]: state.drafts[activeTabId] }
+      : state.drafts,
+  });
+}
+
 export function reopenLastClosedTab(state: NoteWorkspaceState) {
   const [lastClosedTab, ...remainingClosedTabs] = state.recentlyClosedTabs;
   if (!lastClosedTab) {

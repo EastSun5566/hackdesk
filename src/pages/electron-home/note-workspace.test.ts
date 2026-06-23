@@ -8,6 +8,7 @@ import {
   closeTabsToRight,
   closeTabsByNoteIdentity,
   createEmptyNoteWorkspaceState,
+  duplicateActiveNoteTab,
   focusAdjacentTab,
   getActiveTab,
   getPaneActiveTab,
@@ -61,6 +62,20 @@ describe('note workspace tabs', () => {
       .reduce((current, item) => openNoteTab(current, item), createEmptyNoteWorkspaceState('team:team-a'));
 
     expect(Object.values(state.tabs).map((tab) => tab.title)).toEqual(['Personal', 'Team']);
+  });
+
+  it('duplicates the active tab to the right and copies its draft', () => {
+    const withTab = openNoteTab(createEmptyNoteWorkspaceState('personal'), note({ id: 'note-1', title: 'Alpha' }));
+    const activeTabId = getActiveTab(withTab)?.tabId ?? '';
+    const withDraft = updateNoteTabDraft(withTab, activeTabId, { title: 'Draft Alpha', content: '# Draft' });
+    const duplicated = duplicateActiveNoteTab(withDraft);
+    const pane = duplicated.panes[0];
+    const duplicateTabId = pane.tabIds[1];
+
+    expect(pane.tabIds).toHaveLength(2);
+    expect(pane.activeTabId).toBe(duplicateTabId);
+    expect(duplicated.tabs[duplicateTabId]).toMatchObject({ noteId: 'note-1', title: 'Alpha' });
+    expect(duplicated.drafts[duplicateTabId]).toEqual({ title: 'Draft Alpha', content: '# Draft' });
   });
 
   it('splits a single active tab into a second pane without emptying the first pane', () => {

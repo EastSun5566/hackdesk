@@ -220,6 +220,7 @@ export function DocumentWorkspace({
   getPaneView,
   getPaneTabs,
   getTabSyncState,
+  editorSearchRequestId,
   canReopenLastClosedTab,
   onResizePanes,
   onFocusPane,
@@ -255,6 +256,7 @@ export function DocumentWorkspace({
   getPaneView: (pane: NotePane) => DocumentPaneView;
   getPaneTabs: (pane: NotePane) => OpenNoteTab[];
   getTabSyncState: (tab: OpenNoteTab) => DocumentSyncState;
+  editorSearchRequestId: number;
   canReopenLastClosedTab: boolean;
   onResizePanes: (sizes: Record<string, number>) => void;
   onFocusPane: (paneId: string) => void;
@@ -353,6 +355,7 @@ export function DocumentWorkspace({
                   isLoading={view.isLoading}
                   syncState={view.syncState}
                   readerMode={readerMode}
+                  searchRequestId={isActivePane ? editorSearchRequestId : 0}
                   shareOpen={isActivePane && shareOpen}
                   isInspectorCollapsed={!isActivePane || isInspectorCollapsed}
                   onOpenEditor={onOpenEditor}

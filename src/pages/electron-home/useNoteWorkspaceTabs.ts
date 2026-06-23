@@ -9,6 +9,7 @@ import {
   closeTabsToRight,
   closeTabsByNoteIdentity,
   createEmptyNoteWorkspaceState,
+  duplicateActiveNoteTab,
   focusAdjacentPane,
   focusAdjacentTab,
   focusNotePane,
@@ -95,6 +96,10 @@ export function useNoteWorkspaceTabs(scopeKey: string) {
     setState(reopenLastClosedTab);
   }, []);
 
+  const duplicateActiveTab = useCallback(() => {
+    setState(duplicateActiveNoteTab);
+  }, []);
+
   const splitActiveTab = useCallback(() => {
     setState(splitActiveTabRight);
   }, []);
@@ -161,6 +166,7 @@ export function useNoteWorkspaceTabs(scopeKey: string) {
     closeTabsToRight: closeTabsRight,
     closeByNoteIdentity,
     reopenLastClosed,
+    duplicateActiveTab,
     splitActiveTab,
     moveActiveTabToOtherPane: moveActiveTabToOtherPaneAction,
     focusNextPane,

@@ -1215,10 +1215,93 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
     await findRenderedNoteTitle();
 
-    fireEvent.keyDown(window, { key: '\\', metaKey: true, shiftKey: true });
+    fireEvent.keyDown(window, { key: '\\', metaKey: true });
 
     expect(await screen.findAllByRole('button', { name: 'Select Test note tab' })).toHaveLength(2);
     expect(screen.getAllByText('Test note').length).toBeGreaterThan(1);
+  });
+
+  it('opens a duplicate active note tab with Cmd+T', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Draft title' } });
+    fireEvent.keyDown(window, { key: 't', metaKey: true });
+
+    expect(await screen.findAllByRole('button', { name: 'Select Draft title tab' })).toHaveLength(2);
+  });
+
+  it('focuses note tabs with Cmd+number and Cmd+arrow shortcuts', async () => {
+    const notes = [
+      { ...note, id: 'note-a', title: 'Alpha', shortId: 'alpha', updatedAtMillis: 3000 },
+      { ...note, id: 'note-b', title: 'Beta', shortId: 'beta', updatedAtMillis: 2000 },
+      { ...note, id: 'note-c', title: 'Gamma', shortId: 'gamma', updatedAtMillis: 1000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: noteId === 'note-a' ? 'Alpha' : noteId === 'note-b' ? 'Beta' : 'Gamma',
+            content: `# ${noteId}`,
+          },
+        })),
+      },
+    });
+
+    renderHome(api);
+    await screen.findByDisplayValue('Alpha');
+    fireEvent.click(await screen.findByRole('button', { name: 'Beta' }));
+    await screen.findByDisplayValue('Beta');
+    fireEvent.click(await screen.findByRole('button', { name: 'Gamma' }));
+    await screen.findByDisplayValue('Gamma');
+
+    fireEvent.keyDown(window, { key: '1', metaKey: true });
+    expect(await screen.findByDisplayValue('Alpha')).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'ArrowRight', metaKey: true, altKey: true });
+    expect(await screen.findByDisplayValue('Beta')).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'ArrowLeft', metaKey: true, altKey: true });
+    expect(await screen.findByDisplayValue('Alpha')).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: '9', metaKey: true });
+    expect(await screen.findByDisplayValue('Gamma')).toBeInTheDocument();
+  });
+
+  it('focuses workspace note search with Cmd+Shift+F', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    fireEvent.keyDown(window, { key: 'f', metaKey: true, shiftKey: true });
+
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Search notes' })).toHaveFocus());
+  });
+
+  it('does not focus the note title input when opening note search with Cmd+F', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    const titleInput = await findRenderedNoteTitle();
+    fireEvent.keyDown(window, { key: 'f', metaKey: true });
+
+    await waitFor(() => expect(titleInput).not.toHaveFocus());
+  });
+
+  it('toggles the workspace sidebar with Cmd+B', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    expect(await screen.findByRole('button', { name: 'Collapse workspace sidebar' })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'b', metaKey: true });
+
+    expect(await screen.findByRole('button', { name: 'Expand workspace sidebar' })).toBeInTheDocument();
   });
 
   it('updates the tab title from the draft title', async () => {
@@ -1320,7 +1403,15 @@ describe('Home native-feel behavior', () => {
 
   it('closes duplicated matching tabs after deleting a note', async () => {
     let commandHandler: ((command: HackDeskCommandPaletteCommand) => void) | null = null;
+    let notes = [note];
     const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        deleteNote: vi.fn(async (noteId: string) => {
+          notes = notes.filter((candidate) => candidate.id !== noteId);
+        }),
+      },
       app: {
         confirm: vi.fn(async () => ({ confirmed: true })),
         exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),

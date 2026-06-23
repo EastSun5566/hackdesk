@@ -34,6 +34,7 @@ export const ELECTRON_MENU_SCHEMA: ElectronMenuSchemaSection[] = [
     id: 'file',
     label: 'File',
     items: [
+      { type: 'action', actionId: 'new-tab' },
       { type: 'action', actionId: 'new-note' },
       { type: 'action', actionId: 'new-folder' },
       { type: 'action', actionId: 'import-markdown-note' },
@@ -63,6 +64,8 @@ export const ELECTRON_MENU_SCHEMA: ElectronMenuSchemaSection[] = [
       { type: 'role', role: 'copy' },
       { type: 'role', role: 'paste' },
       { type: 'role', role: 'selectAll' },
+      { type: 'separator' },
+      { type: 'action', actionId: 'find-in-note' },
     ],
   },
   {
@@ -71,6 +74,7 @@ export const ELECTRON_MENU_SCHEMA: ElectronMenuSchemaSection[] = [
     items: [
       { type: 'action', actionId: 'open-command-palette' },
       { type: 'action', actionId: 'toggle-theme' },
+      { type: 'action', actionId: 'search-notes' },
       { type: 'action', actionId: 'refresh' },
       { type: 'action', actionId: 'go-history' },
       { type: 'separator' },

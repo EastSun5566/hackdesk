@@ -113,6 +113,16 @@ function requireOtherPane(context: ElectronActionContext) {
 
 export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
   {
+    id: 'new-tab',
+    label: 'New Tab',
+    description: 'Open another note tab in the active pane.',
+    keywords: ['tab', 'open'],
+    category: 'create',
+    scope: 'editor',
+    shortcut: '⌘T',
+    menuAccelerator: 'CmdOrCtrl+T',
+  },
+  {
     id: 'new-note',
     label: 'New Note',
     description: 'Create a note in the current workspace or folder.',
@@ -173,6 +183,17 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
 
       return context.noteDirty ? null : 'No unsaved note changes.';
     },
+  },
+  {
+    id: 'find-in-note',
+    label: 'Find in Note',
+    description: 'Search inside the active note.',
+    keywords: ['find', 'search', 'current note'],
+    category: 'note',
+    scope: 'editor',
+    shortcut: '⌘F',
+    menuAccelerator: 'CmdOrCtrl+F',
+    getDisabledReason: requireSelectedNote,
   },
   {
     id: 'export-note-markdown',
@@ -259,8 +280,8 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['pane', 'split', 'layout'],
     category: 'view',
     scope: 'editor',
-    shortcut: '⇧⌘\\',
-    menuAccelerator: 'Shift+CmdOrCtrl+\\',
+    shortcut: '⌘\\',
+    menuAccelerator: 'CmdOrCtrl+\\',
     getDisabledReason: requireSplitAvailable,
   },
   {
@@ -279,7 +300,8 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['tab', 'next'],
     category: 'navigation',
     scope: 'editor',
-    shortcut: '⌃Tab',
+    shortcut: '⌥⌘→',
+    menuAccelerator: 'CmdOrCtrl+Alt+Right',
     getDisabledReason: requireOtherTabs,
   },
   {
@@ -289,7 +311,8 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['tab', 'previous'],
     category: 'navigation',
     scope: 'editor',
-    shortcut: '⌃⇧Tab',
+    shortcut: '⌥⌘←',
+    menuAccelerator: 'CmdOrCtrl+Alt+Left',
     getDisabledReason: requireOtherTabs,
   },
   {
@@ -329,8 +352,6 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['appearance', 'dark', 'light', 'system'],
     category: 'app',
     scope: 'global',
-    shortcut: '⌘T',
-    menuAccelerator: 'CmdOrCtrl+T',
   },
   {
     id: 'open-command-palette',
@@ -349,6 +370,8 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['sidebar', 'workspace', 'view'],
     category: 'view',
     scope: 'workspace',
+    shortcut: '⌘B',
+    menuAccelerator: 'CmdOrCtrl+B',
   },
   {
     id: 'toggle-navigator',
@@ -388,6 +411,17 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     scope: 'global',
     shortcut: '⇧⌘R',
     menuAccelerator: 'Shift+CmdOrCtrl+R',
+    getDisabledReason: requireHackmd,
+  },
+  {
+    id: 'search-notes',
+    label: 'Search Notes',
+    description: 'Focus workspace note search.',
+    keywords: ['search', 'find', 'workspace', 'notes'],
+    category: 'navigation',
+    scope: 'navigator',
+    shortcut: '⇧⌘F',
+    menuAccelerator: 'Shift+CmdOrCtrl+F',
     getDisabledReason: requireHackmd,
   },
   {

@@ -172,6 +172,7 @@ export function Home() {
   const [shareOpen, setShareOpen] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(() => readBooleanStorage(INSPECTOR_COLLAPSED_KEY, true));
   const [readerMode, setReaderModeState] = useState<ReaderMode>(() => readReaderModeStorage(READER_MODE_KEY, 'edit'));
+  const [editorSearchRequestId, setEditorSearchRequestId] = useState(0);
   const [railCollapsed, setRailCollapsed] = useState(() => readBooleanStorage(RAIL_COLLAPSED_KEY, false));
   const [navigatorCollapsed, setNavigatorCollapsed] = useState(() => readBooleanStorage(NAVIGATOR_COLLAPSED_KEY, false));
   const [railWidth, setRailWidth] = useState(() => (
@@ -344,6 +345,16 @@ export function Home() {
   const expandNavigator = useCallback(() => {
     setNavigatorCollapsed(false);
     writeBooleanStorage(NAVIGATOR_COLLAPSED_KEY, false);
+  }, []);
+
+  const focusNoteSearchInput = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const input = document.querySelector<HTMLInputElement>('input[name="noteSearch"]');
+        input?.focus();
+        input?.select();
+      });
+    });
   }, []);
 
   const revealFolderIds = useCallback((folderIds: string[]) => {
@@ -965,6 +976,32 @@ export function Home() {
     noteWorkspace.closeTabsToRight(paneId, tabId);
   }, [confirmCloseUnsafeTabs, noteWorkspace]);
 
+  const focusTabAtIndex = useCallback((tabIndex: number) => {
+    const activePane = noteWorkspace.state.panes.find((pane) => pane.paneId === noteWorkspace.state.activePaneId);
+    if (!activePane) {
+      return false;
+    }
+
+    const normalizedIndex = tabIndex === -1 ? activePane.tabIds.length - 1 : tabIndex;
+    const tabId = activePane.tabIds[normalizedIndex];
+    if (!tabId) {
+      return false;
+    }
+
+    noteWorkspace.selectTab(activePane.paneId, tabId);
+    focusZone('editor');
+    return true;
+  }, [focusZone, noteWorkspace]);
+
+  const focusWorkspaceSearch = useCallback(() => {
+    expandNavigator();
+    setFinderState((current) => ({
+      ...current,
+      searchScope: 'workspace',
+    }));
+    focusNoteSearchInput();
+  }, [expandNavigator, focusNoteSearchInput]);
+
   const runAction = useCallback((actionId: ElectronActionId) => {
     const action = getElectronAction(actionId);
     const disabledReason = getActionDisabledReason(action, actionContext);
@@ -982,6 +1019,14 @@ export function Home() {
       break;
     case 'toggle-theme':
       setTheme(resolvedMode === 'dark' ? 'light' : 'dark');
+      break;
+    case 'new-tab':
+      if (activeTab) {
+        noteWorkspace.duplicateActiveTab();
+        focusZone('editor');
+      } else {
+        openPalette();
+      }
       break;
     case 'new-note':
       handleCreateNote();
@@ -1009,6 +1054,9 @@ export function Home() {
     case 'refresh':
       refreshWorkspace();
       break;
+    case 'search-notes':
+      focusWorkspaceSearch();
+      break;
     case 'go-history':
       pendingRecentNoteRef.current = null;
       setWorkspaceScope({ type: 'history', label: 'History' });
@@ -1033,6 +1081,10 @@ export function Home() {
           input: { title: documentTitle, content: documentContent },
         });
       }
+      break;
+    case 'find-in-note':
+      setReaderMode('edit');
+      setEditorSearchRequestId((current) => current + 1);
       break;
     case 'export-note-markdown':
       if (selectedDocument) {
@@ -1122,6 +1174,7 @@ export function Home() {
     documentContent,
     documentTitle,
     focusZone,
+    focusWorkspaceSearch,
     handleCreateFolder,
     handleCreateNote,
     handleDeleteFolderRequest,
@@ -1263,6 +1316,20 @@ export function Home() {
       return;
     }
 
+    if (isPrimaryModifier && !event.altKey && event.key.toLowerCase() === 'f') {
+      event.preventDefault();
+      runAction(event.shiftKey ? 'search-notes' : 'find-in-note');
+      return;
+    }
+
+    if (isPrimaryModifier && !event.altKey && !event.shiftKey && /^[1-9]$/.test(event.key)) {
+      const targetIndex = event.key === '9' ? -1 : Number(event.key) - 1;
+      if (focusTabAtIndex(targetIndex)) {
+        event.preventDefault();
+      }
+      return;
+    }
+
     if (isPrimaryModifier && event.key.toLowerCase() === 'n') {
       event.preventDefault();
       handleCreateNote();
@@ -1295,7 +1362,31 @@ export function Home() {
       return;
     }
 
-    if (isPrimaryModifier && event.shiftKey && event.key === '\\') {
+    if (isPrimaryModifier && !event.shiftKey && event.key.toLowerCase() === 't') {
+      event.preventDefault();
+      runAction('new-tab');
+      return;
+    }
+
+    if (isPrimaryModifier && event.altKey && !event.shiftKey && event.key === 'ArrowRight') {
+      event.preventDefault();
+      runAction('focus-next-tab');
+      return;
+    }
+
+    if (isPrimaryModifier && event.altKey && !event.shiftKey && event.key === 'ArrowLeft') {
+      event.preventDefault();
+      runAction('focus-previous-tab');
+      return;
+    }
+
+    if (isPrimaryModifier && !event.shiftKey && event.key.toLowerCase() === 'b') {
+      event.preventDefault();
+      runAction('toggle-workspace-rail');
+      return;
+    }
+
+    if (isPrimaryModifier && !event.altKey && event.key === '\\') {
       event.preventDefault();
       runAction('split-pane-right');
       return;
@@ -1385,6 +1476,7 @@ export function Home() {
     }
   }, [
     closeTransientLayer,
+    focusTabAtIndex,
     handleCreateNote,
     noteDirty,
     openPalette,
@@ -1693,6 +1785,7 @@ export function Home() {
           getPaneView={getPaneView}
           getPaneTabs={getPaneTabs}
           getTabSyncState={getTabSyncState}
+          editorSearchRequestId={editorSearchRequestId}
           canReopenLastClosedTab={noteWorkspace.state.recentlyClosedTabs.length > 0}
           onResizePanes={noteWorkspace.resizePanes}
           onFocusPane={noteWorkspace.focusPane}
