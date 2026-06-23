@@ -947,45 +947,55 @@ export function Home() {
           scope={displayScope}
           tree={folderTree}
           entries={visibleEntries}
-          selectedFolderId={selectedFolderId}
-          selectedNoteId={selectedNote?.id ?? null}
           finderState={activeFinderState}
-          isLoading={queries.notesQuery.isLoading || queries.foldersQuery.isLoading || queries.folderOrderQuery.isLoading}
-          hasToken={hasToken}
-          collapsed={navigatorCollapsed}
-          width={navigatorWidth}
-          collapsedFolderIds={collapsedFolderIds}
-          emptyTitle={emptyTitle}
-          emptyDescription={emptyDescription}
-          activeError={activeError}
-          showingCachedFallback={showingCachedFallback}
-          canCreate={canCreate}
-          isFetching={queries.notesQuery.isFetching || queries.foldersQuery.isFetching || queries.folderOrderQuery.isFetching}
-          isCreating={mutations.createNoteMutation.isPending || mutations.createFolderMutation.isPending}
-          isMovingFolder={mutations.moveFolderMutation.isPending}
-          isMovingNote={mutations.moveNoteMutation.isPending}
-          onFolderSelect={handleFolderSelect}
-          onFolderToggle={toggleFolderCollapsed}
-          onNoteSelect={handleNoteSelect}
-          onFinderStateChange={setFinderState}
-          onRefresh={refreshWorkspace}
-          onCreate={handleCreateNote}
-          onCreateFolder={handleCreateFolder}
-          onCreateFolderInside={handleCreateFolderInside}
-          onRenameFolder={handleRenameFolder}
-          onDeleteFolder={handleDeleteFolderRequest}
-          onFolderDrop={handleFolderDrop}
-          onNoteMove={handleNoteMove}
-          onOpenNote={handleOpenEditor}
-          onCopyNoteLink={handleCopyNoteLink}
-          onCopyNoteMarkdownLink={handleCopyNoteMarkdownLink}
-          onDuplicateNote={handleDuplicateNote}
-          onExportNoteMarkdown={handleExportNoteMarkdown}
-          onDeleteNote={handleDeleteRequest}
-          onImportMarkdown={handleImportMarkdownNote}
-          onToggleCollapsed={toggleNavigatorCollapsed}
-          onOpenPalette={openPalette}
-          onOpenSettings={() => setSettingsOpen(true)}
+          selection={{
+            selectedFolderId,
+            selectedNoteId: selectedNote?.id ?? null,
+          }}
+          layout={{
+            collapsed: navigatorCollapsed,
+            collapsedFolderIds,
+            width: navigatorWidth,
+          }}
+          emptyState={{
+            title: emptyTitle,
+            description: emptyDescription,
+          }}
+          status={{
+            activeError,
+            canCreate,
+            hasToken,
+            isCreating: mutations.createNoteMutation.isPending || mutations.createFolderMutation.isPending,
+            isFetching: queries.notesQuery.isFetching || queries.foldersQuery.isFetching || queries.folderOrderQuery.isFetching,
+            isLoading: queries.notesQuery.isLoading || queries.foldersQuery.isLoading || queries.folderOrderQuery.isLoading,
+            isMovingFolder: mutations.moveFolderMutation.isPending,
+            isMovingNote: mutations.moveNoteMutation.isPending,
+            showingCachedFallback,
+          }}
+          actions={{
+            onFolderSelect: handleFolderSelect,
+            onFolderToggle: toggleFolderCollapsed,
+            onNoteSelect: handleNoteSelect,
+            onFinderStateChange: setFinderState,
+            onRefresh: refreshWorkspace,
+            onCreate: handleCreateNote,
+            onCreateFolder: handleCreateFolder,
+            onCreateFolderInside: handleCreateFolderInside,
+            onRenameFolder: handleRenameFolder,
+            onDeleteFolder: handleDeleteFolderRequest,
+            onFolderDrop: handleFolderDrop,
+            onNoteMove: handleNoteMove,
+            onOpenNote: handleOpenEditor,
+            onCopyNoteLink: handleCopyNoteLink,
+            onCopyNoteMarkdownLink: handleCopyNoteMarkdownLink,
+            onDuplicateNote: handleDuplicateNote,
+            onExportNoteMarkdown: handleExportNoteMarkdown,
+            onDeleteNote: handleDeleteRequest,
+            onImportMarkdown: handleImportMarkdownNote,
+            onToggleCollapsed: toggleNavigatorCollapsed,
+            onOpenPalette: openPalette,
+            onOpenSettings: () => setSettingsOpen(true),
+          }}
         />
         <PanelResizeSash
           label="Resize note navigator"
