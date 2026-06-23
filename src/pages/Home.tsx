@@ -29,8 +29,7 @@ import { CreateFolderDialog } from './electron-home/CreateFolderDialog';
 import { CreateNoteDialog } from './electron-home/CreateNoteDialog';
 import { DeleteNoteDialog } from './electron-home/DeleteNoteDialog';
 import { DeleteFolderDialog } from './electron-home/DeleteFolderDialog';
-import { type DocumentSyncState } from './electron-home/DocumentDetail';
-import { DocumentWorkspace, type DocumentPaneView } from './electron-home/DocumentWorkspace';
+import { DocumentWorkspace } from './electron-home/DocumentWorkspace';
 import { FolderNavigator } from './electron-home/FolderNavigator';
 import { PanelResizeSash } from './electron-home/PanelResizeSash';
 import { SettingsDialog } from './electron-home/SettingsDialog';
@@ -40,15 +39,10 @@ import {
   getRepositoryError,
   getScopeStorageKey,
   isShowingCachedFallback,
-  unwrapRepositoryValue,
 } from './electron-home/repository';
 import {
-  getNoteIdentityKey,
-  getPaneActiveTab,
   noteIdentityMatches,
   type NoteIdentity,
-  type NotePane,
-  type OpenNoteTab,
 } from './electron-home/note-workspace';
 import type {
   CommandPaletteState,
@@ -100,6 +94,7 @@ import {
   type WorkbenchActionHandlers,
 } from './electron-home/useWorkbenchActions';
 import { useWorkbenchClosePolicy } from './electron-home/useWorkbenchClosePolicy';
+import { useWorkbenchDocuments } from './electron-home/useWorkbenchDocuments';
 import { useWorkbenchFinder } from './electron-home/useWorkbenchFinder';
 import { useWorkbenchShortcuts } from './electron-home/useWorkbenchShortcuts';
 import { useWorkbenchTabLifecycle } from './electron-home/useWorkbenchTabLifecycle';
@@ -246,42 +241,6 @@ export function Home() {
   const canCreate = hasToken && scope.type !== 'history';
   const canModifySelectedFolder = Boolean(selectedFolder?.id && selectedFolder.id !== UNFILED_FOLDER_ID);
   const activeTab = noteWorkspace.activeTab;
-  const getTabIdentity = useCallback((tab: OpenNoteTab): NoteIdentity => ({
-    id: tab.noteId,
-    teamPath: tab.teamPath,
-  }), []);
-  const getTabDocumentResult = useCallback((tab: OpenNoteTab) => (
-    documentsByKey.get(getNoteIdentityKey(getTabIdentity(tab)))
-  ), [documentsByKey, getTabIdentity]);
-  const getTabDocument = useCallback((tab: OpenNoteTab) => {
-    const documentResult = unwrapRepositoryValue(getTabDocumentResult(tab));
-    return documentResult && noteIdentityMatches(documentResult, getTabIdentity(tab)) ? documentResult : undefined;
-  }, [getTabDocumentResult, getTabIdentity]);
-  const getTabDraft = useCallback((tab: OpenNoteTab) => noteWorkspace.state.drafts[tab.tabId] ?? null, [noteWorkspace.state.drafts]);
-  const getTabTitle = useCallback((tab: OpenNoteTab) => {
-    const documentResult = getTabDocument(tab);
-    return getTabDraft(tab)?.title ?? documentResult?.title ?? tab.title;
-  }, [getTabDocument, getTabDraft]);
-  const getTabContent = useCallback((tab: OpenNoteTab) => {
-    const documentResult = getTabDocument(tab);
-    return getTabDraft(tab)?.content ?? documentResult?.content ?? '';
-  }, [getTabDocument, getTabDraft]);
-  const isTabDirty = useCallback((tab: OpenNoteTab) => {
-    const documentResult = getTabDocument(tab);
-    const draft = getTabDraft(tab);
-    const baseTitle = documentResult?.title ?? draft?.baseTitle;
-    const baseContent = documentResult?.content ?? draft?.baseContent;
-    return Boolean(
-      draft
-      && typeof baseTitle === 'string'
-      && typeof baseContent === 'string'
-      && (draft.title !== baseTitle || draft.content !== baseContent),
-    );
-  }, [getTabDocument, getTabDraft]);
-  const selectedDocument = activeTab ? getTabDocument(activeTab) : undefined;
-  const documentTitle = activeTab ? getTabTitle(activeTab) : '';
-  const documentContent = activeTab ? getTabContent(activeTab) : '';
-  const noteDirty = activeTab ? isTabDirty(activeTab) : false;
 
   const toggleRailCollapsed = useCallback(() => {
     setRailCollapsed((current) => {
@@ -410,6 +369,35 @@ export function Home() {
       noteWorkspace.syncNoteSummary(note);
       void requestSelectNote(note, { trackRecent: true });
     },
+  });
+  const {
+    documentContent,
+    documentTitle,
+    getPaneTabs,
+    getPaneView,
+    getTabSyncState,
+    getTabTitle,
+    handleDocumentContentChange,
+    handleDocumentTitleChange,
+    isTabDirty,
+    noteDirty,
+    selectedDocument,
+  } = useWorkbenchDocuments({
+    activeTab,
+    deletingNote: mutations.deleteNoteMutation.variables ?? null,
+    documentQueriesByKey: documentQueries.byKey,
+    documentsByKey,
+    drafts: noteWorkspace.state.drafts,
+    isDeletingNote: mutations.deleteNoteMutation.isPending,
+    isSavingNote: mutations.updateNoteMutation.isPending,
+    isUploadingImage: mutations.uploadNoteImageMutation.isPending,
+    saveFailedNote: mutations.updateNoteMutation.isError
+      ? mutations.updateNoteMutation.variables?.note ?? null
+      : null,
+    savingNote: mutations.updateNoteMutation.variables?.note ?? null,
+    tabs: noteWorkspace.state.tabs,
+    updateDraft: noteWorkspace.updateDraft,
+    uploadingNote: mutations.uploadNoteImageMutation.variables?.note ?? null,
   });
 
   const refreshWorkspace = useCallback(() => {
@@ -620,70 +608,6 @@ export function Home() {
     revealNoteEntry,
     scope,
   ]);
-
-  const getTabSyncState = useCallback((tab: OpenNoteTab): DocumentSyncState => {
-    const identity = getTabIdentity(tab);
-    const documentResult = getTabDocumentResult(tab);
-    const documentResultValue = unwrapRepositoryValue(documentResult);
-    const documentIsStale = Boolean(documentResultValue && !noteIdentityMatches(documentResultValue, identity));
-    const documentQuery = documentQueries.byKey.get(getNoteIdentityKey(identity));
-    const isSavingTab = mutations.updateNoteMutation.isPending
-      && noteIdentityMatches(mutations.updateNoteMutation.variables?.note, identity);
-    const saveFailedTab = mutations.updateNoteMutation.isError
-      && noteIdentityMatches(mutations.updateNoteMutation.variables?.note, identity);
-
-    if (documentQuery?.isLoading || documentQuery?.isFetching || documentIsStale) {
-      return 'loading';
-    }
-
-    if (isSavingTab) {
-      return 'saving';
-    }
-
-    if (saveFailedTab || (getRepositoryError(documentResult) && !isShowingCachedFallback(documentResult))) {
-      return 'save_failed';
-    }
-
-    if (isTabDirty(tab)) {
-      return 'idle';
-    }
-
-    if (isShowingCachedFallback(documentResult)) {
-      return 'cached';
-    }
-
-    return documentResultValue ? 'saved' : 'idle';
-  }, [documentQueries.byKey, getTabDocumentResult, getTabIdentity, isTabDirty, mutations.updateNoteMutation.isError, mutations.updateNoteMutation.isPending, mutations.updateNoteMutation.variables]);
-
-  const handleDocumentTitleChange = useCallback((tab: OpenNoteTab, nextTitle: string) => {
-    const documentResult = getTabDocument(tab);
-    if (!documentResult) {
-      return;
-    }
-
-    const currentDraft = getTabDraft(tab);
-    noteWorkspace.updateDraft(tab.tabId, {
-      title: nextTitle,
-      content: currentDraft?.content ?? documentResult.content,
-      baseTitle: currentDraft?.baseTitle ?? documentResult.title,
-      baseContent: currentDraft?.baseContent ?? documentResult.content,
-    });
-  }, [getTabDocument, getTabDraft, noteWorkspace]);
-
-  const handleDocumentContentChange = useCallback((tab: OpenNoteTab, nextContent: string) => {
-    const documentResult = getTabDocument(tab);
-    if (!documentResult) {
-      return;
-    }
-
-    const currentDraft = getTabDraft(tab);
-    noteWorkspace.updateDraft(tab.tabId, {
-      title: currentDraft?.title ?? documentResult.title,
-      content: nextContent,
-      baseTitle: currentDraft?.baseTitle ?? documentResult.title,
-      baseContent: currentDraft?.baseContent ?? documentResult.content,
-    });
-  }, [getTabDocument, getTabDraft, noteWorkspace]);
 
   const {
     confirmCloseUnsafeTabs,
@@ -1083,42 +1007,6 @@ export function Home() {
       searchScope: 'workspace',
     }));
     focusZone('navigator');
-  };
-
-  const getPaneTabs = (pane: NotePane) => (
-    pane.tabIds
-      .map((tabId) => noteWorkspace.state.tabs[tabId])
-      .filter((tab): tab is OpenNoteTab => Boolean(tab))
-      .map((tab) => ({ ...tab, title: getTabTitle(tab) }))
-  );
-
-  const getPaneView = (pane: NotePane): DocumentPaneView => {
-    const tab = getPaneActiveTab(noteWorkspace.state, pane.paneId);
-    const documentResult = tab ? getTabDocumentResult(tab) : undefined;
-    const documentValue = tab ? getTabDocument(tab) : undefined;
-    const syncState = tab ? getTabSyncState(tab) : 'idle';
-    const identity = tab ? getTabIdentity(tab) : null;
-    const isSavingTab = Boolean(identity && mutations.updateNoteMutation.isPending
-      && noteIdentityMatches(mutations.updateNoteMutation.variables?.note, identity));
-    const isUploadingTab = Boolean(identity && mutations.uploadNoteImageMutation.isPending
-      && noteIdentityMatches(mutations.uploadNoteImageMutation.variables?.note, identity));
-    const isDeletingTab = Boolean(identity && mutations.deleteNoteMutation.isPending
-      && noteIdentityMatches(mutations.deleteNoteMutation.variables, identity));
-
-    return {
-      pane,
-      activeTab: tab,
-      selectedNote: tab ? { title: getTabTitle(tab) } : null,
-      document: documentValue,
-      title: tab ? getTabTitle(tab) : '',
-      content: tab ? getTabContent(tab) : '',
-      isLoading: syncState === 'loading' && !isShowingCachedFallback(documentResult),
-      syncState,
-      isSaving: isSavingTab,
-      isSavingMetadata: isSavingTab,
-      isUploadingImage: isUploadingTab,
-      isDeleting: isDeletingTab,
-    };
   };
 
   return (
