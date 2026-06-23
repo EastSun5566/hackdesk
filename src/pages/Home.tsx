@@ -9,10 +9,6 @@ import type {
   NoteSummary,
 } from '@/lib/electron-api';
 import {
-  applyNoteFinder,
-} from '@/lib/electron-note-finder';
-import type { QuickOpenFolderResult, QuickOpenWorkspaceResult } from '@/lib/electron-quick-open';
-import {
   readRecentNotes,
   recentNoteMatches,
   removeRecentNote,
@@ -21,7 +17,7 @@ import {
   type ElectronRecentNote,
 } from '@/lib/electron-recent-notes';
 import type { FolderDropOperation } from '@/lib/hackmd-folder-dnd';
-import { buildHackmdFolderTree, UNFILED_FOLDER_ID, type FolderTreeNode, type FolderTreeNote } from '@/lib/hackmd-folders';
+import { buildHackmdFolderTree, UNFILED_FOLDER_ID, type FolderTreeNode } from '@/lib/hackmd-folders';
 
 import { AppTopBar } from './electron-home/AppTopBar';
 import { CommandPaletteDialog } from './electron-home/CommandPaletteDialog';
@@ -78,10 +74,6 @@ import {
   writeWorkspaceScopeStorage,
   type ReaderMode,
 } from './electron-home/ui-preferences';
-import {
-  getFolderNoteEntries,
-  getFolderPathLabel,
-} from './electron-home/ui';
 import { useElectronHackmdQueries } from './electron-home/useElectronHackmdQueries';
 import { useElectronFocusZones } from './electron-home/useElectronFocusZones';
 import { useElectronNoteMutations } from './electron-home/useElectronNoteMutations';
@@ -96,6 +88,8 @@ import {
 import { useWorkbenchClosePolicy } from './electron-home/useWorkbenchClosePolicy';
 import { useWorkbenchDocuments } from './electron-home/useWorkbenchDocuments';
 import { useWorkbenchFinder } from './electron-home/useWorkbenchFinder';
+import { useWorkbenchNavigator } from './electron-home/useWorkbenchNavigator';
+import { useWorkbenchQuickOpen } from './electron-home/useWorkbenchQuickOpen';
 import { useWorkbenchShortcuts } from './electron-home/useWorkbenchShortcuts';
 import { useWorkbenchTabLifecycle } from './electron-home/useWorkbenchTabLifecycle';
 
@@ -217,29 +211,7 @@ export function Home() {
   useEffect(() => {
     syncOpenNoteSummaries(currentNotes);
   }, [currentNotes, syncOpenNoteSummaries]);
-  const visibleEntries = useMemo(() => {
-    const entries = finderActive
-      ? applyNoteFinder(folderTree, deferredFinderState, selectedFolderId)
-      : getFolderNoteEntries(folderTree, selectedFolderId);
-
-    const seen = new Set<string>();
-    return entries.filter((entry) => {
-      const key = entry.note.id;
-      if (seen.has(key)) {
-        return false;
-      }
-
-      seen.add(key);
-      return true;
-    });
-  }, [deferredFinderState, finderActive, folderTree, selectedFolderId]);
-  const selectedFolder = selectedFolderId === UNFILED_FOLDER_ID
-    ? folderTree.unfiled
-    : selectedFolderId ? folderTree.nodesById.get(selectedFolderId) ?? null : null;
-  const selectedFolderLabel = selectedFolder ? getFolderPathLabel(selectedFolder.folderPath) : null;
-  const selectedParentFolderId = selectedFolderId && selectedFolderId !== UNFILED_FOLDER_ID ? selectedFolderId : undefined;
-  const canCreate = hasToken && scope.type !== 'history';
-  const canModifySelectedFolder = Boolean(selectedFolder?.id && selectedFolder.id !== UNFILED_FOLDER_ID);
+  const selectedParentFolderIdForMutation = selectedFolderId && selectedFolderId !== UNFILED_FOLDER_ID ? selectedFolderId : undefined;
   const activeTab = noteWorkspace.activeTab;
 
   const toggleRailCollapsed = useCallback(() => {
@@ -269,18 +241,6 @@ export function Home() {
   const expandNavigator = useCallback(() => {
     setNavigatorCollapsed(false);
     writeBooleanStorage(NAVIGATOR_COLLAPSED_KEY, false);
-  }, []);
-
-  const revealFolderIds = useCallback((folderIds: string[]) => {
-    if (folderIds.length === 0) {
-      return;
-    }
-
-    setCollapsedFolderIds((current) => {
-      const next = new Set(current);
-      folderIds.forEach((folderId) => next.delete(folderId));
-      return next;
-    });
   }, []);
 
   const setReaderMode = useCallback((mode: ReaderMode) => {
@@ -337,7 +297,7 @@ export function Home() {
     api,
     scope,
     selectedNote,
-    selectedParentFolderId,
+    selectedParentFolderId: selectedParentFolderIdForMutation,
     onSettingsSaved: () => setSettingsOpen(false),
     onNoteCreated: (note) => {
       setCreateDialog({ open: false, title: '' });
@@ -369,6 +329,39 @@ export function Home() {
       noteWorkspace.syncNoteSummary(note);
       void requestSelectNote(note, { trackRecent: true });
     },
+  });
+  const {
+    canCreate,
+    canModifySelectedFolder,
+    handleFolderSelect,
+    handleNoteMove,
+    handleShowFinderResults,
+    revealFolderIds,
+    revealNoteEntry,
+    selectedFolder,
+    selectedFolderLabel,
+    selectedParentFolderId,
+    toggleFolderCollapsed,
+    visibleEntries,
+  } = useWorkbenchNavigator({
+    canUseHackmd: hasToken,
+    deferredFinderState,
+    expandNavigator,
+    finderActive,
+    focusNavigator: () => focusZone('navigator'),
+    moveNote: (operation) => {
+      mutations.moveNoteMutation.mutate({
+        note: operation.note.note,
+        targetFolderId: operation.targetFolderId,
+      });
+    },
+    requestSelectNote,
+    scopeType: scope.type,
+    selectedFolderId,
+    setCollapsedFolderIds,
+    setFinderState,
+    setSelectedFolderId,
+    tree: folderTree,
   });
   const {
     documentContent,
@@ -527,22 +520,6 @@ export function Home() {
     trackRecentNote,
   });
 
-  const revealNoteEntry = useCallback(async (entry: FolderTreeNote) => {
-    const folderIds = entry.folderPath.map((folder) => folder.id);
-    const leafFolderId = folderIds.at(-1) ?? UNFILED_FOLDER_ID;
-    if (!await requestSelectNote(entry.note, {
-      focusEditor: true,
-      trackRecent: true,
-    })) {
-      return false;
-    }
-
-    expandNavigator();
-    revealFolderIds(folderIds);
-    setSelectedFolderId(leafFolderId);
-    return true;
-  }, [expandNavigator, requestSelectNote, revealFolderIds]);
-
   useEffect(() => {
     writeStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${scopeStorageKey}`, collapsedFolderIds);
   }, [collapsedFolderIds, scopeStorageKey]);
@@ -608,6 +585,27 @@ export function Home() {
     revealNoteEntry,
     scope,
   ]);
+
+  const {
+    handleQuickOpenFolder,
+    handleQuickOpenNote,
+    handleQuickOpenRecentNote,
+    handleQuickOpenWorkspace,
+  } = useWorkbenchQuickOpen({
+    expandNavigator,
+    focusNavigator: () => focusZone('navigator'),
+    isNotesFetching: queries.notesQuery.isFetching,
+    isNotesLoading: queries.notesQuery.isLoading,
+    pendingRecentNoteRef,
+    removeRecentNoteEntry,
+    revealFolderIds,
+    revealNoteEntry,
+    scope,
+    setSelectedFolderId,
+    setWorkspaceScope,
+    teams,
+    tree: folderTree,
+  });
 
   const {
     confirmCloseUnsafeTabs,
@@ -909,106 +907,6 @@ export function Home() {
       : scope.type === 'history'
         ? 'Your HackMD history will appear here after the first successful sync.'
         : 'Select another folder, create a note here, or refresh after another client changes HackMD.';
-  const toggleFolderCollapsed = (folderId: string) => {
-    setCollapsedFolderIds((current) => {
-      const next = new Set(current);
-      if (next.has(folderId)) {
-        next.delete(folderId);
-      } else {
-        next.add(folderId);
-      }
-
-      return next;
-    });
-  };
-  const handleFolderSelect = (folderId: string | null) => {
-    setSelectedFolderId(folderId);
-
-    if (folderId && folderId !== UNFILED_FOLDER_ID) {
-      setCollapsedFolderIds((current) => {
-        if (!current.has(folderId)) {
-          return current;
-        }
-
-        const next = new Set(current);
-        next.delete(folderId);
-        return next;
-      });
-    }
-  };
-
-  const handleQuickOpenNote = (entry: FolderTreeNote) => {
-    void revealNoteEntry(entry);
-  };
-
-  const handleQuickOpenRecentNote = (entry: ElectronRecentNote) => {
-    const loadedEntry = folderTree.allNotes.find((candidate) => (
-      recentNoteMatches(candidate.note, entry)
-    ));
-
-    if (loadedEntry) {
-      pendingRecentNoteRef.current = null;
-      void revealNoteEntry(loadedEntry);
-      return;
-    }
-
-    const currentTeamPath = scope.type === 'team' ? scope.teamPath : null;
-    const isCurrentWritableScope = scope.type !== 'history' && currentTeamPath === entry.teamPath;
-    if (isCurrentWritableScope && !queries.notesQuery.isLoading && !queries.notesQuery.isFetching) {
-      removeRecentNoteEntry(entry.noteId, entry.teamPath);
-      toast.info(`“${entry.title || 'Untitled'}” is no longer available in this workspace.`);
-      return;
-    }
-
-    if (entry.teamPath) {
-      const team = teams.find((candidate) => candidate.path === entry.teamPath);
-      pendingRecentNoteRef.current = entry;
-      setWorkspaceScope({
-        type: 'team',
-        label: team?.name ?? entry.teamPath,
-        teamPath: entry.teamPath,
-      });
-      toast.info(`Loading ${team?.name ?? entry.teamPath} before opening “${entry.title || 'Untitled'}”.`);
-      focusZone('navigator');
-      return;
-    }
-
-    pendingRecentNoteRef.current = entry;
-    setWorkspaceScope({ type: 'personal', label: 'My Workspace' });
-    toast.info(`Loading My Workspace before opening “${entry.title || 'Untitled'}”.`);
-    focusZone('navigator');
-  };
-
-  const handleQuickOpenWorkspace = (workspace: QuickOpenWorkspaceResult) => {
-    pendingRecentNoteRef.current = null;
-    if (workspace.type === 'personal') {
-      setWorkspaceScope({ type: 'personal', label: workspace.label });
-    } else if (workspace.type === 'history') {
-      setWorkspaceScope({ type: 'history', label: workspace.label });
-    } else {
-      setWorkspaceScope({ type: 'team', label: workspace.label, teamPath: workspace.teamPath });
-    }
-
-    focusZone('navigator');
-  };
-
-  const handleQuickOpenFolder = (folder: QuickOpenFolderResult) => {
-    expandNavigator();
-    revealFolderIds([...folder.ancestorIds, folder.id]);
-    setSelectedFolderId(folder.id);
-    focusZone('navigator');
-  };
-
-  const handleShowFinderResults = (query: string) => {
-    expandNavigator();
-    setFinderState((current) => ({
-      ...current,
-      query,
-      searchScope: 'workspace',
-    }));
-    focusZone('navigator');
-  };
-
   return (
     <div className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
       <AppTopBar
@@ -1077,18 +975,7 @@ export function Home() {
           onRenameFolder={handleRenameFolder}
           onDeleteFolder={handleDeleteFolderRequest}
           onFolderDrop={handleFolderDrop}
-          onNoteMove={(operation) => {
-            if (!operation.changed) {
-              setSelectedFolderId(operation.targetFolderId ?? UNFILED_FOLDER_ID);
-              void requestSelectNote(operation.note.note, { trackRecent: false });
-              return;
-            }
-
-            mutations.moveNoteMutation.mutate({
-              note: operation.note.note,
-              targetFolderId: operation.targetFolderId,
-            });
-          }}
+          onNoteMove={handleNoteMove}
           onOpenNote={handleOpenEditor}
           onCopyNoteLink={handleCopyNoteLink}
           onCopyNoteMarkdownLink={handleCopyNoteMarkdownLink}
