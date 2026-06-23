@@ -3,21 +3,16 @@ import { toast } from 'sonner';
 
 import { useTheme } from '@/components/theme-provider';
 import { getDesktopAPI } from '@/lib/desktop-api';
-import type {
-  DocumentSummary,
-  FolderSummary,
-  NoteSummary,
-} from '@/lib/electron-api';
+import type { FolderSummary, NoteSummary } from '@/lib/electron-api';
 import {
   readRecentNotes,
-  recentNoteMatches,
   removeRecentNote,
   upsertRecentNote,
   writeRecentNotes,
   type ElectronRecentNote,
 } from '@/lib/electron-recent-notes';
 import type { FolderDropOperation } from '@/lib/hackmd-folder-dnd';
-import { buildHackmdFolderTree, UNFILED_FOLDER_ID, type FolderTreeNode } from '@/lib/hackmd-folders';
+import { buildHackmdFolderTree, UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
 import { AppTopBar } from './electron-home/AppTopBar';
 import { CommandPaletteDialog } from './electron-home/CommandPaletteDialog';
@@ -36,43 +31,17 @@ import {
   getScopeStorageKey,
   isShowingCachedFallback,
 } from './electron-home/repository';
-import {
-  noteIdentityMatches,
-  type NoteIdentity,
-} from './electron-home/note-workspace';
-import type {
-  CommandPaletteState,
-  CreateFolderDialogState,
-  CreateNoteDialogState,
-  RenameFolderDialogState,
-  WorkspaceScope,
-} from './electron-home/types';
+import type { NoteIdentity } from './electron-home/note-workspace';
+import type { WorkspaceScope } from './electron-home/types';
 import {
   FOLDER_COLLAPSED_PREFIX,
-  INSPECTOR_COLLAPSED_KEY,
-  LAST_WORKSPACE_SCOPE_KEY,
-  NAVIGATOR_COLLAPSED_KEY,
   NAVIGATOR_WIDTH_DEFAULT,
-  NAVIGATOR_WIDTH_KEY,
   NAVIGATOR_WIDTH_MAX,
   NAVIGATOR_WIDTH_MIN,
-  READER_MODE_KEY,
-  RAIL_COLLAPSED_KEY,
   RAIL_WIDTH_DEFAULT,
-  RAIL_WIDTH_KEY,
   RAIL_WIDTH_MAX,
   RAIL_WIDTH_MIN,
-  readBooleanStorage,
-  readNumberStorage,
-  readReaderModeStorage,
-  readStringArrayStorage,
-  readWorkspaceScopeStorage,
-  writeBooleanStorage,
-  writeNumberStorage,
-  writeReaderModeStorage,
   writeStringArrayStorage,
-  writeWorkspaceScopeStorage,
-  type ReaderMode,
 } from './electron-home/ui-preferences';
 import { useElectronHackmdQueries } from './electron-home/useElectronHackmdQueries';
 import { useElectronFocusZones } from './electron-home/useElectronFocusZones';
@@ -80,66 +49,96 @@ import { useElectronNoteMutations } from './electron-home/useElectronNoteMutatio
 import { useDocumentCommands } from './electron-home/useDocumentCommands';
 import { useNoteWorkspaceTabs } from './electron-home/useNoteWorkspaceTabs';
 import {
+  createClosedFolderDialogState,
+  createClosedRenameFolderDialogState,
+  useWorkbenchDialogState,
+} from './electron-home/useWorkbenchDialogState';
+import {
   exportDebugLogs,
   openHackmdWebEditor,
   useWorkbenchActions,
   type WorkbenchActionHandlers,
 } from './electron-home/useWorkbenchActions';
+import { useWorkbenchAutoSelection } from './electron-home/useWorkbenchAutoSelection';
 import { useWorkbenchClosePolicy } from './electron-home/useWorkbenchClosePolicy';
 import { useWorkbenchDocuments } from './electron-home/useWorkbenchDocuments';
 import { useWorkbenchFinder } from './electron-home/useWorkbenchFinder';
 import { useWorkbenchNavigator } from './electron-home/useWorkbenchNavigator';
+import { usePendingRecentNoteRestore } from './electron-home/usePendingRecentNoteRestore';
 import { useWorkbenchQuickOpen } from './electron-home/useWorkbenchQuickOpen';
+import { useWorkbenchPanelState } from './electron-home/useWorkbenchPanelState';
 import { useWorkbenchShortcuts } from './electron-home/useWorkbenchShortcuts';
 import { useWorkbenchTabLifecycle } from './electron-home/useWorkbenchTabLifecycle';
+import {
+  getInitialWorkspaceScope,
+  usePendingRecentNoteRef,
+  useWorkbenchWorkspaceState,
+} from './electron-home/useWorkbenchWorkspaceState';
 
 const WORKSPACE_RAIL_PANEL_ID = 'workspace-rail-panel';
 const NOTE_NAVIGATOR_PANEL_ID = 'note-navigator-panel';
-const DEFAULT_WORKSPACE_SCOPE: WorkspaceScope = { type: 'personal', label: 'My Workspace' };
-
-function createClosedFolderDialogState(): CreateFolderDialogState {
-  return { open: false, name: '', description: '', icon: '', color: '' };
-}
-
-function createClosedRenameFolderDialogState(): RenameFolderDialogState {
-  return { open: false, folderId: null, name: '', description: '', icon: '', color: '' };
-}
 
 export function Home() {
   const { resolvedMode, setTheme } = useTheme();
   const api = getDesktopAPI();
-  const initialWorkspaceScope = readWorkspaceScopeStorage(LAST_WORKSPACE_SCOPE_KEY, DEFAULT_WORKSPACE_SCOPE);
-  const initialScopeStorageKey = getScopeStorageKey(initialWorkspaceScope);
-  const [scope, setScopeState] = useState<WorkspaceScope>(() => initialWorkspaceScope);
-  const scopeStorageKey = useMemo(() => getScopeStorageKey(scope), [scope]);
-  const noteWorkspace = useNoteWorkspaceTabs(scopeStorageKey);
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const initialWorkspaceScope = useMemo(() => getInitialWorkspaceScope(), []);
   const [recentNotes, setRecentNotes] = useState<ElectronRecentNote[]>(() => readRecentNotes(window.localStorage));
-  const pendingRecentNoteRef = useRef<ElectronRecentNote | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [palette, setPalette] = useState<CommandPaletteState>({ open: false, search: '' });
-  const [createDialog, setCreateDialog] = useState<CreateNoteDialogState>({ open: false, title: '' });
-  const [createFolderDialog, setCreateFolderDialog] = useState<CreateFolderDialogState>(createClosedFolderDialogState);
-  const [renameFolderDialog, setRenameFolderDialog] = useState<RenameFolderDialogState>(createClosedRenameFolderDialogState);
-  const [deleteTarget, setDeleteTarget] = useState<DocumentSummary | null>(null);
-  const [deleteFolderTarget, setDeleteFolderTarget] = useState<FolderTreeNode | null>(null);
-  const [shareOpen, setShareOpen] = useState(false);
-  const [inspectorCollapsed, setInspectorCollapsed] = useState(() => readBooleanStorage(INSPECTOR_COLLAPSED_KEY, true));
-  const [readerMode, setReaderModeState] = useState<ReaderMode>(() => readReaderModeStorage(READER_MODE_KEY, 'edit'));
-  const [editorSearchRequestId, setEditorSearchRequestId] = useState(0);
-  const [railCollapsed, setRailCollapsed] = useState(() => readBooleanStorage(RAIL_COLLAPSED_KEY, false));
-  const [navigatorCollapsed, setNavigatorCollapsed] = useState(() => readBooleanStorage(NAVIGATOR_COLLAPSED_KEY, false));
-  const [railWidth, setRailWidth] = useState(() => (
-    readNumberStorage(RAIL_WIDTH_KEY, RAIL_WIDTH_DEFAULT, RAIL_WIDTH_MIN, RAIL_WIDTH_MAX)
-  ));
-  const [navigatorWidth, setNavigatorWidth] = useState(() => (
-    readNumberStorage(NAVIGATOR_WIDTH_KEY, NAVIGATOR_WIDTH_DEFAULT, NAVIGATOR_WIDTH_MIN, NAVIGATOR_WIDTH_MAX)
-  ));
+  const pendingRecentNoteRef = usePendingRecentNoteRef();
   const autoSelectSuppressionRef = useRef<string | null>(null);
   const manualEmptyWorkspaceRef = useRef(false);
-  const [collapsedFolderIds, setCollapsedFolderIds] = useState(() => (
-    readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${initialScopeStorageKey}`)
-  ));
+  const panelState = useWorkbenchPanelState();
+  const dialogState = useWorkbenchDialogState();
+  const {
+    closeTransientLayer,
+    createDialog,
+    createFolderDialog,
+    deleteFolderTarget,
+    deleteTarget,
+    palette,
+    renameFolderDialog,
+    settingsOpen,
+    shareOpen,
+    setCreateDialog,
+    setCreateFolderDialog,
+    setDeleteFolderTarget,
+    setDeleteTarget,
+    setPalette,
+    setRenameFolderDialog,
+    setSettingsOpen,
+    setShareOpen,
+  } = dialogState;
+  const workspaceState = useWorkbenchWorkspaceState({
+    initialWorkspaceScope,
+    manualEmptyWorkspaceRef,
+  });
+  const {
+    collapsedFolderIds,
+    scope,
+    scopeStorageKey,
+    selectedFolderId,
+    setCollapsedFolderIds,
+    setSelectedFolderId,
+    setWorkspaceScope: setWorkspaceScopeState,
+  } = workspaceState;
+  const {
+    editorSearchRequestId,
+    inspectorCollapsed,
+    navigatorCollapsed,
+    navigatorWidth,
+    railCollapsed,
+    railWidth,
+    readerMode,
+    bumpEditorSearchRequest,
+    expandNavigator,
+    setNavigatorCollapsed,
+    setNavigatorWidth,
+    setRailWidth,
+    setReaderMode,
+    toggleInspectorCollapsed,
+    toggleNavigatorCollapsed,
+    toggleRailCollapsed,
+  } = panelState;
+  const noteWorkspace = useNoteWorkspaceTabs(scopeStorageKey);
   const {
     activeFinderState,
     deferredFinderState,
@@ -148,11 +147,20 @@ export function Home() {
     loadFinderStateForScope,
     setFinderState,
   } = useWorkbenchFinder({
-    initialScopeStorageKey,
+    initialScopeStorageKey: workspaceState.initialScopeStorageKey,
     scopeStorageKey,
     selectedFolderId,
     setNavigatorCollapsed,
   });
+  const setWorkspaceScope = useCallback((nextScope: WorkspaceScope) => {
+    const nextScopeStorageKey = getScopeStorageKey(nextScope);
+    setWorkspaceScopeState(nextScope);
+    loadFinderStateForScope(nextScopeStorageKey);
+  }, [loadFinderStateForScope, setWorkspaceScopeState]);
+  const switchWorkspaceScope = useCallback((nextScope: WorkspaceScope) => {
+    pendingRecentNoteRef.current = null;
+    setWorkspaceScope(nextScope);
+  }, [pendingRecentNoteRef, setWorkspaceScope]);
   const { focusZone } = useElectronFocusZones();
   const selectedNote = useMemo<NoteIdentity | null>(() => (
     noteWorkspace.activeTab
@@ -160,16 +168,6 @@ export function Home() {
       : null
   ), [noteWorkspace.activeTab]);
   const openNoteInWorkspace = noteWorkspace.openNote;
-
-  const setWorkspaceScope = useCallback((nextScope: WorkspaceScope) => {
-    const nextScopeStorageKey = getScopeStorageKey(nextScope);
-    manualEmptyWorkspaceRef.current = false;
-    setScopeState(nextScope);
-    writeWorkspaceScopeStorage(LAST_WORKSPACE_SCOPE_KEY, nextScope);
-    setCollapsedFolderIds(readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${nextScopeStorageKey}`));
-    setSelectedFolderId(null);
-    loadFinderStateForScope(nextScopeStorageKey);
-  }, [loadFinderStateForScope]);
 
   const {
     settings,
@@ -214,40 +212,6 @@ export function Home() {
   const selectedParentFolderIdForMutation = selectedFolderId && selectedFolderId !== UNFILED_FOLDER_ID ? selectedFolderId : undefined;
   const activeTab = noteWorkspace.activeTab;
 
-  const toggleRailCollapsed = useCallback(() => {
-    setRailCollapsed((current) => {
-      const next = !current;
-      writeBooleanStorage(RAIL_COLLAPSED_KEY, next);
-      return next;
-    });
-  }, []);
-
-  const toggleNavigatorCollapsed = useCallback(() => {
-    setNavigatorCollapsed((current) => {
-      const next = !current;
-      writeBooleanStorage(NAVIGATOR_COLLAPSED_KEY, next);
-      return next;
-    });
-  }, []);
-
-  const toggleInspectorCollapsed = useCallback(() => {
-    setInspectorCollapsed((current) => {
-      const next = !current;
-      writeBooleanStorage(INSPECTOR_COLLAPSED_KEY, next);
-      return next;
-    });
-  }, []);
-
-  const expandNavigator = useCallback(() => {
-    setNavigatorCollapsed(false);
-    writeBooleanStorage(NAVIGATOR_COLLAPSED_KEY, false);
-  }, []);
-
-  const setReaderMode = useCallback((mode: ReaderMode) => {
-    setReaderModeState(mode);
-    writeReaderModeStorage(READER_MODE_KEY, mode);
-  }, []);
-
   const updateRecentNotes = useCallback((updater: (current: ElectronRecentNote[]) => ElectronRecentNote[]) => {
     setRecentNotes((current) => {
       const next = updater(current);
@@ -263,13 +227,6 @@ export function Home() {
   const removeRecentNoteEntry = useCallback((noteId: string, teamPath: string | null) => {
     updateRecentNotes((current) => removeRecentNote(current, noteId, teamPath));
   }, [updateRecentNotes]);
-
-  const getAutoSelectSuppressionKey = useCallback((note: NoteSummary | null) => [
-    scopeStorageKey,
-    selectedFolderId ?? 'workspace',
-    selectedNote?.id ?? 'none',
-    note?.id ?? 'none',
-  ].join(':'), [scopeStorageKey, selectedFolderId, selectedNote?.id]);
 
   const requestSelectNote = useCallback(async (
     note: NoteSummary,
@@ -363,6 +320,15 @@ export function Home() {
     setSelectedFolderId,
     tree: folderTree,
   });
+  const { getAutoSelectSuppressionKey } = useWorkbenchAutoSelection({
+    autoSelectSuppressionRef,
+    manualEmptyWorkspaceRef,
+    requestSelectNote,
+    scopeStorageKey,
+    selectedFolderId,
+    selectedNote,
+    visibleEntries,
+  });
   const {
     documentContent,
     documentTitle,
@@ -415,7 +381,7 @@ export function Home() {
     }
 
     setCreateDialog({ open: true, title: '' });
-  }, [hasToken, scope.type]);
+  }, [hasToken, scope.type, setCreateDialog, setSettingsOpen]);
 
   const handleCreateFolder = useCallback(() => {
     if (!hasToken) {
@@ -429,7 +395,7 @@ export function Home() {
     }
 
     setCreateFolderDialog({ ...createClosedFolderDialogState(), open: true });
-  }, [hasToken, scope.type]);
+  }, [hasToken, scope.type, setCreateFolderDialog, setSettingsOpen]);
 
   const handleCreateFolderInside = useCallback((folderId: string | null) => {
     if (folderId) {
@@ -439,7 +405,7 @@ export function Home() {
     }
 
     handleCreateFolder();
-  }, [handleCreateFolder]);
+  }, [handleCreateFolder, setSelectedFolderId]);
 
   const handleRenameFolder = useCallback((folderId: string) => {
     const folder = folderTree.nodesById.get(folderId);
@@ -457,7 +423,7 @@ export function Home() {
       icon: folder.icon ?? '',
       color: folder.color ?? '',
     });
-  }, [currentFolders, folderTree]);
+  }, [currentFolders, folderTree, setRenameFolderDialog]);
 
   const handleDeleteFolderRequest = useCallback((folderId: string) => {
     const folder = folderTree.nodesById.get(folderId);
@@ -485,7 +451,7 @@ export function Home() {
     }).catch((error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to confirm folder deletion.');
     });
-  }, [api, folderTree, mutations.deleteFolderMutation]);
+  }, [api, folderTree, mutations.deleteFolderMutation, setDeleteFolderTarget]);
 
   const handleFolderDrop = useCallback((operation: FolderDropOperation) => {
     mutations.moveFolderMutation.mutate(operation);
@@ -493,7 +459,7 @@ export function Home() {
 
   const openPalette = useCallback(() => {
     setPalette({ open: true, search: '' });
-  }, []);
+  }, [setPalette]);
 
   const {
     handleCopyNoteLink,
@@ -524,67 +490,15 @@ export function Home() {
     writeStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${scopeStorageKey}`, collapsedFolderIds);
   }, [collapsedFolderIds, scopeStorageKey]);
 
-  useEffect(() => {
-    if (selectedNote && visibleEntries.some((entry) => noteIdentityMatches(entry.note, selectedNote))) {
-      autoSelectSuppressionRef.current = null;
-      return;
-    }
-
-    const nextNote = visibleEntries[0]?.note ?? null;
-    if (!nextNote) {
-      autoSelectSuppressionRef.current = null;
-      return;
-    }
-
-    if (selectedNote) {
-      return;
-    }
-
-    if (manualEmptyWorkspaceRef.current) {
-      return;
-    }
-
-    const suppressionKey = getAutoSelectSuppressionKey(nextNote);
-    if (autoSelectSuppressionRef.current === suppressionKey) {
-      return;
-    }
-
-    void requestSelectNote(nextNote, { trackRecent: false }).then((selected) => {
-      if (!selected) {
-        autoSelectSuppressionRef.current = suppressionKey;
-      }
-    });
-  }, [getAutoSelectSuppressionKey, requestSelectNote, selectedNote, visibleEntries]);
-
-  useEffect(() => {
-    const pendingRecentNote = pendingRecentNoteRef.current;
-    if (!pendingRecentNote) {
-      return;
-    }
-
-    const currentTeamPath = scope.type === 'team' ? scope.teamPath : null;
-    const isTargetScopeLoaded = scope.type !== 'history' && currentTeamPath === pendingRecentNote.teamPath;
-    if (!isTargetScopeLoaded || queries.notesQuery.isLoading || queries.notesQuery.isFetching) {
-      return;
-    }
-
-    const loadedEntry = folderTree.allNotes.find((candidate) => recentNoteMatches(candidate.note, pendingRecentNote));
-    pendingRecentNoteRef.current = null;
-    if (loadedEntry) {
-      void revealNoteEntry(loadedEntry);
-      return;
-    }
-
-    removeRecentNoteEntry(pendingRecentNote.noteId, pendingRecentNote.teamPath);
-    toast.info(`“${pendingRecentNote.title || 'Untitled'}” is no longer available in this workspace.`);
-  }, [
-    folderTree.allNotes,
-    queries.notesQuery.isFetching,
-    queries.notesQuery.isLoading,
+  usePendingRecentNoteRestore({
+    isNotesFetching: queries.notesQuery.isFetching,
+    isNotesLoading: queries.notesQuery.isLoading,
+    pendingRecentNoteRef,
     removeRecentNoteEntry,
     revealNoteEntry,
     scope,
-  ]);
+    tree: folderTree,
+  });
 
   const {
     handleQuickOpenFolder,
@@ -671,7 +585,7 @@ export function Home() {
     },
     findInNote: () => {
       setReaderMode('edit');
-      setEditorSearchRequestId((current) => current + 1);
+      bumpEditorSearchRequest();
     },
     focusEditor: () => focusZone('editor'),
     focusInspector: () => focusZone('inspector'),
@@ -695,8 +609,7 @@ export function Home() {
     focusWorkspace: () => focusZone('workspace'),
     focusWorkspaceSearch,
     goHistory: () => {
-      pendingRecentNoteRef.current = null;
-      setWorkspaceScope({ type: 'history', label: 'History' });
+      switchWorkspaceScope({ type: 'history', label: 'History' });
       focusZone('navigator');
     },
     importMarkdownNote: handleImportMarkdownNote,
@@ -739,6 +652,7 @@ export function Home() {
   }), [
     activeTab,
     api,
+    bumpEditorSearchRequest,
     documentContent,
     documentTitle,
     focusZone,
@@ -763,8 +677,9 @@ export function Home() {
     selectedDocument,
     selectedFolder,
     setReaderMode,
+    setSettingsOpen,
     setTheme,
-    setWorkspaceScope,
+    switchWorkspaceScope,
     toggleInspectorCollapsed,
     toggleNavigatorCollapsed,
     toggleRailCollapsed,
@@ -788,59 +703,6 @@ export function Home() {
     workspaceRailCollapsed: railCollapsed,
     workspaceState: noteWorkspace.state,
   });
-
-  const closeTransientLayer = useCallback(() => {
-    if (palette.open) {
-      setPalette({ open: false, search: '' });
-      return true;
-    }
-
-    if (shareOpen) {
-      setShareOpen(false);
-      return true;
-    }
-
-    if (createDialog.open) {
-      setCreateDialog({ open: false, title: '' });
-      return true;
-    }
-
-    if (createFolderDialog.open) {
-      setCreateFolderDialog(createClosedFolderDialogState());
-      return true;
-    }
-
-    if (deleteTarget) {
-      setDeleteTarget(null);
-      return true;
-    }
-
-    if (deleteFolderTarget) {
-      setDeleteFolderTarget(null);
-      return true;
-    }
-
-    if (renameFolderDialog.open) {
-      setRenameFolderDialog(createClosedRenameFolderDialogState());
-      return true;
-    }
-
-    if (settingsOpen) {
-      setSettingsOpen(false);
-      return true;
-    }
-
-    return false;
-  }, [
-    createDialog.open,
-    createFolderDialog.open,
-    deleteFolderTarget,
-    deleteTarget,
-    palette.open,
-    renameFolderDialog.open,
-    settingsOpen,
-    shareOpen,
-  ]);
 
   useWorkbenchClosePolicy({
     activeTab,
@@ -923,10 +785,7 @@ export function Home() {
           teams={teams}
           collapsed={railCollapsed}
           width={railWidth}
-          onScopeChange={(nextScope) => {
-            pendingRecentNoteRef.current = null;
-            setWorkspaceScope(nextScope);
-          }}
+          onScopeChange={switchWorkspaceScope}
           onOpenSettings={() => setSettingsOpen(true)}
         />
         <PanelResizeSash
@@ -938,7 +797,6 @@ export function Home() {
           disabled={railCollapsed}
           onChange={(value) => {
             setRailWidth(value);
-            writeNumberStorage(RAIL_WIDTH_KEY, value);
           }}
         />
 
@@ -1006,7 +864,6 @@ export function Home() {
           disabled={navigatorCollapsed}
           onChange={(value) => {
             setNavigatorWidth(value);
-            writeNumberStorage(NAVIGATOR_WIDTH_KEY, value);
           }}
         />
 
