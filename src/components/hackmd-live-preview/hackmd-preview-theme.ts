@@ -26,35 +26,22 @@ export const hackmdPreviewTheme = [
     },
     '.cm-scroller': {
       fontFamily: 'var(--font-editor)',
-      lineHeight: '1.75',
+      lineHeight: '1.72',
     },
     '.cm-content': {
-      padding: '20px 24px',
+      padding: '24px clamp(24px, 4vw, 52px) 36vh',
       caretColor: 'var(--primary-default)',
+      minWidth: '0',
     },
     '.cm-line': {
-      padding: '0 4px',
-    },
-    '.cm-gutters': {
-      backgroundColor: 'var(--background-muted)',
-      color: 'var(--text-subtle)',
-      borderRight: '1px solid var(--border-default)',
-    },
-    '.cm-gutterElement': {
-      padding: '0 10px 0 8px',
+      padding: '0',
+      overflowWrap: 'anywhere',
     },
     '.cm-activeLine': {
-      backgroundColor: 'color-mix(in oklch, var(--background-selected) 42%, transparent)',
+      backgroundColor: 'color-mix(in oklch, var(--background-selected) 18%, transparent)',
     },
     '.cm-activeLine.cm-hackmd-fenced-code': {
-      backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--primary-default) 8%)',
-    },
-    '.cm-activeLineGutter': {
-      backgroundColor: 'var(--background-selected)',
-      color: 'var(--text-default)',
-    },
-    '.cm-foldGutter .cm-gutterElement': {
-      color: 'var(--icon-subtle)',
+      backgroundColor: 'color-mix(in oklch, var(--background-muted) 96%, var(--primary-default) 4%)',
     },
     '.cm-matchingBracket': {
       backgroundColor: 'var(--primary-soft)',
@@ -68,6 +55,89 @@ export const hackmdPreviewTheme = [
     },
     '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
       backgroundColor: 'color-mix(in oklch, var(--primary-default) 22%, transparent)',
+    },
+    '.cm-panels': {
+      backgroundColor: 'var(--background-muted)',
+      color: 'var(--text-default)',
+      borderColor: 'var(--border-default)',
+      fontFamily: 'var(--font-sans)',
+    },
+    '.cm-panel.cm-search.cm-hackdesk-search-panel': {
+      borderBottom: '1px solid var(--border-default)',
+      padding: '6px 8px',
+    },
+    '.cm-hackdesk-search-form': {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+    },
+    '.cm-hackdesk-search-input': {
+      minWidth: '0',
+      flex: '1 1 auto',
+      height: '28px',
+      border: '1px solid var(--border-default)',
+      borderRadius: '6px',
+      backgroundColor: 'var(--background-default)',
+      color: 'var(--text-default)',
+      fontFamily: 'var(--font-sans)',
+      fontSize: '12px',
+      outline: 'none',
+      padding: '0 9px',
+      transition: 'border-color 120ms ease, box-shadow 120ms ease',
+    },
+    '.cm-hackdesk-search-input:focus': {
+      borderColor: 'var(--focus-ring)',
+      boxShadow: '0 0 0 2px color-mix(in oklch, var(--focus-ring) 26%, transparent)',
+    },
+    '.cm-hackdesk-search-input::placeholder': {
+      color: 'var(--text-subtle)',
+    },
+    '.cm-hackdesk-search-count': {
+      flex: '0 0 auto',
+      minWidth: '42px',
+      color: 'var(--text-subtle)',
+      fontFamily: 'var(--font-sans)',
+      fontSize: '11px',
+      fontVariantNumeric: 'tabular-nums',
+      textAlign: 'right',
+      userSelect: 'none',
+      whiteSpace: 'nowrap',
+    },
+    '.cm-hackdesk-search-button': {
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '28px',
+      height: '28px',
+      flex: '0 0 auto',
+      border: '1px solid transparent',
+      borderRadius: '6px',
+      backgroundColor: 'transparent',
+      color: 'var(--icon-subtle)',
+      cursor: 'default',
+      padding: '0',
+      transition: 'background-color 120ms ease, border-color 120ms ease, color 120ms ease',
+    },
+    '.cm-hackdesk-search-button:hover': {
+      backgroundColor: 'var(--background-hover)',
+      color: 'var(--icon-default)',
+    },
+    '.cm-hackdesk-search-button:focus-visible': {
+      borderColor: 'var(--focus-ring)',
+      color: 'var(--icon-default)',
+      outline: 'none',
+    },
+    '.cm-hackdesk-search-button svg': {
+      width: '15px',
+      height: '15px',
+    },
+    '.cm-searchMatch': {
+      borderRadius: '3px',
+      backgroundColor: 'color-mix(in oklch, var(--primary-default) 26%, transparent)',
+    },
+    '.cm-searchMatch.cm-searchMatch-selected': {
+      backgroundColor: 'color-mix(in oklch, var(--primary-default) 46%, transparent)',
+      outline: '1px solid color-mix(in oklch, var(--primary-default) 72%, transparent)',
     },
     '.cm-hackmd-h1': {
       fontSize: '1.55em',
@@ -115,38 +185,44 @@ export const hackmdPreviewTheme = [
     '.cm-hackmd-hr::after': {
       content: '""',
       position: 'absolute',
-      left: '0.25rem',
-      right: '0.25rem',
+      left: '0',
+      right: '0',
       top: '50%',
       borderTop: '1px solid var(--border-default)',
+      pointerEvents: 'none',
     },
-    '.cm-hackmd-callout': {
+    '.cm-hackmd-alert-block, .cm-hackmd-container-block': {
       color: 'var(--text-default)',
-      backgroundColor: 'color-mix(in oklch, var(--primary-default) 8%, transparent)',
-      boxShadow: 'inset 2px 0 0 var(--primary-default)',
-      paddingInlineStart: '0.75rem',
+      backgroundColor: 'color-mix(in oklch, var(--background-muted) 86%, var(--primary-default) 14%)',
+      boxShadow: 'inset 3px 0 0 color-mix(in oklch, var(--primary-default) 68%, var(--border-strong) 32%)',
+      paddingInlineStart: '0.9rem',
+      paddingInlineEnd: '0.75rem',
     },
-    '.cm-hackmd-container': {
-      color: 'var(--text-default)',
-      backgroundColor: 'color-mix(in oklch, var(--primary-default) 7%, transparent)',
-      boxShadow: 'inset 2px 0 0 var(--primary-default)',
-      paddingInlineStart: '0.75rem',
+    '.cm-hackmd-alert-block-start, .cm-hackmd-container-block-start': {
+      borderStartStartRadius: '6px',
+      borderStartEndRadius: '6px',
+      paddingTop: '0.12rem',
     },
-    '.cm-hackmd-container-success': {
-      backgroundColor: 'color-mix(in oklch, var(--success-default) 10%, transparent)',
-      boxShadow: 'inset 2px 0 0 var(--success-default)',
+    '.cm-hackmd-alert-block-end, .cm-hackmd-container-block-end': {
+      borderEndStartRadius: '6px',
+      borderEndEndRadius: '6px',
+      paddingBottom: '0.12rem',
     },
-    '.cm-hackmd-container-warning': {
-      backgroundColor: 'color-mix(in oklch, var(--warning-default) 11%, transparent)',
-      boxShadow: 'inset 2px 0 0 var(--warning-default)',
+    '.cm-hackmd-alert-block-tip, .cm-hackmd-container-block-success': {
+      backgroundColor: 'color-mix(in oklch, var(--background-muted) 86%, var(--success-default) 14%)',
+      boxShadow: 'inset 3px 0 0 var(--success-default)',
     },
-    '.cm-hackmd-container-danger': {
-      backgroundColor: 'color-mix(in oklch, var(--destructive-default) 10%, transparent)',
-      boxShadow: 'inset 2px 0 0 var(--destructive-default)',
+    '.cm-hackmd-alert-block-warning, .cm-hackmd-alert-block-caution, .cm-hackmd-container-block-warning': {
+      backgroundColor: 'color-mix(in oklch, var(--background-muted) 86%, var(--warning-default) 14%)',
+      boxShadow: 'inset 3px 0 0 var(--warning-default)',
     },
-    '.cm-hackmd-container-spoiler': {
+    '.cm-hackmd-alert-block-danger, .cm-hackmd-container-block-danger': {
+      backgroundColor: 'color-mix(in oklch, var(--background-muted) 86%, var(--destructive-default) 14%)',
+      boxShadow: 'inset 3px 0 0 var(--destructive-default)',
+    },
+    '.cm-hackmd-container-block-spoiler': {
       backgroundColor: 'var(--background-muted)',
-      boxShadow: 'inset 2px 0 0 var(--border-strong)',
+      boxShadow: 'inset 3px 0 0 var(--border-strong)',
     },
     '.cm-hackmd-tags-line, .cm-hackmd-toc-line, .cm-hackmd-blockquote-meta': {
       color: 'var(--text-subtle)',

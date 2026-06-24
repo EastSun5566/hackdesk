@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   getFenceFallback,
+  getHfmBlockRanges,
   getHfmLineDecorations,
   getLineFallback,
   parseMarkdownImage,
@@ -40,14 +41,50 @@ describe('HFM live-preview recognizers', () => {
     });
   });
 
-  it('recognizes HFM line classes for callouts, containers, TOC, metadata, tables, and fences', () => {
-    expect(getHfmLineDecorations('> [!warning]').lineClasses).toContain('cm-hackmd-callout cm-hackmd-callout-warning');
+  it('recognizes HFM line classes for alerts, containers, TOC, metadata, tables, and fences', () => {
+    expect(getHfmLineDecorations('> [!warning]').lineClasses).toContain('cm-hackmd-alert cm-hackmd-alert-warning');
     expect(getHfmLineDecorations(':::danger').lineClasses).toContain('cm-hackmd-container cm-hackmd-container-danger');
     expect(getHfmLineDecorations('[TOC]').lineClasses).toContain('cm-hackmd-toc-line');
     expect(getHfmLineDecorations('[name=Michael] [time=Today]').lineClasses).toContain('cm-hackmd-blockquote-meta');
     expect(getHfmLineDecorations('| A | B |').lineClasses).toContain('cm-hackmd-table-line');
+    expect(getHfmLineDecorations('---').lineClasses).not.toContain('cm-hackmd-table-line');
     expect(getHfmLineDecorations('```javascript=101 [102-103]').lineClasses).toContain('cm-hackmd-code-fence-options');
     expect(getHfmLineDecorations('```mermaid').lineClasses).toContain('cm-hackmd-hfm-fence cm-hackmd-hfm-fence-mermaid');
+  });
+
+  it('recognizes editable block ranges for containers and alerts', () => {
+    expect(getHfmBlockRanges([
+      'Intro',
+      ':::info',
+      ':bulb: Free users can upload images.',
+      ':::',
+      '',
+      '> [!warning]',
+      '> Pay attention.',
+      'Done',
+    ])).toEqual([
+      {
+        closerFrom: 0,
+        closerLine: 4,
+        closerTo: 3,
+        endLine: 4,
+        kind: 'container',
+        openerFrom: 0,
+        openerLine: 2,
+        openerTo: 7,
+        startLine: 2,
+        variant: 'info',
+      },
+      {
+        endLine: 7,
+        kind: 'alert',
+        openerFrom: 2,
+        openerLine: 6,
+        openerTo: 12,
+        startLine: 6,
+        variant: 'warning',
+      },
+    ]);
   });
 
   it('recognizes HFM inline marks as source offsets', () => {

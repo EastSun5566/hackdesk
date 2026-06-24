@@ -2,13 +2,8 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { markdown, markdownKeymap, markdownLanguage } from '@codemirror/lang-markdown';
-import {
-  bracketMatching,
-  foldGutter,
-  foldKeymap,
-  indentOnInput,
-} from '@codemirror/language';
-import { searchKeymap, highlightSelectionMatches, openSearchPanel } from '@codemirror/search';
+import { bracketMatching, foldKeymap, indentOnInput } from '@codemirror/language';
+import { searchKeymap, highlightSelectionMatches, openSearchPanel, search } from '@codemirror/search';
 import { EditorState, type Extension } from '@codemirror/state';
 import {
   crosshairCursor,
@@ -16,9 +11,7 @@ import {
   dropCursor,
   EditorView,
   highlightActiveLine,
-  highlightActiveLineGutter,
   keymap,
-  lineNumbers,
   rectangularSelection,
 } from '@codemirror/view';
 
@@ -26,6 +19,7 @@ import { hackmdCodeLanguages } from './hackmd-code-languages';
 import { hfmBlocks } from './hfm-blocks';
 import { hackmdInlinePreview } from './inline-preview';
 import { hackmdPreviewTheme } from './hackmd-preview-theme';
+import { createHackdeskSearchPanel } from './hackmd-search-panel';
 import { treeProgressPlugin } from './tree-progress';
 
 export type HackmdMarkdownEditorHandle = {
@@ -42,10 +36,7 @@ export type HackmdMarkdownEditorProps = {
 };
 
 const editorExtensions: Extension[] = [
-  lineNumbers(),
-  highlightActiveLineGutter(),
   history(),
-  foldGutter(),
   drawSelection(),
   dropCursor(),
   indentOnInput(),
@@ -55,6 +46,10 @@ const editorExtensions: Extension[] = [
   crosshairCursor(),
   highlightActiveLine(),
   highlightSelectionMatches(),
+  search({
+    top: true,
+    createPanel: createHackdeskSearchPanel,
+  }),
   markdown({
     base: markdownLanguage,
     codeLanguages: hackmdCodeLanguages,

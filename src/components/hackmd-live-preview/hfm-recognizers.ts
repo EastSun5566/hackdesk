@@ -23,6 +23,19 @@ export type HfmLineDecorations = {
   lineClasses: string[];
 };
 
+export type HfmBlockRange = {
+  endLine: number;
+  kind: 'alert' | 'container';
+  openerFrom: number;
+  openerLine: number;
+  openerTo: number;
+  startLine: number;
+  variant: string;
+  closerFrom?: number;
+  closerLine?: number;
+  closerTo?: number;
+};
+
 export const hfmFenceLanguages = new Set([
   'csvpreview',
   'sequence',
@@ -36,6 +49,8 @@ export const hfmFenceLanguages = new Set([
 ]);
 
 const externalEmbedPattern = /^\{%(youtube|vimeo|gist|slideshare|speakerdeck|pdf|figma)\s+(.+?)\s*%\}$/i;
+const alertLinePattern = /^>\s*\[!(note|tip|important|warning|caution|danger|todo)\]/i;
+const containerLinePattern = /^:::\s*(info|success|warning|danger|spoiler)\b/i;
 
 export function parseMarkdownImage(lineText: string, lineTo: number): ImageBlock | null {
   const match = lineText.trim().match(/^!\[([^\]]*)\]\((\S+?)(?:\s+=([0-9]+)?x?([0-9]+)?)?(?:\s+["'][^)]*["'])?\)$/);
@@ -109,13 +124,13 @@ export function getLineFallback(lineText: string, lineTo: number): FallbackBlock
 export function getHfmLineDecorations(text: string): HfmLineDecorations {
   const trimmed = text.trim();
   const lineClasses: string[] = [];
-  const calloutMatch = text.match(/^>\s*\[!(note|tip|important|warning|caution|danger|todo)\]/i);
-  const containerMatch = text.match(/^:::\s*(info|success|warning|danger|spoiler)\b/i);
+  const alertMatch = text.match(alertLinePattern);
+  const containerMatch = text.match(containerLinePattern);
   const fenceMatch = text.match(/^(```|~~~)\s*([A-Za-z0-9_-]+)?(.*)$/);
   const externalMatch = trimmed.match(externalEmbedPattern);
 
-  if (calloutMatch) {
-    lineClasses.push(`cm-hackmd-callout cm-hackmd-callout-${calloutMatch[1].toLowerCase()}`);
+  if (alertMatch) {
+    lineClasses.push(`cm-hackmd-alert cm-hackmd-alert-${alertMatch[1].toLowerCase()}`);
   }
 
   if (containerMatch) {
@@ -134,7 +149,7 @@ export function getHfmLineDecorations(text: string): HfmLineDecorations {
     lineClasses.push('cm-hackmd-blockquote-meta');
   }
 
-  if (/^\|.*\|$/.test(trimmed) || /^:?\s*-{3,}/.test(trimmed)) {
+  if (/^\|.*\|$/.test(trimmed)) {
     lineClasses.push('cm-hackmd-table-line');
   }
 
@@ -162,7 +177,85 @@ export function getHfmLineDecorations(text: string): HfmLineDecorations {
   };
 }
 
-export function getCalloutMarkerRange(text: string): { from: number; to: number } | null {
+export function getHfmBlockRanges(lines: readonly string[]): HfmBlockRange[] {
+  const ranges: HfmBlockRange[] = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? '';
+    const lineNumber = index + 1;
+    const containerMatch = line.match(containerLinePattern);
+
+    if (containerMatch) {
+      const variant = containerMatch[1].toLowerCase();
+      let endLine = lineNumber;
+      let closerLine: number | undefined;
+      let closerFrom: number | undefined;
+      let closerTo: number | undefined;
+
+      for (let closingIndex = index + 1; closingIndex < lines.length; closingIndex += 1) {
+        const closingLine = lines[closingIndex] ?? '';
+        const closingStart = closingLine.search(/:::/);
+        if (closingStart < 0 || !/^:::\s*$/.test(closingLine.slice(closingStart))) {
+          continue;
+        }
+
+        endLine = closingIndex + 1;
+        closerLine = endLine;
+        closerFrom = closingStart;
+        closerTo = closingLine.trimEnd().length;
+        break;
+      }
+
+      ranges.push({
+        endLine,
+        kind: 'container',
+        openerFrom: line.search(/:::/),
+        openerLine: lineNumber,
+        openerTo: line.trimEnd().length,
+        startLine: lineNumber,
+        variant,
+        closerFrom,
+        closerLine,
+        closerTo,
+      });
+      continue;
+    }
+
+    const alertMatch = line.match(alertLinePattern);
+    if (!alertMatch) {
+      continue;
+    }
+
+    const markerRange = getAlertMarkerRange(line);
+    if (!markerRange) {
+      continue;
+    }
+
+    let endLine = lineNumber;
+    for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex += 1) {
+      const nextLine = lines[nextIndex] ?? '';
+      if (!/^\s*>/.test(nextLine)) {
+        break;
+      }
+
+      endLine = nextIndex + 1;
+    }
+
+    ranges.push({
+      endLine,
+      kind: 'alert',
+      openerFrom: markerRange.from,
+      openerLine: lineNumber,
+      openerTo: markerRange.to,
+      startLine: lineNumber,
+      variant: alertMatch[1].toLowerCase(),
+    });
+  }
+
+  return ranges;
+}
+
+export function getAlertMarkerRange(text: string): { from: number; to: number } | null {
   const markerStart = text.indexOf('[!');
   const markerText = text.slice(markerStart).match(/^\[![^\]]+\]/)?.[0];
   if (markerStart < 0 || !markerText) {
@@ -210,4 +303,3 @@ function getRegexMarks(text: string, pattern: RegExp, className: string): HfmInl
   }
   return marks;
 }
-

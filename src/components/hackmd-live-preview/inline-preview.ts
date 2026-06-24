@@ -14,7 +14,7 @@ import {
 } from '@codemirror/view';
 
 import {
-  getCalloutMarkerRange,
+  getHfmBlockRanges,
   getHfmLineDecorations,
 } from './hfm-recognizers';
 import { pushReplace, type PreviewRange } from './preview-ranges';
@@ -52,7 +52,6 @@ const lineClassByNodeName: Record<string, string> = {
   SetextHeading2: 'cm-hackmd-h2',
   Blockquote: 'cm-hackmd-blockquote',
   FencedCode: 'cm-hackmd-fenced-code',
-  HorizontalRule: 'cm-hackmd-hr',
 };
 
 const inlineMarkClassByNodeName: Record<string, string> = {
@@ -203,9 +202,14 @@ function buildDecorations(state: EditorState): DecorationSet {
   const ranges: PreviewRange[] = [];
   const activeLines = getActiveLines(state);
   const activeInlineSourceStarts = new Set<number>();
+  const hfmBlockRanges = getHfmBlockRanges(getDocumentLines(state));
+  const activeHfmBlocks = getActiveHfmBlocks(hfmBlockRanges, activeLines);
+
+  expandActiveHfmBlockLines(activeHfmBlocks, activeLines);
 
   addFrontmatterRanges(state, ranges);
-  addHackmdLineSyntaxRanges(state, activeLines, ranges);
+  addHfmBlockRanges(state, hfmBlockRanges, activeHfmBlocks, ranges);
+  addHackmdLineSyntaxRanges(state, ranges);
 
   const tree = ensureSyntaxTree(state, state.doc.length, 200) ?? syntaxTree(state);
 
@@ -235,6 +239,15 @@ function buildDecorations(state: EditorState): DecorationSet {
             break;
           }
         }
+      }
+
+      if (node.name === 'HorizontalRule') {
+        const line = state.doc.lineAt(node.from);
+        if (!activeLines.has(line.number)) {
+          ranges.push(Decoration.line({ attributes: { class: 'cm-hackmd-hr' } }).range(line.from));
+          pushReplace(ranges, state.doc, line.from, line.to);
+        }
+        return;
       }
 
       const lineClass = lineClassByNodeName[node.name];
@@ -275,6 +288,89 @@ function getActiveLines(state: EditorState): Set<number> {
   }
 
   return activeLines;
+}
+
+function getDocumentLines(state: EditorState): string[] {
+  return Array.from({ length: state.doc.lines }, (_, index) => state.doc.line(index + 1).text);
+}
+
+function getActiveHfmBlocks(
+  blockRanges: ReturnType<typeof getHfmBlockRanges>,
+  activeLines: Set<number>,
+) {
+  return blockRanges.filter((blockRange) => {
+    for (let lineNumber = blockRange.startLine; lineNumber <= blockRange.endLine; lineNumber += 1) {
+      if (activeLines.has(lineNumber)) {
+        return true;
+      }
+    }
+
+    return false;
+  });
+}
+
+function expandActiveHfmBlockLines(
+  activeHfmBlocks: ReturnType<typeof getHfmBlockRanges>,
+  activeLines: Set<number>,
+) {
+  for (const blockRange of activeHfmBlocks) {
+    for (let lineNumber = blockRange.startLine; lineNumber <= blockRange.endLine; lineNumber += 1) {
+      activeLines.add(lineNumber);
+    }
+  }
+}
+
+function addHfmBlockRanges(
+  state: EditorState,
+  blockRanges: ReturnType<typeof getHfmBlockRanges>,
+  activeHfmBlocks: ReturnType<typeof getHfmBlockRanges>,
+  ranges: PreviewRange[],
+) {
+  for (const blockRange of blockRanges) {
+    const active = activeHfmBlocks.includes(blockRange);
+
+    for (let lineNumber = blockRange.startLine; lineNumber <= blockRange.endLine; lineNumber += 1) {
+      const line = state.doc.line(lineNumber);
+      const position = lineNumber === blockRange.startLine
+        ? 'start'
+        : lineNumber === blockRange.endLine
+          ? 'end'
+          : 'middle';
+      const className = [
+        `cm-hackmd-${blockRange.kind}-block`,
+        `cm-hackmd-${blockRange.kind}-block-${blockRange.variant}`,
+        `cm-hackmd-${blockRange.kind}-block-${position}`,
+      ].join(' ');
+
+      ranges.push(Decoration.line({ attributes: { class: className } }).range(line.from));
+    }
+
+    if (active) {
+      continue;
+    }
+
+    const openerLine = state.doc.line(blockRange.openerLine);
+    pushReplace(
+      ranges,
+      state.doc,
+      openerLine.from + blockRange.openerFrom,
+      openerLine.from + blockRange.openerTo,
+    );
+
+    if (
+      blockRange.closerLine !== undefined
+      && blockRange.closerFrom !== undefined
+      && blockRange.closerTo !== undefined
+    ) {
+      const closerLine = state.doc.line(blockRange.closerLine);
+      pushReplace(
+        ranges,
+        state.doc,
+        closerLine.from + blockRange.closerFrom,
+        closerLine.from + blockRange.closerTo,
+      );
+    }
+  }
 }
 
 function isInactiveSingleLineRange(state: EditorState, activeLines: Set<number>, from: number, to: number) {
@@ -352,7 +448,7 @@ function addFrontmatterRanges(state: EditorState, ranges: PreviewRange[]) {
   }
 }
 
-function addHackmdLineSyntaxRanges(state: EditorState, activeLines: Set<number>, ranges: PreviewRange[]) {
+function addHackmdLineSyntaxRanges(state: EditorState, ranges: PreviewRange[]) {
   for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber += 1) {
     const line = state.doc.line(lineNumber);
     const text = line.text;
@@ -360,17 +456,6 @@ function addHackmdLineSyntaxRanges(state: EditorState, activeLines: Set<number>,
 
     for (const className of hfmLine.lineClasses) {
       ranges.push(Decoration.line({ attributes: { class: className } }).range(line.from));
-      if (!className.startsWith('cm-hackmd-callout') || activeLines.has(lineNumber)) {
-        continue;
-      }
-
-      const markerRange = getCalloutMarkerRange(text);
-      if (markerRange) {
-        ranges.push(Decoration.mark({ class: 'cm-hackmd-strong' }).range(
-          line.from + markerRange.from,
-          line.from + markerRange.to,
-        ));
-      }
     }
 
     addHackmdInlineSyntaxRanges(line.from, hfmLine.inlineMarks, ranges);

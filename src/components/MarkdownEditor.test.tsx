@@ -1,5 +1,5 @@
 import { createRef } from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor';
@@ -36,10 +36,10 @@ const hfmFixtures = [
     markdown: ['```ts=10 [12-13]', 'const value = 1;', '```'].join('\n'),
   },
   {
-    name: 'callouts and containers',
+    name: 'alerts and containers',
     markdown: [
       '> [!note]',
-      '> HackMD callout stays editable.',
+      '> HackMD alert stays editable.',
       '',
       ':::warning',
       'Container fallback stays raw.',
@@ -165,6 +165,18 @@ describe('MarkdownEditor', () => {
     expect(editor.querySelector('.cm-content')).toHaveTextContent('# Hello');
   });
 
+  it('hides editor gutters so notes read as a writing surface', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+
+    render(<MarkdownEditor ref={ref} value={'# Hello\n\nBody'} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe('# Hello\n\nBody'));
+    expect(editor.querySelector('.cm-gutters')).toBeNull();
+    expect(editor.querySelector('.cm-lineNumbers')).toBeNull();
+    expect(editor.querySelector('.cm-foldGutter')).toBeNull();
+  });
+
   it('focuses the CodeMirror content through the imperative handle', async () => {
     const ref = createRef<MarkdownEditorHandle>();
 
@@ -207,14 +219,27 @@ describe('MarkdownEditor', () => {
   it('opens CodeMirror search through the imperative handle', async () => {
     const ref = createRef<MarkdownEditorHandle>();
 
-    render(<MarkdownEditor ref={ref} value="# First" onChange={vi.fn()} />);
+    render(<MarkdownEditor ref={ref} value={'# First\nSecond first'} onChange={vi.fn()} />);
     const editor = await screen.findByTestId('hackmd-markdown-editor');
 
     act(() => {
       ref.current?.openSearch();
     });
 
-    await waitFor(() => expect(editor.querySelector('.cm-search')).not.toBeNull());
+    const searchPanel = await waitFor(() => {
+      const target = editor.querySelector<HTMLElement>('.cm-hackdesk-search-panel');
+      expect(target).not.toBeNull();
+      return target as HTMLElement;
+    });
+
+    expect(within(searchPanel).getByRole('textbox', { name: 'Find in note' })).toHaveAttribute('autocomplete', 'off');
+    expect(within(searchPanel).getByRole('button', { name: 'Previous match' })).toHaveAttribute('type', 'button');
+    expect(within(searchPanel).getByRole('button', { name: 'Next match' })).toHaveAttribute('type', 'button');
+    expect(within(searchPanel).getByRole('button', { name: 'Close search' })).toHaveAttribute('type', 'button');
+    expect(searchPanel).not.toHaveTextContent(/replace/i);
+    expect(searchPanel).not.toHaveTextContent(/match case/i);
+    expect(searchPanel).not.toHaveTextContent(/regex/i);
+    expect(searchPanel).not.toHaveTextContent(/by word/i);
   });
 
   it('opens CodeMirror search from the native keyboard shortcut', async () => {
@@ -230,7 +255,25 @@ describe('MarkdownEditor', () => {
     });
     fireEvent.keyDown(content as Element, { key: 'f', code: 'KeyF', ctrlKey: true });
 
-    await waitFor(() => expect(editor.querySelector('.cm-search')).not.toBeNull());
+    await waitFor(() => expect(editor.querySelector('.cm-hackdesk-search-panel')).not.toBeNull());
+  });
+
+  it('closes the compact search panel with Escape and returns focus to the editor', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+
+    render(<MarkdownEditor ref={ref} value="# First" onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    act(() => {
+      ref.current?.openSearch();
+    });
+
+    const searchInput = await waitFor(() => within(editor).getByRole('textbox', { name: 'Find in note' }));
+
+    fireEvent.keyDown(searchInput, { key: 'Escape', code: 'Escape' });
+
+    await waitFor(() => expect(editor.querySelector('.cm-hackdesk-search-panel')).toBeNull());
+    expect(document.activeElement).toBe(editor.querySelector('.cm-content'));
   });
 
   it('hides common markdown syntax on inactive lines while preserving source text', async () => {
@@ -257,6 +300,71 @@ describe('MarkdownEditor', () => {
     await waitFor(() => expect(editor.querySelector('.cm-content')?.textContent ?? '').toContain('# Heading'));
     await waitFor(() => expect(editor.querySelector('.cm-content')?.textContent ?? '').not.toContain('**Bold**'));
     expect(ref.current?.getMarkdown()).toBe('# Heading\n\n**Bold**');
+  });
+
+  it('renders inactive horizontal rules as a rule and reveals raw source on the active line', async () => {
+    const inactiveRef = createRef<MarkdownEditorHandle>();
+
+    render(<MarkdownEditor ref={inactiveRef} value={'Intro\n\n---\nOutro'} onChange={vi.fn()} />);
+    const inactiveEditor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(inactiveEditor.querySelector('.cm-hackmd-hr')).not.toBeNull());
+    expect(inactiveEditor.querySelector('.cm-content')).not.toHaveTextContent('---');
+    expect(inactiveRef.current?.getMarkdown()).toBe('Intro\n\n---\nOutro');
+
+    const activeRef = createRef<MarkdownEditorHandle>();
+    render(<MarkdownEditor ref={activeRef} value={'---\n\nOutro'} onChange={vi.fn()} />);
+    const editors = await screen.findAllByTestId('hackmd-markdown-editor');
+    const activeEditor = editors.at(-1);
+
+    expect(activeEditor).toBeDefined();
+    await waitFor(() => expect(activeEditor?.querySelector('.cm-content')).toHaveTextContent('---'));
+    expect(activeEditor?.querySelector('.cm-hackmd-hr')).toBeNull();
+    expect(activeRef.current?.getMarkdown()).toBe('---\n\nOutro');
+  });
+
+  it('hides inactive container markers and reveals them when the block is active', async () => {
+    const inactiveRef = createRef<MarkdownEditorHandle>();
+
+    render(<MarkdownEditor ref={inactiveRef} value={'Intro\n\n:::info\n:bulb: Free users can upload images.\n:::'} onChange={vi.fn()} />);
+    const inactiveEditor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(inactiveEditor.querySelector('.cm-hackmd-container-block-info')).not.toBeNull());
+    expect(inactiveEditor.querySelector('.cm-content')).toHaveTextContent('Free users can upload images.');
+    expect(inactiveEditor.querySelector('.cm-content')).not.toHaveTextContent(':::info');
+    expect(inactiveRef.current?.getMarkdown()).toBe('Intro\n\n:::info\n:bulb: Free users can upload images.\n:::');
+
+    const activeRef = createRef<MarkdownEditorHandle>();
+    render(<MarkdownEditor ref={activeRef} value={':::info\n:bulb: Free users can upload images.\n:::'} onChange={vi.fn()} />);
+    const editors = await screen.findAllByTestId('hackmd-markdown-editor');
+    const activeEditor = editors.at(-1);
+
+    expect(activeEditor).toBeDefined();
+    await waitFor(() => expect(activeEditor?.querySelector('.cm-content')).toHaveTextContent(':::info'));
+    expect(activeEditor?.querySelector('.cm-content')).toHaveTextContent(':::');
+    expect(activeRef.current?.getMarkdown()).toBe(':::info\n:bulb: Free users can upload images.\n:::');
+  });
+
+  it('hides inactive alert markers and reveals them when the block is active', async () => {
+    const inactiveRef = createRef<MarkdownEditorHandle>();
+
+    render(<MarkdownEditor ref={inactiveRef} value={'Intro\n\n> [!note]\n> A useful note.'} onChange={vi.fn()} />);
+    const inactiveEditor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(inactiveEditor.querySelector('.cm-hackmd-alert-block-note')).not.toBeNull());
+    expect(inactiveEditor.querySelector('.cm-content')).toHaveTextContent('A useful note.');
+    expect(inactiveEditor.querySelector('.cm-content')).not.toHaveTextContent('[!note]');
+    expect(inactiveRef.current?.getMarkdown()).toBe('Intro\n\n> [!note]\n> A useful note.');
+
+    const activeRef = createRef<MarkdownEditorHandle>();
+    render(<MarkdownEditor ref={activeRef} value={'> [!note]\n> A useful note.'} onChange={vi.fn()} />);
+    const editors = await screen.findAllByTestId('hackmd-markdown-editor');
+    const activeEditor = editors.at(-1);
+
+    expect(activeEditor).toBeDefined();
+    await waitFor(() => expect(activeEditor?.querySelector('.cm-content')).toHaveTextContent('[!note]'));
+    expect(activeEditor?.querySelector('.cm-content')).toHaveTextContent('A useful note.');
+    expect(activeRef.current?.getMarkdown()).toBe('> [!note]\n> A useful note.');
   });
 
   it('toggles task checkbox widgets without converting surrounding markdown', async () => {
@@ -425,7 +533,7 @@ describe('MarkdownEditor', () => {
     const ref = createRef<MarkdownEditorHandle>();
     const markdown = [
       '> [!note]',
-      '> callout',
+      '> alert',
       ':::warning',
       'container',
       ':::',
@@ -443,7 +551,7 @@ describe('MarkdownEditor', () => {
     const editor = await screen.findByTestId('hackmd-markdown-editor');
 
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
-    await waitFor(() => expect(editor.querySelector('.cm-hackmd-callout-note')).not.toBeNull());
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-alert-note')).not.toBeNull());
     expect(editor.querySelector('.cm-hackmd-container-warning')).not.toBeNull();
     expect(editor.querySelector('.cm-hackmd-math-block-line')).not.toBeNull();
     expect(editor.querySelector('.cm-hackmd-external-youtube')).not.toBeNull();
