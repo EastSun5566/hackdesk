@@ -3,10 +3,14 @@ import { describe, expect, it } from 'vitest';
 import {
   ELECTRON_ACTIONS,
   getActionDisabledReason,
+  getActionShortcut,
+  getActionShortcutKeys,
   getActionLabel,
   getCommandPaletteActions,
+  getElectronActionLabel,
   getElectronAction,
   isElectronActionEnabled,
+  splitShortcutKeys,
   type ElectronActionContext,
 } from './electron-actions';
 import { ELECTRON_MENU_SCHEMA } from './electron-menu-schema';
@@ -63,6 +67,7 @@ describe('electron action registry', () => {
       menuAccelerator: 'CmdOrCtrl+B',
     });
     expect(getElectronAction('toggle-navigator')).toMatchObject({
+      label: 'Toggle Note Navigator',
       shortcut: '⌥⌘B',
       menuAccelerator: 'CmdOrCtrl+Alt+B',
     });
@@ -120,6 +125,14 @@ describe('electron action registry', () => {
 
   it('uses the same registry for command palette actions', () => {
     expect(getCommandPaletteActions().map((action) => action.id)).toEqual(ELECTRON_ACTIONS.map((action) => action.id));
+  });
+
+  it('exposes action labels and display shortcut helpers from the registry', () => {
+    expect(getElectronActionLabel('toggle-navigator')).toBe('Toggle Note Navigator');
+    expect(getActionShortcut('toggle-navigator')).toBe('⌥⌘B');
+    expect(getActionShortcutKeys('toggle-navigator')).toEqual(['⌥', '⌘', 'B']);
+    expect(splitShortcutKeys('⇧⌘F')).toEqual(['⇧', '⌘', 'F']);
+    expect(splitShortcutKeys('⌘\\')).toEqual(['⌘', '\\']);
   });
 
   it('keeps the native menu schema linked to registered actions', () => {

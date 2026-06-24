@@ -252,17 +252,17 @@ function NavigatorHeader({
       actions={(
         <>
           <ToolbarIconButton
+            actionId="refresh"
             onClick={actions.onRefresh}
             label="Refresh notes"
-            shortcut="⇧⌘R"
           >
             <RefreshCcw aria-hidden="true" className={cn('h-4 w-4', status.isFetching && 'animate-spin')} />
           </ToolbarIconButton>
           <ToolbarIconButton
+            actionId="new-note"
             onClick={actions.onCreate}
             disabled={!status.canCreate || status.isCreating}
             label="Create note"
-            shortcut="⌘N"
           >
             <Plus aria-hidden="true" className="h-4 w-4" />
           </ToolbarIconButton>
@@ -276,10 +276,10 @@ function NavigatorHeader({
             onOpenPalette={actions.onOpenPalette}
           />
           <ToolbarIconButton
+            actionId="toggle-navigator"
             onClick={actions.onToggleCollapsed}
             aria-expanded={true}
             label="Collapse note navigator"
-            shortcut="⌥⌘B"
           >
             <PanelLeftClose aria-hidden="true" className="h-4 w-4" />
           </ToolbarIconButton>

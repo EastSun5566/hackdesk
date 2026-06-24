@@ -50,7 +50,7 @@ function renderTopBar(overrides: Partial<Parameters<typeof AppTopBar>[0]> = {}) 
   };
 
   render(
-    <TooltipProvider>
+    <TooltipProvider delayDuration={0}>
       <AppTopBar {...props} />
     </TooltipProvider>,
   );
@@ -88,6 +88,17 @@ describe('AppTopBar', () => {
     expect(navigatorToggle).toHaveClass('app-region-no-drag');
     expect(navigatorToggle).toHaveAttribute('aria-expanded', 'false');
     expect(props.onToggleNavigator).toHaveBeenCalledOnce();
+  });
+
+  it('shows action shortcuts in titlebar button tooltips without changing accessible names', async () => {
+    renderTopBar();
+
+    const navigatorToggle = screen.getByRole('button', { name: 'Collapse note navigator' });
+    fireEvent.focus(navigatorToggle);
+    fireEvent.mouseOver(navigatorToggle);
+
+    expect(navigatorToggle).toHaveAccessibleName('Collapse note navigator');
+    expect(await screen.findAllByText('⌥⌘B')).not.toHaveLength(0);
   });
 
   it('calls tab select and close callbacks from titlebar tabs', () => {

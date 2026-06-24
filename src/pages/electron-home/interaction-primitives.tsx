@@ -7,6 +7,8 @@ import type {
 import { forwardRef, useId, useState } from 'react';
 
 import { cn } from '@/lib/utils';
+import { getActionShortcut } from '@/lib/electron-actions';
+import type { ElectronActionId } from '@/lib/electron-api';
 import {
   COLLAPSE_ICON_CLASS,
   FOCUS_RING_CLASS,
@@ -268,6 +270,7 @@ export function PanelHeader({
 }
 
 export function ToolbarIconButton({
+  actionId,
   label,
   tooltip = label,
   shortcut,
@@ -275,15 +278,17 @@ export function ToolbarIconButton({
   className,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
+  actionId?: ElectronActionId;
   label: string;
   shortcut?: string;
   tooltip?: ReactNode;
 }) {
-  const tooltipContent = shortcut ? (
+  const displayShortcut = shortcut ?? (actionId ? getActionShortcut(actionId) : undefined);
+  const tooltipContent = displayShortcut ? (
     <span className="flex items-center gap-3">
       <span>{tooltip}</span>
       <kbd className="rounded-[4px] bg-background-muted px-1.5 py-0.5 font-mono text-[10px] leading-none text-text-subtle">
-        {shortcut}
+        {displayShortcut}
       </kbd>
     </span>
   ) : tooltip;

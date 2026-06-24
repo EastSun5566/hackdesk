@@ -4,30 +4,31 @@ import type { ReactNode } from 'react';
 import { ToolbarIconButton } from './interaction-primitives';
 import { DocumentTabs } from './DocumentTabs';
 import type { DocumentSyncState } from './DocumentDetail';
+import type { ElectronActionId } from '@/lib/electron-api';
 import type { OpenNoteTab } from './note-workspace';
 
 function TopBarIconButton({
+  actionId,
   children,
   controls,
   expanded,
   label,
   onClick,
-  shortcut,
 }: {
+  actionId: ElectronActionId;
   children: ReactNode;
   controls?: string;
   expanded?: boolean;
   label: string;
   onClick: () => void;
-  shortcut?: string;
 }) {
   return (
     <ToolbarIconButton
+      actionId={actionId}
       onClick={onClick}
       aria-controls={controls}
       aria-expanded={expanded}
       label={label}
-      shortcut={shortcut}
       className="app-topbar-button app-region-no-drag h-7 w-7 rounded-[6px]"
     >
       {children}
@@ -80,20 +81,20 @@ export function AppTopBar({
     <header className="app-topbar flex h-10 shrink-0 items-center gap-2 border-b border-border-default bg-background-default pl-[86px] pr-2">
       <div className="flex shrink-0 items-center gap-1">
         <TopBarIconButton
+          actionId="toggle-workspace-rail"
           controls={railPanelId}
           expanded={!railCollapsed}
           label={railCollapsed ? 'Expand workspace sidebar' : 'Collapse workspace sidebar'}
           onClick={onToggleRail}
-          shortcut="⌘B"
         >
           {railCollapsed ? <PanelLeftOpen aria-hidden="true" className="h-[18px] w-[18px]" /> : <PanelLeftClose aria-hidden="true" className="h-[18px] w-[18px]" />}
         </TopBarIconButton>
         <TopBarIconButton
+          actionId="toggle-navigator"
           controls={navigatorPanelId}
           expanded={!navigatorCollapsed}
           label={navigatorCollapsed ? 'Expand note navigator' : 'Collapse note navigator'}
           onClick={onToggleNavigator}
-          shortcut="⌥⌘B"
         >
           <FolderTree aria-hidden="true" className="h-[18px] w-[18px]" />
         </TopBarIconButton>

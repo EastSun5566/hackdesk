@@ -25,6 +25,11 @@ import {
   settingsSchema,
   type AppSettings,
 } from '@/lib/settings';
+import {
+  getActionShortcutKeys,
+  getElectronActionLabel,
+} from '@/lib/electron-actions';
+import type { ElectronActionId } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
 import { ThemeAppearanceControls } from '@/components/ThemeAppearanceControls';
@@ -41,23 +46,42 @@ const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: 'advanced', label: 'Advanced', icon: <Zap className="h-4 w-4" /> },
 ];
 
-const shortcuts = [
-  { id: 'command-palette', action: 'Open Command Palette', keys: ['⌘', 'K'] },
-  { id: 'settings', action: 'Open Settings', keys: ['⌘', ','] },
-  { id: 'new-tab', action: 'New Tab', keys: ['⌘', 'T'] },
-  { id: 'new-note', action: 'New Note', keys: ['⌘', 'N'] },
-  { id: 'find-in-note', action: 'Find in Note', keys: ['⌘', 'F'] },
-  { id: 'search-notes', action: 'Search Notes', keys: ['⌘', '⇧', 'F'] },
-  { id: 'split-pane', action: 'Split Pane Right', keys: ['⌘', '\\'] },
-  { id: 'tab-number', action: 'Go to Tab 1-8', keys: ['⌘', '1-8'] },
-  { id: 'last-tab', action: 'Go to Last Tab', keys: ['⌘', '9'] },
-  { id: 'previous-next-tab', action: 'Previous / Next Tab', keys: ['⌘', '⌥', '←/→'] },
-  { id: 'toggle-sidebar', action: 'Toggle Workspace Sidebar', keys: ['⌘', 'B'] },
-  { id: 'toggle-navigator', action: 'Toggle Note Navigator', keys: ['⌘', '⌥', 'B'] },
-  { id: 'reload', action: 'Reload', keys: ['⌘', 'R'] },
-  { id: 'close-window', action: 'Close Window', keys: ['⌘', 'W'] },
-  { id: 'close-settings', action: 'Close Settings', keys: ['Esc'] },
+type ShortcutDefinition =
+  | { type: 'action'; actionId: ElectronActionId }
+  | { type: 'custom'; id: string; action: string; keys: string[] };
+
+const shortcutDefinitions: ShortcutDefinition[] = [
+  { type: 'action', actionId: 'open-command-palette' },
+  { type: 'action', actionId: 'open-settings' },
+  { type: 'action', actionId: 'new-tab' },
+  { type: 'action', actionId: 'new-note' },
+  { type: 'action', actionId: 'new-folder' },
+  { type: 'action', actionId: 'find-in-note' },
+  { type: 'action', actionId: 'search-notes' },
+  { type: 'action', actionId: 'split-pane-right' },
+  { type: 'custom', id: 'tab-number', action: 'Go to Tab 1-8', keys: ['⌘', '1-8'] },
+  { type: 'custom', id: 'last-tab', action: 'Go to Last Tab', keys: ['⌘', '9'] },
+  { type: 'action', actionId: 'focus-previous-tab' },
+  { type: 'action', actionId: 'focus-next-tab' },
+  { type: 'action', actionId: 'toggle-workspace-rail' },
+  { type: 'action', actionId: 'toggle-navigator' },
+  { type: 'action', actionId: 'toggle-inspector' },
+  { type: 'action', actionId: 'refresh' },
+  { type: 'action', actionId: 'close-tab' },
+  { type: 'action', actionId: 'reopen-last-closed-tab' },
+  { type: 'action', actionId: 'export-debug-logs' },
+  { type: 'custom', id: 'close-settings', action: 'Close Settings', keys: ['Esc'] },
 ];
+
+const shortcuts = shortcutDefinitions.map((shortcut) => (
+  shortcut.type === 'action'
+    ? {
+        id: shortcut.actionId,
+        action: getElectronActionLabel(shortcut.actionId),
+        keys: getActionShortcutKeys(shortcut.actionId),
+      }
+    : shortcut
+));
 
 const inputClassName = 'flex h-10 w-full rounded-md border border-border-default bg-background-default px-3 py-2 text-sm text-text-default ring-offset-background-default file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 disabled:opacity-50';
 const primaryButtonClassName = 'inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-primary-default px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none disabled:opacity-50';

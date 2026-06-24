@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Settings } from './Settings';
 
@@ -227,6 +227,19 @@ describe('Settings page', () => {
     fireEvent.click(screen.getByText('Advanced'));
     expect(screen.queryByText('Save Changes')).not.toBeInTheDocument();
     expect(screen.queryByText('Reset')).not.toBeInTheDocument();
+  });
+
+  it('renders shortcut rows from electron action metadata', () => {
+    render(<Settings />);
+
+    fireEvent.click(screen.getByText('Shortcuts'));
+
+    const navigatorRow = screen.getByText('Toggle Note Navigator').closest('div');
+    expect(navigatorRow).not.toBeNull();
+    expect(within(navigatorRow as HTMLElement).getByText('⌥')).toBeInTheDocument();
+    expect(within(navigatorRow as HTMLElement).getByText('⌘')).toBeInTheDocument();
+    expect(within(navigatorRow as HTMLElement).getByText('B')).toBeInTheDocument();
+    expect(screen.getByText('Close Tab')).toBeInTheDocument();
   });
 
   it('closes the window on Escape', () => {

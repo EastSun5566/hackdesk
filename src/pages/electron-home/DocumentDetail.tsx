@@ -364,22 +364,22 @@ function DocumentHeader({
             onReaderModeChange={actions.onReaderModeChange}
           />
           <ToolbarIconButton
+            actionId="save-note"
             disabled={status.saving || !noteDirty}
             title={!noteDirty ? 'No unsaved note changes.' : undefined}
             onClick={() => actions.onSave(documentState.document, { title: documentState.title, content: documentState.content })}
             label="Save"
             tooltip={noteDirty ? 'Save note' : 'No unsaved note changes.'}
-            shortcut="⌘S"
             className={noteDirty ? 'bg-primary-default text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground' : undefined}
           >
             {status.saving ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Save aria-hidden="true" className="h-4 w-4" />}
           </ToolbarIconButton>
           <ToolbarIconButton
+            actionId="toggle-inspector"
             onClick={actions.onToggleInspector}
             aria-controls={inspectorPanelId}
             aria-expanded={!layout.inspectorCollapsed}
             label={layout.inspectorCollapsed ? 'Expand inspector' : 'Collapse inspector'}
-            shortcut="⌥I"
           >
             {layout.inspectorCollapsed ? <PanelRightOpen aria-hidden="true" className="h-4 w-4" /> : <PanelRightClose aria-hidden="true" className="h-4 w-4" />}
           </ToolbarIconButton>
