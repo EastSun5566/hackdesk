@@ -1,4 +1,4 @@
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { FolderTree, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { ToolbarIconButton } from './interaction-primitives';
@@ -12,12 +12,14 @@ function TopBarIconButton({
   expanded,
   label,
   onClick,
+  shortcut,
 }: {
   children: ReactNode;
   controls?: string;
   expanded?: boolean;
   label: string;
   onClick: () => void;
+  shortcut?: string;
 }) {
   return (
     <ToolbarIconButton
@@ -25,6 +27,7 @@ function TopBarIconButton({
       aria-controls={controls}
       aria-expanded={expanded}
       label={label}
+      shortcut={shortcut}
       className="app-topbar-button app-region-no-drag h-7 w-7 rounded-[6px]"
     >
       {children}
@@ -45,9 +48,12 @@ export function AppTopBar({
   onReopenLastClosedTab,
   onSelectTab,
   onSplitPane,
+  navigatorCollapsed,
+  navigatorPanelId,
   railCollapsed,
   railPanelId,
   tabs,
+  onToggleNavigator,
   onToggleRail,
 }: {
   activeTab: OpenNoteTab | null;
@@ -62,9 +68,12 @@ export function AppTopBar({
   onReopenLastClosedTab: () => void;
   onSelectTab: (tabId: string) => void;
   onSplitPane: () => void;
+  navigatorCollapsed: boolean;
+  navigatorPanelId: string;
   railCollapsed: boolean;
   railPanelId: string;
   tabs: OpenNoteTab[];
+  onToggleNavigator: () => void;
   onToggleRail: () => void;
 }) {
   return (
@@ -75,8 +84,18 @@ export function AppTopBar({
           expanded={!railCollapsed}
           label={railCollapsed ? 'Expand workspace sidebar' : 'Collapse workspace sidebar'}
           onClick={onToggleRail}
+          shortcut="⌘B"
         >
           {railCollapsed ? <PanelLeftOpen aria-hidden="true" className="h-[18px] w-[18px]" /> : <PanelLeftClose aria-hidden="true" className="h-[18px] w-[18px]" />}
+        </TopBarIconButton>
+        <TopBarIconButton
+          controls={navigatorPanelId}
+          expanded={!navigatorCollapsed}
+          label={navigatorCollapsed ? 'Expand note navigator' : 'Collapse note navigator'}
+          onClick={onToggleNavigator}
+          shortcut="⌥⌘B"
+        >
+          <FolderTree aria-hidden="true" className="h-[18px] w-[18px]" />
         </TopBarIconButton>
       </div>
       <DocumentTabs

@@ -38,6 +38,33 @@ describe('useWorkbenchShortcuts', () => {
     expect(handlers.runAction).toHaveBeenNthCalledWith(2, 'search-notes');
   });
 
+  it('keeps bare Option+B for text input and uses Cmd+Option+B for navigator toggle', () => {
+    const handlers = createHandlers();
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    const optionOnlyEvent = new KeyboardEvent('keydown', {
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+      key: 'b',
+    });
+    window.dispatchEvent(optionOnlyEvent);
+    fireEvent.keyDown(window, { key: 'b', altKey: true, metaKey: true });
+
+    expect(optionOnlyEvent.defaultPrevented).toBe(false);
+    expect(handlers.runAction).toHaveBeenCalledOnce();
+    expect(handlers.runAction).toHaveBeenCalledWith('toggle-navigator');
+  });
+
+  it('keeps Cmd+B mapped to the workspace rail', () => {
+    const handlers = createHandlers();
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    fireEvent.keyDown(window, { key: 'b', metaKey: true });
+
+    expect(handlers.runAction).toHaveBeenCalledWith('toggle-workspace-rail');
+  });
+
   it('maps Cmd+9 to the last tab and Cmd+1 to the first tab', () => {
     const handlers = createHandlers();
 

@@ -62,6 +62,10 @@ describe('electron action registry', () => {
       shortcut: '⌘B',
       menuAccelerator: 'CmdOrCtrl+B',
     });
+    expect(getElectronAction('toggle-navigator')).toMatchObject({
+      shortcut: '⌥⌘B',
+      menuAccelerator: 'CmdOrCtrl+Alt+B',
+    });
     expect(getElectronAction('export-debug-logs')).toMatchObject({
       label: 'Export Debug Logs',
       menuAccelerator: 'Shift+CmdOrCtrl+L',

@@ -380,7 +380,8 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['folders', 'notes', 'sidebar'],
     category: 'view',
     scope: 'navigator',
-    shortcut: '⌥B',
+    shortcut: '⌥⌘B',
+    menuAccelerator: 'CmdOrCtrl+Alt+B',
   },
   {
     id: 'toggle-inspector',

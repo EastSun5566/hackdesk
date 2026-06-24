@@ -108,9 +108,15 @@ export function useWorkbenchShortcuts({
       return;
     }
 
-    if (isPrimaryModifier && !event.shiftKey && event.key.toLowerCase() === 'b') {
+    if (isPrimaryModifier && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'b') {
       event.preventDefault();
       runAction('toggle-workspace-rail');
+      return;
+    }
+
+    if (isPrimaryModifier && event.altKey && !event.shiftKey && event.key.toLowerCase() === 'b') {
+      event.preventDefault();
+      runAction('toggle-navigator');
       return;
     }
 
@@ -159,12 +165,6 @@ export function useWorkbenchShortcuts({
     if (event.altKey && event.key === '4') {
       event.preventDefault();
       runAction('focus-inspector');
-      return;
-    }
-
-    if (event.altKey && event.key.toLowerCase() === 'b') {
-      event.preventDefault();
-      runAction('toggle-navigator');
       return;
     }
 

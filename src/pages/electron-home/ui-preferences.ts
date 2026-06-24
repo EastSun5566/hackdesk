@@ -14,7 +14,6 @@ export const RAIL_COLLAPSED_WIDTH = 64;
 export const RAIL_WIDTH_MIN = 192;
 export const RAIL_WIDTH_MAX = 340;
 export const NAVIGATOR_WIDTH_DEFAULT = 400;
-export const NAVIGATOR_COLLAPSED_WIDTH = 48;
 export const NAVIGATOR_WIDTH_MIN = 300;
 export const NAVIGATOR_WIDTH_MAX = 560;
 export const INSPECTOR_WIDTH_DEFAULT = 320;

@@ -181,6 +181,16 @@ describe('FolderNavigator', () => {
     expect(glyph).toHaveAttribute('data-folder-color', '#ff5500');
   });
 
+  it('collapses to zero width without rendering a mini navigator rail', () => {
+    const { container } = renderFolderNavigator({
+      layout: { collapsed: true },
+    });
+
+    expect(container.firstElementChild).toHaveStyle({ width: '0px' });
+    expect(screen.queryByRole('button', { name: 'Expand note navigator' })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Search notes')).not.toBeInTheDocument();
+  });
+
   it('keeps folder toggle and note select callbacks wired', () => {
     const onFolderToggle = vi.fn();
     const onNoteSelect = vi.fn();

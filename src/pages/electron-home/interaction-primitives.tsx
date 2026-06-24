@@ -234,7 +234,7 @@ export function PanelShell({
         PANEL_TRANSITION_CLASS,
         className,
       )}
-      style={width ? { width: collapsed && collapsedWidth ? collapsedWidth : width } : undefined}
+      style={width ? { width: collapsed && collapsedWidth !== undefined ? collapsedWidth : width } : undefined}
     >
       {children}
     </Component>
@@ -270,13 +270,23 @@ export function PanelHeader({
 export function ToolbarIconButton({
   label,
   tooltip = label,
+  shortcut,
   children,
   className,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   label: string;
+  shortcut?: string;
   tooltip?: ReactNode;
 }) {
+  const tooltipContent = shortcut ? (
+    <span className="flex items-center gap-3">
+      <span>{tooltip}</span>
+      <kbd className="rounded-[4px] bg-background-muted px-1.5 py-0.5 font-mono text-[10px] leading-none text-text-subtle">
+        {shortcut}
+      </kbd>
+    </span>
+  ) : tooltip;
   const button = (
     <button
       type="button"
@@ -290,7 +300,7 @@ export function ToolbarIconButton({
 
   if (props.disabled) {
     return (
-      <Tooltip content={tooltip}>
+      <Tooltip content={tooltipContent}>
         <span className="inline-flex cursor-default">
           {button}
         </span>
@@ -299,7 +309,7 @@ export function ToolbarIconButton({
   }
 
   return (
-    <Tooltip content={tooltip}>
+    <Tooltip content={tooltipContent}>
       {button}
     </Tooltip>
   );

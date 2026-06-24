@@ -801,9 +801,12 @@ export function Home() {
           }
         }}
         onSplitPane={noteWorkspace.splitActiveTab}
+        navigatorCollapsed={navigatorCollapsed}
+        navigatorPanelId={NOTE_NAVIGATOR_PANEL_ID}
         railCollapsed={railCollapsed}
         railPanelId={WORKSPACE_RAIL_PANEL_ID}
         tabs={activeTitlebarTabs}
+        onToggleNavigator={toggleNavigatorCollapsed}
         onToggleRail={toggleRailCollapsed}
       />
 

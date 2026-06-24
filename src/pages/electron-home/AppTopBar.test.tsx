@@ -39,9 +39,12 @@ function renderTopBar(overrides: Partial<Parameters<typeof AppTopBar>[0]> = {}) 
     onReopenLastClosedTab: vi.fn(),
     onSelectTab: vi.fn(),
     onSplitPane: vi.fn(),
+    navigatorCollapsed: false,
+    navigatorPanelId: 'note-navigator-panel',
     railCollapsed: false,
     railPanelId: 'workspace-rail-panel',
     tabs: [firstTab, secondTab],
+    onToggleNavigator: vi.fn(),
     onToggleRail: vi.fn(),
     ...overrides,
   };
@@ -56,16 +59,35 @@ function renderTopBar(overrides: Partial<Parameters<typeof AppTopBar>[0]> = {}) 
 }
 
 describe('AppTopBar', () => {
-  it('renders compact titlebar tabs and the sidebar toggle', () => {
+  it('renders compact titlebar tabs and sidebar toggles', () => {
     renderTopBar();
 
     const sidebarToggle = screen.getByRole('button', { name: 'Collapse workspace sidebar' });
+    const navigatorToggle = screen.getByRole('button', { name: 'Collapse note navigator' });
     const firstTab = screen.getByRole('button', { name: 'Select Product Plan tab' });
 
     expect(sidebarToggle).toHaveClass('app-region-no-drag');
+    expect(sidebarToggle).toHaveAttribute('aria-controls', 'workspace-rail-panel');
+    expect(sidebarToggle).toHaveAttribute('aria-expanded', 'true');
+    expect(navigatorToggle).toHaveClass('app-region-no-drag');
+    expect(navigatorToggle).toHaveAttribute('aria-controls', 'note-navigator-panel');
+    expect(navigatorToggle).toHaveAttribute('aria-expanded', 'true');
     expect(firstTab).toHaveClass('app-region-no-drag');
     expect(firstTab.closest('.app-topbar')).toHaveClass('h-10');
     expect(screen.getByRole('button', { name: 'Select Design Spec tab' })).toBeInTheDocument();
+  });
+
+  it('calls the note navigator toggle from the titlebar', () => {
+    const props = renderTopBar({
+      navigatorCollapsed: true,
+    });
+
+    const navigatorToggle = screen.getByRole('button', { name: 'Expand note navigator' });
+    fireEvent.click(navigatorToggle);
+
+    expect(navigatorToggle).toHaveClass('app-region-no-drag');
+    expect(navigatorToggle).toHaveAttribute('aria-expanded', 'false');
+    expect(props.onToggleNavigator).toHaveBeenCalledOnce();
   });
 
   it('calls tab select and close callbacks from titlebar tabs', () => {

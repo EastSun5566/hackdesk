@@ -1298,10 +1298,25 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     expect(await screen.findByRole('button', { name: 'Collapse workspace sidebar' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Collapse note navigator' })).not.toHaveLength(0);
 
     fireEvent.keyDown(window, { key: 'b', metaKey: true });
 
     expect(await screen.findByRole('button', { name: 'Expand workspace sidebar' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Collapse note navigator' })).not.toHaveLength(0);
+  });
+
+  it('toggles the note navigator with Cmd+Option+B', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+
+    fireEvent.keyDown(window, { key: 'b', altKey: true, metaKey: true });
+
+    expect(screen.getByRole('button', { name: 'Expand note navigator' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getAllByRole('button', { name: 'Expand note navigator' })).toHaveLength(1);
+    expect(window.document.getElementById('note-navigator-panel')).toHaveStyle({ width: '0px' });
   });
 
   it('updates the tab title from the draft title', async () => {
@@ -1866,13 +1881,15 @@ describe('Home native-feel behavior', () => {
     await findRenderedNoteTitle();
 
     expect(screen.getByRole('button', { name: 'Collapse workspace sidebar' })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('button', { name: 'Collapse note navigator' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getAllByRole('button', { name: 'Collapse note navigator' })[0]).toHaveAttribute('aria-expanded', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse workspace sidebar' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse note navigator' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Collapse note navigator' })[0]);
 
     expect(screen.getByRole('button', { name: 'Expand workspace sidebar' })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByRole('button', { name: 'Expand note navigator' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getAllByRole('button', { name: 'Expand note navigator' })).toHaveLength(1);
+    expect(window.document.getElementById('note-navigator-panel')).toHaveStyle({ width: '0px' });
   });
 
   it('exposes expanded state when folders are collapsed and expanded', async () => {

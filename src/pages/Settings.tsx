@@ -53,6 +53,7 @@ const shortcuts = [
   { id: 'last-tab', action: 'Go to Last Tab', keys: ['⌘', '9'] },
   { id: 'previous-next-tab', action: 'Previous / Next Tab', keys: ['⌘', '⌥', '←/→'] },
   { id: 'toggle-sidebar', action: 'Toggle Workspace Sidebar', keys: ['⌘', 'B'] },
+  { id: 'toggle-navigator', action: 'Toggle Note Navigator', keys: ['⌘', '⌥', 'B'] },
   { id: 'reload', action: 'Reload', keys: ['⌘', 'R'] },
   { id: 'close-window', action: 'Close Window', keys: ['⌘', 'W'] },
   { id: 'close-settings', action: 'Close Settings', keys: ['Esc'] },

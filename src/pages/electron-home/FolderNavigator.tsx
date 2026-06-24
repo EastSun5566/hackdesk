@@ -2,7 +2,6 @@ import {
   AlertCircle,
   FileText,
   PanelLeftClose,
-  PanelLeftOpen,
   Plus,
   RefreshCcw,
 } from 'lucide-react';
@@ -62,7 +61,6 @@ import {
 } from './FolderNavigatorRows';
 import { RepositoryNotice } from './RepositoryNotice';
 import { FOCUS_RING_CLASS } from './ui';
-import { NAVIGATOR_COLLAPSED_WIDTH } from './ui-preferences';
 
 export type FolderNavigatorSelection = {
   selectedFolderId: string | null;
@@ -148,12 +146,10 @@ export function FolderNavigator({
       focusZone="navigator"
       collapsed={layout.collapsed}
       width={layout.width}
-      collapsedWidth={NAVIGATOR_COLLAPSED_WIDTH}
+      collapsedWidth={0}
       className="border-r border-border-default bg-background-muted"
     >
-      {layout.collapsed ? (
-        <CollapsedNavigator id={id} onToggleCollapsed={actions.onToggleCollapsed} />
-      ) : (
+      {layout.collapsed ? null : (
         <ExpandedNavigator
           actions={actions}
           emptyState={emptyState}
@@ -167,27 +163,6 @@ export function FolderNavigator({
         />
       )}
     </PanelShell>
-  );
-}
-
-function CollapsedNavigator({
-  id,
-  onToggleCollapsed,
-}: {
-  id: string;
-  onToggleCollapsed: () => void;
-}) {
-  return (
-    <div className="flex flex-1 justify-center pt-4">
-      <ToolbarIconButton
-        onClick={onToggleCollapsed}
-        aria-controls={id}
-        aria-expanded={false}
-        label="Expand note navigator"
-      >
-        <PanelLeftOpen aria-hidden="true" className="h-4 w-4" />
-      </ToolbarIconButton>
-    </div>
   );
 }
 
@@ -279,6 +254,7 @@ function NavigatorHeader({
           <ToolbarIconButton
             onClick={actions.onRefresh}
             label="Refresh notes"
+            shortcut="⇧⌘R"
           >
             <RefreshCcw aria-hidden="true" className={cn('h-4 w-4', status.isFetching && 'animate-spin')} />
           </ToolbarIconButton>
@@ -286,6 +262,7 @@ function NavigatorHeader({
             onClick={actions.onCreate}
             disabled={!status.canCreate || status.isCreating}
             label="Create note"
+            shortcut="⌘N"
           >
             <Plus aria-hidden="true" className="h-4 w-4" />
           </ToolbarIconButton>
@@ -302,6 +279,7 @@ function NavigatorHeader({
             onClick={actions.onToggleCollapsed}
             aria-expanded={true}
             label="Collapse note navigator"
+            shortcut="⌥⌘B"
           >
             <PanelLeftClose aria-hidden="true" className="h-4 w-4" />
           </ToolbarIconButton>
