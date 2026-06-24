@@ -769,11 +769,41 @@ export function Home() {
       : scope.type === 'history'
         ? 'Your HackMD history will appear here after the first successful sync.'
         : 'Select another folder, create a note here, or refresh after another client changes HackMD.';
+  const activeTitlebarPane = noteWorkspace.state.panes.find((pane) => pane.paneId === noteWorkspace.state.activePaneId) ?? null;
+  const activeTitlebarPaneView = activeTitlebarPane ? getPaneView(activeTitlebarPane) : null;
+  const activeTitlebarTabs = activeTitlebarPane ? getPaneTabs(activeTitlebarPane) : [];
   return (
     <div className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
       <AppTopBar
+        activeTab={activeTitlebarPaneView?.activeTab ?? null}
+        canMoveToOtherPane={noteWorkspace.state.panes.length > 1}
+        canReopenLastClosedTab={noteWorkspace.state.recentlyClosedTabs.length > 0}
+        canSplit={noteWorkspace.state.panes.length < 2}
+        getTabSyncState={getTabSyncState}
+        onCloseOtherTabs={(tabId) => {
+          if (activeTitlebarPane) {
+            void requestCloseOtherTabs(activeTitlebarPane.paneId, tabId);
+          }
+        }}
+        onCloseTab={(tabId) => {
+          void requestCloseTab(tabId);
+        }}
+        onCloseTabsToRight={(tabId) => {
+          if (activeTitlebarPane) {
+            void requestCloseTabsToRight(activeTitlebarPane.paneId, tabId);
+          }
+        }}
+        onMoveTabToOtherPane={noteWorkspace.moveActiveTabToOtherPane}
+        onReopenLastClosedTab={noteWorkspace.reopenLastClosed}
+        onSelectTab={(tabId) => {
+          if (activeTitlebarPane) {
+            noteWorkspace.selectTab(activeTitlebarPane.paneId, tabId);
+          }
+        }}
+        onSplitPane={noteWorkspace.splitActiveTab}
         railCollapsed={railCollapsed}
         railPanelId={WORKSPACE_RAIL_PANEL_ID}
+        tabs={activeTitlebarTabs}
         onToggleRail={toggleRailCollapsed}
       />
 
@@ -875,19 +905,9 @@ export function Home() {
           shareOpen={shareOpen}
           isInspectorCollapsed={inspectorCollapsed}
           getPaneView={getPaneView}
-          getPaneTabs={getPaneTabs}
-          getTabSyncState={getTabSyncState}
           editorSearchRequestId={editorSearchRequestId}
-          canReopenLastClosedTab={noteWorkspace.state.recentlyClosedTabs.length > 0}
           onResizePanes={noteWorkspace.resizePanes}
           onFocusPane={noteWorkspace.focusPane}
-          onSelectTab={noteWorkspace.selectTab}
-          onCloseTab={requestCloseTab}
-          onCloseOtherTabs={requestCloseOtherTabs}
-          onCloseTabsToRight={requestCloseTabsToRight}
-          onSplitPane={noteWorkspace.splitActiveTab}
-          onMoveTabToOtherPane={noteWorkspace.moveActiveTabToOtherPane}
-          onReopenLastClosedTab={noteWorkspace.reopenLastClosed}
           onOpenEditor={handleOpenEditor}
           onOpenExternal={handleOpenExternal}
           onCopyLink={handleCopyNoteLink}

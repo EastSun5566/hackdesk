@@ -291,6 +291,10 @@
     -webkit-app-region: no-drag;
   }
 
+  .app-region-no-drag {
+    -webkit-app-region: no-drag;
+  }
+
   .app-chrome {
     -webkit-user-select: none;
     user-select: none;

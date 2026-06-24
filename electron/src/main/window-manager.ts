@@ -98,7 +98,7 @@ export class WindowManager {
       show: false,
       title: 'HackDesk',
       titleBarStyle: isMac ? 'hiddenInset' : 'default',
-      trafficLightPosition: isMac ? { x: 16, y: 16 } : undefined,
+      trafficLightPosition: isMac ? { x: 16, y: 12 } : undefined,
       backgroundColor: WINDOW_BACKGROUND_COLOR,
       vibrancy: isMac ? 'sidebar' : undefined,
       visualEffectState: isMac ? 'active' : undefined,
