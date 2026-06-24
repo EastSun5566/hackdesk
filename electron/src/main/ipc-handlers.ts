@@ -45,7 +45,7 @@ import {
   uploadNoteImage,
   validateToken,
 } from './hackmd-service';
-import { getSafeSettings, updateStoredSettings } from './settings';
+import { getSafeSettings, readHackmdCliAccessToken, updateStoredSettings } from './settings';
 import { openExternalUrl, openHackmdEditor } from './url-policy';
 import type { WindowManager } from './window-manager';
 import { openTextFile, saveTextFile } from './app-file-dialog';
@@ -76,6 +76,12 @@ export function registerIpcHandlers(windowManager: WindowManager) {
   ipcMain.handle(ELECTRON_CHANNELS.settingsUpdate, (_event, settings) => (
     updateStoredSettings(validateIpcInput(ELECTRON_CHANNELS.settingsUpdate, settingsUpdateSchema, settings))
   ));
+  ipcMain.handle(ELECTRON_CHANNELS.settingsImportHackmdCliToken, async () => {
+    const token = await readHackmdCliAccessToken();
+    const user = await validateToken(token);
+    const settings = await updateStoredSettings({ hackmdApiToken: token });
+    return { settings, user };
+  });
   ipcMain.handle(ELECTRON_CHANNELS.hackmdValidateToken, (_event, token: string) => (
     validateToken(validateNonEmptyString(ELECTRON_CHANNELS.hackmdValidateToken, token))
   ));

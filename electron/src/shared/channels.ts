@@ -1,6 +1,7 @@
 export const ELECTRON_CHANNELS = {
   settingsGet: 'settings:get',
   settingsUpdate: 'settings:update',
+  settingsImportHackmdCliToken: 'settings:import-hackmd-cli-token',
   hackmdValidateToken: 'hackmd:validate-token',
   hackmdGetCurrentUser: 'hackmd:get-current-user',
   hackmdListTeams: 'hackmd:list-teams',

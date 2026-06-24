@@ -14,6 +14,7 @@ describe('settings helpers', () => {
       title: 'Workspace',
       hackmdApiToken: '',
       appearance: defaultSettings.appearance,
+      onboarding: defaultSettings.onboarding,
     });
   });
 
@@ -28,6 +29,7 @@ describe('settings helpers', () => {
           primary: '#123ABC',
         },
       },
+      onboarding: defaultSettings.onboarding,
     });
   });
 
@@ -54,6 +56,9 @@ describe('settings helpers', () => {
     "theme": "system",
     "presetId": "hackmd",
     "customSeed": {}
+  },
+  "onboarding": {
+    "hackmdTokenSetupDeferred": false
   }
 }`);
   });

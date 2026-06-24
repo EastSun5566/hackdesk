@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
   DocumentSummary,
+  ElectronSafeSettings,
   FolderSummary,
   HackDeskCommandPaletteCommand,
   HackDeskElectronAPI,
@@ -157,17 +158,37 @@ type HackDeskElectronAPIOverrides = Partial<Omit<HackDeskElectronAPI, 'settings'
   app?: Partial<HackDeskElectronAPI['app']>;
 };
 
+function createSafeSettings(overrides: Partial<ElectronSafeSettings> = {}): ElectronSafeSettings {
+  return {
+    title: 'HackDesk',
+    appearance: defaultSettings.appearance,
+    hasHackmdApiToken: true,
+    hasAppearanceSettings: true,
+    hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+    onboarding: defaultSettings.onboarding,
+    shouldShowHackmdOnboarding: false,
+    ...overrides,
+  };
+}
+
 function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectronAPI {
   const base: HackDeskElectronAPI = {
     getRuntimeEnvironment: () => 'electron',
     settings: {
-      get: vi.fn(async () => ({
-        title: 'HackDesk',
-        appearance: defaultSettings.appearance,
-        hasHackmdApiToken: true,
-        hasAppearanceSettings: true,
-      })),
+      get: vi.fn(async () => createSafeSettings()),
       update: vi.fn(),
+      importHackmdCliToken: vi.fn(async () => ({
+        settings: createSafeSettings({ hasHackmdApiToken: true }),
+        user: {
+          id: 'user-1',
+          email: 'michael@example.com',
+          name: 'Michael',
+          username: 'michael',
+          photo: null,
+          upgraded: false,
+          teams: [],
+        },
+      })),
     },
     hackmd: {
       validateToken: vi.fn(),
@@ -334,6 +355,144 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
+  });
+
+  it('opens first-run HackMD onboarding when no token is configured', async () => {
+    const api = createApi({
+      settings: {
+        get: vi.fn(async () => createSafeSettings({
+          hasHackmdApiToken: false,
+          onboarding: { hackmdTokenSetupDeferred: false },
+          shouldShowHackmdOnboarding: true,
+        })),
+      },
+    });
+
+    renderHome(api);
+
+    expect(await screen.findByRole('heading', { name: 'Connect HackMD' })).toBeInTheDocument();
+  });
+
+  it('defers first-run HackMD onboarding with Setup later', async () => {
+    const updateSettings = vi.fn(async () => createSafeSettings({
+      hasHackmdApiToken: false,
+      onboarding: { hackmdTokenSetupDeferred: true },
+      shouldShowHackmdOnboarding: false,
+    }));
+    const api = createApi({
+      settings: {
+        get: vi.fn(async () => createSafeSettings({
+          hasHackmdApiToken: false,
+          onboarding: { hackmdTokenSetupDeferred: false },
+          shouldShowHackmdOnboarding: true,
+        })),
+        update: updateSettings,
+      },
+    });
+
+    renderHome(api);
+    fireEvent.click(await screen.findByRole('button', { name: 'Setup later' }));
+
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({
+      title: 'HackDesk',
+      onboarding: { hackmdTokenSetupDeferred: true },
+    }));
+    expect(screen.queryByRole('heading', { name: 'Connect HackMD' })).not.toBeInTheDocument();
+  });
+
+  it('validates and saves a token from first-run HackMD onboarding', async () => {
+    const validateToken = vi.fn(async () => ({
+      id: 'user-1',
+      email: 'michael@example.com',
+      name: 'Michael',
+      username: 'michael',
+      photo: null,
+      upgraded: false,
+      teams: [],
+    }));
+    const updateSettings = vi.fn(async () => createSafeSettings({
+      hasHackmdApiToken: true,
+      onboarding: { hackmdTokenSetupDeferred: false },
+      shouldShowHackmdOnboarding: false,
+    }));
+    const api = createApi({
+      settings: {
+        get: vi.fn(async () => createSafeSettings({
+          hasHackmdApiToken: false,
+          onboarding: { hackmdTokenSetupDeferred: false },
+          shouldShowHackmdOnboarding: true,
+        })),
+        update: updateSettings,
+      },
+      hackmd: { validateToken },
+    });
+
+    renderHome(api);
+    fireEvent.click(await screen.findByRole('button', { name: 'Get started' }));
+    fireEvent.change(screen.getByLabelText('HackMD API Token'), {
+      target: { value: ' secret-token ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
+
+    await waitFor(() => expect(validateToken).toHaveBeenCalledWith('secret-token'));
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({
+      title: 'HackDesk',
+      hackmdApiToken: 'secret-token',
+    }));
+    expect(await screen.findByText('Connected as Michael (@michael).')).toBeInTheDocument();
+  });
+
+  it('imports a hackmd-cli token from first-run HackMD onboarding', async () => {
+    const importHackmdCliToken = vi.fn(async () => ({
+      settings: createSafeSettings({
+        hasHackmdApiToken: true,
+        onboarding: { hackmdTokenSetupDeferred: false },
+        shouldShowHackmdOnboarding: false,
+      }),
+      user: {
+        id: 'user-1',
+        email: 'michael@example.com',
+        name: 'Michael',
+        username: 'michael',
+        photo: null,
+        upgraded: false,
+        teams: [],
+      },
+    }));
+    const api = createApi({
+      settings: {
+        get: vi.fn(async () => createSafeSettings({
+          hasHackmdApiToken: false,
+          hackmdCliConfig: { hasAccessToken: true, hasCustomEndpoint: false },
+          onboarding: { hackmdTokenSetupDeferred: false },
+          shouldShowHackmdOnboarding: true,
+        })),
+        importHackmdCliToken,
+      },
+    });
+
+    renderHome(api);
+    fireEvent.click(await screen.findByRole('button', { name: 'Import from hackmd-cli' }));
+
+    await waitFor(() => expect(importHackmdCliToken).toHaveBeenCalledOnce());
+    expect(await screen.findByText('Connected as Michael (@michael).')).toBeInTheDocument();
+  });
+
+  it('opens HackMD onboarding from the empty navigator configure action', async () => {
+    const api = createApi({
+      settings: {
+        get: vi.fn(async () => createSafeSettings({
+          hasHackmdApiToken: false,
+          onboarding: { hackmdTokenSetupDeferred: true },
+          shouldShowHackmdOnboarding: false,
+        })),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.click(await screen.findByRole('button', { name: 'Configure Token' }));
+
+    expect(await screen.findByRole('heading', { name: 'Connect HackMD' })).toBeInTheDocument();
   });
 
   it('confirms the native close request when the current note is clean', async () => {

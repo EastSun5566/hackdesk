@@ -161,6 +161,23 @@ export function useElectronNoteMutations({
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to save settings.'),
   });
 
+  const importHackmdCliTokenMutation = useMutation({
+    mutationFn: async () => {
+      if (!api) {
+        throw new Error('Electron API is unavailable.');
+      }
+
+      return api.settings.importHackmdCliToken();
+    },
+    onSuccess: (result) => {
+      queryClient.setQueryData(['electron', 'settings'], result.settings);
+      void queryClient.invalidateQueries({ queryKey: ['electron', 'hackmd'] });
+      onSettingsSaved();
+      toast.success('Imported hackmd-cli token.');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to import hackmd-cli token.'),
+  });
+
   const createNoteMutation = useMutation({
     mutationFn: async (title: string) => {
       if (!api) {
@@ -458,6 +475,7 @@ export function useElectronNoteMutations({
     invalidateCurrentNotes: invalidateCurrentNoteQueries,
     invalidateCurrentFolders: invalidateCurrentFolderQueries,
     updateSettingsMutation,
+    importHackmdCliTokenMutation,
     createNoteMutation,
     duplicateNoteMutation,
     importMarkdownNoteMutation,

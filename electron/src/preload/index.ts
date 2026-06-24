@@ -25,6 +25,7 @@ const api: HackDeskElectronAPI = {
   settings: {
     get: () => ipcRenderer.invoke(ELECTRON_CHANNELS.settingsGet),
     update: (settings: ElectronSettingsUpdate) => ipcRenderer.invoke(ELECTRON_CHANNELS.settingsUpdate, settings),
+    importHackmdCliToken: () => ipcRenderer.invoke(ELECTRON_CHANNELS.settingsImportHackmdCliToken),
   },
   hackmd: {
     validateToken: (token: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdValidateToken, token),

@@ -10,6 +10,7 @@ import {
   folderOrderSchema,
   openHackmdEditorInputSchema,
   saveTextFileInputSchema,
+  settingsUpdateSchema,
   themeSurfaceInputSchema,
   updateNoteInputSchema,
   uploadNoteImageInputSchema,
@@ -83,6 +84,12 @@ describe('IPC runtime validation', () => {
       mode: 'dark',
       background: '#27272A',
     })).toMatchObject({ mode: 'dark', background: '#27272A' });
+
+    expect(validateIpcInput('settings:update', settingsUpdateSchema, {
+      onboarding: { hackmdTokenSetupDeferred: true },
+    })).toMatchObject({
+      onboarding: { hackmdTokenSetupDeferred: true },
+    });
   });
 
   it('rejects unsafe native file and image upload shapes', () => {

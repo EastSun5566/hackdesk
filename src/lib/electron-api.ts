@@ -5,10 +5,23 @@ export type RuntimeEnvironment = 'electron' | 'tauri' | 'web';
 export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance'> & {
   hasHackmdApiToken: boolean;
   hasAppearanceSettings?: boolean;
+  hackmdCliConfig: HackmdCliConfigStatus;
+  onboarding: AppSettings['onboarding'];
+  shouldShowHackmdOnboarding: boolean;
 };
 
-export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance'>> & {
+export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'onboarding'>> & {
   hackmdApiToken?: string;
+};
+
+export type HackmdCliConfigStatus = {
+  hasAccessToken: boolean;
+  hasCustomEndpoint: boolean;
+};
+
+export type ImportHackmdCliTokenResult = {
+  settings: ElectronSafeSettings;
+  user: UserSummary;
 };
 
 export type RepositoryValue<T> =
@@ -259,6 +272,7 @@ export type HackDeskElectronAPI = {
   settings: {
     get: () => Promise<ElectronSafeSettings>;
     update: (settings: ElectronSettingsUpdate) => Promise<ElectronSafeSettings>;
+    importHackmdCliToken: () => Promise<ImportHackmdCliTokenResult>;
   };
   hackmd: {
     validateToken: (token: string) => Promise<UserSummary>;

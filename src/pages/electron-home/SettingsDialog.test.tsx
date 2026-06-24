@@ -27,7 +27,14 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
     <ThemeProvider defaultTheme="system" storageKey="settings-dialog-test-theme">
       <SettingsDialog
         open
-        settings={{ title: 'HackDesk', appearance: defaultSettings.appearance, hasHackmdApiToken: false }}
+        settings={{
+          title: 'HackDesk',
+          appearance: defaultSettings.appearance,
+          hasHackmdApiToken: false,
+          hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+          onboarding: defaultSettings.onboarding,
+          shouldShowHackmdOnboarding: true,
+        }}
         isSaving={false}
         onOpenChange={onOpenChange}
         onSave={onSave}

@@ -16,10 +16,18 @@ export type AppearanceSettings = {
   customSeed: Partial<ThemeSeed>;
 };
 
+export type OnboardingSettings = {
+  hackmdTokenSetupDeferred: boolean;
+};
+
 export const defaultAppearanceSettings: AppearanceSettings = {
   theme: 'system',
   presetId: 'hackmd',
   customSeed: {},
+};
+
+export const defaultOnboardingSettings: OnboardingSettings = {
+  hackmdTokenSetupDeferred: false,
 };
 
 const hexColorSchema = z.string().regex(/^#[\da-fA-F]{6}$/);
@@ -44,6 +52,9 @@ export const settingsSchema = z.object({
   title: z.string().min(1, 'Title is required').max(50, 'Title too long'),
   hackmdApiToken: z.string().trim().default(''),
   appearance: appearanceSettingsSchema,
+  onboarding: z.object({
+    hackmdTokenSetupDeferred: z.boolean().default(defaultOnboardingSettings.hackmdTokenSetupDeferred),
+  }).default(defaultOnboardingSettings),
 });
 
 export type AppSettings = z.infer<typeof settingsSchema>;
@@ -52,6 +63,7 @@ export const defaultSettings: AppSettings = {
   title: DEFAULT_TITLE,
   hackmdApiToken: '',
   appearance: defaultAppearanceSettings,
+  onboarding: defaultOnboardingSettings,
 };
 
 export function normalizeAppearanceSettings(

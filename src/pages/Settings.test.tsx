@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { defaultSettings } from '@/lib/settings';
 import { Settings } from './Settings';
 
 const {
@@ -81,6 +82,7 @@ describe('Settings page', () => {
           presetId: 'hackmd',
           customSeed: {},
         },
+        onboarding: defaultSettings.onboarding,
       },
     } as never);
     useCheckForUpdatesMock.mockReturnValue({
@@ -173,6 +175,7 @@ describe('Settings page', () => {
             presetId: 'hackmd',
             customSeed: {},
           },
+          onboarding: defaultSettings.onboarding,
         },
         expect.objectContaining({
           onSuccess: expect.any(Function),

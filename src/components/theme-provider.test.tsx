@@ -136,6 +136,9 @@ describe('ThemeProvider', () => {
       appearance: update.appearance ?? defaultSettings.appearance,
       hasHackmdApiToken: false,
       hasAppearanceSettings: true,
+      hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+      onboarding: defaultSettings.onboarding,
+      shouldShowHackmdOnboarding: true,
     }));
     window.hackdeskAPI = {
       settings: {
@@ -144,8 +147,12 @@ describe('ThemeProvider', () => {
           appearance: defaultSettings.appearance,
           hasHackmdApiToken: false,
           hasAppearanceSettings: true,
+          hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+          onboarding: defaultSettings.onboarding,
+          shouldShowHackmdOnboarding: true,
         })),
         update: settingsUpdate,
+        importHackmdCliToken: vi.fn(),
       },
       app: {
         setThemeSurface: vi.fn(),
@@ -176,6 +183,9 @@ describe('ThemeProvider', () => {
       appearance: update.appearance ?? defaultSettings.appearance,
       hasHackmdApiToken: false,
       hasAppearanceSettings: true,
+      hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+      onboarding: defaultSettings.onboarding,
+      shouldShowHackmdOnboarding: true,
     }));
     localStorage.setItem('theme-mode', 'dark');
     localStorage.setItem('theme-preset-id', 'forest');
@@ -186,8 +196,12 @@ describe('ThemeProvider', () => {
           appearance: defaultSettings.appearance,
           hasHackmdApiToken: false,
           hasAppearanceSettings: false,
+          hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+          onboarding: defaultSettings.onboarding,
+          shouldShowHackmdOnboarding: true,
         })),
         update: settingsUpdate,
+        importHackmdCliToken: vi.fn(),
       },
       app: {
         setThemeSurface: vi.fn(),

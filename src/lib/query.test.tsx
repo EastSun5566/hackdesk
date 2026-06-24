@@ -50,6 +50,7 @@ describe('query hooks', () => {
         title: 'Workspace',
         hackmdApiToken: '',
         appearance: defaultSettings.appearance,
+        onboarding: defaultSettings.onboarding,
       });
     });
   });
@@ -83,12 +84,16 @@ describe('query hooks', () => {
     "theme": "system",
     "presetId": "hackmd",
     "customSeed": {}
+  },
+  "onboarding": {
+    "hackmdTokenSetupDeferred": false
   }
 }`);
     expect(queryClient.getQueryData(['settings'])).toEqual({
       title: 'Focus Desk',
       hackmdApiToken: 'secret-token',
       appearance: defaultSettings.appearance,
+      onboarding: defaultSettings.onboarding,
     });
     expect(invokeMock).toHaveBeenCalledWith('apply_settings');
   });

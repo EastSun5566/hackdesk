@@ -30,6 +30,9 @@ export const settingsUpdateSchema = z.strictObject({
     presetId: z.enum(['hackmd', 'mono', 'solarized', 'forest']),
     customSeed: themeSeedSchema,
   }).optional(),
+  onboarding: z.strictObject({
+    hackmdTokenSetupDeferred: z.boolean(),
+  }).optional(),
 });
 
 export const createNoteInputSchema = z.strictObject({

@@ -11,3 +11,7 @@ export function getHackDeskRootPath() {
 export function getSettingsPath() {
   return join(getHackDeskRootPath(), SETTINGS_NAME);
 }
+
+export function getHackmdCliConfigPath() {
+  return join(app.getPath('home'), '.hackmd', 'config.json');
+}

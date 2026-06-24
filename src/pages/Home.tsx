@@ -22,6 +22,7 @@ import { DeleteNoteDialog } from './electron-home/DeleteNoteDialog';
 import { DeleteFolderDialog } from './electron-home/DeleteFolderDialog';
 import { DocumentWorkspace } from './electron-home/DocumentWorkspace';
 import { FolderNavigator } from './electron-home/FolderNavigator';
+import { HackmdOnboardingDialog } from './electron-home/HackmdOnboardingDialog';
 import { PanelResizeSash } from './electron-home/PanelResizeSash';
 import { SettingsDialog } from './electron-home/SettingsDialog';
 import { RenameFolderDialog } from './electron-home/RenameFolderDialog';
@@ -83,6 +84,7 @@ export function Home() {
   const api = getDesktopAPI();
   const initialWorkspaceScope = useMemo(() => getInitialWorkspaceScope(), []);
   const [recentNotes, setRecentNotes] = useState<ElectronRecentNote[]>(() => readRecentNotes(window.localStorage));
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
   const pendingRecentNoteRef = usePendingRecentNoteRef();
   const autoSelectSuppressionRef = useRef<string | null>(null);
   const manualEmptyWorkspaceRef = useRef(false);
@@ -190,6 +192,12 @@ export function Home() {
     })),
   });
 
+  useEffect(() => {
+    if (settings?.shouldShowHackmdOnboarding && !settingsOpen) {
+      setOnboardingOpen(true);
+    }
+  }, [settings?.shouldShowHackmdOnboarding, settingsOpen]);
+
   const displayScope = useMemo<WorkspaceScope>(() => {
     if (scope.type !== 'team') {
       return scope;
@@ -223,6 +231,10 @@ export function Home() {
   const trackRecentNote = useCallback((note: NoteSummary) => {
     updateRecentNotes((current) => upsertRecentNote(current, note));
   }, [updateRecentNotes]);
+
+  const openHackmdTokenSetup = useCallback(() => {
+    setOnboardingOpen(true);
+  }, []);
 
   const removeRecentNoteEntry = useCallback((noteId: string, teamPath: string | null) => {
     updateRecentNotes((current) => removeRecentNote(current, noteId, teamPath));
@@ -901,7 +913,7 @@ export function Home() {
             onImportMarkdown: handleImportMarkdownNote,
             onToggleCollapsed: toggleNavigatorCollapsed,
             onOpenPalette: openPalette,
-            onOpenSettings: () => setSettingsOpen(true),
+            onOpenSettings: openHackmdTokenSetup,
           }}
         />
         <PanelResizeSash
@@ -955,6 +967,37 @@ export function Home() {
         isSaving={mutations.updateSettingsMutation.isPending}
         onOpenChange={setSettingsOpen}
         onSave={(input) => mutations.updateSettingsMutation.mutate(input)}
+        onValidateToken={(token) => {
+          if (!api) {
+            return Promise.reject(new Error('Electron API is unavailable.'));
+          }
+
+          return api.hackmd.validateToken(token);
+        }}
+      />
+
+      <HackmdOnboardingDialog
+        open={onboardingOpen}
+        onOpenChange={setOnboardingOpen}
+        hackmdCliConfig={settings?.hackmdCliConfig ?? { hasAccessToken: false, hasCustomEndpoint: false }}
+        onImportHackmdCliToken={() => mutations.importHackmdCliTokenMutation.mutateAsync()}
+        onOpenHackmdSettings={() => {
+          void api?.shell.openExternal('https://hackmd.io/settings#api').catch((error) => {
+            toast.error(error instanceof Error ? error.message : 'Failed to open HackMD settings.');
+          });
+        }}
+        onSaveToken={async (token) => {
+          await mutations.updateSettingsMutation.mutateAsync({
+            title: settings?.title ?? 'HackDesk',
+            hackmdApiToken: token,
+          });
+        }}
+        onSetupLater={async () => {
+          await mutations.updateSettingsMutation.mutateAsync({
+            title: settings?.title ?? 'HackDesk',
+            onboarding: { hackmdTokenSetupDeferred: true },
+          });
+        }}
         onValidateToken={(token) => {
           if (!api) {
             return Promise.reject(new Error('Electron API is unavailable.'));
