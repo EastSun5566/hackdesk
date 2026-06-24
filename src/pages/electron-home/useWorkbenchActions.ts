@@ -56,6 +56,8 @@ export type WorkbenchActionHandlers = {
   goHistory: () => void;
   importMarkdownNote: () => void;
   moveTabToOtherPane: () => void;
+  navigateBack: () => void;
+  navigateForward: () => void;
   openPalette: () => void;
   openSettings: () => void;
   openSelectedWebEditor: () => void;
@@ -104,6 +106,8 @@ export function createWorkbenchActionContext({
     isSavingNote,
     navigatorCollapsed,
     noteDirty,
+    navigationBackCount: workspaceState.backStack.length,
+    navigationForwardCount: workspaceState.forwardStack.length,
     openTabCount: Object.keys(workspaceState.tabs).length,
     paneCount: workspaceState.panes.length,
     readerMode,
@@ -209,6 +213,12 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'search-notes':
       handlers.focusWorkspaceSearch();
+      break;
+    case 'navigate-back':
+      handlers.navigateBack();
+      break;
+    case 'navigate-forward':
+      handlers.navigateForward();
       break;
     case 'go-history':
       handlers.goHistory();

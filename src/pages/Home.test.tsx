@@ -1273,6 +1273,42 @@ describe('Home native-feel behavior', () => {
     expect(await screen.findByDisplayValue('Gamma')).toBeInTheDocument();
   });
 
+  it('navigates focused note locations with titlebar buttons and Cmd+brackets', async () => {
+    const notes = [
+      { ...note, id: 'note-a', title: 'Alpha', shortId: 'alpha', updatedAtMillis: 3000 },
+      { ...note, id: 'note-b', title: 'Beta', shortId: 'beta', updatedAtMillis: 2000 },
+      { ...note, id: 'note-c', title: 'Gamma', shortId: 'gamma', updatedAtMillis: 1000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: noteId === 'note-a' ? 'Alpha' : noteId === 'note-b' ? 'Beta' : 'Gamma',
+            content: `# ${noteId}`,
+          },
+        })),
+      },
+    });
+
+    renderHome(api);
+    await screen.findByDisplayValue('Alpha');
+    fireEvent.click(await screen.findByRole('button', { name: 'Beta' }));
+    await screen.findByDisplayValue('Beta');
+    fireEvent.click(await screen.findByRole('button', { name: 'Gamma' }));
+    await screen.findByDisplayValue('Gamma');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByDisplayValue('Beta')).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: ']', metaKey: true });
+    expect(await screen.findByDisplayValue('Gamma')).toBeInTheDocument();
+  });
+
   it('focuses workspace note search with Cmd+Shift+F', async () => {
     const api = createApi();
 

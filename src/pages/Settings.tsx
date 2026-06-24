@@ -63,6 +63,8 @@ const shortcutDefinitions: ShortcutDefinition[] = [
   { type: 'custom', id: 'last-tab', action: 'Go to Last Tab', keys: ['⌘', '9'] },
   { type: 'action', actionId: 'focus-previous-tab' },
   { type: 'action', actionId: 'focus-next-tab' },
+  { type: 'action', actionId: 'navigate-back' },
+  { type: 'action', actionId: 'navigate-forward' },
   { type: 'action', actionId: 'toggle-workspace-rail' },
   { type: 'action', actionId: 'toggle-navigator' },
   { type: 'action', actionId: 'toggle-inspector' },

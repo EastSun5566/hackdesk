@@ -11,11 +11,14 @@ import {
   duplicateActiveNoteTab,
   focusAdjacentTab,
   getActiveTab,
+  getActiveNavigationTarget,
   getPaneActiveTab,
   hydrateNoteWorkspaceLayout,
   moveActiveTabToOtherPane,
+  navigateNoteWorkspace,
   openNoteTab,
   reopenLastClosedTab,
+  selectNoteTab,
   splitActiveTabRight,
   toPersistedNoteWorkspaceLayout,
   updateNoteTabDraft,
@@ -158,6 +161,10 @@ describe('note workspace tabs', () => {
     const hydrated = hydrateNoteWorkspaceLayout('personal', persisted);
 
     expect(hydrated.drafts).toEqual({});
+    expect('backStack' in persisted).toBe(false);
+    expect('forwardStack' in persisted).toBe(false);
+    expect(hydrated.backStack).toEqual([]);
+    expect(hydrated.forwardStack).toEqual([]);
     expect(getActiveTab(hydrated)?.title).toBe('Alpha');
   });
 
@@ -201,5 +208,65 @@ describe('note workspace tabs', () => {
 
     expect(getActiveTab(state)?.title).toBe('B');
     expect(getActiveTab(focusAdjacentTab(state, 'previous'))?.title).toBe('A');
+  });
+
+  it('records the previous active tab when switching tabs', () => {
+    const state = [note({ id: 'a', title: 'A' }), note({ id: 'b', title: 'B' })]
+      .reduce((current, item) => openNoteTab(current, item), createEmptyNoteWorkspaceState('personal'));
+    const paneId = state.panes[0].paneId;
+    const firstTabId = state.panes[0].tabIds[0];
+    const secondTabId = state.panes[0].tabIds[1];
+    const selected = selectNoteTab(state, paneId, firstTabId);
+
+    expect(getActiveTab(selected)?.title).toBe('A');
+    expect(selected.backStack[0]).toEqual({ paneId, tabId: secondTabId });
+    expect(selected.forwardStack).toEqual([]);
+  });
+
+  it('navigates back and forward between focused tab locations', () => {
+    const opened = [note({ id: 'a', title: 'A' }), note({ id: 'b', title: 'B' }), note({ id: 'c', title: 'C' })]
+      .reduce((current, item) => openNoteTab(current, item), createEmptyNoteWorkspaceState('personal'));
+    const paneId = opened.panes[0].paneId;
+    const [firstTabId, secondTabId] = opened.panes[0].tabIds;
+    const selectedA = selectNoteTab(opened, paneId, firstTabId);
+    const selectedB = selectNoteTab(selectedA, paneId, secondTabId);
+
+    const back = navigateNoteWorkspace(selectedB, 'back');
+    expect(getActiveTab(back)?.title).toBe('A');
+    expect(back.forwardStack[0]).toEqual({ paneId, tabId: secondTabId });
+
+    const forward = navigateNoteWorkspace(back, 'forward');
+    expect(getActiveTab(forward)?.title).toBe('B');
+    expect(forward.backStack[0]).toEqual({ paneId, tabId: firstTabId });
+  });
+
+  it('clears forward navigation after opening a new note from a back location', () => {
+    const opened = [note({ id: 'a', title: 'A' }), note({ id: 'b', title: 'B' })]
+      .reduce((current, item) => openNoteTab(current, item), createEmptyNoteWorkspaceState('personal'));
+    const paneId = opened.panes[0].paneId;
+    const firstTabId = opened.panes[0].tabIds[0];
+    const selected = selectNoteTab(opened, paneId, firstTabId);
+    const back = navigateNoteWorkspace(selected, 'back');
+    const next = openNoteTab(back, note({ id: 'c', title: 'C' }));
+
+    expect(getActiveTab(next)?.title).toBe('C');
+    expect(next.forwardStack).toEqual([]);
+  });
+
+  it('skips navigation targets for closed tabs', () => {
+    const opened = [note({ id: 'a', title: 'A' }), note({ id: 'b', title: 'B' }), note({ id: 'c', title: 'C' })]
+      .reduce((current, item) => openNoteTab(current, item), createEmptyNoteWorkspaceState('personal'));
+    const paneId = opened.panes[0].paneId;
+    const [firstTabId, secondTabId, thirdTabId] = opened.panes[0].tabIds;
+    const selectedA = selectNoteTab(opened, paneId, firstTabId);
+    const selectedB = selectNoteTab(selectedA, paneId, secondTabId);
+    const selectedC = selectNoteTab(selectedB, paneId, thirdTabId);
+    const closedB = closeNoteTab(selectedC, secondTabId);
+
+    expect(closedB.backStack.every((target) => target.tabId !== secondTabId)).toBe(true);
+
+    const back = navigateNoteWorkspace(closedB, 'back');
+    expect(getActiveNavigationTarget(back)).toEqual({ paneId, tabId: firstTabId });
+    expect(getActiveTab(back)?.title).toBe('A');
   });
 });

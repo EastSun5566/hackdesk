@@ -65,6 +65,17 @@ describe('useWorkbenchShortcuts', () => {
     expect(handlers.runAction).toHaveBeenCalledWith('toggle-workspace-rail');
   });
 
+  it('routes Cmd+bracket navigation shortcuts through actions', () => {
+    const handlers = createHandlers();
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    fireEvent.keyDown(window, { key: '[', metaKey: true });
+    fireEvent.keyDown(window, { key: ']', metaKey: true });
+
+    expect(handlers.runAction).toHaveBeenNthCalledWith(1, 'navigate-back');
+    expect(handlers.runAction).toHaveBeenNthCalledWith(2, 'navigate-forward');
+  });
+
   it('maps Cmd+9 to the last tab and Cmd+1 to the first tab', () => {
     const handlers = createHandlers();
 

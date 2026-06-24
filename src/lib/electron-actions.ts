@@ -15,6 +15,8 @@ export type ElectronActionContext = {
   openTabCount: number;
   activePaneTabCount: number;
   activePaneTabsToRightCount: number;
+  navigationBackCount: number;
+  navigationForwardCount: number;
   recentlyClosedTabCount: number;
   paneCount: number;
   inspectorCollapsed: boolean;
@@ -91,6 +93,14 @@ function requireTabsToRight(context: ElectronActionContext) {
 
 function requireRecentlyClosedTab(context: ElectronActionContext) {
   return context.recentlyClosedTabCount > 0 ? null : 'No recently closed note tabs.';
+}
+
+function requireNavigationBack(context: ElectronActionContext) {
+  return context.navigationBackCount > 0 ? null : 'No previous note location.';
+}
+
+function requireNavigationForward(context: ElectronActionContext) {
+  return context.navigationForwardCount > 0 ? null : 'No next note location.';
 }
 
 function requireSplitAvailable(context: ElectronActionContext) {
@@ -424,6 +434,28 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     shortcut: '⇧⌘F',
     menuAccelerator: 'Shift+CmdOrCtrl+F',
     getDisabledReason: requireHackmd,
+  },
+  {
+    id: 'navigate-back',
+    label: 'Back',
+    description: 'Go back to the previous note tab location.',
+    keywords: ['back', 'previous', 'navigation'],
+    category: 'navigation',
+    scope: 'editor',
+    shortcut: '⌘[',
+    menuAccelerator: 'CmdOrCtrl+[',
+    getDisabledReason: requireNavigationBack,
+  },
+  {
+    id: 'navigate-forward',
+    label: 'Forward',
+    description: 'Go forward to the next note tab location.',
+    keywords: ['forward', 'next', 'navigation'],
+    category: 'navigation',
+    scope: 'editor',
+    shortcut: '⌘]',
+    menuAccelerator: 'CmdOrCtrl+]',
+    getDisabledReason: requireNavigationForward,
   },
   {
     id: 'go-history',

@@ -239,6 +239,14 @@ describe('Settings page', () => {
     expect(within(navigatorRow as HTMLElement).getByText('⌥')).toBeInTheDocument();
     expect(within(navigatorRow as HTMLElement).getByText('⌘')).toBeInTheDocument();
     expect(within(navigatorRow as HTMLElement).getByText('B')).toBeInTheDocument();
+    const backRow = screen.getByText('Back').closest('div');
+    const forwardRow = screen.getByText('Forward').closest('div');
+    expect(backRow).not.toBeNull();
+    expect(forwardRow).not.toBeNull();
+    expect(within(backRow as HTMLElement).getByText('⌘')).toBeInTheDocument();
+    expect(within(backRow as HTMLElement).getByText('[')).toBeInTheDocument();
+    expect(within(forwardRow as HTMLElement).getByText('⌘')).toBeInTheDocument();
+    expect(within(forwardRow as HTMLElement).getByText(']')).toBeInTheDocument();
     expect(screen.getByText('Close Tab')).toBeInTheDocument();
   });
 

@@ -18,6 +18,7 @@ import {
   getTabPane,
   getVisibleActiveTabs,
   moveActiveTabToOtherPane,
+  navigateNoteWorkspace,
   noteIdentityMatches,
   openNoteTab,
   readNoteWorkspaceLayoutStorage,
@@ -108,6 +109,14 @@ export function useNoteWorkspaceTabs(scopeKey: string) {
     setState(moveActiveTabToOtherPane);
   }, []);
 
+  const navigateBack = useCallback(() => {
+    setState((current) => navigateNoteWorkspace(current, 'back'));
+  }, []);
+
+  const navigateForward = useCallback(() => {
+    setState((current) => navigateNoteWorkspace(current, 'forward'));
+  }, []);
+
   const focusNextPane = useCallback(() => {
     setState((current) => focusAdjacentPane(current, 'next'));
   }, []);
@@ -169,6 +178,8 @@ export function useNoteWorkspaceTabs(scopeKey: string) {
     duplicateActiveTab,
     splitActiveTab,
     moveActiveTabToOtherPane: moveActiveTabToOtherPaneAction,
+    navigateBack,
+    navigateForward,
     focusNextPane,
     focusPreviousPane,
     focusNextTab,

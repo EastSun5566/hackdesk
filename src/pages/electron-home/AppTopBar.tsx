@@ -1,4 +1,4 @@
-import { FolderTree, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { ArrowLeft, ArrowRight, FolderTree, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { ToolbarIconButton } from './interaction-primitives';
@@ -14,13 +14,17 @@ function TopBarIconButton({
   expanded,
   label,
   onClick,
+  disabled,
+  tooltip,
 }: {
   actionId: ElectronActionId;
   children: ReactNode;
   controls?: string;
+  disabled?: boolean;
   expanded?: boolean;
   label: string;
   onClick: () => void;
+  tooltip?: ReactNode;
 }) {
   return (
     <ToolbarIconButton
@@ -28,7 +32,9 @@ function TopBarIconButton({
       onClick={onClick}
       aria-controls={controls}
       aria-expanded={expanded}
+      disabled={disabled}
       label={label}
+      tooltip={tooltip}
       className="app-topbar-button app-region-no-drag h-7 w-7 rounded-[6px]"
     >
       {children}
@@ -38,10 +44,8 @@ function TopBarIconButton({
 
 export function AppTopBar({
   activeTab,
-  canMoveToOtherPane,
-  canReopenLastClosedTab,
-  canSplit,
   getTabSyncState,
+  navigation,
   onCloseOtherTabs,
   onCloseTab,
   onCloseTabsToRight,
@@ -49,6 +53,7 @@ export function AppTopBar({
   onReopenLastClosedTab,
   onSelectTab,
   onSplitPane,
+  paneActions,
   navigatorCollapsed,
   navigatorPanelId,
   railCollapsed,
@@ -58,10 +63,13 @@ export function AppTopBar({
   onToggleRail,
 }: {
   activeTab: OpenNoteTab | null;
-  canMoveToOtherPane: boolean;
-  canReopenLastClosedTab: boolean;
-  canSplit: boolean;
   getTabSyncState: (tab: OpenNoteTab) => DocumentSyncState;
+  navigation: {
+    canGoBack: boolean;
+    canGoForward: boolean;
+    onBack: () => void;
+    onForward: () => void;
+  };
   onCloseOtherTabs: (tabId: string) => void;
   onCloseTab: (tabId: string) => void;
   onCloseTabsToRight: (tabId: string) => void;
@@ -69,6 +77,11 @@ export function AppTopBar({
   onReopenLastClosedTab: () => void;
   onSelectTab: (tabId: string) => void;
   onSplitPane: () => void;
+  paneActions: {
+    canMoveToOtherPane: boolean;
+    canReopenLastClosedTab: boolean;
+    canSplit: boolean;
+  };
   navigatorCollapsed: boolean;
   navigatorPanelId: string;
   railCollapsed: boolean;
@@ -98,12 +111,30 @@ export function AppTopBar({
         >
           <FolderTree aria-hidden="true" className="h-[18px] w-[18px]" />
         </TopBarIconButton>
+        <TopBarIconButton
+          actionId="navigate-back"
+          disabled={!navigation.canGoBack}
+          label="Back"
+          tooltip={navigation.canGoBack ? 'Back' : 'No previous note location'}
+          onClick={navigation.onBack}
+        >
+          <ArrowLeft aria-hidden="true" className="h-[18px] w-[18px]" />
+        </TopBarIconButton>
+        <TopBarIconButton
+          actionId="navigate-forward"
+          disabled={!navigation.canGoForward}
+          label="Forward"
+          tooltip={navigation.canGoForward ? 'Forward' : 'No next note location'}
+          onClick={navigation.onForward}
+        >
+          <ArrowRight aria-hidden="true" className="h-[18px] w-[18px]" />
+        </TopBarIconButton>
       </div>
       <DocumentTabs
         activeTab={activeTab}
-        canMoveToOtherPane={canMoveToOtherPane}
-        canReopenLastClosedTab={canReopenLastClosedTab}
-        canSplit={canSplit}
+        canMoveToOtherPane={paneActions.canMoveToOtherPane}
+        canReopenLastClosedTab={paneActions.canReopenLastClosedTab}
+        canSplit={paneActions.canSplit}
         className="h-full"
         getTabSyncState={getTabSyncState}
         onCloseOtherTabs={onCloseOtherTabs}

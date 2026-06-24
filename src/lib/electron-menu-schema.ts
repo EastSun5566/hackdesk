@@ -77,6 +77,8 @@ export const ELECTRON_MENU_SCHEMA: ElectronMenuSchemaSection[] = [
       { type: 'action', actionId: 'search-notes' },
       { type: 'action', actionId: 'refresh' },
       { type: 'action', actionId: 'go-history' },
+      { type: 'action', actionId: 'navigate-back' },
+      { type: 'action', actionId: 'navigate-forward' },
       { type: 'separator' },
       { type: 'action', actionId: 'toggle-workspace-rail' },
       { type: 'action', actionId: 'toggle-navigator' },

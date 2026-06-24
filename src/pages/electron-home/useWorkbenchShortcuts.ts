@@ -108,6 +108,18 @@ export function useWorkbenchShortcuts({
       return;
     }
 
+    if (isPrimaryModifier && !event.altKey && !event.shiftKey && event.key === '[') {
+      event.preventDefault();
+      runAction('navigate-back');
+      return;
+    }
+
+    if (isPrimaryModifier && !event.altKey && !event.shiftKey && event.key === ']') {
+      event.preventDefault();
+      runAction('navigate-forward');
+      return;
+    }
+
     if (isPrimaryModifier && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'b') {
       event.preventDefault();
       runAction('toggle-workspace-rail');

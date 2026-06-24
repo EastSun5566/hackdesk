@@ -28,10 +28,13 @@ function renderTopBar(overrides: Partial<Parameters<typeof AppTopBar>[0]> = {}) 
   });
   const props: Parameters<typeof AppTopBar>[0] = {
     activeTab: firstTab,
-    canMoveToOtherPane: true,
-    canReopenLastClosedTab: true,
-    canSplit: true,
     getTabSyncState: vi.fn(() => 'saved'),
+    navigation: {
+      canGoBack: true,
+      canGoForward: true,
+      onBack: vi.fn(),
+      onForward: vi.fn(),
+    },
     onCloseOtherTabs: vi.fn(),
     onCloseTab: vi.fn(),
     onCloseTabsToRight: vi.fn(),
@@ -39,6 +42,11 @@ function renderTopBar(overrides: Partial<Parameters<typeof AppTopBar>[0]> = {}) 
     onReopenLastClosedTab: vi.fn(),
     onSelectTab: vi.fn(),
     onSplitPane: vi.fn(),
+    paneActions: {
+      canMoveToOtherPane: true,
+      canReopenLastClosedTab: true,
+      canSplit: true,
+    },
     navigatorCollapsed: false,
     navigatorPanelId: 'note-navigator-panel',
     railCollapsed: false,
@@ -64,6 +72,8 @@ describe('AppTopBar', () => {
 
     const sidebarToggle = screen.getByRole('button', { name: 'Collapse workspace sidebar' });
     const navigatorToggle = screen.getByRole('button', { name: 'Collapse note navigator' });
+    const backButton = screen.getByRole('button', { name: 'Back' });
+    const forwardButton = screen.getByRole('button', { name: 'Forward' });
     const firstTab = screen.getByRole('button', { name: 'Select Product Plan tab' });
 
     expect(sidebarToggle).toHaveClass('app-region-no-drag');
@@ -72,6 +82,8 @@ describe('AppTopBar', () => {
     expect(navigatorToggle).toHaveClass('app-region-no-drag');
     expect(navigatorToggle).toHaveAttribute('aria-controls', 'note-navigator-panel');
     expect(navigatorToggle).toHaveAttribute('aria-expanded', 'true');
+    expect(backButton).toHaveClass('app-region-no-drag');
+    expect(forwardButton).toHaveClass('app-region-no-drag');
     expect(firstTab).toHaveClass('app-region-no-drag');
     expect(firstTab.closest('.app-topbar')).toHaveClass('h-10');
     expect(screen.getByRole('button', { name: 'Select Design Spec tab' })).toBeInTheDocument();
@@ -99,6 +111,30 @@ describe('AppTopBar', () => {
 
     expect(navigatorToggle).toHaveAccessibleName('Collapse note navigator');
     expect(await screen.findAllByText('⌥⌘B')).not.toHaveLength(0);
+  });
+
+  it('runs workbench navigation callbacks from the titlebar', () => {
+    const props = renderTopBar();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Forward' }));
+
+    expect(props.navigation.onBack).toHaveBeenCalledOnce();
+    expect(props.navigation.onForward).toHaveBeenCalledOnce();
+  });
+
+  it('keeps disabled navigation buttons visible with stable labels', () => {
+    renderTopBar({
+      navigation: {
+        canGoBack: false,
+        canGoForward: false,
+        onBack: vi.fn(),
+        onForward: vi.fn(),
+      },
+    });
+
+    expect(screen.getByRole('button', { name: 'Back' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Forward' })).toBeDisabled();
   });
 
   it('calls tab select and close callbacks from titlebar tabs', () => {

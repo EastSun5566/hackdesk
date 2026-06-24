@@ -27,6 +27,8 @@ const baseContext: ElectronActionContext = {
   openTabCount: 2,
   activePaneTabCount: 2,
   activePaneTabsToRightCount: 1,
+  navigationBackCount: 1,
+  navigationForwardCount: 1,
   recentlyClosedTabCount: 1,
   paneCount: 1,
   inspectorCollapsed: false,
@@ -88,6 +90,14 @@ describe('electron action registry', () => {
       shortcut: '⇧⌘F',
       menuAccelerator: 'Shift+CmdOrCtrl+F',
     });
+    expect(getElectronAction('navigate-back')).toMatchObject({
+      shortcut: '⌘[',
+      menuAccelerator: 'CmdOrCtrl+[',
+    });
+    expect(getElectronAction('navigate-forward')).toMatchObject({
+      shortcut: '⌘]',
+      menuAccelerator: 'CmdOrCtrl+]',
+    });
     expect(getElectronAction('export-note-markdown')).toMatchObject({
       label: 'Export Note as Markdown',
       menuAccelerator: 'Shift+CmdOrCtrl+E',
@@ -133,6 +143,8 @@ describe('electron action registry', () => {
     expect(getActionShortcutKeys('toggle-navigator')).toEqual(['⌥', '⌘', 'B']);
     expect(splitShortcutKeys('⇧⌘F')).toEqual(['⇧', '⌘', 'F']);
     expect(splitShortcutKeys('⌘\\')).toEqual(['⌘', '\\']);
+    expect(getActionShortcutKeys('navigate-back')).toEqual(['⌘', '[']);
+    expect(getActionShortcutKeys('navigate-forward')).toEqual(['⌘', ']']);
   });
 
   it('keeps the native menu schema linked to registered actions', () => {
@@ -196,6 +208,14 @@ describe('electron action registry', () => {
       ...baseContext,
       recentlyClosedTabCount: 0,
     })).toBe('No recently closed note tabs.');
+    expect(getActionDisabledReason(getElectronAction('navigate-back'), {
+      ...baseContext,
+      navigationBackCount: 0,
+    })).toBe('No previous note location.');
+    expect(getActionDisabledReason(getElectronAction('navigate-forward'), {
+      ...baseContext,
+      navigationForwardCount: 0,
+    })).toBe('No next note location.');
     expect(getActionDisabledReason(getElectronAction('split-pane-right'), {
       ...baseContext,
       paneCount: 2,

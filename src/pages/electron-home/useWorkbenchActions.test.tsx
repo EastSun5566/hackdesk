@@ -32,6 +32,8 @@ function createWorkspaceState(tabs: OpenNoteTab[] = [createTab()]): NoteWorkspac
       size: 100,
       tabIds: tabs.map((tab) => tab.tabId),
     }],
+    backStack: [],
+    forwardStack: [],
     recentlyClosedTabs: [],
     scopeKey: 'personal',
     tabs: tabMap,
@@ -64,6 +66,8 @@ function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): Workb
     goHistory: vi.fn(),
     importMarkdownNote: vi.fn(),
     moveTabToOtherPane: vi.fn(),
+    navigateBack: vi.fn(),
+    navigateForward: vi.fn(),
     openPalette: vi.fn(),
     openSelectedWebEditor: vi.fn(),
     openSettings: vi.fn(),
@@ -160,5 +164,31 @@ describe('useWorkbenchActions', () => {
 
     expect(handlers.saveNote).not.toHaveBeenCalled();
     expect(handlers.findInNote).not.toHaveBeenCalled();
+  });
+
+  it('routes back and forward navigation only when history is available', () => {
+    const handlers = createHandlers();
+    const { result, rerender } = renderHook((props: WorkbenchActionsOptions) => useWorkbenchActions(props), {
+      initialProps: createOptions({ handlers }),
+    });
+
+    result.current.runAction('navigate-back');
+    result.current.runAction('navigate-forward');
+    expect(handlers.navigateBack).not.toHaveBeenCalled();
+    expect(handlers.navigateForward).not.toHaveBeenCalled();
+
+    rerender(createOptions({
+      handlers,
+      workspaceState: {
+        ...createWorkspaceState(),
+        backStack: [{ paneId: 'pane-1', tabId: 'tab-1' }],
+        forwardStack: [{ paneId: 'pane-1', tabId: 'tab-1' }],
+      },
+    }));
+    result.current.runAction('navigate-back');
+    result.current.runAction('navigate-forward');
+
+    expect(handlers.navigateBack).toHaveBeenCalledOnce();
+    expect(handlers.navigateForward).toHaveBeenCalledOnce();
   });
 });

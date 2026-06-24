@@ -617,6 +617,14 @@ export function Home() {
       noteWorkspace.moveActiveTabToOtherPane();
       focusZone('editor');
     },
+    navigateBack: () => {
+      noteWorkspace.navigateBack();
+      focusZone('editor');
+    },
+    navigateForward: () => {
+      noteWorkspace.navigateForward();
+      focusZone('editor');
+    },
     openPalette,
     openSelectedWebEditor: () => openHackmdWebEditor(api, selectedDocument, trackRecentNote),
     openSettings: () => setSettingsOpen(true),
@@ -776,10 +784,13 @@ export function Home() {
     <div className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
       <AppTopBar
         activeTab={activeTitlebarPaneView?.activeTab ?? null}
-        canMoveToOtherPane={noteWorkspace.state.panes.length > 1}
-        canReopenLastClosedTab={noteWorkspace.state.recentlyClosedTabs.length > 0}
-        canSplit={noteWorkspace.state.panes.length < 2}
         getTabSyncState={getTabSyncState}
+        navigation={{
+          canGoBack: noteWorkspace.state.backStack.length > 0,
+          canGoForward: noteWorkspace.state.forwardStack.length > 0,
+          onBack: noteWorkspace.navigateBack,
+          onForward: noteWorkspace.navigateForward,
+        }}
         onCloseOtherTabs={(tabId) => {
           if (activeTitlebarPane) {
             void requestCloseOtherTabs(activeTitlebarPane.paneId, tabId);
@@ -801,6 +812,11 @@ export function Home() {
           }
         }}
         onSplitPane={noteWorkspace.splitActiveTab}
+        paneActions={{
+          canMoveToOtherPane: noteWorkspace.state.panes.length > 1,
+          canReopenLastClosedTab: noteWorkspace.state.recentlyClosedTabs.length > 0,
+          canSplit: noteWorkspace.state.panes.length < 2,
+        }}
         navigatorCollapsed={navigatorCollapsed}
         navigatorPanelId={NOTE_NAVIGATOR_PANEL_ID}
         railCollapsed={railCollapsed}

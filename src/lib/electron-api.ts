@@ -215,6 +215,8 @@ export type ElectronActionId =
   | 'toggle-reader-mode'
   | 'refresh'
   | 'search-notes'
+  | 'navigate-back'
+  | 'navigate-forward'
   | 'export-debug-logs'
   | 'go-history'
   | 'focus-workspace'
