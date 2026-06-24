@@ -13,7 +13,6 @@ import {
 } from '@/lib/electron-actions';
 
 import type { NoteWorkspaceState } from './note-workspace';
-import type { ReaderMode } from './ui-preferences';
 import type { WorkspaceScope } from './types';
 
 export type WorkbenchActionContextInput = {
@@ -24,7 +23,6 @@ export type WorkbenchActionContextInput = {
   isSavingNote: boolean;
   navigatorCollapsed: boolean;
   noteDirty: boolean;
-  readerMode: ReaderMode;
   scopeType: WorkspaceScope['type'];
   selectedFolderId: string | null;
   selectedNoteId: string | null;
@@ -68,7 +66,6 @@ export type WorkbenchActionHandlers = {
   splitPaneRight: () => void;
   toggleInspector: () => void;
   toggleNavigator: () => void;
-  toggleReaderMode: () => void;
   toggleTheme: () => void;
   toggleWorkspaceRail: () => void;
 };
@@ -86,7 +83,6 @@ export function createWorkbenchActionContext({
   isSavingNote,
   navigatorCollapsed,
   noteDirty,
-  readerMode,
   scopeType,
   selectedFolderId,
   selectedNoteId,
@@ -110,7 +106,6 @@ export function createWorkbenchActionContext({
     navigationForwardCount: workspaceState.forwardStack.length,
     openTabCount: Object.keys(workspaceState.tabs).length,
     paneCount: workspaceState.panes.length,
-    readerMode,
     recentlyClosedTabCount: workspaceState.recentlyClosedTabs.length,
     scopeType,
     selectedFolderId,
@@ -130,7 +125,6 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     isSavingNote,
     navigatorCollapsed,
     noteDirty,
-    readerMode,
     scopeType,
     selectedFolderId,
     selectedNoteId,
@@ -145,7 +139,6 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     isSavingNote,
     navigatorCollapsed,
     noteDirty,
-    readerMode,
     scopeType,
     selectedFolderId,
     selectedNoteId,
@@ -159,7 +152,6 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     isSavingNote,
     navigatorCollapsed,
     noteDirty,
-    readerMode,
     scopeType,
     selectedFolderId,
     selectedNoteId,
@@ -231,9 +223,6 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'toggle-inspector':
       handlers.toggleInspector();
-      break;
-    case 'toggle-reader-mode':
-      handlers.toggleReaderMode();
       break;
     case 'save-note':
       handlers.saveNote();

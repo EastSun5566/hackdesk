@@ -83,7 +83,6 @@ export const ELECTRON_MENU_SCHEMA: ElectronMenuSchemaSection[] = [
       { type: 'action', actionId: 'toggle-workspace-rail' },
       { type: 'action', actionId: 'toggle-navigator' },
       { type: 'action', actionId: 'toggle-inspector' },
-      { type: 'action', actionId: 'toggle-reader-mode' },
       { type: 'separator' },
       { type: 'action', actionId: 'split-pane-right' },
       { type: 'action', actionId: 'move-tab-to-other-pane' },

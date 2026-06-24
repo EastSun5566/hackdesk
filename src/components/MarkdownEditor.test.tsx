@@ -1,204 +1,111 @@
 import { createRef } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor';
 
-const openSearchPanelMock = vi.hoisted(() => vi.fn());
-
-vi.mock('@codemirror/autocomplete', () => ({
-  closeBrackets: () => ({}),
-  closeBracketsKeymap: [],
-}));
-
-vi.mock('@codemirror/commands', () => ({
-  defaultKeymap: [],
-  history: () => ({}),
-  historyKeymap: [],
-  indentWithTab: {},
-}));
-
-vi.mock('@codemirror/lang-markdown', () => ({
-  markdown: () => ({}),
-}));
-
-vi.mock('@codemirror/language', () => ({
-  bracketMatching: () => ({}),
-  defaultHighlightStyle: {},
-  foldGutter: () => ({}),
-  foldKeymap: [],
-  HighlightStyle: {
-    define: () => ({}),
-  },
-  indentOnInput: () => ({}),
-  syntaxHighlighting: () => ({}),
-}));
-
-vi.mock('@codemirror/search', () => ({
-  highlightSelectionMatches: () => ({}),
-  openSearchPanel: openSearchPanelMock,
-  searchKeymap: [],
-}));
-
-vi.mock('@codemirror/state', () => ({
-  EditorState: {
-    create: ({ doc, extensions }: { doc: string; extensions: unknown[] }) => ({
-      doc: {
-        length: doc.length,
-        toString: () => doc,
-      },
-      extensions,
-    }),
-  },
-}));
-
-vi.mock('@codemirror/view', () => {
-  class MockEditorView {
-    static updateListener = {
-      of: (listener: (update: { docChanged: boolean; state: { doc: { toString: () => string } } }) => void) => ({
-        type: 'updateListener',
-        listener,
-      }),
-    };
-
-    static theme = () => ({});
-
-    state: { doc: { length: number; toString: () => string }; extensions: unknown[] };
-    private readonly listeners: Array<(update: { docChanged: boolean; state: MockEditorView['state'] }) => void>;
-    private readonly textarea: HTMLTextAreaElement;
-
-    constructor({
-      parent,
-      state,
-    }: {
-      parent: HTMLElement;
-      state: MockEditorView['state'];
-    }) {
-      this.state = state;
-      this.listeners = state.extensions
-        .filter((extension): extension is { type: 'updateListener'; listener: MockEditorView['listeners'][number] } => (
-          typeof extension === 'object'
-          && extension !== null
-          && 'type' in extension
-          && extension.type === 'updateListener'
-          && 'listener' in extension
-          && typeof extension.listener === 'function'
-        ))
-        .map((extension) => extension.listener);
-      this.textarea = document.createElement('textarea');
-      this.textarea.ariaLabel = 'markdown-editor';
-      this.textarea.value = this.state.doc.toString();
-      this.textarea.addEventListener('input', () => {
-        this.applyValue(this.textarea.value, true);
-      });
-      parent.appendChild(this.textarea);
-    }
-
-    dispatch({ changes }: { changes: { insert: string } }) {
-      this.applyValue(changes.insert, false);
-    }
-
-    focus() {}
-
-    destroy() {
-      this.textarea.remove();
-    }
-
-    private applyValue(value: string, notify: boolean) {
-      this.state = {
-        ...this.state,
-        doc: {
-          length: value.length,
-          toString: () => value,
-        },
-      };
-      this.textarea.value = value;
-
-      if (notify) {
-        this.listeners.forEach((listener) => listener({ docChanged: true, state: this.state }));
-      }
-    }
-  }
-
-  return {
-    crosshairCursor: () => ({}),
-    drawSelection: () => ({}),
-    dropCursor: () => ({}),
-    EditorView: MockEditorView,
-    highlightActiveLine: () => ({}),
-    highlightActiveLineGutter: () => ({}),
-    keymap: { of: () => ({}) },
-    lineNumbers: () => ({}),
-    rectangularSelection: () => ({}),
-  };
-});
-
-vi.mock('@lezer/highlight', () => {
-  const tag = {};
-
-  return {
-    tags: {
-      atom: tag,
-      bool: tag,
-      comment: tag,
-      contentSeparator: tag,
-      definition: () => tag,
-      emphasis: tag,
-      heading: tag,
-      heading1: tag,
-      heading2: tag,
-      heading3: tag,
-      invalid: tag,
-      keyword: tag,
-      link: tag,
-      list: tag,
-      meta: tag,
-      monospace: tag,
-      number: tag,
-      propertyName: tag,
-      quote: tag,
-      string: tag,
-      strikethrough: tag,
-      strong: tag,
-      url: tag,
-      variableName: tag,
-    },
-  };
-});
+const hfmSample = [
+  '---',
+  'title: Live Preview',
+  'tags: [hackmd, editor]',
+  '---',
+  '',
+  '# Heading',
+  '',
+  '**Strong** and *em* and ~~strike~~ and `code`.',
+  '',
+  '> [!note]',
+  '> HackMD callout stays editable.',
+  '',
+  ':::warning',
+  'Container fallback stays raw.',
+  ':::',
+  '',
+  '- [ ] Task',
+  '- [x] Done',
+  '',
+  '![Alt](https://example.com/image.png =320x180)',
+  '',
+  '```ts=10 [12-13]',
+  'const value = 1;',
+  '```',
+  '',
+  'Footnote[^1], ==mark==, ++inserted++, H~2~O, x^2^, {ruby|rt}.',
+  '',
+  '[^1]: footnote text',
+].join('\n');
 
 describe('MarkdownEditor', () => {
-  it('writes editor changes back to React state', async () => {
+  it('mounts a single CodeMirror editor with raw markdown as the source', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+
+    render(<MarkdownEditor ref={ref} value="# Hello" onChange={vi.fn()} />);
+
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe('# Hello'));
+    expect(editor.querySelector('.cm-content')).toHaveTextContent('# Hello');
+  });
+
+  it('writes imperative editor changes back to React state without converting markdown', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
     const onChange = vi.fn();
 
-    render(<MarkdownEditor value="# Hello" onChange={onChange} />);
+    render(<MarkdownEditor ref={ref} value="# Hello" onChange={onChange} />);
+    await waitFor(() => expect(ref.current).not.toBeNull());
 
-    const editor = await screen.findByLabelText('markdown-editor');
-    expect(editor).toHaveValue('# Hello');
+    act(() => {
+      ref.current?.insertText('Intro\n');
+    });
 
-    fireEvent.input(editor, { target: { value: '# Updated' } });
-
-    expect(onChange).toHaveBeenCalledWith('# Updated');
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith('Intro\n# Hello'));
+    expect(ref.current?.getMarkdown()).toBe('Intro\n# Hello');
   });
 
   it('syncs external value changes into the editor', async () => {
-    const { rerender } = render(<MarkdownEditor value="# First" onChange={vi.fn()} />);
+    const ref = createRef<MarkdownEditorHandle>();
+    const { rerender } = render(<MarkdownEditor ref={ref} value="# First" onChange={vi.fn()} />);
 
-    const editor = await screen.findByLabelText('markdown-editor');
-    expect(editor).toHaveValue('# First');
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe('# First'));
 
-    rerender(<MarkdownEditor value="# Second" onChange={vi.fn()} />);
+    rerender(<MarkdownEditor ref={ref} value="# Second" onChange={vi.fn()} />);
 
-    expect(editor).toHaveValue('# Second');
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe('# Second'));
   });
 
   it('opens CodeMirror search through the imperative handle', async () => {
     const ref = createRef<MarkdownEditorHandle>();
 
     render(<MarkdownEditor ref={ref} value="# First" onChange={vi.fn()} />);
-    await screen.findByLabelText('markdown-editor');
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
 
-    ref.current?.openSearch();
+    act(() => {
+      ref.current?.openSearch();
+    });
 
-    expect(openSearchPanelMock).toHaveBeenCalledOnce();
+    await waitFor(() => expect(editor.querySelector('.cm-search')).not.toBeNull());
+  });
+
+  it('hides common markdown syntax on inactive lines while preserving source text', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+
+    render(<MarkdownEditor ref={ref} value={'# Heading\n\n**Bold**'} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe('# Heading\n\n**Bold**'));
+    await waitFor(() => {
+      const text = editor.querySelector('.cm-content')?.textContent ?? '';
+      expect(text).toContain('# Heading');
+      expect(text).toContain('Bold');
+      expect(text).not.toContain('**Bold**');
+    });
+  });
+
+  it('keeps HackMD-flavored markdown fixtures editable even when live preview cannot render every extension', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+
+    render(<MarkdownEditor ref={ref} value={hfmSample} onChange={vi.fn()} />);
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(hfmSample));
   });
 });

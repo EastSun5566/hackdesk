@@ -5,7 +5,6 @@ import {
   INSPECTOR_COLLAPSED_KEY,
   NAVIGATOR_COLLAPSED_KEY,
   NAVIGATOR_WIDTH_KEY,
-  READER_MODE_KEY,
   RAIL_COLLAPSED_KEY,
   RAIL_WIDTH_KEY,
 } from './ui-preferences';
@@ -16,18 +15,15 @@ describe('useWorkbenchPanelState', () => {
     window.localStorage.clear();
   });
 
-  it('persists reader mode and panel collapsed state', () => {
+  it('persists panel collapsed state', () => {
     const { result } = renderHook(() => useWorkbenchPanelState());
 
     act(() => {
-      result.current.setReaderMode('read');
       result.current.toggleInspectorCollapsed();
       result.current.toggleRailCollapsed();
       result.current.toggleNavigatorCollapsed();
     });
 
-    expect(result.current.readerMode).toBe('read');
-    expect(window.localStorage.getItem(READER_MODE_KEY)).toBe('read');
     expect(window.localStorage.getItem(INSPECTOR_COLLAPSED_KEY)).toBe('false');
     expect(window.localStorage.getItem(RAIL_COLLAPSED_KEY)).toBe('true');
     expect(window.localStorage.getItem(NAVIGATOR_COLLAPSED_KEY)).toBe('true');

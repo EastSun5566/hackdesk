@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/MarkdownEditor';
-import { MarkdownReader } from '@/components/MarkdownReader';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,7 +40,6 @@ import {
 } from './ui';
 import {
   INSPECTOR_WIDTH_DEFAULT,
-  type ReaderMode,
 } from './ui-preferences';
 
 const NOTE_INSPECTOR_PANEL_ID = 'note-inspector-panel';
@@ -60,7 +58,6 @@ export type DocumentDetailLayout = {
   focusZone?: string;
   inspectorCollapsed: boolean;
   inspectorPanelId?: string;
-  readerMode: ReaderMode;
   searchRequestId: number;
   shareOpen: boolean;
 };
@@ -81,7 +78,6 @@ export type DocumentDetailActions = {
   onExportMarkdown: (document: DocumentSummary, title: string, content: string) => void;
   onOpenEditor: (document: DocumentSummary) => void;
   onOpenExternal: (url: string) => void;
-  onReaderModeChange: (mode: ReaderMode) => void;
   onSave: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveSharing: (document: DocumentSummary, input: UpdateNoteInput) => void;
@@ -278,9 +274,8 @@ function ActiveDocumentDetail({
 
       <div className="flex min-h-0 flex-1">
         <DocumentBody
-          actions={actions}
           content={documentState.content}
-          readerMode={layout.readerMode}
+          onContentChange={actions.onContentChange}
           setEditorRef={setEditorRef}
         />
         <InspectorPanel
@@ -334,19 +329,17 @@ function DocumentHeader({
     <PanelHeader
       className="px-4 py-2.5"
       titleElement="div"
-      title={layout.readerMode === 'read'
-        ? <div className="truncate text-lg font-semibold">{documentState.title || 'Untitled'}</div>
-        : (
-          <label>
-            <span className="sr-only">Note title</span>
-            <input
-              name="title"
-              value={documentState.title}
-              onChange={(event) => actions.onTitleChange(event.target.value)}
-              className="w-full truncate bg-transparent text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
-            />
-          </label>
-        )}
+      title={(
+        <label>
+          <span className="sr-only">Note title</span>
+          <input
+            name="title"
+            value={documentState.title}
+            onChange={(event) => actions.onTitleChange(event.target.value)}
+            className="w-full truncate bg-transparent text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
+          />
+        </label>
+      )}
       subtitle={(
         <span className="flex flex-wrap items-center gap-2">
           <span className="tabular-nums">{formatDate(documentState.document.updatedAtMillis)}</span>
@@ -359,10 +352,6 @@ function DocumentHeader({
       actions={(
         <>
           <SyncStateBadge state={documentState.syncState} />
-          <ReaderModeControl
-            readerMode={layout.readerMode}
-            onReaderModeChange={actions.onReaderModeChange}
-          />
           <ToolbarIconButton
             actionId="save-note"
             disabled={status.saving || !noteDirty}
@@ -394,41 +383,6 @@ function DocumentHeader({
         </>
       )}
     />
-  );
-}
-
-function ReaderModeControl({
-  readerMode,
-  onReaderModeChange,
-}: {
-  readerMode: ReaderMode;
-  onReaderModeChange: (mode: ReaderMode) => void;
-}) {
-  return (
-    <div className="inline-flex rounded-md border border-border-default bg-background-default p-0.5" aria-label="View mode">
-      <button
-        type="button"
-        onClick={() => onReaderModeChange('read')}
-        aria-pressed={readerMode === 'read'}
-        className={cn(
-          'h-8 rounded-[5px] px-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default',
-          readerMode === 'read' ? 'bg-background-selected text-text-default' : 'text-text-subtle hover:text-text-default',
-        )}
-      >
-        View
-      </button>
-      <button
-        type="button"
-        onClick={() => onReaderModeChange('edit')}
-        aria-pressed={readerMode === 'edit'}
-        className={cn(
-          'h-8 rounded-[5px] px-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default',
-          readerMode === 'edit' ? 'bg-background-selected text-text-default' : 'text-text-subtle hover:text-text-default',
-        )}
-      >
-        Edit
-      </button>
-    </div>
   );
 }
 
@@ -486,20 +440,16 @@ function DocumentActionsMenu({
 }
 
 function DocumentBody({
-  actions,
   content,
-  readerMode,
+  onContentChange,
   setEditorRef,
 }: {
-  actions: DocumentDetailActions;
   content: string;
-  readerMode: ReaderMode;
+  onContentChange: (content: string) => void;
   setEditorRef: (handle: MarkdownEditorHandle | null) => void;
 }) {
-  return readerMode === 'read' ? (
-    <MarkdownReader value={content} onOpenExternal={actions.onOpenExternal} />
-  ) : (
-    <MarkdownEditor ref={setEditorRef} value={content} onChange={actions.onContentChange} />
+  return (
+    <MarkdownEditor ref={setEditorRef} value={content} onChange={onContentChange} />
   );
 }
 

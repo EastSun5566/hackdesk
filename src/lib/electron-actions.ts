@@ -22,7 +22,6 @@ export type ElectronActionContext = {
   inspectorCollapsed: boolean;
   navigatorCollapsed: boolean;
   workspaceRailCollapsed: boolean;
-  readerMode: 'read' | 'edit';
 };
 
 export type ElectronActionWhen = (context: ElectronActionContext) => boolean;
@@ -401,16 +400,6 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     category: 'view',
     scope: 'inspector',
     shortcut: '⌥I',
-    getDisabledReason: requireSelectedNote,
-  },
-  {
-    id: 'toggle-reader-mode',
-    label: 'Toggle View Mode',
-    description: 'Switch between viewing and editing the selected note.',
-    keywords: ['read', 'preview', 'edit', 'markdown'],
-    category: 'view',
-    scope: 'editor',
-    getLabel: (context) => context.readerMode === 'read' ? 'Switch to Edit Mode' : 'Switch to View Mode',
     getDisabledReason: requireSelectedNote,
   },
   {

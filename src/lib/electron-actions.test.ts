@@ -5,7 +5,6 @@ import {
   getActionDisabledReason,
   getActionShortcut,
   getActionShortcutKeys,
-  getActionLabel,
   getCommandPaletteActions,
   getElectronActionLabel,
   getElectronAction,
@@ -34,7 +33,6 @@ const baseContext: ElectronActionContext = {
   inspectorCollapsed: false,
   navigatorCollapsed: false,
   workspaceRailCollapsed: false,
-  readerMode: 'edit',
 };
 
 describe('electron action registry', () => {
@@ -105,10 +103,6 @@ describe('electron action registry', () => {
     expect(getElectronAction('import-markdown-note')).toMatchObject({
       label: 'Import Markdown Note',
       menuAccelerator: 'Shift+CmdOrCtrl+I',
-    });
-    expect(getElectronAction('toggle-reader-mode')).toMatchObject({
-      label: 'Toggle View Mode',
-      category: 'view',
     });
     expect(getElectronAction('close-tab')).toMatchObject({
       label: 'Close Tab',
@@ -226,14 +220,4 @@ describe('electron action registry', () => {
     })).toBe('Split the editor before moving tabs between panes.');
   });
 
-  it('uses reader mode context for dynamic action labels', () => {
-    expect(getActionLabel(getElectronAction('toggle-reader-mode'), {
-      ...baseContext,
-      readerMode: 'edit',
-    })).toBe('Switch to View Mode');
-    expect(getActionLabel(getElectronAction('toggle-reader-mode'), {
-      ...baseContext,
-      readerMode: 'read',
-    })).toBe('Switch to Edit Mode');
-  });
 });

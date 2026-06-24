@@ -13,6 +13,9 @@ vi.mock('@/components/MarkdownEditor', async () => {
   return {
     MarkdownEditor: React.forwardRef((props: { value: string; onChange: (value: string) => void }, ref) => {
       React.useImperativeHandle(ref, () => ({
+        focus: vi.fn(),
+        getContentDOM: vi.fn(() => null),
+        getMarkdown: vi.fn(() => props.value),
         insertText: vi.fn(),
         openSearch: vi.fn(),
       }));
@@ -27,10 +30,6 @@ vi.mock('@/components/MarkdownEditor', async () => {
     }),
   };
 });
-
-vi.mock('@/components/MarkdownReader', () => ({
-  MarkdownReader: ({ value }: { value: string }) => <article aria-label="Markdown reader">{value}</article>,
-}));
 
 function documentSummary(overrides: Partial<DocumentSummary> = {}): DocumentSummary {
   return {
@@ -69,7 +68,6 @@ function renderDocumentDetail(overrides: Partial<DocumentDetailProps> = {}) {
       onExportMarkdown: vi.fn(),
       onOpenEditor: vi.fn(),
       onOpenExternal: vi.fn(),
-      onReaderModeChange: vi.fn(),
       onSave: vi.fn(),
       onSaveMetadata: vi.fn(),
       onSaveSharing: vi.fn(),
@@ -90,7 +88,6 @@ function renderDocumentDetail(overrides: Partial<DocumentDetailProps> = {}) {
       focusZone: 'editor',
       inspectorCollapsed: true,
       inspectorPanelId: 'inspector-test',
-      readerMode: 'edit',
       searchRequestId: 0,
       shareOpen: false,
     },
@@ -154,22 +151,19 @@ describe('DocumentDetail', () => {
     });
   });
 
-  it('keeps reader/edit mode and inspector actions wired', () => {
-    const onReaderModeChange = vi.fn();
+  it('keeps a single editor surface and inspector actions wired', () => {
     const onToggleInspector = vi.fn();
     renderDocumentDetail({
-      actions: { onReaderModeChange, onToggleInspector },
+      actions: { onToggleInspector },
       layout: {
         inspectorCollapsed: false,
-        readerMode: 'read',
       },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     fireEvent.click(screen.getByRole('button', { name: 'Collapse inspector' }));
 
-    expect(screen.getByLabelText('Markdown reader')).toHaveTextContent('# Hello');
-    expect(onReaderModeChange).toHaveBeenCalledWith('edit');
+    expect(screen.getByLabelText('Markdown editor')).toHaveValue('# Hello');
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
     expect(onToggleInspector).toHaveBeenCalledOnce();
   });
 });

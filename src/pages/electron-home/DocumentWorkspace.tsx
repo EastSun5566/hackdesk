@@ -14,7 +14,6 @@ import { cn } from '@/lib/utils';
 import { DocumentDetail, type DocumentSyncState } from './DocumentDetail';
 import type { NotePane, OpenNoteTab } from './note-workspace';
 import { EmptyState } from './interaction-primitives';
-import type { ReaderMode } from './ui-preferences';
 
 export type DocumentPaneView = {
   pane: NotePane;
@@ -35,7 +34,6 @@ export function DocumentWorkspace({
   panes,
   activePaneId,
   folderTree,
-  readerMode,
   shareOpen,
   isInspectorCollapsed,
   getPaneView,
@@ -55,13 +53,11 @@ export function DocumentWorkspace({
   onTitleChange,
   onContentChange,
   onToggleInspector,
-  onReaderModeChange,
   onShareOpenChange,
 }: {
   panes: NotePane[];
   activePaneId: string;
   folderTree: FolderTree;
-  readerMode: ReaderMode;
   shareOpen: boolean;
   isInspectorCollapsed: boolean;
   getPaneView: (pane: NotePane) => DocumentPaneView;
@@ -81,7 +77,6 @@ export function DocumentWorkspace({
   onTitleChange: (tab: OpenNoteTab, title: string) => void;
   onContentChange: (tab: OpenNoteTab, content: string) => void;
   onToggleInspector: () => void;
-  onReaderModeChange: (mode: ReaderMode) => void;
   onShareOpenChange: (open: boolean) => void;
 }) {
   if (panes.every((pane) => pane.tabIds.length === 0)) {
@@ -139,7 +134,6 @@ export function DocumentWorkspace({
                   layout={{
                     focusZone: isActivePane ? 'editor' : undefined,
                     inspectorPanelId: `note-inspector-panel-${pane.paneId}`,
-                    readerMode,
                     searchRequestId: isActivePane ? editorSearchRequestId : 0,
                     shareOpen: isActivePane && shareOpen,
                     inspectorCollapsed: !isActivePane || isInspectorCollapsed,
@@ -165,7 +159,6 @@ export function DocumentWorkspace({
                     onTitleChange: (title) => view.activeTab && onTitleChange(view.activeTab, title),
                     onContentChange: (content) => view.activeTab && onContentChange(view.activeTab, content),
                     onToggleInspector,
-                    onReaderModeChange,
                     onShareOpenChange,
                   }}
                 />

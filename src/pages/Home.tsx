@@ -129,13 +129,11 @@ export function Home() {
     navigatorWidth,
     railCollapsed,
     railWidth,
-    readerMode,
     bumpEditorSearchRequest,
     expandNavigator,
     setNavigatorCollapsed,
     setNavigatorWidth,
     setRailWidth,
-    setReaderMode,
     toggleInspectorCollapsed,
     toggleNavigatorCollapsed,
     toggleRailCollapsed,
@@ -596,7 +594,6 @@ export function Home() {
       }
     },
     findInNote: () => {
-      setReaderMode('edit');
       bumpEditorSearchRequest();
     },
     focusEditor: () => focusZone('editor'),
@@ -666,7 +663,6 @@ export function Home() {
     },
     toggleInspector: toggleInspectorCollapsed,
     toggleNavigator: toggleNavigatorCollapsed,
-    toggleReaderMode: () => setReaderMode(readerMode === 'read' ? 'edit' : 'read'),
     toggleTheme: () => setTheme(resolvedMode === 'dark' ? 'light' : 'dark'),
     toggleWorkspaceRail: toggleRailCollapsed,
   }), [
@@ -688,7 +684,6 @@ export function Home() {
     noteDirty,
     noteWorkspace,
     openPalette,
-    readerMode,
     refreshWorkspace,
     requestCloseOtherTabs,
     requestCloseTab,
@@ -696,7 +691,6 @@ export function Home() {
     resolvedMode,
     selectedDocument,
     selectedFolder,
-    setReaderMode,
     setSettingsOpen,
     setTheme,
     switchWorkspaceScope,
@@ -716,7 +710,6 @@ export function Home() {
     isSavingNote: mutations.updateNoteMutation.isPending,
     navigatorCollapsed,
     noteDirty,
-    readerMode,
     scopeType: scope.type,
     selectedFolderId,
     selectedNoteId: selectedNote?.id ?? null,
@@ -932,7 +925,6 @@ export function Home() {
           panes={noteWorkspace.state.panes}
           activePaneId={noteWorkspace.state.activePaneId}
           folderTree={folderTree}
-          readerMode={readerMode}
           shareOpen={shareOpen}
           isInspectorCollapsed={inspectorCollapsed}
           getPaneView={getPaneView}
@@ -956,7 +948,6 @@ export function Home() {
           onTitleChange={handleDocumentTitleChange}
           onContentChange={handleDocumentContentChange}
           onToggleInspector={toggleInspectorCollapsed}
-          onReaderModeChange={setReaderMode}
           onShareOpenChange={setShareOpen}
         />
       </main>

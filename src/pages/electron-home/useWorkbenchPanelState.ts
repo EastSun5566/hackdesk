@@ -8,7 +8,6 @@ import {
   NAVIGATOR_WIDTH_KEY,
   NAVIGATOR_WIDTH_MAX,
   NAVIGATOR_WIDTH_MIN,
-  READER_MODE_KEY,
   RAIL_COLLAPSED_KEY,
   RAIL_WIDTH_DEFAULT,
   RAIL_WIDTH_KEY,
@@ -16,11 +15,8 @@ import {
   RAIL_WIDTH_MIN,
   readBooleanStorage,
   readNumberStorage,
-  readReaderModeStorage,
   writeBooleanStorage,
   writeNumberStorage,
-  writeReaderModeStorage,
-  type ReaderMode,
 } from './ui-preferences';
 
 export type WorkbenchPanelState = {
@@ -30,13 +26,11 @@ export type WorkbenchPanelState = {
   navigatorWidth: number;
   railCollapsed: boolean;
   railWidth: number;
-  readerMode: ReaderMode;
   bumpEditorSearchRequest: () => void;
   expandNavigator: () => void;
   setNavigatorCollapsed: Dispatch<SetStateAction<boolean>>;
   setNavigatorWidth: (width: number) => void;
   setRailWidth: (width: number) => void;
-  setReaderMode: (mode: ReaderMode) => void;
   toggleInspectorCollapsed: () => void;
   toggleNavigatorCollapsed: () => void;
   toggleRailCollapsed: () => void;
@@ -48,7 +42,6 @@ function writeNavigatorCollapsed(collapsed: boolean) {
 
 export function useWorkbenchPanelState(): WorkbenchPanelState {
   const [inspectorCollapsed, setInspectorCollapsed] = useState(() => readBooleanStorage(INSPECTOR_COLLAPSED_KEY, true));
-  const [readerMode, setReaderModeState] = useState<ReaderMode>(() => readReaderModeStorage(READER_MODE_KEY, 'edit'));
   const [editorSearchRequestId, setEditorSearchRequestId] = useState(0);
   const [railCollapsed, setRailCollapsed] = useState(() => readBooleanStorage(RAIL_COLLAPSED_KEY, false));
   const [navigatorCollapsed, setNavigatorCollapsedState] = useState(() => readBooleanStorage(NAVIGATOR_COLLAPSED_KEY, false));
@@ -95,11 +88,6 @@ export function useWorkbenchPanelState(): WorkbenchPanelState {
     setNavigatorCollapsed(false);
   }, [setNavigatorCollapsed]);
 
-  const setReaderMode = useCallback((mode: ReaderMode) => {
-    setReaderModeState(mode);
-    writeReaderModeStorage(READER_MODE_KEY, mode);
-  }, []);
-
   const setRailWidth = useCallback((width: number) => {
     setRailWidthState(width);
     writeNumberStorage(RAIL_WIDTH_KEY, width);
@@ -121,13 +109,11 @@ export function useWorkbenchPanelState(): WorkbenchPanelState {
     navigatorWidth,
     railCollapsed,
     railWidth,
-    readerMode,
     bumpEditorSearchRequest,
     expandNavigator,
     setNavigatorCollapsed,
     setNavigatorWidth,
     setRailWidth,
-    setReaderMode,
     toggleInspectorCollapsed,
     toggleNavigatorCollapsed,
     toggleRailCollapsed,
