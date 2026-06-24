@@ -22,8 +22,11 @@ import {
   rectangularSelection,
 } from '@codemirror/view';
 
+import { hackmdCodeLanguages } from './hackmd-code-languages';
+import { hfmBlocks } from './hfm-blocks';
 import { hackmdInlinePreview } from './inline-preview';
 import { hackmdPreviewTheme } from './hackmd-preview-theme';
+import { treeProgressPlugin } from './tree-progress';
 
 export type HackmdMarkdownEditorHandle = {
   focus: () => void;
@@ -52,11 +55,16 @@ const editorExtensions: Extension[] = [
   crosshairCursor(),
   highlightActiveLine(),
   highlightSelectionMatches(),
-  markdown({ base: markdownLanguage }),
+  markdown({
+    base: markdownLanguage,
+    codeLanguages: hackmdCodeLanguages,
+  }),
   markdownLanguage.data.of({
     closeBrackets: { brackets: ['(', '[', '{', "'", '"', '*', '_', '`'] },
   }),
+  treeProgressPlugin,
   hackmdInlinePreview(),
+  hfmBlocks(),
   EditorView.lineWrapping,
   keymap.of([
     indentWithTab,

@@ -3,7 +3,6 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor';
-import { renderHackmdMarkdown } from '@/lib/electron-markdown-renderer';
 
 const hfmFixtures = [
   {
@@ -65,11 +64,92 @@ const hfmFixtures = [
   },
   {
     name: 'emoji and table of contents marker',
-    markdown: ':smile:\n\n[[toc]]',
+    markdown: ':smile: :wink:\n\n[TOC]\n\n[[toc]]',
   },
   {
     name: 'raw html and embed fallback',
     markdown: '<iframe src="https://example.com/embed"></iframe>\n\n<div data-test="raw">Raw HTML</div>',
+  },
+  {
+    name: 'tags heading and blockquote metadata',
+    markdown: [
+      '###### tags: `features` `cool` `updated`',
+      '',
+      '> [name=ChengHan Wu] [time=Sun, Jun 28, 2015 9:59 PM] [color=#907bf7]',
+      '> > Nested blockquote with metadata.',
+    ].join('\n'),
+  },
+  {
+    name: 'code fence line number options',
+    markdown: [
+      '```javascript=101 [102-103]',
+      'console.log("numbered");',
+      '```',
+      '',
+      '```javascript=+',
+      'console.log("continue");',
+      '```',
+      '',
+      '```!',
+      'A very long line should wrap in HackMD.',
+      '```',
+    ].join('\n'),
+  },
+  {
+    name: 'csvpreview and diagram fences',
+    markdown: [
+      '```csvpreview {header="true" delimiter="."}',
+      'firstName.lastName',
+      'Jane.Doe',
+      '```',
+      '',
+      '```mermaid',
+      'graph TD',
+      'A-->B',
+      '```',
+      '',
+      '```plantuml',
+      'start',
+      'stop',
+      '```',
+    ].join('\n'),
+  },
+  {
+    name: 'math blocks and inline math',
+    markdown: [
+      'The Gamma function is $\\Gamma(n) = (n-1)!$.',
+      '',
+      '$$',
+      'x = {-b \\pm \\sqrt{b^2-4ac} \\over 2a}.',
+      '$$',
+    ].join('\n'),
+  },
+  {
+    name: 'HackMD externals',
+    markdown: [
+      '{%youtube 1G4isv_Fylg %}',
+      '{%vimeo 124148255 %}',
+      '{%gist schacon/4277 %}',
+      '{%slideshare briansolis/26-disruptive-technology-trends-2016-2018-56796196 %}',
+      '{%speakerdeck sugarenia/xxlcss-how-to-scale-css-and-keep-your-sanity %}',
+      '{%pdf https://hackmd.io/pdf-sample.pdf %}',
+      '{%figma https://www.figma.com/file/example %}',
+    ].join('\n'),
+  },
+  {
+    name: 'tables links and reference images',
+    markdown: [
+      '| Option | Description |',
+      '| ------: | :---------- |',
+      '| data | path to files |',
+      '',
+      '[link with title](http://nodeca.github.io/pica/demo/ "title text!")',
+      'Autoconverted link https://github.com/nodeca/pica',
+      '',
+      '![Alt text][id]',
+      '',
+      '[id]: https://octodex.github.com/images/dojocat.jpg "The Dojocat"',
+    ].join('\n'),
   },
 ] as const;
 
@@ -198,10 +278,103 @@ describe('MarkdownEditor', () => {
     expect(onChange).toHaveBeenLastCalledWith('Intro\n- [x] Task');
   });
 
+  it('does not crash on multi-line link and image titles', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      '[label](https://example.com "first line',
+      'second line")',
+      '',
+      '![alt](https://example.com/x.png "first',
+      'second")',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+  });
+
+  it('shows a reduced image preview without modifying the source line', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = 'Intro\n![Diagram](https://example.com/diagram.png =320x180)';
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-image-preview img')).not.toBeNull());
+    expect(editor.querySelector('.cm-hackmd-image-preview img')).toHaveAttribute('src', 'https://example.com/diagram.png');
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+  });
+
+  it('labels recognized HFM blocks that are intentionally not rendered inline', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      '```mermaid',
+      'graph TD',
+      'A-->B',
+      '```',
+      '',
+      '{%youtube 1G4isv_Fylg %}',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(editor.querySelectorAll('.cm-hackmd-fallback-block')).toHaveLength(2));
+    expect(editor.querySelector('.cm-hackmd-fallback-block')).toHaveTextContent('mermaid diagram block');
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+  });
+
+  it('keeps HackMD code fence options in the editable source instead of showing a fallback panel', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      '```javascript=101 [102-103]',
+      'const value = 1;',
+      '```',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    expect(editor.querySelector('.cm-hackmd-fallback-block')).toBeNull();
+    expect(editor).not.toHaveTextContent('HackMD code fence options');
+  });
+
+  it('styles JavaScript fenced code through CodeMirror without a reader renderer', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      '```javascript',
+      'const value = "readerless";',
+      '```',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-fenced-code')).not.toBeNull());
+    expect(editor.querySelector('.cm-hackmd-fallback-block')).toBeNull();
+  });
+
+  it('decorates HFM syntax outside the initial active line', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      ...Array.from({ length: 18 }, (_, index) => `Plain line ${index + 1}`),
+      ':::warning',
+      'Late warning container',
+      ':::',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-container-warning')).not.toBeNull());
+  });
+
   it.each(hfmFixtures)('keeps HFM fixture editable and byte-preserved: $name', async ({ markdown }) => {
     const ref = createRef<MarkdownEditorHandle>();
 
-    expect(() => renderHackmdMarkdown(markdown)).not.toThrow();
     render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
 
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));

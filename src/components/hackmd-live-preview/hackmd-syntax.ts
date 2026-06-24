@@ -64,23 +64,59 @@ export const hackmdMarkdownHighlightStyle = HighlightStyle.define([
   },
   {
     tag: tags.comment,
-    color: 'var(--text-subtle)',
+    color: 'var(--code-comment, #6a7a82)',
     fontStyle: 'italic',
   },
   {
-    tag: [tags.keyword, tags.atom, tags.bool],
-    color: 'var(--primary-default)',
+    tag: [
+      tags.keyword,
+      tags.modifier,
+      tags.operatorKeyword,
+      tags.controlKeyword,
+      tags.definitionKeyword,
+      tags.moduleKeyword,
+      tags.self,
+    ],
+    color: 'var(--code-keyword, #c792ea)',
   },
   {
-    tag: [tags.string, tags.number],
-    color: 'var(--success-default)',
+    tag: [tags.string, tags.special(tags.string), tags.character],
+    color: 'var(--code-string, #c3e88d)',
   },
   {
-    tag: [tags.variableName, tags.definition(tags.variableName), tags.propertyName],
-    color: 'var(--text-default)',
+    tag: [tags.number, tags.integer, tags.float, tags.bool, tags.null, tags.atom],
+    color: 'var(--code-number, #f78c6c)',
+  },
+  {
+    tag: [tags.typeName, tags.className, tags.namespace, tags.standard(tags.variableName)],
+    color: 'var(--code-type, #ffcb6b)',
+  },
+  {
+    tag: [tags.function(tags.variableName), tags.function(tags.propertyName), tags.macroName],
+    color: 'var(--code-function, #82aaff)',
+  },
+  {
+    tag: [tags.propertyName, tags.attributeName, tags.definition(tags.propertyName)],
+    color: 'var(--code-property, #82aaff)',
+  },
+  {
+    tag: [tags.regexp, tags.tagName, tags.angleBracket],
+    color: 'var(--code-regexp, #f07178)',
+  },
+  {
+    tag: tags.escape,
+    color: 'var(--code-escape, #89ddff)',
+  },
+  {
+    tag: [tags.operator, tags.punctuation, tags.bracket, tags.squareBracket, tags.paren, tags.brace],
+    color: 'var(--code-operator, #89ddff)',
+  },
+  {
+    tag: [tags.variableName, tags.labelName, tags.definition(tags.variableName), tags.local(tags.variableName)],
+    color: 'var(--code-variable, #eeffff)',
   },
   {
     tag: tags.invalid,
-    color: 'var(--destructive-default)',
+    color: 'var(--code-invalid, #ff5370)',
   },
 ]);

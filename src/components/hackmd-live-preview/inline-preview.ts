@@ -1,10 +1,11 @@
-import { syntaxTree } from '@codemirror/language';
+import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import {
-  RangeSetBuilder,
   StateEffect,
   StateField,
   type EditorState,
   type Extension,
+  type Range,
+  type Text,
 } from '@codemirror/state';
 import {
   Decoration,
@@ -14,6 +15,8 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from '@codemirror/view';
+
+import { treeGrowthEffect } from './tree-progress';
 
 const FREEZE_TAIL_MS = 100;
 
@@ -55,6 +58,8 @@ const inlineMarkClassByNodeName: Record<string, string> = {
   Image: 'cm-hackmd-image',
 };
 
+const linkChildSyntaxNodeNames = new Set(['LinkMark', 'URL', 'LinkTitle']);
+
 const hideableSyntaxNodeNames = new Set([
   'HeaderMark',
   'EmphasisMark',
@@ -68,10 +73,33 @@ const hideableSyntaxNodeNames = new Set([
   'Escape',
 ]);
 
-type PreviewRange = {
+const hfmFenceLanguages = new Set([
+  'csvpreview',
+  'sequence',
+  'flow',
+  'graphviz',
+  'mermaid',
+  'abc',
+  'plantuml',
+  'vega',
+  'fretboard',
+]);
+
+type PreviewRange = Range<Decoration>;
+
+type SyntaxNodeLike = {
   from: number;
+  name: string;
+  node: {
+    parent: SyntaxNodeParentLike | null;
+  };
   to: number;
-  decoration: Decoration;
+};
+
+type SyntaxNodeParentLike = {
+  from: number;
+  name: string;
+  parent: SyntaxNodeParentLike | null;
 };
 
 class BulletWidget extends WidgetType {
@@ -146,12 +174,18 @@ const inlinePreviewPlugin = ViewPlugin.fromClass(
     }
 
     update(update: ViewUpdate) {
+      const treeGrew = update.transactions.some((transaction) =>
+        transaction.effects.some((effect) => effect.is(treeGrowthEffect)),
+      );
+
       if (update.state.field(previewFrozenField)) {
-        this.decorations = update.docChanged ? this.decorations.map(update.changes) : this.decorations;
+        this.decorations = update.docChanged || treeGrew
+          ? buildDecorations(update.state)
+          : this.decorations;
         return;
       }
 
-      if (update.docChanged || update.selectionSet || update.focusChanged) {
+      if (update.docChanged || update.selectionSet || update.focusChanged || treeGrew) {
         this.decorations = buildDecorations(update.state);
       }
     }
@@ -236,15 +270,74 @@ export function hackmdInlinePreview(): Extension {
   ];
 }
 
+function pushReplace(
+  ranges: PreviewRange[],
+  doc: Text,
+  from: number,
+  to: number,
+  spec: Parameters<typeof Decoration.replace>[0] = {},
+) {
+  if (from >= to) {
+    return;
+  }
+
+  const startLine = doc.lineAt(from);
+  if (to <= startLine.to) {
+    ranges.push(Decoration.replace(spec).range(from, to));
+    return;
+  }
+
+  let cursor = from;
+  let firstSegment = true;
+  while (cursor < to) {
+    const line = doc.lineAt(cursor);
+    const segmentTo = Math.min(to, line.to);
+    if (segmentTo > cursor) {
+      ranges.push(Decoration.replace(firstSegment ? spec : {}).range(cursor, segmentTo));
+      firstSegment = false;
+    }
+    cursor = line.to + 1;
+  }
+}
+
 function buildDecorations(state: EditorState): DecorationSet {
   const ranges: PreviewRange[] = [];
   const activeLines = getActiveLines(state);
+  const activeLinkStarts = new Set<number>();
 
   addFrontmatterRanges(state, ranges);
   addHackmdLineSyntaxRanges(state, activeLines, ranges);
 
-  syntaxTree(state).iterate({
+  const tree = ensureSyntaxTree(state, state.doc.length, 200) ?? syntaxTree(state);
+
+  tree.iterate({
     enter(node) {
+      if (node.name === 'FencedCode') {
+        const startLine = state.doc.lineAt(node.from).number;
+        const endLine = state.doc.lineAt(Math.max(node.from, node.to - 1)).number;
+        let fenceIsActive = false;
+        for (let lineNumber = startLine; lineNumber <= endLine; lineNumber += 1) {
+          if (activeLines.has(lineNumber)) {
+            fenceIsActive = true;
+            break;
+          }
+        }
+        if (fenceIsActive) {
+          for (let lineNumber = startLine; lineNumber <= endLine; lineNumber += 1) {
+            activeLines.add(lineNumber);
+          }
+        }
+      }
+
+      if (node.name === 'Link') {
+        for (const range of state.selection.ranges) {
+          if (range.from <= node.to && range.to >= node.from) {
+            activeLinkStarts.add(node.from);
+            break;
+          }
+        }
+      }
+
       const lineClass = lineClassByNodeName[node.name];
       if (lineClass) {
         addLineClass(state, ranges, node.from, node.to, lineClass);
@@ -252,11 +345,7 @@ function buildDecorations(state: EditorState): DecorationSet {
 
       const markClass = inlineMarkClassByNodeName[node.name];
       if (markClass && node.to > node.from) {
-        ranges.push({
-          from: node.from,
-          to: node.to,
-          decoration: Decoration.mark({ class: markClass }),
-        });
+        ranges.push(Decoration.mark({ class: markClass }).range(node.from, node.to));
       }
 
       if (node.name === 'ListMark') {
@@ -270,28 +359,12 @@ function buildDecorations(state: EditorState): DecorationSet {
       }
 
       if (hideableSyntaxNodeNames.has(node.name)) {
-        addHiddenSyntax(state, activeLines, ranges, node.from, node.to, node.name);
+        addHiddenSyntax(state, activeLines, activeLinkStarts, ranges, node);
       }
     },
   });
 
-  ranges.sort((left, right) => {
-    if (left.from !== right.from) {
-      return left.from - right.from;
-    }
-
-    return left.to - right.to;
-  });
-
-  const builder = new RangeSetBuilder<Decoration>();
-  for (const range of ranges) {
-    if (range.to < range.from) {
-      continue;
-    }
-    builder.add(range.from, range.to, range.decoration);
-  }
-
-  return builder.finish();
+  return Decoration.set(ranges, true);
 }
 
 function getActiveLines(state: EditorState): Set<number> {
@@ -322,36 +395,47 @@ function addLineClass(state: EditorState, ranges: PreviewRange[], from: number, 
 
   for (let lineNumber = startLine.number; lineNumber <= endLine.number; lineNumber += 1) {
     const line = state.doc.line(lineNumber);
-    ranges.push({
-      from: line.from,
-      to: line.from,
-      decoration: Decoration.line({ attributes: { class: className } }),
-    });
+    ranges.push(Decoration.line({ attributes: { class: className } }).range(line.from));
   }
 }
 
 function addHiddenSyntax(
   state: EditorState,
   activeLines: Set<number>,
+  activeLinkStarts: Set<number>,
   ranges: PreviewRange[],
-  from: number,
-  to: number,
-  nodeName: string,
+  node: SyntaxNodeLike,
 ) {
+  const { from, to, name } = node;
   if (!isInactiveSingleLineRange(state, activeLines, from, to)) {
-    return;
+    if (!linkChildSyntaxNodeNames.has(name)) {
+      return;
+    }
+  }
+
+  if (linkChildSyntaxNodeNames.has(name)) {
+    let parent = node.node.parent;
+    while (parent && parent.name !== 'Link' && parent.name !== 'Image') {
+      parent = parent.parent;
+    }
+
+    if (parent?.name === 'Link' && activeLinkStarts.has(parent.from)) {
+      return;
+    }
   }
 
   let hideTo = to;
-  if ((nodeName === 'HeaderMark' || nodeName === 'QuoteMark') && state.sliceDoc(to, to + 1) === ' ') {
-    hideTo += 1;
+  if (name === 'HeaderMark' || name === 'QuoteMark') {
+    while (hideTo < state.doc.length && state.sliceDoc(hideTo, hideTo + 1) === ' ') {
+      hideTo += 1;
+    }
   }
 
-  ranges.push({
-    from,
-    to: hideTo,
-    decoration: Decoration.replace({}),
-  });
+  if (name === 'Escape') {
+    hideTo = Math.min(from + 1, to);
+  }
+
+  pushReplace(ranges, state.doc, from, hideTo);
 }
 
 function addListMarker(
@@ -367,11 +451,7 @@ function addListMarker(
 
   const marker = state.sliceDoc(from, to);
   if (marker === '-' || marker === '*' || marker === '+') {
-    ranges.push({
-      from,
-      to,
-      decoration: Decoration.replace({ widget: new BulletWidget() }),
-    });
+    pushReplace(ranges, state.doc, from, to, { widget: new BulletWidget() });
   }
 }
 
@@ -391,12 +471,8 @@ function addTaskMarker(
     return;
   }
 
-  ranges.push({
-    from,
-    to,
-    decoration: Decoration.replace({
-      widget: new TaskCheckboxWidget(marker === '[x]', from, to),
-    }),
+  pushReplace(ranges, state.doc, from, to, {
+    widget: new TaskCheckboxWidget(marker === '[x]', from, to),
   });
 }
 
@@ -410,49 +486,119 @@ function addFrontmatterRanges(state: EditorState, ranges: PreviewRange[]) {
     if (line.text.trim() === '---') {
       for (let frontmatterLine = 1; frontmatterLine <= lineNumber; frontmatterLine += 1) {
         const targetLine = state.doc.line(frontmatterLine);
-        ranges.push({
-          from: targetLine.from,
-          to: targetLine.from,
-          decoration: Decoration.line({ attributes: { class: 'cm-hackmd-frontmatter' } }),
-        });
+        ranges.push(Decoration.line({ attributes: { class: 'cm-hackmd-frontmatter' } }).range(targetLine.from));
       }
       return;
     }
   }
 }
 
+function hasFenceOptions(value: string) {
+  return value.includes('=') || value.includes('!') || value.includes('[');
+}
+
 function addHackmdLineSyntaxRanges(state: EditorState, activeLines: Set<number>, ranges: PreviewRange[]) {
   for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber += 1) {
     const line = state.doc.line(lineNumber);
     const text = line.text;
-    const calloutMatch = text.match(/^>\s*\[!(note|tip|warning|danger|todo)\]/i);
+    const trimmed = text.trim();
+    const calloutMatch = text.match(/^>\s*\[!(note|tip|important|warning|caution|danger|todo)\]/i);
     const containerMatch = text.match(/^:::\s*(info|success|warning|danger|spoiler)\b/i);
+    const fenceMatch = text.match(/^(```|~~~)\s*([A-Za-z0-9_-]+)?(.*)$/);
+    const externalMatch = trimmed.match(/^\{%(youtube|vimeo|gist|slideshare|speakerdeck|pdf|figma)\s+(.+?)\s*%\}$/i);
 
     if (calloutMatch) {
-      ranges.push({
-        from: line.from,
-        to: line.from,
-        decoration: Decoration.line({ attributes: { class: 'cm-hackmd-callout' } }),
-      });
+      const calloutType = calloutMatch[1].toLowerCase();
+      ranges.push(Decoration.line({
+        attributes: { class: `cm-hackmd-callout cm-hackmd-callout-${calloutType}` },
+      }).range(line.from));
       if (!activeLines.has(lineNumber)) {
         const markerStart = text.indexOf('[!');
         const markerText = text.slice(markerStart).match(/^\[![^\]]+\]/)?.[0];
         if (markerStart >= 0 && markerText) {
-          ranges.push({
-            from: line.from + markerStart,
-            to: line.from + markerStart + markerText.length,
-            decoration: Decoration.mark({ class: 'cm-hackmd-strong' }),
-          });
+          ranges.push(Decoration.mark({ class: 'cm-hackmd-strong' }).range(
+            line.from + markerStart,
+            line.from + markerStart + markerText.length,
+          ));
         }
       }
     }
 
     if (containerMatch) {
-      ranges.push({
-        from: line.from,
-        to: line.from,
-        decoration: Decoration.line({ attributes: { class: 'cm-hackmd-container' } }),
-      });
+      ranges.push(Decoration.line({
+        attributes: { class: `cm-hackmd-container cm-hackmd-container-${containerMatch[1].toLowerCase()}` },
+      }).range(line.from));
     }
+
+    if (/^#{6}\s+tags:/i.test(text)) {
+      ranges.push(Decoration.line({ attributes: { class: 'cm-hackmd-tags-line' } }).range(line.from));
+    }
+
+    if (/^\[toc\]$/i.test(trimmed) || trimmed === '[[toc]]') {
+      ranges.push(Decoration.line({ attributes: { class: 'cm-hackmd-toc-line' } }).range(line.from));
+    }
+
+    if (/^\[[^\]]+=[^\]]+\](?:\s+\[[^\]]+=[^\]]+\])*\s*$/.test(trimmed)) {
+      ranges.push(Decoration.line({ attributes: { class: 'cm-hackmd-blockquote-meta' } }).range(line.from));
+    }
+
+    if (/^\|.*\|$/.test(trimmed) || /^:?\s*-{3,}/.test(trimmed)) {
+      ranges.push(Decoration.line({ attributes: { class: 'cm-hackmd-table-line' } }).range(line.from));
+    }
+
+    if (trimmed === '$$') {
+      ranges.push(Decoration.line({ attributes: { class: 'cm-hackmd-math-block-line' } }).range(line.from));
+    }
+
+    if (externalMatch) {
+      ranges.push(Decoration.line({
+        attributes: { class: `cm-hackmd-external-line cm-hackmd-external-${externalMatch[1].toLowerCase()}` },
+      }).range(line.from));
+    }
+
+    if (fenceMatch) {
+      const lang = (fenceMatch[2] ?? '').toLowerCase();
+      const meta = fenceMatch[3] ?? '';
+      if (hfmFenceLanguages.has(lang)) {
+        ranges.push(Decoration.line({ attributes: { class: `cm-hackmd-hfm-fence cm-hackmd-hfm-fence-${lang}` } }).range(line.from));
+      } else if (hasFenceOptions(meta) || /[=!]$/.test(lang)) {
+        ranges.push(Decoration.line({ attributes: { class: 'cm-hackmd-code-fence-options' } }).range(line.from));
+      }
+    }
+
+    addHackmdInlineSyntaxRanges(line.from, text, ranges);
+  }
+}
+
+function addHackmdInlineSyntaxRanges(lineFrom: number, text: string, ranges: PreviewRange[]) {
+  addRegexMarks(lineFrom, text, ranges, /==([^=\n]+)==/g, 'cm-hackmd-mark');
+  addRegexMarks(lineFrom, text, ranges, /\+\+([^+\n]+)\+\+/g, 'cm-hackmd-insert');
+  addRegexMarks(lineFrom, text, ranges, /(?<!\w)~([^~\s][^~\n]*?)~/g, 'cm-hackmd-subscript');
+  addRegexMarks(lineFrom, text, ranges, /\^([^^\s][^^\n]*?)\^/g, 'cm-hackmd-superscript');
+  addRegexMarks(lineFrom, text, ranges, /\{[^{}\n|]+\|[^{}\n|]+\}/g, 'cm-hackmd-ruby');
+  addRegexMarks(lineFrom, text, ranges, /\[\^[-\w]+\]/g, 'cm-hackmd-footnote-ref');
+  addRegexMarks(lineFrom, text, ranges, /^\s*\[\^[-\w]+\]:/g, 'cm-hackmd-footnote-def');
+  addRegexMarks(lineFrom, text, ranges, /^\*\[[^\]\n]+\]:/g, 'cm-hackmd-abbr-def');
+  addRegexMarks(lineFrom, text, ranges, /:[A-Za-z0-9_+-]+:/g, 'cm-hackmd-emoji');
+  addRegexMarks(lineFrom, text, ranges, /^\s*:\s+.+$/g, 'cm-hackmd-definition-line');
+  addRegexMarks(lineFrom, text, ranges, /^\s*~\s+.+$/g, 'cm-hackmd-definition-line');
+}
+
+function addRegexMarks(
+  lineFrom: number,
+  text: string,
+  ranges: PreviewRange[],
+  pattern: RegExp,
+  className: string,
+) {
+  for (const match of text.matchAll(pattern)) {
+    if (match.index === undefined || match[0].length === 0) {
+      continue;
+    }
+
+    ranges.push(Decoration.mark({ class: className }).range(
+      lineFrom + match.index,
+      lineFrom + match.index + match[0].length,
+    ));
   }
 }
