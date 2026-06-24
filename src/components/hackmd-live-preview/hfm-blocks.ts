@@ -11,21 +11,12 @@ import {
   type DecorationSet,
 } from '@codemirror/view';
 
+import {
+  getFenceFallback,
+  getLineFallback,
+  parseMarkdownImage,
+} from './hfm-recognizers';
 import { treeGrowthEffect } from './tree-progress';
-
-type ImageBlock = {
-  alt: string;
-  height?: number;
-  lineTo: number;
-  src: string;
-  width?: number;
-};
-
-type FallbackBlock = {
-  description: string;
-  lineTo: number;
-  title: string;
-};
 
 class ImagePreviewWidget extends WidgetType {
   constructor(
@@ -150,75 +141,6 @@ class HfmFallbackWidget extends WidgetType {
   ignoreEvent(event: Event): boolean {
     return event.type === 'mousedown' || event.type === 'click' || event.type === 'keydown';
   }
-}
-
-function parseMarkdownImage(lineText: string, lineTo: number): ImageBlock | null {
-  const match = lineText.trim().match(/^!\[([^\]]*)\]\((\S+?)(?:\s+=([0-9]+)?x?([0-9]+)?)?(?:\s+["'][^)]*["'])?\)$/);
-  if (!match) {
-    return null;
-  }
-
-  const [, alt, src, width, height] = match;
-  if (!src || /^(?:javascript|file|data|blob):/i.test(src)) {
-    return null;
-  }
-
-  return {
-    alt,
-    src,
-    lineTo,
-    width: width ? Number.parseInt(width, 10) : undefined,
-    height: height ? Number.parseInt(height, 10) : undefined,
-  };
-}
-
-function getFenceFallback(lineText: string, lineTo: number): FallbackBlock | null {
-  const match = lineText.match(/^(```|~~~)\s*([A-Za-z0-9_-]+)(.*)$/);
-  if (!match) {
-    return null;
-  }
-
-  const lang = match[2].toLowerCase();
-  if (lang === 'csvpreview') {
-    return {
-      lineTo,
-      title: 'CSV preview block',
-      description: 'Recognized HackMD CSV preview syntax. Rendering stays in raw markdown for now.',
-    };
-  }
-
-  if (['sequence', 'flow', 'graphviz', 'mermaid', 'abc', 'plantuml', 'vega', 'fretboard'].includes(lang)) {
-    return {
-      lineTo,
-      title: `${lang} diagram block`,
-      description: 'Recognized HackMD diagram syntax. The editor keeps it editable as source.',
-    };
-  }
-
-  return null;
-}
-
-function getLineFallback(lineText: string, lineTo: number): FallbackBlock | null {
-  const trimmed = lineText.trim();
-
-  if (trimmed === '$$') {
-    return {
-      lineTo,
-      title: 'MathJax block',
-      description: 'Recognized HackMD block math. Rendering stays as editable LaTeX source.',
-    };
-  }
-
-  const external = trimmed.match(/^\{%(youtube|vimeo|gist|slideshare|speakerdeck|pdf|figma)\s+(.+?)\s*%\}$/i);
-  if (external) {
-    return {
-      lineTo,
-      title: `${external[1].toLowerCase()} embed`,
-      description: 'Recognized HackMD external embed syntax. It is not rendered inside the editor.',
-    };
-  }
-
-  return null;
 }
 
 function buildHfmBlocks(state: EditorState): DecorationSet {

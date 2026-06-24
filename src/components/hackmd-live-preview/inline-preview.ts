@@ -4,18 +4,24 @@ import {
   StateField,
   type EditorState,
   type Extension,
-  type Range,
-  type Text,
 } from '@codemirror/state';
 import {
   Decoration,
   EditorView,
   ViewPlugin,
-  WidgetType,
   type DecorationSet,
   type ViewUpdate,
 } from '@codemirror/view';
 
+import {
+  getCalloutMarkerRange,
+  getHfmLineDecorations,
+} from './hfm-recognizers';
+import { pushReplace, type PreviewRange } from './preview-ranges';
+import {
+  addListMarker,
+  addTaskMarker,
+} from './task-list-widgets';
 import { treeGrowthEffect } from './tree-progress';
 
 const FREEZE_TAIL_MS = 100;
@@ -73,20 +79,6 @@ const hideableSyntaxNodeNames = new Set([
   'Escape',
 ]);
 
-const hfmFenceLanguages = new Set([
-  'csvpreview',
-  'sequence',
-  'flow',
-  'graphviz',
-  'mermaid',
-  'abc',
-  'plantuml',
-  'vega',
-  'fretboard',
-]);
-
-type PreviewRange = Range<Decoration>;
-
 type SyntaxNodeLike = {
   from: number;
   name: string;
@@ -101,69 +93,6 @@ type SyntaxNodeParentLike = {
   name: string;
   parent: SyntaxNodeParentLike | null;
 };
-
-class BulletWidget extends WidgetType {
-  eq(): boolean {
-    return true;
-  }
-
-  toDOM(): HTMLElement {
-    const marker = document.createElement('span');
-    marker.className = 'cm-hackmd-list-marker';
-    marker.textContent = '•';
-    return marker;
-  }
-
-  ignoreEvent(): boolean {
-    return false;
-  }
-}
-
-class TaskCheckboxWidget extends WidgetType {
-  constructor(
-    private readonly checked: boolean,
-    private readonly from: number,
-    private readonly to: number,
-  ) {
-    super();
-  }
-
-  eq(other: TaskCheckboxWidget): boolean {
-    return other.checked === this.checked
-      && other.from === this.from
-      && other.to === this.to;
-  }
-
-  toDOM(view: EditorView): HTMLElement {
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.checked = this.checked;
-    checkbox.className = 'cm-hackmd-task-checkbox';
-    checkbox.setAttribute('aria-label', this.checked ? 'Mark task incomplete' : 'Mark task complete');
-    checkbox.addEventListener('mousedown', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-    });
-    checkbox.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      view.dispatch({
-        changes: {
-          from: this.from,
-          to: this.to,
-          insert: this.checked ? '[ ]' : '[x]',
-        },
-        selection: { anchor: this.to },
-      });
-      view.focus();
-    });
-    return checkbox;
-  }
-
-  ignoreEvent(): boolean {
-    return false;
-  }
-}
 
 const inlinePreviewPlugin = ViewPlugin.fromClass(
   class {
@@ -268,36 +197,6 @@ export function hackmdInlinePreview(): Extension {
     freezeMousePlugin,
     inlinePreviewPlugin,
   ];
-}
-
-function pushReplace(
-  ranges: PreviewRange[],
-  doc: Text,
-  from: number,
-  to: number,
-  spec: Parameters<typeof Decoration.replace>[0] = {},
-) {
-  if (from >= to) {
-    return;
-  }
-
-  const startLine = doc.lineAt(from);
-  if (to <= startLine.to) {
-    ranges.push(Decoration.replace(spec).range(from, to));
-    return;
-  }
-
-  let cursor = from;
-  let firstSegment = true;
-  while (cursor < to) {
-    const line = doc.lineAt(cursor);
-    const segmentTo = Math.min(to, line.to);
-    if (segmentTo > cursor) {
-      ranges.push(Decoration.replace(firstSegment ? spec : {}).range(cursor, segmentTo));
-      firstSegment = false;
-    }
-    cursor = line.to + 1;
-  }
 }
 
 function buildDecorations(state: EditorState): DecorationSet {
@@ -436,44 +335,6 @@ function addHiddenSyntax(
   pushReplace(ranges, state.doc, from, hideTo);
 }
 
-function addListMarker(
-  state: EditorState,
-  activeLines: Set<number>,
-  ranges: PreviewRange[],
-  from: number,
-  to: number,
-) {
-  if (!isInactiveSingleLineRange(state, activeLines, from, to)) {
-    return;
-  }
-
-  const marker = state.sliceDoc(from, to);
-  if (marker === '-' || marker === '*' || marker === '+') {
-    pushReplace(ranges, state.doc, from, to, { widget: new BulletWidget() });
-  }
-}
-
-function addTaskMarker(
-  state: EditorState,
-  activeLines: Set<number>,
-  ranges: PreviewRange[],
-  from: number,
-  to: number,
-) {
-  if (!isInactiveSingleLineRange(state, activeLines, from, to)) {
-    return;
-  }
-
-  const marker = state.sliceDoc(from, to).toLowerCase();
-  if (marker !== '[ ]' && marker !== '[x]') {
-    return;
-  }
-
-  pushReplace(ranges, state.doc, from, to, {
-    widget: new TaskCheckboxWidget(marker === '[x]', from, to),
-  });
-}
-
 function addFrontmatterRanges(state: EditorState, ranges: PreviewRange[]) {
   if (state.doc.lines < 3 || state.doc.line(1).text.trim() !== '---') {
     return;
@@ -491,112 +352,40 @@ function addFrontmatterRanges(state: EditorState, ranges: PreviewRange[]) {
   }
 }
 
-function hasFenceOptions(value: string) {
-  return value.includes('=') || value.includes('!') || value.includes('[');
-}
-
 function addHackmdLineSyntaxRanges(state: EditorState, activeLines: Set<number>, ranges: PreviewRange[]) {
   for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber += 1) {
     const line = state.doc.line(lineNumber);
     const text = line.text;
-    const trimmed = text.trim();
-    const calloutMatch = text.match(/^>\s*\[!(note|tip|important|warning|caution|danger|todo)\]/i);
-    const containerMatch = text.match(/^:::\s*(info|success|warning|danger|spoiler)\b/i);
-    const fenceMatch = text.match(/^(```|~~~)\s*([A-Za-z0-9_-]+)?(.*)$/);
-    const externalMatch = trimmed.match(/^\{%(youtube|vimeo|gist|slideshare|speakerdeck|pdf|figma)\s+(.+?)\s*%\}$/i);
+    const hfmLine = getHfmLineDecorations(text);
 
-    if (calloutMatch) {
-      const calloutType = calloutMatch[1].toLowerCase();
-      ranges.push(Decoration.line({
-        attributes: { class: `cm-hackmd-callout cm-hackmd-callout-${calloutType}` },
-      }).range(line.from));
-      if (!activeLines.has(lineNumber)) {
-        const markerStart = text.indexOf('[!');
-        const markerText = text.slice(markerStart).match(/^\[![^\]]+\]/)?.[0];
-        if (markerStart >= 0 && markerText) {
-          ranges.push(Decoration.mark({ class: 'cm-hackmd-strong' }).range(
-            line.from + markerStart,
-            line.from + markerStart + markerText.length,
-          ));
-        }
+    for (const className of hfmLine.lineClasses) {
+      ranges.push(Decoration.line({ attributes: { class: className } }).range(line.from));
+      if (!className.startsWith('cm-hackmd-callout') || activeLines.has(lineNumber)) {
+        continue;
+      }
+
+      const markerRange = getCalloutMarkerRange(text);
+      if (markerRange) {
+        ranges.push(Decoration.mark({ class: 'cm-hackmd-strong' }).range(
+          line.from + markerRange.from,
+          line.from + markerRange.to,
+        ));
       }
     }
 
-    if (containerMatch) {
-      ranges.push(Decoration.line({
-        attributes: { class: `cm-hackmd-container cm-hackmd-container-${containerMatch[1].toLowerCase()}` },
-      }).range(line.from));
-    }
-
-    if (/^#{6}\s+tags:/i.test(text)) {
-      ranges.push(Decoration.line({ attributes: { class: 'cm-hackmd-tags-line' } }).range(line.from));
-    }
-
-    if (/^\[toc\]$/i.test(trimmed) || trimmed === '[[toc]]') {
-      ranges.push(Decoration.line({ attributes: { class: 'cm-hackmd-toc-line' } }).range(line.from));
-    }
-
-    if (/^\[[^\]]+=[^\]]+\](?:\s+\[[^\]]+=[^\]]+\])*\s*$/.test(trimmed)) {
-      ranges.push(Decoration.line({ attributes: { class: 'cm-hackmd-blockquote-meta' } }).range(line.from));
-    }
-
-    if (/^\|.*\|$/.test(trimmed) || /^:?\s*-{3,}/.test(trimmed)) {
-      ranges.push(Decoration.line({ attributes: { class: 'cm-hackmd-table-line' } }).range(line.from));
-    }
-
-    if (trimmed === '$$') {
-      ranges.push(Decoration.line({ attributes: { class: 'cm-hackmd-math-block-line' } }).range(line.from));
-    }
-
-    if (externalMatch) {
-      ranges.push(Decoration.line({
-        attributes: { class: `cm-hackmd-external-line cm-hackmd-external-${externalMatch[1].toLowerCase()}` },
-      }).range(line.from));
-    }
-
-    if (fenceMatch) {
-      const lang = (fenceMatch[2] ?? '').toLowerCase();
-      const meta = fenceMatch[3] ?? '';
-      if (hfmFenceLanguages.has(lang)) {
-        ranges.push(Decoration.line({ attributes: { class: `cm-hackmd-hfm-fence cm-hackmd-hfm-fence-${lang}` } }).range(line.from));
-      } else if (hasFenceOptions(meta) || /[=!]$/.test(lang)) {
-        ranges.push(Decoration.line({ attributes: { class: 'cm-hackmd-code-fence-options' } }).range(line.from));
-      }
-    }
-
-    addHackmdInlineSyntaxRanges(line.from, text, ranges);
+    addHackmdInlineSyntaxRanges(line.from, hfmLine.inlineMarks, ranges);
   }
 }
 
-function addHackmdInlineSyntaxRanges(lineFrom: number, text: string, ranges: PreviewRange[]) {
-  addRegexMarks(lineFrom, text, ranges, /==([^=\n]+)==/g, 'cm-hackmd-mark');
-  addRegexMarks(lineFrom, text, ranges, /\+\+([^+\n]+)\+\+/g, 'cm-hackmd-insert');
-  addRegexMarks(lineFrom, text, ranges, /(?<!\w)~([^~\s][^~\n]*?)~/g, 'cm-hackmd-subscript');
-  addRegexMarks(lineFrom, text, ranges, /\^([^^\s][^^\n]*?)\^/g, 'cm-hackmd-superscript');
-  addRegexMarks(lineFrom, text, ranges, /\{[^{}\n|]+\|[^{}\n|]+\}/g, 'cm-hackmd-ruby');
-  addRegexMarks(lineFrom, text, ranges, /\[\^[-\w]+\]/g, 'cm-hackmd-footnote-ref');
-  addRegexMarks(lineFrom, text, ranges, /^\s*\[\^[-\w]+\]:/g, 'cm-hackmd-footnote-def');
-  addRegexMarks(lineFrom, text, ranges, /^\*\[[^\]\n]+\]:/g, 'cm-hackmd-abbr-def');
-  addRegexMarks(lineFrom, text, ranges, /:[A-Za-z0-9_+-]+:/g, 'cm-hackmd-emoji');
-  addRegexMarks(lineFrom, text, ranges, /^\s*:\s+.+$/g, 'cm-hackmd-definition-line');
-  addRegexMarks(lineFrom, text, ranges, /^\s*~\s+.+$/g, 'cm-hackmd-definition-line');
-}
-
-function addRegexMarks(
+function addHackmdInlineSyntaxRanges(
   lineFrom: number,
-  text: string,
+  marks: ReturnType<typeof getHfmLineDecorations>['inlineMarks'],
   ranges: PreviewRange[],
-  pattern: RegExp,
-  className: string,
 ) {
-  for (const match of text.matchAll(pattern)) {
-    if (match.index === undefined || match[0].length === 0) {
-      continue;
-    }
-
-    ranges.push(Decoration.mark({ class: className }).range(
-      lineFrom + match.index,
-      lineFrom + match.index + match[0].length,
+  for (const mark of marks) {
+    ranges.push(Decoration.mark({ class: mark.className }).range(
+      lineFrom + mark.from,
+      lineFrom + mark.to,
     ));
   }
 }
