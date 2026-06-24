@@ -31,6 +31,7 @@ class ImagePreviewWidget extends WidgetType {
   constructor(
     private readonly src: string,
     private readonly alt: string,
+    private readonly lineTo: number,
     private readonly width?: number,
     private readonly height?: number,
   ) {
@@ -40,6 +41,7 @@ class ImagePreviewWidget extends WidgetType {
   eq(other: ImagePreviewWidget): boolean {
     return other.src === this.src
       && other.alt === this.alt
+      && other.lineTo === this.lineTo
       && other.width === this.width
       && other.height === this.height;
   }
@@ -72,14 +74,10 @@ class ImagePreviewWidget extends WidgetType {
     wrap.addEventListener('mousedown', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      const pos = view.posAtDOM(wrap);
-      if (pos < 0) {
-        return;
-      }
 
       view.focus();
       view.dispatch({
-        selection: { anchor: Math.max(0, pos - 1) },
+        selection: { anchor: this.lineTo },
         scrollIntoView: false,
       });
     });
@@ -96,18 +94,23 @@ class HfmFallbackWidget extends WidgetType {
   constructor(
     private readonly title: string,
     private readonly description: string,
+    private readonly lineTo: number,
   ) {
     super();
   }
 
   eq(other: HfmFallbackWidget): boolean {
-    return other.title === this.title && other.description === this.description;
+    return other.title === this.title
+      && other.description === this.description
+      && other.lineTo === this.lineTo;
   }
 
-  toDOM(): HTMLElement {
+  toDOM(view: EditorView): HTMLElement {
     const wrap = document.createElement('div');
     wrap.className = 'cm-hackmd-fallback-block';
     wrap.setAttribute('contenteditable', 'false');
+    wrap.setAttribute('role', 'button');
+    wrap.tabIndex = 0;
 
     const title = document.createElement('div');
     title.className = 'cm-hackmd-fallback-title';
@@ -118,7 +121,34 @@ class HfmFallbackWidget extends WidgetType {
     description.textContent = this.description;
 
     wrap.append(title, description);
+    const focusSource = () => {
+      view.focus();
+      view.dispatch({
+        selection: { anchor: this.lineTo },
+        scrollIntoView: false,
+      });
+    };
+
+    wrap.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      focusSource();
+    });
+    wrap.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      focusSource();
+    });
+
     return wrap;
+  }
+
+  ignoreEvent(event: Event): boolean {
+    return event.type === 'mousedown' || event.type === 'click' || event.type === 'keydown';
   }
 }
 
@@ -201,7 +231,7 @@ function buildHfmBlocks(state: EditorState): DecorationSet {
       ranges.push(Decoration.widget({
         block: true,
         side: 1,
-        widget: new ImagePreviewWidget(image.src, image.alt, image.width, image.height),
+        widget: new ImagePreviewWidget(image.src, image.alt, image.lineTo, image.width, image.height),
       }).range(image.lineTo));
       continue;
     }
@@ -211,7 +241,7 @@ function buildHfmBlocks(state: EditorState): DecorationSet {
       ranges.push(Decoration.widget({
         block: true,
         side: 1,
-        widget: new HfmFallbackWidget(fallback.title, fallback.description),
+        widget: new HfmFallbackWidget(fallback.title, fallback.description, fallback.lineTo),
       }).range(fallback.lineTo));
     }
   }

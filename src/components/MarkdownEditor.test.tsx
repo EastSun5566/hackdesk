@@ -305,6 +305,27 @@ describe('MarkdownEditor', () => {
     expect(ref.current?.getMarkdown()).toBe(markdown);
   });
 
+  it('focuses the image source line when the image preview is clicked', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = 'Intro\n![Diagram](https://example.com/diagram.png =320x180)';
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    const preview = await waitFor(() => {
+      const target = editor.querySelector<HTMLElement>('.cm-hackmd-image-preview');
+      expect(target).not.toBeNull();
+      return target as HTMLElement;
+    });
+
+    fireEvent.mouseDown(preview);
+
+    await waitFor(() => {
+      const activeLine = editor.querySelector('.cm-activeLine');
+      expect(activeLine).toHaveTextContent('![Diagram](https://example.com/diagram.png =320x180)');
+    });
+  });
+
   it('labels recognized HFM blocks that are intentionally not rendered inline', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const markdown = [
@@ -322,6 +343,34 @@ describe('MarkdownEditor', () => {
     await waitFor(() => expect(editor.querySelectorAll('.cm-hackmd-fallback-block')).toHaveLength(2));
     expect(editor.querySelector('.cm-hackmd-fallback-block')).toHaveTextContent('mermaid diagram block');
     expect(ref.current?.getMarkdown()).toBe(markdown);
+  });
+
+  it('focuses the source line when an HFM fallback widget is clicked', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      'Intro',
+      '',
+      '```mermaid',
+      'graph TD',
+      'A-->B',
+      '```',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    const fallback = await waitFor(() => {
+      const target = editor.querySelector<HTMLElement>('.cm-hackmd-fallback-block');
+      expect(target).not.toBeNull();
+      return target as HTMLElement;
+    });
+
+    fireEvent.mouseDown(fallback);
+
+    await waitFor(() => {
+      const activeLine = editor.querySelector('.cm-activeLine');
+      expect(activeLine).toHaveTextContent('```mermaid');
+    });
   });
 
   it('keeps HackMD code fence options in the editable source instead of showing a fallback panel', async () => {
@@ -354,6 +403,51 @@ describe('MarkdownEditor', () => {
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
     await waitFor(() => expect(editor.querySelector('.cm-hackmd-fenced-code')).not.toBeNull());
     expect(editor.querySelector('.cm-hackmd-fallback-block')).toBeNull();
+  });
+
+  it('keeps unsupported code fences editable without fallback widgets', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      '```python',
+      'print("still editable")',
+      '```',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-fenced-code')).not.toBeNull());
+    expect(editor.querySelector('.cm-hackmd-fallback-block')).toBeNull();
+  });
+
+  it('decorates alert, container, math, external, and diagram source lines', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      '> [!note]',
+      '> callout',
+      ':::warning',
+      'container',
+      ':::',
+      '$$',
+      'x = 1',
+      '$$',
+      '{%youtube 1G4isv_Fylg %}',
+      '```mermaid',
+      'graph TD',
+      'A-->B',
+      '```',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-callout-note')).not.toBeNull());
+    expect(editor.querySelector('.cm-hackmd-container-warning')).not.toBeNull();
+    expect(editor.querySelector('.cm-hackmd-math-block-line')).not.toBeNull();
+    expect(editor.querySelector('.cm-hackmd-external-youtube')).not.toBeNull();
+    expect(editor.querySelector('.cm-hackmd-hfm-fence-mermaid')).not.toBeNull();
   });
 
   it('decorates HFM syntax outside the initial active line', async () => {

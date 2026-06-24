@@ -303,7 +303,7 @@ function pushReplace(
 function buildDecorations(state: EditorState): DecorationSet {
   const ranges: PreviewRange[] = [];
   const activeLines = getActiveLines(state);
-  const activeLinkStarts = new Set<number>();
+  const activeInlineSourceStarts = new Set<number>();
 
   addFrontmatterRanges(state, ranges);
   addHackmdLineSyntaxRanges(state, activeLines, ranges);
@@ -329,10 +329,10 @@ function buildDecorations(state: EditorState): DecorationSet {
         }
       }
 
-      if (node.name === 'Link') {
+      if (node.name === 'Link' || node.name === 'Image') {
         for (const range of state.selection.ranges) {
           if (range.from <= node.to && range.to >= node.from) {
-            activeLinkStarts.add(node.from);
+            activeInlineSourceStarts.add(node.from);
             break;
           }
         }
@@ -359,7 +359,7 @@ function buildDecorations(state: EditorState): DecorationSet {
       }
 
       if (hideableSyntaxNodeNames.has(node.name)) {
-        addHiddenSyntax(state, activeLines, activeLinkStarts, ranges, node);
+        addHiddenSyntax(state, activeLines, activeInlineSourceStarts, ranges, node);
       }
     },
   });
@@ -402,15 +402,13 @@ function addLineClass(state: EditorState, ranges: PreviewRange[], from: number, 
 function addHiddenSyntax(
   state: EditorState,
   activeLines: Set<number>,
-  activeLinkStarts: Set<number>,
+  activeInlineSourceStarts: Set<number>,
   ranges: PreviewRange[],
   node: SyntaxNodeLike,
 ) {
   const { from, to, name } = node;
   if (!isInactiveSingleLineRange(state, activeLines, from, to)) {
-    if (!linkChildSyntaxNodeNames.has(name)) {
-      return;
-    }
+    return;
   }
 
   if (linkChildSyntaxNodeNames.has(name)) {
@@ -419,7 +417,7 @@ function addHiddenSyntax(
       parent = parent.parent;
     }
 
-    if (parent?.name === 'Link' && activeLinkStarts.has(parent.from)) {
+    if ((parent?.name === 'Link' || parent?.name === 'Image') && activeInlineSourceStarts.has(parent.from)) {
       return;
     }
   }

@@ -67,7 +67,7 @@ export const hackmdPreviewTheme = [
       borderLeftColor: 'var(--primary-default)',
     },
     '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
-      backgroundColor: 'color-mix(in oklch, var(--primary-default) 28%, transparent)',
+      backgroundColor: 'color-mix(in oklch, var(--primary-default) 22%, transparent)',
     },
     '.cm-hackmd-h1': {
       fontSize: '1.55em',
@@ -97,10 +97,12 @@ export const hackmdPreviewTheme = [
     },
     '.cm-hackmd-fenced-code': {
       fontFamily: 'var(--font-editor)',
-      backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, black 8%)',
-      boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--primary-default) 50%, var(--border-strong) 50%)',
-      paddingLeft: '0.75rem',
-      paddingRight: '0.75rem',
+      backgroundColor: 'color-mix(in oklch, var(--background-default) 78%, black 22%)',
+      boxShadow: [
+        'inset 2px 0 0 color-mix(in oklch, var(--border-strong) 82%, var(--primary-default) 18%)',
+        'inset 0 1px 0 color-mix(in oklch, var(--border-default) 46%, transparent)',
+      ].join(', '),
+      paddingInline: '0.875rem',
     },
     '.cm-hackmd-frontmatter': {
       color: 'var(--text-subtle)',
@@ -120,33 +122,41 @@ export const hackmdPreviewTheme = [
     },
     '.cm-hackmd-callout': {
       color: 'var(--text-default)',
-      borderLeft: '3px solid var(--primary-default)',
-      paddingLeft: '0.75rem',
+      backgroundColor: 'color-mix(in oklch, var(--primary-default) 8%, transparent)',
+      boxShadow: 'inset 2px 0 0 var(--primary-default)',
+      paddingInlineStart: '0.75rem',
     },
     '.cm-hackmd-container': {
       color: 'var(--text-default)',
-      borderLeft: '3px solid var(--primary-default)',
-      paddingLeft: '0.75rem',
+      backgroundColor: 'color-mix(in oklch, var(--primary-default) 7%, transparent)',
+      boxShadow: 'inset 2px 0 0 var(--primary-default)',
+      paddingInlineStart: '0.75rem',
     },
     '.cm-hackmd-container-success': {
-      borderLeft: '3px solid var(--success-default)',
+      backgroundColor: 'color-mix(in oklch, var(--success-default) 10%, transparent)',
+      boxShadow: 'inset 2px 0 0 var(--success-default)',
     },
     '.cm-hackmd-container-warning': {
-      borderLeft: '3px solid var(--warning-default)',
+      backgroundColor: 'color-mix(in oklch, var(--warning-default) 11%, transparent)',
+      boxShadow: 'inset 2px 0 0 var(--warning-default)',
     },
     '.cm-hackmd-container-danger': {
-      borderLeft: '3px solid var(--destructive-default)',
+      backgroundColor: 'color-mix(in oklch, var(--destructive-default) 10%, transparent)',
+      boxShadow: 'inset 2px 0 0 var(--destructive-default)',
     },
     '.cm-hackmd-container-spoiler': {
-      borderLeft: '3px solid var(--border-strong)',
+      backgroundColor: 'var(--background-muted)',
+      boxShadow: 'inset 2px 0 0 var(--border-strong)',
     },
     '.cm-hackmd-tags-line, .cm-hackmd-toc-line, .cm-hackmd-blockquote-meta': {
       color: 'var(--text-subtle)',
       backgroundColor: 'var(--background-muted)',
     },
     '.cm-hackmd-hfm-fence, .cm-hackmd-code-fence-options, .cm-hackmd-math-block-line, .cm-hackmd-external-line': {
-      color: 'var(--primary-default)',
-      backgroundColor: 'var(--primary-soft)',
+      color: 'var(--text-subtle)',
+      backgroundColor: 'color-mix(in oklch, var(--background-muted) 88%, var(--primary-default) 12%)',
+      boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--primary-default) 55%, var(--border-strong) 45%)',
+      paddingInlineStart: '0.75rem',
     },
     '.cm-hackmd-table-line': {
       color: 'var(--text-subtle)',
@@ -214,7 +224,7 @@ export const hackmdPreviewTheme = [
       accentColor: 'var(--primary-default)',
     },
     '.cm-hackmd-image-preview': {
-      margin: '0.5rem 0 0.75rem 0.25rem',
+      margin: '0.4rem 0 0.65rem 0.25rem',
       maxWidth: 'min(100%, 720px)',
       borderRadius: '6px',
       border: '1px solid var(--border-default)',
@@ -234,22 +244,29 @@ export const hackmdPreviewTheme = [
       fontSize: '12px',
     },
     '.cm-hackmd-fallback-block': {
-      margin: '0.35rem 0 0.65rem 0.25rem',
-      borderRadius: '6px',
+      margin: '0.2rem 0 0.45rem 0.25rem',
+      maxWidth: 'min(100%, 36rem)',
+      borderRadius: '5px',
       border: '1px solid var(--border-default)',
-      backgroundColor: 'var(--background-muted)',
-      padding: '0.55rem 0.65rem',
+      borderLeft: '2px solid color-mix(in oklch, var(--primary-default) 58%, var(--border-strong) 42%)',
+      backgroundColor: 'color-mix(in oklch, var(--background-muted) 88%, transparent)',
+      cursor: 'pointer',
       fontFamily: 'var(--font-sans)',
+      padding: '0.42rem 0.55rem',
+    },
+    '.cm-hackmd-fallback-block:focus-visible': {
+      outline: '2px solid var(--focus-ring)',
+      outlineOffset: '2px',
     },
     '.cm-hackmd-fallback-title': {
       color: 'var(--text-default)',
-      fontSize: '12px',
+      fontSize: '11px',
       fontWeight: '650',
     },
     '.cm-hackmd-fallback-description': {
-      marginTop: '0.15rem',
+      marginTop: '0.08rem',
       color: 'var(--text-subtle)',
-      fontSize: '12px',
+      fontSize: '11px',
     },
   }, { dark: true }),
 ];
