@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -9,6 +11,14 @@ import {
 } from './hfm-recognizers';
 
 describe('HFM live-preview recognizers', () => {
+  it('keeps HFM live preview independent from removed reader renderer packages', () => {
+    const packageJson = readFileSync(`${process.cwd()}/package.json`, 'utf8');
+
+    expect(packageJson).not.toContain('"markdown-it"');
+    expect(packageJson).not.toContain('"shiki"');
+    expect(packageJson).not.toContain('electron-markdown-renderer');
+  });
+
   it('recognizes HackMD image size syntax without unsafe URL schemes', () => {
     expect(parseMarkdownImage('![Alt](https://example.com/a.png =320x180)', 42)).toEqual({
       alt: 'Alt',
@@ -24,7 +34,7 @@ describe('HFM live-preview recognizers', () => {
   it('recognizes fallback blocks for diagrams, csvpreview, math, and external embeds', () => {
     expect(getFenceFallback('```mermaid', 1)).toMatchObject({
       lineTo: 1,
-      title: 'mermaid diagram block',
+      title: 'Mermaid diagram block',
     });
     expect(getFenceFallback('```csvpreview {header="true"}', 2)).toMatchObject({
       lineTo: 2,
@@ -37,8 +47,46 @@ describe('HFM live-preview recognizers', () => {
     });
     expect(getLineFallback('{%youtube 1G4isv_Fylg %}', 5)).toMatchObject({
       lineTo: 5,
-      title: 'youtube embed',
+      title: 'YouTube embed',
     });
+  });
+
+  it('recognizes every HackMD rich fence and external provider with readable fallback labels', () => {
+    expect([
+      ['sequence', 'Sequence diagram block'],
+      ['flow', 'Flow chart block'],
+      ['graphviz', 'Graphviz diagram block'],
+      ['mermaid', 'Mermaid diagram block'],
+      ['abc', 'ABC notation block'],
+      ['plantuml', 'PlantUML diagram block'],
+      ['vega', 'Vega-Lite chart block'],
+      ['fretboard', 'Fretboard diagram block'],
+    ].map(([language]) => getFenceFallback(`\`\`\`${language} {title="demo"}`, 1)?.title)).toEqual([
+      'Sequence diagram block',
+      'Flow chart block',
+      'Graphviz diagram block',
+      'Mermaid diagram block',
+      'ABC notation block',
+      'PlantUML diagram block',
+      'Vega-Lite chart block',
+      'Fretboard diagram block',
+    ]);
+
+    expect([
+      '{%vimeo 124148255 %}',
+      '{%gist schacon/4277 %}',
+      '{%slideshare deck %}',
+      '{%speakerdeck deck %}',
+      '{%pdf https://hackmd.io/pdf-sample.pdf %}',
+      '{%figma https://figma.com/file/example %}',
+    ].map((line) => getLineFallback(line, 1)?.title)).toEqual([
+      'Vimeo embed',
+      'Gist embed',
+      'SlideShare embed',
+      'Speaker Deck embed',
+      'PDF embed',
+      'Figma embed',
+    ]);
   });
 
   it('recognizes HFM line classes for alerts, containers, TOC, metadata, tables, and fences', () => {
@@ -46,10 +94,12 @@ describe('HFM live-preview recognizers', () => {
     expect(getHfmLineDecorations(':::danger').lineClasses).toContain('cm-hackmd-container cm-hackmd-container-danger');
     expect(getHfmLineDecorations('[TOC]').lineClasses).toContain('cm-hackmd-toc-line');
     expect(getHfmLineDecorations('[name=Michael] [time=Today]').lineClasses).toContain('cm-hackmd-blockquote-meta');
+    expect(getHfmLineDecorations('> [name=Michael] [time=Today] [color=#907bf7]').lineClasses).toContain('cm-hackmd-blockquote-meta');
     expect(getHfmLineDecorations('| A | B |').lineClasses).toContain('cm-hackmd-table-line');
     expect(getHfmLineDecorations('---').lineClasses).not.toContain('cm-hackmd-table-line');
     expect(getHfmLineDecorations('```javascript=101 [102-103]').lineClasses).toContain('cm-hackmd-code-fence-options');
     expect(getHfmLineDecorations('```mermaid').lineClasses).toContain('cm-hackmd-hfm-fence cm-hackmd-hfm-fence-mermaid');
+    expect(getHfmLineDecorations('    indented code').lineClasses).toContain('cm-hackmd-indented-code');
   });
 
   it('recognizes editable block ranges for containers and alerts', () => {
@@ -87,8 +137,35 @@ describe('HFM live-preview recognizers', () => {
     ]);
   });
 
+  it('recognizes table and blockquote metadata blocks without treating them as rendered HTML', () => {
+    expect(getHfmBlockRanges([
+      'Intro',
+      '| Option | Description |',
+      '| :----- | ----------: |',
+      '| data | path |',
+      '',
+      '> [name=Michael] [time=Today] [color=#907bf7]',
+      '> Quote body.',
+    ])).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        endLine: 4,
+        kind: 'table',
+        openerLine: 2,
+        startLine: 2,
+        variant: 'table',
+      }),
+      expect.objectContaining({
+        endLine: 7,
+        kind: 'blockquote-meta',
+        openerLine: 6,
+        startLine: 6,
+        variant: 'meta',
+      }),
+    ]));
+  });
+
   it('recognizes HFM inline marks as source offsets', () => {
-    const marks = getHfmLineDecorations('{漢字|かんじ} ==mark== ++insert++ H ~2~ O x^2^ :smile:').inlineMarks;
+    const marks = getHfmLineDecorations('{漢字|かんじ} ==mark== ++insert++ H ~2~ O x^2^ :smile: $x+1$ ^[inline footnote] [ref][id] ![img][id] https://hackmd.io <i class="fa fa-pencil"></i> (tm) -- "quote"').inlineMarks;
 
     expect(marks.map((mark) => mark.className)).toEqual(expect.arrayContaining([
       'cm-hackmd-ruby',
@@ -97,7 +174,34 @@ describe('HFM live-preview recognizers', () => {
       'cm-hackmd-subscript',
       'cm-hackmd-superscript',
       'cm-hackmd-emoji',
+      'cm-hackmd-inline-math',
+      'cm-hackmd-inline-footnote',
+      'cm-hackmd-reference-link',
+      'cm-hackmd-autolink',
+      'cm-hackmd-raw-html',
+      'cm-hackmd-typographer',
     ]));
     expect(marks.every((mark) => mark.to > mark.from)).toBe(true);
+  });
+
+  it('recognizes CSV and spoiler metadata as editable source marks', () => {
+    expect(getHfmLineDecorations('```csvpreview {header="true" delimiter="."}').inlineMarks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ className: 'cm-hackmd-fence-meta' }),
+    ]));
+    expect(getHfmLineDecorations(':::spoiler {state="open"} Details').inlineMarks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ className: 'cm-hackmd-container-meta' }),
+    ]));
+  });
+
+  it('returns inactive-only hidden ranges for HackMD blockquote metadata', () => {
+    const metadata = '> [name=Michael] [time=Today]';
+
+    expect(getHfmLineDecorations(metadata).hiddenRanges).toEqual([
+      {
+        from: 2,
+        to: metadata.length,
+      },
+    ]);
+    expect(getHfmLineDecorations('Normal text').hiddenRanges).toEqual([]);
   });
 });
