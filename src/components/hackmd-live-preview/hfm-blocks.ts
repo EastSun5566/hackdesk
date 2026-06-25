@@ -12,8 +12,6 @@ import {
 } from '@codemirror/view';
 
 import {
-  getFenceFallback,
-  getLineFallback,
   parseMarkdownImage,
 } from './hfm-recognizers';
 import { treeGrowthEffect } from './tree-progress';
@@ -81,68 +79,6 @@ class ImagePreviewWidget extends WidgetType {
   }
 }
 
-class HfmFallbackWidget extends WidgetType {
-  constructor(
-    private readonly title: string,
-    private readonly description: string,
-    private readonly lineTo: number,
-  ) {
-    super();
-  }
-
-  eq(other: HfmFallbackWidget): boolean {
-    return other.title === this.title
-      && other.description === this.description
-      && other.lineTo === this.lineTo;
-  }
-
-  toDOM(view: EditorView): HTMLElement {
-    const wrap = document.createElement('div');
-    wrap.className = 'cm-hackmd-fallback-block';
-    wrap.setAttribute('contenteditable', 'false');
-    wrap.setAttribute('role', 'button');
-    wrap.tabIndex = 0;
-
-    const title = document.createElement('div');
-    title.className = 'cm-hackmd-fallback-title';
-    title.textContent = this.title;
-
-    const description = document.createElement('div');
-    description.className = 'cm-hackmd-fallback-description';
-    description.textContent = this.description;
-
-    wrap.append(title, description);
-    const focusSource = () => {
-      view.focus();
-      view.dispatch({
-        selection: { anchor: this.lineTo },
-        scrollIntoView: false,
-      });
-    };
-
-    wrap.addEventListener('mousedown', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      focusSource();
-    });
-    wrap.addEventListener('keydown', (event) => {
-      if (event.key !== 'Enter' && event.key !== ' ') {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      focusSource();
-    });
-
-    return wrap;
-  }
-
-  ignoreEvent(event: Event): boolean {
-    return event.type === 'mousedown' || event.type === 'click' || event.type === 'keydown';
-  }
-}
-
 function buildHfmBlocks(state: EditorState): DecorationSet {
   const ranges: Array<Range<Decoration>> = [];
 
@@ -155,16 +91,6 @@ function buildHfmBlocks(state: EditorState): DecorationSet {
         side: 1,
         widget: new ImagePreviewWidget(image.src, image.alt, image.lineTo, image.width, image.height),
       }).range(image.lineTo));
-      continue;
-    }
-
-    const fallback = getFenceFallback(line.text, line.to) ?? getLineFallback(line.text, line.to);
-    if (fallback) {
-      ranges.push(Decoration.widget({
-        block: true,
-        side: 1,
-        widget: new HfmFallbackWidget(fallback.title, fallback.description, fallback.lineTo),
-      }).range(fallback.lineTo));
     }
   }
 

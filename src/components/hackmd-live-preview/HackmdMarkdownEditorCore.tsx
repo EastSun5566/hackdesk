@@ -17,6 +17,7 @@ import {
 
 import { hackmdCodeLanguages } from './hackmd-code-languages';
 import { hfmBlocks } from './hfm-blocks';
+import { hackmdTables } from './hackmd-tables';
 import { hackmdInlinePreview } from './inline-preview';
 import { hackmdPreviewTheme } from './hackmd-preview-theme';
 import { createHackdeskSearchPanel } from './hackmd-search-panel';
@@ -60,6 +61,7 @@ const editorExtensions: Extension[] = [
   treeProgressPlugin,
   hackmdInlinePreview(),
   hfmBlocks(),
+  hackmdTables(),
   EditorView.lineWrapping,
   keymap.of([
     indentWithTab,

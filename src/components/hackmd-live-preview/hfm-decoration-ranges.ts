@@ -1,11 +1,64 @@
 import type { EditorState } from '@codemirror/state';
-import { Decoration } from '@codemirror/view';
+import { Decoration, WidgetType } from '@codemirror/view';
 
 import {
   getHfmLineDecorations,
   type HfmBlockRange,
 } from './hfm-recognizers';
 import { pushReplace, type PreviewRange } from './preview-ranges';
+
+const alertTitles: Record<string, string> = {
+  caution: 'Caution',
+  danger: 'Caution',
+  important: 'Important',
+  note: 'Note',
+  tip: 'Tip',
+  todo: 'Note',
+  warning: 'Warning',
+};
+
+const alertIcons: Record<string, string> = {
+  caution: '!',
+  danger: '!',
+  important: '!',
+  note: 'i',
+  tip: '!',
+  todo: 'i',
+  warning: '!',
+};
+
+class AlertHeaderWidget extends WidgetType {
+  constructor(private readonly variant: string) {
+    super();
+  }
+
+  eq(other: AlertHeaderWidget): boolean {
+    return other.variant === this.variant;
+  }
+
+  toDOM(): HTMLElement {
+    const header = document.createElement('span');
+    const variant = this.variant in alertTitles ? this.variant : 'note';
+    header.className = `cm-hackmd-alert-heading cm-hackmd-alert-heading-${variant}`;
+    header.setAttribute('contenteditable', 'false');
+
+    const icon = document.createElement('span');
+    icon.className = 'cm-hackmd-alert-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = alertIcons[variant] ?? 'i';
+
+    const title = document.createElement('span');
+    title.className = 'cm-hackmd-alert-title';
+    title.textContent = alertTitles[variant] ?? 'Note';
+
+    header.append(icon, title);
+    return header;
+  }
+
+  ignoreEvent(): boolean {
+    return false;
+  }
+}
 
 export function getActiveLines(state: EditorState): Set<number> {
   const activeLines = new Set<number>();
@@ -72,6 +125,10 @@ export function addHfmBlockRanges(
   ranges: PreviewRange[],
 ) {
   for (const blockRange of blockRanges) {
+    if (blockRange.kind === 'table') {
+      continue;
+    }
+
     const active = activeHfmBlocks.includes(blockRange);
 
     for (let lineNumber = blockRange.startLine; lineNumber <= blockRange.endLine; lineNumber += 1) {
@@ -90,7 +147,7 @@ export function addHfmBlockRanges(
       ranges.push(Decoration.line({ attributes: { class: className } }).range(line.from));
     }
 
-    if (active || blockRange.kind === 'blockquote-meta' || blockRange.kind === 'table') {
+    if (active || blockRange.kind === 'blockquote-meta') {
       continue;
     }
 
@@ -100,6 +157,9 @@ export function addHfmBlockRanges(
       state.doc,
       openerLine.from + blockRange.openerFrom,
       openerLine.from + blockRange.openerTo,
+      blockRange.kind === 'alert'
+        ? { widget: new AlertHeaderWidget(blockRange.variant) }
+        : {},
     );
 
     if (
@@ -118,8 +178,17 @@ export function addHfmBlockRanges(
   }
 }
 
-export function addHackmdLineSyntaxRanges(state: EditorState, activeLines: Set<number>, ranges: PreviewRange[]) {
+export function addHackmdLineSyntaxRanges(
+  state: EditorState,
+  activeLines: Set<number>,
+  ranges: PreviewRange[],
+  skippedLines: ReadonlySet<number> = new Set(),
+) {
   for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber += 1) {
+    if (skippedLines.has(lineNumber)) {
+      continue;
+    }
+
     const line = state.doc.line(lineNumber);
     const text = line.text;
     const hfmLine = getHfmLineDecorations(text);

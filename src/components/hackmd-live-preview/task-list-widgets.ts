@@ -1,6 +1,7 @@
 import type { EditorState } from '@codemirror/state';
-import { EditorView, WidgetType } from '@codemirror/view';
+import { Decoration, EditorView, WidgetType } from '@codemirror/view';
 
+import { getListMarkerPreviewKey, type ListMarkerPreview } from './list-markers';
 import { pushReplace, type PreviewRange } from './preview-ranges';
 
 class BulletWidget extends WidgetType {
@@ -12,6 +13,27 @@ class BulletWidget extends WidgetType {
     const marker = document.createElement('span');
     marker.className = 'cm-hackmd-list-marker';
     marker.textContent = '•';
+    return marker;
+  }
+
+  ignoreEvent(): boolean {
+    return false;
+  }
+}
+
+class OrderedListMarkerWidget extends WidgetType {
+  constructor(private readonly display: string) {
+    super();
+  }
+
+  eq(other: OrderedListMarkerWidget): boolean {
+    return other.display === this.display;
+  }
+
+  toDOM(): HTMLElement {
+    const marker = document.createElement('span');
+    marker.className = 'cm-hackmd-list-marker cm-hackmd-ordered-list-marker';
+    marker.textContent = this.display;
     return marker;
   }
 
@@ -69,17 +91,37 @@ class TaskCheckboxWidget extends WidgetType {
 export function addListMarker(
   state: EditorState,
   activeLines: Set<number>,
+  orderedListMarkers: Map<string, ListMarkerPreview>,
   ranges: PreviewRange[],
   from: number,
   to: number,
 ) {
+  const line = state.doc.lineAt(from);
+  addListLineIndent(ranges, line.from, from - line.from);
+
   if (!isInactiveSingleLineRange(state, activeLines, from, to)) {
     return;
   }
 
+  const taskLead = line.text.match(/^(\s*[-*+]\s+)\[[ xX]\]/);
+  if (taskLead) {
+    pushReplace(ranges, state.doc, from, line.from + taskLead[1].length);
+    return;
+  }
+
   const marker = state.sliceDoc(from, to);
+  const hasTrailingSpace = state.sliceDoc(to, to + 1) === ' ';
+  const replaceTo = hasTrailingSpace ? to + 1 : to;
   if (marker === '-' || marker === '*' || marker === '+') {
-    pushReplace(ranges, state.doc, from, to, { widget: new BulletWidget() });
+    pushReplace(ranges, state.doc, from, replaceTo, { widget: new BulletWidget() });
+    return;
+  }
+
+  const ordered = orderedListMarkers.get(getListMarkerPreviewKey(from, to));
+  if (ordered) {
+    pushReplace(ranges, state.doc, from, replaceTo, {
+      widget: new OrderedListMarkerWidget(ordered.display),
+    });
   }
 }
 
@@ -113,4 +155,21 @@ function isInactiveSingleLineRange(state: EditorState, activeLines: Set<number>,
   const endLine = state.doc.lineAt(Math.max(from, to - 1));
 
   return startLine.number === endLine.number && !activeLines.has(startLine.number);
+}
+
+function addListLineIndent(ranges: PreviewRange[], lineFrom: number, rawIndent: number) {
+  const depth = Math.max(0, Math.floor(rawIndent / 2));
+  const baseEm = 0.45;
+  const markerEm = 1.25;
+  const levelEm = 0.75;
+  const padding = baseEm + markerEm + depth * levelEm;
+
+  ranges.push(
+    Decoration.line({
+      attributes: {
+        class: 'cm-hackmd-list-line',
+        style: `padding-left: ${padding}em; text-indent: -${markerEm}em`,
+      },
+    }).range(lineFrom),
+  );
 }

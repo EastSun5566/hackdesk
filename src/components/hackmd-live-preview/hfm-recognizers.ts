@@ -1,8 +1,4 @@
 export {
-  getFenceFallback,
-  getLineFallback,
-} from './hfm-fallbacks';
-export {
   parseMarkdownImage,
 } from './hfm-images';
 export {
@@ -16,7 +12,6 @@ export {
   hfmFenceLanguages,
 } from './hfm-patterns';
 export type {
-  FallbackBlock,
   HfmBlockRange,
   HfmHiddenRange,
   HfmInlineMark,

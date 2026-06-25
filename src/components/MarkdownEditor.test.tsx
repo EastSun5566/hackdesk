@@ -204,6 +204,8 @@ describe('MarkdownEditor', () => {
     const inactiveEditor = await screen.findByTestId('hackmd-markdown-editor');
 
     await waitFor(() => expect(inactiveEditor.querySelector('.cm-hackmd-alert-block-note')).not.toBeNull());
+    expect(inactiveEditor.querySelector('.cm-hackmd-alert-heading-note')).not.toBeNull();
+    expect(inactiveEditor.querySelector('.cm-hackmd-alert-heading-note')).toHaveTextContent('Note');
     expect(inactiveEditor.querySelector('.cm-content')).toHaveTextContent('A useful note.');
     expect(inactiveEditor.querySelector('.cm-content')).not.toHaveTextContent('[!note]');
     expect(inactiveRef.current?.getMarkdown()).toBe('Intro\n\n> [!note]\n> A useful note.');
@@ -219,21 +221,69 @@ describe('MarkdownEditor', () => {
     expect(activeRef.current?.getMarkdown()).toBe('> [!note]\n> A useful note.');
   });
 
-  it('decorates tables as compact source-preserving blocks', async () => {
+  it('previews ordered list markers as sequential numbers without changing source', async () => {
     const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      '1. First',
+      '1. Second',
+      '1. Third',
+      '',
+      '57. Offset',
+      '1. Continue offset',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    await waitFor(() => {
+      expect([...editor.querySelectorAll('.cm-hackmd-ordered-list-marker')].map((node) => node.textContent)).toEqual([
+        '2.',
+        '3.',
+        '57.',
+        '58.',
+      ]);
+    });
+  });
+
+  it('renders tables as editable source-preserving table widgets', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const onChange = vi.fn();
     const markdown = [
       '| Option | Description |',
       '| :----- | ----------: |',
       '| data | path |',
     ].join('\n');
 
-    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={onChange} />);
     const editor = await screen.findByTestId('hackmd-markdown-editor');
 
-    await waitFor(() => expect(editor.querySelector('.cm-hackmd-table-block-start')).not.toBeNull());
-    expect(editor.querySelector('.cm-hackmd-table-block-end')).not.toBeNull();
-    expect(editor.querySelector('.cm-content')).toHaveTextContent('| :----- | ----------: |');
-    expect(ref.current?.getMarkdown()).toBe(markdown);
+    const table = await waitFor(() => {
+      const target = editor.querySelector<HTMLElement>('.cm-hackmd-table');
+      expect(target).not.toBeNull();
+      return target as HTMLElement;
+    });
+    expect(table.querySelector('table')).not.toBeNull();
+    expect(table.querySelectorAll('th')).toHaveLength(2);
+    expect(table.querySelectorAll('td')).toHaveLength(2);
+
+    const tableCells = table.querySelectorAll<HTMLElement>('.cm-hackmd-table-cell-source');
+    tableCells[0].focus();
+    fireEvent.keyDown(tableCells[0], { key: 'Tab' });
+    expect(document.activeElement).toBe(tableCells[1]);
+    fireEvent.keyDown(tableCells[1], { key: 'Enter', shiftKey: true });
+    expect(document.activeElement).toBe(tableCells[0]);
+
+    const dataCell = tableCells[3];
+    dataCell.textContent = 'file path';
+    fireEvent.input(dataCell);
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toContain('| data | file path |'));
+    expect(onChange).toHaveBeenCalledWith([
+      '| Option | Description |',
+      '| --- | --- |',
+      '| data | file path |',
+    ].join('\n'));
   });
 
   it('hides inactive blockquote metadata and reveals it when active', async () => {
@@ -330,7 +380,7 @@ describe('MarkdownEditor', () => {
     });
   });
 
-  it('labels recognized HFM blocks that are intentionally not rendered inline', async () => {
+  it('keeps recognized HFM blocks as low-noise styled source without fallback labels', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const markdown = [
       '```mermaid',
@@ -344,74 +394,39 @@ describe('MarkdownEditor', () => {
     render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
     const editor = await screen.findByTestId('hackmd-markdown-editor');
 
-    await waitFor(() => expect(editor.querySelectorAll('.cm-hackmd-fallback-block')).toHaveLength(2));
-    expect(editor.querySelector('.cm-hackmd-fallback-block')).toHaveTextContent('Mermaid diagram block');
-    expect(ref.current?.getMarkdown()).toBe(markdown);
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-fenced-code')).not.toBeNull());
+    expect(editor.querySelector('.cm-hackmd-external-youtube')).not.toBeNull();
+    expect(editor.querySelector('.cm-hackmd-fallback-block')).toBeNull();
+    expect(editor).not.toHaveTextContent('Mermaid diagram block');
+    expect(editor).not.toHaveTextContent('YouTube embed');
   });
 
-  it('labels all HackMD rich fences and external embeds without rendering them', async () => {
+  it('keeps HackMD-looking text inside fenced code as raw code source', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const markdown = [
-      '```sequence',
-      'Alice->Bob: Hello',
+      'Intro',
+      '',
+      '```markdown',
+      '> ya',
+      '',
+      ':::info',
+      'yo',
+      ':::',
       '```',
-      '```flow',
-      'st=>start: Start',
-      '```',
-      '```graphviz',
-      'digraph G { A -> B }',
-      '```',
-      '```abc',
-      'X:1',
-      '```',
-      '```vega',
-      '{"mark":"bar"}',
-      '```',
-      '```fretboard {title="horizontal"}',
-      '-oO-*-',
-      '```',
-      '{%figma https://figma.com/file/example %}',
     ].join('\n');
 
     render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
     const editor = await screen.findByTestId('hackmd-markdown-editor');
 
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
-    await waitFor(() => expect(editor).toHaveTextContent('Sequence diagram block'));
-    expect(editor).toHaveTextContent('Flow chart block');
-    expect(editor).toHaveTextContent('Graphviz diagram block');
-    expect(editor).toHaveTextContent('ABC notation block');
-    expect(editor).toHaveTextContent('Vega-Lite chart block');
-    expect(editor).toHaveTextContent('Fretboard diagram block');
-    expect(editor).toHaveTextContent('Figma embed');
-  });
-
-  it('focuses the source line when an HFM fallback widget is clicked', async () => {
-    const ref = createRef<MarkdownEditorHandle>();
-    const markdown = [
-      'Intro',
-      '',
-      '```mermaid',
-      'graph TD',
-      'A-->B',
-      '```',
-    ].join('\n');
-
-    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
-    const editor = await screen.findByTestId('hackmd-markdown-editor');
-
-    const fallback = await waitFor(() => {
-      const target = editor.querySelector<HTMLElement>('.cm-hackmd-fallback-block');
-      expect(target).not.toBeNull();
-      return target as HTMLElement;
-    });
-
-    fireEvent.mouseDown(fallback);
-
-    await waitFor(() => {
-      const activeLine = editor.querySelector('.cm-activeLine');
-      expect(activeLine).toHaveTextContent('```mermaid');
-    });
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-fenced-code')).not.toBeNull());
+    expect(editor.querySelector('.cm-hackmd-alert-block')).toBeNull();
+    expect(editor.querySelector('.cm-hackmd-container-block')).toBeNull();
+    expect(editor.querySelector('.cm-hackmd-blockquote')).toBeNull();
+    expect(editor).toHaveTextContent('> ya');
+    expect(editor).toHaveTextContent(':::info');
+    expect(editor).toHaveTextContent(':::');
   });
 
   it('keeps HackMD code fence options in the editable source instead of showing a fallback panel', async () => {
@@ -462,7 +477,7 @@ describe('MarkdownEditor', () => {
     expect(editor.querySelector('.cm-hackmd-fallback-block')).toBeNull();
   });
 
-  it('decorates alert, container, math, external, and diagram source lines', async () => {
+  it('decorates alert, container, math, and external source lines without previewing fenced code content', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const markdown = [
       '> [!note]',
@@ -488,7 +503,8 @@ describe('MarkdownEditor', () => {
     expect(editor.querySelector('.cm-hackmd-container-warning')).not.toBeNull();
     expect(editor.querySelector('.cm-hackmd-math-block-line')).not.toBeNull();
     expect(editor.querySelector('.cm-hackmd-external-youtube')).not.toBeNull();
-    expect(editor.querySelector('.cm-hackmd-hfm-fence-mermaid')).not.toBeNull();
+    expect(editor.querySelector('.cm-hackmd-fenced-code')).not.toBeNull();
+    expect(editor.querySelector('.cm-hackmd-hfm-fence-mermaid')).toBeNull();
   });
 
   it('decorates inline math, reference links, reference definitions, and raw HTML safely', async () => {
@@ -539,7 +555,9 @@ describe('MarkdownEditor', () => {
     expect(editor.querySelector('.cm-hackmd-inline-footnote')).not.toBeNull();
     expect(editor.querySelector('.cm-hackmd-typographer')).not.toBeNull();
     expect(editor.querySelector('.cm-hackmd-indented-code')).not.toBeNull();
-    expect(editor).toHaveTextContent('CSV preview block');
+    expect(editor.querySelector('.cm-hackmd-fenced-code')).not.toBeNull();
+    expect(editor.querySelector('.cm-hackmd-hfm-fence-csvpreview')).toBeNull();
+    expect(editor).not.toHaveTextContent('CSV preview block');
   });
 
   it('decorates active autolinks as source-safe links', async () => {
@@ -553,7 +571,7 @@ describe('MarkdownEditor', () => {
     await waitFor(() => expect(editor.querySelector('.cm-hackmd-autolink')).not.toBeNull());
   });
 
-  it('decorates active CSV fence options as editable metadata', async () => {
+  it('keeps CSV fence options as raw fenced code source', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const markdown = [
       '```csvpreview {header="true" delimiter="."}',
@@ -566,7 +584,8 @@ describe('MarkdownEditor', () => {
     const editor = await screen.findByTestId('hackmd-markdown-editor');
 
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
-    await waitFor(() => expect(editor.querySelector('.cm-hackmd-fence-meta')).not.toBeNull());
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-fenced-code')).not.toBeNull());
+    expect(editor.querySelector('.cm-hackmd-fence-meta')).toBeNull();
     expect(editor).toHaveTextContent('{header="true" delimiter="."}');
   });
 

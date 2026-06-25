@@ -3,6 +3,11 @@ export const editorChromeTheme = {
     height: '100%',
     backgroundColor: 'var(--background-default)',
     color: 'var(--text-default)',
+    '--hackmd-alert-note': '#0969da',
+    '--hackmd-alert-tip': '#1a7f37',
+    '--hackmd-alert-warning': '#9a6700',
+    '--hackmd-alert-caution': '#d1242f',
+    '--hackmd-alert-important': '#8250df',
     '--code-keyword': '#c792ea',
     '--code-string': '#c3e88d',
     '--code-number': '#f78c6c',
@@ -16,6 +21,13 @@ export const editorChromeTheme = {
     '--code-variable': '#eeffff',
     '--code-invalid': '#ff5370',
     fontSize: '14px',
+  },
+  ':root.dark &': {
+    '--hackmd-alert-note': '#2f81f7',
+    '--hackmd-alert-tip': '#3fb950',
+    '--hackmd-alert-warning': '#d29922',
+    '--hackmd-alert-caution': '#f85149',
+    '--hackmd-alert-important': '#a371f7',
   },
   '.cm-scroller': {
     fontFamily: 'var(--font-editor)',
@@ -193,11 +205,18 @@ export const codeAndBlockTheme = {
     ].join(', '),
     paddingInline: '0.875rem',
   },
-  '.cm-hackmd-alert-block, .cm-hackmd-container-block': {
+  '.cm-hackmd-alert-block': {
     color: 'var(--text-default)',
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 86%, var(--primary-default) 14%)',
-    boxShadow: 'inset 3px 0 0 color-mix(in oklch, var(--primary-default) 68%, var(--border-strong) 32%)',
-    paddingInlineStart: '0.9rem',
+    backgroundColor: 'transparent',
+    boxShadow: 'inset .25em 0 0 #888',
+    paddingInlineStart: '1rem',
+    paddingInlineEnd: '0.75rem',
+  },
+  '.cm-hackmd-container-block': {
+    color: 'var(--text-default)',
+    backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--primary-default) 8%)',
+    boxShadow: 'inset 4px 0 0 color-mix(in oklch, var(--primary-default) 72%, var(--border-strong) 28%)',
+    paddingInlineStart: '1.15rem',
     paddingInlineEnd: '0.75rem',
   },
   '.cm-hackmd-alert-block-start, .cm-hackmd-container-block-start': {
@@ -210,17 +229,32 @@ export const codeAndBlockTheme = {
     borderEndEndRadius: '6px',
     paddingBottom: '0.12rem',
   },
-  '.cm-hackmd-alert-block-tip, .cm-hackmd-container-block-success': {
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 86%, var(--success-default) 14%)',
-    boxShadow: 'inset 3px 0 0 var(--success-default)',
+  '.cm-hackmd-alert-block-note, .cm-hackmd-alert-block-todo': {
+    boxShadow: 'inset .25em 0 0 var(--hackmd-alert-note)',
   },
-  '.cm-hackmd-alert-block-warning, .cm-hackmd-alert-block-caution, .cm-hackmd-container-block-warning': {
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 86%, var(--warning-default) 14%)',
-    boxShadow: 'inset 3px 0 0 var(--warning-default)',
+  '.cm-hackmd-alert-block-tip': {
+    boxShadow: 'inset .25em 0 0 var(--hackmd-alert-tip)',
   },
-  '.cm-hackmd-alert-block-danger, .cm-hackmd-container-block-danger': {
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 86%, var(--destructive-default) 14%)',
-    boxShadow: 'inset 3px 0 0 var(--destructive-default)',
+  '.cm-hackmd-alert-block-important': {
+    boxShadow: 'inset .25em 0 0 var(--hackmd-alert-important)',
+  },
+  '.cm-hackmd-alert-block-warning': {
+    boxShadow: 'inset .25em 0 0 var(--hackmd-alert-warning)',
+  },
+  '.cm-hackmd-alert-block-caution, .cm-hackmd-alert-block-danger': {
+    boxShadow: 'inset .25em 0 0 var(--hackmd-alert-caution)',
+  },
+  '.cm-hackmd-container-block-success': {
+    backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--success-default) 8%)',
+    boxShadow: 'inset 4px 0 0 var(--success-default)',
+  },
+  '.cm-hackmd-container-block-warning': {
+    backgroundColor: 'color-mix(in oklch, var(--background-muted) 90%, var(--warning-default) 10%)',
+    boxShadow: 'inset 4px 0 0 var(--warning-default)',
+  },
+  '.cm-hackmd-container-block-danger': {
+    backgroundColor: 'color-mix(in oklch, var(--background-muted) 90%, var(--destructive-default) 10%)',
+    boxShadow: 'inset 4px 0 0 var(--destructive-default)',
   },
   '.cm-hackmd-container-block-spoiler': {
     backgroundColor: 'var(--background-muted)',
@@ -355,18 +389,102 @@ export const inlineMarksTheme = {
     display: 'inline-block',
     width: '1.25em',
     color: 'var(--text-subtle)',
-    textAlign: 'center',
+    fontVariantNumeric: 'tabular-nums',
+    textAlign: 'start',
+  },
+  '.cm-hackmd-ordered-list-marker': {
+    color: 'var(--text-muted)',
   },
   '.cm-hackmd-task-checkbox': {
+    display: 'inline-block',
     width: '0.95em',
     height: '0.95em',
-    margin: '0 0.3em 0 0',
+    margin: '0 0.65em 0 0',
     verticalAlign: '-0.12em',
     accentColor: 'var(--primary-default)',
+  },
+  '.cm-hackmd-alert-heading': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.55rem',
+    color: 'var(--primary-default)',
+    fontFamily: 'var(--font-sans)',
+    fontSize: '0.92em',
+    fontWeight: '700',
+    paddingBlock: '0.1rem 0.3rem',
+  },
+  '.cm-hackmd-alert-icon': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '1.15em',
+    height: '1.15em',
+    border: '1.5px solid currentColor',
+    borderRadius: '999px',
+    fontSize: '0.78em',
+    fontWeight: '800',
+    lineHeight: '1',
+  },
+  '.cm-hackmd-alert-heading-tip': {
+    color: 'var(--hackmd-alert-tip)',
+  },
+  '.cm-hackmd-alert-heading-important': {
+    color: 'var(--hackmd-alert-important)',
+  },
+  '.cm-hackmd-alert-heading-note, .cm-hackmd-alert-heading-todo': {
+    color: 'var(--hackmd-alert-note)',
+  },
+  '.cm-hackmd-alert-heading-warning': {
+    color: 'var(--hackmd-alert-warning)',
+  },
+  '.cm-hackmd-alert-heading-caution, .cm-hackmd-alert-heading-danger': {
+    color: 'var(--hackmd-alert-caution)',
   },
 };
 
 export const widgetTheme = {
+  '.cm-hackmd-table': {
+    margin: '0.45rem 0 0.75rem 0',
+    maxWidth: '100%',
+    overflowX: 'auto',
+    border: '1px solid var(--border-default)',
+    borderRadius: '6px',
+    backgroundColor: 'var(--background-default)',
+    fontFamily: 'var(--font-sans)',
+  },
+  '.cm-hackmd-table table': {
+    width: '100%',
+    minWidth: 'max-content',
+    borderCollapse: 'collapse',
+  },
+  '.cm-hackmd-table th, .cm-hackmd-table td': {
+    minWidth: '8rem',
+    borderRight: '1px solid var(--border-default)',
+    borderBottom: '1px solid var(--border-default)',
+    padding: '0',
+    verticalAlign: 'top',
+  },
+  '.cm-hackmd-table th:last-child, .cm-hackmd-table td:last-child': {
+    borderRight: '0',
+  },
+  '.cm-hackmd-table tr:last-child td': {
+    borderBottom: '0',
+  },
+  '.cm-hackmd-table th': {
+    backgroundColor: 'var(--background-muted)',
+    color: 'var(--text-default)',
+    fontWeight: '650',
+  },
+  '.cm-hackmd-table-cell-source': {
+    minHeight: '2rem',
+    outline: 'none',
+    padding: '0.45rem 0.6rem',
+    whiteSpace: 'pre-wrap',
+  },
+  '.cm-hackmd-table-cell-source:focus': {
+    backgroundColor: 'color-mix(in oklch, var(--background-selected) 36%, transparent)',
+    boxShadow: 'inset 0 0 0 2px var(--focus-ring)',
+  },
   '.cm-hackmd-image-preview': {
     margin: '0.4rem 0 0.65rem 0.25rem',
     maxWidth: 'min(100%, 720px)',
@@ -386,30 +504,5 @@ export const widgetTheme = {
     color: 'var(--text-subtle)',
     fontFamily: 'var(--font-sans)',
     fontSize: '12px',
-  },
-  '.cm-hackmd-fallback-block': {
-    margin: '0.2rem 0 0.45rem 0.25rem',
-    maxWidth: 'min(100%, 36rem)',
-    borderRadius: '5px',
-    border: '1px solid var(--border-default)',
-    borderLeft: '2px solid color-mix(in oklch, var(--primary-default) 58%, var(--border-strong) 42%)',
-    backgroundColor: 'color-mix(in oklch, var(--background-muted) 88%, transparent)',
-    cursor: 'pointer',
-    fontFamily: 'var(--font-sans)',
-    padding: '0.42rem 0.55rem',
-  },
-  '.cm-hackmd-fallback-block:focus-visible': {
-    outline: '2px solid var(--focus-ring)',
-    outlineOffset: '2px',
-  },
-  '.cm-hackmd-fallback-title': {
-    color: 'var(--text-default)',
-    fontSize: '11px',
-    fontWeight: '650',
-  },
-  '.cm-hackmd-fallback-description': {
-    marginTop: '0.08rem',
-    color: 'var(--text-subtle)',
-    fontSize: '11px',
   },
 };

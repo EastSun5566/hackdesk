@@ -3,10 +3,8 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import {
-  getFenceFallback,
   getHfmBlockRanges,
   getHfmLineDecorations,
-  getLineFallback,
   parseMarkdownImage,
 } from './hfm-recognizers';
 
@@ -31,45 +29,25 @@ describe('HFM live-preview recognizers', () => {
     expect(parseMarkdownImage('![bad](data:image/png;base64,abc)', 10)).toBeNull();
   });
 
-  it('recognizes fallback blocks for diagrams, csvpreview, math, and external embeds', () => {
-    expect(getFenceFallback('```mermaid', 1)).toMatchObject({
-      lineTo: 1,
-      title: 'Mermaid diagram block',
-    });
-    expect(getFenceFallback('```csvpreview {header="true"}', 2)).toMatchObject({
-      lineTo: 2,
-      title: 'CSV preview block',
-    });
-    expect(getFenceFallback('```javascript=101 [102-103]', 3)).toBeNull();
-    expect(getLineFallback('$$', 4)).toMatchObject({
-      lineTo: 4,
-      title: 'MathJax block',
-    });
-    expect(getLineFallback('{%youtube 1G4isv_Fylg %}', 5)).toMatchObject({
-      lineTo: 5,
-      title: 'YouTube embed',
-    });
-  });
-
-  it('recognizes every HackMD rich fence and external provider with readable fallback labels', () => {
+  it('recognizes every HackMD rich fence and external provider as low-noise source styling', () => {
     expect([
-      ['sequence', 'Sequence diagram block'],
-      ['flow', 'Flow chart block'],
-      ['graphviz', 'Graphviz diagram block'],
-      ['mermaid', 'Mermaid diagram block'],
-      ['abc', 'ABC notation block'],
-      ['plantuml', 'PlantUML diagram block'],
-      ['vega', 'Vega-Lite chart block'],
-      ['fretboard', 'Fretboard diagram block'],
-    ].map(([language]) => getFenceFallback(`\`\`\`${language} {title="demo"}`, 1)?.title)).toEqual([
-      'Sequence diagram block',
-      'Flow chart block',
-      'Graphviz diagram block',
-      'Mermaid diagram block',
-      'ABC notation block',
-      'PlantUML diagram block',
-      'Vega-Lite chart block',
-      'Fretboard diagram block',
+      'sequence',
+      'flow',
+      'graphviz',
+      'mermaid',
+      'abc',
+      'plantuml',
+      'vega',
+      'fretboard',
+    ].map((language) => getHfmLineDecorations(`\`\`\`${language} {title="demo"}`).lineClasses)).toEqual([
+      expect.arrayContaining(['cm-hackmd-hfm-fence cm-hackmd-hfm-fence-sequence']),
+      expect.arrayContaining(['cm-hackmd-hfm-fence cm-hackmd-hfm-fence-flow']),
+      expect.arrayContaining(['cm-hackmd-hfm-fence cm-hackmd-hfm-fence-graphviz']),
+      expect.arrayContaining(['cm-hackmd-hfm-fence cm-hackmd-hfm-fence-mermaid']),
+      expect.arrayContaining(['cm-hackmd-hfm-fence cm-hackmd-hfm-fence-abc']),
+      expect.arrayContaining(['cm-hackmd-hfm-fence cm-hackmd-hfm-fence-plantuml']),
+      expect.arrayContaining(['cm-hackmd-hfm-fence cm-hackmd-hfm-fence-vega']),
+      expect.arrayContaining(['cm-hackmd-hfm-fence cm-hackmd-hfm-fence-fretboard']),
     ]);
 
     expect([
@@ -79,14 +57,17 @@ describe('HFM live-preview recognizers', () => {
       '{%speakerdeck deck %}',
       '{%pdf https://hackmd.io/pdf-sample.pdf %}',
       '{%figma https://figma.com/file/example %}',
-    ].map((line) => getLineFallback(line, 1)?.title)).toEqual([
-      'Vimeo embed',
-      'Gist embed',
-      'SlideShare embed',
-      'Speaker Deck embed',
-      'PDF embed',
-      'Figma embed',
+    ].map((line) => getHfmLineDecorations(line).lineClasses)).toEqual([
+      expect.arrayContaining(['cm-hackmd-external-line cm-hackmd-external-vimeo']),
+      expect.arrayContaining(['cm-hackmd-external-line cm-hackmd-external-gist']),
+      expect.arrayContaining(['cm-hackmd-external-line cm-hackmd-external-slideshare']),
+      expect.arrayContaining(['cm-hackmd-external-line cm-hackmd-external-speakerdeck']),
+      expect.arrayContaining(['cm-hackmd-external-line cm-hackmd-external-pdf']),
+      expect.arrayContaining(['cm-hackmd-external-line cm-hackmd-external-figma']),
     ]);
+
+    expect(getHfmLineDecorations('```javascript=101 [102-103]').lineClasses).not.toContain('cm-hackmd-hfm-fence');
+    expect(getHfmLineDecorations('$$').lineClasses).toContain('cm-hackmd-math-block-line');
   });
 
   it('recognizes HFM line classes for alerts, containers, TOC, metadata, tables, and fences', () => {

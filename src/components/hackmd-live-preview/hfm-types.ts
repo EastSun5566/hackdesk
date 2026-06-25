@@ -6,12 +6,6 @@ export type ImageBlock = {
   width?: number;
 };
 
-export type FallbackBlock = {
-  description: string;
-  lineTo: number;
-  title: string;
-};
-
 export type HfmInlineMark = {
   className: string;
   from: number;

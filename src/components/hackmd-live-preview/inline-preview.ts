@@ -23,6 +23,7 @@ import {
   getDocumentLines,
 } from './hfm-decoration-ranges';
 import { getHfmBlockRanges } from './hfm-recognizers';
+import { getOrderedListMarkerPreviews } from './list-markers';
 import { pushReplace, type PreviewRange } from './preview-ranges';
 import {
   addListMarker,
@@ -208,16 +209,18 @@ function buildDecorations(state: EditorState): DecorationSet {
   const ranges: PreviewRange[] = [];
   const activeLines = getActiveLines(state);
   const activeInlineSourceStarts = new Set<number>();
-  const hfmBlockRanges = getHfmBlockRanges(getDocumentLines(state));
+  const tree = ensureSyntaxTree(state, state.doc.length, 200) ?? syntaxTree(state);
+  const fencedCodeLines = getFencedCodeLines(state, tree);
+  const hfmBlockRanges = getHfmBlockRanges(getDocumentLines(state))
+    .filter((blockRange) => !blockRangeOverlapsLines(blockRange.startLine, blockRange.endLine, fencedCodeLines));
   const activeHfmBlocks = getActiveHfmBlocks(hfmBlockRanges, activeLines);
+  const orderedListMarkers = getOrderedListMarkerPreviews(state);
 
   expandActiveHfmBlockLines(activeHfmBlocks, activeLines);
 
   addFrontmatterRanges(state, ranges);
   addHfmBlockRanges(state, hfmBlockRanges, activeHfmBlocks, ranges);
-  addHackmdLineSyntaxRanges(state, activeLines, ranges);
-
-  const tree = ensureSyntaxTree(state, state.doc.length, 200) ?? syntaxTree(state);
+  addHackmdLineSyntaxRanges(state, activeLines, ranges, fencedCodeLines);
 
   tree.iterate({
     enter(node) {
@@ -267,7 +270,7 @@ function buildDecorations(state: EditorState): DecorationSet {
       }
 
       if (node.name === 'ListMark') {
-        addListMarker(state, activeLines, ranges, node.from, node.to);
+        addListMarker(state, activeLines, orderedListMarkers, ranges, node.from, node.to);
         return;
       }
 
@@ -283,6 +286,36 @@ function buildDecorations(state: EditorState): DecorationSet {
   });
 
   return Decoration.set(ranges, true);
+}
+
+function getFencedCodeLines(state: EditorState, tree: ReturnType<typeof syntaxTree>): Set<number> {
+  const lines = new Set<number>();
+
+  tree.iterate({
+    enter(node) {
+      if (node.name !== 'FencedCode') {
+        return;
+      }
+
+      const startLine = state.doc.lineAt(node.from).number;
+      const endLine = state.doc.lineAt(Math.max(node.from, node.to - 1)).number;
+      for (let lineNumber = startLine; lineNumber <= endLine; lineNumber += 1) {
+        lines.add(lineNumber);
+      }
+    },
+  });
+
+  return lines;
+}
+
+function blockRangeOverlapsLines(startLine: number, endLine: number, lines: ReadonlySet<number>): boolean {
+  for (let lineNumber = startLine; lineNumber <= endLine; lineNumber += 1) {
+    if (lines.has(lineNumber)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function isInactiveSingleLineRange(state: EditorState, activeLines: Set<number>, from: number, to: number) {
