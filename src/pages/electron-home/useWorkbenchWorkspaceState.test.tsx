@@ -1,8 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
-
 import { getScopeStorageKey } from './repository';
 import type { WorkspaceScope } from './types';
 import {
@@ -32,7 +30,6 @@ describe('useWorkbenchWorkspaceState', () => {
     const teamScope: WorkspaceScope = { type: 'team', label: 'Design', teamPath: 'design' };
     writeStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${getScopeStorageKey(teamScope)}`, new Set(['folder-a']));
     const manualEmptyWorkspaceRef = { current: true };
-    const pendingRecentNoteRef = { current: { noteId: 'note-1' } as ElectronRecentNote };
     const { result } = renderHook(() => useWorkbenchWorkspaceState({
       initialWorkspaceScope,
       manualEmptyWorkspaceRef,
@@ -48,7 +45,6 @@ describe('useWorkbenchWorkspaceState', () => {
     expect(result.current.selectedFolderId).toBeNull();
     expect(result.current.collapsedFolderIds).toEqual(new Set(['folder-a']));
     expect(manualEmptyWorkspaceRef.current).toBe(false);
-    expect(pendingRecentNoteRef.current?.noteId).toBe('note-1');
     expect(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY)).toContain('design');
   });
 });

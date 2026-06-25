@@ -72,7 +72,6 @@ import { useWorkbenchShortcuts } from './electron-home/useWorkbenchShortcuts';
 import { useWorkbenchTabLifecycle } from './electron-home/useWorkbenchTabLifecycle';
 import {
   getInitialWorkspaceScope,
-  usePendingRecentNoteRef,
   useWorkbenchWorkspaceState,
 } from './electron-home/useWorkbenchWorkspaceState';
 
@@ -85,7 +84,6 @@ export function Home() {
   const initialWorkspaceScope = useMemo(() => getInitialWorkspaceScope(), []);
   const [recentNotes, setRecentNotes] = useState<ElectronRecentNote[]>(() => readRecentNotes(window.localStorage));
   const [onboardingOpen, setOnboardingOpen] = useState(false);
-  const pendingRecentNoteRef = usePendingRecentNoteRef();
   const autoSelectSuppressionRef = useRef<string | null>(null);
   const manualEmptyWorkspaceRef = useRef(false);
   const panelState = useWorkbenchPanelState();
@@ -157,10 +155,6 @@ export function Home() {
     setWorkspaceScopeState(nextScope);
     loadFinderStateForScope(nextScopeStorageKey);
   }, [loadFinderStateForScope, setWorkspaceScopeState]);
-  const switchWorkspaceScope = useCallback((nextScope: WorkspaceScope) => {
-    pendingRecentNoteRef.current = null;
-    setWorkspaceScope(nextScope);
-  }, [pendingRecentNoteRef, setWorkspaceScope]);
   const { focusZone } = useElectronFocusZones();
   const selectedNote = useMemo<NoteIdentity | null>(() => (
     noteWorkspace.activeTab
@@ -500,15 +494,21 @@ export function Home() {
     writeStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${scopeStorageKey}`, collapsedFolderIds);
   }, [collapsedFolderIds, scopeStorageKey]);
 
-  usePendingRecentNoteRestore({
+  const {
+    clearPendingRecentNote,
+    queuePendingRecentNote,
+  } = usePendingRecentNoteRestore({
     isNotesFetching: queries.notesQuery.isFetching,
     isNotesLoading: queries.notesQuery.isLoading,
-    pendingRecentNoteRef,
     removeRecentNoteEntry,
     revealNoteEntry,
     scope,
     tree: folderTree,
   });
+  const switchWorkspaceScope = useCallback((nextScope: WorkspaceScope) => {
+    clearPendingRecentNote();
+    setWorkspaceScope(nextScope);
+  }, [clearPendingRecentNote, setWorkspaceScope]);
 
   const {
     handleQuickOpenFolder,
@@ -520,7 +520,8 @@ export function Home() {
     focusNavigator: () => focusZone('navigator'),
     isNotesFetching: queries.notesQuery.isFetching,
     isNotesLoading: queries.notesQuery.isLoading,
-    pendingRecentNoteRef,
+    clearPendingRecentNote,
+    queuePendingRecentNote,
     removeRecentNoteEntry,
     revealFolderIds,
     revealNoteEntry,

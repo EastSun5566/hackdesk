@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import type { MutableRefObject } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -13,23 +12,44 @@ import type { WorkspaceScope } from './types';
 export type PendingRecentNoteRestoreOptions = {
   isNotesFetching: boolean;
   isNotesLoading: boolean;
-  pendingRecentNoteRef: MutableRefObject<ElectronRecentNote | null>;
   removeRecentNoteEntry: (noteId: string, teamPath: string | null) => void;
   revealNoteEntry: (entry: FolderTreeNote) => Promise<boolean>;
   scope: WorkspaceScope;
   tree: FolderTree;
 };
 
+export type PendingRecentNoteRestoreController = {
+  clearPendingRecentNote: () => void;
+  getPendingRecentNote: () => ElectronRecentNote | null;
+  queuePendingRecentNote: (note: ElectronRecentNote) => void;
+};
+
 export function usePendingRecentNoteRestore({
   isNotesFetching,
   isNotesLoading,
-  pendingRecentNoteRef,
   removeRecentNoteEntry,
   revealNoteEntry,
   scope,
   tree,
-}: PendingRecentNoteRestoreOptions) {
+}: PendingRecentNoteRestoreOptions): PendingRecentNoteRestoreController {
+  const pendingRecentNoteRef = useRef<ElectronRecentNote | null>(null);
+  const removeRecentNoteEntryRef = useRef(removeRecentNoteEntry);
+  const revealNoteEntryRef = useRef(revealNoteEntry);
+
   useEffect(() => {
+    removeRecentNoteEntryRef.current = removeRecentNoteEntry;
+    revealNoteEntryRef.current = revealNoteEntry;
+  }, [removeRecentNoteEntry, revealNoteEntry]);
+
+  const clearPendingRecentNote = useCallback(() => {
+    pendingRecentNoteRef.current = null;
+  }, []);
+
+  const getPendingRecentNote = useCallback(() => (
+    pendingRecentNoteRef.current
+  ), []);
+
+  const restorePendingRecentNote = useCallback(() => {
     const pendingRecentNote = pendingRecentNoteRef.current;
     if (!pendingRecentNote) {
       return;
@@ -44,19 +64,26 @@ export function usePendingRecentNoteRestore({
     const loadedEntry = tree.allNotes.find((candidate) => recentNoteMatches(candidate.note, pendingRecentNote));
     pendingRecentNoteRef.current = null;
     if (loadedEntry) {
-      void revealNoteEntry(loadedEntry);
+      void revealNoteEntryRef.current(loadedEntry);
       return;
     }
 
-    removeRecentNoteEntry(pendingRecentNote.noteId, pendingRecentNote.teamPath);
+    removeRecentNoteEntryRef.current(pendingRecentNote.noteId, pendingRecentNote.teamPath);
     toast.info(`“${pendingRecentNote.title || 'Untitled'}” is no longer available in this workspace.`);
-  }, [
-    isNotesFetching,
-    isNotesLoading,
-    pendingRecentNoteRef,
-    removeRecentNoteEntry,
-    revealNoteEntry,
-    scope,
-    tree.allNotes,
-  ]);
+  }, [isNotesFetching, isNotesLoading, scope, tree.allNotes]);
+
+  useEffect(() => {
+    restorePendingRecentNote();
+  }, [restorePendingRecentNote]);
+
+  const queuePendingRecentNote = useCallback((note: ElectronRecentNote) => {
+    pendingRecentNoteRef.current = note;
+    restorePendingRecentNote();
+  }, [restorePendingRecentNote]);
+
+  return {
+    clearPendingRecentNote,
+    getPendingRecentNote,
+    queuePendingRecentNote,
+  };
 }

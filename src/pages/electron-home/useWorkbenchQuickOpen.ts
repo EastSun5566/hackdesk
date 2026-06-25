@@ -1,5 +1,4 @@
 import { useCallback } from 'react';
-import type { MutableRefObject } from 'react';
 import { toast } from 'sonner';
 
 import type { QuickOpenFolderResult, QuickOpenWorkspaceResult } from '@/lib/electron-quick-open';
@@ -14,7 +13,8 @@ export type WorkbenchQuickOpenOptions = {
   focusNavigator: () => void;
   isNotesFetching: boolean;
   isNotesLoading: boolean;
-  pendingRecentNoteRef: MutableRefObject<ElectronRecentNote | null>;
+  clearPendingRecentNote: () => void;
+  queuePendingRecentNote: (note: ElectronRecentNote) => void;
   removeRecentNoteEntry: (noteId: string, teamPath: string | null) => void;
   revealFolderIds: (folderIds: string[]) => void;
   revealNoteEntry: (entry: FolderTreeNote) => Promise<boolean>;
@@ -30,7 +30,8 @@ export function useWorkbenchQuickOpen({
   focusNavigator,
   isNotesFetching,
   isNotesLoading,
-  pendingRecentNoteRef,
+  clearPendingRecentNote,
+  queuePendingRecentNote,
   removeRecentNoteEntry,
   revealFolderIds,
   revealNoteEntry,
@@ -50,7 +51,7 @@ export function useWorkbenchQuickOpen({
     ));
 
     if (loadedEntry) {
-      pendingRecentNoteRef.current = null;
+      clearPendingRecentNote();
       void revealNoteEntry(loadedEntry);
       return;
     }
@@ -65,7 +66,7 @@ export function useWorkbenchQuickOpen({
 
     if (entry.teamPath) {
       const team = teams.find((candidate) => candidate.path === entry.teamPath);
-      pendingRecentNoteRef.current = entry;
+      queuePendingRecentNote(entry);
       setWorkspaceScope({
         type: 'team',
         label: team?.name ?? entry.teamPath,
@@ -76,15 +77,16 @@ export function useWorkbenchQuickOpen({
       return;
     }
 
-    pendingRecentNoteRef.current = entry;
+    queuePendingRecentNote(entry);
     setWorkspaceScope({ type: 'personal', label: 'My Workspace' });
     toast.info(`Loading My Workspace before opening “${entry.title || 'Untitled'}”.`);
     focusNavigator();
   }, [
+    clearPendingRecentNote,
     focusNavigator,
     isNotesFetching,
     isNotesLoading,
-    pendingRecentNoteRef,
+    queuePendingRecentNote,
     removeRecentNoteEntry,
     revealNoteEntry,
     scope,
@@ -94,7 +96,7 @@ export function useWorkbenchQuickOpen({
   ]);
 
   const handleQuickOpenWorkspace = useCallback((workspace: QuickOpenWorkspaceResult) => {
-    pendingRecentNoteRef.current = null;
+    clearPendingRecentNote();
     if (workspace.type === 'personal') {
       setWorkspaceScope({ type: 'personal', label: workspace.label });
     } else if (workspace.type === 'history') {
@@ -104,7 +106,7 @@ export function useWorkbenchQuickOpen({
     }
 
     focusNavigator();
-  }, [focusNavigator, pendingRecentNoteRef, setWorkspaceScope]);
+  }, [clearPendingRecentNote, focusNavigator, setWorkspaceScope]);
 
   const handleQuickOpenFolder = useCallback((folder: QuickOpenFolderResult) => {
     expandNavigator();

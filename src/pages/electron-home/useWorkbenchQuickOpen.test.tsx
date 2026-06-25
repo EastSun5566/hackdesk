@@ -77,7 +77,8 @@ function createOptions(overrides: Partial<WorkbenchQuickOpenOptions> = {}): Work
     focusNavigator: vi.fn(),
     isNotesFetching: false,
     isNotesLoading: false,
-    pendingRecentNoteRef: { current: null },
+    clearPendingRecentNote: vi.fn(),
+    queuePendingRecentNote: vi.fn(),
     removeRecentNoteEntry: vi.fn(),
     revealFolderIds: vi.fn(),
     revealNoteEntry: vi.fn(async () => true),
@@ -97,7 +98,7 @@ describe('useWorkbenchQuickOpen', () => {
 
     result.current.handleQuickOpenRecentNote(recent());
 
-    expect(options.pendingRecentNoteRef.current).toBeNull();
+    expect(options.clearPendingRecentNote).toHaveBeenCalledOnce();
     expect(options.revealNoteEntry).toHaveBeenCalledWith(options.tree.allNotes[0]);
     expect(options.removeRecentNoteEntry).not.toHaveBeenCalled();
   });
@@ -120,7 +121,7 @@ describe('useWorkbenchQuickOpen', () => {
 
     result.current.handleQuickOpenRecentNote(entry);
 
-    expect(options.pendingRecentNoteRef.current).toBe(entry);
+    expect(options.queuePendingRecentNote).toHaveBeenCalledWith(entry);
     expect(options.setWorkspaceScope).toHaveBeenCalledWith({
       label: 'Team One',
       teamPath: 'team-one',
@@ -149,7 +150,7 @@ describe('useWorkbenchQuickOpen', () => {
     result.current.handleQuickOpenWorkspace(workspace);
     result.current.handleQuickOpenFolder(folder);
 
-    expect(options.pendingRecentNoteRef.current).toBeNull();
+    expect(options.clearPendingRecentNote).toHaveBeenCalledOnce();
     expect(options.setWorkspaceScope).toHaveBeenCalledWith({ type: 'history', label: 'History' });
     expect(options.expandNavigator).toHaveBeenCalledOnce();
     expect(options.revealFolderIds).toHaveBeenCalledWith(['parent', 'folder-a']);

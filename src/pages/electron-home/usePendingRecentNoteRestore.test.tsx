@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
 
@@ -57,62 +57,68 @@ describe('usePendingRecentNoteRestore', () => {
   });
 
   it('reveals a pending recent note once its target scope is loaded', async () => {
-    const pendingRecentNoteRef = { current: recent() };
     const loadedTree = buildHackmdFolderTree([note({ id: 'note-1', title: 'Loaded note' })]);
     const revealNoteEntry = vi.fn(async () => true);
 
-    renderHook(() => usePendingRecentNoteRestore({
+    const { result } = renderHook(() => usePendingRecentNoteRestore({
       isNotesFetching: false,
       isNotesLoading: false,
-      pendingRecentNoteRef,
       removeRecentNoteEntry: vi.fn(),
       revealNoteEntry,
       scope: { type: 'personal', label: 'My Workspace' },
       tree: loadedTree,
     }));
 
+    act(() => {
+      result.current.queuePendingRecentNote(recent());
+    });
+
     await waitFor(() => {
       expect(revealNoteEntry).toHaveBeenCalledWith(loadedTree.allNotes[0]);
     });
-    expect(pendingRecentNoteRef.current).toBeNull();
+    expect(result.current.getPendingRecentNote()).toBeNull();
   });
 
   it('removes a missing pending recent note from the current scope', async () => {
-    const pendingRecentNoteRef = { current: recent({ noteId: 'missing', title: 'Missing note' }) };
     const removeRecentNoteEntry = vi.fn();
 
-    renderHook(() => usePendingRecentNoteRestore({
+    const { result } = renderHook(() => usePendingRecentNoteRestore({
       isNotesFetching: false,
       isNotesLoading: false,
-      pendingRecentNoteRef,
       removeRecentNoteEntry,
       revealNoteEntry: vi.fn(async () => true),
       scope: { type: 'personal', label: 'My Workspace' },
       tree: buildHackmdFolderTree([]),
     }));
 
+    act(() => {
+      result.current.queuePendingRecentNote(recent({ noteId: 'missing', title: 'Missing note' }));
+    });
+
     await waitFor(() => {
       expect(removeRecentNoteEntry).toHaveBeenCalledWith('missing', null);
     });
     expect(toast.info).toHaveBeenCalledWith('“Missing note” is no longer available in this workspace.');
-    expect(pendingRecentNoteRef.current).toBeNull();
+    expect(result.current.getPendingRecentNote()).toBeNull();
   });
 
   it('waits until the pending note target team scope is active and loaded', () => {
-    const pendingRecentNoteRef = { current: recent({ noteId: 'team-note', teamPath: 'team-one' }) };
     const revealNoteEntry = vi.fn(async () => true);
 
-    renderHook(() => usePendingRecentNoteRestore({
+    const { result } = renderHook(() => usePendingRecentNoteRestore({
       isNotesFetching: false,
       isNotesLoading: false,
-      pendingRecentNoteRef,
       removeRecentNoteEntry: vi.fn(),
       revealNoteEntry,
       scope: { type: 'personal', label: 'My Workspace' },
       tree: buildHackmdFolderTree([note({ id: 'team-note', title: 'Team note', teamPath: 'team-one' })]),
     }));
 
+    act(() => {
+      result.current.queuePendingRecentNote(recent({ noteId: 'team-note', teamPath: 'team-one' }));
+    });
+
     expect(revealNoteEntry).not.toHaveBeenCalled();
-    expect(pendingRecentNoteRef.current?.noteId).toBe('team-note');
+    expect(result.current.getPendingRecentNote()?.noteId).toBe('team-note');
   });
 });

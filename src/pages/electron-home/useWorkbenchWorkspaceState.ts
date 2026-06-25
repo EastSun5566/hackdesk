@@ -1,7 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
-
-import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
 
 import type { WorkspaceScope } from './types';
 import {
@@ -66,8 +64,4 @@ export function useWorkbenchWorkspaceState({
     setSelectedFolderId,
     setWorkspaceScope,
   };
-}
-
-export function usePendingRecentNoteRef() {
-  return useRef<ElectronRecentNote | null>(null);
 }
