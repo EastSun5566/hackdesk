@@ -16,6 +16,9 @@ import {
 } from './hfm-recognizers';
 import { treeGrowthEffect } from './tree-progress';
 
+const imageDimensionCache = new Map<string, { height: number; width: number }>();
+const fallbackImagePreviewHeight = 260;
+
 class ImagePreviewWidget extends WidgetType {
   constructor(
     private readonly src: string,
@@ -35,6 +38,19 @@ class ImagePreviewWidget extends WidgetType {
       && other.height === this.height;
   }
 
+  get estimatedHeight(): number {
+    if (this.height) {
+      return this.height + 48;
+    }
+
+    const cached = imageDimensionCache.get(this.src);
+    if (cached) {
+      return Math.min(Math.max(cached.height, 96), 520) + 48;
+    }
+
+    return fallbackImagePreviewHeight;
+  }
+
   toDOM(view: EditorView): HTMLElement {
     const wrap = document.createElement('figure');
     wrap.className = 'cm-hackmd-image-preview';
@@ -45,12 +61,32 @@ class ImagePreviewWidget extends WidgetType {
     image.alt = this.alt;
     image.loading = 'lazy';
 
+    const cached = imageDimensionCache.get(this.src);
+    const stableWidth = this.width ?? cached?.width;
+    const stableHeight = this.height ?? cached?.height;
+    if (stableWidth && stableHeight) {
+      image.width = stableWidth;
+      image.height = stableHeight;
+    }
+
     if (this.width) {
       image.style.maxWidth = `${this.width}px`;
     }
     if (this.height) {
       image.style.maxHeight = `${this.height}px`;
     }
+
+    image.addEventListener('load', () => {
+      if (image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+        return;
+      }
+
+      imageDimensionCache.set(this.src, {
+        height: image.naturalHeight,
+        width: image.naturalWidth,
+      });
+      view.requestMeasure();
+    });
 
     wrap.appendChild(image);
 

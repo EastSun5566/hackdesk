@@ -444,13 +444,15 @@ export const inlineMarksTheme = {
 
 export const widgetTheme = {
   '.cm-hackmd-table': {
-    margin: '0.45rem 0 0.75rem 0',
     maxWidth: '100%',
     overflowX: 'auto',
+    contentVisibility: 'auto',
+    containIntrinsicSize: 'auto none auto 180px',
     border: '1px solid var(--border-default)',
     borderRadius: '6px',
     backgroundColor: 'var(--background-default)',
     fontFamily: 'var(--font-sans)',
+    padding: '0.45rem 0 0.75rem 0',
   },
   '.cm-hackmd-table table': {
     width: '100%',
@@ -493,9 +495,18 @@ export const widgetTheme = {
     backgroundColor: 'color-mix(in oklch, var(--background-selected) 36%, transparent)',
     boxShadow: 'inset 0 0 0 2px var(--focus-ring)',
   },
+  '.cm-hackmd-csv-preview th, .cm-hackmd-csv-preview td': {
+    minWidth: '7rem',
+    padding: '0.42rem 0.58rem',
+    color: 'var(--text-default)',
+  },
+  '.cm-hackmd-csv-preview td': {
+    color: 'var(--text-muted)',
+  },
   '.cm-hackmd-image-preview': {
-    margin: '0.4rem 0 0.65rem 0.25rem',
     maxWidth: 'min(100%, 720px)',
+    contentVisibility: 'auto',
+    containIntrinsicSize: 'auto none auto 220px',
     borderRadius: '6px',
     border: '1px solid var(--border-default)',
     backgroundColor: 'var(--background-muted)',
@@ -512,5 +523,57 @@ export const widgetTheme = {
     color: 'var(--text-subtle)',
     fontFamily: 'var(--font-sans)',
     fontSize: '12px',
+  },
+  '.cm-hackmd-rich-block': {
+    maxWidth: 'min(100%, 820px)',
+    contentVisibility: 'auto',
+    containIntrinsicSize: 'auto none auto 220px',
+    border: '1px solid var(--border-default)',
+    borderRadius: '6px',
+    backgroundColor: 'var(--background-muted)',
+    boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--primary-default) 60%, var(--border-strong) 40%)',
+    color: 'var(--text-default)',
+    fontFamily: 'var(--font-sans)',
+    overflow: 'auto',
+    padding: '1.2rem 0.75rem 0.75rem 0.75rem',
+  },
+  '.cm-hackmd-rich-render-body': {
+    minHeight: '1.5rem',
+    color: 'var(--text-muted)',
+  },
+  '.cm-hackmd-rich-render-body svg': {
+    display: 'block',
+    maxWidth: '100%',
+    height: 'auto',
+  },
+  '.cm-hackmd-rich-render-body mjx-container': {
+    margin: '0',
+    color: 'var(--text-default)',
+  },
+  '.cm-hackmd-rich-render-error': {
+    borderColor: 'var(--destructive-default)',
+    boxShadow: 'inset 2px 0 0 var(--destructive-default)',
+  },
+  '.cm-hackmd-rich-emoji': {
+    display: 'inline-block',
+    minWidth: '1em',
+    textAlign: 'center',
+  },
+  '.cm-hackmd-rich-icon': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: '1em',
+    color: 'var(--primary-default)',
+  },
+  '.cm-hackmd-rich-math-inline': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    maxWidth: '100%',
+    color: 'var(--text-default)',
+    verticalAlign: '-0.15em',
+  },
+  '.cm-hackmd-rich-math-inline mjx-container': {
+    margin: '0',
   },
 };

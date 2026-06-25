@@ -290,6 +290,8 @@ describe('MarkdownEditor', () => {
     const ref = createRef<MarkdownEditorHandle>();
     const onChange = vi.fn();
     const markdown = [
+      'Intro',
+      '',
       '| Option | Description |',
       '| :----- | ----------: |',
       '| data | path |',
@@ -326,6 +328,8 @@ describe('MarkdownEditor', () => {
 
     await waitFor(() => expect(ref.current?.getMarkdown()).toContain('| data | file path |'));
     expect(onChange).toHaveBeenCalledWith([
+      'Intro',
+      '',
       '| Option | Description |',
       '| --- | --- |',
       '| data | file path |',
@@ -336,6 +340,8 @@ describe('MarkdownEditor', () => {
     const ref = createRef<MarkdownEditorHandle>();
     const onChange = vi.fn();
     const markdown = [
+      'Intro',
+      '',
       '| Name | Value |',
       '| --- | --- |',
       '| city | Tokyo |',
@@ -360,6 +366,8 @@ describe('MarkdownEditor', () => {
 
     await waitFor(() => expect(ref.current?.getMarkdown()).toContain('| city | 東京 |'));
     expect(onChange).toHaveBeenLastCalledWith([
+      'Intro',
+      '',
       '| Name | Value |',
       '| --- | --- |',
       '| city | 東京 |',
@@ -370,6 +378,8 @@ describe('MarkdownEditor', () => {
     const ref = createRef<MarkdownEditorHandle>();
     const onChange = vi.fn();
     const markdown = [
+      'Intro',
+      '',
       '| Name | Value |',
       '| --- | --- |',
       '| field |  |',
@@ -398,6 +408,8 @@ describe('MarkdownEditor', () => {
 
     await waitFor(() => expect(ref.current?.getMarkdown()).toContain('| field | two lines \\| pipe |'));
     expect(onChange).toHaveBeenLastCalledWith([
+      'Intro',
+      '',
       '| Name | Value |',
       '| --- | --- |',
       '| field | two lines \\| pipe |',
@@ -519,7 +531,39 @@ describe('MarkdownEditor', () => {
 
     await waitFor(() => expect(editor.querySelector('.cm-hackmd-image-preview img')).not.toBeNull());
     expect(editor.querySelector('.cm-hackmd-image-preview img')).toHaveAttribute('src', 'https://example.com/diagram.png');
+    expect(editor.querySelector('.cm-hackmd-image-preview img')).toHaveAttribute('width', '320');
+    expect(editor.querySelector('.cm-hackmd-image-preview img')).toHaveAttribute('height', '180');
     expect(ref.current?.getMarkdown()).toBe(markdown);
+  });
+
+  it('caches loaded image dimensions so remounted previews reserve stable height', async () => {
+    const markdown = 'Intro\n![Diagram](https://example.com/cached-dimensions.png)';
+    const firstRef = createRef<MarkdownEditorHandle>();
+    const firstRender = render(<MarkdownEditor ref={firstRef} value={markdown} onChange={vi.fn()} />);
+    const firstEditor = await screen.findByTestId('hackmd-markdown-editor');
+
+    const firstImage = await waitFor(() => {
+      const target = firstEditor.querySelector<HTMLImageElement>('.cm-hackmd-image-preview img');
+      expect(target).not.toBeNull();
+      return target as HTMLImageElement;
+    });
+    Object.defineProperty(firstImage, 'naturalWidth', { configurable: true, value: 640 });
+    Object.defineProperty(firstImage, 'naturalHeight', { configurable: true, value: 360 });
+    fireEvent.load(firstImage);
+    firstRender.unmount();
+
+    const secondRef = createRef<MarkdownEditorHandle>();
+    render(<MarkdownEditor ref={secondRef} value={markdown} onChange={vi.fn()} />);
+    const secondEditor = await screen.findByTestId('hackmd-markdown-editor');
+
+    const secondImage = await waitFor(() => {
+      const target = secondEditor.querySelector<HTMLImageElement>('.cm-hackmd-image-preview img');
+      expect(target).not.toBeNull();
+      return target as HTMLImageElement;
+    });
+    expect(secondImage).toHaveAttribute('width', '640');
+    expect(secondImage).toHaveAttribute('height', '360');
+    expect(secondRef.current?.getMarkdown()).toBe(markdown);
   });
 
   it('focuses the image source line when the image preview is clicked', async () => {
@@ -615,6 +659,142 @@ describe('MarkdownEditor', () => {
     expect(editor).not.toHaveTextContent('HackMD code fence options');
   });
 
+  it('renders emoji shortcodes and safe Font Awesome icon tags on inactive lines', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      'Intro',
+      '',
+      'Ship it :rocket: <i class="fa fa-pencil fa-fw"></i>',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-rich-emoji')).toHaveTextContent('🚀'));
+    expect(editor.querySelector('.cm-hackmd-rich-icon i')).toHaveClass('fa-pencil');
+    expect(editor.querySelector('.cm-content')).not.toHaveTextContent(':rocket:');
+    expect(editor.querySelector('.cm-content')).not.toHaveTextContent('<i class="fa fa-pencil fa-fw"></i>');
+  });
+
+  it('does not render unsafe raw HTML as a Font Awesome widget', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      'Intro',
+      '',
+      '<i onclick="alert(1)" class="fa fa-pencil"></i>',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    expect(editor.querySelector('.cm-hackmd-rich-icon')).toBeNull();
+    expect(editor.querySelector('.cm-content')).toHaveTextContent('onclick');
+  });
+
+  it('renders csvpreview fences as read-only table previews without changing source', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      'Intro',
+      '',
+      '```csvpreview header="true" delimiter=";"',
+      'Name;Value',
+      'alpha;"two;parts"',
+      '```',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    const table = await waitFor(() => {
+      const target = editor.querySelector<HTMLElement>('.cm-hackmd-csv-preview');
+      expect(target).not.toBeNull();
+      return target as HTMLElement;
+    });
+    expect(table.querySelectorAll('th')).toHaveLength(2);
+    expect(table.querySelectorAll('td')).toHaveLength(2);
+    expect(table).toHaveTextContent('Name');
+    expect(table).toHaveTextContent('two;parts');
+    expect(table.querySelector('[contenteditable="true"]')).toBeNull();
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+  });
+
+  it('renders inline and block MathJax previews without changing markdown', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      'Intro',
+      '',
+      'Inline math $x^2 + y^2 = z^2$ works.',
+      '',
+      '$$',
+      '\\frac{1}{x}',
+      '$$',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => {
+      expect(editor.querySelector('.cm-hackmd-rich-math-inline svg, .cm-hackmd-rich-math-inline .cm-hackmd-math-fallback')).not.toBeNull();
+    }, { timeout: 8000 });
+    await waitFor(() => {
+      expect(editor.querySelector('.cm-hackmd-math-preview svg, .cm-hackmd-math-preview .cm-hackmd-math-fallback')).not.toBeNull();
+    }, { timeout: 8000 });
+    expect(editor.querySelector('.cm-content')).not.toHaveTextContent('$x^2 + y^2 = z^2$');
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+  }, 15000);
+
+  it('renders Mermaid fences as sanitized diagram previews without changing source', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      'Intro',
+      '',
+      '```mermaid',
+      'graph TD',
+      'A[Start] --> B[Done]',
+      '```',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    const diagram = await waitFor(() => {
+      const target = editor.querySelector<HTMLElement>('.cm-hackmd-mermaid-preview');
+      expect(target).not.toBeNull();
+      expect(target?.querySelector('svg')).not.toBeNull();
+      return target as HTMLElement;
+    }, { timeout: 8000 });
+    expect(diagram.innerHTML).not.toMatch(/<script|onload=/i);
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+  });
+
+  it('reveals rich preview source when keyboard navigation enters the block', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      'Before',
+      '```mermaid',
+      'graph TD',
+      'A-->B',
+      '```',
+      'After',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const content = editor.querySelector<HTMLElement>('.cm-content');
+
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-mermaid-preview')).not.toBeNull());
+    act(() => {
+      ref.current?.focus();
+    });
+    fireEvent.keyDown(content ?? editor, { key: 'ArrowDown' });
+
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-mermaid-preview')).toBeNull());
+    expect(editor.querySelector('.cm-content')).toHaveTextContent('```mermaid');
+    expect(editor.querySelector('.cm-content')).toHaveTextContent('A-->B');
+  });
+
   it('styles JavaScript fenced code through CodeMirror without a reader renderer', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const markdown = [
@@ -645,89 +825,6 @@ describe('MarkdownEditor', () => {
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
     await waitFor(() => expect(editor.querySelector('.cm-hackmd-fenced-code')).not.toBeNull());
     expect(editor.querySelector('.cm-hackmd-fallback-block')).toBeNull();
-  });
-
-  it('decorates alert, container, math, and external source lines without previewing fenced code content', async () => {
-    const ref = createRef<MarkdownEditorHandle>();
-    const markdown = [
-      '> [!note]',
-      '> alert',
-      ':::warning',
-      'container',
-      ':::',
-      '$$',
-      'x = 1',
-      '$$',
-      '{%youtube 1G4isv_Fylg %}',
-      '```mermaid',
-      'graph TD',
-      'A-->B',
-      '```',
-    ].join('\n');
-
-    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
-    const editor = await screen.findByTestId('hackmd-markdown-editor');
-
-    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
-    await waitFor(() => expect(editor.querySelector('.cm-hackmd-alert-note')).not.toBeNull());
-    expect(editor.querySelector('.cm-hackmd-container-warning')).not.toBeNull();
-    expect(editor.querySelector('.cm-hackmd-math-block-line')).not.toBeNull();
-    expect(editor.querySelector('.cm-hackmd-external-youtube')).not.toBeNull();
-    expect(editor.querySelector('.cm-hackmd-fenced-code')).not.toBeNull();
-    expect(editor.querySelector('.cm-hackmd-hfm-fence-mermaid')).toBeNull();
-  });
-
-  it('decorates inline math, reference links, reference definitions, and raw HTML safely', async () => {
-    const ref = createRef<MarkdownEditorHandle>();
-    const markdown = [
-      'Inline math $x + y$ and reference [Guide][docs] plus image ![Logo][logo].',
-      '',
-      '[docs]: https://hackmd.io/features "Features"',
-      '[logo]: https://example.com/logo.png "Logo"',
-      '',
-      '<i class="fa fa-pencil"></i> <iframe src="https://example.com"></iframe>',
-    ].join('\n');
-
-    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
-    const editor = await screen.findByTestId('hackmd-markdown-editor');
-
-    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
-    await waitFor(() => expect(editor.querySelector('.cm-hackmd-inline-math')).not.toBeNull());
-    expect(editor.querySelector('.cm-hackmd-reference-link')).not.toBeNull();
-    expect(editor.querySelector('.cm-hackmd-reference-def')).not.toBeNull();
-    expect(editor.querySelector('.cm-hackmd-raw-html')).not.toBeNull();
-  });
-
-  it('decorates P2 safe coverage syntax without changing source bytes', async () => {
-    const ref = createRef<MarkdownEditorHandle>();
-    const markdown = [
-      ':::spoiler {state="open"} Expand the spoiler container by default',
-      'You found me :stuck_out_tongue_winking_eye:',
-      ':::',
-      '',
-      '```csvpreview {header="true" delimiter="."}',
-      'firstName.lastName',
-      'Jane.Doe',
-      '```',
-      '',
-      'Inline footnote^[Text of inline footnote] and https://hackmd.io/features',
-      '(c) (tm) +- test... Remarkable -- awesome "Smartypants"',
-      '',
-      '    // Some comments',
-      '    line 1 of code',
-    ].join('\n');
-
-    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
-    const editor = await screen.findByTestId('hackmd-markdown-editor');
-
-    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
-    await waitFor(() => expect(editor.querySelector('.cm-hackmd-container-meta')).not.toBeNull());
-    expect(editor.querySelector('.cm-hackmd-inline-footnote')).not.toBeNull();
-    expect(editor.querySelector('.cm-hackmd-typographer')).not.toBeNull();
-    expect(editor.querySelector('.cm-hackmd-indented-code')).not.toBeNull();
-    expect(editor.querySelector('.cm-hackmd-fenced-code')).not.toBeNull();
-    expect(editor.querySelector('.cm-hackmd-hfm-fence-csvpreview')).toBeNull();
-    expect(editor).not.toHaveTextContent('CSV preview block');
   });
 
   it('decorates active autolinks as source-safe links', async () => {

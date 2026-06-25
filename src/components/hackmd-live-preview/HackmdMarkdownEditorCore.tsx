@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import '@fortawesome/fontawesome-free/css/all.css';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { markdown, markdownKeymap, markdownLanguage } from '@codemirror/lang-markdown';
@@ -21,6 +22,8 @@ import { hackmdTables } from './hackmd-tables';
 import { hackmdInlinePreview } from './inline-preview';
 import { hackmdPreviewTheme } from './hackmd-preview-theme';
 import { createHackdeskSearchPanel } from './hackmd-search-panel';
+import { hackmdRichPreviewNavigation } from './rich-preview-navigation';
+import { hackmdRichPreviewWidgets } from './rich-preview-widgets';
 import { treeProgressPlugin } from './tree-progress';
 
 export type HackmdMarkdownEditorHandle = {
@@ -60,6 +63,8 @@ const editorExtensions: Extension[] = [
   }),
   treeProgressPlugin,
   hackmdInlinePreview(),
+  hackmdRichPreviewNavigation(),
+  hackmdRichPreviewWidgets(),
   hfmBlocks(),
   hackmdTables(),
   EditorView.lineWrapping,

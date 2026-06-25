@@ -19,6 +19,7 @@ import {
   type DecorationSet,
 } from '@codemirror/view';
 
+import { getActiveLines } from './hfm-decoration-ranges';
 import { treeGrowthEffect } from './tree-progress';
 
 export type TableModel = {
@@ -191,6 +192,10 @@ class TableWidget extends WidgetType {
 
   eq(other: TableWidget): boolean {
     return serializeTable(other.model) === serializeTable(this.model);
+  }
+
+  get estimatedHeight(): number {
+    return Math.min(Math.max((this.model.rows.length + 1) * 42 + 34, 118), 520);
   }
 
   toDOM(view: EditorView): HTMLElement {
@@ -453,6 +458,7 @@ function selectTableAtBoundary(view: EditorView, side: 'before' | 'after'): bool
 function buildTableWidgets(state: EditorState): DecorationSet {
   const ranges: Array<Range<Decoration>> = [];
   const tree = ensureSyntaxTree(state, state.doc.length, 200) ?? syntaxTree(state);
+  const activeLines = getActiveLines(state);
 
   tree.iterate({
     enter(node) {
@@ -467,6 +473,10 @@ function buildTableWidgets(state: EditorState): DecorationSet {
 
       const startLine = state.doc.lineAt(node.from);
       const endLine = state.doc.lineAt(Math.max(node.from, node.to - 1));
+      if (rangeHasActiveLine(activeLines, startLine.number, endLine.number)) {
+        return false;
+      }
+
       ranges.push(Decoration.replace({
         block: true,
         widget: new TableWidget(model),
@@ -521,6 +531,10 @@ const tableField = StateField.define<DecorationSet>({
       }
     }
 
+    if (transaction.selection) {
+      return buildTableWidgets(transaction.state);
+    }
+
     if (!transaction.docChanged) {
       return decorations;
     }
@@ -541,4 +555,13 @@ export function hackmdTables(): Extension {
       { key: 'Delete', run: deleteAtTableBoundary },
     ])),
   ];
+}
+
+function rangeHasActiveLine(activeLines: ReadonlySet<number>, startLine: number, endLine: number): boolean {
+  for (let lineNumber = startLine; lineNumber <= endLine; lineNumber += 1) {
+    if (activeLines.has(lineNumber)) {
+      return true;
+    }
+  }
+  return false;
 }
