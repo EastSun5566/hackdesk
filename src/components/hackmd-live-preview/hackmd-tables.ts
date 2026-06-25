@@ -129,7 +129,12 @@ function getCellSource(cell: HTMLElement): HTMLElement | null {
 }
 
 function findCurrentTableRange(view: EditorView, dom: HTMLElement): { from: number; to: number } | null {
-  const pos = view.posAtDOM(dom);
+  let pos: number;
+  try {
+    pos = view.posAtDOM(dom);
+  } catch {
+    return null;
+  }
   if (pos < 0) {
     return null;
   }
@@ -185,8 +190,7 @@ class TableWidget extends WidgetType {
   }
 
   eq(other: TableWidget): boolean {
-    return other.model.header.length === this.model.header.length
-      && other.model.rows.length === this.model.rows.length;
+    return serializeTable(other.model) === serializeTable(this.model);
   }
 
   toDOM(view: EditorView): HTMLElement {
@@ -194,21 +198,26 @@ class TableWidget extends WidgetType {
     wrap.className = 'cm-hackmd-table';
 
     const table = document.createElement('table');
+    const caption = document.createElement('caption');
+    caption.className = 'cm-hackmd-table-caption';
+    caption.textContent = 'Markdown table';
+    table.appendChild(caption);
     wrap.appendChild(table);
 
     const thead = document.createElement('thead');
     const headerRow = document.createElement('tr');
-    for (const text of this.model.header) {
-      headerRow.appendChild(makeCell('th', text, view));
+    for (let index = 0; index < this.model.header.length; index += 1) {
+      headerRow.appendChild(makeCell('th', this.model.header[index] ?? '', view, `Table header ${index + 1}`));
     }
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
     const tbody = document.createElement('tbody');
-    for (const row of this.model.rows) {
+    for (let rowIndex = 0; rowIndex < this.model.rows.length; rowIndex += 1) {
+      const row = this.model.rows[rowIndex] ?? [];
       const tableRow = document.createElement('tr');
       for (let index = 0; index < this.model.header.length; index += 1) {
-        tableRow.appendChild(makeCell('td', row[index] ?? '', view));
+        tableRow.appendChild(makeCell('td', row[index] ?? '', view, `Table cell ${rowIndex + 1}, ${index + 1}`));
       }
       tbody.appendChild(tableRow);
     }
@@ -222,13 +231,18 @@ class TableWidget extends WidgetType {
   }
 }
 
-function makeCell(tag: 'td' | 'th', text: string, view: EditorView): HTMLElement {
+function makeCell(tag: 'td' | 'th', text: string, view: EditorView, label: string): HTMLElement {
   const cell = document.createElement(tag);
   cell.dataset.raw = text;
+  if (tag === 'th') {
+    cell.setAttribute('scope', 'col');
+  }
 
   const source = document.createElement('div');
   source.className = 'cm-hackmd-table-cell-source';
   source.contentEditable = 'true';
+  source.setAttribute('role', 'textbox');
+  source.setAttribute('aria-label', label);
   source.tabIndex = 0;
   source.spellcheck = true;
   source.textContent = text;
@@ -237,6 +251,10 @@ function makeCell(tag: 'td' | 'th', text: string, view: EditorView): HTMLElement
   let composing = false;
   const commit = () => {
     const nextRaw = (source.textContent ?? '').replace(/\s+/g, ' ').trim();
+    if (cell.dataset.raw === nextRaw) {
+      return;
+    }
+
     cell.dataset.raw = nextRaw;
     dispatchModelFromDom(view, cell);
   };
@@ -383,31 +401,51 @@ function appendRow(view: EditorView, wrap: HTMLElement): void {
 }
 
 function backspaceAtTableBoundary(view: EditorView): boolean {
+  return selectTableAtBoundary(view, 'before');
+}
+
+function deleteAtTableBoundary(view: EditorView): boolean {
+  return selectTableAtBoundary(view, 'after');
+}
+
+function selectTableAtBoundary(view: EditorView, side: 'before' | 'after'): boolean {
   const selection = view.state.selection.main;
-  if (!selection.empty || selection.head === 0) {
+  if (!selection.empty) {
     return false;
   }
 
   const pos = selection.head;
-  let tableBeforeFrom = -1;
-  let tableBeforeTo = -1;
+  if (side === 'before' && pos === 0) {
+    return false;
+  }
+
+  let tableFrom = -1;
+  let tableTo = -1;
   syntaxTree(view.state).iterate({
-    from: Math.max(0, pos - 2),
-    to: pos,
+    from: side === 'before' ? Math.max(0, pos - 2) : pos,
+    to: side === 'before' ? pos : Math.min(view.state.doc.length, pos + 2),
     enter(node) {
-      if (node.name === 'Table' && (node.to === pos || node.to + 1 === pos)) {
-        tableBeforeFrom = node.from;
-        tableBeforeTo = node.to;
+      if (node.name !== 'Table') {
+        return;
+      }
+
+      const matches = side === 'before'
+        ? node.to === pos || node.to + 1 === pos
+        : node.from === pos || node.from === pos + 1;
+      if (matches) {
+        tableFrom = node.from;
+        tableTo = node.to;
+        return false;
       }
     },
   });
 
-  if (tableBeforeFrom < 0) {
+  if (tableFrom < 0) {
     return false;
   }
 
   view.dispatch({
-    selection: EditorSelection.range(tableBeforeFrom, tableBeforeTo),
+    selection: EditorSelection.range(tableFrom, tableTo),
   });
   return true;
 }
@@ -498,6 +536,9 @@ const tableField = StateField.define<DecorationSet>({
 export function hackmdTables(): Extension {
   return [
     tableField,
-    Prec.high(keymap.of([{ key: 'Backspace', run: backspaceAtTableBoundary }])),
+    Prec.high(keymap.of([
+      { key: 'Backspace', run: backspaceAtTableBoundary },
+      { key: 'Delete', run: deleteAtTableBoundary },
+    ])),
   ];
 }

@@ -35,4 +35,26 @@ describe('ordered list marker previews', () => {
       '1. Reset',
     ].join('\n'))).toEqual(['1.', '1.', '2.', '2.', '1.']);
   });
+
+  it('resets numbering after ordinary text but preserves indented continuations', () => {
+    expect(markerDisplays([
+      '1. First',
+      '  continued paragraph',
+      '1. Second',
+      'plain paragraph',
+      '1. Reset',
+    ].join('\n'))).toEqual(['1.', '2.', '1.']);
+  });
+
+  it('ignores bullets and task markers while tracking ordered levels', () => {
+    expect(markerDisplays([
+      '- Bullet',
+      '1. Ordered',
+      '- [ ] Task',
+      '1. Ordered again',
+      '  1. Nested',
+      '  - Bullet child',
+      '  1. Nested again',
+    ].join('\n'))).toEqual(['1.', '1.', '1.', '2.']);
+  });
 });

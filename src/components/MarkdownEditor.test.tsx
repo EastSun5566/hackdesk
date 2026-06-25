@@ -221,6 +221,46 @@ describe('MarkdownEditor', () => {
     expect(activeRef.current?.getMarkdown()).toBe('> [!note]\n> A useful note.');
   });
 
+  it('renders GitHub alert variants with stable heading and rail classes', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      'Intro',
+      '',
+      '> [!note]',
+      '> Note body',
+      '',
+      '> [!tip]',
+      '> Tip body',
+      '',
+      '> [!important]',
+      '> Important body',
+      '',
+      '> [!warning]',
+      '> Warning body',
+      '',
+      '> [!caution]',
+      '> Caution body',
+      '',
+      '> [!danger]',
+      '> Danger body',
+      '',
+      '> [!todo]',
+      '> Todo body',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    for (const variant of ['note', 'tip', 'important', 'warning', 'caution', 'danger', 'todo']) {
+      expect(editor.querySelector(`.cm-hackmd-alert-block-${variant}`)).not.toBeNull();
+      expect(editor.querySelector(`.cm-hackmd-alert-heading-${variant}`)).not.toBeNull();
+    }
+    expect(editor.querySelector('.cm-hackmd-alert-heading-important')).toHaveTextContent('Important');
+    expect(editor.querySelector('.cm-hackmd-alert-heading-danger')).toHaveTextContent('Caution');
+    expect(editor.querySelector('.cm-hackmd-alert-heading-todo')).toHaveTextContent('Note');
+  });
+
   it('previews ordered list markers as sequential numbers without changing source', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const markdown = [
@@ -264,15 +304,21 @@ describe('MarkdownEditor', () => {
       return target as HTMLElement;
     });
     expect(table.querySelector('table')).not.toBeNull();
+    expect(table.querySelector('caption')).toHaveTextContent('Markdown table');
     expect(table.querySelectorAll('th')).toHaveLength(2);
     expect(table.querySelectorAll('td')).toHaveLength(2);
+    expect(table.querySelector('th')).toHaveAttribute('scope', 'col');
 
     const tableCells = table.querySelectorAll<HTMLElement>('.cm-hackmd-table-cell-source');
+    expect(tableCells[0]).toHaveAttribute('role', 'textbox');
+    expect(tableCells[0]).toHaveAccessibleName('Table header 1');
+    expect(tableCells[3]).toHaveAccessibleName('Table cell 1, 2');
     tableCells[0].focus();
     fireEvent.keyDown(tableCells[0], { key: 'Tab' });
     expect(document.activeElement).toBe(tableCells[1]);
     fireEvent.keyDown(tableCells[1], { key: 'Enter', shiftKey: true });
     expect(document.activeElement).toBe(tableCells[0]);
+    expect(onChange).not.toHaveBeenCalled();
 
     const dataCell = tableCells[3];
     dataCell.textContent = 'file path';
@@ -284,6 +330,123 @@ describe('MarkdownEditor', () => {
       '| --- | --- |',
       '| data | file path |',
     ].join('\n'));
+  });
+
+  it('commits table cell composition only after IME composition ends', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const onChange = vi.fn();
+    const markdown = [
+      '| Name | Value |',
+      '| --- | --- |',
+      '| city | Tokyo |',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={onChange} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const valueCell = await waitFor(() => {
+      const cells = editor.querySelectorAll<HTMLElement>('.cm-hackmd-table-cell-source');
+      expect(cells[3]).toBeDefined();
+      return cells[3];
+    });
+
+    fireEvent.compositionStart(valueCell);
+    valueCell.textContent = '東京';
+    fireEvent.input(valueCell, { isComposing: true });
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+
+    fireEvent.compositionEnd(valueCell);
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toContain('| city | 東京 |'));
+    expect(onChange).toHaveBeenLastCalledWith([
+      '| Name | Value |',
+      '| --- | --- |',
+      '| city | 東京 |',
+    ].join('\n'));
+  });
+
+  it('flattens pasted table cell text and escapes pipes', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const onChange = vi.fn();
+    const markdown = [
+      '| Name | Value |',
+      '| --- | --- |',
+      '| field |  |',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={onChange} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const valueCell = await waitFor(() => {
+      const cells = editor.querySelectorAll<HTMLElement>('.cm-hackmd-table-cell-source');
+      expect(cells[3]).toBeDefined();
+      return cells[3];
+    });
+
+    valueCell.focus();
+    const range = document.createRange();
+    range.selectNodeContents(valueCell);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+
+    fireEvent.paste(valueCell, {
+      clipboardData: {
+        getData: () => 'two\nlines | pipe',
+      },
+    });
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toContain('| field | two lines \\| pipe |'));
+    expect(onChange).toHaveBeenLastCalledWith([
+      '| Name | Value |',
+      '| --- | --- |',
+      '| field | two lines \\| pipe |',
+    ].join('\n'));
+  });
+
+  it('does not rewrite markdown when preview affordances are only focused or clicked', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const onChange = vi.fn();
+    const markdown = [
+      'Intro',
+      '',
+      '> [!note]',
+      '> Alert body',
+      '',
+      '1. First',
+      '1. Second',
+      '',
+      '| Name | Value |',
+      '| --- | --- |',
+      '| field | value |',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={onChange} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    const alertHeading = await waitFor(() => {
+      const target = editor.querySelector<HTMLElement>('.cm-hackmd-alert-heading-note');
+      expect(target).not.toBeNull();
+      return target as HTMLElement;
+    });
+    const listMarker = await waitFor(() => {
+      const target = editor.querySelector<HTMLElement>('.cm-hackmd-ordered-list-marker');
+      expect(target).not.toBeNull();
+      return target as HTMLElement;
+    });
+    const tableCell = await waitFor(() => {
+      const target = editor.querySelector<HTMLElement>('.cm-hackmd-table-cell-source');
+      expect(target).not.toBeNull();
+      return target as HTMLElement;
+    });
+
+    fireEvent.mouseDown(alertHeading);
+    fireEvent.mouseDown(listMarker);
+    fireEvent.pointerDown(tableCell);
+    tableCell.focus();
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(ref.current?.getMarkdown()).toBe(markdown);
   });
 
   it('hides inactive blockquote metadata and reveals it when active', async () => {
@@ -413,6 +576,9 @@ describe('MarkdownEditor', () => {
       ':::info',
       'yo',
       ':::',
+      '| A | B |',
+      '| --- | --- |',
+      '$$',
       '```',
     ].join('\n');
 
@@ -424,9 +590,13 @@ describe('MarkdownEditor', () => {
     expect(editor.querySelector('.cm-hackmd-alert-block')).toBeNull();
     expect(editor.querySelector('.cm-hackmd-container-block')).toBeNull();
     expect(editor.querySelector('.cm-hackmd-blockquote')).toBeNull();
+    expect(editor.querySelector('.cm-hackmd-table')).toBeNull();
+    expect(editor.querySelector('.cm-hackmd-math-block-line')).toBeNull();
     expect(editor).toHaveTextContent('> ya');
     expect(editor).toHaveTextContent(':::info');
     expect(editor).toHaveTextContent(':::');
+    expect(editor).toHaveTextContent('| A | B |');
+    expect(editor).toHaveTextContent('$$');
   });
 
   it('keeps HackMD code fence options in the editable source instead of showing a fallback panel', async () => {

@@ -457,6 +457,14 @@ export const widgetTheme = {
     minWidth: 'max-content',
     borderCollapse: 'collapse',
   },
+  '.cm-hackmd-table-caption': {
+    position: 'absolute',
+    width: '1px',
+    height: '1px',
+    overflow: 'hidden',
+    clipPath: 'inset(50%)',
+    whiteSpace: 'nowrap',
+  },
   '.cm-hackmd-table th, .cm-hackmd-table td': {
     minWidth: '8rem',
     borderRight: '1px solid var(--border-default)',

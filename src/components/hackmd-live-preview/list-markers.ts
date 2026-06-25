@@ -24,9 +24,11 @@ export function getOrderedListMarkerPreviews(state: EditorState): Map<string, Li
     const match = line.text.match(orderedListPattern);
 
     if (!match) {
-      if (line.text.trim() === '') {
-        levels.length = 0;
+      if (line.text.trim() !== '' && countIndentColumns(line.text.match(/^\s*/)?.[0] ?? '') > 0) {
+        continue;
       }
+
+      levels.length = 0;
       continue;
     }
 
