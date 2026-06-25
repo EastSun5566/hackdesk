@@ -1,0 +1,147 @@
+import { useCallback } from 'react';
+import { toast } from 'sonner';
+
+import type {
+  FolderSummary,
+  HackDeskElectronAPI,
+} from '@/lib/electron-api';
+import type { FolderDropOperation } from '@/lib/hackmd-folder-dnd';
+import {
+  type FolderTree,
+  type FolderTreeNode,
+  UNFILED_FOLDER_ID,
+} from '@/lib/hackmd-folders';
+
+import {
+  createClosedFolderDialogState,
+} from './useWorkbenchDialogState';
+import type {
+  CreateFolderDialogState,
+  CreateNoteDialogState,
+  RenameFolderDialogState,
+  WorkspaceScope,
+} from './types';
+
+export type WorkbenchFolderCommandsOptions = {
+  api?: HackDeskElectronAPI;
+  currentFolders: FolderSummary[];
+  deleteFolder: (input: { folderId: string; parentFolderId: string | null }) => void;
+  folderTree: FolderTree;
+  hasToken: boolean;
+  moveFolder: (operation: FolderDropOperation) => void;
+  scopeType: WorkspaceScope['type'];
+  setCreateDialog: (state: CreateNoteDialogState) => void;
+  setCreateFolderDialog: (state: CreateFolderDialogState) => void;
+  setDeleteFolderTarget: (folder: FolderTreeNode | null) => void;
+  setRenameFolderDialog: (state: RenameFolderDialogState) => void;
+  setSelectedFolderId: (folderId: string | null) => void;
+  setSettingsOpen: (open: boolean) => void;
+};
+
+export function useWorkbenchFolderCommands({
+  api,
+  currentFolders,
+  deleteFolder,
+  folderTree,
+  hasToken,
+  moveFolder,
+  scopeType,
+  setCreateDialog,
+  setCreateFolderDialog,
+  setDeleteFolderTarget,
+  setRenameFolderDialog,
+  setSelectedFolderId,
+  setSettingsOpen,
+}: WorkbenchFolderCommandsOptions) {
+  const handleCreateNote = useCallback(() => {
+    if (!hasToken) {
+      setSettingsOpen(true);
+      return;
+    }
+
+    if (scopeType === 'history') {
+      toast.info('Choose My Workspace or a team before creating a note.');
+      return;
+    }
+
+    setCreateDialog({ open: true, title: '' });
+  }, [hasToken, scopeType, setCreateDialog, setSettingsOpen]);
+
+  const handleCreateFolder = useCallback(() => {
+    if (!hasToken) {
+      setSettingsOpen(true);
+      return;
+    }
+
+    if (scopeType === 'history') {
+      toast.info('Choose My Workspace or a team before creating a folder.');
+      return;
+    }
+
+    setCreateFolderDialog({ ...createClosedFolderDialogState(), open: true });
+  }, [hasToken, scopeType, setCreateFolderDialog, setSettingsOpen]);
+
+  const handleCreateFolderInside = useCallback((folderId: string | null) => {
+    setSelectedFolderId(folderId ?? UNFILED_FOLDER_ID);
+    handleCreateFolder();
+  }, [handleCreateFolder, setSelectedFolderId]);
+
+  const handleRenameFolder = useCallback((folderId: string) => {
+    const folder = folderTree.nodesById.get(folderId);
+    if (!folder) {
+      toast.info('Select a folder before renaming it.');
+      return;
+    }
+
+    const folderSummary = currentFolders.find((candidate) => candidate.id === folderId);
+    setRenameFolderDialog({
+      open: true,
+      folderId,
+      name: folder.name,
+      description: folderSummary?.description ?? '',
+      icon: folder.icon ?? '',
+      color: folder.color ?? '',
+    });
+  }, [currentFolders, folderTree.nodesById, setRenameFolderDialog]);
+
+  const handleDeleteFolderRequest = useCallback((folderId: string) => {
+    const folder = folderTree.nodesById.get(folderId);
+    if (!folder) {
+      toast.info('Select a folder before deleting it.');
+      return;
+    }
+
+    if (!api?.app.confirm) {
+      setDeleteFolderTarget(folder);
+      return;
+    }
+
+    api.app.confirm({
+      title: 'Delete Folder',
+      message: `Delete “${folder.name}”?`,
+      detail: 'This removes the folder from HackMD. This action cannot be undone from HackDesk.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      destructive: true,
+    }).then(({ confirmed }) => {
+      if (confirmed) {
+        deleteFolder({ folderId: folder.id, parentFolderId: folder.parentId });
+      }
+    }).catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to confirm folder deletion.');
+    });
+  }, [api, deleteFolder, folderTree.nodesById, setDeleteFolderTarget]);
+
+  const handleFolderDrop = useCallback((operation: FolderDropOperation) => {
+    moveFolder(operation);
+  }, [moveFolder]);
+
+  return {
+    handleCreateFolder,
+    handleCreateFolderInside,
+    handleCreateNote,
+    handleDeleteFolderRequest,
+    handleFolderDrop,
+    handleRenameFolder,
+  };
+}

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { toast } from 'sonner';
 
 import { useTheme } from '@/components/theme-provider';
 import { getDesktopAPI } from '@/lib/desktop-api';
@@ -11,27 +10,16 @@ import {
   writeRecentNotes,
   type ElectronRecentNote,
 } from '@/lib/electron-recent-notes';
-import type { FolderDropOperation } from '@/lib/hackmd-folder-dnd';
 import { buildHackmdFolderTree, UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
-import { AppTopBar } from './electron-home/AppTopBar';
 import { CommandPaletteDialog } from './electron-home/CommandPaletteDialog';
-import { DocumentWorkspace } from './electron-home/DocumentWorkspace';
 import { ElectronHomeDialogs } from './electron-home/ElectronHomeDialogs';
-import { FolderNavigator } from './electron-home/FolderNavigator';
-import { PanelResizeSash } from './electron-home/PanelResizeSash';
-import { WorkspaceRail } from './electron-home/WorkspaceRail';
+import { ElectronHomeWorkspace } from './electron-home/ElectronHomeWorkspace';
 import { getScopeStorageKey } from './electron-home/repository';
 import type { NoteIdentity } from './electron-home/note-workspace';
 import type { WorkspaceScope } from './electron-home/types';
 import {
   FOLDER_COLLAPSED_PREFIX,
-  NAVIGATOR_WIDTH_DEFAULT,
-  NAVIGATOR_WIDTH_MAX,
-  NAVIGATOR_WIDTH_MIN,
-  RAIL_WIDTH_DEFAULT,
-  RAIL_WIDTH_MAX,
-  RAIL_WIDTH_MIN,
   writeStringArrayStorage,
 } from './electron-home/ui-preferences';
 import { useElectronHackmdQueries } from './electron-home/useElectronHackmdQueries';
@@ -53,6 +41,7 @@ import { useWorkbenchClosePolicy } from './electron-home/useWorkbenchClosePolicy
 import { useWorkbenchDocuments } from './electron-home/useWorkbenchDocuments';
 import { useElectronHomeStatus } from './electron-home/useElectronHomeStatus';
 import { useWorkbenchFinder } from './electron-home/useWorkbenchFinder';
+import { useWorkbenchFolderCommands } from './electron-home/useWorkbenchFolderCommands';
 import { useWorkbenchNavigator } from './electron-home/useWorkbenchNavigator';
 import { usePendingRecentNoteRestore } from './electron-home/usePendingRecentNoteRestore';
 import { useWorkbenchQuickOpen } from './electron-home/useWorkbenchQuickOpen';
@@ -63,9 +52,6 @@ import {
   getInitialWorkspaceScope,
   useWorkbenchWorkspaceState,
 } from './electron-home/useWorkbenchWorkspaceState';
-
-const WORKSPACE_RAIL_PANEL_ID = 'workspace-rail-panel';
-const NOTE_NAVIGATOR_PANEL_ID = 'note-navigator-panel';
 
 export function Home() {
   const { resolvedMode, setTheme } = useTheme();
@@ -362,93 +348,21 @@ export function Home() {
     }
   }, [queries.folderOrderQuery, queries.foldersQuery, queries.notesQuery, queries.teamsQuery, queries.userQuery, scope.type]);
 
-  const handleCreateNote = useCallback(() => {
-    if (!hasToken) {
-      setSettingsOpen(true);
-      return;
-    }
-
-    if (scope.type === 'history') {
-      toast.info('Choose My Workspace or a team before creating a note.');
-      return;
-    }
-
-    setCreateDialog({ open: true, title: '' });
-  }, [hasToken, scope.type, setCreateDialog, setSettingsOpen]);
-
-  const handleCreateFolder = useCallback(() => {
-    if (!hasToken) {
-      setSettingsOpen(true);
-      return;
-    }
-
-    if (scope.type === 'history') {
-      toast.info('Choose My Workspace or a team before creating a folder.');
-      return;
-    }
-
-    setCreateFolderDialog({ ...createClosedFolderDialogState(), open: true });
-  }, [hasToken, scope.type, setCreateFolderDialog, setSettingsOpen]);
-
-  const handleCreateFolderInside = useCallback((folderId: string | null) => {
-    if (folderId) {
-      setSelectedFolderId(folderId);
-    } else {
-      setSelectedFolderId(UNFILED_FOLDER_ID);
-    }
-
-    handleCreateFolder();
-  }, [handleCreateFolder, setSelectedFolderId]);
-
-  const handleRenameFolder = useCallback((folderId: string) => {
-    const folder = folderTree.nodesById.get(folderId);
-    if (!folder) {
-      toast.info('Select a folder before renaming it.');
-      return;
-    }
-
-    const folderSummary = currentFolders.find((candidate) => candidate.id === folderId);
-    setRenameFolderDialog({
-      open: true,
-      folderId,
-      name: folder.name,
-      description: folderSummary?.description ?? '',
-      icon: folder.icon ?? '',
-      color: folder.color ?? '',
-    });
-  }, [currentFolders, folderTree, setRenameFolderDialog]);
-
-  const handleDeleteFolderRequest = useCallback((folderId: string) => {
-    const folder = folderTree.nodesById.get(folderId);
-    if (!folder) {
-      toast.info('Select a folder before deleting it.');
-      return;
-    }
-
-    if (!api?.app.confirm) {
-      setDeleteFolderTarget(folder);
-      return;
-    }
-
-    api.app.confirm({
-      title: 'Delete Folder',
-      message: `Delete “${folder.name}”?`,
-      detail: 'This removes the folder from HackMD. This action cannot be undone from HackDesk.',
-      confirmLabel: 'Delete',
-      cancelLabel: 'Cancel',
-      destructive: true,
-    }).then(({ confirmed }) => {
-      if (confirmed) {
-        mutations.deleteFolderMutation.mutate({ folderId: folder.id, parentFolderId: folder.parentId });
-      }
-    }).catch((error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to confirm folder deletion.');
-    });
-  }, [api, folderTree, mutations.deleteFolderMutation, setDeleteFolderTarget]);
-
-  const handleFolderDrop = useCallback((operation: FolderDropOperation) => {
-    mutations.moveFolderMutation.mutate(operation);
-  }, [mutations.moveFolderMutation]);
+  const folderCommands = useWorkbenchFolderCommands({
+    api,
+    currentFolders,
+    deleteFolder: mutations.deleteFolderMutation.mutate,
+    folderTree,
+    hasToken,
+    moveFolder: mutations.moveFolderMutation.mutate,
+    scopeType: scope.type,
+    setCreateDialog,
+    setCreateFolderDialog,
+    setDeleteFolderTarget,
+    setRenameFolderDialog,
+    setSelectedFolderId,
+    setSettingsOpen,
+  });
 
   const openPalette = useCallback(() => {
     setPalette({ open: true, search: '' });
@@ -551,8 +465,8 @@ export function Home() {
     activeTab,
     api,
     bumpEditorSearchRequest,
-    createFolder: handleCreateFolder,
-    createNote: handleCreateNote,
+    createFolder: folderCommands.handleCreateFolder,
+    createNote: folderCommands.handleCreateNote,
     deleteNote: handleDeleteRequest,
     documentContent,
     documentTitle,
@@ -572,11 +486,11 @@ export function Home() {
     noteDirty,
     openPalette,
     refreshWorkspace,
-    renameFolder: handleRenameFolder,
+    renameFolder: folderCommands.handleRenameFolder,
     requestCloseOtherTabs,
     requestCloseTab,
     requestCloseTabsToRight,
-    requestDeleteFolder: handleDeleteFolderRequest,
+    requestDeleteFolder: folderCommands.handleDeleteFolderRequest,
     reopenLastClosedTab: noteWorkspace.reopenLastClosed,
     saveNote: (note, input) => mutations.updateNoteMutation.mutate({ note, input }),
     selectedDocument,
@@ -627,7 +541,7 @@ export function Home() {
     activeFinderState,
     closeTransientLayer,
     focusTabAtIndex,
-    handleCreateNote,
+    handleCreateNote: folderCommands.handleCreateNote,
     noteDirty,
     openPalette,
     refreshWorkspace,
@@ -655,107 +569,80 @@ export function Home() {
     );
   }
 
-  const activeTitlebarPane = noteWorkspace.state.panes.find((pane) => pane.paneId === noteWorkspace.state.activePaneId) ?? null;
-  const activeTitlebarPaneView = activeTitlebarPane ? getPaneView(activeTitlebarPane) : null;
-  const activeTitlebarTabs = activeTitlebarPane ? getPaneTabs(activeTitlebarPane) : [];
   return (
     <div className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
-      <AppTopBar
-        activeTab={activeTitlebarPaneView?.activeTab ?? null}
-        getTabSyncState={getTabSyncState}
-        navigation={{
-          canGoBack: noteWorkspace.state.backStack.length > 0,
-          canGoForward: noteWorkspace.state.forwardStack.length > 0,
-          onBack: noteWorkspace.navigateBack,
-          onForward: noteWorkspace.navigateForward,
+      <ElectronHomeWorkspace
+        titlebar={{
+          getPaneTabs,
+          getPaneView,
+          getTabSyncState,
+          layout: {
+            navigatorCollapsed,
+            railCollapsed,
+          },
+          state: {
+            activePaneId: noteWorkspace.state.activePaneId,
+            backStack: noteWorkspace.state.backStack,
+            forwardStack: noteWorkspace.state.forwardStack,
+            panes: noteWorkspace.state.panes,
+            recentlyClosedTabs: noteWorkspace.state.recentlyClosedTabs,
+          },
+          actions: {
+            moveActiveTabToOtherPane: noteWorkspace.moveActiveTabToOtherPane,
+            navigateBack: noteWorkspace.navigateBack,
+            navigateForward: noteWorkspace.navigateForward,
+            reopenLastClosedTab: noteWorkspace.reopenLastClosed,
+            requestCloseOtherTabs,
+            requestCloseTab,
+            requestCloseTabsToRight,
+            selectTab: noteWorkspace.selectTab,
+            splitActiveTab: noteWorkspace.splitActiveTab,
+            toggleNavigator: toggleNavigatorCollapsed,
+            toggleRail: toggleRailCollapsed,
+          },
         }}
-        onCloseOtherTabs={(tabId) => {
-          if (activeTitlebarPane) {
-            void requestCloseOtherTabs(activeTitlebarPane.paneId, tabId);
-          }
+        rail={{
+          scope: displayScope,
+          user,
+          teams,
+          collapsed: railCollapsed,
+          width: railWidth,
+          onScopeChange: switchWorkspaceScope,
+          onOpenSettings: () => setSettingsOpen(true),
         }}
-        onCloseTab={(tabId) => {
-          void requestCloseTab(tabId);
+        railResize={{
+          disabled: railCollapsed,
+          value: railWidth,
+          onChange: setRailWidth,
         }}
-        onCloseTabsToRight={(tabId) => {
-          if (activeTitlebarPane) {
-            void requestCloseTabsToRight(activeTitlebarPane.paneId, tabId);
-          }
-        }}
-        onMoveTabToOtherPane={noteWorkspace.moveActiveTabToOtherPane}
-        onReopenLastClosedTab={noteWorkspace.reopenLastClosed}
-        onSelectTab={(tabId) => {
-          if (activeTitlebarPane) {
-            noteWorkspace.selectTab(activeTitlebarPane.paneId, tabId);
-          }
-        }}
-        onSplitPane={noteWorkspace.splitActiveTab}
-        paneActions={{
-          canMoveToOtherPane: noteWorkspace.state.panes.length > 1,
-          canReopenLastClosedTab: noteWorkspace.state.recentlyClosedTabs.length > 0,
-          canSplit: noteWorkspace.state.panes.length < 2,
-        }}
-        navigatorCollapsed={navigatorCollapsed}
-        navigatorPanelId={NOTE_NAVIGATOR_PANEL_ID}
-        railCollapsed={railCollapsed}
-        railPanelId={WORKSPACE_RAIL_PANEL_ID}
-        tabs={activeTitlebarTabs}
-        onToggleNavigator={toggleNavigatorCollapsed}
-        onToggleRail={toggleRailCollapsed}
-      />
-
-      <main className="flex min-h-0 min-w-0 flex-1">
-        <WorkspaceRail
-          id={WORKSPACE_RAIL_PANEL_ID}
-          scope={displayScope}
-          user={user}
-          teams={teams}
-          collapsed={railCollapsed}
-          width={railWidth}
-          onScopeChange={switchWorkspaceScope}
-          onOpenSettings={() => setSettingsOpen(true)}
-        />
-        <PanelResizeSash
-          label="Resize workspace sidebar"
-          value={railWidth}
-          min={RAIL_WIDTH_MIN}
-          max={RAIL_WIDTH_MAX}
-          defaultValue={RAIL_WIDTH_DEFAULT}
-          disabled={railCollapsed}
-          onChange={(value) => {
-            setRailWidth(value);
-          }}
-        />
-
-        <FolderNavigator
-          id={NOTE_NAVIGATOR_PANEL_ID}
-          scope={displayScope}
-          tree={folderTree}
-          entries={visibleEntries}
-          finderState={activeFinderState}
-          selection={{
+        navigator={{
+          scope: displayScope,
+          tree: folderTree,
+          entries: visibleEntries,
+          finderState: activeFinderState,
+          selection: {
             selectedFolderId,
             selectedNoteId: selectedNote?.id ?? null,
-          }}
-          layout={{
+          },
+          layout: {
             collapsed: navigatorCollapsed,
             collapsedFolderIds,
             width: navigatorWidth,
-          }}
-          emptyState={homeStatus.emptyState}
-          status={homeStatus.navigatorStatus}
-          actions={{
+          },
+          emptyState: homeStatus.emptyState,
+          status: homeStatus.navigatorStatus,
+          actions: {
             onFolderSelect: handleFolderSelect,
             onFolderToggle: toggleFolderCollapsed,
             onNoteSelect: handleNoteSelect,
             onFinderStateChange: setFinderState,
             onRefresh: refreshWorkspace,
-            onCreate: handleCreateNote,
-            onCreateFolder: handleCreateFolder,
-            onCreateFolderInside: handleCreateFolderInside,
-            onRenameFolder: handleRenameFolder,
-            onDeleteFolder: handleDeleteFolderRequest,
-            onFolderDrop: handleFolderDrop,
+            onCreate: folderCommands.handleCreateNote,
+            onCreateFolder: folderCommands.handleCreateFolder,
+            onCreateFolderInside: folderCommands.handleCreateFolderInside,
+            onRenameFolder: folderCommands.handleRenameFolder,
+            onDeleteFolder: folderCommands.handleDeleteFolderRequest,
+            onFolderDrop: folderCommands.handleFolderDrop,
             onNoteMove: handleNoteMove,
             onOpenNote: handleOpenEditor,
             onCopyNoteLink: handleCopyNoteLink,
@@ -767,50 +654,43 @@ export function Home() {
             onToggleCollapsed: toggleNavigatorCollapsed,
             onOpenPalette: openPalette,
             onOpenSettings: openHackmdTokenSetup,
-          }}
-        />
-        <PanelResizeSash
-          label="Resize note navigator"
-          value={navigatorWidth}
-          min={NAVIGATOR_WIDTH_MIN}
-          max={NAVIGATOR_WIDTH_MAX}
-          defaultValue={NAVIGATOR_WIDTH_DEFAULT}
-          disabled={navigatorCollapsed}
-          onChange={(value) => {
-            setNavigatorWidth(value);
-          }}
-        />
-
-        <DocumentWorkspace
-          panes={noteWorkspace.state.panes}
-          activePaneId={noteWorkspace.state.activePaneId}
-          folderTree={folderTree}
-          shareOpen={shareOpen}
-          isInspectorCollapsed={inspectorCollapsed}
-          getPaneView={getPaneView}
-          editorSearchRequestId={editorSearchRequestId}
-          onResizePanes={noteWorkspace.resizePanes}
-          onFocusPane={noteWorkspace.focusPane}
-          onOpenEditor={handleOpenEditor}
-          onOpenExternal={handleOpenExternal}
-          onCopyLink={handleCopyNoteLink}
-          onCopyMarkdownLink={handleCopyNoteMarkdownLink}
-          onExportMarkdown={handleExportMarkdown}
-          onSave={(note, input) => mutations.updateNoteMutation.mutate({ note, input })}
-          onSaveMetadata={(note, input) => mutations.updateNoteMutation.mutate({ note, input })}
-          onSaveSharing={(note, input) => mutations.updateNoteMutation.mutate({
+          },
+        }}
+        navigatorResize={{
+          disabled: navigatorCollapsed,
+          value: navigatorWidth,
+          onChange: setNavigatorWidth,
+        }}
+        documentWorkspace={{
+          panes: noteWorkspace.state.panes,
+          activePaneId: noteWorkspace.state.activePaneId,
+          folderTree,
+          shareOpen,
+          isInspectorCollapsed: inspectorCollapsed,
+          getPaneView,
+          editorSearchRequestId,
+          onResizePanes: noteWorkspace.resizePanes,
+          onFocusPane: noteWorkspace.focusPane,
+          onOpenEditor: handleOpenEditor,
+          onOpenExternal: handleOpenExternal,
+          onCopyLink: handleCopyNoteLink,
+          onCopyMarkdownLink: handleCopyNoteMarkdownLink,
+          onExportMarkdown: handleExportMarkdown,
+          onSave: (note, input) => mutations.updateNoteMutation.mutate({ note, input }),
+          onSaveMetadata: (note, input) => mutations.updateNoteMutation.mutate({ note, input }),
+          onSaveSharing: (note, input) => mutations.updateNoteMutation.mutate({
             note,
             input,
             successMessage: 'Sharing settings updated.',
-          })}
-          onUploadImage={(note, input) => mutations.uploadNoteImageMutation.mutateAsync({ note, input })}
-          onDelete={handleDeleteRequest}
-          onTitleChange={handleDocumentTitleChange}
-          onContentChange={handleDocumentContentChange}
-          onToggleInspector={toggleInspectorCollapsed}
-          onShareOpenChange={setShareOpen}
-        />
-      </main>
+          }),
+          onUploadImage: (note, input) => mutations.uploadNoteImageMutation.mutateAsync({ note, input }),
+          onDelete: handleDeleteRequest,
+          onTitleChange: handleDocumentTitleChange,
+          onContentChange: handleDocumentContentChange,
+          onToggleInspector: toggleInspectorCollapsed,
+          onShareOpenChange: setShareOpen,
+        }}
+      />
 
       <CommandPaletteDialog
         state={palette}
