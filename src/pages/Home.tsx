@@ -1,22 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useTheme } from '@/components/theme-provider';
 import { getDesktopAPI } from '@/lib/desktop-api';
-import type { FolderSummary, NoteSummary } from '@/lib/electron-api';
-import {
-  readRecentNotes,
-  removeRecentNote,
-  upsertRecentNote,
-  writeRecentNotes,
-  type ElectronRecentNote,
-} from '@/lib/electron-recent-notes';
-import { buildHackmdFolderTree, UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
+import type { FolderSummary } from '@/lib/electron-api';
+import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
 import { CommandPaletteDialog } from './electron-home/CommandPaletteDialog';
 import { ElectronHomeDialogs } from './electron-home/ElectronHomeDialogs';
 import { ElectronHomeWorkspace } from './electron-home/ElectronHomeWorkspace';
 import { getScopeStorageKey } from './electron-home/repository';
-import type { NoteIdentity } from './electron-home/note-workspace';
 import type { WorkspaceScope } from './electron-home/types';
 import {
   FOLDER_COLLAPSED_PREFIX,
@@ -24,6 +16,13 @@ import {
 } from './electron-home/ui-preferences';
 import { useElectronHackmdQueries } from './electron-home/useElectronHackmdQueries';
 import { useElectronFocusZones } from './electron-home/useElectronFocusZones';
+import { useElectronHomeModel } from './electron-home/useElectronHomeModel';
+import { useElectronHomeRecentNotes } from './electron-home/useElectronHomeRecentNotes';
+import {
+  useElectronHomeSelection,
+  useElectronHomeSelectionRefs,
+  useSelectedDocumentEditorFocus,
+} from './electron-home/useElectronHomeSelection';
 import { useElectronNoteMutations } from './electron-home/useElectronNoteMutations';
 import { useDocumentCommands } from './electron-home/useDocumentCommands';
 import { useNoteWorkspaceTabs } from './electron-home/useNoteWorkspaceTabs';
@@ -57,12 +56,9 @@ export function Home() {
   const { resolvedMode, setTheme } = useTheme();
   const api = getDesktopAPI();
   const initialWorkspaceScope = useMemo(() => getInitialWorkspaceScope(), []);
-  const [recentNotes, setRecentNotes] = useState<ElectronRecentNote[]>(() => readRecentNotes(window.localStorage));
+  const { recentNotes, removeRecentNoteEntry, trackRecentNote } = useElectronHomeRecentNotes();
+  const selectionRefs = useElectronHomeSelectionRefs();
   const [onboardingOpen, setOnboardingOpen] = useState(false);
-  const autoSelectSuppressionRef = useRef<string | null>(null);
-  const manualEmptyWorkspaceRef = useRef(false);
-  const pendingEditorFocusNoteIdRef = useRef<string | null>(null);
-  const [editorFocusRequestId, setEditorFocusRequestId] = useState(0);
   const panelState = useWorkbenchPanelState();
   const dialogState = useWorkbenchDialogState();
   const {
@@ -86,7 +82,7 @@ export function Home() {
   } = dialogState;
   const workspaceState = useWorkbenchWorkspaceState({
     initialWorkspaceScope,
-    manualEmptyWorkspaceRef,
+    manualEmptyWorkspaceRef: selectionRefs.manualEmptyWorkspaceRef,
   });
   const {
     collapsedFolderIds,
@@ -114,6 +110,21 @@ export function Home() {
     toggleRailCollapsed,
   } = panelState;
   const noteWorkspace = useNoteWorkspaceTabs(scopeStorageKey);
+  const activeTab = noteWorkspace.activeTab;
+  const {
+    autoSelectSuppressionRef,
+    editorFocusRequestId,
+    handleNoteSelect,
+    handleSelectedDocumentReady,
+    manualEmptyWorkspaceRef,
+    requestSelectNote,
+    selectedNote,
+  } = useElectronHomeSelection({
+    activeTab,
+    openNoteInWorkspace: noteWorkspace.openNote,
+    selectionRefs,
+    trackRecentNote,
+  });
   const {
     activeFinderState,
     deferredFinderState,
@@ -133,12 +144,6 @@ export function Home() {
     loadFinderStateForScope(nextScopeStorageKey);
   }, [loadFinderStateForScope, setWorkspaceScopeState]);
   const { focusZone } = useElectronFocusZones();
-  const selectedNote = useMemo<NoteIdentity | null>(() => (
-    noteWorkspace.activeTab
-      ? { id: noteWorkspace.activeTab.noteId, teamPath: noteWorkspace.activeTab.teamPath }
-      : null
-  ), [noteWorkspace.activeTab]);
-  const openNoteInWorkspace = noteWorkspace.openNote;
 
   const {
     settings,
@@ -167,70 +172,23 @@ export function Home() {
     }
   }, [settings?.shouldShowHackmdOnboarding, settingsOpen]);
 
-  const displayScope = useMemo<WorkspaceScope>(() => {
-    if (scope.type !== 'team') {
-      return scope;
-    }
-
-    const team = teams.find((candidate) => candidate.path === scope.teamPath);
-    return team && team.name !== scope.label
-      ? { type: 'team', label: team.name, teamPath: team.path }
-      : scope;
-  }, [scope, teams]);
-
-  const folderTree = useMemo(
-    () => buildHackmdFolderTree(currentNotes, currentFolders, currentFolderOrder),
-    [currentFolderOrder, currentFolders, currentNotes],
-  );
-  const syncOpenNoteSummaries = noteWorkspace.syncNoteSummaries;
-  useEffect(() => {
-    syncOpenNoteSummaries(currentNotes);
-  }, [currentNotes, syncOpenNoteSummaries]);
-  const selectedParentFolderIdForMutation = selectedFolderId && selectedFolderId !== UNFILED_FOLDER_ID ? selectedFolderId : undefined;
-  const activeTab = noteWorkspace.activeTab;
-
-  const updateRecentNotes = useCallback((updater: (current: ElectronRecentNote[]) => ElectronRecentNote[]) => {
-    setRecentNotes((current) => {
-      const next = updater(current);
-      writeRecentNotes(window.localStorage, next);
-      return next;
-    });
-  }, []);
-
-  const trackRecentNote = useCallback((note: NoteSummary) => {
-    updateRecentNotes((current) => upsertRecentNote(current, note));
-  }, [updateRecentNotes]);
+  const {
+    displayScope,
+    folderTree,
+    selectedParentFolderIdForMutation,
+  } = useElectronHomeModel({
+    currentFolderOrder,
+    currentFolders,
+    currentNotes,
+    scope,
+    selectedFolderId,
+    syncOpenNoteSummaries: noteWorkspace.syncNoteSummaries,
+    teams,
+  });
 
   const openHackmdTokenSetup = useCallback(() => {
     setOnboardingOpen(true);
   }, []);
-
-  const removeRecentNoteEntry = useCallback((noteId: string, teamPath: string | null) => {
-    updateRecentNotes((current) => removeRecentNote(current, noteId, teamPath));
-  }, [updateRecentNotes]);
-
-  const requestSelectNote = useCallback(async (
-    note: NoteSummary,
-    options: { focusEditor?: boolean; trackRecent?: boolean } = {},
-  ) => {
-    autoSelectSuppressionRef.current = null;
-    manualEmptyWorkspaceRef.current = false;
-    openNoteInWorkspace(note);
-    if (options.trackRecent ?? true) {
-      trackRecentNote(note);
-    }
-
-    if (options.focusEditor) {
-      pendingEditorFocusNoteIdRef.current = note.id;
-      setEditorFocusRequestId((requestId) => requestId + 1);
-    }
-
-    return true;
-  }, [openNoteInWorkspace, trackRecentNote]);
-
-  const handleNoteSelect = useCallback((note: NoteSummary) => {
-    void requestSelectNote(note, { focusEditor: true, trackRecent: true });
-  }, [requestSelectNote]);
 
   const mutations = useElectronNoteMutations({
     api,
@@ -341,14 +299,7 @@ export function Home() {
     uploadingNote: mutations.uploadNoteImageMutation.variables?.note ?? null,
   });
 
-  useEffect(() => {
-    if (!selectedDocument || pendingEditorFocusNoteIdRef.current !== selectedDocument.id) {
-      return;
-    }
-
-    pendingEditorFocusNoteIdRef.current = null;
-    setEditorFocusRequestId((requestId) => requestId + 1);
-  }, [selectedDocument]);
+  useSelectedDocumentEditorFocus(selectedDocument, handleSelectedDocumentReady);
 
   const refreshWorkspace = useCallback(() => {
     void queries.userQuery.refetch();
