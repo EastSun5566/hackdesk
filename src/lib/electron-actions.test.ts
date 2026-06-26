@@ -42,7 +42,7 @@ describe('electron action registry', () => {
     expect(new Set(ids).size).toBe(ids.length);
     expect(getElectronAction('new-note')).toMatchObject({
       label: 'New Note',
-      menuAccelerator: 'CmdOrCtrl+N',
+      menuAccelerator: 'Command+N',
     });
     expect(getElectronAction('new-folder')).toMatchObject({
       label: 'New Folder',

@@ -1,5 +1,6 @@
-minimumReleaseAge: 10080
+minimumReleaseAge: 1440
 trustPolicy: no-downgrade
+trustPolicyIgnoreAfter: 10080
 allowBuilds:
   electron: true
   electron-winstaller: true

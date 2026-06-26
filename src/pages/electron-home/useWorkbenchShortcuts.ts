@@ -58,7 +58,7 @@ export function useWorkbenchShortcuts({
       return;
     }
 
-    if (isPrimaryModifier && event.key.toLowerCase() === 'n') {
+    if (event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'n') {
       event.preventDefault();
       handleCreateNote();
       return;

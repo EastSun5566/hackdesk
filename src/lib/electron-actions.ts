@@ -139,7 +139,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     category: 'create',
     scope: 'navigator',
     shortcut: '⌘N',
-    menuAccelerator: 'CmdOrCtrl+N',
+    menuAccelerator: 'Command+N',
     getDisabledReason: requireWritableWorkspace,
   },
   {

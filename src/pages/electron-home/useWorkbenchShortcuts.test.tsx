@@ -87,6 +87,23 @@ describe('useWorkbenchShortcuts', () => {
     expect(handlers.focusTabAtIndex).toHaveBeenNthCalledWith(2, -1);
   });
 
+  it('creates notes with Cmd+N but leaves Ctrl+N for editor navigation conventions', () => {
+    const handlers = createHandlers();
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    const ctrlNEvent = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+      key: 'n',
+    });
+    window.dispatchEvent(ctrlNEvent);
+    fireEvent.keyDown(window, { key: 'n', metaKey: true });
+
+    expect(ctrlNEvent.defaultPrevented).toBe(false);
+    expect(handlers.handleCreateNote).toHaveBeenCalledOnce();
+  });
+
   it('clears finder query and selected folder with Escape outside editor zones', () => {
     const setFinderState = vi.fn();
     const setSelectedFolderId = vi.fn();

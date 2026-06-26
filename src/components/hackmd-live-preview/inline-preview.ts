@@ -109,18 +109,21 @@ const inlinePreviewPlugin = ViewPlugin.fromClass(
     }
 
     update(update: ViewUpdate) {
+      const previewWasFrozen = update.startState.field(previewFrozenField);
+      const previewIsFrozen = update.state.field(previewFrozenField);
+      const previewJustUnfroze = previewWasFrozen && !previewIsFrozen;
       const treeGrew = update.transactions.some((transaction) =>
         transaction.effects.some((effect) => effect.is(treeGrowthEffect)),
       );
 
-      if (update.state.field(previewFrozenField)) {
+      if (previewIsFrozen && !previewJustUnfroze) {
         this.decorations = update.docChanged || treeGrew
           ? buildDecorations(update.state)
           : this.decorations;
         return;
       }
 
-      if (update.docChanged || update.selectionSet || update.focusChanged || treeGrew) {
+      if (update.docChanged || update.selectionSet || update.focusChanged || treeGrew || previewJustUnfroze) {
         this.decorations = buildDecorations(update.state);
       }
     }
