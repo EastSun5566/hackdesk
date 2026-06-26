@@ -87,6 +87,39 @@ describe('NoteInspector', () => {
     });
   });
 
+  it('saves location and permission changes from collapsed sections', () => {
+    const onSaveMetadata = vi.fn();
+    const { document } = renderNoteInspector({ actions: { onSaveMetadata } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Location' }));
+    fireEvent.change(screen.getByLabelText('Folder'), {
+      target: { value: 'folder-a' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Permissions' }));
+    fireEvent.change(screen.getByLabelText('Read'), {
+      target: { value: 'guest' },
+    });
+    fireEvent.change(screen.getByLabelText('Write'), {
+      target: { value: 'signed_in' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Metadata' }));
+
+    expect(onSaveMetadata).toHaveBeenCalledWith(document, {
+      parentFolderId: 'folder-a',
+      readPermission: 'guest',
+      writePermission: 'signed_in',
+    });
+  });
+
+  it('copies the current note link from the inspector header', () => {
+    const onCopyLink = vi.fn();
+    const { document } = renderNoteInspector({ actions: { onCopyLink } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy Link' }));
+
+    expect(onCopyLink).toHaveBeenCalledWith(document);
+  });
+
   it('keeps image upload and insert markdown behavior wired', async () => {
     const onInsertMarkdown = vi.fn();
     const onUploadImage = vi.fn(async () => ({ link: 'https://assets.example/image.png' }) satisfies UploadNoteImageResult);
