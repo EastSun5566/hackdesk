@@ -225,8 +225,8 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
   },
   {
     id: 'open-note-web-editor',
-    label: 'Open Note in Web Editor',
-    description: 'Open the selected note in HackMD Web Editor.',
+    label: 'Open Note in HackMD',
+    description: 'Open the selected note in HackMD.',
     keywords: ['hackmd', 'browser', 'edit'],
     category: 'note',
     scope: 'editor',

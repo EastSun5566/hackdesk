@@ -5,6 +5,7 @@ import {
   escapeMarkdownLinkText,
   getHackmdNoteUrl,
   getMarkdownNoteLink,
+  toOpenHackmdEditorInput,
 } from './electron-note-links';
 
 function note(input: Partial<NoteSummary> = {}): NoteSummary {
@@ -50,5 +51,23 @@ describe('electron note links', () => {
     expect(escapeMarkdownLinkText(String.raw`A [B]\C`)).toBe(String.raw`A \[B\]\\C`);
     expect(getMarkdownNoteLink(note({ title: 'A [B]' }))).toBe('[A \\[B\\]](https://hackmd.io/@michael/note-1)');
     expect(getMarkdownNoteLink(note({ title: '   ' }))).toBe('[Untitled](https://hackmd.io/@michael/note-1)');
+  });
+
+  it('normalizes notes before sending them to the open editor IPC channel', () => {
+    expect(toOpenHackmdEditorInput(note({
+      id: 'note-1',
+      title: 'Extra fields should not cross IPC',
+      shortId: 'abc123',
+      teamPath: 'team',
+      userPath: null,
+      publishLink: 'https://hackmd.io/@team/abc123',
+    }))).toEqual({
+      publishType: 'edit',
+      shortId: 'abc123',
+      userPath: null,
+      teamPath: 'team',
+      permalink: null,
+      publishLink: 'https://hackmd.io/@team/abc123',
+    });
   });
 });

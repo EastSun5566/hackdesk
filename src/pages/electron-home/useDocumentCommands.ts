@@ -10,6 +10,7 @@ import type {
 import {
   getHackmdNoteUrl,
   getMarkdownNoteLink,
+  toOpenHackmdEditorInput,
 } from '@/lib/electron-note-links';
 import {
   buildMarkdownExportInput,
@@ -167,7 +168,7 @@ export function useDocumentCommands({
     }
 
     trackRecentNote(note);
-    void Promise.resolve(api.shell.openHackmdEditor(note)).catch((error) => {
+    void Promise.resolve(api.shell.openHackmdEditor(toOpenHackmdEditorInput(note))).catch((error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to open HackMD editor.');
     });
   }, [api, trackRecentNote]);

@@ -5,7 +5,7 @@ import {
   Plus,
   RefreshCcw,
 } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import {
   closestCenter,
   DndContext,
@@ -112,6 +112,7 @@ export type FolderNavigatorActions = {
   onOpenPalette: () => void;
   onOpenSettings: () => void;
   onRefresh: () => void;
+  onRevealNoteFolder: (entry: FolderTreeNote) => void;
   onRenameFolder: (folderId: string) => void;
   onToggleCollapsed: () => void;
 };
@@ -135,6 +136,7 @@ type TreeFocusItem = {
   hasChildren?: boolean;
   id: string;
   kind: 'folder' | 'note';
+  label: string;
   note?: FolderTreeNote;
   parentFolderId: string | null;
 };
@@ -154,6 +156,7 @@ function getFolderTreeFocusItems(tree: FolderTree, collapsedFolderIds: Set<strin
     hasChildren: tree.unfiled.notes.length > 0 || tree.roots.length > 0,
     id: createFolderFocusId(UNFILED_FOLDER_ID),
     kind: 'folder',
+    label: 'Root',
     parentFolderId: null,
   }];
 
@@ -165,6 +168,7 @@ function getFolderTreeFocusItems(tree: FolderTree, collapsedFolderIds: Set<strin
       hasChildren: node.children.length > 0 || node.notes.length > 0,
       id: createFolderFocusId(node.id),
       kind: 'folder',
+      label: node.name,
       parentFolderId,
     });
 
@@ -181,6 +185,7 @@ function getFolderTreeFocusItems(tree: FolderTree, collapsedFolderIds: Set<strin
         depth: depth + 1,
         id: createNoteFocusId(note.note.id),
         kind: 'note',
+        label: note.note.title || 'Untitled',
         note,
         parentFolderId: node.id,
       });
@@ -196,6 +201,7 @@ function getFolderTreeFocusItems(tree: FolderTree, collapsedFolderIds: Set<strin
       depth: 1,
       id: createNoteFocusId(note.note.id),
       kind: 'note',
+      label: note.note.title || 'Untitled',
       note,
       parentFolderId: UNFILED_FOLDER_ID,
     });
@@ -218,6 +224,29 @@ function shouldIgnoreFolderTreeKeydown(target: EventTarget | null) {
   }
 
   return Boolean(target.closest('input, textarea, select, [contenteditable="true"], [data-folder-tree-ignore-keyboard]'));
+}
+
+function normalizeCreateNoteFolderId(folderId: string | null) {
+  return folderId === UNFILED_FOLDER_ID ? null : folderId;
+}
+
+function findTypeaheadMatch(items: TreeFocusItem[], query: string, currentIndex: number) {
+  if (!query) {
+    return null;
+  }
+
+  const normalizedQuery = query.toLocaleLowerCase();
+  const startIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
+
+  for (let offset = 0; offset < items.length; offset += 1) {
+    const index = (startIndex + offset) % items.length;
+    const item = items[index];
+    if (item.label.toLocaleLowerCase().startsWith(normalizedQuery)) {
+      return item;
+    }
+  }
+
+  return null;
 }
 
 export function FolderNavigator({
@@ -601,6 +630,7 @@ function FinderResultList({
           onDuplicate={actions.onDuplicateNote}
           onExportMarkdown={actions.onExportNoteMarkdown}
           onDelete={actions.onDeleteNote}
+          onRevealFolder={actions.onRevealNoteFolder}
           onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}
           selectedFolder={selectedFolderForNoteMove}
         />
@@ -625,6 +655,8 @@ function NavigatorTree({
   tree: FolderTree;
 }) {
   const treeRef = useRef<HTMLDivElement | null>(null);
+  const typeaheadBufferRef = useRef('');
+  const typeaheadResetTimerRef = useRef<number | null>(null);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const visibleFolderItems = useMemo(
@@ -642,6 +674,12 @@ function NavigatorTree({
   const activeNote = activeNoteId
     ? tree.allNotes.find((entry) => entry.note.id === activeNoteId) ?? null
     : null;
+
+  useEffect(() => () => {
+    if (typeaheadResetTimerRef.current !== null) {
+      window.clearTimeout(typeaheadResetTimerRef.current);
+    }
+  }, []);
 
   const handleDragStart = (event: DragStartEvent) => {
     const activeId = String(event.active.id);
@@ -717,17 +755,106 @@ function NavigatorTree({
     }
   }, [focusItems, focusTreeItem]);
 
+  const resetTypeaheadTimer = useCallback(() => {
+    if (typeaheadResetTimerRef.current !== null) {
+      window.clearTimeout(typeaheadResetTimerRef.current);
+    }
+
+    typeaheadResetTimerRef.current = window.setTimeout(() => {
+      typeaheadBufferRef.current = '';
+      typeaheadResetTimerRef.current = null;
+    }, 700);
+  }, []);
+
+  const runTypeahead = useCallback((key: string, currentIndex: number) => {
+    const nextBuffer = `${typeaheadBufferRef.current}${key}`.toLocaleLowerCase();
+    const singleKeyBuffer = key.toLocaleLowerCase();
+    const match = findTypeaheadMatch(focusItems, nextBuffer, currentIndex)
+      ?? (nextBuffer === singleKeyBuffer ? null : findTypeaheadMatch(focusItems, singleKeyBuffer, currentIndex));
+
+    if (!match) {
+      typeaheadBufferRef.current = singleKeyBuffer;
+      resetTypeaheadTimer();
+      return;
+    }
+
+    typeaheadBufferRef.current = match.label.toLocaleLowerCase().startsWith(nextBuffer)
+      ? nextBuffer
+      : singleKeyBuffer;
+    resetTypeaheadTimer();
+    focusTreeItem(match.id);
+  }, [focusItems, focusTreeItem, resetTypeaheadTimer]);
+
   const handleTreeKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
     if (shouldIgnoreFolderTreeKeydown(event.target) || focusItems.length === 0) {
       return;
     }
 
     const isPlainKey = !event.metaKey && !event.altKey && !event.shiftKey;
+    const isPrimaryModifier = event.metaKey || event.ctrlKey;
     const isCtrlNext = event.ctrlKey && isPlainKey && event.key.toLowerCase() === 'n';
     const isCtrlPrevious = event.ctrlKey && isPlainKey && event.key.toLowerCase() === 'p';
     const currentRowId = getKeyboardFocusRowId(event.target);
     const currentIndex = currentRowId ? focusItems.findIndex((item) => item.id === currentRowId) : -1;
     const currentItem = currentIndex >= 0 ? focusItems[currentIndex] : null;
+
+    if (isPrimaryModifier && event.shiftKey && event.key.toLowerCase() === 'n' && currentItem) {
+      event.preventDefault();
+      if (currentItem.kind === 'folder') {
+        actions.onCreateNoteInside(normalizeCreateNoteFolderId(currentItem.folderId ?? null));
+        return;
+      }
+
+      if (currentItem.kind === 'note') {
+        actions.onCreateNoteInside(normalizeCreateNoteFolderId(currentItem.parentFolderId));
+      }
+      return;
+    }
+
+    if (isPrimaryModifier && event.key === 'Enter' && currentItem?.kind === 'note' && currentItem.note) {
+      event.preventDefault();
+      actions.onOpenNote(currentItem.note.note);
+      return;
+    }
+
+    if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key === 'F2' && currentItem?.kind === 'folder') {
+      event.preventDefault();
+      if (currentItem.folderId && currentItem.folderId !== UNFILED_FOLDER_ID) {
+        actions.onRenameFolder(currentItem.folderId);
+      }
+      return;
+    }
+
+    if (isPrimaryModifier && event.key === 'Backspace' && currentItem) {
+      event.preventDefault();
+      if (currentItem.kind === 'folder' && currentItem.folderId && currentItem.folderId !== UNFILED_FOLDER_ID) {
+        actions.onDeleteFolder(currentItem.folderId);
+        return;
+      }
+
+      if (currentItem.kind === 'note' && currentItem.note) {
+        actions.onDeleteNote(currentItem.note.note);
+      }
+      return;
+    }
+
+    if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && (event.key === 'Backspace' || event.key === 'Delete')) {
+      event.preventDefault();
+      return;
+    }
+
+    if (
+      !event.ctrlKey
+      && !event.metaKey
+      && !event.altKey
+      && event.key.length === 1
+      && /^[\p{L}\p{N}]$/u.test(event.key)
+      && currentItem
+    ) {
+      event.preventDefault();
+      runTypeahead(event.key, currentIndex);
+      return;
+    }
 
     if ((!event.ctrlKey && isPlainKey && event.key === 'ArrowDown') || isCtrlNext) {
       event.preventDefault();
@@ -805,6 +932,7 @@ function NavigatorTree({
     focusItems,
     focusTreeItem,
     layout.collapsedFolderIds,
+    runTypeahead,
   ]);
 
   return (
@@ -856,6 +984,7 @@ function NavigatorTree({
             onNoteDuplicate={actions.onDuplicateNote}
             onNoteExportMarkdown={actions.onExportNoteMarkdown}
             onNoteDelete={actions.onDeleteNote}
+            onNoteRevealFolder={actions.onRevealNoteFolder}
             onNoteMoveToSelectedFolder={(entry) => moveNoteToSelectedFolder(entry, selectedFolderForNoteMove, actions.onNoteMove)}
             selectedFolderForNoteMove={selectedFolderForNoteMove}
             isMovingNote={status.isMovingNote}
@@ -873,6 +1002,7 @@ function NavigatorTree({
               onDuplicate={actions.onDuplicateNote}
               onExportMarkdown={actions.onExportNoteMarkdown}
               onDelete={actions.onDeleteNote}
+              onRevealFolder={actions.onRevealNoteFolder}
               onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}
               selectedFolder={selectedFolderForNoteMove}
               draggable

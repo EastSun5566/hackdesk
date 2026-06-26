@@ -438,7 +438,7 @@ function DocumentActionsMenu({
       <DropdownMenuContent align="end">
         <DropdownMenuItem onSelect={() => actions.onOpenEditor(documentState.document)}>
           <Edit3 aria-hidden="true" className="h-4 w-4" />
-          Web Editor
+          HackMD
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={(event) => {
           event.preventDefault();

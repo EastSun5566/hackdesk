@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_NOTE_FINDER_STATE } from '@/lib/electron-note-finder';
@@ -97,6 +97,7 @@ function renderFolderNavigator(overrides: Partial<FolderNavigatorProps> = {}) {
       onOpenPalette: vi.fn(),
       onOpenSettings: vi.fn(),
       onRefresh: vi.fn(),
+      onRevealNoteFolder: vi.fn(),
       onRenameFolder: vi.fn(),
       onToggleCollapsed: vi.fn(),
     },
@@ -285,6 +286,117 @@ describe('FolderNavigator', () => {
     expect(onNoteSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'nested-note' }));
   });
 
+  it('moves focus with typeahead without selecting or opening rows', () => {
+    const onFolderSelect = vi.fn();
+    const onNoteSelect = vi.fn();
+    const { container } = renderFolderNavigator({ actions: { onFolderSelect, onNoteSelect } });
+    const root = focusTreeRow(container, `folder:${UNFILED_FOLDER_ID}`);
+
+    fireEvent.keyDown(root, { key: 'p' });
+    expect(getFocusedTreeRowId()).toBe('folder:projects');
+
+    fireEvent.keyDown(document.activeElement ?? root, { key: 'r' });
+    expect(getFocusedTreeRowId()).toBe('folder:projects');
+    expect(onFolderSelect).not.toHaveBeenCalled();
+    expect(onNoteSelect).not.toHaveBeenCalled();
+  });
+
+  it('resets the typeahead buffer after the timeout', () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = renderFolderNavigator();
+      const root = focusTreeRow(container, `folder:${UNFILED_FOLDER_ID}`);
+
+      fireEvent.keyDown(root, { key: 'p' });
+      expect(getFocusedTreeRowId()).toBe('folder:projects');
+
+      act(() => {
+        vi.advanceTimersByTime(701);
+      });
+
+      fireEvent.keyDown(document.activeElement ?? root, { key: 'l' });
+      expect(getFocusedTreeRowId()).toBe('note:loose-note');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps typeahead limited to visible rows', () => {
+    const { container } = renderFolderNavigator({
+      layout: { collapsedFolderIds: new Set(['projects']) },
+    });
+    const root = focusTreeRow(container, `folder:${UNFILED_FOLDER_ID}`);
+
+    fireEvent.keyDown(root, { key: 'n' });
+
+    expect(getFocusedTreeRowId()).toBe(`folder:${UNFILED_FOLDER_ID}`);
+  });
+
+  it('does not intercept typing in navigator inputs', () => {
+    const { container } = renderFolderNavigator();
+    const searchInput = screen.getByPlaceholderText('Search notes');
+
+    searchInput.focus();
+    fireEvent.keyDown(searchInput, { key: 'p' });
+
+    expect(container.querySelector('[data-folder-tree-row-id="folder:projects"]')).toBeInTheDocument();
+    expect(document.activeElement).toBe(searchInput);
+  });
+
+  it('runs focused row keyboard commands through existing actions', () => {
+    const onCreateNoteInside = vi.fn();
+    const onDeleteFolder = vi.fn();
+    const onDeleteNote = vi.fn();
+    const onOpenNote = vi.fn();
+    const onRenameFolder = vi.fn();
+    const { container } = renderFolderNavigator({
+      actions: {
+        onCreateNoteInside,
+        onDeleteFolder,
+        onDeleteNote,
+        onOpenNote,
+        onRenameFolder,
+      },
+    });
+    const projects = focusTreeRow(container, 'folder:projects');
+
+    fireEvent.keyDown(projects, { key: 'N', metaKey: true, shiftKey: true });
+    expect(onCreateNoteInside).toHaveBeenCalledWith('projects');
+
+    fireEvent.keyDown(projects, { key: 'F2' });
+    expect(onRenameFolder).toHaveBeenCalledWith('projects');
+
+    fireEvent.keyDown(projects, { key: 'Backspace', metaKey: true });
+    expect(onDeleteFolder).toHaveBeenCalledWith('projects');
+
+    const nestedNote = focusTreeRow(container, 'note:nested-note');
+    fireEvent.keyDown(nestedNote, { key: 'Enter', metaKey: true });
+    expect(onOpenNote).toHaveBeenCalledWith(expect.objectContaining({ id: 'nested-note' }));
+
+    fireEvent.keyDown(nestedNote, { key: 'N', ctrlKey: true, shiftKey: true });
+    expect(onCreateNoteInside).toHaveBeenCalledWith('projects');
+
+    fireEvent.keyDown(nestedNote, { key: 'Backspace', ctrlKey: true });
+    expect(onDeleteNote).toHaveBeenCalledWith(expect.objectContaining({ id: 'nested-note' }));
+  });
+
+  it('does not delete with bare Delete or Backspace and does not delete root', () => {
+    const onDeleteFolder = vi.fn();
+    const onDeleteNote = vi.fn();
+    const { container } = renderFolderNavigator({ actions: { onDeleteFolder, onDeleteNote } });
+    const root = focusTreeRow(container, `folder:${UNFILED_FOLDER_ID}`);
+
+    fireEvent.keyDown(root, { key: 'Backspace', metaKey: true });
+    fireEvent.keyDown(root, { key: 'Delete' });
+
+    const nestedNote = focusTreeRow(container, 'note:nested-note');
+    fireEvent.keyDown(nestedNote, { key: 'Backspace' });
+    fireEvent.keyDown(nestedNote, { key: 'Delete' });
+
+    expect(onDeleteFolder).not.toHaveBeenCalled();
+    expect(onDeleteNote).not.toHaveBeenCalled();
+  });
+
   it('adds create note actions to folder context menus', async () => {
     const onCreateNoteInside = vi.fn();
     renderFolderNavigator({ actions: { onCreateNoteInside } });
@@ -298,5 +410,17 @@ describe('FolderNavigator', () => {
     fireEvent.click(await screen.findByText('New Note'));
 
     expect(onCreateNoteInside).toHaveBeenCalledWith(null);
+  });
+
+  it('adds reveal folder to note context menus', async () => {
+    const onRevealNoteFolder = vi.fn();
+    renderFolderNavigator({ actions: { onRevealNoteFolder } });
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Nested note' }));
+    fireEvent.click(await screen.findByText('Reveal Folder'));
+
+    expect(onRevealNoteFolder).toHaveBeenCalledWith(expect.objectContaining({
+      note: expect.objectContaining({ id: 'nested-note' }),
+    }));
   });
 });

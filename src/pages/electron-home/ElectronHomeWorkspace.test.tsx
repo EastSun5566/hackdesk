@@ -240,6 +240,7 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
         onOpenPalette: noop,
         onOpenSettings: noop,
         onRefresh: noop,
+        onRevealNoteFolder: noop,
         onRenameFolder: noop,
         onToggleCollapsed: noop,
       },

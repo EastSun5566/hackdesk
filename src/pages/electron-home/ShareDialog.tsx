@@ -165,7 +165,7 @@ function ShareDialogContent({
               className={SECONDARY_BUTTON_CLASS}
             >
               <Edit3 aria-hidden="true" className="h-4 w-4" />
-              Open Web Editor
+              Open in HackMD
             </button>
           </section>
 

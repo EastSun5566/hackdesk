@@ -45,7 +45,7 @@ xattr -dr com.apple.quarantine /Applications/HackDesk.app
 
 ## Electron Beta Development
 
-HackDesk still ships the Tauri app as the stable path. The Electron app is a parallel beta for the hybrid native rewrite: native workspace, search, settings, note CRUD, and HackMD web editor fallback.
+HackDesk still ships the Tauri app as the stable path. The Electron app is a parallel beta for the hybrid native rewrite: native workspace, search, settings, note CRUD, and HackMD open-in-browser fallback.
 
 ```sh
 pnpm install

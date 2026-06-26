@@ -47,6 +47,7 @@ export function NoteRow({
   onDuplicate,
   onExportMarkdown,
   onDelete,
+  onRevealFolder,
   onMoveToSelectedFolder,
   selectedFolder,
   draggable = false,
@@ -64,6 +65,7 @@ export function NoteRow({
   onDuplicate: (note: NoteSummary) => void;
   onExportMarkdown: (note: NoteSummary) => void;
   onDelete: (note: NoteSummary) => void;
+  onRevealFolder: (entry: FolderTreeNote) => void;
   onMoveToSelectedFolder?: (entry: FolderTreeNote) => void;
   selectedFolder?: FolderTreeNode | null;
   draggable?: boolean;
@@ -180,7 +182,7 @@ export function NoteRow({
       <ContextMenuContent>
         <ContextMenuItem onSelect={() => onOpen(entry.note)}>
           <FileText aria-hidden="true" className="h-4 w-4" />
-          Open in Web Editor
+          Open in HackMD
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => onCopyLink(entry.note)}>
           <Copy aria-hidden="true" className="h-4 w-4" />
@@ -198,6 +200,10 @@ export function NoteRow({
         <ContextMenuItem onSelect={() => onExportMarkdown(entry.note)}>
           <Download aria-hidden="true" className="h-4 w-4" />
           Export Markdown
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={() => onRevealFolder(entry)}>
+          <FolderOpen aria-hidden="true" className="h-4 w-4" />
+          Reveal Folder
         </ContextMenuItem>
         <ContextMenuItem
           disabled={!canMoveToSelectedFolder}
@@ -462,6 +468,7 @@ export function FolderTreeView({
   onNoteDuplicate,
   onNoteExportMarkdown,
   onNoteDelete,
+  onNoteRevealFolder,
   onNoteMoveToSelectedFolder,
   selectedFolderForNoteMove,
   isMovingNote,
@@ -486,6 +493,7 @@ export function FolderTreeView({
   onNoteDuplicate: (note: NoteSummary) => void;
   onNoteExportMarkdown: (note: NoteSummary) => void;
   onNoteDelete: (note: NoteSummary) => void;
+  onNoteRevealFolder: (entry: FolderTreeNote) => void;
   onNoteMoveToSelectedFolder: (entry: FolderTreeNote) => void;
   selectedFolderForNoteMove: FolderTreeNode | null;
   isMovingNote: boolean;
@@ -546,6 +554,7 @@ export function FolderTreeView({
                     onNoteDuplicate={onNoteDuplicate}
                     onNoteExportMarkdown={onNoteExportMarkdown}
                     onNoteDelete={onNoteDelete}
+                    onNoteRevealFolder={onNoteRevealFolder}
                     onNoteMoveToSelectedFolder={onNoteMoveToSelectedFolder}
                     selectedFolderForNoteMove={selectedFolderForNoteMove}
                     isMovingNote={isMovingNote}
@@ -564,6 +573,7 @@ export function FolderTreeView({
                         onDuplicate={onNoteDuplicate}
                         onExportMarkdown={onNoteExportMarkdown}
                         onDelete={onNoteDelete}
+                        onRevealFolder={onNoteRevealFolder}
                         onMoveToSelectedFolder={onNoteMoveToSelectedFolder}
                         selectedFolder={selectedFolderForNoteMove}
                         draggable

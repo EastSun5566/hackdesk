@@ -658,6 +658,9 @@ export function Home() {
             onFolderDrop: folderCommands.handleFolderDrop,
             onNoteMove: handleNoteMove,
             onOpenNote: handleOpenEditor,
+            onRevealNoteFolder: (entry) => {
+              void revealNoteEntry(entry);
+            },
             onCopyNoteLink: handleCopyNoteLink,
             onCopyNoteMarkdownLink: handleCopyNoteMarkdownLink,
             onDuplicateNote: handleDuplicateNote,

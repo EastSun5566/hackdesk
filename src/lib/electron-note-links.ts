@@ -1,4 +1,4 @@
-import type { NoteSummary } from './electron-api';
+import type { NoteSummary, OpenHackmdEditorInput } from './electron-api';
 import { getHackmdNotePath } from './hackmd-path';
 
 const HACKMD_ORIGIN = 'https://hackmd.io';
@@ -20,4 +20,15 @@ export function getMarkdownNoteLink(note: Pick<
 >) {
   const title = note.title.trim() || 'Untitled';
   return `[${escapeMarkdownLinkText(title)}](${getHackmdNoteUrl(note)})`;
+}
+
+export function toOpenHackmdEditorInput(note: OpenHackmdEditorInput): OpenHackmdEditorInput {
+  return {
+    publishType: note.publishType,
+    shortId: note.shortId,
+    userPath: note.userPath,
+    teamPath: note.teamPath,
+    permalink: note.permalink,
+    publishLink: note.publishLink,
+  };
 }

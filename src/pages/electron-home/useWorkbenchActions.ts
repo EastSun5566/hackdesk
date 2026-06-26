@@ -11,6 +11,7 @@ import {
   getElectronAction,
   type ElectronActionContext,
 } from '@/lib/electron-actions';
+import { toOpenHackmdEditorInput } from '@/lib/electron-note-links';
 
 import type { NoteWorkspaceState } from './note-workspace';
 import type { WorkspaceScope } from './types';
@@ -311,7 +312,7 @@ export function openHackmdWebEditor(
   }
 
   trackRecentNote(selectedDocument);
-  void Promise.resolve(api.shell.openHackmdEditor(selectedDocument)).catch((error) => {
+  void Promise.resolve(api.shell.openHackmdEditor(toOpenHackmdEditorInput(selectedDocument))).catch((error) => {
     toast.error(error instanceof Error ? error.message : 'Failed to open HackMD editor.');
   });
 }

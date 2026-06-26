@@ -125,7 +125,7 @@ async function expandInspectorSection(name: string) {
 
 async function openDocumentActions() {
   fireEvent.pointerDown(screen.getAllByRole('button', { name: 'More actions' })[0]);
-  await screen.findByRole('menuitem', { name: 'Web Editor' });
+  await screen.findByRole('menuitem', { name: 'HackMD' });
 }
 
 async function openNavigatorActions() {
@@ -1044,7 +1044,7 @@ describe('Home native-feel behavior', () => {
     expect(screen.queryByRole('button', { name: 'View' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Web Editor' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'HackMD' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Export' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Delete note' })).not.toBeInTheDocument();
@@ -3091,11 +3091,16 @@ describe('Home native-feel behavior', () => {
     });
 
     fireEvent.contextMenu(row);
-    fireEvent.click(await screen.findByText('Open in Web Editor'));
+    fireEvent.click(await screen.findByText('Open in HackMD'));
 
-    await waitFor(() => expect(api.shell.openHackmdEditor).toHaveBeenCalledWith(expect.objectContaining({
+    await waitFor(() => expect(api.shell.openHackmdEditor).toHaveBeenCalledWith({
+      publishType: 'edit',
       shortId: 'note-1',
-    })));
+      userPath: 'michael',
+      teamPath: null,
+      permalink: null,
+      publishLink: 'https://hackmd.io/s/note-1',
+    }));
   });
 
   it('deletes the selected folder after native confirmation succeeds', async () => {
