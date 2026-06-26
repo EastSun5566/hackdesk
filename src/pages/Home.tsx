@@ -5,24 +5,22 @@ import { getDesktopAPI } from '@/lib/desktop-api';
 import type { FolderSummary } from '@/lib/electron-api';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
-import { CommandPaletteDialog } from './electron-home/CommandPaletteDialog';
-import { ElectronHomeDialogs } from './electron-home/ElectronHomeDialogs';
+import { ElectronHomeOverlays } from './electron-home/ElectronHomeOverlays';
 import { ElectronHomeWorkspace } from './electron-home/ElectronHomeWorkspace';
 import { getScopeStorageKey } from './electron-home/repository';
 import type { WorkspaceScope } from './electron-home/types';
-import {
-  FOLDER_COLLAPSED_PREFIX,
-  writeStringArrayStorage,
-} from './electron-home/ui-preferences';
 import { useElectronHackmdQueries } from './electron-home/useElectronHackmdQueries';
 import { useElectronFocusZones } from './electron-home/useElectronFocusZones';
+import { useElectronHomeCommandPalette } from './electron-home/useElectronHomeCommandPalette';
 import { useElectronHomeModel } from './electron-home/useElectronHomeModel';
 import { useElectronHomeRecentNotes } from './electron-home/useElectronHomeRecentNotes';
+import { useElectronHomeRefresh } from './electron-home/useElectronHomeRefresh';
 import {
   useElectronHomeSelection,
   useElectronHomeSelectionRefs,
   useSelectedDocumentEditorFocus,
 } from './electron-home/useElectronHomeSelection';
+import { useElectronHomeShellEffects } from './electron-home/useElectronHomeShellEffects';
 import { useElectronNoteMutations } from './electron-home/useElectronNoteMutations';
 import { useDocumentCommands } from './electron-home/useDocumentCommands';
 import { useNoteWorkspaceTabs } from './electron-home/useNoteWorkspaceTabs';
@@ -42,8 +40,6 @@ import { useElectronHomeStatus } from './electron-home/useElectronHomeStatus';
 import { useWorkbenchFinder } from './electron-home/useWorkbenchFinder';
 import { useWorkbenchFolderCommands } from './electron-home/useWorkbenchFolderCommands';
 import { useWorkbenchNavigator } from './electron-home/useWorkbenchNavigator';
-import { usePendingRecentNoteRestore } from './electron-home/usePendingRecentNoteRestore';
-import { useWorkbenchQuickOpen } from './electron-home/useWorkbenchQuickOpen';
 import { useWorkbenchPanelState } from './electron-home/useWorkbenchPanelState';
 import { useWorkbenchShortcuts } from './electron-home/useWorkbenchShortcuts';
 import { useWorkbenchTabLifecycle } from './electron-home/useWorkbenchTabLifecycle';
@@ -186,10 +182,6 @@ export function Home() {
     teams,
   });
 
-  const openHackmdTokenSetup = useCallback(() => {
-    setOnboardingOpen(true);
-  }, []);
-
   const mutations = useElectronNoteMutations({
     api,
     scope,
@@ -301,15 +293,10 @@ export function Home() {
 
   useSelectedDocumentEditorFocus(selectedDocument, handleSelectedDocumentReady);
 
-  const refreshWorkspace = useCallback(() => {
-    void queries.userQuery.refetch();
-    void queries.teamsQuery.refetch();
-    void queries.notesQuery.refetch();
-    if (scope.type !== 'history') {
-      void queries.foldersQuery.refetch();
-      void queries.folderOrderQuery.refetch();
-    }
-  }, [queries.folderOrderQuery, queries.foldersQuery, queries.notesQuery, queries.teamsQuery, queries.userQuery, scope.type]);
+  const refreshWorkspace = useElectronHomeRefresh({
+    queries,
+    scopeType: scope.type,
+  });
 
   const folderCommands = useWorkbenchFolderCommands({
     api,
@@ -326,10 +313,6 @@ export function Home() {
     setSelectedFolderId,
     setSettingsOpen,
   });
-
-  const openPalette = useCallback(() => {
-    setPalette({ open: true, search: '' });
-  }, [setPalette]);
 
   const {
     handleCopyNoteLink,
@@ -356,42 +339,26 @@ export function Home() {
     trackRecentNote,
   });
 
-  useEffect(() => {
-    writeStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${scopeStorageKey}`, collapsedFolderIds);
-  }, [collapsedFolderIds, scopeStorageKey]);
-
   const {
-    clearPendingRecentNote,
-    queuePendingRecentNote,
-  } = usePendingRecentNoteRestore({
-    isNotesFetching: queries.notesQuery.isFetching,
-    isNotesLoading: queries.notesQuery.isLoading,
-    removeRecentNoteEntry,
-    revealNoteEntry,
-    scope,
-    tree: folderTree,
-  });
-  const switchWorkspaceScope = useCallback((nextScope: WorkspaceScope) => {
-    clearPendingRecentNote();
-    setWorkspaceScope(nextScope);
-  }, [clearPendingRecentNote, setWorkspaceScope]);
-
-  const {
-    handleQuickOpenFolder,
-    handleQuickOpenNote,
-    handleQuickOpenRecentNote,
-    handleQuickOpenWorkspace,
-  } = useWorkbenchQuickOpen({
+    commandPaletteProps,
+    openPalette,
+    switchWorkspaceScope,
+  } = useElectronHomeCommandPalette({
+    displayScope,
     expandNavigator,
     focusNavigator: () => focusZone('navigator'),
+    handleShowFinderResults,
     isNotesFetching: queries.notesQuery.isFetching,
     isNotesLoading: queries.notesQuery.isLoading,
-    clearPendingRecentNote,
-    queuePendingRecentNote,
+    palette,
+    recentNotes,
     removeRecentNoteEntry,
     revealFolderIds,
     revealNoteEntry,
     scope,
+    selectedFolderId,
+    selectedNoteId: selectedNote?.id ?? null,
+    setPalette,
     setSelectedFolderId,
     setWorkspaceScope,
     teams,
@@ -494,11 +461,16 @@ export function Home() {
     requestCloseTab,
   });
 
-  useEffect(() => {
-    return api?.app.onCommand((command) => {
-      runAction(command.type);
-    });
-  }, [api, runAction]);
+  useElectronHomeShellEffects({
+    api,
+    collapsedFolderIds,
+    runAction,
+    scopeStorageKey,
+  });
+
+  const openHackmdTokenSetup = useCallback(() => {
+    setOnboardingOpen(true);
+  }, [setOnboardingOpen]);
 
   useWorkbenchShortcuts({
     activeFinderState,
@@ -660,72 +632,61 @@ export function Home() {
         }}
       />
 
-      <CommandPaletteDialog
-        state={palette}
-        context={actionContext}
-        folderTree={folderTree}
-        recentNotes={recentNotes}
-        teams={teams}
-        scope={displayScope}
-        selectedNoteId={selectedNote?.id ?? null}
-        selectedFolderId={selectedFolderId}
-        onStateChange={setPalette}
-        onRunAction={runAction}
-        onSelectNote={handleQuickOpenNote}
-        onSelectRecentNote={handleQuickOpenRecentNote}
-        onSelectFolder={handleQuickOpenFolder}
-        onSelectWorkspace={handleQuickOpenWorkspace}
-        onShowFinderResults={handleShowFinderResults}
-      />
-
-      <ElectronHomeDialogs
-        api={api}
-        createFolderDialog={createFolderDialog}
-        createNoteDialog={createDialog}
-        deleteFolderTarget={deleteFolderTarget}
-        deleteNoteTarget={deleteTarget}
-        folderLabel={selectedFolderLabel}
-        onboardingOpen={onboardingOpen}
-        renameFolderDialog={renameFolderDialog}
-        scopeLabel={displayScope.label}
-        settings={settings}
-        settingsOpen={settingsOpen}
-        status={{
-          creatingFolder: mutations.createFolderMutation.isPending,
-          creatingNote: mutations.createNoteMutation.isPending,
-          deletingFolder: mutations.deleteFolderMutation.isPending,
-          deletingNote: mutations.deleteNoteMutation.isPending,
-          renamingFolder: mutations.renameFolderMutation.isPending,
-          savingSettings: mutations.updateSettingsMutation.isPending,
+      <ElectronHomeOverlays
+        commandPalette={{
+          ...commandPaletteProps,
+          context: actionContext,
+          onRunAction: runAction,
         }}
-        onCreateFolder={(input) => mutations.createFolderMutation.mutate(input)}
-        onCreateFolderStateChange={setCreateFolderDialog}
-        onCreateNote={(title) => mutations.createNoteMutation.mutate(title)}
-        onCreateNoteStateChange={setCreateDialog}
-        onDeleteFolder={(folder) => mutations.deleteFolderMutation.mutate({
-          folderId: folder.id,
-          parentFolderId: folder.parentId,
-        })}
-        onDeleteFolderCancel={() => setDeleteFolderTarget(null)}
-        onDeleteNote={(note) => mutations.deleteNoteMutation.mutate(note)}
-        onDeleteNoteCancel={() => setDeleteTarget(null)}
-        onImportHackmdCliToken={() => mutations.importHackmdCliTokenMutation.mutateAsync()}
-        onOnboardingOpenChange={setOnboardingOpen}
-        onRenameFolder={(folderId, input) => mutations.renameFolderMutation.mutate({ folderId, input })}
-        onRenameFolderStateChange={setRenameFolderDialog}
-        onSaveSettings={(input) => mutations.updateSettingsMutation.mutate(input)}
-        onSaveToken={async (token) => {
-          await mutations.updateSettingsMutation.mutateAsync({
-            title: settings?.title ?? 'HackDesk',
-            hackmdApiToken: token,
-          });
-        }}
-        onSettingsOpenChange={setSettingsOpen}
-        onSetupLater={async () => {
-          await mutations.updateSettingsMutation.mutateAsync({
-            title: settings?.title ?? 'HackDesk',
-            onboarding: { hackmdTokenSetupDeferred: true },
-          });
+        dialogs={{
+          api,
+          createFolderDialog,
+          createNoteDialog: createDialog,
+          deleteFolderTarget,
+          deleteNoteTarget: deleteTarget,
+          folderLabel: selectedFolderLabel,
+          onboardingOpen,
+          renameFolderDialog,
+          scopeLabel: displayScope.label,
+          settings,
+          settingsOpen,
+          status: {
+            creatingFolder: mutations.createFolderMutation.isPending,
+            creatingNote: mutations.createNoteMutation.isPending,
+            deletingFolder: mutations.deleteFolderMutation.isPending,
+            deletingNote: mutations.deleteNoteMutation.isPending,
+            renamingFolder: mutations.renameFolderMutation.isPending,
+            savingSettings: mutations.updateSettingsMutation.isPending,
+          },
+          onCreateFolder: (input) => mutations.createFolderMutation.mutate(input),
+          onCreateFolderStateChange: setCreateFolderDialog,
+          onCreateNote: (title) => mutations.createNoteMutation.mutate(title),
+          onCreateNoteStateChange: setCreateDialog,
+          onDeleteFolder: (folder) => mutations.deleteFolderMutation.mutate({
+            folderId: folder.id,
+            parentFolderId: folder.parentId,
+          }),
+          onDeleteFolderCancel: () => setDeleteFolderTarget(null),
+          onDeleteNote: (note) => mutations.deleteNoteMutation.mutate(note),
+          onDeleteNoteCancel: () => setDeleteTarget(null),
+          onImportHackmdCliToken: () => mutations.importHackmdCliTokenMutation.mutateAsync(),
+          onOnboardingOpenChange: setOnboardingOpen,
+          onRenameFolder: (folderId, input) => mutations.renameFolderMutation.mutate({ folderId, input }),
+          onRenameFolderStateChange: setRenameFolderDialog,
+          onSaveSettings: (input) => mutations.updateSettingsMutation.mutate(input),
+          onSaveToken: async (token) => {
+            await mutations.updateSettingsMutation.mutateAsync({
+              title: settings?.title ?? 'HackDesk',
+              hackmdApiToken: token,
+            });
+          },
+          onSettingsOpenChange: setSettingsOpen,
+          onSetupLater: async () => {
+            await mutations.updateSettingsMutation.mutateAsync({
+              title: settings?.title ?? 'HackDesk',
+              onboarding: { hackmdTokenSetupDeferred: true },
+            });
+          },
         }}
       />
     </div>
