@@ -37,6 +37,7 @@ type EntityRowProps = {
   contentClassName?: string;
   titleClassName?: string;
   trailingClassName?: string;
+  focusTarget?: boolean;
   onClick?: () => void;
   ariaLabel?: string;
   titleAttribute?: string;
@@ -146,6 +147,7 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
   contentClassName,
   titleClassName,
   trailingClassName,
+  focusTarget,
   onClick,
   ariaLabel,
   titleAttribute,
@@ -181,6 +183,7 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
         type="button"
         onClick={onClick}
         disabled={disabled}
+        data-hackdesk-focus-target={focusTarget ? 'true' : undefined}
         aria-label={ariaLabel}
         title={titleAttribute}
         className={rowClassName}

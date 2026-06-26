@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef } from 'react';
 import '@fortawesome/fontawesome-free/css/all.css';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
@@ -89,6 +89,7 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
     const viewRef = useRef<EditorView | null>(null);
     const onChangeRef = useRef(onChange);
     const initialValueRef = useRef(value);
+    const pendingFocusRef = useRef(false);
 
     useEffect(() => {
       onChangeRef.current = onChange;
@@ -96,7 +97,13 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
 
     useImperativeHandle(ref, () => ({
       focus() {
-        viewRef.current?.focus();
+        const view = viewRef.current;
+        if (!view) {
+          pendingFocusRef.current = true;
+          return;
+        }
+
+        view.focus();
       },
       getContentDOM() {
         return viewRef.current?.contentDOM ?? null;
@@ -129,7 +136,7 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
       },
     }), []);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       const parent = parentRef.current;
       if (!parent) {
         return undefined;
@@ -151,6 +158,11 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
       });
 
       viewRef.current = view;
+      view.contentDOM.dataset.hackdeskFocusTarget = 'true';
+      if (pendingFocusRef.current) {
+        pendingFocusRef.current = false;
+        view.focus();
+      }
 
       return () => {
         view.destroy();

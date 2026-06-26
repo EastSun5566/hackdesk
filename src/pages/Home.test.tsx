@@ -1447,6 +1447,47 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Search notes' })).toHaveFocus());
   });
 
+  it('focuses the note navigator with Cmd+Shift+E', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    fireEvent.keyDown(window, { key: 'e', metaKey: true, shiftKey: true });
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Test note' })).toHaveFocus());
+  });
+
+  it('focuses the editor body after selecting a note from the navigator', async () => {
+    const notes = [
+      { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', updatedAtMillis: 3000 },
+      { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', updatedAtMillis: 2000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote',
+          data: {
+            ...document,
+            id: noteId,
+            title: noteId === 'note-design' ? 'Design Spec' : 'Product Plan',
+            content: noteId === 'note-design' ? '# Design Spec' : '# Product Plan',
+          },
+        })),
+      },
+    });
+
+    renderHome(api);
+    await screen.findByDisplayValue('Product Plan');
+    fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
+
+    await waitFor(() => {
+      const editorContent = screen.getByTestId('hackmd-markdown-editor').querySelector('.cm-content');
+      expect(editorContent).toHaveFocus();
+    });
+  });
+
   it('does not focus the note title input when opening note search with Cmd+F', async () => {
     const api = createApi();
 

@@ -98,8 +98,8 @@ describe('electron action registry', () => {
     });
     expect(getElectronAction('export-note-markdown')).toMatchObject({
       label: 'Export Note as Markdown',
-      menuAccelerator: 'Shift+CmdOrCtrl+E',
     });
+    expect(getElectronAction('export-note-markdown').menuAccelerator).toBeUndefined();
     expect(getElectronAction('import-markdown-note')).toMatchObject({
       label: 'Import Markdown Note',
       menuAccelerator: 'Shift+CmdOrCtrl+I',
@@ -119,6 +119,10 @@ describe('electron action registry', () => {
     expect(getElectronAction('focus-previous-tab')).toMatchObject({
       shortcut: '⌥⌘←',
       menuAccelerator: 'CmdOrCtrl+Alt+Left',
+    });
+    expect(getElectronAction('focus-navigator')).toMatchObject({
+      shortcut: '⇧⌘E',
+      menuAccelerator: 'Shift+CmdOrCtrl+E',
     });
     expect(getElectronAction('split-pane-right')).toMatchObject({
       label: 'Split Pane Right',

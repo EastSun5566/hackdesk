@@ -156,6 +156,12 @@ export function useWorkbenchShortcuts({
       return;
     }
 
+    if (isPrimaryModifier && event.shiftKey && !event.altKey && event.key.toLowerCase() === 'e') {
+      event.preventDefault();
+      runAction('focus-navigator');
+      return;
+    }
+
     if (event.altKey && event.key === '1') {
       event.preventDefault();
       runAction('focus-workspace');

@@ -211,7 +211,6 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['download', 'markdown', 'file'],
     category: 'note',
     scope: 'editor',
-    menuAccelerator: 'Shift+CmdOrCtrl+E',
     getDisabledReason: requireSelectedNote,
   },
   {
@@ -481,7 +480,8 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['folders', 'notes'],
     category: 'navigation',
     scope: 'navigator',
-    shortcut: '⌥2',
+    shortcut: '⇧⌘E',
+    menuAccelerator: 'Shift+CmdOrCtrl+E',
   },
   {
     id: 'focus-editor',

@@ -34,9 +34,12 @@ import { COLLAPSE_ICON_CLASS, FOCUS_RING_CLASS, formatDate, getFolderTotalNoteCo
 import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
 
+const TREE_ROW_FOCUS_CLASS = 'focus-within:bg-background-selected focus-within:text-text-default focus-within:ring-2 focus-within:ring-primary-default/80';
+
 export function NoteRow({
   entry,
   selected,
+  focusTarget = false,
   onSelect,
   onOpen,
   onCopyLink,
@@ -53,6 +56,7 @@ export function NoteRow({
 }: {
   entry: FolderTreeNote;
   selected: boolean;
+  focusTarget?: boolean;
   onSelect: (note: NoteSummary) => void;
   onOpen: (note: NoteSummary) => void;
   onCopyLink: (note: NoteSummary) => void;
@@ -122,6 +126,9 @@ export function NoteRow({
             rowRef.current = node;
           }}
           style={style}
+          data-folder-tree-row-id={`note:${entry.note.id}`}
+          data-folder-tree-kind="note"
+          data-folder-tree-note-id={entry.note.id}
           data-note-id={entry.note.id}
           className={cn('min-w-0', (isDragging || active) && 'opacity-40')}
         >
@@ -150,11 +157,13 @@ export function NoteRow({
             title={(
               <button
                 type="button"
+                data-folder-tree-primary="true"
+                data-hackdesk-focus-target={focusTarget ? 'true' : undefined}
                 onClick={(event) => {
                   event.stopPropagation();
                   onSelect(entry.note);
                 }}
-                className={cn('block min-w-0 truncate rounded-[4px] text-left', FOCUS_RING_CLASS)}
+                className="block min-w-0 truncate rounded-[4px] text-left focus-visible:outline-none"
               >
                 {entry.note.title || 'Untitled'}
               </button>
@@ -164,7 +173,7 @@ export function NoteRow({
             trailingClassName="w-[7.25rem] truncate text-right"
             variant={compact ? 'compact' : 'default'}
             active={active}
-            className={selected ? 'bg-primary-soft' : undefined}
+            className={cn(TREE_ROW_FOCUS_CLASS, selected && 'bg-primary-soft')}
           />
         </div>
       </ContextMenuTrigger>
@@ -218,23 +227,27 @@ function runAfterMenuClose(action: () => void) {
 export function FolderButton({
   node,
   selected,
+  focusTarget = false,
   collapsed,
   active,
   noteDropTarget,
   onSelect,
   onToggle,
   onCreateFolderInside,
+  onCreateNoteInside,
   onRenameFolder,
   onDeleteFolder,
 }: {
   node: FolderTreeNode;
   selected: boolean;
+  focusTarget?: boolean;
   collapsed: boolean;
   active: boolean;
   noteDropTarget: boolean;
   onSelect: (folderId: string) => void;
   onToggle: (folderId: string) => void;
   onCreateFolderInside: (folderId: string) => void;
+  onCreateNoteInside: (folderId: string) => void;
   onRenameFolder: (folderId: string) => void;
   onDeleteFolder: (folderId: string) => void;
 }) {
@@ -260,6 +273,9 @@ export function FolderButton({
         <div
           ref={setNodeRef}
           style={style}
+          data-folder-tree-row-id={`folder:${node.id}`}
+          data-folder-tree-kind="folder"
+          data-folder-tree-folder-id={node.id}
           data-folder-id={node.id}
           className={cn('min-w-0', (isDragging || active) && 'opacity-40')}
         >
@@ -303,17 +319,24 @@ export function FolderButton({
             title={(
               <button
                 type="button"
+                data-folder-tree-primary="true"
+                data-hackdesk-focus-target={focusTarget ? 'true' : undefined}
                 onClick={() => onSelect(node.id)}
-                className={cn('block min-w-0 truncate rounded-[4px] text-left', FOCUS_RING_CLASS)}
+                className="block min-w-0 truncate rounded-[4px] text-left focus-visible:outline-none"
               >
                 {node.name}
               </button>
             )}
             trailing={totalNotes}
+            className={TREE_ROW_FOCUS_CLASS}
           />
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
+        <ContextMenuItem onSelect={() => onCreateNoteInside(node.id)}>
+          <FileText aria-hidden="true" className="h-4 w-4" />
+          New Note Inside
+        </ContextMenuItem>
         <ContextMenuItem onSelect={() => onCreateFolderInside(node.id)}>
           <FolderPlus aria-hidden="true" className="h-4 w-4" />
           New Folder Inside
@@ -334,36 +357,52 @@ export function FolderButton({
 
 export function RootFolderRow({
   selected,
+  focusTarget = false,
   noteCount,
   folderDragActive,
   noteDragActive,
   onSelect,
   onCreateFolder,
+  onCreateNote,
 }: {
   selected: boolean;
+  focusTarget?: boolean;
   noteCount: number;
   folderDragActive: boolean;
   noteDragActive: boolean;
   onSelect: () => void;
   onCreateFolder: () => void;
+  onCreateNote: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: ROOT_FOLDER_DROP_ID });
 
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div ref={setNodeRef} className="min-w-0">
+        <div
+          ref={setNodeRef}
+          className="min-w-0"
+          data-folder-tree-row-id={`folder:${UNFILED_FOLDER_ID}`}
+          data-folder-tree-kind="folder"
+          data-folder-tree-folder-id={UNFILED_FOLDER_ID}
+        >
           <EntityRow
             selected={selected || ((folderDragActive || noteDragActive) && isOver)}
             icon={<Folder className="h-3.5 w-3.5" />}
             title="Root"
             trailing={noteCount}
             variant="compact"
+            className={TREE_ROW_FOCUS_CLASS}
+            focusTarget={focusTarget}
             onClick={onSelect}
           />
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
+        <ContextMenuItem onSelect={onCreateNote}>
+          <FileText aria-hidden="true" className="h-4 w-4" />
+          New Note
+        </ContextMenuItem>
         <ContextMenuItem onSelect={onCreateFolder}>
           <FolderPlus aria-hidden="true" className="h-4 w-4" />
           New Folder
@@ -413,6 +452,7 @@ export function FolderTreeView({
   onFolderSelect,
   onFolderToggle,
   onCreateFolderInside,
+  onCreateNoteInside,
   onRenameFolder,
   onDeleteFolder,
   onNoteSelect,
@@ -436,6 +476,7 @@ export function FolderTreeView({
   onFolderSelect: (folderId: string) => void;
   onFolderToggle: (folderId: string) => void;
   onCreateFolderInside: (folderId: string) => void;
+  onCreateNoteInside: (folderId: string) => void;
   onRenameFolder: (folderId: string) => void;
   onDeleteFolder: (folderId: string) => void;
   onNoteSelect: (note: NoteSummary) => void;
@@ -465,12 +506,14 @@ export function FolderTreeView({
             <FolderButton
               node={node}
               selected={selectedFolderId === node.id}
+              focusTarget={selectedFolderId === node.id && !selectedNoteId}
               collapsed={collapsed}
               active={isActiveFolder}
               noteDropTarget={Boolean(activeNoteId)}
               onSelect={onFolderSelect}
               onToggle={onFolderToggle}
               onCreateFolderInside={onCreateFolderInside}
+              onCreateNoteInside={onCreateNoteInside}
               onRenameFolder={onRenameFolder}
               onDeleteFolder={onDeleteFolder}
             />
@@ -493,6 +536,7 @@ export function FolderTreeView({
                     onFolderSelect={onFolderSelect}
                     onFolderToggle={onFolderToggle}
                     onCreateFolderInside={onCreateFolderInside}
+                    onCreateNoteInside={onCreateNoteInside}
                     onRenameFolder={onRenameFolder}
                     onDeleteFolder={onDeleteFolder}
                     onNoteSelect={onNoteSelect}
@@ -512,6 +556,7 @@ export function FolderTreeView({
                       <NoteRow
                         entry={entry}
                         selected={entry.note.id === selectedNoteId}
+                        focusTarget={entry.note.id === selectedNoteId}
                         onSelect={onNoteSelect}
                         onOpen={onNoteOpen}
                         onCopyLink={onNoteCopyLink}

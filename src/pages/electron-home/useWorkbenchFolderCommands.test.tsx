@@ -109,6 +109,46 @@ describe('useWorkbenchFolderCommands', () => {
     expect(options.setSelectedFolderId).toHaveBeenCalledWith(UNFILED_FOLDER_ID);
   });
 
+  it('selects the target folder before opening create-note-inside-folder', () => {
+    const options = createOptions();
+    const { result } = renderHook(() => useWorkbenchFolderCommands(options));
+
+    act(() => {
+      result.current.handleCreateNoteInside('folder-a');
+    });
+
+    expect(options.setSelectedFolderId).toHaveBeenCalledWith('folder-a');
+    expect(options.setCreateDialog).toHaveBeenCalledWith({ open: true, title: '' });
+
+    act(() => {
+      result.current.handleCreateNoteInside(null);
+    });
+
+    expect(options.setSelectedFolderId).toHaveBeenCalledWith(UNFILED_FOLDER_ID);
+  });
+
+  it('keeps create-note-inside behind token and workspace gating', () => {
+    const missingTokenOptions = createOptions({ hasToken: false });
+    const missingToken = renderHook(() => useWorkbenchFolderCommands(missingTokenOptions));
+
+    act(() => {
+      missingToken.result.current.handleCreateNoteInside('folder-a');
+    });
+
+    expect(missingTokenOptions.setSettingsOpen).toHaveBeenCalledWith(true);
+    expect(missingTokenOptions.setCreateDialog).not.toHaveBeenCalled();
+
+    const historyOptions = createOptions({ scopeType: 'history' });
+    const history = renderHook(() => useWorkbenchFolderCommands(historyOptions));
+
+    act(() => {
+      history.result.current.handleCreateNoteInside('folder-a');
+    });
+
+    expect(toast.info).toHaveBeenCalledWith('Choose My Workspace or a team before creating a note.');
+    expect(historyOptions.setCreateDialog).not.toHaveBeenCalled();
+  });
+
   it('seeds folder rename metadata from tree and folder summaries', () => {
     const folders = [
       folder({

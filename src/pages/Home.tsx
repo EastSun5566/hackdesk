@@ -61,6 +61,8 @@ export function Home() {
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const autoSelectSuppressionRef = useRef<string | null>(null);
   const manualEmptyWorkspaceRef = useRef(false);
+  const pendingEditorFocusNoteIdRef = useRef<string | null>(null);
+  const [editorFocusRequestId, setEditorFocusRequestId] = useState(0);
   const panelState = useWorkbenchPanelState();
   const dialogState = useWorkbenchDialogState();
   const {
@@ -219,14 +221,15 @@ export function Home() {
     }
 
     if (options.focusEditor) {
-      window.requestAnimationFrame(() => focusZone('editor'));
+      pendingEditorFocusNoteIdRef.current = note.id;
+      setEditorFocusRequestId((requestId) => requestId + 1);
     }
 
     return true;
-  }, [focusZone, openNoteInWorkspace, trackRecentNote]);
+  }, [openNoteInWorkspace, trackRecentNote]);
 
   const handleNoteSelect = useCallback((note: NoteSummary) => {
-    void requestSelectNote(note, { trackRecent: true });
+    void requestSelectNote(note, { focusEditor: true, trackRecent: true });
   }, [requestSelectNote]);
 
   const mutations = useElectronNoteMutations({
@@ -337,6 +340,15 @@ export function Home() {
     updateDraft: noteWorkspace.updateDraft,
     uploadingNote: mutations.uploadNoteImageMutation.variables?.note ?? null,
   });
+
+  useEffect(() => {
+    if (!selectedDocument || pendingEditorFocusNoteIdRef.current !== selectedDocument.id) {
+      return;
+    }
+
+    pendingEditorFocusNoteIdRef.current = null;
+    setEditorFocusRequestId((requestId) => requestId + 1);
+  }, [selectedDocument]);
 
   const refreshWorkspace = useCallback(() => {
     void queries.userQuery.refetch();
@@ -640,6 +652,7 @@ export function Home() {
             onCreate: folderCommands.handleCreateNote,
             onCreateFolder: folderCommands.handleCreateFolder,
             onCreateFolderInside: folderCommands.handleCreateFolderInside,
+            onCreateNoteInside: folderCommands.handleCreateNoteInside,
             onRenameFolder: folderCommands.handleRenameFolder,
             onDeleteFolder: folderCommands.handleDeleteFolderRequest,
             onFolderDrop: folderCommands.handleFolderDrop,
@@ -669,6 +682,7 @@ export function Home() {
           isInspectorCollapsed: inspectorCollapsed,
           getPaneView,
           editorSearchRequestId,
+          editorFocusRequestId,
           onResizePanes: noteWorkspace.resizePanes,
           onFocusPane: noteWorkspace.focusPane,
           onOpenEditor: handleOpenEditor,

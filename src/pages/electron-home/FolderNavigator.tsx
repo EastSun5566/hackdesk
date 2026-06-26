@@ -5,7 +5,7 @@ import {
   Plus,
   RefreshCcw,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import {
   closestCenter,
   DndContext,
@@ -96,6 +96,7 @@ export type FolderNavigatorActions = {
   onCreate: () => void;
   onCreateFolder: () => void;
   onCreateFolderInside: (folderId: string | null) => void;
+  onCreateNoteInside: (folderId: string | null) => void;
   onDeleteFolder: (folderId: string) => void;
   onDeleteNote: (note: NoteSummary) => void;
   onDuplicateNote: (note: NoteSummary) => void;
@@ -127,6 +128,97 @@ export type FolderNavigatorProps = {
   status: FolderNavigatorStatus;
   tree: FolderTree;
 };
+
+type TreeFocusItem = {
+  depth: number;
+  folderId?: string;
+  hasChildren?: boolean;
+  id: string;
+  kind: 'folder' | 'note';
+  note?: FolderTreeNote;
+  parentFolderId: string | null;
+};
+
+function createFolderFocusId(folderId: string) {
+  return `folder:${folderId}`;
+}
+
+function createNoteFocusId(noteId: string) {
+  return `note:${noteId}`;
+}
+
+function getFolderTreeFocusItems(tree: FolderTree, collapsedFolderIds: Set<string>): TreeFocusItem[] {
+  const items: TreeFocusItem[] = [{
+    depth: 0,
+    folderId: UNFILED_FOLDER_ID,
+    hasChildren: tree.unfiled.notes.length > 0 || tree.roots.length > 0,
+    id: createFolderFocusId(UNFILED_FOLDER_ID),
+    kind: 'folder',
+    parentFolderId: null,
+  }];
+
+  const appendFolder = (node: FolderTreeNode, parentFolderId: string | null, depth: number) => {
+    const collapsed = collapsedFolderIds.has(node.id);
+    items.push({
+      depth,
+      folderId: node.id,
+      hasChildren: node.children.length > 0 || node.notes.length > 0,
+      id: createFolderFocusId(node.id),
+      kind: 'folder',
+      parentFolderId,
+    });
+
+    if (collapsed) {
+      return;
+    }
+
+    for (const child of node.children) {
+      appendFolder(child, node.id, depth + 1);
+    }
+
+    for (const note of node.notes) {
+      items.push({
+        depth: depth + 1,
+        id: createNoteFocusId(note.note.id),
+        kind: 'note',
+        note,
+        parentFolderId: node.id,
+      });
+    }
+  };
+
+  for (const node of tree.roots) {
+    appendFolder(node, null, 0);
+  }
+
+  for (const note of tree.unfiled.notes) {
+    items.push({
+      depth: 1,
+      id: createNoteFocusId(note.note.id),
+      kind: 'note',
+      note,
+      parentFolderId: UNFILED_FOLDER_ID,
+    });
+  }
+
+  return items;
+}
+
+function getKeyboardFocusRowId(target: EventTarget | null) {
+  if (!(target instanceof Element)) {
+    return null;
+  }
+
+  return target.closest<HTMLElement>('[data-folder-tree-row-id]')?.dataset.folderTreeRowId ?? null;
+}
+
+function shouldIgnoreFolderTreeKeydown(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return true;
+  }
+
+  return Boolean(target.closest('input, textarea, select, [contenteditable="true"], [data-folder-tree-ignore-keyboard]'));
+}
 
 export function FolderNavigator({
   actions,
@@ -532,10 +624,15 @@ function NavigatorTree({
   status: FolderNavigatorStatus;
   tree: FolderTree;
 }) {
+  const treeRef = useRef<HTMLDivElement | null>(null);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const visibleFolderItems = useMemo(
     () => flattenFolderTree(tree, layout.collapsedFolderIds),
+    [layout.collapsedFolderIds, tree],
+  );
+  const focusItems = useMemo(
+    () => getFolderTreeFocusItems(tree, layout.collapsedFolderIds),
     [layout.collapsedFolderIds, tree],
   );
   const sensors = useSensors(
@@ -604,6 +701,112 @@ function NavigatorTree({
     setActiveNoteId(null);
   };
 
+  const focusTreeItem = useCallback((itemId: string) => {
+    const row = Array.from(treeRef.current?.querySelectorAll<HTMLElement>('[data-folder-tree-row-id]') ?? [])
+      .find((candidate) => candidate.dataset.folderTreeRowId === itemId);
+    const target = row?.querySelector<HTMLElement>('[data-folder-tree-primary="true"]')
+      ?? row?.querySelector<HTMLElement>('button:not([disabled])');
+
+    target?.focus();
+  }, []);
+
+  const focusItemAtIndex = useCallback((index: number) => {
+    const item = focusItems[Math.max(0, Math.min(index, focusItems.length - 1))];
+    if (item) {
+      focusTreeItem(item.id);
+    }
+  }, [focusItems, focusTreeItem]);
+
+  const handleTreeKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
+    if (shouldIgnoreFolderTreeKeydown(event.target) || focusItems.length === 0) {
+      return;
+    }
+
+    const isPlainKey = !event.metaKey && !event.altKey && !event.shiftKey;
+    const isCtrlNext = event.ctrlKey && isPlainKey && event.key.toLowerCase() === 'n';
+    const isCtrlPrevious = event.ctrlKey && isPlainKey && event.key.toLowerCase() === 'p';
+    const currentRowId = getKeyboardFocusRowId(event.target);
+    const currentIndex = currentRowId ? focusItems.findIndex((item) => item.id === currentRowId) : -1;
+    const currentItem = currentIndex >= 0 ? focusItems[currentIndex] : null;
+
+    if ((!event.ctrlKey && isPlainKey && event.key === 'ArrowDown') || isCtrlNext) {
+      event.preventDefault();
+      focusItemAtIndex(currentIndex >= 0 ? currentIndex + 1 : 0);
+      return;
+    }
+
+    if ((!event.ctrlKey && isPlainKey && event.key === 'ArrowUp') || isCtrlPrevious) {
+      event.preventDefault();
+      focusItemAtIndex(currentIndex >= 0 ? currentIndex - 1 : focusItems.length - 1);
+      return;
+    }
+
+    if (!event.ctrlKey && isPlainKey && event.key === 'Home') {
+      event.preventDefault();
+      focusItemAtIndex(0);
+      return;
+    }
+
+    if (!event.ctrlKey && isPlainKey && event.key === 'End') {
+      event.preventDefault();
+      focusItemAtIndex(focusItems.length - 1);
+      return;
+    }
+
+    if (!event.ctrlKey && isPlainKey && event.key === 'ArrowRight' && currentItem?.kind === 'folder') {
+      event.preventDefault();
+      if (currentItem.folderId && currentItem.folderId !== UNFILED_FOLDER_ID && currentItem.hasChildren && layout.collapsedFolderIds.has(currentItem.folderId)) {
+        actions.onFolderToggle(currentItem.folderId);
+        return;
+      }
+
+      const nextItem = focusItems[currentIndex + 1];
+      if (nextItem && nextItem.depth > currentItem.depth) {
+        focusTreeItem(nextItem.id);
+      }
+      return;
+    }
+
+    if (!event.ctrlKey && isPlainKey && event.key === 'ArrowLeft' && currentItem?.kind === 'folder') {
+      event.preventDefault();
+      if (currentItem.folderId && currentItem.folderId !== UNFILED_FOLDER_ID && currentItem.hasChildren && !layout.collapsedFolderIds.has(currentItem.folderId)) {
+        actions.onFolderToggle(currentItem.folderId);
+        return;
+      }
+
+      if (currentItem.folderId !== UNFILED_FOLDER_ID) {
+        focusTreeItem(createFolderFocusId(currentItem.parentFolderId ?? UNFILED_FOLDER_ID));
+      }
+      return;
+    }
+
+    if (!event.ctrlKey && isPlainKey && event.key === 'Enter' && currentItem) {
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      const primaryAction = target?.dataset.folderTreePrimary === 'true'
+        || currentItem.id === createFolderFocusId(UNFILED_FOLDER_ID);
+
+      if (!primaryAction) {
+        return;
+      }
+
+      event.preventDefault();
+      if (currentItem.kind === 'folder' && currentItem.folderId) {
+        actions.onFolderSelect(currentItem.folderId);
+        return;
+      }
+
+      if (currentItem.kind === 'note' && currentItem.note) {
+        actions.onNoteSelect(currentItem.note.note);
+      }
+    }
+  }, [
+    actions,
+    focusItemAtIndex,
+    focusItems,
+    focusTreeItem,
+    layout.collapsedFolderIds,
+  ]);
+
   return (
     <DndContext
       sensors={sensors}
@@ -616,14 +819,21 @@ function NavigatorTree({
         items={visibleFolderItems.map((item) => item.id)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="grid min-w-0 gap-0.5">
+        <div
+          ref={treeRef}
+          className="grid min-w-0 gap-0.5"
+          data-testid="folder-navigator-tree"
+          onKeyDown={handleTreeKeyDown}
+        >
           <RootFolderRow
             selected={selection.selectedFolderId === UNFILED_FOLDER_ID}
+            focusTarget={selection.selectedFolderId === UNFILED_FOLDER_ID && !selection.selectedNoteId}
             noteCount={tree.unfiled.notes.length}
             folderDragActive={Boolean(activeFolderId)}
             noteDragActive={Boolean(activeNoteId)}
             onSelect={() => actions.onFolderSelect(UNFILED_FOLDER_ID)}
             onCreateFolder={() => actions.onCreateFolderInside(null)}
+            onCreateNote={() => actions.onCreateNoteInside(null)}
           />
           <FolderTreeView
             nodes={tree.roots}
@@ -636,6 +846,7 @@ function NavigatorTree({
             onFolderSelect={actions.onFolderSelect}
             onFolderToggle={actions.onFolderToggle}
             onCreateFolderInside={actions.onCreateFolderInside}
+            onCreateNoteInside={actions.onCreateNoteInside}
             onRenameFolder={actions.onRenameFolder}
             onDeleteFolder={actions.onDeleteFolder}
             onNoteSelect={actions.onNoteSelect}
@@ -654,6 +865,7 @@ function NavigatorTree({
               key={`root:${entry.note.id}`}
               entry={entry}
               selected={entry.note.id === selection.selectedNoteId}
+              focusTarget={entry.note.id === selection.selectedNoteId}
               onSelect={actions.onNoteSelect}
               onOpen={actions.onOpenNote}
               onCopyLink={actions.onCopyNoteLink}

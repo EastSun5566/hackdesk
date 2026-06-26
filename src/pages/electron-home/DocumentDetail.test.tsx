@@ -86,6 +86,7 @@ function renderDocumentDetail(overrides: Partial<DocumentDetailProps> = {}) {
     folderTree: buildHackmdFolderTree([]),
     layout: {
       focusZone: 'editor',
+      focusRequestId: 0,
       inspectorCollapsed: true,
       inspectorPanelId: 'inspector-test',
       searchRequestId: 0,

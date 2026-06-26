@@ -3,14 +3,27 @@ import { useCallback, useEffect, useState } from 'react';
 export type ElectronFocusZone = 'workspace' | 'navigator' | 'editor' | 'inspector';
 
 function focusZoneElement(zone: ElectronFocusZone) {
-  window.requestAnimationFrame(() => {
+  let attempts = 0;
+  const maxTargetWaitAttempts = zone === 'editor' ? 8 : 0;
+
+  const focusWhenReady = () => {
     const region = document.querySelector<HTMLElement>(`[data-hackdesk-focus="${zone}"]`);
-    const focusable = region?.querySelector<HTMLElement>(
+    const focusTarget = region?.querySelector<HTMLElement>('[data-hackdesk-focus-target="true"]');
+
+    if (!focusTarget && attempts < maxTargetWaitAttempts) {
+      attempts += 1;
+      window.requestAnimationFrame(focusWhenReady);
+      return;
+    }
+
+    const focusable = focusTarget ?? region?.querySelector<HTMLElement>(
       'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
     );
 
     (focusable ?? region)?.focus();
-  });
+  };
+
+  window.requestAnimationFrame(focusWhenReady);
 }
 
 export function useElectronFocusZones() {

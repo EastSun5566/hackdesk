@@ -38,6 +38,7 @@ export function DocumentWorkspace({
   isInspectorCollapsed,
   getPaneView,
   editorSearchRequestId,
+  editorFocusRequestId,
   onResizePanes,
   onFocusPane,
   onOpenEditor,
@@ -62,6 +63,7 @@ export function DocumentWorkspace({
   isInspectorCollapsed: boolean;
   getPaneView: (pane: NotePane) => DocumentPaneView;
   editorSearchRequestId: number;
+  editorFocusRequestId: number;
   onResizePanes: (sizes: Record<string, number>) => void;
   onFocusPane: (paneId: string) => void;
   onOpenEditor: (document: DocumentSummary) => void;
@@ -134,6 +136,7 @@ export function DocumentWorkspace({
                   layout={{
                     focusZone: isActivePane ? 'editor' : undefined,
                     inspectorPanelId: `note-inspector-panel-${pane.paneId}`,
+                    focusRequestId: isActivePane ? editorFocusRequestId : 0,
                     searchRequestId: isActivePane ? editorSearchRequestId : 0,
                     shareOpen: isActivePane && shareOpen,
                     inspectorCollapsed: !isActivePane || isInspectorCollapsed,

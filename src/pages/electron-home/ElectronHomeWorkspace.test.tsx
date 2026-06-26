@@ -224,6 +224,7 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
         onCreate: vi.fn(),
         onCreateFolder: noop,
         onCreateFolderInside: noop,
+        onCreateNoteInside: noop,
         onDeleteFolder: vi.fn(),
         onDeleteNote: noop,
         onDuplicateNote: noop,

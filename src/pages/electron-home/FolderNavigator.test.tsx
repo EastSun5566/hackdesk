@@ -81,6 +81,7 @@ function renderFolderNavigator(overrides: Partial<FolderNavigatorProps> = {}) {
       onCreate: vi.fn(),
       onCreateFolder: vi.fn(),
       onCreateFolderInside: vi.fn(),
+      onCreateNoteInside: vi.fn(),
       onDeleteFolder: vi.fn(),
       onDeleteNote: vi.fn(),
       onDuplicateNote: vi.fn(),
@@ -133,6 +134,22 @@ function renderFolderNavigator(overrides: Partial<FolderNavigatorProps> = {}) {
     </TooltipProvider>,
   );
   return { ...view, props: mergedProps };
+}
+
+function getFocusedTreeRowId() {
+  return document.activeElement
+    ?.closest('[data-folder-tree-row-id]')
+    ?.getAttribute('data-folder-tree-row-id') ?? null;
+}
+
+function focusTreeRow(container: HTMLElement, rowId: string) {
+  const row = container.querySelector<HTMLElement>(`[data-folder-tree-row-id="${rowId}"]`);
+  const target = row?.querySelector<HTMLElement>('[data-folder-tree-primary="true"]')
+    ?? row?.querySelector<HTMLElement>('button');
+
+  expect(target).toBeTruthy();
+  target?.focus();
+  return target as HTMLElement;
 }
 
 describe('FolderNavigator', () => {
@@ -201,5 +218,85 @@ describe('FolderNavigator', () => {
 
     expect(onFolderToggle).toHaveBeenCalledWith('projects');
     expect(onNoteSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'nested-note' }));
+  });
+
+  it('moves focus through visible tree rows with arrow keys and Ctrl+N/P', () => {
+    const { container } = renderFolderNavigator();
+    const root = focusTreeRow(container, `folder:${UNFILED_FOLDER_ID}`);
+
+    fireEvent.keyDown(root, { key: 'ArrowDown' });
+    expect(getFocusedTreeRowId()).toBe('folder:projects');
+
+    fireEvent.keyDown(document.activeElement ?? root, { ctrlKey: true, key: 'n' });
+    expect(getFocusedTreeRowId()).toBe('note:nested-note');
+
+    fireEvent.keyDown(document.activeElement ?? root, { ctrlKey: true, key: 'p' });
+    expect(getFocusedTreeRowId()).toBe('folder:projects');
+
+    fireEvent.keyDown(document.activeElement ?? root, { key: 'ArrowUp' });
+    expect(getFocusedTreeRowId()).toBe(`folder:${UNFILED_FOLDER_ID}`);
+  });
+
+  it('moves focus to first and last visible tree rows with Home and End', () => {
+    const { container } = renderFolderNavigator();
+    const projects = focusTreeRow(container, 'folder:projects');
+
+    fireEvent.keyDown(projects, { key: 'End' });
+    expect(getFocusedTreeRowId()).toBe('note:loose-note');
+
+    fireEvent.keyDown(document.activeElement ?? projects, { key: 'Home' });
+    expect(getFocusedTreeRowId()).toBe(`folder:${UNFILED_FOLDER_ID}`);
+  });
+
+  it('expands and collapses folders with right and left arrows', () => {
+    const onFolderToggle = vi.fn();
+    const { container } = renderFolderNavigator({
+      actions: { onFolderToggle },
+      layout: { collapsedFolderIds: new Set(['projects']) },
+    });
+    const projects = focusTreeRow(container, 'folder:projects');
+
+    fireEvent.keyDown(projects, { key: 'ArrowRight' });
+    expect(onFolderToggle).toHaveBeenCalledWith('projects');
+
+    const expanded = renderFolderNavigator({ actions: { onFolderToggle } });
+    const expandedProjects = focusTreeRow(expanded.container, 'folder:projects');
+
+    fireEvent.keyDown(expandedProjects, { key: 'ArrowRight' });
+    expect(getFocusedTreeRowId()).toBe('note:nested-note');
+
+    expandedProjects.focus();
+    fireEvent.keyDown(expandedProjects, { key: 'ArrowLeft' });
+    expect(onFolderToggle).toHaveBeenCalledWith('projects');
+  });
+
+  it('activates the focused folder or note with Enter', () => {
+    const onFolderSelect = vi.fn();
+    const onNoteSelect = vi.fn();
+    const { container } = renderFolderNavigator({ actions: { onFolderSelect, onNoteSelect } });
+    const projects = focusTreeRow(container, 'folder:projects');
+
+    fireEvent.keyDown(projects, { key: 'Enter' });
+    expect(onFolderSelect).toHaveBeenCalledWith('projects');
+
+    const nestedNote = focusTreeRow(container, 'note:nested-note');
+    fireEvent.keyDown(nestedNote, { key: 'Enter' });
+
+    expect(onNoteSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'nested-note' }));
+  });
+
+  it('adds create note actions to folder context menus', async () => {
+    const onCreateNoteInside = vi.fn();
+    renderFolderNavigator({ actions: { onCreateNoteInside } });
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Projects' }));
+    fireEvent.click(await screen.findByText('New Note Inside'));
+
+    expect(onCreateNoteInside).toHaveBeenCalledWith('projects');
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: /Root/ }));
+    fireEvent.click(await screen.findByText('New Note'));
+
+    expect(onCreateNoteInside).toHaveBeenCalledWith(null);
   });
 });

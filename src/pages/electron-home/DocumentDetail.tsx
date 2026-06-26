@@ -56,6 +56,7 @@ export type DocumentDetailDocumentState = {
 
 export type DocumentDetailLayout = {
   focusZone?: string;
+  focusRequestId: number;
   inspectorCollapsed: boolean;
   inspectorPanelId?: string;
   searchRequestId: number;
@@ -229,17 +230,47 @@ function ActiveDocumentDetail({
   status: DocumentDetailStatus;
 }) {
   const editorRef = useRef<MarkdownEditorHandle | null>(null);
+  const lastHandledFocusRequestRef = useRef(0);
   const lastHandledSearchRequestRef = useRef(0);
   const [actionsOpen, setActionsOpen] = useState(false);
   const inspectorPanelId = layout.inspectorPanelId ?? NOTE_INSPECTOR_PANEL_ID;
   const noteDirty = documentState.title !== documentState.document.title || documentState.content !== documentState.document.content;
+  const focusEditorWhenReady = useCallback((requestId: number) => {
+    let attempts = 0;
+    const focusEditor = () => {
+      const editor = editorRef.current;
+      if (editor) {
+        lastHandledFocusRequestRef.current = requestId;
+        editor.focus();
+        return;
+      }
+
+      if (attempts < 120) {
+        attempts += 1;
+        window.setTimeout(focusEditor, 0);
+      }
+    };
+
+    focusEditor();
+  }, []);
   const setEditorRef = useCallback((handle: MarkdownEditorHandle | null) => {
     editorRef.current = handle;
+    if (handle && layout.focusRequestId > lastHandledFocusRequestRef.current) {
+      focusEditorWhenReady(layout.focusRequestId);
+    }
     if (handle && layout.searchRequestId > lastHandledSearchRequestRef.current) {
       lastHandledSearchRequestRef.current = layout.searchRequestId;
       handle.openSearch();
     }
-  }, [layout.searchRequestId]);
+  }, [focusEditorWhenReady, layout.focusRequestId, layout.searchRequestId]);
+
+  useEffect(() => {
+    if (layout.focusRequestId <= lastHandledFocusRequestRef.current) {
+      return;
+    }
+
+    focusEditorWhenReady(layout.focusRequestId);
+  }, [focusEditorWhenReady, layout.focusRequestId]);
 
   useEffect(() => {
     if (layout.searchRequestId <= lastHandledSearchRequestRef.current) {

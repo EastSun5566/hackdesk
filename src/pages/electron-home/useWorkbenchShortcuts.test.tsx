@@ -65,6 +65,17 @@ describe('useWorkbenchShortcuts', () => {
     expect(handlers.runAction).toHaveBeenCalledWith('toggle-workspace-rail');
   });
 
+  it('focuses the navigator with Cmd+Shift+E and keeps Option+2 as an alias', () => {
+    const handlers = createHandlers();
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    fireEvent.keyDown(window, { key: 'e', metaKey: true, shiftKey: true });
+    fireEvent.keyDown(window, { key: '2', altKey: true });
+
+    expect(handlers.runAction).toHaveBeenNthCalledWith(1, 'focus-navigator');
+    expect(handlers.runAction).toHaveBeenNthCalledWith(2, 'focus-navigator');
+  });
+
   it('routes Cmd+bracket navigation shortcuts through actions', () => {
     const handlers = createHandlers();
 

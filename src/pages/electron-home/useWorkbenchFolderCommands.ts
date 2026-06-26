@@ -86,6 +86,11 @@ export function useWorkbenchFolderCommands({
     handleCreateFolder();
   }, [handleCreateFolder, setSelectedFolderId]);
 
+  const handleCreateNoteInside = useCallback((folderId: string | null) => {
+    setSelectedFolderId(folderId ?? UNFILED_FOLDER_ID);
+    handleCreateNote();
+  }, [handleCreateNote, setSelectedFolderId]);
+
   const handleRenameFolder = useCallback((folderId: string) => {
     const folder = folderTree.nodesById.get(folderId);
     if (!folder) {
@@ -140,6 +145,7 @@ export function useWorkbenchFolderCommands({
     handleCreateFolder,
     handleCreateFolderInside,
     handleCreateNote,
+    handleCreateNoteInside,
     handleDeleteFolderRequest,
     handleFolderDrop,
     handleRenameFolder,
