@@ -2138,8 +2138,8 @@ describe('Home native-feel behavior', () => {
     fireEvent.change(tagInput, { target: { value: 'desktop' } });
     fireEvent.keyDown(tagInput, { key: 'Enter' });
     await expandInspectorSection('Permissions');
-    fireEvent.change(screen.getByLabelText('Read'), { target: { value: 'signed_in' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save Metadata' }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'Read' })).getByRole('radio', { name: 'Signed in' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
       description: 'Updated metadata',
@@ -2220,7 +2220,7 @@ describe('Home native-feel behavior', () => {
 
     await expandInspectorSection('Location');
     fireEvent.change(await screen.findByLabelText('Folder'), { target: { value: 'folder-1' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save Metadata' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
       parentFolderId: 'folder-1',
@@ -2246,7 +2246,7 @@ describe('Home native-feel behavior', () => {
 
     await expandInspectorSection('Location');
     fireEvent.change(await screen.findByLabelText('Folder'), { target: { value: '' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save Metadata' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
       parentFolderId: null,
@@ -2275,7 +2275,7 @@ describe('Home native-feel behavior', () => {
       value: vi.fn(async () => new Uint8Array([1, 2, 3]).buffer),
     });
     fireEvent.change(screen.getByLabelText('Upload Image'), { target: { files: [file] } });
-    fireEvent.click(screen.getByRole('button', { name: 'Upload and Insert' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Upload and insert' }));
 
     await waitFor(() => expect(api.hackmd.uploadNoteImage).toHaveBeenCalledWith('note-1', expect.objectContaining({
       fileName: 'diagram.png',
@@ -2312,7 +2312,7 @@ describe('Home native-feel behavior', () => {
       value: vi.fn(async () => new Uint8Array([1, 2, 3]).buffer),
     });
     fireEvent.change(screen.getByLabelText('Upload Image'), { target: { files: [file] } });
-    fireEvent.click(screen.getByRole('button', { name: 'Upload and Insert' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Upload and insert' }));
 
     await waitFor(() => expect(api.hackmd.uploadNoteImage).toHaveBeenCalledWith('note-1', expect.objectContaining({
       fileName: 'reader.png',

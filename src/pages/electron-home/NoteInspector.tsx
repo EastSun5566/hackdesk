@@ -61,7 +61,7 @@ function NoteInspectorPanel({
         onCopyLink={actions.onCopyLink}
       />
 
-      <div className="min-h-0 flex-1 overflow-auto px-3 py-2">
+      <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
         <form onSubmit={inspector.submit.metadata}>
           <MetadataSection
             dirty={inspector.dirty}
@@ -91,7 +91,7 @@ function NoteInspectorPanel({
           />
         </form>
 
-        <form className="mt-0.5" onSubmit={inspector.submit.imageUpload}>
+        <form onSubmit={inspector.submit.imageUpload}>
           <ImagesSection
             dispatch={inspector.dispatch}
             ids={imagesIds}
@@ -115,7 +115,7 @@ function InspectorHeader({
     <PanelHeader
       title="Inspector"
       subtitle={document.shortId}
-      className="px-3 py-2.5"
+      className="px-4 py-2.5"
       actions={(
         <ToolbarIconButton
           onClick={() => onCopyLink(document)}

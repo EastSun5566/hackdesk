@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -79,7 +79,7 @@ describe('NoteInspector', () => {
       target: { value: 'new' },
     });
     fireEvent.keyDown(screen.getByLabelText('Tags'), { key: 'Enter' });
-    fireEvent.click(screen.getByRole('button', { name: 'Save Metadata' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
     expect(onSaveMetadata).toHaveBeenCalledWith(document, {
       description: 'New description',
@@ -96,13 +96,9 @@ describe('NoteInspector', () => {
       target: { value: 'folder-a' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Permissions' }));
-    fireEvent.change(screen.getByLabelText('Read'), {
-      target: { value: 'guest' },
-    });
-    fireEvent.change(screen.getByLabelText('Write'), {
-      target: { value: 'signed_in' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Save Metadata' }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'Read' })).getByRole('radio', { name: 'Guest' }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'Write' })).getByRole('radio', { name: 'Signed in' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
     expect(onSaveMetadata).toHaveBeenCalledWith(document, {
       parentFolderId: 'folder-a',
@@ -120,10 +116,39 @@ describe('NoteInspector', () => {
     expect(onCopyLink).toHaveBeenCalledWith(document);
   });
 
+  it('shows metadata save state without hiding the primary action', () => {
+    renderNoteInspector();
+
+    const saveButton = screen.getByRole('button', { name: 'Save changes' });
+    expect(saveButton).toBeDisabled();
+    expect(screen.getByText('All changes saved')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Description'), {
+      target: { value: 'Updated description' },
+    });
+
+    expect(saveButton).toBeEnabled();
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
+  });
+
+  it('shows the saving state and disables metadata submission', () => {
+    renderNoteInspector({
+      document: documentSummary({ description: '' }),
+      status: { saving: true },
+    });
+
+    fireEvent.change(screen.getByLabelText('Description'), {
+      target: { value: 'Updated description' },
+    });
+
+    expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
+    expect(screen.getAllByText('Saving…')).toHaveLength(2);
+  });
+
   it('keeps image upload and insert markdown behavior wired', async () => {
     const onInsertMarkdown = vi.fn();
     const onUploadImage = vi.fn(async () => ({ link: 'https://assets.example/image.png' }) satisfies UploadNoteImageResult);
-    const { container, document } = renderNoteInspector({
+    const { document } = renderNoteInspector({
       actions: {
         onInsertMarkdown,
         onUploadImage,
@@ -140,7 +165,7 @@ describe('NoteInspector', () => {
     await waitFor(() => {
       expect(screen.getByText('diagram.png')).toBeInTheDocument();
     });
-    fireEvent.submit(container.querySelectorAll('form')[1] as HTMLFormElement);
+    fireEvent.click(screen.getByRole('button', { name: 'Upload and insert' }));
 
     await waitFor(() => {
       expect(onUploadImage).toHaveBeenCalledWith(document, expect.objectContaining({
