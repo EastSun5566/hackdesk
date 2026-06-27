@@ -463,17 +463,17 @@ function DocumentHeader({
           >
             {status.saving ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Save aria-hidden="true" className="h-4 w-4" />}
           </ToolbarIconButton>
-          <ToolbarIconButton
-            actionId="toggle-inspector"
-            onClick={actions.onToggleInspector}
-            aria-controls={inspectorPanelId}
-            aria-expanded={!layout.inspectorCollapsed}
-            label={layout.inspectorCollapsed ? 'Expand inspector' : 'Collapse inspector'}
-            disabled={isLocalDocument}
-            title={isLocalDocument ? 'Local notes do not use HackMD inspector metadata.' : undefined}
-          >
-            {layout.inspectorCollapsed ? <PanelRightOpen aria-hidden="true" className="h-4 w-4" /> : <PanelRightClose aria-hidden="true" className="h-4 w-4" />}
-          </ToolbarIconButton>
+          {isLocalDocument ? null : (
+            <ToolbarIconButton
+              actionId="toggle-inspector"
+              onClick={actions.onToggleInspector}
+              aria-controls={inspectorPanelId}
+              aria-expanded={!layout.inspectorCollapsed}
+              label={layout.inspectorCollapsed ? 'Expand inspector' : 'Collapse inspector'}
+            >
+              {layout.inspectorCollapsed ? <PanelRightOpen aria-hidden="true" className="h-4 w-4" /> : <PanelRightClose aria-hidden="true" className="h-4 w-4" />}
+            </ToolbarIconButton>
+          )}
           <DocumentActionsMenu
             actions={actions}
             documentState={documentState}
@@ -544,7 +544,7 @@ function DocumentActionsMenu({
         <DropdownMenuSeparator />
         <DropdownMenuItem destructive disabled={status.deleting} onSelect={() => actions.onDelete(documentState.document)}>
           {status.deleting ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Trash2 aria-hidden="true" className="h-4 w-4" />}
-          Delete
+          {isLocalDocument ? 'Move to Trash' : 'Delete'}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

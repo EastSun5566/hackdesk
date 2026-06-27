@@ -26,13 +26,17 @@ export function DeleteFolderDialog({
   onCancel: () => void;
   onDelete: (folder: FolderTreeNode) => void;
 }) {
+  const isLocalFolder = folder?.id.startsWith('local-folder:') ?? false;
+
   return (
     <AlertDialog open={!!folder} onOpenChange={(open) => !open && onCancel()}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete Folder</AlertDialogTitle>
+          <AlertDialogTitle>{isLocalFolder ? 'Move Folder to Trash' : 'Delete Folder'}</AlertDialogTitle>
           <AlertDialogDescription>
-            Delete “{folder?.name}”? This removes the folder from HackMD. This action cannot be undone from HackDesk.
+            {isLocalFolder
+              ? `Move “${folder?.name}” to the system trash?`
+              : `Delete “${folder?.name}”? This removes the folder from HackMD. This action cannot be undone from HackDesk.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -53,7 +57,7 @@ export function DeleteFolderDialog({
             )}
           >
             {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-            Delete
+            {isLocalFolder ? 'Move to Trash' : 'Delete'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

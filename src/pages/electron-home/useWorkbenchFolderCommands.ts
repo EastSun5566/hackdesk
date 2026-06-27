@@ -135,11 +135,14 @@ export function useWorkbenchFolderCommands({
       return;
     }
 
+    const isLocalFolder = scopeType === 'local';
     api.app.confirm({
-      title: 'Delete Folder',
-      message: `Delete “${folder.name}”?`,
-      detail: 'This removes the folder from HackMD. This action cannot be undone from HackDesk.',
-      confirmLabel: 'Delete',
+      title: isLocalFolder ? 'Move Folder to Trash' : 'Delete Folder',
+      message: `${isLocalFolder ? 'Move' : 'Delete'} “${folder.name}”?`,
+      detail: isLocalFolder
+        ? 'This moves the folder to the system trash.'
+        : 'This removes the folder from HackMD. This action cannot be undone from HackDesk.',
+      confirmLabel: isLocalFolder ? 'Move to Trash' : 'Delete',
       cancelLabel: 'Cancel',
       destructive: true,
     }).then(({ confirmed }) => {
@@ -149,7 +152,7 @@ export function useWorkbenchFolderCommands({
     }).catch((error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to confirm folder deletion.');
     });
-  }, [api, deleteFolder, folderTree.nodesById, setDeleteFolderTarget]);
+  }, [api, deleteFolder, folderTree.nodesById, scopeType, setDeleteFolderTarget]);
 
   const handleFolderDrop = useCallback((operation: FolderDropOperation) => {
     moveFolder(operation);

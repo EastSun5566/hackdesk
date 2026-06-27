@@ -33,6 +33,7 @@ import { EntityRow } from './interaction-primitives';
 import { COLLAPSE_ICON_CLASS, FOCUS_RING_CLASS, formatDate, getFolderTotalNoteCount } from './ui';
 import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
+import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 
 const TREE_ROW_FOCUS_CLASS = 'focus-within:bg-background-selected focus-within:text-text-default focus-within:ring-2 focus-within:ring-primary-default/80';
 
@@ -97,6 +98,7 @@ export function NoteRow({
       ? getNoteCurrentFolderId(entry) !== null
       : selectedFolder.id !== getNoteCurrentFolderId(entry)),
   );
+  const isLocalNote = entry.note.teamPath === LOCAL_VAULT_TEAM_PATH;
 
   useEffect(() => {
     const row = rowRef.current;
@@ -180,19 +182,23 @@ export function NoteRow({
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem onSelect={() => onOpen(entry.note)}>
-          <FileText aria-hidden="true" className="h-4 w-4" />
-          Open in HackMD
-        </ContextMenuItem>
-        <ContextMenuItem onSelect={() => onCopyLink(entry.note)}>
-          <Copy aria-hidden="true" className="h-4 w-4" />
-          Copy HackMD Link
-        </ContextMenuItem>
-        <ContextMenuItem onSelect={() => onCopyMarkdownLink(entry.note)}>
-          <Copy aria-hidden="true" className="h-4 w-4" />
-          Copy Markdown Link
-        </ContextMenuItem>
-        <ContextMenuSeparator />
+        {isLocalNote ? null : (
+          <>
+            <ContextMenuItem onSelect={() => onOpen(entry.note)}>
+              <FileText aria-hidden="true" className="h-4 w-4" />
+              Open in HackMD
+            </ContextMenuItem>
+            <ContextMenuItem onSelect={() => onCopyLink(entry.note)}>
+              <Copy aria-hidden="true" className="h-4 w-4" />
+              Copy HackMD Link
+            </ContextMenuItem>
+            <ContextMenuItem onSelect={() => onCopyMarkdownLink(entry.note)}>
+              <Copy aria-hidden="true" className="h-4 w-4" />
+              Copy Markdown Link
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+          </>
+        )}
         <ContextMenuItem onSelect={() => onDuplicate(entry.note)}>
           <CopyPlus aria-hidden="true" className="h-4 w-4" />
           Duplicate Note
@@ -219,7 +225,7 @@ export function NoteRow({
         <ContextMenuSeparator />
         <ContextMenuItem destructive onSelect={() => onDelete(entry.note)}>
           <Trash2 aria-hidden="true" className="h-4 w-4" />
-          Delete
+          {isLocalNote ? 'Move to Trash' : 'Delete'}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
@@ -259,6 +265,7 @@ export function FolderButton({
 }) {
   const hasChildren = node.children.length > 0 || node.notes.length > 0;
   const totalNotes = getFolderTotalNoteCount(node);
+  const isLocalFolder = node.id.startsWith('local-folder:');
   const {
     attributes,
     listeners,
@@ -354,7 +361,7 @@ export function FolderButton({
         </ContextMenuItem>
         <ContextMenuItem destructive onSelect={() => onDeleteFolder(node.id)}>
           <Trash2 aria-hidden="true" className="h-4 w-4" />
-          Delete
+          {isLocalFolder ? 'Move to Trash' : 'Delete'}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

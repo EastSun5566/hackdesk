@@ -4,9 +4,14 @@ import type {
   DocumentSummary,
   RepositoryValue,
 } from '@/lib/electron-api';
+import type { LocalRevision } from '@/lib/local-vault';
 
 import type { DocumentSyncState } from './DocumentDetail';
 import type { DocumentPaneView } from './DocumentWorkspace';
+import {
+  getLocalRevision,
+  localRevisionsEqual,
+} from './local-vault-adapter';
 import {
   getNoteIdentityKey,
   noteIdentityMatches,
@@ -35,6 +40,7 @@ export type WorkbenchDocumentsOptions = {
   isDeletingNote: boolean;
   isSavingNote: boolean;
   isUploadingImage: boolean;
+  latestLocalRevisionByNoteId?: Map<string, LocalRevision>;
   saveError: unknown;
   saveFailedNote: NoteIdentity | null;
   savingNote: NoteIdentity | null;
@@ -52,6 +58,7 @@ export function useWorkbenchDocuments({
   isDeletingNote,
   isSavingNote,
   isUploadingImage,
+  latestLocalRevisionByNoteId,
   saveError,
   saveFailedNote,
   savingNote,
@@ -103,6 +110,18 @@ export function useWorkbenchDocuments({
   const documentContent = activeTab ? getTabContent(activeTab) : '';
   const noteDirty = activeTab ? isTabDirty(activeTab) : false;
 
+  const getTabDiskChanged = useCallback((tab: OpenNoteTab) => {
+    const latestRevision = latestLocalRevisionByNoteId?.get(tab.noteId) ?? null;
+    if (!latestRevision) {
+      return false;
+    }
+
+    const draft = getTabDraft(tab);
+    const documentResult = getTabDocument(tab);
+    const baseRevision = draft?.baseRevision ?? getLocalRevision(documentResult) ?? tab.localRevision ?? null;
+    return Boolean(baseRevision && !localRevisionsEqual(baseRevision, latestRevision));
+  }, [getTabDocument, getTabDraft, latestLocalRevisionByNoteId]);
+
   const getTabSyncState = useCallback((tab: OpenNoteTab): DocumentSyncState => {
     const identity = getTabIdentity(tab);
     const documentResult = getTabDocumentResult(tab);
@@ -120,7 +139,11 @@ export function useWorkbenchDocuments({
       return 'saving';
     }
 
-    if (saveFailedTab || (getRepositoryError(documentResult) && !isShowingCachedFallback(documentResult))) {
+    if (
+      saveFailedTab
+      || (isTabDirty(tab) && getTabDiskChanged(tab))
+      || (getRepositoryError(documentResult) && !isShowingCachedFallback(documentResult))
+    ) {
       return 'save_failed';
     }
 
@@ -136,6 +159,7 @@ export function useWorkbenchDocuments({
   }, [
     documentQueriesByKey,
     getTabDocumentResult,
+    getTabDiskChanged,
     getTabIdentity,
     isSavingNote,
     isTabDirty,
@@ -150,30 +174,35 @@ export function useWorkbenchDocuments({
     }
 
     const currentDraft = getTabDraft(tab);
+    const baseRevision = getLocalRevision(documentResult);
     updateDraft(tab.tabId, {
       title: nextTitle,
       content: currentDraft?.content ?? documentResult.content,
       baseTitle: currentDraft?.baseTitle ?? documentResult.title,
       baseContent: currentDraft?.baseContent ?? documentResult.content,
+      ...(currentDraft?.baseRevision ?? baseRevision ? { baseRevision: currentDraft?.baseRevision ?? baseRevision ?? undefined } : {}),
     });
   }, [getTabDocument, getTabDraft, updateDraft]);
 
   const getTabRecovery = useCallback((tab: OpenNoteTab): DocumentPaneView['recovery'] => {
     const identity = getTabIdentity(tab);
-    if (!noteIdentityMatches(saveFailedNote, identity)) {
-      return null;
-    }
-
     const message = saveError instanceof Error ? saveError.message : String(saveError ?? '');
-    if (!message.toLowerCase().includes('file changed on disk')) {
-      return null;
+    if (noteIdentityMatches(saveFailedNote, identity) && message.toLowerCase().includes('file changed on disk')) {
+      return {
+        kind: 'disk_changed',
+        message,
+      };
     }
 
-    return {
-      kind: 'disk_changed',
-      message,
-    };
-  }, [getTabIdentity, saveError, saveFailedNote]);
+    if (isTabDirty(tab) && getTabDiskChanged(tab)) {
+      return {
+        kind: 'disk_changed',
+        message: 'File changed on disk. Reload it or save a copy before writing.',
+      };
+    }
+
+    return null;
+  }, [getTabDiskChanged, getTabIdentity, isTabDirty, saveError, saveFailedNote]);
 
   const handleDocumentContentChange = useCallback((tab: OpenNoteTab, nextContent: string) => {
     const documentResult = getTabDocument(tab);
@@ -182,11 +211,13 @@ export function useWorkbenchDocuments({
     }
 
     const currentDraft = getTabDraft(tab);
+    const baseRevision = getLocalRevision(documentResult);
     updateDraft(tab.tabId, {
       title: currentDraft?.title ?? documentResult.title,
       content: nextContent,
       baseTitle: currentDraft?.baseTitle ?? documentResult.title,
       baseContent: currentDraft?.baseContent ?? documentResult.content,
+      ...(currentDraft?.baseRevision ?? baseRevision ? { baseRevision: currentDraft?.baseRevision ?? baseRevision ?? undefined } : {}),
     });
   }, [getTabDocument, getTabDraft, updateDraft]);
 
@@ -248,6 +279,7 @@ export function useWorkbenchDocuments({
     getTabDocument,
     getTabDocumentResult,
     getTabIdentity,
+    getTabDiskChanged,
     getTabSyncState,
     getTabTitle,
     handleDocumentContentChange,

@@ -13,6 +13,7 @@ import {
 import type { DocumentSummary } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
 
+import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { FOCUS_RING_CLASS, PRESSED_CLASS, SECONDARY_BUTTON_CLASS } from './ui';
 
 export function DeleteNoteDialog({
@@ -26,13 +27,17 @@ export function DeleteNoteDialog({
   onCancel: () => void;
   onDelete: (note: DocumentSummary) => void;
 }) {
+  const isLocalNote = note?.teamPath === LOCAL_VAULT_TEAM_PATH;
+
   return (
     <AlertDialog open={!!note} onOpenChange={(open) => !open && onCancel()}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete Note</AlertDialogTitle>
+          <AlertDialogTitle>{isLocalNote ? 'Move Note to Trash' : 'Delete Note'}</AlertDialogTitle>
           <AlertDialogDescription>
-            This removes the note from HackMD. This action cannot be undone from HackDesk.
+            {isLocalNote
+              ? 'This moves the Markdown file to the system trash.'
+              : 'This removes the note from HackMD. This action cannot be undone from HackDesk.'}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {note ? (
@@ -58,7 +63,7 @@ export function DeleteNoteDialog({
                 )}
               >
                 {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                Delete
+                {isLocalNote ? 'Move to Trash' : 'Delete'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </div>

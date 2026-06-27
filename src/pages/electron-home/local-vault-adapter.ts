@@ -3,6 +3,11 @@ import type { LocalDocument, LocalFolder, LocalNoteSummary, LocalRevision, Local
 
 export const LOCAL_VAULT_TEAM_PATH = '__hackdesk_local_vault__';
 
+export type LocalNoteListSummary = NoteSummary & {
+  localRelativePath: string;
+  localRevision: LocalRevision;
+};
+
 export type LocalDocumentSummary = DocumentSummary & {
   localRelativePath: string;
   localRevision: LocalRevision;
@@ -49,7 +54,7 @@ export function toFolderSummary(folder: LocalFolder): FolderSummary {
   };
 }
 
-export function toNoteSummary(note: LocalNoteSummary, snapshot: LocalVaultSnapshot): NoteSummary {
+export function toNoteSummary(note: LocalNoteSummary, snapshot: LocalVaultSnapshot): LocalNoteListSummary {
   const folderPaths = getFolderPath(snapshot, note.parentPath);
 
   return {
@@ -73,6 +78,8 @@ export function toNoteSummary(note: LocalNoteSummary, snapshot: LocalVaultSnapsh
     writePermission: 'owner',
     lastChangeUser: null,
     folderPaths,
+    localRelativePath: note.relativePath,
+    localRevision: note.revision,
   };
 }
 
@@ -120,4 +127,26 @@ export function getLocalParentPathFromRelativePath(relativePath: string | null |
 
   const slashIndex = relativePath.lastIndexOf('/');
   return slashIndex === -1 ? null : relativePath.slice(0, slashIndex);
+}
+
+export function getLocalRevision(value: unknown): LocalRevision | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const revision = (value as Partial<LocalNoteListSummary>).localRevision;
+  return revision
+    && typeof revision.contentHash === 'string'
+    && typeof revision.mtimeMs === 'number'
+    ? revision
+    : null;
+}
+
+export function localRevisionsEqual(left: LocalRevision | null | undefined, right: LocalRevision | null | undefined) {
+  return Boolean(
+    left
+    && right
+    && left.contentHash === right.contentHash
+    && left.mtimeMs === right.mtimeMs,
+  );
 }

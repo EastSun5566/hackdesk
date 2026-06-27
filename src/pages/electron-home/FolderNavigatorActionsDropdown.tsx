@@ -35,6 +35,7 @@ export function FolderActionsDropdown({
   onOpenPalette: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const isLocalFolder = selectedFolder?.id.startsWith('local-folder:') ?? false;
   const runAfterClose = (action: () => void) => {
     setOpen(false);
     window.setTimeout(action, 0);
@@ -75,7 +76,7 @@ export function FolderActionsDropdown({
           }
         }}>
           <Trash2 aria-hidden="true" className="h-4 w-4" />
-          Delete Selected Folder
+          {isLocalFolder ? 'Move Selected Folder to Trash' : 'Delete Selected Folder'}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={(event) => {

@@ -2,7 +2,9 @@ import { renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { DocumentSummary, RepositoryValue } from '@/lib/electron-api';
+import type { LocalRevision } from '@/lib/local-vault';
 
+import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import {
   getNoteIdentityKey,
   type NoteDocumentDraft,
@@ -36,6 +38,10 @@ function createDocument(overrides: Partial<DocumentSummary> = {}): DocumentSumma
     writePermission: 'owner',
     ...overrides,
   };
+}
+
+function localRevision(contentHash: string, mtimeMs: number): LocalRevision {
+  return { contentHash, mtimeMs };
 }
 
 function createTab(overrides: Partial<OpenNoteTab> = {}): OpenNoteTab {
@@ -232,6 +238,44 @@ describe('useWorkbenchDocuments', () => {
     }));
 
     expect(result.current.getPaneView(pane).recovery).toBeNull();
+  });
+
+  it('marks dirty local tabs as failed when the file changed on disk', () => {
+    const baseRevision = localRevision('old', 1);
+    const latestRevision = localRevision('new', 2);
+    const tab = createTab({
+      localRevision: baseRevision,
+      teamPath: LOCAL_VAULT_TEAM_PATH,
+    });
+    const pane = createPane(tab);
+    const identity = { id: tab.noteId, teamPath: tab.teamPath };
+    const key = getNoteIdentityKey(identity);
+    const document = createDocument({
+      id: tab.noteId,
+      teamPath: LOCAL_VAULT_TEAM_PATH,
+    }) as DocumentSummary & { localRevision: LocalRevision };
+    document.localRevision = baseRevision;
+    const { result } = renderHook(() => useWorkbenchDocuments(createOptions({
+      activeTab: tab,
+      documentsByKey: new Map([[key, remoteDocument(document)]]),
+      drafts: {
+        [tab.tabId]: {
+          baseContent: 'Body',
+          baseRevision,
+          baseTitle: 'Document title',
+          content: 'Draft body',
+          title: 'Document title',
+        },
+      },
+      latestLocalRevisionByNoteId: new Map([[tab.noteId, latestRevision]]),
+      tabs: { [tab.tabId]: tab },
+    })));
+
+    expect(result.current.getTabSyncState(tab)).toBe('save_failed');
+    expect(result.current.getPaneView(pane).recovery).toEqual({
+      kind: 'disk_changed',
+      message: 'File changed on disk. Reload it or save a copy before writing.',
+    });
   });
 
   it('writes title and content drafts while preserving base values', () => {

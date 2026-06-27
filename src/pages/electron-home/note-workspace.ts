@@ -1,4 +1,5 @@
 import type { NoteSummary } from '@/lib/electron-api';
+import type { LocalRevision } from '@/lib/local-vault';
 
 export type NoteIdentity = Pick<NoteSummary, 'id' | 'teamPath'>;
 
@@ -9,6 +10,7 @@ export type OpenNoteTab = {
   title: string;
   shortId: string | null;
   updatedAtMillis: number | null;
+  localRevision?: LocalRevision;
 };
 
 export type NotePane = {
@@ -28,6 +30,7 @@ export type NoteDocumentDraft = {
   content: string;
   baseTitle?: string;
   baseContent?: string;
+  baseRevision?: LocalRevision;
 };
 
 export type NoteWorkspaceState = {
@@ -155,6 +158,15 @@ function getTabTitle(note: Pick<NoteSummary, 'title'>) {
   return note.title.trim() || 'Untitled';
 }
 
+function getNoteLocalRevision(note: NoteSummary): LocalRevision | undefined {
+  const revision = (note as Partial<{ localRevision: LocalRevision }>).localRevision;
+  return revision
+    && typeof revision.contentHash === 'string'
+    && typeof revision.mtimeMs === 'number'
+    ? revision
+    : undefined;
+}
+
 function createTab(note: NoteSummary): OpenNoteTab {
   return {
     tabId: createTabId(),
@@ -163,6 +175,7 @@ function createTab(note: NoteSummary): OpenNoteTab {
     title: getTabTitle(note),
     shortId: note.shortId || null,
     updatedAtMillis: note.updatedAtMillis,
+    localRevision: getNoteLocalRevision(note),
   };
 }
 
@@ -674,6 +687,7 @@ export function syncNoteTabSummary(state: NoteWorkspaceState, note: NoteSummary)
   if (!tab) {
     return state;
   }
+  const savedLocalRevision = note.content !== null ? getNoteLocalRevision(note) : undefined;
 
   return {
     ...state,
@@ -684,6 +698,7 @@ export function syncNoteTabSummary(state: NoteWorkspaceState, note: NoteSummary)
         title: getTabTitle(note),
         shortId: note.shortId || tab.shortId,
         updatedAtMillis: note.updatedAtMillis,
+        localRevision: savedLocalRevision ?? tab.localRevision,
       },
     },
   };
@@ -720,6 +735,10 @@ export function hydrateNoteWorkspaceLayout(scopeKey: string, layout: unknown): N
         && typeof tab.noteId === 'string'
         && (typeof tab.teamPath === 'string' || tab.teamPath === null)
         && typeof tab.title === 'string'
+        && (tab.localRevision === undefined || (
+          typeof tab.localRevision.contentHash === 'string'
+          && typeof tab.localRevision.mtimeMs === 'number'
+        ))
       );
     }),
   );

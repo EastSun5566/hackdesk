@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 
 import { useTheme } from '@/components/theme-provider';
 import { getDesktopAPI } from '@/lib/desktop-api';
-import type { DocumentSummary, FolderSummary, UpdateNoteInput } from '@/lib/electron-api';
+import type { FolderSummary } from '@/lib/electron-api';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
 import { ElectronHomeOverlays } from './electron-home/ElectronHomeOverlays';
@@ -18,16 +17,9 @@ import { useElectronHomeModel } from './electron-home/useElectronHomeModel';
 import { useElectronHomeRecentNotes } from './electron-home/useElectronHomeRecentNotes';
 import { useElectronHomeRefresh } from './electron-home/useElectronHomeRefresh';
 import {
-  getLocalVaultDocumentQueryKey,
   getLocalVaultSnapshotQueryKey,
   useElectronLocalVault,
 } from './electron-home/useElectronLocalVault';
-import {
-  getLocalParentPathFromRelativePath,
-  LOCAL_VAULT_TEAM_PATH,
-  toDocumentSummary,
-  type LocalDocumentSummary,
-} from './electron-home/local-vault-adapter';
 import {
   useElectronHomeSelection,
   useElectronHomeSelectionRefs,
@@ -36,6 +28,7 @@ import {
 import { useElectronHomeShellEffects } from './electron-home/useElectronHomeShellEffects';
 import { useElectronNoteMutations } from './electron-home/useElectronNoteMutations';
 import { useDocumentCommands } from './electron-home/useDocumentCommands';
+import { useLocalDocumentRecovery } from './electron-home/useLocalDocumentRecovery';
 import { useNoteWorkspaceTabs } from './electron-home/useNoteWorkspaceTabs';
 import {
   createClosedFolderDialogState,
@@ -167,7 +160,7 @@ export function Home() {
       queryClient.setQueryData(['electron', 'settings'], result.settings);
     }
     if (result.snapshot) {
-      queryClient.setQueryData(['electron', 'local-vault', 'snapshot'], result.snapshot);
+      queryClient.setQueryData(getLocalVaultSnapshotQueryKey(), result.snapshot);
     }
     setWorkspaceScope({ type: 'local', label: 'Local Vault' });
   }, [api, queryClient, setWorkspaceScope]);
@@ -284,6 +277,20 @@ export function Home() {
       void requestSelectNote(note, { trackRecent: true });
     },
   });
+  const localDocumentRecovery = useLocalDocumentRecovery({
+    api,
+    clearDraft: noteWorkspace.clearDraft,
+    documentQueries: localVault.documentQueries,
+    drafts: noteWorkspace.state.drafts,
+    enabled: scope.type === 'local',
+    getTabsMatching: noteWorkspace.getTabsMatching,
+    notes: localVault.currentNotes,
+    openNote: noteWorkspace.openNote,
+    resetSaveMutation: mutations.updateNoteMutation.reset,
+    syncNoteSummary: noteWorkspace.syncNoteSummary,
+    tabs: noteWorkspace.state.tabs,
+    trackRecentNote,
+  });
   const {
     canCreate,
     canModifySelectedFolder,
@@ -347,6 +354,7 @@ export function Home() {
     isDeletingNote: mutations.deleteNoteMutation.isPending,
     isSavingNote: mutations.updateNoteMutation.isPending,
     isUploadingImage: mutations.uploadNoteImageMutation.isPending,
+    latestLocalRevisionByNoteId: localDocumentRecovery.latestLocalRevisionByNoteId,
     saveError: mutations.updateNoteMutation.error,
     saveFailedNote: mutations.updateNoteMutation.isError
       ? mutations.updateNoteMutation.variables?.note ?? null
@@ -409,55 +417,6 @@ export function Home() {
     setDeleteTarget,
     trackRecentNote,
   });
-
-  const handleReloadDocumentFromDisk = useCallback((document: DocumentSummary) => {
-    const identity = { id: document.id, teamPath: document.teamPath ?? null };
-    void documentQueries.refetchByIdentity(identity)
-      .then(() => {
-        for (const tab of noteWorkspace.getTabsMatching(identity)) {
-          noteWorkspace.clearDraft(tab.tabId);
-        }
-        mutations.updateNoteMutation.reset();
-      })
-      .catch((error) => {
-        toast.error(error instanceof Error ? error.message : 'Failed to reload note from disk.');
-      });
-  }, [documentQueries, mutations.updateNoteMutation, noteWorkspace]);
-
-  const handleSaveDocumentAsCopy = useCallback((document: DocumentSummary, input: UpdateNoteInput) => {
-    if (!api) {
-      toast.error('Electron API is unavailable.');
-      return;
-    }
-
-    if (document.teamPath !== LOCAL_VAULT_TEAM_PATH) {
-      toast.error('Save as copy is only available for local vault notes.');
-      return;
-    }
-
-    void (async () => {
-      const relativePath = (document as Partial<LocalDocumentSummary>).localRelativePath ?? document.description;
-      const createdDocument = await api.localVault.createNote({
-        title: `${(input.title ?? document.title).trim() || 'Untitled'} copy`,
-        content: input.content ?? document.content ?? '',
-        parentPath: getLocalParentPathFromRelativePath(relativePath),
-      });
-      const snapshot = await api.localVault.getSnapshot();
-      if (!snapshot) {
-        throw new Error('Local vault snapshot is unavailable.');
-      }
-
-      queryClient.setQueryData(getLocalVaultSnapshotQueryKey(), snapshot);
-      queryClient.setQueryData(getLocalVaultDocumentQueryKey(createdDocument.id), createdDocument);
-      const createdSummary = toDocumentSummary(createdDocument, snapshot);
-      noteWorkspace.openNote(createdSummary);
-      trackRecentNote(createdSummary);
-      mutations.updateNoteMutation.reset();
-      toast.success('Saved as a local copy.');
-    })().catch((error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to save note as copy.');
-    });
-  }, [api, mutations.updateNoteMutation, noteWorkspace, queryClient, trackRecentNote]);
 
   const {
     commandPaletteProps,
@@ -740,9 +699,9 @@ export function Home() {
           onCopyLink: handleCopyNoteLink,
           onCopyMarkdownLink: handleCopyNoteMarkdownLink,
           onExportMarkdown: handleExportMarkdown,
-          onReloadFromDisk: handleReloadDocumentFromDisk,
+          onReloadFromDisk: localDocumentRecovery.reloadFromDisk,
           onSave: (note, input) => mutations.updateNoteMutation.mutate({ note, input }),
-          onSaveAsCopy: handleSaveDocumentAsCopy,
+          onSaveAsCopy: localDocumentRecovery.saveAsCopy,
           onSaveMetadata: (note, input) => mutations.updateNoteMutation.mutate({ note, input }),
           onSaveSharing: (note, input) => mutations.updateNoteMutation.mutate({
             note,

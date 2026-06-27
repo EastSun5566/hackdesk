@@ -215,6 +215,21 @@ describe('DocumentDetail', () => {
     });
   });
 
+  it('hides HackMD-only inspector controls for local documents', () => {
+    renderDocumentDetail({
+      documentState: {
+        document: documentSummary({
+          description: 'Projects/Note.md',
+          teamPath: LOCAL_VAULT_TEAM_PATH,
+        }),
+      },
+    });
+
+    expect(screen.queryByRole('button', { name: 'Expand inspector' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Collapse inspector' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Share')).not.toBeInTheDocument();
+  });
+
   it('keeps a single editor surface and inspector actions wired', () => {
     const onToggleInspector = vi.fn();
     renderDocumentDetail({
