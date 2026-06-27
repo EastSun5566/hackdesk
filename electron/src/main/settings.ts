@@ -30,15 +30,18 @@ function toSafeSettings(
   hackmdCliConfig: HackmdCliConfigStatus = defaultHackmdCliConfigStatus,
 ): ElectronSafeSettings {
   const hasHackmdApiToken = settings.hackmdApiToken.trim().length > 0;
+  const hasLocalVault = typeof settings.localVault.path === 'string' && settings.localVault.path.trim().length > 0;
 
   return {
     title: settings.title,
     appearance: settings.appearance,
     hasHackmdApiToken,
     hasAppearanceSettings: hasStoredAppearance,
+    hasLocalVault,
+    localVault: settings.localVault,
     hackmdCliConfig,
     onboarding: settings.onboarding,
-    shouldShowHackmdOnboarding: !hasHackmdApiToken && !settings.onboarding.hackmdTokenSetupDeferred,
+    shouldShowHackmdOnboarding: !hasLocalVault && !hasHackmdApiToken && !settings.onboarding.hackmdTokenSetupDeferred,
   };
 }
 
@@ -135,6 +138,7 @@ export async function updateStoredSettings(update: ElectronSettingsUpdate): Prom
     hackmdApiToken: nextHackmdApiToken,
     appearance: update.appearance ?? current.appearance,
     onboarding: nextOnboarding,
+    localVault: update.localVault ?? current.localVault,
   });
 
   await mkdir(getHackDeskRootPath(), { recursive: true });

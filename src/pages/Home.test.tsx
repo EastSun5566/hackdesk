@@ -165,6 +165,8 @@ function createSafeSettings(overrides: Partial<ElectronSafeSettings> = {}): Elec
     hasHackmdApiToken: true,
     hasAppearanceSettings: true,
     hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+    hasLocalVault: false,
+    localVault: defaultSettings.localVault,
     onboarding: defaultSettings.onboarding,
     shouldShowHackmdOnboarding: false,
     ...overrides,
@@ -235,6 +237,21 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       deleteTeamNote: vi.fn(),
       uploadNoteImage: vi.fn(async () => ({ link: 'https://hackmd.io/uploads/image.png' })),
     },
+    localVault: {
+      choose: vi.fn(async () => ({ canceled: true })),
+      getSnapshot: vi.fn(async () => null),
+      readNote: vi.fn(),
+      createNote: vi.fn(),
+      writeNote: vi.fn(),
+      renameNote: vi.fn(),
+      moveNote: vi.fn(),
+      trashNote: vi.fn(),
+      createFolder: vi.fn(),
+      renameFolder: vi.fn(),
+      moveFolder: vi.fn(),
+      trashFolder: vi.fn(),
+      onDidChange: vi.fn(() => () => undefined),
+    },
     shell: {
       openExternal: vi.fn(),
       openHackmdEditor: vi.fn(),
@@ -258,6 +275,7 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
     ...overrides,
     settings: { ...base.settings, ...overrides.settings },
     hackmd: { ...base.hackmd, ...overrides.hackmd },
+    localVault: { ...base.localVault, ...overrides.localVault },
     shell: { ...base.shell, ...overrides.shell },
     app: { ...base.app, ...overrides.app },
   };
@@ -357,7 +375,7 @@ describe('Home native-feel behavior', () => {
     expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
   });
 
-  it('opens first-run HackMD onboarding when no token is configured', async () => {
+  it('opens first-run local vault onboarding when no token is configured', async () => {
     const api = createApi({
       settings: {
         get: vi.fn(async () => createSafeSettings({
@@ -370,7 +388,7 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
 
-    expect(await screen.findByRole('heading', { name: 'Connect HackMD' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Create your local vault' })).toBeInTheDocument();
   });
 
   it('defers first-run HackMD onboarding with Setup later', async () => {
@@ -397,7 +415,7 @@ describe('Home native-feel behavior', () => {
       title: 'HackDesk',
       onboarding: { hackmdTokenSetupDeferred: true },
     }));
-    expect(screen.queryByRole('heading', { name: 'Connect HackMD' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Create your local vault' })).not.toBeInTheDocument();
   });
 
   it('validates and saves a token from first-run HackMD onboarding', async () => {
@@ -428,7 +446,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Get started' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Connect HackMD instead' }));
     fireEvent.change(screen.getByLabelText('HackMD API Token'), {
       target: { value: ' secret-token ' },
     });
@@ -492,7 +510,7 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
     fireEvent.click(await screen.findByRole('button', { name: 'Configure Token' }));
 
-    expect(await screen.findByRole('heading', { name: 'Connect HackMD' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Create your local vault' })).toBeInTheDocument();
   });
 
   it('confirms the native close request when the current note is clean', async () => {

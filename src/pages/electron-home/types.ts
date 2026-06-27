@@ -1,6 +1,7 @@
 import type { AppearanceSettings, OnboardingSettings } from '@/lib/settings';
 
 export type WorkspaceScope =
+  | { type: 'local'; label: string }
   | { type: 'personal'; label: string }
   | { type: 'history'; label: string }
   | { type: 'team'; label: string; teamPath: string };

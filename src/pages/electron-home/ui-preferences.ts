@@ -86,6 +86,10 @@ export function readWorkspaceScopeStorage(key: string, fallback: WorkspaceScope)
       return { type: 'personal', label: typeof value.label === 'string' && value.label ? value.label : 'My Workspace' };
     }
 
+    if (value.type === 'local') {
+      return { type: 'local', label: typeof value.label === 'string' && value.label ? value.label : 'Local Vault' };
+    }
+
     if (value.type === 'history') {
       return { type: 'history', label: typeof value.label === 'string' && value.label ? value.label : 'History' };
     }

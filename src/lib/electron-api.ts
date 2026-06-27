@@ -1,3 +1,18 @@
+import type {
+  ChooseLocalVaultResult,
+  LocalDocument,
+  LocalVaultChangeEvent,
+  LocalVaultCreateFolderInput,
+  LocalVaultCreateNoteInput,
+  LocalVaultMoveFolderInput,
+  LocalVaultMoveNoteInput,
+  LocalVaultRenameFolderInput,
+  LocalVaultRenameNoteInput,
+  LocalVaultSnapshot,
+  LocalVaultTrashFolderInput,
+  LocalVaultTrashNoteInput,
+  LocalVaultWriteInput,
+} from './local-vault';
 import type { AppSettings } from './settings';
 
 export type RuntimeEnvironment = 'electron' | 'tauri' | 'web';
@@ -6,11 +21,13 @@ export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance'> & {
   hasHackmdApiToken: boolean;
   hasAppearanceSettings?: boolean;
   hackmdCliConfig: HackmdCliConfigStatus;
+  hasLocalVault: boolean;
+  localVault: AppSettings['localVault'];
   onboarding: AppSettings['onboarding'];
   shouldShowHackmdOnboarding: boolean;
 };
 
-export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'onboarding'>> & {
+export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'onboarding' | 'localVault'>> & {
   hackmdApiToken?: string;
 };
 
@@ -302,6 +319,21 @@ export type HackDeskElectronAPI = {
     deleteNote: (noteId: string) => Promise<void>;
     deleteTeamNote: (teamPath: string, noteId: string) => Promise<void>;
     uploadNoteImage: (noteId: string, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
+  };
+  localVault: {
+    choose: () => Promise<ChooseLocalVaultResult>;
+    getSnapshot: () => Promise<LocalVaultSnapshot | null>;
+    readNote: (noteId: string) => Promise<LocalDocument>;
+    createNote: (input: LocalVaultCreateNoteInput) => Promise<LocalDocument>;
+    writeNote: (input: LocalVaultWriteInput) => Promise<LocalDocument>;
+    renameNote: (input: LocalVaultRenameNoteInput) => Promise<LocalDocument>;
+    moveNote: (input: LocalVaultMoveNoteInput) => Promise<LocalDocument>;
+    trashNote: (input: LocalVaultTrashNoteInput) => Promise<LocalVaultSnapshot>;
+    createFolder: (input: LocalVaultCreateFolderInput) => Promise<LocalVaultSnapshot>;
+    renameFolder: (input: LocalVaultRenameFolderInput) => Promise<LocalVaultSnapshot>;
+    moveFolder: (input: LocalVaultMoveFolderInput) => Promise<LocalVaultSnapshot>;
+    trashFolder: (input: LocalVaultTrashFolderInput) => Promise<LocalVaultSnapshot>;
+    onDidChange: (callback: (event: LocalVaultChangeEvent) => void) => () => void;
   };
   shell: {
     openExternal: (url: string) => Promise<void>;

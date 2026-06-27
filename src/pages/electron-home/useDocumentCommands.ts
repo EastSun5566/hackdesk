@@ -19,6 +19,7 @@ import {
 
 import { noteIdentityMatches, type NoteIdentity } from './note-workspace';
 import type { WorkspaceScope } from './types';
+import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 
 function createDeleteNoteTarget(note: NoteSummary): DocumentSummary {
   return {
@@ -95,6 +96,20 @@ export function useDocumentCommands({
       return;
     }
 
+    if (note.teamPath === LOCAL_VAULT_TEAM_PATH) {
+      void api.localVault.readNote(note.id)
+        .then((document) => api.app.saveTextFile(buildMarkdownExportInput(document.title, document.content)))
+        .then((filePath) => {
+          if (filePath) {
+            toast.success(`Note exported to ${filePath}`);
+          }
+        })
+        .catch((error) => {
+          toast.error(error instanceof Error ? error.message : 'Failed to export note.');
+        });
+      return;
+    }
+
     void api.hackmd.getNote(note.id, note.teamPath ?? null)
       .then((result) => {
         if (result.source === 'error') {
@@ -149,7 +164,9 @@ export function useDocumentCommands({
     api.app.confirm({
       title: 'Delete Note',
       message: `Delete “${deleteTarget.title || 'Untitled'}”?`,
-      detail: 'This removes the note from HackMD. This action cannot be undone from HackDesk.',
+      detail: note.teamPath === LOCAL_VAULT_TEAM_PATH
+        ? 'This moves the Markdown file to the system trash.'
+        : 'This removes the note from HackMD. This action cannot be undone from HackDesk.',
       confirmLabel: 'Delete',
       cancelLabel: 'Cancel',
       destructive: true,
@@ -164,6 +181,11 @@ export function useDocumentCommands({
 
   const handleOpenEditor = useCallback((note: NoteSummary) => {
     if (!api) {
+      return;
+    }
+
+    if (note.teamPath === LOCAL_VAULT_TEAM_PATH) {
+      toast.info('Local notes are already open in HackDesk.');
       return;
     }
 
@@ -184,12 +206,22 @@ export function useDocumentCommands({
   }, [api]);
 
   const handleCopyNoteLink = useCallback((note: NoteSummary) => {
+    if (note.teamPath === LOCAL_VAULT_TEAM_PATH) {
+      toast.info('Local notes do not have a HackMD link yet.');
+      return;
+    }
+
     void writeClipboardText(api, getHackmdNoteUrl(note))
       .then(() => toast.success('Link copied.'))
       .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to copy link.'));
   }, [api]);
 
   const handleCopyNoteMarkdownLink = useCallback((note: NoteSummary) => {
+    if (note.teamPath === LOCAL_VAULT_TEAM_PATH) {
+      toast.info('Local notes do not have a HackMD link yet.');
+      return;
+    }
+
     void writeClipboardText(api, getMarkdownNoteLink(note))
       .then(() => toast.success('Markdown link copied.'))
       .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to copy markdown link.'));

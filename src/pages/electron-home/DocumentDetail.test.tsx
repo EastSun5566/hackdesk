@@ -6,6 +6,7 @@ import type { DocumentSummary } from '@/lib/electron-api';
 import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
 
 import { DocumentDetail, type DocumentDetailProps } from './DocumentDetail';
+import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 
 vi.mock('@/components/MarkdownEditor', async () => {
   const React = await import('react');
@@ -150,6 +151,30 @@ describe('DocumentDetail', () => {
       content: 'Changed content',
       title: 'Changed title',
     });
+  });
+
+  it('does not auto-save local dirty documents', () => {
+    vi.useFakeTimers();
+    const onSave = vi.fn();
+    try {
+      const document = documentSummary({
+        teamPath: LOCAL_VAULT_TEAM_PATH,
+      });
+      renderDocumentDetail({
+        actions: { onSave },
+        documentState: {
+          content: 'Changed content',
+          document,
+          title: 'Changed title',
+        },
+      });
+
+      vi.advanceTimersByTime(1_000);
+
+      expect(onSave).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('keeps a single editor surface and inspector actions wired', () => {

@@ -39,6 +39,7 @@ export function useElectronHackmdQueries({
     enabled: !!api,
   });
   const hasToken = isTokenConfigured(settings);
+  const remoteScope = scope.type !== 'local';
 
   const {
     data: userData,
@@ -48,9 +49,8 @@ export function useElectronHackmdQueries({
   } = useQuery({
     queryKey: ['electron', 'hackmd', 'current-user'],
     queryFn: () => api?.hackmd.getCurrentUser(),
-    enabled: !!api && hasToken,
+    enabled: !!api && hasToken && remoteScope,
   });
-
   const {
     data: teamsData,
     isFetching: teamsIsFetching,
@@ -59,7 +59,7 @@ export function useElectronHackmdQueries({
   } = useQuery({
     queryKey: ['electron', 'hackmd', 'teams'],
     queryFn: () => api?.hackmd.listTeams(),
-    enabled: !!api && hasToken,
+    enabled: !!api && hasToken && remoteScope,
   });
 
   const {
@@ -82,7 +82,7 @@ export function useElectronHackmdQueries({
         ? api.hackmd.listHistory(40)
         : api.hackmd.listNotes();
     },
-    enabled: !!api && hasToken,
+    enabled: !!api && hasToken && remoteScope,
   });
 
   const {
@@ -103,7 +103,7 @@ export function useElectronHackmdQueries({
 
       return api.hackmd.listFolders();
     },
-    enabled: !!api && hasToken && scope.type !== 'history',
+    enabled: !!api && hasToken && remoteScope && scope.type !== 'history',
   });
 
   const {
@@ -124,10 +124,14 @@ export function useElectronHackmdQueries({
 
       return api.hackmd.getFolderOrder();
     },
-    enabled: !!api && hasToken && scope.type !== 'history',
+    enabled: !!api && hasToken && remoteScope && scope.type !== 'history',
   });
 
   const selectedDocumentNotes = useMemo(() => {
+    if (!remoteScope) {
+      return [];
+    }
+
     const notes = [...(activeDocumentNotes ?? [])];
     if (selectedNote && !notes.some((note) => getNoteIdentityKey(note) === getNoteIdentityKey(selectedNote))) {
       notes.unshift(selectedNote);
@@ -143,7 +147,7 @@ export function useElectronHackmdQueries({
       seen.add(key);
       return true;
     }).slice(0, 2);
-  }, [activeDocumentNotes, selectedNote]);
+  }, [activeDocumentNotes, remoteScope, selectedNote]);
 
   const documentQueryResults = useQueries({
     queries: selectedDocumentNotes.map((note) => ({

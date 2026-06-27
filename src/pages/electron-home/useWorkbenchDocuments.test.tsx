@@ -123,6 +123,7 @@ describe('useWorkbenchDocuments', () => {
     const { result, rerender } = renderHook((props: WorkbenchDocumentsOptions) => useWorkbenchDocuments(props), {
       initialProps: createOptions({
         documentQueriesByKey: new Map([[key, { isLoading: true }]]),
+        documentsByKey: new Map(),
       }),
     });
 
@@ -145,6 +146,19 @@ describe('useWorkbenchDocuments', () => {
 
     rerender(createOptions());
     expect(result.current.getTabSyncState(tab)).toBe('saved');
+  });
+
+  it('keeps the active editor mounted during background document refetches', () => {
+    const tab = createTab();
+    const pane = createPane(tab);
+    const identity = { id: tab.noteId, teamPath: tab.teamPath };
+    const key = getNoteIdentityKey(identity);
+    const { result } = renderHook(() => useWorkbenchDocuments(createOptions({
+      documentQueriesByKey: new Map([[key, { isFetching: true, isLoading: false }]]),
+    })));
+
+    expect(result.current.getTabSyncState(tab)).toBe('saved');
+    expect(result.current.getPaneView(pane).isLoading).toBe(false);
   });
 
   it('uses draft title snapshots for pane tabs', () => {

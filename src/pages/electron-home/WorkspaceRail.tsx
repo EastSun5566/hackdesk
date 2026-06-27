@@ -1,4 +1,4 @@
-import { Folder, History, Lock, Settings2 } from 'lucide-react';
+import { Folder, HardDrive, History, Lock, Settings2 } from 'lucide-react';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 
@@ -77,15 +77,19 @@ export function WorkspaceRail({
   collapsed,
   width,
   onScopeChange,
+  onChooseLocalVault,
   onOpenSettings,
+  localVaultConfigured,
 }: {
   id: string;
   scope: WorkspaceScope;
   user?: { name: string; username: string };
   teams: TeamSummary[];
   collapsed: boolean;
+  localVaultConfigured: boolean;
   width: number;
   onScopeChange: (scope: WorkspaceScope) => void;
+  onChooseLocalVault: () => void;
   onOpenSettings: () => void;
 }) {
   return (
@@ -112,6 +116,20 @@ export function WorkspaceRail({
       </div>
 
       <div className="space-y-1 px-2">
+        <WorkspaceRailButton
+          active={scope.type === 'local'}
+          collapsed={collapsed}
+          icon={<HardDrive className="h-4 w-4" />}
+          label="Local Vault"
+          onClick={() => {
+            if (localVaultConfigured) {
+              onScopeChange({ type: 'local', label: 'Local Vault' });
+              return;
+            }
+
+            onChooseLocalVault();
+          }}
+        />
         <WorkspaceRailButton
           active={scope.type === 'personal'}
           collapsed={collapsed}

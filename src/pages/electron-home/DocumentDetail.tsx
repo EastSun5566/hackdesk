@@ -38,6 +38,7 @@ import {
   formatDate,
   getFolderPathLabel,
 } from './ui';
+import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import {
   INSPECTOR_WIDTH_DEFAULT,
 } from './ui-preferences';
@@ -235,6 +236,7 @@ function ActiveDocumentDetail({
   const [actionsOpen, setActionsOpen] = useState(false);
   const inspectorPanelId = layout.inspectorPanelId ?? NOTE_INSPECTOR_PANEL_ID;
   const noteDirty = documentState.title !== documentState.document.title || documentState.content !== documentState.document.content;
+  const isLocalDocument = documentState.document.teamPath === LOCAL_VAULT_TEAM_PATH;
   const focusEditorWhenReady = useCallback((requestId: number) => {
     let attempts = 0;
     const focusEditor = () => {
@@ -317,20 +319,23 @@ function ActiveDocumentDetail({
           folderTree={folderTree}
           inspectorCollapsed={layout.inspectorCollapsed}
           inspectorPanelId={inspectorPanelId}
+          isLocalDocument={isLocalDocument}
           status={status}
         />
       </div>
 
-      <ShareDialog
-        open={layout.shareOpen}
-        document={documentState.document}
-        isSaving={status.savingMetadata}
-        onOpenChange={actions.onShareOpenChange}
-        onCopyLink={actions.onCopyLink}
-        onCopyMarkdownLink={actions.onCopyMarkdownLink}
-        onOpenEditor={actions.onOpenEditor}
-        onSaveSharing={actions.onSaveSharing}
-      />
+      {isLocalDocument ? null : (
+        <ShareDialog
+          open={layout.shareOpen}
+          document={documentState.document}
+          isSaving={status.savingMetadata}
+          onOpenChange={actions.onShareOpenChange}
+          onCopyLink={actions.onCopyLink}
+          onCopyMarkdownLink={actions.onCopyMarkdownLink}
+          onOpenEditor={actions.onOpenEditor}
+          onSaveSharing={actions.onSaveSharing}
+        />
+      )}
     </PanelShell>
   );
 }
@@ -356,6 +361,8 @@ function DocumentHeader({
   onOpenShareDialog: () => void;
   status: DocumentDetailStatus;
 }) {
+  const isLocalDocument = documentState.document.teamPath === LOCAL_VAULT_TEAM_PATH;
+
   return (
     <PanelHeader
       className="px-4 py-2.5"
@@ -374,10 +381,19 @@ function DocumentHeader({
       subtitle={(
         <span className="flex flex-wrap items-center gap-2">
           <span className="tabular-nums">{formatDate(documentState.document.updatedAtMillis)}</span>
-          <span>{documentState.document.readPermission} read</span>
-          <span>{documentState.document.writePermission} write</span>
-          {documentState.document.teamPath ? <span>@{documentState.document.teamPath}</span> : null}
-          {documentState.document.folderPaths.length > 0 ? <span>{getFolderPathLabel(documentState.document.folderPaths)}</span> : null}
+          {isLocalDocument ? (
+            <>
+              <span>Saved locally</span>
+              <span>{documentState.document.description}</span>
+            </>
+          ) : (
+            <>
+              <span>{documentState.document.readPermission} read</span>
+              <span>{documentState.document.writePermission} write</span>
+              {documentState.document.teamPath ? <span>@{documentState.document.teamPath}</span> : null}
+              {documentState.document.folderPaths.length > 0 ? <span>{getFolderPathLabel(documentState.document.folderPaths)}</span> : null}
+            </>
+          )}
         </span>
       )}
       actions={(
@@ -400,6 +416,8 @@ function DocumentHeader({
             aria-controls={inspectorPanelId}
             aria-expanded={!layout.inspectorCollapsed}
             label={layout.inspectorCollapsed ? 'Expand inspector' : 'Collapse inspector'}
+            disabled={isLocalDocument}
+            title={isLocalDocument ? 'Local notes do not use HackMD inspector metadata.' : undefined}
           >
             {layout.inspectorCollapsed ? <PanelRightOpen aria-hidden="true" className="h-4 w-4" /> : <PanelRightClose aria-hidden="true" className="h-4 w-4" />}
           </ToolbarIconButton>
@@ -432,34 +450,44 @@ function DocumentActionsMenu({
   onOpenShareDialog: () => void;
   status: DocumentDetailStatus;
 }) {
+  const isLocalDocument = documentState.document.teamPath === LOCAL_VAULT_TEAM_PATH;
+
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <ToolbarDropdownMoreTrigger />
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={() => actions.onOpenEditor(documentState.document)}>
-          <Edit3 aria-hidden="true" className="h-4 w-4" />
-          HackMD
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={(event) => {
-          event.preventDefault();
-          onOpenShareDialog();
-        }}>
-          <Share2 aria-hidden="true" className="h-4 w-4" />
-          Share
-        </DropdownMenuItem>
+        {isLocalDocument ? null : (
+          <>
+            <DropdownMenuItem onSelect={() => actions.onOpenEditor(documentState.document)}>
+              <Edit3 aria-hidden="true" className="h-4 w-4" />
+              HackMD
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={(event) => {
+              event.preventDefault();
+              onOpenShareDialog();
+            }}>
+              <Share2 aria-hidden="true" className="h-4 w-4" />
+              Share
+            </DropdownMenuItem>
+          </>
+        )}
         <DropdownMenuItem onSelect={() => actions.onExportMarkdown(documentState.document, documentState.title, documentState.content)}>
           <Download aria-hidden="true" className="h-4 w-4" />
           Export Markdown
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => actions.onCopyLink(documentState.document)}>
-          <Copy aria-hidden="true" className="h-4 w-4" />
-          Copy HackMD Link
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => actions.onCopyMarkdownLink(documentState.document)}>
-          <Copy aria-hidden="true" className="h-4 w-4" />
-          Copy Markdown Link
-        </DropdownMenuItem>
+        {isLocalDocument ? null : (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => actions.onCopyLink(documentState.document)}>
+              <Copy aria-hidden="true" className="h-4 w-4" />
+              Copy HackMD Link
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => actions.onCopyMarkdownLink(documentState.document)}>
+              <Copy aria-hidden="true" className="h-4 w-4" />
+              Copy Markdown Link
+            </DropdownMenuItem>
+          </>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem destructive disabled={status.deleting} onSelect={() => actions.onDelete(documentState.document)}>
           {status.deleting ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Trash2 aria-hidden="true" className="h-4 w-4" />}
@@ -492,6 +520,7 @@ function InspectorPanel({
   folderTree,
   inspectorCollapsed,
   inspectorPanelId,
+  isLocalDocument,
   status,
 }: {
   actions: DocumentDetailActions;
@@ -501,8 +530,13 @@ function InspectorPanel({
   folderTree: FolderTree;
   inspectorCollapsed: boolean;
   inspectorPanelId: string;
+  isLocalDocument: boolean;
   status: DocumentDetailStatus;
 }) {
+  if (isLocalDocument) {
+    return null;
+  }
+
   return (
     <div
       id={inspectorPanelId}

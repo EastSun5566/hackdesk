@@ -37,8 +37,10 @@ function createOptions(overrides: Partial<WorkbenchFolderCommandsOptions> = {}):
     currentFolders: folders,
     deleteFolder: vi.fn(),
     folderTree: buildHackmdFolderTree([], folders),
+    hasLocalVault: false,
     hasToken: true,
     moveFolder: vi.fn(),
+    onChooseLocalVault: vi.fn(),
     scopeType: 'personal',
     setCreateDialog: vi.fn(),
     setCreateFolderDialog: vi.fn(),
@@ -147,6 +149,41 @@ describe('useWorkbenchFolderCommands', () => {
 
     expect(toast.info).toHaveBeenCalledWith('Choose My Workspace or a team before creating a note.');
     expect(historyOptions.setCreateDialog).not.toHaveBeenCalled();
+  });
+
+  it('opens the local vault picker before creating local notes or folders when no vault is configured', () => {
+    const options = createOptions({ hasLocalVault: false, hasToken: false, scopeType: 'local' });
+    const { result } = renderHook(() => useWorkbenchFolderCommands(options));
+
+    act(() => {
+      result.current.handleCreateNote();
+      result.current.handleCreateFolder();
+    });
+
+    expect(options.onChooseLocalVault).toHaveBeenCalledTimes(2);
+    expect(options.setCreateDialog).not.toHaveBeenCalled();
+    expect(options.setCreateFolderDialog).not.toHaveBeenCalled();
+    expect(options.setSettingsOpen).not.toHaveBeenCalled();
+  });
+
+  it('allows local create commands after a vault is configured', () => {
+    const options = createOptions({ hasLocalVault: true, hasToken: false, scopeType: 'local' });
+    const { result } = renderHook(() => useWorkbenchFolderCommands(options));
+
+    act(() => {
+      result.current.handleCreateNote();
+      result.current.handleCreateFolder();
+    });
+
+    expect(options.setCreateDialog).toHaveBeenCalledWith({ open: true, title: '' });
+    expect(options.setCreateFolderDialog).toHaveBeenCalledWith({
+      open: true,
+      name: '',
+      description: '',
+      icon: '',
+      color: '',
+    });
+    expect(options.onChooseLocalVault).not.toHaveBeenCalled();
   });
 
   it('seeds folder rename metadata from tree and folder summaries', () => {

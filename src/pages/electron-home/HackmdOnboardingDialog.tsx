@@ -5,7 +5,7 @@ import {
   ExternalLink,
   KeyRound,
   Loader2,
-  Sparkles,
+  HardDrive,
   TerminalSquare,
 } from 'lucide-react';
 
@@ -78,6 +78,7 @@ export type HackmdOnboardingDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   hackmdCliConfig: HackmdCliConfigStatus;
+  onChooseLocalVault: () => Promise<void>;
   onImportHackmdCliToken: () => Promise<ImportHackmdCliTokenResult>;
   onOpenHackmdSettings: () => void;
   onSaveToken: (token: string) => Promise<void>;
@@ -88,6 +89,7 @@ export type HackmdOnboardingDialogProps = {
 export function HackmdOnboardingDialog({
   hackmdCliConfig,
   open,
+  onChooseLocalVault,
   onImportHackmdCliToken,
   onOpenChange,
   onOpenHackmdSettings,
@@ -117,6 +119,17 @@ export function HackmdOnboardingDialog({
         dispatch({ type: 'set-status', status: {
           kind: 'error',
           message: error instanceof Error ? error.message : 'Failed to defer setup.',
+        } });
+      });
+  };
+  const handleChooseLocalVault = () => {
+    dispatch({ type: 'set-status', status: { kind: 'saving', message: 'Opening folder picker...' } });
+    onChooseLocalVault()
+      .then(close)
+      .catch((error) => {
+        dispatch({ type: 'set-status', status: {
+          kind: 'error',
+          message: error instanceof Error ? error.message : 'Failed to open local vault.',
         } });
       });
   };
@@ -179,20 +192,35 @@ export function HackmdOnboardingDialog({
       <DialogContent className="w-[min(440px,calc(100dvw-2rem))] overflow-hidden p-0">
         {step === 'welcome' ? (
           <OnboardingStepShell
-            icon={<Sparkles aria-hidden="true" className="h-8 w-8" />}
-            title="Connect HackMD"
-            description="HackDesk syncs your HackMD notes, folders, teams, and history through the official API."
+            icon={<HardDrive aria-hidden="true" className="h-8 w-8" />}
+            title="Create your local vault"
+            description="HackDesk works with plain Markdown files first. HackMD can be connected later as a sync target."
           >
             <div className="space-y-3 rounded-lg border border-border-default bg-background-muted p-3 text-sm text-text-subtle">
-              <p>Your token is stored locally on this device and is only used by the Electron main process.</p>
-              <p>You can skip setup and configure it later from Settings.</p>
+              <p>Choose an existing folder or create a new one. Notes are stored as UTF-8 <code className="font-mono">.md</code> files.</p>
+              <p>HackDesk keeps a small hidden <code className="font-mono">.hackdesk</code> manifest for stable note IDs.</p>
             </div>
             <HackmdCliImportCard
               config={hackmdCliConfig}
               busy={busy}
               onImport={handleImportHackmdCliToken}
             />
-            <div className="mt-6 flex gap-3">
+            {status.kind === 'error' ? (
+              <div className="mt-4 flex gap-2 rounded-md bg-destructive-soft p-3 text-sm text-destructive-default">
+                <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{status.message}</span>
+              </div>
+            ) : null}
+            <div className="mt-6 flex flex-col gap-3">
+              <button
+                type="button"
+                className={cn(PRIMARY_BUTTON_CLASS, 'w-full justify-center')}
+                disabled={busy}
+                onClick={handleChooseLocalVault}
+              >
+                {busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
+                Open or create local vault
+              </button>
               <button
                 type="button"
                 className={cn(SECONDARY_BUTTON_CLASS, 'flex-1 justify-center')}
@@ -202,10 +230,10 @@ export function HackmdOnboardingDialog({
               </button>
               <button
                 type="button"
-                className={cn(PRIMARY_BUTTON_CLASS, 'flex-1 justify-center')}
+                className={cn(SECONDARY_BUTTON_CLASS, 'flex-1 justify-center')}
                 onClick={() => dispatch({ type: 'set-step', step: 'token' })}
               >
-                Get started
+                Connect HackMD instead
               </button>
             </div>
           </OnboardingStepShell>

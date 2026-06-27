@@ -110,7 +110,7 @@ export function useWorkbenchDocuments({
     const isSavingTab = isSavingNote && noteIdentityMatches(savingNote, identity);
     const saveFailedTab = noteIdentityMatches(saveFailedNote, identity);
 
-    if (documentQuery?.isLoading || documentQuery?.isFetching || documentIsStale) {
+    if (documentIsStale || ((documentQuery?.isLoading || documentQuery?.isFetching) && !documentResultValue)) {
       return 'loading';
     }
 

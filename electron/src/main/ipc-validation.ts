@@ -33,6 +33,61 @@ export const settingsUpdateSchema = z.strictObject({
   onboarding: z.strictObject({
     hackmdTokenSetupDeferred: z.boolean(),
   }).optional(),
+  localVault: z.strictObject({
+    path: z.string().trim().min(1).nullable(),
+  }).optional(),
+});
+
+export const localVaultRevisionSchema = z.strictObject({
+  contentHash: nonEmptyStringSchema,
+  mtimeMs: z.number().finite().nonnegative(),
+});
+
+export const localVaultCreateNoteInputSchema = z.strictObject({
+  title: optionalStringSchema,
+  parentPath: z.string().nullable().optional(),
+  content: optionalStringSchema,
+});
+
+export const localVaultWriteInputSchema = z.strictObject({
+  noteId: nonEmptyStringSchema,
+  content: z.string(),
+  expectedRevision: localVaultRevisionSchema,
+});
+
+export const localVaultRenameNoteInputSchema = z.strictObject({
+  noteId: nonEmptyStringSchema,
+  title: nonEmptyStringSchema,
+  expectedRevision: localVaultRevisionSchema.optional(),
+});
+
+export const localVaultMoveNoteInputSchema = z.strictObject({
+  noteId: nonEmptyStringSchema,
+  parentPath: z.string().nullable(),
+  expectedRevision: localVaultRevisionSchema.optional(),
+});
+
+export const localVaultTrashNoteInputSchema = z.strictObject({
+  noteId: nonEmptyStringSchema,
+});
+
+export const localVaultCreateFolderInputSchema = z.strictObject({
+  name: nonEmptyStringSchema,
+  parentPath: z.string().nullable().optional(),
+});
+
+export const localVaultRenameFolderInputSchema = z.strictObject({
+  relativePath: nonEmptyStringSchema,
+  name: nonEmptyStringSchema,
+});
+
+export const localVaultMoveFolderInputSchema = z.strictObject({
+  relativePath: nonEmptyStringSchema,
+  parentPath: z.string().nullable(),
+});
+
+export const localVaultTrashFolderInputSchema = z.strictObject({
+  relativePath: nonEmptyStringSchema,
 });
 
 export const createNoteInputSchema = z.strictObject({

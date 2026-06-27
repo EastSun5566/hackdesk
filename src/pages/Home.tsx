@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useTheme } from '@/components/theme-provider';
 import { getDesktopAPI } from '@/lib/desktop-api';
@@ -15,6 +16,7 @@ import { useElectronHomeCommandPalette } from './electron-home/useElectronHomeCo
 import { useElectronHomeModel } from './electron-home/useElectronHomeModel';
 import { useElectronHomeRecentNotes } from './electron-home/useElectronHomeRecentNotes';
 import { useElectronHomeRefresh } from './electron-home/useElectronHomeRefresh';
+import { useElectronLocalVault } from './electron-home/useElectronLocalVault';
 import {
   useElectronHomeSelection,
   useElectronHomeSelectionRefs,
@@ -50,6 +52,7 @@ import {
 
 export function Home() {
   const { resolvedMode, setTheme } = useTheme();
+  const queryClient = useQueryClient();
   const api = getDesktopAPI();
   const initialWorkspaceScope = useMemo(() => getInitialWorkspaceScope(), []);
   const { recentNotes, removeRecentNoteEntry, trackRecentNote } = useElectronHomeRecentNotes();
@@ -139,6 +142,24 @@ export function Home() {
     setWorkspaceScopeState(nextScope);
     loadFinderStateForScope(nextScopeStorageKey);
   }, [loadFinderStateForScope, setWorkspaceScopeState]);
+  const handleChooseLocalVault = useCallback(async () => {
+    if (!api) {
+      throw new Error('Electron API is unavailable.');
+    }
+
+    const result = await api.localVault.choose();
+    if (result.canceled) {
+      return;
+    }
+
+    if (result.settings) {
+      queryClient.setQueryData(['electron', 'settings'], result.settings);
+    }
+    if (result.snapshot) {
+      queryClient.setQueryData(['electron', 'local-vault', 'snapshot'], result.snapshot);
+    }
+    setWorkspaceScope({ type: 'local', label: 'Local Vault' });
+  }, [api, queryClient, setWorkspaceScope]);
   const { focusZone } = useElectronFocusZones();
 
   const {
@@ -146,12 +167,12 @@ export function Home() {
     hasToken,
     user,
     teams,
-    currentNotes,
-    currentFolders,
-    currentFolderOrder,
-    documentsByKey,
-    documentQueries,
-    queries,
+    currentNotes: remoteNotes,
+    currentFolders: remoteFolders,
+    currentFolderOrder: remoteFolderOrder,
+    documentsByKey: remoteDocumentsByKey,
+    documentQueries: remoteDocumentQueries,
+    queries: remoteQueries,
   } = useElectronHackmdQueries({
     api,
     scope,
@@ -161,12 +182,41 @@ export function Home() {
       teamPath: tab.teamPath,
     })),
   });
+  const localVault = useElectronLocalVault({
+    api,
+    enabled: settings?.hasLocalVault === true,
+    selectedNote,
+    activeDocumentNotes: noteWorkspace.visibleActiveTabs.map((tab) => ({
+      id: tab.noteId,
+      teamPath: tab.teamPath,
+    })),
+  });
+  const currentNotes = scope.type === 'local' ? localVault.currentNotes : remoteNotes;
+  const currentFolders = scope.type === 'local' ? localVault.currentFolders : remoteFolders;
+  const currentFolderOrder = scope.type === 'local' ? undefined : remoteFolderOrder;
+  const documentsByKey = scope.type === 'local' ? localVault.documentsByKey : remoteDocumentsByKey;
+  const documentQueries = scope.type === 'local' ? localVault.documentQueries : remoteDocumentQueries;
+  const queries = remoteQueries;
+  const hasConfiguredLocalVault = settings?.hasLocalVault === true;
+  const canUseCurrentWorkspace = hasToken || (scope.type === 'local' && hasConfiguredLocalVault);
 
   useEffect(() => {
+    if (settings?.hasLocalVault && scope.type !== 'local' && initialWorkspaceScope.type === 'personal') {
+      setWorkspaceScope({ type: 'local', label: 'Local Vault' });
+      return;
+    }
+
     if (settings?.shouldShowHackmdOnboarding && !settingsOpen) {
       setOnboardingOpen(true);
     }
-  }, [settings?.shouldShowHackmdOnboarding, settingsOpen]);
+  }, [
+    initialWorkspaceScope.type,
+    scope.type,
+    setWorkspaceScope,
+    settings?.hasLocalVault,
+    settings?.shouldShowHackmdOnboarding,
+    settingsOpen,
+  ]);
 
   const {
     displayScope,
@@ -191,6 +241,10 @@ export function Home() {
     onNoteCreated: (note) => {
       setCreateDialog({ open: false, title: '' });
       void requestSelectNote(note, { trackRecent: true });
+    },
+    onNoteSaved: (note) => {
+      noteWorkspace.syncNoteSummary(note);
+      trackRecentNote(note);
     },
     onFolderCreated: (folder: FolderSummary) => {
       setCreateFolderDialog(createClosedFolderDialogState());
@@ -233,7 +287,7 @@ export function Home() {
     toggleFolderCollapsed,
     visibleEntries,
   } = useWorkbenchNavigator({
-    canUseHackmd: hasToken,
+    canUseHackmd: canUseCurrentWorkspace,
     deferredFinderState,
     expandNavigator,
     finderActive,
@@ -294,6 +348,7 @@ export function Home() {
   useSelectedDocumentEditorFocus(selectedDocument, handleSelectedDocumentReady);
 
   const refreshWorkspace = useElectronHomeRefresh({
+    localVaultQuery: localVault.snapshotQuery,
     queries,
     scopeType: scope.type,
   });
@@ -303,8 +358,12 @@ export function Home() {
     currentFolders,
     deleteFolder: mutations.deleteFolderMutation.mutate,
     folderTree,
+    hasLocalVault: hasConfiguredLocalVault,
     hasToken,
     moveFolder: mutations.moveFolderMutation.mutate,
+    onChooseLocalVault: () => {
+      void handleChooseLocalVault();
+    },
     scopeType: scope.type,
     setCreateDialog,
     setCreateFolderDialog,
@@ -440,7 +499,7 @@ export function Home() {
     canModifySelectedFolder,
     hasActiveTab: Boolean(activeTab),
     handlers: actionHandlers,
-    hasToken,
+    hasToken: canUseCurrentWorkspace,
     inspectorCollapsed,
     isSavingNote: mutations.updateNoteMutation.isPending,
     navigatorCollapsed,
@@ -489,7 +548,7 @@ export function Home() {
   const homeStatus = useElectronHomeStatus({
     canCreate,
     finderActive,
-    hasToken,
+    hasToken: canUseCurrentWorkspace,
     mutations,
     queries,
     scope,
@@ -541,7 +600,11 @@ export function Home() {
           user,
           teams,
           collapsed: railCollapsed,
+          localVaultConfigured: hasConfiguredLocalVault,
           width: railWidth,
+          onChooseLocalVault: () => {
+            void handleChooseLocalVault();
+          },
           onScopeChange: switchWorkspaceScope,
           onOpenSettings: () => setSettingsOpen(true),
         }}
@@ -662,6 +725,7 @@ export function Home() {
           onCreateFolderStateChange: setCreateFolderDialog,
           onCreateNote: (title) => mutations.createNoteMutation.mutate(title),
           onCreateNoteStateChange: setCreateDialog,
+          onChooseLocalVault: handleChooseLocalVault,
           onDeleteFolder: (folder) => mutations.deleteFolderMutation.mutate({
             folderId: folder.id,
             parentFolderId: folder.parentId,

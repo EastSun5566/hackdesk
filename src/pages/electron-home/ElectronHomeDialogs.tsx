@@ -49,6 +49,7 @@ export type ElectronHomeDialogsProps = {
   onCreateFolderStateChange: (state: CreateFolderDialogState) => void;
   onCreateNote: (title: string) => void;
   onCreateNoteStateChange: (state: CreateNoteDialogState) => void;
+  onChooseLocalVault: () => Promise<void>;
   onDeleteFolder: (folder: FolderTreeNode) => void;
   onDeleteFolderCancel: () => void;
   onDeleteNote: (note: DocumentSummary) => void;
@@ -80,6 +81,7 @@ export function ElectronHomeDialogs({
   onCreateFolderStateChange,
   onCreateNote,
   onCreateNoteStateChange,
+  onChooseLocalVault,
   onDeleteFolder,
   onDeleteFolderCancel,
   onDeleteNote,
@@ -116,6 +118,7 @@ export function ElectronHomeDialogs({
         open={onboardingOpen}
         onOpenChange={onOnboardingOpenChange}
         hackmdCliConfig={settings?.hackmdCliConfig ?? { hasAccessToken: false, hasCustomEndpoint: false }}
+        onChooseLocalVault={onChooseLocalVault}
         onImportHackmdCliToken={onImportHackmdCliToken}
         onOpenHackmdSettings={() => {
           void api?.shell.openExternal('https://hackmd.io/settings#api').catch((error) => {

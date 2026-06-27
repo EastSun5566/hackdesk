@@ -15,13 +15,20 @@ export type ElectronHomeRefreshQueries = {
 };
 
 export function useElectronHomeRefresh({
+  localVaultQuery,
   queries,
   scopeType,
 }: {
+  localVaultQuery?: RefetchableQuery;
   queries: ElectronHomeRefreshQueries;
   scopeType: WorkspaceScope['type'];
 }) {
   return useCallback(() => {
+    if (scopeType === 'local') {
+      void localVaultQuery?.refetch();
+      return;
+    }
+
     void queries.userQuery.refetch();
     void queries.teamsQuery.refetch();
     void queries.notesQuery.refetch();
@@ -30,5 +37,13 @@ export function useElectronHomeRefresh({
       void queries.foldersQuery.refetch();
       void queries.folderOrderQuery.refetch();
     }
-  }, [queries.folderOrderQuery, queries.foldersQuery, queries.notesQuery, queries.teamsQuery, queries.userQuery, scopeType]);
+  }, [
+    localVaultQuery,
+    queries.folderOrderQuery,
+    queries.foldersQuery,
+    queries.notesQuery,
+    queries.teamsQuery,
+    queries.userQuery,
+    scopeType,
+  ]);
 }

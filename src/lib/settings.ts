@@ -20,6 +20,10 @@ export type OnboardingSettings = {
   hackmdTokenSetupDeferred: boolean;
 };
 
+export type LocalVaultSettings = {
+  path: string | null;
+};
+
 export const defaultAppearanceSettings: AppearanceSettings = {
   theme: 'system',
   presetId: 'hackmd',
@@ -28,6 +32,10 @@ export const defaultAppearanceSettings: AppearanceSettings = {
 
 export const defaultOnboardingSettings: OnboardingSettings = {
   hackmdTokenSetupDeferred: false,
+};
+
+export const defaultLocalVaultSettings: LocalVaultSettings = {
+  path: null,
 };
 
 const hexColorSchema = z.string().regex(/^#[\da-fA-F]{6}$/);
@@ -55,6 +63,9 @@ export const settingsSchema = z.object({
   onboarding: z.object({
     hackmdTokenSetupDeferred: z.boolean().default(defaultOnboardingSettings.hackmdTokenSetupDeferred),
   }).default(defaultOnboardingSettings),
+  localVault: z.object({
+    path: z.string().trim().min(1).nullable().default(defaultLocalVaultSettings.path),
+  }).default(defaultLocalVaultSettings),
 });
 
 export type AppSettings = z.infer<typeof settingsSchema>;
@@ -64,6 +75,7 @@ export const defaultSettings: AppSettings = {
   hackmdApiToken: '',
   appearance: defaultAppearanceSettings,
   onboarding: defaultOnboardingSettings,
+  localVault: defaultLocalVaultSettings,
 };
 
 export function normalizeAppearanceSettings(

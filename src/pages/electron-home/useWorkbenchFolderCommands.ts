@@ -28,7 +28,9 @@ export type WorkbenchFolderCommandsOptions = {
   deleteFolder: (input: { folderId: string; parentFolderId: string | null }) => void;
   folderTree: FolderTree;
   hasToken: boolean;
+  hasLocalVault: boolean;
   moveFolder: (operation: FolderDropOperation) => void;
+  onChooseLocalVault: () => void;
   scopeType: WorkspaceScope['type'];
   setCreateDialog: (state: CreateNoteDialogState) => void;
   setCreateFolderDialog: (state: CreateFolderDialogState) => void;
@@ -44,7 +46,9 @@ export function useWorkbenchFolderCommands({
   deleteFolder,
   folderTree,
   hasToken,
+  hasLocalVault,
   moveFolder,
+  onChooseLocalVault,
   scopeType,
   setCreateDialog,
   setCreateFolderDialog,
@@ -54,7 +58,12 @@ export function useWorkbenchFolderCommands({
   setSettingsOpen,
 }: WorkbenchFolderCommandsOptions) {
   const handleCreateNote = useCallback(() => {
-    if (!hasToken) {
+    if (scopeType === 'local' && !hasLocalVault) {
+      onChooseLocalVault();
+      return;
+    }
+
+    if (!hasToken && scopeType !== 'local') {
       setSettingsOpen(true);
       return;
     }
@@ -65,10 +74,15 @@ export function useWorkbenchFolderCommands({
     }
 
     setCreateDialog({ open: true, title: '' });
-  }, [hasToken, scopeType, setCreateDialog, setSettingsOpen]);
+  }, [hasLocalVault, hasToken, onChooseLocalVault, scopeType, setCreateDialog, setSettingsOpen]);
 
   const handleCreateFolder = useCallback(() => {
-    if (!hasToken) {
+    if (scopeType === 'local' && !hasLocalVault) {
+      onChooseLocalVault();
+      return;
+    }
+
+    if (!hasToken && scopeType !== 'local') {
       setSettingsOpen(true);
       return;
     }
@@ -79,7 +93,7 @@ export function useWorkbenchFolderCommands({
     }
 
     setCreateFolderDialog({ ...createClosedFolderDialogState(), open: true });
-  }, [hasToken, scopeType, setCreateFolderDialog, setSettingsOpen]);
+  }, [hasLocalVault, hasToken, onChooseLocalVault, scopeType, setCreateFolderDialog, setSettingsOpen]);
 
   const handleCreateFolderInside = useCallback((folderId: string | null) => {
     setSelectedFolderId(folderId ?? UNFILED_FOLDER_ID);

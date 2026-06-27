@@ -18,6 +18,18 @@ import type {
   UpdateNoteInput,
   UploadNoteImageInput,
 } from '../../../src/lib/electron-api';
+import type {
+  LocalVaultChangeEvent,
+  LocalVaultCreateFolderInput,
+  LocalVaultCreateNoteInput,
+  LocalVaultMoveFolderInput,
+  LocalVaultMoveNoteInput,
+  LocalVaultRenameFolderInput,
+  LocalVaultRenameNoteInput,
+  LocalVaultTrashFolderInput,
+  LocalVaultTrashNoteInput,
+  LocalVaultWriteInput,
+} from '../../../src/lib/local-vault';
 import { ELECTRON_CHANNELS } from '../shared/channels';
 
 const api: HackDeskElectronAPI = {
@@ -80,6 +92,30 @@ const api: HackDeskElectronAPI = {
     uploadNoteImage: (noteId: string, input: UploadNoteImageInput) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdUploadNoteImage, noteId, input)
     ),
+  },
+  localVault: {
+    choose: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultChoose),
+    getSnapshot: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultGetSnapshot),
+    readNote: (noteId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultReadNote, noteId),
+    createNote: (input: LocalVaultCreateNoteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultCreateNote, input),
+    writeNote: (input: LocalVaultWriteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultWriteNote, input),
+    renameNote: (input: LocalVaultRenameNoteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultRenameNote, input),
+    moveNote: (input: LocalVaultMoveNoteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultMoveNote, input),
+    trashNote: (input: LocalVaultTrashNoteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultTrashNote, input),
+    createFolder: (input: LocalVaultCreateFolderInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultCreateFolder, input),
+    renameFolder: (input: LocalVaultRenameFolderInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultRenameFolder, input),
+    moveFolder: (input: LocalVaultMoveFolderInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultMoveFolder, input),
+    trashFolder: (input: LocalVaultTrashFolderInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultTrashFolder, input),
+    onDidChange: (callback: (event: LocalVaultChangeEvent) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, event: LocalVaultChangeEvent) => {
+        callback(event);
+      };
+
+      ipcRenderer.on(ELECTRON_CHANNELS.localVaultDidChange, listener);
+      return () => {
+        ipcRenderer.removeListener(ELECTRON_CHANNELS.localVaultDidChange, listener);
+      };
+    },
   },
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.shellOpenExternal, url),

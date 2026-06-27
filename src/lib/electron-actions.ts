@@ -6,7 +6,7 @@ export type ElectronActionScope = 'global' | 'workspace' | 'navigator' | 'editor
 export type ElectronActionContext = {
   hasToken: boolean;
   canCreate: boolean;
-  scopeType: 'personal' | 'team' | 'history';
+  scopeType: 'local' | 'personal' | 'team' | 'history';
   selectedFolderId: string | null;
   canModifySelectedFolder: boolean;
   selectedNoteId: string | null;
@@ -45,7 +45,7 @@ function requireHackmd(context: ElectronActionContext) {
 }
 
 function requireWritableWorkspace(context: ElectronActionContext) {
-  if (!context.hasToken) {
+  if (context.scopeType !== 'local' && !context.hasToken) {
     return 'Connect HackMD in Settings first.';
   }
 

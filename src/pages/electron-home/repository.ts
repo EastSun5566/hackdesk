@@ -31,6 +31,10 @@ export function isShowingCachedFallback<T>(value?: RepositoryValue<T>) {
 }
 
 export function getWorkspaceQueryKey(scope: WorkspaceScope) {
+  if (scope.type === 'local') {
+    return ['electron', 'local-vault', 'notes'] as const;
+  }
+
   if (scope.type === 'team') {
     return ['electron', 'hackmd', 'team-notes', scope.teamPath] as const;
   }
@@ -39,6 +43,10 @@ export function getWorkspaceQueryKey(scope: WorkspaceScope) {
 }
 
 export function getFoldersQueryKey(scope: WorkspaceScope) {
+  if (scope.type === 'local') {
+    return ['electron', 'local-vault', 'folders'] as const;
+  }
+
   if (scope.type === 'team') {
     return ['electron', 'hackmd', 'team-folders', scope.teamPath] as const;
   }
@@ -47,6 +55,10 @@ export function getFoldersQueryKey(scope: WorkspaceScope) {
 }
 
 export function getFolderOrderQueryKey(scope: WorkspaceScope) {
+  if (scope.type === 'local') {
+    return ['electron', 'local-vault', 'folder-order'] as const;
+  }
+
   if (scope.type === 'team') {
     return ['electron', 'hackmd', 'team-folder-order', scope.teamPath] as const;
   }

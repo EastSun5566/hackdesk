@@ -1,4 +1,4 @@
-import { app, clipboard, dialog, ipcMain } from 'electron';
+import { app, clipboard, dialog, ipcMain, shell } from 'electron';
 import type { MessageBoxOptions } from 'electron';
 
 import type {
@@ -14,6 +14,17 @@ import type {
   ThemeSurfaceInput,
   UploadNoteImageInput,
 } from '../../../src/lib/electron-api';
+import type {
+  LocalVaultCreateFolderInput,
+  LocalVaultCreateNoteInput,
+  LocalVaultMoveFolderInput,
+  LocalVaultMoveNoteInput,
+  LocalVaultRenameFolderInput,
+  LocalVaultRenameNoteInput,
+  LocalVaultTrashFolderInput,
+  LocalVaultTrashNoteInput,
+  LocalVaultWriteInput,
+} from '../../../src/lib/local-vault';
 import { ELECTRON_CHANNELS } from '../shared/channels';
 import {
   createFolder,
@@ -46,6 +57,22 @@ import {
   validateToken,
 } from './hackmd-service';
 import { getSafeSettings, readHackmdCliAccessToken, updateStoredSettings } from './settings';
+import {
+  createLocalFolder,
+  createLocalNote,
+  getActiveLocalVaultSnapshot,
+  readLocalNote,
+  renameLocalFolder,
+  renameLocalNote,
+  moveLocalFolder,
+  moveLocalNote,
+  scanLocalVault,
+  trashLocalFolder,
+  trashLocalNote,
+  watchLocalVault,
+  writeLocalNote,
+  type LocalVaultWatcher,
+} from './local-vault-service';
 import { openExternalUrl, openHackmdEditor } from './url-policy';
 import type { WindowManager } from './window-manager';
 import { openTextFile, saveTextFile } from './app-file-dialog';
@@ -57,6 +84,15 @@ import {
   createNoteInputSchema,
   fatalRendererErrorSchema,
   folderOrderSchema,
+  localVaultCreateFolderInputSchema,
+  localVaultCreateNoteInputSchema,
+  localVaultMoveFolderInputSchema,
+  localVaultMoveNoteInputSchema,
+  localVaultRenameFolderInputSchema,
+  localVaultRenameNoteInputSchema,
+  localVaultTrashFolderInputSchema,
+  localVaultTrashNoteInputSchema,
+  localVaultWriteInputSchema,
   openHackmdEditorInputSchema,
   openTextFileInputSchema,
   saveTextFileInputSchema,
@@ -72,6 +108,16 @@ import {
 } from './ipc-validation';
 
 export function registerIpcHandlers(windowManager: WindowManager) {
+  let localVaultWatcher: LocalVaultWatcher | null = null;
+  const startLocalVaultWatcher = (vaultPath: string) => {
+    localVaultWatcher?.close();
+    localVaultWatcher = watchLocalVault(vaultPath, (snapshot) => {
+      windowManager.getTargetWindow()?.webContents.send(ELECTRON_CHANNELS.localVaultDidChange, {
+        snapshot,
+      });
+    });
+  };
+
   ipcMain.handle(ELECTRON_CHANNELS.settingsGet, () => getSafeSettings());
   ipcMain.handle(ELECTRON_CHANNELS.settingsUpdate, (_event, settings) => (
     updateStoredSettings(validateIpcInput(ELECTRON_CHANNELS.settingsUpdate, settingsUpdateSchema, settings))
@@ -82,6 +128,72 @@ export function registerIpcHandlers(windowManager: WindowManager) {
     const settings = await updateStoredSettings({ hackmdApiToken: token });
     return { settings, user };
   });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultChoose, async () => {
+    const targetWindow = windowManager.getTargetWindow();
+    const result = targetWindow
+      ? await dialog.showOpenDialog(targetWindow, {
+        title: 'Choose Local Vault',
+        properties: ['openDirectory', 'createDirectory'],
+      })
+      : await dialog.showOpenDialog({
+        title: 'Choose Local Vault',
+        properties: ['openDirectory', 'createDirectory'],
+      });
+
+    if (result.canceled || !result.filePaths[0]) {
+      return { canceled: true };
+    }
+
+    const rootPath = result.filePaths[0];
+    const snapshot = await scanLocalVault(rootPath);
+    const settings = await updateStoredSettings({ localVault: { path: rootPath } });
+    startLocalVaultWatcher(rootPath);
+    return { canceled: false, settings, snapshot };
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultGetSnapshot, async () => {
+    const snapshot = await getActiveLocalVaultSnapshot();
+    if (snapshot) {
+      startLocalVaultWatcher(snapshot.rootPath);
+    }
+
+    return snapshot;
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultReadNote, (_event, noteId: string) => (
+    readLocalNote(validateNonEmptyString(ELECTRON_CHANNELS.localVaultReadNote, noteId))
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultCreateNote, (_event, input: LocalVaultCreateNoteInput) => (
+    createLocalNote(validateIpcInput(ELECTRON_CHANNELS.localVaultCreateNote, localVaultCreateNoteInputSchema, input))
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultWriteNote, (_event, input: LocalVaultWriteInput) => (
+    writeLocalNote(validateIpcInput(ELECTRON_CHANNELS.localVaultWriteNote, localVaultWriteInputSchema, input))
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultRenameNote, (_event, input: LocalVaultRenameNoteInput) => (
+    renameLocalNote(validateIpcInput(ELECTRON_CHANNELS.localVaultRenameNote, localVaultRenameNoteInputSchema, input))
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultMoveNote, (_event, input: LocalVaultMoveNoteInput) => (
+    moveLocalNote(validateIpcInput(ELECTRON_CHANNELS.localVaultMoveNote, localVaultMoveNoteInputSchema, input))
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultTrashNote, (_event, input: LocalVaultTrashNoteInput) => (
+    trashLocalNote(
+      validateIpcInput(ELECTRON_CHANNELS.localVaultTrashNote, localVaultTrashNoteInputSchema, input),
+      shell.trashItem,
+    )
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultCreateFolder, (_event, input: LocalVaultCreateFolderInput) => (
+    createLocalFolder(validateIpcInput(ELECTRON_CHANNELS.localVaultCreateFolder, localVaultCreateFolderInputSchema, input))
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultRenameFolder, (_event, input: LocalVaultRenameFolderInput) => (
+    renameLocalFolder(validateIpcInput(ELECTRON_CHANNELS.localVaultRenameFolder, localVaultRenameFolderInputSchema, input))
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultMoveFolder, (_event, input: LocalVaultMoveFolderInput) => (
+    moveLocalFolder(validateIpcInput(ELECTRON_CHANNELS.localVaultMoveFolder, localVaultMoveFolderInputSchema, input))
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultTrashFolder, (_event, input: LocalVaultTrashFolderInput) => (
+    trashLocalFolder(
+      validateIpcInput(ELECTRON_CHANNELS.localVaultTrashFolder, localVaultTrashFolderInputSchema, input),
+      shell.trashItem,
+    )
+  ));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdValidateToken, (_event, token: string) => (
     validateToken(validateNonEmptyString(ELECTRON_CHANNELS.hackmdValidateToken, token))
   ));
