@@ -70,7 +70,7 @@ export function useWorkbenchTabLifecycle({
       const { confirmed } = await api.app.confirm({
         title,
         message: unsafeTabs.length === 1 ? `Close “${firstTitle}”?` : `Close ${unsafeTabs.length} unsaved notes?`,
-        detail: `${detailParts.join(' and ')}. Closing will discard local drafts that have not been saved to HackMD.`,
+        detail: `${detailParts.join(' and ')}. Closing will discard drafts that have not been saved.`,
         confirmLabel,
         cancelLabel: 'Keep Editing',
         destructive: true,

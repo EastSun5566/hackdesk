@@ -150,6 +150,9 @@ describe('useWorkbenchTabLifecycle', () => {
     });
 
     expect(options.api?.app.confirm).toHaveBeenCalledOnce();
+    expect(options.api?.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
+      detail: '1 note has a failed save. Closing will discard drafts that have not been saved.',
+    }));
     expect(options.closeTab).not.toHaveBeenCalled();
   });
 

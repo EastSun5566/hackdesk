@@ -112,3 +112,12 @@ export function getLocalFolderPathFromFolderId(folderId: string | null | undefin
 
   return folderId.startsWith('local-folder:') ? folderId.slice('local-folder:'.length) : null;
 }
+
+export function getLocalParentPathFromRelativePath(relativePath: string | null | undefined) {
+  if (!relativePath) {
+    return null;
+  }
+
+  const slashIndex = relativePath.lastIndexOf('/');
+  return slashIndex === -1 ? null : relativePath.slice(0, slashIndex);
+}

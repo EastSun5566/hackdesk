@@ -69,7 +69,9 @@ function renderDocumentDetail(overrides: Partial<DocumentDetailProps> = {}) {
       onExportMarkdown: vi.fn(),
       onOpenEditor: vi.fn(),
       onOpenExternal: vi.fn(),
+      onReloadFromDisk: vi.fn(),
       onSave: vi.fn(),
+      onSaveAsCopy: vi.fn(),
       onSaveMetadata: vi.fn(),
       onSaveSharing: vi.fn(),
       onShareOpenChange: vi.fn(),
@@ -175,6 +177,42 @@ describe('DocumentDetail', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('offers disk change recovery actions without discarding the draft', () => {
+    const onReloadFromDisk = vi.fn();
+    const onSaveAsCopy = vi.fn();
+    const document = documentSummary({
+      content: 'Disk content',
+      teamPath: LOCAL_VAULT_TEAM_PATH,
+      title: 'Disk title',
+    });
+    renderDocumentDetail({
+      actions: {
+        onReloadFromDisk,
+        onSaveAsCopy,
+      },
+      documentState: {
+        content: 'Draft content',
+        document,
+        recovery: {
+          kind: 'disk_changed',
+          message: 'File changed on disk. Reload it or save a copy before writing.',
+        },
+        title: 'Draft title',
+      },
+    });
+
+    expect(screen.getByText('File changed on disk. Your draft is still open.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reload from disk' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save as copy' }));
+
+    expect(onReloadFromDisk).toHaveBeenCalledWith(document);
+    expect(onSaveAsCopy).toHaveBeenCalledWith(document, {
+      content: 'Draft content',
+      title: 'Draft title',
+    });
   });
 
   it('keeps a single editor surface and inspector actions wired', () => {

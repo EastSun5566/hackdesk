@@ -35,6 +35,7 @@ export type WorkbenchDocumentsOptions = {
   isDeletingNote: boolean;
   isSavingNote: boolean;
   isUploadingImage: boolean;
+  saveError: unknown;
   saveFailedNote: NoteIdentity | null;
   savingNote: NoteIdentity | null;
   tabs: Record<string, OpenNoteTab>;
@@ -51,6 +52,7 @@ export function useWorkbenchDocuments({
   isDeletingNote,
   isSavingNote,
   isUploadingImage,
+  saveError,
   saveFailedNote,
   savingNote,
   tabs,
@@ -156,6 +158,23 @@ export function useWorkbenchDocuments({
     });
   }, [getTabDocument, getTabDraft, updateDraft]);
 
+  const getTabRecovery = useCallback((tab: OpenNoteTab): DocumentPaneView['recovery'] => {
+    const identity = getTabIdentity(tab);
+    if (!noteIdentityMatches(saveFailedNote, identity)) {
+      return null;
+    }
+
+    const message = saveError instanceof Error ? saveError.message : String(saveError ?? '');
+    if (!message.toLowerCase().includes('file changed on disk')) {
+      return null;
+    }
+
+    return {
+      kind: 'disk_changed',
+      message,
+    };
+  }, [getTabIdentity, saveError, saveFailedNote]);
+
   const handleDocumentContentChange = useCallback((tab: OpenNoteTab, nextContent: string) => {
     const documentResult = getTabDocument(tab);
     if (!documentResult) {
@@ -195,6 +214,7 @@ export function useWorkbenchDocuments({
       document: documentValue,
       title: tab ? getTabTitle(tab) : '',
       content: tab ? getTabContent(tab) : '',
+      recovery: tab ? getTabRecovery(tab) : null,
       isLoading: syncState === 'loading' && !isShowingCachedFallback(documentResult),
       syncState,
       isSaving: isSavingTab,
@@ -207,6 +227,7 @@ export function useWorkbenchDocuments({
     getTabContent,
     getTabDocument,
     getTabDocumentResult,
+    getTabRecovery,
     getTabIdentity,
     getTabSyncState,
     getTabTitle,

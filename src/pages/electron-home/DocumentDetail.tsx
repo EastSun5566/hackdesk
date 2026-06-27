@@ -9,6 +9,7 @@ import {
   Loader2,
   PanelRightClose,
   PanelRightOpen,
+  RefreshCw,
   Save,
   Share2,
   Trash2,
@@ -50,6 +51,10 @@ export type DocumentSyncState = 'idle' | 'loading' | 'cached' | 'saving' | 'save
 export type DocumentDetailDocumentState = {
   content: string;
   document?: DocumentSummary;
+  recovery?: {
+    kind: 'disk_changed';
+    message: string;
+  } | null;
   selectedNote?: Pick<NoteSummary, 'title'> | null;
   syncState: DocumentSyncState;
   title: string;
@@ -80,7 +85,9 @@ export type DocumentDetailActions = {
   onExportMarkdown: (document: DocumentSummary, title: string, content: string) => void;
   onOpenEditor: (document: DocumentSummary) => void;
   onOpenExternal: (url: string) => void;
+  onReloadFromDisk: (document: DocumentSummary) => void;
   onSave: (document: DocumentSummary, input: UpdateNoteInput) => void;
+  onSaveAsCopy: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveSharing: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onShareOpenChange: (open: boolean) => void;
@@ -304,6 +311,10 @@ function ActiveDocumentDetail({
         layout={layout}
         status={status}
       />
+      <DocumentRecoveryBanner
+        actions={actions}
+        documentState={documentState}
+      />
 
       <div className="flex min-h-0 flex-1">
         <DocumentBody
@@ -337,6 +348,48 @@ function ActiveDocumentDetail({
         />
       )}
     </PanelShell>
+  );
+}
+
+function DocumentRecoveryBanner({
+  actions,
+  documentState,
+}: {
+  actions: DocumentDetailActions;
+  documentState: DocumentDetailDocumentState & { document: DocumentSummary };
+}) {
+  if (documentState.recovery?.kind !== 'disk_changed') {
+    return null;
+  }
+
+  return (
+    <div className="border-b border-warning-default/30 bg-warning-soft px-4 py-2.5 text-sm text-warning-default">
+      <div className="flex flex-wrap items-center gap-2">
+        <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
+        <p className="min-w-0 flex-1 text-text-default">
+          File changed on disk. Your draft is still open.
+        </p>
+        <button
+          type="button"
+          className="inline-flex h-7 items-center gap-1 rounded-[6px] border border-warning-default/35 bg-background-default px-2 text-xs font-medium text-text-default hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
+          onClick={() => actions.onReloadFromDisk(documentState.document)}
+        >
+          <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
+          Reload from disk
+        </button>
+        <button
+          type="button"
+          className="inline-flex h-7 items-center gap-1 rounded-[6px] bg-warning-default px-2 text-xs font-medium text-background-default hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
+          onClick={() => actions.onSaveAsCopy(documentState.document, {
+            title: documentState.title,
+            content: documentState.content,
+          })}
+        >
+          <Copy aria-hidden="true" className="h-3.5 w-3.5" />
+          Save as copy
+        </button>
+      </div>
+    </div>
   );
 }
 

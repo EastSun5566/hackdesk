@@ -22,6 +22,10 @@ export type DocumentPaneView = {
   document?: DocumentSummary;
   title: string;
   content: string;
+  recovery?: {
+    kind: 'disk_changed';
+    message: string;
+  } | null;
   isLoading: boolean;
   syncState: DocumentSyncState;
   isSaving: boolean;
@@ -46,7 +50,9 @@ export function DocumentWorkspace({
   onCopyLink,
   onCopyMarkdownLink,
   onExportMarkdown,
+  onReloadFromDisk,
   onSave,
+  onSaveAsCopy,
   onSaveMetadata,
   onSaveSharing,
   onUploadImage,
@@ -71,7 +77,9 @@ export function DocumentWorkspace({
   onCopyLink: (document: DocumentSummary) => void;
   onCopyMarkdownLink: (document: DocumentSummary) => void;
   onExportMarkdown: (document: DocumentSummary, title: string, content: string) => void;
+  onReloadFromDisk: (document: DocumentSummary) => void;
   onSave: (document: DocumentSummary, input: UpdateNoteInput) => void;
+  onSaveAsCopy: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveSharing: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onUploadImage: (document: DocumentSummary, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
@@ -131,6 +139,7 @@ export function DocumentWorkspace({
                     document: view.document,
                     title: view.title,
                     content: view.content,
+                    recovery: view.recovery,
                     syncState: view.syncState,
                   }}
                   layout={{
@@ -154,7 +163,9 @@ export function DocumentWorkspace({
                     onCopyLink,
                     onCopyMarkdownLink,
                     onExportMarkdown,
+                    onReloadFromDisk,
                     onSave,
+                    onSaveAsCopy,
                     onSaveMetadata,
                     onSaveSharing,
                     onUploadImage,

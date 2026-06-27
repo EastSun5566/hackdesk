@@ -77,6 +77,7 @@ function createOptions(overrides: Partial<WorkbenchDocumentsOptions> = {}): Work
     isDeletingNote: false,
     isSavingNote: false,
     isUploadingImage: false,
+    saveError: null,
     saveFailedNote: null,
     savingNote: null,
     tabs: { [tab.tabId]: tab },
@@ -205,6 +206,32 @@ describe('useWorkbenchDocuments', () => {
       syncState: 'saving',
       title: 'Document title',
     });
+  });
+
+  it('exposes disk changed recovery only for matching failed local saves', () => {
+    const tab = createTab();
+    const pane = createPane(tab);
+    const identity = { id: tab.noteId, teamPath: tab.teamPath };
+    const { result, rerender } = renderHook((props: WorkbenchDocumentsOptions) => useWorkbenchDocuments(props), {
+      initialProps: createOptions({
+        saveError: new Error('File changed on disk. Reload it or save a copy before writing.'),
+        saveFailedNote: identity,
+        tabs: { [tab.tabId]: tab },
+      }),
+    });
+
+    expect(result.current.getPaneView(pane).recovery).toEqual({
+      kind: 'disk_changed',
+      message: 'File changed on disk. Reload it or save a copy before writing.',
+    });
+
+    rerender(createOptions({
+      saveError: new Error('Network failed.'),
+      saveFailedNote: identity,
+      tabs: { [tab.tabId]: tab },
+    }));
+
+    expect(result.current.getPaneView(pane).recovery).toBeNull();
   });
 
   it('writes title and content drafts while preserving base values', () => {
