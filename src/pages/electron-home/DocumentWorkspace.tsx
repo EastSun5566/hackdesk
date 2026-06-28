@@ -47,6 +47,7 @@ export function DocumentWorkspace({
   onFocusPane,
   onOpenEditor,
   onOpenExternal,
+  onRevealInFinder,
   onCopyLink,
   onCopyMarkdownLink,
   onExportMarkdown,
@@ -74,6 +75,7 @@ export function DocumentWorkspace({
   onFocusPane: (paneId: string) => void;
   onOpenEditor: (document: DocumentSummary) => void;
   onOpenExternal: (url: string) => void;
+  onRevealInFinder: (document: DocumentSummary) => void;
   onCopyLink: (document: DocumentSummary) => void;
   onCopyMarkdownLink: (document: DocumentSummary) => void;
   onExportMarkdown: (document: DocumentSummary, title: string, content: string) => void;
@@ -160,6 +162,7 @@ export function DocumentWorkspace({
                   actions={{
                     onOpenEditor,
                     onOpenExternal,
+                    onRevealInFinder,
                     onCopyLink,
                     onCopyMarkdownLink,
                     onExportMarkdown,

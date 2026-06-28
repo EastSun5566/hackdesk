@@ -17,6 +17,9 @@ import { getSettingsPath } from './paths';
 import {
   createLocalNote,
   readLocalNote,
+  revealLocalVaultFolder,
+  revealLocalVaultNote,
+  revealLocalVaultRoot,
   scanLocalVault,
   trashLocalNote,
   writeLocalNote,
@@ -106,5 +109,28 @@ describe('LocalVaultService', () => {
 
     expect(trashItem).toHaveBeenCalledWith(join(vaultPath, note.relativePath));
     expect(snapshot.notes).toHaveLength(0);
+  });
+
+  it('reveals only paths inside the active local vault', async () => {
+    await mkdir(join(vaultPath, 'Projects'), { recursive: true });
+    const note = await createLocalNote({ title: 'Reveal me', parentPath: 'Projects', content: 'hello' });
+    const openPath = vi.fn(async () => '');
+    const showItemInFolder = vi.fn();
+
+    await revealLocalVaultRoot(openPath);
+    await revealLocalVaultNote({ noteId: note.id }, showItemInFolder);
+    await revealLocalVaultFolder({ relativePath: 'Projects' }, showItemInFolder);
+
+    expect(openPath).toHaveBeenCalledWith(vaultPath);
+    expect(showItemInFolder).toHaveBeenCalledWith(join(vaultPath, note.relativePath));
+    expect(showItemInFolder).toHaveBeenCalledWith(join(vaultPath, 'Projects'));
+    await expect(revealLocalVaultFolder({ relativePath: '../outside' }, showItemInFolder)).rejects.toThrow('outside the local vault');
+  });
+
+  it('does not recreate a missing configured vault path', async () => {
+    await rm(vaultPath, { force: true, recursive: true });
+
+    await expect(scanLocalVault(vaultPath)).rejects.toThrow();
+    await expect(createLocalNote({ title: 'Nope' })).rejects.toThrow();
   });
 });

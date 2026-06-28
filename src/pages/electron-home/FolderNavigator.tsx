@@ -77,6 +77,7 @@ export type FolderNavigatorLayout = {
 export type FolderNavigatorStatus = {
   activeError: string | null;
   canCreate: boolean;
+  hasLocalVault: boolean;
   hasToken: boolean;
   isCreating: boolean;
   isFetching: boolean;
@@ -98,6 +99,7 @@ export type FolderNavigatorActions = {
   onCreateFolder: () => void;
   onCreateFolderInside: (folderId: string | null) => void;
   onCreateNoteInside: (folderId: string | null) => void;
+  onChooseLocalVault: () => void;
   onDeleteFolder: (folderId: string) => void;
   onDeleteNote: (note: NoteSummary) => void;
   onDuplicateNote: (note: NoteSummary) => void;
@@ -106,9 +108,11 @@ export type FolderNavigatorActions = {
   onFolderDrop: (operation: FolderDropOperation) => void;
   onFolderSelect: (folderId: string | null) => void;
   onFolderToggle: (folderId: string) => void;
+  onFolderRevealInFinder: (folderId: string) => void;
   onImportMarkdown: () => void;
   onNoteMove: (operation: NoteDropOperation) => void;
   onNoteSelect: (note: NoteSummary) => void;
+  onNoteRevealInFinder: (note: NoteSummary) => void;
   onOpenNote: (note: NoteSummary) => void;
   onOpenPalette: () => void;
   onOpenSettings: () => void;
@@ -204,6 +208,7 @@ function ExpandedNavigator({
         actions={actions}
         finderOptions={finderOptions}
         finderState={finderState}
+        scope={scope}
         selectedFolderId={selection.selectedFolderId}
         status={status}
         tagIndex={tagIndex}
@@ -217,6 +222,7 @@ function ExpandedNavigator({
         layout={layout}
         selectedFolderForNoteMove={selectedFolderForNoteMove}
         selection={selection}
+        scope={scope}
         status={status}
         tree={tree}
       />
@@ -296,6 +302,7 @@ function NavigatorFilterBar({
   actions,
   finderOptions,
   finderState,
+  scope,
   selectedFolderId,
   status,
   tagIndex,
@@ -303,6 +310,7 @@ function NavigatorFilterBar({
   actions: FolderNavigatorActions;
   finderOptions: ReturnType<typeof getNoteFinderOptions>;
   finderState: NoteFinderState;
+  scope: WorkspaceScope;
   selectedFolderId: string | null;
   status: FolderNavigatorStatus;
   tagIndex: ReturnType<typeof buildNoteTagIndex>;
@@ -332,7 +340,7 @@ function NavigatorFilterBar({
         onTagToggle={handleTagToggle}
       />
 
-      {!status.hasToken ? (
+      {scope.type !== 'local' && !status.hasToken ? (
         <button
           type="button"
           onClick={actions.onOpenSettings}
@@ -360,6 +368,7 @@ function NavigatorContent({
   layout,
   selectedFolderForNoteMove,
   selection,
+  scope,
   status,
   tree,
 }: {
@@ -371,6 +380,7 @@ function NavigatorContent({
   layout: FolderNavigatorLayout;
   selectedFolderForNoteMove: FolderTreeNode | null;
   selection: FolderNavigatorSelection;
+  scope: WorkspaceScope;
   status: FolderNavigatorStatus;
   tree: FolderTree;
 }) {
@@ -390,6 +400,7 @@ function NavigatorContent({
               actions={actions}
               finderState={finderState}
               isFinderMode={isFinderMode}
+              scope={scope}
               status={status}
             />
           )}
@@ -419,13 +430,30 @@ function NavigatorEmptyAction({
   actions,
   finderState,
   isFinderMode,
+  scope,
   status,
 }: {
   actions: FolderNavigatorActions;
   finderState: NoteFinderState;
   isFinderMode: boolean;
+  scope: WorkspaceScope;
   status: FolderNavigatorStatus;
 }) {
+  if (scope.type === 'local' && !status.hasLocalVault) {
+    return (
+      <button
+        type="button"
+        onClick={actions.onChooseLocalVault}
+        className={cn(
+          'inline-flex h-9 items-center justify-center rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover',
+          FOCUS_RING_CLASS,
+        )}
+      >
+        Open Local Vault
+      </button>
+    );
+  }
+
   if (!status.hasToken) {
     return (
       <button
@@ -513,6 +541,7 @@ function FinderResultList({
           onExportMarkdown={actions.onExportNoteMarkdown}
           onDelete={actions.onDeleteNote}
           onRevealFolder={actions.onRevealNoteFolder}
+          onRevealInFinder={actions.onNoteRevealInFinder}
           onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}
           selectedFolder={selectedFolderForNoteMove}
         />
@@ -657,6 +686,7 @@ function NavigatorTree({
             onCreateNoteInside={actions.onCreateNoteInside}
             onRenameFolder={actions.onRenameFolder}
             onDeleteFolder={actions.onDeleteFolder}
+            onFolderRevealInFinder={actions.onFolderRevealInFinder}
             onNoteSelect={actions.onNoteSelect}
             onNoteOpen={actions.onOpenNote}
             onNoteCopyLink={actions.onCopyNoteLink}
@@ -665,6 +695,7 @@ function NavigatorTree({
             onNoteExportMarkdown={actions.onExportNoteMarkdown}
             onNoteDelete={actions.onDeleteNote}
             onNoteRevealFolder={actions.onRevealNoteFolder}
+            onNoteRevealInFinder={actions.onNoteRevealInFinder}
             onNoteMoveToSelectedFolder={(entry) => moveNoteToSelectedFolder(entry, selectedFolderForNoteMove, actions.onNoteMove)}
             selectedFolderForNoteMove={selectedFolderForNoteMove}
             isMovingNote={status.isMovingNote}
@@ -683,6 +714,7 @@ function NavigatorTree({
               onExportMarkdown={actions.onExportNoteMarkdown}
               onDelete={actions.onDeleteNote}
               onRevealFolder={actions.onRevealNoteFolder}
+              onRevealInFinder={actions.onNoteRevealInFinder}
               onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}
               selectedFolder={selectedFolderForNoteMove}
               draggable

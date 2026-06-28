@@ -6,6 +6,7 @@ import {
   Copy,
   Download,
   Edit3,
+  FolderOpen,
   Loader2,
   PanelRightClose,
   PanelRightOpen,
@@ -85,6 +86,7 @@ export type DocumentDetailActions = {
   onExportMarkdown: (document: DocumentSummary, title: string, content: string) => void;
   onOpenEditor: (document: DocumentSummary) => void;
   onOpenExternal: (url: string) => void;
+  onRevealInFinder: (document: DocumentSummary) => void;
   onReloadFromDisk: (document: DocumentSummary) => void;
   onSave: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveAsCopy: (document: DocumentSummary, input: UpdateNoteInput) => void;
@@ -524,6 +526,12 @@ function DocumentActionsMenu({
             </DropdownMenuItem>
           </>
         )}
+        {isLocalDocument ? (
+          <DropdownMenuItem onSelect={() => actions.onRevealInFinder(documentState.document)}>
+            <FolderOpen aria-hidden="true" className="h-4 w-4" />
+            Reveal in Finder
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem onSelect={() => actions.onExportMarkdown(documentState.document, documentState.title, documentState.content)}>
           <Download aria-hidden="true" className="h-4 w-4" />
           Export Markdown

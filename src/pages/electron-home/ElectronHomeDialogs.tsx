@@ -9,6 +9,7 @@ import type {
   UpdateFolderInput,
   UserSummary,
 } from '@/lib/electron-api';
+import type { LocalVaultSnapshot } from '@/lib/local-vault';
 import type { FolderTreeNode } from '@/lib/hackmd-folders';
 
 import { CreateFolderDialog } from './CreateFolderDialog';
@@ -36,6 +37,8 @@ export type ElectronHomeDialogsProps = {
   renameFolderDialog: RenameFolderDialogState;
   scopeLabel: string;
   settings?: ElectronSafeSettings;
+  localVaultError?: string | null;
+  localVaultSnapshot?: LocalVaultSnapshot | null;
   settingsOpen: boolean;
   status: {
     creatingFolder: boolean;
@@ -55,7 +58,10 @@ export type ElectronHomeDialogsProps = {
   onDeleteNote: (note: DocumentSummary) => void;
   onDeleteNoteCancel: () => void;
   onImportHackmdCliToken: () => Promise<ImportHackmdCliTokenResult>;
+  onForgetLocalVault: () => Promise<void>;
+  onOpenLocalVault: () => Promise<void>;
   onOnboardingOpenChange: (open: boolean) => void;
+  onRefreshLocalVault: () => Promise<void>;
   onRenameFolder: (folderId: string, input: UpdateFolderInput) => void;
   onRenameFolderStateChange: (state: RenameFolderDialogState) => void;
   onSaveSettings: (input: SettingsFormInput) => void;
@@ -75,6 +81,8 @@ export function ElectronHomeDialogs({
   renameFolderDialog,
   scopeLabel,
   settings,
+  localVaultError,
+  localVaultSnapshot,
   settingsOpen,
   status,
   onCreateFolder,
@@ -87,7 +95,10 @@ export function ElectronHomeDialogs({
   onDeleteNote,
   onDeleteNoteCancel,
   onImportHackmdCliToken,
+  onForgetLocalVault,
+  onOpenLocalVault,
   onOnboardingOpenChange,
+  onRefreshLocalVault,
   onRenameFolder,
   onRenameFolderStateChange,
   onSaveSettings,
@@ -108,7 +119,13 @@ export function ElectronHomeDialogs({
       <SettingsDialog
         open={settingsOpen}
         settings={settings}
+        localVaultError={localVaultError}
+        localVaultSnapshot={localVaultSnapshot}
         isSaving={status.savingSettings}
+        onChooseLocalVault={onChooseLocalVault}
+        onForgetLocalVault={onForgetLocalVault}
+        onOpenLocalVault={onOpenLocalVault}
+        onRefreshLocalVault={onRefreshLocalVault}
         onOpenChange={onSettingsOpenChange}
         onSave={onSaveSettings}
         onValidateToken={validateToken}

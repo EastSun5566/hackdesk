@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 import { useTheme } from '@/components/theme-provider';
 import { getDesktopAPI } from '@/lib/desktop-api';
@@ -20,6 +21,7 @@ import {
   getLocalVaultSnapshotQueryKey,
   useElectronLocalVault,
 } from './electron-home/useElectronLocalVault';
+import { LOCAL_VAULT_TEAM_PATH } from './electron-home/local-vault-adapter';
 import {
   useElectronHomeSelection,
   useElectronHomeSelectionRefs,
@@ -164,6 +166,56 @@ export function Home() {
     }
     setWorkspaceScope({ type: 'local', label: 'Local Vault' });
   }, [api, queryClient, setWorkspaceScope]);
+  const handleOpenLocalVault = useCallback(async () => {
+    if (!api) {
+      throw new Error('Electron API is unavailable.');
+    }
+
+    await api.localVault.revealRoot();
+  }, [api]);
+  const handleRevealLocalNote = useCallback((note: { id: string; teamPath: string | null }) => {
+    if (!api || note.teamPath !== LOCAL_VAULT_TEAM_PATH) {
+      return;
+    }
+
+    void api.localVault.revealNote({ noteId: note.id }).catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to reveal local note.');
+    });
+  }, [api]);
+  const handleRevealLocalFolder = useCallback((folderId: string) => {
+    const prefix = 'local-folder:';
+    if (!api || !folderId.startsWith(prefix)) {
+      return;
+    }
+
+    void api.localVault.revealFolder({ relativePath: folderId.slice(prefix.length) }).catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to reveal local folder.');
+    });
+  }, [api]);
+  const handleForgetLocalVault = useCallback(async () => {
+    if (!api) {
+      throw new Error('Electron API is unavailable.');
+    }
+
+    const { confirmed } = await api.app.confirm({
+      title: 'Forget Local Vault',
+      message: 'Forget this local vault?',
+      detail: 'HackDesk will stop opening this folder automatically. Your Markdown files will not be deleted.',
+      confirmLabel: 'Forget Vault',
+      cancelLabel: 'Cancel',
+      destructive: true,
+    });
+    if (!confirmed) {
+      return;
+    }
+
+    const nextSettings = await api.settings.update({
+      localVault: { path: null },
+    });
+    queryClient.setQueryData(['electron', 'settings'], nextSettings);
+    queryClient.setQueryData(getLocalVaultSnapshotQueryKey(), null);
+    toast.success('Local vault forgotten. Your files were not deleted.');
+  }, [api, queryClient]);
   const { focusZone } = useElectronFocusZones();
 
   const {
@@ -195,6 +247,9 @@ export function Home() {
       teamPath: tab.teamPath,
     })),
   });
+  const handleRefreshLocalVault = useCallback(async () => {
+    await localVault.snapshotQuery.refetch();
+  }, [localVault.snapshotQuery]);
   const currentNotes = scope.type === 'local' ? localVault.currentNotes : remoteNotes;
   const currentFolders = scope.type === 'local' ? localVault.currentFolders : remoteFolders;
   const currentFolderOrder = scope.type === 'local' ? undefined : remoteFolderOrder;
@@ -568,7 +623,11 @@ export function Home() {
   const homeStatus = useElectronHomeStatus({
     canCreate,
     finderActive,
+    hasLocalVault: hasConfiguredLocalVault,
     hasToken: canUseCurrentWorkspace,
+    localVaultError: localVault.snapshotQuery.error instanceof Error
+      ? localVault.snapshotQuery.error.message
+      : null,
     mutations,
     queries,
     scope,
@@ -652,13 +711,18 @@ export function Home() {
           actions: {
             onFolderSelect: handleFolderSelect,
             onFolderToggle: toggleFolderCollapsed,
+            onFolderRevealInFinder: handleRevealLocalFolder,
             onNoteSelect: handleNoteSelect,
+            onNoteRevealInFinder: handleRevealLocalNote,
             onFinderStateChange: setFinderState,
             onRefresh: refreshWorkspace,
             onCreate: folderCommands.handleCreateNote,
             onCreateFolder: folderCommands.handleCreateFolder,
             onCreateFolderInside: folderCommands.handleCreateFolderInside,
             onCreateNoteInside: folderCommands.handleCreateNoteInside,
+            onChooseLocalVault: () => {
+              void handleChooseLocalVault();
+            },
             onRenameFolder: folderCommands.handleRenameFolder,
             onDeleteFolder: folderCommands.handleDeleteFolderRequest,
             onFolderDrop: folderCommands.handleFolderDrop,
@@ -696,6 +760,7 @@ export function Home() {
           onFocusPane: noteWorkspace.focusPane,
           onOpenEditor: handleOpenEditor,
           onOpenExternal: handleOpenExternal,
+          onRevealInFinder: handleRevealLocalNote,
           onCopyLink: handleCopyNoteLink,
           onCopyMarkdownLink: handleCopyNoteMarkdownLink,
           onExportMarkdown: handleExportMarkdown,
@@ -734,6 +799,10 @@ export function Home() {
           renameFolderDialog,
           scopeLabel: displayScope.label,
           settings,
+          localVaultError: localVault.snapshotQuery.error instanceof Error
+            ? localVault.snapshotQuery.error.message
+            : null,
+          localVaultSnapshot: localVault.snapshot,
           settingsOpen,
           status: {
             creatingFolder: mutations.createFolderMutation.isPending,
@@ -756,7 +825,10 @@ export function Home() {
           onDeleteNote: (note) => mutations.deleteNoteMutation.mutate(note),
           onDeleteNoteCancel: () => setDeleteTarget(null),
           onImportHackmdCliToken: () => mutations.importHackmdCliTokenMutation.mutateAsync(),
+          onForgetLocalVault: handleForgetLocalVault,
+          onOpenLocalVault: handleOpenLocalVault,
           onOnboardingOpenChange: setOnboardingOpen,
+          onRefreshLocalVault: handleRefreshLocalVault,
           onRenameFolder: (folderId, input) => mutations.renameFolderMutation.mutate({ folderId, input }),
           onRenameFolderStateChange: setRenameFolderDialog,
           onSaveSettings: (input) => mutations.updateSettingsMutation.mutate(input),

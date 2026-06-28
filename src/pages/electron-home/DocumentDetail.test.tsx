@@ -69,6 +69,7 @@ function renderDocumentDetail(overrides: Partial<DocumentDetailProps> = {}) {
       onExportMarkdown: vi.fn(),
       onOpenEditor: vi.fn(),
       onOpenExternal: vi.fn(),
+      onRevealInFinder: vi.fn(),
       onReloadFromDisk: vi.fn(),
       onSave: vi.fn(),
       onSaveAsCopy: vi.fn(),

@@ -8,6 +8,8 @@ import type {
   LocalVaultMoveNoteInput,
   LocalVaultRenameFolderInput,
   LocalVaultRenameNoteInput,
+  LocalVaultRevealFolderInput,
+  LocalVaultRevealNoteInput,
   LocalVaultSnapshot,
   LocalVaultTrashFolderInput,
   LocalVaultTrashNoteInput,
@@ -329,10 +331,13 @@ export type HackDeskElectronAPI = {
     renameNote: (input: LocalVaultRenameNoteInput) => Promise<LocalDocument>;
     moveNote: (input: LocalVaultMoveNoteInput) => Promise<LocalDocument>;
     trashNote: (input: LocalVaultTrashNoteInput) => Promise<LocalVaultSnapshot>;
+    revealNote: (input: LocalVaultRevealNoteInput) => Promise<void>;
     createFolder: (input: LocalVaultCreateFolderInput) => Promise<LocalVaultSnapshot>;
     renameFolder: (input: LocalVaultRenameFolderInput) => Promise<LocalVaultSnapshot>;
     moveFolder: (input: LocalVaultMoveFolderInput) => Promise<LocalVaultSnapshot>;
     trashFolder: (input: LocalVaultTrashFolderInput) => Promise<LocalVaultSnapshot>;
+    revealFolder: (input: LocalVaultRevealFolderInput) => Promise<void>;
+    revealRoot: () => Promise<void>;
     onDidChange: (callback: (event: LocalVaultChangeEvent) => void) => () => void;
   };
   shell: {

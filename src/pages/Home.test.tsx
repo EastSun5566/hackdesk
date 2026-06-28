@@ -178,7 +178,7 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
     getRuntimeEnvironment: () => 'electron',
     settings: {
       get: vi.fn(async () => createSafeSettings()),
-      update: vi.fn(),
+      update: vi.fn(async (input) => createSafeSettings(input)),
       importHackmdCliToken: vi.fn(async () => ({
         settings: createSafeSettings({ hasHackmdApiToken: true }),
         user: {
@@ -246,10 +246,13 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       renameNote: vi.fn(),
       moveNote: vi.fn(),
       trashNote: vi.fn(),
+      revealNote: vi.fn(async () => undefined),
       createFolder: vi.fn(),
       renameFolder: vi.fn(),
       moveFolder: vi.fn(),
       trashFolder: vi.fn(),
+      revealFolder: vi.fn(async () => undefined),
+      revealRoot: vi.fn(async () => undefined),
       onDidChange: vi.fn(() => () => undefined),
     },
     shell: {

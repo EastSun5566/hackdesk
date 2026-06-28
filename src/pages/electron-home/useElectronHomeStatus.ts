@@ -13,7 +13,9 @@ import type { useElectronNoteMutations } from './useElectronNoteMutations';
 export type ElectronHomeStatusOptions = {
   canCreate: boolean;
   finderActive: boolean;
+  hasLocalVault: boolean;
   hasToken: boolean;
+  localVaultError?: string | null;
   mutations: ReturnType<typeof useElectronNoteMutations>;
   queries: ReturnType<typeof useElectronHackmdQueries>['queries'];
   scope: WorkspaceScope;
@@ -23,7 +25,9 @@ export type ElectronHomeStatusOptions = {
 export function useElectronHomeStatus({
   canCreate,
   finderActive,
+  hasLocalVault,
   hasToken,
+  localVaultError,
   mutations,
   queries,
   scope,
@@ -35,14 +39,21 @@ export function useElectronHomeStatus({
     const folderOrderError = getRepositoryError(queries.folderOrderQuery.data);
     const userError = getRepositoryError(queries.userQuery.data);
     const teamsError = getRepositoryError(queries.teamsQuery.data);
-    const activeError = notesError ?? foldersError ?? folderOrderError ?? userError ?? teamsError;
+    const activeError = (scope.type === 'local' ? localVaultError : null)
+      ?? notesError
+      ?? foldersError
+      ?? folderOrderError
+      ?? userError
+      ?? teamsError;
     const showingCachedFallback =
       isShowingCachedFallback(queries.notesQuery.data)
       || isShowingCachedFallback(queries.foldersQuery.data)
       || isShowingCachedFallback(queries.folderOrderQuery.data)
       || isShowingCachedFallback(queries.userQuery.data)
       || isShowingCachedFallback(queries.teamsQuery.data);
-    const emptyTitle = !hasToken
+    const emptyTitle = scope.type === 'local' && !hasLocalVault
+      ? 'Create your local vault'
+      : !hasToken
       ? 'Connect HackMD first'
       : finderActive
         ? 'No matching notes'
@@ -51,7 +62,9 @@ export function useElectronHomeStatus({
           : selectedFolder
             ? 'No notes in this folder'
             : 'No notes in this workspace';
-    const emptyDescription = !hasToken
+    const emptyDescription = scope.type === 'local' && !hasLocalVault
+      ? 'Open or create a folder to store plain Markdown notes locally. HackMD can be connected later.'
+      : !hasToken
       ? 'Add an API token in Settings to load your profile, teams, notes, and history.'
       : finderActive
         ? 'Try a different title, tag, folder path, short ID, team path, sort, or filter.'
@@ -67,7 +80,8 @@ export function useElectronHomeStatus({
       navigatorStatus: {
         activeError,
         canCreate,
-        hasToken,
+        hasLocalVault,
+        hasToken: scope.type === 'local' ? true : hasToken,
         isCreating: mutations.createNoteMutation.isPending || mutations.createFolderMutation.isPending,
         isFetching: queries.notesQuery.isFetching || queries.foldersQuery.isFetching || queries.folderOrderQuery.isFetching,
         isLoading: queries.notesQuery.isLoading || queries.foldersQuery.isLoading || queries.folderOrderQuery.isLoading,
@@ -79,7 +93,9 @@ export function useElectronHomeStatus({
   }, [
     canCreate,
     finderActive,
+    hasLocalVault,
     hasToken,
+    localVaultError,
     mutations.createFolderMutation.isPending,
     mutations.createNoteMutation.isPending,
     mutations.moveFolderMutation.isPending,

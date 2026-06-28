@@ -29,6 +29,7 @@ export type LocalDocument = LocalNoteSummary & {
 export type LocalVaultSnapshot = {
   vaultId: string;
   rootPath: string;
+  scannedAtMillis?: number;
   notes: LocalNoteSummary[];
   folders: LocalFolder[];
 };
@@ -67,6 +68,10 @@ export type LocalVaultTrashNoteInput = {
   noteId: string;
 };
 
+export type LocalVaultRevealNoteInput = {
+  noteId: string;
+};
+
 export type LocalVaultCreateFolderInput = {
   name: string;
   parentPath?: string | null;
@@ -83,6 +88,10 @@ export type LocalVaultMoveFolderInput = {
 };
 
 export type LocalVaultTrashFolderInput = {
+  relativePath: string;
+};
+
+export type LocalVaultRevealFolderInput = {
   relativePath: string;
 };
 

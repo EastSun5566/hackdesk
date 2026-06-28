@@ -49,6 +49,7 @@ export function NoteRow({
   onExportMarkdown,
   onDelete,
   onRevealFolder,
+  onRevealInFinder,
   onMoveToSelectedFolder,
   selectedFolder,
   draggable = false,
@@ -67,6 +68,7 @@ export function NoteRow({
   onExportMarkdown: (note: NoteSummary) => void;
   onDelete: (note: NoteSummary) => void;
   onRevealFolder: (entry: FolderTreeNote) => void;
+  onRevealInFinder?: (note: NoteSummary) => void;
   onMoveToSelectedFolder?: (entry: FolderTreeNote) => void;
   selectedFolder?: FolderTreeNode | null;
   draggable?: boolean;
@@ -199,6 +201,12 @@ export function NoteRow({
             <ContextMenuSeparator />
           </>
         )}
+        {isLocalNote && onRevealInFinder ? (
+          <ContextMenuItem onSelect={() => onRevealInFinder(entry.note)}>
+            <FolderOpen aria-hidden="true" className="h-4 w-4" />
+            Reveal in Finder
+          </ContextMenuItem>
+        ) : null}
         <ContextMenuItem onSelect={() => onDuplicate(entry.note)}>
           <CopyPlus aria-hidden="true" className="h-4 w-4" />
           Duplicate Note
@@ -249,6 +257,7 @@ export function FolderButton({
   onCreateNoteInside,
   onRenameFolder,
   onDeleteFolder,
+  onRevealInFinder,
 }: {
   node: FolderTreeNode;
   selected: boolean;
@@ -262,6 +271,7 @@ export function FolderButton({
   onCreateNoteInside: (folderId: string) => void;
   onRenameFolder: (folderId: string) => void;
   onDeleteFolder: (folderId: string) => void;
+  onRevealInFinder?: (folderId: string) => void;
 }) {
   const hasChildren = node.children.length > 0 || node.notes.length > 0;
   const totalNotes = getFolderTotalNoteCount(node);
@@ -359,6 +369,12 @@ export function FolderButton({
           <FolderPen aria-hidden="true" className="h-4 w-4" />
           Edit Folder
         </ContextMenuItem>
+        {isLocalFolder && onRevealInFinder ? (
+          <ContextMenuItem onSelect={() => onRevealInFinder(node.id)}>
+            <FolderOpen aria-hidden="true" className="h-4 w-4" />
+            Reveal in Finder
+          </ContextMenuItem>
+        ) : null}
         <ContextMenuItem destructive onSelect={() => onDeleteFolder(node.id)}>
           <Trash2 aria-hidden="true" className="h-4 w-4" />
           {isLocalFolder ? 'Move to Trash' : 'Delete'}
@@ -468,6 +484,7 @@ export function FolderTreeView({
   onCreateNoteInside,
   onRenameFolder,
   onDeleteFolder,
+  onFolderRevealInFinder,
   onNoteSelect,
   onNoteOpen,
   onNoteCopyLink,
@@ -476,6 +493,7 @@ export function FolderTreeView({
   onNoteExportMarkdown,
   onNoteDelete,
   onNoteRevealFolder,
+  onNoteRevealInFinder,
   onNoteMoveToSelectedFolder,
   selectedFolderForNoteMove,
   isMovingNote,
@@ -493,6 +511,7 @@ export function FolderTreeView({
   onCreateNoteInside: (folderId: string) => void;
   onRenameFolder: (folderId: string) => void;
   onDeleteFolder: (folderId: string) => void;
+  onFolderRevealInFinder?: (folderId: string) => void;
   onNoteSelect: (note: NoteSummary) => void;
   onNoteOpen: (note: NoteSummary) => void;
   onNoteCopyLink: (note: NoteSummary) => void;
@@ -501,6 +520,7 @@ export function FolderTreeView({
   onNoteExportMarkdown: (note: NoteSummary) => void;
   onNoteDelete: (note: NoteSummary) => void;
   onNoteRevealFolder: (entry: FolderTreeNote) => void;
+  onNoteRevealInFinder?: (note: NoteSummary) => void;
   onNoteMoveToSelectedFolder: (entry: FolderTreeNote) => void;
   selectedFolderForNoteMove: FolderTreeNode | null;
   isMovingNote: boolean;
@@ -531,6 +551,7 @@ export function FolderTreeView({
               onCreateNoteInside={onCreateNoteInside}
               onRenameFolder={onRenameFolder}
               onDeleteFolder={onDeleteFolder}
+              onRevealInFinder={onFolderRevealInFinder}
             />
             <div
               className={cn(
@@ -554,6 +575,7 @@ export function FolderTreeView({
                     onCreateNoteInside={onCreateNoteInside}
                     onRenameFolder={onRenameFolder}
                     onDeleteFolder={onDeleteFolder}
+                    onFolderRevealInFinder={onFolderRevealInFinder}
                     onNoteSelect={onNoteSelect}
                     onNoteOpen={onNoteOpen}
                     onNoteCopyLink={onNoteCopyLink}
@@ -562,6 +584,7 @@ export function FolderTreeView({
                     onNoteExportMarkdown={onNoteExportMarkdown}
                     onNoteDelete={onNoteDelete}
                     onNoteRevealFolder={onNoteRevealFolder}
+                    onNoteRevealInFinder={onNoteRevealInFinder}
                     onNoteMoveToSelectedFolder={onNoteMoveToSelectedFolder}
                     selectedFolderForNoteMove={selectedFolderForNoteMove}
                     isMovingNote={isMovingNote}
@@ -581,6 +604,7 @@ export function FolderTreeView({
                         onExportMarkdown={onNoteExportMarkdown}
                         onDelete={onNoteDelete}
                         onRevealFolder={onNoteRevealFolder}
+                        onRevealInFinder={onNoteRevealInFinder}
                         onMoveToSelectedFolder={onNoteMoveToSelectedFolder}
                         selectedFolder={selectedFolderForNoteMove}
                         draggable

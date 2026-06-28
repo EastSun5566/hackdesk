@@ -1,5 +1,5 @@
 import { forwardRef, useRef, useState, type ReactNode } from 'react';
-import { AlertCircle, CheckCircle2, Loader2, Monitor, Save, Settings as SettingsIcon, Shield, Zap } from 'lucide-react';
+import { AlertCircle, CheckCircle2, FolderOpen, Loader2, Monitor, RefreshCw, Save, Settings as SettingsIcon, Shield, Trash2, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -16,6 +16,7 @@ import {
 } from '@/components/ThemeAppearanceControls';
 import { useTheme } from '@/components/theme-provider';
 import type { ElectronSafeSettings, UserSummary } from '@/lib/electron-api';
+import type { LocalVaultSnapshot } from '@/lib/local-vault';
 import { getHackDeskAPI } from '@/lib/electron-api';
 import { defaultSettings } from '@/lib/settings';
 import { cn } from '@/lib/utils';
@@ -30,7 +31,7 @@ const SETTINGS_TOKEN_ID = 'settings-hackmd-token';
 const SETTINGS_TOKEN_STATUS_ID = 'settings-hackmd-token-status';
 const SETTINGS_DIALOG_BODY_ID = 'settings-dialog-body';
 
-type SettingsTab = 'general' | 'appearance' | 'hackmd' | 'advanced';
+type SettingsTab = 'general' | 'appearance' | 'vault' | 'hackmd' | 'advanced';
 
 const SETTINGS_TABS: {
   id: SettingsTab;
@@ -40,6 +41,7 @@ const SETTINGS_TABS: {
 }[] = [
   { id: 'general', label: 'General', description: 'Window title and local app defaults.', icon: <SettingsIcon className="h-4 w-4" /> },
   { id: 'appearance', label: 'Appearance', description: 'Theme mode, presets, and color seeds.', icon: <Monitor className="h-4 w-4" /> },
+  { id: 'vault', label: 'Vault', description: 'Manage the local Markdown folder.', icon: <FolderOpen className="h-4 w-4" /> },
   { id: 'hackmd', label: 'HackMD', description: 'API token and connection test.', icon: <Shield className="h-4 w-4" /> },
   { id: 'advanced', label: 'Advanced', description: 'Version, updates, and reset actions.', icon: <Zap className="h-4 w-4" /> },
 ];
@@ -47,8 +49,14 @@ const SETTINGS_TABS: {
 type SettingsDialogProps = {
   open: boolean;
   settings?: ElectronSafeSettings;
+  localVaultError?: string | null;
+  localVaultSnapshot?: LocalVaultSnapshot | null;
   isSaving: boolean;
   onOpenChange: (open: boolean) => void;
+  onChooseLocalVault: () => Promise<void>;
+  onForgetLocalVault: () => Promise<void>;
+  onOpenLocalVault: () => Promise<void>;
+  onRefreshLocalVault: () => Promise<void>;
   onSave: (input: SettingsFormInput) => void;
   onValidateToken: (token: string) => Promise<UserSummary>;
 };
@@ -60,18 +68,17 @@ export function SettingsDialog(props: SettingsDialogProps) {
 function SettingsDialogContent({
   open,
   settings,
+  localVaultError,
+  localVaultSnapshot,
   isSaving,
+  onChooseLocalVault,
+  onForgetLocalVault,
+  onOpenLocalVault,
+  onRefreshLocalVault,
   onOpenChange,
   onSave,
   onValidateToken,
-}: {
-  open: boolean;
-  settings?: ElectronSafeSettings;
-  isSaving: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSave: (input: SettingsFormInput) => void;
-  onValidateToken: (token: string) => Promise<UserSummary>;
-}) {
+}: SettingsDialogProps) {
   const { setAppearance } = useTheme();
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [formState, setFormState] = useState(() => ({
@@ -164,6 +171,18 @@ function SettingsDialogContent({
               />
             ) : null}
 
+            {activeTab === 'vault' ? (
+              <VaultSettingsPanel
+                error={localVaultError}
+                settings={settings}
+                snapshot={localVaultSnapshot}
+                onChooseLocalVault={onChooseLocalVault}
+                onForgetLocalVault={onForgetLocalVault}
+                onOpenLocalVault={onOpenLocalVault}
+                onRefreshLocalVault={onRefreshLocalVault}
+              />
+            ) : null}
+
             {activeTab === 'hackmd' ? (
               <HackmdSettingsPanel
                 hasHackmdApiToken={Boolean(settings?.hasHackmdApiToken)}
@@ -218,7 +237,7 @@ function SettingsTabs({
     <div
       role="tablist"
       aria-label="Settings sections"
-      className="mt-4 grid grid-cols-4 gap-1 rounded-lg bg-background-muted p-1"
+      className="mt-4 grid grid-cols-5 gap-1 rounded-lg bg-background-muted p-1"
     >
       {SETTINGS_TABS.map((tab) => (
         <button
@@ -285,6 +304,167 @@ const AppearanceSettingsPanel = forwardRef<ThemeAppearanceControlsHandle, {
     </SettingsSection>
   );
 });
+
+function formatScannedAt(snapshot?: LocalVaultSnapshot | null) {
+  if (!snapshot?.scannedAtMillis) {
+    return 'Not scanned yet';
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(snapshot.scannedAtMillis));
+}
+
+function VaultSettingsPanel({
+  error,
+  settings,
+  snapshot,
+  onChooseLocalVault,
+  onForgetLocalVault,
+  onOpenLocalVault,
+  onRefreshLocalVault,
+}: {
+  error?: string | null;
+  settings?: ElectronSafeSettings;
+  snapshot?: LocalVaultSnapshot | null;
+  onChooseLocalVault: () => Promise<void>;
+  onForgetLocalVault: () => Promise<void>;
+  onOpenLocalVault: () => Promise<void>;
+  onRefreshLocalVault: () => Promise<void>;
+}) {
+  const [busyAction, setBusyAction] = useState<'choose' | 'forget' | 'open' | 'refresh' | null>(null);
+  const vaultPath = settings?.localVault.path ?? snapshot?.rootPath ?? null;
+  const isConfigured = Boolean(vaultPath);
+
+  const runVaultAction = (action: NonNullable<typeof busyAction>, callback: () => Promise<void>) => {
+    setBusyAction(action);
+    callback()
+      .catch((actionError) => {
+        toast.error(actionError instanceof Error ? actionError.message : 'Local vault action failed.');
+      })
+      .finally(() => setBusyAction(null));
+  };
+
+  return (
+    <div className="space-y-4">
+      <SettingsSection
+        title="Local Vault"
+        description="HackDesk stores local notes as Markdown files in this folder."
+      >
+        <div className="rounded-md border border-border-default bg-background-default p-3">
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase text-text-subtle">Folder</p>
+            <p className="break-all font-mono text-sm text-text-default">
+              {vaultPath ?? 'No local vault configured'}
+            </p>
+          </div>
+          {error ? (
+            <div className="mt-3 flex gap-2 rounded-md border border-destructive-default/30 bg-destructive-soft px-3 py-2 text-sm text-destructive-default">
+              <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="grid gap-2 text-sm sm:grid-cols-3">
+          <VaultStat label="Notes" value={snapshot ? String(snapshot.notes.length) : '—'} />
+          <VaultStat label="Folders" value={snapshot ? String(snapshot.folders.length) : '—'} />
+          <VaultStat label="Last scanned" value={formatScannedAt(snapshot)} />
+        </div>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Actions"
+        description="These actions change HackDesk settings only. They do not delete Markdown files."
+      >
+        <div className="flex flex-wrap gap-2">
+          <SettingsActionButton
+            busy={busyAction === 'open'}
+            disabled={!isConfigured}
+            icon={<FolderOpen className="h-4 w-4" />}
+            onClick={() => runVaultAction('open', onOpenLocalVault)}
+          >
+            Open in Finder
+          </SettingsActionButton>
+          <SettingsActionButton
+            busy={busyAction === 'refresh'}
+            disabled={!isConfigured}
+            icon={<RefreshCw className="h-4 w-4" />}
+            onClick={() => runVaultAction('refresh', onRefreshLocalVault)}
+          >
+            Refresh Vault
+          </SettingsActionButton>
+          <SettingsActionButton
+            busy={busyAction === 'choose'}
+            icon={<FolderOpen className="h-4 w-4" />}
+            onClick={() => runVaultAction('choose', onChooseLocalVault)}
+          >
+            Change Vault
+          </SettingsActionButton>
+          <SettingsActionButton
+            busy={busyAction === 'forget'}
+            destructive
+            disabled={!isConfigured}
+            icon={<Trash2 className="h-4 w-4" />}
+            onClick={() => runVaultAction('forget', onForgetLocalVault)}
+          >
+            Forget Vault
+          </SettingsActionButton>
+        </div>
+      </SettingsSection>
+    </div>
+  );
+}
+
+function VaultStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-md border border-border-default bg-background-default px-3 py-2">
+      <p className="text-xs text-text-subtle">{label}</p>
+      <p className="mt-1 text-sm font-medium text-text-default">{value}</p>
+    </div>
+  );
+}
+
+function SettingsActionButton({
+  busy,
+  children,
+  destructive = false,
+  disabled,
+  icon,
+  onClick,
+}: {
+  busy: boolean;
+  children: ReactNode;
+  destructive?: boolean;
+  disabled?: boolean;
+  icon: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled || busy}
+      onClick={onClick}
+      className={cn(
+        'inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm transition-colors disabled:pointer-events-none disabled:opacity-50',
+        destructive
+          ? 'border-destructive-default text-destructive-default hover:bg-destructive-soft'
+          : 'border-border-default text-text-default hover:bg-element-bg-hover',
+        FOCUS_RING_CLASS,
+      )}
+    >
+      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : icon}
+      {children}
+    </button>
+  );
+}
 
 function HackmdSettingsPanel({
   hasHackmdApiToken,
@@ -511,7 +691,7 @@ function SettingsDialogFooter({
             Save
           </button>
         ) : null}
-        {activeTab === 'advanced' ? (
+        {(activeTab === 'advanced' || activeTab === 'vault') ? (
           <button
             type="button"
             onClick={onClose}

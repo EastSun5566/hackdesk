@@ -23,6 +23,8 @@ import type {
   LocalVaultMoveNoteInput,
   LocalVaultRenameFolderInput,
   LocalVaultRenameNoteInput,
+  LocalVaultRevealFolderInput,
+  LocalVaultRevealNoteInput,
   LocalVaultSnapshot,
   LocalVaultTrashFolderInput,
   LocalVaultTrashNoteInput,
@@ -32,6 +34,8 @@ import { readStoredSettings } from './settings';
 import { writeLog } from './logging';
 
 type TrashItem = (path: string) => Promise<void>;
+type OpenPath = (path: string) => Promise<string>;
+type ShowItemInFolder = (path: string) => void;
 
 type VaultManifest = {
   version: 1;
@@ -236,18 +240,26 @@ export async function getActiveLocalVaultPath() {
   return settings.localVault.path?.trim() || null;
 }
 
+async function assertVaultRootExists(vaultRoot: string) {
+  const itemStat = await stat(vaultRoot);
+  if (!itemStat.isDirectory()) {
+    throw new Error('Configured local vault is not a folder.');
+  }
+}
+
 async function requireActiveLocalVaultPath() {
   const vaultPath = await getActiveLocalVaultPath();
   if (!vaultPath) {
     throw new Error('No local vault is configured.');
   }
 
+  await assertVaultRootExists(vaultPath);
   return vaultPath;
 }
 
 export async function scanLocalVault(vaultRoot: string): Promise<LocalVaultSnapshot> {
   const resolvedRoot = resolve(vaultRoot);
-  await mkdir(resolvedRoot, { recursive: true });
+  await assertVaultRootExists(resolvedRoot);
 
   const manifest = await readManifest(resolvedRoot);
   const files = await scanMarkdownFiles(resolvedRoot);
@@ -269,12 +281,32 @@ export async function scanLocalVault(vaultRoot: string): Promise<LocalVaultSnaps
   return {
     vaultId: manifest.vaultId,
     rootPath: resolvedRoot,
+    scannedAtMillis: Date.now(),
     notes: notes.sort((left, right) => (
       (right.updatedAtMillis ?? 0) - (left.updatedAtMillis ?? 0)
       || left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })
     )),
     folders,
   };
+}
+
+export async function revealLocalVaultRoot(openPath: OpenPath) {
+  const vaultRoot = await requireActiveLocalVaultPath();
+  const error = await openPath(vaultRoot);
+  if (error) {
+    throw new Error(error);
+  }
+}
+
+export async function revealLocalVaultNote(input: LocalVaultRevealNoteInput, showItemInFolder: ShowItemInFolder) {
+  const vaultRoot = await requireActiveLocalVaultPath();
+  const note = await findNoteById(vaultRoot, input.noteId);
+  showItemInFolder(resolveInsideVault(vaultRoot, note.relativePath));
+}
+
+export async function revealLocalVaultFolder(input: LocalVaultRevealFolderInput, showItemInFolder: ShowItemInFolder) {
+  const vaultRoot = await requireActiveLocalVaultPath();
+  showItemInFolder(resolveInsideVault(vaultRoot, input.relativePath));
 }
 
 export async function getActiveLocalVaultSnapshot() {

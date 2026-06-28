@@ -26,6 +26,8 @@ import type {
   LocalVaultMoveNoteInput,
   LocalVaultRenameFolderInput,
   LocalVaultRenameNoteInput,
+  LocalVaultRevealFolderInput,
+  LocalVaultRevealNoteInput,
   LocalVaultTrashFolderInput,
   LocalVaultTrashNoteInput,
   LocalVaultWriteInput,
@@ -102,10 +104,13 @@ const api: HackDeskElectronAPI = {
     renameNote: (input: LocalVaultRenameNoteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultRenameNote, input),
     moveNote: (input: LocalVaultMoveNoteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultMoveNote, input),
     trashNote: (input: LocalVaultTrashNoteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultTrashNote, input),
+    revealNote: (input: LocalVaultRevealNoteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultRevealNote, input),
     createFolder: (input: LocalVaultCreateFolderInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultCreateFolder, input),
     renameFolder: (input: LocalVaultRenameFolderInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultRenameFolder, input),
     moveFolder: (input: LocalVaultMoveFolderInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultMoveFolder, input),
     trashFolder: (input: LocalVaultTrashFolderInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultTrashFolder, input),
+    revealFolder: (input: LocalVaultRevealFolderInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultRevealFolder, input),
+    revealRoot: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultRevealRoot),
     onDidChange: (callback: (event: LocalVaultChangeEvent) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, event: LocalVaultChangeEvent) => {
         callback(event);

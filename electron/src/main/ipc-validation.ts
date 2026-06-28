@@ -71,6 +71,10 @@ export const localVaultTrashNoteInputSchema = z.strictObject({
   noteId: nonEmptyStringSchema,
 });
 
+export const localVaultRevealNoteInputSchema = z.strictObject({
+  noteId: nonEmptyStringSchema,
+});
+
 export const localVaultCreateFolderInputSchema = z.strictObject({
   name: nonEmptyStringSchema,
   parentPath: z.string().nullable().optional(),
@@ -87,6 +91,10 @@ export const localVaultMoveFolderInputSchema = z.strictObject({
 });
 
 export const localVaultTrashFolderInputSchema = z.strictObject({
+  relativePath: nonEmptyStringSchema,
+});
+
+export const localVaultRevealFolderInputSchema = z.strictObject({
   relativePath: nonEmptyStringSchema,
 });
 

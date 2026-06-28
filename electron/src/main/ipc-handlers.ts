@@ -21,6 +21,8 @@ import type {
   LocalVaultMoveNoteInput,
   LocalVaultRenameFolderInput,
   LocalVaultRenameNoteInput,
+  LocalVaultRevealFolderInput,
+  LocalVaultRevealNoteInput,
   LocalVaultTrashFolderInput,
   LocalVaultTrashNoteInput,
   LocalVaultWriteInput,
@@ -62,6 +64,9 @@ import {
   createLocalNote,
   getActiveLocalVaultSnapshot,
   readLocalNote,
+  revealLocalVaultFolder,
+  revealLocalVaultNote,
+  revealLocalVaultRoot,
   renameLocalFolder,
   renameLocalNote,
   moveLocalFolder,
@@ -90,6 +95,8 @@ import {
   localVaultMoveNoteInputSchema,
   localVaultRenameFolderInputSchema,
   localVaultRenameNoteInputSchema,
+  localVaultRevealFolderInputSchema,
+  localVaultRevealNoteInputSchema,
   localVaultTrashFolderInputSchema,
   localVaultTrashNoteInputSchema,
   localVaultWriteInputSchema,
@@ -179,6 +186,12 @@ export function registerIpcHandlers(windowManager: WindowManager) {
       shell.trashItem,
     )
   ));
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultRevealNote, (_event, input: LocalVaultRevealNoteInput) => (
+    revealLocalVaultNote(
+      validateIpcInput(ELECTRON_CHANNELS.localVaultRevealNote, localVaultRevealNoteInputSchema, input),
+      (path) => shell.showItemInFolder(path),
+    )
+  ));
   ipcMain.handle(ELECTRON_CHANNELS.localVaultCreateFolder, (_event, input: LocalVaultCreateFolderInput) => (
     createLocalFolder(validateIpcInput(ELECTRON_CHANNELS.localVaultCreateFolder, localVaultCreateFolderInputSchema, input))
   ));
@@ -193,6 +206,15 @@ export function registerIpcHandlers(windowManager: WindowManager) {
       validateIpcInput(ELECTRON_CHANNELS.localVaultTrashFolder, localVaultTrashFolderInputSchema, input),
       shell.trashItem,
     )
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultRevealFolder, (_event, input: LocalVaultRevealFolderInput) => (
+    revealLocalVaultFolder(
+      validateIpcInput(ELECTRON_CHANNELS.localVaultRevealFolder, localVaultRevealFolderInputSchema, input),
+      (path) => shell.showItemInFolder(path),
+    )
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultRevealRoot, () => (
+    revealLocalVaultRoot((path) => shell.openPath(path))
   ));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdValidateToken, (_event, token: string) => (
     validateToken(validateNonEmptyString(ELECTRON_CHANNELS.hackmdValidateToken, token))

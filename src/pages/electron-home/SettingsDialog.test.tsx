@@ -20,6 +20,10 @@ vi.mock('sonner', () => ({
 
 function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0]> = {}) {
   const onOpenChange = props.onOpenChange ?? vi.fn();
+  const onChooseLocalVault = props.onChooseLocalVault ?? vi.fn(async () => undefined);
+  const onForgetLocalVault = props.onForgetLocalVault ?? vi.fn(async () => undefined);
+  const onOpenLocalVault = props.onOpenLocalVault ?? vi.fn(async () => undefined);
+  const onRefreshLocalVault = props.onRefreshLocalVault ?? vi.fn(async () => undefined);
   const onSave = props.onSave ?? vi.fn();
   const onValidateToken = props.onValidateToken ?? vi.fn();
 
@@ -32,10 +36,16 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
           appearance: defaultSettings.appearance,
           hasHackmdApiToken: false,
           hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+          hasLocalVault: false,
+          localVault: defaultSettings.localVault,
           onboarding: defaultSettings.onboarding,
           shouldShowHackmdOnboarding: true,
         }}
         isSaving={false}
+        onChooseLocalVault={onChooseLocalVault}
+        onForgetLocalVault={onForgetLocalVault}
+        onOpenLocalVault={onOpenLocalVault}
+        onRefreshLocalVault={onRefreshLocalVault}
         onOpenChange={onOpenChange}
         onSave={onSave}
         onValidateToken={onValidateToken}
@@ -44,7 +54,7 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
     </ThemeProvider>,
   );
 
-  return { onOpenChange, onSave, onValidateToken };
+  return { onChooseLocalVault, onForgetLocalVault, onOpenLocalVault, onRefreshLocalVault, onOpenChange, onSave, onValidateToken };
 }
 
 describe('SettingsDialog', () => {
@@ -70,6 +80,10 @@ describe('SettingsDialog', () => {
     expect(screen.getByLabelText('Window Title')).toBeInTheDocument();
     expect(screen.queryByLabelText('API Token')).not.toBeInTheDocument();
     expect(screen.queryByText('Apply Theme')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
+    expect(screen.getByText('No local vault configured')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Window Title')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
     expect(screen.getByLabelText('API Token')).toBeInTheDocument();
@@ -122,5 +136,53 @@ describe('SettingsDialog', () => {
       title: 'Focus Desk',
       hackmdApiToken: 'secret-token',
     });
+  });
+
+  it('shows local vault details and runs vault actions', () => {
+    const {
+      onChooseLocalVault,
+      onForgetLocalVault,
+      onOpenLocalVault,
+      onRefreshLocalVault,
+    } = renderSettingsDialog({
+      settings: {
+        title: 'HackDesk',
+        appearance: defaultSettings.appearance,
+        hasHackmdApiToken: false,
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: true,
+        localVault: { path: '/Users/michael/Notes' },
+        onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: false,
+      },
+      localVaultSnapshot: {
+        vaultId: 'vault-1',
+        rootPath: '/Users/michael/Notes',
+        scannedAtMillis: 1_700_000_000_000,
+        folders: [{ id: 'local-folder:Projects', name: 'Projects', relativePath: 'Projects', parentPath: null, createdAtMillis: 1, updatedAtMillis: 1 }],
+        notes: [
+          { id: 'note-1', title: 'Plan', relativePath: 'Projects/Plan.md', parentPath: 'Projects', createdAtMillis: 1, updatedAtMillis: 1, revision: { contentHash: 'hash', mtimeMs: 1 } },
+          { id: 'note-2', title: 'Daily', relativePath: 'Daily.md', parentPath: null, createdAtMillis: 1, updatedAtMillis: 1, revision: { contentHash: 'hash-2', mtimeMs: 2 } },
+        ],
+      },
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
+
+    expect(screen.getByText('/Users/michael/Notes')).toBeInTheDocument();
+    expect(screen.getByText('Notes')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByText('Folders')).toBeInTheDocument();
+    expect(screen.getByText('1')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open in Finder' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh Vault' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Change Vault' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Forget Vault' }));
+
+    expect(onOpenLocalVault).toHaveBeenCalledOnce();
+    expect(onRefreshLocalVault).toHaveBeenCalledOnce();
+    expect(onChooseLocalVault).toHaveBeenCalledOnce();
+    expect(onForgetLocalVault).toHaveBeenCalledOnce();
   });
 });
