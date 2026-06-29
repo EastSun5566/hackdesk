@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -12,7 +12,11 @@ vi.mock('@/components/MarkdownEditor', async () => {
   const React = await import('react');
 
   return {
-    MarkdownEditor: React.forwardRef((props: { value: string; onChange: (value: string) => void }, ref) => {
+    MarkdownEditor: React.forwardRef((props: {
+      onAttachImage?: (file: File) => Promise<{ link: string }>;
+      onChange: (value: string) => void;
+      value: string;
+    }, ref) => {
       React.useImperativeHandle(ref, () => ({
         focus: vi.fn(),
         getContentDOM: vi.fn(() => null),
@@ -22,11 +26,25 @@ vi.mock('@/components/MarkdownEditor', async () => {
       }));
 
       return (
-        <textarea
-          aria-label="Markdown editor"
-          value={props.value}
-          onChange={(event) => props.onChange(event.target.value)}
-        />
+        <>
+          <textarea
+            aria-label="Markdown editor"
+            value={props.value}
+            onChange={(event) => props.onChange(event.target.value)}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              const file = new File(['image-bytes'], 'pasted.png', { type: 'image/png' });
+              Object.defineProperty(file, 'arrayBuffer', {
+                value: async () => new ArrayBuffer(11),
+              });
+              void props.onAttachImage?.(file);
+            }}
+          >
+            Paste image fixture
+          </button>
+        </>
       );
     }),
   };
@@ -178,6 +196,26 @@ describe('DocumentDetail', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('sends editor image attachments through the document upload action', async () => {
+    const onUploadImage = vi.fn(async () => ({ link: 'attachments/pasted.png' }));
+    const document = documentSummary();
+    renderDocumentDetail({
+      actions: { onUploadImage },
+      documentState: {
+        document,
+      },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Paste image fixture' }));
+
+    await waitFor(() => expect(onUploadImage).toHaveBeenCalledTimes(1));
+    expect(onUploadImage).toHaveBeenCalledWith(document, {
+      bytes: expect.any(ArrayBuffer),
+      fileName: 'pasted.png',
+      mimeType: 'image/png',
+    });
   });
 
   it('offers disk change recovery actions without discarding the draft', () => {

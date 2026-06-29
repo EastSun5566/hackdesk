@@ -75,6 +75,13 @@ export const localVaultRevealNoteInputSchema = z.strictObject({
   noteId: nonEmptyStringSchema,
 });
 
+export const localVaultImportAttachmentInputSchema = z.strictObject({
+  noteId: nonEmptyStringSchema,
+  fileName: nonEmptyStringSchema,
+  mimeType: z.string(),
+  bytes: z.instanceof(ArrayBuffer),
+});
+
 export const localVaultCreateFolderInputSchema = z.strictObject({
   name: nonEmptyStringSchema,
   parentPath: z.string().nullable().optional(),

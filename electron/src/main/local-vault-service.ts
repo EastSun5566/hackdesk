@@ -15,6 +15,8 @@ import { basename, dirname, extname, join, relative, resolve, sep } from 'node:p
 import type {
   LocalDocument,
   LocalFolder,
+  LocalVaultImportAttachmentInput,
+  LocalVaultImportAttachmentResult,
   LocalNoteSummary,
   LocalRevision,
   LocalVaultCreateFolderInput,
@@ -52,6 +54,7 @@ const MANIFEST_DIR = '.hackdesk';
 const MANIFEST_FILE = 'manifest.json';
 const IGNORED_DIRS = new Set([MANIFEST_DIR, '.git', 'node_modules']);
 const MARKDOWN_EXTENSION = '.md';
+const ATTACHMENTS_DIR = 'attachments';
 
 const defaultManifest = (): VaultManifest => ({
   version: 1,
@@ -107,6 +110,23 @@ function sanitizeFileName(input: string) {
     .replace(/\s+/g, ' ')
     .trim();
   return cleaned || 'Untitled';
+}
+
+function splitFileName(fileName: string) {
+  const sanitized = sanitizeFileName(basename(fileName));
+  const extension = extname(sanitized);
+  const stem = extension ? sanitized.slice(0, -extension.length) : sanitized;
+  return {
+    extension,
+    stem: stem || 'attachment',
+  };
+}
+
+function encodeMarkdownLinkPath(relativePath: string) {
+  return relativePath
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
 }
 
 function getTitleFromRelativePath(relativePath: string) {
@@ -364,6 +384,30 @@ async function createUniqueMarkdownPath(vaultRoot: string, parentPath: string | 
   throw new Error('Could not create a unique note file name.');
 }
 
+async function createUniqueAttachmentPath(vaultRoot: string, parentPath: string | null, fileName: string) {
+  const noteDirectory = resolveInsideVault(vaultRoot, parentPath);
+  const attachmentsDirectory = join(noteDirectory, ATTACHMENTS_DIR);
+  await mkdir(attachmentsDirectory, { recursive: true });
+
+  const { extension, stem } = splitFileName(fileName);
+  for (let index = 1; index < 1000; index += 1) {
+    const suffix = index === 1 ? '' : ` ${index}`;
+    const absolutePath = join(attachmentsDirectory, `${stem}${suffix}${extension}`);
+
+    try {
+      await lstat(absolutePath);
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+        return absolutePath;
+      }
+
+      throw error;
+    }
+  }
+
+  throw new Error('Could not create a unique attachment file name.');
+}
+
 export async function createLocalNote(input: LocalVaultCreateNoteInput): Promise<LocalDocument> {
   const vaultRoot = await requireActiveLocalVaultPath();
   const parentPath = normalizeRelativePath(input.parentPath);
@@ -377,6 +421,26 @@ export async function createLocalNote(input: LocalVaultCreateNoteInput): Promise
   }
 
   return readLocalNote(note.id);
+}
+
+export async function importLocalVaultAttachment(
+  input: LocalVaultImportAttachmentInput,
+): Promise<LocalVaultImportAttachmentResult> {
+  const vaultRoot = await requireActiveLocalVaultPath();
+  const note = await findNoteById(vaultRoot, input.noteId);
+  const attachmentPath = await createUniqueAttachmentPath(vaultRoot, note.parentPath, input.fileName);
+  await writeFile(attachmentPath, new Uint8Array(input.bytes));
+
+  const relativePath = toVaultRelativePath(vaultRoot, attachmentPath);
+  const noteFolderPath = note.parentPath ? `${note.parentPath}/` : '';
+  const link = relativePath.startsWith(noteFolderPath)
+    ? relativePath.slice(noteFolderPath.length)
+    : relativePath;
+
+  return {
+    link: encodeMarkdownLinkPath(link),
+    relativePath,
+  };
 }
 
 async function atomicWriteFile(filePath: string, content: string) {

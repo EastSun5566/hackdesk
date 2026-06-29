@@ -1,14 +1,13 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { DocumentSummary, FolderPathSummary, UploadNoteImageResult } from '@/lib/electron-api';
+import type { DocumentSummary, FolderPathSummary } from '@/lib/electron-api';
 import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
 
 import {
   buildMetadataInput,
   cleanTag,
   createInitialInspectorState,
-  escapeAltText,
   getDirtyState,
   getFolderOptions,
   useNoteInspectorForm,
@@ -100,11 +99,9 @@ describe('note inspector form helpers', () => {
     });
   });
 
-  it('cleans tags and image alt text without touching UI state', () => {
+  it('cleans tags without touching UI state', () => {
     expect(cleanTag('  #design  ')).toBe('design');
     expect(cleanTag('   ')).toBe('');
-    expect(escapeAltText('diagram[final].png')).toBe('diagramfinal');
-    expect(escapeAltText('[].png')).toBe('image');
   });
 
   it('creates nested folder labels from the folder tree', () => {
@@ -131,9 +128,7 @@ describe('useNoteInspectorForm', () => {
     const document = documentSummary();
     const actions = {
       onCopyLink: vi.fn(),
-      onInsertMarkdown: vi.fn(),
       onSaveMetadata: vi.fn(),
-      onUploadImage: vi.fn(async () => ({ link: 'https://assets.example/image.png' }) satisfies UploadNoteImageResult),
     };
     const { result } = renderHook(() => useNoteInspectorForm({
       actions,

@@ -22,6 +22,7 @@ import type {
   LocalVaultChangeEvent,
   LocalVaultCreateFolderInput,
   LocalVaultCreateNoteInput,
+  LocalVaultImportAttachmentInput,
   LocalVaultMoveFolderInput,
   LocalVaultMoveNoteInput,
   LocalVaultRenameFolderInput,
@@ -105,6 +106,9 @@ const api: HackDeskElectronAPI = {
     moveNote: (input: LocalVaultMoveNoteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultMoveNote, input),
     trashNote: (input: LocalVaultTrashNoteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultTrashNote, input),
     revealNote: (input: LocalVaultRevealNoteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultRevealNote, input),
+    importAttachment: (input: LocalVaultImportAttachmentInput) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultImportAttachment, input)
+    ),
     createFolder: (input: LocalVaultCreateFolderInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultCreateFolder, input),
     renameFolder: (input: LocalVaultRenameFolderInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultRenameFolder, input),
     moveFolder: (input: LocalVaultMoveFolderInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultMoveFolder, input),

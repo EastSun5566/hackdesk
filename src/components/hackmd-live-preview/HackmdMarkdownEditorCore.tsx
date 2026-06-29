@@ -15,6 +15,7 @@ import {
   keymap,
   rectangularSelection,
 } from '@codemirror/view';
+import { inlineAttachmentExtension } from 'inline-attacher';
 
 import { hackmdCodeLanguages } from './hackmd-code-languages';
 import { hfmBlocks } from './hfm-blocks';
@@ -37,6 +38,7 @@ export type HackmdMarkdownEditorHandle = {
 export type HackmdMarkdownEditorProps = {
   value: string;
   onChange: (value: string) => void;
+  onAttachImage?: (file: File) => Promise<{ link: string }>;
 };
 
 const editorExtensions: Extension[] = [
@@ -80,13 +82,19 @@ const editorExtensions: Extension[] = [
   ...hackmdPreviewTheme,
 ];
 
+function escapeMarkdownAltText(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/\]/g, '\\]');
+}
+
 export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, HackmdMarkdownEditorProps>(
   function HackmdMarkdownEditorCore({
     value,
     onChange,
+    onAttachImage,
   }, ref) {
     const parentRef = useRef<HTMLDivElement | null>(null);
     const viewRef = useRef<EditorView | null>(null);
+    const onAttachImageRef = useRef(onAttachImage);
     const onChangeRef = useRef(onChange);
     const initialValueRef = useRef(value);
     const pendingFocusRef = useRef(false);
@@ -94,6 +102,10 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
     useEffect(() => {
       onChangeRef.current = onChange;
     }, [onChange]);
+
+    useEffect(() => {
+      onAttachImageRef.current = onAttachImage;
+    }, [onAttachImage]);
 
     useImperativeHandle(ref, () => ({
       focus() {
@@ -148,6 +160,32 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
           doc: initialValueRef.current,
           extensions: [
             ...editorExtensions,
+            inlineAttachmentExtension({
+              allowedTypes: ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'],
+              errorText: '![Failed to insert image]()',
+              onFileReceived: (file) => Boolean(onAttachImageRef.current && file.type.startsWith('image/')),
+              progressText: '![Inserting image...]()',
+              responseUrlKey: 'url',
+              uploadHandler: async ({ file }) => {
+                const handler = onAttachImageRef.current;
+                if (!handler) {
+                  throw new Error('Image attachments are unavailable.');
+                }
+
+                const result = await handler(file);
+                return {
+                  alt: file.name,
+                  url: result.link,
+                };
+              },
+              urlText: (url, response) => {
+                const alt = typeof response === 'object' && response && 'alt' in response
+                  ? String((response as { alt?: unknown }).alt ?? 'image')
+                  : 'image';
+
+                return `![${escapeMarkdownAltText(alt)}](${url})`;
+              },
+            }),
             EditorView.updateListener.of((update) => {
               if (update.docChanged) {
                 onChangeRef.current(update.state.doc.toString());

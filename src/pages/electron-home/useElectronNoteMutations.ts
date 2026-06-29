@@ -495,12 +495,20 @@ export function useElectronNoteMutations({
       }
 
       if (scope.type === 'local' || note.teamPath === LOCAL_VAULT_TEAM_PATH) {
-        throw new Error('Image upload is only available for HackMD notes.');
+        return api.localVault.importAttachment({
+          noteId: note.id,
+          ...input,
+        });
       }
 
       return api.hackmd.uploadNoteImage(note.id, input);
     },
     onSuccess: (_uploadedImage, { note }) => {
+      if (scope.type === 'local' || note.teamPath === LOCAL_VAULT_TEAM_PATH) {
+        void queryClient.invalidateQueries({ queryKey: getLocalVaultSnapshotQueryKey() });
+        return;
+      }
+
       void queryClient.invalidateQueries({
         queryKey: ['electron', 'hackmd', 'note', note.teamPath ?? null, note.id],
       });

@@ -1,8 +1,8 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
-import type { DocumentSummary, UploadNoteImageResult } from '@/lib/electron-api';
+import type { DocumentSummary } from '@/lib/electron-api';
 import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
 
 import { NoteInspector } from './NoteInspector';
@@ -38,9 +38,7 @@ function renderNoteInspector(overrides: Partial<Parameters<typeof NoteInspector>
   const props: Parameters<typeof NoteInspector>[0] = {
     actions: {
       onCopyLink: vi.fn(),
-      onInsertMarkdown: vi.fn(),
       onSaveMetadata: vi.fn(),
-      onUploadImage: vi.fn(async () => ({ link: 'https://assets.example/image.png' }) satisfies UploadNoteImageResult),
     },
     document,
     folderTree: buildHackmdFolderTree([], [
@@ -48,7 +46,6 @@ function renderNoteInspector(overrides: Partial<Parameters<typeof NoteInspector>
     ]),
     status: {
       saving: false,
-      uploading: false,
     },
   };
   const mergedProps = {
@@ -145,34 +142,11 @@ describe('NoteInspector', () => {
     expect(screen.getAllByText('Saving…')).toHaveLength(2);
   });
 
-  it('keeps image upload and insert markdown behavior wired', async () => {
-    const onInsertMarkdown = vi.fn();
-    const onUploadImage = vi.fn(async () => ({ link: 'https://assets.example/image.png' }) satisfies UploadNoteImageResult);
-    const { document } = renderNoteInspector({
-      actions: {
-        onInsertMarkdown,
-        onUploadImage,
-      },
-    });
-    const file = new File(['image-bytes'], 'diagram.png', { type: 'image/png' });
-    Object.defineProperty(file, 'arrayBuffer', {
-      value: vi.fn(async () => new ArrayBuffer(11)),
-    });
+  it('does not render the legacy image upload section', () => {
+    renderNoteInspector();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Images' }));
-    fireEvent.change(screen.getByLabelText('Upload Image'), { target: { files: [file] } });
-
-    await waitFor(() => {
-      expect(screen.getByText('diagram.png')).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Upload and insert' }));
-
-    await waitFor(() => {
-      expect(onUploadImage).toHaveBeenCalledWith(document, expect.objectContaining({
-        fileName: 'diagram.png',
-        mimeType: 'image/png',
-      }));
-    });
-    expect(onInsertMarkdown).toHaveBeenCalledWith('\n![diagram](https://assets.example/image.png)\n');
+    expect(screen.queryByRole('button', { name: 'Images' })).toBeNull();
+    expect(screen.queryByLabelText('Upload Image')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Insert image' })).toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-import { ChevronDown, ImagePlus, Loader2, X } from 'lucide-react';
+import { ChevronDown, Loader2, X } from 'lucide-react';
 import type { Dispatch, ReactNode, SelectHTMLAttributes } from 'react';
 
 import type { NotePermissionRole } from '@/lib/electron-api';
@@ -8,7 +8,6 @@ import { CollapsibleSection } from './interaction-primitives';
 import {
   FOCUS_RING_CLASS,
   PRIMARY_BUTTON_CLASS,
-  SECONDARY_BUTTON_CLASS,
   TEXT_INPUT_CLASS,
 } from './ui';
 import type {
@@ -31,10 +30,6 @@ export type LocationSectionIds = {
 export type PermissionsSectionIds = {
   readPermissionId: string;
   writePermissionId: string;
-};
-
-export type ImagesSectionIds = {
-  imageId: string;
 };
 
 const INSPECTOR_INPUT_CLASS = cn(
@@ -367,68 +362,5 @@ export function MetadataSubmitButton({
         <span>{saving ? 'Saving…' : 'Save changes'}</span>
       </button>
     </div>
-  );
-}
-
-export function ImagesSection({
-  dispatch,
-  ids,
-  imageFile,
-  uploading,
-}: {
-  dispatch: Dispatch<InspectorFormAction>;
-  ids: ImagesSectionIds;
-  imageFile: File | null;
-  uploading: boolean;
-}) {
-  return (
-    <CollapsibleSection
-      title="Images"
-      dirty={Boolean(imageFile)}
-      defaultOpen={false}
-      className={INSPECTOR_SECTION_CLASS}
-      contentClassName={INSPECTOR_SECTION_CONTENT_CLASS}
-    >
-      <fieldset className="space-y-1.5">
-        <legend className="sr-only">Images</legend>
-        <span className={INSPECTOR_LABEL_CLASS}>Upload image</span>
-        <input
-          id={ids.imageId}
-          name="image"
-          aria-label="Upload Image"
-          type="file"
-          accept="image/*"
-          onChange={(event) => dispatch({ type: 'set-image-file', value: event.target.files?.[0] ?? null })}
-          className="peer sr-only"
-        />
-        <label
-          htmlFor={ids.imageId}
-          className={cn(
-            'flex min-h-11 cursor-pointer items-center gap-2.5 rounded-md border border-border-default bg-background-default px-2.5 text-sm hover:bg-element-bg-hover',
-            'peer-focus-visible:ring-2 peer-focus-visible:ring-primary-default',
-          )}
-        >
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-background-muted text-text-subtle">
-            <ImagePlus aria-hidden="true" className="size-4" />
-          </span>
-          <span className="min-w-0 flex-1 truncate text-text-default">
-            {imageFile ? imageFile.name : 'Choose an image'}
-          </span>
-          <span className="shrink-0 text-xs text-text-subtle">Browse</span>
-        </label>
-      </fieldset>
-      <button
-        type="submit"
-        disabled={!imageFile || uploading}
-        className={cn(SECONDARY_BUTTON_CLASS, 'w-full justify-center')}
-      >
-        {uploading ? (
-          <Loader2 aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />
-        ) : (
-          <ImagePlus aria-hidden="true" className="size-4" />
-        )}
-        <span>{uploading ? 'Uploading…' : 'Upload and insert'}</span>
-      </button>
-    </CollapsibleSection>
   );
 }

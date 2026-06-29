@@ -17,6 +17,7 @@ import type {
 import type {
   LocalVaultCreateFolderInput,
   LocalVaultCreateNoteInput,
+  LocalVaultImportAttachmentInput,
   LocalVaultMoveFolderInput,
   LocalVaultMoveNoteInput,
   LocalVaultRenameFolderInput,
@@ -63,6 +64,7 @@ import {
   createLocalFolder,
   createLocalNote,
   getActiveLocalVaultSnapshot,
+  importLocalVaultAttachment,
   readLocalNote,
   revealLocalVaultFolder,
   revealLocalVaultNote,
@@ -91,6 +93,7 @@ import {
   folderOrderSchema,
   localVaultCreateFolderInputSchema,
   localVaultCreateNoteInputSchema,
+  localVaultImportAttachmentInputSchema,
   localVaultMoveFolderInputSchema,
   localVaultMoveNoteInputSchema,
   localVaultRenameFolderInputSchema,
@@ -190,6 +193,11 @@ export function registerIpcHandlers(windowManager: WindowManager) {
     revealLocalVaultNote(
       validateIpcInput(ELECTRON_CHANNELS.localVaultRevealNote, localVaultRevealNoteInputSchema, input),
       (path) => shell.showItemInFolder(path),
+    )
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultImportAttachment, (_event, input: LocalVaultImportAttachmentInput) => (
+    importLocalVaultAttachment(
+      validateIpcInput(ELECTRON_CHANNELS.localVaultImportAttachment, localVaultImportAttachmentInputSchema, input),
     )
   ));
   ipcMain.handle(ELECTRON_CHANNELS.localVaultCreateFolder, (_event, input: LocalVaultCreateFolderInput) => (

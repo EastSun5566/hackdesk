@@ -72,6 +72,18 @@ export type LocalVaultRevealNoteInput = {
   noteId: string;
 };
 
+export type LocalVaultImportAttachmentInput = {
+  noteId: string;
+  fileName: string;
+  mimeType: string;
+  bytes: ArrayBuffer;
+};
+
+export type LocalVaultImportAttachmentResult = {
+  link: string;
+  relativePath: string;
+};
+
 export type LocalVaultCreateFolderInput = {
   name: string;
   parentPath?: string | null;

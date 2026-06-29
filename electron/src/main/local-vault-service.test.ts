@@ -16,6 +16,7 @@ vi.mock('electron', () => ({
 import { getSettingsPath } from './paths';
 import {
   createLocalNote,
+  importLocalVaultAttachment,
   readLocalNote,
   revealLocalVaultFolder,
   revealLocalVaultNote,
@@ -125,6 +126,35 @@ describe('LocalVaultService', () => {
     expect(showItemInFolder).toHaveBeenCalledWith(join(vaultPath, note.relativePath));
     expect(showItemInFolder).toHaveBeenCalledWith(join(vaultPath, 'Projects'));
     await expect(revealLocalVaultFolder({ relativePath: '../outside' }, showItemInFolder)).rejects.toThrow('outside the local vault');
+  });
+
+  it('imports attachments beside the note and returns an encoded relative link', async () => {
+    await mkdir(join(vaultPath, 'Projects'), { recursive: true });
+    const note = await createLocalNote({ title: 'With image', parentPath: 'Projects', content: 'hello' });
+
+    const first = await importLocalVaultAttachment({
+      noteId: note.id,
+      fileName: 'My Diagram.png',
+      mimeType: 'image/png',
+      bytes: new TextEncoder().encode('image-one').buffer,
+    });
+    const second = await importLocalVaultAttachment({
+      noteId: note.id,
+      fileName: 'My Diagram.png',
+      mimeType: 'image/png',
+      bytes: new TextEncoder().encode('image-two').buffer,
+    });
+
+    expect(first).toEqual({
+      link: 'attachments/My%20Diagram.png',
+      relativePath: 'Projects/attachments/My Diagram.png',
+    });
+    expect(second).toEqual({
+      link: 'attachments/My%20Diagram%202.png',
+      relativePath: 'Projects/attachments/My Diagram 2.png',
+    });
+    await expect(readFile(join(vaultPath, first.relativePath), 'utf8')).resolves.toBe('image-one');
+    await expect(readFile(join(vaultPath, second.relativePath), 'utf8')).resolves.toBe('image-two');
   });
 
   it('does not recreate a missing configured vault path', async () => {

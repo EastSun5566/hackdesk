@@ -5,8 +5,6 @@ import type {
   DocumentSummary,
   NotePermissionRole,
   UpdateNoteInput,
-  UploadNoteImageInput,
-  UploadNoteImageResult,
 } from '@/lib/electron-api';
 import type { FolderTree, FolderTreeNode } from '@/lib/hackmd-folders';
 
@@ -19,7 +17,6 @@ export type FolderOption = {
 
 export type InspectorFormState = {
   description: string;
-  imageFile: File | null;
   parentFolderId: string;
   permalink: string;
   readPermission: NotePermissionRole;
@@ -30,7 +27,6 @@ export type InspectorFormState = {
 
 export type InspectorFormAction =
   | { type: 'set-description'; value: string }
-  | { type: 'set-image-file'; value: File | null }
   | { type: 'set-parent-folder-id'; value: string }
   | { type: 'set-permalink'; value: string }
   | { type: 'set-read-permission'; value: NotePermissionRole }
@@ -40,14 +36,11 @@ export type InspectorFormAction =
 
 export type NoteInspectorStatus = {
   saving: boolean;
-  uploading: boolean;
 };
 
 export type NoteInspectorActions = {
   onCopyLink: (document: DocumentSummary) => void;
-  onInsertMarkdown: (markdown: string) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
-  onUploadImage: (document: DocumentSummary, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
 };
 
 export type InspectorDirtyState = {
@@ -87,14 +80,9 @@ export function getFolderOptions(tree: FolderTree) {
   return options;
 }
 
-export function escapeAltText(value: string) {
-  return value.replace(/\.[^.]+$/, '').replace(/[[\]]/g, '').trim() || 'image';
-}
-
 export function createInitialInspectorState(document: DocumentSummary): InspectorFormState {
   return {
     description: document.description,
-    imageFile: null,
     parentFolderId: getDocumentFolderId(document),
     permalink: document.permalink ?? '',
     readPermission: document.readPermission,
@@ -108,8 +96,6 @@ export function inspectorFormReducer(state: InspectorFormState, action: Inspecto
   switch (action.type) {
   case 'set-description':
     return { ...state, description: action.value };
-  case 'set-image-file':
-    return { ...state, imageFile: action.value };
   case 'set-parent-folder-id':
     return { ...state, parentFolderId: action.value };
   case 'set-permalink':
@@ -212,28 +198,6 @@ export function useNoteInspectorForm({
     actions.onSaveMetadata(document, buildMetadataInput(state, document));
   };
 
-  const submitImageUpload = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!state.imageFile) {
-      return;
-    }
-
-    try {
-      const bytes = await state.imageFile.arrayBuffer();
-      const result = await actions.onUploadImage(document, {
-        fileName: state.imageFile.name,
-        mimeType: state.imageFile.type || 'application/octet-stream',
-        bytes,
-      });
-
-      actions.onInsertMarkdown(`\n![${escapeAltText(state.imageFile.name)}](${result.link})\n`);
-      dispatch({ type: 'set-image-file', value: null });
-      toast.success('Image uploaded.');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to upload image.');
-    }
-  };
-
   return {
     actions: {
       addTag,
@@ -244,7 +208,6 @@ export function useNoteInspectorForm({
     folderOptions,
     state,
     submit: {
-      imageUpload: submitImageUpload,
       metadata: submitMetadata,
     },
   };

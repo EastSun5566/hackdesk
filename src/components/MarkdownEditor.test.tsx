@@ -68,6 +68,64 @@ describe('MarkdownEditor', () => {
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe('# Second'));
   });
 
+  it('inserts pasted image attachments through the editor attachment handler', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const onAttachImage = vi.fn(async () => ({ link: 'https://assets.example/pasted.png' }));
+    const onChange = vi.fn();
+
+    render(
+      <MarkdownEditor
+        ref={ref}
+        value=""
+        onAttachImage={onAttachImage}
+        onChange={onChange}
+      />,
+    );
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const content = editor.querySelector('.cm-content');
+    const file = new File(['image-bytes'], 'pasted.png', { type: 'image/png' });
+
+    expect(content).not.toBeNull();
+    fireEvent.paste(content as Element, {
+      clipboardData: {
+        files: [file],
+        getData: () => '',
+      },
+    });
+
+    await waitFor(() => expect(onAttachImage).toHaveBeenCalledWith(file));
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe('![pasted.png](https://assets.example/pasted.png)'));
+    expect(onChange).toHaveBeenLastCalledWith('![pasted.png](https://assets.example/pasted.png)');
+  });
+
+  it('does not attach non-image pasted files', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const onAttachImage = vi.fn(async () => ({ link: 'https://assets.example/file.txt' }));
+
+    render(
+      <MarkdownEditor
+        ref={ref}
+        value=""
+        onAttachImage={onAttachImage}
+        onChange={vi.fn()}
+      />,
+    );
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const content = editor.querySelector('.cm-content');
+    const file = new File(['hello'], 'notes.txt', { type: 'text/plain' });
+
+    expect(content).not.toBeNull();
+    fireEvent.paste(content as Element, {
+      clipboardData: {
+        files: [file],
+        getData: () => '',
+      },
+    });
+
+    expect(onAttachImage).not.toHaveBeenCalled();
+    expect(ref.current?.getMarkdown()).toBe('');
+  });
+
   it('opens CodeMirror search through the imperative handle', async () => {
     const ref = createRef<MarkdownEditorHandle>();
 

@@ -132,6 +132,7 @@
     "electron-updater": "^6.8.9",
     "fuse.js": "^7.1.0",
     "gemoji": "^8.1.0",
+    "inline-attacher": "^0.1.1",
     "lucide-react": "^1.17.0",
     "mathjax-full": "^3.2.2",
     "papaparse": "^5.5.4",

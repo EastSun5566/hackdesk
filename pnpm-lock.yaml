@@ -92,6 +92,9 @@ importers:
       gemoji:
         specifier: ^8.1.0
         version: 8.1.0
+      inline-attacher:
+        specifier: ^0.1.1
+        version: 0.1.1(@codemirror/view@6.43.1)
       lucide-react:
         specifier: ^1.17.0
         version: 1.21.0(react@18.3.1)
@@ -3246,6 +3249,12 @@ packages:
 
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
+
+  inline-attacher@0.1.1:
+    resolution: {integrity: sha512-1pV+vlLBpb8GipVxmSzkc1xcE9xLrR5HVXu7PmiWV4Gx4rBF92pbtWLcPWNCxnZ/+qyHG+o8AhUcxXRc3/6iCw==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@codemirror/view': '>=6.0.0'
 
   is-fullwidth-code-point@3.0.0:
     resolution: {integrity: sha512-zymm5+u+sCsSWyD9qNaejV3DFvhCKclKdizYaJUuHA83RLjb7nSuGnddCHGv0hk+KY7BMAlsWeK4Ueg6EV6XQg==}
@@ -7501,6 +7510,10 @@ snapshots:
       wrappy: 1.0.2
 
   inherits@2.0.4: {}
+
+  inline-attacher@0.1.1(@codemirror/view@6.43.1):
+    dependencies:
+      '@codemirror/view': 6.43.1
 
   is-fullwidth-code-point@3.0.0: {}
 

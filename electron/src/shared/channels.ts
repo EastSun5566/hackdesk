@@ -12,6 +12,7 @@ export const ELECTRON_CHANNELS = {
   localVaultMoveNote: 'local-vault:move-note',
   localVaultTrashNote: 'local-vault:trash-note',
   localVaultRevealNote: 'local-vault:reveal-note',
+  localVaultImportAttachment: 'local-vault:import-attachment',
   localVaultCreateFolder: 'local-vault:create-folder',
   localVaultRenameFolder: 'local-vault:rename-folder',
   localVaultMoveFolder: 'local-vault:move-folder',

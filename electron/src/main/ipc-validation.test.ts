@@ -8,6 +8,7 @@ import {
   createFolderInputSchema,
   createNoteInputSchema,
   folderOrderSchema,
+  localVaultImportAttachmentInputSchema,
   openHackmdEditorInputSchema,
   saveTextFileInputSchema,
   settingsUpdateSchema,
@@ -80,6 +81,13 @@ describe('IPC runtime validation', () => {
       bytes: new ArrayBuffer(4),
     })).toMatchObject({ fileName: 'diagram.png' });
 
+    expect(validateIpcInput('local-vault:import-attachment', localVaultImportAttachmentInputSchema, {
+      noteId: 'note-1',
+      fileName: 'diagram.png',
+      mimeType: 'image/png',
+      bytes: new ArrayBuffer(4),
+    })).toMatchObject({ noteId: 'note-1', fileName: 'diagram.png' });
+
     expect(validateIpcInput('app:set-theme-surface', themeSurfaceInputSchema, {
       mode: 'dark',
       background: '#27272A',
@@ -99,6 +107,13 @@ describe('IPC runtime validation', () => {
     })).toThrow(/Too small/);
 
     expect(() => validateIpcInput('hackmd:upload-note-image', uploadNoteImageInputSchema, {
+      fileName: 'diagram.png',
+      mimeType: 'image/png',
+      bytes: [1, 2, 3],
+    })).toThrow(/expected ArrayBuffer/);
+
+    expect(() => validateIpcInput('local-vault:import-attachment', localVaultImportAttachmentInputSchema, {
+      noteId: 'note-1',
       fileName: 'diagram.png',
       mimeType: 'image/png',
       bytes: [1, 2, 3],

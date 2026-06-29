@@ -7,7 +7,6 @@ import type {
 import type { FolderTree } from '@/lib/hackmd-folders';
 
 import {
-  ImagesSection,
   LocationSection,
   MetadataSection,
   MetadataSubmitButton,
@@ -44,9 +43,6 @@ function NoteInspectorPanel({
   const permissionsIds = {
     readPermissionId: useId(),
     writePermissionId: useId(),
-  };
-  const imagesIds = {
-    imageId: useId(),
   };
   const inspector = useNoteInspectorForm({ actions, document, folderTree });
 
@@ -91,14 +87,6 @@ function NoteInspectorPanel({
           />
         </form>
 
-        <form onSubmit={inspector.submit.imageUpload}>
-          <ImagesSection
-            dispatch={inspector.dispatch}
-            ids={imagesIds}
-            imageFile={inspector.state.imageFile}
-            uploading={status.uploading}
-          />
-        </form>
       </div>
     </aside>
   );

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import {
   AlertCircle,
   CheckCircle2,
@@ -321,14 +322,14 @@ function ActiveDocumentDetail({
       <div className="flex min-h-0 flex-1">
         <DocumentBody
           content={documentState.content}
+          document={documentState.document}
+          onAttachImage={actions.onUploadImage}
           onContentChange={actions.onContentChange}
           setEditorRef={setEditorRef}
         />
         <InspectorPanel
           actions={actions}
-          content={documentState.content}
           document={documentState.document}
-          editorRef={editorRef}
           folderTree={folderTree}
           inspectorCollapsed={layout.inspectorCollapsed}
           inspectorPanelId={inspectorPanelId}
@@ -561,23 +562,45 @@ function DocumentActionsMenu({
 
 function DocumentBody({
   content,
+  document,
+  onAttachImage,
   onContentChange,
   setEditorRef,
 }: {
   content: string;
+  document: DocumentSummary;
+  onAttachImage: (document: DocumentSummary, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
   onContentChange: (content: string) => void;
   setEditorRef: (handle: MarkdownEditorHandle | null) => void;
 }) {
+  const handleAttachImage = useCallback(async (file: File) => {
+    const bytes = await file.arrayBuffer();
+
+    try {
+      return await onAttachImage(document, {
+        bytes,
+        fileName: file.name || 'image',
+        mimeType: file.type || 'application/octet-stream',
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to insert image.');
+      throw error;
+    }
+  }, [document, onAttachImage]);
+
   return (
-    <MarkdownEditor ref={setEditorRef} value={content} onChange={onContentChange} />
+    <MarkdownEditor
+      ref={setEditorRef}
+      value={content}
+      onAttachImage={handleAttachImage}
+      onChange={onContentChange}
+    />
   );
 }
 
 function InspectorPanel({
   actions,
-  content,
   document,
-  editorRef,
   folderTree,
   inspectorCollapsed,
   inspectorPanelId,
@@ -585,9 +608,7 @@ function InspectorPanel({
   status,
 }: {
   actions: DocumentDetailActions;
-  content: string;
   document: DocumentSummary;
-  editorRef: React.MutableRefObject<MarkdownEditorHandle | null>;
   folderTree: FolderTree;
   inspectorCollapsed: boolean;
   inspectorPanelId: string;
@@ -614,20 +635,10 @@ function InspectorPanel({
           folderTree={folderTree}
           status={{
             saving: status.savingMetadata,
-            uploading: status.uploadingImage,
           }}
           actions={{
             onSaveMetadata: actions.onSaveMetadata,
-            onUploadImage: actions.onUploadImage,
             onCopyLink: actions.onCopyLink,
-            onInsertMarkdown: (markdown) => {
-              if (editorRef.current) {
-                editorRef.current.insertText(markdown);
-                return;
-              }
-
-              actions.onContentChange(`${content}${markdown}`);
-            },
           }}
         />
       )}

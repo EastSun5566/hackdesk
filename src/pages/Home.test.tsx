@@ -247,6 +247,7 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       moveNote: vi.fn(),
       trashNote: vi.fn(),
       revealNote: vi.fn(async () => undefined),
+      importAttachment: vi.fn(async () => ({ link: 'attachments/image.png', relativePath: 'attachments/image.png' })),
       createFolder: vi.fn(),
       renameFolder: vi.fn(),
       moveFolder: vi.fn(),
@@ -2274,7 +2275,7 @@ describe('Home native-feel behavior', () => {
     }));
   });
 
-  it('uploads an image and inserts the markdown image into the editor content', async () => {
+  it('pastes an image into the editor draft and saves the inserted markdown image', async () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
@@ -2288,15 +2289,19 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findRenderedNoteTitle();
-    await openInspector();
-
-    await expandInspectorSection('Images');
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const content = editor.querySelector('.cm-content');
     const file = new File(['image-bytes'], 'diagram.png', { type: 'image/png' });
     Object.defineProperty(file, 'arrayBuffer', {
       value: vi.fn(async () => new Uint8Array([1, 2, 3]).buffer),
     });
-    fireEvent.change(screen.getByLabelText('Upload Image'), { target: { files: [file] } });
-    fireEvent.click(screen.getByRole('button', { name: 'Upload and insert' }));
+    expect(content).not.toBeNull();
+    fireEvent.paste(content as Element, {
+      clipboardData: {
+        files: [file],
+        getData: () => '',
+      },
+    });
 
     await waitFor(() => expect(api.hackmd.uploadNoteImage).toHaveBeenCalledWith('note-1', expect.objectContaining({
       fileName: 'diagram.png',
@@ -2306,44 +2311,7 @@ describe('Home native-feel behavior', () => {
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
       title: 'Test note',
-      content: expect.stringContaining('![diagram](https://cdn.test/diagram.png)'),
-    }));
-  });
-
-  it('uploads an image from the single editor surface and appends the markdown image to the draft', async () => {
-    const api = createApi({
-      hackmd: {
-        ...createApi().hackmd,
-        uploadNoteImage: vi.fn(async () => ({ link: 'https://cdn.test/reader.png' })),
-        updateNote: vi.fn(async (_noteId, input) => ({
-          ...document,
-          title: input.title ?? document.title,
-          content: input.content ?? document.content,
-        })),
-      },
-    });
-
-    renderHome(api);
-    await findRenderedNoteTitle();
-    await openInspector();
-
-    await expandInspectorSection('Images');
-    const file = new File(['image-bytes'], 'reader.png', { type: 'image/png' });
-    Object.defineProperty(file, 'arrayBuffer', {
-      value: vi.fn(async () => new Uint8Array([1, 2, 3]).buffer),
-    });
-    fireEvent.change(screen.getByLabelText('Upload Image'), { target: { files: [file] } });
-    fireEvent.click(screen.getByRole('button', { name: 'Upload and insert' }));
-
-    await waitFor(() => expect(api.hackmd.uploadNoteImage).toHaveBeenCalledWith('note-1', expect.objectContaining({
-      fileName: 'reader.png',
-      mimeType: 'image/png',
-    })));
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
-    await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
-      title: 'Test note',
-      content: expect.stringContaining('![reader](https://cdn.test/reader.png)'),
+      content: expect.stringContaining('![diagram.png](https://cdn.test/diagram.png)'),
     }));
   });
 
