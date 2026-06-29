@@ -20,13 +20,17 @@ function renderOnboarding(overrides: Partial<Parameters<typeof HackmdOnboardingD
   const props: Parameters<typeof HackmdOnboardingDialog>[0] = {
     open: true,
     hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+    onChooseLocalVault: vi.fn(async () => undefined),
     onImportHackmdCliToken: vi.fn(async () => ({
       settings: {
         title: 'HackDesk',
         appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
         hasHackmdApiToken: true,
         hasAppearanceSettings: true,
         hackmdCliConfig: { hasAccessToken: true, hasCustomEndpoint: false },
+        hasLocalVault: false,
+        localVault: defaultSettings.localVault,
         onboarding: { hackmdTokenSetupDeferred: false },
         shouldShowHackmdOnboarding: false,
       },
@@ -63,7 +67,7 @@ describe('HackmdOnboardingDialog', () => {
   it('validates a token before saving it', async () => {
     const props = renderOnboarding();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Get started' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Connect HackMD instead' }));
     fireEvent.change(screen.getByLabelText('HackMD API Token'), {
       target: { value: ' pasted-token ' },
     });
@@ -84,7 +88,7 @@ describe('HackmdOnboardingDialog', () => {
       }),
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Get started' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Connect HackMD instead' }));
     fireEvent.change(screen.getByLabelText('HackMD API Token'), {
       target: { value: 'bad-token' },
     });
@@ -97,7 +101,7 @@ describe('HackmdOnboardingDialog', () => {
   it('opens HackMD settings from the token step', () => {
     const props = renderOnboarding();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Get started' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Connect HackMD instead' }));
     fireEvent.click(screen.getByRole('button', { name: 'Open HackMD settings' }));
 
     expect(props.onOpenHackmdSettings).toHaveBeenCalledOnce();

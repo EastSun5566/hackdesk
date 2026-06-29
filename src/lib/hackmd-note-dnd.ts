@@ -1,6 +1,5 @@
-import type { FolderTreeNote } from './hackmd-folders';
 import { ROOT_FOLDER_DROP_ID } from './hackmd-folder-dnd';
-import { UNFILED_FOLDER_ID, type FolderTree } from './hackmd-folders';
+import { UNFILED_FOLDER_ID, type FolderTree, type FolderTreeNote } from './hackmd-folders';
 
 const NOTE_DRAG_ID_PREFIX = 'note:';
 

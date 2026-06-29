@@ -195,7 +195,7 @@ export function Settings() {
   };
 
   const closeWindow = useCallback(() => {
-    getCurrentWebviewWindow().close();
+    void getCurrentWebviewWindow().close();
   }, []);
 
   useEscapeKey(closeWindow);
@@ -227,7 +227,12 @@ export function Settings() {
 
       <main className="flex-1 overflow-auto">
         <div className="mx-auto max-w-2xl p-8">
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          <form
+            onSubmit={(event) => {
+              void form.handleSubmit(onSubmit)(event);
+            }}
+            className="space-y-8"
+          >
 
             {activeTab === 'general' && (
               <div className="space-y-6">

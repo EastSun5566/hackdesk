@@ -1,6 +1,8 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [],
+  "plugins": [
+    "import"
+  ],
   "jsPlugins": [
     {
       "name": "react-doctor",
@@ -9,6 +11,10 @@
   ],
   "categories": {
     "correctness": "off"
+  },
+  "options": {
+    "reportUnusedDisableDirectives": "error",
+    "typeAware": true
   },
   "env": {
     "builtin": true
@@ -27,6 +33,9 @@
     "constructor-super": "error",
     "for-direction": "error",
     "getter-return": "error",
+    "import/no-cycle": "error",
+    "import/no-duplicates": "error",
+    "import/no-self-import": "error",
     "no-async-promise-executor": "error",
     "no-case-declarations": "error",
     "no-class-assign": "error",
@@ -128,7 +137,9 @@
         "typescript/no-empty-object-type": "error",
         "typescript/no-explicit-any": "error",
         "typescript/no-extra-non-null-assertion": "error",
+        "typescript/no-floating-promises": "error",
         "typescript/no-misused-new": "error",
+        "typescript/no-misused-promises": "error",
         "typescript/no-namespace": "error",
         "typescript/no-non-null-asserted-optional-chain": "error",
         "typescript/no-require-imports": "error",

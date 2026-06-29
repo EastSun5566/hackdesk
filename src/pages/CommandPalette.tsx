@@ -689,13 +689,13 @@ export function CommandPalette() {
       });
       return;
     case 'back':
-      invoke(Cmd.EXECUTE_ACTION, { action: { type: 'GoBack' } });
+      void invoke(Cmd.EXECUTE_ACTION, { action: { type: 'GoBack' } });
       break;
     case 'forward':
-      invoke(Cmd.EXECUTE_ACTION, { action: { type: 'GoForward' } });
+      void invoke(Cmd.EXECUTE_ACTION, { action: { type: 'GoForward' } });
       break;
     case 'reload':
-      invoke(Cmd.EXECUTE_ACTION, { action: { type: 'Reload' } });
+      void invoke(Cmd.EXECUTE_ACTION, { action: { type: 'Reload' } });
       break;
     case OPEN_LOCAL_SETTINGS_VALUE:
       void openLocalSettings();
