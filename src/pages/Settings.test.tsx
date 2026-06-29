@@ -21,7 +21,7 @@ const {
   toastSuccessMock: vi.fn(),
 }));
 
-vi.mock('sonner', () => ({
+vi.mock('@/components/ui/toast', () => ({
   toast: {
     error: vi.fn(),
     info: vi.fn(),

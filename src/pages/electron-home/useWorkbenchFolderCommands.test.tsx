@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/toast';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FolderSummary, HackDeskElectronAPI } from '@/lib/electron-api';
@@ -8,7 +8,7 @@ import { buildHackmdFolderTree, UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import type { WorkbenchFolderCommandsOptions } from './useWorkbenchFolderCommands';
 import { useWorkbenchFolderCommands } from './useWorkbenchFolderCommands';
 
-vi.mock('sonner', () => ({
+vi.mock('@/components/ui/toast', () => ({
   toast: {
     error: vi.fn(),
     info: vi.fn(),

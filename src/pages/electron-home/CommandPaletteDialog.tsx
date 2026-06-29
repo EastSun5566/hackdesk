@@ -162,7 +162,7 @@ export function CommandPaletteDialog({
       open={state.open}
       onOpenChange={(open) => onStateChange(open ? { ...state, open } : { open: false, search: '' })}
     >
-      <DialogContent className="top-[20%] max-w-xl translate-y-0 overflow-hidden p-0">
+      <DialogContent className="mt-[12dvh] max-w-xl self-start overflow-hidden p-0">
         <DialogHeader className="sr-only">
           <DialogTitle>Command Palette</DialogTitle>
         </DialogHeader>

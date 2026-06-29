@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/toast';
 
 import type { NoteSummary, TeamSummary } from '@/lib/electron-api';
 import type { QuickOpenFolderResult, QuickOpenWorkspaceResult } from '@/lib/electron-quick-open';
@@ -9,7 +9,7 @@ import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
 
 import { useElectronHomeCommandPalette, type ElectronHomeCommandPaletteOptions } from './useElectronHomeCommandPalette';
 
-vi.mock('sonner', () => ({
+vi.mock('@/components/ui/toast', () => ({
   toast: {
     info: vi.fn(),
   },

@@ -20,7 +20,7 @@ import {
   Trash2,
   Users,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/toast';
 
 import {
   Command,

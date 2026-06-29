@@ -4,6 +4,7 @@
     "src/App.tsx",
     "src/routes.tsx",
     "src/pages/index.ts",
+    "src/components/ui/select.tsx",
     "electron/src/main/index.ts",
     "electron/src/preload/index.ts",
     "scripts/*.ts",

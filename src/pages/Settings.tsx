@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertCircle,
   Settings as SettingsIcon,
@@ -203,26 +204,28 @@ export function Settings() {
   const showFormActions = activeTab === 'general' || activeTab === 'hackmd';
 
   return (
-    <div className="flex h-dvh bg-background-muted pt-[max(2rem,env(safe-area-inset-top))] text-text-default" data-tauri-drag-region>
+    <Tabs
+      value={activeTab}
+      onValueChange={(value) => setActiveTab(value as SettingsTab)}
+      className="flex h-dvh bg-background-muted pt-[max(2rem,env(safe-area-inset-top))] text-text-default"
+      data-tauri-drag-region
+    >
       <aside className="w-56 border-r border-border-default bg-background-default p-4">
-        <nav className="space-y-1">
+        <TabsList aria-label="Settings sections" className="flex-col items-stretch space-y-1">
           {tabs.map((tab) => (
-            <button
-              type="button"
+            <TabsTrigger
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              value={tab.id}
               className={cn(
                 'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
-                activeTab === tab.id
-                  ? 'bg-background-selected font-medium text-text-default shadow-sm'
-                  : 'text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
+                'text-text-subtle hover:bg-element-bg-hover hover:text-text-default data-[selected]:bg-background-selected data-[selected]:font-medium data-[selected]:text-text-default data-[selected]:shadow-sm',
               )}
             >
               {tab.icon}
               {tab.label}
-            </button>
+            </TabsTrigger>
           ))}
-        </nav>
+        </TabsList>
       </aside>
 
       <main className="flex-1 overflow-auto">
@@ -234,8 +237,7 @@ export function Settings() {
             className="space-y-8"
           >
 
-            {activeTab === 'general' && (
-              <div className="space-y-6">
+            <TabsContent value="general" className="space-y-6">
                 <h3 className="text-lg font-medium">General Settings</h3>
 
                 <div className="space-y-4">
@@ -262,18 +264,14 @@ export function Settings() {
                     </p>
                   </div>
                 </div>
-              </div>
-            )}
+              </TabsContent>
 
-            {activeTab === 'appearance' && (
-              <div className="space-y-6">
+            <TabsContent value="appearance" className="space-y-6">
                 <h3 className="text-lg font-medium">Appearance</h3>
                 <ThemeAppearanceControls onApplied={() => toast.success('Theme applied')} />
-              </div>
-            )}
+              </TabsContent>
 
-            {activeTab === 'hackmd' && (
-              <div className="space-y-6">
+            <TabsContent value="hackmd" className="space-y-6">
                 <h3 className="text-lg font-medium">HackMD API Integration</h3>
 
                 <div className="space-y-4">
@@ -338,11 +336,9 @@ export function Settings() {
                     ) : null}
                   </div>
                 </div>
-              </div>
-            )}
+              </TabsContent>
 
-            {activeTab === 'shortcuts' && (
-              <div className="space-y-6">
+            <TabsContent value="shortcuts" className="space-y-6">
                 <h3 className="text-lg font-medium">Keyboard Shortcuts</h3>
 
                 <div className="space-y-2">
@@ -365,11 +361,9 @@ export function Settings() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              </TabsContent>
 
-            {activeTab === 'advanced' && (
-              <div className="space-y-6">
+            <TabsContent value="advanced" className="space-y-6">
                 <h3 className="text-lg font-medium">Advanced</h3>
 
                 <div className="space-y-6">
@@ -401,8 +395,7 @@ export function Settings() {
                     </button>
                   </div>
                 </div>
-              </div>
-            )}
+              </TabsContent>
 
             {showFormActions ? (
               <div className="flex items-center gap-4 pt-4">
@@ -426,6 +419,6 @@ export function Settings() {
           </form>
         </div>
       </main>
-    </div>
+    </Tabs>
   );
 }

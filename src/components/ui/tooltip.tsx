@@ -1,36 +1,74 @@
 import * as React from 'react';
-import * as TooltipPrimitive from '@radix-ui/react-tooltip';
+import { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip';
 
 import { cn } from '@/lib/utils';
 import { ELEVATED_SURFACE_CLASS, FLOATING_LAYER_CLASS } from './layers';
 
-const TooltipProvider = TooltipPrimitive.Provider;
+type TooltipProviderProps = React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Provider> & {
+  delayDuration?: number;
+  skipDelayDuration?: number;
+};
+
+function TooltipProvider({
+  delayDuration,
+  skipDelayDuration,
+  delay,
+  timeout,
+  ...props
+}: TooltipProviderProps) {
+  return (
+    <TooltipPrimitive.Provider
+      delay={delay ?? delayDuration}
+      timeout={timeout ?? skipDelayDuration}
+      {...props}
+    />
+  );
+}
 
 const TooltipRoot = TooltipPrimitive.Root;
 
-const TooltipTrigger = TooltipPrimitive.Trigger;
+type TooltipTriggerProps = React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Trigger> & {
+  asChild?: boolean;
+};
+
+const TooltipTrigger = React.forwardRef<
+  HTMLButtonElement,
+  TooltipTriggerProps
+>(({ asChild, children, ...props }, ref) => (
+  <TooltipPrimitive.Trigger
+    ref={ref}
+    render={asChild && React.isValidElement(children) ? children : undefined}
+    {...props}
+  >
+    {asChild ? undefined : children}
+  </TooltipPrimitive.Trigger>
+));
+TooltipTrigger.displayName = 'TooltipTrigger';
 
 const TooltipPortal = TooltipPrimitive.Portal;
 
 const TooltipContent = React.forwardRef<
-  React.ElementRef<typeof TooltipPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
->(({ className, sideOffset = 6, ...props }, ref) => (
+  React.ElementRef<typeof TooltipPrimitive.Popup>,
+  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Popup> & {
+    side?: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Positioner>['side'];
+    sideOffset?: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Positioner>['sideOffset'];
+  }
+>(({ className, side, sideOffset = 6, ...props }, ref) => (
   <TooltipPortal>
-    <TooltipPrimitive.Content
-      ref={ref}
-      sideOffset={sideOffset}
-      className={cn(
-        'max-w-64 origin-[var(--radix-tooltip-content-transform-origin)] rounded-md border border-border-default bg-text-default px-2 py-1 text-xs text-background-default data-[state=delayed-open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=delayed-open]:fade-in-0 motion-reduce:animate-none',
-        FLOATING_LAYER_CLASS,
-        ELEVATED_SURFACE_CLASS,
-        className,
-      )}
-      {...props}
-    />
+    <TooltipPrimitive.Positioner side={side} sideOffset={sideOffset} className={FLOATING_LAYER_CLASS}>
+      <TooltipPrimitive.Popup
+        ref={ref}
+        className={cn(
+          'max-w-64 rounded-md border border-border-default bg-text-default px-2 py-1 text-xs text-background-default data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 motion-reduce:animate-none',
+          ELEVATED_SURFACE_CLASS,
+          className,
+        )}
+        {...props}
+      />
+    </TooltipPrimitive.Positioner>
   </TooltipPortal>
 ));
-TooltipContent.displayName = TooltipPrimitive.Content.displayName;
+TooltipContent.displayName = 'TooltipContent';
 
 function Tooltip({
   children,
@@ -39,11 +77,11 @@ function Tooltip({
 }: {
   children: React.ReactElement;
   content: React.ReactNode;
-  side?: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>['side'];
+  side?: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Positioner>['side'];
 }) {
   return (
     <TooltipRoot>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipTrigger render={children} />
       <TooltipContent side={side}>{content}</TooltipContent>
     </TooltipRoot>
   );

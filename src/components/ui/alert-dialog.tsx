@@ -1,33 +1,47 @@
 import * as React from 'react';
-import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { AlertDialog as AlertDialogPrimitive } from '@base-ui/react/alert-dialog';
 
 import { cn } from '@/lib/utils';
-import { DialogDescription, DialogFooter, DialogHeader, DialogOverlay, DialogPortal, DialogTitle } from './dialog';
+import { DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './dialog';
 import { ELEVATED_SURFACE_CLASS, OVERLAY_LAYER_CLASS } from './layers';
 
-const AlertDialog = DialogPrimitive.Root;
+const AlertDialog = AlertDialogPrimitive.Root;
 
-const AlertDialogPortal = DialogPortal;
+const AlertDialogPortal = AlertDialogPrimitive.Portal;
 
-const AlertDialogOverlay = DialogOverlay;
+const AlertDialogOverlay = React.forwardRef<
+  React.ElementRef<typeof AlertDialogPrimitive.Backdrop>,
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Backdrop>
+>(({ className, ...props }, ref) => (
+  <AlertDialogPrimitive.Backdrop
+    ref={ref}
+    className={cn(
+      'fixed inset-0 bg-background-overlay data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 motion-reduce:animate-none',
+      OVERLAY_LAYER_CLASS,
+      className,
+    )}
+    {...props}
+  />
+));
+AlertDialogOverlay.displayName = 'AlertDialogOverlay';
 
 const AlertDialogContent = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
+  React.ElementRef<typeof AlertDialogPrimitive.Popup>,
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Popup>
 >(({ className, ...props }, ref) => (
   <AlertDialogPortal>
     <AlertDialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      role="alertdialog"
-      className={cn(
-        'fixed left-[50%] top-[50%] grid w-full max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 border border-border-default bg-background-default p-6 text-text-default duration-150 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 motion-reduce:animate-none sm:rounded-md',
-        OVERLAY_LAYER_CLASS,
-        ELEVATED_SURFACE_CLASS,
-        className,
-      )}
-      {...props}
-    />
+    <AlertDialogPrimitive.Viewport className={cn('fixed inset-0 grid place-items-center', OVERLAY_LAYER_CLASS)}>
+      <AlertDialogPrimitive.Popup
+        ref={ref}
+        className={cn(
+          'grid w-full max-w-md gap-4 border border-border-default bg-background-default p-6 text-text-default duration-150 data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none sm:rounded-md',
+          ELEVATED_SURFACE_CLASS,
+          className,
+        )}
+        {...props}
+      />
+    </AlertDialogPrimitive.Viewport>
   </AlertDialogPortal>
 ));
 AlertDialogContent.displayName = 'AlertDialogContent';
@@ -41,10 +55,10 @@ const AlertDialogTitle = DialogTitle;
 const AlertDialogDescription = DialogDescription;
 
 const AlertDialogCancel = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Close>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Close>
+  React.ElementRef<typeof AlertDialogPrimitive.Close>,
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Close>
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Close ref={ref} className={className} {...props} />
+  <AlertDialogPrimitive.Close ref={ref} className={className} {...props} />
 ));
 AlertDialogCancel.displayName = 'AlertDialogCancel';
 

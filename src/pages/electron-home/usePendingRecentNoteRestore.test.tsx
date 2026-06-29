@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/toast';
 
 import type { NoteSummary } from '@/lib/electron-api';
 import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
@@ -8,7 +8,7 @@ import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
 
 import { usePendingRecentNoteRestore } from './usePendingRecentNoteRestore';
 
-vi.mock('sonner', () => ({
+vi.mock('@/components/ui/toast', () => ({
   toast: {
     info: vi.fn(),
   },

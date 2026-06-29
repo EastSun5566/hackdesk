@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/toast';
 
 import type { QuickOpenFolderResult, QuickOpenWorkspaceResult } from '@/lib/electron-quick-open';
 import { recentNoteMatches, type ElectronRecentNote } from '@/lib/electron-recent-notes';

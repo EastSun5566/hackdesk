@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/toast';
 
 import type { DocumentSummary, HackDeskElectronAPI, NoteSummary, UpdateNoteInput } from '@/lib/electron-api';
 import type { LocalDocument, LocalRevision } from '@/lib/local-vault';

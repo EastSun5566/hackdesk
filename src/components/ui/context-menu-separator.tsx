@@ -1,5 +1,5 @@
 import * as React from 'react';
-import * as ContextMenuPrimitive from '@radix-ui/react-context-menu';
+import { ContextMenu as ContextMenuPrimitive } from '@base-ui/react/context-menu';
 
 import { cn } from '@/lib/utils';
 
@@ -13,6 +13,6 @@ const ContextMenuSeparator = React.forwardRef<
     {...props}
   />
 ));
-ContextMenuSeparator.displayName = ContextMenuPrimitive.Separator.displayName;
+ContextMenuSeparator.displayName = 'ContextMenuSeparator';
 
 export { ContextMenuSeparator };

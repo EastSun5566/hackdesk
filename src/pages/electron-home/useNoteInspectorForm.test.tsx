@@ -19,7 +19,7 @@ const toastMocks = vi.hoisted(() => ({
   success: vi.fn(),
 }));
 
-vi.mock('sonner', () => ({
+vi.mock('@/components/ui/toast', () => ({
   toast: {
     error: toastMocks.error,
     info: toastMocks.info,
