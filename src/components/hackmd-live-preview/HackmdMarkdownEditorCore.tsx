@@ -1,4 +1,5 @@
-import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
+import type { DragEvent } from 'react';
 import '@fortawesome/fontawesome-free/css/all.css';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
@@ -22,6 +23,7 @@ import { hfmBlocks } from './hfm-blocks';
 import { hackmdTables } from './hackmd-tables';
 import { hackmdInlinePreview } from './inline-preview';
 import { hackmdPreviewTheme } from './hackmd-preview-theme';
+import { formatMarkdownImage } from './markdown-image';
 import { createHackdeskSearchPanel } from './hackmd-search-panel';
 import { hackmdRichPreviewNavigation } from './rich-preview-navigation';
 import { hackmdRichPreviewWidgets } from './rich-preview-widgets';
@@ -82,10 +84,6 @@ const editorExtensions: Extension[] = [
   ...hackmdPreviewTheme,
 ];
 
-function escapeMarkdownAltText(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/\]/g, '\\]');
-}
-
 export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, HackmdMarkdownEditorProps>(
   function HackmdMarkdownEditorCore({
     value,
@@ -98,6 +96,8 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
     const onChangeRef = useRef(onChange);
     const initialValueRef = useRef(value);
     const pendingFocusRef = useRef(false);
+    const dragDepthRef = useRef(0);
+    const [isImageDragging, setIsImageDragging] = useState(false);
 
     useEffect(() => {
       onChangeRef.current = onChange;
@@ -183,7 +183,7 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
                   ? String((response as { alt?: unknown }).alt ?? 'image')
                   : 'image';
 
-                return `![${escapeMarkdownAltText(alt)}](${url})`;
+                return formatMarkdownImage(alt, url);
               },
             }),
             EditorView.updateListener.of((update) => {
@@ -224,12 +224,66 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
       }
     }, [value]);
 
+    const handleDragEnter = (event: DragEvent<HTMLDivElement>) => {
+      if (!hasImageFile(event.dataTransfer)) {
+        return;
+      }
+
+      dragDepthRef.current += 1;
+      setIsImageDragging(true);
+    };
+
+    const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
+      if (!hasImageFile(event.dataTransfer)) {
+        return;
+      }
+
+      event.preventDefault();
+    };
+
+    const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
+      if (!hasImageFile(event.dataTransfer)) {
+        return;
+      }
+
+      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+      if (dragDepthRef.current === 0) {
+        setIsImageDragging(false);
+      }
+    };
+
+    const handleDrop = () => {
+      dragDepthRef.current = 0;
+      setIsImageDragging(false);
+    };
+
     return (
-      <div
-        ref={parentRef}
-        className="markdown-editor hackmd-markdown-editor min-h-0 flex-1 overflow-hidden"
-        data-testid="hackmd-markdown-editor"
-      />
+      <div className="relative flex min-h-0 flex-1">
+        <div
+          ref={parentRef}
+          className="markdown-editor hackmd-markdown-editor min-h-0 flex-1 overflow-hidden"
+          data-testid="hackmd-markdown-editor"
+          onDragEnter={handleDragEnter}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        />
+        {isImageDragging ? (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-2 rounded-[8px] border border-primary-default/50 bg-primary-soft/20 px-3 py-2 text-xs font-medium text-primary-default"
+            data-testid="markdown-editor-image-drop-affordance"
+          >
+            Drop image to attach
+          </div>
+        ) : null}
+      </div>
     );
   },
 );
+
+function hasImageFile(dataTransfer: DataTransfer) {
+  return Array.from(dataTransfer.items ?? []).some((item) => (
+    item.kind === 'file' && item.type.startsWith('image/')
+  ));
+}

@@ -205,6 +205,15 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     getDisabledReason: requireSelectedNote,
   },
   {
+    id: 'attach-image',
+    label: 'Attach Image...',
+    description: 'Insert an image attachment at the current cursor.',
+    keywords: ['image', 'attachment', 'upload', 'insert', 'paste'],
+    category: 'note',
+    scope: 'editor',
+    getDisabledReason: requireSelectedNote,
+  },
+  {
     id: 'export-note-markdown',
     label: 'Export Note as Markdown',
     description: 'Export the selected note draft to a local Markdown file.',

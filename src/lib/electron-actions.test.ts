@@ -100,6 +100,11 @@ describe('electron action registry', () => {
       label: 'Export Note as Markdown',
     });
     expect(getElectronAction('export-note-markdown').menuAccelerator).toBeUndefined();
+    expect(getElectronAction('attach-image')).toMatchObject({
+      label: 'Attach Image...',
+    });
+    expect(getElectronAction('attach-image').shortcut).toBeUndefined();
+    expect(getElectronAction('attach-image').menuAccelerator).toBeUndefined();
     expect(getElectronAction('import-markdown-note')).toMatchObject({
       label: 'Import Markdown Note',
       menuAccelerator: 'Shift+CmdOrCtrl+I',
@@ -191,6 +196,10 @@ describe('electron action registry', () => {
       canCreate: false,
     })).toBe('Choose My Workspace or a team first.');
     expect(getActionDisabledReason(getElectronAction('export-note-markdown'), {
+      ...baseContext,
+      selectedNoteId: null,
+    })).toBe('Select a note first.');
+    expect(getActionDisabledReason(getElectronAction('attach-image'), {
       ...baseContext,
       selectedNoteId: null,
     })).toBe('Select a note first.');

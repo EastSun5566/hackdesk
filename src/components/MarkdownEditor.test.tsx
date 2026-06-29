@@ -3,9 +3,15 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { describe, expect, it, vi } from 'vitest';
 
 import { hfmFixtures } from './hackmd-live-preview/hfm-fixtures';
+import { formatMarkdownImage } from './hackmd-live-preview/markdown-image';
 import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor';
 
 describe('MarkdownEditor', () => {
+  it('formats markdown image insertion with escaped alt text', () => {
+    expect(formatMarkdownImage('selected].png', 'attachments/selected.png')).toBe('![selected\\].png](attachments/selected.png)');
+    expect(formatMarkdownImage('', 'attachments/image.png')).toBe('![image](attachments/image.png)');
+  });
+
   it('mounts a single CodeMirror editor with raw markdown as the source', async () => {
     const ref = createRef<MarkdownEditorHandle>();
 
@@ -124,6 +130,32 @@ describe('MarkdownEditor', () => {
 
     expect(onAttachImage).not.toHaveBeenCalled();
     expect(ref.current?.getMarkdown()).toBe('');
+  });
+
+  it('shows a subtle affordance only while image files are dragged over the editor', async () => {
+    render(<MarkdownEditor value="" onAttachImage={vi.fn()} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    fireEvent.dragEnter(editor, {
+      dataTransfer: {
+        items: [{ kind: 'file', type: 'text/plain' }],
+      },
+    });
+    expect(screen.queryByTestId('markdown-editor-image-drop-affordance')).not.toBeInTheDocument();
+
+    fireEvent.dragEnter(editor, {
+      dataTransfer: {
+        items: [{ kind: 'file', type: 'image/png' }],
+      },
+    });
+    expect(screen.getByTestId('markdown-editor-image-drop-affordance')).toHaveTextContent('Drop image to attach');
+
+    fireEvent.drop(editor, {
+      dataTransfer: {
+        items: [{ kind: 'file', type: 'image/png' }],
+      },
+    });
+    expect(screen.queryByTestId('markdown-editor-image-drop-affordance')).not.toBeInTheDocument();
   });
 
   it('opens CodeMirror search through the imperative handle', async () => {

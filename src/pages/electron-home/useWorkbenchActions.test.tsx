@@ -53,6 +53,7 @@ function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): Workb
     duplicateActiveTab: vi.fn(),
     exportDebugLogs: vi.fn(),
     exportSelectedMarkdown: vi.fn(),
+    attachImage: vi.fn(),
     findInNote: vi.fn(),
     focusEditor: vi.fn(),
     focusInspector: vi.fn(),
@@ -130,6 +131,15 @@ describe('useWorkbenchActions', () => {
     result.current.runAction('find-in-note');
 
     expect(handlers.findInNote).toHaveBeenCalledOnce();
+  });
+
+  it('routes attach-image to the attachment handler', () => {
+    const handlers = createHandlers();
+    const { result } = renderHook(() => useWorkbenchActions(createOptions({ handlers })));
+
+    result.current.runAction('attach-image');
+
+    expect(handlers.attachImage).toHaveBeenCalledOnce();
   });
 
   it('duplicates the active tab for New Tab and opens the palette when no tab is active', () => {

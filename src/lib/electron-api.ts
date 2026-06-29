@@ -258,6 +258,7 @@ export type ElectronActionId =
   | 'focus-inspector'
   | 'save-note'
   | 'find-in-note'
+  | 'attach-image'
   | 'export-note-markdown'
   | 'import-markdown-note'
   | 'open-note-web-editor'

@@ -40,6 +40,7 @@ export const ELECTRON_MENU_SCHEMA: ElectronMenuSchemaSection[] = [
       { type: 'action', actionId: 'import-markdown-note' },
       { type: 'separator' },
       { type: 'action', actionId: 'save-note' },
+      { type: 'action', actionId: 'attach-image' },
       { type: 'action', actionId: 'export-note-markdown' },
       { type: 'separator' },
       { type: 'action', actionId: 'open-note-web-editor' },

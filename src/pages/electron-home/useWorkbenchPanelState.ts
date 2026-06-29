@@ -20,12 +20,14 @@ import {
 } from './ui-preferences';
 
 export type WorkbenchPanelState = {
+  attachImageRequestId: number;
   editorSearchRequestId: number;
   inspectorCollapsed: boolean;
   navigatorCollapsed: boolean;
   navigatorWidth: number;
   railCollapsed: boolean;
   railWidth: number;
+  bumpAttachImageRequest: () => void;
   bumpEditorSearchRequest: () => void;
   expandNavigator: () => void;
   setNavigatorCollapsed: Dispatch<SetStateAction<boolean>>;
@@ -42,6 +44,7 @@ function writeNavigatorCollapsed(collapsed: boolean) {
 
 export function useWorkbenchPanelState(): WorkbenchPanelState {
   const [inspectorCollapsed, setInspectorCollapsed] = useState(() => readBooleanStorage(INSPECTOR_COLLAPSED_KEY, true));
+  const [attachImageRequestId, setAttachImageRequestId] = useState(0);
   const [editorSearchRequestId, setEditorSearchRequestId] = useState(0);
   const [railCollapsed, setRailCollapsed] = useState(() => readBooleanStorage(RAIL_COLLAPSED_KEY, false));
   const [navigatorCollapsed, setNavigatorCollapsedState] = useState(() => readBooleanStorage(NAVIGATOR_COLLAPSED_KEY, false));
@@ -102,13 +105,19 @@ export function useWorkbenchPanelState(): WorkbenchPanelState {
     setEditorSearchRequestId((current) => current + 1);
   }, []);
 
+  const bumpAttachImageRequest = useCallback(() => {
+    setAttachImageRequestId((current) => current + 1);
+  }, []);
+
   return {
+    attachImageRequestId,
     editorSearchRequestId,
     inspectorCollapsed,
     navigatorCollapsed,
     navigatorWidth,
     railCollapsed,
     railWidth,
+    bumpAttachImageRequest,
     bumpEditorSearchRequest,
     expandNavigator,
     setNavigatorCollapsed,

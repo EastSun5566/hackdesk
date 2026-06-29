@@ -51,6 +51,7 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     activePaneId: 'pane-1',
     activeTab: createTab(),
     api: undefined,
+    bumpAttachImageRequest: vi.fn(),
     bumpEditorSearchRequest: vi.fn(),
     createFolder: vi.fn(),
     createNote: vi.fn(),
@@ -115,18 +116,22 @@ describe('useWorkbenchActionHandlers', () => {
   });
 
   it('routes editor search and history navigation through the existing callbacks', () => {
+    const bumpAttachImageRequest = vi.fn();
     const bumpEditorSearchRequest = vi.fn();
     const focusZone = vi.fn();
     const switchToHistory = vi.fn();
     const { result } = renderHook(() => useWorkbenchActionHandlers(createOptions({
+      bumpAttachImageRequest,
       bumpEditorSearchRequest,
       focusZone,
       switchToHistory,
     })));
 
+    result.current.attachImage();
     result.current.findInNote();
     result.current.goHistory();
 
+    expect(bumpAttachImageRequest).toHaveBeenCalledOnce();
     expect(bumpEditorSearchRequest).toHaveBeenCalledOnce();
     expect(switchToHistory).toHaveBeenCalledOnce();
     expect(focusZone).toHaveBeenCalledWith('navigator');

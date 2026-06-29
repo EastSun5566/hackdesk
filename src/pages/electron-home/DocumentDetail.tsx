@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import { toast } from 'sonner';
 import {
   AlertCircle,
@@ -8,6 +9,7 @@ import {
   Download,
   Edit3,
   FolderOpen,
+  ImagePlus,
   Loader2,
   PanelRightClose,
   PanelRightOpen,
@@ -33,6 +35,7 @@ import type {
 } from '@/lib/electron-api';
 import type { FolderTree } from '@/lib/hackmd-folders';
 import { cn } from '@/lib/utils';
+import { formatMarkdownImage } from '@/components/hackmd-live-preview/markdown-image';
 
 import { EmptyState, PanelHeader, PanelShell, ToolbarDropdownMoreTrigger, ToolbarIconButton } from './interaction-primitives';
 import { NoteInspector } from './NoteInspector';
@@ -63,6 +66,7 @@ export type DocumentDetailDocumentState = {
 };
 
 export type DocumentDetailLayout = {
+  attachImageRequestId: number;
   focusZone?: string;
   focusRequestId: number;
   inspectorCollapsed: boolean;
@@ -241,6 +245,8 @@ function ActiveDocumentDetail({
   status: DocumentDetailStatus;
 }) {
   const editorRef = useRef<MarkdownEditorHandle | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const lastHandledAttachImageRequestRef = useRef(0);
   const lastHandledFocusRequestRef = useRef(0);
   const lastHandledSearchRequestRef = useRef(0);
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -293,6 +299,48 @@ function ActiveDocumentDetail({
     editorRef.current?.openSearch();
   }, [layout.searchRequestId]);
 
+  const requestAttachImage = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  useEffect(() => {
+    if (layout.attachImageRequestId <= lastHandledAttachImageRequestRef.current) {
+      return;
+    }
+
+    lastHandledAttachImageRequestRef.current = layout.attachImageRequestId;
+    requestAttachImage();
+  }, [layout.attachImageRequestId, requestAttachImage]);
+
+  const handleAttachImageFile = useCallback((file: File) => {
+    if (!file.type.startsWith('image/')) {
+      return;
+    }
+
+    const editor = editorRef.current;
+    if (!editor) {
+      toast.error('Editor is not ready for image insertion.');
+      return;
+    }
+
+    void uploadImageFile(actions.onUploadImage, documentState.document, file)
+      .then((result) => {
+        editor.insertText(formatMarkdownImage(file.name || 'image', result.link));
+      })
+      .catch((error) => {
+        toast.error(error instanceof Error ? error.message : 'Failed to insert image.');
+      });
+  }, [actions.onUploadImage, documentState.document]);
+
+  const handleFileInputChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+
+    if (file) {
+      handleAttachImageFile(file);
+    }
+  }, [handleAttachImageFile]);
+
   const openShareDialogFromMenu = () => {
     setActionsOpen(false);
     window.setTimeout(() => actions.onShareOpenChange(true), 0);
@@ -310,6 +358,7 @@ function ActiveDocumentDetail({
         inspectorPanelId={inspectorPanelId}
         noteDirty={noteDirty}
         onActionsOpenChange={setActionsOpen}
+        onAttachImage={requestAttachImage}
         onOpenShareDialog={openShareDialogFromMenu}
         layout={layout}
         status={status}
@@ -326,6 +375,14 @@ function ActiveDocumentDetail({
           onAttachImage={actions.onUploadImage}
           onContentChange={actions.onContentChange}
           setEditorRef={setEditorRef}
+        />
+        <input
+          ref={fileInputRef}
+          aria-label="Attach image"
+          className="sr-only"
+          type="file"
+          accept="image/*"
+          onChange={handleFileInputChange}
         />
         <InspectorPanel
           actions={actions}
@@ -404,6 +461,7 @@ function DocumentHeader({
   layout,
   noteDirty,
   onActionsOpenChange,
+  onAttachImage,
   onOpenShareDialog,
   status,
 }: {
@@ -414,6 +472,7 @@ function DocumentHeader({
   layout: DocumentDetailLayout;
   noteDirty: boolean;
   onActionsOpenChange: (open: boolean) => void;
+  onAttachImage: () => void;
   onOpenShareDialog: () => void;
   status: DocumentDetailStatus;
 }) {
@@ -482,6 +541,7 @@ function DocumentHeader({
             documentState={documentState}
             open={actionsOpen}
             onOpenChange={onActionsOpenChange}
+            onAttachImage={onAttachImage}
             onOpenShareDialog={onOpenShareDialog}
             status={status}
           />
@@ -496,6 +556,7 @@ function DocumentActionsMenu({
   documentState,
   open,
   onOpenChange,
+  onAttachImage,
   onOpenShareDialog,
   status,
 }: {
@@ -503,6 +564,7 @@ function DocumentActionsMenu({
   documentState: DocumentDetailDocumentState & { document: DocumentSummary };
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onAttachImage: () => void;
   onOpenShareDialog: () => void;
   status: DocumentDetailStatus;
 }) {
@@ -533,6 +595,10 @@ function DocumentActionsMenu({
             Reveal in Finder
           </DropdownMenuItem>
         ) : null}
+        <DropdownMenuItem disabled={status.uploadingImage} onSelect={onAttachImage}>
+          {status.uploadingImage ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <ImagePlus aria-hidden="true" className="h-4 w-4" />}
+          Attach Image...
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => actions.onExportMarkdown(documentState.document, documentState.title, documentState.content)}>
           <Download aria-hidden="true" className="h-4 w-4" />
           Export Markdown
@@ -574,14 +640,8 @@ function DocumentBody({
   setEditorRef: (handle: MarkdownEditorHandle | null) => void;
 }) {
   const handleAttachImage = useCallback(async (file: File) => {
-    const bytes = await file.arrayBuffer();
-
     try {
-      return await onAttachImage(document, {
-        bytes,
-        fileName: file.name || 'image',
-        mimeType: file.type || 'application/octet-stream',
-      });
+      return await uploadImageFile(onAttachImage, document, file);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to insert image.');
       throw error;
@@ -596,6 +656,20 @@ function DocumentBody({
       onChange={onContentChange}
     />
   );
+}
+
+async function uploadImageFile(
+  onAttachImage: (document: DocumentSummary, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>,
+  document: DocumentSummary,
+  file: File,
+) {
+  const bytes = await file.arrayBuffer();
+
+  return await onAttachImage(document, {
+    bytes,
+    fileName: file.name || 'image',
+    mimeType: file.type || 'application/octet-stream',
+  });
 }
 
 function InspectorPanel({

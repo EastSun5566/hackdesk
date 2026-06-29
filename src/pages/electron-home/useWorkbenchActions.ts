@@ -42,6 +42,7 @@ export type WorkbenchActionHandlers = {
   duplicateActiveTab: () => void;
   exportDebugLogs: () => void;
   exportSelectedMarkdown: () => void;
+  attachImage: () => void;
   findInNote: () => void;
   focusEditor: () => void;
   focusInspector: () => void;
@@ -230,6 +231,9 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'find-in-note':
       handlers.findInNote();
+      break;
+    case 'attach-image':
+      handlers.attachImage();
       break;
     case 'export-note-markdown':
       handlers.exportSelectedMarkdown();

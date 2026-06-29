@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { DocumentSummary } from '@/lib/electron-api';
@@ -7,6 +7,8 @@ import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
 
 import { DocumentDetail, type DocumentDetailProps } from './DocumentDetail';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
+
+const markdownEditorInsertText = vi.hoisted(() => vi.fn());
 
 vi.mock('@/components/MarkdownEditor', async () => {
   const React = await import('react');
@@ -21,7 +23,7 @@ vi.mock('@/components/MarkdownEditor', async () => {
         focus: vi.fn(),
         getContentDOM: vi.fn(() => null),
         getMarkdown: vi.fn(() => props.value),
-        insertText: vi.fn(),
+        insertText: markdownEditorInsertText,
         openSearch: vi.fn(),
       }));
 
@@ -108,6 +110,7 @@ function renderDocumentDetail(overrides: Partial<DocumentDetailProps> = {}) {
     folderTree: buildHackmdFolderTree([]),
     layout: {
       focusZone: 'editor',
+      attachImageRequestId: 0,
       focusRequestId: 0,
       inspectorCollapsed: true,
       inspectorPanelId: 'inspector-test',
@@ -141,6 +144,10 @@ function renderDocumentDetail(overrides: Partial<DocumentDetailProps> = {}) {
 }
 
 describe('DocumentDetail', () => {
+  beforeEach(() => {
+    markdownEditorInsertText.mockClear();
+  });
+
   it('renders loading and empty branches explicitly', () => {
     renderDocumentDetail({ status: { loading: true } });
     expect(screen.getByLabelText('Loading note')).toBeInTheDocument();
@@ -216,6 +223,42 @@ describe('DocumentDetail', () => {
       fileName: 'pasted.png',
       mimeType: 'image/png',
     });
+  });
+
+  it('attaches an image from the document file picker without saving the note', async () => {
+    const onSave = vi.fn();
+    const onUploadImage = vi.fn(async () => ({ link: 'attachments/selected.png' }));
+    const document = documentSummary();
+    renderDocumentDetail({
+      actions: {
+        onSave,
+        onUploadImage,
+      },
+      documentState: {
+        document,
+      },
+      layout: {
+        attachImageRequestId: 1,
+      },
+    });
+    const file = new File(['image-bytes'], 'selected].png', { type: 'image/png' });
+    Object.defineProperty(file, 'arrayBuffer', {
+      value: async () => new ArrayBuffer(11),
+    });
+
+    fireEvent.change(screen.getByLabelText('Attach image'), {
+      target: {
+        files: [file],
+      },
+    });
+
+    await waitFor(() => expect(onUploadImage).toHaveBeenCalledWith(document, {
+      bytes: expect.any(ArrayBuffer),
+      fileName: 'selected].png',
+      mimeType: 'image/png',
+    }));
+    await waitFor(() => expect(markdownEditorInsertText).toHaveBeenCalledWith('![selected\\].png](attachments/selected.png)'));
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it('offers disk change recovery actions without discarding the draft', () => {
