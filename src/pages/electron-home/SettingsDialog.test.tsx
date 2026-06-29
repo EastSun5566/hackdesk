@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ThemeProvider } from '@/components/theme-provider';
@@ -74,21 +74,125 @@ describe('SettingsDialog', () => {
     expect(tabpanel.className).toContain('[scrollbar-gutter:stable]');
   });
 
+  it('links every tab to a mounted panel and hides inactive panels', () => {
+    renderSettingsDialog();
+
+    const tabs = screen.getAllByRole('tab');
+    const panels = screen.getAllByRole('tabpanel', { hidden: true });
+
+    expect(tabs).toHaveLength(6);
+    expect(panels).toHaveLength(6);
+
+    tabs.forEach((tab) => {
+      expect(tab.tagName).toBe('BUTTON');
+      expect(tab).toHaveAttribute('type', 'button');
+
+      const panelId = tab.getAttribute('aria-controls');
+      expect(panelId).toBeTruthy();
+
+      const panel = document.getElementById(panelId!);
+      expect(panel).toHaveAttribute('role', 'tabpanel');
+      expect(panel).toHaveAttribute('aria-labelledby', tab.id);
+
+      if (tab.getAttribute('aria-selected') === 'true') {
+        expect(panel).toBeVisible();
+        expect(panel).not.toHaveAttribute('inert');
+      } else {
+        expect(panel).not.toBeVisible();
+        expect(panel).toHaveAttribute('hidden');
+        expect(panel).toHaveAttribute('inert');
+      }
+    });
+  });
+
+  it('automatically activates tabs with horizontal arrow keys and loops focus', async () => {
+    renderSettingsDialog();
+
+    const generalTab = screen.getByRole('tab', { name: /General/ });
+    const editorTab = screen.getByRole('tab', { name: /Editor/ });
+    const advancedTab = screen.getByRole('tab', { name: /Advanced/ });
+
+    generalTab.focus();
+    fireEvent.keyDown(generalTab, { key: 'ArrowRight' });
+
+    await waitFor(() => {
+      expect(editorTab).toHaveFocus();
+      expect(editorTab).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('tabpanel', { name: 'Editor' })).toBeVisible();
+    });
+
+    fireEvent.keyDown(editorTab, { key: 'ArrowLeft' });
+    await waitFor(() => {
+      expect(generalTab).toHaveFocus();
+      expect(generalTab).toHaveAttribute('aria-selected', 'true');
+    });
+
+    fireEvent.keyDown(generalTab, { key: 'ArrowLeft' });
+    await waitFor(() => {
+      expect(advancedTab).toHaveFocus();
+      expect(advancedTab).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('tabpanel', { name: 'Advanced' })).toBeVisible();
+    });
+  });
+
   it('shows one settings section per tab instead of one long form', () => {
     renderSettingsDialog();
 
     expect(screen.getByRole('tab', { name: /General/ })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByLabelText('Window Title')).toBeInTheDocument();
-    expect(screen.queryByLabelText('API Token')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Window Title')).toBeVisible();
+    expect(screen.getByLabelText('API Token')).not.toBeVisible();
     expect(screen.queryByText('Apply Theme')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
-    expect(screen.getByText('No local vault configured')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Window Title')).not.toBeInTheDocument();
+    expect(screen.getByText('No local vault configured')).toBeVisible();
+    expect(screen.getByLabelText('Window Title')).not.toBeVisible();
 
     fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
-    expect(screen.getByLabelText('API Token')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Window Title')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('API Token')).toBeVisible();
+    expect(screen.getByLabelText('Window Title')).not.toBeVisible();
+  });
+
+  it('updates footer copy and actions with the active tab', () => {
+    renderSettingsDialog();
+
+    expect(screen.getByText('Window title and local app defaults.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeVisible();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
+    expect(screen.getByText('Theme mode, presets, and color seeds.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Apply Theme' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
+    const vaultFooterDescription = screen.getByText('Manage the local Markdown folder.');
+    expect(vaultFooterDescription).toBeVisible();
+    expect(within(vaultFooterDescription.parentElement!).getByRole('button', { name: 'Close' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Apply Theme' })).toBeNull();
+  });
+
+  it('preserves settings drafts while switching between mounted panels', () => {
+    renderSettingsDialog();
+
+    const titleInput = screen.getByLabelText('Window Title');
+    const tokenInput = screen.getByLabelText('API Token');
+    fireEvent.change(titleInput, { target: { value: 'Focus Desk' } });
+
+    fireEvent.click(screen.getByRole('tab', { name: /Editor/ }));
+    fireEvent.click(screen.getByText('Helix'));
+
+    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+    fireEvent.change(tokenInput, { target: { value: 'draft-token' } });
+
+    fireEvent.click(screen.getByRole('tab', { name: /General/ }));
+    expect(titleInput).toBeVisible();
+    expect(titleInput).toHaveValue('Focus Desk');
+
+    fireEvent.click(screen.getByRole('tab', { name: /Editor/ }));
+    expect(screen.getByRole('radio', { name: /Helix/ })).toBeChecked();
+
+    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+    expect(tokenInput).toBeVisible();
+    expect(tokenInput).toHaveValue('draft-token');
   });
 
   it('saves a global editor mode from an accessible radio group', () => {
@@ -163,8 +267,14 @@ describe('SettingsDialog', () => {
     expect(primaryInput).not.toBeVisible();
     expect(primaryInput).toHaveValue('blue');
 
+    fireEvent.click(screen.getByRole('tab', { name: /General/ }));
+    expect(primaryInput).not.toBeVisible();
+    fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
+    expect(primaryInput).not.toBeVisible();
+
     fireEvent.click(trigger);
     expect(primaryInput).toBeVisible();
+    expect(primaryInput).toHaveValue('blue');
     expect(screen.getByText('Use a 6-digit hex color, for example #5D54E8.')).toBeVisible();
   });
 

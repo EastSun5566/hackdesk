@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   ThemeAppearanceControls,
   type ThemeAppearanceControlsHandle,
@@ -31,7 +31,7 @@ import { FOCUS_RING_CLASS } from './ui';
 const SETTINGS_TITLE_ID = 'settings-title';
 const SETTINGS_TOKEN_ID = 'settings-hackmd-token';
 const SETTINGS_TOKEN_STATUS_ID = 'settings-hackmd-token-status';
-const SETTINGS_DIALOG_BODY_ID = 'settings-dialog-body';
+const SETTINGS_PANEL_CLASS = 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-default';
 
 type SettingsTab = 'general' | 'editor' | 'appearance' | 'vault' | 'hackmd' | 'advanced';
 
@@ -144,37 +144,36 @@ function SettingsDialogContent({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[min(760px,calc(100dvh-4rem))] w-[min(760px,calc(100dvw-2rem))] max-w-3xl flex-col overflow-hidden p-0">
-        <DialogHeader className="border-b border-border-default px-5 pb-4 pt-5">
-          <DialogTitle>Settings</DialogTitle>
-          <DialogDescription>
-            Configure the local Electron app and HackMD API access.
-          </DialogDescription>
-          <SettingsTabs activeTab={activeTab} onActiveTabChange={setActiveTab} />
-        </DialogHeader>
-
-        <form
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as SettingsTab)}
           className="flex min-h-0 flex-1 flex-col"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (activeTab === 'general' || activeTab === 'editor' || activeTab === 'hackmd') {
-              handleSaveSettings();
-            }
-          }}
         >
-          <div
-            id={SETTINGS_DIALOG_BODY_ID}
-            role="tabpanel"
-            aria-label={activeTabDefinition.label}
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 [scrollbar-gutter:stable]"
+          <DialogHeader className="border-b border-border-default px-5 pb-4 pt-5">
+            <DialogTitle>Settings</DialogTitle>
+            <DialogDescription>
+              Configure the local Electron app and HackMD API access.
+            </DialogDescription>
+            <SettingsTabs />
+          </DialogHeader>
+
+          <form
+            className="flex min-h-0 flex-1 flex-col"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (activeTab === 'general' || activeTab === 'editor' || activeTab === 'hackmd') {
+                handleSaveSettings();
+              }
+            }}
           >
-            {activeTab === 'general' ? (
+            <TabsContent value="general" keepMounted className={SETTINGS_PANEL_CLASS}>
               <GeneralSettingsPanel
                 title={title}
                 onTitleChange={(nextTitle) => setFormState((current) => ({ ...current, title: nextTitle }))}
               />
-            ) : null}
+            </TabsContent>
 
-            {activeTab === 'editor' ? (
+            <TabsContent value="editor" keepMounted className={SETTINGS_PANEL_CLASS}>
               <EditorSettingsPanel
                 editorMode={editorMode}
                 onEditorModeChange={(nextEditorMode) => setFormState((current) => ({
@@ -182,9 +181,9 @@ function SettingsDialogContent({
                   editorMode: nextEditorMode,
                 }))}
               />
-            ) : null}
+            </TabsContent>
 
-            {activeTab === 'appearance' ? (
+            <TabsContent value="appearance" keepMounted className={SETTINGS_PANEL_CLASS}>
               <AppearanceSettingsPanel
                 ref={appearanceControlsRef}
                 onStateChange={setAppearanceState}
@@ -193,9 +192,9 @@ function SettingsDialogContent({
                   onOpenChange(false);
                 }}
               />
-            ) : null}
+            </TabsContent>
 
-            {activeTab === 'vault' ? (
+            <TabsContent value="vault" keepMounted className={SETTINGS_PANEL_CLASS}>
               <VaultSettingsPanel
                 error={localVaultError}
                 settings={settings}
@@ -205,9 +204,9 @@ function SettingsDialogContent({
                 onOpenLocalVault={onOpenLocalVault}
                 onRefreshLocalVault={onRefreshLocalVault}
               />
-            ) : null}
+            </TabsContent>
 
-            {activeTab === 'hackmd' ? (
+            <TabsContent value="hackmd" keepMounted className={SETTINGS_PANEL_CLASS}>
               <HackmdSettingsPanel
                 hasHackmdApiToken={Boolean(settings?.hasHackmdApiToken)}
                 token={token}
@@ -218,24 +217,24 @@ function SettingsDialogContent({
                 onTokenTestChange={(nextTokenTest) => setFormState((current) => ({ ...current, tokenTest: nextTokenTest }))}
                 onValidateToken={onValidateToken}
               />
-            ) : null}
+            </TabsContent>
 
-            {activeTab === 'advanced' ? (
+            <TabsContent value="advanced" keepMounted className={SETTINGS_PANEL_CLASS}>
               <AdvancedSettingsPanel onResetAllSettings={handleResetAllSettings} />
-            ) : null}
-          </div>
+            </TabsContent>
 
-          <SettingsDialogFooter
-            activeTab={activeTab}
-            activeTabDescription={activeTabDefinition.description}
-            appearanceState={appearanceState}
-            canSaveTitle={Boolean(title.trim())}
-            isSaving={isSaving}
-            onApplyTheme={() => appearanceControlsRef.current?.apply()}
-            onCancelPreview={() => appearanceControlsRef.current?.cancel()}
-            onClose={() => onOpenChange(false)}
-          />
-        </form>
+            <SettingsDialogFooter
+              activeTab={activeTab}
+              activeTabDescription={activeTabDefinition.description}
+              appearanceState={appearanceState}
+              canSaveTitle={Boolean(title.trim())}
+              isSaving={isSaving}
+              onApplyTheme={() => appearanceControlsRef.current?.apply()}
+              onCancelPreview={() => appearanceControlsRef.current?.cancel()}
+              onClose={() => onOpenChange(false)}
+            />
+          </form>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
@@ -250,28 +249,17 @@ function getSettingsTab(tabId: SettingsTab) {
   return SETTINGS_TABS.find((tab) => tab.id === tabId) ?? SETTINGS_TABS[0];
 }
 
-function SettingsTabs({
-  activeTab,
-  onActiveTabChange,
-}: {
-  activeTab: SettingsTab;
-  onActiveTabChange: (tab: SettingsTab) => void;
-}) {
+function SettingsTabs() {
   return (
-    <Tabs
-      value={activeTab}
-      onValueChange={(value) => onActiveTabChange(value as SettingsTab)}
-      className="mt-4"
+    <TabsList
+      activateOnFocus
+      aria-label="Settings sections"
+      className="mt-4 grid grid-cols-3 gap-1 rounded-lg bg-background-muted p-1 sm:grid-cols-6"
     >
-      <TabsList
-        aria-label="Settings sections"
-        className="grid grid-cols-3 gap-1 rounded-lg bg-background-muted p-1 sm:grid-cols-6"
-      >
       {SETTINGS_TABS.map((tab) => (
         <TabsTrigger
           key={tab.id}
           value={tab.id}
-          aria-controls={SETTINGS_DIALOG_BODY_ID}
           className={cn(
             'inline-flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors hover:bg-element-bg-hover',
             FOCUS_RING_CLASS,
@@ -282,8 +270,7 @@ function SettingsTabs({
           <span className="truncate">{tab.label}</span>
         </TabsTrigger>
       ))}
-      </TabsList>
-    </Tabs>
+    </TabsList>
   );
 }
 
