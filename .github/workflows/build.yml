@@ -44,6 +44,9 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
 
+      - name: Install cargo-deny
+        run: cargo install --locked cargo-deny
+
       - name: Install Pnpm
         uses: pnpm/action-setup@v4
         with:
