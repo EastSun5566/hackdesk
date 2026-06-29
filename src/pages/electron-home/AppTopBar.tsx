@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight, FolderTree, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import type { ReactNode } from 'react';
 
+import { Toolbar } from '@/components/ui/toolbar';
 import { ToolbarIconButton } from './interaction-primitives';
 import { DocumentTabs } from './DocumentTabs';
 import type { DocumentSyncState } from './DocumentDetail';
@@ -92,7 +93,7 @@ export function AppTopBar({
 }) {
   return (
     <header className="app-topbar flex h-10 shrink-0 items-center gap-2 border-b border-border-default bg-background-default pl-[86px] pr-2">
-      <div className="flex shrink-0 items-center gap-1">
+      <Toolbar aria-label="Application controls" className="shrink-0">
         <TopBarIconButton
           actionId="toggle-workspace-rail"
           controls={railPanelId}
@@ -129,7 +130,7 @@ export function AppTopBar({
         >
           <ArrowRight aria-hidden="true" className="h-[18px] w-[18px]" />
         </TopBarIconButton>
-      </div>
+      </Toolbar>
       <DocumentTabs
         activeTab={activeTab}
         canMoveToOtherPane={paneActions.canMoveToOtherPane}

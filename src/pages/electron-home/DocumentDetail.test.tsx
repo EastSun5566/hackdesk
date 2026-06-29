@@ -330,6 +330,7 @@ describe('DocumentDetail', () => {
       },
     });
 
+    expect(screen.getByRole('toolbar', { name: 'Document actions' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Collapse inspector' }));
 
     expect(screen.getByLabelText('Markdown editor')).toHaveValue('# Hello');

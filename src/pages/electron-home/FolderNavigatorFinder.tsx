@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
+import { Toolbar } from '@/components/ui/toolbar';
 import type { NotePermissionRole } from '@/lib/electron-api';
 import {
   getActiveNoteFinderFilterCount,
@@ -129,109 +130,111 @@ export function NoteFinderToolbar({
           ) : null}
         </label>
 
-        <DropdownMenu>
-          <ToolbarDropdownIconTrigger label="Search scope" tooltip={`Scope: ${scopeLabel}`} className="h-8 w-8">
-            {state.searchScope === 'current-folder'
-              ? <FolderOpen aria-hidden="true" className="h-4 w-4" />
-              : <FileText aria-hidden="true" className="h-4 w-4" />}
-          </ToolbarDropdownIconTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Search Scope</DropdownMenuLabel>
-            <DropdownMenuItem onSelect={() => updateState({ searchScope: 'workspace' })}>
-              <CheckedIcon checked={state.searchScope === 'workspace'} />
-              Workspace
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={currentFolderDisabled}
-              onSelect={() => updateState({ searchScope: 'current-folder' })}
-            >
-              <CheckedIcon checked={state.searchScope === 'current-folder'} />
-              Current Folder
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <DropdownMenu>
-          <ToolbarDropdownIconTrigger label="Sort notes" tooltip={SORT_LABELS[state.sortMode]} className="h-8 w-8">
-            <ArrowDownUp aria-hidden="true" className="h-3.5 w-3.5" />
-          </ToolbarDropdownIconTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Sort</DropdownMenuLabel>
-            {SORT_MODES.map((sortMode) => (
-              <DropdownMenuItem key={sortMode} onSelect={() => updateState({ sortMode })}>
-                <CheckedIcon checked={state.sortMode === sortMode} />
-                {SORT_LABELS[sortMode]}
+        <Toolbar aria-label="Note finder controls" className="gap-1.5">
+          <DropdownMenu>
+            <ToolbarDropdownIconTrigger label="Search scope" tooltip={`Scope: ${scopeLabel}`} className="h-8 w-8">
+              {state.searchScope === 'current-folder'
+                ? <FolderOpen aria-hidden="true" className="h-4 w-4" />
+                : <FileText aria-hidden="true" className="h-4 w-4" />}
+            </ToolbarDropdownIconTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Search Scope</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={() => updateState({ searchScope: 'workspace' })}>
+                <CheckedIcon checked={state.searchScope === 'workspace'} />
+                Workspace
               </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <DropdownMenuItem
+                disabled={currentFolderDisabled}
+                onSelect={() => updateState({ searchScope: 'current-folder' })}
+              >
+                <CheckedIcon checked={state.searchScope === 'current-folder'} />
+                Current Folder
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-        <DropdownMenu>
-          <ToolbarDropdownIconTrigger
-            label="Filter notes"
-            tooltip={activeFilterCount ? `${activeFilterCount} active filters` : 'Filter notes'}
-            className={cn('relative h-8 w-8', activeFilterCount && 'bg-background-selected text-text-default')}
-          >
-            <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
-            {activeFilterCount ? (
-              <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-default px-1 text-[10px] leading-none text-primary-foreground">
-                {activeFilterCount}
-              </span>
-            ) : null}
-          </ToolbarDropdownIconTrigger>
-          <DropdownMenuContent align="end" className="max-h-96 min-w-56 overflow-auto">
-            <DropdownMenuLabel>Tags</DropdownMenuLabel>
-            {options.tags.length > 0 ? options.tags.map((tag) => (
-              <DropdownMenuCheckboxItem
-                key={tag}
-                checked={state.tagFilters.includes(tag)}
-                onSelect={(event) => event.preventDefault()}
-                onCheckedChange={() => updateState({ tagFilters: toggleStringFilter(state.tagFilters, tag) })}
-              >
-                {tag}
-              </DropdownMenuCheckboxItem>
-            )) : (
-              <DropdownMenuItem disabled>No tags loaded</DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Read Permission</DropdownMenuLabel>
-            {options.readPermissions.map((permission) => (
-              <DropdownMenuCheckboxItem
-                key={`read:${permission}`}
-                checked={state.readPermissionFilters.includes(permission)}
-                onSelect={(event) => event.preventDefault()}
-                onCheckedChange={() => updateState({ readPermissionFilters: togglePermissionFilter(state.readPermissionFilters, permission) })}
-              >
-                {PERMISSION_LABELS[permission]}
-              </DropdownMenuCheckboxItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Write Permission</DropdownMenuLabel>
-            {options.writePermissions.map((permission) => (
-              <DropdownMenuCheckboxItem
-                key={`write:${permission}`}
-                checked={state.writePermissionFilters.includes(permission)}
-                onSelect={(event) => event.preventDefault()}
-                onCheckedChange={() => updateState({ writePermissionFilters: togglePermissionFilter(state.writePermissionFilters, permission) })}
-              >
-                {PERMISSION_LABELS[permission]}
-              </DropdownMenuCheckboxItem>
-            ))}
-            {hasActiveNoteFinderFilters(state) ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => updateState({
-                  tagFilters: [],
-                  readPermissionFilters: [],
-                  writePermissionFilters: [],
-                })}
-                >
-                  Clear Filters
+          <DropdownMenu>
+            <ToolbarDropdownIconTrigger label="Sort notes" tooltip={SORT_LABELS[state.sortMode]} className="h-8 w-8">
+              <ArrowDownUp aria-hidden="true" className="h-3.5 w-3.5" />
+            </ToolbarDropdownIconTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Sort</DropdownMenuLabel>
+              {SORT_MODES.map((sortMode) => (
+                <DropdownMenuItem key={sortMode} onSelect={() => updateState({ sortMode })}>
+                  <CheckedIcon checked={state.sortMode === sortMode} />
+                  {SORT_LABELS[sortMode]}
                 </DropdownMenuItem>
-              </>
-            ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <ToolbarDropdownIconTrigger
+              label="Filter notes"
+              tooltip={activeFilterCount ? `${activeFilterCount} active filters` : 'Filter notes'}
+              className={cn('relative h-8 w-8', activeFilterCount && 'bg-background-selected text-text-default')}
+            >
+              <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
+              {activeFilterCount ? (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-default px-1 text-[10px] leading-none text-primary-foreground">
+                  {activeFilterCount}
+                </span>
+              ) : null}
+            </ToolbarDropdownIconTrigger>
+            <DropdownMenuContent align="end" className="max-h-96 min-w-56 overflow-auto">
+              <DropdownMenuLabel>Tags</DropdownMenuLabel>
+              {options.tags.length > 0 ? options.tags.map((tag) => (
+                <DropdownMenuCheckboxItem
+                  key={tag}
+                  checked={state.tagFilters.includes(tag)}
+                  onSelect={(event) => event.preventDefault()}
+                  onCheckedChange={() => updateState({ tagFilters: toggleStringFilter(state.tagFilters, tag) })}
+                >
+                  {tag}
+                </DropdownMenuCheckboxItem>
+              )) : (
+                <DropdownMenuItem disabled>No tags loaded</DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Read Permission</DropdownMenuLabel>
+              {options.readPermissions.map((permission) => (
+                <DropdownMenuCheckboxItem
+                  key={`read:${permission}`}
+                  checked={state.readPermissionFilters.includes(permission)}
+                  onSelect={(event) => event.preventDefault()}
+                  onCheckedChange={() => updateState({ readPermissionFilters: togglePermissionFilter(state.readPermissionFilters, permission) })}
+                >
+                  {PERMISSION_LABELS[permission]}
+                </DropdownMenuCheckboxItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Write Permission</DropdownMenuLabel>
+              {options.writePermissions.map((permission) => (
+                <DropdownMenuCheckboxItem
+                  key={`write:${permission}`}
+                  checked={state.writePermissionFilters.includes(permission)}
+                  onSelect={(event) => event.preventDefault()}
+                  onCheckedChange={() => updateState({ writePermissionFilters: togglePermissionFilter(state.writePermissionFilters, permission) })}
+                >
+                  {PERMISSION_LABELS[permission]}
+                </DropdownMenuCheckboxItem>
+              ))}
+              {hasActiveNoteFinderFilters(state) ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => updateState({
+                    tagFilters: [],
+                    readPermissionFilters: [],
+                    writePermissionFilters: [],
+                  })}
+                  >
+                    Clear Filters
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </Toolbar>
       </div>
 
       {hasActiveNoteFinderFilters(state) ? (

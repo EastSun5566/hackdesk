@@ -489,6 +489,7 @@ function DocumentHeader({
     <PanelHeader
       className="px-4 py-2.5"
       titleElement="div"
+      actionsLabel="Document actions"
       title={(
         <label>
           <span className="sr-only">Note title</span>

@@ -104,6 +104,7 @@ function InspectorHeader({
       title="Inspector"
       subtitle={document.shortId}
       className="px-4 py-2.5"
+      actionsLabel="Inspector actions"
       actions={(
         <ToolbarIconButton
           onClick={() => onCopyLink(document)}

@@ -1,5 +1,6 @@
 import { ArrowLeftRight, Columns2, FileText, MoreHorizontal, X } from 'lucide-react';
 
+import { Toolbar } from '@/components/ui/toolbar';
 import { Tooltip } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
@@ -144,34 +145,36 @@ export function DocumentTabs({
           <span className="px-2 text-sm text-text-subtle">No tabs</span>
         )}
       </div>
-      <DropdownMenu>
-        <ToolbarDropdownIconTrigger label="Pane actions" className="app-region-no-drag h-7 w-7">
-          <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
-        </ToolbarDropdownIconTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem disabled={!activeTab || !canSplit} onSelect={onSplitPane}>
-            <Columns2 aria-hidden="true" className="h-4 w-4" />
-            Split Right
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled={!activeTab || !canMoveToOtherPane} onSelect={onMoveTabToOtherPane}>
-            <ArrowLeftRight aria-hidden="true" className="h-4 w-4" />
-            Move Tab to Other Pane
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem disabled={!activeTab || tabs.length <= 1} onSelect={() => activeTab && onCloseOtherTabs(activeTab.tabId)}>
-            <X aria-hidden="true" className="h-4 w-4" />
-            Close Other Tabs
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled={!activeTab || !hasTabsToRight} onSelect={() => activeTab && onCloseTabsToRight(activeTab.tabId)}>
-            <X aria-hidden="true" className="h-4 w-4" />
-            Close Tabs to Right
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled={!canReopenLastClosedTab} onSelect={onReopenLastClosedTab}>
-            <FileText aria-hidden="true" className="h-4 w-4" />
-            Reopen Last Closed Tab
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <Toolbar aria-label="Pane controls">
+        <DropdownMenu>
+          <ToolbarDropdownIconTrigger label="Pane actions" className="app-region-no-drag h-7 w-7">
+            <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
+          </ToolbarDropdownIconTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem disabled={!activeTab || !canSplit} onSelect={onSplitPane}>
+              <Columns2 aria-hidden="true" className="h-4 w-4" />
+              Split Right
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!activeTab || !canMoveToOtherPane} onSelect={onMoveTabToOtherPane}>
+              <ArrowLeftRight aria-hidden="true" className="h-4 w-4" />
+              Move Tab to Other Pane
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled={!activeTab || tabs.length <= 1} onSelect={() => activeTab && onCloseOtherTabs(activeTab.tabId)}>
+              <X aria-hidden="true" className="h-4 w-4" />
+              Close Other Tabs
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!activeTab || !hasTabsToRight} onSelect={() => activeTab && onCloseTabsToRight(activeTab.tabId)}>
+              <X aria-hidden="true" className="h-4 w-4" />
+              Close Tabs to Right
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!canReopenLastClosedTab} onSelect={onReopenLastClosedTab}>
+              <FileText aria-hidden="true" className="h-4 w-4" />
+              Reopen Last Closed Tab
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </Toolbar>
     </div>
   );
 }

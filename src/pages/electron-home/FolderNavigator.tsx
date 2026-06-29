@@ -258,6 +258,7 @@ function NavigatorHeader({
       title={scope.label}
       subtitle={navigatorSubtitle}
       className="px-3 py-2.5"
+      actionsLabel="Note navigator actions"
       actions={(
         <>
           <ToolbarIconButton

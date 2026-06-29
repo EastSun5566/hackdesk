@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -70,6 +70,8 @@ describe('AppTopBar', () => {
   it('renders compact titlebar tabs and sidebar toggles', () => {
     renderTopBar();
 
+    expect(screen.getByRole('toolbar', { name: 'Application controls' })).toBeInTheDocument();
+    expect(screen.getByRole('toolbar', { name: 'Pane controls' })).toBeInTheDocument();
     const sidebarToggle = screen.getByRole('button', { name: 'Collapse workspace sidebar' });
     const navigatorToggle = screen.getByRole('button', { name: 'Collapse note navigator' });
     const backButton = screen.getByRole('button', { name: 'Back' });
@@ -123,8 +125,8 @@ describe('AppTopBar', () => {
     expect(props.navigation.onForward).toHaveBeenCalledOnce();
   });
 
-  it('keeps disabled navigation buttons visible with stable labels', () => {
-    renderTopBar({
+  it('keeps disabled navigation buttons focusable with stable labels and tooltips', async () => {
+    const props = renderTopBar({
       navigation: {
         canGoBack: false,
         canGoForward: false,
@@ -133,8 +135,17 @@ describe('AppTopBar', () => {
       },
     });
 
-    expect(screen.getByRole('button', { name: 'Back' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Forward' })).toBeDisabled();
+    const backButton = screen.getByRole('button', { name: 'Back' });
+    const forwardButton = screen.getByRole('button', { name: 'Forward' });
+    expect(backButton).toHaveAttribute('aria-disabled', 'true');
+    expect(forwardButton).toHaveAttribute('aria-disabled', 'true');
+
+    backButton.focus();
+    fireEvent.mouseOver(backButton);
+    fireEvent.click(backButton);
+
+    expect(await screen.findByText('No previous note location')).toBeVisible();
+    expect(props.navigation.onBack).not.toHaveBeenCalled();
   });
 
   it('calls tab select and close callbacks from titlebar tabs', () => {
@@ -163,5 +174,17 @@ describe('AppTopBar', () => {
     fireEvent.click(await screen.findByText('Split Right'));
 
     expect(props.onSplitPane).toHaveBeenCalledOnce();
+  });
+
+  it('returns focus to the pane toolbar trigger when its menu closes', async () => {
+    renderTopBar();
+
+    const trigger = screen.getByRole('button', { name: 'Pane actions' });
+    trigger.focus();
+    fireEvent.pointerDown(trigger);
+    const menu = await screen.findByRole('menu');
+    fireEvent.keyDown(menu, { key: 'Escape' });
+
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 });

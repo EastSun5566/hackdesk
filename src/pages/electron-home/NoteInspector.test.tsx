@@ -139,6 +139,7 @@ describe('NoteInspector', () => {
     const onCopyLink = vi.fn();
     const { document } = renderNoteInspector({ actions: { onCopyLink } });
 
+    expect(screen.getByRole('toolbar', { name: 'Inspector actions' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Copy Link' }));
 
     expect(onCopyLink).toHaveBeenCalledWith(document);

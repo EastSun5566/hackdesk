@@ -184,6 +184,8 @@ describe('FolderNavigator', () => {
     const onFinderStateChange = vi.fn();
     renderFolderNavigator({ actions: { onFinderStateChange } });
 
+    expect(screen.getByRole('toolbar', { name: 'Note navigator actions' })).toBeInTheDocument();
+    expect(screen.getByRole('toolbar', { name: 'Note finder controls' })).toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText('Search notes'), {
       target: { value: 'nested' },
     });

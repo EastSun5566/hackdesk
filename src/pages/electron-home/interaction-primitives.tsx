@@ -7,6 +7,7 @@ import type {
 import { forwardRef } from 'react';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Toolbar, ToolbarButton } from '@/components/ui/toolbar';
 import { cn } from '@/lib/utils';
 import { getActionShortcut } from '@/lib/electron-actions';
 import type { ElectronActionId } from '@/lib/electron-api';
@@ -251,12 +252,14 @@ export function PanelHeader({
   title,
   subtitle,
   actions,
+  actionsLabel,
   titleElement: TitleElement = 'h2',
   className,
 }: {
   title: ReactNode;
   subtitle?: ReactNode;
   actions?: ReactNode;
+  actionsLabel?: string;
   titleElement?: 'h2' | 'div';
   className?: string;
 }) {
@@ -267,7 +270,14 @@ export function PanelHeader({
           <TitleElement className="truncate text-base font-semibold text-text-default">{title}</TitleElement>
           {subtitle ? <p className="mt-1 truncate text-xs text-text-subtle">{subtitle}</p> : null}
         </div>
-        {actions ? <div className="flex shrink-0 items-center gap-1">{actions}</div> : null}
+        {actions ? (
+          <Toolbar
+            aria-label={actionsLabel ?? (typeof title === 'string' ? `${title} actions` : 'Panel actions')}
+            className="shrink-0"
+          >
+            {actions}
+          </Toolbar>
+        ) : null}
       </div>
     </header>
   );
@@ -297,25 +307,14 @@ export function ToolbarIconButton({
     </span>
   ) : tooltip;
   const button = (
-    <button
-      type="button"
+    <ToolbarButton
       aria-label={label}
       className={cn(ICON_BUTTON_CLASS, className)}
       {...props}
     >
       {children}
-    </button>
+    </ToolbarButton>
   );
-
-  if (props.disabled) {
-    return (
-      <Tooltip content={tooltipContent}>
-        <span className="inline-flex cursor-default">
-          {button}
-        </span>
-      </Tooltip>
-    );
-  }
 
   return (
     <Tooltip content={tooltipContent}>
@@ -337,17 +336,20 @@ export function ToolbarDropdownIconTrigger({
 }) {
   return (
     <TooltipRoot>
-      <TooltipTrigger asChild>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label={label}
-            className={cn(ICON_BUTTON_CLASS, className)}
+      <TooltipTrigger
+        render={(
+          <DropdownMenuTrigger
+            render={(
+              <ToolbarButton
+                aria-label={label}
+                className={cn(ICON_BUTTON_CLASS, className)}
+              />
+            )}
           >
             {children}
-          </button>
-        </DropdownMenuTrigger>
-      </TooltipTrigger>
+          </DropdownMenuTrigger>
+        )}
+      />
       <TooltipContent side="bottom">{tooltip}</TooltipContent>
     </TooltipRoot>
   );
