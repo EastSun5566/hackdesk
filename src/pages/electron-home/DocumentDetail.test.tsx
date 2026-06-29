@@ -4,6 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { DocumentSummary } from '@/lib/electron-api';
 import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
+import {
+  expectDisabledToolbarAction,
+  expectMenuReturnsFocus,
+  expectToolbarRovingFocus,
+} from '@/test/accessibility-contracts';
 
 import { DocumentDetail, type DocumentDetailProps } from './DocumentDetail';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
@@ -336,5 +341,35 @@ describe('DocumentDetail', () => {
     expect(screen.getByLabelText('Markdown editor')).toHaveValue('# Hello');
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
     expect(onToggleInspector).toHaveBeenCalledOnce();
+  });
+
+  it('uses the document toolbar focus contract for editor actions', async () => {
+    renderDocumentDetail();
+
+    await expectToolbarRovingFocus('Document actions', [
+      'Save',
+      'Expand inspector',
+      'More actions',
+    ]);
+  });
+
+  it('keeps clean-state save focusable without running save', async () => {
+    const onSave = vi.fn();
+    renderDocumentDetail({ actions: { onSave } });
+
+    const saveButton = screen.getByRole('button', { name: 'Save' });
+    fireEvent.mouseOver(saveButton);
+    expectDisabledToolbarAction(saveButton, onSave);
+
+    expect(await screen.findByText('No unsaved note changes.')).toBeVisible();
+  });
+
+  it('returns focus to the document actions trigger when the menu closes', async () => {
+    renderDocumentDetail();
+
+    const trigger = screen.getByRole('button', { name: 'More actions' });
+    await expectMenuReturnsFocus(trigger, (menu) => {
+      fireEvent.keyDown(menu, { key: 'Escape' });
+    });
   });
 });

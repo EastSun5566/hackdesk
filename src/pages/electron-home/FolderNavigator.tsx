@@ -273,6 +273,7 @@ function NavigatorHeader({
             onClick={actions.onCreate}
             disabled={!status.canCreate || status.isCreating}
             label="Create note"
+            tooltip={!status.canCreate ? 'Connect HackMD to create notes.' : status.isCreating ? 'Creating note…' : undefined}
           >
             <Plus aria-hidden="true" className="h-4 w-4" />
           </ToolbarIconButton>
@@ -580,7 +581,7 @@ function NavigatorTree({
   const activeNote = activeNoteId
     ? tree.allNotes.find((entry) => entry.note.id === activeNoteId) ?? null
     : null;
-  const { handleTreeKeyDown } = useFolderTreeKeyboardNavigation({
+  useFolderTreeKeyboardNavigation({
     actions,
     collapsedFolderIds: layout.collapsedFolderIds,
     tree,
@@ -661,7 +662,6 @@ function NavigatorTree({
           ref={treeRef}
           className="grid min-w-0 gap-0.5"
           data-testid="folder-navigator-tree"
-          onKeyDown={handleTreeKeyDown}
         >
           <RootFolderRow
             selected={selection.selectedFolderId === UNFILED_FOLDER_ID}

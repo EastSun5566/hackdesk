@@ -1,7 +1,12 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+  expectDisabledToolbarAction,
+  expectMenuReturnsFocus,
+  expectToolbarRovingFocus,
+} from '@/test/accessibility-contracts';
 
 import { AppTopBar } from './AppTopBar';
 import type { OpenNoteTab } from './note-workspace';
@@ -91,6 +96,17 @@ describe('AppTopBar', () => {
     expect(screen.getByRole('button', { name: 'Select Design Spec tab' })).toBeInTheDocument();
   });
 
+  it('uses roving focus for titlebar application controls', async () => {
+    renderTopBar();
+
+    await expectToolbarRovingFocus('Application controls', [
+      'Collapse workspace sidebar',
+      'Collapse note navigator',
+      'Back',
+      'Forward',
+    ]);
+  });
+
   it('calls the note navigator toggle from the titlebar', () => {
     const props = renderTopBar({
       navigatorCollapsed: true,
@@ -137,15 +153,12 @@ describe('AppTopBar', () => {
 
     const backButton = screen.getByRole('button', { name: 'Back' });
     const forwardButton = screen.getByRole('button', { name: 'Forward' });
-    expect(backButton).toHaveAttribute('aria-disabled', 'true');
     expect(forwardButton).toHaveAttribute('aria-disabled', 'true');
 
-    backButton.focus();
     fireEvent.mouseOver(backButton);
-    fireEvent.click(backButton);
+    expectDisabledToolbarAction(backButton, props.navigation.onBack);
 
     expect(await screen.findByText('No previous note location')).toBeVisible();
-    expect(props.navigation.onBack).not.toHaveBeenCalled();
   });
 
   it('calls tab select and close callbacks from titlebar tabs', () => {
@@ -180,11 +193,19 @@ describe('AppTopBar', () => {
     renderTopBar();
 
     const trigger = screen.getByRole('button', { name: 'Pane actions' });
-    trigger.focus();
-    fireEvent.pointerDown(trigger);
-    const menu = await screen.findByRole('menu');
-    fireEvent.keyDown(menu, { key: 'Escape' });
+    await expectMenuReturnsFocus(trigger, (menu) => {
+      fireEvent.keyDown(menu, { key: 'Escape' });
+    });
+  });
 
-    await waitFor(() => expect(trigger).toHaveFocus());
+  it('returns focus to the pane toolbar trigger after running a menu action', async () => {
+    const props = renderTopBar();
+
+    const trigger = screen.getByRole('button', { name: 'Pane actions' });
+    await expectMenuReturnsFocus(trigger, async () => {
+      fireEvent.click(await screen.findByText('Split Right'));
+    });
+
+    expect(props.onSplitPane).toHaveBeenCalledOnce();
   });
 });

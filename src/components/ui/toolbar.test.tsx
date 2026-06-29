@@ -1,5 +1,7 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { describe, it, vi } from 'vitest';
+
+import { expectDisabledToolbarAction, expectToolbarRovingFocus } from '@/test/accessibility-contracts';
 
 import { Toolbar, ToolbarButton } from './toolbar';
 
@@ -13,28 +15,7 @@ describe('Toolbar', () => {
       </Toolbar>,
     );
 
-    const toolbar = screen.getByRole('toolbar', { name: 'Editor actions' });
-    const first = screen.getByRole('button', { name: 'First' });
-    const disabled = screen.getByRole('button', { name: 'Disabled' });
-    const last = screen.getByRole('button', { name: 'Last' });
-
-    expect(toolbar).toHaveAttribute('aria-orientation', 'horizontal');
-    expect(first).toHaveAttribute('tabindex', '0');
-    expect(disabled).toHaveAttribute('tabindex', '-1');
-    expect(last).toHaveAttribute('tabindex', '-1');
-
-    first.focus();
-    fireEvent.keyDown(first, { key: 'ArrowRight' });
-    await waitFor(() => expect(disabled).toHaveFocus());
-
-    fireEvent.keyDown(disabled, { key: 'ArrowRight' });
-    await waitFor(() => expect(last).toHaveFocus());
-
-    fireEvent.keyDown(last, { key: 'ArrowRight' });
-    await waitFor(() => expect(first).toHaveFocus());
-
-    fireEvent.keyDown(first, { key: 'ArrowLeft' });
-    await waitFor(() => expect(last).toHaveFocus());
+    await expectToolbarRovingFocus('Editor actions', ['First', 'Disabled', 'Last']);
   });
 
   it('keeps disabled actions focusable without invoking them', () => {
@@ -46,14 +27,6 @@ describe('Toolbar', () => {
     );
 
     const button = screen.getByRole('button', { name: 'Save' });
-    expect(button).toHaveAttribute('aria-disabled', 'true');
-    expect(button).toHaveAttribute('data-focusable');
-    expect(button).toHaveClass('focus-visible:ring-2');
-
-    button.focus();
-    fireEvent.click(button);
-
-    expect(button).toHaveFocus();
-    expect(onClick).not.toHaveBeenCalled();
+    expectDisabledToolbarAction(button, onClick);
   });
 });

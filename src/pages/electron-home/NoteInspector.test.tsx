@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { DocumentSummary } from '@/lib/electron-api';
 import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
+import { expectToolbarRovingFocus } from '@/test/accessibility-contracts';
 
 import { NoteInspector } from './NoteInspector';
 
@@ -143,6 +144,12 @@ describe('NoteInspector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Copy Link' }));
 
     expect(onCopyLink).toHaveBeenCalledWith(document);
+  });
+
+  it('uses a named toolbar for inspector header actions', async () => {
+    renderNoteInspector();
+
+    await expectToolbarRovingFocus('Inspector actions', ['Copy Link']);
   });
 
   it('shows metadata save state without hiding the primary action', () => {

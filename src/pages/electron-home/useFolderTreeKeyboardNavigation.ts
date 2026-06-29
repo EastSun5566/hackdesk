@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, type KeyboardEvent, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from 'react';
 
 import type { NoteSummary } from '@/lib/electron-api';
 import type { FolderTree } from '@/lib/hackmd-folders';
@@ -96,7 +96,7 @@ export function useFolderTreeKeyboardNavigation({
     focusTreeItem(match.id);
   }, [focusItems, focusTreeItem, resetTypeaheadTimer]);
 
-  const handleTreeKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
+  const handleTreeKeyDown = useCallback((event: KeyboardEvent | ReactKeyboardEvent<HTMLElement>) => {
     if (shouldIgnoreFolderTreeKeydown(event.target) || focusItems.length === 0) {
       return;
     }
@@ -245,6 +245,23 @@ export function useFolderTreeKeyboardNavigation({
     focusTreeItem,
     runTypeahead,
   ]);
+
+  useEffect(() => {
+    const treeElement = treeRef.current;
+    if (!treeElement) {
+      return undefined;
+    }
+
+    const handleNativeKeyDown = (event: KeyboardEvent) => {
+      handleTreeKeyDown(event);
+    };
+
+    treeElement.addEventListener('keydown', handleNativeKeyDown);
+
+    return () => {
+      treeElement.removeEventListener('keydown', handleNativeKeyDown);
+    };
+  }, [handleTreeKeyDown, treeRef]);
 
   return { handleTreeKeyDown };
 }

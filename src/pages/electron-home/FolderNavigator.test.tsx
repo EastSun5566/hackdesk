@@ -5,6 +5,11 @@ import { DEFAULT_NOTE_FINDER_STATE } from '@/lib/electron-note-finder';
 import type { FolderPathSummary, NoteSummary } from '@/lib/electron-api';
 import { buildHackmdFolderTree, UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+  expectDisabledToolbarAction,
+  expectMenuReturnsFocus,
+  expectToolbarRovingFocus,
+} from '@/test/accessibility-contracts';
 
 import { FolderNavigator, type FolderNavigatorProps } from './FolderNavigator';
 
@@ -196,6 +201,52 @@ describe('FolderNavigator', () => {
     });
   });
 
+  it('uses roving focus for navigator header actions', async () => {
+    renderFolderNavigator();
+
+    await expectToolbarRovingFocus('Note navigator actions', [
+      'Refresh notes',
+      'Create note',
+      'Navigator actions',
+      'Collapse note navigator',
+    ]);
+  });
+
+  it('keeps disabled create action focusable and explainable', async () => {
+    const onCreate = vi.fn();
+    renderFolderNavigator({
+      actions: { onCreate },
+      status: {
+        canCreate: false,
+      },
+    });
+
+    const createButton = screen.getByRole('button', { name: 'Create note' });
+    fireEvent.mouseOver(createButton);
+    expectDisabledToolbarAction(createButton, onCreate);
+
+    expect(await screen.findByText('Connect HackMD to create notes.')).toBeVisible();
+  });
+
+  it('uses roving focus for finder dropdown controls', async () => {
+    renderFolderNavigator();
+
+    await expectToolbarRovingFocus('Note finder controls', [
+      'Search scope',
+      'Sort notes',
+      'Filter notes',
+    ]);
+  });
+
+  it('returns focus to finder dropdown trigger when its menu closes', async () => {
+    renderFolderNavigator();
+
+    const trigger = screen.getByRole('button', { name: 'Search scope' });
+    await expectMenuReturnsFocus(trigger, (menu) => {
+      fireEvent.keyDown(menu, { key: 'Escape' });
+    });
+  });
+
   it('keeps folder icon and color metadata visible in folder rows', () => {
     const { container } = renderFolderNavigator();
 
@@ -225,6 +276,18 @@ describe('FolderNavigator', () => {
 
     expect(onFolderToggle).toHaveBeenCalledWith('projects');
     expect(onNoteSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'nested-note' }));
+  });
+
+  it('keeps folder rows on native buttons for the keyboard path', () => {
+    renderFolderNavigator();
+
+    const folderButton = screen.getByRole('button', { name: 'Projects' });
+    const noteButton = screen.getByRole('button', { name: 'Nested note' });
+    const collapseButton = screen.getByRole('button', { name: 'Collapse Projects' });
+
+    expect(folderButton).toHaveAttribute('data-folder-tree-primary', 'true');
+    expect(noteButton).toHaveAttribute('data-folder-tree-primary', 'true');
+    expect(collapseButton).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('moves focus through visible tree rows with arrow keys and Ctrl+N/P', () => {
