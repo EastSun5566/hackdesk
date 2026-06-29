@@ -1,5 +1,5 @@
 import { Copy } from 'lucide-react';
-import { useId } from 'react';
+import { useId, useMemo } from 'react';
 
 import type {
   DocumentSummary,
@@ -32,18 +32,7 @@ function NoteInspectorPanel({
   folderTree,
   status,
 }: NoteInspectorProps) {
-  const metadataIds = {
-    descriptionId: useId(),
-    permalinkId: useId(),
-    tagsId: useId(),
-  };
-  const locationIds = {
-    folderId: useId(),
-  };
-  const permissionsIds = {
-    readPermissionId: useId(),
-    writePermissionId: useId(),
-  };
+  const { locationIds, metadataIds, permissionsIds } = useNoteInspectorIds();
   const inspector = useNoteInspectorForm({ actions, document, folderTree });
 
   return (
@@ -90,6 +79,37 @@ function NoteInspectorPanel({
       </div>
     </aside>
   );
+}
+
+function useNoteInspectorIds() {
+  const descriptionId = useId();
+  const permalinkId = useId();
+  const tagsId = useId();
+  const folderId = useId();
+  const readPermissionId = useId();
+  const writePermissionId = useId();
+
+  return useMemo(() => ({
+    metadataIds: {
+      descriptionId,
+      permalinkId,
+      tagsId,
+    },
+    locationIds: {
+      folderId,
+    },
+    permissionsIds: {
+      readPermissionId,
+      writePermissionId,
+    },
+  }), [
+    descriptionId,
+    folderId,
+    permalinkId,
+    readPermissionId,
+    tagsId,
+    writePermissionId,
+  ]);
 }
 
 function InspectorHeader({

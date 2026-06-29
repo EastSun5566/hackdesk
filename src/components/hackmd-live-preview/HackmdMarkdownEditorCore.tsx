@@ -265,14 +265,6 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
       setIsImageDragging(true);
     };
 
-    const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
-      if (!hasImageFile(event.dataTransfer)) {
-        return;
-      }
-
-      event.preventDefault();
-    };
-
     const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
       if (!hasImageFile(event.dataTransfer)) {
         return;
@@ -296,7 +288,7 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
           className="markdown-editor hackmd-markdown-editor min-h-0 flex-1 overflow-hidden"
           data-testid="hackmd-markdown-editor"
           onDragEnter={handleDragEnter}
-          onDragOver={handleDragOver}
+          onDragOver={handleImageDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         />
@@ -329,4 +321,12 @@ function hasImageFile(dataTransfer: DataTransfer) {
   return Array.from(dataTransfer.items ?? []).some((item) => (
     item.kind === 'file' && item.type.startsWith('image/')
   ));
+}
+
+function handleImageDragOver(event: DragEvent<HTMLDivElement>) {
+  if (!hasImageFile(event.dataTransfer)) {
+    return;
+  }
+
+  event.preventDefault();
 }

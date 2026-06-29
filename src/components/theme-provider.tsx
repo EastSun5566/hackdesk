@@ -225,9 +225,7 @@ export function ThemeProvider({
   const effectiveCustomSeed = preview?.customSeed ?? customSeed;
 
   // Resolve the actual theme to apply (handles 'system')
-  const resolvedTheme = useMemo(() => {
-    return effectiveTheme === 'system' ? systemTheme : effectiveTheme;
-  }, [effectiveTheme, systemTheme]);
+  const resolvedTheme = effectiveTheme === 'system' ? systemTheme : effectiveTheme;
 
   // Apply theme class to document before paint when possible.
   useLayoutEffect(() => {

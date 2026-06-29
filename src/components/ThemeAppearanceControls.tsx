@@ -311,7 +311,11 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="grid grid-cols-1 gap-3 pt-2">
-                {renderSeedFields(draftSeedInputs, errors, handleSeedChange)}
+                <ThemeSeedFields
+                  errors={errors}
+                  inputs={draftSeedInputs}
+                  onChange={handleSeedChange}
+                />
               </div>
             </CollapsibleContent>
           </Collapsible>
@@ -319,7 +323,11 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
           <>
             <p className="mb-3 text-sm text-text-subtle">Leave a seed empty to use the selected preset value.</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {renderSeedFields(draftSeedInputs, errors, handleSeedChange)}
+              <ThemeSeedFields
+                errors={errors}
+                inputs={draftSeedInputs}
+                onChange={handleSeedChange}
+              />
             </div>
           </>
         )}
@@ -342,11 +350,15 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
   );
 });
 
-function renderSeedFields(
-  inputs: Record<keyof ThemeSeed, string>,
-  errors: Partial<Record<keyof ThemeSeed, string>>,
-  onChange: (key: keyof ThemeSeed, value: string) => void,
-) {
+function ThemeSeedFields({
+  errors,
+  inputs,
+  onChange,
+}: {
+  errors: Partial<Record<keyof ThemeSeed, string>>;
+  inputs: Record<keyof ThemeSeed, string>;
+  onChange: (key: keyof ThemeSeed, value: string) => void;
+}) {
   return seedFields.map((field) => {
     const fieldId = `theme-seed-${field.key}`;
     const errorId = `${fieldId}-error`;
