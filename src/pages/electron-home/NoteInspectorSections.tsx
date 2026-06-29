@@ -1,6 +1,14 @@
-import { ChevronDown, Loader2, X } from 'lucide-react';
-import type { Dispatch, ReactNode, SelectHTMLAttributes } from 'react';
+import { Loader2, X } from 'lucide-react';
+import type { Dispatch, ReactNode } from 'react';
 
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { NotePermissionRole } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
 
@@ -59,30 +67,48 @@ function InspectorField({
 }
 
 function InspectorSelectField({
-  children,
   className,
   id,
   label,
-  ...props
-}: SelectHTMLAttributes<HTMLSelectElement> & {
+  name,
+  onValueChange,
+  options,
+  value,
+}: {
   id: string;
   label: string;
+  name: string;
+  onValueChange: (value: string) => void;
+  options: Array<{ label: string; value: string }>;
+  value: string;
+  className?: string;
 }) {
   return (
     <InspectorField htmlFor={id} label={label}>
-      <div className="relative">
-        <select
-          {...props}
+      <Select
+        name={name}
+        value={value}
+        onValueChange={(nextValue) => {
+          if (typeof nextValue === 'string') {
+            onValueChange(nextValue);
+          }
+        }}
+        items={options}
+      >
+        <SelectTrigger
           id={id}
-          className={cn(INSPECTOR_INPUT_CLASS, 'appearance-none pe-9', className)}
+          className={cn(INSPECTOR_INPUT_CLASS, 'w-full justify-between pe-2.5', className)}
         >
-          {children}
-        </select>
-        <ChevronDown
-          aria-hidden="true"
-          className="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-text-subtle"
-        />
-      </div>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </InspectorField>
   );
 }
@@ -243,13 +269,12 @@ export function LocationSection({
           label="Folder"
           name="parentFolderId"
           value={parentFolderId}
-          onChange={(event) => dispatch({ type: 'set-parent-folder-id', value: event.target.value })}
-        >
-          <option value="">Root</option>
-          {folderOptions.map((option) => (
-            <option key={option.id} value={option.id}>{option.label}</option>
-          ))}
-        </InspectorSelectField>
+          onValueChange={(value) => dispatch({ type: 'set-parent-folder-id', value })}
+          options={[
+            { value: '', label: 'Root' },
+            ...folderOptions.map((option) => ({ value: option.id, label: option.label })),
+          ]}
+        />
       </fieldset>
     </CollapsibleSection>
   );
@@ -314,23 +339,25 @@ function PermissionSegmentedField({
   return (
     <fieldset className="space-y-1.5">
       <legend className={INSPECTOR_LABEL_CLASS}>{legend}</legend>
-      <div className="grid grid-cols-3 gap-0.5 rounded-md border border-border-default bg-background-muted p-0.5">
+      <RadioGroup
+        name={name}
+        value={value}
+        onValueChange={(nextValue) => onChange(nextValue as NotePermissionRole)}
+        className="grid grid-cols-3 gap-0.5 rounded-md border border-border-default bg-background-muted p-0.5"
+      >
         {PERMISSION_OPTIONS.map((option) => (
-          <label key={option.value} className="min-w-0 cursor-pointer">
-            <input
-              className="peer sr-only"
-              type="radio"
-              name={name}
-              value={option.value}
-              checked={value === option.value}
-              onChange={() => onChange(option.value)}
-            />
-            <span className="flex h-8 min-w-0 items-center justify-center rounded-[5px] px-1.5 text-center text-xs text-text-subtle peer-checked:bg-background-selected peer-checked:font-medium peer-checked:text-text-default peer-focus-visible:ring-2 peer-focus-visible:ring-primary-default">
+          <RadioGroupItem
+            key={option.value}
+            value={option.value}
+            aria-label={option.label}
+            className="flex h-8 w-full min-w-0 cursor-pointer items-center justify-center overflow-hidden rounded-[5px] border-0 bg-transparent px-1.5 text-center text-xs text-text-subtle data-[checked]:bg-background-selected data-[checked]:font-medium data-[checked]:text-text-default"
+          >
+            <span className="min-w-0 truncate whitespace-nowrap">
               {option.label}
             </span>
-          </label>
+          </RadioGroupItem>
         ))}
-      </div>
+      </RadioGroup>
     </fieldset>
   );
 }

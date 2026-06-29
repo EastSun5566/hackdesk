@@ -1,5 +1,6 @@
 import { Palette, RotateCcw } from 'lucide-react';
 
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 
 import { FOCUS_RING_CLASS, TEXT_INPUT_CLASS } from './ui';
@@ -41,29 +42,34 @@ export function FolderAppearanceFields({
   onColorChange: (color: string) => void;
 }) {
   const normalizedColor = color.trim();
+  const normalizedIcon = icon.trim().toUpperCase();
+  const selectedColor = normalizedColor.toUpperCase();
 
   return (
     <div className="space-y-4">
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium text-text-default">Icon</legend>
-        <div className="grid grid-cols-4 gap-2">
+        <RadioGroup
+          value={normalizedIcon}
+          onValueChange={(value) => onIconChange(value)}
+          className="grid grid-cols-4 gap-2"
+        >
           {folderIconOptions.map((option) => (
-            <button
+            <RadioGroupItem
               key={option.value}
-              type="button"
-              aria-pressed={icon.trim().toUpperCase() === option.value}
-              onClick={() => onIconChange(option.value)}
+              value={option.value}
+              aria-label={option.label}
               className={cn(
-                'flex size-10 items-center justify-center rounded-md border text-lg transition-colors hover:bg-element-bg-hover aria-pressed:border-primary-default aria-pressed:bg-primary-soft',
+                'flex size-10 items-center justify-center rounded-md border text-lg transition-colors hover:bg-element-bg-hover data-[checked]:border-primary-default data-[checked]:bg-primary-soft',
                 FOCUS_RING_CLASS,
               )}
               title={option.label}
             >
               <span aria-hidden="true">{option.glyph}</span>
               <span className="sr-only">{option.label}</span>
-            </button>
+            </RadioGroupItem>
           ))}
-        </div>
+        </RadioGroup>
         <button
           type="button"
           onClick={() => onIconChange('')}
@@ -79,22 +85,24 @@ export function FolderAppearanceFields({
 
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium text-text-default">Color</legend>
-        <div className="grid grid-cols-8 gap-2">
+        <RadioGroup
+          value={selectedColor}
+          onValueChange={(value) => onColorChange(value)}
+          className="grid grid-cols-8 gap-2"
+        >
           {folderColorOptions.map((option) => (
-            <button
+            <RadioGroupItem
               key={option}
-              type="button"
               aria-label={`Use folder color ${option}`}
-              aria-pressed={normalizedColor.toUpperCase() === option}
-              onClick={() => onColorChange(option)}
+              value={option}
               className={cn(
-                'size-8 rounded-md border border-border-default transition-transform hover:scale-105 aria-pressed:ring-2 aria-pressed:ring-primary-default aria-pressed:ring-offset-2 aria-pressed:ring-offset-background-default',
+                'size-8 rounded-md border border-border-default transition-transform hover:scale-105 data-[checked]:ring-2 data-[checked]:ring-primary-default data-[checked]:ring-offset-2 data-[checked]:ring-offset-background-default',
                 FOCUS_RING_CLASS,
               )}
               style={{ backgroundColor: option }}
             />
           ))}
-        </div>
+        </RadioGroup>
         <button
           type="button"
           onClick={() => onColorChange('')}

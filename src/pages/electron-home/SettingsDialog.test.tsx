@@ -97,7 +97,7 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Editor/ }));
 
     expect(screen.getByRole('radio', { name: /Standard/ })).toBeChecked();
-    fireEvent.click(screen.getByRole('radio', { name: /Helix/ }));
+    fireEvent.click(screen.getByText('Helix'));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(onSave).toHaveBeenCalledWith({

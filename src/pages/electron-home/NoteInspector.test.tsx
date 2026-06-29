@@ -7,6 +7,15 @@ import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
 
 import { NoteInspector } from './NoteInspector';
 
+async function selectOption(label: string, optionName: string | RegExp) {
+  const trigger = screen.getByRole('combobox', { name: label });
+  fireEvent.pointerDown(trigger);
+  fireEvent.click(trigger);
+  const option = await screen.findByRole('option', { name: optionName });
+  fireEvent.pointerDown(option);
+  fireEvent.click(option);
+}
+
 function documentSummary(overrides: Partial<DocumentSummary> = {}): DocumentSummary {
   return {
     content: '# Hello',
@@ -84,14 +93,12 @@ describe('NoteInspector', () => {
     });
   });
 
-  it('saves location and permission changes from collapsed sections', () => {
+  it('saves location and permission changes from collapsed sections', async () => {
     const onSaveMetadata = vi.fn();
     const { document } = renderNoteInspector({ actions: { onSaveMetadata } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Location' }));
-    fireEvent.change(screen.getByLabelText('Folder'), {
-      target: { value: 'folder-a' },
-    });
+    await selectOption('Folder', 'Folder A');
     fireEvent.click(screen.getByRole('button', { name: 'Permissions' }));
     fireEvent.click(within(screen.getByRole('group', { name: 'Read' })).getByRole('radio', { name: 'Guest' }));
     fireEvent.click(within(screen.getByRole('group', { name: 'Write' })).getByRole('radio', { name: 'Signed in' }));

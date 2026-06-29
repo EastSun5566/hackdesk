@@ -8,6 +8,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type {
   DocumentSummary,
   NotePermissionRole,
@@ -47,6 +54,8 @@ function getWritePermissionLabel(permission: NotePermissionRole) {
     return 'Anyone with the link';
   }
 }
+
+const PERMISSION_OPTIONS: NotePermissionRole[] = ['owner', 'signed_in', 'guest'];
 
 type ShareDialogProps = {
   open: boolean;
@@ -171,35 +180,61 @@ function ShareDialogContent({
 
           <form onSubmit={handleSubmit} className="space-y-3 border-t border-border-default pt-4">
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block space-y-2 text-sm" htmlFor={readPermissionId}>
-                <span className="font-medium text-text-default">Read Access</span>
-                <select
-                  id={readPermissionId}
+              <div className="block space-y-2 text-sm">
+                <label className="font-medium text-text-default" htmlFor={readPermissionId}>Read Access</label>
+                <Select
                   name="readPermission"
                   value={readPermission}
-                  onChange={(event) => setReadPermission(event.target.value as NotePermissionRole)}
-                  className={TEXT_INPUT_CLASS}
+                  onValueChange={(value) => {
+                    if (typeof value === 'string') {
+                      setReadPermission(value as NotePermissionRole);
+                    }
+                  }}
+                  items={PERMISSION_OPTIONS.map((permission) => ({
+                    value: permission,
+                    label: getReadPermissionLabel(permission),
+                  }))}
                 >
-                  <option value="owner">{getReadPermissionLabel('owner')}</option>
-                  <option value="signed_in">{getReadPermissionLabel('signed_in')}</option>
-                  <option value="guest">{getReadPermissionLabel('guest')}</option>
-                </select>
-              </label>
+                  <SelectTrigger id={readPermissionId} className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PERMISSION_OPTIONS.map((permission) => (
+                      <SelectItem key={permission} value={permission}>
+                        {getReadPermissionLabel(permission)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <label className="block space-y-2 text-sm" htmlFor={writePermissionId}>
-                <span className="font-medium text-text-default">Write Access</span>
-                <select
-                  id={writePermissionId}
+              <div className="block space-y-2 text-sm">
+                <label className="font-medium text-text-default" htmlFor={writePermissionId}>Write Access</label>
+                <Select
                   name="writePermission"
                   value={writePermission}
-                  onChange={(event) => setWritePermission(event.target.value as NotePermissionRole)}
-                  className={TEXT_INPUT_CLASS}
+                  onValueChange={(value) => {
+                    if (typeof value === 'string') {
+                      setWritePermission(value as NotePermissionRole);
+                    }
+                  }}
+                  items={PERMISSION_OPTIONS.map((permission) => ({
+                    value: permission,
+                    label: getWritePermissionLabel(permission),
+                  }))}
                 >
-                  <option value="owner">{getWritePermissionLabel('owner')}</option>
-                  <option value="signed_in">{getWritePermissionLabel('signed_in')}</option>
-                  <option value="guest">{getWritePermissionLabel('guest')}</option>
-                </select>
-              </label>
+                  <SelectTrigger id={writePermissionId} className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PERMISSION_OPTIONS.map((permission) => (
+                      <SelectItem key={permission} value={permission}>
+                        {getWritePermissionLabel(permission)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <p className="text-xs leading-5 text-text-subtle">

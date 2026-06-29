@@ -96,6 +96,21 @@ function renderHome(api: HackDeskElectronAPI) {
   );
 }
 
+async function selectOption(
+  label: string,
+  optionName: string | RegExp,
+  container: HTMLElement = globalThis.document.body,
+  optionIndex: 'first' | 'last' = 'first',
+) {
+  const trigger = within(container).getByRole('combobox', { name: label });
+  fireEvent.pointerDown(trigger);
+  fireEvent.click(trigger);
+  const options = await screen.findAllByRole('option', { name: optionName });
+  const option = optionIndex === 'last' ? options[options.length - 1] : options[0];
+  fireEvent.pointerDown(option);
+  fireEvent.click(option);
+}
+
 function findRenderedNoteTitle() {
   return screen.findByDisplayValue('Test note', {}, { timeout: 3000 });
 }
@@ -2236,8 +2251,8 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(screen.getByText('Share'));
 
     const dialog = await screen.findByRole('dialog', { name: 'Share Note' });
-    fireEvent.change(within(dialog).getByLabelText('Read Access'), { target: { value: 'signed_in' } });
-    fireEvent.change(within(dialog).getByLabelText('Write Access'), { target: { value: 'signed_in' } });
+    await selectOption('Read Access', 'Signed-in users', dialog, 'first');
+    await selectOption('Write Access', 'Signed-in users', dialog, 'last');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save Sharing' }));
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
@@ -2263,7 +2278,7 @@ describe('Home native-feel behavior', () => {
     await openInspector();
 
     await expandInspectorSection('Location');
-    fireEvent.change(await screen.findByLabelText('Folder'), { target: { value: 'folder-1' } });
+    await selectOption('Folder', 'Projects');
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
@@ -2289,7 +2304,7 @@ describe('Home native-feel behavior', () => {
     await openInspector();
 
     await expandInspectorSection('Location');
-    fireEvent.change(await screen.findByLabelText('Folder'), { target: { value: '' } });
+    await selectOption('Folder', 'Root');
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
@@ -2359,8 +2374,8 @@ describe('Home native-feel behavior', () => {
     const dialog = within(await screen.findByRole('dialog', { name: 'New Folder' }));
     fireEvent.change(dialog.getByLabelText('Name'), { target: { value: 'Design' } });
     fireEvent.change(dialog.getByLabelText('Description'), { target: { value: 'Design notes' } });
-    fireEvent.click(dialog.getByRole('button', { name: 'Folder' }));
-    fireEvent.click(dialog.getByRole('button', { name: 'Use folder color #2F80ED' }));
+    fireEvent.click(dialog.getByRole('radio', { name: 'Folder' }));
+    fireEvent.click(dialog.getByRole('radio', { name: 'Use folder color #2F80ED' }));
     fireEvent.click(dialog.getByRole('button', { name: 'Create' }));
 
     await waitFor(() => expect(api.hackmd.createFolder).toHaveBeenCalledWith({

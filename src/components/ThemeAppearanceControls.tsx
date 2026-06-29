@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState, type ReactNode } from 'react';
 import { ChevronRight, Laptop, Moon, Sun } from 'lucide-react';
 
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useTheme } from '@/components/theme-provider';
 import { normalizeThemeSeed, type ThemeMode, type ThemePresetId, type ThemeSeed } from '@/lib/themes';
 import { cn } from '@/lib/utils';
@@ -212,22 +213,25 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
         <p className={cn('text-text-subtle', compact ? 'text-xs' : 'mb-3 text-sm')}>
           Choose how HackDesk resolves light and dark mode.
         </p>
-        <div className={cn(
+        <RadioGroup
+          value={draftMode}
+          onValueChange={(value) => handleModeChange(value as ThemeMode)}
+          className={cn(
           compact
             ? 'inline-flex rounded-md border border-border-default bg-background-muted p-0.5'
             : 'grid grid-cols-1 gap-3 sm:grid-cols-3',
-        )}>
+        )}
+        >
           {themeModeOptions.map((option) => (
-            <button
+            <RadioGroupItem
               key={option.id}
-              type="button"
-              onClick={() => handleModeChange(option.id)}
-              aria-pressed={draftMode === option.id}
+              value={option.id}
+              aria-label={option.label}
               className={cn(
                 focusClassName,
                 compact
-                  ? 'inline-flex h-8 items-center gap-1.5 rounded px-2.5 text-xs font-medium transition-colors hover:bg-element-bg-hover'
-                  : 'flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-[background-color,border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none',
+                  ? 'inline-flex h-8 w-auto items-center gap-1.5 rounded border-0 bg-transparent px-2.5 text-xs font-medium transition-colors hover:bg-element-bg-hover'
+                  : 'flex h-auto w-auto flex-col items-center gap-2 rounded-lg border-2 p-4 transition-[background-color,border-color,box-shadow] duration-150 ease-out hover:bg-element-bg-hover motion-reduce:transition-none',
                 draftMode === option.id && compact ? 'bg-background-default text-text-default shadow-sm' : null,
                 draftMode === option.id && !compact ? 'border-primary-default bg-primary-soft' : null,
                 draftMode !== option.id && compact ? 'text-text-subtle' : null,
@@ -244,9 +248,9 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
               )}
               <span className={cn(compact ? null : 'text-sm font-medium')}>{option.label}</span>
               {compact ? null : <span className="text-xs text-text-subtle">{option.description}</span>}
-            </button>
+            </RadioGroupItem>
           ))}
-        </div>
+        </RadioGroup>
       </fieldset>
 
       <fieldset className="space-y-2">
@@ -254,15 +258,18 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
         <p className={cn('text-text-subtle', compact ? 'text-xs' : 'mb-3 text-sm')}>
           Start from a preset, then tune the seed colors below.
         </p>
-        <div className={cn(compact ? 'space-y-2' : 'grid grid-cols-1 gap-3 sm:grid-cols-2')}>
+        <RadioGroup
+          value={draftPresetId}
+          onValueChange={(value) => handlePresetChange(value as ThemePresetId)}
+          className={cn(compact ? 'space-y-2' : 'grid grid-cols-1 gap-3 sm:grid-cols-2')}
+        >
           {presets.map((preset) => (
-            <button
+            <RadioGroupItem
               key={preset.id}
-              type="button"
-              onClick={() => handlePresetChange(preset.id)}
-              aria-pressed={draftPresetId === preset.id}
+              value={preset.id}
+              aria-label={preset.name}
               className={cn(
-                'w-full rounded-lg border bg-background-default text-left transition-[background-color,border-color] duration-150 ease-out hover:bg-element-bg-hover motion-reduce:transition-none',
+                'h-auto w-full justify-start rounded-lg border bg-background-default text-left transition-[background-color,border-color] duration-150 ease-out hover:bg-element-bg-hover motion-reduce:transition-none',
                 focusClassName,
                 compact ? 'flex items-center gap-3 p-2.5' : 'border-2 p-3',
                 draftPresetId === preset.id ? 'border-primary-default' : 'border-border-default',
@@ -284,9 +291,9 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
               {draftPresetId === preset.id && compact ? (
                 <span className="text-xs font-medium text-primary-default">Selected</span>
               ) : null}
-            </button>
+            </RadioGroupItem>
           ))}
-        </div>
+        </RadioGroup>
       </fieldset>
 
       <fieldset className="space-y-2">
