@@ -4,8 +4,9 @@ import type {
   Ref,
   ReactNode,
 } from 'react';
-import { forwardRef, useId, useState } from 'react';
+import { forwardRef } from 'react';
 
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { getActionShortcut } from '@/lib/electron-actions';
 import type { ElectronActionId } from '@/lib/electron-api';
@@ -379,11 +380,11 @@ function SectionHeader({
   subtitle?: ReactNode;
   dirty?: boolean;
   actions?: ReactNode;
-  buttonProps?: ButtonHTMLAttributes<HTMLButtonElement>;
+  buttonProps?: React.ComponentPropsWithoutRef<typeof CollapsibleTrigger>;
 }) {
   return (
     <div className="flex min-h-8 items-center justify-between gap-2">
-      <button
+      <CollapsibleTrigger
         type="button"
         {...buttonProps}
         className={cn(
@@ -394,12 +395,12 @@ function SectionHeader({
       >
         <ChevronDown
           aria-hidden="true"
-          className={cn('h-3.5 w-3.5 shrink-0', COLLAPSE_ICON_CLASS, !buttonProps?.['aria-expanded'] && '-rotate-90')}
+          className={cn('h-3.5 w-3.5 shrink-0 -rotate-90 group-data-[panel-open]:rotate-0', COLLAPSE_ICON_CLASS)}
         />
         <span className="min-w-0 truncate">{title}</span>
         {dirty ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary-default" aria-label="Unsaved changes" /> : null}
         {subtitle ? <span className="min-w-0 truncate normal-case text-text-subtle">{subtitle}</span> : null}
-      </button>
+      </CollapsibleTrigger>
       {actions ? <div className="shrink-0">{actions}</div> : null}
     </div>
   );
@@ -424,11 +425,12 @@ export function CollapsibleSection({
   className?: string;
   contentClassName?: string;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-  const contentId = useId();
-
   return (
-    <section className={cn('border-b border-border-default/70 py-2.5 last:border-b-0', className)}>
+    <Collapsible
+      defaultOpen={defaultOpen}
+      render={<section />}
+      className={cn('border-b border-border-default/70 py-2.5 last:border-b-0', className)}
+    >
       <SectionHeader
         title={title}
         subtitle={subtitle}
@@ -436,26 +438,14 @@ export function CollapsibleSection({
         actions={actions}
         buttonProps={{
           'aria-label': typeof title === 'string' ? title : undefined,
-          'aria-expanded': open,
-          'aria-controls': contentId,
-          onClick: () => setOpen((current) => !current),
         }}
       />
-      <div
-        id={contentId}
-        hidden={!open}
-        className={cn(
-          'grid overflow-hidden transition-[grid-template-rows,opacity] duration-150 ease-out motion-reduce:transition-none',
-          open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-        )}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <div className={cn('space-y-2.5 pt-2.5', contentClassName)}>
-            {children}
-          </div>
+      <CollapsibleContent>
+        <div className={cn('space-y-2.5 pt-2.5', contentClassName)}>
+          {children}
         </div>
-      </div>
-    </section>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 

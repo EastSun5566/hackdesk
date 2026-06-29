@@ -111,6 +111,30 @@ describe('NoteInspector', () => {
     });
   });
 
+  it('keeps independent section state and input values when collapsed', () => {
+    renderNoteInspector();
+
+    const metadataTrigger = screen.getByRole('button', { name: 'Metadata' });
+    const permissionsTrigger = screen.getByRole('button', { name: 'Permissions' });
+    const description = screen.getByLabelText('Description');
+
+    expect(metadataTrigger).toHaveAttribute('aria-expanded', 'true');
+    expect(permissionsTrigger).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.change(description, { target: { value: 'Draft description' } });
+
+    fireEvent.click(metadataTrigger);
+    expect(metadataTrigger).toHaveAttribute('aria-expanded', 'false');
+    expect(description).not.toBeVisible();
+
+    fireEvent.click(permissionsTrigger);
+    expect(permissionsTrigger).toHaveAttribute('aria-expanded', 'true');
+    expect(metadataTrigger).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(metadataTrigger);
+    expect(description).toBeVisible();
+    expect(description).toHaveValue('Draft description');
+  });
+
   it('copies the current note link from the inspector header', () => {
     const onCopyLink = vi.fn();
     const { document } = renderNoteInspector({ actions: { onCopyLink } });

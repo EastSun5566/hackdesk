@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState, type ReactNode } from 'react';
 import { ChevronRight, Laptop, Moon, Sun } from 'lucide-react';
 
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useTheme } from '@/components/theme-provider';
 import { normalizeThemeSeed, type ThemeMode, type ThemePresetId, type ThemeSeed } from '@/lib/themes';
@@ -104,7 +105,6 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
     presetId,
     seedInputs: seedToInputs(customSeed),
   }));
-  const [customSeedsOpen, setCustomSeedsOpen] = useState(customSeedsDefaultOpen);
   const { mode: draftMode, presetId: draftPresetId, seedInputs: draftSeedInputs } = draft;
   const savedSeedInputs = useMemo(() => seedToInputs(customSeed), [customSeed]);
   const errors = useMemo(() => getInputErrors(draftSeedInputs), [draftSeedInputs]);
@@ -299,62 +299,30 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
       <fieldset className="space-y-2">
         <legend className={compact ? 'sr-only' : 'text-sm font-medium'}>Custom Seeds</legend>
         {compact ? (
-          <button
-            type="button"
-            aria-expanded={customSeedsOpen}
-            aria-controls="theme-custom-seeds"
-            onClick={() => setCustomSeedsOpen((current) => !current)}
-            className={cn(
-              'flex w-full items-center justify-between rounded-md border border-border-default bg-background-default px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-element-bg-hover',
-              focusClassName,
-            )}
-          >
-            <span>Customize Colors</span>
-            <ChevronRight className={cn(
-              'h-4 w-4 text-text-subtle transition-transform motion-reduce:transition-none',
-              customSeedsOpen ? 'rotate-90' : null,
-            )} />
-          </button>
+          <Collapsible defaultOpen={customSeedsDefaultOpen}>
+            <CollapsibleTrigger
+              className={cn(
+                'flex w-full items-center justify-between rounded-md border border-border-default bg-background-default px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-element-bg-hover',
+                focusClassName,
+              )}
+            >
+              <span>Customize Colors</span>
+              <ChevronRight className="h-4 w-4 text-text-subtle transition-transform group-data-[panel-open]:rotate-90 motion-reduce:transition-none" />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="grid grid-cols-1 gap-3 pt-2">
+                {renderSeedFields(draftSeedInputs, errors, handleSeedChange)}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         ) : (
-          <p className="mb-3 text-sm text-text-subtle">Leave a seed empty to use the selected preset value.</p>
+          <>
+            <p className="mb-3 text-sm text-text-subtle">Leave a seed empty to use the selected preset value.</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {renderSeedFields(draftSeedInputs, errors, handleSeedChange)}
+            </div>
+          </>
         )}
-        {(!compact || customSeedsOpen) ? (
-          <div
-            id="theme-custom-seeds"
-            className={cn('grid grid-cols-1 gap-3', compact ? null : 'sm:grid-cols-2')}
-          >
-            {seedFields.map((field) => {
-              const fieldId = `theme-seed-${field.key}`;
-              const errorId = `${fieldId}-error`;
-              return (
-                <div key={field.key} className="space-y-2 text-sm">
-                  <label htmlFor={fieldId} className="font-medium">{field.label}</label>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="size-5 rounded border border-border-default"
-                      style={{ backgroundColor: draftSeedInputs[field.key] || 'transparent' }}
-                      aria-hidden="true"
-                    />
-                    <input
-                      id={fieldId}
-                      value={draftSeedInputs[field.key]}
-                      onChange={(event) => handleSeedChange(field.key, event.target.value)}
-                      className="h-9 min-w-0 flex-1 rounded-md border border-border-default bg-background-default px-2 text-sm text-text-default outline-none transition-[border-color,box-shadow] focus:border-primary-default focus-visible:ring-2 focus-visible:ring-primary-default/70"
-                      placeholder="#5D54E8…"
-                      autoComplete="off"
-                      spellCheck={false}
-                      aria-invalid={Boolean(errors[field.key])}
-                      aria-describedby={errors[field.key] ? errorId : undefined}
-                    />
-                  </div>
-                  {errors[field.key] ? (
-                    <p id={errorId} className="text-xs text-destructive-default">{errors[field.key]}</p>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        ) : null}
       </fieldset>
 
       {actions === 'inline' ? (
@@ -373,3 +341,40 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
     </div>
   );
 });
+
+function renderSeedFields(
+  inputs: Record<keyof ThemeSeed, string>,
+  errors: Partial<Record<keyof ThemeSeed, string>>,
+  onChange: (key: keyof ThemeSeed, value: string) => void,
+) {
+  return seedFields.map((field) => {
+    const fieldId = `theme-seed-${field.key}`;
+    const errorId = `${fieldId}-error`;
+    return (
+      <div key={field.key} className="space-y-2 text-sm">
+        <label htmlFor={fieldId} className="font-medium">{field.label}</label>
+        <div className="flex items-center gap-2">
+          <span
+            className="size-5 rounded border border-border-default"
+            style={{ backgroundColor: inputs[field.key] || 'transparent' }}
+            aria-hidden="true"
+          />
+          <input
+            id={fieldId}
+            value={inputs[field.key]}
+            onChange={(event) => onChange(field.key, event.target.value)}
+            className="h-9 min-w-0 flex-1 rounded-md border border-border-default bg-background-default px-2 text-sm text-text-default outline-none transition-[border-color,box-shadow] focus:border-primary-default focus-visible:ring-2 focus-visible:ring-primary-default/70"
+            placeholder="#5D54E8…"
+            autoComplete="off"
+            spellCheck={false}
+            aria-invalid={Boolean(errors[field.key])}
+            aria-describedby={errors[field.key] ? errorId : undefined}
+          />
+        </div>
+        {errors[field.key] ? (
+          <p id={errorId} className="text-xs text-destructive-default">{errors[field.key]}</p>
+        ) : null}
+      </div>
+    );
+  });
+}

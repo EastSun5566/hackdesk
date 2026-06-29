@@ -139,20 +139,33 @@ describe('SettingsDialog', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('keeps custom seed inputs collapsed until requested and disables apply for invalid color', () => {
+  it('keeps custom seed inputs mounted while collapsed and preserves validation state', () => {
     renderSettingsDialog();
 
     fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
 
-    expect(screen.queryByLabelText('Primary')).not.toBeInTheDocument();
+    const trigger = screen.getByRole('button', { name: 'Customize Colors' });
+    const primaryInput = screen.getByLabelText('Primary');
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(primaryInput).not.toBeVisible();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Customize Colors' }));
-    fireEvent.change(screen.getByLabelText('Primary'), {
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(primaryInput).toBeVisible();
+    fireEvent.change(primaryInput, {
       target: { value: 'blue' },
     });
 
     expect(screen.getByText('Use a 6-digit hex color, for example #5D54E8.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Apply Theme' })).toBeDisabled();
+
+    fireEvent.click(trigger);
+    expect(primaryInput).not.toBeVisible();
+    expect(primaryInput).toHaveValue('blue');
+
+    fireEvent.click(trigger);
+    expect(primaryInput).toBeVisible();
+    expect(screen.getByText('Use a 6-digit hex color, for example #5D54E8.')).toBeVisible();
   });
 
   it('saves title and token from their tab-specific footer action', () => {
