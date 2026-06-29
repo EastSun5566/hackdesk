@@ -273,13 +273,13 @@ function buildRichPreviewDecorations(state: EditorState): DecorationSet {
         return;
       }
 
-      const fence = getFencePreview(state, node.from, node.to);
-      if (!fence) {
-        return;
-      }
-
       for (let lineNumber = state.doc.lineAt(node.from).number; lineNumber <= state.doc.lineAt(Math.max(node.from, node.to - 1)).number; lineNumber += 1) {
         fencedLineNumbers.add(lineNumber);
+      }
+
+      const fence = getFencePreview(state, node.from, node.to);
+      if (!fence) {
+        return false;
       }
 
       if (!richFenceLanguages.has(fence.language) || blockIsActive(state, activeLines, fence.from, fence.to)) {
@@ -299,7 +299,7 @@ function buildRichPreviewDecorations(state: EditorState): DecorationSet {
     },
   });
 
-  addDollarMathBlocks(state, activeLines, ranges);
+  addDollarMathBlocks(state, activeLines, fencedLineNumbers, ranges);
   addInlineWidgets(state, activeLines, fencedLineNumbers, ranges);
 
   return Decoration.set(ranges, true);
@@ -366,10 +366,16 @@ function getFencePreview(state: EditorState, from: number, to: number): FencePre
 function addDollarMathBlocks(
   state: EditorState,
   activeLines: ReadonlySet<number>,
+  fencedLineNumbers: ReadonlySet<number>,
   ranges: Array<Range<Decoration>>,
 ) {
   let openerLine: number | null = null;
   for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber += 1) {
+    if (fencedLineNumbers.has(lineNumber)) {
+      openerLine = null;
+      continue;
+    }
+
     const line = state.doc.line(lineNumber);
     if (line.text.trim() !== '$$') {
       continue;

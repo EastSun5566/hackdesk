@@ -15,16 +15,9 @@ export type RenderedMath = {
   html: string;
 };
 
-type MathJaxApi = {
-  adaptor: {
-    outerHTML: (node: object) => string;
-  };
-  document: {
-    convert: (source: string, options: { display: boolean }) => object;
-  };
-};
+type KatexApi = typeof import('katex');
 
-let mathJaxPromise: Promise<MathJaxApi> | null = null;
+let katexPromise: Promise<KatexApi> | null = null;
 const mathCache = new Map<string, Promise<RenderedMath>>();
 const mermaidCache = new Map<string, Promise<RenderedDiagram>>();
 
@@ -63,11 +56,14 @@ export async function renderMath(source: string, options: { display: boolean }):
     return cached;
   }
 
-  const promise = getMathJax()
-    .then(async (mathJax) => {
-      const node = mathJax.document.convert(source, { display: options.display });
+  const promise = getKatex()
+    .then(async (katex) => {
       return {
-        html: sanitizeRichHtml(mathJax.adaptor.outerHTML(node)),
+        html: katex.renderToString(source, {
+          displayMode: options.display,
+          throwOnError: false,
+          trust: false,
+        }),
       };
     })
     .catch(() => ({
@@ -96,48 +92,12 @@ function sanitizeRichHtml(html: string): string {
   });
 }
 
-async function getMathJax(): Promise<MathJaxApi> {
-  if (!mathJaxPromise) {
-    mathJaxPromise = loadMathJax();
+async function getKatex(): Promise<KatexApi> {
+  if (!katexPromise) {
+    katexPromise = import('katex');
   }
 
-  return mathJaxPromise;
-}
-
-async function loadMathJax(): Promise<MathJaxApi> {
-  const [
-    mathjaxModule,
-    texModule,
-    svgModule,
-    adaptorModule,
-    handlerModule,
-    packagesModule,
-  ] = await Promise.all([
-    import('mathjax-full/js/mathjax.js'),
-    import('mathjax-full/js/input/tex.js'),
-    import('mathjax-full/js/output/svg.js'),
-    import('mathjax-full/js/adaptors/liteAdaptor.js'),
-    import('mathjax-full/js/handlers/html.js'),
-    import('mathjax-full/js/input/tex/AllPackages.js'),
-  ]);
-
-  const adaptor = adaptorModule.liteAdaptor();
-  handlerModule.RegisterHTMLHandler(adaptor);
-  const tex = new texModule.TeX({
-    packages: packagesModule.AllPackages,
-  });
-  const svg = new svgModule.SVG({
-    fontCache: 'none',
-  });
-  const document = mathjaxModule.mathjax.document('', {
-    InputJax: tex,
-    OutputJax: svg,
-  });
-
-  return {
-    adaptor: adaptor as unknown as MathJaxApi['adaptor'],
-    document,
-  };
+  return katexPromise;
 }
 
 async function renderBeautifulMermaid(source: string): Promise<string> {
@@ -151,6 +111,7 @@ async function renderBeautifulMermaid(source: string): Promise<string> {
     muted: 'var(--text-subtle)',
     surface: 'var(--background-muted)',
     transparent: true,
+    font: 'var(--font-sans)',
   });
 }
 

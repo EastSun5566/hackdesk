@@ -49,7 +49,7 @@ describe('rich preview keyboard navigation', () => {
     expect(target).toBe(state.doc.line(5).from);
   });
 
-  it('moves through block MathJax source ranges', () => {
+  it('moves through block math source ranges', () => {
     const state = createMarkdownState([
       'Before',
       '$$',

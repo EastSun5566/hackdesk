@@ -907,7 +907,7 @@ describe('MarkdownEditor', () => {
     expect(ref.current?.getMarkdown()).toBe(markdown);
   });
 
-  it('renders inline and block MathJax previews without changing markdown', async () => {
+  it('renders inline and block KaTeX previews without changing markdown', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const markdown = [
       'Intro',
@@ -923,14 +923,36 @@ describe('MarkdownEditor', () => {
     const editor = await screen.findByTestId('hackmd-markdown-editor');
 
     await waitFor(() => {
-      expect(editor.querySelector('.cm-hackmd-rich-math-inline svg, .cm-hackmd-rich-math-inline .cm-hackmd-math-fallback')).not.toBeNull();
+      expect(editor.querySelector('.cm-hackmd-rich-math-inline .katex, .cm-hackmd-rich-math-inline .cm-hackmd-math-fallback')).not.toBeNull();
     }, { timeout: 8000 });
     await waitFor(() => {
-      expect(editor.querySelector('.cm-hackmd-math-preview svg, .cm-hackmd-math-preview .cm-hackmd-math-fallback')).not.toBeNull();
+      expect(editor.querySelector('.cm-hackmd-math-preview .katex, .cm-hackmd-math-preview .cm-hackmd-math-fallback')).not.toBeNull();
     }, { timeout: 8000 });
     expect(editor.querySelector('.cm-content')).not.toHaveTextContent('$x^2 + y^2 = z^2$');
     expect(ref.current?.getMarkdown()).toBe(markdown);
   }, 15000);
+
+  it('does not render math previews inside code fences', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      'Intro',
+      '',
+      '```',
+      '$$',
+      '\\frac{1}{x}',
+      '$$',
+      'Inline $x^2$ should stay raw here.',
+      '```',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    expect(editor.querySelector('.cm-hackmd-math-preview')).toBeNull();
+    expect(editor.querySelector('.cm-hackmd-rich-math-inline')).toBeNull();
+    expect(editor).toHaveTextContent('Inline $x^2$ should stay raw here.');
+  });
 
   it('renders Mermaid fences as sanitized diagram previews without changing source', async () => {
     const ref = createRef<MarkdownEditorHandle>();

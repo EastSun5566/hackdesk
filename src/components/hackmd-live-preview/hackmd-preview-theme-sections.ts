@@ -571,7 +571,7 @@ export const widgetTheme = {
     maxWidth: '100%',
     height: 'auto',
   },
-  '.cm-hackmd-rich-render-body mjx-container': {
+  '.cm-hackmd-rich-render-body .katex': {
     margin: '0',
     color: 'var(--text-default)',
   },
@@ -598,7 +598,7 @@ export const widgetTheme = {
     color: 'var(--text-default)',
     verticalAlign: '-0.15em',
   },
-  '.cm-hackmd-rich-math-inline mjx-container': {
+  '.cm-hackmd-rich-math-inline .katex': {
     margin: '0',
   },
 };
