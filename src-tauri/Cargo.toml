@@ -3,7 +3,7 @@ name = "hackdesk"
 version = "0.1.5"
 description = "📝 A hackable HackMD desktop application"
 authors = ["Michael Wang <michael19920327@gmail.com> (https://github.com/EastSun5566)"]
-license = "AGPL-3.0"
+license = "AGPL-3.0-only"
 repository = "https://github.com/EastSun5566/hackdesk"
 edition = "2021"
 

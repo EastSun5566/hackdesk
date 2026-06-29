@@ -30,7 +30,8 @@
     "lint:ts:fix": "oxlint --fix .",
     "check:deps": "knip",
     "check:actions": "github-actionlint",
-    "lint:rs": "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
+    "lint:rs": "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings && pnpm run lint:rs:deny",
+    "lint:rs:deny": "cargo deny --manifest-path src-tauri/Cargo.toml check -c deny.toml",
     "lint:rs:fix": "cd src-tauri && cargo fmt && cargo clippy --fix --allow-dirty --allow-staged && cd -",
     "check": "pnpm run typecheck && pnpm run lint:ts && pnpm run check:deps && pnpm run check:actions && pnpm run contract:hackmd && pnpm run lint:rs",
     "check:ci": "pnpm run version:check && pnpm run check && pnpm run test && pnpm run build:electron",
@@ -53,7 +54,7 @@
     "type": "git",
     "url": "https://github.com/EastSun5566/hackdesk"
   },
-  "license": "AGPL-3.0",
+  "license": "AGPL-3.0-only",
   "build": {
     "appId": "me.eastsun.hackdesk",
     "productName": "HackDesk",
