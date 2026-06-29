@@ -24,6 +24,12 @@ export type LocalVaultSettings = {
   path: string | null;
 };
 
+export type EditorMode = 'standard' | 'vim' | 'helix';
+
+export type EditorSettings = {
+  mode: EditorMode;
+};
+
 export const defaultAppearanceSettings: AppearanceSettings = {
   theme: 'system',
   presetId: 'hackmd',
@@ -36,6 +42,10 @@ export const defaultOnboardingSettings: OnboardingSettings = {
 
 export const defaultLocalVaultSettings: LocalVaultSettings = {
   path: null,
+};
+
+export const defaultEditorSettings: EditorSettings = {
+  mode: 'standard',
 };
 
 const hexColorSchema = z.string().regex(/^#[\da-fA-F]{6}$/);
@@ -66,6 +76,9 @@ export const settingsSchema = z.object({
   localVault: z.object({
     path: z.string().trim().min(1).nullable().default(defaultLocalVaultSettings.path),
   }).default(defaultLocalVaultSettings),
+  editor: z.object({
+    mode: z.enum(['standard', 'vim', 'helix']).default(defaultEditorSettings.mode),
+  }).default(defaultEditorSettings),
 });
 
 export type AppSettings = z.infer<typeof settingsSchema>;
@@ -76,6 +89,7 @@ export const defaultSettings: AppSettings = {
   appearance: defaultAppearanceSettings,
   onboarding: defaultOnboardingSettings,
   localVault: defaultLocalVaultSettings,
+  editor: defaultEditorSettings,
 };
 
 export function normalizeAppearanceSettings(

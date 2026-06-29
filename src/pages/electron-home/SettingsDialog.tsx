@@ -1,5 +1,5 @@
 import { forwardRef, useRef, useState, type ReactNode } from 'react';
-import { AlertCircle, CheckCircle2, FolderOpen, Loader2, Monitor, RefreshCw, Save, Settings as SettingsIcon, Shield, Trash2, Zap } from 'lucide-react';
+import { AlertCircle, CheckCircle2, FolderOpen, Keyboard, Loader2, Monitor, RefreshCw, Save, Settings as SettingsIcon, Shield, Trash2, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { version } from '../../../package.json';
 
 import { SettingsInput, SettingsRow, SettingsSecretInput, SettingsSection } from './SettingsPrimitives';
+import { EditorSettingsPanel } from './EditorSettingsPanel';
 import type { SettingsFormInput } from './types';
 import { FOCUS_RING_CLASS } from './ui';
 
@@ -31,7 +32,7 @@ const SETTINGS_TOKEN_ID = 'settings-hackmd-token';
 const SETTINGS_TOKEN_STATUS_ID = 'settings-hackmd-token-status';
 const SETTINGS_DIALOG_BODY_ID = 'settings-dialog-body';
 
-type SettingsTab = 'general' | 'appearance' | 'vault' | 'hackmd' | 'advanced';
+type SettingsTab = 'general' | 'editor' | 'appearance' | 'vault' | 'hackmd' | 'advanced';
 
 const SETTINGS_TABS: {
   id: SettingsTab;
@@ -40,6 +41,7 @@ const SETTINGS_TABS: {
   icon: ReactNode;
 }[] = [
   { id: 'general', label: 'General', description: 'Window title and local app defaults.', icon: <SettingsIcon className="h-4 w-4" /> },
+  { id: 'editor', label: 'Editor', description: 'Choose standard, Vim, or Helix editing.', icon: <Keyboard className="h-4 w-4" /> },
   { id: 'appearance', label: 'Appearance', description: 'Theme mode, presets, and color seeds.', icon: <Monitor className="h-4 w-4" /> },
   { id: 'vault', label: 'Vault', description: 'Manage the local Markdown folder.', icon: <FolderOpen className="h-4 w-4" /> },
   { id: 'hackmd', label: 'HackMD', description: 'API token and connection test.', icon: <Shield className="h-4 w-4" /> },
@@ -62,7 +64,7 @@ type SettingsDialogProps = {
 };
 
 export function SettingsDialog(props: SettingsDialogProps) {
-  return <SettingsDialogContent key={props.settings?.title ?? 'HackDesk'} {...props} />;
+  return <SettingsDialogContent key={`${props.settings?.title ?? 'HackDesk'}:${props.settings?.editor?.mode ?? 'standard'}`} {...props} />;
 }
 
 function SettingsDialogContent({
@@ -83,6 +85,7 @@ function SettingsDialogContent({
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [formState, setFormState] = useState(() => ({
     title: settings?.title ?? 'HackDesk',
+    editorMode: settings?.editor?.mode ?? defaultSettings.editor.mode,
     token: '',
     tokenVisible: false,
     tokenTest: {
@@ -96,7 +99,7 @@ function SettingsDialogContent({
     hasDraftChanges: false,
     hasErrors: false,
   });
-  const { title, token, tokenTest, tokenVisible } = formState;
+  const { editorMode, title, token, tokenTest, tokenVisible } = formState;
 
   const normalizedToken = token.trim();
   const activeTabDefinition = getSettingsTab(activeTab);
@@ -106,15 +109,24 @@ function SettingsDialogContent({
       return;
     }
 
+    if (activeTab === 'editor') {
+      onSave({
+        title: title.trim(),
+        editor: { mode: editorMode },
+      });
+      return;
+    }
+
     onSave({
       title: title.trim(),
-      ...(normalizedToken ? { hackmdApiToken: normalizedToken } : {}),
+      ...(activeTab === 'hackmd' && normalizedToken ? { hackmdApiToken: normalizedToken } : {}),
     });
   };
 
   const handleResetAllSettings = () => {
     setFormState({
       title: defaultSettings.title,
+      editorMode: defaultSettings.editor.mode,
       token: '',
       tokenVisible: false,
       tokenTest: { status: 'idle', message: '' },
@@ -124,6 +136,7 @@ function SettingsDialogContent({
       title: defaultSettings.title,
       hackmdApiToken: '',
       appearance: defaultSettings.appearance,
+      editor: defaultSettings.editor,
     });
   };
 
@@ -142,7 +155,7 @@ function SettingsDialogContent({
           className="flex min-h-0 flex-1 flex-col"
           onSubmit={(event) => {
             event.preventDefault();
-            if (activeTab === 'general' || activeTab === 'hackmd') {
+            if (activeTab === 'general' || activeTab === 'editor' || activeTab === 'hackmd') {
               handleSaveSettings();
             }
           }}
@@ -157,6 +170,16 @@ function SettingsDialogContent({
               <GeneralSettingsPanel
                 title={title}
                 onTitleChange={(nextTitle) => setFormState((current) => ({ ...current, title: nextTitle }))}
+              />
+            ) : null}
+
+            {activeTab === 'editor' ? (
+              <EditorSettingsPanel
+                editorMode={editorMode}
+                onEditorModeChange={(nextEditorMode) => setFormState((current) => ({
+                  ...current,
+                  editorMode: nextEditorMode,
+                }))}
               />
             ) : null}
 
@@ -237,7 +260,7 @@ function SettingsTabs({
     <div
       role="tablist"
       aria-label="Settings sections"
-      className="mt-4 grid grid-cols-5 gap-1 rounded-lg bg-background-muted p-1"
+      className="mt-4 grid grid-cols-3 gap-1 rounded-lg bg-background-muted p-1 sm:grid-cols-6"
     >
       {SETTINGS_TABS.map((tab) => (
         <button
@@ -678,7 +701,7 @@ function SettingsDialogFooter({
             Apply Theme
           </button>
         ) : null}
-        {(activeTab === 'general' || activeTab === 'hackmd') ? (
+        {(activeTab === 'general' || activeTab === 'editor' || activeTab === 'hackmd') ? (
           <button
             type="submit"
             disabled={isSaving || !canSaveTitle}

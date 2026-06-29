@@ -15,6 +15,8 @@ describe('settings helpers', () => {
       hackmdApiToken: '',
       appearance: defaultSettings.appearance,
       onboarding: defaultSettings.onboarding,
+      localVault: defaultSettings.localVault,
+      editor: defaultSettings.editor,
     });
   });
 
@@ -30,7 +32,17 @@ describe('settings helpers', () => {
         },
       },
       onboarding: defaultSettings.onboarding,
+      localVault: defaultSettings.localVault,
+      editor: defaultSettings.editor,
     });
+  });
+
+  it.each(['standard', 'vim', 'helix'] as const)('parses the %s editor mode', (mode) => {
+    expect(parseSettings(JSON.stringify({ title: 'Workspace', editor: { mode } })).editor).toEqual({ mode });
+  });
+
+  it('rejects an unknown editor mode', () => {
+    expect(() => parseSettings('{"title":"Workspace","editor":{"mode":"emacs"}}')).toThrow('Invalid option');
   });
 
   it('throws a clear error for invalid JSON', () => {
@@ -59,6 +71,12 @@ describe('settings helpers', () => {
   },
   "onboarding": {
     "hackmdTokenSetupDeferred": false
+  },
+  "localVault": {
+    "path": null
+  },
+  "editor": {
+    "mode": "standard"
   }
 }`);
   });

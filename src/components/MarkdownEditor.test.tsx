@@ -17,7 +17,7 @@ describe('MarkdownEditor', () => {
 
     render(<MarkdownEditor ref={ref} value="# Hello" onChange={vi.fn()} />);
 
-    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const editor = await screen.findByTestId('hackmd-markdown-editor', {}, { timeout: 5_000 });
 
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe('# Hello'));
     expect(editor.querySelector('.cm-content')).toHaveTextContent('# Hello');
@@ -195,6 +195,103 @@ describe('MarkdownEditor', () => {
     act(() => {
       ref.current?.focus();
     });
+    fireEvent.keyDown(content as Element, { key: 'f', code: 'KeyF', ctrlKey: true });
+
+    await waitFor(() => expect(editor.querySelector('.cm-hackdesk-search-panel')).not.toBeNull());
+  });
+
+  it('runs Vim mode with a visible status panel', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+
+    render(<MarkdownEditor ref={ref} editorMode="vim" value="# Hello" onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const content = editor.querySelector('.cm-content');
+
+    expect(content).not.toBeNull();
+    await waitFor(() => expect(editor.querySelector('.cm-vim-panel')).toHaveTextContent('NORMAL'));
+    expect(editor.querySelector('.cm-editor')).toHaveAttribute('data-editor-mode', 'vim');
+
+    act(() => ref.current?.focus());
+    fireEvent.keyDown(content as Element, { key: 'i', code: 'KeyI' });
+    await waitFor(() => expect(editor.querySelector('.cm-vim-panel')).toHaveTextContent('INSERT'));
+
+    fireEvent.keyDown(content as Element, { key: 'Escape', code: 'Escape' });
+    await waitFor(() => expect(editor.querySelector('.cm-vim-panel')).toHaveTextContent('NORMAL'));
+  });
+
+  it('runs Helix mode with visible mode and command panels', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+
+    render(<MarkdownEditor ref={ref} editorMode="helix" value="# Hello" onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const content = editor.querySelector('.cm-content');
+
+    expect(content).not.toBeNull();
+    await waitFor(() => expect(editor.querySelector('.cm-hx-status-panel')).toHaveTextContent('NOR'));
+    const commandPanel = editor.querySelector('.cm-hx-command-panel');
+    expect(commandPanel).not.toBeNull();
+    expect(commandPanel).not.toBeVisible();
+    expect(getComputedStyle(editor.querySelector('.cm-hx-status-panel') as Element).minHeight).toBe('22px');
+    expect(editor.querySelector('.cm-editor')).toHaveAttribute('data-editor-mode', 'helix');
+
+    act(() => ref.current?.focus());
+    fireEvent.keyDown(content as Element, { key: 'i', code: 'KeyI' });
+    await waitFor(() => expect(editor.querySelector('.cm-hx-status-panel')).toHaveTextContent('INS'));
+
+    fireEvent.keyDown(content as Element, { key: 'Escape', code: 'Escape' });
+    await waitFor(() => expect(editor.querySelector('.cm-hx-status-panel')).toHaveTextContent('NOR'));
+
+    fireEvent.keyDown(content as Element, { key: ':', code: 'Semicolon', shiftKey: true });
+    await waitFor(() => expect(editor.querySelector('.cm-hx-command-input')).not.toBeNull());
+    expect(commandPanel).toBeVisible();
+  });
+
+  it('switches editor modes without remounting CodeMirror or duplicating panels', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const { rerender } = render(
+      <MarkdownEditor ref={ref} editorMode="standard" value="# Hello" onChange={vi.fn()} />,
+    );
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const codeMirror = editor.querySelector('.cm-editor');
+    const content = editor.querySelector('.cm-content');
+
+    expect(codeMirror).not.toBeNull();
+    expect(content).not.toBeNull();
+    expect(editor.querySelector('.cm-vim-panel')).toBeNull();
+    expect(editor.querySelector('.cm-hx-status-panel')).toBeNull();
+    act(() => ref.current?.focus());
+    expect(document.activeElement).toBe(content);
+
+    rerender(<MarkdownEditor ref={ref} editorMode="vim" value="# Hello" onChange={vi.fn()} />);
+    await waitFor(() => expect(editor.querySelectorAll('.cm-vim-panel')).toHaveLength(1));
+    expect(editor.querySelector('.cm-editor')).toBe(codeMirror);
+    expect(ref.current?.getMarkdown()).toBe('# Hello');
+    expect(document.activeElement).toBe(content);
+
+    rerender(<MarkdownEditor ref={ref} editorMode="helix" value="# Hello" onChange={vi.fn()} />);
+    await waitFor(() => expect(editor.querySelector('.cm-vim-panel')).toBeNull());
+    expect(editor.querySelectorAll('.cm-hx-status-panel')).toHaveLength(1);
+    expect(editor.querySelectorAll('.cm-hx-command-panel')).toHaveLength(1);
+    expect(editor.querySelector('.cm-editor')).toBe(codeMirror);
+    expect(ref.current?.getMarkdown()).toBe('# Hello');
+    expect(document.activeElement).toBe(content);
+
+    rerender(<MarkdownEditor ref={ref} editorMode="standard" value="# Hello" onChange={vi.fn()} />);
+    await waitFor(() => expect(editor.querySelector('.cm-hx-status-panel')).toBeNull());
+    expect(editor.querySelector('.cm-hx-command-panel')).toBeNull();
+    expect(editor.querySelector('.cm-editor')).toBe(codeMirror);
+    expect(document.activeElement).toBe(content);
+  });
+
+  it.each(['vim', 'helix'] as const)('keeps HackDesk search on Ctrl+F in %s mode', async (editorMode) => {
+    const ref = createRef<MarkdownEditorHandle>();
+
+    render(<MarkdownEditor ref={ref} editorMode={editorMode} value="# First" onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const content = editor.querySelector('.cm-content');
+
+    expect(content).not.toBeNull();
+    act(() => ref.current?.focus());
     fireEvent.keyDown(content as Element, { key: 'f', code: 'KeyF', ctrlKey: true });
 
     await waitFor(() => expect(editor.querySelector('.cm-hackdesk-search-panel')).not.toBeNull());

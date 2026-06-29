@@ -6,7 +6,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import { markdown, markdownKeymap, markdownLanguage } from '@codemirror/lang-markdown';
 import { bracketMatching, foldKeymap, indentOnInput } from '@codemirror/language';
 import { searchKeymap, highlightSelectionMatches, openSearchPanel, search } from '@codemirror/search';
-import { EditorState, type Extension } from '@codemirror/state';
+import { Compartment, EditorState, Prec, type Extension } from '@codemirror/state';
 import {
   crosshairCursor,
   drawSelection,
@@ -17,6 +17,10 @@ import {
   rectangularSelection,
 } from '@codemirror/view';
 import { inlineAttachmentExtension } from 'inline-attacher';
+import { vim } from '@replit/codemirror-vim';
+import { helix } from 'codemirror-helix';
+
+import type { EditorMode } from '@/lib/settings';
 
 import { hackmdCodeLanguages } from './hackmd-code-languages';
 import { hfmBlocks } from './hfm-blocks';
@@ -38,10 +42,18 @@ export type HackmdMarkdownEditorHandle = {
 };
 
 export type HackmdMarkdownEditorProps = {
+  editorMode?: EditorMode;
   value: string;
   onChange: (value: string) => void;
   onAttachImage?: (file: File) => Promise<{ link: string }>;
 };
+
+const reservedAppShortcutKeymap = Prec.highest(keymap.of([
+  {
+    key: 'Mod-f',
+    run: (view) => openSearchPanel(view),
+  },
+]));
 
 const editorExtensions: Extension[] = [
   history(),
@@ -86,6 +98,7 @@ const editorExtensions: Extension[] = [
 
 export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, HackmdMarkdownEditorProps>(
   function HackmdMarkdownEditorCore({
+    editorMode = 'standard',
     value,
     onChange,
     onAttachImage,
@@ -95,8 +108,11 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
     const onAttachImageRef = useRef(onAttachImage);
     const onChangeRef = useRef(onChange);
     const initialValueRef = useRef(value);
+    const initialEditorModeRef = useRef(editorMode);
+    const appliedEditorModeRef = useRef(editorMode);
     const pendingFocusRef = useRef(false);
     const dragDepthRef = useRef(0);
+    const [editorModeCompartment] = useState(() => new Compartment());
     const [isImageDragging, setIsImageDragging] = useState(false);
 
     useEffect(() => {
@@ -159,6 +175,8 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
         state: EditorState.create({
           doc: initialValueRef.current,
           extensions: [
+            reservedAppShortcutKeymap,
+            editorModeCompartment.of(createEditorModeExtension(initialEditorModeRef.current)),
             ...editorExtensions,
             inlineAttachmentExtension({
               allowedTypes: ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'],
@@ -196,6 +214,7 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
       });
 
       viewRef.current = view;
+      view.dom.dataset.editorMode = initialEditorModeRef.current;
       view.contentDOM.dataset.hackdeskFocusTarget = 'true';
       if (pendingFocusRef.current) {
         pendingFocusRef.current = false;
@@ -206,7 +225,20 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
         view.destroy();
         viewRef.current = null;
       };
-    }, []);
+    }, [editorModeCompartment]);
+
+    useEffect(() => {
+      const view = viewRef.current;
+      if (!view || appliedEditorModeRef.current === editorMode) {
+        return;
+      }
+
+      view.dispatch({
+        effects: editorModeCompartment.reconfigure(createEditorModeExtension(editorMode)),
+      });
+      view.dom.dataset.editorMode = editorMode;
+      appliedEditorModeRef.current = editorMode;
+    }, [editorMode, editorModeCompartment]);
 
     useEffect(() => {
       const view = viewRef.current;
@@ -281,6 +313,17 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
     );
   },
 );
+
+function createEditorModeExtension(editorMode: EditorMode): Extension {
+  switch (editorMode) {
+  case 'vim':
+    return vim({ status: true });
+  case 'helix':
+    return helix({ drawSelection: false });
+  case 'standard':
+    return [];
+  }
+}
 
 function hasImageFile(dataTransfer: DataTransfer) {
   return Array.from(dataTransfer.items ?? []).some((item) => (

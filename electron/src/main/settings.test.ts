@@ -41,12 +41,23 @@ describe('Electron settings', () => {
 
     expect(safeSettings).toMatchObject({
       title: 'Workspace',
+      editor: { mode: 'standard' },
       hasHackmdApiToken: true,
       hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
       onboarding: { hackmdTokenSetupDeferred: false },
       shouldShowHackmdOnboarding: false,
     });
     expect('hackmdApiToken' in safeSettings).toBe(false);
+  });
+
+  it('persists and returns the selected editor mode', async () => {
+    const safeSettings = await updateStoredSettings({
+      editor: { mode: 'helix' },
+    });
+    const content = await readFile(getSettingsPath(), 'utf8');
+
+    expect(safeSettings.editor).toEqual({ mode: 'helix' });
+    expect(content).toContain('"mode": "helix"');
   });
 
   it('defers first-run onboarding without configuring a token', async () => {

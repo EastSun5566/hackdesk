@@ -15,6 +15,7 @@ import {
 import { ELECTRON_MENU_SCHEMA } from './electron-menu-schema';
 
 const baseContext: ElectronActionContext = {
+  editorMode: 'standard',
   hasToken: true,
   canCreate: true,
   scopeType: 'personal',
@@ -62,6 +63,10 @@ describe('electron action registry', () => {
     });
     expect(getElectronAction('toggle-theme').shortcut).toBeUndefined();
     expect(getElectronAction('toggle-theme').menuAccelerator).toBeUndefined();
+    expect(getElectronAction('set-editor-mode-vim')).toMatchObject({
+      label: 'Use Vim Editor Mode',
+      category: 'app',
+    });
     expect(getElectronAction('toggle-workspace-rail')).toMatchObject({
       shortcut: '⌘B',
       menuAccelerator: 'CmdOrCtrl+B',
@@ -231,6 +236,10 @@ describe('electron action registry', () => {
       ...baseContext,
       paneCount: 1,
     })).toBe('Split the editor before moving tabs between panes.');
+    expect(getActionDisabledReason(getElectronAction('set-editor-mode-standard'), baseContext)).toBe(
+      'Standard editor mode is already active.',
+    );
+    expect(getActionDisabledReason(getElectronAction('set-editor-mode-vim'), baseContext)).toBeNull();
   });
 
 });

@@ -9,6 +9,7 @@ import type {
   UploadNoteImageResult,
 } from '@/lib/electron-api';
 import type { FolderTree } from '@/lib/hackmd-folders';
+import type { EditorMode } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 
 import { DocumentDetail, type DocumentSyncState } from './DocumentDetail';
@@ -37,6 +38,7 @@ export type DocumentPaneView = {
 export function DocumentWorkspace({
   panes,
   activePaneId,
+  editorMode,
   folderTree,
   shareOpen,
   isInspectorCollapsed,
@@ -66,6 +68,7 @@ export function DocumentWorkspace({
 }: {
   panes: NotePane[];
   activePaneId: string;
+  editorMode: EditorMode;
   folderTree: FolderTree;
   shareOpen: boolean;
   isInspectorCollapsed: boolean;
@@ -137,6 +140,7 @@ export function DocumentWorkspace({
                 onFocusCapture={() => onFocusPane(pane.paneId)}
               >
                 <DocumentDetail
+                  editorMode={editorMode}
                   folderTree={folderTree}
                   documentState={{
                     selectedNote: view.selectedNote,

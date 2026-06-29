@@ -34,6 +34,7 @@ import type {
   UploadNoteImageResult,
 } from '@/lib/electron-api';
 import type { FolderTree } from '@/lib/hackmd-folders';
+import type { EditorMode } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 import { formatMarkdownImage } from '@/components/hackmd-live-preview/markdown-image';
 
@@ -106,6 +107,7 @@ export type DocumentDetailActions = {
 export type DocumentDetailProps = {
   actions: DocumentDetailActions;
   documentState: DocumentDetailDocumentState;
+  editorMode: EditorMode;
   folderTree: FolderTree;
   layout: DocumentDetailLayout;
   status: DocumentDetailStatus;
@@ -157,6 +159,7 @@ function SyncStateBadge({
 export function DocumentDetail({
   actions,
   documentState,
+  editorMode,
   folderTree,
   layout,
   status,
@@ -180,6 +183,7 @@ export function DocumentDetail({
     <ActiveDocumentDetail
       actions={actions}
       documentState={{ ...documentState, document: documentState.document }}
+      editorMode={editorMode}
       focusZone={focusZone}
       folderTree={folderTree}
       layout={layout}
@@ -232,6 +236,7 @@ function EmptyDocumentDetail() {
 function ActiveDocumentDetail({
   actions,
   documentState,
+  editorMode,
   focusZone,
   folderTree,
   layout,
@@ -239,6 +244,7 @@ function ActiveDocumentDetail({
 }: {
   actions: DocumentDetailActions;
   documentState: DocumentDetailDocumentState & { document: DocumentSummary };
+  editorMode: EditorMode;
   focusZone: string;
   folderTree: FolderTree;
   layout: DocumentDetailLayout;
@@ -372,6 +378,7 @@ function ActiveDocumentDetail({
         <DocumentBody
           content={documentState.content}
           document={documentState.document}
+          editorMode={editorMode}
           onAttachImage={actions.onUploadImage}
           onContentChange={actions.onContentChange}
           setEditorRef={setEditorRef}
@@ -629,12 +636,14 @@ function DocumentActionsMenu({
 function DocumentBody({
   content,
   document,
+  editorMode,
   onAttachImage,
   onContentChange,
   setEditorRef,
 }: {
   content: string;
   document: DocumentSummary;
+  editorMode: EditorMode;
   onAttachImage: (document: DocumentSummary, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
   onContentChange: (content: string) => void;
   setEditorRef: (handle: MarkdownEditorHandle | null) => void;
@@ -651,6 +660,7 @@ function DocumentBody({
   return (
     <MarkdownEditor
       ref={setEditorRef}
+      editorMode={editorMode}
       value={content}
       onAttachImage={handleAttachImage}
       onChange={onContentChange}

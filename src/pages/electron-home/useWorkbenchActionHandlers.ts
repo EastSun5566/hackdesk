@@ -6,6 +6,7 @@ import type {
   HackDeskElectronAPI,
 } from '@/lib/electron-api';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
+import type { EditorMode } from '@/lib/settings';
 
 import type { OpenNoteTab } from './note-workspace';
 import type { ElectronFocusZone } from './useElectronFocusZones';
@@ -49,6 +50,7 @@ export type WorkbenchActionHandlersOptions = {
   requestDeleteFolder: (folderId: string) => void;
   reopenLastClosedTab: () => void;
   saveNote: (note: DocumentSummary, input: { title: string; content: string }) => void;
+  setEditorMode: (mode: EditorMode) => void;
   selectedDocument?: DocumentSummary;
   selectedFolderId: string | null;
   setSettingsOpen: (open: boolean) => void;
@@ -95,6 +97,7 @@ export function useWorkbenchActionHandlers({
   requestDeleteFolder,
   reopenLastClosedTab,
   saveNote,
+  setEditorMode,
   selectedDocument,
   selectedFolderId,
   setSettingsOpen,
@@ -203,6 +206,7 @@ export function useWorkbenchActionHandlers({
         saveNote(selectedDocument, { title: documentTitle, content: documentContent });
       }
     },
+    setEditorMode,
     splitPaneRight: () => {
       splitActiveTab();
       focusZone('editor');
@@ -245,6 +249,7 @@ export function useWorkbenchActionHandlers({
     requestCloseTabsToRight,
     requestDeleteFolder,
     saveNote,
+    setEditorMode,
     selectedDocument,
     selectedFolderId,
     setSettingsOpen,

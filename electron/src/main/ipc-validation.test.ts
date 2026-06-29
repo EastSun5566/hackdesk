@@ -95,9 +95,17 @@ describe('IPC runtime validation', () => {
 
     expect(validateIpcInput('settings:update', settingsUpdateSchema, {
       onboarding: { hackmdTokenSetupDeferred: true },
+      editor: { mode: 'vim' },
     })).toMatchObject({
       onboarding: { hackmdTokenSetupDeferred: true },
+      editor: { mode: 'vim' },
     });
+  });
+
+  it('rejects unknown editor modes in settings updates', () => {
+    expect(() => validateIpcInput('settings:update', settingsUpdateSchema, {
+      editor: { mode: 'emacs' },
+    })).toThrow(/Invalid option/);
   });
 
   it('rejects unsafe native file and image upload shapes', () => {

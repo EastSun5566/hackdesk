@@ -21,7 +21,7 @@ import type { AppSettings } from './settings';
 
 export type RuntimeEnvironment = 'electron' | 'tauri' | 'web';
 
-export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance'> & {
+export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'editor'> & {
   hasHackmdApiToken: boolean;
   hasAppearanceSettings?: boolean;
   hackmdCliConfig: HackmdCliConfigStatus;
@@ -31,7 +31,7 @@ export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance'> & {
   shouldShowHackmdOnboarding: boolean;
 };
 
-export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'onboarding' | 'localVault'>> & {
+export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'onboarding' | 'localVault'>> & {
   hackmdApiToken?: string;
 };
 
@@ -238,6 +238,9 @@ export type ElectronActionId =
   | 'open-command-palette'
   | 'open-settings'
   | 'toggle-theme'
+  | 'set-editor-mode-standard'
+  | 'set-editor-mode-vim'
+  | 'set-editor-mode-helix'
   | 'new-tab'
   | 'new-note'
   | 'new-folder'

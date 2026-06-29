@@ -176,6 +176,8 @@ describe('Settings page', () => {
             customSeed: {},
           },
           onboarding: defaultSettings.onboarding,
+          localVault: defaultSettings.localVault,
+          editor: defaultSettings.editor,
         },
         expect.objectContaining({
           onSuccess: expect.any(Function),

@@ -30,6 +30,9 @@ export const settingsUpdateSchema = z.strictObject({
     presetId: z.enum(['hackmd', 'mono', 'solarized', 'forest']),
     customSeed: themeSeedSchema,
   }).optional(),
+  editor: z.strictObject({
+    mode: z.enum(['standard', 'vim', 'helix']),
+  }).optional(),
   onboarding: z.strictObject({
     hackmdTokenSetupDeferred: z.boolean(),
   }).optional(),

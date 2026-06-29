@@ -162,6 +162,7 @@ function createSafeSettings(overrides: Partial<ElectronSafeSettings> = {}): Elec
   return {
     title: 'HackDesk',
     appearance: defaultSettings.appearance,
+    editor: defaultSettings.editor,
     hasHackmdApiToken: true,
     hasAppearanceSettings: true,
     hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
@@ -1127,6 +1128,27 @@ describe('Home native-feel behavior', () => {
     expect(await screen.findByRole('dialog', { name: 'Command Palette' })).toBeInTheDocument();
     expect(screen.getAllByText('Select a folder first.').length).toBeGreaterThan(0);
     expect(screen.getByText('No unsaved note changes.')).toBeInTheDocument();
+  });
+
+  it('switches the global editor mode from the command palette', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+
+    const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
+    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), {
+      target: { value: 'vim editor mode' },
+    });
+    fireEvent.click(await within(palette).findByText('Use Vim Editor Mode'));
+
+    await waitFor(() => expect(api.settings.update).toHaveBeenCalledWith({
+      title: 'HackDesk',
+      editor: { mode: 'vim' },
+    }));
+    await waitFor(() => expect(window.document.querySelector('.cm-editor')).toHaveAttribute('data-editor-mode', 'vim'));
+    expect(screen.queryByRole('dialog', { name: 'Command Palette' })).not.toBeInTheDocument();
   });
 
   it('quick-opens a matching note from the command palette', async () => {

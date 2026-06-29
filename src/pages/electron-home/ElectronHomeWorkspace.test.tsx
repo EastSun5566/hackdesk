@@ -255,6 +255,7 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
     documentWorkspace: {
       panes,
       activePaneId: 'pane-b',
+      editorMode: 'standard',
       folderTree: tree,
       shareOpen: false,
       isInspectorCollapsed: false,

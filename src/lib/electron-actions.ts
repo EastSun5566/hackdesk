@@ -1,9 +1,11 @@
 import type { ElectronActionId } from './electron-api';
+import type { EditorMode } from './settings';
 
 export type ElectronActionCategory = 'create' | 'navigation' | 'view' | 'note' | 'folder' | 'app';
 export type ElectronActionScope = 'global' | 'workspace' | 'navigator' | 'editor' | 'inspector';
 
 export type ElectronActionContext = {
+  editorMode: EditorMode;
   hasToken: boolean;
   canCreate: boolean;
   scopeType: 'local' | 'personal' | 'team' | 'history';
@@ -369,6 +371,33 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['appearance', 'dark', 'light', 'system'],
     category: 'app',
     scope: 'global',
+  },
+  {
+    id: 'set-editor-mode-standard',
+    label: 'Use Standard Editor Mode',
+    description: 'Use the default CodeMirror keyboard shortcuts.',
+    keywords: ['editor', 'mode', 'keybindings', 'standard', 'default'],
+    category: 'app',
+    scope: 'global',
+    getDisabledReason: (context) => context.editorMode === 'standard' ? 'Standard editor mode is already active.' : null,
+  },
+  {
+    id: 'set-editor-mode-vim',
+    label: 'Use Vim Editor Mode',
+    description: 'Use Vim motions, operators, and command mode.',
+    keywords: ['editor', 'mode', 'keybindings', 'vim', 'modal'],
+    category: 'app',
+    scope: 'global',
+    getDisabledReason: (context) => context.editorMode === 'vim' ? 'Vim editor mode is already active.' : null,
+  },
+  {
+    id: 'set-editor-mode-helix',
+    label: 'Use Helix Editor Mode',
+    description: 'Use selection-first Helix editing and command mode.',
+    keywords: ['editor', 'mode', 'keybindings', 'helix', 'modal'],
+    category: 'app',
+    scope: 'global',
+    getDisabledReason: (context) => context.editorMode === 'helix' ? 'Helix editor mode is already active.' : null,
   },
   {
     id: 'open-command-palette',

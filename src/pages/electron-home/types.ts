@@ -1,4 +1,4 @@
-import type { AppearanceSettings, OnboardingSettings } from '@/lib/settings';
+import type { AppearanceSettings, EditorSettings, OnboardingSettings } from '@/lib/settings';
 
 export type WorkspaceScope =
   | { type: 'local'; label: string }
@@ -37,5 +37,6 @@ export type SettingsFormInput = {
   title: string;
   hackmdApiToken?: string;
   appearance?: AppearanceSettings;
+  editor?: EditorSettings;
   onboarding?: OnboardingSettings;
 };

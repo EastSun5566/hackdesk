@@ -76,6 +76,7 @@ function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): Workb
     renameSelectedFolder: vi.fn(),
     reopenLastClosedTab: vi.fn(),
     saveNote: vi.fn(),
+    setEditorMode: vi.fn(),
     splitPaneRight: vi.fn(),
     toggleInspector: vi.fn(),
     toggleNavigator: vi.fn(),
@@ -89,6 +90,7 @@ function createOptions(overrides: Partial<WorkbenchActionsOptions> = {}): Workbe
   return {
     canCreate: true,
     canModifySelectedFolder: false,
+    editorMode: 'standard',
     handlers: createHandlers(),
     hasActiveTab: true,
     hasToken: true,
@@ -140,6 +142,19 @@ describe('useWorkbenchActions', () => {
     result.current.runAction('attach-image');
 
     expect(handlers.attachImage).toHaveBeenCalledOnce();
+  });
+
+  it('routes editor mode actions and ignores the active mode', () => {
+    const handlers = createHandlers();
+    const { result } = renderHook(() => useWorkbenchActions(createOptions({ handlers })));
+
+    result.current.runAction('set-editor-mode-standard');
+    result.current.runAction('set-editor-mode-vim');
+    result.current.runAction('set-editor-mode-helix');
+
+    expect(handlers.setEditorMode).toHaveBeenNthCalledWith(1, 'vim');
+    expect(handlers.setEditorMode).toHaveBeenNthCalledWith(2, 'helix');
+    expect(handlers.setEditorMode).toHaveBeenCalledTimes(2);
   });
 
   it('duplicates the active tab for New Tab and opens the palette when no tab is active', () => {

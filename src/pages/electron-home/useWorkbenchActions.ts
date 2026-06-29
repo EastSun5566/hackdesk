@@ -12,6 +12,7 @@ import {
   type ElectronActionContext,
 } from '@/lib/electron-actions';
 import { toOpenHackmdEditorInput } from '@/lib/electron-note-links';
+import type { EditorMode } from '@/lib/settings';
 
 import type { NoteWorkspaceState } from './note-workspace';
 import type { WorkspaceScope } from './types';
@@ -19,6 +20,7 @@ import type { WorkspaceScope } from './types';
 export type WorkbenchActionContextInput = {
   canCreate: boolean;
   canModifySelectedFolder: boolean;
+  editorMode: EditorMode;
   hasToken: boolean;
   inspectorCollapsed: boolean;
   isSavingNote: boolean;
@@ -65,6 +67,7 @@ export type WorkbenchActionHandlers = {
   renameSelectedFolder: () => void;
   reopenLastClosedTab: () => void;
   saveNote: () => void;
+  setEditorMode: (mode: EditorMode) => void;
   splitPaneRight: () => void;
   toggleInspector: () => void;
   toggleNavigator: () => void;
@@ -80,6 +83,7 @@ export type WorkbenchActionsOptions = WorkbenchActionContextInput & {
 export function createWorkbenchActionContext({
   canCreate,
   canModifySelectedFolder,
+  editorMode,
   hasToken,
   inspectorCollapsed,
   isSavingNote,
@@ -99,6 +103,7 @@ export function createWorkbenchActionContext({
     activePaneTabsToRightCount: activePane && activeTabIndex >= 0 ? activePane.tabIds.length - activeTabIndex - 1 : 0,
     canCreate,
     canModifySelectedFolder,
+    editorMode,
     hasToken,
     inspectorCollapsed,
     isSavingNote,
@@ -120,6 +125,7 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
   const {
     canCreate,
     canModifySelectedFolder,
+    editorMode,
     handlers,
     hasActiveTab,
     hasToken,
@@ -136,6 +142,7 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
   const actionContext = useMemo(() => createWorkbenchActionContext({
     canCreate,
     canModifySelectedFolder,
+    editorMode,
     hasToken,
     inspectorCollapsed,
     isSavingNote,
@@ -149,6 +156,7 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
   }), [
     canCreate,
     canModifySelectedFolder,
+    editorMode,
     hasToken,
     inspectorCollapsed,
     isSavingNote,
@@ -178,6 +186,15 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'toggle-theme':
       handlers.toggleTheme();
+      break;
+    case 'set-editor-mode-standard':
+      handlers.setEditorMode('standard');
+      break;
+    case 'set-editor-mode-vim':
+      handlers.setEditorMode('vim');
+      break;
+    case 'set-editor-mode-helix':
+      handlers.setEditorMode('helix');
       break;
     case 'new-tab':
       if (hasActiveTab) {

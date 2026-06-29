@@ -51,6 +51,8 @@ describe('query hooks', () => {
         hackmdApiToken: '',
         appearance: defaultSettings.appearance,
         onboarding: defaultSettings.onboarding,
+        localVault: defaultSettings.localVault,
+        editor: defaultSettings.editor,
       });
     });
   });
@@ -87,6 +89,12 @@ describe('query hooks', () => {
   },
   "onboarding": {
     "hackmdTokenSetupDeferred": false
+  },
+  "localVault": {
+    "path": null
+  },
+  "editor": {
+    "mode": "standard"
   }
 }`);
     expect(queryClient.getQueryData(['settings'])).toEqual({
@@ -94,6 +102,8 @@ describe('query hooks', () => {
       hackmdApiToken: 'secret-token',
       appearance: defaultSettings.appearance,
       onboarding: defaultSettings.onboarding,
+      localVault: defaultSettings.localVault,
+      editor: defaultSettings.editor,
     });
     expect(invokeMock).toHaveBeenCalledWith('apply_settings');
   });

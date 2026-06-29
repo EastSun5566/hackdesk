@@ -6,6 +6,7 @@ import { useTheme } from '@/components/theme-provider';
 import { getDesktopAPI } from '@/lib/desktop-api';
 import type { FolderSummary } from '@/lib/electron-api';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
+import { defaultSettings } from '@/lib/settings';
 
 import { ElectronHomeOverlays } from './electron-home/ElectronHomeOverlays';
 import { ElectronHomeWorkspace } from './electron-home/ElectronHomeWorkspace';
@@ -560,6 +561,13 @@ export function Home() {
     requestDeleteFolder: folderCommands.handleDeleteFolderRequest,
     reopenLastClosedTab: noteWorkspace.reopenLastClosed,
     saveNote: (note, input) => mutations.updateNoteMutation.mutate({ note, input }),
+    setEditorMode: (mode) => {
+      mutations.updateSettingsMutation.mutate({
+        title: settings?.title ?? defaultSettings.title,
+        editor: { mode },
+      });
+      focusZone('editor');
+    },
     selectedDocument,
     selectedFolderId: selectedFolder?.id ?? null,
     setSettingsOpen,
@@ -575,6 +583,7 @@ export function Home() {
   const { actionContext, runAction } = useWorkbenchActions({
     canCreate,
     canModifySelectedFolder,
+    editorMode: settings?.editor?.mode ?? defaultSettings.editor.mode,
     hasActiveTab: Boolean(activeTab),
     handlers: actionHandlers,
     hasToken: canUseCurrentWorkspace,
@@ -753,6 +762,7 @@ export function Home() {
         documentWorkspace={{
           panes: noteWorkspace.state.panes,
           activePaneId: noteWorkspace.state.activePaneId,
+          editorMode: settings?.editor?.mode ?? defaultSettings.editor.mode,
           folderTree,
           shareOpen,
           isInspectorCollapsed: inspectorCollapsed,

@@ -81,6 +81,7 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     requestDeleteFolder: vi.fn(),
     reopenLastClosedTab: vi.fn(),
     saveNote: vi.fn(),
+    setEditorMode: vi.fn(),
     selectedDocument: createDocument(),
     selectedFolderId: 'folder-1',
     setSettingsOpen: vi.fn(),

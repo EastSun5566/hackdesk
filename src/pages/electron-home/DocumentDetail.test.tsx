@@ -15,6 +15,7 @@ vi.mock('@/components/MarkdownEditor', async () => {
 
   return {
     MarkdownEditor: React.forwardRef((props: {
+      editorMode?: string;
       onAttachImage?: (file: File) => Promise<{ link: string }>;
       onChange: (value: string) => void;
       value: string;
@@ -31,6 +32,7 @@ vi.mock('@/components/MarkdownEditor', async () => {
         <>
           <textarea
             aria-label="Markdown editor"
+            data-editor-mode={props.editorMode}
             value={props.value}
             onChange={(event) => props.onChange(event.target.value)}
           />
@@ -107,6 +109,7 @@ function renderDocumentDetail(overrides: Partial<DocumentDetailProps> = {}) {
       syncState: 'idle',
       title: document.title,
     },
+    editorMode: 'standard',
     folderTree: buildHackmdFolderTree([]),
     layout: {
       focusZone: 'editor',
@@ -159,6 +162,12 @@ describe('DocumentDetail', () => {
       },
     });
     expect(screen.getByText('Select a note.')).toBeInTheDocument();
+  });
+
+  it('passes the global editor mode to MarkdownEditor', () => {
+    renderDocumentDetail({ editorMode: 'vim' });
+
+    expect(screen.getByLabelText('Markdown editor')).toHaveAttribute('data-editor-mode', 'vim');
   });
 
   it('saves dirty title and content through the structured actions', () => {

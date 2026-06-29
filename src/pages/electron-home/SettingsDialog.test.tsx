@@ -34,6 +34,7 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
         settings={{
           title: 'HackDesk',
           appearance: defaultSettings.appearance,
+          editor: defaultSettings.editor,
           hasHackmdApiToken: false,
           hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
           hasLocalVault: false,
@@ -88,6 +89,44 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
     expect(screen.getByLabelText('API Token')).toBeInTheDocument();
     expect(screen.queryByLabelText('Window Title')).not.toBeInTheDocument();
+  });
+
+  it('saves a global editor mode from an accessible radio group', () => {
+    const { onSave } = renderSettingsDialog();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Editor/ }));
+
+    expect(screen.getByRole('radio', { name: /Standard/ })).toBeChecked();
+    fireEvent.click(screen.getByRole('radio', { name: /Helix/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(onSave).toHaveBeenCalledWith({
+      title: 'HackDesk',
+      editor: { mode: 'helix' },
+    });
+  });
+
+  it('resets editor mode with all other settings', () => {
+    const { onSave } = renderSettingsDialog({
+      settings: {
+        title: 'HackDesk',
+        appearance: defaultSettings.appearance,
+        editor: { mode: 'vim' },
+        hasHackmdApiToken: false,
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: false,
+        localVault: defaultSettings.localVault,
+        onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: false,
+      },
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: /Advanced/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset All Settings' }));
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      editor: { mode: 'standard' },
+    }));
   });
 
   it('closes the dialog after applying a theme from the appearance footer', () => {
@@ -148,6 +187,7 @@ describe('SettingsDialog', () => {
       settings: {
         title: 'HackDesk',
         appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
         hasHackmdApiToken: false,
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
         hasLocalVault: true,

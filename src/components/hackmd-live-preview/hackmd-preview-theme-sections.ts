@@ -70,6 +70,31 @@ export const searchPanelTheme = {
     borderColor: 'var(--border-default)',
     fontFamily: 'var(--font-sans)',
   },
+  '.cm-panel.cm-vim-panel, .cm-panel.cm-hx-status-panel, .cm-panel.cm-hx-command-panel': {
+    boxSizing: 'border-box',
+    minHeight: '22px',
+    padding: '1px 8px',
+    borderTop: '1px solid var(--border-default)',
+    backgroundColor: 'var(--background-muted)',
+    color: 'var(--text-subtle)',
+    fontFamily: 'var(--font-editor)',
+    fontSize: '11px',
+    lineHeight: '19px',
+  },
+  '.cm-panel.cm-hx-command-panel': {
+    borderTop: '0',
+  },
+  '.cm-panel.cm-hx-command-panel:has(.cm-hx-command-panel-flex > span:first-child[style*="visibility: hidden"]):not(:has(.cm-hx-command-panel-flex > span:last-child:not(:empty)))': {
+    display: 'none',
+  },
+  '.cm-hx-command-input': {
+    color: 'var(--text-default)',
+    caretColor: 'var(--primary-default)',
+  },
+  '.cm-hx-selected-option': {
+    backgroundColor: 'var(--background-selected)',
+    color: 'var(--text-default)',
+  },
   '.cm-panel.cm-search.cm-hackdesk-search-panel': {
     borderBottom: '1px solid var(--border-default)',
     padding: '6px 8px',
