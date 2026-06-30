@@ -932,12 +932,15 @@ describe('MarkdownEditor', () => {
     expect(ref.current?.getMarkdown()).toBe(markdown);
   }, 15000);
 
-  it('does not render math previews inside code fences', async () => {
+  it.each([
+    { name: 'bare', opener: '```' },
+    { name: 'typed', opener: '```ts' },
+  ])('does not render math previews inside $name code fences', async ({ opener }) => {
     const ref = createRef<MarkdownEditorHandle>();
     const markdown = [
       'Intro',
       '',
-      '```',
+      opener,
       '$$',
       '\\frac{1}{x}',
       '$$',
@@ -952,6 +955,24 @@ describe('MarkdownEditor', () => {
     expect(editor.querySelector('.cm-hackmd-math-preview')).toBeNull();
     expect(editor.querySelector('.cm-hackmd-rich-math-inline')).toBeNull();
     expect(editor).toHaveTextContent('Inline $x^2$ should stay raw here.');
+  });
+
+  it('reveals raw math source on the active line', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      'Inline math $x^2$ should be raw while active.',
+      '',
+      '$$',
+      '\\frac{1}{x}',
+      '$$',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    expect(editor.querySelector('.cm-hackmd-rich-math-inline')).toBeNull();
+    expect(editor).toHaveTextContent('Inline math $x^2$ should be raw while active.');
   });
 
   it('renders Mermaid fences as sanitized diagram previews without changing source', async () => {

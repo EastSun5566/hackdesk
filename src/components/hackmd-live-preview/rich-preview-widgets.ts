@@ -110,7 +110,7 @@ class AsyncHtmlWidget extends WidgetType {
     wrap.setAttribute('contenteditable', 'false');
 
     const body = document.createElement('div');
-    body.className = 'cm-hackmd-rich-render-body';
+    body.className = 'cm-hackmd-rich-render-body cm-hackmd-rich-render-pending';
     body.textContent = `Rendering ${this.label}...`;
     wrap.appendChild(body);
 
@@ -119,6 +119,7 @@ class AsyncHtmlWidget extends WidgetType {
         if (!wrap.isConnected) {
           return;
         }
+        body.classList.remove('cm-hackmd-rich-render-pending');
         body.innerHTML = result.html;
         view.requestMeasure();
       })
@@ -126,6 +127,7 @@ class AsyncHtmlWidget extends WidgetType {
         if (!wrap.isConnected) {
           return;
         }
+        body.classList.remove('cm-hackmd-rich-render-pending');
         body.textContent = error instanceof Error ? error.message : `Unable to render ${this.label}.`;
         wrap.classList.add('cm-hackmd-rich-render-error');
         view.requestMeasure();
@@ -217,19 +219,21 @@ class InlineMathWidget extends WidgetType {
 
   toDOM(view: EditorView): HTMLElement {
     const span = document.createElement('span');
-    span.className = 'cm-hackmd-rich-math-inline';
+    span.className = 'cm-hackmd-rich-math-inline cm-hackmd-rich-math-inline-pending';
     span.setAttribute('contenteditable', 'false');
     span.textContent = 'math';
 
     renderMath(this.source, { display: false })
       .then((result) => {
         if (span.isConnected) {
+          span.classList.remove('cm-hackmd-rich-math-inline-pending');
           span.innerHTML = result.html;
           view.requestMeasure();
         }
       })
       .catch(() => {
         if (span.isConnected) {
+          span.classList.remove('cm-hackmd-rich-math-inline-pending');
           span.textContent = this.source;
           span.classList.add('cm-hackmd-rich-render-error');
           view.requestMeasure();

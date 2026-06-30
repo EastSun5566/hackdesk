@@ -12,4 +12,15 @@ describe('HackMD preview widget theme', () => {
     expect(widgetTheme['.cm-hackmd-image-preview']).toHaveProperty('padding');
     expect(widgetTheme['.cm-hackmd-rich-block']).toHaveProperty('padding');
   });
+
+  it('reserves a stable pending shell for async rich previews', () => {
+    expect(widgetTheme['.cm-hackmd-rich-render-pending']).toMatchObject({
+      minHeight: '7rem',
+      fontFamily: 'var(--font-sans)',
+    });
+    expect(widgetTheme['.cm-hackmd-rich-math-inline-pending']).toMatchObject({
+      minWidth: '2.5rem',
+      fontFamily: 'var(--font-sans)',
+    });
+  });
 });

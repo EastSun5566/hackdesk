@@ -566,6 +566,14 @@ export const widgetTheme = {
     minHeight: '1.5rem',
     color: 'var(--text-muted)',
   },
+  '.cm-hackmd-rich-render-pending': {
+    display: 'flex',
+    alignItems: 'center',
+    minHeight: '7rem',
+    color: 'var(--text-subtle)',
+    fontFamily: 'var(--font-sans)',
+    fontSize: '13px',
+  },
   '.cm-hackmd-rich-render-body svg': {
     display: 'block',
     maxWidth: '100%',
@@ -600,5 +608,11 @@ export const widgetTheme = {
   },
   '.cm-hackmd-rich-math-inline .katex': {
     margin: '0',
+  },
+  '.cm-hackmd-rich-math-inline-pending': {
+    minWidth: '2.5rem',
+    color: 'var(--text-subtle)',
+    fontFamily: 'var(--font-sans)',
+    fontSize: '0.95em',
   },
 };

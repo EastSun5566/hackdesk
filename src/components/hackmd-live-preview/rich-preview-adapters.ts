@@ -94,7 +94,10 @@ function sanitizeRichHtml(html: string): string {
 
 async function getKatex(): Promise<KatexApi> {
   if (!katexPromise) {
-    katexPromise = import('katex');
+    katexPromise = Promise.all([
+      import('katex'),
+      import('katex/dist/katex.min.css'),
+    ]).then(([katex]) => katex);
   }
 
   return katexPromise;
