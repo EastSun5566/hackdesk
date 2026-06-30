@@ -210,6 +210,7 @@ describe('MarkdownEditor', () => {
     expect(content).not.toBeNull();
     await waitFor(() => expect(editor.querySelector('.cm-vim-panel')).toHaveTextContent('NORMAL'));
     expect(editor.querySelector('.cm-editor')).toHaveAttribute('data-editor-mode', 'vim');
+    expect(editor.querySelector('.cm-editor')).not.toHaveAttribute('data-editor-mode-loading');
 
     act(() => ref.current?.focus());
     fireEvent.keyDown(content as Element, { key: 'i', code: 'KeyI' });
@@ -233,6 +234,7 @@ describe('MarkdownEditor', () => {
     expect(commandPanel).not.toBeVisible();
     expect(getComputedStyle(editor.querySelector('.cm-hx-status-panel') as Element).minHeight).toBe('22px');
     expect(editor.querySelector('.cm-editor')).toHaveAttribute('data-editor-mode', 'helix');
+    expect(editor.querySelector('.cm-editor')).not.toHaveAttribute('data-editor-mode-loading');
 
     act(() => ref.current?.focus());
     fireEvent.keyDown(content as Element, { key: 'i', code: 'KeyI' });
@@ -283,6 +285,31 @@ describe('MarkdownEditor', () => {
     expect(document.activeElement).toBe(content);
   });
 
+  it('does not apply stale modal engines after a quick switch back to standard', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const { rerender } = render(
+      <MarkdownEditor ref={ref} editorMode="standard" value="# Hello" onChange={vi.fn()} />,
+    );
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const codeMirror = editor.querySelector('.cm-editor');
+
+    expect(codeMirror).not.toBeNull();
+    expect(editor.querySelector('.cm-vim-panel')).toBeNull();
+
+    rerender(<MarkdownEditor ref={ref} editorMode="vim" value="# Hello" onChange={vi.fn()} />);
+    expect(codeMirror).toHaveAttribute('data-editor-mode', 'vim');
+
+    rerender(<MarkdownEditor ref={ref} editorMode="standard" value="# Hello" onChange={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(codeMirror).toHaveAttribute('data-editor-mode', 'standard');
+      expect(codeMirror).not.toHaveAttribute('data-editor-mode-loading');
+      expect(editor.querySelector('.cm-vim-panel')).toBeNull();
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(editor.querySelector('.cm-vim-panel')).toBeNull();
+  });
+
   it.each(['vim', 'helix'] as const)('keeps HackDesk search on Ctrl+F in %s mode', async (editorMode) => {
     const ref = createRef<MarkdownEditorHandle>();
 
@@ -291,6 +318,11 @@ describe('MarkdownEditor', () => {
     const content = editor.querySelector('.cm-content');
 
     expect(content).not.toBeNull();
+    if (editorMode === 'vim') {
+      await waitFor(() => expect(editor.querySelector('.cm-vim-panel')).toHaveTextContent('NORMAL'));
+    } else {
+      await waitFor(() => expect(editor.querySelector('.cm-hx-status-panel')).toHaveTextContent('NOR'));
+    }
     act(() => ref.current?.focus());
     fireEvent.keyDown(content as Element, { key: 'f', code: 'KeyF', ctrlKey: true });
 

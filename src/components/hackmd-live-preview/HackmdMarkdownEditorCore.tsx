@@ -16,8 +16,6 @@ import {
   rectangularSelection,
 } from '@codemirror/view';
 import { inlineAttachmentExtension } from 'inline-attacher';
-import { vim } from '@replit/codemirror-vim';
-import { helix } from 'codemirror-helix';
 
 import type { EditorMode } from '@/lib/settings';
 
@@ -108,7 +106,8 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
     const onChangeRef = useRef(onChange);
     const initialValueRef = useRef(value);
     const initialEditorModeRef = useRef(editorMode);
-    const appliedEditorModeRef = useRef(editorMode);
+    const appliedEditorModeRef = useRef<EditorMode>('standard');
+    const editorModeRequestIdRef = useRef(0);
     const pendingFocusRef = useRef(false);
     const dragDepthRef = useRef(0);
     const [editorModeCompartment] = useState(() => new Compartment());
@@ -175,7 +174,7 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
           doc: initialValueRef.current,
           extensions: [
             reservedAppShortcutKeymap,
-            editorModeCompartment.of(createEditorModeExtension(initialEditorModeRef.current)),
+            editorModeCompartment.of([]),
             ...editorExtensions,
             inlineAttachmentExtension({
               allowedTypes: ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'],
@@ -221,6 +220,7 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
       }
 
       return () => {
+        editorModeRequestIdRef.current += 1;
         view.destroy();
         viewRef.current = null;
       };
@@ -228,15 +228,65 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
 
     useEffect(() => {
       const view = viewRef.current;
-      if (!view || appliedEditorModeRef.current === editorMode) {
+      if (!view) {
         return;
       }
 
-      view.dispatch({
-        effects: editorModeCompartment.reconfigure(createEditorModeExtension(editorMode)),
-      });
+      const requestId = editorModeRequestIdRef.current + 1;
+      editorModeRequestIdRef.current = requestId;
       view.dom.dataset.editorMode = editorMode;
-      appliedEditorModeRef.current = editorMode;
+
+      if (editorMode === 'standard') {
+        delete view.dom.dataset.editorModeLoading;
+        delete view.dom.dataset.editorModeError;
+        if (appliedEditorModeRef.current !== 'standard') {
+          view.dispatch({
+            effects: editorModeCompartment.reconfigure([]),
+          });
+          appliedEditorModeRef.current = 'standard';
+        }
+        return;
+      }
+
+      if (appliedEditorModeRef.current === editorMode) {
+        delete view.dom.dataset.editorModeLoading;
+        delete view.dom.dataset.editorModeError;
+        return;
+      }
+
+      if (appliedEditorModeRef.current !== 'standard') {
+        view.dispatch({
+          effects: editorModeCompartment.reconfigure([]),
+        });
+        appliedEditorModeRef.current = 'standard';
+      }
+
+      view.dom.dataset.editorModeLoading = 'true';
+      delete view.dom.dataset.editorModeError;
+
+      void createEditorModeExtension(editorMode)
+        .then((extension) => {
+          if (editorModeRequestIdRef.current !== requestId || viewRef.current !== view) {
+            return;
+          }
+
+          view.dispatch({
+            effects: editorModeCompartment.reconfigure(extension),
+          });
+          view.dom.dataset.editorMode = editorMode;
+          delete view.dom.dataset.editorModeLoading;
+          delete view.dom.dataset.editorModeError;
+          appliedEditorModeRef.current = editorMode;
+        })
+        .catch((error: unknown) => {
+          if (editorModeRequestIdRef.current !== requestId || viewRef.current !== view) {
+            return;
+          }
+
+          delete view.dom.dataset.editorModeLoading;
+          view.dom.dataset.editorModeError = 'true';
+          console.error('Failed to load editor mode extension:', error);
+        });
     }, [editorMode, editorModeCompartment]);
 
     useEffect(() => {
@@ -305,15 +355,32 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
   },
 );
 
-function createEditorModeExtension(editorMode: EditorMode): Extension {
+type VimModule = typeof import('@replit/codemirror-vim');
+type HelixModule = typeof import('codemirror-helix');
+type LazyEditorMode = Exclude<EditorMode, 'standard'>;
+
+let vimModulePromise: Promise<VimModule> | null = null;
+let helixModulePromise: Promise<HelixModule> | null = null;
+
+async function createEditorModeExtension(editorMode: LazyEditorMode): Promise<Extension> {
   switch (editorMode) {
   case 'vim':
-    return vim({ status: true });
+    return loadVimModeExtension();
   case 'helix':
-    return helix({ drawSelection: false });
-  case 'standard':
-    return [];
+    return loadHelixModeExtension();
   }
+}
+
+async function loadVimModeExtension(): Promise<Extension> {
+  vimModulePromise ??= import('@replit/codemirror-vim');
+  const { vim } = await vimModulePromise;
+  return vim({ status: true });
+}
+
+async function loadHelixModeExtension(): Promise<Extension> {
+  helixModulePromise ??= import('codemirror-helix');
+  const { helix } = await helixModulePromise;
+  return helix({ drawSelection: false });
 }
 
 function hasImageFile(dataTransfer: DataTransfer) {
