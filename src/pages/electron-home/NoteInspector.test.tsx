@@ -99,7 +99,10 @@ describe('NoteInspector', () => {
     const { document } = renderNoteInspector({ actions: { onSaveMetadata } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Location' }));
+    expect(screen.getByRole('combobox', { name: 'Folder' })).toHaveTextContent('Root');
     await selectOption('Folder', 'Folder A');
+    expect(screen.getByRole('combobox', { name: 'Folder' })).toHaveTextContent('Folder A');
+    expect(screen.getByRole('combobox', { name: 'Folder' })).not.toHaveTextContent('folder-a');
     fireEvent.click(screen.getByRole('button', { name: 'Permissions' }));
     fireEvent.click(within(screen.getByRole('group', { name: 'Read' })).getByRole('radio', { name: 'Guest' }));
     fireEvent.click(within(screen.getByRole('group', { name: 'Write' })).getByRole('radio', { name: 'Signed in' }));

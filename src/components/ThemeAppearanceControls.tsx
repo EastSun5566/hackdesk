@@ -3,7 +3,7 @@ import { ChevronRight, Laptop, Moon, Sun } from 'lucide-react';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectLabelValue, SelectTrigger } from '@/components/ui/select';
 import { useTheme } from '@/components/theme-provider';
 import {
   defaultThemeTypography,
@@ -320,7 +320,10 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
         </p>
         <Select value={draftPresetId} onValueChange={(value) => handlePresetChange(value as ThemePresetId)}>
           <SelectTrigger aria-label="Theme preset" className={compact ? 'w-full' : 'max-w-sm'}>
-            <SelectValue />
+            <SelectLabelValue
+              value={draftPresetId}
+              labels={Object.fromEntries(presets.map((preset) => [preset.id, preset.name]))}
+            />
           </SelectTrigger>
           <SelectContent>
           {presets.map((preset) => (

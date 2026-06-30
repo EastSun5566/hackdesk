@@ -12,8 +12,8 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectLabelValue,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select';
 import type {
   DocumentSummary,
@@ -56,6 +56,12 @@ function getWritePermissionLabel(permission: NotePermissionRole) {
 }
 
 const PERMISSION_OPTIONS: NotePermissionRole[] = ['owner', 'signed_in', 'guest'];
+const READ_PERMISSION_LABELS = Object.fromEntries(
+  PERMISSION_OPTIONS.map((permission) => [permission, getReadPermissionLabel(permission)]),
+) as Record<NotePermissionRole, string>;
+const WRITE_PERMISSION_LABELS = Object.fromEntries(
+  PERMISSION_OPTIONS.map((permission) => [permission, getWritePermissionLabel(permission)]),
+) as Record<NotePermissionRole, string>;
 
 type ShareDialogProps = {
   open: boolean;
@@ -196,7 +202,7 @@ function ShareDialogContent({
                   }))}
                 >
                   <SelectTrigger id={readPermissionId} className="w-full">
-                    <SelectValue />
+                    <SelectLabelValue value={readPermission} labels={READ_PERMISSION_LABELS} />
                   </SelectTrigger>
                   <SelectContent>
                     {PERMISSION_OPTIONS.map((permission) => (
@@ -224,7 +230,7 @@ function ShareDialogContent({
                   }))}
                 >
                   <SelectTrigger id={writePermissionId} className="w-full">
-                    <SelectValue />
+                    <SelectLabelValue value={writePermission} labels={WRITE_PERMISSION_LABELS} />
                   </SelectTrigger>
                   <SelectContent>
                     {PERMISSION_OPTIONS.map((permission) => (

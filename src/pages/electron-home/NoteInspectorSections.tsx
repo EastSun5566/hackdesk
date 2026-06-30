@@ -6,8 +6,8 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectLabelValue,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select';
 import type { NotePermissionRole } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
@@ -99,7 +99,10 @@ function InspectorSelectField({
           id={id}
           className={cn(INSPECTOR_INPUT_CLASS, 'w-full justify-between pe-2.5', className)}
         >
-          <SelectValue />
+          <SelectLabelValue
+            value={value}
+            labels={Object.fromEntries(options.map((option) => [option.value, option.label]))}
+          />
         </SelectTrigger>
         <SelectContent>
           {options.map((option) => (

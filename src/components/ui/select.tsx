@@ -8,6 +8,29 @@ import { ELEVATED_SURFACE_CLASS, FLOATING_LAYER_CLASS } from './layers';
 const Select = SelectPrimitive.Root;
 const SelectValue = SelectPrimitive.Value;
 
+function SelectLabelValue({
+  labels,
+  placeholder,
+  value,
+}: {
+  labels: Readonly<Record<string, React.ReactNode>>;
+  value: string | null | undefined;
+  placeholder?: React.ReactNode;
+}) {
+  return (
+    <SelectValue placeholder={placeholder}>
+      {(selectedValue: unknown) => {
+        const currentValue = typeof selectedValue === 'string' ? selectedValue : value;
+        if (currentValue != null && Object.prototype.hasOwnProperty.call(labels, currentValue)) {
+          return labels[currentValue];
+        }
+
+        return placeholder ?? null;
+      }}
+    </SelectValue>
+  );
+}
+
 function SelectTrigger({
   className,
   children,
@@ -91,6 +114,7 @@ export {
   Select,
   SelectContent,
   SelectItem,
+  SelectLabelValue,
   SelectTrigger,
   SelectValue,
 };

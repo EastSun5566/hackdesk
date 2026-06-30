@@ -58,6 +58,15 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
   return { onChooseLocalVault, onForgetLocalVault, onOpenLocalVault, onRefreshLocalVault, onOpenChange, onSave, onValidateToken };
 }
 
+async function selectThemeOption(optionName: string | RegExp) {
+  const trigger = screen.getByRole('combobox', { name: 'Theme preset' });
+  fireEvent.pointerDown(trigger);
+  fireEvent.click(trigger);
+  const option = await screen.findByRole('option', { name: optionName });
+  fireEvent.pointerDown(option);
+  fireEvent.click(option);
+}
+
 describe('SettingsDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -284,10 +293,25 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
 
     expect(screen.getByText('Typography')).toBeVisible();
-    expect(screen.getByLabelText('Theme preset')).toBeVisible();
+    expect(screen.getByLabelText('Theme preset')).toHaveTextContent('HackMD Neo');
+    expect(screen.getByLabelText('Theme preset')).not.toHaveTextContent('hackmd-neo');
     expect(screen.getByText('The default HackDesk writing palette.')).toBeVisible();
     expect(screen.getByLabelText('UI font')).toBeVisible();
     expect(screen.getByLabelText('Editor font')).toBeVisible();
+  });
+
+  it('updates the theme select label and description when choosing another preset', async () => {
+    renderSettingsDialog();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
+    await selectThemeOption('Dracula');
+
+    expect(screen.getByLabelText('Theme preset')).toHaveTextContent('Dracula');
+    expect(screen.getByText('Dracula dark palette; light mode keeps HackMD Neo surfaces with Dracula accents.')).toBeVisible();
+
+    await selectThemeOption('Gruvbox');
+    expect(screen.getByLabelText('Theme preset')).toHaveTextContent('Gruvbox');
+    expect(screen.getByText('Gruvbox Light and Dark for warm terminal-style writing.')).toBeVisible();
   });
 
   it('saves title and token from their tab-specific footer action', () => {
