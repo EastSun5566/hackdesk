@@ -2,7 +2,7 @@ import { Folder, HardDrive, History, Lock, Settings2 } from 'lucide-react';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 
-import type { TeamSummary } from '@/lib/electron-api';
+import type { TeamSummary, UserSummary } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui/tooltip';
 
@@ -16,6 +16,7 @@ function WorkspaceRailButton({
   icon,
   label,
   trailing,
+  className,
   onClick,
 }: {
   active: boolean;
@@ -23,6 +24,7 @@ function WorkspaceRailButton({
   icon: ReactNode;
   label: string;
   trailing?: ReactNode;
+  className?: string;
   onClick: () => void;
 }) {
   const trailingContent = useMemo(() => (
@@ -41,12 +43,48 @@ function WorkspaceRailButton({
       variant="compact"
       onClick={onClick}
       ariaLabel={label}
-      className={collapsed ? 'justify-center px-2' : undefined}
+      className={cn('min-h-10', collapsed ? 'justify-center px-2' : undefined, className)}
       contentClassName={collapsed ? 'hidden' : undefined}
     />
   );
 
   return collapsed ? <Tooltip content={label} side="right">{row}</Tooltip> : row;
+}
+
+type WorkspaceRailUser = Pick<UserSummary, 'name' | 'username' | 'photo'>;
+
+function UserAvatar({
+  user,
+  className,
+  testId,
+}: {
+  user: WorkspaceRailUser;
+  className?: string;
+  testId?: string;
+}) {
+  const baseClassName = cn(
+    'flex size-6 items-center justify-center overflow-hidden rounded-full bg-background-selected text-[10px] font-semibold uppercase text-text-default outline outline-1 -outline-offset-1 outline-white/10',
+    className,
+  );
+
+  if (user.photo) {
+    return (
+      <img
+        src={user.photo}
+        alt=""
+        className={cn(baseClassName, 'object-cover')}
+        data-testid={testId}
+        loading="lazy"
+        referrerPolicy="no-referrer"
+      />
+    );
+  }
+
+  return (
+    <span className={baseClassName} data-testid={testId}>
+      {getUserInitials(user)}
+    </span>
+  );
 }
 
 function TeamLogo({ team }: { team: TeamSummary }) {
@@ -55,7 +93,7 @@ function TeamLogo({ team }: { team: TeamSummary }) {
       <img
         src={team.logo}
         alt=""
-        className="h-5 w-5 rounded-[5px] object-cover"
+        className="size-6 rounded-[6px] object-cover outline outline-1 -outline-offset-1 outline-white/10"
         loading="lazy"
         referrerPolicy="no-referrer"
       />
@@ -63,10 +101,44 @@ function TeamLogo({ team }: { team: TeamSummary }) {
   }
 
   return (
-    <span className="flex h-5 w-5 items-center justify-center rounded-[5px] bg-background-selected text-[10px] font-semibold uppercase text-text-subtle">
+    <span className="flex size-6 items-center justify-center rounded-[6px] bg-background-selected text-[10px] font-semibold uppercase text-text-subtle">
       {team.name.trim().slice(0, 1) || 'T'}
     </span>
   );
+}
+
+function AccountSettingsButton({
+  collapsed,
+  user,
+  onOpenSettings,
+}: {
+  collapsed: boolean;
+  user?: WorkspaceRailUser;
+  onOpenSettings: () => void;
+}) {
+  const displayName = user ? getUserDisplayName(user) : 'Settings';
+  const label = user ? `Open settings for ${displayName}` : 'Open settings';
+  const icon = user ? (
+    <UserAvatar user={user} testId="workspace-rail-footer-avatar" />
+  ) : (
+    <Settings2 className="h-4 w-4" />
+  );
+  const row = (
+    <EntityRow
+      icon={icon}
+      title={collapsed ? '' : displayName}
+      subtitle={collapsed || !user ? undefined : `@${user.username}`}
+      trailing={collapsed ? undefined : <Settings2 className="h-3.5 w-3.5" />}
+      variant="compact"
+      onClick={onOpenSettings}
+      ariaLabel={label}
+      className={cn('min-h-12', collapsed && 'justify-center px-2')}
+      contentClassName={collapsed ? 'hidden' : undefined}
+      trailingClassName="text-text-subtle"
+    />
+  );
+
+  return collapsed ? <Tooltip content={label} side="right">{row}</Tooltip> : row;
 }
 
 export function WorkspaceRail({
@@ -83,7 +155,7 @@ export function WorkspaceRail({
 }: {
   id: string;
   scope: WorkspaceScope;
-  user?: { name: string; username: string };
+  user?: WorkspaceRailUser;
   teams: TeamSummary[];
   collapsed: boolean;
   localVaultConfigured: boolean;
@@ -100,21 +172,8 @@ export function WorkspaceRail({
       collapsed={collapsed}
       width={width}
       collapsedWidth={RAIL_COLLAPSED_WIDTH}
-      className="border-r border-border-default bg-background-default pt-4"
+      className="border-r border-border-default bg-background-default pt-3"
     >
-      <div className={cn('px-3 pb-3', collapsed && 'text-center')}>
-        <div className="flex items-center gap-2">
-          {!collapsed ? (
-            <div className="min-w-0">
-              <h1 className="truncate text-lg font-semibold">HackDesk</h1>
-              <p className="truncate text-xs text-text-subtle">
-                {user ? `${user.name} @${user.username}` : 'Workspace'}
-              </p>
-            </div>
-          ) : null}
-        </div>
-      </div>
-
       <div className="space-y-1 px-2">
         <WorkspaceRailButton
           active={scope.type === 'local'}
@@ -133,7 +192,11 @@ export function WorkspaceRail({
         <WorkspaceRailButton
           active={scope.type === 'personal'}
           collapsed={collapsed}
-          icon={<Folder className="h-4 w-4" />}
+          icon={user ? (
+            <UserAvatar user={user} testId="workspace-rail-personal-avatar" />
+          ) : (
+            <Folder className="h-4 w-4" />
+          )}
           label="My Workspace"
           onClick={() => onScopeChange({ type: 'personal', label: 'My Workspace' })}
         />
@@ -146,8 +209,8 @@ export function WorkspaceRail({
         />
       </div>
 
-      {!collapsed ? (
-        <div className="mt-3 px-4 text-xs font-semibold uppercase text-text-subtle">
+      {!collapsed && teams.length > 0 ? (
+        <div className="mt-4 px-3 text-[11px] font-medium uppercase text-text-subtle">
           Teams
         </div>
       ) : null}
@@ -166,14 +229,26 @@ export function WorkspaceRail({
       </div>
 
       <div className="border-t border-border-default p-2">
-        <WorkspaceRailButton
-          active={false}
-          collapsed={collapsed}
-          icon={<Settings2 className="h-4 w-4" />}
-          label="Settings"
-          onClick={onOpenSettings}
-        />
+        <AccountSettingsButton collapsed={collapsed} user={user} onOpenSettings={onOpenSettings} />
       </div>
     </PanelShell>
   );
+}
+
+function getUserInitials(user: WorkspaceRailUser) {
+  const source = user.name.trim() || user.username.trim();
+  if (!source) {
+    return 'U';
+  }
+
+  const parts = source.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0]?.[0] ?? ''}${parts[parts.length - 1]?.[0] ?? ''}`.toUpperCase();
+  }
+
+  return source.slice(0, 1).toUpperCase();
+}
+
+function getUserDisplayName(user: WorkspaceRailUser) {
+  return user.name.trim() || user.username.trim() || 'Settings';
 }

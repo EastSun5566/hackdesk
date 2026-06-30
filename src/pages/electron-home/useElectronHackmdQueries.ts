@@ -49,7 +49,7 @@ export function useElectronHackmdQueries({
   } = useQuery({
     queryKey: ['electron', 'hackmd', 'current-user'],
     queryFn: () => api?.hackmd.getCurrentUser(),
-    enabled: !!api && hasToken && remoteScope,
+    enabled: !!api && hasToken,
   });
   const {
     data: teamsData,
@@ -59,7 +59,7 @@ export function useElectronHackmdQueries({
   } = useQuery({
     queryKey: ['electron', 'hackmd', 'teams'],
     queryFn: () => api?.hackmd.listTeams(),
-    enabled: !!api && hasToken && remoteScope,
+    enabled: !!api && hasToken,
   });
 
   const {

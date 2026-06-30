@@ -388,7 +388,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('heading', { name: 'New Note' })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings for Michael' }));
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'Escape' });
@@ -409,6 +409,51 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
 
     expect(await screen.findByRole('heading', { name: 'Create your local vault' })).toBeInTheDocument();
+  });
+
+  it('connects the configured HackMD account on startup without leaving the local vault workspace', async () => {
+    window.localStorage.setItem(LAST_WORKSPACE_SCOPE_KEY, JSON.stringify({ type: 'local', label: 'Local Vault' }));
+    const getCurrentUser = vi.fn(async () => ({
+      source: 'remote' as const,
+      data: {
+        id: 'user-1',
+        email: 'michael@example.com',
+        name: 'Michael',
+        username: 'michael',
+        photo: 'https://cdn.example/avatar.png',
+        upgraded: false,
+        teams: [],
+      },
+    }));
+    const listTeams = vi.fn(async () => ({ source: 'remote' as const, data: [team] }));
+    const listNotes = vi.fn(async () => ({ source: 'remote' as const, data: [note] }));
+    const listFolders = vi.fn(async () => ({ source: 'remote' as const, data: [folder] }));
+    const getFolderOrder = vi.fn(async () => ({ source: 'remote' as const, data: {} }));
+    const api = createApi({
+      settings: {
+        get: vi.fn(async () => createSafeSettings({
+          hasHackmdApiToken: true,
+          hasLocalVault: true,
+        })),
+      },
+      hackmd: {
+        getCurrentUser,
+        listTeams,
+        listNotes,
+        listFolders,
+        getFolderOrder,
+      },
+    });
+
+    renderHome(api);
+
+    await waitFor(() => expect(getCurrentUser).toHaveBeenCalledOnce());
+    await waitFor(() => expect(listTeams).toHaveBeenCalledOnce());
+    expect(await screen.findByText('Michael')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: team.name })).toBeInTheDocument();
+    expect(listNotes).not.toHaveBeenCalled();
+    expect(listFolders).not.toHaveBeenCalled();
+    expect(getFolderOrder).not.toHaveBeenCalled();
   });
 
   it('defers first-run HackMD onboarding with Setup later', async () => {
