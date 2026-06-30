@@ -160,6 +160,42 @@ describe('WorkspaceRail', () => {
     expect(props.onOpenSettings).toHaveBeenCalledOnce();
   });
 
+  it('shows a quiet loading affordance while the configured account is connecting', () => {
+    renderWorkspaceRail({
+      user: undefined,
+      accountStatus: {
+        activeError: null,
+        isFetching: true,
+        isLoading: true,
+        showingCachedFallback: false,
+      },
+    });
+
+    expect(screen.getByText('Settings')).toBeInTheDocument();
+    expect(screen.getByTestId('workspace-rail-account-loading')).toBeInTheDocument();
+    expect(screen.queryByText('Connect HackMD')).toBeNull();
+  });
+
+  it('marks account sync errors on the settings entry without showing noisy error text', () => {
+    const props = renderWorkspaceRail({
+      user: undefined,
+      accountStatus: {
+        activeError: 'HackMD token expired.',
+        isFetching: false,
+        isLoading: false,
+        showingCachedFallback: false,
+      },
+    });
+
+    expect(screen.getByText('Settings')).toBeInTheDocument();
+    expect(screen.getByTestId('workspace-rail-account-attention')).toBeInTheDocument();
+    expect(screen.queryByText('HackMD token expired.')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings. HackMD account needs attention' }));
+
+    expect(props.onOpenSettings).toHaveBeenCalledOnce();
+  });
+
   it('keeps collapsed rail actions accessible by name', () => {
     renderWorkspaceRail({
       collapsed: true,

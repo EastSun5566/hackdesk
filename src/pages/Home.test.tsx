@@ -456,6 +456,61 @@ describe('Home native-feel behavior', () => {
     expect(getFolderOrder).not.toHaveBeenCalled();
   });
 
+  it('keeps HackMD account sync errors out of the local vault navigator', async () => {
+    window.localStorage.setItem(LAST_WORKSPACE_SCOPE_KEY, JSON.stringify({ type: 'local', label: 'Local Vault' }));
+    const getCurrentUser = vi.fn(async () => ({
+      source: 'error' as const,
+      error: 'HackMD token expired.',
+    }));
+    const listTeams = vi.fn(async () => ({ source: 'remote' as const, data: [] }));
+    const listNotes = vi.fn(async () => ({ source: 'remote' as const, data: [note] }));
+    const listFolders = vi.fn(async () => ({ source: 'remote' as const, data: [folder] }));
+    const getFolderOrder = vi.fn(async () => ({ source: 'remote' as const, data: {} }));
+    const api = createApi({
+      settings: {
+        get: vi.fn(async () => createSafeSettings({
+          hasHackmdApiToken: true,
+          hasLocalVault: true,
+        })),
+      },
+      hackmd: {
+        getCurrentUser,
+        listTeams,
+        listNotes,
+        listFolders,
+        getFolderOrder,
+      },
+    });
+
+    renderHome(api);
+
+    await waitFor(() => expect(getCurrentUser).toHaveBeenCalledOnce());
+    await waitFor(() => expect(listTeams).toHaveBeenCalledOnce());
+    expect(screen.queryByText('HackMD token expired.')).toBeNull();
+    expect(screen.getByTestId('workspace-rail-account-attention')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open settings. HackMD account needs attention' })).toBeInTheDocument();
+    expect(listNotes).not.toHaveBeenCalled();
+    expect(listFolders).not.toHaveBeenCalled();
+    expect(getFolderOrder).not.toHaveBeenCalled();
+  });
+
+  it('still shows remote workspace content errors in the navigator', async () => {
+    const listNotes = vi.fn(async () => ({
+      source: 'error' as const,
+      error: 'HackMD notes are unavailable.',
+    }));
+    const api = createApi({
+      hackmd: {
+        listNotes,
+      },
+    });
+
+    renderHome(api);
+
+    expect(await screen.findByText('HackMD notes are unavailable.')).toBeInTheDocument();
+    expect(listNotes).toHaveBeenCalledOnce();
+  });
+
   it('defers first-run HackMD onboarding with Setup later', async () => {
     const updateSettings = vi.fn(async () => createSafeSettings({
       hasHackmdApiToken: false,

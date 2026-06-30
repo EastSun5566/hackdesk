@@ -691,6 +691,7 @@ export function Home() {
           user,
           teams,
           collapsed: railCollapsed,
+          accountStatus: homeStatus.accountStatus,
           localVaultConfigured: hasConfiguredLocalVault,
           width: railWidth,
           onChooseLocalVault: () => {

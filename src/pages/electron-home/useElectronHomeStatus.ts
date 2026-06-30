@@ -39,17 +39,16 @@ export function useElectronHomeStatus({
     const folderOrderError = getRepositoryError(queries.folderOrderQuery.data);
     const userError = getRepositoryError(queries.userQuery.data);
     const teamsError = getRepositoryError(queries.teamsQuery.data);
-    const activeError = (scope.type === 'local' ? localVaultError : null)
-      ?? notesError
-      ?? foldersError
-      ?? folderOrderError
-      ?? userError
-      ?? teamsError;
+    const activeError = scope.type === 'local'
+      ? localVaultError ?? null
+      : notesError ?? foldersError ?? folderOrderError;
     const showingCachedFallback =
       isShowingCachedFallback(queries.notesQuery.data)
       || isShowingCachedFallback(queries.foldersQuery.data)
-      || isShowingCachedFallback(queries.folderOrderQuery.data)
-      || isShowingCachedFallback(queries.userQuery.data)
+      || isShowingCachedFallback(queries.folderOrderQuery.data);
+    const accountError = userError ?? teamsError;
+    const accountShowingCachedFallback =
+      isShowingCachedFallback(queries.userQuery.data)
       || isShowingCachedFallback(queries.teamsQuery.data);
     const emptyTitle = scope.type === 'local' && !hasLocalVault
       ? 'Create your local vault'
@@ -89,6 +88,12 @@ export function useElectronHomeStatus({
         isMovingNote: mutations.moveNoteMutation.isPending,
         showingCachedFallback,
       },
+      accountStatus: {
+        activeError: accountError,
+        isFetching: queries.userQuery.isFetching || queries.teamsQuery.isFetching,
+        isLoading: queries.userQuery.isLoading || queries.teamsQuery.isLoading,
+        showingCachedFallback: accountShowingCachedFallback,
+      },
     };
   }, [
     canCreate,
@@ -110,7 +115,11 @@ export function useElectronHomeStatus({
     queries.notesQuery.isFetching,
     queries.notesQuery.isLoading,
     queries.teamsQuery.data,
+    queries.teamsQuery.isFetching,
+    queries.teamsQuery.isLoading,
     queries.userQuery.data,
+    queries.userQuery.isFetching,
+    queries.userQuery.isLoading,
     scope.type,
     selectedFolder,
   ]);

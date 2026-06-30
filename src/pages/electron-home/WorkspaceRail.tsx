@@ -1,4 +1,4 @@
-import { Folder, HardDrive, History, Lock, Settings2 } from 'lucide-react';
+import { AlertCircle, Folder, HardDrive, History, Lock, Settings2 } from 'lucide-react';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 
@@ -52,6 +52,13 @@ function WorkspaceRailButton({
 }
 
 type WorkspaceRailUser = Pick<UserSummary, 'name' | 'username' | 'photo'>;
+
+export type WorkspaceRailAccountStatus = {
+  activeError: string | null;
+  isFetching: boolean;
+  isLoading: boolean;
+  showingCachedFallback: boolean;
+};
 
 function UserAvatar({
   user,
@@ -109,36 +116,60 @@ function TeamLogo({ team }: { team: TeamSummary }) {
 
 function AccountSettingsButton({
   collapsed,
+  accountStatus,
   user,
   onOpenSettings,
 }: {
   collapsed: boolean;
+  accountStatus?: WorkspaceRailAccountStatus;
   user?: WorkspaceRailUser;
   onOpenSettings: () => void;
 }) {
   const displayName = user ? getUserDisplayName(user) : 'Settings';
+  const hasAccountAttention = Boolean(accountStatus?.activeError);
+  const isLoadingAccount = !user && Boolean(accountStatus?.isLoading || accountStatus?.isFetching);
   const label = user ? `Open settings for ${displayName}` : 'Open settings';
+  const actionLabel = hasAccountAttention ? `${label}. HackMD account needs attention` : label;
+  const tooltipLabel = hasAccountAttention ? 'HackMD account needs attention' : label;
   const icon = user ? (
     <UserAvatar user={user} testId="workspace-rail-footer-avatar" />
   ) : (
     <Settings2 className="h-4 w-4" />
+  );
+  const trailing = hasAccountAttention ? (
+    <AlertCircle
+      aria-hidden="true"
+      data-testid="workspace-rail-account-attention"
+      className={cn(
+        'h-3.5 w-3.5',
+        accountStatus?.showingCachedFallback ? 'text-primary-default' : 'text-destructive-default',
+      )}
+    />
+  ) : isLoadingAccount ? (
+    <span
+      aria-hidden="true"
+      data-testid="workspace-rail-account-loading"
+      className="block size-1.5 rounded-full bg-text-subtle opacity-70 motion-safe:animate-pulse"
+    />
+  ) : (
+    <Settings2 className="h-3.5 w-3.5" />
   );
   const row = (
     <EntityRow
       icon={icon}
       title={collapsed ? '' : displayName}
       subtitle={collapsed || !user ? undefined : `@${user.username}`}
-      trailing={collapsed ? undefined : <Settings2 className="h-3.5 w-3.5" />}
+      trailing={collapsed ? undefined : trailing}
       variant="compact"
       onClick={onOpenSettings}
-      ariaLabel={label}
+      ariaLabel={actionLabel}
       className={cn('min-h-12', collapsed && 'justify-center px-2')}
       contentClassName={collapsed ? 'hidden' : undefined}
       trailingClassName="text-text-subtle"
     />
   );
 
-  return collapsed ? <Tooltip content={label} side="right">{row}</Tooltip> : row;
+  return collapsed ? <Tooltip content={tooltipLabel} side="right">{row}</Tooltip> : row;
 }
 
 export function WorkspaceRail({
@@ -147,6 +178,7 @@ export function WorkspaceRail({
   user,
   teams,
   collapsed,
+  accountStatus,
   width,
   onScopeChange,
   onChooseLocalVault,
@@ -158,6 +190,7 @@ export function WorkspaceRail({
   user?: WorkspaceRailUser;
   teams: TeamSummary[];
   collapsed: boolean;
+  accountStatus?: WorkspaceRailAccountStatus;
   localVaultConfigured: boolean;
   width: number;
   onScopeChange: (scope: WorkspaceScope) => void;
@@ -229,7 +262,12 @@ export function WorkspaceRail({
       </div>
 
       <div className="border-t border-border-default p-2">
-        <AccountSettingsButton collapsed={collapsed} user={user} onOpenSettings={onOpenSettings} />
+        <AccountSettingsButton
+          collapsed={collapsed}
+          accountStatus={accountStatus}
+          user={user}
+          onOpenSettings={onOpenSettings}
+        />
       </div>
     </PanelShell>
   );
