@@ -1,6 +1,29 @@
 import { describe, expect, it } from 'vitest';
 
-import { widgetTheme } from './hackmd-preview-theme-sections';
+import { HACKDESK_THEME_PRESETS, resolveHackDeskTheme, type ResolvedThemeMode } from '@/lib/themes';
+
+import {
+  codeAndBlockTheme,
+  editorChromeTheme,
+  inlineMarksTheme,
+  proseTheme,
+  searchPanelTheme,
+  widgetTheme,
+} from './hackmd-preview-theme-sections';
+
+const editorThemeSections = {
+  ...editorChromeTheme,
+  ...searchPanelTheme,
+  ...proseTheme,
+  ...codeAndBlockTheme,
+  ...inlineMarksTheme,
+  ...widgetTheme,
+};
+
+function getReferencedThemeTokens() {
+  const serializedTheme = JSON.stringify(editorThemeSections);
+  return new Set(Array.from(serializedTheme.matchAll(/var\((--[\w-]+)/g), (match) => match[1]));
+}
 
 describe('HackMD preview widget theme', () => {
   it('keeps rich block widget spacing inside the measured border box', () => {
@@ -26,5 +49,40 @@ describe('HackMD preview widget theme', () => {
       width: '1.25em',
       fontFamily: 'var(--font-sans)',
     });
+  });
+
+  it('only references semantic variables resolved by every light and dark palette', () => {
+    const referencedTokens = getReferencedThemeTokens();
+
+    for (const preset of HACKDESK_THEME_PRESETS) {
+      for (const mode of ['light', 'dark'] satisfies ResolvedThemeMode[]) {
+        const resolvedTheme = resolveHackDeskTheme({ presetId: preset.id, mode });
+        expect(
+          [...referencedTokens].filter((token) => !(token in resolvedTheme)),
+          `${preset.id} ${mode} is missing editor theme tokens`,
+        ).toEqual([]);
+      }
+    }
+  });
+
+  it('uses semantic status tokens for alert blocks and headings', () => {
+    expect(codeAndBlockTheme['.cm-hackmd-alert-block-note, .cm-hackmd-alert-block-todo'].boxShadow)
+      .toContain('var(--link-text-default)');
+    expect(codeAndBlockTheme['.cm-hackmd-alert-block-tip'].boxShadow)
+      .toContain('var(--success-default)');
+    expect(codeAndBlockTheme['.cm-hackmd-alert-block-warning'].boxShadow)
+      .toContain('var(--warning-default)');
+    expect(codeAndBlockTheme['.cm-hackmd-alert-block-caution, .cm-hackmd-alert-block-danger'].boxShadow)
+      .toContain('var(--destructive-default)');
+    expect(inlineMarksTheme['.cm-hackmd-alert-heading-important'].color)
+      .toBe('var(--primary-default)');
+  });
+
+  it('does not retain obsolete aliases or fixed light and dark alert colors', () => {
+    const serializedTheme = JSON.stringify(editorThemeSections);
+
+    expect(serializedTheme).not.toMatch(/--(?:focus-ring|border-strong|background-hover|text-muted|hackmd-alert)/);
+    expect(serializedTheme).not.toMatch(/#[\da-f]{3,8}/i);
+    expect(serializedTheme).not.toMatch(/\bblack\b/i);
   });
 });

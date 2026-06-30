@@ -3,19 +3,7 @@ export const editorChromeTheme = {
     height: '100%',
     backgroundColor: 'var(--background-default)',
     color: 'var(--text-default)',
-    '--hackmd-alert-note': '#0969da',
-    '--hackmd-alert-tip': '#1a7f37',
-    '--hackmd-alert-warning': '#9a6700',
-    '--hackmd-alert-caution': '#d1242f',
-    '--hackmd-alert-important': '#8250df',
     fontSize: '14px',
-  },
-  ':root.dark &': {
-    '--hackmd-alert-note': '#2f81f7',
-    '--hackmd-alert-tip': '#3fb950',
-    '--hackmd-alert-warning': '#d29922',
-    '--hackmd-alert-caution': '#f85149',
-    '--hackmd-alert-important': '#a371f7',
   },
   '.cm-scroller': {
     fontFamily: 'var(--font-editor)',
@@ -107,8 +95,8 @@ export const searchPanelTheme = {
     transition: 'border-color 120ms ease, box-shadow 120ms ease',
   },
   '.cm-hackdesk-search-input:focus': {
-    borderColor: 'var(--focus-ring)',
-    boxShadow: '0 0 0 2px color-mix(in oklch, var(--focus-ring) 26%, transparent)',
+    borderColor: 'var(--primary-default)',
+    boxShadow: '0 0 0 2px color-mix(in oklch, var(--primary-default) 26%, transparent)',
   },
   '.cm-hackdesk-search-input::placeholder': {
     color: 'var(--text-subtle)',
@@ -140,11 +128,11 @@ export const searchPanelTheme = {
     transition: 'background-color 120ms ease, border-color 120ms ease, color 120ms ease',
   },
   '.cm-hackdesk-search-button:hover': {
-    backgroundColor: 'var(--background-hover)',
+    backgroundColor: 'var(--element-bg-hover)',
     color: 'var(--icon-default)',
   },
   '.cm-hackdesk-search-button:focus-visible': {
-    borderColor: 'var(--focus-ring)',
+    borderColor: 'var(--primary-default)',
     color: 'var(--icon-default)',
     outline: 'none',
   },
@@ -186,7 +174,7 @@ export const proseTheme = {
   },
   '.cm-hackmd-blockquote': {
     color: 'var(--text-subtle)',
-    borderLeft: '3px solid var(--border-strong)',
+    borderLeft: '3px solid var(--border-bold)',
     paddingLeft: '0.75rem',
   },
   '.cm-hackmd-frontmatter': {
@@ -211,9 +199,9 @@ export const proseTheme = {
 export const codeAndBlockTheme = {
   '.cm-hackmd-fenced-code': {
     fontFamily: 'var(--font-editor)',
-    backgroundColor: 'color-mix(in oklch, var(--background-default) 78%, black 22%)',
+    backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--text-default) 8%)',
     boxShadow: [
-      'inset 2px 0 0 color-mix(in oklch, var(--border-strong) 82%, var(--primary-default) 18%)',
+      'inset 2px 0 0 color-mix(in oklch, var(--border-bold) 82%, var(--primary-default) 18%)',
       'inset 0 1px 0 color-mix(in oklch, var(--border-default) 46%, transparent)',
     ].join(', '),
     paddingInline: '0.875rem',
@@ -221,14 +209,14 @@ export const codeAndBlockTheme = {
   '.cm-hackmd-alert-block': {
     color: 'var(--text-default)',
     backgroundColor: 'transparent',
-    boxShadow: 'inset .25em 0 0 #888',
+    boxShadow: 'inset .25em 0 0 var(--border-bold)',
     paddingInlineStart: '1rem',
     paddingInlineEnd: '0.75rem',
   },
   '.cm-hackmd-container-block': {
     color: 'var(--text-default)',
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--primary-default) 8%)',
-    boxShadow: 'inset 4px 0 0 color-mix(in oklch, var(--primary-default) 72%, var(--border-strong) 28%)',
+    boxShadow: 'inset 4px 0 0 color-mix(in oklch, var(--primary-default) 72%, var(--border-bold) 28%)',
     paddingInlineStart: '1.15rem',
     paddingInlineEnd: '0.75rem',
   },
@@ -243,19 +231,19 @@ export const codeAndBlockTheme = {
     paddingBottom: '0.12rem',
   },
   '.cm-hackmd-alert-block-note, .cm-hackmd-alert-block-todo': {
-    boxShadow: 'inset .25em 0 0 var(--hackmd-alert-note)',
+    boxShadow: 'inset .25em 0 0 var(--link-text-default)',
   },
   '.cm-hackmd-alert-block-tip': {
-    boxShadow: 'inset .25em 0 0 var(--hackmd-alert-tip)',
+    boxShadow: 'inset .25em 0 0 var(--success-default)',
   },
   '.cm-hackmd-alert-block-important': {
-    boxShadow: 'inset .25em 0 0 var(--hackmd-alert-important)',
+    boxShadow: 'inset .25em 0 0 var(--primary-default)',
   },
   '.cm-hackmd-alert-block-warning': {
-    boxShadow: 'inset .25em 0 0 var(--hackmd-alert-warning)',
+    boxShadow: 'inset .25em 0 0 var(--warning-default)',
   },
   '.cm-hackmd-alert-block-caution, .cm-hackmd-alert-block-danger': {
-    boxShadow: 'inset .25em 0 0 var(--hackmd-alert-caution)',
+    boxShadow: 'inset .25em 0 0 var(--destructive-default)',
   },
   '.cm-hackmd-container-block-success': {
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--success-default) 8%)',
@@ -271,11 +259,11 @@ export const codeAndBlockTheme = {
   },
   '.cm-hackmd-container-block-spoiler': {
     backgroundColor: 'var(--background-muted)',
-    boxShadow: 'inset 3px 0 0 var(--border-strong)',
+    boxShadow: 'inset 3px 0 0 var(--border-bold)',
   },
   '.cm-hackmd-table-block': {
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 88%, var(--primary-default) 12%)',
-    boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--border-strong) 76%, var(--primary-default) 24%)',
+    boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--border-bold) 76%, var(--primary-default) 24%)',
     paddingInlineStart: '0.75rem',
     paddingInlineEnd: '0.75rem',
   },
@@ -292,7 +280,7 @@ export const codeAndBlockTheme = {
   '.cm-hackmd-blockquote-meta-block': {
     color: 'var(--text-subtle)',
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 88%, var(--primary-default) 12%)',
-    boxShadow: 'inset 3px 0 0 color-mix(in oklch, var(--primary-default) 52%, var(--border-strong) 48%)',
+    boxShadow: 'inset 3px 0 0 color-mix(in oklch, var(--primary-default) 52%, var(--border-bold) 48%)',
     paddingInlineStart: '0.85rem',
   },
   '.cm-hackmd-blockquote-meta-block-start': {
@@ -312,13 +300,13 @@ export const codeAndBlockTheme = {
   '.cm-hackmd-hfm-fence, .cm-hackmd-code-fence-options, .cm-hackmd-math-block-line, .cm-hackmd-external-line': {
     color: 'var(--text-subtle)',
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 88%, var(--primary-default) 12%)',
-    boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--primary-default) 55%, var(--border-strong) 45%)',
+    boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--primary-default) 55%, var(--border-bold) 45%)',
     paddingInlineStart: '0.75rem',
   },
   '.cm-hackmd-indented-code': {
     color: 'var(--text-subtle)',
-    backgroundColor: 'color-mix(in oklch, var(--background-default) 82%, black 18%)',
-    boxShadow: 'inset 2px 0 0 var(--border-strong)',
+    backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--text-default) 8%)',
+    boxShadow: 'inset 2px 0 0 var(--border-bold)',
     paddingInlineStart: '0.875rem',
   },
   '.cm-hackmd-table-line': {
@@ -406,7 +394,7 @@ export const inlineMarksTheme = {
     textAlign: 'start',
   },
   '.cm-hackmd-ordered-list-marker': {
-    color: 'var(--text-muted)',
+    color: 'var(--text-subtle)',
   },
   '.cm-hackmd-task-checkbox': {
     display: 'inline-block',
@@ -439,19 +427,19 @@ export const inlineMarksTheme = {
     lineHeight: '1',
   },
   '.cm-hackmd-alert-heading-tip': {
-    color: 'var(--hackmd-alert-tip)',
+    color: 'var(--success-default)',
   },
   '.cm-hackmd-alert-heading-important': {
-    color: 'var(--hackmd-alert-important)',
+    color: 'var(--primary-default)',
   },
   '.cm-hackmd-alert-heading-note, .cm-hackmd-alert-heading-todo': {
-    color: 'var(--hackmd-alert-note)',
+    color: 'var(--link-text-default)',
   },
   '.cm-hackmd-alert-heading-warning': {
-    color: 'var(--hackmd-alert-warning)',
+    color: 'var(--warning-default)',
   },
   '.cm-hackmd-alert-heading-caution, .cm-hackmd-alert-heading-danger': {
-    color: 'var(--hackmd-alert-caution)',
+    color: 'var(--destructive-default)',
   },
 };
 
@@ -506,7 +494,7 @@ export const widgetTheme = {
   },
   '.cm-hackmd-table-cell-source:focus': {
     backgroundColor: 'color-mix(in oklch, var(--background-selected) 36%, transparent)',
-    boxShadow: 'inset 0 0 0 2px var(--focus-ring)',
+    boxShadow: 'inset 0 0 0 2px var(--primary-default)',
   },
   '.cm-hackmd-csv-preview th, .cm-hackmd-csv-preview td': {
     minWidth: '7rem',
@@ -514,7 +502,7 @@ export const widgetTheme = {
     color: 'var(--text-default)',
   },
   '.cm-hackmd-csv-preview td': {
-    color: 'var(--text-muted)',
+    color: 'var(--text-subtle)',
   },
   '.cm-hackmd-image-preview': {
     maxWidth: 'min(100%, 720px)',
@@ -544,7 +532,7 @@ export const widgetTheme = {
     border: '1px solid var(--border-default)',
     borderRadius: '6px',
     backgroundColor: 'var(--background-muted)',
-    boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--primary-default) 60%, var(--border-strong) 40%)',
+    boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--primary-default) 60%, var(--border-bold) 40%)',
     color: 'var(--text-default)',
     fontFamily: 'var(--font-sans)',
     overflow: 'auto',
@@ -552,7 +540,7 @@ export const widgetTheme = {
   },
   '.cm-hackmd-rich-render-body': {
     minHeight: '1.5rem',
-    color: 'var(--text-muted)',
+    color: 'var(--text-subtle)',
   },
   '.cm-hackmd-rich-render-pending': {
     display: 'flex',

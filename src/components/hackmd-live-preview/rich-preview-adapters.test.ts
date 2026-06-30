@@ -31,6 +31,8 @@ describe('rich-preview-adapters', () => {
     const result = await renderMermaid(['graph TD', 'A --> B'].join('\n'));
 
     expect(result.html).toContain("font-family: 'var(--font-sans)'");
+    expect(result.html).toContain('var(--border-bold)');
+    expect(result.html).not.toContain('var(--border-strong)');
     expect(result.html).not.toContain("font-family: 'Inter'");
   });
 });

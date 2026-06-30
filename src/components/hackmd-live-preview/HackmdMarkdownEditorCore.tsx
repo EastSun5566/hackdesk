@@ -17,13 +17,14 @@ import {
 } from '@codemirror/view';
 import { inlineAttachmentExtension } from 'inline-attacher';
 
+import { useTheme } from '@/components/theme-provider';
 import type { EditorMode } from '@/lib/settings';
 
 import { hackmdCodeLanguages } from './hackmd-code-languages';
 import { hfmBlocks } from './hfm-blocks';
 import { hackmdTables } from './hackmd-tables';
 import { hackmdInlinePreview } from './inline-preview';
-import { hackmdPreviewTheme } from './hackmd-preview-theme';
+import { createHackmdPreviewTheme } from './hackmd-preview-theme';
 import { formatMarkdownImage } from './markdown-image';
 import { createHackdeskSearchPanel } from './hackmd-search-panel';
 import { hackmdRichPreviewNavigation } from './rich-preview-navigation';
@@ -90,7 +91,6 @@ const editorExtensions: Extension[] = [
     ...defaultKeymap,
     ...foldKeymap,
   ]),
-  ...hackmdPreviewTheme,
 ];
 
 export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, HackmdMarkdownEditorProps>(
@@ -100,17 +100,21 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
     onChange,
     onAttachImage,
   }, ref) {
+    const { resolvedMode } = useTheme();
     const parentRef = useRef<HTMLDivElement | null>(null);
     const viewRef = useRef<EditorView | null>(null);
     const onAttachImageRef = useRef(onAttachImage);
     const onChangeRef = useRef(onChange);
     const initialValueRef = useRef(value);
     const initialEditorModeRef = useRef(editorMode);
+    const initialResolvedModeRef = useRef(resolvedMode);
     const appliedEditorModeRef = useRef<EditorMode>('standard');
+    const appliedResolvedModeRef = useRef(initialResolvedModeRef.current);
     const editorModeRequestIdRef = useRef(0);
     const pendingFocusRef = useRef(false);
     const dragDepthRef = useRef(0);
     const [editorModeCompartment] = useState(() => new Compartment());
+    const [themeCompartment] = useState(() => new Compartment());
     const [isImageDragging, setIsImageDragging] = useState(false);
 
     useEffect(() => {
@@ -176,6 +180,7 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
             reservedAppShortcutKeymap,
             editorModeCompartment.of([]),
             ...editorExtensions,
+            themeCompartment.of(createHackmdPreviewTheme(initialResolvedModeRef.current)),
             inlineAttachmentExtension({
               allowedTypes: ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'],
               errorText: '![Failed to insert image]()',
@@ -213,6 +218,7 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
 
       viewRef.current = view;
       view.dom.dataset.editorMode = initialEditorModeRef.current;
+      view.dom.dataset.themeMode = initialResolvedModeRef.current;
       view.contentDOM.dataset.hackdeskFocusTarget = 'true';
       if (pendingFocusRef.current) {
         pendingFocusRef.current = false;
@@ -224,7 +230,20 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
         view.destroy();
         viewRef.current = null;
       };
-    }, [editorModeCompartment]);
+    }, [editorModeCompartment, themeCompartment]);
+
+    useLayoutEffect(() => {
+      const view = viewRef.current;
+      if (!view || appliedResolvedModeRef.current === resolvedMode) {
+        return;
+      }
+
+      view.dispatch({
+        effects: themeCompartment.reconfigure(createHackmdPreviewTheme(resolvedMode)),
+      });
+      view.dom.dataset.themeMode = resolvedMode;
+      appliedResolvedModeRef.current = resolvedMode;
+    }, [resolvedMode, themeCompartment]);
 
     useEffect(() => {
       const view = viewRef.current;

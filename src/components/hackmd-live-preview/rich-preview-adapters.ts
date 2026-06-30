@@ -119,7 +119,7 @@ async function renderBeautifulMermaid(source: string): Promise<string> {
     bg: 'var(--background-default)',
     border: 'var(--border-default)',
     fg: 'var(--text-default)',
-    line: 'var(--border-strong)',
+    line: 'var(--border-bold)',
     muted: 'var(--text-subtle)',
     surface: 'var(--background-muted)',
     transparent: true,

@@ -1,10 +1,23 @@
-import { createRef } from 'react';
+import { createRef, type RefObject } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { hfmFixtures } from './hackmd-live-preview/hfm-fixtures';
 import { formatMarkdownImage } from './hackmd-live-preview/markdown-image';
 import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor';
+import { ThemeProvider, useTheme } from './theme-provider';
+
+function ThemedEditorHarness({ editorRef }: { editorRef: RefObject<MarkdownEditorHandle> }) {
+  const { cancelPreview, previewTheme } = useTheme();
+
+  return (
+    <>
+      <button type="button" onClick={() => previewTheme({ theme: 'dark' })}>Preview dark</button>
+      <button type="button" onClick={cancelPreview}>Cancel preview</button>
+      <MarkdownEditor ref={editorRef} editorMode="vim" value="# Hello" onChange={vi.fn()} />
+    </>
+  );
+}
 
 describe('MarkdownEditor', () => {
   it('formats markdown image insertion with escaped alt text', () => {
@@ -283,6 +296,44 @@ describe('MarkdownEditor', () => {
     expect(editor.querySelector('.cm-hx-command-panel')).toBeNull();
     expect(editor.querySelector('.cm-editor')).toBe(codeMirror);
     expect(document.activeElement).toBe(content);
+  });
+
+  it('reconfigures light and dark themes without remounting or resetting Vim and focus state', async () => {
+    localStorage.clear();
+    const ref = createRef<MarkdownEditorHandle>();
+
+    render(
+      <ThemeProvider defaultTheme="light">
+        <ThemedEditorHarness editorRef={ref} />
+      </ThemeProvider>,
+    );
+
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const codeMirror = editor.querySelector('.cm-editor');
+    const content = editor.querySelector('.cm-content');
+
+    expect(codeMirror).not.toBeNull();
+    expect(content).not.toBeNull();
+    await waitFor(() => expect(codeMirror).toHaveAttribute('data-theme-mode', 'light'));
+    await waitFor(() => expect(editor.querySelector('.cm-vim-panel')).toHaveTextContent('NORMAL'));
+    act(() => ref.current?.focus());
+    fireEvent.keyDown(content as Element, { key: 'i', code: 'KeyI' });
+    await waitFor(() => expect(editor.querySelector('.cm-vim-panel')).toHaveTextContent('INSERT'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Preview dark' }));
+
+    await waitFor(() => expect(codeMirror).toHaveAttribute('data-theme-mode', 'dark'));
+    expect(editor.querySelector('.cm-editor')).toBe(codeMirror);
+    expect(ref.current?.getMarkdown()).toBe('# Hello');
+    expect(document.activeElement).toBe(content);
+    expect(editor.querySelector('.cm-vim-panel')).toHaveTextContent('INSERT');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel preview' }));
+
+    await waitFor(() => expect(codeMirror).toHaveAttribute('data-theme-mode', 'light'));
+    expect(editor.querySelector('.cm-editor')).toBe(codeMirror);
+    expect(document.activeElement).toBe(content);
+    expect(editor.querySelector('.cm-vim-panel')).toHaveTextContent('INSERT');
   });
 
   it('does not apply stale modal engines after a quick switch back to standard', async () => {
