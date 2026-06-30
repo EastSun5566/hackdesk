@@ -21,14 +21,35 @@ const themeSeedSchema = z.strictObject({
   warning: z.string().regex(/^#[\da-fA-F]{6}$/).optional(),
   destructive: z.string().regex(/^#[\da-fA-F]{6}$/).optional(),
 });
+const customFontStackSchema = z.string().trim().refine((value) => {
+  if (!value) {
+    return true;
+  }
+
+  if (value.length > 180 || /[;{}]|url\s*\(|var\s*\(|@import|expression\s*\(/i.test(value)) {
+    return false;
+  }
+
+  return value.split(',').every((part) => {
+    const family = part.trim();
+    return family.length > 0
+      && family.length <= 64
+      && (/^(?:"[^"\\\r\n]+"|'[^'\\\r\n]+')$/.test(family) || /^[-\w. ]+$/.test(family));
+  });
+});
+const typographySchema = z.strictObject({
+  uiFontStack: customFontStackSchema,
+  editorFontStack: customFontStackSchema,
+});
 
 export const settingsUpdateSchema = z.strictObject({
   title: optionalStringSchema,
   hackmdApiToken: optionalStringSchema,
   appearance: z.strictObject({
     theme: z.enum(['dark', 'light', 'system']),
-    presetId: z.enum(['hackmd', 'mono', 'solarized', 'forest']),
+    presetId: z.enum(['hackmd', 'mono', 'solarized', 'forest', 'catppuccin']),
     customSeed: themeSeedSchema,
+    typography: typographySchema,
   }).optional(),
   editor: z.strictObject({
     mode: z.enum(['standard', 'vim', 'helix']),

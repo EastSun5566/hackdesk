@@ -85,7 +85,11 @@ describe('query hooks', () => {
   "appearance": {
     "theme": "system",
     "presetId": "hackmd",
-    "customSeed": {}
+    "customSeed": {},
+    "typography": {
+      "uiFontStack": "Inter, system-ui, sans-serif",
+      "editorFontStack": "\\"Source Code Pro\\", ui-monospace, monospace"
+    }
   },
   "onboarding": {
     "hackmdTokenSetupDeferred": false

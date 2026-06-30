@@ -47,7 +47,7 @@ const SETTINGS_TABS: {
 }[] = [
   { id: 'general', label: 'General', description: 'Window title and local app defaults.', icon: <SettingsIcon className="h-4 w-4" /> },
   { id: 'editor', label: 'Editor', description: 'Choose standard, Vim, or Helix editing.', icon: <Keyboard className="h-4 w-4" /> },
-  { id: 'appearance', label: 'Appearance', description: 'Theme mode, presets, and color seeds.', icon: <Monitor className="h-4 w-4" /> },
+  { id: 'appearance', label: 'Appearance', description: 'Theme mode, presets, fonts, and color seeds.', icon: <Monitor className="h-4 w-4" /> },
   { id: 'vault', label: 'Vault', description: 'Manage the local Markdown folder.', icon: <FolderOpen className="h-4 w-4" /> },
   { id: 'hackmd', label: 'HackMD', description: 'API token and connection test.', icon: <Shield className="h-4 w-4" /> },
   { id: 'advanced', label: 'Advanced', description: 'Version, updates, and reset actions.', icon: <Zap className="h-4 w-4" /> },
@@ -313,6 +313,7 @@ const AppearanceSettingsPanel = forwardRef<ThemeAppearanceControlsHandle, {
         density="compact"
         actions="none"
         customSeedsDefaultOpen={false}
+        showTypography
         onStateChange={onStateChange}
         onApplied={onApplied}
       />

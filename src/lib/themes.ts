@@ -2,7 +2,12 @@ export type ThemeMode = 'dark' | 'light' | 'system';
 
 export type ResolvedThemeMode = Exclude<ThemeMode, 'system'>;
 
-export type ThemePresetId = 'hackmd' | 'mono' | 'solarized' | 'forest';
+export type ThemePresetId = 'hackmd' | 'mono' | 'solarized' | 'forest' | 'catppuccin';
+
+export type ThemeTypography = {
+  uiFontStack: string;
+  editorFontStack: string;
+};
 
 export type ThemeSeed = {
   neutral: string;
@@ -14,12 +19,15 @@ export type ThemeSeed = {
 
 export type ResolvedHackDeskTheme = Record<string, string>;
 
+type ThemeTokenOverrides = Partial<ResolvedHackDeskTheme>;
+
 export type ThemePreset = {
   id: ThemePresetId;
   name: string;
   description: string;
   light: ThemeSeed;
   dark: ThemeSeed;
+  tokens?: Partial<Record<ResolvedThemeMode, ThemeTokenOverrides>>;
 };
 
 export const THEME_STYLE_ID = 'hackdesk-theme';
@@ -30,16 +38,43 @@ export const THEME_STORAGE_KEYS = {
   legacyMode: 'theme',
   presetId: 'theme-preset-id',
   customSeed: 'theme-custom-seed',
+  typography: 'theme-typography',
   cachedCss: 'hackdesk-theme-css',
 } as const;
 
 const HEX_COLOR_RE = /^#[\da-f]{6}$/i;
+const FORBIDDEN_FONT_STACK_RE = /[;{}]|url\s*\(|var\s*\(|@import|expression\s*\(/i;
+const UNQUOTED_FONT_FAMILY_RE = /^[-\w. ]+$/;
+const QUOTED_FONT_FAMILY_RE = /^(?:"[^"\\\r\n]+"|'[^'\\\r\n]+')$/;
+
+export const DEFAULT_UI_FONT_STACK = 'Inter, system-ui, sans-serif';
+export const DEFAULT_EDITOR_FONT_STACK = '"Source Code Pro", ui-monospace, monospace';
+
+export const defaultThemeTypography: ThemeTypography = {
+  uiFontStack: DEFAULT_UI_FONT_STACK,
+  editorFontStack: DEFAULT_EDITOR_FONT_STACK,
+};
+
+const DEFAULT_SYNTAX_TOKENS: ThemeTokenOverrides = {
+  '--code-keyword': '#C792EA',
+  '--code-string': '#C3E88D',
+  '--code-number': '#F78C6C',
+  '--code-comment': '#6A7A82',
+  '--code-type': '#FFCB6B',
+  '--code-function': '#82AAFF',
+  '--code-property': '#82AAFF',
+  '--code-regexp': '#F07178',
+  '--code-escape': '#89DDFF',
+  '--code-operator': '#89DDFF',
+  '--code-variable': '#EEFFFF',
+  '--code-invalid': '#FF5370',
+};
 
 export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
   {
     id: 'hackmd',
-    name: 'HackMD',
-    description: 'The default HackDesk palette.',
+    name: 'HackMD Neo',
+    description: 'The default HackDesk writing palette.',
     light: {
       neutral: '#71717A',
       primary: '#5D54E8',
@@ -57,8 +92,8 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
   },
   {
     id: 'mono',
-    name: 'Mono',
-    description: 'Low-chroma writing surface.',
+    name: 'HackMD Minimal',
+    description: 'A low-chroma HackMD writing surface.',
     light: {
       neutral: '#6B7280',
       primary: '#374151',
@@ -77,7 +112,7 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
   {
     id: 'solarized',
     name: 'Solarized',
-    description: 'Warm paper with blue accents.',
+    description: 'Ethan Schoonover’s low-contrast writing palette.',
     light: {
       neutral: '#839496',
       primary: '#268BD2',
@@ -92,11 +127,91 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
       warning: '#CB4B16',
       destructive: '#DC322F',
     },
+    tokens: {
+      light: {
+        '--text-default': '#657B83',
+        '--text-subtle': '#839496',
+        '--background-default': '#FDF6E3',
+        '--background-muted': '#EEE8D5',
+        '--background-overlay': 'rgb(0 43 54 / 0.32)',
+        '--background-selected': 'rgb(38 139 210 / 0.14)',
+        '--border-default': '#EEE8D5',
+        '--border-bold': '#93A1A1',
+        '--primary-default': '#268BD2',
+        '--primary-hover': '#006EB0',
+        '--primary-soft': 'rgb(38 139 210 / 0.16)',
+        '--primary-foreground': '#FDF6E3',
+        '--success-default': '#859900',
+        '--success-soft': 'rgb(133 153 0 / 0.16)',
+        '--warning-default': '#B58900',
+        '--warning-soft': 'rgb(181 137 0 / 0.16)',
+        '--destructive-default': '#DC322F',
+        '--destructive-soft': 'rgb(220 50 47 / 0.14)',
+        '--destructive-foreground': '#FDF6E3',
+        '--icon-default': '#657B83',
+        '--icon-subtle': '#93A1A1',
+        '--element-bg-hover': '#EEE8D5',
+        '--element-border-hover': '#93A1A1',
+        '--link-text-default': '#268BD2',
+        '--link-text-hover': '#006EB0',
+        '--code-keyword': '#6C71C4',
+        '--code-string': '#2AA198',
+        '--code-number': '#CB4B16',
+        '--code-comment': '#93A1A1',
+        '--code-type': '#B58900',
+        '--code-function': '#268BD2',
+        '--code-property': '#268BD2',
+        '--code-regexp': '#D33682',
+        '--code-escape': '#2AA198',
+        '--code-operator': '#859900',
+        '--code-variable': '#657B83',
+        '--code-invalid': '#DC322F',
+      },
+      dark: {
+        '--text-default': '#839496',
+        '--text-subtle': '#657B83',
+        '--background-default': '#002B36',
+        '--background-muted': '#073642',
+        '--background-overlay': 'rgb(0 0 0 / 0.72)',
+        '--background-selected': 'rgb(42 161 152 / 0.22)',
+        '--border-default': '#073642',
+        '--border-bold': '#586E75',
+        '--primary-default': '#2AA198',
+        '--primary-hover': '#58C8BD',
+        '--primary-soft': 'rgb(42 161 152 / 0.18)',
+        '--primary-foreground': '#002B36',
+        '--success-default': '#859900',
+        '--success-soft': 'rgb(133 153 0 / 0.18)',
+        '--warning-default': '#CB4B16',
+        '--warning-soft': 'rgb(203 75 22 / 0.18)',
+        '--destructive-default': '#DC322F',
+        '--destructive-soft': 'rgb(220 50 47 / 0.2)',
+        '--destructive-foreground': '#FDF6E3',
+        '--icon-default': '#839496',
+        '--icon-subtle': '#657B83',
+        '--element-bg-hover': '#073642',
+        '--element-border-hover': '#586E75',
+        '--link-text-default': '#2AA198',
+        '--link-text-hover': '#64D2C8',
+        '--code-keyword': '#6C71C4',
+        '--code-string': '#2AA198',
+        '--code-number': '#CB4B16',
+        '--code-comment': '#586E75',
+        '--code-type': '#B58900',
+        '--code-function': '#268BD2',
+        '--code-property': '#268BD2',
+        '--code-regexp': '#D33682',
+        '--code-escape': '#2AA198',
+        '--code-operator': '#859900',
+        '--code-variable': '#839496',
+        '--code-invalid': '#DC322F',
+      },
+    },
   },
   {
     id: 'forest',
-    name: 'Forest',
-    description: 'Green accent for long-form notes.',
+    name: 'HackMD Nature',
+    description: 'A green HackMD palette for long-form notes.',
     light: {
       neutral: '#6B7280',
       primary: '#15803D',
@@ -110,6 +225,105 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
       success: '#22C55E',
       warning: '#EAB308',
       destructive: '#FB7185',
+    },
+  },
+  {
+    id: 'catppuccin',
+    name: 'Catppuccin',
+    description: 'Latte in light mode, Mocha in dark mode.',
+    light: {
+      neutral: '#6C6F85',
+      primary: '#8839EF',
+      success: '#40A02B',
+      warning: '#DF8E1D',
+      destructive: '#D20F39',
+    },
+    dark: {
+      neutral: '#A6ADC8',
+      primary: '#CBA6F7',
+      success: '#A6E3A1',
+      warning: '#F9E2AF',
+      destructive: '#F38BA8',
+    },
+    tokens: {
+      light: {
+        '--text-default': '#4C4F69',
+        '--text-subtle': '#6C6F85',
+        '--background-default': '#EFF1F5',
+        '--background-muted': '#E6E9EF',
+        '--background-overlay': 'rgb(76 79 105 / 0.32)',
+        '--background-selected': 'rgb(136 57 239 / 0.14)',
+        '--border-default': '#BCC0CC',
+        '--border-bold': '#7C7F93',
+        '--primary-default': '#8839EF',
+        '--primary-hover': '#6F2ACD',
+        '--primary-soft': 'rgb(136 57 239 / 0.15)',
+        '--primary-foreground': '#EFF1F5',
+        '--success-default': '#40A02B',
+        '--success-soft': 'rgb(64 160 43 / 0.16)',
+        '--warning-default': '#DF8E1D',
+        '--warning-soft': 'rgb(223 142 29 / 0.16)',
+        '--destructive-default': '#D20F39',
+        '--destructive-soft': 'rgb(210 15 57 / 0.14)',
+        '--destructive-foreground': '#EFF1F5',
+        '--icon-default': '#5C5F77',
+        '--icon-subtle': '#8C8FA1',
+        '--element-bg-hover': '#E6E9EF',
+        '--element-border-hover': '#ACB0BE',
+        '--link-text-default': '#1E66F5',
+        '--link-text-hover': '#174FBF',
+        '--code-keyword': '#8839EF',
+        '--code-string': '#40A02B',
+        '--code-number': '#FE640B',
+        '--code-comment': '#8C8FA1',
+        '--code-type': '#DF8E1D',
+        '--code-function': '#1E66F5',
+        '--code-property': '#209FB5',
+        '--code-regexp': '#EA76CB',
+        '--code-escape': '#179299',
+        '--code-operator': '#04A5E5',
+        '--code-variable': '#4C4F69',
+        '--code-invalid': '#D20F39',
+      },
+      dark: {
+        '--text-default': '#CDD6F4',
+        '--text-subtle': '#A6ADC8',
+        '--background-default': '#1E1E2E',
+        '--background-muted': '#181825',
+        '--background-overlay': 'rgb(17 17 27 / 0.72)',
+        '--background-selected': 'rgb(203 166 247 / 0.2)',
+        '--border-default': '#45475A',
+        '--border-bold': '#9399B2',
+        '--primary-default': '#CBA6F7',
+        '--primary-hover': '#DDBDFF',
+        '--primary-soft': 'rgb(203 166 247 / 0.17)',
+        '--primary-foreground': '#1E1E2E',
+        '--success-default': '#A6E3A1',
+        '--success-soft': 'rgb(166 227 161 / 0.16)',
+        '--warning-default': '#F9E2AF',
+        '--warning-soft': 'rgb(249 226 175 / 0.16)',
+        '--destructive-default': '#F38BA8',
+        '--destructive-soft': 'rgb(243 139 168 / 0.2)',
+        '--destructive-foreground': '#1E1E2E',
+        '--icon-default': '#BAC2DE',
+        '--icon-subtle': '#7F849C',
+        '--element-bg-hover': '#313244',
+        '--element-border-hover': '#585B70',
+        '--link-text-default': '#89B4FA',
+        '--link-text-hover': '#A6C7FF',
+        '--code-keyword': '#CBA6F7',
+        '--code-string': '#A6E3A1',
+        '--code-number': '#FAB387',
+        '--code-comment': '#7F849C',
+        '--code-type': '#F9E2AF',
+        '--code-function': '#89B4FA',
+        '--code-property': '#74C7EC',
+        '--code-regexp': '#F5C2E7',
+        '--code-escape': '#94E2D5',
+        '--code-operator': '#89DCEB',
+        '--code-variable': '#CDD6F4',
+        '--code-invalid': '#F38BA8',
+      },
     },
   },
 ];
@@ -134,6 +348,76 @@ export function normalizeThemePresetId(value: unknown, fallback: ThemePresetId =
 
 export function getThemePreset(id: ThemePresetId): ThemePreset {
   return THEME_PRESET_BY_ID.get(id) ?? HACKDESK_THEME_PRESETS[0];
+}
+
+export function isSafeFontStack(value: unknown): value is string {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 180 || FORBIDDEN_FONT_STACK_RE.test(trimmed)) {
+    return false;
+  }
+
+  return trimmed.split(',').every((part) => {
+    const family = part.trim();
+    return family.length > 0
+      && family.length <= 64
+      && (QUOTED_FONT_FAMILY_RE.test(family) || UNQUOTED_FONT_FAMILY_RE.test(family));
+  });
+}
+
+export function normalizeFontStack(value: unknown, fallback = '') {
+  if (!isSafeFontStack(value)) {
+    return fallback;
+  }
+
+  return value
+    .trim()
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
+export function normalizeThemeTypography(value: unknown): ThemeTypography {
+  if (!value || typeof value !== 'object') {
+    return defaultThemeTypography;
+  }
+
+  const candidate = value as Partial<Record<keyof ThemeTypography, unknown>>;
+  return {
+    uiFontStack: normalizeFontStack(candidate.uiFontStack, defaultThemeTypography.uiFontStack),
+    editorFontStack: normalizeFontStack(candidate.editorFontStack, defaultThemeTypography.editorFontStack),
+  };
+}
+
+export function parseStoredThemeTypography(value: string | null): ThemeTypography {
+  if (!value) {
+    return defaultThemeTypography;
+  }
+
+  try {
+    return normalizeThemeTypography(JSON.parse(value));
+  } catch {
+    return defaultThemeTypography;
+  }
+}
+
+export function serializeThemeTypography(typography: ThemeTypography) {
+  return JSON.stringify(normalizeThemeTypography(typography));
+}
+
+export function resolveThemeTypography(typography: ThemeTypography): ResolvedHackDeskTheme {
+  const normalized = normalizeThemeTypography(typography);
+
+  return {
+    '--font-system': normalized.uiFontStack,
+    '--font-sans': normalized.uiFontStack,
+    '--font-editor': normalized.editorFontStack,
+    '--font-mono': normalized.editorFontStack,
+  };
 }
 
 export function normalizeThemeSeed(value: unknown): Partial<ThemeSeed> {
@@ -171,10 +455,12 @@ export function resolveHackDeskTheme({
   presetId,
   mode,
   customSeed,
+  typography = defaultThemeTypography,
 }: {
   presetId: ThemePresetId;
   mode: ResolvedThemeMode;
   customSeed?: Partial<ThemeSeed>;
+  typography?: ThemeTypography;
 }): ResolvedHackDeskTheme {
   const preset = getThemePreset(presetId);
   const baseSeed = mode === 'dark' ? preset.dark : preset.light;
@@ -189,7 +475,7 @@ export function resolveHackDeskTheme({
   const warning = seed.warning;
   const destructive = seed.destructive;
 
-  return dark
+  const seedTheme = dark
     ? {
         '--text-default': mix(neutral, '#FFFFFF', 72),
         '--text-subtle': mix(neutral, '#FFFFFF', 48),
@@ -244,6 +530,18 @@ export function resolveHackDeskTheme({
         '--link-text-default': primary,
         '--link-text-hover': mix(primary, '#000000', 76),
       };
+  const presetTokenOverrides = preset.tokens?.[mode] ?? {};
+  const customAccentOverrides = Object.keys(normalizeThemeSeed(customSeed)).length > 0
+    ? buildAccentTokenOverrides(seed, dark)
+    : {};
+
+  return {
+    ...DEFAULT_SYNTAX_TOKENS,
+    ...seedTheme,
+    ...presetTokenOverrides,
+    ...customAccentOverrides,
+    ...resolveThemeTypography(typography),
+  };
 }
 
 export function buildThemeStyleText(theme: ResolvedHackDeskTheme, mode: ResolvedThemeMode, presetId: ThemePresetId) {
@@ -278,6 +576,43 @@ function hexToRgb(hex: string) {
 function rgbToHex({ r, g, b }: { r: number; g: number; b: number }) {
   const toHex = (value: number) => Math.round(Math.max(0, Math.min(255, value))).toString(16).padStart(2, '0');
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+}
+
+function buildAccentTokenOverrides(seed: ThemeSeed, dark: boolean): ThemeTokenOverrides {
+  const { primary, success, warning, destructive } = seed;
+  return dark
+    ? {
+        '--background-selected': alpha(primary, 0.28),
+        '--primary-default': primary,
+        '--primary-hover': mix(primary, '#FFFFFF', 74),
+        '--primary-soft': alpha(primary, 0.18),
+        '--primary-foreground': contrastText(primary),
+        '--success-default': success,
+        '--success-soft': alpha(success, 0.18),
+        '--warning-default': warning,
+        '--warning-soft': alpha(warning, 0.18),
+        '--destructive-default': destructive,
+        '--destructive-soft': alpha(destructive, 0.22),
+        '--destructive-foreground': contrastText(destructive),
+        '--link-text-default': primary,
+        '--link-text-hover': mix(primary, '#FFFFFF', 78),
+      }
+    : {
+        '--background-selected': mix(primary, '#FFFFFF', 13),
+        '--primary-default': primary,
+        '--primary-hover': mix(primary, '#000000', 76),
+        '--primary-soft': mix(primary, '#FFFFFF', 14),
+        '--primary-foreground': contrastText(primary),
+        '--success-default': success,
+        '--success-soft': mix(success, '#FFFFFF', 16),
+        '--warning-default': warning,
+        '--warning-soft': mix(warning, '#FFFFFF', 16),
+        '--destructive-default': destructive,
+        '--destructive-soft': mix(destructive, '#FFFFFF', 14),
+        '--destructive-foreground': contrastText(destructive),
+        '--link-text-default': primary,
+        '--link-text-hover': mix(primary, '#000000', 76),
+      };
 }
 
 function mix(from: string, to: string, fromWeightPercent: number) {

@@ -12,8 +12,10 @@ import {
   normalizeThemeMode,
   normalizeThemePresetId,
   parseStoredThemeSeed,
+  parseStoredThemeTypography,
   resolveHackDeskTheme,
   serializeThemeSeed,
+  serializeThemeTypography,
   THEME_PRELOAD_STYLE_ID,
   THEME_STORAGE_KEYS,
   THEME_STYLE_ID,
@@ -21,6 +23,7 @@ import {
   type ThemeMode,
   type ThemePresetId,
   type ThemeSeed,
+  type ThemeTypography,
 } from '@/lib/themes';
 
 type Theme = ThemeMode;
@@ -29,6 +32,7 @@ type ThemePreview = {
   theme?: ThemeMode;
   presetId?: ThemePresetId;
   customSeed?: Partial<ThemeSeed>;
+  typography?: ThemeTypography;
 };
 
 type ThemeProviderProps = {
@@ -45,6 +49,8 @@ type ThemeProviderState = {
   setPresetId: (presetId: ThemePresetId) => void
   customSeed: Partial<ThemeSeed>
   setCustomSeed: (seed: Partial<ThemeSeed>) => void
+  typography: ThemeTypography
+  setTypography: (typography: ThemeTypography) => void
   setAppearance: (appearance: AppearanceSettings) => void
   previewTheme: (preview: ThemePreview) => void
   commitPreview: () => void
@@ -60,6 +66,8 @@ const initialState: ThemeProviderState = {
   setPresetId: () => null,
   customSeed: {},
   setCustomSeed: () => null,
+  typography: normalizeAppearanceSettings(undefined).typography,
+  setTypography: () => null,
   setAppearance: () => null,
   previewTheme: () => null,
   commitPreview: () => null,
@@ -73,19 +81,21 @@ type ThemeState = {
   theme: Theme;
   presetId: ThemePresetId;
   customSeed: Partial<ThemeSeed>;
+  typography: ThemeTypography;
   systemTheme: ResolvedThemeMode;
   preview: ThemePreview | null;
 };
 
 type ThemeAction =
-  | { type: 'sync'; theme: Theme; presetId: ThemePresetId; customSeed: Partial<ThemeSeed> }
+  | { type: 'sync'; theme: Theme; presetId: ThemePresetId; customSeed: Partial<ThemeSeed>; typography: ThemeTypography }
   | { type: 'system'; systemTheme: ResolvedThemeMode }
   | { type: 'theme'; theme: Theme }
   | { type: 'preset'; presetId: ThemePresetId }
   | { type: 'seed'; customSeed: Partial<ThemeSeed> }
+  | { type: 'typography'; typography: ThemeTypography }
   | { type: 'preview'; preview: ThemePreview }
   | { type: 'cancelPreview' }
-  | { type: 'commitPreview'; theme: Theme; presetId: ThemePresetId; customSeed: Partial<ThemeSeed> };
+  | { type: 'commitPreview'; theme: Theme; presetId: ThemePresetId; customSeed: Partial<ThemeSeed>; typography: ThemeTypography };
 
 function themeReducer(state: ThemeState, action: ThemeAction): ThemeState {
   switch (action.type) {
@@ -95,6 +105,7 @@ function themeReducer(state: ThemeState, action: ThemeAction): ThemeState {
       theme: action.theme,
       presetId: action.presetId,
       customSeed: action.customSeed,
+      typography: action.typography,
       preview: null,
     };
   case 'system':
@@ -105,6 +116,8 @@ function themeReducer(state: ThemeState, action: ThemeAction): ThemeState {
     return { ...state, presetId: action.presetId, preview: null };
   case 'seed':
     return { ...state, customSeed: action.customSeed, preview: null };
+  case 'typography':
+    return { ...state, typography: action.typography, preview: null };
   case 'preview':
     return { ...state, preview: { ...(state.preview ?? {}), ...action.preview } };
   case 'cancelPreview':
@@ -115,6 +128,7 @@ function themeReducer(state: ThemeState, action: ThemeAction): ThemeState {
       theme: action.theme,
       presetId: action.presetId,
       customSeed: action.customSeed,
+      typography: action.typography,
       preview: null,
     };
   }
@@ -139,11 +153,16 @@ function getStoredCustomSeed() {
   return parseStoredThemeSeed(localStorage.getItem(THEME_STORAGE_KEYS.customSeed));
 }
 
+function getStoredTypography() {
+  return parseStoredThemeTypography(localStorage.getItem(THEME_STORAGE_KEYS.typography));
+}
+
 function getStoredAppearance(storageKey: string, fallbackTheme: Theme): AppearanceSettings {
   return normalizeAppearanceSettings({
     theme: getStoredTheme(storageKey, fallbackTheme),
     presetId: getStoredPresetId(),
     customSeed: getStoredCustomSeed(),
+    typography: getStoredTypography(),
   });
 }
 
@@ -153,6 +172,7 @@ function hasLegacyStoredAppearance(storageKey: string) {
     THEME_STORAGE_KEYS.legacyMode,
     THEME_STORAGE_KEYS.presetId,
     THEME_STORAGE_KEYS.customSeed,
+    THEME_STORAGE_KEYS.typography,
     storageKey,
   ].some((key) => localStorage.getItem(key) !== null);
 }
@@ -163,6 +183,7 @@ function writeLocalAppearance(storageKey: string, appearance: AppearanceSettings
   localStorage.setItem(storageKey, normalized.theme);
   localStorage.setItem(THEME_STORAGE_KEYS.presetId, normalized.presetId);
   localStorage.setItem(THEME_STORAGE_KEYS.customSeed, serializeThemeSeed(normalized.customSeed));
+  localStorage.setItem(THEME_STORAGE_KEYS.typography, serializeThemeTypography(normalized.typography));
 }
 
 async function readPersistedAppearance(storageKey: string, fallbackTheme: Theme): Promise<AppearanceSettings> {
@@ -219,10 +240,11 @@ export function ThemeProvider({
     systemTheme: getSystemTheme(),
     preview: null,
   }));
-  const { customSeed, presetId, preview, systemTheme, theme } = state;
+  const { customSeed, presetId, preview, systemTheme, theme, typography } = state;
   const effectiveTheme = preview?.theme ?? theme;
   const effectivePresetId = preview?.presetId ?? presetId;
   const effectiveCustomSeed = preview?.customSeed ?? customSeed;
+  const effectiveTypography = preview?.typography ?? typography;
 
   // Resolve the actual theme to apply (handles 'system')
   const resolvedTheme = effectiveTheme === 'system' ? systemTheme : effectiveTheme;
@@ -234,6 +256,7 @@ export function ThemeProvider({
       presetId: effectivePresetId,
       mode: resolvedTheme,
       customSeed: effectiveCustomSeed,
+      typography: effectiveTypography,
     });
     const css = buildThemeStyleText(resolved, resolvedTheme, effectivePresetId);
     const background = getThemeBackground(resolved);
@@ -253,7 +276,7 @@ export function ThemeProvider({
       mode: resolvedTheme,
       background,
     });
-  }, [effectiveCustomSeed, effectivePresetId, preview, resolvedTheme]);
+  }, [effectiveCustomSeed, effectivePresetId, effectiveTypography, preview, resolvedTheme]);
 
   // Sync theme when another window or settings backend changes the committed appearance.
   useEffect(() => {
@@ -270,6 +293,7 @@ export function ThemeProvider({
             theme: appearance.theme,
             presetId: appearance.presetId,
             customSeed: appearance.customSeed,
+            typography: appearance.typography,
           });
         })
         .catch((error) => {
@@ -308,6 +332,7 @@ export function ThemeProvider({
         theme: normalized.theme,
         presetId: normalized.presetId,
         customSeed: normalized.customSeed,
+        typography: normalized.typography,
       });
     };
 
@@ -316,15 +341,24 @@ export function ThemeProvider({
       resolvedMode: resolvedTheme,
       presetId,
       customSeed,
+      typography,
       presets: HACKDESK_THEME_PRESETS,
       setTheme: (newTheme: Theme) => {
-        commitAppearance({ theme: newTheme, presetId, customSeed });
+        commitAppearance({ theme: newTheme, presetId, customSeed, typography });
       },
       setPresetId: (nextPresetId: ThemePresetId) => {
-        commitAppearance({ theme, presetId: nextPresetId, customSeed });
+        commitAppearance({ theme, presetId: nextPresetId, customSeed, typography });
       },
       setCustomSeed: (seed: Partial<ThemeSeed>) => {
-        commitAppearance({ theme, presetId, customSeed: normalizeAppearanceSettings({ theme, presetId, customSeed: seed }).customSeed });
+        commitAppearance({
+          theme,
+          presetId,
+          customSeed: normalizeAppearanceSettings({ theme, presetId, customSeed: seed, typography }).customSeed,
+          typography,
+        });
+      },
+      setTypography: (nextTypography: ThemeTypography) => {
+        commitAppearance({ theme, presetId, customSeed, typography: nextTypography });
       },
       setAppearance: commitAppearance,
       previewTheme: (nextPreview: ThemePreview) => {
@@ -339,13 +373,14 @@ export function ThemeProvider({
           theme: preview.theme ?? theme,
           presetId: preview.presetId ?? presetId,
           customSeed: preview.customSeed ?? customSeed,
+          typography: preview.typography ?? typography,
         });
       },
       cancelPreview: () => {
         dispatch({ type: 'cancelPreview' });
       },
     };
-  }, [customSeed, presetId, preview, resolvedTheme, storageKey, theme]);
+  }, [customSeed, presetId, preview, resolvedTheme, storageKey, theme, typography]);
 
   return (
     <ThemeProviderContext.Provider {...props} value={value}>

@@ -3,8 +3,18 @@ import { ChevronRight, Laptop, Moon, Sun } from 'lucide-react';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTheme } from '@/components/theme-provider';
-import { normalizeThemeSeed, type ThemeMode, type ThemePresetId, type ThemeSeed } from '@/lib/themes';
+import {
+  defaultThemeTypography,
+  isSafeFontStack,
+  normalizeThemeSeed,
+  normalizeThemeTypography,
+  type ThemeMode,
+  type ThemePresetId,
+  type ThemeSeed,
+  type ThemeTypography,
+} from '@/lib/themes';
 import { cn } from '@/lib/utils';
 
 const themeModeOptions: { id: ThemeMode; label: string; description: string; icon: ReactNode }[] = [
@@ -24,6 +34,7 @@ const seedFields: { key: keyof ThemeSeed; label: string }[] = [
 const HEX_COLOR_RE = /^#[\da-fA-F]{6}$/;
 const DEFAULT_THEME_MODE: ThemeMode = 'system';
 const DEFAULT_THEME_PRESET: ThemePresetId = 'hackmd';
+const FONT_STACK_ERROR = 'Use comma-separated font family names. CSS functions and declarations are not allowed.';
 
 function seedToInputs(seed: Partial<ThemeSeed>) {
   return seedFields.reduce<Record<keyof ThemeSeed, string>>((acc, field) => {
@@ -50,6 +61,15 @@ function getInputErrors(inputs: Record<keyof ThemeSeed, string>) {
     }
     return acc;
   }, {});
+}
+
+function getFontStackError(value: string) {
+  return value.trim() && !isSafeFontStack(value) ? FONT_STACK_ERROR : null;
+}
+
+function typographyEqual(left: ThemeTypography, right: ThemeTypography) {
+  return left.uiFontStack === right.uiFontStack
+    && left.editorFontStack === right.editorFontStack;
 }
 
 const focusClassName = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default';
@@ -83,35 +103,51 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
   actions?: 'inline' | 'none';
   density?: 'comfortable' | 'compact';
   customSeedsDefaultOpen?: boolean;
+  showTypography?: boolean;
   onStateChange?: (state: ThemeAppearanceControlsState) => void;
 }>(function ThemeAppearanceControls({
   onApplied,
   actions = 'inline',
   density = 'comfortable',
   customSeedsDefaultOpen = true,
+  showTypography = false,
   onStateChange,
 }, ref) {
   const {
     theme,
     presetId,
     customSeed,
+    typography: contextTypography,
     presets,
     previewTheme,
     cancelPreview,
     setAppearance,
   } = useTheme();
+  const typography = useMemo(() => normalizeThemeTypography(contextTypography), [contextTypography]);
   const [draft, setDraft] = useState(() => ({
     mode: theme,
     presetId,
     seedInputs: seedToInputs(customSeed),
+    typography,
   }));
-  const { mode: draftMode, presetId: draftPresetId, seedInputs: draftSeedInputs } = draft;
+  const {
+    mode: draftMode,
+    presetId: draftPresetId,
+    seedInputs: draftSeedInputs,
+    typography: draftTypography,
+  } = draft;
   const savedSeedInputs = useMemo(() => seedToInputs(customSeed), [customSeed]);
   const errors = useMemo(() => getInputErrors(draftSeedInputs), [draftSeedInputs]);
-  const hasErrors = Object.keys(errors).length > 0;
+  const typographyErrors = useMemo(() => ({
+    uiFontStack: getFontStackError(draftTypography.uiFontStack),
+    editorFontStack: getFontStackError(draftTypography.editorFontStack),
+  }), [draftTypography.editorFontStack, draftTypography.uiFontStack]);
+  const hasErrors = Object.keys(errors).length > 0
+    || (showTypography && Boolean(typographyErrors.uiFontStack || typographyErrors.editorFontStack));
   const hasDraftChanges = draftMode !== theme
     || draftPresetId !== presetId
-    || !seedInputsEqual(draftSeedInputs, savedSeedInputs);
+    || !seedInputsEqual(draftSeedInputs, savedSeedInputs)
+    || (showTypography && !typographyEqual(draftTypography, typography));
   const compact = density === 'compact';
 
   useEffect(() => {
@@ -119,25 +155,33 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
       mode: theme,
       presetId,
       seedInputs: seedToInputs(customSeed),
+      typography,
     });
-  }, [customSeed, presetId, theme]);
+  }, [customSeed, presetId, theme, typography]);
 
   const preview = (next: {
     mode?: ThemeMode;
     presetId?: ThemePresetId;
     seedInputs?: Record<keyof ThemeSeed, string>;
+    typography?: ThemeTypography;
   }) => {
     const mode = next.mode ?? draftMode;
     const nextPresetId = next.presetId ?? draftPresetId;
     const seedInputs = next.seedInputs ?? draftSeedInputs;
+    const nextTypography = showTypography ? next.typography ?? draftTypography : typography;
     const nextErrors = getInputErrors(seedInputs);
-    if (Object.keys(nextErrors).length > 0) {
+    const nextTypographyErrors = [
+      getFontStackError(nextTypography.uiFontStack),
+      getFontStackError(nextTypography.editorFontStack),
+    ];
+    if (Object.keys(nextErrors).length > 0 || nextTypographyErrors.some(Boolean)) {
       return;
     }
     previewTheme({
       theme: mode,
       presetId: nextPresetId,
       customSeed: inputToSeed(seedInputs),
+      typography: nextTypography,
     });
   };
 
@@ -157,6 +201,18 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
     preview({ seedInputs: nextInputs });
   };
 
+  const handleTypographyChange = (
+    role: keyof ThemeTypography,
+    value: string,
+  ) => {
+    const nextTypography = {
+      ...draftTypography,
+      [role]: value,
+    };
+    setDraft((current) => ({ ...current, typography: nextTypography }));
+    preview({ typography: normalizeThemeTypography(nextTypography) });
+  };
+
   const handleApply = () => {
     if (hasErrors) {
       return;
@@ -165,6 +221,7 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
       theme: draftMode,
       presetId: draftPresetId,
       customSeed: inputToSeed(draftSeedInputs),
+      typography: showTypography ? normalizeThemeTypography(draftTypography) : typography,
     });
     onApplied?.();
   };
@@ -175,6 +232,7 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
       mode: theme,
       presetId,
       seedInputs: seedToInputs(customSeed),
+      typography,
     });
   };
 
@@ -184,11 +242,13 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
       mode: DEFAULT_THEME_MODE,
       presetId: DEFAULT_THEME_PRESET,
       seedInputs: resetInputs,
+      typography: showTypography ? defaultThemeTypography : typography,
     });
     previewTheme({
       theme: DEFAULT_THEME_MODE,
       presetId: DEFAULT_THEME_PRESET,
       customSeed: {},
+      typography: showTypography ? defaultThemeTypography : typography,
     });
   };
 
@@ -217,10 +277,10 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
           value={draftMode}
           onValueChange={(value) => handleModeChange(value as ThemeMode)}
           className={cn(
-          compact
-            ? 'inline-flex rounded-md border border-border-default bg-background-muted p-0.5'
-            : 'grid grid-cols-1 gap-3 sm:grid-cols-3',
-        )}
+            compact
+              ? 'inline-flex rounded-md border border-border-default bg-background-muted p-0.5'
+              : 'grid grid-cols-1 gap-3 sm:grid-cols-3',
+          )}
         >
           {themeModeOptions.map((option) => (
             <RadioGroupItem
@@ -258,43 +318,45 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
         <p className={cn('text-text-subtle', compact ? 'text-xs' : 'mb-3 text-sm')}>
           Start from a preset, then tune the seed colors below.
         </p>
-        <RadioGroup
-          value={draftPresetId}
-          onValueChange={(value) => handlePresetChange(value as ThemePresetId)}
-          className={cn(compact ? 'space-y-2' : 'grid grid-cols-1 gap-3 sm:grid-cols-2')}
-        >
+        <Select value={draftPresetId} onValueChange={(value) => handlePresetChange(value as ThemePresetId)}>
+          <SelectTrigger aria-label="Theme preset" className={compact ? 'w-full' : 'max-w-sm'}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
           {presets.map((preset) => (
-            <RadioGroupItem
-              key={preset.id}
-              value={preset.id}
-              aria-label={preset.name}
-              className={cn(
-                'h-auto w-full justify-start rounded-lg border bg-background-default text-left transition-[background-color,border-color] duration-150 ease-out hover:bg-element-bg-hover motion-reduce:transition-none',
-                focusClassName,
-                compact ? 'flex items-center gap-3 p-2.5' : 'border-2 p-3',
-                draftPresetId === preset.id ? 'border-primary-default' : 'border-border-default',
-              )}
-            >
-              <span className={cn('flex shrink-0 gap-1', compact ? null : 'mb-3')} aria-hidden="true">
-                {seedFields.slice(0, 4).map((field) => (
-                  <span
-                    key={field.key}
-                    className="size-4 rounded-full border border-border-default"
-                    style={{ backgroundColor: preset.light[field.key] }}
-                  />
-                ))}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium">{preset.name}</span>
-                <span className="mt-0.5 block truncate text-xs text-text-subtle">{preset.description}</span>
-              </span>
-              {draftPresetId === preset.id && compact ? (
-                <span className="text-xs font-medium text-primary-default">Selected</span>
-              ) : null}
-            </RadioGroupItem>
+            <SelectItem key={preset.id} value={preset.id}>
+              {preset.name}
+            </SelectItem>
           ))}
-        </RadioGroup>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-text-subtle">
+          {presets.find((preset) => preset.id === draftPresetId)?.description}
+        </p>
       </fieldset>
+
+      {showTypography ? (
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-medium">Typography</legend>
+          <p className={cn('text-text-subtle', compact ? 'text-xs' : 'mb-3 text-sm')}>
+            Choose local font stacks for HackDesk chrome and the markdown editor.
+          </p>
+          <div className={cn('grid grid-cols-1 gap-3', compact ? null : 'sm:grid-cols-2')}>
+            <ThemeFontField
+              label="UI font"
+              value={draftTypography.uiFontStack}
+              error={typographyErrors.uiFontStack}
+              onChange={(value) => handleTypographyChange('uiFontStack', value)}
+            />
+            <ThemeFontField
+              label="Editor font"
+              value={draftTypography.editorFontStack}
+              error={typographyErrors.editorFontStack}
+              onChange={(value) => handleTypographyChange('editorFontStack', value)}
+            />
+          </div>
+        </fieldset>
+      ) : null}
 
       <fieldset className="space-y-2">
         <legend className={compact ? 'sr-only' : 'text-sm font-medium'}>Custom Seeds</legend>
@@ -334,17 +396,17 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
       </fieldset>
 
       {actions === 'inline' ? (
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-default pt-4">
-        <button type="button" onClick={handleReset} className={secondaryButtonClassName}>
-          Reset Theme
-        </button>
-        <button type="button" onClick={handleCancel} className={secondaryButtonClassName}>
-          Cancel Preview
-        </button>
-        <button type="button" onClick={handleApply} disabled={hasErrors} className={primaryButtonClassName}>
-          Apply Theme
-        </button>
-      </div>
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-default pt-4">
+          <button type="button" onClick={handleReset} className={secondaryButtonClassName}>
+            Reset Theme
+          </button>
+          <button type="button" onClick={handleCancel} className={secondaryButtonClassName}>
+            Cancel Preview
+          </button>
+          <button type="button" onClick={handleApply} disabled={hasErrors} className={primaryButtonClassName}>
+            Apply Theme
+          </button>
+        </div>
       ) : null}
     </div>
   );
@@ -389,4 +451,37 @@ function ThemeSeedFields({
       </div>
     );
   });
+}
+
+function ThemeFontField({
+  error,
+  label,
+  onChange,
+  value,
+}: {
+  error: string | null;
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  const fieldId = `theme-font-${label.toLowerCase().replace(/\W+/g, '-')}`;
+  const errorId = `${fieldId}-error`;
+
+  return (
+    <div className="space-y-2 text-sm">
+      <label htmlFor={fieldId} className="font-medium">{label}</label>
+      <input
+        id={fieldId}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-9 w-full rounded-md border border-border-default bg-background-default px-2 text-sm text-text-default outline-none transition-[border-color,box-shadow] focus:border-primary-default focus-visible:ring-2 focus-visible:ring-primary-default/70"
+        placeholder={label === 'UI font' ? 'Inter, system-ui, sans-serif' : '"Source Code Pro", ui-monospace, monospace'}
+        autoComplete="off"
+        spellCheck={false}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
+      />
+      {error ? <p id={errorId} className="text-xs text-destructive-default">{error}</p> : null}
+    </div>
+  );
 }

@@ -81,6 +81,7 @@ describe('Settings page', () => {
           theme: 'system',
           presetId: 'hackmd',
           customSeed: {},
+          typography: defaultSettings.appearance.typography,
         },
         onboarding: defaultSettings.onboarding,
       },
@@ -98,11 +99,12 @@ describe('Settings page', () => {
       resolvedMode: 'light',
       presetId: 'hackmd',
       customSeed: {},
+      typography: defaultSettings.appearance.typography,
       presets: [
         {
           id: 'hackmd',
-          name: 'HackMD',
-          description: 'The default HackDesk palette.',
+          name: 'HackMD Neo',
+          description: 'The default HackDesk writing palette.',
           light: {
             neutral: '#71717A',
             primary: '#5D54E8',
@@ -120,8 +122,8 @@ describe('Settings page', () => {
         },
         {
           id: 'forest',
-          name: 'Forest',
-          description: 'Green accent for long-form notes.',
+          name: 'HackMD Nature',
+          description: 'A green HackMD palette for long-form notes.',
           light: {
             neutral: '#6B7280',
             primary: '#15803D',
@@ -174,6 +176,7 @@ describe('Settings page', () => {
             theme: 'system',
             presetId: 'hackmd',
             customSeed: {},
+            typography: defaultSettings.appearance.typography,
           },
           onboarding: defaultSettings.onboarding,
           localVault: defaultSettings.localVault,
@@ -202,6 +205,7 @@ describe('Settings page', () => {
       theme: 'dark',
       presetId: 'hackmd',
       customSeed: {},
+      typography: defaultSettings.appearance.typography,
     });
     expect(toastSuccessMock).toHaveBeenCalledWith('Theme applied');
   });

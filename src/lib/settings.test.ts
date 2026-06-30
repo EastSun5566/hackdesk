@@ -30,6 +30,7 @@ describe('settings helpers', () => {
         customSeed: {
           primary: '#123ABC',
         },
+        typography: defaultSettings.appearance.typography,
       },
       onboarding: defaultSettings.onboarding,
       localVault: defaultSettings.localVault,
@@ -43,6 +44,44 @@ describe('settings helpers', () => {
 
   it('rejects an unknown editor mode', () => {
     expect(() => parseSettings('{"title":"Workspace","editor":{"mode":"emacs"}}')).toThrow('Invalid option');
+  });
+
+  it('parses appearance typography and the Catppuccin preset', () => {
+    expect(parseSettings(JSON.stringify({
+      title: 'Workspace',
+      appearance: {
+        theme: 'dark',
+        presetId: 'catppuccin',
+        customSeed: {},
+        typography: {
+          uiFontStack: 'system-ui, sans-serif',
+          editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
+        },
+      },
+    })).appearance).toEqual({
+      theme: 'dark',
+      presetId: 'catppuccin',
+      customSeed: {},
+      typography: {
+        uiFontStack: 'system-ui, sans-serif',
+        editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
+      },
+    });
+  });
+
+  it('rejects unsafe custom font stacks', () => {
+    expect(() => parseSettings(JSON.stringify({
+      title: 'Workspace',
+      appearance: {
+        theme: 'dark',
+        presetId: 'hackmd',
+        customSeed: {},
+        typography: {
+          uiFontStack: 'Inter; color: red',
+          editorFontStack: '"Source Code Pro", ui-monospace, monospace',
+        },
+      },
+    }))).toThrow('Use comma-separated font family names without CSS functions or declarations.');
   });
 
   it('throws a clear error for invalid JSON', () => {
@@ -67,7 +106,11 @@ describe('settings helpers', () => {
   "appearance": {
     "theme": "system",
     "presetId": "hackmd",
-    "customSeed": {}
+    "customSeed": {},
+    "typography": {
+      "uiFontStack": "Inter, system-ui, sans-serif",
+      "editorFontStack": "\\"Source Code Pro\\", ui-monospace, monospace"
+    }
   },
   "onboarding": {
     "hackmdTokenSetupDeferred": false

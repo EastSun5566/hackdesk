@@ -60,6 +60,32 @@ describe('Electron settings', () => {
     expect(content).toContain('"mode": "helix"');
   });
 
+  it('persists and returns appearance typography settings', async () => {
+    const safeSettings = await updateStoredSettings({
+      appearance: {
+        theme: 'dark',
+        presetId: 'catppuccin',
+        customSeed: {},
+        typography: {
+          uiFontStack: 'system-ui, sans-serif',
+          editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
+        },
+      },
+    });
+    const content = await readFile(getSettingsPath(), 'utf8');
+
+    expect(safeSettings.appearance).toMatchObject({
+      theme: 'dark',
+      presetId: 'catppuccin',
+      typography: {
+        uiFontStack: 'system-ui, sans-serif',
+        editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
+      },
+    });
+    expect(content).toContain('"presetId": "catppuccin"');
+    expect(content).toContain('JetBrains Mono');
+  });
+
   it('defers first-run onboarding without configuring a token', async () => {
     const safeSettings = await updateStoredSettings({
       onboarding: { hackmdTokenSetupDeferred: true },

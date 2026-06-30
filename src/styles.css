@@ -139,7 +139,9 @@
     color-scheme: light;
 
     --font-system: Inter, system-ui, sans-serif;
+    --font-sans: var(--font-system);
     --font-editor: "Source Code Pro", ui-monospace, monospace;
+    --font-mono: var(--font-editor);
 
     --hmd-tw-text-default: var(--color-zinc-700);
     --hmd-tw-text-subtle: var(--color-zinc-500);

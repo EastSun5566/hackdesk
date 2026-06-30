@@ -159,7 +159,7 @@ describe('SettingsDialog', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toBeVisible();
 
     fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
-    expect(screen.getByText('Theme mode, presets, and color seeds.')).toBeVisible();
+    expect(screen.getByText('Theme mode, presets, fonts, and color seeds.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Apply Theme' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
 
@@ -276,6 +276,18 @@ describe('SettingsDialog', () => {
     expect(primaryInput).toBeVisible();
     expect(primaryInput).toHaveValue('blue');
     expect(screen.getByText('Use a 6-digit hex color, for example #5D54E8.')).toBeVisible();
+  });
+
+  it('shows Electron appearance typography controls and mainstream presets', () => {
+    renderSettingsDialog();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
+
+    expect(screen.getByText('Typography')).toBeVisible();
+    expect(screen.getByLabelText('Theme preset')).toBeVisible();
+    expect(screen.getByText('The default HackDesk writing palette.')).toBeVisible();
+    expect(screen.getByLabelText('UI font')).toBeVisible();
+    expect(screen.getByLabelText('Editor font')).toBeVisible();
   });
 
   it('saves title and token from their tab-specific footer action', () => {

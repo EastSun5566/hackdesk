@@ -2,18 +2,23 @@ import { z } from 'zod';
 
 import { DEFAULT_TITLE } from '@/constants';
 import {
+  defaultThemeTypography,
+  isSafeFontStack,
   normalizeThemeMode,
   normalizeThemePresetId,
   normalizeThemeSeed,
+  normalizeThemeTypography,
   type ThemeMode,
   type ThemePresetId,
   type ThemeSeed,
+  type ThemeTypography,
 } from '@/lib/themes';
 
 export type AppearanceSettings = {
   theme: ThemeMode;
   presetId: ThemePresetId;
   customSeed: Partial<ThemeSeed>;
+  typography: ThemeTypography;
 };
 
 export type OnboardingSettings = {
@@ -34,6 +39,7 @@ export const defaultAppearanceSettings: AppearanceSettings = {
   theme: 'system',
   presetId: 'hackmd',
   customSeed: {},
+  typography: defaultThemeTypography,
 };
 
 export const defaultOnboardingSettings: OnboardingSettings = {
@@ -49,10 +55,17 @@ export const defaultEditorSettings: EditorSettings = {
 };
 
 const hexColorSchema = z.string().regex(/^#[\da-fA-F]{6}$/);
+const customFontStackSchema = z.string().trim().refine((value) => !value || isSafeFontStack(value), {
+  message: 'Use comma-separated font family names without CSS functions or declarations.',
+});
+const typographySettingsSchema = z.object({
+  uiFontStack: customFontStackSchema.default(defaultThemeTypography.uiFontStack),
+  editorFontStack: customFontStackSchema.default(defaultThemeTypography.editorFontStack),
+}).default(defaultThemeTypography).transform((value): ThemeTypography => normalizeThemeTypography(value));
 
 export const appearanceSettingsSchema = z.object({
   theme: z.enum(['dark', 'light', 'system']).default(defaultAppearanceSettings.theme),
-  presetId: z.enum(['hackmd', 'mono', 'solarized', 'forest']).default(defaultAppearanceSettings.presetId),
+  presetId: z.enum(['hackmd', 'mono', 'solarized', 'forest', 'catppuccin']).default(defaultAppearanceSettings.presetId),
   customSeed: z.object({
     neutral: hexColorSchema.optional(),
     primary: hexColorSchema.optional(),
@@ -60,10 +73,12 @@ export const appearanceSettingsSchema = z.object({
     warning: hexColorSchema.optional(),
     destructive: hexColorSchema.optional(),
   }).default(defaultAppearanceSettings.customSeed),
+  typography: typographySettingsSchema,
 }).default(defaultAppearanceSettings).transform((value): AppearanceSettings => ({
   theme: normalizeThemeMode(value.theme, defaultAppearanceSettings.theme),
   presetId: normalizeThemePresetId(value.presetId, defaultAppearanceSettings.presetId),
   customSeed: normalizeThemeSeed(value.customSeed),
+  typography: normalizeThemeTypography(value.typography),
 }));
 
 export const settingsSchema = z.object({

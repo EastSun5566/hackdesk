@@ -13,18 +13,25 @@ function ThemeConsumer() {
     cancelPreview,
     setCustomSeed,
     setPresetId,
+    setTypography,
     setTheme,
+    typography,
   } = useTheme();
   return (
     <div>
       <span data-testid="current-theme">{theme}</span>
       <span data-testid="current-preset">{presetId}</span>
       <span data-testid="current-primary">{customSeed.primary ?? ''}</span>
+      <span data-testid="current-editor-font">{typography.editorFontStack}</span>
       <button onClick={() => setTheme('dark')}>Set Dark</button>
       <button onClick={() => setTheme('light')}>Set Light</button>
       <button onClick={() => setTheme('system')}>Set System</button>
       <button onClick={() => setPresetId('forest')}>Set Forest</button>
       <button onClick={() => setCustomSeed({ primary: '#123ABC' })}>Set Primary</button>
+      <button onClick={() => setTypography({
+        ...typography,
+        editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
+      })}>Set JetBrains Mono</button>
       <button onClick={() => previewTheme({ theme: 'dark', presetId: 'solarized' })}>Preview Solarized Dark</button>
       <button onClick={cancelPreview}>Cancel Preview</button>
     </div>
@@ -172,6 +179,7 @@ describe('ThemeProvider', () => {
         theme: 'light',
         presetId: 'forest',
         customSeed: {},
+        typography: defaultSettings.appearance.typography,
       },
     });
     expect(localStorage.getItem('theme-preset-id')).toBeNull();
@@ -220,8 +228,61 @@ describe('ThemeProvider', () => {
           theme: 'dark',
           presetId: 'forest',
           customSeed: {},
+          typography: defaultSettings.appearance.typography,
         },
       });
+    });
+  });
+
+  it('persists committed typography through the Electron settings API', () => {
+    const settingsUpdate = vi.fn(async (update) => ({
+      title: 'HackDesk',
+      appearance: update.appearance ?? defaultSettings.appearance,
+      hasHackmdApiToken: false,
+      hasAppearanceSettings: true,
+      hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+      onboarding: defaultSettings.onboarding,
+      localVault: defaultSettings.localVault,
+      shouldShowHackmdOnboarding: true,
+    }));
+    window.hackdeskAPI = {
+      settings: {
+        get: vi.fn(async () => ({
+          title: 'HackDesk',
+          appearance: defaultSettings.appearance,
+          hasHackmdApiToken: false,
+          hasAppearanceSettings: true,
+          hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+          onboarding: defaultSettings.onboarding,
+          localVault: defaultSettings.localVault,
+          shouldShowHackmdOnboarding: true,
+        })),
+        update: settingsUpdate,
+        importHackmdCliToken: vi.fn(),
+      },
+      app: {
+        setThemeSurface: vi.fn(),
+      },
+    } as never;
+
+    render(
+      <ThemeProvider defaultTheme="light">
+        <ThemeConsumer />
+      </ThemeProvider>,
+    );
+
+    fireEvent.click(screen.getByText('Set JetBrains Mono'));
+
+    expect(screen.getByTestId('current-editor-font').textContent).toBe('"JetBrains Mono", ui-monospace, monospace');
+    expect(settingsUpdate).toHaveBeenCalledWith({
+      appearance: {
+        ...defaultSettings.appearance,
+        theme: 'light',
+        typography: {
+          ...defaultSettings.appearance.typography,
+          editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
+        },
+      },
     });
   });
 

@@ -96,9 +96,19 @@ describe('IPC runtime validation', () => {
     expect(validateIpcInput('settings:update', settingsUpdateSchema, {
       onboarding: { hackmdTokenSetupDeferred: true },
       editor: { mode: 'vim' },
+      appearance: {
+        theme: 'dark',
+        presetId: 'catppuccin',
+        customSeed: {},
+        typography: {
+          uiFontStack: 'system-ui, sans-serif',
+          editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
+        },
+      },
     })).toMatchObject({
       onboarding: { hackmdTokenSetupDeferred: true },
       editor: { mode: 'vim' },
+      appearance: { presetId: 'catppuccin' },
     });
   });
 
@@ -106,6 +116,20 @@ describe('IPC runtime validation', () => {
     expect(() => validateIpcInput('settings:update', settingsUpdateSchema, {
       editor: { mode: 'emacs' },
     })).toThrow(/Invalid option/);
+  });
+
+  it('rejects unsafe theme font stacks in settings updates', () => {
+    expect(() => validateIpcInput('settings:update', settingsUpdateSchema, {
+      appearance: {
+        theme: 'dark',
+        presetId: 'hackmd',
+        customSeed: {},
+        typography: {
+          uiFontStack: 'Inter; color: red',
+          editorFontStack: '"Source Code Pro", ui-monospace, monospace',
+        },
+      },
+    })).toThrow(/Invalid/);
   });
 
   it('rejects unsafe native file and image upload shapes', () => {
