@@ -22,5 +22,9 @@ describe('HackMD preview widget theme', () => {
       minWidth: '2.5rem',
       fontFamily: 'var(--font-sans)',
     });
+    expect(widgetTheme['.cm-hackmd-rich-icon-pending']).toMatchObject({
+      width: '1.25em',
+      fontFamily: 'var(--font-sans)',
+    });
   });
 });

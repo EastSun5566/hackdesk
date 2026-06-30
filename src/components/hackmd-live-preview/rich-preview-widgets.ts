@@ -15,6 +15,7 @@ import {
 import { getActiveLines } from './hfm-decoration-ranges';
 import { fenceOpenPattern } from './hfm-patterns';
 import {
+  ensureFontAwesomeCss,
   parseCsvPreview,
   renderMath,
   renderMermaid,
@@ -69,15 +70,37 @@ class FontAwesomeIconWidget extends WidgetType {
     return other.className === this.className;
   }
 
-  toDOM(): HTMLElement {
+  toDOM(view: EditorView): HTMLElement {
     const span = document.createElement('span');
-    span.className = 'cm-hackmd-rich-icon';
+    span.className = 'cm-hackmd-rich-icon cm-hackmd-rich-icon-pending';
     span.setAttribute('contenteditable', 'false');
     span.setAttribute('aria-hidden', 'true');
+    span.textContent = 'icon';
 
-    const icon = document.createElement('i');
-    icon.className = this.className;
-    span.appendChild(icon);
+    ensureFontAwesomeCss()
+      .then(() => {
+        if (!span.isConnected) {
+          return;
+        }
+
+        const icon = document.createElement('i');
+        icon.className = this.className;
+        span.classList.remove('cm-hackmd-rich-icon-pending');
+        span.textContent = '';
+        span.appendChild(icon);
+        view.requestMeasure();
+      })
+      .catch(() => {
+        if (!span.isConnected) {
+          return;
+        }
+
+        span.classList.remove('cm-hackmd-rich-icon-pending');
+        span.classList.add('cm-hackmd-rich-render-error');
+        span.textContent = this.className;
+        view.requestMeasure();
+      });
+
     return span;
   }
 }

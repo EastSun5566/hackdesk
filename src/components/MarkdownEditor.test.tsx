@@ -618,6 +618,8 @@ describe('MarkdownEditor', () => {
       '| Name | Value |',
       '| --- | --- |',
       '| field | value |',
+      '',
+      '<i class="fa fa-pencil"></i>',
     ].join('\n');
 
     render(<MarkdownEditor ref={ref} value={markdown} onChange={onChange} />);
@@ -638,10 +640,16 @@ describe('MarkdownEditor', () => {
       expect(target).not.toBeNull();
       return target as HTMLElement;
     });
+    const fontAwesomeIcon = await waitFor(() => {
+      const target = editor.querySelector<HTMLElement>('.cm-hackmd-rich-icon');
+      expect(target?.querySelector('i')).not.toBeNull();
+      return target as HTMLElement;
+    });
 
     fireEvent.mouseDown(alertHeading);
     fireEvent.mouseDown(listMarker);
     fireEvent.pointerDown(tableCell);
+    fireEvent.mouseDown(fontAwesomeIcon);
     tableCell.focus();
 
     expect(onChange).not.toHaveBeenCalled();
@@ -859,7 +867,7 @@ describe('MarkdownEditor', () => {
 
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
     await waitFor(() => expect(editor.querySelector('.cm-hackmd-rich-emoji')).toHaveTextContent('🚀'));
-    expect(editor.querySelector('.cm-hackmd-rich-icon i')).toHaveClass('fa-pencil');
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-rich-icon i')).toHaveClass('fa-pencil'));
     expect(editor.querySelector('.cm-content')).not.toHaveTextContent(':rocket:');
     expect(editor.querySelector('.cm-content')).not.toHaveTextContent('<i class="fa fa-pencil fa-fw"></i>');
   });

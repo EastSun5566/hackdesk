@@ -599,6 +599,14 @@ export const widgetTheme = {
     minWidth: '1em',
     color: 'var(--primary-default)',
   },
+  '.cm-hackmd-rich-icon-pending': {
+    width: '1.25em',
+    height: '1em',
+    overflow: 'hidden',
+    color: 'var(--text-subtle)',
+    fontFamily: 'var(--font-sans)',
+    fontSize: '0.95em',
+  },
   '.cm-hackmd-rich-math-inline': {
     display: 'inline-flex',
     alignItems: 'center',

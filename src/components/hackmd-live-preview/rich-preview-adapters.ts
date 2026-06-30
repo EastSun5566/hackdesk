@@ -18,11 +18,20 @@ export type RenderedMath = {
 type KatexApi = typeof import('katex');
 
 let katexPromise: Promise<KatexApi> | null = null;
+let fontAwesomeCssPromise: Promise<unknown> | null = null;
 const mathCache = new Map<string, Promise<RenderedMath>>();
 const mermaidCache = new Map<string, Promise<RenderedDiagram>>();
 
 export function resolveEmojiShortcode(name: string): string | null {
   return nameToEmoji[name] ?? null;
+}
+
+export function ensureFontAwesomeCss(): Promise<unknown> {
+  if (!fontAwesomeCssPromise) {
+    fontAwesomeCssPromise = import('@fortawesome/fontawesome-free/css/all.css');
+  }
+
+  return fontAwesomeCssPromise;
 }
 
 export function parseCsvPreview(source: string, options: { delimiter?: string; header?: boolean } = {}): CsvPreviewModel {
