@@ -98,7 +98,7 @@ describe('IPC runtime validation', () => {
       editor: { mode: 'vim' },
       appearance: {
         theme: 'dark',
-        presetId: 'catppuccin',
+        presetId: 'dracula',
         customSeed: {},
         typography: {
           uiFontStack: 'system-ui, sans-serif',
@@ -108,7 +108,21 @@ describe('IPC runtime validation', () => {
     })).toMatchObject({
       onboarding: { hackmdTokenSetupDeferred: true },
       editor: { mode: 'vim' },
-      appearance: { presetId: 'catppuccin' },
+      appearance: { presetId: 'dracula' },
+    });
+
+    expect(validateIpcInput('settings:update', settingsUpdateSchema, {
+      appearance: {
+        theme: 'light',
+        presetId: 'gruvbox',
+        customSeed: {},
+        typography: {
+          uiFontStack: 'system-ui, sans-serif',
+          editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
+        },
+      },
+    })).toMatchObject({
+      appearance: { presetId: 'gruvbox' },
     });
   });
 
@@ -122,7 +136,7 @@ describe('IPC runtime validation', () => {
     expect(() => validateIpcInput('settings:update', settingsUpdateSchema, {
       appearance: {
         theme: 'dark',
-        presetId: 'hackmd',
+        presetId: 'hackmd-neo',
         customSeed: {},
         typography: {
           uiFontStack: 'Inter; color: red',

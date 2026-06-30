@@ -21,12 +21,12 @@ describe('settings helpers', () => {
   });
 
   it('parses appearance settings when present', () => {
-    expect(parseSettings('{"title":"Workspace","appearance":{"theme":"dark","presetId":"forest","customSeed":{"primary":"#123ABC"}}}')).toEqual({
+    expect(parseSettings('{"title":"Workspace","appearance":{"theme":"dark","presetId":"hackmd-nature","customSeed":{"primary":"#123ABC"}}}')).toEqual({
       title: 'Workspace',
       hackmdApiToken: '',
       appearance: {
         theme: 'dark',
-        presetId: 'forest',
+        presetId: 'hackmd-nature',
         customSeed: {
           primary: '#123ABC',
         },
@@ -46,12 +46,12 @@ describe('settings helpers', () => {
     expect(() => parseSettings('{"title":"Workspace","editor":{"mode":"emacs"}}')).toThrow('Invalid option');
   });
 
-  it('parses appearance typography and the Catppuccin preset', () => {
+  it('parses appearance typography and mainstream presets', () => {
     expect(parseSettings(JSON.stringify({
       title: 'Workspace',
       appearance: {
         theme: 'dark',
-        presetId: 'catppuccin',
+        presetId: 'gruvbox',
         customSeed: {},
         typography: {
           uiFontStack: 'system-ui, sans-serif',
@@ -60,13 +60,26 @@ describe('settings helpers', () => {
       },
     })).appearance).toEqual({
       theme: 'dark',
-      presetId: 'catppuccin',
+      presetId: 'gruvbox',
       customSeed: {},
       typography: {
         uiFontStack: 'system-ui, sans-serif',
         editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
       },
     });
+
+    expect(parseSettings(JSON.stringify({
+      title: 'Workspace',
+      appearance: {
+        theme: 'dark',
+        presetId: 'dracula',
+        customSeed: {},
+        typography: {
+          uiFontStack: 'system-ui, sans-serif',
+          editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
+        },
+      },
+    })).appearance.presetId).toBe('dracula');
   });
 
   it('rejects unsafe custom font stacks', () => {
@@ -74,7 +87,7 @@ describe('settings helpers', () => {
       title: 'Workspace',
       appearance: {
         theme: 'dark',
-        presetId: 'hackmd',
+        presetId: 'hackmd-neo',
         customSeed: {},
         typography: {
           uiFontStack: 'Inter; color: red',
@@ -105,7 +118,7 @@ describe('settings helpers', () => {
   "hackmdApiToken": "token-123",
   "appearance": {
     "theme": "system",
-    "presetId": "hackmd",
+    "presetId": "hackmd-neo",
     "customSeed": {},
     "typography": {
       "uiFontStack": "Inter, system-ui, sans-serif",

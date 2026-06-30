@@ -33,7 +33,7 @@ const seedFields: { key: keyof ThemeSeed; label: string }[] = [
 
 const HEX_COLOR_RE = /^#[\da-fA-F]{6}$/;
 const DEFAULT_THEME_MODE: ThemeMode = 'system';
-const DEFAULT_THEME_PRESET: ThemePresetId = 'hackmd';
+const DEFAULT_THEME_PRESET: ThemePresetId = 'hackmd-neo';
 const FONT_STACK_ERROR = 'Use comma-separated font family names. CSS functions and declarations are not allowed.';
 
 function seedToInputs(seed: Partial<ThemeSeed>) {

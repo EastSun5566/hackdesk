@@ -62,7 +62,7 @@ const initialState: ThemeProviderState = {
   theme: 'system',
   setTheme: () => null,
   resolvedMode: 'light',
-  presetId: 'hackmd',
+  presetId: 'hackmd-neo',
   setPresetId: () => null,
   customSeed: {},
   setCustomSeed: () => null,
@@ -146,7 +146,7 @@ function getStoredTheme(storageKey: string, fallbackTheme: Theme) {
 }
 
 function getStoredPresetId() {
-  return normalizeThemePresetId(localStorage.getItem(THEME_STORAGE_KEYS.presetId), 'hackmd');
+  return normalizeThemePresetId(localStorage.getItem(THEME_STORAGE_KEYS.presetId), 'hackmd-neo');
 }
 
 function getStoredCustomSeed() {

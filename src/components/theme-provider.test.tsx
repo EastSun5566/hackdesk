@@ -26,7 +26,7 @@ function ThemeConsumer() {
       <button onClick={() => setTheme('dark')}>Set Dark</button>
       <button onClick={() => setTheme('light')}>Set Light</button>
       <button onClick={() => setTheme('system')}>Set System</button>
-      <button onClick={() => setPresetId('forest')}>Set Forest</button>
+      <button onClick={() => setPresetId('hackmd-nature')}>Set Nature</button>
       <button onClick={() => setCustomSeed({ primary: '#123ABC' })}>Set Primary</button>
       <button onClick={() => setTypography({
         ...typography,
@@ -128,12 +128,12 @@ describe('ThemeProvider', () => {
       </ThemeProvider>,
     );
 
-    fireEvent.click(screen.getByText('Set Forest'));
+    fireEvent.click(screen.getByText('Set Nature'));
     fireEvent.click(screen.getByText('Set Primary'));
 
-    expect(screen.getByTestId('current-preset').textContent).toBe('forest');
+    expect(screen.getByTestId('current-preset').textContent).toBe('hackmd-nature');
     expect(screen.getByTestId('current-primary').textContent).toBe('#123ABC');
-    expect(localStorage.getItem('theme-preset-id')).toBe('forest');
+    expect(localStorage.getItem('theme-preset-id')).toBe('hackmd-nature');
     expect(localStorage.getItem('theme-custom-seed')).toContain('#123ABC');
   });
 
@@ -172,12 +172,12 @@ describe('ThemeProvider', () => {
       </ThemeProvider>,
     );
 
-    fireEvent.click(screen.getByText('Set Forest'));
+    fireEvent.click(screen.getByText('Set Nature'));
 
     expect(settingsUpdate).toHaveBeenCalledWith({
       appearance: {
         theme: 'light',
-        presetId: 'forest',
+        presetId: 'hackmd-nature',
         customSeed: {},
         typography: defaultSettings.appearance.typography,
       },
@@ -196,7 +196,7 @@ describe('ThemeProvider', () => {
       shouldShowHackmdOnboarding: true,
     }));
     localStorage.setItem('theme-mode', 'dark');
-    localStorage.setItem('theme-preset-id', 'forest');
+    localStorage.setItem('theme-preset-id', 'hackmd-nature');
     window.hackdeskAPI = {
       settings: {
         get: vi.fn(async () => ({
@@ -226,7 +226,7 @@ describe('ThemeProvider', () => {
       expect(settingsUpdate).toHaveBeenCalledWith({
         appearance: {
           theme: 'dark',
-          presetId: 'forest',
+          presetId: 'hackmd-nature',
           customSeed: {},
           typography: defaultSettings.appearance.typography,
         },
@@ -303,6 +303,6 @@ describe('ThemeProvider', () => {
     fireEvent.click(screen.getByText('Cancel Preview'));
 
     expect(document.documentElement.classList.contains('light')).toBe(true);
-    expect(document.documentElement.dataset.themePreset).toBe('hackmd');
+    expect(document.documentElement.dataset.themePreset).toBe('hackmd-neo');
   });
 });

@@ -84,7 +84,7 @@ describe('query hooks', () => {
   "hackmdApiToken": "secret-token",
   "appearance": {
     "theme": "system",
-    "presetId": "hackmd",
+    "presetId": "hackmd-neo",
     "customSeed": {},
     "typography": {
       "uiFontStack": "Inter, system-ui, sans-serif",

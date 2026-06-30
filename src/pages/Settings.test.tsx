@@ -79,7 +79,7 @@ describe('Settings page', () => {
         hackmdApiToken: '',
         appearance: {
           theme: 'system',
-          presetId: 'hackmd',
+          presetId: 'hackmd-neo',
           customSeed: {},
           typography: defaultSettings.appearance.typography,
         },
@@ -97,12 +97,12 @@ describe('Settings page', () => {
     useThemeMock.mockReturnValue({
       theme: 'system',
       resolvedMode: 'light',
-      presetId: 'hackmd',
+      presetId: 'hackmd-neo',
       customSeed: {},
       typography: defaultSettings.appearance.typography,
       presets: [
         {
-          id: 'hackmd',
+          id: 'hackmd-neo',
           name: 'HackMD Neo',
           description: 'The default HackDesk writing palette.',
           light: {
@@ -121,7 +121,7 @@ describe('Settings page', () => {
           },
         },
         {
-          id: 'forest',
+          id: 'hackmd-nature',
           name: 'HackMD Nature',
           description: 'A green HackMD palette for long-form notes.',
           light: {
@@ -174,7 +174,7 @@ describe('Settings page', () => {
           hackmdApiToken: '',
           appearance: {
             theme: 'system',
-            presetId: 'hackmd',
+            presetId: 'hackmd-neo',
             customSeed: {},
             typography: defaultSettings.appearance.typography,
           },
@@ -203,7 +203,7 @@ describe('Settings page', () => {
 
     expect(setAppearance).toHaveBeenCalledWith({
       theme: 'dark',
-      presetId: 'hackmd',
+      presetId: 'hackmd-neo',
       customSeed: {},
       typography: defaultSettings.appearance.typography,
     });
