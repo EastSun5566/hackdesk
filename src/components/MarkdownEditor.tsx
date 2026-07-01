@@ -1,17 +1,11 @@
 import { forwardRef, lazy, Suspense } from 'react';
 
-import type {
-  HackmdMarkdownEditorHandle as MarkdownEditorHandle,
-  HackmdMarkdownEditorProps as MarkdownEditorProps,
-} from './hackmd-live-preview/HackmdMarkdownEditorCore';
-
-type MarkdownEditorComponent =
-  typeof import('./hackmd-live-preview/HackmdMarkdownEditorCore').HackmdMarkdownEditorCore;
+import type { MarkdownEditorHandle, MarkdownEditorProps } from './markdown-editor-types';
 
 const LazyMarkdownEditor = lazy(async () => {
   const module = await import('./hackmd-live-preview/HackmdMarkdownEditorCore');
   return { default: module.HackmdMarkdownEditorCore };
-}) as MarkdownEditorComponent;
+});
 
 export type { MarkdownEditorHandle, MarkdownEditorProps };
 

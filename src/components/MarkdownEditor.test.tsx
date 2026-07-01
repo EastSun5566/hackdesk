@@ -1,4 +1,4 @@
-import { createRef, type RefObject } from 'react';
+import { createRef, StrictMode, type RefObject } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -34,6 +34,26 @@ describe('MarkdownEditor', () => {
 
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe('# Hello'));
     expect(editor.querySelector('.cm-content')).toHaveTextContent('# Hello');
+  });
+
+  it('keeps one live CodeMirror instance through the StrictMode setup and cleanup cycle', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const { unmount } = render(
+      <StrictMode>
+        <MarkdownEditor ref={ref} value="# Hello" onChange={vi.fn()} />
+      </StrictMode>,
+    );
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe('# Hello'));
+    expect(editor.querySelectorAll('.cm-editor')).toHaveLength(1);
+
+    const codeMirror = editor.querySelector('.cm-editor');
+    unmount();
+
+    expect(codeMirror).not.toBeNull();
+    expect(codeMirror?.isConnected).toBe(false);
+    expect(document.querySelector('.cm-editor')).toBeNull();
   });
 
   it('hides editor gutters so notes read as a writing surface', async () => {
@@ -85,6 +105,49 @@ describe('MarkdownEditor', () => {
     rerender(<MarkdownEditor ref={ref} value="# Second" onChange={vi.fn()} />);
 
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe('# Second'));
+  });
+
+  it('uses the latest change and attachment callbacks without remounting CodeMirror', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const firstOnChange = vi.fn();
+    const latestOnChange = vi.fn();
+    const firstOnAttachImage = vi.fn(async () => ({ link: 'https://assets.example/first.png' }));
+    const latestOnAttachImage = vi.fn(async () => ({ link: 'https://assets.example/latest.png' }));
+    const { rerender } = render(
+      <MarkdownEditor
+        ref={ref}
+        value=""
+        onAttachImage={firstOnAttachImage}
+        onChange={firstOnChange}
+      />,
+    );
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const codeMirror = editor.querySelector('.cm-editor');
+
+    rerender(
+      <MarkdownEditor
+        ref={ref}
+        value=""
+        onAttachImage={latestOnAttachImage}
+        onChange={latestOnChange}
+      />,
+    );
+
+    act(() => ref.current?.insertText('Updated'));
+    await waitFor(() => expect(latestOnChange).toHaveBeenCalledWith('Updated'));
+
+    const file = new File(['image-bytes'], 'latest.png', { type: 'image/png' });
+    fireEvent.paste(editor.querySelector('.cm-content') as Element, {
+      clipboardData: {
+        files: [file],
+        getData: () => '',
+      },
+    });
+
+    await waitFor(() => expect(latestOnAttachImage).toHaveBeenCalledWith(file));
+    expect(firstOnChange).not.toHaveBeenCalled();
+    expect(firstOnAttachImage).not.toHaveBeenCalled();
+    expect(editor.querySelector('.cm-editor')).toBe(codeMirror);
   });
 
   it('inserts pasted image attachments through the editor attachment handler', async () => {
@@ -336,7 +399,7 @@ describe('MarkdownEditor', () => {
     expect(editor.querySelector('.cm-vim-panel')).toHaveTextContent('INSERT');
   });
 
-  it('does not apply stale modal engines after a quick switch back to standard', async () => {
+  it('does not apply stale modal engines after quickly switching back to standard', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const { rerender } = render(
       <MarkdownEditor ref={ref} editorMode="standard" value="# Hello" onChange={vi.fn()} />,
@@ -350,15 +413,20 @@ describe('MarkdownEditor', () => {
     rerender(<MarkdownEditor ref={ref} editorMode="vim" value="# Hello" onChange={vi.fn()} />);
     expect(codeMirror).toHaveAttribute('data-editor-mode', 'vim');
 
+    rerender(<MarkdownEditor ref={ref} editorMode="helix" value="# Hello" onChange={vi.fn()} />);
+    expect(codeMirror).toHaveAttribute('data-editor-mode', 'helix');
+
     rerender(<MarkdownEditor ref={ref} editorMode="standard" value="# Hello" onChange={vi.fn()} />);
 
     await waitFor(() => {
       expect(codeMirror).toHaveAttribute('data-editor-mode', 'standard');
       expect(codeMirror).not.toHaveAttribute('data-editor-mode-loading');
       expect(editor.querySelector('.cm-vim-panel')).toBeNull();
+      expect(editor.querySelector('.cm-hx-status-panel')).toBeNull();
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(editor.querySelector('.cm-vim-panel')).toBeNull();
+    expect(editor.querySelector('.cm-hx-status-panel')).toBeNull();
   });
 
   it.each(['vim', 'helix'] as const)('keeps HackDesk search on Ctrl+F in %s mode', async (editorMode) => {

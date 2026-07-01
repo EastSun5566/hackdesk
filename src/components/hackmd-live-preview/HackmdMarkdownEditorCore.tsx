@@ -17,8 +17,10 @@ import {
 } from '@codemirror/view';
 import { inlineAttachmentExtension } from 'inline-attacher';
 
+import type { MarkdownEditorHandle, MarkdownEditorProps } from '@/components/markdown-editor-types';
 import { useTheme } from '@/components/theme-provider';
 import type { EditorMode } from '@/lib/settings';
+import type { ResolvedThemeMode } from '@/lib/themes';
 
 import { hackmdCodeLanguages } from './hackmd-code-languages';
 import { hfmBlocks } from './hfm-blocks';
@@ -30,21 +32,6 @@ import { createHackdeskSearchPanel } from './hackmd-search-panel';
 import { hackmdRichPreviewNavigation } from './rich-preview-navigation';
 import { hackmdRichPreviewWidgets } from './rich-preview-widgets';
 import { treeProgressPlugin } from './tree-progress';
-
-export type HackmdMarkdownEditorHandle = {
-  focus: () => void;
-  getContentDOM: () => HTMLElement | null;
-  getMarkdown: () => string;
-  insertText: (text: string) => void;
-  openSearch: () => void;
-};
-
-export type HackmdMarkdownEditorProps = {
-  editorMode?: EditorMode;
-  value: string;
-  onChange: (value: string) => void;
-  onAttachImage?: (file: File) => Promise<{ link: string }>;
-};
 
 const reservedAppShortcutKeymap = Prec.highest(keymap.of([
   {
@@ -93,7 +80,111 @@ const editorExtensions: Extension[] = [
   ]),
 ];
 
-export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, HackmdMarkdownEditorProps>(
+type LatestRef<T> = {
+  current: T;
+};
+
+type EditorRuntime = {
+  view: EditorView | null;
+  editorModeCompartment: Compartment;
+  themeCompartment: Compartment;
+  appliedEditorMode: EditorMode;
+  appliedResolvedMode: ResolvedThemeMode;
+  editorModeRequestId: number;
+  pendingFocus: boolean;
+  value: string;
+  editorMode: EditorMode;
+  resolvedMode: ResolvedThemeMode;
+};
+
+type CreateEditorViewOptions = {
+  parent: HTMLDivElement;
+  runtime: EditorRuntime;
+  onAttachImageRef: LatestRef<MarkdownEditorProps['onAttachImage']>;
+  onChangeRef: LatestRef<MarkdownEditorProps['onChange']>;
+};
+
+function createEditorRuntime(
+  value: string,
+  editorMode: EditorMode,
+  resolvedMode: ResolvedThemeMode,
+): EditorRuntime {
+  return {
+    view: null,
+    editorModeCompartment: new Compartment(),
+    themeCompartment: new Compartment(),
+    appliedEditorMode: 'standard',
+    appliedResolvedMode: resolvedMode,
+    editorModeRequestId: 0,
+    pendingFocus: false,
+    value,
+    editorMode,
+    resolvedMode,
+  };
+}
+
+function useLatestRef<T>(value: T): LatestRef<T> {
+  const ref = useRef(value);
+
+  useLayoutEffect(() => {
+    ref.current = value;
+  }, [value]);
+
+  return ref;
+}
+
+function createHackmdEditorView({
+  parent,
+  runtime,
+  onAttachImageRef,
+  onChangeRef,
+}: CreateEditorViewOptions) {
+  return new EditorView({
+    parent,
+    state: EditorState.create({
+      doc: runtime.value,
+      extensions: [
+        reservedAppShortcutKeymap,
+        runtime.editorModeCompartment.of([]),
+        ...editorExtensions,
+        runtime.themeCompartment.of(createHackmdPreviewTheme(runtime.resolvedMode)),
+        inlineAttachmentExtension({
+          allowedTypes: ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'],
+          errorText: '![Failed to insert image]()',
+          onFileReceived: (file) => Boolean(onAttachImageRef.current && file.type.startsWith('image/')),
+          progressText: '![Inserting image...]()',
+          responseUrlKey: 'url',
+          uploadHandler: async ({ file }) => {
+            const handler = onAttachImageRef.current;
+            if (!handler) {
+              throw new Error('Image attachments are unavailable.');
+            }
+
+            const result = await handler(file);
+            return {
+              alt: file.name,
+              url: result.link,
+            };
+          },
+          urlText: (url, response) => {
+            const alt = typeof response === 'object' && response && 'alt' in response
+              ? String((response as { alt?: unknown }).alt ?? 'image')
+              : 'image';
+
+            return formatMarkdownImage(alt, url);
+          },
+        }),
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) {
+            onChangeRef.current(update.state.doc.toString());
+          }
+        }),
+      ],
+    }),
+  });
+}
+
+export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, MarkdownEditorProps>(
   function HackmdMarkdownEditorCore({
     editorMode = 'standard',
     value,
@@ -102,50 +193,33 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
   }, ref) {
     const { resolvedMode } = useTheme();
     const parentRef = useRef<HTMLDivElement | null>(null);
-    const viewRef = useRef<EditorView | null>(null);
-    const onAttachImageRef = useRef(onAttachImage);
-    const onChangeRef = useRef(onChange);
-    const initialValueRef = useRef(value);
-    const initialEditorModeRef = useRef(editorMode);
-    const initialResolvedModeRef = useRef(resolvedMode);
-    const appliedEditorModeRef = useRef<EditorMode>('standard');
-    const appliedResolvedModeRef = useRef(initialResolvedModeRef.current);
-    const editorModeRequestIdRef = useRef(0);
-    const pendingFocusRef = useRef(false);
+    const onAttachImageRef = useLatestRef(onAttachImage);
+    const onChangeRef = useLatestRef(onChange);
+    const [runtime] = useState(() => createEditorRuntime(value, editorMode, resolvedMode));
     const dragDepthRef = useRef(0);
-    const [editorModeCompartment] = useState(() => new Compartment());
-    const [themeCompartment] = useState(() => new Compartment());
     const [isImageDragging, setIsImageDragging] = useState(false);
-
-    useEffect(() => {
-      onChangeRef.current = onChange;
-    }, [onChange]);
-
-    useEffect(() => {
-      onAttachImageRef.current = onAttachImage;
-    }, [onAttachImage]);
 
     useImperativeHandle(ref, () => ({
       focus() {
-        const view = viewRef.current;
+        const view = runtime.view;
         if (!view) {
-          pendingFocusRef.current = true;
+          runtime.pendingFocus = true;
           return;
         }
 
         view.focus();
       },
       getContentDOM() {
-        return viewRef.current?.contentDOM ?? null;
+        return runtime.view?.contentDOM ?? null;
       },
       getMarkdown() {
-        return viewRef.current?.state.doc.toString() ?? initialValueRef.current;
+        return runtime.view?.state.doc.toString() ?? runtime.value;
       },
       insertText(text: string) {
-        const view = viewRef.current;
+        const view = runtime.view;
 
         if (!view) {
-          onChangeRef.current(`${initialValueRef.current}${text}`);
+          onChangeRef.current(`${runtime.value}${text}`);
           return;
         }
 
@@ -157,14 +231,14 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
         view.focus();
       },
       openSearch() {
-        const view = viewRef.current;
+        const view = runtime.view;
         if (!view) {
           return;
         }
 
         openSearchPanel(view);
       },
-    }), []);
+    }), [onChangeRef, runtime]);
 
     useLayoutEffect(() => {
       const parent = parentRef.current;
@@ -172,112 +246,91 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
         return undefined;
       }
 
-      const view = new EditorView({
+      const view = createHackmdEditorView({
         parent,
-        state: EditorState.create({
-          doc: initialValueRef.current,
-          extensions: [
-            reservedAppShortcutKeymap,
-            editorModeCompartment.of([]),
-            ...editorExtensions,
-            themeCompartment.of(createHackmdPreviewTheme(initialResolvedModeRef.current)),
-            inlineAttachmentExtension({
-              allowedTypes: ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'],
-              errorText: '![Failed to insert image]()',
-              onFileReceived: (file) => Boolean(onAttachImageRef.current && file.type.startsWith('image/')),
-              progressText: '![Inserting image...]()',
-              responseUrlKey: 'url',
-              uploadHandler: async ({ file }) => {
-                const handler = onAttachImageRef.current;
-                if (!handler) {
-                  throw new Error('Image attachments are unavailable.');
-                }
-
-                const result = await handler(file);
-                return {
-                  alt: file.name,
-                  url: result.link,
-                };
-              },
-              urlText: (url, response) => {
-                const alt = typeof response === 'object' && response && 'alt' in response
-                  ? String((response as { alt?: unknown }).alt ?? 'image')
-                  : 'image';
-
-                return formatMarkdownImage(alt, url);
-              },
-            }),
-            EditorView.updateListener.of((update) => {
-              if (update.docChanged) {
-                onChangeRef.current(update.state.doc.toString());
-              }
-            }),
-          ],
-        }),
+        runtime,
+        onAttachImageRef,
+        onChangeRef,
       });
 
-      viewRef.current = view;
-      view.dom.dataset.editorMode = initialEditorModeRef.current;
-      view.dom.dataset.themeMode = initialResolvedModeRef.current;
+      runtime.view = view;
+      runtime.appliedEditorMode = 'standard';
+      runtime.appliedResolvedMode = runtime.resolvedMode;
+      view.dom.dataset.editorMode = runtime.editorMode;
+      view.dom.dataset.themeMode = runtime.resolvedMode;
       view.contentDOM.dataset.hackdeskFocusTarget = 'true';
-      if (pendingFocusRef.current) {
-        pendingFocusRef.current = false;
+      if (runtime.pendingFocus) {
+        runtime.pendingFocus = false;
         view.focus();
       }
 
       return () => {
-        editorModeRequestIdRef.current += 1;
+        runtime.editorModeRequestId += 1;
         view.destroy();
-        viewRef.current = null;
+        if (runtime.view === view) {
+          runtime.view = null;
+          runtime.appliedEditorMode = 'standard';
+          runtime.appliedResolvedMode = runtime.resolvedMode;
+        }
       };
-    }, [editorModeCompartment, themeCompartment]);
+    }, [onAttachImageRef, onChangeRef, runtime]);
 
     useLayoutEffect(() => {
-      const view = viewRef.current;
-      if (!view || appliedResolvedModeRef.current === resolvedMode) {
+      runtime.resolvedMode = resolvedMode;
+      const view = runtime.view;
+      if (!view || runtime.appliedResolvedMode === resolvedMode) {
         return;
       }
 
       view.dispatch({
-        effects: themeCompartment.reconfigure(createHackmdPreviewTheme(resolvedMode)),
+        effects: runtime.themeCompartment.reconfigure(createHackmdPreviewTheme(resolvedMode)),
       });
       view.dom.dataset.themeMode = resolvedMode;
-      appliedResolvedModeRef.current = resolvedMode;
-    }, [resolvedMode, themeCompartment]);
+      runtime.appliedResolvedMode = resolvedMode;
+    }, [resolvedMode, runtime]);
 
     useEffect(() => {
-      const view = viewRef.current;
+      runtime.editorMode = editorMode;
+      const view = runtime.view;
       if (!view) {
-        return;
+        return undefined;
       }
 
-      const requestId = editorModeRequestIdRef.current + 1;
-      editorModeRequestIdRef.current = requestId;
+      const requestId = runtime.editorModeRequestId + 1;
+      runtime.editorModeRequestId = requestId;
+      let cancelled = false;
+      const cancelRequest = () => {
+        cancelled = true;
+        if (runtime.editorModeRequestId === requestId) {
+          runtime.editorModeRequestId += 1;
+        }
+      };
+
       view.dom.dataset.editorMode = editorMode;
 
       if (editorMode === 'standard') {
         delete view.dom.dataset.editorModeLoading;
         delete view.dom.dataset.editorModeError;
-        if (appliedEditorModeRef.current !== 'standard') {
+        if (runtime.appliedEditorMode !== 'standard') {
           view.dispatch({
-            effects: editorModeCompartment.reconfigure([]),
+            effects: runtime.editorModeCompartment.reconfigure([]),
           });
-          appliedEditorModeRef.current = 'standard';
+          runtime.appliedEditorMode = 'standard';
         }
-        return;
+        return cancelRequest;
       }
 
-      if (appliedEditorModeRef.current === editorMode) {
+      if (runtime.appliedEditorMode === editorMode) {
         delete view.dom.dataset.editorModeLoading;
         delete view.dom.dataset.editorModeError;
-        return;
+        return cancelRequest;
       }
 
-      if (appliedEditorModeRef.current !== 'standard') {
+      if (runtime.appliedEditorMode !== 'standard') {
         view.dispatch({
-          effects: editorModeCompartment.reconfigure([]),
+          effects: runtime.editorModeCompartment.reconfigure([]),
         });
-        appliedEditorModeRef.current = 'standard';
+        runtime.appliedEditorMode = 'standard';
       }
 
       view.dom.dataset.editorModeLoading = 'true';
@@ -285,20 +338,20 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
 
       void createEditorModeExtension(editorMode)
         .then((extension) => {
-          if (editorModeRequestIdRef.current !== requestId || viewRef.current !== view) {
+          if (cancelled || runtime.editorModeRequestId !== requestId || runtime.view !== view) {
             return;
           }
 
           view.dispatch({
-            effects: editorModeCompartment.reconfigure(extension),
+            effects: runtime.editorModeCompartment.reconfigure(extension),
           });
           view.dom.dataset.editorMode = editorMode;
           delete view.dom.dataset.editorModeLoading;
           delete view.dom.dataset.editorModeError;
-          appliedEditorModeRef.current = editorMode;
+          runtime.appliedEditorMode = editorMode;
         })
         .catch((error: unknown) => {
-          if (editorModeRequestIdRef.current !== requestId || viewRef.current !== view) {
+          if (cancelled || runtime.editorModeRequestId !== requestId || runtime.view !== view) {
             return;
           }
 
@@ -306,13 +359,15 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
           view.dom.dataset.editorModeError = 'true';
           console.error('Failed to load editor mode extension:', error);
         });
-    }, [editorMode, editorModeCompartment]);
 
-    useEffect(() => {
-      const view = viewRef.current;
+      return cancelRequest;
+    }, [editorMode, runtime]);
+
+    useLayoutEffect(() => {
+      runtime.value = value;
+      const view = runtime.view;
 
       if (!view) {
-        initialValueRef.current = value;
         return;
       }
 
@@ -322,7 +377,7 @@ export const HackmdMarkdownEditorCore = forwardRef<HackmdMarkdownEditorHandle, H
           changes: { from: 0, to: currentValue.length, insert: value },
         });
       }
-    }, [value]);
+    }, [runtime, value]);
 
     const handleDragEnter = (event: DragEvent<HTMLDivElement>) => {
       if (!hasImageFile(event.dataTransfer)) {
