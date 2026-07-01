@@ -22,7 +22,7 @@ export function EditorSettingsPanel({
   onEditorModeChange: (mode: EditorMode) => void;
 }) {
   return (
-    <SettingsSection title="Editor" description="Set the keyboard editing model for every open note.">
+    <SettingsSection title="Editor">
       <fieldset>
         <legend className="sr-only">Editor mode</legend>
         <RadioGroup

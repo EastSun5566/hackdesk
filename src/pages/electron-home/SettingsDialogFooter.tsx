@@ -8,7 +8,6 @@ import { FOCUS_RING_CLASS } from './ui';
 
 export function SettingsDialogFooter({
   activeTab,
-  activeTabDescription,
   appearanceStatus,
   canSaveTitle,
   isSaving,
@@ -17,7 +16,6 @@ export function SettingsDialogFooter({
   onClose,
 }: {
   activeTab: SettingsTab;
-  activeTabDescription: string;
   appearanceStatus: ThemeAppearanceDraftController['status'];
   canSaveTitle: boolean;
   isSaving: boolean;
@@ -26,8 +24,7 @@ export function SettingsDialogFooter({
   onClose: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-t border-border-default px-5 py-4">
-      <p className="min-w-0 truncate text-xs text-text-subtle">{activeTabDescription}</p>
+    <div className="flex items-center justify-end gap-2 border-t border-border-default px-5 py-4">
       <div className="flex shrink-0 items-center gap-2">
         {activeTab === 'appearance' && appearanceStatus.hasDraftChanges ? (
           <button
@@ -57,14 +54,15 @@ export function SettingsDialogFooter({
         {(activeTab === 'general' || activeTab === 'editor' || activeTab === 'hackmd') ? (
           <button
             type="submit"
+            aria-label="Save settings"
+            title="Save settings"
             disabled={isSaving || !canSaveTitle}
             className={cn(
-              'inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50',
+              'inline-flex size-10 items-center justify-center rounded-md bg-primary-default text-primary-foreground transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50',
               FOCUS_RING_CLASS,
             )}
           >
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save
           </button>
         ) : null}
         {(activeTab === 'advanced' || activeTab === 'vault') ? (

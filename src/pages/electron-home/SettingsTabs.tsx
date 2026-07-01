@@ -9,14 +9,14 @@ export function SettingsTabs() {
     <TabsList
       activateOnFocus
       aria-label="Settings sections"
-      className="mt-4 grid grid-cols-3 gap-1 rounded-lg bg-background-muted p-1 sm:grid-cols-6"
+      className="flex h-full w-40 shrink-0 flex-col items-stretch gap-1 border-r border-border-default bg-background-muted/40 p-3"
     >
       {SETTINGS_TABS.map((tab) => (
         <TabsTrigger
           key={tab.id}
           value={tab.id}
           className={cn(
-            'inline-flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors hover:bg-element-bg-hover',
+            'inline-flex h-10 w-full min-w-0 items-center justify-start gap-2 rounded-md px-3 text-sm font-medium transition-colors hover:bg-element-bg-hover',
             FOCUS_RING_CLASS,
             'text-text-subtle data-[selected]:bg-background-default data-[selected]:text-text-default data-[selected]:shadow-sm',
           )}

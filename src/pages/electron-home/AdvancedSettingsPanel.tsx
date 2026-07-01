@@ -50,7 +50,7 @@ export function AdvancedSettingsPanel({
 
   return (
     <div className="space-y-4">
-      <SettingsSection title="Version" description="Check for Electron app updates.">
+      <SettingsSection title="Version">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-default bg-background-default px-3 py-2">
           <span className="text-sm text-text-subtle">HackDesk v{version}</span>
           <button
@@ -68,18 +68,23 @@ export function AdvancedSettingsPanel({
         </div>
       </SettingsSection>
 
-      <SettingsSection title="Reset" description="Restore local app preferences and clear the configured token.">
-        <button
-          type="button"
-          onClick={onResetAllSettings}
-          className={cn(
-            'inline-flex h-9 items-center gap-2 rounded-md border border-destructive-default px-3 text-sm font-medium text-destructive-default transition-colors hover:bg-destructive-soft',
-            FOCUS_RING_CLASS,
-          )}
-        >
-          <AlertCircle className="h-4 w-4" />
-          Reset All Settings
-        </button>
+      <SettingsSection title="Reset">
+        <div className="rounded-md border border-destructive-default/40 bg-background-default p-3">
+          <p className="mb-3 text-xs leading-5 text-text-subtle">
+            Restores local preferences and clears the configured HackMD token. Notes and vault files are not deleted.
+          </p>
+          <button
+            type="button"
+            onClick={onResetAllSettings}
+            className={cn(
+              'inline-flex h-9 items-center gap-2 rounded-md border border-destructive-default px-3 text-sm font-medium text-destructive-default transition-colors hover:bg-destructive-soft',
+              FOCUS_RING_CLASS,
+            )}
+          >
+            <AlertCircle className="h-4 w-4" />
+            Reset All Settings
+          </button>
+        </div>
       </SettingsSection>
     </div>
   );

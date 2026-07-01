@@ -54,10 +54,7 @@ export function VaultSettingsPanel({
 
   return (
     <div className="space-y-4">
-      <SettingsSection
-        title="Local Vault"
-        description="HackDesk stores local notes as Markdown files in this folder."
-      >
+      <SettingsSection title="Local Vault">
         <div className="rounded-md border border-border-default bg-background-default p-3">
           <div className="space-y-1">
             <p className="text-xs font-medium uppercase text-text-subtle">Folder</p>
@@ -80,10 +77,7 @@ export function VaultSettingsPanel({
         </div>
       </SettingsSection>
 
-      <SettingsSection
-        title="Actions"
-        description="These actions change HackDesk settings only. They do not delete Markdown files."
-      >
+      <SettingsSection title="Vault actions">
         <div className="flex flex-wrap gap-2">
           <SettingsActionButton
             busy={busyAction === 'open'}
@@ -118,6 +112,9 @@ export function VaultSettingsPanel({
             Forget Vault
           </SettingsActionButton>
         </div>
+        <p className="text-xs leading-5 text-text-subtle">
+          These actions change HackDesk settings only. Markdown files are not deleted.
+        </p>
       </SettingsSection>
     </div>
   );

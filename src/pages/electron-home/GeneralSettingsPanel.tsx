@@ -9,8 +9,8 @@ export function GeneralSettingsPanel({
   onTitleChange: (title: string) => void;
 }) {
   return (
-    <SettingsSection title="General" description="Local app identity and window preferences.">
-      <SettingsRow label="Window Title" htmlFor={SETTINGS_TITLE_ID}>
+    <SettingsSection title="General">
+      <SettingsRow label="Window title" htmlFor={SETTINGS_TITLE_ID}>
         <SettingsInput
           id={SETTINGS_TITLE_ID}
           name="window-title"

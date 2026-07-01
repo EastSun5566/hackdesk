@@ -53,10 +53,12 @@ export function HackmdSettingsPanel({
   };
 
   return (
-    <SettingsSection
-      title="HackMD"
-      description={hasHackmdApiToken ? 'A token is configured. Paste a new token only when rotating it.' : 'Paste a HackMD API token to sync notes and folders.'}
-    >
+    <SettingsSection title="HackMD">
+      {hasHackmdApiToken ? (
+        <p className="inline-flex w-fit items-center rounded-full border border-success-default/30 bg-success-soft px-2 py-1 text-xs font-medium text-success-default">
+          Token configured · leave blank to keep it
+        </p>
+      ) : null}
       <SettingsRow label="API Token" htmlFor={SETTINGS_TOKEN_ID}>
         <SettingsSecretInput
           id={SETTINGS_TOKEN_ID}

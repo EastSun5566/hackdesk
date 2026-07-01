@@ -9,7 +9,10 @@ export function AppearanceSettingsPanel({
   controller: ThemeAppearanceDraftController;
 }) {
   return (
-    <SettingsSection title="Appearance" description="Preview and apply a local HackDesk theme.">
+    <SettingsSection
+      title="Appearance"
+      help="Theme changes preview immediately. Apply Theme keeps the preview; Cancel Preview restores the saved theme."
+    >
       <ThemeAppearanceFields
         controller={controller}
         density="compact"

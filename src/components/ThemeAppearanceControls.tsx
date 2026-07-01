@@ -93,9 +93,9 @@ export function ThemeAppearanceFields({
     <div className={cn(compact ? 'space-y-4' : 'space-y-6')}>
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Mode</legend>
-        <p className={cn('text-text-subtle', compact ? 'text-xs' : 'mb-3 text-sm')}>
+        {compact ? null : <p className="mb-3 text-sm text-text-subtle">
           Choose how HackDesk resolves light and dark mode.
-        </p>
+        </p>}
         <RadioGroup
           value={draftMode}
           onValueChange={(value) => draftActions.changeMode(value as ThemeMode)}
@@ -138,9 +138,9 @@ export function ThemeAppearanceFields({
 
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Preset</legend>
-        <p className={cn('text-text-subtle', compact ? 'text-xs' : 'mb-3 text-sm')}>
+        {compact ? null : <p className="mb-3 text-sm text-text-subtle">
           Start from a preset, then tune the seed colors below.
-        </p>
+        </p>}
         <Select value={draftPresetId} onValueChange={(value) => draftActions.changePreset(value as ThemePresetId)}>
           <SelectTrigger aria-label="Theme preset" className={compact ? 'w-full' : 'max-w-sm'}>
             <SelectLabelValue
@@ -164,9 +164,9 @@ export function ThemeAppearanceFields({
       {showTypography ? (
         <fieldset className="space-y-3">
           <legend className="text-sm font-medium">Typography</legend>
-          <p className={cn('text-text-subtle', compact ? 'text-xs' : 'mb-3 text-sm')}>
+          {compact ? null : <p className="mb-3 text-sm text-text-subtle">
             Choose local font stacks for HackDesk chrome and the markdown editor.
-          </p>
+          </p>}
           <div className={cn('grid grid-cols-1 gap-3', compact ? null : 'sm:grid-cols-2')}>
             <ThemeFontField
               label="UI font"

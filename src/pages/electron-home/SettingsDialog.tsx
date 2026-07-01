@@ -21,7 +21,6 @@ import { EditorSettingsPanel } from './EditorSettingsPanel';
 import { GeneralSettingsPanel } from './GeneralSettingsPanel';
 import { HackmdSettingsPanel, type TokenTestState } from './HackmdSettingsPanel';
 import {
-  getSettingsTab,
   SETTINGS_PANEL_CLASS,
   type SettingsTab,
 } from './SettingsDialogConfig';
@@ -79,7 +78,6 @@ function SettingsDialogContent({
   const { editorMode, title, token, tokenTest, tokenVisible } = formState;
 
   const normalizedToken = token.trim();
-  const activeTabDefinition = getSettingsTab(activeTab);
 
   const handleSaveSettings = () => {
     if (!title.trim()) {
@@ -135,18 +133,18 @@ function SettingsDialogContent({
 
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent className="flex max-h-[min(760px,calc(100dvh-4rem))] w-[min(760px,calc(100dvw-2rem))] max-w-3xl flex-col overflow-hidden p-0">
+      <DialogContent className="flex max-h-[min(760px,calc(100dvh-4rem))] w-[min(820px,calc(100dvw-3rem))] max-w-[820px] flex-col overflow-hidden p-0">
         <Tabs
+          orientation="vertical"
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as SettingsTab)}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <DialogHeader className="border-b border-border-default px-5 pb-4 pt-5">
+          <DialogHeader className="border-b border-border-default px-5 py-4">
             <DialogTitle>Settings</DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="sr-only">
               Configure the local Electron app and HackMD API access.
             </DialogDescription>
-            <SettingsTabs />
           </DialogHeader>
 
           <form
@@ -158,59 +156,63 @@ function SettingsDialogContent({
               }
             }}
           >
-            <TabsContent value="general" keepMounted className={SETTINGS_PANEL_CLASS}>
-              <GeneralSettingsPanel
-                title={title}
-                onTitleChange={(nextTitle) => setFormState((current) => ({ ...current, title: nextTitle }))}
-              />
-            </TabsContent>
+            <div className="flex min-h-0 flex-1">
+              <SettingsTabs />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <TabsContent value="general" keepMounted className={SETTINGS_PANEL_CLASS}>
+                  <GeneralSettingsPanel
+                    title={title}
+                    onTitleChange={(nextTitle) => setFormState((current) => ({ ...current, title: nextTitle }))}
+                  />
+                </TabsContent>
 
-            <TabsContent value="editor" keepMounted className={SETTINGS_PANEL_CLASS}>
-              <EditorSettingsPanel
-                editorMode={editorMode}
-                onEditorModeChange={(nextEditorMode) => setFormState((current) => ({
-                  ...current,
-                  editorMode: nextEditorMode,
-                }))}
-              />
-            </TabsContent>
+                <TabsContent value="editor" keepMounted className={SETTINGS_PANEL_CLASS}>
+                  <EditorSettingsPanel
+                    editorMode={editorMode}
+                    onEditorModeChange={(nextEditorMode) => setFormState((current) => ({
+                      ...current,
+                      editorMode: nextEditorMode,
+                    }))}
+                  />
+                </TabsContent>
 
-            <TabsContent value="appearance" keepMounted className={SETTINGS_PANEL_CLASS}>
-              <AppearanceSettingsPanel controller={appearanceController} />
-            </TabsContent>
+                <TabsContent value="appearance" keepMounted className={SETTINGS_PANEL_CLASS}>
+                  <AppearanceSettingsPanel controller={appearanceController} />
+                </TabsContent>
 
-            <TabsContent value="vault" keepMounted className={SETTINGS_PANEL_CLASS}>
-              <VaultSettingsPanel
-                error={localVaultError}
-                settings={settings}
-                snapshot={localVaultSnapshot}
-                onChooseLocalVault={onChooseLocalVault}
-                onForgetLocalVault={onForgetLocalVault}
-                onOpenLocalVault={onOpenLocalVault}
-                onRefreshLocalVault={onRefreshLocalVault}
-              />
-            </TabsContent>
+                <TabsContent value="vault" keepMounted className={SETTINGS_PANEL_CLASS}>
+                  <VaultSettingsPanel
+                    error={localVaultError}
+                    settings={settings}
+                    snapshot={localVaultSnapshot}
+                    onChooseLocalVault={onChooseLocalVault}
+                    onForgetLocalVault={onForgetLocalVault}
+                    onOpenLocalVault={onOpenLocalVault}
+                    onRefreshLocalVault={onRefreshLocalVault}
+                  />
+                </TabsContent>
 
-            <TabsContent value="hackmd" keepMounted className={SETTINGS_PANEL_CLASS}>
-              <HackmdSettingsPanel
-                hasHackmdApiToken={Boolean(settings?.hasHackmdApiToken)}
-                token={token}
-                tokenVisible={tokenVisible}
-                tokenTest={tokenTest}
-                onTokenChange={(nextToken) => setFormState((current) => ({ ...current, token: nextToken }))}
-                onTokenVisibleChange={(nextVisible) => setFormState((current) => ({ ...current, tokenVisible: nextVisible }))}
-                onTokenTestChange={(nextTokenTest) => setFormState((current) => ({ ...current, tokenTest: nextTokenTest }))}
-                onValidateToken={onValidateToken}
-              />
-            </TabsContent>
+                <TabsContent value="hackmd" keepMounted className={SETTINGS_PANEL_CLASS}>
+                  <HackmdSettingsPanel
+                    hasHackmdApiToken={Boolean(settings?.hasHackmdApiToken)}
+                    token={token}
+                    tokenVisible={tokenVisible}
+                    tokenTest={tokenTest}
+                    onTokenChange={(nextToken) => setFormState((current) => ({ ...current, token: nextToken }))}
+                    onTokenVisibleChange={(nextVisible) => setFormState((current) => ({ ...current, tokenVisible: nextVisible }))}
+                    onTokenTestChange={(nextTokenTest) => setFormState((current) => ({ ...current, tokenTest: nextTokenTest }))}
+                    onValidateToken={onValidateToken}
+                  />
+                </TabsContent>
 
-            <TabsContent value="advanced" keepMounted className={SETTINGS_PANEL_CLASS}>
-              <AdvancedSettingsPanel onResetAllSettings={handleResetAllSettings} />
-            </TabsContent>
+                <TabsContent value="advanced" keepMounted className={SETTINGS_PANEL_CLASS}>
+                  <AdvancedSettingsPanel onResetAllSettings={handleResetAllSettings} />
+                </TabsContent>
+              </div>
+            </div>
 
             <SettingsDialogFooter
               activeTab={activeTab}
-              activeTabDescription={activeTabDefinition.description}
               appearanceStatus={appearanceController.status}
               canSaveTitle={Boolean(title.trim())}
               isSaving={isSaving}

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ThemeProvider } from '@/components/theme-provider';
@@ -149,15 +149,17 @@ describe('SettingsDialog', () => {
     });
   });
 
-  it('automatically activates tabs with horizontal arrow keys and loops focus', async () => {
+  it('renders a vertical settings tablist and activates tabs with vertical arrow keys', async () => {
     renderSettingsDialog();
+
+    expect(screen.getByRole('tablist', { name: 'Settings sections' })).toHaveAttribute('aria-orientation', 'vertical');
 
     const generalTab = screen.getByRole('tab', { name: /General/ });
     const editorTab = screen.getByRole('tab', { name: /Editor/ });
     const advancedTab = screen.getByRole('tab', { name: /Advanced/ });
 
     generalTab.focus();
-    fireEvent.keyDown(generalTab, { key: 'ArrowRight' });
+    fireEvent.keyDown(generalTab, { key: 'ArrowDown' });
 
     await waitFor(() => {
       expect(editorTab).toHaveFocus();
@@ -165,13 +167,13 @@ describe('SettingsDialog', () => {
       expect(screen.getByRole('tabpanel', { name: 'Editor' })).toBeVisible();
     });
 
-    fireEvent.keyDown(editorTab, { key: 'ArrowLeft' });
+    fireEvent.keyDown(editorTab, { key: 'ArrowUp' });
     await waitFor(() => {
       expect(generalTab).toHaveFocus();
       expect(generalTab).toHaveAttribute('aria-selected', 'true');
     });
 
-    fireEvent.keyDown(generalTab, { key: 'ArrowLeft' });
+    fireEvent.keyDown(generalTab, { key: 'ArrowUp' });
     await waitFor(() => {
       expect(advancedTab).toHaveFocus();
       expect(advancedTab).toHaveAttribute('aria-selected', 'true');
@@ -183,41 +185,41 @@ describe('SettingsDialog', () => {
     renderSettingsDialog();
 
     expect(screen.getByRole('tab', { name: /General/ })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByLabelText('Window Title')).toBeVisible();
+    expect(screen.getByLabelText('Window title')).toBeVisible();
     expect(screen.getByLabelText('API Token')).not.toBeVisible();
     expect(screen.queryByText('Apply Theme')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
     expect(screen.getByText('No local vault configured')).toBeVisible();
-    expect(screen.getByLabelText('Window Title')).not.toBeVisible();
+    expect(screen.getByLabelText('Window title')).not.toBeVisible();
 
     fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
     expect(screen.getByLabelText('API Token')).toBeVisible();
-    expect(screen.getByLabelText('Window Title')).not.toBeVisible();
+    expect(screen.getByLabelText('Window title')).not.toBeVisible();
   });
 
-  it('updates footer copy and actions with the active tab', () => {
+  it('updates footer actions with the active tab without repeating tab descriptions', () => {
     renderSettingsDialog();
 
-    expect(screen.getByText('Window title and local app defaults.')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Save' })).toBeVisible();
+    expect(screen.queryByText('Window title and local app defaults.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save settings' })).toBeVisible();
 
     fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
-    expect(screen.getByText('Theme mode, presets, fonts, and color seeds.')).toBeVisible();
+    expect(screen.queryByText('Theme mode, presets, fonts, and color seeds.')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Apply Theme' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save settings' })).toBeNull();
 
     fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
-    const vaultFooterDescription = screen.getByText('Manage the local Markdown folder.');
-    expect(vaultFooterDescription).toBeVisible();
-    expect(within(vaultFooterDescription.parentElement!).getByRole('button', { name: 'Close' })).toBeVisible();
+    expect(screen.queryByText('Manage the local Markdown folder.')).not.toBeInTheDocument();
+    const closeButtons = screen.getAllByRole('button', { name: 'Close' });
+    expect(closeButtons.length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'Apply Theme' })).toBeNull();
   });
 
   it('preserves settings drafts while switching between mounted panels', () => {
     renderSettingsDialog();
 
-    const titleInput = screen.getByLabelText('Window Title');
+    const titleInput = screen.getByLabelText('Window title');
     const tokenInput = screen.getByLabelText('API Token');
     fireEvent.change(titleInput, { target: { value: 'Focus Desk' } });
 
@@ -246,7 +248,7 @@ describe('SettingsDialog', () => {
 
     expect(screen.getByRole('radio', { name: /Standard/ })).toBeChecked();
     fireEvent.click(screen.getByText('Helix'));
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
 
     expect(onSave).toHaveBeenCalledWith({
       title: 'HackDesk',
@@ -395,6 +397,8 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
 
     expect(screen.getByText('Typography')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'About Appearance' })).toBeVisible();
+    expect(screen.queryByText('Choose local font stacks for HackDesk chrome and the markdown editor.')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Theme preset')).toHaveTextContent('HackMD Neo');
     expect(screen.getByLabelText('Theme preset')).not.toHaveTextContent('hackmd-neo');
     expect(screen.getByText('The default HackDesk writing palette.')).toBeVisible();
@@ -419,10 +423,10 @@ describe('SettingsDialog', () => {
   it('saves title and token from their tab-specific footer action', () => {
     const { onSave } = renderSettingsDialog();
 
-    fireEvent.change(screen.getByLabelText('Window Title'), {
+    fireEvent.change(screen.getByLabelText('Window title'), {
       target: { value: 'Focus Desk' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
 
     expect(onSave).toHaveBeenCalledWith({ title: 'Focus Desk' });
 
@@ -430,7 +434,7 @@ describe('SettingsDialog', () => {
     fireEvent.change(screen.getByLabelText('API Token'), {
       target: { value: ' secret-token ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
 
     expect(onSave).toHaveBeenLastCalledWith({
       title: 'Focus Desk',
@@ -517,6 +521,7 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
 
     expect(screen.getByText('/Users/michael/Notes')).toBeInTheDocument();
+    expect(screen.getByText('These actions change HackDesk settings only. Markdown files are not deleted.')).toBeVisible();
     expect(screen.getByText('Notes')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByText('Folders')).toBeInTheDocument();
@@ -537,6 +542,7 @@ describe('SettingsDialog', () => {
     renderSettingsDialog();
 
     fireEvent.click(screen.getByRole('tab', { name: /Advanced/ }));
+    expect(screen.getByText('Restores local preferences and clears the configured HackMD token. Notes and vault files are not deleted.')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Check for Updates' }));
 
     expect(toastErrorMock).toHaveBeenCalledWith('Update checks are available only in the packaged Electron app.');
