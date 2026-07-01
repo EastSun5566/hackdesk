@@ -555,6 +555,20 @@ describe('Home native-feel behavior', () => {
       onboarding: { hackmdTokenSetupDeferred: false },
       shouldShowHackmdOnboarding: false,
     }));
+    const getCurrentUser = vi.fn(async () => ({
+      source: 'remote' as const,
+      data: {
+        id: 'user-1',
+        email: 'michael@example.com',
+        name: 'Michael',
+        username: 'michael',
+        photo: null,
+        upgraded: false,
+        teams: [],
+      },
+    }));
+    const listNotes = vi.fn(async () => ({ source: 'remote' as const, data: [note] }));
+    const listFolders = vi.fn(async () => ({ source: 'remote' as const, data: [folder] }));
     const api = createApi({
       settings: {
         get: vi.fn(async () => createSafeSettings({
@@ -566,7 +580,7 @@ describe('Home native-feel behavior', () => {
         })),
         update: updateSettings,
       },
-      hackmd: { validateToken },
+      hackmd: { getCurrentUser, listFolders, listNotes, validateToken },
     });
 
     renderHome(api);
@@ -581,11 +595,17 @@ describe('Home native-feel behavior', () => {
       title: 'HackDesk',
       hackmdApiToken: 'secret-token',
     }));
-    expect(await screen.findByText('Connected as Michael (@michael).')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Connect HackMD' })).not.toBeInTheDocument();
+    });
     expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({
       type: 'personal',
       label: 'My Workspace',
     });
+    await waitFor(() => expect(listNotes).toHaveBeenCalledOnce());
+    await waitFor(() => expect(listFolders).toHaveBeenCalledOnce());
+    await waitFor(() => expect(getCurrentUser).toHaveBeenCalledOnce());
+    expect(await screen.findByRole('button', { name: 'Open settings for Michael' })).toBeInTheDocument();
   });
 
   it('opens a local folder from HackMD onboarding as a secondary path', async () => {
@@ -658,7 +678,9 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Import token' }));
 
     await waitFor(() => expect(importHackmdCliToken).toHaveBeenCalledOnce());
-    expect(await screen.findByText('Connected as Michael (@michael).')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Connect HackMD' })).not.toBeInTheDocument();
+    });
     expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({
       type: 'personal',
       label: 'My Workspace',
@@ -705,7 +727,9 @@ describe('Home native-feel behavior', () => {
       title: 'HackDesk',
       hackmdApiToken: 'configured-token',
     }));
-    expect(await screen.findByText('Connected as Michael (@michael).')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Connect HackMD' })).not.toBeInTheDocument();
+    });
     expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({
       type: 'personal',
       label: 'My Workspace',

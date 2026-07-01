@@ -85,11 +85,9 @@ describe('HackmdOnboardingDialog', () => {
 
     await waitFor(() => expect(props.onValidateToken).toHaveBeenCalledWith('pasted-token'));
     await waitFor(() => expect(props.onSaveToken).toHaveBeenCalledWith('pasted-token'));
-    expect(await screen.findByText('Connected as Michael (@michael).')).toBeInTheDocument();
-    expect(props.onConnected).toHaveBeenCalledOnce();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Start using HackDesk' }));
+    await waitFor(() => expect(props.onConnected).toHaveBeenCalledOnce());
     expect(props.onOpenChange).toHaveBeenCalledWith(false);
+    expect(screen.queryByRole('heading', { name: 'HackMD connected' })).not.toBeInTheDocument();
   });
 
   it('shows validation errors without saving the token', async () => {
@@ -107,6 +105,24 @@ describe('HackmdOnboardingDialog', () => {
     expect(await screen.findAllByText('Invalid token')).not.toHaveLength(0);
     expect(props.onSaveToken).not.toHaveBeenCalled();
     expect(props.onConnected).not.toHaveBeenCalled();
+  });
+
+  it('keeps the dialog open when saving a validated token fails', async () => {
+    const props = renderOnboarding({
+      onSaveToken: vi.fn(async () => {
+        throw new Error('Could not save token');
+      }),
+    });
+
+    fireEvent.change(screen.getByLabelText('HackMD API Token'), {
+      target: { value: 'valid-token' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
+
+    expect(await screen.findAllByText('Could not save token')).not.toHaveLength(0);
+    expect(screen.getByRole('heading', { name: 'Connect HackMD' })).toBeInTheDocument();
+    expect(props.onConnected).not.toHaveBeenCalled();
+    expect(props.onOpenChange).not.toHaveBeenCalled();
   });
 
   it('opens HackMD settings from the token step', () => {
@@ -136,8 +152,9 @@ describe('HackmdOnboardingDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Import token' }));
 
     await waitFor(() => expect(props.onImportHackmdCliToken).toHaveBeenCalledOnce());
-    expect(await screen.findByText('Connected as Michael (@michael).')).toBeInTheDocument();
-    expect(props.onConnected).toHaveBeenCalledOnce();
+    await waitFor(() => expect(props.onConnected).toHaveBeenCalledOnce());
+    expect(props.onOpenChange).toHaveBeenCalledWith(false);
+    expect(screen.queryByRole('heading', { name: 'HackMD connected' })).not.toBeInTheDocument();
   });
 
   it('shows import errors while keeping manual token setup available', async () => {

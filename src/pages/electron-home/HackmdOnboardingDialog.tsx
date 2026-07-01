@@ -1,6 +1,5 @@
 import { useReducer, type FormEvent, type ReactNode } from 'react';
 import {
-  CheckCircle2,
   ExternalLink,
   KeyRound,
   Loader2,
@@ -27,30 +26,23 @@ import {
 const ONBOARDING_TOKEN_ID = 'hackmd-onboarding-token';
 const ONBOARDING_TOKEN_STATUS_ID = 'hackmd-onboarding-token-status';
 
-type OnboardingStep = 'connect' | 'complete';
 type OnboardingStatus = {
   kind: 'idle' | 'validating' | 'saving' | 'importing' | 'error';
   message: string;
 };
 type OnboardingState = {
-  connectedUser: UserSummary | null;
   status: OnboardingStatus;
-  step: OnboardingStep;
   token: string;
   tokenVisible: boolean;
 };
 type OnboardingAction =
   | { type: 'reset' }
-  | { type: 'set-connected-user'; user: UserSummary | null }
   | { type: 'set-status'; status: OnboardingStatus }
-  | { type: 'set-step'; step: OnboardingStep }
   | { type: 'set-token'; token: string }
   | { type: 'set-token-visible'; visible: boolean };
 
 const initialOnboardingState: OnboardingState = {
-  connectedUser: null,
   status: { kind: 'idle', message: '' },
-  step: 'connect',
   token: '',
   tokenVisible: false,
 };
@@ -59,12 +51,8 @@ function onboardingReducer(state: OnboardingState, action: OnboardingAction): On
   switch (action.type) {
   case 'reset':
     return initialOnboardingState;
-  case 'set-connected-user':
-    return { ...state, connectedUser: action.user };
   case 'set-status':
     return { ...state, status: action.status };
-  case 'set-step':
-    return { ...state, step: action.step };
   case 'set-token':
     return { ...state, token: action.token };
   case 'set-token-visible':
@@ -98,7 +86,7 @@ export function HackmdOnboardingDialog({
   onValidateToken,
 }: HackmdOnboardingDialogProps) {
   const [state, dispatch] = useReducer(onboardingReducer, initialOnboardingState);
-  const { connectedUser, status, step, token, tokenVisible } = state;
+  const { status, token, tokenVisible } = state;
   const normalizedToken = token.trim();
   const busy = status.kind === 'validating' || status.kind === 'saving' || status.kind === 'importing';
   const canImportHackmdCliToken = hackmdCliConfig.hasAccessToken && !hackmdCliConfig.hasCustomEndpoint;
@@ -142,15 +130,13 @@ export function HackmdOnboardingDialog({
 
     dispatch({ type: 'set-status', status: { kind: 'validating', message: 'Testing token...' } });
     onValidateToken(normalizedToken)
-      .then((user) => {
-        dispatch({ type: 'set-connected-user', user });
+      .then(() => {
         dispatch({ type: 'set-status', status: { kind: 'saving', message: 'Saving token locally...' } });
         return onSaveToken(normalizedToken);
       })
       .then(() => {
-        dispatch({ type: 'set-status', status: { kind: 'idle', message: '' } });
-        dispatch({ type: 'set-step', step: 'complete' });
         onConnected?.();
+        close();
       })
       .catch((error) => {
         dispatch({ type: 'set-status', status: {
@@ -170,14 +156,11 @@ export function HackmdOnboardingDialog({
       status: { kind: 'importing', message: 'Importing token from hackmd-cli...' },
     });
     onImportHackmdCliToken()
-      .then((result) => {
-        dispatch({ type: 'set-connected-user', user: result.user });
-        dispatch({ type: 'set-status', status: { kind: 'idle', message: '' } });
-        dispatch({ type: 'set-step', step: 'complete' });
+      .then(() => {
         onConnected?.();
+        close();
       })
       .catch((error) => {
-        dispatch({ type: 'set-step', step: 'connect' });
         dispatch({ type: 'set-status', status: {
           kind: 'error',
           message: error instanceof Error ? error.message : 'Failed to import hackmd-cli token.',
@@ -192,120 +175,100 @@ export function HackmdOnboardingDialog({
       }
     }}>
       <DialogContent className="w-[min(440px,calc(100dvw-2rem))] overflow-hidden p-0">
-        {step === 'connect' ? (
-          <OnboardingStepShell
-            icon={<KeyRound aria-hidden="true" className="h-8 w-8" />}
-            title="Connect HackMD"
-            description="Import your hackmd-cli token or paste a HackMD API token. HackDesk tests it before saving."
-          >
-            <HackmdCliImportCard
-              config={hackmdCliConfig}
-              busy={busy}
-              onImport={handleImportHackmdCliToken}
-            />
-            <form id="hackmd-onboarding-token-form" className="mt-4 space-y-4" onSubmit={handleSubmitToken}>
-              <SettingsRow
-                label="HackMD API Token"
-                htmlFor={ONBOARDING_TOKEN_ID}
-              >
-                <SettingsSecretInput
-                  id={ONBOARDING_TOKEN_ID}
-                  name="hackmd-api-token"
-                  visible={tokenVisible}
-                  onVisibleChange={(visible) => dispatch({ type: 'set-token-visible', visible })}
-                  value={token}
-                  onChange={(event) => {
-                    dispatch({ type: 'set-token', token: event.target.value });
-                    dispatch({ type: 'set-status', status: { kind: 'idle', message: '' } });
-                  }}
-                  placeholder="Paste token"
-                  autoComplete="off"
-                  required
-                  aria-describedby={ONBOARDING_TOKEN_STATUS_ID}
-                  aria-invalid={status.kind === 'error'}
-                />
-              </SettingsRow>
+        <OnboardingStepShell
+          icon={<KeyRound aria-hidden="true" className="h-8 w-8" />}
+          title="Connect HackMD"
+          description="Import your hackmd-cli token or paste a HackMD API token. HackDesk tests it before saving."
+        >
+          <HackmdCliImportCard
+            config={hackmdCliConfig}
+            busy={busy}
+            onImport={handleImportHackmdCliToken}
+          />
+          <form id="hackmd-onboarding-token-form" className="mt-4 space-y-4" onSubmit={handleSubmitToken}>
+            <SettingsRow
+              label="HackMD API Token"
+              htmlFor={ONBOARDING_TOKEN_ID}
+            >
+              <SettingsSecretInput
+                id={ONBOARDING_TOKEN_ID}
+                name="hackmd-api-token"
+                visible={tokenVisible}
+                onVisibleChange={(visible) => dispatch({ type: 'set-token-visible', visible })}
+                value={token}
+                onChange={(event) => {
+                  dispatch({ type: 'set-token', token: event.target.value });
+                  dispatch({ type: 'set-status', status: { kind: 'idle', message: '' } });
+                }}
+                placeholder="Paste token"
+                autoComplete="off"
+                required
+                aria-describedby={ONBOARDING_TOKEN_STATUS_ID}
+                aria-invalid={status.kind === 'error'}
+              />
+            </SettingsRow>
 
-              <div className="flex items-start justify-between gap-3">
-                <p
-                  id={ONBOARDING_TOKEN_STATUS_ID}
-                  aria-live="polite"
-                  className={cn(
-                    'min-h-5 text-xs leading-5',
-                    status.kind === 'error' ? 'text-destructive-default' : 'text-text-subtle',
-                  )}
-                >
-                  {status.message}
-                </p>
-                <button
-                  type="button"
-                  className={cn('inline-flex shrink-0 items-center gap-1 text-xs text-text-subtle transition-colors hover:text-text-default', FOCUS_RING_CLASS)}
-                  onClick={onOpenHackmdSettings}
-                >
-                  <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
-                  Open HackMD settings
-                </button>
-              </div>
-
-              <div className="pt-1">
-                <button
-                  type="submit"
-                  disabled={!normalizedToken || busy}
-                  className={cn(PRIMARY_BUTTON_CLASS, 'w-full justify-center')}
-                >
-                  {busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
-                  {status.kind === 'saving'
-                    ? 'Saving...'
-                    : status.kind === 'validating'
-                      ? 'Testing...'
-                      : status.kind === 'importing'
-                        ? 'Importing...'
-                        : 'Connect'}
-                </button>
-              </div>
-            </form>
-            <div className="mt-5 grid gap-2 border-t border-border-default pt-4">
-              <button
-                type="button"
-                disabled={busy}
-                className={cn(SECONDARY_BUTTON_CLASS, 'w-full justify-center disabled:pointer-events-none disabled:opacity-50')}
-                onClick={handleChooseLocalVault}
-              >
-                {status.message === 'Opening folder picker...' ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
-                Open local folder
-              </button>
-              <button
-                type="button"
-                disabled={busy}
+            <div className="flex items-start justify-between gap-3">
+              <p
+                id={ONBOARDING_TOKEN_STATUS_ID}
+                aria-live="polite"
                 className={cn(
-                  'inline-flex h-9 items-center justify-center rounded-md px-3 text-sm text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default disabled:pointer-events-none disabled:opacity-50',
-                  FOCUS_RING_CLASS,
+                  'min-h-5 text-xs leading-5',
+                  status.kind === 'error' ? 'text-destructive-default' : 'text-text-subtle',
                 )}
-                onClick={handleSetupLater}
               >
-                Setup later
+                {status.message}
+              </p>
+              <button
+                type="button"
+                className={cn('inline-flex shrink-0 items-center gap-1 text-xs text-text-subtle transition-colors hover:text-text-default', FOCUS_RING_CLASS)}
+                onClick={onOpenHackmdSettings}
+              >
+                <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
+                Open HackMD settings
               </button>
             </div>
-          </OnboardingStepShell>
-        ) : null}
 
-        {step === 'complete' ? (
-          <OnboardingStepShell
-            icon={<CheckCircle2 aria-hidden="true" className="h-8 w-8 text-success-default" />}
-            title="HackMD connected"
-            description={connectedUser
-              ? `Connected as ${connectedUser.name} (@${connectedUser.username}).`
-              : 'Your HackMD API token is ready.'}
-          >
+            <div className="pt-1">
+              <button
+                type="submit"
+                disabled={!normalizedToken || busy}
+                className={cn(PRIMARY_BUTTON_CLASS, 'w-full justify-center')}
+              >
+                {busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
+                {status.kind === 'saving'
+                  ? 'Saving...'
+                  : status.kind === 'validating'
+                    ? 'Testing...'
+                    : status.kind === 'importing'
+                      ? 'Importing...'
+                      : 'Connect'}
+              </button>
+            </div>
+          </form>
+          <div className="mt-5 grid gap-2 border-t border-border-default pt-4">
             <button
               type="button"
-              className={cn(PRIMARY_BUTTON_CLASS, 'mt-2 w-full justify-center')}
-              onClick={close}
+              disabled={busy}
+              className={cn(SECONDARY_BUTTON_CLASS, 'w-full justify-center disabled:pointer-events-none disabled:opacity-50')}
+              onClick={handleChooseLocalVault}
             >
-              Start using HackDesk
+              {status.message === 'Opening folder picker...' ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
+              Open local folder
             </button>
-          </OnboardingStepShell>
-        ) : null}
+            <button
+              type="button"
+              disabled={busy}
+              className={cn(
+                'inline-flex h-9 items-center justify-center rounded-md px-3 text-sm text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default disabled:pointer-events-none disabled:opacity-50',
+                FOCUS_RING_CLASS,
+              )}
+              onClick={handleSetupLater}
+            >
+              Setup later
+            </button>
+          </div>
+        </OnboardingStepShell>
       </DialogContent>
     </Dialog>
   );
