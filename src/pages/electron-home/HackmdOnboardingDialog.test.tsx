@@ -49,10 +49,19 @@ function renderOnboarding(overrides: Partial<Parameters<typeof HackmdOnboardingD
 }
 
 describe('HackmdOnboardingDialog', () => {
+  it('starts with a HackMD-first connect screen', () => {
+    renderOnboarding();
+
+    expect(screen.getByRole('heading', { name: 'Connect HackMD' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Create your local vault' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('HackMD API Token')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open local folder' })).toBeVisible();
+  });
+
   it('hides hackmd-cli import when no CLI token exists', () => {
     renderOnboarding();
 
-    expect(screen.queryByText('Token found in hackmd-cli')).not.toBeInTheDocument();
+    expect(screen.queryByText('hackmd-cli token found')).not.toBeInTheDocument();
   });
 
   it('lets users defer token setup', async () => {
@@ -67,7 +76,6 @@ describe('HackmdOnboardingDialog', () => {
   it('validates a token before saving it', async () => {
     const props = renderOnboarding();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Connect HackMD instead' }));
     fireEvent.change(screen.getByLabelText('HackMD API Token'), {
       target: { value: ' pasted-token ' },
     });
@@ -88,7 +96,6 @@ describe('HackmdOnboardingDialog', () => {
       }),
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Connect HackMD instead' }));
     fireEvent.change(screen.getByLabelText('HackMD API Token'), {
       target: { value: 'bad-token' },
     });
@@ -101,10 +108,18 @@ describe('HackmdOnboardingDialog', () => {
   it('opens HackMD settings from the token step', () => {
     const props = renderOnboarding();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Connect HackMD instead' }));
     fireEvent.click(screen.getByRole('button', { name: 'Open HackMD settings' }));
 
     expect(props.onOpenHackmdSettings).toHaveBeenCalledOnce();
+  });
+
+  it('opens a local folder as a secondary path', async () => {
+    const props = renderOnboarding();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open local folder' }));
+
+    await waitFor(() => expect(props.onChooseLocalVault).toHaveBeenCalledOnce());
+    expect(props.onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it('imports an available hackmd-cli token', async () => {
@@ -112,8 +127,8 @@ describe('HackmdOnboardingDialog', () => {
       hackmdCliConfig: { hasAccessToken: true, hasCustomEndpoint: false },
     });
 
-    expect(screen.getByText('Token found in hackmd-cli')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Import from hackmd-cli' }));
+    expect(screen.getByText('hackmd-cli token found')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Import token' }));
 
     await waitFor(() => expect(props.onImportHackmdCliToken).toHaveBeenCalledOnce());
     expect(await screen.findByText('Connected as Michael (@michael).')).toBeInTheDocument();
@@ -127,7 +142,7 @@ describe('HackmdOnboardingDialog', () => {
       }),
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Import from hackmd-cli' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Import token' }));
 
     expect(await screen.findAllByText('CLI token is invalid')).not.toHaveLength(0);
     expect(screen.getByLabelText('HackMD API Token')).toBeInTheDocument();
@@ -139,7 +154,8 @@ describe('HackmdOnboardingDialog', () => {
       hackmdCliConfig: { hasAccessToken: true, hasCustomEndpoint: true },
     });
 
-    expect(screen.getByText('Custom endpoint is not imported in this version.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Import from hackmd-cli' })).toBeDisabled();
+    expect(screen.getByText('Custom endpoints are not imported in this version.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Import token' })).toBeDisabled();
+    expect(screen.getByLabelText('HackMD API Token')).toBeInTheDocument();
   });
 });

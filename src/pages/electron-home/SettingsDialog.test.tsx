@@ -202,8 +202,11 @@ describe('SettingsDialog', () => {
     renderSettingsDialog();
 
     expect(screen.queryByText('Window title and local app defaults.')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Save' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Save' })).not.toHaveAttribute('title');
+    const saveButton = screen.getByRole('button', { name: 'Save' });
+    expect(saveButton).toBeVisible();
+    expect(saveButton).toHaveTextContent('Save');
+    expect(saveButton).not.toHaveAttribute('title');
+    expect(screen.queryByText('Save settings')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
     expect(screen.queryByText('Theme mode, presets, fonts, and color seeds.')).not.toBeInTheDocument();
@@ -301,7 +304,10 @@ describe('SettingsDialog', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Reset All Settings' }));
     const confirmDialog = screen.getByRole('alertdialog', { name: 'Reset All Settings?' });
-    fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Reset All Settings' }));
+    const confirmButton = within(confirmDialog).getByRole('button', { name: 'Reset All Settings' });
+    expect(confirmButton).toHaveClass('bg-destructive-default');
+    expect(confirmButton).toHaveClass('text-destructive-foreground');
+    fireEvent.click(confirmButton);
 
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
       editor: { mode: 'standard' },
@@ -420,13 +426,19 @@ describe('SettingsDialog', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('shows Electron appearance typography controls and mainstream presets', () => {
+  it('shows Electron appearance typography controls and mainstream presets', async () => {
     renderSettingsDialog();
 
     fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
 
     expect(screen.getByText('Typography')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'About Appearance' })).toBeVisible();
+    const helpButton = screen.getByRole('button', { name: 'About Appearance' });
+    expect(helpButton).toBeVisible();
+    expect(helpButton).toHaveClass('relative');
+    expect(helpButton.className).toContain('after:-inset-2');
+    helpButton.focus();
+    expect(helpButton).toHaveFocus();
+    expect(await screen.findByText('Theme changes preview immediately. Apply Theme keeps the preview; Cancel Preview restores the saved theme.')).toBeVisible();
     expect(screen.queryByText('Choose local font stacks for HackDesk chrome and the markdown editor.')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Theme preset')).toHaveTextContent('HackMD Neo');
     expect(screen.getByLabelText('Theme preset')).not.toHaveTextContent('hackmd-neo');
@@ -555,6 +567,10 @@ describe('SettingsDialog', () => {
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByText('Folders')).toBeInTheDocument();
     expect(screen.getByText('1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open in Finder' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Refresh Vault' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Change Vault' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Forget Vault' })).toBeVisible();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open in Finder' }));
     fireEvent.click(screen.getByRole('button', { name: 'Refresh Vault' }));

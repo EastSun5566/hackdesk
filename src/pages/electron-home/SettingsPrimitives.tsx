@@ -69,7 +69,7 @@ function SettingsHelpTooltip({
         type="button"
         aria-label={`About ${label}`}
         className={cn(
-          'inline-flex size-5 items-center justify-center rounded-full text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default',
+          "relative inline-flex size-5 items-center justify-center rounded-full text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default after:absolute after:-inset-2 after:content-['']",
           FOCUS_RING_CLASS,
         )}
       >

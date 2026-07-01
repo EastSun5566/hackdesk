@@ -1,11 +1,9 @@
 import { useReducer, type FormEvent, type ReactNode } from 'react';
 import {
-  AlertCircle,
   CheckCircle2,
   ExternalLink,
   KeyRound,
   Loader2,
-  HardDrive,
   TerminalSquare,
 } from 'lucide-react';
 
@@ -29,7 +27,7 @@ import {
 const ONBOARDING_TOKEN_ID = 'hackmd-onboarding-token';
 const ONBOARDING_TOKEN_STATUS_ID = 'hackmd-onboarding-token-status';
 
-type OnboardingStep = 'welcome' | 'token' | 'complete';
+type OnboardingStep = 'connect' | 'complete';
 type OnboardingStatus = {
   kind: 'idle' | 'validating' | 'saving' | 'importing' | 'error';
   message: string;
@@ -52,7 +50,7 @@ type OnboardingAction =
 const initialOnboardingState: OnboardingState = {
   connectedUser: null,
   status: { kind: 'idle', message: '' },
-  step: 'welcome',
+  step: 'connect',
   token: '',
   tokenVisible: false,
 };
@@ -175,7 +173,7 @@ export function HackmdOnboardingDialog({
         dispatch({ type: 'set-step', step: 'complete' });
       })
       .catch((error) => {
-        dispatch({ type: 'set-step', step: 'token' });
+        dispatch({ type: 'set-step', step: 'connect' });
         dispatch({ type: 'set-status', status: {
           kind: 'error',
           message: error instanceof Error ? error.message : 'Failed to import hackmd-cli token.',
@@ -190,71 +188,21 @@ export function HackmdOnboardingDialog({
       }
     }}>
       <DialogContent className="w-[min(440px,calc(100dvw-2rem))] overflow-hidden p-0">
-        {step === 'welcome' ? (
-          <OnboardingStepShell
-            icon={<HardDrive aria-hidden="true" className="h-8 w-8" />}
-            title="Create your local vault"
-            description="HackDesk works with plain Markdown files first. HackMD can be connected later as a sync target."
-          >
-            <div className="space-y-3 rounded-lg border border-border-default bg-background-muted p-3 text-sm text-text-subtle">
-              <p>Choose an existing folder or create a new one. Notes are stored as UTF-8 <code className="font-mono">.md</code> files.</p>
-              <p>HackDesk keeps a small hidden <code className="font-mono">.hackdesk</code> manifest for stable note IDs.</p>
-            </div>
-            <HackmdCliImportCard
-              config={hackmdCliConfig}
-              busy={busy}
-              onImport={handleImportHackmdCliToken}
-            />
-            {status.kind === 'error' ? (
-              <div className="mt-4 flex gap-2 rounded-md bg-destructive-soft p-3 text-sm text-destructive-default">
-                <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{status.message}</span>
-              </div>
-            ) : null}
-            <div className="mt-6 flex flex-col gap-3">
-              <button
-                type="button"
-                className={cn(PRIMARY_BUTTON_CLASS, 'w-full justify-center')}
-                disabled={busy}
-                onClick={handleChooseLocalVault}
-              >
-                {busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
-                Open or create local vault
-              </button>
-              <button
-                type="button"
-                className={cn(SECONDARY_BUTTON_CLASS, 'flex-1 justify-center')}
-                onClick={handleSetupLater}
-              >
-                Setup later
-              </button>
-              <button
-                type="button"
-                className={cn(SECONDARY_BUTTON_CLASS, 'flex-1 justify-center')}
-                onClick={() => dispatch({ type: 'set-step', step: 'token' })}
-              >
-                Connect HackMD instead
-              </button>
-            </div>
-          </OnboardingStepShell>
-        ) : null}
-
-        {step === 'token' ? (
+        {step === 'connect' ? (
           <OnboardingStepShell
             icon={<KeyRound aria-hidden="true" className="h-8 w-8" />}
-            title="Add your API token"
-            description="Paste a HackMD API token. HackDesk will test it before saving."
+            title="Connect HackMD"
+            description="Import your hackmd-cli token or paste a HackMD API token. HackDesk tests it before saving."
           >
             <HackmdCliImportCard
               config={hackmdCliConfig}
               busy={busy}
               onImport={handleImportHackmdCliToken}
             />
-            <form id="hackmd-onboarding-token-form" className="space-y-4" onSubmit={handleSubmitToken}>
+            <form id="hackmd-onboarding-token-form" className="mt-4 space-y-4" onSubmit={handleSubmitToken}>
               <SettingsRow
                 label="HackMD API Token"
                 htmlFor={ONBOARDING_TOKEN_ID}
-                description="Generate a personal access token from your HackMD account settings."
               >
                 <SettingsSecretInput
                   id={ONBOARDING_TOKEN_ID}
@@ -295,26 +243,11 @@ export function HackmdOnboardingDialog({
                 </button>
               </div>
 
-              {status.kind === 'error' ? (
-                <div className="flex gap-2 rounded-md bg-destructive-soft p-3 text-sm text-destructive-default">
-                  <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>{status.message}</span>
-                </div>
-              ) : null}
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  disabled={busy}
-                  className={cn(SECONDARY_BUTTON_CLASS, 'flex-1 justify-center disabled:pointer-events-none disabled:opacity-50')}
-                  onClick={() => dispatch({ type: 'set-step', step: 'welcome' })}
-                >
-                  Back
-                </button>
+              <div className="pt-1">
                 <button
                   type="submit"
                   disabled={!normalizedToken || busy}
-                  className={cn(PRIMARY_BUTTON_CLASS, 'flex-1 justify-center')}
+                  className={cn(PRIMARY_BUTTON_CLASS, 'w-full justify-center')}
                 >
                   {busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
                   {status.kind === 'saving'
@@ -327,6 +260,28 @@ export function HackmdOnboardingDialog({
                 </button>
               </div>
             </form>
+            <div className="mt-5 grid gap-2 border-t border-border-default pt-4">
+              <button
+                type="button"
+                disabled={busy}
+                className={cn(SECONDARY_BUTTON_CLASS, 'w-full justify-center disabled:pointer-events-none disabled:opacity-50')}
+                onClick={handleChooseLocalVault}
+              >
+                {status.message === 'Opening folder picker...' ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
+                Open local folder
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                className={cn(
+                  'inline-flex h-9 items-center justify-center rounded-md px-3 text-sm text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default disabled:pointer-events-none disabled:opacity-50',
+                  FOCUS_RING_CLASS,
+                )}
+                onClick={handleSetupLater}
+              >
+                Setup later
+              </button>
+            </div>
           </OnboardingStepShell>
         ) : null}
 
@@ -368,19 +323,19 @@ function HackmdCliImportCard({
   const unsupportedCustomEndpoint = config.hasCustomEndpoint;
 
   return (
-    <div className="mt-4 rounded-lg border border-border-default bg-background-muted p-3">
+    <div className="rounded-lg border border-border-default bg-background-muted p-3">
       <div className="flex items-start gap-3">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary-soft text-primary-default">
           <TerminalSquare aria-hidden="true" className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-text-default">Token found in hackmd-cli</p>
+          <p className="text-sm font-medium text-text-default">hackmd-cli token found</p>
           <p className="mt-1 text-xs leading-5 text-text-subtle">
-            HackDesk can import the token saved by <code className="font-mono">hackmd-cli login</code>.
+            Use the token from <code className="font-mono">hackmd-cli login</code>.
           </p>
           {unsupportedCustomEndpoint ? (
             <p className="mt-2 text-xs leading-5 text-warning-default">
-              Custom endpoint is not imported in this version.
+              Custom endpoints are not imported in this version.
             </p>
           ) : null}
         </div>
@@ -389,12 +344,12 @@ function HackmdCliImportCard({
         type="button"
         disabled={busy || unsupportedCustomEndpoint}
         className={cn(
-          SECONDARY_BUTTON_CLASS,
+          PRIMARY_BUTTON_CLASS,
           'mt-3 w-full justify-center disabled:pointer-events-none disabled:opacity-50',
         )}
         onClick={onImport}
       >
-        Import from hackmd-cli
+        Import token
       </button>
     </div>
   );

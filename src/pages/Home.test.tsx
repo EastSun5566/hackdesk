@@ -395,7 +395,7 @@ describe('Home native-feel behavior', () => {
     expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
   });
 
-  it('opens first-run local vault onboarding when no token is configured', async () => {
+  it('opens first-run HackMD onboarding when no token is configured', async () => {
     const api = createApi({
       settings: {
         get: vi.fn(async () => createSafeSettings({
@@ -408,7 +408,7 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
 
-    expect(await screen.findByRole('heading', { name: 'Create your local vault' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Connect HackMD' })).toBeInTheDocument();
   });
 
   it('connects the configured HackMD account on startup without leaving the local vault workspace', async () => {
@@ -535,7 +535,7 @@ describe('Home native-feel behavior', () => {
       title: 'HackDesk',
       onboarding: { hackmdTokenSetupDeferred: true },
     }));
-    expect(screen.queryByRole('heading', { name: 'Create your local vault' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Connect HackMD' })).not.toBeInTheDocument();
   });
 
   it('validates and saves a token from first-run HackMD onboarding', async () => {
@@ -566,7 +566,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Connect HackMD instead' }));
+    await screen.findByRole('heading', { name: 'Connect HackMD' });
     fireEvent.change(screen.getByLabelText('HackMD API Token'), {
       target: { value: ' secret-token ' },
     });
@@ -578,6 +578,39 @@ describe('Home native-feel behavior', () => {
       hackmdApiToken: 'secret-token',
     }));
     expect(await screen.findByText('Connected as Michael (@michael).')).toBeInTheDocument();
+  });
+
+  it('opens a local folder from HackMD onboarding as a secondary path', async () => {
+    const chooseLocalVault = vi.fn(async () => ({
+      canceled: false,
+      settings: createSafeSettings({
+        hasHackmdApiToken: false,
+        hasLocalVault: true,
+        localVault: { path: '/Users/michael/Notes' },
+        onboarding: { hackmdTokenSetupDeferred: false },
+        shouldShowHackmdOnboarding: false,
+      }),
+    }));
+    const api = createApi({
+      settings: {
+        get: vi.fn(async () => createSafeSettings({
+          hasHackmdApiToken: false,
+          onboarding: { hackmdTokenSetupDeferred: false },
+          shouldShowHackmdOnboarding: true,
+        })),
+      },
+      localVault: {
+        choose: chooseLocalVault,
+      },
+    });
+
+    renderHome(api);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open local folder' }));
+
+    await waitFor(() => expect(chooseLocalVault).toHaveBeenCalledOnce());
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Connect HackMD' })).not.toBeInTheDocument();
+    });
   });
 
   it('imports a hackmd-cli token from first-run HackMD onboarding', async () => {
@@ -610,7 +643,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Import from hackmd-cli' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Import token' }));
 
     await waitFor(() => expect(importHackmdCliToken).toHaveBeenCalledOnce());
     expect(await screen.findByText('Connected as Michael (@michael).')).toBeInTheDocument();
@@ -630,7 +663,7 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
     fireEvent.click(await screen.findByRole('button', { name: 'Configure Token' }));
 
-    expect(await screen.findByRole('heading', { name: 'Create your local vault' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Connect HackMD' })).toBeInTheDocument();
   });
 
   it('confirms the native close request when the current note is clean', async () => {
