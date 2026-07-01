@@ -33,7 +33,9 @@ vi.mock('./DeleteNoteDialog', () => ({
 }));
 
 vi.mock('./HackmdOnboardingDialog', () => ({
-  HackmdOnboardingDialog: () => null,
+  HackmdOnboardingDialog: ({ onConnected }: { onConnected?: () => void }) => (
+    <button type="button" onClick={onConnected}>Onboarding connected mock</button>
+  ),
 }));
 
 vi.mock('./RenameFolderDialog', () => ({
@@ -110,6 +112,7 @@ function createProps(overrides: Partial<ElectronHomeDialogsProps> = {}): Electro
     onDeleteNote: vi.fn(),
     onDeleteNoteCancel: vi.fn(),
     onChooseLocalVault: vi.fn(async () => undefined),
+    onOnboardingConnected: vi.fn(),
     onForgetLocalVault: vi.fn(async () => undefined),
     onImportHackmdCliToken: vi.fn(async () => ({
       settings: {
@@ -176,5 +179,14 @@ describe('ElectronHomeDialogs', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete note mock' }));
 
     expect(onDeleteNote).toHaveBeenCalledWith(note);
+  });
+
+  it('wires onboarding connection success through the dialog composition', () => {
+    const onOnboardingConnected = vi.fn();
+    renderDialogs(createProps({ onOnboardingConnected }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Onboarding connected mock' }));
+
+    expect(onOnboardingConnected).toHaveBeenCalledOnce();
   });
 });

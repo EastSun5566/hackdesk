@@ -111,6 +111,7 @@ function createProps(overrides: Partial<ElectronHomeOverlaysProps> = {}): Electr
       })),
       onChooseLocalVault: vi.fn(async () => undefined),
       onForgetLocalVault: vi.fn(async () => undefined),
+      onOnboardingConnected: vi.fn(),
       onOnboardingOpenChange: vi.fn(),
       onOpenLocalVault: vi.fn(async () => undefined),
       onRefreshLocalVault: vi.fn(async () => undefined),

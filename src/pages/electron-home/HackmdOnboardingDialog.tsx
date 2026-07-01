@@ -77,6 +77,7 @@ export type HackmdOnboardingDialogProps = {
   onOpenChange: (open: boolean) => void;
   hackmdCliConfig: HackmdCliConfigStatus;
   onChooseLocalVault: () => Promise<void>;
+  onConnected?: () => void;
   onImportHackmdCliToken: () => Promise<ImportHackmdCliTokenResult>;
   onOpenHackmdSettings: () => void;
   onSaveToken: (token: string) => Promise<void>;
@@ -88,6 +89,7 @@ export function HackmdOnboardingDialog({
   hackmdCliConfig,
   open,
   onChooseLocalVault,
+  onConnected,
   onImportHackmdCliToken,
   onOpenChange,
   onOpenHackmdSettings,
@@ -148,6 +150,7 @@ export function HackmdOnboardingDialog({
       .then(() => {
         dispatch({ type: 'set-status', status: { kind: 'idle', message: '' } });
         dispatch({ type: 'set-step', step: 'complete' });
+        onConnected?.();
       })
       .catch((error) => {
         dispatch({ type: 'set-status', status: {
@@ -171,6 +174,7 @@ export function HackmdOnboardingDialog({
         dispatch({ type: 'set-connected-user', user: result.user });
         dispatch({ type: 'set-status', status: { kind: 'idle', message: '' } });
         dispatch({ type: 'set-step', step: 'complete' });
+        onConnected?.();
       })
       .catch((error) => {
         dispatch({ type: 'set-step', step: 'connect' });

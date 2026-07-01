@@ -21,6 +21,7 @@ function renderOnboarding(overrides: Partial<Parameters<typeof HackmdOnboardingD
     open: true,
     hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
     onChooseLocalVault: vi.fn(async () => undefined),
+    onConnected: vi.fn(),
     onImportHackmdCliToken: vi.fn(async () => ({
       settings: {
         title: 'HackDesk',
@@ -71,6 +72,7 @@ describe('HackmdOnboardingDialog', () => {
 
     await waitFor(() => expect(props.onSetupLater).toHaveBeenCalledOnce());
     expect(props.onOpenChange).toHaveBeenCalledWith(false);
+    expect(props.onConnected).not.toHaveBeenCalled();
   });
 
   it('validates a token before saving it', async () => {
@@ -84,6 +86,7 @@ describe('HackmdOnboardingDialog', () => {
     await waitFor(() => expect(props.onValidateToken).toHaveBeenCalledWith('pasted-token'));
     await waitFor(() => expect(props.onSaveToken).toHaveBeenCalledWith('pasted-token'));
     expect(await screen.findByText('Connected as Michael (@michael).')).toBeInTheDocument();
+    expect(props.onConnected).toHaveBeenCalledOnce();
 
     fireEvent.click(screen.getByRole('button', { name: 'Start using HackDesk' }));
     expect(props.onOpenChange).toHaveBeenCalledWith(false);
@@ -103,6 +106,7 @@ describe('HackmdOnboardingDialog', () => {
 
     expect(await screen.findAllByText('Invalid token')).not.toHaveLength(0);
     expect(props.onSaveToken).not.toHaveBeenCalled();
+    expect(props.onConnected).not.toHaveBeenCalled();
   });
 
   it('opens HackMD settings from the token step', () => {
@@ -120,6 +124,7 @@ describe('HackmdOnboardingDialog', () => {
 
     await waitFor(() => expect(props.onChooseLocalVault).toHaveBeenCalledOnce());
     expect(props.onOpenChange).toHaveBeenCalledWith(false);
+    expect(props.onConnected).not.toHaveBeenCalled();
   });
 
   it('imports an available hackmd-cli token', async () => {
@@ -132,6 +137,7 @@ describe('HackmdOnboardingDialog', () => {
 
     await waitFor(() => expect(props.onImportHackmdCliToken).toHaveBeenCalledOnce());
     expect(await screen.findByText('Connected as Michael (@michael).')).toBeInTheDocument();
+    expect(props.onConnected).toHaveBeenCalledOnce();
   });
 
   it('shows import errors while keeping manual token setup available', async () => {
@@ -147,6 +153,7 @@ describe('HackmdOnboardingDialog', () => {
     expect(await screen.findAllByText('CLI token is invalid')).not.toHaveLength(0);
     expect(screen.getByLabelText('HackMD API Token')).toBeInTheDocument();
     expect(props.onSaveToken).not.toHaveBeenCalled();
+    expect(props.onConnected).not.toHaveBeenCalled();
   });
 
   it('disables hackmd-cli import for custom endpoints', () => {

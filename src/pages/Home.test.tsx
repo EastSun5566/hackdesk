@@ -550,6 +550,8 @@ describe('Home native-feel behavior', () => {
     }));
     const updateSettings = vi.fn(async () => createSafeSettings({
       hasHackmdApiToken: true,
+      hasLocalVault: true,
+      localVault: { path: '/Users/michael/Notes' },
       onboarding: { hackmdTokenSetupDeferred: false },
       shouldShowHackmdOnboarding: false,
     }));
@@ -557,6 +559,8 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: false,
+          hasLocalVault: true,
+          localVault: { path: '/Users/michael/Notes' },
           onboarding: { hackmdTokenSetupDeferred: false },
           shouldShowHackmdOnboarding: true,
         })),
@@ -578,6 +582,10 @@ describe('Home native-feel behavior', () => {
       hackmdApiToken: 'secret-token',
     }));
     expect(await screen.findByText('Connected as Michael (@michael).')).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({
+      type: 'personal',
+      label: 'My Workspace',
+    });
   });
 
   it('opens a local folder from HackMD onboarding as a secondary path', async () => {
@@ -610,6 +618,10 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(chooseLocalVault).toHaveBeenCalledOnce());
     await waitFor(() => {
       expect(screen.queryByRole('heading', { name: 'Connect HackMD' })).not.toBeInTheDocument();
+    });
+    expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({
+      type: 'local',
+      label: 'Local Vault',
     });
   });
 
@@ -647,9 +659,27 @@ describe('Home native-feel behavior', () => {
 
     await waitFor(() => expect(importHackmdCliToken).toHaveBeenCalledOnce());
     expect(await screen.findByText('Connected as Michael (@michael).')).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({
+      type: 'personal',
+      label: 'My Workspace',
+    });
   });
 
-  it('opens HackMD onboarding from the empty navigator configure action', async () => {
+  it('connects to My Workspace from the empty navigator configure action', async () => {
+    const validateToken = vi.fn(async () => ({
+      id: 'user-1',
+      email: 'michael@example.com',
+      name: 'Michael',
+      username: 'michael',
+      photo: null,
+      upgraded: false,
+      teams: [],
+    }));
+    const updateSettings = vi.fn(async () => createSafeSettings({
+      hasHackmdApiToken: true,
+      onboarding: { hackmdTokenSetupDeferred: false },
+      shouldShowHackmdOnboarding: false,
+    }));
     const api = createApi({
       settings: {
         get: vi.fn(async () => createSafeSettings({
@@ -657,13 +687,68 @@ describe('Home native-feel behavior', () => {
           onboarding: { hackmdTokenSetupDeferred: true },
           shouldShowHackmdOnboarding: false,
         })),
+        update: updateSettings,
       },
+      hackmd: { validateToken },
     });
 
     renderHome(api);
     fireEvent.click(await screen.findByRole('button', { name: 'Configure Token' }));
 
-    expect(await screen.findByRole('heading', { name: 'Connect HackMD' })).toBeInTheDocument();
+    await screen.findByRole('heading', { name: 'Connect HackMD' });
+    fireEvent.change(screen.getByLabelText('HackMD API Token'), {
+      target: { value: 'configured-token' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
+
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({
+      title: 'HackDesk',
+      hackmdApiToken: 'configured-token',
+    }));
+    expect(await screen.findByText('Connected as Michael (@michael).')).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({
+      type: 'personal',
+      label: 'My Workspace',
+    });
+  });
+
+  it('does not switch workspace when saving a token from Settings', async () => {
+    const localSettings = createSafeSettings({
+      hasHackmdApiToken: true,
+      hasLocalVault: true,
+      localVault: { path: '/Users/michael/Notes' },
+    });
+    const updateSettings = vi.fn(async (input) => createSafeSettings({
+      ...localSettings,
+      ...input,
+    }));
+    window.localStorage.setItem(LAST_WORKSPACE_SCOPE_KEY, JSON.stringify({
+      type: 'local',
+      label: 'Local Vault',
+    }));
+    const api = createApi({
+      settings: {
+        get: vi.fn(async () => localSettings),
+        update: updateSettings,
+      },
+    });
+
+    renderHome(api);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open settings for Michael' }));
+    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+    fireEvent.change(screen.getByLabelText('API Token'), {
+      target: { value: 'settings-token' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({
+      title: 'HackDesk',
+      hackmdApiToken: 'settings-token',
+    }));
+    expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({
+      type: 'local',
+      label: 'Local Vault',
+    });
   });
 
   it('confirms the native close request when the current note is clean', async () => {

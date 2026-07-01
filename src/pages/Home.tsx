@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useTheme } from '@/components/theme-provider';
@@ -51,6 +51,7 @@ import { useHomeLocalVaultActions } from './electron-home/useHomeLocalVaultActio
 import { useHomeOverlayProps } from './electron-home/useHomeOverlayProps';
 import { useHomeWorkspaceProps } from './electron-home/useHomeWorkspaceProps';
 import {
+  DEFAULT_WORKSPACE_SCOPE,
   getInitialWorkspaceScope,
   useWorkbenchWorkspaceState,
 } from './electron-home/useWorkbenchWorkspaceState';
@@ -63,6 +64,7 @@ export function Home() {
   const { recentNotes, removeRecentNoteEntry, trackRecentNote } = useElectronHomeRecentNotes();
   const selectionRefs = useElectronHomeSelectionRefs();
   const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const initialWorkspaceResolvedRef = useRef(false);
   const panelState = useWorkbenchPanelState();
   const dialogState = useWorkbenchDialogState();
   const {
@@ -144,6 +146,9 @@ export function Home() {
     setWorkspaceScopeState(nextScope);
     loadFinderStateForScope(nextScopeStorageKey);
   }, [loadFinderStateForScope, setWorkspaceScopeState]);
+  const handleOnboardingConnected = useCallback(() => {
+    setWorkspaceScope(DEFAULT_WORKSPACE_SCOPE);
+  }, [setWorkspaceScope]);
   const { focusZone } = useElectronFocusZones();
 
   const {
@@ -193,19 +198,21 @@ export function Home() {
   const canUseCurrentWorkspace = hasToken || (scope.type === 'local' && hasConfiguredLocalVault);
 
   useEffect(() => {
-    if (settings?.hasLocalVault && scope.type !== 'local' && initialWorkspaceScope.type === 'personal') {
-      setWorkspaceScope({ type: 'local', label: 'Local Vault' });
+    if (settings === undefined || initialWorkspaceResolvedRef.current) {
       return;
     }
 
+    initialWorkspaceResolvedRef.current = true;
+    if (settings.hasLocalVault && scope.type !== 'local' && initialWorkspaceScope.type === 'personal') {
+      setWorkspaceScope({ type: 'local', label: 'Local Vault' });
+    }
+  }, [initialWorkspaceScope.type, scope.type, setWorkspaceScope, settings]);
+
+  useEffect(() => {
     if (settings?.shouldShowHackmdOnboarding && !settingsOpen) {
       setOnboardingOpen(true);
     }
   }, [
-    initialWorkspaceScope.type,
-    scope.type,
-    setWorkspaceScope,
-    settings?.hasLocalVault,
     settings?.shouldShowHackmdOnboarding,
     settingsOpen,
   ]);
@@ -644,6 +651,7 @@ export function Home() {
     onboardingOpen,
     runAction,
     selectedFolderLabel,
+    onOnboardingConnected: handleOnboardingConnected,
     setOnboardingOpen,
     settings,
   });

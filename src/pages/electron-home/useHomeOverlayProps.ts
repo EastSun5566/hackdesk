@@ -24,6 +24,7 @@ export function useHomeOverlayProps({
   onboardingOpen,
   runAction,
   selectedFolderLabel,
+  onOnboardingConnected,
   setOnboardingOpen,
   settings,
 }: {
@@ -39,6 +40,7 @@ export function useHomeOverlayProps({
   onboardingOpen: boolean;
   runAction: WorkbenchActions['runAction'];
   selectedFolderLabel: string | null;
+  onOnboardingConnected: () => void;
   setOnboardingOpen: (open: boolean) => void;
   settings: ElectronSafeSettings | undefined;
 }): ElectronHomeOverlaysProps {
@@ -85,6 +87,7 @@ export function useHomeOverlayProps({
       onImportHackmdCliToken: () => mutations.importHackmdCliTokenMutation.mutateAsync(),
       onForgetLocalVault: localVaultActions.forgetLocalVault,
       onOpenLocalVault: localVaultActions.openLocalVault,
+      onOnboardingConnected,
       onOnboardingOpenChange: setOnboardingOpen,
       onRefreshLocalVault: localVaultActions.refreshLocalVault,
       onRenameFolder: (folderId, input) => mutations.renameFolderMutation.mutate({ folderId, input }),
