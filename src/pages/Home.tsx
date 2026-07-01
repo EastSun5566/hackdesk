@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { toast } from '@/components/ui/toast';
 
 import { useTheme } from '@/components/theme-provider';
 import { getDesktopAPI } from '@/lib/desktop-api';
@@ -18,11 +17,7 @@ import { useElectronHomeCommandPalette } from './electron-home/useElectronHomeCo
 import { useElectronHomeModel } from './electron-home/useElectronHomeModel';
 import { useElectronHomeRecentNotes } from './electron-home/useElectronHomeRecentNotes';
 import { useElectronHomeRefresh } from './electron-home/useElectronHomeRefresh';
-import {
-  getLocalVaultSnapshotQueryKey,
-  useElectronLocalVault,
-} from './electron-home/useElectronLocalVault';
-import { LOCAL_VAULT_TEAM_PATH } from './electron-home/local-vault-adapter';
+import { useElectronLocalVault } from './electron-home/useElectronLocalVault';
 import {
   useElectronHomeSelection,
   useElectronHomeSelectionRefs,
@@ -52,6 +47,9 @@ import { useWorkbenchNavigator } from './electron-home/useWorkbenchNavigator';
 import { useWorkbenchPanelState } from './electron-home/useWorkbenchPanelState';
 import { useWorkbenchShortcuts } from './electron-home/useWorkbenchShortcuts';
 import { useWorkbenchTabLifecycle } from './electron-home/useWorkbenchTabLifecycle';
+import { useHomeLocalVaultActions } from './electron-home/useHomeLocalVaultActions';
+import { useHomeOverlayProps } from './electron-home/useHomeOverlayProps';
+import { useHomeWorkspaceProps } from './electron-home/useHomeWorkspaceProps';
 import {
   getInitialWorkspaceScope,
   useWorkbenchWorkspaceState,
@@ -69,12 +67,7 @@ export function Home() {
   const dialogState = useWorkbenchDialogState();
   const {
     closeTransientLayer,
-    createDialog,
-    createFolderDialog,
-    deleteFolderTarget,
-    deleteTarget,
     palette,
-    renameFolderDialog,
     settingsOpen,
     shareOpen,
     setCreateDialog,
@@ -151,74 +144,6 @@ export function Home() {
     setWorkspaceScopeState(nextScope);
     loadFinderStateForScope(nextScopeStorageKey);
   }, [loadFinderStateForScope, setWorkspaceScopeState]);
-  const handleChooseLocalVault = useCallback(async () => {
-    if (!api) {
-      throw new Error('Electron API is unavailable.');
-    }
-
-    const result = await api.localVault.choose();
-    if (result.canceled) {
-      return;
-    }
-
-    if (result.settings) {
-      queryClient.setQueryData(['electron', 'settings'], result.settings);
-    }
-    if (result.snapshot) {
-      queryClient.setQueryData(getLocalVaultSnapshotQueryKey(), result.snapshot);
-    }
-    setWorkspaceScope({ type: 'local', label: 'Local Vault' });
-  }, [api, queryClient, setWorkspaceScope]);
-  const handleOpenLocalVault = useCallback(async () => {
-    if (!api) {
-      throw new Error('Electron API is unavailable.');
-    }
-
-    await api.localVault.revealRoot();
-  }, [api]);
-  const handleRevealLocalNote = useCallback((note: { id: string; teamPath: string | null }) => {
-    if (!api || note.teamPath !== LOCAL_VAULT_TEAM_PATH) {
-      return;
-    }
-
-    void api.localVault.revealNote({ noteId: note.id }).catch((error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to reveal local note.');
-    });
-  }, [api]);
-  const handleRevealLocalFolder = useCallback((folderId: string) => {
-    const prefix = 'local-folder:';
-    if (!api || !folderId.startsWith(prefix)) {
-      return;
-    }
-
-    void api.localVault.revealFolder({ relativePath: folderId.slice(prefix.length) }).catch((error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to reveal local folder.');
-    });
-  }, [api]);
-  const handleForgetLocalVault = useCallback(async () => {
-    if (!api) {
-      throw new Error('Electron API is unavailable.');
-    }
-
-    const { confirmed } = await api.app.confirm({
-      title: 'Forget Local Vault',
-      message: 'Forget this local vault?',
-      detail: 'HackDesk will stop opening this folder automatically. Your Markdown files will not be deleted.',
-      confirmLabel: 'Forget Vault',
-      cancelLabel: 'Cancel',
-      destructive: true,
-    });
-    if (!confirmed) {
-      return;
-    }
-
-    const nextSettings = await api.settings.update({
-      localVault: { path: null },
-    });
-    queryClient.setQueryData(['electron', 'settings'], nextSettings);
-    queryClient.setQueryData(getLocalVaultSnapshotQueryKey(), null);
-    toast.success('Local vault forgotten. Your files were not deleted.');
-  }, [api, queryClient]);
   const { focusZone } = useElectronFocusZones();
 
   const {
@@ -250,9 +175,14 @@ export function Home() {
       teamPath: tab.teamPath,
     })),
   });
-  const handleRefreshLocalVault = useCallback(async () => {
-    await localVault.snapshotQuery.refetch();
-  }, [localVault.snapshotQuery]);
+  const localVaultActions = useHomeLocalVaultActions({
+    api,
+    queryClient,
+    refetchLocalVault: async () => {
+      await localVault.snapshotQuery.refetch();
+    },
+    setWorkspaceScope,
+  });
   const currentNotes = scope.type === 'local' ? localVault.currentNotes : remoteNotes;
   const currentFolders = scope.type === 'local' ? localVault.currentFolders : remoteFolders;
   const currentFolderOrder = scope.type === 'local' ? undefined : remoteFolderOrder;
@@ -349,20 +279,7 @@ export function Home() {
     tabs: noteWorkspace.state.tabs,
     trackRecentNote,
   });
-  const {
-    canCreate,
-    canModifySelectedFolder,
-    handleFolderSelect,
-    handleNoteMove,
-    handleShowFinderResults,
-    revealFolderIds,
-    revealNoteEntry,
-    selectedFolder,
-    selectedFolderLabel,
-    selectedParentFolderId,
-    toggleFolderCollapsed,
-    visibleEntries,
-  } = useWorkbenchNavigator({
+  const workbenchNavigator = useWorkbenchNavigator({
     canUseHackmd: canUseCurrentWorkspace,
     deferredFinderState,
     expandNavigator,
@@ -382,6 +299,17 @@ export function Home() {
     setSelectedFolderId,
     tree: folderTree,
   });
+  const {
+    canCreate,
+    canModifySelectedFolder,
+    handleShowFinderResults,
+    revealFolderIds,
+    revealNoteEntry,
+    selectedFolder,
+    selectedFolderLabel,
+    selectedParentFolderId,
+    visibleEntries,
+  } = workbenchNavigator;
   const { getAutoSelectSuppressionKey } = useWorkbenchAutoSelection({
     autoSelectSuppressionRef,
     manualEmptyWorkspaceRef,
@@ -391,19 +319,7 @@ export function Home() {
     selectedNote,
     visibleEntries,
   });
-  const {
-    documentContent,
-    documentTitle,
-    getPaneTabs,
-    getPaneView,
-    getTabSyncState,
-    getTabTitle,
-    handleDocumentContentChange,
-    handleDocumentTitleChange,
-    isTabDirty,
-    noteDirty,
-    selectedDocument,
-  } = useWorkbenchDocuments({
+  const workbenchDocuments = useWorkbenchDocuments({
     activeTab,
     deletingNote: mutations.deleteNoteMutation.variables ?? null,
     documentQueriesByKey: documentQueries.byKey,
@@ -422,6 +338,15 @@ export function Home() {
     updateDraft: noteWorkspace.updateDraft,
     uploadingNote: mutations.uploadNoteImageMutation.variables?.note ?? null,
   });
+  const {
+    documentContent,
+    documentTitle,
+    getTabSyncState,
+    getTabTitle,
+    isTabDirty,
+    noteDirty,
+    selectedDocument,
+  } = workbenchDocuments;
 
   useSelectedDocumentEditorFocus(selectedDocument, handleSelectedDocumentReady);
 
@@ -440,7 +365,7 @@ export function Home() {
     hasToken,
     moveFolder: mutations.moveFolderMutation.mutate,
     onChooseLocalVault: () => {
-      void handleChooseLocalVault();
+      void localVaultActions.chooseLocalVault();
     },
     scopeType: scope.type,
     setCreateDialog,
@@ -645,6 +570,83 @@ export function Home() {
     scope,
     selectedFolder,
   });
+  const workspaceProps = useHomeWorkspaceProps({
+    actions: {
+      handleCopyNoteLink,
+      handleCopyNoteMarkdownLink,
+      handleDeleteRequest,
+      handleDuplicateNote,
+      handleExportMarkdown,
+      handleExportNoteMarkdown,
+      handleImportMarkdownNote,
+      handleNoteSelect,
+      handleOpenEditor,
+      handleOpenExternal,
+      openHackmdTokenSetup,
+      openPalette,
+      setFinderState,
+      setShareOpen,
+      switchWorkspaceScope,
+    },
+    activeFinderState,
+    attachImageRequestId,
+    collapsedFolderIds,
+    displayScope,
+    documents: workbenchDocuments,
+    editorFocusRequestId,
+    editorMode: settings?.editor?.mode ?? defaultSettings.editor.mode,
+    editorSearchRequestId,
+    folderCommands,
+    folderTree,
+    getTabSyncState,
+    hasConfiguredLocalVault,
+    homeStatus,
+    inspectorCollapsed,
+    localDocumentRecovery,
+    localVaultActions,
+    mutations,
+    navigator: workbenchNavigator,
+    navigatorCollapsed,
+    navigatorWidth,
+    noteWorkspace,
+    railCollapsed,
+    railWidth,
+    refreshWorkspace,
+    selectedFolderId,
+    selectedNote,
+    setNavigatorWidth,
+    setRailWidth,
+    setSettingsOpen,
+    shareOpen,
+    tabLifecycle: {
+      requestCloseOtherTabs,
+      requestCloseTab,
+      requestCloseTabsToRight,
+    },
+    teams,
+    toggleInspectorCollapsed,
+    toggleNavigatorCollapsed,
+    toggleRailCollapsed,
+    user,
+  });
+  const overlayProps = useHomeOverlayProps({
+    actionContext,
+    api,
+    commandPaletteProps,
+    dialogState,
+    displayScope,
+    localVaultActions,
+    localVaultError: localVault.snapshotQuery.error instanceof Error
+      ? localVault.snapshotQuery.error.message
+      : null,
+    localVaultSnapshot: localVault.snapshot,
+    mutations,
+    onboardingOpen,
+    runAction,
+    selectedFolderLabel,
+    setOnboardingOpen,
+    settings,
+  });
 
   if (!api) {
     return (
@@ -656,212 +658,9 @@ export function Home() {
 
   return (
     <div className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
-      <ElectronHomeWorkspace
-        titlebar={{
-          getPaneTabs,
-          getPaneView,
-          getTabSyncState,
-          layout: {
-            navigatorCollapsed,
-            railCollapsed,
-          },
-          state: {
-            activePaneId: noteWorkspace.state.activePaneId,
-            backStack: noteWorkspace.state.backStack,
-            forwardStack: noteWorkspace.state.forwardStack,
-            panes: noteWorkspace.state.panes,
-            recentlyClosedTabs: noteWorkspace.state.recentlyClosedTabs,
-          },
-          actions: {
-            moveActiveTabToOtherPane: noteWorkspace.moveActiveTabToOtherPane,
-            navigateBack: noteWorkspace.navigateBack,
-            navigateForward: noteWorkspace.navigateForward,
-            reopenLastClosedTab: noteWorkspace.reopenLastClosed,
-            requestCloseOtherTabs,
-            requestCloseTab,
-            requestCloseTabsToRight,
-            selectTab: noteWorkspace.selectTab,
-            splitActiveTab: noteWorkspace.splitActiveTab,
-            toggleNavigator: toggleNavigatorCollapsed,
-            toggleRail: toggleRailCollapsed,
-          },
-        }}
-        rail={{
-          scope: displayScope,
-          user,
-          teams,
-          collapsed: railCollapsed,
-          accountStatus: homeStatus.accountStatus,
-          localVaultConfigured: hasConfiguredLocalVault,
-          width: railWidth,
-          onChooseLocalVault: () => {
-            void handleChooseLocalVault();
-          },
-          onScopeChange: switchWorkspaceScope,
-          onOpenSettings: () => setSettingsOpen(true),
-        }}
-        railResize={{
-          disabled: railCollapsed,
-          value: railWidth,
-          onChange: setRailWidth,
-        }}
-        navigator={{
-          scope: displayScope,
-          tree: folderTree,
-          entries: visibleEntries,
-          finderState: activeFinderState,
-          selection: {
-            selectedFolderId,
-            selectedNoteId: selectedNote?.id ?? null,
-          },
-          layout: {
-            collapsed: navigatorCollapsed,
-            collapsedFolderIds,
-            width: navigatorWidth,
-          },
-          emptyState: homeStatus.emptyState,
-          status: homeStatus.navigatorStatus,
-          actions: {
-            onFolderSelect: handleFolderSelect,
-            onFolderToggle: toggleFolderCollapsed,
-            onFolderRevealInFinder: handleRevealLocalFolder,
-            onNoteSelect: handleNoteSelect,
-            onNoteRevealInFinder: handleRevealLocalNote,
-            onFinderStateChange: setFinderState,
-            onRefresh: refreshWorkspace,
-            onCreate: folderCommands.handleCreateNote,
-            onCreateFolder: folderCommands.handleCreateFolder,
-            onCreateFolderInside: folderCommands.handleCreateFolderInside,
-            onCreateNoteInside: folderCommands.handleCreateNoteInside,
-            onChooseLocalVault: () => {
-              void handleChooseLocalVault();
-            },
-            onRenameFolder: folderCommands.handleRenameFolder,
-            onDeleteFolder: folderCommands.handleDeleteFolderRequest,
-            onFolderDrop: folderCommands.handleFolderDrop,
-            onNoteMove: handleNoteMove,
-            onOpenNote: handleOpenEditor,
-            onRevealNoteFolder: (entry) => {
-              void revealNoteEntry(entry);
-            },
-            onCopyNoteLink: handleCopyNoteLink,
-            onCopyNoteMarkdownLink: handleCopyNoteMarkdownLink,
-            onDuplicateNote: handleDuplicateNote,
-            onExportNoteMarkdown: handleExportNoteMarkdown,
-            onDeleteNote: handleDeleteRequest,
-            onImportMarkdown: handleImportMarkdownNote,
-            onToggleCollapsed: toggleNavigatorCollapsed,
-            onOpenPalette: openPalette,
-            onOpenSettings: openHackmdTokenSetup,
-          },
-        }}
-        navigatorResize={{
-          disabled: navigatorCollapsed,
-          value: navigatorWidth,
-          onChange: setNavigatorWidth,
-        }}
-        documentWorkspace={{
-          panes: noteWorkspace.state.panes,
-          activePaneId: noteWorkspace.state.activePaneId,
-          editorMode: settings?.editor?.mode ?? defaultSettings.editor.mode,
-          folderTree,
-          shareOpen,
-          isInspectorCollapsed: inspectorCollapsed,
-          getPaneView,
-          editorSearchRequestId,
-          attachImageRequestId,
-          editorFocusRequestId,
-          onResizePanes: noteWorkspace.resizePanes,
-          onFocusPane: noteWorkspace.focusPane,
-          onOpenEditor: handleOpenEditor,
-          onOpenExternal: handleOpenExternal,
-          onRevealInFinder: handleRevealLocalNote,
-          onCopyLink: handleCopyNoteLink,
-          onCopyMarkdownLink: handleCopyNoteMarkdownLink,
-          onExportMarkdown: handleExportMarkdown,
-          onReloadFromDisk: localDocumentRecovery.reloadFromDisk,
-          onSave: (note, input) => mutations.updateNoteMutation.mutate({ note, input }),
-          onSaveAsCopy: localDocumentRecovery.saveAsCopy,
-          onSaveMetadata: (note, input) => mutations.updateNoteMutation.mutate({ note, input }),
-          onSaveSharing: (note, input) => mutations.updateNoteMutation.mutate({
-            note,
-            input,
-            successMessage: 'Sharing settings updated.',
-          }),
-          onUploadImage: (note, input) => mutations.uploadNoteImageMutation.mutateAsync({ note, input }),
-          onDelete: handleDeleteRequest,
-          onTitleChange: handleDocumentTitleChange,
-          onContentChange: handleDocumentContentChange,
-          onToggleInspector: toggleInspectorCollapsed,
-          onShareOpenChange: setShareOpen,
-        }}
-      />
+      <ElectronHomeWorkspace {...workspaceProps} />
 
-      <ElectronHomeOverlays
-        commandPalette={{
-          ...commandPaletteProps,
-          context: actionContext,
-          onRunAction: runAction,
-        }}
-        dialogs={{
-          api,
-          createFolderDialog,
-          createNoteDialog: createDialog,
-          deleteFolderTarget,
-          deleteNoteTarget: deleteTarget,
-          folderLabel: selectedFolderLabel,
-          onboardingOpen,
-          renameFolderDialog,
-          scopeLabel: displayScope.label,
-          settings,
-          localVaultError: localVault.snapshotQuery.error instanceof Error
-            ? localVault.snapshotQuery.error.message
-            : null,
-          localVaultSnapshot: localVault.snapshot,
-          settingsOpen,
-          status: {
-            creatingFolder: mutations.createFolderMutation.isPending,
-            creatingNote: mutations.createNoteMutation.isPending,
-            deletingFolder: mutations.deleteFolderMutation.isPending,
-            deletingNote: mutations.deleteNoteMutation.isPending,
-            renamingFolder: mutations.renameFolderMutation.isPending,
-            savingSettings: mutations.updateSettingsMutation.isPending,
-          },
-          onCreateFolder: (input) => mutations.createFolderMutation.mutate(input),
-          onCreateFolderStateChange: setCreateFolderDialog,
-          onCreateNote: (title) => mutations.createNoteMutation.mutate(title),
-          onCreateNoteStateChange: setCreateDialog,
-          onChooseLocalVault: handleChooseLocalVault,
-          onDeleteFolder: (folder) => mutations.deleteFolderMutation.mutate({
-            folderId: folder.id,
-            parentFolderId: folder.parentId,
-          }),
-          onDeleteFolderCancel: () => setDeleteFolderTarget(null),
-          onDeleteNote: (note) => mutations.deleteNoteMutation.mutate(note),
-          onDeleteNoteCancel: () => setDeleteTarget(null),
-          onImportHackmdCliToken: () => mutations.importHackmdCliTokenMutation.mutateAsync(),
-          onForgetLocalVault: handleForgetLocalVault,
-          onOpenLocalVault: handleOpenLocalVault,
-          onOnboardingOpenChange: setOnboardingOpen,
-          onRefreshLocalVault: handleRefreshLocalVault,
-          onRenameFolder: (folderId, input) => mutations.renameFolderMutation.mutate({ folderId, input }),
-          onRenameFolderStateChange: setRenameFolderDialog,
-          onSaveSettings: (input) => mutations.updateSettingsMutation.mutate(input),
-          onSaveToken: async (token) => {
-            await mutations.updateSettingsMutation.mutateAsync({
-              title: settings?.title ?? 'HackDesk',
-              hackmdApiToken: token,
-            });
-          },
-          onSettingsOpenChange: setSettingsOpen,
-          onSetupLater: async () => {
-            await mutations.updateSettingsMutation.mutateAsync({
-              title: settings?.title ?? 'HackDesk',
-              onboarding: { hackmdTokenSetupDeferred: true },
-            });
-          },
-        }}
-      />
+      <ElectronHomeOverlays {...overlayProps} />
     </div>
   );
 }
