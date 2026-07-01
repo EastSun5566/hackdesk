@@ -23,6 +23,8 @@ export function SettingsDialogFooter({
   onCancelPreview: () => void;
   onClose: () => void;
 }) {
+  const saveDisabled = isSaving || !canSaveTitle;
+
   return (
     <div className="flex items-center justify-end gap-2 border-t border-border-default px-5 py-4">
       <div className="flex shrink-0 items-center gap-2">
@@ -54,15 +56,14 @@ export function SettingsDialogFooter({
         {(activeTab === 'general' || activeTab === 'editor' || activeTab === 'hackmd') ? (
           <button
             type="submit"
-            aria-label="Save settings"
-            title="Save settings"
-            disabled={isSaving || !canSaveTitle}
+            disabled={saveDisabled}
             className={cn(
-              'inline-flex size-10 items-center justify-center rounded-md bg-primary-default text-primary-foreground transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50',
+              'inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50',
               FOCUS_RING_CLASS,
             )}
           >
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {isSaving ? 'Saving…' : 'Save'}
           </button>
         ) : null}
         {(activeTab === 'advanced' || activeTab === 'vault') ? (

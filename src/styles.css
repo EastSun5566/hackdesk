@@ -72,6 +72,7 @@
   --color-warning-soft: var(--warning-soft);
   --color-destructive-default: var(--destructive-default);
   --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-icon-default: var(--icon-default);
   --color-icon-subtle: var(--icon-subtle);
   --color-border-bold: var(--border-bold);
@@ -212,6 +213,7 @@
     --warning-soft: var(--color-amber-75);
     --destructive-default: var(--hmd-tw-state-danger-default);
     --destructive-soft: var(--hmd-tw-state-danger-bg-light);
+    --destructive-foreground: var(--color-zinc-950);
     --icon-default: var(--hmd-tw-icon-default);
     --icon-subtle: var(--hmd-tw-icon-subtle);
     --element-bg-hover: var(--hmd-tw-element-bg-hover);
@@ -268,6 +270,7 @@
     --hmd-tw-state-danger-bg-hover: var(--color-red-400);
     --hmd-tw-state-danger-border: var(--color-red-400);
     --hmd-tw-state-danger-default: var(--color-red-400);
+    --destructive-foreground: var(--color-zinc-950);
     --hmd-tw-element-bg-hover: var(--color-zinc-750);
     --hmd-tw-element-border-hover: var(--color-zinc-500);
     --hmd-tw-link-text-default: var(--color-primary-300);

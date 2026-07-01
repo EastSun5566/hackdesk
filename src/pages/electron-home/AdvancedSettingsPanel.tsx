@@ -1,13 +1,23 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 import { getHackDeskAPI } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
 import { version } from '../../../package.json';
 
 import { SettingsSection } from './SettingsPrimitives';
-import { FOCUS_RING_CLASS } from './ui';
+import { FOCUS_RING_CLASS, PRESSED_CLASS, SECONDARY_BUTTON_CLASS } from './ui';
 
 export function AdvancedSettingsPanel({
   onResetAllSettings,
@@ -15,6 +25,8 @@ export function AdvancedSettingsPanel({
   onResetAllSettings: () => void;
 }) {
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const resetButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleCheckForUpdates = () => {
     const api = getHackDeskAPI();
@@ -48,6 +60,18 @@ export function AdvancedSettingsPanel({
       .finally(() => setIsCheckingUpdates(false));
   };
 
+  const handleResetDialogOpenChange = (open: boolean) => {
+    setIsResetDialogOpen(open);
+    if (!open) {
+      window.requestAnimationFrame(() => resetButtonRef.current?.focus());
+    }
+  };
+
+  const handleConfirmReset = () => {
+    onResetAllSettings();
+    handleResetDialogOpenChange(false);
+  };
+
   return (
     <div className="space-y-4">
       <SettingsSection title="Version">
@@ -74,8 +98,9 @@ export function AdvancedSettingsPanel({
             Restores local preferences and clears the configured HackMD token. Notes and vault files are not deleted.
           </p>
           <button
+            ref={resetButtonRef}
             type="button"
-            onClick={onResetAllSettings}
+            onClick={() => setIsResetDialogOpen(true)}
             className={cn(
               'inline-flex h-9 items-center gap-2 rounded-md border border-destructive-default px-3 text-sm font-medium text-destructive-default transition-colors hover:bg-destructive-soft',
               FOCUS_RING_CLASS,
@@ -86,6 +111,34 @@ export function AdvancedSettingsPanel({
           </button>
         </div>
       </SettingsSection>
+
+      <AlertDialog open={isResetDialogOpen} onOpenChange={handleResetDialogOpenChange}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset All Settings?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This restores local preferences, editor mode, appearance, and clears the configured HackMD token.
+              Local vault Markdown files are not deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className={SECONDARY_BUTTON_CLASS}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmReset}
+              className={cn(
+                'inline-flex h-9 items-center gap-2 rounded-md bg-destructive-default px-3 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive-hover',
+                PRESSED_CLASS,
+                FOCUS_RING_CLASS,
+              )}
+            >
+              <AlertCircle className="h-4 w-4" />
+              Reset All Settings
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

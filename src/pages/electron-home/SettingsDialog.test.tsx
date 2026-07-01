@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ThemeProvider } from '@/components/theme-provider';
@@ -202,18 +202,30 @@ describe('SettingsDialog', () => {
     renderSettingsDialog();
 
     expect(screen.queryByText('Window title and local app defaults.')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Save settings' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Save' })).not.toHaveAttribute('title');
 
     fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
     expect(screen.queryByText('Theme mode, presets, fonts, and color seeds.')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Apply Theme' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Save settings' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
 
     fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
     expect(screen.queryByText('Manage the local Markdown folder.')).not.toBeInTheDocument();
     const closeButtons = screen.getAllByRole('button', { name: 'Close' });
     expect(closeButtons.length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'Apply Theme' })).toBeNull();
+  });
+
+  it('does not submit settings while the save action is busy', () => {
+    const { onSave } = renderSettingsDialog({ isSaving: true });
+    const saveButton = screen.getByRole('button', { name: 'Saving…' });
+
+    expect(saveButton).toBeDisabled();
+    fireEvent.click(saveButton);
+    fireEvent.submit(saveButton.closest('form')!);
+
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it('preserves settings drafts while switching between mounted panels', () => {
@@ -248,7 +260,7 @@ describe('SettingsDialog', () => {
 
     expect(screen.getByRole('radio', { name: /Standard/ })).toBeChecked();
     fireEvent.click(screen.getByText('Helix'));
-    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(onSave).toHaveBeenCalledWith({
       title: 'HackDesk',
@@ -256,7 +268,7 @@ describe('SettingsDialog', () => {
     });
   });
 
-  it('resets editor mode with all other settings', () => {
+  it('confirms before resetting editor mode with all other settings', async () => {
     const { onSave } = renderSettingsDialog({
       settings: {
         title: 'HackDesk',
@@ -273,6 +285,23 @@ describe('SettingsDialog', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /Advanced/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Reset All Settings' }));
+
+    const dialog = screen.getByRole('alertdialog', { name: 'Reset All Settings?' });
+    expect(dialog).toBeVisible();
+    expect(screen.getByText(/restores local preferences, editor mode, appearance/i)).toBeVisible();
+    expect(screen.getByText(/Local vault Markdown files are not deleted/i)).toBeVisible();
+    expect(onSave).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog', { name: 'Reset All Settings?' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Reset All Settings' })).toHaveFocus();
+    });
+    expect(onSave).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset All Settings' }));
+    const confirmDialog = screen.getByRole('alertdialog', { name: 'Reset All Settings?' });
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: 'Reset All Settings' }));
 
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
       editor: { mode: 'standard' },
@@ -426,7 +455,7 @@ describe('SettingsDialog', () => {
     fireEvent.change(screen.getByLabelText('Window title'), {
       target: { value: 'Focus Desk' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(onSave).toHaveBeenCalledWith({ title: 'Focus Desk' });
 
@@ -434,7 +463,7 @@ describe('SettingsDialog', () => {
     fireEvent.change(screen.getByLabelText('API Token'), {
       target: { value: ' secret-token ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(onSave).toHaveBeenLastCalledWith({
       title: 'Focus Desk',

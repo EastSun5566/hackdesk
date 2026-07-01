@@ -80,6 +80,10 @@ function SettingsDialogContent({
   const normalizedToken = token.trim();
 
   const handleSaveSettings = () => {
+    if (isSaving) {
+      return;
+    }
+
     if (!title.trim()) {
       return;
     }
