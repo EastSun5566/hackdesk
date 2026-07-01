@@ -720,12 +720,16 @@ export function resolveHackDeskTheme({
   const customAccentOverrides = Object.keys(normalizeThemeSeed(customSeed)).length > 0
     ? buildAccentTokenOverrides(seed, dark)
     : {};
-
-  return {
+  const colorTheme = {
     ...DEFAULT_SYNTAX_TOKENS,
     ...seedTheme,
     ...presetTokenOverrides,
     ...customAccentOverrides,
+  };
+
+  return {
+    ...colorTheme,
+    ...resolveNativeSurfaceTokens(colorTheme, dark),
     ...resolveThemeTypography(typography),
   };
 }
@@ -799,6 +803,18 @@ function buildAccentTokenOverrides(seed: ThemeSeed, dark: boolean): ThemeTokenOv
         '--link-text-default': primary,
         '--link-text-hover': mix(primary, '#000000', 76),
       };
+}
+
+function resolveNativeSurfaceTokens(theme: ResolvedHackDeskTheme, dark: boolean): ThemeTokenOverrides {
+  const primary = theme['--primary-default'];
+  const selectionOpacity = dark ? 0.34 : 0.24;
+
+  return {
+    '--selection-background': isHexColor(primary)
+      ? alpha(primary, selectionOpacity)
+      : `color-mix(in oklch, ${primary || 'var(--primary-default)'} ${Math.round(selectionOpacity * 100)}%, transparent)`,
+    '--selection-foreground': 'var(--text-default)',
+  };
 }
 
 function mix(from: string, to: string, fromWeightPercent: number) {

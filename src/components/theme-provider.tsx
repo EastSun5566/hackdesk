@@ -189,7 +189,7 @@ function writeLocalAppearance(storageKey: string, appearance: AppearanceSettings
 async function readPersistedAppearance(storageKey: string, fallbackTheme: Theme): Promise<AppearanceSettings> {
   const api = getHackDeskAPI();
 
-  if (api?.settings.get) {
+  if (api?.settings?.get) {
     const settings = await api.settings.get();
     if (settings.hasAppearanceSettings === false && hasLegacyStoredAppearance(storageKey)) {
       const migrated = getStoredAppearance(storageKey, fallbackTheme);
@@ -207,7 +207,7 @@ function writePersistedAppearance(storageKey: string, appearance: AppearanceSett
   const normalized = normalizeAppearanceSettings(appearance);
   const api = getHackDeskAPI();
 
-  if (api?.settings.update) {
+  if (api?.settings?.update) {
     void api.settings.update({ appearance: normalized }).catch((error) => {
       console.error('Failed to persist theme settings:', error);
     });
@@ -227,6 +227,16 @@ function ensureThemeStyleElement() {
   element.id = THEME_STYLE_ID;
   document.head.appendChild(element);
   return element;
+}
+
+function syncColorSchemeMeta(mode: ResolvedThemeMode) {
+  let element = document.querySelector<HTMLMetaElement>('meta[name="color-scheme"]');
+  if (!element) {
+    element = document.createElement('meta');
+    element.name = 'color-scheme';
+    document.head.appendChild(element);
+  }
+  element.content = mode;
 }
 
 export function ThemeProvider({
@@ -266,6 +276,7 @@ export function ThemeProvider({
     root.dataset.themePreset = effectivePresetId;
     root.style.backgroundColor = background;
     root.style.colorScheme = resolvedTheme;
+    syncColorSchemeMeta(resolvedTheme);
     document.getElementById(THEME_PRELOAD_STYLE_ID)?.remove();
     ensureThemeStyleElement().textContent = css;
     if (!preview) {

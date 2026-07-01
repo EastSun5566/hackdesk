@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildThemeStyleText,
   defaultThemeTypography,
+  HACKDESK_THEME_PRESETS,
   isSafeFontStack,
   normalizeThemeSeed,
   normalizeThemeTypography,
@@ -55,7 +56,23 @@ describe('HackDesk themes', () => {
     expect(css).toContain('--background-default:');
     expect(css).toContain('--font-system:');
     expect(css).toContain('--code-keyword:');
+    expect(css).toContain('--selection-background:');
+    expect(css).toContain('--selection-foreground:');
     expect(css).toContain(':root[data-theme-preset="hackmd-nature"]');
+  });
+
+  it('resolves native surface tokens for every preset and mode', () => {
+    for (const preset of HACKDESK_THEME_PRESETS) {
+      for (const mode of ['light', 'dark'] as const) {
+        const theme = resolveHackDeskTheme({ presetId: preset.id, mode });
+
+        expect(theme['--primary-default'], `${preset.id} ${mode} primary`).toBeTruthy();
+        expect(theme['--border-bold'], `${preset.id} ${mode} scrollbar thumb`).toBeTruthy();
+        expect(theme['--background-muted'], `${preset.id} ${mode} scrollbar track`).toBeTruthy();
+        expect(theme['--selection-background'], `${preset.id} ${mode} selection background`).toBeTruthy();
+        expect(theme['--selection-foreground'], `${preset.id} ${mode} selection foreground`).toBe('var(--text-default)');
+      }
+    }
   });
 
   it('resolves Catppuccin Latte and Mocha palette tokens', () => {

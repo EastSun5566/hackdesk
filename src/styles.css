@@ -280,6 +280,11 @@
     scrollbar-color: var(--border-bold) var(--background-muted);
   }
 
+  ::selection {
+    background-color: var(--selection-background);
+    color: var(--selection-foreground);
+  }
+
   body {
     @apply bg-background-default text-text-default;
     font-family: var(--font-system);

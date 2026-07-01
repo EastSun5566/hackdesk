@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { defaultSettings } from '@/lib/settings';
+import { getThemeBackground, resolveHackDeskTheme } from '@/lib/themes';
 import { ThemeProvider, useTheme } from './theme-provider';
 
 // Helper component to test useTheme hook
@@ -45,6 +46,7 @@ describe('ThemeProvider', () => {
     document.documentElement.removeAttribute('data-theme-preset');
     document.getElementById('hackdesk-theme')?.remove();
     document.getElementById('hackdesk-theme-preload')?.remove();
+    document.querySelector('meta[name="color-scheme"]')?.remove();
     delete window.hackdeskAPI;
   });
 
@@ -94,6 +96,36 @@ describe('ThemeProvider', () => {
     expect(localStorage.getItem('theme')).toBe('dark');
     expect(localStorage.getItem('theme-mode')).toBe('dark');
   });
+
+  it('syncs native theme surfaces when the resolved mode changes', () => {
+    const setThemeSurface = vi.fn();
+    window.hackdeskAPI = {
+      app: {
+        setThemeSurface,
+      },
+    } as never;
+
+    render(
+      <ThemeProvider defaultTheme="light">
+        <ThemeConsumer />
+      </ThemeProvider>,
+    );
+
+    const lightBackground = getThemeBackground(resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'light' }));
+    expect(document.documentElement.style.colorScheme).toBe('light');
+    expect(document.querySelector('meta[name="color-scheme"]')).toHaveAttribute('content', 'light');
+    expect(document.getElementById('hackdesk-theme')?.textContent).toContain('color-scheme: light');
+    expect(setThemeSurface).toHaveBeenLastCalledWith({ mode: 'light', background: lightBackground });
+
+    fireEvent.click(screen.getByText('Set Dark'));
+
+    const darkBackground = getThemeBackground(resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'dark' }));
+    expect(document.documentElement.style.colorScheme).toBe('dark');
+    expect(document.querySelector('meta[name="color-scheme"]')).toHaveAttribute('content', 'dark');
+    expect(document.getElementById('hackdesk-theme')?.textContent).toContain('color-scheme: dark');
+    expect(setThemeSurface).toHaveBeenLastCalledWith({ mode: 'dark', background: darkBackground });
+  });
+
 
   it('should log error when useTheme is used outside provider', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -297,6 +329,9 @@ describe('ThemeProvider', () => {
 
     expect(document.documentElement.classList.contains('dark')).toBe(true);
     expect(document.documentElement.dataset.themePreset).toBe('solarized');
+    expect(document.documentElement.style.colorScheme).toBe('dark');
+    expect(document.querySelector('meta[name="color-scheme"]')).toHaveAttribute('content', 'dark');
+    expect(document.getElementById('hackdesk-theme')?.textContent).toContain('color-scheme: dark');
     expect(screen.getByTestId('current-theme').textContent).toBe('light');
     expect(localStorage.getItem('theme-preset-id')).toBeNull();
 
@@ -304,5 +339,8 @@ describe('ThemeProvider', () => {
 
     expect(document.documentElement.classList.contains('light')).toBe(true);
     expect(document.documentElement.dataset.themePreset).toBe('hackmd-neo');
+    expect(document.documentElement.style.colorScheme).toBe('light');
+    expect(document.querySelector('meta[name="color-scheme"]')).toHaveAttribute('content', 'light');
+    expect(document.getElementById('hackdesk-theme')?.textContent).toContain('color-scheme: light');
   });
 });

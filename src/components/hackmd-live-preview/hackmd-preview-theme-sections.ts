@@ -35,7 +35,8 @@ export const editorChromeTheme = {
     borderLeftColor: 'var(--primary-default)',
   },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
-    backgroundColor: 'color-mix(in oklch, var(--primary-default) 22%, transparent)',
+    backgroundColor: 'var(--selection-background)',
+    color: 'var(--selection-foreground)',
   },
 };
 

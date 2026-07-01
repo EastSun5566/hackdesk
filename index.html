@@ -6,25 +6,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HackDesk</title>
     <script>
-      (function () {
-        var theme = localStorage.getItem('theme-mode') || localStorage.getItem('theme') || 'system';
-        var presetId = localStorage.getItem('theme-preset-id') || 'hackmd';
-        var cachedCss = localStorage.getItem('hackdesk-theme-css');
-        var resolved = theme === 'system'
+      {
+        const theme = localStorage.getItem('theme-mode') || localStorage.getItem('theme') || 'system';
+        const presetId = localStorage.getItem('theme-preset-id') || 'hackmd-neo';
+        const cachedCss = localStorage.getItem('hackdesk-theme-css');
+        const resolved = theme === 'system'
           ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
           : theme;
-        var background = resolved === 'dark' ? '#27272A' : '#FDFDFD';
-        var colorSchemeMeta = document.querySelector('meta[name="color-scheme"]');
+        let background = resolved === 'dark' ? '#27272A' : '#FDFDFD';
+        const colorSchemeMeta = document.querySelector('meta[name="color-scheme"]');
 
         if (colorSchemeMeta) {
           colorSchemeMeta.setAttribute('content', resolved);
         }
         if (cachedCss) {
-          var style = document.createElement('style');
+          const style = document.createElement('style');
           style.id = 'hackdesk-theme-preload';
           style.textContent = cachedCss;
           document.head.appendChild(style);
-          var backgroundMatch = cachedCss.match(/--background-default:\s*([^;]+);/);
+          const backgroundMatch = cachedCss.match(/--background-default:\s*([^;]+);/);
           if (backgroundMatch) {
             background = backgroundMatch[1].trim();
           }
@@ -33,7 +33,7 @@
         document.documentElement.dataset.themePreset = presetId;
         document.documentElement.style.backgroundColor = background;
         document.documentElement.style.colorScheme = resolved;
-      })();
+      }
     </script>
     <style>
       html,
