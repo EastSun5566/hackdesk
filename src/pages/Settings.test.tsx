@@ -210,6 +210,18 @@ describe('Settings page', () => {
     expect(toastSuccessMock).toHaveBeenCalledWith('Theme applied');
   });
 
+  it('cancels an inline theme preview without applying it', () => {
+    render(<Settings />);
+
+    fireEvent.click(screen.getByText('Appearance'));
+    fireEvent.click(screen.getByText('Dark'));
+    fireEvent.click(screen.getByText('Cancel Preview'));
+
+    expect(cancelPreview).toHaveBeenCalled();
+    expect(screen.getByRole('radio', { name: 'System' })).toBeChecked();
+    expect(setAppearance).not.toHaveBeenCalled();
+  });
+
   it('shows inline validation for invalid custom theme seed colors', () => {
     render(<Settings />);
 

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ThemeProvider } from '@/components/theme-provider';
 import { defaultSettings } from '@/lib/settings';
+import { THEME_STORAGE_KEYS } from '@/lib/themes';
 
 import { SettingsDialog } from './SettingsDialog';
 
@@ -26,22 +27,22 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
   const onRefreshLocalVault = props.onRefreshLocalVault ?? vi.fn(async () => undefined);
   const onSave = props.onSave ?? vi.fn();
   const onValidateToken = props.onValidateToken ?? vi.fn();
-
-  render(
+  const settings = props.settings ?? {
+    title: 'HackDesk',
+    appearance: defaultSettings.appearance,
+    editor: defaultSettings.editor,
+    hasHackmdApiToken: false,
+    hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+    hasLocalVault: false,
+    localVault: defaultSettings.localVault,
+    onboarding: defaultSettings.onboarding,
+    shouldShowHackmdOnboarding: true,
+  };
+  const renderDialog = (nextProps: Partial<Parameters<typeof SettingsDialog>[0]> = {}) => (
     <ThemeProvider defaultTheme="system" storageKey="settings-dialog-test-theme">
       <SettingsDialog
         open
-        settings={{
-          title: 'HackDesk',
-          appearance: defaultSettings.appearance,
-          editor: defaultSettings.editor,
-          hasHackmdApiToken: false,
-          hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
-          hasLocalVault: false,
-          localVault: defaultSettings.localVault,
-          onboarding: defaultSettings.onboarding,
-          shouldShowHackmdOnboarding: true,
-        }}
+        settings={settings}
         isSaving={false}
         onChooseLocalVault={onChooseLocalVault}
         onForgetLocalVault={onForgetLocalVault}
@@ -51,11 +52,24 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
         onSave={onSave}
         onValidateToken={onValidateToken}
         {...props}
+        {...nextProps}
       />
-    </ThemeProvider>,
+    </ThemeProvider>
   );
+  const renderResult = render(renderDialog());
 
-  return { onChooseLocalVault, onForgetLocalVault, onOpenLocalVault, onRefreshLocalVault, onOpenChange, onSave, onValidateToken };
+  return {
+    onChooseLocalVault,
+    onForgetLocalVault,
+    onOpenLocalVault,
+    onRefreshLocalVault,
+    onOpenChange,
+    onSave,
+    onValidateToken,
+    rerenderSettingsDialog: (nextProps: Partial<Parameters<typeof SettingsDialog>[0]>) => {
+      renderResult.rerender(renderDialog(nextProps));
+    },
+  };
 }
 
 async function selectThemeOption(optionName: string | RegExp) {
@@ -65,6 +79,14 @@ async function selectThemeOption(optionName: string | RegExp) {
   const option = await screen.findByRole('option', { name: optionName });
   fireEvent.pointerDown(option);
   fireEvent.click(option);
+}
+
+async function previewDraculaTheme() {
+  fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
+  await selectThemeOption('Dracula');
+  await waitFor(() => {
+    expect(document.documentElement.dataset.themePreset).toBe('dracula');
+  });
 }
 
 describe('SettingsDialog', () => {
@@ -242,18 +264,19 @@ describe('SettingsDialog', () => {
     }));
   });
 
-  it('closes the dialog after applying a theme from the appearance footer', () => {
+  it('applies the current appearance draft and closes the dialog', async () => {
     const { onOpenChange } = renderSettingsDialog();
 
-    fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
+    await previewDraculaTheme();
     fireEvent.click(screen.getByRole('button', { name: 'Apply Theme' }));
 
+    expect(localStorage.getItem(THEME_STORAGE_KEYS.presetId)).toBe('dracula');
     expect(toastSuccessMock).toHaveBeenCalledWith('Theme applied');
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it('keeps custom seed inputs mounted while collapsed and preserves validation state', () => {
-    renderSettingsDialog();
+    const { onOpenChange } = renderSettingsDialog();
 
     fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
 
@@ -271,6 +294,8 @@ describe('SettingsDialog', () => {
 
     expect(screen.getByText('Use a 6-digit hex color, for example #5D54E8.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Apply Theme' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Theme' }));
+    expect(onOpenChange).not.toHaveBeenCalled();
 
     fireEvent.click(trigger);
     expect(primaryInput).not.toBeVisible();
@@ -285,6 +310,70 @@ describe('SettingsDialog', () => {
     expect(primaryInput).toBeVisible();
     expect(primaryInput).toHaveValue('blue');
     expect(screen.getByText('Use a 6-digit hex color, for example #5D54E8.')).toBeVisible();
+  });
+
+  it('cancels an appearance preview from the footer without closing settings', async () => {
+    const { onOpenChange } = renderSettingsDialog();
+
+    await previewDraculaTheme();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel Preview' }));
+
+    await waitFor(() => {
+      expect(document.documentElement.dataset.themePreset).toBe('hackmd-neo');
+      expect(screen.getByLabelText('Theme preset')).toHaveTextContent('HackMD Neo');
+    });
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it('cancels an appearance preview when the dialog close button is used', async () => {
+    const { onOpenChange, rerenderSettingsDialog } = renderSettingsDialog();
+
+    await previewDraculaTheme();
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+    await waitFor(() => {
+      expect(document.documentElement.dataset.themePreset).toBe('hackmd-neo');
+      expect(screen.getByLabelText('Theme preset')).toHaveTextContent('HackMD Neo');
+    });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+
+    rerenderSettingsDialog({ open: false });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    rerenderSettingsDialog({ open: true });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Theme preset')).toHaveTextContent('HackMD Neo');
+    });
+  });
+
+  it('cancels an appearance preview when Escape closes the dialog', async () => {
+    const { onOpenChange } = renderSettingsDialog();
+
+    await previewDraculaTheme();
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() => {
+      expect(document.documentElement.dataset.themePreset).toBe('hackmd-neo');
+      expect(screen.getByLabelText('Theme preset')).toHaveTextContent('HackMD Neo');
+    });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('cancels an appearance preview from another tab footer before closing', async () => {
+    const { onOpenChange } = renderSettingsDialog();
+
+    await previewDraculaTheme();
+    fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
+    const footerCloseButton = screen.getAllByRole('button', { name: 'Close' })
+      .find((button) => button.textContent?.trim() === 'Close');
+
+    expect(footerCloseButton).toBeDefined();
+    fireEvent.click(footerCloseButton as HTMLButtonElement);
+
+    await waitFor(() => {
+      expect(document.documentElement.dataset.themePreset).toBe('hackmd-neo');
+    });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it('shows Electron appearance typography controls and mainstream presets', () => {

@@ -1,4 +1,4 @@
-import { forwardRef, useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { AlertCircle, CheckCircle2, FolderOpen, Keyboard, Loader2, Monitor, RefreshCw, Save, Settings as SettingsIcon, Shield, Trash2, Zap } from 'lucide-react';
 import { toast } from '@/components/ui/toast';
 
@@ -10,12 +10,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  ThemeAppearanceControls,
-  type ThemeAppearanceControlsHandle,
-  type ThemeAppearanceControlsState,
-} from '@/components/ThemeAppearanceControls';
+import { ThemeAppearanceFields } from '@/components/ThemeAppearanceControls';
 import { useTheme } from '@/components/theme-provider';
+import {
+  useThemeAppearanceDraft,
+  type ThemeAppearanceDraftController,
+} from '@/components/useThemeAppearanceDraft';
 import type { ElectronSafeSettings, UserSummary } from '@/lib/electron-api';
 import type { LocalVaultSnapshot } from '@/lib/local-vault';
 import { getHackDeskAPI } from '@/lib/electron-api';
@@ -98,12 +98,7 @@ function SettingsDialogContent({
       message: '',
     } as TokenTestState,
   }));
-  const appearanceControlsRef = useRef<ThemeAppearanceControlsHandle>(null);
-  const [appearanceState, setAppearanceState] = useState<ThemeAppearanceControlsState>({
-    canApply: true,
-    hasDraftChanges: false,
-    hasErrors: false,
-  });
+  const appearanceController = useThemeAppearanceDraft({ showTypography: true });
   const { editorMode, title, token, tokenTest, tokenVisible } = formState;
 
   const normalizedToken = token.trim();
@@ -145,8 +140,24 @@ function SettingsDialogContent({
     });
   };
 
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      appearanceController.actions.cancel();
+    }
+    onOpenChange(nextOpen);
+  };
+
+  const handleApplyTheme = () => {
+    if (!appearanceController.actions.apply()) {
+      return;
+    }
+
+    toast.success('Theme applied');
+    onOpenChange(false);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="flex max-h-[min(760px,calc(100dvh-4rem))] w-[min(760px,calc(100dvw-2rem))] max-w-3xl flex-col overflow-hidden p-0">
         <Tabs
           value={activeTab}
@@ -188,14 +199,7 @@ function SettingsDialogContent({
             </TabsContent>
 
             <TabsContent value="appearance" keepMounted className={SETTINGS_PANEL_CLASS}>
-              <AppearanceSettingsPanel
-                ref={appearanceControlsRef}
-                onStateChange={setAppearanceState}
-                onApplied={() => {
-                  toast.success('Theme applied');
-                  onOpenChange(false);
-                }}
-              />
+              <AppearanceSettingsPanel controller={appearanceController} />
             </TabsContent>
 
             <TabsContent value="vault" keepMounted className={SETTINGS_PANEL_CLASS}>
@@ -230,12 +234,12 @@ function SettingsDialogContent({
             <SettingsDialogFooter
               activeTab={activeTab}
               activeTabDescription={activeTabDefinition.description}
-              appearanceState={appearanceState}
+              appearanceStatus={appearanceController.status}
               canSaveTitle={Boolean(title.trim())}
               isSaving={isSaving}
-              onApplyTheme={() => appearanceControlsRef.current?.apply()}
-              onCancelPreview={() => appearanceControlsRef.current?.cancel()}
-              onClose={() => onOpenChange(false)}
+              onApplyTheme={handleApplyTheme}
+              onCancelPreview={appearanceController.actions.cancel}
+              onClose={() => handleDialogOpenChange(false)}
             />
           </form>
         </Tabs>
@@ -302,24 +306,22 @@ function GeneralSettingsPanel({
   );
 }
 
-const AppearanceSettingsPanel = forwardRef<ThemeAppearanceControlsHandle, {
-  onApplied: () => void;
-  onStateChange: (state: ThemeAppearanceControlsState) => void;
-}>(function AppearanceSettingsPanel({ onApplied, onStateChange }, ref) {
+function AppearanceSettingsPanel({
+  controller,
+}: {
+  controller: ThemeAppearanceDraftController;
+}) {
   return (
     <SettingsSection title="Appearance" description="Preview and apply a local HackDesk theme.">
-      <ThemeAppearanceControls
-        ref={ref}
+      <ThemeAppearanceFields
+        controller={controller}
         density="compact"
         actions="none"
         customSeedsDefaultOpen={false}
-        showTypography
-        onStateChange={onStateChange}
-        onApplied={onApplied}
       />
     </SettingsSection>
   );
-});
+}
 
 function formatScannedAt(snapshot?: LocalVaultSnapshot | null) {
   if (!snapshot?.scannedAtMillis) {
@@ -646,7 +648,7 @@ function AdvancedSettingsPanel({
 function SettingsDialogFooter({
   activeTab,
   activeTabDescription,
-  appearanceState,
+  appearanceStatus,
   canSaveTitle,
   isSaving,
   onApplyTheme,
@@ -655,7 +657,7 @@ function SettingsDialogFooter({
 }: {
   activeTab: SettingsTab;
   activeTabDescription: string;
-  appearanceState: ThemeAppearanceControlsState;
+  appearanceStatus: ThemeAppearanceDraftController['status'];
   canSaveTitle: boolean;
   isSaving: boolean;
   onApplyTheme: () => void;
@@ -666,7 +668,7 @@ function SettingsDialogFooter({
     <div className="flex items-center justify-between gap-3 border-t border-border-default px-5 py-4">
       <p className="min-w-0 truncate text-xs text-text-subtle">{activeTabDescription}</p>
       <div className="flex shrink-0 items-center gap-2">
-        {activeTab === 'appearance' && appearanceState.hasDraftChanges ? (
+        {activeTab === 'appearance' && appearanceStatus.hasDraftChanges ? (
           <button
             type="button"
             onClick={onCancelPreview}
@@ -682,7 +684,7 @@ function SettingsDialogFooter({
           <button
             type="button"
             onClick={onApplyTheme}
-            disabled={!appearanceState.canApply}
+            disabled={!appearanceStatus.canApply}
             className={cn(
               'inline-flex h-9 items-center justify-center rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50',
               FOCUS_RING_CLASS,

@@ -1,76 +1,27 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { ChevronRight, Laptop, Moon, Sun } from 'lucide-react';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectLabelValue, SelectTrigger } from '@/components/ui/select';
-import { useTheme } from '@/components/theme-provider';
 import {
-  defaultThemeTypography,
-  isSafeFontStack,
-  normalizeThemeSeed,
-  normalizeThemeTypography,
+  HACKDESK_THEME_PRESETS,
   type ThemeMode,
   type ThemePresetId,
   type ThemeSeed,
-  type ThemeTypography,
 } from '@/lib/themes';
 import { cn } from '@/lib/utils';
+import {
+  THEME_SEED_FIELDS,
+  useThemeAppearanceDraft,
+  type ThemeAppearanceDraftController,
+} from '@/components/useThemeAppearanceDraft';
 
 const themeModeOptions: { id: ThemeMode; label: string; description: string; icon: ReactNode }[] = [
   { id: 'light', label: 'Light', description: 'Light mode', icon: <Sun className="h-5 w-5" /> },
   { id: 'dark', label: 'Dark', description: 'Dark mode', icon: <Moon className="h-5 w-5" /> },
   { id: 'system', label: 'System', description: 'Follow system settings', icon: <Laptop className="h-5 w-5" /> },
 ];
-
-const seedFields: { key: keyof ThemeSeed; label: string }[] = [
-  { key: 'neutral', label: 'Neutral' },
-  { key: 'primary', label: 'Primary' },
-  { key: 'success', label: 'Success' },
-  { key: 'warning', label: 'Warning' },
-  { key: 'destructive', label: 'Danger' },
-];
-
-const HEX_COLOR_RE = /^#[\da-fA-F]{6}$/;
-const DEFAULT_THEME_MODE: ThemeMode = 'system';
-const DEFAULT_THEME_PRESET: ThemePresetId = 'hackmd-neo';
-const FONT_STACK_ERROR = 'Use comma-separated font family names. CSS functions and declarations are not allowed.';
-
-function seedToInputs(seed: Partial<ThemeSeed>) {
-  return seedFields.reduce<Record<keyof ThemeSeed, string>>((acc, field) => {
-    acc[field.key] = seed[field.key] ?? '';
-    return acc;
-  }, {
-    neutral: '',
-    primary: '',
-    success: '',
-    warning: '',
-    destructive: '',
-  });
-}
-
-function inputToSeed(inputs: Record<keyof ThemeSeed, string>) {
-  return normalizeThemeSeed(inputs);
-}
-
-function getInputErrors(inputs: Record<keyof ThemeSeed, string>) {
-  return seedFields.reduce<Partial<Record<keyof ThemeSeed, string>>>((acc, field) => {
-    const value = inputs[field.key].trim();
-    if (value && !HEX_COLOR_RE.test(value)) {
-      acc[field.key] = 'Use a 6-digit hex color, for example #5D54E8.';
-    }
-    return acc;
-  }, {});
-}
-
-function getFontStackError(value: string) {
-  return value.trim() && !isSafeFontStack(value) ? FONT_STACK_ERROR : null;
-}
-
-function typographyEqual(left: ThemeTypography, right: ThemeTypography) {
-  return left.uiFontStack === right.uiFontStack
-    && left.editorFontStack === right.editorFontStack;
-}
 
 const focusClassName = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default';
 const secondaryButtonClassName = cn(
@@ -82,189 +33,61 @@ const primaryButtonClassName = cn(
   focusClassName,
 );
 
-export type ThemeAppearanceControlsState = {
-  canApply: boolean;
-  hasDraftChanges: boolean;
-  hasErrors: boolean;
-};
-
-export type ThemeAppearanceControlsHandle = {
-  apply: () => void;
-  cancel: () => void;
-  reset: () => void;
-};
-
-function seedInputsEqual(left: Record<keyof ThemeSeed, string>, right: Record<keyof ThemeSeed, string>) {
-  return seedFields.every((field) => left[field.key] === right[field.key]);
-}
-
-export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle, {
+type ThemeAppearanceControlsProps = {
   onApplied?: () => void;
   actions?: 'inline' | 'none';
   density?: 'comfortable' | 'compact';
   customSeedsDefaultOpen?: boolean;
   showTypography?: boolean;
-  onStateChange?: (state: ThemeAppearanceControlsState) => void;
-}>(function ThemeAppearanceControls({
+};
+
+type ThemeAppearanceFieldsProps = Omit<ThemeAppearanceControlsProps, 'showTypography'> & {
+  controller: ThemeAppearanceDraftController;
+};
+
+export function ThemeAppearanceControls({
   onApplied,
   actions = 'inline',
   density = 'comfortable',
   customSeedsDefaultOpen = true,
   showTypography = false,
-  onStateChange,
-}, ref) {
-  const {
-    theme,
-    presetId,
-    customSeed,
-    typography: contextTypography,
-    presets,
-    previewTheme,
-    cancelPreview,
-    setAppearance,
-  } = useTheme();
-  const typography = useMemo(() => normalizeThemeTypography(contextTypography), [contextTypography]);
-  const [draft, setDraft] = useState(() => ({
-    mode: theme,
-    presetId,
-    seedInputs: seedToInputs(customSeed),
-    typography,
-  }));
+}: ThemeAppearanceControlsProps) {
+  const controller = useThemeAppearanceDraft({ showTypography });
+
+  return (
+    <ThemeAppearanceFields
+      actions={actions}
+      controller={controller}
+      customSeedsDefaultOpen={customSeedsDefaultOpen}
+      density={density}
+      onApplied={onApplied}
+    />
+  );
+}
+
+export function ThemeAppearanceFields({
+  controller,
+  onApplied,
+  actions = 'inline',
+  density = 'comfortable',
+  customSeedsDefaultOpen = true,
+}: ThemeAppearanceFieldsProps) {
   const {
     mode: draftMode,
     presetId: draftPresetId,
     seedInputs: draftSeedInputs,
     typography: draftTypography,
-  } = draft;
-  const savedSeedInputs = useMemo(() => seedToInputs(customSeed), [customSeed]);
-  const errors = useMemo(() => getInputErrors(draftSeedInputs), [draftSeedInputs]);
-  const typographyErrors = useMemo(() => ({
-    uiFontStack: getFontStackError(draftTypography.uiFontStack),
-    editorFontStack: getFontStackError(draftTypography.editorFontStack),
-  }), [draftTypography.editorFontStack, draftTypography.uiFontStack]);
-  const hasErrors = Object.keys(errors).length > 0
-    || (showTypography && Boolean(typographyErrors.uiFontStack || typographyErrors.editorFontStack));
-  const hasDraftChanges = draftMode !== theme
-    || draftPresetId !== presetId
-    || !seedInputsEqual(draftSeedInputs, savedSeedInputs)
-    || (showTypography && !typographyEqual(draftTypography, typography));
+  } = controller.draft;
+  const { seedErrors: errors, showTypography, status, typographyErrors } = controller;
+  const draftActions = controller.actions;
+  const presets = HACKDESK_THEME_PRESETS;
   const compact = density === 'compact';
 
-  useEffect(() => {
-    setDraft({
-      mode: theme,
-      presetId,
-      seedInputs: seedToInputs(customSeed),
-      typography,
-    });
-  }, [customSeed, presetId, theme, typography]);
-
-  const preview = (next: {
-    mode?: ThemeMode;
-    presetId?: ThemePresetId;
-    seedInputs?: Record<keyof ThemeSeed, string>;
-    typography?: ThemeTypography;
-  }) => {
-    const mode = next.mode ?? draftMode;
-    const nextPresetId = next.presetId ?? draftPresetId;
-    const seedInputs = next.seedInputs ?? draftSeedInputs;
-    const nextTypography = showTypography ? next.typography ?? draftTypography : typography;
-    const nextErrors = getInputErrors(seedInputs);
-    const nextTypographyErrors = [
-      getFontStackError(nextTypography.uiFontStack),
-      getFontStackError(nextTypography.editorFontStack),
-    ];
-    if (Object.keys(nextErrors).length > 0 || nextTypographyErrors.some(Boolean)) {
-      return;
-    }
-    previewTheme({
-      theme: mode,
-      presetId: nextPresetId,
-      customSeed: inputToSeed(seedInputs),
-      typography: nextTypography,
-    });
-  };
-
-  const handleModeChange = (mode: ThemeMode) => {
-    setDraft((current) => ({ ...current, mode }));
-    preview({ mode });
-  };
-
-  const handlePresetChange = (nextPresetId: ThemePresetId) => {
-    setDraft((current) => ({ ...current, presetId: nextPresetId }));
-    preview({ presetId: nextPresetId });
-  };
-
-  const handleSeedChange = (key: keyof ThemeSeed, value: string) => {
-    const nextInputs = { ...draftSeedInputs, [key]: value };
-    setDraft((current) => ({ ...current, seedInputs: nextInputs }));
-    preview({ seedInputs: nextInputs });
-  };
-
-  const handleTypographyChange = (
-    role: keyof ThemeTypography,
-    value: string,
-  ) => {
-    const nextTypography = {
-      ...draftTypography,
-      [role]: value,
-    };
-    setDraft((current) => ({ ...current, typography: nextTypography }));
-    preview({ typography: normalizeThemeTypography(nextTypography) });
-  };
-
   const handleApply = () => {
-    if (hasErrors) {
-      return;
+    if (draftActions.apply()) {
+      onApplied?.();
     }
-    setAppearance({
-      theme: draftMode,
-      presetId: draftPresetId,
-      customSeed: inputToSeed(draftSeedInputs),
-      typography: showTypography ? normalizeThemeTypography(draftTypography) : typography,
-    });
-    onApplied?.();
   };
-
-  const handleCancel = () => {
-    cancelPreview();
-    setDraft({
-      mode: theme,
-      presetId,
-      seedInputs: seedToInputs(customSeed),
-      typography,
-    });
-  };
-
-  const handleReset = () => {
-    const resetInputs = seedToInputs({});
-    setDraft({
-      mode: DEFAULT_THEME_MODE,
-      presetId: DEFAULT_THEME_PRESET,
-      seedInputs: resetInputs,
-      typography: showTypography ? defaultThemeTypography : typography,
-    });
-    previewTheme({
-      theme: DEFAULT_THEME_MODE,
-      presetId: DEFAULT_THEME_PRESET,
-      customSeed: {},
-      typography: showTypography ? defaultThemeTypography : typography,
-    });
-  };
-
-  useImperativeHandle(ref, () => ({
-    apply: handleApply,
-    cancel: handleCancel,
-    reset: handleReset,
-  }));
-
-  useEffect(() => {
-    onStateChange?.({
-      canApply: !hasErrors,
-      hasDraftChanges,
-      hasErrors,
-    });
-  }, [hasDraftChanges, hasErrors, onStateChange]);
 
   return (
     <div className={cn(compact ? 'space-y-4' : 'space-y-6')}>
@@ -275,7 +98,7 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
         </p>
         <RadioGroup
           value={draftMode}
-          onValueChange={(value) => handleModeChange(value as ThemeMode)}
+          onValueChange={(value) => draftActions.changeMode(value as ThemeMode)}
           className={cn(
             compact
               ? 'inline-flex rounded-md border border-border-default bg-background-muted p-0.5'
@@ -318,7 +141,7 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
         <p className={cn('text-text-subtle', compact ? 'text-xs' : 'mb-3 text-sm')}>
           Start from a preset, then tune the seed colors below.
         </p>
-        <Select value={draftPresetId} onValueChange={(value) => handlePresetChange(value as ThemePresetId)}>
+        <Select value={draftPresetId} onValueChange={(value) => draftActions.changePreset(value as ThemePresetId)}>
           <SelectTrigger aria-label="Theme preset" className={compact ? 'w-full' : 'max-w-sm'}>
             <SelectLabelValue
               value={draftPresetId}
@@ -349,13 +172,13 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
               label="UI font"
               value={draftTypography.uiFontStack}
               error={typographyErrors.uiFontStack}
-              onChange={(value) => handleTypographyChange('uiFontStack', value)}
+              onChange={(value) => draftActions.changeTypography('uiFontStack', value)}
             />
             <ThemeFontField
               label="Editor font"
               value={draftTypography.editorFontStack}
               error={typographyErrors.editorFontStack}
-              onChange={(value) => handleTypographyChange('editorFontStack', value)}
+              onChange={(value) => draftActions.changeTypography('editorFontStack', value)}
             />
           </div>
         </fieldset>
@@ -379,7 +202,7 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
                 <ThemeSeedFields
                   errors={errors}
                   inputs={draftSeedInputs}
-                  onChange={handleSeedChange}
+                  onChange={draftActions.changeSeed}
                 />
               </div>
             </CollapsibleContent>
@@ -391,7 +214,7 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
               <ThemeSeedFields
                 errors={errors}
                 inputs={draftSeedInputs}
-                onChange={handleSeedChange}
+                onChange={draftActions.changeSeed}
               />
             </div>
           </>
@@ -400,20 +223,20 @@ export const ThemeAppearanceControls = forwardRef<ThemeAppearanceControlsHandle,
 
       {actions === 'inline' ? (
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-default pt-4">
-          <button type="button" onClick={handleReset} className={secondaryButtonClassName}>
+          <button type="button" onClick={draftActions.reset} className={secondaryButtonClassName}>
             Reset Theme
           </button>
-          <button type="button" onClick={handleCancel} className={secondaryButtonClassName}>
+          <button type="button" onClick={draftActions.cancel} className={secondaryButtonClassName}>
             Cancel Preview
           </button>
-          <button type="button" onClick={handleApply} disabled={hasErrors} className={primaryButtonClassName}>
+          <button type="button" onClick={handleApply} disabled={!status.canApply} className={primaryButtonClassName}>
             Apply Theme
           </button>
         </div>
       ) : null}
     </div>
   );
-});
+}
 
 function ThemeSeedFields({
   errors,
@@ -424,7 +247,7 @@ function ThemeSeedFields({
   inputs: Record<keyof ThemeSeed, string>;
   onChange: (key: keyof ThemeSeed, value: string) => void;
 }) {
-  return seedFields.map((field) => {
+  return THEME_SEED_FIELDS.map((field) => {
     const fieldId = `theme-seed-${field.key}`;
     const errorId = `${fieldId}-error`;
     return (
