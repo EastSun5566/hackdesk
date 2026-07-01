@@ -7,16 +7,28 @@ import { THEME_STORAGE_KEYS } from '@/lib/themes';
 
 import { SettingsDialog } from './SettingsDialog';
 
-const { toastSuccessMock } = vi.hoisted(() => ({
+const {
+  getHackDeskAPIMock,
+  toastErrorMock,
+  toastInfoMock,
+  toastSuccessMock,
+} = vi.hoisted(() => ({
+  getHackDeskAPIMock: vi.fn(),
+  toastErrorMock: vi.fn(),
+  toastInfoMock: vi.fn(),
   toastSuccessMock: vi.fn(),
 }));
 
 vi.mock('@/components/ui/toast', () => ({
   toast: {
-    error: vi.fn(),
-    info: vi.fn(),
+    error: toastErrorMock,
+    info: toastInfoMock,
     success: toastSuccessMock,
   },
+}));
+
+vi.mock('@/lib/electron-api', () => ({
+  getHackDeskAPI: getHackDeskAPIMock,
 }));
 
 function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0]> = {}) {
@@ -92,6 +104,7 @@ async function previewDraculaTheme() {
 describe('SettingsDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getHackDeskAPIMock.mockReturnValue(undefined);
     window.localStorage.clear();
   });
 
@@ -425,6 +438,52 @@ describe('SettingsDialog', () => {
     });
   });
 
+  it('tests a HackMD token and shows the validated user', async () => {
+    const { onValidateToken } = renderSettingsDialog({
+      onValidateToken: vi.fn(async () => ({
+        email: 'michael@example.com',
+        id: 'user-1',
+        name: 'Michael',
+        photo: null,
+        teams: [],
+        upgraded: false,
+        username: 'michael5566',
+      })),
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+    fireEvent.change(screen.getByLabelText('API Token'), {
+      target: { value: ' api-token ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Test Token' }));
+
+    expect(onValidateToken).toHaveBeenCalledWith('api-token');
+    expect(screen.getByText('Testing token…')).toBeVisible();
+    await waitFor(() => {
+      expect(screen.getByText('Token works for Michael @michael5566.')).toBeVisible();
+    });
+  });
+
+  it('shows a HackMD token validation error without saving the token', async () => {
+    const { onSave } = renderSettingsDialog({
+      onValidateToken: vi.fn(async () => {
+        throw new Error('Invalid token');
+      }),
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+    fireEvent.change(screen.getByLabelText('API Token'), {
+      target: { value: 'bad-token' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Test Token' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Invalid token')).toBeVisible();
+    });
+    expect(screen.getByLabelText('API Token')).toHaveAttribute('aria-invalid', 'true');
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
   it('shows local vault details and runs vault actions', () => {
     const {
       onChooseLocalVault,
@@ -472,5 +531,33 @@ describe('SettingsDialog', () => {
     expect(onRefreshLocalVault).toHaveBeenCalledOnce();
     expect(onChooseLocalVault).toHaveBeenCalledOnce();
     expect(onForgetLocalVault).toHaveBeenCalledOnce();
+  });
+
+  it('reports when update checks are unavailable outside packaged Electron', () => {
+    renderSettingsDialog();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Advanced/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check for Updates' }));
+
+    expect(toastErrorMock).toHaveBeenCalledWith('Update checks are available only in the packaged Electron app.');
+  });
+
+  it('runs the Electron update check and reports status toasts', async () => {
+    const checkForUpdates = vi.fn(async () => ({ status: 'upToDate' as const }));
+    getHackDeskAPIMock.mockReturnValue({
+      app: {
+        checkForUpdates,
+      },
+    });
+    renderSettingsDialog();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Advanced/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check for Updates' }));
+
+    expect(screen.getByRole('button', { name: 'Checking…' })).toBeDisabled();
+    await waitFor(() => {
+      expect(toastInfoMock).toHaveBeenCalledWith('You’re already on the latest version of HackDesk.');
+    });
+    expect(checkForUpdates).toHaveBeenCalledOnce();
   });
 });
