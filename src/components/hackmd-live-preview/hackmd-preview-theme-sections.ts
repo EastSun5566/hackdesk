@@ -26,7 +26,7 @@ export const editorChromeTheme = {
   },
   '.cm-matchingBracket': {
     backgroundColor: 'var(--primary-soft)',
-    outline: '1px solid var(--primary-default)',
+    outline: '1px solid var(--focus-ring)',
   },
   '&.cm-focused': {
     outline: 'none',
@@ -96,8 +96,8 @@ export const searchPanelTheme = {
     transition: 'border-color 120ms ease, box-shadow 120ms ease',
   },
   '.cm-hackdesk-search-input:focus': {
-    borderColor: 'var(--primary-default)',
-    boxShadow: '0 0 0 2px color-mix(in oklch, var(--primary-default) 26%, transparent)',
+    borderColor: 'var(--focus-ring)',
+    boxShadow: '0 0 0 2px color-mix(in oklch, var(--focus-ring) 26%, transparent)',
   },
   '.cm-hackdesk-search-input::placeholder': {
     color: 'var(--text-subtle)',
@@ -133,7 +133,7 @@ export const searchPanelTheme = {
     color: 'var(--icon-default)',
   },
   '.cm-hackdesk-search-button:focus-visible': {
-    borderColor: 'var(--primary-default)',
+    borderColor: 'var(--focus-ring)',
     color: 'var(--icon-default)',
     outline: 'none',
   },
@@ -147,7 +147,7 @@ export const searchPanelTheme = {
   },
   '.cm-searchMatch.cm-searchMatch-selected': {
     backgroundColor: 'color-mix(in oklch, var(--primary-default) 46%, transparent)',
-    outline: '1px solid color-mix(in oklch, var(--primary-default) 72%, transparent)',
+    outline: '1px solid color-mix(in oklch, var(--focus-ring) 72%, transparent)',
   },
 };
 
@@ -495,7 +495,7 @@ export const widgetTheme = {
   },
   '.cm-hackmd-table-cell-source:focus': {
     backgroundColor: 'color-mix(in oklch, var(--background-selected) 36%, transparent)',
-    boxShadow: 'inset 0 0 0 2px var(--primary-default)',
+    boxShadow: 'inset 0 0 0 2px var(--focus-ring)',
   },
   '.cm-hackmd-csv-preview th, .cm-hackmd-csv-preview td': {
     minWidth: '7rem',

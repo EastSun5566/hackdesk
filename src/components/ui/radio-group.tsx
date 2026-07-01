@@ -13,7 +13,7 @@ const RadioGroupItem = React.forwardRef<
   <RadioPrimitive.Root
     ref={ref}
     className={cn(
-      'inline-flex h-4 w-4 shrink-0 cursor-default items-center justify-center rounded-full border border-border-default bg-background-default text-primary-default transition-colors data-[checked]:border-primary-default disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default',
+      'inline-flex h-4 w-4 shrink-0 cursor-default items-center justify-center rounded-full border border-border-default bg-background-default text-primary-default transition-colors data-[checked]:border-primary-default disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default',
       className,
     )}
     {...props}

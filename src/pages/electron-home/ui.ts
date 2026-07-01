@@ -3,7 +3,7 @@ import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-fo
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { cn } from '@/lib/utils';
 
-export const FOCUS_RING_CLASS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default';
+export const FOCUS_RING_CLASS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring';
 export const PRESSED_CLASS = 'active:translate-y-px';
 export const PANEL_TRANSITION_CLASS = 'transition-[border-color,background-color] duration-150 ease-out motion-reduce:transition-none';
 export const COLLAPSE_ICON_CLASS = 'transition-transform duration-150 ease-out motion-reduce:transition-none';
@@ -22,7 +22,7 @@ export const PRIMARY_BUTTON_CLASS = cn(
   PRESSED_CLASS,
   FOCUS_RING_CLASS,
 );
-export const TEXT_INPUT_CLASS = 'h-10 w-full rounded-md border border-border-default bg-background-muted px-3 text-sm outline-none transition-[border-color,box-shadow] focus:border-primary-default focus-visible:ring-2 focus-visible:ring-primary-default/70';
+export const TEXT_INPUT_CLASS = 'h-10 w-full rounded-md border border-border-default bg-background-muted px-3 text-sm outline-none transition-[border-color,box-shadow] focus:border-focus-ring focus-visible:ring-2 focus-visible:ring-focus-ring/70';
 const noteDateFormatter = new Intl.DateTimeFormat(undefined, {
   month: 'short',
   day: 'numeric',

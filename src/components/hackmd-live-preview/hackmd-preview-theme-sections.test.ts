@@ -81,8 +81,14 @@ describe('HackMD preview widget theme', () => {
   it('does not retain obsolete aliases or fixed light and dark alert colors', () => {
     const serializedTheme = JSON.stringify(editorThemeSections);
 
-    expect(serializedTheme).not.toMatch(/--(?:focus-ring|border-strong|background-hover|text-muted|hackmd-alert)/);
+    expect(serializedTheme).not.toMatch(/--(?:border-strong|background-hover|text-muted|hackmd-alert)/);
     expect(serializedTheme).not.toMatch(/#[\da-f]{3,8}/i);
     expect(serializedTheme).not.toMatch(/\bblack\b/i);
+  });
+
+  it('uses the semantic focus ring token for editor focus affordances', () => {
+    const serializedTheme = JSON.stringify(editorThemeSections);
+
+    expect(serializedTheme).toContain('var(--focus-ring)');
   });
 });

@@ -31,7 +31,7 @@ import { FOCUS_RING_CLASS } from './ui';
 const SETTINGS_TITLE_ID = 'settings-title';
 const SETTINGS_TOKEN_ID = 'settings-hackmd-token';
 const SETTINGS_TOKEN_STATUS_ID = 'settings-hackmd-token-status';
-const SETTINGS_PANEL_CLASS = 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-default';
+const SETTINGS_PANEL_CLASS = 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring';
 const LOCAL_VAULT_SCANNED_AT_FORMATTER = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short',

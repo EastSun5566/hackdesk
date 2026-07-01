@@ -438,7 +438,7 @@ function DocumentRecoveryBanner({
         </p>
         <button
           type="button"
-          className="inline-flex h-7 items-center gap-1 rounded-[6px] border border-warning-default/35 bg-background-default px-2 text-xs font-medium text-text-default hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
+          className="inline-flex h-7 items-center gap-1 rounded-[6px] border border-warning-default/35 bg-background-default px-2 text-xs font-medium text-text-default hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
           onClick={() => actions.onReloadFromDisk(documentState.document)}
         >
           <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
@@ -446,7 +446,7 @@ function DocumentRecoveryBanner({
         </button>
         <button
           type="button"
-          className="inline-flex h-7 items-center gap-1 rounded-[6px] bg-warning-default px-2 text-xs font-medium text-background-default hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
+          className="inline-flex h-7 items-center gap-1 rounded-[6px] bg-warning-default px-2 text-xs font-medium text-background-default hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
           onClick={() => actions.onSaveAsCopy(documentState.document, {
             title: documentState.title,
             content: documentState.content,
@@ -497,7 +497,7 @@ function DocumentHeader({
             name="title"
             value={documentState.title}
             onChange={(event) => actions.onTitleChange(event.target.value)}
-            className="w-full truncate bg-transparent text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
+            className="w-full truncate bg-transparent text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
           />
         </label>
       )}

@@ -65,6 +65,7 @@
   --color-primary-hover: var(--primary-hover);
   --color-primary-soft: var(--primary-soft);
   --color-primary-foreground: var(--primary-foreground);
+  --color-focus-ring: var(--focus-ring);
   --color-success-default: var(--success-default);
   --color-success-soft: var(--success-soft);
   --color-warning-default: var(--warning-default);
@@ -277,12 +278,24 @@
 @layer base {
   html {
     accent-color: var(--primary-default);
-    scrollbar-color: var(--border-bold) var(--background-muted);
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
   }
 
   ::selection {
     background-color: var(--selection-background);
     color: var(--selection-foreground);
+  }
+
+  @media (prefers-contrast: more) {
+    html {
+      --focus-ring: CanvasText;
+      --scrollbar-thumb: CanvasText;
+      --scrollbar-track: Canvas;
+      --selection-background: Highlight;
+      --selection-foreground: HighlightText;
+
+      scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    }
   }
 
   body {

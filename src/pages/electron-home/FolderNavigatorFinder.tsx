@@ -107,7 +107,7 @@ export function NoteFinderToolbar({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5">
-        <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md border border-border-default bg-background-default px-2 transition-[border-color,box-shadow] focus-within:border-primary-default focus-within:ring-2 focus-within:ring-primary-default/60">
+        <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md border border-border-default bg-background-default px-2 transition-[border-color,box-shadow] focus-within:border-focus-ring focus-within:ring-2 focus-within:ring-focus-ring/60">
           <Search aria-hidden="true" className="h-4 w-4 shrink-0 text-text-subtle" />
           <span className="sr-only">Search notes</span>
           <input

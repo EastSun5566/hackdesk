@@ -35,7 +35,7 @@ const ToolbarButton = React.forwardRef<
     ref={ref}
     type={type}
     className={cn(
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default data-[disabled]:opacity-50',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring data-[disabled]:opacity-50',
       className,
     )}
     {...props}

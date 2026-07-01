@@ -198,7 +198,7 @@ function TagEditor({
   return (
     <div className="space-y-1.5">
       <label className={INSPECTOR_LABEL_CLASS} htmlFor={id}>Tags</label>
-      <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-border-default bg-background-default px-2 py-1 transition-[border-color,box-shadow] focus-within:border-primary-default focus-within:ring-2 focus-within:ring-primary-default/60">
+      <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-border-default bg-background-default px-2 py-1 transition-[border-color,box-shadow] focus-within:border-focus-ring focus-within:ring-2 focus-within:ring-focus-ring/60">
         {tags.map((tag) => (
           <span
             key={tag}

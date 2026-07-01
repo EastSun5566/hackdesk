@@ -57,7 +57,7 @@ export function SettingsSecretInput({
   onVisibleChange: (visible: boolean) => void;
 }) {
   return (
-    <div className="flex overflow-hidden rounded-md border border-border-default bg-background-muted transition-colors focus-within:border-primary-default">
+    <div className="flex overflow-hidden rounded-md border border-border-default bg-background-muted transition-colors focus-within:border-focus-ring">
       <input
         className="h-10 min-w-0 flex-1 bg-transparent px-3 text-sm outline-none"
         type={visible ? 'text' : 'password'}

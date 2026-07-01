@@ -71,7 +71,7 @@ function DocumentTab({
     >
       <button
         type="button"
-        className="app-region-no-drag flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default"
+        className="app-region-no-drag flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
         onClick={onSelect}
         aria-current={selected ? 'page' : undefined}
         aria-label={`Select ${title} tab`}
@@ -82,7 +82,7 @@ function DocumentTab({
       </button>
       <button
         type="button"
-        className="app-region-no-drag grid h-5 w-5 shrink-0 place-items-center rounded-[4px] text-text-subtle opacity-0 transition-[opacity,color,background-color] duration-150 hover:bg-background-selected hover:text-text-default focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default group-hover/tab:opacity-100 motion-reduce:transition-none"
+        className="app-region-no-drag grid h-5 w-5 shrink-0 place-items-center rounded-[4px] text-text-subtle opacity-0 transition-[opacity,color,background-color] duration-150 hover:bg-background-selected hover:text-text-default focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring group-hover/tab:opacity-100 motion-reduce:transition-none"
         onClick={(event) => {
           event.stopPropagation();
           onClose();

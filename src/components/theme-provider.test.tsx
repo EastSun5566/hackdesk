@@ -115,6 +115,8 @@ describe('ThemeProvider', () => {
     expect(document.documentElement.style.colorScheme).toBe('light');
     expect(document.querySelector('meta[name="color-scheme"]')).toHaveAttribute('content', 'light');
     expect(document.getElementById('hackdesk-theme')?.textContent).toContain('color-scheme: light');
+    expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--focus-ring:');
+    expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--selection-background:');
     expect(setThemeSurface).toHaveBeenLastCalledWith({ mode: 'light', background: lightBackground });
 
     fireEvent.click(screen.getByText('Set Dark'));
@@ -123,6 +125,8 @@ describe('ThemeProvider', () => {
     expect(document.documentElement.style.colorScheme).toBe('dark');
     expect(document.querySelector('meta[name="color-scheme"]')).toHaveAttribute('content', 'dark');
     expect(document.getElementById('hackdesk-theme')?.textContent).toContain('color-scheme: dark');
+    expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--focus-ring:');
+    expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--selection-background:');
     expect(setThemeSurface).toHaveBeenLastCalledWith({ mode: 'dark', background: darkBackground });
   });
 
@@ -332,6 +336,8 @@ describe('ThemeProvider', () => {
     expect(document.documentElement.style.colorScheme).toBe('dark');
     expect(document.querySelector('meta[name="color-scheme"]')).toHaveAttribute('content', 'dark');
     expect(document.getElementById('hackdesk-theme')?.textContent).toContain('color-scheme: dark');
+    expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--focus-ring:');
+    expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--selection-background:');
     expect(screen.getByTestId('current-theme').textContent).toBe('light');
     expect(localStorage.getItem('theme-preset-id')).toBeNull();
 
@@ -342,5 +348,7 @@ describe('ThemeProvider', () => {
     expect(document.documentElement.style.colorScheme).toBe('light');
     expect(document.querySelector('meta[name="color-scheme"]')).toHaveAttribute('content', 'light');
     expect(document.getElementById('hackdesk-theme')?.textContent).toContain('color-scheme: light');
+    expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--focus-ring:');
+    expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--selection-background:');
   });
 });

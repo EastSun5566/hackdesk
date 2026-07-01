@@ -72,7 +72,7 @@ function typographyEqual(left: ThemeTypography, right: ThemeTypography) {
     && left.editorFontStack === right.editorFontStack;
 }
 
-const focusClassName = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default';
+const focusClassName = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default';
 const secondaryButtonClassName = cn(
   'inline-flex h-9 items-center justify-center rounded-md border border-border-default bg-background-default px-3 text-sm font-medium text-text-default transition-colors hover:bg-element-bg-hover',
   focusClassName,
@@ -440,7 +440,7 @@ function ThemeSeedFields({
             id={fieldId}
             value={inputs[field.key]}
             onChange={(event) => onChange(field.key, event.target.value)}
-            className="h-9 min-w-0 flex-1 rounded-md border border-border-default bg-background-default px-2 text-sm text-text-default outline-none transition-[border-color,box-shadow] focus:border-primary-default focus-visible:ring-2 focus-visible:ring-primary-default/70"
+            className="h-9 min-w-0 flex-1 rounded-md border border-border-default bg-background-default px-2 text-sm text-text-default outline-none transition-[border-color,box-shadow] focus:border-focus-ring focus-visible:ring-2 focus-visible:ring-focus-ring/70"
             placeholder="#5D54E8…"
             autoComplete="off"
             spellCheck={false}
@@ -477,7 +477,7 @@ function ThemeFontField({
         id={fieldId}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-9 w-full rounded-md border border-border-default bg-background-default px-2 text-sm text-text-default outline-none transition-[border-color,box-shadow] focus:border-primary-default focus-visible:ring-2 focus-visible:ring-primary-default/70"
+        className="h-9 w-full rounded-md border border-border-default bg-background-default px-2 text-sm text-text-default outline-none transition-[border-color,box-shadow] focus:border-focus-ring focus-visible:ring-2 focus-visible:ring-focus-ring/70"
         placeholder={label === 'UI font' ? 'Inter, system-ui, sans-serif' : '"Source Code Pro", ui-monospace, monospace'}
         autoComplete="off"
         spellCheck={false}

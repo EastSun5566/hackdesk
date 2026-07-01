@@ -110,12 +110,12 @@ function ToastList() {
               <ToastPrimitive.Action
                 {...toastItem.actionProps}
                 className={cn(
-                  'inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-primary-default px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default',
+                  'inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-primary-default px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default',
                   toastItem.actionProps.className,
                 )}
               />
             ) : null}
-            <ToastPrimitive.Close className="-mr-1 -mt-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default">
+            <ToastPrimitive.Close className="-mr-1 -mt-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default">
               <X className="h-3.5 w-3.5" />
               <span className="sr-only">Close notification</span>
             </ToastPrimitive.Close>

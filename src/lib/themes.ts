@@ -720,16 +720,17 @@ export function resolveHackDeskTheme({
   const customAccentOverrides = Object.keys(normalizeThemeSeed(customSeed)).length > 0
     ? buildAccentTokenOverrides(seed, dark)
     : {};
-  const colorTheme = {
+  const colorTheme: ResolvedHackDeskTheme = {
     ...DEFAULT_SYNTAX_TOKENS,
     ...seedTheme,
     ...presetTokenOverrides,
     ...customAccentOverrides,
   };
+  const contrastTheme = resolveContrastTokens(colorTheme);
 
   return {
-    ...colorTheme,
-    ...resolveNativeSurfaceTokens(colorTheme, dark),
+    ...contrastTheme,
+    ...resolveNativeSurfaceTokens(contrastTheme),
     ...resolveThemeTypography(typography),
   };
 }
@@ -805,16 +806,60 @@ function buildAccentTokenOverrides(seed: ThemeSeed, dark: boolean): ThemeTokenOv
       };
 }
 
-function resolveNativeSurfaceTokens(theme: ResolvedHackDeskTheme, dark: boolean): ThemeTokenOverrides {
-  const primary = theme['--primary-default'];
-  const selectionOpacity = dark ? 0.34 : 0.24;
+function resolveContrastTokens(theme: ResolvedHackDeskTheme): ResolvedHackDeskTheme {
+  const background = theme['--background-default'];
+  if (!isHexColor(background)) {
+    return {
+      ...theme,
+      '--focus-ring': theme['--primary-default'] ?? '#5D54E8',
+    };
+  }
+
+  const textDefault = ensureContrast(theme['--text-default'], background, 4.5);
+  const textSubtle = ensureContrast(theme['--text-subtle'], background, 4.5);
+  const primary = ensureContrast(theme['--primary-default'], background, 3);
+  const borderBold = ensureContrast(theme['--border-bold'], background, 3);
+  const primaryHover = ensureContrast(theme['--primary-hover'], background, 3);
 
   return {
-    '--selection-background': isHexColor(primary)
-      ? alpha(primary, selectionOpacity)
-      : `color-mix(in oklch, ${primary || 'var(--primary-default)'} ${Math.round(selectionOpacity * 100)}%, transparent)`,
-    '--selection-foreground': 'var(--text-default)',
+    ...theme,
+    '--text-default': textDefault,
+    '--text-subtle': textSubtle,
+    '--primary-default': primary,
+    '--primary-hover': primaryHover,
+    '--primary-foreground': contrastText(primary),
+    '--border-bold': borderBold,
+    '--focus-ring': primary,
   };
+}
+
+function resolveNativeSurfaceTokens(theme: ResolvedHackDeskTheme): ResolvedHackDeskTheme {
+  const backgroundMuted = theme['--background-muted'];
+  const scrollbarThumb = ensureContrast(theme['--border-bold'], backgroundMuted, 3);
+  const focusRing = theme['--focus-ring'] ?? theme['--primary-default'];
+
+  return {
+    '--scrollbar-thumb': scrollbarThumb,
+    '--scrollbar-track': backgroundMuted,
+    '--selection-background': focusRing,
+    '--selection-foreground': isHexColor(focusRing) ? contrastText(focusRing) : 'var(--primary-foreground)',
+  };
+}
+
+function ensureContrast(value: string | undefined, background: string | undefined, minRatio: number) {
+  if (!isHexColor(value) || !isHexColor(background) || contrastRatio(value, background) >= minRatio) {
+    return value ?? '';
+  }
+
+  const target = luminance(background) > luminance(value) ? '#000000' : '#FFFFFF';
+  for (let weight = 95; weight >= 0; weight -= 5) {
+    const candidate = mix(value, target, weight);
+    if (contrastRatio(candidate, background) >= minRatio) {
+      return candidate;
+    }
+  }
+
+  return target;
 }
 
 function mix(from: string, to: string, fromWeightPercent: number) {
@@ -841,6 +886,12 @@ function luminance(hex: string) {
   };
 
   return 0.2126 * lift(r) + 0.7152 * lift(g) + 0.0722 * lift(b);
+}
+
+function contrastRatio(a: string, b: string) {
+  const first = luminance(a);
+  const second = luminance(b);
+  return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
 }
 
 function contrastText(hex: string) {

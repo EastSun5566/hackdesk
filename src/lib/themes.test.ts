@@ -12,6 +12,42 @@ import {
   serializeThemeSeed,
 } from './themes';
 
+function hexToRgb(hex: string) {
+  const normalized = hex.slice(1);
+  return {
+    r: Number.parseInt(normalized.slice(0, 2), 16),
+    g: Number.parseInt(normalized.slice(2, 4), 16),
+    b: Number.parseInt(normalized.slice(4, 6), 16),
+  };
+}
+
+function luminance(hex: string) {
+  const { r, g, b } = hexToRgb(hex);
+  const lift = (value: number) => {
+    const channel = value / 255;
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  };
+
+  return 0.2126 * lift(r) + 0.7152 * lift(g) + 0.0722 * lift(b);
+}
+
+function contrastRatio(a: string, b: string) {
+  const first = luminance(a);
+  const second = luminance(b);
+  return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+}
+
+function expectContrast(
+  foreground: string,
+  background: string,
+  minimum: number,
+  label: string,
+) {
+  expect(foreground, `${label} should be a hex color`).toMatch(/^#[\da-f]{6}$/i);
+  expect(background, `${label} background should be a hex color`).toMatch(/^#[\da-f]{6}$/i);
+  expect(contrastRatio(foreground, background), label).toBeGreaterThanOrEqual(minimum);
+}
+
 describe('HackDesk themes', () => {
   it('resolves required semantic variables for light and dark modes', () => {
     const light = resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'light' });
@@ -56,21 +92,26 @@ describe('HackDesk themes', () => {
     expect(css).toContain('--background-default:');
     expect(css).toContain('--font-system:');
     expect(css).toContain('--code-keyword:');
+    expect(css).toContain('--focus-ring:');
+    expect(css).toContain('--scrollbar-thumb:');
+    expect(css).toContain('--scrollbar-track:');
     expect(css).toContain('--selection-background:');
     expect(css).toContain('--selection-foreground:');
     expect(css).toContain(':root[data-theme-preset="hackmd-nature"]');
   });
 
-  it('resolves native surface tokens for every preset and mode', () => {
+  it('resolves contrast-safe native surface tokens for every preset and mode', () => {
     for (const preset of HACKDESK_THEME_PRESETS) {
       for (const mode of ['light', 'dark'] as const) {
         const theme = resolveHackDeskTheme({ presetId: preset.id, mode });
 
-        expect(theme['--primary-default'], `${preset.id} ${mode} primary`).toBeTruthy();
-        expect(theme['--border-bold'], `${preset.id} ${mode} scrollbar thumb`).toBeTruthy();
-        expect(theme['--background-muted'], `${preset.id} ${mode} scrollbar track`).toBeTruthy();
-        expect(theme['--selection-background'], `${preset.id} ${mode} selection background`).toBeTruthy();
-        expect(theme['--selection-foreground'], `${preset.id} ${mode} selection foreground`).toBe('var(--text-default)');
+        expectContrast(theme['--text-default'], theme['--background-default'], 4.5, `${preset.id} ${mode} text`);
+        expectContrast(theme['--text-subtle'], theme['--background-default'], 4.5, `${preset.id} ${mode} subtle text`);
+        expectContrast(theme['--primary-default'], theme['--background-default'], 3, `${preset.id} ${mode} primary`);
+        expectContrast(theme['--focus-ring'], theme['--background-default'], 3, `${preset.id} ${mode} focus`);
+        expectContrast(theme['--border-bold'], theme['--background-default'], 3, `${preset.id} ${mode} border`);
+        expectContrast(theme['--selection-background'], theme['--background-default'], 3, `${preset.id} ${mode} selection`);
+        expectContrast(theme['--scrollbar-thumb'], theme['--scrollbar-track'], 3, `${preset.id} ${mode} scrollbar`);
       }
     }
   });
@@ -92,9 +133,9 @@ describe('HackDesk themes', () => {
     const dark = resolveHackDeskTheme({ presetId: 'solarized', mode: 'dark' });
 
     expect(light['--background-default']).toBe('#FDF6E3');
-    expect(light['--text-default']).toBe('#657B83');
+    expectContrast(light['--text-default'], light['--background-default'], 4.5, 'solarized light text');
     expect(dark['--background-default']).toBe('#002B36');
-    expect(dark['--text-default']).toBe('#839496');
+    expectContrast(dark['--text-default'], dark['--background-default'], 4.5, 'solarized dark text');
   });
 
   it('resolves Dracula dark and HackMD Neo light surfaces with Dracula accents', () => {
@@ -103,7 +144,7 @@ describe('HackDesk themes', () => {
 
     expect(light['--background-default']).toMatch(/^#/);
     expect(light['--background-default']).not.toBe('#282A36');
-    expect(light['--primary-default']).toBe('#BD93F9');
+    expectContrast(light['--primary-default'], light['--background-default'], 3, 'dracula light primary');
     expect(light['--code-keyword']).toBe('#BD93F9');
     expect(dark['--background-default']).toBe('#282A36');
     expect(dark['--text-default']).toBe('#F8F8F2');
@@ -128,12 +169,27 @@ describe('HackDesk themes', () => {
     const theme = resolveHackDeskTheme({
       presetId: 'gruvbox',
       mode: 'dark',
-      customSeed: { primary: '#123ABC' },
+      customSeed: { primary: '#A8A2FF' },
     });
 
     expect(theme['--background-default']).toBe('#282828');
     expect(theme['--text-default']).toBe('#EBDBB2');
-    expect(theme['--primary-default']).toBe('#123ABC');
+    expect(theme['--primary-default']).toBe('#A8A2FF');
+    expectContrast(theme['--focus-ring'], theme['--background-default'], 3, 'custom seed focus ring');
+    expectContrast(theme['--selection-background'], theme['--background-default'], 3, 'custom seed selection');
+  });
+
+  it('contrast-adjusts low-contrast custom primary seeds for focus and selection', () => {
+    const theme = resolveHackDeskTheme({
+      presetId: 'gruvbox',
+      mode: 'dark',
+      customSeed: { primary: '#123ABC' },
+    });
+
+    expect(theme['--primary-default']).not.toBe('#123ABC');
+    expectContrast(theme['--primary-default'], theme['--background-default'], 3, 'adjusted custom primary');
+    expectContrast(theme['--focus-ring'], theme['--background-default'], 3, 'adjusted custom focus');
+    expectContrast(theme['--selection-background'], theme['--background-default'], 3, 'adjusted custom selection');
   });
 
   it('resolves safe font stacks directly', () => {
