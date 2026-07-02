@@ -196,6 +196,11 @@ export function Home() {
   const queries = remoteQueries;
   const hasConfiguredLocalVault = settings?.hasLocalVault === true;
   const canUseCurrentWorkspace = hasToken || (scope.type === 'local' && hasConfiguredLocalVault);
+  const handleHackmdDisconnected = useCallback(() => {
+    setWorkspaceScope(hasConfiguredLocalVault
+      ? { type: 'local', label: 'Local Vault' }
+      : DEFAULT_WORKSPACE_SCOPE);
+  }, [hasConfiguredLocalVault, setWorkspaceScope]);
 
   useEffect(() => {
     if (settings === undefined || initialWorkspaceResolvedRef.current) {
@@ -648,6 +653,7 @@ export function Home() {
       : null,
     localVaultSnapshot: localVault.snapshot,
     mutations,
+    onHackmdDisconnected: handleHackmdDisconnected,
     onboardingOpen,
     runAction,
     selectedFolderLabel,

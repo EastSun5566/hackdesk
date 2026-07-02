@@ -148,6 +148,14 @@ async function openNavigatorActions() {
   await screen.findByRole('menuitem', { name: 'New Folder' });
 }
 
+async function confirmDisconnectHackmd() {
+  fireEvent.click(await screen.findByRole('button', { name: 'Open settings for Michael' }));
+  fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Disconnect HackMD' }));
+  const dialog = screen.getByRole('alertdialog', { name: 'Disconnect HackMD?' });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Disconnect HackMD' }));
+}
+
 async function expandTagBrowser() {
   const trigger = await screen.findByRole('button', { name: 'Tags' });
   if (trigger.getAttribute('aria-expanded') !== 'true') {
@@ -773,6 +781,147 @@ describe('Home native-feel behavior', () => {
       type: 'local',
       label: 'Local Vault',
     });
+  });
+
+  it('disconnects HackMD, clears remote account data, and stays in My Workspace without reopening onboarding', async () => {
+    const updateSettings = vi.fn(async () => createSafeSettings({
+      hasHackmdApiToken: false,
+      onboarding: { hackmdTokenSetupDeferred: true },
+      shouldShowHackmdOnboarding: false,
+    }));
+    const api = createApi({
+      settings: { update: updateSettings },
+      hackmd: {
+        getCurrentUser: vi.fn(async () => ({
+          source: 'remote' as const,
+          data: {
+            id: 'user-1',
+            email: 'michael@example.com',
+            name: 'Michael',
+            username: 'michael',
+            photo: null,
+            upgraded: false,
+            teams: [team],
+          },
+        })),
+        listTeams: vi.fn(async () => ({ source: 'remote' as const, data: [team] })),
+      },
+    });
+
+    renderHome(api);
+    expect(await screen.findByRole('button', { name: team.name })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: note.title })).toBeInTheDocument();
+    await findRenderedNoteTitle();
+    await confirmDisconnectHackmd();
+
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({
+      hackmdApiToken: '',
+      onboarding: { hackmdTokenSetupDeferred: true },
+    }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Configure Token' })).toBeInTheDocument());
+    expect(screen.queryByRole('heading', { name: 'Connect HackMD' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open settings for Michael' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open settings' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: team.name })).not.toBeInTheDocument();
+    expect(screen.queryByText('TEAMS')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: note.title })).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue(note.title)).not.toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({
+      type: 'personal',
+      label: 'My Workspace',
+    });
+  });
+
+  it('switches to Local Vault after disconnecting HackMD when a vault is configured', async () => {
+    window.localStorage.setItem(LAST_WORKSPACE_SCOPE_KEY, JSON.stringify({ type: 'history', label: 'History' }));
+    const updateSettings = vi.fn(async () => createSafeSettings({
+      hasHackmdApiToken: false,
+      hasLocalVault: true,
+      localVault: { path: '/Users/michael/Notes' },
+      onboarding: { hackmdTokenSetupDeferred: true },
+      shouldShowHackmdOnboarding: false,
+    }));
+    const api = createApi({
+      settings: {
+        get: vi.fn(async () => createSafeSettings({
+          hasLocalVault: true,
+          localVault: { path: '/Users/michael/Notes' },
+        })),
+        update: updateSettings,
+      },
+      hackmd: {
+        listHistory: vi.fn(async () => ({ source: 'remote' as const, data: [] })),
+      },
+    });
+
+    renderHome(api);
+    await confirmDisconnectHackmd();
+
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledOnce());
+    await waitFor(() => {
+      expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({
+        type: 'local',
+        label: 'Local Vault',
+      });
+    });
+    expect(screen.queryByRole('heading', { name: 'Connect HackMD' })).not.toBeInTheDocument();
+  });
+
+  it('keeps Settings and the current account visible when disconnecting HackMD fails', async () => {
+    const updateSettings = vi.fn(async () => {
+      throw new Error('Could not disconnect HackMD');
+    });
+    const api = createApi({
+      settings: { update: updateSettings },
+    });
+
+    renderHome(api);
+    await confirmDisconnectHackmd();
+
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledOnce());
+    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Disconnect HackMD' })).toBeInTheDocument();
+    expect(screen.getByTestId('workspace-rail-footer-avatar')).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({});
+  });
+
+  it('clears cached HackMD account data when Reset All removes the token', async () => {
+    const updateSettings = vi.fn(async () => createSafeSettings({
+      hasHackmdApiToken: false,
+      shouldShowHackmdOnboarding: true,
+    }));
+    const api = createApi({
+      settings: { update: updateSettings },
+      hackmd: {
+        getCurrentUser: vi.fn(async () => ({
+          source: 'remote' as const,
+          data: {
+            id: 'user-1',
+            email: 'michael@example.com',
+            name: 'Michael',
+            username: 'michael',
+            photo: null,
+            upgraded: false,
+            teams: [team],
+          },
+        })),
+        listTeams: vi.fn(async () => ({ source: 'remote' as const, data: [team] })),
+      },
+    });
+
+    renderHome(api);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open settings for Michael' }));
+    fireEvent.click(screen.getByRole('tab', { name: /Advanced/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset All Settings' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'Reset All Settings?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Reset All Settings' }));
+
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith(expect.objectContaining({
+      hackmdApiToken: '',
+    })));
+    expect(await screen.findByRole('heading', { name: 'Connect HackMD' })).toBeInTheDocument();
+    expect(screen.queryByText('Michael')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: team.name })).not.toBeInTheDocument();
   });
 
   it('confirms the native close request when the current note is clean', async () => {

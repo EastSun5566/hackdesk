@@ -128,7 +128,7 @@ export function useElectronHackmdQueries({
   });
 
   const selectedDocumentNotes = useMemo(() => {
-    if (!remoteScope) {
+    if (!hasToken || !remoteScope) {
       return [];
     }
 
@@ -147,7 +147,7 @@ export function useElectronHackmdQueries({
       seen.add(key);
       return true;
     }).slice(0, 2);
-  }, [activeDocumentNotes, remoteScope, selectedNote]);
+  }, [activeDocumentNotes, hasToken, remoteScope, selectedNote]);
 
   const documentQueryResults = useQueries({
     queries: selectedDocumentNotes.map((note) => ({
@@ -159,7 +159,7 @@ export function useElectronHackmdQueries({
 
         return api.hackmd.getNote(note.id, note.teamPath);
       },
-      enabled: !!api && !!note,
+      enabled: !!api && hasToken && !!note,
     })),
   });
 
@@ -226,31 +226,31 @@ export function useElectronHackmdQueries({
       refetch: refetchSettings,
     },
     userQuery: {
-      data: userData,
+      data: hasToken ? userData : undefined,
       isFetching: userIsFetching,
       isLoading: userIsLoading,
       refetch: refetchUser,
     },
     teamsQuery: {
-      data: teamsData,
+      data: hasToken ? teamsData : undefined,
       isFetching: teamsIsFetching,
       isLoading: teamsIsLoading,
       refetch: refetchTeams,
     },
     notesQuery: {
-      data: notesData,
+      data: hasToken ? notesData : undefined,
       isFetching: notesIsFetching,
       isLoading: notesIsLoading,
       refetch: refetchNotes,
     },
     foldersQuery: {
-      data: foldersData,
+      data: hasToken ? foldersData : undefined,
       isFetching: foldersIsFetching,
       isLoading: foldersIsLoading,
       refetch: refetchFolders,
     },
     folderOrderQuery: {
-      data: folderOrderData,
+      data: hasToken ? folderOrderData : undefined,
       isFetching: folderOrderIsFetching,
       isLoading: folderOrderIsLoading,
       refetch: refetchFolderOrder,
@@ -264,6 +264,7 @@ export function useElectronHackmdQueries({
     foldersData,
     foldersIsFetching,
     foldersIsLoading,
+    hasToken,
     notesData,
     notesIsFetching,
     notesIsLoading,
@@ -287,12 +288,14 @@ export function useElectronHackmdQueries({
   return {
     settings,
     hasToken,
-    user: unwrapRepositoryValue(userData),
-    teams: unwrapRepositoryValue(teamsData) ?? EMPTY_TEAMS,
-    currentNotes: unwrapRepositoryValue(notesData) ?? EMPTY_NOTES,
-    currentFolders: unwrapRepositoryValue(foldersData) ?? EMPTY_FOLDERS,
-    currentFolderOrder: unwrapRepositoryValue(folderOrderData) ?? EMPTY_FOLDER_ORDER,
-    document: unwrapRepositoryValue(documentData),
+    user: hasToken ? unwrapRepositoryValue(userData) : undefined,
+    teams: hasToken ? unwrapRepositoryValue(teamsData) ?? EMPTY_TEAMS : EMPTY_TEAMS,
+    currentNotes: hasToken ? unwrapRepositoryValue(notesData) ?? EMPTY_NOTES : EMPTY_NOTES,
+    currentFolders: hasToken ? unwrapRepositoryValue(foldersData) ?? EMPTY_FOLDERS : EMPTY_FOLDERS,
+    currentFolderOrder: hasToken
+      ? unwrapRepositoryValue(folderOrderData) ?? EMPTY_FOLDER_ORDER
+      : EMPTY_FOLDER_ORDER,
+    document: hasToken ? unwrapRepositoryValue(documentData) : undefined,
     documentsByKey,
     documentQueries,
     queries,

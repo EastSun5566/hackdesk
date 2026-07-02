@@ -118,6 +118,25 @@ describe('Electron settings', () => {
     expect(content).toContain('"hackmdApiToken": "token-123"');
   });
 
+  it('clears a token without reopening deferred onboarding', async () => {
+    await updateStoredSettings({
+      hackmdApiToken: 'token-123',
+    });
+
+    const safeSettings = await updateStoredSettings({
+      hackmdApiToken: '',
+      onboarding: { hackmdTokenSetupDeferred: true },
+    });
+    const content = await readFile(getSettingsPath(), 'utf8');
+
+    expect(safeSettings).toMatchObject({
+      hasHackmdApiToken: false,
+      onboarding: { hackmdTokenSetupDeferred: true },
+      shouldShowHackmdOnboarding: false,
+    });
+    expect(content).toContain('"hackmdApiToken": ""');
+  });
+
   it('reports missing hackmd-cli config as unavailable', async () => {
     await expect(getHackmdCliConfigStatus()).resolves.toEqual({
       hasAccessToken: false,

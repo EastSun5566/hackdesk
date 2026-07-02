@@ -132,6 +132,10 @@ export function useElectronNoteMutations({
 }) {
   const queryClient = useQueryClient();
 
+  const clearHackmdQueryCache = useCallback(() => {
+    queryClient.removeQueries({ queryKey: ['electron', 'hackmd'] });
+  }, [queryClient]);
+
   const invalidateCurrentNoteQueries = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope) });
     if (selectedNote) {
@@ -205,7 +209,11 @@ export function useElectronNoteMutations({
     },
     onSuccess: (nextSettings) => {
       queryClient.setQueryData(['electron', 'settings'], nextSettings);
-      void queryClient.invalidateQueries({ queryKey: ['electron', 'hackmd'] });
+      if (nextSettings.hasHackmdApiToken) {
+        void queryClient.invalidateQueries({ queryKey: ['electron', 'hackmd'] });
+      } else {
+        clearHackmdQueryCache();
+      }
       onSettingsSaved();
       toast.success('Settings saved.');
     },
@@ -227,6 +235,26 @@ export function useElectronNoteMutations({
       toast.success('Imported hackmd-cli token.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to import hackmd-cli token.'),
+  });
+
+  const disconnectHackmdMutation = useMutation({
+    mutationFn: () => {
+      if (!api) {
+        throw new Error('Electron API is unavailable.');
+      }
+
+      return api.settings.update({
+        hackmdApiToken: '',
+        onboarding: { hackmdTokenSetupDeferred: true },
+      });
+    },
+    onSuccess: (nextSettings) => {
+      queryClient.setQueryData(['electron', 'settings'], nextSettings);
+      clearHackmdQueryCache();
+      onSettingsSaved();
+      toast.success('HackMD disconnected.');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to disconnect HackMD.'),
   });
 
   const createNoteMutation = useMutation({
@@ -725,6 +753,7 @@ export function useElectronNoteMutations({
     invalidateCurrentNotes: invalidateCurrentNoteQueries,
     invalidateCurrentFolders: invalidateCurrentFolderQueries,
     updateSettingsMutation,
+    disconnectHackmdMutation,
     importHackmdCliTokenMutation,
     createNoteMutation,
     duplicateNoteMutation,

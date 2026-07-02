@@ -34,6 +34,7 @@ vi.mock('@/lib/electron-api', () => ({
 function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0]> = {}) {
   const onOpenChange = props.onOpenChange ?? vi.fn();
   const onChooseLocalVault = props.onChooseLocalVault ?? vi.fn(async () => undefined);
+  const onDisconnectHackmd = props.onDisconnectHackmd ?? vi.fn();
   const onForgetLocalVault = props.onForgetLocalVault ?? vi.fn(async () => undefined);
   const onOpenLocalVault = props.onOpenLocalVault ?? vi.fn(async () => undefined);
   const onRefreshLocalVault = props.onRefreshLocalVault ?? vi.fn(async () => undefined);
@@ -57,6 +58,7 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
         settings={settings}
         isSaving={false}
         onChooseLocalVault={onChooseLocalVault}
+        onDisconnectHackmd={onDisconnectHackmd}
         onForgetLocalVault={onForgetLocalVault}
         onOpenLocalVault={onOpenLocalVault}
         onRefreshLocalVault={onRefreshLocalVault}
@@ -72,6 +74,7 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
 
   return {
     onChooseLocalVault,
+    onDisconnectHackmd,
     onForgetLocalVault,
     onOpenLocalVault,
     onRefreshLocalVault,
@@ -527,6 +530,64 @@ describe('SettingsDialog', () => {
     });
     expect(screen.getByLabelText('API Token')).toHaveAttribute('aria-invalid', 'true');
     expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('confirms before disconnecting HackMD and restores focus on cancel', async () => {
+    const { onDisconnectHackmd } = renderSettingsDialog({
+      settings: {
+        title: 'HackDesk',
+        appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
+        hasHackmdApiToken: true,
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: false,
+        localVault: defaultSettings.localVault,
+        onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: false,
+      },
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+    const disconnectButton = screen.getByRole('button', { name: 'Disconnect HackMD' });
+    fireEvent.click(disconnectButton);
+
+    const dialog = screen.getByRole('alertdialog', { name: 'Disconnect HackMD?' });
+    expect(dialog).toBeVisible();
+    expect(screen.getByText(/API token stored by HackDesk/i)).toBeVisible();
+    expect(onDisconnectHackmd).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog', { name: 'Disconnect HackMD?' })).not.toBeInTheDocument();
+      expect(disconnectButton).toHaveFocus();
+    });
+    expect(onDisconnectHackmd).not.toHaveBeenCalled();
+
+    fireEvent.click(disconnectButton);
+    const escapeDialog = screen.getByRole('alertdialog', { name: 'Disconnect HackMD?' });
+    fireEvent.keyDown(escapeDialog, { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog', { name: 'Disconnect HackMD?' })).not.toBeInTheDocument();
+      expect(disconnectButton).toHaveFocus();
+    });
+    expect(onDisconnectHackmd).not.toHaveBeenCalled();
+
+    fireEvent.click(disconnectButton);
+    const confirmDialog = screen.getByRole('alertdialog', { name: 'Disconnect HackMD?' });
+    const confirmButton = within(confirmDialog).getByRole('button', { name: 'Disconnect HackMD' });
+    expect(confirmButton).toHaveClass('bg-destructive-default');
+    expect(confirmButton).toHaveClass('text-destructive-foreground');
+    fireEvent.click(confirmButton);
+
+    expect(onDisconnectHackmd).toHaveBeenCalledOnce();
+  });
+
+  it('does not show Disconnect HackMD without a configured token', () => {
+    renderSettingsDialog();
+
+    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+
+    expect(screen.queryByRole('button', { name: 'Disconnect HackMD' })).not.toBeInTheDocument();
   });
 
   it('shows local vault details and runs vault actions', () => {

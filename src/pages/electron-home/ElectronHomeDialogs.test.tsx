@@ -43,7 +43,9 @@ vi.mock('./RenameFolderDialog', () => ({
 }));
 
 vi.mock('./SettingsDialog', () => ({
-  SettingsDialog: () => null,
+  SettingsDialog: ({ onDisconnectHackmd }: { onDisconnectHackmd: () => void }) => (
+    <button type="button" onClick={onDisconnectHackmd}>Disconnect HackMD mock</button>
+  ),
 }));
 
 function createDocument(overrides: Partial<DocumentSummary> = {}): DocumentSummary {
@@ -112,6 +114,7 @@ function createProps(overrides: Partial<ElectronHomeDialogsProps> = {}): Electro
     onDeleteNote: vi.fn(),
     onDeleteNoteCancel: vi.fn(),
     onChooseLocalVault: vi.fn(async () => undefined),
+    onDisconnectHackmd: vi.fn(),
     onOnboardingConnected: vi.fn(),
     onForgetLocalVault: vi.fn(async () => undefined),
     onImportHackmdCliToken: vi.fn(async () => ({
@@ -188,5 +191,14 @@ describe('ElectronHomeDialogs', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Onboarding connected mock' }));
 
     expect(onOnboardingConnected).toHaveBeenCalledOnce();
+  });
+
+  it('wires HackMD disconnect through the settings composition', () => {
+    const onDisconnectHackmd = vi.fn();
+    renderDialogs(createProps({ onDisconnectHackmd }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect HackMD mock' }));
+
+    expect(onDisconnectHackmd).toHaveBeenCalledOnce();
   });
 });

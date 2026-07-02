@@ -35,6 +35,7 @@ type SettingsDialogProps = {
   localVaultError?: string | null;
   localVaultSnapshot?: LocalVaultSnapshot | null;
   isSaving: boolean;
+  onDisconnectHackmd: () => void;
   onOpenChange: (open: boolean) => void;
   onChooseLocalVault: () => Promise<void>;
   onForgetLocalVault: () => Promise<void>;
@@ -54,6 +55,7 @@ function SettingsDialogContent({
   localVaultError,
   localVaultSnapshot,
   isSaving,
+  onDisconnectHackmd,
   onChooseLocalVault,
   onForgetLocalVault,
   onOpenLocalVault,
@@ -199,9 +201,11 @@ function SettingsDialogContent({
                 <TabsContent value="hackmd" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <HackmdSettingsPanel
                     hasHackmdApiToken={Boolean(settings?.hasHackmdApiToken)}
+                    isSaving={isSaving}
                     token={token}
                     tokenVisible={tokenVisible}
                     tokenTest={tokenTest}
+                    onDisconnect={onDisconnectHackmd}
                     onTokenChange={(nextToken) => setFormState((current) => ({ ...current, token: nextToken }))}
                     onTokenVisibleChange={(nextVisible) => setFormState((current) => ({ ...current, tokenVisible: nextVisible }))}
                     onTokenTestChange={(nextTokenTest) => setFormState((current) => ({ ...current, tokenTest: nextTokenTest }))}

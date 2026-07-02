@@ -21,6 +21,7 @@ export function useHomeOverlayProps({
   localVaultError,
   localVaultSnapshot,
   mutations,
+  onHackmdDisconnected,
   onboardingOpen,
   runAction,
   selectedFolderLabel,
@@ -37,6 +38,7 @@ export function useHomeOverlayProps({
   localVaultError: string | null;
   localVaultSnapshot: ElectronHomeOverlaysProps['dialogs']['localVaultSnapshot'];
   mutations: NoteMutations;
+  onHackmdDisconnected: () => void;
   onboardingOpen: boolean;
   runAction: WorkbenchActions['runAction'];
   selectedFolderLabel: string | null;
@@ -70,13 +72,19 @@ export function useHomeOverlayProps({
         deletingFolder: mutations.deleteFolderMutation.isPending,
         deletingNote: mutations.deleteNoteMutation.isPending,
         renamingFolder: mutations.renameFolderMutation.isPending,
-        savingSettings: mutations.updateSettingsMutation.isPending,
+        savingSettings:
+          mutations.updateSettingsMutation.isPending || mutations.disconnectHackmdMutation.isPending,
       },
       onCreateFolder: (input) => mutations.createFolderMutation.mutate(input),
       onCreateFolderStateChange: dialogState.setCreateFolderDialog,
       onCreateNote: (title) => mutations.createNoteMutation.mutate(title),
       onCreateNoteStateChange: dialogState.setCreateDialog,
       onChooseLocalVault: localVaultActions.chooseLocalVault,
+      onDisconnectHackmd: () => {
+        mutations.disconnectHackmdMutation.mutate(undefined, {
+          onSuccess: onHackmdDisconnected,
+        });
+      },
       onDeleteFolder: (folder) => mutations.deleteFolderMutation.mutate({
         folderId: folder.id,
         parentFolderId: folder.parentId,

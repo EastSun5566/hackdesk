@@ -53,6 +53,7 @@ export type ElectronHomeDialogsProps = {
   onCreateNote: (title: string) => void;
   onCreateNoteStateChange: (state: CreateNoteDialogState) => void;
   onChooseLocalVault: () => Promise<void>;
+  onDisconnectHackmd: () => void;
   onOnboardingConnected: () => void;
   onDeleteFolder: (folder: FolderTreeNode) => void;
   onDeleteFolderCancel: () => void;
@@ -91,6 +92,7 @@ export function ElectronHomeDialogs({
   onCreateNote,
   onCreateNoteStateChange,
   onChooseLocalVault,
+  onDisconnectHackmd,
   onOnboardingConnected,
   onDeleteFolder,
   onDeleteFolderCancel,
@@ -125,6 +127,7 @@ export function ElectronHomeDialogs({
         localVaultSnapshot={localVaultSnapshot}
         isSaving={status.savingSettings}
         onChooseLocalVault={onChooseLocalVault}
+        onDisconnectHackmd={onDisconnectHackmd}
         onForgetLocalVault={onForgetLocalVault}
         onOpenLocalVault={onOpenLocalVault}
         onRefreshLocalVault={onRefreshLocalVault}
