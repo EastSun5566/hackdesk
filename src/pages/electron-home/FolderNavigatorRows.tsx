@@ -11,7 +11,6 @@ import {
   GripVertical,
   Trash2,
 } from 'lucide-react';
-import { useEffect, useRef } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -76,7 +75,6 @@ export function NoteRow({
   active?: boolean;
   compact?: boolean;
 }) {
-  const rowRef = useRef<HTMLDivElement | null>(null);
   const metadata = [
     entry.folderLabel,
     entry.note.tags.slice(0, 2).join(', '),
@@ -102,35 +100,11 @@ export function NoteRow({
   );
   const isLocalNote = entry.note.teamPath === LOCAL_VAULT_TEAM_PATH;
 
-  useEffect(() => {
-    const row = rowRef.current;
-
-    if (!row) {
-      return undefined;
-    }
-
-    const handleClick = (event: MouseEvent) => {
-      if (event.target instanceof Element && event.target.closest('button')) {
-        return;
-      }
-      onSelect(entry.note);
-    };
-
-    row.addEventListener('click', handleClick);
-
-    return () => {
-      row.removeEventListener('click', handleClick);
-    };
-  }, [entry.note, onSelect]);
-
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
-          ref={(node) => {
-            setNodeRef(node);
-            rowRef.current = node;
-          }}
+          ref={setNodeRef}
           style={style}
           data-folder-tree-row-id={`note:${entry.note.id}`}
           data-folder-tree-kind="note"
@@ -145,7 +119,7 @@ export function NoteRow({
               <button
                 type="button"
                 className={cn(
-                  'flex h-6 w-5 shrink-0 items-center justify-center rounded text-text-subtle opacity-0 transition-opacity hover:text-text-default group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none',
+                  '-my-2 flex h-10 w-6 shrink-0 items-center justify-center rounded text-text-subtle opacity-0 transition-opacity hover:text-text-default group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none',
                   FOCUS_RING_CLASS,
                 )}
                 aria-label={`Drag ${entry.note.title || 'Untitled'}`}
@@ -160,25 +134,17 @@ export function NoteRow({
                 <GripVertical aria-hidden="true" className="h-3.5 w-3.5" />
               </button>
             ) : null}
-            title={(
-              <button
-                type="button"
-                data-folder-tree-primary="true"
-                data-hackdesk-focus-target={focusTarget ? 'true' : undefined}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSelect(entry.note);
-                }}
-                className="block min-w-0 truncate rounded-[4px] text-left focus-visible:outline-none"
-              >
-                {entry.note.title || 'Untitled'}
-              </button>
-            )}
+            title={entry.note.title || 'Untitled'}
             subtitle={metadata || entry.note.shortId}
             trailing={formatDate(entry.note.updatedAtMillis)}
             trailingClassName="w-[7.25rem] truncate text-right"
             variant={compact ? 'compact' : 'default'}
             active={active}
+            contentOnClick={() => onSelect(entry.note)}
+            contentAriaLabel={entry.note.title || 'Untitled'}
+            contentAriaCurrent={selected ? 'page' : undefined}
+            contentFocusTarget={focusTarget}
+            selectedIndicator
             className={cn(TREE_ROW_FOCUS_CLASS, selected && 'bg-primary-soft')}
           />
         </div>
@@ -313,7 +279,7 @@ export function FolderButton({
                   onClick={() => onToggle(node.id)}
                   disabled={!hasChildren}
                   className={cn(
-                    'flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default disabled:pointer-events-none disabled:opacity-0',
+                    '-my-2 flex h-10 w-6 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default disabled:pointer-events-none disabled:opacity-0',
                     FOCUS_RING_CLASS,
                   )}
                   aria-label={hasChildren ? (collapsed ? `Expand ${node.name}` : `Collapse ${node.name}`) : undefined}
@@ -327,7 +293,7 @@ export function FolderButton({
                 <button
                   type="button"
                   className={cn(
-                    'flex h-6 w-5 shrink-0 items-center justify-center rounded text-text-subtle opacity-0 transition-opacity hover:text-text-default group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none',
+                    '-my-2 flex h-10 w-6 shrink-0 items-center justify-center rounded text-text-subtle opacity-0 transition-opacity hover:text-text-default group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none',
                     FOCUS_RING_CLASS,
                   )}
                   aria-label={`Drag ${node.name}`}
@@ -339,18 +305,13 @@ export function FolderButton({
               </span>
             )}
             icon={<FolderGlyph icon={node.icon} color={node.color} open={!collapsed} />}
-            title={(
-              <button
-                type="button"
-                data-folder-tree-primary="true"
-                data-hackdesk-focus-target={focusTarget ? 'true' : undefined}
-                onClick={() => onSelect(node.id)}
-                className="block min-w-0 truncate rounded-[4px] text-left focus-visible:outline-none"
-              >
-                {node.name}
-              </button>
-            )}
+            title={node.name}
             trailing={totalNotes}
+            contentOnClick={() => onSelect(node.id)}
+            contentAriaLabel={node.name}
+            contentAriaCurrent={selected ? 'page' : undefined}
+            contentFocusTarget={focusTarget}
+            selectedIndicator
             className={TREE_ROW_FOCUS_CLASS}
           />
         </div>
@@ -423,6 +384,8 @@ export function RootFolderRow({
             variant="compact"
             className={TREE_ROW_FOCUS_CLASS}
             focusTarget={focusTarget}
+            selectedIndicator
+            ariaCurrent={selected ? 'page' : undefined}
             onClick={onSelect}
           />
         </div>
@@ -529,68 +492,67 @@ export function FolderTreeView({
     return null;
   }
 
-  return (
-    <div className={cn('grid min-w-0 gap-0.5', depth > 0 && 'relative pl-5')}>
-      {depth > 0 ? <div className="absolute left-[13px] top-1 bottom-1 w-px bg-border-default/70" aria-hidden="true" /> : null}
-      {nodes.map((node) => {
-        const collapsed = collapsedFolderIds.has(node.id);
-        const isActiveFolder = activeFolderId === node.id;
+  const items = nodes.map((node) => {
+    const collapsed = collapsedFolderIds.has(node.id);
+    const isActiveFolder = activeFolderId === node.id;
 
-        return (
-          <div key={node.id} className="min-w-0">
-            <FolderButton
-              node={node}
-              selected={selectedFolderId === node.id}
-              focusTarget={selectedFolderId === node.id && !selectedNoteId}
-              collapsed={collapsed}
-              active={isActiveFolder}
-              noteDropTarget={Boolean(activeNoteId)}
-              onSelect={onFolderSelect}
-              onToggle={onFolderToggle}
-              onCreateFolderInside={onCreateFolderInside}
-              onCreateNoteInside={onCreateNoteInside}
-              onRenameFolder={onRenameFolder}
-              onDeleteFolder={onDeleteFolder}
-              onRevealInFinder={onFolderRevealInFinder}
-            />
-            <div
-              className={cn(
-                'grid overflow-hidden transition-[grid-template-rows,opacity] duration-150 ease-out motion-reduce:transition-none',
-                !collapsed && !isActiveFolder ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-              )}
-            >
-              <div className="min-h-0 overflow-hidden">
-                <div className="mt-0.5 grid min-w-0 gap-0.5">
-                  <FolderTreeView
-                    nodes={node.children}
-                    selectedFolderId={selectedFolderId}
-                    selectedNoteId={selectedNoteId}
-                    collapsedFolderIds={collapsedFolderIds}
-                    activeFolderId={activeFolderId}
-                    activeNoteId={activeNoteId}
-                    depth={depth + 1}
-                    onFolderSelect={onFolderSelect}
-                    onFolderToggle={onFolderToggle}
-                    onCreateFolderInside={onCreateFolderInside}
-                    onCreateNoteInside={onCreateNoteInside}
-                    onRenameFolder={onRenameFolder}
-                    onDeleteFolder={onDeleteFolder}
-                    onFolderRevealInFinder={onFolderRevealInFinder}
-                    onNoteSelect={onNoteSelect}
-                    onNoteOpen={onNoteOpen}
-                    onNoteCopyLink={onNoteCopyLink}
-                    onNoteCopyMarkdownLink={onNoteCopyMarkdownLink}
-                    onNoteDuplicate={onNoteDuplicate}
-                    onNoteExportMarkdown={onNoteExportMarkdown}
-                    onNoteDelete={onNoteDelete}
-                    onNoteRevealFolder={onNoteRevealFolder}
-                    onNoteRevealInFinder={onNoteRevealInFinder}
-                    onNoteMoveToSelectedFolder={onNoteMoveToSelectedFolder}
-                    selectedFolderForNoteMove={selectedFolderForNoteMove}
-                    isMovingNote={isMovingNote}
-                  />
+    return (
+      <li key={node.id} className="min-w-0">
+        <FolderButton
+          node={node}
+          selected={selectedFolderId === node.id}
+          focusTarget={selectedFolderId === node.id && !selectedNoteId}
+          collapsed={collapsed}
+          active={isActiveFolder}
+          noteDropTarget={Boolean(activeNoteId)}
+          onSelect={onFolderSelect}
+          onToggle={onFolderToggle}
+          onCreateFolderInside={onCreateFolderInside}
+          onCreateNoteInside={onCreateNoteInside}
+          onRenameFolder={onRenameFolder}
+          onDeleteFolder={onDeleteFolder}
+          onRevealInFinder={onFolderRevealInFinder}
+        />
+        <div
+          className={cn(
+            'grid overflow-hidden transition-[grid-template-rows,opacity] duration-150 ease-out motion-reduce:transition-none',
+            !collapsed && !isActiveFolder ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+          )}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="mt-0.5 min-w-0">
+              <FolderTreeView
+                nodes={node.children}
+                selectedFolderId={selectedFolderId}
+                selectedNoteId={selectedNoteId}
+                collapsedFolderIds={collapsedFolderIds}
+                activeFolderId={activeFolderId}
+                activeNoteId={activeNoteId}
+                depth={depth + 1}
+                onFolderSelect={onFolderSelect}
+                onFolderToggle={onFolderToggle}
+                onCreateFolderInside={onCreateFolderInside}
+                onCreateNoteInside={onCreateNoteInside}
+                onRenameFolder={onRenameFolder}
+                onDeleteFolder={onDeleteFolder}
+                onFolderRevealInFinder={onFolderRevealInFinder}
+                onNoteSelect={onNoteSelect}
+                onNoteOpen={onNoteOpen}
+                onNoteCopyLink={onNoteCopyLink}
+                onNoteCopyMarkdownLink={onNoteCopyMarkdownLink}
+                onNoteDuplicate={onNoteDuplicate}
+                onNoteExportMarkdown={onNoteExportMarkdown}
+                onNoteDelete={onNoteDelete}
+                onNoteRevealFolder={onNoteRevealFolder}
+                onNoteRevealInFinder={onNoteRevealInFinder}
+                onNoteMoveToSelectedFolder={onNoteMoveToSelectedFolder}
+                selectedFolderForNoteMove={selectedFolderForNoteMove}
+                isMovingNote={isMovingNote}
+              />
+              {node.notes.length > 0 ? (
+                <ul className="m-0 grid min-w-0 list-none gap-0.5 p-0">
                   {node.notes.map((entry) => (
-                    <div key={`${node.id}:${entry.note.id}`} className="relative min-w-0 pl-5">
+                    <li key={`${node.id}:${entry.note.id}`} className="relative min-w-0 pl-5">
                       <div className="absolute left-[13px] top-1 bottom-1 w-px bg-border-default/70" aria-hidden="true" />
                       <NoteRow
                         entry={entry}
@@ -612,15 +574,25 @@ export function FolderTreeView({
                         active={activeNoteId === entry.note.id}
                         compact
                       />
-                    </div>
+                    </li>
                   ))}
-                </div>
-              </div>
+                </ul>
+              ) : null}
             </div>
           </div>
-        );
-      })}
-    </div>
+        </div>
+      </li>
+    );
+  });
+
+  if (depth === 0) {
+    return <>{items}</>;
+  }
+
+  return (
+    <ul className="relative m-0 grid min-w-0 list-none gap-0.5 p-0 pl-5 before:absolute before:bottom-1 before:left-[13px] before:top-1 before:w-px before:bg-border-default/70">
+      {items}
+    </ul>
   );
 }
 

@@ -290,6 +290,35 @@ describe('FolderNavigator', () => {
     expect(collapseButton).toHaveAttribute('aria-expanded', 'true');
   });
 
+  it('marks the current navigator row with aria-current and a non-color-only indicator', () => {
+    renderFolderNavigator({
+      selection: {
+        selectedFolderId: null,
+        selectedNoteId: 'nested-note',
+      },
+    });
+
+    const selectedNote = screen.getByRole('button', { name: 'Nested note' });
+
+    expect(selectedNote).toHaveAttribute('aria-current', 'page');
+    expect(selectedNote.parentElement).toHaveClass('before:bg-primary-default');
+  });
+
+  it('uses list semantics for the navigator tree and finder results', () => {
+    renderFolderNavigator();
+
+    expect(screen.getByRole('list', { name: 'Folders and notes' })).toBeInTheDocument();
+
+    renderFolderNavigator({
+      finderState: {
+        ...DEFAULT_NOTE_FINDER_STATE,
+        query: 'note',
+      },
+    });
+
+    expect(screen.getByRole('list', { name: 'Search results' })).toBeInTheDocument();
+  });
+
   it('moves focus through visible tree rows with arrow keys and Ctrl+N/P', () => {
     const { container } = renderFolderNavigator();
     const root = focusTreeRow(container, `folder:${UNFILED_FOLDER_ID}`);

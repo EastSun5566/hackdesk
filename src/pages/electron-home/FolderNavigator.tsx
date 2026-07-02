@@ -328,7 +328,7 @@ function NavigatorFilterBar({
   };
 
   return (
-    <div className="space-y-1 border-b border-border-default px-3 pb-2 pt-2">
+    <div className="space-y-1 border-b border-border-default px-3 pb-1.5 pt-2">
       <NoteFinderToolbar
         state={finderState}
         selectedFolderId={selectedFolderId}
@@ -347,12 +347,12 @@ function NavigatorFilterBar({
           type="button"
           onClick={actions.onOpenSettings}
           className={cn(
-            'flex w-full items-center gap-2 rounded-md border border-border-default bg-background-default px-3 py-2 text-left text-sm text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default',
+            'flex w-full items-center gap-2 rounded-[6px] border border-border-default bg-background-default px-2.5 py-1.5 text-left text-xs text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default',
             FOCUS_RING_CLASS,
           )}
         >
-          <AlertCircle aria-hidden="true" className="h-4 w-4" />
-          <span>Configure HackMD API Token</span>
+          <AlertCircle aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0 truncate">Configure HackMD API Token</span>
         </button>
       ) : null}
 
@@ -529,26 +529,27 @@ function FinderResultList({
   selectedNoteId: string | null;
 }) {
   return (
-    <div className="min-w-0 space-y-1">
+    <ul className="m-0 min-w-0 list-none space-y-1 p-0" aria-label="Search results">
       {entries.map((entry) => (
-        <NoteRow
-          key={`${entry.folderLabel}:${entry.note.id}`}
-          entry={entry}
-          selected={entry.note.id === selectedNoteId}
-          onSelect={actions.onNoteSelect}
-          onOpen={actions.onOpenNote}
-          onCopyLink={actions.onCopyNoteLink}
-          onCopyMarkdownLink={actions.onCopyNoteMarkdownLink}
-          onDuplicate={actions.onDuplicateNote}
-          onExportMarkdown={actions.onExportNoteMarkdown}
-          onDelete={actions.onDeleteNote}
-          onRevealFolder={actions.onRevealNoteFolder}
-          onRevealInFinder={actions.onNoteRevealInFinder}
-          onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}
-          selectedFolder={selectedFolderForNoteMove}
-        />
+        <li key={`${entry.folderLabel}:${entry.note.id}`} className="min-w-0">
+          <NoteRow
+            entry={entry}
+            selected={entry.note.id === selectedNoteId}
+            onSelect={actions.onNoteSelect}
+            onOpen={actions.onOpenNote}
+            onCopyLink={actions.onCopyNoteLink}
+            onCopyMarkdownLink={actions.onCopyNoteMarkdownLink}
+            onDuplicate={actions.onDuplicateNote}
+            onExportMarkdown={actions.onExportNoteMarkdown}
+            onDelete={actions.onDeleteNote}
+            onRevealFolder={actions.onRevealNoteFolder}
+            onRevealInFinder={actions.onNoteRevealInFinder}
+            onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}
+            selectedFolder={selectedFolderForNoteMove}
+          />
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }
 
@@ -663,67 +664,72 @@ function NavigatorTree({
           className="grid min-w-0 gap-0.5"
           data-testid="folder-navigator-tree"
         >
-          <RootFolderRow
-            selected={selection.selectedFolderId === UNFILED_FOLDER_ID}
-            focusTarget={selection.selectedFolderId === UNFILED_FOLDER_ID && !selection.selectedNoteId}
-            noteCount={tree.unfiled.notes.length}
-            folderDragActive={Boolean(activeFolderId)}
-            noteDragActive={Boolean(activeNoteId)}
-            onSelect={() => actions.onFolderSelect(UNFILED_FOLDER_ID)}
-            onCreateFolder={() => actions.onCreateFolderInside(null)}
-            onCreateNote={() => actions.onCreateNoteInside(null)}
-          />
-          <FolderTreeView
-            nodes={tree.roots}
-            selectedFolderId={selection.selectedFolderId}
-            selectedNoteId={selection.selectedNoteId}
-            collapsedFolderIds={layout.collapsedFolderIds}
-            activeFolderId={activeFolderId}
-            activeNoteId={activeNoteId}
-            depth={0}
-            onFolderSelect={actions.onFolderSelect}
-            onFolderToggle={actions.onFolderToggle}
-            onCreateFolderInside={actions.onCreateFolderInside}
-            onCreateNoteInside={actions.onCreateNoteInside}
-            onRenameFolder={actions.onRenameFolder}
-            onDeleteFolder={actions.onDeleteFolder}
-            onFolderRevealInFinder={actions.onFolderRevealInFinder}
-            onNoteSelect={actions.onNoteSelect}
-            onNoteOpen={actions.onOpenNote}
-            onNoteCopyLink={actions.onCopyNoteLink}
-            onNoteCopyMarkdownLink={actions.onCopyNoteMarkdownLink}
-            onNoteDuplicate={actions.onDuplicateNote}
-            onNoteExportMarkdown={actions.onExportNoteMarkdown}
-            onNoteDelete={actions.onDeleteNote}
-            onNoteRevealFolder={actions.onRevealNoteFolder}
-            onNoteRevealInFinder={actions.onNoteRevealInFinder}
-            onNoteMoveToSelectedFolder={(entry) => moveNoteToSelectedFolder(entry, selectedFolderForNoteMove, actions.onNoteMove)}
-            selectedFolderForNoteMove={selectedFolderForNoteMove}
-            isMovingNote={status.isMovingNote}
-          />
-          {tree.unfiled.notes.map((entry) => (
-            <NoteRow
-              key={`root:${entry.note.id}`}
-              entry={entry}
-              selected={entry.note.id === selection.selectedNoteId}
-              focusTarget={entry.note.id === selection.selectedNoteId}
-              onSelect={actions.onNoteSelect}
-              onOpen={actions.onOpenNote}
-              onCopyLink={actions.onCopyNoteLink}
-              onCopyMarkdownLink={actions.onCopyNoteMarkdownLink}
-              onDuplicate={actions.onDuplicateNote}
-              onExportMarkdown={actions.onExportNoteMarkdown}
-              onDelete={actions.onDeleteNote}
-              onRevealFolder={actions.onRevealNoteFolder}
-              onRevealInFinder={actions.onNoteRevealInFinder}
-              onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}
-              selectedFolder={selectedFolderForNoteMove}
-              draggable
-              disabledDrag={status.isMovingNote}
-              active={activeNoteId === entry.note.id}
-              compact
+          <ul className="m-0 grid min-w-0 list-none gap-0.5 p-0" aria-label="Folders and notes">
+            <li className="min-w-0">
+              <RootFolderRow
+                selected={selection.selectedFolderId === UNFILED_FOLDER_ID}
+                focusTarget={selection.selectedFolderId === UNFILED_FOLDER_ID && !selection.selectedNoteId}
+                noteCount={tree.unfiled.notes.length}
+                folderDragActive={Boolean(activeFolderId)}
+                noteDragActive={Boolean(activeNoteId)}
+                onSelect={() => actions.onFolderSelect(UNFILED_FOLDER_ID)}
+                onCreateFolder={() => actions.onCreateFolderInside(null)}
+                onCreateNote={() => actions.onCreateNoteInside(null)}
+              />
+            </li>
+            <FolderTreeView
+              nodes={tree.roots}
+              selectedFolderId={selection.selectedFolderId}
+              selectedNoteId={selection.selectedNoteId}
+              collapsedFolderIds={layout.collapsedFolderIds}
+              activeFolderId={activeFolderId}
+              activeNoteId={activeNoteId}
+              depth={0}
+              onFolderSelect={actions.onFolderSelect}
+              onFolderToggle={actions.onFolderToggle}
+              onCreateFolderInside={actions.onCreateFolderInside}
+              onCreateNoteInside={actions.onCreateNoteInside}
+              onRenameFolder={actions.onRenameFolder}
+              onDeleteFolder={actions.onDeleteFolder}
+              onFolderRevealInFinder={actions.onFolderRevealInFinder}
+              onNoteSelect={actions.onNoteSelect}
+              onNoteOpen={actions.onOpenNote}
+              onNoteCopyLink={actions.onCopyNoteLink}
+              onNoteCopyMarkdownLink={actions.onCopyNoteMarkdownLink}
+              onNoteDuplicate={actions.onDuplicateNote}
+              onNoteExportMarkdown={actions.onExportNoteMarkdown}
+              onNoteDelete={actions.onDeleteNote}
+              onNoteRevealFolder={actions.onRevealNoteFolder}
+              onNoteRevealInFinder={actions.onNoteRevealInFinder}
+              onNoteMoveToSelectedFolder={(entry) => moveNoteToSelectedFolder(entry, selectedFolderForNoteMove, actions.onNoteMove)}
+              selectedFolderForNoteMove={selectedFolderForNoteMove}
+              isMovingNote={status.isMovingNote}
             />
-          ))}
+            {tree.unfiled.notes.map((entry) => (
+              <li key={`root:${entry.note.id}`} className="min-w-0">
+                <NoteRow
+                  entry={entry}
+                  selected={entry.note.id === selection.selectedNoteId}
+                  focusTarget={entry.note.id === selection.selectedNoteId}
+                  onSelect={actions.onNoteSelect}
+                  onOpen={actions.onOpenNote}
+                  onCopyLink={actions.onCopyNoteLink}
+                  onCopyMarkdownLink={actions.onCopyNoteMarkdownLink}
+                  onDuplicate={actions.onDuplicateNote}
+                  onExportMarkdown={actions.onExportNoteMarkdown}
+                  onDelete={actions.onDeleteNote}
+                  onRevealFolder={actions.onRevealNoteFolder}
+                  onRevealInFinder={actions.onNoteRevealInFinder}
+                  onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}
+                  selectedFolder={selectedFolderForNoteMove}
+                  draggable
+                  disabledDrag={status.isMovingNote}
+                  active={activeNoteId === entry.note.id}
+                  compact
+                />
+              </li>
+            ))}
+          </ul>
         </div>
       </SortableContext>
       <DragOverlay>

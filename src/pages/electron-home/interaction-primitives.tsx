@@ -40,6 +40,11 @@ type EntityRowProps = {
   titleClassName?: string;
   trailingClassName?: string;
   focusTarget?: boolean;
+  contentOnClick?: () => void;
+  contentAriaLabel?: string;
+  contentAriaCurrent?: ButtonHTMLAttributes<HTMLButtonElement>['aria-current'];
+  contentFocusTarget?: boolean;
+  selectedIndicator?: boolean;
   onClick?: () => void;
   ariaLabel?: string;
   ariaCurrent?: ButtonHTMLAttributes<HTMLButtonElement>['aria-current'];
@@ -52,6 +57,7 @@ function entityRowClassName({
   disabled,
   variant,
   clickable,
+  selectedIndicator,
   className,
 }: {
   selected?: boolean;
@@ -59,14 +65,17 @@ function entityRowClassName({
   disabled?: boolean;
   variant: EntityRowVariant;
   clickable: boolean;
+  selectedIndicator?: boolean;
   className?: string;
 }) {
   return cn(
-    'group/entity-row flex w-full min-w-0 items-center text-left transition-[background-color,color,opacity] duration-150 ease-out motion-reduce:transition-none',
+    'group/entity-row relative flex w-full min-w-0 items-center text-left transition-[background-color,color,opacity] duration-150 ease-out motion-reduce:transition-none',
     variant === 'compact' ? 'gap-2 rounded-[6px] px-2 py-1 text-sm' : 'gap-2.5 rounded-md px-2.5 py-2 text-sm',
     selected || active
       ? 'bg-background-selected text-text-default'
       : 'text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
+    selectedIndicator && 'overflow-hidden',
+    selectedIndicator && selected && 'before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-0.5 before:rounded-full before:bg-primary-default',
     clickable && FOCUS_RING_CLASS,
     disabled && 'pointer-events-none opacity-50',
     className,
@@ -85,6 +94,10 @@ function EntityRowContent({
   contentClassName,
   titleClassName,
   trailingClassName,
+  contentOnClick,
+  contentAriaLabel,
+  contentAriaCurrent,
+  contentFocusTarget,
 }: Required<Pick<EntityRowProps, 'variant'>> & Pick<EntityRowProps,
   'leadingControls'
   | 'icon'
@@ -96,7 +109,25 @@ function EntityRowContent({
   | 'contentClassName'
   | 'titleClassName'
   | 'trailingClassName'
+  | 'contentOnClick'
+  | 'contentAriaLabel'
+  | 'contentAriaCurrent'
+  | 'contentFocusTarget'
 >) {
+  const contentBody = (
+    <>
+      <span className={cn('flex min-w-0 items-center gap-2', titleClassName)}>
+        <span className="min-w-0 truncate font-medium">{title}</span>
+        {badges ? <span className="shrink-0">{badges}</span> : null}
+      </span>
+      {subtitle ? (
+        <span className="mt-0.5 block min-w-0 truncate text-xs text-text-subtle">
+          {subtitle}
+        </span>
+      ) : null}
+    </>
+  );
+
   return (
     <>
       {leadingControls ? <span className="shrink-0">{leadingControls}</span> : null}
@@ -108,19 +139,25 @@ function EntityRowContent({
           {icon}
         </span>
       ) : null}
-      <span className={cn('min-w-0 flex-1', contentClassName)}>
-        <span className={cn('flex min-w-0 items-center gap-2', titleClassName)}>
-          <span className="min-w-0 truncate font-medium">{title}</span>
-          {badges ? <span className="shrink-0">{badges}</span> : null}
+      {contentOnClick ? (
+        <button
+          type="button"
+          data-folder-tree-primary="true"
+          data-hackdesk-focus-target={contentFocusTarget ? 'true' : undefined}
+          onClick={contentOnClick}
+          aria-label={contentAriaLabel}
+          aria-current={contentAriaCurrent}
+          className={cn('min-w-0 flex-1 rounded-[4px] text-left focus-visible:outline-none', contentClassName)}
+        >
+          {contentBody}
+        </button>
+      ) : (
+        <span className={cn('min-w-0 flex-1', contentClassName)}>
+          {contentBody}
         </span>
-        {subtitle ? (
-          <span className="mt-0.5 block min-w-0 truncate text-xs text-text-subtle">
-            {subtitle}
-          </span>
-        ) : null}
-      </span>
+      )}
       {trailing ? (
-        <span className={cn('shrink-0 text-xs text-text-subtle', trailingClassName)}>
+        <span className={cn('shrink-0 text-xs tabular-nums text-text-subtle', trailingClassName)}>
           {trailing}
         </span>
       ) : null}
@@ -151,6 +188,11 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
   titleClassName,
   trailingClassName,
   focusTarget,
+  contentOnClick,
+  contentAriaLabel,
+  contentAriaCurrent,
+  contentFocusTarget,
+  selectedIndicator,
   onClick,
   ariaLabel,
   ariaCurrent,
@@ -169,6 +211,10 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
       contentClassName={contentClassName}
       titleClassName={titleClassName}
       trailingClassName={trailingClassName}
+      contentOnClick={contentOnClick}
+      contentAriaLabel={contentAriaLabel}
+      contentAriaCurrent={contentAriaCurrent}
+      contentFocusTarget={contentFocusTarget}
     />
   );
   const rowClassName = entityRowClassName({
@@ -177,6 +223,7 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
     disabled,
     variant,
     clickable: Boolean(onClick),
+    selectedIndicator,
     className,
   });
 

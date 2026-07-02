@@ -70,7 +70,7 @@ function FilterChip({
       type="button"
       onClick={onRemove}
       className={cn(
-        'inline-flex h-7 min-w-0 items-center gap-1 rounded-[6px] border border-border-default bg-background-default px-2 text-xs text-text-default transition-colors hover:bg-element-bg-hover',
+        'inline-flex h-6 min-w-0 items-center gap-1 rounded-[6px] border border-border-default bg-background-default px-2 text-xs text-text-default transition-colors hover:bg-element-bg-hover',
         FOCUS_RING_CLASS,
       )}
       aria-label={`Remove ${removeLabel}`}
@@ -101,6 +101,11 @@ export function NoteFinderToolbar({
   });
   const removeWritePermission = (permission: NotePermissionRole) => updateState({
     writePermissionFilters: state.writePermissionFilters.filter((candidate) => candidate !== permission),
+  });
+  const clearFilters = () => updateState({
+    tagFilters: [],
+    readPermissionFilters: [],
+    writePermissionFilters: [],
   });
   const scopeLabel = state.searchScope === 'workspace' ? 'Workspace' : 'Current Folder';
 
@@ -222,12 +227,7 @@ export function NoteFinderToolbar({
               {hasActiveNoteFinderFilters(state) ? (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => updateState({
-                    tagFilters: [],
-                    readPermissionFilters: [],
-                    writePermissionFilters: [],
-                  })}
-                  >
+                  <DropdownMenuItem onSelect={clearFilters}>
                     Clear Filters
                   </DropdownMenuItem>
                 </>
@@ -238,16 +238,28 @@ export function NoteFinderToolbar({
       </div>
 
       {hasActiveNoteFinderFilters(state) ? (
-        <div className="flex flex-wrap gap-1.5">
-          {state.tagFilters.map((tag) => (
-            <FilterChip key={`tag:${tag}`} label={tag} removeLabel={`tag filter ${tag}`} onRemove={() => removeTag(tag)} />
-          ))}
-          {state.readPermissionFilters.map((permission) => (
-            <FilterChip key={`read:${permission}`} label={`Read: ${PERMISSION_LABELS[permission]}`} removeLabel={`read permission filter ${PERMISSION_LABELS[permission]}`} onRemove={() => removeReadPermission(permission)} />
-          ))}
-          {state.writePermissionFilters.map((permission) => (
-            <FilterChip key={`write:${permission}`} label={`Write: ${PERMISSION_LABELS[permission]}`} removeLabel={`write permission filter ${PERMISSION_LABELS[permission]}`} onRemove={() => removeWritePermission(permission)} />
-          ))}
+        <div className="flex items-start gap-1.5">
+          <div className="flex min-w-0 flex-1 flex-wrap gap-1">
+            {state.tagFilters.map((tag) => (
+              <FilterChip key={`tag:${tag}`} label={tag} removeLabel={`tag filter ${tag}`} onRemove={() => removeTag(tag)} />
+            ))}
+            {state.readPermissionFilters.map((permission) => (
+              <FilterChip key={`read:${permission}`} label={`Read: ${PERMISSION_LABELS[permission]}`} removeLabel={`read permission filter ${PERMISSION_LABELS[permission]}`} onRemove={() => removeReadPermission(permission)} />
+            ))}
+            {state.writePermissionFilters.map((permission) => (
+              <FilterChip key={`write:${permission}`} label={`Write: ${PERMISSION_LABELS[permission]}`} removeLabel={`write permission filter ${PERMISSION_LABELS[permission]}`} onRemove={() => removeWritePermission(permission)} />
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={clearFilters}
+            className={cn(
+              'h-6 shrink-0 rounded-[6px] px-2 text-xs text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default',
+              FOCUS_RING_CLASS,
+            )}
+          >
+            Clear
+          </button>
         </div>
       ) : null}
     </div>
@@ -290,37 +302,40 @@ export function TagBrowser({
           No tags yet
         </div>
       ) : (
-        <div className="space-y-1">
+        <ul className="m-0 list-none space-y-1 p-0" aria-label="Tags">
           {visibleTags.map((entry) => {
             const active = activeTags.includes(entry.tag);
             return (
-              <EntityRow
-                key={entry.tag}
-                selected={active}
-                active={active}
-                variant="compact"
-                icon={<Tag className="h-3.5 w-3.5" />}
-                title={entry.tag}
-                trailing={entry.count}
-                className="h-7 py-0 text-xs"
-                ariaLabel={`${active ? 'Clear' : 'Filter by'} tag ${entry.tag}`}
-                onClick={() => onTagToggle(entry.tag)}
-              />
+              <li key={entry.tag} className="min-w-0">
+                <EntityRow
+                  selected={active}
+                  active={active}
+                  variant="compact"
+                  icon={<Tag className="h-3.5 w-3.5" />}
+                  title={entry.tag}
+                  trailing={entry.count}
+                  className="h-7 py-0 text-xs"
+                  ariaLabel={`${active ? 'Clear' : 'Filter by'} tag ${entry.tag}`}
+                  onClick={() => onTagToggle(entry.tag)}
+                />
+              </li>
             );
           })}
           {tags.length > TAG_BROWSER_LIMIT ? (
-            <button
-              type="button"
-              onClick={() => setShowAll((current) => !current)}
-              className={cn(
-                'mt-0.5 h-7 rounded-[6px] px-2 text-xs text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default',
-                FOCUS_RING_CLASS,
-              )}
-            >
-              {showAll ? 'Show less' : `Show ${tags.length - TAG_BROWSER_LIMIT} more`}
-            </button>
+            <li className="min-w-0">
+              <button
+                type="button"
+                onClick={() => setShowAll((current) => !current)}
+                className={cn(
+                  'mt-0.5 h-7 rounded-[6px] px-2 text-xs text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default',
+                  FOCUS_RING_CLASS,
+                )}
+              >
+                {showAll ? 'Show less' : `Show ${tags.length - TAG_BROWSER_LIMIT} more`}
+              </button>
+            </li>
           ) : null}
-        </div>
+        </ul>
       )}
     </CollapsibleSection>
   );
