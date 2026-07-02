@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { TeamSummary, UserSummary } from '@/lib/electron-api';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 import { WorkspaceRail } from './WorkspaceRail';
 
@@ -48,7 +49,11 @@ function renderWorkspaceRail(overrides: Partial<Parameters<typeof WorkspaceRail>
     ...overrides,
   };
 
-  render(<WorkspaceRail {...props} />);
+  render(
+    <TooltipProvider delayDuration={0} skipDelayDuration={0}>
+      <WorkspaceRail {...props} />
+    </TooltipProvider>,
+  );
   return props;
 }
 
@@ -84,6 +89,23 @@ describe('WorkspaceRail', () => {
     expect(teamList).not.toContainElement(screen.getByRole('button', { name: 'Open local folder' }));
     expect(utilities).toContainElement(screen.getByRole('button', { name: 'Open local folder' }));
     expect(utilities).toContainElement(screen.getByRole('button', { name: 'Open settings' }));
+  });
+
+  it('exposes primary and team navigation as semantic lists', () => {
+    const selectedTeam = team();
+    renderWorkspaceRail({ teams: [selectedTeam] });
+
+    const primaryList = screen.getByRole('list', { name: 'HackMD navigation' });
+    const navigation = screen.getByRole('navigation', { name: 'HackMD workspaces' });
+    const teamsHeading = screen.getByRole('heading', { level: 2, name: 'Teams' });
+    const teamsList = screen.getByRole('list', { name: 'Teams' });
+
+    expect(navigation).toContainElement(primaryList);
+    expect(navigation).toContainElement(teamsList);
+    expect(within(primaryList).getAllByRole('listitem')).toHaveLength(2);
+    expect(teamsHeading).toBeVisible();
+    expect(within(teamsList).getAllByRole('listitem')).toHaveLength(1);
+    expect(teamsList).toHaveAttribute('aria-labelledby', teamsHeading.id);
   });
 
   it('opens the local vault picker when no vault is configured', () => {
@@ -187,15 +209,38 @@ describe('WorkspaceRail', () => {
     expect(screen.queryByTestId('workspace-rail-personal-avatar')).toBeNull();
   });
 
-  it('keeps private team metadata visible without hover', () => {
+  it('keeps private team metadata visible and available in the accessible name', () => {
     const privateTeam = team({ visibility: 'private' });
     renderWorkspaceRail({ teams: [privateTeam] });
 
-    const lock = screen.getByRole('button', { name: privateTeam.name })
+    const privateTeamButton = screen.getByRole('button', { name: `${privateTeam.name}, private` });
+    const lock = privateTeamButton
       .querySelector('[data-private-team-lock="true"]');
+    expect(screen.getByText(privateTeam.name)).toBeVisible();
     expect(lock).toBeInTheDocument();
     expect(lock?.parentElement).toHaveClass('opacity-70');
     expect(lock?.parentElement).not.toHaveClass('opacity-0');
+  });
+
+  it('does not add private metadata to a public team accessible name', () => {
+    const publicTeam = team({ visibility: 'public' });
+    renderWorkspaceRail({ teams: [publicTeam] });
+
+    expect(screen.getByRole('button', { name: publicTeam.name })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: `${publicTeam.name}, private` })).not.toBeInTheDocument();
+  });
+
+  it('includes private status in the collapsed team tooltip', async () => {
+    const privateTeam = team({ visibility: 'private' });
+    renderWorkspaceRail({ collapsed: true, teams: [privateTeam] });
+
+    const privateTeamButton = screen.getByRole('button', { name: `${privateTeam.name}, private` });
+    fireEvent.pointerEnter(privateTeamButton, { pointerType: 'mouse' });
+    fireEvent.mouseEnter(privateTeamButton);
+
+    expect(await screen.findByText(`${privateTeam.name} · Private`)).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Teams' })).not.toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Teams' })).toBeInTheDocument();
   });
 
   it('uses the account footer as the settings entry without showing a Settings label', () => {

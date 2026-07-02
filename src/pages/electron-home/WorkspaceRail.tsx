@@ -11,18 +11,22 @@ import type { WorkspaceScope } from './types';
 import { RAIL_COLLAPSED_WIDTH } from './ui-preferences';
 
 function WorkspaceRailButton({
+  accessibleLabel,
   active,
   collapsed,
   icon,
   label,
+  tooltipLabel,
   trailing,
   className,
   onClick,
 }: {
+  accessibleLabel?: string;
   active: boolean;
   collapsed: boolean;
   icon: ReactNode;
   label: string;
+  tooltipLabel?: string;
   trailing?: ReactNode;
   className?: string;
   onClick: () => void;
@@ -35,7 +39,7 @@ function WorkspaceRailButton({
       trailing={collapsed ? undefined : trailing}
       variant="compact"
       onClick={onClick}
-      ariaLabel={label}
+      ariaLabel={accessibleLabel ?? label}
       ariaCurrent={active ? 'page' : undefined}
       className={cn('min-h-10', collapsed ? 'justify-center px-2' : undefined, className)}
       contentClassName={collapsed ? 'hidden' : undefined}
@@ -43,7 +47,7 @@ function WorkspaceRailButton({
     />
   );
 
-  return collapsed ? <Tooltip content={label} side="right">{row}</Tooltip> : row;
+  return collapsed ? <Tooltip content={tooltipLabel ?? accessibleLabel ?? label} side="right">{row}</Tooltip> : row;
 }
 
 type WorkspaceRailUser = Pick<UserSummary, 'name' | 'username' | 'photo'>;
@@ -206,6 +210,8 @@ export function WorkspaceRail({
   onChooseLocalVault: () => void;
   onOpenSettings: () => void;
 }) {
+  const teamsHeadingId = `${id}-teams-heading`;
+
   return (
     <PanelShell
       id={id}
@@ -217,54 +223,78 @@ export function WorkspaceRail({
       collapsedWidth={RAIL_COLLAPSED_WIDTH}
       className="border-r border-border-default bg-background-default pt-3"
     >
-      <div className="space-y-1 px-2">
-        <WorkspaceRailButton
-          active={scope.type === 'personal'}
-          collapsed={collapsed}
-          icon={user ? (
-            <UserAvatar user={user} testId="workspace-rail-personal-avatar" />
-          ) : (
-            <Folder className="h-4 w-4" />
-          )}
-          label="My Workspace"
-          onClick={() => onScopeChange({ type: 'personal', label: 'My Workspace' })}
-        />
-        <WorkspaceRailButton
-          active={scope.type === 'history'}
-          collapsed={collapsed}
-          icon={<History className="h-4 w-4" />}
-          label="History"
-          onClick={() => onScopeChange({ type: 'history', label: 'History' })}
-        />
-      </div>
+      <nav aria-label="HackMD workspaces" className="flex min-h-0 flex-1 flex-col">
+        <ul
+          aria-label="HackMD navigation"
+          className="list-none space-y-1 px-2"
+        >
+          <li>
+            <WorkspaceRailButton
+              active={scope.type === 'personal'}
+              collapsed={collapsed}
+              icon={user ? (
+                <UserAvatar user={user} testId="workspace-rail-personal-avatar" />
+              ) : (
+                <Folder className="h-4 w-4" />
+              )}
+              label="My Workspace"
+              onClick={() => onScopeChange({ type: 'personal', label: 'My Workspace' })}
+            />
+          </li>
+          <li>
+            <WorkspaceRailButton
+              active={scope.type === 'history'}
+              collapsed={collapsed}
+              icon={<History className="h-4 w-4" />}
+              label="History"
+              onClick={() => onScopeChange({ type: 'history', label: 'History' })}
+            />
+          </li>
+        </ul>
 
-      {!collapsed && teams.length > 0 ? (
-        <div className="mt-4 px-3 text-[11px] font-medium uppercase text-text-subtle">
-          Teams
-        </div>
-      ) : null}
-      <div
-        data-testid="workspace-rail-team-list"
-        className="mt-1.5 min-h-0 flex-1 space-y-0.5 overflow-auto px-2 pb-3"
-      >
-        {teams.map((team) => (
-          <WorkspaceRailButton
-            key={team.id}
-            active={scope.type === 'team' && scope.teamPath === team.path}
-            collapsed={collapsed}
-            icon={<TeamLogo team={team} />}
-            label={team.name}
-            trailing={team.visibility === 'private' ? (
-              <Lock
-                aria-hidden="true"
-                data-private-team-lock="true"
-                className="h-3.5 w-3.5"
-              />
-            ) : null}
-            onClick={() => onScopeChange({ type: 'team', label: team.name, teamPath: team.path })}
-          />
-        ))}
-      </div>
+        {!collapsed && teams.length > 0 ? (
+          <h2
+            id={teamsHeadingId}
+            className="mt-4 px-3 text-[11px] font-medium uppercase text-text-subtle"
+          >
+            Teams
+          </h2>
+        ) : null}
+        {teams.length > 0 ? (
+          <ul
+            aria-label={collapsed ? 'Teams' : undefined}
+            aria-labelledby={collapsed ? undefined : teamsHeadingId}
+            data-testid="workspace-rail-team-list"
+            className="mt-1.5 min-h-0 flex-1 list-none space-y-0.5 overflow-auto px-2 pb-3"
+          >
+            {teams.map((team) => {
+              const isPrivate = team.visibility === 'private';
+              return (
+                <li key={team.id}>
+                  <WorkspaceRailButton
+                    accessibleLabel={isPrivate ? `${team.name}, private` : team.name}
+                    active={scope.type === 'team' && scope.teamPath === team.path}
+                    collapsed={collapsed}
+                    icon={<TeamLogo team={team} />}
+                    label={team.name}
+                    tooltipLabel={isPrivate ? `${team.name} · Private` : team.name}
+                    trailing={isPrivate ? (
+                      <Lock
+                        aria-hidden="true"
+                        data-private-team-lock="true"
+                        className="h-3.5 w-3.5"
+                      />
+                    ) : null}
+                    onClick={() => onScopeChange({ type: 'team', label: team.name, teamPath: team.path })}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <div data-testid="workspace-rail-team-list" className="min-h-0 flex-1" />
+        )}
+      </nav>
 
       <div
         data-testid="workspace-rail-utilities"
