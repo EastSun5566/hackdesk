@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { TeamSummary, UserSummary } from '@/lib/electron-api';
@@ -65,10 +65,33 @@ describe('WorkspaceRail', () => {
     expect(screen.getByRole('button', { name: 'My Workspace' })).toBeInTheDocument();
   });
 
+  it('orders remote workspaces before fixed local and account utilities', () => {
+    const selectedTeam = team();
+    renderWorkspaceRail({ teams: [selectedTeam] });
+
+    const rail = screen.getByRole('complementary', { name: 'Workspace switcher' });
+    expect(within(rail).getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual([
+      'My Workspace',
+      'History',
+      selectedTeam.name,
+      'Open local folder',
+      'Open settings',
+    ]);
+
+    const teamList = screen.getByTestId('workspace-rail-team-list');
+    const utilities = screen.getByTestId('workspace-rail-utilities');
+    expect(teamList).toContainElement(screen.getByRole('button', { name: selectedTeam.name }));
+    expect(teamList).not.toContainElement(screen.getByRole('button', { name: 'Open local folder' }));
+    expect(utilities).toContainElement(screen.getByRole('button', { name: 'Open local folder' }));
+    expect(utilities).toContainElement(screen.getByRole('button', { name: 'Open settings' }));
+  });
+
   it('opens the local vault picker when no vault is configured', () => {
     const props = renderWorkspaceRail({ localVaultConfigured: false });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Local Vault' }));
+    const openLocalFolderButton = screen.getByRole('button', { name: 'Open local folder' });
+    expect(openLocalFolderButton.querySelector('.lucide-folder-open')).toBeInTheDocument();
+    fireEvent.click(openLocalFolderButton);
 
     expect(props.onChooseLocalVault).toHaveBeenCalledOnce();
     expect(props.onScopeChange).not.toHaveBeenCalled();
@@ -77,7 +100,9 @@ describe('WorkspaceRail', () => {
   it('switches to local workspace after a vault is configured', () => {
     const props = renderWorkspaceRail({ localVaultConfigured: true });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Local Vault' }));
+    const localVaultButton = screen.getByRole('button', { name: 'Local Vault' });
+    expect(localVaultButton.querySelector('.lucide-hard-drive')).toBeInTheDocument();
+    fireEvent.click(localVaultButton);
 
     expect(props.onScopeChange).toHaveBeenCalledWith({ type: 'local', label: 'Local Vault' });
     expect(props.onChooseLocalVault).not.toHaveBeenCalled();
@@ -103,6 +128,19 @@ describe('WorkspaceRail', () => {
     });
   });
 
+  it('exposes the active workspace without relying on color alone', () => {
+    renderWorkspaceRail({
+      scope: { type: 'history', label: 'History' },
+      localVaultConfigured: true,
+      teams: [team()],
+    });
+
+    expect(screen.getByRole('button', { name: 'History' })).toHaveAttribute('aria-current', 'page');
+    expect(document.querySelectorAll('[aria-current="page"]')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'My Workspace' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('button', { name: 'Local Vault' })).not.toHaveAttribute('aria-current');
+  });
+
   it('uses the connected user avatar for My Workspace without changing its accessible name', () => {
     renderWorkspaceRail({
       user: user({ photo: 'https://cdn.example/avatar.png' }),
@@ -114,6 +152,8 @@ describe('WorkspaceRail', () => {
     expect(personalButton).toBeInTheDocument();
     expect(avatar).toHaveAttribute('src', 'https://cdn.example/avatar.png');
     expect(avatar).toHaveAttribute('alt', '');
+    expect(avatar).toHaveAttribute('width', '24');
+    expect(avatar).toHaveAttribute('height', '24');
     expect(avatar).toHaveAttribute('loading', 'lazy');
     expect(avatar).toHaveAttribute('referrerpolicy', 'no-referrer');
   });
@@ -126,11 +166,36 @@ describe('WorkspaceRail', () => {
     expect(screen.getByTestId('workspace-rail-personal-avatar')).toHaveTextContent('ML');
   });
 
+  it('falls back to initials when user and team images fail to load', () => {
+    const selectedTeam = team({ logo: 'https://cdn.example/team.png' });
+    renderWorkspaceRail({
+      user: user({ photo: 'https://cdn.example/avatar.png' }),
+      teams: [selectedTeam],
+    });
+
+    fireEvent.error(screen.getByTestId('workspace-rail-personal-avatar'));
+    fireEvent.error(screen.getByTestId(`workspace-rail-team-logo-${selectedTeam.id}`));
+
+    expect(screen.getByTestId('workspace-rail-personal-avatar')).toHaveTextContent('ML');
+    expect(screen.getByTestId(`workspace-rail-team-logo-${selectedTeam.id}`)).toHaveTextContent('M');
+  });
+
   it('keeps the generic workspace icon when no connected user exists', () => {
     renderWorkspaceRail({ user: undefined });
 
     expect(screen.getByRole('button', { name: 'My Workspace' })).toBeInTheDocument();
     expect(screen.queryByTestId('workspace-rail-personal-avatar')).toBeNull();
+  });
+
+  it('keeps private team metadata visible without hover', () => {
+    const privateTeam = team({ visibility: 'private' });
+    renderWorkspaceRail({ teams: [privateTeam] });
+
+    const lock = screen.getByRole('button', { name: privateTeam.name })
+      .querySelector('[data-private-team-lock="true"]');
+    expect(lock).toBeInTheDocument();
+    expect(lock?.parentElement).toHaveClass('opacity-70');
+    expect(lock?.parentElement).not.toHaveClass('opacity-0');
   });
 
   it('uses the account footer as the settings entry without showing a Settings label', () => {
@@ -202,7 +267,7 @@ describe('WorkspaceRail', () => {
       user: user(),
     });
 
-    expect(screen.getByRole('button', { name: 'Local Vault' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open local folder' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'My Workspace' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'History' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open settings for Michael Lee' })).toBeInTheDocument();

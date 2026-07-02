@@ -42,6 +42,7 @@ type EntityRowProps = {
   focusTarget?: boolean;
   onClick?: () => void;
   ariaLabel?: string;
+  ariaCurrent?: ButtonHTMLAttributes<HTMLButtonElement>['aria-current'];
   titleAttribute?: string;
 };
 
@@ -152,6 +153,7 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
   focusTarget,
   onClick,
   ariaLabel,
+  ariaCurrent,
   titleAttribute,
 }, ref) {
   const content = (
@@ -187,6 +189,7 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
         disabled={disabled}
         data-hackdesk-focus-target={focusTarget ? 'true' : undefined}
         aria-label={ariaLabel}
+        aria-current={ariaCurrent}
         title={titleAttribute}
         className={rowClassName}
       >
@@ -215,6 +218,7 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
 export function PanelShell({
   id,
   focusZone,
+  ariaLabel,
   as: Component = 'section',
   collapsed,
   width,
@@ -224,6 +228,7 @@ export function PanelShell({
 }: {
   id?: string;
   focusZone?: string;
+  ariaLabel?: string;
   as?: 'aside' | 'section';
   collapsed?: boolean;
   width?: number;
@@ -236,6 +241,7 @@ export function PanelShell({
       id={id}
       data-hackdesk-focus={focusZone}
       tabIndex={focusZone ? -1 : undefined}
+      aria-label={ariaLabel}
       className={cn(
         'flex shrink-0 flex-col overflow-hidden outline-none',
         PANEL_TRANSITION_CLASS,

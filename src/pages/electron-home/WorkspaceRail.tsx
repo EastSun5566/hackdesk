@@ -1,5 +1,5 @@
-import { AlertCircle, Folder, HardDrive, History, Lock, Settings2 } from 'lucide-react';
-import { useMemo } from 'react';
+import { AlertCircle, Folder, FolderOpen, HardDrive, History, Lock, Settings2 } from 'lucide-react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import type { TeamSummary, UserSummary } from '@/lib/electron-api';
@@ -27,24 +27,19 @@ function WorkspaceRailButton({
   className?: string;
   onClick: () => void;
 }) {
-  const trailingContent = useMemo(() => (
-    trailing && !collapsed ? (
-      <span className={active ? '' : 'opacity-0 transition-opacity duration-150 group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none'}>
-        {trailing}
-      </span>
-    ) : null
-  ), [active, collapsed, trailing]);
   const row = (
     <EntityRow
       selected={active}
       icon={icon}
       title={collapsed ? '' : label}
-      trailing={trailingContent}
+      trailing={collapsed ? undefined : trailing}
       variant="compact"
       onClick={onClick}
       ariaLabel={label}
+      ariaCurrent={active ? 'page' : undefined}
       className={cn('min-h-10', collapsed ? 'justify-center px-2' : undefined, className)}
       contentClassName={collapsed ? 'hidden' : undefined}
+      trailingClassName="opacity-70"
     />
   );
 
@@ -69,20 +64,24 @@ function UserAvatar({
   className?: string;
   testId?: string;
 }) {
+  const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
   const baseClassName = cn(
     'flex size-6 items-center justify-center overflow-hidden rounded-full bg-background-selected text-[10px] font-semibold uppercase text-text-default outline outline-1 -outline-offset-1 outline-white/10',
     className,
   );
 
-  if (user.photo) {
+  if (user.photo && user.photo !== failedPhoto) {
     return (
       <img
         src={user.photo}
         alt=""
+        width={24}
+        height={24}
         className={cn(baseClassName, 'object-cover')}
         data-testid={testId}
         loading="lazy"
         referrerPolicy="no-referrer"
+        onError={() => setFailedPhoto(user.photo)}
       />
     );
   }
@@ -95,20 +94,30 @@ function UserAvatar({
 }
 
 function TeamLogo({ team }: { team: TeamSummary }) {
-  if (team.logo) {
+  const [failedLogo, setFailedLogo] = useState<string | null>(null);
+  const testId = `workspace-rail-team-logo-${team.id}`;
+
+  if (team.logo && team.logo !== failedLogo) {
     return (
       <img
         src={team.logo}
         alt=""
+        width={24}
+        height={24}
         className="size-6 rounded-[6px] object-cover outline outline-1 -outline-offset-1 outline-white/10"
+        data-testid={testId}
         loading="lazy"
         referrerPolicy="no-referrer"
+        onError={() => setFailedLogo(team.logo)}
       />
     );
   }
 
   return (
-    <span className="flex size-6 items-center justify-center rounded-[6px] bg-background-selected text-[10px] font-semibold uppercase text-text-subtle">
+    <span
+      className="flex size-6 items-center justify-center rounded-[6px] bg-background-selected text-[10px] font-semibold uppercase text-text-subtle"
+      data-testid={testId}
+    >
       {team.name.trim().slice(0, 1) || 'T'}
     </span>
   );
@@ -201,6 +210,7 @@ export function WorkspaceRail({
     <PanelShell
       id={id}
       as="aside"
+      ariaLabel="Workspace switcher"
       focusZone="workspace"
       collapsed={collapsed}
       width={width}
@@ -208,20 +218,6 @@ export function WorkspaceRail({
       className="border-r border-border-default bg-background-default pt-3"
     >
       <div className="space-y-1 px-2">
-        <WorkspaceRailButton
-          active={scope.type === 'local'}
-          collapsed={collapsed}
-          icon={<HardDrive className="h-4 w-4" />}
-          label="Local Vault"
-          onClick={() => {
-            if (localVaultConfigured) {
-              onScopeChange({ type: 'local', label: 'Local Vault' });
-              return;
-            }
-
-            onChooseLocalVault();
-          }}
-        />
         <WorkspaceRailButton
           active={scope.type === 'personal'}
           collapsed={collapsed}
@@ -247,7 +243,10 @@ export function WorkspaceRail({
           Teams
         </div>
       ) : null}
-      <div className="mt-1.5 min-h-0 flex-1 space-y-0.5 overflow-auto px-2 pb-3">
+      <div
+        data-testid="workspace-rail-team-list"
+        className="mt-1.5 min-h-0 flex-1 space-y-0.5 overflow-auto px-2 pb-3"
+      >
         {teams.map((team) => (
           <WorkspaceRailButton
             key={team.id}
@@ -255,13 +254,40 @@ export function WorkspaceRail({
             collapsed={collapsed}
             icon={<TeamLogo team={team} />}
             label={team.name}
-            trailing={team.visibility === 'private' ? <Lock className="h-3.5 w-3.5" /> : null}
+            trailing={team.visibility === 'private' ? (
+              <Lock
+                aria-hidden="true"
+                data-private-team-lock="true"
+                className="h-3.5 w-3.5"
+              />
+            ) : null}
             onClick={() => onScopeChange({ type: 'team', label: team.name, teamPath: team.path })}
           />
         ))}
       </div>
 
-      <div className="border-t border-border-default p-2">
+      <div
+        data-testid="workspace-rail-utilities"
+        className="space-y-1 border-t border-border-default p-2"
+      >
+        <WorkspaceRailButton
+          active={scope.type === 'local'}
+          collapsed={collapsed}
+          icon={localVaultConfigured ? (
+            <HardDrive className="h-4 w-4" />
+          ) : (
+            <FolderOpen className="h-4 w-4" />
+          )}
+          label={localVaultConfigured ? 'Local Vault' : 'Open local folder'}
+          onClick={() => {
+            if (localVaultConfigured) {
+              onScopeChange({ type: 'local', label: 'Local Vault' });
+              return;
+            }
+
+            onChooseLocalVault();
+          }}
+        />
         <AccountSettingsButton
           collapsed={collapsed}
           accountStatus={accountStatus}
