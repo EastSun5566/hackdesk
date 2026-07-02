@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { toast } from '@/components/ui/toast';
 
 import {
@@ -65,6 +65,7 @@ function SettingsDialogContent({
   onValidateToken,
 }: SettingsDialogProps) {
   const { setAppearance } = useTheme();
+  const tokenValidationRequestRef = useRef(0);
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [formState, setFormState] = useState(() => ({
     title: settings?.title ?? 'HackDesk',
@@ -80,9 +81,15 @@ function SettingsDialogContent({
   const { editorMode, title, token, tokenTest, tokenVisible } = formState;
 
   const normalizedToken = token.trim();
+  const isTestingToken = tokenTest.status === 'testing';
+  const canSaveSettings = Boolean(title.trim()) && (activeTab !== 'hackmd' || Boolean(normalizedToken));
+
+  const invalidateTokenValidation = () => {
+    tokenValidationRequestRef.current += 1;
+  };
 
   const handleSaveSettings = () => {
-    if (isSaving) {
+    if (isSaving || isTestingToken) {
       return;
     }
 
@@ -98,13 +105,56 @@ function SettingsDialogContent({
       return;
     }
 
+    if (activeTab === 'hackmd') {
+      if (!normalizedToken) {
+        return;
+      }
+
+      const requestId = tokenValidationRequestRef.current + 1;
+      tokenValidationRequestRef.current = requestId;
+      setFormState((current) => ({
+        ...current,
+        tokenTest: { status: 'testing', message: 'Testing token…' },
+      }));
+
+      void onValidateToken(normalizedToken)
+        .then((user) => {
+          if (requestId !== tokenValidationRequestRef.current) {
+            return;
+          }
+
+          setFormState((current) => ({
+            ...current,
+            tokenTest: {
+              status: 'success',
+              message: `Token works for ${user.name} @${user.username}.`,
+            },
+          }));
+          onSave({ title: title.trim(), hackmdApiToken: normalizedToken });
+        })
+        .catch((error: unknown) => {
+          if (requestId !== tokenValidationRequestRef.current) {
+            return;
+          }
+
+          setFormState((current) => ({
+            ...current,
+            tokenTest: {
+              status: 'error',
+              message: error instanceof Error ? error.message : 'Failed to validate token.',
+            },
+          }));
+        });
+      return;
+    }
+
     onSave({
       title: title.trim(),
-      ...(activeTab === 'hackmd' && normalizedToken ? { hackmdApiToken: normalizedToken } : {}),
     });
   };
 
   const handleResetAllSettings = () => {
+    invalidateTokenValidation();
     setFormState({
       title: defaultSettings.title,
       editorMode: defaultSettings.editor.mode,
@@ -123,6 +173,7 @@ function SettingsDialogContent({
 
   const handleDialogOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
+      invalidateTokenValidation();
       appearanceController.actions.cancel();
     }
     onOpenChange(nextOpen);
@@ -201,15 +252,23 @@ function SettingsDialogContent({
                 <TabsContent value="hackmd" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <HackmdSettingsPanel
                     hasHackmdApiToken={Boolean(settings?.hasHackmdApiToken)}
-                    isSaving={isSaving}
+                    isBusy={isSaving}
                     token={token}
                     tokenVisible={tokenVisible}
                     tokenTest={tokenTest}
-                    onDisconnect={onDisconnectHackmd}
-                    onTokenChange={(nextToken) => setFormState((current) => ({ ...current, token: nextToken }))}
+                    onDisconnect={() => {
+                      invalidateTokenValidation();
+                      onDisconnectHackmd();
+                    }}
+                    onTokenChange={(nextToken) => {
+                      invalidateTokenValidation();
+                      setFormState((current) => ({
+                        ...current,
+                        token: nextToken,
+                        tokenTest: { status: 'idle', message: '' },
+                      }));
+                    }}
                     onTokenVisibleChange={(nextVisible) => setFormState((current) => ({ ...current, tokenVisible: nextVisible }))}
-                    onTokenTestChange={(nextTokenTest) => setFormState((current) => ({ ...current, tokenTest: nextTokenTest }))}
-                    onValidateToken={onValidateToken}
                   />
                 </TabsContent>
 
@@ -222,8 +281,9 @@ function SettingsDialogContent({
             <SettingsDialogFooter
               activeTab={activeTab}
               appearanceStatus={appearanceController.status}
-              canSaveTitle={Boolean(title.trim())}
+              canSave={canSaveSettings}
               isSaving={isSaving}
+              isTestingToken={isTestingToken}
               onApplyTheme={handleApplyTheme}
               onCancelPreview={appearanceController.actions.cancel}
               onClose={() => handleDialogOpenChange(false)}

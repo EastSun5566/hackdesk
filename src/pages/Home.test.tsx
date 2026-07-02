@@ -754,6 +754,27 @@ describe('Home native-feel behavior', () => {
       ...localSettings,
       ...input,
     }));
+    const validateToken = vi.fn(async () => ({
+      id: 'user-1',
+      email: 'michael@example.com',
+      name: 'Michael',
+      username: 'michael',
+      photo: null,
+      upgraded: false,
+      teams: [],
+    }));
+    const getCurrentUser = vi.fn(async () => ({
+      source: 'remote' as const,
+      data: {
+        id: 'user-1',
+        email: 'michael@example.com',
+        name: 'Michael',
+        username: 'michael',
+        photo: null,
+        upgraded: false,
+        teams: [],
+      },
+    }));
     window.localStorage.setItem(LAST_WORKSPACE_SCOPE_KEY, JSON.stringify({
       type: 'local',
       label: 'Local Vault',
@@ -763,6 +784,7 @@ describe('Home native-feel behavior', () => {
         get: vi.fn(async () => localSettings),
         update: updateSettings,
       },
+      hackmd: { getCurrentUser, validateToken },
     });
 
     renderHome(api);
@@ -773,10 +795,13 @@ describe('Home native-feel behavior', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
+    await waitFor(() => expect(validateToken).toHaveBeenCalledWith('settings-token'));
     await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({
       title: 'HackDesk',
       hackmdApiToken: 'settings-token',
     }));
+    expect(validateToken.mock.invocationCallOrder[0]).toBeLessThan(updateSettings.mock.invocationCallOrder[0]);
+    await waitFor(() => expect(getCurrentUser).toHaveBeenCalledTimes(2));
     expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({
       type: 'local',
       label: 'Local Vault',

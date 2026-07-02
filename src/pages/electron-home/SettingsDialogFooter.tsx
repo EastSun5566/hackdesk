@@ -9,21 +9,23 @@ import { FOCUS_RING_CLASS } from './ui';
 export function SettingsDialogFooter({
   activeTab,
   appearanceStatus,
-  canSaveTitle,
+  canSave,
   isSaving,
+  isTestingToken,
   onApplyTheme,
   onCancelPreview,
   onClose,
 }: {
   activeTab: SettingsTab;
   appearanceStatus: ThemeAppearanceDraftController['status'];
-  canSaveTitle: boolean;
+  canSave: boolean;
   isSaving: boolean;
+  isTestingToken: boolean;
   onApplyTheme: () => void;
   onCancelPreview: () => void;
   onClose: () => void;
 }) {
-  const saveDisabled = isSaving || !canSaveTitle;
+  const saveDisabled = isSaving || isTestingToken || !canSave;
 
   return (
     <div className="flex items-center justify-end gap-2 border-t border-border-default px-5 py-4">
@@ -62,8 +64,8 @@ export function SettingsDialogFooter({
               FOCUS_RING_CLASS,
             )}
           >
-            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {isSaving ? 'Saving…' : 'Save'}
+            {isSaving || isTestingToken ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {isTestingToken ? 'Testing…' : isSaving ? 'Saving…' : 'Save'}
           </button>
         ) : null}
         {(activeTab === 'advanced' || activeTab === 'vault') ? (

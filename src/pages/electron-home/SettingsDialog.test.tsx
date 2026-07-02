@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ThemeProvider } from '@/components/theme-provider';
@@ -103,6 +103,27 @@ async function previewDraculaTheme() {
     expect(document.documentElement.dataset.themePreset).toBe('dracula');
   });
 }
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+
+  return { promise, reject, resolve };
+}
+
+const validatedUser = {
+  email: 'michael@example.com',
+  id: 'user-1',
+  name: 'Michael',
+  photo: null,
+  teams: [],
+  upgraded: false,
+  username: 'michael5566',
+};
 
 describe('SettingsDialog', () => {
   beforeEach(() => {
@@ -464,7 +485,7 @@ describe('SettingsDialog', () => {
     expect(screen.getByText('Gruvbox Light and Dark for warm terminal-style writing.')).toBeVisible();
   });
 
-  it('saves title and token from their tab-specific footer action', () => {
+  it('saves the title from its tab-specific footer action', () => {
     const { onSave } = renderSettingsDialog();
 
     fireEvent.change(screen.getByLabelText('Window title'), {
@@ -473,6 +494,13 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(onSave).toHaveBeenCalledWith({ title: 'Focus Desk' });
+  });
+
+  it('validates a new HackMD token before saving it', async () => {
+    const validation = createDeferred<typeof validatedUser>();
+    const { onSave, onValidateToken } = renderSettingsDialog({
+      onValidateToken: vi.fn(() => validation.promise),
+    });
 
     fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
     fireEvent.change(screen.getByLabelText('API Token'), {
@@ -480,35 +508,20 @@ describe('SettingsDialog', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(onSave).toHaveBeenLastCalledWith({
-      title: 'Focus Desk',
-      hackmdApiToken: 'secret-token',
-    });
-  });
-
-  it('tests a HackMD token and shows the validated user', async () => {
-    const { onValidateToken } = renderSettingsDialog({
-      onValidateToken: vi.fn(async () => ({
-        email: 'michael@example.com',
-        id: 'user-1',
-        name: 'Michael',
-        photo: null,
-        teams: [],
-        upgraded: false,
-        username: 'michael5566',
-      })),
-    });
-
-    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
-    fireEvent.change(screen.getByLabelText('API Token'), {
-      target: { value: ' api-token ' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Test Token' }));
-
-    expect(onValidateToken).toHaveBeenCalledWith('api-token');
+    expect(onValidateToken).toHaveBeenCalledWith('secret-token');
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Testing…' })).toBeDisabled();
     expect(screen.getByText('Testing token…')).toBeVisible();
+
+    await act(async () => {
+      validation.resolve(validatedUser);
+    });
     await waitFor(() => {
       expect(screen.getByText('Token works for Michael @michael5566.')).toBeVisible();
+      expect(onSave).toHaveBeenCalledWith({
+        title: 'HackDesk',
+        hackmdApiToken: 'secret-token',
+      });
     });
   });
 
@@ -523,13 +536,106 @@ describe('SettingsDialog', () => {
     fireEvent.change(screen.getByLabelText('API Token'), {
       target: { value: 'bad-token' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Test Token' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
       expect(screen.getByText('Invalid token')).toBeVisible();
     });
     expect(screen.getByLabelText('API Token')).toHaveAttribute('aria-invalid', 'true');
     expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('ignores a validation response after the token changes', async () => {
+    const validation = createDeferred<typeof validatedUser>();
+    const { onSave } = renderSettingsDialog({
+      onValidateToken: vi.fn(() => validation.promise),
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+    const tokenInput = screen.getByLabelText('API Token');
+    fireEvent.change(tokenInput, { target: { value: 'first-token' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.change(tokenInput, { target: { value: 'second-token' } });
+
+    expect(screen.queryByText('Testing token…')).not.toBeInTheDocument();
+    await act(async () => {
+      validation.resolve(validatedUser);
+    });
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.queryByText('Token works for Michael @michael5566.')).not.toBeInTheDocument();
+  });
+
+  it('ignores a validation response after the dialog closes', async () => {
+    const validation = createDeferred<typeof validatedUser>();
+    const { onOpenChange, onSave } = renderSettingsDialog({
+      onValidateToken: vi.fn(() => validation.promise),
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+    fireEvent.change(screen.getByLabelText('API Token'), { target: { value: 'api-token' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    await act(async () => {
+      validation.resolve(validatedUser);
+    });
+
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('invalidates pending token validation when disconnecting HackMD', async () => {
+    const validation = createDeferred<typeof validatedUser>();
+    const { onDisconnectHackmd, onSave } = renderSettingsDialog({
+      settings: {
+        title: 'HackDesk',
+        appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
+        hasHackmdApiToken: true,
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: false,
+        localVault: defaultSettings.localVault,
+        onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: false,
+      },
+      onValidateToken: vi.fn(() => validation.promise),
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+    fireEvent.change(screen.getByLabelText('API Token'), { target: { value: 'replacement-token' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect HackMD' }));
+    fireEvent.click(within(screen.getByRole('alertdialog', { name: 'Disconnect HackMD?' }))
+      .getByRole('button', { name: 'Disconnect HackMD' }));
+
+    expect(onDisconnectHackmd).toHaveBeenCalledOnce();
+    await act(async () => {
+      validation.resolve(validatedUser);
+    });
+
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('does not offer a HackMD save when a configured token input is blank', () => {
+    renderSettingsDialog({
+      settings: {
+        title: 'HackDesk',
+        appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
+        hasHackmdApiToken: true,
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: false,
+        localVault: defaultSettings.localVault,
+        onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: false,
+      },
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Test Token' })).not.toBeInTheDocument();
   });
 
   it('confirms before disconnecting HackMD and restores focus on cancel', async () => {
