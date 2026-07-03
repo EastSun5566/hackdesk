@@ -1570,7 +1570,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
-    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), {
+    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands…'), {
       target: { value: 'vim editor mode' },
     });
     fireEvent.click(await within(palette).findByText('Use Vim Editor Mode'));
@@ -1610,7 +1610,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
-    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'design' } });
+    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands…'), { target: { value: 'design' } });
     fireEvent.click(await within(palette).findByText('Design Spec'));
 
     expect(screen.queryByRole('dialog', { name: 'Command Palette' })).not.toBeInTheDocument();
@@ -2200,7 +2200,7 @@ describe('Home native-feel behavior', () => {
     await screen.findByText('Unsaved');
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
-    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'design' } });
+    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands…'), { target: { value: 'design' } });
     fireEvent.click(await within(palette).findByText('Design Spec'));
 
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
@@ -2225,7 +2225,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
-    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'Projects' } });
+    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands…'), { target: { value: 'Projects' } });
     fireEvent.click(await within(palette).findByText('Projects'));
 
     await selectCurrentFolderScope();
@@ -2251,7 +2251,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
-    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'Root' } });
+    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands…'), { target: { value: 'Root' } });
     fireEvent.click(await within(palette).findByText('Root'));
 
     await selectCurrentFolderScope();
@@ -2278,7 +2278,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
-    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'Design' } });
+    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands…'), { target: { value: 'Design' } });
     fireEvent.click(await within(palette).findByText('Show Finder Results for “Design”'));
 
     expect(screen.queryByRole('dialog', { name: 'Command Palette' })).not.toBeInTheDocument();
@@ -2314,7 +2314,11 @@ describe('Home native-feel behavior', () => {
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
 
     expect(within(palette).getByText('Recent Notes')).toBeInTheDocument();
-    expect(within(palette).getAllByText('Product Plan').length).toBeGreaterThan(1);
+    expect(within(palette).getByText('Workspaces')).toBeInTheDocument();
+    expect(within(palette).getByText('Quick Actions')).toBeInTheDocument();
+    expect(within(palette).queryByText('Notes')).not.toBeInTheDocument();
+    expect(within(palette).queryByText('Folders')).not.toBeInTheDocument();
+    expect(within(palette).getAllByText('Product Plan')).toHaveLength(1);
   });
 
   it('quick-opens a recent note from the loaded workspace', async () => {
@@ -2487,7 +2491,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
-    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'team-workspace' } });
+    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands…'), { target: { value: 'team-workspace' } });
     fireEvent.click(await within(palette).findByText('Team Workspace'));
 
     await waitFor(() => expect(api.hackmd.listTeamNotes).toHaveBeenCalledWith('team-workspace'));
@@ -2510,7 +2514,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
-    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'history' } });
+    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands…'), { target: { value: 'history' } });
     fireEvent.click(await within(palette).findByText('Go to History'));
 
     await waitFor(() => expect(api.hackmd.listHistory).toHaveBeenCalledWith(40));
@@ -2518,7 +2522,7 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
     const historyPalette = await screen.findByRole('dialog', { name: 'Command Palette' });
-    fireEvent.change(within(historyPalette).getByPlaceholderText('Search notes, folders, and commands'), { target: { value: 'new note' } });
+    fireEvent.change(within(historyPalette).getByPlaceholderText('Search notes, folders, and commands…'), { target: { value: 'new note' } });
 
     expect(await within(historyPalette).findByText('Choose My Workspace or a team first.')).toBeInTheDocument();
   });

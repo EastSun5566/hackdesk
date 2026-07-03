@@ -23,6 +23,7 @@ import {
   ArrowLeftRight,
   ArrowLeft,
   ArrowRight,
+  Check,
   Columns2,
   PanelLeftOpen,
   PanelRightOpen,
@@ -45,6 +46,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -148,6 +150,7 @@ export function CommandPaletteDialog({
   onShowFinderResults: (query: string) => void;
 }) {
   const trimmedSearch = state.search.trim();
+  const hasQuery = trimmedSearch.length > 0;
   const recentResults = getQuickOpenRecentNoteResults(recentNotes, state.search);
   const workspaceResults = getQuickOpenWorkspaceResults(teams, state.search);
   const noteResults = getQuickOpenNoteResults(folderTree, state.search, undefined, recentNotes);
@@ -165,42 +168,114 @@ export function CommandPaletteDialog({
       <DialogContent className="mt-[12dvh] max-w-xl self-start overflow-hidden p-0">
         <DialogHeader className="sr-only">
           <DialogTitle>Command Palette</DialogTitle>
+          <DialogDescription>Search notes, folders, workspaces, and commands.</DialogDescription>
         </DialogHeader>
-        <Command shouldFilter>
+        <Command label="Search notes, folders, and commands" shouldFilter={false}>
           <CommandInput
             autoFocus
             value={state.search}
             onValueChange={(search) => onStateChange({ ...state, search })}
-            placeholder="Search notes, folders, and commands"
+            placeholder="Search notes, folders, and commands…"
           />
-          <CommandList>
+          <CommandList className="overscroll-contain">
             <CommandEmpty>No commands found.</CommandEmpty>
-            {recentResults.length > 0 ? (
+            {!hasQuery && recentResults.length > 0 ? (
               <CommandGroup heading="Recent Notes">
                 {recentResults.map((entry) => {
-                  const metadata = [
-                    entry.teamPath ? `Team: ${entry.teamPath}` : 'My Workspace',
-                    entry.shortId,
-                  ].filter(Boolean).join(' · ');
+                  const workspaceLabel = entry.teamPath ? `Team: ${entry.teamPath}` : 'My Workspace';
 
                   return (
                     <CommandItem
                       key={`recent:${entry.teamPath ?? 'personal'}:${entry.noteId}`}
-                      value={`recent note ${entry.title} ${metadata}`}
+                      value={`recent note ${entry.title} ${workspaceLabel} ${entry.shortId}`}
                       onSelect={() => {
                         onSelectRecentNote(entry);
                         closePalette();
                       }}
                     >
-                      <span className="mr-3 text-text-subtle"><History className="h-4 w-4" /></span>
+                      <span aria-hidden="true" className="mr-3 text-text-subtle"><History className="h-4 w-4" /></span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate">{entry.title || 'Untitled'}</span>
-                        <span className="block truncate text-xs text-text-subtle">{metadata}</span>
+                        <span className="block truncate text-xs text-text-subtle">{workspaceLabel}</span>
                       </span>
-                      {selectedNoteId === entry.noteId ? <CommandShortcut>Recent</CommandShortcut> : null}
+                      {selectedNoteId === entry.noteId ? (
+                        <span className="ml-auto inline-flex shrink-0 items-center text-primary-default">
+                          <Check aria-hidden="true" className="h-4 w-4" />
+                          <span className="sr-only">Current note</span>
+                        </span>
+                      ) : null}
                     </CommandItem>
                   );
                 })}
+              </CommandGroup>
+            ) : null}
+
+            {hasQuery && noteResults.length > 0 ? (
+              <CommandGroup heading="Notes">
+                {noteResults.map((entry) => {
+                  const workspaceLabel = context.scopeType === 'history'
+                    ? 'History'
+                    : scope.type === 'team'
+                      ? scope.label
+                      : 'My Workspace';
+                  const metadata = [
+                    workspaceLabel,
+                    context.scopeType === 'history' ? null : entry.folderLabel || 'Root',
+                    entry.note.tags.slice(0, 2).join(', '),
+                  ].filter(Boolean).join(' · ');
+
+                  return (
+                    <CommandItem
+                      key={`note:${entry.note.id}:${entry.folderLabel}`}
+                      value={`note ${entry.note.title} ${metadata} ${entry.note.shortId}`}
+                      onSelect={() => {
+                        onSelectNote(entry);
+                        closePalette();
+                      }}
+                    >
+                      <span aria-hidden="true" className="mr-3 text-text-subtle"><FileText className="h-4 w-4" /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{entry.note.title || 'Untitled'}</span>
+                        <span className="block truncate text-xs text-text-subtle">{metadata}</span>
+                      </span>
+                      {selectedNoteId === entry.note.id ? (
+                        <span className="ml-auto inline-flex shrink-0 items-center text-primary-default">
+                          <Check aria-hidden="true" className="h-4 w-4" />
+                          <span className="sr-only">Current note</span>
+                        </span>
+                      ) : null}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            ) : null}
+
+            {hasQuery && folderResults.length > 0 ? (
+              <CommandGroup heading="Folders">
+                {folderResults.map((folder) => (
+                  <CommandItem
+                    key={`folder:${folder.id}`}
+                    value={`folder ${folder.label}`}
+                    onSelect={() => {
+                      onSelectFolder(folder);
+                      closePalette();
+                    }}
+                  >
+                    <span aria-hidden="true" className="mr-3 text-text-subtle"><Folder className="h-4 w-4" /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">{folder.name}</span>
+                      <span className="block truncate text-xs text-text-subtle">
+                        {folder.label}{folder.noteCount > 0 ? ` · ${folder.noteCount} ${folder.noteCount === 1 ? 'note' : 'notes'}` : ''}
+                      </span>
+                    </span>
+                    {selectedFolderId === folder.id ? (
+                      <span className="ml-auto inline-flex shrink-0 items-center text-primary-default">
+                        <Check aria-hidden="true" className="h-4 w-4" />
+                        <span className="sr-only">Current folder</span>
+                      </span>
+                    ) : null}
+                  </CommandItem>
+                ))}
               </CommandGroup>
             ) : null}
 
@@ -219,7 +294,7 @@ export function CommandPaletteDialog({
                         closePalette();
                       }}
                     >
-                      <span className="mr-3 text-text-subtle">
+                      <span aria-hidden="true" className="mr-3 text-text-subtle">
                         {workspace.type === 'history'
                           ? <History className="h-4 w-4" />
                           : workspace.type === 'team'
@@ -230,93 +305,20 @@ export function CommandPaletteDialog({
                         <span className="block truncate">{workspace.label}</span>
                         <span className="block truncate text-xs text-text-subtle">{workspace.description}</span>
                       </span>
-                      {selected ? <CommandShortcut>Current</CommandShortcut> : null}
+                      {selected ? (
+                        <span className="ml-auto inline-flex shrink-0 items-center text-primary-default">
+                          <Check aria-hidden="true" className="h-4 w-4" />
+                          <span className="sr-only">Current workspace</span>
+                        </span>
+                      ) : null}
                     </CommandItem>
                   );
                 })}
-              </CommandGroup>
-            ) : null}
-
-            {noteResults.length > 0 ? (
-              <CommandGroup heading="Notes">
-                {noteResults.map((entry) => {
-                  const workspaceLabel = context.scopeType === 'history'
-                    ? 'History'
-                    : scope.type === 'team'
-                      ? scope.label
-                      : 'My Workspace';
-                  const metadata = [
-                    workspaceLabel,
-                    context.scopeType === 'history' ? null : entry.folderLabel || 'Root',
-                    entry.note.tags.slice(0, 2).join(', '),
-                    entry.note.shortId,
-                  ].filter(Boolean).join(' · ');
-
-                  return (
-                    <CommandItem
-                      key={`note:${entry.note.id}:${entry.folderLabel}`}
-                      value={`note ${entry.note.title} ${metadata}`}
-                      onSelect={() => {
-                        onSelectNote(entry);
-                        closePalette();
-                      }}
-                    >
-                      <span className="mr-3 text-text-subtle"><FileText className="h-4 w-4" /></span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate">{entry.note.title || 'Untitled'}</span>
-                        <span className="block truncate text-xs text-text-subtle">{metadata}</span>
-                      </span>
-                      {selectedNoteId === entry.note.id ? <CommandShortcut>Selected</CommandShortcut> : null}
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            ) : null}
-
-            {folderResults.length > 0 ? (
-              <CommandGroup heading="Folders">
-                {folderResults.map((folder) => (
-                  <CommandItem
-                    key={`folder:${folder.id}`}
-                    value={`folder ${folder.label}`}
-                    onSelect={() => {
-                      onSelectFolder(folder);
-                      closePalette();
-                    }}
-                  >
-                    <span className="mr-3 text-text-subtle"><Folder className="h-4 w-4" /></span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate">{folder.name}</span>
-                      <span className="block truncate text-xs text-text-subtle">
-                        {folder.label}{folder.noteCount > 0 ? ` · ${folder.noteCount} ${folder.noteCount === 1 ? 'note' : 'notes'}` : ''}
-                      </span>
-                    </span>
-                    {selectedFolderId === folder.id ? <CommandShortcut>Selected</CommandShortcut> : null}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            ) : null}
-
-            {showFinderAction ? (
-              <CommandGroup heading="Finder">
-                <CommandItem
-                  value={`show finder results ${trimmedSearch}`}
-                  onSelect={() => {
-                    onShowFinderResults(trimmedSearch);
-                    closePalette();
-                  }}
-                >
-                  <span className="mr-3 text-text-subtle"><Search className="h-4 w-4" /></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate">{`Show Finder Results for “${trimmedSearch}”`}</span>
-                    <span className="block truncate text-xs text-text-subtle">Filter the current workspace in the navigator.</span>
-                  </span>
-                </CommandItem>
               </CommandGroup>
             ) : null}
 
             {actionResults.length > 0 ? (
-              <CommandGroup heading="Actions">
+              <CommandGroup heading={hasQuery ? 'Actions' : 'Quick Actions'}>
                 {actionResults.map((action) => {
                   const disabledReason = getActionDisabledReason(action, context);
                   const actionLabel = getActionLabel(action, context);
@@ -335,7 +337,7 @@ export function CommandPaletteDialog({
                         closePalette();
                       }}
                     >
-                      <span className="mr-3 text-text-subtle">{ACTION_ICONS[action.id]}</span>
+                      <span aria-hidden="true" className="mr-3 text-text-subtle">{ACTION_ICONS[action.id]}</span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate">{actionLabel}</span>
                         <span className="block truncate text-xs text-text-subtle">
@@ -346,6 +348,24 @@ export function CommandPaletteDialog({
                     </CommandItem>
                   );
                 })}
+              </CommandGroup>
+            ) : null}
+
+            {showFinderAction ? (
+              <CommandGroup heading="Finder">
+                <CommandItem
+                  value={`show finder results ${trimmedSearch}`}
+                  onSelect={() => {
+                    onShowFinderResults(trimmedSearch);
+                    closePalette();
+                  }}
+                >
+                  <span aria-hidden="true" className="mr-3 text-text-subtle"><Search className="h-4 w-4" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{`Show Finder Results for “${trimmedSearch}”`}</span>
+                    <span className="block truncate text-xs text-text-subtle">Filter the current workspace in the navigator.</span>
+                  </span>
+                </CommandItem>
               </CommandGroup>
             ) : null}
           </CommandList>
