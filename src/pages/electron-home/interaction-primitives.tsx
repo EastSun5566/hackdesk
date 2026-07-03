@@ -127,18 +127,23 @@ function EntityRowContent({
       ) : null}
     </>
   );
+  const iconElement = icon ? (
+    <span
+      aria-hidden="true"
+      className={cn('shrink-0 text-text-subtle group-hover/entity-row:text-text-default', variant === 'compact' && 'mt-0.5')}
+    >
+      {icon}
+    </span>
+  ) : null;
+  const trailingElement = trailing ? (
+    <span className={cn('shrink-0 text-xs tabular-nums text-text-subtle', trailingClassName)}>
+      {trailing}
+    </span>
+  ) : null;
 
   return (
     <>
       {leadingControls ? <span className="shrink-0">{leadingControls}</span> : null}
-      {icon ? (
-        <span
-          aria-hidden="true"
-          className={cn('shrink-0 text-text-subtle group-hover/entity-row:text-text-default', variant === 'compact' && 'mt-0.5')}
-        >
-          {icon}
-        </span>
-      ) : null}
       {contentOnClick ? (
         <button
           type="button"
@@ -147,20 +152,21 @@ function EntityRowContent({
           onClick={contentOnClick}
           aria-label={contentAriaLabel}
           aria-current={contentAriaCurrent}
-          className={cn('min-w-0 flex-1 rounded-[4px] text-left focus-visible:outline-none', contentClassName)}
+          className={cn('flex min-w-0 flex-1 items-center gap-2 rounded-[4px] text-left focus-visible:outline-none', contentClassName)}
         >
-          {contentBody}
+          {iconElement}
+          <span className="min-w-0 flex-1">{contentBody}</span>
+          {trailingElement}
         </button>
       ) : (
-        <span className={cn('min-w-0 flex-1', contentClassName)}>
-          {contentBody}
-        </span>
+        <>
+          {iconElement}
+          <span className={cn('min-w-0 flex-1', contentClassName)}>
+            {contentBody}
+          </span>
+          {trailingElement}
+        </>
       )}
-      {trailing ? (
-        <span className={cn('shrink-0 text-xs tabular-nums text-text-subtle', trailingClassName)}>
-          {trailing}
-        </span>
-      ) : null}
       {menu ? (
         <span className="shrink-0 opacity-0 transition-opacity duration-150 group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none">
           {menu}

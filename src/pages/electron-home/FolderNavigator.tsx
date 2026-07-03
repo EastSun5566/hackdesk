@@ -556,6 +556,7 @@ function FinderResultList({
             onRevealInFinder={actions.onNoteRevealInFinder}
             onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}
             selectedFolder={selectedFolderForNoteMove}
+            showInFolderAction
           />
         </li>
       ))}

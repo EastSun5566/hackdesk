@@ -34,7 +34,7 @@ import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 
-const TREE_ROW_FOCUS_CLASS = 'focus-within:bg-background-selected focus-within:text-text-default focus-within:ring-2 focus-within:ring-focus-ring/80';
+const TREE_ROW_FOCUS_CLASS = 'focus-within:bg-background-selected focus-within:text-text-default focus-within:ring-2 focus-within:ring-inset focus-within:ring-focus-ring/80';
 
 function focusTreeRowPrimary(rowId: string) {
   const row = Array.from(document.querySelectorAll<HTMLElement>('[data-folder-tree-row-id]'))
@@ -66,6 +66,7 @@ export function NoteRow({
   onRevealInFinder,
   onMoveToSelectedFolder,
   selectedFolder,
+  showInFolderAction = false,
   draggable = false,
   disabledDrag = false,
   active = false,
@@ -85,6 +86,7 @@ export function NoteRow({
   onRevealInFinder?: (note: NoteSummary) => void;
   onMoveToSelectedFolder?: (entry: FolderTreeNote) => void;
   selectedFolder?: FolderTreeNode | null;
+  showInFolderAction?: boolean;
   draggable?: boolean;
   disabledDrag?: boolean;
   active?: boolean;
@@ -116,6 +118,7 @@ export function NoteRow({
   const isLocalNote = entry.note.teamPath === LOCAL_VAULT_TEAM_PATH;
   const rowId = `note:${entry.note.id}`;
   const dragListeners = disabledDrag ? {} : listeners;
+  const canShowInFolder = showInFolderAction && entry.folderPath.length > 0;
 
   return (
     <ContextMenu>
@@ -200,10 +203,12 @@ export function NoteRow({
           <Download aria-hidden="true" className="h-4 w-4" />
           Export Markdown
         </ContextMenuItem>
-        <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onRevealFolder(entry))}>
-          <FolderOpen aria-hidden="true" className="h-4 w-4" />
-          Reveal Folder
-        </ContextMenuItem>
+        {canShowInFolder ? (
+          <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onRevealFolder(entry))}>
+            <FolderOpen aria-hidden="true" className="h-4 w-4" />
+            Show in Folder
+          </ContextMenuItem>
+        ) : null}
         <ContextMenuItem
           disabled={!canMoveToSelectedFolder}
           onSelect={() => {

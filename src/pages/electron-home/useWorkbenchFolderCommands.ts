@@ -140,8 +140,8 @@ export function useWorkbenchFolderCommands({
       title: isLocalFolder ? 'Move Folder to Trash' : 'Delete Folder',
       message: `${isLocalFolder ? 'Move' : 'Delete'} “${folder.name}”?`,
       detail: isLocalFolder
-        ? 'This moves the folder to the system trash.'
-        : 'This removes the folder from HackMD. This action cannot be undone from HackDesk.',
+        ? 'This moves the local folder to the system trash. Local Markdown files inside the folder move with it.'
+        : 'This deletes the folder from HackMD. Local vault files are not affected. This cannot be undone from HackDesk.',
       confirmLabel: isLocalFolder ? 'Move to Trash' : 'Delete',
       cancelLabel: 'Cancel',
       destructive: true,

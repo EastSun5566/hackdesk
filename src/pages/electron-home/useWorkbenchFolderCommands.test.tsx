@@ -229,7 +229,7 @@ describe('useWorkbenchFolderCommands', () => {
     expect(confirm).toHaveBeenCalledWith({
       title: 'Delete Folder',
       message: 'Delete “Folder A”?',
-      detail: 'This removes the folder from HackMD. This action cannot be undone from HackDesk.',
+      detail: 'This deletes the folder from HackMD. Local vault files are not affected. This cannot be undone from HackDesk.',
       confirmLabel: 'Delete',
       cancelLabel: 'Cancel',
       destructive: true,
@@ -254,5 +254,31 @@ describe('useWorkbenchFolderCommands', () => {
       name: 'Folder A',
     }));
     expect(options.deleteFolder).not.toHaveBeenCalled();
+  });
+
+  it('uses system trash copy for native local folder confirmation', async () => {
+    const confirm = vi.fn().mockResolvedValue({ confirmed: false });
+    const options = createOptions({
+      api: { app: { confirm } } as unknown as HackDeskElectronAPI,
+      scopeType: 'local',
+    });
+    const { result } = renderHook(() => useWorkbenchFolderCommands(options));
+
+    act(() => {
+      result.current.handleDeleteFolderRequest('folder-a');
+    });
+
+    expect(confirm).toHaveBeenCalledWith({
+      title: 'Move Folder to Trash',
+      message: 'Move “Folder A”?',
+      detail: 'This moves the local folder to the system trash. Local Markdown files inside the folder move with it.',
+      confirmLabel: 'Move to Trash',
+      cancelLabel: 'Cancel',
+      destructive: true,
+    });
+
+    await waitFor(() => {
+      expect(options.deleteFolder).not.toHaveBeenCalled();
+    });
   });
 });

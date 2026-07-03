@@ -12,6 +12,7 @@ import {
 } from '@/test/accessibility-contracts';
 
 import { FolderNavigator, type FolderNavigatorProps } from './FolderNavigator';
+import { formatDate } from './ui';
 
 function folder(input: Partial<FolderPathSummary> & Pick<FolderPathSummary, 'id' | 'name'>): FolderPathSummary {
   return {
@@ -335,6 +336,15 @@ describe('FolderNavigator', () => {
     expect(collapseButton).toHaveAttribute('aria-expanded', 'true');
   });
 
+  it('treats note timestamp as part of the primary row target', () => {
+    const onNoteSelect = vi.fn();
+    renderFolderNavigator({ actions: { onNoteSelect } });
+
+    fireEvent.click(screen.getByText(formatDate(1_700_000_000_000)));
+
+    expect(onNoteSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'nested-note' }));
+  });
+
   it('keeps busy folder drag handles focusable but non-draggable', () => {
     const onFolderSelect = vi.fn();
     renderFolderNavigator({
@@ -365,6 +375,7 @@ describe('FolderNavigator', () => {
 
     expect(selectedNote).toHaveAttribute('aria-current', 'page');
     expect(selectedNote.parentElement).toHaveClass('before:bg-primary-default');
+    expect(selectedNote.parentElement).toHaveClass('focus-within:ring-inset');
   });
 
   it('uses list semantics for the navigator tree and finder results', () => {
@@ -578,12 +589,28 @@ describe('FolderNavigator', () => {
     });
   });
 
-  it('adds reveal folder to note context menus', async () => {
-    const onRevealNoteFolder = vi.fn();
-    renderFolderNavigator({ actions: { onRevealNoteFolder } });
+  it('does not show folder reveal actions for notes already rendered in the folder tree', async () => {
+    renderFolderNavigator();
 
     fireEvent.contextMenu(screen.getByRole('button', { name: 'Nested note' }));
-    fireEvent.click(await screen.findByText('Reveal Folder'));
+
+    expect(await screen.findByText('Duplicate Note')).toBeVisible();
+    expect(screen.queryByText('Reveal Folder')).not.toBeInTheDocument();
+    expect(screen.queryByText('Show in Folder')).not.toBeInTheDocument();
+  });
+
+  it('adds show in folder to finder result note context menus', async () => {
+    const onRevealNoteFolder = vi.fn();
+    renderFolderNavigator({
+      actions: { onRevealNoteFolder },
+      finderState: {
+        ...DEFAULT_NOTE_FINDER_STATE,
+        query: 'nested',
+      },
+    });
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Nested note' }));
+    fireEvent.click(await screen.findByText('Show in Folder'));
 
     await waitFor(() => {
       expect(onRevealNoteFolder).toHaveBeenCalledWith(expect.objectContaining({
