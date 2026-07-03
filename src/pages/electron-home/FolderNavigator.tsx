@@ -5,7 +5,7 @@ import {
   Plus,
   RefreshCcw,
 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   closestCenter,
   DndContext,
@@ -193,6 +193,8 @@ function ExpandedNavigator({
   const selectedFolderForNoteMove = selection.selectedFolderId === UNFILED_FOLDER_ID
     ? tree.unfiled
     : selectedConcreteFolder;
+  const [treeFocusRequestId, setTreeFocusRequestId] = useState(0);
+  const requestTreeFocus = () => setTreeFocusRequestId((current) => current + 1);
 
   return (
     <>
@@ -212,6 +214,7 @@ function ExpandedNavigator({
         selectedFolderId={selection.selectedFolderId}
         status={status}
         tagIndex={tagIndex}
+        onEscapeToTree={requestTreeFocus}
       />
       <NavigatorContent
         actions={actions}
@@ -225,6 +228,7 @@ function ExpandedNavigator({
         scope={scope}
         status={status}
         tree={tree}
+        treeFocusRequestId={treeFocusRequestId}
       />
     </>
   );
@@ -308,6 +312,7 @@ function NavigatorFilterBar({
   selectedFolderId,
   status,
   tagIndex,
+  onEscapeToTree,
 }: {
   actions: FolderNavigatorActions;
   finderOptions: ReturnType<typeof getNoteFinderOptions>;
@@ -316,6 +321,7 @@ function NavigatorFilterBar({
   selectedFolderId: string | null;
   status: FolderNavigatorStatus;
   tagIndex: ReturnType<typeof buildNoteTagIndex>;
+  onEscapeToTree: () => void;
 }) {
   const handleTagToggle = (tag: string) => {
     actions.onFinderStateChange({
@@ -334,6 +340,7 @@ function NavigatorFilterBar({
         selectedFolderId={selectedFolderId}
         options={finderOptions}
         onChange={actions.onFinderStateChange}
+        onEscapeToTree={onEscapeToTree}
       />
       <TagBrowser
         tags={tagIndex}
@@ -373,6 +380,7 @@ function NavigatorContent({
   scope,
   status,
   tree,
+  treeFocusRequestId,
 }: {
   actions: FolderNavigatorActions;
   emptyState: FolderNavigatorEmptyState;
@@ -385,6 +393,7 @@ function NavigatorContent({
   scope: WorkspaceScope;
   status: FolderNavigatorStatus;
   tree: FolderTree;
+  treeFocusRequestId: number;
 }) {
   const hasTreeContent = tree.roots.length > 0 || tree.unfiled.notes.length > 0;
 
@@ -422,6 +431,7 @@ function NavigatorContent({
           selection={selection}
           status={status}
           tree={tree}
+          treeFocusRequestId={treeFocusRequestId}
         />
       )}
     </div>
@@ -560,6 +570,7 @@ function NavigatorTree({
   selection,
   status,
   tree,
+  treeFocusRequestId,
 }: {
   actions: FolderNavigatorActions;
   layout: FolderNavigatorLayout;
@@ -567,6 +578,7 @@ function NavigatorTree({
   selection: FolderNavigatorSelection;
   status: FolderNavigatorStatus;
   tree: FolderTree;
+  treeFocusRequestId: number;
 }) {
   const treeRef = useRef<HTMLDivElement | null>(null);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
@@ -588,6 +600,17 @@ function NavigatorTree({
     tree,
     treeRef,
   });
+
+  useEffect(() => {
+    if (treeFocusRequestId === 0) {
+      return;
+    }
+
+    const target = treeRef.current?.querySelector<HTMLElement>('[data-hackdesk-focus-target="true"]')
+      ?? treeRef.current?.querySelector<HTMLElement>('[data-folder-tree-primary="true"]')
+      ?? treeRef.current?.querySelector<HTMLElement>('button:not([disabled])');
+    target?.focus();
+  }, [treeFocusRequestId]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const activeId = String(event.active.id);
@@ -704,6 +727,7 @@ function NavigatorTree({
               onNoteMoveToSelectedFolder={(entry) => moveNoteToSelectedFolder(entry, selectedFolderForNoteMove, actions.onNoteMove)}
               selectedFolderForNoteMove={selectedFolderForNoteMove}
               isMovingNote={status.isMovingNote}
+              isMovingFolder={status.isMovingFolder}
             />
             {tree.unfiled.notes.map((entry) => (
               <li key={`root:${entry.note.id}`} className="min-w-0">

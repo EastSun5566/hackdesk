@@ -36,6 +36,21 @@ import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 
 const TREE_ROW_FOCUS_CLASS = 'focus-within:bg-background-selected focus-within:text-text-default focus-within:ring-2 focus-within:ring-focus-ring/80';
 
+function focusTreeRowPrimary(rowId: string) {
+  const row = Array.from(document.querySelectorAll<HTMLElement>('[data-folder-tree-row-id]'))
+    .find((candidate) => candidate.dataset.folderTreeRowId === rowId);
+  const target = row?.querySelector<HTMLElement>('[data-folder-tree-primary="true"]')
+    ?? row?.querySelector<HTMLElement>('button:not([disabled])');
+  target?.focus();
+}
+
+function runAfterMenuClose(rowId: string, action: () => void) {
+  window.setTimeout(() => {
+    focusTreeRowPrimary(rowId);
+    action();
+  }, 0);
+}
+
 export function NoteRow({
   entry,
   selected,
@@ -99,6 +114,8 @@ export function NoteRow({
       : selectedFolder.id !== getNoteCurrentFolderId(entry)),
   );
   const isLocalNote = entry.note.teamPath === LOCAL_VAULT_TEAM_PATH;
+  const rowId = `note:${entry.note.id}`;
+  const dragListeners = disabledDrag ? {} : listeners;
 
   return (
     <ContextMenu>
@@ -106,7 +123,7 @@ export function NoteRow({
         <div
           ref={setNodeRef}
           style={style}
-          data-folder-tree-row-id={`note:${entry.note.id}`}
+          data-folder-tree-row-id={rowId}
           data-folder-tree-kind="note"
           data-folder-tree-note-id={entry.note.id}
           data-note-id={entry.note.id}
@@ -123,13 +140,15 @@ export function NoteRow({
                   FOCUS_RING_CLASS,
                 )}
                 aria-label={`Drag ${entry.note.title || 'Untitled'}`}
-                disabled={disabledDrag}
                 onClick={(event) => {
                   event.stopPropagation();
-                  onSelect(entry.note);
+                  if (!disabledDrag) {
+                    onSelect(entry.note);
+                  }
                 }}
                 {...attributes}
-                {...listeners}
+                {...dragListeners}
+                aria-disabled={disabledDrag || attributes['aria-disabled']}
               >
                 <GripVertical aria-hidden="true" className="h-3.5 w-3.5" />
               </button>
@@ -152,15 +171,15 @@ export function NoteRow({
       <ContextMenuContent>
         {isLocalNote ? null : (
           <>
-            <ContextMenuItem onSelect={() => onOpen(entry.note)}>
+            <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onOpen(entry.note))}>
               <FileText aria-hidden="true" className="h-4 w-4" />
               Open in HackMD
             </ContextMenuItem>
-            <ContextMenuItem onSelect={() => onCopyLink(entry.note)}>
+            <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onCopyLink(entry.note))}>
               <Copy aria-hidden="true" className="h-4 w-4" />
               Copy HackMD Link
             </ContextMenuItem>
-            <ContextMenuItem onSelect={() => onCopyMarkdownLink(entry.note)}>
+            <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onCopyMarkdownLink(entry.note))}>
               <Copy aria-hidden="true" className="h-4 w-4" />
               Copy Markdown Link
             </ContextMenuItem>
@@ -168,20 +187,20 @@ export function NoteRow({
           </>
         )}
         {isLocalNote && onRevealInFinder ? (
-          <ContextMenuItem onSelect={() => onRevealInFinder(entry.note)}>
+          <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onRevealInFinder(entry.note))}>
             <FolderOpen aria-hidden="true" className="h-4 w-4" />
             Reveal in Finder
           </ContextMenuItem>
         ) : null}
-        <ContextMenuItem onSelect={() => onDuplicate(entry.note)}>
+        <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onDuplicate(entry.note))}>
           <CopyPlus aria-hidden="true" className="h-4 w-4" />
           Duplicate Note
         </ContextMenuItem>
-        <ContextMenuItem onSelect={() => onExportMarkdown(entry.note)}>
+        <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onExportMarkdown(entry.note))}>
           <Download aria-hidden="true" className="h-4 w-4" />
           Export Markdown
         </ContextMenuItem>
-        <ContextMenuItem onSelect={() => onRevealFolder(entry)}>
+        <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onRevealFolder(entry))}>
           <FolderOpen aria-hidden="true" className="h-4 w-4" />
           Reveal Folder
         </ContextMenuItem>
@@ -189,7 +208,7 @@ export function NoteRow({
           disabled={!canMoveToSelectedFolder}
           onSelect={() => {
             if (canMoveToSelectedFolder) {
-              onMoveToSelectedFolder?.(entry);
+              runAfterMenuClose(rowId, () => onMoveToSelectedFolder?.(entry));
             }
           }}
         >
@@ -197,17 +216,13 @@ export function NoteRow({
           Move to Selected Folder
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem destructive onSelect={() => onDelete(entry.note)}>
+        <ContextMenuItem destructive onSelect={() => runAfterMenuClose(rowId, () => onDelete(entry.note))}>
           <Trash2 aria-hidden="true" className="h-4 w-4" />
           {isLocalNote ? 'Move to Trash' : 'Delete'}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
   );
-}
-
-function runAfterMenuClose(action: () => void) {
-  window.setTimeout(action, 0);
 }
 
 export function FolderButton({
@@ -217,6 +232,7 @@ export function FolderButton({
   collapsed,
   active,
   noteDropTarget,
+  disabledDrag,
   onSelect,
   onToggle,
   onCreateFolderInside,
@@ -231,6 +247,7 @@ export function FolderButton({
   collapsed: boolean;
   active: boolean;
   noteDropTarget: boolean;
+  disabledDrag: boolean;
   onSelect: (folderId: string) => void;
   onToggle: (folderId: string) => void;
   onCreateFolderInside: (folderId: string) => void;
@@ -250,11 +267,13 @@ export function FolderButton({
     transition,
     isDragging,
     isOver,
-  } = useSortable({ id: node.id });
+  } = useSortable({ id: node.id, disabled: disabledDrag });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
+  const rowId = `folder:${node.id}`;
+  const dragListeners = disabledDrag ? {} : listeners;
 
   return (
     <ContextMenu>
@@ -262,7 +281,7 @@ export function FolderButton({
         <div
           ref={setNodeRef}
           style={style}
-          data-folder-tree-row-id={`folder:${node.id}`}
+          data-folder-tree-row-id={rowId}
           data-folder-tree-kind="folder"
           data-folder-tree-folder-id={node.id}
           data-folder-id={node.id}
@@ -294,11 +313,13 @@ export function FolderButton({
                   type="button"
                   className={cn(
                     '-my-2 flex h-10 w-6 shrink-0 items-center justify-center rounded text-text-subtle opacity-0 transition-opacity hover:text-text-default group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none',
+                    disabledDrag && 'opacity-40 hover:text-text-subtle group-hover/entity-row:opacity-40 group-focus-within/entity-row:opacity-40',
                     FOCUS_RING_CLASS,
                   )}
                   aria-label={`Drag ${node.name}`}
                   {...attributes}
-                  {...listeners}
+                  {...dragListeners}
+                  aria-disabled={disabledDrag || attributes['aria-disabled']}
                 >
                   <GripVertical aria-hidden="true" className="h-3.5 w-3.5" />
                 </button>
@@ -317,26 +338,26 @@ export function FolderButton({
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem onSelect={() => onCreateNoteInside(node.id)}>
+        <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onCreateNoteInside(node.id))}>
           <FileText aria-hidden="true" className="h-4 w-4" />
           New Note Inside
         </ContextMenuItem>
-        <ContextMenuItem onSelect={() => onCreateFolderInside(node.id)}>
+        <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onCreateFolderInside(node.id))}>
           <FolderPlus aria-hidden="true" className="h-4 w-4" />
           New Folder Inside
         </ContextMenuItem>
         <ContextMenuSeparator />
-        <ContextMenuItem onSelect={() => runAfterMenuClose(() => onRenameFolder(node.id))}>
+        <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onRenameFolder(node.id))}>
           <FolderPen aria-hidden="true" className="h-4 w-4" />
           Edit Folder
         </ContextMenuItem>
         {isLocalFolder && onRevealInFinder ? (
-          <ContextMenuItem onSelect={() => onRevealInFinder(node.id)}>
+          <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onRevealInFinder(node.id))}>
             <FolderOpen aria-hidden="true" className="h-4 w-4" />
             Reveal in Finder
           </ContextMenuItem>
         ) : null}
-        <ContextMenuItem destructive onSelect={() => onDeleteFolder(node.id)}>
+        <ContextMenuItem destructive onSelect={() => runAfterMenuClose(rowId, () => onDeleteFolder(node.id))}>
           <Trash2 aria-hidden="true" className="h-4 w-4" />
           {isLocalFolder ? 'Move to Trash' : 'Delete'}
         </ContextMenuItem>
@@ -365,6 +386,7 @@ export function RootFolderRow({
   onCreateNote: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: ROOT_FOLDER_DROP_ID });
+  const rowId = `folder:${UNFILED_FOLDER_ID}`;
 
   return (
     <ContextMenu>
@@ -372,7 +394,7 @@ export function RootFolderRow({
         <div
           ref={setNodeRef}
           className="min-w-0"
-          data-folder-tree-row-id={`folder:${UNFILED_FOLDER_ID}`}
+          data-folder-tree-row-id={rowId}
           data-folder-tree-kind="folder"
           data-folder-tree-folder-id={UNFILED_FOLDER_ID}
         >
@@ -391,11 +413,11 @@ export function RootFolderRow({
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem onSelect={onCreateNote}>
+        <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, onCreateNote)}>
           <FileText aria-hidden="true" className="h-4 w-4" />
           New Note
         </ContextMenuItem>
-        <ContextMenuItem onSelect={onCreateFolder}>
+        <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, onCreateFolder)}>
           <FolderPlus aria-hidden="true" className="h-4 w-4" />
           New Folder
         </ContextMenuItem>
@@ -460,6 +482,7 @@ export function FolderTreeView({
   onNoteMoveToSelectedFolder,
   selectedFolderForNoteMove,
   isMovingNote,
+  isMovingFolder,
 }: {
   nodes: FolderTreeNode[];
   selectedFolderId: string | null;
@@ -487,6 +510,7 @@ export function FolderTreeView({
   onNoteMoveToSelectedFolder: (entry: FolderTreeNote) => void;
   selectedFolderForNoteMove: FolderTreeNode | null;
   isMovingNote: boolean;
+  isMovingFolder: boolean;
 }) {
   if (nodes.length === 0) {
     return null;
@@ -505,6 +529,7 @@ export function FolderTreeView({
           collapsed={collapsed}
           active={isActiveFolder}
           noteDropTarget={Boolean(activeNoteId)}
+          disabledDrag={isMovingFolder}
           onSelect={onFolderSelect}
           onToggle={onFolderToggle}
           onCreateFolderInside={onCreateFolderInside}
@@ -548,6 +573,7 @@ export function FolderTreeView({
                 onNoteMoveToSelectedFolder={onNoteMoveToSelectedFolder}
                 selectedFolderForNoteMove={selectedFolderForNoteMove}
                 isMovingNote={isMovingNote}
+                isMovingFolder={isMovingFolder}
               />
               {node.notes.length > 0 ? (
                 <ul className="m-0 grid min-w-0 list-none gap-0.5 p-0">

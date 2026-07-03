@@ -1,7 +1,7 @@
 import { fireEvent, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_NOTE_FINDER_STATE } from '@/lib/electron-note-finder';
+import { DEFAULT_NOTE_FINDER_STATE, type NoteFinderState } from '@/lib/electron-note-finder';
 
 import { useWorkbenchShortcuts, type WorkbenchShortcutHandlers } from './useWorkbenchShortcuts';
 
@@ -115,8 +115,14 @@ describe('useWorkbenchShortcuts', () => {
     expect(handlers.handleCreateNote).toHaveBeenCalledOnce();
   });
 
-  it('clears finder query and selected folder with Escape outside editor zones', () => {
-    const setFinderState = vi.fn();
+  it('clears finder query, filters, and selected folder with Escape outside editor zones', () => {
+    const setFinderState = vi.fn((updater: (current: NoteFinderState) => NoteFinderState) => (
+      updater({
+        ...DEFAULT_NOTE_FINDER_STATE,
+        query: 'draft',
+        tagFilters: ['work'],
+      })
+    ));
     const setSelectedFolderId = vi.fn();
     const { rerender } = renderHook((props: WorkbenchShortcutHandlers) => useWorkbenchShortcuts(props), {
       initialProps: createHandlers({
@@ -129,8 +135,23 @@ describe('useWorkbenchShortcuts', () => {
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(setFinderState).toHaveBeenCalledOnce();
+    expect(setFinderState.mock.results[0]?.value).toMatchObject({ query: '' });
     expect(setSelectedFolderId).not.toHaveBeenCalled();
 
+    setFinderState.mockClear();
+    rerender(createHandlers({
+      activeFinderState: { ...DEFAULT_NOTE_FINDER_STATE, tagFilters: ['work'] },
+      setFinderState,
+      setSelectedFolderId,
+      selectedFolderId: 'folder-1',
+    }));
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(setFinderState).toHaveBeenCalledOnce();
+    expect(setFinderState.mock.results[0]?.value).toMatchObject({ tagFilters: [] });
+    expect(setSelectedFolderId).not.toHaveBeenCalled();
+
+    setFinderState.mockClear();
     rerender(createHandlers({
       setFinderState,
       setSelectedFolderId,

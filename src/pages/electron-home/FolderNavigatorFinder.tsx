@@ -8,11 +8,14 @@ import {
   Tag,
   X,
 } from 'lucide-react';
+import type { KeyboardEvent } from 'react';
 import { useState } from 'react';
 
 import { Toolbar } from '@/components/ui/toolbar';
 import type { NotePermissionRole } from '@/lib/electron-api';
 import {
+  clearNoteFinderFilters,
+  clearNoteFinderQuery,
   getActiveNoteFinderFilterCount,
   getNoteFinderOptions,
   hasActiveNoteFinderFilters,
@@ -86,11 +89,13 @@ export function NoteFinderToolbar({
   selectedFolderId,
   options,
   onChange,
+  onEscapeToTree,
 }: {
   state: NoteFinderState;
   selectedFolderId: string | null;
   options: ReturnType<typeof getNoteFinderOptions>;
   onChange: (state: NoteFinderState) => void;
+  onEscapeToTree: () => void;
 }) {
   const activeFilterCount = getActiveNoteFinderFilterCount(state);
   const currentFolderDisabled = !selectedFolderId;
@@ -102,11 +107,27 @@ export function NoteFinderToolbar({
   const removeWritePermission = (permission: NotePermissionRole) => updateState({
     writePermissionFilters: state.writePermissionFilters.filter((candidate) => candidate !== permission),
   });
-  const clearFilters = () => updateState({
-    tagFilters: [],
-    readPermissionFilters: [],
-    writePermissionFilters: [],
-  });
+  const clearFilters = () => onChange(clearNoteFinderFilters(state));
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Escape') {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (state.query) {
+      onChange(clearNoteFinderQuery(state));
+      return;
+    }
+
+    if (hasActiveNoteFinderFilters(state)) {
+      onChange(clearNoteFinderFilters(state));
+      return;
+    }
+
+    onEscapeToTree();
+  };
   const scopeLabel = state.searchScope === 'workspace' ? 'Workspace' : 'Current Folder';
 
   return (
@@ -119,6 +140,7 @@ export function NoteFinderToolbar({
             name="noteSearch"
             value={state.query}
             onChange={(event) => updateState({ query: event.target.value })}
+            onKeyDown={handleSearchKeyDown}
             placeholder="Search notes"
             enterKeyHint="search"
             className="min-w-0 flex-1 bg-transparent text-sm outline-none"

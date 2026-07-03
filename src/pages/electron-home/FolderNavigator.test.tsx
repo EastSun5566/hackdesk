@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_NOTE_FINDER_STATE } from '@/lib/electron-note-finder';
@@ -201,6 +201,51 @@ describe('FolderNavigator', () => {
     });
   });
 
+  it('clears search and filters with Escape before returning focus to the tree', async () => {
+    const onFinderStateChange = vi.fn();
+    const queryView = renderFolderNavigator({
+      actions: { onFinderStateChange },
+      finderState: {
+        ...DEFAULT_NOTE_FINDER_STATE,
+        query: 'nested',
+      },
+    });
+
+    const queryInput = screen.getByPlaceholderText('Search notes');
+    queryInput.focus();
+    fireEvent.keyDown(queryInput, { key: 'Escape' });
+
+    expect(onFinderStateChange).toHaveBeenCalledWith(DEFAULT_NOTE_FINDER_STATE);
+
+    queryView.unmount();
+    onFinderStateChange.mockClear();
+    const filterView = renderFolderNavigator({
+      actions: { onFinderStateChange },
+      finderState: {
+        ...DEFAULT_NOTE_FINDER_STATE,
+        tagFilters: ['work'],
+      },
+    });
+
+    const filterInput = screen.getByPlaceholderText('Search notes');
+    filterInput.focus();
+    fireEvent.keyDown(filterInput, { key: 'Escape' });
+
+    expect(onFinderStateChange).toHaveBeenCalledWith(DEFAULT_NOTE_FINDER_STATE);
+
+    filterView.unmount();
+    const treeView = renderFolderNavigator();
+    const emptyInput = screen.getByPlaceholderText('Search notes');
+    emptyInput.focus();
+    fireEvent.keyDown(emptyInput, { key: 'Escape' });
+
+    await waitFor(() => {
+      expect(getFocusedTreeRowId()).toBe(`folder:${UNFILED_FOLDER_ID}`);
+    });
+
+    treeView.unmount();
+  });
+
   it('uses roving focus for navigator header actions', async () => {
     renderFolderNavigator();
 
@@ -288,6 +333,24 @@ describe('FolderNavigator', () => {
     expect(folderButton).toHaveAttribute('data-folder-tree-primary', 'true');
     expect(noteButton).toHaveAttribute('data-folder-tree-primary', 'true');
     expect(collapseButton).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('keeps busy folder drag handles focusable but non-draggable', () => {
+    const onFolderSelect = vi.fn();
+    renderFolderNavigator({
+      actions: { onFolderSelect },
+      status: { isMovingFolder: true },
+    });
+
+    const dragHandle = screen.getByRole('button', { name: 'Drag Projects' });
+    dragHandle.focus();
+
+    expect(document.activeElement).toBe(dragHandle);
+    expect(dragHandle).toHaveAttribute('aria-disabled', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Projects' }));
+
+    expect(onFolderSelect).toHaveBeenCalledWith('projects');
   });
 
   it('marks the current navigator row with aria-current and a non-color-only indicator', () => {
@@ -502,12 +565,17 @@ describe('FolderNavigator', () => {
     fireEvent.contextMenu(screen.getByRole('button', { name: 'Projects' }));
     fireEvent.click(await screen.findByText('New Note Inside'));
 
-    expect(onCreateNoteInside).toHaveBeenCalledWith('projects');
+    await waitFor(() => {
+      expect(onCreateNoteInside).toHaveBeenCalledWith('projects');
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Projects' }));
+    });
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /Root/ }));
     fireEvent.click(await screen.findByText('New Note'));
 
-    expect(onCreateNoteInside).toHaveBeenCalledWith(null);
+    await waitFor(() => {
+      expect(onCreateNoteInside).toHaveBeenCalledWith(null);
+    });
   });
 
   it('adds reveal folder to note context menus', async () => {
@@ -517,8 +585,11 @@ describe('FolderNavigator', () => {
     fireEvent.contextMenu(screen.getByRole('button', { name: 'Nested note' }));
     fireEvent.click(await screen.findByText('Reveal Folder'));
 
-    expect(onRevealNoteFolder).toHaveBeenCalledWith(expect.objectContaining({
-      note: expect.objectContaining({ id: 'nested-note' }),
-    }));
+    await waitFor(() => {
+      expect(onRevealNoteFolder).toHaveBeenCalledWith(expect.objectContaining({
+        note: expect.objectContaining({ id: 'nested-note' }),
+      }));
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Nested note' }));
+    });
   });
 });
