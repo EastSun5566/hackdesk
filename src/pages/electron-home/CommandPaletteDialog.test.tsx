@@ -155,6 +155,22 @@ describe('CommandPaletteDialog', () => {
     expect(screen.getByText('⌘N')).toBeVisible();
   });
 
+  it('keeps item titles readable and aligns the close control in the input row', () => {
+    renderPalette();
+
+    const title = screen.getByText('Alpha');
+    expect(title).toHaveClass('text-[color:var(--command-item-title)]');
+    expect(title).toHaveClass('font-medium');
+    expect(screen.getAllByText('My Workspace').some((node) => node.classList.contains('text-[color:var(--command-item-meta)]'))).toBe(true);
+    expect(screen.getByRole('combobox', { name: 'Search notes, folders, and commands' }))
+      .toHaveClass('placeholder:text-[color:var(--command-placeholder)]');
+
+    const closeButton = screen.getByRole('button', { name: 'Close command palette' });
+    expect(closeButton).toHaveClass('size-8');
+    expect(closeButton).toHaveClass('items-center');
+    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
+  });
+
   it('preserves helper ranking and group order for searched results', () => {
     renderPalette({ state: { open: true, search: 'alpha' } });
 

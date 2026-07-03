@@ -45,6 +45,7 @@ import {
 } from '@/components/ui/command';
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -71,6 +72,11 @@ import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
 import type { FolderTree as HackmdFolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
 
 import type { CommandPaletteState, WorkspaceScope } from './types';
+import { FOCUS_RING_CLASS } from './ui';
+
+const COMMAND_ITEM_ICON_CLASS = 'mr-3 text-text-subtle';
+const COMMAND_ITEM_TITLE_CLASS = 'block truncate font-medium text-[color:var(--command-item-title)]';
+const COMMAND_ITEM_META_CLASS = 'block truncate text-xs text-[color:var(--command-item-meta)]';
 
 const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'new-tab': <FileText className="h-4 w-4" />,
@@ -165,7 +171,7 @@ export function CommandPaletteDialog({
       open={state.open}
       onOpenChange={(open) => onStateChange(open ? { ...state, open } : { open: false, search: '' })}
     >
-      <DialogContent className="mt-[12dvh] max-w-xl self-start overflow-hidden p-0">
+      <DialogContent className="mt-[12dvh] max-w-xl self-start overflow-hidden p-0" showCloseButton={false}>
         <DialogHeader className="sr-only">
           <DialogTitle>Command Palette</DialogTitle>
           <DialogDescription>Search notes, folders, workspaces, and commands.</DialogDescription>
@@ -176,6 +182,14 @@ export function CommandPaletteDialog({
             value={state.search}
             onValueChange={(search) => onStateChange({ ...state, search })}
             placeholder="Search notes, folders, and commands…"
+            trailing={(
+              <DialogClose
+                aria-label="Close command palette"
+                className={`inline-flex size-8 items-center justify-center p-0 ${FOCUS_RING_CLASS}`}
+              >
+                <X aria-hidden="true" className="h-4 w-4" />
+              </DialogClose>
+            )}
           />
           <CommandList className="overscroll-contain">
             <CommandEmpty>No commands found.</CommandEmpty>
@@ -193,10 +207,10 @@ export function CommandPaletteDialog({
                         closePalette();
                       }}
                     >
-                      <span aria-hidden="true" className="mr-3 text-text-subtle"><History className="h-4 w-4" /></span>
+                      <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}><History className="h-4 w-4" /></span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate">{entry.title || 'Untitled'}</span>
-                        <span className="block truncate text-xs text-text-subtle">{workspaceLabel}</span>
+                        <span className={COMMAND_ITEM_TITLE_CLASS}>{entry.title || 'Untitled'}</span>
+                        <span className={COMMAND_ITEM_META_CLASS}>{workspaceLabel}</span>
                       </span>
                       {selectedNoteId === entry.noteId ? (
                         <span className="ml-auto inline-flex shrink-0 items-center text-primary-default">
@@ -233,10 +247,10 @@ export function CommandPaletteDialog({
                         closePalette();
                       }}
                     >
-                      <span aria-hidden="true" className="mr-3 text-text-subtle"><FileText className="h-4 w-4" /></span>
+                      <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}><FileText className="h-4 w-4" /></span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate">{entry.note.title || 'Untitled'}</span>
-                        <span className="block truncate text-xs text-text-subtle">{metadata}</span>
+                        <span className={COMMAND_ITEM_TITLE_CLASS}>{entry.note.title || 'Untitled'}</span>
+                        <span className={COMMAND_ITEM_META_CLASS}>{metadata}</span>
                       </span>
                       {selectedNoteId === entry.note.id ? (
                         <span className="ml-auto inline-flex shrink-0 items-center text-primary-default">
@@ -261,10 +275,10 @@ export function CommandPaletteDialog({
                       closePalette();
                     }}
                   >
-                    <span aria-hidden="true" className="mr-3 text-text-subtle"><Folder className="h-4 w-4" /></span>
+                    <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}><Folder className="h-4 w-4" /></span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate">{folder.name}</span>
-                      <span className="block truncate text-xs text-text-subtle">
+                      <span className={COMMAND_ITEM_TITLE_CLASS}>{folder.name}</span>
+                      <span className={COMMAND_ITEM_META_CLASS}>
                         {folder.label}{folder.noteCount > 0 ? ` · ${folder.noteCount} ${folder.noteCount === 1 ? 'note' : 'notes'}` : ''}
                       </span>
                     </span>
@@ -294,7 +308,7 @@ export function CommandPaletteDialog({
                         closePalette();
                       }}
                     >
-                      <span aria-hidden="true" className="mr-3 text-text-subtle">
+                      <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}>
                         {workspace.type === 'history'
                           ? <History className="h-4 w-4" />
                           : workspace.type === 'team'
@@ -302,8 +316,8 @@ export function CommandPaletteDialog({
                             : <Folder className="h-4 w-4" />}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate">{workspace.label}</span>
-                        <span className="block truncate text-xs text-text-subtle">{workspace.description}</span>
+                        <span className={COMMAND_ITEM_TITLE_CLASS}>{workspace.label}</span>
+                        <span className={COMMAND_ITEM_META_CLASS}>{workspace.description}</span>
                       </span>
                       {selected ? (
                         <span className="ml-auto inline-flex shrink-0 items-center text-primary-default">
@@ -337,10 +351,10 @@ export function CommandPaletteDialog({
                         closePalette();
                       }}
                     >
-                      <span aria-hidden="true" className="mr-3 text-text-subtle">{ACTION_ICONS[action.id]}</span>
+                      <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}>{ACTION_ICONS[action.id]}</span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate">{actionLabel}</span>
-                        <span className="block truncate text-xs text-text-subtle">
+                        <span className={COMMAND_ITEM_TITLE_CLASS}>{actionLabel}</span>
+                        <span className={COMMAND_ITEM_META_CLASS}>
                           {disabledReason ?? action.description}
                         </span>
                       </span>
@@ -360,10 +374,10 @@ export function CommandPaletteDialog({
                     closePalette();
                   }}
                 >
-                  <span aria-hidden="true" className="mr-3 text-text-subtle"><Search className="h-4 w-4" /></span>
+                  <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}><Search className="h-4 w-4" /></span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate">{`Show Finder Results for “${trimmedSearch}”`}</span>
-                    <span className="block truncate text-xs text-text-subtle">Filter the current workspace in the navigator.</span>
+                    <span className={COMMAND_ITEM_TITLE_CLASS}>{`Show Finder Results for “${trimmedSearch}”`}</span>
+                    <span className={COMMAND_ITEM_META_CLASS}>Filter the current workspace in the navigator.</span>
                   </span>
                 </CommandItem>
               </CommandGroup>

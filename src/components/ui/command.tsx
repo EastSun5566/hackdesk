@@ -11,7 +11,7 @@ const Command = React.forwardRef<
   <CommandPrimitive
     ref={ref}
     className={cn(
-      'flex h-full w-full flex-col overflow-hidden rounded-md bg-background-default text-text-default',
+      'flex h-full w-full flex-col overflow-hidden rounded-md bg-background-default text-text-default [--command-item-meta:var(--text-subtle)] [--command-item-title:color-mix(in_oklch,var(--text-default)_86%,CanvasText_14%)] [--command-placeholder:color-mix(in_oklch,var(--text-subtle)_60%,transparent)]',
       className,
     )}
     {...props}
@@ -21,18 +21,21 @@ Command.displayName = CommandPrimitive.displayName;
 
 const CommandInput = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
->(({ className, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input> & {
+    trailing?: React.ReactNode;
+  }
+>(({ className, trailing, ...props }, ref) => (
   <div className="flex items-center border-b border-border-default px-3" data-cmdk-input-wrapper="">
-    <Search aria-hidden="true" className="mr-2 h-4 w-4 shrink-0 text-text-subtle" />
+    <Search aria-hidden="true" className="mr-2 h-4 w-4 shrink-0 text-[color:var(--command-placeholder)]" />
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
-        'flex h-11 w-full rounded-md bg-transparent py-3 text-sm text-text-default outline-hidden placeholder:text-text-subtle disabled:opacity-50',
+        'flex h-11 w-full rounded-md bg-transparent py-3 text-sm text-text-default outline-hidden placeholder:text-[color:var(--command-placeholder)] disabled:opacity-50',
         className,
       )}
       {...props}
     />
+    {trailing ? <div className="ml-2 flex shrink-0 items-center self-stretch">{trailing}</div> : null}
   </div>
 ));
 
