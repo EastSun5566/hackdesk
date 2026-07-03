@@ -167,7 +167,7 @@ describe('DocumentDetail', () => {
         selectedNote: null,
       },
     });
-    expect(screen.getByText('Select a note.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'No note selected' })).toBeInTheDocument();
   });
 
   it('passes the global editor mode to MarkdownEditor', () => {

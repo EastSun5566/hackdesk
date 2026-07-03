@@ -175,15 +175,46 @@ describe('FolderNavigator', () => {
     const onOpenSettings = vi.fn();
     renderFolderNavigator({
       entries: [],
+      emptyState: {
+        description: 'Add an API token to load your notes and teams.',
+        title: 'Connect HackMD',
+      },
       actions: { onOpenSettings },
       status: { hasToken: false },
       tree,
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Configure HackMD API Token' }));
-
+    expect(screen.getByRole('heading', { name: 'Connect HackMD' })).toBeInTheDocument();
+    expect(screen.getByText('Add an API token to load your notes and teams.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Configure HackMD API Token' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Configure Token' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Configure Token' }));
+
     expect(onOpenSettings).toHaveBeenCalledOnce();
+  });
+
+  it('shows the local folder empty state when Local Vault is not configured', () => {
+    const tree = buildHackmdFolderTree([]);
+    const onChooseLocalVault = vi.fn();
+    renderFolderNavigator({
+      entries: [],
+      emptyState: {
+        description: 'Choose a folder to store plain Markdown notes on this device.',
+        title: 'Open a local folder',
+      },
+      actions: { onChooseLocalVault },
+      scope: { id: 'local', label: 'Local Vault', type: 'local' },
+      status: { hasLocalVault: false },
+      tree,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Local Vault' }));
+
+    expect(screen.getByRole('heading', { name: 'Open a local folder' })).toBeInTheDocument();
+    expect(screen.queryByText('Create your local vault')).not.toBeInTheDocument();
+    expect(screen.getByText('Choose a folder to store plain Markdown notes on this device.')).toBeInTheDocument();
+    expect(onChooseLocalVault).toHaveBeenCalledOnce();
   });
 
   it('forwards finder query changes through the navigator shell', () => {

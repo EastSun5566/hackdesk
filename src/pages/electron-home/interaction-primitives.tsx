@@ -524,8 +524,12 @@ export function EmptyState({
   return (
     <div className="flex h-full items-center justify-center px-6 text-center">
       <div className="max-w-72 space-y-2">
-        {icon ? <div className="mx-auto flex size-8 items-center justify-center text-text-subtle">{icon}</div> : null}
-        <p className="text-sm font-medium text-text-default">{title}</p>
+        {icon ? (
+          <div aria-hidden="true" className="mx-auto flex size-8 items-center justify-center text-text-subtle">
+            {icon}
+          </div>
+        ) : null}
+        <h2 className="text-sm font-medium text-text-default text-balance">{title}</h2>
         {description ? <p className="text-xs leading-5 text-text-subtle">{description}</p> : null}
         {action ? <div className="pt-2">{action}</div> : null}
       </div>

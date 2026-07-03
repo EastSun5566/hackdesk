@@ -100,6 +100,18 @@ function renderWorkspace(overrides: Partial<Parameters<typeof DocumentWorkspace>
 }
 
 describe('DocumentWorkspace', () => {
+  it('shows a semantic blank state when no tabs are open', () => {
+    renderWorkspace({
+      panes: [
+        pane('pane-a', [], undefined, 48),
+        pane('pane-b', [], undefined, 52),
+      ],
+    });
+
+    expect(screen.getByRole('heading', { name: 'No note selected' })).toBeInTheDocument();
+    expect(screen.getByText('Choose a note from the navigator to read or edit.')).toBeInTheDocument();
+  });
+
   it('marks the active split pane with semantic and visual state', () => {
     renderWorkspace();
 

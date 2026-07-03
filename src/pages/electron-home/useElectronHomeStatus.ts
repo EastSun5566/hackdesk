@@ -51,9 +51,9 @@ export function useElectronHomeStatus({
       isShowingCachedFallback(queries.userQuery.data)
       || isShowingCachedFallback(queries.teamsQuery.data);
     const emptyTitle = scope.type === 'local' && !hasLocalVault
-      ? 'Create your local vault'
+      ? 'Open a local folder'
       : !hasToken
-      ? 'Connect HackMD first'
+      ? 'Connect HackMD'
       : finderActive
         ? 'No matching notes'
         : scope.type === 'history'
@@ -62,14 +62,16 @@ export function useElectronHomeStatus({
             ? 'No notes in this folder'
             : 'No notes in this workspace';
     const emptyDescription = scope.type === 'local' && !hasLocalVault
-      ? 'Open or create a folder to store plain Markdown notes locally. HackMD can be connected later.'
+      ? 'Choose a folder to store plain Markdown notes on this device.'
       : !hasToken
-      ? 'Add an API token in Settings to load your profile, teams, notes, and history.'
+      ? 'Add an API token to load your notes and teams.'
       : finderActive
-        ? 'Try a different title, tag, folder path, short ID, team path, sort, or filter.'
+        ? 'Try a different search, sort, or filter.'
         : scope.type === 'history'
-          ? 'Your HackMD history will appear here after the first successful sync.'
-          : 'Select another folder, create a note here, or refresh after another client changes HackMD.';
+          ? 'Your HackMD history appears after your first successful sync.'
+          : selectedFolder
+            ? 'Create a note here or choose another folder.'
+            : 'Create a note or refresh after another client changes HackMD.';
 
     return {
       emptyState: {

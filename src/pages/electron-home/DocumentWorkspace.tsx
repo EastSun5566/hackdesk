@@ -99,7 +99,7 @@ export function DocumentWorkspace({
   if (panes.every((pane) => pane.tabIds.length === 0)) {
     return (
       <section className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background-default">
-        <EmptyState title="Select a note." description="Choose a note from the navigator to read or edit it." />
+        <EmptyState title="No note selected" description="Choose a note from the navigator to read or edit." />
       </section>
     );
   }
