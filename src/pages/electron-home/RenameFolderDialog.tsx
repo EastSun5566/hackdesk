@@ -69,8 +69,13 @@ export function RenameFolderDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Edit Folder</DialogTitle>
-          <DialogDescription id={EDIT_FOLDER_FORM_DESCRIPTION_ID}>Update the folder name, description, icon, and color in HackMD.</DialogDescription>
+          <DialogDescription id={EDIT_FOLDER_FORM_DESCRIPTION_ID} className="sr-only">
+            Update the folder name, description, icon, and color.
+          </DialogDescription>
         </DialogHeader>
+        <p className="rounded-md border border-border-default bg-background-muted px-3 py-2 text-xs text-text-subtle">
+          Update folder details and appearance.
+        </p>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2 text-sm">
             <label htmlFor={EDIT_FOLDER_NAME_ID} className="font-medium text-text-default">Name</label>
@@ -106,6 +111,7 @@ export function RenameFolderDialog({
           <DialogFooter>
             <button
               type="button"
+              disabled={isRenaming}
               onClick={() => onStateChange(CLOSED_RENAME_FOLDER_DIALOG_STATE)}
               className={SECONDARY_BUTTON_CLASS}
             >
@@ -116,8 +122,17 @@ export function RenameFolderDialog({
               disabled={!canSubmit}
               className={PRIMARY_BUTTON_CLASS}
             >
-              {isRenaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderPen className="h-4 w-4" />}
-              Save Changes
+              {isRenaming ? (
+                <>
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+                  Saving…
+                </>
+              ) : (
+                <>
+                  <FolderPen aria-hidden="true" className="h-4 w-4" />
+                  Save Changes
+                </>
+              )}
             </button>
           </DialogFooter>
         </form>
