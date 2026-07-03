@@ -144,6 +144,7 @@ describe('NoteInspector', () => {
     const { document } = renderNoteInspector({ actions: { onCopyLink } });
 
     expect(screen.getByRole('toolbar', { name: 'Inspector actions' })).toBeInTheDocument();
+    expect(screen.queryByText(document.shortId)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Copy Link' }));
 
     expect(onCopyLink).toHaveBeenCalledWith(document);
@@ -156,11 +157,18 @@ describe('NoteInspector', () => {
   });
 
   it('shows metadata save state without hiding the primary action', () => {
-    renderNoteInspector();
+    const { container } = renderNoteInspector();
 
     const saveButton = screen.getByRole('button', { name: 'Save changes' });
+    const scrollRegion = container.querySelector('[data-inspector-scroll-region="true"]');
+    const saveFooter = container.querySelector('[data-inspector-save-footer="true"]');
+
+    expect(scrollRegion).toBeInTheDocument();
+    expect(saveFooter).toBeInTheDocument();
+    expect(scrollRegion).not.toContainElement(saveButton);
+    expect(saveFooter).toContainElement(saveButton);
     expect(saveButton).toBeDisabled();
-    expect(screen.getByText('All changes saved')).toBeInTheDocument();
+    expect(screen.getByText('Saved')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Description'), {
       target: { value: 'Updated description' },
@@ -182,6 +190,27 @@ describe('NoteInspector', () => {
 
     expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
     expect(screen.getAllByText('Saving…')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Saving…' }).querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
+  });
+
+  it('uses compact tags with a full-size remove target', () => {
+    const onSaveMetadata = vi.fn();
+    const { document } = renderNoteInspector({ actions: { onSaveMetadata } });
+
+    const removeTag = screen.getByRole('button', { name: 'Remove old tag' });
+    expect(removeTag).toHaveClass('size-6');
+    expect(removeTag.closest('span')).toHaveClass('h-7');
+
+    fireEvent.click(removeTag);
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(onSaveMetadata).toHaveBeenCalledWith(document, { tags: [] });
+  });
+
+  it('uses concise empty tag guidance', () => {
+    renderNoteInspector({ document: documentSummary({ tags: [] }) });
+
+    expect(screen.getByPlaceholderText('Add tag…')).toBeInTheDocument();
   });
 
   it('does not render the legacy image upload section', () => {

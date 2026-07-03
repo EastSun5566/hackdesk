@@ -9,7 +9,7 @@ import type { FolderTree } from '@/lib/hackmd-folders';
 import {
   LocationSection,
   MetadataSection,
-  MetadataSubmitButton,
+  InspectorSaveFooter,
   PermissionsSection,
 } from './NoteInspectorSections';
 import { PanelHeader, ToolbarIconButton } from './interaction-primitives';
@@ -46,8 +46,11 @@ function NoteInspectorPanel({
         onCopyLink={actions.onCopyLink}
       />
 
-      <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
-        <form onSubmit={inspector.submit.metadata}>
+      <form className="flex min-h-0 flex-1 flex-col" onSubmit={inspector.submit.metadata}>
+        <div
+          data-inspector-scroll-region="true"
+          className="min-h-0 flex-1 overflow-auto overscroll-contain px-4 py-3"
+        >
           <MetadataSection
             dirty={inspector.dirty}
             dispatch={inspector.dispatch}
@@ -70,13 +73,12 @@ function NoteInspectorPanel({
             readPermission={inspector.state.readPermission}
             writePermission={inspector.state.writePermission}
           />
-          <MetadataSubmitButton
-            dirty={inspector.dirty.metadata}
-            saving={status.saving}
-          />
-        </form>
-
-      </div>
+        </div>
+        <InspectorSaveFooter
+          dirty={inspector.dirty.metadata}
+          saving={status.saving}
+        />
+      </form>
     </aside>
   );
 }
@@ -122,7 +124,6 @@ function InspectorHeader({
   return (
     <PanelHeader
       title="Inspector"
-      subtitle={document.shortId}
       className="px-4 py-2.5"
       actionsLabel="Inspector actions"
       actions={(

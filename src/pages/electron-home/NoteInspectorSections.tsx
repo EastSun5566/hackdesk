@@ -202,16 +202,16 @@ function TagEditor({
         {tags.map((tag) => (
           <span
             key={tag}
-            className="inline-flex h-6 items-center gap-1 rounded-[6px] bg-background-selected px-2 text-xs text-text-default"
+            className="inline-flex h-7 items-center gap-1 rounded-[6px] bg-background-selected px-2 text-xs text-text-default"
           >
             {tag}
             <button
               type="button"
               onClick={() => onRemoveTag(tag)}
-              className={cn('text-text-subtle hover:text-text-default', FOCUS_RING_CLASS)}
+              className={cn('-mr-1 grid size-6 shrink-0 place-items-center rounded-[4px] text-text-subtle hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_CLASS)}
               aria-label={`Remove ${tag} tag`}
             >
-              <X className="h-3 w-3" />
+              <X aria-hidden="true" className="h-3 w-3" />
             </button>
           </span>
         ))}
@@ -237,7 +237,7 @@ function TagEditor({
           }}
           onBlur={() => onAddTag(tagDraft)}
           className="min-w-20 flex-1 bg-transparent text-sm outline-none"
-          placeholder={tags.length === 0 ? 'Add tag' : ''}
+          placeholder={tags.length === 0 ? 'Add tag…' : ''}
         />
       </div>
     </div>
@@ -365,7 +365,7 @@ function PermissionSegmentedField({
   );
 }
 
-export function MetadataSubmitButton({
+export function InspectorSaveFooter({
   dirty,
   saving,
 }: {
@@ -376,10 +376,13 @@ export function MetadataSubmitButton({
     ? 'Saving…'
     : dirty
       ? 'Unsaved changes'
-      : 'All changes saved';
+      : 'Saved';
 
   return (
-    <div className="flex items-center justify-between gap-3 border-t border-border-default/70 py-3">
+    <footer
+      data-inspector-save-footer="true"
+      className="flex shrink-0 items-center justify-between gap-3 border-t border-border-default/70 bg-background-muted px-4 py-3"
+    >
       <span className="min-w-0 truncate text-xs text-text-subtle" aria-live="polite">
         {status}
       </span>
@@ -391,6 +394,6 @@ export function MetadataSubmitButton({
         {saving ? <Loader2 aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : null}
         <span>{saving ? 'Saving…' : 'Save changes'}</span>
       </button>
-    </div>
+    </footer>
   );
 }
