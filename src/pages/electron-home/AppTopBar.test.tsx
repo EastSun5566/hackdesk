@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -76,6 +76,7 @@ describe('AppTopBar', () => {
     renderTopBar();
 
     expect(screen.getByRole('toolbar', { name: 'Application controls' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Open documents' })).toBeInTheDocument();
     expect(screen.getByRole('toolbar', { name: 'Pane controls' })).toBeInTheDocument();
     const sidebarToggle = screen.getByRole('button', { name: 'Collapse workspace sidebar' });
     const navigatorToggle = screen.getByRole('button', { name: 'Collapse note navigator' });
@@ -92,8 +93,23 @@ describe('AppTopBar', () => {
     expect(backButton).toHaveClass('app-region-no-drag');
     expect(forwardButton).toHaveClass('app-region-no-drag');
     expect(firstTab).toHaveClass('app-region-no-drag');
+    expect(screen.getByRole('button', { name: 'Close Design Spec' })).toHaveClass('app-region-no-drag');
+    expect(screen.getByRole('button', { name: 'Pane actions' })).toHaveClass('app-region-no-drag');
     expect(firstTab.closest('.app-topbar')).toHaveClass('h-10');
     expect(screen.getByRole('button', { name: 'Select Design Spec tab' })).toBeInTheDocument();
+  });
+
+  it('keeps titlebar regions in visual keyboard order', () => {
+    renderTopBar();
+
+    const header = screen.getByRole('banner');
+    const applicationControls = within(header).getByRole('toolbar', { name: 'Application controls' });
+    const openDocuments = within(header).getByRole('navigation', { name: 'Open documents' });
+    const paneControls = within(header).getByRole('toolbar', { name: 'Pane controls' });
+    const titlebarRegions = Array.from(header.querySelectorAll<HTMLElement>('[role="toolbar"], nav[aria-label="Open documents"]'));
+
+    expect(titlebarRegions).toEqual([applicationControls, openDocuments, paneControls]);
+    expect(within(openDocuments).getAllByRole('listitem')).toHaveLength(2);
   });
 
   it('uses roving focus for titlebar application controls', async () => {

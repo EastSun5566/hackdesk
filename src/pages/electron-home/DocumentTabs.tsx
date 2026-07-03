@@ -57,7 +57,7 @@ function DocumentTab({
   const title = tab.title || 'Untitled';
 
   return (
-    <div
+    <li
       className={cn(
         'group/tab app-region-no-drag flex h-8 min-w-0 max-w-56 items-center gap-2 rounded-[6px] border px-2 text-sm transition-[background-color,border-color,color] duration-150 motion-reduce:transition-none',
         selected
@@ -87,7 +87,7 @@ function DocumentTab({
       >
         <X aria-hidden="true" className="h-3.5 w-3.5" />
       </button>
-    </div>
+    </li>
   );
 }
 
@@ -127,20 +127,27 @@ export function DocumentTabs({
 
   return (
     <div className={cn('flex min-w-0 flex-1 items-center gap-2', className)}>
-      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overscroll-x-contain scrollbar-gutter-stable">
-        {tabs.length > 0 ? tabs.map((tab) => (
-          <DocumentTab
-            key={tab.tabId}
-            tab={tab}
-            selected={activeTab?.tabId === tab.tabId}
-            syncState={getTabSyncState(tab)}
-            onSelect={() => onSelectTab(tab.tabId)}
-            onClose={() => onCloseTab(tab.tabId)}
-          />
-        )) : (
+      <nav
+        aria-label="Open documents"
+        className="flex h-full min-w-0 flex-1 items-center overflow-x-auto overscroll-x-contain px-1 py-1 scrollbar-gutter-stable"
+      >
+        {tabs.length > 0 ? (
+          <ul className="m-0 flex min-w-0 list-none items-center gap-1 p-0" role="list">
+            {tabs.map((tab) => (
+              <DocumentTab
+                key={tab.tabId}
+                tab={tab}
+                selected={activeTab?.tabId === tab.tabId}
+                syncState={getTabSyncState(tab)}
+                onSelect={() => onSelectTab(tab.tabId)}
+                onClose={() => onCloseTab(tab.tabId)}
+              />
+            ))}
+          </ul>
+        ) : (
           <span className="px-2 text-sm text-text-subtle">No tabs</span>
         )}
-      </div>
+      </nav>
       <Toolbar aria-label="Pane controls">
         <DropdownMenu>
           <ToolbarDropdownIconTrigger label="Pane actions" className="app-region-no-drag h-7 w-7">

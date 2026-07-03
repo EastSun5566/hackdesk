@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -63,6 +63,35 @@ describe('DocumentTabs', () => {
     expect(screen.getByRole('button', { name: 'Select Daily Notes tab' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close Project Plan' })).toBeInTheDocument();
     await expectToolbarRovingFocus('Pane controls', ['Pane actions']);
+  });
+
+  it('exposes open documents as a named list without using the ARIA tabs pattern', () => {
+    renderDocumentTabs();
+
+    const openDocuments = screen.getByRole('navigation', { name: 'Open documents' });
+    const list = within(openDocuments).getByRole('list');
+    expect(within(list).getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+
+    const currentTabs = within(openDocuments)
+      .getAllByRole('button')
+      .filter((button) => button.getAttribute('aria-current') === 'page');
+
+    expect(currentTabs).toHaveLength(1);
+    expect(currentTabs[0]).toHaveAccessibleName('Select Daily Notes tab');
+  });
+
+  it('shows a quiet empty state without creating fake document tabs', () => {
+    renderDocumentTabs({
+      activeTab: null,
+      tabs: [],
+    });
+
+    const openDocuments = screen.getByRole('navigation', { name: 'Open documents' });
+    expect(within(openDocuments).getByText('No tabs')).toBeInTheDocument();
+    expect(within(openDocuments).queryByRole('list')).not.toBeInTheDocument();
+    expect(within(openDocuments).queryByRole('button', { name: /Select .* tab/ })).not.toBeInTheDocument();
   });
 
   it('uses the shared sync status labels for tab status accessibility', async () => {
