@@ -15,6 +15,8 @@ export function RepositoryNotice({
 
   return (
     <div
+      role={cached ? 'status' : 'alert'}
+      aria-atomic="true"
       className={cn(
         'flex items-start gap-2 rounded-md px-3 py-2 text-sm',
         cached
@@ -22,8 +24,8 @@ export function RepositoryNotice({
           : 'bg-destructive-soft text-destructive-default',
       )}
     >
-      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-      <span>{cached ? `Showing cached data. ${error}` : error}</span>
+      <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+      <span>{cached ? `Cached data. ${error}` : error}</span>
     </div>
   );
 }

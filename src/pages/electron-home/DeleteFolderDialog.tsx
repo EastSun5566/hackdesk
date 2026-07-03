@@ -35,13 +35,12 @@ export function DeleteFolderDialog({
           <AlertDialogTitle>{isLocalFolder ? 'Move Folder to Trash' : 'Delete Folder'}</AlertDialogTitle>
           <AlertDialogDescription>
             {isLocalFolder
-              ? `Move “${folder?.name}” to the system trash?`
-              : `Delete “${folder?.name}”? This removes the folder from HackMD. This action cannot be undone from HackDesk.`}
+              ? `Move “${folder?.name}” to the system trash? Local Markdown files inside the folder move with it.`
+              : `Delete “${folder?.name}”? This deletes the folder from HackMD. Local vault files are not affected. This cannot be undone from HackDesk.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel
-            onClick={onCancel}
             disabled={isDeleting}
             className={SECONDARY_BUTTON_CLASS}
           >
@@ -56,7 +55,9 @@ export function DeleteFolderDialog({
               FOCUS_RING_CLASS,
             )}
           >
-            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            {isDeleting
+              ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+              : <Trash2 aria-hidden="true" className="h-4 w-4" />}
             {isLocalFolder ? 'Move to Trash' : 'Delete'}
           </AlertDialogAction>
         </AlertDialogFooter>

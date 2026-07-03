@@ -36,8 +36,8 @@ export function DeleteNoteDialog({
           <AlertDialogTitle>{isLocalNote ? 'Move Note to Trash' : 'Delete Note'}</AlertDialogTitle>
           <AlertDialogDescription>
             {isLocalNote
-              ? 'This moves the Markdown file to the system trash.'
-              : 'This removes the note from HackMD. This action cannot be undone from HackDesk.'}
+              ? 'This moves the local Markdown file to the system trash.'
+              : 'This deletes the note from HackMD. Local vault Markdown files are not affected. This cannot be undone from HackDesk.'}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {note ? (
@@ -48,7 +48,7 @@ export function DeleteNoteDialog({
             </div>
             <AlertDialogFooter>
               <AlertDialogCancel
-                onClick={onCancel}
+                disabled={isDeleting}
                 className={SECONDARY_BUTTON_CLASS}
               >
                 Cancel
@@ -57,12 +57,14 @@ export function DeleteNoteDialog({
                 disabled={isDeleting}
                 onClick={() => onDelete(note)}
                 className={cn(
-                  'inline-flex h-9 items-center gap-2 rounded-md border border-destructive-default px-3 text-sm font-medium text-destructive-default transition-colors active:bg-destructive-soft disabled:pointer-events-none disabled:opacity-50',
+                  'inline-flex h-9 items-center gap-2 rounded-md bg-destructive-default px-3 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive-hover disabled:pointer-events-none disabled:opacity-50',
                   PRESSED_CLASS,
                   FOCUS_RING_CLASS,
                 )}
               >
-                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {isDeleting
+                  ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+                  : <Trash2 aria-hidden="true" className="h-4 w-4" />}
                 {isLocalNote ? 'Move to Trash' : 'Delete'}
               </AlertDialogAction>
             </AlertDialogFooter>
