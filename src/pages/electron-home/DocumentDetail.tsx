@@ -69,7 +69,7 @@ export type DocumentDetailDocumentState = {
 
 export type DocumentDetailLayout = {
   attachImageRequestId: number;
-  focusZone?: string;
+  focusZone?: string | null;
   focusRequestId: number;
   inspectorCollapsed: boolean;
   inspectorPanelId?: string;
@@ -198,7 +198,7 @@ export function DocumentDetail({
   layout,
   status,
 }: DocumentDetailProps) {
-  const focusZone = layout.focusZone ?? 'editor';
+  const focusZone = layout.focusZone === undefined ? 'editor' : layout.focusZone ?? undefined;
 
   if (status.loading) {
     return (
@@ -230,7 +230,7 @@ function LoadingDocumentDetail({
   focusZone,
   selectedNote,
 }: {
-  focusZone: string;
+  focusZone?: string;
   selectedNote?: Pick<NoteSummary, 'title'> | null;
 }) {
   return (
@@ -279,7 +279,7 @@ function ActiveDocumentDetail({
   actions: DocumentDetailActions;
   documentState: DocumentDetailDocumentState & { document: DocumentSummary };
   editorMode: EditorMode;
-  focusZone: string;
+  focusZone?: string;
   folderTree: FolderTree;
   layout: DocumentDetailLayout;
   status: DocumentDetailStatus;

@@ -12,10 +12,12 @@ import {
 export type WorkbenchShortcutHandlers = {
   activeFinderState: NoteFinderState;
   closeTransientLayer: () => boolean;
+  focusPaneAtIndex: (paneIndex: number) => boolean;
   focusTabAtIndex: (tabIndex: number) => boolean;
   handleCreateNote: () => void;
   noteDirty: boolean;
   openPalette: () => void;
+  paneCount: number;
   refreshWorkspace: () => void;
   runAction: (actionId: ElectronActionId) => void;
   selectedFolderId: string | null;
@@ -26,10 +28,12 @@ export type WorkbenchShortcutHandlers = {
 export function useWorkbenchShortcuts({
   activeFinderState,
   closeTransientLayer,
+  focusPaneAtIndex,
   focusTabAtIndex,
   handleCreateNote,
   noteDirty,
   openPalette,
+  paneCount,
   refreshWorkspace,
   runAction,
   selectedFolderId,
@@ -51,8 +55,16 @@ export function useWorkbenchShortcuts({
     }
 
     if (isPrimaryModifier && !event.altKey && !event.shiftKey && /^[1-9]$/.test(event.key)) {
-      const targetIndex = event.key === '9' ? -1 : Number(event.key) - 1;
-      if (focusTabAtIndex(targetIndex)) {
+      if (paneCount > 1) {
+        const targetPaneIndex = Number(event.key) - 1;
+        if (targetPaneIndex < 2 && focusPaneAtIndex(targetPaneIndex)) {
+          event.preventDefault();
+        }
+        return;
+      }
+
+      const targetTabIndex = event.key === '9' ? -1 : Number(event.key) - 1;
+      if (focusTabAtIndex(targetTabIndex)) {
         event.preventDefault();
       }
       return;
@@ -144,18 +156,6 @@ export function useWorkbenchShortcuts({
       return;
     }
 
-    if (event.altKey && event.key === ']') {
-      event.preventDefault();
-      runAction('focus-next-pane');
-      return;
-    }
-
-    if (event.altKey && event.key === '[') {
-      event.preventDefault();
-      runAction('focus-previous-pane');
-      return;
-    }
-
     if (isPrimaryModifier && event.shiftKey && !event.altKey && event.key.toLowerCase() === 'e') {
       event.preventDefault();
       runAction('focus-navigator');
@@ -223,10 +223,12 @@ export function useWorkbenchShortcuts({
   }, [
     activeFinderState,
     closeTransientLayer,
+    focusPaneAtIndex,
     focusTabAtIndex,
     handleCreateNote,
     noteDirty,
     openPalette,
+    paneCount,
     refreshWorkspace,
     runAction,
     selectedFolderId,

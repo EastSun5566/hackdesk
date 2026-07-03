@@ -464,6 +464,19 @@ export function Home() {
     visibleEntries,
   });
 
+  const notePanes = noteWorkspace.state.panes;
+  const focusNotePane = noteWorkspace.focusPane;
+  const focusPaneAtIndex = useCallback((paneIndex: number) => {
+    const pane = notePanes[paneIndex];
+    if (!pane) {
+      return false;
+    }
+
+    focusNotePane(pane.paneId);
+    focusZone('editor');
+    return true;
+  }, [focusNotePane, focusZone, notePanes]);
+
   const actionHandlers = useWorkbenchActionHandlers({
     activePaneId: noteWorkspace.state.activePaneId,
     activeTab,
@@ -558,10 +571,12 @@ export function Home() {
   useWorkbenchShortcuts({
     activeFinderState,
     closeTransientLayer,
+    focusPaneAtIndex,
     focusTabAtIndex,
     handleCreateNote: folderCommands.handleCreateNote,
     noteDirty,
     openPalette,
+    paneCount: noteWorkspace.state.panes.length,
     refreshWorkspace,
     runAction,
     selectedFolderId,

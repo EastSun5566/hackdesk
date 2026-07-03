@@ -9,10 +9,12 @@ function createHandlers(overrides: Partial<WorkbenchShortcutHandlers> = {}): Wor
   return {
     activeFinderState: DEFAULT_NOTE_FINDER_STATE,
     closeTransientLayer: vi.fn(() => false),
+    focusPaneAtIndex: vi.fn(() => true),
     focusTabAtIndex: vi.fn(() => true),
     handleCreateNote: vi.fn(),
     noteDirty: true,
     openPalette: vi.fn(),
+    paneCount: 1,
     refreshWorkspace: vi.fn(),
     runAction: vi.fn(),
     selectedFolderId: null,
@@ -87,6 +89,71 @@ describe('useWorkbenchShortcuts', () => {
     expect(handlers.runAction).toHaveBeenNthCalledWith(2, 'navigate-forward');
   });
 
+  it('leaves primary modifier plus Option brackets for editor folding', () => {
+    const handlers = createHandlers();
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    const foldEvent = new KeyboardEvent('keydown', {
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+      key: '[',
+      metaKey: true,
+    });
+    const unfoldEvent = new KeyboardEvent('keydown', {
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+      key: ']',
+      metaKey: true,
+    });
+    window.dispatchEvent(foldEvent);
+    window.dispatchEvent(unfoldEvent);
+
+    expect(foldEvent.defaultPrevented).toBe(false);
+    expect(unfoldEvent.defaultPrevented).toBe(false);
+    expect(handlers.runAction).not.toHaveBeenCalled();
+  });
+
+  it('leaves bare Option brackets available for text input', () => {
+    const handlers = createHandlers();
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    const optionNextEvent = new KeyboardEvent('keydown', {
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+      key: ']',
+    });
+    const optionPreviousEvent = new KeyboardEvent('keydown', {
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+      key: '[',
+    });
+    window.dispatchEvent(optionNextEvent);
+    window.dispatchEvent(optionPreviousEvent);
+
+    expect(optionNextEvent.defaultPrevented).toBe(false);
+    expect(optionPreviousEvent.defaultPrevented).toBe(false);
+    expect(handlers.runAction).not.toHaveBeenCalled();
+  });
+
+  it('keeps tab switching shortcuts separate from pane switching', () => {
+    const handlers = createHandlers();
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    fireEvent.keyDown(window, { key: 'ArrowRight', altKey: true, metaKey: true });
+    fireEvent.keyDown(window, { key: 'ArrowLeft', altKey: true, metaKey: true });
+    fireEvent.keyDown(window, { key: 'Tab', ctrlKey: true });
+    fireEvent.keyDown(window, { key: 'Tab', ctrlKey: true, shiftKey: true });
+
+    expect(handlers.runAction).toHaveBeenNthCalledWith(1, 'focus-next-tab');
+    expect(handlers.runAction).toHaveBeenNthCalledWith(2, 'focus-previous-tab');
+    expect(handlers.runAction).toHaveBeenNthCalledWith(3, 'focus-next-tab');
+    expect(handlers.runAction).toHaveBeenNthCalledWith(4, 'focus-previous-tab');
+  });
+
   it('maps Cmd+9 to the last tab and Cmd+1 to the first tab', () => {
     const handlers = createHandlers();
 
@@ -96,6 +163,47 @@ describe('useWorkbenchShortcuts', () => {
 
     expect(handlers.focusTabAtIndex).toHaveBeenNthCalledWith(1, 0);
     expect(handlers.focusTabAtIndex).toHaveBeenNthCalledWith(2, -1);
+  });
+
+  it('uses Cmd+1 and Cmd+2 to focus panes when split panes are visible', () => {
+    const handlers = createHandlers({ paneCount: 2 });
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    fireEvent.keyDown(window, { key: '1', metaKey: true });
+    fireEvent.keyDown(window, { key: '2', metaKey: true });
+    fireEvent.keyDown(window, { key: '1', ctrlKey: true });
+    fireEvent.keyDown(window, { key: '2', ctrlKey: true });
+
+    expect(handlers.focusPaneAtIndex).toHaveBeenNthCalledWith(1, 0);
+    expect(handlers.focusPaneAtIndex).toHaveBeenNthCalledWith(2, 1);
+    expect(handlers.focusPaneAtIndex).toHaveBeenNthCalledWith(3, 0);
+    expect(handlers.focusPaneAtIndex).toHaveBeenNthCalledWith(4, 1);
+    expect(handlers.focusTabAtIndex).not.toHaveBeenCalled();
+  });
+
+  it('does not intercept Cmd+3 through Cmd+9 when split panes are visible', () => {
+    const handlers = createHandlers({ paneCount: 2 });
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    const cmdThreeEvent = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: '3',
+      metaKey: true,
+    });
+    const cmdNineEvent = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: '9',
+      metaKey: true,
+    });
+    window.dispatchEvent(cmdThreeEvent);
+    window.dispatchEvent(cmdNineEvent);
+
+    expect(cmdThreeEvent.defaultPrevented).toBe(false);
+    expect(cmdNineEvent.defaultPrevented).toBe(false);
+    expect(handlers.focusPaneAtIndex).not.toHaveBeenCalled();
+    expect(handlers.focusTabAtIndex).not.toHaveBeenCalled();
   });
 
   it('creates notes with Cmd+N but leaves Ctrl+N for editor navigation conventions', () => {

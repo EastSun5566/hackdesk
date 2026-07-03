@@ -155,7 +155,7 @@ export function DocumentWorkspace({
                     syncState: view.syncState,
                   }}
                   layout={{
-                    focusZone: isActivePane ? 'editor' : undefined,
+                    focusZone: isActivePane ? 'editor' : null,
                     inspectorPanelId: `note-inspector-panel-${pane.paneId}`,
                     focusRequestId: isActivePane ? editorFocusRequestId : 0,
                     searchRequestId: isActivePane ? editorSearchRequestId : 0,

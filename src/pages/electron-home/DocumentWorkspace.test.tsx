@@ -13,6 +13,7 @@ vi.mock('./DocumentDetail', () => ({
       data-testid={`document-detail-${documentState.title}`}
       data-attach-request={layout.attachImageRequestId}
       data-focus-request={layout.focusRequestId}
+      data-focus-zone={layout.focusZone ?? undefined}
       data-inspector-collapsed={String(layout.inspectorCollapsed)}
       data-search-request={layout.searchRequestId}
       data-share-open={String(layout.shareOpen)}
@@ -109,6 +110,8 @@ describe('DocumentWorkspace', () => {
     expect(inactivePane).not.toHaveAttribute('aria-current');
     expect(activePane).toHaveAttribute('data-active-pane', 'true');
     expect(activePane).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByTestId('document-detail-Left note')).not.toHaveAttribute('data-focus-zone');
+    expect(screen.getByTestId('document-detail-Right note')).toHaveAttribute('data-focus-zone', 'editor');
     expect(activePane).toHaveClass('before:bg-primary-default');
   });
 

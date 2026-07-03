@@ -341,7 +341,6 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['pane', 'next'],
     category: 'navigation',
     scope: 'editor',
-    shortcut: '⌥]',
     getDisabledReason: (context) => context.paneCount > 1 ? null : 'Split the editor before switching panes.',
   },
   {
@@ -351,7 +350,6 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['pane', 'previous'],
     category: 'navigation',
     scope: 'editor',
-    shortcut: '⌥[',
     getDisabledReason: (context) => context.paneCount > 1 ? null : 'Split the editor before switching panes.',
   },
   {

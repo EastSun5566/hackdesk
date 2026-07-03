@@ -130,6 +130,10 @@ describe('electron action registry', () => {
       shortcut: '⌥⌘←',
       menuAccelerator: 'CmdOrCtrl+Alt+Left',
     });
+    expect(getElectronAction('focus-next-pane').shortcut).toBeUndefined();
+    expect(getElectronAction('focus-next-pane').menuAccelerator).toBeUndefined();
+    expect(getElectronAction('focus-previous-pane').shortcut).toBeUndefined();
+    expect(getElectronAction('focus-previous-pane').menuAccelerator).toBeUndefined();
     expect(getElectronAction('focus-navigator')).toMatchObject({
       shortcut: '⇧⌘E',
       menuAccelerator: 'Shift+CmdOrCtrl+E',
