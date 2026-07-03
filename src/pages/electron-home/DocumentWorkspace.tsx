@@ -123,6 +123,7 @@ export function DocumentWorkspace({
             {index > 0 ? (
               <Separator
                 id={`document-pane-separator-${pane.paneId}`}
+                aria-label={`Resize document panes between pane ${index} and pane ${index + 1}`}
                 className="relative w-2 cursor-col-resize bg-background-muted outline-none before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-border-default/60 hover:before:bg-primary-default focus-visible:before:bg-primary-default"
               />
             ) : null}
@@ -133,9 +134,12 @@ export function DocumentWorkspace({
               className="min-w-0 overflow-hidden"
             >
               <section
+                aria-current={isActivePane ? 'true' : undefined}
+                aria-label={isActivePane ? `Active document pane ${index + 1}` : `Document pane ${index + 1}`}
+                data-active-pane={isActivePane ? 'true' : 'false'}
                 className={cn(
-                  'flex h-full min-w-0 flex-col border-l border-border-default bg-background-default',
-                  isActivePane && 'bg-background-default',
+                  'relative flex h-full min-w-0 flex-col border-l border-border-default bg-background-default before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:z-10 before:h-0.5 before:bg-transparent before:content-[""]',
+                  isActivePane && 'before:bg-primary-default',
                 )}
                 onFocusCapture={() => onFocusPane(pane.paneId)}
               >
