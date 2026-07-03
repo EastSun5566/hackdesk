@@ -220,6 +220,17 @@ describe('DocumentDetail', () => {
     const savingBadge = screen.getByRole('status', { name: 'Sync state: Saving…' });
     expect(savingBadge.querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
     expect(screen.getByRole('button', { name: 'Save' }).querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
+
+    cleanup();
+
+    renderDocumentDetail({
+      documentState: {
+        content: 'Changed content',
+        syncState: 'save_failed',
+      },
+    });
+
+    expect(screen.getByRole('status', { name: 'Sync state: Save failed' })).toBeVisible();
   });
 
   it('does not auto-save local dirty documents', () => {

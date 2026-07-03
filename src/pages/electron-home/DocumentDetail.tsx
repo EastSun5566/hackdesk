@@ -127,6 +127,10 @@ function getEffectiveSyncState({
     return 'saving';
   }
 
+  if (syncState === 'save_failed' || syncState === 'conflict') {
+    return syncState;
+  }
+
   if (noteDirty) {
     return 'idle';
   }

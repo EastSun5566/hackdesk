@@ -37,6 +37,7 @@ import { ELECTRON_CHANNELS } from '../shared/channels';
 
 const api: HackDeskElectronAPI = {
   getRuntimeEnvironment: () => 'electron',
+  platform: process.platform,
   settings: {
     get: () => ipcRenderer.invoke(ELECTRON_CHANNELS.settingsGet),
     update: (settings: ElectronSettingsUpdate) => ipcRenderer.invoke(ELECTRON_CHANNELS.settingsUpdate, settings),

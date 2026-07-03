@@ -293,6 +293,7 @@ export type ThemeSurfaceInput = {
 
 export type HackDeskElectronAPI = {
   getRuntimeEnvironment: () => RuntimeEnvironment;
+  platform: string;
   settings: {
     get: () => Promise<ElectronSafeSettings>;
     update: (settings: ElectronSettingsUpdate) => Promise<ElectronSafeSettings>;

@@ -52,6 +52,7 @@ function renderTopBar(overrides: Partial<Parameters<typeof AppTopBar>[0]> = {}) 
       canReopenLastClosedTab: true,
       canSplit: true,
     },
+    platform: 'darwin',
     navigatorCollapsed: false,
     navigatorPanelId: 'note-navigator-panel',
     railCollapsed: false,
@@ -83,7 +84,9 @@ describe('AppTopBar', () => {
     const backButton = screen.getByRole('button', { name: 'Back' });
     const forwardButton = screen.getByRole('button', { name: 'Forward' });
     const firstTab = screen.getByRole('button', { name: 'Select Product Plan tab' });
+    const applicationControls = screen.getByRole('toolbar', { name: 'Application controls' });
 
+    expect(within(applicationControls).getByRole('separator')).toBeInTheDocument();
     expect(sidebarToggle).toHaveClass('app-region-no-drag');
     expect(sidebarToggle).toHaveAttribute('aria-controls', 'workspace-rail-panel');
     expect(sidebarToggle).toHaveAttribute('aria-expanded', 'true');
@@ -96,7 +99,16 @@ describe('AppTopBar', () => {
     expect(screen.getByRole('button', { name: 'Close Design Spec' })).toHaveClass('app-region-no-drag');
     expect(screen.getByRole('button', { name: 'Pane actions' })).toHaveClass('app-region-no-drag');
     expect(firstTab.closest('.app-topbar')).toHaveClass('h-10');
+    expect(firstTab.closest('.app-topbar')).toHaveClass('pl-[86px]');
     expect(screen.getByRole('button', { name: 'Select Design Spec tab' })).toBeInTheDocument();
+  });
+
+  it('only reserves traffic-light space on macOS', () => {
+    renderTopBar({ platform: 'win32' });
+
+    const header = screen.getByRole('banner');
+    expect(header).toHaveClass('pl-2');
+    expect(header).not.toHaveClass('pl-[86px]');
   });
 
   it('keeps titlebar regions in visual keyboard order', () => {
@@ -187,13 +199,14 @@ describe('AppTopBar', () => {
     expect(props.onCloseTab).toHaveBeenCalledWith('tab-2');
   });
 
-  it('shows a compact placeholder when no tabs are open', () => {
+  it('keeps the document navigation quiet when no tabs are open', () => {
     renderTopBar({
       activeTab: null,
       tabs: [],
     });
 
-    expect(screen.getByText('No tabs')).toBeInTheDocument();
+    const openDocuments = screen.getByRole('navigation', { name: 'Open documents' });
+    expect(openDocuments).toBeEmptyDOMElement();
   });
 
   it('runs pane actions from the titlebar menu', async () => {

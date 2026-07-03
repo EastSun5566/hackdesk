@@ -54,6 +54,7 @@ function createApi(overrides: {
 } = {}): HackDeskElectronAPI {
   return {
     getRuntimeEnvironment: () => 'electron',
+    platform: 'darwin',
     settings: {
       get: vi.fn(),
       update: overrides.settingsUpdate ?? vi.fn(async (input) => safeSettings(input.localVault ? { localVault: input.localVault } : undefined)),

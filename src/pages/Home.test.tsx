@@ -140,7 +140,7 @@ async function expandInspectorSection(name: string) {
 
 async function openDocumentActions() {
   fireEvent.pointerDown(screen.getAllByRole('button', { name: 'More actions' })[0]);
-  await screen.findByRole('menuitem', { name: 'HackMD' });
+  await screen.findByRole('menuitem', { name: 'Open in HackMD' });
 }
 
 async function openNavigatorActions() {
@@ -200,6 +200,7 @@ function createSafeSettings(overrides: Partial<ElectronSafeSettings> = {}): Elec
 function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectronAPI {
   const base: HackDeskElectronAPI = {
     getRuntimeEnvironment: () => 'electron',
+    platform: 'darwin',
     settings: {
       get: vi.fn(async () => createSafeSettings()),
       update: vi.fn(async (input) => createSafeSettings(input)),
@@ -458,7 +459,7 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(getCurrentUser).toHaveBeenCalledOnce());
     await waitFor(() => expect(listTeams).toHaveBeenCalledOnce());
     expect(await screen.findByText('Michael')).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: team.name })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: `${team.name}, private` })).toBeInTheDocument();
     expect(listNotes).not.toHaveBeenCalled();
     expect(listFolders).not.toHaveBeenCalled();
     expect(getFolderOrder).not.toHaveBeenCalled();
@@ -834,7 +835,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    expect(await screen.findByRole('button', { name: team.name })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: `${team.name}, private` })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: note.title })).toBeInTheDocument();
     await findRenderedNoteTitle();
     await confirmDisconnectHackmd();
@@ -847,7 +848,7 @@ describe('Home native-feel behavior', () => {
     expect(screen.queryByRole('heading', { name: 'Connect HackMD' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Open settings for Michael' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open settings' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: team.name })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: `${team.name}, private` })).not.toBeInTheDocument();
     expect(screen.queryByText('TEAMS')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: note.title })).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue(note.title)).not.toBeInTheDocument();
@@ -946,7 +947,7 @@ describe('Home native-feel behavior', () => {
     })));
     expect(await screen.findByRole('heading', { name: 'Connect HackMD' })).toBeInTheDocument();
     expect(screen.queryByText('Michael')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: team.name })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: `${team.name}, private` })).not.toBeInTheDocument();
   });
 
   it('confirms the native close request when the current note is clean', async () => {
@@ -2640,7 +2641,7 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
     await findRenderedNoteTitle();
     await openDocumentActions();
-    fireEvent.click(screen.getByText('Share'));
+    fireEvent.click(screen.getByText('Share…'));
 
     const dialog = await screen.findByRole('dialog', { name: 'Share Note' });
     const copyButtons = within(dialog).getAllByRole('button', { name: 'Copy' });
@@ -2664,7 +2665,7 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
     await findRenderedNoteTitle();
     await openDocumentActions();
-    fireEvent.click(screen.getByText('Share'));
+    fireEvent.click(screen.getByText('Share…'));
 
     const dialog = await screen.findByRole('dialog', { name: 'Share Note' });
     await selectOption('Read Access', 'Signed-in users', dialog, 'first');
@@ -2852,7 +2853,7 @@ describe('Home native-feel behavior', () => {
     });
 
     expect(within(row).getByRole('button', { name: 'Drag Second note' })).toBeInTheDocument();
-    fireEvent.click(row);
+    fireEvent.click(within(row).getByRole('button', { name: 'Second note' }));
 
     expect(await screen.findByDisplayValue('Second note')).toBeInTheDocument();
   });
@@ -3334,7 +3335,7 @@ describe('Home native-feel behavior', () => {
     });
 
     const { container } = renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace' }, { timeout: 5_000 }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace, private' }, { timeout: 5_000 }));
     fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
     const row = await waitFor(() => {
       const noteRow = container.querySelector('[data-note-id="note-1"]');
@@ -3387,7 +3388,7 @@ describe('Home native-feel behavior', () => {
     });
 
     const { container } = renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace' }, { timeout: 5_000 }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace, private' }, { timeout: 5_000 }));
     fireEvent.click(await screen.findByRole('button', { name: 'Root' }));
     const row = await waitFor(() => {
       const noteRow = container.querySelector('[data-note-id="note-1"]');
@@ -3449,7 +3450,7 @@ describe('Home native-feel behavior', () => {
     });
 
     const { container } = renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace' }, { timeout: 5_000 }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace, private' }, { timeout: 5_000 }));
     const row = await waitFor(() => {
       const noteRow = container.querySelector('[data-note-id="note-1"]');
       expect(noteRow).toBeTruthy();
@@ -3512,7 +3513,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace' }, { timeout: 5_000 }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace, private' }, { timeout: 5_000 }));
     act(() => {
       commandHandler?.({ type: 'import-markdown-note' });
     });

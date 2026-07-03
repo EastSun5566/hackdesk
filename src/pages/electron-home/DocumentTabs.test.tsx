@@ -20,7 +20,7 @@ function tab(overrides: Partial<OpenNoteTab> = {}): OpenNoteTab {
   };
 }
 
-function renderDocumentTabs(overrides: Partial<Parameters<typeof DocumentTabs>[0]> = {}) {
+function createDocumentTabsProps(overrides: Partial<Parameters<typeof DocumentTabs>[0]> = {}) {
   const firstTab = tab();
   const props: Parameters<typeof DocumentTabs>[0] = {
     activeTab: firstTab,
@@ -46,6 +46,12 @@ function renderDocumentTabs(overrides: Partial<Parameters<typeof DocumentTabs>[0
     ],
     ...overrides,
   };
+
+  return props;
+}
+
+function renderDocumentTabs(overrides: Partial<Parameters<typeof DocumentTabs>[0]> = {}) {
+  const props = createDocumentTabsProps(overrides);
 
   render(
     <TooltipProvider delayDuration={0}>
@@ -82,14 +88,14 @@ describe('DocumentTabs', () => {
     expect(currentTabs[0]).toHaveAccessibleName('Select Daily Notes tab');
   });
 
-  it('shows a quiet empty state without creating fake document tabs', () => {
+  it('keeps empty document navigation named without visible placeholder copy', () => {
     renderDocumentTabs({
       activeTab: null,
       tabs: [],
     });
 
     const openDocuments = screen.getByRole('navigation', { name: 'Open documents' });
-    expect(within(openDocuments).getByText('No tabs')).toBeInTheDocument();
+    expect(openDocuments).toBeEmptyDOMElement();
     expect(within(openDocuments).queryByRole('list')).not.toBeInTheDocument();
     expect(within(openDocuments).queryByRole('button', { name: /Select .* tab/ })).not.toBeInTheDocument();
   });
@@ -155,6 +161,49 @@ describe('DocumentTabs', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Close Project Plan' }));
     expect(props.onCloseTab).toHaveBeenCalledWith('tab-2');
+  });
+
+  it('keeps the selected tab close action visible with a minimum-size target', () => {
+    renderDocumentTabs();
+
+    const selectedClose = screen.getByRole('button', { name: 'Close Daily Notes' });
+    const inactiveClose = screen.getByRole('button', { name: 'Close Project Plan' });
+
+    expect(selectedClose).toHaveClass('size-6', 'opacity-100');
+    expect(inactiveClose).toHaveClass('size-6', 'opacity-0');
+  });
+
+  it('scrolls the active tab into view when selection changes', () => {
+    const scrollIntoView = vi.fn();
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+
+    try {
+      const props = createDocumentTabsProps();
+      const secondTab = props.tabs[1]!;
+
+      const { rerender } = render(
+        <TooltipProvider delayDuration={0}>
+          <DocumentTabs {...props} />
+        </TooltipProvider>,
+      );
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest' });
+
+      rerender(
+        <TooltipProvider delayDuration={0}>
+          <DocumentTabs {...props} activeTab={secondTab} />
+        </TooltipProvider>,
+      );
+
+      expect(scrollIntoView).toHaveBeenCalledTimes(2);
+    } finally {
+      if (originalScrollIntoView) {
+        HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+      }
+    }
   });
 
   it('returns focus to pane actions after Escape closes the menu', async () => {

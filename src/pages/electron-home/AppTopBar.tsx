@@ -1,7 +1,8 @@
 import { ArrowLeft, ArrowRight, FolderTree, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { Toolbar } from '@/components/ui/toolbar';
+import { Toolbar, ToolbarSeparator } from '@/components/ui/toolbar';
+import { cn } from '@/lib/utils';
 import { ToolbarIconButton } from './interaction-primitives';
 import { DocumentTabs } from './DocumentTabs';
 import type { DocumentSyncState } from './DocumentDetail';
@@ -55,6 +56,7 @@ export function AppTopBar({
   onSelectTab,
   onSplitPane,
   paneActions,
+  platform,
   navigatorCollapsed,
   navigatorPanelId,
   railCollapsed,
@@ -83,6 +85,7 @@ export function AppTopBar({
     canReopenLastClosedTab: boolean;
     canSplit: boolean;
   };
+  platform: string;
   navigatorCollapsed: boolean;
   navigatorPanelId: string;
   railCollapsed: boolean;
@@ -92,7 +95,10 @@ export function AppTopBar({
   onToggleRail: () => void;
 }) {
   return (
-    <header className="app-topbar flex h-10 shrink-0 items-center gap-2 border-b border-border-default bg-background-default pl-[86px] pr-2">
+    <header className={cn(
+      'app-topbar flex h-10 shrink-0 items-center gap-2 border-b border-border-default bg-background-default pr-2',
+      platform === 'darwin' ? 'pl-[86px]' : 'pl-2',
+    )}>
       <Toolbar aria-label="Application controls" className="shrink-0">
         <TopBarIconButton
           actionId="toggle-workspace-rail"
@@ -112,6 +118,7 @@ export function AppTopBar({
         >
           <FolderTree aria-hidden="true" className="h-[18px] w-[18px]" />
         </TopBarIconButton>
+        <ToolbarSeparator />
         <TopBarIconButton
           actionId="navigate-back"
           disabled={!navigation.canGoBack}

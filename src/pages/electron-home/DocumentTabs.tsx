@@ -1,4 +1,5 @@
 import { ArrowLeftRight, Columns2, FileText, MoreHorizontal, X } from 'lucide-react';
+import { useEffect, useRef, type Ref } from 'react';
 
 import { Toolbar } from '@/components/ui/toolbar';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -45,12 +46,14 @@ function DocumentTab({
   tab,
   selected,
   syncState,
+  tabRef,
   onSelect,
   onClose,
 }: {
   tab: OpenNoteTab;
   selected: boolean;
   syncState: DocumentSyncState;
+  tabRef?: Ref<HTMLLIElement>;
   onSelect: () => void;
   onClose: () => void;
 }) {
@@ -58,6 +61,7 @@ function DocumentTab({
 
   return (
     <li
+      ref={tabRef}
       className={cn(
         'group/tab app-region-no-drag flex h-8 min-w-0 max-w-56 items-center gap-2 rounded-[6px] border px-2 text-sm transition-[background-color,border-color,color] duration-150 motion-reduce:transition-none',
         selected
@@ -78,7 +82,10 @@ function DocumentTab({
       </button>
       <button
         type="button"
-        className="app-region-no-drag grid h-5 w-5 shrink-0 place-items-center rounded-[4px] text-text-subtle opacity-0 transition-[opacity,color,background-color] duration-150 hover:bg-background-selected hover:text-text-default focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring group-hover/tab:opacity-100 motion-reduce:transition-none"
+        className={cn(
+          'app-region-no-drag grid size-6 shrink-0 place-items-center rounded-[4px] text-text-subtle transition-[opacity,color,background-color] duration-150 hover:bg-background-selected hover:text-text-default focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring group-hover/tab:opacity-100 motion-reduce:transition-none',
+          selected ? 'opacity-100' : 'opacity-0',
+        )}
         onClick={(event) => {
           event.stopPropagation();
           onClose();
@@ -122,8 +129,16 @@ export function DocumentTabs({
   onSplitPane: () => void;
   tabs: OpenNoteTab[];
 }) {
+  const activeTabRef = useRef<HTMLLIElement>(null);
   const activeTabIndex = activeTab ? tabs.findIndex((tab) => tab.tabId === activeTab.tabId) : -1;
   const hasTabsToRight = activeTabIndex >= 0 && activeTabIndex < tabs.length - 1;
+
+  useEffect(() => {
+    activeTabRef.current?.scrollIntoView?.({
+      block: 'nearest',
+      inline: 'nearest',
+    });
+  }, [activeTab?.tabId]);
 
   return (
     <div className={cn('flex min-w-0 flex-1 items-center gap-2', className)}>
@@ -132,21 +147,20 @@ export function DocumentTabs({
         className="flex h-full min-w-0 flex-1 items-center overflow-x-auto overscroll-x-contain px-1 py-1 scrollbar-gutter-stable"
       >
         {tabs.length > 0 ? (
-          <ul className="m-0 flex min-w-0 list-none items-center gap-1 p-0" role="list">
+          <ul className="m-0 flex min-w-0 list-none items-center gap-1 p-0">
             {tabs.map((tab) => (
               <DocumentTab
                 key={tab.tabId}
                 tab={tab}
                 selected={activeTab?.tabId === tab.tabId}
                 syncState={getTabSyncState(tab)}
+                tabRef={activeTab?.tabId === tab.tabId ? activeTabRef : undefined}
                 onSelect={() => onSelectTab(tab.tabId)}
                 onClose={() => onCloseTab(tab.tabId)}
               />
             ))}
           </ul>
-        ) : (
-          <span className="px-2 text-sm text-text-subtle">No tabs</span>
-        )}
+        ) : null}
       </nav>
       <Toolbar aria-label="Pane controls">
         <DropdownMenu>

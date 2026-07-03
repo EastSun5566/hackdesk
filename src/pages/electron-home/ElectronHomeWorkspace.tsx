@@ -110,6 +110,7 @@ export function ElectronHomeWorkspace({
           canReopenLastClosedTab: titlebar.state.recentlyClosedTabs.length > 0,
           canSplit: titlebar.state.panes.length < 2,
         }}
+        platform={window.hackdeskAPI?.platform ?? 'unknown'}
         navigatorCollapsed={titlebar.layout.navigatorCollapsed}
         navigatorPanelId={NOTE_NAVIGATOR_PANEL_ID}
         railCollapsed={titlebar.layout.railCollapsed}
