@@ -2644,8 +2644,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(screen.getByText('Share…'));
 
     const dialog = await screen.findByRole('dialog', { name: 'Share Note' });
-    const copyButtons = within(dialog).getAllByRole('button', { name: 'Copy' });
-    fireEvent.click(copyButtons[1]);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Copy Markdown link' }));
 
     await waitFor(() => expect(api.app.writeClipboardText).toHaveBeenCalledWith('[Test note](https://hackmd.io/@michael/note-1)'));
   });
@@ -2670,7 +2669,7 @@ describe('Home native-feel behavior', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Share Note' });
     await selectOption('Read Access', 'Signed-in users', dialog, 'first');
     await selectOption('Write Access', 'Signed-in users', dialog, 'last');
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Save Sharing' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save Access' }));
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
       readPermission: 'signed_in',

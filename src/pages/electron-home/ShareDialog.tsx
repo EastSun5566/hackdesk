@@ -75,7 +75,7 @@ type ShareDialogProps = {
 };
 
 export function ShareDialog(props: ShareDialogProps) {
-  return <ShareDialogContent key={props.document.id} {...props} />;
+  return <ShareDialogContent {...props} key={props.document.id} />;
 }
 
 function ShareDialogContent({
@@ -123,26 +123,28 @@ function ShareDialogContent({
             <Share2 aria-hidden="true" className="h-4 w-4 text-text-subtle" />
             Share Note
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="sr-only">
             Copy links and adjust who can read or edit this HackMD note.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <section className="space-y-3">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-text-default" htmlFor="share-hackmd-link">
-                HackMD Link
-              </label>
-              <div className="flex gap-2">
+          <section aria-labelledby="share-links-heading" className="space-y-2">
+            <h3 id="share-links-heading" className="text-sm font-semibold text-text-default">Links</h3>
+            <div className="divide-y divide-border-default overflow-hidden rounded-md border border-border-default">
+              <div className="grid gap-2 px-3 py-2.5 sm:grid-cols-[7rem_minmax(0,1fr)_auto] sm:items-center">
+                <label className="text-sm font-medium text-text-default" htmlFor="share-hackmd-link">
+                  HackMD link
+                </label>
                 <input
                   id="share-hackmd-link"
                   readOnly
                   value={hackmdLink}
-                  className={cn(TEXT_INPUT_CLASS, 'bg-background-muted')}
+                  className={cn(TEXT_INPUT_CLASS, 'min-w-0 bg-background-muted sm:h-9')}
                 />
                 <button
                   type="button"
+                  aria-label="Copy HackMD link"
                   onClick={() => onCopyLink(document)}
                   className={SECONDARY_BUTTON_CLASS}
                 >
@@ -150,21 +152,20 @@ function ShareDialogContent({
                   Copy
                 </button>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-text-default" htmlFor="share-markdown-link">
-                Markdown Link
-              </label>
-              <div className="flex gap-2">
+              <div className="grid gap-2 px-3 py-2.5 sm:grid-cols-[7rem_minmax(0,1fr)_auto] sm:items-center">
+                <label className="text-sm font-medium text-text-default" htmlFor="share-markdown-link">
+                  Markdown link
+                </label>
                 <input
                   id="share-markdown-link"
                   readOnly
                   value={markdownLink}
-                  className={cn(TEXT_INPUT_CLASS, 'bg-background-muted')}
+                  className={cn(TEXT_INPUT_CLASS, 'min-w-0 bg-background-muted sm:h-9')}
                 />
                 <button
                   type="button"
+                  aria-label="Copy Markdown link"
                   onClick={() => onCopyMarkdownLink(document)}
                   className={SECONDARY_BUTTON_CLASS}
                 >
@@ -184,7 +185,12 @@ function ShareDialogContent({
             </button>
           </section>
 
-          <form onSubmit={handleSubmit} className="space-y-3 border-t border-border-default pt-4">
+          <form
+            aria-labelledby="share-access-heading"
+            onSubmit={handleSubmit}
+            className="space-y-3 border-t border-border-default pt-4"
+          >
+            <h3 id="share-access-heading" className="text-sm font-semibold text-text-default">Access</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="block space-y-2 text-sm">
                 <label className="font-medium text-text-default" htmlFor={readPermissionId}>Read Access</label>
@@ -243,19 +249,16 @@ function ShareDialogContent({
               </div>
             </div>
 
-            <p className="text-xs leading-5 text-text-subtle">
-              Current sharing: {getReadPermissionLabel(readPermission)} read, {getWritePermissionLabel(writePermission)} write.
-            </p>
-
             <div className="flex justify-end">
               <button
                 type="submit"
                 disabled={!permissionsDirty || isSaving}
-                title={!permissionsDirty ? 'No sharing changes.' : undefined}
                 className={cn(PRIMARY_BUTTON_CLASS, FOCUS_RING_CLASS)}
               >
-                {isSaving ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Save aria-hidden="true" className="h-4 w-4" />}
-                Save Sharing
+                {isSaving
+                  ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+                  : <Save aria-hidden="true" className="h-4 w-4" />}
+                {isSaving ? 'Saving…' : 'Save Access'}
               </button>
             </div>
           </form>
