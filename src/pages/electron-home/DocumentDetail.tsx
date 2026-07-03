@@ -115,13 +115,33 @@ export type DocumentDetailProps = {
 
 const SYNC_STATE_LABELS: Record<DocumentSyncState, string> = {
   idle: 'Unsaved',
-  loading: 'Loading',
+  loading: 'Loading…',
   cached: 'Cached',
-  saving: 'Saving',
+  saving: 'Saving…',
   saved: 'Saved',
   save_failed: 'Save failed',
   conflict: 'Conflict',
 };
+
+function getEffectiveSyncState({
+  noteDirty,
+  saving,
+  syncState,
+}: {
+  noteDirty: boolean;
+  saving: boolean;
+  syncState: DocumentSyncState;
+}): DocumentSyncState {
+  if (saving) {
+    return 'saving';
+  }
+
+  if (noteDirty) {
+    return 'idle';
+  }
+
+  return syncState;
+}
 
 function SyncStateBadge({
   state,
@@ -138,7 +158,7 @@ function SyncStateBadge({
     conflict: 'border-destructive-default/30 bg-destructive-soft text-destructive-default',
   }[state];
   const icon = state === 'loading' || state === 'saving'
-    ? <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />
+    ? <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin motion-reduce:animate-none" />
     : state === 'cached'
       ? <CloudOff aria-hidden="true" className="h-3 w-3" />
       : state === 'save_failed' || state === 'conflict'
@@ -147,6 +167,9 @@ function SyncStateBadge({
 
   return (
     <span
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
       className={cn('inline-flex h-7 shrink-0 items-center gap-1 rounded-[6px] border px-2 text-xs font-medium', className)}
       aria-label={`Sync state: ${SYNC_STATE_LABELS[state]}`}
     >
@@ -154,6 +177,26 @@ function SyncStateBadge({
       {SYNC_STATE_LABELS[state]}
     </span>
   );
+}
+
+function getDocumentHeaderSubtitleParts(document: DocumentSummary, isLocalDocument: boolean) {
+  const parts = [formatDate(document.updatedAtMillis)];
+
+  if (isLocalDocument) {
+    if (document.description) {
+      parts.push(document.description);
+    }
+    return parts;
+  }
+
+  parts.push(document.teamPath ? `@${document.teamPath}` : 'My Workspace');
+
+  const folderPath = getFolderPathLabel(document.folderPaths);
+  if (folderPath) {
+    parts.push(folderPath);
+  }
+
+  return parts;
 }
 
 export function DocumentDetail({
@@ -484,6 +527,17 @@ function DocumentHeader({
   status: DocumentDetailStatus;
 }) {
   const isLocalDocument = documentState.document.teamPath === LOCAL_VAULT_TEAM_PATH;
+  const effectiveSyncState = getEffectiveSyncState({
+    noteDirty,
+    saving: status.saving,
+    syncState: documentState.syncState,
+  });
+  const subtitleParts = getDocumentHeaderSubtitleParts(documentState.document, isLocalDocument);
+  const saveTooltip = status.saving
+    ? 'Saving note…'
+    : noteDirty
+      ? 'Save note'
+      : 'No unsaved note changes.';
 
   return (
     <PanelHeader
@@ -491,47 +545,36 @@ function DocumentHeader({
       titleElement="div"
       actionsLabel="Document actions"
       title={(
-        <label>
+        <label className="-mx-1.5 block min-w-0">
           <span className="sr-only">Note title</span>
           <input
             name="title"
             value={documentState.title}
             onChange={(event) => actions.onTitleChange(event.target.value)}
-            className="w-full truncate bg-transparent text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="w-full min-w-0 truncate rounded-md bg-transparent px-1.5 py-0.5 text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
           />
         </label>
       )}
       subtitle={(
         <span className="flex flex-wrap items-center gap-2">
-          <span className="tabular-nums">{formatDate(documentState.document.updatedAtMillis)}</span>
-          {isLocalDocument ? (
-            <>
-              <span>Saved locally</span>
-              <span>{documentState.document.description}</span>
-            </>
-          ) : (
-            <>
-              <span>{documentState.document.readPermission} read</span>
-              <span>{documentState.document.writePermission} write</span>
-              {documentState.document.teamPath ? <span>@{documentState.document.teamPath}</span> : null}
-              {documentState.document.folderPaths.length > 0 ? <span>{getFolderPathLabel(documentState.document.folderPaths)}</span> : null}
-            </>
-          )}
+          {subtitleParts.map((part, index) => (
+            <span key={`${part}:${index}`} className={index === 0 ? 'tabular-nums' : undefined}>{part}</span>
+          ))}
         </span>
       )}
       actions={(
         <>
-          <SyncStateBadge state={documentState.syncState} />
+          <SyncStateBadge state={effectiveSyncState} />
           <ToolbarIconButton
             actionId="save-note"
             disabled={status.saving || !noteDirty}
             title={!noteDirty ? 'No unsaved note changes.' : undefined}
             onClick={() => actions.onSave(documentState.document, { title: documentState.title, content: documentState.content })}
             label="Save"
-            tooltip={noteDirty ? 'Save note' : 'No unsaved note changes.'}
+            tooltip={saveTooltip}
             className={noteDirty ? 'bg-primary-default text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground' : undefined}
           >
-            {status.saving ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Save aria-hidden="true" className="h-4 w-4" />}
+            {status.saving ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Save aria-hidden="true" className="h-4 w-4" />}
           </ToolbarIconButton>
           {isLocalDocument ? null : (
             <ToolbarIconButton
@@ -586,14 +629,14 @@ function DocumentActionsMenu({
           <>
             <DropdownMenuItem onSelect={() => actions.onOpenEditor(documentState.document)}>
               <Edit3 aria-hidden="true" className="h-4 w-4" />
-              HackMD
+              Open in HackMD
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={(event) => {
               event.preventDefault();
               onOpenShareDialog();
             }}>
               <Share2 aria-hidden="true" className="h-4 w-4" />
-              Share
+              Share…
             </DropdownMenuItem>
           </>
         )}
@@ -604,8 +647,10 @@ function DocumentActionsMenu({
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem disabled={status.uploadingImage} onSelect={onAttachImage}>
-          {status.uploadingImage ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <ImagePlus aria-hidden="true" className="h-4 w-4" />}
-          Attach Image...
+          {status.uploadingImage
+            ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+            : <ImagePlus aria-hidden="true" className="h-4 w-4" />}
+          Attach Image…
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => actions.onExportMarkdown(documentState.document, documentState.title, documentState.content)}>
           <Download aria-hidden="true" className="h-4 w-4" />
@@ -626,7 +671,9 @@ function DocumentActionsMenu({
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem destructive disabled={status.deleting} onSelect={() => actions.onDelete(documentState.document)}>
-          {status.deleting ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Trash2 aria-hidden="true" className="h-4 w-4" />}
+          {status.deleting
+            ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+            : <Trash2 aria-hidden="true" className="h-4 w-4" />}
           {isLocalDocument ? 'Move to Trash' : 'Delete'}
         </DropdownMenuItem>
       </DropdownMenuContent>

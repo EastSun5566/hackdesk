@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -12,6 +12,7 @@ import {
 
 import { DocumentDetail, type DocumentDetailProps } from './DocumentDetail';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
+import { formatDate } from './ui';
 
 const markdownEditorInsertText = vi.hoisted(() => vi.fn());
 
@@ -187,12 +188,38 @@ describe('DocumentDetail', () => {
       },
     });
 
+    expect(screen.getByRole('status', { name: 'Sync state: Unsaved' })).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(onSave).toHaveBeenCalledWith(document, {
       content: 'Changed content',
       title: 'Changed title',
     });
+  });
+
+  it('uses precise sync badge copy with polite status semantics and reduced-motion spinners', () => {
+    renderDocumentDetail({
+      documentState: { syncState: 'loading' },
+    });
+
+    const loadingBadge = screen.getByRole('status', { name: 'Sync state: Loading…' });
+    expect(loadingBadge).toHaveAttribute('aria-live', 'polite');
+    expect(loadingBadge).toHaveAttribute('aria-atomic', 'true');
+    expect(loadingBadge.querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
+
+    cleanup();
+
+    renderDocumentDetail({
+      documentState: {
+        content: 'Changed content',
+        syncState: 'saved',
+      },
+      status: { saving: true },
+    });
+
+    const savingBadge = screen.getByRole('status', { name: 'Sync state: Saving…' });
+    expect(savingBadge.querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
+    expect(screen.getByRole('button', { name: 'Save' }).querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
   });
 
   it('does not auto-save local dirty documents', () => {
@@ -323,7 +350,49 @@ describe('DocumentDetail', () => {
 
     expect(screen.queryByRole('button', { name: 'Expand inspector' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Collapse inspector' })).not.toBeInTheDocument();
-    expect(screen.queryByText('Share')).not.toBeInTheDocument();
+    expect(screen.queryByText('Share…')).not.toBeInTheDocument();
+  });
+
+  it('keeps the remote header concise and leaves permissions to inspector surfaces', () => {
+    renderDocumentDetail({
+      documentState: {
+        document: documentSummary({
+          folderPaths: [{
+            clientId: null,
+            color: null,
+            icon: null,
+            id: 'folder-1',
+            name: 'Projects',
+            parentId: null,
+          }],
+          readPermission: 'owner',
+          teamPath: 'team-a',
+          writePermission: 'signed_in',
+        }),
+      },
+    });
+
+    expect(screen.getByText(formatDate(1_700_000_000_000))).toBeVisible();
+    expect(screen.getByText('@team-a')).toBeVisible();
+    expect(screen.getByText('Projects')).toBeVisible();
+    expect(screen.queryByText('owner read')).not.toBeInTheDocument();
+    expect(screen.queryByText('signed_in write')).not.toBeInTheDocument();
+  });
+
+  it('shows local path context without duplicating sync state in the subtitle', () => {
+    renderDocumentDetail({
+      documentState: {
+        document: documentSummary({
+          description: 'Projects/Note.md',
+          teamPath: LOCAL_VAULT_TEAM_PATH,
+        }),
+        syncState: 'saved',
+      },
+    });
+
+    expect(screen.getByText('Projects/Note.md')).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Sync state: Saved' })).toBeVisible();
+    expect(screen.queryByText('Saved locally')).not.toBeInTheDocument();
   });
 
   it('keeps a single editor surface and inspector actions wired', () => {
@@ -362,6 +431,50 @@ describe('DocumentDetail', () => {
     expectDisabledToolbarAction(saveButton, onSave);
 
     expect(await screen.findByText('No unsaved note changes.')).toBeVisible();
+  });
+
+  it('uses clear remote action menu copy and reduced-motion loading indicators', async () => {
+    renderDocumentDetail({
+      status: {
+        deleting: true,
+        uploadingImage: true,
+      },
+    });
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'More actions' }));
+
+    const menu = await screen.findByRole('menu');
+    expect(screen.getByText('Open in HackMD')).toBeVisible();
+    expect(screen.getByText('Share…')).toBeVisible();
+    expect(screen.getByText('Attach Image…')).toBeVisible();
+    expect(screen.getByText('Copy HackMD Link')).toBeVisible();
+    expect(screen.queryByText('HackMD')).not.toBeInTheDocument();
+    expect(screen.queryByText('Share')).not.toBeInTheDocument();
+    expect(menu.querySelectorAll('.animate-spin')).toHaveLength(2);
+    for (const spinner of menu.querySelectorAll('.animate-spin')) {
+      expect(spinner).toHaveClass('motion-reduce:animate-none');
+    }
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('keeps local action menu focused on file actions', async () => {
+    renderDocumentDetail({
+      documentState: {
+        document: documentSummary({
+          description: 'Projects/Note.md',
+          teamPath: LOCAL_VAULT_TEAM_PATH,
+        }),
+      },
+    });
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'More actions' }));
+
+    await screen.findByRole('menu');
+    expect(screen.getByText('Reveal in Finder')).toBeVisible();
+    expect(screen.getByText('Move to Trash')).toBeVisible();
+    expect(screen.queryByText('Open in HackMD')).not.toBeInTheDocument();
+    expect(screen.queryByText('Share…')).not.toBeInTheDocument();
+    expect(screen.queryByText('Copy HackMD Link')).not.toBeInTheDocument();
   });
 
   it('returns focus to the document actions trigger when the menu closes', async () => {
