@@ -10,35 +10,31 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-import type { DocumentSyncState } from './DocumentDetail';
 import type { OpenNoteTab } from './note-workspace';
 import { ToolbarDropdownIconTrigger } from './interaction-primitives';
+import { DOCUMENT_SYNC_STATE_LABELS, type DocumentSyncState } from './document-sync-state';
 
-function getSyncStateLabel(state: DocumentSyncState) {
-  return {
-    idle: 'Unsaved',
-    loading: 'Loading',
-    cached: 'Cached',
-    saving: 'Saving',
-    saved: 'Saved',
-    save_failed: 'Save failed',
-    conflict: 'Conflict',
-  }[state];
-}
+function TabStatusIndicator({ state }: { state: DocumentSyncState }) {
+  const label = DOCUMENT_SYNC_STATE_LABELS[state];
 
-function TabStatusDot({ state }: { state: DocumentSyncState }) {
   return (
-    <Tooltip content={getSyncStateLabel(state)}>
+    <Tooltip content={label}>
       <span
-        aria-label={getSyncStateLabel(state)}
+        aria-label={label}
+        data-sync-state={state}
         className={cn(
-          'h-2 w-2 shrink-0 rounded-full',
-          state === 'idle' && 'bg-warning-default',
-          state === 'loading' && 'bg-text-subtle',
-          state === 'cached' && 'bg-primary-default',
-          state === 'saving' && 'bg-primary-default',
-          state === 'saved' && 'bg-success-default',
-          (state === 'save_failed' || state === 'conflict') && 'bg-destructive-default',
+          'relative size-2.5 shrink-0 rounded-full border before:pointer-events-none after:pointer-events-none',
+          state === 'idle'
+          && "border-warning-default bg-warning-soft before:absolute before:left-1/2 before:top-1/2 before:size-1 before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-full before:bg-warning-default before:content-['']",
+          state === 'loading'
+          && "border-text-subtle bg-background-default before:absolute before:inset-[2px] before:rounded-full before:border before:border-text-subtle before:content-['']",
+          state === 'cached'
+          && "border-primary-default bg-primary-soft before:absolute before:left-1/2 before:top-1/2 before:h-px before:w-1.5 before:-translate-x-1/2 before:-translate-y-1/2 before:bg-primary-default before:content-['']",
+          state === 'saving'
+          && "border-primary-default bg-primary-soft before:absolute before:left-1/2 before:top-1/2 before:size-1 before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-full before:bg-primary-default before:content-[''] after:absolute after:inset-[-2px] after:rounded-full after:border after:border-primary-default/40 after:content-['']",
+          state === 'saved' && 'border-success-default bg-success-default',
+          (state === 'save_failed' || state === 'conflict')
+          && "border-destructive-default bg-destructive-soft before:absolute before:left-1/2 before:top-1/2 before:h-px before:w-1.5 before:-translate-x-1/2 before:-translate-y-1/2 before:rotate-45 before:bg-destructive-default before:content-[''] after:absolute after:left-1/2 after:top-1/2 after:h-px after:w-1.5 after:-translate-x-1/2 after:-translate-y-1/2 after:-rotate-45 after:bg-destructive-default after:content-['']",
         )}
       />
     </Tooltip>
@@ -78,7 +74,7 @@ function DocumentTab({
       >
         <FileText aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
         <span className="min-w-0 truncate">{title}</span>
-        <TabStatusDot state={syncState} />
+        <TabStatusIndicator state={syncState} />
       </button>
       <button
         type="button"

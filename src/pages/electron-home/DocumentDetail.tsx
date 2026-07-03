@@ -49,10 +49,11 @@ import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import {
   INSPECTOR_WIDTH_DEFAULT,
 } from './ui-preferences';
+import { DOCUMENT_SYNC_STATE_LABELS, type DocumentSyncState } from './document-sync-state';
 
 const NOTE_INSPECTOR_PANEL_ID = 'note-inspector-panel';
 
-export type DocumentSyncState = 'idle' | 'loading' | 'cached' | 'saving' | 'saved' | 'save_failed' | 'conflict';
+export type { DocumentSyncState } from './document-sync-state';
 
 export type DocumentDetailDocumentState = {
   content: string;
@@ -113,16 +114,6 @@ export type DocumentDetailProps = {
   status: DocumentDetailStatus;
 };
 
-const SYNC_STATE_LABELS: Record<DocumentSyncState, string> = {
-  idle: 'Unsaved',
-  loading: 'Loading…',
-  cached: 'Cached',
-  saving: 'Saving…',
-  saved: 'Saved',
-  save_failed: 'Save failed',
-  conflict: 'Conflict',
-};
-
 function getEffectiveSyncState({
   noteDirty,
   saving,
@@ -171,10 +162,10 @@ function SyncStateBadge({
       aria-live="polite"
       aria-atomic="true"
       className={cn('inline-flex h-7 shrink-0 items-center gap-1 rounded-[6px] border px-2 text-xs font-medium', className)}
-      aria-label={`Sync state: ${SYNC_STATE_LABELS[state]}`}
+      aria-label={`Sync state: ${DOCUMENT_SYNC_STATE_LABELS[state]}`}
     >
       {icon}
-      {SYNC_STATE_LABELS[state]}
+      {DOCUMENT_SYNC_STATE_LABELS[state]}
     </span>
   );
 }
