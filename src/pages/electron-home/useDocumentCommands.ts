@@ -78,7 +78,7 @@ export function useDocumentCommands({
     void api.app.saveTextFile(buildMarkdownExportInput(title, content))
       .then((filePath) => {
         if (filePath) {
-          toast.success(`Note exported to ${filePath}`);
+          toast.success('Note exported.', { description: filePath });
         }
       })
       .catch((error) => {
@@ -101,7 +101,7 @@ export function useDocumentCommands({
         .then((document) => api.app.saveTextFile(buildMarkdownExportInput(document.title, document.content)))
         .then((filePath) => {
           if (filePath) {
-            toast.success(`Note exported to ${filePath}`);
+            toast.success('Note exported.', { description: filePath });
           }
         })
         .catch((error) => {
@@ -120,7 +120,7 @@ export function useDocumentCommands({
       })
       .then((filePath) => {
         if (filePath) {
-          toast.success(`Note exported to ${filePath}`);
+          toast.success('Note exported.', { description: filePath });
         }
       })
       .catch((error) => {

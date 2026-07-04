@@ -11,9 +11,16 @@ type HackDeskToastData = {
   variant: ToastVariant;
 };
 
+const TOAST_TIMEOUT_MS: Record<ToastVariant, number> = {
+  success: 3500,
+  info: 4500,
+  error: 7000,
+};
+
 export type ToastOptions = {
   description?: React.ReactNode;
   duration?: number;
+  priority?: 'low' | 'high';
   action?: {
     label: React.ReactNode;
     onClick: () => void;
@@ -26,9 +33,9 @@ function addToast(variant: ToastVariant, title: React.ReactNode, options: ToastO
   return toastManager.add({
     title,
     description: options.description,
-    timeout: options.duration,
+    timeout: options.duration ?? TOAST_TIMEOUT_MS[variant],
     type: variant,
-    priority: variant === 'error' ? 'high' : 'low',
+    priority: options.priority ?? 'low',
     data: { variant },
     actionProps: options.action
       ? {
@@ -48,9 +55,12 @@ export const toast = {
 
 export function Toaster() {
   return (
-    <ToastPrimitive.Provider toastManager={toastManager}>
+    <ToastPrimitive.Provider toastManager={toastManager} limit={4}>
       <ToastPrimitive.Portal>
-        <ToastPrimitive.Viewport className="fixed right-4 top-[calc(env(safe-area-inset-top)+3.5rem)] z-50 flex w-[min(360px,calc(100vw-2rem))] max-w-full flex-col gap-2 outline-none">
+        <ToastPrimitive.Viewport
+          aria-label="Notifications"
+          className="fixed right-4 top-[calc(env(safe-area-inset-top)+3.5rem)] z-50 flex w-[min(360px,calc(100vw-2rem))] max-w-full flex-col gap-2 outline-none"
+        >
           <ToastList />
         </ToastPrimitive.Viewport>
       </ToastPrimitive.Portal>
@@ -75,6 +85,9 @@ function ToastList() {
           <ToastPrimitive.Root
             key={toastItem.id}
             toast={toastItem}
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
             className={cn(
               'group pointer-events-auto flex w-full items-start gap-2.5 rounded-xl border border-border-default/80 bg-background-default/95 px-3 py-2.5 text-text-default shadow-[0_18px_45px_rgba(0,0,0,0.22),0_1px_0_rgba(255,255,255,0.04)_inset] backdrop-blur data-[ending-style]:animate-out data-[starting-style]:animate-in data-[ending-style]:fade-out-0 data-[starting-style]:fade-in-0 data-[ending-style]:slide-out-to-top-1 data-[starting-style]:slide-in-from-top-1 motion-reduce:animate-none',
               ELEVATED_SURFACE_CLASS,
@@ -108,16 +121,17 @@ function ToastList() {
             </ToastPrimitive.Content>
             {toastItem.actionProps ? (
               <ToastPrimitive.Action
-                {...toastItem.actionProps}
                 className={cn(
-                  'inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-primary-default px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default',
+                  'inline-flex h-8 shrink-0 items-center justify-center rounded-md bg-primary-default px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default',
                   toastItem.actionProps.className,
                 )}
               />
             ) : null}
-            <ToastPrimitive.Close className="-mr-1 -mt-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default">
+            <ToastPrimitive.Close
+              aria-label="Close notification"
+              className="-mr-1 -mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default"
+            >
               <X className="h-3.5 w-3.5" />
-              <span className="sr-only">Close notification</span>
             </ToastPrimitive.Close>
           </ToastPrimitive.Root>
         );

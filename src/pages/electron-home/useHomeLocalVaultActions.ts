@@ -98,7 +98,7 @@ export function useHomeLocalVaultActions({
     });
     queryClient.setQueryData(['electron', 'settings'], nextSettings);
     queryClient.setQueryData(getLocalVaultSnapshotQueryKey(), null);
-    toast.success('Local vault forgotten. Your files were not deleted.');
+    toast.success('Local vault forgotten.', { description: 'Markdown files were not deleted.' });
   }, [api, queryClient]);
 
   const refreshLocalVault = useCallback(async () => {

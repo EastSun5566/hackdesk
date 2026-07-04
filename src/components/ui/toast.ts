@@ -1,1 +1,1 @@
-export { toast, type ToastOptions } from './toaster';
+export { toast, Toaster, type ToastOptions } from './toaster';

@@ -317,7 +317,7 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
 
 export function exportDebugLogs(api: HackDeskElectronAPI | undefined) {
   void api?.app.exportDebugLogs()
-    .then((path) => toast.success(`Debug logs exported to ${path}`))
+    .then((path) => toast.success('Debug logs exported.', { description: path }))
     .catch((error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to export debug logs.');
     });

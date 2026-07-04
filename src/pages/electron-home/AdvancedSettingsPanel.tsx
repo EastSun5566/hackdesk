@@ -47,9 +47,12 @@ export function AdvancedSettingsPanel({
           break;
         case 'installed':
           toast.success(
-            result.restart_required
-              ? `HackDesk v${result.version} is ready. Quit and reopen the app to finish applying the update.`
-              : `HackDesk v${result.version} installed successfully.`,
+            result.restart_required ? 'Update ready.' : 'Update installed.',
+            {
+              description: result.restart_required
+                ? `HackDesk v${result.version} is ready. Quit and reopen the app to finish applying the update.`
+                : `HackDesk v${result.version} installed successfully.`,
+            },
           );
           break;
         }

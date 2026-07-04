@@ -199,7 +199,9 @@ describe('useHomeLocalVaultActions', () => {
     expect(api.settings.update).toHaveBeenCalledWith({ localVault: { path: null } });
     expect(queryClient.getQueryData(['electron', 'settings'])).toBe(nextSettings);
     expect(queryClient.getQueryData(getLocalVaultSnapshotQueryKey())).toBeNull();
-    expect(toastSuccessMock).toHaveBeenCalledWith('Local vault forgotten. Your files were not deleted.');
+    expect(toastSuccessMock).toHaveBeenCalledWith('Local vault forgotten.', {
+      description: 'Markdown files were not deleted.',
+    });
   });
 
   it('does not forget the local vault when confirmation is canceled', async () => {
