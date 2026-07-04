@@ -12,7 +12,17 @@ type NoteMutations = ReturnType<typeof useElectronNoteMutations>;
 type WorkbenchActions = ReturnType<typeof useWorkbenchActions>;
 type CommandPaletteInjectedProps =
   | 'context'
+  | 'hasHackmdApiToken'
+  | 'hasLocalVault'
+  | 'hasCurrentNote'
+  | 'currentNoteIsRemote'
+  | 'onConnectHackmd'
+  | 'onCopyCurrentNoteLink'
+  | 'onCopyCurrentNoteMarkdownLink'
+  | 'onOpenLocalFolder'
   | 'onRunAction'
+  | 'onShareCurrentNote'
+  | 'onSwitchLocalVault'
   | 'themeMode'
   | 'themePresetId'
   | 'themePresets'
@@ -24,6 +34,7 @@ export function useHomeOverlayProps({
   api,
   commandPaletteProps,
   commandPaletteTheme,
+  commandPaletteUtilities,
   dialogState,
   displayScope,
   localVaultActions,
@@ -45,6 +56,19 @@ export function useHomeOverlayProps({
     ElectronHomeOverlaysProps['commandPalette'],
     'themeMode' | 'themePresetId' | 'themePresets' | 'onSelectThemeMode' | 'onSelectThemePreset'
   >;
+  commandPaletteUtilities: Pick<
+    ElectronHomeOverlaysProps['commandPalette'],
+    | 'hasHackmdApiToken'
+    | 'hasLocalVault'
+    | 'hasCurrentNote'
+    | 'currentNoteIsRemote'
+    | 'onConnectHackmd'
+    | 'onCopyCurrentNoteLink'
+    | 'onCopyCurrentNoteMarkdownLink'
+    | 'onOpenLocalFolder'
+    | 'onShareCurrentNote'
+    | 'onSwitchLocalVault'
+  >;
   dialogState: DialogState;
   displayScope: WorkspaceScope;
   localVaultActions: HomeLocalVaultActions;
@@ -63,6 +87,7 @@ export function useHomeOverlayProps({
     commandPalette: {
       ...commandPaletteProps,
       ...commandPaletteTheme,
+      ...commandPaletteUtilities,
       context: actionContext,
       onRunAction: runAction,
     },

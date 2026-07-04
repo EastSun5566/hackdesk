@@ -96,6 +96,12 @@ function renderPalette(overrides: Partial<CommandPaletteDialogProps> = {}) {
     context,
     folderTree: buildHackmdFolderTree(notes, [folder]),
     onRunAction: vi.fn(),
+    onConnectHackmd: vi.fn(),
+    onCopyCurrentNoteLink: vi.fn(),
+    onCopyCurrentNoteMarkdownLink: vi.fn(),
+    onOpenLocalFolder: vi.fn(),
+    onRequestDisconnectHackmd: vi.fn(),
+    onShareCurrentNote: vi.fn(),
     onSelectFolder: vi.fn(),
     onSelectNote: vi.fn(),
     onSelectRecentNote: vi.fn(),
@@ -121,6 +127,10 @@ function renderPalette(overrides: Partial<CommandPaletteDialogProps> = {}) {
     scope: { label: 'My Workspace', type: 'personal' },
     selectedFolderId: 'folder-alpha',
     selectedNoteId: 'exact',
+    currentNoteIsRemote: true,
+    hasCurrentNote: true,
+    hasHackmdApiToken: true,
+    hasLocalVault: true,
     state: { open: true, search: '' },
     teams: [team],
     themeMode: 'system',
@@ -128,6 +138,7 @@ function renderPalette(overrides: Partial<CommandPaletteDialogProps> = {}) {
     themePresets: HACKDESK_THEME_PRESETS,
     onSelectThemeMode: vi.fn(),
     onSelectThemePreset: vi.fn(),
+    onSwitchLocalVault: vi.fn(),
     ...overrides,
   };
 
@@ -153,6 +164,9 @@ describe('CommandPaletteDialog', () => {
       'Quick Actions',
     ]);
     expect(screen.queryByText('Appearance')).not.toBeInTheDocument();
+    expect(screen.queryByText('Account')).not.toBeInTheDocument();
+    expect(screen.queryByText('Current Note')).not.toBeInTheDocument();
+    expect(screen.queryByText('Local')).not.toBeInTheDocument();
     expect(screen.queryByText('Notes')).not.toBeInTheDocument();
     expect(screen.queryByText('Folders')).not.toBeInTheDocument();
     expect(screen.getAllByText('Alpha')).toHaveLength(1);
@@ -266,6 +280,119 @@ describe('CommandPaletteDialog', () => {
 
     expect(screen.getByText('Current appearance')).toBeInTheDocument();
     expect(screen.getByText('Current appearance · Already active')).toBeVisible();
+  });
+
+  it('opens onboarding from the Connect HackMD account command', () => {
+    const onConnectHackmd = vi.fn();
+    const onStateChange = vi.fn();
+    renderPalette({
+      hasHackmdApiToken: false,
+      onConnectHackmd,
+      onStateChange,
+      state: { open: true, search: 'connect' },
+    });
+
+    expect(screen.getByText('Account')).toBeVisible();
+    const command = screen.getByRole('option', { name: /Connect HackMD/ });
+
+    fireEvent.click(command);
+
+    expect(onConnectHackmd).toHaveBeenCalledOnce();
+    expect(onStateChange).toHaveBeenCalledWith({ open: false, search: '' });
+  });
+
+  it('requests confirmation from the Disconnect HackMD account command', () => {
+    const onRequestDisconnectHackmd = vi.fn();
+    const onStateChange = vi.fn();
+    renderPalette({
+      hasHackmdApiToken: true,
+      onRequestDisconnectHackmd,
+      onStateChange,
+      state: { open: true, search: 'disconnect' },
+    });
+
+    const command = screen.getByRole('option', { name: /Disconnect HackMD/ });
+
+    fireEvent.click(command);
+
+    expect(onRequestDisconnectHackmd).toHaveBeenCalledOnce();
+    expect(onStateChange).toHaveBeenCalledWith({ open: false, search: '' });
+  });
+
+  it('runs Local Vault commands based on configuration state', () => {
+    const onOpenLocalFolder = vi.fn();
+    const openLocal = renderPalette({
+      hasLocalVault: false,
+      onOpenLocalFolder,
+      state: { open: true, search: 'local' },
+    });
+
+    fireEvent.click(screen.getByRole('option', { name: /Open Local Folder/ }));
+
+    expect(onOpenLocalFolder).toHaveBeenCalledOnce();
+    expect(openLocal.onStateChange).toHaveBeenCalledWith({ open: false, search: '' });
+  });
+
+  it('switches to a configured Local Vault from the Local command', () => {
+    const onSwitchLocalVault = vi.fn();
+    const onStateChange = vi.fn();
+    renderPalette({
+      hasLocalVault: true,
+      onStateChange,
+      onSwitchLocalVault,
+      state: { open: true, search: 'vault' },
+    });
+
+    fireEvent.click(screen.getByRole('option', { name: /Switch to Local Vault/ }));
+
+    expect(onSwitchLocalVault).toHaveBeenCalledOnce();
+    expect(onStateChange).toHaveBeenCalledWith({ open: false, search: '' });
+  });
+
+  it('copies the current note link from current note commands', () => {
+    const onCopyCurrentNoteLink = vi.fn();
+    renderPalette({
+      onCopyCurrentNoteLink,
+      state: { open: true, search: 'copy link' },
+    });
+
+    fireEvent.click(screen.getByRole('option', { name: /Copy Note Link/ }));
+
+    expect(onCopyCurrentNoteLink).toHaveBeenCalledOnce();
+  });
+
+  it('copies the current note markdown link from current note commands', () => {
+    const onCopyCurrentNoteMarkdownLink = vi.fn();
+    renderPalette({
+      onCopyCurrentNoteMarkdownLink,
+      state: { open: true, search: 'markdown link' },
+    });
+
+    fireEvent.click(screen.getByRole('option', { name: /Copy Markdown Link/ }));
+
+    expect(onCopyCurrentNoteMarkdownLink).toHaveBeenCalledOnce();
+  });
+
+  it('opens sharing for remote current notes only', () => {
+    const onShareCurrentNote = vi.fn();
+    renderPalette({
+      currentNoteIsRemote: true,
+      onShareCurrentNote,
+      state: { open: true, search: 'share' },
+    });
+
+    fireEvent.click(screen.getByRole('option', { name: /Share Note…/ }));
+
+    expect(onShareCurrentNote).toHaveBeenCalledOnce();
+  });
+
+  it('hides sharing for local current notes', () => {
+    renderPalette({
+      currentNoteIsRemote: false,
+      state: { open: true, search: 'share' },
+    });
+
+    expect(screen.queryByRole('option', { name: /Share Note…/ })).not.toBeInTheDocument();
   });
 
   it('keeps keyboard selection, action shortcuts, and close reset behavior', async () => {

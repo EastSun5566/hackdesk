@@ -3,13 +3,18 @@ import {
   FileArchive,
   Download,
   Folder,
+  FolderOpen,
   FolderTree,
   FolderPlus,
   FolderPen,
   History,
   ImagePlus,
   Laptop,
+  Link,
+  LogIn,
+  LogOut,
   Palette,
+  Share2,
   Users,
   Trash2,
   Keyboard,
@@ -157,6 +162,90 @@ function getThemePresetCommands(query: string, presets: ThemePreset[], activePre
     }));
 }
 
+function getAccountCommands(query: string, hasHackmdApiToken: boolean) {
+  const connectCommand = {
+    id: 'connect-hackmd' as const,
+    label: 'Connect HackMD',
+    description: 'Add an API token to load your notes and teams.',
+    keywords: ['connect', 'token', 'hackmd', 'api', 'login', 'account'],
+    icon: <LogIn className="h-4 w-4" />,
+  };
+  const disconnectCommand = {
+    id: 'disconnect-hackmd' as const,
+    label: 'Disconnect HackMD',
+    description: 'Remove the HackMD API token stored by HackDesk.',
+    keywords: ['disconnect', 'logout', 'token', 'hackmd', 'api', 'account'],
+    icon: <LogOut className="h-4 w-4" />,
+  };
+  const command = hasHackmdApiToken ? disconnectCommand : connectCommand;
+
+  return commandMatches(query, [command.label, command.description, ...command.keywords]) ? [command] : [];
+}
+
+function getLocalVaultCommands(query: string, hasLocalVault: boolean) {
+  const command = hasLocalVault
+    ? {
+        id: 'switch-local-vault' as const,
+        label: 'Switch to Local Vault',
+        description: 'Open your configured local Markdown folder.',
+        keywords: ['local', 'vault', 'folder', 'offline', 'workspace', 'switch'],
+        icon: <Folder className="h-4 w-4" />,
+      }
+    : {
+        id: 'open-local-folder' as const,
+        label: 'Open Local Folder',
+        description: 'Choose a local Markdown folder to use in HackDesk.',
+        keywords: ['local', 'vault', 'folder', 'offline', 'open', 'picker'],
+        icon: <FolderOpen className="h-4 w-4" />,
+      };
+
+  return commandMatches(query, [command.label, command.description, ...command.keywords]) ? [command] : [];
+}
+
+function getCurrentNoteCommands(query: string, {
+  currentNoteIsRemote,
+  hasCurrentNote,
+}: {
+  currentNoteIsRemote: boolean;
+  hasCurrentNote: boolean;
+}) {
+  if (!hasCurrentNote) {
+    return [];
+  }
+
+  const commands = [
+    {
+      id: 'copy-note-link' as const,
+      label: 'Copy Note Link',
+      description: 'Copy the HackMD link for the current note.',
+      keywords: ['copy', 'link', 'url', 'note', 'current', 'hackmd'],
+      icon: <Link className="h-4 w-4" />,
+    },
+    {
+      id: 'copy-markdown-link' as const,
+      label: 'Copy Markdown Link',
+      description: 'Copy a Markdown link for the current note.',
+      keywords: ['copy', 'markdown', 'link', 'note', 'current'],
+      icon: <Link className="h-4 w-4" />,
+    },
+    ...(currentNoteIsRemote
+      ? [{
+          id: 'share-note' as const,
+          label: 'Share Note…',
+          description: 'Open sharing settings for the current note.',
+          keywords: ['share', 'access', 'permission', 'note', 'current'],
+          icon: <Share2 className="h-4 w-4" />,
+        }]
+      : []),
+  ];
+
+  return commands.filter((command) => commandMatches(query, [
+    command.label,
+    command.description,
+    ...command.keywords,
+  ]));
+}
+
 const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'new-tab': <FileText className="h-4 w-4" />,
   'new-note': <FileText className="h-4 w-4" />,
@@ -210,13 +299,24 @@ export function CommandPaletteDialog({
   scope,
   selectedNoteId,
   selectedFolderId,
+  currentNoteIsRemote,
+  hasCurrentNote,
+  hasHackmdApiToken,
+  hasLocalVault,
   themeMode,
   themePresetId,
   themePresets,
   onStateChange,
   onRunAction,
+  onConnectHackmd,
+  onCopyCurrentNoteLink,
+  onCopyCurrentNoteMarkdownLink,
+  onOpenLocalFolder,
+  onRequestDisconnectHackmd,
+  onShareCurrentNote,
   onSelectThemeMode,
   onSelectThemePreset,
+  onSwitchLocalVault,
   onSelectNote,
   onSelectRecentNote,
   onSelectFolder,
@@ -231,13 +331,24 @@ export function CommandPaletteDialog({
   scope: WorkspaceScope;
   selectedNoteId: string | null;
   selectedFolderId: string | null;
+  currentNoteIsRemote: boolean;
+  hasCurrentNote: boolean;
+  hasHackmdApiToken: boolean;
+  hasLocalVault: boolean;
   themeMode: ThemeMode;
   themePresetId: ThemePresetId;
   themePresets: ThemePreset[];
   onStateChange: (state: CommandPaletteState) => void;
   onRunAction: (actionId: ElectronActionId) => void;
+  onConnectHackmd: () => void;
+  onCopyCurrentNoteLink: () => void;
+  onCopyCurrentNoteMarkdownLink: () => void;
+  onOpenLocalFolder: () => void;
+  onRequestDisconnectHackmd: () => void;
+  onShareCurrentNote: () => void;
   onSelectThemeMode: (mode: ThemeMode) => void;
   onSelectThemePreset: (presetId: ThemePresetId) => void;
+  onSwitchLocalVault: () => void;
   onSelectNote: (entry: FolderTreeNote) => void;
   onSelectRecentNote: (entry: ElectronRecentNote) => void;
   onSelectFolder: (folder: QuickOpenFolderResult) => void;
@@ -251,8 +362,16 @@ export function CommandPaletteDialog({
   const noteResults = getQuickOpenNoteResults(folderTree, state.search, undefined, recentNotes);
   const folderResults = context.scopeType === 'history' ? [] : getQuickOpenFolderResults(folderTree, state.search);
   const actionResults = getQuickOpenActionResults(getCommandPaletteActions(), state.search);
+  const accountResults = hasQuery ? getAccountCommands(state.search, hasHackmdApiToken) : [];
+  const localVaultResults = hasQuery ? getLocalVaultCommands(state.search, hasLocalVault) : [];
+  const currentNoteResults = hasQuery
+    ? getCurrentNoteCommands(state.search, { currentNoteIsRemote, hasCurrentNote })
+    : [];
   const themeModeResults = hasQuery ? getThemeModeCommands(state.search, themeMode) : [];
   const themePresetResults = hasQuery ? getThemePresetCommands(state.search, themePresets, themePresetId) : [];
+  const hasAccountResults = accountResults.length > 0;
+  const hasLocalVaultResults = localVaultResults.length > 0;
+  const hasCurrentNoteResults = currentNoteResults.length > 0;
   const hasAppearanceResults = themeModeResults.length > 0 || themePresetResults.length > 0;
   const showFinderAction = shouldShowFinderQuickAction(state.search);
 
@@ -454,6 +573,86 @@ export function CommandPaletteDialog({
                     </CommandItem>
                   );
                 })}
+              </CommandGroup>
+            ) : null}
+
+            {hasCurrentNoteResults ? (
+              <CommandGroup heading="Current Note">
+                {currentNoteResults.map((command) => (
+                  <CommandItem
+                    key={`current-note:${command.id}`}
+                    value={`${command.label} ${command.description} ${command.keywords.join(' ')}`}
+                    onSelect={() => {
+                      if (command.id === 'copy-note-link') {
+                        onCopyCurrentNoteLink();
+                      } else if (command.id === 'copy-markdown-link') {
+                        onCopyCurrentNoteMarkdownLink();
+                      } else {
+                        onShareCurrentNote();
+                      }
+
+                      closePalette();
+                    }}
+                  >
+                    <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}>{command.icon}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className={COMMAND_ITEM_TITLE_CLASS}>{command.label}</span>
+                      <span className={COMMAND_ITEM_META_CLASS}>{command.description}</span>
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : null}
+
+            {hasAccountResults ? (
+              <CommandGroup heading="Account">
+                {accountResults.map((command) => (
+                  <CommandItem
+                    key={`account:${command.id}`}
+                    value={`${command.label} ${command.description} ${command.keywords.join(' ')}`}
+                    onSelect={() => {
+                      if (command.id === 'connect-hackmd') {
+                        onConnectHackmd();
+                      } else {
+                        onRequestDisconnectHackmd();
+                      }
+
+                      closePalette();
+                    }}
+                  >
+                    <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}>{command.icon}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className={COMMAND_ITEM_TITLE_CLASS}>{command.label}</span>
+                      <span className={COMMAND_ITEM_META_CLASS}>{command.description}</span>
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : null}
+
+            {hasLocalVaultResults ? (
+              <CommandGroup heading="Local">
+                {localVaultResults.map((command) => (
+                  <CommandItem
+                    key={`local:${command.id}`}
+                    value={`${command.label} ${command.description} ${command.keywords.join(' ')}`}
+                    onSelect={() => {
+                      if (command.id === 'open-local-folder') {
+                        onOpenLocalFolder();
+                      } else {
+                        onSwitchLocalVault();
+                      }
+
+                      closePalette();
+                    }}
+                  >
+                    <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}>{command.icon}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className={COMMAND_ITEM_TITLE_CLASS}>{command.label}</span>
+                      <span className={COMMAND_ITEM_META_CLASS}>{command.description}</span>
+                    </span>
+                  </CommandItem>
+                ))}
               </CommandGroup>
             ) : null}
 

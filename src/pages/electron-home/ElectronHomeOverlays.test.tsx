@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ElectronActionContext } from '@/lib/electron-actions';
@@ -7,8 +7,17 @@ import { defaultSettings } from '@/lib/settings';
 import { ElectronHomeOverlays, type ElectronHomeOverlaysProps } from './ElectronHomeOverlays';
 
 vi.mock('./CommandPaletteDialog', () => ({
-  CommandPaletteDialog: ({ onRunAction }: { onRunAction: (actionId: 'refresh') => void }) => (
-    <button type="button" onClick={() => onRunAction('refresh')}>Palette mock</button>
+  CommandPaletteDialog: ({
+    onRequestDisconnectHackmd,
+    onRunAction,
+  }: {
+    onRequestDisconnectHackmd: () => void;
+    onRunAction: (actionId: 'refresh') => void;
+  }) => (
+    <>
+      <button type="button" onClick={() => onRunAction('refresh')}>Palette mock</button>
+      <button type="button" onClick={onRequestDisconnectHackmd}>Palette disconnect mock</button>
+    </>
   ),
 }));
 
@@ -60,18 +69,28 @@ function createProps(overrides: Partial<ElectronHomeOverlaysProps> = {}): Electr
         },
       },
       onRunAction: vi.fn(),
+      onConnectHackmd: vi.fn(),
+      onCopyCurrentNoteLink: vi.fn(),
+      onCopyCurrentNoteMarkdownLink: vi.fn(),
+      onOpenLocalFolder: vi.fn(),
+      onShareCurrentNote: vi.fn(),
       onSelectThemeMode: vi.fn(),
       onSelectThemePreset: vi.fn(),
       onSelectFolder: vi.fn(),
       onSelectNote: vi.fn(),
       onSelectRecentNote: vi.fn(),
       onSelectWorkspace: vi.fn(),
+      onSwitchLocalVault: vi.fn(),
       onShowFinderResults: vi.fn(),
       onStateChange: vi.fn(),
       recentNotes: [],
       scope: { type: 'personal', label: 'My Workspace' },
       selectedFolderId: null,
       selectedNoteId: null,
+      currentNoteIsRemote: false,
+      hasCurrentNote: false,
+      hasHackmdApiToken: false,
+      hasLocalVault: false,
       state: { open: false, search: '' },
       teams: [],
       themeMode: 'system',
@@ -176,5 +195,28 @@ describe('ElectronHomeOverlays', () => {
 
     expect(onRunAction).toHaveBeenCalledWith('refresh');
     expect(onCreateNote).toHaveBeenCalledWith('Draft');
+  });
+
+  it('confirms HackMD disconnect requests from the command palette', () => {
+    const onDisconnectHackmd = vi.fn();
+    render(<ElectronHomeOverlays {...createProps({
+      dialogs: {
+        ...createProps().dialogs,
+        onDisconnectHackmd,
+      },
+    })}
+    />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Palette disconnect mock' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'Disconnect HackMD?' });
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(onDisconnectHackmd).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Palette disconnect mock' }));
+    fireEvent.click(within(screen.getByRole('alertdialog', { name: 'Disconnect HackMD?' }))
+      .getByRole('button', { name: 'Disconnect HackMD' }));
+
+    expect(onDisconnectHackmd).toHaveBeenCalledOnce();
   });
 });

@@ -10,6 +10,7 @@ import { defaultSettings } from '@/lib/settings';
 import { ElectronHomeOverlays } from './electron-home/ElectronHomeOverlays';
 import { ElectronHomeWorkspace } from './electron-home/ElectronHomeWorkspace';
 import { getScopeStorageKey } from './electron-home/repository';
+import { LOCAL_VAULT_TEAM_PATH } from './electron-home/local-vault-adapter';
 import type { WorkspaceScope } from './electron-home/types';
 import { useElectronHackmdQueries } from './electron-home/useElectronHackmdQueries';
 import { useElectronFocusZones } from './electron-home/useElectronFocusZones';
@@ -667,6 +668,28 @@ export function Home() {
       themePresets: presets,
       onSelectThemeMode: setTheme,
       onSelectThemePreset: setPresetId,
+    },
+    commandPaletteUtilities: {
+      currentNoteIsRemote: Boolean(selectedDocument && selectedDocument.teamPath !== LOCAL_VAULT_TEAM_PATH),
+      hasCurrentNote: Boolean(selectedDocument),
+      hasHackmdApiToken: settings?.hasHackmdApiToken === true,
+      hasLocalVault: hasConfiguredLocalVault,
+      onConnectHackmd: openHackmdTokenSetup,
+      onCopyCurrentNoteLink: () => {
+        if (selectedDocument) {
+          handleCopyNoteLink(selectedDocument);
+        }
+      },
+      onCopyCurrentNoteMarkdownLink: () => {
+        if (selectedDocument) {
+          handleCopyNoteMarkdownLink(selectedDocument);
+        }
+      },
+      onOpenLocalFolder: () => {
+        void localVaultActions.chooseLocalVault();
+      },
+      onShareCurrentNote: () => setShareOpen(true),
+      onSwitchLocalVault: () => switchWorkspaceScope({ type: 'local', label: 'Local Vault' }),
     },
     dialogState,
     displayScope,
