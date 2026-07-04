@@ -249,6 +249,7 @@ describe('SettingsDialog', () => {
     const saveButton = screen.getByRole('button', { name: 'Saving…' });
 
     expect(saveButton).toBeDisabled();
+    expect(saveButton.querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
     fireEvent.click(saveButton);
     fireEvent.submit(saveButton.closest('form')!);
 
@@ -510,7 +511,9 @@ describe('SettingsDialog', () => {
 
     expect(onValidateToken).toHaveBeenCalledWith('secret-token');
     expect(onSave).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Testing…' })).toBeDisabled();
+    const testingButton = screen.getByRole('button', { name: 'Testing…' });
+    expect(testingButton).toBeDisabled();
+    expect(testingButton.querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
     expect(screen.getByText('Testing token…')).toBeVisible();
 
     await act(async () => {
@@ -750,6 +753,31 @@ describe('SettingsDialog', () => {
     expect(onForgetLocalVault).toHaveBeenCalledOnce();
   });
 
+  it('uses a reduced-motion-safe spinner while vault actions are busy', () => {
+    const refreshVault = createDeferred<void>();
+    renderSettingsDialog({
+      onRefreshLocalVault: vi.fn(() => refreshVault.promise),
+      settings: {
+        title: 'HackDesk',
+        appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
+        hasHackmdApiToken: false,
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: true,
+        localVault: { path: '/Users/michael/Notes' },
+        onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: false,
+      },
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh Vault' }));
+
+    const refreshButton = screen.getByRole('button', { name: 'Refresh Vault' });
+    expect(refreshButton).toBeDisabled();
+    expect(refreshButton.querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
+  });
+
   it('reports when update checks are unavailable outside packaged Electron', () => {
     renderSettingsDialog();
 
@@ -772,7 +800,9 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Advanced/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Check for Updates' }));
 
-    expect(screen.getByRole('button', { name: 'Checking…' })).toBeDisabled();
+    const checkingButton = screen.getByRole('button', { name: 'Checking…' });
+    expect(checkingButton).toBeDisabled();
+    expect(checkingButton.querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
     await waitFor(() => {
       expect(toastInfoMock).toHaveBeenCalledWith('You’re already on the latest version of HackDesk.');
     });

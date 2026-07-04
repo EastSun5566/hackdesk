@@ -49,6 +49,16 @@ function renderOnboarding(overrides: Partial<Parameters<typeof HackmdOnboardingD
   return props;
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, resolve, reject };
+}
+
 describe('HackmdOnboardingDialog', () => {
   it('starts with a HackMD-first connect screen', () => {
     renderOnboarding();
@@ -88,6 +98,25 @@ describe('HackmdOnboardingDialog', () => {
     await waitFor(() => expect(props.onConnected).toHaveBeenCalledOnce());
     expect(props.onOpenChange).toHaveBeenCalledWith(false);
     expect(screen.queryByRole('heading', { name: 'HackMD connected' })).not.toBeInTheDocument();
+  });
+
+  it('shows reduced-motion-safe busy state while validating a token', () => {
+    const validation = createDeferred<UserSummary>();
+    renderOnboarding({
+      onValidateToken: vi.fn(() => validation.promise),
+    });
+
+    fireEvent.change(screen.getByLabelText('HackMD API Token'), {
+      target: { value: 'pending-token' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
+
+    const testingButton = screen.getByRole('button', { name: 'Testing…' });
+    expect(testingButton).toBeDisabled();
+    expect(testingButton.querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
+    expect(screen.getByText('Testing token…')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Open local folder' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Setup later' })).toBeDisabled();
   });
 
   it('shows validation errors without saving the token', async () => {
@@ -143,6 +172,22 @@ describe('HackmdOnboardingDialog', () => {
     expect(props.onConnected).not.toHaveBeenCalled();
   });
 
+  it('shows reduced-motion-safe busy state while opening the local folder picker', () => {
+    const chooseLocalVault = createDeferred<void>();
+    renderOnboarding({
+      onChooseLocalVault: vi.fn(() => chooseLocalVault.promise),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open local folder' }));
+
+    const localFolderButton = screen.getByRole('button', { name: 'Open local folder' });
+    expect(localFolderButton).toBeDisabled();
+    expect(localFolderButton.querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
+    expect(screen.getByText('Opening folder picker…')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Opening…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Setup later' })).toBeDisabled();
+  });
+
   it('imports an available hackmd-cli token', async () => {
     const props = renderOnboarding({
       hackmdCliConfig: { hasAccessToken: true, hasCustomEndpoint: false },
@@ -155,6 +200,22 @@ describe('HackmdOnboardingDialog', () => {
     await waitFor(() => expect(props.onConnected).toHaveBeenCalledOnce());
     expect(props.onOpenChange).toHaveBeenCalledWith(false);
     expect(screen.queryByRole('heading', { name: 'HackMD connected' })).not.toBeInTheDocument();
+  });
+
+  it('shows busy state while importing a hackmd-cli token', () => {
+    const importToken = createDeferred<Awaited<ReturnType<Parameters<typeof HackmdOnboardingDialog>[0]['onImportHackmdCliToken']>>>();
+    renderOnboarding({
+      hackmdCliConfig: { hasAccessToken: true, hasCustomEndpoint: false },
+      onImportHackmdCliToken: vi.fn(() => importToken.promise),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Import token' }));
+
+    expect(screen.getByRole('button', { name: 'Import token' })).toBeDisabled();
+    const importingButton = screen.getByRole('button', { name: 'Importing…' });
+    expect(importingButton).toBeDisabled();
+    expect(importingButton.querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
+    expect(screen.getByText('Importing token from hackmd-cli…')).toBeVisible();
   });
 
   it('shows import errors while keeping manual token setup available', async () => {

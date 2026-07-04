@@ -170,6 +170,22 @@ describe('FolderNavigator', () => {
     expect(screen.getByLabelText('Loading notes')).toBeInTheDocument();
   });
 
+  it('shows a reduced-motion-safe refresh spinner while syncing notes', () => {
+    const onRefresh = vi.fn();
+    renderFolderNavigator({
+      actions: { onRefresh },
+      status: { isFetching: true },
+    });
+
+    const refreshButton = screen.getByRole('button', { name: 'Refresh notes' });
+    expect(screen.getByText('Syncing…')).toBeInTheDocument();
+    expect(refreshButton.querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
+
+    fireEvent.click(refreshButton);
+
+    expect(onRefresh).toHaveBeenCalledOnce();
+  });
+
   it('shows token setup actions when HackMD token is missing', () => {
     const tree = buildHackmdFolderTree([]);
     const onOpenSettings = vi.fn();

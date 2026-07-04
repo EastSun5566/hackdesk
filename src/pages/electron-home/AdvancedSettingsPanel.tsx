@@ -86,7 +86,7 @@ export function AdvancedSettingsPanel({
               FOCUS_RING_CLASS,
             )}
           >
-            {isCheckingUpdates ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {isCheckingUpdates ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : null}
             {isCheckingUpdates ? 'Checking…' : 'Check for Updates'}
           </button>
         </div>

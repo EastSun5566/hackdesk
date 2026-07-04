@@ -89,6 +89,15 @@ export function HackmdOnboardingDialog({
   const { status, token, tokenVisible } = state;
   const normalizedToken = token.trim();
   const busy = status.kind === 'validating' || status.kind === 'saving' || status.kind === 'importing';
+  const tokenSubmitLabel = status.message === 'Opening folder picker…'
+    ? 'Opening…'
+    : status.kind === 'saving'
+      ? 'Saving…'
+      : status.kind === 'validating'
+        ? 'Testing…'
+        : status.kind === 'importing'
+          ? 'Importing…'
+          : 'Connect';
   const canImportHackmdCliToken = hackmdCliConfig.hasAccessToken && !hackmdCliConfig.hasCustomEndpoint;
 
   const reset = () => {
@@ -111,7 +120,7 @@ export function HackmdOnboardingDialog({
       });
   };
   const handleChooseLocalVault = () => {
-    dispatch({ type: 'set-status', status: { kind: 'saving', message: 'Opening folder picker...' } });
+    dispatch({ type: 'set-status', status: { kind: 'saving', message: 'Opening folder picker…' } });
     onChooseLocalVault()
       .then(close)
       .catch((error) => {
@@ -128,10 +137,10 @@ export function HackmdOnboardingDialog({
       return;
     }
 
-    dispatch({ type: 'set-status', status: { kind: 'validating', message: 'Testing token...' } });
+    dispatch({ type: 'set-status', status: { kind: 'validating', message: 'Testing token…' } });
     onValidateToken(normalizedToken)
       .then(() => {
-        dispatch({ type: 'set-status', status: { kind: 'saving', message: 'Saving token locally...' } });
+        dispatch({ type: 'set-status', status: { kind: 'saving', message: 'Saving token locally…' } });
         return onSaveToken(normalizedToken);
       })
       .then(() => {
@@ -153,7 +162,7 @@ export function HackmdOnboardingDialog({
 
     dispatch({
       type: 'set-status',
-      status: { kind: 'importing', message: 'Importing token from hackmd-cli...' },
+      status: { kind: 'importing', message: 'Importing token from hackmd-cli…' },
     });
     onImportHackmdCliToken()
       .then(() => {
@@ -235,14 +244,8 @@ export function HackmdOnboardingDialog({
                 disabled={!normalizedToken || busy}
                 className={cn(PRIMARY_BUTTON_CLASS, 'w-full justify-center')}
               >
-                {busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
-                {status.kind === 'saving'
-                  ? 'Saving...'
-                  : status.kind === 'validating'
-                    ? 'Testing...'
-                    : status.kind === 'importing'
-                      ? 'Importing...'
-                      : 'Connect'}
+                {busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : null}
+                {tokenSubmitLabel}
               </button>
             </div>
           </form>
@@ -253,7 +256,7 @@ export function HackmdOnboardingDialog({
               className={cn(SECONDARY_BUTTON_CLASS, 'w-full justify-center disabled:pointer-events-none disabled:opacity-50')}
               onClick={handleChooseLocalVault}
             >
-              {status.message === 'Opening folder picker...' ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
+              {status.message === 'Opening folder picker…' ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : null}
               Open local folder
             </button>
             <button

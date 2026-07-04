@@ -270,7 +270,7 @@ function NavigatorHeader({
             onClick={actions.onRefresh}
             label="Refresh notes"
           >
-            <RefreshCcw aria-hidden="true" className={cn('h-4 w-4', status.isFetching && 'animate-spin')} />
+            <RefreshCcw aria-hidden="true" className={cn('h-4 w-4', status.isFetching && 'animate-spin motion-reduce:animate-none')} />
           </ToolbarIconButton>
           <ToolbarIconButton
             actionId="new-note"

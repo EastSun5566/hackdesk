@@ -163,7 +163,7 @@ function SettingsActionButton({
         FOCUS_RING_CLASS,
       )}
     >
-      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : icon}
+      {busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : icon}
       {children}
     </button>
   );

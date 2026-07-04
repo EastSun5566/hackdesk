@@ -64,7 +64,9 @@ export function SettingsDialogFooter({
               FOCUS_RING_CLASS,
             )}
           >
-            {isSaving || isTestingToken ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {isSaving || isTestingToken
+              ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+              : <Save aria-hidden="true" className="h-4 w-4" />}
             {isTestingToken ? 'Testing…' : isSaving ? 'Saving…' : 'Save'}
           </button>
         ) : null}
