@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { ErrorBoundary } from './ErrorBoundary';
 
@@ -13,6 +14,7 @@ const NormalComponent = () => <div>Test content</div>;
 describe('ErrorBoundary', () => {
   afterEach(() => {
     delete window.hackdeskAPI;
+    vi.restoreAllMocks();
   });
 
   it('should render children when no error occurs', () => {
@@ -24,9 +26,8 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('Test content')).toBeInTheDocument();
   });
 
-  it('should catch and display error when child component throws', () => {
-    // Suppress console.error for this test
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+  it('shows the fatal error surface with compact error details', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => { });
 
     render(
       <ErrorBoundary>
@@ -34,14 +35,61 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>,
     );
 
-    // Check for error UI elements - match actual text
-    expect(screen.getByText('Oops! Something went wrong')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'HackDesk hit an error' })).toBeInTheDocument();
+    expect(screen.getByText('Try to recover the current view, reload the app, or export debug logs if this keeps happening.')).toBeInTheDocument();
+    expect(screen.getByText('Error details')).toBeInTheDocument();
     expect(screen.getByText('Test error')).toBeInTheDocument();
-
-    consoleSpy.mockRestore();
   });
 
-  it('should have a reload button when error occurs', () => {
+  it('resets the error boundary when Try again is clicked', () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+    const onReset = vi.fn();
+    const RecoverableCrash = () => {
+      const [shouldThrow, setShouldThrow] = useState(true);
+      return (
+        <ErrorBoundary onReset={() => {
+          onReset();
+          setShouldThrow(false);
+        }}
+        >
+          {shouldThrow ? <ThrowError /> : <NormalComponent />}
+        </ErrorBoundary>
+      );
+    };
+
+    render(<RecoverableCrash />);
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(onReset).toHaveBeenCalledOnce();
+    expect(screen.getByText('Test content')).toBeInTheDocument();
+    expect(consoleSpy).toHaveBeenCalled();
+  });
+
+  it('reloads the app when Reload app is clicked', () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+    const reload = vi.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...window.location,
+        href: window.location.href,
+        reload,
+      },
+    });
+
+    render(
+      <ErrorBoundary>
+        <ThrowError />
+      </ErrorBoundary>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reload app' }));
+
+    expect(reload).toHaveBeenCalledOnce();
+    expect(consoleSpy).toHaveBeenCalled();
+  });
+
+  it('hides debug log export outside Electron', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
 
     render(
@@ -50,10 +98,58 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>,
     );
 
-    const reloadButton = screen.getByRole('button', { name: /reload/i });
-    expect(reloadButton).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Export debug logs' })).not.toBeInTheDocument();
+    expect(consoleSpy).toHaveBeenCalled();
+  });
 
-    consoleSpy.mockRestore();
+  it('exports debug logs through the Electron API', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+    const exportDebugLogs = vi.fn(async () => '/tmp/hackdesk-debug');
+    window.hackdeskAPI = {
+      getRuntimeEnvironment: () => 'electron',
+      app: {
+        exportDebugLogs,
+        recordFatalRendererError: vi.fn(async () => undefined),
+      },
+    } as typeof window.hackdeskAPI;
+
+    render(
+      <ErrorBoundary>
+        <ThrowError />
+      </ErrorBoundary>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Export debug logs' }));
+
+    expect(screen.getByRole('button', { name: 'Exporting…' })).toBeDisabled();
+    await waitFor(() => expect(exportDebugLogs).toHaveBeenCalledOnce());
+    expect(await screen.findByText('Debug logs exported to /tmp/hackdesk-debug.')).toBeInTheDocument();
+    expect(consoleSpy).toHaveBeenCalled();
+  });
+
+  it('shows inline debug export failures', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+    const exportDebugLogs = vi.fn(async () => {
+      throw new Error('Cannot write logs');
+    });
+    window.hackdeskAPI = {
+      getRuntimeEnvironment: () => 'electron',
+      app: {
+        exportDebugLogs,
+        recordFatalRendererError: vi.fn(async () => undefined),
+      },
+    } as typeof window.hackdeskAPI;
+
+    render(
+      <ErrorBoundary>
+        <ThrowError />
+      </ErrorBoundary>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Export debug logs' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Cannot write logs');
+    expect(consoleSpy).toHaveBeenCalled();
   });
 
   it('reports fatal renderer errors through the Electron API', async () => {
@@ -62,6 +158,7 @@ describe('ErrorBoundary', () => {
     window.hackdeskAPI = {
       getRuntimeEnvironment: () => 'electron',
       app: {
+        exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
         recordFatalRendererError,
       },
     } as typeof window.hackdeskAPI;
@@ -78,7 +175,6 @@ describe('ErrorBoundary', () => {
       userAgent: expect.any(String),
       platform: expect.any(String),
     }));
-
-    consoleSpy.mockRestore();
+    expect(consoleSpy).toHaveBeenCalled();
   });
 });
