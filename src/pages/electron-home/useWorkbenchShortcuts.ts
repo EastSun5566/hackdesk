@@ -43,16 +43,30 @@ export function useWorkbenchShortcuts({
   setSelectedFolderId,
 }: WorkbenchShortcutHandlers) {
   const handleGlobalKeyDown = useCallback((event: KeyboardEvent) => {
+    if (event.defaultPrevented || event.isComposing) {
+      return;
+    }
+
     const isPrimaryModifier = isPlatformPrimaryModifier(event, platform);
-    if (isPrimaryModifier && event.key.toLowerCase() === 'k') {
+    const key = event.key.toLowerCase();
+    if (isPrimaryModifier && !event.altKey && (
+      (!event.shiftKey && key === 'k')
+      || (event.shiftKey && key === 'p')
+    )) {
       event.preventDefault();
       openPalette();
       return;
     }
 
-    if (isPrimaryModifier && !event.altKey && event.key.toLowerCase() === 'f') {
+    if (isPrimaryModifier && !event.altKey && !event.shiftKey && key === 'p') {
       event.preventDefault();
-      runAction(event.shiftKey ? 'search-notes' : 'find-in-note');
+      runAction('open-quick-open');
+      return;
+    }
+
+    if (isPrimaryModifier && !event.altKey && !event.shiftKey && key === 'f') {
+      event.preventDefault();
+      runAction('find-in-note');
       return;
     }
 
@@ -194,6 +208,12 @@ export function useWorkbenchShortcuts({
       return;
     }
 
+    if (event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey && shouldFocusNoteFilter(event)) {
+      event.preventDefault();
+      runAction('search-notes');
+      return;
+    }
+
     if (event.key !== 'Escape') {
       return;
     }
@@ -250,4 +270,23 @@ function isPlatformPrimaryModifier(event: KeyboardEvent, platform: string) {
   return isMac
     ? event.metaKey && !event.ctrlKey
     : event.ctrlKey && !event.metaKey;
+}
+
+function shouldFocusNoteFilter(event: KeyboardEvent) {
+  if (!(event.target instanceof Element)) {
+    return true;
+  }
+
+  return !event.target.closest([
+    'input',
+    'textarea',
+    'select',
+    '[contenteditable]:not([contenteditable="false"])',
+    '.cm-editor',
+    '[data-hackdesk-focus="editor"]',
+    '[role="dialog"]',
+    '[role="alertdialog"]',
+    '[role="menu"]',
+    '[role="listbox"]',
+  ].join(','));
 }

@@ -70,6 +70,7 @@ function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): Workb
     navigateBack: vi.fn(),
     navigateForward: vi.fn(),
     openPalette: vi.fn(),
+    openQuickOpen: vi.fn(),
     openSelectedWebEditor: vi.fn(),
     openSettings: vi.fn(),
     refreshWorkspace: vi.fn(),
@@ -133,6 +134,17 @@ describe('useWorkbenchActions', () => {
     result.current.runAction('find-in-note');
 
     expect(handlers.findInNote).toHaveBeenCalledOnce();
+  });
+
+  it('routes Quick Open separately from the full command palette', () => {
+    const handlers = createHandlers();
+    const { result } = renderHook(() => useWorkbenchActions(createOptions({ handlers })));
+
+    result.current.runAction('open-command-palette');
+    result.current.runAction('open-quick-open');
+
+    expect(handlers.openPalette).toHaveBeenCalledOnce();
+    expect(handlers.openQuickOpen).toHaveBeenCalledOnce();
   });
 
   it('routes attach-image to the attachment handler', () => {

@@ -53,6 +53,11 @@ describe('electron action registry', () => {
       shortcut: '⌘K',
       menuAccelerator: 'CmdOrCtrl+K',
     });
+    expect(getElectronAction('open-quick-open')).toMatchObject({
+      label: 'Quick Open',
+      shortcut: '⌘P',
+      menuAccelerator: 'CmdOrCtrl+P',
+    });
     expect(getElectronAction('new-tab')).toMatchObject({
       label: 'New Tab',
       shortcut: '⌘T',
@@ -90,9 +95,10 @@ describe('electron action registry', () => {
       menuAccelerator: 'CmdOrCtrl+F',
     });
     expect(getElectronAction('search-notes')).toMatchObject({
-      shortcut: '⇧⌘F',
-      menuAccelerator: 'Shift+CmdOrCtrl+F',
+      label: 'Focus Note Filter',
+      shortcut: '/',
     });
+    expect(getElectronAction('search-notes').menuAccelerator).toBeUndefined();
     expect(getElectronAction('navigate-back')).toMatchObject({
       shortcut: '⌘[',
       menuAccelerator: 'CmdOrCtrl+[',
@@ -153,7 +159,7 @@ describe('electron action registry', () => {
     expect(getElectronActionLabel('toggle-navigator')).toBe('Toggle Note Navigator');
     expect(getActionShortcut('toggle-navigator')).toBe('⌥⌘B');
     expect(getActionShortcutKeys('toggle-navigator')).toEqual(['⌥', '⌘', 'B']);
-    expect(splitShortcutKeys('⇧⌘F')).toEqual(['⇧', '⌘', 'F']);
+    expect(splitShortcutKeys('⌘P')).toEqual(['⌘', 'P']);
     expect(splitShortcutKeys('⌘\\')).toEqual(['⌘', '\\']);
     expect(getActionShortcutKeys('navigate-back')).toEqual(['⌘', '[']);
     expect(getActionShortcutKeys('navigate-forward')).toEqual(['⌘', ']']);

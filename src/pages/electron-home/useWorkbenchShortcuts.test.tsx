@@ -30,15 +30,47 @@ describe('useWorkbenchShortcuts', () => {
     vi.restoreAllMocks();
   });
 
-  it('routes note search and workspace search shortcuts through actions', () => {
+  it('keeps Cmd+F for in-note search and releases Cmd+Shift+F', () => {
     const handlers = createHandlers();
 
     renderHook(() => useWorkbenchShortcuts(handlers));
     fireEvent.keyDown(window, { key: 'f', metaKey: true });
-    fireEvent.keyDown(window, { key: 'f', metaKey: true, shiftKey: true });
+    const workspaceSearchEvent = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'f',
+      metaKey: true,
+      shiftKey: true,
+    });
+    window.dispatchEvent(workspaceSearchEvent);
 
-    expect(handlers.runAction).toHaveBeenNthCalledWith(1, 'find-in-note');
-    expect(handlers.runAction).toHaveBeenNthCalledWith(2, 'search-notes');
+    expect(handlers.runAction).toHaveBeenCalledOnce();
+    expect(handlers.runAction).toHaveBeenCalledWith('find-in-note');
+    expect(workspaceSearchEvent.defaultPrevented).toBe(false);
+  });
+
+  it('opens the command palette with Cmd+K or Cmd+Shift+P and Quick Open with Cmd+P', () => {
+    const handlers = createHandlers();
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    fireEvent.keyDown(window, { key: 'p', metaKey: true, shiftKey: true });
+    fireEvent.keyDown(window, { key: 'p', metaKey: true });
+
+    expect(handlers.openPalette).toHaveBeenCalledTimes(2);
+    expect(handlers.runAction).toHaveBeenCalledOnce();
+    expect(handlers.runAction).toHaveBeenCalledWith('open-quick-open');
+  });
+
+  it('uses Ctrl+Shift+P and Ctrl+P on Windows', () => {
+    const handlers = createHandlers({ platform: 'win32' });
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    fireEvent.keyDown(window, { key: 'p', ctrlKey: true, shiftKey: true });
+    fireEvent.keyDown(window, { key: 'p', ctrlKey: true });
+
+    expect(handlers.openPalette).toHaveBeenCalledOnce();
+    expect(handlers.runAction).toHaveBeenCalledWith('open-quick-open');
   });
 
   it('keeps bare Option+B for text input and uses Cmd+Option+B for navigator toggle', () => {
@@ -158,6 +190,77 @@ describe('useWorkbenchShortcuts', () => {
     expect(optionNextEvent.defaultPrevented).toBe(false);
     expect(optionPreviousEvent.defaultPrevented).toBe(false);
     expect(handlers.runAction).not.toHaveBeenCalled();
+  });
+
+  it('focuses the note filter with slash outside editing and transient surfaces', () => {
+    const handlers = createHandlers();
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    fireEvent.keyDown(window, { key: '/' });
+
+    expect(handlers.runAction).toHaveBeenCalledOnce();
+    expect(handlers.runAction).toHaveBeenCalledWith('search-notes');
+  });
+
+  it('leaves slash available in editors, form controls, and dialogs', () => {
+    const handlers = createHandlers();
+    const editor = document.createElement('div');
+    editor.className = 'cm-editor';
+    const input = document.createElement('input');
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    const dialogButton = document.createElement('button');
+    dialog.append(dialogButton);
+    document.body.append(editor, input, dialog);
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    fireEvent.keyDown(editor, { key: '/' });
+    fireEvent.keyDown(input, { key: '/' });
+    fireEvent.keyDown(dialogButton, { key: '/' });
+
+    expect(handlers.runAction).not.toHaveBeenCalled();
+    editor.remove();
+    input.remove();
+    dialog.remove();
+  });
+
+  it('ignores composing and already-handled key events', () => {
+    const handlers = createHandlers();
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    const composingEvent = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      isComposing: true,
+      key: '/',
+    });
+    const handledEvent = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: '/',
+    });
+    handledEvent.preventDefault();
+
+    window.dispatchEvent(composingEvent);
+    window.dispatchEvent(handledEvent);
+
+    expect(handlers.runAction).not.toHaveBeenCalled();
+  });
+
+  it('does not intercept Cmd+D or replace the split pane shortcut', () => {
+    const handlers = createHandlers();
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    const selectNextOccurrenceEvent = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'd',
+      metaKey: true,
+    });
+    window.dispatchEvent(selectNextOccurrenceEvent);
+    fireEvent.keyDown(window, { key: '\\', metaKey: true });
+
+    expect(selectNextOccurrenceEvent.defaultPrevented).toBe(false);
+    expect(handlers.runAction).toHaveBeenCalledOnce();
+    expect(handlers.runAction).toHaveBeenCalledWith('split-pane-right');
   });
 
   it('keeps tab switching shortcuts separate from pane switching', () => {

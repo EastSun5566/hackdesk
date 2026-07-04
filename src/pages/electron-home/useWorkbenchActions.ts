@@ -61,6 +61,7 @@ export type WorkbenchActionHandlers = {
   navigateBack: () => void;
   navigateForward: () => void;
   openPalette: () => void;
+  openQuickOpen: () => void;
   openSettings: () => void;
   openSelectedWebEditor: () => void;
   refreshWorkspace: () => void;
@@ -180,6 +181,9 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     switch (actionId) {
     case 'open-command-palette':
       handlers.openPalette();
+      break;
+    case 'open-quick-open':
+      handlers.openQuickOpen();
       break;
     case 'open-settings':
       handlers.openSettings();

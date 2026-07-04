@@ -42,6 +42,7 @@ export type WorkbenchActionHandlersOptions = {
   navigateForward: () => void;
   noteDirty: boolean;
   openPalette: () => void;
+  openQuickOpen: () => void;
   refreshWorkspace: () => void;
   renameFolder: (folderId: string) => void;
   requestCloseOtherTabs: (paneId: string, tabId: string) => Promise<unknown>;
@@ -89,6 +90,7 @@ export function useWorkbenchActionHandlers({
   navigateForward,
   noteDirty,
   openPalette,
+  openQuickOpen,
   refreshWorkspace,
   renameFolder,
   requestCloseOtherTabs,
@@ -187,6 +189,7 @@ export function useWorkbenchActionHandlers({
       focusZone('editor');
     },
     openPalette,
+    openQuickOpen,
     openSelectedWebEditor: () => openHackmdWebEditor(api, selectedDocument, trackRecentNote),
     openSettings: () => setSettingsOpen(true),
     refreshWorkspace,
@@ -241,6 +244,7 @@ export function useWorkbenchActionHandlers({
     navigateForward,
     noteDirty,
     openPalette,
+    openQuickOpen,
     refreshWorkspace,
     renameFolder,
     reopenLastClosedTab,

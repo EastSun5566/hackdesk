@@ -40,7 +40,7 @@ export type WorkbenchDialogState = {
 
 export function useWorkbenchDialogState(): WorkbenchDialogState {
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [palette, setPalette] = useState<CommandPaletteState>({ open: false, search: '' });
+  const [palette, setPalette] = useState<CommandPaletteState>({ mode: 'commands', open: false, search: '' });
   const [createDialog, setCreateDialog] = useState<CreateNoteDialogState>({ open: false, title: '' });
   const [createFolderDialog, setCreateFolderDialog] = useState<CreateFolderDialogState>(createClosedFolderDialogState);
   const [renameFolderDialog, setRenameFolderDialog] = useState<RenameFolderDialogState>(createClosedRenameFolderDialogState);
@@ -50,7 +50,7 @@ export function useWorkbenchDialogState(): WorkbenchDialogState {
 
   const closeTransientLayer = useCallback(() => {
     if (palette.open) {
-      setPalette({ open: false, search: '' });
+      setPalette({ mode: 'commands', open: false, search: '' });
       return true;
     }
 

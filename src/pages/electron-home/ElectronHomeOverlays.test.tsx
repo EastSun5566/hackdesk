@@ -91,7 +91,7 @@ function createProps(overrides: Partial<ElectronHomeOverlaysProps> = {}): Electr
       hasCurrentNote: false,
       hasHackmdApiToken: false,
       hasLocalVault: false,
-      state: { open: false, search: '' },
+      state: { mode: 'commands', open: false, search: '' },
       teams: [],
       themeMode: 'system',
       themePresetId: 'hackmd-neo',

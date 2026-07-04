@@ -52,7 +52,11 @@ export function useElectronHomeCommandPalette({
   tree,
 }: ElectronHomeCommandPaletteOptions) {
   const openPalette = useCallback(() => {
-    setPalette({ open: true, search: '' });
+    setPalette({ mode: 'commands', open: true, search: '' });
+  }, [setPalette]);
+
+  const openQuickOpen = useCallback(() => {
+    setPalette({ mode: 'quick-open', open: true, search: '' });
   }, [setPalette]);
 
   const {
@@ -111,6 +115,7 @@ export function useElectronHomeCommandPalette({
       teams,
     },
     openPalette,
+    openQuickOpen,
     switchWorkspaceScope,
   };
 }

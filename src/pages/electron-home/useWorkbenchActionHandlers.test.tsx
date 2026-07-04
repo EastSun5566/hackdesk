@@ -73,6 +73,7 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     navigateForward: vi.fn(),
     noteDirty: true,
     openPalette: vi.fn(),
+    openQuickOpen: vi.fn(),
     refreshWorkspace: vi.fn(),
     renameFolder: vi.fn(),
     requestCloseOtherTabs: vi.fn(async () => undefined),

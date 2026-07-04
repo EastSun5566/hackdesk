@@ -9,7 +9,7 @@ describe('useWorkbenchDialogState', () => {
 
     act(() => {
       result.current.setSettingsOpen(true);
-      result.current.setPalette({ open: true, search: 'note' });
+      result.current.setPalette({ mode: 'commands', open: true, search: 'note' });
     });
 
     act(() => {

@@ -417,6 +417,7 @@ export function Home() {
   const {
     commandPaletteProps,
     openPalette,
+    openQuickOpen,
     switchWorkspaceScope,
   } = useElectronHomeCommandPalette({
     displayScope,
@@ -504,6 +505,7 @@ export function Home() {
     navigateForward: noteWorkspace.navigateForward,
     noteDirty,
     openPalette,
+    openQuickOpen,
     refreshWorkspace,
     renameFolder: folderCommands.handleRenameFolder,
     requestCloseOtherTabs,

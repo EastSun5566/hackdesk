@@ -131,7 +131,7 @@ function renderPalette(overrides: Partial<CommandPaletteDialogProps> = {}) {
     hasCurrentNote: true,
     hasHackmdApiToken: true,
     hasLocalVault: true,
-    state: { open: true, search: '' },
+    state: { mode: 'commands', open: true, search: '' },
     teams: [team],
     themeMode: 'system',
     themePresetId: 'hackmd-neo',
@@ -176,6 +176,53 @@ describe('CommandPaletteDialog', () => {
     expect(screen.getByText('⌘N')).toBeVisible();
   });
 
+  it('shows only notes, folders, and workspaces in Quick Open mode', () => {
+    renderPalette({ state: { mode: 'quick-open', open: true, search: '' } });
+
+    expect(screen.getByRole('dialog', { name: 'Quick Open' })).toHaveAccessibleDescription(
+      'Search notes, folders, and workspaces.',
+    );
+    expect(screen.getByRole('combobox', { name: 'Search notes, folders, and workspaces' })).toHaveAttribute(
+      'placeholder',
+      'Search notes, folders, and workspaces…',
+    );
+    expect(Array.from(document.querySelectorAll('[cmdk-group-heading]')).map((heading) => heading.textContent)).toEqual([
+      'Recent Notes',
+      'Workspaces',
+    ]);
+    expect(screen.queryByText('Quick Actions')).not.toBeInTheDocument();
+    expect(screen.queryByText('Appearance')).not.toBeInTheDocument();
+    expect(screen.queryByText('Account')).not.toBeInTheDocument();
+    expect(screen.queryByText('Local')).not.toBeInTheDocument();
+  });
+
+  it('keeps Quick Open search limited to note-navigation results', () => {
+    renderPalette({ state: { mode: 'quick-open', open: true, search: 'alpha' } });
+
+    expect(Array.from(document.querySelectorAll('[cmdk-group-heading]')).map((heading) => heading.textContent)).toEqual([
+      'Notes',
+      'Folders',
+      'Workspaces',
+    ]);
+    expect(screen.queryByText('Actions')).not.toBeInTheDocument();
+    expect(screen.queryByText('Finder')).not.toBeInTheDocument();
+  });
+
+  it('switches from the command palette to Quick Open without closing the dialog', () => {
+    const onRunAction = vi.fn();
+    const onStateChange = vi.fn();
+    renderPalette({
+      onRunAction,
+      onStateChange,
+      state: { mode: 'commands', open: true, search: 'quick open' },
+    });
+
+    fireEvent.click(screen.getByRole('option', { name: /Quick Open/ }));
+
+    expect(onStateChange).toHaveBeenCalledWith({ mode: 'quick-open', open: true, search: '' });
+    expect(onRunAction).not.toHaveBeenCalled();
+  });
+
   it('keeps item titles readable and aligns the close control in the input row', () => {
     renderPalette();
 
@@ -193,7 +240,7 @@ describe('CommandPaletteDialog', () => {
   });
 
   it('preserves helper ranking and group order for searched results', () => {
-    renderPalette({ state: { open: true, search: 'alpha' } });
+    renderPalette({ state: { mode: 'commands', open: true, search: 'alpha' } });
 
     expect(screen.queryByText('Recent Notes')).not.toBeInTheDocument();
     const headings = Array.from(document.querySelectorAll('[cmdk-group-heading]'))
@@ -214,7 +261,7 @@ describe('CommandPaletteDialog', () => {
   });
 
   it('keeps hidden short IDs searchable', () => {
-    renderPalette({ state: { open: true, search: 'exact-short' } });
+    renderPalette({ state: { mode: 'commands', open: true, search: 'exact-short' } });
 
     expect(screen.getByText('Alpha')).toBeVisible();
     expect(screen.queryByText('exact-short')).not.toBeInTheDocument();
@@ -226,7 +273,7 @@ describe('CommandPaletteDialog', () => {
     renderPalette({
       onSelectThemePreset,
       onStateChange,
-      state: { open: true, search: 'solarized' },
+      state: { mode: 'commands', open: true, search: 'solarized' },
     });
 
     expect(screen.getByText('Appearance')).toBeVisible();
@@ -235,7 +282,7 @@ describe('CommandPaletteDialog', () => {
     fireEvent.click(command);
 
     expect(onSelectThemePreset).toHaveBeenCalledWith('solarized');
-    expect(onStateChange).toHaveBeenCalledWith({ open: false, search: '' });
+    expect(onStateChange).toHaveBeenCalledWith({ mode: 'commands', open: false, search: '' });
   });
 
   it('runs theme mode commands from searched appearance results', () => {
@@ -244,7 +291,7 @@ describe('CommandPaletteDialog', () => {
     renderPalette({
       onSelectThemeMode,
       onStateChange,
-      state: { open: true, search: 'dark' },
+      state: { mode: 'commands', open: true, search: 'dark' },
     });
 
     const command = screen.getByRole('option', { name: /Use Dark Theme/ });
@@ -252,7 +299,7 @@ describe('CommandPaletteDialog', () => {
     fireEvent.click(command);
 
     expect(onSelectThemeMode).toHaveBeenCalledWith('dark');
-    expect(onStateChange).toHaveBeenCalledWith({ open: false, search: '' });
+    expect(onStateChange).toHaveBeenCalledWith({ mode: 'commands', open: false, search: '' });
   });
 
   it('marks active theme commands as current without running callbacks', () => {
@@ -261,7 +308,7 @@ describe('CommandPaletteDialog', () => {
     renderPalette({
       onSelectThemeMode,
       onSelectThemePreset,
-      state: { open: true, search: 'solarized' },
+      state: { mode: 'commands', open: true, search: 'solarized' },
       themeMode: 'dark',
       themePresetId: 'solarized',
     });
@@ -274,7 +321,7 @@ describe('CommandPaletteDialog', () => {
 
   it('marks active appearance mode commands as current', () => {
     renderPalette({
-      state: { open: true, search: 'dark' },
+      state: { mode: 'commands', open: true, search: 'dark' },
       themeMode: 'dark',
     });
 
@@ -289,7 +336,7 @@ describe('CommandPaletteDialog', () => {
       hasHackmdApiToken: false,
       onConnectHackmd,
       onStateChange,
-      state: { open: true, search: 'connect' },
+      state: { mode: 'commands', open: true, search: 'connect' },
     });
 
     expect(screen.getByText('Account')).toBeVisible();
@@ -298,7 +345,7 @@ describe('CommandPaletteDialog', () => {
     fireEvent.click(command);
 
     expect(onConnectHackmd).toHaveBeenCalledOnce();
-    expect(onStateChange).toHaveBeenCalledWith({ open: false, search: '' });
+    expect(onStateChange).toHaveBeenCalledWith({ mode: 'commands', open: false, search: '' });
   });
 
   it('requests confirmation from the Disconnect HackMD account command', () => {
@@ -308,7 +355,7 @@ describe('CommandPaletteDialog', () => {
       hasHackmdApiToken: true,
       onRequestDisconnectHackmd,
       onStateChange,
-      state: { open: true, search: 'disconnect' },
+      state: { mode: 'commands', open: true, search: 'disconnect' },
     });
 
     const command = screen.getByRole('option', { name: /Disconnect HackMD/ });
@@ -316,7 +363,7 @@ describe('CommandPaletteDialog', () => {
     fireEvent.click(command);
 
     expect(onRequestDisconnectHackmd).toHaveBeenCalledOnce();
-    expect(onStateChange).toHaveBeenCalledWith({ open: false, search: '' });
+    expect(onStateChange).toHaveBeenCalledWith({ mode: 'commands', open: false, search: '' });
   });
 
   it('runs Local Vault commands based on configuration state', () => {
@@ -324,13 +371,13 @@ describe('CommandPaletteDialog', () => {
     const openLocal = renderPalette({
       hasLocalVault: false,
       onOpenLocalFolder,
-      state: { open: true, search: 'local' },
+      state: { mode: 'commands', open: true, search: 'local' },
     });
 
     fireEvent.click(screen.getByRole('option', { name: /Open Local Folder/ }));
 
     expect(onOpenLocalFolder).toHaveBeenCalledOnce();
-    expect(openLocal.onStateChange).toHaveBeenCalledWith({ open: false, search: '' });
+    expect(openLocal.onStateChange).toHaveBeenCalledWith({ mode: 'commands', open: false, search: '' });
   });
 
   it('switches to a configured Local Vault from the Local command', () => {
@@ -340,20 +387,20 @@ describe('CommandPaletteDialog', () => {
       hasLocalVault: true,
       onStateChange,
       onSwitchLocalVault,
-      state: { open: true, search: 'vault' },
+      state: { mode: 'commands', open: true, search: 'vault' },
     });
 
     fireEvent.click(screen.getByRole('option', { name: /Switch to Local Vault/ }));
 
     expect(onSwitchLocalVault).toHaveBeenCalledOnce();
-    expect(onStateChange).toHaveBeenCalledWith({ open: false, search: '' });
+    expect(onStateChange).toHaveBeenCalledWith({ mode: 'commands', open: false, search: '' });
   });
 
   it('copies the current note link from current note commands', () => {
     const onCopyCurrentNoteLink = vi.fn();
     renderPalette({
       onCopyCurrentNoteLink,
-      state: { open: true, search: 'copy link' },
+      state: { mode: 'commands', open: true, search: 'copy link' },
     });
 
     fireEvent.click(screen.getByRole('option', { name: /Copy Note Link/ }));
@@ -365,7 +412,7 @@ describe('CommandPaletteDialog', () => {
     const onCopyCurrentNoteMarkdownLink = vi.fn();
     renderPalette({
       onCopyCurrentNoteMarkdownLink,
-      state: { open: true, search: 'markdown link' },
+      state: { mode: 'commands', open: true, search: 'markdown link' },
     });
 
     fireEvent.click(screen.getByRole('option', { name: /Copy Markdown Link/ }));
@@ -378,7 +425,7 @@ describe('CommandPaletteDialog', () => {
     renderPalette({
       currentNoteIsRemote: true,
       onShareCurrentNote,
-      state: { open: true, search: 'share' },
+      state: { mode: 'commands', open: true, search: 'share' },
     });
 
     fireEvent.click(screen.getByRole('option', { name: /Share Note…/ }));
@@ -389,7 +436,7 @@ describe('CommandPaletteDialog', () => {
   it('hides sharing for local current notes', () => {
     renderPalette({
       currentNoteIsRemote: false,
-      state: { open: true, search: 'share' },
+      state: { mode: 'commands', open: true, search: 'share' },
     });
 
     expect(screen.queryByRole('option', { name: /Share Note…/ })).not.toBeInTheDocument();
@@ -401,7 +448,7 @@ describe('CommandPaletteDialog', () => {
     renderPalette({
       onRunAction,
       onStateChange,
-      state: { open: true, search: 'new note' },
+      state: { mode: 'commands', open: true, search: 'new note' },
     });
 
     const input = screen.getByRole('combobox', { name: 'Search notes, folders, and commands' });
@@ -411,9 +458,24 @@ describe('CommandPaletteDialog', () => {
 
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(onRunAction).toHaveBeenCalledWith('new-note');
-    expect(onStateChange).toHaveBeenCalledWith({ open: false, search: '' });
+    expect(onStateChange).toHaveBeenCalledWith({ mode: 'commands', open: false, search: '' });
 
     fireEvent.keyDown(input, { key: 'Escape' });
-    await waitFor(() => expect(onStateChange).toHaveBeenCalledWith({ open: false, search: '' }));
+    await waitFor(() => expect(onStateChange).toHaveBeenCalledWith({ mode: 'commands', open: false, search: '' }));
+  });
+
+  it('selects notes from Quick Open and resets to command mode on close', () => {
+    const onSelectNote = vi.fn();
+    const onStateChange = vi.fn();
+    renderPalette({
+      onSelectNote,
+      onStateChange,
+      state: { mode: 'quick-open', open: true, search: 'Alpha Plan' },
+    });
+
+    fireEvent.click(screen.getByRole('option', { name: /Alpha Plan/ }));
+
+    expect(onSelectNote).toHaveBeenCalledOnce();
+    expect(onStateChange).toHaveBeenCalledWith({ mode: 'commands', open: false, search: '' });
   });
 });

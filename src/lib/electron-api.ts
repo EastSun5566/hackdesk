@@ -236,6 +236,7 @@ export type UpdateFolderInput = {
 
 export type ElectronActionId =
   | 'open-command-palette'
+  | 'open-quick-open'
   | 'open-settings'
   | 'toggle-theme'
   | 'set-editor-mode-standard'

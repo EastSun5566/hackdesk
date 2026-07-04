@@ -408,6 +408,16 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     menuAccelerator: 'CmdOrCtrl+K',
   },
   {
+    id: 'open-quick-open',
+    label: 'Quick Open',
+    description: 'Search notes, folders, and workspaces.',
+    keywords: ['notes', 'folders', 'files', 'workspaces', 'search', 'open'],
+    category: 'navigation',
+    scope: 'global',
+    shortcut: '⌘P',
+    menuAccelerator: 'CmdOrCtrl+P',
+  },
+  {
     id: 'toggle-workspace-rail',
     label: 'Toggle Workspace Rail',
     description: 'Collapse or expand the workspace rail.',
@@ -450,13 +460,12 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
   },
   {
     id: 'search-notes',
-    label: 'Search Notes',
+    label: 'Focus Note Filter',
     description: 'Focus workspace note search.',
-    keywords: ['search', 'find', 'workspace', 'notes'],
+    keywords: ['search', 'filter', 'find', 'workspace', 'notes'],
     category: 'navigation',
     scope: 'navigator',
-    shortcut: '⇧⌘F',
-    menuAccelerator: 'Shift+CmdOrCtrl+F',
+    shortcut: '/',
     getDisabledReason: requireHackmd,
   },
   {

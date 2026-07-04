@@ -1563,7 +1563,7 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findRenderedNoteTitle();
-    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    fireEvent.keyDown(window, { key: 'p', metaKey: true, shiftKey: true });
 
     expect(await screen.findByRole('dialog', { name: 'Command Palette' })).toBeInTheDocument();
     expect(screen.getAllByText('Select a folder first.').length).toBeGreaterThan(0);
@@ -1591,7 +1591,7 @@ describe('Home native-feel behavior', () => {
     expect(screen.queryByRole('dialog', { name: 'Command Palette' })).not.toBeInTheDocument();
   });
 
-  it('quick-opens a matching note from the command palette', async () => {
+  it('quick-opens a matching note with Cmd+P', async () => {
     const notes = [
       { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', tags: ['product'], updatedAtMillis: 1000 },
       { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', tags: ['design'], folderPaths: [folder], updatedAtMillis: 3000 },
@@ -1615,13 +1615,13 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await screen.findByRole('button', { name: 'Product Plan' }, { timeout: 5_000 });
-    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    fireEvent.keyDown(window, { key: 'p', metaKey: true });
 
-    const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
-    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands…'), { target: { value: 'design' } });
+    const palette = await screen.findByRole('dialog', { name: 'Quick Open' });
+    fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and workspaces…'), { target: { value: 'design' } });
     fireEvent.click(await within(palette).findByText('Design Spec'));
 
-    expect(screen.queryByRole('dialog', { name: 'Command Palette' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Quick Open' })).not.toBeInTheDocument();
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
   });
 
@@ -1921,14 +1921,17 @@ describe('Home native-feel behavior', () => {
     expect(await screen.findByDisplayValue('Gamma')).toBeInTheDocument();
   });
 
-  it('focuses workspace note search with Cmd+Shift+F', async () => {
+  it('focuses workspace note search with slash and releases Cmd+Shift+F', async () => {
     const api = createApi();
 
     renderHome(api);
     await findRenderedNoteTitle();
+    const searchInput = screen.getByRole('textbox', { name: 'Search notes' });
     fireEvent.keyDown(window, { key: 'f', metaKey: true, shiftKey: true });
+    expect(searchInput).not.toHaveFocus();
+    fireEvent.keyDown(window, { key: '/' });
 
-    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Search notes' })).toHaveFocus());
+    await waitFor(() => expect(searchInput).toHaveFocus());
   });
 
   it('focuses the note navigator with Cmd+Shift+E', async () => {

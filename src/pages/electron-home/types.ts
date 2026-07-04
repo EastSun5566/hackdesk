@@ -7,6 +7,7 @@ export type WorkspaceScope =
   | { type: 'team'; label: string; teamPath: string };
 
 export type CommandPaletteState = {
+  mode: 'commands' | 'quick-open';
   open: boolean;
   search: string;
 };

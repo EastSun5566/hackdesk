@@ -79,7 +79,7 @@ function createOptions(overrides: Partial<ElectronHomeCommandPaletteOptions> = {
     handleShowFinderResults: vi.fn(),
     isNotesFetching: false,
     isNotesLoading: false,
-    palette: { open: false, search: '' },
+    palette: { mode: 'commands', open: false, search: '' },
     recentNotes: [recent()],
     removeRecentNoteEntry: vi.fn(),
     revealFolderIds: vi.fn(),
@@ -105,7 +105,18 @@ describe('useElectronHomeCommandPalette', () => {
       result.current.openPalette();
     });
 
-    expect(options.setPalette).toHaveBeenCalledWith({ open: true, search: '' });
+    expect(options.setPalette).toHaveBeenCalledWith({ mode: 'commands', open: true, search: '' });
+  });
+
+  it('opens Quick Open with an empty search', () => {
+    const options = createOptions();
+    const { result } = renderHook(() => useElectronHomeCommandPalette(options));
+
+    act(() => {
+      result.current.openQuickOpen();
+    });
+
+    expect(options.setPalette).toHaveBeenCalledWith({ mode: 'quick-open', open: true, search: '' });
   });
 
   it('reveals a loaded recent note through command palette props', () => {

@@ -74,6 +74,7 @@ export const ELECTRON_MENU_SCHEMA: ElectronMenuSchemaSection[] = [
     label: 'View',
     items: [
       { type: 'action', actionId: 'open-command-palette' },
+      { type: 'action', actionId: 'open-quick-open' },
       { type: 'action', actionId: 'toggle-theme' },
       { type: 'action', actionId: 'search-notes' },
       { type: 'action', actionId: 'refresh' },

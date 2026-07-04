@@ -275,6 +275,7 @@ const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'set-editor-mode-vim': <Keyboard className="h-4 w-4" />,
   'set-editor-mode-helix': <Keyboard className="h-4 w-4" />,
   'open-command-palette': <Keyboard className="h-4 w-4" />,
+  'open-quick-open': <Search className="h-4 w-4" />,
   'toggle-workspace-rail': <PanelLeftClose className="h-4 w-4" />,
   'toggle-navigator': <PanelLeft className="h-4 w-4" />,
   'toggle-inspector': <PanelRightClose className="h-4 w-4" />,
@@ -355,47 +356,59 @@ export function CommandPaletteDialog({
   onSelectWorkspace: (workspace: QuickOpenWorkspaceResult) => void;
   onShowFinderResults: (query: string) => void;
 }) {
+  const isQuickOpen = state.mode === 'quick-open';
   const trimmedSearch = state.search.trim();
   const hasQuery = trimmedSearch.length > 0;
   const recentResults = getQuickOpenRecentNoteResults(recentNotes, state.search);
   const workspaceResults = getQuickOpenWorkspaceResults(teams, state.search);
   const noteResults = getQuickOpenNoteResults(folderTree, state.search, undefined, recentNotes);
   const folderResults = context.scopeType === 'history' ? [] : getQuickOpenFolderResults(folderTree, state.search);
-  const actionResults = getQuickOpenActionResults(getCommandPaletteActions(), state.search);
-  const accountResults = hasQuery ? getAccountCommands(state.search, hasHackmdApiToken) : [];
-  const localVaultResults = hasQuery ? getLocalVaultCommands(state.search, hasLocalVault) : [];
-  const currentNoteResults = hasQuery
+  const actionResults = isQuickOpen ? [] : getQuickOpenActionResults(getCommandPaletteActions(), state.search);
+  const accountResults = hasQuery && !isQuickOpen ? getAccountCommands(state.search, hasHackmdApiToken) : [];
+  const localVaultResults = hasQuery && !isQuickOpen ? getLocalVaultCommands(state.search, hasLocalVault) : [];
+  const currentNoteResults = hasQuery && !isQuickOpen
     ? getCurrentNoteCommands(state.search, { currentNoteIsRemote, hasCurrentNote })
     : [];
-  const themeModeResults = hasQuery ? getThemeModeCommands(state.search, themeMode) : [];
-  const themePresetResults = hasQuery ? getThemePresetCommands(state.search, themePresets, themePresetId) : [];
+  const themeModeResults = hasQuery && !isQuickOpen ? getThemeModeCommands(state.search, themeMode) : [];
+  const themePresetResults = hasQuery && !isQuickOpen
+    ? getThemePresetCommands(state.search, themePresets, themePresetId)
+    : [];
   const hasAccountResults = accountResults.length > 0;
   const hasLocalVaultResults = localVaultResults.length > 0;
   const hasCurrentNoteResults = currentNoteResults.length > 0;
   const hasAppearanceResults = themeModeResults.length > 0 || themePresetResults.length > 0;
-  const showFinderAction = shouldShowFinderQuickAction(state.search);
+  const showFinderAction = !isQuickOpen && shouldShowFinderQuickAction(state.search);
+  const dialogTitle = isQuickOpen ? 'Quick Open' : 'Command Palette';
+  const dialogDescription = isQuickOpen
+    ? 'Search notes, folders, and workspaces.'
+    : 'Search notes, folders, workspaces, and commands.';
+  const searchLabel = isQuickOpen
+    ? 'Search notes, folders, and workspaces'
+    : 'Search notes, folders, and commands';
 
-  const closePalette = () => onStateChange({ open: false, search: '' });
+  const closePalette = () => onStateChange({ mode: 'commands', open: false, search: '' });
 
   return (
     <Dialog
       open={state.open}
-      onOpenChange={(open) => onStateChange(open ? { ...state, open } : { open: false, search: '' })}
+      onOpenChange={(open) => onStateChange(
+        open ? { ...state, open } : { mode: 'commands', open: false, search: '' },
+      )}
     >
       <DialogContent className="mt-[12dvh] max-w-xl self-start overflow-hidden p-0" showCloseButton={false}>
         <DialogHeader className="sr-only">
-          <DialogTitle>Command Palette</DialogTitle>
-          <DialogDescription>Search notes, folders, workspaces, and commands.</DialogDescription>
+          <DialogTitle>{dialogTitle}</DialogTitle>
+          <DialogDescription>{dialogDescription}</DialogDescription>
         </DialogHeader>
-        <Command label="Search notes, folders, and commands" shouldFilter={false}>
+        <Command label={searchLabel} shouldFilter={false}>
           <CommandInput
             autoFocus
             value={state.search}
             onValueChange={(search) => onStateChange({ ...state, search })}
-            placeholder="Search notes, folders, and commands…"
+            placeholder={`${searchLabel}…`}
             trailing={(
               <DialogClose
-                aria-label="Close command palette"
+                aria-label={`Close ${dialogTitle.toLowerCase()}`}
                 className={`inline-flex size-8 items-center justify-center p-0 ${FOCUS_RING_CLASS}`}
               >
                 <X aria-hidden="true" className="h-4 w-4" />
@@ -403,7 +416,7 @@ export function CommandPaletteDialog({
             )}
           />
           <CommandList className="overscroll-contain">
-            <CommandEmpty>No commands found.</CommandEmpty>
+            <CommandEmpty>{isQuickOpen ? 'No notes, folders, or workspaces found.' : 'No commands found.'}</CommandEmpty>
             {!hasQuery && recentResults.length > 0 ? (
               <CommandGroup heading="Recent Notes">
                 {recentResults.map((entry) => {
@@ -555,6 +568,11 @@ export function CommandPaletteDialog({
                       disabled={Boolean(disabledReason)}
                       onSelect={() => {
                         if (disabledReason) {
+                          return;
+                        }
+
+                        if (action.id === 'open-quick-open') {
+                          onStateChange({ mode: 'quick-open', open: true, search: '' });
                           return;
                         }
 
