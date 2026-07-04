@@ -8,11 +8,14 @@ import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor';
 import { ThemeProvider, useTheme } from './theme-provider';
 
 function ThemedEditorHarness({ editorRef }: { editorRef: RefObject<MarkdownEditorHandle> }) {
-  const { cancelPreview, previewTheme } = useTheme();
+  const { cancelPreview, previewTheme, typography } = useTheme();
 
   return (
     <>
       <button type="button" onClick={() => previewTheme({ theme: 'dark' })}>Preview dark</button>
+      <button type="button" onClick={() => previewTheme({
+        typography: { ...typography, uiFontSize: 16, editorFontSize: 20 },
+      })}>Preview font sizes</button>
       <button type="button" onClick={cancelPreview}>Cancel preview</button>
       <MarkdownEditor ref={editorRef} editorMode="vim" value="# Hello" onChange={vi.fn()} />
     </>
@@ -391,9 +394,22 @@ describe('MarkdownEditor', () => {
     expect(document.activeElement).toBe(content);
     expect(editor.querySelector('.cm-vim-panel')).toHaveTextContent('INSERT');
 
+    fireEvent.click(screen.getByRole('button', { name: 'Preview font sizes' }));
+
+    await waitFor(() => {
+      expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-ui: 1rem');
+      expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-editor: 1.25rem');
+    });
+    expect(editor.querySelector('.cm-editor')).toBe(codeMirror);
+    expect(ref.current?.getMarkdown()).toBe('# Hello');
+    expect(document.activeElement).toBe(content);
+    expect(editor.querySelector('.cm-vim-panel')).toHaveTextContent('INSERT');
+
     fireEvent.click(screen.getByRole('button', { name: 'Cancel preview' }));
 
     await waitFor(() => expect(codeMirror).toHaveAttribute('data-theme-mode', 'light'));
+    expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-ui: 0.875rem');
+    expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-editor: 0.875rem');
     expect(editor.querySelector('.cm-editor')).toBe(codeMirror);
     expect(document.activeElement).toBe(content);
     expect(editor.querySelector('.cm-vim-panel')).toHaveTextContent('INSERT');

@@ -2,6 +2,12 @@ import { z } from 'zod';
 
 import { DEFAULT_TITLE } from '@/constants';
 import {
+  DEFAULT_EDITOR_FONT_SIZE,
+  DEFAULT_UI_FONT_SIZE,
+  MAX_EDITOR_FONT_SIZE,
+  MAX_UI_FONT_SIZE,
+  MIN_EDITOR_FONT_SIZE,
+  MIN_UI_FONT_SIZE,
   defaultThemeTypography,
   isSafeFontStack,
   normalizeThemeMode,
@@ -61,6 +67,8 @@ const customFontStackSchema = z.string().trim().refine((value) => !value || isSa
 const typographySettingsSchema = z.object({
   uiFontStack: customFontStackSchema.default(defaultThemeTypography.uiFontStack),
   editorFontStack: customFontStackSchema.default(defaultThemeTypography.editorFontStack),
+  uiFontSize: z.number().int().min(MIN_UI_FONT_SIZE).max(MAX_UI_FONT_SIZE).default(DEFAULT_UI_FONT_SIZE),
+  editorFontSize: z.number().int().min(MIN_EDITOR_FONT_SIZE).max(MAX_EDITOR_FONT_SIZE).default(DEFAULT_EDITOR_FONT_SIZE),
 }).default(defaultThemeTypography).transform((value): ThemeTypography => normalizeThemeTypography(value));
 
 export const appearanceSettingsSchema = z.object({

@@ -144,6 +144,8 @@
     --font-sans: var(--font-system);
     --font-editor: "Source Code Pro", ui-monospace, monospace;
     --font-mono: var(--font-editor);
+    --font-size-ui: 0.875rem;
+    --font-size-editor: 0.875rem;
 
     --hmd-tw-text-default: var(--color-zinc-700);
     --hmd-tw-text-subtle: var(--color-zinc-500);
@@ -304,6 +306,7 @@
   body {
     @apply bg-background-default text-text-default;
     font-family: var(--font-system);
+    font-size: var(--font-size-ui);
   }
 
   .app-topbar {

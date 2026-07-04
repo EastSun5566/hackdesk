@@ -470,6 +470,75 @@ describe('SettingsDialog', () => {
     expect(screen.getByText('The default HackDesk writing palette.')).toBeVisible();
     expect(screen.getByLabelText('UI font')).toBeVisible();
     expect(screen.getByLabelText('Editor font')).toBeVisible();
+    const uiFontSize = screen.getByLabelText('UI font size');
+    expect(uiFontSize).toHaveAttribute('type', 'number');
+    expect(uiFontSize).toHaveAttribute('min', '12');
+    expect(uiFontSize).toHaveAttribute('max', '18');
+    expect(uiFontSize).toHaveAttribute('step', '1');
+    expect(uiFontSize).toHaveValue(14);
+    const editorFontSize = screen.getByLabelText('Editor font size');
+    expect(editorFontSize).toHaveAttribute('type', 'number');
+    expect(editorFontSize).toHaveAttribute('min', '10');
+    expect(editorFontSize).toHaveAttribute('max', '32');
+    expect(editorFontSize).toHaveAttribute('step', '1');
+    expect(editorFontSize).toHaveValue(14);
+  });
+
+  it('previews, applies, and persists UI and editor font sizes independently', async () => {
+    renderSettingsDialog();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
+    const uiFontSize = screen.getByLabelText('UI font size');
+    const editorFontSize = screen.getByLabelText('Editor font size');
+    await waitFor(() => {
+      expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-ui: 0.875rem');
+    });
+    fireEvent.change(uiFontSize, { target: { value: '16' } });
+    fireEvent.change(editorFontSize, { target: { value: '20' } });
+
+    await waitFor(() => {
+      expect(uiFontSize).toHaveValue(16);
+      expect(editorFontSize).toHaveValue(20);
+      expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-ui: 1rem');
+      expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-editor: 1.25rem');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Theme' }));
+
+    expect(JSON.parse(localStorage.getItem(THEME_STORAGE_KEYS.typography) ?? '{}')).toMatchObject({
+      uiFontSize: 16,
+      editorFontSize: 20,
+    });
+  });
+
+  it('rejects empty, fractional, and out-of-range font sizes and restores them on cancel', async () => {
+    renderSettingsDialog();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
+    const uiFontSize = screen.getByLabelText('UI font size');
+    const editorFontSize = screen.getByLabelText('Editor font size');
+
+    fireEvent.change(uiFontSize, { target: { value: '' } });
+    expect(screen.getByText('Enter a whole number from 12 to 18.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Apply Theme' })).toBeDisabled();
+
+    fireEvent.change(uiFontSize, { target: { value: '14.5' } });
+    expect(screen.getByText('Enter a whole number from 12 to 18.')).toBeVisible();
+
+    fireEvent.change(uiFontSize, { target: { value: '16' } });
+    fireEvent.change(editorFontSize, { target: { value: '33' } });
+    expect(screen.getByText('Enter a whole number from 10 to 32.')).toBeVisible();
+
+    fireEvent.change(editorFontSize, { target: { value: '20' } });
+    expect(screen.getByRole('button', { name: 'Apply Theme' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel Preview' }));
+
+    expect(uiFontSize).toHaveValue(14);
+    expect(editorFontSize).toHaveValue(14);
+    await waitFor(() => {
+      expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-ui: 0.875rem');
+      expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-editor: 0.875rem');
+    });
   });
 
   it('updates the theme select label and description when choosing another preset', async () => {

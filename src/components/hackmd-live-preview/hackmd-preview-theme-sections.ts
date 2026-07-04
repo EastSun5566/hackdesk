@@ -3,10 +3,11 @@ export const editorChromeTheme = {
     height: '100%',
     backgroundColor: 'var(--background-default)',
     color: 'var(--text-default)',
-    fontSize: '14px',
+    fontSize: 'var(--font-size-ui)',
   },
   '.cm-scroller': {
     fontFamily: 'var(--font-editor)',
+    fontSize: 'var(--font-size-editor)',
     lineHeight: '1.72',
   },
   '.cm-content': {

@@ -40,6 +40,8 @@ const customFontStackSchema = z.string().trim().refine((value) => {
 const typographySchema = z.strictObject({
   uiFontStack: customFontStackSchema,
   editorFontStack: customFontStackSchema,
+  uiFontSize: z.number().int().min(12).max(18),
+  editorFontSize: z.number().int().min(10).max(32),
 });
 
 export const settingsUpdateSchema = z.strictObject({

@@ -7,6 +7,8 @@ export type ThemePresetId = 'hackmd-neo' | 'hackmd-minimal' | 'hackmd-nature' | 
 export type ThemeTypography = {
   uiFontStack: string;
   editorFontStack: string;
+  uiFontSize: number;
+  editorFontSize: number;
 };
 
 export type ThemeSeed = {
@@ -49,10 +51,18 @@ const QUOTED_FONT_FAMILY_RE = /^(?:"[^"\\\r\n]+"|'[^'\\\r\n]+')$/;
 
 export const DEFAULT_UI_FONT_STACK = 'Inter, system-ui, sans-serif';
 export const DEFAULT_EDITOR_FONT_STACK = '"Source Code Pro", ui-monospace, monospace';
+export const DEFAULT_UI_FONT_SIZE = 14;
+export const MIN_UI_FONT_SIZE = 12;
+export const MAX_UI_FONT_SIZE = 18;
+export const DEFAULT_EDITOR_FONT_SIZE = 14;
+export const MIN_EDITOR_FONT_SIZE = 10;
+export const MAX_EDITOR_FONT_SIZE = 32;
 
 export const defaultThemeTypography: ThemeTypography = {
   uiFontStack: DEFAULT_UI_FONT_STACK,
   editorFontStack: DEFAULT_EDITOR_FONT_STACK,
+  uiFontSize: DEFAULT_UI_FONT_SIZE,
+  editorFontSize: DEFAULT_EDITOR_FONT_SIZE,
 };
 
 const DEFAULT_SYNTAX_TOKENS: ThemeTokenOverrides = {
@@ -576,6 +586,18 @@ export function normalizeThemeTypography(value: unknown): ThemeTypography {
   return {
     uiFontStack: normalizeFontStack(candidate.uiFontStack, defaultThemeTypography.uiFontStack),
     editorFontStack: normalizeFontStack(candidate.editorFontStack, defaultThemeTypography.editorFontStack),
+    uiFontSize: normalizeFontSize(
+      candidate.uiFontSize,
+      defaultThemeTypography.uiFontSize,
+      MIN_UI_FONT_SIZE,
+      MAX_UI_FONT_SIZE,
+    ),
+    editorFontSize: normalizeFontSize(
+      candidate.editorFontSize,
+      defaultThemeTypography.editorFontSize,
+      MIN_EDITOR_FONT_SIZE,
+      MAX_EDITOR_FONT_SIZE,
+    ),
   };
 }
 
@@ -603,7 +625,24 @@ export function resolveThemeTypography(typography: ThemeTypography): ResolvedHac
     '--font-sans': normalized.uiFontStack,
     '--font-editor': normalized.editorFontStack,
     '--font-mono': normalized.editorFontStack,
+    '--font-size-ui': pxToRem(normalized.uiFontSize),
+    '--font-size-editor': pxToRem(normalized.editorFontSize),
+    '--text-xs': 'calc(var(--font-size-ui) * 0.8571428571)',
+    '--text-sm': 'var(--font-size-ui)',
+    '--text-base': 'calc(var(--font-size-ui) * 1.1428571429)',
+    '--text-lg': 'calc(var(--font-size-ui) * 1.2857142857)',
+    '--text-2xl': 'calc(var(--font-size-ui) * 1.7142857143)',
   };
+}
+
+function normalizeFontSize(value: unknown, fallback: number, min: number, max: number) {
+  return typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max
+    ? value
+    : fallback;
+}
+
+function pxToRem(value: number) {
+  return `${Number((value / 16).toFixed(6))}rem`;
 }
 
 export function normalizeThemeSeed(value: unknown): Partial<ThemeSeed> {

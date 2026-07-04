@@ -103,6 +103,8 @@ describe('IPC runtime validation', () => {
         typography: {
           uiFontStack: 'system-ui, sans-serif',
           editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
+          uiFontSize: 16,
+          editorFontSize: 18,
         },
       },
     })).toMatchObject({
@@ -119,6 +121,8 @@ describe('IPC runtime validation', () => {
         typography: {
           uiFontStack: 'system-ui, sans-serif',
           editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
+          uiFontSize: 14,
+          editorFontSize: 20,
         },
       },
     })).toMatchObject({
@@ -141,6 +145,29 @@ describe('IPC runtime validation', () => {
         typography: {
           uiFontStack: 'Inter; color: red',
           editorFontStack: '"Source Code Pro", ui-monospace, monospace',
+          uiFontSize: 14,
+          editorFontSize: 14,
+        },
+      },
+    })).toThrow(/Invalid/);
+  });
+
+  it.each([
+    { uiFontSize: 11, editorFontSize: 14 },
+    { uiFontSize: 19, editorFontSize: 14 },
+    { uiFontSize: 14.5, editorFontSize: 14 },
+    { uiFontSize: 14, editorFontSize: 9 },
+    { uiFontSize: 14, editorFontSize: 33 },
+  ])('rejects invalid theme font sizes in settings updates: %j', (fontSizes) => {
+    expect(() => validateIpcInput('settings:update', settingsUpdateSchema, {
+      appearance: {
+        theme: 'dark',
+        presetId: 'hackmd-neo',
+        customSeed: {},
+        typography: {
+          uiFontStack: 'Inter, system-ui, sans-serif',
+          editorFontStack: '"Source Code Pro", ui-monospace, monospace',
+          ...fontSizes,
         },
       },
     })).toThrow(/Invalid/);

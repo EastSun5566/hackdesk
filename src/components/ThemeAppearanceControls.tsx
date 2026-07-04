@@ -6,6 +6,10 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectLabelValue, SelectTrigger } from '@/components/ui/select';
 import {
   HACKDESK_THEME_PRESETS,
+  MAX_EDITOR_FONT_SIZE,
+  MAX_UI_FONT_SIZE,
+  MIN_EDITOR_FONT_SIZE,
+  MIN_UI_FONT_SIZE,
   type ThemeMode,
   type ThemePresetId,
   type ThemeSeed,
@@ -167,19 +171,39 @@ export function ThemeAppearanceFields({
           {compact ? null : <p className="mb-3 text-sm text-text-subtle">
             Choose local font stacks for HackDesk chrome and the markdown editor.
           </p>}
-          <div className={cn('grid grid-cols-1 gap-3', compact ? null : 'sm:grid-cols-2')}>
-            <ThemeFontField
-              label="UI font"
-              value={draftTypography.uiFontStack}
-              error={typographyErrors.uiFontStack}
-              onChange={(value) => draftActions.changeTypography('uiFontStack', value)}
-            />
-            <ThemeFontField
-              label="Editor font"
-              value={draftTypography.editorFontStack}
-              error={typographyErrors.editorFontStack}
-              onChange={(value) => draftActions.changeTypography('editorFontStack', value)}
-            />
+          <div className="space-y-3">
+            <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-3">
+              <ThemeFontField
+                label="UI font"
+                value={draftTypography.uiFontStack}
+                error={typographyErrors.uiFontStack}
+                onChange={(value) => draftActions.changeTypography('uiFontStack', value)}
+              />
+              <ThemeFontSizeField
+                label="UI font size"
+                value={draftTypography.uiFontSize}
+                min={MIN_UI_FONT_SIZE}
+                max={MAX_UI_FONT_SIZE}
+                error={typographyErrors.uiFontSize}
+                onChange={(value) => draftActions.changeTypography('uiFontSize', value)}
+              />
+            </div>
+            <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-3">
+              <ThemeFontField
+                label="Editor font"
+                value={draftTypography.editorFontStack}
+                error={typographyErrors.editorFontStack}
+                onChange={(value) => draftActions.changeTypography('editorFontStack', value)}
+              />
+              <ThemeFontSizeField
+                label="Editor font size"
+                value={draftTypography.editorFontSize}
+                min={MIN_EDITOR_FONT_SIZE}
+                max={MAX_EDITOR_FONT_SIZE}
+                error={typographyErrors.editorFontSize}
+                onChange={(value) => draftActions.changeTypography('editorFontSize', value)}
+              />
+            </div>
           </div>
         </fieldset>
       ) : null}
@@ -304,6 +328,45 @@ function ThemeFontField({
         placeholder={label === 'UI font' ? 'Inter, system-ui, sans-serif' : '"Source Code Pro", ui-monospace, monospace'}
         autoComplete="off"
         spellCheck={false}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
+      />
+      {error ? <p id={errorId} className="text-xs text-destructive-default">{error}</p> : null}
+    </div>
+  );
+}
+
+function ThemeFontSizeField({
+  error,
+  label,
+  max,
+  min,
+  onChange,
+  value,
+}: {
+  error: string | null;
+  label: string;
+  max: number;
+  min: number;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  const fieldId = `theme-font-size-${label.toLowerCase().replace(/\W+/g, '-')}`;
+  const errorId = `${fieldId}-error`;
+
+  return (
+    <div className="space-y-2 text-sm">
+      <label htmlFor={fieldId} className="font-medium">{label}</label>
+      <input
+        id={fieldId}
+        type="number"
+        value={value}
+        min={min}
+        max={max}
+        step={1}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-9 w-full rounded-md border border-border-default bg-background-default px-2 text-sm tabular-nums text-text-default outline-none transition-[border-color,box-shadow] focus:border-focus-ring focus-visible:ring-2 focus-visible:ring-focus-ring/70"
+        autoComplete="off"
         aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : undefined}
       />

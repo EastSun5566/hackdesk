@@ -88,7 +88,9 @@ describe('query hooks', () => {
     "customSeed": {},
     "typography": {
       "uiFontStack": "Inter, system-ui, sans-serif",
-      "editorFontStack": "\\"Source Code Pro\\", ui-monospace, monospace"
+      "editorFontStack": "\\"Source Code Pro\\", ui-monospace, monospace",
+      "uiFontSize": 14,
+      "editorFontSize": 14
     }
   },
   "onboarding": {

@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { useTheme } from '@/components/theme-provider';
 import {
+  MAX_EDITOR_FONT_SIZE,
+  MAX_UI_FONT_SIZE,
+  MIN_EDITOR_FONT_SIZE,
+  MIN_UI_FONT_SIZE,
   defaultThemeTypography,
   isSafeFontStack,
   normalizeThemeSeed,
@@ -13,6 +17,7 @@ import {
 } from '@/lib/themes';
 
 export type ThemeSeedInputs = Record<keyof ThemeSeed, string>;
+export type ThemeTypographyInputs = Record<keyof ThemeTypography, string>;
 
 export const THEME_SEED_FIELDS: { key: keyof ThemeSeed; label: string }[] = [
   { key: 'neutral', label: 'Neutral' },
@@ -31,7 +36,7 @@ type ThemeAppearanceDraft = {
   mode: ThemeMode;
   presetId: ThemePresetId;
   seedInputs: ThemeSeedInputs;
-  typography: ThemeTypography;
+  typography: ThemeTypographyInputs;
 };
 
 type ThemeAppearanceDraftStatus = {
@@ -46,7 +51,7 @@ type ThemeAppearanceDraftActions = {
   changeMode: (mode: ThemeMode) => void;
   changePreset: (presetId: ThemePresetId) => void;
   changeSeed: (key: keyof ThemeSeed, value: string) => void;
-  changeTypography: (role: keyof ThemeTypography, value: string) => void;
+  changeTypography: (role: keyof ThemeTypographyInputs, value: string) => void;
   reset: () => void;
 };
 
@@ -56,7 +61,7 @@ export type ThemeAppearanceDraftController = {
   seedErrors: Partial<Record<keyof ThemeSeed, string>>;
   showTypography: boolean;
   status: ThemeAppearanceDraftStatus;
-  typographyErrors: Record<keyof ThemeTypography, string | null>;
+  typographyErrors: Record<keyof ThemeTypographyInputs, string | null>;
 };
 
 function seedToInputs(seed: Partial<ThemeSeed>) {
@@ -86,13 +91,52 @@ function getFontStackError(value: string) {
   return value.trim() && !isSafeFontStack(value) ? FONT_STACK_ERROR : null;
 }
 
+function getFontSizeError(value: string, min: number, max: number) {
+  const parsed = Number(value);
+  return value.trim() && Number.isInteger(parsed) && parsed >= min && parsed <= max
+    ? null
+    : `Enter a whole number from ${min} to ${max}.`;
+}
+
+function typographyToInputs(typography: ThemeTypography): ThemeTypographyInputs {
+  return {
+    uiFontStack: typography.uiFontStack,
+    editorFontStack: typography.editorFontStack,
+    uiFontSize: String(typography.uiFontSize),
+    editorFontSize: String(typography.editorFontSize),
+  };
+}
+
+function getTypographyErrors(typography: ThemeTypographyInputs) {
+  return {
+    uiFontStack: getFontStackError(typography.uiFontStack),
+    editorFontStack: getFontStackError(typography.editorFontStack),
+    uiFontSize: getFontSizeError(typography.uiFontSize, MIN_UI_FONT_SIZE, MAX_UI_FONT_SIZE),
+    editorFontSize: getFontSizeError(typography.editorFontSize, MIN_EDITOR_FONT_SIZE, MAX_EDITOR_FONT_SIZE),
+  };
+}
+
+function parseTypographyInputs(typography: ThemeTypographyInputs): ThemeTypography | null {
+  if (Object.values(getTypographyErrors(typography)).some(Boolean)) {
+    return null;
+  }
+
+  return normalizeThemeTypography({
+    ...typography,
+    uiFontSize: Number(typography.uiFontSize),
+    editorFontSize: Number(typography.editorFontSize),
+  });
+}
+
 function seedInputsEqual(left: ThemeSeedInputs, right: ThemeSeedInputs) {
   return THEME_SEED_FIELDS.every((field) => left[field.key] === right[field.key]);
 }
 
-function typographyEqual(left: ThemeTypography, right: ThemeTypography) {
+function typographyInputsEqual(left: ThemeTypographyInputs, right: ThemeTypographyInputs) {
   return left.uiFontStack === right.uiFontStack
-    && left.editorFontStack === right.editorFontStack;
+    && left.editorFontStack === right.editorFontStack
+    && left.uiFontSize === right.uiFontSize
+    && left.editorFontSize === right.editorFontSize;
 }
 
 export function useThemeAppearanceDraft({
@@ -110,43 +154,37 @@ export function useThemeAppearanceDraft({
     setAppearance,
   } = useTheme();
   const typography = useMemo(() => normalizeThemeTypography(contextTypography), [contextTypography]);
+  const savedTypographyInputs = useMemo(() => typographyToInputs(typography), [typography]);
   const savedSeedInputs = useMemo(() => seedToInputs(customSeed), [customSeed]);
   const [draft, setDraft] = useState<ThemeAppearanceDraft>(() => ({
     mode: theme,
     presetId,
     seedInputs: savedSeedInputs,
-    typography,
+    typography: savedTypographyInputs,
   }));
   const seedErrors = useMemo(() => getInputErrors(draft.seedInputs), [draft.seedInputs]);
-  const typographyErrors = useMemo(() => ({
-    uiFontStack: getFontStackError(draft.typography.uiFontStack),
-    editorFontStack: getFontStackError(draft.typography.editorFontStack),
-  }), [draft.typography.editorFontStack, draft.typography.uiFontStack]);
+  const typographyErrors = useMemo(() => getTypographyErrors(draft.typography), [draft.typography]);
   const hasErrors = Object.keys(seedErrors).length > 0
-    || (showTypography && Boolean(typographyErrors.uiFontStack || typographyErrors.editorFontStack));
+    || (showTypography && Object.values(typographyErrors).some(Boolean));
   const hasDraftChanges = draft.mode !== theme
     || draft.presetId !== presetId
     || !seedInputsEqual(draft.seedInputs, savedSeedInputs)
-    || (showTypography && !typographyEqual(draft.typography, typography));
+    || (showTypography && !typographyInputsEqual(draft.typography, savedTypographyInputs));
 
   useEffect(() => {
     setDraft({
       mode: theme,
       presetId,
       seedInputs: savedSeedInputs,
-      typography,
+      typography: savedTypographyInputs,
     });
-  }, [presetId, savedSeedInputs, theme, typography]);
+  }, [presetId, savedSeedInputs, savedTypographyInputs, theme]);
 
   const preview = (next: Partial<ThemeAppearanceDraft>) => {
     const nextDraft = { ...draft, ...next };
-    const nextTypography = showTypography ? nextDraft.typography : typography;
+    const nextTypography = showTypography ? parseTypographyInputs(nextDraft.typography) : typography;
     const nextSeedErrors = getInputErrors(nextDraft.seedInputs);
-    const nextTypographyErrors = [
-      getFontStackError(nextTypography.uiFontStack),
-      getFontStackError(nextTypography.editorFontStack),
-    ];
-    if (Object.keys(nextSeedErrors).length > 0 || nextTypographyErrors.some(Boolean)) {
+    if (Object.keys(nextSeedErrors).length > 0 || !nextTypography) {
       return;
     }
 
@@ -174,13 +212,13 @@ export function useThemeAppearanceDraft({
     preview({ seedInputs });
   };
 
-  const changeTypography = (role: keyof ThemeTypography, value: string) => {
+  const changeTypography = (role: keyof ThemeTypographyInputs, value: string) => {
     const nextTypography = {
       ...draft.typography,
       [role]: value,
     };
     setDraft((current) => ({ ...current, typography: nextTypography }));
-    preview({ typography: normalizeThemeTypography(nextTypography) });
+    preview({ typography: nextTypography });
   };
 
   const apply = () => {
@@ -188,11 +226,16 @@ export function useThemeAppearanceDraft({
       return false;
     }
 
+    const nextTypography = showTypography ? parseTypographyInputs(draft.typography) : typography;
+    if (!nextTypography) {
+      return false;
+    }
+
     setAppearance({
       theme: draft.mode,
       presetId: draft.presetId,
       customSeed: normalizeThemeSeed(draft.seedInputs),
-      typography: showTypography ? normalizeThemeTypography(draft.typography) : typography,
+      typography: nextTypography,
     });
     return true;
   };
@@ -203,7 +246,7 @@ export function useThemeAppearanceDraft({
       mode: theme,
       presetId,
       seedInputs: savedSeedInputs,
-      typography,
+      typography: savedTypographyInputs,
     });
   };
 
@@ -214,7 +257,7 @@ export function useThemeAppearanceDraft({
       mode: DEFAULT_THEME_MODE,
       presetId: DEFAULT_THEME_PRESET,
       seedInputs,
-      typography: nextTypography,
+      typography: typographyToInputs(nextTypography),
     });
     previewTheme({
       theme: DEFAULT_THEME_MODE,

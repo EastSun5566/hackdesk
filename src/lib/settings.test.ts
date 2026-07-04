@@ -56,6 +56,8 @@ describe('settings helpers', () => {
         typography: {
           uiFontStack: 'system-ui, sans-serif',
           editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
+          uiFontSize: 16,
+          editorFontSize: 18,
         },
       },
     })).appearance).toEqual({
@@ -65,6 +67,8 @@ describe('settings helpers', () => {
       typography: {
         uiFontStack: 'system-ui, sans-serif',
         editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
+        uiFontSize: 16,
+        editorFontSize: 18,
       },
     });
 
@@ -77,9 +81,31 @@ describe('settings helpers', () => {
         typography: {
           uiFontStack: 'system-ui, sans-serif',
           editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
+          uiFontSize: 14,
+          editorFontSize: 14,
         },
       },
     })).appearance.presetId).toBe('dracula');
+  });
+
+  it('fills missing font sizes from the typography defaults', () => {
+    expect(parseSettings(JSON.stringify({
+      title: 'Workspace',
+      appearance: {
+        theme: 'light',
+        presetId: 'hackmd-neo',
+        customSeed: {},
+        typography: {
+          uiFontStack: 'system-ui, sans-serif',
+          editorFontStack: 'ui-monospace, monospace',
+        },
+      },
+    })).appearance.typography).toMatchObject({
+      uiFontStack: 'system-ui, sans-serif',
+      editorFontStack: 'ui-monospace, monospace',
+      uiFontSize: 14,
+      editorFontSize: 14,
+    });
   });
 
   it('rejects unsafe custom font stacks', () => {
@@ -92,9 +118,33 @@ describe('settings helpers', () => {
         typography: {
           uiFontStack: 'Inter; color: red',
           editorFontStack: '"Source Code Pro", ui-monospace, monospace',
+          uiFontSize: 14,
+          editorFontSize: 14,
         },
       },
     }))).toThrow('Use comma-separated font family names without CSS functions or declarations.');
+  });
+
+  it.each([
+    ['UI font size below the minimum', { uiFontSize: 11, editorFontSize: 14 }],
+    ['UI font size above the maximum', { uiFontSize: 19, editorFontSize: 14 }],
+    ['fractional UI font size', { uiFontSize: 14.5, editorFontSize: 14 }],
+    ['editor font size below the minimum', { uiFontSize: 14, editorFontSize: 9 }],
+    ['editor font size above the maximum', { uiFontSize: 14, editorFontSize: 33 }],
+  ])('rejects %s', (_label, fontSizes) => {
+    expect(() => parseSettings(JSON.stringify({
+      title: 'Workspace',
+      appearance: {
+        theme: 'system',
+        presetId: 'hackmd-neo',
+        customSeed: {},
+        typography: {
+          uiFontStack: 'Inter, system-ui, sans-serif',
+          editorFontStack: '"Source Code Pro", ui-monospace, monospace',
+          ...fontSizes,
+        },
+      },
+    }))).toThrow();
   });
 
   it('throws a clear error for invalid JSON', () => {
@@ -122,7 +172,9 @@ describe('settings helpers', () => {
     "customSeed": {},
     "typography": {
       "uiFontStack": "Inter, system-ui, sans-serif",
-      "editorFontStack": "\\"Source Code Pro\\", ui-monospace, monospace"
+      "editorFontStack": "\\"Source Code Pro\\", ui-monospace, monospace",
+      "uiFontSize": 14,
+      "editorFontSize": 14
     }
   },
   "onboarding": {

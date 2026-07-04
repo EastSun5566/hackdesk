@@ -26,6 +26,13 @@ function getReferencedThemeTokens() {
 }
 
 describe('HackMD preview widget theme', () => {
+  it('keeps UI chrome and editor content font sizes on separate semantic tokens', () => {
+    expect(editorChromeTheme['&']).toHaveProperty('fontSize', 'var(--font-size-ui)');
+    expect(editorChromeTheme['.cm-scroller']).toHaveProperty('fontSize', 'var(--font-size-editor)');
+    expect(searchPanelTheme['.cm-panel.cm-vim-panel, .cm-panel.cm-hx-status-panel, .cm-panel.cm-hx-command-panel'])
+      .toHaveProperty('fontSize', '11px');
+  });
+
   it('keeps rich block widget spacing inside the measured border box', () => {
     expect(widgetTheme['.cm-hackmd-table']).not.toHaveProperty('margin');
     expect(widgetTheme['.cm-hackmd-image-preview']).not.toHaveProperty('margin');

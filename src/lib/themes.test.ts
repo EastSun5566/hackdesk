@@ -196,6 +196,8 @@ describe('HackDesk themes', () => {
     const typography = normalizeThemeTypography({
       uiFontStack: 'system-ui, sans-serif',
       editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
+      uiFontSize: 16,
+      editorFontSize: 20,
     });
     const theme = resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'light', typography });
 
@@ -203,7 +205,16 @@ describe('HackDesk themes', () => {
     expect(theme['--font-sans']).toBe(theme['--font-system']);
     expect(theme['--font-editor']).toBe('"JetBrains Mono", ui-monospace, monospace');
     expect(theme['--font-mono']).toBe(theme['--font-editor']);
+    expect(theme['--font-size-ui']).toBe('1rem');
+    expect(theme['--font-size-editor']).toBe('1.25rem');
+    expect(theme['--text-sm']).toBe('var(--font-size-ui)');
+    expect(theme['--text-xs']).toContain('var(--font-size-ui)');
+    expect(theme['--text-base']).toContain('var(--font-size-ui)');
     expect(normalizeThemeTypography({}).uiFontStack).toEqual(defaultThemeTypography.uiFontStack);
+    expect(normalizeThemeTypography({ uiFontSize: 11, editorFontSize: 33 })).toMatchObject({
+      uiFontSize: defaultThemeTypography.uiFontSize,
+      editorFontSize: defaultThemeTypography.editorFontSize,
+    });
     expect(isSafeFontStack('Inter; color: red')).toBe(false);
   });
 });

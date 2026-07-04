@@ -69,6 +69,8 @@ describe('Electron settings', () => {
         typography: {
           uiFontStack: 'system-ui, sans-serif',
           editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
+          uiFontSize: 16,
+          editorFontSize: 18,
         },
       },
     });
@@ -80,10 +82,14 @@ describe('Electron settings', () => {
       typography: {
         uiFontStack: 'system-ui, sans-serif',
         editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
+        uiFontSize: 16,
+        editorFontSize: 18,
       },
     });
     expect(content).toContain('"presetId": "catppuccin"');
     expect(content).toContain('JetBrains Mono');
+    expect(content).toContain('"uiFontSize": 16');
+    expect(content).toContain('"editorFontSize": 18');
   });
 
   it('defers first-run onboarding without configuring a token', async () => {
