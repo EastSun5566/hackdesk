@@ -57,7 +57,7 @@ import {
 } from './electron-home/useWorkbenchWorkspaceState';
 
 export function Home() {
-  const { resolvedMode, setTheme } = useTheme();
+  const { presets, presetId, resolvedMode, setPresetId, setTheme, theme } = useTheme();
   const queryClient = useQueryClient();
   const api = getDesktopAPI();
   const initialWorkspaceScope = useMemo(() => getInitialWorkspaceScope(), []);
@@ -661,6 +661,13 @@ export function Home() {
     actionContext,
     api,
     commandPaletteProps,
+    commandPaletteTheme: {
+      themeMode: theme,
+      themePresetId: presetId,
+      themePresets: presets,
+      onSelectThemeMode: setTheme,
+      onSelectThemePreset: setPresetId,
+    },
     dialogState,
     displayScope,
     localVaultActions,

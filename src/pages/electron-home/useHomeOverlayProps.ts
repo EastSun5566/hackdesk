@@ -10,11 +10,20 @@ import type { useWorkbenchDialogState } from './useWorkbenchDialogState';
 type DialogState = ReturnType<typeof useWorkbenchDialogState>;
 type NoteMutations = ReturnType<typeof useElectronNoteMutations>;
 type WorkbenchActions = ReturnType<typeof useWorkbenchActions>;
+type CommandPaletteInjectedProps =
+  | 'context'
+  | 'onRunAction'
+  | 'themeMode'
+  | 'themePresetId'
+  | 'themePresets'
+  | 'onSelectThemeMode'
+  | 'onSelectThemePreset';
 
 export function useHomeOverlayProps({
   actionContext,
   api,
   commandPaletteProps,
+  commandPaletteTheme,
   dialogState,
   displayScope,
   localVaultActions,
@@ -31,7 +40,11 @@ export function useHomeOverlayProps({
 }: {
   actionContext: WorkbenchActions['actionContext'];
   api: HackDeskElectronAPI | undefined;
-  commandPaletteProps: Omit<ElectronHomeOverlaysProps['commandPalette'], 'context' | 'onRunAction'>;
+  commandPaletteProps: Omit<ElectronHomeOverlaysProps['commandPalette'], CommandPaletteInjectedProps>;
+  commandPaletteTheme: Pick<
+    ElectronHomeOverlaysProps['commandPalette'],
+    'themeMode' | 'themePresetId' | 'themePresets' | 'onSelectThemeMode' | 'onSelectThemePreset'
+  >;
   dialogState: DialogState;
   displayScope: WorkspaceScope;
   localVaultActions: HomeLocalVaultActions;
@@ -49,6 +62,7 @@ export function useHomeOverlayProps({
   return {
     commandPalette: {
       ...commandPaletteProps,
+      ...commandPaletteTheme,
       context: actionContext,
       onRunAction: runAction,
     },

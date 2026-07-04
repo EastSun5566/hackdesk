@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ElectronActionContext } from '@/lib/electron-actions';
 import type { FolderSummary, NoteSummary, TeamSummary } from '@/lib/electron-api';
 import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
+import { HACKDESK_THEME_PRESETS } from '@/lib/themes';
 
 import { CommandPaletteDialog } from './CommandPaletteDialog';
 
@@ -122,6 +123,11 @@ function renderPalette(overrides: Partial<CommandPaletteDialogProps> = {}) {
     selectedNoteId: 'exact',
     state: { open: true, search: '' },
     teams: [team],
+    themeMode: 'system',
+    themePresetId: 'hackmd-neo',
+    themePresets: HACKDESK_THEME_PRESETS,
+    onSelectThemeMode: vi.fn(),
+    onSelectThemePreset: vi.fn(),
     ...overrides,
   };
 
@@ -146,6 +152,7 @@ describe('CommandPaletteDialog', () => {
       'Workspaces',
       'Quick Actions',
     ]);
+    expect(screen.queryByText('Appearance')).not.toBeInTheDocument();
     expect(screen.queryByText('Notes')).not.toBeInTheDocument();
     expect(screen.queryByText('Folders')).not.toBeInTheDocument();
     expect(screen.getAllByText('Alpha')).toHaveLength(1);
@@ -197,6 +204,68 @@ describe('CommandPaletteDialog', () => {
 
     expect(screen.getByText('Alpha')).toBeVisible();
     expect(screen.queryByText('exact-short')).not.toBeInTheDocument();
+  });
+
+  it('runs theme preset commands from searched appearance results', () => {
+    const onSelectThemePreset = vi.fn();
+    const onStateChange = vi.fn();
+    renderPalette({
+      onSelectThemePreset,
+      onStateChange,
+      state: { open: true, search: 'solarized' },
+    });
+
+    expect(screen.getByText('Appearance')).toBeVisible();
+    const command = screen.getByRole('option', { name: /Use Theme: Solarized/ });
+
+    fireEvent.click(command);
+
+    expect(onSelectThemePreset).toHaveBeenCalledWith('solarized');
+    expect(onStateChange).toHaveBeenCalledWith({ open: false, search: '' });
+  });
+
+  it('runs theme mode commands from searched appearance results', () => {
+    const onSelectThemeMode = vi.fn();
+    const onStateChange = vi.fn();
+    renderPalette({
+      onSelectThemeMode,
+      onStateChange,
+      state: { open: true, search: 'dark' },
+    });
+
+    const command = screen.getByRole('option', { name: /Use Dark Theme/ });
+
+    fireEvent.click(command);
+
+    expect(onSelectThemeMode).toHaveBeenCalledWith('dark');
+    expect(onStateChange).toHaveBeenCalledWith({ open: false, search: '' });
+  });
+
+  it('marks active theme commands as current without running callbacks', () => {
+    const onSelectThemeMode = vi.fn();
+    const onSelectThemePreset = vi.fn();
+    renderPalette({
+      onSelectThemeMode,
+      onSelectThemePreset,
+      state: { open: true, search: 'solarized' },
+      themeMode: 'dark',
+      themePresetId: 'solarized',
+    });
+
+    expect(screen.getByText('Current theme')).toBeInTheDocument();
+    expect(screen.getByText('Current theme · Already active')).toBeVisible();
+    expect(onSelectThemeMode).not.toHaveBeenCalled();
+    expect(onSelectThemePreset).not.toHaveBeenCalled();
+  });
+
+  it('marks active appearance mode commands as current', () => {
+    renderPalette({
+      state: { open: true, search: 'dark' },
+      themeMode: 'dark',
+    });
+
+    expect(screen.getByText('Current appearance')).toBeInTheDocument();
+    expect(screen.getByText('Current appearance · Already active')).toBeVisible();
   });
 
   it('keeps keyboard selection, action shortcuts, and close reset behavior', async () => {

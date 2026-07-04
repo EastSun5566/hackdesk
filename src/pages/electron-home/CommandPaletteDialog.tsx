@@ -8,6 +8,8 @@ import {
   FolderPen,
   History,
   ImagePlus,
+  Laptop,
+  Palette,
   Users,
   Trash2,
   Keyboard,
@@ -19,6 +21,7 @@ import {
   RefreshCcw,
   Save,
   Search,
+  Sun,
   Settings2,
   ArrowLeftRight,
   ArrowLeft,
@@ -70,6 +73,7 @@ import {
 } from '@/lib/electron-quick-open';
 import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
 import type { FolderTree as HackmdFolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
+import type { ThemeMode, ThemePreset, ThemePresetId } from '@/lib/themes';
 
 import type { CommandPaletteState, WorkspaceScope } from './types';
 import { FOCUS_RING_CLASS } from './ui';
@@ -77,6 +81,81 @@ import { FOCUS_RING_CLASS } from './ui';
 const COMMAND_ITEM_ICON_CLASS = 'mr-3 text-text-subtle';
 const COMMAND_ITEM_TITLE_CLASS = 'block truncate font-medium text-[color:var(--command-item-title)]';
 const COMMAND_ITEM_META_CLASS = 'block truncate text-xs text-[color:var(--command-item-meta)]';
+
+const THEME_MODE_COMMANDS: Array<{
+  mode: ThemeMode;
+  label: string;
+  description: string;
+  keywords: string[];
+  icon: ReactNode;
+}> = [
+  {
+    mode: 'light',
+    label: 'Use Light Theme',
+    description: 'Use the light HackDesk appearance.',
+    keywords: ['theme', 'appearance', 'palette', 'light'],
+    icon: <Sun className="h-4 w-4" />,
+  },
+  {
+    mode: 'dark',
+    label: 'Use Dark Theme',
+    description: 'Use the dark HackDesk appearance.',
+    keywords: ['theme', 'appearance', 'palette', 'dark'],
+    icon: <Moon className="h-4 w-4" />,
+  },
+  {
+    mode: 'system',
+    label: 'Follow System Appearance',
+    description: 'Follow the operating system light or dark appearance.',
+    keywords: ['theme', 'appearance', 'palette', 'system', 'auto'],
+    icon: <Laptop className="h-4 w-4" />,
+  },
+];
+
+function normalizeCommandQuery(query: string) {
+  return query.trim().toLowerCase();
+}
+
+function commandMatches(query: string, fields: Array<string | null | undefined>) {
+  const normalizedQuery = normalizeCommandQuery(query);
+  if (!normalizedQuery) {
+    return false;
+  }
+
+  return fields.join(' ').toLowerCase().includes(normalizedQuery);
+}
+
+function getThemeModeCommands(query: string, activeMode: ThemeMode) {
+  return THEME_MODE_COMMANDS
+    .filter((command) => commandMatches(query, [
+      command.label,
+      command.description,
+      command.mode,
+      ...command.keywords,
+    ]))
+    .map((command) => ({
+      ...command,
+      active: command.mode === activeMode,
+    }));
+}
+
+function getThemePresetCommands(query: string, presets: ThemePreset[], activePresetId: ThemePresetId) {
+  return presets
+    .filter((preset) => commandMatches(query, [
+      preset.id,
+      preset.name,
+      preset.description,
+      'theme',
+      'appearance',
+      'palette',
+    ]))
+    .map((preset) => ({
+      id: preset.id,
+      label: `Use Theme: ${preset.name}`,
+      description: preset.description,
+      active: preset.id === activePresetId,
+    }));
+}
 
 const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'new-tab': <FileText className="h-4 w-4" />,
@@ -131,8 +210,13 @@ export function CommandPaletteDialog({
   scope,
   selectedNoteId,
   selectedFolderId,
+  themeMode,
+  themePresetId,
+  themePresets,
   onStateChange,
   onRunAction,
+  onSelectThemeMode,
+  onSelectThemePreset,
   onSelectNote,
   onSelectRecentNote,
   onSelectFolder,
@@ -147,8 +231,13 @@ export function CommandPaletteDialog({
   scope: WorkspaceScope;
   selectedNoteId: string | null;
   selectedFolderId: string | null;
+  themeMode: ThemeMode;
+  themePresetId: ThemePresetId;
+  themePresets: ThemePreset[];
   onStateChange: (state: CommandPaletteState) => void;
   onRunAction: (actionId: ElectronActionId) => void;
+  onSelectThemeMode: (mode: ThemeMode) => void;
+  onSelectThemePreset: (presetId: ThemePresetId) => void;
   onSelectNote: (entry: FolderTreeNote) => void;
   onSelectRecentNote: (entry: ElectronRecentNote) => void;
   onSelectFolder: (folder: QuickOpenFolderResult) => void;
@@ -162,6 +251,9 @@ export function CommandPaletteDialog({
   const noteResults = getQuickOpenNoteResults(folderTree, state.search, undefined, recentNotes);
   const folderResults = context.scopeType === 'history' ? [] : getQuickOpenFolderResults(folderTree, state.search);
   const actionResults = getQuickOpenActionResults(getCommandPaletteActions(), state.search);
+  const themeModeResults = hasQuery ? getThemeModeCommands(state.search, themeMode) : [];
+  const themePresetResults = hasQuery ? getThemePresetCommands(state.search, themePresets, themePresetId) : [];
+  const hasAppearanceResults = themeModeResults.length > 0 || themePresetResults.length > 0;
   const showFinderAction = shouldShowFinderQuickAction(state.search);
 
   const closePalette = () => onStateChange({ open: false, search: '' });
@@ -362,6 +454,69 @@ export function CommandPaletteDialog({
                     </CommandItem>
                   );
                 })}
+              </CommandGroup>
+            ) : null}
+
+            {hasAppearanceResults ? (
+              <CommandGroup heading="Appearance">
+                {themeModeResults.map((command) => (
+                  <CommandItem
+                    key={`theme-mode:${command.mode}`}
+                    value={`${command.label} ${command.description} ${command.mode} ${command.keywords.join(' ')}`}
+                    disabled={command.active}
+                    onSelect={() => {
+                      if (command.active) {
+                        return;
+                      }
+
+                      onSelectThemeMode(command.mode);
+                      closePalette();
+                    }}
+                  >
+                    <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}>{command.icon}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className={COMMAND_ITEM_TITLE_CLASS}>{command.label}</span>
+                      <span className={COMMAND_ITEM_META_CLASS}>
+                        {command.active ? 'Current appearance · Already active' : command.description}
+                      </span>
+                    </span>
+                    {command.active ? (
+                      <span className="ml-auto inline-flex shrink-0 items-center text-primary-default">
+                        <Check aria-hidden="true" className="h-4 w-4" />
+                        <span className="sr-only">Current appearance</span>
+                      </span>
+                    ) : null}
+                  </CommandItem>
+                ))}
+                {themePresetResults.map((command) => (
+                  <CommandItem
+                    key={`theme-preset:${command.id}`}
+                    value={`${command.label} ${command.description} ${command.id} theme appearance palette`}
+                    disabled={command.active}
+                    onSelect={() => {
+                      if (command.active) {
+                        return;
+                      }
+
+                      onSelectThemePreset(command.id);
+                      closePalette();
+                    }}
+                  >
+                    <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}><Palette className="h-4 w-4" /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className={COMMAND_ITEM_TITLE_CLASS}>{command.label}</span>
+                      <span className={COMMAND_ITEM_META_CLASS}>
+                        {command.active ? 'Current theme · Already active' : command.description}
+                      </span>
+                    </span>
+                    {command.active ? (
+                      <span className="ml-auto inline-flex shrink-0 items-center text-primary-default">
+                        <Check aria-hidden="true" className="h-4 w-4" />
+                        <span className="sr-only">Current theme</span>
+                      </span>
+                    ) : null}
+                  </CommandItem>
+                ))}
               </CommandGroup>
             ) : null}
 
