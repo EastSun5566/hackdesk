@@ -577,6 +577,7 @@ export function Home() {
     noteDirty,
     openPalette,
     paneCount: noteWorkspace.state.panes.length,
+    platform: api?.platform ?? navigator.platform,
     refreshWorkspace,
     runAction,
     selectedFolderId,

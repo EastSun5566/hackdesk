@@ -18,6 +18,7 @@ export type WorkbenchShortcutHandlers = {
   noteDirty: boolean;
   openPalette: () => void;
   paneCount: number;
+  platform: string;
   refreshWorkspace: () => void;
   runAction: (actionId: ElectronActionId) => void;
   selectedFolderId: string | null;
@@ -34,6 +35,7 @@ export function useWorkbenchShortcuts({
   noteDirty,
   openPalette,
   paneCount,
+  platform,
   refreshWorkspace,
   runAction,
   selectedFolderId,
@@ -41,7 +43,7 @@ export function useWorkbenchShortcuts({
   setSelectedFolderId,
 }: WorkbenchShortcutHandlers) {
   const handleGlobalKeyDown = useCallback((event: KeyboardEvent) => {
-    const isPrimaryModifier = event.metaKey || event.ctrlKey;
+    const isPrimaryModifier = isPlatformPrimaryModifier(event, platform);
     if (isPrimaryModifier && event.key.toLowerCase() === 'k') {
       event.preventDefault();
       openPalette();
@@ -229,6 +231,7 @@ export function useWorkbenchShortcuts({
     noteDirty,
     openPalette,
     paneCount,
+    platform,
     refreshWorkspace,
     runAction,
     selectedFolderId,
@@ -240,4 +243,11 @@ export function useWorkbenchShortcuts({
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [handleGlobalKeyDown]);
+}
+
+function isPlatformPrimaryModifier(event: KeyboardEvent, platform: string) {
+  const isMac = platform === 'darwin' || platform.toLowerCase().includes('mac');
+  return isMac
+    ? event.metaKey && !event.ctrlKey
+    : event.ctrlKey && !event.metaKey;
 }

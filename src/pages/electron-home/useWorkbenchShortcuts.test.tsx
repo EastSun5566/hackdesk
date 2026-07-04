@@ -15,6 +15,7 @@ function createHandlers(overrides: Partial<WorkbenchShortcutHandlers> = {}): Wor
     noteDirty: true,
     openPalette: vi.fn(),
     paneCount: 1,
+    platform: 'darwin',
     refreshWorkspace: vi.fn(),
     runAction: vi.fn(),
     selectedFolderId: null,
@@ -65,6 +66,26 @@ describe('useWorkbenchShortcuts', () => {
     fireEvent.keyDown(window, { key: 'b', metaKey: true });
 
     expect(handlers.runAction).toHaveBeenCalledWith('toggle-workspace-rail');
+  });
+
+  it('leaves macOS Ctrl letter shortcuts available for editor text navigation', () => {
+    const handlers = createHandlers();
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    for (const key of ['b', 'f', 's', 'w', 't', 'k', 'r', 'e']) {
+      const event = new KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        ctrlKey: true,
+        key,
+      });
+      window.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+    }
+
+    expect(handlers.runAction).not.toHaveBeenCalled();
+    expect(handlers.openPalette).not.toHaveBeenCalled();
+    expect(handlers.refreshWorkspace).not.toHaveBeenCalled();
   });
 
   it('focuses the navigator with Cmd+Shift+E and keeps Option+2 as an alias', () => {
@@ -171,13 +192,34 @@ describe('useWorkbenchShortcuts', () => {
     renderHook(() => useWorkbenchShortcuts(handlers));
     fireEvent.keyDown(window, { key: '1', metaKey: true });
     fireEvent.keyDown(window, { key: '2', metaKey: true });
-    fireEvent.keyDown(window, { key: '1', ctrlKey: true });
-    fireEvent.keyDown(window, { key: '2', ctrlKey: true });
 
     expect(handlers.focusPaneAtIndex).toHaveBeenNthCalledWith(1, 0);
     expect(handlers.focusPaneAtIndex).toHaveBeenNthCalledWith(2, 1);
-    expect(handlers.focusPaneAtIndex).toHaveBeenNthCalledWith(3, 0);
-    expect(handlers.focusPaneAtIndex).toHaveBeenNthCalledWith(4, 1);
+    expect(handlers.focusTabAtIndex).not.toHaveBeenCalled();
+  });
+
+  it('leaves macOS Ctrl+number available when split panes are visible', () => {
+    const handlers = createHandlers({ paneCount: 2 });
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    const ctrlOneEvent = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+      key: '1',
+    });
+    const ctrlTwoEvent = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+      key: '2',
+    });
+    window.dispatchEvent(ctrlOneEvent);
+    window.dispatchEvent(ctrlTwoEvent);
+
+    expect(ctrlOneEvent.defaultPrevented).toBe(false);
+    expect(ctrlTwoEvent.defaultPrevented).toBe(false);
+    expect(handlers.focusPaneAtIndex).not.toHaveBeenCalled();
     expect(handlers.focusTabAtIndex).not.toHaveBeenCalled();
   });
 
@@ -221,6 +263,23 @@ describe('useWorkbenchShortcuts', () => {
 
     expect(ctrlNEvent.defaultPrevented).toBe(false);
     expect(handlers.handleCreateNote).toHaveBeenCalledOnce();
+  });
+
+  it('uses Ctrl as the primary app shortcut modifier on Windows and Linux', () => {
+    const handlers = createHandlers({ platform: 'win32', paneCount: 2 });
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    fireEvent.keyDown(window, { key: 'f', ctrlKey: true });
+    fireEvent.keyDown(window, { key: 'b', ctrlKey: true });
+    fireEvent.keyDown(window, { key: 's', ctrlKey: true });
+    fireEvent.keyDown(window, { key: '1', ctrlKey: true });
+    fireEvent.keyDown(window, { key: '2', ctrlKey: true });
+
+    expect(handlers.runAction).toHaveBeenNthCalledWith(1, 'find-in-note');
+    expect(handlers.runAction).toHaveBeenNthCalledWith(2, 'toggle-workspace-rail');
+    expect(handlers.runAction).toHaveBeenNthCalledWith(3, 'save-note');
+    expect(handlers.focusPaneAtIndex).toHaveBeenNthCalledWith(1, 0);
+    expect(handlers.focusPaneAtIndex).toHaveBeenNthCalledWith(2, 1);
   });
 
   it('clears finder query, filters, and selected folder with Escape outside editor zones', () => {

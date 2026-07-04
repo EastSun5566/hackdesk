@@ -1982,6 +1982,17 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(titleInput).not.toHaveFocus());
   });
 
+  it('leaves macOS Ctrl+F available for editor text navigation', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    const titleInput = await findRenderedNoteTitle();
+    titleInput.focus();
+    fireEvent.keyDown(window, { key: 'f', ctrlKey: true });
+
+    expect(titleInput).toHaveFocus();
+  });
+
   it('toggles the workspace sidebar with Cmd+B', async () => {
     const api = createApi();
 
@@ -1993,6 +2004,17 @@ describe('Home native-feel behavior', () => {
 
     expect(await screen.findByRole('button', { name: 'Expand workspace sidebar' })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Collapse note navigator' })).not.toHaveLength(0);
+  });
+
+  it('leaves macOS Ctrl+B available for editor text navigation', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    expect(await screen.findByRole('button', { name: 'Collapse workspace sidebar' })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'b', ctrlKey: true });
+
+    expect(screen.getByRole('button', { name: 'Collapse workspace sidebar' })).toBeInTheDocument();
   });
 
   it('toggles the note navigator with Cmd+Option+B', async () => {
