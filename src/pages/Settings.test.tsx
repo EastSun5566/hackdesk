@@ -170,17 +170,8 @@ describe('Settings page', () => {
     await waitFor(() => {
       expect(mutate).toHaveBeenCalledWith(
         {
+          ...defaultSettings,
           title: 'Focus Desk',
-          hackmdApiToken: '',
-          appearance: {
-            theme: 'system',
-            presetId: 'hackmd-neo',
-            customSeed: {},
-            typography: defaultSettings.appearance.typography,
-          },
-          onboarding: defaultSettings.onboarding,
-          localVault: defaultSettings.localVault,
-          editor: defaultSettings.editor,
         },
         expect.objectContaining({
           onSuccess: expect.any(Function),

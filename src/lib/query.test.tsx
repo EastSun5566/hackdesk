@@ -47,12 +47,8 @@ describe('query hooks', () => {
 
     await waitFor(() => {
       expect(result.current.data).toEqual({
+        ...defaultSettings,
         title: 'Workspace',
-        hackmdApiToken: '',
-        appearance: defaultSettings.appearance,
-        onboarding: defaultSettings.onboarding,
-        localVault: defaultSettings.localVault,
-        editor: defaultSettings.editor,
       });
     });
   });
@@ -79,37 +75,14 @@ describe('query hooks', () => {
       await result.current.mutateAsync({ title: 'Focus Desk', hackmdApiToken: 'secret-token' });
     });
 
-    expect(utils.writeSettings).toHaveBeenCalledWith(`{
-  "title": "Focus Desk",
-  "hackmdApiToken": "secret-token",
-  "appearance": {
-    "theme": "system",
-    "presetId": "hackmd-neo",
-    "customSeed": {},
-    "typography": {
-      "uiFontStack": "Inter, system-ui, sans-serif",
-      "editorFontStack": "\\"Source Code Pro\\", ui-monospace, monospace",
-      "uiFontSize": 14,
-      "editorFontSize": 14
-    }
-  },
-  "onboarding": {
-    "hackmdTokenSetupDeferred": false
-  },
-  "localVault": {
-    "path": null
-  },
-  "editor": {
-    "mode": "standard"
-  }
-}`);
-    expect(queryClient.getQueryData(['settings'])).toEqual({
+    const updatedSettings = {
+      ...defaultSettings,
       title: 'Focus Desk',
       hackmdApiToken: 'secret-token',
-      appearance: defaultSettings.appearance,
-      onboarding: defaultSettings.onboarding,
-      localVault: defaultSettings.localVault,
-      editor: defaultSettings.editor,
+    };
+    expect(utils.writeSettings).toHaveBeenCalledWith(JSON.stringify(updatedSettings, null, 2));
+    expect(queryClient.getQueryData(['settings'])).toEqual({
+      ...updatedSettings,
     });
     expect(invokeMock).toHaveBeenCalledWith('apply_settings');
   });
