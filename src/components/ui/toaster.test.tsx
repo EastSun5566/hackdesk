@@ -10,6 +10,15 @@ afterEach(() => {
 });
 
 describe('Toaster', () => {
+  it('places toast notifications in the bottom right corner', () => {
+    render(<Toaster />);
+
+    expect(screen.getByLabelText('Notifications')).toHaveClass(
+      'right-4',
+      'bottom-[calc(env(safe-area-inset-bottom)+1rem)]',
+    );
+  });
+
   it('renders toast content as a polite status notification', async () => {
     render(<Toaster />);
 
@@ -23,6 +32,7 @@ describe('Toaster', () => {
     const notification = screen.getByText('Note exported.').closest('[role="status"]');
     expect(notification).toHaveAttribute('aria-live', 'polite');
     expect(notification).toHaveAttribute('aria-atomic', 'true');
+    expect(notification).toHaveClass('items-center');
     expect(notification).toHaveClass('border-success-default/30');
   });
 

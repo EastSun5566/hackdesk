@@ -59,7 +59,7 @@ export function Toaster() {
       <ToastPrimitive.Portal>
         <ToastPrimitive.Viewport
           aria-label="Notifications"
-          className="fixed right-4 top-[calc(env(safe-area-inset-top)+3.5rem)] z-50 flex w-[min(360px,calc(100vw-2rem))] max-w-full flex-col gap-2 outline-none"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-4 z-50 flex w-[min(360px,calc(100vw-2rem))] max-w-full flex-col gap-2 outline-none"
         >
           <ToastList />
         </ToastPrimitive.Viewport>
@@ -89,7 +89,7 @@ function ToastList() {
             aria-live="polite"
             aria-atomic="true"
             className={cn(
-              'group pointer-events-auto flex w-full items-start gap-2.5 rounded-xl border border-border-default/80 bg-background-default/95 px-3 py-2.5 text-text-default shadow-[0_18px_45px_rgba(0,0,0,0.22),0_1px_0_rgba(255,255,255,0.04)_inset] backdrop-blur data-[ending-style]:animate-out data-[starting-style]:animate-in data-[ending-style]:fade-out-0 data-[starting-style]:fade-in-0 data-[ending-style]:slide-out-to-top-1 data-[starting-style]:slide-in-from-top-1 motion-reduce:animate-none',
+              'group pointer-events-auto flex w-full items-center gap-2.5 rounded-xl border border-border-default/80 bg-background-default/95 px-3 py-2.5 text-text-default shadow-[0_18px_45px_rgba(0,0,0,0.22),0_1px_0_rgba(255,255,255,0.04)_inset] backdrop-blur data-[ending-style]:animate-out data-[starting-style]:animate-in data-[ending-style]:fade-out-0 data-[starting-style]:fade-in-0 data-[ending-style]:slide-out-to-bottom-1 data-[starting-style]:slide-in-from-bottom-1 motion-reduce:animate-none',
               ELEVATED_SURFACE_CLASS,
               variant === 'success' && 'border-success-default/30',
               variant === 'error' && 'border-destructive-default/35',
@@ -98,7 +98,7 @@ function ToastList() {
           >
             <span
               className={cn(
-                'mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full',
+                'inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full',
                 variant === 'success' && 'bg-success-soft text-success-default',
                 variant === 'error' && 'bg-destructive-soft text-destructive-default',
                 variant === 'info' && 'bg-primary-soft text-primary-default',
@@ -129,7 +129,7 @@ function ToastList() {
             ) : null}
             <ToastPrimitive.Close
               aria-label="Close notification"
-              className="-mr-1 -mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default"
+              className="-mr-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default"
             >
               <X className="h-3.5 w-3.5" />
             </ToastPrimitive.Close>
