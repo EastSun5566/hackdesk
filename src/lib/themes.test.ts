@@ -85,8 +85,8 @@ describe('HackDesk themes', () => {
   });
 
   it('builds CSS for the resolved mode and preset', () => {
-    const theme = resolveHackDeskTheme({ presetId: 'hackmd-nature', mode: 'dark' });
-    const css = buildThemeStyleText(theme, 'dark', 'hackmd-nature');
+    const theme = resolveHackDeskTheme({ presetId: 'noctis', mode: 'dark' });
+    const css = buildThemeStyleText(theme, 'dark', 'noctis');
 
     expect(css).toContain('color-scheme: dark');
     expect(css).toContain('--background-default:');
@@ -97,7 +97,7 @@ describe('HackDesk themes', () => {
     expect(css).toContain('--scrollbar-track:');
     expect(css).toContain('--selection-background:');
     expect(css).toContain('--selection-foreground:');
-    expect(css).toContain(':root[data-theme-preset="hackmd-nature"]');
+    expect(css).toContain(':root[data-theme-preset="noctis"]');
   });
 
   it('resolves contrast-safe native surface tokens for every preset and mode', () => {
@@ -138,17 +138,33 @@ describe('HackDesk themes', () => {
     expectContrast(dark['--text-default'], dark['--background-default'], 4.5, 'solarized dark text');
   });
 
-  it('resolves Dracula dark and HackMD Neo light surfaces with Dracula accents', () => {
+  it('resolves Dracula Alucard and Classic palette tokens', () => {
     const light = resolveHackDeskTheme({ presetId: 'dracula', mode: 'light' });
     const dark = resolveHackDeskTheme({ presetId: 'dracula', mode: 'dark' });
 
-    expect(light['--background-default']).toMatch(/^#/);
-    expect(light['--background-default']).not.toBe('#282A36');
+    expect(light['--background-default']).toBe('#FFFBEB');
+    expect(light['--text-default']).toBe('#1F1F1F');
     expectContrast(light['--primary-default'], light['--background-default'], 3, 'dracula light primary');
-    expect(light['--code-keyword']).toBe('#BD93F9');
+    expect(light['--code-keyword']).toBe('#A3144D');
     expect(dark['--background-default']).toBe('#282A36');
     expect(dark['--text-default']).toBe('#F8F8F2');
     expect(dark['--code-string']).toBe('#50FA7B');
+  });
+
+  it('resolves Noctis Lux and Noctis palette tokens', () => {
+    const light = resolveHackDeskTheme({ presetId: 'noctis', mode: 'light' });
+    const dark = resolveHackDeskTheme({ presetId: 'noctis', mode: 'dark' });
+
+    expect(light['--background-default']).toBe('#FEF8EC');
+    expect(light['--text-default']).toBe('#005661');
+    expect(light['--primary-default']).toBe('#0099AD');
+    expect(light['--code-keyword']).toBe('#FF5792');
+    expect(light['--code-string']).toBe('#00B368');
+    expect(dark['--background-default']).toBe('#052529');
+    expect(dark['--text-default']).toBe('#B2CACD');
+    expect(dark['--primary-default']).toBe('#40D4E7');
+    expect(dark['--code-keyword']).toBe('#DF769B');
+    expect(dark['--code-string']).toBe('#49E9A6');
   });
 
   it('resolves Gruvbox Light and Dark palette tokens', () => {

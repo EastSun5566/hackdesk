@@ -288,16 +288,25 @@ describe('CommandPaletteDialog', () => {
     renderPalette({
       onSelectThemePreset,
       onStateChange,
-      state: { mode: 'commands', open: true, search: 'solarized' },
+      state: { mode: 'commands', open: true, search: 'noctis' },
     });
 
     expect(screen.getByText('Appearance')).toBeVisible();
-    const command = screen.getByRole('option', { name: /Use Theme: Solarized/ });
+    const command = screen.getByRole('option', { name: /Use Theme: Noctis/ });
 
     fireEvent.click(command);
 
-    expect(onSelectThemePreset).toHaveBeenCalledWith('solarized');
+    expect(onSelectThemePreset).toHaveBeenCalledWith('noctis');
     expect(onStateChange).toHaveBeenCalledWith({ mode: 'commands', open: false, search: '' });
+  });
+
+  it('does not show removed HackMD preset commands', () => {
+    renderPalette({
+      state: { mode: 'commands', open: true, search: 'nature' },
+    });
+
+    expect(screen.queryByText(/HackMD Nature/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/HackMD Minimal/)).not.toBeInTheDocument();
   });
 
   it('runs theme mode commands from searched appearance results', () => {

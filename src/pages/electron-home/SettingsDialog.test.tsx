@@ -551,11 +551,15 @@ describe('SettingsDialog', () => {
     await selectThemeOption('Dracula');
 
     expect(screen.getByLabelText('Theme preset')).toHaveTextContent('Dracula');
-    expect(screen.getByText('Dracula dark palette; light mode keeps HackMD Neo surfaces with Dracula accents.')).toBeVisible();
+    expect(screen.getByText('Alucard Classic in light mode, Dracula Classic in dark mode.')).toBeVisible();
 
     await selectThemeOption('Gruvbox');
     expect(screen.getByLabelText('Theme preset')).toHaveTextContent('Gruvbox');
     expect(screen.getByText('Gruvbox Light and Dark for warm terminal-style writing.')).toBeVisible();
+
+    await selectThemeOption('Noctis');
+    expect(screen.getByLabelText('Theme preset')).toHaveTextContent('Noctis');
+    expect(screen.getByText('Noctis Lux in light mode, Noctis in dark mode.')).toBeVisible();
   });
 
   it('saves the title from its tab-specific footer action', () => {

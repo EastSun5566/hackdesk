@@ -120,7 +120,7 @@ describe('IPC runtime validation', () => {
     expect(validateIpcInput('settings:update', settingsUpdateSchema, {
       appearance: {
         theme: 'light',
-        presetId: 'gruvbox',
+        presetId: 'noctis',
         customSeed: {},
         typography: {
           uiFontStack: 'system-ui, sans-serif',
@@ -130,7 +130,7 @@ describe('IPC runtime validation', () => {
         },
       },
     })).toMatchObject({
-      appearance: { presetId: 'gruvbox' },
+      appearance: { presetId: 'noctis' },
     });
   });
 

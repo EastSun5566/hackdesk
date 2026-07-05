@@ -22,12 +22,12 @@ describe('settings helpers', () => {
   });
 
   it('parses appearance settings when present', () => {
-    expect(parseSettings('{"title":"Workspace","appearance":{"theme":"dark","presetId":"hackmd-nature","customSeed":{"primary":"#123ABC"}}}')).toEqual({
+    expect(parseSettings('{"title":"Workspace","appearance":{"theme":"dark","presetId":"noctis","customSeed":{"primary":"#123ABC"}}}')).toEqual({
       title: 'Workspace',
       hackmdApiToken: '',
       appearance: {
         theme: 'dark',
-        presetId: 'hackmd-nature',
+        presetId: 'noctis',
         customSeed: {
           primary: '#123ABC',
         },
@@ -78,7 +78,7 @@ describe('settings helpers', () => {
       title: 'Workspace',
       appearance: {
         theme: 'dark',
-        presetId: 'dracula',
+        presetId: 'noctis',
         customSeed: {},
         typography: {
           uiFontStack: 'system-ui, sans-serif',
@@ -87,7 +87,7 @@ describe('settings helpers', () => {
           editorFontSize: 14,
         },
       },
-    })).appearance.presetId).toBe('dracula');
+    })).appearance.presetId).toBe('noctis');
   });
 
   it('fills missing font sizes from the typography defaults', () => {

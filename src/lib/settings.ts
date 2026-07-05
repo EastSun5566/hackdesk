@@ -96,7 +96,7 @@ const shortcutSettingsSchema = z.record(z.string(), shortcutConfigSchema)
 
 export const appearanceSettingsSchema = z.object({
   theme: z.enum(['dark', 'light', 'system']).default(defaultAppearanceSettings.theme),
-  presetId: z.enum(['hackmd-neo', 'hackmd-minimal', 'hackmd-nature', 'solarized', 'catppuccin', 'dracula', 'gruvbox']).default(defaultAppearanceSettings.presetId),
+  presetId: z.enum(['hackmd-neo', 'solarized', 'catppuccin', 'dracula', 'gruvbox', 'noctis']).default(defaultAppearanceSettings.presetId),
   customSeed: z.object({
     neutral: hexColorSchema.optional(),
     primary: hexColorSchema.optional(),

@@ -130,7 +130,7 @@ export const settingsUpdateSchema = z.strictObject({
   hackmdApiToken: optionalStringSchema,
   appearance: z.strictObject({
     theme: z.enum(['dark', 'light', 'system']),
-    presetId: z.enum(['hackmd-neo', 'hackmd-minimal', 'hackmd-nature', 'solarized', 'catppuccin', 'dracula', 'gruvbox']),
+    presetId: z.enum(['hackmd-neo', 'solarized', 'catppuccin', 'dracula', 'gruvbox', 'noctis']),
     customSeed: themeSeedSchema,
     typography: typographySchema,
   }).optional(),
