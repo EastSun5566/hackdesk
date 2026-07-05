@@ -60,6 +60,31 @@ describe('Electron settings', () => {
     expect(content).toContain('"mode": "helix"');
   });
 
+  it('persists and returns shortcut overrides', async () => {
+    const safeSettings = await updateStoredSettings({
+      shortcuts: {
+        'open-command-palette': 'mod+j',
+        'open-quick-open': 'none',
+      },
+    });
+    const content = await readFile(getSettingsPath(), 'utf8');
+
+    expect(safeSettings.shortcuts).toEqual({
+      'open-command-palette': 'mod+j',
+      'open-quick-open': 'none',
+    });
+    expect(content).toContain('"open-command-palette": "mod+j"');
+    expect(content).not.toContain('hackmdApiToken": "secret-token');
+  });
+
+  it('rejects invalid shortcut overrides', async () => {
+    await expect(updateStoredSettings({
+      shortcuts: {
+        'open-command-palette': 'mod+d',
+      },
+    })).rejects.toThrow('Use a modifier-based shortcut');
+  });
+
   it('persists and returns appearance typography settings', async () => {
     const safeSettings = await updateStoredSettings({
       appearance: {

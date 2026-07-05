@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
 import { DEFAULT_TITLE } from '@/constants';
+import { ELECTRON_ACTIONS } from '@/lib/electron-actions';
+import type { ElectronActionId } from '@/lib/electron-api';
+import { isValidCustomShortcutConfig } from '@/lib/keyboard-shortcuts';
 import {
   DEFAULT_EDITOR_FONT_SIZE,
   DEFAULT_UI_FONT_SIZE,
@@ -41,6 +44,8 @@ export type EditorSettings = {
   mode: EditorMode;
 };
 
+export type ShortcutSettings = Partial<Record<ElectronActionId, string>>;
+
 export const defaultAppearanceSettings: AppearanceSettings = {
   theme: 'system',
   presetId: 'hackmd-neo',
@@ -60,6 +65,8 @@ export const defaultEditorSettings: EditorSettings = {
   mode: 'standard',
 };
 
+export const defaultShortcutSettings: ShortcutSettings = {};
+
 const hexColorSchema = z.string().regex(/^#[\da-fA-F]{6}$/);
 const customFontStackSchema = z.string().trim().refine((value) => !value || isSafeFontStack(value), {
   message: 'Use comma-separated font family names without CSS functions or declarations.',
@@ -70,6 +77,22 @@ const typographySettingsSchema = z.object({
   uiFontSize: z.number().int().min(MIN_UI_FONT_SIZE).max(MAX_UI_FONT_SIZE).default(DEFAULT_UI_FONT_SIZE),
   editorFontSize: z.number().int().min(MIN_EDITOR_FONT_SIZE).max(MAX_EDITOR_FONT_SIZE).default(DEFAULT_EDITOR_FONT_SIZE),
 }).default(defaultThemeTypography).transform((value): ThemeTypography => normalizeThemeTypography(value));
+const electronActionIds = new Set<ElectronActionId>(ELECTRON_ACTIONS.map((action) => action.id));
+const shortcutConfigSchema = z.string().trim().refine(isValidCustomShortcutConfig, {
+  message: 'Use a modifier-based shortcut that is not reserved by the editor or operating system.',
+});
+const shortcutSettingsSchema = z.record(z.string(), shortcutConfigSchema)
+  .default(defaultShortcutSettings)
+  .transform((value): ShortcutSettings => {
+    const shortcuts: ShortcutSettings = {};
+    for (const [actionId, shortcut] of Object.entries(value)) {
+      if (!electronActionIds.has(actionId as ElectronActionId)) {
+        throw new Error(`Unknown shortcut action: ${actionId}`);
+      }
+      shortcuts[actionId as ElectronActionId] = shortcut;
+    }
+    return shortcuts;
+  });
 
 export const appearanceSettingsSchema = z.object({
   theme: z.enum(['dark', 'light', 'system']).default(defaultAppearanceSettings.theme),
@@ -102,6 +125,7 @@ export const settingsSchema = z.object({
   editor: z.object({
     mode: z.enum(['standard', 'vim', 'helix']).default(defaultEditorSettings.mode),
   }).default(defaultEditorSettings),
+  shortcuts: shortcutSettingsSchema,
 });
 
 export type AppSettings = z.infer<typeof settingsSchema>;
@@ -113,6 +137,7 @@ export const defaultSettings: AppSettings = {
   onboarding: defaultOnboardingSettings,
   localVault: defaultLocalVaultSettings,
   editor: defaultEditorSettings,
+  shortcuts: defaultShortcutSettings,
 };
 
 export function normalizeAppearanceSettings(

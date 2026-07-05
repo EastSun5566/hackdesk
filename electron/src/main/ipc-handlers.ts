@@ -117,7 +117,10 @@ import {
   validateString,
 } from './ipc-validation';
 
-export function registerIpcHandlers(windowManager: WindowManager) {
+export function registerIpcHandlers(
+  windowManager: WindowManager,
+  options: { onSettingsUpdated?: (settings: Awaited<ReturnType<typeof updateStoredSettings>>) => void } = {},
+) {
   let localVaultWatcher: LocalVaultWatcher | null = null;
   const startLocalVaultWatcher = (vaultPath: string) => {
     localVaultWatcher?.close();
@@ -129,13 +132,16 @@ export function registerIpcHandlers(windowManager: WindowManager) {
   };
 
   ipcMain.handle(ELECTRON_CHANNELS.settingsGet, () => getSafeSettings());
-  ipcMain.handle(ELECTRON_CHANNELS.settingsUpdate, (_event, settings) => (
-    updateStoredSettings(validateIpcInput(ELECTRON_CHANNELS.settingsUpdate, settingsUpdateSchema, settings))
-  ));
+  ipcMain.handle(ELECTRON_CHANNELS.settingsUpdate, async (_event, settings) => {
+    const nextSettings = await updateStoredSettings(validateIpcInput(ELECTRON_CHANNELS.settingsUpdate, settingsUpdateSchema, settings));
+    options.onSettingsUpdated?.(nextSettings);
+    return nextSettings;
+  });
   ipcMain.handle(ELECTRON_CHANNELS.settingsImportHackmdCliToken, async () => {
     const token = await readHackmdCliAccessToken();
     const user = await validateToken(token);
     const settings = await updateStoredSettings({ hackmdApiToken: token });
+    options.onSettingsUpdated?.(settings);
     return { settings, user };
   });
   ipcMain.handle(ELECTRON_CHANNELS.localVaultChoose, async () => {
@@ -157,6 +163,7 @@ export function registerIpcHandlers(windowManager: WindowManager) {
     const rootPath = result.filePaths[0];
     const snapshot = await scanLocalVault(rootPath);
     const settings = await updateStoredSettings({ localVault: { path: rootPath } });
+    options.onSettingsUpdated?.(settings);
     startLocalVaultWatcher(rootPath);
     return { canceled: false, settings, snapshot };
   });

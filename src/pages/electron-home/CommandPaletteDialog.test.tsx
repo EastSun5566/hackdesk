@@ -131,6 +131,7 @@ function renderPalette(overrides: Partial<CommandPaletteDialogProps> = {}) {
     hasCurrentNote: true,
     hasHackmdApiToken: true,
     hasLocalVault: true,
+    platform: 'darwin',
     state: { mode: 'commands', open: true, search: '' },
     teams: [team],
     themeMode: 'system',
@@ -462,6 +463,20 @@ describe('CommandPaletteDialog', () => {
 
     fireEvent.keyDown(input, { key: 'Escape' });
     await waitFor(() => expect(onStateChange).toHaveBeenCalledWith({ mode: 'commands', open: false, search: '' }));
+  });
+
+  it('shows customized action shortcuts in command results', () => {
+    renderPalette({
+      platform: 'darwin',
+      shortcuts: {
+        'new-note': 'mod+j',
+      },
+      state: { mode: 'commands', open: true, search: 'new note' },
+    });
+
+    const action = screen.getByRole('option', { name: /New Note/ });
+    expect(within(action).getByText('⌘J')).toBeVisible();
+    expect(within(action).queryByText('⌘N')).not.toBeInTheDocument();
   });
 
   it('selects notes from Quick Open and resets to command mode on close', () => {

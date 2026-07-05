@@ -36,6 +36,7 @@ function toSafeSettings(
     title: settings.title,
     appearance: settings.appearance,
     editor: settings.editor,
+    shortcuts: settings.shortcuts,
     hasHackmdApiToken,
     hasAppearanceSettings: hasStoredAppearance,
     hasLocalVault,
@@ -139,6 +140,7 @@ export async function updateStoredSettings(update: ElectronSettingsUpdate): Prom
     hackmdApiToken: nextHackmdApiToken,
     appearance: update.appearance ?? current.appearance,
     editor: update.editor ?? current.editor,
+    shortcuts: update.shortcuts ?? current.shortcuts,
     onboarding: nextOnboarding,
     localVault: update.localVault ?? current.localVault,
   });

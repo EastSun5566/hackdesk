@@ -62,6 +62,37 @@ describe('useWorkbenchShortcuts', () => {
     expect(handlers.runAction).toHaveBeenCalledWith('open-quick-open');
   });
 
+  it('uses custom shortcut overrides and replaces default aliases', () => {
+    const handlers = createHandlers({
+      shortcuts: {
+        'open-command-palette': 'mod+j',
+        'open-quick-open': 'none',
+      },
+    });
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    const defaultPaletteEvent = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'k',
+      metaKey: true,
+    });
+    const disabledQuickOpenEvent = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'p',
+      metaKey: true,
+    });
+    window.dispatchEvent(defaultPaletteEvent);
+    window.dispatchEvent(disabledQuickOpenEvent);
+    fireEvent.keyDown(window, { key: 'j', metaKey: true });
+
+    expect(defaultPaletteEvent.defaultPrevented).toBe(false);
+    expect(disabledQuickOpenEvent.defaultPrevented).toBe(false);
+    expect(handlers.openPalette).toHaveBeenCalledOnce();
+    expect(handlers.runAction).not.toHaveBeenCalled();
+  });
+
   it('uses Ctrl+Shift+P and Ctrl+P on Windows', () => {
     const handlers = createHandlers({ platform: 'win32' });
 
@@ -120,15 +151,56 @@ describe('useWorkbenchShortcuts', () => {
     expect(handlers.refreshWorkspace).not.toHaveBeenCalled();
   });
 
-  it('focuses the navigator with Cmd+Shift+E and keeps Option+2 as an alias', () => {
+  it('focuses the navigator with Cmd+Shift+E and leaves Option region keys available', () => {
     const handlers = createHandlers();
 
     renderHook(() => useWorkbenchShortcuts(handlers));
     fireEvent.keyDown(window, { key: 'e', metaKey: true, shiftKey: true });
-    fireEvent.keyDown(window, { key: '2', altKey: true });
+    for (const key of ['1', '2', '3', '4']) {
+      const event = new KeyboardEvent('keydown', {
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+        key,
+      });
+      window.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+    }
 
-    expect(handlers.runAction).toHaveBeenNthCalledWith(1, 'focus-navigator');
-    expect(handlers.runAction).toHaveBeenNthCalledWith(2, 'focus-navigator');
+    expect(handlers.runAction).toHaveBeenCalledOnce();
+    expect(handlers.runAction).toHaveBeenCalledWith('focus-navigator');
+  });
+
+  it('leaves Option+I available and lets users assign Option shortcuts manually', () => {
+    const handlers = createHandlers({
+      shortcuts: {
+        'focus-workspace': 'alt+1',
+      },
+    });
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    const optionIEvent = new KeyboardEvent('keydown', {
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+      key: 'i',
+    });
+    window.dispatchEvent(optionIEvent);
+    fireEvent.keyDown(window, { key: '1', altKey: true });
+
+    expect(optionIEvent.defaultPrevented).toBe(false);
+    expect(handlers.runAction).toHaveBeenCalledOnce();
+    expect(handlers.runAction).toHaveBeenCalledWith('focus-workspace');
+  });
+
+  it('imports markdown with Cmd+O', () => {
+    const handlers = createHandlers();
+
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    fireEvent.keyDown(window, { key: 'o', metaKey: true });
+
+    expect(handlers.runAction).toHaveBeenCalledOnce();
+    expect(handlers.runAction).toHaveBeenCalledWith('import-markdown-note');
   });
 
   it('routes Cmd+bracket navigation shortcuts through actions', () => {

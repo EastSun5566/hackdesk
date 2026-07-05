@@ -586,6 +586,7 @@ export function Home() {
     selectedFolderId,
     setFinderState,
     setSelectedFolderId,
+    shortcuts: settings?.shortcuts,
   });
 
   const homeStatus = useElectronHomeStatus({

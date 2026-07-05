@@ -17,6 +17,7 @@ describe('settings helpers', () => {
       onboarding: defaultSettings.onboarding,
       localVault: defaultSettings.localVault,
       editor: defaultSettings.editor,
+      shortcuts: defaultSettings.shortcuts,
     });
   });
 
@@ -35,6 +36,7 @@ describe('settings helpers', () => {
       onboarding: defaultSettings.onboarding,
       localVault: defaultSettings.localVault,
       editor: defaultSettings.editor,
+      shortcuts: defaultSettings.shortcuts,
     });
   });
 
@@ -155,6 +157,33 @@ describe('settings helpers', () => {
     expect(() => validateSettings({ title: '' })).toThrow('Title is required');
   });
 
+  it('parses valid shortcut overrides and rejects invalid shortcut settings', () => {
+    expect(parseSettings(JSON.stringify({
+      title: 'Workspace',
+      shortcuts: {
+        'open-command-palette': 'mod+shift+p',
+        'open-quick-open': 'none',
+      },
+    })).shortcuts).toEqual({
+      'open-command-palette': 'mod+shift+p',
+      'open-quick-open': 'none',
+    });
+
+    expect(() => parseSettings(JSON.stringify({
+      title: 'Workspace',
+      shortcuts: {
+        'not-real': 'mod+j',
+      },
+    }))).toThrow('Unknown shortcut action');
+
+    expect(() => parseSettings(JSON.stringify({
+      title: 'Workspace',
+      shortcuts: {
+        'open-command-palette': 'j',
+      },
+    }))).toThrow('Use a modifier-based shortcut');
+  });
+
   it('falls back to defaults and reports the error', () => {
     const onError = vi.fn();
 
@@ -185,7 +214,8 @@ describe('settings helpers', () => {
   },
   "editor": {
     "mode": "standard"
-  }
+  },
+  "shortcuts": {}
 }`);
   });
 });

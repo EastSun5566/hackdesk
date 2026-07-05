@@ -123,6 +123,7 @@ export function ElectronHomeDialogs({
       <SettingsDialog
         open={settingsOpen}
         settings={settings}
+        platform={api?.platform ?? navigator.platform}
         localVaultError={localVaultError}
         localVaultSnapshot={localVaultSnapshot}
         isSaving={status.savingSettings}

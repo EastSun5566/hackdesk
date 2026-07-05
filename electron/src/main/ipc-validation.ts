@@ -43,6 +43,85 @@ const typographySchema = z.strictObject({
   uiFontSize: z.number().int().min(12).max(18),
   editorFontSize: z.number().int().min(10).max(32),
 });
+const electronActionIdSchema = z.enum([
+  'open-command-palette',
+  'open-quick-open',
+  'open-settings',
+  'toggle-theme',
+  'set-editor-mode-standard',
+  'set-editor-mode-vim',
+  'set-editor-mode-helix',
+  'new-tab',
+  'new-note',
+  'new-folder',
+  'rename-folder',
+  'delete-folder',
+  'toggle-workspace-rail',
+  'toggle-navigator',
+  'toggle-inspector',
+  'refresh',
+  'search-notes',
+  'navigate-back',
+  'navigate-forward',
+  'export-debug-logs',
+  'go-history',
+  'focus-workspace',
+  'focus-navigator',
+  'focus-editor',
+  'focus-inspector',
+  'save-note',
+  'find-in-note',
+  'attach-image',
+  'export-note-markdown',
+  'import-markdown-note',
+  'open-note-web-editor',
+  'delete-note',
+  'close-tab',
+  'close-other-tabs',
+  'close-tabs-to-right',
+  'reopen-last-closed-tab',
+  'split-pane-right',
+  'move-tab-to-other-pane',
+  'focus-next-tab',
+  'focus-previous-tab',
+  'focus-next-pane',
+  'focus-previous-pane',
+]);
+const shortcutConfigSchema = z.string().trim().refine((value) => {
+  if (value === 'none') {
+    return true;
+  }
+
+  if (!value || value.includes(',')) {
+    return false;
+  }
+
+  const lower = value.toLowerCase();
+  if (['mod+a', 'mod+c', 'mod+d', 'mod+q', 'mod+v', 'mod+x', 'mod+z', 'mod+shift+z', 'mod+alt+i'].includes(lower)) {
+    return false;
+  }
+
+  const parts = lower.split('+').filter(Boolean);
+  const key = parts.at(-1);
+  const hasModifier = parts.slice(0, -1).some((part) => (
+    part === 'alt' || part === 'cmd' || part === 'command' || part === 'ctrl' || part === 'control'
+    || part === 'meta' || part === 'mod' || part === 'option' || part === 'shift'
+  ));
+
+  return Boolean(key) && (hasModifier || key!.length > 1);
+});
+const shortcutActionIds = new Set(electronActionIdSchema.options);
+const shortcutsSchema = z.record(z.string(), shortcutConfigSchema).superRefine((value, context) => {
+  for (const actionId of Object.keys(value)) {
+    if (!shortcutActionIds.has(actionId as (typeof electronActionIdSchema.options)[number])) {
+      context.addIssue({
+        code: 'custom',
+        message: `Unknown shortcut action: ${actionId}`,
+        path: [actionId],
+      });
+    }
+  }
+});
 
 export const settingsUpdateSchema = z.strictObject({
   title: optionalStringSchema,
@@ -56,6 +135,7 @@ export const settingsUpdateSchema = z.strictObject({
   editor: z.strictObject({
     mode: z.enum(['standard', 'vim', 'helix']),
   }).optional(),
+  shortcuts: shortcutsSchema.optional(),
   onboarding: z.strictObject({
     hackmdTokenSetupDeferred: z.boolean(),
   }).optional(),

@@ -26,12 +26,14 @@ import {
 } from './SettingsDialogConfig';
 import { SettingsDialogFooter } from './SettingsDialogFooter';
 import { SettingsTabs } from './SettingsTabs';
+import { getShortcutsDraftStatus, ShortcutsSettingsPanel } from './ShortcutsSettingsPanel';
 import type { SettingsFormInput } from './types';
 import { VaultSettingsPanel } from './VaultSettingsPanel';
 
 type SettingsDialogProps = {
   open: boolean;
   settings?: ElectronSafeSettings;
+  platform?: string;
   localVaultError?: string | null;
   localVaultSnapshot?: LocalVaultSnapshot | null;
   isSaving: boolean;
@@ -52,6 +54,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
 function SettingsDialogContent({
   open,
   settings,
+  platform = navigator.platform,
   localVaultError,
   localVaultSnapshot,
   isSaving,
@@ -76,13 +79,17 @@ function SettingsDialogContent({
       status: 'idle',
       message: '',
     } as TokenTestState,
+    shortcuts: settings?.shortcuts ?? defaultSettings.shortcuts,
   }));
   const appearanceController = useThemeAppearanceDraft({ showTypography: true });
-  const { editorMode, title, token, tokenTest, tokenVisible } = formState;
+  const { editorMode, shortcuts, title, token, tokenTest, tokenVisible } = formState;
 
   const normalizedToken = token.trim();
   const isTestingToken = tokenTest.status === 'testing';
-  const canSaveSettings = Boolean(title.trim()) && (activeTab !== 'hackmd' || Boolean(normalizedToken));
+  const shortcutStatus = getShortcutsDraftStatus(settings?.shortcuts, shortcuts);
+  const canSaveSettings = Boolean(title.trim())
+    && (activeTab !== 'hackmd' || Boolean(normalizedToken))
+    && (activeTab !== 'shortcuts' || (shortcutStatus.hasDraftChanges && !shortcutStatus.error));
 
   const invalidateTokenValidation = () => {
     tokenValidationRequestRef.current += 1;
@@ -101,6 +108,18 @@ function SettingsDialogContent({
       onSave({
         title: title.trim(),
         editor: { mode: editorMode },
+      });
+      return;
+    }
+
+    if (activeTab === 'shortcuts') {
+      if (!shortcutStatus.hasDraftChanges || shortcutStatus.error) {
+        return;
+      }
+
+      onSave({
+        title: title.trim(),
+        shortcuts,
       });
       return;
     }
@@ -161,6 +180,7 @@ function SettingsDialogContent({
       token: '',
       tokenVisible: false,
       tokenTest: { status: 'idle', message: '' },
+      shortcuts: defaultSettings.shortcuts,
     });
     setAppearance(defaultSettings.appearance);
     onSave({
@@ -168,6 +188,7 @@ function SettingsDialogContent({
       hackmdApiToken: '',
       appearance: defaultSettings.appearance,
       editor: defaultSettings.editor,
+      shortcuts: defaultSettings.shortcuts,
     });
   };
 
@@ -175,6 +196,10 @@ function SettingsDialogContent({
     if (!nextOpen) {
       invalidateTokenValidation();
       appearanceController.actions.cancel();
+      setFormState((current) => ({
+        ...current,
+        shortcuts: settings?.shortcuts ?? defaultSettings.shortcuts,
+      }));
     }
     onOpenChange(nextOpen);
   };
@@ -208,7 +233,7 @@ function SettingsDialogContent({
             className="flex min-h-0 flex-1 flex-col"
             onSubmit={(event) => {
               event.preventDefault();
-              if (activeTab === 'general' || activeTab === 'editor' || activeTab === 'hackmd') {
+              if (activeTab === 'general' || activeTab === 'editor' || activeTab === 'shortcuts' || activeTab === 'hackmd') {
                 handleSaveSettings();
               }
             }}
@@ -235,6 +260,17 @@ function SettingsDialogContent({
 
                 <TabsContent value="appearance" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <AppearanceSettingsPanel controller={appearanceController} />
+                </TabsContent>
+
+                <TabsContent value="shortcuts" keepMounted className={SETTINGS_PANEL_CLASS}>
+                  <ShortcutsSettingsPanel
+                    platform={platform}
+                    shortcuts={shortcuts}
+                    onShortcutsChange={(nextShortcuts) => setFormState((current) => ({
+                      ...current,
+                      shortcuts: nextShortcuts,
+                    }))}
+                  />
                 </TabsContent>
 
                 <TabsContent value="vault" keepMounted className={SETTINGS_PANEL_CLASS}>

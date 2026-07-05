@@ -2,12 +2,18 @@ import { useCallback, useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
 import type { ElectronActionId } from '@/lib/electron-api';
+import { DEFAULT_ACTION_KEYBINDINGS } from '@/lib/electron-actions';
 import {
   clearNoteFinderFilters,
   clearNoteFinderQuery,
   hasActiveNoteFinderFilters,
   type NoteFinderState,
 } from '@/lib/electron-note-finder';
+import {
+  matchShortcutConfig,
+  resolveActionShortcut,
+  type ShortcutOverrides,
+} from '@/lib/keyboard-shortcuts';
 
 export type WorkbenchShortcutHandlers = {
   activeFinderState: NoteFinderState;
@@ -24,6 +30,7 @@ export type WorkbenchShortcutHandlers = {
   selectedFolderId: string | null;
   setFinderState: Dispatch<SetStateAction<NoteFinderState>>;
   setSelectedFolderId: Dispatch<SetStateAction<string | null>>;
+  shortcuts?: ShortcutOverrides;
 };
 
 export function useWorkbenchShortcuts({
@@ -41,6 +48,7 @@ export function useWorkbenchShortcuts({
   selectedFolderId,
   setFinderState,
   setSelectedFolderId,
+  shortcuts,
 }: WorkbenchShortcutHandlers) {
   const handleGlobalKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.defaultPrevented || event.isComposing) {
@@ -48,28 +56,6 @@ export function useWorkbenchShortcuts({
     }
 
     const isPrimaryModifier = isPlatformPrimaryModifier(event, platform);
-    const key = event.key.toLowerCase();
-    if (isPrimaryModifier && !event.altKey && (
-      (!event.shiftKey && key === 'k')
-      || (event.shiftKey && key === 'p')
-    )) {
-      event.preventDefault();
-      openPalette();
-      return;
-    }
-
-    if (isPrimaryModifier && !event.altKey && !event.shiftKey && key === 'p') {
-      event.preventDefault();
-      runAction('open-quick-open');
-      return;
-    }
-
-    if (isPrimaryModifier && !event.altKey && !event.shiftKey && key === 'f') {
-      event.preventDefault();
-      runAction('find-in-note');
-      return;
-    }
-
     if (isPrimaryModifier && !event.altKey && !event.shiftKey && /^[1-9]$/.test(event.key)) {
       if (paneCount > 1) {
         const targetPaneIndex = Number(event.key) - 1;
@@ -86,83 +72,11 @@ export function useWorkbenchShortcuts({
       return;
     }
 
-    if (event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'n') {
-      event.preventDefault();
-      handleCreateNote();
-      return;
-    }
-
-    if (isPrimaryModifier && event.shiftKey && event.key.toLowerCase() === 'r') {
-      event.preventDefault();
-      refreshWorkspace();
-      return;
-    }
-
-    if (isPrimaryModifier && event.key.toLowerCase() === 's') {
+    if (matchesActionShortcut('save-note', event, platform, shortcuts)) {
       if (noteDirty) {
         event.preventDefault();
         runAction('save-note');
       }
-      return;
-    }
-
-    if (isPrimaryModifier && event.key.toLowerCase() === 'w') {
-      event.preventDefault();
-      runAction('close-tab');
-      return;
-    }
-
-    if (isPrimaryModifier && event.shiftKey && event.key.toLowerCase() === 't') {
-      event.preventDefault();
-      runAction('reopen-last-closed-tab');
-      return;
-    }
-
-    if (isPrimaryModifier && !event.shiftKey && event.key.toLowerCase() === 't') {
-      event.preventDefault();
-      runAction('new-tab');
-      return;
-    }
-
-    if (isPrimaryModifier && event.altKey && !event.shiftKey && event.key === 'ArrowRight') {
-      event.preventDefault();
-      runAction('focus-next-tab');
-      return;
-    }
-
-    if (isPrimaryModifier && event.altKey && !event.shiftKey && event.key === 'ArrowLeft') {
-      event.preventDefault();
-      runAction('focus-previous-tab');
-      return;
-    }
-
-    if (isPrimaryModifier && !event.altKey && !event.shiftKey && event.key === '[') {
-      event.preventDefault();
-      runAction('navigate-back');
-      return;
-    }
-
-    if (isPrimaryModifier && !event.altKey && !event.shiftKey && event.key === ']') {
-      event.preventDefault();
-      runAction('navigate-forward');
-      return;
-    }
-
-    if (isPrimaryModifier && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'b') {
-      event.preventDefault();
-      runAction('toggle-workspace-rail');
-      return;
-    }
-
-    if (isPrimaryModifier && event.altKey && !event.shiftKey && event.key.toLowerCase() === 'b') {
-      event.preventDefault();
-      runAction('toggle-navigator');
-      return;
-    }
-
-    if (isPrimaryModifier && !event.altKey && event.key === '\\') {
-      event.preventDefault();
-      runAction('split-pane-right');
       return;
     }
 
@@ -172,45 +86,26 @@ export function useWorkbenchShortcuts({
       return;
     }
 
-    if (isPrimaryModifier && event.shiftKey && !event.altKey && event.key.toLowerCase() === 'e') {
-      event.preventDefault();
-      runAction('focus-navigator');
-      return;
-    }
-
-    if (event.altKey && event.key === '1') {
-      event.preventDefault();
-      runAction('focus-workspace');
-      return;
-    }
-
-    if (event.altKey && event.key === '2') {
-      event.preventDefault();
-      runAction('focus-navigator');
-      return;
-    }
-
-    if (event.altKey && event.key === '3') {
-      event.preventDefault();
-      runAction('focus-editor');
-      return;
-    }
-
-    if (event.altKey && event.key === '4') {
-      event.preventDefault();
-      runAction('focus-inspector');
-      return;
-    }
-
-    if (event.altKey && event.key.toLowerCase() === 'i') {
-      event.preventDefault();
-      runAction('toggle-inspector');
-      return;
-    }
-
     if (event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey && shouldFocusNoteFilter(event)) {
       event.preventDefault();
       runAction('search-notes');
+      return;
+    }
+
+    const matchedAction = WORKBENCH_SHORTCUT_ACTIONS.find((actionId) => (
+      actionId !== 'save-note' && matchesActionShortcut(actionId, event, platform, shortcuts)
+    ));
+    if (matchedAction) {
+      event.preventDefault();
+      if (matchedAction === 'open-command-palette') {
+        openPalette();
+      } else if (matchedAction === 'new-note') {
+        handleCreateNote();
+      } else if (matchedAction === 'refresh') {
+        refreshWorkspace();
+      } else {
+        runAction(matchedAction);
+      }
       return;
     }
 
@@ -257,12 +152,54 @@ export function useWorkbenchShortcuts({
     selectedFolderId,
     setFinderState,
     setSelectedFolderId,
+    shortcuts,
   ]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [handleGlobalKeyDown]);
+}
+
+const WORKBENCH_SHORTCUT_ACTIONS: ElectronActionId[] = [
+  'open-command-palette',
+  'open-quick-open',
+  'open-settings',
+  'new-note',
+  'new-folder',
+  'new-tab',
+  'import-markdown-note',
+  'find-in-note',
+  'close-tab',
+  'reopen-last-closed-tab',
+  'focus-next-tab',
+  'focus-previous-tab',
+  'navigate-back',
+  'navigate-forward',
+  'toggle-workspace-rail',
+  'toggle-navigator',
+  'toggle-inspector',
+  'split-pane-right',
+  'export-debug-logs',
+  'focus-workspace',
+  'focus-navigator',
+  'focus-editor',
+  'focus-inspector',
+  'refresh',
+  'save-note',
+];
+
+function matchesActionShortcut(
+  actionId: ElectronActionId,
+  event: KeyboardEvent,
+  platform: string,
+  shortcuts?: ShortcutOverrides,
+) {
+  return matchShortcutConfig(
+    resolveActionShortcut(actionId, DEFAULT_ACTION_KEYBINDINGS, shortcuts),
+    event,
+    platform,
+  );
 }
 
 function isPlatformPrimaryModifier(event: KeyboardEvent, platform: string) {

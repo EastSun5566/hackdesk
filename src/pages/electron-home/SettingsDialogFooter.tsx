@@ -55,7 +55,7 @@ export function SettingsDialogFooter({
             Apply Theme
           </button>
         ) : null}
-        {(activeTab === 'general' || activeTab === 'editor' || activeTab === 'hackmd') ? (
+        {(activeTab === 'general' || activeTab === 'editor' || activeTab === 'shortcuts' || activeTab === 'hackmd') ? (
           <button
             type="submit"
             disabled={saveDisabled}

@@ -6,6 +6,7 @@ import { createAppIcon } from './app-icon';
 import { registerIpcHandlers } from './ipc-handlers';
 import { initCrashReporter, initLogging, writeLog } from './logging';
 import { registerRendererProtocol } from './renderer-protocol';
+import { readStoredSettings } from './settings';
 import { WindowManager } from './window-manager';
 
 const APP_ID = 'me.eastsun.hackdesk';
@@ -30,11 +31,17 @@ if (!gotLock) {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   app.dock?.setIcon(createAppIcon());
   registerRendererProtocol();
-  registerIpcHandlers(windowManager);
-  createApplicationMenu((command) => windowManager.sendCommand(command));
+  const createMenu = (shortcuts = {}) => createApplicationMenu(
+    (command) => windowManager.sendCommand(command),
+    shortcuts,
+  );
+  registerIpcHandlers(windowManager, {
+    onSettingsUpdated: (settings) => createMenu(settings.shortcuts),
+  });
+  createMenu((await readStoredSettings()).shortcuts);
   windowManager.createMainWindow();
   tray = createApplicationTray(() => windowManager.showAndFocusMainWindow());
 

@@ -1,4 +1,9 @@
 import type { ElectronActionId } from './electron-api';
+import {
+  displayShortcutConfig,
+  resolveActionShortcut,
+  type ShortcutOverrides,
+} from './keyboard-shortcuts';
 import type { EditorMode } from './settings';
 
 export type ElectronActionCategory = 'create' | 'navigation' | 'view' | 'note' | 'folder' | 'app';
@@ -35,6 +40,7 @@ export type ElectronActionDefinition = {
   keywords: string[];
   category: ElectronActionCategory;
   scope?: ElectronActionScope;
+  defaultKeybinding?: string;
   shortcut?: string;
   menuAccelerator?: string;
   when?: ElectronActionWhen;
@@ -130,6 +136,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['tab', 'open'],
     category: 'create',
     scope: 'editor',
+    defaultKeybinding: 'mod+t',
     shortcut: '⌘T',
     menuAccelerator: 'CmdOrCtrl+T',
   },
@@ -140,6 +147,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['create', 'document'],
     category: 'create',
     scope: 'navigator',
+    defaultKeybinding: 'mod+n',
     shortcut: '⌘N',
     menuAccelerator: 'Command+N',
     getDisabledReason: requireWritableWorkspace,
@@ -151,6 +159,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['create', 'directory'],
     category: 'create',
     scope: 'navigator',
+    defaultKeybinding: 'mod+shift+n',
     shortcut: '⇧⌘N',
     menuAccelerator: 'Shift+CmdOrCtrl+N',
     getDisabledReason: requireWritableWorkspace,
@@ -180,6 +189,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['write', 'persist'],
     category: 'note',
     scope: 'editor',
+    defaultKeybinding: 'mod+s',
     shortcut: '⌘S',
     menuAccelerator: 'CmdOrCtrl+S',
     getDisabledReason: (context) => {
@@ -202,6 +212,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['find', 'search', 'current note'],
     category: 'note',
     scope: 'editor',
+    defaultKeybinding: 'mod+f',
     shortcut: '⌘F',
     menuAccelerator: 'CmdOrCtrl+F',
     getDisabledReason: requireSelectedNote,
@@ -231,7 +242,9 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['upload', 'markdown', 'file'],
     category: 'create',
     scope: 'navigator',
-    menuAccelerator: 'Shift+CmdOrCtrl+I',
+    defaultKeybinding: 'mod+o',
+    shortcut: '⌘O',
+    menuAccelerator: 'CmdOrCtrl+O',
     getDisabledReason: requireWritableWorkspace,
   },
   {
@@ -259,6 +272,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['tab', 'close'],
     category: 'note',
     scope: 'editor',
+    defaultKeybinding: 'mod+w',
     shortcut: '⌘W',
     menuAccelerator: 'CmdOrCtrl+W',
     getDisabledReason: requireOpenTab,
@@ -288,6 +302,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['tab', 'restore', 'reopen', 'undo'],
     category: 'note',
     scope: 'editor',
+    defaultKeybinding: 'mod+shift+t',
     shortcut: '⇧⌘T',
     menuAccelerator: 'Shift+CmdOrCtrl+T',
     getDisabledReason: requireRecentlyClosedTab,
@@ -299,6 +314,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['pane', 'split', 'layout'],
     category: 'view',
     scope: 'editor',
+    defaultKeybinding: 'mod+\\',
     shortcut: '⌘\\',
     menuAccelerator: 'CmdOrCtrl+\\',
     getDisabledReason: requireSplitAvailable,
@@ -319,6 +335,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['tab', 'next'],
     category: 'navigation',
     scope: 'editor',
+    defaultKeybinding: 'mod+alt+arrowright',
     shortcut: '⌥⌘→',
     menuAccelerator: 'CmdOrCtrl+Alt+Right',
     getDisabledReason: requireOtherTabs,
@@ -330,6 +347,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['tab', 'previous'],
     category: 'navigation',
     scope: 'editor',
+    defaultKeybinding: 'mod+alt+arrowleft',
     shortcut: '⌥⌘←',
     menuAccelerator: 'CmdOrCtrl+Alt+Left',
     getDisabledReason: requireOtherTabs,
@@ -359,6 +377,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['preferences', 'token', 'appearance', 'theme'],
     category: 'app',
     scope: 'global',
+    defaultKeybinding: 'mod+comma',
     shortcut: '⌘,',
     menuAccelerator: 'CmdOrCtrl+,',
   },
@@ -404,6 +423,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['commands', 'search'],
     category: 'navigation',
     scope: 'global',
+    defaultKeybinding: 'mod+k,mod+shift+p',
     shortcut: '⌘K',
     menuAccelerator: 'CmdOrCtrl+K',
   },
@@ -414,6 +434,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['notes', 'folders', 'files', 'workspaces', 'search', 'open'],
     category: 'navigation',
     scope: 'global',
+    defaultKeybinding: 'mod+p',
     shortcut: '⌘P',
     menuAccelerator: 'CmdOrCtrl+P',
   },
@@ -424,6 +445,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['sidebar', 'workspace', 'view'],
     category: 'view',
     scope: 'workspace',
+    defaultKeybinding: 'mod+b',
     shortcut: '⌘B',
     menuAccelerator: 'CmdOrCtrl+B',
   },
@@ -434,6 +456,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['folders', 'notes', 'sidebar'],
     category: 'view',
     scope: 'navigator',
+    defaultKeybinding: 'mod+alt+b',
     shortcut: '⌥⌘B',
     menuAccelerator: 'CmdOrCtrl+Alt+B',
   },
@@ -444,7 +467,6 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['metadata', 'right panel'],
     category: 'view',
     scope: 'inspector',
-    shortcut: '⌥I',
     getDisabledReason: requireSelectedNote,
   },
   {
@@ -454,6 +476,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['sync', 'reload'],
     category: 'navigation',
     scope: 'global',
+    defaultKeybinding: 'mod+shift+r',
     shortcut: '⇧⌘R',
     menuAccelerator: 'Shift+CmdOrCtrl+R',
     getDisabledReason: requireHackmd,
@@ -475,6 +498,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['back', 'previous', 'navigation'],
     category: 'navigation',
     scope: 'editor',
+    defaultKeybinding: 'mod+[',
     shortcut: '⌘[',
     menuAccelerator: 'CmdOrCtrl+[',
     getDisabledReason: requireNavigationBack,
@@ -486,6 +510,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['forward', 'next', 'navigation'],
     category: 'navigation',
     scope: 'editor',
+    defaultKeybinding: 'mod+]',
     shortcut: '⌘]',
     menuAccelerator: 'CmdOrCtrl+]',
     getDisabledReason: requireNavigationForward,
@@ -506,6 +531,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['diagnostics', 'logs', 'crash'],
     category: 'app',
     scope: 'global',
+    defaultKeybinding: 'mod+shift+l',
     shortcut: '⇧⌘L',
     menuAccelerator: 'Shift+CmdOrCtrl+L',
   },
@@ -516,7 +542,6 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['sidebar', 'team'],
     category: 'navigation',
     scope: 'workspace',
-    shortcut: '⌥1',
   },
   {
     id: 'focus-navigator',
@@ -525,6 +550,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['folders', 'notes'],
     category: 'navigation',
     scope: 'navigator',
+    defaultKeybinding: 'mod+shift+e',
     shortcut: '⇧⌘E',
     menuAccelerator: 'Shift+CmdOrCtrl+E',
   },
@@ -535,7 +561,6 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['document', 'edit'],
     category: 'navigation',
     scope: 'editor',
-    shortcut: '⌥3',
     getDisabledReason: requireSelectedNote,
   },
   {
@@ -545,7 +570,6 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['metadata', 'right panel'],
     category: 'navigation',
     scope: 'inspector',
-    shortcut: '⌥4',
     getDisabledReason: (context) => {
       const noteReason = requireSelectedNote(context);
       if (noteReason) {
@@ -573,6 +597,29 @@ export function getElectronActionLabel(actionId: ElectronActionId) {
 
 export function getActionShortcut(actionId: ElectronActionId) {
   return getElectronAction(actionId).shortcut;
+}
+
+export const DEFAULT_ACTION_KEYBINDINGS = ELECTRON_ACTIONS.reduce((acc, action) => {
+  if (action.defaultKeybinding) {
+    acc[action.id] = action.defaultKeybinding;
+  }
+  return acc;
+}, {} as Partial<Record<ElectronActionId, string>>);
+
+export function getResolvedActionShortcut(
+  actionId: ElectronActionId,
+  shortcuts: ShortcutOverrides | undefined,
+  platform: string,
+) {
+  const resolved = resolveActionShortcut(actionId, DEFAULT_ACTION_KEYBINDINGS, shortcuts);
+  if (resolved === 'none') {
+    return undefined;
+  }
+
+  return displayShortcutConfig(
+    resolved,
+    platform,
+  ) || getElectronAction(actionId).shortcut;
 }
 
 export function splitShortcutKeys(shortcut: string) {

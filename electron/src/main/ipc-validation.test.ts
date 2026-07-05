@@ -96,6 +96,9 @@ describe('IPC runtime validation', () => {
     expect(validateIpcInput('settings:update', settingsUpdateSchema, {
       onboarding: { hackmdTokenSetupDeferred: true },
       editor: { mode: 'vim' },
+      shortcuts: {
+        'open-command-palette': 'mod+j',
+      },
       appearance: {
         theme: 'dark',
         presetId: 'dracula',
@@ -110,6 +113,7 @@ describe('IPC runtime validation', () => {
     })).toMatchObject({
       onboarding: { hackmdTokenSetupDeferred: true },
       editor: { mode: 'vim' },
+      shortcuts: { 'open-command-palette': 'mod+j' },
       appearance: { presetId: 'dracula' },
     });
 
@@ -134,6 +138,26 @@ describe('IPC runtime validation', () => {
     expect(() => validateIpcInput('settings:update', settingsUpdateSchema, {
       editor: { mode: 'emacs' },
     })).toThrow(/Invalid option/);
+  });
+
+  it('rejects invalid shortcut settings updates', () => {
+    expect(() => validateIpcInput('settings:update', settingsUpdateSchema, {
+      shortcuts: {
+        'not-real': 'mod+j',
+      },
+    })).toThrow(/Invalid/);
+
+    expect(() => validateIpcInput('settings:update', settingsUpdateSchema, {
+      shortcuts: {
+        'open-command-palette': 'j',
+      },
+    })).toThrow(/Invalid/);
+
+    expect(() => validateIpcInput('settings:update', settingsUpdateSchema, {
+      shortcuts: {
+        'open-command-palette': 'mod+d',
+      },
+    })).toThrow(/Invalid/);
   });
 
   it('rejects unsafe theme font stacks in settings updates', () => {

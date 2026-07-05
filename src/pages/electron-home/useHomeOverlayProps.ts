@@ -27,7 +27,9 @@ type CommandPaletteInjectedProps =
   | 'themePresetId'
   | 'themePresets'
   | 'onSelectThemeMode'
-  | 'onSelectThemePreset';
+  | 'onSelectThemePreset'
+  | 'platform'
+  | 'shortcuts';
 
 export function useHomeOverlayProps({
   actionContext,
@@ -90,6 +92,8 @@ export function useHomeOverlayProps({
       ...commandPaletteUtilities,
       context: actionContext,
       onRunAction: runAction,
+      platform: api?.platform ?? navigator.platform,
+      shortcuts: settings?.shortcuts,
     },
     dialogs: {
       api,

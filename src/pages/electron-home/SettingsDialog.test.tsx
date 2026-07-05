@@ -56,6 +56,7 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
       <SettingsDialog
         open
         settings={settings}
+        platform="darwin"
         isSaving={false}
         onChooseLocalVault={onChooseLocalVault}
         onDisconnectHackmd={onDisconnectHackmd}
@@ -148,8 +149,8 @@ describe('SettingsDialog', () => {
     const tabs = screen.getAllByRole('tab');
     const panels = screen.getAllByRole('tabpanel', { hidden: true });
 
-    expect(tabs).toHaveLength(6);
-    expect(panels).toHaveLength(6);
+    expect(tabs).toHaveLength(7);
+    expect(panels).toHaveLength(7);
 
     tabs.forEach((tab) => {
       expect(tab.tagName).toBe('BUTTON');
@@ -845,6 +846,57 @@ describe('SettingsDialog', () => {
     const refreshButton = screen.getByRole('button', { name: 'Refresh Vault' });
     expect(refreshButton).toBeDisabled();
     expect(refreshButton.querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
+  });
+
+  it('captures and saves shortcut overrides from the Shortcuts tab', async () => {
+    const { onSave } = renderSettingsDialog();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Shortcuts/ }));
+    expect(screen.getByLabelText('Search shortcuts')).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText('Search shortcuts'), { target: { value: 'palette' } });
+    expect(screen.getByText('Command Palette')).toBeVisible();
+
+    const shortcutButton = screen.getByRole('button', { name: 'Set shortcut for Command Palette' });
+    fireEvent.click(shortcutButton);
+    await waitFor(() => expect(shortcutButton).toHaveTextContent('Press keys…'));
+    fireEvent.keyDown(shortcutButton, { key: 'j', metaKey: true });
+
+    await waitFor(() => expect(shortcutButton).toHaveTextContent('⌘J'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(onSave).toHaveBeenCalledWith({
+      title: 'HackDesk',
+      shortcuts: {
+        'open-command-palette': 'mod+j',
+      },
+    });
+  });
+
+  it('shows removed default shortcuts as unassigned', () => {
+    renderSettingsDialog();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Shortcuts/ }));
+    fireEvent.change(screen.getByLabelText('Search shortcuts'), { target: { value: 'workspace' } });
+
+    const row = screen.getByText('Focus Workspace').closest('li');
+    expect(row).not.toBeNull();
+    expect(within(row as HTMLElement).getByRole('button', { name: 'Set shortcut for Focus Workspace' })).toHaveTextContent('Unassigned');
+  });
+
+  it('shows shortcut conflicts and prevents saving invalid shortcut drafts', async () => {
+    const { onSave } = renderSettingsDialog();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Shortcuts/ }));
+
+    const shortcutButton = screen.getByRole('button', { name: 'Set shortcut for Command Palette' });
+    fireEvent.click(shortcutButton);
+    await waitFor(() => expect(shortcutButton).toHaveTextContent('Press keys…'));
+    fireEvent.keyDown(shortcutButton, { key: 'p', metaKey: true });
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('already assigned to Quick Open');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it('reports when update checks are unavailable outside packaged Electron', () => {

@@ -28,10 +28,11 @@ export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'e
   hasLocalVault: boolean;
   localVault: AppSettings['localVault'];
   onboarding: AppSettings['onboarding'];
+  shortcuts?: AppSettings['shortcuts'];
   shouldShowHackmdOnboarding: boolean;
 };
 
-export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'onboarding' | 'localVault'>> & {
+export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'localVault'>> & {
   hackmdApiToken?: string;
 };
 

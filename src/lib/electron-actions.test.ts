@@ -8,6 +8,7 @@ import {
   getCommandPaletteActions,
   getElectronActionLabel,
   getElectronAction,
+  getResolvedActionShortcut,
   isElectronActionEnabled,
   splitShortcutKeys,
   type ElectronActionContext,
@@ -118,7 +119,8 @@ describe('electron action registry', () => {
     expect(getElectronAction('attach-image').menuAccelerator).toBeUndefined();
     expect(getElectronAction('import-markdown-note')).toMatchObject({
       label: 'Import Markdown Note',
-      menuAccelerator: 'Shift+CmdOrCtrl+I',
+      shortcut: '⌘O',
+      menuAccelerator: 'CmdOrCtrl+O',
     });
     expect(getElectronAction('close-tab')).toMatchObject({
       label: 'Close Tab',
@@ -144,6 +146,14 @@ describe('electron action registry', () => {
       shortcut: '⇧⌘E',
       menuAccelerator: 'Shift+CmdOrCtrl+E',
     });
+    expect(getElectronAction('focus-workspace').shortcut).toBeUndefined();
+    expect(getElectronAction('focus-workspace').menuAccelerator).toBeUndefined();
+    expect(getElectronAction('focus-editor').shortcut).toBeUndefined();
+    expect(getElectronAction('focus-editor').menuAccelerator).toBeUndefined();
+    expect(getElectronAction('focus-inspector').shortcut).toBeUndefined();
+    expect(getElectronAction('focus-inspector').menuAccelerator).toBeUndefined();
+    expect(getElectronAction('toggle-inspector').shortcut).toBeUndefined();
+    expect(getElectronAction('toggle-inspector').menuAccelerator).toBeUndefined();
     expect(getElectronAction('split-pane-right')).toMatchObject({
       label: 'Split Pane Right',
       shortcut: '⌘\\',
@@ -163,6 +173,12 @@ describe('electron action registry', () => {
     expect(splitShortcutKeys('⌘\\')).toEqual(['⌘', '\\']);
     expect(getActionShortcutKeys('navigate-back')).toEqual(['⌘', '[']);
     expect(getActionShortcutKeys('navigate-forward')).toEqual(['⌘', ']']);
+    expect(getResolvedActionShortcut('open-command-palette', undefined, 'darwin')).toBe('⌘K, ⇧⌘P');
+    expect(getResolvedActionShortcut('open-command-palette', { 'open-command-palette': 'mod+j' }, 'darwin')).toBe('⌘J');
+    expect(getResolvedActionShortcut('open-command-palette', { 'open-command-palette': 'none' }, 'darwin')).toBeUndefined();
+    expect(getResolvedActionShortcut('open-quick-open', undefined, 'win32')).toBe('Ctrl+P');
+    expect(getResolvedActionShortcut('import-markdown-note', undefined, 'darwin')).toBe('⌘O');
+    expect(getResolvedActionShortcut('focus-workspace', undefined, 'darwin')).toBeUndefined();
   });
 
   it('keeps the native menu schema linked to registered actions', () => {

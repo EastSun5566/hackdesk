@@ -62,6 +62,7 @@ import {
 import {
   getActionDisabledReason,
   getActionLabel,
+  getResolvedActionShortcut,
   getCommandPaletteActions,
   type ElectronActionContext,
 } from '@/lib/electron-actions';
@@ -78,6 +79,7 @@ import {
 } from '@/lib/electron-quick-open';
 import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
 import type { FolderTree as HackmdFolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
+import type { ShortcutOverrides } from '@/lib/keyboard-shortcuts';
 import type { ThemeMode, ThemePreset, ThemePresetId } from '@/lib/themes';
 
 import type { CommandPaletteState, WorkspaceScope } from './types';
@@ -307,6 +309,8 @@ export function CommandPaletteDialog({
   themeMode,
   themePresetId,
   themePresets,
+  shortcuts,
+  platform = navigator.platform,
   onStateChange,
   onRunAction,
   onConnectHackmd,
@@ -339,6 +343,8 @@ export function CommandPaletteDialog({
   themeMode: ThemeMode;
   themePresetId: ThemePresetId;
   themePresets: ThemePreset[];
+  shortcuts?: ShortcutOverrides;
+  platform?: string;
   onStateChange: (state: CommandPaletteState) => void;
   onRunAction: (actionId: ElectronActionId) => void;
   onConnectHackmd: () => void;
@@ -560,6 +566,7 @@ export function CommandPaletteDialog({
                 {actionResults.map((action) => {
                   const disabledReason = getActionDisabledReason(action, context);
                   const actionLabel = getActionLabel(action, context);
+                  const shortcut = getResolvedActionShortcut(action.id, shortcuts, platform);
 
                   return (
                     <CommandItem
@@ -587,7 +594,7 @@ export function CommandPaletteDialog({
                           {disabledReason ?? action.description}
                         </span>
                       </span>
-                      {action.shortcut ? <CommandShortcut>{action.shortcut}</CommandShortcut> : null}
+                      {shortcut ? <CommandShortcut>{shortcut}</CommandShortcut> : null}
                     </CommandItem>
                   );
                 })}
