@@ -46,7 +46,7 @@ class TaskCheckboxWidget extends WidgetType {
   constructor(
     private readonly checked: boolean,
     private readonly from: number,
-    private readonly to: number,
+    private readonly markerTo: number,
   ) {
     super();
   }
@@ -54,7 +54,7 @@ class TaskCheckboxWidget extends WidgetType {
   eq(other: TaskCheckboxWidget): boolean {
     return other.checked === this.checked
       && other.from === this.from
-      && other.to === this.to;
+      && other.markerTo === this.markerTo;
   }
 
   toDOM(view: EditorView): HTMLElement {
@@ -73,10 +73,10 @@ class TaskCheckboxWidget extends WidgetType {
       view.dispatch({
         changes: {
           from: this.from,
-          to: this.to,
+          to: this.markerTo,
           insert: this.checked ? '[ ]' : '[x]',
         },
-        selection: { anchor: this.to },
+        selection: { anchor: this.markerTo },
       });
       view.focus();
     });
@@ -141,9 +141,14 @@ export function addTaskMarker(
     return;
   }
 
+  const replaceTo = state.sliceDoc(to, to + 1) === ' ' ? to + 1 : to;
   pushReplace(ranges, state.doc, from, to, {
     widget: new TaskCheckboxWidget(marker === '[x]', from, to),
+    inclusive: false,
   });
+  if (replaceTo > to) {
+    pushReplace(ranges, state.doc, to, replaceTo);
+  }
 }
 
 function isInactiveSingleLineRange(state: EditorState, activeLines: Set<number>, from: number, to: number) {
@@ -157,18 +162,23 @@ function isInactiveSingleLineRange(state: EditorState, activeLines: Set<number>,
   return startLine.number === endLine.number && !activeLines.has(startLine.number);
 }
 
-function addListLineIndent(ranges: PreviewRange[], lineFrom: number, rawIndent: number) {
-  const depth = Math.max(0, Math.floor(rawIndent / 2));
-  const baseEm = 0.45;
-  const markerEm = 1.25;
-  const levelEm = 0.75;
-  const padding = baseEm + markerEm + depth * levelEm;
+const LIST_MARKER_BASE_EM = 0.8;
+const LIST_MARKER_ALCOVE_EM = 1.2;
+const LIST_MARKER_LEVEL_EM = 0.6;
 
+function getListLineStyle(rawIndent: number) {
+  const depth = Math.max(0, Math.floor(rawIndent / 2));
+  const padding = LIST_MARKER_BASE_EM + LIST_MARKER_ALCOVE_EM + depth * LIST_MARKER_LEVEL_EM;
+
+  return `padding-left: ${padding}em; text-indent: -${LIST_MARKER_ALCOVE_EM}em`;
+}
+
+function addListLineIndent(ranges: PreviewRange[], lineFrom: number, rawIndent: number) {
   ranges.push(
     Decoration.line({
       attributes: {
         class: 'cm-hackmd-list-line',
-        style: `padding-left: ${padding}em; text-indent: -${markerEm}em`,
+        style: getListLineStyle(rawIndent),
       },
     }).range(lineFrom),
   );

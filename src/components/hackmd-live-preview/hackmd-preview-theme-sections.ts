@@ -202,10 +202,7 @@ export const codeAndBlockTheme = {
   '.cm-hackmd-fenced-code': {
     fontFamily: 'var(--font-editor)',
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--text-default) 8%)',
-    boxShadow: [
-      'inset 2px 0 0 color-mix(in oklch, var(--border-bold) 82%, var(--primary-default) 18%)',
-      'inset 0 1px 0 color-mix(in oklch, var(--border-default) 46%, transparent)',
-    ].join(', '),
+    boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--border-bold) 82%, var(--primary-default) 18%)',
     paddingInline: '0.875rem',
   },
   '.cm-hackmd-alert-block': {
@@ -390,20 +387,22 @@ export const inlineMarksTheme = {
   },
   '.cm-hackmd-list-marker': {
     display: 'inline-block',
-    width: '1.25em',
+    width: '0.9em',
+    marginRight: '0.3em',
     color: 'var(--text-subtle)',
     fontVariantNumeric: 'tabular-nums',
-    textAlign: 'start',
+    textAlign: 'right',
   },
   '.cm-hackmd-ordered-list-marker': {
     color: 'var(--text-subtle)',
+    textAlign: 'right',
   },
   '.cm-hackmd-task-checkbox': {
     display: 'inline-block',
-    width: '0.95em',
-    height: '0.95em',
-    margin: '0 0.65em 0 0',
-    verticalAlign: '-0.12em',
+    width: '0.9em',
+    height: '0.9em',
+    margin: '0 0.3em 0 0',
+    verticalAlign: '-0.15em',
     accentColor: 'var(--primary-default)',
   },
   '.cm-hackmd-alert-heading': {

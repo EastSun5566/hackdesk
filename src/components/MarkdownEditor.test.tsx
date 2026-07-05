@@ -719,6 +719,29 @@ describe('MarkdownEditor', () => {
     expect(editor.querySelector('.cm-hackmd-alert-heading-todo')).toHaveTextContent('Note');
   });
 
+  it('previews unordered list markers with atomic-style hanging indent', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = [
+      '- First',
+      '- Second',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    const marker = await waitFor(() => {
+      const node = editor.querySelector<HTMLElement>('.cm-hackmd-list-marker:not(.cm-hackmd-ordered-list-marker)');
+      expect(node?.textContent).toBe('•');
+      return node;
+    });
+    const listLine = marker.closest<HTMLElement>('.cm-hackmd-list-line');
+
+    expect(marker).toHaveClass('cm-hackmd-list-marker');
+    expect(listLine?.style.paddingLeft).toBe('2em');
+    expect(listLine?.style.textIndent).toBe('-1.2em');
+  });
+
   it('previews ordered list markers as sequential numbers without changing source', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const markdown = [
@@ -742,6 +765,12 @@ describe('MarkdownEditor', () => {
         '58.',
       ]);
     });
+    const orderedMarker = editor.querySelector<HTMLElement>('.cm-hackmd-ordered-list-marker');
+    const listLine = orderedMarker?.closest<HTMLElement>('.cm-hackmd-list-line');
+
+    expect(orderedMarker).toHaveClass('cm-hackmd-list-marker');
+    expect(listLine?.style.paddingLeft).toBe('2em');
+    expect(listLine?.style.textIndent).toBe('-1.2em');
   });
 
   it('renders tables as editable source-preserving table widgets', async () => {

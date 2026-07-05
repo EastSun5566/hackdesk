@@ -98,4 +98,32 @@ describe('HackMD preview widget theme', () => {
 
     expect(serializedTheme).toContain('var(--focus-ring)');
   });
+
+  it('uses fixed list marker alcoves for stable hanging indents', () => {
+    expect(inlineMarksTheme['.cm-hackmd-list-marker']).toMatchObject({
+      display: 'inline-block',
+      width: '0.9em',
+      marginRight: '0.3em',
+      textAlign: 'right',
+    });
+    expect(inlineMarksTheme['.cm-hackmd-ordered-list-marker']).toMatchObject({
+      textAlign: 'right',
+    });
+    expect(inlineMarksTheme['.cm-hackmd-task-checkbox']).toMatchObject({
+      width: '0.9em',
+      margin: '0 0.3em 0 0',
+    });
+  });
+
+  it('keeps code blocks highlighted without selection-like token backgrounds', () => {
+    expect(codeAndBlockTheme['.cm-hackmd-fenced-code']).toMatchObject({
+      backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--text-default) 8%)',
+      boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--border-bold) 82%, var(--primary-default) 18%)',
+    });
+    expect(codeAndBlockTheme['.cm-hackmd-fenced-code'].boxShadow)
+      .not.toContain('inset 0 1px');
+    expect(codeAndBlockTheme['.cm-hackmd-fenced-code'].backgroundColor)
+      .not.toContain('var(--background-selected)');
+    expect(inlineMarksTheme['.cm-hackmd-inline-code']).toHaveProperty('backgroundColor', 'var(--primary-soft)');
+  });
 });

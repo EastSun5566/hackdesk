@@ -48,7 +48,6 @@ export const hackmdMarkdownHighlightStyle = HighlightStyle.define([
   {
     tag: tags.monospace,
     color: 'var(--primary-default)',
-    backgroundColor: 'var(--primary-soft)',
   },
   {
     tag: tags.contentSeparator,
