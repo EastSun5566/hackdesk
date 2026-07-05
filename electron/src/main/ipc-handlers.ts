@@ -112,6 +112,7 @@ import {
   updateNoteInputSchema,
   uploadNoteImageInputSchema,
   validateIpcInput,
+  validateBoolean,
   validateNonEmptyString,
   validateOptionalNumber,
   validateString,
@@ -375,6 +376,11 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.appSetThemeSurface, (_event, input: ThemeSurfaceInput) => {
     const themeSurface = validateIpcInput(ELECTRON_CHANNELS.appSetThemeSurface, themeSurfaceInputSchema, input);
     windowManager.setThemeSurface(themeSurface.background);
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.appSetMenuShortcutsIgnored, (_event, ignore: boolean) => {
+    windowManager.setMenuShortcutsIgnored(
+      validateBoolean(ELECTRON_CHANNELS.appSetMenuShortcutsIgnored, ignore),
+    );
   });
   ipcMain.handle(ELECTRON_CHANNELS.appConfirm, async (_event, options: ConfirmDialogOptions) => {
     const validatedOptions = validateIpcInput(ELECTRON_CHANNELS.appConfirm, confirmDialogOptionsSchema, options);

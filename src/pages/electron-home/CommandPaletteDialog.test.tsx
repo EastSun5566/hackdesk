@@ -224,6 +224,20 @@ describe('CommandPaletteDialog', () => {
     expect(onRunAction).not.toHaveBeenCalled();
   });
 
+  it('runs Emacs and experimental Kakoune editor mode commands', () => {
+    const onRunAction = vi.fn();
+    renderPalette({
+      onRunAction,
+      state: { mode: 'commands', open: true, search: 'editor mode' },
+    });
+
+    fireEvent.click(screen.getByRole('option', { name: /Use Emacs Editor Mode/ }));
+    expect(onRunAction).toHaveBeenCalledWith('set-editor-mode-emacs');
+
+    fireEvent.click(screen.getByRole('option', { name: /Use Kakoune Editor Mode/ }));
+    expect(onRunAction).toHaveBeenCalledWith('set-editor-mode-kakoune');
+  });
+
   it('keeps item titles readable and aligns the close control in the input row', () => {
     renderPalette();
 

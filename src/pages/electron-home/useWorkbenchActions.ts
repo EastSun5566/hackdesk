@@ -200,6 +200,12 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     case 'set-editor-mode-helix':
       handlers.setEditorMode('helix');
       break;
+    case 'set-editor-mode-emacs':
+      handlers.setEditorMode('emacs');
+      break;
+    case 'set-editor-mode-kakoune':
+      handlers.setEditorMode('kakoune');
+      break;
     case 'new-tab':
       if (hasActiveTab) {
         handlers.duplicateActiveTab();

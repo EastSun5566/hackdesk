@@ -40,12 +40,12 @@ describe('settings helpers', () => {
     });
   });
 
-  it.each(['standard', 'vim', 'helix'] as const)('parses the %s editor mode', (mode) => {
+  it.each(['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const)('parses the %s editor mode', (mode) => {
     expect(parseSettings(JSON.stringify({ title: 'Workspace', editor: { mode } })).editor).toEqual({ mode });
   });
 
   it('rejects an unknown editor mode', () => {
-    expect(() => parseSettings('{"title":"Workspace","editor":{"mode":"emacs"}}')).toThrow('Invalid option');
+    expect(() => parseSettings('{"title":"Workspace","editor":{"mode":"nano"}}')).toThrow('Invalid option');
   });
 
   it('parses appearance typography and mainstream presets', () => {

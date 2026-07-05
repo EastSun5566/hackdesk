@@ -29,7 +29,7 @@ describe('HackMD preview widget theme', () => {
   it('keeps UI chrome and editor content font sizes on separate semantic tokens', () => {
     expect(editorChromeTheme['&']).toHaveProperty('fontSize', 'var(--font-size-ui)');
     expect(editorChromeTheme['.cm-scroller']).toHaveProperty('fontSize', 'var(--font-size-editor)');
-    expect(searchPanelTheme['.cm-panel.cm-vim-panel, .cm-panel.cm-hx-status-panel, .cm-panel.cm-hx-command-panel'])
+    expect(searchPanelTheme['.cm-panel.cm-vim-panel, .cm-panel.cm-hx-status-panel, .cm-panel.cm-hx-command-panel, .cm-panel.cm-kakoune-status-panel'])
       .toHaveProperty('fontSize', '11px');
   });
 

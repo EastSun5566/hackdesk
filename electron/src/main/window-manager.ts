@@ -48,6 +48,10 @@ export class WindowManager {
     window.setBackgroundColor(background);
   }
 
+  setMenuShortcutsIgnored(ignore: boolean) {
+    this.getTargetWindow()?.webContents.setIgnoreMenuShortcuts(ignore);
+  }
+
   confirmClose() {
     const window = this.getMainWindow();
     this.clearPendingCloseTimeout();

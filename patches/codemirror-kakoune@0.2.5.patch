@@ -1,0 +1,36 @@
+diff --git a/dist/commands.js b/dist/commands.js
+index ad7c995ad647c3083e31a84e3cbd7bb99fed7c05..96cb5a435f7b7e43a35c54f5e61cb1ac968f9608 100644
+--- a/dist/commands.js
++++ b/dist/commands.js
+@@ -1,7 +1,7 @@
+ import { EditorSelection } from "@codemirror/state";
+ import { redo, undo } from "@codemirror/commands";
+ import { getSearchQuery, SearchQuery, findNext, findPrevious, selectMatches, setSearchQuery } from "@codemirror/search";
+-import { kakouneStateField, kakouneSelectionTypeField, setKakouneSearchPromptEffect, setKakouneSearchSelectionEffect, setKakouneModeEffect, setKakouneRegisterEffect, setKakouneSelectionTypeEffect } from "./state";
++import { kakouneStateField, kakouneSelectionTypeField, setKakouneSearchPromptEffect, setKakouneSearchSelectionEffect, setKakouneModeEffect, setKakouneRegisterEffect, setKakouneSelectionTypeEffect } from "./state.js";
+ function clamp(value, min, max) {
+     return Math.max(min, Math.min(max, value));
+ }
+diff --git a/dist/index.js b/dist/index.js
+index a35e8233c23088aaeb7ba27d4b5dbd7e14675ffc..f05cff2afc17e5dfccc21916e91ef91935fd74ba 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -4,12 +4,12 @@ import { Prec } from "@codemirror/state";
+ import { keymap, ViewPlugin } from "@codemirror/view";
+ import { history } from "@codemirror/commands";
+ import { search } from "@codemirror/search";
+-import { kakouneInitialModeFacet, kakouneStateField, kakouneWhichKeyFacet, kakouneSelectionTypeField } from "./state";
+-import { KakouneKeyProcessor, normalizeKeyStroke } from "./keys";
+-import { buildKakouneCommands, commitSearchPrompt, deleteSearchPromptChar, cancelSearchPrompt, handleSearchPromptKey } from "./commands";
+-export { kakouneStateField, kakouneInitialModeFacet, setKakouneModeEffect, kakouneWhichKeyFacet, kakouneSelectionTypeField, setKakouneSelectionTypeEffect } from "./state";
+-export { normalizeKeyStroke, KakouneKeyProcessor } from "./keys";
+-export { buildKakouneCommands, commitSearchPrompt, kakouneCommands } from "./commands";
++import { kakouneInitialModeFacet, kakouneStateField, kakouneWhichKeyFacet, kakouneSelectionTypeField } from "./state.js";
++import { KakouneKeyProcessor, normalizeKeyStroke } from "./keys.js";
++import { buildKakouneCommands, commitSearchPrompt, deleteSearchPromptChar, cancelSearchPrompt, handleSearchPromptKey } from "./commands.js";
++export { kakouneStateField, kakouneInitialModeFacet, setKakouneModeEffect, kakouneWhichKeyFacet, kakouneSelectionTypeField, setKakouneSelectionTypeEffect } from "./state.js";
++export { normalizeKeyStroke, KakouneKeyProcessor } from "./keys.js";
++export { buildKakouneCommands, commitSearchPrompt, kakouneCommands } from "./commands.js";
+ function createKakouneHandler() {
+     const processor = new KakouneKeyProcessor(buildKakouneCommands());
+     return EditorView.domEventHandlers({

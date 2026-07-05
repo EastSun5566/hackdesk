@@ -163,10 +163,14 @@ describe('useWorkbenchActions', () => {
     result.current.runAction('set-editor-mode-standard');
     result.current.runAction('set-editor-mode-vim');
     result.current.runAction('set-editor-mode-helix');
+    result.current.runAction('set-editor-mode-emacs');
+    result.current.runAction('set-editor-mode-kakoune');
 
     expect(handlers.setEditorMode).toHaveBeenNthCalledWith(1, 'vim');
     expect(handlers.setEditorMode).toHaveBeenNthCalledWith(2, 'helix');
-    expect(handlers.setEditorMode).toHaveBeenCalledTimes(2);
+    expect(handlers.setEditorMode).toHaveBeenNthCalledWith(3, 'emacs');
+    expect(handlers.setEditorMode).toHaveBeenNthCalledWith(4, 'kakoune');
+    expect(handlers.setEditorMode).toHaveBeenCalledTimes(4);
   });
 
   it('duplicates the active tab for New Tab and opens the palette when no tab is active', () => {

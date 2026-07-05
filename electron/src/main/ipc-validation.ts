@@ -49,8 +49,10 @@ const electronActionIdSchema = z.enum([
   'open-settings',
   'toggle-theme',
   'set-editor-mode-standard',
+  'set-editor-mode-emacs',
   'set-editor-mode-vim',
   'set-editor-mode-helix',
+  'set-editor-mode-kakoune',
   'new-tab',
   'new-note',
   'new-folder',
@@ -133,7 +135,7 @@ export const settingsUpdateSchema = z.strictObject({
     typography: typographySchema,
   }).optional(),
   editor: z.strictObject({
-    mode: z.enum(['standard', 'vim', 'helix']),
+    mode: z.enum(['standard', 'emacs', 'vim', 'helix', 'kakoune']),
   }).optional(),
   shortcuts: shortcutsSchema.optional(),
   onboarding: z.strictObject({
@@ -333,4 +335,8 @@ export function validateOptionalNumber(channel: string, input: unknown) {
 
 export function validateString(channel: string, input: unknown) {
   return validateIpcInput(channel, z.string(), input);
+}
+
+export function validateBoolean(channel: string, input: unknown) {
+  return validateIpcInput(channel, z.boolean(), input);
 }

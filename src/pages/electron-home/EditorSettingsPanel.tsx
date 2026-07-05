@@ -10,8 +10,10 @@ const EDITOR_MODE_OPTIONS: {
   description: string;
 }[] = [
   { mode: 'standard', label: 'Standard', description: 'Default CodeMirror keyboard shortcuts.' },
+  { mode: 'emacs', label: 'Emacs', description: 'Emacs navigation, mark, kill-ring, and key chords.' },
   { mode: 'vim', label: 'Vim', description: 'Vim motions, operators, and command mode.' },
   { mode: 'helix', label: 'Helix', description: 'Selection-first Helix editing and command mode.' },
+  { mode: 'kakoune', label: 'Kakoune (Experimental)', description: 'Selection-first Kakoune editing with a focused core keymap.' },
 ];
 
 export function EditorSettingsPanel({

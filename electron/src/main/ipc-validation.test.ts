@@ -95,7 +95,7 @@ describe('IPC runtime validation', () => {
 
     expect(validateIpcInput('settings:update', settingsUpdateSchema, {
       onboarding: { hackmdTokenSetupDeferred: true },
-      editor: { mode: 'vim' },
+      editor: { mode: 'kakoune' },
       shortcuts: {
         'open-command-palette': 'mod+j',
       },
@@ -112,7 +112,7 @@ describe('IPC runtime validation', () => {
       },
     })).toMatchObject({
       onboarding: { hackmdTokenSetupDeferred: true },
-      editor: { mode: 'vim' },
+      editor: { mode: 'kakoune' },
       shortcuts: { 'open-command-palette': 'mod+j' },
       appearance: { presetId: 'dracula' },
     });
@@ -136,7 +136,7 @@ describe('IPC runtime validation', () => {
 
   it('rejects unknown editor modes in settings updates', () => {
     expect(() => validateIpcInput('settings:update', settingsUpdateSchema, {
-      editor: { mode: 'emacs' },
+      editor: { mode: 'nano' },
     })).toThrow(/Invalid option/);
   });
 

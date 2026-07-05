@@ -288,12 +288,14 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Editor/ }));
 
     expect(screen.getByRole('radio', { name: /Standard/ })).toBeChecked();
-    fireEvent.click(screen.getByText('Helix'));
+    expect(screen.getByRole('radio', { name: /Emacs/ })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Kakoune \(Experimental\)/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Kakoune (Experimental)'));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(onSave).toHaveBeenCalledWith({
       title: 'HackDesk',
-      editor: { mode: 'helix' },
+      editor: { mode: 'kakoune' },
     });
   });
 

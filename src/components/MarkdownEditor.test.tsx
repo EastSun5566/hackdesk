@@ -1,6 +1,6 @@
 import { createRef, StrictMode, type RefObject } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { hfmFixtures } from './hackmd-live-preview/hfm-fixtures';
 import { formatMarkdownImage } from './hackmd-live-preview/markdown-image';
@@ -23,6 +23,10 @@ function ThemedEditorHarness({ editorRef }: { editorRef: RefObject<MarkdownEdito
 }
 
 describe('MarkdownEditor', () => {
+  afterEach(() => {
+    delete window.hackdeskAPI;
+  });
+
   it('formats markdown image insertion with escaped alt text', () => {
     expect(formatMarkdownImage('selected].png', 'attachments/selected.png')).toBe('![selected\\].png](attachments/selected.png)');
     expect(formatMarkdownImage('', 'attachments/image.png')).toBe('![image](attachments/image.png)');
@@ -327,6 +331,91 @@ describe('MarkdownEditor', () => {
     expect(commandPanel).toBeVisible();
   });
 
+  it('runs Emacs movement keys without opening HackDesk search', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+
+    render(<MarkdownEditor ref={ref} editorMode="emacs" value="abc" onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const content = editor.querySelector('.cm-content');
+
+    expect(content).not.toBeNull();
+    await waitFor(() => expect(editor.querySelector('.cm-scroller')).toHaveClass('cm-emacsMode'));
+    expect(editor.querySelector('.cm-editor')).toHaveAttribute('data-editor-mode', 'emacs');
+    expect(editor.querySelector('.cm-editor')).not.toHaveAttribute('data-editor-mode-loading');
+    expect(editor.querySelector('.cm-kakoune-status-panel')).toBeNull();
+
+    act(() => ref.current?.focus());
+    fireEvent.keyDown(content as Element, { key: 'f', code: 'KeyF', ctrlKey: true });
+    expect(editor.querySelector('.cm-hackdesk-search-panel')).toBeNull();
+
+    act(() => ref.current?.insertText('X'));
+    expect(ref.current?.getMarkdown()).toBe('aXbc');
+
+    fireEvent.keyDown(content as Element, { key: 'b', code: 'KeyB', ctrlKey: true });
+    act(() => ref.current?.insertText('Y'));
+    expect(ref.current?.getMarkdown()).toBe('aYXbc');
+
+    fireEvent.keyDown(content as Element, { key: 'e', code: 'KeyE', ctrlKey: true });
+    act(() => ref.current?.insertText('Z'));
+    expect(ref.current?.getMarkdown()).toBe('aYXbcZ');
+
+    fireEvent.keyDown(content as Element, { key: 'a', code: 'KeyA', ctrlKey: true });
+    act(() => ref.current?.insertText('Q'));
+    expect(ref.current?.getMarkdown()).toBe('QaYXbcZ');
+  });
+
+  it('runs experimental Kakoune select and insert modes with a compact status panel', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+
+    render(<MarkdownEditor ref={ref} editorMode="kakoune" value="abc" onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const content = editor.querySelector('.cm-content');
+
+    expect(content).not.toBeNull();
+    const statusPanel = await waitFor(() => {
+      const panel = editor.querySelector<HTMLElement>('.cm-kakoune-status-panel');
+      expect(panel).toHaveTextContent('SEL');
+      return panel as HTMLElement;
+    });
+    expect(statusPanel).toHaveAttribute('role', 'status');
+    expect(statusPanel).toHaveAccessibleName('Kakoune mode');
+    expect(getComputedStyle(statusPanel).minHeight).toBe('22px');
+    expect(editor.querySelector('.cm-editor')).toHaveAttribute('data-kakoune-mode', 'select');
+
+    act(() => ref.current?.focus());
+    expect(fireEvent.keyDown(content as Element, { key: 'x', code: 'KeyX' })).toBe(false);
+
+    fireEvent.keyDown(content as Element, { key: 'i', code: 'KeyI' });
+    await waitFor(() => expect(statusPanel).toHaveTextContent('INS'));
+    expect(editor.querySelector('.cm-editor')).toHaveAttribute('data-kakoune-mode', 'insert');
+    expect(fireEvent.keyDown(content as Element, { key: 'x', code: 'KeyX' })).toBe(true);
+
+    fireEvent.keyDown(content as Element, { key: 'Escape', code: 'Escape' });
+    await waitFor(() => expect(statusPanel).toHaveTextContent('SEL'));
+    expect(editor.querySelector('.cm-editor')).toHaveAttribute('data-kakoune-mode', 'select');
+  });
+
+  it('ignores native menu shortcuts only while a non-macOS Emacs editor is focused', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const setMenuShortcutsIgnored = vi.fn(async () => undefined);
+    window.hackdeskAPI = {
+      platform: 'linux',
+      app: { setMenuShortcutsIgnored },
+    } as unknown as typeof window.hackdeskAPI;
+
+    const { rerender } = render(
+      <MarkdownEditor ref={ref} editorMode="emacs" value="abc" onChange={vi.fn()} />,
+    );
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(editor.querySelector('.cm-scroller')).toHaveClass('cm-emacsMode'));
+    act(() => ref.current?.focus());
+    await waitFor(() => expect(setMenuShortcutsIgnored).toHaveBeenCalledWith(true));
+
+    rerender(<MarkdownEditor ref={ref} editorMode="standard" value="abc" onChange={vi.fn()} />);
+    await waitFor(() => expect(setMenuShortcutsIgnored).toHaveBeenLastCalledWith(false));
+  });
+
   it('switches editor modes without remounting CodeMirror or duplicating panels', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const { rerender } = render(
@@ -357,9 +446,24 @@ describe('MarkdownEditor', () => {
     expect(ref.current?.getMarkdown()).toBe('# Hello');
     expect(document.activeElement).toBe(content);
 
+    rerender(<MarkdownEditor ref={ref} editorMode="emacs" value="# Hello" onChange={vi.fn()} />);
+    await waitFor(() => expect(editor.querySelector('.cm-scroller')).toHaveClass('cm-emacsMode'));
+    expect(editor.querySelector('.cm-hx-status-panel')).toBeNull();
+    expect(editor.querySelector('.cm-editor')).toBe(codeMirror);
+    expect(ref.current?.getMarkdown()).toBe('# Hello');
+    expect(document.activeElement).toBe(content);
+
+    rerender(<MarkdownEditor ref={ref} editorMode="kakoune" value="# Hello" onChange={vi.fn()} />);
+    await waitFor(() => expect(editor.querySelectorAll('.cm-kakoune-status-panel')).toHaveLength(1));
+    expect(editor.querySelector('.cm-scroller')).not.toHaveClass('cm-emacsMode');
+    expect(editor.querySelector('.cm-editor')).toBe(codeMirror);
+    expect(ref.current?.getMarkdown()).toBe('# Hello');
+    expect(document.activeElement).toBe(content);
+
     rerender(<MarkdownEditor ref={ref} editorMode="standard" value="# Hello" onChange={vi.fn()} />);
-    await waitFor(() => expect(editor.querySelector('.cm-hx-status-panel')).toBeNull());
+    await waitFor(() => expect(editor.querySelector('.cm-kakoune-status-panel')).toBeNull());
     expect(editor.querySelector('.cm-hx-command-panel')).toBeNull();
+    expect(editor.querySelector('.cm-scroller')).not.toHaveClass('cm-emacsMode');
     expect(editor.querySelector('.cm-editor')).toBe(codeMirror);
     expect(document.activeElement).toBe(content);
   });

@@ -48,7 +48,7 @@ export const searchPanelTheme = {
     borderColor: 'var(--border-default)',
     fontFamily: 'var(--font-sans)',
   },
-  '.cm-panel.cm-vim-panel, .cm-panel.cm-hx-status-panel, .cm-panel.cm-hx-command-panel': {
+  '.cm-panel.cm-vim-panel, .cm-panel.cm-hx-status-panel, .cm-panel.cm-hx-command-panel, .cm-panel.cm-kakoune-status-panel': {
     boxSizing: 'border-box',
     minHeight: '22px',
     padding: '1px 8px',

@@ -50,14 +50,14 @@ describe('Electron settings', () => {
     expect('hackmdApiToken' in safeSettings).toBe(false);
   });
 
-  it('persists and returns the selected editor mode', async () => {
+  it.each(['emacs', 'kakoune'] as const)('persists and returns the %s editor mode', async (mode) => {
     const safeSettings = await updateStoredSettings({
-      editor: { mode: 'helix' },
+      editor: { mode },
     });
     const content = await readFile(getSettingsPath(), 'utf8');
 
-    expect(safeSettings.editor).toEqual({ mode: 'helix' });
-    expect(content).toContain('"mode": "helix"');
+    expect(safeSettings.editor).toEqual({ mode });
+    expect(content).toContain(`"mode": "${mode}"`);
   });
 
   it('persists and returns shortcut overrides', async () => {

@@ -38,7 +38,7 @@ export type LocalVaultSettings = {
   path: string | null;
 };
 
-export type EditorMode = 'standard' | 'vim' | 'helix';
+export type EditorMode = 'standard' | 'emacs' | 'vim' | 'helix' | 'kakoune';
 
 export type EditorSettings = {
   mode: EditorMode;
@@ -123,7 +123,7 @@ export const settingsSchema = z.object({
     path: z.string().trim().min(1).nullable().default(defaultLocalVaultSettings.path),
   }).default(defaultLocalVaultSettings),
   editor: z.object({
-    mode: z.enum(['standard', 'vim', 'helix']).default(defaultEditorSettings.mode),
+    mode: z.enum(['standard', 'emacs', 'vim', 'helix', 'kakoune']).default(defaultEditorSettings.mode),
   }).default(defaultEditorSettings),
   shortcuts: shortcutSettingsSchema,
 });

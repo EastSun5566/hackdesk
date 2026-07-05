@@ -73,6 +73,14 @@ describe('electron action registry', () => {
       label: 'Use Vim Editor Mode',
       category: 'app',
     });
+    expect(getElectronAction('set-editor-mode-emacs')).toMatchObject({
+      label: 'Use Emacs Editor Mode',
+      category: 'app',
+    });
+    expect(getElectronAction('set-editor-mode-kakoune')).toMatchObject({
+      label: 'Use Kakoune Editor Mode',
+      category: 'app',
+    });
     expect(getElectronAction('toggle-workspace-rail')).toMatchObject({
       shortcut: '⌘B',
       menuAccelerator: 'CmdOrCtrl+B',
@@ -266,6 +274,14 @@ describe('electron action registry', () => {
       'Standard editor mode is already active.',
     );
     expect(getActionDisabledReason(getElectronAction('set-editor-mode-vim'), baseContext)).toBeNull();
+    expect(getActionDisabledReason(getElectronAction('set-editor-mode-emacs'), {
+      ...baseContext,
+      editorMode: 'emacs',
+    })).toBe('Emacs editor mode is already active.');
+    expect(getActionDisabledReason(getElectronAction('set-editor-mode-kakoune'), {
+      ...baseContext,
+      editorMode: 'kakoune',
+    })).toBe('Kakoune editor mode is already active.');
   });
 
 });

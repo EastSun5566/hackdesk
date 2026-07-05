@@ -7,6 +7,11 @@ settings:
 overrides:
   esbuild: 0.28.1
 
+patchedDependencies:
+  codemirror-kakoune@0.2.5:
+    hash: 2c542d0381e00ef1127ca869a722d775876f3e21e117247a422fb59baac17594
+    path: patches/codemirror-kakoune@0.2.5.patch
+
 importers:
 
   .:
@@ -56,6 +61,9 @@ importers:
       '@lezer/highlight':
         specifier: ^1.2.3
         version: 1.2.3
+      '@replit/codemirror-emacs':
+        specifier: 6.1.0
+        version: 6.1.0(@codemirror/autocomplete@6.20.3)(@codemirror/commands@6.10.3)(@codemirror/search@6.7.1)(@codemirror/state@6.6.0)(@codemirror/view@6.43.1)
       '@replit/codemirror-vim':
         specifier: ^6.3.0
         version: 6.3.0(@codemirror/commands@6.10.3)(@codemirror/language@6.12.3)(@codemirror/search@6.7.1)(@codemirror/state@6.6.0)(@codemirror/view@6.43.1)
@@ -80,6 +88,9 @@ importers:
       codemirror-helix:
         specifier: ^0.5.7
         version: 0.5.7(@codemirror/commands@6.10.3)(@codemirror/language@6.12.3)(@codemirror/search@6.7.1)(@codemirror/state@6.6.0)(@codemirror/view@6.43.1)
+      codemirror-kakoune:
+        specifier: 0.2.5
+        version: 0.2.5(patch_hash=2c542d0381e00ef1127ca869a722d775876f3e21e117247a422fb59baac17594)
       dompurify:
         specifier: ^3.4.11
         version: 3.4.11
@@ -1346,6 +1357,15 @@ packages:
     resolution: {integrity: sha512-4An71tdz9X8+3sI4Qqqd2LWd9vS39J7sqd9EU4Scw7TJE/qB10Flv/UuqbPVgfQV9XoK8Np6jNquZitnZq5i+Q==}
     engines: {node: '>=14.0.0'}
 
+  '@replit/codemirror-emacs@6.1.0':
+    resolution: {integrity: sha512-74DITnht6Cs6sHg02PQ169IKb1XgtyhI9sLD0JeOFco6Ds18PT+dkD8+DgXBDokne9UIFKsBbKPnpFRAz60/Lw==}
+    peerDependencies:
+      '@codemirror/autocomplete': ^6.0.2
+      '@codemirror/commands': ^6.0.0
+      '@codemirror/search': ^6.0.0
+      '@codemirror/state': ^6.0.1
+      '@codemirror/view': ^6.3.0
+
   '@replit/codemirror-vim@6.3.0':
     resolution: {integrity: sha512-aTx931ULAMuJx6xLf7KQDOL7CxD+Sa05FktTDrtLaSy53uj01ll3Zf17JdKsriER248oS55GBzg0CfCTjEneAQ==}
     peerDependencies:
@@ -2269,6 +2289,9 @@ packages:
       '@codemirror/search': ^6.2.0
       '@codemirror/state': ^6.3.0
       '@codemirror/view': ^6.22.0
+
+  codemirror-kakoune@0.2.5:
+    resolution: {integrity: sha512-b6qPHYZ2oaagk4eFRxhdmPQs19ku7Iq6xmofuXiz9/syIgVHtA9XXskeeszW0Y7sqmzWc1SkRpdpa84kOlkB2g==}
 
   color-convert@2.0.1:
     resolution: {integrity: sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==}
@@ -5051,6 +5074,14 @@ snapshots:
 
   '@remix-run/router@1.23.3': {}
 
+  '@replit/codemirror-emacs@6.1.0(@codemirror/autocomplete@6.20.3)(@codemirror/commands@6.10.3)(@codemirror/search@6.7.1)(@codemirror/state@6.6.0)(@codemirror/view@6.43.1)':
+    dependencies:
+      '@codemirror/autocomplete': 6.20.3
+      '@codemirror/commands': 6.10.3
+      '@codemirror/search': 6.7.1
+      '@codemirror/state': 6.6.0
+      '@codemirror/view': 6.43.1
+
   '@replit/codemirror-vim@6.3.0(@codemirror/commands@6.10.3)(@codemirror/language@6.12.3)(@codemirror/search@6.7.1)(@codemirror/state@6.6.0)(@codemirror/view@6.43.1)':
     dependencies:
       '@codemirror/commands': 6.10.3
@@ -5919,6 +5950,13 @@ snapshots:
     dependencies:
       '@codemirror/commands': 6.10.3
       '@codemirror/language': 6.12.3
+      '@codemirror/search': 6.7.1
+      '@codemirror/state': 6.6.0
+      '@codemirror/view': 6.43.1
+
+  codemirror-kakoune@0.2.5(patch_hash=2c542d0381e00ef1127ca869a722d775876f3e21e117247a422fb59baac17594):
+    dependencies:
+      '@codemirror/commands': 6.10.3
       '@codemirror/search': 6.7.1
       '@codemirror/state': 6.6.0
       '@codemirror/view': 6.43.1

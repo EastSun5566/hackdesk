@@ -399,6 +399,15 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     getDisabledReason: (context) => context.editorMode === 'standard' ? 'Standard editor mode is already active.' : null,
   },
   {
+    id: 'set-editor-mode-emacs',
+    label: 'Use Emacs Editor Mode',
+    description: 'Use Emacs navigation, mark, kill-ring, and key chords.',
+    keywords: ['editor', 'mode', 'keybindings', 'emacs', 'control'],
+    category: 'app',
+    scope: 'global',
+    getDisabledReason: (context) => context.editorMode === 'emacs' ? 'Emacs editor mode is already active.' : null,
+  },
+  {
     id: 'set-editor-mode-vim',
     label: 'Use Vim Editor Mode',
     description: 'Use Vim motions, operators, and command mode.',
@@ -415,6 +424,15 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     category: 'app',
     scope: 'global',
     getDisabledReason: (context) => context.editorMode === 'helix' ? 'Helix editor mode is already active.' : null,
+  },
+  {
+    id: 'set-editor-mode-kakoune',
+    label: 'Use Kakoune Editor Mode',
+    description: 'Use experimental selection-first Kakoune editing.',
+    keywords: ['editor', 'mode', 'keybindings', 'kakoune', 'modal', 'experimental'],
+    category: 'app',
+    scope: 'global',
+    getDisabledReason: (context) => context.editorMode === 'kakoune' ? 'Kakoune editor mode is already active.' : null,
   },
   {
     id: 'open-command-palette',

@@ -14,6 +14,7 @@ import {
   highlightActiveLine,
   keymap,
   rectangularSelection,
+  showPanel,
 } from '@codemirror/view';
 import { inlineAttachmentExtension } from 'inline-attacher';
 
@@ -39,6 +40,49 @@ const reservedAppShortcutKeymap = Prec.highest(keymap.of([
     run: (view) => openSearchPanel(view),
   },
 ]));
+
+function createEditorModeBaseExtension(editorMode: EditorMode): Extension {
+  return editorMode === 'emacs' ? [] : reservedAppShortcutKeymap;
+}
+
+function createConfiguredEditorModeExtension(
+  editorMode: EditorMode,
+  extension: Extension = [],
+): Extension {
+  return [createEditorModeBaseExtension(editorMode), extension];
+}
+
+type MenuShortcutPolicySetter = NonNullable<
+  NonNullable<typeof window.hackdeskAPI>['app']['setMenuShortcutsIgnored']
+>;
+
+let activeMenuShortcutPolicySetter: MenuShortcutPolicySetter | null = null;
+let nativeMenuShortcutsIgnored = false;
+
+function syncNativeMenuShortcutsForActiveEditor() {
+  const api = window.hackdeskAPI;
+  const setter = api?.app.setMenuShortcutsIgnored;
+  const supportsEditorShortcutPolicy = api?.platform !== 'darwin' && Boolean(setter);
+  const activeElement = document.activeElement;
+  const shouldIgnore = supportsEditorShortcutPolicy
+    && activeElement instanceof Element
+    && Boolean(activeElement.closest('.cm-editor[data-editor-mode="emacs"]'));
+
+  if (activeMenuShortcutPolicySetter && activeMenuShortcutPolicySetter !== setter) {
+    if (nativeMenuShortcutsIgnored) {
+      void activeMenuShortcutPolicySetter(false);
+    }
+    nativeMenuShortcutsIgnored = false;
+  }
+
+  activeMenuShortcutPolicySetter = setter ?? null;
+  if (!activeMenuShortcutPolicySetter || shouldIgnore === nativeMenuShortcutsIgnored) {
+    return;
+  }
+
+  nativeMenuShortcutsIgnored = shouldIgnore;
+  void activeMenuShortcutPolicySetter(shouldIgnore);
+}
 
 const editorExtensions: Extension[] = [
   history(),
@@ -144,8 +188,7 @@ function createHackmdEditorView({
     state: EditorState.create({
       doc: runtime.value,
       extensions: [
-        reservedAppShortcutKeymap,
-        runtime.editorModeCompartment.of([]),
+        runtime.editorModeCompartment.of(createEditorModeBaseExtension(runtime.editorMode)),
         ...editorExtensions,
         runtime.themeCompartment.of(createHackmdPreviewTheme(runtime.resolvedMode)),
         inlineAttachmentExtension({
@@ -311,12 +354,12 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
       if (editorMode === 'standard') {
         delete view.dom.dataset.editorModeLoading;
         delete view.dom.dataset.editorModeError;
-        if (runtime.appliedEditorMode !== 'standard') {
-          view.dispatch({
-            effects: runtime.editorModeCompartment.reconfigure([]),
-          });
-          runtime.appliedEditorMode = 'standard';
-        }
+        view.dispatch({
+          effects: runtime.editorModeCompartment.reconfigure(
+            createEditorModeBaseExtension('standard'),
+          ),
+        });
+        runtime.appliedEditorMode = 'standard';
         return cancelRequest;
       }
 
@@ -326,12 +369,12 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
         return cancelRequest;
       }
 
-      if (runtime.appliedEditorMode !== 'standard') {
-        view.dispatch({
-          effects: runtime.editorModeCompartment.reconfigure([]),
-        });
-        runtime.appliedEditorMode = 'standard';
-      }
+      view.dispatch({
+        effects: runtime.editorModeCompartment.reconfigure(
+          createEditorModeBaseExtension(editorMode),
+        ),
+      });
+      runtime.appliedEditorMode = 'standard';
 
       view.dom.dataset.editorModeLoading = 'true';
       delete view.dom.dataset.editorModeError;
@@ -343,7 +386,9 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
           }
 
           view.dispatch({
-            effects: runtime.editorModeCompartment.reconfigure(extension),
+            effects: runtime.editorModeCompartment.reconfigure(
+              createConfiguredEditorModeExtension(editorMode, extension),
+            ),
           });
           view.dom.dataset.editorMode = editorMode;
           delete view.dom.dataset.editorModeLoading;
@@ -361,6 +406,29 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
         });
 
       return cancelRequest;
+    }, [editorMode, runtime]);
+
+    useEffect(() => {
+      const view = runtime.view;
+      const api = window.hackdeskAPI;
+      const shouldManageMenuShortcuts = editorMode === 'emacs'
+        && api?.platform !== 'darwin'
+        && Boolean(api?.app.setMenuShortcutsIgnored);
+      if (!view || !shouldManageMenuShortcuts) {
+        return undefined;
+      }
+
+      const handleFocusOut = () => queueMicrotask(syncNativeMenuShortcutsForActiveEditor);
+
+      view.dom.addEventListener('focusin', syncNativeMenuShortcutsForActiveEditor);
+      view.dom.addEventListener('focusout', handleFocusOut);
+      syncNativeMenuShortcutsForActiveEditor();
+
+      return () => {
+        view.dom.removeEventListener('focusin', syncNativeMenuShortcutsForActiveEditor);
+        view.dom.removeEventListener('focusout', handleFocusOut);
+        queueMicrotask(syncNativeMenuShortcutsForActiveEditor);
+      };
     }, [editorMode, runtime]);
 
     useLayoutEffect(() => {
@@ -431,10 +499,14 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
 
 type VimModule = typeof import('@replit/codemirror-vim');
 type HelixModule = typeof import('codemirror-helix');
+type EmacsModule = typeof import('@replit/codemirror-emacs');
+type KakouneModule = typeof import('codemirror-kakoune');
 type LazyEditorMode = Exclude<EditorMode, 'standard'>;
 
 let vimModulePromise: Promise<VimModule> | null = null;
 let helixModulePromise: Promise<HelixModule> | null = null;
+let emacsModulePromise: Promise<EmacsModule> | null = null;
+let kakouneModulePromise: Promise<KakouneModule> | null = null;
 
 async function createEditorModeExtension(editorMode: LazyEditorMode): Promise<Extension> {
   switch (editorMode) {
@@ -442,6 +514,10 @@ async function createEditorModeExtension(editorMode: LazyEditorMode): Promise<Ex
     return loadVimModeExtension();
   case 'helix':
     return loadHelixModeExtension();
+  case 'emacs':
+    return loadEmacsModeExtension();
+  case 'kakoune':
+    return loadKakouneModeExtension();
   }
 }
 
@@ -455,6 +531,54 @@ async function loadHelixModeExtension(): Promise<Extension> {
   helixModulePromise ??= import('codemirror-helix');
   const { helix } = await helixModulePromise;
   return helix({ drawSelection: false });
+}
+
+async function loadEmacsModeExtension(): Promise<Extension> {
+  emacsModulePromise ??= import('@replit/codemirror-emacs');
+  const { emacs } = await emacsModulePromise;
+  return emacs();
+}
+
+async function loadKakouneModeExtension(): Promise<Extension> {
+  kakouneModulePromise ??= import('codemirror-kakoune');
+  const { getKakouneState, kakoune, setKakouneModeEffect } = await kakouneModulePromise;
+  return [
+    Prec.highest(keymap.of([{
+      key: 'Escape',
+      run: (view) => {
+        const state = getKakouneState(view.state);
+        if (state.mode !== 'insert' || state.searchPrompt !== null) {
+          return false;
+        }
+        view.dispatch({ effects: setKakouneModeEffect.of('select') });
+        return true;
+      },
+    }])),
+    kakoune({ initialMode: 'select' }),
+    createKakouneStatusPanel(getKakouneState),
+  ];
+}
+
+function createKakouneStatusPanel(
+  getKakouneState: KakouneModule['getKakouneState'],
+): Extension {
+  return showPanel.of((view) => {
+    const dom = document.createElement('div');
+    dom.className = 'cm-kakoune-status-panel';
+    dom.setAttribute('aria-label', 'Kakoune mode');
+    dom.setAttribute('aria-live', 'polite');
+    dom.setAttribute('role', 'status');
+
+    const updateStatus = () => {
+      dom.textContent = getKakouneState(view.state).mode === 'insert' ? 'INS' : 'SEL';
+    };
+    updateStatus();
+
+    return {
+      dom,
+      update: updateStatus,
+    };
+  });
 }
 
 function hasImageFile(dataTransfer: DataTransfer) {

@@ -10,3 +10,5 @@ allowBuilds:
   simple-git-hooks: true
 overrides:
   esbuild: 0.28.1
+patchedDependencies:
+  codemirror-kakoune@0.2.5: patches/codemirror-kakoune@0.2.5.patch

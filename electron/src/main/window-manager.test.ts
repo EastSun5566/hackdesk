@@ -65,6 +65,7 @@ const mockState = vi.hoisted(() => {
       isDestroyed: vi.fn(() => false),
       getURL: vi.fn(() => 'hackdesk://renderer/index.html'),
       send: vi.fn(),
+      setIgnoreMenuShortcuts: vi.fn(),
       setWindowOpenHandler: vi.fn(),
     });
 
@@ -152,6 +153,16 @@ describe('WindowManager close intent', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.clearAllMocks();
+  });
+
+  it('updates native menu shortcut handling for the active renderer', () => {
+    const { manager, window } = createManagerWithWindow();
+
+    manager.setMenuShortcutsIgnored(true);
+    manager.setMenuShortcutsIgnored(false);
+
+    expect(window.webContents.setIgnoreMenuShortcuts).toHaveBeenNthCalledWith(1, true);
+    expect(window.webContents.setIgnoreMenuShortcuts).toHaveBeenNthCalledWith(2, false);
   });
 
   it('sends a close request instead of closing immediately', () => {

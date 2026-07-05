@@ -90,6 +90,7 @@ vi.mock('./app-updater', () => ({
 vi.mock('./logging', () => ({
   exportDebugLogs: vi.fn(),
   recordFatalRendererError: vi.fn(),
+  writeLog: vi.fn(),
 }));
 
 import { registerIpcHandlers } from './ipc-handlers';
@@ -98,6 +99,7 @@ const windowManager = {
   cancelClose: vi.fn(),
   confirmClose: vi.fn(),
   getTargetWindow: vi.fn(() => null),
+  setMenuShortcutsIgnored: vi.fn(),
   setThemeSurface: vi.fn(),
 };
 
@@ -135,5 +137,15 @@ describe('registerIpcHandlers', () => {
 
     await expect(handler?.({})).rejects.toThrow('Invalid token');
     expect(settingsMock.updateStoredSettings).not.toHaveBeenCalled();
+  });
+
+  it('validates and applies renderer menu shortcut policy changes', async () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appSetMenuShortcutsIgnored);
+
+    await handler?.({}, true);
+    expect(windowManager.setMenuShortcutsIgnored).toHaveBeenCalledWith(true);
+
+    expect(() => handler?.({}, 'true')).toThrow(/Invalid app:set-menu-shortcuts-ignored payload/);
   });
 });

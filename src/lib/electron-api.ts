@@ -243,6 +243,8 @@ export type ElectronActionId =
   | 'set-editor-mode-standard'
   | 'set-editor-mode-vim'
   | 'set-editor-mode-helix'
+  | 'set-editor-mode-emacs'
+  | 'set-editor-mode-kakoune'
   | 'new-tab'
   | 'new-note'
   | 'new-folder'
@@ -367,6 +369,7 @@ export type HackDeskElectronAPI = {
     cancelClose: () => Promise<void>;
     checkForUpdates: () => Promise<CheckForUpdatesResult>;
     setThemeSurface?: (input: ThemeSurfaceInput) => Promise<void>;
+    setMenuShortcutsIgnored?: (ignore: boolean) => Promise<void>;
   };
 };
 
