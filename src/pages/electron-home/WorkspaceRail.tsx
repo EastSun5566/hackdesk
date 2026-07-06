@@ -74,6 +74,9 @@ function UserAvatar({
   if (user.photo && user.photo !== failedPhoto) {
     return (
       <Avatar className={cn('size-6 rounded-full text-[10px] font-semibold uppercase', className)}>
+        {/* Base UI Avatar.Image mounts only after the image reports as loaded.
+            Keep this native image mounted immediately so existing tests and fallback
+            handling can observe src/alt/size attributes and dispatch error events. */}
         <img
           src={user.photo}
           alt=""
@@ -105,6 +108,7 @@ function TeamLogo({ team }: { team: TeamSummary }) {
   if (team.logo && team.logo !== failedLogo) {
     return (
       <Avatar className="size-6 rounded-[6px] text-[10px] font-semibold uppercase text-text-subtle">
+        {/* Keep the image mounted immediately; see UserAvatar for the Base UI Avatar.Image tradeoff. */}
         <img
           src={team.logo}
           alt=""
