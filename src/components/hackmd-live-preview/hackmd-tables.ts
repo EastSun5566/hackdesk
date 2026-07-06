@@ -20,6 +20,11 @@ import {
 } from '@codemirror/view';
 
 import { getActiveLines } from './hfm-decoration-ranges';
+import {
+  findClosestElement,
+  getSafeExternalLink,
+  type OpenLinkRef,
+} from './preview-links';
 import { treeGrowthEffect } from './tree-progress';
 
 export type TableModel = {
@@ -186,12 +191,24 @@ function getAllCells(wrap: HTMLElement): HTMLElement[] {
 }
 
 class TableWidget extends WidgetType {
-  constructor(private readonly model: TableModel) {
+  constructor(
+    private readonly model: TableModel,
+    private readonly onOpenLinkRef: OpenLinkRef,
+  ) {
     super();
   }
 
   eq(other: TableWidget): boolean {
-    return serializeTable(other.model) === serializeTable(this.model);
+    return hasSameTableStructure(other.model, this.model);
+  }
+
+  updateDOM(dom: HTMLElement, _view: EditorView): boolean {
+    if (!hasSameTableStructure(readModelFromDom(dom), this.model)) {
+      return false;
+    }
+
+    syncTableDom(dom, this.model, this.onOpenLinkRef);
+    return true;
   }
 
   get estimatedHeight(): number {
@@ -212,7 +229,7 @@ class TableWidget extends WidgetType {
     const thead = document.createElement('thead');
     const headerRow = document.createElement('tr');
     for (let index = 0; index < this.model.header.length; index += 1) {
-      headerRow.appendChild(makeCell('th', this.model.header[index] ?? '', view, `Table header ${index + 1}`));
+      headerRow.appendChild(makeCell('th', this.model.header[index] ?? '', view, `Table header ${index + 1}`, this.onOpenLinkRef));
     }
     thead.appendChild(headerRow);
     table.appendChild(thead);
@@ -222,7 +239,7 @@ class TableWidget extends WidgetType {
       const row = this.model.rows[rowIndex] ?? [];
       const tableRow = document.createElement('tr');
       for (let index = 0; index < this.model.header.length; index += 1) {
-        tableRow.appendChild(makeCell('td', row[index] ?? '', view, `Table cell ${rowIndex + 1}, ${index + 1}`));
+        tableRow.appendChild(makeCell('td', row[index] ?? '', view, `Table cell ${rowIndex + 1}, ${index + 1}`, this.onOpenLinkRef));
       }
       tbody.appendChild(tableRow);
     }
@@ -236,7 +253,55 @@ class TableWidget extends WidgetType {
   }
 }
 
-function makeCell(tag: 'td' | 'th', text: string, view: EditorView, label: string): HTMLElement {
+function hasSameTableStructure(left: TableModel, right: TableModel): boolean {
+  if (left.header.length !== right.header.length || left.rows.length !== right.rows.length) {
+    return false;
+  }
+
+  for (let rowIndex = 0; rowIndex < left.rows.length; rowIndex += 1) {
+    if ((left.rows[rowIndex]?.length ?? 0) !== (right.rows[rowIndex]?.length ?? 0)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function syncTableDom(dom: HTMLElement, model: TableModel, onOpenLinkRef: OpenLinkRef): void {
+  const cells = getAllCells(dom);
+  const values = [
+    ...model.header,
+    ...model.rows.flatMap((row) => model.header.map((_, index) => row[index] ?? '')),
+  ];
+
+  for (let index = 0; index < cells.length; index += 1) {
+    const cell = cells[index];
+    if (!cell) {
+      continue;
+    }
+
+    const source = getCellSource(cell);
+    const value = values[index] ?? '';
+    if (!source || cell.dataset.raw === value || document.activeElement === source) {
+      continue;
+    }
+
+    cell.dataset.raw = value;
+    renderCellSource(source, value, onOpenLinkRef);
+  }
+
+  dom.querySelectorAll<HTMLElement>('.cm-hackmd-table-cell-source').forEach((source) => {
+    installTableCellLinkHandlers(source, onOpenLinkRef);
+  });
+}
+
+function makeCell(
+  tag: 'td' | 'th',
+  text: string,
+  view: EditorView,
+  label: string,
+  onOpenLinkRef: OpenLinkRef,
+): HTMLElement {
   const cell = document.createElement(tag);
   cell.dataset.raw = text;
   if (tag === 'th') {
@@ -250,7 +315,8 @@ function makeCell(tag: 'td' | 'th', text: string, view: EditorView, label: strin
   source.setAttribute('aria-label', label);
   source.tabIndex = 0;
   source.spellcheck = true;
-  source.textContent = text;
+  renderCellSource(source, text, onOpenLinkRef);
+  installTableCellLinkHandlers(source, onOpenLinkRef);
   cell.appendChild(source);
 
   let composing = false;
@@ -262,6 +328,10 @@ function makeCell(tag: 'td' | 'th', text: string, view: EditorView, label: strin
 
     cell.dataset.raw = nextRaw;
     dispatchModelFromDom(view, cell);
+
+    if (document.activeElement !== source) {
+      renderCellSource(source, nextRaw, onOpenLinkRef);
+    }
   };
 
   source.addEventListener('compositionstart', () => {
@@ -302,6 +372,9 @@ function makeCell(tag: 'td' | 'th', text: string, view: EditorView, label: strin
     event.stopPropagation();
     moveCellFocus(view, cell, event.shiftKey ? -1 : 1);
   });
+  source.addEventListener('blur', () => {
+    renderCellSource(source, cell.dataset.raw ?? '', onOpenLinkRef);
+  });
   cell.addEventListener('pointerdown', (event) => {
     const target = event.target;
     if (target instanceof Node && source.contains(target)) {
@@ -314,6 +387,183 @@ function makeCell(tag: 'td' | 'th', text: string, view: EditorView, label: strin
   });
 
   return cell;
+}
+
+type CellInlineToken = {
+  className: string;
+  markerAfter: string;
+  markerBefore: string;
+  text: string;
+  url?: string;
+};
+
+function renderCellSource(source: HTMLElement, raw: string, onOpenLinkRef: OpenLinkRef): void {
+  source.replaceChildren(...renderCellInlineMarkdown(raw));
+  installTableCellLinkHandlers(source, onOpenLinkRef);
+}
+
+function renderCellInlineMarkdown(raw: string): Node[] {
+  const fragment = document.createDocumentFragment();
+  let cursor = 0;
+
+  while (cursor < raw.length) {
+    const match = findNextCellInlineToken(raw, cursor);
+    if (!match) {
+      fragment.append(raw.slice(cursor));
+      break;
+    }
+
+    if (match.start > cursor) {
+      fragment.append(raw.slice(cursor, match.start));
+    }
+
+    fragment.append(createCellInlineToken(match.token));
+    cursor = match.end;
+  }
+
+  return Array.from(fragment.childNodes);
+}
+
+function findNextCellInlineToken(
+  raw: string,
+  cursor: number,
+): { end: number; start: number; token: CellInlineToken } | null {
+  const patterns: Array<{
+    className: string;
+    markerAfter: string;
+    markerBefore: string;
+    regex: RegExp;
+  }> = [
+    {
+      className: 'cm-hackmd-table-cell-inline-code',
+      markerBefore: '`',
+      markerAfter: '`',
+      regex: /`([^`\n]+)`/g,
+    },
+    {
+      className: 'cm-hackmd-table-cell-link',
+      markerBefore: '[',
+      markerAfter: '',
+      regex: /\[([^\]\n]+)\]\(([^)\s]+)\)/g,
+    },
+    {
+      className: 'cm-hackmd-table-cell-strong',
+      markerBefore: '**',
+      markerAfter: '**',
+      regex: /\*\*([^*\n]+)\*\*/g,
+    },
+    {
+      className: 'cm-hackmd-table-cell-strike',
+      markerBefore: '~~',
+      markerAfter: '~~',
+      regex: /~~([^~\n]+)~~/g,
+    },
+    {
+      className: 'cm-hackmd-table-cell-em',
+      markerBefore: '*',
+      markerAfter: '*',
+      regex: /(^|[^*])\*([^*\n]+)\*(?!\*)/g,
+    },
+  ];
+
+  let best: { end: number; start: number; token: CellInlineToken } | null = null;
+
+  for (const pattern of patterns) {
+    pattern.regex.lastIndex = cursor;
+    const match = pattern.regex.exec(raw);
+    if (!match) {
+      continue;
+    }
+
+    const prefix = pattern.className === 'cm-hackmd-table-cell-em' ? match[1] ?? '' : '';
+    const start = match.index + prefix.length;
+    const text = pattern.className === 'cm-hackmd-table-cell-em' ? match[2] ?? '' : match[1] ?? '';
+    const url = pattern.className === 'cm-hackmd-table-cell-link' ? getSafeExternalLink(match[2] ?? '') ?? undefined : undefined;
+    const markerAfter = pattern.className === 'cm-hackmd-table-cell-link' ? `](${match[2] ?? ''})` : pattern.markerAfter;
+    const candidate = {
+      start,
+      end: match.index + match[0].length,
+      token: {
+        className: pattern.className,
+        markerBefore: pattern.markerBefore,
+        markerAfter,
+        text,
+        url,
+      },
+    };
+
+    if (!best || candidate.start < best.start) {
+      best = candidate;
+    }
+  }
+
+  return best;
+}
+
+function createCellInlineToken(token: CellInlineToken): HTMLElement {
+  const wrap = document.createElement('span');
+  wrap.className = token.className;
+  if (token.url) {
+    wrap.dataset.url = token.url;
+  }
+
+  const before = document.createElement('span');
+  before.className = 'cm-hackmd-table-cell-mark';
+  before.textContent = token.markerBefore;
+  wrap.appendChild(before);
+
+  wrap.append(token.text);
+
+  const after = document.createElement('span');
+  after.className = 'cm-hackmd-table-cell-mark';
+  after.textContent = token.markerAfter;
+  wrap.appendChild(after);
+
+  if (token.url) {
+    const openButton = document.createElement('button');
+    openButton.type = 'button';
+    openButton.className = 'cm-hackmd-link-open';
+    openButton.dataset.url = token.url;
+    openButton.setAttribute('aria-label', 'Open link');
+    wrap.appendChild(openButton);
+  }
+
+  return wrap;
+}
+
+function installTableCellLinkHandlers(source: HTMLElement, onOpenLinkRef: OpenLinkRef): void {
+  if (source.dataset.linkHandlersInstalled === 'true') {
+    return;
+  }
+
+  source.dataset.linkHandlersInstalled = 'true';
+  source.addEventListener('pointerdown', (event) => {
+    if (!findTableCellLinkHit(event)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  source.addEventListener('click', (event) => {
+    const url = findTableCellLinkHit(event);
+    if (!url) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    onOpenLinkRef.current?.(url);
+  });
+}
+
+function findTableCellLinkHit(event: MouseEvent | PointerEvent): string | null {
+  const button = findClosestElement(event.target, '.cm-hackmd-link-open');
+  if (!button?.dataset.url || !button.closest('.cm-hackmd-table-cell-link')) {
+    return null;
+  }
+
+  return button.dataset.url;
 }
 
 function dispatchModelFromDom(view: EditorView, cell: HTMLElement): void {
@@ -455,7 +705,7 @@ function selectTableAtBoundary(view: EditorView, side: 'before' | 'after'): bool
   return true;
 }
 
-function buildTableWidgets(state: EditorState): DecorationSet {
+function buildTableWidgets(state: EditorState, onOpenLinkRef: OpenLinkRef): DecorationSet {
   const ranges: Array<Range<Decoration>> = [];
   const tree = ensureSyntaxTree(state, state.doc.length, 200) ?? syntaxTree(state);
   const activeLines = getActiveLines(state);
@@ -479,7 +729,7 @@ function buildTableWidgets(state: EditorState): DecorationSet {
 
       ranges.push(Decoration.replace({
         block: true,
-        widget: new TableWidget(model),
+        widget: new TableWidget(model, onOpenLinkRef),
       }).range(startLine.from, endLine.to));
       return false;
     },
@@ -522,34 +772,36 @@ function changeAffectsTables(transaction: Transaction, existing: DecorationSet):
   return affected;
 }
 
-const tableField = StateField.define<DecorationSet>({
-  create: (state) => buildTableWidgets(state),
-  update(decorations, transaction) {
-    for (const effect of transaction.effects) {
-      if (effect.is(treeGrowthEffect)) {
-        return buildTableWidgets(transaction.state);
+function tableField(onOpenLinkRef: OpenLinkRef): Extension {
+  return StateField.define<DecorationSet>({
+    create: (state) => buildTableWidgets(state, onOpenLinkRef),
+    update(decorations, transaction) {
+      for (const effect of transaction.effects) {
+        if (effect.is(treeGrowthEffect)) {
+          return buildTableWidgets(transaction.state, onOpenLinkRef);
+        }
       }
-    }
 
-    if (transaction.selection) {
-      return buildTableWidgets(transaction.state);
-    }
+      if (transaction.selection) {
+        return buildTableWidgets(transaction.state, onOpenLinkRef);
+      }
 
-    if (!transaction.docChanged) {
-      return decorations;
-    }
+      if (!transaction.docChanged) {
+        return decorations;
+      }
 
-    const mapped = decorations.map(transaction.changes);
-    return changeAffectsTables(transaction, decorations)
-      ? buildTableWidgets(transaction.state)
-      : mapped;
-  },
-  provide: (field) => EditorView.decorations.from(field),
-});
+      const mapped = decorations.map(transaction.changes);
+      return changeAffectsTables(transaction, decorations)
+        ? buildTableWidgets(transaction.state, onOpenLinkRef)
+        : mapped;
+    },
+    provide: (field) => EditorView.decorations.from(field),
+  });
+}
 
-export function hackmdTables(): Extension {
+export function hackmdTables(onOpenLinkRef: OpenLinkRef = { current: undefined }): Extension {
   return [
-    tableField,
+    tableField(onOpenLinkRef),
     Prec.high(keymap.of([
       { key: 'Backspace', run: backspaceAtTableBoundary },
       { key: 'Delete', run: deleteAtTableBoundary },

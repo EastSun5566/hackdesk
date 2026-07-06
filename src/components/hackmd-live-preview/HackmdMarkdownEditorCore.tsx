@@ -27,9 +27,16 @@ import { hackmdCodeLanguages } from './hackmd-code-languages';
 import { hfmBlocks } from './hfm-blocks';
 import { hackmdTables } from './hackmd-tables';
 import { hackmdInlinePreview } from './inline-preview';
+import {
+  clearInitialReveal,
+  initialRevealExtension,
+  revealTextInEditor,
+  scheduleInitialRevealClear,
+} from './initial-reveal';
 import { createHackmdPreviewTheme } from './hackmd-preview-theme';
 import { formatMarkdownImage } from './markdown-image';
 import { createHackdeskSearchPanel } from './hackmd-search-panel';
+import { hackmdLinkOpenAffordance } from './preview-links';
 import { hackmdRichPreviewNavigation } from './rich-preview-navigation';
 import { hackmdRichPreviewWidgets } from './rich-preview-widgets';
 import { treeProgressPlugin } from './tree-progress';
@@ -108,10 +115,10 @@ const editorExtensions: Extension[] = [
   }),
   treeProgressPlugin,
   hackmdInlinePreview(),
+  initialRevealExtension(),
   hackmdRichPreviewNavigation(),
   hackmdRichPreviewWidgets(),
   hfmBlocks(),
-  hackmdTables(),
   EditorView.lineWrapping,
   keymap.of([
     indentWithTab,
@@ -135,6 +142,8 @@ type EditorRuntime = {
   appliedEditorMode: EditorMode;
   appliedResolvedMode: ResolvedThemeMode;
   editorModeRequestId: number;
+  initialRevealClearTimer: number | null;
+  lastInitialRevealText: string | null;
   pendingFocus: boolean;
   value: string;
   editorMode: EditorMode;
@@ -146,6 +155,7 @@ type CreateEditorViewOptions = {
   runtime: EditorRuntime;
   onAttachImageRef: LatestRef<MarkdownEditorProps['onAttachImage']>;
   onChangeRef: LatestRef<MarkdownEditorProps['onChange']>;
+  onOpenLinkRef: LatestRef<MarkdownEditorProps['onOpenLink']>;
 };
 
 function createEditorRuntime(
@@ -160,6 +170,8 @@ function createEditorRuntime(
     appliedEditorMode: 'standard',
     appliedResolvedMode: resolvedMode,
     editorModeRequestId: 0,
+    initialRevealClearTimer: null,
+    lastInitialRevealText: null,
     pendingFocus: false,
     value,
     editorMode,
@@ -177,11 +189,41 @@ function useLatestRef<T>(value: T): LatestRef<T> {
   return ref;
 }
 
+function revealTextWithRuntime(runtime: EditorRuntime, query: string): boolean {
+  const view = runtime.view;
+  if (!view) {
+    return false;
+  }
+
+  const revealed = revealTextInEditor(view, query);
+  if (!revealed) {
+    return false;
+  }
+
+  scheduleInitialRevealClear(view, runtime.initialRevealClearTimer, (timer) => {
+    runtime.initialRevealClearTimer = timer;
+  });
+  return true;
+}
+
+function clearInitialRevealWithRuntime(runtime: EditorRuntime): void {
+  if (runtime.initialRevealClearTimer !== null) {
+    window.clearTimeout(runtime.initialRevealClearTimer);
+    runtime.initialRevealClearTimer = null;
+  }
+
+  const view = runtime.view;
+  if (view) {
+    clearInitialReveal(view);
+  }
+}
+
 function createHackmdEditorView({
   parent,
   runtime,
   onAttachImageRef,
   onChangeRef,
+  onOpenLinkRef,
 }: CreateEditorViewOptions) {
   return new EditorView({
     parent,
@@ -189,7 +231,9 @@ function createHackmdEditorView({
       doc: runtime.value,
       extensions: [
         runtime.editorModeCompartment.of(createEditorModeBaseExtension(runtime.editorMode)),
+        hackmdLinkOpenAffordance(onOpenLinkRef),
         ...editorExtensions,
+        hackmdTables(onOpenLinkRef),
         runtime.themeCompartment.of(createHackmdPreviewTheme(runtime.resolvedMode)),
         inlineAttachmentExtension({
           allowedTypes: ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'],
@@ -230,14 +274,17 @@ function createHackmdEditorView({
 export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, MarkdownEditorProps>(
   function HackmdMarkdownEditorCore({
     editorMode = 'standard',
+    initialRevealText = null,
     value,
     onChange,
     onAttachImage,
+    onOpenLink,
   }, ref) {
     const { resolvedMode } = useTheme();
     const parentRef = useRef<HTMLDivElement | null>(null);
     const onAttachImageRef = useLatestRef(onAttachImage);
     const onChangeRef = useLatestRef(onChange);
+    const onOpenLinkRef = useLatestRef(onOpenLink);
     const [runtime] = useState(() => createEditorRuntime(value, editorMode, resolvedMode));
     const dragDepthRef = useRef(0);
     const [isImageDragging, setIsImageDragging] = useState(false);
@@ -281,6 +328,9 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
 
         openSearchPanel(view);
       },
+      revealText(query: string) {
+        return revealTextWithRuntime(runtime, query);
+      },
     }), [onChangeRef, runtime]);
 
     useLayoutEffect(() => {
@@ -294,6 +344,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
         runtime,
         onAttachImageRef,
         onChangeRef,
+        onOpenLinkRef,
       });
 
       runtime.view = view;
@@ -309,6 +360,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
 
       return () => {
         runtime.editorModeRequestId += 1;
+        clearInitialRevealWithRuntime(runtime);
         view.destroy();
         if (runtime.view === view) {
           runtime.view = null;
@@ -316,7 +368,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
           runtime.appliedResolvedMode = runtime.resolvedMode;
         }
       };
-    }, [onAttachImageRef, onChangeRef, runtime]);
+    }, [onAttachImageRef, onChangeRef, onOpenLinkRef, runtime]);
 
     useLayoutEffect(() => {
       runtime.resolvedMode = resolvedMode;
@@ -446,6 +498,21 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
         });
       }
     }, [runtime, value]);
+
+    useEffect(() => {
+      const query = initialRevealText?.trim() ?? '';
+      if (!query) {
+        runtime.lastInitialRevealText = null;
+        return;
+      }
+
+      if (runtime.lastInitialRevealText === query) {
+        return;
+      }
+
+      runtime.lastInitialRevealText = query;
+      revealTextWithRuntime(runtime, query);
+    }, [initialRevealText, runtime, value]);
 
     const handleDragEnter = (event: DragEvent<HTMLDivElement>) => {
       if (!hasImageFile(event.dataTransfer)) {

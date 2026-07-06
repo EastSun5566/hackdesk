@@ -68,6 +68,7 @@ const inlineMarkClassByNodeName: Record<string, string> = {
   InlineCode: 'cm-hackmd-inline-code',
   Link: 'cm-hackmd-link',
   Image: 'cm-hackmd-image',
+  URL: 'cm-hackmd-autolink',
 };
 
 const linkChildSyntaxNodeNames = new Set(['LinkMark', 'URL', 'LinkTitle']);
@@ -358,6 +359,10 @@ function addHiddenSyntax(
     let parent = node.node.parent;
     while (parent && parent.name !== 'Link' && parent.name !== 'Image') {
       parent = parent.parent;
+    }
+
+    if (name === 'URL' && parent?.name !== 'Link' && parent?.name !== 'Image') {
+      return;
     }
 
     if ((parent?.name === 'Link' || parent?.name === 'Image') && activeInlineSourceStarts.has(parent.from)) {

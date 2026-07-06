@@ -99,6 +99,28 @@ describe('HackMD preview widget theme', () => {
     expect(serializedTheme).toContain('var(--focus-ring)');
   });
 
+  it('styles transient reveal highlights with semantic tokens', () => {
+    expect(searchPanelTheme['.cm-hackmd-initial-reveal-match']).toMatchObject({
+      backgroundColor: 'color-mix(in oklch, var(--primary-default) 34%, transparent)',
+    });
+    expect(searchPanelTheme['.cm-hackmd-initial-reveal-match'].boxShadow)
+      .toContain('var(--focus-ring)');
+  });
+
+  it('uses low-noise external link affordances for editor and table links', () => {
+    expect(inlineMarksTheme['.cm-hackmd-link-open'])
+      .toHaveProperty('cursor', 'pointer');
+    expect(inlineMarksTheme['.cm-hackmd-link-open']).toMatchObject({
+      color: 'var(--icon-subtle)',
+      fontSize: '0.95em',
+    });
+    expect(inlineMarksTheme['.cm-hackmd-link-open::before']).toMatchObject({
+      content: '"↗"',
+    });
+    expect(inlineMarksTheme['.cm-hackmd-link-open:hover'])
+      .toHaveProperty('color', 'var(--link-text-default)');
+  });
+
   it('uses fixed list marker alcoves for stable hanging indents', () => {
     expect(inlineMarksTheme['.cm-hackmd-list-marker']).toMatchObject({
       display: 'inline-block',
@@ -125,5 +147,17 @@ describe('HackMD preview widget theme', () => {
     expect(codeAndBlockTheme['.cm-hackmd-fenced-code'].backgroundColor)
       .not.toContain('var(--background-selected)');
     expect(inlineMarksTheme['.cm-hackmd-inline-code']).toHaveProperty('backgroundColor', 'var(--primary-soft)');
+  });
+
+  it('styles table cell inline markdown without selection-like backgrounds', () => {
+    expect(widgetTheme['.cm-hackmd-table-cell-mark']).toMatchObject({
+      position: 'absolute',
+      clipPath: 'inset(50%)',
+    });
+    expect(widgetTheme['.cm-hackmd-table-cell-strong']).toHaveProperty('fontWeight', '700');
+    expect(widgetTheme['.cm-hackmd-table-cell-em']).toHaveProperty('fontStyle', 'italic');
+    expect(widgetTheme['.cm-hackmd-table-cell-inline-code']).toHaveProperty('backgroundColor', 'var(--primary-soft)');
+    expect(widgetTheme['.cm-hackmd-table-cell-link']).toHaveProperty('color', 'var(--link-text-default)');
+    expect(JSON.stringify(widgetTheme['.cm-hackmd-table-cell-link'])).not.toContain('var(--background-selected)');
   });
 });

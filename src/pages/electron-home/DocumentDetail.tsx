@@ -419,6 +419,7 @@ function ActiveDocumentDetail({
           editorMode={editorMode}
           onAttachImage={actions.onUploadImage}
           onContentChange={actions.onContentChange}
+          onOpenExternal={actions.onOpenExternal}
           setEditorRef={setEditorRef}
         />
         <input
@@ -682,6 +683,7 @@ function DocumentBody({
   editorMode,
   onAttachImage,
   onContentChange,
+  onOpenExternal,
   setEditorRef,
 }: {
   content: string;
@@ -689,6 +691,7 @@ function DocumentBody({
   editorMode: EditorMode;
   onAttachImage: (document: DocumentSummary, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
   onContentChange: (content: string) => void;
+  onOpenExternal: (url: string) => void;
   setEditorRef: (handle: MarkdownEditorHandle | null) => void;
 }) {
   const handleAttachImage = useCallback(async (file: File) => {
@@ -707,6 +710,7 @@ function DocumentBody({
       value={content}
       onAttachImage={handleAttachImage}
       onChange={onContentChange}
+      onOpenLink={onOpenExternal}
     />
   );
 }

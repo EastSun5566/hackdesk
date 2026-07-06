@@ -114,6 +114,40 @@ describe('MarkdownEditor', () => {
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe('# Second'));
   });
 
+  it('reveals initial text without changing markdown', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = ['# First', '', 'Middle section', '', 'Find this exact reveal target'].join('\n');
+
+    render(
+      <MarkdownEditor
+        ref={ref}
+        initialRevealText="Find this exact reveal target"
+        value={markdown}
+        onChange={vi.fn()}
+      />,
+    );
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-initial-reveal-match')).not.toBeNull());
+    expect(editor.querySelector('.cm-hackmd-initial-reveal-match')).toHaveTextContent('Find this exact reveal target');
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+  });
+
+  it('exposes an imperative text reveal command', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = ['Alpha', 'Beta reveal target', 'Gamma'].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    expect(ref.current?.revealText('missing target')).toBe(false);
+    expect(ref.current?.revealText('Beta reveal target')).toBe(true);
+
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-initial-reveal-match')).toHaveTextContent('Beta reveal target'));
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+  });
+
   it('uses the latest change and attachment callbacks without remounting CodeMirror', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const firstOnChange = vi.fn();
@@ -814,6 +848,7 @@ describe('MarkdownEditor', () => {
     fireEvent.input(dataCell);
 
     await waitFor(() => expect(ref.current?.getMarkdown()).toContain('| data | file path |'));
+    expect(editor.querySelector('.cm-hackmd-table')).toBe(table);
     expect(onChange).toHaveBeenCalledWith([
       'Intro',
       '',
@@ -821,6 +856,40 @@ describe('MarkdownEditor', () => {
       '| --- | --- |',
       '| data | file path |',
     ].join('\n'));
+  });
+
+  it('renders table cell inline markdown without changing the source', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const onOpenLink = vi.fn();
+    const markdown = [
+      'Intro',
+      '',
+      '| Name | Value |',
+      '| --- | --- |',
+      '| **strong** | *em* ~~gone~~ `code` [docs](https://example.com/docs) |',
+    ].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} onOpenLink={onOpenLink} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const table = await waitFor(() => {
+      const target = editor.querySelector<HTMLElement>('.cm-hackmd-table');
+      expect(target).not.toBeNull();
+      return target as HTMLElement;
+    });
+
+    expect(table.querySelector('.cm-hackmd-table-cell-strong')).toHaveTextContent('strong');
+    expect(table.querySelector('.cm-hackmd-table-cell-em')).toHaveTextContent('em');
+    expect(table.querySelector('.cm-hackmd-table-cell-strike')).toHaveTextContent('gone');
+    expect(table.querySelector('.cm-hackmd-table-cell-inline-code')).toHaveTextContent('code');
+    const link = table.querySelector<HTMLElement>('.cm-hackmd-table-cell-link');
+    expect(link).toHaveTextContent('[docs](https://example.com/docs)');
+    const openButton = link?.querySelector<HTMLElement>('.cm-hackmd-link-open');
+    expect(openButton).not.toBeNull();
+
+    fireEvent.click(openButton as HTMLElement);
+
+    expect(onOpenLink).toHaveBeenCalledWith('https://example.com/docs');
+    expect(ref.current?.getMarkdown()).toBe(markdown);
   });
 
   it('commits table cell composition only after IME composition ends', async () => {
@@ -1015,6 +1084,77 @@ describe('MarkdownEditor', () => {
     render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
 
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+  });
+
+  it('opens safe markdown links from the preview affordance only', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const onOpenLink = vi.fn();
+    const markdown = 'Intro\n\n[Docs](https://example.com/docs)';
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} onOpenLink={onOpenLink} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+
+    const link = await waitFor(() => {
+      const target = editor.querySelector<HTMLElement>('.cm-hackmd-link');
+      expect(target).not.toBeNull();
+      return target as HTMLElement;
+    });
+    const openButton = await waitFor(() => {
+      const target = editor.querySelector<HTMLElement>('.cm-hackmd-link-open');
+      expect(target).not.toBeNull();
+      return target as HTMLElement;
+    });
+    expect(editor.querySelectorAll('.cm-hackmd-link-open')).toHaveLength(1);
+
+    fireEvent.click(link, { clientX: -100, clientY: 0 });
+    expect(onOpenLink).not.toHaveBeenCalled();
+
+    fireEvent.click(openButton);
+
+    expect(onOpenLink).toHaveBeenCalledWith('https://example.com/docs');
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+  });
+
+  it('keeps bare URLs visible as autolinks and opens them from the affordance', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const onOpenLink = vi.fn();
+    const markdown = 'Intro\n\nVisit https://google.com for search.';
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} onOpenLink={onOpenLink} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const autolink = await waitFor(() => {
+      const target = editor.querySelector<HTMLElement>('.cm-hackmd-autolink');
+      expect(target).not.toBeNull();
+      return target as HTMLElement;
+    });
+    const openButton = await waitFor(() => {
+      const target = editor.querySelector<HTMLElement>('.cm-hackmd-link-open');
+      expect(target).not.toBeNull();
+      return target as HTMLElement;
+    });
+    expect(editor.querySelectorAll('.cm-hackmd-link-open')).toHaveLength(1);
+
+    expect(autolink).toHaveTextContent('https://google.com');
+    fireEvent.click(openButton);
+
+    expect(onOpenLink).toHaveBeenCalledWith('https://google.com/');
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+  });
+
+  it('does not open unsafe markdown link schemes', async () => {
+    const onOpenLink = vi.fn();
+
+    render(<MarkdownEditor value="[Bad](javascript:alert(1))" onChange={vi.fn()} onOpenLink={onOpenLink} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const link = await waitFor(() => {
+      const target = editor.querySelector<HTMLElement>('.cm-hackmd-link');
+      expect(target).not.toBeNull();
+      return target as HTMLElement;
+    });
+
+    fireEvent.click(link, { clientX: 0, clientY: 0 });
+
+    expect(onOpenLink).not.toHaveBeenCalled();
   });
 
   it('shows a reduced image preview without modifying the source line', async () => {

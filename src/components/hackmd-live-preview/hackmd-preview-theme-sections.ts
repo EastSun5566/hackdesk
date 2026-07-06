@@ -150,6 +150,11 @@ export const searchPanelTheme = {
     backgroundColor: 'color-mix(in oklch, var(--primary-default) 46%, transparent)',
     outline: '1px solid color-mix(in oklch, var(--focus-ring) 72%, transparent)',
   },
+  '.cm-hackmd-initial-reveal-match': {
+    borderRadius: '3px',
+    backgroundColor: 'color-mix(in oklch, var(--primary-default) 34%, transparent)',
+    boxShadow: '0 0 0 1px color-mix(in oklch, var(--focus-ring) 38%, transparent)',
+  },
 };
 
 export const proseTheme = {
@@ -339,6 +344,41 @@ export const inlineMarksTheme = {
     textDecorationColor: 'color-mix(in oklch, var(--link-text-default) 45%, transparent)',
     textUnderlineOffset: '0.15em',
   },
+  '.cm-hackmd-link-open': {
+    appearance: 'none',
+    border: '0',
+    borderRadius: '3px',
+    backgroundColor: 'transparent',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '1.35em',
+    height: '1.35em',
+    marginInlineStart: '0.24em',
+    color: 'var(--icon-subtle)',
+    cursor: 'pointer',
+    fontFamily: 'var(--font-sans)',
+    fontSize: '0.95em',
+    lineHeight: '1',
+    opacity: '0.72',
+    padding: '0',
+    transition: 'background-color 120ms ease, color 120ms ease, opacity 120ms ease',
+    verticalAlign: '0.02em',
+  },
+  '.cm-hackmd-link-open::before': {
+    content: '"↗"',
+  },
+  '.cm-hackmd-link-open:hover': {
+    backgroundColor: 'color-mix(in oklch, var(--link-text-default) 10%, transparent)',
+    color: 'var(--link-text-default)',
+    opacity: '1',
+  },
+  '.cm-hackmd-link-open:focus-visible': {
+    outline: '1px solid var(--focus-ring)',
+    outlineOffset: '1px',
+    color: 'var(--link-text-default)',
+    opacity: '1',
+  },
   '.cm-hackmd-image': {
     color: 'var(--link-text-default)',
   },
@@ -496,6 +536,37 @@ export const widgetTheme = {
   '.cm-hackmd-table-cell-source:focus': {
     backgroundColor: 'color-mix(in oklch, var(--background-selected) 36%, transparent)',
     boxShadow: 'inset 0 0 0 2px var(--focus-ring)',
+  },
+  '.cm-hackmd-table-cell-mark': {
+    position: 'absolute',
+    width: '1px',
+    height: '1px',
+    overflow: 'hidden',
+    clipPath: 'inset(50%)',
+    whiteSpace: 'nowrap',
+  },
+  '.cm-hackmd-table-cell-strong': {
+    fontWeight: '700',
+  },
+  '.cm-hackmd-table-cell-em': {
+    fontStyle: 'italic',
+  },
+  '.cm-hackmd-table-cell-strike': {
+    textDecoration: 'line-through',
+    textDecorationColor: 'var(--text-subtle)',
+  },
+  '.cm-hackmd-table-cell-inline-code': {
+    borderRadius: '4px',
+    backgroundColor: 'var(--primary-soft)',
+    color: 'var(--primary-default)',
+    fontFamily: 'var(--font-editor)',
+    padding: '0 0.2em',
+  },
+  '.cm-hackmd-table-cell-link': {
+    color: 'var(--link-text-default)',
+    textDecoration: 'underline',
+    textDecorationColor: 'color-mix(in oklch, var(--link-text-default) 45%, transparent)',
+    textUnderlineOffset: '0.15em',
   },
   '.cm-hackmd-csv-preview th, .cm-hackmd-csv-preview td': {
     minWidth: '7rem',
