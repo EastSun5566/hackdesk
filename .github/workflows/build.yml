@@ -9,6 +9,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     permissions:
@@ -40,30 +44,36 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
 
+      - name: Install cargo-deny
+        run: cargo install --locked cargo-deny
+
       - name: Install Pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10.33.2
           run_install: false
 
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
-      - name: Check version sync
-        run: pnpm run version:check
-
-      - name: Run tests
-        run: pnpm test
+      - name: Run CI checks
+        run: pnpm run check:ci
 
       - name: Smoke build the app
         if: github.event_name == 'pull_request'
         run: pnpm tauri build --no-bundle --ci
+
+      - name: Smoke package Electron app
+        if: github.event_name == 'pull_request'
+        run: pnpm run package:electron:check
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: Build the app
         if: github.event_name == 'push'

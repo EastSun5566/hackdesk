@@ -1,0 +1,14 @@
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - inline-attacher
+trustPolicy: no-downgrade
+trustPolicyIgnoreAfter: 10080
+allowBuilds:
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+  simple-git-hooks: true
+overrides:
+  esbuild: 0.28.1
+patchedDependencies:
+  codemirror-kakoune@0.2.5: patches/codemirror-kakoune@0.2.5.patch

@@ -7,7 +7,9 @@ use url::Url;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 #[cfg(not(target_os = "linux"))]
-use window_vibrancy::{self, NSVisualEffectMaterial};
+use window_vibrancy;
+#[cfg(target_os = "macos")]
+use window_vibrancy::NSVisualEffectMaterial;
 
 use crate::{
     app::{

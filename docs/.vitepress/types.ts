@@ -1,4 +1,4 @@
-interface Asset {
+export interface Asset {
   url: string;
   id: number;
   node_id: string;
@@ -79,22 +79,4 @@ export interface DocsReleaseData extends GitHubRelease {
   version: string;
   releaseTag: string;
   releaseDownloadBaseUrl: string;
-}
-
-export type Platform = 'win64'
-  | 'linux'
-  | 'darwin'
-  | 'darwin-aarch64'
-  | 'darwin-x86_64'
-  | 'linux-x86_64'
-  | 'windows-x86_64';
-
-export interface UpdaterJson {
-  version: string;
-  notes: string;
-  pub_date: string;
-  platforms: Partial<Record<Platform, {
-    signature: string;
-    url: string;
-  }>>;
 }

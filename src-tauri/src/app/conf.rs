@@ -10,7 +10,31 @@ pub const SETTINGS_WINDOW_LABEL: &str = "settings";
 pub const DEFAULT_TITLE: &str = "HackDesk";
 pub const DEFAULT_URL: &str = "https://hackmd.io/login";
 pub const DEFAULT_SETTINGS: &str = include_str!("settings.json");
-pub const INIT_SCRIPT: &str = include_str!("init.js");
+pub const INIT_SCRIPT: &str = r#"
+function init() {
+  if (window._HD_INIT) return;
+
+  const invoke = window.__TAURI__.core.invoke;
+
+  document.addEventListener('click', (event) => {
+    const { target } = event;
+    const origin = target.closest('a');
+    if (!origin || !origin.target) return;
+    if (origin && origin.href && origin.target !== '_self') {
+      event.preventDefault();
+      invoke('open_link', { url: origin.href });
+    }
+  });
+
+  window._HD_INIT = true;
+}
+
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  init();
+} else {
+  document.addEventListener('DOMContentLoaded', init);
+}
+"#;
 
 // Window dimensions
 pub const COMMAND_PALETTE_WIDTH: f64 = 560.0;

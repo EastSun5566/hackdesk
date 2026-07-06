@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+release/
 *.local
 .env
 .env.*
@@ -18,6 +19,7 @@ dist-ssr
 # lock files - this project uses pnpm
 package-lock.json
 yarn.lock
+.pnpm-store/
 
 # Editor directories and files
 .vscode/*
@@ -32,6 +34,7 @@ yarn.lock
 
 # eslint cache
 .eslintcache
+*.tsbuildinfo
 
 # vitepress
 docs/.vitepress/dist

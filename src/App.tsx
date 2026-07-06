@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Routes from '@/routes';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const queryClient = new QueryClient({
@@ -19,8 +20,10 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider storageKey="theme">
-          <Routes />
-          <Toaster />
+          <TooltipProvider delayDuration={350} skipDelayDuration={100}>
+            <Routes />
+            <Toaster />
+          </TooltipProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>

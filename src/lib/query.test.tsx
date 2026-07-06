@@ -46,7 +46,10 @@ describe('query hooks', () => {
     const { result } = renderHook(() => useSettings(), { wrapper });
 
     await waitFor(() => {
-      expect(result.current.data).toEqual({ title: 'Workspace', hackmdApiToken: '' });
+      expect(result.current.data).toEqual({
+        ...defaultSettings,
+        title: 'Workspace',
+      });
     });
   });
 
@@ -72,13 +75,14 @@ describe('query hooks', () => {
       await result.current.mutateAsync({ title: 'Focus Desk', hackmdApiToken: 'secret-token' });
     });
 
-    expect(utils.writeSettings).toHaveBeenCalledWith(`{
-  "title": "Focus Desk",
-  "hackmdApiToken": "secret-token"
-}`);
-    expect(queryClient.getQueryData(['settings'])).toEqual({
+    const updatedSettings = {
+      ...defaultSettings,
       title: 'Focus Desk',
       hackmdApiToken: 'secret-token',
+    };
+    expect(utils.writeSettings).toHaveBeenCalledWith(JSON.stringify(updatedSettings, null, 2));
+    expect(queryClient.getQueryData(['settings'])).toEqual({
+      ...updatedSettings,
     });
     expect(invokeMock).toHaveBeenCalledWith('apply_settings');
   });

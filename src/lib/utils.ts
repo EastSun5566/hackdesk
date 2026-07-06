@@ -14,7 +14,7 @@ export function debounce<Params extends unknown[]>(
   fn: (...args: Params) => unknown,
   timeout: number,
 ): (...args: Params) => void {
-  let timer: NodeJS.Timeout;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   return (...args: Params) => {
     clearTimeout(timer);
     timer = setTimeout(() => {
@@ -23,7 +23,7 @@ export function debounce<Params extends unknown[]>(
   };
 }
 
-export async function getSettingsPath() {
+async function getSettingsPath() {
   const home = await homeDir();
   return join(home, ROOT, SETTINGS_NAME);
 }

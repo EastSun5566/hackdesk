@@ -20,7 +20,7 @@ import {
   Trash2,
   Users,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/toast';
 
 import {
   Command,
@@ -306,10 +306,10 @@ export function CommandPalette() {
   const rootRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<PaletteMode>('root');
   const [search, setSearch] = useState('');
-  const { theme, setTheme } = useTheme();
+  const { resolvedMode, setTheme } = useTheme();
   const { data: settingsData } = useSettings();
-  const [recentValues, setRecentValues] = useState<string[]>([]);
-  const [recentNoteEntries, setRecentNoteEntries] = useState<RecentNoteEntry[]>([]);
+  const [recentValues, setRecentValues] = useState<string[]>(() => getRecentCommands());
+  const [recentNoteEntries, setRecentNoteEntries] = useState<RecentNoteEntry[]>(() => getRecentNotes());
   const [selectedNote, setSelectedNote] = useState<HackmdNote | null>(null);
   const [selectedTeamPath, setSelectedTeamPath] = useState<string | null>(null);
   const [selectedNavigationTeamPath, setSelectedNavigationTeamPath] = useState<string | null>(null);
@@ -352,11 +352,6 @@ export function CommandPalette() {
     [selectedNavigationTeamPath, teams],
   );
   const selectedTeamLabel = selectedTeam?.name ?? selectedTeamPath ?? null;
-
-  useEffect(() => {
-    setRecentValues(getRecentCommands());
-    setRecentNoteEntries(getRecentNotes());
-  }, []);
 
   const fuse = useMemo(
     () =>
@@ -694,13 +689,13 @@ export function CommandPalette() {
       });
       return;
     case 'back':
-      invoke(Cmd.EXECUTE_ACTION, { action: { type: 'GoBack' } });
+      void invoke(Cmd.EXECUTE_ACTION, { action: { type: 'GoBack' } });
       break;
     case 'forward':
-      invoke(Cmd.EXECUTE_ACTION, { action: { type: 'GoForward' } });
+      void invoke(Cmd.EXECUTE_ACTION, { action: { type: 'GoForward' } });
       break;
     case 'reload':
-      invoke(Cmd.EXECUTE_ACTION, { action: { type: 'Reload' } });
+      void invoke(Cmd.EXECUTE_ACTION, { action: { type: 'Reload' } });
       break;
     case OPEN_LOCAL_SETTINGS_VALUE:
       void openLocalSettings();
@@ -731,7 +726,7 @@ export function CommandPalette() {
   };
 
   const handleThemeToggle = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
+    setTheme(resolvedMode === 'dark' ? 'light' : 'dark');
     closePalette();
   };
 
@@ -1141,7 +1136,7 @@ export function CommandPalette() {
                     </CommandItem>
                   ))}
                   <CommandItem value="toggle-theme" onSelect={handleThemeToggle}>
-                    {theme === 'dark' ? (
+                    {resolvedMode === 'dark' ? (
                       <Sun className="mr-2 h-4 w-4" />
                     ) : (
                       <Moon className="mr-2 h-4 w-4" />

@@ -1,7 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
+import { useCallback, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { AppSettings } from './settings';
+import { getHackmdNotePath, getHackmdPathFromPublishLink } from './hackmd-path';
 
 const HACKMD_QUERY_KEY = ['hackmd'] as const;
 const HACKMD_PROFILE_QUERY_KEY = [...HACKMD_QUERY_KEY, 'profile'] as const;
@@ -42,10 +44,6 @@ export type HackmdNote = {
   writePermission: HackmdPermissionRole;
 };
 
-export type HackmdSingleNote = HackmdNote & {
-  content: string;
-};
-
 export type HackmdUserProfile = {
   id: string;
   email: string | null;
@@ -67,11 +65,9 @@ export type HackmdTeam = {
   upgraded: boolean;
 };
 
-const noteModeAlias: Record<HackmdNote['publishType'], string> = {
-  edit: '',
-  view: 's',
-  slide: 'p',
-  book: 'c',
+type ImperativeQueryCallbacks<TData, TVariables> = {
+  onSuccess?: (data: TData, variables: TVariables) => void;
+  onError?: (error: Error, variables: TVariables) => void;
 };
 
 export function normalizeHackmdToken(token?: string | null) {
@@ -122,47 +118,7 @@ export function getHackmdErrorMessage(error: unknown, fallback = 'Something went
   return fallback;
 }
 
-function getHackmdPathFromPublishLink(publishLink?: string | null) {
-  if (!publishLink) {
-    return null;
-  }
-
-  try {
-    const url = new URL(publishLink);
-
-    if (url.origin !== 'https://hackmd.io') {
-      return null;
-    }
-
-    return `${url.pathname}${url.search}${url.hash}`;
-  } catch {
-    return null;
-  }
-}
-
-export function getHackmdNotePath(note: Pick<HackmdNote, 'publishType' | 'shortId' | 'userPath' | 'teamPath' | 'permalink' | 'publishLink'>, editMode = false) {
-  if (note.teamPath) {
-    const publishPath = getHackmdPathFromPublishLink(note.publishLink);
-
-    if (publishPath) {
-      return editMode ? `${publishPath.replace(/\/edit$/, '')}/edit` : publishPath;
-    }
-  }
-
-  const namePath = note.userPath || note.teamPath;
-
-  if (namePath) {
-    const basePath = `/@${namePath}/${note.permalink || note.shortId}`;
-    return editMode ? `${basePath}/edit` : basePath;
-  }
-
-  if (editMode) {
-    return `/${note.shortId}`;
-  }
-
-  const mode = noteModeAlias[note.publishType];
-  return mode ? `/${mode}/${note.shortId}` : `/${note.shortId}`;
-}
+export { getHackmdNotePath, getHackmdPathFromPublishLink };
 
 export function createQuickNotePayload(title: string): HackmdCreateNoteInput {
   const normalizedTitle = title.trim();
@@ -174,13 +130,71 @@ export function createQuickNotePayload(title: string): HackmdCreateNoteInput {
 }
 
 export function useValidateHackmdToken() {
-  return useMutation({
-    mutationFn: async (accessToken: string) => {
-      return invokeHackmdCommand<HackmdUserProfile>('validate_hackmd_token', {
-        token: normalizeHackmdToken(accessToken),
-      });
-    },
+  const queryClient = useQueryClient();
+  const [state, setState] = useState<{
+    data?: HackmdUserProfile;
+    error: Error | null;
+    isPending: boolean;
+    isSuccess: boolean;
+  }>({
+    data: undefined,
+    error: null,
+    isPending: false,
+    isSuccess: false,
   });
+
+  const mutate = useCallback((
+    accessToken: string,
+    callbacks?: ImperativeQueryCallbacks<HackmdUserProfile, string>,
+  ) => {
+    const normalizedAccessToken = normalizeHackmdToken(accessToken);
+    setState({
+      data: undefined,
+      error: null,
+      isPending: true,
+      isSuccess: false,
+    });
+
+    void queryClient.fetchQuery({
+      queryKey: [...HACKMD_PROFILE_QUERY_KEY, normalizedAccessToken],
+      queryFn: async () => invokeHackmdCommand<HackmdUserProfile>('validate_hackmd_token', {
+        token: normalizedAccessToken,
+      }),
+      staleTime: 1000 * 60 * 5,
+    }).then((user) => {
+      setState({
+        data: user,
+        error: null,
+        isPending: false,
+        isSuccess: true,
+      });
+      callbacks?.onSuccess?.(user, accessToken);
+    }).catch((error: unknown) => {
+      const nextError = error instanceof Error ? error : new Error(getHackmdErrorMessage(error));
+      setState({
+        data: undefined,
+        error: nextError,
+        isPending: false,
+        isSuccess: false,
+      });
+      callbacks?.onError?.(nextError, accessToken);
+    });
+  }, [queryClient]);
+
+  const reset = useCallback(() => {
+    setState({
+      data: undefined,
+      error: null,
+      isPending: false,
+      isSuccess: false,
+    });
+  }, []);
+
+  return {
+    ...state,
+    mutate,
+    reset,
+  };
 }
 
 export function useHackmdProfile(accessToken: string, enabled: boolean) {

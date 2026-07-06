@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { defaultSettings } from '@/lib/settings';
 import { Settings } from './Settings';
 
 const {
@@ -9,6 +10,7 @@ const {
   useUpdateSettingsMock,
   useThemeMock,
   getCurrentWebviewWindowMock,
+  toastSuccessMock,
 } = vi.hoisted(() => ({
   useValidateHackmdTokenMock: vi.fn(),
   useCheckForUpdatesMock: vi.fn(),
@@ -16,6 +18,15 @@ const {
   useUpdateSettingsMock: vi.fn(),
   useThemeMock: vi.fn(),
   getCurrentWebviewWindowMock: vi.fn(),
+  toastSuccessMock: vi.fn(),
+}));
+
+vi.mock('@/components/ui/toast', () => ({
+  toast: {
+    error: vi.fn(),
+    info: vi.fn(),
+    success: toastSuccessMock,
+  },
 }));
 
 vi.mock('@/lib/hackmd', () => ({
@@ -45,6 +56,11 @@ describe('Settings page', () => {
   const validateToken = vi.fn();
   const resetValidation = vi.fn();
   const setTheme = vi.fn();
+  const setPresetId = vi.fn();
+  const setCustomSeed = vi.fn();
+  const setAppearance = vi.fn();
+  const previewTheme = vi.fn();
+  const cancelPreview = vi.fn();
   const close = vi.fn();
 
   beforeEach(() => {
@@ -58,7 +74,17 @@ describe('Settings page', () => {
       reset: resetValidation,
     } as never);
     useSettingsMock.mockReturnValue({
-      data: { title: 'Workspace', hackmdApiToken: '' },
+      data: {
+        title: 'Workspace',
+        hackmdApiToken: '',
+        appearance: {
+          theme: 'system',
+          presetId: 'hackmd-neo',
+          customSeed: {},
+          typography: defaultSettings.appearance.typography,
+        },
+        onboarding: defaultSettings.onboarding,
+      },
     } as never);
     useCheckForUpdatesMock.mockReturnValue({
       mutate: checkForUpdates,
@@ -70,7 +96,57 @@ describe('Settings page', () => {
     } as never);
     useThemeMock.mockReturnValue({
       theme: 'system',
+      resolvedMode: 'light',
+      presetId: 'hackmd-neo',
+      customSeed: {},
+      typography: defaultSettings.appearance.typography,
+      presets: [
+        {
+          id: 'hackmd-neo',
+          name: 'HackMD Neo',
+          description: 'The default HackDesk writing palette.',
+          light: {
+            neutral: '#71717A',
+            primary: '#5D54E8',
+            success: '#22C55E',
+            warning: '#F59E0B',
+            destructive: '#EF4444',
+          },
+          dark: {
+            neutral: '#71717A',
+            primary: '#A8A2FF',
+            success: '#22C55E',
+            warning: '#FBBF24',
+            destructive: '#F87171',
+          },
+        },
+        {
+          id: 'noctis',
+          name: 'Noctis',
+          description: 'Noctis Lux in light mode, Noctis in dark mode.',
+          light: {
+            neutral: '#8CA6A6',
+            primary: '#0099AD',
+            success: '#00B368',
+            warning: '#E69533',
+            destructive: '#FF4000',
+          },
+          dark: {
+            neutral: '#5B858B',
+            primary: '#40D4E7',
+            success: '#49E9A6',
+            warning: '#E69533',
+            destructive: '#E34E1C',
+          },
+        },
+      ],
       setTheme,
+      setPresetId,
+      setCustomSeed,
+      setAppearance,
+      previewTheme,
+      commitPreview: vi.fn(),
+      cancelPreview,
     } as never);
     getCurrentWebviewWindowMock.mockReturnValue({
       close,
@@ -93,7 +169,10 @@ describe('Settings page', () => {
 
     await waitFor(() => {
       expect(mutate).toHaveBeenCalledWith(
-        { title: 'Focus Desk', hackmdApiToken: '' },
+        {
+          ...defaultSettings,
+          title: 'Focus Desk',
+        },
         expect.objectContaining({
           onSuccess: expect.any(Function),
           onError: expect.any(Function),
@@ -102,13 +181,48 @@ describe('Settings page', () => {
     });
   });
 
-  it('switches theme from the appearance tab', () => {
+  it('previews and applies theme changes from the appearance tab', () => {
     render(<Settings />);
 
     fireEvent.click(screen.getByText('Appearance'));
     fireEvent.click(screen.getByText('Dark'));
 
-    expect(setTheme).toHaveBeenCalledWith('dark');
+    expect(previewTheme).toHaveBeenCalledWith(expect.objectContaining({ theme: 'dark' }));
+    expect(setTheme).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('Apply Theme'));
+
+    expect(setAppearance).toHaveBeenCalledWith({
+      theme: 'dark',
+      presetId: 'hackmd-neo',
+      customSeed: {},
+      typography: defaultSettings.appearance.typography,
+    });
+    expect(toastSuccessMock).toHaveBeenCalledWith('Theme applied');
+  });
+
+  it('cancels an inline theme preview without applying it', () => {
+    render(<Settings />);
+
+    fireEvent.click(screen.getByText('Appearance'));
+    fireEvent.click(screen.getByText('Dark'));
+    fireEvent.click(screen.getByText('Cancel Preview'));
+
+    expect(cancelPreview).toHaveBeenCalled();
+    expect(screen.getByRole('radio', { name: 'System' })).toBeChecked();
+    expect(setAppearance).not.toHaveBeenCalled();
+  });
+
+  it('shows inline validation for invalid custom theme seed colors', () => {
+    render(<Settings />);
+
+    fireEvent.click(screen.getByText('Appearance'));
+    fireEvent.change(screen.getByLabelText('Primary'), {
+      target: { value: 'blue' },
+    });
+
+    expect(screen.getByText('Use a 6-digit hex color, for example #5D54E8.')).toBeInTheDocument();
+    expect(screen.getByText('Apply Theme')).toBeDisabled();
   });
 
   it('hides save and reset actions on non-form tabs', () => {
@@ -125,6 +239,27 @@ describe('Settings page', () => {
     fireEvent.click(screen.getByText('Advanced'));
     expect(screen.queryByText('Save Changes')).not.toBeInTheDocument();
     expect(screen.queryByText('Reset')).not.toBeInTheDocument();
+  });
+
+  it('renders shortcut rows from electron action metadata', () => {
+    render(<Settings />);
+
+    fireEvent.click(screen.getByText('Shortcuts'));
+
+    const navigatorRow = screen.getByText('Toggle Note Navigator').closest('div');
+    expect(navigatorRow).not.toBeNull();
+    expect(within(navigatorRow as HTMLElement).getByText('⌥')).toBeInTheDocument();
+    expect(within(navigatorRow as HTMLElement).getByText('⌘')).toBeInTheDocument();
+    expect(within(navigatorRow as HTMLElement).getByText('B')).toBeInTheDocument();
+    const backRow = screen.getByText('Back').closest('div');
+    const forwardRow = screen.getByText('Forward').closest('div');
+    expect(backRow).not.toBeNull();
+    expect(forwardRow).not.toBeNull();
+    expect(within(backRow as HTMLElement).getByText('⌘')).toBeInTheDocument();
+    expect(within(backRow as HTMLElement).getByText('[')).toBeInTheDocument();
+    expect(within(forwardRow as HTMLElement).getByText('⌘')).toBeInTheDocument();
+    expect(within(forwardRow as HTMLElement).getByText(']')).toBeInTheDocument();
+    expect(screen.getByText('Close Tab')).toBeInTheDocument();
   });
 
   it('closes the window on Escape', () => {

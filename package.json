@@ -1,31 +1,53 @@
 {
   "name": "hackdesk",
+  "productName": "HackDesk",
   "description": "📝 A hackable HackMD desktop application",
   "private": true,
   "version": "0.1.5",
   "type": "module",
+  "packageManager": "pnpm@10.33.2",
+  "main": "electron/dist/main.cjs",
   "engines": {
-    "node": ">=20.19",
-    "pnpm": ">=8"
+    "node": ">=24"
   },
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
     "frontend:dev": "vite",
-    "frontend:build": "tsc && vite build",
+    "frontend:build": "pnpm run typecheck:app && vite build",
     "frontend:preview": "vite preview",
-    "lint:ts": "eslint . --fix --cache",
-    "lint:rs": "cd src-tauri && cargo fmt && cargo clippy --fix --allow-dirty --allow-staged && cd -",
-    "lint:cargo": "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
-    "check": "pnpm run lint:ts && pnpm run lint:cargo",
-    "version:check": "node scripts/check-version.js",
-    "sync:version": "node scripts/sync-version.js",
-    "test": "pnpm run test:rust && pnpm run test:frontend",
-    "test:frontend": "vitest run",
-    "test:rust": "cd src-tauri && cargo test",
+    "icons:electron": "node scripts/electron-icons.ts",
+    "dev:electron": "node scripts/electron-dev.ts",
+    "build:electron": "node scripts/electron-build.ts && vite build",
+    "package:electron": "pnpm run icons:electron && pnpm run build:electron && electron-builder",
+    "package:electron:check": "pnpm run icons:electron && pnpm run build:electron && electron-builder --dir --publish never",
+    "check:electron": "pnpm run typecheck && oxlint electron scripts src && pnpm run test:js && pnpm run build:electron",
+    "typecheck": "pnpm run typecheck:app && pnpm run typecheck:node && pnpm run typecheck:electron",
+    "typecheck:app": "tsgo -p tsconfig.app.json --noEmit",
+    "typecheck:node": "tsgo -p tsconfig.node.json --noEmit",
+    "typecheck:electron": "tsgo -p tsconfig.electron.json --noEmit",
+    "lint:js:audit": "pnpm audit --audit-level moderate",
+    "lint:ts": "oxlint .",
+    "lint:ts:fix": "oxlint --fix .",
+    "check:deps": "knip",
+    "check:actions": "github-actionlint",
+    "lint:rs:fmt": "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check",
+    "lint:rs:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
+    "lint:rs:deny": "cargo deny --manifest-path src-tauri/Cargo.toml check -c deny.toml",
+    "lint:rs": "pnpm run lint:rs:fmt && pnpm run lint:rs:clippy && pnpm run lint:rs:deny",
+    "lint:rs:fix": "cargo fmt --manifest-path src-tauri/Cargo.toml --all && cargo clippy --manifest-path src-tauri/Cargo.toml --fix --allow-dirty --allow-staged",
+    "check": "pnpm run typecheck && pnpm run lint:ts && pnpm run check:deps && pnpm run lint:js:audit && pnpm run check:actions && pnpm run contract:hackmd && pnpm run lint:rs",
+    "check:ci": "pnpm run version:check && pnpm run check && pnpm run test && pnpm run build:electron",
+    "version:check": "node scripts/check-version.ts",
+    "contract:hackmd": "node scripts/hackmd-openapi-verify.ts",
+    "contract:hackmd:live": "node scripts/hackmd-openapi-verify.ts --live",
+    "sync:version": "node scripts/sync-version.ts",
+    "test": "pnpm run test:rust && pnpm run test:js",
+    "test:js": "vitest run electron src docs/.vitepress",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "release": "node scripts/release.js",
+    "release": "node scripts/release.ts",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"
@@ -35,61 +57,129 @@
     "type": "git",
     "url": "https://github.com/EastSun5566/hackdesk"
   },
-  "license": "AGPL-3.0",
+  "license": "AGPL-3.0-only",
+  "build": {
+    "appId": "me.eastsun.hackdesk",
+    "productName": "HackDesk",
+    "directories": {
+      "buildResources": "build",
+      "output": "release/electron"
+    },
+    "files": [
+      "electron/dist/**",
+      "dist/**",
+      "package.json"
+    ],
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://hackdesk.eastsun.me/electron-updates/"
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "build/icon.png",
+        "to": "assets/icon.png"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.icns",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "notarize": true
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "category": "Office",
+      "target": [
+        "AppImage"
+      ]
+    }
+  },
   "dependencies": {
+    "@base-ui/react": "^1.6.0",
+    "@codemirror/autocomplete": "^6.20.3",
+    "@codemirror/commands": "^6.10.3",
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/lang-markdown": "^6.5.0",
+    "@codemirror/language": "^6.12.3",
+    "@codemirror/search": "^6.7.0",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/view": "^6.43.0",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@fortawesome/fontawesome-free": "^7.2.0",
     "@hookform/resolvers": "^5.2.2",
-    "@monaco-editor/react": "^4.7.0",
-    "@radix-ui/react-dialog": "^1.1.15",
+    "@lezer/highlight": "^1.2.3",
+    "@replit/codemirror-emacs": "6.1.0",
+    "@replit/codemirror-vim": "^6.3.0",
     "@tanstack/react-query": "^5.90.10",
-    "@tauri-apps/api": "^2.9.0",
-    "@tauri-apps/plugin-fs": "^2.4.4",
-    "@tauri-apps/plugin-opener": "^2.5.2",
-    "@tauri-apps/plugin-store": "^2.4.2",
+    "@tauri-apps/api": "2.9.1",
+    "@tauri-apps/plugin-fs": "2.4.4",
+    "beautiful-mermaid": "^1.1.3",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "codemirror-helix": "^0.5.7",
+    "codemirror-kakoune": "0.2.5",
+    "dompurify": "^3.4.11",
+    "electron-updater": "^6.8.9",
     "fuse.js": "^7.1.0",
-    "lucide-react": "^0.291.0",
+    "gemoji": "^8.1.0",
+    "inline-attacher": "^0.1.1",
+    "katex": "0.17.0",
+    "lucide-react": "^1.17.0",
+    "papaparse": "^5.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.71.1",
+    "react-resizable-panels": "^4.11.2",
     "react-router-dom": "^6.30.2",
-    "sonner": "^2.0.7",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^4.3.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.17",
-    "@tauri-apps/cli": "^2.9.4",
+    "@tauri-apps/cli": "2.9.4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
-    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20.19.25",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "^18.3.27",
     "@types/react-dom": "^18.3.7",
-    "@typescript-eslint/eslint-plugin": "^8.18.2",
-    "@typescript-eslint/parser": "^8.18.2",
+    "@typescript/native-preview": "^7.0.0-dev.20260619.1",
     "@vitejs/plugin-react": "^4.3.4",
-    "@vitest/ui": "^4.0.17",
-    "eslint": "^9.17.0",
-    "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "^5.1.0",
-    "globals": "^16.5.0",
+    "@vitest/ui": "^4.1.9",
+    "electron": "^42.4.1",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.1",
+    "github-actionlint": "^1.7.12",
     "jsdom": "^27.4.0",
+    "knip": "^6.17.1",
     "lint-staged": "^15.5.2",
+    "oxlint": "^1.70.0",
+    "oxlint-plugin-react-doctor": "^0.5.8",
+    "oxlint-tsgolint": "^0.22.1",
     "postcss": "^8.5.6",
     "simple-git-hooks": "^2.13.1",
     "tailwindcss": "^4.1.17",
-    "typescript": "^5.9.3",
-    "vite": "^7.3.2",
-    "vitepress": "^1.6.4",
-    "vitest": "^4.1.0"
+    "vite": "^7.3.6",
+    "vitepress": "2.0.0-alpha.17",
+    "vitest": "^4.1.9"
   },
   "simple-git-hooks": {
-    "pre-commit": "npx lint-staged"
-  },
-  "lint-staged": {
-    "*.(ts|tsx)": "pnpm run lint:ts",
-    "*.rs": "pnpm run lint:rs"
+    "pre-commit": "pnpm exec lint-staged"
   }
 }

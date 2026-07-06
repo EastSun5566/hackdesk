@@ -1,0 +1,540 @@
+import { ChevronDown, MoreHorizontal } from 'lucide-react';
+import type {
+  ButtonHTMLAttributes,
+  Ref,
+  ReactNode,
+} from 'react';
+import { forwardRef } from 'react';
+
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Toolbar, ToolbarButton } from '@/components/ui/toolbar';
+import { cn } from '@/lib/utils';
+import { getActionShortcut } from '@/lib/electron-actions';
+import type { ElectronActionId } from '@/lib/electron-api';
+import {
+  COLLAPSE_ICON_CLASS,
+  FOCUS_RING_CLASS,
+  ICON_BUTTON_CLASS,
+  PANEL_TRANSITION_CLASS,
+} from './ui';
+import { DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipRoot, TooltipTrigger } from '@/components/ui/tooltip';
+
+type EntityRowVariant = 'default' | 'compact';
+
+type EntityRowProps = {
+  leadingControls?: ReactNode;
+  icon?: ReactNode;
+  title: ReactNode;
+  subtitle?: ReactNode;
+  badges?: ReactNode;
+  trailing?: ReactNode;
+  menu?: ReactNode;
+  contextMenu?: ReactNode;
+  selected?: boolean;
+  active?: boolean;
+  disabled?: boolean;
+  variant?: EntityRowVariant;
+  className?: string;
+  contentClassName?: string;
+  titleClassName?: string;
+  trailingClassName?: string;
+  focusTarget?: boolean;
+  contentOnClick?: () => void;
+  contentAriaLabel?: string;
+  contentAriaCurrent?: ButtonHTMLAttributes<HTMLButtonElement>['aria-current'];
+  contentFocusTarget?: boolean;
+  selectedIndicator?: boolean;
+  onClick?: () => void;
+  ariaLabel?: string;
+  ariaCurrent?: ButtonHTMLAttributes<HTMLButtonElement>['aria-current'];
+  titleAttribute?: string;
+};
+
+function entityRowClassName({
+  selected,
+  active,
+  disabled,
+  variant,
+  clickable,
+  selectedIndicator,
+  className,
+}: {
+  selected?: boolean;
+  active?: boolean;
+  disabled?: boolean;
+  variant: EntityRowVariant;
+  clickable: boolean;
+  selectedIndicator?: boolean;
+  className?: string;
+}) {
+  return cn(
+    'group/entity-row relative flex w-full min-w-0 items-center text-left transition-[background-color,color,opacity] duration-150 ease-out motion-reduce:transition-none',
+    variant === 'compact' ? 'gap-2 rounded-[6px] px-2 py-1 text-sm' : 'gap-2.5 rounded-md px-2.5 py-2 text-sm',
+    selected || active
+      ? 'bg-background-selected text-text-default'
+      : 'text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
+    selectedIndicator && 'overflow-hidden',
+    selectedIndicator && selected && 'before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-0.5 before:rounded-full before:bg-primary-default',
+    clickable && FOCUS_RING_CLASS,
+    disabled && 'pointer-events-none opacity-50',
+    className,
+  );
+}
+
+function EntityRowContent({
+  leadingControls,
+  icon,
+  title,
+  subtitle,
+  badges,
+  trailing,
+  menu,
+  variant,
+  contentClassName,
+  titleClassName,
+  trailingClassName,
+  contentOnClick,
+  contentAriaLabel,
+  contentAriaCurrent,
+  contentFocusTarget,
+}: Required<Pick<EntityRowProps, 'variant'>> & Pick<EntityRowProps,
+  'leadingControls'
+  | 'icon'
+  | 'title'
+  | 'subtitle'
+  | 'badges'
+  | 'trailing'
+  | 'menu'
+  | 'contentClassName'
+  | 'titleClassName'
+  | 'trailingClassName'
+  | 'contentOnClick'
+  | 'contentAriaLabel'
+  | 'contentAriaCurrent'
+  | 'contentFocusTarget'
+>) {
+  const contentBody = (
+    <>
+      <span className={cn('flex min-w-0 items-center gap-2', titleClassName)}>
+        <span className="min-w-0 truncate font-medium">{title}</span>
+        {badges ? <span className="shrink-0">{badges}</span> : null}
+      </span>
+      {subtitle ? (
+        <span className="mt-0.5 block min-w-0 truncate text-xs text-text-subtle">
+          {subtitle}
+        </span>
+      ) : null}
+    </>
+  );
+  const iconElement = icon ? (
+    <span
+      aria-hidden="true"
+      className={cn('shrink-0 text-text-subtle group-hover/entity-row:text-text-default', variant === 'compact' && 'mt-0.5')}
+    >
+      {icon}
+    </span>
+  ) : null;
+  const trailingElement = trailing ? (
+    <span className={cn('shrink-0 text-xs tabular-nums text-text-subtle', trailingClassName)}>
+      {trailing}
+    </span>
+  ) : null;
+
+  return (
+    <>
+      {leadingControls ? <span className="shrink-0">{leadingControls}</span> : null}
+      {contentOnClick ? (
+        <button
+          type="button"
+          data-folder-tree-primary="true"
+          data-hackdesk-focus-target={contentFocusTarget ? 'true' : undefined}
+          onClick={contentOnClick}
+          aria-label={contentAriaLabel}
+          aria-current={contentAriaCurrent}
+          className={cn('flex min-w-0 flex-1 items-center gap-2 rounded-[4px] text-left focus-visible:outline-none', contentClassName)}
+        >
+          {iconElement}
+          <span className="min-w-0 flex-1">{contentBody}</span>
+          {trailingElement}
+        </button>
+      ) : (
+        <>
+          {iconElement}
+          <span className={cn('min-w-0 flex-1', contentClassName)}>
+            {contentBody}
+          </span>
+          {trailingElement}
+        </>
+      )}
+      {menu ? (
+        <span className="shrink-0 opacity-0 transition-opacity duration-150 group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none">
+          {menu}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function EntityRow({
+  leadingControls,
+  icon,
+  title,
+  subtitle,
+  badges,
+  trailing,
+  menu,
+  contextMenu,
+  selected,
+  active,
+  disabled,
+  variant = 'default',
+  className,
+  contentClassName,
+  titleClassName,
+  trailingClassName,
+  focusTarget,
+  contentOnClick,
+  contentAriaLabel,
+  contentAriaCurrent,
+  contentFocusTarget,
+  selectedIndicator,
+  onClick,
+  ariaLabel,
+  ariaCurrent,
+  titleAttribute,
+}, ref) {
+  const content = (
+    <EntityRowContent
+      leadingControls={leadingControls}
+      icon={icon}
+      title={title}
+      subtitle={subtitle}
+      badges={badges}
+      trailing={trailing}
+      menu={menu}
+      variant={variant}
+      contentClassName={contentClassName}
+      titleClassName={titleClassName}
+      trailingClassName={trailingClassName}
+      contentOnClick={contentOnClick}
+      contentAriaLabel={contentAriaLabel}
+      contentAriaCurrent={contentAriaCurrent}
+      contentFocusTarget={contentFocusTarget}
+    />
+  );
+  const rowClassName = entityRowClassName({
+    selected,
+    active,
+    disabled,
+    variant,
+    clickable: Boolean(onClick),
+    selectedIndicator,
+    className,
+  });
+
+  if (onClick) {
+    return (
+      <button
+        ref={ref as Ref<HTMLButtonElement>}
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        data-hackdesk-focus-target={focusTarget ? 'true' : undefined}
+        aria-label={ariaLabel}
+        aria-current={ariaCurrent}
+        title={titleAttribute}
+        className={rowClassName}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      ref={ref as Ref<HTMLDivElement>}
+      aria-label={ariaLabel}
+      title={titleAttribute}
+      className={rowClassName}
+    >
+      {contextMenu ? (
+        <>
+          {content}
+          {contextMenu}
+        </>
+      ) : content}
+    </div>
+  );
+});
+
+export function PanelShell({
+  id,
+  focusZone,
+  ariaLabel,
+  as: Component = 'section',
+  collapsed,
+  width,
+  collapsedWidth,
+  className,
+  children,
+}: {
+  id?: string;
+  focusZone?: string;
+  ariaLabel?: string;
+  as?: 'aside' | 'section';
+  collapsed?: boolean;
+  width?: number;
+  collapsedWidth?: number;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Component
+      id={id}
+      data-hackdesk-focus={focusZone}
+      tabIndex={focusZone ? -1 : undefined}
+      aria-label={ariaLabel}
+      className={cn(
+        'flex shrink-0 flex-col overflow-hidden outline-none',
+        PANEL_TRANSITION_CLASS,
+        className,
+      )}
+      style={width ? { width: collapsed && collapsedWidth !== undefined ? collapsedWidth : width } : undefined}
+    >
+      {children}
+    </Component>
+  );
+}
+
+export function PanelHeader({
+  title,
+  subtitle,
+  actions,
+  actionsLabel,
+  titleElement: TitleElement = 'h2',
+  className,
+}: {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  actions?: ReactNode;
+  actionsLabel?: string;
+  titleElement?: 'h2' | 'div';
+  className?: string;
+}) {
+  return (
+    <header className={cn('border-b border-border-default px-4 py-3', className)}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <TitleElement className="truncate text-base font-semibold text-text-default">{title}</TitleElement>
+          {subtitle ? <p className="mt-1 truncate text-xs text-text-subtle">{subtitle}</p> : null}
+        </div>
+        {actions ? (
+          <Toolbar
+            aria-label={actionsLabel ?? (typeof title === 'string' ? `${title} actions` : 'Panel actions')}
+            className="shrink-0"
+          >
+            {actions}
+          </Toolbar>
+        ) : null}
+      </div>
+    </header>
+  );
+}
+
+export function ToolbarIconButton({
+  actionId,
+  label,
+  tooltip = label,
+  shortcut,
+  children,
+  className,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  actionId?: ElectronActionId;
+  label: string;
+  shortcut?: string;
+  tooltip?: ReactNode;
+}) {
+  const displayShortcut = shortcut ?? (actionId ? getActionShortcut(actionId) : undefined);
+  const tooltipContent = displayShortcut ? (
+    <span className="flex items-center gap-3">
+      <span>{tooltip}</span>
+      <kbd className="rounded-[4px] bg-background-muted px-1.5 py-0.5 font-mono text-[10px] leading-none text-text-subtle">
+        {displayShortcut}
+      </kbd>
+    </span>
+  ) : tooltip;
+  const button = (
+    <ToolbarButton
+      aria-label={label}
+      className={cn(ICON_BUTTON_CLASS, className)}
+      {...props}
+    >
+      {children}
+    </ToolbarButton>
+  );
+
+  return (
+    <Tooltip content={tooltipContent}>
+      {button}
+    </Tooltip>
+  );
+}
+
+export function ToolbarDropdownIconTrigger({
+  label,
+  tooltip = label,
+  children,
+  className,
+}: {
+  label: string;
+  tooltip?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <TooltipRoot>
+      <TooltipTrigger
+        render={(
+          <DropdownMenuTrigger
+            render={(
+              <ToolbarButton
+                aria-label={label}
+                className={cn(ICON_BUTTON_CLASS, className)}
+              />
+            )}
+          >
+            {children}
+          </DropdownMenuTrigger>
+        )}
+      />
+      <TooltipContent side="bottom">{tooltip}</TooltipContent>
+    </TooltipRoot>
+  );
+}
+
+export function ToolbarDropdownMoreTrigger({
+  label = 'More actions',
+  tooltip = label,
+  className,
+}: {
+  label?: string;
+  tooltip?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <ToolbarDropdownIconTrigger label={label} tooltip={tooltip} className={className}>
+      <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
+    </ToolbarDropdownIconTrigger>
+  );
+}
+
+function SectionHeader({
+  title,
+  subtitle,
+  dirty,
+  actions,
+  buttonProps,
+}: {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  dirty?: boolean;
+  actions?: ReactNode;
+  buttonProps?: React.ComponentPropsWithoutRef<typeof CollapsibleTrigger>;
+}) {
+  return (
+    <div className="flex min-h-8 items-center justify-between gap-2">
+      <CollapsibleTrigger
+        type="button"
+        {...buttonProps}
+        className={cn(
+          'flex min-w-0 flex-1 items-center gap-2 rounded-[6px] text-left text-xs font-semibold uppercase text-text-subtle transition-colors hover:text-text-default',
+          FOCUS_RING_CLASS,
+          buttonProps?.className,
+        )}
+      >
+        <ChevronDown
+          aria-hidden="true"
+          className={cn('h-3.5 w-3.5 shrink-0 -rotate-90 group-data-[panel-open]:rotate-0', COLLAPSE_ICON_CLASS)}
+        />
+        <span className="min-w-0 truncate">{title}</span>
+        {dirty ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary-default" aria-label="Unsaved changes" /> : null}
+        {subtitle ? <span className="min-w-0 truncate normal-case text-text-subtle">{subtitle}</span> : null}
+      </CollapsibleTrigger>
+      {actions ? <div className="shrink-0">{actions}</div> : null}
+    </div>
+  );
+}
+
+export function CollapsibleSection({
+  title,
+  subtitle,
+  dirty,
+  defaultOpen = true,
+  children,
+  actions,
+  className,
+  contentClassName,
+}: {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  dirty?: boolean;
+  defaultOpen?: boolean;
+  children: ReactNode;
+  actions?: ReactNode;
+  className?: string;
+  contentClassName?: string;
+}) {
+  return (
+    <Collapsible
+      defaultOpen={defaultOpen}
+      render={<section />}
+      className={cn('border-b border-border-default/70 py-2.5 last:border-b-0', className)}
+    >
+      <SectionHeader
+        title={title}
+        subtitle={subtitle}
+        dirty={dirty}
+        actions={actions}
+        buttonProps={{
+          'aria-label': typeof title === 'string' ? title : undefined,
+        }}
+      />
+      <CollapsibleContent>
+        <div className={cn('space-y-2.5 pt-2.5', contentClassName)}>
+          {children}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+export function EmptyState({
+  icon,
+  title,
+  description,
+  action,
+}: {
+  icon?: ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex h-full items-center justify-center px-6 text-center">
+      <div className="max-w-72 space-y-2">
+        {icon ? (
+          <div aria-hidden="true" className="mx-auto flex size-8 items-center justify-center text-text-subtle">
+            {icon}
+          </div>
+        ) : null}
+        <h2 className="text-sm font-medium text-text-default text-balance">{title}</h2>
+        {description ? <p className="text-xs leading-5 text-text-subtle">{description}</p> : null}
+        {action ? <div className="pt-2">{action}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+export type { EntityRowProps };

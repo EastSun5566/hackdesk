@@ -1,0 +1,142 @@
+import { FolderPen, Loader2 } from 'lucide-react';
+import { FormEvent } from 'react';
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import type { UpdateFolderInput } from '@/lib/electron-api';
+import { cn } from '@/lib/utils';
+
+import { FolderAppearanceFields } from './FolderAppearanceFields';
+import type { RenameFolderDialogState } from './types';
+import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS, TEXT_INPUT_CLASS } from './ui';
+
+const CLOSED_RENAME_FOLDER_DIALOG_STATE = { open: false, folderId: null, name: '', description: '', icon: '', color: '' } as const;
+const EDIT_FOLDER_DESCRIPTION_ID = 'edit-folder-description';
+const EDIT_FOLDER_FORM_DESCRIPTION_ID = 'edit-folder-form-description';
+const EDIT_FOLDER_NAME_ID = 'edit-folder-name';
+
+function releasePointerLockAfterClose() {
+  window.setTimeout(() => {
+    if (!document.querySelector('[role="dialog"]')) {
+      document.body.style.pointerEvents = '';
+    }
+  }, 0);
+}
+
+export function RenameFolderDialog({
+  state,
+  isRenaming,
+  onStateChange,
+  onRename,
+}: {
+  state: RenameFolderDialogState;
+  isRenaming: boolean;
+  onStateChange: (state: RenameFolderDialogState) => void;
+  onRename: (folderId: string, input: UpdateFolderInput) => void;
+}) {
+  const canSubmit = Boolean(state.folderId && state.name.trim()) && !isRenaming;
+
+  const handleOpenChange = (open: boolean) => {
+    onStateChange(open ? state : CLOSED_RENAME_FOLDER_DIALOG_STATE);
+    if (!open) {
+      releasePointerLockAfterClose();
+    }
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (state.folderId && canSubmit) {
+      onRename(state.folderId, {
+        name: state.name.trim(),
+        description: state.description.trim() || null,
+        icon: state.icon.trim() || null,
+        color: state.color.trim() || null,
+      });
+    }
+  };
+
+  return (
+    <Dialog
+      open={state.open}
+      onOpenChange={handleOpenChange}
+    >
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Folder</DialogTitle>
+          <DialogDescription id={EDIT_FOLDER_FORM_DESCRIPTION_ID} className="sr-only">
+            Update the folder name, description, icon, and color.
+          </DialogDescription>
+        </DialogHeader>
+        <p className="rounded-md border border-border-default bg-background-muted px-3 py-2 text-xs text-text-subtle">
+          Update folder details and appearance.
+        </p>
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <div className="space-y-2 text-sm">
+            <label htmlFor={EDIT_FOLDER_NAME_ID} className="font-medium text-text-default">Name</label>
+            <input
+              id={EDIT_FOLDER_NAME_ID}
+              name="name"
+              value={state.name}
+              onChange={(event) => onStateChange({ ...state, name: event.target.value })}
+              className={TEXT_INPUT_CLASS}
+              autoComplete="off"
+              spellCheck
+              aria-describedby={EDIT_FOLDER_FORM_DESCRIPTION_ID}
+            />
+          </div>
+          <div className="space-y-2 text-sm">
+            <label htmlFor={EDIT_FOLDER_DESCRIPTION_ID} className="font-medium text-text-default">Description</label>
+            <textarea
+              id={EDIT_FOLDER_DESCRIPTION_ID}
+              name="description"
+              value={state.description}
+              onChange={(event) => onStateChange({ ...state, description: event.target.value })}
+              className={cn(TEXT_INPUT_CLASS, 'min-h-20 py-2')}
+              rows={3}
+              spellCheck
+            />
+          </div>
+          <FolderAppearanceFields
+            icon={state.icon}
+            color={state.color}
+            onIconChange={(icon) => onStateChange({ ...state, icon })}
+            onColorChange={(color) => onStateChange({ ...state, color })}
+          />
+          <DialogFooter>
+            <button
+              type="button"
+              disabled={isRenaming}
+              onClick={() => onStateChange(CLOSED_RENAME_FOLDER_DIALOG_STATE)}
+              className={SECONDARY_BUTTON_CLASS}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className={PRIMARY_BUTTON_CLASS}
+            >
+              {isRenaming ? (
+                <>
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+                  Saving…
+                </>
+              ) : (
+                <>
+                  <FolderPen aria-hidden="true" className="h-4 w-4" />
+                  Save Changes
+                </>
+              )}
+            </button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

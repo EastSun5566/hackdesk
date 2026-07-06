@@ -2,16 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertCircle,
   Settings as SettingsIcon,
   Monitor,
   Keyboard,
   Zap,
-  Sun,
-  Moon,
-  Laptop,
   Shield,
   Eye,
   EyeOff,
@@ -28,7 +26,14 @@ import {
   settingsSchema,
   type AppSettings,
 } from '@/lib/settings';
+import {
+  getActionShortcutKeys,
+  getElectronActionLabel,
+} from '@/lib/electron-actions';
+import type { ElectronActionId } from '@/lib/electron-api';
+import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
+import { ThemeAppearanceControls } from '@/components/ThemeAppearanceControls';
 import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { version } from '../../package.json';
 
@@ -42,40 +47,49 @@ const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: 'advanced', label: 'Advanced', icon: <Zap className="h-4 w-4" /> },
 ];
 
-const shortcuts = [
-  { action: 'Open Command Palette', keys: ['⌘', 'K'] },
-  { action: 'Open Settings', keys: ['⌘', ','] },
-  { action: 'New Note', keys: ['⌘', 'N'] },
-  { action: 'Reload', keys: ['⌘', 'R'] },
-  { action: 'Close Window', keys: ['⌘', 'W'] },
-  { action: 'Close Settings', keys: ['Esc'] },
+type ShortcutDefinition =
+  | { type: 'action'; actionId: ElectronActionId }
+  | { type: 'custom'; id: string; action: string; keys: string[] };
+
+const shortcutDefinitions: ShortcutDefinition[] = [
+  { type: 'action', actionId: 'open-command-palette' },
+  { type: 'action', actionId: 'open-settings' },
+  { type: 'action', actionId: 'new-tab' },
+  { type: 'action', actionId: 'new-note' },
+  { type: 'action', actionId: 'new-folder' },
+  { type: 'action', actionId: 'find-in-note' },
+  { type: 'action', actionId: 'search-notes' },
+  { type: 'action', actionId: 'split-pane-right' },
+  { type: 'custom', id: 'tab-number', action: 'Go to Tab 1-8', keys: ['⌘', '1-8'] },
+  { type: 'custom', id: 'last-tab', action: 'Go to Last Tab', keys: ['⌘', '9'] },
+  { type: 'action', actionId: 'focus-previous-tab' },
+  { type: 'action', actionId: 'focus-next-tab' },
+  { type: 'action', actionId: 'navigate-back' },
+  { type: 'action', actionId: 'navigate-forward' },
+  { type: 'action', actionId: 'toggle-workspace-rail' },
+  { type: 'action', actionId: 'toggle-navigator' },
+  { type: 'action', actionId: 'toggle-inspector' },
+  { type: 'action', actionId: 'refresh' },
+  { type: 'action', actionId: 'close-tab' },
+  { type: 'action', actionId: 'reopen-last-closed-tab' },
+  { type: 'action', actionId: 'export-debug-logs' },
+  { type: 'custom', id: 'close-settings', action: 'Close Settings', keys: ['Esc'] },
 ];
 
-const themeOptions = [
-  {
-    id: 'light',
-    label: 'Light',
-    icon: <Sun className="h-5 w-5" />,
-    description: 'Light mode',
-  },
-  {
-    id: 'dark',
-    label: 'Dark',
-    icon: <Moon className="h-5 w-5" />,
-    description: 'Dark mode',
-  },
-  {
-    id: 'system',
-    label: 'System',
-    icon: <Laptop className="h-5 w-5" />,
-    description: 'Follow system settings',
-  },
-] as const;
+const shortcuts = shortcutDefinitions.map((shortcut) => (
+  shortcut.type === 'action'
+    ? {
+        id: shortcut.actionId,
+        action: getElectronActionLabel(shortcut.actionId),
+        keys: getActionShortcutKeys(shortcut.actionId),
+      }
+    : shortcut
+));
 
-const inputClassName = 'flex h-10 w-full rounded-md border border-border-default bg-background-default px-3 py-2 text-sm text-text-default ring-offset-background-default file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50';
+const inputClassName = 'flex h-10 w-full rounded-md border border-border-default bg-background-default px-3 py-2 text-sm text-text-default ring-offset-background-default file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 disabled:opacity-50';
 const primaryButtonClassName = 'inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-primary-default px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none disabled:opacity-50';
-const secondaryButtonClassName = 'inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-border-default bg-background-default px-4 py-2 text-sm font-medium text-text-default transition-colors hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none disabled:opacity-50';
-const compactSecondaryButtonClassName = 'inline-flex h-10 items-center justify-center rounded-md border border-border-default bg-background-default px-3 text-sm text-text-default transition-colors hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none disabled:opacity-50';
+const secondaryButtonClassName = 'inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-border-default bg-background-default px-4 py-2 text-sm font-medium text-text-default transition-colors hover:bg-element-bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none disabled:opacity-50';
+const compactSecondaryButtonClassName = 'inline-flex h-10 items-center justify-center rounded-md border border-border-default bg-background-default px-3 text-sm text-text-default transition-colors hover:bg-element-bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none disabled:opacity-50';
 const dangerButtonClassName = 'inline-flex h-9 items-center justify-center rounded-md border border-destructive-default px-4 py-2 text-sm font-medium text-destructive-default transition-colors hover:bg-destructive-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-default focus-visible:ring-offset-2 focus-visible:ring-offset-background-default';
 
 export function Settings() {
@@ -95,7 +109,7 @@ export function Settings() {
     isSuccess: isTokenValid,
     reset: resetTokenValidation,
   } = useValidateHackmdToken();
-  const { theme, setTheme } = useTheme();
+  const { setAppearance } = useTheme();
 
   const currentSettings = settingsData ?? defaultSettings;
 
@@ -130,7 +144,7 @@ export function Settings() {
 
   const handleResetToDefaults = () => {
     form.reset(defaultSettings);
-    setTheme('system');
+    setAppearance(defaultSettings.appearance);
     resetTokenValidation();
     updateSettings(defaultSettings, {
       onSuccess: () => toast.success('All settings reset to defaults'),
@@ -182,7 +196,7 @@ export function Settings() {
   };
 
   const closeWindow = useCallback(() => {
-    getCurrentWebviewWindow().close();
+    void getCurrentWebviewWindow().close();
   }, []);
 
   useEscapeKey(closeWindow);
@@ -190,39 +204,47 @@ export function Settings() {
   const showFormActions = activeTab === 'general' || activeTab === 'hackmd';
 
   return (
-    <div className="flex h-screen bg-background-muted pt-8 text-text-default" data-tauri-drag-region>
+    <Tabs
+      value={activeTab}
+      onValueChange={(value) => setActiveTab(value as SettingsTab)}
+      className="flex h-dvh bg-background-muted pt-[max(2rem,env(safe-area-inset-top))] text-text-default"
+      data-tauri-drag-region
+    >
       <aside className="w-56 border-r border-border-default bg-background-default p-4">
-        <nav className="space-y-1">
+        <TabsList aria-label="Settings sections" className="flex-col items-stretch space-y-1">
           {tabs.map((tab) => (
-            <button
+            <TabsTrigger
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-background-selected font-medium text-text-default shadow-sm'
-                  : 'text-text-subtle hover:bg-background-selected hover:text-text-default'
-              }`}
+              value={tab.id}
+              className={cn(
+                'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                'text-text-subtle hover:bg-element-bg-hover hover:text-text-default data-[selected]:bg-background-selected data-[selected]:font-medium data-[selected]:text-text-default data-[selected]:shadow-sm',
+              )}
             >
               {tab.icon}
               {tab.label}
-            </button>
+            </TabsTrigger>
           ))}
-        </nav>
+        </TabsList>
       </aside>
 
       <main className="flex-1 overflow-auto">
         <div className="mx-auto max-w-2xl p-8">
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          <form
+            onSubmit={(event) => {
+              void form.handleSubmit(onSubmit)(event);
+            }}
+            className="space-y-8"
+          >
 
-            {activeTab === 'general' && (
-              <div className="space-y-6">
+            <TabsContent value="general" className="space-y-6">
                 <h3 className="text-lg font-medium">General Settings</h3>
 
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label
                       htmlFor="title"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      className="text-sm font-medium leading-none peer-disabled:opacity-70"
                     >
                       Window Title
                     </label>
@@ -242,55 +264,21 @@ export function Settings() {
                     </p>
                   </div>
                 </div>
-              </div>
-            )}
+              </TabsContent>
 
-            {activeTab === 'appearance' && (
-              <div className="space-y-6">
+            <TabsContent value="appearance" className="space-y-6">
                 <h3 className="text-lg font-medium">Appearance</h3>
+                <ThemeAppearanceControls onApplied={() => toast.success('Theme applied')} />
+              </TabsContent>
 
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Theme</label>
-                    <p className="mb-3 text-sm text-text-subtle">
-                      Select your preferred color scheme
-                    </p>
-                    <div className="grid grid-cols-3 gap-3">
-                      {themeOptions.map((option) => (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => setTheme(option.id)}
-                          className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
-                            theme === option.id
-                              ? 'border-primary-default bg-primary-soft'
-                              : 'border-border-default bg-background-default hover:border-primary-default hover:bg-background-selected'
-                          }`}
-                        >
-                          <div className={`rounded-full p-2 ${
-                            theme === option.id ? 'bg-primary-soft text-primary-default' : 'bg-background-selected text-text-subtle'
-                          }`}>
-                            {option.icon}
-                          </div>
-                          <span className="text-sm font-medium">{option.label}</span>
-                          <span className="text-xs text-text-subtle">{option.description}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'hackmd' && (
-              <div className="space-y-6">
+            <TabsContent value="hackmd" className="space-y-6">
                 <h3 className="text-lg font-medium">HackMD API Integration</h3>
 
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label
                       htmlFor="hackmdApiToken"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      className="text-sm font-medium leading-none peer-disabled:opacity-70"
                     >
                       API Token
                     </label>
@@ -348,24 +336,22 @@ export function Settings() {
                     ) : null}
                   </div>
                 </div>
-              </div>
-            )}
+              </TabsContent>
 
-            {activeTab === 'shortcuts' && (
-              <div className="space-y-6">
+            <TabsContent value="shortcuts" className="space-y-6">
                 <h3 className="text-lg font-medium">Keyboard Shortcuts</h3>
 
                 <div className="space-y-2">
-                  {shortcuts.map((shortcut, index) => (
+                  {shortcuts.map((shortcut) => (
                     <div
-                      key={index}
+                      key={shortcut.id}
                       className="flex items-center justify-between rounded-md border border-border-default bg-background-default px-4 py-3"
                     >
                       <span className="text-sm">{shortcut.action}</span>
                       <div className="flex items-center gap-1">
                         {shortcut.keys.map((key, keyIndex) => (
                           <kbd
-                            key={keyIndex}
+                            key={`${shortcut.id}:${key}:${keyIndex}`}
                             className="inline-flex h-6 min-w-6 items-center justify-center rounded border border-border-default bg-background-muted px-1.5 text-xs font-medium text-text-subtle"
                           >
                             {key}
@@ -375,16 +361,14 @@ export function Settings() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              </TabsContent>
 
-            {activeTab === 'advanced' && (
-              <div className="space-y-6">
+            <TabsContent value="advanced" className="space-y-6">
                 <h3 className="text-lg font-medium">Advanced</h3>
 
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Version</label>
+                    <p className="text-sm font-medium">Version</p>
                     <div className="flex flex-wrap items-center gap-3">
                       <p className="text-sm text-text-subtle">
                         HackDesk v{version}
@@ -411,8 +395,7 @@ export function Settings() {
                     </button>
                   </div>
                 </div>
-              </div>
-            )}
+              </TabsContent>
 
             {showFormActions ? (
               <div className="flex items-center gap-4 pt-4">
@@ -436,7 +419,6 @@ export function Settings() {
           </form>
         </div>
       </main>
-    </div>
+    </Tabs>
   );
 }
-

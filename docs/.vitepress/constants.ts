@@ -16,3 +16,4 @@ export const GA_SCRIPT = `
 `;
 
 export const GITHUB_LATEST_RELEASE_URL = 'https://api.github.com/repos/eastsun5566/hackdesk/releases/latest';
+export const GITHUB_RELEASES_URL = 'https://api.github.com/repos/eastsun5566/hackdesk/releases?per_page=30';

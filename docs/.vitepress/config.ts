@@ -1,8 +1,8 @@
 import { join } from 'path';
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { defineConfig } from 'vitepress';
 
-import { getUpdaterJson } from './utils';
+import { getElectronUpdaterFiles, getUpdaterJson } from './utils';
 import { 
   TITLE,
   DESCRIPTION,
@@ -72,5 +72,14 @@ export default defineConfig({
     // write the latest release json to dist
     const updaterJson = await getUpdaterJson();
     await writeFile(join(outDir, 'latest.json'), updaterJson);
+
+    const electronUpdaterFiles = await getElectronUpdaterFiles();
+    if (electronUpdaterFiles.length > 0) {
+      const electronUpdatesDir = join(outDir, 'electron-updates');
+      await mkdir(electronUpdatesDir, { recursive: true });
+      await Promise.all(electronUpdaterFiles.map((file) => (
+        writeFile(join(electronUpdatesDir, file.name), file.content)
+      )));
+    }
   },
 });

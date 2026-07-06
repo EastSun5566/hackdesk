@@ -20,9 +20,38 @@
   --color-zinc-700: #3f3f46;
   --color-zinc-750: #303036;
   --color-zinc-800: #27272a;
+  --color-zinc-850: #202022;
+  --color-zinc-900: #18181b;
+  --color-zinc-950: #0e0e10;
 
+  --color-primary-50: #ecebfe;
+  --color-primary-100: #cccafc;
   --color-primary-300: #9894f9;
   --color-primary-500: #564dff;
+  --color-primary-600: #453aff;
+  --color-primary-800: #2e01a5;
+
+  --color-amber-75: #fef8dd;
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+  --color-emerald-75: #e5fbef;
+  --color-emerald-400: #6db19d;
+  --color-emerald-500: #55b685;
+  --color-emerald-600: #43946c;
+  --color-green-200: #b6e7a6;
+  --color-green-400: #76d158;
+  --color-green-500: #59c335;
+  --color-red-75: #feeeee;
+  --color-red-300: #fca5a5;
+  --color-red-400: #f87171;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
+  --color-sky-100: #e0f2fe;
+  --color-sky-200: #bae6fd;
+  --color-sky-400: #38bdf8;
+  --color-sky-500: #0ea5e9;
+  --color-sky-600: #0284c7;
 
   /* Semantic colors */
   --color-text-default: var(--text-default);
@@ -36,10 +65,21 @@
   --color-primary-hover: var(--primary-hover);
   --color-primary-soft: var(--primary-soft);
   --color-primary-foreground: var(--primary-foreground);
+  --color-focus-ring: var(--focus-ring);
   --color-success-default: var(--success-default);
   --color-success-soft: var(--success-soft);
+  --color-warning-default: var(--warning-default);
+  --color-warning-soft: var(--warning-soft);
   --color-destructive-default: var(--destructive-default);
   --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-icon-default: var(--icon-default);
+  --color-icon-subtle: var(--icon-subtle);
+  --color-border-bold: var(--border-bold);
+  --color-element-bg-hover: var(--element-bg-hover);
+  --color-element-border-hover: var(--element-border-hover);
+  --color-link-text-default: var(--link-text-default);
+  --color-link-text-hover: var(--link-text-hover);
 
   /* Animations */
   --animate-dialog-overlay-in: fadeIn 300ms ease-out;
@@ -91,50 +131,216 @@
   ::before,
   ::backdrop,
   ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
+    border-color: var(--border-default, currentcolor);
   }
 }
 
-@utility dark {
-  --text-default: var(--color-zinc-300);
-  --text-subtle: var(--color-zinc-400);
-  --background-default: var(--color-zinc-800);
-  --background-muted: var(--color-zinc-750);
-  --background-overlay: rgb(9 9 11 / 0.72);
-  --background-selected: var(--color-zinc-600);
-  --border-default: var(--color-zinc-600);
-  --primary-default: var(--color-primary-500);
-  --primary-hover: #6a63ff;
-  --primary-soft: rgb(86 77 255 / 0.18);
-  --primary-foreground: var(--color-white);
-  --success-default: #34d399;
-  --success-soft: rgb(52 211 153 / 0.18);
-  --destructive-default: #fb7185;
-  --destructive-soft: rgb(251 113 133 / 0.18);
-}
-
 @layer components {
-  :root {
-    --text-default: var(--color-zinc-700);
-    --text-subtle: var(--color-zinc-500);
-    --background-default: var(--color-zinc-25);
-    --background-muted: var(--color-zinc-50);
-    --background-overlay: rgb(39 39 42 / 0.45);
-    --background-selected: var(--color-zinc-100);
-    --border-default: var(--color-zinc-300);
-    --primary-default: var(--color-primary-500);
-    --primary-hover: #4d45e8;
-    --primary-soft: rgb(86 77 255 / 0.1);
+  :root,
+  :root.light {
+    color-scheme: light;
+
+    --font-system: Inter, system-ui, sans-serif;
+    --font-sans: var(--font-system);
+    --font-editor: "Source Code Pro", ui-monospace, monospace;
+    --font-mono: var(--font-editor);
+    --font-size-ui: 0.875rem;
+    --font-size-editor: 0.875rem;
+
+    --hmd-tw-text-default: var(--color-zinc-700);
+    --hmd-tw-text-subtle: var(--color-zinc-500);
+    --hmd-tw-text-subtler: var(--color-zinc-400);
+    --hmd-tw-text-emphasize: var(--color-zinc-800);
+    --hmd-tw-text-primary: var(--color-primary-500);
+    --hmd-tw-background-default: var(--color-zinc-25);
+    --hmd-tw-background-subtle: var(--color-zinc-300);
+    --hmd-tw-background-subtler: var(--color-zinc-100);
+    --hmd-tw-background-sunken: var(--color-zinc-50);
+    --hmd-tw-background-selected: var(--color-primary-50);
+    --hmd-tw-background-primary-default: var(--color-primary-500);
+    --hmd-tw-background-primary-subtler: var(--color-primary-50);
+    --hmd-tw-background-primary-subtle: var(--color-primary-100);
+    --hmd-tw-background-primary-hover: var(--color-primary-800);
+    --hmd-tw-background-primary-disabled: var(--color-primary-300);
+    --hmd-tw-background-primary-focus: var(--color-primary-800);
+    --hmd-tw-background-blur: rgb(253 253 253 / 0.72);
+    --hmd-tw-icon-default: var(--color-zinc-500);
+    --hmd-tw-icon-subtle: var(--color-zinc-400);
+    --hmd-tw-icon-subtler: var(--color-zinc-300);
+    --hmd-tw-icon-disabled: var(--color-zinc-400);
+    --hmd-tw-icon-primary: var(--hmd-tw-text-primary);
+    --hmd-tw-icon-emphasize: var(--color-zinc-800);
+    --hmd-tw-border-default: var(--color-zinc-300);
+    --hmd-tw-border-bold: var(--color-zinc-600);
+    --hmd-tw-border-subtle: var(--color-zinc-500);
+    --hmd-tw-border-subtler: var(--color-zinc-400);
+    --hmd-tw-border-subtlest: var(--color-zinc-200);
+    --hmd-tw-border-primary-focus: var(--color-primary-300);
+    --hmd-tw-border-primary-default: var(--color-primary-500);
+    --hmd-tw-border-primary-subtler: var(--color-primary-300);
+    --hmd-tw-overlay: rgb(0 0 0 / 0.3);
+    --hmd-tw-state-info-text: var(--color-sky-600);
+    --hmd-tw-state-info-background: var(--color-sky-100);
+    --hmd-tw-state-info-border: var(--color-sky-200);
+    --hmd-tw-state-success-text: var(--color-green-500);
+    --hmd-tw-state-success-background: var(--color-emerald-75);
+    --hmd-tw-state-success-border: var(--color-green-200);
+    --hmd-tw-state-success-default: var(--color-green-400);
+    --hmd-tw-state-danger-text: var(--color-red-500);
+    --hmd-tw-state-danger-bg-light: var(--color-red-75);
+    --hmd-tw-state-danger-bg-default: var(--color-red-500);
+    --hmd-tw-state-danger-bg-hover: var(--color-red-600);
+    --hmd-tw-state-danger-border: var(--color-red-300);
+    --hmd-tw-state-danger-default: var(--color-red-500);
+    --hmd-tw-element-bg-hover: var(--color-zinc-100);
+    --hmd-tw-element-border-hover: var(--color-zinc-300);
+    --hmd-tw-link-text-default: var(--color-primary-500);
+    --hmd-tw-link-text-hover: var(--color-primary-800);
+
+    --text-default: var(--hmd-tw-text-default);
+    --text-subtle: var(--hmd-tw-text-subtle);
+    --background-default: var(--hmd-tw-background-default);
+    --background-muted: var(--hmd-tw-background-subtler);
+    --background-overlay: var(--hmd-tw-overlay);
+    --background-selected: var(--hmd-tw-background-selected);
+    --border-default: var(--hmd-tw-border-default);
+    --border-bold: var(--hmd-tw-border-bold);
+    --primary-default: var(--hmd-tw-background-primary-default);
+    --primary-hover: var(--hmd-tw-background-primary-hover);
+    --primary-soft: var(--hmd-tw-background-primary-subtler);
     --primary-foreground: var(--color-white);
-    --success-default: #059669;
-    --success-soft: rgb(5 150 105 / 0.1);
-    --destructive-default: #e11d48;
-    --destructive-soft: rgb(225 29 72 / 0.1);
+    --success-default: var(--hmd-tw-state-success-default);
+    --success-soft: var(--hmd-tw-state-success-background);
+    --warning-default: var(--color-amber-400);
+    --warning-soft: var(--color-amber-75);
+    --destructive-default: var(--hmd-tw-state-danger-default);
+    --destructive-soft: var(--hmd-tw-state-danger-bg-light);
+    --destructive-foreground: var(--color-zinc-950);
+    --icon-default: var(--hmd-tw-icon-default);
+    --icon-subtle: var(--hmd-tw-icon-subtle);
+    --element-bg-hover: var(--hmd-tw-element-bg-hover);
+    --element-border-hover: var(--hmd-tw-element-border-hover);
+    --link-text-default: var(--hmd-tw-link-text-default);
+    --link-text-hover: var(--hmd-tw-link-text-hover);
+  }
+
+  :root.dark {
+    color-scheme: dark;
+
+    --hmd-tw-text-default: var(--color-zinc-300);
+    --hmd-tw-text-subtle: var(--color-zinc-400);
+    --hmd-tw-text-subtler: var(--color-zinc-500);
+    --hmd-tw-text-emphasize: var(--color-zinc-100);
+    --hmd-tw-text-primary: var(--color-primary-300);
+    --hmd-tw-background-default: var(--color-zinc-800);
+    --hmd-tw-background-subtle: var(--color-zinc-600);
+    --hmd-tw-background-subtler: var(--color-zinc-750);
+    --hmd-tw-background-sunken: var(--color-zinc-900);
+    --hmd-tw-background-selected: #302d6a;
+    --hmd-tw-background-primary-default: var(--color-primary-500);
+    --hmd-tw-background-primary-subtler: #2c2a4a;
+    --hmd-tw-background-primary-subtle: #302d6a;
+    --hmd-tw-background-primary-hover: var(--color-primary-300);
+    --hmd-tw-background-primary-disabled: #3932aa;
+    --hmd-tw-background-primary-focus: var(--color-primary-300);
+    --hmd-tw-background-blur: rgb(39 39 42 / 0.6);
+    --hmd-tw-icon-default: var(--color-zinc-300);
+    --hmd-tw-icon-subtle: var(--color-zinc-400);
+    --hmd-tw-icon-subtler: var(--color-zinc-500);
+    --hmd-tw-icon-disabled: var(--color-zinc-500);
+    --hmd-tw-icon-primary: var(--hmd-tw-text-primary);
+    --hmd-tw-icon-emphasize: var(--color-zinc-100);
+    --hmd-tw-border-default: var(--color-zinc-600);
+    --hmd-tw-border-bold: var(--color-zinc-300);
+    --hmd-tw-border-subtle: var(--color-zinc-400);
+    --hmd-tw-border-subtler: var(--color-zinc-500);
+    --hmd-tw-border-subtlest: var(--color-zinc-700);
+    --hmd-tw-border-primary-focus: var(--color-primary-300);
+    --hmd-tw-border-primary-default: var(--color-primary-300);
+    --hmd-tw-border-primary-subtler: var(--color-primary-300);
+    --hmd-tw-overlay: rgb(0 0 0 / 0.7);
+    --hmd-tw-state-info-text: var(--color-sky-400);
+    --hmd-tw-state-info-background: rgb(56 189 248 / 0.1);
+    --hmd-tw-state-info-border: var(--color-sky-600);
+    --hmd-tw-state-success-text: var(--color-green-500);
+    --hmd-tw-state-success-background: rgb(109 177 157 / 0.15);
+    --hmd-tw-state-success-border: var(--color-emerald-600);
+    --hmd-tw-state-success-default: var(--color-green-500);
+    --hmd-tw-state-danger-text: var(--color-red-400);
+    --hmd-tw-state-danger-bg-light: rgb(239 68 68 / 0.2);
+    --hmd-tw-state-danger-bg-default: var(--color-red-500);
+    --hmd-tw-state-danger-bg-hover: var(--color-red-400);
+    --hmd-tw-state-danger-border: var(--color-red-400);
+    --hmd-tw-state-danger-default: var(--color-red-400);
+    --destructive-foreground: var(--color-zinc-950);
+    --hmd-tw-element-bg-hover: var(--color-zinc-750);
+    --hmd-tw-element-border-hover: var(--color-zinc-500);
+    --hmd-tw-link-text-default: var(--color-primary-300);
+    --hmd-tw-link-text-hover: var(--color-primary-100);
   }
 }
 
 @layer base {
+  html {
+    accent-color: var(--primary-default);
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+
+  ::selection {
+    background-color: var(--selection-background);
+    color: var(--selection-foreground);
+  }
+
+  @media (prefers-contrast: more) {
+    html {
+      --focus-ring: CanvasText;
+      --scrollbar-thumb: CanvasText;
+      --scrollbar-track: Canvas;
+      --selection-background: Highlight;
+      --selection-foreground: HighlightText;
+
+      scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    }
+  }
+
   body {
     @apply bg-background-default text-text-default;
+    font-family: var(--font-system);
+    font-size: var(--font-size-ui);
   }
+
+  .app-topbar {
+    -webkit-app-region: drag;
+  }
+
+  .app-topbar-button {
+    -webkit-app-region: no-drag;
+  }
+
+  .app-region-no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  .app-chrome {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .app-chrome input,
+  .app-chrome textarea,
+  .app-chrome [contenteditable='true'],
+  .app-chrome .markdown-editor,
+  .app-chrome .markdown-editor * {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  .markdown-editor {
+    height: 100%;
+  }
+
+  .markdown-editor .cm-editor {
+    height: 100%;
+  }
+
 }

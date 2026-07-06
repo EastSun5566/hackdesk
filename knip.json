@@ -1,0 +1,25 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/App.tsx",
+    "src/routes.tsx",
+    "src/pages/index.ts",
+    "src/components/ui/select.tsx",
+    "electron/src/main/index.ts",
+    "electron/src/preload/index.ts",
+    "scripts/*.ts",
+    "docs/.vitepress/config.ts",
+    "docs/release.data.ts"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "electron/src/**/*.ts",
+    "scripts/**/*.ts",
+    "docs/**/*.ts"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "ignoreDependencies": [
+    "tailwindcss",
+    "tailwindcss-animate"
+  ]
+}

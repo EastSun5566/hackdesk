@@ -4,15 +4,15 @@ import { listen } from '@tauri-apps/api/event';
 import { LogicalSize } from '@tauri-apps/api/dpi';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
-export const COMMAND_PALETTE_OPEN_EVENT = 'command-palette:open';
+const COMMAND_PALETTE_OPEN_EVENT = 'command-palette:open';
 export const COMMAND_PALETTE_SYNC_THEME_EVENT = 'command-palette:sync-theme';
 
-export const COMPACT_COMMAND_PALETTE_SIZE = {
+const COMPACT_COMMAND_PALETTE_SIZE = {
   width: 560,
   height: 312,
 } as const;
 
-export const NOTES_COMMAND_PALETTE_SIZE = {
+const NOTES_COMMAND_PALETTE_SIZE = {
   width: 760,
   height: 560,
 } as const;
@@ -22,7 +22,7 @@ type CommandPaletteWindowMode = 'compact' | 'notes';
 function isCommandPaletteContentReady(root: HTMLElement) {
   return Boolean(
     root.querySelector('[cmdk-item]')
-    && root.querySelector('[cmdk-input-wrapper] input'),
+    && root.querySelector('[data-cmdk-input-wrapper] input'),
   );
 }
 
@@ -67,7 +67,7 @@ async function markCommandPaletteReady(rootRef: RefObject<HTMLElement | null>) {
 }
 
 function focusCommandPaletteInput(root: HTMLElement) {
-  root.querySelector<HTMLInputElement>('[cmdk-input-wrapper] input')?.focus();
+  root.querySelector<HTMLInputElement>('[data-cmdk-input-wrapper] input')?.focus();
 }
 
 export function useCommandPaletteWindow(
