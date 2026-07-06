@@ -1,13 +1,12 @@
 import { useState, type ReactNode } from 'react';
 import { AlertCircle, FolderOpen, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toast';
 
 import type { ElectronSafeSettings } from '@/lib/electron-api';
 import type { LocalVaultSnapshot } from '@/lib/local-vault';
-import { cn } from '@/lib/utils';
 
 import { SettingsSection } from './SettingsPrimitives';
-import { FOCUS_RING_CLASS } from './ui';
 
 const LOCAL_VAULT_SCANNED_AT_FORMATTER = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
@@ -151,20 +150,13 @@ function SettingsActionButton({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant={destructive ? 'destructive' : 'secondary'}
       disabled={disabled || busy}
       onClick={onClick}
-      className={cn(
-        'inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm transition-colors disabled:pointer-events-none disabled:opacity-50',
-        destructive
-          ? 'border-destructive-default text-destructive-default hover:bg-destructive-soft'
-          : 'border-border-default text-text-default hover:bg-element-bg-hover',
-        FOCUS_RING_CLASS,
-      )}
     >
       {busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : icon}
       {children}
-    </button>
+    </Button>
   );
 }

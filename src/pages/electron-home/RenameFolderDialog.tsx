@@ -9,12 +9,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Field, FieldLabel, Input, Textarea } from '@/components/ui/field';
 import type { UpdateFolderInput } from '@/lib/electron-api';
-import { cn } from '@/lib/utils';
 
 import { FolderAppearanceFields } from './FolderAppearanceFields';
 import type { RenameFolderDialogState } from './types';
-import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS, TEXT_INPUT_CLASS } from './ui';
 
 const CLOSED_RENAME_FOLDER_DIALOG_STATE = { open: false, folderId: null, name: '', description: '', icon: '', color: '' } as const;
 const EDIT_FOLDER_DESCRIPTION_ID = 'edit-folder-description';
@@ -77,31 +77,29 @@ export function RenameFolderDialog({
           Update folder details and appearance.
         </p>
         <form className="space-y-4" onSubmit={handleSubmit}>
-          <div className="space-y-2 text-sm">
-            <label htmlFor={EDIT_FOLDER_NAME_ID} className="font-medium text-text-default">Name</label>
-            <input
+          <Field>
+            <FieldLabel htmlFor={EDIT_FOLDER_NAME_ID}>Name</FieldLabel>
+            <Input
               id={EDIT_FOLDER_NAME_ID}
               name="name"
               value={state.name}
               onChange={(event) => onStateChange({ ...state, name: event.target.value })}
-              className={TEXT_INPUT_CLASS}
               autoComplete="off"
               spellCheck
               aria-describedby={EDIT_FOLDER_FORM_DESCRIPTION_ID}
             />
-          </div>
-          <div className="space-y-2 text-sm">
-            <label htmlFor={EDIT_FOLDER_DESCRIPTION_ID} className="font-medium text-text-default">Description</label>
-            <textarea
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={EDIT_FOLDER_DESCRIPTION_ID}>Description</FieldLabel>
+            <Textarea
               id={EDIT_FOLDER_DESCRIPTION_ID}
               name="description"
               value={state.description}
               onChange={(event) => onStateChange({ ...state, description: event.target.value })}
-              className={cn(TEXT_INPUT_CLASS, 'min-h-20 py-2')}
               rows={3}
               spellCheck
             />
-          </div>
+          </Field>
           <FolderAppearanceFields
             icon={state.icon}
             color={state.color}
@@ -109,18 +107,18 @@ export function RenameFolderDialog({
             onColorChange={(color) => onStateChange({ ...state, color })}
           />
           <DialogFooter>
-            <button
+            <Button
+              variant="secondary"
               type="button"
               disabled={isRenaming}
               onClick={() => onStateChange(CLOSED_RENAME_FOLDER_DIALOG_STATE)}
-              className={SECONDARY_BUTTON_CLASS}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
               type="submit"
               disabled={!canSubmit}
-              className={PRIMARY_BUTTON_CLASS}
             >
               {isRenaming ? (
                 <>
@@ -133,7 +131,7 @@ export function RenameFolderDialog({
                   Save Changes
                 </>
               )}
-            </button>
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

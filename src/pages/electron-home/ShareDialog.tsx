@@ -8,6 +8,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/field';
 import {
   Select,
   SelectContent,
@@ -24,14 +26,6 @@ import {
   getHackmdNoteUrl,
   getMarkdownNoteLink,
 } from '@/lib/electron-note-links';
-import { cn } from '@/lib/utils';
-
-import {
-  FOCUS_RING_CLASS,
-  PRIMARY_BUTTON_CLASS,
-  SECONDARY_BUTTON_CLASS,
-  TEXT_INPUT_CLASS,
-} from './ui';
 
 function getReadPermissionLabel(permission: NotePermissionRole) {
   switch (permission) {
@@ -136,53 +130,52 @@ function ShareDialogContent({
                 <label className="text-sm font-medium text-text-default" htmlFor="share-hackmd-link">
                   HackMD link
                 </label>
-                <input
+                <Input
                   id="share-hackmd-link"
                   readOnly
                   value={hackmdLink}
-                  className={cn(TEXT_INPUT_CLASS, 'min-w-0 bg-background-muted sm:h-9')}
+                  className="min-w-0 bg-background-muted sm:h-9"
                 />
-                <button
+                <Button
+                  variant="secondary"
                   type="button"
                   aria-label="Copy HackMD link"
                   onClick={() => onCopyLink(document)}
-                  className={SECONDARY_BUTTON_CLASS}
                 >
                   <Copy aria-hidden="true" className="h-4 w-4" />
                   Copy
-                </button>
+                </Button>
               </div>
 
               <div className="grid gap-2 px-3 py-2.5 sm:grid-cols-[7rem_minmax(0,1fr)_auto] sm:items-center">
                 <label className="text-sm font-medium text-text-default" htmlFor="share-markdown-link">
                   Markdown link
                 </label>
-                <input
+                <Input
                   id="share-markdown-link"
                   readOnly
                   value={markdownLink}
-                  className={cn(TEXT_INPUT_CLASS, 'min-w-0 bg-background-muted sm:h-9')}
+                  className="min-w-0 bg-background-muted sm:h-9"
                 />
-                <button
+                <Button
+                  variant="secondary"
                   type="button"
                   aria-label="Copy Markdown link"
                   onClick={() => onCopyMarkdownLink(document)}
-                  className={SECONDARY_BUTTON_CLASS}
                 >
                   <Copy aria-hidden="true" className="h-4 w-4" />
                   Copy
-                </button>
+                </Button>
               </div>
             </div>
 
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={() => onOpenEditor(document)}
-              className={SECONDARY_BUTTON_CLASS}
             >
               <Edit3 aria-hidden="true" className="h-4 w-4" />
               Open in HackMD
-            </button>
+            </Button>
           </section>
 
           <form
@@ -250,16 +243,16 @@ function ShareDialogContent({
             </div>
 
             <div className="flex justify-end">
-              <button
+              <Button
+                variant="primary"
                 type="submit"
                 disabled={!permissionsDirty || isSaving}
-                className={cn(PRIMARY_BUTTON_CLASS, FOCUS_RING_CLASS)}
               >
                 {isSaving
                   ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
                   : <Save aria-hidden="true" className="h-4 w-4" />}
                 {isSaving ? 'Saving…' : 'Save Access'}
-              </button>
+              </Button>
             </div>
           </form>
         </div>

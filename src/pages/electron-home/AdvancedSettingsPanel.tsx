@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { AlertCircle, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toast';
 import {
   AlertDialog,
@@ -80,18 +81,14 @@ export function AdvancedSettingsPanel({
       <SettingsSection title="Version">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-default bg-background-default px-3 py-2">
           <span className="text-sm text-text-subtle">HackDesk v{version}</span>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={handleCheckForUpdates}
             disabled={isCheckingUpdates}
-            className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-md border border-border-default px-3 text-sm text-text-default transition-colors hover:bg-element-bg-hover disabled:pointer-events-none disabled:opacity-50',
-              FOCUS_RING_CLASS,
-            )}
           >
             {isCheckingUpdates ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : null}
             {isCheckingUpdates ? 'Checking…' : 'Check for Updates'}
-          </button>
+          </Button>
         </div>
       </SettingsSection>
 
@@ -100,18 +97,14 @@ export function AdvancedSettingsPanel({
           <p className="mb-3 text-xs leading-5 text-text-subtle">
             Restores local preferences and clears the configured HackMD token. Notes and vault files are not deleted.
           </p>
-          <button
+          <Button
             ref={resetButtonRef}
-            type="button"
+            variant="destructive"
             onClick={() => setIsResetDialogOpen(true)}
-            className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-md border border-destructive-default px-3 text-sm font-medium text-destructive-default transition-colors hover:bg-destructive-soft',
-              FOCUS_RING_CLASS,
-            )}
           >
             <AlertCircle className="h-4 w-4" />
             Reset All Settings
-          </button>
+          </Button>
         </div>
       </SettingsSection>
 

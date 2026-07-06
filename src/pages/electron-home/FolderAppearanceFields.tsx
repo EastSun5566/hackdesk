@@ -1,10 +1,12 @@
 import { ChevronRight, Palette, RotateCcw } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Field, FieldLabel, Input } from '@/components/ui/field';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 
-import { FOCUS_RING_CLASS, TEXT_INPUT_CLASS } from './ui';
+import { FOCUS_RING_CLASS } from './ui';
 
 const CUSTOM_FOLDER_COLOR_ID = 'custom-folder-color';
 const CUSTOM_FOLDER_ICON_ID = 'custom-folder-icon';
@@ -71,17 +73,15 @@ export function FolderAppearanceFields({
             </RadioGroupItem>
           ))}
         </RadioGroup>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={() => onIconChange('')}
-          className={cn(
-            'inline-flex h-8 items-center gap-2 rounded-md border border-border-default px-2 text-xs text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default',
-            FOCUS_RING_CLASS,
-          )}
+          className="text-text-subtle hover:text-text-default"
         >
           <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />
           Use default icon
-        </button>
+        </Button>
       </fieldset>
 
       <fieldset className="space-y-2">
@@ -104,17 +104,15 @@ export function FolderAppearanceFields({
             />
           ))}
         </RadioGroup>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={() => onColorChange('')}
-          className={cn(
-            'inline-flex h-8 items-center gap-2 rounded-md border border-border-default px-2 text-xs text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default',
-            FOCUS_RING_CLASS,
-          )}
+          className="text-text-subtle hover:text-text-default"
         >
           <Palette aria-hidden="true" className="h-3.5 w-3.5" />
           Use default color
-        </button>
+        </Button>
       </fieldset>
 
       <Collapsible className="rounded-md border border-border-default bg-background-muted px-3 py-2 text-sm">
@@ -127,41 +125,39 @@ export function FolderAppearanceFields({
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="grid grid-cols-2 gap-3 pt-3">
-            <div className="space-y-2 text-sm">
-              <label htmlFor={CUSTOM_FOLDER_ICON_ID} className="font-medium text-text-default">Icon codepoint</label>
-              <input
+            <Field>
+              <FieldLabel htmlFor={CUSTOM_FOLDER_ICON_ID}>Icon codepoint</FieldLabel>
+              <Input
                 id={CUSTOM_FOLDER_ICON_ID}
                 name="icon"
                 value={icon}
                 onChange={(event) => onIconChange(event.target.value)}
-                className={TEXT_INPUT_CLASS}
                 placeholder="1F4C1…"
                 autoComplete="off"
                 spellCheck={false}
                 inputMode="text"
               />
-            </div>
-            <div className="space-y-2 text-sm">
-              <label htmlFor={CUSTOM_FOLDER_COLOR_ID} className="font-medium text-text-default">Color hex</label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={CUSTOM_FOLDER_COLOR_ID}>Color hex</FieldLabel>
               <span className="flex items-center gap-2">
                 <span
                   className="size-5 rounded-[4px] border border-border-default"
                   style={{ backgroundColor: normalizedColor || 'transparent' }}
                   aria-hidden="true"
                 />
-                <input
+                <Input
                   id={CUSTOM_FOLDER_COLOR_ID}
                   name="color"
                   value={color}
                   onChange={(event) => onColorChange(event.target.value)}
-                  className={TEXT_INPUT_CLASS}
                   placeholder="#2F80ED…"
                   autoComplete="off"
                   spellCheck={false}
                   inputMode="text"
                 />
               </span>
-            </div>
+            </Field>
           </div>
         </CollapsibleContent>
       </Collapsible>

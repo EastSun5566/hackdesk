@@ -1,10 +1,9 @@
 import { Loader2, Save } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import type { ThemeAppearanceDraftController } from '@/components/useThemeAppearanceDraft';
-import { cn } from '@/lib/utils';
 
 import type { SettingsTab } from './SettingsDialogConfig';
-import { FOCUS_RING_CLASS } from './ui';
 
 export function SettingsDialogFooter({
   activeTab,
@@ -31,56 +30,41 @@ export function SettingsDialogFooter({
     <div className="flex items-center justify-end gap-2 border-t border-border-default px-5 py-4">
       <div className="flex shrink-0 items-center gap-2">
         {activeTab === 'appearance' && appearanceStatus.hasDraftChanges ? (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={onCancelPreview}
-            className={cn(
-              'inline-flex h-9 items-center rounded-md border border-border-default bg-background-default px-3 text-sm text-text-default transition-colors hover:bg-element-bg-hover',
-              FOCUS_RING_CLASS,
-            )}
           >
             Cancel Preview
-          </button>
+          </Button>
         ) : null}
         {activeTab === 'appearance' ? (
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={onApplyTheme}
             disabled={!appearanceStatus.canApply}
-            className={cn(
-              'inline-flex h-9 items-center justify-center rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50',
-              FOCUS_RING_CLASS,
-            )}
           >
             Apply Theme
-          </button>
+          </Button>
         ) : null}
         {(activeTab === 'general' || activeTab === 'editor' || activeTab === 'shortcuts' || activeTab === 'hackmd') ? (
-          <button
+          <Button
+            variant="primary"
             type="submit"
             disabled={saveDisabled}
-            className={cn(
-              'inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50',
-              FOCUS_RING_CLASS,
-            )}
           >
             {isSaving || isTestingToken
               ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
               : <Save aria-hidden="true" className="h-4 w-4" />}
             {isTestingToken ? 'Testing…' : isSaving ? 'Saving…' : 'Save'}
-          </button>
+          </Button>
         ) : null}
         {(activeTab === 'advanced' || activeTab === 'vault') ? (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={onClose}
-            className={cn(
-              'inline-flex h-9 items-center rounded-md border border-border-default bg-background-default px-3 text-sm text-text-default transition-colors hover:bg-element-bg-hover',
-              FOCUS_RING_CLASS,
-            )}
           >
             Close
-          </button>
+          </Button>
         ) : null}
       </div>
     </div>

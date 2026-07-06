@@ -13,15 +13,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import type { HackmdCliConfigStatus, ImportHackmdCliTokenResult, UserSummary } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
 
 import { SettingsRow, SettingsSecretInput } from './SettingsPrimitives';
-import {
-  FOCUS_RING_CLASS,
-  PRIMARY_BUTTON_CLASS,
-  SECONDARY_BUTTON_CLASS,
-} from './ui';
 
 const ONBOARDING_TOKEN_ID = 'hackmd-onboarding-token';
 const ONBOARDING_TOKEN_STATUS_ID = 'hackmd-onboarding-token-status';
@@ -228,48 +224,47 @@ export function HackmdOnboardingDialog({
               >
                 {status.message}
               </p>
-              <button
-                type="button"
-                className={cn('inline-flex shrink-0 items-center gap-1 text-xs text-text-subtle transition-colors hover:text-text-default', FOCUS_RING_CLASS)}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto shrink-0 gap-1 px-1 py-0 text-text-subtle hover:bg-transparent hover:text-text-default"
                 onClick={onOpenHackmdSettings}
               >
                 <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
                 Open HackMD settings
-              </button>
+              </Button>
             </div>
 
             <div className="pt-1">
-              <button
+              <Button
+                variant="primary"
                 type="submit"
                 disabled={!normalizedToken || busy}
-                className={cn(PRIMARY_BUTTON_CLASS, 'w-full justify-center')}
+                className="w-full"
               >
                 {busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : null}
                 {tokenSubmitLabel}
-              </button>
+              </Button>
             </div>
           </form>
           <div className="mt-5 grid gap-2 border-t border-border-default pt-4">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               disabled={busy}
-              className={cn(SECONDARY_BUTTON_CLASS, 'w-full justify-center disabled:pointer-events-none disabled:opacity-50')}
+              className="w-full"
               onClick={handleChooseLocalVault}
             >
               {status.message === 'Opening folder picker…' ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : null}
               Open local folder
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
               disabled={busy}
-              className={cn(
-                'inline-flex h-9 items-center justify-center rounded-md px-3 text-sm text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default disabled:pointer-events-none disabled:opacity-50',
-                FOCUS_RING_CLASS,
-              )}
+              className="w-full text-text-subtle"
               onClick={handleSetupLater}
             >
               Setup later
-            </button>
+            </Button>
           </div>
         </OnboardingStepShell>
       </DialogContent>
@@ -310,17 +305,14 @@ function HackmdCliImportCard({
           ) : null}
         </div>
       </div>
-      <button
-        type="button"
+      <Button
+        variant="primary"
         disabled={busy || unsupportedCustomEndpoint}
-        className={cn(
-          PRIMARY_BUTTON_CLASS,
-          'mt-3 w-full justify-center disabled:pointer-events-none disabled:opacity-50',
-        )}
+        className="mt-3 w-full"
         onClick={onImport}
       >
         Import token
-      </button>
+      </Button>
     </div>
   );
 }
