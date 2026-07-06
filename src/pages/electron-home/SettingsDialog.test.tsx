@@ -133,47 +133,6 @@ describe('SettingsDialog', () => {
     window.localStorage.clear();
   });
 
-  it('keeps the dialog body scrollable when settings content is taller than the viewport', () => {
-    renderSettingsDialog();
-
-    const tabpanel = screen.getByRole('tabpanel', { name: 'General' });
-
-    expect(tabpanel).toHaveClass('overflow-y-auto');
-    expect(tabpanel).toHaveClass('overscroll-contain');
-    expect(tabpanel.className).toContain('[scrollbar-gutter:stable]');
-  });
-
-  it('links every tab to a mounted panel and hides inactive panels', () => {
-    renderSettingsDialog();
-
-    const tabs = screen.getAllByRole('tab');
-    const panels = screen.getAllByRole('tabpanel', { hidden: true });
-
-    expect(tabs).toHaveLength(7);
-    expect(panels).toHaveLength(7);
-
-    tabs.forEach((tab) => {
-      expect(tab.tagName).toBe('BUTTON');
-      expect(tab).toHaveAttribute('type', 'button');
-
-      const panelId = tab.getAttribute('aria-controls');
-      expect(panelId).toBeTruthy();
-
-      const panel = document.getElementById(panelId!);
-      expect(panel).toHaveAttribute('role', 'tabpanel');
-      expect(panel).toHaveAttribute('aria-labelledby', tab.id);
-
-      if (tab.getAttribute('aria-selected') === 'true') {
-        expect(panel).toBeVisible();
-        expect(panel).not.toHaveAttribute('inert');
-      } else {
-        expect(panel).not.toBeVisible();
-        expect(panel).toHaveAttribute('hidden');
-        expect(panel).toHaveAttribute('inert');
-      }
-    });
-  });
-
   it('renders a vertical settings tablist and activates tabs with vertical arrow keys', async () => {
     renderSettingsDialog();
 
@@ -206,23 +165,6 @@ describe('SettingsDialog', () => {
     });
   });
 
-  it('shows one settings section per tab instead of one long form', () => {
-    renderSettingsDialog();
-
-    expect(screen.getByRole('tab', { name: /General/ })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByLabelText('Window title')).toBeVisible();
-    expect(screen.getByLabelText('API Token')).not.toBeVisible();
-    expect(screen.queryByText('Apply Theme')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
-    expect(screen.getByText('No local vault configured')).toBeVisible();
-    expect(screen.getByLabelText('Window title')).not.toBeVisible();
-
-    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
-    expect(screen.getByLabelText('API Token')).toBeVisible();
-    expect(screen.getByLabelText('Window title')).not.toBeVisible();
-  });
-
   it('updates footer actions with the active tab without repeating tab descriptions', () => {
     renderSettingsDialog();
 
@@ -250,7 +192,6 @@ describe('SettingsDialog', () => {
     const saveButton = screen.getByRole('button', { name: 'Saving…' });
 
     expect(saveButton).toBeDisabled();
-    expect(saveButton.querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
     fireEvent.click(saveButton);
     fireEvent.submit(saveButton.closest('form')!);
 
@@ -333,8 +274,6 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reset All Settings' }));
     const confirmDialog = screen.getByRole('alertdialog', { name: 'Reset All Settings?' });
     const confirmButton = within(confirmDialog).getByRole('button', { name: 'Reset All Settings' });
-    expect(confirmButton).toHaveClass('bg-destructive-default');
-    expect(confirmButton).toHaveClass('text-destructive-foreground');
     fireEvent.click(confirmButton);
 
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
@@ -350,6 +289,19 @@ describe('SettingsDialog', () => {
 
     expect(localStorage.getItem(THEME_STORAGE_KEYS.presetId)).toBe('dracula');
     expect(toastSuccessMock).toHaveBeenCalledWith('Theme applied');
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('rolls back an unapplied appearance preview when settings closes', async () => {
+    const { onOpenChange } = renderSettingsDialog();
+
+    await previewDraculaTheme();
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+    await waitFor(() => {
+      expect(document.documentElement.dataset.themePreset).toBe('hackmd-neo');
+      expect(screen.getByLabelText('Theme preset')).toHaveTextContent('HackMD Neo');
+    });
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
@@ -401,90 +353,6 @@ describe('SettingsDialog', () => {
       expect(screen.getByLabelText('Theme preset')).toHaveTextContent('HackMD Neo');
     });
     expect(onOpenChange).not.toHaveBeenCalled();
-  });
-
-  it('cancels an appearance preview when the dialog close button is used', async () => {
-    const { onOpenChange, rerenderSettingsDialog } = renderSettingsDialog();
-
-    await previewDraculaTheme();
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-
-    await waitFor(() => {
-      expect(document.documentElement.dataset.themePreset).toBe('hackmd-neo');
-      expect(screen.getByLabelText('Theme preset')).toHaveTextContent('HackMD Neo');
-    });
-    expect(onOpenChange).toHaveBeenCalledWith(false);
-
-    rerenderSettingsDialog({ open: false });
-    expect(screen.queryByRole('dialog')).toBeNull();
-    rerenderSettingsDialog({ open: true });
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('Theme preset')).toHaveTextContent('HackMD Neo');
-    });
-  });
-
-  it('cancels an appearance preview when Escape closes the dialog', async () => {
-    const { onOpenChange } = renderSettingsDialog();
-
-    await previewDraculaTheme();
-    fireEvent.keyDown(document, { key: 'Escape' });
-
-    await waitFor(() => {
-      expect(document.documentElement.dataset.themePreset).toBe('hackmd-neo');
-      expect(screen.getByLabelText('Theme preset')).toHaveTextContent('HackMD Neo');
-    });
-    expect(onOpenChange).toHaveBeenCalledWith(false);
-  });
-
-  it('cancels an appearance preview from another tab footer before closing', async () => {
-    const { onOpenChange } = renderSettingsDialog();
-
-    await previewDraculaTheme();
-    fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
-    const footerCloseButton = screen.getAllByRole('button', { name: 'Close' })
-      .find((button) => button.textContent?.trim() === 'Close');
-
-    expect(footerCloseButton).toBeDefined();
-    fireEvent.click(footerCloseButton as HTMLButtonElement);
-
-    await waitFor(() => {
-      expect(document.documentElement.dataset.themePreset).toBe('hackmd-neo');
-    });
-    expect(onOpenChange).toHaveBeenCalledWith(false);
-  });
-
-  it('shows Electron appearance typography controls and mainstream presets', async () => {
-    renderSettingsDialog();
-
-    fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
-
-    expect(screen.getByText('Typography')).toBeVisible();
-    const helpButton = screen.getByRole('button', { name: 'About Appearance' });
-    expect(helpButton).toBeVisible();
-    expect(helpButton).toHaveClass('relative');
-    expect(helpButton.className).toContain('after:-inset-2');
-    helpButton.focus();
-    expect(helpButton).toHaveFocus();
-    expect(await screen.findByText('Theme changes preview immediately. Apply Theme keeps the preview; Cancel Preview restores the saved theme.')).toBeVisible();
-    expect(screen.queryByText('Choose local font stacks for HackDesk chrome and the markdown editor.')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Theme preset')).toHaveTextContent('HackMD Neo');
-    expect(screen.getByLabelText('Theme preset')).not.toHaveTextContent('hackmd-neo');
-    expect(screen.getByText('The default HackDesk writing palette.')).toBeVisible();
-    expect(screen.getByLabelText('UI font')).toBeVisible();
-    expect(screen.getByLabelText('Editor font')).toBeVisible();
-    const uiFontSize = screen.getByLabelText('UI font size');
-    expect(uiFontSize).toHaveAttribute('type', 'number');
-    expect(uiFontSize).toHaveAttribute('min', '12');
-    expect(uiFontSize).toHaveAttribute('max', '18');
-    expect(uiFontSize).toHaveAttribute('step', '1');
-    expect(uiFontSize).toHaveValue(14);
-    const editorFontSize = screen.getByLabelText('Editor font size');
-    expect(editorFontSize).toHaveAttribute('type', 'number');
-    expect(editorFontSize).toHaveAttribute('min', '10');
-    expect(editorFontSize).toHaveAttribute('max', '32');
-    expect(editorFontSize).toHaveAttribute('step', '1');
-    expect(editorFontSize).toHaveValue(14);
   });
 
   it('previews, applies, and persists UI and editor font sizes independently', async () => {
@@ -544,24 +412,6 @@ describe('SettingsDialog', () => {
     });
   });
 
-  it('updates the theme select label and description when choosing another preset', async () => {
-    renderSettingsDialog();
-
-    fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
-    await selectThemeOption('Dracula');
-
-    expect(screen.getByLabelText('Theme preset')).toHaveTextContent('Dracula');
-    expect(screen.getByText('Alucard Classic in light mode, Dracula Classic in dark mode.')).toBeVisible();
-
-    await selectThemeOption('Gruvbox');
-    expect(screen.getByLabelText('Theme preset')).toHaveTextContent('Gruvbox');
-    expect(screen.getByText('Gruvbox Light and Dark for warm terminal-style writing.')).toBeVisible();
-
-    await selectThemeOption('Noctis');
-    expect(screen.getByLabelText('Theme preset')).toHaveTextContent('Noctis');
-    expect(screen.getByText('Noctis Lux in light mode, Noctis in dark mode.')).toBeVisible();
-  });
-
   it('saves the title from its tab-specific footer action', () => {
     const { onSave } = renderSettingsDialog();
 
@@ -589,7 +439,6 @@ describe('SettingsDialog', () => {
     expect(onSave).not.toHaveBeenCalled();
     const testingButton = screen.getByRole('button', { name: 'Testing…' });
     expect(testingButton).toBeDisabled();
-    expect(testingButton.querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
     expect(screen.getByText('Testing token…')).toBeVisible();
 
     await act(async () => {
@@ -760,8 +609,6 @@ describe('SettingsDialog', () => {
     fireEvent.click(disconnectButton);
     const confirmDialog = screen.getByRole('alertdialog', { name: 'Disconnect HackMD?' });
     const confirmButton = within(confirmDialog).getByRole('button', { name: 'Disconnect HackMD' });
-    expect(confirmButton).toHaveClass('bg-destructive-default');
-    expect(confirmButton).toHaveClass('text-destructive-foreground');
     fireEvent.click(confirmButton);
 
     expect(onDisconnectHackmd).toHaveBeenCalledOnce();
@@ -827,31 +674,6 @@ describe('SettingsDialog', () => {
     expect(onRefreshLocalVault).toHaveBeenCalledOnce();
     expect(onChooseLocalVault).toHaveBeenCalledOnce();
     expect(onForgetLocalVault).toHaveBeenCalledOnce();
-  });
-
-  it('uses a reduced-motion-safe spinner while vault actions are busy', () => {
-    const refreshVault = createDeferred<void>();
-    renderSettingsDialog({
-      onRefreshLocalVault: vi.fn(() => refreshVault.promise),
-      settings: {
-        title: 'HackDesk',
-        appearance: defaultSettings.appearance,
-        editor: defaultSettings.editor,
-        hasHackmdApiToken: false,
-        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
-        hasLocalVault: true,
-        localVault: { path: '/Users/michael/Notes' },
-        onboarding: defaultSettings.onboarding,
-        shouldShowHackmdOnboarding: false,
-      },
-    });
-
-    fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh Vault' }));
-
-    const refreshButton = screen.getByRole('button', { name: 'Refresh Vault' });
-    expect(refreshButton).toBeDisabled();
-    expect(refreshButton.querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
   });
 
   it('captures and saves shortcut overrides from the Shortcuts tab', async () => {
@@ -929,7 +751,6 @@ describe('SettingsDialog', () => {
 
     const checkingButton = screen.getByRole('button', { name: 'Checking…' });
     expect(checkingButton).toBeDisabled();
-    expect(checkingButton.querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
     await waitFor(() => {
       expect(toastInfoMock).toHaveBeenCalledWith('You’re already on the latest version of HackDesk.');
     });

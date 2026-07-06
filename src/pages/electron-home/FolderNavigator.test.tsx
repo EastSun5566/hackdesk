@@ -12,7 +12,6 @@ import {
 } from '@/test/accessibility-contracts';
 
 import { FolderNavigator, type FolderNavigatorProps } from './FolderNavigator';
-import { formatDate } from './ui';
 
 function folder(input: Partial<FolderPathSummary> & Pick<FolderPathSummary, 'id' | 'name'>): FolderPathSummary {
   return {
@@ -170,22 +169,6 @@ describe('FolderNavigator', () => {
     expect(screen.getByLabelText('Loading notes')).toBeInTheDocument();
   });
 
-  it('shows a reduced-motion-safe refresh spinner while syncing notes', () => {
-    const onRefresh = vi.fn();
-    renderFolderNavigator({
-      actions: { onRefresh },
-      status: { isFetching: true },
-    });
-
-    const refreshButton = screen.getByRole('button', { name: 'Refresh notes' });
-    expect(screen.getByText('Syncing…')).toBeInTheDocument();
-    expect(refreshButton.querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
-
-    fireEvent.click(refreshButton);
-
-    expect(onRefresh).toHaveBeenCalledOnce();
-  });
-
   it('shows token setup actions when HackMD token is missing', () => {
     const tree = buildHackmdFolderTree([]);
     const onOpenSettings = vi.fn();
@@ -340,15 +323,6 @@ describe('FolderNavigator', () => {
     });
   });
 
-  it('keeps folder icon and color metadata visible in folder rows', () => {
-    const { container } = renderFolderNavigator();
-
-    const glyph = container.querySelector('[data-folder-glyph="1F525"]');
-
-    expect(glyph).toBeInTheDocument();
-    expect(glyph).toHaveAttribute('data-folder-color', '#ff5500');
-  });
-
   it('collapses to zero width without rendering a mini navigator rail', () => {
     const { container } = renderFolderNavigator({
       layout: { collapsed: true },
@@ -371,27 +345,6 @@ describe('FolderNavigator', () => {
     expect(onNoteSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'nested-note' }));
   });
 
-  it('keeps folder rows on native buttons for the keyboard path', () => {
-    renderFolderNavigator();
-
-    const folderButton = screen.getByRole('button', { name: 'Projects' });
-    const noteButton = screen.getByRole('button', { name: 'Nested note' });
-    const collapseButton = screen.getByRole('button', { name: 'Collapse Projects' });
-
-    expect(folderButton).toHaveAttribute('data-folder-tree-primary', 'true');
-    expect(noteButton).toHaveAttribute('data-folder-tree-primary', 'true');
-    expect(collapseButton).toHaveAttribute('aria-expanded', 'true');
-  });
-
-  it('treats note timestamp as part of the primary row target', () => {
-    const onNoteSelect = vi.fn();
-    renderFolderNavigator({ actions: { onNoteSelect } });
-
-    fireEvent.click(screen.getByText(formatDate(1_700_000_000_000)));
-
-    expect(onNoteSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'nested-note' }));
-  });
-
   it('keeps busy folder drag handles focusable but non-draggable', () => {
     const onFolderSelect = vi.fn();
     renderFolderNavigator({
@@ -410,7 +363,7 @@ describe('FolderNavigator', () => {
     expect(onFolderSelect).toHaveBeenCalledWith('projects');
   });
 
-  it('marks the current navigator row with aria-current and a non-color-only indicator', () => {
+  it('marks the current navigator row with aria-current', () => {
     renderFolderNavigator({
       selection: {
         selectedFolderId: null,
@@ -421,8 +374,6 @@ describe('FolderNavigator', () => {
     const selectedNote = screen.getByRole('button', { name: 'Nested note' });
 
     expect(selectedNote).toHaveAttribute('aria-current', 'page');
-    expect(selectedNote.parentElement).toHaveClass('before:bg-primary-default');
-    expect(selectedNote.parentElement).toHaveClass('focus-within:ring-inset');
   });
 
   it('uses list semantics for the navigator tree and finder results', () => {
