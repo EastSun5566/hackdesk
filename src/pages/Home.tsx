@@ -254,6 +254,9 @@ export function Home() {
     },
     onNoteSaved: (note) => {
       noteWorkspace.syncNoteSummary(note);
+      for (const tab of noteWorkspace.getTabsMatching(note)) {
+        noteWorkspace.clearDraft(tab.tabId);
+      }
       trackRecentNote(note);
     },
     onFolderCreated: (folder: FolderSummary) => {

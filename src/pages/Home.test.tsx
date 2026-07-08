@@ -1550,6 +1550,10 @@ describe('Home native-feel behavior', () => {
       title: 'Keyboard note',
       content: '# Test note',
     }));
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Keyboard note')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Select Keyboard note tab' })).toBeInTheDocument();
+    });
   });
 
   it('shows disabled command palette actions with concrete reasons', async () => {
