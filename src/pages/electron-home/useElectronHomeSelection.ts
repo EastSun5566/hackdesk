@@ -3,7 +3,7 @@ import type { MutableRefObject } from 'react';
 
 import type { DocumentSummary, NoteSummary } from '@/lib/electron-api';
 
-import type { NoteIdentity, OpenNoteTab } from './note-workspace';
+import { getSavedTabNoteIdentity, type NoteIdentity, type OpenNoteTab } from './note-workspace';
 
 export type ElectronHomeSelectNoteOptions = {
   focusEditor?: boolean;
@@ -43,9 +43,7 @@ export function useElectronHomeSelection({
   const { autoSelectSuppressionRef, manualEmptyWorkspaceRef } = selectionRefs;
 
   const selectedNote = useMemo<NoteIdentity | null>(() => (
-    activeTab
-      ? { id: activeTab.noteId, teamPath: activeTab.teamPath }
-      : null
+    getSavedTabNoteIdentity(activeTab)
   ), [activeTab]);
 
   const requestSelectNote = useCallback(async (

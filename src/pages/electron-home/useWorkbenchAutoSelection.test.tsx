@@ -51,6 +51,7 @@ describe('useWorkbenchAutoSelection', () => {
 
     renderHook(() => useWorkbenchAutoSelection({
       autoSelectSuppressionRef: { current: null },
+      hasActiveDocument: false,
       manualEmptyWorkspaceRef: { current: false },
       requestSelectNote,
       scopeStorageKey: 'personal',
@@ -69,7 +70,25 @@ describe('useWorkbenchAutoSelection', () => {
 
     renderHook(() => useWorkbenchAutoSelection({
       autoSelectSuppressionRef: { current: null },
+      hasActiveDocument: false,
       manualEmptyWorkspaceRef: { current: true },
+      requestSelectNote,
+      scopeStorageKey: 'personal',
+      selectedFolderId: null,
+      selectedNote: null,
+      visibleEntries: [entry(note({ id: 'note-1', title: 'First' }))],
+    }));
+
+    expect(requestSelectNote).not.toHaveBeenCalled();
+  });
+
+  it('does not auto-select the first note while an unsaved draft is the active document', () => {
+    const requestSelectNote = vi.fn(async () => true);
+
+    renderHook(() => useWorkbenchAutoSelection({
+      autoSelectSuppressionRef: { current: null },
+      hasActiveDocument: true,
+      manualEmptyWorkspaceRef: { current: false },
       requestSelectNote,
       scopeStorageKey: 'personal',
       selectedFolderId: null,
@@ -86,6 +105,7 @@ describe('useWorkbenchAutoSelection', () => {
     const requestSelectNote = vi.fn(async () => false);
     const { rerender } = renderHook(() => useWorkbenchAutoSelection({
       autoSelectSuppressionRef,
+      hasActiveDocument: false,
       manualEmptyWorkspaceRef: { current: false },
       requestSelectNote,
       scopeStorageKey: 'personal',

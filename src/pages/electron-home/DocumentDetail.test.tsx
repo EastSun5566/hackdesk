@@ -111,6 +111,7 @@ function renderDocumentDetail(overrides: Partial<DocumentDetailProps> = {}) {
     documentState: {
       content: document.content,
       document,
+      isDraft: false,
       selectedNote: { title: document.title },
       syncState: 'idle',
       title: document.title,
@@ -191,10 +192,35 @@ describe('DocumentDetail', () => {
     expect(screen.getByRole('status', { name: 'Sync state: Unsaved' })).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(onSave).toHaveBeenCalledWith(document, {
+    expect(onSave).toHaveBeenCalledWith({
       content: 'Changed content',
       title: 'Changed title',
     });
+  });
+
+  it('renders an unsaved draft as an editable document without note-only actions', () => {
+    const onSave = vi.fn();
+    renderDocumentDetail({
+      actions: { onSave },
+      documentState: {
+        content: 'Draft body',
+        document: undefined,
+        isDraft: true,
+        selectedNote: { title: 'Untitled' },
+        syncState: 'idle',
+        title: 'Untitled',
+      },
+    });
+
+    expect(screen.getByText('Unsaved draft')).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'No note selected' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(onSave).toHaveBeenCalledWith({
+      content: 'Draft body',
+      title: 'Untitled',
+    });
+    expect(screen.queryByRole('button', { name: 'Pane actions' })).not.toBeInTheDocument();
   });
 
   it('uses precise sync badge copy with polite status semantics and reduced-motion spinners', () => {

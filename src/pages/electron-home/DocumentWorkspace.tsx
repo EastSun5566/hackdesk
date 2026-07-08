@@ -21,10 +21,11 @@ export type DocumentPaneView = {
   activeTab: OpenNoteTab | null;
   selectedNote: Pick<NoteSummary, 'title'> | null;
   document?: DocumentSummary;
+  isDraft: boolean;
   title: string;
   content: string;
   recovery?: {
-    kind: 'disk_changed';
+    kind: 'disk_changed' | 'save_failed';
     message: string;
   } | null;
   isLoading: boolean;
@@ -85,7 +86,7 @@ export function DocumentWorkspace({
   onCopyMarkdownLink: (document: DocumentSummary) => void;
   onExportMarkdown: (document: DocumentSummary, title: string, content: string) => void;
   onReloadFromDisk: (document: DocumentSummary) => void;
-  onSave: (document: DocumentSummary, input: UpdateNoteInput) => void;
+  onSave: (tab: OpenNoteTab, input: UpdateNoteInput) => void;
   onSaveAsCopy: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveSharing: (document: DocumentSummary, input: UpdateNoteInput) => void;
@@ -149,6 +150,7 @@ export function DocumentWorkspace({
                   documentState={{
                     selectedNote: view.selectedNote,
                     document: view.document,
+                    isDraft: view.isDraft,
                     title: view.title,
                     content: view.content,
                     recovery: view.recovery,
@@ -178,7 +180,7 @@ export function DocumentWorkspace({
                     onCopyMarkdownLink,
                     onExportMarkdown,
                     onReloadFromDisk,
-                    onSave,
+                    onSave: (input) => view.activeTab && onSave(view.activeTab, input),
                     onSaveAsCopy,
                     onSaveMetadata,
                     onSaveSharing,

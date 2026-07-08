@@ -23,6 +23,7 @@ const baseContext: ElectronActionContext = {
   selectedFolderId: 'folder-1',
   canModifySelectedFolder: true,
   selectedNoteId: 'note-1',
+  activeTabIsDraft: false,
   noteDirty: true,
   isSavingNote: false,
   openTabCount: 2,
@@ -219,6 +220,11 @@ describe('electron action registry', () => {
       ...baseContext,
       noteDirty: false,
     })).toBe('No unsaved note changes.');
+    expect(isElectronActionEnabled(getElectronAction('save-note'), {
+      ...baseContext,
+      activeTabIsDraft: true,
+      selectedNoteId: null,
+    })).toBe(true);
     expect(getActionDisabledReason(getElectronAction('rename-folder'), {
       ...baseContext,
       selectedFolderId: null,

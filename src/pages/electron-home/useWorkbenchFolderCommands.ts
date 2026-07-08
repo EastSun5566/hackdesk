@@ -31,6 +31,7 @@ export type WorkbenchFolderCommandsOptions = {
   hasLocalVault: boolean;
   moveFolder: (operation: FolderDropOperation) => void;
   onChooseLocalVault: () => void;
+  openDraftNote: () => void;
   scopeType: WorkspaceScope['type'];
   setCreateDialog: (state: CreateNoteDialogState) => void;
   setCreateFolderDialog: (state: CreateFolderDialogState) => void;
@@ -49,6 +50,7 @@ export function useWorkbenchFolderCommands({
   hasLocalVault,
   moveFolder,
   onChooseLocalVault,
+  openDraftNote,
   scopeType,
   setCreateDialog,
   setCreateFolderDialog,
@@ -73,8 +75,8 @@ export function useWorkbenchFolderCommands({
       return;
     }
 
-    setCreateDialog({ open: true, title: '' });
-  }, [hasLocalVault, hasToken, onChooseLocalVault, scopeType, setCreateDialog, setSettingsOpen]);
+    openDraftNote();
+  }, [hasLocalVault, hasToken, onChooseLocalVault, openDraftNote, scopeType, setSettingsOpen]);
 
   const handleCreateFolder = useCallback(() => {
     if (scopeType === 'local' && !hasLocalVault) {
@@ -102,8 +104,31 @@ export function useWorkbenchFolderCommands({
 
   const handleCreateNoteInside = useCallback((folderId: string | null) => {
     setSelectedFolderId(folderId ?? UNFILED_FOLDER_ID);
-    handleCreateNote();
-  }, [handleCreateNote, setSelectedFolderId]);
+    if (scopeType === 'local' && !hasLocalVault) {
+      onChooseLocalVault();
+      return;
+    }
+
+    if (!hasToken && scopeType !== 'local') {
+      setSettingsOpen(true);
+      return;
+    }
+
+    if (scopeType === 'history') {
+      toast.info('Choose My Workspace or a team before creating a note.');
+      return;
+    }
+
+    setCreateDialog({ open: true, title: '' });
+  }, [
+    hasLocalVault,
+    hasToken,
+    onChooseLocalVault,
+    scopeType,
+    setCreateDialog,
+    setSelectedFolderId,
+    setSettingsOpen,
+  ]);
 
   const handleRenameFolder = useCallback((folderId: string) => {
     const folder = folderTree.nodesById.get(folderId);

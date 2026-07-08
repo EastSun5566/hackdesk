@@ -399,12 +399,6 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
 
     await findRenderedNoteTitle();
-    fireEvent.click(screen.getByRole('button', { name: 'Create note' }));
-    expect(screen.getByRole('heading', { name: 'New Note' })).toBeInTheDocument();
-
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByRole('heading', { name: 'New Note' })).not.toBeInTheDocument();
-
     fireEvent.click(screen.getByRole('button', { name: 'Open settings for Michael' }));
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
 
@@ -1175,14 +1169,14 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findRenderedNoteTitle();
-    fireEvent.click(screen.getByRole('button', { name: 'Create note' }));
-    expect(screen.getByRole('heading', { name: 'New Note' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings for Michael' }));
+    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
 
     act(() => {
       closeHandler?.();
     });
 
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'New Note' })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument());
     await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
     expect(api.app.confirmClose).not.toHaveBeenCalled();
   });
@@ -1246,12 +1240,12 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
     fireEvent.click(screen.getByRole('button', { name: 'Create note' }));
-    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Folder note' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    fireEvent.change(await screen.findByLabelText('Note title'), { target: { value: 'Folder note' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(api.hackmd.createNote).toHaveBeenCalledWith({
       title: 'Folder note',
-      content: '# Folder note\n\n',
+      content: '',
       parentFolderId: 'folder-1',
     }));
   });

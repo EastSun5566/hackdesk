@@ -11,6 +11,7 @@ import type { FolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
 import type { ElectronHomeWorkspaceProps } from './ElectronHomeWorkspace';
 import type { HomeLocalVaultActions } from './useHomeLocalVaultActions';
 import type { WorkspaceScope } from './types';
+import { isDraftNoteTab } from './note-workspace';
 import type { useElectronHomeStatus } from './useElectronHomeStatus';
 import type { useElectronNoteMutations } from './useElectronNoteMutations';
 import type { useLocalDocumentRecovery } from './useLocalDocumentRecovery';
@@ -249,7 +250,17 @@ export function useHomeWorkspaceProps({
       onCopyMarkdownLink: actions.handleCopyNoteMarkdownLink,
       onExportMarkdown: actions.handleExportMarkdown,
       onReloadFromDisk: localDocumentRecovery.reloadFromDisk,
-      onSave: (note: DocumentSummary, input) => mutations.updateNoteMutation.mutate({ note, input }),
+      onSave: (tab, input) => {
+        if (isDraftNoteTab(tab)) {
+          mutations.createDraftNoteMutation.mutate({ tabId: tab.tabId, input });
+          return;
+        }
+
+        const document = documents.getTabDocument(tab);
+        if (document) {
+          mutations.updateNoteMutation.mutate({ note: document, input });
+        }
+      },
       onSaveAsCopy: localDocumentRecovery.saveAsCopy,
       onSaveMetadata: (note: DocumentSummary, input) => mutations.updateNoteMutation.mutate({ note, input }),
       onSaveSharing: (note: DocumentSummary, input) => mutations.updateNoteMutation.mutate({

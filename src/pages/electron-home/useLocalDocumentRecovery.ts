@@ -14,7 +14,7 @@ import {
   type LocalDocumentSummary,
   type LocalNoteListSummary,
 } from './local-vault-adapter';
-import type { NoteDocumentDraft, NoteIdentity, OpenNoteTab } from './note-workspace';
+import { isDraftNoteTab, type NoteDocumentDraft, type NoteIdentity, type OpenNoteTab } from './note-workspace';
 import {
   getLocalVaultDocumentQueryKey,
   getLocalVaultSnapshotQueryKey,
@@ -102,6 +102,10 @@ export function useLocalDocumentRecovery({
     }
 
     for (const tab of Object.values(tabs)) {
+      if (isDraftNoteTab(tab)) {
+        continue;
+      }
+
       if (tab.teamPath !== LOCAL_VAULT_TEAM_PATH || drafts[tab.tabId]) {
         continue;
       }

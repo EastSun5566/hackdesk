@@ -36,6 +36,24 @@ import type { NoteIdentity } from './note-workspace';
 import type { SettingsFormInput, WorkspaceScope } from './types';
 import { createQuickNoteContent } from './ui';
 
+const DEFAULT_DRAFT_NOTE_TITLE = 'Untitled';
+
+export function deriveDraftNoteTitle(input: { title?: string; content?: string }) {
+  const explicitTitle = input.title?.trim() ?? '';
+  if (explicitTitle && explicitTitle !== DEFAULT_DRAFT_NOTE_TITLE) {
+    return explicitTitle;
+  }
+
+  const contentTitle = (input.content ?? '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean)
+    ?.replace(/^#{1,6}\s+/, '')
+    .trim();
+
+  return contentTitle || explicitTitle || DEFAULT_DRAFT_NOTE_TITLE;
+}
+
 function upsertNoteInRepositoryValue(
   current: RepositoryValue<NoteSummary[]> | undefined,
   note: NoteSummary,
@@ -110,6 +128,7 @@ export function useElectronNoteMutations({
   selectedParentFolderId,
   onSettingsSaved,
   onNoteCreated,
+  onDraftNoteCreated,
   onNoteSaved,
   onFolderCreated,
   onFolderRenamed,
@@ -123,6 +142,7 @@ export function useElectronNoteMutations({
   selectedParentFolderId?: string;
   onSettingsSaved: () => void;
   onNoteCreated: (note: NoteSummary) => void;
+  onDraftNoteCreated: (tabId: string, note: NoteSummary) => void;
   onNoteSaved: (note: NoteSummary) => void;
   onFolderCreated: (folder: FolderSummary) => void;
   onFolderRenamed: (folder: FolderSummary) => void;
@@ -297,6 +317,55 @@ export function useElectronNoteMutations({
       toast.success('Note created.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to create note.'),
+  });
+
+  const createDraftNoteMutation = useMutation({
+    mutationFn: async (variables: { tabId: string; input: Pick<UpdateNoteInput, 'title' | 'content'> }) => {
+      if (!api) {
+        throw new Error('Electron API is unavailable.');
+      }
+
+      if (scope.type === 'history') {
+        throw new Error('Choose My Workspace or a team before creating notes.');
+      }
+
+      const title = deriveDraftNoteTitle(variables.input);
+      const content = variables.input.content ?? '';
+      const input = {
+        title,
+        content,
+        ...(selectedParentFolderId ? { parentFolderId: selectedParentFolderId } : {}),
+      };
+
+      if (scope.type === 'local') {
+        const createdDocument = await api.localVault.createNote({
+          title,
+          content,
+          parentPath: getLocalFolderPathFromFolderId(selectedParentFolderId),
+        });
+        const snapshot = await api.localVault.getSnapshot();
+        if (!snapshot) {
+          throw new Error('Local vault snapshot is unavailable.');
+        }
+
+        return toDocumentSummary(createdDocument, snapshot);
+      }
+
+      return scope.type === 'team'
+        ? api.hackmd.createTeamNote(scope.teamPath, input)
+        : api.hackmd.createNote(input);
+    },
+    onSuccess: (createdNote, variables) => {
+      if (scope.type === 'local') {
+        void queryClient.invalidateQueries({ queryKey: getLocalVaultSnapshotQueryKey() });
+      } else {
+        seedWorkspaceNote(createdNote);
+      }
+      onDraftNoteCreated(variables.tabId, createdNote);
+      void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope), refetchType: 'inactive' });
+      toast.success('Note saved.');
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to save note.'),
   });
 
   const duplicateNoteMutation = useMutation({
@@ -756,6 +825,7 @@ export function useElectronNoteMutations({
     disconnectHackmdMutation,
     importHackmdCliTokenMutation,
     createNoteMutation,
+    createDraftNoteMutation,
     duplicateNoteMutation,
     importMarkdownNoteMutation,
     createFolderMutation,
