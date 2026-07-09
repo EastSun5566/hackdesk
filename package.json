@@ -52,7 +52,7 @@
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"
   },
-  "author": "Michael Wang <michael19920327@gmail.com> (https://github.com/EastSun5566)",
+  "author": "Michael Wang <hi@eastsun.me> (https://github.com/EastSun5566)",
   "repository": {
     "type": "git",
     "url": "https://github.com/EastSun5566/hackdesk"
