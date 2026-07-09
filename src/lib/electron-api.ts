@@ -282,7 +282,8 @@ export type ElectronActionId =
   | 'focus-previous-pane';
 
 export type HackDeskCommandPaletteCommand =
-  { type: ElectronActionId };
+  | { type: ElectronActionId }
+  | { type: 'quick-capture:create-draft'; content: string };
 
 export type HackDeskCloseRequestSource = 'window-button' | 'keyboard-shortcut';
 
@@ -293,6 +294,11 @@ export type HackDeskCloseRequest = {
 export type ThemeSurfaceInput = {
   mode: 'dark' | 'light';
   background: string;
+};
+
+export type QuickCaptureShortcutStatus = {
+  accelerator: 'Control+Alt+H';
+  registered: boolean;
 };
 
 export type HackDeskElectronAPI = {
@@ -370,6 +376,9 @@ export type HackDeskElectronAPI = {
     checkForUpdates: () => Promise<CheckForUpdatesResult>;
     setThemeSurface?: (input: ThemeSurfaceInput) => Promise<void>;
     setMenuShortcutsIgnored?: (ignore: boolean) => Promise<void>;
+    getQuickCaptureShortcutStatus?: () => Promise<QuickCaptureShortcutStatus>;
+    submitQuickCapture?: (content: string) => Promise<void>;
+    closeQuickCapture?: () => Promise<void>;
   };
 };
 

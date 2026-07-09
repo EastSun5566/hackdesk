@@ -1,8 +1,9 @@
-import { app, BrowserWindow } from 'electron';
+import { app } from 'electron';
 
 import { createApplicationMenu } from './app-menu';
 import { createApplicationTray } from './app-tray';
 import { createAppIcon } from './app-icon';
+import { registerQuickCaptureGlobalShortcut, unregisterQuickCaptureGlobalShortcut } from './global-shortcuts';
 import { registerIpcHandlers } from './ipc-handlers';
 import { initCrashReporter, initLogging, writeLog } from './logging';
 import { registerRendererProtocol } from './renderer-protocol';
@@ -43,10 +44,11 @@ app.whenReady().then(async () => {
   });
   createMenu((await readStoredSettings()).shortcuts);
   windowManager.createMainWindow();
+  registerQuickCaptureGlobalShortcut(windowManager);
   tray = createApplicationTray(() => windowManager.showAndFocusMainWindow());
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (!windowManager.getMainWindow()) {
       windowManager.createMainWindow();
     }
   });
@@ -65,6 +67,10 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   windowManager.setAppQuitting(true);
+});
+
+app.on('will-quit', () => {
+  unregisterQuickCaptureGlobalShortcut();
 });
 
 export function getTrayForTesting() {

@@ -45,6 +45,12 @@ export type NoteDocumentDraft = {
   baseRevision?: LocalRevision;
 };
 
+export type OpenDraftNoteOptions = {
+  paneId?: string;
+  title?: string;
+  content?: string;
+};
+
 export type NoteWorkspaceState = {
   version: 1;
   scopeKey: string;
@@ -393,9 +399,16 @@ export function openNoteTab(state: NoteWorkspaceState, note: NoteSummary, paneId
   return withNavigationHistory(state, next);
 }
 
-export function openDraftNoteTab(state: NoteWorkspaceState, paneId = state.activePaneId) {
+function normalizeOpenDraftNoteOptions(options?: string | OpenDraftNoteOptions): OpenDraftNoteOptions {
+  return typeof options === 'string' ? { paneId: options } : options ?? {};
+}
+
+export function openDraftNoteTab(state: NoteWorkspaceState, options?: string | OpenDraftNoteOptions) {
+  const draftOptions = normalizeOpenDraftNoteOptions(options);
+  const paneId = draftOptions.paneId ?? state.activePaneId;
   const pane = state.panes.find((candidate) => candidate.paneId === paneId) ?? getActivePane(state);
   const tab = createDraftTab();
+  const draftTitle = draftOptions.title?.trim() || tab.title;
   const next = normalizeState({
     ...state,
     tabs: {
@@ -405,8 +418,8 @@ export function openDraftNoteTab(state: NoteWorkspaceState, paneId = state.activ
     drafts: {
       ...state.drafts,
       [tab.tabId]: {
-        title: tab.title,
-        content: '',
+        title: draftTitle,
+        content: draftOptions.content ?? '',
       },
     },
     panes: state.panes.map((candidate) => candidate.paneId === pane.paneId

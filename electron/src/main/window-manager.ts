@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, screen } from 'electron';
 import { join } from 'node:path';
 
 import type { HackDeskCommandPaletteCommand } from '../../../src/lib/electron-api';
-import { getRendererEntryUrl } from './paths';
+import { getRendererEntryUrl, getRendererRouteUrl } from './paths';
 import { openExternalUrl } from './url-policy';
 import { getAppIconPath } from './app-icon';
 import { ELECTRON_CHANNELS } from '../shared/channels';
@@ -13,14 +13,17 @@ import { persistWindowState, readWindowState } from './window-state';
 
 const WINDOW_BACKGROUND_COLOR = process.platform === 'darwin' ? '#00000000' : '#fdfdfd';
 const DEFAULT_WINDOW_SIZE = { width: 1180, height: 760 };
+const QUICK_CAPTURE_SIZE = { width: 420, height: 260 };
 
 export class WindowManager {
   private mainWindow: BrowserWindow | null = null;
+  private quickCaptureWindow: BrowserWindow | null = null;
   private recoveryDialogShowing = false;
   private isAppQuitting = false;
   private keyboardCloseIntent = false;
   private keyboardCloseIntentTimeout: NodeJS.Timeout | null = null;
   private pendingCloseTimeout: NodeJS.Timeout | null = null;
+  private pendingMainWindowCommands: HackDeskCommandPaletteCommand[] = [];
 
   getMainWindow() {
     return this.mainWindow && !this.mainWindow.isDestroyed() ? this.mainWindow : null;
@@ -31,8 +34,24 @@ export class WindowManager {
     return focusedWindow && !focusedWindow.isDestroyed() ? focusedWindow : null;
   }
 
+  getQuickCaptureWindow() {
+    return this.quickCaptureWindow && !this.quickCaptureWindow.isDestroyed() ? this.quickCaptureWindow : null;
+  }
+
   sendCommand(command: HackDeskCommandPaletteCommand) {
     this.getTargetWindow()?.webContents.send(ELECTRON_CHANNELS.appCommand, command);
+  }
+
+  sendCommandToMainWindow(command: HackDeskCommandPaletteCommand) {
+    const window = this.getMainWindow() ?? this.createMainWindow();
+    this.showAndFocusMainWindow();
+
+    if (window.webContents.isLoading()) {
+      this.pendingMainWindowCommands.push(command);
+      return;
+    }
+
+    window.webContents.send(ELECTRON_CHANNELS.appCommand, command);
   }
 
   setAppQuitting(isAppQuitting: boolean) {
@@ -81,6 +100,80 @@ export class WindowManager {
 
     window.show();
     window.focus();
+  }
+
+  showQuickCaptureWindow() {
+    const existingWindow = this.getQuickCaptureWindow();
+    if (existingWindow) {
+      existingWindow.show();
+      existingWindow.focus();
+      return existingWindow;
+    }
+
+    const isMac = process.platform === 'darwin';
+    const workArea = screen.getPrimaryDisplay().workArea;
+    const bounds = {
+      width: QUICK_CAPTURE_SIZE.width,
+      height: QUICK_CAPTURE_SIZE.height,
+      x: workArea.x + Math.round((workArea.width - QUICK_CAPTURE_SIZE.width) / 2),
+      y: workArea.y + Math.max(48, Math.round(workArea.height * 0.18)),
+    };
+
+    const window = new BrowserWindow({
+      ...bounds,
+      minWidth: 360,
+      minHeight: 220,
+      show: false,
+      title: 'Quick Capture',
+      titleBarStyle: isMac ? 'hiddenInset' : 'default',
+      trafficLightPosition: isMac ? { x: 14, y: 12 } : undefined,
+      alwaysOnTop: true,
+      backgroundColor: WINDOW_BACKGROUND_COLOR,
+      fullscreenable: false,
+      maximizable: false,
+      minimizable: false,
+      resizable: false,
+      icon: getAppIconPath(),
+      webPreferences: {
+        preload: join(__dirname, 'preload.cjs'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+        webviewTag: false,
+      },
+    });
+    this.quickCaptureWindow = window;
+    this.configureSessionPolicy(window);
+
+    window.once('ready-to-show', () => {
+      window.show();
+      window.focus();
+    });
+    window.on('closed', () => {
+      if (this.quickCaptureWindow === window) {
+        this.quickCaptureWindow = null;
+      }
+    });
+
+    void window.loadURL(getRendererRouteUrl('/quick-capture'));
+    return window;
+  }
+
+  closeQuickCaptureWindow() {
+    this.getQuickCaptureWindow()?.close();
+  }
+
+  submitQuickCapture(content: string) {
+    const trimmedContent = content.trim();
+    if (!trimmedContent) {
+      return;
+    }
+
+    this.closeQuickCaptureWindow();
+    this.sendCommandToMainWindow({
+      type: 'quick-capture:create-draft',
+      content: trimmedContent,
+    });
   }
 
   createMainWindow() {
@@ -193,6 +286,9 @@ export class WindowManager {
         }, 'warn');
       });
     });
+    this.mainWindow.webContents.on('did-finish-load', () => {
+      this.flushPendingMainWindowCommands();
+    });
 
     this.mainWindow.webContents.on(
       'did-fail-load',
@@ -234,6 +330,19 @@ export class WindowManager {
 
     void this.mainWindow.loadURL(rendererUrl);
     return this.mainWindow;
+  }
+
+  private flushPendingMainWindowCommands() {
+    const window = this.getMainWindow();
+    if (!window || this.pendingMainWindowCommands.length === 0) {
+      return;
+    }
+
+    const commands = this.pendingMainWindowCommands;
+    this.pendingMainWindowCommands = [];
+    for (const command of commands) {
+      window.webContents.send(ELECTRON_CHANNELS.appCommand, command);
+    }
   }
 
   private configureSessionPolicy(window: BrowserWindow) {

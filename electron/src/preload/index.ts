@@ -147,6 +147,9 @@ const api: HackDeskElectronAPI = {
     setMenuShortcutsIgnored: (ignore: boolean) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.appSetMenuShortcutsIgnored, ignore)
     ),
+    getQuickCaptureShortcutStatus: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appGetQuickCaptureShortcutStatus),
+    submitQuickCapture: (content: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.appSubmitQuickCapture, content),
+    closeQuickCapture: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appCloseQuickCapture),
     onCommand: (callback: (command: HackDeskCommandPaletteCommand) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, command: HackDeskCommandPaletteCommand) => {
         callback(command);

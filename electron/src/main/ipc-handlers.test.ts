@@ -92,15 +92,23 @@ vi.mock('./logging', () => ({
   recordFatalRendererError: vi.fn(),
   writeLog: vi.fn(),
 }));
+vi.mock('./global-shortcuts', () => ({
+  getQuickCaptureShortcutStatus: vi.fn(() => ({
+    accelerator: 'Control+Alt+H',
+    registered: true,
+  })),
+}));
 
 import { registerIpcHandlers } from './ipc-handlers';
 
 const windowManager = {
   cancelClose: vi.fn(),
+  closeQuickCaptureWindow: vi.fn(),
   confirmClose: vi.fn(),
   getTargetWindow: vi.fn(() => null),
   setMenuShortcutsIgnored: vi.fn(),
   setThemeSurface: vi.fn(),
+  submitQuickCapture: vi.fn(),
 };
 
 describe('registerIpcHandlers', () => {
@@ -147,5 +155,34 @@ describe('registerIpcHandlers', () => {
     expect(windowManager.setMenuShortcutsIgnored).toHaveBeenCalledWith(true);
 
     expect(() => handler?.({}, 'true')).toThrow(/Invalid app:set-menu-shortcuts-ignored payload/);
+  });
+
+  it('exposes quick capture shortcut status', () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appGetQuickCaptureShortcutStatus);
+
+    expect(handler?.({})).toEqual({
+      accelerator: 'Control+Alt+H',
+      registered: true,
+    });
+  });
+
+  it('validates and forwards quick capture submissions', () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appSubmitQuickCapture);
+
+    handler?.({}, '  # Capture  ');
+
+    expect(windowManager.submitQuickCapture).toHaveBeenCalledWith('# Capture');
+    expect(() => handler?.({}, '   ')).toThrow(/Invalid app:submit-quick-capture payload/);
+  });
+
+  it('closes the quick capture window from renderer requests', () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appCloseQuickCapture);
+
+    handler?.({});
+
+    expect(windowManager.closeQuickCaptureWindow).toHaveBeenCalledOnce();
   });
 });

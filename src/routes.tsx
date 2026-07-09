@@ -3,6 +3,7 @@ import { useLocation, useRoutes, type RouteObject } from 'react-router-dom';
 
 import { CommandPalette } from './pages/CommandPalette';
 import { Home } from './pages/Home';
+import { QuickCapture } from './pages/QuickCapture';
 import { Settings } from './pages/Settings';
 
 const routes: RouteObject[] = [
@@ -17,6 +18,10 @@ const routes: RouteObject[] = [
   {
     path: '/command-palette',
     element: <CommandPalette />,
+  },
+  {
+    path: '/quick-capture',
+    element: <QuickCapture />,
   },
 ];
 

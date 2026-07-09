@@ -10,6 +10,7 @@ import {
 export type ElectronHomeShellEffectsOptions = {
   api?: HackDeskElectronAPI;
   collapsedFolderIds: Set<string>;
+  openQuickCaptureDraft: (content: string) => void;
   runAction: (actionId: ElectronActionId) => void;
   scopeStorageKey: string;
 };
@@ -17,6 +18,7 @@ export type ElectronHomeShellEffectsOptions = {
 export function useElectronHomeShellEffects({
   api,
   collapsedFolderIds,
+  openQuickCaptureDraft,
   runAction,
   scopeStorageKey,
 }: ElectronHomeShellEffectsOptions) {
@@ -26,7 +28,12 @@ export function useElectronHomeShellEffects({
 
   useEffect(() => {
     return api?.app.onCommand((command) => {
+      if (command.type === 'quick-capture:create-draft') {
+        openQuickCaptureDraft(command.content);
+        return;
+      }
+
       runAction(command.type);
     });
-  }, [api, runAction]);
+  }, [api, openQuickCaptureDraft, runAction]);
 }

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { RotateCcw, Search } from 'lucide-react';
 
 import {
@@ -62,7 +62,26 @@ export function ShortcutsSettingsPanel({
   const [filter, setFilter] = useState('');
   const [activeActionId, setActiveActionId] = useState<ElectronActionId | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [quickCaptureRegistered, setQuickCaptureRegistered] = useState<boolean | null>(null);
   const activeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const quickCaptureShortcut = displayShortcutConfig('control+alt+h', platform);
+
+  useEffect(() => {
+    let cancelled = false;
+    void window.hackdeskAPI?.app.getQuickCaptureShortcutStatus?.().then((status) => {
+      if (!cancelled) {
+        setQuickCaptureRegistered(status.registered);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setQuickCaptureRegistered(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const labels = useMemo(() => Object.fromEntries(
     EDITABLE_ACTIONS.map((action) => [action.id, action.label]),
@@ -76,6 +95,12 @@ export function ShortcutsSettingsPanel({
   ) as Partial<Record<ElectronActionId, string>>, [shortcuts]);
 
   const normalizedFilter = filter.trim().toLowerCase();
+  const showQuickCaptureShortcut = !normalizedFilter || [
+    'quick capture',
+    'global',
+    'capture',
+    quickCaptureShortcut,
+  ].join(' ').toLowerCase().includes(normalizedFilter);
   const filteredActions = useMemo(() => (
     EDITABLE_ACTIONS.filter((action) => {
       if (!normalizedFilter) {
@@ -173,6 +198,32 @@ export function ShortcutsSettingsPanel({
         ) : null}
 
         <div className="space-y-5">
+          {showQuickCaptureShortcut ? (
+            <section className="space-y-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-text-subtle">Global</h4>
+              <ul className="divide-y divide-border-default rounded-lg border border-border-default bg-background-muted/40">
+                <li className="flex min-w-0 items-center gap-3 px-3 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-text-default">Quick Capture</p>
+                    <p className="truncate text-xs text-text-subtle">
+                      Open a quick capture window from anywhere.
+                    </p>
+                  </div>
+                  <span className="inline-flex h-8 min-w-28 items-center justify-center rounded-md border border-border-default bg-background-default px-3 text-xs font-medium text-text-default">
+                    {quickCaptureShortcut}
+                  </span>
+                  <span className={cn(
+                    'w-28 text-right text-xs',
+                    quickCaptureRegistered === false ? 'text-warning-default' : 'text-text-subtle',
+                  )}
+                  >
+                    {quickCaptureRegistered === false ? 'Unavailable' : 'Global'}
+                  </span>
+                </li>
+              </ul>
+            </section>
+          ) : null}
+
           {GROUPS.map((group) => {
             const actions = filteredActions.filter((action) => action.category === group);
             if (actions.length === 0) {

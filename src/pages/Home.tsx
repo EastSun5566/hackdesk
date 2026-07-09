@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useTheme } from '@/components/theme-provider';
+import { toast } from '@/components/ui/toast';
 import { getDesktopAPI } from '@/lib/desktop-api';
 import type { FolderSummary } from '@/lib/electron-api';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
@@ -580,9 +581,43 @@ export function Home() {
     requestCloseTab,
   });
 
+  const openQuickCaptureDraft = useCallback((content: string) => {
+    const draftContent = content.trim();
+    if (!draftContent) {
+      return;
+    }
+
+    if (scope.type === 'local' && !hasConfiguredLocalVault) {
+      void localVaultActions.chooseLocalVault();
+      return;
+    }
+
+    if (!hasToken && scope.type !== 'local') {
+      setSettingsOpen(true);
+      return;
+    }
+
+    if (scope.type === 'history') {
+      toast.info('Choose My Workspace or a team before creating a note.');
+      return;
+    }
+
+    noteWorkspace.openDraftNote({ content: draftContent });
+    focusZone('editor');
+  }, [
+    focusZone,
+    hasConfiguredLocalVault,
+    hasToken,
+    localVaultActions,
+    noteWorkspace,
+    scope.type,
+    setSettingsOpen,
+  ]);
+
   useElectronHomeShellEffects({
     api,
     collapsedFolderIds,
+    openQuickCaptureDraft,
     runAction,
     scopeStorageKey,
   });

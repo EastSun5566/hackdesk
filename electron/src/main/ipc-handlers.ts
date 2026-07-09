@@ -84,6 +84,7 @@ import { openExternalUrl, openHackmdEditor } from './url-policy';
 import type { WindowManager } from './window-manager';
 import { openTextFile, saveTextFile } from './app-file-dialog';
 import { checkForElectronUpdates } from './app-updater';
+import { getQuickCaptureShortcutStatus } from './global-shortcuts';
 import { exportDebugLogs, recordFatalRendererError } from './logging';
 import {
   confirmDialogOptionsSchema,
@@ -381,6 +382,15 @@ export function registerIpcHandlers(
     windowManager.setMenuShortcutsIgnored(
       validateBoolean(ELECTRON_CHANNELS.appSetMenuShortcutsIgnored, ignore),
     );
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.appGetQuickCaptureShortcutStatus, () => getQuickCaptureShortcutStatus());
+  ipcMain.handle(ELECTRON_CHANNELS.appSubmitQuickCapture, (_event, content: string) => {
+    windowManager.submitQuickCapture(
+      validateNonEmptyString(ELECTRON_CHANNELS.appSubmitQuickCapture, content),
+    );
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.appCloseQuickCapture, () => {
+    windowManager.closeQuickCaptureWindow();
   });
   ipcMain.handle(ELECTRON_CHANNELS.appConfirm, async (_event, options: ConfirmDialogOptions) => {
     const validatedOptions = validateIpcInput(ELECTRON_CHANNELS.appConfirm, confirmDialogOptionsSchema, options);

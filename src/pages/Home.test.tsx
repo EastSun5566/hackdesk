@@ -300,6 +300,13 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       writeClipboardText: vi.fn(async () => undefined),
       saveTextFile: vi.fn(async () => '/tmp/test-note.md'),
       openTextFile: vi.fn(async () => null),
+      checkForUpdates: vi.fn(async () => ({ status: 'upToDate' })),
+      getQuickCaptureShortcutStatus: vi.fn(async () => ({
+        accelerator: 'Control+Alt+H',
+        registered: true,
+      })),
+      submitQuickCapture: vi.fn(async () => undefined),
+      closeQuickCapture: vi.fn(async () => undefined),
       onCommand: vi.fn(() => () => undefined),
       onCloseRequest: vi.fn(() => () => undefined),
       confirmClose: vi.fn(async () => undefined),
@@ -1554,6 +1561,32 @@ describe('Home native-feel behavior', () => {
       expect(screen.getByDisplayValue('Keyboard note')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Select Keyboard note tab' })).toBeInTheDocument();
     });
+  });
+
+  it('opens quick capture content as an active unsaved draft tab', async () => {
+    let commandHandler: ((command: HackDeskCommandPaletteCommand) => void) | null = null;
+    const api = createApi({
+      app: {
+        onCommand: vi.fn((handler) => {
+          commandHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+
+    act(() => {
+      commandHandler?.({ type: 'quick-capture:create-draft', content: '# Captured\n\nBody' });
+    });
+
+    expect(await screen.findByDisplayValue('Untitled')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Select Untitled tab' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('hackmd-markdown-editor')).toHaveTextContent('Captured');
+    });
+    expect(api.hackmd.createNote).not.toHaveBeenCalled();
   });
 
   it('shows disabled command palette actions with concrete reasons', async () => {

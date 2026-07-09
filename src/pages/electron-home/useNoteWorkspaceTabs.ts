@@ -34,6 +34,7 @@ import {
   type NoteDocumentDraft,
   type NoteIdentity,
   type NoteWorkspaceState,
+  type OpenDraftNoteOptions,
 } from './note-workspace';
 
 function readInitialState(scopeKey: string) {
@@ -71,8 +72,8 @@ export function useNoteWorkspaceTabs(scopeKey: string) {
     setState((current) => openNoteTab(current, note, paneId));
   }, []);
 
-  const openDraftNote = useCallback((paneId?: string) => {
-    setState((current) => openDraftNoteTab(current, paneId));
+  const openDraftNote = useCallback((options?: string | OpenDraftNoteOptions) => {
+    setState((current) => openDraftNoteTab(current, options));
   }, []);
 
   const materializeDraftNote = useCallback((tabId: string, note: NoteSummary) => {

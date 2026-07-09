@@ -62,4 +62,7 @@ export const ELECTRON_CHANNELS = {
   appCheckForUpdates: 'app:check-for-updates',
   appSetThemeSurface: 'app:set-theme-surface',
   appSetMenuShortcutsIgnored: 'app:set-menu-shortcuts-ignored',
+  appGetQuickCaptureShortcutStatus: 'app:get-quick-capture-shortcut-status',
+  appSubmitQuickCapture: 'app:submit-quick-capture',
+  appCloseQuickCapture: 'app:close-quick-capture',
 } as const;

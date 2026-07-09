@@ -9,11 +9,11 @@ import { FOLDER_COLLAPSED_PREFIX, readStringArrayStorage } from './ui-preference
 import { useElectronHomeShellEffects } from './useElectronHomeShellEffects';
 
 function createApiMock() {
-  let commandListener: ((command: { type: 'refresh' }) => void) | null = null;
+  let commandListener: Parameters<NonNullable<HackDeskElectronAPI['app']['onCommand']>>[0] | null = null;
   const unsubscribe = vi.fn();
   const api = {
     app: {
-      onCommand: vi.fn((listener: (command: { type: 'refresh' }) => void) => {
+      onCommand: vi.fn((listener: Parameters<NonNullable<HackDeskElectronAPI['app']['onCommand']>>[0]) => {
         commandListener = listener;
         return unsubscribe;
       }),
@@ -23,6 +23,7 @@ function createApiMock() {
   return {
     api,
     emitRefreshCommand: () => commandListener?.({ type: 'refresh' }),
+    emitQuickCaptureCommand: (content: string) => commandListener?.({ type: 'quick-capture:create-draft', content }),
     unsubscribe,
   };
 }
@@ -38,6 +39,7 @@ describe('useElectronHomeShellEffects', () => {
 
     renderHook(() => useElectronHomeShellEffects({
       collapsedFolderIds: new Set(['folder-a']),
+      openQuickCaptureDraft: vi.fn(),
       runAction: vi.fn(),
       scopeStorageKey,
     }));
@@ -51,6 +53,7 @@ describe('useElectronHomeShellEffects', () => {
     const { unmount } = renderHook(() => useElectronHomeShellEffects({
       api,
       collapsedFolderIds: new Set(),
+      openQuickCaptureDraft: vi.fn(),
       runAction,
       scopeStorageKey: 'personal',
     }));
@@ -64,5 +67,25 @@ describe('useElectronHomeShellEffects', () => {
     unmount();
 
     expect(unsubscribe).toHaveBeenCalledOnce();
+  });
+
+  it('routes quick capture commands to draft creation instead of action dispatch', () => {
+    const { api, emitQuickCaptureCommand } = createApiMock();
+    const openQuickCaptureDraft = vi.fn();
+    const runAction = vi.fn();
+    renderHook(() => useElectronHomeShellEffects({
+      api,
+      collapsedFolderIds: new Set(),
+      openQuickCaptureDraft,
+      runAction,
+      scopeStorageKey: 'personal',
+    }));
+
+    act(() => {
+      emitQuickCaptureCommand('# Capture');
+    });
+
+    expect(openQuickCaptureDraft).toHaveBeenCalledWith('# Capture');
+    expect(runAction).not.toHaveBeenCalled();
   });
 });

@@ -37,6 +37,7 @@ const mockState = vi.hoisted(() => {
 
   const state = {
     lastWindow: null as unknown,
+    windows: [] as BrowserWindowMock[],
     writeLog: vi.fn(),
   };
 
@@ -48,6 +49,10 @@ const mockState = vi.hoisted(() => {
       this.isDestroyedValue = true;
       this.emit('closed');
     });
+    close = vi.fn(() => {
+      this.emit('close', { preventDefault: vi.fn() });
+      this.destroy();
+    });
     loadURL = vi.fn();
     maximize = vi.fn();
     show = vi.fn();
@@ -55,6 +60,8 @@ const mockState = vi.hoisted(() => {
     restore = vi.fn();
     isMinimized = vi.fn(() => false);
     isDestroyed = vi.fn(() => this.isDestroyedValue);
+    isLoadingValue = false;
+    options: unknown;
     webContents = Object.assign(new Emitter(), {
       id: 1,
       mainFrame: {},
@@ -63,15 +70,18 @@ const mockState = vi.hoisted(() => {
         setPermissionCheckHandler: vi.fn(),
       },
       isDestroyed: vi.fn(() => false),
+      isLoading: vi.fn(() => this.isLoadingValue),
       getURL: vi.fn(() => 'hackdesk://renderer/index.html'),
       send: vi.fn(),
       setIgnoreMenuShortcuts: vi.fn(),
       setWindowOpenHandler: vi.fn(),
     });
 
-    constructor() {
+    constructor(options?: unknown) {
       super();
+      this.options = options;
       state.lastWindow = this;
+      state.windows.push(this);
     }
   }
 
@@ -98,6 +108,7 @@ vi.mock('electron', () => ({
 
 vi.mock('./paths', () => ({
   getRendererEntryUrl: () => 'hackdesk://renderer/index.html',
+  getRendererRouteUrl: (route: string) => `hackdesk://renderer/index.html#${route}`,
 }));
 
 vi.mock('./url-policy', () => ({
@@ -147,6 +158,7 @@ describe('WindowManager close intent', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     mockState.state.lastWindow = null;
+    mockState.state.windows = [];
     mockState.state.writeLog.mockClear();
   });
 
@@ -236,5 +248,50 @@ describe('WindowManager close intent', () => {
     await vi.advanceTimersByTimeAsync(3000);
 
     expect(window.destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens and focuses a reusable quick capture window', () => {
+    const { manager } = createManagerWithWindow();
+
+    const firstCapture = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    const secondCapture = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+
+    expect(firstCapture).toBe(secondCapture);
+    expect(firstCapture.loadURL).toHaveBeenCalledWith('hackdesk://renderer/index.html#/quick-capture');
+    expect(secondCapture.show).toHaveBeenCalledOnce();
+    expect(secondCapture.focus).toHaveBeenCalledOnce();
+    expect(mockState.state.windows).toHaveLength(2);
+  });
+
+  it('submits quick capture content to the main window and closes capture', () => {
+    const { manager, window } = createManagerWithWindow();
+    const captureWindow = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+
+    manager.submitQuickCapture('  # Capture  ');
+
+    expect(captureWindow.close).toHaveBeenCalledOnce();
+    expect(window.show).toHaveBeenCalled();
+    expect(window.focus).toHaveBeenCalled();
+    expect(window.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCommand, {
+      type: 'quick-capture:create-draft',
+      content: '# Capture',
+    });
+  });
+
+  it('queues quick capture commands until a newly-created main window finishes loading', () => {
+    const { manager, window } = createManagerWithWindow();
+    window.isLoadingValue = true;
+
+    manager.submitQuickCapture('# Later');
+
+    expect(window.webContents.send).not.toHaveBeenCalledWith(ELECTRON_CHANNELS.appCommand, expect.anything());
+
+    window.isLoadingValue = false;
+    window.webContents.emit('did-finish-load');
+
+    expect(window.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCommand, {
+      type: 'quick-capture:create-draft',
+      content: '# Later',
+    });
   });
 });

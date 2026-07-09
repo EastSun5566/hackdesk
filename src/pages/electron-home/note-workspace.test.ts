@@ -81,6 +81,19 @@ describe('note workspace tabs', () => {
     expect(Object.values(withNote.tabs)).toHaveLength(2);
   });
 
+  it('opens a draft tab with initial captured content', () => {
+    const withDraft = openDraftNoteTab(createEmptyNoteWorkspaceState('personal'), {
+      content: '# Captured\nBody',
+    });
+    const draft = getActiveTab(withDraft);
+
+    expect(isDraftNoteTab(draft)).toBe(true);
+    expect(withDraft.drafts[draft?.tabId ?? '']).toEqual({
+      title: 'Untitled',
+      content: '# Captured\nBody',
+    });
+  });
+
   it('materializes a draft tab into a saved note in place and clears its draft', () => {
     const withDraft = openDraftNoteTab(createEmptyNoteWorkspaceState('personal'));
     const draftTabId = getActiveTab(withDraft)?.tabId ?? '';
