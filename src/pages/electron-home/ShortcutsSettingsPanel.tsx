@@ -65,6 +65,9 @@ export function ShortcutsSettingsPanel({
   const [quickCaptureRegistered, setQuickCaptureRegistered] = useState<boolean | null>(null);
   const activeButtonRef = useRef<HTMLButtonElement | null>(null);
   const quickCaptureShortcut = displayShortcutConfig('control+alt+h', platform);
+  const quickCaptureStatusLabel = quickCaptureRegistered == null
+    ? 'Checking…'
+    : quickCaptureRegistered ? 'Global' : 'Unavailable';
 
   useEffect(() => {
     let cancelled = false;
@@ -217,7 +220,7 @@ export function ShortcutsSettingsPanel({
                     quickCaptureRegistered === false ? 'text-warning-default' : 'text-text-subtle',
                   )}
                   >
-                    {quickCaptureRegistered === false ? 'Unavailable' : 'Global'}
+                    {quickCaptureStatusLabel}
                   </span>
                 </li>
               </ul>

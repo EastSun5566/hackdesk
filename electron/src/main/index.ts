@@ -36,7 +36,7 @@ app.whenReady().then(async () => {
   app.dock?.setIcon(createAppIcon());
   registerRendererProtocol();
   const createMenu = (shortcuts = {}) => createApplicationMenu(
-    (command) => windowManager.sendCommand(command),
+    (command) => windowManager.sendCommandToMainWindow(command),
     shortcuts,
   );
   registerIpcHandlers(windowManager, {
@@ -45,7 +45,10 @@ app.whenReady().then(async () => {
   createMenu((await readStoredSettings()).shortcuts);
   windowManager.createMainWindow();
   registerQuickCaptureGlobalShortcut(windowManager);
-  tray = createApplicationTray(() => windowManager.showAndFocusMainWindow());
+  tray = createApplicationTray({
+    showMainWindow: () => windowManager.showAndFocusMainWindow(),
+    showQuickCaptureWindow: () => windowManager.showQuickCaptureWindow(),
+  });
 
   app.on('activate', () => {
     if (!windowManager.getMainWindow()) {

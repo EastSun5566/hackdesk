@@ -130,6 +130,7 @@ describe('SettingsDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getHackDeskAPIMock.mockReturnValue(undefined);
+    delete window.hackdeskAPI;
     window.localStorage.clear();
   });
 
@@ -710,6 +711,46 @@ describe('SettingsDialog', () => {
     const row = screen.getByText('Focus Workspace').closest('li');
     expect(row).not.toBeNull();
     expect(within(row as HTMLElement).getByRole('button', { name: 'Set shortcut for Focus Workspace' })).toHaveTextContent('Unassigned');
+  });
+
+  it('shows quick capture global shortcut registration status', async () => {
+    const getQuickCaptureShortcutStatus = vi.fn(async () => ({
+      accelerator: 'Control+Alt+H' as const,
+      registered: true,
+    }));
+    window.hackdeskAPI = {
+      app: { getQuickCaptureShortcutStatus },
+      platform: 'darwin',
+    } as typeof window.hackdeskAPI;
+
+    renderSettingsDialog();
+    fireEvent.click(screen.getByRole('tab', { name: /Shortcuts/ }));
+
+    const row = screen.getByText('Quick Capture').closest('li');
+    expect(row).not.toBeNull();
+    expect(within(row as HTMLElement).getByText('⌃⌥H')).toBeVisible();
+    expect(within(row as HTMLElement).getByText('Checking…')).toBeVisible();
+
+    await waitFor(() => expect(within(row as HTMLElement).getByText('Global')).toBeVisible());
+  });
+
+  it('shows unavailable when the quick capture global shortcut is not registered', async () => {
+    window.hackdeskAPI = {
+      app: {
+        getQuickCaptureShortcutStatus: vi.fn(async () => ({
+          accelerator: 'Control+Alt+H' as const,
+          registered: false,
+        })),
+      },
+      platform: 'darwin',
+    } as typeof window.hackdeskAPI;
+
+    renderSettingsDialog();
+    fireEvent.click(screen.getByRole('tab', { name: /Shortcuts/ }));
+
+    const row = screen.getByText('Quick Capture').closest('li');
+    expect(row).not.toBeNull();
+    await waitFor(() => expect(within(row as HTMLElement).getByText('Unavailable')).toBeVisible());
   });
 
   it('shows shortcut conflicts and prevents saving invalid shortcut drafts', async () => {

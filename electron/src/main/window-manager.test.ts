@@ -278,6 +278,18 @@ describe('WindowManager close intent', () => {
     });
   });
 
+  it('sends app menu commands to the main window when quick capture is focused', () => {
+    const { manager, window } = createManagerWithWindow();
+    const captureWindow = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+
+    expect(mockState.BrowserWindowMock.getFocusedWindow()).toBe(captureWindow);
+
+    manager.sendCommandToMainWindow({ type: 'refresh' });
+
+    expect(window.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCommand, { type: 'refresh' });
+    expect(captureWindow.webContents.send).not.toHaveBeenCalledWith(ELECTRON_CHANNELS.appCommand, expect.anything());
+  });
+
   it('queues quick capture commands until a newly-created main window finishes loading', () => {
     const { manager, window } = createManagerWithWindow();
     window.isLoadingValue = true;
