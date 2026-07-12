@@ -305,8 +305,9 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
         accelerator: 'Control+Alt+H',
         registered: true,
       })),
-      submitQuickCapture: vi.fn(async () => undefined),
-      closeQuickCapture: vi.fn(async () => undefined),
+      submitQuickCapture: vi.fn(async () => ({ accepted: true })),
+      hideQuickCapture: vi.fn(async () => undefined),
+      resolveQuickCaptureSubmission: vi.fn(async () => undefined),
       onCommand: vi.fn(() => () => undefined),
       onCloseRequest: vi.fn(() => () => undefined),
       confirmClose: vi.fn(async () => undefined),
@@ -1578,7 +1579,12 @@ describe('Home native-feel behavior', () => {
     await findRenderedNoteTitle();
 
     act(() => {
-      commandHandler?.({ type: 'quick-capture:create-draft', content: '# Captured\n\nBody' });
+      commandHandler?.({
+        type: 'quick-capture:create-draft',
+        content: '# Captured\n\nBody',
+        requestId: 'capture-request',
+        expiresAt: Date.now() + 1000,
+      });
     });
 
     expect(await screen.findByDisplayValue('Untitled')).toBeInTheDocument();
@@ -1587,6 +1593,10 @@ describe('Home native-feel behavior', () => {
       expect(screen.getByTestId('hackmd-markdown-editor')).toHaveTextContent('Captured');
     });
     expect(api.hackmd.createNote).not.toHaveBeenCalled();
+    expect(api.app.resolveQuickCaptureSubmission).toHaveBeenCalledWith({
+      requestId: 'capture-request',
+      accepted: true,
+    });
   });
 
   it('shows disabled command palette actions with concrete reasons', async () => {

@@ -103,12 +103,13 @@ import { registerIpcHandlers } from './ipc-handlers';
 
 const windowManager = {
   cancelClose: vi.fn(),
-  closeQuickCaptureWindow: vi.fn(),
   confirmClose: vi.fn(),
   getTargetWindow: vi.fn(() => null),
+  hideQuickCaptureWindow: vi.fn(),
+  resolveQuickCaptureSubmission: vi.fn(),
   setMenuShortcutsIgnored: vi.fn(),
   setThemeSurface: vi.fn(),
-  submitQuickCapture: vi.fn(),
+  submitQuickCapture: vi.fn(async () => ({ accepted: true })),
 };
 
 describe('registerIpcHandlers', () => {
@@ -173,16 +174,31 @@ describe('registerIpcHandlers', () => {
 
     handler?.({}, '  # Capture  ');
 
-    expect(windowManager.submitQuickCapture).toHaveBeenCalledWith('# Capture');
+    expect(windowManager.submitQuickCapture).toHaveBeenCalledWith('  # Capture  ');
     expect(() => handler?.({}, '   ')).toThrow(/Invalid app:submit-quick-capture payload/);
   });
 
-  it('closes the quick capture window from renderer requests', () => {
+  it('hides the quick capture window from renderer requests', () => {
     registerIpcHandlers(windowManager);
-    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appCloseQuickCapture);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appHideQuickCapture);
 
     handler?.({});
 
-    expect(windowManager.closeQuickCaptureWindow).toHaveBeenCalledOnce();
+    expect(windowManager.hideQuickCaptureWindow).toHaveBeenCalledOnce();
+  });
+
+  it('validates and forwards quick capture submission acknowledgements', () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appResolveQuickCaptureSubmission);
+
+    handler?.({}, { requestId: 'capture-request', accepted: true });
+
+    expect(windowManager.resolveQuickCaptureSubmission).toHaveBeenCalledWith({
+      requestId: 'capture-request',
+      accepted: true,
+    });
+    expect(() => handler?.({}, { requestId: '', accepted: false, error: '' })).toThrow(
+      /Invalid app:resolve-quick-capture-submission payload/,
+    );
   });
 });

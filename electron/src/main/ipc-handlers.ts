@@ -7,6 +7,7 @@ import type {
   CreateNoteInput,
   FolderOrder,
   OpenTextFileInput,
+  QuickCaptureSubmissionAck,
   SaveTextFileInput,
   UpdateFolderInput,
   UpdateNoteInput,
@@ -106,6 +107,8 @@ import {
   localVaultWriteInputSchema,
   openHackmdEditorInputSchema,
   openTextFileInputSchema,
+  quickCaptureContentSchema,
+  quickCaptureSubmissionAckSchema,
   saveTextFileInputSchema,
   settingsUpdateSchema,
   themeSurfaceInputSchema,
@@ -384,13 +387,22 @@ export function registerIpcHandlers(
     );
   });
   ipcMain.handle(ELECTRON_CHANNELS.appGetQuickCaptureShortcutStatus, () => getQuickCaptureShortcutStatus());
-  ipcMain.handle(ELECTRON_CHANNELS.appSubmitQuickCapture, (_event, content: string) => {
-    windowManager.submitQuickCapture(
-      validateNonEmptyString(ELECTRON_CHANNELS.appSubmitQuickCapture, content),
-    );
+  ipcMain.handle(ELECTRON_CHANNELS.appSubmitQuickCapture, (_event, content: string) => (
+    windowManager.submitQuickCapture(validateIpcInput(
+      ELECTRON_CHANNELS.appSubmitQuickCapture,
+      quickCaptureContentSchema,
+      content,
+    ))
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.appHideQuickCapture, () => {
+    windowManager.hideQuickCaptureWindow();
   });
-  ipcMain.handle(ELECTRON_CHANNELS.appCloseQuickCapture, () => {
-    windowManager.closeQuickCaptureWindow();
+  ipcMain.handle(ELECTRON_CHANNELS.appResolveQuickCaptureSubmission, (_event, ack: QuickCaptureSubmissionAck) => {
+    windowManager.resolveQuickCaptureSubmission(validateIpcInput(
+      ELECTRON_CHANNELS.appResolveQuickCaptureSubmission,
+      quickCaptureSubmissionAckSchema,
+      ack,
+    ));
   });
   ipcMain.handle(ELECTRON_CHANNELS.appConfirm, async (_event, options: ConfirmDialogOptions) => {
     const validatedOptions = validateIpcInput(ELECTRON_CHANNELS.appConfirm, confirmDialogOptionsSchema, options);

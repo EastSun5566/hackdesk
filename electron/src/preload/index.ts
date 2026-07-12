@@ -13,6 +13,7 @@ import type {
   ThemeSurfaceInput,
   OpenTextFileInput,
   OpenHackmdEditorInput,
+  QuickCaptureSubmissionAck,
   SaveTextFileInput,
   UpdateFolderInput,
   UpdateNoteInput,
@@ -149,7 +150,10 @@ const api: HackDeskElectronAPI = {
     ),
     getQuickCaptureShortcutStatus: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appGetQuickCaptureShortcutStatus),
     submitQuickCapture: (content: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.appSubmitQuickCapture, content),
-    closeQuickCapture: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appCloseQuickCapture),
+    hideQuickCapture: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appHideQuickCapture),
+    resolveQuickCaptureSubmission: (ack: QuickCaptureSubmissionAck) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.appResolveQuickCaptureSubmission, ack)
+    ),
     onCommand: (callback: (command: HackDeskCommandPaletteCommand) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, command: HackDeskCommandPaletteCommand) => {
         callback(command);

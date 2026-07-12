@@ -295,6 +295,22 @@ export const themeSurfaceInputSchema = z.strictObject({
   background: z.string().regex(/^(?:#[\da-fA-F]{6}|rgb\(\d{1,3} \d{1,3} \d{1,3}(?: \/ (?:0|1|0?\.\d+))?\))$/),
 });
 
+export const quickCaptureSubmissionAckSchema = z.discriminatedUnion('accepted', [
+  z.strictObject({
+    requestId: nonEmptyStringSchema,
+    accepted: z.literal(true),
+  }),
+  z.strictObject({
+    requestId: nonEmptyStringSchema,
+    accepted: z.literal(false),
+    error: nonEmptyStringSchema,
+  }),
+]);
+
+export const quickCaptureContentSchema = z.string().refine((value) => value.trim().length > 0, {
+  message: 'Content must not be blank',
+});
+
 export const uploadNoteImageInputSchema = z.strictObject({
   fileName: nonEmptyStringSchema,
   mimeType: z.string(),

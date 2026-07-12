@@ -51,9 +51,7 @@ app.whenReady().then(async () => {
   });
 
   app.on('activate', () => {
-    if (!windowManager.getMainWindow()) {
-      windowManager.createMainWindow();
-    }
+    windowManager.handleAppActivation();
   });
 }).catch((error) => {
   writeLog('main', 'failed to start app', error, 'error');

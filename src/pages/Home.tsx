@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useTheme } from '@/components/theme-provider';
-import { toast } from '@/components/ui/toast';
 import { getDesktopAPI } from '@/lib/desktop-api';
 import type { FolderSummary } from '@/lib/electron-api';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
@@ -25,7 +24,11 @@ import {
   useElectronHomeSelectionRefs,
   useSelectedDocumentEditorFocus,
 } from './electron-home/useElectronHomeSelection';
-import { useElectronHomeShellEffects } from './electron-home/useElectronHomeShellEffects';
+import {
+  getQuickCaptureDraftError,
+  useElectronHomeShellEffects,
+  type QuickCaptureDraftResult,
+} from './electron-home/useElectronHomeShellEffects';
 import { useElectronNoteMutations } from './electron-home/useElectronNoteMutations';
 import { useDocumentCommands } from './electron-home/useDocumentCommands';
 import { useLocalDocumentRecovery } from './electron-home/useLocalDocumentRecovery';
@@ -581,37 +584,29 @@ export function Home() {
     requestCloseTab,
   });
 
-  const openQuickCaptureDraft = useCallback((content: string) => {
-    const draftContent = content.trim();
-    if (!draftContent) {
-      return;
+  const openQuickCaptureDraft = useCallback((content: string): QuickCaptureDraftResult => {
+    if (!content.trim()) {
+      return { accepted: false, error: 'Write something before capturing.' };
     }
 
-    if (scope.type === 'local' && !hasConfiguredLocalVault) {
-      void localVaultActions.chooseLocalVault();
-      return;
+    const guardError = getQuickCaptureDraftError({
+      scopeType: scope.type,
+      hasToken,
+      hasConfiguredLocalVault,
+    });
+    if (guardError) {
+      return { accepted: false, error: guardError };
     }
 
-    if (!hasToken && scope.type !== 'local') {
-      setSettingsOpen(true);
-      return;
-    }
-
-    if (scope.type === 'history') {
-      toast.info('Choose My Workspace or a team before creating a note.');
-      return;
-    }
-
-    noteWorkspace.openDraftNote({ content: draftContent });
+    noteWorkspace.openDraftNote({ content });
     focusZone('editor');
+    return { accepted: true };
   }, [
     focusZone,
     hasConfiguredLocalVault,
     hasToken,
-    localVaultActions,
     noteWorkspace,
     scope.type,
-    setSettingsOpen,
   ]);
 
   useElectronHomeShellEffects({

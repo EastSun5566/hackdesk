@@ -1,7 +1,12 @@
 import { app, BrowserWindow, dialog, screen } from 'electron';
+import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
-import type { HackDeskCommandPaletteCommand } from '../../../src/lib/electron-api';
+import type {
+  HackDeskCommandPaletteCommand,
+  QuickCaptureSubmissionAck,
+  QuickCaptureSubmitResult,
+} from '../../../src/lib/electron-api';
 import { getRendererEntryUrl, getRendererRouteUrl } from './paths';
 import { openExternalUrl } from './url-policy';
 import { getAppIconPath } from './app-icon';
@@ -14,6 +19,13 @@ import { persistWindowState, readWindowState } from './window-state';
 const WINDOW_BACKGROUND_COLOR = process.platform === 'darwin' ? '#00000000' : '#fdfdfd';
 const DEFAULT_WINDOW_SIZE = { width: 1180, height: 760 };
 const QUICK_CAPTURE_SIZE = { width: 420, height: 260 };
+const QUICK_CAPTURE_PRESENTATION_TIMEOUT_MS = 1000;
+const QUICK_CAPTURE_SUBMISSION_TIMEOUT_MS = 15_000;
+
+type PendingQuickCaptureSubmission = {
+  resolve: (result: QuickCaptureSubmitResult) => void;
+  timeout: NodeJS.Timeout;
+};
 
 export class WindowManager {
   private mainWindow: BrowserWindow | null = null;
@@ -24,6 +36,10 @@ export class WindowManager {
   private keyboardCloseIntentTimeout: NodeJS.Timeout | null = null;
   private pendingCloseTimeout: NodeJS.Timeout | null = null;
   private pendingMainWindowCommands: HackDeskCommandPaletteCommand[] = [];
+  private pendingQuickCaptureSubmissions = new Map<string, PendingQuickCaptureSubmission>();
+  private quickCaptureOpenedFromMain = false;
+  private quickCapturePresentationInProgress = false;
+  private quickCapturePresentationTimeout: NodeJS.Timeout | null = null;
 
   getMainWindow() {
     return this.mainWindow && !this.mainWindow.isDestroyed() ? this.mainWindow : null;
@@ -38,20 +54,44 @@ export class WindowManager {
     return this.quickCaptureWindow && !this.quickCaptureWindow.isDestroyed() ? this.quickCaptureWindow : null;
   }
 
+  isQuickCaptureActive() {
+    const window = this.getQuickCaptureWindow();
+    return this.quickCapturePresentationInProgress
+      || Boolean(window?.isVisible() || window?.isFocused());
+  }
+
+  handleAppActivation() {
+    if (this.isQuickCaptureActive()) {
+      return;
+    }
+
+    if (!this.getMainWindow()) {
+      this.createMainWindow();
+      return;
+    }
+
+    this.showAndFocusMainWindow();
+  }
+
   sendCommand(command: HackDeskCommandPaletteCommand) {
     this.getTargetWindow()?.webContents.send(ELECTRON_CHANNELS.appCommand, command);
   }
 
-  sendCommandToMainWindow(command: HackDeskCommandPaletteCommand) {
-    const window = this.getMainWindow() ?? this.createMainWindow();
-    this.showAndFocusMainWindow();
+  sendCommandToMainWindow(command: HackDeskCommandPaletteCommand, options: { focus?: boolean } = {}) {
+    const focus = options.focus ?? true;
+    const window = this.getMainWindow() ?? this.createMainWindow({ showOnReady: focus });
+    if (focus) {
+      this.showAndFocusMainWindow();
+    }
 
     if (window.webContents.isLoading()) {
       this.pendingMainWindowCommands.push(command);
       return;
     }
 
-    window.webContents.send(ELECTRON_CHANNELS.appCommand, command);
+    if (this.canDispatchMainWindowCommand(command)) {
+      window.webContents.send(ELECTRON_CHANNELS.appCommand, command);
+    }
   }
 
   setAppQuitting(isAppQuitting: boolean) {
@@ -104,6 +144,25 @@ export class WindowManager {
 
   showQuickCaptureWindow() {
     const existingWindow = this.getQuickCaptureWindow();
+    if (existingWindow?.isFocused()) {
+      existingWindow.show();
+      existingWindow.focus();
+      return existingWindow;
+    }
+
+    const mainWindow = this.getMainWindow();
+    this.quickCaptureOpenedFromMain = mainWindow?.isFocused() ?? false;
+    this.beginQuickCapturePresentation();
+    if (process.platform === 'darwin') {
+      if (!this.quickCaptureOpenedFromMain) {
+        mainWindow?.hide();
+      }
+      app.show();
+      if (!this.quickCaptureOpenedFromMain) {
+        mainWindow?.hide();
+      }
+    }
+
     if (existingWindow) {
       existingWindow.show();
       existingWindow.focus();
@@ -111,7 +170,7 @@ export class WindowManager {
     }
 
     const isMac = process.platform === 'darwin';
-    const workArea = screen.getPrimaryDisplay().workArea;
+    const workArea = this.getQuickCaptureWorkArea();
     const bounds = {
       width: QUICK_CAPTURE_SIZE.width,
       height: QUICK_CAPTURE_SIZE.height,
@@ -149,34 +208,104 @@ export class WindowManager {
       window.show();
       window.focus();
     });
+    window.on('focus', () => {
+      this.completeQuickCapturePresentation();
+    });
+    window.on('close', (event) => {
+      if (this.isAppQuitting) {
+        return;
+      }
+
+      event.preventDefault();
+      this.hideQuickCaptureWindow();
+    });
     window.on('closed', () => {
+      this.completeQuickCapturePresentation();
       if (this.quickCaptureWindow === window) {
         this.quickCaptureWindow = null;
       }
+      this.resolveAllQuickCaptureSubmissions({
+        accepted: false,
+        error: 'Quick Capture closed before HackDesk could create the draft. Your text is still saved.',
+      });
     });
 
     void window.loadURL(getRendererRouteUrl('/quick-capture'));
     return window;
   }
 
-  closeQuickCaptureWindow() {
-    this.getQuickCaptureWindow()?.close();
-  }
+  hideQuickCaptureWindow() {
+    this.completeQuickCapturePresentation();
+    this.getQuickCaptureWindow()?.hide();
 
-  submitQuickCapture(content: string) {
-    const trimmedContent = content.trim();
-    if (!trimmedContent) {
+    if (process.platform !== 'darwin') {
       return;
     }
 
-    this.closeQuickCaptureWindow();
-    this.sendCommandToMainWindow({
-      type: 'quick-capture:create-draft',
-      content: trimmedContent,
+    if (this.quickCaptureOpenedFromMain) {
+      this.showAndFocusMainWindow();
+      return;
+    }
+
+    app.hide();
+  }
+
+  submitQuickCapture(content: string): Promise<QuickCaptureSubmitResult> {
+    if (!content.trim()) {
+      return Promise.resolve({ accepted: false, error: 'Write something before capturing.' });
+    }
+
+    const requestId = randomUUID();
+    const expiresAt = Date.now() + QUICK_CAPTURE_SUBMISSION_TIMEOUT_MS;
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        if (!this.pendingQuickCaptureSubmissions.delete(requestId)) {
+          return;
+        }
+
+        resolve({
+          accepted: false,
+          error: 'Quick Capture did not reach HackDesk. Your text is still here.',
+        });
+        this.showQuickCaptureWindow();
+      }, QUICK_CAPTURE_SUBMISSION_TIMEOUT_MS);
+
+      this.pendingQuickCaptureSubmissions.set(requestId, { resolve, timeout });
+      this.sendCommandToMainWindow({
+        type: 'quick-capture:create-draft',
+        content,
+        requestId,
+        expiresAt,
+      }, { focus: false });
     });
   }
 
-  createMainWindow() {
+  resolveQuickCaptureSubmission(ack: QuickCaptureSubmissionAck) {
+    const pending = this.pendingQuickCaptureSubmissions.get(ack.requestId);
+    if (!pending) {
+      writeLog('main', 'received unknown quick capture submission acknowledgement', {
+        requestId: ack.requestId,
+      }, 'warn');
+      return;
+    }
+
+    clearTimeout(pending.timeout);
+    this.pendingQuickCaptureSubmissions.delete(ack.requestId);
+
+    if (!ack.accepted) {
+      pending.resolve({ accepted: false, error: ack.error });
+      this.showQuickCaptureWindow();
+      return;
+    }
+
+    this.completeQuickCapturePresentation();
+    this.getQuickCaptureWindow()?.hide();
+    this.showAndFocusMainWindow();
+    pending.resolve({ accepted: true });
+  }
+
+  createMainWindow(options: { showOnReady?: boolean } = {}) {
+    const showOnReady = options.showOnReady ?? true;
     const isMac = process.platform === 'darwin';
     const rendererUrl = getRendererEntryUrl();
     const workArea = screen.getPrimaryDisplay().workArea;
@@ -216,7 +345,9 @@ export class WindowManager {
     }
 
     this.mainWindow.once('ready-to-show', () => {
-      this.mainWindow?.show();
+      if (showOnReady) {
+        this.mainWindow?.show();
+      }
     });
 
     this.mainWindow.webContents.on('before-input-event', (_event, input) => {
@@ -341,7 +472,51 @@ export class WindowManager {
     const commands = this.pendingMainWindowCommands;
     this.pendingMainWindowCommands = [];
     for (const command of commands) {
-      window.webContents.send(ELECTRON_CHANNELS.appCommand, command);
+      if (this.canDispatchMainWindowCommand(command)) {
+        window.webContents.send(ELECTRON_CHANNELS.appCommand, command);
+      }
+    }
+  }
+
+  private canDispatchMainWindowCommand(command: HackDeskCommandPaletteCommand) {
+    if (command.type !== 'quick-capture:create-draft') {
+      return true;
+    }
+
+    return command.expiresAt > Date.now()
+      && this.pendingQuickCaptureSubmissions.has(command.requestId);
+  }
+
+  private beginQuickCapturePresentation() {
+    this.completeQuickCapturePresentation();
+    this.quickCapturePresentationInProgress = true;
+    this.quickCapturePresentationTimeout = setTimeout(() => {
+      this.quickCapturePresentationInProgress = false;
+      this.quickCapturePresentationTimeout = null;
+    }, QUICK_CAPTURE_PRESENTATION_TIMEOUT_MS);
+  }
+
+  private completeQuickCapturePresentation() {
+    this.quickCapturePresentationInProgress = false;
+    if (this.quickCapturePresentationTimeout) {
+      clearTimeout(this.quickCapturePresentationTimeout);
+      this.quickCapturePresentationTimeout = null;
+    }
+  }
+
+  private getQuickCaptureWorkArea() {
+    try {
+      return screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+    } catch {
+      return screen.getPrimaryDisplay().workArea;
+    }
+  }
+
+  private resolveAllQuickCaptureSubmissions(result: QuickCaptureSubmitResult) {
+    for (const [requestId, pending] of this.pendingQuickCaptureSubmissions) {
+      clearTimeout(pending.timeout);
+      pending.resolve(result);
+      this.pendingQuickCaptureSubmissions.delete(requestId);
     }
   }
 

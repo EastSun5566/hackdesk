@@ -1,9 +1,43 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Send, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldLabel, Textarea } from '@/components/ui/field';
 import { cn } from '@/lib/utils';
+
+export const QUICK_CAPTURE_BUFFER_STORAGE_KEY = 'hackdesk_quick_capture_buffer';
+
+type StoredQuickCaptureBuffer = {
+  version: 1;
+  content: string;
+};
+
+function readQuickCaptureBuffer(storage: Storage = window.localStorage) {
+  try {
+    const stored = JSON.parse(storage.getItem(QUICK_CAPTURE_BUFFER_STORAGE_KEY) ?? 'null') as (
+      Partial<StoredQuickCaptureBuffer> | null
+    );
+    return stored?.version === 1 && typeof stored.content === 'string' ? stored.content : '';
+  } catch {
+    return '';
+  }
+}
+
+function writeQuickCaptureBuffer(content: string, storage: Storage = window.localStorage) {
+  try {
+    storage.setItem(QUICK_CAPTURE_BUFFER_STORAGE_KEY, JSON.stringify({ version: 1, content }));
+  } catch {
+    // The in-memory capture remains usable when persistent storage is unavailable.
+  }
+}
+
+function clearQuickCaptureBuffer(storage: Storage = window.localStorage) {
+  try {
+    storage.removeItem(QUICK_CAPTURE_BUFFER_STORAGE_KEY);
+  } catch {
+    // The accepted capture is still cleared from the current window below.
+  }
+}
 
 function getQuickCaptureShortcutLabel(platform: string) {
   return platform === 'darwin' || platform.toLowerCase().includes('mac')
@@ -14,26 +48,58 @@ function getQuickCaptureShortcutLabel(platform: string) {
 export function QuickCapture() {
   const api = window.hackdeskAPI;
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const [content, setContent] = useState('');
+  const focusFrameRef = useRef<number | null>(null);
+  const [content, setContent] = useState(() => readQuickCaptureBuffer());
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const platform = api?.platform ?? 'unknown';
   const isMac = platform === 'darwin' || platform.toLowerCase().includes('mac');
   const shortcutLabel = getQuickCaptureShortcutLabel(platform);
 
-  useEffect(() => {
-    textareaRef.current?.focus();
+  const focusTextarea = useCallback(() => {
+    if (focusFrameRef.current !== null) {
+      window.cancelAnimationFrame(focusFrameRef.current);
+    }
+
+    focusFrameRef.current = window.requestAnimationFrame(() => {
+      textareaRef.current?.focus({ preventScroll: true });
+      focusFrameRef.current = null;
+    });
   }, []);
 
-  const close = async () => {
-    await api?.app.closeQuickCapture?.();
-  };
+  useEffect(() => {
+    focusTextarea();
+    window.addEventListener('focus', focusTextarea);
+    return () => {
+      window.removeEventListener('focus', focusTextarea);
+      if (focusFrameRef.current !== null) {
+        window.cancelAnimationFrame(focusFrameRef.current);
+      }
+    };
+  }, [focusTextarea]);
+
+  const hide = useCallback(async () => {
+    await api?.app.hideQuickCapture?.();
+  }, [api]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+
+      event.preventDefault();
+      void hide();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [hide]);
 
   const submit = async () => {
-    const trimmedContent = content.trim();
-    if (!trimmedContent) {
+    if (!content.trim()) {
       setError('Write something before capturing.');
-      textareaRef.current?.focus();
+      focusTextarea();
       return;
     }
 
@@ -45,10 +111,21 @@ export function QuickCapture() {
     setSubmitting(true);
     setError(null);
     try {
-      await api.app.submitQuickCapture(trimmedContent);
+      const result = await api.app.submitQuickCapture(content);
+      if (!result.accepted) {
+        setError(result.error);
+        setSubmitting(false);
+        focusTextarea();
+        return;
+      }
+
+      clearQuickCaptureBuffer();
+      setContent('');
+      setSubmitting(false);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Failed to capture note.');
       setSubmitting(false);
+      focusTextarea();
     }
   };
 
@@ -67,11 +144,11 @@ export function QuickCapture() {
           {shortcutLabel}
         </kbd>
         <Button
-          aria-label="Close Quick Capture"
+          aria-label="Hide Quick Capture"
           className="[-webkit-app-region:no-drag]"
           size="icon"
           variant="ghost"
-          onClick={() => void close()}
+          onClick={() => void hide()}
         >
           <X aria-hidden="true" className="h-4 w-4" />
         </Button>
@@ -97,18 +174,14 @@ export function QuickCapture() {
             )}
             disabled={submitting}
             onChange={(event) => {
-              setContent(event.currentTarget.value);
+              const nextContent = event.currentTarget.value;
+              setContent(nextContent);
+              writeQuickCaptureBuffer(nextContent);
               if (error) {
                 setError(null);
               }
             }}
             onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                event.preventDefault();
-                void close();
-                return;
-              }
-
               if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
                 event.preventDefault();
                 void submit();
@@ -125,16 +198,7 @@ export function QuickCapture() {
             </FieldDescription>
           )}
         </Field>
-        <div className="flex justify-end gap-2">
-          <Button
-            className="text-text-subtle"
-            size="sm"
-            variant="ghost"
-            onClick={() => void close()}
-            disabled={submitting}
-          >
-            Cancel
-          </Button>
+        <div className="flex justify-end">
           <Button size="sm" variant="primary" type="submit" disabled={submitting}>
             <Send aria-hidden="true" className="h-4 w-4" />
             Capture
