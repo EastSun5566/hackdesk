@@ -18,7 +18,7 @@ import { persistWindowState, readWindowState } from './window-state';
 
 const WINDOW_BACKGROUND_COLOR = process.platform === 'darwin' ? '#00000000' : '#fdfdfd';
 const DEFAULT_WINDOW_SIZE = { width: 1180, height: 760 };
-const QUICK_CAPTURE_SIZE = { width: 420, height: 260 };
+const QUICK_CAPTURE_SIZE = { width: 480, height: 320 };
 const QUICK_CAPTURE_PRESENTATION_TIMEOUT_MS = 1000;
 const QUICK_CAPTURE_SUBMISSION_TIMEOUT_MS = 15_000;
 

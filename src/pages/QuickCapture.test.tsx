@@ -28,11 +28,11 @@ describe('QuickCapture', () => {
   it('focuses the textarea on mount and whenever the window regains focus', async () => {
     renderQuickCapture();
     const textarea = screen.getByLabelText('Capture note');
-    const hideButton = screen.getByRole('button', { name: 'Hide Quick Capture' });
+    const captureButton = screen.getByRole('button', { name: 'Capture' });
 
     await waitFor(() => expect(textarea).toHaveFocus());
-    hideButton.focus();
-    expect(hideButton).toHaveFocus();
+    captureButton.focus();
+    expect(captureButton).toHaveFocus();
 
     fireEvent.focus(window);
 
@@ -82,24 +82,13 @@ describe('QuickCapture', () => {
     const textarea = screen.getByLabelText('Capture note');
 
     fireEvent.change(textarea, { target: { value: 'Keep this' } });
-    const hideButton = screen.getByRole('button', { name: 'Hide Quick Capture' });
-    hideButton.focus();
-    fireEvent.keyDown(hideButton, { key: 'Escape' });
+    const captureButton = screen.getByRole('button', { name: 'Capture' });
+    captureButton.focus();
+    fireEvent.keyDown(captureButton, { key: 'Escape' });
 
     await waitFor(() => expect(api.app.hideQuickCapture).toHaveBeenCalledOnce());
     expect(textarea).toHaveValue('Keep this');
     expect(window.localStorage.getItem(QUICK_CAPTURE_BUFFER_STORAGE_KEY)).toContain('Keep this');
-  });
-
-  it('hides from the header without clearing the capture buffer', async () => {
-    const api = renderQuickCapture();
-    const textarea = screen.getByLabelText('Capture note');
-
-    fireEvent.change(textarea, { target: { value: 'Keep this too' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Hide Quick Capture' }));
-
-    await waitFor(() => expect(api.app.hideQuickCapture).toHaveBeenCalledOnce());
-    expect(window.localStorage.getItem(QUICK_CAPTURE_BUFFER_STORAGE_KEY)).toContain('Keep this too');
   });
 
   it('keeps rejected capture text and shows the rejection reason', async () => {
@@ -150,7 +139,7 @@ describe('QuickCapture', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
 
     await waitFor(() => expect(textarea).toBeDisabled());
-    fireEvent.click(screen.getByRole('button', { name: 'Hide Quick Capture' }));
+    fireEvent.keyDown(window, { key: 'Escape' });
 
     expect(api.app.hideQuickCapture).toHaveBeenCalledOnce();
     await act(async () => resolveSubmission?.({ accepted: true }));

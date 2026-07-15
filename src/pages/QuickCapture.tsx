@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Send, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Field, FieldDescription, FieldLabel, Textarea } from '@/components/ui/field';
-import { cn } from '@/lib/utils';
+import { Field, FieldLabel, Textarea } from '@/components/ui/field';
 
 export const QUICK_CAPTURE_BUFFER_STORAGE_KEY = 'hackdesk_quick_capture_buffer';
 
@@ -39,12 +37,6 @@ function clearQuickCaptureBuffer(storage: Storage = window.localStorage) {
   }
 }
 
-function getQuickCaptureShortcutLabel(platform: string) {
-  return platform === 'darwin' || platform.toLowerCase().includes('mac')
-    ? '⌃⌥H'
-    : 'Ctrl+Alt+H';
-}
-
 export function QuickCapture() {
   const api = window.hackdeskAPI;
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -54,7 +46,7 @@ export function QuickCapture() {
   const [submitting, setSubmitting] = useState(false);
   const platform = api?.platform ?? 'unknown';
   const isMac = platform === 'darwin' || platform.toLowerCase().includes('mac');
-  const shortcutLabel = getQuickCaptureShortcutLabel(platform);
+  const characterCount = Array.from(content).length;
 
   const focusTextarea = useCallback(() => {
     if (focusFrameRef.current !== null) {
@@ -131,36 +123,26 @@ export function QuickCapture() {
 
   return (
     <main className="flex h-dvh flex-col bg-background-default text-text-default">
-      <header
-        className={cn(
-          'flex h-10 shrink-0 items-center gap-2 border-b border-border-default/70 pr-2 [-webkit-app-region:drag]',
-          isMac ? 'pl-20' : 'pl-3',
-        )}
-      >
-        <h1 className="min-w-0 flex-1 truncate text-sm font-medium text-text-default">
-          Quick Capture
-        </h1>
-        <kbd className="rounded border border-border-default/70 bg-background-muted px-1.5 py-0.5 text-[11px] font-medium leading-none text-text-subtle">
-          {shortcutLabel}
-        </kbd>
-        <Button
-          aria-label="Hide Quick Capture"
-          className="[-webkit-app-region:no-drag]"
-          size="icon"
-          variant="ghost"
-          onClick={() => void hide()}
-        >
-          <X aria-hidden="true" className="h-4 w-4" />
-        </Button>
-      </header>
+      {isMac ? (
+        <header className="relative flex h-10 shrink-0 items-center justify-center [-webkit-app-region:drag]">
+          <h1 className="max-w-56 truncate text-xs font-medium text-text-subtle">
+            Quick Capture
+          </h1>
+        </header>
+      ) : (
+        <h1 className="sr-only">Quick Capture</h1>
+      )}
       <form
-        className="flex min-h-0 flex-1 flex-col gap-2.5 p-3"
+        className="flex min-h-0 flex-1 flex-col"
         onSubmit={(event) => {
           event.preventDefault();
           void submit();
         }}
       >
-        <Field invalid={Boolean(error)} className="flex min-h-0 flex-1 flex-col gap-2 space-y-0">
+        <Field
+          invalid={Boolean(error)}
+          className="flex min-h-0 flex-1 flex-col space-y-0"
+        >
           <FieldLabel className="sr-only">Capture note</FieldLabel>
           <Textarea
             ref={textareaRef}
@@ -168,10 +150,7 @@ export function QuickCapture() {
             aria-describedby={error ? 'quick-capture-error' : undefined}
             value={content}
             placeholder="Write a quick note…"
-            className={cn(
-              'h-auto min-h-0 flex-1 resize-none rounded-lg border-border-default/70 bg-background-muted/50 p-3 text-sm leading-6 text-text-default shadow-none placeholder:text-text-subtle/70',
-              'focus:border-focus-ring/70 focus-visible:ring-1 focus-visible:ring-focus-ring/60',
-            )}
+            className="h-auto min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-5 py-4 text-base leading-7 text-text-default caret-primary-default shadow-none outline-none transition-none placeholder:text-text-subtle focus:border-transparent focus-visible:ring-0 data-[invalid]:border-0 data-[invalid]:focus:border-transparent data-[invalid]:focus-visible:ring-0"
             disabled={submitting}
             onChange={(event) => {
               const nextContent = event.currentTarget.value;
@@ -189,21 +168,36 @@ export function QuickCapture() {
             }}
           />
           {error ? (
-            <p id="quick-capture-error" role="alert" className="text-xs text-destructive-default">
+            <p
+              id="quick-capture-error"
+              role="alert"
+              className="shrink-0 px-5 pb-2 text-xs leading-5 text-destructive-default"
+            >
               {error}
             </p>
-          ) : (
-            <FieldDescription className="text-pretty">
-              Press {isMac ? '⌘' : 'Ctrl'}+Enter to capture as a draft.
-            </FieldDescription>
-          )}
+          ) : null}
         </Field>
-        <div className="flex justify-end">
-          <Button size="sm" variant="primary" type="submit" disabled={submitting}>
-            <Send aria-hidden="true" className="h-4 w-4" />
+        <footer className="relative flex h-10 shrink-0 items-center justify-end px-2.5">
+          {submitting || (!error && characterCount > 0) ? (
+            <span className="pointer-events-none absolute inset-x-32 text-center text-xs tabular-nums text-text-subtle">
+              {submitting
+                ? 'Capturing…'
+                : `${characterCount} ${characterCount === 1 ? 'character' : 'characters'}`}
+            </span>
+          ) : null}
+          <Button
+            className="h-7 gap-1.5 px-2 text-xs text-text-subtle hover:text-text-default"
+            size="sm"
+            variant="ghost"
+            type="submit"
+            disabled={submitting}
+          >
             Capture
+            <kbd aria-hidden="true" className="font-sans text-[11px] font-normal text-text-subtle">
+              {isMac ? '⌘↵' : 'Ctrl+Enter'}
+            </kbd>
           </Button>
-        </div>
+        </footer>
       </form>
     </main>
   );

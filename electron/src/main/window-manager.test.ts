@@ -295,7 +295,13 @@ describe('WindowManager close intent', () => {
 
     expect(firstCapture).toBe(secondCapture);
     expect(firstCapture.loadURL).toHaveBeenCalledWith('hackdesk://renderer/index.html#/quick-capture');
-    expect(firstCapture.options).toEqual(expect.objectContaining({ x: 2190, y: 194 }));
+    expect(firstCapture.options).toEqual(expect.objectContaining({
+      width: 480,
+      height: 320,
+      x: 2160,
+      y: 194,
+      resizable: false,
+    }));
     expect(secondCapture.show).toHaveBeenCalledOnce();
     expect(secondCapture.focus).toHaveBeenCalledOnce();
     expect(mockState.state.windows).toHaveLength(2);
@@ -371,7 +377,7 @@ describe('WindowManager close intent', () => {
 
     const captureWindow = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
 
-    expect(captureWindow.options).toEqual(expect.objectContaining({ x: 510, y: 162 }));
+    expect(captureWindow.options).toEqual(expect.objectContaining({ x: 480, y: 162 }));
   });
 
   it('submits quick capture in the background and focuses main only after acceptance', async () => {
