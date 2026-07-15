@@ -201,6 +201,7 @@ describe('WindowManager close intent', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
@@ -307,7 +308,8 @@ describe('WindowManager close intent', () => {
     expect(mockState.state.windows).toHaveLength(2);
   });
 
-  it('keeps main hidden across external quick capture dismissal and reopening', () => {
+  it('keeps main hidden across external quick capture dismissal and reopening on macOS', () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
     const { manager, window } = createManagerWithWindow();
     mockState.state.lastWindow = null;
     window.show.mockClear();
@@ -345,7 +347,8 @@ describe('WindowManager close intent', () => {
     expect(window.focus).toHaveBeenCalledOnce();
   });
 
-  it('returns focus to main when quick capture was opened from main', () => {
+  it('returns focus to main when quick capture was opened from main on macOS', () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
     const { manager, window } = createManagerWithWindow();
     const captureWindow = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
     window.show.mockClear();
