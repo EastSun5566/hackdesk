@@ -33,7 +33,7 @@
     "check:actions": "github-actionlint",
     "lint:rs:fmt": "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check",
     "lint:rs:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
-    "lint:rs:deny": "cargo deny --manifest-path src-tauri/Cargo.toml check -c deny.toml",
+    "lint:rs:deny": "cargo deny --manifest-path src-tauri/Cargo.toml check",
     "lint:rs": "pnpm run lint:rs:fmt && pnpm run lint:rs:clippy && pnpm run lint:rs:deny",
     "lint:rs:fix": "cargo fmt --manifest-path src-tauri/Cargo.toml --all && cargo clippy --manifest-path src-tauri/Cargo.toml --fix --allow-dirty --allow-staged",
     "check": "pnpm run typecheck && pnpm run lint:ts && pnpm run check:deps && pnpm run lint:js:audit && pnpm run check:actions && pnpm run contract:hackmd && pnpm run lint:rs",
