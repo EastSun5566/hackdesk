@@ -300,6 +300,14 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       writeClipboardText: vi.fn(async () => undefined),
       saveTextFile: vi.fn(async () => '/tmp/test-note.md'),
       openTextFile: vi.fn(async () => null),
+      checkForUpdates: vi.fn(async () => ({ status: 'upToDate' })),
+      getQuickCaptureShortcutStatus: vi.fn(async () => ({
+        accelerator: 'Control+Alt+H',
+        registered: true,
+      })),
+      submitQuickCapture: vi.fn(async () => ({ accepted: true })),
+      hideQuickCapture: vi.fn(async () => undefined),
+      resolveQuickCaptureSubmission: vi.fn(async () => undefined),
       onCommand: vi.fn(() => () => undefined),
       onCloseRequest: vi.fn(() => () => undefined),
       confirmClose: vi.fn(async () => undefined),
@@ -399,12 +407,6 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
 
     await findRenderedNoteTitle();
-    fireEvent.click(screen.getByRole('button', { name: 'Create note' }));
-    expect(screen.getByRole('heading', { name: 'New Note' })).toBeInTheDocument();
-
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByRole('heading', { name: 'New Note' })).not.toBeInTheDocument();
-
     fireEvent.click(screen.getByRole('button', { name: 'Open settings for Michael' }));
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
 
@@ -1175,14 +1177,14 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findRenderedNoteTitle();
-    fireEvent.click(screen.getByRole('button', { name: 'Create note' }));
-    expect(screen.getByRole('heading', { name: 'New Note' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings for Michael' }));
+    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
 
     act(() => {
       closeHandler?.();
     });
 
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'New Note' })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument());
     await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
     expect(api.app.confirmClose).not.toHaveBeenCalled();
   });
@@ -1246,12 +1248,12 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
     fireEvent.click(screen.getByRole('button', { name: 'Create note' }));
-    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Folder note' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    fireEvent.change(await screen.findByLabelText('Note title'), { target: { value: 'Folder note' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(api.hackmd.createNote).toHaveBeenCalledWith({
       title: 'Folder note',
-      content: '# Folder note\n\n',
+      content: '',
       parentFolderId: 'folder-1',
     }));
   });
@@ -1556,6 +1558,45 @@ describe('Home native-feel behavior', () => {
       title: 'Keyboard note',
       content: '# Test note',
     }));
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Keyboard note')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Select Keyboard note tab' })).toBeInTheDocument();
+    });
+  });
+
+  it('opens quick capture content as an active unsaved draft tab', async () => {
+    let commandHandler: ((command: HackDeskCommandPaletteCommand) => void) | null = null;
+    const api = createApi({
+      app: {
+        onCommand: vi.fn((handler) => {
+          commandHandler = handler;
+          return () => undefined;
+        }),
+      },
+    });
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+
+    act(() => {
+      commandHandler?.({
+        type: 'quick-capture:create-draft',
+        content: '# Captured\n\nBody',
+        requestId: 'capture-request',
+        expiresAt: Date.now() + 1000,
+      });
+    });
+
+    expect(await screen.findByDisplayValue('Untitled')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Select Untitled tab' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('hackmd-markdown-editor')).toHaveTextContent('Captured');
+    });
+    expect(api.hackmd.createNote).not.toHaveBeenCalled();
+    expect(api.app.resolveQuickCaptureSubmission).toHaveBeenCalledWith({
+      requestId: 'capture-request',
+      accepted: true,
+    });
   });
 
   it('shows disabled command palette actions with concrete reasons', async () => {

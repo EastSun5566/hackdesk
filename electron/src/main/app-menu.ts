@@ -1,7 +1,7 @@
 import { app, Menu } from 'electron';
 
 import { DEFAULT_ACTION_KEYBINDINGS, getElectronAction } from '../../../src/lib/electron-actions';
-import type { HackDeskCommandPaletteCommand } from '../../../src/lib/electron-api';
+import type { ElectronActionId, HackDeskCommandPaletteCommand } from '../../../src/lib/electron-api';
 import { ELECTRON_MENU_SCHEMA, type ElectronMenuSchemaItem } from '../../../src/lib/electron-menu-schema';
 import { resolveActionShortcut, toMenuAccelerator, type ShortcutOverrides } from '../../../src/lib/keyboard-shortcuts';
 import { openExternalUrl } from './url-policy';
@@ -9,7 +9,7 @@ import { openExternalUrl } from './url-policy';
 type SendCommand = (command: HackDeskCommandPaletteCommand) => void;
 
 function actionMenuItem(
-  actionId: HackDeskCommandPaletteCommand['type'],
+  actionId: ElectronActionId,
   sendCommand: SendCommand,
   shortcuts: ShortcutOverrides,
 ) {

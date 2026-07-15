@@ -11,6 +11,7 @@ import {
 import type { KeyboardEvent } from 'react';
 import { useState } from 'react';
 
+import { Toggle } from '@/components/ui/toggle';
 import { Toolbar } from '@/components/ui/toolbar';
 import type { NotePermissionRole } from '@/lib/electron-api';
 import {
@@ -27,7 +28,7 @@ import {
 import type { ElectronNoteTag } from '@/lib/electron-note-tags';
 import { cn } from '@/lib/utils';
 
-import { CollapsibleSection, EntityRow, ToolbarDropdownIconTrigger } from './interaction-primitives';
+import { CollapsibleSection, ToolbarDropdownIconTrigger } from './interaction-primitives';
 import { FOCUS_RING_CLASS } from './ui';
 import {
   DropdownMenu,
@@ -329,17 +330,18 @@ export function TagBrowser({
             const active = activeTags.includes(entry.tag);
             return (
               <li key={entry.tag} className="min-w-0">
-                <EntityRow
-                  selected={active}
-                  active={active}
-                  variant="compact"
-                  icon={<Tag className="h-3.5 w-3.5" />}
-                  title={entry.tag}
-                  trailing={entry.count}
-                  className="h-7 py-0 text-xs"
-                  ariaLabel={`${active ? 'Clear' : 'Filter by'} tag ${entry.tag}`}
-                  onClick={() => onTagToggle(entry.tag)}
-                />
+                <Toggle
+                  pressed={active}
+                  onPressedChange={() => onTagToggle(entry.tag)}
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`${active ? 'Clear' : 'Filter by'} tag ${entry.tag}`}
+                  className="h-7 w-full min-w-0 justify-start gap-2 px-2 py-0 text-xs font-normal data-[pressed]:font-medium"
+                >
+                  <Tag aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-text-subtle" />
+                  <span className="min-w-0 flex-1 truncate text-left">{entry.tag}</span>
+                  <span className="shrink-0 tabular-nums text-text-subtle">{entry.count}</span>
+                </Toggle>
               </li>
             );
           })}

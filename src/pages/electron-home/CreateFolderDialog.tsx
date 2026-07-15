@@ -8,12 +8,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Field, FieldLabel, Input, Textarea } from '@/components/ui/field';
 import type { CreateFolderInput } from '@/lib/electron-api';
-import { cn } from '@/lib/utils';
 
 import { FolderAppearanceFields } from './FolderAppearanceFields';
 import type { CreateFolderDialogState } from './types';
-import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS, TEXT_INPUT_CLASS } from './ui';
 
 const CLOSED_CREATE_FOLDER_DIALOG_STATE = { open: false, name: '', description: '', icon: '', color: '' } as const;
 const CREATE_FOLDER_DIALOG_DESCRIPTION_ID = 'create-folder-dialog-description';
@@ -75,33 +75,31 @@ export function CreateFolderDialog({
             }
           }}
         >
-          <div className="space-y-2 text-sm">
-            <label htmlFor={CREATE_FOLDER_NAME_ID} className="font-medium">Name</label>
-            <input
+          <Field>
+            <FieldLabel htmlFor={CREATE_FOLDER_NAME_ID}>Name</FieldLabel>
+            <Input
               id={CREATE_FOLDER_NAME_ID}
               name="name"
               value={state.name}
               onChange={(event) => onStateChange({ ...state, name: event.target.value })}
-              className={TEXT_INPUT_CLASS}
               placeholder="Projects…"
               autoComplete="off"
               spellCheck
               aria-describedby={`${CREATE_FOLDER_DIALOG_DESCRIPTION_ID} ${CREATE_FOLDER_LOCATION_ID}`}
             />
-          </div>
-          <div className="space-y-2 text-sm">
-            <label htmlFor={CREATE_FOLDER_DESCRIPTION_ID} className="font-medium">Description</label>
-            <textarea
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={CREATE_FOLDER_DESCRIPTION_ID}>Description</FieldLabel>
+            <Textarea
               id={CREATE_FOLDER_DESCRIPTION_ID}
               name="description"
               value={state.description}
               onChange={(event) => onStateChange({ ...state, description: event.target.value })}
-              className={cn(TEXT_INPUT_CLASS, 'min-h-20 py-2')}
               rows={3}
               placeholder="Active project notes…"
               spellCheck
             />
-          </div>
+          </Field>
           <FolderAppearanceFields
             icon={state.icon}
             color={state.color}
@@ -109,18 +107,18 @@ export function CreateFolderDialog({
             onColorChange={(color) => onStateChange({ ...state, color })}
           />
           <DialogFooter>
-            <button
+            <Button
+              variant="secondary"
               type="button"
               disabled={isCreating}
               onClick={() => onStateChange(CLOSED_CREATE_FOLDER_DIALOG_STATE)}
-              className={SECONDARY_BUTTON_CLASS}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
               type="submit"
               disabled={!normalizedName || isCreating}
-              className={PRIMARY_BUTTON_CLASS}
             >
               {isCreating ? (
                 <>
@@ -133,7 +131,7 @@ export function CreateFolderDialog({
                   Create
                 </>
               )}
-            </button>
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

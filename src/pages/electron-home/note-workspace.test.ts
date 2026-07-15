@@ -13,9 +13,12 @@ import {
   getActiveTab,
   getActiveNavigationTarget,
   getPaneActiveTab,
+  isDraftNoteTab,
   hydrateNoteWorkspaceLayout,
+  materializeDraftNoteTab,
   moveActiveTabToOtherPane,
   navigateNoteWorkspace,
+  openDraftNoteTab,
   openNoteTab,
   reopenLastClosedTab,
   selectNoteTab,
@@ -65,6 +68,55 @@ describe('note workspace tabs', () => {
       .reduce((current, item) => openNoteTab(current, item), createEmptyNoteWorkspaceState('team:team-a'));
 
     expect(Object.values(state.tabs).map((tab) => tab.title)).toEqual(['Personal', 'Team']);
+  });
+
+  it('opens a local-only draft tab without deduping real note identities', () => {
+    const withDraft = openDraftNoteTab(createEmptyNoteWorkspaceState('personal'));
+    const draft = getActiveTab(withDraft);
+    const withNote = openNoteTab(withDraft, note({ id: 'note-1', title: 'Alpha' }));
+
+    expect(isDraftNoteTab(draft)).toBe(true);
+    expect(draft?.title).toBe('Untitled');
+    expect(withDraft.drafts[draft?.tabId ?? '']).toEqual({ title: 'Untitled', content: '' });
+    expect(Object.values(withNote.tabs)).toHaveLength(2);
+  });
+
+  it('opens a draft tab with initial captured content', () => {
+    const withDraft = openDraftNoteTab(createEmptyNoteWorkspaceState('personal'), {
+      content: '# Captured\nBody',
+    });
+    const draft = getActiveTab(withDraft);
+
+    expect(isDraftNoteTab(draft)).toBe(true);
+    expect(withDraft.drafts[draft?.tabId ?? '']).toEqual({
+      title: 'Untitled',
+      content: '# Captured\nBody',
+    });
+  });
+
+  it('materializes a draft tab into a saved note in place and clears its draft', () => {
+    const withDraft = openDraftNoteTab(createEmptyNoteWorkspaceState('personal'));
+    const draftTabId = getActiveTab(withDraft)?.tabId ?? '';
+    const withContent = updateNoteTabDraft(withDraft, draftTabId, { title: 'Draft title', content: 'Body' });
+    const materialized = materializeDraftNoteTab(withContent, draftTabId, note({ id: 'note-1', title: 'Saved title' }));
+
+    expect(materialized.tabs[draftTabId]).toMatchObject({
+      noteId: 'note-1',
+      title: 'Saved title',
+      teamPath: null,
+    });
+    expect(materialized.drafts[draftTabId]).toBeUndefined();
+    expect(getActiveTab(materialized)?.tabId).toBe(draftTabId);
+  });
+
+  it('does not persist unsaved draft tabs without content persistence', () => {
+    const withDraft = openDraftNoteTab(createEmptyNoteWorkspaceState('personal'));
+    const persisted = toPersistedNoteWorkspaceLayout(withDraft);
+    const hydrated = hydrateNoteWorkspaceLayout('personal', persisted);
+
+    expect(Object.values(persisted.tabs)).toHaveLength(0);
+    expect(Object.values(hydrated.tabs)).toHaveLength(0);
+    expect(hydrated.panes[0]).toMatchObject({ tabIds: [], activeTabId: null });
   });
 
   it('duplicates the active tab to the right and copies its draft', () => {

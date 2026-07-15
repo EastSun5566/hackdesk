@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 import { ChevronRight, Laptop, Moon, Sun } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Field, FieldError, FieldLabel, Input } from '@/components/ui/field';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectLabelValue, SelectTrigger } from '@/components/ui/select';
 import {
@@ -28,14 +30,6 @@ const themeModeOptions: { id: ThemeMode; label: string; description: string; ico
 ];
 
 const focusClassName = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default';
-const secondaryButtonClassName = cn(
-  'inline-flex h-9 items-center justify-center rounded-md border border-border-default bg-background-default px-3 text-sm font-medium text-text-default transition-colors hover:bg-element-bg-hover',
-  focusClassName,
-);
-const primaryButtonClassName = cn(
-  'inline-flex h-9 items-center justify-center rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50',
-  focusClassName,
-);
 
 type ThemeAppearanceControlsProps = {
   onApplied?: () => void;
@@ -247,15 +241,15 @@ export function ThemeAppearanceFields({
 
       {actions === 'inline' ? (
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-default pt-4">
-          <button type="button" onClick={draftActions.reset} className={secondaryButtonClassName}>
+          <Button variant="secondary" onClick={draftActions.reset}>
             Reset Theme
-          </button>
-          <button type="button" onClick={draftActions.cancel} className={secondaryButtonClassName}>
+          </Button>
+          <Button variant="secondary" onClick={draftActions.cancel}>
             Cancel Preview
-          </button>
-          <button type="button" onClick={handleApply} disabled={!status.canApply} className={primaryButtonClassName}>
+          </Button>
+          <Button variant="primary" onClick={handleApply} disabled={!status.canApply}>
             Apply Theme
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>
@@ -275,30 +269,29 @@ function ThemeSeedFields({
     const fieldId = `theme-seed-${field.key}`;
     const errorId = `${fieldId}-error`;
     return (
-      <div key={field.key} className="space-y-2 text-sm">
-        <label htmlFor={fieldId} className="font-medium">{field.label}</label>
+      <Field key={field.key} invalid={Boolean(errors[field.key])}>
+        <FieldLabel htmlFor={fieldId}>{field.label}</FieldLabel>
         <div className="flex items-center gap-2">
           <span
             className="size-5 rounded border border-border-default"
             style={{ backgroundColor: inputs[field.key] || 'transparent' }}
             aria-hidden="true"
           />
-          <input
+          <Input
             id={fieldId}
             value={inputs[field.key]}
             onChange={(event) => onChange(field.key, event.target.value)}
-            className="h-9 min-w-0 flex-1 rounded-md border border-border-default bg-background-default px-2 text-sm text-text-default outline-none transition-[border-color,box-shadow] focus:border-focus-ring focus-visible:ring-2 focus-visible:ring-focus-ring/70"
+            className="h-9 min-w-0 flex-1 bg-background-default px-2 text-text-default"
             placeholder="#5D54E8…"
             autoComplete="off"
             spellCheck={false}
-            aria-invalid={Boolean(errors[field.key])}
             aria-describedby={errors[field.key] ? errorId : undefined}
           />
         </div>
         {errors[field.key] ? (
-          <p id={errorId} className="text-xs text-destructive-default">{errors[field.key]}</p>
+          <FieldError id={errorId} match={Boolean(errors[field.key])}>{errors[field.key]}</FieldError>
         ) : null}
-      </div>
+      </Field>
     );
   });
 }
@@ -318,21 +311,20 @@ function ThemeFontField({
   const errorId = `${fieldId}-error`;
 
   return (
-    <div className="space-y-2 text-sm">
-      <label htmlFor={fieldId} className="font-medium">{label}</label>
-      <input
+    <Field invalid={Boolean(error)}>
+      <FieldLabel htmlFor={fieldId}>{label}</FieldLabel>
+      <Input
         id={fieldId}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-9 w-full rounded-md border border-border-default bg-background-default px-2 text-sm text-text-default outline-none transition-[border-color,box-shadow] focus:border-focus-ring focus-visible:ring-2 focus-visible:ring-focus-ring/70"
+        className="h-9 bg-background-default px-2 text-text-default"
         placeholder={label === 'UI font' ? 'Inter, system-ui, sans-serif' : '"Source Code Pro", ui-monospace, monospace'}
         autoComplete="off"
         spellCheck={false}
-        aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : undefined}
       />
-      {error ? <p id={errorId} className="text-xs text-destructive-default">{error}</p> : null}
-    </div>
+      {error ? <FieldError id={errorId} match={Boolean(error)}>{error}</FieldError> : null}
+    </Field>
   );
 }
 
@@ -355,9 +347,9 @@ function ThemeFontSizeField({
   const errorId = `${fieldId}-error`;
 
   return (
-    <div className="space-y-2 text-sm">
-      <label htmlFor={fieldId} className="font-medium">{label}</label>
-      <input
+    <Field invalid={Boolean(error)}>
+      <FieldLabel htmlFor={fieldId}>{label}</FieldLabel>
+      <Input
         id={fieldId}
         type="number"
         value={value}
@@ -365,12 +357,11 @@ function ThemeFontSizeField({
         max={max}
         step={1}
         onChange={(event) => onChange(event.target.value)}
-        className="h-9 w-full rounded-md border border-border-default bg-background-default px-2 text-sm tabular-nums text-text-default outline-none transition-[border-color,box-shadow] focus:border-focus-ring focus-visible:ring-2 focus-visible:ring-focus-ring/70"
+        className="h-9 bg-background-default px-2 tabular-nums text-text-default"
         autoComplete="off"
-        aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : undefined}
       />
-      {error ? <p id={errorId} className="text-xs text-destructive-default">{error}</p> : null}
-    </div>
+      {error ? <FieldError id={errorId} match={Boolean(error)}>{error}</FieldError> : null}
+    </Field>
   );
 }

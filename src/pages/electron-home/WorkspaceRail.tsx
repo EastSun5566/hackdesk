@@ -2,6 +2,7 @@ import { AlertCircle, Folder, FolderOpen, HardDrive, History, Lock, Settings2 } 
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { TeamSummary, UserSummary } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -69,31 +70,34 @@ function UserAvatar({
   testId?: string;
 }) {
   const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
-  const baseClassName = cn(
-    'flex size-6 items-center justify-center overflow-hidden rounded-full bg-background-selected text-[10px] font-semibold uppercase text-text-default outline outline-1 -outline-offset-1 outline-white/10',
-    className,
-  );
 
   if (user.photo && user.photo !== failedPhoto) {
     return (
-      <img
-        src={user.photo}
-        alt=""
-        width={24}
-        height={24}
-        className={cn(baseClassName, 'object-cover')}
-        data-testid={testId}
-        loading="lazy"
-        referrerPolicy="no-referrer"
-        onError={() => setFailedPhoto(user.photo)}
-      />
+      <Avatar className={cn('size-6 rounded-full text-[10px] font-semibold uppercase', className)}>
+        {/* Base UI Avatar.Image mounts only after the image reports as loaded.
+            Keep this native image mounted immediately so existing tests and fallback
+            handling can observe src/alt/size attributes and dispatch error events. */}
+        <img
+          src={user.photo}
+          alt=""
+          width={24}
+          height={24}
+          className="h-full w-full object-cover"
+          data-testid={testId}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => setFailedPhoto(user.photo)}
+        />
+      </Avatar>
     );
   }
 
   return (
-    <span className={baseClassName} data-testid={testId}>
-      {getUserInitials(user)}
-    </span>
+    <Avatar
+      className={cn('size-6 rounded-full text-[10px] font-semibold uppercase', className)}
+    >
+      <AvatarFallback data-testid={testId}>{getUserInitials(user)}</AvatarFallback>
+    </Avatar>
   );
 }
 
@@ -103,27 +107,27 @@ function TeamLogo({ team }: { team: TeamSummary }) {
 
   if (team.logo && team.logo !== failedLogo) {
     return (
-      <img
-        src={team.logo}
-        alt=""
-        width={24}
-        height={24}
-        className="size-6 rounded-[6px] object-cover outline outline-1 -outline-offset-1 outline-white/10"
-        data-testid={testId}
-        loading="lazy"
-        referrerPolicy="no-referrer"
-        onError={() => setFailedLogo(team.logo)}
-      />
+      <Avatar className="size-6 rounded-[6px] text-[10px] font-semibold uppercase text-text-subtle">
+        {/* Keep the image mounted immediately; see UserAvatar for the Base UI Avatar.Image tradeoff. */}
+        <img
+          src={team.logo}
+          alt=""
+          width={24}
+          height={24}
+          className="h-full w-full object-cover"
+          data-testid={testId}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => setFailedLogo(team.logo)}
+        />
+      </Avatar>
     );
   }
 
   return (
-    <span
-      className="flex size-6 items-center justify-center rounded-[6px] bg-background-selected text-[10px] font-semibold uppercase text-text-subtle"
-      data-testid={testId}
-    >
-      {team.name.trim().slice(0, 1) || 'T'}
-    </span>
+    <Avatar className="size-6 rounded-[6px] text-[10px] font-semibold uppercase text-text-subtle">
+      <AvatarFallback data-testid={testId}>{team.name.trim().slice(0, 1) || 'T'}</AvatarFallback>
+    </Avatar>
   );
 }
 

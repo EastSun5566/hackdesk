@@ -8,9 +8,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Field, FieldLabel, Input } from '@/components/ui/field';
 
 import type { CreateNoteDialogState } from './types';
-import { PRIMARY_BUTTON_CLASS, SECONDARY_BUTTON_CLASS, TEXT_INPUT_CLASS } from './ui';
 
 const CLOSED_CREATE_NOTE_DIALOG_STATE = { open: false, title: '' } as const;
 const CREATE_NOTE_DESCRIPTION_ID = 'create-note-description';
@@ -63,33 +64,32 @@ export function CreateNoteDialog({
             }
           }}
         >
-          <div className="space-y-2 text-sm">
-            <label htmlFor={CREATE_NOTE_TITLE_ID} className="font-medium">Title</label>
-            <input
+          <Field>
+            <FieldLabel htmlFor={CREATE_NOTE_TITLE_ID}>Title</FieldLabel>
+            <Input
               id={CREATE_NOTE_TITLE_ID}
               name="title"
               value={state.title}
               onChange={(event) => onStateChange({ ...state, title: event.target.value })}
-              className={TEXT_INPUT_CLASS}
               placeholder="Sprint notes…"
               autoComplete="off"
               spellCheck
               aria-describedby={`${CREATE_NOTE_DESCRIPTION_ID} ${CREATE_NOTE_LOCATION_ID}`}
             />
-          </div>
+          </Field>
           <DialogFooter>
-            <button
+            <Button
+              variant="secondary"
               type="button"
               disabled={isCreating}
               onClick={() => onStateChange(CLOSED_CREATE_NOTE_DIALOG_STATE)}
-              className={SECONDARY_BUTTON_CLASS}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
               type="submit"
               disabled={!normalizedTitle || isCreating}
-              className={PRIMARY_BUTTON_CLASS}
             >
               {isCreating ? (
                 <>
@@ -102,7 +102,7 @@ export function CreateNoteDialog({
                   Create
                 </>
               )}
-            </button>
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -8,6 +8,7 @@ import { noteIdentityMatches, type NoteIdentity } from './note-workspace';
 
 export type WorkbenchAutoSelectionOptions = {
   autoSelectSuppressionRef: MutableRefObject<string | null>;
+  hasActiveDocument: boolean;
   manualEmptyWorkspaceRef: MutableRefObject<boolean>;
   requestSelectNote: (note: NoteSummary, options?: { focusEditor?: boolean; trackRecent?: boolean }) => Promise<boolean>;
   scopeStorageKey: string;
@@ -22,6 +23,7 @@ export type WorkbenchAutoSelectionState = {
 
 export function useWorkbenchAutoSelection({
   autoSelectSuppressionRef,
+  hasActiveDocument,
   manualEmptyWorkspaceRef,
   requestSelectNote,
   scopeStorageKey,
@@ -48,7 +50,7 @@ export function useWorkbenchAutoSelection({
       return;
     }
 
-    if (selectedNote) {
+    if (selectedNote || hasActiveDocument) {
       return;
     }
 
@@ -69,6 +71,7 @@ export function useWorkbenchAutoSelection({
   }, [
     autoSelectSuppressionRef,
     getAutoSelectSuppressionKey,
+    hasActiveDocument,
     manualEmptyWorkspaceRef,
     requestSelectNote,
     selectedNote,

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,19 +68,15 @@ export function HackmdSettingsPanel({
             <p className="inline-flex w-fit items-center rounded-full border border-success-default/30 bg-success-soft px-2 py-1 text-xs font-medium text-success-default">
               Token configured · leave blank to keep it
             </p>
-            <button
+            <Button
               ref={disconnectButtonRef}
-              type="button"
+              variant="destructive"
               disabled={isBusy}
               onClick={() => setDisconnectDialogOpen(true)}
-              className={cn(
-                'inline-flex h-9 items-center gap-2 rounded-md border border-destructive-default px-3 text-sm font-medium text-destructive-default transition-colors hover:bg-destructive-soft disabled:pointer-events-none disabled:opacity-50',
-                FOCUS_RING_CLASS,
-              )}
             >
               <AlertCircle aria-hidden="true" className="h-4 w-4" />
               Disconnect HackMD
-            </button>
+            </Button>
           </div>
         ) : null}
         <SettingsRow label="API Token" htmlFor={SETTINGS_TOKEN_ID}>

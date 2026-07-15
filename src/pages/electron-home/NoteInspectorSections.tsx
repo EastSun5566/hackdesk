@@ -1,6 +1,8 @@
 import { Loader2, X } from 'lucide-react';
 import type { Dispatch, ReactNode } from 'react';
 
+import { Button } from '@/components/ui/button';
+import { Field, FieldLabel, Input, Textarea } from '@/components/ui/field';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Select,
@@ -13,11 +15,7 @@ import type { NotePermissionRole } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
 
 import { CollapsibleSection } from './interaction-primitives';
-import {
-  FOCUS_RING_CLASS,
-  PRIMARY_BUTTON_CLASS,
-  TEXT_INPUT_CLASS,
-} from './ui';
+import { FOCUS_RING_CLASS } from './ui';
 import type {
   FolderOption,
   InspectorDirtyState,
@@ -40,11 +38,8 @@ export type PermissionsSectionIds = {
   writePermissionId: string;
 };
 
-const INSPECTOR_INPUT_CLASS = cn(
-  TEXT_INPUT_CLASS,
-  'h-9 bg-background-default px-2.5 text-text-default',
-);
-const INSPECTOR_TEXTAREA_CLASS = cn(INSPECTOR_INPUT_CLASS, 'min-h-16 py-2');
+const INSPECTOR_INPUT_CLASS = 'h-9 bg-background-default px-2.5 text-text-default';
+const INSPECTOR_TEXTAREA_CLASS = 'min-h-16 bg-background-default px-2.5 py-2 text-text-default';
 const INSPECTOR_SECTION_CLASS = 'py-3';
 const INSPECTOR_SECTION_CONTENT_CLASS = 'space-y-4 pb-1 pt-3';
 const INSPECTOR_LABEL_CLASS = 'text-xs font-medium text-text-subtle';
@@ -59,10 +54,10 @@ function InspectorField({
   label: string;
 }) {
   return (
-    <div className="space-y-1.5">
-      <label className={INSPECTOR_LABEL_CLASS} htmlFor={htmlFor}>{label}</label>
+    <Field className="space-y-1.5">
+      <FieldLabel className={INSPECTOR_LABEL_CLASS} htmlFor={htmlFor}>{label}</FieldLabel>
       {children}
-    </div>
+    </Field>
   );
 }
 
@@ -141,7 +136,7 @@ export function MetadataSection({
       <fieldset className="space-y-4">
         <legend className="sr-only">Metadata</legend>
         <InspectorField htmlFor={ids.descriptionId} label="Description">
-          <textarea
+          <Textarea
             id={ids.descriptionId}
             aria-label="Description"
             name="description"
@@ -163,7 +158,7 @@ export function MetadataSection({
         />
 
         <InspectorField htmlFor={ids.permalinkId} label="Permalink">
-          <input
+          <Input
             id={ids.permalinkId}
             aria-label="Permalink"
             name="permalink"
@@ -386,14 +381,15 @@ export function InspectorSaveFooter({
       <span className="min-w-0 truncate text-xs text-text-subtle" aria-live="polite">
         {status}
       </span>
-      <button
+      <Button
+        variant="primary"
         type="submit"
         disabled={!dirty || saving}
-        className={cn(PRIMARY_BUTTON_CLASS, 'shrink-0 justify-center')}
+        className="shrink-0"
       >
         {saving ? <Loader2 aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : null}
         <span>{saving ? 'Saving…' : 'Save changes'}</span>
-      </button>
+      </Button>
     </footer>
   );
 }

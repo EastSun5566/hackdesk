@@ -3,7 +3,8 @@ import type { LocalRevision } from '@/lib/local-vault';
 
 export type NoteIdentity = Pick<NoteSummary, 'id' | 'teamPath'>;
 
-export type OpenNoteTab = {
+export type SavedOpenNoteTab = {
+  kind?: 'note';
   tabId: string;
   noteId: string;
   teamPath: string | null;
@@ -12,6 +13,17 @@ export type OpenNoteTab = {
   updatedAtMillis: number | null;
   localRevision?: LocalRevision;
 };
+
+export type DraftOpenNoteTab = {
+  kind: 'draft';
+  tabId: string;
+  draftId: string;
+  title: string;
+  shortId: null;
+  updatedAtMillis: null;
+};
+
+export type OpenNoteTab = SavedOpenNoteTab | DraftOpenNoteTab;
 
 export type NotePane = {
   paneId: string;
@@ -31,6 +43,12 @@ export type NoteDocumentDraft = {
   baseTitle?: string;
   baseContent?: string;
   baseRevision?: LocalRevision;
+};
+
+export type OpenDraftNoteOptions = {
+  paneId?: string;
+  title?: string;
+  content?: string;
 };
 
 export type NoteWorkspaceState = {
@@ -65,9 +83,24 @@ function createTabId() {
   return `note-tab-${Date.now()}-${nextTabId}`;
 }
 
+function createDraftId() {
+  nextTabId += 1;
+  return `draft-note-${Date.now()}-${nextTabId}`;
+}
+
 function createPaneId() {
   nextPaneId += 1;
   return `note-pane-${Date.now()}-${nextPaneId}`;
+}
+
+export function isDraftNoteTab(tab: OpenNoteTab | undefined | null): tab is DraftOpenNoteTab {
+  return tab?.kind === 'draft';
+}
+
+export function getSavedTabNoteIdentity(tab: OpenNoteTab | undefined | null): NoteIdentity | null {
+  return tab && !isDraftNoteTab(tab)
+    ? { id: tab.noteId, teamPath: tab.teamPath }
+    : null;
 }
 
 export function getNoteIdentityKey(note: NoteIdentity) {
@@ -147,7 +180,10 @@ export function getVisibleActiveTabs(state: NoteWorkspaceState) {
 
 export function getTabByNoteIdentity(state: NoteWorkspaceState, note: NoteIdentity) {
   const identityKey = getNoteIdentityKey(note);
-  return Object.values(state.tabs).find((tab) => getNoteIdentityKey({ id: tab.noteId, teamPath: tab.teamPath }) === identityKey) ?? null;
+  return Object.values(state.tabs).find((tab) => {
+    const tabIdentity = getSavedTabNoteIdentity(tab);
+    return tabIdentity ? getNoteIdentityKey(tabIdentity) === identityKey : false;
+  }) ?? null;
 }
 
 export function getTabPane(state: NoteWorkspaceState, tabId: string) {
@@ -167,15 +203,26 @@ function getNoteLocalRevision(note: NoteSummary): LocalRevision | undefined {
     : undefined;
 }
 
-function createTab(note: NoteSummary): OpenNoteTab {
+function createTabFromNote(note: NoteSummary, tabId = createTabId()): SavedOpenNoteTab {
   return {
-    tabId: createTabId(),
+    tabId,
     noteId: note.id,
     teamPath: note.teamPath ?? null,
     title: getTabTitle(note),
     shortId: note.shortId || null,
     updatedAtMillis: note.updatedAtMillis,
     localRevision: getNoteLocalRevision(note),
+  };
+}
+
+function createDraftTab(): DraftOpenNoteTab {
+  return {
+    kind: 'draft',
+    tabId: createTabId(),
+    draftId: createDraftId(),
+    title: 'Untitled',
+    shortId: null,
+    updatedAtMillis: null,
   };
 }
 
@@ -223,13 +270,23 @@ function normalizeState(state: NoteWorkspaceState): NoteWorkspaceState {
 }
 
 function pushRecentlyClosedTab(state: NoteWorkspaceState, tab: OpenNoteTab) {
-  const identityKey = getNoteIdentityKey({ id: tab.noteId, teamPath: tab.teamPath });
+  if (isDraftNoteTab(tab)) {
+    return state.recentlyClosedTabs;
+  }
+
+  const identityKey = getClosedTabKey(tab);
   return [
     tab,
     ...state.recentlyClosedTabs.filter((candidate) => (
-      getNoteIdentityKey({ id: candidate.noteId, teamPath: candidate.teamPath }) !== identityKey
+      getClosedTabKey(candidate) !== identityKey
     )),
   ].slice(0, MAX_RECENTLY_CLOSED_TABS);
+}
+
+function getClosedTabKey(tab: OpenNoteTab) {
+  return isDraftNoteTab(tab)
+    ? `draft:${tab.draftId}`
+    : getNoteIdentityKey({ id: tab.noteId, teamPath: tab.teamPath });
 }
 
 function navigationTargetEquals(left: NoteNavigationTarget | null, right: NoteNavigationTarget | null) {
@@ -323,7 +380,7 @@ export function openNoteTab(state: NoteWorkspaceState, note: NoteSummary, paneId
   }
 
   const pane = state.panes.find((candidate) => candidate.paneId === paneId) ?? getActivePane(state);
-  const tab = createTab(note);
+  const tab = createTabFromNote(note);
   const next = normalizeState({
     ...state,
     tabs: {
@@ -340,6 +397,60 @@ export function openNoteTab(state: NoteWorkspaceState, note: NoteSummary, paneId
     activePaneId: pane.paneId,
   });
   return withNavigationHistory(state, next);
+}
+
+function normalizeOpenDraftNoteOptions(options?: string | OpenDraftNoteOptions): OpenDraftNoteOptions {
+  return typeof options === 'string' ? { paneId: options } : options ?? {};
+}
+
+export function openDraftNoteTab(state: NoteWorkspaceState, options?: string | OpenDraftNoteOptions) {
+  const draftOptions = normalizeOpenDraftNoteOptions(options);
+  const paneId = draftOptions.paneId ?? state.activePaneId;
+  const pane = state.panes.find((candidate) => candidate.paneId === paneId) ?? getActivePane(state);
+  const tab = createDraftTab();
+  const draftTitle = draftOptions.title?.trim() || tab.title;
+  const next = normalizeState({
+    ...state,
+    tabs: {
+      ...state.tabs,
+      [tab.tabId]: tab,
+    },
+    drafts: {
+      ...state.drafts,
+      [tab.tabId]: {
+        title: draftTitle,
+        content: draftOptions.content ?? '',
+      },
+    },
+    panes: state.panes.map((candidate) => candidate.paneId === pane.paneId
+      ? {
+        ...candidate,
+        tabIds: [...candidate.tabIds, tab.tabId],
+        activeTabId: tab.tabId,
+      }
+      : candidate),
+    activePaneId: pane.paneId,
+  });
+  return withNavigationHistory(state, next);
+}
+
+export function materializeDraftNoteTab(state: NoteWorkspaceState, tabId: string, note: NoteSummary) {
+  const tab = state.tabs[tabId];
+  if (!isDraftNoteTab(tab)) {
+    return state;
+  }
+
+  const drafts = { ...state.drafts };
+  delete drafts[tabId];
+
+  return normalizeState({
+    ...state,
+    tabs: {
+      ...state.tabs,
+      [tabId]: createTabFromNote(note, tabId),
+    },
+    drafts,
+  });
 }
 
 export function selectNoteTab(state: NoteWorkspaceState, paneId: string, tabId: string) {
@@ -466,12 +577,17 @@ export function closeTabsToRight(state: NoteWorkspaceState, paneId: string, tabI
 export function closeTabsByNoteIdentity(state: NoteWorkspaceState, note: NoteIdentity) {
   const identityKey = getNoteIdentityKey(note);
   const closed = Object.values(state.tabs)
-    .filter((tab) => getNoteIdentityKey({ id: tab.noteId, teamPath: tab.teamPath }) === identityKey)
+    .filter((tab) => {
+      const tabIdentity = getSavedTabNoteIdentity(tab);
+      return tabIdentity ? getNoteIdentityKey(tabIdentity) === identityKey : false;
+    })
     .reduce((nextState, tab) => closeNoteTab(nextState, tab.tabId), state);
   return {
     ...closed,
     recentlyClosedTabs: closed.recentlyClosedTabs.filter((tab) => (
-      getNoteIdentityKey({ id: tab.noteId, teamPath: tab.teamPath }) !== identityKey
+      getSavedTabNoteIdentity(tab)
+        ? getNoteIdentityKey(getSavedTabNoteIdentity(tab) as NoteIdentity) !== identityKey
+        : true
     )),
   };
 }
@@ -684,7 +800,7 @@ export function clearNoteTabDraft(state: NoteWorkspaceState, tabId: string) {
 
 export function syncNoteTabSummary(state: NoteWorkspaceState, note: NoteSummary) {
   const tab = getTabByNoteIdentity(state, note);
-  if (!tab) {
+  if (!tab || isDraftNoteTab(tab)) {
     return state;
   }
   const savedLocalRevision = note.content !== null ? getNoteLocalRevision(note) : undefined;
@@ -705,12 +821,28 @@ export function syncNoteTabSummary(state: NoteWorkspaceState, note: NoteSummary)
 }
 
 export function toPersistedNoteWorkspaceLayout(state: NoteWorkspaceState): PersistedNoteWorkspaceLayout {
+  const savedTabs = Object.fromEntries(
+    Object.entries(state.tabs).filter(([, tab]) => !isDraftNoteTab(tab)),
+  );
+  const panes = state.panes.map((pane) => {
+    const tabIds = pane.tabIds.filter((tabId) => savedTabs[tabId]);
+    return {
+      ...pane,
+      tabIds,
+      activeTabId: pane.activeTabId && savedTabs[pane.activeTabId]
+        ? pane.activeTabId
+        : tabIds[0] ?? null,
+    };
+  });
+
   return {
     version: 1,
     scopeKey: state.scopeKey,
-    tabs: state.tabs,
-    panes: state.panes,
-    activePaneId: state.activePaneId,
+    tabs: savedTabs,
+    panes,
+    activePaneId: panes.some((pane) => pane.paneId === state.activePaneId)
+      ? state.activePaneId
+      : panes[0]?.paneId ?? 'note-pane-primary',
   };
 }
 
@@ -725,10 +857,11 @@ export function hydrateNoteWorkspaceLayout(scopeKey: string, layout: unknown): N
   }
 
   const tabs = Object.fromEntries(
-    Object.entries(value.tabs).filter((entry): entry is [string, OpenNoteTab] => {
+    Object.entries(value.tabs).filter((entry): entry is [string, SavedOpenNoteTab] => {
       const [tabId, tab] = entry;
       return Boolean(
         tab
+        && !isDraftNoteTab(tab)
         && typeof tabId === 'string'
         && typeof tab.tabId === 'string'
         && tab.tabId === tabId

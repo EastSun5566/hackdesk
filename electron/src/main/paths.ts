@@ -2,7 +2,7 @@ import { app } from 'electron';
 import { join } from 'node:path';
 
 import { ROOT, SETTINGS_NAME } from '../../../src/constants';
-export { getRendererEntryUrl } from './renderer-url';
+export { getRendererEntryUrl, getRendererRouteUrl } from './renderer-url';
 
 export function getHackDeskRootPath() {
   return join(app.getPath('home'), ROOT);

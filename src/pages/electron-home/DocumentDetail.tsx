@@ -58,8 +58,9 @@ export type { DocumentSyncState } from './document-sync-state';
 export type DocumentDetailDocumentState = {
   content: string;
   document?: DocumentSummary;
+  isDraft: boolean;
   recovery?: {
-    kind: 'disk_changed';
+    kind: 'disk_changed' | 'save_failed';
     message: string;
   } | null;
   selectedNote?: Pick<NoteSummary, 'title'> | null;
@@ -95,7 +96,7 @@ export type DocumentDetailActions = {
   onOpenExternal: (url: string) => void;
   onRevealInFinder: (document: DocumentSummary) => void;
   onReloadFromDisk: (document: DocumentSummary) => void;
-  onSave: (document: DocumentSummary, input: UpdateNoteInput) => void;
+  onSave: (input: UpdateNoteInput) => void;
   onSaveAsCopy: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveSharing: (document: DocumentSummary, input: UpdateNoteInput) => void;
@@ -213,14 +214,14 @@ export function DocumentDetail({
     );
   }
 
-  if (!documentState.document) {
+  if (!documentState.document && !documentState.isDraft) {
     return <EmptyDocumentDetail />;
   }
 
   return (
     <ActiveDocumentDetail
       actions={actions}
-      documentState={{ ...documentState, document: documentState.document }}
+      documentState={documentState}
       editorMode={editorMode}
       focusZone={focusZone}
       folderTree={folderTree}
@@ -281,7 +282,7 @@ function ActiveDocumentDetail({
   status,
 }: {
   actions: DocumentDetailActions;
-  documentState: DocumentDetailDocumentState & { document: DocumentSummary };
+  documentState: DocumentDetailDocumentState;
   editorMode: EditorMode;
   focusZone?: string;
   folderTree: FolderTree;
@@ -295,8 +296,11 @@ function ActiveDocumentDetail({
   const lastHandledSearchRequestRef = useRef(0);
   const [actionsOpen, setActionsOpen] = useState(false);
   const inspectorPanelId = layout.inspectorPanelId ?? NOTE_INSPECTOR_PANEL_ID;
-  const noteDirty = documentState.title !== documentState.document.title || documentState.content !== documentState.document.content;
-  const isLocalDocument = documentState.document.teamPath === LOCAL_VAULT_TEAM_PATH;
+  const noteDirty = documentState.isDraft
+    || (documentState.document
+      ? documentState.title !== documentState.document.title || documentState.content !== documentState.document.content
+      : false);
+  const isLocalDocument = documentState.document?.teamPath === LOCAL_VAULT_TEAM_PATH;
   const focusEditorWhenReady = useCallback((requestId: number) => {
     let attempts = 0;
     const focusEditor = () => {
@@ -364,6 +368,11 @@ function ActiveDocumentDetail({
     const editor = editorRef.current;
     if (!editor) {
       toast.error('Editor is not ready for image insertion.');
+      return;
+    }
+
+    if (!documentState.document) {
+      toast.error('Save the draft before attaching images.');
       return;
     }
 
@@ -441,7 +450,7 @@ function ActiveDocumentDetail({
         />
       </div>
 
-      {isLocalDocument ? null : (
+      {!documentState.document || isLocalDocument ? null : (
         <ShareDialog
           open={layout.shareOpen}
           document={documentState.document}
@@ -462,11 +471,12 @@ function DocumentRecoveryBanner({
   documentState,
 }: {
   actions: DocumentDetailActions;
-  documentState: DocumentDetailDocumentState & { document: DocumentSummary };
+  documentState: DocumentDetailDocumentState;
 }) {
-  if (documentState.recovery?.kind !== 'disk_changed') {
+  if (!documentState.document || documentState.recovery?.kind !== 'disk_changed') {
     return null;
   }
+  const document = documentState.document;
 
   return (
     <div className="border-b border-warning-default/30 bg-warning-soft px-4 py-2.5 text-sm text-warning-default">
@@ -478,7 +488,7 @@ function DocumentRecoveryBanner({
         <button
           type="button"
           className="inline-flex h-7 items-center gap-1 rounded-[6px] border border-warning-default/35 bg-background-default px-2 text-xs font-medium text-text-default hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-          onClick={() => actions.onReloadFromDisk(documentState.document)}
+          onClick={() => actions.onReloadFromDisk(document)}
         >
           <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
           Reload from disk
@@ -486,7 +496,7 @@ function DocumentRecoveryBanner({
         <button
           type="button"
           className="inline-flex h-7 items-center gap-1 rounded-[6px] bg-warning-default px-2 text-xs font-medium text-background-default hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-          onClick={() => actions.onSaveAsCopy(documentState.document, {
+          onClick={() => actions.onSaveAsCopy(document, {
             title: documentState.title,
             content: documentState.content,
           })}
@@ -513,7 +523,7 @@ function DocumentHeader({
 }: {
   actions: DocumentDetailActions;
   actionsOpen: boolean;
-  documentState: DocumentDetailDocumentState & { document: DocumentSummary };
+  documentState: DocumentDetailDocumentState;
   inspectorPanelId: string;
   layout: DocumentDetailLayout;
   noteDirty: boolean;
@@ -522,16 +532,20 @@ function DocumentHeader({
   onOpenShareDialog: () => void;
   status: DocumentDetailStatus;
 }) {
-  const isLocalDocument = documentState.document.teamPath === LOCAL_VAULT_TEAM_PATH;
+  const isLocalDocument = documentState.document?.teamPath === LOCAL_VAULT_TEAM_PATH;
   const effectiveSyncState = getEffectiveSyncState({
     noteDirty,
     saving: status.saving,
     syncState: documentState.syncState,
   });
-  const subtitleParts = getDocumentHeaderSubtitleParts(documentState.document, isLocalDocument);
+  const subtitleParts = documentState.document
+    ? getDocumentHeaderSubtitleParts(documentState.document, isLocalDocument)
+    : ['Unsaved draft'];
   const saveTooltip = status.saving
     ? 'Saving note…'
-    : noteDirty
+    : documentState.isDraft
+      ? 'Save draft as note'
+      : noteDirty
       ? 'Save note'
       : 'No unsaved note changes.';
 
@@ -565,14 +579,14 @@ function DocumentHeader({
             actionId="save-note"
             disabled={status.saving || !noteDirty}
             title={!noteDirty ? 'No unsaved note changes.' : undefined}
-            onClick={() => actions.onSave(documentState.document, { title: documentState.title, content: documentState.content })}
+            onClick={() => actions.onSave({ title: documentState.title, content: documentState.content })}
             label="Save"
             tooltip={saveTooltip}
             className={noteDirty ? 'bg-primary-default text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground' : undefined}
           >
             {status.saving ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Save aria-hidden="true" className="h-4 w-4" />}
           </ToolbarIconButton>
-          {isLocalDocument ? null : (
+          {!documentState.document || isLocalDocument ? null : (
             <ToolbarIconButton
               actionId="toggle-inspector"
               onClick={actions.onToggleInspector}
@@ -583,15 +597,17 @@ function DocumentHeader({
               {layout.inspectorCollapsed ? <PanelRightOpen aria-hidden="true" className="h-4 w-4" /> : <PanelRightClose aria-hidden="true" className="h-4 w-4" />}
             </ToolbarIconButton>
           )}
-          <DocumentActionsMenu
-            actions={actions}
-            documentState={documentState}
-            open={actionsOpen}
-            onOpenChange={onActionsOpenChange}
-            onAttachImage={onAttachImage}
-            onOpenShareDialog={onOpenShareDialog}
-            status={status}
-          />
+          {documentState.document ? (
+            <DocumentActionsMenu
+              actions={actions}
+              documentState={{ ...documentState, document: documentState.document }}
+              open={actionsOpen}
+              onOpenChange={onActionsOpenChange}
+              onAttachImage={onAttachImage}
+              onOpenShareDialog={onOpenShareDialog}
+              status={status}
+            />
+          ) : null}
         </>
       )}
     />
@@ -687,7 +703,7 @@ function DocumentBody({
   setEditorRef,
 }: {
   content: string;
-  document: DocumentSummary;
+  document?: DocumentSummary;
   editorMode: EditorMode;
   onAttachImage: (document: DocumentSummary, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
   onContentChange: (content: string) => void;
@@ -696,6 +712,10 @@ function DocumentBody({
 }) {
   const handleAttachImage = useCallback(async (file: File) => {
     try {
+      if (!document) {
+        throw new Error('Save the draft before attaching images.');
+      }
+
       return await uploadImageFile(onAttachImage, document, file);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to insert image.');
@@ -739,14 +759,14 @@ function InspectorPanel({
   status,
 }: {
   actions: DocumentDetailActions;
-  document: DocumentSummary;
+  document?: DocumentSummary;
   folderTree: FolderTree;
   inspectorCollapsed: boolean;
   inspectorPanelId: string;
   isLocalDocument: boolean;
   status: DocumentDetailStatus;
 }) {
-  if (isLocalDocument) {
+  if (!document || isLocalDocument) {
     return null;
   }
 

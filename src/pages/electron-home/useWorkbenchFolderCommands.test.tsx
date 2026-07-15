@@ -41,6 +41,7 @@ function createOptions(overrides: Partial<WorkbenchFolderCommandsOptions> = {}):
     hasToken: true,
     moveFolder: vi.fn(),
     onChooseLocalVault: vi.fn(),
+    openDraftNote: vi.fn(),
     scopeType: 'personal',
     setCreateDialog: vi.fn(),
     setCreateFolderDialog: vi.fn(),
@@ -121,6 +122,7 @@ describe('useWorkbenchFolderCommands', () => {
 
     expect(options.setSelectedFolderId).toHaveBeenCalledWith('folder-a');
     expect(options.setCreateDialog).toHaveBeenCalledWith({ open: true, title: '' });
+    expect(options.openDraftNote).not.toHaveBeenCalled();
 
     act(() => {
       result.current.handleCreateNoteInside(null);
@@ -175,7 +177,8 @@ describe('useWorkbenchFolderCommands', () => {
       result.current.handleCreateFolder();
     });
 
-    expect(options.setCreateDialog).toHaveBeenCalledWith({ open: true, title: '' });
+    expect(options.openDraftNote).toHaveBeenCalledOnce();
+    expect(options.setCreateDialog).not.toHaveBeenCalled();
     expect(options.setCreateFolderDialog).toHaveBeenCalledWith({
       open: true,
       name: '',

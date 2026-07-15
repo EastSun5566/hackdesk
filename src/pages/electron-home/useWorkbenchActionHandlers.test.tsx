@@ -46,6 +46,18 @@ function createTab(overrides: Partial<OpenNoteTab> = {}): OpenNoteTab {
   };
 }
 
+function createDraftTab(overrides: Partial<OpenNoteTab> = {}): OpenNoteTab {
+  return {
+    kind: 'draft',
+    draftId: 'draft-1',
+    shortId: null,
+    tabId: 'draft-tab-1',
+    title: 'Untitled',
+    updatedAtMillis: null,
+    ...overrides,
+  };
+}
+
 function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}): WorkbenchActionHandlersOptions {
   return {
     activePaneId: 'pane-1',
@@ -82,6 +94,7 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     requestDeleteFolder: vi.fn(),
     reopenLastClosedTab: vi.fn(),
     saveNote: vi.fn(),
+    saveDraftNote: vi.fn(),
     setEditorMode: vi.fn(),
     selectedDocument: createDocument(),
     selectedFolderId: 'folder-1',
@@ -115,6 +128,25 @@ describe('useWorkbenchActionHandlers', () => {
     result.current.saveNote();
 
     expect(saveNote).toHaveBeenCalledOnce();
+  });
+
+  it('saves a draft tab through create instead of update', () => {
+    const saveNote = vi.fn();
+    const saveDraftNote = vi.fn();
+    const activeTab = createDraftTab();
+    const { result } = renderHook(() => useWorkbenchActionHandlers(createOptions({
+      activeTab,
+      documentContent: 'Draft body',
+      documentTitle: 'Draft title',
+      saveDraftNote,
+      saveNote,
+      selectedDocument: undefined,
+    })));
+
+    result.current.saveNote();
+
+    expect(saveDraftNote).toHaveBeenCalledWith(activeTab, { title: 'Draft title', content: 'Draft body' });
+    expect(saveNote).not.toHaveBeenCalled();
   });
 
   it('routes editor search and history navigation through the existing callbacks', () => {

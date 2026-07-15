@@ -14,7 +14,7 @@ import {
 import { toOpenHackmdEditorInput } from '@/lib/electron-note-links';
 import type { EditorMode } from '@/lib/settings';
 
-import type { NoteWorkspaceState } from './note-workspace';
+import { isDraftNoteTab, type NoteWorkspaceState } from './note-workspace';
 import type { WorkspaceScope } from './types';
 
 export type WorkbenchActionContextInput = {
@@ -98,8 +98,10 @@ export function createWorkbenchActionContext({
 }: WorkbenchActionContextInput): ElectronActionContext {
   const activePane = workspaceState.panes.find((pane) => pane.paneId === workspaceState.activePaneId);
   const activeTabIndex = activePane?.activeTabId ? activePane.tabIds.indexOf(activePane.activeTabId) : -1;
+  const activeTab = activePane?.activeTabId ? workspaceState.tabs[activePane.activeTabId] ?? null : null;
 
   return {
+    activeTabIsDraft: isDraftNoteTab(activeTab),
     activePaneTabCount: activePane?.tabIds.length ?? 0,
     activePaneTabsToRightCount: activePane && activeTabIndex >= 0 ? activePane.tabIds.length - activeTabIndex - 1 : 0,
     canCreate,

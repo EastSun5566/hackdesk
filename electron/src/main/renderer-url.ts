@@ -21,6 +21,11 @@ export function getRendererEntryUrl() {
   return getDevServerRendererUrl() ?? getProductionRendererUrl();
 }
 
+export function getRendererRouteUrl(route: string) {
+  const [root] = getRendererEntryUrl().split('#');
+  return `${root}#${route.startsWith('/') ? route : `/${route}`}`;
+}
+
 export function isTrustedRendererUrl(url: string) {
   const devServerUrl = getDevServerRendererUrl();
 

@@ -1,10 +1,12 @@
 import type { InputHTMLAttributes, ReactNode } from 'react';
 import { CircleHelp } from 'lucide-react';
 
+import { Input } from '@/components/ui/field';
+import { Toggle } from '@/components/ui/toggle';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
-import { FOCUS_RING_CLASS, TEXT_INPUT_CLASS } from './ui';
+import { FOCUS_RING_CLASS } from './ui';
 
 export function SettingsSection({
   title,
@@ -80,7 +82,7 @@ function SettingsHelpTooltip({
 }
 
 export function SettingsInput(props: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={TEXT_INPUT_CLASS} {...props} />;
+  return <Input {...props} />;
 }
 
 export function SettingsSecretInput({
@@ -93,22 +95,22 @@ export function SettingsSecretInput({
 }) {
   return (
     <div className="flex overflow-hidden rounded-md border border-border-default bg-background-muted transition-colors focus-within:border-focus-ring">
-      <input
-        className="h-10 min-w-0 flex-1 bg-transparent px-3 text-sm outline-none"
+      <Input
+        className="h-10 min-w-0 flex-1 rounded-none border-0 bg-transparent px-3 focus:border-transparent focus-visible:ring-0"
         type={visible ? 'text' : 'password'}
         spellCheck={false}
         {...props}
       />
-      <button
-        type="button"
-        onClick={() => onVisibleChange(!visible)}
-        className={cn(
-          'border-l border-border-default px-3 text-xs font-medium text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default',
-          FOCUS_RING_CLASS,
-        )}
+      <Toggle
+        pressed={visible}
+        onPressedChange={onVisibleChange}
+        aria-label={visible ? 'Hide token' : 'Show token'}
+        className="h-10 rounded-none border-0 border-l border-border-default px-3"
+        size="sm"
+        variant="ghost"
       >
         {visible ? 'Hide' : 'Show'}
-      </button>
+      </Toggle>
     </div>
   );
 }

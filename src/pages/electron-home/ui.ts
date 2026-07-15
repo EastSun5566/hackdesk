@@ -17,12 +17,6 @@ export const SECONDARY_BUTTON_CLASS = cn(
   PRESSED_CLASS,
   FOCUS_RING_CLASS,
 );
-export const PRIMARY_BUTTON_CLASS = cn(
-  'inline-flex h-9 items-center gap-2 rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50',
-  PRESSED_CLASS,
-  FOCUS_RING_CLASS,
-);
-export const TEXT_INPUT_CLASS = 'h-10 w-full rounded-md border border-border-default bg-background-muted px-3 text-sm outline-none transition-[border-color,box-shadow] focus:border-focus-ring focus-visible:ring-2 focus-visible:ring-focus-ring/70';
 const noteDateFormatter = new Intl.DateTimeFormat(undefined, {
   month: 'short',
   day: 'numeric',

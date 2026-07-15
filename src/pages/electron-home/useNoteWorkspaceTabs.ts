@@ -17,9 +17,11 @@ import {
   getPaneActiveTab,
   getTabPane,
   getVisibleActiveTabs,
+  materializeDraftNoteTab,
   moveActiveTabToOtherPane,
   navigateNoteWorkspace,
   noteIdentityMatches,
+  openDraftNoteTab,
   openNoteTab,
   readNoteWorkspaceLayoutStorage,
   reopenLastClosedTab,
@@ -32,6 +34,7 @@ import {
   type NoteDocumentDraft,
   type NoteIdentity,
   type NoteWorkspaceState,
+  type OpenDraftNoteOptions,
 } from './note-workspace';
 
 function readInitialState(scopeKey: string) {
@@ -67,6 +70,14 @@ export function useNoteWorkspaceTabs(scopeKey: string) {
 
   const openNote = useCallback((note: NoteSummary, paneId?: string) => {
     setState((current) => openNoteTab(current, note, paneId));
+  }, []);
+
+  const openDraftNote = useCallback((options?: string | OpenDraftNoteOptions) => {
+    setState((current) => openDraftNoteTab(current, options));
+  }, []);
+
+  const materializeDraftNote = useCallback((tabId: string, note: NoteSummary) => {
+    setState((current) => materializeDraftNoteTab(current, tabId, note));
   }, []);
 
   const selectTab = useCallback((paneId: string, tabId: string) => {
@@ -158,7 +169,7 @@ export function useNoteWorkspaceTabs(scopeKey: string) {
 
   const getTabsMatching = useCallback((note: NoteIdentity) => (
     Object.values(state.tabs).filter((tab) => noteIdentityMatches(
-      { id: tab.noteId, teamPath: tab.teamPath },
+      'noteId' in tab ? { id: tab.noteId, teamPath: tab.teamPath } : null,
       note,
     ))
   ), [state.tabs]);
@@ -168,6 +179,8 @@ export function useNoteWorkspaceTabs(scopeKey: string) {
     activeTab,
     visibleActiveTabs,
     openNote,
+    openDraftNote,
+    materializeDraftNote,
     focusPane,
     selectTab,
     closeTab,

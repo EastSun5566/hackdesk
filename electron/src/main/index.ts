@@ -1,8 +1,9 @@
-import { app, BrowserWindow } from 'electron';
+import { app } from 'electron';
 
 import { createApplicationMenu } from './app-menu';
 import { createApplicationTray } from './app-tray';
 import { createAppIcon } from './app-icon';
+import { registerQuickCaptureGlobalShortcut, unregisterQuickCaptureGlobalShortcut } from './global-shortcuts';
 import { registerIpcHandlers } from './ipc-handlers';
 import { initCrashReporter, initLogging, writeLog } from './logging';
 import { registerRendererProtocol } from './renderer-protocol';
@@ -35,7 +36,7 @@ app.whenReady().then(async () => {
   app.dock?.setIcon(createAppIcon());
   registerRendererProtocol();
   const createMenu = (shortcuts = {}) => createApplicationMenu(
-    (command) => windowManager.sendCommand(command),
+    (command) => windowManager.sendCommandToMainWindow(command),
     shortcuts,
   );
   registerIpcHandlers(windowManager, {
@@ -43,12 +44,14 @@ app.whenReady().then(async () => {
   });
   createMenu((await readStoredSettings()).shortcuts);
   windowManager.createMainWindow();
-  tray = createApplicationTray(() => windowManager.showAndFocusMainWindow());
+  registerQuickCaptureGlobalShortcut(windowManager);
+  tray = createApplicationTray({
+    showMainWindow: () => windowManager.showAndFocusMainWindow(),
+    showQuickCaptureWindow: () => windowManager.showQuickCaptureWindow(),
+  });
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      windowManager.createMainWindow();
-    }
+    windowManager.handleAppActivation();
   });
 }).catch((error) => {
   writeLog('main', 'failed to start app', error, 'error');
@@ -65,6 +68,10 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   windowManager.setAppQuitting(true);
+});
+
+app.on('will-quit', () => {
+  unregisterQuickCaptureGlobalShortcut();
 });
 
 export function getTrayForTesting() {

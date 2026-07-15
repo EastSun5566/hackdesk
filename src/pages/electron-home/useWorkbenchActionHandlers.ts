@@ -8,7 +8,7 @@ import type {
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import type { EditorMode } from '@/lib/settings';
 
-import type { OpenNoteTab } from './note-workspace';
+import { isDraftNoteTab, type OpenNoteTab } from './note-workspace';
 import type { ElectronFocusZone } from './useElectronFocusZones';
 import {
   exportDebugLogs,
@@ -51,6 +51,7 @@ export type WorkbenchActionHandlersOptions = {
   requestDeleteFolder: (folderId: string) => void;
   reopenLastClosedTab: () => void;
   saveNote: (note: DocumentSummary, input: { title: string; content: string }) => void;
+  saveDraftNote: (tab: OpenNoteTab, input: { title: string; content: string }) => void;
   setEditorMode: (mode: EditorMode) => void;
   selectedDocument?: DocumentSummary;
   selectedFolderId: string | null;
@@ -99,6 +100,7 @@ export function useWorkbenchActionHandlers({
   requestDeleteFolder,
   reopenLastClosedTab,
   saveNote,
+  saveDraftNote,
   setEditorMode,
   selectedDocument,
   selectedFolderId,
@@ -205,6 +207,11 @@ export function useWorkbenchActionHandlers({
       focusZone('editor');
     },
     saveNote: () => {
+      if (activeTab && isDraftNoteTab(activeTab) && !isSavingNote) {
+        saveDraftNote(activeTab, { title: documentTitle, content: documentContent });
+        return;
+      }
+
       if (selectedDocument && noteDirty && !isSavingNote) {
         saveNote(selectedDocument, { title: documentTitle, content: documentContent });
       }
@@ -253,6 +260,7 @@ export function useWorkbenchActionHandlers({
     requestCloseTabsToRight,
     requestDeleteFolder,
     saveNote,
+    saveDraftNote,
     setEditorMode,
     selectedDocument,
     selectedFolderId,

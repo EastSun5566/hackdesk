@@ -24,7 +24,11 @@ import {
   useElectronHomeSelectionRefs,
   useSelectedDocumentEditorFocus,
 } from './electron-home/useElectronHomeSelection';
-import { useElectronHomeShellEffects } from './electron-home/useElectronHomeShellEffects';
+import {
+  getQuickCaptureDraftError,
+  useElectronHomeShellEffects,
+  type QuickCaptureDraftResult,
+} from './electron-home/useElectronHomeShellEffects';
 import { useElectronNoteMutations } from './electron-home/useElectronNoteMutations';
 import { useDocumentCommands } from './electron-home/useDocumentCommands';
 import { useLocalDocumentRecovery } from './electron-home/useLocalDocumentRecovery';
@@ -51,6 +55,7 @@ import { useWorkbenchTabLifecycle } from './electron-home/useWorkbenchTabLifecyc
 import { useHomeLocalVaultActions } from './electron-home/useHomeLocalVaultActions';
 import { useHomeOverlayProps } from './electron-home/useHomeOverlayProps';
 import { useHomeWorkspaceProps } from './electron-home/useHomeWorkspaceProps';
+import { getSavedTabNoteIdentity, isDraftNoteTab } from './electron-home/note-workspace';
 import {
   DEFAULT_WORKSPACE_SCOPE,
   getInitialWorkspaceScope,
@@ -151,6 +156,11 @@ export function Home() {
     setWorkspaceScope(DEFAULT_WORKSPACE_SCOPE);
   }, [setWorkspaceScope]);
   const { focusZone } = useElectronFocusZones();
+  const activeDocumentNotes = useMemo(() => (
+    noteWorkspace.visibleActiveTabs
+      .map(getSavedTabNoteIdentity)
+      .filter((note): note is NonNullable<typeof note> => Boolean(note))
+  ), [noteWorkspace.visibleActiveTabs]);
 
   const {
     settings,
@@ -167,19 +177,13 @@ export function Home() {
     api,
     scope,
     selectedNote,
-    activeDocumentNotes: noteWorkspace.visibleActiveTabs.map((tab) => ({
-      id: tab.noteId,
-      teamPath: tab.teamPath,
-    })),
+    activeDocumentNotes,
   });
   const localVault = useElectronLocalVault({
     api,
     enabled: settings?.hasLocalVault === true,
     selectedNote,
-    activeDocumentNotes: noteWorkspace.visibleActiveTabs.map((tab) => ({
-      id: tab.noteId,
-      teamPath: tab.teamPath,
-    })),
+    activeDocumentNotes,
   });
   const localVaultActions = useHomeLocalVaultActions({
     api,
@@ -247,8 +251,16 @@ export function Home() {
       setCreateDialog({ open: false, title: '' });
       void requestSelectNote(note, { trackRecent: true });
     },
+    onDraftNoteCreated: (tabId, note) => {
+      noteWorkspace.materializeDraftNote(tabId, note);
+      noteWorkspace.syncNoteSummary(note);
+      trackRecentNote(note);
+    },
     onNoteSaved: (note) => {
       noteWorkspace.syncNoteSummary(note);
+      for (const tab of noteWorkspace.getTabsMatching(note)) {
+        noteWorkspace.clearDraft(tab.tabId);
+      }
       trackRecentNote(note);
     },
     onFolderCreated: (folder: FolderSummary) => {
@@ -325,6 +337,7 @@ export function Home() {
   } = workbenchNavigator;
   const { getAutoSelectSuppressionKey } = useWorkbenchAutoSelection({
     autoSelectSuppressionRef,
+    hasActiveDocument: Boolean(activeTab),
     manualEmptyWorkspaceRef,
     requestSelectNote,
     scopeStorageKey,
@@ -339,13 +352,19 @@ export function Home() {
     documentsByKey,
     drafts: noteWorkspace.state.drafts,
     isDeletingNote: mutations.deleteNoteMutation.isPending,
-    isSavingNote: mutations.updateNoteMutation.isPending,
+    isSavingNote: mutations.updateNoteMutation.isPending || mutations.createDraftNoteMutation.isPending,
+    isSavingDraftNote: mutations.createDraftNoteMutation.isPending,
     isUploadingImage: mutations.uploadNoteImageMutation.isPending,
     latestLocalRevisionByNoteId: localDocumentRecovery.latestLocalRevisionByNoteId,
     saveError: mutations.updateNoteMutation.error,
+    draftSaveError: mutations.createDraftNoteMutation.error,
     saveFailedNote: mutations.updateNoteMutation.isError
       ? mutations.updateNoteMutation.variables?.note ?? null
       : null,
+    saveFailedDraftTabId: mutations.createDraftNoteMutation.isError
+      ? mutations.createDraftNoteMutation.variables?.tabId ?? null
+      : null,
+    savingDraftTabId: mutations.createDraftNoteMutation.variables?.tabId ?? null,
     savingNote: mutations.updateNoteMutation.variables?.note ?? null,
     tabs: noteWorkspace.state.tabs,
     updateDraft: noteWorkspace.updateDraft,
@@ -379,6 +398,10 @@ export function Home() {
     moveFolder: mutations.moveFolderMutation.mutate,
     onChooseLocalVault: () => {
       void localVaultActions.chooseLocalVault();
+    },
+    openDraftNote: () => {
+      noteWorkspace.openDraftNote();
+      focusZone('editor');
     },
     scopeType: scope.type,
     setCreateDialog,
@@ -514,6 +537,7 @@ export function Home() {
     requestDeleteFolder: folderCommands.handleDeleteFolderRequest,
     reopenLastClosedTab: noteWorkspace.reopenLastClosed,
     saveNote: (note, input) => mutations.updateNoteMutation.mutate({ note, input }),
+    saveDraftNote: (tab, input) => mutations.createDraftNoteMutation.mutate({ tabId: tab.tabId, input }),
     setEditorMode: (mode) => {
       mutations.updateSettingsMutation.mutate({
         title: settings?.title ?? defaultSettings.title,
@@ -541,9 +565,9 @@ export function Home() {
     handlers: actionHandlers,
     hasToken: canUseCurrentWorkspace,
     inspectorCollapsed,
-    isSavingNote: mutations.updateNoteMutation.isPending,
+    isSavingNote: mutations.updateNoteMutation.isPending || mutations.createDraftNoteMutation.isPending,
     navigatorCollapsed,
-    noteDirty,
+    noteDirty: activeTab && isDraftNoteTab(activeTab) ? true : noteDirty,
     scopeType: scope.type,
     selectedFolderId,
     selectedNoteId: selectedNote?.id ?? null,
@@ -560,9 +584,35 @@ export function Home() {
     requestCloseTab,
   });
 
+  const openQuickCaptureDraft = useCallback((content: string): QuickCaptureDraftResult => {
+    if (!content.trim()) {
+      return { accepted: false, error: 'Write something before capturing.' };
+    }
+
+    const guardError = getQuickCaptureDraftError({
+      scopeType: scope.type,
+      hasToken,
+      hasConfiguredLocalVault,
+    });
+    if (guardError) {
+      return { accepted: false, error: guardError };
+    }
+
+    noteWorkspace.openDraftNote({ content });
+    focusZone('editor');
+    return { accepted: true };
+  }, [
+    focusZone,
+    hasConfiguredLocalVault,
+    hasToken,
+    noteWorkspace,
+    scope.type,
+  ]);
+
   useElectronHomeShellEffects({
     api,
     collapsedFolderIds,
+    openQuickCaptureDraft,
     runAction,
     scopeStorageKey,
   });

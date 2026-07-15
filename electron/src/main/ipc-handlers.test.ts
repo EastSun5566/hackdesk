@@ -92,6 +92,12 @@ vi.mock('./logging', () => ({
   recordFatalRendererError: vi.fn(),
   writeLog: vi.fn(),
 }));
+vi.mock('./global-shortcuts', () => ({
+  getQuickCaptureShortcutStatus: vi.fn(() => ({
+    accelerator: 'Control+Alt+H',
+    registered: true,
+  })),
+}));
 
 import { registerIpcHandlers } from './ipc-handlers';
 
@@ -99,8 +105,11 @@ const windowManager = {
   cancelClose: vi.fn(),
   confirmClose: vi.fn(),
   getTargetWindow: vi.fn(() => null),
+  hideQuickCaptureWindow: vi.fn(),
+  resolveQuickCaptureSubmission: vi.fn(),
   setMenuShortcutsIgnored: vi.fn(),
   setThemeSurface: vi.fn(),
+  submitQuickCapture: vi.fn(async () => ({ accepted: true })),
 };
 
 describe('registerIpcHandlers', () => {
@@ -147,5 +156,49 @@ describe('registerIpcHandlers', () => {
     expect(windowManager.setMenuShortcutsIgnored).toHaveBeenCalledWith(true);
 
     expect(() => handler?.({}, 'true')).toThrow(/Invalid app:set-menu-shortcuts-ignored payload/);
+  });
+
+  it('exposes quick capture shortcut status', () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appGetQuickCaptureShortcutStatus);
+
+    expect(handler?.({})).toEqual({
+      accelerator: 'Control+Alt+H',
+      registered: true,
+    });
+  });
+
+  it('validates and forwards quick capture submissions', () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appSubmitQuickCapture);
+
+    handler?.({}, '  # Capture  ');
+
+    expect(windowManager.submitQuickCapture).toHaveBeenCalledWith('  # Capture  ');
+    expect(() => handler?.({}, '   ')).toThrow(/Invalid app:submit-quick-capture payload/);
+  });
+
+  it('hides the quick capture window from renderer requests', () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appHideQuickCapture);
+
+    handler?.({});
+
+    expect(windowManager.hideQuickCaptureWindow).toHaveBeenCalledOnce();
+  });
+
+  it('validates and forwards quick capture submission acknowledgements', () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appResolveQuickCaptureSubmission);
+
+    handler?.({}, { requestId: 'capture-request', accepted: true });
+
+    expect(windowManager.resolveQuickCaptureSubmission).toHaveBeenCalledWith({
+      requestId: 'capture-request',
+      accepted: true,
+    });
+    expect(() => handler?.({}, { requestId: '', accepted: false, error: '' })).toThrow(
+      /Invalid app:resolve-quick-capture-submission payload/,
+    );
   });
 });

@@ -17,6 +17,7 @@ export type ElectronActionContext = {
   selectedFolderId: string | null;
   canModifySelectedFolder: boolean;
   selectedNoteId: string | null;
+  activeTabIsDraft: boolean;
   noteDirty: boolean;
   isSavingNote: boolean;
   openTabCount: number;
@@ -194,7 +195,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     menuAccelerator: 'CmdOrCtrl+S',
     getDisabledReason: (context) => {
       const noteReason = requireSelectedNote(context);
-      if (noteReason) {
+      if (noteReason && !context.activeTabIsDraft) {
         return noteReason;
       }
 
