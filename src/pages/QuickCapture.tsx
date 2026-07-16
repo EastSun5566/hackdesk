@@ -24,8 +24,9 @@ function readQuickCaptureBuffer(storage: Storage = window.localStorage) {
 function writeQuickCaptureBuffer(content: string, storage: Storage = window.localStorage) {
   try {
     storage.setItem(QUICK_CAPTURE_BUFFER_STORAGE_KEY, JSON.stringify({ version: 1, content }));
+    return true;
   } catch {
-    // The in-memory capture remains usable when persistent storage is unavailable.
+    return false;
   }
 }
 
@@ -38,14 +39,14 @@ function clearQuickCaptureBuffer(storage: Storage = window.localStorage) {
 }
 
 export function QuickCapture() {
-  const api = window.hackdeskAPI;
+  const api = window.hackdeskQuickCaptureAPI;
+  const [content, setContent] = useState(() => readQuickCaptureBuffer());
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const focusFrameRef = useRef<number | null>(null);
-  const [content, setContent] = useState(() => readQuickCaptureBuffer());
+  const contentRef = useRef(content);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const platform = api?.platform ?? 'unknown';
-  const isMac = platform === 'darwin' || platform.toLowerCase().includes('mac');
+  const isMac = navigator.userAgent.includes('Mac');
   const characterCount = Array.from(content).length;
 
   const focusTextarea = useCallback(() => {
@@ -71,8 +72,21 @@ export function QuickCapture() {
   }, [focusTextarea]);
 
   const hide = useCallback(async () => {
-    await api?.app.hideQuickCapture?.();
+    writeQuickCaptureBuffer(contentRef.current);
+    await api?.hide();
   }, [api]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      writeQuickCaptureBuffer(content);
+    }, 250);
+    const flush = () => writeQuickCaptureBuffer(contentRef.current);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener('pagehide', flush);
+    };
+  }, [content]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -95,15 +109,20 @@ export function QuickCapture() {
       return;
     }
 
-    if (!api?.app.submitQuickCapture) {
+    if (!api?.submit) {
       setError('Quick Capture is unavailable in this environment.');
+      return;
+    }
+
+    if (!writeQuickCaptureBuffer(content)) {
+      setError('HackDesk could not persist this capture. Copy the text before closing.');
       return;
     }
 
     setSubmitting(true);
     setError(null);
     try {
-      const result = await api.app.submitQuickCapture(content);
+      const result = await api.submit(content);
       if (!result.accepted) {
         setError(result.error);
         setSubmitting(false);
@@ -112,6 +131,7 @@ export function QuickCapture() {
       }
 
       clearQuickCaptureBuffer();
+      contentRef.current = '';
       setContent('');
       setSubmitting(false);
     } catch (submitError) {
@@ -154,8 +174,8 @@ export function QuickCapture() {
             disabled={submitting}
             onChange={(event) => {
               const nextContent = event.currentTarget.value;
+              contentRef.current = nextContent;
               setContent(nextContent);
-              writeQuickCaptureBuffer(nextContent);
               if (error) {
                 setError(null);
               }

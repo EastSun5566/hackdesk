@@ -8,7 +8,6 @@ export function getAppIconPath() {
     : [
       join(__dirname, '../../build/icon.png'),
       join(__dirname, '../../docs/public/logo.png'),
-      join(__dirname, '../../src-tauri/icons/icon.png'),
     ];
 
   return candidates.find((candidate) => existsSync(candidate));

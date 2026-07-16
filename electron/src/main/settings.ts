@@ -129,7 +129,9 @@ export async function getSafeSettings(): Promise<ElectronSafeSettings> {
   return toSafeSettings(settings, hasStoredAppearance, hackmdCliConfig);
 }
 
-export async function updateStoredSettings(update: ElectronSettingsUpdate): Promise<ElectronSafeSettings> {
+export async function updateStoredSettings(
+  update: ElectronSettingsUpdate & { localVaultPath?: string | null },
+): Promise<ElectronSafeSettings> {
   const current = await readStoredSettings();
   const nextHackmdApiToken = update.hackmdApiToken ?? current.hackmdApiToken;
   const nextOnboarding = update.hackmdApiToken && update.hackmdApiToken.trim()
@@ -142,7 +144,7 @@ export async function updateStoredSettings(update: ElectronSettingsUpdate): Prom
     editor: update.editor ?? current.editor,
     shortcuts: update.shortcuts ?? current.shortcuts,
     onboarding: nextOnboarding,
-    localVault: update.localVault ?? current.localVault,
+    localVault: update.localVaultPath !== undefined ? { path: update.localVaultPath } : current.localVault,
   });
 
   await mkdir(getHackDeskRootPath(), { recursive: true });

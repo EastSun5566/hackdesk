@@ -230,7 +230,7 @@ export function NoteRow({
   );
 }
 
-export function FolderButton({
+function FolderButton({
   node,
   selected,
   focusTarget = false,
@@ -543,12 +543,7 @@ export function FolderTreeView({
           onDeleteFolder={onDeleteFolder}
           onRevealInFinder={onFolderRevealInFinder}
         />
-        <div
-          className={cn(
-            'grid overflow-hidden transition-[grid-template-rows,opacity] duration-150 ease-out motion-reduce:transition-none',
-            !collapsed && !isActiveFolder ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-          )}
-        >
+        {!collapsed && !isActiveFolder ? <div className="grid overflow-hidden">
           <div className="min-h-0 overflow-hidden">
             <div className="mt-0.5 min-w-0">
               <FolderTreeView
@@ -611,7 +606,7 @@ export function FolderTreeView({
               ) : null}
             </div>
           </div>
-        </div>
+        </div> : null}
       </li>
     );
   });

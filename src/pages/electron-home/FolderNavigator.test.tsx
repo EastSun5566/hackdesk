@@ -500,6 +500,8 @@ describe('FolderNavigator', () => {
     fireEvent.keyDown(root, { key: 'n' });
 
     expect(getFocusedTreeRowId()).toBe(`folder:${UNFILED_FOLDER_ID}`);
+    expect(container.querySelector('[data-folder-tree-row-id="note:nested-note"]')).not.toBeInTheDocument();
+    expect(screen.queryByText('Nested note')).not.toBeInTheDocument();
   });
 
   it('does not intercept typing in navigator inputs', () => {

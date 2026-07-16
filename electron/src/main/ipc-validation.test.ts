@@ -207,14 +207,20 @@ describe('IPC runtime validation', () => {
       fileName: 'diagram.png',
       mimeType: 'image/png',
       bytes: [1, 2, 3],
-    })).toThrow(/expected ArrayBuffer/);
+    })).toThrow(/Invalid/);
 
     expect(() => validateIpcInput('local-vault:import-attachment', localVaultImportAttachmentInputSchema, {
       noteId: 'note-1',
       fileName: 'diagram.png',
       mimeType: 'image/png',
       bytes: [1, 2, 3],
-    })).toThrow(/expected ArrayBuffer/);
+    })).toThrow(/Invalid/);
+
+    expect(() => validateIpcInput('hackmd:upload-note-image', uploadNoteImageInputSchema, {
+      fileName: 'large.png',
+      mimeType: 'image/png',
+      bytes: new ArrayBuffer(25 * 1024 * 1024 + 1),
+    })).toThrow(/25 MiB/);
 
     expect(() => validateIpcInput('app:set-theme-surface', themeSurfaceInputSchema, {
       mode: 'purple',

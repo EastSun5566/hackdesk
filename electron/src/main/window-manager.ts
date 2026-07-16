@@ -31,7 +31,8 @@ export class WindowManager {
   private mainWindow: BrowserWindow | null = null;
   private quickCaptureWindow: BrowserWindow | null = null;
   private recoveryDialogShowing = false;
-  private isAppQuitting = false;
+  private allowAppQuit = false;
+  private pendingCloseSource: import('../../../src/lib/electron-api').HackDeskCloseRequestSource | null = null;
   private keyboardCloseIntent = false;
   private keyboardCloseIntentTimeout: NodeJS.Timeout | null = null;
   private pendingCloseTimeout: NodeJS.Timeout | null = null;
@@ -94,10 +95,6 @@ export class WindowManager {
     }
   }
 
-  setAppQuitting(isAppQuitting: boolean) {
-    this.isAppQuitting = isAppQuitting;
-  }
-
   setThemeSurface(background: string) {
     const window = this.getMainWindow();
     if (!window) {
@@ -118,13 +115,48 @@ export class WindowManager {
       return;
     }
 
-    writeLog('main', 'renderer confirmed window close');
-    window.destroy();
+    const source = this.pendingCloseSource;
+    this.pendingCloseSource = null;
+    writeLog('main', 'renderer confirmed close', { source });
+    if (source === 'app-quit') {
+      this.allowAppQuit = true;
+      app.quit();
+    } else {
+      window.destroy();
+    }
   }
 
   cancelClose() {
     this.clearPendingCloseTimeout();
     writeLog('main', 'renderer cancelled window close');
+    this.pendingCloseSource = null;
+  }
+
+  handleBeforeQuit(event: Electron.Event) {
+    if (this.allowAppQuit) {
+      return;
+    }
+
+    const window = this.getMainWindow();
+    if (!window) {
+      this.allowAppQuit = true;
+      return;
+    }
+
+    event.preventDefault();
+    this.sendCloseRequest('app-quit');
+  }
+
+  isTrustedIpcSender(event: Electron.IpcMainInvokeEvent, channel: string) {
+    if (event.senderFrame !== event.sender.mainFrame || !isTrustedRendererUrl(event.senderFrame.url)) {
+      return false;
+    }
+    if (event.sender === this.getQuickCaptureWindow()?.webContents) {
+      return channel === ELECTRON_CHANNELS.appSubmitQuickCapture || channel === ELECTRON_CHANNELS.appHideQuickCapture;
+    }
+    return event.sender === this.getMainWindow()?.webContents
+      && channel !== ELECTRON_CHANNELS.appSubmitQuickCapture
+      && channel !== ELECTRON_CHANNELS.appHideQuickCapture;
   }
 
   showAndFocusMainWindow() {
@@ -194,7 +226,7 @@ export class WindowManager {
       resizable: false,
       icon: getAppIconPath(),
       webPreferences: {
-        preload: join(__dirname, 'preload.cjs'),
+        preload: join(__dirname, 'quick-capture-preload.cjs'),
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
@@ -202,7 +234,7 @@ export class WindowManager {
       },
     });
     this.quickCaptureWindow = window;
-    this.configureSessionPolicy(window);
+    this.configureWindowPolicy(window);
 
     window.once('ready-to-show', () => {
       window.show();
@@ -212,7 +244,7 @@ export class WindowManager {
       this.completeQuickCapturePresentation();
     });
     window.on('close', (event) => {
-      if (this.isAppQuitting) {
+      if (this.allowAppQuit) {
         return;
       }
 
@@ -298,6 +330,7 @@ export class WindowManager {
       return;
     }
 
+    this.getMainWindow()?.webContents.session.flushStorageData();
     this.completeQuickCapturePresentation();
     this.getQuickCaptureWindow()?.hide();
     this.showAndFocusMainWindow();
@@ -383,7 +416,7 @@ export class WindowManager {
       this.mainWindow = null;
     });
 
-    this.configureSessionPolicy(this.mainWindow);
+    this.configureWindowPolicy(this.mainWindow);
 
     this.mainWindow.webContents.on('context-menu', (event, params) => {
       if (params.isEditable || params.selectionText.trim()) {
@@ -393,30 +426,6 @@ export class WindowManager {
       event.preventDefault();
     });
 
-    this.mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-      void openExternalUrl(url).catch((error) => {
-        writeLog('navigation', 'failed to open external URL', {
-          url,
-          error: error instanceof Error ? error.message : String(error),
-        }, 'warn');
-      });
-
-      return { action: 'deny' };
-    });
-
-    this.mainWindow.webContents.on('will-navigate', (event, url) => {
-      if (url === this.mainWindow?.webContents.getURL() || isTrustedRendererUrl(url)) {
-        return;
-      }
-
-      event.preventDefault();
-      void openExternalUrl(url).catch((error) => {
-        writeLog('navigation', 'failed to open external navigation', {
-          url,
-          error: error instanceof Error ? error.message : String(error),
-        }, 'warn');
-      });
-    });
     this.mainWindow.webContents.on('did-finish-load', () => {
       this.flushPendingMainWindowCommands();
     });
@@ -520,7 +529,7 @@ export class WindowManager {
     }
   }
 
-  private configureSessionPolicy(window: BrowserWindow) {
+  private configureWindowPolicy(window: BrowserWindow) {
     const { session } = window.webContents;
 
     session.setPermissionRequestHandler((webContents, permission, callback, details) => {
@@ -540,11 +549,23 @@ export class WindowManager {
       }, 'warn');
       return false;
     });
+
+    window.webContents.setWindowOpenHandler(({ url }) => {
+      void openExternalUrl(url).catch((error) => writeLog('navigation', 'failed to open external URL', error, 'warn'));
+      return { action: 'deny' };
+    });
+    window.webContents.on('will-navigate', (event, url) => {
+      if (url === window.webContents.getURL() || isTrustedRendererUrl(url)) {
+        return;
+      }
+      event.preventDefault();
+      void openExternalUrl(url).catch((error) => writeLog('navigation', 'failed to open external navigation', error, 'warn'));
+    });
   }
 
   private handleCloseRequest(event: Electron.Event) {
     const window = this.getMainWindow();
-    if (!window || this.isAppQuitting) {
+    if (!window) {
       return;
     }
 
@@ -556,6 +577,15 @@ export class WindowManager {
     const source = this.keyboardCloseIntent ? 'keyboard-shortcut' : 'window-button';
     this.clearKeyboardCloseIntent();
     writeLog('main', 'window close requested', { source });
+    this.sendCloseRequest(source);
+  }
+
+  private sendCloseRequest(source: import('../../../src/lib/electron-api').HackDeskCloseRequestSource) {
+    const window = this.getMainWindow();
+    if (!window || window.webContents.isDestroyed()) {
+      return;
+    }
+    this.pendingCloseSource = source;
     window.webContents.send(ELECTRON_CHANNELS.appCloseRequested, { source });
     this.startPendingCloseTimeout();
   }
@@ -569,9 +599,25 @@ export class WindowManager {
         return;
       }
 
-      writeLog('main', 'renderer did not respond to close request; forcing window close', undefined, 'warn');
-      window.destroy();
-    }, 3000);
+      writeLog('main', 'renderer did not respond to close request', undefined, 'warn');
+      void dialog.showMessageBox(window, {
+        type: 'warning',
+        title: app.getName(),
+        message: 'HackDesk is still checking for unsaved changes.',
+        detail: 'Wait for the app to respond, or quit without saving.',
+        buttons: ['Wait', 'Quit without saving'],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+      }).then(({ response }) => {
+        if (response === 1) {
+          this.allowAppQuit = true;
+          app.quit();
+        } else {
+          this.pendingCloseSource = null;
+        }
+      });
+    }, 15_000);
   }
 
   private clearKeyboardCloseIntent() {

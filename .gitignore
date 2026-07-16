@@ -40,5 +40,6 @@ yarn.lock
 docs/.vitepress/dist
 docs/.vitepress/cache
 
-# cargo
-src-tauri/target/
+# playwright
+playwright-report/
+test-results/

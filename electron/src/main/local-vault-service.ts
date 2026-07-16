@@ -6,6 +6,7 @@ import {
   open,
   readdir,
   readFile,
+  realpath,
   rename,
   stat,
   writeFile,
@@ -55,6 +56,8 @@ const MANIFEST_FILE = 'manifest.json';
 const IGNORED_DIRS = new Set([MANIFEST_DIR, '.git', 'node_modules']);
 const MARKDOWN_EXTENSION = '.md';
 const ATTACHMENTS_DIR = 'attachments';
+const MAX_MARKDOWN_BYTES = 10 * 1024 * 1024;
+const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 const defaultManifest = (): VaultManifest => ({
   version: 1,
@@ -142,7 +145,7 @@ async function readManifest(vaultRoot: string): Promise<VaultManifest> {
     const content = await readFile(getManifestPath(vaultRoot), 'utf8');
     const parsed = JSON.parse(content) as Partial<VaultManifest>;
     if (parsed.version !== 1 || typeof parsed.vaultId !== 'string' || typeof parsed.notes !== 'object' || !parsed.notes) {
-      return defaultManifest();
+      throw new Error('Local vault manifest is invalid. Repair or remove .hackdesk/manifest.json explicitly.');
     }
 
     return {
@@ -157,14 +160,28 @@ async function readManifest(vaultRoot: string): Promise<VaultManifest> {
         )),
       ) as VaultManifest['notes'],
     };
-  } catch {
-    return defaultManifest();
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      return defaultManifest();
+    }
+    throw error;
   }
 }
 
 async function writeManifest(vaultRoot: string, manifest: VaultManifest) {
   await mkdir(join(vaultRoot, MANIFEST_DIR), { recursive: true });
-  await writeFile(getManifestPath(vaultRoot), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  const path = getManifestPath(vaultRoot);
+  const content = `${JSON.stringify(manifest, null, 2)}\n`;
+  try {
+    if (await readFile(path, 'utf8') === content) {
+      return;
+    }
+  } catch (error) {
+    if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')) {
+      throw error;
+    }
+  }
+  await atomicWriteFile(path, content);
 }
 
 async function scanMarkdownFiles(vaultRoot: string, current = vaultRoot): Promise<ScanEntry[]> {
@@ -261,9 +278,45 @@ export async function getActiveLocalVaultPath() {
 }
 
 async function assertVaultRootExists(vaultRoot: string) {
-  const itemStat = await stat(vaultRoot);
+  const itemStat = await lstat(vaultRoot);
+  if (itemStat.isSymbolicLink()) {
+    throw new Error('Local vault root cannot be a symbolic link.');
+  }
   if (!itemStat.isDirectory()) {
     throw new Error('Configured local vault is not a folder.');
+  }
+}
+
+async function assertCanonicalInsideVault(vaultRoot: string, targetPath: string) {
+  const canonicalRoot = await realpath(vaultRoot);
+  let existingPath = targetPath;
+  while (true) {
+    try {
+      const item = await lstat(existingPath);
+      if (item.isSymbolicLink()) {
+        throw new Error('Local vault paths cannot traverse symbolic links.');
+      }
+      break;
+    } catch (error) {
+      if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')) {
+        throw error;
+      }
+      const parent = dirname(existingPath);
+      if (parent === existingPath) throw error;
+      existingPath = parent;
+    }
+  }
+  const canonicalParent = await realpath(existingPath);
+  if (canonicalParent !== canonicalRoot && !canonicalParent.startsWith(`${canonicalRoot}${sep}`)) {
+    throw new Error('Path is outside the canonical local vault.');
+  }
+  const relativeExisting = relative(canonicalRoot, canonicalParent);
+  let cursor = canonicalRoot;
+  for (const segment of relativeExisting.split(sep).filter(Boolean)) {
+    cursor = join(cursor, segment);
+    if ((await lstat(cursor)).isSymbolicLink()) {
+      throw new Error('Local vault paths cannot traverse symbolic links.');
+    }
   }
 }
 
@@ -274,12 +327,13 @@ async function requireActiveLocalVaultPath() {
   }
 
   await assertVaultRootExists(vaultPath);
-  return vaultPath;
+  return realpath(vaultPath);
 }
 
 export async function scanLocalVault(vaultRoot: string): Promise<LocalVaultSnapshot> {
-  const resolvedRoot = resolve(vaultRoot);
-  await assertVaultRootExists(resolvedRoot);
+  const configuredRoot = resolve(vaultRoot);
+  await assertVaultRootExists(configuredRoot);
+  const resolvedRoot = await realpath(configuredRoot);
 
   const manifest = await readManifest(resolvedRoot);
   const files = await scanMarkdownFiles(resolvedRoot);
@@ -291,9 +345,12 @@ export async function scanLocalVault(vaultRoot: string): Promise<LocalVaultSnaps
     }
   }
 
-  const notes = await Promise.all(files.map(async (entry) => (
-    createNoteSummary(manifest, entry, await readFile(entry.absolutePath, 'utf8'))
-  )));
+  const notes = await Promise.all(files.map(async (entry) => {
+    if ((await stat(entry.absolutePath)).size > MAX_MARKDOWN_BYTES) {
+      throw new Error(`Markdown file exceeds 10 MiB: ${entry.relativePath}`);
+    }
+    return createNoteSummary(manifest, entry, await readFile(entry.absolutePath, 'utf8'));
+  }));
   const folders = await scanFolders(resolvedRoot);
 
   await writeManifest(resolvedRoot, manifest);
@@ -335,13 +392,28 @@ export async function getActiveLocalVaultSnapshot() {
 }
 
 async function findNoteById(vaultRoot: string, noteId: string) {
-  const snapshot = await scanLocalVault(vaultRoot);
-  const note = snapshot.notes.find((candidate) => candidate.id === noteId);
-  if (!note) {
+  const manifest = await readManifest(vaultRoot);
+  const match = Object.entries(manifest.notes).find(([, entry]) => entry.id === noteId);
+  if (!match) {
     throw new Error('Local note was not found.');
   }
+  const [relativePath] = match;
+  const absolutePath = resolveInsideVault(vaultRoot, relativePath);
+  await assertCanonicalInsideVault(vaultRoot, absolutePath);
+  const content = await readFile(absolutePath, 'utf8');
+  return createNoteSummary(manifest, { absolutePath, relativePath }, content);
+}
 
-  return note;
+async function remapManifestFolder(vaultRoot: string, fromPath: string, toPath: string) {
+  const manifest = await readManifest(vaultRoot);
+  const nextNotes: VaultManifest['notes'] = {};
+  for (const [path, entry] of Object.entries(manifest.notes)) {
+    const nextPath = path === fromPath || path.startsWith(`${fromPath}/`)
+      ? `${toPath}${path.slice(fromPath.length)}`
+      : path;
+    nextNotes[nextPath] = entry;
+  }
+  await writeManifest(vaultRoot, { ...manifest, notes: nextNotes });
 }
 
 async function moveManifestNotePath(vaultRoot: string, fromRelativePath: string, toRelativePath: string) {
@@ -412,21 +484,23 @@ export async function createLocalNote(input: LocalVaultCreateNoteInput): Promise
   const vaultRoot = await requireActiveLocalVaultPath();
   const parentPath = normalizeRelativePath(input.parentPath);
   const absolutePath = await createUniqueMarkdownPath(vaultRoot, parentPath, input.title ?? 'Untitled');
-  await writeFile(absolutePath, input.content ?? '', 'utf8');
-  const snapshot = await scanLocalVault(vaultRoot);
+  await assertCanonicalInsideVault(vaultRoot, absolutePath);
+  const content = input.content ?? '';
+  if (Buffer.byteLength(content, 'utf8') > MAX_MARKDOWN_BYTES) throw new Error('Markdown files cannot exceed 10 MiB.');
+  await writeFile(absolutePath, content, 'utf8');
   const relativePath = toVaultRelativePath(vaultRoot, absolutePath);
-  const note = snapshot.notes.find((candidate) => candidate.relativePath === relativePath);
-  if (!note) {
-    throw new Error('Local note was created but could not be indexed.');
-  }
-
-  return readLocalNote(note.id);
+  const manifest = await readManifest(vaultRoot);
+  const id = randomUUID();
+  manifest.notes[relativePath] = { id, contentHash: hashContent(content) };
+  await writeManifest(vaultRoot, manifest);
+  return readLocalNote(id);
 }
 
 export async function importLocalVaultAttachment(
   input: LocalVaultImportAttachmentInput,
 ): Promise<LocalVaultImportAttachmentResult> {
   const vaultRoot = await requireActiveLocalVaultPath();
+  if (input.bytes.byteLength > MAX_ATTACHMENT_BYTES) throw new Error('Attachments cannot exceed 25 MiB.');
   const note = await findNoteById(vaultRoot, input.noteId);
   const attachmentPath = await createUniqueAttachmentPath(vaultRoot, note.parentPath, input.fileName);
   await writeFile(attachmentPath, new Uint8Array(input.bytes));
@@ -477,6 +551,7 @@ function assertRevisionMatches(current: LocalRevision, expected: LocalRevision) 
 }
 
 export async function writeLocalNote(input: LocalVaultWriteInput): Promise<LocalDocument> {
+  if (Buffer.byteLength(input.content, 'utf8') > MAX_MARKDOWN_BYTES) throw new Error('Markdown files cannot exceed 10 MiB.');
   const vaultRoot = await requireActiveLocalVaultPath();
   const note = await findNoteById(vaultRoot, input.noteId);
   const filePath = resolveInsideVault(vaultRoot, note.relativePath);
@@ -538,7 +613,10 @@ export async function renameLocalFolder(input: LocalVaultRenameFolderInput): Pro
   const vaultRoot = await requireActiveLocalVaultPath();
   const source = resolveInsideVault(vaultRoot, input.relativePath);
   const target = join(dirname(source), sanitizeFileName(input.name));
+  await assertCanonicalInsideVault(vaultRoot, source);
+  await assertCanonicalInsideVault(vaultRoot, target);
   await rename(source, target);
+  await remapManifestFolder(vaultRoot, normalizeRelativePath(input.relativePath)!, toVaultRelativePath(vaultRoot, target));
   return scanLocalVault(vaultRoot);
 }
 
@@ -546,8 +624,12 @@ export async function moveLocalFolder(input: LocalVaultMoveFolderInput): Promise
   const vaultRoot = await requireActiveLocalVaultPath();
   const source = resolveInsideVault(vaultRoot, input.relativePath);
   const targetDirectory = resolveInsideVault(vaultRoot, input.parentPath);
+  await assertCanonicalInsideVault(vaultRoot, source);
+  await assertCanonicalInsideVault(vaultRoot, targetDirectory);
   await mkdir(targetDirectory, { recursive: true });
-  await rename(source, join(targetDirectory, basename(source)));
+  const target = join(targetDirectory, basename(source));
+  await rename(source, target);
+  await remapManifestFolder(vaultRoot, normalizeRelativePath(input.relativePath)!, toVaultRelativePath(vaultRoot, target));
   return scanLocalVault(vaultRoot);
 }
 
@@ -567,25 +649,49 @@ export function watchLocalVault(
 ): LocalVaultWatcher {
   let watcher: FSWatcher | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let scanning = false;
+  let scanAgain = false;
 
-  const notify = () => {
+  const runScan = async () => {
+    if (scanning) {
+      scanAgain = true;
+      return;
+    }
+    scanning = true;
+    try {
+      onChange(await scanLocalVault(vaultRoot));
+    } catch (error) {
+      writeLog('local-vault', 'Failed to rescan local vault after filesystem event.', {
+        message: error instanceof Error ? error.message : String(error),
+      }, 'warn');
+    } finally {
+      scanning = false;
+      if (scanAgain) {
+        scanAgain = false;
+        void runScan();
+      }
+    }
+  };
+
+  const notify = (_eventType?: string, filename?: string | Buffer | null) => {
+    if (filename && filename.toString().split(/[\\/]/).includes(MANIFEST_DIR)) {
+      return;
+    }
     if (timer) {
       clearTimeout(timer);
     }
 
     timer = setTimeout(() => {
-      void scanLocalVault(vaultRoot)
-        .then(onChange)
-        .catch((error) => {
-          writeLog('local-vault', 'Failed to rescan local vault after filesystem event.', {
-            message: error instanceof Error ? error.message : String(error),
-          }, 'warn');
-        });
+      timer = null;
+      void runScan();
     }, 150);
   };
 
   try {
     watcher = watch(vaultRoot, { recursive: true }, notify);
+    watcher.on('error', (error) => {
+      writeLog('local-vault', 'Local vault watcher failed.', { message: error.message }, 'warn');
+    });
   } catch (error) {
     writeLog('local-vault', 'Failed to watch local vault.', {
       message: error instanceof Error ? error.message : String(error),

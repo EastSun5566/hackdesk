@@ -740,6 +740,9 @@ async function uploadImageFile(
   document: DocumentSummary,
   file: File,
 ) {
+  if (file.size > 25 * 1024 * 1024) {
+    throw new Error('Images cannot exceed 25 MiB.');
+  }
   const bytes = await file.arrayBuffer();
 
   return await onAttachImage(document, {

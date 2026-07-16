@@ -1,86 +1,56 @@
-name: Testing build
+name: Quality and package smoke
 
 on:
   workflow_dispatch:
   pull_request:
-    branches:
-      - main
   push:
-    branches:
-      - main
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  quality:
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [macos-latest, ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.platform }}
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
-      - name: Install dependencies (ubuntu only)
-        if: matrix.platform == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: cache Rust
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: "./src-tauri -> target"
-
-      - name: Install cargo-deny
-        run: cargo install --locked cargo-deny
-
-      - name: Install Pnpm
-        uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
         with:
           version: 11.13.0
           run_install: false
-
-      - name: Setup Node
-        uses: actions/setup-node@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm run check:ci
+      - run: xvfb-run --auto-servernum pnpm run test:smoke
+      - run: pnpm run docs:build
+      - run: pnpm run audit:prod
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --ignore-scripts
-
-      - name: Run CI checks
-        run: pnpm run check:ci
-
-      - name: Smoke build the app
-        if: github.event_name == 'pull_request'
-        run: pnpm tauri build --no-bundle --ci
-
-      - name: Smoke package Electron app
-        if: github.event_name == 'pull_request'
-        run: pnpm run package:electron:check
+  package-smoke:
+    needs: quality
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.13.0
+          run_install: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm run package:check
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
-
-      - name: Build the app
-        if: github.event_name == 'push'
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-        with:
-          args: --ci

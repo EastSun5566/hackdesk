@@ -47,6 +47,7 @@ vi.mock('electron', () => ({
 
 vi.mock('./settings', () => settingsMock);
 vi.mock('./hackmd-service', () => ({
+  clearHackmdCache: vi.fn(),
   createFolder: vi.fn(),
   createNote: vi.fn(),
   createTeamFolder: vi.fn(),
@@ -106,6 +107,7 @@ const windowManager = {
   confirmClose: vi.fn(),
   getTargetWindow: vi.fn(() => null),
   hideQuickCaptureWindow: vi.fn(),
+  isTrustedIpcSender: vi.fn(() => true),
   resolveQuickCaptureSubmission: vi.fn(),
   setMenuShortcutsIgnored: vi.fn(),
   setThemeSurface: vi.fn(),
@@ -116,6 +118,15 @@ describe('registerIpcHandlers', () => {
   beforeEach(() => {
     ipcHandlers.clear();
     vi.clearAllMocks();
+  });
+
+  it('rejects an untrusted sender before invoking a privileged handler', () => {
+    windowManager.isTrustedIpcSender.mockReturnValueOnce(false);
+    registerIpcHandlers(windowManager);
+
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.settingsGet);
+    expect(() => handler?.({})).toThrow('Blocked untrusted IPC sender');
+    expect(settingsMock.getSafeSettings).not.toHaveBeenCalled();
   });
 
   it('imports hackmd-cli token by validating then saving it', async () => {

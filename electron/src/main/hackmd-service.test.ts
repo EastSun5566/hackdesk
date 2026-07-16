@@ -476,4 +476,20 @@ describe('hackmd-service request mapping', () => {
       data: { id: 'cached-test-note' },
     });
   });
+
+  it('does not share cached account data between service instances', async () => {
+    const accountA = createHackmdService({
+      baseUrl: 'https://api.test/v1',
+      readToken: async () => 'token-a',
+      fetcher: vi.fn(async () => jsonResponse([{ id: 'note-a', title: 'Account A' }])) as typeof fetch,
+    });
+    const accountB = createHackmdService({
+      baseUrl: 'https://api.test/v1',
+      readToken: async () => 'token-b',
+      fetcher: vi.fn(async () => { throw new Error('offline'); }) as typeof fetch,
+    });
+
+    await expect(accountA.listNotes()).resolves.toMatchObject({ source: 'remote' });
+    await expect(accountB.listNotes()).resolves.toEqual({ source: 'error', error: 'offline' });
+  });
 });

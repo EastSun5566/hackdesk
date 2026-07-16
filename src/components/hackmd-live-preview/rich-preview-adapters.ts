@@ -21,6 +21,23 @@ let katexPromise: Promise<KatexApi> | null = null;
 let fontAwesomeCssPromise: Promise<unknown> | null = null;
 const mathCache = new Map<string, Promise<RenderedMath>>();
 const mermaidCache = new Map<string, Promise<RenderedDiagram>>();
+const MAX_PREVIEW_CACHE_ENTRIES = 128;
+
+function getCached<T>(cache: Map<string, T>, key: string) {
+  const value = cache.get(key);
+  if (value !== undefined) {
+    cache.delete(key);
+    cache.set(key, value);
+  }
+  return value;
+}
+
+function setCached<T>(cache: Map<string, T>, key: string, value: T) {
+  cache.set(key, value);
+  while (cache.size > MAX_PREVIEW_CACHE_ENTRIES) {
+    cache.delete(cache.keys().next().value!);
+  }
+}
 
 export function resolveEmojiShortcode(name: string): string | null {
   return nameToEmoji[name] ?? null;
@@ -60,7 +77,7 @@ export function parseCsvPreview(source: string, options: { delimiter?: string; h
 
 export async function renderMath(source: string, options: { display: boolean }): Promise<RenderedMath> {
   const cacheKey = `${options.display ? 'block' : 'inline'}:${source}`;
-  const cached = mathCache.get(cacheKey);
+  const cached = getCached(mathCache, cacheKey);
   if (cached) {
     return cached;
   }
@@ -78,20 +95,24 @@ export async function renderMath(source: string, options: { display: boolean }):
     .catch(() => ({
       html: `<span class="cm-hackmd-math-fallback">${escapeHtml(source)}</span>`,
     }));
-  mathCache.set(cacheKey, promise);
+  setCached(mathCache, cacheKey, promise);
   return promise;
 }
 
 export async function renderMermaid(source: string): Promise<RenderedDiagram> {
   const cacheKey = source;
-  const cached = mermaidCache.get(cacheKey);
+  const cached = getCached(mermaidCache, cacheKey);
   if (cached) {
     return cached;
   }
 
   const promise = renderBeautifulMermaid(source)
-    .then((html) => ({ html: sanitizeRichHtml(html) }));
-  mermaidCache.set(cacheKey, promise);
+    .then((html) => ({ html: sanitizeRichHtml(html) }))
+    .catch((error) => {
+      mermaidCache.delete(cacheKey);
+      throw error;
+    });
+  setCached(mermaidCache, cacheKey, promise);
   return promise;
 }
 

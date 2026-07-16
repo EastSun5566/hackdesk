@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -21,6 +21,7 @@ import {
   revealLocalVaultFolder,
   revealLocalVaultNote,
   revealLocalVaultRoot,
+  renameLocalFolder,
   scanLocalVault,
   trashLocalNote,
   writeLocalNote,
@@ -107,8 +108,9 @@ describe('LocalVaultService', () => {
     });
 
     const snapshot = await trashLocalNote({ noteId: note.id }, trashItem);
+    const canonicalVaultPath = await realpath(vaultPath);
 
-    expect(trashItem).toHaveBeenCalledWith(join(vaultPath, note.relativePath));
+    expect(trashItem).toHaveBeenCalledWith(join(canonicalVaultPath, note.relativePath));
     expect(snapshot.notes).toHaveLength(0);
   });
 
@@ -121,10 +123,11 @@ describe('LocalVaultService', () => {
     await revealLocalVaultRoot(openPath);
     await revealLocalVaultNote({ noteId: note.id }, showItemInFolder);
     await revealLocalVaultFolder({ relativePath: 'Projects' }, showItemInFolder);
+    const canonicalVaultPath = await realpath(vaultPath);
 
-    expect(openPath).toHaveBeenCalledWith(vaultPath);
-    expect(showItemInFolder).toHaveBeenCalledWith(join(vaultPath, note.relativePath));
-    expect(showItemInFolder).toHaveBeenCalledWith(join(vaultPath, 'Projects'));
+    expect(openPath).toHaveBeenCalledWith(canonicalVaultPath);
+    expect(showItemInFolder).toHaveBeenCalledWith(join(canonicalVaultPath, note.relativePath));
+    expect(showItemInFolder).toHaveBeenCalledWith(join(canonicalVaultPath, 'Projects'));
     await expect(revealLocalVaultFolder({ relativePath: '../outside' }, showItemInFolder)).rejects.toThrow('outside the local vault');
   });
 
@@ -155,6 +158,36 @@ describe('LocalVaultService', () => {
     });
     await expect(readFile(join(vaultPath, first.relativePath), 'utf8')).resolves.toBe('image-one');
     await expect(readFile(join(vaultPath, second.relativePath), 'utf8')).resolves.toBe('image-two');
+  });
+
+  it('fails explicitly when the manifest is corrupt', async () => {
+    await mkdir(join(vaultPath, '.hackdesk'), { recursive: true });
+    await writeFile(join(vaultPath, '.hackdesk', 'manifest.json'), '{broken', 'utf8');
+
+    await expect(scanLocalVault(vaultPath)).rejects.toThrow();
+  });
+
+  it('preserves descendant note ids when a folder is renamed', async () => {
+    await mkdir(join(vaultPath, 'Projects', 'Nested'), { recursive: true });
+    const note = await createLocalNote({ title: 'Stable', parentPath: 'Projects/Nested', content: 'Body' });
+
+    const snapshot = await renameLocalFolder({ relativePath: 'Projects', name: 'Renamed' });
+
+    expect(snapshot.notes).toContainEqual(expect.objectContaining({
+      id: note.id,
+      relativePath: 'Renamed/Nested/Stable.md',
+    }));
+  });
+
+  it('rejects mutations through a symlink inside the vault', async () => {
+    const outside = await mkdtemp(join(tmpdir(), 'hackdesk-outside-'));
+    try {
+      await symlink(outside, join(vaultPath, 'escape'));
+      await expect(createLocalNote({ title: 'Escape', parentPath: 'escape', content: 'Body' }))
+        .rejects.toThrow('symbolic links');
+    } finally {
+      await rm(outside, { recursive: true, force: true });
+    }
   });
 
   it('does not recreate a missing configured vault path', async () => {

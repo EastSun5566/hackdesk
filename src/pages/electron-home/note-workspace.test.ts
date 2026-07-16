@@ -21,6 +21,7 @@ import {
   openDraftNoteTab,
   openNoteTab,
   reopenLastClosedTab,
+  reconcileSavedNoteTab,
   selectNoteTab,
   splitActiveTabRight,
   toPersistedNoteWorkspaceLayout,
@@ -117,6 +118,55 @@ describe('note workspace tabs', () => {
     expect(Object.values(persisted.tabs)).toHaveLength(0);
     expect(Object.values(hydrated.tabs)).toHaveLength(0);
     expect(hydrated.panes[0]).toMatchObject({ tabIds: [], activeTabId: null });
+  });
+
+  it('persists only meaningful provisional drafts in schema version 2', () => {
+    const withDraft = openDraftNoteTab(createEmptyNoteWorkspaceState('personal'), { content: 'Recover me' });
+    const persisted = toPersistedNoteWorkspaceLayout(withDraft);
+    const hydrated = hydrateNoteWorkspaceLayout('personal', persisted);
+    const tab = getActiveTab(hydrated);
+
+    expect(persisted.version).toBe(2);
+    expect(isDraftNoteTab(tab)).toBe(true);
+    expect(hydrated.drafts[tab?.tabId ?? '']?.content).toBe('Recover me');
+  });
+
+  it('clears only the submitted tab when its draft is unchanged', () => {
+    const saved = note({ id: 'note-1', title: 'Alpha', content: 'Base' });
+    const first = openNoteTab(createEmptyNoteWorkspaceState('personal'), saved);
+    const duplicated = duplicateActiveNoteTab(first);
+    const [firstTabId, secondTabId] = duplicated.panes[0].tabIds;
+    const withDrafts = updateNoteTabDraft(
+      updateNoteTabDraft(duplicated, firstTabId, { title: 'Alpha', content: 'Saved edit' }),
+      secondTabId,
+      { title: 'Alpha', content: 'Other tab edit' },
+    );
+    const reconciled = reconcileSavedNoteTab(withDrafts, {
+      tabId: firstTabId,
+      submittedDraft: { title: 'Alpha', content: 'Saved edit' },
+      note: { ...saved, content: 'Saved edit' },
+    });
+
+    expect(reconciled.drafts[firstTabId]).toBeUndefined();
+    expect(reconciled.drafts[secondTabId]?.content).toBe('Other tab edit');
+  });
+
+  it('keeps newer typing and rebases it after an in-flight save succeeds', () => {
+    const saved = note({ id: 'note-1', title: 'Alpha', content: 'Base' });
+    const opened = openNoteTab(createEmptyNoteWorkspaceState('local'), saved);
+    const tabId = getActiveTab(opened)?.tabId ?? '';
+    const typingContinued = updateNoteTabDraft(opened, tabId, { title: 'Alpha', content: 'Newer text' });
+    const reconciled = reconcileSavedNoteTab(typingContinued, {
+      tabId,
+      submittedDraft: { title: 'Alpha', content: 'Submitted text' },
+      note: { ...saved, content: 'Submitted text', localRevision: { contentHash: 'saved-hash', mtimeMs: 10 } } as NoteSummary,
+    });
+
+    expect(reconciled.drafts[tabId]).toMatchObject({
+      content: 'Newer text',
+      baseContent: 'Submitted text',
+      baseRevision: { contentHash: 'saved-hash', mtimeMs: 10 },
+    });
   });
 
   it('duplicates the active tab to the right and copies its draft', () => {

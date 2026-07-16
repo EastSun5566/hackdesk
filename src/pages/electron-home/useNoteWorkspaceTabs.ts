@@ -26,6 +26,7 @@ import {
   readNoteWorkspaceLayoutStorage,
   reopenLastClosedTab,
   resizeNotePanes,
+  reconcileSavedNoteTab,
   selectNoteTab,
   splitActiveTabRight,
   syncNoteTabSummary,
@@ -61,7 +62,13 @@ export function useNoteWorkspaceTabs(scopeKey: string) {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      writeNoteWorkspaceLayoutStorage(window.localStorage, state);
+      const timeout = window.setTimeout(() => writeNoteWorkspaceLayoutStorage(window.localStorage, state), 250);
+      const flush = () => writeNoteWorkspaceLayoutStorage(window.localStorage, stateRef.current);
+      window.addEventListener('pagehide', flush);
+      return () => {
+        window.clearTimeout(timeout);
+        window.removeEventListener('pagehide', flush);
+      };
     }
   }, [state]);
 
@@ -74,6 +81,15 @@ export function useNoteWorkspaceTabs(scopeKey: string) {
 
   const openDraftNote = useCallback((options?: string | OpenDraftNoteOptions) => {
     setState((current) => openDraftNoteTab(current, options));
+  }, []);
+
+  const openRecoverableDraftNote = useCallback((options: OpenDraftNoteOptions) => {
+    const next = openDraftNoteTab(stateRef.current, options);
+    if (typeof window !== 'undefined') {
+      writeNoteWorkspaceLayoutStorage(window.localStorage, next);
+    }
+    stateRef.current = next;
+    setState(next);
   }, []);
 
   const materializeDraftNote = useCallback((tabId: string, note: NoteSummary) => {
@@ -164,6 +180,10 @@ export function useNoteWorkspaceTabs(scopeKey: string) {
     setState((current) => notes.reduce((nextState, note) => syncNoteTabSummary(nextState, note), current));
   }, []);
 
+  const reconcileSavedNote = useCallback((input: Parameters<typeof reconcileSavedNoteTab>[1]) => {
+    setState((current) => reconcileSavedNoteTab(current, input));
+  }, []);
+
   const getPaneTab = useCallback((paneId: string) => getPaneActiveTab(state, paneId), [state]);
   const getTabHostPane = useCallback((tabId: string) => getTabPane(state, tabId), [state]);
 
@@ -180,6 +200,7 @@ export function useNoteWorkspaceTabs(scopeKey: string) {
     visibleActiveTabs,
     openNote,
     openDraftNote,
+    openRecoverableDraftNote,
     materializeDraftNote,
     focusPane,
     selectTab,
@@ -202,6 +223,7 @@ export function useNoteWorkspaceTabs(scopeKey: string) {
     resizePanes,
     syncNoteSummary,
     syncNoteSummaries,
+    reconcileSavedNote,
     getPaneTab,
     getTabHostPane,
     getTabsMatching,

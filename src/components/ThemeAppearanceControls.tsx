@@ -19,7 +19,6 @@ import {
 import { cn } from '@/lib/utils';
 import {
   THEME_SEED_FIELDS,
-  useThemeAppearanceDraft,
   type ThemeAppearanceDraftController,
 } from '@/components/useThemeAppearanceDraft';
 
@@ -31,37 +30,16 @@ const themeModeOptions: { id: ThemeMode; label: string; description: string; ico
 
 const focusClassName = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default';
 
-type ThemeAppearanceControlsProps = {
+type ThemeAppearanceFieldsOptions = {
   onApplied?: () => void;
   actions?: 'inline' | 'none';
   density?: 'comfortable' | 'compact';
   customSeedsDefaultOpen?: boolean;
-  showTypography?: boolean;
 };
 
-type ThemeAppearanceFieldsProps = Omit<ThemeAppearanceControlsProps, 'showTypography'> & {
+type ThemeAppearanceFieldsProps = ThemeAppearanceFieldsOptions & {
   controller: ThemeAppearanceDraftController;
 };
-
-export function ThemeAppearanceControls({
-  onApplied,
-  actions = 'inline',
-  density = 'comfortable',
-  customSeedsDefaultOpen = true,
-  showTypography = false,
-}: ThemeAppearanceControlsProps) {
-  const controller = useThemeAppearanceDraft({ showTypography });
-
-  return (
-    <ThemeAppearanceFields
-      actions={actions}
-      controller={controller}
-      customSeedsDefaultOpen={customSeedsDefaultOpen}
-      density={density}
-      onApplied={onApplied}
-    />
-  );
-}
 
 export function ThemeAppearanceFields({
   controller,

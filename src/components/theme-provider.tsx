@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useReducer } from 'react';
-import { COMMAND_PALETTE_SYNC_THEME_EVENT } from '@/hooks/useCommandPaletteWindow';
 import { getHackDeskAPI } from '@/lib/electron-api';
 import {
   normalizeAppearanceSettings,
@@ -313,12 +312,10 @@ export function ThemeProvider({
     };
 
     syncTheme();
-    window.addEventListener(COMMAND_PALETTE_SYNC_THEME_EVENT, syncTheme);
     window.addEventListener('storage', syncTheme);
 
     return () => {
       cancelled = true;
-      window.removeEventListener(COMMAND_PALETTE_SYNC_THEME_EVENT, syncTheme);
       window.removeEventListener('storage', syncTheme);
     };
   }, [defaultTheme, storageKey]);
