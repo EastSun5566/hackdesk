@@ -125,6 +125,7 @@
     "codemirror-kakoune": "0.2.5",
     "dompurify": "^3.4.11",
     "electron-updater": "^6.8.9",
+    "fuse.js": "^7.5.0",
     "gemoji": "^8.1.0",
     "inline-attacher": "^0.1.1",
     "katex": "0.17.0",

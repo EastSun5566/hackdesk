@@ -78,6 +78,7 @@ import {
   type QuickOpenWorkspaceResult,
 } from '@/lib/electron-quick-open';
 import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
+import { fuzzySearch } from '@/lib/fuzzy-search';
 import type { FolderTree as HackmdFolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
 import type { ShortcutOverrides } from '@/lib/keyboard-shortcuts';
 import type { ThemeMode, ThemePreset, ThemePresetId } from '@/lib/themes';
@@ -119,27 +120,15 @@ const THEME_MODE_COMMANDS: Array<{
   },
 ];
 
-function normalizeCommandQuery(query: string) {
-  return query.trim().toLowerCase();
-}
-
-function commandMatches(query: string, fields: Array<string | null | undefined>) {
-  const normalizedQuery = normalizeCommandQuery(query);
-  if (!normalizedQuery) {
-    return false;
-  }
-
-  return fields.join(' ').toLowerCase().includes(normalizedQuery);
+function searchCommands<T extends { label: string; description: string; keywords?: string[] }>(commands: T[], query: string) {
+  return fuzzySearch(commands, query, {
+    primary: (command) => command.label,
+    secondary: (command) => [command.description, ...(command.keywords ?? [])],
+  });
 }
 
 function getThemeModeCommands(query: string, activeMode: ThemeMode) {
-  return THEME_MODE_COMMANDS
-    .filter((command) => commandMatches(query, [
-      command.label,
-      command.description,
-      command.mode,
-      ...command.keywords,
-    ]))
+  return searchCommands(THEME_MODE_COMMANDS, query)
     .map((command) => ({
       ...command,
       active: command.mode === activeMode,
@@ -147,21 +136,15 @@ function getThemeModeCommands(query: string, activeMode: ThemeMode) {
 }
 
 function getThemePresetCommands(query: string, presets: ThemePreset[], activePresetId: ThemePresetId) {
-  return presets
-    .filter((preset) => commandMatches(query, [
-      preset.id,
-      preset.name,
-      preset.description,
-      'theme',
-      'appearance',
-      'palette',
-    ]))
-    .map((preset) => ({
-      id: preset.id,
-      label: `Use Theme: ${preset.name}`,
-      description: preset.description,
-      active: preset.id === activePresetId,
-    }));
+  const commands = presets.map((preset) => ({
+    id: preset.id,
+    label: `Use Theme: ${preset.name}`,
+    description: preset.description,
+    keywords: ['theme', 'appearance', 'palette', preset.id],
+    active: preset.id === activePresetId,
+  }));
+
+  return searchCommands(commands, query);
 }
 
 function getAccountCommands(query: string, hasHackmdApiToken: boolean) {
@@ -181,7 +164,7 @@ function getAccountCommands(query: string, hasHackmdApiToken: boolean) {
   };
   const command = hasHackmdApiToken ? disconnectCommand : connectCommand;
 
-  return commandMatches(query, [command.label, command.description, ...command.keywords]) ? [command] : [];
+  return searchCommands([command], query);
 }
 
 function getLocalVaultCommands(query: string, hasLocalVault: boolean) {
@@ -201,7 +184,7 @@ function getLocalVaultCommands(query: string, hasLocalVault: boolean) {
         icon: <FolderOpen className="h-4 w-4" />,
       };
 
-  return commandMatches(query, [command.label, command.description, ...command.keywords]) ? [command] : [];
+  return searchCommands([command], query);
 }
 
 function getCurrentNoteCommands(query: string, {
@@ -241,11 +224,7 @@ function getCurrentNoteCommands(query: string, {
       : []),
   ];
 
-  return commands.filter((command) => commandMatches(query, [
-    command.label,
-    command.description,
-    ...command.keywords,
-  ]));
+  return searchCommands(commands, query);
 }
 
 const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
