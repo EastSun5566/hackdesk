@@ -1,4 +1,4 @@
-name: Stable Electron release
+name: Electron release
 
 on:
   push:
@@ -24,10 +24,11 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - name: Verify stable tag
+      - name: Verify release tag
         shell: bash
         run: test "${GITHUB_REF_NAME}" = "v$(node -p "require('./package.json').version")"
       - run: pnpm run check
+      - run: xvfb-run --auto-servernum pnpm run test:smoke
       - run: pnpm run docs:build
       - run: pnpm run audit:prod
 
@@ -57,13 +58,119 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Verify macOS signing secrets
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for value in "$CSC_LINK" "$CSC_KEY_PASSWORD" "$APPLE_ID" "$APPLE_APP_SPECIFIC_PASSWORD" "$APPLE_TEAM_ID"; do
+            if [[ -z "$value" ]]; then
+              echo "::error::Required macOS signing or notarization secret is missing."
+              exit 1
+            fi
+          done
+      - name: Verify Windows signing secrets
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          if [[ -z "$CSC_LINK" || -z "$CSC_KEY_PASSWORD" ]]; then
+            echo "::error::Required Windows signing secret is missing."
+            exit 1
+          fi
       - run: pnpm run build
-      - name: Build, sign, notarize and publish
+      - name: Build, sign, notarize and upload to draft
         run: pnpm exec electron-builder ${{ matrix.args }} --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EP_DRAFT: "true"
           CSC_LINK: ${{ matrix.os == 'windows-latest' && secrets.WIN_CSC_LINK || secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ matrix.os == 'windows-latest' && secrets.WIN_CSC_KEY_PASSWORD || secrets.CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+  finalize:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Verify draft release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          channel="latest"
+          if [[ "$version" == *-* ]]; then
+            channel="${version#*-}"
+            channel="${channel%%.*}"
+          fi
+
+          state="$(gh release view "$GITHUB_REF_NAME" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"')"
+          if [[ "$state" != "true false" ]]; then
+            echo "::error::Expected an unpublished draft release, received: $state"
+            exit 1
+          fi
+
+          asset_names="$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name')"
+          expected_assets=(
+            "HackDesk-$version-arm64.dmg"
+            "HackDesk-$version-arm64.zip"
+            "HackDesk-$version-x64.dmg"
+            "HackDesk-$version-x64.zip"
+            "HackDesk-$version-x64.exe"
+            "HackDesk-$version-x64.AppImage"
+            "$channel.yml"
+            "$channel-mac.yml"
+            "$channel-linux.yml"
+          )
+
+          for asset in "${expected_assets[@]}"; do
+            if ! grep -Fqx "$asset" <<< "$asset_names"; then
+              echo "::error::Missing release asset: $asset"
+              exit 1
+            fi
+          done
+      - name: Extract release notes
+        id: release-notes
+        run: node scripts/release-notes.ts
+      - name: Publish prerelease
+        if: ${{ contains(github.ref_name, '-') }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NOTES: ${{ steps.release-notes.outputs.release_body }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease --title "HackDesk $GITHUB_REF_NAME" --notes "$RELEASE_NOTES"
+      - name: Publish stable release
+        if: ${{ !contains(github.ref_name, '-') }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NOTES: ${{ steps.release-notes.outputs.release_body }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest --title "HackDesk $GITHUB_REF_NAME" --notes "$RELEASE_NOTES"
+      - name: Verify published release state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          expected_prerelease="false"
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            expected_prerelease="true"
+          fi
+
+          state="$(gh release view "$GITHUB_REF_NAME" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"')"
+          if [[ "$state" != "false $expected_prerelease" ]]; then
+            echo "::error::Unexpected published release state: $state"
+            exit 1
+          fi

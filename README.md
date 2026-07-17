@@ -11,37 +11,26 @@
 
 > 📝 A hackable HackMD desktop application
 
-📚 Docs: <https://hackdesk.eastsun.me>
+HackDesk works directly with the HackMD API and local Markdown vaults.
 
-## Introduction
+- **HackMD API-native:** Work with notes, folders, teams, history, and sharing.
+- **Local-first:** Open any folder as a portable Markdown vault.
+- **Hackable:** Tune themes, fonts, editor modes, and shortcuts in the UI or `~/.hackdesk/settings.json`.
 
-HackDesk is an Electron desktop workspace for HackMD and local Markdown vaults.
+## Install v2 beta
 
-And you can also follow me on [HackMD](https://hackmd.io/@EastSun5566) 😎
+v2 is a prerelease and must be installed manually when moving from v0.1.5.
 
-## Installation
+[Download HackDesk v2.0.0-beta.1](https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.1)
+
+The stable v0.1.5 release remains available through Homebrew:
 
 ```sh
-# Tap this repo
 brew tap eastsun5566/hackdesk
-
-# Install app
 brew install --cask hackdesk
-
-# Optional: If you blocked by macOS
-xattr -dr com.apple.quarantine /Applications/HackDesk.app
 ```
 
-> [!NOTE]
-> HackDesk is currently unsigned, so macOS may block the first launch. If that happens, open the app once from Finder with **Right-click → Open**, or allow it in **System Settings → Privacy & Security**.
->
-> You can also run:
->
-> ```sh
-> xattr -dr com.apple.quarantine /Applications/HackDesk.app
-> ```
-
-[Full Guide](https://hackdesk.vercel.app/install.html)
+[Documentation](https://hackdesk.eastsun.me)
 
 ## Development
 
@@ -51,28 +40,4 @@ pnpm approve-builds --all
 pnpm run dev
 ```
 
-Useful checks before dogfooding or opening a PR:
-
-```sh
-pnpm run check
-pnpm run test:smoke
-pnpm run package:check
-```
-
-`pnpm run check` runs typechecking, Oxlint, Knip, workflow lint, the pinned HackMD OpenAPI contract, unit tests, and the production build. Packaging uses the tracked icons under `build/`; it does not regenerate assets during routine builds.
-
-Stable `v*` tags are built and published through electron-builder's GitHub provider. The generated `app-update.yml` and release assets are the updater source of truth.
-
-HackDesk requires Node.js 24 or newer. It uses Node 24's native TypeScript type stripping for local scripts and `@typescript/native-preview` for `tsgo`, the TypeScript native preview CLI. `tsgo` is used like `tsc` for typechecking, but it is still a preview toolchain.
-
-The Electron beta reads the same settings file at `~/.hackdesk/settings.json`. The HackMD API token stays in the Electron main process and preload API; renderer code only receives safe settings such as `hasHackmdApiToken`.
-
-If Electron fails to start because its binary was not installed correctly, run:
-
-```sh
-pnpm approve-builds --all
-pnpm rebuild electron
-pnpm run dev
-```
-
-This project uses pnpm's approved build scripts. Without approving Electron's postinstall build, `node_modules/electron/dist` can be missing and `pnpm run dev:electron` may fail before the app window opens.
+Run `pnpm run check` before opening a pull request.

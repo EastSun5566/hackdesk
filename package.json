@@ -3,7 +3,7 @@
   "productName": "HackDesk",
   "description": "📝 A hackable HackMD desktop application",
   "private": true,
-  "version": "0.1.5",
+  "version": "2.0.0-beta.1",
   "type": "module",
   "packageManager": "pnpm@11.13.0",
   "main": "electron/dist/main.cjs",
@@ -62,8 +62,7 @@
       {
         "provider": "github",
         "owner": "EastSun5566",
-        "repo": "hackdesk",
-        "releaseType": "release"
+        "repo": "hackdesk"
       }
     ],
     "extraResources": [

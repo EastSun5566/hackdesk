@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.0.0-beta.1](https://github.com/EastSun5566/hackdesk/compare/v0.1.5...v2.0.0-beta.1) (2026-07-17)
+
+### Highlights
+
+* Rebuilt HackDesk v2 as a desktop workspace backed by the HackMD API.
+* Added local-first Markdown vaults with portable files, folders, attachments, and recovery.
+* Expanded hackable settings for themes, typography, editor modes, shortcuts, and Quick Capture.
+
+### Beta notes
+
+* This is a prerelease intended for testing before the first stable v2 release.
+* Existing v0.1.5 installs do not update to v2 automatically. Install v2 manually; settings under `~/.hackdesk` are reused.
+* Report beta issues at [github.com/EastSun5566/hackdesk/issues](https://github.com/EastSun5566/hackdesk/issues).
+
 ### [0.1.5](https://github.com/EastSun5566/hackdesk/compare/v0.1.4...v0.1.5) (2026-05-27)
 
 
