@@ -2160,9 +2160,12 @@ describe('Home native-feel behavior', () => {
     await screen.findByDisplayValue('Product Plan');
     fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
     await screen.findByDisplayValue('Design Spec');
-    await waitFor(() => expect(Array.from({ length: window.localStorage.length }, (_value, index) => window.localStorage.key(index)).some((key) => (
-      key?.startsWith('hackdesk_note_workspace:personal')
-    ))).toBe(true));
+    await waitFor(() => expect(Array.from({ length: window.localStorage.length }, (_value, index) => {
+      const key = window.localStorage.key(index);
+      return key?.startsWith('hackdesk_note_workspace:personal')
+        ? window.localStorage.getItem(key)?.includes('note-design')
+        : false;
+    }).some(Boolean)).toBe(true));
 
     cleanup();
     renderHome(api);

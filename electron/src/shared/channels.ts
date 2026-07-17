@@ -3,6 +3,7 @@ export const ELECTRON_CHANNELS = {
   settingsUpdate: 'settings:update',
   settingsImportHackmdCliToken: 'settings:import-hackmd-cli-token',
   localVaultChoose: 'local-vault:choose',
+  localVaultDisconnect: 'local-vault:disconnect',
   localVaultGetSnapshot: 'local-vault:get-snapshot',
   localVaultDidChange: 'local-vault:did-change',
   localVaultReadNote: 'local-vault:read-note',

@@ -141,9 +141,6 @@ export const settingsUpdateSchema = z.strictObject({
   onboarding: z.strictObject({
     hackmdTokenSetupDeferred: z.boolean(),
   }).optional(),
-  localVault: z.strictObject({
-    path: z.string().trim().min(1).nullable(),
-  }).optional(),
 });
 
 export const localVaultRevisionSchema = z.strictObject({
@@ -159,7 +156,7 @@ export const localVaultCreateNoteInputSchema = z.strictObject({
 
 export const localVaultWriteInputSchema = z.strictObject({
   noteId: nonEmptyStringSchema,
-  content: z.string(),
+  content: z.string().refine((value) => Buffer.byteLength(value, 'utf8') <= 10 * 1024 * 1024, 'Content exceeds 10 MiB'),
   expectedRevision: localVaultRevisionSchema,
 });
 
@@ -187,7 +184,7 @@ export const localVaultImportAttachmentInputSchema = z.strictObject({
   noteId: nonEmptyStringSchema,
   fileName: nonEmptyStringSchema,
   mimeType: z.string(),
-  bytes: z.instanceof(ArrayBuffer),
+  bytes: z.instanceof(ArrayBuffer).refine((bytes) => bytes.byteLength <= 25 * 1024 * 1024, 'Attachment exceeds 25 MiB'),
 });
 
 export const localVaultCreateFolderInputSchema = z.strictObject({
@@ -314,7 +311,7 @@ export const quickCaptureContentSchema = z.string().refine((value) => value.trim
 export const uploadNoteImageInputSchema = z.strictObject({
   fileName: nonEmptyStringSchema,
   mimeType: z.string(),
-  bytes: z.instanceof(ArrayBuffer),
+  bytes: z.instanceof(ArrayBuffer).refine((bytes) => bytes.byteLength <= 25 * 1024 * 1024, 'Image exceeds 25 MiB'),
 });
 
 export const openHackmdEditorInputSchema = z.strictObject({

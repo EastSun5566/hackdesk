@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
-import { afterEach, describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { ErrorBoundary } from './ErrorBoundary';
 
 // Component that throws an error
@@ -10,9 +10,15 @@ const ThrowError = () => {
 
 // Component that renders normally
 const NormalComponent = () => <div>Test content</div>;
+const preventExpectedError = (event: ErrorEvent) => event.preventDefault();
 
 describe('ErrorBoundary', () => {
+  beforeEach(() => {
+    window.addEventListener('error', preventExpectedError);
+  });
+
   afterEach(() => {
+    window.removeEventListener('error', preventExpectedError);
     delete window.hackdeskAPI;
     vi.restoreAllMocks();
   });

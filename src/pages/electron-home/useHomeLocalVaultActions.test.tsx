@@ -50,19 +50,20 @@ function snapshot(overrides: Partial<LocalVaultSnapshot> = {}): LocalVaultSnapsh
 function createApi(overrides: {
   choose?: HackDeskElectronAPI['localVault']['choose'];
   confirm?: HackDeskElectronAPI['app']['confirm'];
-  settingsUpdate?: HackDeskElectronAPI['settings']['update'];
+  disconnect?: HackDeskElectronAPI['localVault']['disconnect'];
 } = {}): HackDeskElectronAPI {
   return {
     getRuntimeEnvironment: () => 'electron',
     platform: 'darwin',
     settings: {
       get: vi.fn(),
-      update: overrides.settingsUpdate ?? vi.fn(async (input) => safeSettings(input.localVault ? { localVault: input.localVault } : undefined)),
+      update: vi.fn(async () => safeSettings()),
       importHackmdCliToken: vi.fn(),
     },
     hackmd: {} as HackDeskElectronAPI['hackmd'],
     localVault: {
       choose: overrides.choose ?? vi.fn(async () => ({ canceled: true })),
+      disconnect: overrides.disconnect ?? vi.fn(async () => safeSettings({ localVault: { path: null }, hasLocalVault: false })),
       getSnapshot: vi.fn(),
       readNote: vi.fn(),
       createNote: vi.fn(),
@@ -181,7 +182,7 @@ describe('useHomeLocalVaultActions', () => {
     const nextSettings = safeSettings({ localVault: { path: null }, hasLocalVault: false });
     const api = createApi({
       confirm: vi.fn(async () => ({ confirmed: true })),
-      settingsUpdate: vi.fn(async () => nextSettings),
+      disconnect: vi.fn(async () => nextSettings),
     });
     const queryClient = new QueryClient();
     queryClient.setQueryData(getLocalVaultSnapshotQueryKey(), snapshot());
@@ -196,7 +197,7 @@ describe('useHomeLocalVaultActions', () => {
       confirmLabel: 'Forget Vault',
       destructive: true,
     }));
-    expect(api.settings.update).toHaveBeenCalledWith({ localVault: { path: null } });
+    expect(api.localVault.disconnect).toHaveBeenCalledOnce();
     expect(queryClient.getQueryData(['electron', 'settings'])).toBe(nextSettings);
     expect(queryClient.getQueryData(getLocalVaultSnapshotQueryKey())).toBeNull();
     expect(toastSuccessMock).toHaveBeenCalledWith('Local vault forgotten.', {

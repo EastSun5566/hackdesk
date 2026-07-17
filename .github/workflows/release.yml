@@ -1,197 +1,176 @@
-name: Release and publish
+name: Electron release
 
 on:
   push:
-    tags:
-      - "v*"
+    tags: ["v*"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  check:
+  quality:
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-    runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: "./src-tauri -> target"
-
-      - name: Install cargo-deny
-        run: cargo install --locked cargo-deny
-
-      - name: Install Pnpm
-        uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
         with:
           version: 11.13.0
           run_install: false
-
-      - name: Setup Node
-        uses: actions/setup-node@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Verify release tag
+        shell: bash
+        run: test "${GITHUB_REF_NAME}" = "v$(node -p "require('./package.json').version")"
+      - run: pnpm run check
+      - run: xvfb-run --auto-servernum pnpm run test:smoke
+      - run: pnpm run docs:build
+      - run: pnpm run audit:prod
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --ignore-scripts
-
-      - name: Run CI checks
-        run: pnpm run check:ci
-
-  create-release:
-    needs: check
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    outputs:
-      release_id: ${{ steps.create-release.outputs.result }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Setup Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: 24
-
-      - name: get version
-        run: node -e "console.log('PACKAGE_VERSION=' + require('./package.json').version)" >> "$GITHUB_ENV"
-
-      - name: extract release notes
-        id: release-notes
-        run: node scripts/release-notes.ts
-
-      - name: create release
-        id: create-release
-        uses: actions/github-script@v9
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-          RELEASE_NOTES: ${{ steps.release-notes.outputs.release_body }}
-        with:
-          script: |
-            const { data } = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: process.env.RELEASE_TAG,
-              name: `HackDesk v${process.env.PACKAGE_VERSION}`,
-              body: process.env.RELEASE_NOTES,
-              draft: true,
-              prerelease: false
-            })
-            return data.id
-
-  build-app:
-    needs: create-release
-    permissions:
-      contents: write
+  publish:
+    needs: quality
     strategy:
       fail-fast: false
       matrix:
         include:
-          - build: linux
-            os: ubuntu-latest
-            arch: x86_64
-            target: x86_64-unknown-linux-gnu
-          - build: macos
-            os: macos-latest
-            arch: x86_64
-            target: x86_64-apple-darwin
-          - build: macos
-            os: macos-latest
-            arch: aarch64
-            target: aarch64-apple-darwin
-          - build: windows
-            os: windows-latest
-            arch: x86_64
-            target: x86_64-pc-windows-msvc
+          - os: macos-latest
+            args: --mac --x64 --arm64
+          - os: windows-latest
+            args: --win --x64
+          - os: ubuntu-latest
+            args: --linux AppImage --x64
     runs-on: ${{ matrix.os }}
-
+    permissions:
+      contents: write
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v5
-
-      - name: install dependencies (ubuntu only)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Add rust target
-        run: rustup target add ${{ matrix.target }}
-
-      - name: Cache Rust
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: "./src-tauri -> target"
-
-      - name: Install Pnpm
-        uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
         with:
           version: 11.13.0
           run_install: false
-
-      - name: Setup Node
-        uses: actions/setup-node@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: pnpm
-
-      - name: Install frontend deps
-        run: pnpm install --frozen-lockfile --ignore-scripts
-
-      - name: extract release notes
-        id: release-notes
-        run: node scripts/release-notes.ts
-
-      - uses: tauri-apps/tauri-action@v0
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Verify macOS signing secrets
+        if: matrix.os == 'macos-latest'
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-        with:
-          releaseId: ${{ needs.create-release.outputs.release_id }}
-          tagName: ${{ github.ref_name }}
-          # This also becomes latest.json.notes when uploading updater metadata.
-          releaseBody: ${{ steps.release-notes.outputs.release_body }}
-          args: --target ${{ matrix.target }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for value in "$CSC_LINK" "$CSC_KEY_PASSWORD" "$APPLE_ID" "$APPLE_APP_SPECIFIC_PASSWORD" "$APPLE_TEAM_ID"; do
+            if [[ -z "$value" ]]; then
+              echo "::error::Required macOS signing or notarization secret is missing."
+              exit 1
+            fi
+          done
+      - name: Verify Windows signing secrets
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          if [[ -z "$CSC_LINK" || -z "$CSC_KEY_PASSWORD" ]]; then
+            echo "::error::Required Windows signing secret is missing."
+            exit 1
+          fi
+      - run: pnpm run build
+      - name: Build, sign, notarize and upload to draft
+        run: pnpm exec electron-builder ${{ matrix.args }} --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EP_DRAFT: "true"
+          CSC_LINK: ${{ matrix.os == 'windows-latest' && secrets.WIN_CSC_LINK || secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ matrix.os == 'windows-latest' && secrets.WIN_CSC_KEY_PASSWORD || secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-  publish-release:
+  finalize:
+    needs: publish
+    runs-on: ubuntu-latest
     permissions:
       contents: write
-    runs-on: ubuntu-latest
-    needs: [create-release, build-app]
-
     steps:
-      - name: publish release
-        id: publish-release
-        uses: actions/github-script@v9
-        env:
-          release_id: ${{ needs.create-release.outputs.release_id }}
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          script: |
-            github.rest.repos.updateRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: process.env.release_id,
-              draft: false,
-              prerelease: false
-            })
+          node-version: 24
+      - name: Verify draft release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          channel="latest"
+          if [[ "$version" == *-* ]]; then
+            channel="${version#*-}"
+            channel="${channel%%.*}"
+          fi
+
+          state="$(gh release view "$GITHUB_REF_NAME" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"')"
+          if [[ "$state" != "true false" ]]; then
+            echo "::error::Expected an unpublished draft release, received: $state"
+            exit 1
+          fi
+
+          asset_names="$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name')"
+          expected_assets=(
+            "HackDesk-$version-arm64.dmg"
+            "HackDesk-$version-arm64.zip"
+            "HackDesk-$version-x64.dmg"
+            "HackDesk-$version-x64.zip"
+            "HackDesk-$version-x64.exe"
+            "HackDesk-$version-x64.AppImage"
+            "$channel.yml"
+            "$channel-mac.yml"
+            "$channel-linux.yml"
+          )
+
+          for asset in "${expected_assets[@]}"; do
+            if ! grep -Fqx "$asset" <<< "$asset_names"; then
+              echo "::error::Missing release asset: $asset"
+              exit 1
+            fi
+          done
+      - name: Extract release notes
+        id: release-notes
+        run: node scripts/release-notes.ts
+      - name: Publish prerelease
+        if: ${{ contains(github.ref_name, '-') }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NOTES: ${{ steps.release-notes.outputs.release_body }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease --title "HackDesk $GITHUB_REF_NAME" --notes "$RELEASE_NOTES"
+      - name: Publish stable release
+        if: ${{ !contains(github.ref_name, '-') }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NOTES: ${{ steps.release-notes.outputs.release_body }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest --title "HackDesk $GITHUB_REF_NAME" --notes "$RELEASE_NOTES"
+      - name: Verify published release state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          expected_prerelease="false"
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            expected_prerelease="true"
+          fi
+
+          state="$(gh release view "$GITHUB_REF_NAME" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"')"
+          if [[ "$state" != "false $expected_prerelease" ]]; then
+            echo "::error::Unexpected published release state: $state"
+            exit 1
+          fi

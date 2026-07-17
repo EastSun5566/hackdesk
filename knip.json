@@ -7,6 +7,7 @@
     "src/components/ui/select.tsx",
     "electron/src/main/index.ts",
     "electron/src/preload/index.ts",
+    "electron/src/preload/quick-capture.ts",
     "scripts/*.ts",
     "docs/.vitepress/config.ts",
     "docs/release.data.ts"

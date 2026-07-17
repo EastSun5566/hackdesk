@@ -71,10 +71,6 @@ export function getActiveLines(state: EditorState): Set<number> {
   return activeLines;
 }
 
-export function getDocumentLines(state: EditorState): string[] {
-  return Array.from({ length: state.doc.lines }, (_, index) => state.doc.line(index + 1).text);
-}
-
 export function getActiveHfmBlocks(
   blockRanges: readonly HfmBlockRange[],
   activeLines: Set<number>,

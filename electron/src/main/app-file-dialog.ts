@@ -1,6 +1,6 @@
 import type { BrowserWindow, OpenDialogOptions } from 'electron';
 import { dialog } from 'electron';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, stat, writeFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 
 import type {
@@ -14,6 +14,7 @@ const MARKDOWN_FILTERS: AppFileFilter[] = [
   { name: 'Markdown', extensions: ['md', 'markdown'] },
   { name: 'Text', extensions: ['txt'] },
 ];
+const MAX_MARKDOWN_BYTES = 10 * 1024 * 1024;
 
 function getFilters(filters: AppFileFilter[] | undefined) {
   return filters && filters.length > 0 ? filters : MARKDOWN_FILTERS;
@@ -48,6 +49,9 @@ export async function openTextFile(input: OpenTextFileInput, parentWindow?: Brow
   const filePath = result.filePaths[0];
   if (result.canceled || !filePath) {
     return null;
+  }
+  if ((await stat(filePath)).size > MAX_MARKDOWN_BYTES) {
+    throw new Error('Markdown imports cannot exceed 10 MiB.');
   }
 
   return {

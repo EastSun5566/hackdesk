@@ -52,7 +52,7 @@ export type OpenDraftNoteOptions = {
 };
 
 export type NoteWorkspaceState = {
-  version: 1;
+  version: 2;
   scopeKey: string;
   tabs: Record<string, OpenNoteTab>;
   panes: NotePane[];
@@ -65,7 +65,7 @@ export type NoteWorkspaceState = {
 
 export type PersistedNoteWorkspaceLayout = Pick<
   NoteWorkspaceState,
-  'version' | 'scopeKey' | 'tabs' | 'panes' | 'activePaneId'
+  'version' | 'scopeKey' | 'tabs' | 'panes' | 'activePaneId' | 'drafts'
 >;
 
 const NOTE_WORKSPACE_LAYOUT_PREFIX = 'hackdesk_note_workspace:';
@@ -126,7 +126,7 @@ function createInitialPane(paneId = createPaneId()): NotePane {
 export function createEmptyNoteWorkspaceState(scopeKey: string): NoteWorkspaceState {
   const pane = createInitialPane('note-pane-primary');
   return {
-    version: 1,
+    version: 2,
     scopeKey,
     tabs: {},
     panes: [pane],
@@ -798,6 +798,47 @@ export function clearNoteTabDraft(state: NoteWorkspaceState, tabId: string) {
   return { ...state, drafts };
 }
 
+export function reconcileSavedNoteTab(
+  state: NoteWorkspaceState,
+  input: { tabId: string; submittedDraft: NoteDocumentDraft; note: NoteSummary },
+) {
+  const tab = state.tabs[input.tabId];
+  if (!tab || isDraftNoteTab(tab)) {
+    return state;
+  }
+
+  const currentDraft = state.drafts[input.tabId];
+  const submittedUnchanged = currentDraft
+    && currentDraft.title === input.submittedDraft.title
+    && currentDraft.content === input.submittedDraft.content;
+  const drafts = { ...state.drafts };
+  if (submittedUnchanged) {
+    delete drafts[input.tabId];
+  } else if (currentDraft) {
+    drafts[input.tabId] = {
+      ...currentDraft,
+      baseTitle: input.submittedDraft.title,
+      baseContent: input.submittedDraft.content,
+      baseRevision: getNoteLocalRevision(input.note) ?? currentDraft.baseRevision,
+    };
+  }
+
+  return {
+    ...state,
+    drafts,
+    tabs: {
+      ...state.tabs,
+      [input.tabId]: {
+        ...tab,
+        title: getTabTitle(input.note),
+        shortId: input.note.shortId || tab.shortId,
+        updatedAtMillis: input.note.updatedAtMillis,
+        localRevision: getNoteLocalRevision(input.note) ?? tab.localRevision,
+      },
+    },
+  };
+}
+
 export function syncNoteTabSummary(state: NoteWorkspaceState, note: NoteSummary) {
   const tab = getTabByNoteIdentity(state, note);
   if (!tab || isDraftNoteTab(tab)) {
@@ -821,24 +862,29 @@ export function syncNoteTabSummary(state: NoteWorkspaceState, note: NoteSummary)
 }
 
 export function toPersistedNoteWorkspaceLayout(state: NoteWorkspaceState): PersistedNoteWorkspaceLayout {
-  const savedTabs = Object.fromEntries(
-    Object.entries(state.tabs).filter(([, tab]) => !isDraftNoteTab(tab)),
+  const meaningfulDrafts = Object.fromEntries(Object.entries(state.drafts).filter(([tabId, draft]) => {
+    const tab = state.tabs[tabId];
+    return isDraftNoteTab(tab) && Boolean(draft.content.trim() || (draft.title.trim() && draft.title.trim() !== 'Untitled'));
+  }));
+  const persistedTabs = Object.fromEntries(
+    Object.entries(state.tabs).filter(([tabId, tab]) => !isDraftNoteTab(tab) || Boolean(meaningfulDrafts[tabId])),
   );
   const panes = state.panes.map((pane) => {
-    const tabIds = pane.tabIds.filter((tabId) => savedTabs[tabId]);
+    const tabIds = pane.tabIds.filter((tabId) => persistedTabs[tabId]);
     return {
       ...pane,
       tabIds,
-      activeTabId: pane.activeTabId && savedTabs[pane.activeTabId]
+      activeTabId: pane.activeTabId && persistedTabs[pane.activeTabId]
         ? pane.activeTabId
         : tabIds[0] ?? null,
     };
   });
 
   return {
-    version: 1,
+    version: 2,
     scopeKey: state.scopeKey,
-    tabs: savedTabs,
+    tabs: persistedTabs,
+    drafts: meaningfulDrafts,
     panes,
     activePaneId: panes.some((pane) => pane.paneId === state.activePaneId)
       ? state.activePaneId
@@ -852,13 +898,26 @@ export function hydrateNoteWorkspaceLayout(scopeKey: string, layout: unknown): N
   }
 
   const value = layout as Partial<PersistedNoteWorkspaceLayout>;
-  if (value.version !== 1 || value.scopeKey !== scopeKey || !value.tabs || !Array.isArray(value.panes)) {
+  const layoutVersion = (layout as { version?: number }).version;
+  if ((layoutVersion !== 1 && layoutVersion !== 2) || value.scopeKey !== scopeKey || !value.tabs || !Array.isArray(value.panes)) {
     return createEmptyNoteWorkspaceState(scopeKey);
   }
 
+  const persistedDrafts = layoutVersion === 2 && value.drafts && typeof value.drafts === 'object' ? value.drafts : {};
   const tabs = Object.fromEntries(
-    Object.entries(value.tabs).filter((entry): entry is [string, SavedOpenNoteTab] => {
+    Object.entries(value.tabs).filter((entry): entry is [string, OpenNoteTab] => {
       const [tabId, tab] = entry;
+      if (isDraftNoteTab(tab)) {
+        const draft = persistedDrafts[tabId];
+        return Boolean(
+          typeof tabId === 'string'
+          && tab.tabId === tabId
+          && typeof tab.draftId === 'string'
+          && draft
+          && typeof draft.title === 'string'
+          && typeof draft.content === 'string'
+        );
+      }
       return Boolean(
         tab
         && !isDraftNoteTab(tab)
@@ -888,12 +947,17 @@ export function hydrateNoteWorkspaceLayout(scopeKey: string, layout: unknown): N
     .slice(0, MAX_PANES);
 
   return normalizeState({
-    version: 1,
+    version: 2,
     scopeKey,
     tabs,
     panes,
     activePaneId: typeof value.activePaneId === 'string' ? value.activePaneId : panes[0]?.paneId ?? 'note-pane-primary',
-    drafts: {},
+    drafts: Object.fromEntries(Object.entries(persistedDrafts).filter(([tabId, draft]) => Boolean(
+      isDraftNoteTab(tabs[tabId])
+      && draft
+      && typeof draft.title === 'string'
+      && typeof draft.content === 'string'
+    ))) as Record<string, NoteDocumentDraft>,
     recentlyClosedTabs: [],
     backStack: [],
     forwardStack: [],

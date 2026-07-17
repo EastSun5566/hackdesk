@@ -258,14 +258,24 @@ export function useHomeWorkspaceProps({
 
         const document = documents.getTabDocument(tab);
         if (document) {
-          mutations.updateNoteMutation.mutate({ note: document, input });
+          mutations.updateNoteMutation.mutate({
+            note: document,
+            input,
+            intent: 'content',
+            tabId: tab.tabId,
+            submittedDraft: {
+              title: input.title ?? document.title,
+              content: input.content ?? document.content ?? '',
+            },
+          });
         }
       },
       onSaveAsCopy: localDocumentRecovery.saveAsCopy,
-      onSaveMetadata: (note: DocumentSummary, input) => mutations.updateNoteMutation.mutate({ note, input }),
+      onSaveMetadata: (note: DocumentSummary, input) => mutations.updateNoteMutation.mutate({ note, input, intent: 'metadata' }),
       onSaveSharing: (note: DocumentSummary, input) => mutations.updateNoteMutation.mutate({
         note,
         input,
+        intent: 'sharing',
         successMessage: 'Sharing settings updated.',
       }),
       onUploadImage: (note: DocumentSummary, input) => mutations.uploadNoteImageMutation.mutateAsync({ note, input }),

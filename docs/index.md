@@ -3,32 +3,36 @@
 layout: home
 
 title: HackDesk
-titleTemplate: HackMD Desktop Application
+titleTemplate: HackMD and local Markdown desktop workspace
 
 hero:
   name: HackDesk
-  text: HackMD Desktop Application
-  tagline: Everything you love about <a href="https://hackmd.io" target="_blank">HackMD</a> but in a desktop app.
+  text: A hackable HackMD desktop application.
+  tagline: Built around the HackMD API and local-first Markdown.
   image:
     src: ./logo.png
     alt: HackDesk Logo
   actions:
     - theme: brand
-      text: Install Now
+      text: Install v2 Beta
       link: /install
     - theme: alt
-      text: Learn More
+      text: Learn more
       link: /intro
     - theme: alt
       text: View on GitHub
       link: https://github.com/EastSun5566/hackdesk
 
 features:
-  - icon: 🎨
-    title: Command palette
-    details: A command palette is a quick way to execute commands or search. Press `CmdOrCtrl+K` to open the command palette.
+  - icon: ☁️
+    title: HackMD API-native
+    details: Work with notes, folders, teams, history, and sharing through the HackMD API.
 
-  - icon: ⚙️
-    title: Custom settings
-    details: You can change the theme, shortcut, preferences. Press `CmdOrCtrl+,` to open the settings.
+  - icon: 📁
+    title: Local-first Markdown
+    details: Open any folder as a vault. Your notes remain portable Markdown files on disk.
+
+  - icon: 🔧
+    title: Hackable configuration
+    details: Tune themes, fonts, editor modes, and shortcuts from the UI or settings.json.
 ---

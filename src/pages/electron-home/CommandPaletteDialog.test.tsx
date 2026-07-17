@@ -420,6 +420,16 @@ describe('CommandPaletteDialog', () => {
     expect(onStateChange).toHaveBeenCalledWith({ mode: 'commands', open: false, search: '' });
   });
 
+  it('tolerates typos in action commands', () => {
+    renderPalette({ state: { mode: 'commands', open: true, search: 'setings' } });
+    expect(screen.getByRole('option', { name: /Open Settings/ })).toBeVisible();
+  });
+
+  it('tolerates adjacent transpositions in Local Vault commands', () => {
+    renderPalette({ state: { mode: 'commands', open: true, search: 'vualt' } });
+    expect(screen.getByRole('option', { name: /Switch to Local Vault/ })).toBeVisible();
+  });
+
   it('copies the current note link from current note commands', () => {
     const onCopyCurrentNoteLink = vi.fn();
     renderPalette({

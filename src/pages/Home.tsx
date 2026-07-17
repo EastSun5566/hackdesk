@@ -256,10 +256,15 @@ export function Home() {
       noteWorkspace.syncNoteSummary(note);
       trackRecentNote(note);
     },
-    onNoteSaved: (note) => {
-      noteWorkspace.syncNoteSummary(note);
-      for (const tab of noteWorkspace.getTabsMatching(note)) {
-        noteWorkspace.clearDraft(tab.tabId);
+    onNoteSaved: (note, variables) => {
+      if (variables.intent === 'content' && variables.tabId && variables.submittedDraft) {
+        noteWorkspace.reconcileSavedNote({
+          note,
+          tabId: variables.tabId,
+          submittedDraft: variables.submittedDraft,
+        });
+      } else {
+        noteWorkspace.syncNoteSummary(note);
       }
       trackRecentNote(note);
     },
@@ -536,7 +541,7 @@ export function Home() {
     requestCloseTabsToRight,
     requestDeleteFolder: folderCommands.handleDeleteFolderRequest,
     reopenLastClosedTab: noteWorkspace.reopenLastClosed,
-    saveNote: (note, input) => mutations.updateNoteMutation.mutate({ note, input }),
+    saveNote: (note, input) => mutations.updateNoteMutation.mutate({ note, input, intent: 'content' }),
     saveDraftNote: (tab, input) => mutations.createDraftNoteMutation.mutate({ tabId: tab.tabId, input }),
     setEditorMode: (mode) => {
       mutations.updateSettingsMutation.mutate({
@@ -598,7 +603,11 @@ export function Home() {
       return { accepted: false, error: guardError };
     }
 
-    noteWorkspace.openDraftNote({ content });
+    try {
+      noteWorkspace.openRecoverableDraftNote({ content });
+    } catch {
+      return { accepted: false, error: 'HackDesk could not save this capture. Your text is still here.' };
+    }
     focusZone('editor');
     return { accepted: true };
   }, [

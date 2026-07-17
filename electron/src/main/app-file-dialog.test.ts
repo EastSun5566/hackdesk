@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   readFile: vi.fn(),
   showOpenDialog: vi.fn(),
   showSaveDialog: vi.fn(),
+  stat: vi.fn(),
   writeFile: vi.fn(),
 }));
 
@@ -17,9 +18,11 @@ vi.mock('electron', () => ({
 vi.mock('node:fs/promises', () => ({
   default: {
     readFile: mocks.readFile,
+    stat: mocks.stat,
     writeFile: mocks.writeFile,
   },
   readFile: mocks.readFile,
+  stat: mocks.stat,
   writeFile: mocks.writeFile,
 }));
 
@@ -59,6 +62,7 @@ describe('app file dialogs', () => {
     const { openTextFile } = await import('./app-file-dialog');
     mocks.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/tmp/import.md'] });
     mocks.readFile.mockResolvedValue('# Imported');
+    mocks.stat.mockResolvedValue({ size: 10 });
 
     await expect(openTextFile({})).resolves.toEqual({
       filePath: '/tmp/import.md',

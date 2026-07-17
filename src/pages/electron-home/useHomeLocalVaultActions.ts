@@ -93,9 +93,7 @@ export function useHomeLocalVaultActions({
       return;
     }
 
-    const nextSettings = await api.settings.update({
-      localVault: { path: null },
-    });
+    const nextSettings = await api.localVault.disconnect();
     queryClient.setQueryData(['electron', 'settings'], nextSettings);
     queryClient.setQueryData(getLocalVaultSnapshotQueryKey(), null);
     toast.success('Local vault forgotten.', { description: 'Markdown files were not deleted.' });

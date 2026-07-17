@@ -20,9 +20,8 @@ import {
   expandActiveHfmBlockLines,
   getActiveHfmBlocks,
   getActiveLines,
-  getDocumentLines,
 } from './hfm-decoration-ranges';
-import { getHfmBlockRanges } from './hfm-recognizers';
+import { getHfmDocumentIndex, hfmDocumentIndexExtension } from './hfm-document-index';
 import { getOrderedListMarkerPreviews } from './list-markers';
 import { pushReplace, type PreviewRange } from './preview-ranges';
 import {
@@ -203,6 +202,7 @@ const freezeMousePlugin = ViewPlugin.fromClass(
 
 export function hackmdInlinePreview(): Extension {
   return [
+    hfmDocumentIndexExtension,
     previewFrozenField,
     freezeMousePlugin,
     inlinePreviewPlugin,
@@ -215,7 +215,7 @@ function buildDecorations(state: EditorState): DecorationSet {
   const activeInlineSourceStarts = new Set<number>();
   const tree = ensureSyntaxTree(state, state.doc.length, 200) ?? syntaxTree(state);
   const fencedCodeLines = getFencedCodeLines(state, tree);
-  const hfmBlockRanges = getHfmBlockRanges(getDocumentLines(state))
+  const hfmBlockRanges = getHfmDocumentIndex(state).blockRanges
     .filter((blockRange) => !blockRangeOverlapsLines(blockRange.startLine, blockRange.endLine, fencedCodeLines));
   const activeHfmBlocks = getActiveHfmBlocks(hfmBlockRanges, activeLines);
   const orderedListMarkers = getOrderedListMarkerPreviews(state);

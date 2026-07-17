@@ -1,5 +1,5 @@
-import { app, clipboard, dialog, ipcMain, shell } from 'electron';
-import type { MessageBoxOptions } from 'electron';
+import { app, clipboard, dialog, ipcMain as electronIpcMain, shell } from 'electron';
+import type { IpcMainInvokeEvent, MessageBoxOptions } from 'electron';
 
 import type {
   ConfirmDialogOptions,
@@ -59,6 +59,7 @@ import {
   updateTeamNote,
   uploadNoteImage,
   validateToken,
+  clearHackmdCache,
 } from './hackmd-service';
 import { getSafeSettings, readHackmdCliAccessToken, updateStoredSettings } from './settings';
 import {
@@ -126,6 +127,19 @@ export function registerIpcHandlers(
   windowManager: WindowManager,
   options: { onSettingsUpdated?: (settings: Awaited<ReturnType<typeof updateStoredSettings>>) => void } = {},
 ) {
+  const ipcMain = {
+    handle<T extends unknown[]>(
+      channel: string,
+      listener: (event: IpcMainInvokeEvent, ...args: T) => unknown,
+    ) {
+      electronIpcMain.handle(channel, (event, ...args: T) => {
+        if (!windowManager.isTrustedIpcSender(event, channel)) {
+          throw new Error(`Blocked untrusted IPC sender for ${channel}.`);
+        }
+        return listener(event, ...args);
+      });
+    },
+  };
   let localVaultWatcher: LocalVaultWatcher | null = null;
   const startLocalVaultWatcher = (vaultPath: string) => {
     localVaultWatcher?.close();
@@ -139,6 +153,7 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.settingsGet, () => getSafeSettings());
   ipcMain.handle(ELECTRON_CHANNELS.settingsUpdate, async (_event, settings) => {
     const nextSettings = await updateStoredSettings(validateIpcInput(ELECTRON_CHANNELS.settingsUpdate, settingsUpdateSchema, settings));
+    clearHackmdCache();
     options.onSettingsUpdated?.(nextSettings);
     return nextSettings;
   });
@@ -146,6 +161,7 @@ export function registerIpcHandlers(
     const token = await readHackmdCliAccessToken();
     const user = await validateToken(token);
     const settings = await updateStoredSettings({ hackmdApiToken: token });
+    clearHackmdCache();
     options.onSettingsUpdated?.(settings);
     return { settings, user };
   });
@@ -167,10 +183,17 @@ export function registerIpcHandlers(
 
     const rootPath = result.filePaths[0];
     const snapshot = await scanLocalVault(rootPath);
-    const settings = await updateStoredSettings({ localVault: { path: rootPath } });
+    const settings = await updateStoredSettings({ localVaultPath: rootPath });
     options.onSettingsUpdated?.(settings);
     startLocalVaultWatcher(rootPath);
     return { canceled: false, settings, snapshot };
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultDisconnect, async () => {
+    localVaultWatcher?.close();
+    localVaultWatcher = null;
+    const settings = await updateStoredSettings({ localVaultPath: null });
+    options.onSettingsUpdated?.(settings);
+    return settings;
   });
   ipcMain.handle(ELECTRON_CHANNELS.localVaultGetSnapshot, async () => {
     const snapshot = await getActiveLocalVaultSnapshot();

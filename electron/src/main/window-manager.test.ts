@@ -93,6 +93,7 @@ const mockState = vi.hoisted(() => {
       id: 1,
       mainFrame: {},
       session: {
+        flushStorageData: vi.fn(),
         setPermissionRequestHandler: vi.fn(),
         setPermissionCheckHandler: vi.fn(),
       },
@@ -174,6 +175,7 @@ vi.mock('./window-state', () => ({
   readWindowState: (fallback: unknown) => ({ bounds: fallback, isMaximized: false }),
 }));
 
+import { dialog } from 'electron';
 import { WindowManager } from './window-manager';
 
 function createManagerWithWindow() {
@@ -227,14 +229,13 @@ describe('WindowManager close intent', () => {
     expect(window.destroy).not.toHaveBeenCalled();
   });
 
-  it('bypasses close interception during app quit', () => {
+  it('routes app quit through the renderer close coordinator', () => {
     const { manager, window } = createManagerWithWindow();
-    manager.setAppQuitting(true);
+    const event = { preventDefault: vi.fn() };
+    manager.handleBeforeQuit(event);
 
-    const event = emitClose(window);
-
-    expect(event.preventDefault).not.toHaveBeenCalled();
-    expect(window.webContents.send).not.toHaveBeenCalledWith(ELECTRON_CHANNELS.appCloseRequested, expect.anything());
+    expect(event.preventDefault).toHaveBeenCalled();
+    expect(window.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCloseRequested, { source: 'app-quit' });
   });
 
   it('marks Cmd/Ctrl+W close requests as keyboard shortcut sourced', () => {
@@ -253,16 +254,17 @@ describe('WindowManager close intent', () => {
     });
   });
 
-  it('forces close when the renderer does not answer', async () => {
+  it('asks before quitting when the renderer does not answer', async () => {
     const { window } = createManagerWithWindow();
 
     emitClose(window);
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(15_000);
 
-    expect(window.destroy).toHaveBeenCalledTimes(1);
+    expect(window.destroy).not.toHaveBeenCalled();
+    expect(dialog.showMessageBox).toHaveBeenCalled();
     expect(mockState.state.writeLog).toHaveBeenCalledWith(
       'main',
-      'renderer did not respond to close request; forcing window close',
+      'renderer did not respond to close request',
       undefined,
       'warn',
     );
@@ -363,15 +365,13 @@ describe('WindowManager close intent', () => {
     expect(mockState.state.appHide).not.toHaveBeenCalled();
   });
 
-  it('allows quick capture to close while the app is quitting', () => {
+  it('keeps quick capture recoverable while quit is still unconfirmed', () => {
     const { manager } = createManagerWithWindow();
     const captureWindow = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
-    manager.setAppQuitting(true);
-
     captureWindow.close();
 
-    expect(captureWindow.hide).not.toHaveBeenCalled();
-    expect(captureWindow.destroy).toHaveBeenCalledOnce();
+    expect(captureWindow.hide).toHaveBeenCalledOnce();
+    expect(captureWindow.destroy).not.toHaveBeenCalled();
   });
 
   it('falls back to the primary display when cursor display lookup is unavailable', () => {
@@ -406,6 +406,7 @@ describe('WindowManager close intent', () => {
     manager.resolveQuickCaptureSubmission({ requestId: command.requestId, accepted: true });
 
     await expect(submission).resolves.toEqual({ accepted: true });
+    expect(window.webContents.session.flushStorageData).toHaveBeenCalledOnce();
     expect(captureWindow.hide).toHaveBeenCalledOnce();
     expect(window.show).toHaveBeenCalledOnce();
     expect(window.focus).toHaveBeenCalledOnce();

@@ -100,6 +100,7 @@ const api: HackDeskElectronAPI = {
   },
   localVault: {
     choose: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultChoose),
+    disconnect: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultDisconnect),
     getSnapshot: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultGetSnapshot),
     readNote: (noteId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultReadNote, noteId),
     createNote: (input: LocalVaultCreateNoteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultCreateNote, input),

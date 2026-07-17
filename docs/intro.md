@@ -4,12 +4,12 @@ outline: deep
 
 # Introduction
 
-![Editor](./public/editor.png)
+![Editor](/editor.png)
 
 ::: warning
-This project is actively under development, so expect some bugs & missing features.
+HackDesk v2 is currently a beta. Expect bugs and report them on GitHub.
 :::
 
-HackDesk is a desktop application for HackMD, powered by [Tauri](https://tauri.app/). It serves as a lightweight wrapper for [hackmd.io](https://hackmd.io), so you'll find everything you love about HackMD, plus some additional features ✨.
+> A hackable HackMD desktop application.
 
-And you can also follow me on [HackMD](https://hackmd.io/@EastSun5566) 😎
+HackDesk works directly with the HackMD API and local Markdown vaults. Connect your account when you want cloud notes and teams, or open a local folder when you want portable Markdown files that stay under your control.

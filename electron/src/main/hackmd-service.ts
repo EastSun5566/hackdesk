@@ -115,7 +115,7 @@ type CacheKey =
   | `note:${string}`
   | `team:${string}:note:${string}`;
 
-const memoryCache = new Map<CacheKey, unknown>();
+const compatibilityCache = new Map<CacheKey, unknown>();
 
 type HackmdFetch = typeof fetch;
 
@@ -364,7 +364,11 @@ async function requestHackmd<T>(
   }
 }
 
-export function withCache<T>(cacheKey: CacheKey, promise: Promise<T>): Promise<RepositoryValue<T>> {
+function withCacheFrom<T>(
+  memoryCache: Map<CacheKey, unknown>,
+  cacheKey: CacheKey,
+  promise: Promise<T>,
+): Promise<RepositoryValue<T>> {
   return promise
     .then((data) => {
       memoryCache.set(cacheKey, data);
@@ -380,6 +384,10 @@ export function withCache<T>(cacheKey: CacheKey, promise: Promise<T>): Promise<R
 
       return { source: 'error' as const, error: message };
     });
+}
+
+export function withCache<T>(cacheKey: CacheKey, promise: Promise<T>): Promise<RepositoryValue<T>> {
+  return withCacheFrom(compatibilityCache, cacheKey, promise);
 }
 
 export function encodePathSegment(value: string) {
@@ -462,6 +470,8 @@ function mapImageUploadResponse(response: NoteImageUploadResponseDto): UploadNot
 }
 
 export function createHackmdService(options: HackmdServiceOptions = {}) {
+  const memoryCache = new Map<CacheKey, unknown>();
+  const withCache = <T>(cacheKey: CacheKey, promise: Promise<T>) => withCacheFrom(memoryCache, cacheKey, promise);
   const serviceOptions: Required<HackmdServiceOptions> = {
     baseUrl: options.baseUrl ?? HACKMD_API_BASE_URL,
     timeoutMs: options.timeoutMs ?? HACKMD_TIMEOUT_MS,
@@ -506,6 +516,9 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
   }
 
   return {
+    clearCache() {
+      memoryCache.clear();
+    },
     validateToken(token: string) {
       const normalizedToken = token.trim();
 
@@ -784,6 +797,7 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
 
 const defaultHackmdService = createHackmdService();
 
+export const clearHackmdCache = defaultHackmdService.clearCache;
 export const validateToken = defaultHackmdService.validateToken;
 export const getCurrentUser = defaultHackmdService.getCurrentUser;
 export const listTeams = defaultHackmdService.listTeams;

@@ -9,6 +9,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     maxWorkers: 4,
+    exclude: ['electron/e2e/**', '**/node_modules/**', '**/.git/**'],
   },
   resolve: {
     alias: {

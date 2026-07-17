@@ -21,25 +21,33 @@ async function buildTargets(): Promise<void> {
     entryPoints: ['electron/src/preload/index.ts'],
     outfile: 'electron/dist/preload.cjs',
   };
+  const quickCapturePreloadOptions: BuildOptions = {
+    ...common,
+    entryPoints: ['electron/src/preload/quick-capture.ts'],
+    outfile: 'electron/dist/quick-capture-preload.cjs',
+  };
 
   if (isWatch) {
     await Promise.all([
       build(mainOptions),
       build(preloadOptions),
+      build(quickCapturePreloadOptions),
     ]);
 
-    const [mainContext, preloadContext] = await Promise.all([
+    const [mainContext, preloadContext, quickCapturePreloadContext] = await Promise.all([
       context(mainOptions),
       context(preloadOptions),
+      context(quickCapturePreloadOptions),
     ]);
 
-    await Promise.all([mainContext.watch(), preloadContext.watch()]);
+    await Promise.all([mainContext.watch(), preloadContext.watch(), quickCapturePreloadContext.watch()]);
     return;
   }
 
   await Promise.all([
     build(mainOptions),
     build(preloadOptions),
+    build(quickCapturePreloadOptions),
   ]);
 }
 

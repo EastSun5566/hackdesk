@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const indexHtml = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
-const preloadScript = indexHtml.match(/<script>\s*([\s\S]*?)\s*<\/script>/)?.[1] ?? '';
+const preloadScript = readFileSync(resolve(process.cwd(), 'public/theme-preload.js'), 'utf8');
 
 function runPreloadScript() {
   new Function(preloadScript)();
@@ -38,7 +38,8 @@ describe('theme preload script', () => {
   });
 
   it('uses HackMD Neo as the first-paint preset fallback', () => {
-    expect(indexHtml).toContain("localStorage.getItem('theme-preset-id') || 'hackmd-neo'");
+    expect(indexHtml).toContain('<script src="/theme-preload.js"></script>');
+    expect(preloadScript).toContain("localStorage.getItem('theme-preset-id') || 'hackmd-neo'");
 
     runPreloadScript();
 

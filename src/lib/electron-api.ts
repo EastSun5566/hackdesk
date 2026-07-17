@@ -19,7 +19,7 @@ import type {
 } from './local-vault';
 import type { AppSettings } from './settings';
 
-export type RuntimeEnvironment = 'electron' | 'tauri' | 'web';
+export type RuntimeEnvironment = 'electron' | 'web';
 
 export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'editor'> & {
   hasHackmdApiToken: boolean;
@@ -32,7 +32,7 @@ export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'e
   shouldShowHackmdOnboarding: boolean;
 };
 
-export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'localVault'>> & {
+export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding'>> & {
   hackmdApiToken?: string;
 };
 
@@ -290,7 +290,7 @@ export type HackDeskCommandPaletteCommand =
     expiresAt: number;
   };
 
-export type HackDeskCloseRequestSource = 'window-button' | 'keyboard-shortcut';
+export type HackDeskCloseRequestSource = 'window-button' | 'keyboard-shortcut' | 'app-quit';
 
 export type HackDeskCloseRequest = {
   source: HackDeskCloseRequestSource;
@@ -354,6 +354,7 @@ export type HackDeskElectronAPI = {
   };
   localVault: {
     choose: () => Promise<ChooseLocalVaultResult>;
+    disconnect: () => Promise<ElectronSafeSettings>;
     getSnapshot: () => Promise<LocalVaultSnapshot | null>;
     readNote: (noteId: string) => Promise<LocalDocument>;
     createNote: (input: LocalVaultCreateNoteInput) => Promise<LocalDocument>;
@@ -396,13 +397,14 @@ export type HackDeskElectronAPI = {
   };
 };
 
-export function getRuntimeEnvironment(): RuntimeEnvironment {
-  if (typeof window !== 'undefined' && window.hackdeskAPI) {
-    return 'electron';
-  }
+export type HackDeskQuickCaptureAPI = {
+  submit: (content: string) => Promise<QuickCaptureSubmitResult>;
+  hide: () => Promise<void>;
+};
 
-  if (typeof window !== 'undefined' && '__TAURI__' in window) {
-    return 'tauri';
+export function getRuntimeEnvironment(): RuntimeEnvironment {
+  if (typeof window !== 'undefined' && (window.hackdeskAPI || window.hackdeskQuickCaptureAPI)) {
+    return 'electron';
   }
 
   return 'web';

@@ -3,51 +3,39 @@
   "productName": "HackDesk",
   "description": "📝 A hackable HackMD desktop application",
   "private": true,
-  "version": "0.1.5",
+  "version": "2.0.0-beta.1",
   "type": "module",
   "packageManager": "pnpm@11.13.0",
   "main": "electron/dist/main.cjs",
   "engines": {
-    "node": ">=24"
+    "node": "24.x",
+    "pnpm": "11.13.0"
   },
   "scripts": {
-    "dev": "tauri dev",
-    "build": "tauri build",
-    "frontend:dev": "vite",
-    "frontend:build": "pnpm run typecheck:app && vite build",
-    "frontend:preview": "vite preview",
-    "icons:electron": "node scripts/electron-icons.ts",
-    "dev:electron": "node scripts/electron-dev.ts",
-    "build:electron": "node scripts/electron-build.ts && vite build",
-    "package:electron": "pnpm run icons:electron && pnpm run build:electron && electron-builder",
-    "package:electron:check": "pnpm run icons:electron && pnpm run build:electron && electron-builder --dir --publish never",
-    "check:electron": "pnpm run typecheck && oxlint electron scripts src && pnpm run test:js && pnpm run build:electron",
+    "dev": "node scripts/electron-dev.ts",
+    "build": "node scripts/electron-build.ts && vite build",
+    "preview": "vite preview",
+    "package": "pnpm run build && electron-builder",
+    "package:check": "pnpm run build && electron-builder --dir --publish never",
     "typecheck": "pnpm run typecheck:app && pnpm run typecheck:node && pnpm run typecheck:electron",
     "typecheck:app": "tsgo -p tsconfig.app.json --noEmit",
     "typecheck:node": "tsgo -p tsconfig.node.json --noEmit",
     "typecheck:electron": "tsgo -p tsconfig.electron.json --noEmit",
-    "lint:js:audit": "pnpm audit --audit-level moderate",
+    "audit:prod": "pnpm audit --prod --audit-level high",
     "lint:ts": "oxlint .",
     "lint:ts:fix": "oxlint --fix .",
     "check:deps": "knip",
     "check:actions": "github-actionlint",
-    "lint:rs:fmt": "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check",
-    "lint:rs:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
-    "lint:rs:deny": "cargo deny --manifest-path src-tauri/Cargo.toml check",
-    "lint:rs": "pnpm run lint:rs:fmt && pnpm run lint:rs:clippy && pnpm run lint:rs:deny",
-    "lint:rs:fix": "cargo fmt --manifest-path src-tauri/Cargo.toml --all && cargo clippy --manifest-path src-tauri/Cargo.toml --fix --allow-dirty --allow-staged",
-    "check": "pnpm run typecheck && pnpm run lint:ts && pnpm run check:deps && pnpm run lint:js:audit && pnpm run check:actions && pnpm run contract:hackmd && pnpm run lint:rs",
-    "check:ci": "pnpm run version:check && pnpm run check && pnpm run test && pnpm run build:electron",
+    "check": "pnpm run typecheck && pnpm run lint:ts && pnpm run check:deps && pnpm run check:actions && pnpm run contract:hackmd && pnpm run test && pnpm run build",
+    "check:ci": "pnpm run version:check && pnpm run check",
     "version:check": "node scripts/check-version.ts",
     "contract:hackmd": "node scripts/hackmd-openapi-verify.ts",
     "contract:hackmd:live": "node scripts/hackmd-openapi-verify.ts --live",
-    "sync:version": "node scripts/sync-version.ts",
-    "test": "pnpm run test:rust && pnpm run test:js",
-    "test:js": "vitest run electron src docs/.vitepress",
-    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test": "vitest run electron src docs/.vitepress",
+    "test:smoke": "pnpm run build && playwright test --config electron/playwright.config.ts",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "release": "node scripts/release.ts",
+    "release": "pnpm run build && electron-builder --publish always",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"
@@ -72,8 +60,9 @@
     ],
     "publish": [
       {
-        "provider": "generic",
-        "url": "https://hackdesk.eastsun.me/electron-updates/"
+        "provider": "github",
+        "owner": "EastSun5566",
+        "repo": "hackdesk"
       }
     ],
     "extraResources": [
@@ -91,20 +80,23 @@
       ],
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
-      "notarize": true
+      "notarize": true,
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "win": {
       "icon": "build/icon.ico",
       "target": [
         "nsis"
-      ]
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "linux": {
       "icon": "build/icon.png",
       "category": "Office",
       "target": [
         "AppImage"
-      ]
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     }
   },
   "dependencies": {
@@ -121,13 +113,10 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@fortawesome/fontawesome-free": "^7.2.0",
-    "@hookform/resolvers": "^5.2.2",
     "@lezer/highlight": "^1.2.3",
     "@replit/codemirror-emacs": "6.1.0",
     "@replit/codemirror-vim": "^6.3.0",
     "@tanstack/react-query": "^5.90.10",
-    "@tauri-apps/api": "2.9.1",
-    "@tauri-apps/plugin-fs": "2.4.4",
     "beautiful-mermaid": "^1.1.3",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -135,7 +124,7 @@
     "codemirror-kakoune": "0.2.5",
     "dompurify": "^3.4.11",
     "electron-updater": "^6.8.9",
-    "fuse.js": "^7.1.0",
+    "fuse.js": "^7.5.0",
     "gemoji": "^8.1.0",
     "inline-attacher": "^0.1.1",
     "katex": "0.17.0",
@@ -143,7 +132,6 @@
     "papaparse": "^5.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-hook-form": "^7.71.1",
     "react-resizable-panels": "^4.11.2",
     "react-router-dom": "^6.30.2",
     "tailwind-merge": "^2.6.0",
@@ -151,11 +139,11 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4.1.17",
-    "@tauri-apps/cli": "2.9.4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
-    "@types/node": "^20.19.25",
+    "@types/node": "^24.13.2",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^18.3.27",
     "@types/react-dom": "^18.3.7",

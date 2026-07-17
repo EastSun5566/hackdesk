@@ -4,42 +4,32 @@ outline: deep
 
 # Features
 
-## Command Palette
+![Editor](/editor.png)
 
-![Command Palette](./public/command-palette.png)
+## HackMD API-native
 
-`CmdOrCtrl` + `K`
+![API Integration](/api-integration.png)
 
-A quick way to execute commands, jump between views, and search your HackMD workspace.
+Connect a personal access token to use HackMD directly from the desktop app.
 
-- Open common actions like **New Note**, **Reload**, and **HackDesk Settings**
-- Jump to HackMD routes such as search, bookmarks, history, teams, and release notes
-- Unlock extra HackMD commands like **Manage Notes** and **Team Navigation** once your API token is configured
+- Browse, create, edit, and organize personal or team notes
+- Manage folders, history, sharing, and note metadata
+- Store the API token locally instead of sending it to another service
 
-### Manage Notes
+## Local-first Markdown
 
-![Manage Notes](./public/manage-notes.png)
+Open any folder as a Local Vault—no account or API token required.
 
-Inside the command palette, HackDesk can browse your personal notes and team workspaces in one place.
+- Notes remain ordinary Markdown files that other tools can read
+- Create, rename, move, trash, and reveal notes or folders from HackDesk
+- Keep local drafts recoverable without uploading them to a service
 
-- Search notes instantly and open recent notes without leaving the keyboard
-- Create new notes by typing a title directly in the palette
-- Switch between **My Workspace** and **Team Workspaces** to work across personal and shared notes
+## Hackable configuration
 
-## Custom Settings
+![Custom Settings](/custom-settings.png)
 
-![Custom Settings](./public/custom-settings.png)
+Use `CmdOrCtrl+,` for Settings or edit `~/.hackdesk/settings.json` while HackDesk is closed.
 
-`CmdOrCtrl` + `,`
-
-You can change the theme, shortcuts, and local preferences in a dedicated settings window.
-
-### API Integration
-
-![API Integration](./public/api-integration.png)
-
-Connect HackDesk to your HackMD account with a personal access token.
-
-- Save your API token locally in `~/.hackdesk/settings.json`
-- Test the connection before saving to confirm the token works
-- Enable HackMD-powered features such as note browsing, note creation, and team workspace access
+- Choose themes, colors, fonts, and editor sizes
+- Switch between Standard, Vim, Helix, Emacs, and Kakoune modes
+- Remap desktop actions and use `CmdOrCtrl+K` for the command palette

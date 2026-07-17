@@ -11,12 +11,11 @@ import {
   type DecorationSet,
 } from '@codemirror/view';
 
-import {
-  parseMarkdownImage,
-} from './hfm-recognizers';
+import { getHfmDocumentIndex, hfmDocumentIndexExtension } from './hfm-document-index';
 import { treeGrowthEffect } from './tree-progress';
 
 const imageDimensionCache = new Map<string, { height: number; width: number }>();
+const MAX_IMAGE_CACHE_ENTRIES = 128;
 const fallbackImagePreviewHeight = 260;
 
 class ImagePreviewWidget extends WidgetType {
@@ -81,10 +80,14 @@ class ImagePreviewWidget extends WidgetType {
         return;
       }
 
+      imageDimensionCache.delete(this.src);
       imageDimensionCache.set(this.src, {
         height: image.naturalHeight,
         width: image.naturalWidth,
       });
+      while (imageDimensionCache.size > MAX_IMAGE_CACHE_ENTRIES) {
+        imageDimensionCache.delete(imageDimensionCache.keys().next().value!);
+      }
       view.requestMeasure();
     });
 
@@ -118,16 +121,12 @@ class ImagePreviewWidget extends WidgetType {
 function buildHfmBlocks(state: EditorState): DecorationSet {
   const ranges: Array<Range<Decoration>> = [];
 
-  for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber += 1) {
-    const line = state.doc.line(lineNumber);
-    const image = parseMarkdownImage(line.text, line.to);
-    if (image) {
-      ranges.push(Decoration.widget({
-        block: true,
-        side: 1,
-        widget: new ImagePreviewWidget(image.src, image.alt, image.lineTo, image.width, image.height),
-      }).range(image.lineTo));
-    }
+  for (const image of getHfmDocumentIndex(state).images) {
+    ranges.push(Decoration.widget({
+      block: true,
+      side: 1,
+      widget: new ImagePreviewWidget(image.src, image.alt, image.lineTo, image.width, image.height),
+    }).range(image.lineTo));
   }
 
   return Decoration.set(ranges, true);
@@ -152,5 +151,5 @@ const hfmBlocksField = StateField.define<DecorationSet>({
 });
 
 export function hfmBlocks(): Extension {
-  return hfmBlocksField;
+  return [hfmDocumentIndexExtension, hfmBlocksField];
 }

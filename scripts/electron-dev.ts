@@ -70,7 +70,7 @@ process.on('SIGTERM', () => {
   process.exit(143);
 });
 
-const renderer = run(npmCommand, ['run', 'frontend:dev'], {
+const renderer = run(npmCommand, ['exec', 'vite'], {
   env: {
     HACKDESK_VITE_PORT: '1421',
   },

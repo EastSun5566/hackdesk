@@ -19,7 +19,7 @@ vi.mock('./logging', () => ({
   writeLog: vi.fn(),
 }));
 
-import { createUpdaterLogger, ElectronUpdaterService, ELECTRON_UPDATE_FEED_URL } from './app-updater';
+import { createUpdaterLogger, ElectronUpdaterService } from './app-updater';
 
 function createUpdater() {
   return {
@@ -89,10 +89,7 @@ describe('ElectronUpdaterService', () => {
     expect(updater.autoDownload).toBe(false);
     expect(updater.autoInstallOnAppQuit).toBe(true);
     expect(updater.autoRunAppAfterInstall).toBe(true);
-    expect(updater.setFeedURL).toHaveBeenCalledWith({
-      provider: 'generic',
-      url: ELECTRON_UPDATE_FEED_URL,
-    });
+    expect(updater.setFeedURL).not.toHaveBeenCalled();
     expect(updater.downloadUpdate).not.toHaveBeenCalled();
   });
 

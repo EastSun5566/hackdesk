@@ -7,7 +7,6 @@ import { writeLog } from './logging';
 
 const { autoUpdater } = electronUpdater;
 
-export const ELECTRON_UPDATE_FEED_URL = 'https://hackdesk.eastsun.me/electron-updates/';
 const MAX_RELEASE_NOTES_LENGTH = 800;
 
 type UpdaterLogger = {
@@ -23,7 +22,6 @@ type UpdaterLike = Pick<
   | 'autoInstallOnAppQuit'
   | 'autoRunAppAfterInstall'
   | 'logger'
-  | 'setFeedURL'
   | 'checkForUpdates'
   | 'downloadUpdate'
 >;
@@ -38,7 +36,6 @@ type ElectronUpdaterServiceDependencies = {
   getUpdater: () => UpdaterLike;
   showMessageBox: ShowMessageBox;
   writeLog: typeof writeLog;
-  feedUrl?: string;
 };
 
 function serializeDetails(details: unknown[]) {
@@ -108,11 +105,7 @@ function buildUpdatePromptOptions(updateInfo: UpdateInfo): MessageBoxOptions {
 export class ElectronUpdaterService {
   private configured = false;
   private checking = false;
-  private readonly feedUrl: string;
-
-  constructor(private readonly dependencies: ElectronUpdaterServiceDependencies) {
-    this.feedUrl = dependencies.feedUrl ?? ELECTRON_UPDATE_FEED_URL;
-  }
+  constructor(private readonly dependencies: ElectronUpdaterServiceDependencies) {}
 
   async checkForUpdates(parentWindow?: BrowserWindow | null): Promise<CheckForUpdatesResult> {
     if (!this.dependencies.isPackaged()) {
@@ -127,7 +120,7 @@ export class ElectronUpdaterService {
     const updater = this.configureUpdater();
 
     try {
-      this.dependencies.writeLog('updater', 'checking for Electron update', { feedUrl: this.feedUrl });
+      this.dependencies.writeLog('updater', 'checking for Electron update');
       const result = await updater.checkForUpdates();
 
       if (!result?.isUpdateAvailable) {
@@ -165,10 +158,6 @@ export class ElectronUpdaterService {
       updater.autoInstallOnAppQuit = true;
       updater.autoRunAppAfterInstall = true;
       updater.logger = createUpdaterLogger(this.dependencies.writeLog);
-      updater.setFeedURL({
-        provider: 'generic',
-        url: this.feedUrl,
-      });
       this.configured = true;
     }
 

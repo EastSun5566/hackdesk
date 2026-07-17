@@ -16,6 +16,8 @@ import { createZipArchive, type ZipArchiveEntry } from './zip-archive';
 
 const LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_COPIED_FILE_BYTES = 25 * 1024 * 1024;
+const MAX_DEBUG_ARCHIVE_BYTES = 100 * 1024 * 1024;
+const MAX_DEBUG_ARCHIVE_FILES = 200;
 
 let logsRootPath = '';
 let currentRunPath = '';
@@ -89,7 +91,9 @@ export function writeLog(scope: string, message: string, details?: unknown, leve
   appendFileSync(join(currentRunPath, `${safeLogName(scope)}.log`), `${line}\n`);
 }
 
-function collectDebugTreeEntries(sourceRoot: string, sourcePath: string, zipRoot: string, entries: ZipArchiveEntry[]) {
+type DebugFile = { path: string; name: string; size: number; mtimeMs: number };
+
+function collectDebugFiles(sourceRoot: string, sourcePath: string, zipRoot: string, files: DebugFile[]) {
   if (!existsSync(sourcePath)) {
     return;
   }
@@ -98,15 +102,17 @@ function collectDebugTreeEntries(sourceRoot: string, sourcePath: string, zipRoot
     const sourceEntryPath = join(sourcePath, entry.name);
 
     if (entry.isDirectory()) {
-      collectDebugTreeEntries(sourceRoot, sourceEntryPath, zipRoot, entries);
+      collectDebugFiles(sourceRoot, sourceEntryPath, zipRoot, files);
       continue;
     }
 
     const stats = statSync(sourceEntryPath);
     if (stats.size <= MAX_COPIED_FILE_BYTES) {
-      entries.push({
+      files.push({
+        path: sourceEntryPath,
         name: join(zipRoot, relative(sourceRoot, sourceEntryPath)),
-        data: readFileSync(sourceEntryPath),
+        size: stats.size,
+        mtimeMs: stats.mtimeMs,
       });
     }
   }
@@ -132,8 +138,29 @@ export async function exportDebugLogs() {
   ];
 
   writeLog('main', 'debug log export started', { outputPath });
-  collectDebugTreeEntries(logsRootPath, logsRootPath, 'logs', entries);
-  collectDebugTreeEntries(crashDumpsPath, crashDumpsPath, 'crash-dumps', entries);
+  const files: DebugFile[] = [];
+  collectDebugFiles(logsRootPath, logsRootPath, 'logs', files);
+  collectDebugFiles(crashDumpsPath, crashDumpsPath, 'crash-dumps', files);
+  files.sort((left, right) => right.mtimeMs - left.mtimeMs);
+  let includedBytes = 0;
+  let omittedFiles = 0;
+  let omittedBytes = 0;
+  for (const file of files) {
+    if (entries.length - 1 >= MAX_DEBUG_ARCHIVE_FILES || includedBytes + file.size > MAX_DEBUG_ARCHIVE_BYTES) {
+      omittedFiles += 1;
+      omittedBytes += file.size;
+      continue;
+    }
+    entries.push({ name: file.name, data: readFileSync(file.path) });
+    includedBytes += file.size;
+  }
+  entries.push({
+    name: 'omitted.json',
+    data: Buffer.from(JSON.stringify({ omittedFiles, omittedBytes, limits: {
+      files: MAX_DEBUG_ARCHIVE_FILES,
+      bytes: MAX_DEBUG_ARCHIVE_BYTES,
+    } }, null, 2)),
+  });
   writeFileSync(outputPath, createZipArchive(entries));
 
   await shell.showItemInFolder(outputPath);

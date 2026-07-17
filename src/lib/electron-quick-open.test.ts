@@ -105,6 +105,17 @@ describe('electron quick open', () => {
     expect(getQuickOpenNoteResults(tree, 'projects').map((entry) => entry.note.id)).toEqual(['older']);
   });
 
+  it('tolerates typos across notes, folders, workspaces, and actions', () => {
+    const tree = buildHackmdFolderTree([
+      note({ id: 'roadmap', title: 'Roadmap' }),
+    ], [childFolder]);
+
+    expect(getQuickOpenNoteResults(tree, 'roadmp').map((entry) => entry.note.id)).toEqual(['roadmap']);
+    expect(getQuickOpenFolderResults(tree, 'archve').map((entry) => entry.id)).toEqual(['folder-2']);
+    expect(getQuickOpenWorkspaceResults([team], 'histroy').map((entry) => entry.id)).toEqual(['history']);
+    expect(getQuickOpenActionResults(actions, 'refesh').map((action) => action.id)).toEqual(['refresh']);
+  });
+
   it('ranks note quick-open results by title match, recent tier, metadata, and updated time', () => {
     const tree = buildHackmdFolderTree([
       note({ id: 'metadata', title: 'Other', tags: ['alpha'], updatedAtMillis: 100 }),

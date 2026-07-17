@@ -32,11 +32,22 @@ import {
   getFolderOrderQueryKey,
   getWorkspaceQueryKey,
 } from './repository';
-import type { NoteIdentity } from './note-workspace';
+import type { NoteDocumentDraft, NoteIdentity } from './note-workspace';
 import type { SettingsFormInput, WorkspaceScope } from './types';
 import { createQuickNoteContent } from './ui';
 
 const DEFAULT_DRAFT_NOTE_TITLE = 'Untitled';
+
+export type SaveIntent = 'content' | 'metadata' | 'sharing';
+
+export type UpdateNoteMutationVariables = {
+  note: DocumentSummary;
+  input: UpdateNoteInput;
+  intent: SaveIntent;
+  tabId?: string;
+  submittedDraft?: NoteDocumentDraft;
+  successMessage?: string;
+};
 
 export function deriveDraftNoteTitle(input: { title?: string; content?: string }) {
   const explicitTitle = input.title?.trim() ?? '';
@@ -143,7 +154,7 @@ export function useElectronNoteMutations({
   onSettingsSaved: () => void;
   onNoteCreated: (note: NoteSummary) => void;
   onDraftNoteCreated: (tabId: string, note: NoteSummary) => void;
-  onNoteSaved: (note: NoteSummary) => void;
+  onNoteSaved: (note: NoteSummary, variables: UpdateNoteMutationVariables) => void;
   onFolderCreated: (folder: FolderSummary) => void;
   onFolderRenamed: (folder: FolderSummary) => void;
   onFolderDeleted: (folderId: string, parentFolderId: string | null) => void;
@@ -516,7 +527,7 @@ export function useElectronNoteMutations({
   });
 
   const updateNoteMutation = useMutation({
-    mutationFn: async (variables: { note: DocumentSummary; input: UpdateNoteInput; successMessage?: string }) => {
+    mutationFn: async (variables: UpdateNoteMutationVariables) => {
       const { note, input } = variables;
       if (!api) {
         throw new Error('Electron API is unavailable.');
@@ -563,7 +574,7 @@ export function useElectronNoteMutations({
         : api.hackmd.updateNote(note.id, payload);
     },
     onSuccess: (updatedNote, variables) => {
-      onNoteSaved(updatedNote);
+      onNoteSaved(updatedNote, variables);
       if (scope.type === 'local' || updatedNote.teamPath === LOCAL_VAULT_TEAM_PATH) {
         queryClient.setQueryData<LocalDocument | undefined>(
           getLocalVaultDocumentQueryKey(updatedNote.id),

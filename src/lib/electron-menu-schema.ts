@@ -97,9 +97,6 @@ export const ELECTRON_MENU_SCHEMA: ElectronMenuSchemaSection[] = [
       { type: 'action', actionId: 'focus-navigator' },
       { type: 'action', actionId: 'focus-editor' },
       { type: 'action', actionId: 'focus-inspector' },
-      { type: 'separator' },
-      { type: 'role', role: 'reload' },
-      { type: 'role', role: 'toggleDevTools' },
     ],
   },
   {
