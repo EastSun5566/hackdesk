@@ -45,7 +45,11 @@ The current stable release is v{{data.version}}.
   brew install --cask hackdesk
   ```
 
-v0.1.5 is unsigned. If macOS blocks it, use **Right-click → Open**.
+v0.1.5 is unsigned. First try **Right-click → Open**. If macOS still blocks the app after you copy it to Applications, run:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/HackDesk.app
+```
 
 ### Linux
 

@@ -28,6 +28,9 @@ The stable v0.1.5 release remains available through Homebrew:
 ```sh
 brew tap eastsun5566/hackdesk
 brew install --cask hackdesk
+
+# Optional
+xattr -dr com.apple.quarantine /Applications/HackDesk.app
 ```
 
 [Documentation](https://hackdesk.eastsun.me)
