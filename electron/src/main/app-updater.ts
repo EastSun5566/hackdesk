@@ -3,6 +3,7 @@ import type { BrowserWindow, MessageBoxOptions } from 'electron';
 import electronUpdater, { type AppUpdater, type UpdateInfo } from 'electron-updater';
 
 import type { CheckForUpdatesResult } from '../../../src/lib/electron-api';
+import { isBetaVersion } from '../../../src/lib/version';
 import { writeLog } from './logging';
 
 const { autoUpdater } = electronUpdater;
@@ -33,6 +34,7 @@ type ShowMessageBox = (
 
 type ElectronUpdaterServiceDependencies = {
   isPackaged: () => boolean;
+  getVersion: () => string;
   getUpdater: () => UpdaterLike;
   showMessageBox: ShowMessageBox;
   writeLog: typeof writeLog;
@@ -112,6 +114,10 @@ export class ElectronUpdaterService {
       throw new Error('Update checks are only available in packaged Electron builds.');
     }
 
+    if (isBetaVersion(this.dependencies.getVersion())) {
+      throw new Error('Beta builds use manual updates. Download the latest beta from GitHub Releases.');
+    }
+
     if (this.checking) {
       throw new Error('An update check is already running.');
     }
@@ -167,6 +173,7 @@ export class ElectronUpdaterService {
 
 const electronUpdaterService = new ElectronUpdaterService({
   isPackaged: () => app.isPackaged,
+  getVersion: () => app.getVersion(),
   getUpdater: () => autoUpdater,
   showMessageBox: (parentWindow, options) => (
     parentWindow ? dialog.showMessageBox(parentWindow, options) : dialog.showMessageBox(options)

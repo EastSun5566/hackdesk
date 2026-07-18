@@ -32,6 +32,7 @@ import { VaultSettingsPanel } from './VaultSettingsPanel';
 
 type SettingsDialogProps = {
   open: boolean;
+  appVersion?: string;
   settings?: ElectronSafeSettings;
   platform?: string;
   localVaultError?: string | null;
@@ -53,6 +54,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
 
 function SettingsDialogContent({
   open,
+  appVersion,
   settings,
   platform = navigator.platform,
   localVaultError,
@@ -309,7 +311,7 @@ function SettingsDialogContent({
                 </TabsContent>
 
                 <TabsContent value="advanced" keepMounted className={SETTINGS_PANEL_CLASS}>
-                  <AdvancedSettingsPanel onResetAllSettings={handleResetAllSettings} />
+                  <AdvancedSettingsPanel appVersion={appVersion} onResetAllSettings={handleResetAllSettings} />
                 </TabsContent>
               </div>
             </div>

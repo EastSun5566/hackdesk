@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, ExternalLink, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toast';
 import {
@@ -15,19 +15,37 @@ import {
 
 import { getHackDeskAPI } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
-import { version } from '../../../package.json';
+import { isBetaVersion } from '@/lib/version';
+import { version as packageVersion } from '../../../package.json';
 
 import { SettingsSection } from './SettingsPrimitives';
 import { FOCUS_RING_CLASS, PRESSED_CLASS, SECONDARY_BUTTON_CLASS } from './ui';
 
+const RELEASES_URL = 'https://github.com/EastSun5566/hackdesk/releases';
+
+function viewReleases() {
+  const api = getHackDeskAPI();
+  if (!api?.shell.openExternal) {
+    toast.error('GitHub Releases are available only in the desktop app.');
+    return;
+  }
+
+  void api.shell.openExternal(RELEASES_URL).catch((error) => {
+    toast.error(error instanceof Error ? error.message : 'Failed to open GitHub Releases.');
+  });
+}
+
 export function AdvancedSettingsPanel({
+  appVersion = packageVersion,
   onResetAllSettings,
 }: {
+  appVersion?: string;
   onResetAllSettings: () => void;
 }) {
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const resetButtonRef = useRef<HTMLButtonElement>(null);
+  const isBeta = isBetaVersion(appVersion);
 
   const handleCheckForUpdates = () => {
     const api = getHackDeskAPI();
@@ -80,15 +98,25 @@ export function AdvancedSettingsPanel({
     <div className="space-y-4">
       <SettingsSection title="Version">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-default bg-background-default px-3 py-2">
-          <span className="text-sm text-text-subtle">HackDesk v{version}</span>
-          <Button
-            variant="secondary"
-            onClick={handleCheckForUpdates}
-            disabled={isCheckingUpdates}
-          >
-            {isCheckingUpdates ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : null}
-            {isCheckingUpdates ? 'Checking…' : 'Check for Updates'}
-          </Button>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm text-text-subtle">HackDesk v{appVersion}</span>
+            {isBeta ? <span className="text-xs text-text-subtle">Unsigned beta · Manual updates</span> : null}
+          </div>
+          {isBeta ? (
+            <Button variant="secondary" onClick={viewReleases}>
+              <ExternalLink aria-hidden="true" className="h-4 w-4" />
+              View Releases
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              onClick={handleCheckForUpdates}
+              disabled={isCheckingUpdates}
+            >
+              {isCheckingUpdates ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : null}
+              {isCheckingUpdates ? 'Checking…' : 'Check for Updates'}
+            </Button>
+          )}
         </div>
       </SettingsSection>
 

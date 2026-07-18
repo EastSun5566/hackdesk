@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('electron', () => ({
   app: {
+    getVersion: vi.fn(() => '2.0.0'),
     isPackaged: true,
   },
   dialog: {
@@ -36,19 +37,23 @@ function createUpdater() {
 function createService({
   isPackaged = true,
   messageBoxResponse = 0,
+  version = '2.0.0',
 } = {}) {
   const updater = createUpdater();
+  const getUpdater = vi.fn(() => updater);
   const writeLog = vi.fn();
   const showMessageBox = vi.fn(async () => ({ response: messageBoxResponse, checkboxChecked: false }));
   const service = new ElectronUpdaterService({
     isPackaged: () => isPackaged,
-    getUpdater: () => updater,
+    getVersion: () => version,
+    getUpdater,
     showMessageBox,
     writeLog,
   });
 
   return {
     service,
+    getUpdater,
     updater,
     showMessageBox,
     writeLog,
@@ -75,6 +80,16 @@ describe('ElectronUpdaterService', () => {
 
     await expect(service.checkForUpdates()).rejects.toThrow('packaged Electron builds');
     expect(updater.checkForUpdates).not.toHaveBeenCalled();
+  });
+
+  it('rejects beta update checks before accessing electron-updater', async () => {
+    const { service, getUpdater, updater } = createService({ version: '2.0.0-beta.2' });
+
+    await expect(service.checkForUpdates()).rejects.toThrow('manual updates');
+
+    expect(getUpdater).not.toHaveBeenCalled();
+    expect(updater.checkForUpdates).not.toHaveBeenCalled();
+    expect(updater.downloadUpdate).not.toHaveBeenCalled();
   });
 
   it('configures the updater and returns up-to-date when no update is available', async () => {

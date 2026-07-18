@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-## [2.0.0-beta.1](https://github.com/EastSun5566/hackdesk/compare/v0.1.5...v2.0.0-beta.1) (2026-07-17)
+## [2.0.0-beta.2](https://github.com/EastSun5566/hackdesk/compare/v0.1.5...v2.0.0-beta.2) (2026-07-18)
 
 ### Highlights
 
@@ -13,6 +13,8 @@ All notable changes to this project will be documented in this file. See [standa
 ### Beta notes
 
 * This is a prerelease intended for testing before the first stable v2 release.
+* Beta installers are unsigned and require the operating system's manual confirmation.
+* Automatic updates are disabled for beta builds. Download each beta from GitHub Releases.
 * Existing v0.1.5 installs do not update to v2 automatically. Install v2 manually; settings under `~/.hackdesk` are reused.
 * Report beta issues at [github.com/EastSun5566/hackdesk/issues](https://github.com/EastSun5566/hackdesk/issues).
 

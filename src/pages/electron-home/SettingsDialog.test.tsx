@@ -769,7 +769,7 @@ describe('SettingsDialog', () => {
   });
 
   it('reports when update checks are unavailable outside packaged Electron', () => {
-    renderSettingsDialog();
+    renderSettingsDialog({ appVersion: '2.0.0' });
 
     fireEvent.click(screen.getByRole('tab', { name: /Advanced/ }));
     expect(screen.getByText('Restores local preferences and clears the configured HackMD token. Notes and vault files are not deleted.')).toBeVisible();
@@ -785,7 +785,7 @@ describe('SettingsDialog', () => {
         checkForUpdates,
       },
     });
-    renderSettingsDialog();
+    renderSettingsDialog({ appVersion: '2.0.0-rc.1' });
 
     fireEvent.click(screen.getByRole('tab', { name: /Advanced/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Check for Updates' }));
@@ -796,5 +796,43 @@ describe('SettingsDialog', () => {
       expect(toastInfoMock).toHaveBeenCalledWith('You’re already on the latest version of HackDesk.');
     });
     expect(checkForUpdates).toHaveBeenCalledOnce();
+  });
+
+  it('opens GitHub Releases instead of checking for updates in beta builds', async () => {
+    const checkForUpdates = vi.fn();
+    const openExternal = vi.fn(async () => undefined);
+    getHackDeskAPIMock.mockReturnValue({
+      app: { checkForUpdates },
+      shell: { openExternal },
+    });
+    renderSettingsDialog({ appVersion: '2.0.0-beta.2' });
+
+    fireEvent.click(screen.getByRole('tab', { name: /Advanced/ }));
+
+    expect(screen.getByText('Unsigned beta · Manual updates')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'View Releases' }));
+
+    await waitFor(() => {
+      expect(openExternal).toHaveBeenCalledWith('https://github.com/EastSun5566/hackdesk/releases');
+    });
+    expect(checkForUpdates).not.toHaveBeenCalled();
+  });
+
+  it('reports failures to open GitHub Releases from beta builds', async () => {
+    const openExternal = vi.fn(async () => {
+      throw new Error('Failed to launch browser.');
+    });
+    getHackDeskAPIMock.mockReturnValue({
+      app: { checkForUpdates: vi.fn() },
+      shell: { openExternal },
+    });
+    renderSettingsDialog({ appVersion: '2.0.0-beta.2' });
+
+    fireEvent.click(screen.getByRole('tab', { name: /Advanced/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'View Releases' }));
+
+    await waitFor(() => {
+      expect(toastErrorMock).toHaveBeenCalledWith('Failed to launch browser.');
+    });
   });
 });
