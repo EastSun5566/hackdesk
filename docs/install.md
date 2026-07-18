@@ -14,10 +14,10 @@ import { data } from './release.data.ts'
 
 HackDesk v2 beta is unsigned and uses manual updates. Existing v0.1.5 installs do not update to v2 automatically. Your settings under `~/.hackdesk` are reused.
 
-- [macOS · Apple silicon](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.2/HackDesk-2.0.0-beta.2-arm64.dmg)
-- [macOS · Intel](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.2/HackDesk-2.0.0-beta.2-x64.dmg)
-- [Windows · x64](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.2/HackDesk-2.0.0-beta.2-x64.exe)
-- [Linux · x64 AppImage](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.2/HackDesk-2.0.0-beta.2-x86_64.AppImage)
+- [macOS · Apple silicon](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-arm64.dmg)
+- [macOS · Intel](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-x64.dmg)
+- [Windows · x64](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-x64.exe)
+- [Linux · x64 AppImage](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-x86_64.AppImage)
 
 On macOS, use **Right-click → Open** in Finder. If macOS still blocks the app, allow it under **System Settings → Privacy & Security**.
 

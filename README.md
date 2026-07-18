@@ -21,7 +21,7 @@ HackDesk works directly with the HackMD API and local Markdown vaults.
 
 v2 beta builds are unsigned and use manual updates.
 
-[Download HackDesk v2.0.0-beta.2](https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.2)
+[Download HackDesk v2.0.0-beta.3](https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.3)
 
 The stable v0.1.5 release remains available through Homebrew:
 
