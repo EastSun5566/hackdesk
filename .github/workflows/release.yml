@@ -13,15 +13,13 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       is_beta: ${{ steps.release-kind.outputs.is_beta }}
+      channel: ${{ steps.release-kind.outputs.channel }}
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.13.0
-          run_install: false
-      - uses: actions/setup-node@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
@@ -39,6 +37,12 @@ jobs:
           else
             echo "is_beta=false" >> "$GITHUB_OUTPUT"
           fi
+          channel="latest"
+          if [[ "$version" == *-* ]]; then
+            channel="${version#*-}"
+            channel="${channel%%.*}"
+          fi
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
       - run: pnpm run check
       - run: xvfb-run --auto-servernum pnpm run test:smoke
       - run: pnpm run docs:build
@@ -61,11 +65,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.13.0
-          run_install: false
-      - uses: actions/setup-node@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
@@ -100,14 +101,14 @@ jobs:
       - run: pnpm run build
       - name: Build unsigned beta and upload to draft
         if: needs.quality.outputs.is_beta == 'true'
-        run: pnpm exec electron-builder ${{ matrix.args }} --config.mac.identity=null --config.mac.notarize=false --publish always
+        run: pnpm exec electron-builder ${{ matrix.args }} --config.publish.channel=${{ needs.quality.outputs.channel }} --config.mac.identity=null --config.mac.notarize=false --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EP_DRAFT: "true"
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
       - name: Build signed RC or stable release and upload to draft
         if: needs.quality.outputs.is_beta != 'true'
-        run: pnpm exec electron-builder ${{ matrix.args }} --publish always
+        run: pnpm exec electron-builder ${{ matrix.args }} --config.publish.channel=${{ needs.quality.outputs.channel }} --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EP_DRAFT: "true"
@@ -124,7 +125,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
       - name: Verify draft release assets
@@ -152,7 +153,7 @@ jobs:
             "HackDesk-$version-x64.dmg"
             "HackDesk-$version-x64.zip"
             "HackDesk-$version-x64.exe"
-            "HackDesk-$version-x64.AppImage"
+            "HackDesk-$version-x86_64.AppImage"
             "$channel.yml"
             "$channel-mac.yml"
             "$channel-linux.yml"

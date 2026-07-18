@@ -58,13 +58,11 @@
       "dist/**",
       "package.json"
     ],
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "EastSun5566",
-        "repo": "hackdesk"
-      }
-    ],
+    "publish": {
+      "provider": "github",
+      "owner": "EastSun5566",
+      "repo": "hackdesk"
+    },
     "extraResources": [
       {
         "from": "build/icon.png",
