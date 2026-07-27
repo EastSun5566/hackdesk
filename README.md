@@ -17,21 +17,22 @@ HackDesk works directly with the HackMD API and local Markdown vaults.
 - **Local-first:** Open any folder as a portable Markdown vault.
 - **Hackable:** Tune themes, fonts, editor modes, and shortcuts in the UI or `~/.hackdesk/settings.json`.
 
-## Install v2 beta
+## Install
+
+### macOS
+
+The Homebrew cask currently installs stable v0.1.5:
+
+```sh
+brew trust --tap eastsun5566/hackdesk && brew install --cask eastsun5566/hackdesk/hackdesk
+xattr -dr com.apple.quarantine "/Applications/HackDesk.app"
+```
+
+### v2 beta
 
 v2 beta builds are unsigned and use manual updates.
 
 [Download HackDesk v2.0.0-beta.3](https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.3)
-
-The stable v0.1.5 release remains available through Homebrew:
-
-```sh
-brew tap eastsun5566/hackdesk
-brew install --cask hackdesk
-
-# Optional
-xattr -dr com.apple.quarantine /Applications/HackDesk.app
-```
 
 [Documentation](https://hackdesk.eastsun.me)
 

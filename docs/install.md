@@ -19,7 +19,13 @@ HackDesk v2 beta is unsigned and uses manual updates. Existing v0.1.5 installs d
 - [Windows · x64](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-x64.exe)
 - [Linux · x64 AppImage](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-x86_64.AppImage)
 
-On macOS, use **Right-click → Open** in Finder. If macOS still blocks the app, allow it under **System Settings → Privacy & Security**.
+On macOS, move HackDesk to Applications, then run:
+
+```sh
+xattr -dr com.apple.quarantine "/Applications/HackDesk.app"
+```
+
+If that does not work, try to open HackDesk once. Then open **System Settings → Privacy & Security**, scroll to **Security**, and click **Open Anyway**. Authenticate and confirm **Open**.
 
 On Windows, Microsoft Defender SmartScreen may show an unknown publisher warning. Choose **More info → Run anyway** to continue.
 
@@ -33,23 +39,17 @@ The current stable release is v{{data.version}}.
 
 ### macOS
 
-- Apple Chip: <a :href="`${data.releaseDownloadBaseUrl}/HackDesk-${data.version}-arm64.dmg`" target="_blank" rel="noreferrer">HackDesk-{{data.version}}-arm64.dmg</a>
-- Intel Chip: <a :href="`${data.releaseDownloadBaseUrl}/HackDesk-${data.version}-x64.dmg`" target="_blank" rel="noreferrer">HackDesk-{{data.version}}-x64.dmg</a>
-- Homebrew tap ([`EastSun5566/homebrew-hackdesk`](https://github.com/EastSun5566/homebrew-hackdesk))
-
-  ```sh
-  # Tap this repo
-  brew tap eastsun5566/hackdesk
-
-  # Install app
-  brew install --cask hackdesk
-  ```
-
-v0.1.5 is unsigned. First try **Right-click → Open**. If macOS still blocks the app after you copy it to Applications, run:
+- Apple Chip: <a :href="`${data.releaseDownloadBaseUrl}/HackDesk_${data.version}_aarch64.dmg`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_aarch64.dmg</a>
+- Intel Chip: <a :href="`${data.releaseDownloadBaseUrl}/HackDesk_${data.version}_x64.dmg`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_x64.dmg</a>
 
 ```sh
-xattr -dr com.apple.quarantine /Applications/HackDesk.app
+brew trust --tap eastsun5566/hackdesk && brew install --cask eastsun5566/hackdesk/hackdesk
+xattr -dr com.apple.quarantine "/Applications/HackDesk.app"
 ```
+
+If the Terminal setup does not work, try to open HackDesk once. Then open **System Settings → Privacy & Security**, scroll to **Security**, and click **Open Anyway**. This option is available for about one hour after the failed open attempt. Authenticate and confirm **Open**.
+
+Only use these overrides for HackDesk downloaded from the official tap or GitHub Releases.
 
 ### Linux
 
@@ -58,10 +58,9 @@ xattr -dr com.apple.quarantine /Applications/HackDesk.app
 ### Windows
 
 - <a :href="`${data.releaseDownloadBaseUrl}/HackDesk-${data.version}-x64.exe`" target="_blank" rel="noreferrer">HackDesk-{{data.version}}-x64.exe</a>
-- winget
 
-  ```sh
-  winget install EastSun5566.HackDesk
-  ```
+```sh
+winget install EastSun5566.HackDesk
+```
 
 You can see all releases on [GitHub](https://github.com/EastSun5566/hackdesk/releases)
