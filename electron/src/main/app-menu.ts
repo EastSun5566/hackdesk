@@ -25,12 +25,14 @@ function actionMenuItem(
   };
 }
 
-function roleMenuItem(role: string, isMac: boolean): Electron.MenuItemConstructorOptions {
-  const resolvedRole = role === 'platform-close'
-    ? isMac ? 'close' : 'quit'
-    : role;
+function roleMenuItem(role: string, isMac: boolean, closeMainWindow: () => void): Electron.MenuItemConstructorOptions {
+  if (role === 'platform-close') {
+    return isMac
+      ? { label: 'Close Window', accelerator: 'Command+Shift+W', click: closeMainWindow }
+      : { role: 'quit' };
+  }
 
-  return { role: resolvedRole as Electron.MenuItemConstructorOptions['role'] };
+  return { role: role as Electron.MenuItemConstructorOptions['role'] };
 }
 
 function linkMenuItem(label: string, url: string): Electron.MenuItemConstructorOptions {
@@ -47,12 +49,13 @@ function schemaItemToMenuItem(
   isMac: boolean,
   sendCommand: SendCommand,
   shortcuts: ShortcutOverrides,
+  closeMainWindow: () => void,
 ): Electron.MenuItemConstructorOptions {
   switch (item.type) {
   case 'action':
     return actionMenuItem(item.actionId, sendCommand, shortcuts);
   case 'role':
-    return roleMenuItem(item.role, isMac);
+    return roleMenuItem(item.role, isMac, closeMainWindow);
   case 'link':
     return linkMenuItem(item.label, item.url);
   case 'separator':
@@ -60,7 +63,11 @@ function schemaItemToMenuItem(
   }
 }
 
-export function createApplicationMenu(sendCommand: SendCommand, shortcuts: ShortcutOverrides = {}) {
+export function createApplicationMenu(
+  sendCommand: SendCommand,
+  shortcuts: ShortcutOverrides,
+  closeMainWindow: () => void,
+) {
   const isMac = process.platform === 'darwin';
   const template: Electron.MenuItemConstructorOptions[] = [];
 
@@ -71,7 +78,7 @@ export function createApplicationMenu(sendCommand: SendCommand, shortcuts: Short
 
     template.push({
       label: section.id === 'app' ? app.getName() : section.label,
-      submenu: section.items.map((item) => schemaItemToMenuItem(item, isMac, sendCommand, shortcuts)),
+      submenu: section.items.map((item) => schemaItemToMenuItem(item, isMac, sendCommand, shortcuts, closeMainWindow)),
     });
   }
 

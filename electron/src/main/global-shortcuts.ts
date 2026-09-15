@@ -18,7 +18,7 @@ export function registerQuickCaptureGlobalShortcut(
   if (!quickCaptureShortcutRegistered) {
     writeLog(
       'main',
-      'failed to register quick capture global shortcut',
+      'failed to register Quick Hack global shortcut',
       { accelerator: QUICK_CAPTURE_GLOBAL_SHORTCUT },
       'warn',
     );

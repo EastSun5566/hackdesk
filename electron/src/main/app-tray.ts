@@ -24,7 +24,7 @@ export function createApplicationTray({
   tray.setToolTip(app.getName());
   tray.setContextMenu(Menu.buildFromTemplate([
     {
-      label: process.platform === 'darwin' ? 'Quick Capture (⌃⌥H)' : 'Quick Capture (Ctrl+Alt+H)',
+      label: process.platform === 'darwin' ? 'Quick Hack (⌃⌥H)' : 'Quick Hack (Ctrl+Alt+H)',
       click: showQuickCaptureWindow,
     },
     {

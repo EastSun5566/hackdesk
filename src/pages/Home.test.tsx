@@ -1816,25 +1816,15 @@ describe('Home native-feel behavior', () => {
     expect(api.app.confirm).not.toHaveBeenCalled();
   });
 
-  it('cancels the native keyboard close request after closing the last clean tab', async () => {
-    let closeHandler: ((request: HackDeskCloseRequest) => void) | null = null;
-    const api = createApi({
-      app: {
-        onCloseRequest: vi.fn((handler) => {
-          closeHandler = handler;
-          return () => undefined;
-        }),
-      },
-    });
+  it('keeps the empty workbench open after Cmd+W closes the last clean tab', async () => {
+    const api = createApi();
 
     renderHome(api);
     await findRenderedNoteTitle();
 
-    act(() => {
-      closeHandler?.({ source: 'keyboard-shortcut' });
-    });
+    fireEvent.keyDown(window, { key: 'w', metaKey: true });
 
-    await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
+    expect(api.app.cancelClose).not.toHaveBeenCalled();
     expect(api.app.confirmClose).not.toHaveBeenCalled();
     expect(await screen.findByRole('heading', { name: 'No note selected' })).toBeInTheDocument();
   });

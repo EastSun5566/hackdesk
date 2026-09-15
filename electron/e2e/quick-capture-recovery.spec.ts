@@ -30,7 +30,7 @@ async function stopAfterCrash(app: ElectronApplication) {
   await exited;
 }
 
-test('recovers an accepted Quick Capture after restart and clears recovery after save', async () => {
+test('recovers an accepted Quick Hack after restart and clears recovery after save', async () => {
   const home = await mkdtemp(join(tmpdir(), 'hackdesk-smoke-'));
   const userData = join(home, 'user-data');
   const vault = join(home, 'vault');
@@ -53,7 +53,7 @@ test('recovers an accepted Quick Capture after restart and clears recovery after
     const quickCapture = firstApp.windows().find((page) => page.url().includes('#/quick-capture'))!;
 
     await expect(firstMain.getByText('Local Vault', { exact: true }).first()).toBeVisible();
-    await quickCapture.getByLabel('Capture note').fill(capturedText);
+    await quickCapture.getByLabel('Quick Hack note').fill(capturedText);
     await quickCapture.getByRole('button', { name: 'Capture' }).click();
     await expect(firstMain.locator('.cm-content')).toContainText(capturedText);
     await expect.poll(() => firstMain.evaluate((key) => {

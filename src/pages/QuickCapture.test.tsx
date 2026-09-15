@@ -24,7 +24,7 @@ describe('QuickCapture', () => {
 
   it('focuses the textarea on mount and whenever the window regains focus', async () => {
     renderQuickCapture();
-    const textarea = screen.getByLabelText('Capture note');
+    const textarea = screen.getByLabelText('Quick Hack note');
     const captureButton = screen.getByRole('button', { name: 'Capture' });
 
     await waitFor(() => expect(textarea).toHaveFocus());
@@ -43,7 +43,7 @@ describe('QuickCapture', () => {
     }));
 
     renderQuickCapture();
-    const textarea = screen.getByLabelText('Capture note');
+    const textarea = screen.getByLabelText('Quick Hack note');
     expect(textarea).toHaveValue('Saved locally');
 
     fireEvent.change(textarea, { target: { value: 'Updated locally' } });
@@ -55,7 +55,7 @@ describe('QuickCapture', () => {
 
   it('submits non-empty capture text with Cmd+Enter and clears the accepted buffer', async () => {
     const api = renderQuickCapture();
-    const textarea = screen.getByLabelText('Capture note');
+    const textarea = screen.getByLabelText('Quick Hack note');
 
     fireEvent.change(textarea, { target: { value: '  # Captured\nBody  ' } });
     fireEvent.keyDown(textarea, { key: 'Enter', metaKey: true });
@@ -76,7 +76,7 @@ describe('QuickCapture', () => {
 
   it('hides with Escape from any focused control without clearing the capture buffer', async () => {
     const api = renderQuickCapture();
-    const textarea = screen.getByLabelText('Capture note');
+    const textarea = screen.getByLabelText('Quick Hack note');
 
     fireEvent.change(textarea, { target: { value: 'Keep this' } });
     const captureButton = screen.getByRole('button', { name: 'Capture' });
@@ -95,7 +95,7 @@ describe('QuickCapture', () => {
         error: 'Connect HackMD in Settings before capturing here.',
       })),
     });
-    const textarea = screen.getByLabelText('Capture note');
+    const textarea = screen.getByLabelText('Quick Hack note');
 
     fireEvent.change(textarea, { target: { value: 'Unsynced capture' } });
     fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
@@ -113,7 +113,7 @@ describe('QuickCapture', () => {
         throw new Error('HackDesk IPC is unavailable.');
       }),
     });
-    const textarea = screen.getByLabelText('Capture note');
+    const textarea = screen.getByLabelText('Quick Hack note');
 
     fireEvent.change(textarea, { target: { value: 'Recover this capture' } });
     fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
@@ -131,7 +131,7 @@ describe('QuickCapture', () => {
         resolveSubmission = resolve;
       })),
     });
-    const textarea = screen.getByLabelText('Capture note');
+    const textarea = screen.getByLabelText('Quick Hack note');
     fireEvent.change(textarea, { target: { value: 'Pending capture' } });
     fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
 

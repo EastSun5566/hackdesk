@@ -57,7 +57,7 @@ export function useElectronHomeShellEffects({
           ? openQuickCaptureDraft(command.content)
           : {
             accepted: false as const,
-            error: 'Quick Capture did not reach HackDesk. Your text is still here.',
+            error: 'Quick Hack did not reach HackDesk. Your text is still here.',
           };
         void api.app.resolveQuickCaptureSubmission?.({
           requestId: command.requestId,

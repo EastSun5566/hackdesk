@@ -290,7 +290,7 @@ export type HackDeskCommandPaletteCommand =
     expiresAt: number;
   };
 
-export type HackDeskCloseRequestSource = 'window-button' | 'keyboard-shortcut' | 'app-quit';
+export type HackDeskCloseRequestSource = 'window-button' | 'app-quit';
 
 export type HackDeskCloseRequest = {
   source: HackDeskCloseRequestSource;

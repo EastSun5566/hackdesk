@@ -42,6 +42,7 @@ app.whenReady().then(async () => {
   const createMenu = (shortcuts = {}) => createApplicationMenu(
     (command) => windowManager.sendCommandToMainWindow(command),
     shortcuts,
+    () => windowManager.closeMainWindow(),
   );
   registerIpcHandlers(windowManager, {
     onSettingsUpdated: (settings) => createMenu(settings.shortcuts),

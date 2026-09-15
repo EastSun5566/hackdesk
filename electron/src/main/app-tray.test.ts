@@ -61,7 +61,7 @@ describe('createApplicationTray', () => {
     createApplicationTray({ showMainWindow, showQuickCaptureWindow });
 
     const template = currentTemplate();
-    expect(template[0]?.label).toContain('Quick Capture');
+    expect(template[0]?.label).toContain('Quick Hack');
     expect(template[1]).toMatchObject({ label: 'Show HackDesk' });
 
     template[0]?.click?.({} as Electron.MenuItem, undefined, {} as Electron.KeyboardEvent);

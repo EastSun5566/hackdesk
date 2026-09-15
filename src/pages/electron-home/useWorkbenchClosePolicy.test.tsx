@@ -32,32 +32,17 @@ function createOptions(overrides: Partial<WorkbenchClosePolicyOptions> = {}): Wo
   const activeTab = createTab();
 
   return {
-    activeTab,
     api: createApi(),
     closeTransientLayer: vi.fn(() => false),
     confirmCloseUnsafeTabs: vi.fn(async () => true),
     openTabs: {
       [activeTab.tabId]: activeTab,
     },
-    requestCloseTab: vi.fn(async () => true),
     ...overrides,
   };
 }
 
 describe('useWorkbenchClosePolicy', () => {
-  it('uses Cmd/Ctrl+W close requests to close the active tab instead of the window', async () => {
-    const options = createOptions();
-    const { result } = renderHook(() => useWorkbenchClosePolicy(options));
-
-    await act(async () => {
-      await result.current.settleCloseRequest({ source: 'keyboard-shortcut' });
-    });
-
-    expect(options.requestCloseTab).toHaveBeenCalledWith('tab-1');
-    expect(options.api?.app.cancelClose).toHaveBeenCalledOnce();
-    expect(options.api?.app.confirmClose).not.toHaveBeenCalled();
-  });
-
   it('cancels window close when any unsafe tab is rejected', async () => {
     const options = createOptions({
       confirmCloseUnsafeTabs: vi.fn(async () => false),
@@ -102,7 +87,18 @@ describe('useWorkbenchClosePolicy', () => {
 
     expect(options.closeTransientLayer).toHaveBeenCalledOnce();
     expect(options.confirmCloseUnsafeTabs).not.toHaveBeenCalled();
-    expect(options.requestCloseTab).not.toHaveBeenCalled();
     expect(options.api?.app.cancelClose).toHaveBeenCalledOnce();
+  });
+
+  it('does not let a transient layer cancel Cmd+Q', async () => {
+    const options = createOptions({ closeTransientLayer: vi.fn(() => true) });
+    const { result } = renderHook(() => useWorkbenchClosePolicy(options));
+
+    await act(async () => {
+      await result.current.settleCloseRequest({ source: 'app-quit' });
+    });
+
+    expect(options.closeTransientLayer).not.toHaveBeenCalled();
+    expect(options.api?.app.confirmClose).toHaveBeenCalledOnce();
   });
 });

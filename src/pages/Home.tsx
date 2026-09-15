@@ -581,12 +581,10 @@ export function Home() {
   });
 
   useWorkbenchClosePolicy({
-    activeTab,
     api,
     closeTransientLayer,
     confirmCloseUnsafeTabs,
     openTabs: noteWorkspace.state.tabs,
-    requestCloseTab,
   });
 
   const openQuickCaptureDraft = useCallback((content: string): QuickCaptureDraftResult => {

@@ -9,21 +9,17 @@ import type {
 import type { OpenNoteTab } from './note-workspace';
 
 export type WorkbenchClosePolicyOptions = {
-  activeTab: OpenNoteTab | null;
   api?: HackDeskElectronAPI;
   closeTransientLayer: () => boolean;
   confirmCloseUnsafeTabs: (tabs: OpenNoteTab[], title: string, confirmLabel: string) => Promise<boolean>;
   openTabs: Record<string, OpenNoteTab>;
-  requestCloseTab: (tabId: string) => Promise<boolean>;
 };
 
 export function useWorkbenchClosePolicy({
-  activeTab,
   api,
   closeTransientLayer,
   confirmCloseUnsafeTabs,
   openTabs,
-  requestCloseTab,
 }: WorkbenchClosePolicyOptions) {
   const settleCloseRequest = useCallback(async (request: HackDeskCloseRequest = { source: 'window-button' }) => {
     if (!api) {
@@ -38,13 +34,7 @@ export function useWorkbenchClosePolicy({
       }
     };
 
-    if (closeTransientLayer()) {
-      await cancelClose();
-      return;
-    }
-
-    if (request.source === 'keyboard-shortcut' && activeTab) {
-      await requestCloseTab(activeTab.tabId);
+    if (request.source !== 'app-quit' && closeTransientLayer()) {
       await cancelClose();
       return;
     }
@@ -60,7 +50,7 @@ export function useWorkbenchClosePolicy({
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to close window.');
     }
-  }, [activeTab, api, closeTransientLayer, confirmCloseUnsafeTabs, openTabs, requestCloseTab]);
+  }, [api, closeTransientLayer, confirmCloseUnsafeTabs, openTabs]);
 
   useEffect(() => (
     api?.app.onCloseRequest((request) => {

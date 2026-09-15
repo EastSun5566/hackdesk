@@ -61,7 +61,7 @@ describe('quick capture global shortcut', () => {
     expect(registered).toBe(false);
     expect(mocks.writeLog).toHaveBeenCalledWith(
       'main',
-      'failed to register quick capture global shortcut',
+      'failed to register Quick Hack global shortcut',
       { accelerator: 'Control+Alt+H' },
       'warn',
     );

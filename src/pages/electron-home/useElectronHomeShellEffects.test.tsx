@@ -118,7 +118,7 @@ describe('useElectronHomeShellEffects', () => {
     expect(api.app.resolveQuickCaptureSubmission).toHaveBeenCalledWith({
       requestId: 'capture-request',
       accepted: false,
-      error: 'Quick Capture did not reach HackDesk. Your text is still here.',
+      error: 'Quick Hack did not reach HackDesk. Your text is still here.',
     });
   });
 
