@@ -10,5 +10,6 @@ allowBuilds:
   simple-git-hooks: true
 overrides:
   esbuild: 0.28.1
+  electron-updater>js-yaml: 4.3.2
 patchedDependencies:
   codemirror-kakoune@0.2.5: patches/codemirror-kakoune@0.2.5.patch
