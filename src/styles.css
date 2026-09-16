@@ -343,4 +343,14 @@
     height: 100%;
   }
 
+  .note-navigator {
+    container: note-navigator / inline-size;
+  }
+
+  @container note-navigator (max-width: 359px) {
+    .note-row-date {
+      display: none;
+    }
+  }
+
 }

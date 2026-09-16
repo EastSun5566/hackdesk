@@ -409,6 +409,9 @@ export function registerIpcHandlers(
       validateBoolean(ELECTRON_CHANNELS.appSetMenuShortcutsIgnored, ignore),
     );
   });
+  ipcMain.handle(ELECTRON_CHANNELS.appGetWindowPresentationState, () => (
+    windowManager.getWindowPresentationState()
+  ));
   ipcMain.handle(ELECTRON_CHANNELS.appGetQuickCaptureShortcutStatus, () => getQuickCaptureShortcutStatus());
   ipcMain.handle(ELECTRON_CHANNELS.appSubmitQuickCapture, (_event, content: string) => (
     windowManager.submitQuickCapture(validateIpcInput(

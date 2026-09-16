@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
@@ -73,6 +73,10 @@ function renderTopBar(overrides: Partial<Parameters<typeof AppTopBar>[0]> = {}) 
 }
 
 describe('AppTopBar', () => {
+  afterEach(() => {
+    delete window.hackdeskAPI;
+  });
+
   it('renders compact titlebar tabs and sidebar toggles', () => {
     renderTopBar();
 
@@ -109,6 +113,21 @@ describe('AppTopBar', () => {
     const header = screen.getByRole('banner');
     expect(header).toHaveClass('pl-2');
     expect(header).not.toHaveClass('pl-[86px]');
+  });
+
+  it('removes traffic-light spacing while a macOS window is fullscreen', async () => {
+    window.hackdeskAPI = {
+      app: {
+        getWindowPresentationState: vi.fn(async () => ({ fullScreen: true })),
+        onWindowPresentationStateChange: vi.fn(() => vi.fn()),
+      },
+    } as unknown as NonNullable<typeof window.hackdeskAPI>;
+    renderTopBar();
+
+    await waitFor(() => {
+      expect(screen.getByRole('banner')).toHaveClass('pl-2');
+    });
+    expect(screen.getByRole('banner')).not.toHaveClass('pl-[86px]');
   });
 
   it('keeps titlebar regions in visual keyboard order', () => {

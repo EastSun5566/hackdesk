@@ -11,7 +11,7 @@ const Command = React.forwardRef<
   <CommandPrimitive
     ref={ref}
     className={cn(
-      'flex h-full w-full flex-col overflow-hidden rounded-md bg-background-default text-text-default [--command-item-meta:var(--text-subtle)] [--command-item-title:color-mix(in_oklch,var(--text-default)_86%,CanvasText_14%)] [--command-placeholder:color-mix(in_oklch,var(--text-subtle)_60%,transparent)]',
+      'flex h-full w-full flex-col overflow-hidden rounded-md bg-background-default text-text-default [--command-item-meta:var(--text-subtle)] [--command-item-title:var(--text-default)] [--command-placeholder:var(--text-subtle)]',
       className,
     )}
     {...props}
@@ -102,7 +102,7 @@ const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm text-text-default outline-hidden transition-colors aria-selected:bg-element-bg-hover aria-selected:text-text-default data-disabled:pointer-events-none data-disabled:opacity-50',
+      'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm text-text-default outline-hidden transition-colors aria-selected:bg-background-selected aria-selected:text-text-default data-disabled:pointer-events-none data-disabled:opacity-50',
       className,
     )}
     {...props}

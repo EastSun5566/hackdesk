@@ -16,6 +16,7 @@ describe('Toaster', () => {
     expect(screen.getByLabelText('Notifications')).toHaveClass(
       'right-4',
       'bottom-[calc(env(safe-area-inset-bottom)+1rem)]',
+      'z-[70]',
     );
   });
 

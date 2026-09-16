@@ -134,8 +134,8 @@ function createDeferred<T>() {
 }
 
 async function openInspector() {
-  fireEvent.click(screen.getByRole('button', { name: 'Expand inspector' }));
-  await screen.findByRole('heading', { name: 'Inspector' });
+  fireEvent.click(screen.getByRole('button', { name: 'Expand note details' }));
+  await screen.findByRole('heading', { name: 'Note Details' });
 }
 
 async function expandInspectorSection(name: string) {
@@ -2615,15 +2615,15 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
     await findRenderedNoteTitle();
 
-    expect(screen.queryByRole('heading', { name: 'Inspector' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Expand inspector' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('heading', { name: 'Note Details' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Expand note details' })).toHaveAttribute('aria-expanded', 'false');
 
     await openInspector();
 
-    expect(screen.getByRole('button', { name: 'Collapse inspector' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Collapse note details' })).toHaveAttribute('aria-expanded', 'true');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse inspector' }));
-    expect(screen.queryByRole('heading', { name: 'Inspector' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse note details' }));
+    expect(screen.queryByRole('heading', { name: 'Note Details' })).not.toBeInTheDocument();
   });
 
   it('exposes consistent expanded state for collapsible workspace and navigator panels', async () => {
@@ -2984,9 +2984,8 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await screen.findByRole('button', { name: 'Product Plan' });
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Filter notes' }));
-    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'product' }));
-    fireEvent.pointerDown(window.document.body);
+    await expandTagBrowser();
+    fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag product' }));
 
     await screen.findByText('1 result');
     expect(screen.getByRole('button', { name: 'Product Plan' })).toBeInTheDocument();
@@ -3027,7 +3026,7 @@ describe('Home native-feel behavior', () => {
     expect(screen.getByRole('button', { name: 'Design Spec' })).toBeInTheDocument();
   });
 
-  it('shows filter dropdown multi-tag state in the tag browser', async () => {
+  it('shows multi-tag state in filter chips and the tag browser', async () => {
     const notes = [
       { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', tags: ['product'], updatedAtMillis: 3000 },
       { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', tags: ['design'], updatedAtMillis: 2000 },
@@ -3041,9 +3040,11 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Filter notes' }));
-    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'product' }));
-    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'design' }));
+    await screen.findByRole('button', { name: 'Product Plan' });
+    await expandTagBrowser();
+    fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag product' }));
+    await screen.findByRole('button', { name: 'Clear tag product' });
+    fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag design' }));
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Remove tag filter product', hidden: true })).toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Clear tag product', hidden: true })).toBeInTheDocument();
@@ -3187,8 +3188,8 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
     await screen.findByDisplayValue('Product Plan');
     fireEvent.change(screen.getByPlaceholderText('Search notes'), { target: { value: 'Product' } });
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Filter notes' }));
-    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'product' }));
+    await expandTagBrowser();
+    fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag product' }));
 
     const titleInput = screen.getByDisplayValue('Product Plan');
     fireEvent.change(titleInput, { target: { value: 'Draft Title' } });

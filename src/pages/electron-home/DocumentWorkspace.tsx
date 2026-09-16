@@ -139,7 +139,7 @@ export function DocumentWorkspace({
                 aria-label={isActivePane ? `Active document pane ${index + 1}` : `Document pane ${index + 1}`}
                 data-active-pane={isActivePane ? 'true' : 'false'}
                 className={cn(
-                  'relative flex h-full min-w-0 flex-col border-l border-border-default bg-background-default before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:z-10 before:h-0.5 before:bg-transparent before:content-[""]',
+                  'relative flex h-full min-w-0 flex-col bg-background-default before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:z-10 before:h-0.5 before:bg-transparent before:content-[""]',
                   isActivePane && 'before:bg-primary-default',
                 )}
                 onFocusCapture={() => onFocusPane(pane.paneId)}

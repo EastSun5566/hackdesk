@@ -143,7 +143,7 @@ describe('NoteInspector', () => {
     const onCopyLink = vi.fn();
     const { document } = renderNoteInspector({ actions: { onCopyLink } });
 
-    expect(screen.getByRole('toolbar', { name: 'Inspector actions' })).toBeInTheDocument();
+    expect(screen.getByRole('toolbar', { name: 'Note details actions' })).toBeInTheDocument();
     expect(screen.queryByText(document.shortId)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Copy Link' }));
 
@@ -153,7 +153,7 @@ describe('NoteInspector', () => {
   it('uses a named toolbar for inspector header actions', async () => {
     renderNoteInspector();
 
-    await expectToolbarRovingFocus('Inspector actions', ['Copy Link']);
+    await expectToolbarRovingFocus('Note details actions', ['Copy Link']);
   });
 
   it('shows metadata save state without hiding the primary action', () => {
@@ -164,6 +164,7 @@ describe('NoteInspector', () => {
     const saveFooter = container.querySelector('[data-inspector-save-footer="true"]');
 
     expect(scrollRegion).toBeInTheDocument();
+    expect(scrollRegion).toHaveClass('px-5', 'scroll-py-3', '[scrollbar-gutter:stable]');
     expect(saveFooter).toBeInTheDocument();
     expect(scrollRegion).not.toContainElement(saveButton);
     expect(saveFooter).toContainElement(saveButton);

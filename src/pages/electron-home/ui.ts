@@ -23,6 +23,10 @@ const noteDateFormatter = new Intl.DateTimeFormat(undefined, {
   hour: '2-digit',
   minute: '2-digit',
 });
+const compactNoteDateFormatter = new Intl.DateTimeFormat(undefined, {
+  month: 'short',
+  day: 'numeric',
+});
 
 export function formatDate(millis: number | null) {
   if (!millis) {
@@ -30,6 +34,10 @@ export function formatDate(millis: number | null) {
   }
 
   return noteDateFormatter.format(new Date(millis));
+}
+
+export function formatCompactDate(millis: number | null) {
+  return millis ? compactNoteDateFormatter.format(new Date(millis)) : 'No date';
 }
 
 export function createQuickNoteContent(title: string) {

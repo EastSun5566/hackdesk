@@ -134,6 +134,7 @@ function renderPalette(overrides: Partial<CommandPaletteDialogProps> = {}) {
     platform: 'darwin',
     state: { mode: 'commands', open: true, search: '' },
     teams: [team],
+    user: { name: 'Michael Lee', username: 'michael', photo: null },
     themeMode: 'system',
     themePresetId: 'hackmd-neo',
     themePresets: HACKDESK_THEME_PRESETS,
@@ -175,6 +176,8 @@ describe('CommandPaletteDialog', () => {
     expect(screen.getByText('Current workspace')).toBeInTheDocument();
     expect(screen.queryByText('exact-short')).not.toBeInTheDocument();
     expect(screen.getByText('⌘N')).toBeVisible();
+    expect(screen.getByTestId('command-palette-personal-avatar')).toHaveTextContent('ML');
+    expect(screen.getByTestId(`command-palette-team-logo-${team.id}`)).toHaveTextContent('A');
   });
 
   it('shows only notes, folders, and workspaces in Quick Open mode', () => {
@@ -244,6 +247,7 @@ describe('CommandPaletteDialog', () => {
     const title = screen.getByText('Alpha');
     expect(title).toHaveClass('text-[color:var(--command-item-title)]');
     expect(title).toHaveClass('font-medium');
+    expect(title.closest('[cmdk-item]')).toHaveClass('aria-selected:bg-background-selected');
     expect(screen.getAllByText('My Workspace').some((node) => node.classList.contains('text-[color:var(--command-item-meta)]'))).toBe(true);
     expect(screen.getByRole('combobox', { name: 'Search notes, folders, and commands' }))
       .toHaveClass('placeholder:text-[color:var(--command-placeholder)]');
