@@ -124,6 +124,10 @@ const shortcutsSchema = z.record(z.string(), shortcutConfigSchema).superRefine((
     }
   }
 });
+const pinnedTeamIdsSchema = z.array(nonEmptyStringSchema).nullable().refine(
+  (teamIds) => teamIds === null || new Set(teamIds).size === teamIds.length,
+  'Pinned team IDs must be unique.',
+);
 
 export const settingsUpdateSchema = z.strictObject({
   title: optionalStringSchema,
@@ -138,6 +142,9 @@ export const settingsUpdateSchema = z.strictObject({
     mode: z.enum(['standard', 'emacs', 'vim', 'helix', 'kakoune']),
   }).optional(),
   shortcuts: shortcutsSchema.optional(),
+  workspaceNavigation: z.strictObject({
+    pinnedTeamIds: pinnedTeamIdsSchema,
+  }).optional(),
   onboarding: z.strictObject({
     hackmdTokenSetupDeferred: z.boolean(),
   }).optional(),

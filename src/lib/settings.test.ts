@@ -18,6 +18,7 @@ describe('settings helpers', () => {
       localVault: defaultSettings.localVault,
       editor: defaultSettings.editor,
       shortcuts: defaultSettings.shortcuts,
+      workspaceNavigation: defaultSettings.workspaceNavigation,
     });
   });
 
@@ -37,6 +38,7 @@ describe('settings helpers', () => {
       localVault: defaultSettings.localVault,
       editor: defaultSettings.editor,
       shortcuts: defaultSettings.shortcuts,
+      workspaceNavigation: defaultSettings.workspaceNavigation,
     });
   });
 
@@ -184,6 +186,25 @@ describe('settings helpers', () => {
     }))).toThrow('Use a modifier-based shortcut');
   });
 
+  it('defaults old settings to all-current-teams navigation and parses an explicit pin order', () => {
+    expect(parseSettings(JSON.stringify({ title: 'Workspace' })).workspaceNavigation).toEqual({
+      pinnedTeamIds: null,
+    });
+    expect(parseSettings(JSON.stringify({
+      title: 'Workspace',
+      workspaceNavigation: { pinnedTeamIds: ['team-2', 'team-1'] },
+    })).workspaceNavigation).toEqual({
+      pinnedTeamIds: ['team-2', 'team-1'],
+    });
+  });
+
+  it('rejects duplicate pinned team IDs', () => {
+    expect(() => parseSettings(JSON.stringify({
+      title: 'Workspace',
+      workspaceNavigation: { pinnedTeamIds: ['team-1', 'team-1'] },
+    }))).toThrow('Pinned team IDs must be unique');
+  });
+
   it('falls back to defaults and reports the error', () => {
     const onError = vi.fn();
 
@@ -215,7 +236,10 @@ describe('settings helpers', () => {
   "editor": {
     "mode": "standard"
   },
-  "shortcuts": {}
+  "shortcuts": {},
+  "workspaceNavigation": {
+    "pinnedTeamIds": null
+  }
 }`);
   });
 });

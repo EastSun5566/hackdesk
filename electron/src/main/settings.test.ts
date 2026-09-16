@@ -45,6 +45,7 @@ describe('Electron settings', () => {
       hasHackmdApiToken: true,
       hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
       onboarding: { hackmdTokenSetupDeferred: false },
+      workspaceNavigation: { pinnedTeamIds: null },
       shouldShowHackmdOnboarding: false,
     });
     expect('hackmdApiToken' in safeSettings).toBe(false);
@@ -75,6 +76,17 @@ describe('Electron settings', () => {
     });
     expect(content).toContain('"open-command-palette": "mod+j"');
     expect(content).not.toContain('hackmdApiToken": "secret-token');
+  });
+
+  it('persists and returns the pinned workspace order', async () => {
+    const safeSettings = await updateStoredSettings({
+      workspaceNavigation: { pinnedTeamIds: ['team-2', 'team-1'] },
+    });
+    const content = await readFile(getSettingsPath(), 'utf8');
+
+    expect(safeSettings.workspaceNavigation).toEqual({ pinnedTeamIds: ['team-2', 'team-1'] });
+    expect(content).toContain('"pinnedTeamIds"');
+    expect(content.indexOf('team-2')).toBeLessThan(content.indexOf('team-1'));
   });
 
   it('rejects invalid shortcut overrides', async () => {

@@ -48,6 +48,7 @@ type EntityRowProps = {
   onClick?: () => void;
   ariaLabel?: string;
   ariaCurrent?: ButtonHTMLAttributes<HTMLButtonElement>['aria-current'];
+  ariaKeyShortcuts?: string;
   titleAttribute?: string;
 };
 
@@ -202,6 +203,7 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
   onClick,
   ariaLabel,
   ariaCurrent,
+  ariaKeyShortcuts,
   titleAttribute,
 }, ref) {
   const content = (
@@ -243,6 +245,7 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
         data-hackdesk-focus-target={focusTarget ? 'true' : undefined}
         aria-label={ariaLabel}
         aria-current={ariaCurrent}
+        aria-keyshortcuts={ariaKeyShortcuts}
         title={titleAttribute}
         className={rowClassName}
       >

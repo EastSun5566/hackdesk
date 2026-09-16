@@ -18,12 +18,9 @@ import {
 export type WorkbenchShortcutHandlers = {
   activeFinderState: NoteFinderState;
   closeTransientLayer: () => boolean;
-  focusPaneAtIndex: (paneIndex: number) => boolean;
-  focusTabAtIndex: (tabIndex: number) => boolean;
   handleCreateNote: () => void;
   noteDirty: boolean;
   openPalette: () => void;
-  paneCount: number;
   platform: string;
   refreshWorkspace: () => void;
   runAction: (actionId: ElectronActionId) => void;
@@ -31,17 +28,15 @@ export type WorkbenchShortcutHandlers = {
   setFinderState: Dispatch<SetStateAction<NoteFinderState>>;
   setSelectedFolderId: Dispatch<SetStateAction<string | null>>;
   shortcuts?: ShortcutOverrides;
+  switchWorkspaceAtIndex: (workspaceIndex: number) => boolean;
 };
 
 export function useWorkbenchShortcuts({
   activeFinderState,
   closeTransientLayer,
-  focusPaneAtIndex,
-  focusTabAtIndex,
   handleCreateNote,
   noteDirty,
   openPalette,
-  paneCount,
   platform,
   refreshWorkspace,
   runAction,
@@ -49,6 +44,7 @@ export function useWorkbenchShortcuts({
   setFinderState,
   setSelectedFolderId,
   shortcuts,
+  switchWorkspaceAtIndex,
 }: WorkbenchShortcutHandlers) {
   const handleGlobalKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.defaultPrevented || event.isComposing) {
@@ -57,16 +53,7 @@ export function useWorkbenchShortcuts({
 
     const isPrimaryModifier = isPlatformPrimaryModifier(event, platform);
     if (isPrimaryModifier && !event.altKey && !event.shiftKey && /^[1-9]$/.test(event.key)) {
-      if (paneCount > 1) {
-        const targetPaneIndex = Number(event.key) - 1;
-        if (targetPaneIndex < 2 && focusPaneAtIndex(targetPaneIndex)) {
-          event.preventDefault();
-        }
-        return;
-      }
-
-      const targetTabIndex = event.key === '9' ? -1 : Number(event.key) - 1;
-      if (focusTabAtIndex(targetTabIndex)) {
+      if (switchWorkspaceAtIndex(Number(event.key) - 1)) {
         event.preventDefault();
       }
       return;
@@ -140,12 +127,9 @@ export function useWorkbenchShortcuts({
   }, [
     activeFinderState,
     closeTransientLayer,
-    focusPaneAtIndex,
-    focusTabAtIndex,
     handleCreateNote,
     noteDirty,
     openPalette,
-    paneCount,
     platform,
     refreshWorkspace,
     runAction,
@@ -153,6 +137,7 @@ export function useWorkbenchShortcuts({
     setFinderState,
     setSelectedFolderId,
     shortcuts,
+    switchWorkspaceAtIndex,
   ]);
 
   useEffect(() => {

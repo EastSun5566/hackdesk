@@ -3,10 +3,12 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { NoteFinderState } from '@/lib/electron-note-finder';
 import type {
   DocumentSummary,
+  ElectronSafeSettings,
   TeamSummary,
   UserSummary,
 } from '@/lib/electron-api';
 import type { FolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
+import { defaultSettings } from '@/lib/settings';
 
 import type { ElectronHomeWorkspaceProps } from './ElectronHomeWorkspace';
 import type { HomeLocalVaultActions } from './useHomeLocalVaultActions';
@@ -77,6 +79,7 @@ export function useHomeWorkspaceProps({
   setNavigatorWidth,
   setRailWidth,
   setSettingsOpen,
+  settings,
   shareOpen,
   tabLifecycle,
   teams,
@@ -115,6 +118,7 @@ export function useHomeWorkspaceProps({
   setNavigatorWidth: (width: number) => void;
   setRailWidth: (width: number) => void;
   setSettingsOpen: (open: boolean) => void;
+  settings: ElectronSafeSettings | undefined;
   shareOpen: boolean;
   tabLifecycle: Pick<
     ElectronHomeWorkspaceProps['titlebar']['actions'],
@@ -160,6 +164,8 @@ export function useHomeWorkspaceProps({
       scope: displayScope,
       user,
       teams,
+      platform: window.hackdeskAPI?.platform ?? 'unknown',
+      pinnedTeamIds: settings?.workspaceNavigation?.pinnedTeamIds ?? null,
       collapsed: railCollapsed,
       accountStatus: homeStatus.accountStatus,
       localVaultConfigured: hasConfiguredLocalVault,
@@ -169,6 +175,12 @@ export function useHomeWorkspaceProps({
       },
       onScopeChange: actions.switchWorkspaceScope,
       onOpenSettings: () => setSettingsOpen(true),
+      onPinnedTeamIdsChange: (pinnedTeamIds) => {
+        mutations.updateSettingsMutation.mutate({
+          title: settings?.title ?? defaultSettings.title,
+          workspaceNavigation: { pinnedTeamIds },
+        });
+      },
     },
     railResize: {
       disabled: railCollapsed,

@@ -200,6 +200,8 @@ function createSafeSettings(overrides: Partial<ElectronSafeSettings> = {}): Elec
     hasLocalVault: false,
     localVault: defaultSettings.localVault,
     onboarding: defaultSettings.onboarding,
+    shortcuts: defaultSettings.shortcuts,
+    workspaceNavigation: defaultSettings.workspaceNavigation,
     shouldShowHackmdOnboarding: false,
     ...overrides,
   };
@@ -1874,7 +1876,7 @@ describe('Home native-feel behavior', () => {
     expect(await screen.findAllByRole('button', { name: 'Select Draft title tab' })).toHaveLength(2);
   });
 
-  it('focuses note tabs with Cmd+number and Cmd+arrow shortcuts', async () => {
+  it('focuses note tabs with next and previous shortcuts', async () => {
     const notes = [
       { ...note, id: 'note-a', title: 'Alpha', shortId: 'alpha', updatedAtMillis: 3000 },
       { ...note, id: 'note-b', title: 'Beta', shortId: 'beta', updatedAtMillis: 2000 },
@@ -1903,7 +1905,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Gamma' }));
     await screen.findByDisplayValue('Gamma');
 
-    fireEvent.keyDown(window, { key: '1', metaKey: true });
+    fireEvent.keyDown(window, { key: 'ArrowRight', metaKey: true, altKey: true });
     expect(await screen.findByDisplayValue('Alpha')).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'ArrowRight', metaKey: true, altKey: true });
@@ -1911,9 +1913,6 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.keyDown(window, { key: 'ArrowLeft', metaKey: true, altKey: true });
     expect(await screen.findByDisplayValue('Alpha')).toBeInTheDocument();
-
-    fireEvent.keyDown(window, { key: '9', metaKey: true });
-    expect(await screen.findByDisplayValue('Gamma')).toBeInTheDocument();
   });
 
   it('navigates focused note locations with titlebar buttons and Cmd+brackets', async () => {
