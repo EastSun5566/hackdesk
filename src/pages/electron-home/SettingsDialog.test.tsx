@@ -726,7 +726,7 @@ describe('SettingsDialog', () => {
     renderSettingsDialog();
     fireEvent.click(screen.getByRole('tab', { name: /Shortcuts/ }));
 
-    const row = screen.getByText('Quick Capture').closest('li');
+    const row = screen.getByText('Quick Hack').closest('li');
     expect(row).not.toBeNull();
     expect(within(row as HTMLElement).getByText('⌃⌥H')).toBeVisible();
     expect(within(row as HTMLElement).getByText('Checking…')).toBeVisible();
@@ -748,7 +748,7 @@ describe('SettingsDialog', () => {
     renderSettingsDialog();
     fireEvent.click(screen.getByRole('tab', { name: /Shortcuts/ }));
 
-    const row = screen.getByText('Quick Capture').closest('li');
+    const row = screen.getByText('Quick Hack').closest('li');
     expect(row).not.toBeNull();
     await waitFor(() => expect(within(row as HTMLElement).getByText('Unavailable')).toBeVisible());
   });

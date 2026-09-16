@@ -110,7 +110,7 @@ export function QuickCapture() {
     }
 
     if (!api?.submit) {
-      setError('Quick Capture is unavailable in this environment.');
+      setError('Quick Hack is unavailable in this environment.');
       return;
     }
 
@@ -146,11 +146,11 @@ export function QuickCapture() {
       {isMac ? (
         <header className="relative flex h-10 shrink-0 items-center justify-center [-webkit-app-region:drag]">
           <h1 className="max-w-56 truncate text-xs font-medium text-text-subtle">
-            Quick Capture
+            Quick Hack
           </h1>
         </header>
       ) : (
-        <h1 className="sr-only">Quick Capture</h1>
+        <h1 className="sr-only">Quick Hack</h1>
       )}
       <form
         className="flex min-h-0 flex-1 flex-col"
@@ -163,7 +163,7 @@ export function QuickCapture() {
           invalid={Boolean(error)}
           className="flex min-h-0 flex-1 flex-col space-y-0"
         >
-          <FieldLabel className="sr-only">Capture note</FieldLabel>
+          <FieldLabel className="sr-only">Quick Hack note</FieldLabel>
           <Textarea
             ref={textareaRef}
             name="content"

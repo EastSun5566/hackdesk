@@ -121,6 +121,7 @@ vi.mock('electron', () => ({
     getName: () => 'HackDesk',
     hide: mockState.state.appHide,
     quit: vi.fn(),
+    setActivationPolicy: vi.fn(),
     relaunch: vi.fn(),
     show: mockState.state.appShow,
     exit: vi.fn(),
@@ -175,7 +176,7 @@ vi.mock('./window-state', () => ({
   readWindowState: (fallback: unknown) => ({ bounds: fallback, isMaximized: false }),
 }));
 
-import { dialog } from 'electron';
+import { app, dialog } from 'electron';
 import { WindowManager } from './window-manager';
 
 function createManagerWithWindow() {
@@ -238,20 +239,39 @@ describe('WindowManager close intent', () => {
     expect(window.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCloseRequested, { source: 'app-quit' });
   });
 
-  it('marks Cmd/Ctrl+W close requests as keyboard shortcut sourced', () => {
-    const { window } = createManagerWithWindow();
+  it('lets the approved quit close the main window without a second request', () => {
+    const { manager, window } = createManagerWithWindow();
+    const quitEvent = { preventDefault: vi.fn() };
 
-    window.webContents.emit('before-input-event', {}, {
-      type: 'keyDown',
-      key: 'w',
-      control: true,
-      meta: true,
-    });
-    emitClose(window);
+    manager.handleBeforeQuit(quitEvent);
+    manager.confirmClose();
+    const closeEvent = emitClose(window);
 
+    expect(quitEvent.preventDefault).toHaveBeenCalledOnce();
+    expect(app.quit).toHaveBeenCalledOnce();
+    expect(closeEvent.preventDefault).not.toHaveBeenCalled();
+    expect(window.webContents.send).toHaveBeenCalledTimes(1);
+    expect(window.destroy).not.toHaveBeenCalled();
+  });
+
+  it('moves to background on macOS after closing the main window and restores it on app activation', () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+    const { manager, window } = createManagerWithWindow();
+
+    manager.closeMainWindow();
     expect(window.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCloseRequested, {
-      source: 'keyboard-shortcut',
+      source: 'window-button',
     });
+    manager.confirmClose();
+
+    expect(window.destroy).toHaveBeenCalledOnce();
+    expect(app.setActivationPolicy).toHaveBeenCalledWith('accessory');
+    expect(manager.getMainWindow()).toBeNull();
+
+    manager.handleAppActivation();
+
+    expect(app.setActivationPolicy).toHaveBeenLastCalledWith('regular');
+    expect(manager.getMainWindow()).not.toBeNull();
   });
 
   it('asks before quitting when the renderer does not answer', async () => {
@@ -383,8 +403,10 @@ describe('WindowManager close intent', () => {
     expect(captureWindow.options).toEqual(expect.objectContaining({ x: 480, y: 162 }));
   });
 
-  it('submits quick capture in the background and focuses main only after acceptance', async () => {
+  it('submits Quick Hack from another app without focusing the main window after acceptance', async () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
     const { manager, window } = createManagerWithWindow();
+    mockState.state.lastWindow = null;
     const captureWindow = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
 
     window.show.mockClear();
@@ -408,6 +430,69 @@ describe('WindowManager close intent', () => {
     await expect(submission).resolves.toEqual({ accepted: true });
     expect(window.webContents.session.flushStorageData).toHaveBeenCalledOnce();
     expect(captureWindow.hide).toHaveBeenCalledOnce();
+    expect(window.show).not.toHaveBeenCalled();
+    expect(window.focus).not.toHaveBeenCalled();
+    expect(mockState.state.appHide).toHaveBeenCalledOnce();
+  });
+
+  it('routes Cmd+Q from the accessory Quick Hack popup to a full app quit', () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+    const { manager } = createManagerWithWindow();
+    manager.closeMainWindow();
+    manager.confirmClose();
+    const captureWindow = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    const event = { preventDefault: vi.fn() };
+
+    captureWindow.webContents.emit('before-input-event', event, {
+      type: 'keyDown', key: 'q', meta: true, alt: false, control: false, shift: false,
+    });
+
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(app.quit).toHaveBeenCalledOnce();
+    expect(app.setActivationPolicy).toHaveBeenCalledTimes(1);
+    expect(app.setActivationPolicy).toHaveBeenCalledWith('accessory');
+  });
+
+  it('creates a hidden draft in background mode and reveals it only when HackDesk is opened', async () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+    const { manager } = createManagerWithWindow();
+    manager.closeMainWindow();
+    manager.confirmClose();
+    mockState.state.lastWindow = null;
+    const captureWindow = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+
+    const submission = manager.submitQuickCapture('# Background draft');
+    const hiddenMain = manager.getMainWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    const command = hiddenMain.webContents.send.mock.calls.find(([channel]) => channel === ELECTRON_CHANNELS.appCommand)?.[1];
+    expect(command).toEqual(expect.objectContaining({ content: '# Background draft' }));
+    expect(hiddenMain.show).not.toHaveBeenCalled();
+
+    manager.resolveQuickCaptureSubmission({ requestId: command.requestId, accepted: true });
+    await expect(submission).resolves.toEqual({ accepted: true });
+
+    expect(captureWindow.hide).toHaveBeenCalledOnce();
+    expect(hiddenMain.show).not.toHaveBeenCalled();
+    expect(app.setActivationPolicy).toHaveBeenCalledTimes(1);
+
+    manager.showAndFocusMainWindow();
+    expect(app.setActivationPolicy).toHaveBeenLastCalledWith('regular');
+    expect(hiddenMain.show).toHaveBeenCalledOnce();
+    expect(hiddenMain.focus).toHaveBeenCalledOnce();
+  });
+
+  it('returns to main after Quick Hack opened from the main window is accepted', async () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+    const { manager, window } = createManagerWithWindow();
+    window.focus();
+    manager.showQuickCaptureWindow();
+    window.show.mockClear();
+    window.focus.mockClear();
+    const submission = manager.submitQuickCapture('# Draft');
+    const command = window.webContents.send.mock.calls.find(([channel]) => channel === ELECTRON_CHANNELS.appCommand)?.[1];
+
+    manager.resolveQuickCaptureSubmission({ requestId: command.requestId, accepted: true });
+
+    await expect(submission).resolves.toEqual({ accepted: true });
     expect(window.show).toHaveBeenCalledOnce();
     expect(window.focus).toHaveBeenCalledOnce();
   });
@@ -474,7 +559,7 @@ describe('WindowManager close intent', () => {
     await vi.advanceTimersByTimeAsync(15_000);
     await expect(submission).resolves.toEqual({
       accepted: false,
-      error: 'Quick Capture did not reach HackDesk. Your text is still here.',
+      error: 'Quick Hack did not reach HackDesk. Your text is still here.',
     });
 
     window.isLoadingValue = false;

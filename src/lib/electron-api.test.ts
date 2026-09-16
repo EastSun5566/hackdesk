@@ -12,7 +12,7 @@ describe('Electron API runtime detection', () => {
     delete window.hackdeskQuickCaptureAPI;
   });
 
-  it('detects Electron from the minimal Quick Capture preload', () => {
+  it('detects Electron from the minimal Quick Hack preload', () => {
     window.hackdeskQuickCaptureAPI = {} as HackDeskQuickCaptureAPI;
 
     expect(getRuntimeEnvironment()).toBe('electron');

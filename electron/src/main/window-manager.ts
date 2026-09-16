@@ -32,9 +32,8 @@ export class WindowManager {
   private quickCaptureWindow: BrowserWindow | null = null;
   private recoveryDialogShowing = false;
   private allowAppQuit = false;
+  private activationMode: 'regular' | 'accessory' = 'regular';
   private pendingCloseSource: import('../../../src/lib/electron-api').HackDeskCloseRequestSource | null = null;
-  private keyboardCloseIntent = false;
-  private keyboardCloseIntentTimeout: NodeJS.Timeout | null = null;
   private pendingCloseTimeout: NodeJS.Timeout | null = null;
   private pendingMainWindowCommands: HackDeskCommandPaletteCommand[] = [];
   private pendingQuickCaptureSubmissions = new Map<string, PendingQuickCaptureSubmission>();
@@ -66,12 +65,11 @@ export class WindowManager {
       return;
     }
 
-    if (!this.getMainWindow()) {
-      this.createMainWindow();
-      return;
-    }
-
     this.showAndFocusMainWindow();
+  }
+
+  closeMainWindow() {
+    this.getMainWindow()?.close();
   }
 
   sendCommand(command: HackDeskCommandPaletteCommand) {
@@ -117,6 +115,9 @@ export class WindowManager {
 
     const source = this.pendingCloseSource;
     this.pendingCloseSource = null;
+    if (!source) {
+      return;
+    }
     writeLog('main', 'renderer confirmed close', { source });
     if (source === 'app-quit') {
       this.allowAppQuit = true;
@@ -160,11 +161,18 @@ export class WindowManager {
   }
 
   showAndFocusMainWindow() {
-    const window = this.getMainWindow();
-
-    if (!window) {
+    this.setActivationMode('regular');
+    const existingWindow = this.getMainWindow();
+    if (!existingWindow) {
+      const window = this.createMainWindow({ showOnReady: false });
+      window.once('ready-to-show', () => {
+        window.show();
+        window.focus();
+      });
       return;
     }
+
+    const window = existingWindow;
 
     if (window.isMinimized()) {
       window.restore();
@@ -172,6 +180,15 @@ export class WindowManager {
 
     window.show();
     window.focus();
+  }
+
+  private setActivationMode(mode: 'regular' | 'accessory') {
+    if (process.platform !== 'darwin' || this.activationMode === mode || this.allowAppQuit) {
+      return;
+    }
+
+    app.setActivationPolicy(mode);
+    this.activationMode = mode;
   }
 
   showQuickCaptureWindow() {
@@ -215,7 +232,7 @@ export class WindowManager {
       minWidth: 360,
       minHeight: 220,
       show: false,
-      title: 'Quick Capture',
+      title: 'Quick Hack',
       titleBarStyle: isMac ? 'hiddenInset' : 'default',
       trafficLightPosition: isMac ? { x: 14, y: 12 } : undefined,
       alwaysOnTop: true,
@@ -243,6 +260,14 @@ export class WindowManager {
     window.on('focus', () => {
       this.completeQuickCapturePresentation();
     });
+    window.webContents.on('before-input-event', (event, input) => {
+      if (process.platform === 'darwin' && input.type === 'keyDown'
+        && input.key?.toLowerCase() === 'q' && input.meta
+        && !input.alt && !input.control && !input.shift) {
+        event.preventDefault();
+        app.quit();
+      }
+    });
     window.on('close', (event) => {
       if (this.allowAppQuit) {
         return;
@@ -258,7 +283,7 @@ export class WindowManager {
       }
       this.resolveAllQuickCaptureSubmissions({
         accepted: false,
-        error: 'Quick Capture closed before HackDesk could create the draft. Your text is still saved.',
+        error: 'Quick Hack closed before HackDesk could create the draft. Your text is still saved.',
       });
     });
 
@@ -297,7 +322,7 @@ export class WindowManager {
 
         resolve({
           accepted: false,
-          error: 'Quick Capture did not reach HackDesk. Your text is still here.',
+          error: 'Quick Hack did not reach HackDesk. Your text is still here.',
         });
         this.showQuickCaptureWindow();
       }, QUICK_CAPTURE_SUBMISSION_TIMEOUT_MS);
@@ -331,9 +356,7 @@ export class WindowManager {
     }
 
     this.getMainWindow()?.webContents.session.flushStorageData();
-    this.completeQuickCapturePresentation();
-    this.getQuickCaptureWindow()?.hide();
-    this.showAndFocusMainWindow();
+    this.hideQuickCaptureWindow();
     pending.resolve({ accepted: true });
   }
 
@@ -383,37 +406,17 @@ export class WindowManager {
       }
     });
 
-    this.mainWindow.webContents.on('before-input-event', (_event, input) => {
-      if (!input || input.type !== 'keyDown') {
-        return;
-      }
-
-      const isCloseShortcut = input.key?.toLowerCase() === 'w' && (
-        process.platform === 'darwin' ? input.meta : input.control
-      );
-      if (!isCloseShortcut) {
-        return;
-      }
-
-      this.keyboardCloseIntent = true;
-      if (this.keyboardCloseIntentTimeout) {
-        clearTimeout(this.keyboardCloseIntentTimeout);
-      }
-
-      this.keyboardCloseIntentTimeout = setTimeout(() => {
-        this.keyboardCloseIntent = false;
-        this.keyboardCloseIntentTimeout = null;
-      }, 500);
-    });
-
     this.mainWindow.on('close', (event) => {
       this.handleCloseRequest(event);
     });
 
     this.mainWindow.on('closed', () => {
-      this.clearKeyboardCloseIntent();
       this.clearPendingCloseTimeout();
       this.mainWindow = null;
+      this.quickCaptureOpenedFromMain = false;
+      if (!this.allowAppQuit) {
+        this.setActivationMode('accessory');
+      }
     });
 
     this.configureWindowPolicy(this.mainWindow);
@@ -564,6 +567,10 @@ export class WindowManager {
   }
 
   private handleCloseRequest(event: Electron.Event) {
+    if (this.allowAppQuit) {
+      return;
+    }
+
     const window = this.getMainWindow();
     if (!window) {
       return;
@@ -574,10 +581,8 @@ export class WindowManager {
     }
 
     event.preventDefault();
-    const source = this.keyboardCloseIntent ? 'keyboard-shortcut' : 'window-button';
-    this.clearKeyboardCloseIntent();
-    writeLog('main', 'window close requested', { source });
-    this.sendCloseRequest(source);
+    writeLog('main', 'window close requested', { source: 'window-button' });
+    this.sendCloseRequest('window-button');
   }
 
   private sendCloseRequest(source: import('../../../src/lib/electron-api').HackDeskCloseRequestSource) {
@@ -618,14 +623,6 @@ export class WindowManager {
         }
       });
     }, 15_000);
-  }
-
-  private clearKeyboardCloseIntent() {
-    this.keyboardCloseIntent = false;
-    if (this.keyboardCloseIntentTimeout) {
-      clearTimeout(this.keyboardCloseIntentTimeout);
-      this.keyboardCloseIntentTimeout = null;
-    }
   }
 
   private clearPendingCloseTimeout() {

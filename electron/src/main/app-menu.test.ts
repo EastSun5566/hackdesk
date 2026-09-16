@@ -43,7 +43,7 @@ describe('createApplicationMenu', () => {
     createApplicationMenu(vi.fn(), {
       'open-command-palette': 'mod+j',
       'open-quick-open': 'none',
-    });
+    }, vi.fn());
 
     expect(findMenuItem('Command Palette')).toMatchObject({
       accelerator: process.platform === 'darwin' ? 'Command+J' : 'Ctrl+J',
@@ -53,10 +53,26 @@ describe('createApplicationMenu', () => {
   });
 
   it('uses the default markdown import accelerator', () => {
-    createApplicationMenu(vi.fn());
+    createApplicationMenu(vi.fn(), {}, vi.fn());
 
     expect(findMenuItem('Import Markdown Note')).toMatchObject({
       accelerator: process.platform === 'darwin' ? 'Command+O' : 'Ctrl+O',
     });
+  });
+
+  it('keeps Close Tab on Cmd+W and gives Close Window a separate accelerator on macOS', () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+    const sendCommand = vi.fn();
+    const closeMainWindow = vi.fn();
+    createApplicationMenu(sendCommand, {}, closeMainWindow);
+
+    expect(findMenuItem('Close Tab')?.accelerator).toBe('Command+W');
+    expect(findMenuItem('Close Window')).toMatchObject({ accelerator: 'Command+Shift+W' });
+
+    findMenuItem('Close Window')?.click?.({} as Electron.MenuItem, undefined, {} as Electron.KeyboardEvent);
+    expect(closeMainWindow).toHaveBeenCalledOnce();
+    expect(sendCommand).not.toHaveBeenCalled();
+
+    vi.restoreAllMocks();
   });
 });
