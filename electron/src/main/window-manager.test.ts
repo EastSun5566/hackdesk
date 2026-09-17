@@ -86,6 +86,8 @@ const mockState = vi.hoisted(() => {
     isFocused = vi.fn(() => state.lastWindow === this);
     isVisible = vi.fn(() => this.visibleValue);
     isMinimized = vi.fn(() => false);
+    isFullScreenValue = false;
+    isFullScreen = vi.fn(() => this.isFullScreenValue);
     isDestroyed = vi.fn(() => this.isDestroyedValue);
     isLoadingValue = false;
     options: unknown;
@@ -216,6 +218,27 @@ describe('WindowManager close intent', () => {
 
     expect(window.webContents.setIgnoreMenuShortcuts).toHaveBeenNthCalledWith(1, true);
     expect(window.webContents.setIgnoreMenuShortcuts).toHaveBeenNthCalledWith(2, false);
+  });
+
+  it('reports and broadcasts main window fullscreen state', () => {
+    const { manager, window } = createManagerWithWindow();
+
+    expect(manager.getWindowPresentationState()).toEqual({ fullScreen: false });
+
+    window.isFullScreenValue = true;
+    window.emit('enter-full-screen');
+    expect(manager.getWindowPresentationState()).toEqual({ fullScreen: true });
+    expect(window.webContents.send).toHaveBeenLastCalledWith(
+      ELECTRON_CHANNELS.appWindowPresentationStateChanged,
+      { fullScreen: true },
+    );
+
+    window.isFullScreenValue = false;
+    window.emit('leave-full-screen');
+    expect(window.webContents.send).toHaveBeenLastCalledWith(
+      ELECTRON_CHANNELS.appWindowPresentationStateChanged,
+      { fullScreen: false },
+    );
   });
 
   it('sends a close request instead of closing immediately', () => {

@@ -592,7 +592,7 @@ function DocumentHeader({
               onClick={actions.onToggleInspector}
               aria-controls={inspectorPanelId}
               aria-expanded={!layout.inspectorCollapsed}
-              label={layout.inspectorCollapsed ? 'Expand inspector' : 'Collapse inspector'}
+              label={layout.inspectorCollapsed ? 'Expand note details' : 'Collapse note details'}
             >
               {layout.inspectorCollapsed ? <PanelRightOpen aria-hidden="true" className="h-4 w-4" /> : <PanelRightClose aria-hidden="true" className="h-4 w-4" />}
             </ToolbarIconButton>
@@ -778,7 +778,7 @@ function InspectorPanel({
       id={inspectorPanelId}
       aria-hidden={inspectorCollapsed}
       className={cn(
-        'shrink-0 overflow-hidden bg-background-muted transition-[border-color,background-color] duration-150 ease-out motion-reduce:transition-none',
+        'min-w-0 shrink-0 bg-background-muted transition-[border-color,background-color] duration-150 ease-out motion-reduce:transition-none',
         inspectorCollapsed ? 'border-l-0' : 'border-l border-border-default',
       )}
       style={{ width: inspectorCollapsed ? 0 : INSPECTOR_WIDTH_DEFAULT }}

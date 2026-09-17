@@ -314,6 +314,44 @@ describe('FolderNavigator', () => {
     ]);
   });
 
+  it('keeps tag selection in the tag browser instead of the filter menu', async () => {
+    const onFinderStateChange = vi.fn();
+    renderFolderNavigator({ actions: { onFinderStateChange } });
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Filter notes' }));
+    const filterMenu = await screen.findByRole('menu');
+
+    expect(filterMenu).toHaveTextContent('Read Permission');
+    expect(filterMenu).toHaveTextContent('Write Permission');
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'work' })).not.toBeInTheDocument();
+
+    fireEvent.pointerDown(document.body);
+    fireEvent.click(screen.getByRole('button', { name: 'Tags' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag work' }));
+
+    expect(onFinderStateChange).toHaveBeenCalledWith({
+      ...DEFAULT_NOTE_FINDER_STATE,
+      searchScope: 'workspace',
+      tagFilters: ['work'],
+    });
+  });
+
+  it('adds tag browser selections to active tag filters', () => {
+    const onFinderStateChange = vi.fn();
+    renderFolderNavigator({
+      actions: { onFinderStateChange },
+      finderState: { ...DEFAULT_NOTE_FINDER_STATE, tagFilters: ['existing'] },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Filter by tag work' }));
+
+    expect(onFinderStateChange).toHaveBeenCalledWith({
+      ...DEFAULT_NOTE_FINDER_STATE,
+      searchScope: 'workspace',
+      tagFilters: ['existing', 'work'],
+    });
+  });
+
   it('returns focus to finder dropdown trigger when its menu closes', async () => {
     renderFolderNavigator();
 
@@ -361,6 +399,28 @@ describe('FolderNavigator', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Projects' }));
 
     expect(onFolderSelect).toHaveBeenCalledWith('projects');
+  });
+
+  it('reuses the file and folder icon positions for drag handles', () => {
+    renderFolderNavigator();
+
+    const folderHandle = screen.getByRole('button', { name: 'Drag Projects' });
+    const noteHandle = screen.getByRole('button', { name: 'Drag Nested note' });
+
+    expect(folderHandle.querySelector('[data-folder-glyph]')).toBeInTheDocument();
+    expect(folderHandle.querySelector('.lucide-grip-vertical')).toBeInTheDocument();
+    expect(noteHandle.querySelector('.lucide-file-text')).toBeInTheDocument();
+    expect(noteHandle.querySelector('.lucide-grip-vertical')).toBeInTheDocument();
+  });
+
+  it('shows a compact note date with the full value in its tooltip', () => {
+    const { container } = renderFolderNavigator();
+    const date = container.querySelector('[data-note-id="nested-note"] time');
+
+    expect(date).toHaveAttribute('datetime', new Date(1_700_000_000_000).toISOString());
+    expect(date).toHaveAttribute('title');
+    expect(date?.parentElement).toHaveClass('note-row-date');
+    expect(date?.textContent).not.toContain(':');
   });
 
   it('marks the current navigator row with aria-current', () => {

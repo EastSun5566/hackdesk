@@ -106,6 +106,10 @@ export class WindowManager {
     this.getTargetWindow()?.webContents.setIgnoreMenuShortcuts(ignore);
   }
 
+  getWindowPresentationState() {
+    return { fullScreen: this.getMainWindow()?.isFullScreen() ?? false };
+  }
+
   confirmClose() {
     const window = this.getMainWindow();
     this.clearPendingCloseTimeout();
@@ -393,6 +397,7 @@ export class WindowManager {
         webviewTag: false,
       },
     });
+    const window = this.mainWindow;
     persistWindowState(this.mainWindow);
     const unresponsiveSampler = createUnresponsiveSampler(this.mainWindow, 'main');
 
@@ -408,6 +413,14 @@ export class WindowManager {
 
     this.mainWindow.on('close', (event) => {
       this.handleCloseRequest(event);
+    });
+
+    this.mainWindow.on('enter-full-screen', () => {
+      this.sendWindowPresentationState(window, true);
+    });
+
+    this.mainWindow.on('leave-full-screen', () => {
+      this.sendWindowPresentationState(window, false);
     });
 
     this.mainWindow.on('closed', () => {
@@ -487,6 +500,12 @@ export class WindowManager {
       if (this.canDispatchMainWindowCommand(command)) {
         window.webContents.send(ELECTRON_CHANNELS.appCommand, command);
       }
+    }
+  }
+
+  private sendWindowPresentationState(window: BrowserWindow, fullScreen: boolean) {
+    if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
+      window.webContents.send(ELECTRON_CHANNELS.appWindowPresentationStateChanged, { fullScreen });
     }
   }
 

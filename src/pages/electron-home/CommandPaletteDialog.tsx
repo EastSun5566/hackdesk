@@ -15,7 +15,6 @@ import {
   LogOut,
   Palette,
   Share2,
-  Users,
   Trash2,
   Keyboard,
   Moon,
@@ -66,7 +65,7 @@ import {
   getCommandPaletteActions,
   type ElectronActionContext,
 } from '@/lib/electron-actions';
-import type { ElectronActionId, TeamSummary } from '@/lib/electron-api';
+import type { ElectronActionId, TeamSummary, UserSummary } from '@/lib/electron-api';
 import {
   getQuickOpenActionResults,
   getQuickOpenFolderResults,
@@ -85,6 +84,7 @@ import type { ThemeMode, ThemePreset, ThemePresetId } from '@/lib/themes';
 
 import type { CommandPaletteState, WorkspaceScope } from './types';
 import { FOCUS_RING_CLASS } from './ui';
+import { PersonalWorkspaceIcon, TeamWorkspaceIcon } from './WorkspaceIcon';
 
 const COMMAND_ITEM_ICON_CLASS = 'mr-3 text-text-subtle';
 const COMMAND_ITEM_TITLE_CLASS = 'block truncate font-medium text-[color:var(--command-item-title)]';
@@ -280,6 +280,7 @@ export function CommandPaletteDialog({
   folderTree,
   recentNotes,
   teams,
+  user,
   scope,
   selectedNoteId,
   selectedFolderId,
@@ -314,6 +315,7 @@ export function CommandPaletteDialog({
   folderTree: HackmdFolderTree;
   recentNotes: ElectronRecentNote[];
   teams: TeamSummary[];
+  user?: Pick<UserSummary, 'name' | 'username' | 'photo'>;
   scope: WorkspaceScope;
   selectedNoteId: string | null;
   selectedFolderId: string | null;
@@ -509,6 +511,9 @@ export function CommandPaletteDialog({
                 {workspaceResults.map((workspace) => {
                   const selected = workspace.type === scope.type
                     && (workspace.type !== 'team' || (scope.type === 'team' && scope.teamPath === workspace.teamPath));
+                  const team = workspace.type === 'team'
+                    ? teams.find((candidate) => candidate.path === workspace.teamPath)
+                    : undefined;
 
                   return (
                     <CommandItem
@@ -522,9 +527,9 @@ export function CommandPaletteDialog({
                       <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}>
                         {workspace.type === 'history'
                           ? <History className="h-4 w-4" />
-                          : workspace.type === 'team'
-                            ? <Users className="h-4 w-4" />
-                            : <Folder className="h-4 w-4" />}
+                          : team
+                            ? <TeamWorkspaceIcon team={team} className="size-5" testId={`command-palette-team-logo-${team.id}`} />
+                            : <PersonalWorkspaceIcon user={user} className="size-5" testId="command-palette-personal-avatar" />}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className={COMMAND_ITEM_TITLE_CLASS}>{workspace.label}</span>

@@ -301,6 +301,10 @@ export type ThemeSurfaceInput = {
   background: string;
 };
 
+export type WindowPresentationState = {
+  fullScreen: boolean;
+};
+
 export type QuickCaptureShortcutStatus = {
   accelerator: 'Control+Alt+H';
   registered: boolean;
@@ -390,6 +394,8 @@ export type HackDeskElectronAPI = {
     checkForUpdates: () => Promise<CheckForUpdatesResult>;
     setThemeSurface?: (input: ThemeSurfaceInput) => Promise<void>;
     setMenuShortcutsIgnored?: (ignore: boolean) => Promise<void>;
+    getWindowPresentationState?: () => Promise<WindowPresentationState>;
+    onWindowPresentationStateChange?: (callback: (state: WindowPresentationState) => void) => () => void;
     getQuickCaptureShortcutStatus?: () => Promise<QuickCaptureShortcutStatus>;
     submitQuickCapture?: (content: string) => Promise<QuickCaptureSubmitResult>;
     hideQuickCapture?: () => Promise<void>;

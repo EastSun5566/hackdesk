@@ -154,7 +154,7 @@ export function FolderNavigator({
       collapsed={layout.collapsed}
       width={layout.width}
       collapsedWidth={0}
-      className="border-r border-border-default bg-background-muted"
+      className="note-navigator bg-background-muted"
     >
       {layout.collapsed ? null : (
         <ExpandedNavigator
@@ -329,7 +329,7 @@ function NavigatorFilterBar({
       searchScope: 'workspace',
       tagFilters: finderState.tagFilters.includes(tag)
         ? finderState.tagFilters.filter((candidate) => candidate !== tag)
-        : [tag],
+        : [...finderState.tagFilters, tag],
     });
   };
 

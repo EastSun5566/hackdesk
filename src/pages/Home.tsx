@@ -766,6 +766,7 @@ export function Home() {
     onOnboardingConnected: handleOnboardingConnected,
     setOnboardingOpen,
     settings,
+    user,
   });
 
   if (!api) {

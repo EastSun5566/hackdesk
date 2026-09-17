@@ -481,9 +481,9 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
   },
   {
     id: 'toggle-inspector',
-    label: 'Toggle Inspector',
-    description: 'Collapse or expand the note inspector.',
-    keywords: ['metadata', 'right panel'],
+    label: 'Toggle Note Details',
+    description: 'Collapse or expand note details.',
+    keywords: ['metadata', 'details', 'right panel'],
     category: 'view',
     scope: 'inspector',
     getDisabledReason: requireSelectedNote,
@@ -584,8 +584,8 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
   },
   {
     id: 'focus-inspector',
-    label: 'Focus Inspector',
-    description: 'Move keyboard focus to the note inspector.',
+    label: 'Focus Note Details',
+    description: 'Move keyboard focus to note details.',
     keywords: ['metadata', 'right panel'],
     category: 'navigation',
     scope: 'inspector',
@@ -595,7 +595,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
         return noteReason;
       }
 
-      return context.inspectorCollapsed ? 'Open the inspector first.' : null;
+      return context.inspectorCollapsed ? 'Open Note Details first.' : null;
     },
   },
 ];

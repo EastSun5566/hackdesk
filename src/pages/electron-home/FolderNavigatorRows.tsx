@@ -29,7 +29,7 @@ import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { cn } from '@/lib/utils';
 
 import { EntityRow } from './interaction-primitives';
-import { COLLAPSE_ICON_CLASS, FOCUS_RING_CLASS, formatDate, getFolderTotalNoteCount } from './ui';
+import { COLLAPSE_ICON_CLASS, FOCUS_RING_CLASS, formatCompactDate, formatDate, getFolderTotalNoteCount } from './ui';
 import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
@@ -134,12 +134,12 @@ export function NoteRow({
         >
           <EntityRow
             selected={selected}
-            icon={<FileText className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />}
+            icon={draggable ? undefined : <FileText className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />}
             leadingControls={draggable ? (
               <button
                 type="button"
                 className={cn(
-                  '-my-2 flex h-10 w-6 shrink-0 items-center justify-center rounded text-text-subtle opacity-0 transition-opacity hover:text-text-default group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none',
+                  'group/drag-handle -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default',
                   FOCUS_RING_CLASS,
                 )}
                 aria-label={`Drag ${entry.note.title || 'Untitled'}`}
@@ -153,13 +153,18 @@ export function NoteRow({
                 {...dragListeners}
                 aria-disabled={disabledDrag || attributes['aria-disabled']}
               >
-                <GripVertical aria-hidden="true" className="h-3.5 w-3.5" />
+                <FileText aria-hidden="true" className={cn('group-hover/drag-handle:hidden group-focus-visible/drag-handle:hidden', compact ? 'h-3.5 w-3.5' : 'h-4 w-4')} />
+                <GripVertical aria-hidden="true" className="hidden h-3.5 w-3.5 group-hover/drag-handle:block group-focus-visible/drag-handle:block" />
               </button>
             ) : null}
             title={entry.note.title || 'Untitled'}
             subtitle={metadata || entry.note.shortId}
-            trailing={formatDate(entry.note.updatedAtMillis)}
-            trailingClassName="w-[7.25rem] truncate text-right"
+            trailing={(
+              <time title={formatDate(entry.note.updatedAtMillis)} dateTime={entry.note.updatedAtMillis ? new Date(entry.note.updatedAtMillis).toISOString() : undefined}>
+                {formatCompactDate(entry.note.updatedAtMillis)}
+              </time>
+            )}
+            trailingClassName="note-row-date max-w-20 truncate text-right"
             variant={compact ? 'compact' : 'default'}
             active={active}
             contentOnClick={() => onSelect(entry.note)}
@@ -317,8 +322,8 @@ function FolderButton({
                 <button
                   type="button"
                   className={cn(
-                    '-my-2 flex h-10 w-6 shrink-0 items-center justify-center rounded text-text-subtle opacity-0 transition-opacity hover:text-text-default group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none',
-                    disabledDrag && 'opacity-40 hover:text-text-subtle group-hover/entity-row:opacity-40 group-focus-within/entity-row:opacity-40',
+                    'group/drag-handle -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default',
+                    disabledDrag && 'opacity-40 hover:text-text-subtle',
                     FOCUS_RING_CLASS,
                   )}
                   aria-label={`Drag ${node.name}`}
@@ -326,11 +331,13 @@ function FolderButton({
                   {...dragListeners}
                   aria-disabled={disabledDrag || attributes['aria-disabled']}
                 >
-                  <GripVertical aria-hidden="true" className="h-3.5 w-3.5" />
+                  <span className="group-hover/drag-handle:hidden group-focus-visible/drag-handle:hidden">
+                    <FolderGlyph icon={node.icon} color={node.color} open={!collapsed} />
+                  </span>
+                  <GripVertical aria-hidden="true" className="hidden h-3.5 w-3.5 group-hover/drag-handle:block group-focus-visible/drag-handle:block" />
                 </button>
               </span>
             )}
-            icon={<FolderGlyph icon={node.icon} color={node.color} open={!collapsed} />}
             title={node.name}
             trailing={totalNotes}
             contentOnClick={() => onSelect(node.id)}
@@ -578,8 +585,7 @@ export function FolderTreeView({
               {node.notes.length > 0 ? (
                 <ul className="m-0 grid min-w-0 list-none gap-0.5 p-0">
                   {node.notes.map((entry) => (
-                    <li key={`${node.id}:${entry.note.id}`} className="relative min-w-0 pl-5">
-                      <div className="absolute left-[13px] top-1 bottom-1 w-px bg-border-default/70" aria-hidden="true" />
+                    <li key={`${node.id}:${entry.note.id}`} className="relative min-w-0 pl-5 before:absolute before:bottom-0 before:left-[13px] before:top-0 before:w-px before:bg-border-default/70 last:before:bottom-1/2">
                       <NoteRow
                         entry={entry}
                         selected={entry.note.id === selectedNoteId}
@@ -616,7 +622,7 @@ export function FolderTreeView({
   }
 
   return (
-    <ul className="relative m-0 grid min-w-0 list-none gap-0.5 p-0 pl-5 before:absolute before:bottom-1 before:left-[13px] before:top-1 before:w-px before:bg-border-default/70">
+    <ul className="relative m-0 grid min-w-0 list-none gap-0.5 p-0 pl-5 before:absolute before:bottom-5 before:left-[13px] before:top-0 before:w-px before:bg-border-default/70">
       {items}
     </ul>
   );

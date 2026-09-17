@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, FolderTree, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import { Toolbar, ToolbarSeparator } from '@/components/ui/toolbar';
 import { cn } from '@/lib/utils';
@@ -94,10 +94,38 @@ export function AppTopBar({
   onToggleNavigator: () => void;
   onToggleRail: () => void;
 }) {
+  const [fullScreen, setFullScreen] = useState(false);
+
+  useEffect(() => {
+    const appApi = window.hackdeskAPI?.app;
+    if (platform !== 'darwin'
+      || !appApi?.getWindowPresentationState
+      || !appApi.onWindowPresentationStateChange) {
+      return;
+    }
+
+    let active = true;
+    let receivedPresentationEvent = false;
+    void appApi.getWindowPresentationState().then((state) => {
+      if (active && !receivedPresentationEvent) {
+        setFullScreen(state.fullScreen);
+      }
+    });
+    const unsubscribe = appApi.onWindowPresentationStateChange((state) => {
+      receivedPresentationEvent = true;
+      setFullScreen(state.fullScreen);
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [platform]);
+
   return (
     <header className={cn(
       'app-topbar flex h-10 shrink-0 items-center gap-2 border-b border-border-default bg-background-default pr-2',
-      platform === 'darwin' ? 'pl-[86px]' : 'pl-2',
+      platform === 'darwin' && !fullScreen ? 'pl-[86px]' : 'pl-2',
     )}>
       <Toolbar aria-label="Application controls" className="shrink-0">
         <TopBarIconButton

@@ -1,8 +1,6 @@
-import { AlertCircle, Folder, FolderOpen, HardDrive, History, Lock, Settings2 } from 'lucide-react';
-import { useState } from 'react';
+import { AlertCircle, FolderOpen, HardDrive, History, Lock, Settings2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { TeamSummary, UserSummary } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -10,6 +8,7 @@ import { Tooltip } from '@/components/ui/tooltip';
 import { EntityRow, PanelShell } from './interaction-primitives';
 import type { WorkspaceScope } from './types';
 import { RAIL_COLLAPSED_WIDTH } from './ui-preferences';
+import { PersonalWorkspaceIcon, TeamWorkspaceIcon } from './WorkspaceIcon';
 
 function WorkspaceRailButton({
   accessibleLabel,
@@ -60,77 +59,6 @@ export type WorkspaceRailAccountStatus = {
   showingCachedFallback: boolean;
 };
 
-function UserAvatar({
-  user,
-  className,
-  testId,
-}: {
-  user: WorkspaceRailUser;
-  className?: string;
-  testId?: string;
-}) {
-  const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
-
-  if (user.photo && user.photo !== failedPhoto) {
-    return (
-      <Avatar className={cn('size-6 rounded-full text-[10px] font-semibold uppercase', className)}>
-        {/* Base UI Avatar.Image mounts only after the image reports as loaded.
-            Keep this native image mounted immediately so existing tests and fallback
-            handling can observe src/alt/size attributes and dispatch error events. */}
-        <img
-          src={user.photo}
-          alt=""
-          width={24}
-          height={24}
-          className="h-full w-full object-cover"
-          data-testid={testId}
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          onError={() => setFailedPhoto(user.photo)}
-        />
-      </Avatar>
-    );
-  }
-
-  return (
-    <Avatar
-      className={cn('size-6 rounded-full text-[10px] font-semibold uppercase', className)}
-    >
-      <AvatarFallback data-testid={testId}>{getUserInitials(user)}</AvatarFallback>
-    </Avatar>
-  );
-}
-
-function TeamLogo({ team }: { team: TeamSummary }) {
-  const [failedLogo, setFailedLogo] = useState<string | null>(null);
-  const testId = `workspace-rail-team-logo-${team.id}`;
-
-  if (team.logo && team.logo !== failedLogo) {
-    return (
-      <Avatar className="size-6 rounded-[6px] text-[10px] font-semibold uppercase text-text-subtle">
-        {/* Keep the image mounted immediately; see UserAvatar for the Base UI Avatar.Image tradeoff. */}
-        <img
-          src={team.logo}
-          alt=""
-          width={24}
-          height={24}
-          className="h-full w-full object-cover"
-          data-testid={testId}
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          onError={() => setFailedLogo(team.logo)}
-        />
-      </Avatar>
-    );
-  }
-
-  return (
-    <Avatar className="size-6 rounded-[6px] text-[10px] font-semibold uppercase text-text-subtle">
-      <AvatarFallback data-testid={testId}>{team.name.trim().slice(0, 1) || 'T'}</AvatarFallback>
-    </Avatar>
-  );
-}
-
 function AccountSettingsButton({
   collapsed,
   accountStatus,
@@ -149,7 +77,7 @@ function AccountSettingsButton({
   const actionLabel = hasAccountAttention ? `${label}. HackMD account needs attention` : label;
   const tooltipLabel = hasAccountAttention ? 'HackMD account needs attention' : label;
   const icon = user ? (
-    <UserAvatar user={user} testId="workspace-rail-footer-avatar" />
+    <PersonalWorkspaceIcon user={user} testId="workspace-rail-footer-avatar" />
   ) : (
     <Settings2 className="h-4 w-4" />
   );
@@ -225,7 +153,7 @@ export function WorkspaceRail({
       collapsed={collapsed}
       width={width}
       collapsedWidth={RAIL_COLLAPSED_WIDTH}
-      className="border-r border-border-default bg-background-default pt-3"
+      className={cn('bg-background-default pt-3', collapsed && 'border-r border-border-default')}
     >
       <nav aria-label="HackMD workspaces" className="flex min-h-0 flex-1 flex-col">
         <ul
@@ -236,11 +164,7 @@ export function WorkspaceRail({
             <WorkspaceRailButton
               active={scope.type === 'personal'}
               collapsed={collapsed}
-              icon={user ? (
-                <UserAvatar user={user} testId="workspace-rail-personal-avatar" />
-              ) : (
-                <Folder className="h-4 w-4" />
-              )}
+              icon={<PersonalWorkspaceIcon user={user} testId="workspace-rail-personal-avatar" />}
               label="My Workspace"
               onClick={() => onScopeChange({ type: 'personal', label: 'My Workspace' })}
             />
@@ -279,7 +203,7 @@ export function WorkspaceRail({
                     accessibleLabel={isPrivate ? `${team.name}, private` : team.name}
                     active={scope.type === 'team' && scope.teamPath === team.path}
                     collapsed={collapsed}
-                    icon={<TeamLogo team={team} />}
+                    icon={<TeamWorkspaceIcon team={team} testId={`workspace-rail-team-logo-${team.id}`} />}
                     label={team.name}
                     tooltipLabel={isPrivate ? `${team.name} · Private` : team.name}
                     trailing={isPrivate ? (
@@ -331,20 +255,6 @@ export function WorkspaceRail({
       </div>
     </PanelShell>
   );
-}
-
-function getUserInitials(user: WorkspaceRailUser) {
-  const source = user.name.trim() || user.username.trim();
-  if (!source) {
-    return 'U';
-  }
-
-  const parts = source.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[0]?.[0] ?? ''}${parts[parts.length - 1]?.[0] ?? ''}`.toUpperCase();
-  }
-
-  return source.slice(0, 1).toUpperCase();
 }
 
 function getUserDisplayName(user: WorkspaceRailUser) {

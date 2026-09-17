@@ -3,7 +3,7 @@ import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react';
 import { Toast as ToastPrimitive } from '@base-ui/react/toast';
 
 import { cn } from '@/lib/utils';
-import { ELEVATED_SURFACE_CLASS } from './layers';
+import { ELEVATED_SURFACE_CLASS, TOAST_LAYER_CLASS } from './layers';
 
 type ToastVariant = 'success' | 'error' | 'info';
 
@@ -59,7 +59,10 @@ export function Toaster() {
       <ToastPrimitive.Portal>
         <ToastPrimitive.Viewport
           aria-label="Notifications"
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-4 z-50 flex w-[min(360px,calc(100vw-2rem))] max-w-full flex-col gap-2 outline-none"
+          className={cn(
+            'fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-4 flex w-[min(360px,calc(100vw-2rem))] max-w-full flex-col gap-2 outline-none',
+            TOAST_LAYER_CLASS,
+          )}
         >
           <ToastList />
         </ToastPrimitive.Viewport>

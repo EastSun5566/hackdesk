@@ -385,8 +385,8 @@ describe('DocumentDetail', () => {
       },
     });
 
-    expect(screen.queryByRole('button', { name: 'Expand inspector' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Collapse inspector' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Expand note details' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Collapse note details' })).not.toBeInTheDocument();
     expect(screen.queryByText('Share…')).not.toBeInTheDocument();
   });
 
@@ -442,7 +442,7 @@ describe('DocumentDetail', () => {
     });
 
     expect(screen.getByRole('toolbar', { name: 'Document actions' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse inspector' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse note details' }));
 
     expect(screen.getByLabelText('Markdown editor')).toHaveValue('# Hello');
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
@@ -454,7 +454,7 @@ describe('DocumentDetail', () => {
 
     await expectToolbarRovingFocus('Document actions', [
       'Save',
-      'Expand inspector',
+      'Expand note details',
       'More actions',
     ]);
   });

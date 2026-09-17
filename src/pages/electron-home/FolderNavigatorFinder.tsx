@@ -21,7 +21,6 @@ import {
   getNoteFinderOptions,
   hasActiveNoteFinderFilters,
   togglePermissionFilter,
-  toggleStringFilter,
   type NoteFinderSortMode,
   type NoteFinderState,
 } from '@/lib/electron-note-finder';
@@ -210,20 +209,6 @@ export function NoteFinderToolbar({
               ) : null}
             </ToolbarDropdownIconTrigger>
             <DropdownMenuContent align="end" className="max-h-96 min-w-56 overflow-auto">
-              <DropdownMenuLabel>Tags</DropdownMenuLabel>
-              {options.tags.length > 0 ? options.tags.map((tag) => (
-                <DropdownMenuCheckboxItem
-                  key={tag}
-                  checked={state.tagFilters.includes(tag)}
-                  onSelect={(event) => event.preventDefault()}
-                  onCheckedChange={() => updateState({ tagFilters: toggleStringFilter(state.tagFilters, tag) })}
-                >
-                  {tag}
-                </DropdownMenuCheckboxItem>
-              )) : (
-                <DropdownMenuItem disabled>No tags loaded</DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
               <DropdownMenuLabel>Read Permission</DropdownMenuLabel>
               {options.readPermissions.map((permission) => (
                 <DropdownMenuCheckboxItem

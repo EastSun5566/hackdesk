@@ -1,4 +1,4 @@
-import type { ElectronSafeSettings, HackDeskElectronAPI } from '@/lib/electron-api';
+import type { ElectronSafeSettings, HackDeskElectronAPI, UserSummary } from '@/lib/electron-api';
 
 import type { ElectronHomeOverlaysProps } from './ElectronHomeOverlays';
 import type { HomeLocalVaultActions } from './useHomeLocalVaultActions';
@@ -50,6 +50,7 @@ export function useHomeOverlayProps({
   onOnboardingConnected,
   setOnboardingOpen,
   settings,
+  user,
 }: {
   actionContext: WorkbenchActions['actionContext'];
   api: HackDeskElectronAPI | undefined;
@@ -84,6 +85,7 @@ export function useHomeOverlayProps({
   onOnboardingConnected: () => void;
   setOnboardingOpen: (open: boolean) => void;
   settings: ElectronSafeSettings | undefined;
+  user: UserSummary | undefined;
 }): ElectronHomeOverlaysProps {
   return {
     commandPalette: {
@@ -94,6 +96,7 @@ export function useHomeOverlayProps({
       onRunAction: runAction,
       platform: api?.platform ?? navigator.platform,
       shortcuts: settings?.shortcuts,
+      user,
     },
     dialogs: {
       api,

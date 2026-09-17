@@ -106,6 +106,7 @@ const windowManager = {
   cancelClose: vi.fn(),
   confirmClose: vi.fn(),
   getTargetWindow: vi.fn(() => null),
+  getWindowPresentationState: vi.fn(() => ({ fullScreen: true })),
   hideQuickCaptureWindow: vi.fn(),
   isTrustedIpcSender: vi.fn(() => true),
   resolveQuickCaptureSubmission: vi.fn(),
@@ -177,6 +178,14 @@ describe('registerIpcHandlers', () => {
       accelerator: 'Control+Alt+H',
       registered: true,
     });
+  });
+
+  it('exposes the main window presentation state', () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appGetWindowPresentationState);
+
+    expect(handler?.({})).toEqual({ fullScreen: true });
+    expect(windowManager.getWindowPresentationState).toHaveBeenCalledOnce();
   });
 
   it('validates and forwards quick capture submissions', () => {

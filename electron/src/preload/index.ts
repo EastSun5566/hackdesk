@@ -18,6 +18,7 @@ import type {
   UpdateFolderInput,
   UpdateNoteInput,
   UploadNoteImageInput,
+  WindowPresentationState,
 } from '../../../src/lib/electron-api';
 import type {
   LocalVaultChangeEvent,
@@ -149,6 +150,17 @@ const api: HackDeskElectronAPI = {
     setMenuShortcutsIgnored: (ignore: boolean) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.appSetMenuShortcutsIgnored, ignore)
     ),
+    getWindowPresentationState: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appGetWindowPresentationState),
+    onWindowPresentationStateChange: (callback: (state: WindowPresentationState) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, state: WindowPresentationState) => {
+        callback(state);
+      };
+
+      ipcRenderer.on(ELECTRON_CHANNELS.appWindowPresentationStateChanged, listener);
+      return () => {
+        ipcRenderer.removeListener(ELECTRON_CHANNELS.appWindowPresentationStateChanged, listener);
+      };
+    },
     getQuickCaptureShortcutStatus: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appGetQuickCaptureShortcutStatus),
     submitQuickCapture: (content: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.appSubmitQuickCapture, content),
     hideQuickCapture: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appHideQuickCapture),
