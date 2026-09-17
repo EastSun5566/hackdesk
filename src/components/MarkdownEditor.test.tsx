@@ -295,6 +295,14 @@ describe('MarkdownEditor', () => {
     expect(within(searchPanel).getByRole('button', { name: 'Previous match' })).toHaveAttribute('type', 'button');
     expect(within(searchPanel).getByRole('button', { name: 'Next match' })).toHaveAttribute('type', 'button');
     expect(within(searchPanel).getByRole('button', { name: 'Close search' })).toHaveAttribute('type', 'button');
+    expect(getComputedStyle(within(searchPanel).getByRole('textbox', { name: 'Find in note' }))).toMatchObject({
+      height: '32px',
+      borderRadius: '6px',
+    });
+    expect(getComputedStyle(within(searchPanel).getByRole('button', { name: 'Next match' }))).toMatchObject({
+      height: '32px',
+      width: '32px',
+    });
     expect(searchPanel).not.toHaveTextContent(/replace/i);
     expect(searchPanel).not.toHaveTextContent(/match case/i);
     expect(searchPanel).not.toHaveTextContent(/regex/i);
@@ -326,6 +334,7 @@ describe('MarkdownEditor', () => {
 
     expect(content).not.toBeNull();
     await waitFor(() => expect(editor.querySelector('.cm-vim-panel')).toHaveTextContent('NORMAL'));
+    expect(getComputedStyle(editor.querySelector('.cm-vim-panel') as Element).minHeight).toBe('32px');
     expect(editor.querySelector('.cm-editor')).toHaveAttribute('data-editor-mode', 'vim');
     expect(editor.querySelector('.cm-editor')).not.toHaveAttribute('data-editor-mode-loading');
 
@@ -349,7 +358,7 @@ describe('MarkdownEditor', () => {
     const commandPanel = editor.querySelector('.cm-hx-command-panel');
     expect(commandPanel).not.toBeNull();
     expect(commandPanel).not.toBeVisible();
-    expect(getComputedStyle(editor.querySelector('.cm-hx-status-panel') as Element).minHeight).toBe('22px');
+    expect(getComputedStyle(editor.querySelector('.cm-hx-status-panel') as Element).minHeight).toBe('32px');
     expect(editor.querySelector('.cm-editor')).toHaveAttribute('data-editor-mode', 'helix');
     expect(editor.querySelector('.cm-editor')).not.toHaveAttribute('data-editor-mode-loading');
 
@@ -363,6 +372,10 @@ describe('MarkdownEditor', () => {
     fireEvent.keyDown(content as Element, { key: ':', code: 'Semicolon', shiftKey: true });
     await waitFor(() => expect(editor.querySelector('.cm-hx-command-input')).not.toBeNull());
     expect(commandPanel).toBeVisible();
+    expect(getComputedStyle(editor.querySelector('.cm-hx-command-input') as Element)).toMatchObject({
+      height: '32px',
+      borderRadius: '6px',
+    });
   });
 
   it('runs Emacs movement keys without opening HackDesk search', async () => {
@@ -413,7 +426,7 @@ describe('MarkdownEditor', () => {
     });
     expect(statusPanel).toHaveAttribute('role', 'status');
     expect(statusPanel).toHaveAccessibleName('Kakoune mode');
-    expect(getComputedStyle(statusPanel).minHeight).toBe('22px');
+    expect(getComputedStyle(statusPanel).minHeight).toBe('32px');
     expect(editor.querySelector('.cm-editor')).toHaveAttribute('data-kakoune-mode', 'select');
 
     act(() => ref.current?.focus());

@@ -30,7 +30,62 @@ describe('HackMD preview widget theme', () => {
     expect(editorChromeTheme['&']).toHaveProperty('fontSize', 'var(--font-size-ui)');
     expect(editorChromeTheme['.cm-scroller']).toHaveProperty('fontSize', 'var(--font-size-editor)');
     expect(searchPanelTheme['.cm-panel.cm-vim-panel, .cm-panel.cm-hx-status-panel, .cm-panel.cm-hx-command-panel, .cm-panel.cm-kakoune-status-panel'])
-      .toHaveProperty('fontSize', '11px');
+      .toMatchObject({
+        fontFamily: 'var(--font-editor)',
+        minHeight: '32px',
+      });
+    expect(searchPanelTheme['.cm-hackdesk-search-input']).toMatchObject({
+      fontFamily: 'var(--font-sans)',
+      height: '32px',
+    });
+  });
+
+  it('aligns editor chrome controls with shared component states', () => {
+    expect(searchPanelTheme['.cm-hackdesk-search-input']).toMatchObject({
+      border: '1px solid var(--border-default)',
+      borderRadius: '6px',
+      backgroundColor: 'var(--background-default)',
+    });
+    expect(searchPanelTheme['.cm-hackdesk-search-button']).toMatchObject({
+      width: '32px',
+      height: '32px',
+      border: '1px solid var(--border-default)',
+      borderRadius: '6px',
+      backgroundColor: 'var(--background-default)',
+    });
+    expect(searchPanelTheme['.cm-hackdesk-search-button:hover']).toHaveProperty(
+      'backgroundColor',
+      'var(--element-bg-hover)',
+    );
+    expect(searchPanelTheme['.cm-hackdesk-search-button:active']).toHaveProperty(
+      'backgroundColor',
+      'var(--background-selected)',
+    );
+    expect(searchPanelTheme['.cm-hackdesk-search-button:focus-visible'].boxShadow)
+      .toContain('var(--focus-ring)');
+  });
+
+  it('overrides modal editor inputs and popups with semantic surfaces', () => {
+    expect(searchPanelTheme['.cm-hx-command-input']).toMatchObject({
+      height: '32px',
+      border: '1px solid var(--border-default)',
+      borderRadius: '6px',
+      backgroundColor: 'var(--background-default)',
+    });
+    expect(searchPanelTheme['.cm-panel.cm-vim-panel input']).toMatchObject({
+      height: '32px',
+      fontFamily: 'var(--font-editor)',
+      backgroundColor: 'var(--background-default)',
+    });
+    expect(searchPanelTheme['.cm-hx-command-popup']).toMatchObject({
+      border: '1px solid var(--border-default)',
+      borderRadius: '6px',
+      backgroundColor: 'var(--background-default)',
+    });
+    expect(searchPanelTheme['.cm-hx-command-help']).toMatchObject({
+      borderBottom: '1px solid var(--border-default)',
+      backgroundColor: 'var(--background-muted)',
+    });
   });
 
   it('keeps rich block widget spacing inside the measured border box', () => {
