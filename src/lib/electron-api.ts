@@ -21,7 +21,7 @@ import type { AppSettings } from './settings';
 
 export type RuntimeEnvironment = 'electron' | 'web';
 
-export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'editor'> & {
+export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'workspaceNavigation'> & {
   hasHackmdApiToken: boolean;
   hasAppearanceSettings?: boolean;
   hackmdCliConfig: HackmdCliConfigStatus;
@@ -32,7 +32,7 @@ export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'e
   shouldShowHackmdOnboarding: boolean;
 };
 
-export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding'>> & {
+export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation'>> & {
   hackmdApiToken?: string;
 };
 

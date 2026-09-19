@@ -1,4 +1,10 @@
-import type { AppearanceSettings, EditorSettings, OnboardingSettings, ShortcutSettings } from '@/lib/settings';
+import type {
+  AppearanceSettings,
+  EditorSettings,
+  OnboardingSettings,
+  ShortcutSettings,
+  WorkspaceNavigationSettings,
+} from '@/lib/settings';
 
 export type WorkspaceScope =
   | { type: 'local'; label: string }
@@ -41,4 +47,5 @@ export type SettingsFormInput = {
   editor?: EditorSettings;
   shortcuts?: ShortcutSettings;
   onboarding?: OnboardingSettings;
+  workspaceNavigation?: WorkspaceNavigationSettings;
 };

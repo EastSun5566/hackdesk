@@ -99,6 +99,7 @@ describe('IPC runtime validation', () => {
       shortcuts: {
         'open-command-palette': 'mod+j',
       },
+      workspaceNavigation: { pinnedTeamIds: ['team-2', 'team-1'] },
       appearance: {
         theme: 'dark',
         presetId: 'dracula',
@@ -114,6 +115,7 @@ describe('IPC runtime validation', () => {
       onboarding: { hackmdTokenSetupDeferred: true },
       editor: { mode: 'kakoune' },
       shortcuts: { 'open-command-palette': 'mod+j' },
+      workspaceNavigation: { pinnedTeamIds: ['team-2', 'team-1'] },
       appearance: { presetId: 'dracula' },
     });
 
@@ -158,6 +160,12 @@ describe('IPC runtime validation', () => {
         'open-command-palette': 'mod+d',
       },
     })).toThrow(/Invalid/);
+  });
+
+  it('rejects duplicate pinned team IDs in settings updates', () => {
+    expect(() => validateIpcInput('settings:update', settingsUpdateSchema, {
+      workspaceNavigation: { pinnedTeamIds: ['team-1', 'team-1'] },
+    })).toThrow(/Pinned team IDs must be unique/);
   });
 
   it('rejects unsafe theme font stacks in settings updates', () => {

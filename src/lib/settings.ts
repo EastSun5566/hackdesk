@@ -46,6 +46,10 @@ export type EditorSettings = {
 
 export type ShortcutSettings = Partial<Record<ElectronActionId, string>>;
 
+export type WorkspaceNavigationSettings = {
+  pinnedTeamIds: string[] | null;
+};
+
 export const defaultAppearanceSettings: AppearanceSettings = {
   theme: 'system',
   presetId: 'hackmd-neo',
@@ -66,6 +70,10 @@ export const defaultEditorSettings: EditorSettings = {
 };
 
 export const defaultShortcutSettings: ShortcutSettings = {};
+
+export const defaultWorkspaceNavigationSettings: WorkspaceNavigationSettings = {
+  pinnedTeamIds: null,
+};
 
 const hexColorSchema = z.string().regex(/^#[\da-fA-F]{6}$/);
 const customFontStackSchema = z.string().trim().refine((value) => !value || isSafeFontStack(value), {
@@ -93,6 +101,10 @@ const shortcutSettingsSchema = z.record(z.string(), shortcutConfigSchema)
     }
     return shortcuts;
   });
+const pinnedTeamIdsSchema = z.array(z.string().trim().min(1)).nullable().refine(
+  (teamIds) => teamIds === null || new Set(teamIds).size === teamIds.length,
+  'Pinned team IDs must be unique.',
+);
 
 export const appearanceSettingsSchema = z.object({
   theme: z.enum(['dark', 'light', 'system']).default(defaultAppearanceSettings.theme),
@@ -126,6 +138,9 @@ export const settingsSchema = z.object({
     mode: z.enum(['standard', 'emacs', 'vim', 'helix', 'kakoune']).default(defaultEditorSettings.mode),
   }).default(defaultEditorSettings),
   shortcuts: shortcutSettingsSchema,
+  workspaceNavigation: z.object({
+    pinnedTeamIds: pinnedTeamIdsSchema.default(null),
+  }).default(defaultWorkspaceNavigationSettings),
 });
 
 export type AppSettings = z.infer<typeof settingsSchema>;
@@ -138,6 +153,7 @@ export const defaultSettings: AppSettings = {
   localVault: defaultLocalVaultSettings,
   editor: defaultEditorSettings,
   shortcuts: defaultShortcutSettings,
+  workspaceNavigation: defaultWorkspaceNavigationSettings,
 };
 
 export function normalizeAppearanceSettings(

@@ -42,10 +42,13 @@ function renderWorkspaceRail(overrides: Partial<Parameters<typeof WorkspaceRail>
     teams: [],
     collapsed: false,
     localVaultConfigured: false,
+    platform: 'darwin',
+    pinnedTeamIds: null,
     width: 72,
     onChooseLocalVault: vi.fn(),
     onScopeChange: vi.fn(),
     onOpenSettings: vi.fn(),
+    onPinnedTeamIdsChange: vi.fn(),
     ...overrides,
   };
 
@@ -85,13 +88,11 @@ describe('WorkspaceRail', () => {
     renderWorkspaceRail({ teams: [selectedTeam] });
 
     const rail = screen.getByRole('complementary', { name: 'Workspace switcher' });
-    expect(within(rail).getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual([
-      'My Workspace',
-      'History',
-      selectedTeam.name,
-      'Open local folder',
-      'Open settings',
-    ]);
+    const personalButton = within(rail).getByRole('button', { name: 'My Workspace' });
+    const teamButton = within(rail).getByRole('button', { name: selectedTeam.name });
+    const historyButton = within(rail).getByRole('button', { name: 'History' });
+    expect(personalButton.compareDocumentPosition(teamButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(teamButton.compareDocumentPosition(historyButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     const teamList = screen.getByTestId('workspace-rail-team-list');
     const utilities = screen.getByTestId('workspace-rail-utilities');
@@ -101,18 +102,28 @@ describe('WorkspaceRail', () => {
     expect(utilities).toContainElement(screen.getByRole('button', { name: 'Open settings' }));
   });
 
+  it('keeps team navigation scrollable without moving the utilities', () => {
+    renderWorkspaceRail({ teams: [team()] });
+
+    const teamNavigation = screen.getByTestId('workspace-rail-team-navigation');
+    const utilities = screen.getByTestId('workspace-rail-utilities');
+    expect(teamNavigation).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto');
+    expect(teamNavigation).toContainElement(screen.getByTestId('workspace-rail-team-list'));
+    expect(teamNavigation).not.toContainElement(utilities);
+  });
+
   it('exposes primary and team navigation as semantic lists', () => {
     const selectedTeam = team();
     renderWorkspaceRail({ teams: [selectedTeam] });
 
     const primaryList = screen.getByRole('list', { name: 'HackMD navigation' });
     const navigation = screen.getByRole('navigation', { name: 'HackMD workspaces' });
-    const teamsHeading = screen.getByRole('heading', { level: 2, name: 'Teams' });
-    const teamsList = screen.getByRole('list', { name: 'Teams' });
+    const teamsHeading = screen.getByRole('heading', { level: 2, name: 'Pinned' });
+    const teamsList = screen.getByRole('list', { name: 'Pinned' });
 
     expect(navigation).toContainElement(primaryList);
     expect(navigation).toContainElement(teamsList);
-    expect(within(primaryList).getAllByRole('listitem')).toHaveLength(2);
+    expect(within(primaryList).getAllByRole('listitem')).toHaveLength(1);
     expect(teamsHeading).toBeVisible();
     expect(within(teamsList).getAllByRole('listitem')).toHaveLength(1);
     expect(teamsList).toHaveAttribute('aria-labelledby', teamsHeading.id);
@@ -248,9 +259,64 @@ describe('WorkspaceRail', () => {
     fireEvent.pointerEnter(privateTeamButton, { pointerType: 'mouse' });
     fireEvent.mouseEnter(privateTeamButton);
 
-    expect(await screen.findByText(`${privateTeam.name} · Private`)).toBeVisible();
-    expect(screen.queryByRole('heading', { name: 'Teams' })).not.toBeInTheDocument();
-    expect(screen.getByRole('list', { name: 'Teams' })).toBeInTheDocument();
+    expect(await screen.findByText(`${privateTeam.name} · Private · ⌘2`)).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Pinned' })).not.toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Pinned teams' })).toBeInTheDocument();
+  });
+
+  it('keeps explicitly unpinned teams in More and lets users pin them', () => {
+    const pinnedTeam = team({ id: 'team-1', name: 'Pinned Team', path: 'pinned' });
+    const moreTeam = team({ id: 'team-2', name: 'More Team', path: 'more' });
+    const props = renderWorkspaceRail({
+      teams: [pinnedTeam, moreTeam],
+      pinnedTeamIds: ['team-1'],
+    });
+
+    expect(screen.queryByRole('button', { name: 'More Team' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    expect(screen.getByRole('button', { name: 'More Team' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Pin More Team' }));
+
+    expect(props.onPinnedTeamIdsChange).toHaveBeenCalledWith(['team-1', 'team-2']);
+  });
+
+  it('automatically opens More when the selected team is unpinned', () => {
+    const pinnedTeam = team({ id: 'team-1', name: 'Pinned Team', path: 'pinned' });
+    const selectedTeam = team({ id: 'team-2', name: 'Selected Team', path: 'selected' });
+    renderWorkspaceRail({
+      scope: { type: 'team', label: selectedTeam.name, teamPath: selectedTeam.path },
+      teams: [pinnedTeam, selectedTeam],
+      pinnedTeamIds: ['team-1'],
+    });
+
+    expect(screen.getByRole('button', { name: 'More' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Selected Team' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('supports unpinning and exposes keyboard reorder controls', () => {
+    const firstTeam = team({ id: 'team-1', name: 'First Team', path: 'first' });
+    const secondTeam = team({ id: 'team-2', name: 'Second Team', path: 'second' });
+    const props = renderWorkspaceRail({ teams: [firstTeam, secondTeam] });
+
+    expect(screen.getByRole('button', { name: 'Reorder First Team' })).toHaveAttribute('tabindex', '0');
+    fireEvent.click(screen.getByRole('button', { name: 'Unpin First Team' }));
+    expect(props.onPinnedTeamIdsChange).toHaveBeenCalledWith(['team-2']);
+  });
+
+  it('labels workspace shortcuts and shows position hints only while the primary modifier is held', () => {
+    const selectedTeam = team();
+    renderWorkspaceRail({ teams: [selectedTeam] });
+
+    expect(screen.getByRole('button', { name: 'My Workspace' })).toHaveAttribute('aria-keyshortcuts', 'Meta+1');
+    expect(screen.getByRole('button', { name: selectedTeam.name })).toHaveAttribute('aria-keyshortcuts', 'Meta+2');
+    expect(screen.queryByText('1')).not.toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'Meta' });
+    expect(screen.getByText('1')).toBeVisible();
+    expect(screen.getByText('2')).toBeVisible();
+    fireEvent.blur(window);
+    expect(screen.queryByText('1')).not.toBeInTheDocument();
+    expect(screen.queryByText('2')).not.toBeInTheDocument();
   });
 
   it('uses the account footer as the settings entry without showing a Settings label', () => {

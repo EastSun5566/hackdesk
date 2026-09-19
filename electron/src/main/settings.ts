@@ -37,6 +37,7 @@ function toSafeSettings(
     appearance: settings.appearance,
     editor: settings.editor,
     shortcuts: settings.shortcuts,
+    workspaceNavigation: settings.workspaceNavigation,
     hasHackmdApiToken,
     hasAppearanceSettings: hasStoredAppearance,
     hasLocalVault,
@@ -143,6 +144,7 @@ export async function updateStoredSettings(
     appearance: update.appearance ?? current.appearance,
     editor: update.editor ?? current.editor,
     shortcuts: update.shortcuts ?? current.shortcuts,
+    workspaceNavigation: update.workspaceNavigation ?? current.workspaceNavigation,
     onboarding: nextOnboarding,
     localVault: update.localVaultPath !== undefined ? { path: update.localVaultPath } : current.localVault,
   });

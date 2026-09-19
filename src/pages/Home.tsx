@@ -61,6 +61,7 @@ import {
   getInitialWorkspaceScope,
   useWorkbenchWorkspaceState,
 } from './electron-home/useWorkbenchWorkspaceState';
+import { getWorkspaceNavigationTeams } from './electron-home/workspace-navigation';
 
 export function Home() {
   const { presets, presetId, resolvedMode, setPresetId, setTheme, theme } = useTheme();
@@ -471,7 +472,6 @@ export function Home() {
 
   const {
     confirmCloseUnsafeTabs,
-    focusTabAtIndex,
     requestCloseOtherTabs,
     requestCloseTab,
     requestCloseTabsToRight,
@@ -493,19 +493,6 @@ export function Home() {
     tabs: noteWorkspace.state.tabs,
     visibleEntries,
   });
-
-  const notePanes = noteWorkspace.state.panes;
-  const focusNotePane = noteWorkspace.focusPane;
-  const focusPaneAtIndex = useCallback((paneIndex: number) => {
-    const pane = notePanes[paneIndex];
-    if (!pane) {
-      return false;
-    }
-
-    focusNotePane(pane.paneId);
-    focusZone('editor');
-    return true;
-  }, [focusNotePane, focusZone, notePanes]);
 
   const actionHandlers = useWorkbenchActionHandlers({
     activePaneId: noteWorkspace.state.activePaneId,
@@ -628,15 +615,31 @@ export function Home() {
     setOnboardingOpen(true);
   }, [setOnboardingOpen]);
 
+  const workspaceNavigation = useMemo(() => getWorkspaceNavigationTeams(
+    teams,
+    settings?.workspaceNavigation?.pinnedTeamIds ?? null,
+  ), [settings?.workspaceNavigation?.pinnedTeamIds, teams]);
+  const switchWorkspaceAtIndex = useCallback((workspaceIndex: number) => {
+    if (workspaceIndex === 0) {
+      switchWorkspaceScope({ type: 'personal', label: 'My Workspace' });
+      return true;
+    }
+
+    const team = workspaceNavigation.pinnedTeams[workspaceIndex - 1];
+    if (!team || workspaceIndex > 8) {
+      return false;
+    }
+
+    switchWorkspaceScope({ type: 'team', label: team.name, teamPath: team.path });
+    return true;
+  }, [switchWorkspaceScope, workspaceNavigation.pinnedTeams]);
+
   useWorkbenchShortcuts({
     activeFinderState,
     closeTransientLayer,
-    focusPaneAtIndex,
-    focusTabAtIndex,
     handleCreateNote: folderCommands.handleCreateNote,
     noteDirty,
     openPalette,
-    paneCount: noteWorkspace.state.panes.length,
     platform: api?.platform ?? navigator.platform,
     refreshWorkspace,
     runAction,
@@ -644,6 +647,7 @@ export function Home() {
     setFinderState,
     setSelectedFolderId,
     shortcuts: settings?.shortcuts,
+    switchWorkspaceAtIndex,
   });
 
   const homeStatus = useElectronHomeStatus({
@@ -706,6 +710,7 @@ export function Home() {
     setNavigatorWidth,
     setRailWidth,
     setSettingsOpen,
+    settings,
     shareOpen,
     tabLifecycle: {
       requestCloseOtherTabs,
