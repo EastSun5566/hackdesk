@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { toast } from '@/components/ui/toast';
-import type { DocumentSummary, HackDeskElectronAPI } from '@/lib/electron-api';
+import type { DocumentSummary, ElectronSafeSettings, HackDeskElectronAPI } from '@/lib/electron-api';
 import type { LocalDocument, LocalVaultSnapshot } from '@/lib/local-vault';
 
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
@@ -246,5 +246,39 @@ describe('useElectronNoteMutations draft save', () => {
 
     expect(onDraftNoteCreated).not.toHaveBeenCalled();
     expect(toast.error).toHaveBeenCalledWith('Network failed');
+  });
+});
+
+describe('useElectronNoteMutations settings updates', () => {
+  it('serializes consecutive settings writes', async () => {
+    const savedSettings = { hasHackmdApiToken: false } as ElectronSafeSettings;
+    let resolveFirst!: (settings: ElectronSafeSettings) => void;
+    const firstUpdate = new Promise<ElectronSafeSettings>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const update = vi.fn()
+      .mockImplementationOnce(() => firstUpdate)
+      .mockResolvedValueOnce(savedSettings);
+    const api = { settings: { update } } as unknown as HackDeskElectronAPI;
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useElectronNoteMutations(createOptions({
+      api,
+      scope: { type: 'personal', label: 'My Workspace' },
+    })), { wrapper: Wrapper });
+    const firstInput = { workspaceNavigation: { pinnedTeamIds: ['team-1'] } };
+    const secondInput = { workspaceNavigation: { pinnedTeamIds: ['team-2'] } };
+
+    act(() => {
+      result.current.updateSettingsMutation.mutate(firstInput);
+      result.current.updateSettingsMutation.mutate(secondInput);
+    });
+
+    await waitFor(() => expect(update).toHaveBeenCalledOnce());
+    expect(update).toHaveBeenCalledWith(firstInput);
+
+    resolveFirst(savedSettings);
+
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
+    expect(update).toHaveBeenNthCalledWith(2, secondInput);
   });
 });

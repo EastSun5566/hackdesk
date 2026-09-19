@@ -164,7 +164,7 @@ export function useHomeWorkspaceProps({
       scope: displayScope,
       user,
       teams,
-      platform: window.hackdeskAPI?.platform ?? 'unknown',
+      platform: window.hackdeskAPI?.platform ?? window.navigator.platform,
       pinnedTeamIds: settings?.workspaceNavigation?.pinnedTeamIds ?? null,
       collapsed: railCollapsed,
       accountStatus: homeStatus.accountStatus,

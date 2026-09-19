@@ -231,6 +231,7 @@ export function useElectronNoteMutations({
   }, [api, scope]);
 
   const updateSettingsMutation = useMutation({
+    scope: { id: 'settings' },
     mutationFn: (input: SettingsFormInput) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');

@@ -102,6 +102,16 @@ describe('WorkspaceRail', () => {
     expect(utilities).toContainElement(screen.getByRole('button', { name: 'Open settings' }));
   });
 
+  it('keeps team navigation scrollable without moving the utilities', () => {
+    renderWorkspaceRail({ teams: [team()] });
+
+    const teamNavigation = screen.getByTestId('workspace-rail-team-navigation');
+    const utilities = screen.getByTestId('workspace-rail-utilities');
+    expect(teamNavigation).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto');
+    expect(teamNavigation).toContainElement(screen.getByTestId('workspace-rail-team-list'));
+    expect(teamNavigation).not.toContainElement(utilities);
+  });
+
   it('exposes primary and team navigation as semantic lists', () => {
     const selectedTeam = team();
     renderWorkspaceRail({ teams: [selectedTeam] });

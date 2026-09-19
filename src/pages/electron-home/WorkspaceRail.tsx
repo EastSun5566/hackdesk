@@ -406,7 +406,7 @@ function MoreTeamsSection({
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto px-2 pb-3 pt-1">
+    <div className="px-2 pb-3 pt-1">
       <button
         type="button"
         aria-expanded={isOpen}
@@ -510,29 +510,31 @@ export function WorkspaceRail({
           </li>
         </ul>
 
-        <PinnedTeamsSection
-          collapsed={collapsed}
-          headingId={teamsHeadingId}
-          navigation={navigation}
-          onPinnedTeamIdsChange={onPinnedTeamIdsChange}
-          onScopeChange={onScopeChange}
-          pinnedTeamIds={pinnedTeamIds}
-          platform={platform}
-          scope={scope}
-          showShortcutHints={showShortcutHints}
-          teams={teams}
-        />
-        <MoreTeamsSection
-          collapsed={collapsed}
-          listId={moreListId}
-          navigation={navigation}
-          onPinnedTeamIdsChange={onPinnedTeamIdsChange}
-          onScopeChange={onScopeChange}
-          pinnedTeamIds={pinnedTeamIds}
-          platform={platform}
-          scope={scope}
-          teams={teams}
-        />
+        <div data-testid="workspace-rail-team-navigation" className="min-h-0 flex-1 overflow-y-auto">
+          <PinnedTeamsSection
+            collapsed={collapsed}
+            headingId={teamsHeadingId}
+            navigation={navigation}
+            onPinnedTeamIdsChange={onPinnedTeamIdsChange}
+            onScopeChange={onScopeChange}
+            pinnedTeamIds={pinnedTeamIds}
+            platform={platform}
+            scope={scope}
+            showShortcutHints={showShortcutHints}
+            teams={teams}
+          />
+          <MoreTeamsSection
+            collapsed={collapsed}
+            listId={moreListId}
+            navigation={navigation}
+            onPinnedTeamIdsChange={onPinnedTeamIdsChange}
+            onScopeChange={onScopeChange}
+            pinnedTeamIds={pinnedTeamIds}
+            platform={platform}
+            scope={scope}
+            teams={teams}
+          />
+        </div>
       </nav>
 
       <div data-testid="workspace-rail-utilities" className="space-y-1 border-t border-border-default p-2">
