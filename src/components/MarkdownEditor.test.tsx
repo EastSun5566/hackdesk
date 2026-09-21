@@ -108,10 +108,34 @@ describe('MarkdownEditor', () => {
     const { rerender } = render(<MarkdownEditor ref={ref} value="# First" onChange={vi.fn()} />);
 
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe('# First'));
+    const codeMirror = screen.getByTestId('hackmd-markdown-editor').querySelector('.cm-editor');
 
     rerender(<MarkdownEditor ref={ref} value="# Second" onChange={vi.fn()} />);
 
     await waitFor(() => expect(ref.current?.getMarkdown()).toBe('# Second'));
+    expect(screen.getByTestId('hackmd-markdown-editor').querySelector('.cm-editor')).toBe(codeMirror);
+  });
+
+  it('does not undo into the previous document after the editor identity changes', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const { rerender } = render(
+      <MarkdownEditor key="tab-a" ref={ref} value="# First note" onChange={vi.fn()} />,
+    );
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe('# First note'));
+    act(() => {
+      ref.current?.insertText('Edited ');
+    });
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe('Edited # First note'));
+
+    rerender(<MarkdownEditor key="tab-b" ref={ref} value="# Second note" onChange={vi.fn()} />);
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe('# Second note'));
+
+    const content = screen.getByTestId('hackmd-markdown-editor').querySelector('.cm-content');
+    expect(content).not.toBeNull();
+    fireEvent.keyDown(content as Element, { code: 'KeyZ', ctrlKey: true, key: 'z' });
+
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe('# Second note'));
   });
 
   it('reveals initial text without changing markdown', async () => {

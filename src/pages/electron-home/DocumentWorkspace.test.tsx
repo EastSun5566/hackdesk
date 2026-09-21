@@ -7,20 +7,32 @@ import { DocumentWorkspace, type DocumentPaneView } from './DocumentWorkspace';
 import type { DocumentDetailProps } from './DocumentDetail';
 import type { NotePane } from './note-workspace';
 
-vi.mock('./DocumentDetail', () => ({
-  DocumentDetail: ({ documentState, layout }: DocumentDetailProps) => (
-    <article
-      data-testid={`document-detail-${documentState.title}`}
-      data-attach-request={layout.attachImageRequestId}
-      data-focus-request={layout.focusRequestId}
-      data-focus-zone={layout.focusZone ?? undefined}
-      data-inspector-collapsed={String(layout.inspectorCollapsed)}
-      data-search-request={layout.searchRequestId}
-      data-share-open={String(layout.shareOpen)}
-      tabIndex={0}
-    />
-  ),
-}));
+const documentDetailMounts = vi.hoisted(() => ({ nextId: 0 }));
+
+vi.mock('./DocumentDetail', async () => {
+  const { useState } = await import('react');
+
+  return {
+    DocumentDetail: ({ documentState, editorKey, layout }: DocumentDetailProps) => {
+      const [mountId] = useState(() => ++documentDetailMounts.nextId);
+
+      return (
+        <article
+          data-testid={`document-detail-${documentState.title}`}
+          data-attach-request={layout.attachImageRequestId}
+          data-focus-request={layout.focusRequestId}
+          data-focus-zone={layout.focusZone ?? undefined}
+          data-inspector-collapsed={String(layout.inspectorCollapsed)}
+          data-editor-key={editorKey}
+          data-mount-id={mountId}
+          data-search-request={layout.searchRequestId}
+          data-share-open={String(layout.shareOpen)}
+          tabIndex={0}
+        />
+      );
+    },
+  };
+});
 
 function pane(paneId: string, tabIds: string[], activeTabId = tabIds[0], size = 50): NotePane {
   return {
@@ -56,7 +68,7 @@ function createView(candidate: NotePane): DocumentPaneView {
   };
 }
 
-function renderWorkspace(overrides: Partial<Parameters<typeof DocumentWorkspace>[0]> = {}) {
+function createWorkspaceProps(overrides: Partial<Parameters<typeof DocumentWorkspace>[0]> = {}) {
   const panes = [
     pane('pane-a', ['tab-a'], 'tab-a', 48),
     pane('pane-b', ['tab-b'], 'tab-b', 52),
@@ -93,6 +105,12 @@ function renderWorkspace(overrides: Partial<Parameters<typeof DocumentWorkspace>
     shareOpen: true,
     ...overrides,
   };
+
+  return props;
+}
+
+function renderWorkspace(overrides: Partial<Parameters<typeof DocumentWorkspace>[0]> = {}) {
+  const props = createWorkspaceProps(overrides);
 
   render(<DocumentWorkspace {...props} />);
 
@@ -144,6 +162,63 @@ describe('DocumentWorkspace', () => {
     expect(activeDetail).toHaveAttribute('data-attach-request', '7');
     expect(activeDetail).toHaveAttribute('data-share-open', 'true');
     expect(activeDetail).toHaveAttribute('data-inspector-collapsed', 'false');
+  });
+
+  it('changes the editor identity without remounting document controls when the active tab changes', () => {
+    const firstPane = pane('pane-a', ['tab-a', 'tab-b'], 'tab-a', 100);
+    const props = createWorkspaceProps({ activePaneId: 'pane-a', panes: [firstPane] });
+    const { rerender } = render(<DocumentWorkspace {...props} />);
+    const firstDetail = screen.getByTestId('document-detail-Left note');
+    const firstMountId = firstDetail.getAttribute('data-mount-id');
+    expect(firstDetail).toHaveAttribute('data-editor-key', 'tab-a');
+
+    const secondPane = pane('pane-a', ['tab-a', 'tab-b'], 'tab-b', 100);
+    rerender(<DocumentWorkspace {...props} panes={[secondPane]} />);
+
+    expect(screen.getByTestId('document-detail-Left note'))
+      .toHaveAttribute('data-mount-id', firstMountId);
+    expect(screen.getByTestId('document-detail-Left note')).toHaveAttribute('data-editor-key', 'tab-b');
+  });
+
+  it('keeps the document detail mounted for updates within the same tab', () => {
+    const activePane = pane('pane-a', ['tab-a'], 'tab-a', 100);
+    const props = createWorkspaceProps({ activePaneId: 'pane-a', panes: [activePane] });
+    const { rerender } = render(<DocumentWorkspace {...props} />);
+    const firstMountId = screen.getByTestId('document-detail-Left note').getAttribute('data-mount-id');
+
+    rerender(
+      <DocumentWorkspace
+        {...props}
+        getPaneView={(candidate) => ({ ...createView(candidate), content: 'Updated content' })}
+      />,
+    );
+
+    expect(screen.getByTestId('document-detail-Left note')).toHaveAttribute('data-mount-id', firstMountId);
+  });
+
+  it('keeps the document detail mounted when a draft materializes in place', () => {
+    const activePane = pane('pane-a', ['draft-tab'], 'draft-tab', 100);
+    const draftView = createView(activePane);
+    const props = createWorkspaceProps({
+      activePaneId: 'pane-a',
+      getPaneView: () => ({ ...draftView, isDraft: true }),
+      panes: [activePane],
+    });
+    const { rerender } = render(<DocumentWorkspace {...props} />);
+    const firstMountId = screen.getByTestId('document-detail-Left note').getAttribute('data-mount-id');
+
+    rerender(
+      <DocumentWorkspace
+        {...props}
+        getPaneView={() => ({
+          ...draftView,
+          activeTab: draftView.activeTab && { ...draftView.activeTab, noteId: 'saved-note' },
+          isDraft: false,
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('document-detail-Left note')).toHaveAttribute('data-mount-id', firstMountId);
   });
 
   it('keeps pane focus wiring unchanged', () => {
