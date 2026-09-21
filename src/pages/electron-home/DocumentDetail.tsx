@@ -109,6 +109,7 @@ export type DocumentDetailActions = {
 export type DocumentDetailProps = {
   actions: DocumentDetailActions;
   documentState: DocumentDetailDocumentState;
+  editorKey: string;
   editorMode: EditorMode;
   folderTree: FolderTree;
   layout: DocumentDetailLayout;
@@ -198,6 +199,7 @@ function getDocumentHeaderSubtitleParts(document: DocumentSummary, isLocalDocume
 export function DocumentDetail({
   actions,
   documentState,
+  editorKey,
   editorMode,
   folderTree,
   layout,
@@ -222,6 +224,7 @@ export function DocumentDetail({
     <ActiveDocumentDetail
       actions={actions}
       documentState={documentState}
+      editorKey={editorKey}
       editorMode={editorMode}
       focusZone={focusZone}
       folderTree={folderTree}
@@ -275,6 +278,7 @@ function EmptyDocumentDetail() {
 function ActiveDocumentDetail({
   actions,
   documentState,
+  editorKey,
   editorMode,
   focusZone,
   folderTree,
@@ -283,6 +287,7 @@ function ActiveDocumentDetail({
 }: {
   actions: DocumentDetailActions;
   documentState: DocumentDetailDocumentState;
+  editorKey: string;
   editorMode: EditorMode;
   focusZone?: string;
   folderTree: FolderTree;
@@ -423,6 +428,7 @@ function ActiveDocumentDetail({
 
       <div className="flex min-h-0 flex-1">
         <DocumentBody
+          key={editorKey}
           content={documentState.content}
           document={documentState.document}
           editorMode={editorMode}

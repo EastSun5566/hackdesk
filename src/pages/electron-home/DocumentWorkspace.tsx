@@ -145,7 +145,7 @@ export function DocumentWorkspace({
                 onFocusCapture={() => onFocusPane(pane.paneId)}
               >
                 <DocumentDetail
-                  key={view.activeTab?.tabId ?? `${pane.paneId}:empty`}
+                  editorKey={view.activeTab?.tabId ?? `${pane.paneId}:empty`}
                   editorMode={editorMode}
                   folderTree={folderTree}
                   documentState={{

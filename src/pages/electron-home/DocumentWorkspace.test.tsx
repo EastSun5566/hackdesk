@@ -13,7 +13,7 @@ vi.mock('./DocumentDetail', async () => {
   const { useState } = await import('react');
 
   return {
-    DocumentDetail: ({ documentState, layout }: DocumentDetailProps) => {
+    DocumentDetail: ({ documentState, editorKey, layout }: DocumentDetailProps) => {
       const [mountId] = useState(() => ++documentDetailMounts.nextId);
 
       return (
@@ -23,6 +23,7 @@ vi.mock('./DocumentDetail', async () => {
           data-focus-request={layout.focusRequestId}
           data-focus-zone={layout.focusZone ?? undefined}
           data-inspector-collapsed={String(layout.inspectorCollapsed)}
+          data-editor-key={editorKey}
           data-mount-id={mountId}
           data-search-request={layout.searchRequestId}
           data-share-open={String(layout.shareOpen)}
@@ -163,16 +164,20 @@ describe('DocumentWorkspace', () => {
     expect(activeDetail).toHaveAttribute('data-inspector-collapsed', 'false');
   });
 
-  it('remounts the document detail when the active tab changes in the same pane', () => {
+  it('changes the editor identity without remounting document controls when the active tab changes', () => {
     const firstPane = pane('pane-a', ['tab-a', 'tab-b'], 'tab-a', 100);
     const props = createWorkspaceProps({ activePaneId: 'pane-a', panes: [firstPane] });
     const { rerender } = render(<DocumentWorkspace {...props} />);
-    const firstMountId = screen.getByTestId('document-detail-Left note').getAttribute('data-mount-id');
+    const firstDetail = screen.getByTestId('document-detail-Left note');
+    const firstMountId = firstDetail.getAttribute('data-mount-id');
+    expect(firstDetail).toHaveAttribute('data-editor-key', 'tab-a');
 
     const secondPane = pane('pane-a', ['tab-a', 'tab-b'], 'tab-b', 100);
     rerender(<DocumentWorkspace {...props} panes={[secondPane]} />);
 
-    expect(screen.getByTestId('document-detail-Left note')).not.toHaveAttribute('data-mount-id', firstMountId);
+    expect(screen.getByTestId('document-detail-Left note'))
+      .toHaveAttribute('data-mount-id', firstMountId);
+    expect(screen.getByTestId('document-detail-Left note')).toHaveAttribute('data-editor-key', 'tab-b');
   });
 
   it('keeps the document detail mounted for updates within the same tab', () => {

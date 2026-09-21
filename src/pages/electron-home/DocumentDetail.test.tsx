@@ -15,6 +15,8 @@ import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { formatDate } from './ui';
 
 const markdownEditorInsertText = vi.hoisted(() => vi.fn());
+const markdownEditorOpenSearch = vi.hoisted(() => vi.fn());
+const markdownEditorMounts = vi.hoisted(() => ({ nextId: 0 }));
 
 vi.mock('@/components/MarkdownEditor', async () => {
   const React = await import('react');
@@ -26,12 +28,14 @@ vi.mock('@/components/MarkdownEditor', async () => {
       onChange: (value: string) => void;
       value: string;
     }, ref) => {
+      const [mountId] = React.useState(() => ++markdownEditorMounts.nextId);
+
       React.useImperativeHandle(ref, () => ({
         focus: vi.fn(),
         getContentDOM: vi.fn(() => null),
         getMarkdown: vi.fn(() => props.value),
         insertText: markdownEditorInsertText,
-        openSearch: vi.fn(),
+        openSearch: markdownEditorOpenSearch,
       }));
 
       return (
@@ -39,6 +43,7 @@ vi.mock('@/components/MarkdownEditor', async () => {
           <textarea
             aria-label="Markdown editor"
             data-editor-mode={props.editorMode}
+            data-mount-id={mountId}
             value={props.value}
             onChange={(event) => props.onChange(event.target.value)}
           />
@@ -116,6 +121,7 @@ function renderDocumentDetail(overrides: Partial<DocumentDetailProps> = {}) {
       syncState: 'idle',
       title: document.title,
     },
+    editorKey: 'tab-1',
     editorMode: 'standard',
     folderTree: buildHackmdFolderTree([]),
     layout: {
@@ -144,18 +150,28 @@ function renderDocumentDetail(overrides: Partial<DocumentDetailProps> = {}) {
     status: { ...props.status, ...overrides.status },
   };
 
-  render(
+  const renderResult = render(
     <TooltipProvider>
       <DocumentDetail {...mergedProps} />
     </TooltipProvider>,
   );
 
-  return mergedProps;
+  return {
+    ...renderResult,
+    props: mergedProps,
+    rerenderDocumentDetail: (nextProps: DocumentDetailProps) => renderResult.rerender(
+      <TooltipProvider>
+        <DocumentDetail {...nextProps} />
+      </TooltipProvider>,
+    ),
+  };
 }
 
 describe('DocumentDetail', () => {
   beforeEach(() => {
     markdownEditorInsertText.mockClear();
+    markdownEditorOpenSearch.mockClear();
+    markdownEditorMounts.nextId = 0;
   });
 
   it('renders loading and empty branches explicitly', () => {
@@ -175,6 +191,27 @@ describe('DocumentDetail', () => {
     renderDocumentDetail({ editorMode: 'vim' });
 
     expect(screen.getByLabelText('Markdown editor')).toHaveAttribute('data-editor-mode', 'vim');
+  });
+
+  it('resets only the editor when its identity changes without replaying consumed commands', () => {
+    const inputClick = vi.spyOn(HTMLInputElement.prototype, 'click');
+    const { props, rerenderDocumentDetail } = renderDocumentDetail({
+      layout: {
+        attachImageRequestId: 1,
+        searchRequestId: 1,
+      },
+    });
+    const firstMountId = screen.getByLabelText('Markdown editor').getAttribute('data-mount-id');
+
+    expect(markdownEditorOpenSearch).toHaveBeenCalledTimes(1);
+    expect(inputClick).toHaveBeenCalledTimes(1);
+
+    rerenderDocumentDetail({ ...props, editorKey: 'tab-2' });
+
+    expect(screen.getByLabelText('Markdown editor')).not.toHaveAttribute('data-mount-id', firstMountId);
+    expect(markdownEditorOpenSearch).toHaveBeenCalledTimes(1);
+    expect(inputClick).toHaveBeenCalledTimes(1);
+    inputClick.mockRestore();
   });
 
   it('saves dirty title and content through the structured actions', () => {
