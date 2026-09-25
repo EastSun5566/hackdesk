@@ -25,6 +25,7 @@ import {
   renameLocalNote,
   scanLocalVault,
   trashLocalNote,
+  watchLocalVault,
   writeLocalNote,
 } from './local-vault-service';
 
@@ -220,6 +221,33 @@ describe('LocalVaultService', () => {
     expect(finalSnapshot.notes).toContainEqual(expect.objectContaining({
       title: 'After failure',
     }));
+  });
+
+  it('refreshes once after filesystem events arrive while the watcher is paused', async () => {
+    let notify: ((eventType: string, filename: string | Buffer | null) => void) | undefined;
+    let resolveChange!: (snapshot: Awaited<ReturnType<typeof scanLocalVault>>) => void;
+    const changed = new Promise<Awaited<ReturnType<typeof scanLocalVault>>>((resolve) => {
+      resolveChange = resolve;
+    });
+    const close = vi.fn();
+    const watcher = watchLocalVault(
+      vaultPath,
+      resolveChange,
+      (_path, _options, listener) => {
+        notify = listener;
+        return { close, on: vi.fn() } as never;
+      },
+    );
+
+    watcher.pause();
+    await writeFile(join(vaultPath, 'External.md'), '# External');
+    notify?.('change', 'External.md');
+    watcher.resume();
+
+    await expect(changed).resolves.toMatchObject({
+      notes: [expect.objectContaining({ title: 'External' })],
+    });
+    watcher.close();
   });
 
   it('rejects mutations through a symlink inside the vault', async () => {

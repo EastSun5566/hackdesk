@@ -33,21 +33,22 @@ const localVaultSnapshot = vi.hoisted(() => ({
   notes: [],
   folders: [],
 }));
+const localVaultMutationResult = vi.hoisted(() => ({
+  document: {
+    id: 'note-1',
+    title: 'Draft',
+    relativePath: 'Draft.md',
+    parentPath: null,
+    createdAtMillis: 1,
+    updatedAtMillis: 1,
+    revision: { contentHash: 'hash', mtimeMs: 1 },
+    content: 'Body',
+  },
+  snapshot: localVaultSnapshot,
+}));
 const localVaultServiceMock = vi.hoisted(() => ({
   createLocalFolder: vi.fn(),
-  createLocalNote: vi.fn(async () => ({
-    document: {
-      id: 'note-1',
-      title: 'Draft',
-      relativePath: 'Draft.md',
-      parentPath: null,
-      createdAtMillis: 1,
-      updatedAtMillis: 1,
-      revision: { contentHash: 'hash', mtimeMs: 1 },
-      content: 'Body',
-    },
-    snapshot: localVaultSnapshot,
-  })),
+  createLocalNote: vi.fn(async () => localVaultMutationResult),
   getActiveLocalVaultSnapshot: vi.fn(async () => localVaultSnapshot),
   importLocalVaultAttachment: vi.fn(),
   moveLocalFolder: vi.fn(),
@@ -261,7 +262,7 @@ describe('registerIpcHandlers', () => {
     });
   });
 
-  it('pauses the watcher during a local vault mutation without rescanning afterward', async () => {
+  it('pauses the watcher during a local vault mutation without rebuilding it', async () => {
     const close = vi.fn();
     const pause = vi.fn();
     const resume = vi.fn();
@@ -281,6 +282,31 @@ describe('registerIpcHandlers', () => {
     expect(localVaultServiceMock.getActiveLocalVaultSnapshot).toHaveBeenCalledOnce();
     expect(localVaultServiceMock.watchLocalVault).toHaveBeenCalledOnce();
     expect(result).toMatchObject({ snapshot: localVaultSnapshot });
+  });
+
+  it('does not restore a disconnected vault after an in-flight mutation finishes', async () => {
+    const close = vi.fn();
+    const pause = vi.fn();
+    const resume = vi.fn();
+    localVaultServiceMock.watchLocalVault.mockReturnValue({ close, pause, resume });
+    let finishMutation!: (result: typeof localVaultMutationResult) => void;
+    localVaultServiceMock.createLocalNote.mockImplementationOnce(() => new Promise((resolve) => {
+      finishMutation = resolve;
+    }));
+    registerIpcHandlers(windowManager);
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetSnapshot)?.({});
+
+    const mutation = ipcHandlers.get(ELECTRON_CHANNELS.localVaultCreateNote)?.({}, {
+      title: 'Draft',
+      content: 'Body',
+    });
+    const mutationRejection = expect(mutation).rejects.toThrow('active local vault changed');
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultDisconnect)?.({});
+    finishMutation(localVaultMutationResult);
+    await mutationRejection;
+
+    expect(close).toHaveBeenCalledOnce();
+    expect(localVaultServiceMock.watchLocalVault).toHaveBeenCalledOnce();
   });
 
   it('validates and forwards quick capture submissions', () => {

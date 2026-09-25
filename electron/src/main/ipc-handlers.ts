@@ -88,7 +88,7 @@ import type { WindowManager } from './window-manager';
 import { openTextFile, saveTextFile } from './app-file-dialog';
 import { checkForElectronUpdates } from './app-updater';
 import { getQuickCaptureShortcutStatus } from './global-shortcuts';
-import { exportDebugLogs, recordFatalRendererError, writeLog } from './logging';
+import { exportDebugLogs, recordFatalRendererError } from './logging';
 import {
   confirmDialogOptionsSchema,
   createFolderInputSchema,
@@ -143,11 +143,12 @@ export function registerIpcHandlers(
   };
   let localVaultWatcher: LocalVaultWatcher | null = null;
   let watchedLocalVaultPath: string | null = null;
-  let localVaultWatcherPauseDepth = 0;
+  let localVaultWatcherGeneration = 0;
 
   const closeLocalVaultWatcher = (clearPath = false) => {
     localVaultWatcher?.close();
     localVaultWatcher = null;
+    localVaultWatcherGeneration += 1;
     if (clearPath) {
       watchedLocalVaultPath = null;
     }
@@ -165,44 +166,29 @@ export function registerIpcHandlers(
       });
     });
   };
-  const resumeLocalVaultWatcher = () => {
-    if (localVaultWatcherPauseDepth !== 0 || !watchedLocalVaultPath) {
-      return;
-    }
-
-    ensureLocalVaultWatcher(watchedLocalVaultPath);
-    localVaultWatcher?.resume();
-  };
   const runLocalVaultMutation = async <T>(
     operation: () => Promise<T>,
     getSnapshot: (result: T) => LocalVaultSnapshot,
   ) => {
-    localVaultWatcherPauseDepth += 1;
-    if (localVaultWatcherPauseDepth === 1) {
-      localVaultWatcher?.pause();
-    }
+    const watcher = localVaultWatcher;
+    const watcherGeneration = localVaultWatcherGeneration;
+    let refreshOnResume = false;
+    watcher?.pause();
     try {
       const result = await operation();
+      if (localVaultWatcherGeneration !== watcherGeneration) {
+        throw new Error('The active local vault changed while the operation was running.');
+      }
       watchedLocalVaultPath = getSnapshot(result).rootPath;
       return result;
     } catch (error) {
-      try {
-        const snapshot = await getActiveLocalVaultSnapshot();
-        if (snapshot) {
-          watchedLocalVaultPath = snapshot.rootPath;
-          windowManager.getMainWindow()?.webContents.send(ELECTRON_CHANNELS.localVaultDidChange, {
-            snapshot,
-          });
-        }
-      } catch (recoveryError) {
-        writeLog('local-vault', 'Failed to refresh local vault after a mutation error.', {
-          message: recoveryError instanceof Error ? recoveryError.message : String(recoveryError),
-        }, 'warn');
-      }
+      refreshOnResume = true;
       throw error;
     } finally {
-      localVaultWatcherPauseDepth -= 1;
-      resumeLocalVaultWatcher();
+      watcher?.resume(refreshOnResume);
+      if (!watcher && localVaultWatcherGeneration === watcherGeneration && watchedLocalVaultPath) {
+        ensureLocalVaultWatcher(watchedLocalVaultPath);
+      }
     }
   };
 

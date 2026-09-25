@@ -40,6 +40,11 @@ import { writeLog } from './logging';
 type TrashItem = (path: string) => Promise<void>;
 type OpenPath = (path: string) => Promise<string>;
 type ShowItemInFolder = (path: string) => void;
+type WatchFileSystem = (
+  path: string,
+  options: { recursive: boolean },
+  listener: (eventType: string, filename: string | Buffer | null) => void,
+) => FSWatcher;
 
 type VaultManifest = {
   version: 1;
@@ -687,13 +692,15 @@ export type LocalVaultWatcher = {
 export function watchLocalVault(
   vaultRoot: string,
   onChange: (snapshot: LocalVaultSnapshot) => void,
+  watchFileSystem: WatchFileSystem = watch,
 ): LocalVaultWatcher {
   let watcher: FSWatcher | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let scanning = false;
   let scanAgain = false;
   let closed = false;
-  let paused = false;
+  let pauseDepth = 0;
+  let dirtyWhilePaused = false;
 
   const runScan = async () => {
     if (closed) {
@@ -729,7 +736,8 @@ export function watchLocalVault(
     if (filename && filename.toString().split(/[\\/]/).includes(MANIFEST_DIR)) {
       return;
     }
-    if (paused) {
+    if (pauseDepth > 0) {
+      dirtyWhilePaused = true;
       return;
     }
     if (timer) {
@@ -743,7 +751,7 @@ export function watchLocalVault(
   };
 
   try {
-    watcher = watch(vaultRoot, { recursive: true }, notify);
+    watcher = watchFileSystem(vaultRoot, { recursive: true }, notify);
     watcher.on('error', (error) => {
       writeLog('local-vault', 'Local vault watcher failed.', { message: error.message }, 'warn');
     });
@@ -763,19 +771,21 @@ export function watchLocalVault(
       watcher?.close();
     },
     pause: () => {
-      paused = true;
+      pauseDepth += 1;
       if (timer) {
         clearTimeout(timer);
         timer = null;
+        dirtyWhilePaused = true;
       }
-      scanAgain = false;
     },
     resume: (refresh = false) => {
       if (closed) {
         return;
       }
-      paused = false;
-      if (refresh) {
+
+      pauseDepth = Math.max(0, pauseDepth - 1);
+      if (pauseDepth === 0 && (refresh || dirtyWhilePaused)) {
+        dirtyWhilePaused = false;
         void runScan();
       }
     },
