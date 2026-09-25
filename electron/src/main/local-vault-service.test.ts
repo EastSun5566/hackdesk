@@ -22,6 +22,7 @@ import {
   revealLocalVaultNote,
   revealLocalVaultRoot,
   renameLocalFolder,
+  renameLocalNote,
   scanLocalVault,
   trashLocalNote,
   writeLocalNote,
@@ -68,8 +69,8 @@ describe('LocalVaultService', () => {
   });
 
   it('creates notes with collision-safe names and preserves stable IDs after reads', async () => {
-    const first = await createLocalNote({ title: 'Untitled', content: 'one' });
-    const second = await createLocalNote({ title: 'Untitled', content: 'two' });
+    const { document: first } = await createLocalNote({ title: 'Untitled', content: 'one' });
+    const { document: second } = await createLocalNote({ title: 'Untitled', content: 'two' });
     const reread = await readLocalNote(first.id);
 
     expect(first.relativePath).toBe('Untitled.md');
@@ -79,7 +80,7 @@ describe('LocalVaultService', () => {
   });
 
   it('rejects stale writes when the file changed on disk', async () => {
-    const note = await createLocalNote({ title: 'Draft', content: 'base' });
+    const { document: note } = await createLocalNote({ title: 'Draft', content: 'base' });
     await writeFile(join(vaultPath, note.relativePath), 'external');
 
     await expect(writeLocalNote({
@@ -90,8 +91,8 @@ describe('LocalVaultService', () => {
   });
 
   it('writes atomically when the expected revision matches', async () => {
-    const note = await createLocalNote({ title: 'Draft', content: 'base' });
-    const updated = await writeLocalNote({
+    const { document: note } = await createLocalNote({ title: 'Draft', content: 'base' });
+    const { document: updated } = await writeLocalNote({
       noteId: note.id,
       content: 'next',
       expectedRevision: note.revision,
@@ -102,7 +103,7 @@ describe('LocalVaultService', () => {
   });
 
   it('moves deleted notes to the provided trash implementation', async () => {
-    const note = await createLocalNote({ title: 'Delete me', content: 'bye' });
+    const { document: note } = await createLocalNote({ title: 'Delete me', content: 'bye' });
     const trashItem = vi.fn(async (path: string) => {
       await rm(path, { force: true });
     });
@@ -116,7 +117,7 @@ describe('LocalVaultService', () => {
 
   it('reveals only paths inside the active local vault', async () => {
     await mkdir(join(vaultPath, 'Projects'), { recursive: true });
-    const note = await createLocalNote({ title: 'Reveal me', parentPath: 'Projects', content: 'hello' });
+    const { document: note } = await createLocalNote({ title: 'Reveal me', parentPath: 'Projects', content: 'hello' });
     const openPath = vi.fn(async () => '');
     const showItemInFolder = vi.fn();
 
@@ -133,15 +134,15 @@ describe('LocalVaultService', () => {
 
   it('imports attachments beside the note and returns an encoded relative link', async () => {
     await mkdir(join(vaultPath, 'Projects'), { recursive: true });
-    const note = await createLocalNote({ title: 'With image', parentPath: 'Projects', content: 'hello' });
+    const { document: note } = await createLocalNote({ title: 'With image', parentPath: 'Projects', content: 'hello' });
 
-    const first = await importLocalVaultAttachment({
+    const { attachment: first } = await importLocalVaultAttachment({
       noteId: note.id,
       fileName: 'My Diagram.png',
       mimeType: 'image/png',
       bytes: new TextEncoder().encode('image-one').buffer,
     });
-    const second = await importLocalVaultAttachment({
+    const { attachment: second } = await importLocalVaultAttachment({
       noteId: note.id,
       fileName: 'My Diagram.png',
       mimeType: 'image/png',
@@ -169,13 +170,55 @@ describe('LocalVaultService', () => {
 
   it('preserves descendant note ids when a folder is renamed', async () => {
     await mkdir(join(vaultPath, 'Projects', 'Nested'), { recursive: true });
-    const note = await createLocalNote({ title: 'Stable', parentPath: 'Projects/Nested', content: 'Body' });
+    const { document: note } = await createLocalNote({ title: 'Stable', parentPath: 'Projects/Nested', content: 'Body' });
 
     const snapshot = await renameLocalFolder({ relativePath: 'Projects', name: 'Renamed' });
 
     expect(snapshot.notes).toContainEqual(expect.objectContaining({
       id: note.id,
       relativePath: 'Renamed/Nested/Stable.md',
+    }));
+  });
+
+  it('serializes scans and manifest mutations for the same vault', async () => {
+    const { document: original } = await createLocalNote({ title: 'Original', content: 'Body' });
+
+    const [, renamed, created] = await Promise.all([
+      scanLocalVault(vaultPath),
+      renameLocalNote({
+        noteId: original.id,
+        title: 'Renamed',
+        expectedRevision: original.revision,
+      }),
+      createLocalNote({ title: 'Second', content: 'Other' }),
+    ]);
+    const finalSnapshot = await scanLocalVault(vaultPath);
+
+    expect(renamed.document.id).toBe(original.id);
+    expect(finalSnapshot.notes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: original.id, relativePath: 'Renamed.md' }),
+      expect.objectContaining({ id: created.document.id, relativePath: 'Second.md' }),
+    ]));
+  });
+
+  it('continues queued vault operations after an earlier operation fails', async () => {
+    const { document: note } = await createLocalNote({ title: 'Draft', content: 'base' });
+    await writeFile(join(vaultPath, note.relativePath), 'external');
+
+    const [failedWrite, created] = await Promise.allSettled([
+      writeLocalNote({
+        noteId: note.id,
+        content: 'mine',
+        expectedRevision: note.revision,
+      }),
+      createLocalNote({ title: 'After failure', content: 'saved' }),
+    ]);
+
+    expect(failedWrite.status).toBe('rejected');
+    expect(created.status).toBe('fulfilled');
+    const finalSnapshot = await scanLocalVault(vaultPath);
+    expect(finalSnapshot.notes).toContainEqual(expect.objectContaining({
+      title: 'After failure',
     }));
   });
 

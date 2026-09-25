@@ -25,6 +25,7 @@ import type {
   LocalVaultRenameNoteInput,
   LocalVaultRevealFolderInput,
   LocalVaultRevealNoteInput,
+  LocalVaultSnapshot,
   LocalVaultTrashFolderInput,
   LocalVaultTrashNoteInput,
   LocalVaultWriteInput,
@@ -87,7 +88,7 @@ import type { WindowManager } from './window-manager';
 import { openTextFile, saveTextFile } from './app-file-dialog';
 import { checkForElectronUpdates } from './app-updater';
 import { getQuickCaptureShortcutStatus } from './global-shortcuts';
-import { exportDebugLogs, recordFatalRendererError } from './logging';
+import { exportDebugLogs, recordFatalRendererError, writeLog } from './logging';
 import {
   confirmDialogOptionsSchema,
   createFolderInputSchema,
@@ -141,13 +142,68 @@ export function registerIpcHandlers(
     },
   };
   let localVaultWatcher: LocalVaultWatcher | null = null;
-  const startLocalVaultWatcher = (vaultPath: string) => {
+  let watchedLocalVaultPath: string | null = null;
+  let localVaultWatcherPauseDepth = 0;
+
+  const closeLocalVaultWatcher = (clearPath = false) => {
     localVaultWatcher?.close();
+    localVaultWatcher = null;
+    if (clearPath) {
+      watchedLocalVaultPath = null;
+    }
+  };
+  const ensureLocalVaultWatcher = (vaultPath: string) => {
+    if (localVaultWatcher && watchedLocalVaultPath === vaultPath) {
+      return;
+    }
+
+    closeLocalVaultWatcher();
+    watchedLocalVaultPath = vaultPath;
     localVaultWatcher = watchLocalVault(vaultPath, (snapshot) => {
-      windowManager.getTargetWindow()?.webContents.send(ELECTRON_CHANNELS.localVaultDidChange, {
+      windowManager.getMainWindow()?.webContents.send(ELECTRON_CHANNELS.localVaultDidChange, {
         snapshot,
       });
     });
+  };
+  const resumeLocalVaultWatcher = () => {
+    if (localVaultWatcherPauseDepth !== 0 || !watchedLocalVaultPath) {
+      return;
+    }
+
+    ensureLocalVaultWatcher(watchedLocalVaultPath);
+    localVaultWatcher?.resume();
+  };
+  const runLocalVaultMutation = async <T>(
+    operation: () => Promise<T>,
+    getSnapshot: (result: T) => LocalVaultSnapshot,
+  ) => {
+    localVaultWatcherPauseDepth += 1;
+    if (localVaultWatcherPauseDepth === 1) {
+      localVaultWatcher?.pause();
+    }
+    try {
+      const result = await operation();
+      watchedLocalVaultPath = getSnapshot(result).rootPath;
+      return result;
+    } catch (error) {
+      try {
+        const snapshot = await getActiveLocalVaultSnapshot();
+        if (snapshot) {
+          watchedLocalVaultPath = snapshot.rootPath;
+          windowManager.getMainWindow()?.webContents.send(ELECTRON_CHANNELS.localVaultDidChange, {
+            snapshot,
+          });
+        }
+      } catch (recoveryError) {
+        writeLog('local-vault', 'Failed to refresh local vault after a mutation error.', {
+          message: recoveryError instanceof Error ? recoveryError.message : String(recoveryError),
+        }, 'warn');
+      }
+      throw error;
+    } finally {
+      localVaultWatcherPauseDepth -= 1;
+      resumeLocalVaultWatcher();
+    }
   };
 
   ipcMain.handle(ELECTRON_CHANNELS.settingsGet, () => getSafeSettings());
@@ -185,12 +241,11 @@ export function registerIpcHandlers(
     const snapshot = await scanLocalVault(rootPath);
     const settings = await updateStoredSettings({ localVaultPath: rootPath });
     options.onSettingsUpdated?.(settings);
-    startLocalVaultWatcher(rootPath);
+    ensureLocalVaultWatcher(snapshot.rootPath);
     return { canceled: false, settings, snapshot };
   });
   ipcMain.handle(ELECTRON_CHANNELS.localVaultDisconnect, async () => {
-    localVaultWatcher?.close();
-    localVaultWatcher = null;
+    closeLocalVaultWatcher(true);
     const settings = await updateStoredSettings({ localVaultPath: null });
     options.onSettingsUpdated?.(settings);
     return settings;
@@ -198,7 +253,7 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.localVaultGetSnapshot, async () => {
     const snapshot = await getActiveLocalVaultSnapshot();
     if (snapshot) {
-      startLocalVaultWatcher(snapshot.rootPath);
+      ensureLocalVaultWatcher(snapshot.rootPath);
     }
 
     return snapshot;
@@ -207,21 +262,36 @@ export function registerIpcHandlers(
     readLocalNote(validateNonEmptyString(ELECTRON_CHANNELS.localVaultReadNote, noteId))
   ));
   ipcMain.handle(ELECTRON_CHANNELS.localVaultCreateNote, (_event, input: LocalVaultCreateNoteInput) => (
-    createLocalNote(validateIpcInput(ELECTRON_CHANNELS.localVaultCreateNote, localVaultCreateNoteInputSchema, input))
+    runLocalVaultMutation(
+      () => createLocalNote(validateIpcInput(ELECTRON_CHANNELS.localVaultCreateNote, localVaultCreateNoteInputSchema, input)),
+      (result) => result.snapshot,
+    )
   ));
   ipcMain.handle(ELECTRON_CHANNELS.localVaultWriteNote, (_event, input: LocalVaultWriteInput) => (
-    writeLocalNote(validateIpcInput(ELECTRON_CHANNELS.localVaultWriteNote, localVaultWriteInputSchema, input))
+    runLocalVaultMutation(
+      () => writeLocalNote(validateIpcInput(ELECTRON_CHANNELS.localVaultWriteNote, localVaultWriteInputSchema, input)),
+      (result) => result.snapshot,
+    )
   ));
   ipcMain.handle(ELECTRON_CHANNELS.localVaultRenameNote, (_event, input: LocalVaultRenameNoteInput) => (
-    renameLocalNote(validateIpcInput(ELECTRON_CHANNELS.localVaultRenameNote, localVaultRenameNoteInputSchema, input))
+    runLocalVaultMutation(
+      () => renameLocalNote(validateIpcInput(ELECTRON_CHANNELS.localVaultRenameNote, localVaultRenameNoteInputSchema, input)),
+      (result) => result.snapshot,
+    )
   ));
   ipcMain.handle(ELECTRON_CHANNELS.localVaultMoveNote, (_event, input: LocalVaultMoveNoteInput) => (
-    moveLocalNote(validateIpcInput(ELECTRON_CHANNELS.localVaultMoveNote, localVaultMoveNoteInputSchema, input))
+    runLocalVaultMutation(
+      () => moveLocalNote(validateIpcInput(ELECTRON_CHANNELS.localVaultMoveNote, localVaultMoveNoteInputSchema, input)),
+      (result) => result.snapshot,
+    )
   ));
   ipcMain.handle(ELECTRON_CHANNELS.localVaultTrashNote, (_event, input: LocalVaultTrashNoteInput) => (
-    trashLocalNote(
-      validateIpcInput(ELECTRON_CHANNELS.localVaultTrashNote, localVaultTrashNoteInputSchema, input),
-      shell.trashItem,
+    runLocalVaultMutation(
+      () => trashLocalNote(
+        validateIpcInput(ELECTRON_CHANNELS.localVaultTrashNote, localVaultTrashNoteInputSchema, input),
+        shell.trashItem,
+      ),
+      (snapshot) => snapshot,
     )
   ));
   ipcMain.handle(ELECTRON_CHANNELS.localVaultRevealNote, (_event, input: LocalVaultRevealNoteInput) => (
@@ -231,23 +301,38 @@ export function registerIpcHandlers(
     )
   ));
   ipcMain.handle(ELECTRON_CHANNELS.localVaultImportAttachment, (_event, input: LocalVaultImportAttachmentInput) => (
-    importLocalVaultAttachment(
-      validateIpcInput(ELECTRON_CHANNELS.localVaultImportAttachment, localVaultImportAttachmentInputSchema, input),
+    runLocalVaultMutation(
+      () => importLocalVaultAttachment(
+        validateIpcInput(ELECTRON_CHANNELS.localVaultImportAttachment, localVaultImportAttachmentInputSchema, input),
+      ),
+      (result) => result.snapshot,
     )
   ));
   ipcMain.handle(ELECTRON_CHANNELS.localVaultCreateFolder, (_event, input: LocalVaultCreateFolderInput) => (
-    createLocalFolder(validateIpcInput(ELECTRON_CHANNELS.localVaultCreateFolder, localVaultCreateFolderInputSchema, input))
+    runLocalVaultMutation(
+      () => createLocalFolder(validateIpcInput(ELECTRON_CHANNELS.localVaultCreateFolder, localVaultCreateFolderInputSchema, input)),
+      (snapshot) => snapshot,
+    )
   ));
   ipcMain.handle(ELECTRON_CHANNELS.localVaultRenameFolder, (_event, input: LocalVaultRenameFolderInput) => (
-    renameLocalFolder(validateIpcInput(ELECTRON_CHANNELS.localVaultRenameFolder, localVaultRenameFolderInputSchema, input))
+    runLocalVaultMutation(
+      () => renameLocalFolder(validateIpcInput(ELECTRON_CHANNELS.localVaultRenameFolder, localVaultRenameFolderInputSchema, input)),
+      (snapshot) => snapshot,
+    )
   ));
   ipcMain.handle(ELECTRON_CHANNELS.localVaultMoveFolder, (_event, input: LocalVaultMoveFolderInput) => (
-    moveLocalFolder(validateIpcInput(ELECTRON_CHANNELS.localVaultMoveFolder, localVaultMoveFolderInputSchema, input))
+    runLocalVaultMutation(
+      () => moveLocalFolder(validateIpcInput(ELECTRON_CHANNELS.localVaultMoveFolder, localVaultMoveFolderInputSchema, input)),
+      (snapshot) => snapshot,
+    )
   ));
   ipcMain.handle(ELECTRON_CHANNELS.localVaultTrashFolder, (_event, input: LocalVaultTrashFolderInput) => (
-    trashLocalFolder(
-      validateIpcInput(ELECTRON_CHANNELS.localVaultTrashFolder, localVaultTrashFolderInputSchema, input),
-      shell.trashItem,
+    runLocalVaultMutation(
+      () => trashLocalFolder(
+        validateIpcInput(ELECTRON_CHANNELS.localVaultTrashFolder, localVaultTrashFolderInputSchema, input),
+        shell.trashItem,
+      ),
+      (snapshot) => snapshot,
     )
   ));
   ipcMain.handle(ELECTRON_CHANNELS.localVaultRevealFolder, (_event, input: LocalVaultRevealFolderInput) => (
@@ -451,4 +536,8 @@ export function registerIpcHandlers(
 
     return { confirmed: result.response === 0 };
   });
+
+  return {
+    dispose: () => closeLocalVaultWatcher(true),
+  };
 }

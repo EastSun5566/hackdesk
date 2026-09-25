@@ -191,12 +191,12 @@ describe('useElectronNoteMutations draft save', () => {
     const snapshot = createSnapshot(createdLocalDocument);
     const api = {
       localVault: {
-        createNote: vi.fn(async () => createdLocalDocument),
-        getSnapshot: vi.fn(async () => snapshot),
+        createNote: vi.fn(async () => ({ document: createdLocalDocument, snapshot })),
+        getSnapshot: vi.fn(),
       },
     } as unknown as HackDeskElectronAPI;
     const onDraftNoteCreated = vi.fn();
-    const { Wrapper } = createWrapper();
+    const { queryClient, Wrapper } = createWrapper();
     const { result } = renderHook(() => useElectronNoteMutations(createOptions({
       api,
       scope: { type: 'local', label: 'Local Vault' },
@@ -221,6 +221,8 @@ describe('useElectronNoteMutations draft save', () => {
         teamPath: LOCAL_VAULT_TEAM_PATH,
       }));
     });
+    expect(api.localVault.getSnapshot).not.toHaveBeenCalled();
+    expect(queryClient.getQueryData(['electron', 'local-vault', 'snapshot'])).toEqual(snapshot);
   });
 
   it('keeps the draft unmaterialized when create fails', async () => {

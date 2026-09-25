@@ -153,15 +153,11 @@ export function useLocalDocumentRecovery({
 
     void (async () => {
       const relativePath = (document as Partial<LocalDocumentSummary>).localRelativePath ?? document.description;
-      const createdDocument = await api.localVault.createNote({
+      const { document: createdDocument, snapshot } = await api.localVault.createNote({
         title: `${(input.title ?? document.title).trim() || 'Untitled'} copy`,
         content: input.content ?? document.content ?? '',
         parentPath: getLocalParentPathFromRelativePath(relativePath),
       });
-      const snapshot = await api.localVault.getSnapshot();
-      if (!snapshot) {
-        throw new Error('Local vault snapshot is unavailable.');
-      }
 
       queryClient.setQueryData(getLocalVaultSnapshotQueryKey(), snapshot);
       queryClient.setQueryData(getLocalVaultDocumentQueryKey(createdDocument.id), createdDocument);

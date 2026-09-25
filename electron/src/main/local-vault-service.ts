@@ -16,8 +16,9 @@ import { basename, dirname, extname, join, relative, resolve, sep } from 'node:p
 import type {
   LocalDocument,
   LocalFolder,
+  LocalVaultAttachmentMutationResult,
+  LocalVaultDocumentMutationResult,
   LocalVaultImportAttachmentInput,
-  LocalVaultImportAttachmentResult,
   LocalNoteSummary,
   LocalRevision,
   LocalVaultCreateFolderInput,
@@ -65,7 +66,21 @@ const defaultManifest = (): VaultManifest => ({
   notes: {},
 });
 
-const writeQueues = new Map<string, Promise<unknown>>();
+const vaultOperationQueues = new Map<string, Promise<unknown>>();
+
+function enqueueVaultOperation<T>(vaultRoot: string, task: () => Promise<T>): Promise<T> {
+  const previous = vaultOperationQueues.get(vaultRoot) ?? Promise.resolve();
+  const next = previous
+    .catch(() => undefined)
+    .then(task)
+    .finally(() => {
+      if (vaultOperationQueues.get(vaultRoot) === next) {
+        vaultOperationQueues.delete(vaultRoot);
+      }
+    });
+  vaultOperationQueues.set(vaultRoot, next);
+  return next;
+}
 
 function hashContent(content: string) {
   return createHash('sha256').update(content).digest('hex');
@@ -330,13 +345,9 @@ async function requireActiveLocalVaultPath() {
   return realpath(vaultPath);
 }
 
-export async function scanLocalVault(vaultRoot: string): Promise<LocalVaultSnapshot> {
-  const configuredRoot = resolve(vaultRoot);
-  await assertVaultRootExists(configuredRoot);
-  const resolvedRoot = await realpath(configuredRoot);
-
-  const manifest = await readManifest(resolvedRoot);
-  const files = await scanMarkdownFiles(resolvedRoot);
+async function scanLocalVaultUnlocked(vaultRoot: string): Promise<LocalVaultSnapshot> {
+  const manifest = await readManifest(vaultRoot);
+  const files = await scanMarkdownFiles(vaultRoot);
   const livePaths = new Set(files.map((file) => file.relativePath));
 
   for (const relativePath of Object.keys(manifest.notes)) {
@@ -351,13 +362,13 @@ export async function scanLocalVault(vaultRoot: string): Promise<LocalVaultSnaps
     }
     return createNoteSummary(manifest, entry, await readFile(entry.absolutePath, 'utf8'));
   }));
-  const folders = await scanFolders(resolvedRoot);
+  const folders = await scanFolders(vaultRoot);
 
-  await writeManifest(resolvedRoot, manifest);
+  await writeManifest(vaultRoot, manifest);
 
   return {
     vaultId: manifest.vaultId,
-    rootPath: resolvedRoot,
+    rootPath: vaultRoot,
     scannedAtMillis: Date.now(),
     notes: notes.sort((left, right) => (
       (right.updatedAtMillis ?? 0) - (left.updatedAtMillis ?? 0)
@@ -365,6 +376,13 @@ export async function scanLocalVault(vaultRoot: string): Promise<LocalVaultSnaps
     )),
     folders,
   };
+}
+
+export async function scanLocalVault(vaultRoot: string): Promise<LocalVaultSnapshot> {
+  const configuredRoot = resolve(vaultRoot);
+  await assertVaultRootExists(configuredRoot);
+  const resolvedRoot = await realpath(configuredRoot);
+  return enqueueVaultOperation(resolvedRoot, () => scanLocalVaultUnlocked(resolvedRoot));
 }
 
 export async function revealLocalVaultRoot(openPath: OpenPath) {
@@ -377,8 +395,10 @@ export async function revealLocalVaultRoot(openPath: OpenPath) {
 
 export async function revealLocalVaultNote(input: LocalVaultRevealNoteInput, showItemInFolder: ShowItemInFolder) {
   const vaultRoot = await requireActiveLocalVaultPath();
-  const note = await findNoteById(vaultRoot, input.noteId);
-  showItemInFolder(resolveInsideVault(vaultRoot, note.relativePath));
+  await enqueueVaultOperation(vaultRoot, async () => {
+    const note = await findNoteById(vaultRoot, input.noteId);
+    showItemInFolder(resolveInsideVault(vaultRoot, note.relativePath));
+  });
 }
 
 export async function revealLocalVaultFolder(input: LocalVaultRevealFolderInput, showItemInFolder: ShowItemInFolder) {
@@ -426,11 +446,15 @@ async function moveManifestNotePath(vaultRoot: string, fromRelativePath: string,
   }
 }
 
-export async function readLocalNote(noteId: string): Promise<LocalDocument> {
-  const vaultRoot = await requireActiveLocalVaultPath();
+async function readLocalNoteUnlocked(vaultRoot: string, noteId: string): Promise<LocalDocument> {
   const note = await findNoteById(vaultRoot, noteId);
   const content = await readFile(resolveInsideVault(vaultRoot, note.relativePath), 'utf8');
   return { ...note, content };
+}
+
+export async function readLocalNote(noteId: string): Promise<LocalDocument> {
+  const vaultRoot = await requireActiveLocalVaultPath();
+  return enqueueVaultOperation(vaultRoot, () => readLocalNoteUnlocked(vaultRoot, noteId));
 }
 
 async function createUniqueMarkdownPath(vaultRoot: string, parentPath: string | null, title: string) {
@@ -480,41 +504,51 @@ async function createUniqueAttachmentPath(vaultRoot: string, parentPath: string 
   throw new Error('Could not create a unique attachment file name.');
 }
 
-export async function createLocalNote(input: LocalVaultCreateNoteInput): Promise<LocalDocument> {
+export async function createLocalNote(input: LocalVaultCreateNoteInput): Promise<LocalVaultDocumentMutationResult> {
   const vaultRoot = await requireActiveLocalVaultPath();
-  const parentPath = normalizeRelativePath(input.parentPath);
-  const absolutePath = await createUniqueMarkdownPath(vaultRoot, parentPath, input.title ?? 'Untitled');
-  await assertCanonicalInsideVault(vaultRoot, absolutePath);
-  const content = input.content ?? '';
-  if (Buffer.byteLength(content, 'utf8') > MAX_MARKDOWN_BYTES) throw new Error('Markdown files cannot exceed 10 MiB.');
-  await writeFile(absolutePath, content, 'utf8');
-  const relativePath = toVaultRelativePath(vaultRoot, absolutePath);
-  const manifest = await readManifest(vaultRoot);
-  const id = randomUUID();
-  manifest.notes[relativePath] = { id, contentHash: hashContent(content) };
-  await writeManifest(vaultRoot, manifest);
-  return readLocalNote(id);
+  return enqueueVaultOperation(vaultRoot, async () => {
+    const parentPath = normalizeRelativePath(input.parentPath);
+    const absolutePath = await createUniqueMarkdownPath(vaultRoot, parentPath, input.title ?? 'Untitled');
+    await assertCanonicalInsideVault(vaultRoot, absolutePath);
+    const content = input.content ?? '';
+    if (Buffer.byteLength(content, 'utf8') > MAX_MARKDOWN_BYTES) throw new Error('Markdown files cannot exceed 10 MiB.');
+    await writeFile(absolutePath, content, 'utf8');
+    const relativePath = toVaultRelativePath(vaultRoot, absolutePath);
+    const manifest = await readManifest(vaultRoot);
+    const id = randomUUID();
+    manifest.notes[relativePath] = { id, contentHash: hashContent(content) };
+    await writeManifest(vaultRoot, manifest);
+    const document = await readLocalNoteUnlocked(vaultRoot, id);
+    const snapshot = await scanLocalVaultUnlocked(vaultRoot);
+    return { document, snapshot };
+  });
 }
 
 export async function importLocalVaultAttachment(
   input: LocalVaultImportAttachmentInput,
-): Promise<LocalVaultImportAttachmentResult> {
+): Promise<LocalVaultAttachmentMutationResult> {
   const vaultRoot = await requireActiveLocalVaultPath();
-  if (input.bytes.byteLength > MAX_ATTACHMENT_BYTES) throw new Error('Attachments cannot exceed 25 MiB.');
-  const note = await findNoteById(vaultRoot, input.noteId);
-  const attachmentPath = await createUniqueAttachmentPath(vaultRoot, note.parentPath, input.fileName);
-  await writeFile(attachmentPath, new Uint8Array(input.bytes));
+  return enqueueVaultOperation(vaultRoot, async () => {
+    if (input.bytes.byteLength > MAX_ATTACHMENT_BYTES) throw new Error('Attachments cannot exceed 25 MiB.');
+    const note = await findNoteById(vaultRoot, input.noteId);
+    const attachmentPath = await createUniqueAttachmentPath(vaultRoot, note.parentPath, input.fileName);
+    await writeFile(attachmentPath, new Uint8Array(input.bytes));
 
-  const relativePath = toVaultRelativePath(vaultRoot, attachmentPath);
-  const noteFolderPath = note.parentPath ? `${note.parentPath}/` : '';
-  const link = relativePath.startsWith(noteFolderPath)
-    ? relativePath.slice(noteFolderPath.length)
-    : relativePath;
+    const relativePath = toVaultRelativePath(vaultRoot, attachmentPath);
+    const noteFolderPath = note.parentPath ? `${note.parentPath}/` : '';
+    const link = relativePath.startsWith(noteFolderPath)
+      ? relativePath.slice(noteFolderPath.length)
+      : relativePath;
+    const snapshot = await scanLocalVaultUnlocked(vaultRoot);
 
-  return {
-    link: encodeMarkdownLinkPath(link),
-    relativePath,
-  };
+    return {
+      attachment: {
+        link: encodeMarkdownLinkPath(link),
+        relativePath,
+      },
+      snapshot,
+    };
+  });
 }
 
 async function atomicWriteFile(filePath: string, content: string) {
@@ -530,117 +564,124 @@ async function atomicWriteFile(filePath: string, content: string) {
   await rename(temporaryPath, filePath);
 }
 
-function enqueueFileWrite<T>(filePath: string, task: () => Promise<T>): Promise<T> {
-  const previous = writeQueues.get(filePath) ?? Promise.resolve();
-  const next = previous
-    .catch(() => undefined)
-    .then(task)
-    .finally(() => {
-      if (writeQueues.get(filePath) === next) {
-        writeQueues.delete(filePath);
-      }
-    });
-  writeQueues.set(filePath, next);
-  return next;
-}
-
 function assertRevisionMatches(current: LocalRevision, expected: LocalRevision) {
   if (current.contentHash !== expected.contentHash) {
     throw new Error('File changed on disk. Reload it or save a copy before writing.');
   }
 }
 
-export async function writeLocalNote(input: LocalVaultWriteInput): Promise<LocalDocument> {
+export async function writeLocalNote(input: LocalVaultWriteInput): Promise<LocalVaultDocumentMutationResult> {
   if (Buffer.byteLength(input.content, 'utf8') > MAX_MARKDOWN_BYTES) throw new Error('Markdown files cannot exceed 10 MiB.');
   const vaultRoot = await requireActiveLocalVaultPath();
-  const note = await findNoteById(vaultRoot, input.noteId);
-  const filePath = resolveInsideVault(vaultRoot, note.relativePath);
-
-  return enqueueFileWrite(filePath, async () => {
+  return enqueueVaultOperation(vaultRoot, async () => {
+    const note = await findNoteById(vaultRoot, input.noteId);
+    const filePath = resolveInsideVault(vaultRoot, note.relativePath);
     const currentContent = await readFile(filePath, 'utf8');
     assertRevisionMatches({ contentHash: hashContent(currentContent), mtimeMs: (await stat(filePath)).mtimeMs }, input.expectedRevision);
     await atomicWriteFile(filePath, input.content);
-    return readLocalNote(input.noteId);
+    const document = await readLocalNoteUnlocked(vaultRoot, input.noteId);
+    const snapshot = await scanLocalVaultUnlocked(vaultRoot);
+    return { document, snapshot };
   });
 }
 
-export async function renameLocalNote(input: LocalVaultRenameNoteInput): Promise<LocalDocument> {
+export async function renameLocalNote(input: LocalVaultRenameNoteInput): Promise<LocalVaultDocumentMutationResult> {
   const vaultRoot = await requireActiveLocalVaultPath();
-  const note = await findNoteById(vaultRoot, input.noteId);
-  if (input.expectedRevision) {
-    assertRevisionMatches(note.revision, input.expectedRevision);
-  }
+  return enqueueVaultOperation(vaultRoot, async () => {
+    const note = await findNoteById(vaultRoot, input.noteId);
+    if (input.expectedRevision) {
+      assertRevisionMatches(note.revision, input.expectedRevision);
+    }
 
-  const source = resolveInsideVault(vaultRoot, note.relativePath);
-  const target = await createUniqueMarkdownPath(vaultRoot, note.parentPath, input.title);
-  await rename(source, target);
-  await moveManifestNotePath(vaultRoot, note.relativePath, toVaultRelativePath(vaultRoot, target));
-  return readLocalNote(input.noteId);
+    const source = resolveInsideVault(vaultRoot, note.relativePath);
+    const target = await createUniqueMarkdownPath(vaultRoot, note.parentPath, input.title);
+    await rename(source, target);
+    await moveManifestNotePath(vaultRoot, note.relativePath, toVaultRelativePath(vaultRoot, target));
+    const document = await readLocalNoteUnlocked(vaultRoot, input.noteId);
+    const snapshot = await scanLocalVaultUnlocked(vaultRoot);
+    return { document, snapshot };
+  });
 }
 
-export async function moveLocalNote(input: LocalVaultMoveNoteInput): Promise<LocalDocument> {
+export async function moveLocalNote(input: LocalVaultMoveNoteInput): Promise<LocalVaultDocumentMutationResult> {
   const vaultRoot = await requireActiveLocalVaultPath();
-  const note = await findNoteById(vaultRoot, input.noteId);
-  if (input.expectedRevision) {
-    assertRevisionMatches(note.revision, input.expectedRevision);
-  }
+  return enqueueVaultOperation(vaultRoot, async () => {
+    const note = await findNoteById(vaultRoot, input.noteId);
+    if (input.expectedRevision) {
+      assertRevisionMatches(note.revision, input.expectedRevision);
+    }
 
-  const source = resolveInsideVault(vaultRoot, note.relativePath);
-  const targetDirectory = resolveInsideVault(vaultRoot, input.parentPath);
-  await mkdir(targetDirectory, { recursive: true });
-  const target = await createUniqueMarkdownPath(vaultRoot, normalizeRelativePath(input.parentPath), note.title);
-  await rename(source, target);
-  await moveManifestNotePath(vaultRoot, note.relativePath, toVaultRelativePath(vaultRoot, target));
-  return readLocalNote(input.noteId);
+    const source = resolveInsideVault(vaultRoot, note.relativePath);
+    const targetDirectory = resolveInsideVault(vaultRoot, input.parentPath);
+    await mkdir(targetDirectory, { recursive: true });
+    const target = await createUniqueMarkdownPath(vaultRoot, normalizeRelativePath(input.parentPath), note.title);
+    await rename(source, target);
+    await moveManifestNotePath(vaultRoot, note.relativePath, toVaultRelativePath(vaultRoot, target));
+    const document = await readLocalNoteUnlocked(vaultRoot, input.noteId);
+    const snapshot = await scanLocalVaultUnlocked(vaultRoot);
+    return { document, snapshot };
+  });
 }
 
 export async function trashLocalNote(input: LocalVaultTrashNoteInput, trashItem: TrashItem): Promise<LocalVaultSnapshot> {
   const vaultRoot = await requireActiveLocalVaultPath();
-  const note = await findNoteById(vaultRoot, input.noteId);
-  await trashItem(resolveInsideVault(vaultRoot, note.relativePath));
-  return scanLocalVault(vaultRoot);
+  return enqueueVaultOperation(vaultRoot, async () => {
+    const note = await findNoteById(vaultRoot, input.noteId);
+    await trashItem(resolveInsideVault(vaultRoot, note.relativePath));
+    return scanLocalVaultUnlocked(vaultRoot);
+  });
 }
 
 export async function createLocalFolder(input: LocalVaultCreateFolderInput): Promise<LocalVaultSnapshot> {
   const vaultRoot = await requireActiveLocalVaultPath();
-  const parentPath = normalizeRelativePath(input.parentPath);
-  const folderPath = resolveInsideVault(vaultRoot, parentPath ? `${parentPath}/${sanitizeFileName(input.name)}` : sanitizeFileName(input.name));
-  await mkdir(folderPath, { recursive: false });
-  return scanLocalVault(vaultRoot);
+  return enqueueVaultOperation(vaultRoot, async () => {
+    const parentPath = normalizeRelativePath(input.parentPath);
+    const folderPath = resolveInsideVault(vaultRoot, parentPath ? `${parentPath}/${sanitizeFileName(input.name)}` : sanitizeFileName(input.name));
+    await mkdir(folderPath, { recursive: false });
+    return scanLocalVaultUnlocked(vaultRoot);
+  });
 }
 
 export async function renameLocalFolder(input: LocalVaultRenameFolderInput): Promise<LocalVaultSnapshot> {
   const vaultRoot = await requireActiveLocalVaultPath();
-  const source = resolveInsideVault(vaultRoot, input.relativePath);
-  const target = join(dirname(source), sanitizeFileName(input.name));
-  await assertCanonicalInsideVault(vaultRoot, source);
-  await assertCanonicalInsideVault(vaultRoot, target);
-  await rename(source, target);
-  await remapManifestFolder(vaultRoot, normalizeRelativePath(input.relativePath)!, toVaultRelativePath(vaultRoot, target));
-  return scanLocalVault(vaultRoot);
+  return enqueueVaultOperation(vaultRoot, async () => {
+    const source = resolveInsideVault(vaultRoot, input.relativePath);
+    const target = join(dirname(source), sanitizeFileName(input.name));
+    await assertCanonicalInsideVault(vaultRoot, source);
+    await assertCanonicalInsideVault(vaultRoot, target);
+    await rename(source, target);
+    await remapManifestFolder(vaultRoot, normalizeRelativePath(input.relativePath)!, toVaultRelativePath(vaultRoot, target));
+    return scanLocalVaultUnlocked(vaultRoot);
+  });
 }
 
 export async function moveLocalFolder(input: LocalVaultMoveFolderInput): Promise<LocalVaultSnapshot> {
   const vaultRoot = await requireActiveLocalVaultPath();
-  const source = resolveInsideVault(vaultRoot, input.relativePath);
-  const targetDirectory = resolveInsideVault(vaultRoot, input.parentPath);
-  await assertCanonicalInsideVault(vaultRoot, source);
-  await assertCanonicalInsideVault(vaultRoot, targetDirectory);
-  await mkdir(targetDirectory, { recursive: true });
-  const target = join(targetDirectory, basename(source));
-  await rename(source, target);
-  await remapManifestFolder(vaultRoot, normalizeRelativePath(input.relativePath)!, toVaultRelativePath(vaultRoot, target));
-  return scanLocalVault(vaultRoot);
+  return enqueueVaultOperation(vaultRoot, async () => {
+    const source = resolveInsideVault(vaultRoot, input.relativePath);
+    const targetDirectory = resolveInsideVault(vaultRoot, input.parentPath);
+    await assertCanonicalInsideVault(vaultRoot, source);
+    await assertCanonicalInsideVault(vaultRoot, targetDirectory);
+    await mkdir(targetDirectory, { recursive: true });
+    const target = join(targetDirectory, basename(source));
+    await rename(source, target);
+    await remapManifestFolder(vaultRoot, normalizeRelativePath(input.relativePath)!, toVaultRelativePath(vaultRoot, target));
+    return scanLocalVaultUnlocked(vaultRoot);
+  });
 }
 
 export async function trashLocalFolder(input: LocalVaultTrashFolderInput, trashItem: TrashItem): Promise<LocalVaultSnapshot> {
   const vaultRoot = await requireActiveLocalVaultPath();
-  await trashItem(resolveInsideVault(vaultRoot, input.relativePath));
-  return scanLocalVault(vaultRoot);
+  return enqueueVaultOperation(vaultRoot, async () => {
+    await trashItem(resolveInsideVault(vaultRoot, input.relativePath));
+    return scanLocalVaultUnlocked(vaultRoot);
+  });
 }
 
 export type LocalVaultWatcher = {
   close: () => void;
+  pause: () => void;
+  resume: (refresh?: boolean) => void;
 };
 
 export function watchLocalVault(
@@ -651,22 +692,30 @@ export function watchLocalVault(
   let timer: ReturnType<typeof setTimeout> | null = null;
   let scanning = false;
   let scanAgain = false;
+  let closed = false;
+  let paused = false;
 
   const runScan = async () => {
+    if (closed) {
+      return;
+    }
     if (scanning) {
       scanAgain = true;
       return;
     }
     scanning = true;
     try {
-      onChange(await scanLocalVault(vaultRoot));
+      const snapshot = await scanLocalVault(vaultRoot);
+      if (!closed) {
+        onChange(snapshot);
+      }
     } catch (error) {
       writeLog('local-vault', 'Failed to rescan local vault after filesystem event.', {
         message: error instanceof Error ? error.message : String(error),
       }, 'warn');
     } finally {
       scanning = false;
-      if (scanAgain) {
+      if (!closed && scanAgain) {
         scanAgain = false;
         void runScan();
       }
@@ -674,7 +723,13 @@ export function watchLocalVault(
   };
 
   const notify = (_eventType?: string, filename?: string | Buffer | null) => {
+    if (closed) {
+      return;
+    }
     if (filename && filename.toString().split(/[\\/]/).includes(MANIFEST_DIR)) {
+      return;
+    }
+    if (paused) {
       return;
     }
     if (timer) {
@@ -700,10 +755,29 @@ export function watchLocalVault(
 
   return {
     close: () => {
+      closed = true;
+      scanAgain = false;
       if (timer) {
         clearTimeout(timer);
       }
       watcher?.close();
+    },
+    pause: () => {
+      paused = true;
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      scanAgain = false;
+    },
+    resume: (refresh = false) => {
+      if (closed) {
+        return;
+      }
+      paused = false;
+      if (refresh) {
+        void runScan();
+      }
     },
   };
 }

@@ -84,6 +84,16 @@ export type LocalVaultImportAttachmentResult = {
   relativePath: string;
 };
 
+export type LocalVaultDocumentMutationResult = {
+  document: LocalDocument;
+  snapshot: LocalVaultSnapshot;
+};
+
+export type LocalVaultAttachmentMutationResult = {
+  attachment: LocalVaultImportAttachmentResult;
+  snapshot: LocalVaultSnapshot;
+};
+
 export type LocalVaultCreateFolderInput = {
   name: string;
   parentPath?: string | null;

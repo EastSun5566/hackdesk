@@ -27,6 +27,43 @@ const hackmdServiceMock = vi.hoisted(() => ({
     teams: [],
   })),
 }));
+const localVaultSnapshot = vi.hoisted(() => ({
+  vaultId: 'vault-1',
+  rootPath: '/tmp/local-vault',
+  notes: [],
+  folders: [],
+}));
+const localVaultServiceMock = vi.hoisted(() => ({
+  createLocalFolder: vi.fn(),
+  createLocalNote: vi.fn(async () => ({
+    document: {
+      id: 'note-1',
+      title: 'Draft',
+      relativePath: 'Draft.md',
+      parentPath: null,
+      createdAtMillis: 1,
+      updatedAtMillis: 1,
+      revision: { contentHash: 'hash', mtimeMs: 1 },
+      content: 'Body',
+    },
+    snapshot: localVaultSnapshot,
+  })),
+  getActiveLocalVaultSnapshot: vi.fn(async () => localVaultSnapshot),
+  importLocalVaultAttachment: vi.fn(),
+  moveLocalFolder: vi.fn(),
+  moveLocalNote: vi.fn(),
+  readLocalNote: vi.fn(),
+  renameLocalFolder: vi.fn(),
+  renameLocalNote: vi.fn(),
+  revealLocalVaultFolder: vi.fn(),
+  revealLocalVaultNote: vi.fn(),
+  revealLocalVaultRoot: vi.fn(),
+  scanLocalVault: vi.fn(async () => localVaultSnapshot),
+  trashLocalFolder: vi.fn(),
+  trashLocalNote: vi.fn(),
+  watchLocalVault: vi.fn(() => ({ close: vi.fn(), pause: vi.fn(), resume: vi.fn() })),
+  writeLocalNote: vi.fn(),
+}));
 
 vi.mock('electron', () => ({
   app: {
@@ -46,6 +83,7 @@ vi.mock('electron', () => ({
 }));
 
 vi.mock('./settings', () => settingsMock);
+vi.mock('./local-vault-service', () => localVaultServiceMock);
 vi.mock('./hackmd-service', () => ({
   clearHackmdCache: vi.fn(),
   createFolder: vi.fn(),
@@ -105,6 +143,7 @@ import { registerIpcHandlers } from './ipc-handlers';
 const windowManager = {
   cancelClose: vi.fn(),
   confirmClose: vi.fn(),
+  getMainWindow: vi.fn(() => null),
   getTargetWindow: vi.fn(() => null),
   getWindowPresentationState: vi.fn(() => ({ fullScreen: true })),
   hideQuickCaptureWindow: vi.fn(),
@@ -186,6 +225,62 @@ describe('registerIpcHandlers', () => {
 
     expect(handler?.({})).toEqual({ fullScreen: true });
     expect(windowManager.getWindowPresentationState).toHaveBeenCalledOnce();
+  });
+
+  it('keeps one local vault watcher for repeated snapshot requests', async () => {
+    const close = vi.fn();
+    localVaultServiceMock.watchLocalVault.mockReturnValue({ close, pause: vi.fn(), resume: vi.fn() });
+    const registration = registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetSnapshot);
+
+    await handler?.({});
+    await handler?.({});
+
+    expect(localVaultServiceMock.getActiveLocalVaultSnapshot).toHaveBeenCalledTimes(2);
+    expect(localVaultServiceMock.watchLocalVault).toHaveBeenCalledOnce();
+
+    registration.dispose();
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it('sends local vault watcher changes to the main window', async () => {
+    let onChange: ((snapshot: typeof localVaultSnapshot) => void) | undefined;
+    localVaultServiceMock.watchLocalVault.mockImplementation((_path, callback) => {
+      onChange = callback;
+      return { close: vi.fn(), pause: vi.fn(), resume: vi.fn() };
+    });
+    const send = vi.fn();
+    windowManager.getMainWindow.mockReturnValue({ webContents: { send } });
+    registerIpcHandlers(windowManager);
+
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetSnapshot)?.({});
+    onChange?.(localVaultSnapshot);
+
+    expect(send).toHaveBeenCalledWith(ELECTRON_CHANNELS.localVaultDidChange, {
+      snapshot: localVaultSnapshot,
+    });
+  });
+
+  it('pauses the watcher during a local vault mutation without rescanning afterward', async () => {
+    const close = vi.fn();
+    const pause = vi.fn();
+    const resume = vi.fn();
+    localVaultServiceMock.watchLocalVault.mockReturnValue({ close, pause, resume });
+    registerIpcHandlers(windowManager);
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetSnapshot)?.({});
+
+    const result = await ipcHandlers.get(ELECTRON_CHANNELS.localVaultCreateNote)?.({}, {
+      title: 'Draft',
+      content: 'Body',
+    });
+
+    expect(pause).toHaveBeenCalledOnce();
+    expect(resume).toHaveBeenCalledOnce();
+    expect(close).not.toHaveBeenCalled();
+    expect(localVaultServiceMock.createLocalNote).toHaveBeenCalledOnce();
+    expect(localVaultServiceMock.getActiveLocalVaultSnapshot).toHaveBeenCalledOnce();
+    expect(localVaultServiceMock.watchLocalVault).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ snapshot: localVaultSnapshot });
   });
 
   it('validates and forwards quick capture submissions', () => {
