@@ -72,13 +72,14 @@ function createWrapper() {
 }
 
 function createApi(snapshot = createSnapshot()) {
+  const document = createLocalDocument({
+    id: 'copy-note',
+    relativePath: 'Projects/Note copy.md',
+    title: 'Note copy',
+  });
   return {
     localVault: {
-      createNote: vi.fn(async () => createLocalDocument({
-        id: 'copy-note',
-        relativePath: 'Projects/Note copy.md',
-        title: 'Note copy',
-      })),
+      createNote: vi.fn(async () => ({ document, snapshot })),
       getSnapshot: vi.fn(async () => snapshot),
     },
   } as unknown as HackDeskElectronAPI;

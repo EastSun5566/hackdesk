@@ -14,6 +14,7 @@ const APP_ID = 'me.eastsun.hackdesk';
 
 const windowManager = new WindowManager();
 let tray: Electron.Tray | null = null;
+let disposeIpcHandlers: (() => void) | null = null;
 
 const homeOverride = app.commandLine.getSwitchValue('hackdesk-home');
 if (homeOverride) {
@@ -44,9 +45,9 @@ app.whenReady().then(async () => {
     shortcuts,
     () => windowManager.closeMainWindow(),
   );
-  registerIpcHandlers(windowManager, {
+  disposeIpcHandlers = registerIpcHandlers(windowManager, {
     onSettingsUpdated: (settings) => createMenu(settings.shortcuts),
-  });
+  }).dispose;
   createMenu((await readStoredSettings()).shortcuts);
   windowManager.createMainWindow();
   if (app.commandLine.hasSwitch('quick-capture')) {
@@ -79,6 +80,8 @@ app.on('before-quit', (event) => {
 });
 
 app.on('will-quit', () => {
+  disposeIpcHandlers?.();
+  disposeIpcHandlers = null;
   unregisterQuickCaptureGlobalShortcut();
 });
 
