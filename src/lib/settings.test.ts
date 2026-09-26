@@ -4,6 +4,7 @@ import {
   defaultSettings,
   parseSettings,
   parseSettingsOrDefault,
+  parseStoredSettings,
   serializeSettings,
   validateSettings,
 } from './settings';
@@ -210,6 +211,31 @@ describe('settings helpers', () => {
 
     expect(parseSettingsOrDefault('{', defaultSettings, onError)).toEqual(defaultSettings);
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'Invalid JSON format' }));
+  });
+
+  it('keeps valid stored fields when another field is invalid', () => {
+    expect(parseStoredSettings(JSON.stringify({
+      title: 'Workspace',
+      hackmdApiToken: 'secret-token',
+      localVault: { path: '/tmp/vault' },
+      editor: { mode: 'nano' },
+      shortcuts: {
+        'open-command-palette': 'mod+shift+p',
+        'removed-action': 'mod+j',
+      },
+    }))).toMatchObject({
+      title: 'Workspace',
+      hackmdApiToken: 'secret-token',
+      localVault: { path: '/tmp/vault' },
+      editor: defaultSettings.editor,
+      shortcuts: {
+        'open-command-palette': 'mod+shift+p',
+      },
+    });
+  });
+
+  it('reports malformed stored JSON instead of replacing it with defaults', () => {
+    expect(() => parseStoredSettings('{')).toThrow('Invalid JSON format');
   });
 
   it('serializes validated settings with stable formatting', () => {

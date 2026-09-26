@@ -17,6 +17,7 @@ import { getHackmdCliConfigPath, getSettingsPath } from './paths';
 import {
   getHackmdCliConfigStatus,
   getSafeSettings,
+  readStoredSettings,
   readHackmdCliAccessToken,
   updateStoredSettings,
 } from './settings';
@@ -49,6 +50,66 @@ describe('Electron settings', () => {
       shouldShowHackmdOnboarding: false,
     });
     expect('hackmdApiToken' in safeSettings).toBe(false);
+  });
+
+  it('preserves valid settings when a stored field or shortcut action is unknown', async () => {
+    await mkdir(join(electronMock.homePath, '.hackdesk'), { recursive: true });
+    await writeFile(getSettingsPath(), JSON.stringify({
+      title: 'Workspace',
+      hackmdApiToken: 'secret-token',
+      localVault: { path: '/tmp/vault' },
+      editor: { mode: 'nano' },
+      shortcuts: {
+        'open-command-palette': 'mod+shift+p',
+        'removed-action': 'mod+j',
+      },
+    }));
+
+    const settings = await readStoredSettings();
+
+    expect(settings).toMatchObject({
+      title: 'Workspace',
+      hackmdApiToken: 'secret-token',
+      localVault: { path: '/tmp/vault' },
+      editor: { mode: 'standard' },
+      shortcuts: { 'open-command-palette': 'mod+shift+p' },
+    });
+
+    await updateStoredSettings({ title: 'Updated workspace' });
+    const stored = JSON.parse(await readFile(getSettingsPath(), 'utf8'));
+    expect(stored).toMatchObject({
+      title: 'Updated workspace',
+      hackmdApiToken: 'secret-token',
+      localVault: { path: '/tmp/vault' },
+      editor: { mode: 'standard' },
+      shortcuts: { 'open-command-palette': 'mod+shift+p' },
+    });
+  });
+
+  it('does not overwrite malformed settings during an update', async () => {
+    await mkdir(join(electronMock.homePath, '.hackdesk'), { recursive: true });
+    await writeFile(getSettingsPath(), '{ invalid json');
+
+    await expect(updateStoredSettings({ title: 'New title' })).rejects.toThrow('Invalid JSON format');
+    await expect(readFile(getSettingsPath(), 'utf8')).resolves.toBe('{ invalid json');
+  });
+
+  it('serializes concurrent settings updates without losing fields', async () => {
+    const [first, second] = await Promise.all([
+      updateStoredSettings({ hackmdApiToken: 'token-123' }),
+      updateStoredSettings({ localVaultPath: '/tmp/vault' }),
+    ]);
+    const stored = JSON.parse(await readFile(getSettingsPath(), 'utf8'));
+
+    expect(first.hasHackmdApiToken).toBe(true);
+    expect(second).toMatchObject({
+      hasHackmdApiToken: true,
+      localVault: { path: '/tmp/vault' },
+    });
+    expect(stored).toMatchObject({
+      hackmdApiToken: 'token-123',
+      localVault: { path: '/tmp/vault' },
+    });
   });
 
   it.each(['emacs', 'kakoune'] as const)('persists and returns the %s editor mode', async (mode) => {
