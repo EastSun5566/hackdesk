@@ -1566,6 +1566,65 @@ describe('Home native-feel behavior', () => {
     });
   });
 
+  it('reconciles a Local Vault draft saved with the keyboard action', async () => {
+    window.localStorage.setItem(LAST_WORKSPACE_SCOPE_KEY, JSON.stringify({ type: 'local', label: 'Local Vault' }));
+    const localDocument = {
+      content: '# Test note',
+      createdAtMillis: 1_700_000_000_000,
+      id: 'local-note-1',
+      parentPath: null,
+      relativePath: 'Test note.md',
+      revision: { contentHash: 'old-hash', mtimeMs: 1 },
+      title: 'Test note',
+      updatedAtMillis: 1_700_000_000_000,
+    };
+    const snapshot = {
+      vaultId: 'vault-1',
+      rootPath: '/tmp/vault',
+      notes: [localDocument],
+      folders: [],
+    };
+    const savedDocument = {
+      ...localDocument,
+      title: 'Keyboard note',
+      relativePath: 'Keyboard note.md',
+      revision: { contentHash: 'saved-hash', mtimeMs: 2 },
+      updatedAtMillis: 1_700_000_000_001,
+    };
+    const savedSnapshot = {
+      ...snapshot,
+      notes: [savedDocument],
+    };
+    const writeNote = vi.fn(async () => ({ document: savedDocument, snapshot: savedSnapshot }));
+    const api = createApi({
+      settings: {
+        get: vi.fn(async () => createSafeSettings({
+          hasHackmdApiToken: false,
+          hasLocalVault: true,
+          localVault: { path: '/tmp/vault' },
+        })),
+      },
+      localVault: {
+        getSnapshot: vi.fn(async () => snapshot),
+        readNote: vi.fn(async () => localDocument),
+        writeNote,
+      },
+    });
+
+    renderHome(api);
+    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Keyboard note' } });
+    fireEvent.keyDown(window, { key: 's', metaKey: true });
+
+    await waitFor(() => expect(writeNote).toHaveBeenCalledWith({
+      noteId: 'local-note-1',
+      title: 'Keyboard note',
+      content: '# Test note',
+      expectedRevision: { contentHash: 'old-hash', mtimeMs: 1 },
+    }));
+    await waitFor(() => expect(screen.getByLabelText('Sync state: Saved')).toBeInTheDocument());
+    expect(screen.queryByText('File changed on disk. Your draft is still open.')).not.toBeInTheDocument();
+  });
+
   it('opens quick capture content as an active unsaved draft tab', async () => {
     let commandHandler: ((command: HackDeskCommandPaletteCommand) => void) | null = null;
     const api = createApi({
