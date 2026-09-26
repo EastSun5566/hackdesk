@@ -528,7 +528,18 @@ export function Home() {
     requestCloseTabsToRight,
     requestDeleteFolder: folderCommands.handleDeleteFolderRequest,
     reopenLastClosedTab: noteWorkspace.reopenLastClosed,
-    saveNote: (note, input) => mutations.updateNoteMutation.mutate({ note, input, intent: 'content' }),
+    saveNote: (note, input) => {
+      if (!activeTab || isDraftNoteTab(activeTab)) {
+        return;
+      }
+      mutations.updateNoteMutation.mutate({
+        note,
+        input,
+        intent: 'content',
+        tabId: activeTab.tabId,
+        submittedDraft: input,
+      });
+    },
     saveDraftNote: (tab, input) => mutations.createDraftNoteMutation.mutate({ tabId: tab.tabId, input }),
     setEditorMode: (mode) => {
       mutations.updateSettingsMutation.mutate({
