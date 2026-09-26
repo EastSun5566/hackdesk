@@ -1,8 +1,9 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 
 import {
   defaultSettings,
-  parseSettingsOrDefault,
+  parseStoredSettings,
   serializeSettings,
   validateSettings,
   type AppSettings,
@@ -14,6 +15,7 @@ const defaultHackmdCliConfigStatus: HackmdCliConfigStatus = {
   hasAccessToken: false,
   hasCustomEndpoint: false,
 };
+let settingsUpdateQueue = Promise.resolve();
 
 function hasAppearanceSettings(content: string) {
   try {
@@ -105,7 +107,7 @@ async function readStoredSettingsWithMetadata(): Promise<{ settings: AppSettings
   try {
     const content = await readFile(getSettingsPath(), 'utf8');
     return {
-      settings: parseSettingsOrDefault(content, defaultSettings),
+      settings: parseStoredSettings(content),
       hasStoredAppearance: hasAppearanceSettings(content),
     };
   } catch (error) {
@@ -130,7 +132,19 @@ export async function getSafeSettings(): Promise<ElectronSafeSettings> {
   return toSafeSettings(settings, hasStoredAppearance, hackmdCliConfig);
 }
 
-export async function updateStoredSettings(
+async function writeStoredSettings(settings: AppSettings) {
+  await mkdir(getHackDeskRootPath(), { recursive: true });
+  const settingsPath = getSettingsPath();
+  const temporaryPath = `${settingsPath}.tmp-${randomUUID()}`;
+  try {
+    await writeFile(temporaryPath, serializeSettings(settings), 'utf8');
+    await rename(temporaryPath, settingsPath);
+  } finally {
+    await rm(temporaryPath, { force: true }).catch(() => undefined);
+  }
+}
+
+async function updateStoredSettingsUnlocked(
   update: ElectronSettingsUpdate & { localVaultPath?: string | null },
 ): Promise<ElectronSafeSettings> {
   const current = await readStoredSettings();
@@ -149,11 +163,18 @@ export async function updateStoredSettings(
     localVault: update.localVaultPath !== undefined ? { path: update.localVaultPath } : current.localVault,
   });
 
-  await mkdir(getHackDeskRootPath(), { recursive: true });
-  await writeFile(getSettingsPath(), serializeSettings(next), 'utf8');
+  await writeStoredSettings(next);
 
   const hackmdCliConfig = await getHackmdCliConfigStatus();
   return toSafeSettings(next, true, hackmdCliConfig);
+}
+
+export function updateStoredSettings(
+  update: ElectronSettingsUpdate & { localVaultPath?: string | null },
+): Promise<ElectronSafeSettings> {
+  const result = settingsUpdateQueue.then(() => updateStoredSettingsUnlocked(update));
+  settingsUpdateQueue = result.then(() => undefined, () => undefined);
+  return result;
 }
 
 export async function readHackmdApiToken() {
