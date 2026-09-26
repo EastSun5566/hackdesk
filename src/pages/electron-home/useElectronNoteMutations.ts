@@ -519,25 +519,17 @@ export function useElectronNoteMutations({
       };
 
       if (scope.type === 'local' || note.teamPath === LOCAL_VAULT_TEAM_PATH) {
-        let localDocument = note as LocalDocumentSummary;
-        if (payload.title !== undefined && payload.title !== note.title) {
-          const { document: renamed, snapshot } = await api.localVault.renameNote({
-            noteId: note.id,
-            title: payload.title,
-            expectedRevision: localDocument.localRevision,
-          });
-          cacheLocalVaultSnapshot(snapshot);
-          localDocument = toDocumentSummary(renamed, snapshot);
-        }
-
-        if (payload.content !== undefined) {
+        const localDocument = note as LocalDocumentSummary;
+        const titleChanged = payload.title !== undefined && payload.title !== note.title;
+        if (titleChanged || payload.content !== undefined) {
           const { document: written, snapshot } = await api.localVault.writeNote({
             noteId: note.id,
-            content: payload.content,
+            ...(titleChanged ? { title: payload.title } : {}),
+            content: payload.content ?? localDocument.content,
             expectedRevision: localDocument.localRevision,
           });
           cacheLocalVaultSnapshot(snapshot);
-          localDocument = toDocumentSummary(written, snapshot);
+          return toDocumentSummary(written, snapshot);
         }
 
         return localDocument;
