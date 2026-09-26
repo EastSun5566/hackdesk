@@ -1,0 +1,121 @@
+name: Main prerelease
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: main-prerelease
+  cancel-in-progress: true
+
+env:
+  RELEASE_TAG: main
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Create or update prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          release_title="HackDesk main"
+          release_notes="Automated prerelease build from main commit ${GITHUB_SHA}."
+
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --prerelease \
+              --title "$release_title" \
+              --notes "$release_notes"
+          else
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --prerelease \
+              --title "$release_title" \
+              --notes "$release_notes"
+          fi
+
+  build:
+    needs: prepare-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            args: --mac --x64 --arm64 --config.mac.identity=null --config.mac.notarize=false
+          - os: windows-latest
+            args: --win --x64
+          - os: ubuntu-latest
+            args: --linux AppImage --x64
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm run build
+      - name: Build unsigned prerelease assets
+        shell: bash
+        run: pnpm exec electron-builder ${{ matrix.args }} --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - name: Upload prerelease assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          assets=()
+          for asset in release/electron/*; do
+            if [[ -f "$asset" && "$(basename "$asset")" != "builder-debug.yml" ]]; then
+              assets+=("$asset")
+            fi
+          done
+          if (( ${#assets[@]} == 0 )); then
+            echo "::error::No Electron assets were produced."
+            exit 1
+          fi
+
+          gh release upload "$RELEASE_TAG" "${assets[@]}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+  verify:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Verify prerelease assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          state="$(gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,isPrerelease \
+            --jq '"\(.isDraft) \(.isPrerelease)"')"
+          if [[ "$state" != "false true" ]]; then
+            echo "::error::Expected a published prerelease, received: $state"
+            exit 1
+          fi
+
+          asset_count="$(gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json assets \
+            --jq '.assets | length')"
+          if [[ "$asset_count" -eq 0 ]]; then
+            echo "::error::The main prerelease has no assets."
+            exit 1
+          fi
