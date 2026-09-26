@@ -103,6 +103,39 @@ describe('LocalVaultService', () => {
     await expect(readFile(join(vaultPath, note.relativePath), 'utf8')).resolves.toBe('next');
   });
 
+  it('saves a changed title and content in one operation', async () => {
+    const { document: note } = await createLocalNote({ title: 'Draft', content: 'base' });
+    const { document: updated } = await writeLocalNote({
+      noteId: note.id,
+      title: 'Renamed',
+      content: 'next',
+      expectedRevision: note.revision,
+    });
+
+    expect(updated).toMatchObject({
+      id: note.id,
+      title: 'Renamed',
+      relativePath: 'Renamed.md',
+      content: 'next',
+    });
+    await expect(readFile(join(vaultPath, 'Draft.md'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(readFile(join(vaultPath, 'Renamed.md'), 'utf8')).resolves.toBe('next');
+  });
+
+  it('does not rename a note when its content cannot be written', async () => {
+    const { document: note } = await createLocalNote({ title: 'Draft', content: 'base' });
+
+    await expect(writeLocalNote({
+      noteId: note.id,
+      title: 'Renamed',
+      content: 'x'.repeat(10 * 1024 * 1024 + 1),
+      expectedRevision: note.revision,
+    })).rejects.toThrow('cannot exceed 10 MiB');
+
+    await expect(readFile(join(vaultPath, 'Draft.md'), 'utf8')).resolves.toBe('base');
+    await expect(readFile(join(vaultPath, 'Renamed.md'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('moves deleted notes to the provided trash implementation', async () => {
     const { document: note } = await createLocalNote({ title: 'Delete me', content: 'bye' });
     const trashItem = vi.fn(async (path: string) => {

@@ -8,6 +8,7 @@ import {
   readFile,
   realpath,
   rename,
+  rm,
   stat,
   writeFile,
 } from 'node:fs/promises';
@@ -558,15 +559,20 @@ export async function importLocalVaultAttachment(
 
 async function atomicWriteFile(filePath: string, content: string) {
   const temporaryPath = join(dirname(filePath), `.${basename(filePath)}.hackdesk-tmp-${randomUUID()}`);
-  const handle = await open(temporaryPath, 'w');
   try {
-    await handle.writeFile(content, 'utf8');
-    await handle.datasync();
-  } finally {
-    await handle.close();
-  }
+    const handle = await open(temporaryPath, 'w');
+    try {
+      await handle.writeFile(content, 'utf8');
+      await handle.datasync();
+    } finally {
+      await handle.close();
+    }
 
-  await rename(temporaryPath, filePath);
+    await rename(temporaryPath, filePath);
+  } catch (error) {
+    await rm(temporaryPath, { force: true }).catch(() => undefined);
+    throw error;
+  }
 }
 
 function assertRevisionMatches(current: LocalRevision, expected: LocalRevision) {
@@ -584,6 +590,23 @@ export async function writeLocalNote(input: LocalVaultWriteInput): Promise<Local
     const currentContent = await readFile(filePath, 'utf8');
     assertRevisionMatches({ contentHash: hashContent(currentContent), mtimeMs: (await stat(filePath)).mtimeMs }, input.expectedRevision);
     await atomicWriteFile(filePath, input.content);
+
+    if (input.title !== undefined && input.title !== note.title) {
+      const target = await createUniqueMarkdownPath(vaultRoot, note.parentPath, input.title);
+      const targetRelativePath = toVaultRelativePath(vaultRoot, target);
+      await rename(filePath, target);
+      try {
+        await moveManifestNotePath(vaultRoot, note.relativePath, targetRelativePath);
+      } catch (error) {
+        try {
+          await rename(target, filePath);
+        } catch (rollbackError) {
+          throw new AggregateError([error, rollbackError], 'Failed to save the local note and restore its original path.');
+        }
+        throw error;
+      }
+    }
+
     const document = await readLocalNoteUnlocked(vaultRoot, input.noteId);
     const snapshot = await scanLocalVaultUnlocked(vaultRoot);
     return { document, snapshot };

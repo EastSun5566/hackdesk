@@ -42,6 +42,7 @@ export type ChooseLocalVaultResult = {
 
 export type LocalVaultWriteInput = {
   noteId: string;
+  title?: string;
   content: string;
   expectedRevision: LocalRevision;
 };

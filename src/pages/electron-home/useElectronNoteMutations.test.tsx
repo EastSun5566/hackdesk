@@ -251,6 +251,55 @@ describe('useElectronNoteMutations draft save', () => {
   });
 });
 
+describe('useElectronNoteMutations local note save', () => {
+  it('sends changed title and content through one Local Vault write', async () => {
+    const note = {
+      ...createDocument({
+        id: 'local-note-1',
+        title: 'Local draft',
+        content: '# Local draft',
+        teamPath: LOCAL_VAULT_TEAM_PATH,
+      }),
+      localRelativePath: 'Local draft.md',
+      localRevision: { contentHash: 'hash-1', mtimeMs: 1 },
+    };
+    const updatedDocument = createLocalDocument({
+      title: 'Renamed',
+      relativePath: 'Renamed.md',
+      content: '# Updated',
+      revision: { contentHash: 'hash-2', mtimeMs: 2 },
+    });
+    const snapshot = createSnapshot(updatedDocument);
+    const api = {
+      localVault: {
+        renameNote: vi.fn(),
+        writeNote: vi.fn(async () => ({ document: updatedDocument, snapshot })),
+      },
+    } as unknown as HackDeskElectronAPI;
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useElectronNoteMutations(createOptions({
+      api,
+      scope: { type: 'local', label: 'Local Vault' },
+    })), { wrapper: Wrapper });
+
+    await act(async () => {
+      await result.current.updateNoteMutation.mutateAsync({
+        note,
+        input: { title: 'Renamed', content: '# Updated' },
+        intent: 'content',
+      });
+    });
+
+    expect(api.localVault.writeNote).toHaveBeenCalledWith({
+      noteId: 'local-note-1',
+      title: 'Renamed',
+      content: '# Updated',
+      expectedRevision: { contentHash: 'hash-1', mtimeMs: 1 },
+    });
+    expect(api.localVault.renameNote).not.toHaveBeenCalled();
+  });
+});
+
 describe('useElectronNoteMutations settings updates', () => {
   it('serializes consecutive settings writes', async () => {
     const savedSettings = { hasHackmdApiToken: false } as ElectronSafeSettings;
