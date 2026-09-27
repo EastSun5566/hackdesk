@@ -90,22 +90,28 @@ function createOptions({
   api,
   scope,
   onDraftNoteCreated = vi.fn(),
+  onFolderCreated = vi.fn(),
+  onFolderRenamed = vi.fn(),
+  selectedParentFolderId,
 }: {
   api: HackDeskElectronAPI;
   scope: WorkspaceScope;
   onDraftNoteCreated?: (tabId: string, note: DocumentSummary) => void;
+  onFolderCreated?: ReturnType<typeof vi.fn>;
+  onFolderRenamed?: ReturnType<typeof vi.fn>;
+  selectedParentFolderId?: string;
 }) {
   return {
     api,
     scope,
     selectedNote: null,
-    selectedParentFolderId: undefined,
+    selectedParentFolderId,
     onSettingsSaved: vi.fn(),
     onNoteCreated: vi.fn(),
     onDraftNoteCreated,
     onNoteSaved: vi.fn(),
-    onFolderCreated: vi.fn(),
-    onFolderRenamed: vi.fn(),
+    onFolderCreated,
+    onFolderRenamed,
     onFolderDeleted: vi.fn(),
     onNoteDeleted: vi.fn(),
     onNoteMoved: vi.fn(),
@@ -297,6 +303,85 @@ describe('useElectronNoteMutations local note save', () => {
       expectedRevision: { contentHash: 'hash-1', mtimeMs: 1 },
     });
     expect(api.localVault.renameNote).not.toHaveBeenCalled();
+  });
+});
+
+describe('useElectronNoteMutations local folders', () => {
+  const archiveFolder = {
+    id: 'local-folder:Archive/Design',
+    name: 'Design',
+    relativePath: 'Archive/Design',
+    parentPath: 'Archive',
+    createdAtMillis: 1,
+    updatedAtMillis: 1,
+  };
+  const projectFolder = {
+    id: 'local-folder:Projects/Design',
+    name: 'Design',
+    relativePath: 'Projects/Design',
+    parentPath: 'Projects',
+    createdAtMillis: 2,
+    updatedAtMillis: 2,
+  };
+
+  it('selects the folder identity returned by a local create', async () => {
+    const snapshot = { ...createSnapshot(), folders: [archiveFolder, projectFolder] };
+    const api = {
+      localVault: {
+        createFolder: vi.fn(async () => ({ folder: projectFolder, snapshot })),
+      },
+    } as unknown as HackDeskElectronAPI;
+    const onFolderCreated = vi.fn();
+    const { queryClient, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useElectronNoteMutations(createOptions({
+      api,
+      scope: { type: 'local', label: 'Local Vault' },
+      selectedParentFolderId: 'local-folder:Projects',
+      onFolderCreated,
+    })), { wrapper: Wrapper });
+
+    await act(async () => {
+      await result.current.createFolderMutation.mutateAsync({ name: 'Design' });
+    });
+
+    expect(api.localVault.createFolder).toHaveBeenCalledWith({ name: 'Design', parentPath: 'Projects' });
+    expect(onFolderCreated).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'local-folder:Projects/Design',
+      parentId: 'local-folder:Projects',
+    }));
+    expect(queryClient.getQueryData(['electron', 'local-vault', 'snapshot'])).toEqual(snapshot);
+  });
+
+  it('selects the folder identity returned by a local rename', async () => {
+    const snapshot = { ...createSnapshot(), folders: [archiveFolder, projectFolder] };
+    const api = {
+      localVault: {
+        renameFolder: vi.fn(async () => ({ folder: projectFolder, snapshot })),
+      },
+    } as unknown as HackDeskElectronAPI;
+    const onFolderRenamed = vi.fn();
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useElectronNoteMutations(createOptions({
+      api,
+      scope: { type: 'local', label: 'Local Vault' },
+      onFolderRenamed,
+    })), { wrapper: Wrapper });
+
+    await act(async () => {
+      await result.current.renameFolderMutation.mutateAsync({
+        folderId: 'local-folder:Projects/Old',
+        input: { name: 'Design' },
+      });
+    });
+
+    expect(api.localVault.renameFolder).toHaveBeenCalledWith({
+      relativePath: 'Projects/Old',
+      name: 'Design',
+    });
+    expect(onFolderRenamed).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'local-folder:Projects/Design',
+      parentId: 'local-folder:Projects',
+    }));
   });
 });
 

@@ -19,6 +19,7 @@ import type {
   LocalFolder,
   LocalVaultAttachmentMutationResult,
   LocalVaultDocumentMutationResult,
+  LocalVaultFolderMutationResult,
   LocalVaultImportAttachmentInput,
   LocalNoteSummary,
   LocalRevision,
@@ -134,6 +135,15 @@ function sanitizeFileName(input: string) {
     .replace(/\s+/g, ' ')
     .trim();
   return cleaned || 'Untitled';
+}
+
+function sanitizeFolderName(input: string) {
+  const name = sanitizeFileName(input);
+  if (IGNORED_DIRS.has(name)) {
+    throw new Error(`Folder name "${name}" is reserved by the local vault.`);
+  }
+
+  return name;
 }
 
 function splitFileName(fileName: string) {
@@ -660,26 +670,40 @@ export async function trashLocalNote(input: LocalVaultTrashNoteInput, trashItem:
   });
 }
 
-export async function createLocalFolder(input: LocalVaultCreateFolderInput): Promise<LocalVaultSnapshot> {
+function getMutatedFolder(snapshot: LocalVaultSnapshot, relativePath: string) {
+  const folder = snapshot.folders.find((candidate) => candidate.relativePath === relativePath);
+  if (!folder) {
+    throw new Error('Local folder was changed but could not be indexed.');
+  }
+
+  return folder;
+}
+
+export async function createLocalFolder(input: LocalVaultCreateFolderInput): Promise<LocalVaultFolderMutationResult> {
   const vaultRoot = await requireActiveLocalVaultPath();
   return enqueueVaultOperation(vaultRoot, async () => {
     const parentPath = normalizeRelativePath(input.parentPath);
-    const folderPath = resolveInsideVault(vaultRoot, parentPath ? `${parentPath}/${sanitizeFileName(input.name)}` : sanitizeFileName(input.name));
+    const folderName = sanitizeFolderName(input.name);
+    const folderPath = resolveInsideVault(vaultRoot, parentPath ? `${parentPath}/${folderName}` : folderName);
     await mkdir(folderPath, { recursive: false });
-    return scanLocalVaultUnlocked(vaultRoot);
+    const relativePath = toVaultRelativePath(vaultRoot, folderPath);
+    const snapshot = await scanLocalVaultUnlocked(vaultRoot);
+    return { folder: getMutatedFolder(snapshot, relativePath), snapshot };
   });
 }
 
-export async function renameLocalFolder(input: LocalVaultRenameFolderInput): Promise<LocalVaultSnapshot> {
+export async function renameLocalFolder(input: LocalVaultRenameFolderInput): Promise<LocalVaultFolderMutationResult> {
   const vaultRoot = await requireActiveLocalVaultPath();
   return enqueueVaultOperation(vaultRoot, async () => {
     const source = resolveInsideVault(vaultRoot, input.relativePath);
-    const target = join(dirname(source), sanitizeFileName(input.name));
+    const target = join(dirname(source), sanitizeFolderName(input.name));
     await assertCanonicalInsideVault(vaultRoot, source);
     await assertCanonicalInsideVault(vaultRoot, target);
     await rename(source, target);
-    await remapManifestFolder(vaultRoot, normalizeRelativePath(input.relativePath)!, toVaultRelativePath(vaultRoot, target));
-    return scanLocalVaultUnlocked(vaultRoot);
+    const relativePath = toVaultRelativePath(vaultRoot, target);
+    await remapManifestFolder(vaultRoot, normalizeRelativePath(input.relativePath)!, relativePath);
+    const snapshot = await scanLocalVaultUnlocked(vaultRoot);
+    return { folder: getMutatedFolder(snapshot, relativePath), snapshot };
   });
 }
 

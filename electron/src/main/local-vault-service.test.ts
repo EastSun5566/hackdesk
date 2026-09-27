@@ -15,6 +15,7 @@ vi.mock('electron', () => ({
 
 import { getSettingsPath } from './paths';
 import {
+  createLocalFolder,
   createLocalNote,
   importLocalVaultAttachment,
   readLocalNote,
@@ -202,12 +203,42 @@ describe('LocalVaultService', () => {
     await expect(scanLocalVault(vaultPath)).rejects.toThrow();
   });
 
+  it('returns the created folder identity when another parent has the same folder name', async () => {
+    await mkdir(join(vaultPath, 'Archive', 'Design-Specs'), { recursive: true });
+    await mkdir(join(vaultPath, 'Projects'), { recursive: true });
+
+    const { folder, snapshot } = await createLocalFolder({
+      parentPath: 'Projects',
+      name: 'Design/Specs',
+    });
+
+    expect(folder).toMatchObject({
+      id: 'local-folder:Projects/Design-Specs',
+      name: 'Design-Specs',
+      relativePath: 'Projects/Design-Specs',
+      parentPath: 'Projects',
+    });
+    expect(snapshot.folders.filter((candidate) => candidate.name === 'Design-Specs')).toHaveLength(2);
+  });
+
+  it('rejects ignored folder names before changing the filesystem', async () => {
+    await expect(createLocalFolder({ name: ' node_modules ' })).rejects.toThrow('reserved by the local vault');
+    await expect(realpath(join(vaultPath, 'node_modules'))).rejects.toMatchObject({ code: 'ENOENT' });
+
+    await mkdir(join(vaultPath, 'Projects'));
+    await expect(renameLocalFolder({ relativePath: 'Projects', name: '.git' })).rejects.toThrow('reserved by the local vault');
+    await expect(realpath(join(vaultPath, 'Projects'))).resolves.toEqual(expect.any(String));
+    await expect(realpath(join(vaultPath, '.git'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('preserves descendant note ids when a folder is renamed', async () => {
     await mkdir(join(vaultPath, 'Projects', 'Nested'), { recursive: true });
+    await mkdir(join(vaultPath, 'Archive', 'Renamed'), { recursive: true });
     const { document: note } = await createLocalNote({ title: 'Stable', parentPath: 'Projects/Nested', content: 'Body' });
 
-    const snapshot = await renameLocalFolder({ relativePath: 'Projects', name: 'Renamed' });
+    const { folder, snapshot } = await renameLocalFolder({ relativePath: 'Projects', name: 'Renamed' });
 
+    expect(folder).toMatchObject({ id: 'local-folder:Renamed', relativePath: 'Renamed' });
     expect(snapshot.notes).toContainEqual(expect.objectContaining({
       id: note.id,
       relativePath: 'Renamed/Nested/Stable.md',

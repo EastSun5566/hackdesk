@@ -90,6 +90,11 @@ export type LocalVaultDocumentMutationResult = {
   snapshot: LocalVaultSnapshot;
 };
 
+export type LocalVaultFolderMutationResult = {
+  folder: LocalFolder;
+  snapshot: LocalVaultSnapshot;
+};
+
 export type LocalVaultAttachmentMutationResult = {
   attachment: LocalVaultImportAttachmentResult;
   snapshot: LocalVaultSnapshot;

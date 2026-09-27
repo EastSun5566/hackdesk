@@ -6,6 +6,7 @@ import type {
   LocalVaultCreateFolderInput,
   LocalVaultCreateNoteInput,
   LocalVaultDocumentMutationResult,
+  LocalVaultFolderMutationResult,
   LocalVaultImportAttachmentInput,
   LocalVaultMoveFolderInput,
   LocalVaultMoveNoteInput,
@@ -369,8 +370,8 @@ export type HackDeskElectronAPI = {
     trashNote: (input: LocalVaultTrashNoteInput) => Promise<LocalVaultSnapshot>;
     revealNote: (input: LocalVaultRevealNoteInput) => Promise<void>;
     importAttachment: (input: LocalVaultImportAttachmentInput) => Promise<LocalVaultAttachmentMutationResult>;
-    createFolder: (input: LocalVaultCreateFolderInput) => Promise<LocalVaultSnapshot>;
-    renameFolder: (input: LocalVaultRenameFolderInput) => Promise<LocalVaultSnapshot>;
+    createFolder: (input: LocalVaultCreateFolderInput) => Promise<LocalVaultFolderMutationResult>;
+    renameFolder: (input: LocalVaultRenameFolderInput) => Promise<LocalVaultFolderMutationResult>;
     moveFolder: (input: LocalVaultMoveFolderInput) => Promise<LocalVaultSnapshot>;
     trashFolder: (input: LocalVaultTrashFolderInput) => Promise<LocalVaultSnapshot>;
     revealFolder: (input: LocalVaultRevealFolderInput) => Promise<void>;

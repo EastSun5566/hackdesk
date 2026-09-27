@@ -297,13 +297,13 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.localVaultCreateFolder, (_event, input: LocalVaultCreateFolderInput) => (
     runLocalVaultMutation(
       () => createLocalFolder(validateIpcInput(ELECTRON_CHANNELS.localVaultCreateFolder, localVaultCreateFolderInputSchema, input)),
-      (snapshot) => snapshot,
+      (result) => result.snapshot,
     )
   ));
   ipcMain.handle(ELECTRON_CHANNELS.localVaultRenameFolder, (_event, input: LocalVaultRenameFolderInput) => (
     runLocalVaultMutation(
       () => renameLocalFolder(validateIpcInput(ELECTRON_CHANNELS.localVaultRenameFolder, localVaultRenameFolderInputSchema, input)),
-      (snapshot) => snapshot,
+      (result) => result.snapshot,
     )
   ));
   ipcMain.handle(ELECTRON_CHANNELS.localVaultMoveFolder, (_event, input: LocalVaultMoveFolderInput) => (
