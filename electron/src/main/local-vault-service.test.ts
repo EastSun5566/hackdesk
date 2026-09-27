@@ -221,6 +221,16 @@ describe('LocalVaultService', () => {
     expect(snapshot.folders.filter((candidate) => candidate.name === 'Design-Specs')).toHaveLength(2);
   });
 
+  it('rejects ignored folder names before changing the filesystem', async () => {
+    await expect(createLocalFolder({ name: ' node_modules ' })).rejects.toThrow('reserved by the local vault');
+    await expect(realpath(join(vaultPath, 'node_modules'))).rejects.toMatchObject({ code: 'ENOENT' });
+
+    await mkdir(join(vaultPath, 'Projects'));
+    await expect(renameLocalFolder({ relativePath: 'Projects', name: '.git' })).rejects.toThrow('reserved by the local vault');
+    await expect(realpath(join(vaultPath, 'Projects'))).resolves.toEqual(expect.any(String));
+    await expect(realpath(join(vaultPath, '.git'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('preserves descendant note ids when a folder is renamed', async () => {
     await mkdir(join(vaultPath, 'Projects', 'Nested'), { recursive: true });
     await mkdir(join(vaultPath, 'Archive', 'Renamed'), { recursive: true });

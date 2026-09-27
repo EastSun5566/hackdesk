@@ -137,6 +137,15 @@ function sanitizeFileName(input: string) {
   return cleaned || 'Untitled';
 }
 
+function sanitizeFolderName(input: string) {
+  const name = sanitizeFileName(input);
+  if (IGNORED_DIRS.has(name)) {
+    throw new Error(`Folder name "${name}" is reserved by the local vault.`);
+  }
+
+  return name;
+}
+
 function splitFileName(fileName: string) {
   const sanitized = sanitizeFileName(basename(fileName));
   const extension = extname(sanitized);
@@ -674,7 +683,8 @@ export async function createLocalFolder(input: LocalVaultCreateFolderInput): Pro
   const vaultRoot = await requireActiveLocalVaultPath();
   return enqueueVaultOperation(vaultRoot, async () => {
     const parentPath = normalizeRelativePath(input.parentPath);
-    const folderPath = resolveInsideVault(vaultRoot, parentPath ? `${parentPath}/${sanitizeFileName(input.name)}` : sanitizeFileName(input.name));
+    const folderName = sanitizeFolderName(input.name);
+    const folderPath = resolveInsideVault(vaultRoot, parentPath ? `${parentPath}/${folderName}` : folderName);
     await mkdir(folderPath, { recursive: false });
     const relativePath = toVaultRelativePath(vaultRoot, folderPath);
     const snapshot = await scanLocalVaultUnlocked(vaultRoot);
@@ -686,7 +696,7 @@ export async function renameLocalFolder(input: LocalVaultRenameFolderInput): Pro
   const vaultRoot = await requireActiveLocalVaultPath();
   return enqueueVaultOperation(vaultRoot, async () => {
     const source = resolveInsideVault(vaultRoot, input.relativePath);
-    const target = join(dirname(source), sanitizeFileName(input.name));
+    const target = join(dirname(source), sanitizeFolderName(input.name));
     await assertCanonicalInsideVault(vaultRoot, source);
     await assertCanonicalInsideVault(vaultRoot, target);
     await rename(source, target);

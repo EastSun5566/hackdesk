@@ -46,6 +46,17 @@ const localVaultMutationResult = vi.hoisted(() => ({
   },
   snapshot: localVaultSnapshot,
 }));
+const localVaultFolderMutationResult = vi.hoisted(() => ({
+  folder: {
+    id: 'local-folder:Projects/Design',
+    name: 'Design',
+    relativePath: 'Projects/Design',
+    parentPath: 'Projects',
+    createdAtMillis: 1,
+    updatedAtMillis: 1,
+  },
+  snapshot: localVaultSnapshot,
+}));
 const localVaultServiceMock = vi.hoisted(() => ({
   createLocalFolder: vi.fn(),
   createLocalNote: vi.fn(async () => localVaultMutationResult),
@@ -260,6 +271,24 @@ describe('registerIpcHandlers', () => {
     expect(send).toHaveBeenCalledWith(ELECTRON_CHANNELS.localVaultDidChange, {
       snapshot: localVaultSnapshot,
     });
+  });
+
+  it('returns complete local folder mutation results over IPC', async () => {
+    localVaultServiceMock.createLocalFolder.mockResolvedValueOnce(localVaultFolderMutationResult);
+    localVaultServiceMock.renameLocalFolder.mockResolvedValueOnce(localVaultFolderMutationResult);
+    registerIpcHandlers(windowManager);
+
+    const created = await ipcHandlers.get(ELECTRON_CHANNELS.localVaultCreateFolder)?.({}, {
+      name: 'Design',
+      parentPath: 'Projects',
+    });
+    const renamed = await ipcHandlers.get(ELECTRON_CHANNELS.localVaultRenameFolder)?.({}, {
+      relativePath: 'Projects/Old',
+      name: 'Design',
+    });
+
+    expect(created).toEqual(localVaultFolderMutationResult);
+    expect(renamed).toEqual(localVaultFolderMutationResult);
   });
 
   it('pauses the watcher during a local vault mutation without rebuilding it', async () => {
