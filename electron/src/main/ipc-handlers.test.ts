@@ -3,6 +3,9 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { ELECTRON_CHANNELS } from '../shared/channels';
 
 const ipcHandlers = vi.hoisted(() => new Map<string, (...args: unknown[]) => unknown>());
+const clipboardMock = vi.hoisted(() => ({
+  writeText: vi.fn(async () => undefined),
+}));
 const settingsMock = vi.hoisted(() => ({
   readHackmdCliAccessToken: vi.fn(async () => 'cli-token'),
   updateStoredSettings: vi.fn(async () => ({
@@ -81,9 +84,7 @@ vi.mock('electron', () => ({
   app: {
     getName: vi.fn(() => 'HackDesk'),
   },
-  clipboard: {
-    writeText: vi.fn(),
-  },
+  clipboard: clipboardMock,
   dialog: {
     showMessageBox: vi.fn(async () => ({ response: 1 })),
   },
@@ -237,6 +238,29 @@ describe('registerIpcHandlers', () => {
 
     expect(handler?.({})).toEqual({ fullScreen: true });
     expect(windowManager.getWindowPresentationState).toHaveBeenCalledOnce();
+  });
+
+  it('waits for the native clipboard write to finish', async () => {
+    let finishWrite!: () => void;
+    clipboardMock.writeText.mockImplementationOnce(() => new Promise<void>((resolve) => {
+      finishWrite = resolve;
+    }));
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appWriteClipboardText);
+
+    const result = handler?.({}, 'Copied text');
+    let settled = false;
+    const completion = Promise.resolve(result).then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+
+    expect(clipboardMock.writeText).toHaveBeenCalledWith('Copied text');
+    expect(settled).toBe(false);
+
+    finishWrite();
+    await completion;
+    expect(settled).toBe(true);
   });
 
   it('keeps one local vault watcher for repeated snapshot requests', async () => {

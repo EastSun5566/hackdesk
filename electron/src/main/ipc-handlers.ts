@@ -461,9 +461,9 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.appCancelClose, () => {
     windowManager.cancelClose();
   });
-  ipcMain.handle(ELECTRON_CHANNELS.appWriteClipboardText, (_event, text: string) => {
-    clipboard.writeText(validateString(ELECTRON_CHANNELS.appWriteClipboardText, text));
-  });
+  ipcMain.handle(ELECTRON_CHANNELS.appWriteClipboardText, (_event, text: string) => (
+    clipboard.writeText(validateString(ELECTRON_CHANNELS.appWriteClipboardText, text))
+  ));
   ipcMain.handle(ELECTRON_CHANNELS.appSaveTextFile, (_event, input: SaveTextFileInput) => (
     saveTextFile(validateIpcInput(ELECTRON_CHANNELS.appSaveTextFile, saveTextFileInputSchema, input), windowManager.getTargetWindow())
   ));
