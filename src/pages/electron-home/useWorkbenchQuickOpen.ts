@@ -7,12 +7,14 @@ import type { TeamSummary } from '@/lib/electron-api';
 import type { FolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
 
 import type { WorkspaceScope } from './types';
+import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
+import { recentNoteTargetsScope } from './usePendingRecentNoteRestore';
 
 export type WorkbenchQuickOpenOptions = {
   expandNavigator: () => void;
   focusNavigator: () => void;
-  isNotesFetching: boolean;
-  isNotesLoading: boolean;
+  isWorkspaceFetching: boolean;
+  isWorkspaceLoading: boolean;
   clearPendingRecentNote: () => void;
   queuePendingRecentNote: (note: ElectronRecentNote) => void;
   removeRecentNoteEntry: (noteId: string, teamPath: string | null) => void;
@@ -28,8 +30,8 @@ export type WorkbenchQuickOpenOptions = {
 export function useWorkbenchQuickOpen({
   expandNavigator,
   focusNavigator,
-  isNotesFetching,
-  isNotesLoading,
+  isWorkspaceFetching,
+  isWorkspaceLoading,
   clearPendingRecentNote,
   queuePendingRecentNote,
   removeRecentNoteEntry,
@@ -56,11 +58,17 @@ export function useWorkbenchQuickOpen({
       return;
     }
 
-    const currentTeamPath = scope.type === 'team' ? scope.teamPath : null;
-    const isCurrentWritableScope = scope.type !== 'history' && currentTeamPath === entry.teamPath;
-    if (isCurrentWritableScope && !isNotesLoading && !isNotesFetching) {
+    if (recentNoteTargetsScope(entry, scope) && !isWorkspaceLoading && !isWorkspaceFetching) {
       removeRecentNoteEntry(entry.noteId, entry.teamPath);
       toast.info(`“${entry.title || 'Untitled'}” is no longer available in this workspace.`);
+      return;
+    }
+
+    if (entry.teamPath === LOCAL_VAULT_TEAM_PATH) {
+      queuePendingRecentNote(entry);
+      setWorkspaceScope({ type: 'local', label: 'Local Vault' });
+      toast.info(`Loading Local Vault before opening “${entry.title || 'Untitled'}”.`);
+      focusNavigator();
       return;
     }
 
@@ -84,8 +92,8 @@ export function useWorkbenchQuickOpen({
   }, [
     clearPendingRecentNote,
     focusNavigator,
-    isNotesFetching,
-    isNotesLoading,
+    isWorkspaceFetching,
+    isWorkspaceLoading,
     queuePendingRecentNote,
     removeRecentNoteEntry,
     revealNoteEntry,
