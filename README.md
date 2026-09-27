@@ -30,9 +30,9 @@ xattr -dr com.apple.quarantine "/Applications/HackDesk.app"
 
 ### v2 beta
 
-v2 beta builds are unsigned and use manual updates.
+On macOS, v2 beta requires macOS 13 or later. Beta builds are unsigned and use manual updates.
 
-[Download HackDesk v2.0.0-beta.3](https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.3)
+[Download HackDesk v2.0.0-beta.4](https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.4)
 
 [Documentation](https://hackdesk.eastsun.me)
 
