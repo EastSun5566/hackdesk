@@ -471,20 +471,12 @@ export function useElectronNoteMutations({
       }
 
       if (scope.type === 'local') {
-        const snapshot = await api.localVault.createFolder({
+        const { folder, snapshot } = await api.localVault.createFolder({
           name: input.name,
           parentPath: getLocalFolderPathFromFolderId(selectedParentFolderId),
         });
         cacheLocalVaultSnapshot(snapshot);
-        const createdFolder = snapshot.folders
-          .map(toFolderSummary)
-          .find((folder) => folder.name === input.name.trim())
-          ?? snapshot.folders.map(toFolderSummary).at(-1);
-        if (!createdFolder) {
-          throw new Error('Local folder was created but could not be indexed.');
-        }
-
-        return createdFolder;
+        return toFolderSummary(folder);
       }
 
       const payload = {
@@ -686,19 +678,12 @@ export function useElectronNoteMutations({
           throw new Error('Electron API is unavailable.');
         }
 
-        const snapshot = await api.localVault.renameFolder({
+        const { folder, snapshot } = await api.localVault.renameFolder({
           relativePath: getLocalFolderPathFromFolderId(folderId) ?? folderId,
           name: nextName,
         });
         cacheLocalVaultSnapshot(snapshot);
-        const updatedFolder = snapshot.folders
-          .map(toFolderSummary)
-          .find((folder) => folder.name === nextName);
-        if (!updatedFolder) {
-          throw new Error('Local folder was renamed but could not be indexed.');
-        }
-
-        return updatedFolder;
+        return toFolderSummary(folder);
       }
 
       return updateFolder(folderId, {
