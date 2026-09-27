@@ -200,6 +200,12 @@ export function Home() {
   const documentsByKey = scope.type === 'local' ? localVault.documentsByKey : remoteDocumentsByKey;
   const documentQueries = scope.type === 'local' ? localVault.documentQueries : remoteDocumentQueries;
   const queries = remoteQueries;
+  const isWorkspaceFetching = scope.type === 'local'
+    ? localVault.snapshotQuery.isFetching
+    : queries.notesQuery.isFetching;
+  const isWorkspaceLoading = scope.type === 'local'
+    ? localVault.snapshotQuery.isLoading || localVault.snapshotQuery.isError
+    : queries.notesQuery.isLoading;
   const hasConfiguredLocalVault = settings?.hasLocalVault === true;
   const canUseCurrentWorkspace = hasToken || (scope.type === 'local' && hasConfiguredLocalVault);
   const handleHackmdDisconnected = useCallback(() => {
@@ -453,8 +459,8 @@ export function Home() {
     expandNavigator,
     focusNavigator: () => focusZone('navigator'),
     handleShowFinderResults,
-    isNotesFetching: queries.notesQuery.isFetching,
-    isNotesLoading: queries.notesQuery.isLoading,
+    isWorkspaceFetching,
+    isWorkspaceLoading,
     palette,
     recentNotes,
     removeRecentNoteEntry,

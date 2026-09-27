@@ -6,6 +6,7 @@ import type { NoteSummary } from '@/lib/electron-api';
 import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
 import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
 
+import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { usePendingRecentNoteRestore } from './usePendingRecentNoteRestore';
 
 vi.mock('@/components/ui/toast', () => ({
@@ -61,8 +62,8 @@ describe('usePendingRecentNoteRestore', () => {
     const revealNoteEntry = vi.fn(async () => true);
 
     const { result } = renderHook(() => usePendingRecentNoteRestore({
-      isNotesFetching: false,
-      isNotesLoading: false,
+      isWorkspaceFetching: false,
+      isWorkspaceLoading: false,
       removeRecentNoteEntry: vi.fn(),
       revealNoteEntry,
       scope: { type: 'personal', label: 'My Workspace' },
@@ -83,8 +84,8 @@ describe('usePendingRecentNoteRestore', () => {
     const removeRecentNoteEntry = vi.fn();
 
     const { result } = renderHook(() => usePendingRecentNoteRestore({
-      isNotesFetching: false,
-      isNotesLoading: false,
+      isWorkspaceFetching: false,
+      isWorkspaceLoading: false,
       removeRecentNoteEntry,
       revealNoteEntry: vi.fn(async () => true),
       scope: { type: 'personal', label: 'My Workspace' },
@@ -106,8 +107,8 @@ describe('usePendingRecentNoteRestore', () => {
     const revealNoteEntry = vi.fn(async () => true);
 
     const { result } = renderHook(() => usePendingRecentNoteRestore({
-      isNotesFetching: false,
-      isNotesLoading: false,
+      isWorkspaceFetching: false,
+      isWorkspaceLoading: false,
       removeRecentNoteEntry: vi.fn(),
       revealNoteEntry,
       scope: { type: 'personal', label: 'My Workspace' },
@@ -120,5 +121,39 @@ describe('usePendingRecentNoteRestore', () => {
 
     expect(revealNoteEntry).not.toHaveBeenCalled();
     expect(result.current.getPendingRecentNote()?.noteId).toBe('team-note');
+  });
+
+  it('waits for the Local Vault snapshot before restoring a local recent note', async () => {
+    const localRecent = recent({ noteId: 'local-note', teamPath: LOCAL_VAULT_TEAM_PATH });
+    const loadedTree = buildHackmdFolderTree([note({
+      id: 'local-note',
+      title: 'Local note',
+      teamPath: LOCAL_VAULT_TEAM_PATH,
+    })]);
+    const revealNoteEntry = vi.fn(async () => true);
+    const removeRecentNoteEntry = vi.fn();
+    const { result, rerender } = renderHook(({ isWorkspaceLoading, tree }) => usePendingRecentNoteRestore({
+      isWorkspaceFetching: false,
+      isWorkspaceLoading,
+      removeRecentNoteEntry,
+      revealNoteEntry,
+      scope: { type: 'local', label: 'Local Vault' },
+      tree,
+    }), {
+      initialProps: { isWorkspaceLoading: true, tree: buildHackmdFolderTree([]) },
+    });
+
+    act(() => {
+      result.current.queuePendingRecentNote(localRecent);
+    });
+
+    expect(result.current.getPendingRecentNote()).toEqual(localRecent);
+    expect(removeRecentNoteEntry).not.toHaveBeenCalled();
+
+    rerender({ isWorkspaceLoading: false, tree: loadedTree });
+
+    await waitFor(() => expect(revealNoteEntry).toHaveBeenCalledWith(loadedTree.allNotes[0]));
+    expect(removeRecentNoteEntry).not.toHaveBeenCalled();
+    expect(result.current.getPendingRecentNote()).toBeNull();
   });
 });

@@ -7,6 +7,7 @@ import type { QuickOpenFolderResult, QuickOpenWorkspaceResult } from '@/lib/elec
 import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
 import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
 
+import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { useWorkbenchQuickOpen, type WorkbenchQuickOpenOptions } from './useWorkbenchQuickOpen';
 
 vi.mock('@/components/ui/toast', () => ({
@@ -75,8 +76,8 @@ function createOptions(overrides: Partial<WorkbenchQuickOpenOptions> = {}): Work
   return {
     expandNavigator: vi.fn(),
     focusNavigator: vi.fn(),
-    isNotesFetching: false,
-    isNotesLoading: false,
+    isWorkspaceFetching: false,
+    isWorkspaceLoading: false,
     clearPendingRecentNote: vi.fn(),
     queuePendingRecentNote: vi.fn(),
     removeRecentNoteEntry: vi.fn(),
@@ -127,6 +128,19 @@ describe('useWorkbenchQuickOpen', () => {
       teamPath: 'team-one',
       type: 'team',
     });
+    expect(options.focusNavigator).toHaveBeenCalledOnce();
+  });
+
+  it('switches to Local Vault before opening a local recent note', () => {
+    const options = createOptions();
+    const entry = recent({ noteId: 'local-note', teamPath: LOCAL_VAULT_TEAM_PATH, title: 'Local note' });
+    const { result } = renderHook(() => useWorkbenchQuickOpen(options));
+
+    result.current.handleQuickOpenRecentNote(entry);
+
+    expect(options.queuePendingRecentNote).toHaveBeenCalledWith(entry);
+    expect(options.setWorkspaceScope).toHaveBeenCalledWith({ type: 'local', label: 'Local Vault' });
+    expect(toast.info).toHaveBeenCalledWith('Loading Local Vault before opening “Local note”.');
     expect(options.focusNavigator).toHaveBeenCalledOnce();
   });
 

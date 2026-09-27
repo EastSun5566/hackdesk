@@ -12,7 +12,9 @@ import type {
 } from '@/lib/electron-api';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ELECTRON_RECENT_NOTES_STORAGE_KEY } from '@/lib/electron-recent-notes';
+import type { LocalVaultSnapshot } from '@/lib/local-vault';
 import { defaultSettings } from '@/lib/settings';
+import { LOCAL_VAULT_TEAM_PATH } from './electron-home/local-vault-adapter';
 import { LAST_WORKSPACE_SCOPE_KEY } from './electron-home/ui-preferences';
 import { Home } from './Home';
 
@@ -2529,6 +2531,66 @@ describe('Home native-feel behavior', () => {
     expect(api.app.confirm).not.toHaveBeenCalled();
     fireEvent.click(await screen.findByRole('button', { name: 'Select Draft Product Plan tab' }));
     expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
+  });
+
+  it('waits for the Local Vault snapshot before opening a local recent note', async () => {
+    window.localStorage.setItem(ELECTRON_RECENT_NOTES_STORAGE_KEY, JSON.stringify([{
+      noteId: 'local-note',
+      teamPath: LOCAL_VAULT_TEAM_PATH,
+      title: 'Local Recent',
+      shortId: 'Local Recent.md',
+      lastOpenedAtMillis: 3000,
+    }]));
+    const localNote = {
+      id: 'local-note',
+      title: 'Local Recent',
+      relativePath: 'Local Recent.md',
+      parentPath: null,
+      createdAtMillis: 1,
+      updatedAtMillis: 2,
+      revision: { contentHash: 'local-hash', mtimeMs: 2 },
+    };
+    const snapshot: LocalVaultSnapshot = {
+      vaultId: 'vault-1',
+      rootPath: '/tmp/vault',
+      folders: [],
+      notes: [localNote],
+    };
+    let resolveSnapshot!: (snapshot: LocalVaultSnapshot) => void;
+    const snapshotPromise = new Promise<LocalVaultSnapshot>((resolve) => {
+      resolveSnapshot = resolve;
+    });
+    const getSnapshot = vi.fn(() => snapshotPromise);
+    const readNote = vi.fn(async () => ({ ...localNote, content: '# Local Recent' }));
+    const api = createApi({
+      settings: {
+        get: vi.fn(async () => createSafeSettings({
+          hasLocalVault: true,
+          localVault: { path: '/tmp/vault' },
+        })),
+      },
+      localVault: { getSnapshot, readNote },
+    });
+
+    renderHome(api);
+    await waitFor(() => expect(getSnapshot).toHaveBeenCalledOnce());
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
+    fireEvent.click(within(palette).getByText('Local Recent'));
+
+    expect(JSON.parse(window.localStorage.getItem(ELECTRON_RECENT_NOTES_STORAGE_KEY) ?? '[]')).toEqual([
+      expect.objectContaining({ noteId: 'local-note', teamPath: LOCAL_VAULT_TEAM_PATH }),
+    ]);
+    expect(api.hackmd.listTeamNotes).not.toHaveBeenCalledWith(LOCAL_VAULT_TEAM_PATH);
+    expect(readNote).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveSnapshot(snapshot);
+      await snapshotPromise;
+    });
+
+    expect(await screen.findByDisplayValue('Local Recent')).toBeInTheDocument();
+    expect(readNote).toHaveBeenCalledWith('local-note');
   });
 
   it('switches to a team workspace and opens a pending team recent note', async () => {
