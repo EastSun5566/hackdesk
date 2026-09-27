@@ -68,17 +68,22 @@ export function usePendingRecentNoteRestore({
       return;
     }
 
-    if (!recentNoteTargetsScope(pendingRecentNote, scope) || isWorkspaceLoading || isWorkspaceFetching) {
+    if (!recentNoteTargetsScope(pendingRecentNote, scope)) {
       return;
     }
 
     const loadedEntry = tree.allNotes.find((candidate) => recentNoteMatches(candidate.note, pendingRecentNote));
-    pendingRecentNoteRef.current = null;
     if (loadedEntry) {
+      pendingRecentNoteRef.current = null;
       void revealNoteEntryRef.current(loadedEntry);
       return;
     }
 
+    if (isWorkspaceLoading || isWorkspaceFetching) {
+      return;
+    }
+
+    pendingRecentNoteRef.current = null;
     removeRecentNoteEntryRef.current(pendingRecentNote.noteId, pendingRecentNote.teamPath);
     toast.info(`“${pendingRecentNote.title || 'Untitled'}” is no longer available in this workspace.`);
   }, [isWorkspaceFetching, isWorkspaceLoading, scope, tree.allNotes]);

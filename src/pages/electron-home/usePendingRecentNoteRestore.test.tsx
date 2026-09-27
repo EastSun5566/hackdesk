@@ -156,4 +156,33 @@ describe('usePendingRecentNoteRestore', () => {
     expect(removeRecentNoteEntry).not.toHaveBeenCalled();
     expect(result.current.getPendingRecentNote()).toBeNull();
   });
+
+  it('restores a recent note from retained workspace data after a refresh error', async () => {
+    const loadedTree = buildHackmdFolderTree([note({
+      id: 'local-note',
+      title: 'Local note',
+      teamPath: LOCAL_VAULT_TEAM_PATH,
+    })]);
+    const revealNoteEntry = vi.fn(async () => true);
+    const removeRecentNoteEntry = vi.fn();
+    const { result } = renderHook(() => usePendingRecentNoteRestore({
+      isWorkspaceFetching: false,
+      isWorkspaceLoading: true,
+      removeRecentNoteEntry,
+      revealNoteEntry,
+      scope: { type: 'local', label: 'Local Vault' },
+      tree: loadedTree,
+    }));
+
+    act(() => {
+      result.current.queuePendingRecentNote(recent({
+        noteId: 'local-note',
+        teamPath: LOCAL_VAULT_TEAM_PATH,
+      }));
+    });
+
+    await waitFor(() => expect(revealNoteEntry).toHaveBeenCalledWith(loadedTree.allNotes[0]));
+    expect(removeRecentNoteEntry).not.toHaveBeenCalled();
+    expect(result.current.getPendingRecentNote()).toBeNull();
+  });
 });
