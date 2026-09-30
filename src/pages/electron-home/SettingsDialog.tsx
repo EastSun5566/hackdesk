@@ -217,14 +217,14 @@ function SettingsDialogContent({
 
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent className="flex max-h-[min(760px,calc(100dvh-4rem))] w-[min(820px,calc(100dvw-3rem))] max-w-[820px] flex-col overflow-hidden p-0">
+      <DialogContent className="flex h-[min(760px,calc(100dvh-4rem))] w-[min(820px,calc(100dvw-3rem))] max-w-[820px] flex-col overflow-hidden p-0">
         <Tabs
           orientation="vertical"
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as SettingsTab)}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <DialogHeader className="border-b border-border-default px-5 py-4">
+          <DialogHeader className="shrink-0 border-b border-border-default px-5 py-4">
             <DialogTitle>Settings</DialogTitle>
             <DialogDescription className="sr-only">
               Configure the local Electron app and HackMD API access.
@@ -242,7 +242,7 @@ function SettingsDialogContent({
           >
             <div className="flex min-h-0 flex-1">
               <SettingsTabs />
-              <div className="flex min-w-0 flex-1 flex-col">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                 <TabsContent value="general" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <GeneralSettingsPanel
                     title={title}

@@ -86,7 +86,7 @@ import type { CommandPaletteState, WorkspaceScope } from './types';
 import { FOCUS_RING_CLASS } from './ui';
 import { PersonalWorkspaceIcon, TeamWorkspaceIcon } from './WorkspaceIcon';
 
-const COMMAND_ITEM_ICON_CLASS = 'mr-3 text-text-subtle';
+const COMMAND_ITEM_ICON_CLASS = 'mr-3 text-[color:var(--command-item-meta)]';
 const COMMAND_ITEM_TITLE_CLASS = 'block truncate font-medium text-[color:var(--command-item-title)]';
 const COMMAND_ITEM_META_CLASS = 'block truncate text-xs text-[color:var(--command-item-meta)]';
 

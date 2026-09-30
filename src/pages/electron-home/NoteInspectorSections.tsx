@@ -38,8 +38,8 @@ export type PermissionsSectionIds = {
   writePermissionId: string;
 };
 
-const INSPECTOR_INPUT_CLASS = 'h-9 bg-background-default px-2.5 text-text-default';
-const INSPECTOR_TEXTAREA_CLASS = 'min-h-16 bg-background-default px-2.5 py-2 text-text-default';
+const INSPECTOR_INPUT_CLASS = 'h-9 bg-background-default px-2.5 text-text-default focus-visible:ring-inset';
+const INSPECTOR_TEXTAREA_CLASS = 'min-h-16 bg-background-default px-2.5 py-2 text-text-default focus-visible:ring-inset';
 const INSPECTOR_SECTION_CLASS = 'py-3';
 const INSPECTOR_SECTION_CONTENT_CLASS = 'space-y-4 pb-1 pt-3';
 const INSPECTOR_LABEL_CLASS = 'text-xs font-medium text-text-subtle';
@@ -193,7 +193,7 @@ function TagEditor({
   return (
     <div className="space-y-1.5">
       <label className={INSPECTOR_LABEL_CLASS} htmlFor={id}>Tags</label>
-      <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-border-default bg-background-default px-2 py-1 transition-[border-color,box-shadow] focus-within:border-focus-ring focus-within:ring-2 focus-within:ring-focus-ring/60">
+      <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-border-default bg-background-default px-2 py-1 transition-[border-color,box-shadow] focus-within:border-focus-ring focus-within:ring-2 focus-within:ring-inset focus-within:ring-focus-ring">
         {tags.map((tag) => (
           <span
             key={tag}
@@ -203,7 +203,7 @@ function TagEditor({
             <button
               type="button"
               onClick={() => onRemoveTag(tag)}
-              className={cn('-mr-1 grid size-6 shrink-0 place-items-center rounded-[4px] text-text-subtle hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_CLASS)}
+              className={cn('-mr-1 grid size-6 shrink-0 place-items-center rounded-[4px] text-text-subtle hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_CLASS, 'focus-visible:ring-inset')}
               aria-label={`Remove ${tag} tag`}
             >
               <X aria-hidden="true" className="h-3 w-3" />
@@ -348,7 +348,7 @@ function PermissionSegmentedField({
             key={option.value}
             value={option.value}
             aria-label={option.label}
-            className="flex h-8 w-full min-w-0 cursor-pointer items-center justify-center overflow-hidden rounded-[5px] border-0 bg-transparent px-1.5 text-center text-xs text-text-subtle data-[checked]:bg-background-selected data-[checked]:font-medium data-[checked]:text-text-default"
+            className="flex h-8 w-full min-w-0 cursor-pointer items-center justify-center overflow-hidden rounded-[5px] border-0 bg-transparent px-1.5 focus-visible:ring-inset focus-visible:ring-offset-0 text-center text-xs text-text-subtle data-[checked]:bg-background-selected data-[checked]:font-medium data-[checked]:text-text-default"
           >
             <span className="min-w-0 truncate whitespace-nowrap">
               {option.label}

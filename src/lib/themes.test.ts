@@ -48,7 +48,34 @@ function expectContrast(
   expect(contrastRatio(foreground, background), label).toBeGreaterThanOrEqual(minimum);
 }
 
+function paintedSurface(color: string, background: string) {
+  if (color.startsWith('#')) return color;
+  const [r, g, b, opacity] = color.match(/[\d.]+/g)!.map(Number);
+  const base = hexToRgb(background);
+  return `#${[r, g, b].map((channel, index) => Math.round(
+    channel * opacity + [base.r, base.g, base.b][index] * (1 - opacity),
+  ).toString(16).padStart(2, '0')).join('')}`;
+}
+
 describe('HackDesk themes', () => {
+  for (const preset of HACKDESK_THEME_PRESETS) {
+    for (const mode of ['light', 'dark'] as const) {
+      it(`keeps palette text readable on normal and selected ${preset.id} ${mode} surfaces`, () => {
+        for (const customSeed of [undefined, { primary: '#FFFFFF' }, { primary: '#000000' }, { neutral: '#123ABC', primary: '#EEDD00' }]) {
+          const theme = resolveHackDeskTheme({ presetId: preset.id, mode, customSeed });
+          const background = theme['--background-default'];
+          const selected = paintedSurface(theme['--background-selected'], background);
+          for (const token of ['--command-item-title', '--command-item-meta', '--command-placeholder']) {
+            expectContrast(theme[token], background, 4.5, token);
+          }
+          for (const token of ['--command-selected-title', '--command-selected-meta']) {
+            expectContrast(theme[token], selected, 4.5, token);
+          }
+        }
+      });
+    }
+  }
+
   it('resolves required semantic variables for light and dark modes', () => {
     const light = resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'light' });
     const dark = resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'dark' });
