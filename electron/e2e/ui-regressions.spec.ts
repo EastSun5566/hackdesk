@@ -307,8 +307,10 @@ test('tab drag, keyboard actions, persistence and pane isolation', async () => {
       await page.mouse.up();
     };
     // The vault initially opens its first note; close that tab before arranging a known strip.
-    await strip.getByRole('button', { name: 'Close Deep', exact: true }).click();
+    await expect(page.locator('[data-folder-tree-kind="note"]').getByRole('button', { name: 'Alpha', exact: true })).toBeVisible();
+    await strip.getByRole('button', { name: /^Close / }).first().click();
     for (const name of ['Alpha', 'Beta', 'Gamma']) await openNote(name);
+    await expect(page.locator('.cm-content')).toContainText('# Gamma');
     await dragTab('Alpha', 'Gamma');
     await expect.poll(labels).toEqual(['Select Beta tab', 'Select Gamma tab', 'Select Alpha tab']);
     await expect(strip.getByRole('button', { name: 'Select Gamma tab' })).toHaveAttribute('aria-current', 'page');
@@ -316,10 +318,8 @@ test('tab drag, keyboard actions, persistence and pane isolation', async () => {
     await expect.poll(labels).toEqual(['Select Beta tab', 'Select Gamma tab', 'Select Alpha tab']);
     await expect(strip.getByRole('button', { name: 'Select Gamma tab' })).toHaveAttribute('aria-current', 'page');
 
-    await page.getByRole('button', { name: 'Pane actions' }).focus();
-    await page.keyboard.press('Enter');
-    await page.getByRole('menuitem', { name: 'Move Tab Left', exact: true }).focus();
-    await page.keyboard.press('Enter');
+    await page.getByRole('button', { name: 'Pane actions' }).press('Enter');
+    await page.getByRole('menuitem', { name: 'Move Tab Left', exact: true }).press('Enter');
     await expect.poll(labels).toEqual(['Select Gamma tab', 'Select Beta tab', 'Select Alpha tab']);
     await page.getByRole('button', { name: 'Pane actions' }).click();
     await expect(page.getByRole('menuitem', { name: 'Move Tab Left', exact: true })).toHaveAttribute('aria-disabled', 'true');
