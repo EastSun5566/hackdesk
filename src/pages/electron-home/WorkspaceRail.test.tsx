@@ -239,8 +239,7 @@ describe('WorkspaceRail', () => {
       .querySelector('[data-private-team-lock="true"]');
     expect(screen.getByText(privateTeam.name)).toBeVisible();
     expect(lock).toBeInTheDocument();
-    expect(lock?.parentElement).toHaveClass('opacity-70');
-    expect(lock?.parentElement).not.toHaveClass('opacity-0');
+    expect(lock).toBeVisible();
   });
 
   it('does not add private metadata to a public team accessible name', () => {

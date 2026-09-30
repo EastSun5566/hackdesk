@@ -74,12 +74,15 @@ function WorkspaceRailButton({
   className?: string;
   onClick: () => void;
 }) {
-  const shortcutHint = showShortcutHint && shortcutLabel ? (
+  const shortcutHint = shortcutLabel && (!collapsed || showShortcutHint) ? (
     <span
       aria-hidden="true"
-      className="min-w-5 rounded bg-background-muted px-1 py-0.5 text-center text-[10px] font-medium text-text-subtle"
+      className={cn(
+        'flex w-5 shrink-0 items-center justify-center rounded px-1 py-0.5 text-center text-[10px] font-medium text-text-subtle',
+        showShortcutHint ? 'bg-background-muted' : !trailing && 'invisible',
+      )}
     >
-      {shortcutLabel.replace(/^⌘|^Ctrl\+/, '')}
+      {showShortcutHint ? shortcutLabel.replace(/^⌘|^Ctrl\+/, '') : trailing}
     </span>
   ) : null;
   const row = (
@@ -171,6 +174,7 @@ function AccountSettingsButton({
 }
 
 type TeamRailRowProps = {
+  dragHandle?: ReactNode;
   active: boolean;
   collapsed: boolean;
   onPinChange: () => void;
@@ -183,6 +187,7 @@ type TeamRailRowProps = {
 };
 
 function TeamRailRow({
+  dragHandle,
   active,
   collapsed,
   onPinChange,
@@ -214,6 +219,7 @@ function TeamRailRow({
         ) : null}
         onClick={onScopeChange}
       />
+      {!collapsed ? dragHandle : null}
       {!collapsed ? (
         <Tooltip content={pinned ? `Unpin ${team.name}` : `Pin ${team.name}`} side="right">
           <button
@@ -234,7 +240,7 @@ function TeamRailRow({
 }
 
 function SortablePinnedTeamRow(props: Omit<TeamRailRowProps, 'pinned'>) {
-  const { attributes, isDragging, listeners, setNodeRef, transform, transition } = useSortable({ id: props.team.id });
+  const { attributes, isDragging, listeners, setActivatorNodeRef, setNodeRef, transform, transition } = useSortable({ id: props.team.id });
 
   return (
     <li
@@ -242,14 +248,14 @@ function SortablePinnedTeamRow(props: Omit<TeamRailRowProps, 'pinned'>) {
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn('group/sortable relative', isDragging && 'z-10 opacity-60')}
     >
-      <TeamRailRow {...props} pinned />
-      {!props.collapsed ? (
+      <TeamRailRow {...props} pinned dragHandle={
         <Tooltip content={`Reorder ${props.team.name}`} side="right">
           <button
             type="button"
             aria-label={`Reorder ${props.team.name}`}
+            ref={setActivatorNodeRef}
             className={cn(
-              'absolute right-7 top-1.5 flex size-7 items-center justify-center rounded-[6px] text-text-subtle opacity-0 hover:bg-element-bg-hover hover:text-text-default focus-visible:opacity-100 group-hover/sortable:opacity-100',
+              'flex size-7 shrink-0 items-center justify-center rounded-[6px] text-text-subtle opacity-0 hover:bg-element-bg-hover hover:text-text-default group-focus-within/team-row:opacity-100 group-hover/team-row:opacity-100',
               FOCUS_RING_CLASS,
             )}
             {...attributes}
@@ -258,7 +264,7 @@ function SortablePinnedTeamRow(props: Omit<TeamRailRowProps, 'pinned'>) {
             <GripVertical className="size-3.5" />
           </button>
         </Tooltip>
-      ) : null}
+      } />
     </li>
   );
 }

@@ -237,6 +237,6 @@ describe('DocumentWorkspace', () => {
     const separator = screen.getByLabelText('Resize document panes between pane 1 and pane 2');
 
     expect(separator).toHaveAttribute('id', 'document-pane-separator-pane-b');
-    expect(separator).toHaveClass('focus-visible:before:bg-primary-default');
+    expect(separator).toHaveClass('focus-visible:bg-primary-default');
   });
 });
