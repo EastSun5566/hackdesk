@@ -42,6 +42,7 @@ export type ChooseLocalVaultResult = {
 
 export type LocalVaultWriteInput = {
   noteId: string;
+  title?: string;
   content: string;
   expectedRevision: LocalRevision;
 };
@@ -82,6 +83,21 @@ export type LocalVaultImportAttachmentInput = {
 export type LocalVaultImportAttachmentResult = {
   link: string;
   relativePath: string;
+};
+
+export type LocalVaultDocumentMutationResult = {
+  document: LocalDocument;
+  snapshot: LocalVaultSnapshot;
+};
+
+export type LocalVaultFolderMutationResult = {
+  folder: LocalFolder;
+  snapshot: LocalVaultSnapshot;
+};
+
+export type LocalVaultAttachmentMutationResult = {
+  attachment: LocalVaultImportAttachmentResult;
+  snapshot: LocalVaultSnapshot;
 };
 
 export type LocalVaultCreateFolderInput = {

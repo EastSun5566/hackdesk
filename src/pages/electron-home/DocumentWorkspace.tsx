@@ -125,7 +125,7 @@ export function DocumentWorkspace({
               <Separator
                 id={`document-pane-separator-${pane.paneId}`}
                 aria-label={`Resize document panes between pane ${index} and pane ${index + 1}`}
-                className="relative w-2 cursor-col-resize bg-background-muted outline-none before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-border-default/60 hover:before:bg-primary-default focus-visible:before:bg-primary-default"
+                className="relative w-px cursor-col-resize bg-border-default/50 outline-none hover:bg-primary-default focus-visible:bg-primary-default"
               />
             ) : null}
             <Panel

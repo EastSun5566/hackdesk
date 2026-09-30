@@ -15,7 +15,7 @@ import type {
   UpdateNoteInput,
   UploadNoteImageInput,
 } from '@/lib/electron-api';
-import type { LocalDocument } from '@/lib/local-vault';
+import type { LocalDocument, LocalVaultSnapshot } from '@/lib/local-vault';
 import type { FolderDropOperation } from '@/lib/hackmd-folder-dnd';
 
 import {
@@ -163,6 +163,10 @@ export function useElectronNoteMutations({
 }) {
   const queryClient = useQueryClient();
 
+  const cacheLocalVaultSnapshot = useCallback((snapshot: LocalVaultSnapshot) => {
+    queryClient.setQueryData(getLocalVaultSnapshotQueryKey(), snapshot);
+  }, [queryClient]);
+
   const clearHackmdQueryCache = useCallback(() => {
     queryClient.removeQueries({ queryKey: ['electron', 'hackmd'] });
   }, [queryClient]);
@@ -301,16 +305,12 @@ export function useElectronNoteMutations({
         ...(selectedParentFolderId ? { parentFolderId: selectedParentFolderId } : {}),
       };
       if (scope.type === 'local') {
-        const createdDocument = await api.localVault.createNote({
+        const { document: createdDocument, snapshot } = await api.localVault.createNote({
           title,
           content: createQuickNoteContent(title),
           parentPath: getLocalFolderPathFromFolderId(selectedParentFolderId),
         });
-        const snapshot = await api.localVault.getSnapshot();
-        if (!snapshot) {
-          throw new Error('Local vault snapshot is unavailable.');
-        }
-
+        cacheLocalVaultSnapshot(snapshot);
         return toDocumentSummary(createdDocument, snapshot);
       }
 
@@ -319,9 +319,7 @@ export function useElectronNoteMutations({
         : api.hackmd.createNote(input);
     },
     onSuccess: (createdNote) => {
-      if (scope.type === 'local') {
-        void queryClient.invalidateQueries({ queryKey: getLocalVaultSnapshotQueryKey() });
-      } else {
+      if (scope.type !== 'local') {
         seedWorkspaceNote(createdNote);
       }
       onNoteCreated(createdNote);
@@ -350,16 +348,12 @@ export function useElectronNoteMutations({
       };
 
       if (scope.type === 'local') {
-        const createdDocument = await api.localVault.createNote({
+        const { document: createdDocument, snapshot } = await api.localVault.createNote({
           title,
           content,
           parentPath: getLocalFolderPathFromFolderId(selectedParentFolderId),
         });
-        const snapshot = await api.localVault.getSnapshot();
-        if (!snapshot) {
-          throw new Error('Local vault snapshot is unavailable.');
-        }
-
+        cacheLocalVaultSnapshot(snapshot);
         return toDocumentSummary(createdDocument, snapshot);
       }
 
@@ -368,9 +362,7 @@ export function useElectronNoteMutations({
         : api.hackmd.createNote(input);
     },
     onSuccess: (createdNote, variables) => {
-      if (scope.type === 'local') {
-        void queryClient.invalidateQueries({ queryKey: getLocalVaultSnapshotQueryKey() });
-      } else {
+      if (scope.type !== 'local') {
         seedWorkspaceNote(createdNote);
       }
       onDraftNoteCreated(variables.tabId, createdNote);
@@ -392,16 +384,12 @@ export function useElectronNoteMutations({
 
       if (scope.type === 'local') {
         const sourceDocument = await api.localVault.readNote(note.id);
-        const createdDocument = await api.localVault.createNote({
+        const { document: createdDocument, snapshot } = await api.localVault.createNote({
           title: `Copy of ${sourceDocument.title.trim() || 'Untitled'}`,
           content: sourceDocument.content,
           parentPath: sourceDocument.parentPath,
         });
-        const snapshot = await api.localVault.getSnapshot();
-        if (!snapshot) {
-          throw new Error('Local vault snapshot is unavailable.');
-        }
-
+        cacheLocalVaultSnapshot(snapshot);
         return toDocumentSummary(createdDocument, snapshot);
       }
 
@@ -427,9 +415,7 @@ export function useElectronNoteMutations({
         : api.hackmd.createNote(input);
     },
     onSuccess: (createdNote) => {
-      if (scope.type === 'local') {
-        void queryClient.invalidateQueries({ queryKey: getLocalVaultSnapshotQueryKey() });
-      } else {
+      if (scope.type !== 'local') {
         seedWorkspaceNote(createdNote);
       }
       onNoteCreated(createdNote);
@@ -450,16 +436,12 @@ export function useElectronNoteMutations({
       }
 
       if (scope.type === 'local') {
-        const createdDocument = await api.localVault.createNote({
+        const { document: createdDocument, snapshot } = await api.localVault.createNote({
           title: input.title,
           content: input.content,
           parentPath: getLocalFolderPathFromFolderId(selectedParentFolderId),
         });
-        const snapshot = await api.localVault.getSnapshot();
-        if (!snapshot) {
-          throw new Error('Local vault snapshot is unavailable.');
-        }
-
+        cacheLocalVaultSnapshot(snapshot);
         return toDocumentSummary(createdDocument, snapshot);
       }
 
@@ -468,9 +450,7 @@ export function useElectronNoteMutations({
         : api.hackmd.createNote(input);
     },
     onSuccess: (createdNote) => {
-      if (scope.type === 'local') {
-        void queryClient.invalidateQueries({ queryKey: getLocalVaultSnapshotQueryKey() });
-      } else {
+      if (scope.type !== 'local') {
         seedWorkspaceNote(createdNote);
       }
       onNoteCreated(createdNote);
@@ -491,19 +471,12 @@ export function useElectronNoteMutations({
       }
 
       if (scope.type === 'local') {
-        const snapshot = await api.localVault.createFolder({
+        const { folder, snapshot } = await api.localVault.createFolder({
           name: input.name,
           parentPath: getLocalFolderPathFromFolderId(selectedParentFolderId),
         });
-        const createdFolder = snapshot.folders
-          .map(toFolderSummary)
-          .find((folder) => folder.name === input.name.trim())
-          ?? snapshot.folders.map(toFolderSummary).at(-1);
-        if (!createdFolder) {
-          throw new Error('Local folder was created but could not be indexed.');
-        }
-
-        return createdFolder;
+        cacheLocalVaultSnapshot(snapshot);
+        return toFolderSummary(folder);
       }
 
       const payload = {
@@ -515,9 +488,7 @@ export function useElectronNoteMutations({
         : api.hackmd.createFolder(payload);
     },
     onSuccess: (createdFolder) => {
-      if (scope.type === 'local') {
-        void queryClient.invalidateQueries({ queryKey: getLocalVaultSnapshotQueryKey() });
-      } else if (scope.type !== 'history') {
+      if (scope.type !== 'local' && scope.type !== 'history') {
         void queryClient.invalidateQueries({ queryKey: getFoldersQueryKey(scope) });
         void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
       }
@@ -540,31 +511,17 @@ export function useElectronNoteMutations({
       };
 
       if (scope.type === 'local' || note.teamPath === LOCAL_VAULT_TEAM_PATH) {
-        let localDocument = note as LocalDocumentSummary;
-        if (payload.title !== undefined && payload.title !== note.title) {
-          const renamed = await api.localVault.renameNote({
+        const localDocument = note as LocalDocumentSummary;
+        const titleChanged = payload.title !== undefined && payload.title !== note.title;
+        if (titleChanged || payload.content !== undefined) {
+          const { document: written, snapshot } = await api.localVault.writeNote({
             noteId: note.id,
-            title: payload.title,
+            ...(titleChanged ? { title: payload.title } : {}),
+            content: payload.content ?? localDocument.content,
             expectedRevision: localDocument.localRevision,
           });
-          const snapshot = await api.localVault.getSnapshot();
-          if (!snapshot) {
-            throw new Error('Local vault snapshot is unavailable.');
-          }
-          localDocument = toDocumentSummary(renamed, snapshot);
-        }
-
-        if (payload.content !== undefined) {
-          const written = await api.localVault.writeNote({
-            noteId: note.id,
-            content: payload.content,
-            expectedRevision: localDocument.localRevision,
-          });
-          const snapshot = await api.localVault.getSnapshot();
-          if (!snapshot) {
-            throw new Error('Local vault snapshot is unavailable.');
-          }
-          localDocument = toDocumentSummary(written, snapshot);
+          cacheLocalVaultSnapshot(snapshot);
+          return toDocumentSummary(written, snapshot);
         }
 
         return localDocument;
@@ -581,7 +538,6 @@ export function useElectronNoteMutations({
           getLocalVaultDocumentQueryKey(updatedNote.id),
           (current) => localDocumentFromSummary(current, updatedNote as LocalDocumentSummary),
         );
-        void queryClient.invalidateQueries({ queryKey: getLocalVaultSnapshotQueryKey() });
       } else {
         queryClient.setQueryData<RepositoryValue<NoteSummary[]> | undefined>(
           getWorkspaceQueryKey(scope),
@@ -598,29 +554,28 @@ export function useElectronNoteMutations({
   });
 
   const uploadNoteImageMutation = useMutation({
-    mutationFn: ({ note, input }: { note: DocumentSummary; input: UploadNoteImageInput }) => {
+    mutationFn: async ({ note, input }: { note: DocumentSummary; input: UploadNoteImageInput }) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
       }
 
       if (scope.type === 'local' || note.teamPath === LOCAL_VAULT_TEAM_PATH) {
-        return api.localVault.importAttachment({
+        const result = await api.localVault.importAttachment({
           noteId: note.id,
           ...input,
         });
+        cacheLocalVaultSnapshot(result.snapshot);
+        return result.attachment;
       }
 
       return api.hackmd.uploadNoteImage(note.id, input);
     },
     onSuccess: (_uploadedImage, { note }) => {
-      if (scope.type === 'local' || note.teamPath === LOCAL_VAULT_TEAM_PATH) {
-        void queryClient.invalidateQueries({ queryKey: getLocalVaultSnapshotQueryKey() });
-        return;
+      if (scope.type !== 'local' && note.teamPath !== LOCAL_VAULT_TEAM_PATH) {
+        void queryClient.invalidateQueries({
+          queryKey: ['electron', 'hackmd', 'note', note.teamPath ?? null, note.id],
+        });
       }
-
-      void queryClient.invalidateQueries({
-        queryKey: ['electron', 'hackmd', 'note', note.teamPath ?? null, note.id],
-      });
     },
   });
 
@@ -631,7 +586,7 @@ export function useElectronNoteMutations({
       }
 
       if (scope.type === 'local' || note.teamPath === LOCAL_VAULT_TEAM_PATH) {
-        await api.localVault.trashNote({ noteId: note.id });
+        cacheLocalVaultSnapshot(await api.localVault.trashNote({ noteId: note.id }));
       } else if (note.teamPath) {
         await api.hackmd.deleteTeamNote(note.teamPath, note.id);
       } else {
@@ -641,9 +596,7 @@ export function useElectronNoteMutations({
       return note;
     },
     onSuccess: (note) => {
-      if (scope.type === 'local') {
-        void queryClient.invalidateQueries({ queryKey: getLocalVaultSnapshotQueryKey() });
-      } else {
+      if (scope.type !== 'local') {
         queryClient.setQueryData<RepositoryValue<NoteSummary[]> | undefined>(
           getWorkspaceQueryKey(scope),
           (current) => removeNoteFromRepositoryValue(current, note),
@@ -673,16 +626,12 @@ export function useElectronNoteMutations({
 
       if (scope.type === 'local') {
         const document = await api.localVault.readNote(note.id);
-        const movedDocument = await api.localVault.moveNote({
+        const { document: movedDocument, snapshot } = await api.localVault.moveNote({
           noteId: note.id,
           parentPath: getLocalFolderPathFromFolderId(targetFolderId),
           expectedRevision: document.revision,
         });
-        const snapshot = await api.localVault.getSnapshot();
-        if (!snapshot) {
-          throw new Error('Local vault snapshot is unavailable.');
-        }
-
+        cacheLocalVaultSnapshot(snapshot);
         return { note: toNoteSummary(movedDocument, snapshot), targetFolderId };
       }
 
@@ -695,8 +644,15 @@ export function useElectronNoteMutations({
     },
     onSuccess: ({ note, targetFolderId }) => {
       if (scope.type === 'local') {
-        void queryClient.invalidateQueries({ queryKey: getLocalVaultSnapshotQueryKey() });
-        void queryClient.invalidateQueries({ queryKey: getLocalVaultDocumentQueryKey(note.id) });
+        queryClient.setQueryData<LocalDocument | undefined>(
+          getLocalVaultDocumentQueryKey(note.id),
+          (current) => current ? {
+            ...current,
+            relativePath: (note as LocalDocumentSummary).localRelativePath,
+            parentPath: getParentPathFromRelativePath((note as LocalDocumentSummary).localRelativePath),
+            revision: (note as LocalDocumentSummary).localRevision,
+          } : current,
+        );
       } else {
         void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope) });
         void queryClient.invalidateQueries({
@@ -722,18 +678,12 @@ export function useElectronNoteMutations({
           throw new Error('Electron API is unavailable.');
         }
 
-        const snapshot = await api.localVault.renameFolder({
+        const { folder, snapshot } = await api.localVault.renameFolder({
           relativePath: getLocalFolderPathFromFolderId(folderId) ?? folderId,
           name: nextName,
         });
-        const updatedFolder = snapshot.folders
-          .map(toFolderSummary)
-          .find((folder) => folder.name === nextName);
-        if (!updatedFolder) {
-          throw new Error('Local folder was renamed but could not be indexed.');
-        }
-
-        return updatedFolder;
+        cacheLocalVaultSnapshot(snapshot);
+        return toFolderSummary(folder);
       }
 
       return updateFolder(folderId, {
@@ -742,9 +692,7 @@ export function useElectronNoteMutations({
       });
     },
     onSuccess: (updatedFolder) => {
-      if (scope.type === 'local') {
-        void queryClient.invalidateQueries({ queryKey: getLocalVaultSnapshotQueryKey() });
-      } else if (scope.type !== 'history') {
+      if (scope.type !== 'local' && scope.type !== 'history') {
         void queryClient.invalidateQueries({ queryKey: getFoldersQueryKey(scope) });
         void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
       }
@@ -761,9 +709,10 @@ export function useElectronNoteMutations({
       }
 
       if (scope.type === 'local') {
-        await api.localVault.trashFolder({
+        const snapshot = await api.localVault.trashFolder({
           relativePath: getLocalFolderPathFromFolderId(folderId) ?? folderId,
         });
+        cacheLocalVaultSnapshot(snapshot);
         return { folderId, parentFolderId };
       }
 
@@ -780,9 +729,7 @@ export function useElectronNoteMutations({
       return { folderId, parentFolderId };
     },
     onSuccess: ({ folderId, parentFolderId }) => {
-      if (scope.type === 'local') {
-        void queryClient.invalidateQueries({ queryKey: getLocalVaultSnapshotQueryKey() });
-      } else if (scope.type !== 'history') {
+      if (scope.type !== 'local' && scope.type !== 'history') {
         void queryClient.invalidateQueries({ queryKey: getFoldersQueryKey(scope) });
         void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
       }
@@ -800,10 +747,13 @@ export function useElectronNoteMutations({
 
       if (scope.type === 'local') {
         if (operation.parentChanged) {
-          await api?.localVault.moveFolder({
+          const snapshot = await api?.localVault.moveFolder({
             relativePath: getLocalFolderPathFromFolderId(operation.folderId) ?? operation.folderId,
             parentPath: getLocalFolderPathFromFolderId(operation.parentFolderId),
           });
+          if (snapshot) {
+            cacheLocalVaultSnapshot(snapshot);
+          }
         }
 
         return operation;
@@ -819,9 +769,7 @@ export function useElectronNoteMutations({
       return operation;
     },
     onSuccess: () => {
-      if (scope.type === 'local') {
-        void queryClient.invalidateQueries({ queryKey: getLocalVaultSnapshotQueryKey() });
-      } else if (scope.type !== 'history') {
+      if (scope.type !== 'local' && scope.type !== 'history') {
         void queryClient.invalidateQueries({ queryKey: getFoldersQueryKey(scope) });
         void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
       }

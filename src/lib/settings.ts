@@ -156,6 +156,33 @@ export const defaultSettings: AppSettings = {
   workspaceNavigation: defaultWorkspaceNavigationSettings,
 };
 
+const storedShortcutSettingsSchema = z.record(z.string(), z.unknown())
+  .catch({})
+  .transform((value): ShortcutSettings => {
+    const shortcuts: ShortcutSettings = {};
+    for (const [actionId, shortcut] of Object.entries(value)) {
+      if (!electronActionIds.has(actionId as ElectronActionId)) {
+        continue;
+      }
+      const result = shortcutConfigSchema.safeParse(shortcut);
+      if (result.success) {
+        shortcuts[actionId as ElectronActionId] = result.data;
+      }
+    }
+    return shortcuts;
+  });
+
+const storedSettingsSchema = z.object({
+  title: settingsSchema.shape.title.catch(defaultSettings.title),
+  hackmdApiToken: settingsSchema.shape.hackmdApiToken.catch(defaultSettings.hackmdApiToken),
+  appearance: settingsSchema.shape.appearance.catch(defaultSettings.appearance),
+  onboarding: settingsSchema.shape.onboarding.catch(defaultSettings.onboarding),
+  localVault: settingsSchema.shape.localVault.catch(defaultSettings.localVault),
+  editor: settingsSchema.shape.editor.catch(defaultSettings.editor),
+  shortcuts: storedShortcutSettingsSchema.default(defaultSettings.shortcuts),
+  workspaceNavigation: settingsSchema.shape.workspaceNavigation.catch(defaultSettings.workspaceNavigation),
+});
+
 export function normalizeAppearanceSettings(
   appearance: unknown,
   fallback: AppearanceSettings = defaultAppearanceSettings,
@@ -201,6 +228,24 @@ export function parseSettings(content: string): AppSettings {
 
     throw getSettingsError(error);
   }
+}
+
+export function parseStoredSettings(content: string): AppSettings {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error('Invalid JSON format');
+    }
+    throw getSettingsError(error);
+  }
+
+  const result = storedSettingsSchema.safeParse(parsed);
+  if (!result.success) {
+    throw getSettingsError(result.error);
+  }
+  return result.data;
 }
 
 export function parseSettingsOrDefault(

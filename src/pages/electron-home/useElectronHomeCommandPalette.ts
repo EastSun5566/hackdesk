@@ -13,8 +13,8 @@ export type ElectronHomeCommandPaletteOptions = {
   expandNavigator: () => void;
   focusNavigator: () => void;
   handleShowFinderResults: (query: string) => void;
-  isNotesFetching: boolean;
-  isNotesLoading: boolean;
+  isWorkspaceFetching: boolean;
+  isWorkspaceLoading: boolean;
   palette: CommandPaletteState;
   recentNotes: ElectronRecentNote[];
   removeRecentNoteEntry: (noteId: string, teamPath: string | null) => void;
@@ -35,8 +35,8 @@ export function useElectronHomeCommandPalette({
   expandNavigator,
   focusNavigator,
   handleShowFinderResults,
-  isNotesFetching,
-  isNotesLoading,
+  isWorkspaceFetching,
+  isWorkspaceLoading,
   palette,
   recentNotes,
   removeRecentNoteEntry,
@@ -63,8 +63,8 @@ export function useElectronHomeCommandPalette({
     clearPendingRecentNote,
     queuePendingRecentNote,
   } = usePendingRecentNoteRestore({
-    isNotesFetching,
-    isNotesLoading,
+    isWorkspaceFetching,
+    isWorkspaceLoading,
     removeRecentNoteEntry,
     revealNoteEntry,
     scope,
@@ -84,8 +84,8 @@ export function useElectronHomeCommandPalette({
   } = useWorkbenchQuickOpen({
     expandNavigator,
     focusNavigator,
-    isNotesFetching,
-    isNotesLoading,
+    isWorkspaceFetching,
+    isWorkspaceLoading,
     clearPendingRecentNote,
     queuePendingRecentNote,
     removeRecentNoteEntry,

@@ -3,6 +3,9 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { ELECTRON_CHANNELS } from '../shared/channels';
 
 const ipcHandlers = vi.hoisted(() => new Map<string, (...args: unknown[]) => unknown>());
+const clipboardMock = vi.hoisted(() => ({
+  writeText: vi.fn(async () => undefined),
+}));
 const settingsMock = vi.hoisted(() => ({
   readHackmdCliAccessToken: vi.fn(async () => 'cli-token'),
   updateStoredSettings: vi.fn(async () => ({
@@ -27,14 +30,61 @@ const hackmdServiceMock = vi.hoisted(() => ({
     teams: [],
   })),
 }));
+const localVaultSnapshot = vi.hoisted(() => ({
+  vaultId: 'vault-1',
+  rootPath: '/tmp/local-vault',
+  notes: [],
+  folders: [],
+}));
+const localVaultMutationResult = vi.hoisted(() => ({
+  document: {
+    id: 'note-1',
+    title: 'Draft',
+    relativePath: 'Draft.md',
+    parentPath: null,
+    createdAtMillis: 1,
+    updatedAtMillis: 1,
+    revision: { contentHash: 'hash', mtimeMs: 1 },
+    content: 'Body',
+  },
+  snapshot: localVaultSnapshot,
+}));
+const localVaultFolderMutationResult = vi.hoisted(() => ({
+  folder: {
+    id: 'local-folder:Projects/Design',
+    name: 'Design',
+    relativePath: 'Projects/Design',
+    parentPath: 'Projects',
+    createdAtMillis: 1,
+    updatedAtMillis: 1,
+  },
+  snapshot: localVaultSnapshot,
+}));
+const localVaultServiceMock = vi.hoisted(() => ({
+  createLocalFolder: vi.fn(),
+  createLocalNote: vi.fn(async () => localVaultMutationResult),
+  getActiveLocalVaultSnapshot: vi.fn(async () => localVaultSnapshot),
+  importLocalVaultAttachment: vi.fn(),
+  moveLocalFolder: vi.fn(),
+  moveLocalNote: vi.fn(),
+  readLocalNote: vi.fn(),
+  renameLocalFolder: vi.fn(),
+  renameLocalNote: vi.fn(),
+  revealLocalVaultFolder: vi.fn(),
+  revealLocalVaultNote: vi.fn(),
+  revealLocalVaultRoot: vi.fn(),
+  scanLocalVault: vi.fn(async () => localVaultSnapshot),
+  trashLocalFolder: vi.fn(),
+  trashLocalNote: vi.fn(),
+  watchLocalVault: vi.fn(() => ({ close: vi.fn(), pause: vi.fn(), resume: vi.fn() })),
+  writeLocalNote: vi.fn(),
+}));
 
 vi.mock('electron', () => ({
   app: {
     getName: vi.fn(() => 'HackDesk'),
   },
-  clipboard: {
-    writeText: vi.fn(),
-  },
+  clipboard: clipboardMock,
   dialog: {
     showMessageBox: vi.fn(async () => ({ response: 1 })),
   },
@@ -46,6 +96,7 @@ vi.mock('electron', () => ({
 }));
 
 vi.mock('./settings', () => settingsMock);
+vi.mock('./local-vault-service', () => localVaultServiceMock);
 vi.mock('./hackmd-service', () => ({
   clearHackmdCache: vi.fn(),
   createFolder: vi.fn(),
@@ -105,6 +156,7 @@ import { registerIpcHandlers } from './ipc-handlers';
 const windowManager = {
   cancelClose: vi.fn(),
   confirmClose: vi.fn(),
+  getMainWindow: vi.fn(() => null),
   getTargetWindow: vi.fn(() => null),
   getWindowPresentationState: vi.fn(() => ({ fullScreen: true })),
   hideQuickCaptureWindow: vi.fn(),
@@ -186,6 +238,128 @@ describe('registerIpcHandlers', () => {
 
     expect(handler?.({})).toEqual({ fullScreen: true });
     expect(windowManager.getWindowPresentationState).toHaveBeenCalledOnce();
+  });
+
+  it('waits for the native clipboard write to finish', async () => {
+    let finishWrite!: () => void;
+    clipboardMock.writeText.mockImplementationOnce(() => new Promise<void>((resolve) => {
+      finishWrite = resolve;
+    }));
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appWriteClipboardText);
+
+    const result = handler?.({}, 'Copied text');
+    let settled = false;
+    const completion = Promise.resolve(result).then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+
+    expect(clipboardMock.writeText).toHaveBeenCalledWith('Copied text');
+    expect(settled).toBe(false);
+
+    finishWrite();
+    await completion;
+    expect(settled).toBe(true);
+  });
+
+  it('keeps one local vault watcher for repeated snapshot requests', async () => {
+    const close = vi.fn();
+    localVaultServiceMock.watchLocalVault.mockReturnValue({ close, pause: vi.fn(), resume: vi.fn() });
+    const registration = registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetSnapshot);
+
+    await handler?.({});
+    await handler?.({});
+
+    expect(localVaultServiceMock.getActiveLocalVaultSnapshot).toHaveBeenCalledTimes(2);
+    expect(localVaultServiceMock.watchLocalVault).toHaveBeenCalledOnce();
+
+    registration.dispose();
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it('sends local vault watcher changes to the main window', async () => {
+    let onChange: ((snapshot: typeof localVaultSnapshot) => void) | undefined;
+    localVaultServiceMock.watchLocalVault.mockImplementation((_path, callback) => {
+      onChange = callback;
+      return { close: vi.fn(), pause: vi.fn(), resume: vi.fn() };
+    });
+    const send = vi.fn();
+    windowManager.getMainWindow.mockReturnValue({ webContents: { send } });
+    registerIpcHandlers(windowManager);
+
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetSnapshot)?.({});
+    onChange?.(localVaultSnapshot);
+
+    expect(send).toHaveBeenCalledWith(ELECTRON_CHANNELS.localVaultDidChange, {
+      snapshot: localVaultSnapshot,
+    });
+  });
+
+  it('returns complete local folder mutation results over IPC', async () => {
+    localVaultServiceMock.createLocalFolder.mockResolvedValueOnce(localVaultFolderMutationResult);
+    localVaultServiceMock.renameLocalFolder.mockResolvedValueOnce(localVaultFolderMutationResult);
+    registerIpcHandlers(windowManager);
+
+    const created = await ipcHandlers.get(ELECTRON_CHANNELS.localVaultCreateFolder)?.({}, {
+      name: 'Design',
+      parentPath: 'Projects',
+    });
+    const renamed = await ipcHandlers.get(ELECTRON_CHANNELS.localVaultRenameFolder)?.({}, {
+      relativePath: 'Projects/Old',
+      name: 'Design',
+    });
+
+    expect(created).toEqual(localVaultFolderMutationResult);
+    expect(renamed).toEqual(localVaultFolderMutationResult);
+  });
+
+  it('pauses the watcher during a local vault mutation without rebuilding it', async () => {
+    const close = vi.fn();
+    const pause = vi.fn();
+    const resume = vi.fn();
+    localVaultServiceMock.watchLocalVault.mockReturnValue({ close, pause, resume });
+    registerIpcHandlers(windowManager);
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetSnapshot)?.({});
+
+    const result = await ipcHandlers.get(ELECTRON_CHANNELS.localVaultCreateNote)?.({}, {
+      title: 'Draft',
+      content: 'Body',
+    });
+
+    expect(pause).toHaveBeenCalledOnce();
+    expect(resume).toHaveBeenCalledOnce();
+    expect(close).not.toHaveBeenCalled();
+    expect(localVaultServiceMock.createLocalNote).toHaveBeenCalledOnce();
+    expect(localVaultServiceMock.getActiveLocalVaultSnapshot).toHaveBeenCalledOnce();
+    expect(localVaultServiceMock.watchLocalVault).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ snapshot: localVaultSnapshot });
+  });
+
+  it('does not restore a disconnected vault after an in-flight mutation finishes', async () => {
+    const close = vi.fn();
+    const pause = vi.fn();
+    const resume = vi.fn();
+    localVaultServiceMock.watchLocalVault.mockReturnValue({ close, pause, resume });
+    let finishMutation!: (result: typeof localVaultMutationResult) => void;
+    localVaultServiceMock.createLocalNote.mockImplementationOnce(() => new Promise((resolve) => {
+      finishMutation = resolve;
+    }));
+    registerIpcHandlers(windowManager);
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetSnapshot)?.({});
+
+    const mutation = ipcHandlers.get(ELECTRON_CHANNELS.localVaultCreateNote)?.({}, {
+      title: 'Draft',
+      content: 'Body',
+    });
+    const mutationRejection = expect(mutation).rejects.toThrow('active local vault changed');
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultDisconnect)?.({});
+    finishMutation(localVaultMutationResult);
+    await mutationRejection;
+
+    expect(close).toHaveBeenCalledOnce();
+    expect(localVaultServiceMock.watchLocalVault).toHaveBeenCalledOnce();
   });
 
   it('validates and forwards quick capture submissions', () => {

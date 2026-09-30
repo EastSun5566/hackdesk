@@ -163,6 +163,7 @@ export const localVaultCreateNoteInputSchema = z.strictObject({
 
 export const localVaultWriteInputSchema = z.strictObject({
   noteId: nonEmptyStringSchema,
+  title: nonEmptyStringSchema.optional(),
   content: z.string().refine((value) => Buffer.byteLength(value, 'utf8') <= 10 * 1024 * 1024, 'Content exceeds 10 MiB'),
   expectedRevision: localVaultRevisionSchema,
 });

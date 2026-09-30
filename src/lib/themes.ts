@@ -843,6 +843,7 @@ export function resolveHackDeskTheme({
   return {
     ...contrastTheme,
     ...resolveNativeSurfaceTokens(contrastTheme),
+    ...resolveCommandPaletteTokens(contrastTheme),
     ...resolveThemeTypography(typography),
   };
 }
@@ -943,6 +944,35 @@ function resolveContrastTokens(theme: ResolvedHackDeskTheme): ResolvedHackDeskTh
     '--border-bold': borderBold,
     '--focus-ring': primary,
   };
+}
+
+// Selected surfaces may be translucent. Contrast must use the painted color,
+// rather than the uncomposited accent or only the default surface.
+function resolveCommandPaletteTokens(theme: ResolvedHackDeskTheme): ResolvedHackDeskTheme {
+  const background = theme['--background-default'];
+  const selectedBackground = compositeThemeColor(theme['--background-selected'], background);
+
+  return {
+    '--command-item-title': ensureContrast(theme['--text-default'], background, 4.5),
+    '--command-item-meta': ensureContrast(theme['--text-subtle'], background, 4.5),
+    '--command-placeholder': ensureContrast(theme['--text-subtle'], background, 4.5),
+    '--command-selected-title': ensureContrast(theme['--text-default'], selectedBackground, 4.5),
+    '--command-selected-meta': ensureContrast(theme['--text-subtle'], selectedBackground, 4.5),
+  };
+}
+
+function compositeThemeColor(color: string, background: string) {
+  if (isHexColor(color)) return color;
+  const channels = /^rgb\((\d+) (\d+) (\d+) \/ ([\d.]+)\)$/.exec(color);
+  if (!channels || !isHexColor(background)) return background;
+
+  const base = hexToRgb(background);
+  const opacity = Number(channels[4]);
+  return rgbToHex({
+    r: Number(channels[1]) * opacity + base.r * (1 - opacity),
+    g: Number(channels[2]) * opacity + base.g * (1 - opacity),
+    b: Number(channels[3]) * opacity + base.b * (1 - opacity),
+  });
 }
 
 function resolveNativeSurfaceTokens(theme: ResolvedHackDeskTheme): ResolvedHackDeskTheme {

@@ -5,6 +5,7 @@ const EDITOR_FOCUS_RING = '0 0 0 2px color-mix(in oklch, var(--focus-ring) 26%, 
 export const editorChromeTheme = {
   '&': {
     height: '100%',
+    isolation: 'isolate',
     backgroundColor: 'var(--background-default)',
     color: 'var(--text-default)',
     fontSize: 'var(--font-size-ui)',

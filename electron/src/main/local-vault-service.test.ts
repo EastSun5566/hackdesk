@@ -15,6 +15,7 @@ vi.mock('electron', () => ({
 
 import { getSettingsPath } from './paths';
 import {
+  createLocalFolder,
   createLocalNote,
   importLocalVaultAttachment,
   readLocalNote,
@@ -22,8 +23,10 @@ import {
   revealLocalVaultNote,
   revealLocalVaultRoot,
   renameLocalFolder,
+  renameLocalNote,
   scanLocalVault,
   trashLocalNote,
+  watchLocalVault,
   writeLocalNote,
 } from './local-vault-service';
 
@@ -68,8 +71,8 @@ describe('LocalVaultService', () => {
   });
 
   it('creates notes with collision-safe names and preserves stable IDs after reads', async () => {
-    const first = await createLocalNote({ title: 'Untitled', content: 'one' });
-    const second = await createLocalNote({ title: 'Untitled', content: 'two' });
+    const { document: first } = await createLocalNote({ title: 'Untitled', content: 'one' });
+    const { document: second } = await createLocalNote({ title: 'Untitled', content: 'two' });
     const reread = await readLocalNote(first.id);
 
     expect(first.relativePath).toBe('Untitled.md');
@@ -79,7 +82,7 @@ describe('LocalVaultService', () => {
   });
 
   it('rejects stale writes when the file changed on disk', async () => {
-    const note = await createLocalNote({ title: 'Draft', content: 'base' });
+    const { document: note } = await createLocalNote({ title: 'Draft', content: 'base' });
     await writeFile(join(vaultPath, note.relativePath), 'external');
 
     await expect(writeLocalNote({
@@ -90,8 +93,8 @@ describe('LocalVaultService', () => {
   });
 
   it('writes atomically when the expected revision matches', async () => {
-    const note = await createLocalNote({ title: 'Draft', content: 'base' });
-    const updated = await writeLocalNote({
+    const { document: note } = await createLocalNote({ title: 'Draft', content: 'base' });
+    const { document: updated } = await writeLocalNote({
       noteId: note.id,
       content: 'next',
       expectedRevision: note.revision,
@@ -101,8 +104,41 @@ describe('LocalVaultService', () => {
     await expect(readFile(join(vaultPath, note.relativePath), 'utf8')).resolves.toBe('next');
   });
 
+  it('saves a changed title and content in one operation', async () => {
+    const { document: note } = await createLocalNote({ title: 'Draft', content: 'base' });
+    const { document: updated } = await writeLocalNote({
+      noteId: note.id,
+      title: 'Renamed',
+      content: 'next',
+      expectedRevision: note.revision,
+    });
+
+    expect(updated).toMatchObject({
+      id: note.id,
+      title: 'Renamed',
+      relativePath: 'Renamed.md',
+      content: 'next',
+    });
+    await expect(readFile(join(vaultPath, 'Draft.md'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(readFile(join(vaultPath, 'Renamed.md'), 'utf8')).resolves.toBe('next');
+  });
+
+  it('does not rename a note when its content cannot be written', async () => {
+    const { document: note } = await createLocalNote({ title: 'Draft', content: 'base' });
+
+    await expect(writeLocalNote({
+      noteId: note.id,
+      title: 'Renamed',
+      content: 'x'.repeat(10 * 1024 * 1024 + 1),
+      expectedRevision: note.revision,
+    })).rejects.toThrow('cannot exceed 10 MiB');
+
+    await expect(readFile(join(vaultPath, 'Draft.md'), 'utf8')).resolves.toBe('base');
+    await expect(readFile(join(vaultPath, 'Renamed.md'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('moves deleted notes to the provided trash implementation', async () => {
-    const note = await createLocalNote({ title: 'Delete me', content: 'bye' });
+    const { document: note } = await createLocalNote({ title: 'Delete me', content: 'bye' });
     const trashItem = vi.fn(async (path: string) => {
       await rm(path, { force: true });
     });
@@ -116,7 +152,7 @@ describe('LocalVaultService', () => {
 
   it('reveals only paths inside the active local vault', async () => {
     await mkdir(join(vaultPath, 'Projects'), { recursive: true });
-    const note = await createLocalNote({ title: 'Reveal me', parentPath: 'Projects', content: 'hello' });
+    const { document: note } = await createLocalNote({ title: 'Reveal me', parentPath: 'Projects', content: 'hello' });
     const openPath = vi.fn(async () => '');
     const showItemInFolder = vi.fn();
 
@@ -133,15 +169,15 @@ describe('LocalVaultService', () => {
 
   it('imports attachments beside the note and returns an encoded relative link', async () => {
     await mkdir(join(vaultPath, 'Projects'), { recursive: true });
-    const note = await createLocalNote({ title: 'With image', parentPath: 'Projects', content: 'hello' });
+    const { document: note } = await createLocalNote({ title: 'With image', parentPath: 'Projects', content: 'hello' });
 
-    const first = await importLocalVaultAttachment({
+    const { attachment: first } = await importLocalVaultAttachment({
       noteId: note.id,
       fileName: 'My Diagram.png',
       mimeType: 'image/png',
       bytes: new TextEncoder().encode('image-one').buffer,
     });
-    const second = await importLocalVaultAttachment({
+    const { attachment: second } = await importLocalVaultAttachment({
       noteId: note.id,
       fileName: 'My Diagram.png',
       mimeType: 'image/png',
@@ -167,16 +203,115 @@ describe('LocalVaultService', () => {
     await expect(scanLocalVault(vaultPath)).rejects.toThrow();
   });
 
+  it('returns the created folder identity when another parent has the same folder name', async () => {
+    await mkdir(join(vaultPath, 'Archive', 'Design-Specs'), { recursive: true });
+    await mkdir(join(vaultPath, 'Projects'), { recursive: true });
+
+    const { folder, snapshot } = await createLocalFolder({
+      parentPath: 'Projects',
+      name: 'Design/Specs',
+    });
+
+    expect(folder).toMatchObject({
+      id: 'local-folder:Projects/Design-Specs',
+      name: 'Design-Specs',
+      relativePath: 'Projects/Design-Specs',
+      parentPath: 'Projects',
+    });
+    expect(snapshot.folders.filter((candidate) => candidate.name === 'Design-Specs')).toHaveLength(2);
+  });
+
+  it('rejects ignored folder names before changing the filesystem', async () => {
+    await expect(createLocalFolder({ name: ' node_modules ' })).rejects.toThrow('reserved by the local vault');
+    await expect(realpath(join(vaultPath, 'node_modules'))).rejects.toMatchObject({ code: 'ENOENT' });
+
+    await mkdir(join(vaultPath, 'Projects'));
+    await expect(renameLocalFolder({ relativePath: 'Projects', name: '.git' })).rejects.toThrow('reserved by the local vault');
+    await expect(realpath(join(vaultPath, 'Projects'))).resolves.toEqual(expect.any(String));
+    await expect(realpath(join(vaultPath, '.git'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('preserves descendant note ids when a folder is renamed', async () => {
     await mkdir(join(vaultPath, 'Projects', 'Nested'), { recursive: true });
-    const note = await createLocalNote({ title: 'Stable', parentPath: 'Projects/Nested', content: 'Body' });
+    await mkdir(join(vaultPath, 'Archive', 'Renamed'), { recursive: true });
+    const { document: note } = await createLocalNote({ title: 'Stable', parentPath: 'Projects/Nested', content: 'Body' });
 
-    const snapshot = await renameLocalFolder({ relativePath: 'Projects', name: 'Renamed' });
+    const { folder, snapshot } = await renameLocalFolder({ relativePath: 'Projects', name: 'Renamed' });
 
+    expect(folder).toMatchObject({ id: 'local-folder:Renamed', relativePath: 'Renamed' });
     expect(snapshot.notes).toContainEqual(expect.objectContaining({
       id: note.id,
       relativePath: 'Renamed/Nested/Stable.md',
     }));
+  });
+
+  it('serializes scans and manifest mutations for the same vault', async () => {
+    const { document: original } = await createLocalNote({ title: 'Original', content: 'Body' });
+
+    const [, renamed, created] = await Promise.all([
+      scanLocalVault(vaultPath),
+      renameLocalNote({
+        noteId: original.id,
+        title: 'Renamed',
+        expectedRevision: original.revision,
+      }),
+      createLocalNote({ title: 'Second', content: 'Other' }),
+    ]);
+    const finalSnapshot = await scanLocalVault(vaultPath);
+
+    expect(renamed.document.id).toBe(original.id);
+    expect(finalSnapshot.notes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: original.id, relativePath: 'Renamed.md' }),
+      expect.objectContaining({ id: created.document.id, relativePath: 'Second.md' }),
+    ]));
+  });
+
+  it('continues queued vault operations after an earlier operation fails', async () => {
+    const { document: note } = await createLocalNote({ title: 'Draft', content: 'base' });
+    await writeFile(join(vaultPath, note.relativePath), 'external');
+
+    const [failedWrite, created] = await Promise.allSettled([
+      writeLocalNote({
+        noteId: note.id,
+        content: 'mine',
+        expectedRevision: note.revision,
+      }),
+      createLocalNote({ title: 'After failure', content: 'saved' }),
+    ]);
+
+    expect(failedWrite.status).toBe('rejected');
+    expect(created.status).toBe('fulfilled');
+    const finalSnapshot = await scanLocalVault(vaultPath);
+    expect(finalSnapshot.notes).toContainEqual(expect.objectContaining({
+      title: 'After failure',
+    }));
+  });
+
+  it('refreshes once after filesystem events arrive while the watcher is paused', async () => {
+    let notify: ((eventType: string, filename: string | Buffer | null) => void) | undefined;
+    let resolveChange!: (snapshot: Awaited<ReturnType<typeof scanLocalVault>>) => void;
+    const changed = new Promise<Awaited<ReturnType<typeof scanLocalVault>>>((resolve) => {
+      resolveChange = resolve;
+    });
+    const close = vi.fn();
+    const watcher = watchLocalVault(
+      vaultPath,
+      resolveChange,
+      (_path, _options, listener) => {
+        notify = listener;
+        return { close, on: vi.fn() } as never;
+      },
+    );
+
+    watcher.pause();
+    await writeFile(join(vaultPath, 'External.md'), '# External');
+    notify?.('change', 'External.md');
+    watcher.resume();
+
+    await expect(changed).resolves.toMatchObject({
+      notes: [expect.objectContaining({ title: 'External' })],
+    });
+    watcher.close();
   });
 
   it('rejects mutations through a symlink inside the vault', async () => {

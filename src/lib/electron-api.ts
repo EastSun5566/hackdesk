@@ -1,11 +1,13 @@
 import type {
   ChooseLocalVaultResult,
   LocalDocument,
+  LocalVaultAttachmentMutationResult,
   LocalVaultChangeEvent,
   LocalVaultCreateFolderInput,
   LocalVaultCreateNoteInput,
+  LocalVaultDocumentMutationResult,
+  LocalVaultFolderMutationResult,
   LocalVaultImportAttachmentInput,
-  LocalVaultImportAttachmentResult,
   LocalVaultMoveFolderInput,
   LocalVaultMoveNoteInput,
   LocalVaultRenameFolderInput,
@@ -361,15 +363,15 @@ export type HackDeskElectronAPI = {
     disconnect: () => Promise<ElectronSafeSettings>;
     getSnapshot: () => Promise<LocalVaultSnapshot | null>;
     readNote: (noteId: string) => Promise<LocalDocument>;
-    createNote: (input: LocalVaultCreateNoteInput) => Promise<LocalDocument>;
-    writeNote: (input: LocalVaultWriteInput) => Promise<LocalDocument>;
-    renameNote: (input: LocalVaultRenameNoteInput) => Promise<LocalDocument>;
-    moveNote: (input: LocalVaultMoveNoteInput) => Promise<LocalDocument>;
+    createNote: (input: LocalVaultCreateNoteInput) => Promise<LocalVaultDocumentMutationResult>;
+    writeNote: (input: LocalVaultWriteInput) => Promise<LocalVaultDocumentMutationResult>;
+    renameNote: (input: LocalVaultRenameNoteInput) => Promise<LocalVaultDocumentMutationResult>;
+    moveNote: (input: LocalVaultMoveNoteInput) => Promise<LocalVaultDocumentMutationResult>;
     trashNote: (input: LocalVaultTrashNoteInput) => Promise<LocalVaultSnapshot>;
     revealNote: (input: LocalVaultRevealNoteInput) => Promise<void>;
-    importAttachment: (input: LocalVaultImportAttachmentInput) => Promise<LocalVaultImportAttachmentResult>;
-    createFolder: (input: LocalVaultCreateFolderInput) => Promise<LocalVaultSnapshot>;
-    renameFolder: (input: LocalVaultRenameFolderInput) => Promise<LocalVaultSnapshot>;
+    importAttachment: (input: LocalVaultImportAttachmentInput) => Promise<LocalVaultAttachmentMutationResult>;
+    createFolder: (input: LocalVaultCreateFolderInput) => Promise<LocalVaultFolderMutationResult>;
+    renameFolder: (input: LocalVaultRenameFolderInput) => Promise<LocalVaultFolderMutationResult>;
     moveFolder: (input: LocalVaultMoveFolderInput) => Promise<LocalVaultSnapshot>;
     trashFolder: (input: LocalVaultTrashFolderInput) => Promise<LocalVaultSnapshot>;
     revealFolder: (input: LocalVaultRevealFolderInput) => Promise<void>;

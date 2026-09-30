@@ -74,10 +74,13 @@ function WorkspaceRailButton({
   className?: string;
   onClick: () => void;
 }) {
-  const shortcutHint = showShortcutHint && shortcutLabel ? (
+  const shortcutHint = shortcutLabel && showShortcutHint ? (
     <span
       aria-hidden="true"
-      className="min-w-5 rounded bg-background-muted px-1 py-0.5 text-center text-[10px] font-medium text-text-subtle"
+      className={cn(
+        'flex w-5 shrink-0 items-center justify-center rounded px-1 py-0.5 text-center text-[10px] font-medium text-text-subtle',
+        'bg-background-muted',
+      )}
     >
       {shortcutLabel.replace(/^⌘|^Ctrl\+/, '')}
     </span>
@@ -100,7 +103,7 @@ function WorkspaceRailButton({
   );
   const tooltip = [tooltipLabel ?? accessibleLabel ?? label, shortcutLabel].filter(Boolean).join(' · ');
 
-  return collapsed ? <Tooltip content={tooltip} side="right">{row}</Tooltip> : row;
+  return <Tooltip content={tooltip} side="right">{row}</Tooltip>;
 }
 
 type WorkspaceRailUser = Pick<UserSummary, 'name' | 'username' | 'photo'>;
@@ -171,6 +174,7 @@ function AccountSettingsButton({
 }
 
 type TeamRailRowProps = {
+  dragHandle?: ReactNode;
   active: boolean;
   collapsed: boolean;
   onPinChange: () => void;
@@ -183,6 +187,7 @@ type TeamRailRowProps = {
 };
 
 function TeamRailRow({
+  dragHandle,
   active,
   collapsed,
   onPinChange,
@@ -198,43 +203,52 @@ function TeamRailRow({
   const ariaShortcut = shortcutIndex ? getWorkspaceAriaShortcut(platform, shortcutIndex) : undefined;
 
   return (
-    <div className="group/team-row flex min-w-0 items-center gap-0.5">
+    <div className="group/team-row relative flex min-w-0 items-center">
       <WorkspaceRailButton
         accessibleLabel={isPrivate ? `${team.name}, private` : team.name}
         active={active}
         ariaKeyShortcuts={ariaShortcut}
         collapsed={collapsed}
-        icon={<TeamWorkspaceIcon team={team} testId={`workspace-rail-team-logo-${team.id}`} />}
+        icon={<span className={cn('block', dragHandle && !collapsed && 'group-hover/team-row:opacity-0 group-focus-within/team-row:opacity-0')}><TeamWorkspaceIcon team={team} testId={`workspace-rail-team-logo-${team.id}`} /></span>}
         label={team.name}
         shortcutLabel={shortcutLabel}
-        showShortcutHint={showShortcutHint}
+        showShortcutHint={collapsed && showShortcutHint}
         tooltipLabel={isPrivate ? `${team.name} · Private` : team.name}
-        trailing={isPrivate ? (
-          <Lock aria-hidden="true" data-private-team-lock="true" className="h-3.5 w-3.5" />
+        trailing={isPrivate && !showShortcutHint ? (
+          <Lock aria-hidden="true" data-private-team-lock="true" className="h-3.5 w-3.5 group-hover/team-row:invisible group-focus-within/team-row:invisible" />
         ) : null}
         onClick={onScopeChange}
+        className={cn(!active && 'group-hover/team-row:bg-element-bg-hover group-focus-within/team-row:bg-element-bg-hover')}
       />
+      {!collapsed ? dragHandle : null}
+      {!collapsed && showShortcutHint && shortcutIndex ? <span aria-hidden="true" data-workspace-shortcut="true" className="pointer-events-none absolute right-2 top-1/2 z-10 flex w-5 -translate-y-1/2 items-center justify-center rounded bg-background-muted px-1 py-0.5 text-[10px] font-medium text-text-subtle group-hover/team-row:right-10 group-focus-within/team-row:right-10">{shortcutIndex}</span> : null}
       {!collapsed ? (
+        <div className={cn(
+          'pointer-events-none absolute inset-y-1 right-1 flex items-center gap-1 rounded-[6px] bg-background-default opacity-0 group-hover/team-row:pointer-events-auto group-hover/team-row:opacity-100 group-focus-within/team-row:pointer-events-auto group-focus-within/team-row:opacity-100',
+          active ? 'bg-[linear-gradient(var(--background-selected),var(--background-selected))]' : 'bg-[linear-gradient(var(--element-bg-hover),var(--element-bg-hover))]',
+          showShortcutHint && shortcutIndex && 'pl-8',
+        )}>
         <Tooltip content={pinned ? `Unpin ${team.name}` : `Pin ${team.name}`} side="right">
           <button
             type="button"
             aria-label={pinned ? `Unpin ${team.name}` : `Pin ${team.name}`}
             onClick={onPinChange}
             className={cn(
-              'flex size-7 shrink-0 items-center justify-center rounded-[6px] text-text-subtle opacity-0 transition-opacity hover:bg-element-bg-hover hover:text-text-default group-focus-within/team-row:opacity-100 group-hover/team-row:opacity-100',
+              'flex size-8 shrink-0 items-center justify-center rounded-[6px] text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
               FOCUS_RING_CLASS,
             )}
           >
             {pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
           </button>
         </Tooltip>
+        </div>
       ) : null}
     </div>
   );
 }
 
 function SortablePinnedTeamRow(props: Omit<TeamRailRowProps, 'pinned'>) {
-  const { attributes, isDragging, listeners, setNodeRef, transform, transition } = useSortable({ id: props.team.id });
+  const { attributes, isDragging, listeners, setActivatorNodeRef, setNodeRef, transform, transition } = useSortable({ id: props.team.id });
 
   return (
     <li
@@ -242,14 +256,14 @@ function SortablePinnedTeamRow(props: Omit<TeamRailRowProps, 'pinned'>) {
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn('group/sortable relative', isDragging && 'z-10 opacity-60')}
     >
-      <TeamRailRow {...props} pinned />
-      {!props.collapsed ? (
+      <TeamRailRow {...props} pinned dragHandle={
         <Tooltip content={`Reorder ${props.team.name}`} side="right">
           <button
             type="button"
             aria-label={`Reorder ${props.team.name}`}
+            ref={setActivatorNodeRef}
             className={cn(
-              'absolute right-7 top-1.5 flex size-7 items-center justify-center rounded-[6px] text-text-subtle opacity-0 hover:bg-element-bg-hover hover:text-text-default focus-visible:opacity-100 group-hover/sortable:opacity-100',
+              'pointer-events-none absolute inset-y-0 left-1 flex w-8 items-center justify-center rounded-[6px] text-text-subtle opacity-0 hover:text-text-default group-focus-within/team-row:pointer-events-auto group-focus-within/team-row:opacity-100 group-hover/team-row:pointer-events-auto group-hover/team-row:opacity-100',
               FOCUS_RING_CLASS,
             )}
             {...attributes}
@@ -258,7 +272,7 @@ function SortablePinnedTeamRow(props: Omit<TeamRailRowProps, 'pinned'>) {
             <GripVertical className="size-3.5" />
           </button>
         </Tooltip>
-      ) : null}
+      } />
     </li>
   );
 }
