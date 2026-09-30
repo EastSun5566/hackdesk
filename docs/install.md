@@ -12,12 +12,12 @@ import { data } from './release.data.ts'
 
 ## v2 Beta
 
-HackDesk v2 beta is unsigned and uses manual updates. Existing v0.1.5 installs do not update to v2 automatically. Your settings under `~/.hackdesk` are reused.
+On macOS, HackDesk v2 beta requires macOS 13 or later. Beta builds are unsigned and use manual updates. Existing v0.1.5 installs do not update to v2 automatically. Your settings under `~/.hackdesk` are reused.
 
-- [macOS · Apple silicon](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-arm64.dmg)
-- [macOS · Intel](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-x64.dmg)
-- [Windows · x64](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-x64.exe)
-- [Linux · x64 AppImage](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-x86_64.AppImage)
+- [macOS · Apple silicon](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-arm64.dmg)
+- [macOS · Intel](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-x64.dmg)
+- [Windows · x64](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-x64.exe)
+- [Linux · x64 AppImage](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-x86_64.AppImage)
 
 On macOS, move HackDesk to Applications, then run:
 

@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.0.0-beta.4](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.3...v2.0.0-beta.4) (2026-10-01)
+
+### Highlights
+
+* Renamed Quick Capture to Quick Hack and corrected macOS close, background, and quit behavior.
+* Added pinned team workspaces, drag-to-reorder navigation, and Command/Ctrl+1–9 workspace shortcuts.
+* Added tab drag reorder within each pane, keyboard menu actions, and saved tab order.
+* Kept workspace names full-width and revealed drag and pin controls on hover or keyboard focus.
+* Improved command palette contrast, continuous folder guides, single panel dividers, Settings layout, Note Details focus rings, and notification layering.
+* Improved Local Vault reliability with serialized scans, atomic note saves, stable folder selection, and correct recent-note restoration.
+* Kept keyboard saves, settings recovery, and editor undo history consistent with the active note.
+* Upgraded to Electron 44.4.5. macOS 13 or later is now required for v2 beta.
+
+### Beta notes
+
+* This is a prerelease intended for testing before the first stable v2 release.
+* Beta installers are unsigned and require the operating system's manual confirmation.
+* Automatic updates are disabled for beta builds. Download each beta from GitHub Releases.
+* Existing v0.1.5 installs do not update to v2 automatically. Install v2 manually; settings under `~/.hackdesk` are reused.
+* Report beta issues at [github.com/EastSun5566/hackdesk/issues](https://github.com/EastSun5566/hackdesk/issues).
+
 ## [2.0.0-beta.3](https://github.com/EastSun5566/hackdesk/compare/v0.1.5...v2.0.0-beta.3) (2026-07-18)
 
 ### Highlights
