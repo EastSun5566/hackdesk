@@ -33,6 +33,7 @@ function createDocumentTabsProps(overrides: Partial<Parameters<typeof DocumentTa
     onCloseTabsToRight: vi.fn(),
     onMoveTabToOtherPane: vi.fn(),
     onReopenLastClosedTab: vi.fn(),
+    onReorderTab: vi.fn(),
     onSelectTab: vi.fn(),
     onSplitPane: vi.fn(),
     tabs: [
@@ -224,6 +225,19 @@ describe('DocumentTabs', () => {
     });
 
     expect(props.onSplitPane).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ['first', 'Move Tab Right', 'tab-1', 'tab-2', 'Move Tab Left'],
+    ['last', 'Move Tab Left', 'tab-2', 'tab-1', 'Move Tab Right'],
+  ])('reorders the %s tab through accessible pane actions', async (position, action, from, to, disabled) => {
+    const props = renderDocumentTabs({ activeTab: position === 'first' ? tab() : tab({ tabId: 'tab-2', title: 'Project Plan' }) });
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Pane actions' }));
+    expect(await screen.findByRole('menuitem', { name: disabled })).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(screen.getByRole('menuitem', { name: action }));
+    expect(props.onReorderTab).toHaveBeenCalledWith(from, to);
+    expect(props.onSelectTab).not.toHaveBeenCalled();
+    expect(props.onCloseTab).not.toHaveBeenCalled();
   });
 
   it('does not run disabled pane actions', async () => {

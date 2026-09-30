@@ -11,12 +11,18 @@ const repoRoot = resolve(import.meta.dirname, '../..');
 const primary = process.platform === 'darwin' ? 'Meta' : 'Control';
 const teamNames = ['A very long workspace name for layout checks', 'Second Team'];
 
-async function launchFixture(editorMode: EditorMode = 'helix') {
+async function launchFixture(editorMode: EditorMode = 'helix', navigationFixtures = false) {
   const testHome = await mkdtemp(join(tmpdir(), 'hackdesk-ui-'));
   const vault = join(testHome, 'vault');
   await mkdir(join(testHome, '.hackdesk'), { recursive: true });
   await mkdir(vault);
   await writeFile(join(vault, 'UI fixture.md'), '# UI fixture\n\nTest note for layout checks.\n');
+  if (navigationFixtures) {
+    for (const folder of ['Projects/Sub', 'Folders only/Last']) await mkdir(join(vault, folder), { recursive: true });
+    for (const name of ['Alpha', 'Beta', 'Gamma', ...Array.from({ length: 8 }, (_, i) => `Long document title number ${i}`), 'Projects/Sub/One', 'Projects/Sub/Two', 'Projects/Direct', 'Folders only/Last/Deep']) {
+      await writeFile(join(vault, `${name}.md`), `# ${name.split('/').at(-1)}\n\nFixture content.\n`);
+    }
+  }
   const settings = {
     ...defaultSettings,
     appearance: { ...defaultSettings.appearance, theme: 'dark' as const },
@@ -183,17 +189,28 @@ test('rail controls, one-pixel boundaries and full-height Settings workbench', a
     const workspace = page.getByRole('button', { name: `${teamNames[0]}, private`, exact: true });
     const drag = page.getByRole('button', { name: `Reorder ${teamNames[0]}`, exact: true });
     const pin = page.getByRole('button', { name: `Unpin ${teamNames[0]}`, exact: true });
+    await page.getByRole('button', { name: 'My Workspace', exact: true }).focus();
+    await page.mouse.move(900, 100);
+    const rowBounds = (await workspace.locator('..').boundingBox())!;
+    expect((await workspace.boundingBox())!.width).toBe(rowBounds.width);
+    await expect(drag).toHaveCSS('opacity', '0');
+    await expect(pin.locator('..')).toHaveCSS('opacity', '0');
+    await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('10-rail-idle.png') });
+    await workspace.click();
     await workspace.hover();
     await drag.focus();
     const before = await workspace.boundingBox();
     await page.keyboard.down(primary);
     await expect(drag).toHaveCSS('opacity', '1');
-    const hint = workspace.locator('span[aria-hidden="true"]').filter({ hasText: '2' });
+    const hint = workspace.locator('..').locator('[data-workspace-shortcut]');
     const hintBounds = await hint.boundingBox();
     const dragBounds = await drag.boundingBox();
     const pinBounds = await pin.boundingBox();
-    expect(hintBounds!.x + hintBounds!.width).toBeLessThanOrEqual(dragBounds!.x);
-    expect(dragBounds!.x + dragBounds!.width).toBeLessThanOrEqual(pinBounds!.x);
+    expect(dragBounds!.x + dragBounds!.width).toBeLessThanOrEqual(hintBounds!.x);
+    expect(hintBounds!.x + hintBounds!.width).toBeLessThanOrEqual(pinBounds!.x);
+    const maskBounds = (await pin.locator('..').boundingBox())!;
+    expect(maskBounds.x).toBeLessThanOrEqual(hintBounds!.x);
+    expect(maskBounds.x + maskBounds.width).toBeGreaterThanOrEqual(pinBounds!.x + pinBounds!.width);
     expect(await workspace.boundingBox()).toEqual(before);
     await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('02-rail-controls.png') });
     await page.keyboard.up(primary);
@@ -263,6 +280,120 @@ test('rail controls, one-pixel boundaries and full-height Settings workbench', a
     }
     await page.getByRole('tab', { name: 'Shortcuts', exact: true }).click();
     await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('05-settings.png') });
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test('tab drag, keyboard actions, persistence and pane isolation', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  const testInfo = test.info();
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByRole('button', { name: 'Local Vault', exact: true }).click();
+    const openNote = async (name: string) => {
+      await page.locator('[data-folder-tree-kind="note"]').getByRole('button', { name, exact: true }).click();
+      await expect(page.getByRole('button', { name: `Select ${name} tab`, exact: true })).toHaveAttribute('aria-current', 'page');
+    };
+    const strip = page.getByRole('navigation', { name: 'Open documents' });
+    const labels = () => strip.getByRole('button', { name: /^Select .* tab$/ }).evaluateAll(elements => elements.map(element => element.getAttribute('aria-label')));
+    const dragTab = async (from: string, to: string, cancel = false) => {
+      const source = (await strip.getByRole('button', { name: `Select ${from} tab`, exact: true }).boundingBox())!;
+      const target = (await strip.getByRole('button', { name: `Select ${to} tab`, exact: true }).boundingBox())!;
+      await page.mouse.move(source.x + 10, source.y + source.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 12 });
+      if (cancel) await page.keyboard.press('Escape');
+      await page.mouse.up();
+    };
+    // The vault initially opens its first note; close that tab before arranging a known strip.
+    await strip.getByRole('button', { name: 'Close Deep', exact: true }).click();
+    for (const name of ['Alpha', 'Beta', 'Gamma']) await openNote(name);
+    await dragTab('Alpha', 'Gamma');
+    await expect.poll(labels).toEqual(['Select Beta tab', 'Select Gamma tab', 'Select Alpha tab']);
+    await expect(strip.getByRole('button', { name: 'Select Gamma tab' })).toHaveAttribute('aria-current', 'page');
+    await dragTab('Alpha', 'Beta', true);
+    await expect.poll(labels).toEqual(['Select Beta tab', 'Select Gamma tab', 'Select Alpha tab']);
+    await expect(strip.getByRole('button', { name: 'Select Gamma tab' })).toHaveAttribute('aria-current', 'page');
+
+    await page.getByRole('button', { name: 'Pane actions' }).focus();
+    await page.keyboard.press('Enter');
+    await page.getByRole('menuitem', { name: 'Move Tab Left', exact: true }).focus();
+    await page.keyboard.press('Enter');
+    await expect.poll(labels).toEqual(['Select Gamma tab', 'Select Beta tab', 'Select Alpha tab']);
+    await page.getByRole('button', { name: 'Pane actions' }).click();
+    await expect(page.getByRole('menuitem', { name: 'Move Tab Left', exact: true })).toHaveAttribute('aria-disabled', 'true');
+    await page.keyboard.press('Escape');
+    await expect.poll(() => page.evaluate(() => Object.entries(localStorage).some(([key, value]) => key.startsWith('hackdesk_note_workspace:') && JSON.parse(value).panes[0].tabIds.map((id: string) => JSON.parse(value).tabs[id].title).join(',') === 'Gamma,Beta,Alpha'))).toBe(true);
+    await page.reload();
+    await expect.poll(labels).toEqual(['Select Gamma tab', 'Select Beta tab', 'Select Alpha tab']);
+    await expect(strip.getByRole('button', { name: 'Select Gamma tab' })).toHaveAttribute('aria-current', 'page');
+    await page.keyboard.press(`${primary}+\\`);
+    await expect(page.getByRole('separator', { name: /Resize document panes/ })).toBeVisible();
+    await openNote('UI fixture');
+    const firstPaneTitle = await page.getByLabel('Note title', { exact: true }).first().inputValue();
+    await dragTab('UI fixture', 'Gamma');
+    await expect.poll(labels).toEqual(['Select UI fixture tab', 'Select Gamma tab']);
+    expect(await page.getByLabel('Note title', { exact: true }).first().inputValue()).toBe(firstPaneTitle);
+    await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('08-tab-reorder.png') });
+    await strip.getByRole('button', { name: 'Close Gamma', exact: true }).click();
+    await expect.poll(labels).toEqual(['Select UI fixture tab']);
+    await expect(strip.getByRole('button', { name: 'Select UI fixture tab' })).toHaveAttribute('aria-current', 'page');
+    // A long strip must scroll while dragging towards its edge.
+    for (let i = 0; i < 8; i++) await openNote(`Long document title number ${i}`);
+    await strip.evaluate(element => { element.scrollLeft = 0; });
+    const longTab = strip.getByRole('button', { name: 'Select Long document title number 0 tab' });
+    await longTab.scrollIntoViewIfNeeded();
+    const source = (await longTab.boundingBox())!;
+    const bounds = (await strip.boundingBox())!;
+    const initialScroll = await strip.evaluate(element => element.scrollLeft);
+    await page.mouse.move(source.x + 10, source.y + source.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + bounds.width - 5, source.y + source.height / 2, { steps: 15 });
+    await expect.poll(() => strip.evaluate(element => element.scrollLeft)).toBeGreaterThan(initialScroll);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test('tree guides connect mixed children and end at the last folder row', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.getByRole('button', { name: 'Local Vault', exact: true }).click();
+    for (const name of ['Projects', 'Sub', 'Folders only', 'Last']) {
+      const expand = page.getByRole('button', { name: `Expand ${name}`, exact: true });
+      if (await expand.count()) await expand.click();
+    }
+    const assertGuides = async () => {
+      const problems = await page.locator('[data-tree-children]').evaluateAll(lists => lists.flatMap(list => {
+        const items = Array.from(list.children) as HTMLElement[];
+        const lines = items.map(item => item.querySelector<HTMLElement>(':scope > [data-tree-guide], :scope > div > [data-tree-guide]')!);
+        return lines.flatMap((line, index) => {
+          const bounds = line.getBoundingClientRect();
+          const failures: string[] = [];
+          if (Math.abs(bounds.width - 1) > 0.1) failures.push('Guide is not 1px');
+          if (index > 0) {
+            const previous = lines[index - 1].getBoundingClientRect();
+            if (Math.abs(previous.bottom - bounds.top) > 0.1 || Math.abs(previous.x - bounds.x) > 0.1) failures.push('Guide has a gap');
+          }
+          if (index === items.length - 1) {
+            const row = items[index].querySelector<HTMLElement>('[data-folder-tree-row-id]')!.getBoundingClientRect();
+            if (Math.abs(bounds.bottom - (row.top + row.height / 2)) > 0.1) failures.push('Guide ends below the last row center');
+          }
+          return failures;
+        });
+      }));
+      expect(problems).toEqual([]);
+    };
+    await expect(page.locator('[data-tree-children]')).toHaveCount(4);
+    await assertGuides();
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('09-tree-guides.png') });
+    await page.getByRole('button', { name: 'Collapse Last', exact: true }).click();
+    await assertGuides();
+    await page.getByRole('button', { name: 'Expand Last', exact: true }).click();
+    await assertGuides();
   } finally {
     await stopApp(app);
   }

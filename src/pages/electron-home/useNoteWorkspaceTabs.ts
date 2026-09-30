@@ -25,6 +25,7 @@ import {
   openNoteTab,
   readNoteWorkspaceLayoutStorage,
   reopenLastClosedTab,
+  reorderNoteTab,
   resizeNotePanes,
   reconcileSavedNoteTab,
   selectNoteTab,
@@ -98,6 +99,10 @@ export function useNoteWorkspaceTabs(scopeKey: string) {
 
   const selectTab = useCallback((paneId: string, tabId: string) => {
     setState((current) => selectNoteTab(current, paneId, tabId));
+  }, []);
+
+  const reorderTab = useCallback((paneId: string, tabId: string, overTabId: string) => {
+    setState((current) => reorderNoteTab(current, paneId, tabId, overTabId));
   }, []);
 
   const focusPane = useCallback((paneId: string) => {
@@ -204,6 +209,7 @@ export function useNoteWorkspaceTabs(scopeKey: string) {
     materializeDraftNote,
     focusPane,
     selectTab,
+    reorderTab,
     closeTab,
     closeOtherTabs,
     closeTabsToRight: closeTabsRight,
