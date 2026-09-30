@@ -46,6 +46,7 @@ function TopBarIconButton({
 
 export function AppTopBar({
   activeTab,
+  tabStripId,
   getTabSyncState,
   navigation,
   onCloseOtherTabs,
@@ -53,6 +54,7 @@ export function AppTopBar({
   onCloseTabsToRight,
   onMoveTabToOtherPane,
   onReopenLastClosedTab,
+  onReorderTab,
   onSelectTab,
   onSplitPane,
   paneActions,
@@ -66,6 +68,7 @@ export function AppTopBar({
   onToggleRail,
 }: {
   activeTab: OpenNoteTab | null;
+  tabStripId?: string;
   getTabSyncState: (tab: OpenNoteTab) => DocumentSyncState;
   navigation: {
     canGoBack: boolean;
@@ -78,6 +81,7 @@ export function AppTopBar({
   onCloseTabsToRight: (tabId: string) => void;
   onMoveTabToOtherPane: () => void;
   onReopenLastClosedTab: () => void;
+  onReorderTab: (tabId: string, overTabId: string) => void;
   onSelectTab: (tabId: string) => void;
   onSplitPane: () => void;
   paneActions: {
@@ -167,6 +171,7 @@ export function AppTopBar({
         </TopBarIconButton>
       </Toolbar>
       <DocumentTabs
+        key={tabStripId}
         activeTab={activeTab}
         canMoveToOtherPane={paneActions.canMoveToOtherPane}
         canReopenLastClosedTab={paneActions.canReopenLastClosedTab}
@@ -178,6 +183,7 @@ export function AppTopBar({
         onCloseTabsToRight={onCloseTabsToRight}
         onMoveTabToOtherPane={onMoveTabToOtherPane}
         onReopenLastClosedTab={onReopenLastClosedTab}
+        onReorderTab={onReorderTab}
         onSelectTab={onSelectTab}
         onSplitPane={onSplitPane}
         tabs={tabs}

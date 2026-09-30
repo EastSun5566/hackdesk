@@ -44,7 +44,7 @@ export type ElectronHomeWorkspaceProps = {
       navigatorCollapsed: boolean;
       railCollapsed: boolean;
     };
-    state: Pick<NoteWorkspaceState, 'activePaneId' | 'backStack' | 'forwardStack' | 'panes' | 'recentlyClosedTabs'>;
+    state: Pick<NoteWorkspaceState, 'scopeKey' | 'activePaneId' | 'backStack' | 'forwardStack' | 'panes' | 'recentlyClosedTabs'>;
     actions: {
       moveActiveTabToOtherPane: () => void;
       navigateBack: () => void;
@@ -54,6 +54,7 @@ export type ElectronHomeWorkspaceProps = {
       requestCloseTab: (tabId: string) => Promise<unknown>;
       requestCloseTabsToRight: (paneId: string, tabId: string) => Promise<unknown>;
       selectTab: (paneId: string, tabId: string) => void;
+      reorderTab: (paneId: string, tabId: string, overTabId: string) => void;
       splitActiveTab: () => void;
       toggleNavigator: () => void;
       toggleRail: () => void;
@@ -76,6 +77,7 @@ export function ElectronHomeWorkspace({
   return (
     <>
       <AppTopBar
+        tabStripId={`${titlebar.state.scopeKey}:${activeTitlebarPane?.paneId}`}
         activeTab={activeTitlebarPaneView?.activeTab ?? null}
         getTabSyncState={titlebar.getTabSyncState}
         navigation={{
@@ -96,6 +98,9 @@ export function ElectronHomeWorkspace({
           if (activeTitlebarPane) {
             void titlebar.actions.requestCloseTabsToRight(activeTitlebarPane.paneId, tabId);
           }
+        }}
+        onReorderTab={(tabId, overTabId) => {
+          if (activeTitlebarPane) titlebar.actions.reorderTab(activeTitlebarPane.paneId, tabId, overTabId);
         }}
         onMoveTabToOtherPane={titlebar.actions.moveActiveTabToOtherPane}
         onReopenLastClosedTab={titlebar.actions.reopenLastClosedTab}

@@ -140,6 +140,7 @@ export function useHomeWorkspaceProps({
         railCollapsed,
       },
       state: {
+        scopeKey: noteWorkspace.state.scopeKey,
         activePaneId: noteWorkspace.state.activePaneId,
         backStack: noteWorkspace.state.backStack,
         forwardStack: noteWorkspace.state.forwardStack,
@@ -155,6 +156,7 @@ export function useHomeWorkspaceProps({
         requestCloseTab: tabLifecycle.requestCloseTab,
         requestCloseTabsToRight: tabLifecycle.requestCloseTabsToRight,
         selectTab: noteWorkspace.selectTab,
+        reorderTab: noteWorkspace.reorderTab,
         splitActiveTab: noteWorkspace.splitActiveTab,
         toggleNavigator: toggleNavigatorCollapsed,
         toggleRail: toggleRailCollapsed,

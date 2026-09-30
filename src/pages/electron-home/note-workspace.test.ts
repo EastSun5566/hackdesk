@@ -21,6 +21,7 @@ import {
   openDraftNoteTab,
   openNoteTab,
   reopenLastClosedTab,
+  reorderNoteTab,
   reconcileSavedNoteTab,
   selectNoteTab,
   splitActiveTabRight,
@@ -370,5 +371,58 @@ describe('note workspace tabs', () => {
     const back = navigateNoteWorkspace(closedB, 'back');
     expect(getActiveNavigationTarget(back)).toEqual({ paneId, tabId: firstTabId });
     expect(getActiveTab(back)?.title).toBe('A');
+  });
+});
+
+
+describe('pane tab order', () => {
+  function fixture() {
+    let state = createEmptyNoteWorkspaceState('personal');
+    state = openNoteTab(state, note({ id: 'a', title: 'Alpha' }));
+    state = openNoteTab(state, note({ id: 'b', title: 'Beta' }));
+    state = openDraftNoteTab(state, { title: 'Draft', content: 'Unsaved content' });
+    state = splitActiveTabRight(state);
+    state = openNoteTab(state, note({ id: 'c', title: 'Gamma' }), state.panes[0].paneId);
+    return state;
+  }
+
+  it('only reorders the target pane, preserving drafts, selection and history', () => {
+    const state = fixture();
+    const pane = state.panes[0];
+    const [first, second, third] = pane.tabIds;
+    const next = reorderNoteTab(state, pane.paneId, first, third);
+    expect(next.panes[0].tabIds).toEqual([second, third, first]);
+    expect(next.panes[0].activeTabId).toBe(pane.activeTabId);
+    expect(next.panes[1]).toBe(state.panes[1]);
+    for (const key of ['tabs', 'drafts', 'backStack', 'forwardStack', 'recentlyClosedTabs', 'activePaneId'] as const) {
+      expect(next[key]).toBe(state[key]);
+    }
+    expect(reorderNoteTab(next, pane.paneId, first, second).panes[0].tabIds).toEqual(pane.tabIds);
+  });
+
+  it('ignores missing, foreign and identical IDs', () => {
+    const state = fixture();
+    const pane = state.panes[0];
+    const first = pane.tabIds[0];
+    for (const [paneId, from, to] of [
+      ['missing', first, pane.tabIds[1]],
+      [pane.paneId, 'missing', first],
+      [pane.paneId, first, 'missing'],
+      [pane.paneId, first, state.panes[1].tabIds[0]],
+      [pane.paneId, first, first],
+    ]) expect(reorderNoteTab(state, paneId, from, to)).toBe(state);
+  });
+
+  it('restores order and keeps next-tab and close-right actions consistent', () => {
+    const state = fixture();
+    const pane = state.panes[0];
+    const reordered = reorderNoteTab(state, pane.paneId, pane.tabIds[0], pane.tabIds[2]);
+    const restored = hydrateNoteWorkspaceLayout(state.scopeKey, toPersistedNoteWorkspaceLayout(reordered));
+    expect(restored.panes.map(p => p.tabIds)).toEqual(reordered.panes.map(p => p.tabIds));
+    expect(restored.drafts).toEqual(state.drafts);
+    const selected = selectNoteTab(restored, pane.paneId, reordered.panes[0].tabIds[0]);
+    expect(getActiveTab(focusAdjacentTab(selected, 'next'))?.tabId).toBe(reordered.panes[0].tabIds[1]);
+    const closed = closeTabsToRight(selected, pane.paneId, reordered.panes[0].tabIds[1]);
+    expect(closed.panes[0].tabIds).toEqual(reordered.panes[0].tabIds.slice(0, 2));
   });
 });

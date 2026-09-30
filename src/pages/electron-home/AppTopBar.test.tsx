@@ -45,6 +45,7 @@ function renderTopBar(overrides: Partial<Parameters<typeof AppTopBar>[0]> = {}) 
     onCloseTabsToRight: vi.fn(),
     onMoveTabToOtherPane: vi.fn(),
     onReopenLastClosedTab: vi.fn(),
+    onReorderTab: vi.fn(),
     onSelectTab: vi.fn(),
     onSplitPane: vi.fn(),
     paneActions: {

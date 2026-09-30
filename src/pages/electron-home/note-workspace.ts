@@ -468,6 +468,20 @@ export function selectNoteTab(state: NoteWorkspaceState, paneId: string, tabId: 
   return withNavigationHistory(state, next);
 }
 
+export function reorderNoteTab(state: NoteWorkspaceState, paneId: string, tabId: string, overTabId: string) {
+  const pane = state.panes.find((candidate) => candidate.paneId === paneId);
+  if (!pane) return state;
+  const from = pane.tabIds.indexOf(tabId);
+  const to = pane.tabIds.indexOf(overTabId);
+  if (from < 0 || to < 0 || from === to) return state;
+  const tabIds = [...pane.tabIds];
+  tabIds.splice(to, 0, tabIds.splice(from, 1)[0]);
+  return {
+    ...state,
+    panes: state.panes.map((candidate) => candidate === pane ? { ...pane, tabIds } : candidate),
+  };
+}
+
 export function focusNotePane(state: NoteWorkspaceState, paneId: string) {
   const next = state.panes.some((pane) => pane.paneId === paneId)
     ? { ...state, activePaneId: paneId }

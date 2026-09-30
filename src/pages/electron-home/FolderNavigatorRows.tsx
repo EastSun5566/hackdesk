@@ -469,6 +469,7 @@ export function NoteDragOverlay({ entry }: { entry: FolderTreeNote | null }) {
 
 export function FolderTreeView({
   nodes,
+  notes = [],
   selectedFolderId,
   selectedNoteId,
   collapsedFolderIds,
@@ -497,6 +498,7 @@ export function FolderTreeView({
   isMovingFolder,
 }: {
   nodes: FolderTreeNode[];
+  notes?: FolderTreeNote[];
   selectedFolderId: string | null;
   selectedNoteId: string | null;
   collapsedFolderIds: Set<string>;
@@ -524,16 +526,20 @@ export function FolderTreeView({
   isMovingNote: boolean;
   isMovingFolder: boolean;
 }) {
-  if (nodes.length === 0) {
+  if (nodes.length === 0 && notes.length === 0) {
     return null;
   }
 
-  const items = nodes.map((node) => {
+  const items = nodes.map((node, index) => {
+    const lastChild = index === nodes.length - 1 && notes.length === 0;
     const collapsed = collapsedFolderIds.has(node.id);
     const isActiveFolder = activeFolderId === node.id;
 
     return (
-      <li key={node.id} className="min-w-0">
+      <li key={node.id} className="relative min-w-0">
+        {depth > 0 && !lastChild ? <span aria-hidden="true" data-tree-guide="continuation" className="pointer-events-none absolute -left-[7px] -top-0.5 bottom-0 w-px bg-border-default/70" /> : null}
+        <div className="relative min-w-0">
+          {depth > 0 && lastChild ? <span aria-hidden="true" data-tree-guide="end" className="pointer-events-none absolute -left-[7px] -top-0.5 bottom-1/2 w-px bg-border-default/70" /> : null}
         <FolderButton
           node={node}
           selected={selectedFolderId === node.id}
@@ -550,11 +556,13 @@ export function FolderTreeView({
           onDeleteFolder={onDeleteFolder}
           onRevealInFinder={onFolderRevealInFinder}
         />
+        </div>
         {!collapsed && !isActiveFolder ? <div className="grid overflow-hidden">
           <div className="min-h-0 overflow-hidden">
             <div className="mt-0.5 min-w-0">
               <FolderTreeView
                 nodes={node.children}
+                notes={node.notes}
                 selectedFolderId={selectedFolderId}
                 selectedNoteId={selectedNoteId}
                 collapsedFolderIds={collapsedFolderIds}
@@ -582,34 +590,6 @@ export function FolderTreeView({
                 isMovingNote={isMovingNote}
                 isMovingFolder={isMovingFolder}
               />
-              {node.notes.length > 0 ? (
-                <ul className="m-0 grid min-w-0 list-none gap-0.5 p-0">
-                  {node.notes.map((entry) => (
-                    <li key={`${node.id}:${entry.note.id}`} className="relative min-w-0 pl-5 before:absolute before:bottom-0 before:left-[13px] before:top-0 before:w-px before:bg-border-default/70 last:before:bottom-1/2">
-                      <NoteRow
-                        entry={entry}
-                        selected={entry.note.id === selectedNoteId}
-                        focusTarget={entry.note.id === selectedNoteId}
-                        onSelect={onNoteSelect}
-                        onOpen={onNoteOpen}
-                        onCopyLink={onNoteCopyLink}
-                        onCopyMarkdownLink={onNoteCopyMarkdownLink}
-                        onDuplicate={onNoteDuplicate}
-                        onExportMarkdown={onNoteExportMarkdown}
-                        onDelete={onNoteDelete}
-                        onRevealFolder={onNoteRevealFolder}
-                        onRevealInFinder={onNoteRevealInFinder}
-                        onMoveToSelectedFolder={onNoteMoveToSelectedFolder}
-                        selectedFolder={selectedFolderForNoteMove}
-                        draggable
-                        disabledDrag={isMovingNote}
-                        active={activeNoteId === entry.note.id}
-                        compact
-                      />
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
             </div>
           </div>
         </div> : null}
@@ -617,13 +597,40 @@ export function FolderTreeView({
     );
   });
 
+  const noteItems = notes.map((entry, index) => (
+    <li key={`note:${entry.note.id}`} className="relative min-w-0">
+      {depth > 0 ? <span aria-hidden="true" data-tree-guide={index === notes.length - 1 ? 'end' : 'continuation'} className={cn('pointer-events-none absolute -left-[7px] -top-0.5 w-px bg-border-default/70', index === notes.length - 1 ? 'bottom-1/2' : 'bottom-0')} /> : null}
+      <NoteRow
+        entry={entry}
+        selected={entry.note.id === selectedNoteId}
+        focusTarget={entry.note.id === selectedNoteId}
+        onSelect={onNoteSelect}
+        onOpen={onNoteOpen}
+        onCopyLink={onNoteCopyLink}
+        onCopyMarkdownLink={onNoteCopyMarkdownLink}
+        onDuplicate={onNoteDuplicate}
+        onExportMarkdown={onNoteExportMarkdown}
+        onDelete={onNoteDelete}
+        onRevealFolder={onNoteRevealFolder}
+        onRevealInFinder={onNoteRevealInFinder}
+        onMoveToSelectedFolder={onNoteMoveToSelectedFolder}
+        selectedFolder={selectedFolderForNoteMove}
+        draggable
+        disabledDrag={isMovingNote}
+        active={activeNoteId === entry.note.id}
+        compact
+      />
+    </li>
+  ));
+
   if (depth === 0) {
-    return <>{items}</>;
+    return <>{items}{noteItems}</>;
   }
 
   return (
-    <ul className="relative m-0 grid min-w-0 list-none gap-0.5 p-0 pl-5 before:absolute before:bottom-5 before:left-[13px] before:top-0 before:w-px before:bg-border-default/70">
+    <ul data-tree-children="true" className="relative m-0 grid min-w-0 list-none gap-0.5 p-0 pl-5">
       {items}
+      {noteItems}
     </ul>
   );
 }
