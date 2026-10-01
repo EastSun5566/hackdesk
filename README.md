@@ -36,6 +36,10 @@ On macOS, v2 beta requires macOS 13 or later. Beta builds are unsigned and use m
 
 [Documentation](https://hackdesk.eastsun.me)
 
+### Main previews
+
+Main builds are published after the full CI workflow passes. Each preview has its own `main-<commit>` release and a version containing the commit SHA. Download them from [Releases](https://github.com/EastSun5566/hackdesk/releases); these builds are unsigned and require manual installation and updates.
+
 ## Development
 
 ```sh
