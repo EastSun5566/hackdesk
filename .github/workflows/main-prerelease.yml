@@ -1,0 +1,210 @@
+name: Main prerelease
+
+on:
+  workflow_run:
+    workflows: ["Quality and package smoke"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: main-prerelease-${{ github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    if: >-
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository) ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      source_sha: ${{ steps.source.outputs.source_sha }}
+      release_tag: ${{ steps.source.outputs.release_tag }}
+      build_version: ${{ steps.source.outputs.build_version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - name: Resolve verified source
+        id: source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          # Manual runs must pass the same quality gate as automatic runs.
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            count="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build.yml/runs?event=push&branch=main&head_sha=$SOURCE_SHA&status=success" \
+              --jq "[.workflow_runs[] | select(.head_sha == \"$SOURCE_SHA\" and .conclusion == \"success\")] | length")"
+            if [[ "$count" -eq 0 ]]; then
+              echo "::error::This main commit has not passed Quality and package smoke."
+              exit 1
+            fi
+          fi
+
+          version="$(node -p "require('./package.json').version.split('-')[0]")"
+          {
+            echo "source_sha=$SOURCE_SHA"
+            echo "release_tag=main-$SOURCE_SHA"
+            # Keep unsigned builds on the app's manual-update beta path.
+            echo "build_version=$version-beta.main.g${SOURCE_SHA:0:12}"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: resolve
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            args: --mac --x64 --arm64 --config.mac.identity=null --config.mac.notarize=false
+          - os: windows-latest
+            args: --win --x64
+          - os: ubuntu-latest
+            args: --linux AppImage --x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.resolve.outputs.source_sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Set main build version
+        env:
+          BUILD_VERSION: ${{ needs.resolve.outputs.build_version }}
+        run: |
+          node --input-type=module -e '
+            import fs from "node:fs";
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            pkg.version = process.env.BUILD_VERSION;
+            fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
+          '
+      - run: pnpm run build
+      - name: Build unsigned main assets
+        shell: bash
+        run: pnpm exec electron-builder ${{ matrix.args }} --config.publish.channel=main --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: main-${{ matrix.os }}
+          compression-level: 0
+          if-no-files-found: error
+          path: |
+            release/electron/*.dmg
+            release/electron/*.zip
+            release/electron/*.exe
+            release/electron/*.AppImage
+            release/electron/*.blockmap
+            release/electron/main*.yml
+
+  finalize:
+    needs: [resolve, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: main-*
+          path: artifacts
+          merge-multiple: true
+      - name: Verify assets and publish prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_SHA: ${{ needs.resolve.outputs.source_sha }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.release_tag }}
+          BUILD_VERSION: ${{ needs.resolve.outputs.build_version }}
+        run: |
+          expected_assets=(
+            "HackDesk-$BUILD_VERSION-arm64.dmg"
+            "HackDesk-$BUILD_VERSION-arm64.zip"
+            "HackDesk-$BUILD_VERSION-x64.dmg"
+            "HackDesk-$BUILD_VERSION-x64.zip"
+            "HackDesk-$BUILD_VERSION-x64.exe"
+            "HackDesk-$BUILD_VERSION-x86_64.AppImage"
+            "main.yml"
+            "main-mac.yml"
+            "main-linux.yml"
+          )
+          for asset in "${expected_assets[@]}"; do
+            if [[ ! -s "artifacts/$asset" ]]; then
+              echo "::error::Missing or empty release asset: $asset"
+              exit 1
+            fi
+          done
+          for metadata in artifacts/main*.yml; do
+            grep -Fqx "version: $BUILD_VERSION" "$metadata"
+          done
+          assets=(artifacts/*)
+          for asset in "${assets[@]}"; do
+            case "${asset#artifacts/}" in
+              "HackDesk-$BUILD_VERSION-"*.dmg|"HackDesk-$BUILD_VERSION-"*.zip|"HackDesk-$BUILD_VERSION-"*.exe|"HackDesk-$BUILD_VERSION-"*.AppImage|"HackDesk-$BUILD_VERSION-"*.blockmap|main.yml|main-mac.yml|main-linux.yml) ;;
+              *) echo "::error::Unexpected release asset: $asset"; exit 1 ;;
+            esac
+            test -s "$asset"
+          done
+
+          verify_remote_assets() {
+            names="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
+            diff <(printf '%s\n' "${assets[@]#artifacts/}" | sort) <(printf '%s\n' "$names" | sort)
+            valid="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets \
+              --jq '.assets | all(.size > 0 and .state == "uploaded")')"
+            test "$valid" = "true"
+          }
+
+          state="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"' 2>/dev/null)" || state="missing"
+          case "$state" in
+            missing|"true true"|"false true") ;;
+            *) echo "::error::Unexpected release state: $state"; exit 1 ;;
+          esac
+          tag="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$RELEASE_TAG" \
+            --jq ".[] | select(.ref == \"refs/tags/$RELEASE_TAG\") | .object | \"\(.type) \(.sha)\"")"
+          if [[ -n "$tag" && "$tag" != "commit $SOURCE_SHA" ]]; then
+            echo "::error::Release tag does not match the verified source: $tag"
+            exit 1
+          fi
+
+          # Published builds are immutable, including on workflow reruns.
+          if [[ "$state" == "false true" ]]; then
+            test "$tag" = "commit $SOURCE_SHA"
+            verify_remote_assets
+            echo "This commit already has a complete published prerelease."
+            exit 0
+          fi
+          if [[ -z "$tag" ]]; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f "ref=refs/tags/$RELEASE_TAG" -f "sha=$SOURCE_SHA"
+          fi
+          title="HackDesk main (${SOURCE_SHA:0:12})"
+          notes="Unsigned preview from main commit $SOURCE_SHA. Install and update manually."
+          if [[ "$state" == "missing" ]]; then
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+              --target "$SOURCE_SHA" --draft --prerelease --latest=false --title "$title" --notes "$notes"
+          fi
+          # Only unpublished drafts may replace assets after a failed attempt.
+          gh release upload "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          verify_remote_assets
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --draft=false --prerelease --latest=false --title "$title" --notes "$notes"
+          state="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"')"
+          test "$state" = "false true"
