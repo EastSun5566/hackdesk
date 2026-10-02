@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 
 import type { WorkspaceScope } from './types';
@@ -14,15 +14,16 @@ import { getScopeStorageKey } from './repository';
 export const DEFAULT_WORKSPACE_SCOPE: WorkspaceScope = { type: 'personal', label: 'My Workspace' };
 
 export type WorkbenchWorkspaceStateOptions = {
+  localVaultId?: string | null;
   initialWorkspaceScope: WorkspaceScope;
   manualEmptyWorkspaceRef: MutableRefObject<boolean>;
 };
 
 export type WorkbenchWorkspaceState = {
   collapsedFolderIds: Set<string>;
-  initialScopeStorageKey: string;
+  initialScopeStorageKey: string | null;
   scope: WorkspaceScope;
-  scopeStorageKey: string;
+  scopeStorageKey: string | null;
   selectedFolderId: string | null;
   setCollapsedFolderIds: Dispatch<SetStateAction<Set<string>>>;
   setSelectedFolderId: Dispatch<SetStateAction<string | null>>;
@@ -35,28 +36,36 @@ export function getInitialWorkspaceScope() {
 
 export function useWorkbenchWorkspaceState({
   initialWorkspaceScope,
+  localVaultId,
   manualEmptyWorkspaceRef,
 }: WorkbenchWorkspaceStateOptions): WorkbenchWorkspaceState {
-  const initialScopeStorageKey = useMemo(() => getScopeStorageKey(initialWorkspaceScope), [initialWorkspaceScope]);
-  const [scope, setScopeState] = useState<WorkspaceScope>(() => initialWorkspaceScope);
-  const scopeStorageKey = useMemo(() => getScopeStorageKey(scope), [scope]);
+  const [storedScope, setScopeState] = useState<WorkspaceScope>(() => initialWorkspaceScope);
+  const scope = useMemo(() => storedScope.type === 'local'
+    ? { ...storedScope, vaultId: localVaultId ?? undefined }
+    : storedScope, [storedScope, localVaultId]);
+  const scopeStorageKey = getScopeStorageKey(scope);
+  const [folderScopeKey, setFolderScopeKey] = useState(scopeStorageKey);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  const [collapsedFolderIds, setCollapsedFolderIds] = useState(() => (
-    readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${initialScopeStorageKey}`)
-  ));
+  const [collapsedFolderIds, setCollapsedFolderIds] = useState(() => scopeStorageKey
+    ? readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${scopeStorageKey}`) : new Set<string>());
+  if (folderScopeKey !== scopeStorageKey) {
+    setFolderScopeKey(scopeStorageKey);
+    setCollapsedFolderIds(scopeStorageKey
+      ? readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${scopeStorageKey}`) : new Set<string>());
+    setSelectedFolderId(null);
+  }
+  useLayoutEffect(() => { manualEmptyWorkspaceRef.current = false; }, [scopeStorageKey, manualEmptyWorkspaceRef]);
 
   const setWorkspaceScope = useCallback((nextScope: WorkspaceScope) => {
-    const nextScopeStorageKey = getScopeStorageKey(nextScope);
     manualEmptyWorkspaceRef.current = false;
     setScopeState(nextScope);
     writeWorkspaceScopeStorage(LAST_WORKSPACE_SCOPE_KEY, nextScope);
-    setCollapsedFolderIds(readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${nextScopeStorageKey}`));
     setSelectedFolderId(null);
   }, [manualEmptyWorkspaceRef]);
 
   return {
     collapsedFolderIds,
-    initialScopeStorageKey,
+    initialScopeStorageKey: scopeStorageKey,
     scope,
     scopeStorageKey,
     selectedFolderId,

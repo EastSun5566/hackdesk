@@ -16,14 +16,17 @@ import {
   unwrapRepositoryValue,
 } from './repository';
 import type { WorkspaceScope } from './types';
+import type { useElectronSettings } from './useElectronSettings';
 
 export function useElectronHackmdQueries({
   api,
+  settingsQuery,
   scope,
   selectedNote,
   activeDocumentNotes,
 }: {
   api?: HackDeskElectronAPI;
+  settingsQuery: ReturnType<typeof useElectronSettings>;
   scope: WorkspaceScope;
   selectedNote: NoteIdentity | null;
   activeDocumentNotes?: NoteIdentity[];
@@ -33,11 +36,7 @@ export function useElectronHackmdQueries({
     isFetching: settingsIsFetching,
     isLoading: settingsIsLoading,
     refetch: refetchSettings,
-  } = useQuery({
-    queryKey: ['electron', 'settings'],
-    queryFn: () => api?.settings.get(),
-    enabled: !!api,
-  });
+  } = settingsQuery;
   const hasToken = isTokenConfigured(settings);
   const remoteScope = scope.type !== 'local';
 

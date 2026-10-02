@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import type { NoteSummary } from '@/lib/electron-api';
 
@@ -39,52 +39,56 @@ import {
   type OpenDraftNoteOptions,
 } from './note-workspace';
 
-function readInitialState(scopeKey: string) {
-  return typeof window === 'undefined'
-    ? createEmptyNoteWorkspaceState(scopeKey)
+function readInitialState(scopeKey: string | null) {
+  return !scopeKey || typeof window === 'undefined'
+    ? createEmptyNoteWorkspaceState(scopeKey ?? '')
     : readNoteWorkspaceLayoutStorage(window.localStorage, scopeKey);
 }
 
-export function useNoteWorkspaceTabs(scopeKey: string) {
+export function useNoteWorkspaceTabs(scopeKey: string | null) {
   const [state, setState] = useState<NoteWorkspaceState>(() => readInitialState(scopeKey));
   const stateRef = useRef(state);
-  const scopeKeyRef = useRef(scopeKey);
-  const statesByScopeRef = useRef<Record<string, NoteWorkspaceState>>({});
-
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
-
-  useEffect(() => {
-    statesByScopeRef.current[scopeKeyRef.current] = stateRef.current;
-    setState(statesByScopeRef.current[scopeKey] ?? readInitialState(scopeKey));
-    scopeKeyRef.current = scopeKey;
-  }, [scopeKey]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const timeout = window.setTimeout(() => writeNoteWorkspaceLayoutStorage(window.localStorage, state), 250);
-      const flush = () => writeNoteWorkspaceLayoutStorage(window.localStorage, stateRef.current);
-      window.addEventListener('pagehide', flush);
-      return () => {
-        window.clearTimeout(timeout);
-        window.removeEventListener('pagehide', flush);
-      };
+  const [statesByScope, setStatesByScope] = useState<Record<string, NoteWorkspaceState>>({});
+  const flush = useCallback(() => {
+    if (stateRef.current.scopeKey && typeof window !== 'undefined') {
+      writeNoteWorkspaceLayoutStorage(window.localStorage, stateRef.current);
     }
-  }, [state]);
+  }, []);
+
+  // Update this hook's state before children commit, without mutating refs during render.
+  if (state.scopeKey !== (scopeKey ?? '')) {
+    if (state.scopeKey) setStatesByScope({ ...statesByScope, [state.scopeKey]: state });
+    setState((scopeKey && statesByScope[scopeKey]) || readInitialState(scopeKey));
+  }
+  // Scope cleanup runs before the next committed state replaces this ref.
+  useLayoutEffect(() => () => flush(), [scopeKey, flush]);
+  useLayoutEffect(() => { stateRef.current = state; }, [state]);
+
+  useEffect(() => {
+    if (!scopeKey || typeof window === 'undefined') return;
+    const timeout = window.setTimeout(flush, 250);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener('pagehide', flush);
+    };
+  }, [state, scopeKey, flush]);
 
   const activeTab = useMemo(() => getActiveTab(state), [state]);
   const visibleActiveTabs = useMemo(() => getVisibleActiveTabs(state), [state]);
 
   const openNote = useCallback((note: NoteSummary, paneId?: string) => {
+    if (!stateRef.current.scopeKey) return;
     setState((current) => openNoteTab(current, note, paneId));
   }, []);
 
   const openDraftNote = useCallback((options?: string | OpenDraftNoteOptions) => {
+    if (!stateRef.current.scopeKey) return;
     setState((current) => openDraftNoteTab(current, options));
   }, []);
 
   const openRecoverableDraftNote = useCallback((options: OpenDraftNoteOptions) => {
+    if (!stateRef.current.scopeKey) throw new Error('Local Vault is still loading. Your text is still here.');
     const next = openDraftNoteTab(stateRef.current, options);
     if (typeof window !== 'undefined') {
       writeNoteWorkspaceLayoutStorage(window.localStorage, next);
@@ -201,6 +205,7 @@ export function useNoteWorkspaceTabs(scopeKey: string) {
 
   return {
     state,
+    flush,
     activeTab,
     visibleActiveTabs,
     openNote,

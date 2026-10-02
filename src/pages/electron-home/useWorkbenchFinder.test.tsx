@@ -33,9 +33,6 @@ describe('useWorkbenchFinder', () => {
       initialProps: 'personal',
     });
 
-    act(() => {
-      result.current.loadFinderStateForScope('team:alpha');
-    });
     rerender('team:alpha');
 
     expect(result.current.activeFinderState.query).toBe('alpha');

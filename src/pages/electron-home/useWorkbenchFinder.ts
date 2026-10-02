@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
 import {
@@ -14,8 +14,8 @@ import {
 } from './ui-preferences';
 
 export type WorkbenchFinderOptions = {
-  initialScopeStorageKey: string;
-  scopeStorageKey: string;
+  initialScopeStorageKey: string | null;
+  scopeStorageKey: string | null;
   selectedFolderId: string | null;
   setNavigatorCollapsed: Dispatch<SetStateAction<boolean>>;
 };
@@ -27,9 +27,13 @@ export function useWorkbenchFinder({
   setNavigatorCollapsed,
 }: WorkbenchFinderOptions) {
   const [finderState, setFinderState] = useState<NoteFinderState>(() => (
-    readNoteFinderState(window.localStorage, initialScopeStorageKey)
+    readNoteFinderState(window.localStorage, initialScopeStorageKey ?? '')
   ));
-  const skipNextFinderWriteRef = useRef(false);
+  const [finderScopeKey, setFinderScopeKey] = useState(scopeStorageKey);
+  if (finderScopeKey !== scopeStorageKey) {
+    setFinderScopeKey(scopeStorageKey);
+    setFinderState(readNoteFinderState(window.localStorage, scopeStorageKey ?? ''));
+  }
   const activeFinderState = useMemo<NoteFinderState>(() => (
     !selectedFolderId && finderState.searchScope === 'current-folder'
       ? { ...finderState, searchScope: 'workspace' }
@@ -43,7 +47,7 @@ export function useWorkbenchFinder({
   const finderActive = isNoteFinderActive(deferredFinderState);
 
   const loadFinderStateForScope = useCallback((nextScopeStorageKey: string) => {
-    skipNextFinderWriteRef.current = true;
+    setFinderScopeKey(nextScopeStorageKey);
     setFinderState(readNoteFinderState(window.localStorage, nextScopeStorageKey));
   }, []);
 
@@ -68,13 +72,10 @@ export function useWorkbenchFinder({
   }, [focusNoteSearchInput, setNavigatorCollapsed]);
 
   useEffect(() => {
-    if (skipNextFinderWriteRef.current) {
-      skipNextFinderWriteRef.current = false;
-      return;
-    }
+    if (!scopeStorageKey || finderScopeKey !== scopeStorageKey) return;
 
     writeNoteFinderState(window.localStorage, scopeStorageKey, activeFinderState);
-  }, [activeFinderState, scopeStorageKey]);
+  }, [activeFinderState, scopeStorageKey, finderScopeKey]);
 
   return {
     activeFinderState,

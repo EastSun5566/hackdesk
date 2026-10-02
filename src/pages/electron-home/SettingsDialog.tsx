@@ -40,7 +40,7 @@ type SettingsDialogProps = {
   isSaving: boolean;
   onDisconnectHackmd: () => void;
   onOpenChange: (open: boolean) => void;
-  onChooseLocalVault: () => Promise<void>;
+  onChooseLocalVault: () => Promise<void | boolean>;
   onForgetLocalVault: () => Promise<void>;
   onOpenLocalVault: () => Promise<void>;
   onRefreshLocalVault: () => Promise<void>;

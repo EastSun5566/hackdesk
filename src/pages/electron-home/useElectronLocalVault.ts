@@ -1,17 +1,12 @@
-import { useEffect, useMemo } from 'react';
-import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { useQueries } from '@tanstack/react-query';
 
 import type { HackDeskElectronAPI } from '@/lib/electron-api';
+import type { LocalVaultSnapshot } from '@/lib/local-vault';
+import { getLocalVaultDocumentQueryKey } from './local-vault-query';
+export { getLocalVaultDocumentQueryKey, getLocalVaultSnapshotQueryKey, cacheLocalVaultSnapshot } from './local-vault-query';
 import { getNoteIdentityKey, type NoteIdentity } from './note-workspace';
 import { adaptLocalVaultSnapshot, localDocumentRepositoryValue, LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
-
-export function getLocalVaultSnapshotQueryKey() {
-  return ['electron', 'local-vault', 'snapshot'] as const;
-}
-
-export function getLocalVaultDocumentQueryKey(noteId: string) {
-  return ['electron', 'local-vault', 'note', noteId] as const;
-}
 
 export function isLocalNoteIdentity(note: NoteIdentity | null | undefined) {
   return note?.teamPath === LOCAL_VAULT_TEAM_PATH;
@@ -22,30 +17,14 @@ export function useElectronLocalVault({
   activeDocumentNotes,
   enabled,
   selectedNote,
+  snapshot,
 }: {
   api?: HackDeskElectronAPI;
+  snapshot: LocalVaultSnapshot | null;
   activeDocumentNotes?: NoteIdentity[];
   enabled: boolean;
   selectedNote: NoteIdentity | null;
 }) {
-  const queryClient = useQueryClient();
-  const snapshotQuery = useQuery({
-    queryKey: getLocalVaultSnapshotQueryKey(),
-    queryFn: () => api?.localVault.getSnapshot() ?? Promise.resolve(null),
-    enabled: !!api && enabled,
-  });
-
-  useEffect(() => {
-    if (!api || !enabled) {
-      return undefined;
-    }
-
-    return api.localVault.onDidChange((event) => {
-      queryClient.setQueryData(getLocalVaultSnapshotQueryKey(), event.snapshot);
-    });
-  }, [api, enabled, queryClient]);
-
-  const snapshot = snapshotQuery.data ?? null;
   const { folders, notes } = useMemo(() => adaptLocalVaultSnapshot(snapshot), [snapshot]);
   const selectedDocumentNotes = useMemo(() => {
     const input = [...(activeDocumentNotes ?? [])];
@@ -70,15 +49,17 @@ export function useElectronLocalVault({
 
   const documentQueryResults = useQueries({
     queries: selectedDocumentNotes.map((note) => ({
-      queryKey: getLocalVaultDocumentQueryKey(note.id),
-      queryFn: () => {
+      queryKey: getLocalVaultDocumentQueryKey(note.id, snapshot?.vaultId),
+      queryFn: async ({ signal }) => {
         if (!api) {
           throw new Error('Electron API is unavailable.');
         }
 
-        return api.localVault.readNote(note.id);
+        const document = await api.localVault.readNote(note.id);
+        signal.throwIfAborted();
+        return document;
       },
-      enabled: !!api && enabled,
+      enabled: !!api && enabled && !!snapshot,
     })),
   });
 
@@ -121,6 +102,5 @@ export function useElectronLocalVault({
       documentsByKey,
       refetchByIdentity,
     },
-    snapshotQuery,
   };
 }

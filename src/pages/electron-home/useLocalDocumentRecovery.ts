@@ -17,7 +17,7 @@ import {
 import { isDraftNoteTab, type NoteDocumentDraft, type NoteIdentity, type OpenNoteTab } from './note-workspace';
 import {
   getLocalVaultDocumentQueryKey,
-  getLocalVaultSnapshotQueryKey,
+  cacheLocalVaultSnapshot,
 } from './useElectronLocalVault';
 
 type LocalDocumentQueries = {
@@ -89,8 +89,8 @@ export function useLocalDocumentRecovery({
       if (snapshot) {
         const summary = toDocumentSummary(document, snapshot);
         syncNoteSummary(summary);
-        queryClient.setQueryData(getLocalVaultSnapshotQueryKey(), snapshot);
-        queryClient.setQueryData(getLocalVaultDocumentQueryKey(document.id), document);
+        cacheLocalVaultSnapshot(queryClient, snapshot);
+        queryClient.setQueryData(getLocalVaultDocumentQueryKey(document.id, snapshot.vaultId), document);
       }
     }
     return document;
@@ -159,8 +159,8 @@ export function useLocalDocumentRecovery({
         parentPath: getLocalParentPathFromRelativePath(relativePath),
       });
 
-      queryClient.setQueryData(getLocalVaultSnapshotQueryKey(), snapshot);
-      queryClient.setQueryData(getLocalVaultDocumentQueryKey(createdDocument.id), createdDocument);
+      cacheLocalVaultSnapshot(queryClient, snapshot);
+      queryClient.setQueryData(getLocalVaultDocumentQueryKey(createdDocument.id, snapshot.vaultId), createdDocument);
       const createdSummary = toDocumentSummary(createdDocument, snapshot);
       openNote(createdSummary);
       trackRecentNote(createdSummary);

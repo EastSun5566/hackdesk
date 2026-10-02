@@ -228,7 +228,7 @@ describe('useElectronNoteMutations draft save', () => {
       }));
     });
     expect(api.localVault.getSnapshot).not.toHaveBeenCalled();
-    expect(queryClient.getQueryData(['electron', 'local-vault', 'snapshot'])).toEqual(snapshot);
+    expect(queryClient.getQueryData(['electron', 'local-vault', 'snapshot', null])).toEqual(snapshot);
   });
 
   it('keeps the draft unmaterialized when create fails', async () => {
@@ -349,7 +349,7 @@ describe('useElectronNoteMutations local folders', () => {
       id: 'local-folder:Projects/Design',
       parentId: 'local-folder:Projects',
     }));
-    expect(queryClient.getQueryData(['electron', 'local-vault', 'snapshot'])).toEqual(snapshot);
+    expect(queryClient.getQueryData(['electron', 'local-vault', 'snapshot', null])).toEqual(snapshot);
   });
 
   it('selects the folder identity returned by a local rename', async () => {

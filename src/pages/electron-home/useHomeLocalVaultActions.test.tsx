@@ -140,7 +140,7 @@ describe('useHomeLocalVaultActions', () => {
 
     expect(api.localVault.choose).toHaveBeenCalledOnce();
     expect(queryClient.getQueryData(['electron', 'settings'])).toBe(nextSettings);
-    expect(queryClient.getQueryData(getLocalVaultSnapshotQueryKey())).toBe(nextSnapshot);
+    expect(queryClient.getQueryData(getLocalVaultSnapshotQueryKey(nextSettings.localVault.path))).toBe(nextSnapshot);
     expect(setWorkspaceScope).toHaveBeenCalledWith({ type: 'local', label: 'Local Vault' });
   });
 
