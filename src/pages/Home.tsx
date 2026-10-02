@@ -371,6 +371,7 @@ export function Home() {
   });
   const workbenchDocuments = useWorkbenchDocuments({
     activeTab,
+    clearDraft: noteWorkspace.clearDraft,
     deletingNote: mutations.deleteNoteMutation.variables ?? null,
     documentQueriesByKey: documentQueries.byKey,
     documentsByKey,
@@ -556,7 +557,7 @@ export function Home() {
         input,
         intent: 'content',
         tabId: activeTab.tabId,
-        submittedDraft: input,
+        submittedDraft: { ...noteWorkspace.state.drafts[activeTab.tabId], ...input },
       });
     },
     saveDraftNote: (tab, input) => mutations.createDraftNoteMutation.mutate({ tabId: tab.tabId, input }),

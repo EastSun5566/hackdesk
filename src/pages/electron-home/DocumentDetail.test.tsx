@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -410,6 +410,25 @@ describe('DocumentDetail', () => {
       content: 'Draft content',
       title: 'Draft title',
     });
+  });
+
+  it('compares the draft and current disk content without invoking destructive recovery actions', async () => {
+    const onReloadFromDisk = vi.fn();
+    const onSaveAsCopy = vi.fn();
+    renderDocumentDetail({
+      actions: { onReloadFromDisk, onSaveAsCopy },
+      documentState: {
+        title: 'Draft title', content: 'Recovered edit',
+        document: documentSummary({ title: 'Disk title', content: 'External edit', teamPath: LOCAL_VAULT_TEAM_PATH }),
+        recovery: { kind: 'disk_changed', message: 'File changed on disk.' },
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Compare with disk' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Compare with disk' });
+    expect(within(dialog).getByRole('region', { name: 'Your draft' })).toHaveTextContent('Recovered edit');
+    expect(within(dialog).getByRole('region', { name: 'On disk' })).toHaveTextContent('External edit');
+    expect(onReloadFromDisk).not.toHaveBeenCalled();
+    expect(onSaveAsCopy).not.toHaveBeenCalled();
   });
 
   it('hides HackMD-only inspector controls for local documents', () => {

@@ -256,19 +256,51 @@ describe('note workspace tabs', () => {
     expect(closed.recentlyClosedTabs).toEqual([]);
   });
 
-  it('persists layout without drafts and hydrates valid panes', () => {
+  it('persists existing-note edits and hydrates valid panes', () => {
     const withTab = openNoteTab(createEmptyNoteWorkspaceState('personal'), note({ id: 'note-1', title: 'Alpha' }));
     const tabId = getActiveTab(withTab)?.tabId ?? '';
     const withDraft = updateNoteTabDraft(withTab, tabId, { title: 'Draft', content: 'Body' });
     const persisted = toPersistedNoteWorkspaceLayout(withDraft);
     const hydrated = hydrateNoteWorkspaceLayout('personal', persisted);
 
-    expect(hydrated.drafts).toEqual({});
+    expect(hydrated.drafts[tabId]).toEqual({ title: 'Draft', content: 'Body' });
     expect('backStack' in persisted).toBe(false);
     expect('forwardStack' in persisted).toBe(false);
     expect(hydrated.backStack).toEqual([]);
     expect(hydrated.forwardStack).toEqual([]);
     expect(getActiveTab(hydrated)?.title).toBe('Alpha');
+  });
+
+  it.each(['personal', 'team:team-a', 'local:vault-A'])('restores edited titles, empty content and baseline in %s', (scopeKey) => {
+    const state = openNoteTab(createEmptyNoteWorkspaceState(scopeKey), note({ id: 'note-1', title: 'Original' }));
+    const tabId = getActiveTab(state)!.tabId;
+    const draft = { title: 'Renamed', content: '', baseTitle: 'Original', baseContent: 'Original body', baseRevision: { contentHash: 'hash', mtimeMs: 1 } };
+    const restored = hydrateNoteWorkspaceLayout(scopeKey, JSON.parse(JSON.stringify(toPersistedNoteWorkspaceLayout(updateNoteTabDraft(state, tabId, draft)))));
+    expect(restored.drafts[tabId]).toEqual(draft);
+    expect(restored.tabs).toEqual(state.tabs);
+    expect(restored.panes).toEqual(state.panes);
+  });
+
+  it('does not persist reverted edits or edits cleared after a successful save', () => {
+    const state = openNoteTab(createEmptyNoteWorkspaceState('personal'), note({ id: 'note-1', title: 'Original' }));
+    const tabId = getActiveTab(state)!.tabId;
+    const draft = { title: 'Original', content: 'Changed', baseTitle: 'Original', baseContent: 'Base' };
+    const edited = updateNoteTabDraft(state, tabId, draft);
+    const saved = reconcileSavedNoteTab(edited, { tabId, submittedDraft: draft, note: note({ id: 'note-1', title: 'Original', content: 'Changed' }) });
+    expect(toPersistedNoteWorkspaceLayout(saved).drafts).toEqual({});
+    expect(toPersistedNoteWorkspaceLayout(updateNoteTabDraft(state, tabId, { ...draft, content: 'Base' })).drafts).toEqual({});
+  });
+
+  it('restores draft text but drops malformed baseline metadata and orphan drafts', () => {
+    const state = openNoteTab(createEmptyNoteWorkspaceState('personal'), note({ id: 'note-1', title: 'Original' }));
+    const tabId = getActiveTab(state)!.tabId;
+    const layout = toPersistedNoteWorkspaceLayout(state);
+    const restored = hydrateNoteWorkspaceLayout('personal', { ...layout, drafts: {
+      [tabId]: { title: 'Edit', content: 'Keep this', baseContent: 5, baseRevision: { contentHash: 'hash', mtimeMs: 'bad' } },
+      orphan: { title: 'Orphan', content: 'Orphan' },
+    } });
+    expect(restored.drafts).toEqual({ [tabId]: { title: 'Edit', content: 'Keep this' } });
+    expect(hydrateNoteWorkspaceLayout('personal', { ...layout, version: 1 }).drafts).toEqual({});
   });
 
   it('falls back from invalid persisted layouts', () => {
