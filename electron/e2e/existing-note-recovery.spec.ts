@@ -119,6 +119,32 @@ test('keeps both versions after a disk change, rejects overwrite through both Sa
     await page.getByRole('button', { name: 'Save as copy', exact: true }).click();
     await expect.poll(() => readFile(join(vault, 'Original copy.md'), 'utf8').catch(() => null)).toBe('Recovered draft');
     expect(await readFile(join(vault, 'Original.md'), 'utf8')).toContain('External edit');
+    await waitForDraft(page, 'Recovered draft');
+  } finally { await crash(app); }
+});
+
+test('removes recovery when disk matches the draft and does not resurrect it on later disk edits', async () => {
+  const { home, vault } = await fixture();
+  let { app, page } = await launch(home);
+  try {
+    await expect(page.locator('.cm-content')).toContainText('Saved body');
+    await page.locator('.cm-content').fill('Matching body');
+    await waitForDraft(page, 'Matching body');
+    await flushDiskStorage(app, home, page);
+    await crash(app);
+    await writeFile(join(vault, 'Original.md'), 'Matching body');
+    ({ app, page } = await launch(home));
+    await expect(page.locator('.cm-content')).toContainText('Matching body');
+    await expect.poll(() => page.evaluate(() => Object.keys(localStorage)
+      .filter((key) => key.startsWith('hackdesk_note_workspace:local:'))
+      .flatMap((key) => Object.keys(JSON.parse(localStorage.getItem(key) ?? '{}').drafts ?? {})).length)).toBe(0);
+    await flushDiskStorage(app, home, page);
+    await crash(app);
+    await writeFile(join(vault, 'Original.md'), 'Later disk edit');
+    ({ app, page } = await launch(home));
+    await expect(page.locator('.cm-content')).toContainText('Later disk edit');
+    await expect(page.getByText('File changed on disk. Your draft is still open.')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toHaveAttribute('aria-disabled', 'true');
   } finally { await crash(app); }
 });
 
@@ -127,7 +153,10 @@ test('restores independent edits to two saved notes in dual panes', async () => 
   await writeFile(join(vault, 'Second.md'), '# Second\n\nSecond saved body');
   let { app, page } = await launch(home);
   try {
+    await page.getByRole('button', { name: 'Second', exact: true }).click();
+    await expect(page.locator('.cm-content')).toContainText('Second saved body');
     await page.getByRole('button', { name: 'Original', exact: true }).click();
+    await expect(page.locator('.cm-content')).toContainText('Saved body');
     await page.getByRole('button', { name: 'Pane actions', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Close Other Tabs', exact: true }).click();
     await expect(page.locator('.cm-content')).toContainText('Saved body');

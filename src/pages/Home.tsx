@@ -371,6 +371,7 @@ export function Home() {
   });
   const workbenchDocuments = useWorkbenchDocuments({
     activeTab,
+    clearDraft: noteWorkspace.clearDraft,
     deletingNote: mutations.deleteNoteMutation.variables ?? null,
     documentQueriesByKey: documentQueries.byKey,
     documentsByKey,

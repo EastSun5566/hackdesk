@@ -76,6 +76,7 @@ function createOptions(overrides: Partial<WorkbenchDocumentsOptions> = {}): Work
 
   return {
     activeTab: tab,
+    clearDraft: vi.fn(),
     deletingNote: null,
     documentQueriesByKey: new Map([[getNoteIdentityKey(identity), { isFetching: false, isLoading: false }]]),
     documentsByKey: new Map([[getNoteIdentityKey(identity), remoteDocument(document)]]),
@@ -94,6 +95,38 @@ function createOptions(overrides: Partial<WorkbenchDocumentsOptions> = {}): Work
 }
 
 describe('useWorkbenchDocuments', () => {
+  it('clears recovered drafts only when a completed fresh read matches both title and content', () => {
+    const tab = createTab();
+    const key = getNoteIdentityKey({ id: tab.noteId, teamPath: tab.teamPath });
+    const clearDraft = vi.fn();
+    const document = createDocument();
+    const options = createOptions({
+      clearDraft,
+      drafts: { [tab.tabId]: {
+        title: document.title, content: document.content,
+        baseTitle: 'Older title', baseContent: 'Older body',
+      } },
+    });
+    const { rerender } = renderHook((props: WorkbenchDocumentsOptions) => useWorkbenchDocuments(props), {
+      initialProps: { ...options, documentsByKey: new Map() },
+    });
+    expect(clearDraft).not.toHaveBeenCalled();
+    rerender({ ...options, documentQueriesByKey: new Map([[key, { isFetching: true }]]) });
+    expect(clearDraft).not.toHaveBeenCalled();
+    rerender({ ...options, documentsByKey: new Map([[key, { source: 'error', error: 'offline', data: document }]]) });
+    expect(clearDraft).not.toHaveBeenCalled();
+    rerender({ ...options, documentsByKey: new Map([[key, { source: 'cached', data: document }]]) });
+    expect(clearDraft).not.toHaveBeenCalled();
+    rerender({ ...options, latestLocalRevisionByNoteId: new Map([[tab.noteId, localRevision('newer', 2)]]) });
+    expect(clearDraft).not.toHaveBeenCalled();
+    rerender({ ...options, documentsByKey: new Map([[key, remoteDocument({ ...document, content: 'Different body' })]]) });
+    expect(clearDraft).not.toHaveBeenCalled();
+    rerender({ ...options, documentsByKey: new Map([[key, remoteDocument({ ...document, title: 'Different title' })]]) });
+    expect(clearDraft).not.toHaveBeenCalled();
+    rerender(options);
+    expect(clearDraft).toHaveBeenCalledExactlyOnceWith(tab.tabId);
+  });
+
   it('derives dirty state from draft title and content changes', () => {
     const tab = createTab();
     const baseDraft: NoteDocumentDraft = {

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import type {
   DocumentSummary,
@@ -35,6 +35,7 @@ export type WorkbenchDocumentQueryState = {
 
 export type WorkbenchDocumentsOptions = {
   activeTab: OpenNoteTab | null;
+  clearDraft: (tabId: string) => void;
   deletingNote: NoteIdentity | null;
   documentQueriesByKey: Map<string, WorkbenchDocumentQueryState | undefined>;
   documentsByKey: Map<string, RepositoryValue<DocumentSummary> | undefined>;
@@ -57,6 +58,7 @@ export type WorkbenchDocumentsOptions = {
 
 export function useWorkbenchDocuments({
   activeTab,
+  clearDraft,
   deletingNote,
   documentQueriesByKey,
   documentsByKey,
@@ -93,6 +95,24 @@ export function useWorkbenchDocuments({
   }, [getTabDocumentResult, getTabIdentity]);
 
   const getTabDraft = useCallback((tab: OpenNoteTab) => drafts[tab.tabId] ?? null, [drafts]);
+
+  useEffect(() => {
+    for (const tab of Object.values(tabs)) {
+      if (isDraftNoteTab(tab)) continue;
+      const draft = drafts[tab.tabId];
+      if (!draft) continue;
+      const documentResult = getTabDocumentResult(tab);
+      const document = getTabDocument(tab);
+      const query = documentQueriesByKey.get(getNoteIdentityKey(getTabIdentity(tab)));
+      // Cached or pending reads cannot confirm that a recovered draft is saved.
+      if (query?.isLoading || query?.isFetching || documentResult?.source !== 'remote') continue;
+      const latestRevision = latestLocalRevisionByNoteId?.get(tab.noteId);
+      if (latestRevision && !localRevisionsEqual(getLocalRevision(document), latestRevision)) continue;
+      if (document && draft.title === document.title && draft.content === document.content) {
+        clearDraft(tab.tabId);
+      }
+    }
+  }, [clearDraft, documentQueriesByKey, drafts, getTabDocument, getTabDocumentResult, getTabIdentity, latestLocalRevisionByNoteId, tabs]);
 
   const getTabTitle = useCallback((tab: OpenNoteTab) => {
     if (isDraftNoteTab(tab)) {

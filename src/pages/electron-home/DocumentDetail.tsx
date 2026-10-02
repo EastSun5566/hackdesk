@@ -524,7 +524,7 @@ function DocumentRecoveryBanner({
         <DialogContent className="max-h-[calc(100dvh-4rem)] max-w-4xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Compare with disk</DialogTitle>
-            <DialogDescription>Your draft is kept until you reload or save it as a copy.</DialogDescription>
+            <DialogDescription>Compare both versions before reloading or saving a copy. Saving a copy keeps the original draft open.</DialogDescription>
           </DialogHeader>
           <div className="grid min-h-0 gap-4 sm:grid-cols-2">
             {[
