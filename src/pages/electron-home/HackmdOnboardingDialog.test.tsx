@@ -172,6 +172,16 @@ describe('HackmdOnboardingDialog', () => {
     expect(props.onConnected).not.toHaveBeenCalled();
   });
 
+  it('keeps onboarding and entered text when the folder picker is canceled', async () => {
+    const props = renderOnboarding({ onChooseLocalVault: vi.fn(async () => false) });
+    fireEvent.change(screen.getByLabelText('HackMD API Token'), { target: { value: 'pending-token' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Open local folder' }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open local folder' })).toBeEnabled());
+    expect(props.onOpenChange).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('HackMD API Token')).toHaveValue('pending-token');
+  });
+
   it('shows reduced-motion-safe busy state while opening the local folder picker', () => {
     const chooseLocalVault = createDeferred<void>();
     renderOnboarding({

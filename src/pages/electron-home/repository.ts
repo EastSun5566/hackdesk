@@ -67,6 +67,7 @@ export function getFolderOrderQueryKey(scope: WorkspaceScope) {
 }
 
 export function getScopeStorageKey(scope: WorkspaceScope) {
+  if (scope.type === 'local') return scope.vaultId ? `local:${scope.vaultId}` : null;
   return scope.type === 'team' ? `team:${scope.teamPath}` : scope.type;
 }
 

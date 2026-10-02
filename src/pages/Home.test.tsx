@@ -656,7 +656,8 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Open local folder' }));
+    const onboardingDialog = await findHackmdOnboardingDialog();
+    fireEvent.click(within(onboardingDialog).getByRole('button', { name: 'Open local folder' }));
 
     await waitFor(() => expect(chooseLocalVault).toHaveBeenCalledOnce());
     await waitFor(() => {
@@ -2533,7 +2534,7 @@ describe('Home native-feel behavior', () => {
     expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
   });
 
-  it('waits for the Local Vault snapshot before opening a local recent note', async () => {
+  it('waits for the Local Vault identity before showing and restoring a legacy local recent note', async () => {
     window.localStorage.setItem(ELECTRON_RECENT_NOTES_STORAGE_KEY, JSON.stringify([{
       noteId: 'local-note',
       teamPath: LOCAL_VAULT_TEAM_PATH,
@@ -2576,7 +2577,7 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(getSnapshot).toHaveBeenCalledOnce());
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
-    fireEvent.click(within(palette).getByText('Local Recent'));
+    expect(within(palette).queryByText('Local Recent')).not.toBeInTheDocument();
 
     expect(JSON.parse(window.localStorage.getItem(ELECTRON_RECENT_NOTES_STORAGE_KEY) ?? '[]')).toEqual([
       expect.objectContaining({ noteId: 'local-note', teamPath: LOCAL_VAULT_TEAM_PATH }),
@@ -2589,6 +2590,7 @@ describe('Home native-feel behavior', () => {
       await snapshotPromise;
     });
 
+    fireEvent.click(await within(palette).findByText('Local Recent'));
     expect(await screen.findByDisplayValue('Local Recent')).toBeInTheDocument();
     expect(readNote).toHaveBeenCalledWith('local-note');
   });

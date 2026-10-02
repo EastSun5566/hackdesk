@@ -21,7 +21,7 @@ export type PendingRecentNoteRestoreOptions = {
 
 export function recentNoteTargetsScope(note: ElectronRecentNote, scope: WorkspaceScope) {
   if (note.teamPath === LOCAL_VAULT_TEAM_PATH) {
-    return scope.type === 'local';
+    return scope.type === 'local' && !!scope.vaultId && note.vaultId === scope.vaultId;
   }
 
   if (note.teamPath === null) {
@@ -69,6 +69,7 @@ export function usePendingRecentNoteRestore({
     }
 
     if (!recentNoteTargetsScope(pendingRecentNote, scope)) {
+      if (scope.type === 'local' && pendingRecentNote.teamPath === LOCAL_VAULT_TEAM_PATH) pendingRecentNoteRef.current = null;
       return;
     }
 

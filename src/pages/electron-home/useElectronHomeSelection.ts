@@ -11,6 +11,7 @@ export type ElectronHomeSelectNoteOptions = {
 };
 
 export type ElectronHomeSelectionOptions = {
+  scopeStorageKey?: string | null;
   activeTab: OpenNoteTab | null;
   openNoteInWorkspace: (note: NoteSummary) => void;
   selectionRefs: ElectronHomeSelectionRefs;
@@ -34,6 +35,7 @@ export function useElectronHomeSelectionRefs(): ElectronHomeSelectionRefs {
 
 export function useElectronHomeSelection({
   activeTab,
+  scopeStorageKey,
   openNoteInWorkspace,
   selectionRefs,
   trackRecentNote,
@@ -41,6 +43,11 @@ export function useElectronHomeSelection({
   const pendingEditorFocusNoteIdRef = useRef<string | null>(null);
   const [editorFocusRequestId, setEditorFocusRequestId] = useState(0);
   const { autoSelectSuppressionRef, manualEmptyWorkspaceRef } = selectionRefs;
+
+  useEffect(() => {
+    pendingEditorFocusNoteIdRef.current = null;
+    autoSelectSuppressionRef.current = null;
+  }, [scopeStorageKey, autoSelectSuppressionRef]);
 
   const selectedNote = useMemo<NoteIdentity | null>(() => (
     getSavedTabNoteIdentity(activeTab)

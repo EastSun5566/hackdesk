@@ -124,7 +124,7 @@ describe('usePendingRecentNoteRestore', () => {
   });
 
   it('waits for the Local Vault snapshot before restoring a local recent note', async () => {
-    const localRecent = recent({ noteId: 'local-note', teamPath: LOCAL_VAULT_TEAM_PATH });
+    const localRecent = recent({ noteId: 'local-note', vaultId: 'vault-a', teamPath: LOCAL_VAULT_TEAM_PATH });
     const loadedTree = buildHackmdFolderTree([note({
       id: 'local-note',
       title: 'Local note',
@@ -137,7 +137,7 @@ describe('usePendingRecentNoteRestore', () => {
       isWorkspaceLoading,
       removeRecentNoteEntry,
       revealNoteEntry,
-      scope: { type: 'local', label: 'Local Vault' },
+      scope: { type: 'local', label: 'Local Vault', vaultId: 'vault-a' },
       tree,
     }), {
       initialProps: { isWorkspaceLoading: true, tree: buildHackmdFolderTree([]) },
@@ -170,12 +170,13 @@ describe('usePendingRecentNoteRestore', () => {
       isWorkspaceLoading: true,
       removeRecentNoteEntry,
       revealNoteEntry,
-      scope: { type: 'local', label: 'Local Vault' },
+      scope: { type: 'local', label: 'Local Vault', vaultId: 'vault-a' },
       tree: loadedTree,
     }));
 
     act(() => {
       result.current.queuePendingRecentNote(recent({
+        vaultId: 'vault-a',
         noteId: 'local-note',
         teamPath: LOCAL_VAULT_TEAM_PATH,
       }));

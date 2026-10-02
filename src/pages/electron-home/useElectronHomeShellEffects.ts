@@ -15,9 +15,14 @@ export function getQuickCaptureDraftError(input: {
   scopeType: 'history' | 'local' | 'personal' | 'team';
   hasToken: boolean;
   hasConfiguredLocalVault: boolean;
+  isLocalVaultReady?: boolean;
 }) {
   if (input.scopeType === 'local' && !input.hasConfiguredLocalVault) {
     return 'Choose a local vault before capturing here.';
+  }
+
+  if (input.scopeType === 'local' && input.isLocalVaultReady === false) {
+    return 'Local Vault is still loading. Your text is still here.';
   }
 
   if (input.scopeType === 'history') {
@@ -36,7 +41,7 @@ export type ElectronHomeShellEffectsOptions = {
   collapsedFolderIds: Set<string>;
   openQuickCaptureDraft: (content: string) => QuickCaptureDraftResult;
   runAction: (actionId: ElectronActionId) => void;
-  scopeStorageKey: string;
+  scopeStorageKey: string | null;
 };
 
 export function useElectronHomeShellEffects({
@@ -47,6 +52,7 @@ export function useElectronHomeShellEffects({
   scopeStorageKey,
 }: ElectronHomeShellEffectsOptions) {
   useEffect(() => {
+    if (!scopeStorageKey) return;
     writeStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${scopeStorageKey}`, collapsedFolderIds);
   }, [collapsedFolderIds, scopeStorageKey]);
 

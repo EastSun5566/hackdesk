@@ -9,7 +9,7 @@ import type { WorkspaceScope } from './types';
 import { getLocalVaultSnapshotQueryKey } from './useElectronLocalVault';
 
 export type HomeLocalVaultActions = {
-  chooseLocalVault: () => Promise<void>;
+  chooseLocalVault: () => Promise<boolean>;
   forgetLocalVault: () => Promise<void>;
   openLocalVault: () => Promise<void>;
   refreshLocalVault: () => Promise<void>;
@@ -35,16 +35,17 @@ export function useHomeLocalVaultActions({
 
     const result = await api.localVault.choose();
     if (result.canceled) {
-      return;
+      return false;
     }
 
     if (result.settings) {
       queryClient.setQueryData(['electron', 'settings'], result.settings);
     }
     if (result.snapshot) {
-      queryClient.setQueryData(getLocalVaultSnapshotQueryKey(), result.snapshot);
+      queryClient.setQueryData(getLocalVaultSnapshotQueryKey(result.settings?.localVault.path ?? null), result.snapshot);
     }
     setWorkspaceScope({ type: 'local', label: 'Local Vault' });
+    return true;
   }, [api, queryClient, setWorkspaceScope]);
 
   const openLocalVault = useCallback(async () => {

@@ -11,6 +11,7 @@ import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { recentNoteTargetsScope } from './usePendingRecentNoteRestore';
 
 export type WorkbenchQuickOpenOptions = {
+  localVaultId?: string | null;
   expandNavigator: () => void;
   focusNavigator: () => void;
   isWorkspaceFetching: boolean;
@@ -28,6 +29,7 @@ export type WorkbenchQuickOpenOptions = {
 };
 
 export function useWorkbenchQuickOpen({
+  localVaultId,
   expandNavigator,
   focusNavigator,
   isWorkspaceFetching,
@@ -48,6 +50,7 @@ export function useWorkbenchQuickOpen({
   }, [revealNoteEntry]);
 
   const handleQuickOpenRecentNote = useCallback((entry: ElectronRecentNote) => {
+    if (entry.teamPath === LOCAL_VAULT_TEAM_PATH && (!localVaultId || entry.vaultId !== localVaultId)) return;
     const loadedEntry = tree.allNotes.find((candidate) => (
       recentNoteMatches(candidate.note, entry)
     ));
@@ -91,6 +94,7 @@ export function useWorkbenchQuickOpen({
     focusNavigator();
   }, [
     clearPendingRecentNote,
+    localVaultId,
     focusNavigator,
     isWorkspaceFetching,
     isWorkspaceLoading,

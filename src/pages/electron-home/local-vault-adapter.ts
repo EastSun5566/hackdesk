@@ -4,11 +4,13 @@ import type { LocalDocument, LocalFolder, LocalNoteSummary, LocalRevision, Local
 export const LOCAL_VAULT_TEAM_PATH = '__hackdesk_local_vault__';
 
 export type LocalNoteListSummary = NoteSummary & {
+  localVaultId: string;
   localRelativePath: string;
   localRevision: LocalRevision;
 };
 
 export type LocalDocumentSummary = DocumentSummary & {
+  localVaultId: string;
   localRelativePath: string;
   localRevision: LocalRevision;
 };
@@ -78,6 +80,7 @@ export function toNoteSummary(note: LocalNoteSummary, snapshot: LocalVaultSnapsh
     writePermission: 'owner',
     lastChangeUser: null,
     folderPaths,
+    localVaultId: snapshot.vaultId,
     localRelativePath: note.relativePath,
     localRevision: note.revision,
   };

@@ -33,7 +33,7 @@ export function VaultSettingsPanel({
   error?: string | null;
   settings?: ElectronSafeSettings;
   snapshot?: LocalVaultSnapshot | null;
-  onChooseLocalVault: () => Promise<void>;
+  onChooseLocalVault: () => Promise<void | boolean>;
   onForgetLocalVault: () => Promise<void>;
   onOpenLocalVault: () => Promise<void>;
   onRefreshLocalVault: () => Promise<void>;
@@ -42,7 +42,7 @@ export function VaultSettingsPanel({
   const vaultPath = settings?.localVault.path ?? snapshot?.rootPath ?? null;
   const isConfigured = Boolean(vaultPath);
 
-  const runVaultAction = (action: NonNullable<typeof busyAction>, callback: () => Promise<void>) => {
+  const runVaultAction = (action: NonNullable<typeof busyAction>, callback: () => Promise<unknown>) => {
     setBusyAction(action);
     callback()
       .catch((actionError) => {

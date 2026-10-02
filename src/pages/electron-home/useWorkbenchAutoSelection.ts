@@ -11,7 +11,7 @@ export type WorkbenchAutoSelectionOptions = {
   hasActiveDocument: boolean;
   manualEmptyWorkspaceRef: MutableRefObject<boolean>;
   requestSelectNote: (note: NoteSummary, options?: { focusEditor?: boolean; trackRecent?: boolean }) => Promise<boolean>;
-  scopeStorageKey: string;
+  scopeStorageKey: string | null;
   selectedFolderId: string | null;
   selectedNote: NoteIdentity | null;
   visibleEntries: FolderTreeNote[];
@@ -39,6 +39,7 @@ export function useWorkbenchAutoSelection({
   ].join(':'), [scopeStorageKey, selectedFolderId, selectedNote?.id]);
 
   useEffect(() => {
+    if (!scopeStorageKey) return;
     if (selectedNote && visibleEntries.some((entry) => noteIdentityMatches(entry.note, selectedNote))) {
       autoSelectSuppressionRef.current = null;
       return;
@@ -75,6 +76,7 @@ export function useWorkbenchAutoSelection({
     manualEmptyWorkspaceRef,
     requestSelectNote,
     selectedNote,
+    scopeStorageKey,
     visibleEntries,
   ]);
 

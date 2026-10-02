@@ -26,7 +26,7 @@ import {
   toNoteSummary,
   type LocalDocumentSummary,
 } from './local-vault-adapter';
-import { getLocalVaultDocumentQueryKey, getLocalVaultSnapshotQueryKey } from './useElectronLocalVault';
+import { getLocalVaultDocumentQueryKey, cacheLocalVaultSnapshot as cacheSnapshot } from './useElectronLocalVault';
 import {
   getFoldersQueryKey,
   getFolderOrderQueryKey,
@@ -164,7 +164,7 @@ export function useElectronNoteMutations({
   const queryClient = useQueryClient();
 
   const cacheLocalVaultSnapshot = useCallback((snapshot: LocalVaultSnapshot) => {
-    queryClient.setQueryData(getLocalVaultSnapshotQueryKey(), snapshot);
+    cacheSnapshot(queryClient, snapshot);
   }, [queryClient]);
 
   const clearHackmdQueryCache = useCallback(() => {
@@ -535,7 +535,7 @@ export function useElectronNoteMutations({
       onNoteSaved(updatedNote, variables);
       if (scope.type === 'local' || updatedNote.teamPath === LOCAL_VAULT_TEAM_PATH) {
         queryClient.setQueryData<LocalDocument | undefined>(
-          getLocalVaultDocumentQueryKey(updatedNote.id),
+          getLocalVaultDocumentQueryKey(updatedNote.id, (updatedNote as LocalDocumentSummary).localVaultId),
           (current) => localDocumentFromSummary(current, updatedNote as LocalDocumentSummary),
         );
       } else {
@@ -645,7 +645,7 @@ export function useElectronNoteMutations({
     onSuccess: ({ note, targetFolderId }) => {
       if (scope.type === 'local') {
         queryClient.setQueryData<LocalDocument | undefined>(
-          getLocalVaultDocumentQueryKey(note.id),
+          getLocalVaultDocumentQueryKey(note.id, (note as LocalDocumentSummary).localVaultId),
           (current) => current ? {
             ...current,
             relativePath: (note as LocalDocumentSummary).localRelativePath,

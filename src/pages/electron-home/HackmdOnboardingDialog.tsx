@@ -60,7 +60,7 @@ export type HackmdOnboardingDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   hackmdCliConfig: HackmdCliConfigStatus;
-  onChooseLocalVault: () => Promise<void>;
+  onChooseLocalVault: () => Promise<void | boolean>;
   onConnected?: () => void;
   onImportHackmdCliToken: () => Promise<ImportHackmdCliTokenResult>;
   onOpenHackmdSettings: () => void;
@@ -118,7 +118,13 @@ export function HackmdOnboardingDialog({
   const handleChooseLocalVault = () => {
     dispatch({ type: 'set-status', status: { kind: 'saving', message: 'Opening folder picker…' } });
     onChooseLocalVault()
-      .then(close)
+      .then((chosen) => {
+        if (chosen === false) {
+          dispatch({ type: 'set-status', status: { kind: 'idle', message: '' } });
+          return;
+        }
+        close();
+      })
       .catch((error) => {
         dispatch({ type: 'set-status', status: {
           kind: 'error',

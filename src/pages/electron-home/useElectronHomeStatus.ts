@@ -16,6 +16,8 @@ export type ElectronHomeStatusOptions = {
   hasLocalVault: boolean;
   hasToken: boolean;
   localVaultError?: string | null;
+  isLocalVaultLoading?: boolean;
+  isLocalVaultFetching?: boolean;
   mutations: ReturnType<typeof useElectronNoteMutations>;
   queries: ReturnType<typeof useElectronHackmdQueries>['queries'];
   scope: WorkspaceScope;
@@ -28,6 +30,8 @@ export function useElectronHomeStatus({
   hasLocalVault,
   hasToken,
   localVaultError,
+  isLocalVaultLoading = false,
+  isLocalVaultFetching = false,
   mutations,
   queries,
   scope,
@@ -84,8 +88,8 @@ export function useElectronHomeStatus({
         hasLocalVault,
         hasToken: scope.type === 'local' ? true : hasToken,
         isCreating: mutations.createNoteMutation.isPending || mutations.createFolderMutation.isPending,
-        isFetching: queries.notesQuery.isFetching || queries.foldersQuery.isFetching || queries.folderOrderQuery.isFetching,
-        isLoading: queries.notesQuery.isLoading || queries.foldersQuery.isLoading || queries.folderOrderQuery.isLoading,
+        isFetching: scope.type === 'local' ? isLocalVaultFetching : queries.notesQuery.isFetching || queries.foldersQuery.isFetching || queries.folderOrderQuery.isFetching,
+        isLoading: scope.type === 'local' ? isLocalVaultLoading : queries.notesQuery.isLoading || queries.foldersQuery.isLoading || queries.folderOrderQuery.isLoading,
         isMovingFolder: mutations.moveFolderMutation.isPending,
         isMovingNote: mutations.moveNoteMutation.isPending,
         showingCachedFallback,
@@ -103,6 +107,8 @@ export function useElectronHomeStatus({
     hasLocalVault,
     hasToken,
     localVaultError,
+    isLocalVaultLoading,
+    isLocalVaultFetching,
     mutations.createFolderMutation.isPending,
     mutations.createNoteMutation.isPending,
     mutations.moveFolderMutation.isPending,

@@ -74,6 +74,7 @@ function createOptions(overrides: Partial<WorkbenchQuickOpenOptions> = {}): Work
   ]);
 
   return {
+    localVaultId: 'vault-a',
     expandNavigator: vi.fn(),
     focusNavigator: vi.fn(),
     isWorkspaceFetching: false,
@@ -93,6 +94,17 @@ function createOptions(overrides: Partial<WorkbenchQuickOpenOptions> = {}): Work
 }
 
 describe('useWorkbenchQuickOpen', () => {
+  it('ignores a recent note belonging to another or unidentified vault, even if its ID is loaded', () => {
+    const options = createOptions();
+    const { result } = renderHook(() => useWorkbenchQuickOpen(options));
+    for (const vaultId of ['other-vault', undefined]) {
+      result.current.handleQuickOpenRecentNote(recent({ teamPath: LOCAL_VAULT_TEAM_PATH, vaultId }));
+    }
+    expect(options.revealNoteEntry).not.toHaveBeenCalled();
+    expect(options.queuePendingRecentNote).not.toHaveBeenCalled();
+    expect(options.removeRecentNoteEntry).not.toHaveBeenCalled();
+    expect(options.setWorkspaceScope).not.toHaveBeenCalled();
+  });
   it('reveals a recent note that is already loaded', () => {
     const options = createOptions();
     const { result } = renderHook(() => useWorkbenchQuickOpen(options));
@@ -133,7 +145,7 @@ describe('useWorkbenchQuickOpen', () => {
 
   it('switches to Local Vault before opening a local recent note', () => {
     const options = createOptions();
-    const entry = recent({ noteId: 'local-note', teamPath: LOCAL_VAULT_TEAM_PATH, title: 'Local note' });
+    const entry = recent({ noteId: 'local-note', vaultId: 'vault-a', teamPath: LOCAL_VAULT_TEAM_PATH, title: 'Local note' });
     const { result } = renderHook(() => useWorkbenchQuickOpen(options));
 
     result.current.handleQuickOpenRecentNote(entry);

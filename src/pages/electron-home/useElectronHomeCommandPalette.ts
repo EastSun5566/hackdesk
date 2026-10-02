@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import type { TeamSummary } from '@/lib/electron-api';
 import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
@@ -9,6 +9,7 @@ import { usePendingRecentNoteRestore } from './usePendingRecentNoteRestore';
 import { useWorkbenchQuickOpen } from './useWorkbenchQuickOpen';
 
 export type ElectronHomeCommandPaletteOptions = {
+  localVaultId?: string | null;
   displayScope: WorkspaceScope;
   expandNavigator: () => void;
   focusNavigator: () => void;
@@ -31,6 +32,7 @@ export type ElectronHomeCommandPaletteOptions = {
 };
 
 export function useElectronHomeCommandPalette({
+  localVaultId,
   displayScope,
   expandNavigator,
   focusNavigator,
@@ -71,6 +73,8 @@ export function useElectronHomeCommandPalette({
     tree,
   });
 
+  useEffect(() => { clearPendingRecentNote(); }, [localVaultId, clearPendingRecentNote]);
+
   const switchWorkspaceScope = useCallback((nextScope: WorkspaceScope) => {
     clearPendingRecentNote();
     setWorkspaceScope(nextScope);
@@ -82,6 +86,7 @@ export function useElectronHomeCommandPalette({
     handleQuickOpenRecentNote,
     handleQuickOpenWorkspace,
   } = useWorkbenchQuickOpen({
+    localVaultId,
     expandNavigator,
     focusNavigator,
     isWorkspaceFetching,

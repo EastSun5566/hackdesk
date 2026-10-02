@@ -2,9 +2,10 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { NoteSummary } from '@/lib/electron-api';
-import { readRecentNotes } from '@/lib/electron-recent-notes';
+import { ELECTRON_RECENT_NOTES_STORAGE_KEY, readRecentNotes } from '@/lib/electron-recent-notes';
 
 import { useElectronHomeRecentNotes } from './useElectronHomeRecentNotes';
+import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 
 function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id' | 'title'>): NoteSummary {
   return {
@@ -72,5 +73,24 @@ describe('useElectronHomeRecentNotes', () => {
 
     expect(result.current.recentNotes).toEqual([]);
     expect(readRecentNotes(window.localStorage)).toEqual([]);
+  });
+
+  it('keeps matching IDs from different vaults separate, hides unknown entries and preserves other vault records', () => {
+    localStorage.setItem(ELECTRON_RECENT_NOTES_STORAGE_KEY, JSON.stringify([{ noteId: 'unknown', teamPath: LOCAL_VAULT_TEAM_PATH, title: 'Unknown', shortId: 'unknown', lastOpenedAtMillis: 0 }]));
+    const { result, rerender } = renderHook((vaultId: string | null) => useElectronHomeRecentNotes(localStorage, vaultId), { initialProps: 'A' as string | null });
+    act(() => { result.current.trackRecentNote(note({ id: 'same-id', teamPath: LOCAL_VAULT_TEAM_PATH, title: 'A note' })); });
+    rerender('B');
+    expect(result.current.recentNotes).toEqual([]);
+    act(() => { result.current.trackRecentNote(note({ id: 'same-id', teamPath: LOCAL_VAULT_TEAM_PATH, title: 'B note' })); });
+    expect(result.current.recentNotes).toEqual([expect.objectContaining({ vaultId: 'B', title: 'B note' })]);
+    act(() => { result.current.removeRecentNoteEntry('same-id', LOCAL_VAULT_TEAM_PATH); });
+    expect(readRecentNotes(localStorage)).toEqual(expect.arrayContaining([expect.objectContaining({ vaultId: 'A' }), expect.objectContaining({ noteId: 'unknown' })]));
+    act(() => {
+      for (let i = 0; i < 14; i++) result.current.trackRecentNote(note({ id: `B-${i}`, teamPath: LOCAL_VAULT_TEAM_PATH, title: `B ${i}` }));
+    });
+    rerender('A');
+    expect(result.current.recentNotes).toEqual([expect.objectContaining({ vaultId: 'A', title: 'A note' })]);
+    rerender(null);
+    expect(result.current.recentNotes).toEqual([]);
   });
 });

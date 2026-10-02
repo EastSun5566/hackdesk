@@ -6,7 +6,6 @@ import { join, resolve } from 'node:path';
 import { defaultSettings } from '../../src/lib/settings';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
-const recoveryStorageKey = 'hackdesk_note_workspace:local';
 
 async function launchApp(home: string, userData: string, openQuickCapture = false) {
   return electron.launch({
@@ -44,6 +43,7 @@ test('recovers an accepted Quick Hack after restart and clears recovery after sa
   const capturedText = `Recovered capture ${Date.now()}`;
   const firstApp = await launchApp(home, userData, true);
   let firstAppCrashed = false;
+  let recoveryStorageKey = '';
   try {
     await expect.poll(() => firstApp.windows().map((page) => page.url())).toEqual(expect.arrayContaining([
       expect.stringContaining('#/electron'),
@@ -56,6 +56,10 @@ test('recovers an accepted Quick Hack after restart and clears recovery after sa
     await quickCapture.getByLabel('Quick Hack note').fill(capturedText);
     await quickCapture.getByRole('button', { name: 'Capture' }).click();
     await expect(firstMain.locator('.cm-content')).toContainText(capturedText);
+    recoveryStorageKey = await firstMain.evaluate(async () => {
+      const snapshot = await window.hackdeskAPI!.localVault.getSnapshot();
+      return `hackdesk_note_workspace:local:${snapshot!.vaultId}`;
+    });
     await expect.poll(() => firstMain.evaluate((key) => {
       const stored = JSON.parse(localStorage.getItem(key) ?? '{}') as { drafts?: Record<string, unknown> };
       return Object.keys(stored.drafts ?? {}).length;

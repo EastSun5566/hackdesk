@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useTheme } from '@/components/theme-provider';
@@ -9,7 +9,8 @@ import { defaultSettings } from '@/lib/settings';
 
 import { ElectronHomeOverlays } from './electron-home/ElectronHomeOverlays';
 import { ElectronHomeWorkspace } from './electron-home/ElectronHomeWorkspace';
-import { getScopeStorageKey } from './electron-home/repository';
+import { useElectronSettings } from './electron-home/useElectronSettings';
+import { useLocalVaultSession } from './electron-home/useLocalVaultSession';
 import { LOCAL_VAULT_TEAM_PATH } from './electron-home/local-vault-adapter';
 import type { WorkspaceScope } from './electron-home/types';
 import { useElectronHackmdQueries } from './electron-home/useElectronHackmdQueries';
@@ -66,9 +67,13 @@ import { getWorkspaceNavigationTeams } from './electron-home/workspace-navigatio
 export function Home() {
   const { presets, presetId, resolvedMode, setPresetId, setTheme, theme } = useTheme();
   const queryClient = useQueryClient();
-  const api = getDesktopAPI();
+  const rawApi = getDesktopAPI();
+  const settingsQuery = useElectronSettings(rawApi);
+  const beforeVaultChange = useRef<() => void>(() => {});
+  const vaultSession = useLocalVaultSession(rawApi, settingsQuery.data, beforeVaultChange);
+  const api = vaultSession.api;
   const initialWorkspaceScope = useMemo(() => getInitialWorkspaceScope(), []);
-  const { recentNotes, removeRecentNoteEntry, trackRecentNote } = useElectronHomeRecentNotes();
+  const { recentNotes, removeRecentNoteEntry, trackRecentNote } = useElectronHomeRecentNotes(window.localStorage, vaultSession.vaultId);
   const selectionRefs = useElectronHomeSelectionRefs();
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const initialWorkspaceResolvedRef = useRef(false);
@@ -90,6 +95,7 @@ export function Home() {
   } = dialogState;
   const workspaceState = useWorkbenchWorkspaceState({
     initialWorkspaceScope,
+    localVaultId: vaultSession.vaultId,
     manualEmptyWorkspaceRef: selectionRefs.manualEmptyWorkspaceRef,
   });
   const {
@@ -120,6 +126,8 @@ export function Home() {
     toggleRailCollapsed,
   } = panelState;
   const noteWorkspace = useNoteWorkspaceTabs(scopeStorageKey);
+  const flushWorkspace = noteWorkspace.flush;
+  useLayoutEffect(() => { beforeVaultChange.current = flushWorkspace; }, [flushWorkspace]);
   const activeTab = noteWorkspace.activeTab;
   const {
     autoSelectSuppressionRef,
@@ -131,6 +139,7 @@ export function Home() {
     selectedNote,
   } = useElectronHomeSelection({
     activeTab,
+    scopeStorageKey,
     openNoteInWorkspace: noteWorkspace.openNote,
     selectionRefs,
     trackRecentNote,
@@ -140,7 +149,6 @@ export function Home() {
     deferredFinderState,
     finderActive,
     focusWorkspaceSearch,
-    loadFinderStateForScope,
     setFinderState,
   } = useWorkbenchFinder({
     initialScopeStorageKey: workspaceState.initialScopeStorageKey,
@@ -149,10 +157,9 @@ export function Home() {
     setNavigatorCollapsed,
   });
   const setWorkspaceScope = useCallback((nextScope: WorkspaceScope) => {
-    const nextScopeStorageKey = getScopeStorageKey(nextScope);
+    flushWorkspace();
     setWorkspaceScopeState(nextScope);
-    loadFinderStateForScope(nextScopeStorageKey);
-  }, [loadFinderStateForScope, setWorkspaceScopeState]);
+  }, [flushWorkspace, setWorkspaceScopeState]);
   const handleOnboardingConnected = useCallback(() => {
     setWorkspaceScope(DEFAULT_WORKSPACE_SCOPE);
   }, [setWorkspaceScope]);
@@ -176,20 +183,24 @@ export function Home() {
     queries: remoteQueries,
   } = useElectronHackmdQueries({
     api,
+    settingsQuery,
     scope,
     selectedNote,
     activeDocumentNotes,
   });
-  const localVault = useElectronLocalVault({
+  const localDocuments = useElectronLocalVault({
     api,
-    enabled: settings?.hasLocalVault === true,
+    enabled: !!vaultSession.snapshot && !vaultSession.isChanging && scope.type === 'local',
+    snapshot: vaultSession.snapshot,
     selectedNote,
     activeDocumentNotes,
   });
+  const localVault = { ...localDocuments, snapshotQuery: vaultSession.snapshotQuery };
   const localVaultActions = useHomeLocalVaultActions({
     api,
     queryClient,
     refetchLocalVault: async () => {
+      if (vaultSession.isChanging) throw new Error('Local Vault is still loading. Try again when it is ready.');
       await localVault.snapshotQuery.refetch();
     },
     setWorkspaceScope,
@@ -204,10 +215,10 @@ export function Home() {
     ? localVault.snapshotQuery.isFetching
     : queries.notesQuery.isFetching;
   const isWorkspaceLoading = scope.type === 'local'
-    ? localVault.snapshotQuery.isLoading || localVault.snapshotQuery.isError
+    ? vaultSession.isLoading || localVault.snapshotQuery.isError || !!vaultSession.error
     : queries.notesQuery.isLoading;
   const hasConfiguredLocalVault = settings?.hasLocalVault === true;
-  const canUseCurrentWorkspace = hasToken || (scope.type === 'local' && hasConfiguredLocalVault);
+  const canUseCurrentWorkspace = scope.type === 'local' ? !!vaultSession.snapshot && !vaultSession.isChanging : hasToken;
   const handleHackmdDisconnected = useCallback(() => {
     setWorkspaceScope(hasConfiguredLocalVault
       ? { type: 'local', label: 'Local Vault' }
@@ -226,12 +237,13 @@ export function Home() {
   }, [initialWorkspaceScope.type, scope.type, setWorkspaceScope, settings]);
 
   useEffect(() => {
-    if (settings?.shouldShowHackmdOnboarding && !settingsOpen) {
+    if (settings?.shouldShowHackmdOnboarding && !settingsOpen && !vaultSession.isChanging) {
       setOnboardingOpen(true);
     }
   }, [
     settings?.shouldShowHackmdOnboarding,
     settingsOpen,
+    vaultSession.isChanging,
   ]);
 
   const {
@@ -307,7 +319,7 @@ export function Home() {
     clearDraft: noteWorkspace.clearDraft,
     documentQueries: localVault.documentQueries,
     drafts: noteWorkspace.state.drafts,
-    enabled: scope.type === 'local',
+    enabled: scope.type === 'local' && !!vaultSession.vaultId && !vaultSession.isChanging,
     getTabsMatching: noteWorkspace.getTabsMatching,
     notes: localVault.currentNotes,
     openNote: noteWorkspace.openNote,
@@ -455,6 +467,7 @@ export function Home() {
     openQuickOpen,
     switchWorkspaceScope,
   } = useElectronHomeCommandPalette({
+    localVaultId: vaultSession.vaultId,
     displayScope,
     expandNavigator,
     focusNavigator: () => focusZone('navigator'),
@@ -600,6 +613,7 @@ export function Home() {
       scopeType: scope.type,
       hasToken,
       hasConfiguredLocalVault,
+      isLocalVaultReady: !!vaultSession.vaultId && !vaultSession.isChanging,
     });
     if (guardError) {
       return { accepted: false, error: guardError };
@@ -617,6 +631,8 @@ export function Home() {
     hasConfiguredLocalVault,
     hasToken,
     noteWorkspace,
+    vaultSession.vaultId,
+    vaultSession.isChanging,
     scope.type,
   ]);
 
@@ -668,13 +684,15 @@ export function Home() {
   });
 
   const homeStatus = useElectronHomeStatus({
+    isLocalVaultLoading: vaultSession.isLoading,
+    isLocalVaultFetching: vaultSession.snapshotQuery.isFetching || vaultSession.isChanging,
     canCreate,
     finderActive,
     hasLocalVault: hasConfiguredLocalVault,
     hasToken: canUseCurrentWorkspace,
-    localVaultError: localVault.snapshotQuery.error instanceof Error
+    localVaultError: vaultSession.error ?? (localVault.snapshotQuery.error instanceof Error
       ? localVault.snapshotQuery.error.message
-      : null,
+      : null),
     mutations,
     queries,
     scope,
@@ -776,9 +794,9 @@ export function Home() {
     dialogState,
     displayScope,
     localVaultActions,
-    localVaultError: localVault.snapshotQuery.error instanceof Error
+    localVaultError: vaultSession.error ?? (localVault.snapshotQuery.error instanceof Error
       ? localVault.snapshotQuery.error.message
-      : null,
+      : null),
     localVaultSnapshot: localVault.snapshot,
     mutations,
     onHackmdDisconnected: handleHackmdDisconnected,

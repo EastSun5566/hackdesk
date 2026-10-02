@@ -7,7 +7,7 @@ import type {
 } from '@/lib/settings';
 
 export type WorkspaceScope =
-  | { type: 'local'; label: string }
+  | { type: 'local'; label: string; vaultId?: string }
   | { type: 'personal'; label: string }
   | { type: 'history'; label: string }
   | { type: 'team'; label: string; teamPath: string };
