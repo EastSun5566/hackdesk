@@ -413,7 +413,6 @@ async function scanLocalVaultOnce(vaultRoot: string): Promise<LocalVaultSnapshot
   const manifest = await readManifest(vaultRoot);
   const files = await scanMarkdownFiles(vaultRoot);
   const loaded = await Promise.all(files.map((entry) => readScannedFile(vaultRoot, entry)));
-  const livePaths = new Set(files.map((file) => file.relativePath));
   const oldByIdentity = new Map<string, [string, ManifestNote][]>();
   const newByIdentity = new Map<string, typeof loaded>();
   for (const item of Object.entries(manifest.notes)) {
@@ -424,18 +423,24 @@ async function scanLocalVaultOnce(vaultRoot: string): Promise<LocalVaultSnapshot
     const key = identityKey(item.fileIdentity);
     if (key) newByIdentity.set(key, [...(newByIdentity.get(key) ?? []), item]);
   }
+  const moves = new Map<string, ManifestNote>();
+  const movedFromPaths = new Set<string>();
+  for (const item of loaded) {
+    if (manifest.notes[item.entry.relativePath]) continue;
+    const key = identityKey(item.fileIdentity);
+    const candidates = key ? oldByIdentity.get(key) : undefined;
+    const previous = candidates?.length === 1 ? candidates[0] : undefined;
+    if (key && previous && newByIdentity.get(key)?.length === 1
+      && previous[1].contentHash === item.contentHash) {
+      moves.set(item.entry.relativePath, previous[1]);
+      movedFromPaths.add(previous[0]);
+    }
+  }
+  // Reserve verified moves before path fallback: the old path may already contain a new file.
   const nextManifest: VaultManifest = { ...manifest, notes: {} };
   for (const item of loaded) {
-    let existing = manifest.notes[item.entry.relativePath];
-    if (!existing) {
-      const key = identityKey(item.fileIdentity);
-      const candidates = key ? oldByIdentity.get(key) : undefined;
-      const previous = candidates?.length === 1 ? candidates[0] : undefined;
-      if (key && previous && !livePaths.has(previous[0]) && newByIdentity.get(key)?.length === 1
-        && previous[1].contentHash === item.contentHash) {
-        existing = previous[1];
-      }
-    }
+    const path = item.entry.relativePath;
+    const existing = moves.get(path) ?? (movedFromPaths.has(path) ? undefined : manifest.notes[path]);
     if (existing) nextManifest.notes[item.entry.relativePath] = existing;
   }
   const notes = loaded.map(({ entry, contentHash, fileStat }) => (

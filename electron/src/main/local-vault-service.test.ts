@@ -114,6 +114,18 @@ describe('LocalVaultService', () => {
     expect(saved.document).toMatchObject({ id: document.id, relativePath: 'Moved.md', content: 'Draft' });
   });
 
+  it.each(['Body', 'Replacement'])('keeps a moved note ID when its old path is recreated with %s', async (replacement) => {
+    const { document } = await createLocalNote({ title: 'Original', content: 'Body' });
+    await rename(join(vaultPath, 'Original.md'), join(vaultPath, 'Renamed.md'));
+    await writeFile(join(vaultPath, 'Original.md'), replacement);
+    const snapshot = await scanLocalVault(vaultPath);
+    expect(snapshot.notes.find((note) => note.relativePath === 'Renamed.md')?.id).toBe(document.id);
+    expect(snapshot.notes.find((note) => note.relativePath === 'Original.md')?.id).not.toBe(document.id);
+    await writeLocalNote({ noteId: document.id, content: 'Draft', expectedRevision: document.revision });
+    expect(await readFile(join(vaultPath, 'Renamed.md'), 'utf8')).toBe('Draft');
+    expect(await readFile(join(vaultPath, 'Original.md'), 'utf8')).toBe(replacement);
+  });
+
   it('does not confuse identical-content notes, copies, or delete-and-create operations', async () => {
     const { document: a } = await createLocalNote({ title: 'A', content: 'Same' });
     const { document: b } = await createLocalNote({ title: 'B', content: 'Same' });

@@ -228,7 +228,7 @@ test('keeps an edited tab through external rename, move, save and restart withou
   } finally { await crash(app); }
 });
 
-test('recovers a manually edited title after an offline rename and saves that intentional title', async () => {
+test('recovers an edited title after offline rename and old-path reuse without overwriting the new file', async () => {
   const { home, vault } = await fixture();
   let { app, page } = await launch(home);
   try {
@@ -241,6 +241,7 @@ test('recovers a manually edited title after an offline rename and saves that in
     await flushDiskStorage(app, home, page);
     await crash(app);
     await rename(join(vault, 'Original.md'), join(vault, 'External.md'));
+    await writeFile(join(vault, 'Original.md'), 'Replacement note');
     ({ app, page } = await launch(home));
     await expect(page.getByRole('textbox', { name: 'Note title' })).toHaveValue('My title');
     await expect(page.locator('.cm-content')).toContainText('My draft');
@@ -250,6 +251,6 @@ test('recovers a manually edited title after an offline rename and saves that in
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect.poll(() => readFile(join(vault, 'My title.md'), 'utf8').catch(() => null)).toBe('My draft');
     await expect(readFile(join(vault, 'External.md'))).rejects.toMatchObject({ code: 'ENOENT' });
-    await expect(readFile(join(vault, 'Original.md'))).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(await readFile(join(vault, 'Original.md'), 'utf8')).toBe('Replacement note');
   } finally { await crash(app); }
 });
