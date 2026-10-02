@@ -75,6 +75,23 @@ describe('useElectronHomeRecentNotes', () => {
     expect(readRecentNotes(window.localStorage)).toEqual([]);
   });
 
+  it('refreshes only existing current-vault metadata without changing timestamps, order or other records', () => {
+    const records = [
+      { vaultId: 'A', noteId: 'note', teamPath: LOCAL_VAULT_TEAM_PATH, title: 'Original', shortId: 'Original.md', lastOpenedAtMillis: 30 },
+      { vaultId: 'B', noteId: 'note', teamPath: LOCAL_VAULT_TEAM_PATH, title: 'B', shortId: 'B.md', lastOpenedAtMillis: 20 },
+      { noteId: 'remote', teamPath: null, title: 'Remote', shortId: 'remote', lastOpenedAtMillis: 10 },
+    ];
+    localStorage.setItem(ELECTRON_RECENT_NOTES_STORAGE_KEY, JSON.stringify(records));
+    const { result } = renderHook(() => useElectronHomeRecentNotes(localStorage, 'A'));
+    const moved = { ...note({ id: 'note', title: 'Moved', shortId: 'Folder/Moved.md', teamPath: LOCAL_VAULT_TEAM_PATH }), localVaultId: 'A' };
+    act(() => result.current.syncLocalRecentNotes([moved, { ...moved, id: 'new' }]));
+    expect(readRecentNotes(localStorage)).toEqual([
+      { ...records[0], title: 'Moved', shortId: 'Folder/Moved.md' }, records[1], records[2],
+    ]);
+    act(() => result.current.syncLocalRecentNotes([{ ...moved, title: 'Wrong vault', localVaultId: 'B' }]));
+    expect(result.current.recentNotes[0].title).toBe('Moved');
+  });
+
   it('keeps matching IDs from different vaults separate, hides unknown entries and preserves other vault records', () => {
     localStorage.setItem(ELECTRON_RECENT_NOTES_STORAGE_KEY, JSON.stringify([{ noteId: 'unknown', teamPath: LOCAL_VAULT_TEAM_PATH, title: 'Unknown', shortId: 'unknown', lastOpenedAtMillis: 0 }]));
     const { result, rerender } = renderHook((vaultId: string | null) => useElectronHomeRecentNotes(localStorage, vaultId), { initialProps: 'A' as string | null });

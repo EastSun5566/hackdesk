@@ -320,6 +320,22 @@ describe('useElectronNoteMutations local note save', () => {
     });
     expect(api.localVault.renameNote).not.toHaveBeenCalled();
   });
+
+  it('does not rename back when a fresh document arrives before the unchanged draft title is rebased', async () => {
+    const disk = createLocalDocument({ title: 'Moved', relativePath: 'Moved.md' });
+    const snapshot = createSnapshot(disk);
+    const api = { localVault: { writeNote: vi.fn(async () => ({ document: disk, snapshot })) } } as unknown as HackDeskElectronAPI;
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useElectronNoteMutations(createOptions({ api, scope: { type: 'local', label: 'Local Vault' } })), { wrapper: Wrapper });
+    const note = { ...createDocument({ id: disk.id, title: 'Moved', teamPath: LOCAL_VAULT_TEAM_PATH }), localRevision: disk.revision, localRelativePath: 'Moved.md' };
+    await act(async () => {
+      await result.current.updateNoteMutation.mutateAsync({
+        note, input: { title: 'Original', content: 'My draft' }, intent: 'content',
+        submittedDraft: { title: 'Original', content: 'My draft', baseTitle: 'Original', baseContent: 'Body', baseRevision: disk.revision },
+      });
+    });
+    expect(api.localVault.writeNote).toHaveBeenCalledWith({ noteId: disk.id, content: 'My draft', expectedRevision: disk.revision });
+  });
 });
 
 describe('useElectronNoteMutations local folders', () => {

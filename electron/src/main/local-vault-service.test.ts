@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { link, mkdir, mkdtemp, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,6 +6,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const electronMock = vi.hoisted(() => ({
   homePath: '',
 }));
+const fsProbe = vi.hoisted(() => ({ afterRead: vi.fn<(path: string) => Promise<void>>() }));
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const fs = await importOriginal<typeof import('node:fs/promises')>();
+  const read = vi.fn(async (...args: Parameters<typeof fs.readFile>) => {
+    const result = await fs.readFile(...args);
+    await fsProbe.afterRead(String(args[0]));
+    return result;
+  });
+  return { ...fs, readFile: read, default: { ...fs, readFile: read } };
+});
 
 vi.mock('electron', () => ({
   app: {
@@ -35,6 +46,7 @@ describe('LocalVaultService', () => {
   let vaultPath = '';
 
   beforeEach(async () => {
+    fsProbe.afterRead.mockReset();
     homePath = await mkdtemp(join(tmpdir(), 'hackdesk-local-home-'));
     vaultPath = await mkdtemp(join(tmpdir(), 'hackdesk-local-vault-'));
     electronMock.homePath = homePath;
@@ -79,6 +91,107 @@ describe('LocalVaultService', () => {
     expect(second.relativePath).toBe('Untitled 2.md');
     expect(reread.id).toBe(first.id);
     expect(reread.content).toBe('one');
+  });
+
+  it('preserves IDs for external rename, move and folder rename across scans and reads', async () => {
+    const { document } = await createLocalNote({ title: 'Original', content: 'Body' });
+    await rename(join(vaultPath, 'Original.md'), join(vaultPath, 'Renamed.md'));
+    expect((await scanLocalVault(vaultPath)).notes).toContainEqual(expect.objectContaining({ id: document.id, relativePath: 'Renamed.md' }));
+    await mkdir(join(vaultPath, 'Folder'));
+    await rename(join(vaultPath, 'Renamed.md'), join(vaultPath, 'Folder', 'Renamed.md'));
+    expect((await scanLocalVault(vaultPath)).notes[0].id).toBe(document.id);
+    await rename(join(vaultPath, 'Folder'), join(vaultPath, 'Moved'));
+    expect((await scanLocalVault(vaultPath)).notes[0]).toMatchObject({ id: document.id, relativePath: 'Moved/Renamed.md' });
+    expect(await readLocalNote(document.id)).toMatchObject({ id: document.id, relativePath: 'Moved/Renamed.md', content: 'Body' });
+  });
+
+  it('rescans stale manifest paths inside read and write operations before watcher delivery', async () => {
+    const { document } = await createLocalNote({ title: 'Original', content: 'Body' });
+    await rename(join(vaultPath, 'Original.md'), join(vaultPath, 'Renamed.md'));
+    expect(await readLocalNote(document.id)).toMatchObject({ id: document.id, title: 'Renamed' });
+    await rename(join(vaultPath, 'Renamed.md'), join(vaultPath, 'Moved.md'));
+    const saved = await writeLocalNote({ noteId: document.id, content: 'Draft', expectedRevision: document.revision });
+    expect(saved.document).toMatchObject({ id: document.id, relativePath: 'Moved.md', content: 'Draft' });
+  });
+
+  it('does not confuse identical-content notes, copies, or delete-and-create operations', async () => {
+    const { document: a } = await createLocalNote({ title: 'A', content: 'Same' });
+    const { document: b } = await createLocalNote({ title: 'B', content: 'Same' });
+    await rename(join(vaultPath, 'A.md'), join(vaultPath, 'Renamed.md'));
+    await writeFile(join(vaultPath, 'Copy.md'), 'Same');
+    const moved = await scanLocalVault(vaultPath);
+    expect(moved.notes.find((note) => note.relativePath === 'Renamed.md')?.id).toBe(a.id);
+    expect(moved.notes.find((note) => note.relativePath === 'B.md')?.id).toBe(b.id);
+    expect(moved.notes.find((note) => note.relativePath === 'Copy.md')?.id).not.toBe(a.id);
+    await rm(join(vaultPath, 'Renamed.md'));
+    await writeFile(join(vaultPath, 'Replacement.md'), 'Same');
+    expect((await scanLocalVault(vaultPath)).notes.find((note) => note.relativePath === 'Replacement.md')?.id).not.toBe(a.id);
+  });
+
+  it('never matches hard links or a rename with changed content', async () => {
+    const { document } = await createLocalNote({ title: 'Original', content: 'Body' });
+    await link(join(vaultPath, 'Original.md'), join(vaultPath, 'Link.md'));
+    await scanLocalVault(vaultPath);
+    await rename(join(vaultPath, 'Original.md'), join(vaultPath, 'Renamed.md'));
+    const snapshot = await scanLocalVault(vaultPath);
+    expect(snapshot.notes.find((note) => note.relativePath === 'Renamed.md')?.id).not.toBe(document.id);
+    const { document: edited } = await createLocalNote({ title: 'Edited', content: 'Before' });
+    await rename(join(vaultPath, 'Edited.md'), join(vaultPath, 'Changed.md'));
+    await writeFile(join(vaultPath, 'Changed.md'), 'After');
+    expect((await scanLocalVault(vaultPath)).notes.find((note) => note.relativePath === 'Changed.md')?.id).not.toBe(edited.id);
+  });
+
+  it('keeps same-path IDs through normal edits and atomic replacement, then uses the refreshed identity for moves', async () => {
+    const { document } = await createLocalNote({ title: 'Original', content: 'Body' });
+    await writeFile(join(vaultPath, 'Original.md'), 'Edited');
+    expect((await scanLocalVault(vaultPath)).notes[0].id).toBe(document.id);
+    await writeFile(join(vaultPath, 'replacement.tmp'), 'Atomic');
+    await rename(join(vaultPath, 'replacement.tmp'), join(vaultPath, 'Original.md'));
+    expect((await scanLocalVault(vaultPath)).notes[0].id).toBe(document.id);
+    await rename(join(vaultPath, 'Original.md'), join(vaultPath, 'Moved.md'));
+    expect((await scanLocalVault(vaultPath)).notes[0].id).toBe(document.id);
+  });
+
+  it.each([undefined, { dev: '0', ino: '0', birthtimeNs: '1' }, { dev: 1, ino: '2', birthtimeNs: '3' }])(
+    'does not guess missing or invalid file identities, but fills them on a successful same-path scan: %j', async (identity) => {
+      const { document } = await createLocalNote({ title: 'Original', content: 'Body' });
+      const path = join(vaultPath, '.hackdesk', 'manifest.json');
+      const manifest = JSON.parse(await readFile(path, 'utf8'));
+      manifest.notes['Original.md'].fileIdentity = identity;
+      await writeFile(path, JSON.stringify(manifest));
+      await rename(join(vaultPath, 'Original.md'), join(vaultPath, 'Moved.md'));
+      const moved = (await scanLocalVault(vaultPath)).notes[0];
+      expect(moved.id).not.toBe(document.id);
+      expect(JSON.parse(await readFile(path, 'utf8')).notes['Moved.md'].fileIdentity).toMatchObject({ ino: expect.any(String), birthtimeNs: expect.any(String) });
+      await rename(join(vaultPath, 'Moved.md'), join(vaultPath, 'Again.md'));
+      expect((await scanLocalVault(vaultPath)).notes[0].id).toBe(moved.id);
+    },
+  );
+
+  it('upgrades legacy manifest entries without changing IDs', async () => {
+    const { document } = await createLocalNote({ title: 'Original', content: 'Body' });
+    const path = join(vaultPath, '.hackdesk', 'manifest.json');
+    const manifest = JSON.parse(await readFile(path, 'utf8'));
+    delete manifest.notes['Original.md'].fileIdentity;
+    await writeFile(path, JSON.stringify(manifest));
+    expect((await scanLocalVault(vaultPath)).notes[0].id).toBe(document.id);
+    await rename(join(vaultPath, 'Original.md'), join(vaultPath, 'Moved.md'));
+    expect((await scanLocalVault(vaultPath)).notes[0].id).toBe(document.id);
+  });
+
+  it('retries an unstable scan once and never writes a partial manifest', async () => {
+    const { document } = await createLocalNote({ title: 'Original', content: 'Body' });
+    const path = join(vaultPath, '.hackdesk', 'manifest.json');
+    const before = await readFile(path, 'utf8');
+    let reads = 0;
+    fsProbe.afterRead.mockImplementation(async (path) => {
+      if (path.endsWith('Original.md')) await writeFile(path, `External ${++reads}`);
+    });
+    await expect(scanLocalVault(vaultPath)).rejects.toThrow('changed during scanning');
+    expect(reads).toBe(2);
+    expect(await readFile(path, 'utf8')).toBe(before);
+    fsProbe.afterRead.mockReset();
+    expect((await scanLocalVault(vaultPath)).notes[0].id).toBe(document.id);
   });
 
   it('rejects stale writes when the file changed on disk', async () => {
