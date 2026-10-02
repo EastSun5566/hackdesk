@@ -556,7 +556,7 @@ export function Home() {
         input,
         intent: 'content',
         tabId: activeTab.tabId,
-        submittedDraft: input,
+        submittedDraft: { ...noteWorkspace.state.drafts[activeTab.tabId], ...input },
       });
     },
     saveDraftNote: (tab, input) => mutations.createDraftNoteMutation.mutate({ tabId: tab.tabId, input }),

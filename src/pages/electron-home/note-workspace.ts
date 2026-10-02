@@ -878,7 +878,10 @@ export function syncNoteTabSummary(state: NoteWorkspaceState, note: NoteSummary)
 export function toPersistedNoteWorkspaceLayout(state: NoteWorkspaceState): PersistedNoteWorkspaceLayout {
   const meaningfulDrafts = Object.fromEntries(Object.entries(state.drafts).filter(([tabId, draft]) => {
     const tab = state.tabs[tabId];
-    return isDraftNoteTab(tab) && Boolean(draft.content.trim() || (draft.title.trim() && draft.title.trim() !== 'Untitled'));
+    if (!tab) return false;
+    return isDraftNoteTab(tab)
+      ? Boolean(draft.content.trim() || (draft.title.trim() && draft.title.trim() !== 'Untitled'))
+      : draft.title !== draft.baseTitle || draft.content !== draft.baseContent;
   }));
   const persistedTabs = Object.fromEntries(
     Object.entries(state.tabs).filter(([tabId, tab]) => !isDraftNoteTab(tab) || Boolean(meaningfulDrafts[tabId])),
@@ -903,6 +906,21 @@ export function toPersistedNoteWorkspaceLayout(state: NoteWorkspaceState): Persi
     activePaneId: panes.some((pane) => pane.paneId === state.activePaneId)
       ? state.activePaneId
       : panes[0]?.paneId ?? 'note-pane-primary',
+  };
+}
+
+function normalizePersistedDraft(value: unknown): NoteDocumentDraft | null {
+  if (!value || typeof value !== 'object') return null;
+  const draft = value as Partial<NoteDocumentDraft>;
+  if (typeof draft.title !== 'string' || typeof draft.content !== 'string') return null;
+  const revision = draft.baseRevision;
+  return {
+    title: draft.title,
+    content: draft.content,
+    ...(typeof draft.baseTitle === 'string' ? { baseTitle: draft.baseTitle } : {}),
+    ...(typeof draft.baseContent === 'string' ? { baseContent: draft.baseContent } : {}),
+    ...(revision && typeof revision.contentHash === 'string' && Number.isFinite(revision.mtimeMs)
+      ? { baseRevision: { contentHash: revision.contentHash, mtimeMs: revision.mtimeMs } } : {}),
   };
 }
 
@@ -966,12 +984,10 @@ export function hydrateNoteWorkspaceLayout(scopeKey: string, layout: unknown): N
     tabs,
     panes,
     activePaneId: typeof value.activePaneId === 'string' ? value.activePaneId : panes[0]?.paneId ?? 'note-pane-primary',
-    drafts: Object.fromEntries(Object.entries(persistedDrafts).filter(([tabId, draft]) => Boolean(
-      isDraftNoteTab(tabs[tabId])
-      && draft
-      && typeof draft.title === 'string'
-      && typeof draft.content === 'string'
-    ))) as Record<string, NoteDocumentDraft>,
+    drafts: Object.fromEntries(Object.entries(persistedDrafts).flatMap(([tabId, value]) => {
+      const draft = normalizePersistedDraft(value);
+      return tabs[tabId] && draft ? [[tabId, draft]] : [];
+    })),
     recentlyClosedTabs: [],
     backStack: [],
     forwardStack: [],

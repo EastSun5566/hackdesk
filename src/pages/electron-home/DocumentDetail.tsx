@@ -26,6 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type {
   DocumentSummary,
   NoteSummary,
@@ -479,6 +480,7 @@ function DocumentRecoveryBanner({
   actions: DocumentDetailActions;
   documentState: DocumentDetailDocumentState;
 }) {
+  const [comparing, setComparing] = useState(false);
   if (!documentState.document || documentState.recovery?.kind !== 'disk_changed') {
     return null;
   }
@@ -491,6 +493,13 @@ function DocumentRecoveryBanner({
         <p className="min-w-0 flex-1 text-text-default">
           File changed on disk. Your draft is still open.
         </p>
+        <button
+          type="button"
+          className="inline-flex h-7 items-center rounded-[6px] border border-warning-default/35 bg-background-default px-2 text-xs font-medium text-text-default hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          onClick={() => setComparing(true)}
+        >
+          Compare with disk
+        </button>
         <button
           type="button"
           className="inline-flex h-7 items-center gap-1 rounded-[6px] border border-warning-default/35 bg-background-default px-2 text-xs font-medium text-text-default hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
@@ -511,6 +520,26 @@ function DocumentRecoveryBanner({
           Save as copy
         </button>
       </div>
+      <Dialog open={comparing} onOpenChange={setComparing}>
+        <DialogContent className="max-h-[calc(100dvh-4rem)] max-w-4xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Compare with disk</DialogTitle>
+            <DialogDescription>Your draft is kept until you reload or save it as a copy.</DialogDescription>
+          </DialogHeader>
+          <div className="grid min-h-0 gap-4 sm:grid-cols-2">
+            {[
+              { label: 'Your draft', title: documentState.title, content: documentState.content },
+              { label: 'On disk', title: document.title, content: document.content },
+            ].map(({ label, title, content }) => (
+              <section key={label} aria-label={label} className="min-w-0 space-y-2">
+                <h3 className="text-sm font-medium text-text-default">{label}</h3>
+                <p className="break-words text-sm text-text-subtle">{title}</p>
+                <pre tabIndex={0} className="max-h-[50dvh] overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-default bg-background-muted p-3 text-sm text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">{content}</pre>
+              </section>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -278,6 +278,7 @@ export function useHomeWorkspaceProps({
             intent: 'content',
             tabId: tab.tabId,
             submittedDraft: {
+              ...noteWorkspace.state.drafts[tab.tabId],
               title: input.title ?? document.title,
               content: input.content ?? document.content ?? '',
             },

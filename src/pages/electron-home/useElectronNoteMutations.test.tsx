@@ -258,6 +258,22 @@ describe('useElectronNoteMutations draft save', () => {
 });
 
 describe('useElectronNoteMutations local note save', () => {
+  it('checks the restored draft revision instead of the newly loaded disk revision', async () => {
+    const originalRevision = { contentHash: 'original', mtimeMs: 1 };
+    const diskRevision = { contentHash: 'external-change', mtimeMs: 2 };
+    const note = { ...createDocument({ teamPath: LOCAL_VAULT_TEAM_PATH }), localRevision: diskRevision };
+    const api = { localVault: { writeNote: vi.fn(async () => { throw new Error('File changed on disk.'); }) } } as unknown as HackDeskElectronAPI;
+    const { Wrapper } = createWrapper();
+    const options = createOptions({ api, scope: { type: 'local', label: 'Local Vault' } });
+    const { result } = renderHook(() => useElectronNoteMutations(options), { wrapper: Wrapper });
+    await expect(result.current.updateNoteMutation.mutateAsync({
+      note, input: { content: 'Recovered edit' }, intent: 'content', tabId: 'restored-tab',
+      submittedDraft: { title: note.title, content: 'Recovered edit', baseRevision: originalRevision },
+    })).rejects.toThrow('File changed on disk');
+    expect(api.localVault.writeNote).toHaveBeenCalledWith({ noteId: note.id, content: 'Recovered edit', expectedRevision: originalRevision });
+    expect(options.onNoteSaved).not.toHaveBeenCalled();
+  });
+
   it('sends changed title and content through one Local Vault write', async () => {
     const note = {
       ...createDocument({

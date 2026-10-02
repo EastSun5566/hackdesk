@@ -518,7 +518,7 @@ export function useElectronNoteMutations({
             noteId: note.id,
             ...(titleChanged ? { title: payload.title } : {}),
             content: payload.content ?? localDocument.content,
-            expectedRevision: localDocument.localRevision,
+            expectedRevision: variables.submittedDraft?.baseRevision ?? localDocument.localRevision,
           });
           cacheLocalVaultSnapshot(snapshot);
           return toDocumentSummary(written, snapshot);
