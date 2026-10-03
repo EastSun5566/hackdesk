@@ -146,6 +146,18 @@ describe('note workspace tabs', () => {
     expect(getActiveTab(materialized)?.tabId).toBe(draftTabId);
   });
 
+  it('rebases later draft input on the created note without keeping the provisional title', () => {
+    const initial = openDraftNoteTab(createEmptyNoteWorkspaceState('personal'), { content: '# Derived title' });
+    const tabId = getActiveTab(initial)!.tabId;
+    const submitted = initial.drafts[tabId];
+    const later = updateNoteTabDraft(initial, tabId, { ...submitted, content: '# Derived title\nMore input' });
+    const created = note({ id: 'created', title: 'Derived title', content: '# Derived title' });
+    const next = materializeDraftNoteTab(later, tabId, created, submitted);
+    expect(next.drafts[tabId]).toMatchObject({ title: 'Derived title', content: '# Derived title\nMore input', baseTitle: 'Derived title', baseContent: '# Derived title' });
+    expect(materializeDraftNoteTab(initial, tabId, created, submitted).drafts[tabId]).toBeUndefined();
+    expect(next.panes).toEqual(initial.panes);
+  });
+
   it('does not persist unsaved draft tabs without content persistence', () => {
     const withDraft = openDraftNoteTab(createEmptyNoteWorkspaceState('personal'));
     const persisted = toPersistedNoteWorkspaceLayout(withDraft);

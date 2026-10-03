@@ -74,13 +74,29 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
     };
   }, [state, scopeKey, flush]);
 
+  // Pending operations can finish while another workspace is visible. Persist
+  // those results too, so returning or restarting sees the completed operation.
+  useEffect(() => {
+    for (const [key, savedState] of Object.entries(statesByScope)) {
+      if (key !== scopeKey) writeNoteWorkspaceLayoutStorage(window.localStorage, savedState);
+    }
+  }, [statesByScope, scopeKey]);
+
+  const updateWorkspace = useCallback((key: string | null, update: (current: NoteWorkspaceState) => NoteWorkspaceState) => {
+    if (!key) return;
+    if (stateRef.current.scopeKey === key) {
+      setState(update);
+    } else {
+      setStatesByScope((current) => ({ ...current, [key]: update(current[key] ?? readInitialState(key)) }));
+    }
+  }, []);
+
   const activeTab = useMemo(() => getActiveTab(state), [state]);
   const visibleActiveTabs = useMemo(() => getVisibleActiveTabs(state), [state]);
 
   const openNote = useCallback((note: NoteSummary, paneId?: string) => {
-    if (!stateRef.current.scopeKey) return;
-    setState((current) => openNoteTab(current, note, paneId));
-  }, []);
+    updateWorkspace(scopeKey, (current) => openNoteTab(current, note, paneId));
+  }, [scopeKey, updateWorkspace]);
 
   const openDraftNote = useCallback((options?: string | OpenDraftNoteOptions) => {
     if (!stateRef.current.scopeKey) return;
@@ -97,9 +113,9 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
     setState(next);
   }, []);
 
-  const materializeDraftNote = useCallback((tabId: string, note: NoteSummary) => {
-    setState((current) => materializeDraftNoteTab(current, tabId, note));
-  }, []);
+  const materializeDraftNote = useCallback((tabId: string, note: NoteSummary, submittedDraft?: NoteDocumentDraft) => {
+    updateWorkspace(scopeKey, (current) => materializeDraftNoteTab(current, tabId, note, submittedDraft));
+  }, [scopeKey, updateWorkspace]);
 
   const selectTab = useCallback((paneId: string, tabId: string) => {
     setState((current) => selectNoteTab(current, paneId, tabId));
@@ -126,8 +142,8 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
   }, []);
 
   const closeByNoteIdentity = useCallback((note: NoteIdentity) => {
-    setState((current) => closeTabsByNoteIdentity(current, note));
-  }, []);
+    updateWorkspace(scopeKey, (current) => closeTabsByNoteIdentity(current, note));
+  }, [scopeKey, updateWorkspace]);
 
   const reopenLastClosed = useCallback(() => {
     setState(reopenLastClosedTab);
@@ -182,16 +198,16 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
   }, []);
 
   const syncNoteSummary = useCallback((note: NoteSummary) => {
-    setState((current) => syncNoteTabSummary(current, note));
-  }, []);
+    updateWorkspace(scopeKey, (current) => syncNoteTabSummary(current, note));
+  }, [scopeKey, updateWorkspace]);
 
   const syncNoteSummaries = useCallback((notes: NoteSummary[]) => {
     setState((current) => notes.reduce((nextState, note) => syncNoteTabSummary(nextState, note), current));
   }, []);
 
   const reconcileSavedNote = useCallback((input: Parameters<typeof reconcileSavedNoteTab>[1]) => {
-    setState((current) => reconcileSavedNoteTab(current, input));
-  }, []);
+    updateWorkspace(scopeKey, (current) => reconcileSavedNoteTab(current, input));
+  }, [scopeKey, updateWorkspace]);
 
   const getPaneTab = useCallback((paneId: string) => getPaneActiveTab(state, paneId), [state]);
   const getTabHostPane = useCallback((tabId: string) => getTabPane(state, tabId), [state]);
