@@ -16,7 +16,7 @@
     "build": "node scripts/electron-build.ts && vite build",
     "preview": "vite preview",
     "package": "pnpm run build && electron-builder",
-    "package:check": "pnpm run build && electron-builder --dir --publish never",
+    "package:check": "pnpm run build && electron-builder --dir --publish never && node scripts/check-electron-fuses.ts",
     "typecheck": "pnpm run typecheck:app && pnpm run typecheck:node && pnpm run typecheck:electron",
     "typecheck:app": "tsgo -p tsconfig.app.json --noEmit",
     "typecheck:node": "tsgo -p tsconfig.node.json --noEmit",
@@ -48,6 +48,12 @@
   "license": "AGPL-3.0-only",
   "build": {
     "appId": "me.eastsun.hackdesk",
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "resetAdHocDarwinSignature": true
+    },
     "productName": "HackDesk",
     "directories": {
       "buildResources": "build",

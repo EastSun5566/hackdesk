@@ -28,6 +28,7 @@ export type TokenTestState = {
 
 export function HackmdSettingsPanel({
   hasHackmdApiToken,
+  tokenStorageError,
   token,
   tokenVisible,
   tokenTest,
@@ -37,6 +38,7 @@ export function HackmdSettingsPanel({
   onTokenVisibleChange,
 }: {
   hasHackmdApiToken: boolean;
+  tokenStorageError?: string | null;
   token: string;
   tokenVisible: boolean;
   tokenTest: TokenTestState;
@@ -63,6 +65,7 @@ export function HackmdSettingsPanel({
   return (
     <>
       <SettingsSection title="HackMD">
+        {tokenStorageError ? <p role="alert" className="text-sm text-destructive-default">{tokenStorageError}</p> : null}
         {hasHackmdApiToken ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="inline-flex w-fit items-center rounded-full border border-success-default/30 bg-success-soft px-2 py-1 text-xs font-medium text-success-default">

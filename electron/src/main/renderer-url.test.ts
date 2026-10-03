@@ -1,9 +1,13 @@
-import { describe, expect, it, vi, afterEach } from 'vitest';
+import { describe, expect, it, vi, afterEach, beforeEach } from 'vitest';
 import { resolve } from 'node:path';
 
-import { getProductionRendererUrl, isTrustedRendererUrl, resolveRendererFile } from './renderer-url';
+const electronMock = vi.hoisted(() => ({ isPackaged: false }));
+vi.mock('electron', () => ({ app: electronMock }));
+
+import { getRendererEntryUrl, getRendererRouteUrl, getProductionRendererUrl, isTrustedRendererUrl, resolveRendererFile } from './renderer-url';
 
 describe('renderer URL helpers', () => {
+  beforeEach(() => { electronMock.isPackaged = false; });
   afterEach(() => {
     vi.unstubAllEnvs();
   });
@@ -20,6 +24,15 @@ describe('renderer URL helpers', () => {
     expect(isTrustedRendererUrl('http://localhost:5173/#/electron')).toBe(true);
     expect(isTrustedRendererUrl('http://localhost:5174/#/electron')).toBe(false);
     expect(isTrustedRendererUrl('hackdesk://renderer/index.html#/electron')).toBe(false);
+  });
+
+  it('ignores an environment override for loading and IPC trust in a packaged app', () => {
+    electronMock.isPackaged = true;
+    vi.stubEnv('HACKDESK_ELECTRON_DEV_SERVER_URL', 'https://attacker.example/');
+    expect(getRendererEntryUrl()).toBe(getProductionRendererUrl());
+    expect(getRendererRouteUrl('/quick-capture')).toBe('hackdesk://renderer/index.html#/quick-capture');
+    expect(isTrustedRendererUrl('https://attacker.example/#/electron')).toBe(false);
+    expect(isTrustedRendererUrl(getProductionRendererUrl())).toBe(true);
   });
 
   it('resolves renderer files without allowing path traversal', () => {
