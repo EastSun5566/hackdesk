@@ -39,18 +39,18 @@ for (const origin of ['personal', 'team-a']) {
           id: `team-${id}`, path: `team-${id}`, name: `Team ${id.toUpperCase()}`, ownerId: null,
           visibility: 'private', logo: null, description: null, createdAtMillis: null, upgraded: false,
         })) }));
-        let note = {
+        const template = {
           id: 'origin-note', shortId: 'origin-note', title: 'Origin', content: '', teamPath: null as string | null,
           tags: [], description: '', permalink: null, publishLink: 'https://hackmd.io/origin-note', folderPaths: [],
           readPermission: 'owner', writePermission: 'owner', createdAtMillis: null, updatedAtMillis: null,
           lastChangeUser: null, publishedAtMillis: null, publishType: 'edit', tagsUpdatedAtMillis: null,
           titleUpdatedAtMillis: null, userPath: null,
         };
-        let created = false;
+        const notes = new Map<string | null, typeof template>();
         for (const channel of [channels.hackmdListNotes, channels.hackmdListTeamNotes]) {
-          replace(channel, (_event, teamPath) => ({ source: 'remote', data: created && note.teamPath === (teamPath ?? null) ? [note] : [] }));
+          replace(channel, (_event, teamPath) => ({ source: 'remote', data: notes.has(teamPath ?? null) ? [notes.get(teamPath ?? null)] : [] }));
         }
-        replace(channels.hackmdGetNote, () => ({ source: 'remote', data: note }));
+        replace(channels.hackmdGetNote, (_event, _id, teamPath) => ({ source: 'remote', data: notes.get(teamPath ?? null) }));
         for (const channel of [channels.hackmdListFolders, channels.hackmdListTeamFolders, channels.hackmdListHistory]) {
           replace(channel, () => ({ source: 'remote', data: [] }));
         }
@@ -58,9 +58,9 @@ for (const origin of ['personal', 'team-a']) {
           replace(channel, () => ({ source: 'remote', data: {} }));
         }
         const hold = (input: { title?: string; content?: string }, teamPath: string | null) => new Promise((done) => {
-          ipcMain.once('fixture:complete-mutation', () => {
-            note = { ...note, ...input, teamPath };
-            created = true;
+          ipcMain.once(`fixture:complete:${teamPath ?? 'personal'}`, () => {
+            const note = { ...template, ...input, teamPath };
+            notes.set(teamPath, note);
             done(note);
           });
         });
@@ -78,15 +78,25 @@ for (const origin of ['personal', 'team-a']) {
       const editor = page.locator('.cm-content');
       await editor.fill('# Origin submitted');
       await page.getByRole('button', { name: 'Save', exact: true }).click();
-      const waitForPending = () => expect.poll(() => app.evaluate(({ ipcMain }) => ipcMain.listenerCount('fixture:complete-mutation'))).toBe(1);
+      const waitForPending = () => expect.poll(() => app.evaluate(({ ipcMain }, owner) => ipcMain.listenerCount(`fixture:complete:${owner}`), origin)).toBe(1);
       await waitForPending();
       await editor.fill('# Origin later');
       await page.getByRole('button', { name: 'Team B, private', exact: true }).click();
       await page.keyboard.press(`${primary}+n`);
       await editor.fill('B untouched');
+      // A pending create must not block the same shortcut in B. Returning to A
+      // while both are pending must still prevent a duplicate submission.
+      await page.keyboard.press(`${primary}+s`);
+      await expect.poll(() => app.evaluate(({ ipcMain }) => ipcMain.listenerCount('fixture:complete:team-b'))).toBe(1);
+      await page.getByRole('button', { name: originButton, exact: true }).click();
+      await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+      await page.getByRole('button', { name: 'Team B, private', exact: true }).click();
+      await app.evaluate(({ ipcMain }) => { ipcMain.emit('fixture:complete:team-b'); });
       await expect.poll(() => page.evaluate(() => localStorage.getItem('hackdesk_note_workspace:team:team-b'))).toContain('B untouched');
+      await expect(page.getByRole('button', { name: 'Select B untouched tab', exact: true })).toHaveCount(1);
+      await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('hackdesk_note_workspace:team:team-b') ?? '{}').drafts)).toEqual({});
       const destination = await page.evaluate(() => localStorage.getItem('hackdesk_note_workspace:team:team-b'));
-      await app.evaluate(({ ipcMain }) => { ipcMain.emit('fixture:complete-mutation'); });
+      await app.evaluate(({ ipcMain }, owner) => { ipcMain.emit(`fixture:complete:${owner}`); }, origin);
       await expect.poll(() => page.evaluate((key) => localStorage.getItem(`hackdesk_note_workspace:${key}`), scopeKey)).toContain('origin-note');
       await expect(editor).toContainText('B untouched');
       await expect(page.getByRole('button', { name: 'Select Origin submitted tab', exact: true })).toHaveCount(0);
@@ -97,7 +107,7 @@ for (const origin of ['personal', 'team-a']) {
       await waitForPending();
       await editor.fill('# Origin even later');
       await page.getByRole('button', { name: 'Team B, private', exact: true }).click();
-      await app.evaluate(({ ipcMain }) => { ipcMain.emit('fixture:complete-mutation'); });
+      await app.evaluate(({ ipcMain }, owner) => { ipcMain.emit(`fixture:complete:${owner}`); }, origin);
       await expect.poll(() => page.evaluate((key) => {
         const layout = JSON.parse(localStorage.getItem(`hackdesk_note_workspace:${key}`) ?? '{}');
         return Object.values(layout.drafts ?? {}).map((draft) => (draft as { baseContent: string }).baseContent);

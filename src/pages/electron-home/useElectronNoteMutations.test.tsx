@@ -453,6 +453,41 @@ describe('useElectronNoteMutations settings updates', () => {
 });
 
 describe('mutation workspace ownership', () => {
+  it('lets B create while A is pending, restores A status on return and isolates errors/reset', async () => {
+    const a = Promise.withResolvers<DocumentSummary>();
+    const b = Promise.withResolvers<DocumentSummary>();
+    const api = { hackmd: { createNote: vi.fn(() => a.promise), createTeamNote: vi.fn(() => b.promise) } } as unknown as HackDeskElectronAPI;
+    const origin = createOptions({ api, scope: { type: 'personal', label: 'A' } });
+    const destination = createOptions({ api, scope: { type: 'team', label: 'B', teamPath: 'b' } });
+    const { Wrapper } = createWrapper();
+    const { result, rerender } = renderHook(useElectronNoteMutations, { initialProps: origin, wrapper: Wrapper });
+    act(() => { result.current.createNoteMutation.mutate('A'); });
+    await waitFor(() => expect(result.current.createNoteMutation.isPending).toBe(true));
+    rerender(destination);
+    expect(result.current.createNoteMutation.isIdle).toBe(true);
+    expect(result.current.createNoteMutation.variables).toBeUndefined();
+    act(() => { result.current.createNoteMutation.mutate('B'); });
+    await waitFor(() => expect(api.hackmd.createTeamNote).toHaveBeenCalledWith('b', expect.objectContaining({ title: 'B' })));
+    rerender(origin);
+    expect(result.current.createNoteMutation.isPending).toBe(true);
+    expect(result.current.createNoteMutation.variables).toBe('A');
+    await act(async () => { b.resolve(createDocument({ id: 'b', teamPath: 'b' })); });
+    expect(result.current.createNoteMutation.isPending).toBe(true);
+    await act(async () => { a.reject(new Error('A failed')); });
+    await waitFor(() => expect(result.current.createNoteMutation.isError).toBe(true));
+    rerender(destination);
+    expect(result.current.createNoteMutation.isSuccess).toBe(true);
+    expect(result.current.createNoteMutation.error).toBeNull();
+    rerender(origin);
+    expect(result.current.createNoteMutation.error?.message).toBe('A failed');
+    act(() => { result.current.createNoteMutation.reset(); });
+    await waitFor(() => expect(result.current.createNoteMutation.isIdle).toBe(true));
+    rerender(destination);
+    expect(result.current.createNoteMutation.isSuccess).toBe(true);
+    expect(destination.onNoteCreated).toHaveBeenCalledOnce();
+    expect(origin.onNoteCreated).not.toHaveBeenCalled();
+  });
+
   it('keeps both steps of a delayed folder move and invalidation in Team A', async () => {
     const pending = Promise.withResolvers<void>();
     const api = { hackmd: {
@@ -502,6 +537,9 @@ describe('mutation workspace ownership', () => {
     });
     await waitFor(() => expect(scope.type === 'team' ? api.hackmd.createTeamFolder : api.hackmd.createFolder).toHaveBeenCalledOnce());
     rerender(destination);
+    expect(result.current.createNoteMutation.isPending).toBe(false);
+    expect(result.current.updateNoteMutation.isPending).toBe(false);
+    expect(result.current.createFolderMutation.isPending).toBe(false);
     await act(async () => {
       created.resolve(note);
       saved.resolve(note);
