@@ -11,7 +11,7 @@ import { ElectronHomeOverlays } from './electron-home/ElectronHomeOverlays';
 import { ElectronHomeWorkspace } from './electron-home/ElectronHomeWorkspace';
 import { useElectronSettings } from './electron-home/useElectronSettings';
 import { useLocalVaultSession } from './electron-home/useLocalVaultSession';
-import { LOCAL_VAULT_TEAM_PATH } from './electron-home/local-vault-adapter';
+import { LOCAL_VAULT_TEAM_PATH, toDocumentSummary } from './electron-home/local-vault-adapter';
 import type { WorkspaceScope } from './electron-home/types';
 import { useElectronHackmdQueries } from './electron-home/useElectronHackmdQueries';
 import { useElectronFocusZones } from './electron-home/useElectronFocusZones';
@@ -47,6 +47,7 @@ import { useWorkbenchAutoSelection } from './electron-home/useWorkbenchAutoSelec
 import { useWorkbenchClosePolicy } from './electron-home/useWorkbenchClosePolicy';
 import { useWorkspaceBackupNotice } from './electron-home/useWorkspaceBackupNotice';
 import { useDraftTextActions } from './electron-home/useDraftTextActions';
+import { useTabImageUploads } from './electron-home/useTabImageUploads';
 import { useWorkbenchDocuments } from './electron-home/useWorkbenchDocuments';
 import { useElectronHomeStatus } from './electron-home/useElectronHomeStatus';
 import { useWorkbenchFinder } from './electron-home/useWorkbenchFinder';
@@ -701,6 +702,26 @@ export function Home() {
 
   const backupNotice = useWorkspaceBackupNotice({ api, workspace: noteWorkspace });
   const { copyDraftText, exportDraftText } = useDraftTextActions(api);
+  const readBackgroundTabDocument = useCallback(async (originScopeKey: string, tab: OpenNoteTab) => {
+    const identity = getSavedTabNoteIdentity(tab);
+    if (!api || !identity) return undefined;
+    if (identity.teamPath === LOCAL_VAULT_TEAM_PATH) {
+      // Only the active vault can be read; never read a same-named note from another vault.
+      const snapshot = await api.localVault.getSnapshot();
+      if (!snapshot || originScopeKey !== `local:${snapshot.vaultId}`) return undefined;
+      return toDocumentSummary(await api.localVault.readNote(identity.id), snapshot);
+    }
+    const result = await api.hackmd.getNote(identity.id, identity.teamPath);
+    return result.source === 'error' ? undefined : result.data;
+  }, [api]);
+  const attachImageToTab = useTabImageUploads({
+    scopeKey: noteWorkspace.state.scopeKey,
+    getTabDocument: workbenchDocuments.getTabDocument,
+    getWorkspaceSnapshot: noteWorkspace.getWorkspaceSnapshot,
+    replaceTabPlaceholder: noteWorkspace.replaceTabPlaceholder,
+    readTabDocument: readBackgroundTabDocument,
+    uploadImage: (note, input) => mutations.uploadNoteImageMutation.mutateAsync({ note, input }),
+  });
   const retryDocumentLoad = useCallback((tab: OpenNoteTab) => {
     const identity = getSavedTabNoteIdentity(tab);
     if (!identity) return;
@@ -723,6 +744,7 @@ export function Home() {
   });
   const workspaceProps = useHomeWorkspaceProps({
     actions: {
+      attachImageToTab,
       copyDraftText,
       exportDraftText,
       retryDocumentLoad,

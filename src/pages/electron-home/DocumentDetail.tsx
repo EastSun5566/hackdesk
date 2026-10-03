@@ -31,13 +31,11 @@ import type {
   DocumentSummary,
   NoteSummary,
   UpdateNoteInput,
-  UploadNoteImageInput,
-  UploadNoteImageResult,
 } from '@/lib/electron-api';
 import type { FolderTree } from '@/lib/hackmd-folders';
 import type { EditorMode } from '@/lib/settings';
 import { cn } from '@/lib/utils';
-import { formatMarkdownImage } from '@/components/hackmd-live-preview/markdown-image';
+import { createImageUploadPlaceholder } from '@/components/hackmd-live-preview/markdown-image';
 
 import { EmptyState, PanelHeader, PanelShell, ToolbarDropdownMoreTrigger, ToolbarIconButton } from './interaction-primitives';
 import { NoteInspector } from './NoteInspector';
@@ -104,7 +102,8 @@ export type DocumentDetailActions = {
   onShareOpenChange: (open: boolean) => void;
   onTitleChange: (title: string) => void;
   onToggleInspector: () => void;
-  onUploadImage: (document: DocumentSummary, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
+  /** Uploads `file` and replaces `placeholder` in this tab's content when done. */
+  onAttachImage: (file: File, placeholder: string) => Promise<unknown>;
 };
 
 export type DocumentDetailProps = {
@@ -382,14 +381,10 @@ function ActiveDocumentDetail({
       return;
     }
 
-    void uploadImageFile(actions.onUploadImage, documentState.document, file)
-      .then((result) => {
-        editor.insertText(formatMarkdownImage(file.name || 'image', result.link));
-      })
-      .catch((error) => {
-        toast.error(error instanceof Error ? error.message : 'Failed to insert image.');
-      });
-  }, [actions.onUploadImage, documentState.document]);
+    const placeholder = createImageUploadPlaceholder();
+    editor.insertText(placeholder);
+    void actions.onAttachImage(file, placeholder);
+  }, [actions, documentState.document]);
 
   const handleFileInputChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
@@ -431,9 +426,8 @@ function ActiveDocumentDetail({
         <DocumentBody
           key={editorKey}
           content={documentState.content}
-          document={documentState.document}
           editorMode={editorMode}
-          onAttachImage={actions.onUploadImage}
+          onAttachImage={actions.onAttachImage}
           onContentChange={actions.onContentChange}
           onOpenExternal={actions.onOpenExternal}
           setEditorRef={setEditorRef}
@@ -730,7 +724,6 @@ function DocumentActionsMenu({
 
 function DocumentBody({
   content,
-  document,
   editorMode,
   onAttachImage,
   onContentChange,
@@ -738,53 +731,22 @@ function DocumentBody({
   setEditorRef,
 }: {
   content: string;
-  document?: DocumentSummary;
   editorMode: EditorMode;
-  onAttachImage: (document: DocumentSummary, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
+  onAttachImage: (file: File, placeholder: string) => Promise<unknown>;
   onContentChange: (content: string) => void;
   onOpenExternal: (url: string) => void;
   setEditorRef: (handle: MarkdownEditorHandle | null) => void;
 }) {
-  const handleAttachImage = useCallback(async (file: File) => {
-    try {
-      if (!document) {
-        throw new Error('Save the draft before attaching images.');
-      }
-
-      return await uploadImageFile(onAttachImage, document, file);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to insert image.');
-      throw error;
-    }
-  }, [document, onAttachImage]);
-
   return (
     <MarkdownEditor
       ref={setEditorRef}
       editorMode={editorMode}
       value={content}
-      onAttachImage={handleAttachImage}
+      onAttachImage={onAttachImage}
       onChange={onContentChange}
       onOpenLink={onOpenExternal}
     />
   );
-}
-
-async function uploadImageFile(
-  onAttachImage: (document: DocumentSummary, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>,
-  document: DocumentSummary,
-  file: File,
-) {
-  if (file.size > 25 * 1024 * 1024) {
-    throw new Error('Images cannot exceed 25 MiB.');
-  }
-  const bytes = await file.arrayBuffer();
-
-  return await onAttachImage(document, {
-    bytes,
-    fileName: file.name || 'image',
-    mimeType: file.type || 'application/octet-stream',
-  });
 }
 
 function InspectorPanel({

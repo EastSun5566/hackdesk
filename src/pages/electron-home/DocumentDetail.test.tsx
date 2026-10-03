@@ -24,7 +24,7 @@ vi.mock('@/components/MarkdownEditor', async () => {
   return {
     MarkdownEditor: React.forwardRef((props: {
       editorMode?: string;
-      onAttachImage?: (file: File) => Promise<{ link: string }>;
+      onAttachImage?: (file: File, placeholder: string) => Promise<unknown>;
       onChange: (value: string) => void;
       value: string;
     }, ref) => {
@@ -54,7 +54,7 @@ vi.mock('@/components/MarkdownEditor', async () => {
               Object.defineProperty(file, 'arrayBuffer', {
                 value: async () => new ArrayBuffer(11),
               });
-              void props.onAttachImage?.(file);
+              void props.onAttachImage?.(file, '![Uploading image fixture...]()');
             }}
           >
             Paste image fixture
@@ -111,7 +111,7 @@ function renderDocumentDetail(overrides: Partial<DocumentDetailProps> = {}) {
       onShareOpenChange: vi.fn(),
       onTitleChange: vi.fn(),
       onToggleInspector: vi.fn(),
-      onUploadImage: vi.fn(),
+      onAttachImage: vi.fn(async () => undefined),
     },
     documentState: {
       content: document.content,
@@ -320,34 +320,31 @@ describe('DocumentDetail', () => {
     }
   });
 
-  it('sends editor image attachments through the document upload action', async () => {
-    const onUploadImage = vi.fn(async () => ({ link: 'attachments/pasted.png' }));
-    const document = documentSummary();
+  it('passes editor image attachments and their placeholder to the tab attach action', async () => {
+    const onAttachImage = vi.fn(async () => undefined);
     renderDocumentDetail({
-      actions: { onUploadImage },
+      actions: { onAttachImage },
       documentState: {
-        document,
+        document: documentSummary(),
       },
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Paste image fixture' }));
 
-    await waitFor(() => expect(onUploadImage).toHaveBeenCalledTimes(1));
-    expect(onUploadImage).toHaveBeenCalledWith(document, {
-      bytes: expect.any(ArrayBuffer),
-      fileName: 'pasted.png',
-      mimeType: 'image/png',
-    });
+    await waitFor(() => expect(onAttachImage).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'pasted.png' }),
+      '![Uploading image fixture...]()',
+    ));
   });
 
   it('attaches an image from the document file picker without saving the note', async () => {
     const onSave = vi.fn();
-    const onUploadImage = vi.fn(async () => ({ link: 'attachments/selected.png' }));
+    const onAttachImage = vi.fn(async () => undefined);
     const document = documentSummary();
     renderDocumentDetail({
       actions: {
         onSave,
-        onUploadImage,
+        onAttachImage,
       },
       documentState: {
         document,
@@ -367,12 +364,9 @@ describe('DocumentDetail', () => {
       },
     });
 
-    await waitFor(() => expect(onUploadImage).toHaveBeenCalledWith(document, {
-      bytes: expect.any(ArrayBuffer),
-      fileName: 'selected].png',
-      mimeType: 'image/png',
-    }));
-    await waitFor(() => expect(markdownEditorInsertText).toHaveBeenCalledWith('![selected\\].png](attachments/selected.png)'));
+    // The placeholder is inserted first, so the upload can finish in this tab after switching away.
+    await waitFor(() => expect(onAttachImage).toHaveBeenCalledWith(file, expect.stringMatching(/^!\[Uploading image [0-9a-f]{8}\.\.\.\]\(\)$/)));
+    expect(markdownEditorInsertText).toHaveBeenCalledWith(onAttachImage.mock.calls[0][1]);
     expect(onSave).not.toHaveBeenCalled();
   });
 
