@@ -11,14 +11,18 @@ const electronMock = vi.hoisted(() => ({
   encrypt: vi.fn<(token: string) => Buffer>(),
   decrypt: vi.fn<(buffer: Buffer) => string>(),
 }));
-const fsMock = vi.hoisted(() => ({ failRename: false }));
+const fsMock = vi.hoisted(() => ({ failRename: false, failOpen: false, failRenameAfter: Infinity }));
 vi.mock('node:fs/promises', async (importOriginal) => {
   const fs = await importOriginal<typeof import('node:fs/promises')>();
   const rename = async (...args: Parameters<typeof fs.rename>) => {
-    if (fsMock.failRename) throw new Error('Test disk failure');
+    if (fsMock.failRename || fsMock.failRenameAfter-- <= 0) throw new Error('Test disk failure');
     return fs.rename(...args);
   };
-  return { ...fs, rename, default: { ...fs, rename } };
+  const open = async (...args: Parameters<typeof fs.open>) => {
+    if (fsMock.failOpen) throw new Error('ENOSPC: no space left on device');
+    return fs.open(...args);
+  };
+  return { ...fs, rename, open, default: { ...fs, rename, open } };
 });
 
 vi.mock('electron', () => ({
@@ -49,6 +53,8 @@ import {
 describe('Electron settings', () => {
   beforeEach(async () => {
     fsMock.failRename = false;
+    fsMock.failOpen = false;
+    fsMock.failRenameAfter = Infinity;
     electronMock.available = true;
     electronMock.backend = 'gnome_libsecret';
     electronMock.encrypt.mockReset().mockImplementation((token) => {
@@ -492,6 +498,26 @@ describe('Electron settings', () => {
       await expect(resetDamagedSettingsFile()).rejects.toThrow('Test disk failure');
       expect(await readFile(getSettingsPath(), 'utf8')).toBe(damaged);
       expect(await readdir(join(electronMock.homePath, '.hackdesk'))).toEqual(['settings.json']);
+    });
+
+    it('restores the damaged file when defaults cannot be written, so startup stays blocked', async () => {
+      await writeDamaged();
+      fsMock.failOpen = true;
+      await expect(resetDamagedSettingsFile()).rejects.toThrow('The original file was restored.');
+      expect(await readFile(getSettingsPath(), 'utf8')).toBe(damaged);
+      expect(await readdir(join(electronMock.homePath, '.hackdesk'))).toEqual(['settings.json']);
+      await expect(inspectSettingsFile()).resolves.toMatchObject({ kind: 'invalid' });
+    });
+
+    it('reports the backup path when defaults cannot be written and the restore fails', async () => {
+      await writeDamaged();
+      fsMock.failOpen = true;
+      fsMock.failRenameAfter = 1;
+      const error = await resetDamagedSettingsFile().catch((reason: Error) => reason);
+      const [backup] = (await readdir(join(electronMock.homePath, '.hackdesk'))).filter((file) => file.startsWith('settings.json.damaged-'));
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain(`The damaged file is saved as ${join(electronMock.homePath, '.hackdesk', backup)}.`);
+      expect(await readFile(join(electronMock.homePath, '.hackdesk', backup), 'utf8')).toBe(damaged);
     });
   });
 });

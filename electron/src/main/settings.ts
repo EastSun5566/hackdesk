@@ -215,7 +215,18 @@ export function resetDamagedSettingsFile(): Promise<{ backupPath: string } | nul
     const backupPath = await getUnusedBackupPath(settingsPath);
     // Rename keeps the exact original bytes; defaults are written only after it succeeds.
     await rename(settingsPath, backupPath);
-    await writeStoredSettings(defaultSettings);
+    try {
+      await writeStoredSettings(defaultSettings);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      // A missing settings file would start as a first run, so put the damaged file back.
+      try {
+        await rename(backupPath, settingsPath);
+      } catch {
+        throw new Error(`Default settings could not be written (${reason}). The damaged file is saved as ${backupPath}.`);
+      }
+      throw new Error(`Default settings could not be written (${reason}). The original file was restored.`);
+    }
     return { backupPath };
   });
 }
