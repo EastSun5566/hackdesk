@@ -36,6 +36,7 @@ import type {
   LocalVaultTrashNoteInput,
   LocalVaultWriteInput,
 } from '../../../src/lib/local-vault';
+import { LOCAL_NOTE_NOT_FOUND_MESSAGE } from '../../../src/lib/note-errors';
 import { readStoredSettings } from './settings';
 import { writeLog } from './logging';
 
@@ -535,7 +536,7 @@ async function findNoteByIdOnce(vaultRoot: string, noteId: string) {
   const manifest = await readManifest(vaultRoot);
   const match = Object.entries(manifest.notes).find(([, entry]) => entry.id === noteId);
   if (!match) {
-    throw new Error('Local note was not found.');
+    throw new Error(LOCAL_NOTE_NOT_FOUND_MESSAGE);
   }
   const [relativePath] = match;
   const absolutePath = resolveInsideVault(vaultRoot, relativePath);

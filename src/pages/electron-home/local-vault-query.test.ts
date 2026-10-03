@@ -27,6 +27,15 @@ describe('moved Local Vault document cache', () => {
     client.clear();
   });
 
+  it('re-reads an open note that disappeared from the snapshot so its deletion is reported', async () => {
+    const client = new QueryClient();
+    const key = getLocalVaultDocumentQueryKey('note', 'A');
+    client.setQueryData(key, document('Original.md'));
+    await invalidateMovedLocalVaultDocuments(client, { ...snapshot('Original.md'), notes: [] }, snapshot('Original.md'));
+    expect(client.getQueryState(key)?.isInvalidated).toBe(true);
+    client.clear();
+  });
+
   it('cancels pending old-path reads and rejects late responses without affecting another vault', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const key = getLocalVaultDocumentQueryKey('note', 'A');

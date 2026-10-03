@@ -26,7 +26,9 @@ export async function invalidateMovedLocalVaultDocuments(
     const id = query.queryKey[4];
     const note = typeof id === 'string' ? notes.get(id) : undefined;
     const oldPath = (query.state.data as LocalDocument | undefined)?.relativePath ?? previousPaths.get(String(id));
-    if (!note || !oldPath || note.relativePath === oldPath) return;
+    // A note that left the snapshot is re-read so a deletion is reported instead of showing stale content.
+    const removed = !note && previousPaths.has(String(id));
+    if (!removed && (!note || !oldPath || note.relativePath === oldPath)) return;
     await queryClient.cancelQueries({ queryKey: query.queryKey, exact: true });
     await queryClient.invalidateQueries({ queryKey: query.queryKey, exact: true });
   }));

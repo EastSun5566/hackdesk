@@ -2,10 +2,9 @@ import { useCallback } from 'react';
 import { toast } from '@/components/ui/toast';
 
 import type { HackDeskElectronAPI } from '@/lib/electron-api';
-import { buildMarkdownExportInput } from '@/lib/electron-note-portability';
 
 import type { NoteWorkspaceState, OpenNoteTab } from './note-workspace';
-import { writeClipboardText } from './useDocumentCommands';
+import { useDraftTextActions } from './useDraftTextActions';
 import type { WorkspaceBackupNoticeProps } from './WorkspaceBackupNotice';
 
 export type WorkspaceBackupNoticeOptions = {
@@ -24,21 +23,14 @@ export function useWorkspaceBackupNotice({ api, workspace }: WorkspaceBackupNoti
   const { activeTab, backupFailed, backupFailedInCurrentWorkspace, backupFailedInOtherWorkspace, retryBackup } = workspace;
   const draft = activeTab ? workspace.state.drafts[activeTab.tabId] ?? null : null;
 
+  const { copyDraftText, exportDraftText } = useDraftTextActions(api);
   const copyDraft = useCallback(() => {
-    if (!draft) return;
-    void writeClipboardText(api, draft.content)
-      .then(() => toast.success('Draft copied.'))
-      .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to copy draft.'));
-  }, [api, draft]);
+    if (draft) copyDraftText(draft.content);
+  }, [copyDraftText, draft]);
 
   const exportDraft = useCallback(() => {
-    if (!draft || !api) return;
-    void api.app.saveTextFile(buildMarkdownExportInput(draft.title, draft.content))
-      .then((filePath) => {
-        if (filePath) toast.success('Draft exported.', { description: filePath });
-      })
-      .catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to export draft.'));
-  }, [api, draft]);
+    if (draft) exportDraftText(draft.title, draft.content);
+  }, [draft, exportDraftText]);
 
   const retry = useCallback(() => {
     if (retryBackup()) {

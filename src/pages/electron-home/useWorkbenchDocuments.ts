@@ -5,6 +5,7 @@ import type {
   RepositoryValue,
 } from '@/lib/electron-api';
 import type { LocalRevision } from '@/lib/local-vault';
+import { isNoteNotFoundError } from '@/lib/note-errors';
 
 import type { DocumentSyncState } from './DocumentDetail';
 import type { DocumentPaneView } from './DocumentWorkspace';
@@ -90,7 +91,10 @@ export function useWorkbenchDocuments({
   ), [documentsByKey, getTabIdentity]);
 
   const getTabDocument = useCallback((tab: OpenNoteTab) => {
-    const documentResult = unwrapRepositoryValue(getTabDocumentResult(tab));
+    const result = getTabDocumentResult(tab);
+    // Cached content of a note that is confirmed gone must not be edited or saved as the original.
+    if (isNoteNotFoundError(getRepositoryError(result))) return undefined;
+    const documentResult = unwrapRepositoryValue(result);
     return documentResult && noteIdentityMatches(documentResult, getTabIdentity(tab)) ? documentResult : undefined;
   }, [getTabDocumentResult, getTabIdentity]);
 
@@ -186,6 +190,7 @@ export function useWorkbenchDocuments({
     const identity = getTabIdentity(tab);
     const documentResult = getTabDocumentResult(tab);
     const documentResultValue = unwrapRepositoryValue(documentResult);
+    const documentMissing = isNoteNotFoundError(getRepositoryError(documentResult));
     const documentIsStale = Boolean(documentResultValue && !noteIdentityMatches(documentResultValue, identity));
     const documentQuery = documentQueriesByKey.get(getNoteIdentityKey(identity));
     const isSavingTab = isSavingNote && noteIdentityMatches(savingNote, identity);
@@ -202,6 +207,7 @@ export function useWorkbenchDocuments({
     if (
       saveFailedTab
       || (isTabDirty(tab) && getTabDiskChanged(tab))
+      || documentMissing
       || (getRepositoryError(documentResult) && !isShowingCachedFallback(documentResult))
     ) {
       return 'save_failed';
@@ -255,6 +261,18 @@ export function useWorkbenchDocuments({
       ...(currentDraft?.baseRevision ?? baseRevision ? { baseRevision: currentDraft?.baseRevision ?? baseRevision ?? undefined } : {}),
     });
   }, [getTabDocument, getTabDraft, updateDraft]);
+
+  const getTabUnavailable = useCallback((tab: OpenNoteTab): DocumentPaneView['unavailable'] => {
+    if (isDraftNoteTab(tab)) return null;
+    const error = getRepositoryError(getTabDocumentResult(tab));
+    if (!error) return null;
+    const draft = getTabDraft(tab);
+    const isRetrying = !!documentQueriesByKey.get(getNoteIdentityKey(getTabIdentity(tab)))?.isFetching;
+    if (isNoteNotFoundError(error)) return { kind: 'missing', message: error, hasDraft: !!draft, isRetrying };
+    // A cached copy is still usable; only a read without any document blocks the editor.
+    if (getTabDocument(tab)) return null;
+    return { kind: 'read_error', message: error, hasDraft: !!draft, isRetrying };
+  }, [documentQueriesByKey, getTabDocument, getTabDocumentResult, getTabDraft, getTabIdentity]);
 
   const getTabRecovery = useCallback((tab: OpenNoteTab): DocumentPaneView['recovery'] => {
     if (isDraftNoteTab(tab)) {
@@ -336,6 +354,7 @@ export function useWorkbenchDocuments({
       title: tab ? getTabTitle(tab) : '',
       content: tab ? getTabContent(tab) : '',
       recovery: tab ? getTabRecovery(tab) : null,
+      unavailable: tab ? getTabUnavailable(tab) : null,
       isLoading: syncState === 'loading' && !isShowingCachedFallback(documentResult),
       syncState,
       isSaving: isSavingTab || isSavingDraftTab,
@@ -352,6 +371,7 @@ export function useWorkbenchDocuments({
     getTabIdentity,
     getTabSyncState,
     getTabTitle,
+    getTabUnavailable,
     isDeletingNote,
     isSavingDraftNote,
     isSavingNote,

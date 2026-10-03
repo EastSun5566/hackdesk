@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { HACKMD_NOTE_NOT_FOUND_MESSAGE } from '../../../src/lib/note-errors';
 
 import {
   createHackmdService,
@@ -223,6 +224,22 @@ describe('hackmd-service request mapping', () => {
     expect(calls[1].url).toBe('https://api.test/v1/notes/note%2Fid%3F');
     expect(history).toMatchObject({ source: 'remote', data: [{ id: 'history-note' }] });
     expect(note).toMatchObject({ source: 'remote', data: { id: 'note/id?', content: '# Escaped' } });
+  });
+
+  it('reports a missing note only for 404, keeping other read failures temporary', async () => {
+    const { service } = createService([
+      jsonResponse({ id: 'cached', title: 'Cached', content: 'Cached body' }),
+      jsonResponse({ message: 'Not Found' }, { status: 404, statusText: 'Not Found' }),
+      jsonResponse({ message: 'Unavailable' }, { status: 503, statusText: 'Service Unavailable' }),
+    ]);
+
+    await service.getNote('cached');
+    expect(await service.getNote('cached')).toEqual({
+      source: 'error',
+      error: HACKMD_NOTE_NOT_FOUND_MESSAGE,
+      data: expect.objectContaining({ id: 'cached' }),
+    });
+    expect(await service.getNote('other')).toEqual({ source: 'error', error: expect.stringContaining('having trouble') });
   });
 
   it('maps team note creation body and nested note response', async () => {

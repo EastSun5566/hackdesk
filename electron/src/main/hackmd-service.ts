@@ -17,6 +17,7 @@ import type {
   UploadNoteImageResult,
   UserSummary,
 } from '../../../src/lib/electron-api';
+import { HACKMD_NOTE_NOT_FOUND_MESSAGE } from '../../../src/lib/note-errors';
 
 const HACKMD_API_BASE_URL = 'https://api.hackmd.io/v1';
 const HACKMD_TIMEOUT_MS = 20_000;
@@ -339,7 +340,7 @@ async function requestHackmd<T>(
     });
 
     if (!response.ok) {
-      throw new Error(getHackmdErrorMessage(response.status, response.statusText));
+      throw Object.assign(new Error(getHackmdErrorMessage(response.status, response.statusText)), { status: response.status });
     }
 
     if (response.status === 204) {
@@ -646,7 +647,12 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
       return withCache(
         cacheKey,
         requestHackmd<NoteDto>(path, {}, serviceOptions)
-          .then((response) => mapDocument(normalizeHackmdResponse(response) as NoteDto)),
+          .then((response) => mapDocument(normalizeHackmdResponse(response) as NoteDto))
+          .catch((error: unknown) => {
+            // A 404 confirms the note is gone for this account, unlike a timeout or server error.
+            if ((error as { status?: unknown } | null)?.status === 404) throw new Error(HACKMD_NOTE_NOT_FOUND_MESSAGE);
+            throw error;
+          }),
       );
     },
 

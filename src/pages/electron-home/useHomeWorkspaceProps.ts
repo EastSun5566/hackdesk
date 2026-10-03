@@ -31,6 +31,9 @@ type WorkbenchNavigator = ReturnType<typeof useWorkbenchNavigator>;
 type LocalDocumentRecovery = ReturnType<typeof useLocalDocumentRecovery>;
 
 type WorkspaceActions = {
+  copyDraftText: ElectronHomeWorkspaceProps['documentWorkspace']['onCopyDraft'];
+  exportDraftText: ElectronHomeWorkspaceProps['documentWorkspace']['onExportDraft'];
+  retryDocumentLoad: ElectronHomeWorkspaceProps['documentWorkspace']['onRetryLoad'];
   handleCopyNoteLink: ElectronHomeWorkspaceProps['navigator']['actions']['onCopyNoteLink'];
   handleCopyNoteMarkdownLink: ElectronHomeWorkspaceProps['navigator']['actions']['onCopyNoteMarkdownLink'];
   handleDeleteRequest: ElectronHomeWorkspaceProps['navigator']['actions']['onDeleteNote'];
@@ -298,6 +301,11 @@ export function useHomeWorkspaceProps({
       onTitleChange: documents.handleDocumentTitleChange,
       onContentChange: documents.handleDocumentContentChange,
       onToggleInspector: toggleInspectorCollapsed,
+      onCopyDraft: actions.copyDraftText,
+      onExportDraft: actions.exportDraftText,
+      // A new draft never reuses the unavailable note's identity.
+      onOpenAsNewDraft: (title, content, paneId) => noteWorkspace.openDraftNote({ title, content, paneId }),
+      onRetryLoad: actions.retryDocumentLoad,
       onShareOpenChange: actions.setShareOpen,
     },
   };
