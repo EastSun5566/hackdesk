@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 
-import type { HackDeskElectronAPI } from '@/lib/electron-api';
+import type { DocumentSummary, HackDeskElectronAPI, RepositoryValue } from '@/lib/electron-api';
 import type { LocalVaultSnapshot } from '@/lib/local-vault';
+import { stripIpcErrorPrefix } from '@/lib/note-errors';
 import { getLocalVaultDocumentQueryKey, invalidateMovedLocalVaultDocuments } from './local-vault-query';
 export { getLocalVaultDocumentQueryKey, getLocalVaultSnapshotQueryKey, cacheLocalVaultSnapshot } from './local-vault-query';
 import { getNoteIdentityKey, type NoteIdentity } from './note-workspace';
@@ -79,10 +80,15 @@ export function useElectronLocalVault({
   }, [documentQueryResults, selectedDocumentNotes]);
 
   const documentsByKey = useMemo(() => {
-    const entries = selectedDocumentNotes.map((note, index) => [
-      getNoteIdentityKey(note),
-      localDocumentRepositoryValue(documentQueryResults[index]?.data, snapshot),
-    ] as const);
+    const entries = selectedDocumentNotes.map((note, index) => {
+      const result = documentQueryResults[index];
+      const value = localDocumentRepositoryValue(result?.data, snapshot);
+      // Report read failures like remote ones; earlier data stays only as a fallback.
+      const repositoryValue: RepositoryValue<DocumentSummary> | undefined = result?.status === 'error'
+        ? { source: 'error', error: stripIpcErrorPrefix(result.error instanceof Error ? result.error.message : String(result.error)), ...(value ? { data: value.data } : {}) }
+        : value;
+      return [getNoteIdentityKey(note), repositoryValue] as const;
+    });
     return new Map(entries);
   }, [documentQueryResults, selectedDocumentNotes, snapshot]);
 

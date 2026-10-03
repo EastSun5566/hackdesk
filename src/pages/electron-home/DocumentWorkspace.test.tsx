@@ -101,6 +101,10 @@ function createWorkspaceProps(overrides: Partial<Parameters<typeof DocumentWorks
     onTitleChange: vi.fn(),
     onToggleInspector: vi.fn(),
     onUploadImage: vi.fn(),
+    onCopyDraft: vi.fn(),
+    onExportDraft: vi.fn(),
+    onOpenAsNewDraft: vi.fn(),
+    onRetryLoad: vi.fn(),
     panes,
     shareOpen: true,
     ...overrides,
@@ -238,5 +242,45 @@ describe('DocumentWorkspace', () => {
 
     expect(separator).toHaveAttribute('id', 'document-pane-separator-pane-b');
     expect(separator).toHaveClass('focus-visible:bg-primary-default');
+  });
+
+  it('shows a retained draft with copy, export and new-draft actions when the original is missing', () => {
+    const props = renderWorkspace({
+      getPaneView: vi.fn((candidate: NotePane) => ({
+        ...createView(candidate),
+        title: 'Edited title',
+        content: 'Edited body',
+        syncState: 'save_failed' as const,
+        unavailable: candidate.paneId === 'pane-a' ? { kind: 'missing' as const, message: 'Local note was not found.', hasDraft: true } : null,
+      })),
+    });
+    const recovery = screen.getByRole('region', { name: 'Unsaved draft' });
+    expect(screen.getByRole('alert')).toHaveTextContent('The original note is no longer available. Local note was not found.');
+    expect(screen.getByRole('alert')).toHaveTextContent('never recreated or overwritten automatically');
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    expect(recovery).toHaveTextContent('Edited body');
+    expect(screen.getByTestId('document-detail-Edited title')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Export draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open as new draft' }));
+    expect(props.onCopyDraft).toHaveBeenCalledWith('Edited body');
+    expect(props.onExportDraft).toHaveBeenCalledWith('Edited title', 'Edited body');
+    expect(props.onOpenAsNewDraft).toHaveBeenCalledWith('Edited title', 'Edited body', 'pane-a');
+  });
+
+  it('offers retry for a temporary read error and no draft actions without a draft', () => {
+    const props = renderWorkspace({
+      panes: [pane('pane-a', ['tab-a'], 'tab-a', 100)],
+      activePaneId: 'pane-a',
+      getPaneView: vi.fn((candidate: NotePane) => ({
+        ...createView(candidate),
+        unavailable: { kind: 'read_error' as const, message: 'EACCES: permission denied', hasDraft: false, isRetrying: false },
+      })),
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent('could not be loaded. EACCES: permission denied');
+    expect(screen.queryByRole('button', { name: 'Copy draft' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(props.onRetryLoad).toHaveBeenCalledWith(expect.objectContaining({ tabId: 'tab-a' }));
   });
 });

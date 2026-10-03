@@ -46,6 +46,7 @@ import { useWorkbenchActionHandlers } from './electron-home/useWorkbenchActionHa
 import { useWorkbenchAutoSelection } from './electron-home/useWorkbenchAutoSelection';
 import { useWorkbenchClosePolicy } from './electron-home/useWorkbenchClosePolicy';
 import { useWorkspaceBackupNotice } from './electron-home/useWorkspaceBackupNotice';
+import { useDraftTextActions } from './electron-home/useDraftTextActions';
 import { useWorkbenchDocuments } from './electron-home/useWorkbenchDocuments';
 import { useElectronHomeStatus } from './electron-home/useElectronHomeStatus';
 import { useWorkbenchFinder } from './electron-home/useWorkbenchFinder';
@@ -57,7 +58,7 @@ import { useWorkbenchTabLifecycle } from './electron-home/useWorkbenchTabLifecyc
 import { useHomeLocalVaultActions } from './electron-home/useHomeLocalVaultActions';
 import { useHomeOverlayProps } from './electron-home/useHomeOverlayProps';
 import { useHomeWorkspaceProps } from './electron-home/useHomeWorkspaceProps';
-import { getSavedTabNoteIdentity, isDraftNoteTab } from './electron-home/note-workspace';
+import { getSavedTabNoteIdentity, isDraftNoteTab, type OpenNoteTab } from './electron-home/note-workspace';
 import {
   DEFAULT_WORKSPACE_SCOPE,
   getInitialWorkspaceScope,
@@ -699,6 +700,12 @@ export function Home() {
   });
 
   const backupNotice = useWorkspaceBackupNotice({ api, workspace: noteWorkspace });
+  const { copyDraftText, exportDraftText } = useDraftTextActions(api);
+  const retryDocumentLoad = useCallback((tab: OpenNoteTab) => {
+    const identity = getSavedTabNoteIdentity(tab);
+    if (!identity) return;
+    void Promise.resolve(documentQueries.refetchByIdentity(identity)).catch(() => undefined);
+  }, [documentQueries]);
   const homeStatus = useElectronHomeStatus({
     isLocalVaultLoading: vaultSession.isLoading,
     isLocalVaultFetching: vaultSession.snapshotQuery.isFetching || vaultSession.isChanging,
@@ -716,6 +723,9 @@ export function Home() {
   });
   const workspaceProps = useHomeWorkspaceProps({
     actions: {
+      copyDraftText,
+      exportDraftText,
+      retryDocumentLoad,
       handleCopyNoteLink,
       handleCopyNoteMarkdownLink,
       handleDeleteRequest,

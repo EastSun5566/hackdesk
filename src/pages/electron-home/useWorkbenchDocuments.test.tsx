@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { DocumentSummary, RepositoryValue } from '@/lib/electron-api';
 import type { LocalRevision } from '@/lib/local-vault';
+import { HACKMD_NOTE_NOT_FOUND_MESSAGE, LOCAL_NOTE_NOT_FOUND_MESSAGE } from '@/lib/note-errors';
 
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import {
@@ -333,6 +334,64 @@ describe('useWorkbenchDocuments', () => {
       baseTitle: 'Document title',
       content: 'Next body',
       title: 'Document title',
+    });
+  });
+
+  describe('unavailable original notes', () => {
+    const tab = createTab({ teamPath: LOCAL_VAULT_TEAM_PATH });
+    const key = getNoteIdentityKey({ id: tab.noteId, teamPath: tab.teamPath });
+    const draft = { title: 'Edited title', content: 'Edited body', baseTitle: 'Document title', baseContent: 'Body' };
+    const optionsWith = (result: RepositoryValue<DocumentSummary> | undefined, query = { isFetching: false, isLoading: false }) => createOptions({
+      activeTab: tab,
+      tabs: { [tab.tabId]: tab },
+      drafts: { [tab.tabId]: draft },
+      documentQueriesByKey: new Map([[key, query]]),
+      documentsByKey: new Map([[key, result]]),
+    });
+
+    it.each([
+      ['local deletion', LOCAL_NOTE_NOT_FOUND_MESSAGE],
+      ['remote missing note', HACKMD_NOTE_NOT_FOUND_MESSAGE],
+    ])('treats %s as missing, ignores cached content and keeps the draft', (_, error) => {
+      const clearDraft = vi.fn();
+      const document = createDocument({ teamPath: tab.teamPath });
+      const options = { ...optionsWith({ source: 'error', error: `Error invoking remote method: Error: ${error}`, data: document }), clearDraft };
+      const { result } = renderHook(() => useWorkbenchDocuments(options));
+      const view = result.current.getPaneView(createPane(tab));
+      expect(view.document).toBeUndefined();
+      expect(view.unavailable).toMatchObject({ kind: 'missing', hasDraft: true });
+      expect(view).toMatchObject({ title: 'Edited title', content: 'Edited body', syncState: 'save_failed' });
+      expect(result.current.isTabDirty(tab)).toBe(true);
+      expect(clearDraft).not.toHaveBeenCalled();
+    });
+
+    it('reports a temporary read error without a document, but keeps a usable cached copy editable', () => {
+      const failed = renderHook(() => useWorkbenchDocuments(optionsWith({ source: 'error', error: 'EACCES: permission denied' })));
+      expect(failed.result.current.getPaneView(createPane(tab)).unavailable).toEqual({
+        kind: 'read_error', message: 'EACCES: permission denied', hasDraft: true, isRetrying: false,
+      });
+      const cached = renderHook(() => useWorkbenchDocuments(optionsWith({ source: 'error', error: 'offline', data: createDocument({ teamPath: tab.teamPath }) })));
+      expect(cached.result.current.getPaneView(createPane(tab))).toMatchObject({ unavailable: null, document: { id: 'note-1' } });
+    });
+
+    it('shows loading, not an unavailable note, while the first read is pending', () => {
+      const { result } = renderHook(() => useWorkbenchDocuments(optionsWith(undefined, { isFetching: true, isLoading: true })));
+      expect(result.current.getPaneView(createPane(tab))).toMatchObject({ isLoading: true, unavailable: null });
+    });
+
+    it('keeps independent drafts for two missing notes', () => {
+      const second = createTab({ tabId: 'tab-2', noteId: 'note-2', teamPath: LOCAL_VAULT_TEAM_PATH });
+      const secondKey = getNoteIdentityKey({ id: second.noteId, teamPath: second.teamPath });
+      const missing: RepositoryValue<DocumentSummary> = { source: 'error', error: LOCAL_NOTE_NOT_FOUND_MESSAGE };
+      const { result } = renderHook(() => useWorkbenchDocuments(createOptions({
+        activeTab: tab,
+        tabs: { [tab.tabId]: tab, [second.tabId]: second },
+        drafts: { [tab.tabId]: draft, [second.tabId]: { ...draft, title: 'Second', content: 'Second body' } },
+        documentQueriesByKey: new Map([[key, { isFetching: false }], [secondKey, { isFetching: false }]]),
+        documentsByKey: new Map([[key, missing], [secondKey, missing]]),
+      })));
+      expect(result.current.getPaneView(createPane(tab))).toMatchObject({ content: 'Edited body', unavailable: { kind: 'missing' } });
+      expect(result.current.getPaneView(createPane(second))).toMatchObject({ content: 'Second body', unavailable: { kind: 'missing' } });
     });
   });
 });

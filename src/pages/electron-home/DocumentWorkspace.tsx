@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { DocumentDetail, type DocumentSyncState } from './DocumentDetail';
 import type { NotePane, OpenNoteTab } from './note-workspace';
 import { EmptyState } from './interaction-primitives';
+import { UnavailableDocumentDetail } from './UnavailableDocumentDetail';
 
 export type DocumentPaneView = {
   pane: NotePane;
@@ -27,6 +28,13 @@ export type DocumentPaneView = {
   recovery?: {
     kind: 'disk_changed' | 'save_failed';
     message: string;
+  } | null;
+  /** The saved note could not be loaded; `missing` is confirmed, `read_error` may be temporary. */
+  unavailable?: {
+    kind: 'missing' | 'read_error';
+    message: string;
+    hasDraft: boolean;
+    isRetrying?: boolean;
   } | null;
   isLoading: boolean;
   syncState: DocumentSyncState;
@@ -66,6 +74,10 @@ export function DocumentWorkspace({
   onContentChange,
   onToggleInspector,
   onShareOpenChange,
+  onCopyDraft,
+  onExportDraft,
+  onOpenAsNewDraft,
+  onRetryLoad,
 }: {
   panes: NotePane[];
   activePaneId: string;
@@ -96,6 +108,10 @@ export function DocumentWorkspace({
   onContentChange: (tab: OpenNoteTab, content: string) => void;
   onToggleInspector: () => void;
   onShareOpenChange: (open: boolean) => void;
+  onCopyDraft: (content: string) => void;
+  onExportDraft: (title: string, content: string) => void;
+  onOpenAsNewDraft: (title: string, content: string, paneId: string) => void;
+  onRetryLoad: (tab: OpenNoteTab) => void;
 }) {
   if (panes.every((pane) => pane.tabIds.length === 0)) {
     return (
@@ -144,55 +160,67 @@ export function DocumentWorkspace({
                 )}
                 onFocusCapture={() => onFocusPane(pane.paneId)}
               >
-                <DocumentDetail
-                  editorKey={view.activeTab?.tabId ?? `${pane.paneId}:empty`}
-                  editorMode={editorMode}
-                  folderTree={folderTree}
-                  documentState={{
-                    selectedNote: view.selectedNote,
-                    document: view.document,
-                    isDraft: view.isDraft,
-                    title: view.title,
-                    content: view.content,
-                    recovery: view.recovery,
-                    syncState: view.syncState,
-                  }}
-                  layout={{
-                    focusZone: isActivePane ? 'editor' : null,
-                    inspectorPanelId: `note-inspector-panel-${pane.paneId}`,
-                    focusRequestId: isActivePane ? editorFocusRequestId : 0,
-                    searchRequestId: isActivePane ? editorSearchRequestId : 0,
-                    attachImageRequestId: isActivePane ? attachImageRequestId : 0,
-                    shareOpen: isActivePane && shareOpen,
-                    inspectorCollapsed: !isActivePane || isInspectorCollapsed,
-                  }}
-                  status={{
-                    loading: view.isLoading,
-                    saving: view.isSaving,
-                    savingMetadata: view.isSavingMetadata,
-                    uploadingImage: view.isUploadingImage,
-                    deleting: view.isDeleting,
-                  }}
-                  actions={{
-                    onOpenEditor,
-                    onOpenExternal,
-                    onRevealInFinder,
-                    onCopyLink,
-                    onCopyMarkdownLink,
-                    onExportMarkdown,
-                    onReloadFromDisk,
-                    onSave: (input) => view.activeTab && onSave(view.activeTab, input),
-                    onSaveAsCopy,
-                    onSaveMetadata,
-                    onSaveSharing,
-                    onUploadImage,
-                    onDelete,
-                    onTitleChange: (title) => view.activeTab && onTitleChange(view.activeTab, title),
-                    onContentChange: (content) => view.activeTab && onContentChange(view.activeTab, content),
-                    onToggleInspector,
-                    onShareOpenChange,
-                  }}
-                />
+                {view.unavailable && view.activeTab && !view.document && !view.isDraft && !view.isLoading ? (
+                  <UnavailableDocumentDetail
+                    unavailable={view.unavailable}
+                    title={view.title}
+                    content={view.content}
+                    onCopyDraft={onCopyDraft}
+                    onExportDraft={onExportDraft}
+                    onOpenAsNewDraft={(title, content) => onOpenAsNewDraft(title, content, pane.paneId)}
+                    onRetry={() => view.activeTab && onRetryLoad(view.activeTab)}
+                  />
+                ) : (
+                  <DocumentDetail
+                    editorKey={view.activeTab?.tabId ?? `${pane.paneId}:empty`}
+                    editorMode={editorMode}
+                    folderTree={folderTree}
+                    documentState={{
+                      selectedNote: view.selectedNote,
+                      document: view.document,
+                      isDraft: view.isDraft,
+                      title: view.title,
+                      content: view.content,
+                      recovery: view.recovery,
+                      syncState: view.syncState,
+                    }}
+                    layout={{
+                      focusZone: isActivePane ? 'editor' : null,
+                      inspectorPanelId: `note-inspector-panel-${pane.paneId}`,
+                      focusRequestId: isActivePane ? editorFocusRequestId : 0,
+                      searchRequestId: isActivePane ? editorSearchRequestId : 0,
+                      attachImageRequestId: isActivePane ? attachImageRequestId : 0,
+                      shareOpen: isActivePane && shareOpen,
+                      inspectorCollapsed: !isActivePane || isInspectorCollapsed,
+                    }}
+                    status={{
+                      loading: view.isLoading,
+                      saving: view.isSaving,
+                      savingMetadata: view.isSavingMetadata,
+                      uploadingImage: view.isUploadingImage,
+                      deleting: view.isDeleting,
+                    }}
+                    actions={{
+                      onOpenEditor,
+                      onOpenExternal,
+                      onRevealInFinder,
+                      onCopyLink,
+                      onCopyMarkdownLink,
+                      onExportMarkdown,
+                      onReloadFromDisk,
+                      onSave: (input) => view.activeTab && onSave(view.activeTab, input),
+                      onSaveAsCopy,
+                      onSaveMetadata,
+                      onSaveSharing,
+                      onUploadImage,
+                      onDelete,
+                      onTitleChange: (title) => view.activeTab && onTitleChange(view.activeTab, title),
+                      onContentChange: (content) => view.activeTab && onContentChange(view.activeTab, content),
+                      onToggleInspector,
+                      onShareOpenChange,
+                    }}
+                  />
+                )}
               </section>
             </Panel>
           </Fragment>

@@ -1,5 +1,5 @@
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { mkdir, mkdtemp, readFile, readdir, rename, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { defaultSettings } from '../../src/lib/settings';
@@ -252,5 +252,34 @@ test('recovers an edited title after offline rename and old-path reuse without o
     await expect.poll(() => readFile(join(vault, 'My title.md'), 'utf8').catch(() => null)).toBe('My draft');
     await expect(readFile(join(vault, 'External.md'))).rejects.toMatchObject({ code: 'ENOENT' });
     expect(await readFile(join(vault, 'Original.md'), 'utf8')).toBe('Replacement note');
+  } finally { await crash(app); }
+});
+
+test('keeps a draft reachable after its original file is deleted, across restart, without recreating it', async () => {
+  const { home, vault } = await fixture();
+  let { app, page } = await launch(home);
+  try {
+    await expect(page.locator('.cm-content')).toContainText('Saved body');
+    await page.locator('.cm-content').fill('Unsaved edit');
+    await waitForDraft(page, 'Unsaved edit');
+    await rm(join(vault, 'Original.md'));
+    const draft = page.getByRole('region', { name: 'Unsaved draft' });
+    await expect(page.getByRole('alert').filter({ hasText: 'The original note is no longer available.' })).toBeVisible();
+    await expect(draft).toContainText('Unsaved edit');
+    await flushDiskStorage(app, home, page);
+    await crash(app);
+
+    ({ app, page } = await launch(home));
+    await expect(page.getByRole('region', { name: 'Unsaved draft' })).toContainText('Unsaved edit');
+    expect(await readdir(vault)).not.toContain('Original.md');
+    await page.getByRole('button', { name: 'Open as new draft' }).click();
+    await expect(page.locator('.cm-content')).toContainText('Unsaved edit');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect.poll(async () => {
+      const files = (await readdir(vault)).filter((file) => file.endsWith('.md'));
+      return Promise.all(files.map((file) => readFile(join(vault, file), 'utf8')));
+    }).toEqual(['Unsaved edit']);
+    const layout = await readLocalLayout(page);
+    expect(Object.values(layout.drafts).map((draft) => (draft as { content: string }).content)).toEqual(['Unsaved edit']);
   } finally { await crash(app); }
 });
