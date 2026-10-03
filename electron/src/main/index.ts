@@ -8,6 +8,7 @@ import { registerIpcHandlers } from './ipc-handlers';
 import { initCrashReporter, initLogging, writeLog } from './logging';
 import { registerRendererProtocol } from './renderer-protocol';
 import { readStoredSettings } from './settings';
+import { ensureReadableSettings } from './settings-recovery';
 import { WindowManager } from './window-manager';
 
 const APP_ID = 'me.eastsun.hackdesk';
@@ -15,6 +16,8 @@ const APP_ID = 'me.eastsun.hackdesk';
 const windowManager = new WindowManager();
 let tray: Electron.Tray | null = null;
 let disposeIpcHandlers: (() => void) | null = null;
+// Windows must not open before settings are readable; the renderer depends on them.
+let startupComplete = false;
 
 const homeOverride = app.commandLine.getSwitchValue('hackdesk-home');
 if (homeOverride) {
@@ -32,6 +35,7 @@ if (!gotLock) {
   app.quit();
 } else {
   app.on('second-instance', () => {
+    if (!startupComplete) return;
     writeLog('main', 'second instance requested focus');
     windowManager.showAndFocusMainWindow();
   });
@@ -48,8 +52,14 @@ app.whenReady().then(async () => {
   disposeIpcHandlers = registerIpcHandlers(windowManager, {
     onSettingsUpdated: (settings) => createMenu(settings.shortcuts),
   }).dispose;
+  if (!await ensureReadableSettings()) {
+    writeLog('main', 'quit from settings recovery; settings file left unchanged');
+    app.quit();
+    return;
+  }
   createMenu((await readStoredSettings()).shortcuts);
   windowManager.createMainWindow();
+  startupComplete = true;
   if (app.commandLine.hasSwitch('quick-capture')) {
     windowManager.showQuickCaptureWindow();
   }

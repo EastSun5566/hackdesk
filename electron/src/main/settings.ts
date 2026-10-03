@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, open, readFile, rename, rm } from 'node:fs/promises';
+import { lstat, mkdir, open, readFile, rename, rm } from 'node:fs/promises';
 
 import {
   defaultSettings,
@@ -133,7 +133,7 @@ async function readStoredSettingsWithMetadata(): Promise<StoredSettingsMetadata>
       ...(hasEncryptedToken ? { encryptedToken: parsed.hackmdApiTokenEncrypted } : {}),
     };
   } catch (error) {
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+    if (isMissingFileError(error)) {
       return {
         settings: defaultSettings,
         hasStoredAppearance: false,
@@ -157,6 +157,67 @@ async function readAndMigrateSettings(): Promise<StoredSettingsMetadata> {
     }
   }
   return metadata;
+}
+
+export type SettingsFileProblem = {
+  kind: 'invalid' | 'unreadable';
+  message: string;
+  path: string;
+};
+
+function isMissingFileError(error: unknown) {
+  return !!error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT';
+}
+
+async function inspectSettingsFileUnlocked(): Promise<SettingsFileProblem | null> {
+  const path = getSettingsPath();
+  let content: string;
+  try {
+    content = await readFile(path, 'utf8');
+  } catch (error) {
+    if (isMissingFileError(error)) return null;
+    return { kind: 'unreadable', message: error instanceof Error ? error.message : String(error), path };
+  }
+  try {
+    parseStoredSettings(content);
+    return null;
+  } catch (error) {
+    return { kind: 'invalid', message: error instanceof Error ? error.message : String(error), path };
+  }
+}
+
+/** Reports a settings file that exists but cannot be read or parsed. Never writes. */
+export function inspectSettingsFile(): Promise<SettingsFileProblem | null> {
+  return enqueueSettingsOperation(inspectSettingsFileUnlocked);
+}
+
+async function getUnusedBackupPath(path: string) {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  for (const candidate of [`${path}.damaged-${stamp}`, `${path}.damaged-${stamp}-${randomUUID()}`]) {
+    try {
+      await lstat(candidate);
+    } catch (error) {
+      if (isMissingFileError(error)) return candidate;
+      throw error;
+    }
+  }
+  throw new Error('Could not choose a backup path for the damaged settings file.');
+}
+
+/**
+ * Moves a damaged settings file aside and writes default settings. Only runs
+ * after explicit user confirmation, and does nothing if the file is no longer damaged.
+ */
+export function resetDamagedSettingsFile(): Promise<{ backupPath: string } | null> {
+  return enqueueSettingsOperation(async () => {
+    if (!await inspectSettingsFileUnlocked()) return null;
+    const settingsPath = getSettingsPath();
+    const backupPath = await getUnusedBackupPath(settingsPath);
+    // Rename keeps the exact original bytes; defaults are written only after it succeeds.
+    await rename(settingsPath, backupPath);
+    await writeStoredSettings(defaultSettings);
+    return { backupPath };
+  });
 }
 
 // Configuration reads must work even when the OS credential store is locked.
