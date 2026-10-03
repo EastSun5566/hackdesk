@@ -13,6 +13,7 @@ import {
   RAIL_WIDTH_MAX,
   RAIL_WIDTH_MIN,
 } from './ui-preferences';
+import { WorkspaceBackupNotice, type WorkspaceBackupNoticeProps } from './WorkspaceBackupNotice';
 import { WorkspaceRail } from './WorkspaceRail';
 
 const WORKSPACE_RAIL_PANEL_ID = 'workspace-rail-panel';
@@ -23,6 +24,7 @@ type FolderNavigatorProps = ComponentProps<typeof FolderNavigator>;
 type WorkspaceRailProps = ComponentProps<typeof WorkspaceRail>;
 
 export type ElectronHomeWorkspaceProps = {
+  backupNotice?: WorkspaceBackupNoticeProps | null;
   documentWorkspace: ComponentProps<typeof DocumentWorkspace>;
   navigator: Omit<FolderNavigatorProps, 'id'>;
   navigatorResize: {
@@ -63,6 +65,7 @@ export type ElectronHomeWorkspaceProps = {
 };
 
 export function ElectronHomeWorkspace({
+  backupNotice,
   documentWorkspace,
   navigator,
   navigatorResize,
@@ -124,6 +127,8 @@ export function ElectronHomeWorkspace({
         onToggleNavigator={titlebar.actions.toggleNavigator}
         onToggleRail={titlebar.actions.toggleRail}
       />
+
+      {backupNotice ? <WorkspaceBackupNotice {...backupNotice} /> : null}
 
       <main className="flex min-h-0 min-w-0 flex-1">
         <WorkspaceRail id={WORKSPACE_RAIL_PANEL_ID} {...rail} />

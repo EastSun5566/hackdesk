@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useReducer } from 'react';
 import { getHackDeskAPI } from '@/lib/electron-api';
+import { trySetStorageItem } from '@/lib/storage';
 import {
   normalizeAppearanceSettings,
   type AppearanceSettings,
@@ -178,11 +179,11 @@ function hasLegacyStoredAppearance(storageKey: string) {
 
 function writeLocalAppearance(storageKey: string, appearance: AppearanceSettings) {
   const normalized = normalizeAppearanceSettings(appearance);
-  localStorage.setItem(THEME_STORAGE_KEYS.mode, normalized.theme);
-  localStorage.setItem(storageKey, normalized.theme);
-  localStorage.setItem(THEME_STORAGE_KEYS.presetId, normalized.presetId);
-  localStorage.setItem(THEME_STORAGE_KEYS.customSeed, serializeThemeSeed(normalized.customSeed));
-  localStorage.setItem(THEME_STORAGE_KEYS.typography, serializeThemeTypography(normalized.typography));
+  trySetStorageItem(localStorage, THEME_STORAGE_KEYS.mode, normalized.theme);
+  trySetStorageItem(localStorage, storageKey, normalized.theme);
+  trySetStorageItem(localStorage, THEME_STORAGE_KEYS.presetId, normalized.presetId);
+  trySetStorageItem(localStorage, THEME_STORAGE_KEYS.customSeed, serializeThemeSeed(normalized.customSeed));
+  trySetStorageItem(localStorage, THEME_STORAGE_KEYS.typography, serializeThemeTypography(normalized.typography));
 }
 
 async function readPersistedAppearance(storageKey: string, fallbackTheme: Theme): Promise<AppearanceSettings> {
@@ -279,7 +280,8 @@ export function ThemeProvider({
     document.getElementById(THEME_PRELOAD_STYLE_ID)?.remove();
     ensureThemeStyleElement().textContent = css;
     if (!preview) {
-      localStorage.setItem(THEME_STORAGE_KEYS.cachedCss, css);
+      // The cached CSS only speeds up the next launch; a full storage must not break theming.
+      trySetStorageItem(localStorage, THEME_STORAGE_KEYS.cachedCss, css);
     }
 
     void getHackDeskAPI()?.app.setThemeSurface?.({

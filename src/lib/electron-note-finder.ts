@@ -1,6 +1,7 @@
 import type { NotePermissionRole } from './electron-api';
 import type { FolderTree, FolderTreeNote } from './hackmd-folders';
 import { UNFILED_FOLDER_ID } from './hackmd-folders';
+import { trySetStorageItem } from './storage';
 
 export type NoteFinderSearchScope = 'workspace' | 'current-folder';
 export type NoteFinderSortMode = 'updated-desc' | 'updated-asc' | 'title-asc' | 'title-desc' | 'created-desc';
@@ -72,7 +73,7 @@ export function readNoteFinderState(storage: Storage, scopeKey: string) {
 }
 
 export function writeNoteFinderState(storage: Storage, scopeKey: string, state: NoteFinderState) {
-  storage.setItem(getNoteFinderStorageKey(scopeKey), JSON.stringify(normalizeNoteFinderState(state)));
+  return trySetStorageItem(storage, getNoteFinderStorageKey(scopeKey), JSON.stringify(normalizeNoteFinderState(state)));
 }
 
 export function getActiveNoteFinderFilterCount(state: NoteFinderState) {

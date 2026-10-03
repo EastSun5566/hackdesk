@@ -107,6 +107,22 @@ describe('QuickCapture', () => {
     expect(api.hide).not.toHaveBeenCalled();
   });
 
+  it('rejects submission and keeps the text when the capture cannot be backed up', async () => {
+    const api = renderQuickCapture();
+    const textarea = screen.getByLabelText('Quick Hack note');
+    fireEvent.change(textarea, { target: { value: 'Storage is full' } });
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('could not persist this capture');
+    expect(api.submit).not.toHaveBeenCalled();
+    expect(textarea).toHaveValue('Storage is full');
+    setItem.mockRestore();
+  });
+
   it('keeps capture text when the IPC request fails', async () => {
     renderQuickCapture({
       submit: vi.fn(async () => {

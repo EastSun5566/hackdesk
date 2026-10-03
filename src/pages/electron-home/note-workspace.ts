@@ -1,5 +1,6 @@
 import type { NoteSummary } from '@/lib/electron-api';
 import type { LocalRevision } from '@/lib/local-vault';
+import { trySetStorageItem } from '@/lib/storage';
 
 export type NoteIdentity = Pick<NoteSummary, 'id' | 'teamPath'>;
 
@@ -1025,6 +1026,7 @@ export function readNoteWorkspaceLayoutStorage(storage: Storage, scopeKey: strin
   }
 }
 
+/** Returns false when the backup could not be written; the caller keeps the in-memory state. */
 export function writeNoteWorkspaceLayoutStorage(storage: Storage, state: NoteWorkspaceState) {
-  storage.setItem(getStorageKey(state.scopeKey), JSON.stringify(toPersistedNoteWorkspaceLayout(state)));
+  return trySetStorageItem(storage, getStorageKey(state.scopeKey), JSON.stringify(toPersistedNoteWorkspaceLayout(state)));
 }
