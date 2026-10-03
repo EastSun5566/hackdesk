@@ -45,6 +45,7 @@ import {
 import { useWorkbenchActionHandlers } from './electron-home/useWorkbenchActionHandlers';
 import { useWorkbenchAutoSelection } from './electron-home/useWorkbenchAutoSelection';
 import { useWorkbenchClosePolicy } from './electron-home/useWorkbenchClosePolicy';
+import { useWorkspaceBackupNotice } from './electron-home/useWorkspaceBackupNotice';
 import { useWorkbenchDocuments } from './electron-home/useWorkbenchDocuments';
 import { useElectronHomeStatus } from './electron-home/useElectronHomeStatus';
 import { useWorkbenchFinder } from './electron-home/useWorkbenchFinder';
@@ -612,6 +613,7 @@ export function Home() {
 
   useWorkbenchClosePolicy({
     api,
+    backupFailed: noteWorkspace.backupFailed,
     closeTransientLayer,
     confirmCloseUnsafeTabs,
     openTabs: noteWorkspace.state.tabs,
@@ -696,6 +698,7 @@ export function Home() {
     switchWorkspaceAtIndex,
   });
 
+  const backupNotice = useWorkspaceBackupNotice({ api, workspace: noteWorkspace });
   const homeStatus = useElectronHomeStatus({
     isLocalVaultLoading: vaultSession.isLoading,
     isLocalVaultFetching: vaultSession.snapshotQuery.isFetching || vaultSession.isChanging,
@@ -832,7 +835,7 @@ export function Home() {
 
   return (
     <div className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
-      <ElectronHomeWorkspace {...workspaceProps} />
+      <ElectronHomeWorkspace {...workspaceProps} backupNotice={backupNotice} />
 
       <ElectronHomeOverlays {...overlayProps} />
     </div>

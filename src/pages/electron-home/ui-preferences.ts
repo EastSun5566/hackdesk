@@ -1,3 +1,5 @@
+import { trySetStorageItem } from '@/lib/storage';
+
 import type { WorkspaceScope } from './types';
 
 export const RAIL_COLLAPSED_KEY = 'hackdesk_rail_collapsed';
@@ -33,7 +35,7 @@ export function readBooleanStorage(key: string, fallback: boolean) {
 
 export function writeBooleanStorage(key: string, value: boolean) {
   if (typeof window !== 'undefined') {
-    window.localStorage.setItem(key, String(value));
+    trySetStorageItem(window.localStorage, key, String(value));
   }
 }
 
@@ -48,7 +50,7 @@ export function readNumberStorage(key: string, fallback: number, min: number, ma
 
 export function writeNumberStorage(key: string, value: number) {
   if (typeof window !== 'undefined') {
-    window.localStorage.setItem(key, String(Math.round(value)));
+    trySetStorageItem(window.localStorage, key, String(Math.round(value)));
   }
 }
 
@@ -67,7 +69,7 @@ export function readStringArrayStorage(key: string) {
 
 export function writeStringArrayStorage(key: string, value: Set<string>) {
   if (typeof window !== 'undefined') {
-    window.localStorage.setItem(key, JSON.stringify([...value]));
+    trySetStorageItem(window.localStorage, key, JSON.stringify([...value]));
   }
 }
 
@@ -111,6 +113,6 @@ export function readWorkspaceScopeStorage(key: string, fallback: WorkspaceScope)
 
 export function writeWorkspaceScopeStorage(key: string, scope: WorkspaceScope) {
   if (typeof window !== 'undefined') {
-    window.localStorage.setItem(key, JSON.stringify(scope));
+    trySetStorageItem(window.localStorage, key, JSON.stringify(scope));
   }
 }

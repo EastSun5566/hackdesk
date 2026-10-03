@@ -1,4 +1,5 @@
 import type { NoteSummary } from './electron-api';
+import { trySetStorageItem } from './storage';
 
 const LOCAL_TEAM_PATH = '__hackdesk_local_vault__';
 
@@ -88,7 +89,7 @@ export function readRecentNotes(storage: Storage) {
 }
 
 export function writeRecentNotes(storage: Storage, notes: ElectronRecentNote[]) {
-  storage.setItem(ELECTRON_RECENT_NOTES_STORAGE_KEY, JSON.stringify(normalizeRecentNotes(notes)));
+  return trySetStorageItem(storage, ELECTRON_RECENT_NOTES_STORAGE_KEY, JSON.stringify(normalizeRecentNotes(notes)));
 }
 
 export function upsertRecentNote(notes: ElectronRecentNote[], note: Pick<NoteSummary, 'id' | 'teamPath' | 'title' | 'shortId'> & { localVaultId?: string }, now = Date.now()) {

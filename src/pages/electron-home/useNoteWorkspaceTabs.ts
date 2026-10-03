@@ -49,11 +49,23 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
   const [state, setState] = useState<NoteWorkspaceState>(() => readInitialState(scopeKey));
   const stateRef = useRef(state);
   const [statesByScope, setStatesByScope] = useState<Record<string, NoteWorkspaceState>>({});
-  const flush = useCallback(() => {
-    if (stateRef.current.scopeKey && typeof window !== 'undefined') {
-      writeNoteWorkspaceLayoutStorage(window.localStorage, stateRef.current);
-    }
+  // Scopes whose latest in-memory state could not be written. Their drafts stay
+  // in memory only, so the UI must not claim they are backed up.
+  const [backupFailedScopes, setBackupFailedScopes] = useState<ReadonlySet<string>>(() => new Set());
+  const persist = useCallback((next: NoteWorkspaceState, { reportFailure = true } = {}) => {
+    if (!next.scopeKey || typeof window === 'undefined') return true;
+    const saved = writeNoteWorkspaceLayoutStorage(window.localStorage, next);
+    if (!saved && !reportFailure) return false;
+    setBackupFailedScopes((current) => {
+      if (saved !== current.has(next.scopeKey)) return current;
+      const updated = new Set(current);
+      if (saved) updated.delete(next.scopeKey);
+      else updated.add(next.scopeKey);
+      return updated;
+    });
+    return saved;
   }, []);
+  const flush = useCallback(() => persist(stateRef.current), [persist]);
 
   // Update this hook's state before children commit, without mutating refs during render.
   if (state.scopeKey !== (scopeKey ?? '')) {
@@ -61,7 +73,7 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
     setState((scopeKey && statesByScope[scopeKey]) || readInitialState(scopeKey));
   }
   // Scope cleanup runs before the next committed state replaces this ref.
-  useLayoutEffect(() => () => flush(), [scopeKey, flush]);
+  useLayoutEffect(() => () => { flush(); }, [scopeKey, flush]);
   useLayoutEffect(() => { stateRef.current = state; }, [state]);
 
   useEffect(() => {
@@ -78,9 +90,18 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
   // those results too, so returning or restarting sees the completed operation.
   useEffect(() => {
     for (const [key, savedState] of Object.entries(statesByScope)) {
-      if (key !== scopeKey) writeNoteWorkspaceLayoutStorage(window.localStorage, savedState);
+      if (key !== scopeKey) persist(savedState);
     }
-  }, [statesByScope, scopeKey]);
+  }, [statesByScope, scopeKey, persist]);
+
+  const retryBackup = useCallback(() => {
+    let saved = flush();
+    for (const key of backupFailedScopes) {
+      const savedState = key === stateRef.current.scopeKey ? undefined : statesByScope[key];
+      if (savedState) saved = persist(savedState) && saved;
+    }
+    return saved;
+  }, [backupFailedScopes, flush, persist, statesByScope]);
 
   const updateWorkspace = useCallback((key: string | null, update: (current: NoteWorkspaceState) => NoteWorkspaceState) => {
     if (!key) return;
@@ -106,12 +127,12 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
   const openRecoverableDraftNote = useCallback((options: OpenDraftNoteOptions) => {
     if (!stateRef.current.scopeKey) throw new Error('Local Vault is still loading. Your text is still here.');
     const next = openDraftNoteTab(stateRef.current, options);
-    if (typeof window !== 'undefined') {
-      writeNoteWorkspaceLayoutStorage(window.localStorage, next);
-    }
+    // Quick Hack text is accepted only after it is backed up. On failure the
+    // popup keeps it and the workspace, including its existing backup, is unchanged.
+    if (!persist(next, { reportFailure: false })) throw new Error('HackDesk could not back up this capture. Your text is still here.');
     stateRef.current = next;
     setState(next);
-  }, []);
+  }, [persist]);
 
   const materializeDraftNote = useCallback((tabId: string, note: NoteSummary, submittedDraft?: NoteDocumentDraft) => {
     updateWorkspace(scopeKey, (current) => materializeDraftNoteTab(current, tabId, note, submittedDraft));
@@ -222,6 +243,9 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
   return {
     state,
     flush,
+    backupFailed: backupFailedScopes.size > 0,
+    backupFailedInOtherWorkspace: [...backupFailedScopes].some((key) => key !== state.scopeKey),
+    retryBackup,
     activeTab,
     visibleActiveTabs,
     openNote,

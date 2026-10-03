@@ -28,7 +28,7 @@ function createDeleteNoteTarget(note: NoteSummary): DocumentSummary {
   };
 }
 
-async function writeClipboardText(api: HackDeskElectronAPI | undefined, text: string) {
+export async function writeClipboardText(api: HackDeskElectronAPI | undefined, text: string) {
   if (api?.app.writeClipboardText) {
     await api.app.writeClipboardText(text);
     return;

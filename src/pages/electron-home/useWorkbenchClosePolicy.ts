@@ -10,6 +10,7 @@ import type { OpenNoteTab } from './note-workspace';
 
 export type WorkbenchClosePolicyOptions = {
   api?: HackDeskElectronAPI;
+  backupFailed?: boolean;
   closeTransientLayer: () => boolean;
   confirmCloseUnsafeTabs: (tabs: OpenNoteTab[], title: string, confirmLabel: string) => Promise<boolean>;
   openTabs: Record<string, OpenNoteTab>;
@@ -17,10 +18,30 @@ export type WorkbenchClosePolicyOptions = {
 
 export function useWorkbenchClosePolicy({
   api,
+  backupFailed = false,
   closeTransientLayer,
   confirmCloseUnsafeTabs,
   openTabs,
 }: WorkbenchClosePolicyOptions) {
+  // Drafts in any workspace may exist only in memory, so one confirmation covers them all.
+  const confirmCloseWithoutBackup = useCallback(async () => {
+    if (!api?.app.confirm) return true;
+    try {
+      const { confirmed } = await api.app.confirm({
+        title: 'Close HackDesk',
+        message: 'Workspace backup failed. Close anyway?',
+        detail: 'Unsaved drafts could not be backed up and will be lost. Copy or export them, or free storage space and retry the backup.',
+        confirmLabel: 'Close',
+        cancelLabel: 'Keep Editing',
+        destructive: true,
+      });
+      return confirmed;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to confirm close.');
+      return false;
+    }
+  }, [api]);
+
   const settleCloseRequest = useCallback(async (request: HackDeskCloseRequest = { source: 'window-button' }) => {
     if (!api) {
       return;
@@ -40,7 +61,10 @@ export function useWorkbenchClosePolicy({
     }
 
     const allTabs = Object.values(openTabs);
-    if (!await confirmCloseUnsafeTabs(allTabs, 'Close HackDesk', 'Close')) {
+    const confirmed = backupFailed
+      ? await confirmCloseWithoutBackup()
+      : await confirmCloseUnsafeTabs(allTabs, 'Close HackDesk', 'Close');
+    if (!confirmed) {
       await cancelClose();
       return;
     }
@@ -50,7 +74,7 @@ export function useWorkbenchClosePolicy({
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to close window.');
     }
-  }, [api, closeTransientLayer, confirmCloseUnsafeTabs, openTabs]);
+  }, [api, backupFailed, closeTransientLayer, confirmCloseUnsafeTabs, confirmCloseWithoutBackup, openTabs]);
 
   useEffect(() => (
     api?.app.onCloseRequest((request) => {
