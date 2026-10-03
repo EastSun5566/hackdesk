@@ -28,7 +28,7 @@ import {
   reorderNoteTab,
   resizeNotePanes,
   reconcileSavedNoteTab,
-  replaceNoteTabDraftText,
+  replaceNoteTabPlaceholder,
   selectNoteTab,
   splitActiveTabRight,
   syncNoteTabSummary,
@@ -38,6 +38,7 @@ import {
   type NoteIdentity,
   type NoteWorkspaceState,
   type OpenDraftNoteOptions,
+  type SavedNoteDocument,
 } from './note-workspace';
 
 function readInitialState(scopeKey: string | null) {
@@ -238,8 +239,14 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
     updateWorkspace(scopeKey, (current) => reconcileSavedNoteTab(current, input));
   }, [scopeKey, updateWorkspace]);
 
-  const replaceTabDraftText = useCallback((key: string, tabId: string, placeholder: string, replacement: string) => {
-    updateWorkspace(key, (current) => replaceNoteTabDraftText(current, tabId, placeholder, replacement));
+  const replaceTabPlaceholder = useCallback((
+    key: string,
+    tabId: string,
+    placeholder: string,
+    replacement: string,
+    savedDocument?: SavedNoteDocument,
+  ) => {
+    updateWorkspace(key, (current) => replaceNoteTabPlaceholder(current, tabId, placeholder, replacement, savedDocument));
   }, [updateWorkspace]);
 
   const getPaneTab = useCallback((paneId: string) => getPaneActiveTab(state, paneId), [state]);
@@ -289,7 +296,7 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
     syncNoteSummaries,
     reconcileSavedNote,
     getWorkspaceSnapshot,
-    replaceTabDraftText,
+    replaceTabPlaceholder,
     getPaneTab,
     getTabHostPane,
     getTabsMatching,

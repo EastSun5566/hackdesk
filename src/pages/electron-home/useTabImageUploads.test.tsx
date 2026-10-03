@@ -38,20 +38,20 @@ function deferred() {
 function setup(initialScope = 'personal', savedContent?: Record<string, string>) {
   const upload = deferred();
   const uploadImage = vi.fn(() => upload.promise);
-  const setTabContent = vi.fn();
+  const readTabDocument = vi.fn(async (_scope: string, tab: OpenNoteTab) => ('noteId' in tab ? document(tab.noteId, savedContent?.[tab.noteId]) : undefined));
   const hook = renderHook(({ scope }) => {
     const workspace = useNoteWorkspaceTabs(scope);
     const attach = useTabImageUploads({
       scopeKey: workspace.state.scopeKey,
       getTabDocument: (tab: OpenNoteTab) => ('noteId' in tab ? document(tab.noteId, savedContent?.[tab.noteId]) : undefined),
       getWorkspaceSnapshot: workspace.getWorkspaceSnapshot,
-      replaceTabDraftText: workspace.replaceTabDraftText,
-      setTabContent,
+      replaceTabPlaceholder: workspace.replaceTabPlaceholder,
+      readTabDocument,
       uploadImage,
     });
     return { workspace, attach };
   }, { initialProps: { scope: initialScope } });
-  return { ...hook, upload, uploadImage, setTabContent };
+  return { ...hook, upload, uploadImage, readTabDocument };
 }
 
 function openWithDraft(result: { current: { workspace: ReturnType<typeof useNoteWorkspaceTabs> } }, id: string, content: string) {
@@ -132,14 +132,35 @@ describe('image uploads finish in their own tab', () => {
   });
 
   it('updates the saved content when the note was saved with the placeholder', async () => {
-    const { result, upload, setTabContent } = setup('personal', { a: `Saved ${PLACEHOLDER}` });
+    const { result, upload, readTabDocument } = setup('personal', { a: `Saved ${PLACEHOLDER}` });
     act(() => { result.current.workspace.openNote(note('a')); });
     const origin = result.current.workspace.activeTab!;
     let pending!: Promise<unknown>;
     act(() => { pending = result.current.attach(origin, imageFile(), PLACEHOLDER); });
     upload.resolve({ link: 'https://assets.example/diagram.png' } as UploadNoteImageResult);
     await act(async () => { await pending; });
-    expect(setTabContent).toHaveBeenCalledWith(origin, 'Saved ![diagram.png](https://assets.example/diagram.png)');
+    expect(result.current.workspace.state.drafts[origin.tabId]).toMatchObject({
+      content: 'Saved ![diagram.png](https://assets.example/diagram.png)',
+      baseContent: `Saved ${PLACEHOLDER}`,
+    });
+    expect(readTabDocument).not.toHaveBeenCalled();
+  });
+
+  it('updates a saved note in a workspace that is no longer visible', async () => {
+    const { result, rerender, upload, readTabDocument } = setup('team:a', { a: `Saved ${PLACEHOLDER}` });
+    act(() => { result.current.workspace.openNote(note('a')); });
+    const origin = result.current.workspace.activeTab!;
+    let pending!: Promise<unknown>;
+    act(() => { pending = result.current.attach(origin, imageFile(), PLACEHOLDER); });
+    rerender({ scope: 'team:b' });
+    const teamB = result.current.workspace.state;
+    upload.resolve({ link: 'https://assets.example/diagram.png' } as UploadNoteImageResult);
+    await act(async () => { await pending; });
+    expect(readTabDocument).toHaveBeenCalledWith('team:a', origin);
+    expect(result.current.workspace.state).toEqual(teamB);
+    expect(toast.info).not.toHaveBeenCalled();
+    rerender({ scope: 'team:a' });
+    expect(result.current.workspace.state.drafts[origin.tabId].content).toBe('Saved ![diagram.png](https://assets.example/diagram.png)');
   });
 
   it('rejects an attachment for an unsaved draft and removes its placeholder', async () => {

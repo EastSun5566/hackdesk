@@ -26,6 +26,14 @@ async function pasteImage(page: Page, name: string) {
   }, name);
 }
 
+// Release a held upload only after the renderer's request reached the handler.
+async function releaseUpload(app: ElectronApplication, fileName: string) {
+  await expect.poll(() => app.evaluate((_electron, name) => (
+    (globalThis as { pendingUploads?: Set<string> }).pendingUploads?.has(name) ?? false
+  ), fileName)).toBe(true);
+  await app.evaluate(({ ipcMain }, name) => { ipcMain.emit(`fixture:release-upload:${name}`); }, fileName);
+}
+
 async function replaceRemoteIpc(app: ElectronApplication) {
   // Replace remote IPC only. Uploads wait for a release message from the test.
   await app.evaluate(({ ipcMain }, { channels, settings }) => {
@@ -54,8 +62,14 @@ async function replaceRemoteIpc(app: ElectronApplication) {
       replace(channel, () => ({ source: 'remote', data: [] }));
     }
     replace(channels.hackmdGetFolderOrder, () => ({ source: 'remote', data: {} }));
+    const pending = new Set<string>();
+    (globalThis as { pendingUploads?: Set<string> }).pendingUploads = pending;
     replace(channels.hackmdUploadNoteImage, (_event, _noteId, input: { fileName: string }) => new Promise((done) => {
-      ipcMain.once(`fixture:release-upload:${input.fileName}`, () => done({ link: `https://assets.example/${input.fileName}` }));
+      pending.add(input.fileName);
+      ipcMain.once(`fixture:release-upload:${input.fileName}`, () => {
+        pending.delete(input.fileName);
+        done({ link: `https://assets.example/${input.fileName}` });
+      });
     }));
   }, { channels: ELECTRON_CHANNELS, settings: defaultSettings });
 }
@@ -78,7 +92,7 @@ test('a remote image upload finishes in its original tab after switching, and is
 
     await page.getByRole('button', { name: /Beta/ }).first().click();
     await expect(editor).toContainText('Beta body');
-    await app.evaluate(({ ipcMain }) => { ipcMain.emit('fixture:release-upload:first.png'); });
+    await releaseUpload(app, 'first.png');
     await expect(editor).not.toContainText('first.png');
 
     await page.getByRole('button', { name: 'Select Alpha tab', exact: true }).click();
@@ -98,7 +112,7 @@ test('a remote image upload finishes in its original tab after switching, and is
     await page.getByRole('button', { name: 'Close Alpha', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Select Alpha tab', exact: true })).toHaveCount(0);
     await page.getByRole('button', { name: 'Select Beta tab', exact: true }).click();
-    await app.evaluate(({ ipcMain }) => { ipcMain.emit('fixture:release-upload:second.png'); });
+    await releaseUpload(app, 'second.png');
     await expect(page.getByText('after its tab was closed')).toBeVisible();
     await expect(editor).not.toContainText('second.png');
   } finally {

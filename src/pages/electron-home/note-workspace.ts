@@ -815,20 +815,40 @@ export function updateNoteTabDraft(state: NoteWorkspaceState, tabId: string, dra
   };
 }
 
+export type SavedNoteDocument = { title: string; content: string; baseRevision?: LocalRevision | null };
+
+function replaceFirst(content: string, search: string, replacement: string) {
+  const index = content.indexOf(search);
+  return index < 0 ? null : content.slice(0, index) + replacement + content.slice(index + search.length);
+}
+
 /**
  * Replaces one exact placeholder in a tab's draft, keeping everything else the
- * user typed. Returns the same state when the tab or placeholder is gone.
+ * user typed. Without a draft, a saved document that still holds the
+ * placeholder becomes a new draft. Otherwise the state is returned unchanged.
  */
-export function replaceNoteTabDraftText(state: NoteWorkspaceState, tabId: string, placeholder: string, replacement: string) {
+export function replaceNoteTabPlaceholder(
+  state: NoteWorkspaceState,
+  tabId: string,
+  placeholder: string,
+  replacement: string,
+  savedDocument?: SavedNoteDocument,
+) {
   const draft = state.drafts[tabId];
-  const index = draft?.content.indexOf(placeholder) ?? -1;
-  if (!state.tabs[tabId] || !draft || index < 0) {
-    return state;
+  if (!state.tabs[tabId]) return state;
+  if (draft) {
+    const content = replaceFirst(draft.content, placeholder, replacement);
+    return content === null ? state : updateNoteTabDraft(state, tabId, { ...draft, content });
   }
 
+  const content = savedDocument ? replaceFirst(savedDocument.content, placeholder, replacement) : null;
+  if (!savedDocument || content === null) return state;
   return updateNoteTabDraft(state, tabId, {
-    ...draft,
-    content: draft.content.slice(0, index) + replacement + draft.content.slice(index + placeholder.length),
+    title: savedDocument.title,
+    content,
+    baseTitle: savedDocument.title,
+    baseContent: savedDocument.content,
+    ...(savedDocument.baseRevision ? { baseRevision: savedDocument.baseRevision } : {}),
   });
 }
 
