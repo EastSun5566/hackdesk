@@ -150,9 +150,7 @@ function normalizeRelativePath(input?: string | null) {
 
   const normalized = input.replaceAll('\\', '/').replace(/^\/+/, '');
   if (
-    normalized === '..'
-    || normalized.includes('/../')
-    || normalized.startsWith('../')
+    normalized.split('/').some((segment) => segment === '.' || segment === '..')
     || normalized.includes('\0')
   ) {
     throw new Error('Path is outside the local vault.');
@@ -173,6 +171,26 @@ function resolveInsideVault(vaultRoot: string, relativePath?: string | null) {
   return target;
 }
 
+async function resolveVaultChild(vaultRoot: string, relativePath: string) {
+  const target = resolveInsideVault(vaultRoot, relativePath);
+  if (target === resolve(vaultRoot)) {
+    throw new Error('The local vault root cannot be modified.');
+  }
+
+  await assertCanonicalInsideVault(vaultRoot, target);
+  try {
+    if (await realpath(target) === vaultRoot) {
+      throw new Error('The local vault root cannot be modified.');
+    }
+  } catch (error) {
+    if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')) {
+      throw error;
+    }
+  }
+
+  return target;
+}
+
 function sanitizeFileName(input: string) {
   const trimmed = input.trim() || 'Untitled';
   const cleaned = [...trimmed]
@@ -185,7 +203,7 @@ function sanitizeFileName(input: string) {
 
 function sanitizeFolderName(input: string) {
   const name = sanitizeFileName(input);
-  if (IGNORED_DIRS.has(name)) {
+  if (name === '.' || name === '..' || IGNORED_DIRS.has(name)) {
     throw new Error(`Folder name "${name}" is reserved by the local vault.`);
   }
 
@@ -785,8 +803,7 @@ export async function createLocalFolder(input: LocalVaultCreateFolderInput): Pro
   return enqueueVaultOperation(vaultRoot, async () => {
     const parentPath = normalizeRelativePath(input.parentPath);
     const folderName = sanitizeFolderName(input.name);
-    const folderPath = resolveInsideVault(vaultRoot, parentPath ? `${parentPath}/${folderName}` : folderName);
-    await assertCanonicalInsideVault(vaultRoot, folderPath);
+    const folderPath = await resolveVaultChild(vaultRoot, parentPath ? `${parentPath}/${folderName}` : folderName);
     await mkdir(folderPath, { recursive: false });
     const relativePath = toVaultRelativePath(vaultRoot, folderPath);
     const snapshot = await scanLocalVaultUnlocked(vaultRoot);
@@ -797,10 +814,9 @@ export async function createLocalFolder(input: LocalVaultCreateFolderInput): Pro
 export async function renameLocalFolder(input: LocalVaultRenameFolderInput): Promise<LocalVaultFolderMutationResult> {
   const vaultRoot = await requireActiveLocalVaultPath();
   return enqueueVaultOperation(vaultRoot, async () => {
-    const source = resolveInsideVault(vaultRoot, input.relativePath);
-    const target = join(dirname(source), sanitizeFolderName(input.name));
-    await assertCanonicalInsideVault(vaultRoot, source);
-    await assertCanonicalInsideVault(vaultRoot, target);
+    const source = await resolveVaultChild(vaultRoot, input.relativePath);
+    const targetPath = toVaultRelativePath(vaultRoot, join(dirname(source), sanitizeFolderName(input.name)));
+    const target = await resolveVaultChild(vaultRoot, targetPath);
     await rename(source, target);
     const relativePath = toVaultRelativePath(vaultRoot, target);
     await remapManifestFolder(vaultRoot, normalizeRelativePath(input.relativePath)!, relativePath);
@@ -812,9 +828,8 @@ export async function renameLocalFolder(input: LocalVaultRenameFolderInput): Pro
 export async function moveLocalFolder(input: LocalVaultMoveFolderInput): Promise<LocalVaultSnapshot> {
   const vaultRoot = await requireActiveLocalVaultPath();
   return enqueueVaultOperation(vaultRoot, async () => {
-    const source = resolveInsideVault(vaultRoot, input.relativePath);
+    const source = await resolveVaultChild(vaultRoot, input.relativePath);
     const targetDirectory = resolveInsideVault(vaultRoot, input.parentPath);
-    await assertCanonicalInsideVault(vaultRoot, source);
     await assertCanonicalInsideVault(vaultRoot, targetDirectory);
     await mkdir(targetDirectory, { recursive: true });
     const target = join(targetDirectory, basename(source));
@@ -828,8 +843,7 @@ export async function moveLocalFolder(input: LocalVaultMoveFolderInput): Promise
 export async function trashLocalFolder(input: LocalVaultTrashFolderInput, trashItem: TrashItem): Promise<LocalVaultSnapshot> {
   const vaultRoot = await requireActiveLocalVaultPath();
   return enqueueVaultOperation(vaultRoot, async () => {
-    const folderPath = resolveInsideVault(vaultRoot, input.relativePath);
-    await assertCanonicalInsideVault(vaultRoot, folderPath);
+    const folderPath = await resolveVaultChild(vaultRoot, input.relativePath);
     await trashItem(folderPath);
     return scanLocalVaultUnlocked(vaultRoot);
   });

@@ -6,7 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const electronMock = vi.hoisted(() => ({
   homePath: '',
 }));
-const fsProbe = vi.hoisted(() => ({ afterRead: vi.fn<(path: string) => Promise<void>>() }));
+const fsProbe = vi.hoisted(() => ({
+  afterRead: vi.fn<(path: string) => Promise<void>>(),
+  beforeMutation: vi.fn<() => void>(),
+  realpathOverride: vi.fn<(path: string) => string | undefined>(),
+}));
 
 vi.mock('node:fs/promises', async (importOriginal) => {
   const fs = await importOriginal<typeof import('node:fs/promises')>();
@@ -15,7 +19,20 @@ vi.mock('node:fs/promises', async (importOriginal) => {
     await fsProbe.afterRead(String(args[0]));
     return result;
   });
-  return { ...fs, readFile: read, default: { ...fs, readFile: read } };
+  const mutations = {
+    mkdir: async (...args: Parameters<typeof fs.mkdir>) => {
+      fsProbe.beforeMutation();
+      return fs.mkdir(...args);
+    },
+    rename: async (...args: Parameters<typeof fs.rename>) => {
+      fsProbe.beforeMutation();
+      return fs.rename(...args);
+    },
+    realpath: async (...args: Parameters<typeof fs.realpath>) => (
+      fsProbe.realpathOverride(String(args[0])) ?? await fs.realpath(...args)
+    ),
+  };
+  return { ...fs, ...mutations, readFile: read, default: { ...fs, ...mutations, readFile: read } };
 });
 
 vi.mock('electron', () => ({
@@ -50,6 +67,8 @@ describe('LocalVaultService', () => {
 
   beforeEach(async () => {
     fsProbe.afterRead.mockReset();
+    fsProbe.beforeMutation.mockReset();
+    fsProbe.realpathOverride.mockReset();
     homePath = await mkdtemp(join(tmpdir(), 'hackdesk-local-home-'));
     vaultPath = await mkdtemp(join(tmpdir(), 'hackdesk-local-vault-'));
     electronMock.homePath = homePath;
@@ -357,6 +376,89 @@ describe('LocalVaultService', () => {
     await expect(renameLocalFolder({ relativePath: 'Projects', name: '.git' })).rejects.toThrow('reserved by the local vault');
     await expect(realpath(join(vaultPath, 'Projects'))).resolves.toEqual(expect.any(String));
     await expect(realpath(join(vaultPath, '.git'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it.each(['', '/', '.', 'Projects/..', 'Projects\\..'])('rejects root folder mutations for %j before changing files', async (relativePath) => {
+    const { document } = await createLocalNote({ title: 'Stable', content: 'Body' });
+    const manifestPath = join(vaultPath, '.hackdesk', 'manifest.json');
+    const manifest = await readFile(manifestPath, 'utf8');
+    const entries = await readdir(vaultPath);
+    const mutation = fsProbe.beforeMutation.mockClear().mockImplementation(() => { throw new Error('Unexpected filesystem mutation'); });
+    const trash = vi.fn(async (_path: string) => {});
+
+    await expect(renameLocalFolder({ relativePath, name: 'Renamed' })).rejects.toThrow();
+    await expect(moveLocalFolder({ relativePath, parentPath: 'New/Target' })).rejects.toThrow();
+    await expect(trashLocalFolder({ relativePath }, trash)).rejects.toThrow();
+
+    expect(mutation).not.toHaveBeenCalled();
+    expect(trash).not.toHaveBeenCalled();
+    expect(await readdir(vaultPath)).toEqual(entries);
+    expect(await readFile(join(vaultPath, document.relativePath), 'utf8')).toBe('Body');
+    expect(await readFile(manifestPath, 'utf8')).toBe(manifest);
+  });
+
+  it.each(['.', '..', ' . ', ' .. '])('rejects reserved folder name %j before creating or renaming', async (name) => {
+    await mkdir(join(vaultPath, 'Projects'));
+    const mutation = fsProbe.beforeMutation.mockClear().mockImplementation(() => { throw new Error('Unexpected filesystem mutation'); });
+
+    await expect(createLocalFolder({ name })).rejects.toThrow('reserved by the local vault');
+    await expect(createLocalFolder({ name, parentPath: 'Projects' })).rejects.toThrow('reserved by the local vault');
+    await expect(renameLocalFolder({ relativePath: 'Projects', name })).rejects.toThrow('reserved by the local vault');
+
+    expect(mutation).not.toHaveBeenCalled();
+    expect(await readdir(vaultPath)).toEqual(['Projects']);
+  });
+
+  it('rejects a child path that resolves to the canonical vault root', async () => {
+    await mkdir(join(vaultPath, 'Alias'));
+    await mkdir(join(vaultPath, 'Other'));
+    const canonicalRoot = await realpath(vaultPath);
+    fsProbe.realpathOverride.mockImplementation((path) => (
+      path === join(canonicalRoot, 'Alias') ? canonicalRoot : undefined
+    ));
+    const mutation = fsProbe.beforeMutation.mockClear().mockImplementation(() => { throw new Error('Unexpected filesystem mutation'); });
+    const trash = vi.fn(async (_path: string) => {});
+
+    await expect(createLocalFolder({ name: 'Alias' })).rejects.toThrow('root cannot be modified');
+    await expect(renameLocalFolder({ relativePath: 'Alias', name: 'Renamed' })).rejects.toThrow('root cannot be modified');
+    await expect(renameLocalFolder({ relativePath: 'Other', name: 'Alias' })).rejects.toThrow('root cannot be modified');
+    await expect(moveLocalFolder({ relativePath: 'Alias', parentPath: 'New' })).rejects.toThrow('root cannot be modified');
+    await expect(trashLocalFolder({ relativePath: 'Alias' }, trash)).rejects.toThrow('root cannot be modified');
+
+    expect(mutation).not.toHaveBeenCalled();
+    expect(trash).not.toHaveBeenCalled();
+    expect(await readdir(vaultPath)).toEqual(['Alias', 'Other']);
+  });
+
+  it('rejects dot segments in mutation parent paths before changing files', async () => {
+    const { document } = await createLocalNote({ title: 'Stable', parentPath: 'Projects', content: 'Body' });
+    const mutation = fsProbe.beforeMutation.mockClear().mockImplementation(() => { throw new Error('Unexpected filesystem mutation'); });
+
+    for (const parentPath of ['.', 'Projects/..', 'Projects\\..']) {
+      await expect(createLocalNote({ title: 'New', parentPath })).rejects.toThrow();
+      await expect(createLocalFolder({ name: 'New', parentPath })).rejects.toThrow();
+      await expect(moveLocalNote({ noteId: document.id, parentPath })).rejects.toThrow();
+      await expect(moveLocalFolder({ relativePath: 'Projects', parentPath })).rejects.toThrow();
+    }
+
+    expect(mutation).not.toHaveBeenCalled();
+    expect(await readFile(join(vaultPath, document.relativePath), 'utf8')).toBe('Body');
+  });
+
+  it('allows creating at the root and moving children into it', async () => {
+    const { folder } = await createLocalFolder({ name: 'Projects', parentPath: null });
+    await createLocalFolder({ name: 'Nested', parentPath: folder.relativePath });
+    const { document } = await createLocalNote({ title: 'Stable', parentPath: 'Projects/Nested', content: 'Body' });
+
+    const snapshot = await moveLocalFolder({ relativePath: 'Projects/Nested', parentPath: null });
+    expect(snapshot.notes).toContainEqual(expect.objectContaining({ id: document.id, relativePath: 'Nested/Stable.md' }));
+    const moved = await moveLocalNote({ noteId: document.id, parentPath: null });
+    expect(moved.document).toMatchObject({ id: document.id, relativePath: 'Stable.md', content: 'Body' });
+
+    const trash = vi.fn(async (path: string) => rm(path, { recursive: true }));
+    await trashLocalFolder({ relativePath: 'Nested' }, trash);
+    expect(trash).toHaveBeenCalledWith(join(await realpath(vaultPath), 'Nested'));
+    expect(await readLocalNote(document.id)).toMatchObject({ relativePath: 'Stable.md', content: 'Body' });
   });
 
   it('preserves descendant note ids when a folder is renamed', async () => {
