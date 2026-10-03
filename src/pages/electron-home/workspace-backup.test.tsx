@@ -58,7 +58,9 @@ describe('workspace backup failures', () => {
     expect(() => rerender('B')).not.toThrow();
     expect(result.current.state.scopeKey).toBe('B');
     expect(result.current.backupFailedInOtherWorkspace).toBe(true);
+    expect(result.current.backupFailedInCurrentWorkspace).toBe(false);
     rerender('A');
+    expect(result.current.backupFailedInCurrentWorkspace).toBe(true);
     // The older disk backup must not replace the newer in-memory draft.
     expect(result.current.state.drafts[tabId].content).toBe('Only in memory');
 
@@ -176,10 +178,19 @@ describe('workspace backup notice', () => {
   });
 
   it('disables copy and export when the active tab has no draft', () => {
-    render(<WorkspaceBackupNotice hasActiveDraft={false} otherWorkspaceAffected onCopyDraft={vi.fn()} onExportDraft={vi.fn()} onRetry={vi.fn()} />);
+    render(<WorkspaceBackupNotice currentWorkspaceAffected hasActiveDraft={false} otherWorkspaceAffected onCopyDraft={vi.fn()} onExportDraft={vi.fn()} onRetry={vi.fn()} />);
     expect(screen.getByRole('button', { name: 'Copy draft' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Export draft' })).toBeDisabled();
     expect(screen.getByRole('alert')).toHaveTextContent('Another workspace is also not backed up.');
+  });
+
+  it('points to the other workspace instead of offering the current, backed-up draft', () => {
+    render(<WorkspaceBackupNotice currentWorkspaceAffected={false} hasActiveDraft otherWorkspaceAffected onCopyDraft={vi.fn()} onExportDraft={vi.fn()} onRetry={vi.fn()} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Another workspace could not be backed up');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('Your drafts are still open');
+    expect(screen.queryByRole('button', { name: 'Copy draft' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Export draft' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Retry backup' })).toBeEnabled();
   });
 
   it('confirms before closing while drafts are not backed up', async () => {

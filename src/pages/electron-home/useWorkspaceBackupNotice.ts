@@ -14,13 +14,14 @@ export type WorkspaceBackupNoticeOptions = {
     activeTab: OpenNoteTab | null;
     state: Pick<NoteWorkspaceState, 'drafts'>;
     backupFailed: boolean;
+    backupFailedInCurrentWorkspace: boolean;
     backupFailedInOtherWorkspace: boolean;
     retryBackup: () => boolean;
   };
 };
 
 export function useWorkspaceBackupNotice({ api, workspace }: WorkspaceBackupNoticeOptions): WorkspaceBackupNoticeProps | null {
-  const { activeTab, backupFailed, backupFailedInOtherWorkspace, retryBackup } = workspace;
+  const { activeTab, backupFailed, backupFailedInCurrentWorkspace, backupFailedInOtherWorkspace, retryBackup } = workspace;
   const draft = activeTab ? workspace.state.drafts[activeTab.tabId] ?? null : null;
 
   const copyDraft = useCallback(() => {
@@ -50,6 +51,7 @@ export function useWorkspaceBackupNotice({ api, workspace }: WorkspaceBackupNoti
   if (!backupFailed) return null;
   return {
     hasActiveDraft: !!draft,
+    currentWorkspaceAffected: backupFailedInCurrentWorkspace,
     otherWorkspaceAffected: backupFailedInOtherWorkspace,
     onCopyDraft: copyDraft,
     onExportDraft: exportDraft,

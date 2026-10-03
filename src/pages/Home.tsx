@@ -636,8 +636,8 @@ export function Home() {
 
     try {
       noteWorkspace.openRecoverableDraftNote({ content });
-    } catch {
-      return { accepted: false, error: 'HackDesk could not save this capture. Your text is still here.' };
+    } catch (error) {
+      return { accepted: false, error: error instanceof Error ? error.message : 'HackDesk could not save this capture. Your text is still here.' };
     }
     focusZone('editor');
     return { accepted: true };

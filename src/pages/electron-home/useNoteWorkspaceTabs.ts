@@ -244,6 +244,7 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
     state,
     flush,
     backupFailed: backupFailedScopes.size > 0,
+    backupFailedInCurrentWorkspace: backupFailedScopes.has(state.scopeKey),
     backupFailedInOtherWorkspace: [...backupFailedScopes].some((key) => key !== state.scopeKey),
     retryBackup,
     activeTab,
