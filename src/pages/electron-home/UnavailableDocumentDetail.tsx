@@ -45,12 +45,11 @@ export function UnavailableDocumentDetail({
       <div role="alert" className="flex flex-wrap items-center gap-2 border-b border-warning-default/30 bg-warning-soft px-4 py-2.5 text-sm">
         <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0 text-warning-default" />
         <p className="min-w-0 flex-1 text-text-default">{getMessage(unavailable)}</p>
-        {unavailable.kind === 'read_error' ? (
-          <button type="button" className={buttonClassName} disabled={unavailable.isRetrying} onClick={onRetry}>
-            <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
-            {unavailable.isRetrying ? 'Retrying…' : 'Retry'}
-          </button>
-        ) : null}
+        {/* Retry only re-reads; it never writes. A missing result can be wrong, e.g. a proxy's 404. */}
+        <button type="button" className={buttonClassName} disabled={unavailable.isRetrying} onClick={onRetry}>
+          <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
+          {unavailable.isRetrying ? 'Retrying…' : 'Retry'}
+        </button>
       </div>
       {unavailable.hasDraft ? (
         <section aria-label="Unsaved draft" className="flex min-h-0 flex-1 flex-col gap-3 p-4">

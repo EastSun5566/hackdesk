@@ -267,11 +267,11 @@ export function useWorkbenchDocuments({
     const error = getRepositoryError(getTabDocumentResult(tab));
     if (!error) return null;
     const draft = getTabDraft(tab);
-    if (isNoteNotFoundError(error)) return { kind: 'missing', message: error, hasDraft: !!draft };
+    const isRetrying = !!documentQueriesByKey.get(getNoteIdentityKey(getTabIdentity(tab)))?.isFetching;
+    if (isNoteNotFoundError(error)) return { kind: 'missing', message: error, hasDraft: !!draft, isRetrying };
     // A cached copy is still usable; only a read without any document blocks the editor.
     if (getTabDocument(tab)) return null;
-    const query = documentQueriesByKey.get(getNoteIdentityKey(getTabIdentity(tab)));
-    return { kind: 'read_error', message: error, hasDraft: !!draft, isRetrying: !!query?.isFetching };
+    return { kind: 'read_error', message: error, hasDraft: !!draft, isRetrying };
   }, [documentQueriesByKey, getTabDocument, getTabDocumentResult, getTabDraft, getTabIdentity]);
 
   const getTabRecovery = useCallback((tab: OpenNoteTab): DocumentPaneView['recovery'] => {

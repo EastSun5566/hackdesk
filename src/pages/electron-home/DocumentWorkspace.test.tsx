@@ -257,7 +257,6 @@ describe('DocumentWorkspace', () => {
     const recovery = screen.getByRole('region', { name: 'Unsaved draft' });
     expect(screen.getByRole('alert')).toHaveTextContent('The original note is no longer available. Local note was not found.');
     expect(screen.getByRole('alert')).toHaveTextContent('never recreated or overwritten automatically');
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
     expect(recovery).toHaveTextContent('Edited body');
     expect(screen.getByTestId('document-detail-Edited title')).toBeInTheDocument();
 
@@ -267,6 +266,9 @@ describe('DocumentWorkspace', () => {
     expect(props.onCopyDraft).toHaveBeenCalledWith('Edited body');
     expect(props.onExportDraft).toHaveBeenCalledWith('Edited title', 'Edited body');
     expect(props.onOpenAsNewDraft).toHaveBeenCalledWith('Edited title', 'Edited body', 'pane-a');
+    // A missing result can come from an intermediary, so it can be re-checked without writing.
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(props.onRetryLoad).toHaveBeenCalledWith(expect.objectContaining({ tabId: 'tab-a' }));
   });
 
   it('offers retry for a temporary read error and no draft actions without a draft', () => {

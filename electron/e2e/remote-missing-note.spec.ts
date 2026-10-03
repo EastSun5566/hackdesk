@@ -69,7 +69,9 @@ test('keeps a remote draft reachable when HackMD reports the note missing, ignor
     await expect(page.getByRole('alert').filter({ hasText: 'The original note is no longer available.' })).toContainText(HACKMD_NOTE_NOT_FOUND_MESSAGE);
     await expect(page.getByRole('region', { name: 'Unsaved draft' })).toContainText('Unsaved remote edit');
     await expect(page.locator('.cm-content')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Retry' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Retry' }).click();
+    await expect(page.getByRole('region', { name: 'Unsaved draft' })).toContainText('Unsaved remote edit');
+    await expect(page.locator('.cm-content')).toHaveCount(0);
   } finally {
     app.process().kill('SIGKILL');
   }
