@@ -1,5 +1,5 @@
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { defaultSettings } from '../../src/lib/settings';
@@ -42,6 +42,13 @@ async function waitForDraft(page: Page, text: string) {
       .some((key) => Object.values(JSON.parse(localStorage.getItem(key) ?? '{}').drafts ?? {})
         .some((draft) => (draft as { content: string }).content === text));
   }, text)).toBe(true);
+}
+
+async function readLocalLayout(page: Page) {
+  return page.evaluate(() => {
+    const key = Object.keys(localStorage).find((key) => key.startsWith('hackdesk_note_workspace:local:'));
+    return key ? JSON.parse(localStorage.getItem(key)!) : null;
+  });
 }
 
 async function flushDiskStorage(app: ElectronApplication, home: string, page: Page) {
@@ -175,5 +182,75 @@ test('restores independent edits to two saved notes in dual panes', async () => 
     await expect(page.locator('.cm-content').first()).toContainText('Left draft');
     await expect(page.locator('.cm-content').last()).toContainText('Right draft');
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('recovered-dual-panes.png') });
+  } finally { await crash(app); }
+});
+
+test('keeps an edited tab through external rename, move, save and restart without recreating old paths', async () => {
+  const { home, vault } = await fixture();
+  let { app, page } = await launch(home);
+  try {
+    await expect(page.locator('.cm-content')).toContainText('Saved body');
+    await page.getByRole('button', { name: 'Original', exact: true }).click();
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('hackdesk_electron_recent_notes') ?? '[]')[0]?.shortId)).toBe('Original.md');
+    await page.locator('.cm-content').fill('Draft after move');
+    await waitForDraft(page, 'Draft after move');
+    const original = await readLocalLayout(page);
+    const [tabId] = Object.keys(original.tabs);
+    const noteId = original.tabs[tabId].noteId;
+    const revision = original.drafts[tabId].baseRevision;
+    await rename(join(vault, 'Original.md'), join(vault, 'Renamed.md'));
+    await expect(page.getByRole('textbox', { name: 'Note title' })).toHaveValue('Renamed');
+    await expect(page.locator('.cm-content')).toContainText('Draft after move');
+    await mkdir(join(vault, 'Folder'));
+    await rename(join(vault, 'Renamed.md'), join(vault, 'Folder', 'Renamed.md'));
+    await expect.poll(async () => (await readLocalLayout(page))?.tabs[tabId]?.shortId).toBe('Folder/Renamed.md');
+    const moved = await readLocalLayout(page);
+    expect(Object.keys(moved.tabs)).toEqual([tabId]);
+    expect(moved.tabs[tabId].noteId).toBe(noteId);
+    expect(moved.drafts[tabId]).toMatchObject({ title: 'Renamed', baseTitle: 'Renamed', content: 'Draft after move', baseRevision: revision });
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('hackdesk_electron_recent_notes') ?? '[]')[0]?.shortId)).toBe('Folder/Renamed.md');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect.poll(() => readFile(join(vault, 'Folder', 'Renamed.md'), 'utf8')).toBe('Draft after move');
+    await expect.poll(async () => Object.keys((await readLocalLayout(page))?.drafts ?? {}).length).toBe(0);
+    expect(JSON.parse(await readFile(join(vault, '.hackdesk', 'manifest.json'), 'utf8')).notes['Folder/Renamed.md'].id).toBe(noteId);
+    await expect(readFile(join(vault, 'Original.md'))).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(readFile(join(vault, 'Renamed.md'))).rejects.toMatchObject({ code: 'ENOENT' });
+    await flushDiskStorage(app, home, page);
+    await crash(app);
+    ({ app, page } = await launch(home));
+    await expect(page.locator('.cm-content')).toContainText('Draft after move');
+    await expect(page.getByRole('textbox', { name: 'Note title' })).toHaveValue('Renamed');
+    expect((await readLocalLayout(page)).tabs[tabId].noteId).toBe(noteId);
+    await rename(join(vault, 'Folder', 'Renamed.md'), join(vault, 'Folder', 'Clean rename.md'));
+    await expect(page.getByRole('textbox', { name: 'Note title' })).toHaveValue('Clean rename');
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toHaveAttribute('aria-disabled', 'true');
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('external-note-move.png') });
+  } finally { await crash(app); }
+});
+
+test('recovers an edited title after offline rename and old-path reuse without overwriting the new file', async () => {
+  const { home, vault } = await fixture();
+  let { app, page } = await launch(home);
+  try {
+    await expect(page.locator('.cm-content')).toContainText('Saved body');
+    await page.getByRole('textbox', { name: 'Note title' }).fill('My title');
+    await page.locator('.cm-content').fill('My draft');
+    await waitForDraft(page, 'My draft');
+    const original = await readLocalLayout(page);
+    const [tabId] = Object.keys(original.tabs);
+    await flushDiskStorage(app, home, page);
+    await crash(app);
+    await rename(join(vault, 'Original.md'), join(vault, 'External.md'));
+    await writeFile(join(vault, 'Original.md'), 'Replacement note');
+    ({ app, page } = await launch(home));
+    await expect(page.getByRole('textbox', { name: 'Note title' })).toHaveValue('My title');
+    await expect(page.locator('.cm-content')).toContainText('My draft');
+    await expect.poll(async () => (await readLocalLayout(page))?.drafts[tabId]?.baseTitle).toBe('External');
+    expect((await readLocalLayout(page)).tabs[tabId].noteId).toBe(original.tabs[tabId].noteId);
+    await expect(page.getByText('File changed on disk. Your draft is still open.')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect.poll(() => readFile(join(vault, 'My title.md'), 'utf8').catch(() => null)).toBe('My draft');
+    await expect(readFile(join(vault, 'External.md'))).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(await readFile(join(vault, 'Original.md'), 'utf8')).toBe('Replacement note');
   } finally { await crash(app); }
 });

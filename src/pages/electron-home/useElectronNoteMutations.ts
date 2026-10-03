@@ -512,7 +512,7 @@ export function useElectronNoteMutations({
 
       if (scope.type === 'local' || note.teamPath === LOCAL_VAULT_TEAM_PATH) {
         const localDocument = note as LocalDocumentSummary;
-        const titleChanged = payload.title !== undefined && payload.title !== note.title;
+        const titleChanged = payload.title !== undefined && payload.title !== (variables.submittedDraft?.baseTitle ?? note.title);
         if (titleChanged || payload.content !== undefined) {
           const { document: written, snapshot } = await api.localVault.writeNote({
             noteId: note.id,

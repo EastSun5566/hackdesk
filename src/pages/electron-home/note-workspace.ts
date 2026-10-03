@@ -854,25 +854,32 @@ export function reconcileSavedNoteTab(
 }
 
 export function syncNoteTabSummary(state: NoteWorkspaceState, note: NoteSummary) {
-  const tab = getTabByNoteIdentity(state, note);
-  if (!tab || isDraftNoteTab(tab)) {
-    return state;
-  }
+  const matching = Object.values(state.tabs).filter((tab) => (
+    !isDraftNoteTab(tab) && noteIdentityMatches(getSavedTabNoteIdentity(tab), note)
+  ));
+  if (!matching.length) return state;
   const savedLocalRevision = note.content !== null ? getNoteLocalRevision(note) : undefined;
-
-  return {
-    ...state,
-    tabs: {
-      ...state.tabs,
-      [tab.tabId]: {
-        ...tab,
-        title: getTabTitle(note),
-        shortId: note.shortId || tab.shortId,
-        updatedAtMillis: note.updatedAtMillis,
-        localRevision: savedLocalRevision ?? tab.localRevision,
-      },
-    },
-  };
+  const tabs = { ...state.tabs };
+  const drafts = { ...state.drafts };
+  for (const tab of matching) {
+    if (isDraftNoteTab(tab)) continue;
+    const draft = drafts[tab.tabId];
+    if (getNoteLocalRevision(note) && tab.shortId !== note.shortId && typeof draft?.baseTitle === 'string') {
+      drafts[tab.tabId] = {
+        ...draft,
+        title: draft.title === draft.baseTitle ? getTabTitle(note) : draft.title,
+        baseTitle: getTabTitle(note),
+      };
+    }
+    tabs[tab.tabId] = {
+      ...tab,
+      title: getTabTitle(note),
+      shortId: note.shortId || tab.shortId,
+      updatedAtMillis: note.updatedAtMillis,
+      localRevision: savedLocalRevision ?? tab.localRevision,
+    };
+  }
+  return { ...state, tabs, drafts };
 }
 
 export function toPersistedNoteWorkspaceLayout(state: NoteWorkspaceState): PersistedNoteWorkspaceLayout {

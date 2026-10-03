@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { watch, type FSWatcher } from 'node:fs';
+import { watch, type BigIntStats, type FSWatcher } from 'node:fs';
 import {
   lstat,
   mkdir,
@@ -48,10 +48,12 @@ type WatchFileSystem = (
   listener: (eventType: string, filename: string | Buffer | null) => void,
 ) => FSWatcher;
 
+type FileIdentity = { dev: string; ino: string; birthtimeNs: string };
+type ManifestNote = { id: string; contentHash?: string; fileIdentity?: FileIdentity };
 type VaultManifest = {
   version: 1;
   vaultId: string;
-  notes: Record<string, { id: string; contentHash?: string }>;
+  notes: Record<string, ManifestNote>;
 };
 
 type ScanEntry = {
@@ -91,6 +93,47 @@ function enqueueVaultOperation<T>(vaultRoot: string, task: () => Promise<T>): Pr
 
 function hashContent(content: string) {
   return createHash('sha256').update(content).digest('hex');
+}
+
+function normalizeFileIdentity(value: unknown): FileIdentity | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const { dev, ino, birthtimeNs } = value as Partial<FileIdentity>;
+  if (typeof dev !== 'string' || !/^(0|[1-9]\d*)$/.test(dev)
+    || typeof ino !== 'string' || !/^[1-9]\d*$/.test(ino)
+    || typeof birthtimeNs !== 'string' || !/^[1-9]\d*$/.test(birthtimeNs)) return undefined;
+  return { dev, ino, birthtimeNs };
+}
+
+function getFileIdentity(fileStat: BigIntStats) {
+  // Hard links and filesystems without usable birth/inode metadata cannot prove a move.
+  if (fileStat.nlink !== 1n) return undefined;
+  return normalizeFileIdentity({
+    dev: String(fileStat.dev), ino: String(fileStat.ino), birthtimeNs: String(fileStat.birthtimeNs),
+  });
+}
+
+function identityKey(identity?: FileIdentity) {
+  return identity ? `${identity.dev}:${identity.ino}:${identity.birthtimeNs}` : null;
+}
+
+class UnstableVaultScanError extends Error {}
+
+function sameFileState(before: BigIntStats, after: BigIntStats) {
+  return before.dev === after.dev && before.ino === after.ino
+    && before.birthtimeNs === after.birthtimeNs && before.size === after.size
+    && before.mtimeNs === after.mtimeNs && before.ctimeNs === after.ctimeNs
+    && before.nlink === after.nlink && after.isFile() && !after.isSymbolicLink();
+}
+
+async function readScannedFile(vaultRoot: string, entry: ScanEntry) {
+  await assertCanonicalInsideVault(vaultRoot, entry.absolutePath);
+  const before = await lstat(entry.absolutePath, { bigint: true });
+  if (!before.isFile() || before.isSymbolicLink()) throw new UnstableVaultScanError('Local vault changed during scanning.');
+  if (before.size > BigInt(MAX_MARKDOWN_BYTES)) throw new Error(`Markdown file exceeds 10 MiB: ${entry.relativePath}`);
+  const content = await readFile(entry.absolutePath, 'utf8');
+  const after = await lstat(entry.absolutePath, { bigint: true });
+  if (!sameFileState(before, after)) throw new UnstableVaultScanError('Local vault changed during scanning.');
+  return { entry, fileStat: after, contentHash: hashContent(content), fileIdentity: getFileIdentity(after) };
 }
 
 function toVaultRelativePath(vaultRoot: string, absolutePath: string) {
@@ -188,8 +231,12 @@ async function readManifest(vaultRoot: string): Promise<VaultManifest> {
           && typeof entry === 'object'
           && typeof entry.id === 'string'
           && entry.id.length > 0
-        )),
-      ) as VaultManifest['notes'],
+        )).map(([path, entry]) => [path, {
+          id: entry.id,
+          ...(typeof entry.contentHash === 'string' ? { contentHash: entry.contentHash } : {}),
+          ...(normalizeFileIdentity(entry.fileIdentity) ? { fileIdentity: normalizeFileIdentity(entry.fileIdentity) } : {}),
+        }]),
+      ),
     };
   } catch (error) {
     if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
@@ -276,17 +323,18 @@ async function scanFolders(vaultRoot: string, current = vaultRoot): Promise<Loca
   return folders.sort((left, right) => left.relativePath.localeCompare(right.relativePath, undefined, { sensitivity: 'base' }));
 }
 
-async function createNoteSummary(
+function createNoteSummary(
   manifest: VaultManifest,
   entry: ScanEntry,
-  content: string,
-): Promise<LocalNoteSummary> {
-  const fileStat = await stat(entry.absolutePath);
-  const contentHash = hashContent(content);
+  contentHash: string,
+  fileStat: BigIntStats,
+): LocalNoteSummary {
   const manifestEntry = manifest.notes[entry.relativePath] ?? { id: randomUUID() };
+  const fileIdentity = getFileIdentity(fileStat);
   manifest.notes[entry.relativePath] = {
     id: manifestEntry.id,
     contentHash,
+    ...(fileIdentity ? { fileIdentity } : {}),
   };
 
   return {
@@ -294,11 +342,11 @@ async function createNoteSummary(
     title: getTitleFromRelativePath(entry.relativePath),
     relativePath: entry.relativePath,
     parentPath: dirname(entry.relativePath) === '.' ? null : dirname(entry.relativePath).split(sep).join('/'),
-    createdAtMillis: fileStat.birthtimeMs,
-    updatedAtMillis: fileStat.mtimeMs,
+    createdAtMillis: Number(fileStat.birthtimeNs) / 1e6,
+    updatedAtMillis: Number(fileStat.mtimeNs) / 1e6,
     revision: {
       contentHash,
-      mtimeMs: fileStat.mtimeMs,
+      mtimeMs: Number(fileStat.mtimeNs) / 1e6,
     },
   };
 }
@@ -361,26 +409,51 @@ async function requireActiveLocalVaultPath() {
   return realpath(vaultPath);
 }
 
-async function scanLocalVaultUnlocked(vaultRoot: string): Promise<LocalVaultSnapshot> {
+async function scanLocalVaultOnce(vaultRoot: string): Promise<LocalVaultSnapshot> {
   const manifest = await readManifest(vaultRoot);
   const files = await scanMarkdownFiles(vaultRoot);
-  const livePaths = new Set(files.map((file) => file.relativePath));
-
-  for (const relativePath of Object.keys(manifest.notes)) {
-    if (!livePaths.has(relativePath)) {
-      delete manifest.notes[relativePath];
+  const loaded = await Promise.all(files.map((entry) => readScannedFile(vaultRoot, entry)));
+  const oldByIdentity = new Map<string, [string, ManifestNote][]>();
+  const newByIdentity = new Map<string, typeof loaded>();
+  for (const item of Object.entries(manifest.notes)) {
+    const key = identityKey(item[1].fileIdentity);
+    if (key) oldByIdentity.set(key, [...(oldByIdentity.get(key) ?? []), item]);
+  }
+  for (const item of loaded) {
+    const key = identityKey(item.fileIdentity);
+    if (key) newByIdentity.set(key, [...(newByIdentity.get(key) ?? []), item]);
+  }
+  const moves = new Map<string, ManifestNote>();
+  const movedFromPaths = new Set<string>();
+  for (const item of loaded) {
+    if (manifest.notes[item.entry.relativePath]) continue;
+    const key = identityKey(item.fileIdentity);
+    const candidates = key ? oldByIdentity.get(key) : undefined;
+    const previous = candidates?.length === 1 ? candidates[0] : undefined;
+    if (key && previous && newByIdentity.get(key)?.length === 1
+      && previous[1].contentHash === item.contentHash) {
+      moves.set(item.entry.relativePath, previous[1]);
+      movedFromPaths.add(previous[0]);
     }
   }
-
-  const notes = await Promise.all(files.map(async (entry) => {
-    if ((await stat(entry.absolutePath)).size > MAX_MARKDOWN_BYTES) {
-      throw new Error(`Markdown file exceeds 10 MiB: ${entry.relativePath}`);
-    }
-    return createNoteSummary(manifest, entry, await readFile(entry.absolutePath, 'utf8'));
-  }));
+  // Reserve verified moves before path fallback: the old path may already contain a new file.
+  const nextManifest: VaultManifest = { ...manifest, notes: {} };
+  for (const item of loaded) {
+    const path = item.entry.relativePath;
+    const existing = moves.get(path) ?? (movedFromPaths.has(path) ? undefined : manifest.notes[path]);
+    if (existing) nextManifest.notes[item.entry.relativePath] = existing;
+  }
+  const notes = loaded.map(({ entry, contentHash, fileStat }) => (
+    createNoteSummary(nextManifest, entry, contentHash, fileStat)
+  ));
   const folders = await scanFolders(vaultRoot);
-
-  await writeManifest(vaultRoot, manifest);
+  // Validate again before publishing so a file moved after its read cannot receive an old ID.
+  await Promise.all(loaded.map(async ({ entry, fileStat }) => {
+    if (!sameFileState(fileStat, await lstat(entry.absolutePath, { bigint: true }))) {
+      throw new UnstableVaultScanError('Local vault changed during scanning.');
+    }
+  }));
+  await writeManifest(vaultRoot, nextManifest);
 
   return {
     vaultId: manifest.vaultId,
@@ -392,6 +465,17 @@ async function scanLocalVaultUnlocked(vaultRoot: string): Promise<LocalVaultSnap
     )),
     folders,
   };
+}
+
+async function scanLocalVaultUnlocked(vaultRoot: string): Promise<LocalVaultSnapshot> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await scanLocalVaultOnce(vaultRoot);
+    } catch (error) {
+      const missing = error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT';
+      if (attempt !== 0 || (!missing && !(error instanceof UnstableVaultScanError))) throw error;
+    }
+  }
 }
 
 export async function scanLocalVault(vaultRoot: string): Promise<LocalVaultSnapshot> {
@@ -427,7 +511,7 @@ export async function getActiveLocalVaultSnapshot() {
   return vaultRoot ? scanLocalVault(vaultRoot) : null;
 }
 
-async function findNoteById(vaultRoot: string, noteId: string) {
+async function findNoteByIdOnce(vaultRoot: string, noteId: string) {
   const manifest = await readManifest(vaultRoot);
   const match = Object.entries(manifest.notes).find(([, entry]) => entry.id === noteId);
   if (!match) {
@@ -437,7 +521,17 @@ async function findNoteById(vaultRoot: string, noteId: string) {
   const absolutePath = resolveInsideVault(vaultRoot, relativePath);
   await assertCanonicalInsideVault(vaultRoot, absolutePath);
   const content = await readFile(absolutePath, 'utf8');
-  return createNoteSummary(manifest, { absolutePath, relativePath }, content);
+  return createNoteSummary(manifest, { absolutePath, relativePath }, hashContent(content), await stat(absolutePath, { bigint: true }));
+}
+
+async function findNoteById(vaultRoot: string, noteId: string) {
+  try {
+    return await findNoteByIdOnce(vaultRoot, noteId);
+  } catch (error) {
+    if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')) throw error;
+    await scanLocalVaultUnlocked(vaultRoot);
+    return findNoteByIdOnce(vaultRoot, noteId);
+  }
 }
 
 async function remapManifestFolder(vaultRoot: string, fromPath: string, toPath: string) {

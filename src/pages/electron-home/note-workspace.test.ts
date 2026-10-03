@@ -25,6 +25,7 @@ import {
   reconcileSavedNoteTab,
   selectNoteTab,
   splitActiveTabRight,
+  syncNoteTabSummary,
   toPersistedNoteWorkspaceLayout,
   updateNoteTabDraft,
 } from './note-workspace';
@@ -56,6 +57,40 @@ function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id' | 'title'>): 
 }
 
 describe('note workspace tabs', () => {
+  it('syncs all matching panes after a local rename and rebases only unedited draft titles', () => {
+    const original = { ...note({ id: 'local-note', title: 'Original', shortId: 'Original.md', teamPath: '__hackdesk_local_vault__' }), localRevision: { contentHash: 'base', mtimeMs: 1 } };
+    const state = splitActiveTabRight(openNoteTab(createEmptyNoteWorkspaceState('local:A'), original));
+    const [left, right] = Object.keys(state.tabs);
+    const draft = { title: 'Original', content: 'My draft', baseTitle: 'Original', baseContent: 'Body', baseRevision: original.localRevision };
+    const edited = updateNoteTabDraft(updateNoteTabDraft(state, left, draft), right, { ...draft, title: 'My title' });
+    const moved = syncNoteTabSummary(edited, { ...original, title: 'Renamed', shortId: 'Folder/Renamed.md' });
+    expect(Object.values(moved.tabs)).toHaveLength(2);
+    expect(Object.values(moved.tabs)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ tabId: left, title: 'Renamed', shortId: 'Folder/Renamed.md' }),
+      expect.objectContaining({ tabId: right, title: 'Renamed', shortId: 'Folder/Renamed.md' }),
+    ]));
+    expect(moved.drafts[left]).toEqual({ ...draft, title: 'Renamed', baseTitle: 'Renamed' });
+    expect(moved.drafts[right]).toEqual({ ...draft, title: 'My title', baseTitle: 'Renamed' });
+    expect(moved.panes).toEqual(edited.panes);
+    expect(moved.activePaneId).toBe(edited.activePaneId);
+    expect(moved.backStack).toEqual(edited.backStack);
+    expect(moved.forwardStack).toEqual(edited.forwardStack);
+    const restored = hydrateNoteWorkspaceLayout('local:A', toPersistedNoteWorkspaceLayout(moved));
+    expect(restored.drafts).toEqual(moved.drafts);
+    expect(restored.panes).toEqual(moved.panes);
+  });
+
+  it('does not guess a missing draft baseline or rebase remote drafts during summary updates', () => {
+    for (const teamPath of [null, '__hackdesk_local_vault__']) {
+      const original = note({ id: 'note', title: 'Original', shortId: 'Original.md', teamPath });
+      const opened = openNoteTab(createEmptyNoteWorkspaceState('scope'), original);
+      const tabId = Object.keys(opened.tabs)[0];
+      const draft = { title: 'Unknown title', content: 'Body' };
+      const edited = updateNoteTabDraft(opened, tabId, draft);
+      expect(syncNoteTabSummary(edited, { ...original, title: 'New', shortId: 'New.md' }).drafts[tabId]).toEqual(draft);
+    }
+  });
+
   it('opens a note tab and focuses the existing tab for the same note identity', () => {
     const first = note({ id: 'note-1', title: 'Alpha' });
     const state = openNoteTab(createEmptyNoteWorkspaceState('personal'), first);

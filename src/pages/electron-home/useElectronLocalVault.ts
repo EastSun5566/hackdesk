@@ -1,9 +1,9 @@
-import { useMemo } from 'react';
-import { useQueries } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef } from 'react';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 
 import type { HackDeskElectronAPI } from '@/lib/electron-api';
 import type { LocalVaultSnapshot } from '@/lib/local-vault';
-import { getLocalVaultDocumentQueryKey } from './local-vault-query';
+import { getLocalVaultDocumentQueryKey, invalidateMovedLocalVaultDocuments } from './local-vault-query';
 export { getLocalVaultDocumentQueryKey, getLocalVaultSnapshotQueryKey, cacheLocalVaultSnapshot } from './local-vault-query';
 import { getNoteIdentityKey, type NoteIdentity } from './note-workspace';
 import { adaptLocalVaultSnapshot, localDocumentRepositoryValue, LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
@@ -25,6 +25,13 @@ export function useElectronLocalVault({
   enabled: boolean;
   selectedNote: NoteIdentity | null;
 }) {
+  const queryClient = useQueryClient();
+  const previousSnapshot = useRef<LocalVaultSnapshot | null>(null);
+  useEffect(() => {
+    const previous = previousSnapshot.current;
+    previousSnapshot.current = snapshot;
+    if (snapshot && enabled) void invalidateMovedLocalVaultDocuments(queryClient, snapshot, previous);
+  }, [snapshot, enabled, queryClient]);
   const { folders, notes } = useMemo(() => adaptLocalVaultSnapshot(snapshot), [snapshot]);
   const selectedDocumentNotes = useMemo(() => {
     const input = [...(activeDocumentNotes ?? [])];

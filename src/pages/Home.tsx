@@ -73,7 +73,7 @@ export function Home() {
   const vaultSession = useLocalVaultSession(rawApi, settingsQuery.data, beforeVaultChange);
   const api = vaultSession.api;
   const initialWorkspaceScope = useMemo(() => getInitialWorkspaceScope(), []);
-  const { recentNotes, removeRecentNoteEntry, trackRecentNote } = useElectronHomeRecentNotes(window.localStorage, vaultSession.vaultId);
+  const { recentNotes, removeRecentNoteEntry, trackRecentNote, syncLocalRecentNotes } = useElectronHomeRecentNotes(window.localStorage, vaultSession.vaultId);
   const selectionRefs = useElectronHomeSelectionRefs();
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const initialWorkspaceResolvedRef = useRef(false);
@@ -209,6 +209,7 @@ export function Home() {
   const currentFolders = scope.type === 'local' ? localVault.currentFolders : remoteFolders;
   const currentFolderOrder = scope.type === 'local' ? undefined : remoteFolderOrder;
   const documentsByKey = scope.type === 'local' ? localVault.documentsByKey : remoteDocumentsByKey;
+  useEffect(() => { syncLocalRecentNotes(localVault.currentNotes); }, [localVault.currentNotes, syncLocalRecentNotes]);
   const documentQueries = scope.type === 'local' ? localVault.documentQueries : remoteDocumentQueries;
   const queries = remoteQueries;
   const isWorkspaceFetching = scope.type === 'local'

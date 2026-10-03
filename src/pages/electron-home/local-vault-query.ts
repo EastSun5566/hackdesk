@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { ElectronSafeSettings, HackDeskElectronAPI } from '@/lib/electron-api';
-import type { LocalVaultSnapshot } from '@/lib/local-vault';
+import type { LocalDocument, LocalVaultSnapshot } from '@/lib/local-vault';
 
 export function getLocalVaultSnapshotQueryKey(path: string | null = null) {
   return ['electron', 'local-vault', 'snapshot', path] as const;
@@ -13,6 +13,23 @@ export function getLocalVaultDocumentQueryKey(noteId: string, vaultId?: string) 
 export function cacheLocalVaultSnapshot(queryClient: QueryClient, snapshot: LocalVaultSnapshot) {
   const settings = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
   queryClient.setQueryData(getLocalVaultSnapshotQueryKey(settings?.localVault.path ?? null), snapshot);
+}
+
+export async function invalidateMovedLocalVaultDocuments(
+  queryClient: QueryClient, snapshot: LocalVaultSnapshot, previous?: LocalVaultSnapshot | null,
+) {
+  const notes = new Map(snapshot.notes.map((note) => [note.id, note]));
+  const previousPaths = new Map((previous?.vaultId === snapshot.vaultId ? previous.notes : [])
+    .map((note) => [note.id, note.relativePath]));
+  const queries = queryClient.getQueryCache().findAll({ queryKey: ['electron', 'local-vault', 'note', snapshot.vaultId] });
+  await Promise.all(queries.map(async (query) => {
+    const id = query.queryKey[4];
+    const note = typeof id === 'string' ? notes.get(id) : undefined;
+    const oldPath = (query.state.data as LocalDocument | undefined)?.relativePath ?? previousPaths.get(String(id));
+    if (!note || !oldPath || note.relativePath === oldPath) return;
+    await queryClient.cancelQueries({ queryKey: query.queryKey, exact: true });
+    await queryClient.invalidateQueries({ queryKey: query.queryKey, exact: true });
+  }));
 }
 
 export type VaultAccess = { generation: number; vaultId: string | null; changing: boolean };
