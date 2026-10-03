@@ -45,7 +45,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm exec vitest run electron/src/main/local-vault-service.test.ts
+      - run: pnpm exec vitest run electron/src/main/local-vault-service.test.ts electron/src/main/settings.test.ts electron/src/main/renderer-url.test.ts
       - run: pnpm run package:check
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false

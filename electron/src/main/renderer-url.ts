@@ -1,9 +1,11 @@
 import { isAbsolute, join, relative, resolve } from 'node:path';
+import { app } from 'electron';
 
 export const RENDERER_PROTOCOL = 'hackdesk';
 export const RENDERER_HOST = 'renderer';
 
 export function getDevServerRendererUrl() {
+  if (app.isPackaged) return null;
   const devServerUrl = process.env.HACKDESK_ELECTRON_DEV_SERVER_URL;
 
   return devServerUrl ? `${devServerUrl.replace(/\/$/, '')}/#/electron` : null;

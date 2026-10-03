@@ -567,6 +567,22 @@ describe('SettingsDialog', () => {
     expect(screen.queryByRole('button', { name: 'Test Token' })).not.toBeInTheDocument();
   });
 
+  it('shows a credential storage error while retaining the option to disconnect', () => {
+    renderSettingsDialog({
+      settings: {
+        title: 'HackDesk', appearance: defaultSettings.appearance, editor: defaultSettings.editor,
+        workspaceNavigation: defaultSettings.workspaceNavigation,
+        hasHackmdApiToken: true, hackmdTokenStorageError: 'Unlock your system keyring or reconnect.',
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: true, localVault: { path: '/tmp/vault' }, onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: false,
+      },
+    });
+    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Unlock your system keyring or reconnect.');
+    expect(screen.getByRole('button', { name: 'Disconnect HackMD' })).toBeEnabled();
+  });
+
   it('confirms before disconnecting HackMD and restores focus on cancel', async () => {
     const { onDisconnectHackmd } = renderSettingsDialog({
       settings: {

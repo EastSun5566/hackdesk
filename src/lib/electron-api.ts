@@ -25,6 +25,7 @@ export type RuntimeEnvironment = 'electron' | 'web';
 
 export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'workspaceNavigation'> & {
   hasHackmdApiToken: boolean;
+  hackmdTokenStorageError?: string | null;
   hasAppearanceSettings?: boolean;
   hackmdCliConfig: HackmdCliConfigStatus;
   hasLocalVault: boolean;

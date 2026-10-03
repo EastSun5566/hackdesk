@@ -12,7 +12,7 @@ import {
   stat,
   writeFile,
 } from 'node:fs/promises';
-import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import type {
   LocalDocument,
@@ -81,7 +81,10 @@ function enqueueVaultOperation<T>(vaultRoot: string, task: () => Promise<T>): Pr
   const previous = vaultOperationQueues.get(vaultRoot) ?? Promise.resolve();
   const next = previous
     .catch(() => undefined)
-    .then(task)
+    .then(async () => {
+      await assertCanonicalInsideVault(vaultRoot, getManifestPath(vaultRoot));
+      return task();
+    })
     .finally(() => {
       if (vaultOperationQueues.get(vaultRoot) === next) {
         vaultOperationQueues.delete(vaultRoot);
@@ -215,6 +218,7 @@ function getManifestPath(vaultRoot: string) {
 }
 
 async function readManifest(vaultRoot: string): Promise<VaultManifest> {
+  await assertCanonicalInsideVault(vaultRoot, getManifestPath(vaultRoot));
   try {
     const content = await readFile(getManifestPath(vaultRoot), 'utf8');
     const parsed = JSON.parse(content) as Partial<VaultManifest>;
@@ -247,6 +251,7 @@ async function readManifest(vaultRoot: string): Promise<VaultManifest> {
 }
 
 async function writeManifest(vaultRoot: string, manifest: VaultManifest) {
+  await assertCanonicalInsideVault(vaultRoot, getManifestPath(vaultRoot));
   await mkdir(join(vaultRoot, MANIFEST_DIR), { recursive: true });
   const path = getManifestPath(vaultRoot);
   const content = `${JSON.stringify(manifest, null, 2)}\n`;
@@ -368,34 +373,31 @@ async function assertVaultRootExists(vaultRoot: string) {
 
 async function assertCanonicalInsideVault(vaultRoot: string, targetPath: string) {
   const canonicalRoot = await realpath(vaultRoot);
-  let existingPath = targetPath;
-  while (true) {
+  const relativeTarget = relative(vaultRoot, targetPath);
+  if (isAbsolute(relativeTarget) || relativeTarget === '..' || relativeTarget.startsWith(`..${sep}`)) {
+    throw new Error('Path is outside the canonical local vault.');
+  }
+  let cursor = vaultRoot;
+  let existingPath = vaultRoot;
+  // Inspect the original path components before realpath can hide a symlink alias.
+  for (const segment of relativeTarget.split(sep).filter(Boolean)) {
+    cursor = join(cursor, segment);
     try {
-      const item = await lstat(existingPath);
+      const item = await lstat(cursor);
       if (item.isSymbolicLink()) {
         throw new Error('Local vault paths cannot traverse symbolic links.');
       }
-      break;
+      existingPath = cursor;
     } catch (error) {
       if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')) {
         throw error;
       }
-      const parent = dirname(existingPath);
-      if (parent === existingPath) throw error;
-      existingPath = parent;
+      break;
     }
   }
   const canonicalParent = await realpath(existingPath);
   if (canonicalParent !== canonicalRoot && !canonicalParent.startsWith(`${canonicalRoot}${sep}`)) {
     throw new Error('Path is outside the canonical local vault.');
-  }
-  const relativeExisting = relative(canonicalRoot, canonicalParent);
-  let cursor = canonicalRoot;
-  for (const segment of relativeExisting.split(sep).filter(Boolean)) {
-    cursor = join(cursor, segment);
-    if ((await lstat(cursor)).isSymbolicLink()) {
-      throw new Error('Local vault paths cannot traverse symbolic links.');
-    }
   }
 }
 
@@ -569,6 +571,7 @@ export async function readLocalNote(noteId: string): Promise<LocalDocument> {
 
 async function createUniqueMarkdownPath(vaultRoot: string, parentPath: string | null, title: string) {
   const directory = resolveInsideVault(vaultRoot, parentPath);
+  await assertCanonicalInsideVault(vaultRoot, directory);
   await mkdir(directory, { recursive: true });
   const baseName = sanitizeFileName(title).replace(new RegExp(`${MARKDOWN_EXTENSION}$`, 'i'), '');
 
@@ -580,6 +583,7 @@ async function createUniqueMarkdownPath(vaultRoot: string, parentPath: string | 
       await lstat(absolutePath);
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+        await assertCanonicalInsideVault(vaultRoot, absolutePath);
         return absolutePath;
       }
 
@@ -593,6 +597,7 @@ async function createUniqueMarkdownPath(vaultRoot: string, parentPath: string | 
 async function createUniqueAttachmentPath(vaultRoot: string, parentPath: string | null, fileName: string) {
   const noteDirectory = resolveInsideVault(vaultRoot, parentPath);
   const attachmentsDirectory = join(noteDirectory, ATTACHMENTS_DIR);
+  await assertCanonicalInsideVault(vaultRoot, attachmentsDirectory);
   await mkdir(attachmentsDirectory, { recursive: true });
 
   const { extension, stem } = splitFileName(fileName);
@@ -604,6 +609,7 @@ async function createUniqueAttachmentPath(vaultRoot: string, parentPath: string 
       await lstat(absolutePath);
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+        await assertCanonicalInsideVault(vaultRoot, absolutePath);
         return absolutePath;
       }
 
@@ -622,7 +628,7 @@ export async function createLocalNote(input: LocalVaultCreateNoteInput): Promise
     await assertCanonicalInsideVault(vaultRoot, absolutePath);
     const content = input.content ?? '';
     if (Buffer.byteLength(content, 'utf8') > MAX_MARKDOWN_BYTES) throw new Error('Markdown files cannot exceed 10 MiB.');
-    await writeFile(absolutePath, content, 'utf8');
+    await writeFile(absolutePath, content, { encoding: 'utf8', flag: 'wx' });
     const relativePath = toVaultRelativePath(vaultRoot, absolutePath);
     const manifest = await readManifest(vaultRoot);
     const id = randomUUID();
@@ -642,7 +648,8 @@ export async function importLocalVaultAttachment(
     if (input.bytes.byteLength > MAX_ATTACHMENT_BYTES) throw new Error('Attachments cannot exceed 25 MiB.');
     const note = await findNoteById(vaultRoot, input.noteId);
     const attachmentPath = await createUniqueAttachmentPath(vaultRoot, note.parentPath, input.fileName);
-    await writeFile(attachmentPath, new Uint8Array(input.bytes));
+    await assertCanonicalInsideVault(vaultRoot, attachmentPath);
+    await writeFile(attachmentPath, new Uint8Array(input.bytes), { flag: 'wx' });
 
     const relativePath = toVaultRelativePath(vaultRoot, attachmentPath);
     const noteFolderPath = note.parentPath ? `${note.parentPath}/` : '';
@@ -663,8 +670,10 @@ export async function importLocalVaultAttachment(
 
 async function atomicWriteFile(filePath: string, content: string) {
   const temporaryPath = join(dirname(filePath), `.${basename(filePath)}.hackdesk-tmp-${randomUUID()}`);
+  let created = false;
   try {
-    const handle = await open(temporaryPath, 'w');
+    const handle = await open(temporaryPath, 'wx');
+    created = true;
     try {
       await handle.writeFile(content, 'utf8');
       await handle.datasync();
@@ -674,7 +683,7 @@ async function atomicWriteFile(filePath: string, content: string) {
 
     await rename(temporaryPath, filePath);
   } catch (error) {
-    await rm(temporaryPath, { force: true }).catch(() => undefined);
+    if (created) await rm(temporaryPath, { force: true }).catch(() => undefined);
     throw error;
   }
 }
@@ -744,8 +753,6 @@ export async function moveLocalNote(input: LocalVaultMoveNoteInput): Promise<Loc
     }
 
     const source = resolveInsideVault(vaultRoot, note.relativePath);
-    const targetDirectory = resolveInsideVault(vaultRoot, input.parentPath);
-    await mkdir(targetDirectory, { recursive: true });
     const target = await createUniqueMarkdownPath(vaultRoot, normalizeRelativePath(input.parentPath), note.title);
     await rename(source, target);
     await moveManifestNotePath(vaultRoot, note.relativePath, toVaultRelativePath(vaultRoot, target));
@@ -779,6 +786,7 @@ export async function createLocalFolder(input: LocalVaultCreateFolderInput): Pro
     const parentPath = normalizeRelativePath(input.parentPath);
     const folderName = sanitizeFolderName(input.name);
     const folderPath = resolveInsideVault(vaultRoot, parentPath ? `${parentPath}/${folderName}` : folderName);
+    await assertCanonicalInsideVault(vaultRoot, folderPath);
     await mkdir(folderPath, { recursive: false });
     const relativePath = toVaultRelativePath(vaultRoot, folderPath);
     const snapshot = await scanLocalVaultUnlocked(vaultRoot);
@@ -810,6 +818,7 @@ export async function moveLocalFolder(input: LocalVaultMoveFolderInput): Promise
     await assertCanonicalInsideVault(vaultRoot, targetDirectory);
     await mkdir(targetDirectory, { recursive: true });
     const target = join(targetDirectory, basename(source));
+    await assertCanonicalInsideVault(vaultRoot, target);
     await rename(source, target);
     await remapManifestFolder(vaultRoot, normalizeRelativePath(input.relativePath)!, toVaultRelativePath(vaultRoot, target));
     return scanLocalVaultUnlocked(vaultRoot);
@@ -819,7 +828,9 @@ export async function moveLocalFolder(input: LocalVaultMoveFolderInput): Promise
 export async function trashLocalFolder(input: LocalVaultTrashFolderInput, trashItem: TrashItem): Promise<LocalVaultSnapshot> {
   const vaultRoot = await requireActiveLocalVaultPath();
   return enqueueVaultOperation(vaultRoot, async () => {
-    await trashItem(resolveInsideVault(vaultRoot, input.relativePath));
+    const folderPath = resolveInsideVault(vaultRoot, input.relativePath);
+    await assertCanonicalInsideVault(vaultRoot, folderPath);
+    await trashItem(folderPath);
     return scanLocalVaultUnlocked(vaultRoot);
   });
 }

@@ -1,4 +1,4 @@
-import { link, mkdir, mkdtemp, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import { link, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -29,6 +29,8 @@ import {
   createLocalFolder,
   createLocalNote,
   importLocalVaultAttachment,
+  moveLocalNote,
+  moveLocalFolder,
   readLocalNote,
   revealLocalVaultFolder,
   revealLocalVaultNote,
@@ -37,6 +39,7 @@ import {
   renameLocalNote,
   scanLocalVault,
   trashLocalNote,
+  trashLocalFolder,
   watchLocalVault,
   writeLocalNote,
 } from './local-vault-service';
@@ -448,6 +451,54 @@ describe('LocalVaultService', () => {
     } finally {
       await rm(outside, { recursive: true, force: true });
     }
+  });
+
+  it('rejects linked destinations before creating directories or moving notes', async () => {
+    const outside = await mkdtemp(join(tmpdir(), 'hackdesk-outside-'));
+    try {
+      const { document } = await createLocalNote({ title: 'Original', content: 'Body' });
+      const manifest = await readFile(join(vaultPath, '.hackdesk', 'manifest.json'), 'utf8');
+      await symlink(outside, join(vaultPath, 'escape'), 'junction');
+      await expect(createLocalNote({ title: 'Escape', parentPath: 'escape/new', content: 'Body' })).rejects.toThrow();
+      await expect(moveLocalNote({ noteId: document.id, parentPath: 'escape/new' })).rejects.toThrow();
+      await expect(createLocalFolder({ parentPath: 'escape', name: 'New' })).rejects.toThrow();
+      expect(await readdir(outside)).toEqual([]);
+      expect(await readFile(join(vaultPath, 'Original.md'), 'utf8')).toBe('Body');
+      expect(await readFile(join(vaultPath, '.hackdesk', 'manifest.json'), 'utf8')).toBe(manifest);
+    } finally { await rm(outside, { recursive: true, force: true }); }
+  });
+
+  it('rejects a linked attachment directory without writing outside the vault', async () => {
+    const outside = await mkdtemp(join(tmpdir(), 'hackdesk-outside-'));
+    try {
+      const { document } = await createLocalNote({ title: 'Original', content: 'Body' });
+      await symlink(outside, join(vaultPath, 'attachments'), 'junction');
+      await expect(importLocalVaultAttachment({ noteId: document.id, fileName: 'image.png', bytes: new Uint8Array([1, 2, 3]).buffer }))
+        .rejects.toThrow();
+      expect(await readdir(outside)).toEqual([]);
+    } finally { await rm(outside, { recursive: true, force: true }); }
+  });
+
+  it('rejects linked manifest storage without changing external metadata', async () => {
+    const outside = await mkdtemp(join(tmpdir(), 'hackdesk-outside-'));
+    try {
+      await symlink(outside, join(vaultPath, '.hackdesk'), 'junction');
+      await writeFile(join(vaultPath, 'Original.md'), 'Body');
+      await expect(scanLocalVault(vaultPath)).rejects.toThrow();
+      expect(await readdir(outside)).toEqual([]);
+    } finally { await rm(outside, { recursive: true, force: true }); }
+  });
+
+  it('rejects symlink aliases inside the vault and linked folder deletion', async () => {
+    await mkdir(join(vaultPath, 'Real'));
+    await writeFile(join(vaultPath, 'Real', 'Original.md'), 'Body');
+    await symlink(join(vaultPath, 'Real'), join(vaultPath, 'Alias'), 'junction');
+    const trash = vi.fn();
+    await expect(createLocalFolder({ parentPath: 'Alias', name: 'New' })).rejects.toThrow('symbolic links');
+    await expect(trashLocalFolder({ relativePath: 'Alias' }, trash)).rejects.toThrow('symbolic links');
+    expect(trash).not.toHaveBeenCalled();
+    await expect(moveLocalFolder({ relativePath: 'Real', parentPath: 'Alias/nested' })).rejects.toThrow('symbolic links');
+    expect(await readdir(join(vaultPath, 'Real'))).toEqual(['Original.md']);
   });
 
   it('does not recreate a missing configured vault path', async () => {

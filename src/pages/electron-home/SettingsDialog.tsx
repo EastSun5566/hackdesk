@@ -290,6 +290,7 @@ function SettingsDialogContent({
                 <TabsContent value="hackmd" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <HackmdSettingsPanel
                     hasHackmdApiToken={Boolean(settings?.hasHackmdApiToken)}
+                    tokenStorageError={settings?.hackmdTokenStorageError}
                     isBusy={isSaving}
                     token={token}
                     tokenVisible={tokenVisible}
