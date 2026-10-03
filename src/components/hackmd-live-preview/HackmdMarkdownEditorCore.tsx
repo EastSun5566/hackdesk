@@ -34,7 +34,7 @@ import {
   scheduleInitialRevealClear,
 } from './initial-reveal';
 import { createHackmdPreviewTheme } from './hackmd-preview-theme';
-import { formatMarkdownImage } from './markdown-image';
+import { createImageUploadPlaceholder, IMAGE_UPLOAD_PROGRESS_TEXT } from './markdown-image';
 import { createHackdeskSearchPanel } from './hackmd-search-panel';
 import { hackmdLinkOpenAffordance } from './preview-links';
 import { hackmdRichPreviewNavigation } from './rich-preview-navigation';
@@ -218,6 +218,23 @@ function clearInitialRevealWithRuntime(runtime: EditorRuntime): void {
   }
 }
 
+/**
+ * Replaces only the changed span, so the cursor stays put when the content
+ * changes from outside the editor, e.g. a finished image upload.
+ */
+function getChangedSpan(current: string, next: string) {
+  const maxPrefix = Math.min(current.length, next.length);
+  let from = 0;
+  while (from < maxPrefix && current[from] === next[from]) from += 1;
+  let to = current.length;
+  let nextEnd = next.length;
+  while (to > from && nextEnd > from && current[to - 1] === next[nextEnd - 1]) {
+    to -= 1;
+    nextEnd -= 1;
+  }
+  return { from, to, insert: next.slice(from, nextEnd) };
+}
+
 function createHackmdEditorView({
   parent,
   runtime,
@@ -237,28 +254,33 @@ function createHackmdEditorView({
         runtime.themeCompartment.of(createHackmdPreviewTheme(runtime.resolvedMode)),
         inlineAttachmentExtension({
           allowedTypes: ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'],
-          errorText: '![Failed to insert image]()',
           onFileReceived: (file) => Boolean(onAttachImageRef.current && file.type.startsWith('image/')),
-          progressText: '![Inserting image...]()',
-          responseUrlKey: 'url',
+          progressText: IMAGE_UPLOAD_PROGRESS_TEXT,
+          // The owner replaces the placeholder in the originating note, so this
+          // view must not rewrite its document after it may have been destroyed.
+          onFileUploadSucceed: () => false,
+          onFileUploadError: () => false,
           uploadHandler: async ({ file }) => {
             const handler = onAttachImageRef.current;
-            if (!handler) {
+            const view = runtime.view;
+            if (!handler || !view) {
               throw new Error('Image attachments are unavailable.');
             }
 
-            const result = await handler(file);
-            return {
-              alt: file.name,
-              url: result.link,
-            };
-          },
-          urlText: (url, response) => {
-            const alt = typeof response === 'object' && response && 'alt' in response
-              ? String((response as { alt?: unknown }).alt ?? 'image')
-              : 'image';
+            // Runs synchronously right after the progress text is inserted at the cursor.
+            const head = view.state.selection.main.head;
+            const from = head - IMAGE_UPLOAD_PROGRESS_TEXT.length;
+            if (from < 0 || view.state.sliceDoc(from, head) !== IMAGE_UPLOAD_PROGRESS_TEXT) {
+              throw new Error('Could not place the image upload.');
+            }
 
-            return formatMarkdownImage(alt, url);
+            const placeholder = createImageUploadPlaceholder();
+            view.dispatch({
+              changes: { from, to: head, insert: placeholder },
+              selection: { anchor: from + placeholder.length },
+            });
+            await handler(file, placeholder);
+            return {};
           },
         }),
         EditorView.updateListener.of((update) => {
@@ -493,9 +515,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
 
       const currentValue = view.state.doc.toString();
       if (value !== currentValue) {
-        view.dispatch({
-          changes: { from: 0, to: currentValue.length, insert: value },
-        });
+        view.dispatch({ changes: getChangedSpan(currentValue, value) });
       }
     }, [runtime, value]);
 

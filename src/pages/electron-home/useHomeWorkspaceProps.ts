@@ -31,6 +31,7 @@ type WorkbenchNavigator = ReturnType<typeof useWorkbenchNavigator>;
 type LocalDocumentRecovery = ReturnType<typeof useLocalDocumentRecovery>;
 
 type WorkspaceActions = {
+  attachImageToTab: ElectronHomeWorkspaceProps['documentWorkspace']['onAttachImage'];
   copyDraftText: ElectronHomeWorkspaceProps['documentWorkspace']['onCopyDraft'];
   exportDraftText: ElectronHomeWorkspaceProps['documentWorkspace']['onExportDraft'];
   retryDocumentLoad: ElectronHomeWorkspaceProps['documentWorkspace']['onRetryLoad'];
@@ -296,7 +297,7 @@ export function useHomeWorkspaceProps({
         intent: 'sharing',
         successMessage: 'Sharing settings updated.',
       }),
-      onUploadImage: (note: DocumentSummary, input) => mutations.uploadNoteImageMutation.mutateAsync({ note, input }),
+      onAttachImage: actions.attachImageToTab,
       onDelete: actions.handleDeleteRequest,
       onTitleChange: documents.handleDocumentTitleChange,
       onContentChange: documents.handleDocumentContentChange,

@@ -47,6 +47,7 @@ import { useWorkbenchAutoSelection } from './electron-home/useWorkbenchAutoSelec
 import { useWorkbenchClosePolicy } from './electron-home/useWorkbenchClosePolicy';
 import { useWorkspaceBackupNotice } from './electron-home/useWorkspaceBackupNotice';
 import { useDraftTextActions } from './electron-home/useDraftTextActions';
+import { useTabImageUploads } from './electron-home/useTabImageUploads';
 import { useWorkbenchDocuments } from './electron-home/useWorkbenchDocuments';
 import { useElectronHomeStatus } from './electron-home/useElectronHomeStatus';
 import { useWorkbenchFinder } from './electron-home/useWorkbenchFinder';
@@ -701,6 +702,14 @@ export function Home() {
 
   const backupNotice = useWorkspaceBackupNotice({ api, workspace: noteWorkspace });
   const { copyDraftText, exportDraftText } = useDraftTextActions(api);
+  const attachImageToTab = useTabImageUploads({
+    scopeKey: noteWorkspace.state.scopeKey,
+    getTabDocument: workbenchDocuments.getTabDocument,
+    getWorkspaceSnapshot: noteWorkspace.getWorkspaceSnapshot,
+    replaceTabDraftText: noteWorkspace.replaceTabDraftText,
+    setTabContent: workbenchDocuments.handleDocumentContentChange,
+    uploadImage: (note, input) => mutations.uploadNoteImageMutation.mutateAsync({ note, input }),
+  });
   const retryDocumentLoad = useCallback((tab: OpenNoteTab) => {
     const identity = getSavedTabNoteIdentity(tab);
     if (!identity) return;
@@ -723,6 +732,7 @@ export function Home() {
   });
   const workspaceProps = useHomeWorkspaceProps({
     actions: {
+      attachImageToTab,
       copyDraftText,
       exportDraftText,
       retryDocumentLoad,

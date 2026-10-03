@@ -209,18 +209,18 @@ describe('MarkdownEditor', () => {
       },
     });
 
-    await waitFor(() => expect(latestOnAttachImage).toHaveBeenCalledWith(file));
+    await waitFor(() => expect(latestOnAttachImage).toHaveBeenCalledWith(file, expect.stringContaining('Uploading image')));
     expect(firstOnChange).not.toHaveBeenCalled();
     expect(firstOnAttachImage).not.toHaveBeenCalled();
     expect(editor.querySelector('.cm-editor')).toBe(codeMirror);
   });
 
-  it('inserts pasted image attachments through the editor attachment handler', async () => {
+  it('inserts a unique placeholder per pasted image and leaves completion to the owner', async () => {
     const ref = createRef<MarkdownEditorHandle>();
-    const onAttachImage = vi.fn(async () => ({ link: 'https://assets.example/pasted.png' }));
+    const onAttachImage = vi.fn(async () => undefined);
     const onChange = vi.fn();
 
-    render(
+    const { rerender } = render(
       <MarkdownEditor
         ref={ref}
         value=""
@@ -230,19 +230,48 @@ describe('MarkdownEditor', () => {
     );
     const editor = await screen.findByTestId('hackmd-markdown-editor');
     const content = editor.querySelector('.cm-content');
-    const file = new File(['image-bytes'], 'pasted.png', { type: 'image/png' });
+    const files = ['first.png', 'second.png'].map((name) => new File(['image-bytes'], name, { type: 'image/png' }));
 
     expect(content).not.toBeNull();
     fireEvent.paste(content as Element, {
       clipboardData: {
-        files: [file],
+        files,
         getData: () => '',
       },
     });
 
-    await waitFor(() => expect(onAttachImage).toHaveBeenCalledWith(file));
-    await waitFor(() => expect(ref.current?.getMarkdown()).toBe('![pasted.png](https://assets.example/pasted.png)'));
-    expect(onChange).toHaveBeenLastCalledWith('![pasted.png](https://assets.example/pasted.png)');
+    await waitFor(() => expect(onAttachImage).toHaveBeenCalledTimes(2));
+    const [first, second] = onAttachImage.mock.calls.map((call) => (call as unknown as [File, string])[1]);
+    expect(first).toMatch(/^!\[Uploading image [0-9a-f]{8}\.\.\.\]\(\)$/);
+    expect(second).not.toBe(first);
+    expect(ref.current?.getMarkdown()).toBe(`${first}${second}`);
+    expect(onChange).toHaveBeenLastCalledWith(`${first}${second}`);
+
+    // The owner replaces one placeholder; the editor applies only that span.
+    act(() => ref.current?.insertText(' typed'));
+    rerender(
+      <MarkdownEditor
+        ref={ref}
+        value={`${formatMarkdownImage('first.png', 'https://assets.example/first.png')}${second} typed`}
+        onAttachImage={onAttachImage}
+        onChange={onChange}
+      />,
+    );
+    expect(ref.current?.getMarkdown()).toBe(`![first.png](https://assets.example/first.png)${second} typed`);
+    act(() => ref.current?.insertText('!'));
+    expect(ref.current?.getMarkdown()).toBe(`![first.png](https://assets.example/first.png)${second} typed!`);
+  });
+
+  it('keeps the cursor when the value changes outside the editor', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const onChange = vi.fn();
+    const { rerender } = render(<MarkdownEditor ref={ref} value="" onChange={onChange} />);
+    await screen.findByTestId('hackmd-markdown-editor');
+    act(() => ref.current?.insertText('Head'));
+    rerender(<MarkdownEditor ref={ref} value="Head ![Uploading image 12345678...]() tail" onChange={onChange} />);
+    rerender(<MarkdownEditor ref={ref} value="Head ![image](https://assets.example/a.png) tail" onChange={onChange} />);
+    act(() => ref.current?.insertText('!'));
+    expect(ref.current?.getMarkdown()).toBe('Head! ![image](https://assets.example/a.png) tail');
   });
 
   it('does not attach non-image pasted files', async () => {

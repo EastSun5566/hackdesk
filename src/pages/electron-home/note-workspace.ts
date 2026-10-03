@@ -815,6 +815,23 @@ export function updateNoteTabDraft(state: NoteWorkspaceState, tabId: string, dra
   };
 }
 
+/**
+ * Replaces one exact placeholder in a tab's draft, keeping everything else the
+ * user typed. Returns the same state when the tab or placeholder is gone.
+ */
+export function replaceNoteTabDraftText(state: NoteWorkspaceState, tabId: string, placeholder: string, replacement: string) {
+  const draft = state.drafts[tabId];
+  const index = draft?.content.indexOf(placeholder) ?? -1;
+  if (!state.tabs[tabId] || !draft || index < 0) {
+    return state;
+  }
+
+  return updateNoteTabDraft(state, tabId, {
+    ...draft,
+    content: draft.content.slice(0, index) + replacement + draft.content.slice(index + placeholder.length),
+  });
+}
+
 export function clearNoteTabDraft(state: NoteWorkspaceState, tabId: string) {
   if (!state.drafts[tabId]) {
     return state;

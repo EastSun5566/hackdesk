@@ -273,7 +273,7 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
       onSave: noop,
       onSaveMetadata: noop,
       onSaveSharing: noop,
-      onUploadImage: vi.fn().mockResolvedValue({ markdown: '![image](url)', url: 'url' }),
+      onAttachImage: vi.fn().mockResolvedValue(undefined),
       onDelete: noop,
       onTitleChange: noop,
       onContentChange: noop,
