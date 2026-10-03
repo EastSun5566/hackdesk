@@ -39,4 +39,6 @@ tree ~/.hackdesk
 
 HackDesk validates this file and fills in omitted settings with safe defaults. Manage the HackMD token and Local Vault folder from the app; do not copy secrets or machine-specific paths into shared config.
 
+If `settings.json` cannot be read or is not valid, HackDesk shows a recovery dialog at launch instead of opening the window. Choose **Try Again** after fixing the file, **Reveal Settings File** to find it, or **Quit**; none of these change the file. **Back Up and Reset…** asks for confirmation, renames the damaged file to `settings.json.damaged-<time>` next to it, and starts with default settings. Connect HackMD and open your Local Vault again after a reset.
+
 Use **Settings → Advanced → Reset All Settings** to reset HackDesk without deleting Local Vault files.

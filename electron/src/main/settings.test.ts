@@ -11,14 +11,18 @@ const electronMock = vi.hoisted(() => ({
   encrypt: vi.fn<(token: string) => Buffer>(),
   decrypt: vi.fn<(buffer: Buffer) => string>(),
 }));
-const fsMock = vi.hoisted(() => ({ failRename: false }));
+const fsMock = vi.hoisted(() => ({ failRename: false, failOpen: false, failRenameAfter: Infinity }));
 vi.mock('node:fs/promises', async (importOriginal) => {
   const fs = await importOriginal<typeof import('node:fs/promises')>();
   const rename = async (...args: Parameters<typeof fs.rename>) => {
-    if (fsMock.failRename) throw new Error('Test disk failure');
+    if (fsMock.failRename || fsMock.failRenameAfter-- <= 0) throw new Error('Test disk failure');
     return fs.rename(...args);
   };
-  return { ...fs, rename, default: { ...fs, rename } };
+  const open = async (...args: Parameters<typeof fs.open>) => {
+    if (fsMock.failOpen) throw new Error('ENOSPC: no space left on device');
+    return fs.open(...args);
+  };
+  return { ...fs, rename, open, default: { ...fs, rename, open } };
 });
 
 vi.mock('electron', () => ({
@@ -33,11 +37,14 @@ vi.mock('electron', () => ({
   },
 }));
 
+import { defaultSettings } from '../../../src/lib/settings';
 import { getHackmdCliConfigPath, getSettingsPath } from './paths';
 import {
   getHackmdCliConfigStatus,
   getSafeSettings,
+  inspectSettingsFile,
   readStoredSettings,
+  resetDamagedSettingsFile,
   readHackmdApiToken,
   readHackmdCliAccessToken,
   updateStoredSettings,
@@ -46,6 +53,8 @@ import {
 describe('Electron settings', () => {
   beforeEach(async () => {
     fsMock.failRename = false;
+    fsMock.failOpen = false;
+    fsMock.failRenameAfter = Infinity;
     electronMock.available = true;
     electronMock.backend = 'gnome_libsecret';
     electronMock.encrypt.mockReset().mockImplementation((token) => {
@@ -436,5 +445,79 @@ describe('Electron settings', () => {
     }));
 
     await expect(readHackmdCliAccessToken()).resolves.toBe('cli-secret');
+  });
+
+  describe('damaged settings file', () => {
+    const damaged = '{"title":"Workspace","hackmdApiTokenEncrypted":{"version":1},"localVault":{"path":"/tmp/vault"}';
+    const writeDamaged = async (content = damaged) => {
+      await mkdir(join(electronMock.homePath, '.hackdesk'), { recursive: true });
+      await writeFile(getSettingsPath(), content);
+    };
+
+    it('reports missing and valid files as readable, and malformed or unreadable files as problems', async () => {
+      await expect(inspectSettingsFile()).resolves.toBeNull();
+      await updateStoredSettings({ title: 'Valid' });
+      await expect(inspectSettingsFile()).resolves.toBeNull();
+      await writeDamaged();
+      await expect(inspectSettingsFile()).resolves.toMatchObject({ kind: 'invalid', message: 'Invalid JSON format', path: getSettingsPath() });
+      await writeDamaged('[]');
+      await expect(inspectSettingsFile()).resolves.toMatchObject({ kind: 'invalid' });
+      await rm(getSettingsPath());
+      await mkdir(getSettingsPath());
+      await expect(inspectSettingsFile()).resolves.toMatchObject({ kind: 'unreadable', message: expect.stringContaining('EISDIR') });
+    });
+
+    it('never writes defaults over a damaged file during normal reads and updates', async () => {
+      await writeDamaged();
+      await expect(readStoredSettings()).rejects.toThrow('Invalid JSON format');
+      await expect(getSafeSettings()).rejects.toThrow('Invalid JSON format');
+      await expect(updateStoredSettings({ title: 'Overwrite' })).rejects.toThrow('Invalid JSON format');
+      await expect(readHackmdApiToken()).rejects.toThrow('Invalid JSON format');
+      expect(await readFile(getSettingsPath(), 'utf8')).toBe(damaged);
+      expect(await readdir(join(electronMock.homePath, '.hackdesk'))).toEqual(['settings.json']);
+    });
+
+    it('keeps the exact damaged bytes as a backup before writing valid defaults', async () => {
+      await writeDamaged();
+      const result = await resetDamagedSettingsFile();
+      expect(result?.backupPath).toMatch(/settings\.json\.damaged-/);
+      expect(await readFile(result!.backupPath, 'utf8')).toBe(damaged);
+      await expect(inspectSettingsFile()).resolves.toBeNull();
+      expect(await readStoredSettings()).toMatchObject({ title: defaultSettings.title, localVault: { path: null } });
+      if (process.platform !== 'win32') expect((await stat(getSettingsPath())).mode & 0o777).toBe(0o600);
+    });
+
+    it('leaves a readable file alone and keeps the damaged file when the backup move fails', async () => {
+      await updateStoredSettings({ title: 'Valid', localVaultPath: '/tmp/vault' });
+      const valid = await readFile(getSettingsPath(), 'utf8');
+      await expect(resetDamagedSettingsFile()).resolves.toBeNull();
+      expect(await readFile(getSettingsPath(), 'utf8')).toBe(valid);
+
+      await writeDamaged();
+      fsMock.failRename = true;
+      await expect(resetDamagedSettingsFile()).rejects.toThrow('Test disk failure');
+      expect(await readFile(getSettingsPath(), 'utf8')).toBe(damaged);
+      expect(await readdir(join(electronMock.homePath, '.hackdesk'))).toEqual(['settings.json']);
+    });
+
+    it('restores the damaged file when defaults cannot be written, so startup stays blocked', async () => {
+      await writeDamaged();
+      fsMock.failOpen = true;
+      await expect(resetDamagedSettingsFile()).rejects.toThrow('The original file was restored.');
+      expect(await readFile(getSettingsPath(), 'utf8')).toBe(damaged);
+      expect(await readdir(join(electronMock.homePath, '.hackdesk'))).toEqual(['settings.json']);
+      await expect(inspectSettingsFile()).resolves.toMatchObject({ kind: 'invalid' });
+    });
+
+    it('reports the backup path when defaults cannot be written and the restore fails', async () => {
+      await writeDamaged();
+      fsMock.failOpen = true;
+      fsMock.failRenameAfter = 1;
+      const error = await resetDamagedSettingsFile().catch((reason: Error) => reason);
+      const [backup] = (await readdir(join(electronMock.homePath, '.hackdesk'))).filter((file) => file.startsWith('settings.json.damaged-'));
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain(`The damaged file is saved as ${join(electronMock.homePath, '.hackdesk', backup)}.`);
+      expect(await readFile(join(electronMock.homePath, '.hackdesk', backup), 'utf8')).toBe(damaged);
+    });
   });
 });
