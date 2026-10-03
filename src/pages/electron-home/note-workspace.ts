@@ -434,14 +434,26 @@ export function openDraftNoteTab(state: NoteWorkspaceState, options?: string | O
   return withNavigationHistory(state, next);
 }
 
-export function materializeDraftNoteTab(state: NoteWorkspaceState, tabId: string, note: NoteSummary) {
+export function materializeDraftNoteTab(state: NoteWorkspaceState, tabId: string, note: NoteSummary, submittedDraft?: NoteDocumentDraft) {
   const tab = state.tabs[tabId];
   if (!isDraftNoteTab(tab)) {
     return state;
   }
 
   const drafts = { ...state.drafts };
-  delete drafts[tabId];
+  const currentDraft = drafts[tabId];
+  if (submittedDraft && currentDraft
+    && (currentDraft.title !== submittedDraft.title || currentDraft.content !== submittedDraft.content)) {
+    drafts[tabId] = {
+      ...currentDraft,
+      title: currentDraft.title === submittedDraft.title ? getTabTitle(note) : currentDraft.title,
+      baseTitle: getTabTitle(note),
+      baseContent: submittedDraft.content,
+      baseRevision: getNoteLocalRevision(note),
+    };
+  } else {
+    delete drafts[tabId];
+  }
 
   return normalizeState({
     ...state,

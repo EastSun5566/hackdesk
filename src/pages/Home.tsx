@@ -126,6 +126,8 @@ export function Home() {
     toggleRailCollapsed,
   } = panelState;
   const noteWorkspace = useNoteWorkspaceTabs(scopeStorageKey);
+  const currentScopeKeyRef = useRef(scopeStorageKey);
+  useLayoutEffect(() => { currentScopeKeyRef.current = scopeStorageKey; }, [scopeStorageKey]);
   const flushWorkspace = noteWorkspace.flush;
   useLayoutEffect(() => { beforeVaultChange.current = flushWorkspace; }, [flushWorkspace]);
   const activeTab = noteWorkspace.activeTab;
@@ -268,11 +270,16 @@ export function Home() {
     selectedParentFolderId: selectedParentFolderIdForMutation,
     onSettingsSaved: () => setSettingsOpen(false),
     onNoteCreated: (note) => {
+      if (currentScopeKeyRef.current !== scopeStorageKey) {
+        noteWorkspace.openNote(note);
+        trackRecentNote(note);
+        return;
+      }
       setCreateDialog({ open: false, title: '' });
       void requestSelectNote(note, { trackRecent: true });
     },
-    onDraftNoteCreated: (tabId, note) => {
-      noteWorkspace.materializeDraftNote(tabId, note);
+    onDraftNoteCreated: (tabId, note, submittedDraft) => {
+      noteWorkspace.materializeDraftNote(tabId, note, submittedDraft);
       noteWorkspace.syncNoteSummary(note);
       trackRecentNote(note);
     },
@@ -289,29 +296,33 @@ export function Home() {
       trackRecentNote(note);
     },
     onFolderCreated: (folder: FolderSummary) => {
+      if (currentScopeKeyRef.current !== scopeStorageKey) return;
       setCreateFolderDialog(createClosedFolderDialogState());
       if (folder.id) {
         setSelectedFolderId(folder.id);
       }
     },
     onFolderRenamed: (folder: FolderSummary) => {
+      if (currentScopeKeyRef.current !== scopeStorageKey) return;
       setRenameFolderDialog(createClosedRenameFolderDialogState());
       if (folder.id) {
         setSelectedFolderId(folder.id);
       }
     },
     onFolderDeleted: (_folderId, parentFolderId) => {
+      if (currentScopeKeyRef.current !== scopeStorageKey) return;
       setDeleteFolderTarget(null);
       setSelectedFolderId(parentFolderId ?? UNFILED_FOLDER_ID);
     },
     onNoteDeleted: (note) => {
       removeRecentNoteEntry(note.id, note.teamPath ?? null);
       noteWorkspace.closeByNoteIdentity(note);
-      setDeleteTarget(null);
+      if (currentScopeKeyRef.current === scopeStorageKey) setDeleteTarget(null);
     },
     onNoteMoved: (note, targetFolderId) => {
-      setSelectedFolderId(targetFolderId ?? UNFILED_FOLDER_ID);
       noteWorkspace.syncNoteSummary(note);
+      if (currentScopeKeyRef.current !== scopeStorageKey) return;
+      setSelectedFolderId(targetFolderId ?? UNFILED_FOLDER_ID);
       void requestSelectNote(note, { trackRecent: true });
     },
   });

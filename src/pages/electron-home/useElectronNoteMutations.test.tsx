@@ -10,6 +10,7 @@ import type { LocalDocument, LocalVaultSnapshot } from '@/lib/local-vault';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { deriveDraftNoteTitle, useElectronNoteMutations } from './useElectronNoteMutations';
 import type { WorkspaceScope } from './types';
+import { getFoldersQueryKey, getWorkspaceQueryKey } from './repository';
 
 vi.mock('@/components/ui/toast', () => ({
   toast: {
@@ -158,7 +159,7 @@ describe('useElectronNoteMutations draft save', () => {
       title: 'Capture title',
       content: '# Capture title\nBody',
     });
-    expect(onDraftNoteCreated).toHaveBeenCalledWith('draft-tab-1', created);
+    expect(onDraftNoteCreated).toHaveBeenCalledWith('draft-tab-1', created, { title: 'Untitled', content: '# Capture title\nBody' });
     expect(toast.success).toHaveBeenCalledWith('Note saved.');
   });
 
@@ -225,7 +226,7 @@ describe('useElectronNoteMutations draft save', () => {
       expect(onDraftNoteCreated).toHaveBeenCalledWith('draft-tab-1', expect.objectContaining({
         id: 'local-note',
         teamPath: LOCAL_VAULT_TEAM_PATH,
-      }));
+      }), { title: 'Local draft', content: '# Local draft' });
     });
     expect(api.localVault.getSnapshot).not.toHaveBeenCalled();
     expect(queryClient.getQueryData(['electron', 'local-vault', 'snapshot', null])).toEqual(snapshot);
@@ -448,5 +449,112 @@ describe('useElectronNoteMutations settings updates', () => {
 
     await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
     expect(update).toHaveBeenNthCalledWith(2, secondInput);
+  });
+});
+
+describe('mutation workspace ownership', () => {
+  it('lets B create while A is pending, restores A status on return and isolates errors/reset', async () => {
+    const a = Promise.withResolvers<DocumentSummary>();
+    const b = Promise.withResolvers<DocumentSummary>();
+    const api = { hackmd: { createNote: vi.fn(() => a.promise), createTeamNote: vi.fn(() => b.promise) } } as unknown as HackDeskElectronAPI;
+    const origin = createOptions({ api, scope: { type: 'personal', label: 'A' } });
+    const destination = createOptions({ api, scope: { type: 'team', label: 'B', teamPath: 'b' } });
+    const { Wrapper } = createWrapper();
+    const { result, rerender } = renderHook(useElectronNoteMutations, { initialProps: origin, wrapper: Wrapper });
+    act(() => { result.current.createNoteMutation.mutate('A'); });
+    await waitFor(() => expect(result.current.createNoteMutation.isPending).toBe(true));
+    rerender(destination);
+    expect(result.current.createNoteMutation.isIdle).toBe(true);
+    expect(result.current.createNoteMutation.variables).toBeUndefined();
+    act(() => { result.current.createNoteMutation.mutate('B'); });
+    await waitFor(() => expect(api.hackmd.createTeamNote).toHaveBeenCalledWith('b', expect.objectContaining({ title: 'B' })));
+    rerender(origin);
+    expect(result.current.createNoteMutation.isPending).toBe(true);
+    expect(result.current.createNoteMutation.variables).toBe('A');
+    await act(async () => { b.resolve(createDocument({ id: 'b', teamPath: 'b' })); });
+    expect(result.current.createNoteMutation.isPending).toBe(true);
+    await act(async () => { a.reject(new Error('A failed')); });
+    await waitFor(() => expect(result.current.createNoteMutation.isError).toBe(true));
+    rerender(destination);
+    expect(result.current.createNoteMutation.isSuccess).toBe(true);
+    expect(result.current.createNoteMutation.error).toBeNull();
+    rerender(origin);
+    expect(result.current.createNoteMutation.error?.message).toBe('A failed');
+    act(() => { result.current.createNoteMutation.reset(); });
+    await waitFor(() => expect(result.current.createNoteMutation.isIdle).toBe(true));
+    rerender(destination);
+    expect(result.current.createNoteMutation.isSuccess).toBe(true);
+    expect(destination.onNoteCreated).toHaveBeenCalledOnce();
+    expect(origin.onNoteCreated).not.toHaveBeenCalled();
+  });
+
+  it('keeps both steps of a delayed folder move and invalidation in Team A', async () => {
+    const pending = Promise.withResolvers<void>();
+    const api = { hackmd: {
+      updateTeamFolder: vi.fn(() => pending.promise), updateTeamFolderOrder: vi.fn(async () => ({})),
+    } } as unknown as HackDeskElectronAPI;
+    const scope: WorkspaceScope = { type: 'team', label: 'A', teamPath: 'a' };
+    const { queryClient, Wrapper } = createWrapper();
+    const { result, rerender } = renderHook(useElectronNoteMutations, {
+      initialProps: createOptions({ api, scope }), wrapper: Wrapper,
+    });
+    queryClient.setQueryData(getFoldersQueryKey(scope), []);
+    act(() => { result.current.moveFolderMutation.mutate({ folderId: 'folder', parentFolderId: 'parent', order: { parent: ['folder'] }, parentChanged: true, orderChanged: true, changed: true }); });
+    await waitFor(() => expect(api.hackmd.updateTeamFolder).toHaveBeenCalledWith('a', 'folder', { parentFolderId: 'parent' }));
+    const destination: WorkspaceScope = { type: 'team', label: 'B', teamPath: 'b' };
+    queryClient.setQueryData(getFoldersQueryKey(destination), []);
+    rerender(createOptions({ api, scope: destination }));
+    await act(async () => { pending.resolve(); });
+    await waitFor(() => expect(api.hackmd.updateTeamFolderOrder).toHaveBeenCalledWith('a', { parent: ['folder'] }));
+    expect(queryClient.getQueryState(getFoldersQueryKey(scope))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(getFoldersQueryKey(destination))?.isInvalidated).toBe(false);
+  });
+
+  it.each<WorkspaceScope>([
+    { type: 'personal', label: 'My Workspace' },
+    { type: 'team', label: 'Team A', teamPath: 'team-a' },
+  ])('keeps delayed create, save and folder results in $type', async (scope) => {
+    const note = createDocument({ teamPath: scope.type === 'team' ? scope.teamPath : null });
+    const folder = { id: 'folder-a', name: 'A' };
+    const created = Promise.withResolvers<DocumentSummary>();
+    const saved = Promise.withResolvers<DocumentSummary>();
+    const folderCreated = Promise.withResolvers<typeof folder>();
+    const api = { hackmd: {
+      createNote: vi.fn(() => created.promise), createTeamNote: vi.fn(() => created.promise),
+      updateNote: vi.fn(() => saved.promise), updateTeamNote: vi.fn(() => saved.promise),
+      createFolder: vi.fn(() => folderCreated.promise), createTeamFolder: vi.fn(() => folderCreated.promise),
+    } } as unknown as HackDeskElectronAPI;
+    const origin = createOptions({ api, scope, selectedParentFolderId: 'parent-a' });
+    const destination = createOptions({ api, scope: { type: 'team', label: 'Team B', teamPath: 'team-b' } });
+    const { queryClient, Wrapper } = createWrapper();
+    const { result, rerender } = renderHook(useElectronNoteMutations, { initialProps: origin, wrapper: Wrapper });
+    queryClient.setQueryData(getFoldersQueryKey(scope), []);
+    queryClient.setQueryData(getFoldersQueryKey(destination.scope), []);
+    act(() => {
+      result.current.createNoteMutation.mutate('A');
+      result.current.updateNoteMutation.mutate({ note, input: { content: 'Saved' }, intent: 'content' });
+      result.current.createFolderMutation.mutate({ name: 'A' });
+    });
+    await waitFor(() => expect(scope.type === 'team' ? api.hackmd.createTeamFolder : api.hackmd.createFolder).toHaveBeenCalledOnce());
+    rerender(destination);
+    expect(result.current.createNoteMutation.isPending).toBe(false);
+    expect(result.current.updateNoteMutation.isPending).toBe(false);
+    expect(result.current.createFolderMutation.isPending).toBe(false);
+    await act(async () => {
+      created.resolve(note);
+      saved.resolve(note);
+      folderCreated.resolve(folder);
+    });
+    await waitFor(() => expect(origin.onNoteSaved).toHaveBeenCalledOnce());
+    expect(origin.onNoteCreated).toHaveBeenCalledWith(note);
+    expect(origin.onFolderCreated).toHaveBeenCalledWith(folder);
+    expect(destination.onNoteCreated).not.toHaveBeenCalled();
+    expect(destination.onNoteSaved).not.toHaveBeenCalled();
+    expect(destination.onFolderCreated).not.toHaveBeenCalled();
+    expect(queryClient.getQueryData(getWorkspaceQueryKey(scope))).toEqual({ source: 'remote', data: [note] });
+    expect(queryClient.getQueryData(getWorkspaceQueryKey(destination.scope))).toBeUndefined();
+    // Folder invalidation must target A, even if B is now active.
+    expect(queryClient.getQueryState(getFoldersQueryKey(scope))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(getFoldersQueryKey(destination.scope))?.isInvalidated).toBe(false);
   });
 });

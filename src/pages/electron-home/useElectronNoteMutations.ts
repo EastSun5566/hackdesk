@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useMutationState, useQueryClient, type MutationState } from '@tanstack/react-query';
 import { toast } from '@/components/ui/toast';
 
 import type {
@@ -31,12 +31,66 @@ import {
   getFoldersQueryKey,
   getFolderOrderQueryKey,
   getWorkspaceQueryKey,
+  getScopeStorageKey,
 } from './repository';
 import type { NoteDocumentDraft, NoteIdentity } from './note-workspace';
 import type { SettingsFormInput, WorkspaceScope } from './types';
 import { createQuickNoteContent } from './ui';
 
 const DEFAULT_DRAFT_NOTE_TITLE = 'Untitled';
+
+// Mutation observers receive new options when the workspace changes. Carry the
+// initiating callbacks and API closure with each request, including its awaits.
+function useWorkspaceMutation<TData, TVariables>(scope: WorkspaceScope, name: string, operation: {
+  mutationFn: (variables: TVariables) => Promise<TData>;
+  onSuccess?: (data: TData, variables: TVariables) => void;
+  onError?: (error: Error) => void;
+}) {
+  const queryClient = useQueryClient();
+  const scopeKey = getScopeStorageKey(scope);
+  type Request = { scopeKey: string | null; variables: TVariables; operation: typeof operation };
+  const mutationKey = ['electron', 'workspace-mutation', name, scopeKey];
+  const mutation = useMutation({
+    mutationKey,
+    mutationFn: (request: Request) => request.operation.mutationFn(request.variables),
+    onSuccess: (data, request) => request.operation.onSuccess?.(data, request.variables),
+    onError: (error: Error, request) => request.operation.onError?.(error),
+  });
+  // Observe the cache so returning to A still shows its pending operation even
+  // when the same hook has started another operation in B in the meantime.
+  const states = useMutationState({
+    filters: { mutationKey: ['electron', 'workspace-mutation', name] },
+    select: (entry) => entry.state as MutationState<TData, Error, Request>,
+  });
+  const current = states.filter((entry) => entry.variables?.scopeKey === scopeKey).at(-1);
+  const status = current?.status ?? 'idle';
+  const resetObserver = mutation.reset;
+  const reset = useCallback(() => {
+    resetObserver();
+    const cache = queryClient.getMutationCache();
+    cache.findAll({ mutationKey: ['electron', 'workspace-mutation', name, scopeKey], exact: true }).forEach((entry) => cache.remove(entry));
+  }, [resetObserver, queryClient, name, scopeKey]);
+  return {
+    ...mutation,
+    ...current,
+    status,
+    data: current?.data,
+    error: current?.error ?? null,
+    variables: current?.variables?.variables,
+    context: current?.context,
+    isPaused: current?.isPaused ?? false,
+    failureCount: current?.failureCount ?? 0,
+    failureReason: current?.failureReason ?? null,
+    submittedAt: current?.submittedAt ?? 0,
+    isIdle: status === 'idle',
+    isPending: status === 'pending',
+    isSuccess: status === 'success',
+    isError: status === 'error',
+    reset,
+    mutate: (variables: TVariables) => mutation.mutate({ scopeKey, variables, operation }),
+    mutateAsync: (variables: TVariables) => mutation.mutateAsync({ scopeKey, variables, operation }),
+  };
+}
 
 export type SaveIntent = 'content' | 'metadata' | 'sharing';
 
@@ -153,7 +207,7 @@ export function useElectronNoteMutations({
   selectedParentFolderId?: string;
   onSettingsSaved: () => void;
   onNoteCreated: (note: NoteSummary) => void;
-  onDraftNoteCreated: (tabId: string, note: NoteSummary) => void;
+  onDraftNoteCreated: (tabId: string, note: NoteSummary, submittedDraft: NoteDocumentDraft) => void;
   onNoteSaved: (note: NoteSummary, variables: UpdateNoteMutationVariables) => void;
   onFolderCreated: (folder: FolderSummary) => void;
   onFolderRenamed: (folder: FolderSummary) => void;
@@ -293,7 +347,7 @@ export function useElectronNoteMutations({
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to disconnect HackMD.'),
   });
 
-  const createNoteMutation = useMutation({
+  const createNoteMutation = useWorkspaceMutation(scope, 'create-note', {
     mutationFn: async (title: string) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
@@ -329,7 +383,7 @@ export function useElectronNoteMutations({
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to create note.'),
   });
 
-  const createDraftNoteMutation = useMutation({
+  const createDraftNoteMutation = useWorkspaceMutation(scope, 'create-draft', {
     mutationFn: async (variables: { tabId: string; input: Pick<UpdateNoteInput, 'title' | 'content'> }) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
@@ -365,14 +419,17 @@ export function useElectronNoteMutations({
       if (scope.type !== 'local') {
         seedWorkspaceNote(createdNote);
       }
-      onDraftNoteCreated(variables.tabId, createdNote);
+      onDraftNoteCreated(variables.tabId, createdNote, {
+        title: variables.input.title ?? DEFAULT_DRAFT_NOTE_TITLE,
+        content: variables.input.content ?? '',
+      });
       void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope), refetchType: 'inactive' });
       toast.success('Note saved.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to save note.'),
   });
 
-  const duplicateNoteMutation = useMutation({
+  const duplicateNoteMutation = useWorkspaceMutation(scope, 'duplicate-note', {
     mutationFn: async (note: NoteSummary) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
@@ -425,7 +482,7 @@ export function useElectronNoteMutations({
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to duplicate note.'),
   });
 
-  const importMarkdownNoteMutation = useMutation({
+  const importMarkdownNoteMutation = useWorkspaceMutation(scope, 'import-note', {
     mutationFn: async (input: CreateNoteInput) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
@@ -460,7 +517,7 @@ export function useElectronNoteMutations({
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to import markdown note.'),
   });
 
-  const createFolderMutation = useMutation({
+  const createFolderMutation = useWorkspaceMutation(scope, 'create-folder', {
     mutationFn: async (input: CreateFolderInput) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
@@ -498,7 +555,7 @@ export function useElectronNoteMutations({
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to create folder.'),
   });
 
-  const updateNoteMutation = useMutation({
+  const updateNoteMutation = useWorkspaceMutation(scope, 'update-note', {
     mutationFn: async (variables: UpdateNoteMutationVariables) => {
       const { note, input } = variables;
       if (!api) {
@@ -553,7 +610,7 @@ export function useElectronNoteMutations({
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to save note.'),
   });
 
-  const uploadNoteImageMutation = useMutation({
+  const uploadNoteImageMutation = useWorkspaceMutation(scope, 'upload-image', {
     mutationFn: async ({ note, input }: { note: DocumentSummary; input: UploadNoteImageInput }) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
@@ -579,7 +636,7 @@ export function useElectronNoteMutations({
     },
   });
 
-  const deleteNoteMutation = useMutation({
+  const deleteNoteMutation = useWorkspaceMutation(scope, 'delete-note', {
     mutationFn: async (note: DocumentSummary) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
@@ -614,7 +671,7 @@ export function useElectronNoteMutations({
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to delete note.'),
   });
 
-  const moveNoteMutation = useMutation({
+  const moveNoteMutation = useWorkspaceMutation(scope, 'move-note', {
     mutationFn: async ({ note, targetFolderId }: { note: NoteSummary; targetFolderId: string | null }) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
@@ -665,7 +722,7 @@ export function useElectronNoteMutations({
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to move note.'),
   });
 
-  const renameFolderMutation = useMutation({
+  const renameFolderMutation = useWorkspaceMutation(scope, 'rename-folder', {
     mutationFn: async ({ folderId, input }: { folderId: string; input: UpdateFolderInput }) => {
       const name = input.name ?? '';
       const nextName = name.trim();
@@ -702,7 +759,7 @@ export function useElectronNoteMutations({
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to rename folder.'),
   });
 
-  const deleteFolderMutation = useMutation({
+  const deleteFolderMutation = useWorkspaceMutation(scope, 'delete-folder', {
     mutationFn: async ({ folderId, parentFolderId }: { folderId: string; parentFolderId: string | null }) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
@@ -739,7 +796,7 @@ export function useElectronNoteMutations({
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to delete folder.'),
   });
 
-  const moveFolderMutation = useMutation({
+  const moveFolderMutation = useWorkspaceMutation(scope, 'move-folder', {
     mutationFn: async (operation: FolderDropOperation) => {
       if (!operation.changed) {
         return operation;

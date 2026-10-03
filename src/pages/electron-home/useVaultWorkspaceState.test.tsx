@@ -6,6 +6,7 @@ import { useWorkbenchWorkspaceState } from './useWorkbenchWorkspaceState';
 import { useWorkbenchFinder } from './useWorkbenchFinder';
 import { useElectronHomeShellEffects } from './useElectronHomeShellEffects';
 import { readNoteWorkspaceLayoutStorage } from './note-workspace';
+import type { NoteSummary } from '@/lib/electron-api';
 
 function useFixture(vaultId: string | null) {
   const workspace = useWorkbenchWorkspaceState({ initialWorkspaceScope: { type: 'local', label: 'Local Vault' }, localVaultId: vaultId, manualEmptyWorkspaceRef: { current: false } });
@@ -18,6 +19,42 @@ function useFixture(vaultId: string | null) {
 afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
 
 describe('vault workspace isolation', () => {
+  it.each(['personal', 'team:design'])('applies captured completions to inactive %s, preserving later edits and restart state', (scopeKey) => {
+    const { result, rerender, unmount } = renderHook(useNoteWorkspaceTabs, { initialProps: scopeKey });
+    act(() => { result.current.openDraftNote({ title: 'Submitted', content: 'Submitted body' }); });
+    const tabId = result.current.activeTab!.tabId;
+    const origin = result.current;
+    const submittedDraft = { title: 'Submitted', content: 'Submitted body' };
+    act(() => { result.current.updateDraft(tabId, { title: 'Later title', content: 'Later input' }); });
+    const note = { id: 'saved', shortId: 'saved', title: 'Submitted', content: 'Submitted body', teamPath: null, updatedAtMillis: 2 } as NoteSummary;
+    rerender('team:other');
+    act(() => { result.current.openRecoverableDraftNote({ title: 'B', content: 'B body' }); });
+    const destination = result.current.state;
+    act(() => {
+      origin.materializeDraftNote(tabId, note, submittedDraft);
+      origin.syncNoteSummary(note);
+    });
+    expect(result.current.state).toEqual(destination);
+    expect(readNoteWorkspaceLayoutStorage(localStorage, scopeKey).drafts[tabId]).toMatchObject({
+      title: 'Later title', content: 'Later input', baseTitle: 'Submitted', baseContent: 'Submitted body',
+    });
+    rerender(scopeKey);
+    expect(result.current.state.tabs[tabId]).toMatchObject({ noteId: 'saved' });
+    act(() => { result.current.splitActiveTab(); });
+    const source = result.current;
+    const stateBeforeSave = source.state;
+    rerender('team:other');
+    act(() => { source.reconcileSavedNote({ tabId, note, submittedDraft: { title: 'Later title', content: 'Later input' } }); });
+    expect(result.current.state).toEqual(destination);
+    rerender(scopeKey);
+    expect(result.current.state.backStack).toEqual(stateBeforeSave.backStack);
+    expect(result.current.state.activePaneId).toBe(stateBeforeSave.activePaneId);
+    unmount();
+    const restarted = renderHook(useNoteWorkspaceTabs, { initialProps: scopeKey });
+    expect(restarted.result.current.state.drafts[tabId]).toBeUndefined();
+    expect(restarted.result.current.state.panes).toEqual(stateBeforeSave.panes);
+  });
+
   it('flushes last input before debounce, restores dual panes and isolates finder/folders across A → B → A and restart', () => {
     vi.useFakeTimers();
     const { result, rerender, unmount } = renderHook(useFixture, { initialProps: 'A' as string | null });
