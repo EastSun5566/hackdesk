@@ -240,7 +240,8 @@ describe('LocalVaultService', () => {
     const before = await readFile(path, 'utf8');
     let reads = 0;
     fsProbe.afterRead.mockImplementation(async (path) => {
-      if (path.endsWith('Original.md')) await writeFile(path, `External ${++reads}`);
+      // Change the size each time: Windows mtime can repeat within one clock tick.
+      if (path.endsWith('Original.md')) await writeFile(path, `External ${'x'.repeat(++reads)}`);
     });
     await expect(scanLocalVault(vaultPath)).rejects.toThrow('changed during scanning');
     expect(reads).toBe(2);
