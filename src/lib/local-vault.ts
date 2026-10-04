@@ -26,12 +26,20 @@ export type LocalDocument = LocalNoteSummary & {
   content: string;
 };
 
+/** A Markdown file the scan left out, so the rest of the vault stays usable. */
+export type LocalVaultSkippedFile = {
+  relativePath: string;
+  reason: string;
+};
+
 export type LocalVaultSnapshot = {
   vaultId: string;
   rootPath: string;
   scannedAtMillis?: number;
   notes: LocalNoteSummary[];
   folders: LocalFolder[];
+  /** Absent from snapshots produced before files could be skipped. */
+  skippedFiles?: LocalVaultSkippedFile[];
 };
 
 export type ChooseLocalVaultResult = {

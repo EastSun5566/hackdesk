@@ -744,6 +744,7 @@ export function Home() {
     localVaultError: vaultSession.error ?? (localVault.snapshotQuery.error instanceof Error
       ? localVault.snapshotQuery.error.message
       : null),
+    localVaultSkippedFiles: vaultSession.snapshot?.skippedFiles,
     mutations,
     queries,
     scope,

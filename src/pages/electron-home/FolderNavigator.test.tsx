@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_NOTE_FINDER_STATE } from '@/lib/electron-note-finder';
@@ -214,6 +214,31 @@ describe('FolderNavigator', () => {
     expect(screen.queryByText('Create your local vault')).not.toBeInTheDocument();
     expect(screen.getByText('Choose a folder to store plain Markdown notes on this device.')).toBeInTheDocument();
     expect(onChooseLocalVault).toHaveBeenCalledOnce();
+  });
+
+  it('lists Local Vault files that were not loaded, and why', () => {
+    const skippedFiles = [
+      { relativePath: 'Archive/Huge.md', reason: 'Larger than 10 MiB' },
+      { relativePath: 'Big.md', reason: 'Larger than 10 MiB' },
+    ];
+    const { rerender, props } = renderFolderNavigator({
+      scope: { id: 'local', label: 'Local Vault', type: 'local' },
+      status: { skippedFiles },
+    });
+
+    expect(screen.getByText('2 files were not loaded.').closest('[role="status"]')).toBeInTheDocument();
+    const list = screen.getByRole('list', { name: 'Files not loaded' });
+    expect(within(list).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      'Archive/Huge.md — Larger than 10 MiB',
+      'Big.md — Larger than 10 MiB',
+    ]);
+
+    rerender(
+      <TooltipProvider>
+        <FolderNavigator {...props} status={{ ...props.status, skippedFiles: [] }} />
+      </TooltipProvider>,
+    );
+    expect(screen.queryByRole('list', { name: 'Files not loaded' })).not.toBeInTheDocument();
   });
 
   it('forwards finder query changes through the navigator shell', () => {

@@ -129,16 +129,27 @@ function sameFileState(before: BigIntStats, after: BigIntStats) {
     && before.nlink === after.nlink && after.isFile() && !after.isSymbolicLink();
 }
 
+const OVERSIZED_MARKDOWN_REASON = 'Larger than 10 MiB';
+
+function getOversizedMarkdownMessage(relativePath: string) {
+  return `Markdown file exceeds 10 MiB: ${relativePath}`;
+}
+
 async function readScannedFile(vaultRoot: string, entry: ScanEntry) {
   await assertCanonicalInsideVault(vaultRoot, entry.absolutePath);
   const before = await lstat(entry.absolutePath, { bigint: true });
   if (!before.isFile() || before.isSymbolicLink()) throw new UnstableVaultScanError('Local vault changed during scanning.');
-  if (before.size > BigInt(MAX_MARKDOWN_BYTES)) throw new Error(`Markdown file exceeds 10 MiB: ${entry.relativePath}`);
+  // One oversized file must not hide the rest of the vault.
+  if (before.size > BigInt(MAX_MARKDOWN_BYTES)) return { entry, skipped: OVERSIZED_MARKDOWN_REASON } as const;
   const content = await readFile(entry.absolutePath, 'utf8');
   const after = await lstat(entry.absolutePath, { bigint: true });
   if (!sameFileState(before, after)) throw new UnstableVaultScanError('Local vault changed during scanning.');
   return { entry, fileStat: after, contentHash: hashContent(content), fileIdentity: getFileIdentity(after) };
 }
+
+type ScannedFile = Awaited<ReturnType<typeof readScannedFile>>;
+type SkippedScannedFile = Extract<ScannedFile, { skipped: string }>;
+type ReadScannedFile = Exclude<ScannedFile, SkippedScannedFile>;
 
 function toVaultRelativePath(vaultRoot: string, absolutePath: string) {
   return relative(vaultRoot, absolutePath).split(sep).join('/');
@@ -433,7 +444,9 @@ async function requireActiveLocalVaultPath() {
 async function scanLocalVaultOnce(vaultRoot: string): Promise<LocalVaultSnapshot> {
   const manifest = await readManifest(vaultRoot);
   const files = await scanMarkdownFiles(vaultRoot);
-  const loaded = await Promise.all(files.map((entry) => readScannedFile(vaultRoot, entry)));
+  const scanned = await Promise.all(files.map((entry) => readScannedFile(vaultRoot, entry)));
+  const loaded = scanned.filter((item): item is ReadScannedFile => !('skipped' in item));
+  const skipped = scanned.filter((item): item is SkippedScannedFile => 'skipped' in item);
   const oldByIdentity = new Map<string, [string, ManifestNote][]>();
   const newByIdentity = new Map<string, typeof loaded>();
   for (const item of Object.entries(manifest.notes)) {
@@ -464,6 +477,11 @@ async function scanLocalVaultOnce(vaultRoot: string): Promise<LocalVaultSnapshot
     const existing = moves.get(path) ?? (movedFromPaths.has(path) ? undefined : manifest.notes[path]);
     if (existing) nextManifest.notes[item.entry.relativePath] = existing;
   }
+  // Keep a skipped file's ID so its open tabs and drafts still match once it is small enough.
+  for (const { entry } of skipped) {
+    const existing = movedFromPaths.has(entry.relativePath) ? undefined : manifest.notes[entry.relativePath];
+    if (existing) nextManifest.notes[entry.relativePath] = existing;
+  }
   const notes = loaded.map(({ entry, contentHash, fileStat }) => (
     createNoteSummary(nextManifest, entry, contentHash, fileStat)
   ));
@@ -485,6 +503,9 @@ async function scanLocalVaultOnce(vaultRoot: string): Promise<LocalVaultSnapshot
       || left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })
     )),
     folders,
+    skippedFiles: skipped
+      .map(({ entry, skipped: reason }) => ({ relativePath: entry.relativePath, reason }))
+      .sort((left, right) => left.relativePath.localeCompare(right.relativePath)),
   };
 }
 
@@ -541,6 +562,8 @@ async function findNoteByIdOnce(vaultRoot: string, noteId: string) {
   const [relativePath] = match;
   const absolutePath = resolveInsideVault(vaultRoot, relativePath);
   await assertCanonicalInsideVault(vaultRoot, absolutePath);
+  // A skipped file keeps its ID, so an open tab must not load it into the editor.
+  if ((await stat(absolutePath)).size > MAX_MARKDOWN_BYTES) throw new Error(getOversizedMarkdownMessage(relativePath));
   const content = await readFile(absolutePath, 'utf8');
   return createNoteSummary(manifest, { absolutePath, relativePath }, hashContent(content), await stat(absolutePath, { bigint: true }));
 }

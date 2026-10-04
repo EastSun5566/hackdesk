@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import type { FolderTreeNode } from '@/lib/hackmd-folders';
+import type { LocalVaultSkippedFile } from '@/lib/local-vault';
 
 import {
   getRepositoryError,
@@ -16,6 +17,7 @@ export type ElectronHomeStatusOptions = {
   hasLocalVault: boolean;
   hasToken: boolean;
   localVaultError?: string | null;
+  localVaultSkippedFiles?: LocalVaultSkippedFile[];
   isLocalVaultLoading?: boolean;
   isLocalVaultFetching?: boolean;
   mutations: ReturnType<typeof useElectronNoteMutations>;
@@ -30,6 +32,7 @@ export function useElectronHomeStatus({
   hasLocalVault,
   hasToken,
   localVaultError,
+  localVaultSkippedFiles,
   isLocalVaultLoading = false,
   isLocalVaultFetching = false,
   mutations,
@@ -93,6 +96,7 @@ export function useElectronHomeStatus({
         isMovingFolder: mutations.moveFolderMutation.isPending,
         isMovingNote: mutations.moveNoteMutation.isPending,
         showingCachedFallback,
+        skippedFiles: scope.type === 'local' ? localVaultSkippedFiles : undefined,
       },
       accountStatus: {
         activeError: accountError,
@@ -107,6 +111,7 @@ export function useElectronHomeStatus({
     hasLocalVault,
     hasToken,
     localVaultError,
+    localVaultSkippedFiles,
     isLocalVaultLoading,
     isLocalVaultFetching,
     mutations.createFolderMutation.isPending,
