@@ -2,6 +2,8 @@ import DOMPurify from 'dompurify';
 import { nameToEmoji } from 'gemoji';
 import Papa from 'papaparse';
 
+import { scopeDiagramStyles } from './diagram-style-scope';
+
 export type CsvPreviewModel = {
   header: string[] | null;
   rows: string[][];
@@ -107,7 +109,7 @@ export async function renderMermaid(source: string): Promise<RenderedDiagram> {
   }
 
   const promise = renderBeautifulMermaid(source)
-    .then((html) => ({ html: sanitizeRichHtml(html) }))
+    .then((html) => ({ html: scopeDiagramStyles(sanitizeRichHtml(html)) }))
     .catch((error) => {
       mermaidCache.delete(cacheKey);
       throw error;
