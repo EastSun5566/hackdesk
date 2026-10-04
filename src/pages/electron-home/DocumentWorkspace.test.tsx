@@ -100,7 +100,7 @@ function createWorkspaceProps(overrides: Partial<Parameters<typeof DocumentWorks
     onShareOpenChange: vi.fn(),
     onTitleChange: vi.fn(),
     onToggleInspector: vi.fn(),
-    onUploadImage: vi.fn(),
+    onAttachImage: vi.fn(),
     onCopyDraft: vi.fn(),
     onExportDraft: vi.fn(),
     onOpenAsNewDraft: vi.fn(),

@@ -5,8 +5,6 @@ import type {
   DocumentSummary,
   NoteSummary,
   UpdateNoteInput,
-  UploadNoteImageInput,
-  UploadNoteImageResult,
 } from '@/lib/electron-api';
 import type { FolderTree } from '@/lib/hackmd-folders';
 import type { EditorMode } from '@/lib/settings';
@@ -68,7 +66,7 @@ export function DocumentWorkspace({
   onSaveAsCopy,
   onSaveMetadata,
   onSaveSharing,
-  onUploadImage,
+  onAttachImage,
   onDelete,
   onTitleChange,
   onContentChange,
@@ -102,7 +100,7 @@ export function DocumentWorkspace({
   onSaveAsCopy: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveSharing: (document: DocumentSummary, input: UpdateNoteInput) => void;
-  onUploadImage: (document: DocumentSummary, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
+  onAttachImage: (tab: OpenNoteTab, file: File, placeholder: string) => Promise<unknown>;
   onDelete: (document: DocumentSummary) => void;
   onTitleChange: (tab: OpenNoteTab, title: string) => void;
   onContentChange: (tab: OpenNoteTab, content: string) => void;
@@ -212,7 +210,7 @@ export function DocumentWorkspace({
                       onSaveAsCopy,
                       onSaveMetadata,
                       onSaveSharing,
-                      onUploadImage,
+                      onAttachImage: (file, placeholder) => (view.activeTab ? onAttachImage(view.activeTab, file, placeholder) : Promise.resolve()),
                       onDelete,
                       onTitleChange: (title) => view.activeTab && onTitleChange(view.activeTab, title),
                       onContentChange: (content) => view.activeTab && onContentChange(view.activeTab, content),

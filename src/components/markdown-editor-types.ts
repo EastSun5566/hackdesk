@@ -14,6 +14,10 @@ export type MarkdownEditorProps = {
   initialRevealText?: string | null;
   value: string;
   onChange: (value: string) => void;
-  onAttachImage?: (file: File) => Promise<{ link: string }>;
+  /**
+   * Called after `placeholder` is inserted at the cursor. The owner uploads the
+   * file and replaces the placeholder in the originating note's content.
+   */
+  onAttachImage?: (file: File, placeholder: string) => Promise<unknown>;
   onOpenLink?: (url: string) => void;
 };

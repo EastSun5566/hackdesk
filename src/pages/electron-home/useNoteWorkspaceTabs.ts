@@ -28,6 +28,7 @@ import {
   reorderNoteTab,
   resizeNotePanes,
   reconcileSavedNoteTab,
+  replaceNoteTabPlaceholder,
   selectNoteTab,
   splitActiveTabRight,
   syncNoteTabSummary,
@@ -37,6 +38,7 @@ import {
   type NoteIdentity,
   type NoteWorkspaceState,
   type OpenDraftNoteOptions,
+  type SavedNoteDocument,
 } from './note-workspace';
 
 function readInitialState(scopeKey: string | null) {
@@ -102,6 +104,13 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
     }
     return saved;
   }, [backupFailedScopes, flush, persist, statesByScope]);
+
+  const statesByScopeRef = useRef(statesByScope);
+  useLayoutEffect(() => { statesByScopeRef.current = statesByScope; }, [statesByScope]);
+  // Latest committed state of any workspace, for work that finishes after switching.
+  const getWorkspaceSnapshot = useCallback((key: string) => (
+    stateRef.current.scopeKey === key ? stateRef.current : statesByScopeRef.current[key] ?? null
+  ), []);
 
   const updateWorkspace = useCallback((key: string | null, update: (current: NoteWorkspaceState) => NoteWorkspaceState) => {
     if (!key) return;
@@ -230,6 +239,16 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
     updateWorkspace(scopeKey, (current) => reconcileSavedNoteTab(current, input));
   }, [scopeKey, updateWorkspace]);
 
+  const replaceTabPlaceholder = useCallback((
+    key: string,
+    tabId: string,
+    placeholder: string,
+    replacement: string,
+    savedDocument?: SavedNoteDocument,
+  ) => {
+    updateWorkspace(key, (current) => replaceNoteTabPlaceholder(current, tabId, placeholder, replacement, savedDocument));
+  }, [updateWorkspace]);
+
   const getPaneTab = useCallback((paneId: string) => getPaneActiveTab(state, paneId), [state]);
   const getTabHostPane = useCallback((tabId: string) => getTabPane(state, tabId), [state]);
 
@@ -276,6 +295,8 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
     syncNoteSummary,
     syncNoteSummaries,
     reconcileSavedNote,
+    getWorkspaceSnapshot,
+    replaceTabPlaceholder,
     getPaneTab,
     getTabHostPane,
     getTabsMatching,
