@@ -38,7 +38,8 @@
     "release": "pnpm run build && electron-builder --publish always",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:preview": "vitepress preview docs",
+    "docs:release-snapshot": "node docs/.vitepress/update-release-snapshot.ts"
   },
   "author": "Michael Wang <hi@eastsun.me> (https://github.com/EastSun5566)",
   "repository": {

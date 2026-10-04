@@ -1,82 +1,35 @@
-export interface Asset {
-  url: string;
-  id: number;
-  node_id: string;
-  name: string;
-  label: string;
-  uploader: Author;
-  content_type: string;
-  state: string;
-  size: number;
-  download_count: number;
-  created_at: string;
-  updated_at: string;
-  browser_download_url: string;
-}
-
-interface Author {
-  login: string;
-  id: number;
-  node_id: string;
-  avatar_url: string;
-  gravatar_id: string;
-  url: string;
-  html_url: string;
-  followers_url: string;
-  following_url: string;
-  gists_url: string;
-  starred_url: string;
-  subscriptions_url: string;
-  organizations_url: string;
-  repos_url: string;
-  events_url: string;
-  received_events_url: string;
-  type: string;
-  site_admin: boolean;
-}
-
+/** The validated part of a GitHub release that the docs use. */
 export interface GitHubRelease {
-  url: string;
-  assets_url: string;
-  upload_url: string;
-  html_url: string;
-  id: number;
-  author: {
-    login: string;
-    id: number;
-    node_id: string;
-    avatar_url: string;
-    gravatar_id: string;
-    url: string;
-    html_url: string;
-    followers_url: string;
-    following_url: string;
-    gists_url: string;
-    starred_url: string;
-    subscriptions_url: string;
-    organizations_url: string;
-    repos_url: string;
-    events_url: string;
-    received_events_url: string;
-    type: string;
-    site_admin: boolean;
-  };
-  node_id: string;
   tag_name: string;
-  target_commitish: string;
-  name: string;
+  html_url: string;
   draft: boolean;
   prerelease: boolean;
-  created_at: string;
-  published_at: string;
-  assets: Asset[];
-  tarball_url: string;
-  zipball_url: string;
-  body: string;
+  assets: Array<{ name: string; browser_download_url: string }>;
 }
 
-export interface DocsReleaseData extends GitHubRelease {
+export interface ReleaseLink {
+  platform: 'macos' | 'windows' | 'linux';
+  label: string;
+  fileName: string;
+  url: string;
+}
+
+export interface ReleaseSection {
   version: string;
-  releaseTag: string;
-  releaseDownloadBaseUrl: string;
+  htmlUrl: string;
+  links: ReleaseLink[];
+}
+
+export interface DocsReleaseData {
+  releasesUrl: string;
+  stable: ReleaseSection | null;
+  beta: ReleaseSection | null;
+  /** Set when the links did not come from a live GitHub response. */
+  notice: string | null;
+}
+
+export interface ReleaseSnapshot {
+  savedAt: string;
+  releases: GitHubRelease[];
+  legacyUpdater: { tag: string; feed: unknown };
 }

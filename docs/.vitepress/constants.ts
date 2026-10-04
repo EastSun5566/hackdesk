@@ -15,5 +15,5 @@ export const GA_SCRIPT = `
   gtag('config', '${GA_ID}');
 `;
 
-export const GITHUB_LATEST_RELEASE_URL = 'https://api.github.com/repos/eastsun5566/hackdesk/releases/latest';
-export const GITHUB_RELEASES_URL = 'https://api.github.com/repos/eastsun5566/hackdesk/releases?per_page=30';
+export const GITHUB_RELEASES_API_URL = 'https://api.github.com/repos/EastSun5566/hackdesk/releases';
+export const RELEASES_URL = `${REPO_URL}/releases`;

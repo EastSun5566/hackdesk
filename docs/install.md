@@ -10,14 +10,22 @@ import { data } from './release.data.ts'
 
 # Installation
 
+<div v-if="data.notice" class="warning custom-block">
+  <p class="custom-block-title">Release details</p>
+  <p>{{ data.notice }} <a :href="data.releasesUrl" target="_blank" rel="noreferrer">GitHub Releases</a></p>
+</div>
+
 ## v2 Beta
 
 On macOS, HackDesk v2 beta requires macOS 13 or later. Beta builds are unsigned and use manual updates. Existing v0.1.5 installs do not update to v2 automatically. Your settings under `~/.hackdesk` are reused.
 
-- [macOS · Apple silicon](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-arm64.dmg)
-- [macOS · Intel](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-x64.dmg)
-- [Windows · x64](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-x64.exe)
-- [Linux · x64 AppImage](https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-x86_64.AppImage)
+<template v-if="data.beta">
+<p>The current beta is v{{ data.beta.version }}.</p>
+<ul>
+  <li v-for="link in data.beta.links" :key="link.url"><a :href="link.url" target="_blank" rel="noreferrer">{{ link.label }}</a></li>
+</ul>
+</template>
+<p v-else>No beta download is listed here right now. Find betas on <a :href="data.releasesUrl" target="_blank" rel="noreferrer">GitHub Releases</a>.</p>
 
 On macOS, move HackDesk to Applications, then run:
 
@@ -35,12 +43,14 @@ Report beta problems on [GitHub Issues](https://github.com/EastSun5566/hackdesk/
 
 ## Stable release
 
-The current stable release is v{{data.version}}.
+<p v-if="data.stable">The current stable release is v{{ data.stable.version }}.</p>
+<p v-else>Stable downloads are not listed here right now. Find them on <a :href="data.releasesUrl" target="_blank" rel="noreferrer">GitHub Releases</a>.</p>
 
 ### macOS
 
-- Apple Chip: <a :href="`${data.releaseDownloadBaseUrl}/HackDesk_${data.version}_aarch64.dmg`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_aarch64.dmg</a>
-- Intel Chip: <a :href="`${data.releaseDownloadBaseUrl}/HackDesk_${data.version}_x64.dmg`" target="_blank" rel="noreferrer">HackDesk\_{{data.version}}\_x64.dmg</a>
+<ul v-if="data.stable">
+  <li v-for="link in data.stable.links.filter((item) => item.platform === 'macos')" :key="link.url"><a :href="link.url" target="_blank" rel="noreferrer">{{ link.fileName }}</a> ({{ link.label }})</li>
+</ul>
 
 ```sh
 brew trust --tap eastsun5566/hackdesk && brew install --cask eastsun5566/hackdesk/hackdesk
@@ -53,11 +63,15 @@ Only use these overrides for HackDesk downloaded from the official tap or GitHub
 
 ### Linux
 
-- <a :href="`${data.releaseDownloadBaseUrl}/HackDesk-${data.version}-x64.AppImage`" target="_blank" rel="noreferrer">HackDesk-{{data.version}}-x64.AppImage</a>
+<ul v-if="data.stable">
+  <li v-for="link in data.stable.links.filter((item) => item.platform === 'linux')" :key="link.url"><a :href="link.url" target="_blank" rel="noreferrer">{{ link.fileName }}</a></li>
+</ul>
 
 ### Windows
 
-- <a :href="`${data.releaseDownloadBaseUrl}/HackDesk-${data.version}-x64.exe`" target="_blank" rel="noreferrer">HackDesk-{{data.version}}-x64.exe</a>
+<ul v-if="data.stable">
+  <li v-for="link in data.stable.links.filter((item) => item.platform === 'windows')" :key="link.url"><a :href="link.url" target="_blank" rel="noreferrer">{{ link.fileName }}</a></li>
+</ul>
 
 ```sh
 winget install EastSun5566.HackDesk

@@ -1,8 +1,8 @@
 import { join } from 'path';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { defineConfig } from 'vitepress';
 
-import { getElectronUpdaterFiles, getUpdaterJson } from './utils';
+import { getLegacyUpdaterFeed } from './utils.ts';
 import { 
   TITLE,
   DESCRIPTION,
@@ -69,17 +69,12 @@ export default defineConfig({
   lastUpdated: true,
 
   async buildEnd({ outDir }) {
-    // write the latest release json to dist
-    const updaterJson = await getUpdaterJson();
-    await writeFile(join(outDir, 'latest.json'), updaterJson);
-
-    const electronUpdaterFiles = await getElectronUpdaterFiles();
-    if (electronUpdaterFiles.length > 0) {
-      const electronUpdatesDir = join(outDir, 'electron-updates');
-      await mkdir(electronUpdatesDir, { recursive: true });
-      await Promise.all(electronUpdaterFiles.map((file) => (
-        writeFile(join(electronUpdatesDir, file.name), file.content)
-      )));
+    // v0.1.x clients poll this feed. v2 updates come from GitHub Releases directly.
+    const feed = await getLegacyUpdaterFeed();
+    if (feed) {
+      await writeFile(join(outDir, 'latest.json'), feed);
+    } else {
+      console.warn('[docs] No validated legacy updater feed; latest.json was not written.');
     }
   },
 });
