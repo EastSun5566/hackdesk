@@ -105,7 +105,7 @@ type CacheKey =
   | 'currentUser'
   | 'teams'
   | 'notes'
-  | 'history'
+  | `history:${number}`
   | 'folders'
   | 'folderOrder'
   | `folder:${string}`
@@ -116,7 +116,50 @@ type CacheKey =
   | `note:${string}`
   | `team:${string}:note:${string}`;
 
-const compatibilityCache = new Map<CacheKey, unknown>();
+/**
+ * Fallback values for offline reads. Every invalidation starts a new
+ * generation, and a response is cached only if no invalidation happened while
+ * it was in flight, so a late response cannot restore stale data.
+ */
+function createFallbackCache() {
+  const entries = new Map<CacheKey, unknown>();
+  let generation = 0;
+
+  return {
+    load<T>(cacheKey: CacheKey, promise: Promise<T>): Promise<RepositoryValue<T>> {
+      const startedGeneration = generation;
+      return promise
+        .then((data) => {
+          if (startedGeneration === generation) entries.set(cacheKey, data);
+          return { source: 'remote' as const, data };
+        })
+        .catch((error) => {
+          const cached = entries.get(cacheKey) as T | undefined;
+          const message = error instanceof Error ? error.message : 'Something went wrong while talking to HackMD.';
+
+          if (cached !== undefined) {
+            return { source: 'error' as const, error: message, data: cached };
+          }
+
+          return { source: 'error' as const, error: message };
+        });
+    },
+    invalidate(matches: (key: CacheKey) => boolean) {
+      generation += 1;
+      for (const key of entries.keys()) {
+        if (matches(key)) entries.delete(key);
+      }
+    },
+    clear() {
+      generation += 1;
+      entries.clear();
+    },
+  };
+}
+
+type FallbackCache = ReturnType<typeof createFallbackCache>;
+
+const compatibilityCache = createFallbackCache();
 
 type HackmdFetch = typeof fetch;
 
@@ -365,30 +408,28 @@ async function requestHackmd<T>(
   }
 }
 
-function withCacheFrom<T>(
-  memoryCache: Map<CacheKey, unknown>,
-  cacheKey: CacheKey,
-  promise: Promise<T>,
-): Promise<RepositoryValue<T>> {
-  return promise
-    .then((data) => {
-      memoryCache.set(cacheKey, data);
-      return { source: 'remote' as const, data };
-    })
-    .catch((error) => {
-      const cached = memoryCache.get(cacheKey) as T | undefined;
-      const message = error instanceof Error ? error.message : 'Something went wrong while talking to HackMD.';
-
-      if (cached !== undefined) {
-        return { source: 'error' as const, error: message, data: cached };
-      }
-
-      return { source: 'error' as const, error: message };
-    });
+export function withCache<T>(cacheKey: CacheKey, promise: Promise<T>): Promise<RepositoryValue<T>> {
+  return compatibilityCache.load(cacheKey, promise);
 }
 
-export function withCache<T>(cacheKey: CacheKey, promise: Promise<T>): Promise<RepositoryValue<T>> {
-  return withCacheFrom(compatibilityCache, cacheKey, promise);
+/** Keys a note write can make stale: its list, its document and every history page. */
+function isNoteDependentKey(key: CacheKey, teamPath: string | null, noteId?: string) {
+  return key === (teamPath ? `team:${teamPath}:notes` : 'notes')
+    || key.startsWith('history:')
+    || (noteId !== undefined && key === (teamPath ? `team:${teamPath}:note:${noteId}` : `note:${noteId}`));
+}
+
+/**
+ * Invalidates before and after a write. The second pass drops responses for
+ * reads that started while the write was in flight and may predate it.
+ */
+async function invalidatingWrite<T>(cache: FallbackCache, matches: (key: CacheKey) => boolean, write: () => Promise<T>) {
+  cache.invalidate(matches);
+  try {
+    return await write();
+  } finally {
+    cache.invalidate(matches);
+  }
 }
 
 export function encodePathSegment(value: string) {
@@ -471,8 +512,10 @@ function mapImageUploadResponse(response: NoteImageUploadResponseDto): UploadNot
 }
 
 export function createHackmdService(options: HackmdServiceOptions = {}) {
-  const memoryCache = new Map<CacheKey, unknown>();
-  const withCache = <T>(cacheKey: CacheKey, promise: Promise<T>) => withCacheFrom(memoryCache, cacheKey, promise);
+  const cache = createFallbackCache();
+  const withCache = <T>(cacheKey: CacheKey, promise: Promise<T>) => cache.load(cacheKey, promise);
+  const writing = <T>(matches: (key: CacheKey) => boolean, write: () => Promise<T>) => invalidatingWrite(cache, matches, write);
+  const keyIn = (...keys: CacheKey[]) => (key: CacheKey) => keys.includes(key);
   const serviceOptions: Required<HackmdServiceOptions> = {
     baseUrl: options.baseUrl ?? HACKMD_API_BASE_URL,
     timeoutMs: options.timeoutMs ?? HACKMD_TIMEOUT_MS,
@@ -518,7 +561,7 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
 
   return {
     clearCache() {
-      memoryCache.clear();
+      cache.clear();
     },
     validateToken(token: string) {
       const normalizedToken = token.trim();
@@ -557,7 +600,7 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
     listHistory(limit = 20) {
       const query = new URLSearchParams({ limit: String(limit) });
       return withCache(
-        'history',
+        `history:${limit}`,
         requestHackmd<NoteDto[]>(`/history?${query.toString()}`, {}, serviceOptions)
           .then((notes) => sortNotes(notes.map(mapNote))),
       );
@@ -657,70 +700,51 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
     },
 
     createNote(input: CreateNoteInput) {
-      memoryCache.delete('notes');
-      return createOrUpdateDocument('/notes', 'POST', input);
+      return writing(
+        (key) => isNoteDependentKey(key, null),
+        () => createOrUpdateDocument('/notes', 'POST', input),
+      );
     },
 
     createTeamNote(teamPath: string, input: CreateNoteInput) {
-      memoryCache.delete(`team:${teamPath}:notes`);
-      return createOrUpdateDocument(`/teams/${encodePathSegment(teamPath)}/notes`, 'POST', input);
+      return writing(
+        (key) => isNoteDependentKey(key, teamPath),
+        () => createOrUpdateDocument(`/teams/${encodePathSegment(teamPath)}/notes`, 'POST', input),
+      );
     },
 
     createFolder(input: CreateFolderInput) {
-      memoryCache.delete('folders');
-      return createOrUpdateFolder('/folders', 'POST', input);
+      return writing(keyIn('folders'), () => createOrUpdateFolder('/folders', 'POST', input));
     },
 
     createTeamFolder(teamPath: string, input: CreateFolderInput) {
-      memoryCache.delete(`team:${teamPath}:folders`);
-      return createOrUpdateFolder(`/teams/${encodePathSegment(teamPath)}/folders`, 'POST', input);
+      return writing(
+        keyIn(`team:${teamPath}:folders`),
+        () => createOrUpdateFolder(`/teams/${encodePathSegment(teamPath)}/folders`, 'POST', input),
+      );
     },
 
     updateFolder(folderId: string, input: UpdateFolderInput) {
-      memoryCache.delete('folders');
-      memoryCache.delete(`folder:${folderId}`);
-      return createOrUpdateFolder(
+      return writing(keyIn('folders', `folder:${folderId}`), () => createOrUpdateFolder(
         `/folders/${encodePathSegment(folderId)}`,
         'PATCH',
         input,
         folderId,
-      );
+      ));
     },
 
     updateTeamFolder(teamPath: string, folderId: string, input: UpdateFolderInput) {
-      memoryCache.delete(`team:${teamPath}:folders`);
-      memoryCache.delete(`team:${teamPath}:folder:${folderId}`);
-      return createOrUpdateFolder(
+      return writing(keyIn(`team:${teamPath}:folders`, `team:${teamPath}:folder:${folderId}`), () => createOrUpdateFolder(
         `/teams/${encodePathSegment(teamPath)}/folders/${encodePathSegment(folderId)}`,
         'PATCH',
         input,
         folderId,
-      );
+      ));
     },
 
     updateNote(noteId: string, input: UpdateNoteInput) {
-      memoryCache.delete('notes');
-      memoryCache.delete(`note:${noteId}`);
-      return createOrUpdateDocument(
-        `/notes/${encodePathSegment(noteId)}`,
-        'PATCH',
-        input,
-        async () => {
-          const response = await requestHackmd<NoteDto>(
-            `/notes/${encodePathSegment(noteId)}`,
-            {},
-            serviceOptions,
-          );
-          return mapDocument(normalizeHackmdResponse(response) as NoteDto);
-        },
-      );
-    },
-
-    updateTeamNote(teamPath: string, noteId: string, input: UpdateNoteInput) {
-      const path = `/teams/${encodePathSegment(teamPath)}/notes/${encodePathSegment(noteId)}`;
-      memoryCache.delete(`team:${teamPath}:notes`);
-      memoryCache.delete(`team:${teamPath}:note:${noteId}`);
-      return createOrUpdateDocument(
+      const path = `/notes/${encodePathSegment(noteId)}`;
+      return writing((key) => isNoteDependentKey(key, null, noteId), () => createOrUpdateDocument(
         path,
         'PATCH',
         input,
@@ -728,57 +752,71 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
           const response = await requestHackmd<NoteDto>(path, {}, serviceOptions);
           return mapDocument(normalizeHackmdResponse(response) as NoteDto);
         },
+      ));
+    },
+
+    updateTeamNote(teamPath: string, noteId: string, input: UpdateNoteInput) {
+      const path = `/teams/${encodePathSegment(teamPath)}/notes/${encodePathSegment(noteId)}`;
+      return writing((key) => isNoteDependentKey(key, teamPath, noteId), () => createOrUpdateDocument(
+        path,
+        'PATCH',
+        input,
+        async () => {
+          const response = await requestHackmd<NoteDto>(path, {}, serviceOptions);
+          return mapDocument(normalizeHackmdResponse(response) as NoteDto);
+        },
+      ));
+    },
+
+    deleteNote(noteId: string) {
+      return writing(
+        (key) => isNoteDependentKey(key, null, noteId),
+        () => requestHackmd<void>(`/notes/${encodePathSegment(noteId)}`, { method: 'DELETE' }, serviceOptions),
       );
     },
 
-    async deleteNote(noteId: string) {
-      await requestHackmd<void>(`/notes/${encodePathSegment(noteId)}`, { method: 'DELETE' }, serviceOptions);
-      memoryCache.delete('notes');
-      memoryCache.delete(`note:${noteId}`);
-    },
-
-    async deleteTeamNote(teamPath: string, noteId: string) {
-      await requestHackmd<void>(`/teams/${encodePathSegment(teamPath)}/notes/${encodePathSegment(noteId)}`, {
-        method: 'DELETE',
-      }, serviceOptions);
-      memoryCache.delete(`team:${teamPath}:notes`);
-      memoryCache.delete(`team:${teamPath}:note:${noteId}`);
-    },
-
-    async deleteFolder(folderId: string) {
-      await requestHackmd<void>(`/folders/${encodePathSegment(folderId)}`, { method: 'DELETE' }, serviceOptions);
-      memoryCache.delete('folders');
-      memoryCache.delete('notes');
-      memoryCache.delete(`folder:${folderId}`);
-    },
-
-    async deleteTeamFolder(teamPath: string, folderId: string) {
-      await requestHackmd<void>(
-        `/teams/${encodePathSegment(teamPath)}/folders/${encodePathSegment(folderId)}`,
-        { method: 'DELETE' },
-        serviceOptions,
+    deleteTeamNote(teamPath: string, noteId: string) {
+      return writing(
+        (key) => isNoteDependentKey(key, teamPath, noteId),
+        () => requestHackmd<void>(`/teams/${encodePathSegment(teamPath)}/notes/${encodePathSegment(noteId)}`, {
+          method: 'DELETE',
+        }, serviceOptions),
       );
-      memoryCache.delete(`team:${teamPath}:folders`);
-      memoryCache.delete(`team:${teamPath}:notes`);
-      memoryCache.delete(`team:${teamPath}:folder:${folderId}`);
     },
 
-    async updateFolderOrder(order: FolderOrder) {
-      await requestHackmd<void>('/folders/folder-order', {
-        method: 'PUT',
-        body: JSON.stringify({ order }),
-      }, serviceOptions);
-      memoryCache.delete('folderOrder');
-      memoryCache.delete('folders');
+    deleteFolder(folderId: string) {
+      return writing(
+        keyIn('folders', 'notes', `folder:${folderId}`),
+        () => requestHackmd<void>(`/folders/${encodePathSegment(folderId)}`, { method: 'DELETE' }, serviceOptions),
+      );
     },
 
-    async updateTeamFolderOrder(teamPath: string, order: FolderOrder) {
-      await requestHackmd<void>(`/teams/${encodePathSegment(teamPath)}/folders/folder-order`, {
+    deleteTeamFolder(teamPath: string, folderId: string) {
+      return writing(
+        keyIn(`team:${teamPath}:folders`, `team:${teamPath}:notes`, `team:${teamPath}:folder:${folderId}`),
+        () => requestHackmd<void>(
+          `/teams/${encodePathSegment(teamPath)}/folders/${encodePathSegment(folderId)}`,
+          { method: 'DELETE' },
+          serviceOptions,
+        ),
+      );
+    },
+
+    updateFolderOrder(order: FolderOrder) {
+      return writing(keyIn('folderOrder', 'folders'), () => requestHackmd<void>('/folders/folder-order', {
         method: 'PUT',
         body: JSON.stringify({ order }),
-      }, serviceOptions);
-      memoryCache.delete(`team:${teamPath}:folderOrder`);
-      memoryCache.delete(`team:${teamPath}:folders`);
+      }, serviceOptions));
+    },
+
+    updateTeamFolderOrder(teamPath: string, order: FolderOrder) {
+      return writing(
+        keyIn(`team:${teamPath}:folderOrder`, `team:${teamPath}:folders`),
+        () => requestHackmd<void>(`/teams/${encodePathSegment(teamPath)}/folders/folder-order`, {
+          method: 'PUT',
+          body: JSON.stringify({ order }),
+        }, serviceOptions),
+      );
     },
 
     async uploadNoteImage(noteId: string, input: UploadNoteImageInput) {
