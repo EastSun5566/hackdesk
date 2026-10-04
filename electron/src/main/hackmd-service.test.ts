@@ -510,3 +510,100 @@ describe('hackmd-service request mapping', () => {
     await expect(accountB.listNotes()).resolves.toEqual({ source: 'error', error: 'offline' });
   });
 });
+
+describe('hackmd-service fallback cache consistency', () => {
+  type Route = (url: string, init: RequestInit) => Response | Promise<Response>;
+
+  function createRoutedService(route: { current: Route }) {
+    return createHackmdService({
+      baseUrl: 'https://api.test/v1',
+      timeoutMs: 1000,
+      fetcher: (async (input: RequestInfo | URL, init?: RequestInit) => route.current(String(input), init ?? {})) as typeof fetch,
+      readToken: async () => 'test-token',
+    });
+  }
+
+  const offline: Route = () => { throw new Error('offline'); };
+  const note = (id: string, title = id) => ({ id, title, content: `${title} body` });
+  const okRoute = (byPath: Record<string, unknown>): Route => (url, init) => {
+    const path = url.replace('https://api.test/v1', '');
+    if (init.method && init.method !== 'GET') return init.method === 'DELETE' ? textResponse('', { status: 204 }) : jsonResponse(note('n1', 'Updated'));
+    if (!(path in byPath)) throw new Error(`Unexpected ${path}`);
+    return jsonResponse(byPath[path]);
+  };
+
+  it('keeps separate fallback values for different history limits', async () => {
+    const route = { current: okRoute({ '/history?limit=20': [note('a')], '/history?limit=50': [note('a'), note('b')] }) };
+    const service = createRoutedService(route);
+    await service.listHistory(20);
+    await service.listHistory(50);
+    route.current = offline;
+    expect((await service.listHistory(20)).data?.map((item) => item.id)).toEqual(['a']);
+    expect((await service.listHistory(50)).data?.map((item) => item.id)).toEqual(['a', 'b']);
+  });
+
+  it.each([
+    ['update', (service: ReturnType<typeof createHackmdService>) => service.updateNote('n1', { content: 'Updated' })],
+    ['delete', (service: ReturnType<typeof createHackmdService>) => service.deleteNote('n1')],
+  ])('invalidates note lists, the document and history after %s', async (_, mutate) => {
+    const route = { current: okRoute({ '/notes': [note('n1')], '/notes/n1': note('n1'), '/history?limit=20': [note('n1')] }) };
+    const service = createRoutedService(route);
+    await Promise.all([service.listNotes(), service.getNote('n1'), service.listHistory(20)]);
+    await mutate(service);
+    route.current = offline;
+    expect(await service.listNotes()).toEqual({ source: 'error', error: 'offline' });
+    expect(await service.getNote('n1')).toEqual({ source: 'error', error: 'offline' });
+    expect(await service.listHistory(20)).toEqual({ source: 'error', error: 'offline' });
+  });
+
+  it('invalidates team note lists, the team document and history after a team update', async () => {
+    const route = { current: okRoute({ '/teams/design/notes': [note('n1')], '/teams/design/notes/n1': note('n1'), '/history?limit=20': [note('n1')], '/notes': [note('other')] }) };
+    const service = createRoutedService(route);
+    await Promise.all([service.listTeamNotes('design'), service.getNote('n1', 'design'), service.listHistory(20), service.listNotes()]);
+    await service.updateTeamNote('design', 'n1', { content: 'Updated' });
+    route.current = offline;
+    expect(await service.listTeamNotes('design')).toEqual({ source: 'error', error: 'offline' });
+    expect(await service.getNote('n1', 'design')).toEqual({ source: 'error', error: 'offline' });
+    expect(await service.listHistory(20)).toEqual({ source: 'error', error: 'offline' });
+    expect((await service.listNotes()).data?.map((item) => item.id)).toEqual(['other']);
+  });
+
+  it.each([
+    ['started before the mutation', 'before'],
+    ['started while the mutation is in flight', 'during'],
+  ])('does not let a late list response %s restore stale data', async (_, timing) => {
+    let releaseList!: () => void;
+    let releaseUpdate!: () => void;
+    const listGate = new Promise<void>((done) => { releaseList = done; });
+    const updateGate = new Promise<void>((done) => { releaseUpdate = done; });
+    const route = { current: (async (url: string, init: RequestInit) => {
+      if (init.method === 'PATCH') { await updateGate; return jsonResponse(note('n1', 'Updated')); }
+      await listGate;
+      return jsonResponse([note('n1', 'Stale')]);
+    }) as Route };
+    const service = createRoutedService(route);
+    let list!: ReturnType<typeof service.listNotes>;
+    if (timing === 'before') list = service.listNotes();
+    const update = service.updateNote('n1', { content: 'Updated' });
+    if (timing === 'during') list = service.listNotes();
+    releaseList();
+    await list;
+    releaseUpdate();
+    await update;
+    route.current = offline;
+    expect(await service.listNotes()).toEqual({ source: 'error', error: 'offline' });
+  });
+
+  it('does not cache a response from the previous credentials after the cache is cleared', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((done) => { release = done; });
+    const route = { current: (async () => { await gate; return jsonResponse([note('old-account')]); }) as Route };
+    const service = createRoutedService(route);
+    const list = service.listNotes();
+    service.clearCache();
+    release();
+    await list;
+    route.current = offline;
+    expect(await service.listNotes()).toEqual({ source: 'error', error: 'offline' });
+  });
+});
