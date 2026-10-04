@@ -49,3 +49,43 @@ jobs:
       - run: pnpm run package:check
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+
+  # Run the macOS-only app-lifecycle spec. The spec itself skips on non-darwin
+  # via `test.skip(process.platform !== 'darwin', ...)` so the matrix entry
+  # only runs the test on macos-latest; ubuntu/windows still run the suite
+  # but skip the test, which keeps CI green everywhere.
+  macos-lifecycle:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      # Build the source app (the lifecycle spec launches Electron from source,
+      # not the packaged binary, so no electron-builder step here).
+      - run: pnpm run build
+      # Run only the lifecycle spec to keep the job focused and the macOS
+      # runner minutes tight. The spec skips itself on non-darwin.
+      - name: Run app-lifecycle spec
+        run: pnpm exec playwright test --config electron/playwright.config.ts electron/e2e/app-lifecycle.spec.ts
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-lifecycle-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-lifecycle-test-results
+          path: test-results
+          retention-days: 7
