@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { DocumentSummary, RepositoryValue } from '@/lib/electron-api';
 import type { LocalRevision } from '@/lib/local-vault';
-import { HACKMD_NOTE_NOT_FOUND_MESSAGE, LOCAL_NOTE_NOT_FOUND_MESSAGE } from '@/lib/note-errors';
+import { HACKMD_NOTE_CHANGED_MESSAGE, HACKMD_NOTE_NOT_FOUND_MESSAGE, LOCAL_NOTE_NOT_FOUND_MESSAGE } from '@/lib/note-errors';
 
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import {
@@ -272,6 +272,21 @@ describe('useWorkbenchDocuments', () => {
     }));
 
     expect(result.current.getPaneView(pane).recovery).toBeNull();
+  });
+
+  it('exposes HackMD change recovery only for the note whose save was rejected', () => {
+    const tab = createTab();
+    const other = createTab({ noteId: 'note-2', tabId: 'tab-2' });
+    const options = createOptions({
+      saveError: new Error(HACKMD_NOTE_CHANGED_MESSAGE),
+      saveFailedNote: { id: tab.noteId, teamPath: tab.teamPath },
+      tabs: { [tab.tabId]: tab, [other.tabId]: other },
+    });
+    const { result } = renderHook(() => useWorkbenchDocuments(options));
+
+    expect(result.current.getPaneView(createPane(tab)).recovery).toEqual({ kind: 'remote_changed', message: HACKMD_NOTE_CHANGED_MESSAGE });
+    expect(result.current.getPaneView(createPane(tab)).syncState).toBe('save_failed');
+    expect(result.current.getPaneView(createPane(other)).recovery).toBeNull();
   });
 
   it('marks dirty local tabs as failed when the file changed on disk', () => {

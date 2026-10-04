@@ -11,3 +11,12 @@ export function isNoteNotFoundError(message: string | null | undefined) {
 export function stripIpcErrorPrefix(message: string) {
   return message.replace(/^Error invoking remote method '[^']*': (?:[A-Za-z]*Error: )?/, '');
 }
+
+// HackMD's API has no conditional write, so a save compares the latest note
+// with the draft's base just before writing. A change made between that read
+// and the write can still be overwritten.
+export const HACKMD_NOTE_CHANGED_MESSAGE = 'This note changed on HackMD after you started editing, so your draft was not saved.';
+
+export function isRemoteNoteChangedError(message: string | null | undefined) {
+  return !!message && message.includes(HACKMD_NOTE_CHANGED_MESSAGE);
+}

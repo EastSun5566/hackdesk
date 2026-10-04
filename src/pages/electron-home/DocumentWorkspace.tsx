@@ -24,7 +24,7 @@ export type DocumentPaneView = {
   title: string;
   content: string;
   recovery?: {
-    kind: 'disk_changed' | 'save_failed';
+    kind: 'disk_changed' | 'remote_changed' | 'save_failed';
     message: string;
   } | null;
   /** The saved note could not be loaded; `missing` is confirmed, `read_error` may be temporary. */
@@ -62,6 +62,7 @@ export function DocumentWorkspace({
   onCopyMarkdownLink,
   onExportMarkdown,
   onReloadFromDisk,
+  onReloadFromHackmd,
   onSave,
   onSaveAsCopy,
   onSaveMetadata,
@@ -96,6 +97,7 @@ export function DocumentWorkspace({
   onCopyMarkdownLink: (document: DocumentSummary) => void;
   onExportMarkdown: (document: DocumentSummary, title: string, content: string) => void;
   onReloadFromDisk: (document: DocumentSummary) => void;
+  onReloadFromHackmd: (document: DocumentSummary) => void;
   onSave: (tab: OpenNoteTab, input: UpdateNoteInput) => void;
   onSaveAsCopy: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
@@ -206,6 +208,8 @@ export function DocumentWorkspace({
                       onCopyMarkdownLink,
                       onExportMarkdown,
                       onReloadFromDisk,
+                      onReloadFromHackmd,
+                      onOpenAsNewDraft: (title, content) => onOpenAsNewDraft(title, content, pane.paneId),
                       onSave: (input) => view.activeTab && onSave(view.activeTab, input),
                       onSaveAsCopy,
                       onSaveMetadata,

@@ -104,6 +104,8 @@ function renderDocumentDetail(overrides: Partial<DocumentDetailProps> = {}) {
       onOpenExternal: vi.fn(),
       onRevealInFinder: vi.fn(),
       onReloadFromDisk: vi.fn(),
+      onReloadFromHackmd: vi.fn(),
+      onOpenAsNewDraft: vi.fn(),
       onSave: vi.fn(),
       onSaveAsCopy: vi.fn(),
       onSaveMetadata: vi.fn(),
@@ -423,6 +425,35 @@ describe('DocumentDetail', () => {
     expect(within(dialog).getByRole('region', { name: 'On disk' })).toHaveTextContent('External edit');
     expect(onReloadFromDisk).not.toHaveBeenCalled();
     expect(onSaveAsCopy).not.toHaveBeenCalled();
+  });
+
+  it('offers HackMD change recovery without saving over the remote note', async () => {
+    const onReloadFromHackmd = vi.fn();
+    const onOpenAsNewDraft = vi.fn();
+    const onSave = vi.fn();
+    const document = documentSummary({ title: 'Remote title', content: 'Changed on HackMD' });
+    renderDocumentDetail({
+      actions: { onReloadFromHackmd, onOpenAsNewDraft, onSave },
+      documentState: {
+        title: 'Draft title', content: 'My edit', document,
+        recovery: { kind: 'remote_changed', message: 'This note changed on HackMD.' },
+      },
+    });
+
+    expect(screen.getByText('This note changed on HackMD. Your draft is still open.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save as copy' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Compare with HackMD' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Compare with HackMD' });
+    expect(within(dialog).getByRole('region', { name: 'Your draft' })).toHaveTextContent('My edit');
+    expect(within(dialog).getByRole('region', { name: 'On HackMD' })).toHaveTextContent('Changed on HackMD');
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open as new draft' }));
+    expect(onOpenAsNewDraft).toHaveBeenCalledWith('Draft title', 'My edit');
+    fireEvent.click(screen.getByRole('button', { name: 'Reload from HackMD' }));
+    expect(onReloadFromHackmd).toHaveBeenCalledWith(document);
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it('hides HackMD-only inspector controls for local documents', () => {

@@ -33,6 +33,7 @@ import {
 import { useElectronNoteMutations } from './electron-home/useElectronNoteMutations';
 import { useDocumentCommands } from './electron-home/useDocumentCommands';
 import { useLocalDocumentRecovery } from './electron-home/useLocalDocumentRecovery';
+import { useRemoteDocumentRecovery } from './electron-home/useRemoteDocumentRecovery';
 import { useNoteWorkspaceTabs } from './electron-home/useNoteWorkspaceTabs';
 import {
   createClosedFolderDialogState,
@@ -342,6 +343,12 @@ export function Home() {
     syncNoteSummary: noteWorkspace.syncNoteSummary,
     tabs: noteWorkspace.state.tabs,
     trackRecentNote,
+  });
+  const remoteDocumentRecovery = useRemoteDocumentRecovery({
+    clearDraft: noteWorkspace.clearDraft,
+    documentQueries: remoteDocumentQueries,
+    getTabsMatching: noteWorkspace.getTabsMatching,
+    resetSaveMutation: mutations.updateNoteMutation.reset,
   });
   const workbenchNavigator = useWorkbenchNavigator({
     canUseHackmd: canUseCurrentWorkspace,
@@ -779,6 +786,7 @@ export function Home() {
     homeStatus,
     inspectorCollapsed,
     localDocumentRecovery,
+    remoteDocumentRecovery,
     localVaultActions,
     mutations,
     navigator: workbenchNavigator,
