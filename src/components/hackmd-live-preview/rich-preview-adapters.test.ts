@@ -35,4 +35,26 @@ describe('rich-preview-adapters', () => {
     expect(result.html).not.toContain('var(--border-strong)');
     expect(result.html).not.toContain("font-family: 'Inter'");
   });
+
+  it('keeps Mermaid styles inside each rendered diagram', async () => {
+    const results = await Promise.all([
+      renderMermaid(['graph TD', 'A --> B'].join('\n')),
+      renderMermaid(['erDiagram', 'A ||--o{ B : has'].join('\n')),
+    ]);
+    const scopes = results.map(({ html }) => {
+      const root = new DOMParser().parseFromString(html, 'text/html').body.firstElementChild!;
+      const scope = [...root.classList].find((name) => name.startsWith('cm-hackmd-diagram-'))!;
+      const css = [...root.querySelectorAll('style')].map((style) => style.textContent).join('\n');
+
+      expect(root.localName).toBe('svg');
+      expect(css).not.toContain('@import');
+      // Every rule starts with this diagram's own scope.
+      for (const [, selectors] of css.matchAll(/([^{}]+)\{[^{}]*\}/g)) {
+        for (const selector of selectors.split(',')) expect(selector.trim()).toMatch(new RegExp(`^\\.${scope}(?![\\w-])`));
+      }
+      return scope;
+    });
+
+    expect(new Set(scopes).size).toBe(2);
+  });
 });
