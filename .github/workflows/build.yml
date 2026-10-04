@@ -82,10 +82,3 @@ jobs:
             playwright-report
             test-results
           retention-days: 7
-      - name: Upload test results on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-lifecycle-test-results
-          path: test-results
-          retention-days: 7
