@@ -17,6 +17,7 @@ import { isDraftNoteTab } from './note-workspace';
 import type { useElectronHomeStatus } from './useElectronHomeStatus';
 import type { useElectronNoteMutations } from './useElectronNoteMutations';
 import type { useLocalDocumentRecovery } from './useLocalDocumentRecovery';
+import type { useRemoteDocumentRecovery } from './useRemoteDocumentRecovery';
 import type { useNoteWorkspaceTabs } from './useNoteWorkspaceTabs';
 import type { useWorkbenchDocuments } from './useWorkbenchDocuments';
 import type { useWorkbenchFolderCommands } from './useWorkbenchFolderCommands';
@@ -29,6 +30,7 @@ type WorkbenchDocuments = ReturnType<typeof useWorkbenchDocuments>;
 type WorkbenchFolderCommands = ReturnType<typeof useWorkbenchFolderCommands>;
 type WorkbenchNavigator = ReturnType<typeof useWorkbenchNavigator>;
 type LocalDocumentRecovery = ReturnType<typeof useLocalDocumentRecovery>;
+type RemoteDocumentRecovery = ReturnType<typeof useRemoteDocumentRecovery>;
 
 type WorkspaceActions = {
   attachImageToTab: ElectronHomeWorkspaceProps['documentWorkspace']['onAttachImage'];
@@ -78,6 +80,7 @@ export function useHomeWorkspaceProps({
   railCollapsed,
   railWidth,
   refreshWorkspace,
+  remoteDocumentRecovery,
   selectedFolderId,
   selectedNote,
   setNavigatorWidth,
@@ -117,6 +120,7 @@ export function useHomeWorkspaceProps({
   railCollapsed: boolean;
   railWidth: number;
   refreshWorkspace: () => void;
+  remoteDocumentRecovery: RemoteDocumentRecovery;
   selectedFolderId: string | null;
   selectedNote: { id: string } | null;
   setNavigatorWidth: (width: number) => void;
@@ -268,6 +272,7 @@ export function useHomeWorkspaceProps({
       onCopyMarkdownLink: actions.handleCopyNoteMarkdownLink,
       onExportMarkdown: actions.handleExportMarkdown,
       onReloadFromDisk: localDocumentRecovery.reloadFromDisk,
+      onReloadFromHackmd: remoteDocumentRecovery.reloadFromHackmd,
       onSave: (tab, input) => {
         if (isDraftNoteTab(tab)) {
           mutations.createDraftNoteMutation.mutate({ tabId: tab.tabId, input });
@@ -304,7 +309,7 @@ export function useHomeWorkspaceProps({
       onToggleInspector: toggleInspectorCollapsed,
       onCopyDraft: actions.copyDraftText,
       onExportDraft: actions.exportDraftText,
-      // A new draft never reuses the unavailable note's identity.
+      // A new draft never reuses the original note's identity.
       onOpenAsNewDraft: (title, content, paneId) => noteWorkspace.openDraftNote({ title, content, paneId }),
       onRetryLoad: actions.retryDocumentLoad,
       onShareOpenChange: actions.setShareOpen,

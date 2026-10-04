@@ -16,6 +16,7 @@ import type {
   UploadNoteImageInput,
 } from '@/lib/electron-api';
 import type { LocalDocument, LocalVaultSnapshot } from '@/lib/local-vault';
+import { HACKMD_NOTE_CHANGED_MESSAGE } from '@/lib/note-errors';
 import type { FolderDropOperation } from '@/lib/hackmd-folder-dnd';
 
 import {
@@ -555,6 +556,20 @@ export function useElectronNoteMutations({
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to create folder.'),
   });
 
+  // Requires a fresh read from HackMD and refuses to save over a
+  // newer remote version. Shows that version so it can be compared.
+  const assertRemoteNoteUnchanged = async (hackmd: HackDeskElectronAPI['hackmd'], note: DocumentSummary, baseContent: string) => {
+    const latest = await hackmd.getNote(note.id, note.teamPath ?? null);
+    if (latest.source !== 'remote') {
+      const reason = latest.source === 'error' ? ` ${latest.error}` : '';
+      throw new Error(`Could not check HackMD for newer changes, so your draft was not saved.${reason}`);
+    }
+    if (latest.data.content !== baseContent) {
+      queryClient.setQueryData(['electron', 'hackmd', 'note', note.teamPath ?? null, note.id], latest);
+      throw new Error(HACKMD_NOTE_CHANGED_MESSAGE);
+    }
+  };
+
   const updateNoteMutation = useWorkspaceMutation(scope, 'update-note', {
     mutationFn: async (variables: UpdateNoteMutationVariables) => {
       const { note, input } = variables;
@@ -582,6 +597,10 @@ export function useElectronNoteMutations({
         }
 
         return localDocument;
+      }
+
+      if (payload.content !== undefined) {
+        await assertRemoteNoteUnchanged(api.hackmd, note, variables.submittedDraft?.baseContent ?? note.content);
       }
 
       return note.teamPath

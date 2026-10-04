@@ -7,6 +7,8 @@ import { toast } from '@/components/ui/toast';
 import type { DocumentSummary, ElectronSafeSettings, HackDeskElectronAPI } from '@/lib/electron-api';
 import type { LocalDocument, LocalVaultSnapshot } from '@/lib/local-vault';
 
+import { HACKMD_NOTE_CHANGED_MESSAGE } from '@/lib/note-errors';
+
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { deriveDraftNoteTitle, useElectronNoteMutations } from './useElectronNoteMutations';
 import type { WorkspaceScope } from './types';
@@ -339,6 +341,63 @@ describe('useElectronNoteMutations local note save', () => {
   });
 });
 
+describe('useElectronNoteMutations remote save conflicts', () => {
+  const scope: WorkspaceScope = { type: 'team', label: 'Team A', teamPath: 'team-a' };
+  const noteKey = ['electron', 'hackmd', 'note', 'team-a', 'note-1'];
+
+  function setup(latest: unknown) {
+    const note = createDocument({ teamPath: 'team-a', content: 'Base' });
+    const api = { hackmd: {
+      getNote: vi.fn(async () => latest),
+      updateTeamNote: vi.fn(async (_teamPath: string, _id: string, input: { content?: string }) => ({ ...note, content: input.content ?? note.content })),
+    } } as unknown as HackDeskElectronAPI;
+    const { queryClient, Wrapper } = createWrapper();
+    const { result } = renderHook(useElectronNoteMutations, { initialProps: createOptions({ api, scope }), wrapper: Wrapper });
+    const save = (input: { content?: string; tags?: string[] }, intent: 'content' | 'metadata' = 'content') => act(() => {
+      result.current.updateNoteMutation.mutate({
+        note, input, intent, tabId: 'tab-1',
+        submittedDraft: { title: note.title, content: input.content ?? note.content, baseTitle: note.title, baseContent: 'Base' },
+      });
+    });
+    return { api, note, queryClient, result, save };
+  }
+
+  it('saves when HackMD still has the draft base', async () => {
+    const { api, save } = setup({ source: 'remote', data: createDocument({ teamPath: 'team-a', content: 'Base' }) });
+    save({ content: 'Edited' });
+    await waitFor(() => expect(api.hackmd.updateTeamNote).toHaveBeenCalledWith('team-a', 'note-1', expect.objectContaining({ content: 'Edited' })));
+    expect(api.hackmd.getNote).toHaveBeenCalledWith('note-1', 'team-a');
+  });
+
+  it('does not write over a note changed on HackMD and shows the latest copy', async () => {
+    const latest = { source: 'remote', data: createDocument({ teamPath: 'team-a', content: 'Changed elsewhere' }) };
+    const { api, queryClient, result, save } = setup(latest);
+    save({ content: 'Edited' });
+    await waitFor(() => expect(result.current.updateNoteMutation.isError).toBe(true));
+    expect(result.current.updateNoteMutation.error?.message).toBe(HACKMD_NOTE_CHANGED_MESSAGE);
+    expect(api.hackmd.updateTeamNote).not.toHaveBeenCalled();
+    expect(queryClient.getQueryData(noteKey)).toEqual(latest);
+  });
+
+  it.each([
+    ['a cached copy', { source: 'cached', data: createDocument({ teamPath: 'team-a', content: 'Base' }) }],
+    ['a read error', { source: 'error', error: 'HackMD is offline.' }],
+  ])('does not write when the latest note is only %s', async (_label, latest) => {
+    const { api, result, save } = setup(latest);
+    save({ content: 'Edited' });
+    await waitFor(() => expect(result.current.updateNoteMutation.isError).toBe(true));
+    expect(result.current.updateNoteMutation.error?.message).toContain('Could not check HackMD for newer changes');
+    expect(api.hackmd.updateTeamNote).not.toHaveBeenCalled();
+  });
+
+  it('saves metadata without checking content', async () => {
+    const { api, save } = setup({ source: 'remote', data: createDocument({ teamPath: 'team-a', content: 'Changed elsewhere' }) });
+    save({ tags: ['a'] }, 'metadata');
+    await waitFor(() => expect(api.hackmd.updateTeamNote).toHaveBeenCalledWith('team-a', 'note-1', { tags: ['a'] }));
+    expect(api.hackmd.getNote).not.toHaveBeenCalled();
+  });
+});
+
 describe('useElectronNoteMutations local folders', () => {
   const archiveFolder = {
     id: 'local-folder:Archive/Design',
@@ -521,6 +580,7 @@ describe('mutation workspace ownership', () => {
     const folderCreated = Promise.withResolvers<typeof folder>();
     const api = { hackmd: {
       createNote: vi.fn(() => created.promise), createTeamNote: vi.fn(() => created.promise),
+      getNote: vi.fn(async () => ({ source: 'remote', data: note })),
       updateNote: vi.fn(() => saved.promise), updateTeamNote: vi.fn(() => saved.promise),
       createFolder: vi.fn(() => folderCreated.promise), createTeamFolder: vi.fn(() => folderCreated.promise),
     } } as unknown as HackDeskElectronAPI;

@@ -13,7 +13,7 @@ vi.mock('./DocumentDetail', async () => {
   const { useState } = await import('react');
 
   return {
-    DocumentDetail: ({ documentState, editorKey, layout }: DocumentDetailProps) => {
+    DocumentDetail: ({ actions, documentState, editorKey, layout }: DocumentDetailProps) => {
       const [mountId] = useState(() => ++documentDetailMounts.nextId);
 
       return (
@@ -28,7 +28,11 @@ vi.mock('./DocumentDetail', async () => {
           data-search-request={layout.searchRequestId}
           data-share-open={String(layout.shareOpen)}
           tabIndex={0}
-        />
+        >
+          <button type="button" onClick={() => actions.onOpenAsNewDraft(documentState.title, documentState.content)}>
+            {`Open ${documentState.title} as new draft`}
+          </button>
+        </article>
       );
     },
   };
@@ -91,6 +95,7 @@ function createWorkspaceProps(overrides: Partial<Parameters<typeof DocumentWorks
     onOpenEditor: vi.fn(),
     onOpenExternal: vi.fn(),
     onReloadFromDisk: vi.fn(),
+    onReloadFromHackmd: vi.fn(),
     onResizePanes: vi.fn(),
     onRevealInFinder: vi.fn(),
     onSave: vi.fn(),
@@ -269,6 +274,14 @@ describe('DocumentWorkspace', () => {
     // A missing result can come from an intermediary, so it can be re-checked without writing.
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(props.onRetryLoad).toHaveBeenCalledWith(expect.objectContaining({ tabId: 'tab-a' }));
+  });
+
+  it('opens a conflicted draft as a new draft in the same pane', () => {
+    const props = renderWorkspace({
+      getPaneView: vi.fn((candidate: NotePane) => ({ ...createView(candidate), content: `${candidate.paneId} body` })),
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open Right note as new draft' }));
+    expect(props.onOpenAsNewDraft).toHaveBeenCalledWith('Right note', 'pane-b body', 'pane-b');
   });
 
   it('offers retry for a temporary read error and no draft actions without a draft', () => {

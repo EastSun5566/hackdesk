@@ -8,6 +8,7 @@ import {
   Copy,
   Download,
   Edit3,
+  FilePlus,
   FolderOpen,
   ImagePlus,
   Loader2,
@@ -59,7 +60,7 @@ export type DocumentDetailDocumentState = {
   document?: DocumentSummary;
   isDraft: boolean;
   recovery?: {
-    kind: 'disk_changed' | 'save_failed';
+    kind: 'disk_changed' | 'remote_changed' | 'save_failed';
     message: string;
   } | null;
   selectedNote?: Pick<NoteSummary, 'title'> | null;
@@ -95,6 +96,9 @@ export type DocumentDetailActions = {
   onOpenExternal: (url: string) => void;
   onRevealInFinder: (document: DocumentSummary) => void;
   onReloadFromDisk: (document: DocumentSummary) => void;
+  onReloadFromHackmd: (document: DocumentSummary) => void;
+  /** Opens the draft as a new unsaved note; the original note is left untouched. */
+  onOpenAsNewDraft: (title: string, content: string) => void;
   onSave: (input: UpdateNoteInput) => void;
   onSaveAsCopy: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
@@ -467,6 +471,9 @@ function ActiveDocumentDetail({
   );
 }
 
+const recoveryButtonClassName = 'inline-flex h-7 items-center gap-1 rounded-[6px] border border-warning-default/35 bg-background-default px-2 text-xs font-medium text-text-default hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring';
+const recoveryPrimaryButtonClassName = 'inline-flex h-7 items-center gap-1 rounded-[6px] bg-warning-default px-2 text-xs font-medium text-background-default hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring';
+
 function DocumentRecoveryBanner({
   actions,
   documentState,
@@ -475,55 +482,69 @@ function DocumentRecoveryBanner({
   documentState: DocumentDetailDocumentState;
 }) {
   const [comparing, setComparing] = useState(false);
-  if (!documentState.document || documentState.recovery?.kind !== 'disk_changed') {
+  const kind = documentState.recovery?.kind;
+  if (!documentState.document || (kind !== 'disk_changed' && kind !== 'remote_changed')) {
     return null;
   }
   const document = documentState.document;
+  const isRemote = kind === 'remote_changed';
+  const source = isRemote ? 'HackMD' : 'disk';
 
   return (
     <div className="border-b border-warning-default/30 bg-warning-soft px-4 py-2.5 text-sm text-warning-default">
       <div className="flex flex-wrap items-center gap-2">
         <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
         <p className="min-w-0 flex-1 text-text-default">
-          File changed on disk. Your draft is still open.
+          {isRemote ? 'This note changed on HackMD. Your draft is still open.' : 'File changed on disk. Your draft is still open.'}
         </p>
-        <button
-          type="button"
-          className="inline-flex h-7 items-center rounded-[6px] border border-warning-default/35 bg-background-default px-2 text-xs font-medium text-text-default hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-          onClick={() => setComparing(true)}
-        >
-          Compare with disk
+        <button type="button" className={recoveryButtonClassName} onClick={() => setComparing(true)}>
+          Compare with {source}
         </button>
         <button
           type="button"
-          className="inline-flex h-7 items-center gap-1 rounded-[6px] border border-warning-default/35 bg-background-default px-2 text-xs font-medium text-text-default hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-          onClick={() => actions.onReloadFromDisk(document)}
+          className={recoveryButtonClassName}
+          onClick={() => (isRemote ? actions.onReloadFromHackmd(document) : actions.onReloadFromDisk(document))}
         >
           <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
-          Reload from disk
+          Reload from {source}
         </button>
-        <button
-          type="button"
-          className="inline-flex h-7 items-center gap-1 rounded-[6px] bg-warning-default px-2 text-xs font-medium text-background-default hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-          onClick={() => actions.onSaveAsCopy(document, {
-            title: documentState.title,
-            content: documentState.content,
-          })}
-        >
-          <Copy aria-hidden="true" className="h-3.5 w-3.5" />
-          Save as copy
-        </button>
+        {isRemote ? (
+          <button
+            type="button"
+            className={recoveryPrimaryButtonClassName}
+            onClick={() => actions.onOpenAsNewDraft(documentState.title, documentState.content)}
+          >
+            <FilePlus aria-hidden="true" className="h-3.5 w-3.5" />
+            Open as new draft
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={recoveryPrimaryButtonClassName}
+            onClick={() => actions.onSaveAsCopy(document, {
+              title: documentState.title,
+              content: documentState.content,
+            })}
+          >
+            <Copy aria-hidden="true" className="h-3.5 w-3.5" />
+            Save as copy
+          </button>
+        )}
       </div>
       <Dialog open={comparing} onOpenChange={setComparing}>
         <DialogContent className="max-h-[calc(100dvh-4rem)] max-w-4xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Compare with disk</DialogTitle>
-            <DialogDescription>Compare both versions before reloading or saving a copy. Saving a copy keeps the original draft open.</DialogDescription>
+            <DialogTitle>Compare with {source}</DialogTitle>
+            <DialogDescription>
+              {isRemote
+                ? 'Compare both versions before reloading or opening your draft as a new note. Opening a new draft keeps this draft open.'
+                : 'Compare both versions before reloading or saving a copy. Saving a copy keeps the original draft open.'}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid min-h-0 gap-4 sm:grid-cols-2">
             {[
               { label: 'Your draft', title: documentState.title, content: documentState.content },
-              { label: 'On disk', title: document.title, content: document.content },
+              { label: isRemote ? 'On HackMD' : 'On disk', title: document.title, content: document.content },
             ].map(({ label, title, content }) => (
               <section key={label} aria-label={label} className="min-w-0 space-y-2">
                 <h3 className="text-sm font-medium text-text-default">{label}</h3>

@@ -5,7 +5,7 @@ import type {
   RepositoryValue,
 } from '@/lib/electron-api';
 import type { LocalRevision } from '@/lib/local-vault';
-import { isNoteNotFoundError } from '@/lib/note-errors';
+import { isNoteNotFoundError, isRemoteNoteChangedError } from '@/lib/note-errors';
 
 import type { DocumentSyncState } from './DocumentDetail';
 import type { DocumentPaneView } from './DocumentWorkspace';
@@ -284,6 +284,10 @@ export function useWorkbenchDocuments({
 
     const identity = getTabIdentity(tab);
     const message = saveError instanceof Error ? saveError.message : String(saveError ?? '');
+    if (noteIdentityMatches(saveFailedNote, identity) && isRemoteNoteChangedError(message)) {
+      return { kind: 'remote_changed', message };
+    }
+
     if (noteIdentityMatches(saveFailedNote, identity) && message.toLowerCase().includes('file changed on disk')) {
       return {
         kind: 'disk_changed',
