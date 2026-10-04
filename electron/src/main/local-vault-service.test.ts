@@ -213,6 +213,27 @@ describe('LocalVaultService', () => {
     expect((await scanLocalVault(vaultPath)).notes[0].id).toBe(document.id);
   });
 
+  it('skips an oversized Markdown file without hiding the rest of the vault, and keeps its ID', async () => {
+    const { document: normal } = await createLocalNote({ title: 'Normal', content: 'Body' });
+    const { document: big } = await createLocalNote({ title: 'Big', content: 'Small for now' });
+    const bigPath = join(vaultPath, big.relativePath);
+    await writeFile(bigPath, 'x'.repeat(10 * 1024 * 1024 + 1));
+    fsProbe.afterRead.mockClear();
+
+    const snapshot = await scanLocalVault(vaultPath);
+    expect(snapshot.notes.map((note) => note.id)).toEqual([normal.id]);
+    expect(snapshot.skippedFiles).toEqual([{ relativePath: 'Big.md', reason: 'Larger than 10 MiB' }]);
+    // The oversized file is never read.
+    expect(fsProbe.afterRead.mock.calls.map(([path]) => path)).not.toContain(bigPath);
+    await expect(readLocalNote(big.id)).rejects.toThrow('Markdown file exceeds 10 MiB: Big.md');
+
+    await writeFile(bigPath, 'Small again');
+    const restored = await scanLocalVault(vaultPath);
+    expect(restored.notes.find((note) => note.relativePath === 'Big.md')?.id).toBe(big.id);
+    expect(restored.skippedFiles).toEqual([]);
+    await expect(readLocalNote(big.id)).resolves.toMatchObject({ content: 'Small again' });
+  });
+
   it('retries an unstable scan once and never writes a partial manifest', async () => {
     const { document } = await createLocalNote({ title: 'Original', content: 'Body' });
     const path = join(vaultPath, '.hackdesk', 'manifest.json');

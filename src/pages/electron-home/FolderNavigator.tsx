@@ -24,6 +24,7 @@ import {
 } from '@dnd-kit/sortable';
 
 import type { NoteSummary } from '@/lib/electron-api';
+import type { LocalVaultSkippedFile } from '@/lib/local-vault';
 import {
   buildFolderDropOperation,
   flattenFolderTree,
@@ -60,6 +61,7 @@ import {
   RootFolderRow,
 } from './FolderNavigatorRows';
 import { RepositoryNotice } from './RepositoryNotice';
+import { SkippedFilesNotice } from './SkippedFilesNotice';
 import { FOCUS_RING_CLASS } from './ui';
 import { useFolderTreeKeyboardNavigation } from './useFolderTreeKeyboardNavigation';
 
@@ -85,6 +87,7 @@ export type FolderNavigatorStatus = {
   isMovingFolder: boolean;
   isMovingNote: boolean;
   showingCachedFallback: boolean;
+  skippedFiles?: LocalVaultSkippedFile[];
 };
 
 export type FolderNavigatorEmptyState = {
@@ -364,6 +367,7 @@ function NavigatorFilterBar({
       ) : null}
 
       <RepositoryNotice error={status.activeError} cached={status.showingCachedFallback} />
+      {scope.type === 'local' ? <SkippedFilesNotice files={status.skippedFiles} /> : null}
     </div>
   );
 }
