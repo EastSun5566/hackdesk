@@ -50,10 +50,10 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
-  # Run the macOS-only app-lifecycle spec. The spec itself skips on non-darwin
-  # via `test.skip(process.platform !== 'darwin', ...)` so the matrix entry
-  # only runs the test on macos-latest; ubuntu/windows still run the suite
-  # but skip the test, which keeps CI green everywhere.
+  # Run the macOS-only app-lifecycle spec on a macOS runner. The spec itself
+  # self-skips on non-darwin via `test.skip(process.platform !== 'darwin', ...)`,
+  # so the runner is scoped to macos-latest rather than a 3-OS matrix — running
+  # it on ubuntu/windows would just spend runner minutes on a guaranteed skip.
   macos-lifecycle:
     runs-on: macos-latest
     permissions:
