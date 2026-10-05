@@ -1,0 +1,491 @@
+{
+  "savedAt": "2026-10-04T16:00:43.181Z",
+  "releases": [
+    {
+      "tag_name": "v2.0.0-beta.4",
+      "html_url": "https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.4",
+      "draft": false,
+      "prerelease": true,
+      "assets": [
+        {
+          "name": "beta-linux.yml",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/beta-linux.yml"
+        },
+        {
+          "name": "beta-mac.yml",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/beta-mac.yml"
+        },
+        {
+          "name": "beta.yml",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/beta.yml"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.4-arm64.dmg",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-arm64.dmg"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.4-arm64.dmg.blockmap",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-arm64.dmg.blockmap"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.4-arm64.zip",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-arm64.zip"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.4-arm64.zip.blockmap",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-arm64.zip.blockmap"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.4-x64.dmg",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-x64.dmg"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.4-x64.dmg.blockmap",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-x64.dmg.blockmap"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.4-x64.exe",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-x64.exe"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.4-x64.exe.blockmap",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-x64.exe.blockmap"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.4-x64.zip",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-x64.zip"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.4-x64.zip.blockmap",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-x64.zip.blockmap"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.4-x86_64.AppImage",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.4/HackDesk-2.0.0-beta.4-x86_64.AppImage"
+        }
+      ]
+    },
+    {
+      "tag_name": "v2.0.0-beta.3",
+      "html_url": "https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.3",
+      "draft": false,
+      "prerelease": true,
+      "assets": [
+        {
+          "name": "beta-linux.yml",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/beta-linux.yml"
+        },
+        {
+          "name": "beta-mac.yml",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/beta-mac.yml"
+        },
+        {
+          "name": "beta.yml",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/beta.yml"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.3-arm64.dmg",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-arm64.dmg"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.3-arm64.dmg.blockmap",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-arm64.dmg.blockmap"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.3-arm64.zip",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-arm64.zip"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.3-arm64.zip.blockmap",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-arm64.zip.blockmap"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.3-x64.dmg",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-x64.dmg"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.3-x64.dmg.blockmap",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-x64.dmg.blockmap"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.3-x64.exe",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-x64.exe"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.3-x64.exe.blockmap",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-x64.exe.blockmap"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.3-x64.zip",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-x64.zip"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.3-x64.zip.blockmap",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-x64.zip.blockmap"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.3-x86_64.AppImage",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.3/HackDesk-2.0.0-beta.3-x86_64.AppImage"
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.1.5",
+      "html_url": "https://github.com/EastSun5566/hackdesk/releases/tag/v0.1.5",
+      "draft": false,
+      "prerelease": false,
+      "assets": [
+        {
+          "name": "HackDesk-0.1.5-1.x86_64.rpm",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk-0.1.5-1.x86_64.rpm"
+        },
+        {
+          "name": "HackDesk-0.1.5-1.x86_64.rpm.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk-0.1.5-1.x86_64.rpm.sig"
+        },
+        {
+          "name": "HackDesk_0.1.5_aarch64.dmg",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_0.1.5_aarch64.dmg"
+        },
+        {
+          "name": "HackDesk_0.1.5_amd64.AppImage",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_0.1.5_amd64.AppImage"
+        },
+        {
+          "name": "HackDesk_0.1.5_amd64.AppImage.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_0.1.5_amd64.AppImage.sig"
+        },
+        {
+          "name": "HackDesk_0.1.5_amd64.deb",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_0.1.5_amd64.deb"
+        },
+        {
+          "name": "HackDesk_0.1.5_amd64.deb.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_0.1.5_amd64.deb.sig"
+        },
+        {
+          "name": "HackDesk_0.1.5_x64-setup.exe",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_0.1.5_x64-setup.exe"
+        },
+        {
+          "name": "HackDesk_0.1.5_x64-setup.exe.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_0.1.5_x64-setup.exe.sig"
+        },
+        {
+          "name": "HackDesk_0.1.5_x64.dmg",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_0.1.5_x64.dmg"
+        },
+        {
+          "name": "HackDesk_0.1.5_x64_en-US.msi",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_0.1.5_x64_en-US.msi"
+        },
+        {
+          "name": "HackDesk_0.1.5_x64_en-US.msi.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_0.1.5_x64_en-US.msi.sig"
+        },
+        {
+          "name": "HackDesk_aarch64.app.tar.gz",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_aarch64.app.tar.gz"
+        },
+        {
+          "name": "HackDesk_aarch64.app.tar.gz.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_aarch64.app.tar.gz.sig"
+        },
+        {
+          "name": "HackDesk_x64.app.tar.gz",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_x64.app.tar.gz"
+        },
+        {
+          "name": "HackDesk_x64.app.tar.gz.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_x64.app.tar.gz.sig"
+        },
+        {
+          "name": "latest.json",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/latest.json"
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.1.4",
+      "html_url": "https://github.com/EastSun5566/hackdesk/releases/tag/v0.1.4",
+      "draft": false,
+      "prerelease": false,
+      "assets": [
+        {
+          "name": "HackDesk-0.1.4-1.x86_64.rpm",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.4/HackDesk-0.1.4-1.x86_64.rpm"
+        },
+        {
+          "name": "HackDesk-0.1.4-1.x86_64.rpm.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.4/HackDesk-0.1.4-1.x86_64.rpm.sig"
+        },
+        {
+          "name": "HackDesk_0.1.4_aarch64.dmg",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.4/HackDesk_0.1.4_aarch64.dmg"
+        },
+        {
+          "name": "HackDesk_0.1.4_amd64.AppImage",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.4/HackDesk_0.1.4_amd64.AppImage"
+        },
+        {
+          "name": "HackDesk_0.1.4_amd64.AppImage.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.4/HackDesk_0.1.4_amd64.AppImage.sig"
+        },
+        {
+          "name": "HackDesk_0.1.4_amd64.deb",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.4/HackDesk_0.1.4_amd64.deb"
+        },
+        {
+          "name": "HackDesk_0.1.4_amd64.deb.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.4/HackDesk_0.1.4_amd64.deb.sig"
+        },
+        {
+          "name": "HackDesk_0.1.4_x64-setup.exe",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.4/HackDesk_0.1.4_x64-setup.exe"
+        },
+        {
+          "name": "HackDesk_0.1.4_x64-setup.exe.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.4/HackDesk_0.1.4_x64-setup.exe.sig"
+        },
+        {
+          "name": "HackDesk_0.1.4_x64.dmg",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.4/HackDesk_0.1.4_x64.dmg"
+        },
+        {
+          "name": "HackDesk_0.1.4_x64_en-US.msi",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.4/HackDesk_0.1.4_x64_en-US.msi"
+        },
+        {
+          "name": "HackDesk_0.1.4_x64_en-US.msi.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.4/HackDesk_0.1.4_x64_en-US.msi.sig"
+        },
+        {
+          "name": "HackDesk_aarch64.app.tar.gz",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.4/HackDesk_aarch64.app.tar.gz"
+        },
+        {
+          "name": "HackDesk_aarch64.app.tar.gz.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.4/HackDesk_aarch64.app.tar.gz.sig"
+        },
+        {
+          "name": "HackDesk_x64.app.tar.gz",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.4/HackDesk_x64.app.tar.gz"
+        },
+        {
+          "name": "HackDesk_x64.app.tar.gz.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.4/HackDesk_x64.app.tar.gz.sig"
+        },
+        {
+          "name": "latest.json",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.4/latest.json"
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.1.2",
+      "html_url": "https://github.com/EastSun5566/hackdesk/releases/tag/v0.1.2",
+      "draft": false,
+      "prerelease": false,
+      "assets": [
+        {
+          "name": "HackDesk-0.1.2-1.x86_64.rpm",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.2/HackDesk-0.1.2-1.x86_64.rpm"
+        },
+        {
+          "name": "HackDesk-0.1.2-1.x86_64.rpm.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.2/HackDesk-0.1.2-1.x86_64.rpm.sig"
+        },
+        {
+          "name": "HackDesk_0.1.2_aarch64.dmg",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.2/HackDesk_0.1.2_aarch64.dmg"
+        },
+        {
+          "name": "HackDesk_0.1.2_amd64.AppImage",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.2/HackDesk_0.1.2_amd64.AppImage"
+        },
+        {
+          "name": "HackDesk_0.1.2_amd64.AppImage.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.2/HackDesk_0.1.2_amd64.AppImage.sig"
+        },
+        {
+          "name": "HackDesk_0.1.2_amd64.deb",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.2/HackDesk_0.1.2_amd64.deb"
+        },
+        {
+          "name": "HackDesk_0.1.2_amd64.deb.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.2/HackDesk_0.1.2_amd64.deb.sig"
+        },
+        {
+          "name": "HackDesk_0.1.2_x64-setup.exe",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.2/HackDesk_0.1.2_x64-setup.exe"
+        },
+        {
+          "name": "HackDesk_0.1.2_x64-setup.exe.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.2/HackDesk_0.1.2_x64-setup.exe.sig"
+        },
+        {
+          "name": "HackDesk_0.1.2_x64.dmg",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.2/HackDesk_0.1.2_x64.dmg"
+        },
+        {
+          "name": "HackDesk_0.1.2_x64_en-US.msi",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.2/HackDesk_0.1.2_x64_en-US.msi"
+        },
+        {
+          "name": "HackDesk_0.1.2_x64_en-US.msi.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.2/HackDesk_0.1.2_x64_en-US.msi.sig"
+        },
+        {
+          "name": "HackDesk_aarch64.app.tar.gz",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.2/HackDesk_aarch64.app.tar.gz"
+        },
+        {
+          "name": "HackDesk_aarch64.app.tar.gz.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.2/HackDesk_aarch64.app.tar.gz.sig"
+        },
+        {
+          "name": "HackDesk_x64.app.tar.gz",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.2/HackDesk_x64.app.tar.gz"
+        },
+        {
+          "name": "HackDesk_x64.app.tar.gz.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.2/HackDesk_x64.app.tar.gz.sig"
+        },
+        {
+          "name": "latest.json",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.2/latest.json"
+        }
+      ]
+    },
+    {
+      "tag_name": "v0.1.0",
+      "html_url": "https://github.com/EastSun5566/hackdesk/releases/tag/v0.1.0",
+      "draft": false,
+      "prerelease": false,
+      "assets": [
+        {
+          "name": "HackDesk-0.1.0-1.x86_64.rpm",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.0/HackDesk-0.1.0-1.x86_64.rpm"
+        },
+        {
+          "name": "HackDesk-0.1.0-1.x86_64.rpm.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.0/HackDesk-0.1.0-1.x86_64.rpm.sig"
+        },
+        {
+          "name": "HackDesk_0.1.0_aarch64.dmg",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.0/HackDesk_0.1.0_aarch64.dmg"
+        },
+        {
+          "name": "HackDesk_0.1.0_amd64.AppImage",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.0/HackDesk_0.1.0_amd64.AppImage"
+        },
+        {
+          "name": "HackDesk_0.1.0_amd64.AppImage.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.0/HackDesk_0.1.0_amd64.AppImage.sig"
+        },
+        {
+          "name": "HackDesk_0.1.0_amd64.deb",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.0/HackDesk_0.1.0_amd64.deb"
+        },
+        {
+          "name": "HackDesk_0.1.0_amd64.deb.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.0/HackDesk_0.1.0_amd64.deb.sig"
+        },
+        {
+          "name": "HackDesk_0.1.0_x64-setup.exe",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.0/HackDesk_0.1.0_x64-setup.exe"
+        },
+        {
+          "name": "HackDesk_0.1.0_x64-setup.exe.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.0/HackDesk_0.1.0_x64-setup.exe.sig"
+        },
+        {
+          "name": "HackDesk_0.1.0_x64.dmg",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.0/HackDesk_0.1.0_x64.dmg"
+        },
+        {
+          "name": "HackDesk_0.1.0_x64_en-US.msi",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.0/HackDesk_0.1.0_x64_en-US.msi"
+        },
+        {
+          "name": "HackDesk_0.1.0_x64_en-US.msi.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.0/HackDesk_0.1.0_x64_en-US.msi.sig"
+        },
+        {
+          "name": "HackDesk_aarch64.app.tar.gz",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.0/HackDesk_aarch64.app.tar.gz"
+        },
+        {
+          "name": "HackDesk_aarch64.app.tar.gz.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.0/HackDesk_aarch64.app.tar.gz.sig"
+        },
+        {
+          "name": "HackDesk_x64.app.tar.gz",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.0/HackDesk_x64.app.tar.gz"
+        },
+        {
+          "name": "HackDesk_x64.app.tar.gz.sig",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.0/HackDesk_x64.app.tar.gz.sig"
+        },
+        {
+          "name": "latest.json",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.0/latest.json"
+        }
+      ]
+    }
+  ],
+  "legacyUpdater": {
+    "tag": "v0.1.5",
+    "feed": {
+      "version": "0.1.5",
+      "notes": "### Bug Fixes\n\n* v2 updater flow ([f238e73](https://github.com/EastSun5566/hackdesk/commit/f238e738f68085b61387fcdfe68b118be3b89f56))",
+      "pub_date": "2026-05-27T18:38:31.692Z",
+      "platforms": {
+        "darwin-aarch64": {
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeSttRWZGdlF2WFlvR3h1S09BUjBOa1duTFg5NmxwNGt4T3VqYUF5NDZFTnRTUXptb2RsS0FRZWp4bU9Bd1N3NWdNMFMrZ1c5OFRNM0l6Q2NaSGNrbFJXaEFVa2RQY1FrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc5OTA2NjYzCWZpbGU6SGFja0Rlc2suYXBwLnRhci5negpIMUFXK1dJcStFcVZJUUdta0YyS0szc04rSmNIK3RRMVM5Sm1Sd1d3d1c3THc1c2Y1SXNGempvNDRPdStHOUswb1VmUGdWb0g5ekY4dG84MzYwemRBdz09Cg==",
+          "url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_aarch64.app.tar.gz"
+        },
+        "darwin-aarch64-app": {
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeSttRWZGdlF2WFlvR3h1S09BUjBOa1duTFg5NmxwNGt4T3VqYUF5NDZFTnRTUXptb2RsS0FRZWp4bU9Bd1N3NWdNMFMrZ1c5OFRNM0l6Q2NaSGNrbFJXaEFVa2RQY1FrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc5OTA2NjYzCWZpbGU6SGFja0Rlc2suYXBwLnRhci5negpIMUFXK1dJcStFcVZJUUdta0YyS0szc04rSmNIK3RRMVM5Sm1Sd1d3d1c3THc1c2Y1SXNGempvNDRPdStHOUswb1VmUGdWb0g5ekY4dG84MzYwemRBdz09Cg==",
+          "url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_aarch64.app.tar.gz"
+        },
+        "darwin-x86_64": {
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeSttRWZGdlF2WFFWcFhNbDJnZFNiWXk2MXllZmZiRHlzbTBPTU9NeGp6cFIrRFV6MlJhWmR5Q1NpdU1qU01Gd2FrNUxUYUhRMFZpbUc0Z08zYWpzQ2xQQ3ViMHJ5VHc0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc5OTA2NzM4CWZpbGU6SGFja0Rlc2suYXBwLnRhci5negpsMnBudERaSXY0NGYwQzM1YjhTbFJRUTZsM0FEeGNneld4MEhrbG5qWjU4SE0zOWtINFV1Zmt3bnFrWlZVbEY3cFpXM0JEdDluekhLNW4yR3d1QkdEQT09Cg==",
+          "url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_x64.app.tar.gz"
+        },
+        "darwin-x86_64-app": {
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeSttRWZGdlF2WFFWcFhNbDJnZFNiWXk2MXllZmZiRHlzbTBPTU9NeGp6cFIrRFV6MlJhWmR5Q1NpdU1qU01Gd2FrNUxUYUhRMFZpbUc0Z08zYWpzQ2xQQ3ViMHJ5VHc0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc5OTA2NzM4CWZpbGU6SGFja0Rlc2suYXBwLnRhci5negpsMnBudERaSXY0NGYwQzM1YjhTbFJRUTZsM0FEeGNneld4MEhrbG5qWjU4SE0zOWtINFV1Zmt3bnFrWlZVbEY3cFpXM0JEdDluekhLNW4yR3d1QkdEQT09Cg==",
+          "url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_x64.app.tar.gz"
+        },
+        "linux-x86_64": {
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeSttRWZGdlF2WFFhdEpsbnplcEtWajMwU2taZGFiSTBORDE0WnlMZEd0VE4xaDZBU3ZrbSsyeC83TDdZWWhWL2dqTUpYT01nY2h6UTUrdkMyRTNrS2dSVGRlc3lDZEFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc5OTA2ODU3CWZpbGU6SGFja0Rlc2tfMC4xLjVfYW1kNjQuQXBwSW1hZ2UKdHRxRGNteHZhL1FMaXlzWTVQMzFQbUV3cnhEZ1BhbHhmWS9ncDRFLy9aSnpRUG8xVWxzaHRsZ3dCczl3MEpNVjNtMW9zZTBxQ0tyclVZTlJKL3dZRFE9PQo=",
+          "url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_0.1.5_amd64.AppImage"
+        },
+        "linux-x86_64-appimage": {
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeSttRWZGdlF2WFFhdEpsbnplcEtWajMwU2taZGFiSTBORDE0WnlMZEd0VE4xaDZBU3ZrbSsyeC83TDdZWWhWL2dqTUpYT01nY2h6UTUrdkMyRTNrS2dSVGRlc3lDZEFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc5OTA2ODU3CWZpbGU6SGFja0Rlc2tfMC4xLjVfYW1kNjQuQXBwSW1hZ2UKdHRxRGNteHZhL1FMaXlzWTVQMzFQbUV3cnhEZ1BhbHhmWS9ncDRFLy9aSnpRUG8xVWxzaHRsZ3dCczl3MEpNVjNtMW9zZTBxQ0tyclVZTlJKL3dZRFE9PQo=",
+          "url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_0.1.5_amd64.AppImage"
+        },
+        "linux-x86_64-deb": {
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeSttRWZGdlF2WGNRaUFybUo0eThLSGxyNktvOVlNdVJWbVZ2Y1FkNTJoNCtXME1oR21TQUxuaENXS1c0VjJCT1dOakpDamx2dXlnNkpRclZta3J0NFJDSjhqMXpSamdFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc5OTA2ODU3CWZpbGU6SGFja0Rlc2tfMC4xLjVfYW1kNjQuZGViCkJtUCtCVmFGMjhBcUx5aDRPNk40MGNwdFhod09VT1VtRTdnZGtGaUFNY2JtR2hBZ0laanM3TE1GSitNRFhPa3A5VWdKLy9zSmFLcTFRYzIwK2ZTcEFBPT0K",
+          "url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_0.1.5_amd64.deb"
+        },
+        "linux-x86_64-rpm": {
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeSttRWZGdlF2WFQ1TUk3NDZ1c2xHQmh6M2t1a3Z0SWZKMXYxRFpqQ3pydkRGL0RJSmh3WkxEU2xjVWVYZzhjbU1vQk9yVXNpUjFzWjNmME9SZmlMMldkTU5wWXZNZ2dNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc5OTA2ODU3CWZpbGU6SGFja0Rlc2stMC4xLjUtMS54ODZfNjQucnBtCk91ell4T1Z4NklYblZ4VFlMRmFsVUdKeE1VM2lUMEhBbUJMdGFmaWk3TmM1NXBzNWw4cTVhalpQdFNzSldZQWZuTzM1THV4YVlvdHNMYithd1hzV0NRPT0K",
+          "url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk-0.1.5-1.x86_64.rpm"
+        },
+        "windows-x86_64": {
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeSttRWZGdlF2WFo0aVB0aEc4emd2eER0OEVSc2dKMlBWKzhsK1BEb2dkTHhzUytIZUJBNmVqcTVybW5RYXgweWdjclkyOWJIZzdLMXNuY2cvVDRtTW9GMkk3OUxWZHdzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc5OTA3MTA4CWZpbGU6SGFja0Rlc2tfMC4xLjVfeDY0X2VuLVVTLm1zaQp6SzFsMU5GVDAyVmM4bHl6eTNyOUcwMGxOZUlpSk8xa0E5NmU5ZHFNMlBFTVpVcU1nVWw4UXViNGxaTXRnOUdBalFmUDJzZWw2T1doMWUyQ01XTDBCZz09Cg==",
+          "url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_0.1.5_x64_en-US.msi"
+        },
+        "windows-x86_64-msi": {
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeSttRWZGdlF2WFo0aVB0aEc4emd2eER0OEVSc2dKMlBWKzhsK1BEb2dkTHhzUytIZUJBNmVqcTVybW5RYXgweWdjclkyOWJIZzdLMXNuY2cvVDRtTW9GMkk3OUxWZHdzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc5OTA3MTA4CWZpbGU6SGFja0Rlc2tfMC4xLjVfeDY0X2VuLVVTLm1zaQp6SzFsMU5GVDAyVmM4bHl6eTNyOUcwMGxOZUlpSk8xa0E5NmU5ZHFNMlBFTVpVcU1nVWw4UXViNGxaTXRnOUdBalFmUDJzZWw2T1doMWUyQ01XTDBCZz09Cg==",
+          "url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_0.1.5_x64_en-US.msi"
+        },
+        "windows-x86_64-nsis": {
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTeSttRWZGdlF2WGRYVllEYjZTU3AySTFNNHkzbU1vMWUxV1JlOUl1aFJoYWFjQzJyZW8vVHcwdDZ5OU5kaG9EUm4zOHFkaCtURURjdmlOZFVlMDlROVg0MUtTVUtTNXdVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc5OTA3MTA4CWZpbGU6SGFja0Rlc2tfMC4xLjVfeDY0LXNldHVwLmV4ZQo5WlZUTFNnOEhGTUU1WENWMG4zbjUrSUxmVXpFa21kMW1jckx5WU1pWms0aWNzQy9GU2RTN1VoYXV1SnNHZVpZN00wa2lVVk53MTliTzY4R0c0UXpBQT09Cg==",
+          "url": "https://github.com/EastSun5566/hackdesk/releases/download/v0.1.5/HackDesk_0.1.5_x64-setup.exe"
+        }
+      }
+    }
+  }
+}
