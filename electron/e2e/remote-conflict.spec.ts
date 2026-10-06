@@ -78,7 +78,7 @@ test('does not save over a note changed on HackMD and keeps the draft recoverabl
     await expect(editor).toContainText('My local edit');
     await expect(page.getByText('This note changed on HackMD. Your draft is still open.')).toHaveCount(0);
     // Both tabs are titled Remote; return to the original one.
-    await page.locator('button[aria-label="Select Remote tab"]:not([aria-current])').click();
+    await page.locator('[role="tab"][aria-label="Select Remote tab"][aria-selected="false"]').click();
 
     await page.getByRole('button', { name: 'Reload from HackMD' }).click();
     await expect(editor).toContainText('Changed on HackMD');

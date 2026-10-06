@@ -68,7 +68,7 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
     await page.locator('.cm-content').fill('Draft A — latest input');
     await page.getByRole('button', { name: 'Pane actions', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Split Right', exact: true }).click();
-    await expect(page.getByRole('region', { name: /document pane/i })).toHaveCount(2);
+    await expect(page.locator('[data-active-pane]')).toHaveCount(2);
     await page.getByRole('textbox', { name: 'Search notes' }).fill('A search');
     await openVaultSettings(page);
     await choose(app, page, null);
@@ -77,12 +77,12 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
     await choose(app, page, vaultB);
     await expect(page.locator('.cm-content')).toContainText('Only in B.');
     await expect(page.getByRole('textbox', { name: 'Search notes' })).toHaveValue('');
-    await expect(page.getByRole('region', { name: /document pane/i })).toHaveCount(1);
+    await expect(page.locator('[data-active-pane]')).toHaveCount(1);
     await captureDraft(app, page, 'Draft B');
     await openVaultSettings(page);
     await choose(app, page, vaultA);
     await expect(page.locator('.cm-content').last()).toContainText('Draft A — latest input');
-    await expect(page.getByRole('region', { name: /document pane/i })).toHaveCount(2);
+    await expect(page.locator('[data-active-pane]')).toHaveCount(2);
     await expect(page.getByRole('textbox', { name: 'Search notes' })).toHaveValue('A search');
     await page.getByRole('textbox', { name: 'Search notes' }).fill('');
     await expect(page.getByRole('button', { name: 'Expand A folder', exact: true })).toBeVisible();
@@ -104,7 +104,7 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
     await stop(app);
     ({ app, page } = await launch(home));
     await expect(page.locator('.cm-content').last()).toContainText('Draft A — latest input');
-    await expect(page.getByRole('region', { name: /document pane/i })).toHaveCount(2);
+    await expect(page.locator('[data-active-pane]')).toHaveCount(2);
     await openVaultSettings(page);
     await choose(app, page, vaultB);
     await expect(page.locator('.cm-content')).toContainText('Draft B');

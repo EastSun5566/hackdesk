@@ -11,7 +11,7 @@ const repoRoot = resolve(import.meta.dirname, '../..');
 const primary = process.platform === 'darwin' ? 'Meta' : 'Control';
 const teamNames = ['A very long workspace name for layout checks', 'Second Team'];
 
-async function launchFixture(editorMode: EditorMode = 'helix', navigationFixtures = false) {
+async function launchFixture(editorMode: EditorMode = 'helix', navigationFixtures = false, recordKeyboard = false) {
   const testHome = await mkdtemp(join(tmpdir(), 'hackdesk-ui-'));
   const vault = join(testHome, 'vault');
   await mkdir(join(testHome, '.hackdesk'), { recursive: true });
@@ -37,6 +37,9 @@ async function launchFixture(editorMode: EditorMode = 'helix', navigationFixture
     args: [repoRoot, `--user-data-dir=${join(testHome, 'user-data')}`, `--hackdesk-home=${testHome}`],
     cwd: repoRoot,
     env,
+    // Local review recordings use the installed Playwright FFmpeg runtime.
+    // CI keeps these behavior checks independent of browser/video downloads.
+    recordVideo: recordKeyboard && !process.env.CI ? { dir: test.info().outputPath('recordings'), size: { width: 1440, height: 900 } } : undefined,
   });
   const page = await app.firstWindow();
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -88,7 +91,11 @@ async function launchFixture(editorMode: EditorMode = 'helix', navigationFixture
   return { app, page };
 }
 
-async function stopApp(app: ElectronApplication) {
+async function stopApp(app: ElectronApplication, recordKeyboard = false) {
+  if (recordKeyboard) {
+    await app.close();
+    return;
+  }
   if (app.process().exitCode !== null) return;
   const exited = new Promise<void>((done) => app.process().once('exit', () => done()));
   app.process().kill('SIGKILL');
@@ -97,7 +104,7 @@ async function stopApp(app: ElectronApplication) {
 
 async function openFixtureNote(page: Page) {
   await page.getByRole('button', { name: 'Local Vault', exact: true }).click();
-  await page.locator('[data-folder-tree-kind="note"]').getByRole('button', { name: 'UI fixture', exact: true }).click();
+  await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'UI fixture', exact: true }).click();
   await expect(page.locator('.cm-content')).toContainText('Test note for layout checks.');
 }
 
@@ -292,14 +299,14 @@ test('tab drag, keyboard actions, persistence and pane isolation', async () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.getByRole('button', { name: 'Local Vault', exact: true }).click();
     const openNote = async (name: string) => {
-      await page.locator('[data-folder-tree-kind="note"]').getByRole('button', { name, exact: true }).click();
-      await expect(page.getByRole('button', { name: `Select ${name} tab`, exact: true })).toHaveAttribute('aria-current', 'page');
+      await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name, exact: true }).click();
+      await expect(page.getByRole('tab', { name: `Select ${name} tab`, exact: true })).toHaveAttribute('aria-selected', 'true');
     };
     const strip = page.getByRole('navigation', { name: 'Open documents' });
-    const labels = () => strip.getByRole('button', { name: /^Select .* tab$/ }).evaluateAll(elements => elements.map(element => element.getAttribute('aria-label')));
+    const labels = () => strip.getByRole('tab', { name: /^Select .* tab$/ }).evaluateAll(elements => elements.map(element => element.getAttribute('aria-label')));
     const dragTab = async (from: string, to: string, cancel = false) => {
-      const source = (await strip.getByRole('button', { name: `Select ${from} tab`, exact: true }).boundingBox())!;
-      const target = (await strip.getByRole('button', { name: `Select ${to} tab`, exact: true }).boundingBox())!;
+      const source = (await strip.getByRole('tab', { name: `Select ${from} tab`, exact: true }).boundingBox())!;
+      const target = (await strip.getByRole('tab', { name: `Select ${to} tab`, exact: true }).boundingBox())!;
       await page.mouse.move(source.x + 10, source.y + source.height / 2);
       await page.mouse.down();
       await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 12 });
@@ -307,16 +314,16 @@ test('tab drag, keyboard actions, persistence and pane isolation', async () => {
       await page.mouse.up();
     };
     // The vault initially opens its first note; close that tab before arranging a known strip.
-    await expect(page.locator('[data-folder-tree-kind="note"]').getByRole('button', { name: 'Alpha', exact: true })).toBeVisible();
+    await expect(page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'Alpha', exact: true })).toBeVisible();
     await strip.getByRole('button', { name: /^Close / }).first().click();
     for (const name of ['Alpha', 'Beta', 'Gamma']) await openNote(name);
     await expect(page.locator('.cm-content')).toContainText('# Gamma');
     await dragTab('Alpha', 'Gamma');
     await expect.poll(labels).toEqual(['Select Beta tab', 'Select Gamma tab', 'Select Alpha tab']);
-    await expect(strip.getByRole('button', { name: 'Select Gamma tab' })).toHaveAttribute('aria-current', 'page');
+    await expect(strip.getByRole('tab', { name: 'Select Gamma tab' })).toHaveAttribute('aria-selected', 'true');
     await dragTab('Alpha', 'Beta', true);
     await expect.poll(labels).toEqual(['Select Beta tab', 'Select Gamma tab', 'Select Alpha tab']);
-    await expect(strip.getByRole('button', { name: 'Select Gamma tab' })).toHaveAttribute('aria-current', 'page');
+    await expect(strip.getByRole('tab', { name: 'Select Gamma tab' })).toHaveAttribute('aria-selected', 'true');
 
     // Verify drag persistence before testing keyboard actions independently.
     // dnd-kit briefly suppresses native clicks after a pointer drag ends,
@@ -334,7 +341,7 @@ test('tab drag, keyboard actions, persistence and pane isolation', async () => {
     await expect.poll(() => page.evaluate(() => Object.entries(localStorage).some(([key, value]) => key.startsWith('hackdesk_note_workspace:') && JSON.parse(value).panes[0].tabIds.map((id: string) => JSON.parse(value).tabs[id].title).join(',') === 'Gamma,Beta,Alpha'))).toBe(true);
     await page.reload();
     await expect.poll(labels).toEqual(['Select Gamma tab', 'Select Beta tab', 'Select Alpha tab']);
-    await expect(strip.getByRole('button', { name: 'Select Gamma tab' })).toHaveAttribute('aria-current', 'page');
+    await expect(strip.getByRole('tab', { name: 'Select Gamma tab' })).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press(`${primary}+\\`);
     await expect(page.getByRole('separator', { name: /Resize document panes/ })).toBeVisible();
     await openNote('UI fixture');
@@ -345,11 +352,11 @@ test('tab drag, keyboard actions, persistence and pane isolation', async () => {
     await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('08-tab-reorder.png') });
     await strip.getByRole('button', { name: 'Close Gamma', exact: true }).click();
     await expect.poll(labels).toEqual(['Select UI fixture tab']);
-    await expect(strip.getByRole('button', { name: 'Select UI fixture tab' })).toHaveAttribute('aria-current', 'page');
+    await expect(strip.getByRole('tab', { name: 'Select UI fixture tab' })).toHaveAttribute('aria-selected', 'true');
     // A long strip must scroll while dragging towards its edge.
     for (let i = 0; i < 8; i++) await openNote(`Long document title number ${i}`);
     await strip.evaluate(element => { element.scrollLeft = 0; });
-    const longTab = strip.getByRole('button', { name: 'Select Long document title number 0 tab' });
+    const longTab = strip.getByRole('tab', { name: 'Select Long document title number 0 tab' });
     await longTab.scrollIntoViewIfNeeded();
     const source = (await longTab.boundingBox())!;
     const bounds = (await strip.boundingBox())!;
@@ -412,7 +419,7 @@ for (const editorMode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as con
     const { app, page } = await launchFixture(editorMode);
     try {
       await page.getByRole('button', { name: 'My Workspace', exact: true }).click();
-      await page.locator('[data-folder-tree-kind="note"]').getByRole('button', { name: 'Remote UI fixture', exact: true }).click();
+      await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'Remote UI fixture', exact: true }).click();
       await page.getByRole('button', { name: 'Expand note details', exact: true }).click();
       const tags = page.getByRole('textbox', { name: 'Tags', exact: true });
       await tags.focus();
@@ -470,5 +477,123 @@ for (const editorMode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as con
     } finally {
       await stopApp(app);
     }
+  });
+}
+
+test('keyboard foundation separates focus from selection and protects drafts', async () => {
+  const { app, page } = await launchFixture('standard', true, true);
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByRole('button', { name: 'Local Vault', exact: true }).click();
+    const tree = page.getByRole('tree', { name: 'Folders and notes' });
+    const alpha = tree.getByRole('treeitem', { name: 'Alpha', exact: true });
+    const beta = tree.getByRole('treeitem', { name: 'Beta', exact: true });
+    await alpha.click();
+    await beta.focus();
+    await expect(page.locator('.cm-content')).toContainText('# Alpha');
+    await beta.press('Enter');
+    await expect(page.locator('.cm-content')).toContainText('# Beta');
+    const firstTab = page.getByRole('tab', { name: 'Select Alpha tab', exact: true });
+    const secondTab = page.getByRole('tab', { name: 'Select Beta tab', exact: true });
+    await secondTab.focus();
+    await secondTab.press('ArrowLeft');
+    await expect(firstTab).toBeFocused();
+    await expect(secondTab).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('.cm-content')).toContainText('# Beta');
+    await firstTab.press('Space');
+    await expect(firstTab).toHaveAttribute('aria-selected', 'true');
+    const panelId = await firstTab.getAttribute('aria-controls');
+    const panel = page.getByRole('tabpanel');
+    await expect(panel).toHaveAttribute('id', panelId!);
+    await expect(panel).toHaveAttribute('aria-labelledby', (await firstTab.getAttribute('id'))!);
+    await expect(firstTab).toHaveAccessibleDescription('Saved');
+
+    const projects = tree.getByRole('treeitem', { name: 'Projects', exact: true });
+    await projects.focus();
+    await projects.press('ArrowRight');
+    await expect(projects).toHaveAttribute('aria-expanded', 'true');
+    await projects.press('ArrowRight');
+    await expect(tree.getByRole('treeitem', { name: 'Sub', exact: true })).toBeFocused();
+    await page.getByRole('button', { name: 'Collapse Projects', exact: true }).click();
+    await expect(projects).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('.cm-content')).toContainText('# Alpha');
+    await alpha.focus();
+    await alpha.press('End');
+    await expect(tree.getByRole('treeitem').last()).toBeFocused();
+    await page.screenshot({ path: test.info().outputPath('11-tree-keyboard-focus.png'), animations: 'disabled' });
+    await writeFile(test.info().outputPath('tree-accessibility.yml'), await tree.ariaSnapshot());
+
+    // Enter on Close goes through the existing draft-confirmation flow.
+    await page.locator('.cm-content').fill('Unsaved keyboard navigation draft');
+    await expect(firstTab).toHaveAccessibleDescription('Unsaved');
+    const close = page.getByRole('button', { name: 'Close Alpha', exact: true });
+    // Confirmation is a native Electron message box, not a DOM alertdialog.
+    // Exercise both IPC responses without leaving an unattended system sheet open.
+    const mockConfirmation = async (confirmed: boolean) => app.evaluate(({ ipcMain }, { channel, confirmed }) => {
+      const state = ipcMain as typeof ipcMain & { keyboardConfirmRequests: Array<{ title: string; destructive: boolean }> };
+      state.keyboardConfirmRequests ??= [];
+      ipcMain.removeHandler(channel);
+      ipcMain.handle(channel, (_event, input) => {
+        state.keyboardConfirmRequests.push(input);
+        return { confirmed };
+      });
+    }, { channel: ELECTRON_CHANNELS.appConfirm, confirmed });
+    await mockConfirmation(false);
+    await close.focus();
+    await close.press('Enter');
+    await expect.poll(() => app.evaluate(({ ipcMain }) => (ipcMain as typeof ipcMain & { keyboardConfirmRequests: unknown[] }).keyboardConfirmRequests.length)).toBe(1);
+    await expect(firstTab).toBeVisible();
+    await expect(page.locator('.cm-content')).toContainText('Unsaved keyboard navigation draft');
+    await mockConfirmation(true);
+    await close.press('Enter');
+    expect(await app.evaluate(({ ipcMain }) => (ipcMain as typeof ipcMain & { keyboardConfirmRequests: unknown[] }).keyboardConfirmRequests)).toEqual([
+      expect.objectContaining({ title: 'Close Tab', destructive: true }),
+      expect.objectContaining({ title: 'Close Tab', destructive: true }),
+    ]);
+    await expect(firstTab).toHaveCount(0);
+    await expect(secondTab).toBeFocused();
+    await page.screenshot({ path: test.info().outputPath('12-tab-keyboard-focus.png'), animations: 'disabled' });
+  } finally { await stopApp(app, true); }
+});
+
+for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
+  test(`F6 cycles both panes and restores focus in ${mode}`, async () => {
+    const { app, page } = await launchFixture(mode, true, true);
+    try {
+      await page.setViewportSize({ width: 1600, height: 900 });
+      await openFixtureNote(page);
+      await page.getByRole('button', { name: 'Pane actions', exact: true }).press('Enter');
+      await page.getByRole('menuitem', { name: 'Split Right', exact: true }).press('Enter');
+      const editors = page.locator('.cm-content');
+      await expect(editors).toHaveCount(2);
+      const local = page.getByRole('button', { name: 'Local Vault', exact: true });
+      await local.focus();
+      await page.keyboard.press('F6');
+      await expect(page.getByRole('treeitem', { name: 'UI fixture', exact: true })).toBeFocused();
+      await page.keyboard.press('F6');
+      await expect(page.getByRole('tab', { name: 'Select UI fixture tab', exact: true })).toBeFocused();
+      await page.keyboard.press('F6');
+      await expect(editors.first()).toBeFocused();
+      await expect(editors.first().locator('xpath=ancestor::section[@data-active-pane][1]')).toHaveAttribute('data-active-pane', 'true');
+      await page.keyboard.press('F6');
+      await expect(editors.last()).toBeFocused();
+      await page.keyboard.press('F6');
+      await expect(local).toBeFocused();
+      await page.keyboard.press('Shift+F6');
+      await expect(editors.last()).toBeFocused();
+      // A field is remembered on return, while collapsed regions are skipped.
+      const search = page.getByPlaceholder('Search notes', { exact: true });
+      await search.focus();
+      await page.keyboard.press('F6');
+      await expect(page.getByRole('tab').first()).toBeFocused();
+      await page.keyboard.press('Shift+F6');
+      await expect(search).toBeFocused();
+      await page.getByRole('button', { name: 'Collapse workspace sidebar', exact: true }).click();
+      await page.getByRole('toolbar', { name: 'Application controls', exact: true }).getByRole('button', { name: 'Collapse note navigator', exact: true }).click();
+      await editors.last().focus();
+      await page.keyboard.press('F6');
+      await expect(page.getByRole('tab').first()).toBeFocused();
+      await page.screenshot({ path: test.info().outputPath(`13-f6-${mode}.png`), animations: 'disabled' });
+    } finally { await stopApp(app, true); }
   });
 }

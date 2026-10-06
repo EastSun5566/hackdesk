@@ -14,6 +14,7 @@ import { DocumentDetail, type DocumentSyncState } from './DocumentDetail';
 import type { NotePane, OpenNoteTab } from './note-workspace';
 import { EmptyState } from './interaction-primitives';
 import { UnavailableDocumentDetail } from './UnavailableDocumentDetail';
+import { documentPaneId, documentTabId } from './document-tab-ids';
 
 export type DocumentPaneView = {
   pane: NotePane;
@@ -151,6 +152,10 @@ export function DocumentWorkspace({
               className="min-w-0 overflow-hidden"
             >
               <section
+                id={documentPaneId(pane.paneId)}
+                role={isActivePane ? 'tabpanel' : 'region'}
+                aria-labelledby={isActivePane && view.activeTab ? documentTabId(view.activeTab.tabId) : undefined}
+                data-document-pane-id={pane.paneId}
                 aria-current={isActivePane ? 'true' : undefined}
                 aria-label={isActivePane ? `Active document pane ${index + 1}` : `Document pane ${index + 1}`}
                 data-active-pane={isActivePane ? 'true' : 'false'}
@@ -185,7 +190,7 @@ export function DocumentWorkspace({
                       syncState: view.syncState,
                     }}
                     layout={{
-                      focusZone: isActivePane ? 'editor' : null,
+                      focusZone: 'editor',
                       inspectorPanelId: `note-inspector-panel-${pane.paneId}`,
                       focusRequestId: isActivePane ? editorFocusRequestId : 0,
                       searchRequestId: isActivePane ? editorSearchRequestId : 0,

@@ -44,6 +44,8 @@ type EntityRowProps = {
   contentAriaLabel?: string;
   contentAriaCurrent?: ButtonHTMLAttributes<HTMLButtonElement>['aria-current'];
   contentFocusTarget?: boolean;
+  contentButtonProps?: ButtonHTMLAttributes<HTMLButtonElement>;
+  buttonProps?: ButtonHTMLAttributes<HTMLButtonElement>;
   selectedIndicator?: boolean;
   onClick?: () => void;
   ariaLabel?: string;
@@ -99,6 +101,7 @@ function EntityRowContent({
   contentAriaLabel,
   contentAriaCurrent,
   contentFocusTarget,
+  contentButtonProps,
 }: Required<Pick<EntityRowProps, 'variant'>> & Pick<EntityRowProps,
   'leadingControls'
   | 'icon'
@@ -114,6 +117,7 @@ function EntityRowContent({
   | 'contentAriaLabel'
   | 'contentAriaCurrent'
   | 'contentFocusTarget'
+  | 'contentButtonProps'
 >) {
   const contentBody = (
     <>
@@ -147,6 +151,7 @@ function EntityRowContent({
       {leadingControls ? <span className="shrink-0">{leadingControls}</span> : null}
       {contentOnClick ? (
         <button
+          {...contentButtonProps}
           type="button"
           data-folder-tree-primary="true"
           data-hackdesk-focus-target={contentFocusTarget ? 'true' : undefined}
@@ -199,12 +204,14 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
   contentAriaLabel,
   contentAriaCurrent,
   contentFocusTarget,
+  contentButtonProps,
   selectedIndicator,
   onClick,
   ariaLabel,
   ariaCurrent,
   ariaKeyShortcuts,
   titleAttribute,
+  buttonProps,
 }, ref) {
   const content = (
     <EntityRowContent
@@ -223,6 +230,7 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
       contentAriaLabel={contentAriaLabel}
       contentAriaCurrent={contentAriaCurrent}
       contentFocusTarget={contentFocusTarget}
+      contentButtonProps={contentButtonProps}
     />
   );
   const rowClassName = entityRowClassName({
@@ -238,6 +246,7 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
   if (onClick) {
     return (
       <button
+        {...buttonProps}
         ref={ref as Ref<HTMLButtonElement>}
         type="button"
         onClick={onClick}
@@ -296,6 +305,7 @@ export function PanelShell({
     <Component
       id={id}
       data-hackdesk-focus={focusZone}
+      data-hackdesk-focus-disabled={collapsed ? 'true' : undefined}
       tabIndex={focusZone ? -1 : undefined}
       aria-label={ariaLabel}
       className={cn(

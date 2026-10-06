@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from 'react';
 
 import type { NoteSummary } from '@/lib/electron-api';
 import type { FolderTree } from '@/lib/hackmd-folders';
@@ -25,6 +25,8 @@ export type FolderTreeKeyboardActions = {
 };
 
 export type UseFolderTreeKeyboardNavigationOptions = {
+  treeId: string;
+  selectedRowId: string | null;
   actions: FolderTreeKeyboardActions;
   collapsedFolderIds: Set<string>;
   tree: FolderTree;
@@ -32,6 +34,8 @@ export type UseFolderTreeKeyboardNavigationOptions = {
 };
 
 export function useFolderTreeKeyboardNavigation({
+  treeId,
+  selectedRowId,
   actions,
   collapsedFolderIds,
   tree,
@@ -43,6 +47,13 @@ export function useFolderTreeKeyboardNavigation({
     () => getFolderTreeFocusItems(tree, collapsedFolderIds),
     [collapsedFolderIds, tree],
   );
+  const [focusedId, setFocusedId] = useState(selectedRowId);
+  const itemsById = useMemo(() => new Map(focusItems.map(item => [item.id, item])), [focusItems]);
+  const previousItemsRef = useRef(focusItems);
+  const lastFocusedElementRef = useRef<HTMLElement | null>(null);
+  const effectiveFocusedId = focusedId && itemsById.has(focusedId)
+    ? focusedId
+    : selectedRowId && itemsById.has(selectedRowId) ? selectedRowId : focusItems[0]?.id ?? null;
 
   useEffect(() => () => {
     if (typeaheadResetTimerRef.current !== null) {
@@ -57,7 +68,42 @@ export function useFolderTreeKeyboardNavigation({
       ?? row?.querySelector<HTMLElement>('button:not([disabled])');
 
     target?.focus();
+    target?.scrollIntoView?.({ block: 'nearest' });
   }, [treeRef]);
+
+  useLayoutEffect(() => {
+    const previousItems = previousItemsRef.current;
+    previousItemsRef.current = focusItems;
+    if (!focusedId || itemsById.has(focusedId)) return;
+
+    const oldIndex = previousItems.findIndex(item => item.id === focusedId);
+    const previousItemsById = new Map(previousItems.map(item => [item.id, item]));
+    let parentId: string | null | undefined = previousItems[oldIndex]?.parentFolderId;
+    let nextId: string | undefined;
+    while (parentId) {
+      const parent = createFolderFocusId(parentId);
+      if (itemsById.has(parent)) {
+        nextId = parent;
+        break;
+      }
+      parentId = previousItemsById.get(parent)?.parentFolderId;
+    }
+    nextId ??= focusItems[Math.max(0, Math.min(oldIndex, focusItems.length - 1))]?.id;
+    setFocusedId(nextId ?? null);
+    // Recover only a removed tree control's focus, never steal it from a dialog or editor.
+    const lastElement = lastFocusedElementRef.current;
+    if (nextId && lastElement && !lastElement.isConnected && document.activeElement === document.body) {
+      focusTreeItem(nextId);
+    }
+  }, [focusItems, focusedId, focusTreeItem, itemsById]);
+
+  const onFocus = useCallback((id: string) => {
+    setFocusedId(id);
+    lastFocusedElementRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }, []);
+  const focusContext = useMemo(() => ({
+    treeId, focusedId: effectiveFocusedId, selectedId: selectedRowId, items: itemsById, onFocus,
+  }), [treeId, effectiveFocusedId, selectedRowId, itemsById, onFocus]);
 
   const focusItemAtIndex = useCallback((index: number) => {
     const item = focusItems[Math.max(0, Math.min(index, focusItems.length - 1))];
@@ -97,7 +143,8 @@ export function useFolderTreeKeyboardNavigation({
   }, [focusItems, focusTreeItem, resetTypeaheadTimer]);
 
   const handleTreeKeyDown = useCallback((event: KeyboardEvent | ReactKeyboardEvent<HTMLElement>) => {
-    if (shouldIgnoreFolderTreeKeydown(event.target) || focusItems.length === 0) {
+    const isComposing = 'nativeEvent' in event ? event.nativeEvent.isComposing : event.isComposing;
+    if (event.defaultPrevented || isComposing || shouldIgnoreFolderTreeKeydown(event.target) || focusItems.length === 0) {
       return;
     }
 
@@ -198,22 +245,22 @@ export function useFolderTreeKeyboardNavigation({
         return;
       }
 
-      const nextItem = focusItems[currentIndex + 1];
-      if (nextItem && nextItem.depth > currentItem.depth) {
+      const nextItem = focusItems.find(item => item.parentFolderId === currentItem.folderId);
+      if (nextItem) {
         focusTreeItem(nextItem.id);
       }
       return;
     }
 
-    if (!event.ctrlKey && isPlainKey && event.key === 'ArrowLeft' && currentItem?.kind === 'folder') {
+    if (!event.ctrlKey && isPlainKey && event.key === 'ArrowLeft' && currentItem) {
       event.preventDefault();
-      if (currentItem.folderId && currentItem.folderId !== UNFILED_FOLDER_ID && currentItem.hasChildren && !collapsedFolderIds.has(currentItem.folderId)) {
+      if (currentItem.kind === 'folder' && currentItem.folderId && currentItem.folderId !== UNFILED_FOLDER_ID && currentItem.hasChildren && !collapsedFolderIds.has(currentItem.folderId)) {
         actions.onFolderToggle(currentItem.folderId);
         return;
       }
 
-      if (currentItem.folderId !== UNFILED_FOLDER_ID) {
-        focusTreeItem(createFolderFocusId(currentItem.parentFolderId ?? UNFILED_FOLDER_ID));
+      if (currentItem.parentFolderId) {
+        focusTreeItem(createFolderFocusId(currentItem.parentFolderId));
       }
       return;
     }
@@ -257,11 +304,17 @@ export function useFolderTreeKeyboardNavigation({
     };
 
     treeElement.addEventListener('keydown', handleNativeKeyDown);
+    const handleFocusIn = (event: FocusEvent) => {
+      const id = getKeyboardFocusRowId(event.target);
+      if (id) onFocus(id);
+    };
+    treeElement.addEventListener('focusin', handleFocusIn);
 
     return () => {
       treeElement.removeEventListener('keydown', handleNativeKeyDown);
+      treeElement.removeEventListener('focusin', handleFocusIn);
     };
-  }, [handleTreeKeyDown, treeRef]);
+  }, [handleTreeKeyDown, onFocus, treeRef]);
 
-  return { handleTreeKeyDown };
+  return { focusContext };
 }

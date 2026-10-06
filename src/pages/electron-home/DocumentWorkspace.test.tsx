@@ -143,13 +143,15 @@ describe('DocumentWorkspace', () => {
     renderWorkspace();
 
     const inactivePane = screen.getByRole('region', { name: 'Document pane 1' });
-    const activePane = screen.getByRole('region', { name: 'Active document pane 2' });
+    const activePane = screen.getByRole('tabpanel', { name: 'Active document pane 2' });
+    expect(activePane).toHaveAttribute('id', 'document-pane-pane-b');
+    expect(activePane).toHaveAttribute('aria-labelledby', 'document-tab-tab-b');
 
     expect(inactivePane).toHaveAttribute('data-active-pane', 'false');
     expect(inactivePane).not.toHaveAttribute('aria-current');
     expect(activePane).toHaveAttribute('data-active-pane', 'true');
     expect(activePane).toHaveAttribute('aria-current', 'true');
-    expect(screen.getByTestId('document-detail-Left note')).not.toHaveAttribute('data-focus-zone');
+    expect(screen.getByTestId('document-detail-Left note')).toHaveAttribute('data-focus-zone', 'editor');
     expect(screen.getByTestId('document-detail-Right note')).toHaveAttribute('data-focus-zone', 'editor');
     expect(activePane).toHaveClass('before:bg-primary-default');
   });

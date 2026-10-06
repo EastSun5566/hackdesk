@@ -135,6 +135,19 @@ function createDeferred<T>() {
   return { promise, resolve, reject };
 }
 
+// Finder results are a list of buttons; the folder browser is a roving tree.
+function getNoteRow(name: string) {
+  return screen.getByRole(screen.queryByRole('tree') ? 'treeitem' : 'button', { name });
+}
+
+function queryNoteRow(name: string) {
+  return screen.queryByRole(screen.queryByRole('tree') ? 'treeitem' : 'button', { name });
+}
+
+function findNoteRow(name: string, options?: Parameters<typeof waitFor>[1]) {
+  return waitFor(() => getNoteRow(name), options);
+}
+
 async function openInspector() {
   fireEvent.click(screen.getByRole('button', { name: 'Expand note details' }));
   await screen.findByRole('heading', { name: 'Note Details' });
@@ -851,7 +864,7 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     expect(await screen.findByRole('button', { name: `${team.name}, private` })).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: note.title })).toBeInTheDocument();
+    expect(await findNoteRow(note.title)).toBeInTheDocument();
     await findRenderedNoteTitle();
     await confirmDisconnectHackmd();
 
@@ -865,7 +878,7 @@ describe('Home native-feel behavior', () => {
     expect(screen.getByRole('button', { name: 'Open settings' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: `${team.name}, private` })).not.toBeInTheDocument();
     expect(screen.queryByText('TEAMS')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: note.title })).not.toBeInTheDocument();
+    expect(queryNoteRow(note.title)).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue(note.title)).not.toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({
       type: 'personal',
@@ -1071,8 +1084,8 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     fireEvent.change(await screen.findByDisplayValue('Product Plan'), { target: { value: 'Draft Product Plan' } });
-    await screen.findByText('Unsaved');
-    fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
+    await screen.findByRole('status', { name: 'Sync state: Unsaved' });
+    fireEvent.click(await findNoteRow('Design Spec'));
     fireEvent.change(await screen.findByDisplayValue('Design Spec'), { target: { value: 'Draft Design Spec' } });
     await screen.findAllByText('Unsaved');
 
@@ -1128,7 +1141,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.change(await screen.findByDisplayValue('Product Plan'), { target: { value: 'Draft Product Plan' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await screen.findByLabelText('Sync state: Save failed');
-    fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
+    fireEvent.click(await findNoteRow('Design Spec'));
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
 
     act(() => {
@@ -1565,7 +1578,7 @@ describe('Home native-feel behavior', () => {
     }));
     await waitFor(() => {
       expect(screen.getByDisplayValue('Keyboard note')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Select Keyboard note tab' })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: 'Select Keyboard note tab' })).toBeInTheDocument();
     });
   });
 
@@ -1652,7 +1665,7 @@ describe('Home native-feel behavior', () => {
     });
 
     expect(await screen.findByDisplayValue('Untitled')).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: 'Select Untitled tab' })).toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: 'Select Untitled tab' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByTestId('hackmd-markdown-editor')).toHaveTextContent('Captured');
     });
@@ -1719,7 +1732,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByRole('button', { name: 'Product Plan' }, { timeout: 5_000 });
+    await findNoteRow('Product Plan', { timeout: 5_000 });
     fireEvent.keyDown(window, { key: 'p', metaKey: true });
 
     const palette = await screen.findByRole('dialog', { name: 'Quick Open' });
@@ -1755,7 +1768,7 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     expect(await screen.findByDisplayValue('Product Plan')).toBeInTheDocument();
-    fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
+    fireEvent.click(await findNoteRow('Design Spec'));
 
     expect(screen.queryByDisplayValue('Product Plan')).not.toBeInTheDocument();
     expect(screen.getAllByText('Loading note…').length).toBeGreaterThan(0);
@@ -1800,12 +1813,12 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
     const titleInput = await screen.findByDisplayValue('Product Plan');
     fireEvent.change(titleInput, { target: { value: 'Draft Product Plan' } });
-    await screen.findByText('Unsaved');
-    fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
+    await screen.findByRole('status', { name: 'Sync state: Unsaved' });
+    fireEvent.click(await findNoteRow('Design Spec'));
 
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
     expect(api.app.confirm).not.toHaveBeenCalled();
-    fireEvent.click(await screen.findByRole('button', { name: 'Select Draft Product Plan tab' }));
+    fireEvent.click(await screen.findByRole('tab', { name: 'Select Draft Product Plan tab' }));
     expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
   });
 
@@ -1838,10 +1851,10 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     fireEvent.change(await screen.findByDisplayValue('Product Plan'), { target: { value: 'Draft Product Plan' } });
-    await screen.findByText('Unsaved');
-    fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
+    await screen.findByRole('status', { name: 'Sync state: Unsaved' });
+    fireEvent.click(await findNoteRow('Design Spec'));
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
-    fireEvent.click(await screen.findByRole('button', { name: 'Product Plan' }));
+    fireEvent.click(await findNoteRow('Product Plan'));
 
     expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
     expect(api.app.confirm).not.toHaveBeenCalled();
@@ -1870,13 +1883,13 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await screen.findByDisplayValue('Product Plan');
-    fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
+    fireEvent.click(await findNoteRow('Design Spec'));
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'w', metaKey: true });
 
     expect(await screen.findByDisplayValue('Product Plan')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Select Design Spec tab' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Select Design Spec tab' })).not.toBeInTheDocument();
     expect(api.app.confirm).not.toHaveBeenCalled();
   });
 
@@ -1902,7 +1915,7 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Unsaved title' } });
-    await screen.findByText('Unsaved');
+    await screen.findByRole('status', { name: 'Sync state: Unsaved' });
 
     fireEvent.keyDown(window, { key: 'w', metaKey: true });
 
@@ -1924,7 +1937,7 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.keyDown(window, { key: '\\', metaKey: true });
 
-    expect(await screen.findAllByRole('button', { name: 'Select Test note tab' })).toHaveLength(1);
+    expect(await screen.findAllByRole('tab', { name: 'Select Test note tab' })).toHaveLength(1);
     expect(screen.getAllByText('Test note').length).toBeGreaterThan(1);
   });
 
@@ -1935,7 +1948,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Draft title' } });
     fireEvent.keyDown(window, { key: 't', metaKey: true });
 
-    expect(await screen.findAllByRole('button', { name: 'Select Draft title tab' })).toHaveLength(2);
+    expect(await screen.findAllByRole('tab', { name: 'Select Draft title tab' })).toHaveLength(2);
   });
 
   it('focuses note tabs with next and previous shortcuts', async () => {
@@ -1962,9 +1975,9 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await screen.findByDisplayValue('Alpha');
-    fireEvent.click(await screen.findByRole('button', { name: 'Beta' }));
+    fireEvent.click(await findNoteRow('Beta'));
     await screen.findByDisplayValue('Beta');
-    fireEvent.click(await screen.findByRole('button', { name: 'Gamma' }));
+    fireEvent.click(await findNoteRow('Gamma'));
     await screen.findByDisplayValue('Gamma');
 
     fireEvent.keyDown(window, { key: 'ArrowRight', metaKey: true, altKey: true });
@@ -2001,9 +2014,9 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await screen.findByDisplayValue('Alpha');
-    fireEvent.click(await screen.findByRole('button', { name: 'Beta' }));
+    fireEvent.click(await findNoteRow('Beta'));
     await screen.findByDisplayValue('Beta');
-    fireEvent.click(await screen.findByRole('button', { name: 'Gamma' }));
+    fireEvent.click(await findNoteRow('Gamma'));
     await screen.findByDisplayValue('Gamma');
 
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
@@ -2033,7 +2046,7 @@ describe('Home native-feel behavior', () => {
     await findRenderedNoteTitle();
     fireEvent.keyDown(window, { key: 'e', metaKey: true, shiftKey: true });
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Test note' })).toHaveFocus());
+    await waitFor(() => expect(getNoteRow('Test note')).toHaveFocus());
   });
 
   it('focuses the editor body after selecting a note from the navigator', async () => {
@@ -2059,7 +2072,7 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await screen.findByDisplayValue('Product Plan');
-    fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
+    fireEvent.click(await findNoteRow('Design Spec'));
 
     await waitFor(() => {
       const editorContent = screen.getByTestId('hackmd-markdown-editor').querySelector('.cm-content');
@@ -2131,7 +2144,7 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
     fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Draft title' } });
 
-    expect(await screen.findByRole('button', { name: 'Select Draft title tab' })).toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: 'Select Draft title tab' })).toBeInTheDocument();
   });
 
   it('closes tabs to the right and reopens the last closed tab', async () => {
@@ -2165,25 +2178,25 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await screen.findByDisplayValue('Alpha');
-    fireEvent.click(await screen.findByRole('button', { name: 'Beta' }));
+    fireEvent.click(await findNoteRow('Beta'));
     await screen.findByDisplayValue('Beta');
-    fireEvent.click(await screen.findByRole('button', { name: 'Gamma' }));
+    fireEvent.click(await findNoteRow('Gamma'));
     await screen.findByDisplayValue('Gamma');
-    fireEvent.click(await screen.findByRole('button', { name: 'Select Alpha tab' }));
+    fireEvent.click(await screen.findByRole('tab', { name: 'Select Alpha tab' }));
 
     act(() => {
       commandHandler?.({ type: 'close-tabs-to-right' });
     });
 
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Select Beta tab' })).not.toBeInTheDocument());
-    expect(screen.queryByRole('button', { name: 'Select Gamma tab' })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('tab', { name: 'Select Beta tab' })).not.toBeInTheDocument());
+    expect(screen.queryByRole('tab', { name: 'Select Gamma tab' })).not.toBeInTheDocument();
 
     act(() => {
       commandHandler?.({ type: 'reopen-last-closed-tab' });
     });
 
-    expect(await screen.findByRole('button', { name: 'Select Gamma tab' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Select Beta tab' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: 'Select Gamma tab' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Select Beta tab' })).not.toBeInTheDocument();
   });
 
   it('restores note tabs after remounting the same workspace scope', async () => {
@@ -2209,7 +2222,7 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await screen.findByDisplayValue('Product Plan');
-    fireEvent.click(await screen.findByRole('button', { name: 'Design Spec' }));
+    fireEvent.click(await findNoteRow('Design Spec'));
     await screen.findByDisplayValue('Design Spec');
     await waitFor(() => expect(Array.from({ length: window.localStorage.length }, (_value, index) => {
       const key = window.localStorage.key(index);
@@ -2221,7 +2234,7 @@ describe('Home native-feel behavior', () => {
     cleanup();
     renderHome(api);
 
-    expect(await screen.findByRole('button', { name: 'Select Product Plan tab' })).toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: 'Select Product Plan tab' })).toBeInTheDocument();
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
   });
 
@@ -2250,14 +2263,14 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
     await findRenderedNoteTitle();
     fireEvent.keyDown(window, { key: '\\', metaKey: true, shiftKey: true });
-    expect(await screen.findAllByRole('button', { name: 'Select Test note tab' })).toHaveLength(1);
+    expect(await screen.findAllByRole('tab', { name: 'Select Test note tab' })).toHaveLength(1);
     expect(screen.getAllByText('Test note').length).toBeGreaterThan(1);
     act(() => {
       commandHandler?.({ type: 'delete-note' });
     });
 
     await waitFor(() => expect(api.hackmd.deleteNote).toHaveBeenCalledWith('note-1'));
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Select Test note tab' })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('tab', { name: 'Select Test note tab' })).not.toBeInTheDocument());
   });
 
   it('does not auto-select a folder note over a dirty current tab', async () => {
@@ -2289,7 +2302,7 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     fireEvent.change(await screen.findByDisplayValue('Root Note'), { target: { value: 'Draft Root Note' } });
-    await screen.findByText('Unsaved');
+    await screen.findByRole('status', { name: 'Sync state: Unsaved' });
     fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
 
     expect(api.app.confirm).not.toHaveBeenCalled();
@@ -2325,7 +2338,7 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     fireEvent.change(await screen.findByDisplayValue('Product Plan'), { target: { value: 'Draft Product Plan' } });
-    await screen.findByText('Unsaved');
+    await screen.findByRole('status', { name: 'Sync state: Unsaved' });
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
     fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands…'), { target: { value: 'design' } });
@@ -2333,7 +2346,7 @@ describe('Home native-feel behavior', () => {
 
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
     expect(api.app.confirm).not.toHaveBeenCalled();
-    fireEvent.click(await screen.findByRole('button', { name: 'Select Draft Product Plan tab' }));
+    fireEvent.click(await screen.findByRole('tab', { name: 'Select Draft Product Plan tab' }));
     expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
   });
 
@@ -2349,7 +2362,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByRole('button', { name: 'Folder Note' });
+    await findNoteRow('Folder Note');
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
@@ -2359,8 +2372,8 @@ describe('Home native-feel behavior', () => {
     await selectCurrentFolderScope();
 
     await screen.findByText('1 result');
-    expect(screen.getByRole('button', { name: 'Folder Note' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Root Note' })).not.toBeInTheDocument();
+    expect(getNoteRow('Folder Note')).toBeInTheDocument();
+    expect(queryNoteRow('Root Note')).not.toBeInTheDocument();
   });
 
   it('quick-opens the Root folder from the command palette', async () => {
@@ -2375,7 +2388,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByRole('button', { name: 'Root Note' });
+    await findNoteRow('Root Note');
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
@@ -2385,8 +2398,8 @@ describe('Home native-feel behavior', () => {
     await selectCurrentFolderScope();
 
     await screen.findByText('1 result');
-    expect(screen.getByRole('button', { name: 'Root Note' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Folder Note' })).not.toBeInTheDocument();
+    expect(getNoteRow('Root Note')).toBeInTheDocument();
+    expect(queryNoteRow('Folder Note')).not.toBeInTheDocument();
   });
 
   it('applies the command palette query to Note Finder results', async () => {
@@ -2402,7 +2415,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByRole('button', { name: 'Product Plan' });
+    await findNoteRow('Product Plan');
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
@@ -2412,8 +2425,8 @@ describe('Home native-feel behavior', () => {
     expect(screen.queryByRole('dialog', { name: 'Command Palette' })).not.toBeInTheDocument();
     expect(screen.getByPlaceholderText('Search notes')).toHaveValue('Design');
     await screen.findByText('1 result');
-    expect(screen.getByRole('button', { name: 'Design Spec' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Product Plan' })).not.toBeInTheDocument();
+    expect(getNoteRow('Design Spec')).toBeInTheDocument();
+    expect(queryNoteRow('Product Plan')).not.toBeInTheDocument();
   });
 
   it('records selected notes and shows them in command palette recent notes', async () => {
@@ -2429,7 +2442,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Product Plan' }, { timeout: 5_000 }));
+    fireEvent.click(await findNoteRow('Product Plan', { timeout: 5_000 }));
 
     expect(JSON.parse(window.localStorage.getItem(ELECTRON_RECENT_NOTES_STORAGE_KEY) ?? '[]')[0]).toMatchObject({
       noteId: 'note-product',
@@ -2477,7 +2490,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByRole('button', { name: 'Product Plan' }, { timeout: 5_000 });
+    await findNoteRow('Product Plan', { timeout: 5_000 });
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
@@ -2523,14 +2536,14 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     fireEvent.change(await screen.findByDisplayValue('Product Plan'), { target: { value: 'Draft Product Plan' } });
-    await screen.findByText('Unsaved');
+    await screen.findByRole('status', { name: 'Sync state: Unsaved' });
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
     fireEvent.click(within(palette).getAllByText('Design Spec')[0]);
 
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
     expect(api.app.confirm).not.toHaveBeenCalled();
-    fireEvent.click(await screen.findByRole('button', { name: 'Select Draft Product Plan tab' }));
+    fireEvent.click(await screen.findByRole('tab', { name: 'Select Draft Product Plan tab' }));
     expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
   });
 
@@ -2643,7 +2656,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByRole('button', { name: 'Test note' }, { timeout: 5_000 });
+    await findNoteRow('Test note', { timeout: 5_000 });
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
@@ -2676,7 +2689,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByRole('button', { name: 'Test note' }, { timeout: 5_000 });
+    await findNoteRow('Test note', { timeout: 5_000 });
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
@@ -3045,7 +3058,7 @@ describe('Home native-feel behavior', () => {
     });
 
     expect(within(row).getByRole('button', { name: 'Drag Second note' })).toBeInTheDocument();
-    fireEvent.click(within(row).getByRole('button', { name: 'Second note' }));
+    fireEvent.click(within(row).getByRole('treeitem', { name: 'Second note' }));
 
     expect(await screen.findByDisplayValue('Second note')).toBeInTheDocument();
   });
@@ -3105,18 +3118,18 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByRole('button', { name: 'Product Plan' });
+    await findNoteRow('Product Plan');
     await expandTagBrowser();
     fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag product' }));
 
     await screen.findByText('1 result');
-    expect(screen.getByRole('button', { name: 'Product Plan' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Design Spec' })).not.toBeInTheDocument();
+    expect(getNoteRow('Product Plan')).toBeInTheDocument();
+    expect(queryNoteRow('Design Spec')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove tag filter product' }));
 
     await screen.findByText('2 notes');
-    expect(screen.getByRole('button', { name: 'Design Spec' })).toBeInTheDocument();
+    expect(getNoteRow('Design Spec')).toBeInTheDocument();
   });
 
   it('filters notes from the tag browser and clears the active tag when clicked again', async () => {
@@ -3132,20 +3145,20 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByRole('button', { name: 'Product Plan' });
+    await findNoteRow('Product Plan');
     expect(screen.getByRole('button', { name: 'Tags' })).toHaveAttribute('aria-expanded', 'false');
     await expandTagBrowser();
     await screen.findByRole('button', { name: 'Filter by tag product' });
     fireEvent.click(screen.getByRole('button', { name: 'Filter by tag product' }));
 
     await screen.findByText('1 result');
-    expect(screen.getByRole('button', { name: 'Product Plan' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Design Spec' })).not.toBeInTheDocument();
+    expect(getNoteRow('Product Plan')).toBeInTheDocument();
+    expect(queryNoteRow('Design Spec')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear tag product' }));
 
     await screen.findByText('2 notes');
-    expect(screen.getByRole('button', { name: 'Design Spec' })).toBeInTheDocument();
+    expect(getNoteRow('Design Spec')).toBeInTheDocument();
   });
 
   it('shows multi-tag state in filter chips and the tag browser', async () => {
@@ -3162,7 +3175,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByRole('button', { name: 'Product Plan' });
+    await findNoteRow('Product Plan');
     await expandTagBrowser();
     fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag product' }));
     await screen.findByRole('button', { name: 'Clear tag product' });
@@ -3191,7 +3204,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByRole('button', { name: 'Note 1' });
+    await findNoteRow('Note 1');
     await expandTagBrowser();
     await screen.findByRole('button', { name: 'Filter by tag tag-01' });
     expect(screen.queryByRole('button', { name: 'Filter by tag tag-13' })).not.toBeInTheDocument();
@@ -3219,13 +3232,13 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     fireEvent.click(await screen.findByRole('button', { name: 'History' }));
-    await screen.findByRole('button', { name: 'History Product' });
+    await findNoteRow('History Product');
     await expandTagBrowser();
     fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag product' }));
 
     await screen.findByText('1 result');
-    expect(screen.getByRole('button', { name: 'History Product' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'History Design' })).not.toBeInTheDocument();
+    expect(getNoteRow('History Product')).toBeInTheDocument();
+    expect(queryNoteRow('History Design')).not.toBeInTheDocument();
   });
 
   it('sorts finder results by title', async () => {
@@ -3241,7 +3254,7 @@ describe('Home native-feel behavior', () => {
     });
 
     const { container } = renderHome(api);
-    await screen.findByRole('button', { name: 'Beta' });
+    await findNoteRow('Beta');
     fireEvent.pointerDown(screen.getByRole('button', { name: 'Sort notes' }));
     fireEvent.click(await screen.findByText('Title A-Z'));
 
@@ -3282,9 +3295,9 @@ describe('Home native-feel behavior', () => {
     await selectCurrentFolderScope();
 
     await screen.findByText('1 result');
-    expect(screen.getByRole('button', { name: 'Folder Note' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Child Note' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Root Note' })).not.toBeInTheDocument();
+    expect(getNoteRow('Folder Note')).toBeInTheDocument();
+    expect(queryNoteRow('Child Note')).not.toBeInTheDocument();
+    expect(queryNoteRow('Root Note')).not.toBeInTheDocument();
   });
 
   it('clears finder query and filters with Escape without changing editor input', async () => {
@@ -3369,7 +3382,7 @@ describe('Home native-feel behavior', () => {
     });
 
     const { container } = renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Root' }));
+    fireEvent.click(await findNoteRow('Root'));
     const row = await waitFor(() => {
       const noteRow = container.querySelector('[data-note-id="note-1"]');
       expect(noteRow).toBeTruthy();
@@ -3582,7 +3595,7 @@ describe('Home native-feel behavior', () => {
 
     const { container } = renderHome(api);
     fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace, private' }, { timeout: 5_000 }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Root' }));
+    fireEvent.click(await findNoteRow('Root'));
     const row = await waitFor(() => {
       const noteRow = container.querySelector('[data-note-id="note-1"]');
       expect(noteRow).toBeTruthy();

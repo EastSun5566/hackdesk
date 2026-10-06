@@ -34,6 +34,8 @@ import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 
+import { useFolderTreeControlId, useFolderTreeGroupId, useFolderTreeItem } from './FolderTreeFocusContext';
+
 const TREE_ROW_FOCUS_CLASS = 'focus-within:bg-background-selected focus-within:text-text-default focus-within:ring-2 focus-within:ring-inset focus-within:ring-focus-ring/80';
 
 function focusTreeRowPrimary(rowId: string) {
@@ -117,6 +119,8 @@ export function NoteRow({
   );
   const isLocalNote = entry.note.teamPath === LOCAL_VAULT_TEAM_PATH;
   const rowId = `note:${entry.note.id}`;
+  const treeItemProps = useFolderTreeItem(rowId, selected, undefined, draggable ? ['drag'] : []);
+  const dragControlId = useFolderTreeControlId(rowId, 'drag');
   const dragListeners = disabledDrag ? {} : listeners;
   const canShowInFolder = showInFolderAction && entry.folderPath.length > 0;
 
@@ -138,11 +142,13 @@ export function NoteRow({
             leadingControls={draggable ? (
               <button
                 type="button"
+                id={dragControlId}
                 className={cn(
                   'group/drag-handle -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default',
                   FOCUS_RING_CLASS,
                 )}
                 aria-label={`Drag ${entry.note.title || 'Untitled'}`}
+                data-folder-tree-ignore-keyboard="true"
                 onClick={(event) => {
                   event.stopPropagation();
                   if (!disabledDrag) {
@@ -151,6 +157,7 @@ export function NoteRow({
                 }}
                 {...attributes}
                 {...dragListeners}
+                tabIndex={treeItemProps?.tabIndex}
                 aria-disabled={disabledDrag || attributes['aria-disabled']}
               >
                 <FileText aria-hidden="true" className={cn('group-hover/drag-handle:hidden group-focus-visible/drag-handle:hidden', compact ? 'h-3.5 w-3.5' : 'h-4 w-4')} />
@@ -169,8 +176,9 @@ export function NoteRow({
             active={active}
             contentOnClick={() => onSelect(entry.note)}
             contentAriaLabel={entry.note.title || 'Untitled'}
-            contentAriaCurrent={selected ? 'page' : undefined}
+            contentAriaCurrent={treeItemProps ? undefined : selected ? 'page' : undefined}
             contentFocusTarget={focusTarget}
+            contentButtonProps={treeItemProps}
             selectedIndicator
             className={cn(TREE_ROW_FOCUS_CLASS, selected && 'bg-primary-soft')}
           />
@@ -283,6 +291,9 @@ function FolderButton({
     transition,
   };
   const rowId = `folder:${node.id}`;
+  const treeItemProps = useFolderTreeItem(rowId, selected, !collapsed, hasChildren ? ['toggle', 'drag'] : ['drag']);
+  const dragControlId = useFolderTreeControlId(rowId, 'drag');
+  const toggleControlId = useFolderTreeControlId(rowId, 'toggle');
   const dragListeners = disabledDrag ? {} : listeners;
 
   return (
@@ -306,13 +317,16 @@ function FolderButton({
                 <button
                   type="button"
                   onClick={() => onToggle(node.id)}
+                  id={toggleControlId}
                   disabled={!hasChildren}
+                  aria-hidden={!hasChildren ? true : undefined}
                   className={cn(
                     '-my-2 flex h-10 w-6 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default disabled:pointer-events-none disabled:opacity-0',
                     FOCUS_RING_CLASS,
                   )}
                   aria-label={hasChildren ? (collapsed ? `Expand ${node.name}` : `Collapse ${node.name}`) : undefined}
                   aria-expanded={hasChildren ? !collapsed : undefined}
+                  tabIndex={treeItemProps?.tabIndex}
                 >
                   <ChevronRight
                     aria-hidden="true"
@@ -327,8 +341,11 @@ function FolderButton({
                     FOCUS_RING_CLASS,
                   )}
                   aria-label={`Drag ${node.name}`}
+                  id={dragControlId}
+                  data-folder-tree-ignore-keyboard="true"
                   {...attributes}
                   {...dragListeners}
+                  tabIndex={treeItemProps?.tabIndex}
                   aria-disabled={disabledDrag || attributes['aria-disabled']}
                 >
                   <span className="group-hover/drag-handle:hidden group-focus-visible/drag-handle:hidden">
@@ -342,8 +359,9 @@ function FolderButton({
             trailing={totalNotes}
             contentOnClick={() => onSelect(node.id)}
             contentAriaLabel={node.name}
-            contentAriaCurrent={selected ? 'page' : undefined}
+            contentAriaCurrent={treeItemProps ? undefined : selected ? 'page' : undefined}
             contentFocusTarget={focusTarget}
+            contentButtonProps={treeItemProps}
             selectedIndicator
             className={TREE_ROW_FOCUS_CLASS}
           />
@@ -399,6 +417,7 @@ export function RootFolderRow({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: ROOT_FOLDER_DROP_ID });
   const rowId = `folder:${UNFILED_FOLDER_ID}`;
+  const treeItemProps = useFolderTreeItem(rowId, selected, true);
 
   return (
     <ContextMenu>
@@ -419,7 +438,8 @@ export function RootFolderRow({
             className={TREE_ROW_FOCUS_CLASS}
             focusTarget={focusTarget}
             selectedIndicator
-            ariaCurrent={selected ? 'page' : undefined}
+            ariaCurrent={treeItemProps ? undefined : selected ? 'page' : undefined}
+            buttonProps={treeItemProps}
             onClick={onSelect}
           />
         </div>
@@ -470,6 +490,7 @@ export function NoteDragOverlay({ entry }: { entry: FolderTreeNote | null }) {
 export function FolderTreeView({
   nodes,
   notes = [],
+  parentFolderId,
   selectedFolderId,
   selectedNoteId,
   collapsedFolderIds,
@@ -499,6 +520,7 @@ export function FolderTreeView({
 }: {
   nodes: FolderTreeNode[];
   notes?: FolderTreeNote[];
+  parentFolderId?: string;
   selectedFolderId: string | null;
   selectedNoteId: string | null;
   collapsedFolderIds: Set<string>;
@@ -526,6 +548,7 @@ export function FolderTreeView({
   isMovingNote: boolean;
   isMovingFolder: boolean;
 }) {
+  const groupId = useFolderTreeGroupId(parentFolderId ?? '');
   if (nodes.length === 0 && notes.length === 0) {
     return null;
   }
@@ -536,7 +559,7 @@ export function FolderTreeView({
     const isActiveFolder = activeFolderId === node.id;
 
     return (
-      <li key={node.id} className="relative min-w-0">
+      <li role="presentation" key={node.id} className="relative min-w-0">
         {depth > 0 && !lastChild ? <span aria-hidden="true" data-tree-guide="continuation" className="pointer-events-none absolute -left-[7px] -top-0.5 bottom-0 w-px bg-border-default/70" /> : null}
         <div className="relative min-w-0">
           {depth > 0 && lastChild ? <span aria-hidden="true" data-tree-guide="end" className="pointer-events-none absolute -left-[7px] -top-0.5 bottom-1/2 w-px bg-border-default/70" /> : null}
@@ -561,6 +584,7 @@ export function FolderTreeView({
           <div className="min-h-0 overflow-hidden">
             <div className="mt-0.5 min-w-0">
               <FolderTreeView
+                parentFolderId={node.id}
                 nodes={node.children}
                 notes={node.notes}
                 selectedFolderId={selectedFolderId}
@@ -598,7 +622,7 @@ export function FolderTreeView({
   });
 
   const noteItems = notes.map((entry, index) => (
-    <li key={`note:${entry.note.id}`} className="relative min-w-0">
+    <li role="presentation" key={`note:${entry.note.id}`} className="relative min-w-0">
       {depth > 0 ? <span aria-hidden="true" data-tree-guide={index === notes.length - 1 ? 'end' : 'continuation'} className={cn('pointer-events-none absolute -left-[7px] -top-0.5 w-px bg-border-default/70', index === notes.length - 1 ? 'bottom-1/2' : 'bottom-0')} /> : null}
       <NoteRow
         entry={entry}
@@ -628,7 +652,7 @@ export function FolderTreeView({
   }
 
   return (
-    <ul data-tree-children="true" className="relative m-0 grid min-w-0 list-none gap-0.5 p-0 pl-5">
+    <ul role="group" id={parentFolderId ? groupId : undefined} data-tree-children="true" className="relative m-0 grid min-w-0 list-none gap-0.5 p-0 pl-5">
       {items}
       {noteItems}
     </ul>

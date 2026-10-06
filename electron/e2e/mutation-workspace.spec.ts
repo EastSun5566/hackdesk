@@ -93,13 +93,13 @@ for (const origin of ['personal', 'team-a']) {
       await page.getByRole('button', { name: 'Team B, private', exact: true }).click();
       await app.evaluate(({ ipcMain }) => { ipcMain.emit('fixture:complete:team-b'); });
       await expect.poll(() => page.evaluate(() => localStorage.getItem('hackdesk_note_workspace:team:team-b'))).toContain('B untouched');
-      await expect(page.getByRole('button', { name: 'Select B untouched tab', exact: true })).toHaveCount(1);
+      await expect(page.getByRole('tab', { name: 'Select B untouched tab', exact: true })).toHaveCount(1);
       await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('hackdesk_note_workspace:team:team-b') ?? '{}').drafts)).toEqual({});
       const destination = await page.evaluate(() => localStorage.getItem('hackdesk_note_workspace:team:team-b'));
       await app.evaluate(({ ipcMain }, owner) => { ipcMain.emit(`fixture:complete:${owner}`); }, origin);
       await expect.poll(() => page.evaluate((key) => localStorage.getItem(`hackdesk_note_workspace:${key}`), scopeKey)).toContain('origin-note');
       await expect(editor).toContainText('B untouched');
-      await expect(page.getByRole('button', { name: 'Select Origin submitted tab', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('tab', { name: 'Select Origin submitted tab', exact: true })).toHaveCount(0);
       expect(await page.evaluate(() => localStorage.getItem('hackdesk_note_workspace:team:team-b'))).toBe(destination);
       await page.getByRole('button', { name: originButton, exact: true }).click();
       await expect(editor).toContainText('# Origin later');
@@ -116,7 +116,7 @@ for (const origin of ['personal', 'team-a']) {
       await page.reload();
       await page.getByRole('button', { name: originButton, exact: true }).click();
       await expect(editor).toContainText('# Origin even later');
-      await expect(page.getByRole('button', { name: 'Select Origin submitted tab', exact: true })).toHaveCount(1);
+      await expect(page.getByRole('tab', { name: 'Select Origin submitted tab', exact: true })).toHaveCount(1);
     } finally {
       if (app.process().exitCode === null) {
         const exited = new Promise<void>((done) => app.process().once('exit', () => done()));
