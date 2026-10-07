@@ -23,7 +23,6 @@ import { useElectronLocalVault } from './electron-home/useElectronLocalVault';
 import {
   useElectronHomeSelection,
   useElectronHomeSelectionRefs,
-  useSelectedDocumentEditorFocus,
 } from './electron-home/useElectronHomeSelection';
 import {
   getQuickCaptureDraftError,
@@ -54,6 +53,7 @@ import { useElectronHomeStatus } from './electron-home/useElectronHomeStatus';
 import { useWorkbenchFinder } from './electron-home/useWorkbenchFinder';
 import { useWorkbenchFolderCommands } from './electron-home/useWorkbenchFolderCommands';
 import { useWorkbenchNavigator } from './electron-home/useWorkbenchNavigator';
+import { useWorkbenchEditorRequests } from './electron-home/useWorkbenchEditorRequests';
 import { useWorkbenchPanelState } from './electron-home/useWorkbenchPanelState';
 import { useWorkbenchShortcuts } from './electron-home/useWorkbenchShortcuts';
 import { useWorkbenchTabLifecycle } from './electron-home/useWorkbenchTabLifecycle';
@@ -112,15 +112,11 @@ export function Home() {
     setWorkspaceScope: setWorkspaceScopeState,
   } = workspaceState;
   const {
-    attachImageRequestId,
-    editorSearchRequestId,
     inspectorCollapsed,
     navigatorCollapsed,
     navigatorWidth,
     railCollapsed,
     railWidth,
-    bumpAttachImageRequest,
-    bumpEditorSearchRequest,
     expandNavigator,
     setNavigatorCollapsed,
     setNavigatorWidth,
@@ -135,16 +131,23 @@ export function Home() {
   const flushWorkspace = noteWorkspace.flush;
   useLayoutEffect(() => { beforeVaultChange.current = flushWorkspace; }, [flushWorkspace]);
   const activeTab = noteWorkspace.activeTab;
+  const { editorRequests, consumeEditorRequest, requestEditorFocus, bumpEditorSearchRequest, bumpAttachImageRequest } = useWorkbenchEditorRequests(
+    scopeStorageKey && activeTab ? { scopeKey: scopeStorageKey, paneId: noteWorkspace.state.activePaneId, tabId: activeTab.tabId, documentId: 'noteId' in activeTab ? activeTab.noteId : activeTab.draftId } : null,
+  );
   const {
     autoSelectSuppressionRef,
-    editorFocusRequestId,
     handleNoteSelect,
-    handleSelectedDocumentReady,
     manualEmptyWorkspaceRef,
     requestSelectNote,
     selectedNote,
   } = useElectronHomeSelection({
     activeTab,
+    activePaneId: noteWorkspace.state.activePaneId,
+    getNotePaneId: note => {
+      const existing = noteWorkspace.getTabsMatching(note)[0];
+      return existing ? noteWorkspace.getTabHostPane(existing.tabId)?.paneId : undefined;
+    },
+    requestEditorFocus,
     scopeStorageKey,
     openNoteInWorkspace: noteWorkspace.openNote,
     selectionRefs,
@@ -427,8 +430,6 @@ export function Home() {
     selectedDocument,
   } = workbenchDocuments;
 
-  useSelectedDocumentEditorFocus(selectedDocument, handleSelectedDocumentReady);
-
   const refreshWorkspace = useElectronHomeRefresh({
     localVaultQuery: localVault.snapshotQuery,
     queries,
@@ -539,9 +540,9 @@ export function Home() {
   const actionHandlers = useWorkbenchActionHandlers({
     activePaneId: noteWorkspace.state.activePaneId,
     activeTab,
-    api,
     bumpAttachImageRequest,
     bumpEditorSearchRequest,
+    api,
     createFolder: folderCommands.handleCreateFolder,
     createNote: folderCommands.handleCreateNote,
     deleteNote: handleDeleteRequest,
@@ -773,13 +774,12 @@ export function Home() {
       switchWorkspaceScope,
     },
     activeFinderState,
-    attachImageRequestId,
     collapsedFolderIds,
     displayScope,
     documents: workbenchDocuments,
-    editorFocusRequestId,
+    editorRequests,
+    consumeEditorRequest,
     editorMode: settings?.editor?.mode ?? defaultSettings.editor.mode,
-    editorSearchRequestId,
     folderCommands,
     folderTree,
     getTabSyncState,

@@ -574,6 +574,59 @@ test('keyboard foundation separates focus from selection and protects drafts', a
   } finally { await stopApp(app, true); }
 });
 
+test('pane promotion and workspace restore do not replay editor commands', async () => {
+  const { app, page } = await launchFixture('standard', true, true);
+  try {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await openFixtureNote(page);
+    await page.getByRole('button', { name: 'Pane actions', exact: true }).press('Enter');
+    await page.getByRole('menuitem', { name: 'Split Right', exact: true }).press('Enter');
+    const panes = page.locator('[data-document-pane-id][data-active-pane]');
+    const left = panes.first();
+    const right = panes.last();
+    await expect(page.locator('.cm-content')).toHaveCount(2);
+    // Count picker requests without leaving native file dialogs open in CI.
+    await page.evaluate(() => {
+      const original = HTMLInputElement.prototype.click;
+      HTMLInputElement.prototype.click = function () {
+        if (this.type !== 'file') return original.call(this);
+        this.dataset.pickerRequests = String(Number(this.dataset.pickerRequests ?? 0) + 1);
+      };
+    });
+    const attachViaMenu = () => app.evaluate(({ Menu }) => {
+      const item = Menu.getApplicationMenu()?.items.find(section => section.label === 'File')
+        ?.submenu?.items.find(candidate => candidate.label === 'Attach Image...');
+      if (!item) throw new Error('Attach Image menu item is missing');
+      item.click(item, undefined, {});
+    });
+    await left.locator('.cm-content').focus();
+    await page.keyboard.press(`${primary}+f`);
+    await expect(left.locator('.cm-search')).toBeVisible();
+    await left.getByRole('button', { name: 'Close search', exact: true }).click();
+    await attachViaMenu();
+    await expect(left.locator('input[type="file"]')).toHaveAttribute('data-picker-requests', '1');
+    await left.locator('.cm-content').focus();
+    await page.keyboard.press('F6');
+    await expect(right.locator('.cm-content')).toBeFocused();
+    await expect(right.locator('.cm-search')).toHaveCount(0);
+    await expect(right.locator('input[type="file"]')).not.toHaveAttribute('data-picker-requests');
+    await attachViaMenu();
+    await expect(right.locator('input[type="file"]')).toHaveAttribute('data-picker-requests', '1');
+    await page.screenshot({ path: test.info().outputPath('14-pane-command-isolation.png'), animations: 'disabled' });
+    await left.locator('.cm-content').click();
+    await expect(left.locator('.cm-search')).toHaveCount(0);
+    await expect(left.locator('input[type="file"]')).toHaveAttribute('data-picker-requests', '1');
+    await page.getByRole('button', { name: 'My Workspace', exact: true }).click();
+    await page.getByRole('button', { name: 'Local Vault', exact: true }).click();
+    await expect(page.locator('.cm-content')).toHaveCount(2);
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await expect(page.locator('.cm-search')).toHaveCount(0);
+    for (const input of await page.locator('input[type="file"]').all()) {
+      await expect(input).not.toHaveAttribute('data-picker-requests');
+    }
+  } finally { await stopApp(app, true); }
+});
+
 for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
   test(`F6 cycles both panes and restores focus in ${mode}`, async () => {
     const { app, page } = await launchFixture(mode, true, true);

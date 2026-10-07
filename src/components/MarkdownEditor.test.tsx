@@ -43,6 +43,18 @@ describe('MarkdownEditor', () => {
     expect(editor.querySelector('.cm-content')).toHaveTextContent('# Hello');
   });
 
+  it('publishes a ready content DOM so the initial ref callback can open search', async () => {
+    let contentAtReady: HTMLElement | null = null;
+    render(<MarkdownEditor value="# Hello" onChange={vi.fn()} ref={handle => {
+      if (!handle) return;
+      contentAtReady = handle.getContentDOM();
+      handle.openSearch();
+    }} />);
+    await waitFor(() => expect(document.querySelector('.cm-search')).toBeInTheDocument());
+    expect(contentAtReady).not.toBeNull();
+    expect(contentAtReady!.isConnected).toBe(true);
+  });
+
   it('keeps one live CodeMirror instance through the StrictMode setup and cleanup cycle', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const { unmount } = render(

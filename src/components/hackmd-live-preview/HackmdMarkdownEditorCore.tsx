@@ -311,6 +311,44 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
     const dragDepthRef = useRef(0);
     const [isImageDragging, setIsImageDragging] = useState(false);
 
+    useLayoutEffect(() => {
+      const parent = parentRef.current;
+      if (!parent) {
+        return undefined;
+      }
+
+      const view = createHackmdEditorView({
+        parent,
+        runtime,
+        onAttachImageRef,
+        onChangeRef,
+        onOpenLinkRef,
+      });
+
+      runtime.view = view;
+      runtime.appliedEditorMode = 'standard';
+      runtime.appliedResolvedMode = runtime.resolvedMode;
+      view.dom.dataset.editorMode = runtime.editorMode;
+      view.dom.dataset.themeMode = runtime.resolvedMode;
+      view.contentDOM.dataset.hackdeskFocusTarget = 'true';
+      if (runtime.pendingFocus) {
+        runtime.pendingFocus = false;
+        view.focus();
+      }
+
+      return () => {
+        runtime.editorModeRequestId += 1;
+        clearInitialRevealWithRuntime(runtime);
+        view.destroy();
+        if (runtime.view === view) {
+          runtime.view = null;
+          runtime.appliedEditorMode = 'standard';
+          runtime.appliedResolvedMode = runtime.resolvedMode;
+        }
+      };
+    }, [onAttachImageRef, onChangeRef, onOpenLinkRef, runtime]);
+
+    // Publish the handle only after the CodeMirror view is ready.
     useImperativeHandle(ref, () => ({
       focus() {
         const view = runtime.view;
@@ -354,43 +392,6 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
         return revealTextWithRuntime(runtime, query);
       },
     }), [onChangeRef, runtime]);
-
-    useLayoutEffect(() => {
-      const parent = parentRef.current;
-      if (!parent) {
-        return undefined;
-      }
-
-      const view = createHackmdEditorView({
-        parent,
-        runtime,
-        onAttachImageRef,
-        onChangeRef,
-        onOpenLinkRef,
-      });
-
-      runtime.view = view;
-      runtime.appliedEditorMode = 'standard';
-      runtime.appliedResolvedMode = runtime.resolvedMode;
-      view.dom.dataset.editorMode = runtime.editorMode;
-      view.dom.dataset.themeMode = runtime.resolvedMode;
-      view.contentDOM.dataset.hackdeskFocusTarget = 'true';
-      if (runtime.pendingFocus) {
-        runtime.pendingFocus = false;
-        view.focus();
-      }
-
-      return () => {
-        runtime.editorModeRequestId += 1;
-        clearInitialRevealWithRuntime(runtime);
-        view.destroy();
-        if (runtime.view === view) {
-          runtime.view = null;
-          runtime.appliedEditorMode = 'standard';
-          runtime.appliedResolvedMode = runtime.resolvedMode;
-        }
-      };
-    }, [onAttachImageRef, onChangeRef, onOpenLinkRef, runtime]);
 
     useLayoutEffect(() => {
       runtime.resolvedMode = resolvedMode;

@@ -79,10 +79,14 @@ function createWorkspaceProps(overrides: Partial<Parameters<typeof DocumentWorks
   ];
   const props: Parameters<typeof DocumentWorkspace>[0] = {
     activePaneId: 'pane-b',
-    attachImageRequestId: 7,
-    editorFocusRequestId: 9,
+    scopeKey: 'personal',
+    editorRequests: [
+      { id: 7, kind: 'attach-image', scopeKey: 'personal', paneId: 'pane-b', tabId: 'tab-b', documentId: 'tab-b-note' },
+      { id: 9, kind: 'focus', scopeKey: 'personal', paneId: 'pane-b', tabId: 'tab-b', documentId: 'tab-b-note' },
+      { id: 11, kind: 'search', scopeKey: 'personal', paneId: 'pane-b', tabId: 'tab-b', documentId: 'tab-b-note' },
+    ],
+    onEditorRequestHandled: vi.fn(),
     editorMode: 'standard',
-    editorSearchRequestId: 11,
     folderTree: { root: { children: [], id: 'root', name: 'Root', path: '', type: 'folder' } } as FolderTree,
     getPaneView: vi.fn(createView),
     isInspectorCollapsed: false,
@@ -173,6 +177,18 @@ describe('DocumentWorkspace', () => {
     expect(activeDetail).toHaveAttribute('data-attach-request', '7');
     expect(activeDetail).toHaveAttribute('data-share-open', 'true');
     expect(activeDetail).toHaveAttribute('data-inspector-collapsed', 'false');
+  });
+
+  it('does not route a request to another workspace or document inside the same pane', () => {
+    const props = createWorkspaceProps();
+    const { rerender } = render(<DocumentWorkspace {...props} />);
+    rerender(<DocumentWorkspace {...props} scopeKey="local:other" />);
+    expect(screen.getByTestId('document-detail-Right note')).toHaveAttribute('data-search-request', '0');
+    rerender(<DocumentWorkspace {...props} getPaneView={candidate => {
+      const view = createView(candidate);
+      return { ...view, activeTab: { ...view.activeTab!, noteId: 'other-note' } };
+    }} />);
+    expect(screen.getByTestId('document-detail-Right note')).toHaveAttribute('data-search-request', '0');
   });
 
   it('changes the editor identity without remounting document controls when the active tab changes', () => {

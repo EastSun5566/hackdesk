@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 
-import type { DocumentSummary, NoteSummary } from '@/lib/electron-api';
+import type { NoteSummary } from '@/lib/electron-api';
 
 import { getSavedTabNoteIdentity, type NoteIdentity, type OpenNoteTab } from './note-workspace';
 
@@ -12,7 +12,10 @@ export type ElectronHomeSelectNoteOptions = {
 
 export type ElectronHomeSelectionOptions = {
   scopeStorageKey?: string | null;
+  activePaneId: string;
+  getNotePaneId?: (note: NoteSummary) => string | undefined;
   activeTab: OpenNoteTab | null;
+  requestEditorFocus: () => void;
   openNoteInWorkspace: (note: NoteSummary) => void;
   selectionRefs: ElectronHomeSelectionRefs;
   trackRecentNote: (note: NoteSummary) => void;
@@ -35,23 +38,37 @@ export function useElectronHomeSelectionRefs(): ElectronHomeSelectionRefs {
 
 export function useElectronHomeSelection({
   activeTab,
+  activePaneId,
+  getNotePaneId,
+  requestEditorFocus,
   scopeStorageKey,
   openNoteInWorkspace,
   selectionRefs,
   trackRecentNote,
 }: ElectronHomeSelectionOptions) {
-  const pendingEditorFocusNoteIdRef = useRef<string | null>(null);
-  const [editorFocusRequestId, setEditorFocusRequestId] = useState(0);
+  const pendingFocusRef = useRef<{
+    scopeKey: string | null | undefined; paneId: string; note: NoteIdentity;
+  } | null>(null);
+  const [selectionRequestId, setSelectionRequestId] = useState(0);
   const { autoSelectSuppressionRef, manualEmptyWorkspaceRef } = selectionRefs;
 
   useEffect(() => {
-    pendingEditorFocusNoteIdRef.current = null;
     autoSelectSuppressionRef.current = null;
   }, [scopeStorageKey, autoSelectSuppressionRef]);
 
   const selectedNote = useMemo<NoteIdentity | null>(() => (
     getSavedTabNoteIdentity(activeTab)
   ), [activeTab]);
+
+  useEffect(() => {
+    const pendingFocus = pendingFocusRef.current;
+    if (!pendingFocus) return;
+    pendingFocusRef.current = null;
+    if (pendingFocus.scopeKey === scopeStorageKey && pendingFocus.paneId === activePaneId
+      && selectedNote?.id === pendingFocus.note.id && selectedNote.teamPath === pendingFocus.note.teamPath) {
+      requestEditorFocus();
+    }
+  }, [activePaneId, requestEditorFocus, scopeStorageKey, selectedNote, selectionRequestId]);
 
   const requestSelectNote = useCallback(async (
     note: NoteSummary,
@@ -65,42 +82,22 @@ export function useElectronHomeSelection({
     }
 
     if (options.focusEditor) {
-      pendingEditorFocusNoteIdRef.current = note.id;
-      setEditorFocusRequestId((requestId) => requestId + 1);
+      pendingFocusRef.current = { scopeKey: scopeStorageKey, paneId: getNotePaneId?.(note) ?? activePaneId, note: { id: note.id, teamPath: note.teamPath } };
+      setSelectionRequestId(id => id + 1);
     }
 
     return true;
-  }, [autoSelectSuppressionRef, manualEmptyWorkspaceRef, openNoteInWorkspace, trackRecentNote]);
+  }, [activePaneId, getNotePaneId, autoSelectSuppressionRef, manualEmptyWorkspaceRef, openNoteInWorkspace, scopeStorageKey, trackRecentNote]);
 
   const handleNoteSelect = useCallback((note: NoteSummary) => {
     void requestSelectNote(note, { focusEditor: true, trackRecent: true });
   }, [requestSelectNote]);
 
-  const handleSelectedDocumentReady = useCallback((selectedDocument: DocumentSummary | undefined) => {
-    if (!selectedDocument || pendingEditorFocusNoteIdRef.current !== selectedDocument.id) {
-      return;
-    }
-
-    pendingEditorFocusNoteIdRef.current = null;
-    setEditorFocusRequestId((requestId) => requestId + 1);
-  }, []);
-
   return {
     autoSelectSuppressionRef,
-    editorFocusRequestId,
     handleNoteSelect,
-    handleSelectedDocumentReady,
     manualEmptyWorkspaceRef,
     requestSelectNote,
     selectedNote,
   };
-}
-
-export function useSelectedDocumentEditorFocus(
-  selectedDocument: DocumentSummary | undefined,
-  handleSelectedDocumentReady: (selectedDocument: DocumentSummary | undefined) => void,
-) {
-  useEffect(() => {
-    handleSelectedDocumentReady(selectedDocument);
-  }, [handleSelectedDocumentReady, selectedDocument]);
 }
