@@ -510,6 +510,17 @@ test('keyboard foundation separates focus from selection and protects drafts', a
 
     const projects = tree.getByRole('treeitem', { name: 'Projects', exact: true });
     await projects.focus();
+    // Native Tab traversal enters on the node, then visits its owned controls.
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(projects).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: /^(Expand|Collapse) Projects$/ })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Drag Projects', exact: true })).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Shift+Tab');
+    await expect(projects).toBeFocused();
     await projects.press('ArrowRight');
     await expect(projects).toHaveAttribute('aria-expanded', 'true');
     await projects.press('ArrowRight');
@@ -518,6 +529,13 @@ test('keyboard foundation separates focus from selection and protects drafts', a
     await expect(projects).toHaveAttribute('aria-expanded', 'false');
     await expect(page.locator('.cm-content')).toContainText('# Alpha');
     await alpha.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(alpha).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Drag Alpha', exact: true })).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(alpha).toBeFocused();
     await alpha.press('End');
     await expect(tree.getByRole('treeitem').last()).toBeFocused();
     await page.screenshot({ path: test.info().outputPath('11-tree-keyboard-focus.png'), animations: 'disabled' });

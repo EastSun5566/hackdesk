@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { useElectronFocusZones } from './useElectronFocusZones';
 
-function fixture({ workspaceCollapsed = false, navigatorCollapsed = false, details = true } = {}) {
+function fixture({ workspaceCollapsed = false, navigatorCollapsed = false, details = true, rightEditor = true } = {}) {
   render(<>
     <section data-hackdesk-focus="workspace" data-hackdesk-focus-disabled={workspaceCollapsed ? 'true' : undefined}>
       <button>Workspace</button><button>Other workspace</button>
@@ -16,10 +16,10 @@ function fixture({ workspaceCollapsed = false, navigatorCollapsed = false, detai
     <section data-document-pane-id="left" data-active-pane="false"><section data-hackdesk-focus="editor">
       <div contentEditable data-hackdesk-focus-target="true" role="textbox" aria-label="Left editor" tabIndex={0} />
     </section></section>
-    <section data-document-pane-id="right" data-active-pane="true"><section data-hackdesk-focus="editor">
+    <section data-document-pane-id="right" data-active-pane="true">{rightEditor && <section data-hackdesk-focus="editor">
       <div contentEditable data-hackdesk-focus-target="true" role="textbox" aria-label="Right editor" tabIndex={0} />
       {details && <aside data-hackdesk-focus="inspector"><input aria-label="Description" /></aside>}
-    </section></section>
+    </section>}</section>
   </>);
   return renderHook(() => useElectronFocusZones());
 }
@@ -63,6 +63,18 @@ describe('useElectronFocusZones', () => {
     const { result } = fixture();
     act(() => result.current.focusZone('editor'));
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Right editor' })).toHaveFocus());
+  });
+
+  it('leaves focus unchanged when the active pane has no editor, while F6 can still visit the other pane', async () => {
+    const { result } = fixture({ rightEditor: false });
+    const tab = screen.getByRole('tab');
+    act(() => tab.focus());
+    await act(async () => {
+      result.current.focusZone('editor');
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    });
+    expect(tab).toHaveFocus();
+    await cycleTo(screen.getByRole('textbox', { name: 'Left editor' }));
   });
 
   it('does not leave a popup or consume modified, repeated or composing F6', async () => {

@@ -66,7 +66,9 @@ export function useElectronFocusZones() {
     pendingFrameRef.current = window.requestAnimationFrame(() => {
       pendingFrameRef.current = null;
       const candidates = getRegions().filter(region => region.dataset.hackdeskFocus === zone);
-      const region = candidates.find(candidate => candidate.closest('[data-active-pane="true"]')) ?? candidates[0];
+      const activePane = document.querySelector('[data-active-pane="true"]');
+      const region = candidates.find(candidate => candidate.closest('[data-active-pane="true"]'))
+        ?? (zone === 'editor' && activePane ? undefined : candidates[0]);
       if (region) focusRegion(regionKey(region), zone === 'editor');
     });
   }, [focusRegion]);

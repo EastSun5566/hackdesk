@@ -513,6 +513,17 @@ describe('FolderNavigator', () => {
     expect(props.actions.onNoteSelect).not.toHaveBeenCalled();
   });
 
+  it('places the roving tree node before its keyboard-accessible row controls', () => {
+    const { container } = renderFolderNavigator();
+    for (const [rowId, name] of [['folder:projects', 'Projects'], ['note:nested-note', 'Nested note']]) {
+      const node = focusTreeRow(container, rowId);
+      const row = node.closest('[data-folder-tree-row-id]')!;
+      const stops = Array.from(row.querySelectorAll<HTMLElement>('[tabindex="0"]'));
+      expect(stops[0]).toBe(node);
+      expect(stops.at(-1)).toHaveAccessibleName(`Drag ${name}`);
+    }
+  });
+
   it('moves left from a note to its parent', () => {
     const { container } = renderFolderNavigator();
     const note = focusTreeRow(container, 'note:nested-note');

@@ -28,7 +28,7 @@ function TabStatusIndicator({ state, descriptionId }: { state: DocumentSyncState
       <span id={descriptionId} className="sr-only">{label}</span>
       <Tooltip content={label}>
         <span
-          aria-label={label}
+          aria-hidden="true"
           data-sync-state={state}
           className={cn(
             'relative size-2.5 shrink-0 rounded-full border before:pointer-events-none after:pointer-events-none',

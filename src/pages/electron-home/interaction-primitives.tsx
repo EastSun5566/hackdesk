@@ -145,10 +145,13 @@ function EntityRowContent({
       {trailing}
     </span>
   ) : null;
+  // Tree nodes precede their owned controls in the focus and accessibility order.
+  const controlsAfterNode = contentButtonProps?.role === 'treeitem';
+  const controlsElement = leadingControls ? <span className={cn('shrink-0', controlsAfterNode && 'order-first')}>{leadingControls}</span> : null;
 
   return (
     <>
-      {leadingControls ? <span className="shrink-0">{leadingControls}</span> : null}
+      {!controlsAfterNode ? controlsElement : null}
       {contentOnClick ? (
         <button
           {...contentButtonProps}
@@ -173,6 +176,7 @@ function EntityRowContent({
           {trailingElement}
         </>
       )}
+      {controlsAfterNode ? controlsElement : null}
       {menu ? (
         <span className="shrink-0 opacity-0 transition-opacity duration-150 group-hover/entity-row:opacity-100 group-focus-within/entity-row:opacity-100 motion-reduce:transition-none">
           {menu}

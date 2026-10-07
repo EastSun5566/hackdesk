@@ -125,10 +125,11 @@ describe('DocumentTabs', () => {
     ];
 
     for (const [state, label] of expectedLabels) {
-      expect(screen.getByLabelText(label)).toHaveAttribute('data-sync-state', state);
+      expect(screen.getByText(label).closest('[role="tab"]')).toHaveAccessibleDescription(label);
+      expect(document.querySelector(`[data-sync-state="${state}"]`)).toHaveAttribute('aria-hidden', 'true');
     }
 
-    fireEvent.mouseEnter(screen.getByLabelText('Saving…'));
+    fireEvent.mouseEnter(document.querySelector('[data-sync-state="saving"]')!);
     expect(await screen.findAllByText('Saving…')).toHaveLength(2);
   });
 
@@ -139,11 +140,11 @@ describe('DocumentTabs', () => {
       )),
     });
 
-    expect(screen.getByLabelText('Unsaved')).toHaveClass(
+    expect(document.querySelector('[data-sync-state="idle"]')).toHaveClass(
       'before:size-1',
       'before:rounded-full',
     );
-    expect(screen.getByLabelText('Save failed')).toHaveClass(
+    expect(document.querySelector('[data-sync-state="save_failed"]')).toHaveClass(
       'before:rotate-45',
       'after:-rotate-45',
     );
