@@ -24,7 +24,7 @@ export function getFolderTreeFocusItems(tree: FolderTree, collapsedFolderIds: Se
   const items: TreeFocusItem[] = [{
     depth: 0,
     folderId: UNFILED_FOLDER_ID,
-    hasChildren: tree.unfiled.notes.length > 0 || tree.roots.length > 0,
+    hasChildren: false,
     id: createFolderFocusId(UNFILED_FOLDER_ID),
     kind: 'folder',
     label: 'Root',
@@ -69,12 +69,12 @@ export function getFolderTreeFocusItems(tree: FolderTree, collapsedFolderIds: Se
 
   for (const note of tree.unfiled.notes) {
     items.push({
-      depth: 1,
+      depth: 0,
       id: createNoteFocusId(note.note.id),
       kind: 'note',
       label: note.note.title || 'Untitled',
       note,
-      parentFolderId: UNFILED_FOLDER_ID,
+      parentFolderId: null,
     });
   }
 

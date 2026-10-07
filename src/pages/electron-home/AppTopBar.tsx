@@ -47,6 +47,7 @@ function TopBarIconButton({
 export function AppTopBar({
   activeTab,
   tabStripId,
+  paneId,
   getTabSyncState,
   navigation,
   onCloseOtherTabs,
@@ -69,6 +70,7 @@ export function AppTopBar({
 }: {
   activeTab: OpenNoteTab | null;
   tabStripId?: string;
+  paneId?: string;
   getTabSyncState: (tab: OpenNoteTab) => DocumentSyncState;
   navigation: {
     canGoBack: boolean;
@@ -172,6 +174,7 @@ export function AppTopBar({
       </Toolbar>
       <DocumentTabs
         key={tabStripId}
+        paneId={paneId}
         activeTab={activeTab}
         canMoveToOtherPane={paneActions.canMoveToOtherPane}
         canReopenLastClosedTab={paneActions.canReopenLastClosedTab}

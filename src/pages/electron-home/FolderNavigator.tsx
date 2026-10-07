@@ -5,7 +5,7 @@ import {
   Plus,
   RefreshCcw,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   closestCenter,
   DndContext,
@@ -63,6 +63,7 @@ import {
 import { RepositoryNotice } from './RepositoryNotice';
 import { SkippedFilesNotice } from './SkippedFilesNotice';
 import { FOCUS_RING_CLASS } from './ui';
+import { FolderTreeFocusContext } from './FolderTreeFocusContext';
 import { useFolderTreeKeyboardNavigation } from './useFolderTreeKeyboardNavigation';
 
 export type FolderNavigatorSelection = {
@@ -599,7 +600,10 @@ function NavigatorTree({
   const activeNote = activeNoteId
     ? tree.allNotes.find((entry) => entry.note.id === activeNoteId) ?? null
     : null;
-  useFolderTreeKeyboardNavigation({
+  const treeId = useId();
+  const { focusContext } = useFolderTreeKeyboardNavigation({
+    treeId,
+    selectedRowId: selection.selectedNoteId ? `note:${selection.selectedNoteId}` : selection.selectedFolderId ? `folder:${selection.selectedFolderId}` : null,
     actions,
     collapsedFolderIds: layout.collapsedFolderIds,
     tree,
@@ -611,7 +615,7 @@ function NavigatorTree({
       return;
     }
 
-    const target = treeRef.current?.querySelector<HTMLElement>('[data-hackdesk-focus-target="true"]')
+    const target = treeRef.current?.querySelector<HTMLElement>('[role="treeitem"][tabindex="0"]')
       ?? treeRef.current?.querySelector<HTMLElement>('[data-folder-tree-primary="true"]')
       ?? treeRef.current?.querySelector<HTMLElement>('button:not([disabled])');
     target?.focus();
@@ -691,74 +695,78 @@ function NavigatorTree({
           ref={treeRef}
           className="grid min-w-0 gap-0.5"
           data-testid="folder-navigator-tree"
+          role="tree"
+          aria-label="Folders and notes"
         >
-          <ul className="m-0 grid min-w-0 list-none gap-0.5 p-0" aria-label="Folders and notes">
-            <li className="min-w-0">
-              <RootFolderRow
-                selected={selection.selectedFolderId === UNFILED_FOLDER_ID}
-                focusTarget={selection.selectedFolderId === UNFILED_FOLDER_ID && !selection.selectedNoteId}
-                noteCount={tree.unfiled.notes.length}
-                folderDragActive={Boolean(activeFolderId)}
-                noteDragActive={Boolean(activeNoteId)}
-                onSelect={() => actions.onFolderSelect(UNFILED_FOLDER_ID)}
-                onCreateFolder={() => actions.onCreateFolderInside(null)}
-                onCreateNote={() => actions.onCreateNoteInside(null)}
-              />
-            </li>
-            <FolderTreeView
-              nodes={tree.roots}
-              selectedFolderId={selection.selectedFolderId}
-              selectedNoteId={selection.selectedNoteId}
-              collapsedFolderIds={layout.collapsedFolderIds}
-              activeFolderId={activeFolderId}
-              activeNoteId={activeNoteId}
-              depth={0}
-              onFolderSelect={actions.onFolderSelect}
-              onFolderToggle={actions.onFolderToggle}
-              onCreateFolderInside={actions.onCreateFolderInside}
-              onCreateNoteInside={actions.onCreateNoteInside}
-              onRenameFolder={actions.onRenameFolder}
-              onDeleteFolder={actions.onDeleteFolder}
-              onFolderRevealInFinder={actions.onFolderRevealInFinder}
-              onNoteSelect={actions.onNoteSelect}
-              onNoteOpen={actions.onOpenNote}
-              onNoteCopyLink={actions.onCopyNoteLink}
-              onNoteCopyMarkdownLink={actions.onCopyNoteMarkdownLink}
-              onNoteDuplicate={actions.onDuplicateNote}
-              onNoteExportMarkdown={actions.onExportNoteMarkdown}
-              onNoteDelete={actions.onDeleteNote}
-              onNoteRevealFolder={actions.onRevealNoteFolder}
-              onNoteRevealInFinder={actions.onNoteRevealInFinder}
-              onNoteMoveToSelectedFolder={(entry) => moveNoteToSelectedFolder(entry, selectedFolderForNoteMove, actions.onNoteMove)}
-              selectedFolderForNoteMove={selectedFolderForNoteMove}
-              isMovingNote={status.isMovingNote}
-              isMovingFolder={status.isMovingFolder}
-            />
-            {tree.unfiled.notes.map((entry) => (
-              <li key={`root:${entry.note.id}`} className="min-w-0">
-                <NoteRow
-                  entry={entry}
-                  selected={entry.note.id === selection.selectedNoteId}
-                  focusTarget={entry.note.id === selection.selectedNoteId}
-                  onSelect={actions.onNoteSelect}
-                  onOpen={actions.onOpenNote}
-                  onCopyLink={actions.onCopyNoteLink}
-                  onCopyMarkdownLink={actions.onCopyNoteMarkdownLink}
-                  onDuplicate={actions.onDuplicateNote}
-                  onExportMarkdown={actions.onExportNoteMarkdown}
-                  onDelete={actions.onDeleteNote}
-                  onRevealFolder={actions.onRevealNoteFolder}
-                  onRevealInFinder={actions.onNoteRevealInFinder}
-                  onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}
-                  selectedFolder={selectedFolderForNoteMove}
-                  draggable
-                  disabledDrag={status.isMovingNote}
-                  active={activeNoteId === entry.note.id}
-                  compact
+          <FolderTreeFocusContext.Provider value={focusContext}>
+            <ul role="group" className="m-0 grid min-w-0 list-none gap-0.5 p-0">
+              <li role="presentation" className="min-w-0">
+                <RootFolderRow
+                  selected={selection.selectedFolderId === UNFILED_FOLDER_ID}
+                  focusTarget={selection.selectedFolderId === UNFILED_FOLDER_ID && !selection.selectedNoteId}
+                  noteCount={tree.unfiled.notes.length}
+                  folderDragActive={Boolean(activeFolderId)}
+                  noteDragActive={Boolean(activeNoteId)}
+                  onSelect={() => actions.onFolderSelect(UNFILED_FOLDER_ID)}
+                  onCreateFolder={() => actions.onCreateFolderInside(null)}
+                  onCreateNote={() => actions.onCreateNoteInside(null)}
                 />
               </li>
-            ))}
-          </ul>
+              <FolderTreeView
+                nodes={tree.roots}
+                selectedFolderId={selection.selectedFolderId}
+                selectedNoteId={selection.selectedNoteId}
+                collapsedFolderIds={layout.collapsedFolderIds}
+                activeFolderId={activeFolderId}
+                activeNoteId={activeNoteId}
+                depth={0}
+                onFolderSelect={actions.onFolderSelect}
+                onFolderToggle={actions.onFolderToggle}
+                onCreateFolderInside={actions.onCreateFolderInside}
+                onCreateNoteInside={actions.onCreateNoteInside}
+                onRenameFolder={actions.onRenameFolder}
+                onDeleteFolder={actions.onDeleteFolder}
+                onFolderRevealInFinder={actions.onFolderRevealInFinder}
+                onNoteSelect={actions.onNoteSelect}
+                onNoteOpen={actions.onOpenNote}
+                onNoteCopyLink={actions.onCopyNoteLink}
+                onNoteCopyMarkdownLink={actions.onCopyNoteMarkdownLink}
+                onNoteDuplicate={actions.onDuplicateNote}
+                onNoteExportMarkdown={actions.onExportNoteMarkdown}
+                onNoteDelete={actions.onDeleteNote}
+                onNoteRevealFolder={actions.onRevealNoteFolder}
+                onNoteRevealInFinder={actions.onNoteRevealInFinder}
+                onNoteMoveToSelectedFolder={(entry) => moveNoteToSelectedFolder(entry, selectedFolderForNoteMove, actions.onNoteMove)}
+                selectedFolderForNoteMove={selectedFolderForNoteMove}
+                isMovingNote={status.isMovingNote}
+                isMovingFolder={status.isMovingFolder}
+              />
+              {tree.unfiled.notes.map((entry) => (
+                <li role="presentation" key={`root:${entry.note.id}`} className="min-w-0">
+                  <NoteRow
+                    entry={entry}
+                    selected={entry.note.id === selection.selectedNoteId}
+                    focusTarget={entry.note.id === selection.selectedNoteId}
+                    onSelect={actions.onNoteSelect}
+                    onOpen={actions.onOpenNote}
+                    onCopyLink={actions.onCopyNoteLink}
+                    onCopyMarkdownLink={actions.onCopyNoteMarkdownLink}
+                    onDuplicate={actions.onDuplicateNote}
+                    onExportMarkdown={actions.onExportNoteMarkdown}
+                    onDelete={actions.onDeleteNote}
+                    onRevealFolder={actions.onRevealNoteFolder}
+                    onRevealInFinder={actions.onNoteRevealInFinder}
+                    onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}
+                    selectedFolder={selectedFolderForNoteMove}
+                    draggable
+                    disabledDrag={status.isMovingNote}
+                    active={activeNoteId === entry.note.id}
+                    compact
+                  />
+                </li>
+              ))}
+            </ul>
+          </FolderTreeFocusContext.Provider>
         </div>
       </SortableContext>
       <DragOverlay>

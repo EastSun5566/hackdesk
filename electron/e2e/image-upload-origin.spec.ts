@@ -83,19 +83,19 @@ test('a remote image upload finishes in its original tab after switching, and is
     await replaceRemoteIpc(app);
     await page.reload();
     const editor = page.locator('.cm-content');
-    await page.getByRole('button', { name: /Alpha/ }).first().click();
+    await page.getByRole('treeitem', { name: /Alpha/ }).first().click();
     await expect(editor).toContainText('Alpha body');
     await editor.click();
     await page.keyboard.press('End');
     await pasteImage(page, 'first.png');
     await expect(editor).toContainText('Uploading image');
 
-    await page.getByRole('button', { name: /Beta/ }).first().click();
+    await page.getByRole('treeitem', { name: /Beta/ }).first().click();
     await expect(editor).toContainText('Beta body');
     await releaseUpload(app, 'first.png');
     await expect(editor).not.toContainText('first.png');
 
-    await page.getByRole('button', { name: 'Select Alpha tab', exact: true }).click();
+    await page.getByRole('tab', { name: 'Select Alpha tab', exact: true }).click();
     await expect(editor).toContainText('Alpha body![first.png](https://assets.example/first.png)');
     await expect(editor).not.toContainText('Uploading image');
 
@@ -110,8 +110,8 @@ test('a remote image upload finishes in its original tab after switching, and is
       ipcMain.handle(channel, () => ({ confirmed: true }));
     }, ELECTRON_CHANNELS.appConfirm);
     await page.getByRole('button', { name: 'Close Alpha', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Select Alpha tab', exact: true })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Select Beta tab', exact: true }).click();
+    await expect(page.getByRole('tab', { name: 'Select Alpha tab', exact: true })).toHaveCount(0);
+    await page.getByRole('tab', { name: 'Select Beta tab', exact: true }).click();
     await releaseUpload(app, 'second.png');
     await expect(page.getByText('after its tab was closed')).toBeVisible();
     await expect(editor).not.toContainText('second.png');

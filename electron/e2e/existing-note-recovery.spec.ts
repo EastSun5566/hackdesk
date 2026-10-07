@@ -160,9 +160,9 @@ test('restores independent edits to two saved notes in dual panes', async () => 
   await writeFile(join(vault, 'Second.md'), '# Second\n\nSecond saved body');
   let { app, page } = await launch(home);
   try {
-    await page.getByRole('button', { name: 'Second', exact: true }).click();
+    await page.getByRole('treeitem', { name: 'Second', exact: true }).click();
     await expect(page.locator('.cm-content')).toContainText('Second saved body');
-    await page.getByRole('button', { name: 'Original', exact: true }).click();
+    await page.getByRole('treeitem', { name: 'Original', exact: true }).click();
     await expect(page.locator('.cm-content')).toContainText('Saved body');
     await page.getByRole('button', { name: 'Pane actions', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Close Other Tabs', exact: true }).click();
@@ -170,7 +170,7 @@ test('restores independent edits to two saved notes in dual panes', async () => 
     await page.locator('.cm-content').fill('Left draft');
     await page.getByRole('button', { name: 'Pane actions', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Split Right', exact: true }).click();
-    await page.getByRole('button', { name: 'Second', exact: true }).click();
+    await page.getByRole('treeitem', { name: 'Second', exact: true }).click();
     await expect(page.locator('.cm-content').last()).toContainText('Second saved body');
     await page.locator('.cm-content').last().fill('Right draft');
     await waitForDraft(page, 'Left draft');
@@ -178,7 +178,7 @@ test('restores independent edits to two saved notes in dual panes', async () => 
     await flushDiskStorage(app, home, page);
     await crash(app);
     ({ app, page } = await launch(home));
-    await expect(page.getByRole('region', { name: /document pane/i })).toHaveCount(2);
+    await expect(page.locator('[data-active-pane]')).toHaveCount(2);
     await expect(page.locator('.cm-content').first()).toContainText('Left draft');
     await expect(page.locator('.cm-content').last()).toContainText('Right draft');
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('recovered-dual-panes.png') });
@@ -190,7 +190,7 @@ test('keeps an edited tab through external rename, move, save and restart withou
   let { app, page } = await launch(home);
   try {
     await expect(page.locator('.cm-content')).toContainText('Saved body');
-    await page.getByRole('button', { name: 'Original', exact: true }).click();
+    await page.getByRole('treeitem', { name: 'Original', exact: true }).click();
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('hackdesk_electron_recent_notes') ?? '[]')[0]?.shortId)).toBe('Original.md');
     await page.locator('.cm-content').fill('Draft after move');
     await waitForDraft(page, 'Draft after move');

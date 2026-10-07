@@ -158,7 +158,7 @@ function focusTreeRow(container: HTMLElement, rowId: string) {
     ?? row?.querySelector<HTMLElement>('button');
 
   expect(target).toBeTruthy();
-  target?.focus();
+  act(() => target?.focus());
   return target as HTMLElement;
 }
 
@@ -402,7 +402,7 @@ describe('FolderNavigator', () => {
     renderFolderNavigator({ actions: { onFolderToggle, onNoteSelect } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse Projects' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Nested note' }));
+    fireEvent.click(screen.getByRole('treeitem', { name: 'Nested note' }));
 
     expect(onFolderToggle).toHaveBeenCalledWith('projects');
     expect(onNoteSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'nested-note' }));
@@ -421,7 +421,7 @@ describe('FolderNavigator', () => {
     expect(document.activeElement).toBe(dragHandle);
     expect(dragHandle).toHaveAttribute('aria-disabled', 'true');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Projects' }));
+    fireEvent.click(screen.getByRole('treeitem', { name: 'Projects' }));
 
     expect(onFolderSelect).toHaveBeenCalledWith('projects');
   });
@@ -448,23 +448,28 @@ describe('FolderNavigator', () => {
     expect(date?.textContent).not.toContain(':');
   });
 
-  it('marks the current navigator row with aria-current', () => {
+  it('marks the selected tree row without changing selection on focus', () => {
     renderFolderNavigator({
       selection: {
-        selectedFolderId: null,
+        selectedFolderId: 'projects',
         selectedNoteId: 'nested-note',
       },
     });
 
-    const selectedNote = screen.getByRole('button', { name: 'Nested note' });
+    const selectedNote = screen.getByRole('treeitem', { name: 'Nested note' });
 
-    expect(selectedNote).toHaveAttribute('aria-current', 'page');
+    expect(selectedNote).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('treeitem', { name: 'Projects' })).toHaveAttribute('aria-selected', 'false');
+    expect(selectedNote).toHaveAttribute('tabindex', '0');
+    fireEvent.keyDown(selectedNote, { key: 'ArrowDown' });
+    expect(selectedNote).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('treeitem', { name: 'Loose note' })).toHaveAttribute('aria-selected', 'false');
   });
 
-  it('uses list semantics for the navigator tree and finder results', () => {
+  it('uses tree semantics for folders while finder results remain a list', () => {
     renderFolderNavigator();
 
-    expect(screen.getByRole('list', { name: 'Folders and notes' })).toBeInTheDocument();
+    expect(screen.getByRole('tree', { name: 'Folders and notes' })).toBeInTheDocument();
 
     renderFolderNavigator({
       finderState: {
@@ -474,6 +479,68 @@ describe('FolderNavigator', () => {
     });
 
     expect(screen.getByRole('list', { name: 'Search results' })).toBeInTheDocument();
+  });
+
+  it('announces hierarchy and expanded state with owned child groups', () => {
+    renderFolderNavigator();
+    const tree = screen.getByRole('tree', { name: 'Folders and notes' });
+    const items = within(tree).getAllByRole('treeitem');
+    expect(items.filter(item => item.tabIndex === 0)).toHaveLength(1);
+    const projects = within(tree).getByRole('treeitem', { name: 'Projects' });
+    expect(projects).toHaveAttribute('aria-level', '1');
+    expect(projects).toHaveAttribute('aria-expanded', 'true');
+    const owned = projects.getAttribute('aria-owns')!.split(' ').map(id => document.getElementById(id)!);
+    expect(owned[0]).toHaveAccessibleName('Collapse Projects');
+    expect(owned[1]).toHaveAccessibleName('Drag Projects');
+    const group = owned[2];
+    expect(group).toHaveAttribute('role', 'group');
+    const nested = within(group!).getByRole('treeitem', { name: 'Nested note' });
+    expect(nested).toHaveAttribute('aria-level', '2');
+    expect(nested).not.toHaveAttribute('aria-expanded');
+    const root = within(tree).getByRole('treeitem', { name: /Root/ });
+    expect(root).not.toHaveAttribute('aria-expanded');
+    expect(within(tree).getByRole('treeitem', { name: 'Loose note' })).toHaveAttribute('aria-level', '1');
+  });
+
+  it('returns a hidden child focus to its collapsed parent', () => {
+    const { container, props, rerender } = renderFolderNavigator();
+    focusTreeRow(container, 'note:nested-note');
+    rerender(<TooltipProvider><FolderNavigator {...props} layout={{ ...props.layout, collapsedFolderIds: new Set(['projects']) }} /></TooltipProvider>);
+    const parent = screen.getByRole('treeitem', { name: 'Projects' });
+    expect(parent).toHaveFocus();
+    expect(parent).toHaveAttribute('tabindex', '0');
+    expect(parent).toHaveAttribute('aria-expanded', 'false');
+    expect(props.actions.onNoteSelect).not.toHaveBeenCalled();
+  });
+
+  it('places the roving tree node before its keyboard-accessible row controls', () => {
+    const { container } = renderFolderNavigator();
+    for (const [rowId, name] of [['folder:projects', 'Projects'], ['note:nested-note', 'Nested note']]) {
+      const node = focusTreeRow(container, rowId);
+      const row = node.closest('[data-folder-tree-row-id]')!;
+      const stops = Array.from(row.querySelectorAll<HTMLElement>('[tabindex="0"]'));
+      expect(stops[0]).toBe(node);
+      expect(stops.at(-1)).toHaveAccessibleName(`Drag ${name}`);
+    }
+  });
+
+  it('moves left from a note to its parent', () => {
+    const { container } = renderFolderNavigator();
+    const note = focusTreeRow(container, 'note:nested-note');
+    fireEvent.keyDown(note, { key: 'ArrowLeft' });
+    expect(getFocusedTreeRowId()).toBe('folder:projects');
+  });
+
+  it('leaves drag-handle arrows and IME input to their existing handlers', () => {
+    renderFolderNavigator();
+    const handle = screen.getByRole('button', { name: 'Drag Projects' });
+    act(() => handle.focus());
+    fireEvent.keyDown(handle, { key: 'ArrowDown' });
+    expect(handle).toHaveFocus();
+    const projects = screen.getByRole('treeitem', { name: 'Projects' });
+    act(() => projects.focus());
+    fireEvent.keyDown(projects, { key: 'n', isComposing: true });
+    expect(projects).toHaveFocus();
   });
 
   it('moves focus through visible tree rows with arrow keys and Ctrl+N/P', () => {
@@ -658,15 +725,15 @@ describe('FolderNavigator', () => {
     const onCreateNoteInside = vi.fn();
     renderFolderNavigator({ actions: { onCreateNoteInside } });
 
-    fireEvent.contextMenu(screen.getByRole('button', { name: 'Projects' }));
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'Projects' }));
     fireEvent.click(await screen.findByText('New Note Inside'));
 
     await waitFor(() => {
       expect(onCreateNoteInside).toHaveBeenCalledWith('projects');
-      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Projects' }));
+      expect(document.activeElement).toBe(screen.getByRole('treeitem', { name: 'Projects' }));
     });
 
-    fireEvent.contextMenu(screen.getByRole('button', { name: /Root/ }));
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: /Root/ }));
     fireEvent.click(await screen.findByText('New Note'));
 
     await waitFor(() => {
@@ -677,7 +744,7 @@ describe('FolderNavigator', () => {
   it('does not show folder reveal actions for notes already rendered in the folder tree', async () => {
     renderFolderNavigator();
 
-    fireEvent.contextMenu(screen.getByRole('button', { name: 'Nested note' }));
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'Nested note' }));
 
     expect(await screen.findByText('Duplicate Note')).toBeVisible();
     expect(screen.queryByText('Reveal Folder')).not.toBeInTheDocument();

@@ -81,6 +81,7 @@ export function ElectronHomeWorkspace({
     <>
       <AppTopBar
         tabStripId={`${titlebar.state.scopeKey}:${activeTitlebarPane?.paneId}`}
+        paneId={activeTitlebarPane?.paneId}
         activeTab={activeTitlebarPaneView?.activeTab ?? null}
         getTabSyncState={titlebar.getTabSyncState}
         navigation={{
