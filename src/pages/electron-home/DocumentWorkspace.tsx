@@ -1,3 +1,4 @@
+import type { EditorRequest } from './useWorkbenchEditorRequests';
 import { Fragment } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 
@@ -51,9 +52,9 @@ export function DocumentWorkspace({
   shareOpen,
   isInspectorCollapsed,
   getPaneView,
-  editorSearchRequestId,
-  attachImageRequestId,
-  editorFocusRequestId,
+  scopeKey,
+  editorRequests,
+  onEditorRequestHandled,
   onResizePanes,
   onFocusPane,
   onOpenEditor,
@@ -86,9 +87,9 @@ export function DocumentWorkspace({
   shareOpen: boolean;
   isInspectorCollapsed: boolean;
   getPaneView: (pane: NotePane) => DocumentPaneView;
-  editorSearchRequestId: number;
-  attachImageRequestId: number;
-  editorFocusRequestId: number;
+  scopeKey: string;
+  editorRequests: EditorRequest[];
+  onEditorRequestHandled: (id: number) => void;
   onResizePanes: (sizes: Record<string, number>) => void;
   onFocusPane: (paneId: string) => void;
   onOpenEditor: (document: DocumentSummary) => void;
@@ -135,6 +136,10 @@ export function DocumentWorkspace({
       {panes.map((pane, index) => {
         const view = getPaneView(pane);
         const isActivePane = pane.paneId === activePaneId;
+        const requests = isActivePane ? editorRequests.filter(request => request.scopeKey === scopeKey
+          && request.paneId === pane.paneId && request.tabId === view.activeTab?.tabId
+          && request.documentId === (view.activeTab && ('noteId' in view.activeTab ? view.activeTab.noteId : view.activeTab.draftId))) : [];
+        const requestId = (kind: EditorRequest['kind']) => requests.find(request => request.kind === kind)?.id ?? 0;
 
         return (
           <Fragment key={pane.paneId}>
@@ -192,9 +197,10 @@ export function DocumentWorkspace({
                     layout={{
                       focusZone: 'editor',
                       inspectorPanelId: `note-inspector-panel-${pane.paneId}`,
-                      focusRequestId: isActivePane ? editorFocusRequestId : 0,
-                      searchRequestId: isActivePane ? editorSearchRequestId : 0,
-                      attachImageRequestId: isActivePane ? attachImageRequestId : 0,
+                      focusRequestId: requestId('focus'),
+                      searchRequestId: requestId('search'),
+                      attachImageRequestId: requestId('attach-image'),
+                      onRequestHandled: onEditorRequestHandled,
                       shareOpen: isActivePane && shareOpen,
                       inspectorCollapsed: !isActivePane || isInspectorCollapsed,
                     }}

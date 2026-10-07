@@ -70,6 +70,7 @@ export type DocumentDetailDocumentState = {
 
 export type DocumentDetailLayout = {
   attachImageRequestId: number;
+  onRequestHandled?: (id: number) => void;
   focusZone?: string | null;
   focusRequestId: number;
   inspectorCollapsed: boolean;
@@ -310,64 +311,38 @@ function ActiveDocumentDetail({
       ? documentState.title !== documentState.document.title || documentState.content !== documentState.document.content
       : false);
   const isLocalDocument = documentState.document?.teamPath === LOCAL_VAULT_TEAM_PATH;
-  const focusEditorWhenReady = useCallback((requestId: number) => {
-    let attempts = 0;
-    const focusEditor = () => {
-      const editor = editorRef.current;
-      if (editor) {
-        lastHandledFocusRequestRef.current = requestId;
-        editor.focus();
-        return;
-      }
-
-      if (attempts < 120) {
-        attempts += 1;
-        window.setTimeout(focusEditor, 0);
-      }
-    };
-
-    focusEditor();
-  }, []);
-  const setEditorRef = useCallback((handle: MarkdownEditorHandle | null) => {
-    editorRef.current = handle;
-    if (handle && layout.focusRequestId > lastHandledFocusRequestRef.current) {
-      focusEditorWhenReady(layout.focusRequestId);
+  const onRequestHandled = layout.onRequestHandled;
+  // The editor's ref callback is the readiness signal; no delayed focus retries.
+  const handleEditorRequests = useCallback((handle: MarkdownEditorHandle | null) => {
+    if (!handle?.getContentDOM()) return;
+    if (layout.focusRequestId > lastHandledFocusRequestRef.current) {
+      lastHandledFocusRequestRef.current = layout.focusRequestId;
+      onRequestHandled?.(layout.focusRequestId);
+      handle.focus();
     }
-    if (handle && layout.searchRequestId > lastHandledSearchRequestRef.current) {
+    if (layout.searchRequestId > lastHandledSearchRequestRef.current) {
       lastHandledSearchRequestRef.current = layout.searchRequestId;
+      onRequestHandled?.(layout.searchRequestId);
       handle.openSearch();
     }
-  }, [focusEditorWhenReady, layout.focusRequestId, layout.searchRequestId]);
+    if (layout.attachImageRequestId > lastHandledAttachImageRequestRef.current && fileInputRef.current) {
+      lastHandledAttachImageRequestRef.current = layout.attachImageRequestId;
+      onRequestHandled?.(layout.attachImageRequestId);
+      fileInputRef.current.click();
+    }
+  }, [layout.focusRequestId, layout.searchRequestId, layout.attachImageRequestId, onRequestHandled]);
+  const setEditorRef = useCallback((handle: MarkdownEditorHandle | null) => {
+    editorRef.current = handle;
+    handleEditorRequests(handle);
+  }, [handleEditorRequests]);
 
   useEffect(() => {
-    if (layout.focusRequestId <= lastHandledFocusRequestRef.current) {
-      return;
-    }
-
-    focusEditorWhenReady(layout.focusRequestId);
-  }, [focusEditorWhenReady, layout.focusRequestId]);
-
-  useEffect(() => {
-    if (layout.searchRequestId <= lastHandledSearchRequestRef.current) {
-      return;
-    }
-
-    lastHandledSearchRequestRef.current = layout.searchRequestId;
-    editorRef.current?.openSearch();
-  }, [layout.searchRequestId]);
+    handleEditorRequests(editorRef.current);
+  }, [handleEditorRequests]);
 
   const requestAttachImage = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
-
-  useEffect(() => {
-    if (layout.attachImageRequestId <= lastHandledAttachImageRequestRef.current) {
-      return;
-    }
-
-    lastHandledAttachImageRequestRef.current = layout.attachImageRequestId;
-    requestAttachImage();
-  }, [layout.attachImageRequestId, requestAttachImage]);
 
   const handleAttachImageFile = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) {

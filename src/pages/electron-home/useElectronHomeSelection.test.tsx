@@ -1,13 +1,13 @@
+import { useState } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { DocumentSummary, NoteSummary } from '@/lib/electron-api';
+import type { NoteSummary } from '@/lib/electron-api';
 
 import type { OpenNoteTab } from './note-workspace';
 import {
   useElectronHomeSelection,
   useElectronHomeSelectionRefs,
-  useSelectedDocumentEditorFocus,
 } from './useElectronHomeSelection';
 
 function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id' | 'title'>): NoteSummary {
@@ -35,13 +35,6 @@ function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id' | 'title'>): 
   };
 }
 
-function document(input: Partial<DocumentSummary> & Pick<DocumentSummary, 'id' | 'title'>): DocumentSummary {
-  return {
-    ...note(input),
-    commentPermission: input.commentPermission ?? 'disabled',
-  };
-}
-
 function tab(input: Partial<OpenNoteTab> & Pick<OpenNoteTab, 'noteId' | 'title'>): OpenNoteTab {
   return {
     noteId: input.noteId,
@@ -60,6 +53,8 @@ describe('useElectronHomeSelection', () => {
     const { result } = renderHook(() => {
       const selectionRefs = useElectronHomeSelectionRefs();
       return useElectronHomeSelection({
+        activePaneId: 'pane-a',
+        requestEditorFocus: vi.fn(),
         activeTab: tab({ noteId: 'note-a', teamPath: 'team-a', title: 'Alpha' }),
         openNoteInWorkspace,
         selectionRefs,
@@ -78,6 +73,8 @@ describe('useElectronHomeSelection', () => {
     const { result } = renderHook(() => {
       const selectionRefs = useElectronHomeSelectionRefs();
       return useElectronHomeSelection({
+        activePaneId: 'pane-a',
+        requestEditorFocus: vi.fn(),
         activeTab: null,
         openNoteInWorkspace,
         selectionRefs,
@@ -96,35 +93,63 @@ describe('useElectronHomeSelection', () => {
     expect(trackRecentNote).toHaveBeenCalledWith(selectedNote);
   });
 
-  it('bumps editor focus once immediately and once when the selected document is ready', async () => {
-    const openNoteInWorkspace = vi.fn();
-    const trackRecentNote = vi.fn();
+  it('requests focus once for the selected tab without a document-ready replay', async () => {
+    const requestEditorFocus = vi.fn();
     const selectedNote = note({ id: 'note-a', title: 'Alpha' });
-    const selectedDocument = document({ id: 'note-a', title: 'Alpha' });
-    const { result, rerender } = renderHook(({ doc }: { doc?: DocumentSummary }) => {
+    const { result, rerender } = renderHook(() => {
       const selectionRefs = useElectronHomeSelectionRefs();
-      const selection = useElectronHomeSelection({
-        activeTab: null,
-        openNoteInWorkspace,
-        selectionRefs,
-        trackRecentNote,
+      const [activeTab, setActiveTab] = useState<OpenNoteTab | null>(null);
+      return useElectronHomeSelection({
+        activePaneId: 'pane-a', scopeStorageKey: 'personal', activeTab, requestEditorFocus,
+        openNoteInWorkspace: next => setActiveTab(tab({ noteId: next.id, title: next.title })),
+        selectionRefs, trackRecentNote: vi.fn(),
       });
-      useSelectedDocumentEditorFocus(doc, selection.handleSelectedDocumentReady);
-      return selection;
-    }, { initialProps: { doc: undefined } });
-
-    await act(async () => {
-      await result.current.requestSelectNote(selectedNote, { focusEditor: true });
     });
+    await act(async () => { await result.current.requestSelectNote(selectedNote, { focusEditor: true }); });
+    expect(requestEditorFocus).toHaveBeenCalledTimes(1);
+    rerender();
+    expect(requestEditorFocus).toHaveBeenCalledTimes(1);
+  });
 
-    expect(result.current.editorFocusRequestId).toBe(1);
+  it('cancels a pending selection focus when its pane or workspace changes', () => {
+    const requestEditorFocus = vi.fn();
+    const selectedNote = note({ id: 'note-a', title: 'Alpha' });
+    const { result, rerender } = renderHook(({ paneId, scopeKey }) => {
+      const selectionRefs = useElectronHomeSelectionRefs();
+      const [activeTab, setActiveTab] = useState<OpenNoteTab | null>(null);
+      return useElectronHomeSelection({
+        activePaneId: paneId, scopeStorageKey: scopeKey, activeTab, requestEditorFocus,
+        openNoteInWorkspace: next => setActiveTab(tab({ noteId: next.id, title: next.title })),
+        selectionRefs, trackRecentNote: vi.fn(),
+      });
+    }, { initialProps: { paneId: 'pane-a', scopeKey: 'local:A' } });
+    act(() => {
+      void result.current.requestSelectNote(selectedNote, { focusEditor: true });
+      rerender({ paneId: 'pane-b', scopeKey: 'local:B' });
+    });
+    expect(requestEditorFocus).not.toHaveBeenCalled();
+    rerender({ paneId: 'pane-a', scopeKey: 'local:A' });
+    expect(requestEditorFocus).not.toHaveBeenCalled();
+  });
 
-    rerender({ doc: selectedDocument });
-
-    expect(result.current.editorFocusRequestId).toBe(2);
-
-    rerender({ doc: selectedDocument });
-
-    expect(result.current.editorFocusRequestId).toBe(2);
+  it('focuses the host pane when the selected note already has a tab in another pane', async () => {
+    const requestEditorFocus = vi.fn();
+    const selectedNote = note({ id: 'note-b', title: 'Beta' });
+    const { result } = renderHook(() => {
+      const selectionRefs = useElectronHomeSelectionRefs();
+      const [paneId, setPaneId] = useState('pane-a');
+      const [activeTab, setActiveTab] = useState<OpenNoteTab | null>(null);
+      return useElectronHomeSelection({
+        activePaneId: paneId, scopeStorageKey: 'personal', activeTab, requestEditorFocus,
+        getNotePaneId: () => 'pane-b',
+        openNoteInWorkspace: next => {
+          setActiveTab(tab({ noteId: next.id, title: next.title }));
+          setPaneId('pane-b');
+        },
+        selectionRefs, trackRecentNote: vi.fn(),
+      });
+    });
+    await act(async () => { await result.current.requestSelectNote(selectedNote, { focusEditor: true }); });
+    expect(requestEditorFocus).toHaveBeenCalledTimes(1);
   });
 });

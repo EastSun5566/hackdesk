@@ -14,6 +14,8 @@ import { DocumentDetail, type DocumentDetailProps } from './DocumentDetail';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { formatDate } from './ui';
 
+const markdownEditorFocus = vi.hoisted(() => vi.fn());
+const markdownEditorReady = vi.hoisted(() => ({ current: true }));
 const markdownEditorInsertText = vi.hoisted(() => vi.fn());
 const markdownEditorOpenSearch = vi.hoisted(() => vi.fn());
 const markdownEditorMounts = vi.hoisted(() => ({ nextId: 0 }));
@@ -29,18 +31,20 @@ vi.mock('@/components/MarkdownEditor', async () => {
       value: string;
     }, ref) => {
       const [mountId] = React.useState(() => ++markdownEditorMounts.nextId);
+      const contentRef = React.useRef<HTMLTextAreaElement | null>(null);
 
-      React.useImperativeHandle(ref, () => ({
-        focus: vi.fn(),
-        getContentDOM: vi.fn(() => null),
+      React.useImperativeHandle(ref, () => markdownEditorReady.current ? ({
+        focus: markdownEditorFocus,
+        getContentDOM: vi.fn(() => contentRef.current),
         getMarkdown: vi.fn(() => props.value),
         insertText: markdownEditorInsertText,
         openSearch: markdownEditorOpenSearch,
-      }));
+      }) : null);
 
       return (
         <>
           <textarea
+            ref={contentRef}
             aria-label="Markdown editor"
             data-editor-mode={props.editorMode}
             data-mount-id={mountId}
@@ -171,6 +175,8 @@ function renderDocumentDetail(overrides: Partial<DocumentDetailProps> = {}) {
 
 describe('DocumentDetail', () => {
   beforeEach(() => {
+    markdownEditorReady.current = true;
+    markdownEditorFocus.mockClear();
     markdownEditorInsertText.mockClear();
     markdownEditorOpenSearch.mockClear();
     markdownEditorMounts.nextId = 0;
@@ -214,6 +220,43 @@ describe('DocumentDetail', () => {
     expect(markdownEditorOpenSearch).toHaveBeenCalledTimes(1);
     expect(inputClick).toHaveBeenCalledTimes(1);
     inputClick.mockRestore();
+  });
+
+  it('waits for the editor ref and consumes focus, search and attachment requests once', () => {
+    markdownEditorReady.current = false;
+    const click = vi.spyOn(HTMLInputElement.prototype, 'click');
+    const onRequestHandled = vi.fn();
+    const { props, rerenderDocumentDetail } = renderDocumentDetail({
+      layout: { focusRequestId: 3, searchRequestId: 4, attachImageRequestId: 5, onRequestHandled },
+    });
+    expect(markdownEditorFocus).not.toHaveBeenCalled();
+    expect(markdownEditorOpenSearch).not.toHaveBeenCalled();
+    expect(click).not.toHaveBeenCalled();
+    expect(onRequestHandled).not.toHaveBeenCalled();
+    markdownEditorReady.current = true;
+    rerenderDocumentDetail({ ...props });
+    expect(markdownEditorFocus).toHaveBeenCalledTimes(1);
+    expect(markdownEditorOpenSearch).toHaveBeenCalledTimes(1);
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(onRequestHandled.mock.calls).toEqual([[3], [4], [5]]);
+    rerenderDocumentDetail({ ...props });
+    expect(onRequestHandled).toHaveBeenCalledTimes(3);
+    click.mockRestore();
+  });
+
+  it('does not execute canceled commands when another editor becomes ready', () => {
+    markdownEditorReady.current = false;
+    const click = vi.spyOn(HTMLInputElement.prototype, 'click');
+    const { props, rerenderDocumentDetail } = renderDocumentDetail({
+      layout: { focusRequestId: 3, searchRequestId: 4, attachImageRequestId: 5 },
+    });
+    markdownEditorReady.current = true;
+    rerenderDocumentDetail({ ...props, editorKey: 'tab-2',
+      layout: { ...props.layout, focusRequestId: 0, searchRequestId: 0, attachImageRequestId: 0 } });
+    expect(markdownEditorFocus).not.toHaveBeenCalled();
+    expect(markdownEditorOpenSearch).not.toHaveBeenCalled();
+    expect(click).not.toHaveBeenCalled();
+    click.mockRestore();
   });
 
   it('saves dirty title and content through the structured actions', () => {

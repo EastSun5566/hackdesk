@@ -12,6 +12,7 @@ import { defaultSettings } from '@/lib/settings';
 
 import type { ElectronHomeWorkspaceProps } from './ElectronHomeWorkspace';
 import type { HomeLocalVaultActions } from './useHomeLocalVaultActions';
+import type { EditorRequest } from './useWorkbenchEditorRequests';
 import type { WorkspaceScope } from './types';
 import { isDraftNoteTab } from './note-workspace';
 import type { useElectronHomeStatus } from './useElectronHomeStatus';
@@ -57,13 +58,12 @@ type WorkspaceActions = {
 export function useHomeWorkspaceProps({
   actions,
   activeFinderState,
-  attachImageRequestId,
   collapsedFolderIds,
   displayScope,
   documents,
-  editorFocusRequestId,
+  editorRequests,
+  consumeEditorRequest,
   editorMode,
-  editorSearchRequestId,
   folderCommands,
   folderTree,
   getTabSyncState,
@@ -97,13 +97,12 @@ export function useHomeWorkspaceProps({
 }: {
   actions: WorkspaceActions;
   activeFinderState: NoteFinderState;
-  attachImageRequestId: number;
   collapsedFolderIds: Set<string>;
   displayScope: WorkspaceScope;
   documents: WorkbenchDocuments;
-  editorFocusRequestId: number;
+  editorRequests: EditorRequest[];
+  consumeEditorRequest: (id: number) => void;
   editorMode: ElectronHomeWorkspaceProps['documentWorkspace']['editorMode'];
-  editorSearchRequestId: number;
   folderCommands: WorkbenchFolderCommands;
   folderTree: FolderTree;
   getTabSyncState: ElectronHomeWorkspaceProps['titlebar']['getTabSyncState'];
@@ -255,14 +254,14 @@ export function useHomeWorkspaceProps({
     documentWorkspace: {
       panes: noteWorkspace.state.panes,
       activePaneId: noteWorkspace.state.activePaneId,
+      scopeKey: noteWorkspace.state.scopeKey,
+      editorRequests,
+      onEditorRequestHandled: consumeEditorRequest,
       editorMode,
       folderTree,
       shareOpen,
       isInspectorCollapsed: inspectorCollapsed,
       getPaneView: documents.getPaneView,
-      editorSearchRequestId,
-      attachImageRequestId,
-      editorFocusRequestId,
       onResizePanes: noteWorkspace.resizePanes,
       onFocusPane: noteWorkspace.focusPane,
       onOpenEditor: actions.handleOpenEditor,
