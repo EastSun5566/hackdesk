@@ -667,10 +667,6 @@ export function getElectronActionLabel(actionId: ElectronActionId) {
   return getElectronAction(actionId).label;
 }
 
-export function getActionShortcut(actionId: ElectronActionId) {
-  return getElectronAction(actionId).shortcut;
-}
-
 export const DEFAULT_ACTION_KEYBINDINGS = ELECTRON_ACTIONS.reduce((acc, action) => {
   if (action.defaultKeybinding) {
     acc[action.id] = action.defaultKeybinding;
@@ -698,31 +694,6 @@ export function getResolvedActionShortcut(
     resolved,
     platform,
   ) || undefined;
-}
-
-export function splitShortcutKeys(shortcut: string) {
-  const keys: string[] = [];
-  let remaining = shortcut;
-
-  while (remaining) {
-    const modifier = ['⇧', '⌃', '⌥', '⌘'].find((candidate) => remaining.startsWith(candidate));
-    if (modifier) {
-      keys.push(modifier);
-      remaining = remaining.slice(modifier.length);
-      continue;
-    }
-
-    keys.push(remaining);
-    break;
-  }
-
-  return keys;
-}
-
-export function getActionShortcutKeys(actionId: ElectronActionId) {
-  const shortcut = getActionShortcut(actionId);
-
-  return shortcut ? splitShortcutKeys(shortcut) : [];
 }
 
 export function getCommandPaletteActions() {
