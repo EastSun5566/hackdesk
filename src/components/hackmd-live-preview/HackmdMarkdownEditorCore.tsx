@@ -20,6 +20,7 @@ import { inlineAttachmentExtension } from 'inline-attacher';
 
 import type { MarkdownEditorHandle, MarkdownEditorProps } from '@/components/markdown-editor-types';
 import { useTheme } from '@/components/theme-provider';
+import { registerEditorNavigationKeymap } from '@/lib/editor-navigation-keymap';
 import type { EditorMode } from '@/lib/settings';
 import type { ResolvedThemeMode } from '@/lib/themes';
 
@@ -325,6 +326,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
         onOpenLinkRef,
       });
 
+      const unregisterNavigationKeymap = registerEditorNavigationKeymap(view.dom, () => view.state.facet(keymap));
       runtime.view = view;
       runtime.appliedEditorMode = 'standard';
       runtime.appliedResolvedMode = runtime.resolvedMode;
@@ -339,6 +341,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
       return () => {
         runtime.editorModeRequestId += 1;
         clearInitialRevealWithRuntime(runtime);
+        unregisterNavigationKeymap();
         view.destroy();
         if (runtime.view === view) {
           runtime.view = null;

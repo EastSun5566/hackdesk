@@ -387,6 +387,8 @@ export function ToolbarIconButton({
   const button = (
     <ToolbarButton
       aria-label={label}
+      data-navigation-toolbar="true"
+      data-navigation-action={actionId}
       className={cn(ICON_BUTTON_CLASS, className)}
       {...props}
     >
@@ -420,6 +422,7 @@ export function ToolbarDropdownIconTrigger({
             render={(
               <ToolbarButton
                 aria-label={label}
+                data-navigation-toolbar="true"
                 className={cn(ICON_BUTTON_CLASS, className)}
               />
             )}

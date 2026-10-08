@@ -27,12 +27,13 @@ import {
   PinOff,
   Settings2,
 } from 'lucide-react';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { Tooltip } from '@/components/ui/tooltip';
 import type { TeamSummary, UserSummary } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
 
+import { NavigationHintsContext } from './KeyboardNavigationContext';
 import { EntityRow, PanelShell } from './interaction-primitives';
 import type { WorkspaceScope } from './types';
 import { FOCUS_RING_CLASS } from './ui';
@@ -48,6 +49,7 @@ import {
 import { PersonalWorkspaceIcon, TeamWorkspaceIcon } from './WorkspaceIcon';
 
 function WorkspaceRailButton({
+  navigationId,
   accessibleLabel,
   active,
   ariaKeyShortcuts,
@@ -61,6 +63,7 @@ function WorkspaceRailButton({
   className,
   onClick,
 }: {
+  navigationId: string;
   accessibleLabel?: string;
   active: boolean;
   ariaKeyShortcuts?: string;
@@ -88,6 +91,7 @@ function WorkspaceRailButton({
   const row = (
     <EntityRow
       selected={active}
+      buttonProps={{ 'data-workspace-navigation-id': navigationId } as React.ButtonHTMLAttributes<HTMLButtonElement>}
       icon={icon}
       title={collapsed ? '' : label}
       trailing={shortcutHint ?? (collapsed ? undefined : trailing)}
@@ -205,6 +209,7 @@ function TeamRailRow({
   return (
     <div className="group/team-row relative flex min-w-0 items-center">
       <WorkspaceRailButton
+        navigationId={`team:${team.id}`}
         accessibleLabel={isPrivate ? `${team.name}, private` : team.name}
         active={active}
         ariaKeyShortcuts={ariaShortcut}
@@ -279,10 +284,12 @@ function SortablePinnedTeamRow(props: Omit<TeamRailRowProps, 'pinned'>) {
 }
 
 function usePrimaryModifierHints(platform: string) {
+  const navigationHints = useContext(NavigationHintsContext);
   const [visible, setVisible] = useState(false);
   const isMac = platform === 'darwin' || platform.toLowerCase().includes('mac');
 
   useEffect(() => {
+    if (navigationHints !== undefined) return;
     const isPrimaryModifier = (event: KeyboardEvent) => (
       (isMac && event.key === 'Meta') || (!isMac && event.key === 'Control')
     );
@@ -302,9 +309,9 @@ function usePrimaryModifierHints(platform: string) {
       window.removeEventListener('keyup', syncVisibility);
       window.removeEventListener('blur', syncVisibility);
     };
-  }, [isMac]);
+  }, [isMac, navigationHints]);
 
-  return visible;
+  return navigationHints ?? visible;
 }
 
 function PinnedTeamsSection({
@@ -513,6 +520,7 @@ export function WorkspaceRail({
         <ul aria-label="HackMD navigation" className="list-none space-y-1 px-2">
           <li>
             <WorkspaceRailButton
+              navigationId="personal"
               active={scope.type === 'personal'}
               ariaKeyShortcuts={getWorkspaceAriaShortcut(platform, 1)}
               collapsed={collapsed}
@@ -554,6 +562,7 @@ export function WorkspaceRail({
 
       <div data-testid="workspace-rail-utilities" className="space-y-1 border-t border-border-default p-2">
         <WorkspaceRailButton
+          navigationId="history"
           active={scope.type === 'history'}
           collapsed={collapsed}
           icon={<History className="h-4 w-4" />}
@@ -561,6 +570,7 @@ export function WorkspaceRail({
           onClick={() => onScopeChange({ type: 'history', label: 'History' })}
         />
         <WorkspaceRailButton
+          navigationId={localVaultConfigured ? 'local' : 'choose-vault'}
           active={scope.type === 'local'}
           collapsed={collapsed}
           icon={localVaultConfigured ? <HardDrive className="h-4 w-4" /> : <FolderOpen className="h-4 w-4" />}

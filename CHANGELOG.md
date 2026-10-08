@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## Unreleased
+
+### Keyboard navigation
+
+* Added accessible tab/tree focus and F6 region switching, including both document panes.
+* Added searchable Keyboard Shortcuts help and hints that follow custom or disabled bindings.
+* Added contextual ? and / shortcuts, plus Ctrl+U/D half-page scrolling outside editors.
+* Hold Cmd/Ctrl to reveal navigation codes for visible Workbench targets. Existing shortcuts keep their behavior; ordinary buttons receive focus before Enter runs them.
+
 ## [2.0.0-beta.4](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.3...v2.0.0-beta.4) (2026-10-01)
 
 ### Highlights

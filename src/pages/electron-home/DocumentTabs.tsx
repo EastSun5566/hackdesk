@@ -102,6 +102,7 @@ function DocumentTab({
       <button
         type="button"
         role="tab"
+        data-navigation-tab-id={tab.tabId}
         id={documentTabId(tab.tabId)}
         tabIndex={focused ? 0 : -1}
         aria-selected={selected}
