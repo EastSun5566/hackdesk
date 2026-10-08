@@ -778,3 +778,182 @@ test('shortcut help and hints reflect saved settings without stealing editing ke
     await expect(page.getByRole('button', { name: 'Local Vault', exact: true })).toBeFocused();
   } finally { await stopApp(app, true); }
 });
+
+async function useNavigationCode(page: Page, id: string) {
+  const hint = page.locator('[data-navigation-hint]');
+  const code = await page.locator(`[data-navigation-hint="${id}"]`).getAttribute('data-navigation-code');
+  if (!code) throw new Error(`Missing navigation code for ${id}`);
+  for (const letter of code) await page.keyboard.press(letter);
+  await expect(hint).toHaveCount(0);
+}
+
+test('held modifier navigation keeps codes stable, preserves shortcuts and only focuses ordinary actions', async () => {
+  const { app, page } = await launchFixture('standard', true, true);
+  try {
+    await page.setViewportSize({ width: 1280, height: 760 });
+    await openFixtureNote(page);
+    const root = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
+    await root.focus();
+    await page.keyboard.down(primary);
+    const overlay = page.locator('[data-keyboard-navigation-overlay]');
+    await expect(overlay).toBeVisible();
+    await expect(page.locator('[data-navigation-unavailable]')).toHaveCount(0);
+    const hints = await page.locator('[data-navigation-code]').evaluateAll(elements => elements.map(element => ({ id: element.getAttribute('data-navigation-hint'), code: element.getAttribute('data-navigation-code')! })));
+    expect(new Set(hints.map(hint => hint.code)).size).toBe(hints.length);
+    for (const a of hints) for (const b of hints) if (a.id !== b.id) expect(a.code.startsWith(b.code)).toBe(false);
+    const boxes = await page.locator('[data-navigation-hint]').evaluateAll(elements => elements.map(element => { const rect = element.getBoundingClientRect(); return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }; }));
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i], b = boxes[j];
+      expect(a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top, `Hint ${i} overlaps ${j}`).toBe(false);
+    }
+    await page.screenshot({ path: test.info().outputPath('17-held-navigation-dark.png'), animations: 'disabled' });
+    const finderCode = await page.locator('[data-navigation-hint="finder"]').getAttribute('data-navigation-code');
+    await page.keyboard.press(finderCode![0]);
+    await expect.poll(() => page.locator('[data-navigation-code]').evaluateAll(elements => elements.every(element => element.getAttribute('data-navigation-code')!.startsWith(elements[0].getAttribute('data-navigation-code')![0])))).toBe(true);
+    await page.keyboard.press('Backspace');
+    await useNavigationCode(page, 'finder');
+    await expect(page.getByPlaceholder('Search notes', { exact: true })).toBeFocused();
+    await page.keyboard.up(primary);
+    await root.focus(); await page.keyboard.down(primary);
+    await expect(page.locator('[data-navigation-hint="finder"]')).toHaveAttribute('data-navigation-code', finderCode!);
+    await page.keyboard.press('Escape'); await expect(overlay).toHaveCount(0);
+    await page.keyboard.up(primary);
+
+    await root.focus(); await page.keyboard.down(primary);
+    const saveHint = page.locator('[data-navigation-hint$=":save-note"]');
+    // Saved notes disable Save; mutation controls are never activated by hints.
+    await expect(saveHint).toHaveCount(0);
+    const collapseHint = page.locator('[data-navigation-hint="toolbar::Application controls:toggle-navigator"]');
+    const collapseCode = await collapseHint.getAttribute('data-navigation-code');
+    const navigator = page.locator('[data-hackdesk-focus="navigator"]');
+    const width = (await navigator.boundingBox())!.width;
+    for (const letter of collapseCode!) await page.keyboard.press(letter);
+    await expect(page.getByRole('toolbar', { name: 'Application controls' }).getByRole('button', { name: 'Collapse note navigator', exact: true })).toBeFocused();
+    expect((await navigator.boundingBox())!.width).toBe(width);
+    await page.keyboard.up(primary); await page.keyboard.press('Enter');
+    await expect(page.getByRole('button', { name: 'Expand note navigator', exact: true })).toBeVisible();
+    await page.keyboard.press(`${primary}+Alt+b`);
+    await expect(page.getByRole('toolbar', { name: 'Application controls' }).getByRole('button', { name: 'Collapse note navigator', exact: true })).toBeVisible();
+
+    await root.focus(); await page.keyboard.down(primary);
+    await page.keyboard.press('b'); await page.keyboard.up(primary);
+    await expect(page.getByRole('button', { name: 'Expand workspace sidebar', exact: true })).toBeVisible();
+    await page.keyboard.press(`${primary}+b`);
+    await expect(page.getByRole('button', { name: 'Collapse workspace sidebar', exact: true })).toBeVisible();
+    await page.keyboard.press(`${primary}+k`);
+    await expect(page.getByRole('dialog', { name: 'Command Palette', exact: true })).toBeVisible();
+    await page.keyboard.down(primary); await expect(overlay).toHaveCount(0); await page.keyboard.up(primary); await page.keyboard.press('Escape');
+
+    await root.focus(); await page.keyboard.down(primary);
+    await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+    await expect(overlay).toHaveCount(0); await page.keyboard.up(primary);
+    await root.focus(); await page.keyboard.down(primary);
+    await page.evaluate(() => window.dispatchEvent(new CompositionEvent('compositionstart')));
+    await expect(overlay).toHaveCount(0); await page.keyboard.up(primary);
+  } finally { await stopApp(app, true); }
+});
+
+for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
+  test(`held navigation preserves editor bindings and reaches both panes in ${mode}`, async () => {
+    const { app, page } = await launchFixture(mode, true);
+    try {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await openFixtureNote(page);
+      await page.getByRole('button', { name: 'Pane actions', exact: true }).press('Enter');
+      await page.getByRole('menuitem', { name: 'Split Right', exact: true }).press('Enter');
+      const editors = page.locator('.cm-content');
+      await expect(editors).toHaveCount(2);
+      const before = await editors.allTextContents();
+      await editors.last().focus();
+      await page.keyboard.down(primary);
+      const unavailable = page.locator('[data-navigation-unavailable]');
+      if (await unavailable.count()) {
+        await expect(page.locator('[data-navigation-code]:not([data-navigation-code=""])')).toHaveCount(0);
+      } else {
+        const id = await page.locator('[data-navigation-hint^="editor:"]').first().getAttribute('data-navigation-hint');
+        await useNavigationCode(page, id!);
+        await expect(editors.first()).toBeFocused();
+      }
+      await page.keyboard.up(primary);
+      // Navigation from a Workbench region remains available even if the active editor exhausts safe keys.
+      await page.getByRole('button', { name: 'Local Vault', exact: true }).focus();
+      await page.keyboard.down(primary);
+      const editorHints = page.locator('[data-navigation-hint^="editor:"]');
+      await expect(editorHints).toHaveCount(2);
+      await useNavigationCode(page, (await editorHints.first().getAttribute('data-navigation-hint'))!);
+      await expect(editors.first()).toBeFocused();
+      await page.keyboard.up(primary);
+      await expect(page.locator('[data-keyboard-navigation-overlay]')).toHaveCount(0);
+      await expect(editors.first()).toHaveText(before[0]);
+      await expect(editors.last()).toHaveText(before[1]);
+    } finally { await stopApp(app); }
+  });
+}
+
+test('navigation targets follow visible tabs and tree items, themes, custom keys and context changes', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1280, height: 760 });
+    await openFixtureNote(page);
+    const ui = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
+    await ui.focus(); await page.keyboard.down(primary);
+    const betaRow = page.locator('[data-folder-tree-kind="note"]').filter({has:page.getByRole('treeitem',{name:'Beta',exact:true})});
+    const betaId = await betaRow.getAttribute('data-folder-tree-row-id');
+    await useNavigationCode(page, `tree:${betaId}`); await page.keyboard.up(primary);
+    await expect(page.locator('.cm-content')).toContainText('# Beta');
+    const uiTab = page.getByRole('tab', { name: 'Select UI fixture tab', exact: true });
+    await uiTab.scrollIntoViewIfNeeded(); await uiTab.focus(); await page.keyboard.down(primary);
+    await useNavigationCode(page, `tab:${await uiTab.getAttribute('data-navigation-tab-id')}`); await page.keyboard.up(primary);
+    await expect(uiTab).toHaveAttribute('aria-selected','true');
+    await expect(page.locator('.cm-content')).toContainText('Test note for layout checks.');
+    // Horizontally clipped tabs receive no code; scrolling changes the target set and cancels the hold.
+    const tabNav = page.getByRole('navigation', { name: 'Open documents', exact: true });
+    await tabNav.evaluate(element => { element.style.flex = 'none'; element.style.width = '100px'; element.scrollLeft = 0; });
+    await ui.focus(); await page.keyboard.down(primary);
+    const tabHints = await page.locator('[data-navigation-hint^="tab:"]').count();
+    expect(tabHints).toBeLessThan(await page.getByRole('tablist', { name: 'Open documents', exact: true }).getByRole('tab').count());
+    await tabNav.evaluate(element => { element.scrollLeft = element.scrollWidth; });
+    await expect(page.locator('[data-keyboard-navigation-overlay]')).toHaveCount(0);
+    await page.keyboard.up(primary);
+    await tabNav.evaluate(element => { element.style.flex = ''; element.style.width = ''; });
+    await page.getByRole('treeitem',{name:'Projects',exact:true}).scrollIntoViewIfNeeded();
+    const projects = page.getByRole('treeitem',{name:'Projects',exact:true});
+    const folderId = await projects.evaluate(element=>element.closest('[data-folder-tree-row-id]')!.getAttribute('data-folder-tree-row-id'));
+    await projects.focus(); await page.keyboard.down(primary);
+    await useNavigationCode(page, `tree:${folderId}`); await page.keyboard.up(primary);
+    await expect(projects).toBeFocused();
+    await page.keyboard.press(`${primary}+Shift+n`);
+    const newFolder = page.getByRole('dialog', {name:'New Note',exact:true});
+    await expect(newFolder.getByText('Local Vault / Projects',{exact:true})).toBeVisible();
+    await newFolder.getByRole('button',{name:'Cancel',exact:true}).click();
+    // Each hold fixes its visible target set; collapsing a folder cancels it.
+    await projects.focus(); await page.keyboard.down(primary);
+    await page.getByRole('button', {name:'Collapse Projects',exact:true}).evaluate(element => (element as HTMLButtonElement).click());
+    await expect(page.locator('[data-keyboard-navigation-overlay]')).toHaveCount(0);
+    await page.keyboard.up(primary);
+    await projects.press('ArrowRight'); await page.keyboard.down(primary);
+    await page.evaluate(()=>document.querySelector('[data-folder-tree-ignore-keyboard]')?.setAttribute('data-hackdesk-dragging','true'));
+    await expect(page.locator('[data-keyboard-navigation-overlay]')).toHaveCount(0);
+    await page.keyboard.up(primary);
+    await page.evaluate(()=>document.querySelector('[data-hackdesk-dragging]')?.removeAttribute('data-hackdesk-dragging'));
+    for (const preset of HACKDESK_THEME_PRESETS) for (const mode of ['light','dark'] as const) {
+      await page.evaluate(theme=>{for(const [name,value]of Object.entries(theme))document.documentElement.style.setProperty(name,value);},resolveHackDeskTheme({presetId:preset.id,mode}));
+      await projects.focus(); await page.keyboard.down(primary);
+      await expect(page.locator('[data-navigation-hint="finder"]')).toBeVisible();
+      if (preset.id === 'hackmd-neo' && mode === 'light') await page.screenshot({path:test.info().outputPath('18-held-navigation-light.png'),animations:'disabled'});
+      await page.keyboard.up(primary);
+    }
+    await page.keyboard.press(`${primary}+,`);
+    const settings = page.getByRole('dialog',{name:'Settings',exact:true});
+    await settings.getByRole('tab',{name:'Shortcuts',exact:true}).click();
+    await settings.getByPlaceholder('Search shortcuts',{exact:true}).fill('New Note');
+    await settings.getByRole('button',{name:'Set shortcut for New Note',exact:true}).click();
+    await page.keyboard.press(`${primary}+j`);
+    await settings.getByRole('button',{name:'Save',exact:true}).click();
+    await expect(settings).toBeHidden(); await projects.focus(); await page.keyboard.down(primary);
+    const codes = await page.locator('[data-navigation-code]').evaluateAll(elements=>elements.map(element=>element.getAttribute('data-navigation-code')));
+    expect(codes.every(code=>!code?.includes('j'))).toBe(true);
+    await expect(page.locator('[data-navigation-hint="finder"]')).toHaveAttribute('data-navigation-code', /^[a-z]{2,3}$/);
+    await page.keyboard.up(primary);
+  } finally { await stopApp(app); }
+});

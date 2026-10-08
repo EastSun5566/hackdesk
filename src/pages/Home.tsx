@@ -1,3 +1,4 @@
+import { KeyboardNavigation } from './electron-home/KeyboardNavigation';
 import { getElectronAction } from '@/lib/electron-actions';
 import { ActionShortcutContext } from './electron-home/ActionShortcutContext';
 import { KeyboardShortcutsDialog } from './electron-home/KeyboardShortcutsDialog';
@@ -912,18 +913,20 @@ export function Home() {
 
   return (
     <ActionShortcutContext.Provider value={shortcutContext}>
-      <div className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
-        <ElectronHomeWorkspace {...workspaceProps} backupNotice={backupNotice} />
+      <KeyboardNavigation workspaceKey={scopeStorageKey} shortcuts={settings?.shortcuts} platform={api.platform} characterEnabled={settings?.keyboardNavigation?.characterShortcutsEnabled ?? true}>
+        <div className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
+          <ElectronHomeWorkspace {...workspaceProps} backupNotice={backupNotice} />
 
-        <ElectronHomeOverlays {...overlayProps} dialogs={{ ...overlayProps.dialogs, settingsInitialTab, onSettingsOpenChange: setSettingsOpen }} />
-        {shortcutHelp ? <KeyboardShortcutsDialog
-          open region={shortcutHelp.region} returnFocus={shortcutHelp.target}
-          shortcuts={settings?.shortcuts} platform={api.platform}
-          characterShortcutsEnabled={settings?.keyboardNavigation?.characterShortcutsEnabled ?? true}
-          onOpenChange={open => { if (!open) { setShortcutHelp(null); focusZone(shortcutHelp.region); } }}
-          onCustomize={() => { setShortcutHelp(null); setSettingsInitialTab('shortcuts'); setSettingsOpenState(true); }}
-        /> : null}
-      </div>
+          <ElectronHomeOverlays {...overlayProps} dialogs={{ ...overlayProps.dialogs, settingsInitialTab, onSettingsOpenChange: setSettingsOpen }} />
+          {shortcutHelp ? <KeyboardShortcutsDialog
+            open region={shortcutHelp.region} returnFocus={shortcutHelp.target}
+            shortcuts={settings?.shortcuts} platform={api.platform}
+            characterShortcutsEnabled={settings?.keyboardNavigation?.characterShortcutsEnabled ?? true}
+            onOpenChange={open => { if (!open) { setShortcutHelp(null); focusZone(shortcutHelp.region); } }}
+            onCustomize={() => { setShortcutHelp(null); setSettingsInitialTab('shortcuts'); setSettingsOpenState(true); }}
+          /> : null}
+        </div>
+      </KeyboardNavigation>
     </ActionShortcutContext.Provider>
   );
 }

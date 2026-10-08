@@ -160,6 +160,7 @@ export function DocumentWorkspace({
                 id={documentPaneId(pane.paneId)}
                 role={isActivePane ? 'tabpanel' : 'region'}
                 aria-labelledby={isActivePane && view.activeTab ? documentTabId(view.activeTab.tabId) : undefined}
+                data-navigation-editor-id={view.activeTab?.tabId}
                 data-document-pane-id={pane.paneId}
                 aria-current={isActivePane ? 'true' : undefined}
                 aria-label={isActivePane ? `Active document pane ${index + 1}` : `Document pane ${index + 1}`}

@@ -1,4 +1,5 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
+import { readEditorNavigationKeymap } from '@/lib/editor-navigation-keymap';
 import { EditorView } from '@codemirror/view';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -30,7 +31,10 @@ describe('HackmdMarkdownEditorCore lifecycle', () => {
       expect(editor.querySelector('.cm-editor')).toHaveAttribute('data-editor-mode-loading', 'true');
     });
 
+    const editorRoot = editor.querySelector<HTMLElement>('.cm-editor')!;
+    expect(readEditorNavigationKeymap(editorRoot)).not.toBeNull();
     unmount();
+    expect(readEditorNavigationKeymap(editorRoot)).toBeNull();
     const dispatchCountAfterUnmount = dispatchSpy.mock.calls.length;
 
     deferredVimModule.resolve({ vim: () => [] });
