@@ -69,6 +69,8 @@ function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): Workb
     moveTabToOtherPane: vi.fn(),
     navigateBack: vi.fn(),
     navigateForward: vi.fn(),
+    openKeyboardShortcuts: vi.fn(),
+    focusNextRegion: vi.fn(() => true),
     openPalette: vi.fn(),
     openQuickOpen: vi.fn(),
     openSelectedWebEditor: vi.fn(),

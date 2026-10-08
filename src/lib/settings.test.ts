@@ -10,6 +10,10 @@ import {
 } from './settings';
 
 describe('settings helpers', () => {
+  it('defaults older settings to character navigation and preserves explicit disable', () => {
+    expect(parseSettings('{"title":"HackDesk"}').keyboardNavigation.characterShortcutsEnabled).toBe(true);
+    expect(parseStoredSettings('{"title":"HackDesk","keyboardNavigation":{"characterShortcutsEnabled":false}}').keyboardNavigation.characterShortcutsEnabled).toBe(false);
+  });
   it('parses valid settings content', () => {
     expect(parseSettings('{"title":"Workspace"}')).toEqual({
       title: 'Workspace',
@@ -19,6 +23,7 @@ describe('settings helpers', () => {
       localVault: defaultSettings.localVault,
       editor: defaultSettings.editor,
       shortcuts: defaultSettings.shortcuts,
+      keyboardNavigation: defaultSettings.keyboardNavigation,
       workspaceNavigation: defaultSettings.workspaceNavigation,
     });
   });
@@ -39,6 +44,7 @@ describe('settings helpers', () => {
       localVault: defaultSettings.localVault,
       editor: defaultSettings.editor,
       shortcuts: defaultSettings.shortcuts,
+      keyboardNavigation: defaultSettings.keyboardNavigation,
       workspaceNavigation: defaultSettings.workspaceNavigation,
     });
   });
@@ -263,6 +269,9 @@ describe('settings helpers', () => {
     "mode": "standard"
   },
   "shortcuts": {},
+  "keyboardNavigation": {
+    "characterShortcutsEnabled": true
+  },
   "workspaceNavigation": {
     "pinnedTeamIds": null
   }

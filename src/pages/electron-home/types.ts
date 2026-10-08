@@ -3,6 +3,7 @@ import type {
   EditorSettings,
   OnboardingSettings,
   ShortcutSettings,
+  KeyboardNavigationSettings,
   WorkspaceNavigationSettings,
 } from '@/lib/settings';
 
@@ -46,6 +47,7 @@ export type SettingsFormInput = {
   appearance?: AppearanceSettings;
   editor?: EditorSettings;
   shortcuts?: ShortcutSettings;
+  keyboardNavigation?: KeyboardNavigationSettings;
   onboarding?: OnboardingSettings;
   workspaceNavigation?: WorkspaceNavigationSettings;
 };

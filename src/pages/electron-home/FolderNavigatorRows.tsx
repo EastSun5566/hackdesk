@@ -134,6 +134,7 @@ export function NoteRow({
           data-folder-tree-kind="note"
           data-folder-tree-note-id={entry.note.id}
           data-note-id={entry.note.id}
+          data-hackdesk-dragging={isDragging || undefined}
           className={cn('min-w-0', (isDragging || active) && 'opacity-40')}
         >
           <EntityRow
@@ -306,6 +307,7 @@ function FolderButton({
           data-folder-tree-kind="folder"
           data-folder-tree-folder-id={node.id}
           data-folder-id={node.id}
+          data-hackdesk-dragging={isDragging || undefined}
           className={cn('min-w-0', (isDragging || active) && 'opacity-40')}
         >
           <EntityRow

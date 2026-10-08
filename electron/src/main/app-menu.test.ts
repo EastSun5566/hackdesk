@@ -52,6 +52,21 @@ describe('createApplicationMenu', () => {
     expect(menuMock.setApplicationMenu).toHaveBeenCalledOnce();
   });
 
+  it('displays contextual keys without registering native accelerators', () => {
+    const send = vi.fn();
+    createApplicationMenu(send, { 'show-keyboard-shortcuts': 'mod+j', 'search-notes': 'none' }, vi.fn());
+    const help = currentTemplate().find(section => section.label === 'Help')?.submenu as Electron.MenuItemConstructorOptions[];
+    const item = help.find(entry => entry.label?.startsWith('Keyboard Shortcuts'));
+    expect(item?.label).toContain(process.platform === 'darwin' ? '⌘J' : 'Ctrl+J');
+    expect(item?.accelerator).toBeUndefined();
+    item?.click?.({} as Electron.MenuItem, undefined, {} as Electron.KeyboardEvent);
+    expect(send).toHaveBeenCalledWith({ type: 'show-keyboard-shortcuts' });
+    expect(findMenuItem('Focus Note Finder')?.accelerator).toBeUndefined();
+    createApplicationMenu(send, {}, vi.fn(), false);
+    const disabledHelp = currentTemplate().find(section => section.label === 'Help')?.submenu as Electron.MenuItemConstructorOptions[];
+    expect(disabledHelp[0].label).toBe('Keyboard Shortcuts');
+  });
+
   it('uses the default markdown import accelerator', () => {
     createApplicationMenu(vi.fn(), {}, vi.fn());
 

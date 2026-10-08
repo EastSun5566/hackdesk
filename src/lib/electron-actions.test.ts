@@ -39,6 +39,10 @@ const baseContext: ElectronActionContext = {
 };
 
 describe('electron action registry', () => {
+  it('keeps Local Vault Finder available without a HackMD token', () => {
+    expect(getActionDisabledReason(getElectronAction('search-notes'), { ...baseContext, hasToken: false, scopeType: 'local' })).toBeNull();
+  });
+
   it('keeps action IDs unique and exposes menu shortcuts', () => {
     const ids = ELECTRON_ACTIONS.map((action) => action.id);
 
@@ -105,7 +109,7 @@ describe('electron action registry', () => {
       menuAccelerator: 'CmdOrCtrl+F',
     });
     expect(getElectronAction('search-notes')).toMatchObject({
-      label: 'Focus Note Filter',
+      label: 'Focus Note Finder',
       shortcut: '/',
     });
     expect(getElectronAction('search-notes').menuAccelerator).toBeUndefined();

@@ -5,6 +5,7 @@ import {
   DEFAULT_ACTION_KEYBINDINGS,
   ELECTRON_ACTIONS,
   getResolvedActionShortcut,
+  resolveWorkbenchShortcut,
   type ElectronActionCategory,
 } from '@/lib/electron-actions';
 import type { ElectronActionId } from '@/lib/electron-api';
@@ -22,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { SettingsInput, SettingsSection } from './SettingsPrimitives';
 import { FOCUS_RING_CLASS } from './ui';
 
-const EDITABLE_ACTIONS = ELECTRON_ACTIONS.filter((action) => action.id !== 'search-notes');
+const EDITABLE_ACTIONS = ELECTRON_ACTIONS;
 const GROUPS: ElectronActionCategory[] = ['create', 'navigation', 'view', 'note', 'folder', 'app'];
 const GROUP_LABELS: Record<ElectronActionCategory, string> = {
   app: 'App',
@@ -54,7 +55,11 @@ export function ShortcutsSettingsPanel({
   platform,
   shortcuts,
   onShortcutsChange,
+  characterShortcutsEnabled,
+  onCharacterShortcutsChange,
 }: {
+  characterShortcutsEnabled: boolean;
+  onCharacterShortcutsChange: (enabled: boolean) => void;
   platform: string;
   shortcuts: ShortcutOverrides;
   onShortcutsChange: (shortcuts: ShortcutOverrides) => void;
@@ -110,7 +115,7 @@ export function ShortcutsSettingsPanel({
         return true;
       }
 
-      const displayShortcut = getResolvedActionShortcut(action.id, shortcuts, platform) ?? '';
+      const displayShortcut = getResolvedActionShortcut(action.id, shortcuts, platform, characterShortcutsEnabled) ?? '';
       return [
         action.label,
         action.description,
@@ -119,7 +124,7 @@ export function ShortcutsSettingsPanel({
         displayShortcut,
       ].join(' ').toLowerCase().includes(normalizedFilter);
     })
-  ), [normalizedFilter, platform, shortcuts]);
+  ), [normalizedFilter, platform, shortcuts, characterShortcutsEnabled]);
 
   const updateShortcut = (actionId: ElectronActionId, value: string | undefined) => {
     setError(null);
@@ -181,6 +186,7 @@ export function ShortcutsSettingsPanel({
   return (
     <SettingsSection title="Shortcuts">
       <div className="space-y-4">
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={characterShortcutsEnabled} onChange={event => onCharacterShortcutsChange(event.target.checked)} />Enable ? and / outside text editing</label>
         <div className="relative">
           <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-subtle" />
           <SettingsInput
@@ -239,7 +245,7 @@ export function ShortcutsSettingsPanel({
                 <ul className="divide-y divide-border-default rounded-lg border border-border-default bg-background-muted/40">
                   {actions.map((action) => {
                     const isActive = activeActionId === action.id;
-                    const displayShortcut = getResolvedActionShortcut(action.id, shortcuts, platform) || 'Unassigned';
+                    const displayShortcut = getResolvedActionShortcut(action.id, shortcuts, platform, characterShortcutsEnabled) || (resolveWorkbenchShortcut(action.id, shortcuts, characterShortcutsEnabled) === 'none' ? 'Disabled' : 'Unassigned');
                     const hasOverride = Object.prototype.hasOwnProperty.call(shortcuts, action.id);
 
                     return (

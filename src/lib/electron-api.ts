@@ -32,10 +32,11 @@ export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'e
   localVault: AppSettings['localVault'];
   onboarding: AppSettings['onboarding'];
   shortcuts?: AppSettings['shortcuts'];
+  keyboardNavigation?: AppSettings['keyboardNavigation'];
   shouldShowHackmdOnboarding: boolean;
 };
 
-export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation'>> & {
+export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation' | 'keyboardNavigation'>> & {
   hackmdApiToken?: string;
 };
 
@@ -258,6 +259,11 @@ export type ElectronActionId =
   | 'toggle-inspector'
   | 'refresh'
   | 'search-notes'
+  | 'show-keyboard-shortcuts'
+  | 'focus-next-region'
+  | 'focus-previous-region'
+  | 'scroll-half-page-up'
+  | 'scroll-half-page-down'
   | 'navigate-back'
   | 'navigate-forward'
   | 'export-debug-logs'

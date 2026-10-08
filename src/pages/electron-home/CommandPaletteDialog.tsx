@@ -1,3 +1,5 @@
+import { useContext, useRef } from 'react';
+import { ActionShortcutContext } from './ActionShortcutContext';
 import {
   FileText,
   FileArchive,
@@ -228,6 +230,11 @@ function getCurrentNoteCommands(query: string, {
 }
 
 const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
+  'show-keyboard-shortcuts': <Keyboard className="h-4 w-4" />,
+  'focus-next-region': <StepForward className="h-4 w-4" />,
+  'focus-previous-region': <StepBack className="h-4 w-4" />,
+  'scroll-half-page-up': <StepBack className="h-4 w-4" />,
+  'scroll-half-page-down': <StepForward className="h-4 w-4" />,
   'new-tab': <FileText className="h-4 w-4" />,
   'new-note': <FileText className="h-4 w-4" />,
   'new-folder': <FolderPlus className="h-4 w-4" />,
@@ -345,6 +352,8 @@ export function CommandPaletteDialog({
   onSelectWorkspace: (workspace: QuickOpenWorkspaceResult) => void;
   onShowFinderResults: (query: string) => void;
 }) {
+  const { characterShortcutsEnabled } = useContext(ActionShortcutContext);
+  const pendingContextAction = useRef<ElectronActionId | null>(null);
   const isQuickOpen = state.mode === 'quick-open';
   const trimmedSearch = state.search.trim();
   const hasQuery = trimmedSearch.length > 0;
@@ -380,6 +389,13 @@ export function CommandPaletteDialog({
   return (
     <Dialog
       open={state.open}
+      onOpenChangeComplete={open => {
+        if (open || !pendingContextAction.current) return;
+        // Context actions need the Workbench to be focusable after modal cleanup.
+        const action = pendingContextAction.current;
+        pendingContextAction.current = null;
+        onRunAction(action);
+      }}
       onOpenChange={(open) => onStateChange(
         open ? { ...state, open } : { mode: 'commands', open: false, search: '' },
       )}
@@ -552,7 +568,7 @@ export function CommandPaletteDialog({
                 {actionResults.map((action) => {
                   const disabledReason = getActionDisabledReason(action, context);
                   const actionLabel = getActionLabel(action, context);
-                  const shortcut = getResolvedActionShortcut(action.id, shortcuts, platform);
+                  const shortcut = getResolvedActionShortcut(action.id, shortcuts, platform, characterShortcutsEnabled);
 
                   return (
                     <CommandItem
@@ -569,7 +585,11 @@ export function CommandPaletteDialog({
                           return;
                         }
 
-                        onRunAction(action.id);
+                        if (action.keyboardContext === 'region' || action.keyboardContext === 'scroll') {
+                          pendingContextAction.current = action.id;
+                        } else {
+                          onRunAction(action.id);
+                        }
                         closePalette();
                       }}
                     >

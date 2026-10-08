@@ -1,3 +1,4 @@
+import { ActionMenuShortcut } from './ActionShortcutContext';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -86,6 +87,7 @@ function DocumentTab({
     <li
       role="presentation"
       data-tab-id={tab.tabId}
+      data-hackdesk-dragging={isDragging || undefined}
       onFocusCapture={onFocus}
       ref={setTabNode}
       style={{ transform: CSS.Transform.toString(transform ? { ...transform, y: 0 } : null), transition }}
@@ -276,10 +278,12 @@ export function DocumentTabs({
               <DropdownMenuItem disabled={!activeTab || !canSplit} onSelect={onSplitPane}>
                 <Columns2 aria-hidden="true" className="h-4 w-4" />
                 Split Right
+                <ActionMenuShortcut actionId="split-pane-right" />
               </DropdownMenuItem>
               <DropdownMenuItem disabled={!activeTab || !canMoveToOtherPane} onSelect={onMoveTabToOtherPane}>
                 <ArrowLeftRight aria-hidden="true" className="h-4 w-4" />
                 Move Tab to Other Pane
+                <ActionMenuShortcut actionId="move-tab-to-other-pane" />
               </DropdownMenuItem>
               <DropdownMenuItem disabled={activeTabIndex <= 0} onSelect={() => activeTab && activeTabIndex > 0 && onReorderTab(activeTab.tabId, tabs[activeTabIndex - 1].tabId)}>
                 <ArrowLeft aria-hidden="true" className="h-4 w-4" />
@@ -293,14 +297,17 @@ export function DocumentTabs({
               <DropdownMenuItem disabled={!activeTab || tabs.length <= 1} onSelect={() => activeTab && onCloseOtherTabs(activeTab.tabId)}>
                 <X aria-hidden="true" className="h-4 w-4" />
                 Close Other Tabs
+                <ActionMenuShortcut actionId="close-other-tabs" />
               </DropdownMenuItem>
               <DropdownMenuItem disabled={!activeTab || !hasTabsToRight} onSelect={() => activeTab && onCloseTabsToRight(activeTab.tabId)}>
                 <X aria-hidden="true" className="h-4 w-4" />
                 Close Tabs to Right
+                <ActionMenuShortcut actionId="close-tabs-to-right" />
               </DropdownMenuItem>
               <DropdownMenuItem disabled={!canReopenLastClosedTab} onSelect={onReopenLastClosedTab}>
                 <FileText aria-hidden="true" className="h-4 w-4" />
                 Reopen Last Closed Tab
+                <ActionMenuShortcut actionId="reopen-last-closed-tab" />
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

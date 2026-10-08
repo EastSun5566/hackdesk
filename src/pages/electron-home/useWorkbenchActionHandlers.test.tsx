@@ -84,6 +84,8 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     navigateBack: vi.fn(),
     navigateForward: vi.fn(),
     noteDirty: true,
+    openKeyboardShortcuts: vi.fn(),
+    focusNextRegion: vi.fn(() => true),
     openPalette: vi.fn(),
     openQuickOpen: vi.fn(),
     refreshWorkspace: vi.fn(),

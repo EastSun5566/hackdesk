@@ -63,6 +63,12 @@ const electronActionIdSchema = z.enum([
   'toggle-inspector',
   'refresh',
   'search-notes',
+  'show-keyboard-shortcuts',
+  'focus-next-region',
+  'focus-previous-region',
+  'scroll-half-page-up',
+  'scroll-half-page-down',
+
   'navigate-back',
   'navigate-forward',
   'export-debug-logs',
@@ -142,6 +148,7 @@ export const settingsUpdateSchema = z.strictObject({
     mode: z.enum(['standard', 'emacs', 'vim', 'helix', 'kakoune']),
   }).optional(),
   shortcuts: shortcutsSchema.optional(),
+  keyboardNavigation: z.strictObject({ characterShortcutsEnabled: z.boolean() }).optional(),
   workspaceNavigation: z.strictObject({
     pinnedTeamIds: pinnedTeamIdsSchema,
   }).optional(),

@@ -95,18 +95,13 @@ export function useElectronFocusZones() {
       setFocusedZone(zone);
       setFocusedPaneId(region.closest<HTMLElement>('[data-document-pane-id]')?.dataset.documentPaneId ?? null);
     };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing || event.repeat || event.key !== 'F6' || event.altKey || event.ctrlKey || event.metaKey) return;
-      if (focusNextZone(event.shiftKey)) event.preventDefault();
-    };
     document.addEventListener('focusin', handleFocusIn);
-    document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('focusin', handleFocusIn);
-      document.removeEventListener('keydown', handleKeyDown);
       if (pendingFrameRef.current !== null) window.cancelAnimationFrame(pendingFrameRef.current);
     };
-  }, [focusNextZone]);
+  }, []);
 
-  return { focusedZone, focusedPaneId, focusZone, focusNextZone };
+  const getLastFocusedTarget = useCallback(() => rememberedTargetsRef.current.get(`${focusedZone}:${focusedPaneId ?? ''}`) ?? null, [focusedZone, focusedPaneId]);
+  return { focusedZone, focusedPaneId, focusZone, focusNextZone, getLastFocusedTarget };
 }

@@ -254,6 +254,7 @@ function SortablePinnedTeamRow(props: Omit<TeamRailRowProps, 'pinned'>) {
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
+      data-hackdesk-dragging={isDragging || undefined}
       className={cn('group/sortable relative', isDragging && 'z-10 opacity-60')}
     >
       <TeamRailRow {...props} pinned dragHandle={

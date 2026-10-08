@@ -1,7 +1,19 @@
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { useElectronFocusZones } from './useElectronFocusZones';
+import { useElectronFocusZones as useFocusZones } from './useElectronFocusZones';
+
+import { useWorkbenchShortcuts } from './useWorkbenchShortcuts';
+import { DEFAULT_NOTE_FINDER_STATE } from '@/lib/electron-note-finder';
+
+function useElectronFocusZones() {
+  const zones = useFocusZones();
+  useWorkbenchShortcuts({ activeFinderState: DEFAULT_NOTE_FINDER_STATE, closeTransientLayer: () => false,
+    handleCreateNote: vi.fn(), noteDirty: false, openPalette: vi.fn(), platform: 'darwin', refreshWorkspace: vi.fn(),
+    runAction: id => id === 'focus-next-region' ? zones.focusNextZone() : id === 'focus-previous-region' ? zones.focusNextZone(true) : false,
+    selectedFolderId: null, setFinderState: vi.fn(), setSelectedFolderId: vi.fn(), switchWorkspaceAtIndex: () => false });
+  return zones;
+}
 
 function fixture({ workspaceCollapsed = false, navigatorCollapsed = false, details = true, rightEditor = true } = {}) {
   render(<>

@@ -28,6 +28,40 @@ describe('useWorkbenchShortcuts', () => {
     vi.restoreAllMocks();
   });
 
+  it('handles ? and / only outside editing, with custom keys and disabling respected', () => {
+    const handlers = createHandlers();
+    const { rerender } = renderHook((props: WorkbenchShortcutHandlers) => useWorkbenchShortcuts(props), { initialProps: handlers });
+    fireEvent.keyDown(window, { key: '?', shiftKey: true });
+    expect(handlers.runAction).toHaveBeenCalledWith('show-keyboard-shortcuts');
+    const input = document.createElement('input'); document.body.append(input);
+    vi.mocked(handlers.runAction).mockClear();
+    fireEvent.keyDown(input, { key: '?' }); fireEvent.keyDown(input, { key: '/' });
+    expect(handlers.runAction).not.toHaveBeenCalled();
+    rerender({ ...handlers, characterShortcutsEnabled: false, shortcuts: { 'show-keyboard-shortcuts': 'mod+j' } });
+    fireEvent.keyDown(window, { key: '/' }); fireEvent.keyDown(window, { key: '?' });
+    expect(handlers.runAction).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: 'j', metaKey: true });
+    expect(handlers.runAction).toHaveBeenCalledWith('show-keyboard-shortcuts');
+    input.remove();
+  });
+
+  it('releases Ctrl+Tab aliases when next/previous actions are overridden or disabled', () => {
+    const handlers = createHandlers({ shortcuts: { 'focus-next-tab': 'none', 'focus-previous-tab': 'mod+j' } });
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    expect(fireEvent.keyDown(window, { key: 'Tab', ctrlKey: true })).toBe(true);
+    expect(fireEvent.keyDown(window, { key: 'Tab', ctrlKey: true, shiftKey: true })).toBe(true);
+    expect(handlers.runAction).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: 'j', metaKey: true });
+    expect(handlers.runAction).toHaveBeenCalledWith('focus-previous-tab');
+  });
+
+  it('does not swallow half-page keys when no scroll action can run', () => {
+    const handlers = createHandlers({ runAction: vi.fn(() => false) });
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    expect(fireEvent.keyDown(window, { key: 'd', ctrlKey: true })).toBe(true);
+    expect(handlers.runAction).toHaveBeenCalledWith('scroll-half-page-down');
+  });
+
   it('keeps Cmd+F for in-note search and releases Cmd+Shift+F', () => {
     const handlers = createHandlers();
 

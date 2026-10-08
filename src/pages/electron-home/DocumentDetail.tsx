@@ -1,3 +1,4 @@
+import { ActionMenuShortcut } from './ActionShortcutContext';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { toast } from '@/components/ui/toast';
@@ -667,6 +668,7 @@ function DocumentActionsMenu({
             <DropdownMenuItem onSelect={() => actions.onOpenEditor(documentState.document)}>
               <Edit3 aria-hidden="true" className="h-4 w-4" />
               Open in HackMD
+              <ActionMenuShortcut actionId="open-note-web-editor" />
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={(event) => {
               event.preventDefault();
@@ -688,10 +690,12 @@ function DocumentActionsMenu({
             ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
             : <ImagePlus aria-hidden="true" className="h-4 w-4" />}
           Attach Image…
+          <ActionMenuShortcut actionId="attach-image" />
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => actions.onExportMarkdown(documentState.document, documentState.title, documentState.content)}>
           <Download aria-hidden="true" className="h-4 w-4" />
           Export Markdown
+          <ActionMenuShortcut actionId="export-note-markdown" />
         </DropdownMenuItem>
         {isLocalDocument ? null : (
           <>
@@ -712,6 +716,7 @@ function DocumentActionsMenu({
             ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
             : <Trash2 aria-hidden="true" className="h-4 w-4" />}
           {isLocalDocument ? 'Move to Trash' : 'Delete'}
+          <ActionMenuShortcut actionId="delete-note" />
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

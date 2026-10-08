@@ -46,6 +46,10 @@ export type EditorSettings = {
 
 export type ShortcutSettings = Partial<Record<ElectronActionId, string>>;
 
+export type KeyboardNavigationSettings = {
+  characterShortcutsEnabled: boolean;
+};
+
 export type WorkspaceNavigationSettings = {
   pinnedTeamIds: string[] | null;
 };
@@ -138,6 +142,9 @@ export const settingsSchema = z.object({
     mode: z.enum(['standard', 'emacs', 'vim', 'helix', 'kakoune']).default(defaultEditorSettings.mode),
   }).default(defaultEditorSettings),
   shortcuts: shortcutSettingsSchema,
+  keyboardNavigation: z.object({
+    characterShortcutsEnabled: z.boolean().default(true),
+  }).default({ characterShortcutsEnabled: true }),
   workspaceNavigation: z.object({
     pinnedTeamIds: pinnedTeamIdsSchema.default(null),
   }).default(defaultWorkspaceNavigationSettings),
@@ -153,6 +160,7 @@ export const defaultSettings: AppSettings = {
   localVault: defaultLocalVaultSettings,
   editor: defaultEditorSettings,
   shortcuts: defaultShortcutSettings,
+  keyboardNavigation: { characterShortcutsEnabled: true },
   workspaceNavigation: defaultWorkspaceNavigationSettings,
 };
 
@@ -180,6 +188,7 @@ const storedSettingsSchema = z.object({
   localVault: settingsSchema.shape.localVault.catch(defaultSettings.localVault),
   editor: settingsSchema.shape.editor.catch(defaultSettings.editor),
   shortcuts: storedShortcutSettingsSchema.default(defaultSettings.shortcuts),
+  keyboardNavigation: settingsSchema.shape.keyboardNavigation.catch(defaultSettings.keyboardNavigation),
   workspaceNavigation: settingsSchema.shape.workspaceNavigation.catch(defaultSettings.workspaceNavigation),
 });
 

@@ -159,7 +159,7 @@ export function matchShortcutConfig(config: string | undefined, event: KeyboardE
     && shortcut.alt === event.altKey
     && shortcut.ctrl === event.ctrlKey
     && shortcut.meta === event.metaKey
-    && shortcut.shift === event.shiftKey
+    && ((!shortcut.alt && !shortcut.ctrl && !shortcut.meta && !shortcut.shift && shortcut.key.length === 1) || shortcut.shift === event.shiftKey)
   ));
 }
 
@@ -201,7 +201,7 @@ export function displayShortcut(shortcut: ParsedShortcut, platform: ShortcutPlat
   }
 
   parts.push(DISPLAY_KEY_NAMES[shortcut.key] ?? (
-    shortcut.key.length === 1 ? shortcut.key.toUpperCase() : shortcut.key
+    /^f\d+$/.test(shortcut.key) ? shortcut.key.toUpperCase() : shortcut.key.length === 1 ? shortcut.key.toUpperCase() : shortcut.key
   ));
 
   return isMac ? parts.join('') : parts.join('+');
@@ -300,7 +300,10 @@ export function isValidCustomShortcutConfig(config: string) {
 }
 
 export function isReservedShortcutConfig(config: string) {
-  return RESERVED_SHORTCUTS.has(config.trim().toLowerCase());
+  return RESERVED_SHORTCUTS.has(config.trim().toLowerCase()) || ['darwin', 'win32'].some(platform =>
+    parseShortcutConfig(config, platform).some(shortcut => /^[1-9]$/.test(shortcut.key)
+      && (isMacPlatform(platform) ? shortcut.meta && !shortcut.ctrl : shortcut.ctrl && !shortcut.meta)
+      && !shortcut.alt && !shortcut.shift));
 }
 
 export function getShortcutConflicts(

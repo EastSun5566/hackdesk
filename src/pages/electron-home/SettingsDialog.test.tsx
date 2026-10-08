@@ -693,6 +693,20 @@ describe('SettingsDialog', () => {
     expect(onForgetLocalVault).toHaveBeenCalledOnce();
   });
 
+  it('saves character navigation independently and cancels unsaved changes', async () => {
+    const { onSave, rerenderSettingsDialog } = renderSettingsDialog({ initialTab: 'shortcuts' });
+    const toggle = screen.getByRole('checkbox', { name: 'Enable ? and / outside text editing' });
+    expect(toggle).toBeChecked();
+    fireEvent.click(toggle);
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk', shortcuts: {}, keyboardNavigation: { characterShortcutsEnabled: false } });
+    fireEvent.click(screen.getByRole('button', { name: 'Close', exact: true }));
+    await act(async () => { rerenderSettingsDialog({ open: false }); });
+    await act(async () => { rerenderSettingsDialog({ open: true }); });
+    expect(screen.getByRole('checkbox', { name: 'Enable ? and / outside text editing' })).toBeChecked();
+  });
+
   it('captures and saves shortcut overrides from the Shortcuts tab', async () => {
     const { onSave } = renderSettingsDialog();
 
@@ -712,6 +726,7 @@ describe('SettingsDialog', () => {
 
     expect(onSave).toHaveBeenCalledWith({
       title: 'HackDesk',
+      keyboardNavigation: { characterShortcutsEnabled: true },
       shortcuts: {
         'open-command-palette': 'mod+j',
       },

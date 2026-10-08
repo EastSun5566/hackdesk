@@ -1,3 +1,8 @@
+import { getElectronAction } from '@/lib/electron-actions';
+import { ActionShortcutContext } from './electron-home/ActionShortcutContext';
+import { KeyboardShortcutsDialog } from './electron-home/KeyboardShortcutsDialog';
+import type { SettingsTab } from './electron-home/SettingsDialogConfig';
+import type { ElectronFocusZone } from './electron-home/useElectronFocusZones';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -94,9 +99,19 @@ export function Home() {
     setDeleteTarget,
     setPalette,
     setRenameFolderDialog,
-    setSettingsOpen,
+    setSettingsOpen: setSettingsOpenState,
     setShareOpen,
   } = dialogState;
+  const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('general');
+  const setSettingsOpen = useCallback((open: boolean) => {
+    if (open) setSettingsInitialTab('general');
+    setSettingsOpenState(open);
+  }, [setSettingsOpenState]);
+  const [shortcutHelp, setShortcutHelp] = useState<{ region: ElectronFocusZone; target: HTMLElement | null } | null>(null);
+  const closeTransientLayerWithHelp = useCallback(() => {
+    if (shortcutHelp) { setShortcutHelp(null); return true; }
+    return closeTransientLayer();
+  }, [shortcutHelp, closeTransientLayer]);
   const workspaceState = useWorkbenchWorkspaceState({
     initialWorkspaceScope,
     localVaultId: vaultSession.vaultId,
@@ -172,7 +187,10 @@ export function Home() {
   const handleOnboardingConnected = useCallback(() => {
     setWorkspaceScope(DEFAULT_WORKSPACE_SCOPE);
   }, [setWorkspaceScope]);
-  const { focusZone } = useElectronFocusZones();
+  const { focusZone, focusNextZone, focusedZone, getLastFocusedTarget } = useElectronFocusZones();
+  const openKeyboardShortcuts = useCallback(() => {
+    setShortcutHelp({ region: focusedZone, target: getLastFocusedTarget() });
+  }, [focusedZone, getLastFocusedTarget]);
   const activeDocumentNotes = useMemo(() => (
     noteWorkspace.visibleActiveTabs
       .map(getSavedTabNoteIdentity)
@@ -538,6 +556,8 @@ export function Home() {
   });
 
   const actionHandlers = useWorkbenchActionHandlers({
+    openKeyboardShortcuts,
+    focusNextRegion: focusNextZone,
     activePaneId: noteWorkspace.state.activePaneId,
     activeTab,
     bumpAttachImageRequest,
@@ -621,10 +641,23 @@ export function Home() {
     workspaceState: noteWorkspace.state,
   });
 
+  const runPaletteAction = useCallback((id: Parameters<typeof runAction>[0]) => {
+    const context = getElectronAction(id).keyboardContext;
+    if (context === 'region' || context === 'scroll') {
+      const target = getLastFocusedTarget();
+      window.requestAnimationFrame(() => {
+        if (target?.isConnected) target.focus();
+        runAction(id);
+      });
+      return true;
+    }
+    return runAction(id);
+  }, [runAction, getLastFocusedTarget]);
+
   useWorkbenchClosePolicy({
     api,
     backupFailed: noteWorkspace.backupFailed,
-    closeTransientLayer,
+    closeTransientLayer: closeTransientLayerWithHelp,
     confirmCloseUnsafeTabs,
     openTabs: noteWorkspace.state.tabs,
   });
@@ -694,7 +727,8 @@ export function Home() {
 
   useWorkbenchShortcuts({
     activeFinderState,
-    closeTransientLayer,
+    closeTransientLayer: closeTransientLayerWithHelp,
+    characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true,
     handleCreateNote: folderCommands.handleCreateNote,
     noteDirty,
     openPalette,
@@ -858,13 +892,15 @@ export function Home() {
     mutations,
     onHackmdDisconnected: handleHackmdDisconnected,
     onboardingOpen,
-    runAction,
+    runAction: runPaletteAction,
     selectedFolderLabel,
     onOnboardingConnected: handleOnboardingConnected,
     setOnboardingOpen,
     settings,
     user,
   });
+
+  const shortcutContext = useMemo(() => ({ shortcuts: settings?.shortcuts, platform: api?.platform ?? navigator.platform, characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true }), [settings?.shortcuts, settings?.keyboardNavigation?.characterShortcutsEnabled, api?.platform]);
 
   if (!api) {
     return (
@@ -875,10 +911,19 @@ export function Home() {
   }
 
   return (
-    <div className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
-      <ElectronHomeWorkspace {...workspaceProps} backupNotice={backupNotice} />
+    <ActionShortcutContext.Provider value={shortcutContext}>
+      <div className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
+        <ElectronHomeWorkspace {...workspaceProps} backupNotice={backupNotice} />
 
-      <ElectronHomeOverlays {...overlayProps} />
-    </div>
+        <ElectronHomeOverlays {...overlayProps} dialogs={{ ...overlayProps.dialogs, settingsInitialTab, onSettingsOpenChange: setSettingsOpen }} />
+        {shortcutHelp ? <KeyboardShortcutsDialog
+          open region={shortcutHelp.region} returnFocus={shortcutHelp.target}
+          shortcuts={settings?.shortcuts} platform={api.platform}
+          characterShortcutsEnabled={settings?.keyboardNavigation?.characterShortcutsEnabled ?? true}
+          onOpenChange={open => { if (!open) { setShortcutHelp(null); focusZone(shortcutHelp.region); } }}
+          onCustomize={() => { setShortcutHelp(null); setSettingsInitialTab('shortcuts'); setSettingsOpenState(true); }}
+        /> : null}
+      </div>
+    </ActionShortcutContext.Provider>
   );
 }

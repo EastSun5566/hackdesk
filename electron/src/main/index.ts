@@ -1,3 +1,4 @@
+import type { ElectronSafeSettings } from '../../../src/lib/electron-api';
 import { app } from 'electron';
 
 import { createApplicationMenu } from './app-menu';
@@ -44,20 +45,21 @@ if (!gotLock) {
 app.whenReady().then(async () => {
   app.dock?.setIcon(createAppIcon());
   registerRendererProtocol();
-  const createMenu = (shortcuts = {}) => createApplicationMenu(
+  const createMenu = (settings: Pick<ElectronSafeSettings, 'shortcuts' | 'keyboardNavigation'>) => createApplicationMenu(
     (command) => windowManager.sendCommandToMainWindow(command),
-    shortcuts,
+    settings.shortcuts ?? {},
     () => windowManager.closeMainWindow(),
+    settings.keyboardNavigation?.characterShortcutsEnabled ?? true,
   );
   disposeIpcHandlers = registerIpcHandlers(windowManager, {
-    onSettingsUpdated: (settings) => createMenu(settings.shortcuts),
+    onSettingsUpdated: (settings) => createMenu(settings),
   }).dispose;
   if (!await ensureReadableSettings()) {
     writeLog('main', 'quit from settings recovery; settings file left unchanged');
     app.quit();
     return;
   }
-  createMenu((await readStoredSettings()).shortcuts);
+  createMenu(await readStoredSettings());
   windowManager.createMainWindow();
   startupComplete = true;
   if (app.commandLine.hasSwitch('quick-capture')) {
