@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from 'react';
+import { ActionShortcutContext } from './ActionShortcutContext';
+import { matchesCharacterShortcut } from './workbench-keyboard-context';
+import { useContext, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from 'react';
 
 import type { NoteSummary } from '@/lib/electron-api';
 import type { FolderTree } from '@/lib/hackmd-folders';
@@ -142,11 +144,15 @@ export function useFolderTreeKeyboardNavigation({
     focusTreeItem(match.id);
   }, [focusItems, focusTreeItem, resetTypeaheadTimer]);
 
+  const shortcutContext = useContext(ActionShortcutContext);
   const handleTreeKeyDown = useCallback((event: KeyboardEvent | ReactKeyboardEvent<HTMLElement>) => {
     const isComposing = 'nativeEvent' in event ? event.nativeEvent.isComposing : event.isComposing;
     if (event.defaultPrevented || isComposing || shouldIgnoreFolderTreeKeydown(event.target) || focusItems.length === 0) {
       return;
     }
+
+    const nativeEvent = 'nativeEvent' in event ? event.nativeEvent : event;
+    if (matchesCharacterShortcut(nativeEvent, shortcutContext.shortcuts, shortcutContext.platform, shortcutContext.characterShortcutsEnabled)) return;
 
     const isPlainKey = !event.metaKey && !event.altKey && !event.shiftKey;
     const isPrimaryModifier = event.metaKey || event.ctrlKey;
@@ -285,6 +291,7 @@ export function useFolderTreeKeyboardNavigation({
       }
     }
   }, [
+    shortcutContext,
     actions,
     collapsedFolderIds,
     focusItemAtIndex,

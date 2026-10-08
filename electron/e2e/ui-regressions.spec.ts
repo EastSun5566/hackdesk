@@ -659,12 +659,122 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
       await expect(page.getByRole('tab').first()).toBeFocused();
       await page.keyboard.press('Shift+F6');
       await expect(search).toBeFocused();
+      await editors.last().focus();
+      await page.keyboard.press('Control+d');
+      await expect(search).not.toBeFocused();
+      await page.keyboard.press('?');
+      await expect(page.getByRole('dialog', { name: 'Keyboard Shortcuts', exact: true })).toHaveCount(0);
+      await page.keyboard.press('Escape');
       await page.getByRole('button', { name: 'Collapse workspace sidebar', exact: true }).click();
       await page.getByRole('toolbar', { name: 'Application controls', exact: true }).getByRole('button', { name: 'Collapse note navigator', exact: true }).click();
       await editors.last().focus();
       await page.keyboard.press('F6');
       await expect(page.getByRole('tab').first()).toBeFocused();
       await page.screenshot({ path: test.info().outputPath(`13-f6-${mode}.png`), animations: 'disabled' });
-    } finally { await stopApp(app, true); }
+    } finally {
+      // Typing ? intentionally dirties Standard mode. Approve only fixture
+      // cleanup after the behavior checks; quit confirmation is tested separately.
+      await app.evaluate(({ ipcMain }, channel) => {
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, () => ({ confirmed: true }));
+      }, ELECTRON_CHANNELS.appConfirm);
+      await stopApp(app, true);
+    }
   });
 }
+
+test('shortcut help and hints reflect saved settings without stealing editing keys', async () => {
+  const { app, page } = await launchFixture('standard', true, true);
+  try {
+    await page.setViewportSize({ width: 1280, height: 760 });
+    await openFixtureNote(page);
+    const tree = page.getByRole('tree', { name: 'Folders and notes' });
+    const note = tree.getByRole('treeitem', { name: 'UI fixture', exact: true });
+    await note.focus();
+    await page.keyboard.press('?');
+    const help = page.getByRole('dialog', { name: 'Keyboard Shortcuts', exact: true });
+    await expect(help).toBeVisible();
+    await expect(help.getByPlaceholder('Search keyboard shortcuts')).toBeFocused();
+    await expect(help.getByRole('button', { name: 'Current Region: Navigator' })).toHaveAttribute('aria-pressed', 'true');
+    await help.getByRole('button', { name: 'All Actions' }).click();
+    await help.getByPlaceholder('Search keyboard shortcuts').fill('half page');
+    await expect(help.getByText('Scroll Half Page Down', { exact: true })).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('14-shortcut-help-dark.png'), animations: 'disabled' });
+    for (const preset of HACKDESK_THEME_PRESETS) {
+      for (const mode of ['light', 'dark'] as const) {
+        await page.evaluate(theme => { for (const [name, value] of Object.entries(theme)) document.documentElement.style.setProperty(name, value); }, resolveHackDeskTheme({ presetId: preset.id, mode }));
+        await expect(help.getByText('Scroll Half Page Down', { exact: true })).toBeVisible();
+      }
+    }
+    await page.evaluate(theme => { for (const [name, value] of Object.entries(theme)) document.documentElement.style.setProperty(name, value); }, resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'light' }));
+    await page.screenshot({ path: test.info().outputPath('16-shortcut-help-light.png'), animations: 'disabled' });
+    await page.evaluate(theme => { for (const [name, value] of Object.entries(theme)) document.documentElement.style.setProperty(name, value); }, resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'dark' }));
+    await page.keyboard.press('Escape');
+    await expect(help).toHaveCount(0);
+    await expect(note).toBeFocused();
+    await page.keyboard.press('/');
+    const search = page.getByPlaceholder('Search notes', { exact: true });
+    await expect(search).toBeFocused();
+    await expect(page.locator('[data-search-shortcut]')).toHaveText('/');
+    await page.keyboard.type('?/');
+    await expect(search).toHaveValue('?/');
+    await expect(help).toHaveCount(0);
+    await search.fill('');
+
+    // Focused scroll region moves half a page without changing the active note.
+    await note.focus();
+    const before = await note.evaluate(element => {
+      let parent = element.parentElement;
+      while (parent && !/(auto|scroll)/.test(getComputedStyle(parent).overflowY)) parent = parent.parentElement;
+      if (!parent) throw new Error('Missing navigator scroll region');
+      Object.assign(parent.style, { maxHeight: '120px', minHeight: '120px' });
+      parent.scrollTop = 0;
+      return { top: parent.scrollTop, height: parent.clientHeight };
+    });
+    await page.keyboard.press('Control+d');
+    const after = await note.evaluate(element => {
+      let parent = element.parentElement;
+      while (parent && !/(auto|scroll)/.test(getComputedStyle(parent).overflowY)) parent = parent.parentElement;
+      return parent!.scrollTop;
+    });
+    expect(after).toBeCloseTo(before.height / 2, 0);
+    await expect(page.locator('.cm-content')).toContainText('Test note for layout checks.');
+
+    await page.keyboard.press('?');
+    await help.getByRole('button', { name: 'Customize in Settings' }).click();
+    const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
+    await expect(help).toHaveCount(0);
+    await expect(settings).toBeVisible();
+    await expect(settings.getByRole('tab', { name: 'Shortcuts', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await settings.getByRole('checkbox', { name: 'Enable ? and / outside text editing' }).uncheck();
+    const filter = settings.getByPlaceholder('Search shortcuts', { exact: true });
+    await filter.fill('Focus Note Finder');
+    const binding = settings.getByRole('button', { name: 'Set shortcut for Focus Note Finder', exact: true });
+    await binding.click(); await page.keyboard.press(`${primary}+j`);
+    await settings.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(settings).toBeHidden();
+    await expect(page.locator('[data-search-shortcut]')).toHaveText(process.platform === 'darwin' ? '⌘J' : 'Ctrl+J');
+    await note.focus(); await page.keyboard.press('?');
+    await expect(help).toHaveCount(0);
+    await page.keyboard.press('/'); await expect(search).not.toBeFocused();
+    await page.keyboard.press(`${primary}+j`); await expect(search).toBeFocused();
+    await page.screenshot({ path: test.info().outputPath('15-custom-search-hint.png'), animations: 'disabled' });
+
+    // A native menu still exposes help from the editor, without registering ?.
+    await page.locator('.cm-content').focus();
+    await app.evaluate(({ Menu }) => {
+      const entry = Menu.getApplicationMenu()!.items.find(section => section.label === 'Help')!.submenu!.items.find(item => item.label.startsWith('Keyboard Shortcuts'))!;
+      expectNoAccelerator(entry.accelerator);
+      entry.click();
+      function expectNoAccelerator(accelerator: string | undefined) { if (accelerator) throw new Error('Context key registered natively'); }
+    });
+    await expect(help).toBeVisible();
+    await expect(help.getByRole('button', { name: 'Current Region: Editor' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.cm-content')).toBeFocused();
+    await page.keyboard.press(`${primary}+k`);
+    await page.getByRole('combobox', { name: 'Search notes, folders, and commands' }).fill('Next Workbench Region');
+    await page.getByRole('option', { name: /^Next Workbench Region / }).click();
+    await expect(page.getByRole('button', { name: 'Local Vault', exact: true })).toBeFocused();
+  } finally { await stopApp(app, true); }
+});

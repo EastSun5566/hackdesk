@@ -32,6 +32,7 @@ import { VaultSettingsPanel } from './VaultSettingsPanel';
 
 type SettingsDialogProps = {
   open: boolean;
+  initialTab?: SettingsTab;
   appVersion?: string;
   settings?: ElectronSafeSettings;
   platform?: string;
@@ -49,11 +50,12 @@ type SettingsDialogProps = {
 };
 
 export function SettingsDialog(props: SettingsDialogProps) {
-  return <SettingsDialogContent key={`${props.settings?.title ?? 'HackDesk'}:${props.settings?.editor?.mode ?? 'standard'}`} {...props} />;
+  return <SettingsDialogContent key={`${props.initialTab ?? 'general'}:${props.settings?.title ?? 'HackDesk'}:${props.settings?.editor?.mode ?? 'standard'}`} {...props} />;
 }
 
 function SettingsDialogContent({
   open,
+  initialTab = 'general',
   appVersion,
   settings,
   platform = navigator.platform,
@@ -71,7 +73,7 @@ function SettingsDialogContent({
 }: SettingsDialogProps) {
   const { setAppearance } = useTheme();
   const tokenValidationRequestRef = useRef(0);
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const [formState, setFormState] = useState(() => ({
     title: settings?.title ?? 'HackDesk',
     editorMode: settings?.editor?.mode ?? defaultSettings.editor.mode,
@@ -82,16 +84,18 @@ function SettingsDialogContent({
       message: '',
     } as TokenTestState,
     shortcuts: settings?.shortcuts ?? defaultSettings.shortcuts,
+    characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true,
   }));
   const appearanceController = useThemeAppearanceDraft({ showTypography: true });
-  const { editorMode, shortcuts, title, token, tokenTest, tokenVisible } = formState;
+  const { editorMode, shortcuts, characterShortcutsEnabled, title, token, tokenTest, tokenVisible } = formState;
 
   const normalizedToken = token.trim();
   const isTestingToken = tokenTest.status === 'testing';
   const shortcutStatus = getShortcutsDraftStatus(settings?.shortcuts, shortcuts);
+  const keyboardChanged = characterShortcutsEnabled !== (settings?.keyboardNavigation?.characterShortcutsEnabled ?? true);
   const canSaveSettings = Boolean(title.trim())
     && (activeTab !== 'hackmd' || Boolean(normalizedToken))
-    && (activeTab !== 'shortcuts' || (shortcutStatus.hasDraftChanges && !shortcutStatus.error));
+    && (activeTab !== 'shortcuts' || ((shortcutStatus.hasDraftChanges || keyboardChanged) && !shortcutStatus.error));
 
   const invalidateTokenValidation = () => {
     tokenValidationRequestRef.current += 1;
@@ -115,13 +119,14 @@ function SettingsDialogContent({
     }
 
     if (activeTab === 'shortcuts') {
-      if (!shortcutStatus.hasDraftChanges || shortcutStatus.error) {
+      if ((!shortcutStatus.hasDraftChanges && !keyboardChanged) || shortcutStatus.error) {
         return;
       }
 
       onSave({
         title: title.trim(),
         shortcuts,
+        keyboardNavigation: { characterShortcutsEnabled },
       });
       return;
     }
@@ -183,6 +188,7 @@ function SettingsDialogContent({
       tokenVisible: false,
       tokenTest: { status: 'idle', message: '' },
       shortcuts: defaultSettings.shortcuts,
+      characterShortcutsEnabled: true,
     });
     setAppearance(defaultSettings.appearance);
     onSave({
@@ -191,6 +197,7 @@ function SettingsDialogContent({
       appearance: defaultSettings.appearance,
       editor: defaultSettings.editor,
       shortcuts: defaultSettings.shortcuts,
+      keyboardNavigation: defaultSettings.keyboardNavigation,
     });
   };
 
@@ -201,6 +208,7 @@ function SettingsDialogContent({
       setFormState((current) => ({
         ...current,
         shortcuts: settings?.shortcuts ?? defaultSettings.shortcuts,
+        characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true,
       }));
     }
     onOpenChange(nextOpen);
@@ -267,6 +275,8 @@ function SettingsDialogContent({
                 <TabsContent value="shortcuts" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <ShortcutsSettingsPanel
                     platform={platform}
+                    characterShortcutsEnabled={characterShortcutsEnabled}
+                    onCharacterShortcutsChange={value => setFormState(current => ({ ...current, characterShortcutsEnabled: value }))}
                     shortcuts={shortcuts}
                     onShortcutsChange={(nextShortcuts) => setFormState((current) => ({
                       ...current,

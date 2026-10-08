@@ -41,6 +41,8 @@ export type WorkbenchActionHandlersOptions = {
   navigateBack: () => void;
   navigateForward: () => void;
   noteDirty: boolean;
+  openKeyboardShortcuts: () => void;
+  focusNextRegion: (backwards?: boolean) => boolean;
   openPalette: () => void;
   openQuickOpen: () => void;
   refreshWorkspace: () => void;
@@ -90,6 +92,8 @@ export function useWorkbenchActionHandlers({
   navigateBack,
   navigateForward,
   noteDirty,
+  openKeyboardShortcuts,
+  focusNextRegion,
   openPalette,
   openQuickOpen,
   refreshWorkspace,
@@ -190,6 +194,8 @@ export function useWorkbenchActionHandlers({
       navigateForward();
       focusZone('editor');
     },
+    openKeyboardShortcuts,
+    focusNextRegion,
     openPalette,
     openQuickOpen,
     openSelectedWebEditor: () => openHackmdWebEditor(api, selectedDocument, trackRecentNote),
@@ -250,6 +256,8 @@ export function useWorkbenchActionHandlers({
     navigateBack,
     navigateForward,
     noteDirty,
+    openKeyboardShortcuts,
+    focusNextRegion,
     openPalette,
     openQuickOpen,
     refreshWorkspace,

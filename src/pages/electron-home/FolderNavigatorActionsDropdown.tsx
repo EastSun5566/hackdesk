@@ -1,3 +1,4 @@
+import { ActionMenuShortcut } from './ActionShortcutContext';
 import {
   FolderPen,
   FolderPlus,
@@ -51,6 +52,7 @@ export function FolderActionsDropdown({
         }}>
           <FolderPlus aria-hidden="true" className="h-4 w-4" />
           New Folder
+          <ActionMenuShortcut actionId="new-folder" />
         </DropdownMenuItem>
         <DropdownMenuItem disabled={!canCreate} onSelect={(event) => {
           event.preventDefault();
@@ -58,6 +60,7 @@ export function FolderActionsDropdown({
         }}>
           <Upload aria-hidden="true" className="h-4 w-4" />
           Import Markdown Note
+          <ActionMenuShortcut actionId="import-markdown-note" />
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled={!selectedFolder} onSelect={(event) => {
@@ -68,6 +71,7 @@ export function FolderActionsDropdown({
         }}>
           <FolderPen aria-hidden="true" className="h-4 w-4" />
           Edit Selected Folder
+          <ActionMenuShortcut actionId="rename-folder" />
         </DropdownMenuItem>
         <DropdownMenuItem destructive disabled={!selectedFolder} onSelect={(event) => {
           event.preventDefault();
@@ -85,6 +89,7 @@ export function FolderActionsDropdown({
         }}>
           <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
           Open Command Palette
+          <ActionMenuShortcut actionId="open-command-palette" />
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

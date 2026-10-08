@@ -1,9 +1,9 @@
 import { app, Menu } from 'electron';
 
-import { DEFAULT_ACTION_KEYBINDINGS, getElectronAction } from '../../../src/lib/electron-actions';
+import { getElectronAction, resolveWorkbenchShortcut } from '../../../src/lib/electron-actions';
 import type { ElectronActionId, HackDeskCommandPaletteCommand } from '../../../src/lib/electron-api';
 import { ELECTRON_MENU_SCHEMA, type ElectronMenuSchemaItem } from '../../../src/lib/electron-menu-schema';
-import { resolveActionShortcut, toMenuAccelerator, type ShortcutOverrides } from '../../../src/lib/keyboard-shortcuts';
+import { displayShortcutConfig, toMenuAccelerator, type ShortcutOverrides } from '../../../src/lib/keyboard-shortcuts';
 import { openExternalUrl } from './url-policy';
 
 type SendCommand = (command: HackDeskCommandPaletteCommand) => void;
@@ -12,15 +12,16 @@ function actionMenuItem(
   actionId: ElectronActionId,
   sendCommand: SendCommand,
   shortcuts: ShortcutOverrides,
+  characterShortcutsEnabled: boolean,
 ) {
   const action = getElectronAction(actionId);
-  const keybinding = resolveActionShortcut(actionId, DEFAULT_ACTION_KEYBINDINGS, shortcuts);
+  const keybinding = resolveWorkbenchShortcut(actionId, shortcuts, characterShortcutsEnabled);
 
   return {
-    label: action.label,
-    accelerator: keybinding === 'none'
+    label: action.keyboardContext && keybinding !== 'none' ? `${action.label}    ${displayShortcutConfig(keybinding, process.platform)}`.trimEnd() : action.label,
+    accelerator: action.keyboardContext || keybinding === 'none'
       ? undefined
-      : toMenuAccelerator(keybinding, process.platform) ?? action.menuAccelerator,
+      : toMenuAccelerator(keybinding, process.platform),
     click: () => sendCommand({ type: action.id }),
   };
 }
@@ -49,11 +50,12 @@ function schemaItemToMenuItem(
   isMac: boolean,
   sendCommand: SendCommand,
   shortcuts: ShortcutOverrides,
+  characterShortcutsEnabled: boolean,
   closeMainWindow: () => void,
 ): Electron.MenuItemConstructorOptions {
   switch (item.type) {
   case 'action':
-    return actionMenuItem(item.actionId, sendCommand, shortcuts);
+    return actionMenuItem(item.actionId, sendCommand, shortcuts, characterShortcutsEnabled);
   case 'role':
     return roleMenuItem(item.role, isMac, closeMainWindow);
   case 'link':
@@ -67,6 +69,7 @@ export function createApplicationMenu(
   sendCommand: SendCommand,
   shortcuts: ShortcutOverrides,
   closeMainWindow: () => void,
+  characterShortcutsEnabled = true,
 ) {
   const isMac = process.platform === 'darwin';
   const template: Electron.MenuItemConstructorOptions[] = [];
@@ -78,7 +81,7 @@ export function createApplicationMenu(
 
     template.push({
       label: section.id === 'app' ? app.getName() : section.label,
-      submenu: section.items.map((item) => schemaItemToMenuItem(item, isMac, sendCommand, shortcuts, closeMainWindow)),
+      submenu: section.items.map((item) => schemaItemToMenuItem(item, isMac, sendCommand, shortcuts, characterShortcutsEnabled, closeMainWindow)),
     });
   }
 

@@ -75,6 +75,13 @@ describe('Electron settings', () => {
     await rm(electronMock.homePath, { force: true, recursive: true });
   });
 
+  it('persists character navigation through the existing settings update', async () => {
+    const saved = await updateStoredSettings({ keyboardNavigation: { characterShortcutsEnabled: false } });
+    expect(saved.keyboardNavigation).toEqual({ characterShortcutsEnabled: false });
+    expect((await getSafeSettings()).keyboardNavigation).toEqual({ characterShortcutsEnabled: false });
+    expect(JSON.parse(await readFile(getSettingsPath(), 'utf8')).keyboardNavigation).toEqual({ characterShortcutsEnabled: false });
+  });
+
   it('defaults onboarding state for old settings files without exposing the token', async () => {
     await mkdir(join(electronMock.homePath, '.hackdesk'), { recursive: true });
     await writeFile(getSettingsPath(), JSON.stringify({

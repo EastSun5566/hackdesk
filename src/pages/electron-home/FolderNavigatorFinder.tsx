@@ -1,3 +1,4 @@
+import { useActionShortcut } from './ActionShortcutContext';
 import {
   ArrowDownUp,
   Check,
@@ -128,6 +129,7 @@ export function NoteFinderToolbar({
 
     onEscapeToTree();
   };
+  const searchShortcut = useActionShortcut('search-notes');
   const scopeLabel = state.searchScope === 'workspace' ? 'Workspace' : 'Current Folder';
 
   return (
@@ -145,6 +147,7 @@ export function NoteFinderToolbar({
             enterKeyHint="search"
             className="min-w-0 flex-1 bg-transparent text-sm outline-none"
           />
+          {searchShortcut ? <kbd aria-hidden="true" data-search-shortcut className="shrink-0 rounded border border-border-default px-1 text-xs text-text-subtle">{searchShortcut}</kbd> : null}
           {state.query ? (
             <button
               type="button"

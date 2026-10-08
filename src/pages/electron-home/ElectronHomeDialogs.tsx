@@ -1,3 +1,4 @@
+import type { SettingsTab } from './SettingsDialogConfig';
 import { toast } from '@/components/ui/toast';
 
 import type {
@@ -40,6 +41,7 @@ export type ElectronHomeDialogsProps = {
   localVaultError?: string | null;
   localVaultSnapshot?: LocalVaultSnapshot | null;
   settingsOpen: boolean;
+  settingsInitialTab?: SettingsTab;
   status: {
     creatingFolder: boolean;
     creatingNote: boolean;
@@ -86,6 +88,7 @@ export function ElectronHomeDialogs({
   localVaultError,
   localVaultSnapshot,
   settingsOpen,
+  settingsInitialTab,
   status,
   onCreateFolder,
   onCreateFolderStateChange,
@@ -122,6 +125,7 @@ export function ElectronHomeDialogs({
     <>
       <SettingsDialog
         open={settingsOpen}
+        initialTab={settingsInitialTab}
         settings={settings}
         platform={api?.platform ?? navigator.platform}
         localVaultError={localVaultError}

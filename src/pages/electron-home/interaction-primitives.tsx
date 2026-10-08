@@ -4,12 +4,13 @@ import type {
   Ref,
   ReactNode,
 } from 'react';
-import { forwardRef } from 'react';
+import { forwardRef, useContext } from 'react';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Toolbar, ToolbarButton } from '@/components/ui/toolbar';
 import { cn } from '@/lib/utils';
-import { getActionShortcut } from '@/lib/electron-actions';
+import { ActionShortcutContext } from './ActionShortcutContext';
+import { getResolvedActionShortcut } from '@/lib/electron-actions';
 import type { ElectronActionId } from '@/lib/electron-api';
 import {
   COLLAPSE_ICON_CLASS,
@@ -373,7 +374,8 @@ export function ToolbarIconButton({
   shortcut?: string;
   tooltip?: ReactNode;
 }) {
-  const displayShortcut = shortcut ?? (actionId ? getActionShortcut(actionId) : undefined);
+  const context = useContext(ActionShortcutContext);
+  const displayShortcut = shortcut ?? (actionId ? getResolvedActionShortcut(actionId, context.shortcuts, context.platform, context.characterShortcutsEnabled) : undefined);
   const tooltipContent = displayShortcut ? (
     <span className="flex items-center gap-3">
       <span>{tooltip}</span>

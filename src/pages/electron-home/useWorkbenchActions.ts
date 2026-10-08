@@ -14,6 +14,8 @@ import {
 import { toOpenHackmdEditorInput } from '@/lib/electron-note-links';
 import type { EditorMode } from '@/lib/settings';
 
+import { scrollFocusedRegion } from './workbench-keyboard-context';
+
 import { isDraftNoteTab, type NoteWorkspaceState } from './note-workspace';
 import type { WorkspaceScope } from './types';
 
@@ -34,6 +36,8 @@ export type WorkbenchActionContextInput = {
 };
 
 export type WorkbenchActionHandlers = {
+  openKeyboardShortcuts: () => void;
+  focusNextRegion: (backwards?: boolean) => boolean;
   closeActiveTab: () => void;
   closeOtherTabs: () => void;
   closeTabsToRight: () => void;
@@ -177,10 +181,21 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     const disabledReason = getActionDisabledReason(action, actionContext);
     if (disabledReason) {
       toast.info(disabledReason);
-      return;
+      return false;
     }
 
     switch (actionId) {
+    case 'show-keyboard-shortcuts':
+      handlers.openKeyboardShortcuts();
+      break;
+    case 'focus-next-region':
+      return handlers.focusNextRegion();
+    case 'focus-previous-region':
+      return handlers.focusNextRegion(true);
+    case 'scroll-half-page-up':
+      return scrollFocusedRegion(-1);
+    case 'scroll-half-page-down':
+      return scrollFocusedRegion(1);
     case 'open-command-palette':
       handlers.openPalette();
       break;
@@ -319,6 +334,7 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       handlers.focusInspector();
       break;
     }
+    return true;
   }, [actionContext, handlers, hasActiveTab]);
 
   return {

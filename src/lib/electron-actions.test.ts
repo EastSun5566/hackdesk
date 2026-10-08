@@ -3,14 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
   ELECTRON_ACTIONS,
   getActionDisabledReason,
-  getActionShortcut,
-  getActionShortcutKeys,
   getCommandPaletteActions,
   getElectronActionLabel,
   getElectronAction,
   getResolvedActionShortcut,
   isElectronActionEnabled,
-  splitShortcutKeys,
   type ElectronActionContext,
 } from './electron-actions';
 import { ELECTRON_MENU_SCHEMA } from './electron-menu-schema';
@@ -39,6 +36,10 @@ const baseContext: ElectronActionContext = {
 };
 
 describe('electron action registry', () => {
+  it('keeps Local Vault Finder available without a HackMD token', () => {
+    expect(getActionDisabledReason(getElectronAction('search-notes'), { ...baseContext, hasToken: false, scopeType: 'local' })).toBeNull();
+  });
+
   it('keeps action IDs unique and exposes menu shortcuts', () => {
     const ids = ELECTRON_ACTIONS.map((action) => action.id);
 
@@ -105,7 +106,7 @@ describe('electron action registry', () => {
       menuAccelerator: 'CmdOrCtrl+F',
     });
     expect(getElectronAction('search-notes')).toMatchObject({
-      label: 'Focus Note Filter',
+      label: 'Focus Note Finder',
       shortcut: '/',
     });
     expect(getElectronAction('search-notes').menuAccelerator).toBeUndefined();
@@ -176,12 +177,6 @@ describe('electron action registry', () => {
 
   it('exposes action labels and display shortcut helpers from the registry', () => {
     expect(getElectronActionLabel('toggle-navigator')).toBe('Toggle Note Navigator');
-    expect(getActionShortcut('toggle-navigator')).toBe('⌥⌘B');
-    expect(getActionShortcutKeys('toggle-navigator')).toEqual(['⌥', '⌘', 'B']);
-    expect(splitShortcutKeys('⌘P')).toEqual(['⌘', 'P']);
-    expect(splitShortcutKeys('⌘\\')).toEqual(['⌘', '\\']);
-    expect(getActionShortcutKeys('navigate-back')).toEqual(['⌘', '[']);
-    expect(getActionShortcutKeys('navigate-forward')).toEqual(['⌘', ']']);
     expect(getResolvedActionShortcut('open-command-palette', undefined, 'darwin')).toBe('⌘K, ⇧⌘P');
     expect(getResolvedActionShortcut('open-command-palette', { 'open-command-palette': 'mod+j' }, 'darwin')).toBe('⌘J');
     expect(getResolvedActionShortcut('open-command-palette', { 'open-command-palette': 'none' }, 'darwin')).toBeUndefined();

@@ -41,6 +41,7 @@ export type ElectronActionDefinition = {
   keywords: string[];
   category: ElectronActionCategory;
   scope?: ElectronActionScope;
+  keyboardContext?: 'character' | 'region' | 'scroll';
   defaultKeybinding?: string;
   shortcut?: string;
   menuAccelerator?: string;
@@ -130,6 +131,57 @@ function requireOtherPane(context: ElectronActionContext) {
 }
 
 export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
+  {
+    id: 'show-keyboard-shortcuts',
+    label: 'Keyboard Shortcuts',
+    description: 'Search keyboard shortcuts for the current region or all actions.',
+    keywords: ['keyboard', 'navigation'],
+    category: 'app',
+    scope: 'global',
+    defaultKeybinding: '?',
+    keyboardContext: 'character',
+  },
+  {
+    id: 'focus-next-region',
+    label: 'Next Workbench Region',
+    description: 'Focus the next visible Workbench region.',
+    keywords: ['keyboard', 'navigation'],
+    category: 'navigation',
+    scope: 'global',
+    defaultKeybinding: 'f6',
+    keyboardContext: 'region',
+  },
+  {
+    id: 'focus-previous-region',
+    label: 'Previous Workbench Region',
+    description: 'Focus the previous visible Workbench region.',
+    keywords: ['keyboard', 'navigation'],
+    category: 'navigation',
+    scope: 'global',
+    defaultKeybinding: 'shift+f6',
+    keyboardContext: 'region',
+  },
+  {
+    id: 'scroll-half-page-up',
+    label: 'Scroll Half Page Up',
+    description: 'Scroll the focused UI region up; text editors keep their own keys.',
+    keywords: ['keyboard', 'navigation'],
+    category: 'navigation',
+    scope: 'global',
+    defaultKeybinding: 'ctrl+u',
+    keyboardContext: 'scroll',
+  },
+  {
+    id: 'scroll-half-page-down',
+    label: 'Scroll Half Page Down',
+    description: 'Scroll the focused UI region down; text editors keep their own keys.',
+    keywords: ['keyboard', 'navigation'],
+    category: 'navigation',
+    scope: 'global',
+    defaultKeybinding: 'ctrl+d',
+    keyboardContext: 'scroll',
+  },
+
   {
     id: 'new-tab',
     label: 'New Tab',
@@ -336,7 +388,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['tab', 'next'],
     category: 'navigation',
     scope: 'editor',
-    defaultKeybinding: 'mod+alt+arrowright',
+    defaultKeybinding: 'mod+alt+arrowright,ctrl+tab',
     shortcut: '⌥⌘→',
     menuAccelerator: 'CmdOrCtrl+Alt+Right',
     getDisabledReason: requireOtherTabs,
@@ -348,7 +400,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['tab', 'previous'],
     category: 'navigation',
     scope: 'editor',
-    defaultKeybinding: 'mod+alt+arrowleft',
+    defaultKeybinding: 'mod+alt+arrowleft,ctrl+shift+tab',
     shortcut: '⌥⌘←',
     menuAccelerator: 'CmdOrCtrl+Alt+Left',
     getDisabledReason: requireOtherTabs,
@@ -502,13 +554,14 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
   },
   {
     id: 'search-notes',
-    label: 'Focus Note Filter',
+    label: 'Focus Note Finder',
     description: 'Focus workspace note search.',
     keywords: ['search', 'filter', 'find', 'workspace', 'notes'],
     category: 'navigation',
     scope: 'navigator',
+    defaultKeybinding: '/',
     shortcut: '/',
-    getDisabledReason: requireHackmd,
+    keyboardContext: 'character',
   },
   {
     id: 'navigate-back',
@@ -614,10 +667,6 @@ export function getElectronActionLabel(actionId: ElectronActionId) {
   return getElectronAction(actionId).label;
 }
 
-export function getActionShortcut(actionId: ElectronActionId) {
-  return getElectronAction(actionId).shortcut;
-}
-
 export const DEFAULT_ACTION_KEYBINDINGS = ELECTRON_ACTIONS.reduce((acc, action) => {
   if (action.defaultKeybinding) {
     acc[action.id] = action.defaultKeybinding;
@@ -625,12 +674,18 @@ export const DEFAULT_ACTION_KEYBINDINGS = ELECTRON_ACTIONS.reduce((acc, action) 
   return acc;
 }, {} as Partial<Record<ElectronActionId, string>>);
 
+export function resolveWorkbenchShortcut(actionId: ElectronActionId, shortcuts: ShortcutOverrides | undefined, characterShortcutsEnabled = true) {
+  if (!characterShortcutsEnabled && getElectronAction(actionId).keyboardContext === 'character' && shortcuts?.[actionId] === undefined) return 'none';
+  return resolveActionShortcut(actionId, DEFAULT_ACTION_KEYBINDINGS, shortcuts);
+}
+
 export function getResolvedActionShortcut(
   actionId: ElectronActionId,
   shortcuts: ShortcutOverrides | undefined,
   platform: string,
+  characterShortcutsEnabled = true,
 ) {
-  const resolved = resolveActionShortcut(actionId, DEFAULT_ACTION_KEYBINDINGS, shortcuts);
+  const resolved = resolveWorkbenchShortcut(actionId, shortcuts, characterShortcutsEnabled);
   if (resolved === 'none') {
     return undefined;
   }
@@ -638,32 +693,7 @@ export function getResolvedActionShortcut(
   return displayShortcutConfig(
     resolved,
     platform,
-  ) || getElectronAction(actionId).shortcut;
-}
-
-export function splitShortcutKeys(shortcut: string) {
-  const keys: string[] = [];
-  let remaining = shortcut;
-
-  while (remaining) {
-    const modifier = ['⇧', '⌃', '⌥', '⌘'].find((candidate) => remaining.startsWith(candidate));
-    if (modifier) {
-      keys.push(modifier);
-      remaining = remaining.slice(modifier.length);
-      continue;
-    }
-
-    keys.push(remaining);
-    break;
-  }
-
-  return keys;
-}
-
-export function getActionShortcutKeys(actionId: ElectronActionId) {
-  const shortcut = getActionShortcut(actionId);
-
-  return shortcut ? splitShortcutKeys(shortcut) : [];
+  ) || undefined;
 }
 
 export function getCommandPaletteActions() {

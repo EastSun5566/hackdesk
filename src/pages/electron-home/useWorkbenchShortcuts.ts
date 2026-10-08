@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
 import type { ElectronActionId } from '@/lib/electron-api';
-import { DEFAULT_ACTION_KEYBINDINGS } from '@/lib/electron-actions';
+import { ELECTRON_ACTIONS, getElectronAction, resolveWorkbenchShortcut } from '@/lib/electron-actions';
 import {
   clearNoteFinderFilters,
   clearNoteFinderQuery,
@@ -11,9 +11,10 @@ import {
 } from '@/lib/electron-note-finder';
 import {
   matchShortcutConfig,
-  resolveActionShortcut,
   type ShortcutOverrides,
 } from '@/lib/keyboard-shortcuts';
+
+import { canRunContextShortcut, hasWorkbenchPopup } from './workbench-keyboard-context';
 
 export type WorkbenchShortcutHandlers = {
   activeFinderState: NoteFinderState;
@@ -23,11 +24,12 @@ export type WorkbenchShortcutHandlers = {
   openPalette: () => void;
   platform: string;
   refreshWorkspace: () => void;
-  runAction: (actionId: ElectronActionId) => void;
+  runAction: (actionId: ElectronActionId) => void | boolean;
   selectedFolderId: string | null;
   setFinderState: Dispatch<SetStateAction<NoteFinderState>>;
   setSelectedFolderId: Dispatch<SetStateAction<string | null>>;
   shortcuts?: ShortcutOverrides;
+  characterShortcutsEnabled?: boolean;
   switchWorkspaceAtIndex: (workspaceIndex: number) => boolean;
 };
 
@@ -44,10 +46,11 @@ export function useWorkbenchShortcuts({
   setFinderState,
   setSelectedFolderId,
   shortcuts,
+  characterShortcutsEnabled = true,
   switchWorkspaceAtIndex,
 }: WorkbenchShortcutHandlers) {
   const handleGlobalKeyDown = useCallback((event: KeyboardEvent) => {
-    if (event.defaultPrevented || event.isComposing) {
+    if (event.defaultPrevented || event.isComposing || event.repeat) {
       return;
     }
 
@@ -67,32 +70,20 @@ export function useWorkbenchShortcuts({
       return;
     }
 
-    if (event.ctrlKey && event.key === 'Tab') {
-      event.preventDefault();
-      runAction(event.shiftKey ? 'focus-previous-tab' : 'focus-next-tab');
-      return;
-    }
-
-    if (event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey && shouldFocusNoteFilter(event)) {
-      event.preventDefault();
-      runAction('search-notes');
-      return;
-    }
-
-    const matchedAction = WORKBENCH_SHORTCUT_ACTIONS.find((actionId) => (
-      actionId !== 'save-note' && matchesActionShortcut(actionId, event, platform, shortcuts)
-    ));
+    const matchedAction = ELECTRON_ACTIONS.find(action => {
+      if (action.id === 'save-note') return false;
+      const config = resolveWorkbenchShortcut(action.id, shortcuts, characterShortcutsEnabled);
+      return matchShortcutConfig(config, event, platform)
+        && (!action.keyboardContext || canRunContextShortcut(action.id, event.target, event));
+    })?.id;
     if (matchedAction) {
+      const context = getElectronAction(matchedAction).keyboardContext;
+      if (!context && hasWorkbenchPopup()) return;
+      if (matchedAction === 'open-command-palette') openPalette();
+      else if (matchedAction === 'new-note') handleCreateNote();
+      else if (matchedAction === 'refresh') refreshWorkspace();
+      else if (runAction(matchedAction) === false) return;
       event.preventDefault();
-      if (matchedAction === 'open-command-palette') {
-        openPalette();
-      } else if (matchedAction === 'new-note') {
-        handleCreateNote();
-      } else if (matchedAction === 'refresh') {
-        refreshWorkspace();
-      } else {
-        runAction(matchedAction);
-      }
       return;
     }
 
@@ -137,6 +128,7 @@ export function useWorkbenchShortcuts({
     setFinderState,
     setSelectedFolderId,
     shortcuts,
+    characterShortcutsEnabled,
     switchWorkspaceAtIndex,
   ]);
 
@@ -146,34 +138,6 @@ export function useWorkbenchShortcuts({
   }, [handleGlobalKeyDown]);
 }
 
-const WORKBENCH_SHORTCUT_ACTIONS: ElectronActionId[] = [
-  'open-command-palette',
-  'open-quick-open',
-  'open-settings',
-  'new-note',
-  'new-folder',
-  'new-tab',
-  'import-markdown-note',
-  'find-in-note',
-  'close-tab',
-  'reopen-last-closed-tab',
-  'focus-next-tab',
-  'focus-previous-tab',
-  'navigate-back',
-  'navigate-forward',
-  'toggle-workspace-rail',
-  'toggle-navigator',
-  'toggle-inspector',
-  'split-pane-right',
-  'export-debug-logs',
-  'focus-workspace',
-  'focus-navigator',
-  'focus-editor',
-  'focus-inspector',
-  'refresh',
-  'save-note',
-];
-
 function matchesActionShortcut(
   actionId: ElectronActionId,
   event: KeyboardEvent,
@@ -181,7 +145,7 @@ function matchesActionShortcut(
   shortcuts?: ShortcutOverrides,
 ) {
   return matchShortcutConfig(
-    resolveActionShortcut(actionId, DEFAULT_ACTION_KEYBINDINGS, shortcuts),
+    resolveWorkbenchShortcut(actionId, shortcuts),
     event,
     platform,
   );
@@ -192,23 +156,4 @@ function isPlatformPrimaryModifier(event: KeyboardEvent, platform: string) {
   return isMac
     ? event.metaKey && !event.ctrlKey
     : event.ctrlKey && !event.metaKey;
-}
-
-function shouldFocusNoteFilter(event: KeyboardEvent) {
-  if (!(event.target instanceof Element)) {
-    return true;
-  }
-
-  return !event.target.closest([
-    'input',
-    'textarea',
-    'select',
-    '[contenteditable]:not([contenteditable="false"])',
-    '.cm-editor',
-    '[data-hackdesk-focus="editor"]',
-    '[role="dialog"]',
-    '[role="alertdialog"]',
-    '[role="menu"]',
-    '[role="listbox"]',
-  ].join(','));
 }

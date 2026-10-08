@@ -103,6 +103,7 @@ export const ELECTRON_MENU_SCHEMA: ElectronMenuSchemaSection[] = [
     id: 'help',
     label: 'Help',
     items: [
+      { type: 'action', actionId: 'show-keyboard-shortcuts' },
       { type: 'action', actionId: 'export-debug-logs' },
       { type: 'separator' },
       { type: 'link', label: 'HackDesk Documentation', url: 'https://hackdesk.eastsun.me' },
