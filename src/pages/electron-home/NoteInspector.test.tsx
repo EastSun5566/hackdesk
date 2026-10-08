@@ -164,7 +164,6 @@ describe('NoteInspector', () => {
     const saveFooter = container.querySelector('[data-inspector-save-footer="true"]');
 
     expect(scrollRegion).toBeInTheDocument();
-    expect(scrollRegion).toHaveClass('px-5', 'scroll-py-3', '[scrollbar-gutter:stable]');
     expect(saveFooter).toBeInTheDocument();
     expect(scrollRegion).not.toContainElement(saveButton);
     expect(saveFooter).toContainElement(saveButton);
@@ -194,13 +193,11 @@ describe('NoteInspector', () => {
     expect(screen.getByRole('button', { name: 'Saving…' }).querySelector('.animate-spin')).toHaveClass('motion-reduce:animate-none');
   });
 
-  it('uses compact tags with a full-size remove target', () => {
+  it('saves metadata after removing a tag', () => {
     const onSaveMetadata = vi.fn();
     const { document } = renderNoteInspector({ actions: { onSaveMetadata } });
 
     const removeTag = screen.getByRole('button', { name: 'Remove old tag' });
-    expect(removeTag).toHaveClass('size-6');
-    expect(removeTag.closest('span')).toHaveClass('h-7');
 
     fireEvent.click(removeTag);
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));

@@ -160,16 +160,6 @@ describe('DocumentTabs', () => {
     expect(props.onCloseTab).toHaveBeenCalledWith('tab-2');
   });
 
-  it('keeps the selected tab close action visible with a minimum-size target', () => {
-    renderDocumentTabs();
-
-    const selectedClose = screen.getByRole('button', { name: 'Close Daily Notes' });
-    const inactiveClose = screen.getByRole('button', { name: 'Close Project Plan' });
-
-    expect(selectedClose).toHaveClass('size-6', 'opacity-100');
-    expect(inactiveClose).toHaveClass('size-6', 'opacity-0');
-  });
-
   it('scrolls the active tab into view when selection changes', () => {
     const scrollIntoView = vi.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;

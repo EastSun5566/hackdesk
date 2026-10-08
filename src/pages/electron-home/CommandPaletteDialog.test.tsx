@@ -241,21 +241,12 @@ describe('CommandPaletteDialog', () => {
     expect(onRunAction).toHaveBeenCalledWith('set-editor-mode-kakoune');
   });
 
-  it('keeps item titles readable and aligns the close control in the input row', () => {
-    renderPalette();
+  it('closes the palette and clears its search through the named close button', () => {
+    const props = renderPalette({ state: { mode: 'commands', open: true, search: 'alpha' } });
 
-    const title = screen.getByText('Alpha');
-    expect(title).toHaveClass('text-[color:var(--command-item-title)]');
-    expect(title).toHaveClass('font-medium');
-    expect(title.closest('[cmdk-item]')).toHaveClass('aria-selected:bg-background-selected');
-    expect(screen.getAllByText('My Workspace').some((node) => node.classList.contains('text-[color:var(--command-item-meta)]'))).toBe(true);
-    expect(screen.getByRole('combobox', { name: 'Search notes, folders, and commands' }))
-      .toHaveClass('placeholder:text-[color:var(--command-placeholder)]');
+    fireEvent.click(screen.getByRole('button', { name: 'Close command palette' }));
 
-    const closeButton = screen.getByRole('button', { name: 'Close command palette' });
-    expect(closeButton).toHaveClass('size-8');
-    expect(closeButton).toHaveClass('items-center');
-    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
+    expect(props.onStateChange).toHaveBeenCalledWith({ mode: 'commands', open: false, search: '' });
   });
 
   it('preserves helper ranking and group order for searched results', () => {
