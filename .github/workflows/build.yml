@@ -27,6 +27,15 @@ jobs:
       - run: xvfb-run --auto-servernum pnpm run test:smoke
       - run: pnpm run docs:build
       - run: pnpm run audit:prod
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
 
   package-smoke:
     needs: quality
