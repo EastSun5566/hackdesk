@@ -88,6 +88,7 @@ async function launchFixture(editorMode: EditorMode = 'helix', navigationFixture
   }, { channels: ELECTRON_CHANNELS, storedSettings: settings, names: teamNames });
   await page.reload();
   await expect(page.getByRole('button', { name: `${teamNames[0]}, private`, exact: true })).toBeVisible();
+  await expect(page.getByRole('treeitem', { name: 'UI fixture', exact: true })).toBeVisible();
   return { app, page };
 }
 
@@ -131,19 +132,23 @@ test('palette enabled state and contrast survive real CSS in all built-in themes
     await page.keyboard.press(`${primary}+k`);
     const input = page.getByRole('combobox', { name: 'Search notes, folders, and commands' });
     await input.fill('workspace');
-    const currentWorkspace = page.getByRole('option', { name: /My Workspace/ });
-    await expect(currentWorkspace).toHaveAttribute('data-disabled', 'false');
-    await expect(currentWorkspace).toHaveCSS('opacity', '1');
-    await expect(currentWorkspace).not.toHaveCSS('pointer-events', 'none');
+    const workspaceOption = page.getByRole('option', { name: /^My Workspace\b/ });
+    await expect(workspaceOption).toHaveAttribute('data-disabled', 'false');
+    await expect(workspaceOption).toHaveCSS('opacity', '1');
+    await expect(workspaceOption).not.toHaveCSS('pointer-events', 'none');
+    await page.mouse.move(0, 0);
+    await workspaceOption.hover();
+    await expect(workspaceOption).toHaveAttribute('aria-selected', 'true');
+    await page.mouse.move(0, 0);
 
     for (const preset of HACKDESK_THEME_PRESETS) {
       for (const mode of ['light', 'dark'] as const) {
         await page.evaluate((theme) => {
           for (const [name, value] of Object.entries(theme)) document.documentElement.style.setProperty(name, value);
         }, resolveHackDeskTheme({ presetId: preset.id, mode }));
-        await currentWorkspace.hover();
-        await expect(currentWorkspace).toHaveAttribute('aria-selected', 'true');
-        const ratios = () => currentWorkspace.evaluate((item) => {
+        await input.press('Home');
+        await expect(workspaceOption).toHaveAttribute('aria-selected', 'true');
+        const ratios = () => workspaceOption.evaluate((item) => {
           const channels = (color: string) => color.match(/[\d.]+/g)!.map(Number);
           const luminance = (values: number[]) => values.slice(0, 3).reduce((sum, value, index) => {
             const c = value / 255;
@@ -168,7 +173,7 @@ test('palette enabled state and contrast survive real CSS in all built-in themes
       for (const [name, value] of Object.entries(theme)) document.documentElement.style.setProperty(name, value);
     }, resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'dark' }));
     await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('01-palette.png') });
-    await currentWorkspace.click();
+    await workspaceOption.click();
     await expect(page.getByRole('dialog', { name: 'Command Palette' })).not.toBeVisible();
     await page.keyboard.press(`${primary}+k`);
     await page.getByRole('combobox').fill('New Tab');
@@ -176,10 +181,15 @@ test('palette enabled state and contrast survive real CSS in all built-in themes
     await expect(page.getByRole('dialog', { name: 'Command Palette' })).not.toBeVisible();
     await page.keyboard.press(`${primary}+k`);
     await page.getByRole('combobox').fill('Use Dark Theme');
-    const disabled = page.locator('[cmdk-item][data-disabled="true"]').first();
+    const disabled = page.getByRole('option', { name: /^Use Dark Theme\b/ });
+    await expect(disabled).toHaveAttribute('aria-disabled', 'true');
     await expect(disabled).toHaveCSS('pointer-events', 'none');
+    await page.getByRole('combobox').press('Home');
+    await expect(disabled).toHaveAttribute('aria-selected', 'false');
+    await expect(page.getByRole('option', { name: /^Show Finder Results/ })).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('dialog', { name: 'Command Palette' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Command Palette' })).not.toBeVisible();
+    await expect(page.getByPlaceholder('Search notes', { exact: true })).toHaveValue('Use Dark Theme');
   } finally {
     await stopApp(app);
   }
