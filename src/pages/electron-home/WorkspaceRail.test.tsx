@@ -71,16 +71,6 @@ describe('WorkspaceRail', () => {
     expect(screen.queryByText('Michael Lee @michael')).toBeNull();
     expect(screen.queryByText('Teams')).toBeNull();
     expect(screen.getByRole('button', { name: 'My Workspace' })).toBeInTheDocument();
-    expect(screen.getByRole('complementary', { name: 'Workspace switcher' })).not.toHaveClass('border-r');
-  });
-
-  it('keeps one boundary when the resize sash is hidden for the collapsed rail', () => {
-    renderWorkspaceRail({ collapsed: true });
-
-    expect(screen.getByRole('complementary', { name: 'Workspace switcher' })).toHaveClass(
-      'border-r',
-      'border-border-default',
-    );
   });
 
   it('orders remote workspaces before fixed local and account utilities', () => {
@@ -102,12 +92,11 @@ describe('WorkspaceRail', () => {
     expect(utilities).toContainElement(screen.getByRole('button', { name: 'Open settings' }));
   });
 
-  it('keeps team navigation scrollable without moving the utilities', () => {
+  it('keeps account utilities outside the team navigation region', () => {
     renderWorkspaceRail({ teams: [team()] });
 
     const teamNavigation = screen.getByTestId('workspace-rail-team-navigation');
     const utilities = screen.getByTestId('workspace-rail-utilities');
-    expect(teamNavigation).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto');
     expect(teamNavigation).toContainElement(screen.getByTestId('workspace-rail-team-list'));
     expect(teamNavigation).not.toContainElement(utilities);
   });

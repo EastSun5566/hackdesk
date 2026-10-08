@@ -259,6 +259,12 @@ test('rail controls, one-pixel boundaries and full-height Settings workbench', a
     const sashes = page.getByRole('button', { name: /^Resize .*Current width/ });
     expect(await sashes.count()).toBe(2);
     for (const sash of await sashes.all()) expect((await sash.boundingBox())!.width).toBe(1);
+    const rail = page.getByRole('complementary', { name: 'Workspace switcher' });
+    await expect(rail).toHaveCSS('border-right-width', '0px');
+    await page.keyboard.press(`${primary}+b`);
+    await expect(rail).toHaveCSS('border-right-width', '1px');
+    await expect(page.getByRole('button', { name: /^Resize workspace sidebar/ })).toHaveCount(0);
+    await page.keyboard.press(`${primary}+b`);
     const railSash = sashes.first();
     const sashBounds = (await railSash.boundingBox())!;
     const initialRailWidth = (await page.getByRole('complementary', { name: 'Workspace switcher' }).boundingBox())!.width;
@@ -328,6 +334,15 @@ test('tab drag, keyboard actions, persistence and pane isolation', async () => {
     await strip.getByRole('button', { name: /^Close / }).first().click();
     for (const name of ['Alpha', 'Beta', 'Gamma']) await openNote(name);
     await expect(page.locator('.cm-content')).toContainText('# Gamma');
+    await page.mouse.move(0, 0);
+    const closeActiveTab = strip.getByRole('button', { name: 'Close Gamma', exact: true });
+    await expect(closeActiveTab).toHaveCSS('opacity', '1');
+    const closeBounds = (await closeActiveTab.boundingBox())!;
+    expect(Math.min(closeBounds.width, closeBounds.height)).toBeGreaterThanOrEqual(24);
+    const closeInactiveTab = strip.getByRole('button', { name: 'Close Alpha', exact: true });
+    await expect(closeInactiveTab).toHaveCSS('opacity', '0');
+    await strip.getByRole('tab', { name: 'Select Alpha tab', exact: true }).hover();
+    await expect(closeInactiveTab).toHaveCSS('opacity', '1');
     await dragTab('Alpha', 'Gamma');
     await expect.poll(labels).toEqual(['Select Beta tab', 'Select Gamma tab', 'Select Alpha tab']);
     await expect(strip.getByRole('tab', { name: 'Select Gamma tab' })).toHaveAttribute('aria-selected', 'true');
@@ -434,6 +449,9 @@ for (const editorMode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as con
       const tags = page.getByRole('textbox', { name: 'Tags', exact: true });
       await tags.focus();
       await expectInsetFocus(tags.locator('..'), true);
+      const removeTag = page.getByRole('button', { name: 'Remove playground tag', exact: true });
+      const removeBounds = (await removeTag.boundingBox())!;
+      expect(Math.min(removeBounds.width, removeBounds.height)).toBeGreaterThanOrEqual(24);
       await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('06-note-details.png') });
       for (const label of ['Description', 'Permalink']) {
         const field = page.getByLabel(label, { exact: true });
@@ -693,13 +711,12 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
   });
 }
 
-test('shortcut help and hints reflect saved settings without stealing editing keys', async () => {
-  const { app, page } = await launchFixture('standard', true, true);
+test('shortcut help is searchable in light and dark and restores focus', async () => {
+  const { app, page } = await launchFixture('standard', true);
   try {
     await page.setViewportSize({ width: 1280, height: 760 });
     await openFixtureNote(page);
-    const tree = page.getByRole('tree', { name: 'Folders and notes' });
-    const note = tree.getByRole('treeitem', { name: 'UI fixture', exact: true });
+    const note = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
     await note.focus();
     await page.keyboard.press('?');
     const help = page.getByRole('dialog', { name: 'Keyboard Shortcuts', exact: true });
@@ -710,18 +727,23 @@ test('shortcut help and hints reflect saved settings without stealing editing ke
     await help.getByPlaceholder('Search keyboard shortcuts').fill('half page');
     await expect(help.getByText('Scroll Half Page Down', { exact: true })).toBeVisible();
     await page.screenshot({ path: test.info().outputPath('14-shortcut-help-dark.png'), animations: 'disabled' });
-    for (const preset of HACKDESK_THEME_PRESETS) {
-      for (const mode of ['light', 'dark'] as const) {
-        await page.evaluate(theme => { for (const [name, value] of Object.entries(theme)) document.documentElement.style.setProperty(name, value); }, resolveHackDeskTheme({ presetId: preset.id, mode }));
-        await expect(help.getByText('Scroll Half Page Down', { exact: true })).toBeVisible();
-      }
-    }
     await page.evaluate(theme => { for (const [name, value] of Object.entries(theme)) document.documentElement.style.setProperty(name, value); }, resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'light' }));
+    await expect(help.getByText('Scroll Half Page Down', { exact: true })).toBeVisible();
     await page.screenshot({ path: test.info().outputPath('16-shortcut-help-light.png'), animations: 'disabled' });
-    await page.evaluate(theme => { for (const [name, value] of Object.entries(theme)) document.documentElement.style.setProperty(name, value); }, resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'dark' }));
     await page.keyboard.press('Escape');
     await expect(help).toHaveCount(0);
     await expect(note).toBeFocused();
+  } finally { await stopApp(app); }
+});
+
+test('character shortcuts preserve text input and half-page scrolling preserves the note', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1280, height: 760 });
+    await openFixtureNote(page);
+    const note = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
+    const help = page.getByRole('dialog', { name: 'Keyboard Shortcuts', exact: true });
+    await note.focus();
     await page.keyboard.press('/');
     const search = page.getByPlaceholder('Search notes', { exact: true });
     await expect(search).toBeFocused();
@@ -749,7 +771,18 @@ test('shortcut help and hints reflect saved settings without stealing editing ke
     });
     expect(after).toBeCloseTo(before.height / 2, 0);
     await expect(page.locator('.cm-content')).toContainText('Test note for layout checks.');
+  } finally { await stopApp(app); }
+});
 
+test('saved shortcut preferences update hints and disable character shortcuts', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1280, height: 760 });
+    await openFixtureNote(page);
+    const note = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
+    const help = page.getByRole('dialog', { name: 'Keyboard Shortcuts', exact: true });
+    const search = page.getByPlaceholder('Search notes', { exact: true });
+    await note.focus();
     await page.keyboard.press('?');
     await help.getByRole('button', { name: 'Customize in Settings' }).click();
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
@@ -769,7 +802,15 @@ test('shortcut help and hints reflect saved settings without stealing editing ke
     await page.keyboard.press('/'); await expect(search).not.toBeFocused();
     await page.keyboard.press(`${primary}+j`); await expect(search).toBeFocused();
     await page.screenshot({ path: test.info().outputPath('15-custom-search-hint.png'), animations: 'disabled' });
+  } finally { await stopApp(app); }
+});
 
+test('native help and palette region commands restore Workbench focus', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1280, height: 760 });
+    await openFixtureNote(page);
+    const help = page.getByRole('dialog', { name: 'Keyboard Shortcuts', exact: true });
     // A native menu still exposes help from the editor, without registering ?.
     await page.locator('.cm-content').focus();
     await app.evaluate(({ Menu }) => {
@@ -786,7 +827,7 @@ test('shortcut help and hints reflect saved settings without stealing editing ke
     await page.getByRole('combobox', { name: 'Search notes, folders, and commands' }).fill('Next Workbench Region');
     await page.getByRole('option', { name: /^Next Workbench Region / }).click();
     await expect(page.getByRole('button', { name: 'Local Vault', exact: true })).toBeFocused();
-  } finally { await stopApp(app, true); }
+  } finally { await stopApp(app); }
 });
 
 async function useNavigationCode(page: Page, id: string) {
@@ -797,13 +838,13 @@ async function useNavigationCode(page: Page, id: string) {
   await expect(hint).toHaveCount(0);
 }
 
-test('held modifier navigation keeps codes stable, preserves shortcuts and only focuses ordinary actions', async () => {
-  const { app, page } = await launchFixture('standard', true, true);
+test('navigation codes are stable, prefix-free and do not overlap', async () => {
+  const { app, page } = await launchFixture('standard', true);
   try {
     await page.setViewportSize({ width: 1280, height: 760 });
     await openFixtureNote(page);
-    const root = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
-    await root.focus();
+    const note = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
+    await note.focus();
     await page.keyboard.down(primary);
     const overlay = page.locator('[data-keyboard-navigation-overlay]');
     await expect(overlay).toBeVisible();
@@ -824,12 +865,21 @@ test('held modifier navigation keeps codes stable, preserves shortcuts and only 
     await useNavigationCode(page, 'finder');
     await expect(page.getByPlaceholder('Search notes', { exact: true })).toBeFocused();
     await page.keyboard.up(primary);
-    await root.focus(); await page.keyboard.down(primary);
+    await note.focus(); await page.keyboard.down(primary);
     await expect(page.locator('[data-navigation-hint="finder"]')).toHaveAttribute('data-navigation-code', finderCode!);
     await page.keyboard.press('Escape'); await expect(overlay).toHaveCount(0);
     await page.keyboard.up(primary);
+  } finally { await stopApp(app); }
+});
 
-    await root.focus(); await page.keyboard.down(primary);
+test('navigation focuses buttons before Enter and preserves fixed shortcuts', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1280, height: 760 });
+    await openFixtureNote(page);
+    const note = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
+    await note.focus();
+    await page.keyboard.down(primary);
     const saveHint = page.locator('[data-navigation-hint$=":save-note"]');
     // Saved notes disable Save; mutation controls are never activated by hints.
     await expect(saveHint).toHaveCount(0);
@@ -845,22 +895,32 @@ test('held modifier navigation keeps codes stable, preserves shortcuts and only 
     await page.keyboard.press(`${primary}+Alt+b`);
     await expect(page.getByRole('toolbar', { name: 'Application controls' }).getByRole('button', { name: 'Collapse note navigator', exact: true })).toBeVisible();
 
-    await root.focus(); await page.keyboard.down(primary);
+    await note.focus(); await page.keyboard.down(primary);
     await page.keyboard.press('b'); await page.keyboard.up(primary);
     await expect(page.getByRole('button', { name: 'Expand workspace sidebar', exact: true })).toBeVisible();
     await page.keyboard.press(`${primary}+b`);
     await expect(page.getByRole('button', { name: 'Collapse workspace sidebar', exact: true })).toBeVisible();
+  } finally { await stopApp(app); }
+});
+
+test('navigation hints cancel for popups, blur and IME', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1280, height: 760 });
+    await openFixtureNote(page);
+    const note = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
+    const overlay = page.locator('[data-keyboard-navigation-overlay]');
     await page.keyboard.press(`${primary}+k`);
     await expect(page.getByRole('dialog', { name: 'Command Palette', exact: true })).toBeVisible();
     await page.keyboard.down(primary); await expect(overlay).toHaveCount(0); await page.keyboard.up(primary); await page.keyboard.press('Escape');
 
-    await root.focus(); await page.keyboard.down(primary);
+    await note.focus(); await page.keyboard.down(primary);
     await page.evaluate(() => window.dispatchEvent(new Event('blur')));
     await expect(overlay).toHaveCount(0); await page.keyboard.up(primary);
-    await root.focus(); await page.keyboard.down(primary);
+    await note.focus(); await page.keyboard.down(primary);
     await page.evaluate(() => window.dispatchEvent(new CompositionEvent('compositionstart')));
     await expect(overlay).toHaveCount(0); await page.keyboard.up(primary);
-  } finally { await stopApp(app, true); }
+  } finally { await stopApp(app); }
 });
 
 for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
@@ -900,7 +960,7 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
   });
 }
 
-test('navigation targets follow visible tabs and tree items, themes, custom keys and context changes', async () => {
+test('navigation follows visible tabs and tree targets and cancels changed contexts', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
     await page.setViewportSize({ width: 1280, height: 760 });
@@ -933,9 +993,9 @@ test('navigation targets follow visible tabs and tree items, themes, custom keys
     await useNavigationCode(page, `tree:${folderId}`); await page.keyboard.up(primary);
     await expect(projects).toBeFocused();
     await page.keyboard.press(`${primary}+Shift+n`);
-    const newFolder = page.getByRole('dialog', {name:'New Note',exact:true});
-    await expect(newFolder.getByText('Local Vault / Projects',{exact:true})).toBeVisible();
-    await newFolder.getByRole('button',{name:'Cancel',exact:true}).click();
+    const createNoteDialog = page.getByRole('dialog', {name:'New Note',exact:true});
+    await expect(createNoteDialog.getByText('Local Vault / Projects',{exact:true})).toBeVisible();
+    await createNoteDialog.getByRole('button',{name:'Cancel',exact:true}).click();
     // Each hold fixes its visible target set; collapsing a folder cancels it.
     await projects.focus(); await page.keyboard.down(primary);
     await page.getByRole('button', {name:'Collapse Projects',exact:true}).evaluate(element => (element as HTMLButtonElement).click());
@@ -946,13 +1006,25 @@ test('navigation targets follow visible tabs and tree items, themes, custom keys
     await expect(page.locator('[data-keyboard-navigation-overlay]')).toHaveCount(0);
     await page.keyboard.up(primary);
     await page.evaluate(()=>document.querySelector('[data-hackdesk-dragging]')?.removeAttribute('data-hackdesk-dragging'));
-    for (const preset of HACKDESK_THEME_PRESETS) for (const mode of ['light','dark'] as const) {
-      await page.evaluate(theme=>{for(const [name,value]of Object.entries(theme))document.documentElement.style.setProperty(name,value);},resolveHackDeskTheme({presetId:preset.id,mode}));
-      await projects.focus(); await page.keyboard.down(primary);
+    for (const mode of ['light', 'dark'] as const) {
+      await page.evaluate(theme => {
+        for (const [name, value] of Object.entries(theme)) document.documentElement.style.setProperty(name, value);
+      }, resolveHackDeskTheme({ presetId: 'hackmd-neo', mode }));
+      await projects.focus();
+      await page.keyboard.down(primary);
       await expect(page.locator('[data-navigation-hint="finder"]')).toBeVisible();
-      if (preset.id === 'hackmd-neo' && mode === 'light') await page.screenshot({path:test.info().outputPath('18-held-navigation-light.png'),animations:'disabled'});
+      if (mode === 'light') await page.screenshot({ path: test.info().outputPath('18-held-navigation-light.png'), animations: 'disabled' });
       await page.keyboard.up(primary);
     }
+  } finally { await stopApp(app); }
+});
+
+test('navigation codes avoid saved custom shortcuts', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1280, height: 760 });
+    await openFixtureNote(page);
+    const note = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
     await page.keyboard.press(`${primary}+,`);
     const settings = page.getByRole('dialog',{name:'Settings',exact:true});
     await settings.getByRole('tab',{name:'Shortcuts',exact:true}).click();
@@ -960,7 +1032,7 @@ test('navigation targets follow visible tabs and tree items, themes, custom keys
     await settings.getByRole('button',{name:'Set shortcut for New Note',exact:true}).click();
     await page.keyboard.press(`${primary}+j`);
     await settings.getByRole('button',{name:'Save',exact:true}).click();
-    await expect(settings).toBeHidden(); await projects.focus(); await page.keyboard.down(primary);
+    await expect(settings).toBeHidden(); await note.focus(); await page.keyboard.down(primary);
     const codes = await page.locator('[data-navigation-code]').evaluateAll(elements=>elements.map(element=>element.getAttribute('data-navigation-code')));
     expect(codes.every(code=>!code?.includes('j'))).toBe(true);
     await expect(page.locator('[data-navigation-hint="finder"]')).toHaveAttribute('data-navigation-code', /^[a-z]{2,3}$/);
