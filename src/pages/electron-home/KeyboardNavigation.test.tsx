@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { KeyboardNavigation } from './KeyboardNavigation';
 
@@ -38,6 +38,17 @@ describe('held modifier navigation',()=>{
   it('cancels when targets change instead of reassigning mid-chord',async()=>{
     const modifier=fixture();hold(modifier);const save=screen.getByText('Save');save.disabled=true;
     await waitFor(()=>expect(document.querySelector('[data-keyboard-navigation-overlay]')).toBeNull());
+  });
+  it.each(['darwin', 'win32', 'linux'])('passes additional modifiers through unchanged on %s', platform => {
+    const modifier = fixture(platform);
+    for (const extra of [{ shiftKey: true }, { altKey: true }]) {
+      fireEvent.keyUp(window, { key: modifier.key });
+      hold(modifier);
+      const event = new KeyboardEvent('keydown', { ...modifier, ...extra, key: 'l', cancelable: true });
+      act(() => { window.dispatchEvent(event); });
+      expect(event.defaultPrevented).toBe(false);
+      expect(document.querySelector('[data-keyboard-navigation-overlay]')).toBeNull();
+    }
   });
   it('cancels context changes without remounting the Workbench or resurrecting old hints',()=>{
     const child=<input aria-label="Draft" defaultValue="Unsaved draft"/>;

@@ -28,7 +28,7 @@ describe('navigation codes', () => {
   });
   it('never allocates native, app, custom or installed editor bindings', () => {
     const mac = safeNavigationLetters('darwin', { 'new-note':'mod+i,mod+j' }, true, null);
-    expect(mac).not.toMatch(/[acvxyzfhmpqwijn]/);
+    expect(mac).not.toMatch(/[acvxyzfhmpqwerij]/);
     const editor=document.createElement('div');editor.dataset.editorMode='standard';
     registerEditorNavigationKeymap(editor,()=>[[{key:'Mod-u'},{mac:'Meta-d',key:'Ctrl-d'}]]);
     expect(safeNavigationLetters('darwin', {},true,editor)).not.toMatch(/[ud]/);
@@ -36,6 +36,22 @@ describe('navigation codes', () => {
     expect(safeNavigationLetters('win32',{},true,editor)).toBe('');
     registerEditorNavigationKeymap(editor,()=>[[{any:()=>false}]]);
     expect(safeNavigationLetters('darwin',{},true,editor)).toBe('');
+  });
+  it.each(['darwin', 'win32', 'linux'])('reserves plain primary chords without excluding modified-only chords on %s', platform => {
+    const letters = safeNavigationLetters(platform, { 'new-note': 'mod+shift+l' }, true, null);
+    expect(letters).toContain('l');
+    expect(letters).not.toMatch(/[er]/);
+    const ids = Array.from({ length: 40 }, (_, index) => String(index));
+    expect(allocateNavigationCodes(ids, letters, new Map())?.size).toBe(40);
+    expect(allocateNavigationCodes(ids, safeNavigationLetters(platform, {}, true, null), new Map())?.size).toBe(40);
+    expect(safeNavigationLetters(platform, { 'new-note': 'mod+l' }, true, null)).not.toContain('l');
+    const editor = document.createElement('div');
+    editor.dataset.editorMode = 'standard';
+    registerEditorNavigationKeymap(editor, () => [[{ key: 'Mod-Shift-l' }, { key: 'Mod-Alt-j' }, { key: 'Mod-i' }]]);
+    const editorLetters = safeNavigationLetters(platform, {}, true, editor);
+    expect(editorLetters).toContain('l');
+    expect(editorLetters).toContain('j');
+    expect(editorLetters).not.toContain('i');
   });
 });
 

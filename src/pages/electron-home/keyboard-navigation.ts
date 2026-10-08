@@ -8,7 +8,7 @@ export type NavigationTarget = { id: string; element: HTMLElement; activate: boo
 export type NavigationHint = NavigationTarget & { code: string; rect: DOMRect };
 const ALPHABET = 'asdfghjklqwertyuiopzxcvbnm';
 // Native edit/window/application roles and common OS shortcuts, independent of user overrides.
-const NATIVE_LETTERS = 'acvxyzfhmpqw';
+const NATIVE_LETTERS = 'acvxyzfhmpqwer';
 const TARGET_SELECTOR = '[data-workspace-navigation-id], [role="tab"][data-navigation-tab-id], [role="treeitem"], input[name="noteSearch"], [data-hackdesk-focus="editor"], [data-hackdesk-focus="editor"] .cm-content, [data-navigation-toolbar]';
 
 export function navigationRect(element: HTMLElement) {
@@ -66,7 +66,8 @@ export function safeNavigationLetters(platform: string, shortcuts: ShortcutOverr
   const blocked = new Set(NATIVE_LETTERS);
   for (const action of ELECTRON_ACTIONS) {
     for (const binding of parseShortcutConfig(resolveWorkbenchShortcut(action.id, shortcuts, characterEnabled) ?? '', platform)) {
-      if (mac ? binding.meta : binding.ctrl) blocked.add(binding.key.toLowerCase());
+      // Hints only consume primary-only chords. Additional modifiers cancel them.
+      if ((mac ? binding.meta && !binding.ctrl : binding.ctrl && !binding.meta) && !binding.shift && !binding.alt) blocked.add(binding.key.toLowerCase());
     }
   }
   if (editor) {
@@ -83,7 +84,9 @@ export function safeNavigationLetters(platform: string, shortcuts: ShortcutOverr
         const value = (mac ? binding.mac : platform === 'win32' ? binding.win : binding.linux) ?? binding.key;
         for (const stroke of value?.split(' ') ?? []) {
           const parts = stroke.toLowerCase().split('-');
-          if (parts.includes('mod') || parts.includes(mac ? 'meta' : 'ctrl')) blocked.add(parts.at(-1)!);
+          const primary = parts.includes('mod') || parts.includes(mac ? 'meta' : 'ctrl');
+          const additional = parts.some(part => ['shift', 'alt', mac ? 'ctrl' : 'meta'].includes(part));
+          if (primary && !additional) blocked.add(parts.at(-1)!);
         }
       }
     }
