@@ -2,7 +2,23 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-## Unreleased
+## [2.0.0-beta.5](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.4...v2.0.0-beta.5) (2026-10-09)
+
+### Stability and recovery
+
+* Kept each Local Vault's tabs, drafts, split panes, and navigation state separate, and improved note identity preservation after external renames or moves.
+* Added recovery for unsaved edits after restart, including drafts whose original note is missing or unavailable.
+* Preserved drafts when workspace backups fail and added recovery for damaged settings files.
+* Kept delayed saves and image uploads attached to their original workspace and tab.
+* Added checks for HackMD changes before saving and kept drafts available when a conflict is detected.
+* Kept a Local Vault usable when one Markdown file is too large, and protected the vault root from folder operations.
+* Refreshed HackMD fallback caches after writes and kept Mermaid styles inside their diagram.
+
+### Security and release reliability
+
+* Protected saved HackMD tokens with OS-backed encryption where available, strengthened Local Vault path checks, and hardened packaged Electron runtime flags.
+* Updated affected dependencies and built download links from verified release assets.
+* Added macOS lifecycle CI checks and made palette smoke tests more reliable.
 
 ### Keyboard navigation
 
@@ -10,6 +26,13 @@ All notable changes to this project will be documented in this file. See [standa
 * Added searchable Keyboard Shortcuts help and hints that follow custom or disabled bindings.
 * Added contextual ? and / shortcuts, plus Ctrl+U/D half-page scrolling outside editors.
 * Hold Cmd/Ctrl to reveal navigation codes for visible Workbench targets. Existing shortcuts keep their behavior; ordinary buttons receive focus before Enter runs them.
+
+### Beta notes
+
+* Beta installers remain unsigned. Follow the operating system's manual confirmation steps when opening them.
+* Automatic updates remain disabled for beta builds. Download this version from GitHub Releases; existing settings under `~/.hackdesk` are reused.
+* Automated packaged startup checks on macOS, Windows, and Linux remain tracked in [#140](https://github.com/EastSun5566/hackdesk/issues/140). They are deferred from beta.5 and remain required before stable v2.
+* Report beta issues at [github.com/EastSun5566/hackdesk/issues](https://github.com/EastSun5566/hackdesk/issues).
 
 ## [2.0.0-beta.4](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.3...v2.0.0-beta.4) (2026-10-01)
 
