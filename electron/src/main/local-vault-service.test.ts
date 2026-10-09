@@ -539,6 +539,68 @@ describe('LocalVaultService', () => {
     }));
   });
 
+  it('ignores scanner-excluded directories without scheduling a scan', async () => {
+    vi.useFakeTimers();
+    let notify!: (eventType: string, filename: string | Buffer | null) => void;
+    const onChange = vi.fn();
+    const watcher = watchLocalVault(vaultPath, onChange, (_path, _options, listener) => {
+      notify = listener;
+      return { close: vi.fn(), on: vi.fn() } as never;
+    });
+    try {
+      for (const filename of [
+        '.git/index', 'Projects/.git/HEAD', 'Projects\\.git\\HEAD',
+        'node_modules/package/index.js', 'Projects\\node_modules\\package\\index.js',
+        '.hackdesk/manifest.json', Buffer.from('Projects/.hackdesk/manifest.json'),
+      ]) {
+        notify('change', filename);
+        expect(vi.getTimerCount()).toBe(0);
+      }
+      watcher.pause();
+      notify('change', '.git/index');
+      watcher.resume();
+      // Flush any unexpected resume-triggered scan before checking notifications.
+      await scanLocalVault(vaultPath);
+      expect(onChange).not.toHaveBeenCalled();
+    } finally {
+      watcher.close();
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    'External.md', 'Projects\\External.md', Buffer.from('External.md'),
+    '.github/Notes.md', 'node_modules.md', 'Projects/my-node_modules/Notes.md',
+    null, '', Buffer.alloc(0),
+  ])('keeps conservative debounced scans for event filename %s', async (filename) => {
+    await writeFile(join(vaultPath, 'External.md'), '# External');
+    vi.useFakeTimers();
+    let notify!: (eventType: string, filename: string | Buffer | null) => void;
+    let resolveChange!: (snapshot: Awaited<ReturnType<typeof scanLocalVault>>) => void;
+    const changed = new Promise<Awaited<ReturnType<typeof scanLocalVault>>>((resolve) => {
+      resolveChange = resolve;
+    });
+    const watcher = watchLocalVault(vaultPath, resolveChange, (_path, _options, listener) => {
+      notify = listener;
+      return { close: vi.fn(), on: vi.fn() } as never;
+    });
+    try {
+      notify('change', filename);
+      await vi.advanceTimersByTimeAsync(149);
+      expect(vi.getTimerCount()).toBe(1);
+      notify('rename', filename);
+      await vi.advanceTimersByTimeAsync(149);
+      expect(vi.getTimerCount()).toBe(1);
+      await vi.advanceTimersByTimeAsync(1);
+      await expect(changed).resolves.toMatchObject({
+        notes: [expect.objectContaining({ title: 'External' })],
+      });
+    } finally {
+      watcher.close();
+      vi.useRealTimers();
+    }
+  });
+
   it('refreshes once after filesystem events arrive while the watcher is paused', async () => {
     let notify: ((eventType: string, filename: string | Buffer | null) => void) | undefined;
     let resolveChange!: (snapshot: Awaited<ReturnType<typeof scanLocalVault>>) => void;
