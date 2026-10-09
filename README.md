@@ -32,7 +32,9 @@ xattr -dr com.apple.quarantine "/Applications/HackDesk.app"
 
 On macOS, v2 beta requires macOS 13 or later. Beta builds are unsigned and use manual updates.
 
-[Download HackDesk v2.0.0-beta.4](https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.4)
+[Download HackDesk v2.0.0-beta.5](https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.5)
+
+Save all open notes before upgrading from beta.4; it cannot restore unsaved edits to existing notes after a restart.
 
 [Documentation](https://hackdesk.eastsun.me)
 

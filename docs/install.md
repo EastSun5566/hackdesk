@@ -19,6 +19,8 @@ import { data } from './release.data.ts'
 
 On macOS, HackDesk v2 beta requires macOS 13 or later. Beta builds are unsigned and use manual updates. Existing v0.1.5 installs do not update to v2 automatically. Your settings under `~/.hackdesk` are reused.
 
+Save all open notes before upgrading from beta.4; it cannot restore unsaved edits to existing notes after a restart.
+
 <template v-if="data.beta">
 <p>The current beta is v{{ data.beta.version }}.</p>
 <ul>
