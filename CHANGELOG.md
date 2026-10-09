@@ -31,6 +31,7 @@ All notable changes to this project will be documented in this file. See [standa
 
 * Beta installers remain unsigned. Follow the operating system's manual confirmation steps when opening them.
 * Automatic updates remain disabled for beta builds. Download this version from GitHub Releases; existing settings under `~/.hackdesk` are reused.
+* Save open notes before upgrading. Beta.4 cannot recover unsaved edits to existing notes after a restart; beta.5 adds that protection.
 * Automated packaged startup checks on macOS, Windows, and Linux remain tracked in [#140](https://github.com/EastSun5566/hackdesk/issues/140). They are deferred from beta.5 and remain required before stable v2.
 * Report beta issues at [github.com/EastSun5566/hackdesk/issues](https://github.com/EastSun5566/hackdesk/issues).
 
