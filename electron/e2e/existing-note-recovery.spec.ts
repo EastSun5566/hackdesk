@@ -279,7 +279,10 @@ test('keeps a draft reachable after its original file is deleted, across restart
       const files = (await readdir(vault)).filter((file) => file.endsWith('.md'));
       return Promise.all(files.map((file) => readFile(join(vault, file), 'utf8')));
     }).toEqual(['Unsaved edit']);
-    const layout = await readLocalLayout(page);
-    expect(Object.values(layout.drafts).map((draft) => (draft as { content: string }).content)).toEqual(['Unsaved edit']);
+    // Layout persistence is debounced separately from writing the note file.
+    await expect.poll(async () => {
+      const layout = await readLocalLayout(page);
+      return Object.values(layout.drafts).map((draft) => (draft as { content: string }).content);
+    }).toEqual(['Unsaved edit']);
   } finally { await crash(app); }
 });
