@@ -1001,7 +1001,7 @@ describe('Home native-feel behavior', () => {
     expect(api.app.confirm).not.toHaveBeenCalled();
   });
 
-  it('cancels the native close request when dirty note discard is rejected', async () => {
+  it('cancels the native close request when closing with unsaved changes is rejected', async () => {
     let closeHandler: (() => void) | null = null;
     const api = createApi({
       app: {
@@ -1024,13 +1024,13 @@ describe('Home native-feel behavior', () => {
       title: 'Close HackDesk',
       confirmLabel: 'Close',
       cancelLabel: 'Keep Editing',
-      destructive: true,
+      destructive: false,
     })));
     await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
     expect(api.app.confirmClose).not.toHaveBeenCalled();
   });
 
-  it('confirms the native close request after dirty note discard is accepted', async () => {
+  it('confirms the native close request after closing with unsaved changes is accepted', async () => {
     let closeHandler: (() => void) | null = null;
     const api = createApi({
       app: {
@@ -1095,11 +1095,11 @@ describe('Home native-feel behavior', () => {
 
     await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Close HackDesk',
-      message: 'Close 2 unsaved notes?',
+      message: 'Close HackDesk with unsaved changes?',
       detail: expect.stringContaining('2 notes have unsaved changes'),
       confirmLabel: 'Close',
       cancelLabel: 'Keep Editing',
-      destructive: true,
+      destructive: false,
     })));
     await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
     expect(api.app.confirmClose).not.toHaveBeenCalled();
@@ -1235,11 +1235,11 @@ describe('Home native-feel behavior', () => {
 
     await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Close HackDesk',
-      message: 'Close “Unsaved title”?',
+      message: 'Close HackDesk with unsaved changes?',
       detail: expect.stringContaining('1 note has a failed save'),
       confirmLabel: 'Close',
       cancelLabel: 'Keep Editing',
-      destructive: true,
+      destructive: false,
     })));
     await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
     expect(api.app.confirmClose).not.toHaveBeenCalled();

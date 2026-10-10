@@ -12,7 +12,7 @@ export type WorkbenchClosePolicyOptions = {
   api?: HackDeskElectronAPI;
   backupFailed?: boolean;
   closeTransientLayer: () => boolean;
-  confirmCloseUnsafeTabs: (tabs: OpenNoteTab[], title: string, confirmLabel: string) => Promise<boolean>;
+  confirmCloseUnsafeTabs: (tabs: OpenNoteTab[], title: string, confirmLabel: string, draftDisposition?: 'discard' | 'retain') => Promise<boolean>;
   openTabs: Record<string, OpenNoteTab>;
 };
 
@@ -63,7 +63,7 @@ export function useWorkbenchClosePolicy({
     const allTabs = Object.values(openTabs);
     const confirmed = backupFailed
       ? await confirmCloseWithoutBackup()
-      : await confirmCloseUnsafeTabs(allTabs, 'Close HackDesk', 'Close');
+      : await confirmCloseUnsafeTabs(allTabs, 'Close HackDesk', 'Close', 'retain');
     if (!confirmed) {
       await cancelClose();
       return;

@@ -156,6 +156,24 @@ describe('useWorkbenchTabLifecycle', () => {
     expect(options.closeTab).not.toHaveBeenCalled();
   });
 
+  it('explains retained drafts for window close while tab close still discards', async () => {
+    const options = createOptions({ api: createApi(true), isTabDirty: () => true });
+    const { result } = renderHook(() => useWorkbenchTabLifecycle(options));
+    await act(async () => {
+      await result.current.confirmCloseUnsafeTabs(Object.values(options.tabs), 'Close HackDesk', 'Close', 'retain');
+    });
+    expect(options.api?.app.confirm).toHaveBeenLastCalledWith(expect.objectContaining({
+      message: 'Close HackDesk with unsaved changes?',
+      detail: expect.stringContaining('Closing keeps your unsaved changes as drafts.'),
+      destructive: false,
+    }));
+    await act(async () => { await result.current.requestCloseTab('tab-1'); });
+    expect(options.api?.app.confirm).toHaveBeenLastCalledWith(expect.objectContaining({
+      detail: expect.stringContaining('Closing will discard drafts'),
+      destructive: true,
+    }));
+  });
+
   it('closes other tabs and tabs to the right in the target pane only after confirmation', async () => {
     const options = createOptions({
       isTabDirty: vi.fn((tab: OpenNoteTab) => tab.tabId === 'tab-2'),

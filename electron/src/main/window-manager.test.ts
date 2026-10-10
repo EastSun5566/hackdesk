@@ -51,6 +51,7 @@ const mockState = vi.hoisted(() => {
       workArea: { x: 0, y: 0, width: 1440, height: 900 },
     },
     writeLog: vi.fn(),
+    loadError: null as Error | null,
   };
 
   class BrowserWindowMock extends Emitter {
@@ -75,7 +76,9 @@ const mockState = vi.hoisted(() => {
         state.lastWindow = null;
       }
     });
-    loadURL = vi.fn();
+    loadURL = vi.fn(async () => {
+      if (state.loadError) throw state.loadError;
+    });
     maximize = vi.fn();
     show = vi.fn(() => { this.visibleValue = true; });
     focus = vi.fn(() => {
@@ -179,6 +182,7 @@ vi.mock('./window-state', () => ({
 }));
 
 import { app, dialog } from 'electron';
+import { exportDebugLogs } from './logging';
 import { WindowManager } from './window-manager';
 
 function createManagerWithWindow() {
@@ -202,6 +206,7 @@ describe('WindowManager close intent', () => {
     mockState.state.appShow.mockClear();
     mockState.state.cursorScreenPointError = false;
     mockState.state.writeLog.mockClear();
+    mockState.state.loadError = null;
   });
 
   afterEach(() => {
@@ -218,6 +223,109 @@ describe('WindowManager close intent', () => {
 
     expect(window.webContents.setIgnoreMenuShortcuts).toHaveBeenNthCalledWith(1, true);
     expect(window.webContents.setIgnoreMenuShortcuts).toHaveBeenNthCalledWith(2, false);
+  });
+
+  it('reloads the failing main window even when Quick Hack has focus', async () => {
+    const { manager, window } = createManagerWithWindow();
+    const capture = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    capture.focus();
+    vi.mocked(dialog.showMessageBox).mockResolvedValueOnce({ response: 0, checkboxChecked: false });
+
+    window.webContents.emit('render-process-gone', {}, { reason: 'crashed', exitCode: 1 });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(dialog.showMessageBox).toHaveBeenCalledWith(window, expect.anything());
+    expect(window.loadURL).toHaveBeenCalledTimes(2);
+    expect(window.loadURL).toHaveBeenLastCalledWith('hackdesk://renderer/index.html');
+    expect(capture.loadURL).toHaveBeenCalledTimes(1);
+  });
+
+  it('recovers Quick Hack on its own route and ignores canceled or subframe loads', async () => {
+    const { manager, window } = createManagerWithWindow();
+    const capture = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    window.focus();
+    const url = 'hackdesk://renderer/index.html#/quick-capture';
+    capture.webContents.emit('did-fail-load', {}, -3, 'Canceled', url, true);
+    capture.webContents.emit('did-fail-load', {}, -2, 'Subframe failed', url, false);
+    expect(dialog.showMessageBox).not.toHaveBeenCalled();
+
+    vi.mocked(dialog.showMessageBox).mockResolvedValueOnce({ response: 0, checkboxChecked: false });
+    capture.webContents.emit('did-fail-load', {}, -2, 'Load failed', url, true);
+    capture.webContents.emit('did-fail-provisional-load', {}, -2, 'Load failed', url, true);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(dialog.showMessageBox).toHaveBeenCalledOnce();
+    expect(dialog.showMessageBox).toHaveBeenCalledWith(capture, expect.anything());
+    expect(capture.loadURL).toHaveBeenLastCalledWith(url);
+    expect(capture.loadURL).toHaveBeenCalledTimes(2);
+    expect(window.loadURL).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([0, 2, 3])('ignores recovery choice %s after the failing window is destroyed', async response => {
+    const { manager, window } = createManagerWithWindow();
+    let answer!: (value: { response: number; checkboxChecked: boolean }) => void;
+    vi.mocked(dialog.showMessageBox).mockImplementationOnce(() => new Promise(resolve => { answer = resolve; }));
+    window.webContents.emit('preload-error', {}, '/preload.cjs', new Error('Preload failed'));
+    window.destroy();
+    const replacement = manager.createMainWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    window.emit('ready-to-show');
+    answer({ response, checkboxChecked: false });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(window.loadURL).toHaveBeenCalledTimes(1);
+    expect(replacement.loadURL).toHaveBeenCalledTimes(1);
+    expect(replacement.show).not.toHaveBeenCalled();
+    expect(app.quit).not.toHaveBeenCalled();
+    expect(app.relaunch).not.toHaveBeenCalled();
+  });
+
+  it.each(['dialog', 'reload', 'export'])('logs a failed recovery %s and allows another attempt', async failure => {
+    const { window } = createManagerWithWindow();
+    const error = new Error(`${failure} failed`);
+    if (failure === 'dialog') vi.mocked(dialog.showMessageBox).mockRejectedValueOnce(error);
+    else vi.mocked(dialog.showMessageBox).mockResolvedValueOnce({ response: failure === 'reload' ? 0 : 1, checkboxChecked: false });
+    if (failure === 'reload') window.loadURL.mockRejectedValueOnce(error);
+    if (failure === 'export') vi.mocked(exportDebugLogs).mockRejectedValueOnce(error);
+
+    window.emit('unresponsive');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mockState.state.writeLog).toHaveBeenCalledWith('main', 'window recovery failed', error, 'error');
+    window.emit('unresponsive');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(dialog.showMessageBox).toHaveBeenCalledTimes(2);
+  });
+
+  it('handles rejected initial loads for both window types', async () => {
+    const error = new Error('Load failed');
+    mockState.state.loadError = error;
+    const { manager } = createManagerWithWindow();
+    manager.showQuickCaptureWindow();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mockState.state.writeLog).toHaveBeenCalledWith('renderer', 'HackDesk load failed', error, 'error');
+    expect(mockState.state.writeLog).toHaveBeenCalledWith('renderer', 'Quick Hack load failed', error, 'error');
+  });
+
+  it('logs a rejected close fallback dialog', async () => {
+    const { window } = createManagerWithWindow();
+    const error = new Error('Dialog failed');
+    vi.mocked(dialog.showMessageBox).mockRejectedValueOnce(error);
+    emitClose(window);
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(mockState.state.writeLog).toHaveBeenCalledWith('main', 'window close dialog failed', error, 'error');
+    expect(app.quit).not.toHaveBeenCalled();
+  });
+
+  it('ignores a late close fallback answer after the original window is destroyed', async () => {
+    const { manager, window } = createManagerWithWindow();
+    let answer!: (value: { response: number; checkboxChecked: boolean }) => void;
+    vi.mocked(dialog.showMessageBox).mockImplementationOnce(() => new Promise(resolve => { answer = resolve; }));
+    emitClose(window);
+    await vi.advanceTimersByTimeAsync(15_000);
+    window.destroy();
+    manager.createMainWindow();
+    answer({ response: 1, checkboxChecked: false });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(app.quit).not.toHaveBeenCalled();
   });
 
   it('reports and broadcasts main window fullscreen state', () => {
