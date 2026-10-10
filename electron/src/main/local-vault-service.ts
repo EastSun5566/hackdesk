@@ -69,6 +69,7 @@ const MARKDOWN_EXTENSION = '.md';
 const ATTACHMENTS_DIR = 'attachments';
 const MAX_MARKDOWN_BYTES = 10 * 1024 * 1024;
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+const SCAN_CONCURRENCY = 16;
 
 const defaultManifest = (): VaultManifest => ({
   version: 1,
@@ -150,6 +151,27 @@ async function readScannedFile(vaultRoot: string, entry: ScanEntry) {
 type ScannedFile = Awaited<ReturnType<typeof readScannedFile>>;
 type SkippedScannedFile = Extract<ScannedFile, { skipped: string }>;
 type ReadScannedFile = Exclude<ScannedFile, SkippedScannedFile>;
+
+async function mapScanItems<T, R>(items: readonly T[], task: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  let failed = false;
+  let failure: unknown;
+  await Promise.all(Array.from({ length: Math.min(SCAN_CONCURRENCY, items.length) }, async () => {
+    while (!failed && nextIndex < items.length) {
+      const index = nextIndex++;
+      try {
+        results[index] = await task(items[index]);
+      } catch (error) {
+        if (!failed) failure = error;
+        failed = true;
+      }
+    }
+  }));
+  // Drain started tasks before releasing the vault queue or retrying an unstable scan.
+  if (failed) throw failure;
+  return results;
+}
 
 function toVaultRelativePath(vaultRoot: string, absolutePath: string) {
   return relative(vaultRoot, absolutePath).split(sep).join('/');
@@ -444,7 +466,7 @@ async function requireActiveLocalVaultPath() {
 async function scanLocalVaultOnce(vaultRoot: string): Promise<LocalVaultSnapshot> {
   const manifest = await readManifest(vaultRoot);
   const files = await scanMarkdownFiles(vaultRoot);
-  const scanned = await Promise.all(files.map((entry) => readScannedFile(vaultRoot, entry)));
+  const scanned = await mapScanItems(files, (entry) => readScannedFile(vaultRoot, entry));
   const loaded = scanned.filter((item): item is ReadScannedFile => !('skipped' in item));
   const skipped = scanned.filter((item): item is SkippedScannedFile => 'skipped' in item);
   const oldByIdentity = new Map<string, [string, ManifestNote][]>();
@@ -487,11 +509,11 @@ async function scanLocalVaultOnce(vaultRoot: string): Promise<LocalVaultSnapshot
   ));
   const folders = await scanFolders(vaultRoot);
   // Validate again before publishing so a file moved after its read cannot receive an old ID.
-  await Promise.all(loaded.map(async ({ entry, fileStat }) => {
+  await mapScanItems(loaded, async ({ entry, fileStat }) => {
     if (!sameFileState(fileStat, await lstat(entry.absolutePath, { bigint: true }))) {
       throw new UnstableVaultScanError('Local vault changed during scanning.');
     }
-  }));
+  });
   await writeManifest(vaultRoot, nextManifest);
 
   return {

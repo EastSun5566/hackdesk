@@ -1,0 +1,418 @@
+{
+  "baseline": {
+    "ref": "7556802",
+    "sourceSha256": "eec5e10d1fb2ed797a73a699745a57f1c5a11fba990f6b0234f31b6b4ecffa8a",
+    "scanConcurrency": null,
+    "node": "v24.16.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "os": "27.0.0",
+    "cpu": "Apple M1",
+    "measuredRuns": 5,
+    "results": [
+      {
+        "count": 100,
+        "bytes": 1024,
+        "rows": [
+          {
+            "run": 0,
+            "scanMs": 9.601291000000003,
+            "saveSnapshotMs": 31.989291999999978,
+            "rssBeforeMiB": 97.640625,
+            "peakRssMiB": 97.9375,
+            "eventLoopMaxMs": 11.100159
+          },
+          {
+            "run": 1,
+            "scanMs": 11.227040999999986,
+            "saveSnapshotMs": 19.433624999999978,
+            "rssBeforeMiB": 97.953125,
+            "peakRssMiB": 99.03125,
+            "eventLoopMaxMs": 10.027007
+          },
+          {
+            "run": 2,
+            "scanMs": 8.725333000000006,
+            "saveSnapshotMs": 15.423000000000002,
+            "rssBeforeMiB": 99.03125,
+            "peakRssMiB": 105.265625,
+            "eventLoopMaxMs": 10.059775
+          },
+          {
+            "run": 3,
+            "scanMs": 8.00566599999999,
+            "saveSnapshotMs": 17.99841699999999,
+            "rssBeforeMiB": 105.265625,
+            "peakRssMiB": 105.96875,
+            "eventLoopMaxMs": 9.445375
+          },
+          {
+            "run": 4,
+            "scanMs": 8.40341600000005,
+            "saveSnapshotMs": 16.427166,
+            "rssBeforeMiB": 105.96875,
+            "peakRssMiB": 106.125,
+            "eventLoopMaxMs": 10.280959
+          }
+        ],
+        "processPeakRssMiB": 106.125,
+        "summary": {
+          "scanMs": {
+            "median": 8.725333000000006,
+            "p95": 11.227040999999986
+          },
+          "saveSnapshotMs": {
+            "median": 17.99841699999999,
+            "p95": 31.989291999999978
+          },
+          "peakRssMiB": {
+            "median": 105.265625,
+            "p95": 106.125
+          },
+          "eventLoopMaxMs": {
+            "median": 10.059775,
+            "p95": 11.100159
+          }
+        }
+      },
+      {
+        "count": 1000,
+        "bytes": 1024,
+        "rows": [
+          {
+            "run": 0,
+            "scanMs": 79.383083,
+            "saveSnapshotMs": 88.99808300000001,
+            "rssBeforeMiB": 140.640625,
+            "peakRssMiB": 173.71875,
+            "eventLoopMaxMs": 13.623295
+          },
+          {
+            "run": 1,
+            "scanMs": 70.73954199999997,
+            "saveSnapshotMs": 81.40150000000006,
+            "rssBeforeMiB": 173.734375,
+            "peakRssMiB": 177.21875,
+            "eventLoopMaxMs": 13.017087
+          },
+          {
+            "run": 2,
+            "scanMs": 67.18895899999995,
+            "saveSnapshotMs": 81.82879100000002,
+            "rssBeforeMiB": 177.21875,
+            "peakRssMiB": 187.78125,
+            "eventLoopMaxMs": 13.697023
+          },
+          {
+            "run": 3,
+            "scanMs": 72.51791700000001,
+            "saveSnapshotMs": 85.6388750000001,
+            "rssBeforeMiB": 187.78125,
+            "peakRssMiB": 239.59375,
+            "eventLoopMaxMs": 12.509183
+          },
+          {
+            "run": 4,
+            "scanMs": 74.31370800000002,
+            "saveSnapshotMs": 81.078708,
+            "rssBeforeMiB": 239.59375,
+            "peakRssMiB": 243.203125,
+            "eventLoopMaxMs": 12.271615
+          }
+        ],
+        "processPeakRssMiB": 244.390625,
+        "summary": {
+          "scanMs": {
+            "median": 72.51791700000001,
+            "p95": 79.383083
+          },
+          "saveSnapshotMs": {
+            "median": 81.82879100000002,
+            "p95": 88.99808300000001
+          },
+          "peakRssMiB": {
+            "median": 187.78125,
+            "p95": 243.203125
+          },
+          "eventLoopMaxMs": {
+            "median": 13.017087,
+            "p95": 13.697023
+          }
+        }
+      },
+      {
+        "count": 10000,
+        "bytes": 1024,
+        "rows": [
+          {
+            "run": 0,
+            "scanMs": 757.7623329999997,
+            "saveSnapshotMs": 797.578,
+            "rssBeforeMiB": 464.546875,
+            "peakRssMiB": 473.734375,
+            "eventLoopMaxMs": 62.521343
+          },
+          {
+            "run": 1,
+            "scanMs": 747.5936670000006,
+            "saveSnapshotMs": 756.1153749999994,
+            "rssBeforeMiB": 466.4375,
+            "peakRssMiB": 532.78125,
+            "eventLoopMaxMs": 58.621951
+          },
+          {
+            "run": 2,
+            "scanMs": 721.5222079999994,
+            "saveSnapshotMs": 829.0620829999998,
+            "rssBeforeMiB": 532.78125,
+            "peakRssMiB": 654.75,
+            "eventLoopMaxMs": 105.119743
+          },
+          {
+            "run": 3,
+            "scanMs": 707.4691670000002,
+            "saveSnapshotMs": 780.1541250000009,
+            "rssBeforeMiB": 654.75,
+            "peakRssMiB": 663.90625,
+            "eventLoopMaxMs": 54.591487
+          },
+          {
+            "run": 4,
+            "scanMs": 689.8157080000001,
+            "saveSnapshotMs": 750.6936669999996,
+            "rssBeforeMiB": 657.171875,
+            "peakRssMiB": 665.9375,
+            "eventLoopMaxMs": 54.034431
+          }
+        ],
+        "processPeakRssMiB": 673.90625,
+        "summary": {
+          "scanMs": {
+            "median": 721.5222079999994,
+            "p95": 757.7623329999997
+          },
+          "saveSnapshotMs": {
+            "median": 780.1541250000009,
+            "p95": 829.0620829999998
+          },
+          "peakRssMiB": {
+            "median": 654.75,
+            "p95": 665.9375
+          },
+          "eventLoopMaxMs": {
+            "median": 58.621951,
+            "p95": 105.119743
+          }
+        }
+      }
+    ]
+  },
+  "bounded16": {
+    "ref": "working-tree",
+    "sourceSha256": "2b14f212d360c7554c44da7d60595f725a9c4b4ce8fbe70b2b794545828a132b",
+    "scanConcurrency": 16,
+    "node": "v24.16.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "os": "27.0.0",
+    "cpu": "Apple M1",
+    "measuredRuns": 5,
+    "results": [
+      {
+        "count": 100,
+        "bytes": 1024,
+        "rows": [
+          {
+            "run": 0,
+            "scanMs": 9.741624999999999,
+            "saveSnapshotMs": 16.958,
+            "rssBeforeMiB": 96.875,
+            "peakRssMiB": 97.25,
+            "eventLoopMaxMs": 9.969663
+          },
+          {
+            "run": 1,
+            "scanMs": 9.93425000000002,
+            "saveSnapshotMs": 17.74004199999999,
+            "rssBeforeMiB": 97.265625,
+            "peakRssMiB": 97.8125,
+            "eventLoopMaxMs": 10.035199
+          },
+          {
+            "run": 2,
+            "scanMs": 8.120042000000012,
+            "saveSnapshotMs": 17.86616700000002,
+            "rssBeforeMiB": 97.8125,
+            "peakRssMiB": 97.984375,
+            "eventLoopMaxMs": 9.265151
+          },
+          {
+            "run": 3,
+            "scanMs": 8.570249999999987,
+            "saveSnapshotMs": 17.39387500000001,
+            "rssBeforeMiB": 97.984375,
+            "peakRssMiB": 102.234375,
+            "eventLoopMaxMs": 9.977855
+          },
+          {
+            "run": 4,
+            "scanMs": 8.148458000000005,
+            "saveSnapshotMs": 17.784875,
+            "rssBeforeMiB": 102.234375,
+            "peakRssMiB": 105.265625,
+            "eventLoopMaxMs": 9.224191
+          }
+        ],
+        "processPeakRssMiB": 105.265625,
+        "summary": {
+          "scanMs": {
+            "median": 8.570249999999987,
+            "p95": 9.93425000000002
+          },
+          "saveSnapshotMs": {
+            "median": 17.74004199999999,
+            "p95": 17.86616700000002
+          },
+          "peakRssMiB": {
+            "median": 97.984375,
+            "p95": 105.265625
+          },
+          "eventLoopMaxMs": {
+            "median": 9.969663,
+            "p95": 10.035199
+          }
+        }
+      },
+      {
+        "count": 1000,
+        "bytes": 1024,
+        "rows": [
+          {
+            "run": 0,
+            "scanMs": 75.64974999999998,
+            "saveSnapshotMs": 79.85416700000002,
+            "rssBeforeMiB": 112.5,
+            "peakRssMiB": 133.03125,
+            "eventLoopMaxMs": 10.838015
+          },
+          {
+            "run": 1,
+            "scanMs": 62.26574999999997,
+            "saveSnapshotMs": 77.89804200000003,
+            "rssBeforeMiB": 133.046875,
+            "peakRssMiB": 137.109375,
+            "eventLoopMaxMs": 10.878975
+          },
+          {
+            "run": 2,
+            "scanMs": 62.408874999999966,
+            "saveSnapshotMs": 82.81008399999996,
+            "rssBeforeMiB": 137.109375,
+            "peakRssMiB": 155.484375,
+            "eventLoopMaxMs": 10.936319
+          },
+          {
+            "run": 3,
+            "scanMs": 65.268416,
+            "saveSnapshotMs": 79.31116599999996,
+            "rssBeforeMiB": 155.484375,
+            "peakRssMiB": 169.84375,
+            "eventLoopMaxMs": 10.731519
+          },
+          {
+            "run": 4,
+            "scanMs": 64.51974999999993,
+            "saveSnapshotMs": 76.11529099999996,
+            "rssBeforeMiB": 169.640625,
+            "peakRssMiB": 171.359375,
+            "eventLoopMaxMs": 11.198463
+          }
+        ],
+        "processPeakRssMiB": 171.65625,
+        "summary": {
+          "scanMs": {
+            "median": 64.51974999999993,
+            "p95": 75.64974999999998
+          },
+          "saveSnapshotMs": {
+            "median": 79.31116599999996,
+            "p95": 82.81008399999996
+          },
+          "peakRssMiB": {
+            "median": 155.484375,
+            "p95": 171.359375
+          },
+          "eventLoopMaxMs": {
+            "median": 10.878975,
+            "p95": 11.198463
+          }
+        }
+      },
+      {
+        "count": 10000,
+        "bytes": 1024,
+        "rows": [
+          {
+            "run": 0,
+            "scanMs": 613.176792,
+            "saveSnapshotMs": 646.1902919999998,
+            "rssBeforeMiB": 266.3125,
+            "peakRssMiB": 297.109375,
+            "eventLoopMaxMs": 22.593535
+          },
+          {
+            "run": 1,
+            "scanMs": 615.3542079999997,
+            "saveSnapshotMs": 654.7295839999997,
+            "rssBeforeMiB": 293.046875,
+            "peakRssMiB": 331.140625,
+            "eventLoopMaxMs": 22.790143
+          },
+          {
+            "run": 2,
+            "scanMs": 609.6206670000001,
+            "saveSnapshotMs": 651.8558750000002,
+            "rssBeforeMiB": 331.140625,
+            "peakRssMiB": 346.828125,
+            "eventLoopMaxMs": 22.986751
+          },
+          {
+            "run": 3,
+            "scanMs": 604.4014589999997,
+            "saveSnapshotMs": 641.3911669999998,
+            "rssBeforeMiB": 346.828125,
+            "peakRssMiB": 371.140625,
+            "eventLoopMaxMs": 23.789567
+          },
+          {
+            "run": 4,
+            "scanMs": 598.7600829999992,
+            "saveSnapshotMs": 654.6889159999992,
+            "rssBeforeMiB": 351.328125,
+            "peakRssMiB": 376.796875,
+            "eventLoopMaxMs": 25.313279
+          }
+        ],
+        "processPeakRssMiB": 387.921875,
+        "summary": {
+          "scanMs": {
+            "median": 609.6206670000001,
+            "p95": 615.3542079999997
+          },
+          "saveSnapshotMs": {
+            "median": 651.8558750000002,
+            "p95": 654.7295839999997
+          },
+          "peakRssMiB": {
+            "median": 346.828125,
+            "p95": 376.796875
+          },
+          "eventLoopMaxMs": {
+            "median": 22.986751,
+            "p95": 25.313279
+          }
+        }
+      }
+    ]
+  }
+}

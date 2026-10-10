@@ -250,6 +250,63 @@ describe('LocalVaultService', () => {
     expect((await scanLocalVault(vaultPath)).notes[0].id).toBe(document.id);
   });
 
+  it('bounds overlapping file reads while still scanning every note', async () => {
+    for (let i = 0; i < 32; i++) await writeFile(join(vaultPath, `Note-${i}.md`), `Body ${i}`);
+    let active = 0;
+    let peak = 0;
+    fsProbe.afterRead.mockImplementation(async (path) => {
+      if (!path.endsWith('.md')) return;
+      peak = Math.max(peak, ++active);
+      await new Promise((resolve) => setImmediate(resolve));
+      active--;
+    });
+    const snapshot = await scanLocalVault(vaultPath);
+    expect(snapshot.notes).toHaveLength(32);
+    expect(peak).toBeLessThanOrEqual(16);
+    expect(active).toBe(0);
+  });
+
+  it('drains started reads before a failed scan releases the vault queue', async () => {
+    for (let i = 0; i < 8; i++) await writeFile(join(vaultPath, `Note-${i}.md`), `Body ${i}`);
+    const manifestPath = join(vaultPath, '.hackdesk', 'manifest.json');
+    await scanLocalVault(vaultPath);
+    const manifest = await readFile(manifestPath, 'utf8');
+    let active = 0;
+    let activeAtFailure = -1;
+    let signalStarted!: () => void;
+    let releaseReads!: () => void;
+    const allStarted = new Promise<void>((resolve) => { signalStarted = resolve; });
+    const released = new Promise<void>((resolve) => { releaseReads = resolve; });
+    fsProbe.afterRead.mockImplementation(async (path) => {
+      if (!path.endsWith('.md')) return;
+      if (++active === 8) signalStarted();
+      try {
+        if (path.endsWith('Note-0.md')) {
+          await allStarted;
+          throw new Error('fixture read failure');
+        }
+        await released;
+      } finally {
+        active--;
+      }
+    });
+    const failed = scanLocalVault(vaultPath).catch((error: unknown) => {
+      activeAtFailure = active;
+      return error;
+    });
+    try {
+      await allStarted;
+      await new Promise((resolve) => setImmediate(resolve));
+    } finally {
+      releaseReads();
+    }
+    expect(await failed).toEqual(new Error('fixture read failure'));
+    expect(activeAtFailure).toBe(0);
+    expect(await readFile(manifestPath, 'utf8')).toBe(manifest);
+    fsProbe.afterRead.mockReset();
+    expect((await scanLocalVault(vaultPath)).notes).toHaveLength(8);
+  });
+
   it('rejects stale writes when the file changed on disk', async () => {
     const { document: note } = await createLocalNote({ title: 'Draft', content: 'base' });
     await writeFile(join(vaultPath, note.relativePath), 'external');
