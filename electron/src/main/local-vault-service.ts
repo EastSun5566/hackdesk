@@ -923,7 +923,7 @@ export function watchLocalVault(
     if (closed) {
       return;
     }
-    if (filename && filename.toString().split(/[\\/]/).includes(MANIFEST_DIR)) {
+    if (filename && filename.toString().split(/[\\/]/).some((segment) => IGNORED_DIRS.has(segment))) {
       return;
     }
     if (pauseDepth > 0) {
