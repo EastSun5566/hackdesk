@@ -71,6 +71,12 @@ export function getActiveLines(state: EditorState): Set<number> {
   return activeLines;
 }
 
+export function activeLinesChanged(before: EditorState, after: EditorState): boolean {
+  const previous = getActiveLines(before);
+  const next = getActiveLines(after);
+  return previous.size !== next.size || [...previous].some((line) => !next.has(line));
+}
+
 export function getActiveHfmBlocks(
   blockRanges: readonly HfmBlockRange[],
   activeLines: Set<number>,
@@ -179,22 +185,27 @@ export function addHackmdLineSyntaxRanges(
   activeLines: Set<number>,
   ranges: PreviewRange[],
   skippedLines: ReadonlySet<number> = new Set(),
+  fromLine = 1,
+  toLine = state.doc.lines,
 ) {
-  for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber += 1) {
-    if (skippedLines.has(lineNumber)) {
+  let lineNumber = fromLine;
+  let lineFrom = state.doc.line(fromLine).from;
+  for (const text of state.doc.iterLines(fromLine, toLine + 1)) {
+    const from = lineFrom;
+    lineFrom += text.length + 1;
+    const number = lineNumber++;
+    if (skippedLines.has(number)) {
       continue;
     }
 
-    const line = state.doc.line(lineNumber);
-    const text = line.text;
     const hfmLine = getHfmLineDecorations(text);
 
     for (const className of hfmLine.lineClasses) {
-      ranges.push(Decoration.line({ attributes: { class: className } }).range(line.from));
+      ranges.push(Decoration.line({ attributes: { class: className } }).range(from));
     }
 
-    addHackmdInlineSyntaxRanges(line.from, hfmLine.inlineMarks, ranges);
-    addHackmdHiddenSyntaxRanges(state, line.from, lineNumber, activeLines, hfmLine.hiddenRanges, ranges);
+    addHackmdInlineSyntaxRanges(from, hfmLine.inlineMarks, ranges);
+    addHackmdHiddenSyntaxRanges(state, from, number, activeLines, hfmLine.hiddenRanges, ranges);
   }
 }
 

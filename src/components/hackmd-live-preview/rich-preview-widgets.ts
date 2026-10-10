@@ -12,7 +12,7 @@ import {
   type DecorationSet,
 } from '@codemirror/view';
 
-import { getActiveLines } from './hfm-decoration-ranges';
+import { activeLinesChanged, getActiveLines } from './hfm-decoration-ranges';
 import { fenceOpenPattern } from './hfm-patterns';
 import {
   ensureFontAwesomeCss,
@@ -276,7 +276,7 @@ const richPreviewField = StateField.define<DecorationSet>({
   create: (state) => buildRichPreviewDecorations(state),
   update(decorations, transaction) {
     const treeGrew = transaction.effects.some((effect) => effect.is(treeGrowthEffect));
-    if (transaction.docChanged || transaction.selection || treeGrew) {
+    if (transaction.docChanged || treeGrew || (transaction.selection && activeLinesChanged(transaction.startState, transaction.state))) {
       return buildRichPreviewDecorations(transaction.state);
     }
     return decorations.map(transaction.changes);

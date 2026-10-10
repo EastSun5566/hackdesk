@@ -103,9 +103,20 @@ type SyntaxNodeParentLike = {
 const inlinePreviewPlugin = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
+    private previewState: EditorState;
+    private document: PreviewDocument;
 
     constructor(readonly view: EditorView) {
-      this.decorations = buildDecorations(view.state);
+      this.previewState = view.state;
+      this.document = buildPreviewDocument(view.state);
+      this.decorations = buildDecorations(view, view.state, this.document);
+    }
+
+    private rebuild(state = this.view.state, treeGrew = false) {
+      if (treeGrew || this.document.doc !== state.doc || this.document.sourceTree !== syntaxTree(state)) {
+        this.document = buildPreviewDocument(state);
+      }
+      this.decorations = buildDecorations(this.view, state, this.document);
     }
 
     update(update: ViewUpdate) {
@@ -117,14 +128,20 @@ const inlinePreviewPlugin = ViewPlugin.fromClass(
       );
 
       if (previewIsFrozen && !previewJustUnfroze) {
-        this.decorations = update.docChanged || treeGrew
-          ? buildDecorations(update.state)
-          : this.decorations;
+        if (update.docChanged || treeGrew) {
+          this.previewState = update.state;
+          this.rebuild(update.state, treeGrew);
+        } else if (update.viewportChanged) {
+          // Auto-scroll during a pointer selection must decorate new lines
+          // without revealing source under the pointer until the freeze ends.
+          this.rebuild(this.previewState);
+        }
         return;
       }
 
-      if (update.docChanged || update.selectionSet || update.focusChanged || treeGrew || previewJustUnfroze) {
-        this.decorations = buildDecorations(update.state);
+      if (update.docChanged || update.selectionSet || update.viewportChanged || treeGrew || previewJustUnfroze) {
+        this.previewState = update.state;
+        this.rebuild(update.state, treeGrew);
       }
     }
   },
@@ -209,85 +226,109 @@ export function hackmdInlinePreview(): Extension {
   ];
 }
 
-function buildDecorations(state: EditorState): DecorationSet {
-  const ranges: PreviewRange[] = [];
-  const activeLines = getActiveLines(state);
-  const activeInlineSourceStarts = new Set<number>();
+function buildPreviewDocument(state: EditorState) {
+  const sourceTree = syntaxTree(state);
   const tree = ensureSyntaxTree(state, state.doc.length, 200) ?? syntaxTree(state);
   const fencedCodeLines = getFencedCodeLines(state, tree);
   const hfmBlockRanges = getHfmDocumentIndex(state).blockRanges
     .filter((blockRange) => !blockRangeOverlapsLines(blockRange.startLine, blockRange.endLine, fencedCodeLines));
-  const activeHfmBlocks = getActiveHfmBlocks(hfmBlockRanges, activeLines);
   const orderedListMarkers = getOrderedListMarkerPreviews(state);
+  return { doc: state.doc, sourceTree, tree, fencedCodeLines, hfmBlockRanges, orderedListMarkers };
+}
+
+type PreviewDocument = ReturnType<typeof buildPreviewDocument>;
+
+function buildDecorations(view: EditorView, state: EditorState, document: PreviewDocument): DecorationSet {
+  const { tree, fencedCodeLines, hfmBlockRanges, orderedListMarkers } = document;
+  const ranges: PreviewRange[] = [];
+  const activeLines = getActiveLines(state);
+  const activeInlineSourceStarts = new Set<number>();
+  const activeHfmBlocks = getActiveHfmBlocks(hfmBlockRanges, activeLines);
 
   expandActiveHfmBlockLines(activeHfmBlocks, activeLines);
 
   addFrontmatterRanges(state, ranges);
   addHfmBlockRanges(state, hfmBlockRanges, activeHfmBlocks, ranges);
-  addHackmdLineSyntaxRanges(state, activeLines, ranges, fencedCodeLines);
+  const visibleLines = new Set<number>();
+  for (const { from, to } of view.visibleRanges) {
+    const startLine = state.doc.lineAt(from).number;
+    const endLine = state.doc.lineAt(to).number;
+    for (let number = startLine; number <= endLine; number++) visibleLines.add(number);
+    addHackmdLineSyntaxRanges(state, activeLines, ranges, fencedCodeLines, startLine, endLine);
+  }
 
-  tree.iterate({
-    enter(node) {
-      if (node.name === 'FencedCode') {
-        const startLine = state.doc.lineAt(node.from).number;
-        const endLine = state.doc.lineAt(Math.max(node.from, node.to - 1)).number;
-        let fenceIsActive = false;
-        for (let lineNumber = startLine; lineNumber <= endLine; lineNumber += 1) {
-          if (activeLines.has(lineNumber)) {
-            fenceIsActive = true;
-            break;
-          }
-        }
-        if (fenceIsActive) {
+  // Block replacements stay in StateFields. Only this plugin's inline/line
+  // decorations can follow the viewport without changing vertical structure.
+  const visited = new Set<string>();
+  for (const { from, to } of view.visibleRanges) {
+    tree.iterate({
+      from,
+      to,
+      enter(node) {
+        const key = `${node.name}:${node.from}:${node.to}`;
+        if (visited.has(key)) return;
+        visited.add(key);
+        if (node.name === 'FencedCode') {
+          const startLine = state.doc.lineAt(node.from).number;
+          const endLine = state.doc.lineAt(Math.max(node.from, node.to - 1)).number;
+          let fenceIsActive = false;
           for (let lineNumber = startLine; lineNumber <= endLine; lineNumber += 1) {
-            activeLines.add(lineNumber);
+            if (activeLines.has(lineNumber)) {
+              fenceIsActive = true;
+              break;
+            }
+          }
+          if (fenceIsActive) {
+            for (let lineNumber = startLine; lineNumber <= endLine; lineNumber += 1) {
+              activeLines.add(lineNumber);
+            }
           }
         }
-      }
 
-      if (node.name === 'Link' || node.name === 'Image') {
-        for (const range of state.selection.ranges) {
-          if (range.from <= node.to && range.to >= node.from) {
-            activeInlineSourceStarts.add(node.from);
-            break;
+        if (node.name === 'Link' || node.name === 'Image') {
+          for (const range of state.selection.ranges) {
+            if (range.from <= node.to && range.to >= node.from) {
+              activeInlineSourceStarts.add(node.from);
+              break;
+            }
           }
         }
-      }
 
-      if (node.name === 'HorizontalRule') {
-        const line = state.doc.lineAt(node.from);
-        if (!activeLines.has(line.number)) {
-          ranges.push(Decoration.line({ attributes: { class: 'cm-hackmd-hr' } }).range(line.from));
-          pushReplace(ranges, state.doc, line.from, line.to);
+        if (node.name === 'HorizontalRule') {
+          const line = state.doc.lineAt(node.from);
+          if (!activeLines.has(line.number)) {
+            ranges.push(Decoration.line({ attributes: { class: 'cm-hackmd-hr' } }).range(line.from));
+            pushReplace(ranges, state.doc, line.from, line.to);
+          }
+          return;
         }
-        return;
-      }
 
-      const lineClass = lineClassByNodeName[node.name];
-      if (lineClass) {
-        addLineClass(state, ranges, node.from, node.to, lineClass);
-      }
+        const lineClass = lineClassByNodeName[node.name];
+        if (lineClass) {
+          addLineClass(state, ranges, node.from, node.to, lineClass, visibleLines);
+        }
 
-      const markClass = inlineMarkClassByNodeName[node.name];
-      if (markClass && node.to > node.from) {
-        ranges.push(Decoration.mark({ class: markClass }).range(node.from, node.to));
-      }
+        const markClass = inlineMarkClassByNodeName[node.name];
+        if (markClass && node.to > node.from) {
+          ranges.push(Decoration.mark({ class: markClass }).range(node.from, node.to));
+        }
 
-      if (node.name === 'ListMark') {
-        addListMarker(state, activeLines, orderedListMarkers, ranges, node.from, node.to);
-        return;
-      }
+        if (node.name === 'ListMark') {
+          addListMarker(state, activeLines, orderedListMarkers, ranges, node.from, node.to);
+          return;
+        }
 
-      if (node.name === 'TaskMarker') {
-        addTaskMarker(state, activeLines, ranges, node.from, node.to);
-        return;
-      }
+        if (node.name === 'TaskMarker') {
+          addTaskMarker(state, activeLines, ranges, node.from, node.to);
+          return;
+        }
 
-      if (hideableSyntaxNodeNames.has(node.name)) {
-        addHiddenSyntax(state, activeLines, activeInlineSourceStarts, ranges, node);
-      }
-    },
-  });
+        if (hideableSyntaxNodeNames.has(node.name)) {
+          addHiddenSyntax(state, activeLines, activeInlineSourceStarts, ranges, node);
+        }
+      },
+    });
+  }
 
   return Decoration.set(ranges, true);
 }
@@ -333,11 +374,15 @@ function isInactiveSingleLineRange(state: EditorState, activeLines: Set<number>,
   return startLine.number === endLine.number && !activeLines.has(startLine.number);
 }
 
-function addLineClass(state: EditorState, ranges: PreviewRange[], from: number, to: number, className: string) {
+function addLineClass(
+  state: EditorState, ranges: PreviewRange[], from: number, to: number,
+  className: string, visibleLines: ReadonlySet<number>,
+) {
   const startLine = state.doc.lineAt(from);
   const endLine = state.doc.lineAt(Math.max(from, to - 1));
 
-  for (let lineNumber = startLine.number; lineNumber <= endLine.number; lineNumber += 1) {
+  for (const lineNumber of visibleLines) {
+    if (lineNumber < startLine.number || lineNumber > endLine.number) continue;
     const line = state.doc.line(lineNumber);
     ranges.push(Decoration.line({ attributes: { class: className } }).range(line.from));
   }

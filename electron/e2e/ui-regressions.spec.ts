@@ -125,6 +125,32 @@ async function expectInsetFocus(locator: Locator, container = false) {
   }), { message: container ? 'Tag focus ring is inside its clipping ancestors' : 'Field focus ring is inside its clipping ancestors' }).toBe(true);
 }
 
+test('inline preview follows scrolling and reveals source without losing edits', async () => {
+  const { app, page } = await launchFixture('standard');
+  try {
+    await openFixtureNote(page);
+    const source = ['Before', ...Array.from({ length: 1000 }, (_, index) => `Line ${index}`), '**bottom** and [link](https://example.com)'].join('\n');
+    const content = page.locator('.cm-content');
+    await content.focus();
+    await page.keyboard.press(`${primary}+a`);
+    await page.keyboard.insertText(source);
+    const lastLine = content.locator('.cm-line').filter({ hasText: 'bottom' });
+    await expect(lastLine).toHaveText('**bottom** and [link](https://example.com)');
+    await page.keyboard.press(`${primary}+Home`);
+    await page.locator('.cm-scroller').evaluate((element) => { element.scrollTop = element.scrollHeight; });
+    await expect(lastLine).toHaveText('bottom and link');
+    await lastLine.click();
+    await expect(lastLine).toHaveText('**bottom** and [link](https://example.com)');
+    await page.keyboard.press(`${primary}+End`);
+    await page.keyboard.type(' edited');
+    await expect(lastLine).toHaveText('**bottom** and [link](https://example.com) edited');
+    await page.keyboard.press(`${primary}+z`);
+    await expect(lastLine).toHaveText('**bottom** and [link](https://example.com)');
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test('palette enabled state and contrast survive real CSS in all built-in themes', async () => {
   const testInfo = test.info();
   const { app, page } = await launchFixture();

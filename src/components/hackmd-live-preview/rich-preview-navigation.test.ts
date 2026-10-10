@@ -1,10 +1,12 @@
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
-import { EditorState } from '@codemirror/state';
+import { EditorSelection, EditorState } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
 import { describe, expect, it } from 'vitest';
 
 import { hackmdCodeLanguages } from './hackmd-code-languages';
 import { getRichPreviewBoundaryTarget } from './rich-preview-navigation';
 import { getRichPreviewSourceRanges } from './rich-preview-ranges';
+import { hackmdRichPreviewWidgets } from './rich-preview-widgets';
 
 function createMarkdownState(markdownSource: string): EditorState {
   return EditorState.create({
@@ -19,6 +21,36 @@ function createMarkdownState(markdownSource: string): EditorState {
 }
 
 describe('rich preview keyboard navigation', () => {
+  it('reuses widgets within the same active lines but reveals source when a selection reaches another line', () => {
+    let state = EditorState.create({
+      doc: 'Before\n:smile:\nAfter',
+      extensions: [hackmdRichPreviewWidgets(), EditorState.allowMultipleSelections.of(true)],
+    });
+    const initial = state.facet(EditorView.decorations)[0];
+    state = state.update({ selection: { anchor: 2 } }).state;
+    expect(state.facet(EditorView.decorations)[0]).toBe(initial);
+
+    state = state.update({ selection: EditorSelection.create([
+      EditorSelection.cursor(2), EditorSelection.cursor(state.doc.line(2).from),
+    ]) }).state;
+    const revealed = state.facet(EditorView.decorations)[0];
+    expect(revealed).not.toBe(initial);
+    expect(typeof revealed).not.toBe('function');
+    if (typeof revealed !== 'function') expect(revealed.size).toBe(0);
+
+    state = state.update({ selection: { anchor: state.doc.line(3).from } }).state;
+    const restored = state.facet(EditorView.decorations)[0];
+    if (typeof restored !== 'function') expect(restored.size).toBe(1);
+  });
+
+  it('rebuilds rich widgets for edits even when the cursor stays on the same line', () => {
+    const state = EditorState.create({ doc: 'Before\n:smile:', extensions: [hackmdRichPreviewWidgets()] });
+    const next = state.update({ changes: { from: state.doc.line(2).from, to: state.doc.length, insert: 'plain' } }).state;
+    const decorations = next.facet(EditorView.decorations)[0];
+    if (typeof decorations !== 'function') expect(decorations.size).toBe(0);
+    expect(decorations).not.toBe(state.facet(EditorView.decorations)[0]);
+  });
+
   it('moves down into a rich fence source range instead of skipping the widget', () => {
     const state = createMarkdownState([
       'Before',
