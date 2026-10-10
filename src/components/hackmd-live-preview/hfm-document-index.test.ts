@@ -24,4 +24,13 @@ describe('HFM document index', () => {
 
     expect(getHfmDocumentIndex(next)).toBe(initial);
   });
+
+  it('keeps image offsets across blank lines, Unicode and a trailing newline', () => {
+    const source = '中文🙂\n\n![first](https://example.com/1.png)\n\n![last](https://example.com/2.png)\n';
+    const state = EditorState.create({ doc: source });
+    expect(createHfmDocumentIndex(state).images.map((image) => image.lineTo)).toEqual([
+      state.doc.line(3).to,
+      state.doc.line(5).to,
+    ]);
+  });
 });

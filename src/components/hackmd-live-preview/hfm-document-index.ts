@@ -10,11 +10,13 @@ export type HfmDocumentIndex = {
 export function createHfmDocumentIndex(state: EditorState): HfmDocumentIndex {
   const lines: string[] = [];
   const images: HfmDocumentIndex['images'] = [];
-  for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber += 1) {
-    const line = state.doc.line(lineNumber);
-    lines.push(line.text);
-    const image = parseMarkdownImage(line.text, line.to);
+  let from = 0;
+  for (const text of state.doc.iterLines()) {
+    lines.push(text);
+    const to = from + text.length;
+    const image = parseMarkdownImage(text, to);
     if (image) images.push(image);
+    from = to + 1;
   }
   return { blockRanges: getHfmBlockRanges(lines), images };
 }
