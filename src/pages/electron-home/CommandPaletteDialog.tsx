@@ -1,4 +1,4 @@
-import { useContext, useRef } from 'react';
+import { useContext, useMemo, useRef } from 'react';
 import { ActionShortcutContext } from './ActionShortcutContext';
 import {
   FileText,
@@ -70,8 +70,8 @@ import {
 import type { ElectronActionId, TeamSummary, UserSummary } from '@/lib/electron-api';
 import {
   getQuickOpenActionResults,
-  getQuickOpenFolderResults,
-  getQuickOpenNoteResults,
+  createQuickOpenFolderSearch,
+  createQuickOpenNoteSearch,
   getQuickOpenRecentNoteResults,
   getQuickOpenWorkspaceResults,
   shouldShowFinderQuickAction,
@@ -357,18 +357,26 @@ export function CommandPaletteDialog({
   const isQuickOpen = state.mode === 'quick-open';
   const trimmedSearch = state.search.trim();
   const hasQuery = trimmedSearch.length > 0;
-  const recentResults = getQuickOpenRecentNoteResults(recentNotes, state.search);
-  const workspaceResults = getQuickOpenWorkspaceResults(teams, state.search);
-  const noteResults = getQuickOpenNoteResults(folderTree, state.search, undefined, recentNotes);
-  const folderResults = context.scopeType === 'history' ? [] : getQuickOpenFolderResults(folderTree, state.search);
-  const actionResults = isQuickOpen ? [] : getQuickOpenActionResults(getCommandPaletteActions(), state.search);
-  const accountResults = hasQuery && !isQuickOpen ? getAccountCommands(state.search, hasHackmdApiToken) : [];
-  const localVaultResults = hasQuery && !isQuickOpen ? getLocalVaultCommands(state.search, hasLocalVault) : [];
-  const currentNoteResults = hasQuery && !isQuickOpen
+  const noteSearch = useMemo(
+    () => state.open ? createQuickOpenNoteSearch(folderTree, recentNotes) : null,
+    [state.open, folderTree, recentNotes],
+  );
+  const folderSearch = useMemo(
+    () => state.open && context.scopeType !== 'history' ? createQuickOpenFolderSearch(folderTree) : null,
+    [state.open, context.scopeType, folderTree],
+  );
+  const noteResults = useMemo(() => noteSearch?.(state.search) ?? [], [noteSearch, state.search]);
+  const folderResults = useMemo(() => folderSearch?.(state.search) ?? [], [folderSearch, state.search]);
+  const recentResults = state.open ? getQuickOpenRecentNoteResults(recentNotes, state.search) : [];
+  const workspaceResults = state.open ? getQuickOpenWorkspaceResults(teams, state.search) : [];
+  const actionResults = state.open && !isQuickOpen ? getQuickOpenActionResults(getCommandPaletteActions(), state.search) : [];
+  const accountResults = state.open && hasQuery && !isQuickOpen ? getAccountCommands(state.search, hasHackmdApiToken) : [];
+  const localVaultResults = state.open && hasQuery && !isQuickOpen ? getLocalVaultCommands(state.search, hasLocalVault) : [];
+  const currentNoteResults = state.open && hasQuery && !isQuickOpen
     ? getCurrentNoteCommands(state.search, { currentNoteIsRemote, hasCurrentNote })
     : [];
-  const themeModeResults = hasQuery && !isQuickOpen ? getThemeModeCommands(state.search, themeMode) : [];
-  const themePresetResults = hasQuery && !isQuickOpen
+  const themeModeResults = state.open && hasQuery && !isQuickOpen ? getThemeModeCommands(state.search, themeMode) : [];
+  const themePresetResults = state.open && hasQuery && !isQuickOpen
     ? getThemePresetCommands(state.search, themePresets, themePresetId)
     : [];
   const hasAccountResults = accountResults.length > 0;

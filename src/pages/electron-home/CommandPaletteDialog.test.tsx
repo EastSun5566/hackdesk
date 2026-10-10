@@ -1,10 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ComponentProps } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ElectronActionContext } from '@/lib/electron-actions';
 import type { FolderSummary, NoteSummary, TeamSummary } from '@/lib/electron-api';
 import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
+import * as quickOpen from '@/lib/electron-quick-open';
+import * as noteFinder from '@/lib/electron-note-finder';
 import { HACKDESK_THEME_PRESETS } from '@/lib/themes';
 
 import { CommandPaletteDialog } from './CommandPaletteDialog';
@@ -144,11 +146,55 @@ function renderPalette(overrides: Partial<CommandPaletteDialogProps> = {}) {
     ...overrides,
   };
 
-  render(<CommandPaletteDialog {...props} />);
-  return props;
+  const view = render(<CommandPaletteDialog {...props} />);
+  let currentProps = props;
+  return {
+    ...props,
+    rerender: (update: Partial<CommandPaletteDialogProps>) => {
+      currentProps = { ...currentProps, ...update };
+      view.rerender(<CommandPaletteDialog {...currentProps} />);
+    },
+  };
 }
 
 describe('CommandPaletteDialog', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('skips closed searches and opens with data that changed while hidden', () => {
+    const sort = vi.spyOn(noteFinder, 'sortNoteFinderEntries');
+    const noteSearch = vi.spyOn(quickOpen, 'createQuickOpenNoteSearch');
+    const folderSearch = vi.spyOn(quickOpen, 'createQuickOpenFolderSearch');
+    const props = renderPalette({ state: { mode: 'commands', open: false, search: '' } });
+    const updated = buildHackmdFolderTree([note({ id: 'fresh', title: 'Fresh note', updatedAtMillis: 500 })]);
+    props.rerender({ folderTree: updated, state: { mode: 'commands', open: false, search: 'fresh' } });
+    expect(sort).not.toHaveBeenCalled();
+    expect(noteSearch).not.toHaveBeenCalled();
+    expect(folderSearch).not.toHaveBeenCalled();
+
+    props.rerender({ folderTree: updated, state: { mode: 'commands', open: true, search: 'fresh' } });
+    const option = screen.getByRole('option', { name: /Fresh note/ });
+    fireEvent.click(option);
+    expect(props.onSelectNote).toHaveBeenCalledWith(updated.allNotes[0]);
+  });
+
+  it('reuses note and folder searches across queries and refreshes changed input', () => {
+    const noteSearch = vi.spyOn(quickOpen, 'createQuickOpenNoteSearch');
+    const folderSearch = vi.spyOn(quickOpen, 'createQuickOpenFolderSearch');
+    const props = renderPalette({ state: { mode: 'quick-open', open: true, search: 'alpha' } });
+    props.rerender({ state: { mode: 'quick-open', open: true, search: 'plan' } });
+    props.rerender({ context: { ...context, noteDirty: true } });
+    expect(noteSearch).toHaveBeenCalledTimes(1);
+    expect(folderSearch).toHaveBeenCalledTimes(1);
+
+    props.rerender({ folderTree: buildHackmdFolderTree([note({ id: 'new', title: 'New title' })]), state: { mode: 'quick-open', open: true, search: 'new' } });
+    expect(screen.getByRole('option', { name: /New title/ })).toBeVisible();
+    expect(noteSearch).toHaveBeenCalledTimes(2);
+    expect(folderSearch).toHaveBeenCalledTimes(2);
+    props.rerender({ recentNotes: [] });
+    expect(noteSearch).toHaveBeenCalledTimes(3);
+    expect(folderSearch).toHaveBeenCalledTimes(2);
+  });
+
   it('shows a contextual home without duplicating recent notes', () => {
     renderPalette();
 
