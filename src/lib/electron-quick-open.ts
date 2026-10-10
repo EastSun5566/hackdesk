@@ -2,7 +2,7 @@ import type { ElectronActionDefinition } from './electron-actions';
 import type { TeamSummary } from './electron-api';
 import { sortNoteFinderEntries } from './electron-note-finder';
 import type { ElectronRecentNote } from './electron-recent-notes';
-import { fuzzySearch } from './fuzzy-search';
+import { createFuzzySearch, fuzzySearch } from './fuzzy-search';
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from './hackmd-folders';
 import { UNFILED_FOLDER_ID } from './hackmd-folders';
 
@@ -101,21 +101,27 @@ export function getQuickOpenNoteResults(
   limit = QUICK_OPEN_RESULT_LIMIT,
   recentNotes: ElectronRecentNote[] = [],
 ): FolderTreeNote[] {
+  return createQuickOpenNoteSearch(tree, recentNotes)(query, limit);
+}
+
+export function createQuickOpenNoteSearch(tree: FolderTree, recentNotes: ElectronRecentNote[] = []) {
   const sortedNotes = sortNoteFinderEntries(tree.allNotes, 'updated-desc');
-  const normalizedQuery = normalizeQuery(query);
-  if (!normalizedQuery) {
-    return sortedNotes.slice(0, limit);
-  }
-
-  const notes = [...sortedNotes].sort(compareQuickOpenNotes(recentNotes));
-
-  return fuzzySearch(notes, normalizedQuery, {
-    primary: (entry) => entry.note.title || 'Untitled',
-    secondary: getNoteMetadata,
-  }).slice(0, limit);
+  let search: ReturnType<typeof createFuzzySearch<FolderTreeNote>> | undefined;
+  return (query: string, limit = QUICK_OPEN_RESULT_LIMIT): FolderTreeNote[] => {
+    if (!normalizeQuery(query)) return sortedNotes.slice(0, limit);
+    search ??= createFuzzySearch([...sortedNotes].sort(compareQuickOpenNotes(recentNotes)), {
+      primary: (entry) => entry.note.title || 'Untitled',
+      secondary: getNoteMetadata,
+    });
+    return search(query).slice(0, limit);
+  };
 }
 
 export function getQuickOpenFolderResults(tree: FolderTree, query: string, limit = QUICK_OPEN_RESULT_LIMIT): QuickOpenFolderResult[] {
+  return createQuickOpenFolderSearch(tree)(query, limit);
+}
+
+export function createQuickOpenFolderSearch(tree: FolderTree) {
   const root: QuickOpenFolderResult = {
     id: UNFILED_FOLDER_ID,
     name: 'Root',
@@ -125,9 +131,10 @@ export function getQuickOpenFolderResults(tree: FolderTree, query: string, limit
   };
   const folders = [root, ...flattenFolders(tree.roots)];
 
-  return fuzzySearch(folders, query, {
+  const search = createFuzzySearch(folders, {
     primary: (folder) => [folder.name, folder.label],
-  }).slice(0, limit);
+  });
+  return (query: string, limit = QUICK_OPEN_RESULT_LIMIT) => search(query).slice(0, limit);
 }
 
 export function shouldShowFinderQuickAction(query: string) {

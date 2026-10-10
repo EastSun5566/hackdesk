@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fuzzySearch } from './fuzzy-search';
+import { createFuzzySearch, fuzzySearch } from './fuzzy-search';
 
 const options = {
   primary: (item: { label: string; keywords?: string[] }) => item.label,
@@ -8,6 +8,15 @@ const options = {
 };
 
 describe('fuzzySearch', () => {
+  it('keeps reusable searches equivalent across empty, literal and fuzzy queries', () => {
+    const items = [{ label: 'Alpha' }, { label: 'Alpha Plan' }, { label: 'Other', keywords: ['alpha'] }, { label: 'Alpah Notes' }];
+    const search = createFuzzySearch(items, options);
+    for (const query of ['', 'a', 'alpha', 'alpha plan', 'alpah', 'unrelated', 'alpha']) {
+      expect(search(query)).toEqual(fuzzySearch(items, query, options));
+    }
+    expect(search('')).toBe(items);
+  });
+
   it('keeps exact, prefix, substring, and metadata matches ahead of fuzzy matches', () => {
     const items = [
       { label: 'Alpah Notes' },
