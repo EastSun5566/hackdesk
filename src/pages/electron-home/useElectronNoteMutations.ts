@@ -298,18 +298,28 @@ export function useElectronNoteMutations({
 
       return api.settings.update(input);
     },
-    onSuccess: (nextSettings) => {
+    onSuccess: (nextSettings, input) => {
       queryClient.setQueryData(['electron', 'settings'], nextSettings);
-      if (nextSettings.hasHackmdApiToken) {
-        void queryClient.invalidateQueries({ queryKey: ['electron', 'hackmd'] });
-      } else {
-        clearHackmdQueryCache();
+      if (input.hackmdApiToken !== undefined) {
+        if (nextSettings.hasHackmdApiToken) {
+          void queryClient.invalidateQueries({ queryKey: ['electron', 'hackmd'] });
+        } else {
+          clearHackmdQueryCache();
+        }
       }
-      onSettingsSaved();
-      toast.success('Settings saved.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to save settings.'),
   });
+
+  const submitSettings = async (input: SettingsFormInput) => {
+    try {
+      await updateSettingsMutation.mutateAsync(input);
+      onSettingsSaved();
+      toast.success('Settings saved.');
+    } catch {
+      // The mutation reports persistence errors and leaves Settings open.
+    }
+  };
 
   const importHackmdCliTokenMutation = useMutation({
     mutationFn: async () => {
@@ -858,6 +868,7 @@ export function useElectronNoteMutations({
     invalidateCurrentNotes: invalidateCurrentNoteQueries,
     invalidateCurrentFolders: invalidateCurrentFolderQueries,
     updateSettingsMutation,
+    submitSettings,
     disconnectHackmdMutation,
     importHackmdCliTokenMutation,
     createNoteMutation,

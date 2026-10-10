@@ -1688,7 +1688,20 @@ describe('Home native-feel behavior', () => {
     expect(screen.getByText('No unsaved note changes.')).toBeInTheDocument();
   });
 
-  it('switches the global editor mode from the command palette', async () => {
+  it('saves Settings and closes the dialog without refreshing unrelated HackMD data', async () => {
+    const api = createApi();
+    renderHome(api);
+    await findRenderedNoteTitle();
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings for Michael' }));
+    fireEvent.change(screen.getByLabelText('Window title'), { target: { value: 'My HackDesk' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.settings.update).toHaveBeenCalledWith({ title: 'My HackDesk' }));
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument());
+    expect(api.hackmd.listNotes).toHaveBeenCalledOnce();
+    expect(api.hackmd.getCurrentUser).toHaveBeenCalledOnce();
+  });
+
+  it('switches the global editor mode from the command palette without refreshing HackMD', async () => {
     const api = createApi();
 
     renderHome(api);
@@ -1707,6 +1720,8 @@ describe('Home native-feel behavior', () => {
     }));
     await waitFor(() => expect(window.document.querySelector('.cm-editor')).toHaveAttribute('data-editor-mode', 'vim'));
     expect(screen.queryByRole('dialog', { name: 'Command Palette' })).not.toBeInTheDocument();
+    expect(api.hackmd.listNotes).toHaveBeenCalledOnce();
+    expect(api.hackmd.getCurrentUser).toHaveBeenCalledOnce();
   });
 
   it('quick-opens a matching note with Cmd+P', async () => {

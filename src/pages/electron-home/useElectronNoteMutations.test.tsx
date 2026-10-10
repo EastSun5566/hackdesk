@@ -11,8 +11,9 @@ import { HACKMD_NOTE_CHANGED_MESSAGE } from '@/lib/note-errors';
 
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { deriveDraftNoteTitle, useElectronNoteMutations } from './useElectronNoteMutations';
-import type { WorkspaceScope } from './types';
+import type { SettingsFormInput, WorkspaceScope } from './types';
 import { getFoldersQueryKey, getWorkspaceQueryKey } from './repository';
+import { defaultSettings } from '@/lib/settings';
 
 vi.mock('@/components/ui/toast', () => ({
   toast: {
@@ -478,6 +479,88 @@ describe('useElectronNoteMutations local folders', () => {
 });
 
 describe('useElectronNoteMutations settings updates', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const preferences: [string, SettingsFormInput][] = [
+    ['pin', { title: 'HackDesk', workspaceNavigation: { pinnedTeamIds: ['team-1'] } }],
+    ['unpin', { title: 'HackDesk', workspaceNavigation: { pinnedTeamIds: [] } }],
+    ['reorder', { title: 'HackDesk', workspaceNavigation: { pinnedTeamIds: ['team-2', 'team-1'] } }],
+    ['editor mode', { title: 'HackDesk', editor: { mode: 'vim' } }],
+    ['appearance', { title: 'HackDesk', appearance: defaultSettings.appearance }],
+  ];
+
+  it.each(preferences)('persists %s without submit feedback or invalidating HackMD data', async (_name, input) => {
+    const savedSettings = { hasHackmdApiToken: true } as ElectronSafeSettings;
+    const api = { settings: { update: vi.fn(async () => savedSettings) } } as unknown as HackDeskElectronAPI;
+    const options = createOptions({ api, scope: { type: 'personal', label: 'My Workspace' } });
+    const { queryClient, Wrapper } = createWrapper();
+    const key = ['electron', 'hackmd', 'notes'];
+    const note = createDocument();
+    queryClient.setQueryData(key, [note]);
+    const { result } = renderHook(() => useElectronNoteMutations(options), { wrapper: Wrapper });
+
+    await act(async () => { await result.current.updateSettingsMutation.mutateAsync(input); });
+
+    expect(api.settings.update).toHaveBeenCalledWith(input);
+    expect(queryClient.getQueryData(['electron', 'settings'])).toEqual(savedSettings);
+    expect(queryClient.getQueryData(key)).toEqual([note]);
+    expect(queryClient.getQueryState(key)?.isInvalidated).toBe(false);
+    expect(options.onSettingsSaved).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it.each(['replacement-token', ''])('refreshes or clears only HackMD caches when updating the token (%s)', async token => {
+    const savedSettings = { hasHackmdApiToken: Boolean(token) } as ElectronSafeSettings;
+    const api = { settings: { update: vi.fn(async () => savedSettings) } } as unknown as HackDeskElectronAPI;
+    const { queryClient, Wrapper } = createWrapper();
+    const remoteKey = ['electron', 'hackmd', 'notes'];
+    const localKey = ['electron', 'local-vault', 'snapshot', 'vault-1'];
+    const note = createDocument();
+    queryClient.setQueryData(remoteKey, [note]);
+    queryClient.setQueryData(localKey, createSnapshot());
+    const { result } = renderHook(() => useElectronNoteMutations(createOptions({
+      api, scope: { type: 'personal', label: 'My Workspace' },
+    })), { wrapper: Wrapper });
+
+    await act(async () => { await result.current.updateSettingsMutation.mutateAsync({ title: 'HackDesk', hackmdApiToken: token }); });
+
+    if (token) expect(queryClient.getQueryState(remoteKey)?.isInvalidated).toBe(true);
+    else expect(queryClient.getQueryData(remoteKey)).toBeUndefined();
+    expect(queryClient.getQueryData(localKey)).toEqual(createSnapshot());
+    expect(queryClient.getQueryState(localKey)?.isInvalidated).toBe(false);
+  });
+
+  it('keeps dialog submit feedback when an inline update is queued during Save', async () => {
+    const savedSettings = { hasHackmdApiToken: true } as ElectronSafeSettings;
+    const first = Promise.withResolvers<ElectronSafeSettings>();
+    const api = { settings: { update: vi.fn().mockReturnValueOnce(first.promise).mockResolvedValueOnce(savedSettings) } } as unknown as HackDeskElectronAPI;
+    const options = createOptions({ api, scope: { type: 'personal', label: 'My Workspace' } });
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useElectronNoteMutations(options), { wrapper: Wrapper });
+    let submit!: Promise<void>;
+    let inline!: Promise<ElectronSafeSettings>;
+    act(() => {
+      submit = result.current.submitSettings({ title: 'New title' });
+      inline = result.current.updateSettingsMutation.mutateAsync({ title: 'New title', editor: { mode: 'vim' } });
+    });
+    await waitFor(() => expect(api.settings.update).toHaveBeenCalledOnce());
+    expect(options.onSettingsSaved).not.toHaveBeenCalled();
+    await act(async () => { first.resolve(savedSettings); await Promise.all([submit, inline]); });
+    expect(options.onSettingsSaved).toHaveBeenCalledOnce();
+    expect(toast.success).toHaveBeenCalledExactlyOnceWith('Settings saved.');
+  });
+
+  it('keeps Settings open and reports a failed submit once', async () => {
+    const api = { settings: { update: vi.fn(async () => { throw new Error('Storage unavailable'); }) } } as unknown as HackDeskElectronAPI;
+    const options = createOptions({ api, scope: { type: 'personal', label: 'My Workspace' } });
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useElectronNoteMutations(options), { wrapper: Wrapper });
+    await act(async () => { await result.current.submitSettings({ title: 'New title' }); });
+    expect(options.onSettingsSaved).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledExactlyOnceWith('Storage unavailable');
+  });
+
   it('serializes consecutive settings writes', async () => {
     const savedSettings = { hasHackmdApiToken: false } as ElectronSafeSettings;
     let resolveFirst!: (settings: ElectronSafeSettings) => void;

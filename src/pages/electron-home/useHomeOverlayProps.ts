@@ -146,7 +146,7 @@ export function useHomeOverlayProps({
       onRefreshLocalVault: localVaultActions.refreshLocalVault,
       onRenameFolder: (folderId, input) => mutations.renameFolderMutation.mutate({ folderId, input }),
       onRenameFolderStateChange: dialogState.setRenameFolderDialog,
-      onSaveSettings: (input) => mutations.updateSettingsMutation.mutate(input),
+      onSaveSettings: (input) => { void mutations.submitSettings(input); },
       onSaveToken: async (token) => {
         await mutations.updateSettingsMutation.mutateAsync({
           title: settings?.title ?? 'HackDesk',
