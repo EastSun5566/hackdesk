@@ -30,7 +30,7 @@ type PendingQuickCaptureSubmission = {
 export class WindowManager {
   private mainWindow: BrowserWindow | null = null;
   private quickCaptureWindow: BrowserWindow | null = null;
-  private recoveryDialogShowing = false;
+  private recoveryDialogs = new Set<BrowserWindow>();
   private allowAppQuit = false;
   private activationMode: 'regular' | 'accessory' = 'regular';
   private pendingCloseSource: import('../../../src/lib/electron-api').HackDeskCloseRequestSource | null = null;
@@ -170,6 +170,7 @@ export class WindowManager {
     if (!existingWindow) {
       const window = this.createMainWindow({ showOnReady: false });
       window.once('ready-to-show', () => {
+        if (window.isDestroyed()) return;
         window.show();
         window.focus();
       });
@@ -256,8 +257,11 @@ export class WindowManager {
     });
     this.quickCaptureWindow = window;
     this.configureWindowPolicy(window);
+    const rendererUrl = getRendererRouteUrl('/quick-capture');
+    this.configureWindowRecovery(window, rendererUrl, 'Quick Hack');
 
     window.once('ready-to-show', () => {
+      if (window.isDestroyed()) return;
       window.show();
       window.focus();
     });
@@ -291,7 +295,7 @@ export class WindowManager {
       });
     });
 
-    void window.loadURL(getRendererRouteUrl('/quick-capture'));
+    void window.loadURL(rendererUrl).catch(error => writeLog('renderer', 'Quick Hack load failed', error, 'error'));
     return window;
   }
 
@@ -405,9 +409,9 @@ export class WindowManager {
       this.mainWindow.maximize();
     }
 
-    this.mainWindow.once('ready-to-show', () => {
-      if (showOnReady) {
-        this.mainWindow?.show();
+    window.once('ready-to-show', () => {
+      if (showOnReady && !window.isDestroyed()) {
+        window.show();
       }
     });
 
@@ -424,7 +428,9 @@ export class WindowManager {
     });
 
     this.mainWindow.on('closed', () => {
+      if (this.mainWindow !== window) return;
       this.clearPendingCloseTimeout();
+      this.pendingCloseSource = null;
       this.mainWindow = null;
       this.quickCaptureOpenedFromMain = false;
       if (!this.allowAppQuit) {
@@ -446,46 +452,20 @@ export class WindowManager {
       this.flushPendingMainWindowCommands();
     });
 
-    this.mainWindow.webContents.on(
-      'did-fail-load',
-      (_event, errorCode, errorDescription, validatedUrl, isMainFrame) => {
-        this.handleRendererLoadFailure(errorCode, errorDescription, validatedUrl, isMainFrame);
-      },
-    );
-    this.mainWindow.webContents.on(
-      'did-fail-provisional-load',
-      (_event, errorCode, errorDescription, validatedUrl, isMainFrame) => {
-        this.handleRendererLoadFailure(errorCode, errorDescription, validatedUrl, isMainFrame);
-      },
-    );
-    this.mainWindow.webContents.on('render-process-gone', (_event, details) => {
-      unresponsiveSampler.stopAndFlush();
-      writeLog('renderer', 'render process gone', details, 'error');
-      this.showRecoveryDialog(
-        'HackDesk renderer stopped',
-        `Reason: ${details.reason}. Exit code: ${details.exitCode}.`,
-      );
-    });
-    this.mainWindow.webContents.on('preload-error', (_event, preloadPath, error) => {
-      writeLog('renderer', 'preload script failed', {
-        preloadPath,
-        error: error.message,
-        stack: error.stack,
-      }, 'error');
-      this.showRecoveryDialog('HackDesk preload failed', error.message);
-    });
+    window.webContents.on('render-process-gone', () => unresponsiveSampler.stopAndFlush());
+    this.configureWindowRecovery(window, rendererUrl, 'HackDesk');
     this.mainWindow.on('unresponsive', () => {
       writeLog('renderer', 'main window became unresponsive', undefined, 'warn');
       unresponsiveSampler.start();
-      this.showRecoveryDialog('HackDesk is not responding', 'You can wait, reload the app window, or export debug logs.', true);
+      void this.showRecoveryDialog(window, rendererUrl, 'HackDesk is not responding', 'You can wait, reload the app window, or export debug logs.', true);
     });
     this.mainWindow.on('responsive', () => {
       unresponsiveSampler.stopAndFlush();
       writeLog('renderer', 'main window became responsive');
     });
 
-    void this.mainWindow.loadURL(rendererUrl);
-    return this.mainWindow;
+    void window.loadURL(rendererUrl).catch(error => writeLog('renderer', 'HackDesk load failed', error, 'error'));
+    return window;
   }
 
   private flushPendingMainWindowCommands() {
@@ -616,12 +596,12 @@ export class WindowManager {
 
   private startPendingCloseTimeout() {
     this.clearPendingCloseTimeout();
+    const window = this.getMainWindow();
+    const source = this.pendingCloseSource;
+    if (!window || !source) return;
     this.pendingCloseTimeout = setTimeout(() => {
       this.pendingCloseTimeout = null;
-      const window = this.getMainWindow();
-      if (!window) {
-        return;
-      }
+      if (window.isDestroyed() || window !== this.getMainWindow()) return;
 
       writeLog('main', 'renderer did not respond to close request', undefined, 'warn');
       void dialog.showMessageBox(window, {
@@ -634,13 +614,14 @@ export class WindowManager {
         cancelId: 0,
         noLink: true,
       }).then(({ response }) => {
+        if (window.isDestroyed() || window !== this.getMainWindow() || this.pendingCloseSource !== source) return;
         if (response === 1) {
           this.allowAppQuit = true;
           app.quit();
         } else {
           this.pendingCloseSource = null;
         }
-      });
+      }).catch(error => writeLog('main', 'window close dialog failed', error, 'error'));
     }, 15_000);
   }
 
@@ -651,48 +632,50 @@ export class WindowManager {
     }
   }
 
-  private handleRendererLoadFailure(
-    errorCode: number,
-    errorDescription: string,
-    validatedUrl: string,
-    isMainFrame?: boolean,
-  ) {
-    if (errorCode === -3 || isMainFrame === false || !isTrustedRendererUrl(validatedUrl)) {
-      return;
-    }
-
-    writeLog('renderer', 'renderer failed to load', {
-      errorCode,
-      errorDescription,
-      validatedUrl,
-    }, 'error');
-    this.showRecoveryDialog('HackDesk failed to load', errorDescription);
+  private configureWindowRecovery(window: BrowserWindow, rendererUrl: string, name: string) {
+    const onLoadFailure = (_event: Electron.Event, errorCode: number, errorDescription: string, validatedUrl: string, isMainFrame: boolean) => {
+      if (errorCode === -3 || !isMainFrame || !isTrustedRendererUrl(validatedUrl)) return;
+      writeLog('renderer', 'renderer failed to load', { window: name, errorCode, errorDescription, validatedUrl }, 'error');
+      void this.showRecoveryDialog(window, rendererUrl, `${name} failed to load`, errorDescription);
+    };
+    window.webContents.on('did-fail-load', onLoadFailure);
+    window.webContents.on('did-fail-provisional-load', onLoadFailure);
+    window.webContents.on('render-process-gone', (_event, details) => {
+      writeLog('renderer', 'render process gone', { window: name, ...details }, 'error');
+      void this.showRecoveryDialog(window, rendererUrl, `${name} renderer stopped`, `Reason: ${details.reason}. Exit code: ${details.exitCode}.`);
+    });
+    window.webContents.on('preload-error', (_event, preloadPath, error) => {
+      writeLog('renderer', 'preload script failed', { window: name, preloadPath, error: error.message, stack: error.stack }, 'error');
+      void this.showRecoveryDialog(window, rendererUrl, `${name} preload failed`, error.message);
+    });
+    window.once('closed', () => this.recoveryDialogs.delete(window));
   }
 
-  private showRecoveryDialog(message: string, detail: string, canKeepWaiting = false) {
-    const targetWindow = this.getTargetWindow();
-    if (!targetWindow || this.recoveryDialogShowing) {
+  private async showRecoveryDialog(window: BrowserWindow, rendererUrl: string, message: string, detail: string, canKeepWaiting = false) {
+    if (window.isDestroyed() || window.webContents.isDestroyed() || this.recoveryDialogs.has(window)) {
       return;
     }
 
-    this.recoveryDialogShowing = true;
+    this.recoveryDialogs.add(window);
     const buttons = canKeepWaiting
       ? ['Reload', 'Export Logs', 'Relaunch', 'Keep Waiting']
       : ['Reload', 'Export Logs', 'Relaunch', 'Quit'];
 
-    void dialog.showMessageBox(targetWindow, {
-      type: 'warning',
-      title: app.getName(),
-      message,
-      detail,
-      buttons,
-      defaultId: 0,
-      cancelId: buttons.length - 1,
-      noLink: true,
-    }).then(async (result) => {
+    try {
+      const result = await dialog.showMessageBox(window, {
+        type: 'warning',
+        title: app.getName(),
+        message,
+        detail,
+        buttons,
+        defaultId: 0,
+        cancelId: buttons.length - 1,
+        noLink: true,
+      });
+      if (window.isDestroyed() || window.webContents.isDestroyed()) return;
       switch (buttons[result.response]) {
       case 'Reload':
-        await targetWindow.loadURL(getRendererEntryUrl());
+        await window.loadURL(rendererUrl);
         break;
       case 'Export Logs':
         await exportDebugLogs();
@@ -705,8 +688,10 @@ export class WindowManager {
         app.quit();
         break;
       }
-    }).finally(() => {
-      this.recoveryDialogShowing = false;
-    });
+    } catch (error) {
+      writeLog('main', 'window recovery failed', error, 'error');
+    } finally {
+      this.recoveryDialogs.delete(window);
+    }
   }
 }

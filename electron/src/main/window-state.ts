@@ -1,6 +1,7 @@
 import { app, screen, type BrowserWindow, type Rectangle } from 'electron';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { writeLog } from './logging';
 
 type PersistedWindowState = {
   bounds?: Rectangle;
@@ -64,14 +65,19 @@ export function readWindowState(fallbackBounds: Rectangle): PersistedWindowState
 }
 
 function writeWindowState(window: BrowserWindow) {
-  const statePath = getWindowStatePath();
-  const state: PersistedWindowState = {
-    bounds: window.getBounds(),
-    isMaximized: window.isMaximized(),
-  };
+  if (window.isDestroyed()) return;
+  try {
+    const statePath = getWindowStatePath();
+    const state: PersistedWindowState = {
+      bounds: window.getBounds(),
+      isMaximized: window.isMaximized(),
+    };
 
-  mkdirSync(dirname(statePath), { recursive: true });
-  writeFileSync(statePath, JSON.stringify(state, null, 2));
+    mkdirSync(dirname(statePath), { recursive: true });
+    writeFileSync(statePath, JSON.stringify(state, null, 2));
+  } catch (error) {
+    writeLog('main', 'failed to persist window state', error, 'warn');
+  }
 }
 
 export function persistWindowState(window: BrowserWindow) {
@@ -96,11 +102,15 @@ export function persistWindowState(window: BrowserWindow) {
   window.on('move', scheduleWrite);
   window.on('maximize', scheduleWrite);
   window.on('unmaximize', scheduleWrite);
-  window.on('close', () => {
+  const clearPendingWrite = () => {
     if (timeout) {
       clearTimeout(timeout);
       timeout = null;
     }
+  };
+  window.on('close', () => {
+    clearPendingWrite();
     writeWindowState(window);
   });
+  window.once('closed', clearPendingWrite);
 }

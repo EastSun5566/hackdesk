@@ -2,6 +2,7 @@ import { _electron as electron, expect, test, type ElectronApplication } from '@
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import type { BaseWindow, MessageBoxOptions } from 'electron';
 
 import { defaultSettings } from '../../src/lib/settings';
 
@@ -84,5 +85,74 @@ test('recovers an accepted Quick Hack after restart and clears recovery after sa
     }, recoveryStorageKey)).toBe(0);
   } finally {
     restartedApp.process().kill('SIGKILL');
+  }
+});
+
+test('renderer recovery targets the failing window and keeps Quick Hack text on its route', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'hackdesk-window-recovery-'));
+  const vault = join(home, 'vault');
+  await mkdir(join(home, '.hackdesk'), { recursive: true });
+  await mkdir(vault);
+  await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
+    ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
+  }));
+  const app = await launchApp(home, join(home, 'user-data'), true);
+  try {
+    await expect.poll(() => app.windows().map(page => page.url())).toEqual(expect.arrayContaining([
+      expect.stringContaining('#/electron'), expect.stringContaining('#/quick-capture'),
+    ]));
+    const main = app.windows().find(page => page.url().includes('#/electron'))!;
+    const capture = app.windows().find(page => page.url().includes('#/quick-capture'))!;
+    await expect(main.getByText('Local Vault', { exact: true }).first()).toBeVisible();
+    await capture.getByLabel('Quick Hack note').fill('Recover this Quick Hack');
+    await expect.poll(() => capture.evaluate(() => JSON.parse(localStorage.getItem('hackdesk_quick_capture_buffer') ?? 'null')?.content)).toBe('Recover this Quick Hack');
+
+    const ids = await app.evaluate(({ BrowserWindow, dialog }) => {
+      const calls: { windowId: number; message: string }[] = [];
+      Object.assign(globalThis, { recoveryCalls: calls });
+      // Answer real recovery dialogs automatically, recording their native parent.
+      Object.assign(dialog, { showMessageBox: async (window: BaseWindow, options: MessageBoxOptions) => {
+        calls.push({ windowId: window.id, message: options.message });
+        return { response: 0, checkboxChecked: false };
+      } });
+      return BrowserWindow.getAllWindows().map(window => ({ id: window.id, url: window.webContents.getURL() }));
+    });
+    const mainId = ids.find(window => window.url.includes('#/electron'))!.id;
+    const captureId = ids.find(window => window.url.includes('#/quick-capture'))!.id;
+    const recoveryCalls = () => app.evaluate(() => (globalThis as typeof globalThis & {
+      recoveryCalls: { windowId: number; message: string }[];
+    }).recoveryCalls);
+    // Playwright's Page remains marked crashed; inspect the recovered renderer through Electron.
+    const rendererState = (id: number) => app.evaluate(({ BrowserWindow }, id) => (
+      BrowserWindow.fromId(id)!.webContents.executeJavaScript('({ url: location.href, text: document.body.textContent, input: document.querySelector("textarea")?.value ?? null })')
+    ), id);
+
+    await app.evaluate(({ BrowserWindow }, { mainId, captureId }) => new Promise<void>(resolve => {
+      const window = BrowserWindow.fromId(mainId)!;
+      window.webContents.once('did-finish-load', () => resolve());
+      BrowserWindow.fromId(captureId)!.focus();
+      window.webContents.forcefullyCrashRenderer();
+    }), { mainId, captureId });
+    await expect.poll(recoveryCalls).toEqual([{ windowId: mainId, message: 'HackDesk renderer stopped' }]);
+    await expect.poll(async () => (await rendererState(mainId)).text).toContain('Local Vault');
+    await expect(capture).toHaveURL(/#\/quick-capture$/);
+    await expect(capture.getByLabel('Quick Hack note')).toHaveValue('Recover this Quick Hack');
+
+    await app.evaluate(({ BrowserWindow }, { mainId, captureId }) => new Promise<void>(resolve => {
+      const window = BrowserWindow.fromId(captureId)!;
+      window.webContents.once('did-finish-load', () => resolve());
+      BrowserWindow.fromId(mainId)!.focus();
+      window.webContents.forcefullyCrashRenderer();
+    }), { mainId, captureId });
+    await expect.poll(recoveryCalls).toEqual([
+      { windowId: mainId, message: 'HackDesk renderer stopped' },
+      { windowId: captureId, message: 'Quick Hack renderer stopped' },
+    ]);
+    await expect.poll(() => rendererState(captureId)).toMatchObject({
+      url: expect.stringMatching(/#\/quick-capture$/), input: 'Recover this Quick Hack',
+    });
+    expect((await rendererState(mainId)).url).toMatch(/#\/electron$/);
+  } finally {
+    await stopAfterCrash(app);
   }
 });

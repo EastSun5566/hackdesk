@@ -52,7 +52,7 @@ export function useWorkbenchTabLifecycle({
     candidateTabs.filter((tab) => isTabDirty(tab) || getTabSyncState(tab) === 'save_failed')
   ), [getTabSyncState, isTabDirty]);
 
-  const confirmCloseUnsafeTabs = useCallback(async (candidateTabs: OpenNoteTab[], title: string, confirmLabel: string) => {
+  const confirmCloseUnsafeTabs = useCallback(async (candidateTabs: OpenNoteTab[], title: string, confirmLabel: string, draftDisposition: 'discard' | 'retain' = 'discard') => {
     const unsafeTabs = getUnsafeTabs(candidateTabs);
     if (unsafeTabs.length === 0 || !api?.app.confirm) {
       return true;
@@ -69,11 +69,15 @@ export function useWorkbenchTabLifecycle({
     try {
       const { confirmed } = await api.app.confirm({
         title,
-        message: unsafeTabs.length === 1 ? `Close “${firstTitle}”?` : `Close ${unsafeTabs.length} unsaved notes?`,
-        detail: `${detailParts.join(' and ')}. Closing will discard drafts that have not been saved.`,
+        message: draftDisposition === 'retain'
+          ? 'Close HackDesk with unsaved changes?'
+          : unsafeTabs.length === 1 ? `Close “${firstTitle}”?` : `Close ${unsafeTabs.length} unsaved notes?`,
+        detail: `${detailParts.join(' and ')}. ${draftDisposition === 'retain'
+          ? 'Closing keeps your unsaved changes as drafts. They will reopen when you return to this workspace.'
+          : 'Closing will discard drafts that have not been saved.'}`,
         confirmLabel,
         cancelLabel: 'Keep Editing',
-        destructive: true,
+        destructive: draftDisposition === 'discard',
       });
       return confirmed;
     } catch (error) {

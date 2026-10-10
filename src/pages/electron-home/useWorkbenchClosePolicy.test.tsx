@@ -57,6 +57,7 @@ describe('useWorkbenchClosePolicy', () => {
       Object.values(options.openTabs),
       'Close HackDesk',
       'Close',
+      'retain',
     );
     expect(options.api?.app.cancelClose).toHaveBeenCalledOnce();
     expect(options.api?.app.confirmClose).not.toHaveBeenCalled();
