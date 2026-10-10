@@ -58,6 +58,41 @@ jobs:
       - run: pnpm run package:check
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+      # Launch the packaged binary that package:check just produced and
+      # assert the first window loads the packaged renderer (hackdesk://...)
+      # rather than a dev-server URL (http://localhost:5173). The spec sets
+      # HACKDESK_ELECTRON_DEV_SERVER_URL explicitly and asserts the packaged
+      # app ignores it because app.isPackaged is true.
+      #
+      # The spec uses child_process.spawn + chromium.connectOverCDP because
+      # Playwright's _electron.launch relies on --inspect=0, which the
+      # EnableNodeCliInspectArguments fuse (verified by
+      # scripts/check-electron-fuses.ts in package:check) disables.
+      # playwright.config.ts `testIgnore` keeps this spec out of the
+      # regular `pnpm run test:smoke` run.
+      #
+      # Linux needs a display; macOS and Windows runners have one.
+      - name: Run packaged-startup spec
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            xvfb-run --auto-servernum pnpm exec playwright test \
+              --config electron/playwright.config.ts \
+              electron/e2e/packaged-startup.spec.ts
+          else
+            pnpm exec playwright test \
+              --config electron/playwright.config.ts \
+              electron/e2e/packaged-startup.spec.ts
+          fi
+      - name: Upload packaged-startup Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaged-startup-report-${{ matrix.os }}
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
 
   # Run the macOS-only app-lifecycle spec on a macOS runner. The spec itself
   # self-skips on non-darwin via `test.skip(process.platform !== 'darwin', ...)`,

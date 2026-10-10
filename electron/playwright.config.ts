@@ -13,6 +13,11 @@ const repoRoot = resolve(import.meta.dirname, '..');
 
 export default defineConfig({
   testDir: './e2e',
+  // packaged-startup.spec.ts needs a packaged binary on disk; the regular
+  // `pnpm run test:smoke` (run on ubuntu-latest by the quality job) has no
+  // packaged binary. Exclude it here so it only runs from the `package-smoke`
+  // job after `pnpm run package:check` produces the binary on the same runner.
+  testIgnore: '**/packaged-startup.spec.ts',
   fullyParallel: false,
   workers: 1,
   retries: 0,
