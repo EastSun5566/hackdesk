@@ -180,6 +180,19 @@ describe('HackDesk themes', () => {
     }
   });
 
+  it('gives solid warning and danger buttons a readable label and a hover shade', () => {
+    for (const preset of HACKDESK_THEME_PRESETS) {
+      for (const mode of ['light', 'dark'] as const) {
+        const theme = resolveHackDeskTheme({ presetId: preset.id, mode });
+        const label = `${preset.id} ${mode}`;
+
+        expectContrast(theme['--warning-foreground'], theme['--warning-default'], 4.5, `${label} warning foreground`);
+        expect(theme['--destructive-hover'], `${label} destructive hover`).toMatch(/^#[\da-f]{6}$/i);
+        expect(theme['--destructive-hover']).not.toBe(theme['--destructive-default']);
+      }
+    }
+  });
+
   it('resolves contrast-safe native surface tokens for every preset and mode', () => {
     for (const preset of HACKDESK_THEME_PRESETS) {
       for (const mode of ['light', 'dark'] as const) {

@@ -259,7 +259,7 @@ function NavigatorHeader({
       ? 'Syncing…'
       : isFinderMode
         ? `${resultCount} ${resultCount === 1 ? 'result' : 'results'}`
-        : `${resultCount} notes`;
+        : `${resultCount} ${resultCount === 1 ? 'note' : 'notes'}`;
 
   return (
     <PanelHeader

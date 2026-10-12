@@ -448,7 +448,7 @@ function ActiveDocumentDetail({
 }
 
 const recoveryButtonClassName = 'inline-flex h-7 items-center gap-1 rounded-[6px] border border-warning-default/35 bg-background-default px-2 text-xs font-medium text-text-default hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring';
-const recoveryPrimaryButtonClassName = 'inline-flex h-7 items-center gap-1 rounded-[6px] bg-warning-default px-2 text-xs font-medium text-background-default hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring';
+const recoveryPrimaryButtonClassName = 'inline-flex h-7 items-center gap-1 rounded-[6px] bg-warning-default px-2 text-xs font-medium text-warning-foreground hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring';
 
 function DocumentRecoveryBanner({
   actions,
@@ -467,7 +467,7 @@ function DocumentRecoveryBanner({
   const source = isRemote ? 'HackMD' : 'disk';
 
   return (
-    <div className="border-b border-warning-default/30 bg-warning-soft px-4 py-2.5 text-sm text-warning-default">
+    <div role="alert" className="border-b border-warning-default/30 bg-warning-soft px-4 py-2.5 text-sm text-warning-default">
       <div className="flex flex-wrap items-center gap-2">
         <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
         <p className="min-w-0 flex-1 text-text-default">

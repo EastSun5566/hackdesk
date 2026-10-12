@@ -169,6 +169,14 @@ describe('FolderNavigator', () => {
     expect(screen.getByLabelText('Loading notes')).toBeInTheDocument();
   });
 
+  it('counts notes with the right plural', () => {
+    const { rerender, props } = renderFolderNavigator();
+    expect(screen.getByText('2 notes')).toBeInTheDocument();
+
+    rerender(<FolderNavigator {...props} entries={props.entries.slice(0, 1)} />);
+    expect(screen.getByText('1 note')).toBeInTheDocument();
+  });
+
   it('shows token setup actions when HackMD token is missing', () => {
     const tree = buildHackmdFolderTree([]);
     const onOpenSettings = vi.fn();

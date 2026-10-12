@@ -919,6 +919,7 @@ export function resolveHackDeskTheme({
 
   return {
     ...contrastTheme,
+    ...resolveStateActionTokens(contrastTheme, dark),
     ...resolveNativeSurfaceTokens(contrastTheme),
     ...resolveCommandPaletteTokens(contrastTheme),
     ...resolveThemeTypography(typography),
@@ -1050,6 +1051,17 @@ function compositeThemeColor(color: string, background: string) {
     g: Number(channels[2]) * opacity + base.g * (1 - opacity),
     b: Number(channels[3]) * opacity + base.b * (1 - opacity),
   });
+}
+
+// Solid warning and danger buttons need a readable label and a hover shade.
+function resolveStateActionTokens(theme: ResolvedHackDeskTheme, dark: boolean): ResolvedHackDeskTheme {
+  const warning = theme['--warning-default'];
+  const destructive = theme['--destructive-default'];
+
+  return {
+    '--warning-foreground': isHexColor(warning) ? contrastText(warning) : 'var(--text-default)',
+    '--destructive-hover': isHexColor(destructive) ? mix(destructive, dark ? '#FFFFFF' : '#000000', 85) : destructive,
+  };
 }
 
 function resolveNativeSurfaceTokens(theme: ResolvedHackDeskTheme): ResolvedHackDeskTheme {
