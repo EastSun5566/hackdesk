@@ -5,12 +5,14 @@ $ErrorActionPreference = 'Stop'
 $verify = Join-Path $PSScriptRoot 'verify-signpath-test.ps1'
 $temporary = Join-Path $env:RUNNER_TEMP ([Guid]::NewGuid().ToString())
 New-Item -ItemType Directory -Path $temporary | Out-Null
+Write-Host 'Creating the ephemeral code-signing certificate.'
 $certificate = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=HackDesk CI verification fixture' `
     -CertStoreLocation 'Cert:\CurrentUser\My' -HashAlgorithm SHA256 -KeyExportPolicy NonExportable
 
 try {
     $signed = Join-Path $temporary 'HackDesk.exe'
     Copy-Item -LiteralPath $UnsignedPath -Destination $signed
+    Write-Host 'Signing the packaged executable fixture.'
     Set-AuthenticodeSignature -LiteralPath $signed -Certificate $certificate -HashAlgorithm SHA256 | Out-Null
     $arguments = @{
         UnsignedPath = $UnsignedPath
@@ -18,6 +20,7 @@ try {
         CertificateBase64 = [Convert]::ToBase64String($certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
         ExpectedCertSha256 = $certificate.GetCertHashString([System.Security.Cryptography.HashAlgorithmName]::SHA256)
     }
+    Write-Host 'Verifying the signed executable fixture.'
     $report = & $verify @arguments
     if ($report.status -ne 'Valid') { throw 'Signed fixture did not pass verification.' }
 

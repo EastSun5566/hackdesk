@@ -42,6 +42,7 @@ jobs:
       - run: pnpm run check:ci
       - run: pnpm run package:check
       - name: Test signature verification
+        timeout-minutes: 5
         shell: pwsh
         run: ./scripts/test-signpath-verification.ps1 -UnsignedPath release/electron/win-unpacked/HackDesk.exe
       - name: Stage unsigned application

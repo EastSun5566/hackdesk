@@ -60,6 +60,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
       - name: Test Windows signature verification without SignPath credentials
         if: matrix.os == 'windows-latest'
+        timeout-minutes: 5
         shell: pwsh
         run: ./scripts/test-signpath-verification.ps1 -UnsignedPath release/electron/win-unpacked/HackDesk.exe
       # Launch the packaged binary that package:check just produced and
