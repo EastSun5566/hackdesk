@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-const { createBridge, expectedPaths, validateRequest, waitRequest } = createRequire(import.meta.url)('../../scripts/signpath-bridge.cjs');
+const { createBridge, expectedPaths, validateRequest, waitRequest, signingParameters } = createRequire(import.meta.url)('../../scripts/signpath-bridge.cjs');
 const directories: string[] = [];
 const roles = ['app', 'elevate', 'uninstaller', 'installer'];
 const names = ['HackDesk.exe', 'elevate.exe', 'Uninstall-HackDesk.exe', 'HackDesk-Installer.exe'];
@@ -43,6 +43,16 @@ afterEach(async () => {
 });
 
 describe('SignPath builder bridge', () => {
+  it('formats parameters as the pinned action requires, with no parameters for the helper', () => {
+    expect(signingParameters('app', { productVersion: '2.0.0.0', fileVersion: '2.0.0-beta.5' }))
+      .toBe('productVersion: "2.0.0.0"\nfileVersion: "2.0.0-beta.5"');
+    expect(signingParameters('elevate', {})).toBe('');
+    expect(signingParameters('installer', { productVersion: '2.0.0', fileVersion: 'value "quoted"' }))
+      .toContain('fileVersion: "value \\"quoted\\""');
+  });
+  it.each(['', 'version\noutput=value', 'version\routput=value'])('rejects invalid version parameters: %j', version => {
+    expect(() => signingParameters('app', { productVersion: version, fileVersion: '2.0.0' })).toThrow('Invalid PE version');
+  });
   it('replaces each expected file only after its verified response, preserving evidence', async () => {
     const test = await fixture();
     const helperSource = join(test.root, 'toolset-elevate.exe');

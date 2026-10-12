@@ -79,8 +79,10 @@ jobs:
         run: node scripts/signpath-bridge.cjs finish
       - name: Verify unpacked startup and fuses
         shell: pwsh
+        env:
+          HACKDESK_PACKAGED_BINARY: ${{ env.SIGNPATH_DIRECTORY }}/build/win-unpacked/HackDesk.exe
         run: |
-          node scripts/check-electron-fuses.ts
+          node scripts/check-electron-fuses.ts $env:HACKDESK_PACKAGED_BINARY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           pnpm exec playwright test --config electron/playwright.packaged.config.ts electron/e2e/packaged-startup.spec.ts
       - name: Install and verify embedded signatures

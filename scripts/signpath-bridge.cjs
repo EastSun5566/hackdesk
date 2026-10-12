@@ -45,6 +45,16 @@ function validateRequest(session, request, role) {
     throw new Error('Invalid or stale signing request.');
   }
 }
+function signingParameters(role, metadata) {
+  roleIndex(role);
+  if (role === 'elevate') return '';
+  return ['productVersion', 'fileVersion'].map(name => {
+    const value = metadata[name];
+    if (typeof value !== 'string' || !value.trim() || /[\r\n]/.test(value)) throw new Error('Invalid PE version parameter.');
+    // The pinned SignPath action expects one name: JSON-string pair per line.
+    return `${name}: ${JSON.stringify(value)}`;
+  }).join('\n');
+}
 
 // The builder owns file order; this hook never signs arbitrary paths or predicts a rename.
 function createBridge(session, { timeoutMs = 40 * 60_000, pollMs = 500 } = {}) {
@@ -124,12 +134,18 @@ async function cli(command, role) {
   if (!root) throw new Error('Missing SIGNPATH_DIRECTORY.');
   if (command === 'start') {
     const pkg = require('../package.json');
+    const output = path.join(root, 'build');
     const session = {
-      root, nonce: randomUUID(), output: path.resolve('release/electron'),
-      installer: path.resolve('release/electron', `HackDesk-${pkg.version}-x64-test-certificate.exe`),
+      root, nonce: randomUUID(), output,
+      installer: path.join(output, `HackDesk-${pkg.version}-x64-test-certificate.exe`),
       certificateSha256: process.env.CERTIFICATE_SHA256,
     };
     if (!/^[a-fA-F0-9]{64}$/.test(session.certificateSha256 || '')) throw new Error('Missing certificate fingerprint.');
+    const certificate = new X509Certificate(Buffer.from(process.env.CERTIFICATE_BASE64 || '', 'base64'));
+    if (digest(certificate.raw) !== session.certificateSha256.toLowerCase() ||
+        certificate.subject !== certificate.issuer || !certificate.verify(certificate.publicKey)) {
+      throw new Error('Expected the pinned self-signed test certificate.');
+    }
     // Fresh per-run directory; refuse leftovers rather than accepting stale responses.
     await fs.mkdir(root);
     await writeJson(path.join(root, 'session.json'), session);
@@ -152,7 +168,7 @@ async function cli(command, role) {
       if (builderRequire('app-builder-lib/package.json').version !== '26.15.3') throw new Error('Revalidate signing order before upgrading electron-builder.');
       for (const key of ['CSC_LINK', 'WIN_CSC_LINK', 'CSC_KEY_PASSWORD', 'WIN_CSC_KEY_PASSWORD', 'ELECTRON_BUILDER_NSIS_DIR', 'ELECTRON_BUILDER_NSIS_RESOURCES_DIR']) delete process.env[key];
       await build({ targets: Platform.WINDOWS.createTarget('nsis', Arch.x64), publish: 'never', config: {
-        ...pkg.build, forceCodeSigning: true,
+        ...pkg.build, directories: { ...pkg.build.directories, output: session.output }, forceCodeSigning: true,
         win: { ...pkg.build.win, artifactName: path.basename(session.installer), signtoolOptions: {
           sign: './scripts/signpath-bridge.cjs', signingHashAlgorithms: ['sha256'], publisherName: publisher,
         } },
@@ -174,12 +190,13 @@ async function cli(command, role) {
     if (role !== 'elevate' && (metadata.productName !== 'HackDesk' || !metadata.productVersion || !metadata.fileVersion)) throw new Error('Missing HackDesk PE metadata.');
     const outputs = {
       directory: path.join(root, role), filename: names[index], configuration: configurations[index],
-      parameters: JSON.stringify(role === 'elevate' ? {} : { productVersion: metadata.productVersion, fileVersion: metadata.fileVersion }),
     };
     for (const [key, value] of Object.entries(outputs)) {
       if (/[\r\n]/.test(value)) throw new Error('Invalid action output.');
       await fs.appendFile(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
     }
+    const delimiter = randomUUID();
+    await fs.appendFile(process.env.GITHUB_OUTPUT, `parameters<<${delimiter}\n${signingParameters(role, metadata)}\n${delimiter}\n`);
     return;
   }
   if (command === 'accept') {
@@ -261,5 +278,5 @@ async function cli(command, role) {
   throw new Error('Unknown bridge command.');
 }
 
-module.exports = { sign, createBridge, expectedPaths, validateRequest, waitRequest };
+module.exports = { sign, createBridge, expectedPaths, validateRequest, waitRequest, signingParameters };
 if (require.main === module) cli(process.argv[2], process.argv[3]).catch(error => { console.error(error); process.exitCode = 1; });
