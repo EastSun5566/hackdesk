@@ -58,6 +58,10 @@ jobs:
       - run: pnpm run package:check
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+      - name: Test Windows signature verification without SignPath credentials
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./scripts/test-signpath-verification.ps1 -UnsignedPath release/electron/win-unpacked/HackDesk.exe
       # Launch the packaged binary that package:check just produced and
       # assert the first window loads the packaged renderer (hackdesk://...)
       # rather than a dev-server URL (http://localhost:5173). The spec sets
