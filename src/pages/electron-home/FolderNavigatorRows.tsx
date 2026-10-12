@@ -466,7 +466,7 @@ export function FolderDragOverlay({ node }: { node: FolderTreeNode | null }) {
   }
 
   return (
-    <div className="flex h-8 min-w-48 items-center gap-2 rounded-[6px] border border-border-default bg-background-default px-2 text-sm text-text-default shadow-lg">
+    <div className="flex h-8 min-w-48 items-center gap-2 rounded-md border border-border-default bg-background-default px-2 text-sm text-text-default shadow-lg">
       <FolderGlyph icon={node.icon} color={node.color} open />
       <span className="truncate">{node.name}</span>
     </div>
@@ -479,7 +479,7 @@ export function NoteDragOverlay({ entry }: { entry: FolderTreeNote | null }) {
   }
 
   return (
-    <div className="flex min-h-9 min-w-56 items-center gap-2 rounded-[6px] border border-border-default bg-background-default px-3 py-2 text-sm text-text-default shadow-lg">
+    <div className="flex min-h-9 min-w-56 items-center gap-2 rounded-md border border-border-default bg-background-default px-3 py-2 text-sm text-text-default shadow-lg">
       <FileText aria-hidden="true" className="h-4 w-4 shrink-0 text-text-subtle" />
       <span className="min-w-0">
         <span className="block truncate font-medium">{entry.note.title || 'Untitled'}</span>
@@ -562,9 +562,9 @@ export function FolderTreeView({
 
     return (
       <li role="presentation" key={node.id} className="relative min-w-0">
-        {depth > 0 && !lastChild ? <span aria-hidden="true" data-tree-guide="continuation" className="pointer-events-none absolute -left-[7px] -top-0.5 bottom-0 w-px bg-border-default/70" /> : null}
+        {depth > 0 && !lastChild ? <span aria-hidden="true" data-tree-guide="continuation" className="pointer-events-none absolute -left-1.75 -top-0.5 bottom-0 w-px bg-border-default/70" /> : null}
         <div className="relative min-w-0">
-          {depth > 0 && lastChild ? <span aria-hidden="true" data-tree-guide="end" className="pointer-events-none absolute -left-[7px] -top-0.5 bottom-1/2 w-px bg-border-default/70" /> : null}
+          {depth > 0 && lastChild ? <span aria-hidden="true" data-tree-guide="end" className="pointer-events-none absolute -left-1.75 -top-0.5 bottom-1/2 w-px bg-border-default/70" /> : null}
         <FolderButton
           node={node}
           selected={selectedFolderId === node.id}
@@ -625,7 +625,7 @@ export function FolderTreeView({
 
   const noteItems = notes.map((entry, index) => (
     <li role="presentation" key={`note:${entry.note.id}`} className="relative min-w-0">
-      {depth > 0 ? <span aria-hidden="true" data-tree-guide={index === notes.length - 1 ? 'end' : 'continuation'} className={cn('pointer-events-none absolute -left-[7px] -top-0.5 w-px bg-border-default/70', index === notes.length - 1 ? 'bottom-1/2' : 'bottom-0')} /> : null}
+      {depth > 0 ? <span aria-hidden="true" data-tree-guide={index === notes.length - 1 ? 'end' : 'continuation'} className={cn('pointer-events-none absolute -left-1.75 -top-0.5 w-px bg-border-default/70', index === notes.length - 1 ? 'bottom-1/2' : 'bottom-0')} /> : null}
       <NoteRow
         entry={entry}
         selected={entry.note.id === selectedNoteId}

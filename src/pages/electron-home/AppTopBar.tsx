@@ -37,7 +37,7 @@ function TopBarIconButton({
       disabled={disabled}
       label={label}
       tooltip={tooltip}
-      className="app-topbar-button app-region-no-drag h-7 w-7 rounded-[6px]"
+      className="app-topbar-button app-region-no-drag h-7 w-7 rounded-md"
     >
       {children}
     </ToolbarIconButton>
@@ -131,7 +131,7 @@ export function AppTopBar({
   return (
     <header className={cn(
       'app-topbar flex h-10 shrink-0 items-center gap-2 border-b border-border-default bg-background-default pr-2',
-      platform === 'darwin' && !fullScreen ? 'pl-[86px]' : 'pl-2',
+      platform === 'darwin' && !fullScreen ? 'pl-21.5' : 'pl-2',
     )}>
       <Toolbar aria-label="Application controls" className="shrink-0">
         <TopBarIconButton
@@ -141,7 +141,7 @@ export function AppTopBar({
           label={railCollapsed ? 'Expand workspace sidebar' : 'Collapse workspace sidebar'}
           onClick={onToggleRail}
         >
-          {railCollapsed ? <PanelLeftOpen aria-hidden="true" className="h-[18px] w-[18px]" /> : <PanelLeftClose aria-hidden="true" className="h-[18px] w-[18px]" />}
+          {railCollapsed ? <PanelLeftOpen aria-hidden="true" className="size-4.5" /> : <PanelLeftClose aria-hidden="true" className="size-4.5" />}
         </TopBarIconButton>
         <TopBarIconButton
           actionId="toggle-navigator"
@@ -150,7 +150,7 @@ export function AppTopBar({
           label={navigatorCollapsed ? 'Expand note navigator' : 'Collapse note navigator'}
           onClick={onToggleNavigator}
         >
-          <FolderTree aria-hidden="true" className="h-[18px] w-[18px]" />
+          <FolderTree aria-hidden="true" className="size-4.5" />
         </TopBarIconButton>
         <ToolbarSeparator />
         <TopBarIconButton
@@ -160,7 +160,7 @@ export function AppTopBar({
           tooltip={navigation.canGoBack ? 'Back' : 'No previous note location'}
           onClick={navigation.onBack}
         >
-          <ArrowLeft aria-hidden="true" className="h-[18px] w-[18px]" />
+          <ArrowLeft aria-hidden="true" className="size-4.5" />
         </TopBarIconButton>
         <TopBarIconButton
           actionId="navigate-forward"
@@ -169,7 +169,7 @@ export function AppTopBar({
           tooltip={navigation.canGoForward ? 'Forward' : 'No next note location'}
           onClick={navigation.onForward}
         >
-          <ArrowRight aria-hidden="true" className="h-[18px] w-[18px]" />
+          <ArrowRight aria-hidden="true" className="size-4.5" />
         </TopBarIconButton>
       </Toolbar>
       <DocumentTabs

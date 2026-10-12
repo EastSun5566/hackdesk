@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
@@ -173,7 +174,7 @@ function SyncStateBadge({
       role="status"
       aria-live="polite"
       aria-atomic="true"
-      className={cn('inline-flex h-7 shrink-0 items-center gap-1 rounded-[6px] border px-2 text-xs font-medium', className)}
+      className={cn('inline-flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-xs font-medium', className)}
       aria-label={`Sync state: ${DOCUMENT_SYNC_STATE_LABELS[state]}`}
     >
       {icon}
@@ -447,8 +448,6 @@ function ActiveDocumentDetail({
   );
 }
 
-const recoveryButtonClassName = 'inline-flex h-7 items-center gap-1 rounded-[6px] border border-warning-default/35 bg-background-default px-2 text-xs font-medium text-text-default hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring';
-const recoveryPrimaryButtonClassName = 'inline-flex h-7 items-center gap-1 rounded-[6px] bg-warning-default px-2 text-xs font-medium text-warning-foreground hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring';
 
 function DocumentRecoveryBanner({
   actions,
@@ -473,30 +472,30 @@ function DocumentRecoveryBanner({
         <p className="min-w-0 flex-1 text-text-default">
           {isRemote ? 'This note changed on HackMD. Your draft is still open.' : 'File changed on disk. Your draft is still open.'}
         </p>
-        <button type="button" className={recoveryButtonClassName} onClick={() => setComparing(true)}>
+        <Button size="xs" variant="warning-outline" onClick={() => setComparing(true)}>
           Compare with {source}
-        </button>
-        <button
-          type="button"
-          className={recoveryButtonClassName}
+        </Button>
+        <Button
+          size="xs"
+          variant="warning-outline"
           onClick={() => (isRemote ? actions.onReloadFromHackmd(document) : actions.onReloadFromDisk(document))}
         >
           <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
           Reload from {source}
-        </button>
+        </Button>
         {isRemote ? (
-          <button
-            type="button"
-            className={recoveryPrimaryButtonClassName}
+          <Button
+            size="xs"
+            variant="warning"
             onClick={() => actions.onOpenAsNewDraft(documentState.title, documentState.content)}
           >
             <FilePlus aria-hidden="true" className="h-3.5 w-3.5" />
             Open as new draft
-          </button>
+          </Button>
         ) : (
-          <button
-            type="button"
-            className={recoveryPrimaryButtonClassName}
+          <Button
+            size="xs"
+            variant="warning"
             onClick={() => actions.onSaveAsCopy(document, {
               title: documentState.title,
               content: documentState.content,
@@ -504,11 +503,11 @@ function DocumentRecoveryBanner({
           >
             <Copy aria-hidden="true" className="h-3.5 w-3.5" />
             Save as copy
-          </button>
+          </Button>
         )}
       </div>
       <Dialog open={comparing} onOpenChange={setComparing}>
-        <DialogContent className="max-h-[calc(100dvh-4rem)] max-w-4xl overflow-y-auto">
+        <DialogContent size="xl">
           <DialogHeader>
             <DialogTitle>Compare with {source}</DialogTitle>
             <DialogDescription>
@@ -776,10 +775,10 @@ function InspectorPanel({
       id={inspectorPanelId}
       aria-hidden={inspectorCollapsed}
       className={cn(
-        'min-w-0 shrink-0 bg-background-muted transition-[border-color,background-color] duration-150 ease-out motion-reduce:transition-none',
-        inspectorCollapsed ? 'border-l-0' : 'border-l border-border-default',
+        'min-w-0 shrink-0 bg-background-muted transition-colors duration-150 ease-out motion-reduce:transition-none',
+        inspectorCollapsed ? 'w-0 border-l-0' : 'w-(--inspector-width) border-l border-border-default',
       )}
-      style={{ width: inspectorCollapsed ? 0 : INSPECTOR_WIDTH_DEFAULT }}
+      style={{ '--inspector-width': `${INSPECTOR_WIDTH_DEFAULT}px` }}
     >
       {inspectorCollapsed ? null : (
         <NoteInspector

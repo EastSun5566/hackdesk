@@ -7,7 +7,8 @@
     {
       "name": "react-doctor",
       "specifier": "oxlint-plugin-react-doctor"
-    }
+    },
+    "@shadcn/lint"
   ],
   "categories": {
     "correctness": "off"
@@ -97,7 +98,37 @@
     "react-doctor/prefer-useReducer": "warn",
     "require-yield": "error",
     "use-isnan": "error",
-    "valid-typeof": "error"
+    "valid-typeof": "error",
+    "shadcn/no-unknown-classes": "error",
+    "shadcn/no-raw-colors": "error",
+    "shadcn/no-arbitrary-values": [
+      "error",
+      {
+        "allow": [
+          "max-h-[50dvh]",
+          "grid-cols-[minmax(0,1fr)_6.5rem]",
+          "sm:grid-cols-[7rem_minmax(0,1fr)_auto]"
+        ]
+      }
+    ],
+    "shadcn/no-inline-styles": [
+      "error",
+      {
+        "allow": [
+          "transform",
+          "transition"
+        ]
+      }
+    ],
+    "shadcn/require-static-classes": "warn",
+    "shadcn/no-restyle": [
+      "warn",
+      {
+        "allow": [
+          "layout"
+        ]
+      }
+    ]
   },
   "overrides": [
     {
@@ -178,6 +209,34 @@
       "env": {
         "node": true
       }
+    },
+    {
+      "files": [
+        "src/components/ui/**"
+      ],
+      "rules": {
+        "shadcn/no-restyle": "off",
+        "shadcn/no-arbitrary-values": "off"
+      }
+    },
+    {
+      "files": [
+        "**/*.test.{ts,tsx}",
+        "**/*.spec.ts"
+      ],
+      "rules": {
+        "shadcn/no-unknown-classes": "off",
+        "shadcn/no-raw-colors": "off",
+        "shadcn/no-arbitrary-values": "off",
+        "shadcn/no-inline-styles": "off",
+        "shadcn/require-static-classes": "off",
+        "shadcn/no-restyle": "off"
+      }
     }
-  ]
+  ],
+  "settings": {
+    "shadcn": {
+      "ui": "@/components/ui"
+    }
+  }
 }

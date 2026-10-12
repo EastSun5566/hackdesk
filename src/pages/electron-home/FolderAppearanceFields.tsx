@@ -97,10 +97,10 @@ export function FolderAppearanceFields({
               aria-label={`Use folder color ${option}`}
               value={option}
               className={cn(
-                'size-8 rounded-md border border-border-default transition-transform hover:scale-105 data-[checked]:ring-2 data-[checked]:ring-primary-default data-[checked]:ring-offset-2 data-[checked]:ring-offset-background-default',
+                'size-8 rounded-md border border-border-default bg-(--swatch) transition-transform hover:scale-105 data-[checked]:ring-2 data-[checked]:ring-primary-default data-[checked]:ring-offset-2 data-[checked]:ring-offset-background-default',
                 FOCUS_RING_CLASS,
               )}
-              style={{ backgroundColor: option }}
+              style={{ '--swatch': option }}
             />
           ))}
         </RadioGroup>
@@ -116,7 +116,7 @@ export function FolderAppearanceFields({
       </fieldset>
 
       <Collapsible className="rounded-md border border-border-default bg-background-muted px-3 py-2 text-sm">
-        <CollapsibleTrigger className={cn('flex w-full items-center justify-between rounded-[4px] text-left text-xs font-semibold uppercase text-text-subtle', FOCUS_RING_CLASS)}>
+        <CollapsibleTrigger className={cn('flex w-full items-center justify-between rounded-sm text-left text-xs font-semibold uppercase text-text-subtle', FOCUS_RING_CLASS)}>
           <span>Custom values</span>
           <ChevronRight
             aria-hidden="true"
@@ -142,8 +142,8 @@ export function FolderAppearanceFields({
               <FieldLabel htmlFor={CUSTOM_FOLDER_COLOR_ID}>Color hex</FieldLabel>
               <span className="flex items-center gap-2">
                 <span
-                  className="size-5 rounded-[4px] border border-border-default"
-                  style={{ backgroundColor: normalizedColor || 'transparent' }}
+                  className="size-5 rounded-sm border border-border-default bg-(--swatch)"
+                  style={{ '--swatch': normalizedColor || 'transparent' }}
                   aria-hidden="true"
                 />
                 <Input

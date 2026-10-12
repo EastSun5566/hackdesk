@@ -24,7 +24,7 @@ export function PersonalWorkspaceIcon({
 
   if (user.photo && user.photo !== failedPhoto) {
     return (
-      <Avatar className={cn('size-6 rounded-full text-[10px] font-semibold uppercase', className)}>
+      <Avatar className={cn('size-6 rounded-full text-2xs font-semibold uppercase', className)}>
         <img
           src={user.photo}
           alt=""
@@ -41,7 +41,7 @@ export function PersonalWorkspaceIcon({
   }
 
   return (
-    <Avatar className={cn('size-6 rounded-full text-[10px] font-semibold uppercase', className)}>
+    <Avatar className={cn('size-6 rounded-full text-2xs font-semibold uppercase', className)}>
       <AvatarFallback data-testid={testId}>{getUserInitials(user)}</AvatarFallback>
     </Avatar>
   );
@@ -60,7 +60,7 @@ export function TeamWorkspaceIcon({
 
   if (team.logo && team.logo !== failedLogo) {
     return (
-      <Avatar className={cn('size-6 rounded-[6px] text-[10px] font-semibold uppercase text-text-subtle', className)}>
+      <Avatar className={cn('size-6 rounded-md text-2xs font-semibold uppercase text-text-subtle', className)}>
         <img
           src={team.logo}
           alt=""
@@ -77,7 +77,7 @@ export function TeamWorkspaceIcon({
   }
 
   return (
-    <Avatar className={cn('size-6 rounded-[6px] text-[10px] font-semibold uppercase text-text-subtle', className)}>
+    <Avatar className={cn('size-6 rounded-md text-2xs font-semibold uppercase text-text-subtle', className)}>
       <AvatarFallback data-testid={testId}>{team.name.trim().slice(0, 1) || 'T'}</AvatarFallback>
     </Avatar>
   );

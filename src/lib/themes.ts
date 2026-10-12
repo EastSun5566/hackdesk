@@ -772,6 +772,7 @@ export function resolveThemeTypography(typography: ThemeTypography): ResolvedHac
     '--font-mono': normalized.editorFontStack,
     '--font-size-ui': pxToRem(normalized.uiFontSize),
     '--font-size-editor': pxToRem(normalized.editorFontSize),
+    '--text-2xs': 'calc(var(--font-size-ui) * 0.7142857143)',
     '--text-xs': 'calc(var(--font-size-ui) * 0.8571428571)',
     '--text-sm': 'var(--font-size-ui)',
     '--text-base': 'calc(var(--font-size-ui) * 1.1428571429)',
@@ -1070,6 +1071,8 @@ function resolveNativeSurfaceTokens(theme: ResolvedHackDeskTheme): ResolvedHackD
   const focusRing = theme['--focus-ring'] ?? theme['--primary-default'];
 
   return {
+    '--background-selected-solid': compositeThemeColor(theme['--background-selected'], theme['--background-default']),
+    '--element-bg-hover-solid': compositeThemeColor(theme['--element-bg-hover'], theme['--background-default']),
     '--scrollbar-thumb': scrollbarThumb,
     '--scrollbar-track': backgroundMuted,
     '--selection-background': focusRing,

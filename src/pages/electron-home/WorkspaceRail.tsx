@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
 import type { TeamSummary, UserSummary } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
@@ -81,7 +82,7 @@ function WorkspaceRailButton({
     <span
       aria-hidden="true"
       className={cn(
-        'flex w-5 shrink-0 items-center justify-center rounded px-1 py-0.5 text-center text-[10px] font-medium text-text-subtle',
+        'flex w-5 shrink-0 items-center justify-center rounded px-1 py-0.5 text-center text-2xs font-medium text-text-subtle',
         'bg-background-muted',
       )}
     >
@@ -226,25 +227,22 @@ function TeamRailRow({
         className={cn(!active && 'group-hover/team-row:bg-element-bg-hover group-focus-within/team-row:bg-element-bg-hover')}
       />
       {!collapsed ? dragHandle : null}
-      {!collapsed && showShortcutHint && shortcutIndex ? <span aria-hidden="true" data-workspace-shortcut="true" className="pointer-events-none absolute right-2 top-1/2 z-10 flex w-5 -translate-y-1/2 items-center justify-center rounded bg-background-muted px-1 py-0.5 text-[10px] font-medium text-text-subtle group-hover/team-row:right-10 group-focus-within/team-row:right-10">{shortcutIndex}</span> : null}
+      {!collapsed && showShortcutHint && shortcutIndex ? <span aria-hidden="true" data-workspace-shortcut="true" className="pointer-events-none absolute right-2 top-1/2 z-10 flex w-5 -translate-y-1/2 items-center justify-center rounded bg-background-muted px-1 py-0.5 text-2xs font-medium text-text-subtle group-hover/team-row:right-10 group-focus-within/team-row:right-10">{shortcutIndex}</span> : null}
       {!collapsed ? (
         <div className={cn(
-          'pointer-events-none absolute inset-y-1 right-1 flex items-center gap-1 rounded-[6px] bg-background-default opacity-0 group-hover/team-row:pointer-events-auto group-hover/team-row:opacity-100 group-focus-within/team-row:pointer-events-auto group-focus-within/team-row:opacity-100',
-          active ? 'bg-[linear-gradient(var(--background-selected),var(--background-selected))]' : 'bg-[linear-gradient(var(--element-bg-hover),var(--element-bg-hover))]',
+          'pointer-events-none absolute inset-y-1 right-1 flex items-center gap-1 rounded-md bg-background-default opacity-0 group-hover/team-row:pointer-events-auto group-hover/team-row:opacity-100 group-focus-within/team-row:pointer-events-auto group-focus-within/team-row:opacity-100',
+          active ? 'bg-background-selected-solid' : 'bg-element-bg-hover-solid',
           showShortcutHint && shortcutIndex && 'pl-8',
         )}>
         <Tooltip content={pinned ? `Unpin ${team.name}` : `Pin ${team.name}`} side="right">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             aria-label={pinned ? `Unpin ${team.name}` : `Pin ${team.name}`}
             onClick={onPinChange}
-            className={cn(
-              'flex size-8 shrink-0 items-center justify-center rounded-[6px] text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
-              FOCUS_RING_CLASS,
-            )}
           >
             {pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
-          </button>
+          </Button>
         </Tooltip>
         </div>
       ) : null}
@@ -269,7 +267,7 @@ function SortablePinnedTeamRow(props: Omit<TeamRailRowProps, 'pinned'>) {
             aria-label={`Reorder ${props.team.name}`}
             ref={setActivatorNodeRef}
             className={cn(
-              'pointer-events-none absolute inset-y-0 left-1 flex w-8 items-center justify-center rounded-[6px] text-text-subtle opacity-0 hover:text-text-default group-focus-within/team-row:pointer-events-auto group-focus-within/team-row:opacity-100 group-hover/team-row:pointer-events-auto group-hover/team-row:opacity-100',
+              'pointer-events-none absolute inset-y-0 left-1 flex w-8 items-center justify-center rounded-md text-text-subtle opacity-0 hover:text-text-default group-focus-within/team-row:pointer-events-auto group-focus-within/team-row:opacity-100 group-hover/team-row:pointer-events-auto group-hover/team-row:opacity-100',
               FOCUS_RING_CLASS,
             )}
             {...attributes}
@@ -364,7 +362,7 @@ function PinnedTeamsSection({
   return (
     <>
       {!collapsed ? (
-        <h2 id={headingId} className="mt-4 px-3 text-[11px] font-medium uppercase text-text-subtle">
+        <h2 id={headingId} className="mt-4 px-3 text-2xs font-medium uppercase text-text-subtle">
           Pinned
         </h2>
       ) : null}
@@ -436,7 +434,7 @@ function MoreTeamsSection({
         aria-label={collapsed ? 'More teams' : undefined}
         onClick={() => setOpen(!isOpen)}
         className={cn(
-          'flex min-h-9 w-full items-center gap-2 rounded-[6px] px-2 text-sm font-medium text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
+          'flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-sm font-medium text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
           collapsed && 'justify-center',
           FOCUS_RING_CLASS,
         )}

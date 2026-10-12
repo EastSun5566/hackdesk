@@ -14,12 +14,10 @@ import {
 } from '@/components/ui/alert-dialog';
 
 import { getHackDeskAPI } from '@/lib/electron-api';
-import { cn } from '@/lib/utils';
 import { isBetaVersion } from '@/lib/version';
 import { version as packageVersion } from '../../../package.json';
 
 import { SettingsSection } from './SettingsPrimitives';
-import { FOCUS_RING_CLASS, PRESSED_CLASS, SECONDARY_BUTTON_CLASS } from './ui';
 
 const RELEASES_URL = 'https://github.com/EastSun5566/hackdesk/releases';
 
@@ -146,16 +144,12 @@ export function AdvancedSettingsPanel({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className={SECONDARY_BUTTON_CLASS}>
+            <AlertDialogCancel>
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmReset}
-              className={cn(
-                'inline-flex h-9 items-center gap-2 rounded-md bg-destructive-default px-3 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive-hover',
-                PRESSED_CLASS,
-                FOCUS_RING_CLASS,
-              )}
+              variant="destructive-solid"
             >
               <AlertCircle className="h-4 w-4" />
               Reset All Settings

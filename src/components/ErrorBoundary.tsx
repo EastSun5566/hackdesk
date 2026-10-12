@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   children: ReactNode;
@@ -83,8 +84,6 @@ export class ErrorBoundary extends Component<Props, State> {
       const canExportDebugLogs = Boolean(window.hackdeskAPI?.app.exportDebugLogs);
       const isExporting = this.state.exportStatus === 'exporting';
       const details = this.state.error?.message || 'An unexpected renderer error occurred.';
-      const primaryButtonClass = 'inline-flex h-9 items-center justify-center rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default';
-      const secondaryButtonClass = 'inline-flex h-9 items-center justify-center rounded-md border border-border-default bg-background-default px-3 text-sm font-medium text-text-default transition-colors hover:bg-element-bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none disabled:opacity-50';
 
       return (
         <div className="flex min-h-dvh flex-col items-center justify-center bg-background-muted p-8 text-text-default">
@@ -120,29 +119,16 @@ export class ErrorBoundary extends Component<Props, State> {
             ) : null}
 
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={this.handleReset}
-                className={primaryButtonClass}
-              >
+              <Button variant="primary" onClick={this.handleReset}>
                 Try again
-              </button>
-              <button
-                type="button"
-                onClick={() => window.location.reload()}
-                className={secondaryButtonClass}
-              >
+              </Button>
+              <Button onClick={() => window.location.reload()}>
                 Reload app
-              </button>
+              </Button>
               {canExportDebugLogs ? (
-                <button
-                  type="button"
-                  onClick={this.handleExportDebugLogs}
-                  disabled={isExporting}
-                  className={secondaryButtonClass}
-                >
+                <Button onClick={this.handleExportDebugLogs} disabled={isExporting}>
                   {isExporting ? 'Exporting…' : 'Export debug logs'}
-                </button>
+                </Button>
               ) : null}
             </div>
 

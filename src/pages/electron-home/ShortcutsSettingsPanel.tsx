@@ -8,6 +8,7 @@ import {
   resolveWorkbenchShortcut,
   type ElectronActionCategory,
 } from '@/lib/electron-actions';
+import { Button } from '@/components/ui/button';
 import type { ElectronActionId } from '@/lib/electron-api';
 import {
   displayShortcutConfig,
@@ -21,7 +22,6 @@ import {
 import { cn } from '@/lib/utils';
 
 import { SettingsInput, SettingsSection } from './SettingsPrimitives';
-import { FOCUS_RING_CLASS } from './ui';
 
 const EDITABLE_ACTIONS = ELECTRON_ACTIONS;
 const GROUPS: ElectronActionCategory[] = ['create', 'navigation', 'view', 'note', 'folder', 'app'];
@@ -254,9 +254,9 @@ export function ShortcutsSettingsPanel({
                           <p className="truncate text-sm font-medium text-text-default">{action.label}</p>
                           <p className="truncate text-xs text-text-subtle">{action.description}</p>
                         </div>
-                        <button
+                        <Button
                           ref={isActive ? activeButtonRef : undefined}
-                          type="button"
+                          size="sm"
                           data-shortcut-action={action.id}
                           aria-label={`Set shortcut for ${action.label}`}
                           onClick={() => {
@@ -264,26 +264,19 @@ export function ShortcutsSettingsPanel({
                             setActiveActionId(action.id);
                           }}
                           onKeyDown={(event) => handleCaptureKeyDown(action.id, event)}
-                          className={cn(
-                            'inline-flex h-8 min-w-28 items-center justify-center rounded-md border border-border-default bg-background-default px-3 text-xs font-medium text-text-default transition-colors hover:bg-element-bg-hover',
-                            isActive && 'border-focus-ring bg-background-selected text-text-default',
-                            FOCUS_RING_CLASS,
-                          )}
+                          className={cn('min-w-28 px-3', isActive && 'border-focus-ring bg-background-selected')}
                         >
                           {isActive ? 'Press keys…' : displayShortcut}
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           aria-label={`Reset shortcut for ${action.label}`}
                           disabled={!hasOverride}
                           onClick={() => resetShortcut(action.id)}
-                          className={cn(
-                            'inline-flex h-8 w-8 items-center justify-center rounded-md text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default disabled:pointer-events-none disabled:opacity-40',
-                            FOCUS_RING_CLASS,
-                          )}
                         >
                           <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />
-                        </button>
+                        </Button>
                       </li>
                     );
                   })}

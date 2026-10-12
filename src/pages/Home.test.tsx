@@ -2150,7 +2150,7 @@ describe('Home native-feel behavior', () => {
 
     expect(screen.getByRole('button', { name: 'Expand note navigator' })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getAllByRole('button', { name: 'Expand note navigator' })).toHaveLength(1);
-    expect(window.document.getElementById('note-navigator-panel')).toHaveStyle({ width: '0px' });
+    expect(window.document.getElementById('note-navigator-panel')).toHaveStyle({ '--panel-width': '0px' });
   });
 
   it('updates the tab title from the draft title', async () => {
@@ -2791,7 +2791,7 @@ describe('Home native-feel behavior', () => {
     expect(screen.getByRole('button', { name: 'Expand workspace sidebar' })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByRole('button', { name: 'Expand note navigator' })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getAllByRole('button', { name: 'Expand note navigator' })).toHaveLength(1);
-    expect(window.document.getElementById('note-navigator-panel')).toHaveStyle({ width: '0px' });
+    expect(window.document.getElementById('note-navigator-panel')).toHaveStyle({ '--panel-width': '0px' });
   });
 
   it('exposes expanded state when folders are collapsed and expanded', async () => {

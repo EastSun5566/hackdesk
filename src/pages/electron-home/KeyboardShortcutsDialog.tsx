@@ -1,10 +1,12 @@
 import { useRef, useState } from 'react';
+import { Toggle } from '@/components/ui/toggle';
+import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ELECTRON_ACTIONS, getResolvedActionShortcut, resolveWorkbenchShortcut } from '@/lib/electron-actions';
 import type { ShortcutOverrides } from '@/lib/keyboard-shortcuts';
 import { displayShortcutConfig } from '@/lib/keyboard-shortcuts';
 import type { ElectronFocusZone } from './useElectronFocusZones';
-import { FOCUS_RING_CLASS, SECONDARY_BUTTON_CLASS } from './ui';
+import { FOCUS_RING_CLASS } from './ui';
 
 const REGION_NAMES: Record<ElectronFocusZone, string> = { workspace: 'Workspace', navigator: 'Navigator', tabs: 'Tabs', editor: 'Editor', inspector: 'Note Details' };
 const WIDGET_KEYS = [
@@ -38,7 +40,7 @@ export function KeyboardShortcutsDialog({ open, region, returnFocus, shortcuts, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent initialFocus={searchRef} finalFocus={() => !customizing.current && returnFocus?.isConnected ? returnFocus : false} className="flex max-h-[min(760px,calc(100dvh-4rem))] w-[min(720px,calc(100dvw-3rem))] max-w-[720px] flex-col overflow-hidden p-0">
+      <DialogContent initialFocus={searchRef} finalFocus={() => !customizing.current && returnFocus?.isConnected ? returnFocus : false} size="md" className="overflow-hidden p-0">
         <DialogHeader className="shrink-0 border-b border-border-default p-5 pr-12">
           <DialogTitle>Keyboard Shortcuts</DialogTitle>
           <DialogDescription>Discover actions and their current keys. Text editors keep their own navigation bindings.</DialogDescription>
@@ -49,8 +51,8 @@ export function KeyboardShortcutsDialog({ open, region, returnFocus, shortcuts, 
             <input ref={searchRef} value={query} onChange={event => setQuery(event.target.value)} placeholder="Search keyboard shortcuts" className={`h-9 w-full rounded-md border border-border-default bg-background-muted px-3 text-sm ${FOCUS_RING_CLASS}`} />
           </label>
           <div className="flex flex-wrap gap-2" role="group" aria-label="Shortcut scope">
-            <button type="button" className={`${SECONDARY_BUTTON_CLASS} ${currentOnly ? 'bg-background-selected' : ''}`} aria-pressed={currentOnly} onClick={() => setCurrentOnly(true)}>Current Region: {REGION_NAMES[region]}</button>
-            <button type="button" className={`${SECONDARY_BUTTON_CLASS} ${!currentOnly ? 'bg-background-selected' : ''}`} aria-pressed={!currentOnly} onClick={() => setCurrentOnly(false)}>All Actions</button>
+            <Toggle pressed={currentOnly} onPressedChange={() => setCurrentOnly(true)}>Current Region: {REGION_NAMES[region]}</Toggle>
+            <Toggle pressed={!currentOnly} onPressedChange={() => setCurrentOnly(false)}>All Actions</Toggle>
           </div>
         </div>
         <div className="min-h-0 overflow-y-auto px-5 py-4">
@@ -74,7 +76,7 @@ export function KeyboardShortcutsDialog({ open, region, returnFocus, shortcuts, 
             {!currentOnly && matches('Quick Hack global') ? <li className="flex items-center gap-4 py-3"><div className="flex-1"><p className="text-sm font-medium">Quick Hack</p><p className="text-xs text-text-subtle">Global · Open from any app.</p></div><kbd className="text-xs">{displayShortcutConfig('ctrl+alt+h', platform)}</kbd></li> : null}
           </ul>
         </div>
-        <div className="flex shrink-0 justify-end border-t border-border-default p-4"><button type="button" className={SECONDARY_BUTTON_CLASS} onClick={() => { customizing.current = true; onCustomize(); }}>Customize in Settings</button></div>
+        <div className="flex shrink-0 justify-end border-t border-border-default p-4"><Button onClick={() => { customizing.current = true; onCustomize(); }}>Customize in Settings</Button></div>
       </DialogContent>
     </Dialog>
   );

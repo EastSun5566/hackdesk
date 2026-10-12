@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -34,16 +35,16 @@ function TabStatusIndicator({ state, descriptionId }: { state: DocumentSyncState
           className={cn(
             'relative size-2.5 shrink-0 rounded-full border before:pointer-events-none after:pointer-events-none',
             state === 'idle'
-            && "border-warning-default bg-warning-soft before:absolute before:left-1/2 before:top-1/2 before:size-1 before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-full before:bg-warning-default before:content-['']",
+            && "border-warning-default bg-warning-soft before:absolute before:left-1/2 before:top-1/2 before:size-1 before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-full before:bg-warning-default",
             state === 'loading'
-            && "border-text-subtle bg-background-default before:absolute before:inset-[2px] before:rounded-full before:border before:border-text-subtle before:content-['']",
+            && "border-text-subtle bg-background-default before:absolute before:inset-0.5 before:rounded-full before:border before:border-text-subtle",
             state === 'cached'
-            && "border-primary-default bg-primary-soft before:absolute before:left-1/2 before:top-1/2 before:h-px before:w-1.5 before:-translate-x-1/2 before:-translate-y-1/2 before:bg-primary-default before:content-['']",
+            && "border-primary-default bg-primary-soft before:absolute before:left-1/2 before:top-1/2 before:h-px before:w-1.5 before:-translate-x-1/2 before:-translate-y-1/2 before:bg-primary-default",
             state === 'saving'
-            && "border-primary-default bg-primary-soft before:absolute before:left-1/2 before:top-1/2 before:size-1 before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-full before:bg-primary-default before:content-[''] after:absolute after:inset-[-2px] after:rounded-full after:border after:border-primary-default/40 after:content-['']",
+            && "border-primary-default bg-primary-soft before:absolute before:left-1/2 before:top-1/2 before:size-1 before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-full before:bg-primary-default after:absolute after:-inset-0.5 after:rounded-full after:border after:border-primary-default/40",
             state === 'saved' && 'border-success-default bg-success-default',
             (state === 'save_failed' || state === 'conflict')
-            && "border-destructive-default bg-destructive-soft before:absolute before:left-1/2 before:top-1/2 before:h-px before:w-1.5 before:-translate-x-1/2 before:-translate-y-1/2 before:rotate-45 before:bg-destructive-default before:content-[''] after:absolute after:left-1/2 after:top-1/2 after:h-px after:w-1.5 after:-translate-x-1/2 after:-translate-y-1/2 after:-rotate-45 after:bg-destructive-default after:content-['']",
+            && "border-destructive-default bg-destructive-soft before:absolute before:left-1/2 before:top-1/2 before:h-px before:w-1.5 before:-translate-x-1/2 before:-translate-y-1/2 before:rotate-45 before:bg-destructive-default after:absolute after:left-1/2 after:top-1/2 after:h-px after:w-1.5 after:-translate-x-1/2 after:-translate-y-1/2 after:-rotate-45 after:bg-destructive-default",
           )}
         />
       </Tooltip>
@@ -92,7 +93,7 @@ function DocumentTab({
       ref={setTabNode}
       style={{ transform: CSS.Transform.toString(transform ? { ...transform, y: 0 } : null), transition }}
       className={cn(
-        'group/tab app-region-no-drag relative flex h-8 min-w-0 max-w-56 shrink-0 items-center gap-2 rounded-[6px] border px-2 text-sm transition-[background-color,border-color,color] duration-150 motion-reduce:transition-none',
+        'group/tab app-region-no-drag relative flex h-8 min-w-0 max-w-56 shrink-0 items-center gap-2 rounded-md border px-2 text-sm transition-colors duration-150 motion-reduce:transition-none',
         isDragging && 'z-10 opacity-70',
         selected
           ? 'border-border-default bg-background-default text-text-default shadow-sm'
@@ -125,11 +126,12 @@ function DocumentTab({
         <span className="min-w-0 truncate">{title}</span>
         <TabStatusIndicator state={syncState} descriptionId={`${documentTabId(tab.tabId)}-status`} />
       </button>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon-sm"
         tabIndex={focused ? 0 : -1}
         className={cn(
-          'app-region-no-drag grid size-6 shrink-0 place-items-center rounded-[4px] text-text-subtle transition-[opacity,color,background-color] duration-150 hover:bg-background-selected hover:text-text-default focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring group-hover/tab:opacity-100 motion-reduce:transition-none',
+          'app-region-no-drag rounded-sm hover:bg-background-selected focus-visible:opacity-100 group-hover/tab:opacity-100',
           selected ? 'opacity-100' : 'opacity-0',
         )}
         onClick={(event) => {
@@ -139,7 +141,7 @@ function DocumentTab({
         aria-label={`Close ${title}`}
       >
         <X aria-hidden="true" className="h-3.5 w-3.5" />
-      </button>
+      </Button>
     </li>
   );
 }
@@ -242,7 +244,7 @@ export function DocumentTabs({
       <div ref={regionRef} data-hackdesk-focus="tabs" data-document-pane-id={paneId} className={cn('flex min-w-0 flex-1 items-center gap-2', className)}>
         <nav
           aria-label="Open documents"
-          className="flex h-full min-w-0 flex-1 items-center overflow-x-auto overscroll-x-contain px-1 py-1 scrollbar-gutter-stable"
+          className="flex h-full min-w-0 flex-1 items-center overflow-x-auto overscroll-x-contain px-1 py-1"
         >
           {tabs.length > 0 ? (
             <SortableContext items={tabs.map(tab => tab.tabId)} strategy={horizontalListSortingStrategy}>

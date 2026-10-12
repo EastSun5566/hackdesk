@@ -1,6 +1,7 @@
 import { Folder, FolderOpen } from 'lucide-react';
 
 import { decodeFolderIcon, normalizeFolderColor } from './folder-glyph-utils';
+import { cn } from '@/lib/utils';
 
 export function FolderGlyph({
   icon,
@@ -17,7 +18,7 @@ export function FolderGlyph({
   if (folderIcon) {
     return (
       <span
-        className="relative flex h-4 w-4 shrink-0 items-center justify-center text-[13px] leading-none"
+        className="relative flex h-4 w-4 shrink-0 items-center justify-center text-sm leading-none"
         data-folder-glyph={icon ?? undefined}
         data-folder-color={folderColor ?? undefined}
       >
@@ -25,8 +26,8 @@ export function FolderGlyph({
         {folderColor ? (
           <span
             aria-hidden="true"
-            className="absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: folderColor }}
+            className="absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-(--folder-color)"
+            style={{ '--folder-color': folderColor }}
           />
         ) : null}
       </span>
@@ -37,10 +38,10 @@ export function FolderGlyph({
 
   return (
     <Icon
-      className="h-3.5 w-3.5"
+      className={cn('h-3.5 w-3.5', folderColor && 'text-(--folder-color)')}
       data-folder-glyph="default"
       data-folder-color={folderColor ?? undefined}
-      style={folderColor ? { color: folderColor } : undefined}
+      style={folderColor ? { '--folder-color': folderColor } : undefined}
     />
   );
 }

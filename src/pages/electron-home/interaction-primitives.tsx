@@ -73,8 +73,8 @@ function entityRowClassName({
   className?: string;
 }) {
   return cn(
-    'group/entity-row relative flex w-full min-w-0 items-center text-left transition-[background-color,color,opacity] duration-150 ease-out motion-reduce:transition-none',
-    variant === 'compact' ? 'gap-2 rounded-[6px] px-2 py-1 text-sm' : 'gap-2.5 rounded-md px-2.5 py-2 text-sm',
+    'group/entity-row relative flex w-full min-w-0 items-center text-left transition duration-150 ease-out motion-reduce:transition-none',
+    variant === 'compact' ? 'gap-2 rounded-md px-2 py-1 text-sm' : 'gap-2.5 rounded-md px-2.5 py-2 text-sm',
     selected || active
       ? 'bg-background-selected text-text-default'
       : 'text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
@@ -162,7 +162,7 @@ function EntityRowContent({
           onClick={contentOnClick}
           aria-label={contentAriaLabel}
           aria-current={contentAriaCurrent}
-          className={cn('flex min-w-0 flex-1 items-center gap-2 rounded-[4px] text-left focus-visible:outline-none', contentClassName)}
+          className={cn('flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left focus-visible:outline-none', contentClassName)}
         >
           {iconElement}
           <span className="min-w-0 flex-1">{contentBody}</span>
@@ -315,10 +315,11 @@ export function PanelShell({
       aria-label={ariaLabel}
       className={cn(
         'flex shrink-0 flex-col overflow-hidden outline-none',
+        width && 'w-(--panel-width)',
         PANEL_TRANSITION_CLASS,
         className,
       )}
-      style={width ? { width: collapsed && collapsedWidth !== undefined ? collapsedWidth : width } : undefined}
+      style={width ? { '--panel-width': `${collapsed && collapsedWidth !== undefined ? collapsedWidth : width}px` } : undefined}
     >
       {children}
     </Component>
@@ -379,7 +380,7 @@ export function ToolbarIconButton({
   const tooltipContent = displayShortcut ? (
     <span className="flex items-center gap-3">
       <span>{tooltip}</span>
-      <kbd className="rounded-[4px] bg-background-muted px-1.5 py-0.5 font-mono text-[10px] leading-none text-text-subtle">
+      <kbd className="rounded-sm bg-background-muted px-1.5 py-0.5 font-mono text-2xs leading-none text-text-subtle">
         {displayShortcut}
       </kbd>
     </span>
@@ -471,7 +472,7 @@ function SectionHeader({
         type="button"
         {...buttonProps}
         className={cn(
-          'flex min-w-0 flex-1 items-center gap-2 rounded-[6px] text-left text-xs font-semibold uppercase text-text-subtle transition-colors hover:text-text-default',
+          'flex min-w-0 flex-1 items-center gap-2 rounded-md text-left text-xs font-semibold uppercase text-text-subtle transition-colors hover:text-text-default',
           FOCUS_RING_CLASS,
           buttonProps?.className,
         )}

@@ -1,5 +1,6 @@
 import { AlertCircle, Copy, Download, FilePlus, RefreshCw } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import type { DocumentPaneView } from './DocumentWorkspace';
 import { PanelHeader, PanelShell } from './interaction-primitives';
 
@@ -13,7 +14,6 @@ export type UnavailableDocumentDetailProps = {
   onRetry: () => void;
 };
 
-const buttonClassName = 'inline-flex h-7 items-center gap-1 rounded-[6px] border border-border-default bg-background-default px-2 text-xs font-medium text-text-default hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-50';
 
 function getMessage({ kind, message, hasDraft }: UnavailableDocumentDetailProps['unavailable']) {
   const reason = kind === 'missing'
@@ -46,26 +46,26 @@ export function UnavailableDocumentDetail({
         <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0 text-warning-default" />
         <p className="min-w-0 flex-1 text-text-default">{getMessage(unavailable)}</p>
         {/* Retry only re-reads; it never writes. A missing result can be wrong, e.g. a proxy's 404. */}
-        <button type="button" className={buttonClassName} disabled={unavailable.isRetrying} onClick={onRetry}>
+        <Button size="xs" disabled={unavailable.isRetrying} onClick={onRetry}>
           <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
           {unavailable.isRetrying ? 'Retrying…' : 'Retry'}
-        </button>
+        </Button>
       </div>
       {unavailable.hasDraft ? (
         <section aria-label="Unsaved draft" className="flex min-h-0 flex-1 flex-col gap-3 p-4">
           <div className="flex flex-wrap gap-2">
-            <button type="button" className={buttonClassName} onClick={() => onCopyDraft(content)}>
+            <Button size="xs" onClick={() => onCopyDraft(content)}>
               <Copy aria-hidden="true" className="h-3.5 w-3.5" />
               Copy draft
-            </button>
-            <button type="button" className={buttonClassName} onClick={() => onExportDraft(title, content)}>
+            </Button>
+            <Button size="xs" onClick={() => onExportDraft(title, content)}>
               <Download aria-hidden="true" className="h-3.5 w-3.5" />
               Export draft
-            </button>
-            <button type="button" className={buttonClassName} onClick={() => onOpenAsNewDraft(title, content)}>
+            </Button>
+            <Button size="xs" onClick={() => onOpenAsNewDraft(title, content)}>
               <FilePlus aria-hidden="true" className="h-3.5 w-3.5" />
               Open as new draft
-            </button>
+            </Button>
           </div>
           <pre
             tabIndex={0}

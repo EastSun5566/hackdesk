@@ -119,9 +119,9 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
     {children}
     {current.held ? createPortal(<div data-keyboard-navigation-overlay className="pointer-events-none fixed inset-0 z-40" aria-hidden="true">
       {navigationHintPositions(visible.filter(hint => !hint.element.hasAttribute('aria-keyshortcuts')), current.prefix, { width: window.innerWidth, height: window.innerHeight }).map(({ hint, shortcut, left, top }) =>
-        <kbd key={hint.id} data-navigation-hint={hint.id} data-navigation-code={hint.code || undefined} className="absolute flex flex-col items-center whitespace-nowrap rounded border border-border-default bg-background-default px-1 font-mono font-semibold text-[color:var(--command-item-title)] shadow-sm" style={{ left, top }}>
-          <span className="text-[10px] leading-4">{hint.code.toUpperCase()}</span>
-          {shortcut ? <span className="text-[9px] font-normal leading-3">{shortcut}</span> : null}
+        <kbd key={hint.id} data-navigation-hint={hint.id} data-navigation-code={hint.code || undefined} className="absolute left-(--hint-left) top-(--hint-top) flex flex-col items-center whitespace-nowrap rounded border border-border-default bg-background-default px-1 font-mono font-semibold text-command-item-title shadow-sm" style={{ '--hint-left': `${left}px`, '--hint-top': `${top}px` }}>
+          <span className="text-2xs leading-4">{hint.code.toUpperCase()}</span>
+          {shortcut ? <span className="text-2xs font-normal leading-3">{shortcut}</span> : null}
         </kbd>)}
       {current.reason ? <p data-navigation-unavailable className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded border border-border-default bg-background-default px-3 py-2 text-xs text-text-default shadow-sm">{current.reason}</p> : null}
     </div>, document.body) : null}

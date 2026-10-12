@@ -11,10 +11,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import type { DocumentSummary } from '@/lib/electron-api';
-import { cn } from '@/lib/utils';
 
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
-import { FOCUS_RING_CLASS, PRESSED_CLASS, SECONDARY_BUTTON_CLASS } from './ui';
 
 export function DeleteNoteDialog({
   note,
@@ -49,18 +47,13 @@ export function DeleteNoteDialog({
             <AlertDialogFooter>
               <AlertDialogCancel
                 disabled={isDeleting}
-                className={SECONDARY_BUTTON_CLASS}
               >
                 Cancel
               </AlertDialogCancel>
               <AlertDialogAction
                 disabled={isDeleting}
                 onClick={() => onDelete(note)}
-                className={cn(
-                  'inline-flex h-9 items-center gap-2 rounded-md bg-destructive-default px-3 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive-hover disabled:pointer-events-none disabled:opacity-50',
-                  PRESSED_CLASS,
-                  FOCUS_RING_CLASS,
-                )}
+                variant="destructive-solid"
               >
                 {isDeleting
                   ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />

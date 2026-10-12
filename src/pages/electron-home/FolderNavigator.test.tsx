@@ -399,7 +399,7 @@ describe('FolderNavigator', () => {
       layout: { collapsed: true },
     });
 
-    expect(container.firstElementChild).toHaveStyle({ width: '0px' });
+    expect(container.firstElementChild).toHaveStyle({ '--panel-width': '0px' });
     expect(screen.queryByRole('button', { name: 'Expand note navigator' })).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Search notes')).not.toBeInTheDocument();
   });

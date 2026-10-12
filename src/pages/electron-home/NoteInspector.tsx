@@ -49,7 +49,7 @@ function NoteInspectorPanel({
       <form className="flex min-h-0 flex-1 flex-col" onSubmit={inspector.submit.metadata}>
         <div
           data-inspector-scroll-region="true"
-          className="min-h-0 flex-1 scroll-py-3 overflow-auto overscroll-contain px-5 py-3 [scrollbar-gutter:stable]"
+          className="min-h-0 flex-1 scroll-py-3 overflow-auto overscroll-contain px-5 py-3 scrollbar-gutter-stable"
         >
           <MetadataSection
             dirty={inspector.dirty}

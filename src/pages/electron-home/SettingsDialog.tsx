@@ -225,7 +225,7 @@ function SettingsDialogContent({
 
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent className="flex h-[min(760px,calc(100dvh-4rem))] w-[min(820px,calc(100dvw-3rem))] max-w-[820px] flex-col overflow-hidden p-0">
+      <DialogContent size="lg" className="overflow-hidden p-0">
         <Tabs
           orientation="vertical"
           value={activeTab}

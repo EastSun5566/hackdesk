@@ -567,7 +567,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
       <div className="relative flex min-h-0 flex-1">
         <div
           ref={parentRef}
-          className="markdown-editor hackmd-markdown-editor min-h-0 flex-1 overflow-hidden"
+          className="markdown-editor min-h-0 flex-1 overflow-hidden"
           data-testid="hackmd-markdown-editor"
           onDragEnter={handleDragEnter}
           onDragOver={handleImageDragOver}
@@ -577,7 +577,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
         {isImageDragging ? (
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-2 rounded-[8px] border border-primary-default/50 bg-primary-soft/20 px-3 py-2 text-xs font-medium text-primary-default"
+            className="pointer-events-none absolute inset-2 rounded-lg border border-primary-default/50 bg-primary-soft/20 px-3 py-2 text-xs font-medium text-primary-default"
             data-testid="markdown-editor-image-drop-affordance"
           >
             Drop image to attach
