@@ -51,3 +51,5 @@ pnpm run dev
 ```
 
 Run `pnpm run check` before opening a pull request.
+
+See [Windows test signing](docs/windows-test-signing.md) for the SignPath setup and artifact-only verification workflow.

@@ -1,0 +1,145 @@
+name: Windows SignPath test signing
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: windows-signpath-test
+  cancel-in-progress: false
+
+jobs:
+  test-signing:
+    if: github.repository == 'EastSun5566/hackdesk' && github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check signing prerequisites
+        shell: pwsh
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          CERTIFICATE_BASE64: ${{ vars.SIGNPATH_TEST_CERTIFICATE_BASE64 }}
+          CERTIFICATE_SHA256: ${{ vars.SIGNPATH_TEST_CERT_SHA256 }}
+        run: |
+          foreach ($name in @('SIGNPATH_API_TOKEN', 'CERTIFICATE_BASE64', 'CERTIFICATE_SHA256')) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+              throw "Missing SignPath prerequisite: $name"
+            }
+          }
+          "SIGNPATH_DIRECTORY=$(Join-Path $env:RUNNER_TEMP 'hackdesk-signpath')" >> $env:GITHUB_ENV
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm run check:ci
+      - run: pnpm run package:check
+      - name: Test signature verification
+        timeout-minutes: 5
+        shell: pwsh
+        run: ./scripts/test-signpath-verification.ps1 -UnsignedPath release/electron/win-unpacked/HackDesk.exe
+      - name: Stage unsigned application
+        id: stage
+        shell: pwsh
+        run: |
+          $directory = Join-Path $env:SIGNPATH_DIRECTORY 'unsigned'
+          New-Item -ItemType Directory -Path $directory -Force | Out-Null
+          $path = Join-Path $directory 'HackDesk.exe'
+          Copy-Item -LiteralPath release/electron/win-unpacked/HackDesk.exe -Destination $path
+          $metadata = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($path)
+          if ($metadata.ProductName -cne 'HackDesk' -or
+              [string]::IsNullOrWhiteSpace($metadata.ProductVersion) -or
+              [string]::IsNullOrWhiteSpace($metadata.FileVersion)) {
+            throw 'Packaged executable is missing HackDesk PE metadata.'
+          }
+          "product_version=$($metadata.ProductVersion)" >> $env:GITHUB_OUTPUT
+          "file_version=$($metadata.FileVersion)" >> $env:GITHUB_OUTPUT
+      - name: Upload unsigned executable
+        id: unsigned
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: hackdesk-unsigned-test-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.SIGNPATH_DIRECTORY }}/unsigned/HackDesk.exe
+          if-no-files-found: error
+          retention-days: 7
+      - name: Sign with the test certificate
+        id: signing
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: 17f28d05-3358-43ce-9547-e3509577e8fb
+          project-slug: hackdesk
+          signing-policy-slug: test-signing
+          artifact-configuration-slug: windows-app-v1
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 1800
+          output-artifact-directory: ${{ env.SIGNPATH_DIRECTORY }}/signed
+          parameters: |
+            productVersion: ${{ toJSON(steps.stage.outputs.product_version) }}
+            fileVersion: ${{ toJSON(steps.stage.outputs.file_version) }}
+      - name: Verify signed executable and replace it
+        shell: pwsh
+        env:
+          CERTIFICATE_BASE64: ${{ vars.SIGNPATH_TEST_CERTIFICATE_BASE64 }}
+          CERTIFICATE_SHA256: ${{ vars.SIGNPATH_TEST_CERT_SHA256 }}
+          UNSIGNED_ARTIFACT_ID: ${{ steps.unsigned.outputs.artifact-id }}
+          SIGNING_REQUEST_ID: ${{ steps.signing.outputs.signing-request-id }}
+          SIGNING_REQUEST_URL: ${{ steps.signing.outputs.signing-request-web-url }}
+        run: |
+          $signedDirectory = Join-Path $env:SIGNPATH_DIRECTORY 'signed'
+          $signedPath = Join-Path $signedDirectory 'HackDesk.exe'
+          $files = @(Get-ChildItem -LiteralPath $signedDirectory -Recurse -File)
+          if ($files.Count -ne 1 -or $files[0].FullName -ne $signedPath) {
+            throw 'Expected exactly one signed HackDesk.exe at the artifact root.'
+          }
+          $report = ./scripts/verify-signpath-test.ps1 `
+            -UnsignedPath (Join-Path $env:SIGNPATH_DIRECTORY 'unsigned/HackDesk.exe') `
+            -SignedPath $signedPath -CertificateBase64 $env:CERTIFICATE_BASE64 `
+            -ExpectedCertSha256 $env:CERTIFICATE_SHA256
+          $report['artifactId'] = $env:UNSIGNED_ARTIFACT_ID
+          $report['signingRequestId'] = $env:SIGNING_REQUEST_ID
+          $report['signingRequestUrl'] = $env:SIGNING_REQUEST_URL
+          $report['workflowRunUrl'] = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          $report | ConvertTo-Json | Set-Content (Join-Path $env:SIGNPATH_DIRECTORY 'verification.json')
+          Copy-Item -LiteralPath $signedPath -Destination release/electron/win-unpacked/HackDesk.exe -Force
+      - name: Verify fuses and packaged startup after signing
+        run: |
+          node scripts/check-electron-fuses.ts
+          pnpm exec playwright test --config electron/playwright.packaged.config.ts electron/e2e/packaged-startup.spec.ts
+      - name: Archive the complete test application
+        shell: pwsh
+        run: |
+          [System.IO.Compression.ZipFile]::CreateFromDirectory(
+            (Resolve-Path release/electron/win-unpacked).Path,
+            (Join-Path $env:SIGNPATH_DIRECTORY 'HackDesk-test-certificate-not-for-release.zip'),
+            [System.IO.Compression.CompressionLevel]::Optimal, $true
+          )
+          'TEST CERTIFICATE / NOT FOR RELEASE. Extract the complete ZIP before running HackDesk.exe. This is an unpacked app, not a signed installer.' |
+            Set-Content (Join-Path $env:SIGNPATH_DIRECTORY 'README.txt')
+      - name: Upload verified test application and signing evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: hackdesk-test-certificate-not-for-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.SIGNPATH_DIRECTORY }}/HackDesk-test-certificate-not-for-release.zip
+            ${{ env.SIGNPATH_DIRECTORY }}/verification.json
+            ${{ env.SIGNPATH_DIRECTORY }}/README.txt
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload startup diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: signpath-startup-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
