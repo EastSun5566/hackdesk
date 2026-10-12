@@ -272,6 +272,8 @@
     --hmd-tw-state-danger-bg-hover: var(--color-red-400);
     --hmd-tw-state-danger-border: var(--color-red-400);
     --hmd-tw-state-danger-default: var(--color-red-400);
+    --primary-default: var(--color-primary-300);
+    --primary-foreground: var(--color-zinc-900);
     --destructive-foreground: var(--color-zinc-950);
     --hmd-tw-element-bg-hover: var(--color-zinc-750);
     --hmd-tw-element-border-hover: var(--color-zinc-500);

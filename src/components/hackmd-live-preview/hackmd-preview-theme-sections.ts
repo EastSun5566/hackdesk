@@ -4,6 +4,7 @@ const EDITOR_FOCUS_RING = '0 0 0 2px color-mix(in oklch, var(--focus-ring) 26%, 
 // Readable line length, measured in the editor font so it follows the editor font size.
 export const EDITOR_LINE_WIDTH = '90ch';
 const EDITOR_SIDE_PADDING = 'clamp(20px, 6%, 48px)';
+export const EDITOR_SELECTION_BACKGROUND = 'color-mix(in srgb, var(--primary-default) 24%, transparent)';
 
 export const editorChromeTheme = {
   '&': {
@@ -47,9 +48,15 @@ export const editorChromeTheme = {
   '&.cm-focused .cm-cursor': {
     borderLeftColor: 'var(--primary-default)',
   },
-  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
-    backgroundColor: 'var(--selection-background)',
-    color: 'var(--selection-foreground)',
+  // drawSelection paints selections behind the text. These selectors match the
+  // specificity of CodeMirror's base theme, which would otherwise win.
+  '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionLayer .cm-selectionBackground': {
+    backgroundColor: EDITOR_SELECTION_BACKGROUND,
+  },
+  // The native selection is hidden in the content; keep the text color instead
+  // of the app-wide selection foreground.
+  '.cm-content ::selection, .cm-content::selection': {
+    color: 'currentcolor',
   },
 };
 

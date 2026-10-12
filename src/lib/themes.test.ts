@@ -48,6 +48,14 @@ function expectContrast(
   expect(contrastRatio(foreground, background), label).toBeGreaterThanOrEqual(minimum);
 }
 
+function mixHex(base: string, overlay: string, amount: number) {
+  const from = hexToRgb(base);
+  const to = hexToRgb(overlay);
+  return `#${(['r', 'g', 'b'] as const).map((channel) => Math.round(
+    from[channel] * (1 - amount) + to[channel] * amount,
+  ).toString(16).padStart(2, '0')).join('')}`;
+}
+
 function paintedSurface(color: string, background: string) {
   if (color.startsWith('#')) return color;
   const [r, g, b, opacity] = color.match(/[\d.]+/g)!.map(Number);
@@ -76,16 +84,45 @@ describe('HackDesk themes', () => {
     }
   }
 
-  it('resolves required semantic variables for light and dark modes', () => {
+  it('uses HackMD Neo tokens for light and dark modes', () => {
     const light = resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'light' });
     const dark = resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'dark' });
 
-    expect(light['--background-default']).toMatch(/^#/);
-    expect(light['--text-default']).toMatch(/^#/);
-    expect(light['--primary-default']).toBe('#5D54E8');
-    expect(dark['--background-default']).toMatch(/^#/);
-    expect(dark['--text-default']).toMatch(/^#/);
-    expect(dark['--primary-default']).toBe('#A8A2FF');
+    expect(light['--background-default']).toBe('#FDFDFD');
+    expect(light['--text-default']).toBe('#3F3F46');
+    expect(light['--text-subtle']).toBe('#71717A');
+    expect(light['--primary-default']).toBe('#564DFF');
+    expect(light['--primary-foreground']).toBe('#FFFFFF');
+    expect(dark['--background-default']).toBe('#27272A');
+    expect(dark['--text-default']).toBe('#D4D4D8');
+    expect(dark['--text-subtle']).toBe('#A1A1AA');
+    expect(dark['--primary-default']).toBe('#9894F9');
+    expect(dark['--primary-foreground']).toBe('#18181B');
+  });
+
+  it('keeps HackMD Neo subtle text and code readable on muted and code surfaces', () => {
+    for (const mode of ['light', 'dark'] as const) {
+      const theme = resolveHackDeskTheme({ presetId: 'hackmd-neo', mode });
+      expectContrast(theme['--text-subtle'], theme['--background-muted'], 4.5, `${mode} subtle text on muted`);
+      expect(contrastRatio(theme['--text-subtle'], theme['--background-default']))
+        .toBeLessThan(contrastRatio(theme['--text-default'], theme['--background-default']));
+      // Fenced code paints the muted surface mixed with 8% of the text color.
+      const code = mixHex(theme['--background-muted'], theme['--text-default'], 0.08);
+      for (const token of Object.keys(theme).filter((name) => name.startsWith('--code-'))) {
+        expectContrast(theme[token], code, token === '--code-comment' ? 3 : 4.5, `${mode} ${token}`);
+      }
+    }
+  });
+
+  it('generates HackMD Neo surfaces from a custom Neutral seed', () => {
+    for (const mode of ['light', 'dark'] as const) {
+      const theme = resolveHackDeskTheme({ presetId: 'hackmd-neo', mode, customSeed: { neutral: '#6B7280' } });
+      expect(theme['--background-default']).not.toBe(resolveHackDeskTheme({ presetId: 'hackmd-neo', mode })['--background-default']);
+      expect(contrastRatio(theme['--text-default'], theme['--background-default']))
+        .toBeGreaterThan(contrastRatio(theme['--text-subtle'], theme['--background-default']));
+      expect(contrastRatio(theme['--icon-default'], theme['--background-default']))
+        .toBeGreaterThan(contrastRatio(theme['--icon-subtle'], theme['--background-default']));
+    }
   });
 
   it('uses valid custom seed colors and ignores invalid values', () => {
@@ -125,6 +162,22 @@ describe('HackDesk themes', () => {
     expect(css).toContain('--selection-background:');
     expect(css).toContain('--selection-foreground:');
     expect(css).toContain(':root[data-theme-preset="noctis"]');
+  });
+
+  it('keeps text on accent and selected surfaces readable for every preset and mode', () => {
+    for (const preset of HACKDESK_THEME_PRESETS) {
+      for (const mode of ['light', 'dark'] as const) {
+        const theme = resolveHackDeskTheme({ presetId: preset.id, mode });
+        const label = `${preset.id} ${mode}`;
+        const background = theme['--background-default'];
+
+        expectContrast(theme['--primary-foreground'], theme['--primary-default'], 4.5, `${label} primary foreground`);
+        expectContrast(theme['--selection-foreground'], theme['--selection-background'], 4.5, `${label} selection foreground`);
+        // The editor paints selections as 24% of the primary color behind the text.
+        const editorSelection = mixHex(background, theme['--primary-default'], 0.24);
+        expectContrast(theme['--text-default'], editorSelection, preset.id === 'hackmd-neo' ? 4.5 : 3, `${label} text on editor selection`);
+      }
+    }
   });
 
   it('resolves contrast-safe native surface tokens for every preset and mode', () => {
