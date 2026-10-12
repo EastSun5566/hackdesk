@@ -4,6 +4,7 @@ import { HACKDESK_THEME_PRESETS, resolveHackDeskTheme, type ResolvedThemeMode } 
 
 import {
   codeAndBlockTheme,
+  EDITOR_LINE_WIDTH,
   editorChromeTheme,
   inlineMarksTheme,
   proseTheme,
@@ -26,6 +27,13 @@ function getReferencedThemeTokens() {
 }
 
 describe('HackMD preview widget theme', () => {
+  it('centers editor text in a readable column measured in the editor font', () => {
+    expect(EDITOR_LINE_WIDTH).toMatch(/ch$/);
+    expect(editorChromeTheme['.cm-content'].padding)
+      .toBe(`24px max(clamp(20px, 6%, 48px), calc((100% - ${EDITOR_LINE_WIDTH}) / 2)) 36vh`);
+    expect(editorChromeTheme['.cm-content']).not.toHaveProperty('maxWidth');
+  });
+
   it('keeps UI chrome and editor content font sizes on separate semantic tokens', () => {
     expect(editorChromeTheme['&']).toHaveProperty('fontSize', 'var(--font-size-ui)');
     expect(editorChromeTheme['.cm-scroller']).toHaveProperty('fontSize', 'var(--font-size-editor)');
