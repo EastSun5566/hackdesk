@@ -13,6 +13,7 @@ const productName = 'HackDesk';
 // `scripts/check-electron-fuses.ts` reads (single source of truth for
 // where `electron-builder --dir` puts the unpacked output).
 async function packagedBinaryPath(): Promise<string> {
+  if (process.env.HACKDESK_PACKAGED_BINARY) return resolve(process.env.HACKDESK_PACKAGED_BINARY);
   const pkg = JSON.parse(await readFile(join(repoRoot, 'package.json'), 'utf8'));
   const output = pkg.build.directories.output;
   switch (process.platform) {

@@ -1,4 +1,4 @@
-param([Parameter(Mandatory)][string] $UnsignedPath)
+param([Parameter(Mandatory)][string] $UnsignedPath, [switch] $IncludeInstaller)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -64,6 +64,22 @@ try {
     }
     finally { $file.Dispose() }
     Assert-Rejected 'tampered executable' @{ SignedPath = $tampered } 'Authenticode verification failed'
+
+    # A helper may have no version resources; this exception must not apply to app roles.
+    $helperUnsigned = Join-Path $temporary 'helper.dll'
+    Add-Type -TypeDefinition 'public static class HackDeskSigningFixture { public static int Value = 1; }' -OutputAssembly $helperUnsigned
+    $helperSigned = Join-Path $temporary 'helper-signed.dll'
+    Copy-Item -LiteralPath $helperUnsigned -Destination $helperSigned
+    Set-AuthenticodeSignature -LiteralPath $helperSigned -Certificate $certificate -HashAlgorithm SHA256 | Out-Null
+    $helperArguments = $arguments.Clone()
+    $helperArguments.UnsignedPath = $helperUnsigned
+    $helperArguments.SignedPath = $helperSigned
+    $helperArguments.Role = 'elevate'
+    $helperReport = & $verify @helperArguments
+    if ($helperReport.status -ne 'Valid') { throw 'Helper signature did not pass verification.' }
+    Assert-Rejected 'helper presented as application' @{ UnsignedPath = $helperUnsigned; SignedPath = $helperSigned } 'Executable metadata mismatch'
+
+    if ($IncludeInstaller) { ./scripts/test-signpath-installer.ps1 -Certificate $certificate }
     if (Test-Path -LiteralPath "Cert:\LocalMachine\Root\$($certificate.Thumbprint)") {
         throw 'Verification left test certificate trust installed.'
     }

@@ -58,11 +58,11 @@ jobs:
       - run: pnpm run package:check
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
-      - name: Test Windows signature verification without SignPath credentials
+      - name: Test Windows signing and installation without SignPath credentials
         if: matrix.os == 'windows-latest'
-        timeout-minutes: 5
+        timeout-minutes: 15
         shell: pwsh
-        run: ./scripts/test-signpath-verification.ps1 -UnsignedPath release/electron/win-unpacked/HackDesk.exe
+        run: ./scripts/test-signpath-verification.ps1 -UnsignedPath release/electron/win-unpacked/HackDesk.exe -IncludeInstaller
       # Launch the packaged binary that package:check just produced and
       # assert the first window loads the packaged renderer (hackdesk://...)
       # rather than a dev-server URL (http://localhost:5173). The spec sets
@@ -97,6 +97,8 @@ jobs:
           path: |
             playwright-report
             test-results
+            ${{ runner.temp }}/signpath-installer-fixture-*/builder.*.log
+            ${{ runner.temp }}/signpath-installer-fixture-*/**/*verification.json
           retention-days: 7
 
   # Run the macOS-only app-lifecycle spec on a macOS runner. The spec itself
