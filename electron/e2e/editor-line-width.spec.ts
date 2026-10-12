@@ -42,6 +42,17 @@ test('editor text stays in a centered, readable column', async () => {
       BrowserWindow.getAllWindows()[0].setContentSize(size, 900);
     }, width);
 
+    // Measure the narrow window first. CI's virtual screen is 1280px wide, and
+    // shrinking a window from beyond the screen edge does not always apply.
+    await resize(1100);
+    await expect.poll(async () => {
+      const { width, columnWidth } = await measure();
+      return width < columnWidth - 2;
+    }).toBe(true);
+    const narrow = await measure();
+    expect(narrow.left).toBeGreaterThanOrEqual(20);
+    expect(narrow.right).toBeGreaterThanOrEqual(20);
+
     await resize(2400);
     await expect.poll(async () => (await measure()).left).toBeGreaterThan(200);
     const wide = await measure();
@@ -79,12 +90,6 @@ test('editor text stays in a centered, readable column', async () => {
     // CodeMirror fills whole-line selections out to the content box, so the box
     // itself must stay close to the column instead of spanning the pane.
     expect(selection.padding).toBeLessThanOrEqual(48);
-
-    await resize(1100);
-    await expect.poll(async () => (await measure()).width).toBeLessThan(wide.width);
-    const narrow = await measure();
-    expect(narrow.left).toBeGreaterThanOrEqual(20);
-    expect(narrow.right).toBeGreaterThanOrEqual(20);
   } finally {
     child.kill('SIGKILL');
   }
