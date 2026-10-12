@@ -24,7 +24,8 @@ foreach ($path in @($UnsignedPath, $SignedPath)) {
 $certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
     [Convert]::FromBase64String($CertificateBase64)
 )
-$store = [System.Security.Cryptography.X509Certificates.X509Store]::new('Root', 'CurrentUser')
+# CurrentUser Root imports show an interactive Windows confirmation dialog.
+$store = [System.Security.Cryptography.X509Certificates.X509Store]::new('Root', 'LocalMachine')
 $addedTrust = $false
 try {
     $fingerprint = $certificate.GetCertHashString([System.Security.Cryptography.HashAlgorithmName]::SHA256)
@@ -60,9 +61,11 @@ try {
         $certificate.Thumbprint, $false
     )
     if ($existing.Count -eq 0) {
+        Write-Host 'Temporarily trusting the pinned test certificate on the hosted runner.'
         $store.Add($certificate)
         $addedTrust = $true
     }
+    Write-Host 'Checking Authenticode integrity and trust.'
     $signature = Get-AuthenticodeSignature -LiteralPath $SignedPath
     if ($signature.Status -ne 'Valid') {
         throw "Authenticode verification failed: $($signature.Status)"

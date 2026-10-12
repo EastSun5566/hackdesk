@@ -64,7 +64,7 @@ try {
     }
     finally { $file.Dispose() }
     Assert-Rejected 'tampered executable' @{ SignedPath = $tampered } 'Authenticode verification failed'
-    if (Test-Path -LiteralPath "Cert:\CurrentUser\Root\$($certificate.Thumbprint)") {
+    if (Test-Path -LiteralPath "Cert:\LocalMachine\Root\$($certificate.Thumbprint)") {
         throw 'Verification left test certificate trust installed.'
     }
     Write-Host 'SignPath verification checks passed.'

@@ -49,8 +49,9 @@ missing output, an unexpected signer, changed PE metadata, or invalid signatures
 fail the job; an unsigned executable is never used as a fallback.
 
 Verification temporarily trusts only the pinned self-signed certificate in the
-ephemeral runner's current-user store and removes that trust afterwards. The scripts
-refuse to do this outside a GitHub-hosted Windows runner. Do not import the certificate
+ephemeral runner's LocalMachine Root store and removes that trust afterwards.
+CurrentUser Root imports require interactive confirmation, which blocks unattended CI.
+The scripts refuse to do this outside a GitHub-hosted Windows runner. Do not import the certificate
 on your own machine merely to make a test download trusted.
 
 The successful run provides a seven-day artifact named
