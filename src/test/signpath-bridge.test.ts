@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-const { createBridge, expectedPaths, validateRequest, waitRequest, signingParameters } = createRequire(import.meta.url)('../../scripts/signpath-bridge.cjs');
+const require = createRequire(import.meta.url);
+const { createBridge, expectedPaths, validateRequest, waitRequest, signingParameters, installerConfig } = require('../../scripts/signpath-bridge.cjs');
 const directories: string[] = [];
 const roles = ['app', 'elevate', 'uninstaller', 'installer'];
 const names = ['HackDesk.exe', 'elevate.exe', 'Uninstall-HackDesk.exe', 'HackDesk-Installer.exe'];
@@ -43,6 +44,18 @@ afterEach(async () => {
 });
 
 describe('SignPath builder bridge', () => {
+  it('inherits package resources and fuses once while overriding only the test signing configuration', async () => {
+    const builderRequire = createRequire(require.resolve('electron-builder'));
+    const { getConfig } = builderRequire('app-builder-lib/out/util/config/config');
+    const pkg = require('../../package.json');
+    const test = await fixture();
+    const config = await getConfig(process.cwd(), null, installerConfig(test.session, 'Fixture publisher'));
+    expect(config.extraResources).toEqual(pkg.build.extraResources);
+    expect(config.electronFuses).toEqual(pkg.build.electronFuses);
+    expect(config.win.icon).toBe(pkg.build.win.icon);
+    expect(config.win.signtoolOptions.signingHashAlgorithms).toEqual(['sha256']);
+    expect(config.directories.output).toBe(test.session.output);
+  });
   it('formats parameters as the pinned action requires, with no parameters for the helper', () => {
     expect(signingParameters('app', { productVersion: '2.0.0.0', fileVersion: '2.0.0-beta.5' }))
       .toBe('productVersion: "2.0.0.0"\nfileVersion: "2.0.0-beta.5"');

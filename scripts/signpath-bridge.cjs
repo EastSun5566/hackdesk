@@ -55,6 +55,15 @@ function signingParameters(role, metadata) {
     return `${name}: ${JSON.stringify(value)}`;
   }).join('\n');
 }
+function installerConfig(session, publisher) {
+  // Builder already loads package.json; passing it again concatenates resource arrays.
+  return {
+    directories: { output: session.output }, forceCodeSigning: true,
+    win: { artifactName: path.basename(session.installer), signtoolOptions: {
+      sign: './scripts/signpath-bridge.cjs', signingHashAlgorithms: ['sha256'], publisherName: publisher,
+    } },
+  };
+}
 
 // The builder owns file order; this hook never signs arbitrary paths or predicts a rename.
 function createBridge(session, { timeoutMs = 40 * 60_000, pollMs = 500 } = {}) {
@@ -161,18 +170,12 @@ async function cli(command, role) {
   if (command === 'build') {
     try {
       const { build, Platform, Arch } = require('electron-builder');
-      const pkg = require('../package.json');
       const publisher = new X509Certificate(Buffer.from(process.env.CERTIFICATE_BASE64, 'base64')).subject.match(/^CN=(.+)$/m)?.[1];
       if (!publisher) throw new Error('Test certificate must identify its publisher.');
       const builderRequire = createRequire(require.resolve('electron-builder'));
       if (builderRequire('app-builder-lib/package.json').version !== '26.15.3') throw new Error('Revalidate signing order before upgrading electron-builder.');
       for (const key of ['CSC_LINK', 'WIN_CSC_LINK', 'CSC_KEY_PASSWORD', 'WIN_CSC_KEY_PASSWORD', 'ELECTRON_BUILDER_NSIS_DIR', 'ELECTRON_BUILDER_NSIS_RESOURCES_DIR']) delete process.env[key];
-      await build({ targets: Platform.WINDOWS.createTarget('nsis', Arch.x64), publish: 'never', config: {
-        ...pkg.build, directories: { ...pkg.build.directories, output: session.output }, forceCodeSigning: true,
-        win: { ...pkg.build.win, artifactName: path.basename(session.installer), signtoolOptions: {
-          sign: './scripts/signpath-bridge.cjs', signingHashAlgorithms: ['sha256'], publisherName: publisher,
-        } },
-      } });
+      await build({ targets: Platform.WINDOWS.createTarget('nsis', Arch.x64), publish: 'never', config: installerConfig(session, publisher) });
       for (const item of roles) if (!await optionalJson(path.join(root, item, 'response.json'))) throw new Error(`Missing ${item} signature.`);
       await writeJson(path.join(root, 'build-result.json'), { success: true });
     } catch (error) {
@@ -278,5 +281,5 @@ async function cli(command, role) {
   throw new Error('Unknown bridge command.');
 }
 
-module.exports = { sign, createBridge, expectedPaths, validateRequest, waitRequest, signingParameters };
+module.exports = { sign, createBridge, expectedPaths, validateRequest, waitRequest, signingParameters, installerConfig };
 if (require.main === module) cli(process.argv[2], process.argv[3]).catch(error => { console.error(error); process.exitCode = 1; });
