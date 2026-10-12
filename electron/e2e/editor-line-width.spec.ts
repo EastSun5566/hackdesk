@@ -27,14 +27,16 @@ test('editor text stays in a centered, readable column', async () => {
 
     const measure = () => paragraph.evaluate((line) => {
       const content = line.closest('.cm-content')!;
+      const scroller = line.closest('.cm-scroller')!;
       const probe = document.body.appendChild(document.createElement('span'));
       probe.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${getComputedStyle(content).font}`;
       probe.textContent = '0'.repeat(90);
       const columnWidth = probe.getBoundingClientRect().width;
       probe.remove();
-      const box = content.getBoundingClientRect();
+      const box = scroller.getBoundingClientRect();
       const text = line.getBoundingClientRect();
-      return { columnWidth, width: text.width, left: text.left - box.left, right: box.right - text.right };
+      // clientWidth leaves out the vertical scrollbar.
+      return { columnWidth, width: text.width, left: text.left - box.left, right: box.left + scroller.clientWidth - text.right };
     });
     const resize = (width: number) => app.evaluate(({ BrowserWindow }, size) => {
       BrowserWindow.getAllWindows()[0].setContentSize(size, 900);
@@ -47,15 +49,36 @@ test('editor text stays in a centered, readable column', async () => {
     expect(Math.abs(wide.left - wide.right)).toBeLessThanOrEqual(2);
 
     // Clicking the empty margin still places the cursor on that line.
+    await page.locator('.cm-content').click();
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowUp' : 'Control+Home');
     const box = (await paragraph.boundingBox())!;
-    await page.mouse.click(box.x - 40, box.y + 4);
-    const cursorLine = await page.evaluate(() => {
-      const selection = document.getSelection();
-      const node = selection?.focusNode;
-      const element = node instanceof Element ? node : node?.parentElement;
-      return element?.closest('.cm-line')?.textContent?.slice(0, 9) ?? null;
+    const scroller = (await page.locator('.cm-scroller').boundingBox())!;
+    await page.mouse.click(scroller.x + 10, box.y + 4);
+    await page.keyboard.type('X');
+    await expect(paragraph).toHaveText(/^Xword word/);
+    await page.keyboard.press('Backspace');
+
+    // A selection across whole wrapped lines stays inside the column.
+    await page.keyboard.press('Shift+ArrowDown');
+    await page.keyboard.press('Shift+ArrowDown');
+    const selection = await page.evaluate(() => {
+      const element = document.querySelector('.cm-content')!;
+      const content = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      const rects = [...document.querySelectorAll('.cm-selectionBackground')].map((rect) => rect.getBoundingClientRect());
+      return {
+        count: rects.length,
+        left: Math.min(...rects.map((rect) => rect.left)) - content.left,
+        right: content.right - Math.max(...rects.map((rect) => rect.right)),
+        padding: Math.max(Number.parseFloat(style.paddingLeft), Number.parseFloat(style.paddingRight)),
+      };
     });
-    expect(cursorLine).toBe('word word');
+    expect(selection.count).toBeGreaterThan(0);
+    expect(selection.left).toBeGreaterThanOrEqual(0);
+    expect(selection.right).toBeGreaterThanOrEqual(0);
+    // CodeMirror fills whole-line selections out to the content box, so the box
+    // itself must stay close to the column instead of spanning the pane.
+    expect(selection.padding).toBeLessThanOrEqual(48);
 
     await resize(1100);
     await expect.poll(async () => (await measure()).width).toBeLessThan(wide.width);

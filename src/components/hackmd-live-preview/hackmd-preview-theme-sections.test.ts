@@ -29,9 +29,11 @@ function getReferencedThemeTokens() {
 describe('HackMD preview widget theme', () => {
   it('centers editor text in a readable column measured in the editor font', () => {
     expect(EDITOR_LINE_WIDTH).toMatch(/ch$/);
-    expect(editorChromeTheme['.cm-content'].padding)
-      .toBe(`24px max(clamp(20px, 6%, 48px), calc((100% - ${EDITOR_LINE_WIDTH}) / 2)) 36vh`);
-    expect(editorChromeTheme['.cm-content']).not.toHaveProperty('maxWidth');
+    expect(editorChromeTheme['.cm-content']).toMatchObject({
+      padding: '24px clamp(20px, 6%, 48px) 36vh',
+      maxWidth: `calc(${EDITOR_LINE_WIDTH} + 2 * clamp(20px, 6%, 48px))`,
+      marginInline: 'auto',
+    });
   });
 
   it('keeps UI chrome and editor content font sizes on separate semantic tokens', () => {

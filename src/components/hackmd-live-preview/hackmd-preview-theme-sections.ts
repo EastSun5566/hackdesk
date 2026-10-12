@@ -3,6 +3,7 @@ const EDITOR_CONTROL_RADIUS = '6px';
 const EDITOR_FOCUS_RING = '0 0 0 2px color-mix(in oklch, var(--focus-ring) 26%, transparent)';
 // Readable line length, measured in the editor font so it follows the editor font size.
 export const EDITOR_LINE_WIDTH = '90ch';
+const EDITOR_SIDE_PADDING = 'clamp(20px, 6%, 48px)';
 
 export const editorChromeTheme = {
   '&': {
@@ -18,9 +19,11 @@ export const editorChromeTheme = {
     lineHeight: '1.72',
   },
   '.cm-content': {
-    // Centers the text with padding rather than a max-width, so clicks in the
-    // side margins still land in the content and place the cursor.
-    padding: `24px max(clamp(20px, 6%, 48px), calc((100% - ${EDITOR_LINE_WIDTH}) / 2)) 36vh`,
+    padding: `24px ${EDITOR_SIDE_PADDING} 36vh`,
+    // CodeMirror draws selections up to the content box, so the column is a
+    // centered max-width box rather than padding inside a full-width one.
+    maxWidth: `calc(${EDITOR_LINE_WIDTH} + 2 * ${EDITOR_SIDE_PADDING})`,
+    marginInline: 'auto',
     caretColor: 'var(--primary-default)',
     minWidth: '0',
   },
