@@ -4,7 +4,9 @@ This is the first step of [#181](https://github.com/EastSun5566/hackdesk/issues/
 It signs only the packaged **HackDesk.exe** with a self-signed test certificate.
 It does not sign an installer or uninstaller, create a GitHub Release, or publish updates.
 
-The workflow builds on a GitHub-hosted Windows runner, uploads the unsigned executable,
+The workflow first runs the full quality check on a GitHub-hosted Ubuntu runner,
+matching the regular CI environment. After that succeeds, it builds on a
+GitHub-hosted Windows runner, uploads the unsigned executable,
 submits its artifact ID to SignPath, downloads the signed executable, verifies it,
 and runs the existing packaged-startup test. Private keys remain in SignPath.
 
