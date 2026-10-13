@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import { verifyHackmdOpenApiContract } from '../../../scripts/hackmd-openapi-verify.ts';
+import { extractHackmdContract, verifyHackmdOpenApiContract } from '../../../scripts/hackmd-openapi-verify.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -21,5 +21,23 @@ describe('HackMD OpenAPI contract', () => {
     contract.paths['/folders/folder-order'].put.requestBody.content['application/json'].schema = { type: 'object' };
 
     expect(() => verifyHackmdOpenApiContract(contract)).toThrow(/folder-order body must wrap the order object/);
+  });
+
+  it('fails on a success status the service does not handle', () => {
+    const contract = JSON.parse(readFileSync(contractPath, 'utf8'));
+    contract.paths['/notes/{noteId}'].patch.responses['206'] = { description: '' };
+
+    expect(() => verifyHackmdOpenApiContract(contract)).toThrow(/Unhandled success status 206 on PATCH \/notes\/\{noteId\}/);
+  });
+
+  it('keeps only the operations HackDesk calls and the schemas they reference', () => {
+    const contract = JSON.parse(readFileSync(contractPath, 'utf8'));
+    const spec = {
+      ...contract,
+      paths: { ...contract.paths, '/webhooks': { get: { security: [], responses: { 200: { $ref: '#/components/schemas/ApiWebhook' } } } } },
+      components: { ...contract.components, schemas: { ...contract.components.schemas, ApiWebhook: { type: 'object' } } },
+    };
+
+    expect(extractHackmdContract(spec)).toEqual(contract);
   });
 });

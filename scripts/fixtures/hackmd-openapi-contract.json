@@ -1,67 +1,333 @@
 {
   "openapi": "3.0.0",
   "paths": {
-    "/me": {
+    "/folders": {
       "get": {
-        "security": [{ "token": [] }]
-      }
-    },
-    "/teams": {
-      "get": {
-        "security": [{ "token": [] }]
-      }
-    },
-    "/notes": {
-      "get": {
-        "security": [{ "token": [] }]
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApiFolder"
+                  },
+                  "type": "array"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
       },
       "post": {
-        "security": [{ "token": [] }],
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [],
         "requestBody": {
+          "description": "The folder properties.",
+          "required": false,
           "content": {
             "application/json": {
               "schema": {
-                "anyOf": [
-                  {
-                    "type": "object",
-                    "properties": {
-                      "title": { "type": "string" },
-                      "content": { "type": "string" },
-                      "description": { "type": "string" },
-                      "tags": { "type": "array" },
-                      "readPermission": { "$ref": "#/components/schemas/NotePermissionRole" },
-                      "writePermission": { "$ref": "#/components/schemas/NotePermissionRole" },
-                      "parentFolderId": { "type": "string" }
-                    }
-                  },
-                  { "type": "string" }
-                ]
+                "$ref": "#/components/schemas/CreateUserFolderBody",
+                "description": "The folder properties."
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFolder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBadRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
               }
             }
           }
         }
       }
     },
-    "/notes/{noteId}": {
+    "/folders/{folderId}": {
       "get": {
-        "security": [{ "token": [] }],
-        "parameters": [{ "name": "noteId", "in": "path", "required": true }]
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "description": "The ID of the folder to retrieve.",
+            "in": "path",
+            "name": "folderId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFolder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBadRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
       },
       "patch": {
-        "security": [{ "token": [] }],
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "description": "The ID of the folder to update.",
+            "in": "path",
+            "name": "folderId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
+          "description": "The properties to update.",
+          "required": false,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "title": { "type": "string" },
-                  "content": { "type": "string" },
-                  "description": { "type": "string" },
-                  "tags": { "type": "array" },
-                  "readPermission": { "$ref": "#/components/schemas/NotePermissionRole" },
-                  "writePermission": { "$ref": "#/components/schemas/NotePermissionRole" },
-                  "parentFolderId": { "type": "string" }
+                "$ref": "#/components/schemas/UpdateUserFolderBody",
+                "description": "The properties to update."
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBadRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
                 }
               }
             }
@@ -69,20 +335,207 @@
         }
       },
       "delete": {
-        "security": [{ "token": [] }],
-        "parameters": [{ "name": "noteId", "in": "path", "required": true }]
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "description": "The ID of the folder to delete.",
+            "in": "path",
+            "name": "folderId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBadRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
-    "/notes/{noteId}/images": {
-      "post": {
-        "security": [{ "token": [] }],
+    "/folders/folder-order": {
+      "get": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFolderOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [],
         "requestBody": {
+          "required": false,
           "content": {
-            "multipart/form-data": {
+            "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "image": { "type": "string", "format": "binary" }
+                "$ref": "#/components/schemas/UpdateFolderOrderBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBadRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
                 }
               }
             }
@@ -92,118 +545,1154 @@
     },
     "/history": {
       "get": {
-        "security": [{ "token": [] }],
-        "parameters": [{ "name": "limit", "in": "query", "required": false }]
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "description": "The maximum number of history items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "double",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetUserHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
-    "/folders": {
+    "/me": {
       "get": {
-        "security": [{ "token": [] }]
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notes": {
+      "get": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NoteType"
+                  },
+                  "type": "array"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
       },
       "post": {
-        "security": [{ "token": [] }],
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [],
         "requestBody": {
+          "description": "The note content or a JSON object with note properties.",
+          "required": false,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateUserFolderBody" }
+              "schema": {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "origin": {
+                        "type": "string"
+                      },
+                      "parentFolderId": {
+                        "type": "string"
+                      },
+                      "permalink": {
+                        "type": "string"
+                      },
+                      "noteFeatures": {
+                        "$ref": "#/components/schemas/ApiNoteFeatures"
+                      },
+                      "suggestEditPermission": {
+                        "$ref": "#/components/schemas/SuggestEditPermissionType"
+                      },
+                      "commentPermission": {
+                        "$ref": "#/components/schemas/CommentPermissionType"
+                      },
+                      "writePermission": {
+                        "$ref": "#/components/schemas/NotePermissionRole"
+                      },
+                      "readPermission": {
+                        "$ref": "#/components/schemas/NotePermissionRole"
+                      },
+                      "content": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "tags": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "title": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "description": "The note content or a JSON object with note properties."
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SingleNote"
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateNoteMultiStatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBadRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
             }
           }
         }
       }
     },
-    "/folders/folder-order": {
+    "/notes/{noteId}": {
       "get": {
-        "security": [{ "token": [] }]
-      },
-      "put": {
-        "security": [{ "token": [] }],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpdateFolderOrderBody" }
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "description": "The ID of the note to retrieve.",
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Return 304 when this ETag matches the current note.",
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SingleNote"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": true
+              }
+            }
+          },
+          "304": {
+            "description": "",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": true
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
             }
           }
         }
-      }
-    },
-    "/folders/{folderId}": {
-      "get": {
-        "security": [{ "token": [] }],
-        "parameters": [{ "name": "folderId", "in": "path", "required": true }]
       },
       "patch": {
-        "security": [{ "token": [] }],
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "description": "The ID of the note to update.",
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
+          "description": "The properties to update on the note. Omit description to leave it unchanged, use a string (including an empty string) to set it, or null to remove its metadata.",
+          "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpdateUserFolderBody" }
+              "schema": {
+                "properties": {
+                  "parentFolderId": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "permalink": {
+                    "type": "string"
+                  },
+                  "writePermission": {
+                    "$ref": "#/components/schemas/NotePermissionRole"
+                  },
+                  "readPermission": {
+                    "$ref": "#/components/schemas/NotePermissionRole"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "type": "object",
+                "description": "The properties to update on the note. Omit description to leave it unchanged, use a string (including an empty string) to set it, or null to remove its metadata."
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBadRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
             }
           }
         }
       },
       "delete": {
-        "security": [{ "token": [] }],
-        "parameters": [{ "name": "folderId", "in": "path", "required": true }]
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "description": "The ID of the note to delete.",
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBadRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
-    "/teams/{teampath}/notes": {
-      "get": {
-        "security": [{ "token": [] }]
-      },
+    "/notes/{noteId}/images": {
       "post": {
-        "security": [{ "token": [] }],
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
-            "application/json": {
-              "schema": { "anyOf": [{ "type": "object" }, { "type": "string" }] }
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "image"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteImageUploadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiErrorResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
             }
           }
         }
       }
     },
-    "/teams/{teampath}/notes/{noteId}": {
+    "/teams": {
       "get": {
-        "security": [{ "token": [] }]
-      },
-      "patch": {
-        "security": [{ "token": [] }],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {}
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Team"
+                  },
+                  "type": "array"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
             }
           }
         }
-      },
-      "delete": {
-        "security": [{ "token": [] }]
       }
     },
     "/teams/{teampath}/folders": {
       "get": {
-        "security": [{ "token": [] }]
-      },
-      "post": {
-        "security": [{ "token": [] }],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateTeamFolderBody" }
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "description": "The path identifier for the team.",
+            "in": "path",
+            "name": "teampath",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApiFolder"
+                  },
+                  "type": "array"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
             }
           }
         }
-      }
-    },
-    "/teams/{teampath}/folders/folder-order": {
-      "get": {
-        "security": [{ "token": [] }]
       },
-      "put": {
-        "security": [{ "token": [] }],
+      "post": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "description": "The path identifier for the team.",
+            "in": "path",
+            "name": "teampath",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
+          "description": "The folder properties.",
+          "required": false,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpdateFolderOrderBody" }
+              "schema": {
+                "$ref": "#/components/schemas/CreateTeamFolderBody",
+                "description": "The folder properties."
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFolder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBadRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
             }
           }
         }
@@ -211,49 +1700,2065 @@
     },
     "/teams/{teampath}/folders/{folderId}": {
       "get": {
-        "security": [{ "token": [] }]
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "description": "The path identifier for the team.",
+            "in": "path",
+            "name": "teampath",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The ID of the folder to retrieve.",
+            "in": "path",
+            "name": "folderId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFolder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBadRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
       },
       "patch": {
-        "security": [{ "token": [] }],
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "description": "The path identifier for the team.",
+            "in": "path",
+            "name": "teampath",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The ID of the folder to update.",
+            "in": "path",
+            "name": "folderId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
+          "description": "The properties to update.",
+          "required": false,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpdateTeamFolderBody" }
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTeamFolderBody",
+                "description": "The properties to update."
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBadRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
             }
           }
         }
       },
       "delete": {
-        "security": [{ "token": [] }]
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "description": "The path identifier for the team.",
+            "in": "path",
+            "name": "teampath",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The ID of the folder to delete.",
+            "in": "path",
+            "name": "folderId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBadRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{teampath}/folders/folder-order": {
+      "get": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "teampath",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiFolderOrder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "teampath",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFolderOrderBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBadRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{teampath}/notes": {
+      "get": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "description": "The path identifier for the team.",
+            "in": "path",
+            "name": "teampath",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NoteType"
+                  },
+                  "type": "array"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "description": "The path identifier for the team.",
+            "in": "path",
+            "name": "teampath",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The note content (string) or a JSON object with note properties (title, content, permissions, etc.).",
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "origin": {
+                        "type": "string"
+                      },
+                      "parentFolderId": {
+                        "type": "string"
+                      },
+                      "permalink": {
+                        "type": "string"
+                      },
+                      "noteFeatures": {
+                        "$ref": "#/components/schemas/ApiNoteFeatures"
+                      },
+                      "suggestEditPermission": {
+                        "$ref": "#/components/schemas/SuggestEditPermissionType"
+                      },
+                      "commentPermission": {
+                        "$ref": "#/components/schemas/CommentPermissionType"
+                      },
+                      "writePermission": {
+                        "$ref": "#/components/schemas/NotePermissionRole"
+                      },
+                      "readPermission": {
+                        "$ref": "#/components/schemas/NotePermissionRole"
+                      },
+                      "content": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "tags": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "title": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "description": "The note content (string) or a JSON object with note properties (title, content, permissions, etc.)."
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SingleNote"
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateNoteMultiStatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBadRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{teampath}/notes/{noteId}": {
+      "get": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "description": "The path identifier for the team.",
+            "in": "path",
+            "name": "teampath",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The ID of the note to retrieve.",
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Return 304 when this ETag matches the current note.",
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SingleNote"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": true
+              }
+            }
+          },
+          "304": {
+            "description": "",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "required": true
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "description": "The path identifier for the team.",
+            "in": "path",
+            "name": "teampath",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The ID of the note to update.",
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The properties to update on the team note. Omit description to leave it unchanged, use a string (including an empty string) to set it, or null to remove its metadata.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "parentFolderId": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "permalink": {
+                    "type": "string"
+                  },
+                  "writePermission": {
+                    "$ref": "#/components/schemas/NotePermissionRole"
+                  },
+                  "readPermission": {
+                    "$ref": "#/components/schemas/NotePermissionRole"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "tags": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "type": "object",
+                "description": "The properties to update on the team note. Omit description to leave it unchanged, use a string (including an empty string) to set it, or null to remove its metadata."
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBadRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "description": "The path identifier for the team.",
+            "in": "path",
+            "name": "teampath",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The ID of the note to delete.",
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBadRequestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     }
   },
   "components": {
+    "securitySchemes": {
+      "token": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
     "schemas": {
+      "ApiBadRequestResponse": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/ApiErrorResponse"
+          },
+          {
+            "$ref": "#/components/schemas/ApiRequestErrorResponse"
+          }
+        ]
+      },
+      "ApiErrorResponse": {
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiFolder": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/FolderName"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "icon": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FolderIconCodepoint"
+              }
+            ],
+            "nullable": true
+          },
+          "color": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FolderColorHex"
+              }
+            ],
+            "nullable": true
+          },
+          "parentFolderId": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "number",
+            "format": "double"
+          },
+          "updatedAt": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "icon",
+          "color",
+          "parentFolderId",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiFolderOrder": {
+        "description": "Per-user display order of folders: maps each parent folder id (or `root`) to\nan ordered list of child folder ids. Keys and values use the same UUIDs as\n{@link ApiFolder.id} (not Yjs clientIds stored internally in preferences).",
+        "properties": {},
+        "type": "object",
+        "additionalProperties": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "ApiNoteFeatures": {
+        "properties": {
+          "emoji-reply": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "signed_in_users"
+            ]
+          },
+          "citation": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "signed_in_users"
+            ]
+          }
+        },
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiQuotaErrorResponse": {
+        "properties": {
+          "error": {
+            "properties": {
+              "upgradeUrl": {
+                "type": "string"
+              },
+              "helpUrl": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string",
+                "enum": [
+                  "quota_exceeded"
+                ],
+                "nullable": false
+              }
+            },
+            "required": [
+              "upgradeUrl",
+              "helpUrl",
+              "message",
+              "code"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiRateLimitErrorResponse": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/ApiErrorResponse"
+          },
+          {
+            "$ref": "#/components/schemas/ApiQuotaErrorResponse"
+          }
+        ]
+      },
+      "ApiRequestErrorResponse": {
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiServerErrorResponse": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/ApiErrorResponse"
+          },
+          {
+            "$ref": "#/components/schemas/ApiRequestErrorResponse"
+          }
+        ]
+      },
+      "ApiValidationError": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "enum": [
+              "Validation Failed"
+            ],
+            "nullable": false
+          },
+          "details": {
+            "$ref": "#/components/schemas/Record_string.ApiValidationFieldError_"
+          }
+        },
+        "required": [
+          "message",
+          "details"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiValidationFieldError": {
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "value": {}
+        },
+        "required": [
+          "message"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "CommentPermissionType": {
+        "enum": [
+          "disabled",
+          "forbidden",
+          "owners",
+          "signed_in_users",
+          "everyone"
+        ],
+        "type": "string"
+      },
+      "CreateNoteMultiStatusResponse": {
+        "properties": {
+          "note": {
+            "$ref": "#/components/schemas/SingleNote"
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "note",
+          "error"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "CreateTeamFolderBody": {
+        "properties": {
+          "color": {
+            "$ref": "#/components/schemas/FolderColorHex"
+          },
+          "icon": {
+            "$ref": "#/components/schemas/FolderIconCodepoint"
+          },
+          "description": {
+            "type": "string"
+          },
+          "parentFolderId": {
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/FolderName"
+          }
+        },
+        "type": "object"
+      },
+      "CreateUserFolderBody": {
+        "properties": {
+          "color": {
+            "$ref": "#/components/schemas/FolderColorHex"
+          },
+          "icon": {
+            "$ref": "#/components/schemas/FolderIconCodepoint"
+          },
+          "description": {
+            "type": "string"
+          },
+          "parentFolderId": {
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/FolderName"
+          }
+        },
+        "type": "object"
+      },
+      "FolderColorHex": {
+        "type": "string",
+        "example": "#FF6B6B",
+        "description": "Folder display color in hexadecimal format.\nAccepts `#RGB`, `#RGBA`, `#RRGGBB`, or `#RRGGBBAA`."
+      },
+      "FolderIconCodepoint": {
+        "type": "string",
+        "example": "1F525",
+        "description": "Folder icon as an emoji unified codepoint string.\nExamples: `1F525` (🔥), `2764-FE0F` (❤️)."
+      },
+      "FolderName": {
+        "type": "string",
+        "example": "Engineering",
+        "description": "Folder name."
+      },
+      "FolderPath": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
+          "color": {
+            "type": "string",
+            "nullable": true
+          },
+          "parentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "clientId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "icon",
+          "color",
+          "parentId",
+          "clientId"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "GetUserHistory": {
+        "items": {
+          "$ref": "#/components/schemas/Note"
+        },
+        "type": "array"
+      },
+      "Note": {
+        "properties": {
+          "folderPaths": {
+            "items": {
+              "$ref": "#/components/schemas/FolderPath"
+            },
+            "type": "array"
+          },
+          "writePermission": {
+            "$ref": "#/components/schemas/NotePermissionRole"
+          },
+          "readPermission": {
+            "$ref": "#/components/schemas/NotePermissionRole"
+          },
+          "shortId": {
+            "type": "string"
+          },
+          "publishLink": {
+            "type": "string"
+          },
+          "permalink": {
+            "type": "string",
+            "nullable": true
+          },
+          "teamPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "userPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "publishedAt": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "publishType": {
+            "$ref": "#/components/schemas/NotePublishType"
+          },
+          "lastChangeUser": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SimpleUserProfile"
+              }
+            ],
+            "nullable": true
+          },
+          "tagsUpdatedAt": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "titleUpdatedAt": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "number",
+            "format": "double"
+          },
+          "lastChangedAt": {
+            "type": "number",
+            "format": "double"
+          },
+          "description": {
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "writePermission",
+          "readPermission",
+          "shortId",
+          "publishLink",
+          "permalink",
+          "teamPath",
+          "userPath",
+          "publishedAt",
+          "publishType",
+          "lastChangeUser",
+          "tagsUpdatedAt",
+          "titleUpdatedAt",
+          "createdAt",
+          "lastChangedAt",
+          "description",
+          "tags",
+          "title",
+          "id"
+        ],
+        "type": "object"
+      },
+      "NoteImageUploadResponse": {
+        "properties": {
+          "data": {
+            "properties": {
+              "link": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "link"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
       "NotePermissionRole": {
-        "enum": ["owner", "signed_in", "guest"]
+        "enum": [
+          "owner",
+          "signed_in",
+          "guest"
+        ],
+        "type": "string"
+      },
+      "NotePublishType": {
+        "enum": [
+          "edit",
+          "view",
+          "slide",
+          "book"
+        ],
+        "type": "string"
+      },
+      "NoteType": {
+        "properties": {
+          "folderPaths": {
+            "items": {
+              "$ref": "#/components/schemas/FolderPath"
+            },
+            "type": "array"
+          },
+          "writePermission": {
+            "$ref": "#/components/schemas/NotePermissionRole"
+          },
+          "readPermission": {
+            "$ref": "#/components/schemas/NotePermissionRole"
+          },
+          "shortId": {
+            "type": "string"
+          },
+          "publishLink": {
+            "type": "string"
+          },
+          "permalink": {
+            "type": "string",
+            "nullable": true
+          },
+          "teamPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "userPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "publishedAt": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "publishType": {
+            "$ref": "#/components/schemas/NotePublishType"
+          },
+          "lastChangeUser": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SimpleUserProfile"
+              }
+            ],
+            "nullable": true
+          },
+          "tagsUpdatedAt": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "titleUpdatedAt": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "number",
+            "format": "double"
+          },
+          "lastChangedAt": {
+            "type": "number",
+            "format": "double"
+          },
+          "description": {
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "writePermission",
+          "readPermission",
+          "shortId",
+          "publishLink",
+          "permalink",
+          "teamPath",
+          "userPath",
+          "publishedAt",
+          "publishType",
+          "lastChangeUser",
+          "tagsUpdatedAt",
+          "titleUpdatedAt",
+          "createdAt",
+          "lastChangedAt",
+          "description",
+          "tags",
+          "title",
+          "id"
+        ],
+        "type": "object"
+      },
+      "Record_string.ApiValidationFieldError_": {
+        "properties": {},
+        "additionalProperties": {
+          "$ref": "#/components/schemas/ApiValidationFieldError"
+        },
+        "type": "object",
+        "description": "Construct a type with a set of properties K of type T"
+      },
+      "SimpleUserProfile": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "userPath": {
+            "type": "string"
+          },
+          "photo": {
+            "type": "string"
+          },
+          "biography": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name",
+          "userPath",
+          "photo",
+          "biography"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "SingleNote": {
+        "properties": {
+          "folderPaths": {
+            "items": {
+              "$ref": "#/components/schemas/FolderPath"
+            },
+            "type": "array"
+          },
+          "writePermission": {
+            "$ref": "#/components/schemas/NotePermissionRole"
+          },
+          "readPermission": {
+            "$ref": "#/components/schemas/NotePermissionRole"
+          },
+          "shortId": {
+            "type": "string"
+          },
+          "publishLink": {
+            "type": "string"
+          },
+          "permalink": {
+            "type": "string",
+            "nullable": true
+          },
+          "teamPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "userPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "publishedAt": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "publishType": {
+            "$ref": "#/components/schemas/NotePublishType"
+          },
+          "lastChangeUser": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SimpleUserProfile"
+              }
+            ],
+            "nullable": true
+          },
+          "tagsUpdatedAt": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "titleUpdatedAt": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "number",
+            "format": "double"
+          },
+          "lastChangedAt": {
+            "type": "number",
+            "format": "double"
+          },
+          "description": {
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "writePermission",
+          "readPermission",
+          "shortId",
+          "publishLink",
+          "permalink",
+          "teamPath",
+          "userPath",
+          "publishedAt",
+          "publishType",
+          "lastChangeUser",
+          "tagsUpdatedAt",
+          "titleUpdatedAt",
+          "createdAt",
+          "lastChangedAt",
+          "description",
+          "tags",
+          "title",
+          "id",
+          "content"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "SuggestEditPermissionType": {
+        "enum": [
+          "disabled",
+          "forbidden",
+          "owners",
+          "signed_in_users"
+        ],
+        "type": "string"
+      },
+      "Team": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "ownerId": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "logo": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/TeamVisibilityType"
+          },
+          "upgraded": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "required": [
+          "id",
+          "ownerId",
+          "name",
+          "logo",
+          "path",
+          "description",
+          "visibility",
+          "upgraded",
+          "createdAt"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "TeamVisibilityType": {
+        "enum": [
+          "public",
+          "private"
+        ],
+        "type": "string"
       },
       "UpdateFolderOrderBody": {
-        "type": "object",
-        "required": ["order"],
         "properties": {
           "order": {
             "$ref": "#/components/schemas/ApiFolderOrder"
           }
-        }
-      },
-      "NoteImageUploadResponse": {
+        },
+        "required": [
+          "order"
+        ],
         "type": "object",
-        "required": ["data"],
+        "additionalProperties": false
+      },
+      "UpdateTeamFolderBody": {
         "properties": {
-          "data": {
-            "type": "object",
-            "required": ["link"],
-            "properties": {
-              "link": { "type": "string" }
-            }
+          "parentFolderId": {
+            "type": "string",
+            "nullable": true
+          },
+          "color": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FolderColorHex"
+              }
+            ],
+            "nullable": true
+          },
+          "icon": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FolderIconCodepoint"
+              }
+            ],
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "$ref": "#/components/schemas/FolderName"
           }
-        }
+        },
+        "type": "object"
+      },
+      "UpdateUserFolderBody": {
+        "properties": {
+          "parentFolderId": {
+            "type": "string",
+            "nullable": true
+          },
+          "color": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FolderColorHex"
+              }
+            ],
+            "nullable": true
+          },
+          "icon": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FolderIconCodepoint"
+              }
+            ],
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "$ref": "#/components/schemas/FolderName"
+          }
+        },
+        "type": "object"
+      },
+      "User": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "userPath": {
+            "type": "string"
+          },
+          "photo": {
+            "type": "string"
+          },
+          "teams": {
+            "items": {
+              "$ref": "#/components/schemas/Team"
+            },
+            "type": "array"
+          },
+          "Teams": {
+            "items": {
+              "$ref": "#/components/schemas/Team"
+            },
+            "type": "array"
+          },
+          "upgraded": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name",
+          "userPath",
+          "photo",
+          "teams",
+          "upgraded"
+        ],
+        "type": "object",
+        "additionalProperties": false
       }
     }
   }
