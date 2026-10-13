@@ -804,6 +804,7 @@ export function Home() {
       handleOpenExternal,
       openHackmdTokenSetup,
       openPalette,
+      openQuickOpen,
       setFinderState,
       setShareOpen,
       switchWorkspaceScope,

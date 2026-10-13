@@ -1,4 +1,5 @@
 import type { EditorRequest } from './useWorkbenchEditorRequests';
+import { FileText } from 'lucide-react';
 import { Fragment } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 
@@ -9,6 +10,7 @@ import type {
 } from '@/lib/electron-api';
 import type { FolderTree } from '@/lib/hackmd-folders';
 import type { EditorMode } from '@/lib/settings';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 import { DocumentDetail, type DocumentSyncState } from './DocumentDetail';
@@ -79,6 +81,9 @@ export function DocumentWorkspace({
   onExportDraft,
   onOpenAsNewDraft,
   onRetryLoad,
+  canCreateNote,
+  onCreateNote,
+  onQuickOpen,
 }: {
   panes: NotePane[];
   activePaneId: string;
@@ -114,11 +119,24 @@ export function DocumentWorkspace({
   onExportDraft: (title: string, content: string) => void;
   onOpenAsNewDraft: (title: string, content: string, paneId: string) => void;
   onRetryLoad: (tab: OpenNoteTab) => void;
+  canCreateNote: boolean;
+  onCreateNote: () => void;
+  onQuickOpen: () => void;
 }) {
   if (panes.every((pane) => pane.tabIds.length === 0)) {
     return (
       <section className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background-default">
-        <EmptyState title="No note selected" description="Choose a note from the navigator to read or edit." />
+        <EmptyState
+          icon={<FileText className="size-6" />}
+          title="No note selected"
+          description="Choose a note from the navigator to read or edit."
+          action={(
+            <div className="flex flex-wrap justify-center gap-2">
+              {canCreateNote ? <Button variant="primary" onClick={onCreateNote}>New Note</Button> : null}
+              <Button onClick={onQuickOpen}>Search Notes</Button>
+            </div>
+          )}
+        />
       </section>
     );
   }

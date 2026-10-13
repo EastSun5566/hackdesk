@@ -663,7 +663,7 @@ export function FolderTreeView({
 
 export function NoteListSkeleton() {
   return (
-    <div className="space-y-2 px-2 py-3" aria-label="Loading notes">
+    <div role="status" aria-busy="true" aria-label="Loading notes" className="space-y-2 px-2 py-3">
       {Array.from({ length: 8 }).map((_, index) => (
         <div key={index} className="flex items-center gap-3 rounded-md px-2 py-2">
           <div className="size-4 animate-pulse rounded bg-background-selected motion-reduce:animate-none" />

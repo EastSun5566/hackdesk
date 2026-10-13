@@ -261,7 +261,7 @@ function LoadingDocumentDetail({
           titleElement="div"
         />
       ) : null}
-      <div className="flex min-h-0 flex-1 flex-col gap-4 p-6" aria-label="Loading note">
+      <div role="status" aria-busy="true" aria-label="Loading note" className="flex min-h-0 flex-1 flex-col gap-4 p-6">
         <div className="h-4 w-2/3 animate-pulse rounded bg-background-selected motion-reduce:animate-none" />
         <div className="h-4 w-1/2 animate-pulse rounded bg-background-selected motion-reduce:animate-none" />
         <div className="mt-4 space-y-3">

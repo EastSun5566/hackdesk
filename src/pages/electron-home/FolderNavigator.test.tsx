@@ -166,7 +166,7 @@ describe('FolderNavigator', () => {
   it('renders loading skeleton while notes load', () => {
     renderFolderNavigator({ status: { isLoading: true } });
 
-    expect(screen.getByLabelText('Loading notes')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Loading notes' })).toHaveAttribute('aria-busy', 'true');
   });
 
   it('counts notes with the right plural', () => {

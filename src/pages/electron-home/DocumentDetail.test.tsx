@@ -184,7 +184,7 @@ describe('DocumentDetail', () => {
 
   it('renders loading and empty branches explicitly', () => {
     renderDocumentDetail({ status: { loading: true } });
-    expect(screen.getByLabelText('Loading note')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Loading note' })).toHaveAttribute('aria-busy', 'true');
 
     renderDocumentDetail({
       documentState: {

@@ -13,7 +13,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
   return (
     <Suspense
       fallback={(
-        <div className="markdown-editor min-h-0 flex-1 overflow-hidden bg-background-default" />
+        <div role="status" aria-busy="true" aria-label="Loading editor" className="markdown-editor min-h-0 flex-1 overflow-hidden bg-background-default" />
       )}
     >
       <LazyMarkdownEditor {...props} ref={ref} />
