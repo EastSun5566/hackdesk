@@ -194,7 +194,7 @@ export function ShortcutsSettingsPanel({
             value={filter}
             onChange={(event) => setFilter(event.target.value)}
             placeholder="Search shortcuts"
-            className="h-10 w-full rounded-md border border-border-default bg-background-muted py-2 pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-text-muted focus:border-focus-ring"
+            className="h-10 w-full rounded-md border border-border-default bg-background-muted py-2 pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-text-subtle focus:border-focus-ring"
             autoComplete="off"
             spellCheck={false}
           />

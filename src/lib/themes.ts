@@ -87,17 +87,89 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
     description: 'The default HackDesk writing palette.',
     light: {
       neutral: '#71717A',
-      primary: '#5D54E8',
-      success: '#22C55E',
-      warning: '#F59E0B',
-      destructive: '#EF4444',
+      primary: '#564DFF',
+      success: '#357520',
+      warning: '#B45309',
+      destructive: '#DC2626',
     },
     dark: {
       neutral: '#71717A',
-      primary: '#A8A2FF',
-      success: '#22C55E',
+      primary: '#9894F9',
+      success: '#59C335',
       warning: '#FBBF24',
       destructive: '#F87171',
+    },
+    // HackMD's zinc and primary tokens. State colors are one step darker in
+    // light mode so small text stays readable.
+    tokens: {
+      light: {
+        '--text-default': '#3F3F46',
+        '--text-subtle': '#71717A',
+        '--background-default': '#FDFDFD',
+        '--background-muted': '#FAFAFA',
+        '--background-overlay': 'rgb(0 0 0 / 0.3)',
+        '--background-selected': '#ECEBFE',
+        '--border-default': '#D4D4D8',
+        '--border-bold': '#71717A',
+        '--primary-default': '#564DFF',
+        '--primary-hover': '#2E01A5',
+        '--primary-soft': '#ECEBFE',
+        '--primary-foreground': '#FFFFFF',
+        '--success-default': '#357520',
+        '--success-soft': '#E5FBEF',
+        '--warning-default': '#B45309',
+        '--warning-soft': '#FEF8DD',
+        '--destructive-default': '#DC2626',
+        '--destructive-soft': '#FEEEEE',
+        '--destructive-foreground': '#FFFFFF',
+        '--icon-default': '#71717A',
+        '--icon-subtle': '#A1A1AA',
+        '--element-bg-hover': '#F4F4F5',
+        '--element-border-hover': '#A1A1AA',
+        '--link-text-default': '#564DFF',
+        '--link-text-hover': '#2E01A5',
+        '--code-keyword': '#453AFF',
+        '--code-string': '#357520',
+        '--code-number': '#9A3412',
+        '--code-comment': '#71717A',
+        '--code-type': '#92400E',
+        '--code-function': '#0369A1',
+        '--code-property': '#0369A1',
+        '--code-regexp': '#BE185D',
+        '--code-escape': '#155E75',
+        '--code-operator': '#B91C1C',
+        '--code-variable': '#3F3F46',
+        '--code-invalid': '#B91C1C',
+      },
+      dark: {
+        '--text-default': '#D4D4D8',
+        '--text-subtle': '#A1A1AA',
+        '--background-default': '#27272A',
+        '--background-muted': '#202022',
+        '--background-overlay': 'rgb(0 0 0 / 0.7)',
+        '--background-selected': 'rgb(152 148 249 / 0.22)',
+        '--border-default': '#52525B',
+        '--border-bold': '#71717A',
+        '--primary-default': '#9894F9',
+        '--primary-hover': '#B2ABFB',
+        '--primary-soft': 'rgb(152 148 249 / 0.16)',
+        '--primary-foreground': '#18181B',
+        '--success-default': '#59C335',
+        '--success-soft': 'rgb(89 195 53 / 0.16)',
+        '--warning-default': '#FBBF24',
+        '--warning-soft': 'rgb(251 191 36 / 0.14)',
+        '--destructive-default': '#F87171',
+        '--destructive-soft': 'rgb(248 113 113 / 0.2)',
+        '--destructive-foreground': '#18181B',
+        '--icon-default': '#D4D4D8',
+        '--icon-subtle': '#A1A1AA',
+        '--element-bg-hover': '#3F3F46',
+        '--element-border-hover': '#71717A',
+        '--link-text-default': '#9894F9',
+        '--link-text-hover': '#B2ABFB',
+        '--code-comment': '#A1A1AA',
+        '--code-invalid': '#FCA5A5',
+      },
     },
   },
   {
@@ -775,8 +847,8 @@ export function resolveHackDeskTheme({
 
   const seedTheme = dark
     ? {
-        '--text-default': mix(neutral, '#FFFFFF', 72),
-        '--text-subtle': mix(neutral, '#FFFFFF', 48),
+        '--text-default': mix(neutral, '#FFFFFF', 30),
+        '--text-subtle': mix(neutral, '#FFFFFF', 72),
         '--background-default': mix(neutral, '#000000', 34),
         '--background-muted': mix(neutral, '#000000', 25),
         '--background-overlay': 'rgb(0 0 0 / 0.7)',
@@ -794,16 +866,16 @@ export function resolveHackDeskTheme({
         '--destructive-default': destructive,
         '--destructive-soft': alpha(destructive, 0.22),
         '--destructive-foreground': contrastText(destructive),
-        '--icon-default': mix(neutral, '#FFFFFF', 64),
-        '--icon-subtle': mix(neutral, '#FFFFFF', 42),
+        '--icon-default': mix(neutral, '#FFFFFF', 30),
+        '--icon-subtle': mix(neutral, '#FFFFFF', 72),
         '--element-bg-hover': alpha(neutral, 0.22),
         '--element-border-hover': alpha(neutral, 0.58),
         '--link-text-default': primary,
         '--link-text-hover': mix(primary, '#FFFFFF', 78),
       }
     : {
-        '--text-default': mix(neutral, '#000000', 70),
-        '--text-subtle': mix(neutral, '#000000', 54),
+        '--text-default': mix(neutral, '#000000', 56),
+        '--text-subtle': neutral,
         '--background-default': mix(neutral, '#FFFFFF', 7),
         '--background-muted': mix(neutral, '#FFFFFF', 14),
         '--background-overlay': 'rgb(0 0 0 / 0.3)',
@@ -821,15 +893,20 @@ export function resolveHackDeskTheme({
         '--destructive-default': destructive,
         '--destructive-soft': mix(destructive, '#FFFFFF', 14),
         '--destructive-foreground': contrastText(destructive),
-        '--icon-default': mix(neutral, '#000000', 58),
-        '--icon-subtle': mix(neutral, '#000000', 38),
+        '--icon-default': neutral,
+        '--icon-subtle': mix(neutral, '#FFFFFF', 62),
         '--element-bg-hover': mix(neutral, '#FFFFFF', 10),
         '--element-border-hover': mix(neutral, '#FFFFFF', 38),
         '--link-text-default': primary,
         '--link-text-hover': mix(primary, '#000000', 76),
       };
-  const presetTokenOverrides = preset.tokens?.[mode] ?? {};
-  const customAccentOverrides = Object.keys(normalizeThemeSeed(customSeed)).length > 0
+  const customSeedColors = normalizeThemeSeed(customSeed);
+  const presetTokens = preset.tokens?.[mode] ?? {};
+  // A custom Neutral keeps generating HackMD Neo's surfaces from the seed.
+  const presetTokenOverrides = preset.id === 'hackmd-neo' && customSeedColors.neutral
+    ? Object.fromEntries(Object.entries(presetTokens).filter(([name]) => name.startsWith('--code-')))
+    : presetTokens;
+  const customAccentOverrides = Object.keys(customSeedColors).length > 0
     ? buildAccentTokenOverrides(seed, dark)
     : {};
   const colorTheme: ResolvedHackDeskTheme = {
@@ -842,6 +919,7 @@ export function resolveHackDeskTheme({
 
   return {
     ...contrastTheme,
+    ...resolveStateActionTokens(contrastTheme, dark),
     ...resolveNativeSurfaceTokens(contrastTheme),
     ...resolveCommandPaletteTokens(contrastTheme),
     ...resolveThemeTypography(typography),
@@ -924,7 +1002,7 @@ function resolveContrastTokens(theme: ResolvedHackDeskTheme): ResolvedHackDeskTh
   if (!isHexColor(background)) {
     return {
       ...theme,
-      '--focus-ring': theme['--primary-default'] ?? '#5D54E8',
+      '--focus-ring': theme['--primary-default'] ?? '#564DFF',
     };
   }
 
@@ -940,7 +1018,7 @@ function resolveContrastTokens(theme: ResolvedHackDeskTheme): ResolvedHackDeskTh
     '--text-subtle': textSubtle,
     '--primary-default': primary,
     '--primary-hover': primaryHover,
-    '--primary-foreground': contrastText(primary),
+    '--primary-foreground': readableText(primary, theme['--primary-foreground']),
     '--border-bold': borderBold,
     '--focus-ring': primary,
   };
@@ -973,6 +1051,17 @@ function compositeThemeColor(color: string, background: string) {
     g: Number(channels[2]) * opacity + base.g * (1 - opacity),
     b: Number(channels[3]) * opacity + base.b * (1 - opacity),
   });
+}
+
+// Solid warning and danger buttons need a readable label and a hover shade.
+function resolveStateActionTokens(theme: ResolvedHackDeskTheme, dark: boolean): ResolvedHackDeskTheme {
+  const warning = theme['--warning-default'];
+  const destructive = theme['--destructive-default'];
+
+  return {
+    '--warning-foreground': isHexColor(warning) ? contrastText(warning) : 'var(--text-default)',
+    '--destructive-hover': isHexColor(destructive) ? mix(destructive, dark ? '#FFFFFF' : '#000000', 85) : destructive,
+  };
 }
 
 function resolveNativeSurfaceTokens(theme: ResolvedHackDeskTheme): ResolvedHackDeskTheme {
@@ -1037,5 +1126,12 @@ function contrastRatio(a: string, b: string) {
 }
 
 function contrastText(hex: string) {
-  return luminance(hex) > 0.48 ? '#000000' : '#FFFFFF';
+  if (contrastRatio('#FFFFFF', hex) >= 4.5) return '#FFFFFF';
+  return contrastRatio('#000000', hex) > contrastRatio('#FFFFFF', hex) ? '#000000' : '#FFFFFF';
+}
+
+function readableText(background: string, preferred: string | undefined) {
+  return isHexColor(preferred) && isHexColor(background) && contrastRatio(preferred, background) >= 4.5
+    ? preferred
+    : contrastText(background);
 }

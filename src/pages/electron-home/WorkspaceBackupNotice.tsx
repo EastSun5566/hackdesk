@@ -54,7 +54,7 @@ export function WorkspaceBackupNotice({
         ) : null}
         <button
           type="button"
-          className="inline-flex h-7 items-center gap-1 rounded-[6px] bg-warning-default px-2 text-xs font-medium text-background-default hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          className="inline-flex h-7 items-center gap-1 rounded-[6px] bg-warning-default px-2 text-xs font-medium text-warning-foreground hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
           onClick={onRetry}
         >
           <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />

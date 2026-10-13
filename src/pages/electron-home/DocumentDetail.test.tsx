@@ -439,7 +439,7 @@ describe('DocumentDetail', () => {
       },
     });
 
-    expect(screen.getByText('File changed on disk. Your draft is still open.')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('File changed on disk. Your draft is still open.');
 
     fireEvent.click(screen.getByRole('button', { name: 'Reload from disk' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save as copy' }));
