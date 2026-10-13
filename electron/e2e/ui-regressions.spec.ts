@@ -369,6 +369,10 @@ test('tab drag, keyboard actions, persistence and pane isolation', async () => {
     await expect(closeInactiveTab).toHaveCSS('opacity', '0');
     await strip.getByRole('tab', { name: /^Alpha(?:, .+)?$/ }).hover();
     await expect(closeInactiveTab).toHaveCSS('opacity', '1');
+    // Radius and small text come from the shared scale; text-2xs follows the 14px UI font size.
+    await expect(strip.getByRole('tab', { name: /^Gamma(?:, .+)?$/ }).locator('xpath=..')).toHaveCSS('border-radius', '6px');
+    await expect(closeActiveTab).toHaveCSS('border-radius', '4px');
+    await expect(page.locator('.text-2xs').first()).toHaveCSS('font-size', '10px');
     await dragTab('Alpha', 'Gamma');
     await expect.poll(labels).toEqual(['Beta', 'Gamma', 'Alpha']);
     await expect(strip.getByRole('tab', { name: /^Gamma(?:, .+)?$/ })).toHaveAttribute('aria-selected', 'true');
