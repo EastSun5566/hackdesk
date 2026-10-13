@@ -369,6 +369,8 @@ test('tab drag, keyboard actions, persistence and pane isolation', async () => {
     await expect(closeInactiveTab).toHaveCSS('opacity', '0');
     await strip.getByRole('tab', { name: /^Alpha(?:, .+)?$/ }).hover();
     await expect(closeInactiveTab).toHaveCSS('opacity', '1');
+    // The strip scrolls sideways only; the 40px title bar leaves no room for a vertical scrollbar.
+    expect(await strip.evaluate(element => element.scrollHeight > element.clientHeight && getComputedStyle(element).overflowY !== 'hidden')).toBe(false);
     // Radius and small text come from the shared scale; text-2xs follows the 14px UI font size.
     await expect(strip.getByRole('tab', { name: /^Gamma(?:, .+)?$/ }).locator('xpath=..')).toHaveCSS('border-radius', '6px');
     await expect(closeActiveTab).toHaveCSS('border-radius', '4px');

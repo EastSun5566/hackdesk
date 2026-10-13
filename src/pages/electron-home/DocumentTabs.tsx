@@ -244,7 +244,7 @@ export function DocumentTabs({
       <div ref={regionRef} data-hackdesk-focus="tabs" data-document-pane-id={paneId} className={cn('flex min-w-0 flex-1 items-center gap-2', className)}>
         <nav
           aria-label="Open documents"
-          className="flex h-full min-w-0 flex-1 items-center overflow-x-auto overscroll-x-contain px-1 py-1"
+          className="flex h-full min-w-0 flex-1 items-center overflow-x-auto overflow-y-hidden overscroll-x-contain px-1 py-1"
         >
           {tabs.length > 0 ? (
             <SortableContext items={tabs.map(tab => tab.tabId)} strategy={horizontalListSortingStrategy}>
