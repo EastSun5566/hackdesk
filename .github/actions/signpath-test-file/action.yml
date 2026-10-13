@@ -1,0 +1,48 @@
+name: Sign one test executable
+description: Resume the builder only after a pinned test signature passes verification.
+inputs:
+  role:
+    description: Expected builder phase
+    required: true
+  api-token:
+    description: SignPath CI submission token
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Wait for the builder signing request
+      id: stage
+      shell: pwsh
+      env:
+        SIGNING_ROLE: ${{ inputs.role }}
+      run: node scripts/signpath-bridge.cjs prepare $env:SIGNING_ROLE
+    - name: Upload the unsigned executable
+      id: unsigned
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: hackdesk-unsigned-${{ inputs.role }}-test-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ steps.stage.outputs.directory }}/unsigned/${{ steps.stage.outputs.filename }}
+        if-no-files-found: error
+        retention-days: 7
+    - name: Sign with the test certificate
+      id: signing
+      uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3
+      with:
+        api-token: ${{ inputs.api-token }}
+        organization-id: 17f28d05-3358-43ce-9547-e3509577e8fb
+        project-slug: hackdesk
+        signing-policy-slug: test-signing
+        artifact-configuration-slug: ${{ steps.stage.outputs.configuration }}
+        github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+        wait-for-completion: true
+        wait-for-completion-timeout-in-seconds: 1800
+        output-artifact-directory: ${{ steps.stage.outputs.directory }}/signed
+        parameters: ${{ steps.stage.outputs.parameters }}
+    - name: Verify and return the signed executable
+      shell: pwsh
+      env:
+        SIGNING_ROLE: ${{ inputs.role }}
+        UNSIGNED_ARTIFACT_ID: ${{ steps.unsigned.outputs.artifact-id }}
+        SIGNING_REQUEST_ID: ${{ steps.signing.outputs.signing-request-id }}
+        SIGNING_REQUEST_URL: ${{ steps.signing.outputs.signing-request-web-url }}
+      run: node scripts/signpath-bridge.cjs accept $env:SIGNING_ROLE

@@ -1,0 +1,136 @@
+name: Windows SignPath installer test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: windows-signpath-test
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    if: github.repository == 'EastSun5566/hackdesk' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm run check:ci
+
+  test-signing:
+    needs: quality
+    if: github.repository == 'EastSun5566/hackdesk' && github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    timeout-minutes: 180
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      CERTIFICATE_BASE64: ${{ vars.SIGNPATH_TEST_CERTIFICATE_BASE64 }}
+      CERTIFICATE_SHA256: ${{ vars.SIGNPATH_TEST_CERT_SHA256 }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check prerequisites
+        shell: pwsh
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+        run: |
+          foreach ($name in @('SIGNPATH_API_TOKEN', 'CERTIFICATE_BASE64', 'CERTIFICATE_SHA256')) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) { throw "Missing $name" }
+          }
+          "SIGNPATH_DIRECTORY=$(Join-Path $env:RUNNER_TEMP 'hackdesk-signpath-installer')" >> $env:GITHUB_ENV
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm run build
+      - name: Start the NSIS builder
+        run: node scripts/signpath-bridge.cjs start
+      - name: Sign application
+        uses: ./.github/actions/signpath-test-file
+        with:
+          role: app
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+      - name: Sign elevate helper
+        uses: ./.github/actions/signpath-test-file
+        with:
+          role: elevate
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+      - name: Sign uninstaller before embedding
+        uses: ./.github/actions/signpath-test-file
+        with:
+          role: uninstaller
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+      - name: Sign installer before update metadata
+        uses: ./.github/actions/signpath-test-file
+        with:
+          role: installer
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+      - name: Verify finished build and update metadata
+        run: node scripts/signpath-bridge.cjs finish
+      - name: Verify unpacked startup and fuses
+        shell: pwsh
+        env:
+          HACKDESK_PACKAGED_BINARY: ${{ env.SIGNPATH_DIRECTORY }}/build/win-unpacked/HackDesk.exe
+        run: |
+          node scripts/check-electron-fuses.ts $env:HACKDESK_PACKAGED_BINARY
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm exec playwright test --config electron/playwright.packaged.config.ts electron/e2e/packaged-startup.spec.ts
+      - name: Install and verify embedded signatures
+        shell: pwsh
+        run: ./scripts/signpath-installer.ps1 -Action Install
+      - name: Verify installed startup and fuses
+        shell: pwsh
+        run: |
+          node scripts/check-electron-fuses.ts $env:HACKDESK_PACKAGED_BINARY
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm exec playwright test --config electron/playwright.packaged.config.ts electron/e2e/packaged-startup.spec.ts
+      - name: Uninstall and verify cleanup
+        if: always() && env.HACKDESK_PACKAGED_BINARY != ''
+        shell: pwsh
+        run: ./scripts/signpath-installer.ps1 -Action Uninstall
+      - name: Archive the complete application
+        shell: pwsh
+        run: ./scripts/signpath-installer.ps1 -Action Archive
+      - name: Upload verified test build
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: hackdesk-installer-test-certificate-not-for-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.SIGNPATH_DIRECTORY }}/deliverables/*
+            ${{ env.SIGNPATH_DIRECTORY }}/HackDesk-test-certificate-not-for-release.zip
+            ${{ env.SIGNPATH_DIRECTORY }}/**/verification.json
+            ${{ env.SIGNPATH_DIRECTORY }}/**/installed-verification.json
+            ${{ env.SIGNPATH_DIRECTORY }}/uninstaller/signed/Uninstall-HackDesk.exe
+            ${{ env.SIGNPATH_DIRECTORY }}/*verification.json
+            ${{ env.SIGNPATH_DIRECTORY }}/README.txt
+            ${{ env.SIGNPATH_DIRECTORY }}/builder.*.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Stop the builder on every exit
+        if: always() && env.SIGNPATH_DIRECTORY != ''
+        shell: pwsh
+        run: |
+          if (Test-Path -LiteralPath (Join-Path $env:SIGNPATH_DIRECTORY 'session.json')) {
+            node scripts/signpath-bridge.cjs cleanup
+          }
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: signpath-installer-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.SIGNPATH_DIRECTORY }}/**/*.json
+            ${{ env.SIGNPATH_DIRECTORY }}/builder.*.log
+            playwright-report
+            test-results
+          retention-days: 7

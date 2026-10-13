@@ -2,7 +2,9 @@ param(
     [Parameter(Mandatory)][string] $UnsignedPath,
     [Parameter(Mandatory)][string] $SignedPath,
     [Parameter(Mandatory)][string] $CertificateBase64,
-    [Parameter(Mandatory)][string] $ExpectedCertSha256
+    [Parameter(Mandatory)][string] $ExpectedCertSha256,
+    [ValidateSet('app', 'elevate', 'uninstaller', 'installer')][string] $Role = 'app',
+    [string] $ReportPath
 )
 
 Set-StrictMode -Version Latest
@@ -47,11 +49,12 @@ try {
     $expected = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Resolve-Path -LiteralPath $UnsignedPath).Path)
     $actual = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Resolve-Path -LiteralPath $SignedPath).Path)
     foreach ($field in @('ProductName', 'ProductVersion', 'FileVersion')) {
-        if ([string]::IsNullOrWhiteSpace($expected.$field) -or $expected.$field -cne $actual.$field) {
+        if (($Role -ne 'elevate' -and [string]::IsNullOrWhiteSpace($expected.$field)) -or
+            $expected.$field -cne $actual.$field) {
             throw "Executable metadata mismatch: $field"
         }
     }
-    if ($actual.ProductName -cne 'HackDesk') {
+    if ($Role -ne 'elevate' -and $actual.ProductName -cne 'HackDesk') {
         throw 'Executable product name must be HackDesk.'
     }
 
@@ -71,7 +74,7 @@ try {
         throw "Authenticode verification failed: $($signature.Status)"
     }
 
-    [ordered]@{
+    $report = [ordered]@{
         warning = 'Test certificate / not for release'
         commit = $env:GITHUB_SHA
         status = [string]$signature.Status
@@ -83,6 +86,8 @@ try {
         unsignedSha256 = (Get-FileHash -LiteralPath $UnsignedPath -Algorithm SHA256).Hash
         signedSha256 = (Get-FileHash -LiteralPath $SignedPath -Algorithm SHA256).Hash
     }
+    if ($ReportPath) { $report | ConvertTo-Json | Set-Content -LiteralPath $ReportPath }
+    else { $report }
 }
 finally {
     if ($addedTrust) { $store.Remove($certificate) }
