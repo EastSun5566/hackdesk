@@ -207,6 +207,25 @@ describe('hackmd-service DTO mapping', () => {
     expect(getHackmdErrorMessage(401, 'Unauthorized')).toBe('Your HackMD API token is invalid or expired.');
     expect(getHackmdErrorMessage(429, 'Too Many Requests')).toContain('rate limiting');
   });
+
+  it('explains HackMD error bodies without hiding auth and server failures', () => {
+    expect(getHackmdErrorMessage(429, 'Too Many Requests', {
+      error: { code: 'quota_exceeded', message: 'Free plan note limit reached.', upgradeUrl: 'https://hackmd.io/pricing', helpUrl: 'https://hackmd.io/help' },
+    })).toBe('Your HackMD workspace has reached its quota. Free plan note limit reached.');
+    expect(getHackmdErrorMessage(429, 'Too Many Requests', { error: 'Too many requests' })).toContain('rate limiting');
+    expect(getHackmdErrorMessage(422, 'Unprocessable Entity', {
+      message: 'Validation Failed',
+      details: { title: { message: 'Title is too long', value: 'x' }, permalink: { message: 'Invalid permalink' } },
+    })).toBe('HackMD rejected the request: title: Title is too long; permalink: Invalid permalink');
+    expect(getHackmdErrorMessage(409, 'Conflict', { error: 'Permalink is already taken' }))
+      .toBe('HackMD rejected the request: Permalink is already taken');
+    expect(getHackmdErrorMessage(400, 'Bad Request', { error_code: 'invalid_base', message: 'Unknown version' }))
+      .toBe('HackMD rejected the request: Unknown version');
+    expect(getHackmdErrorMessage(413, 'Payload Too Large')).toBe('The file is too large for HackMD.');
+    expect(getHackmdErrorMessage(400, 'Bad Request', { error: 'x'.repeat(400) })).toHaveLength('HackMD rejected the request: '.length + 301);
+    expect(getHackmdErrorMessage(401, 'Unauthorized', { error: 'token abc' })).toBe('Your HackMD API token is invalid or expired.');
+    expect(getHackmdErrorMessage(500, 'Internal Server Error', { error: 'stack trace' })).toContain('having trouble');
+  });
 });
 
 describe('hackmd-service request mapping', () => {
@@ -323,9 +342,9 @@ describe('hackmd-service request mapping', () => {
     expect(upload).toEqual({ link: 'https://cdn.test/spec.png' });
   });
 
-  it('fetches the note after PATCH returns an empty body', async () => {
+  it('fetches the note after PATCH returns 202 without a body', async () => {
     const { calls, service } = createService([
-      textResponse('', { status: 200 }),
+      textResponse('', { status: 202 }),
       jsonResponse({ id: 'note-1', title: 'Updated', content: '# Updated' }),
     ]);
 
@@ -346,6 +365,26 @@ describe('hackmd-service request mapping', () => {
     expect(calls[1].url).toBe('https://api.test/v1/notes/note-1');
     expect(calls[1].init.method).toBeUndefined();
     expect(updated).toMatchObject({ id: 'note-1', title: 'Updated', content: '# Updated' });
+  });
+
+  it('returns the created note from a 207 partial create', async () => {
+    const { service } = createService([
+      jsonResponse({ note: { id: 'partial', title: 'Partial', content: '' }, error: 'Folder not found' }, { status: 207 }),
+    ]);
+
+    await expect(service.createNote({ title: 'Partial', parentFolderId: 'missing' })).resolves.toMatchObject({ id: 'partial' });
+  });
+
+  it('surfaces the reason from a failed write', async () => {
+    const { service } = createService([
+      jsonResponse({
+        error: { code: 'quota_exceeded', message: 'Note limit reached.', upgradeUrl: 'https://hackmd.io/pricing', helpUrl: 'https://hackmd.io/help' },
+      }, { status: 429, statusText: 'Too Many Requests' }),
+      textResponse('not json', { status: 409, statusText: 'Conflict' }),
+    ]);
+
+    await expect(service.createNote({ title: 'Over quota' })).rejects.toThrow('Your HackMD workspace has reached its quota. Note limit reached.');
+    await expect(service.updateNote('note-1', { permalink: 'taken' })).rejects.toThrow('HackMD returned 409 Conflict.');
   });
 
   it('maps team PATCH and DELETE requests', async () => {

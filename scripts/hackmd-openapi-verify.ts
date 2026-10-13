@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -18,8 +18,18 @@ type OpenApiSchema = JsonRecord & {
   enum?: unknown[];
 };
 
+type OpenApiResponse = JsonRecord & {
+  content?: {
+    'application/json'?: {
+      schema?: OpenApiSchema;
+    };
+  };
+};
+
 type OpenApiOperation = JsonRecord & {
   security?: unknown[];
+  parameters?: Array<JsonRecord & { name?: string; in?: string }>;
+  responses?: Record<string, OpenApiResponse | undefined>;
   requestBody?: {
     content?: {
       'application/json'?: {
@@ -37,8 +47,12 @@ export type OpenApiContract = JsonRecord & {
   paths?: Record<string, Record<string, OpenApiOperation | undefined> | undefined>;
   components?: {
     schemas?: Record<string, OpenApiSchema | undefined>;
+    securitySchemes?: unknown;
   };
 };
+
+/** Success statuses the HackMD service handles. 207 is a partial note create. */
+const HANDLED_SUCCESS_STATUSES = new Set(['200', '201', '202', '204', '207']);
 
 const REQUIRED_OPERATIONS: Array<readonly [string, string]> = [
   ['GET', '/me'],
@@ -81,6 +95,69 @@ function asSchema(value: unknown): OpenApiSchema | null {
 
 function readContract(path = DEFAULT_CONTRACT_PATH): OpenApiContract {
   return JSON.parse(readFileSync(path, 'utf8')) as OpenApiContract;
+}
+
+function collectRefs(value: unknown, refs: Set<string>) {
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectRefs(item, refs));
+    return;
+  }
+
+  if (!isRecord(value)) {
+    return;
+  }
+
+  for (const [key, child] of Object.entries(value)) {
+    if (key === '$ref' && typeof child === 'string') refs.add(child);
+    else collectRefs(child, refs);
+  }
+}
+
+/**
+ * Keeps only the operations HackDesk calls and the schemas they reference,
+ * so the checked-in fixture stays small and its diffs show real API changes.
+ */
+export function extractHackmdContract(spec: OpenApiContract): OpenApiContract {
+  const paths: NonNullable<OpenApiContract['paths']> = {};
+  const refs = new Set<string>();
+
+  for (const [method, path] of REQUIRED_OPERATIONS) {
+    const operation = getOperation(spec, method, path);
+    if (!operation) continue;
+
+    const kept = Object.fromEntries(
+      (['security', 'parameters', 'requestBody', 'responses'] as const)
+        .filter((key) => operation[key] !== undefined)
+        .map((key) => [key, operation[key]]),
+    );
+    paths[path] = { ...paths[path], [method.toLowerCase()]: kept };
+    collectRefs(kept, refs);
+  }
+
+  const schemas: Record<string, OpenApiSchema | undefined> = {};
+  const pending = [...refs];
+  while (pending.length > 0) {
+    const ref = pending.pop()!;
+    const name = ref.replace('#/components/schemas/', '');
+    if (ref === name || schemas[name]) continue;
+
+    const schema = spec.components?.schemas?.[name];
+    if (!schema) continue;
+
+    schemas[name] = schema;
+    const nested = new Set<string>();
+    collectRefs(schema, nested);
+    pending.push(...nested);
+  }
+
+  return {
+    openapi: spec.openapi,
+    paths: Object.fromEntries(Object.entries(paths).sort(([left], [right]) => left.localeCompare(right))),
+    components: {
+      securitySchemes: spec.components?.securitySchemes,
+      schemas: Object.fromEntries(Object.entries(schemas).sort(([left], [right]) => left.localeCompare(right))),
+    },
+  };
 }
 
 async function fetchLiveContract(): Promise<OpenApiContract> {
@@ -150,6 +227,29 @@ function schemaContainsProperty(
   ));
 }
 
+function schemaContainsPath(contract: OpenApiContract, schema: OpenApiSchema | null, [head, ...rest]: string[]): boolean {
+  if (!schema) {
+    return false;
+  }
+
+  if (schema.$ref) {
+    return schemaContainsPath(contract, resolveRef(contract, schema.$ref), [head, ...rest]);
+  }
+
+  const child = schema.properties?.[head];
+  if (child) {
+    return rest.length === 0 || schemaContainsPath(contract, child, rest);
+  }
+
+  return (['anyOf', 'oneOf', 'allOf'] as const).some((key) => (
+    Array.isArray(schema[key]) && schema[key].some((option) => schemaContainsPath(contract, option, [head, ...rest]))
+  ));
+}
+
+function getResponseSchema(operation: OpenApiOperation | null, status: string): OpenApiSchema | null {
+  return operation?.responses?.[status]?.content?.['application/json']?.schema ?? null;
+}
+
 function getJsonSchema(operation: OpenApiOperation | null): OpenApiSchema | null {
   return operation?.requestBody?.content?.['application/json']?.schema ?? null;
 }
@@ -198,6 +298,49 @@ export function verifyHackmdOpenApiContract(contract: OpenApiContract): void {
   assert(schemaContainsProperty(contract, folderOrderSchema, 'order'), 'Personal folder-order body must wrap the order object.', failures);
   assert(schemaContainsProperty(contract, teamFolderOrderSchema, 'order'), 'Team folder-order body must wrap the order object.', failures);
 
+  for (const [method, path] of REQUIRED_OPERATIONS) {
+    const operation = getOperation(contract, method, path);
+    for (const [status, response] of Object.entries(operation?.responses ?? {})) {
+      if (status.startsWith('2')) {
+        assert(HANDLED_SUCCESS_STATUSES.has(status), `Unhandled success status ${status} on ${method} ${path}.`, failures);
+        assert(status !== '207' || path.endsWith('/notes'), `Unexpected partial success on ${method} ${path}.`, failures);
+        continue;
+      }
+
+      const schema = response?.content?.['application/json']?.schema ?? null;
+      if (Number(status) >= 400 && schema) {
+        assert(
+          schemaContainsProperty(contract, schema, 'error') || schemaContainsProperty(contract, schema, 'message'),
+          `Error ${status} on ${method} ${path} has neither error nor message.`,
+          failures,
+        );
+      }
+    }
+  }
+
+  for (const path of ['/notes/{noteId}', '/teams/{teampath}/notes/{noteId}']) {
+    const schema = getResponseSchema(getOperation(contract, 'GET', path), '200');
+    for (const propertyName of ['id', 'content', 'lastChangedAt']) {
+      assert(schemaContainsProperty(contract, schema, propertyName), `GET ${path} response missing ${propertyName}.`, failures);
+    }
+  }
+
+  for (const path of ['/notes', '/teams/{teampath}/notes']) {
+    const partial = getResponseSchema(getOperation(contract, 'POST', path), '207');
+    assert(!partial || schemaContainsProperty(contract, partial, 'note'), `POST ${path} partial response must wrap the note.`, failures);
+  }
+
+  assert(
+    schemaContainsPath(contract, getResponseSchema(getOperation(contract, 'POST', '/notes/{noteId}/images'), '201'), ['data', 'link']),
+    'Image upload response missing data.link.',
+    failures,
+  );
+  assert(
+    getOperation(contract, 'GET', '/history')?.parameters?.some((parameter) => parameter.name === 'limit' && parameter.in === 'query'),
+    'GET /history missing the limit query parameter.',
+    failures,
+  );
+
   const permissionEnum = contract.components?.schemas?.NotePermissionRole?.enum ?? [];
   for (const permission of ['owner', 'signed_in', 'guest']) {
     assert(permissionEnum.includes(permission), `NotePermissionRole missing ${permission}.`, failures);
@@ -209,6 +352,18 @@ export function verifyHackmdOpenApiContract(contract: OpenApiContract): void {
 }
 
 async function main() {
+  const updateIndex = process.argv.indexOf('--update');
+  if (updateIndex !== -1) {
+    // `--update` refreshes the fixture from the live spec, or from a saved swagger.json path.
+    const source = process.argv[updateIndex + 1];
+    const spec = source && !source.startsWith('--') ? readContract(source) : await fetchLiveContract();
+    const contract = extractHackmdContract(spec);
+    verifyHackmdOpenApiContract(contract);
+    writeFileSync(DEFAULT_CONTRACT_PATH, `${JSON.stringify(contract, null, 2)}\n`);
+    console.log(`HackMD OpenAPI contract updated (${DEFAULT_CONTRACT_PATH}).`);
+    return;
+  }
+
   const contract = process.argv.includes('--live')
     ? await fetchLiveContract()
     : readContract();
