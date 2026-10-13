@@ -458,23 +458,20 @@ function SectionHeader({
   subtitle,
   dirty,
   actions,
-  buttonProps,
 }: {
   title: ReactNode;
   subtitle?: ReactNode;
   dirty?: boolean;
   actions?: ReactNode;
-  buttonProps?: React.ComponentPropsWithoutRef<typeof CollapsibleTrigger>;
 }) {
   return (
     <div className="flex min-h-8 items-center justify-between gap-2">
       <CollapsibleTrigger
         type="button"
-        {...buttonProps}
+        aria-label={typeof title === 'string' ? [title, dirty && 'Unsaved changes', typeof subtitle === 'string' && subtitle].filter(Boolean).join(', ') : undefined}
         className={cn(
           'flex min-w-0 flex-1 items-center gap-2 rounded-md text-left text-xs font-semibold uppercase text-text-subtle transition-colors hover:text-text-default',
           FOCUS_RING_CLASS,
-          buttonProps?.className,
         )}
       >
         <ChevronDown
@@ -482,7 +479,7 @@ function SectionHeader({
           className={cn('h-3.5 w-3.5 shrink-0 -rotate-90 group-data-[panel-open]:rotate-0', COLLAPSE_ICON_CLASS)}
         />
         <span className="min-w-0 truncate">{title}</span>
-        {dirty ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary-default" aria-label="Unsaved changes" /> : null}
+        {dirty ? <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary-default" /> : null}
         {subtitle ? <span className="min-w-0 truncate normal-case text-text-subtle">{subtitle}</span> : null}
       </CollapsibleTrigger>
       {actions ? <div className="shrink-0">{actions}</div> : null}
@@ -520,9 +517,6 @@ export function CollapsibleSection({
         subtitle={subtitle}
         dirty={dirty}
         actions={actions}
-        buttonProps={{
-          'aria-label': typeof title === 'string' ? title : undefined,
-        }}
       />
       <CollapsibleContent>
         <div className={cn('space-y-2.5 pt-2.5', contentClassName)}>

@@ -1,4 +1,3 @@
-import { Button } from '@/components/ui/button';
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -7,6 +6,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { ArrowLeft, ArrowRight, ArrowLeftRight, Columns2, FileText, MoreHorizontal, X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type MutableRefObject } from 'react';
 
+import { Button } from '@/components/ui/button';
 import { Toolbar } from '@/components/ui/toolbar';
 import { Tooltip } from '@/components/ui/tooltip';
 import {
@@ -22,12 +22,13 @@ import { ToolbarDropdownIconTrigger } from './interaction-primitives';
 import { DOCUMENT_SYNC_STATE_LABELS, type DocumentSyncState } from './document-sync-state';
 import { documentPaneId, documentTabId } from './document-tab-ids';
 
-function TabStatusIndicator({ state, descriptionId }: { state: DocumentSyncState; descriptionId: string }) {
+function TabStatusIndicator({ state }: { state: DocumentSyncState }) {
   const label = DOCUMENT_SYNC_STATE_LABELS[state];
 
   return (
     <>
-      <span id={descriptionId} className="sr-only">{label}</span>
+      {/* The tab's name carries the state; this region announces changes while the tab stays focused. */}
+      <span className="sr-only" aria-live="polite">{label}</span>
       <Tooltip content={label}>
         <span
           aria-hidden="true"
@@ -108,7 +109,7 @@ function DocumentTab({
         tabIndex={focused ? 0 : -1}
         aria-selected={selected}
         aria-controls={paneId ? documentPaneId(paneId) : undefined}
-        aria-describedby={`${documentTabId(tab.tabId)}-status`}
+        aria-label={syncState === 'saved' ? title : `${title}, ${DOCUMENT_SYNC_STATE_LABELS[syncState]}`}
         className="app-region-no-drag flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
         ref={setActivatorNodeRef}
         {...listeners}
@@ -120,11 +121,10 @@ function DocumentTab({
         onClick={(event) => {
           if (!draggedRef.current || event.detail === 0) onSelect();
         }}
-        aria-label={`Select ${title} tab`}
       >
         <FileText aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-        <span className="min-w-0 truncate">{title}</span>
-        <TabStatusIndicator state={syncState} descriptionId={`${documentTabId(tab.tabId)}-status`} />
+        <span data-tab-title className="min-w-0 truncate">{title}</span>
+        <TabStatusIndicator state={syncState} />
       </button>
       <Button
         variant="ghost"

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
-import { Toggle } from '@/components/ui/toggle';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Toggle } from '@/components/ui/toggle';
 import { ELECTRON_ACTIONS, getResolvedActionShortcut, resolveWorkbenchShortcut } from '@/lib/electron-actions';
 import type { ShortcutOverrides } from '@/lib/keyboard-shortcuts';
 import { displayShortcutConfig } from '@/lib/keyboard-shortcuts';

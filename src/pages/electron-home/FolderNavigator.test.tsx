@@ -359,7 +359,7 @@ describe('FolderNavigator', () => {
     expect(screen.queryByRole('menuitemcheckbox', { name: 'work' })).not.toBeInTheDocument();
 
     fireEvent.pointerDown(document.body);
-    fireEvent.click(screen.getByRole('button', { name: 'Tags' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Tags\b/ }));
     fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag work' }));
 
     expect(onFinderStateChange).toHaveBeenCalledWith({

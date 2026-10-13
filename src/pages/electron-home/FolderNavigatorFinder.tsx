@@ -1,4 +1,3 @@
-import { Button } from '@/components/ui/button';
 import { useActionShortcut } from './ActionShortcutContext';
 import {
   ArrowDownUp,
@@ -13,6 +12,7 @@ import {
 import type { KeyboardEvent } from 'react';
 import { useState } from 'react';
 
+import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
 import { Toolbar } from '@/components/ui/toolbar';
 import type { NotePermissionRole } from '@/lib/electron-api';

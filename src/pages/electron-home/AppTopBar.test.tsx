@@ -88,7 +88,7 @@ describe('AppTopBar', () => {
     const navigatorToggle = screen.getByRole('button', { name: 'Collapse note navigator' });
     const backButton = screen.getByRole('button', { name: 'Back' });
     const forwardButton = screen.getByRole('button', { name: 'Forward' });
-    const firstTab = screen.getByRole('tab', { name: 'Select Product Plan tab' });
+    const firstTab = screen.getByRole('tab', { name: /^Product Plan(?:, .+)?$/ });
     const applicationControls = screen.getByRole('toolbar', { name: 'Application controls' });
 
     expect(within(applicationControls).getByRole('separator')).toBeInTheDocument();
@@ -105,7 +105,7 @@ describe('AppTopBar', () => {
     expect(screen.getByRole('button', { name: 'Pane actions' })).toHaveClass('app-region-no-drag');
     expect(firstTab.closest('.app-topbar')).toHaveClass('h-10');
     expect(firstTab.closest('.app-topbar')).toHaveClass('pl-21.5');
-    expect(screen.getByRole('tab', { name: 'Select Design Spec tab' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^Design Spec(?:, .+)?$/ })).toBeInTheDocument();
   });
 
   it('only reserves traffic-light space on macOS', () => {
@@ -212,7 +212,7 @@ describe('AppTopBar', () => {
   it('calls tab select and close callbacks from titlebar tabs', () => {
     const props = renderTopBar();
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Select Design Spec tab' }));
+    fireEvent.click(screen.getByRole('tab', { name: /^Design Spec(?:, .+)?$/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Close Design Spec' }));
 
     expect(props.onSelectTab).toHaveBeenCalledWith('tab-2');

@@ -1,4 +1,3 @@
-import { Button } from '@/components/ui/button';
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
@@ -29,6 +28,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type {
   DocumentSummary,
