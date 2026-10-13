@@ -42,7 +42,10 @@ async function launchQuickHackFixture() {
 async function openQuickHackFromMain(app: ElectronApplication) {
   const main = await app.firstWindow();
   await expect(main.getByRole('heading', { name: 'No note selected' })).toBeVisible();
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].focus());
+  await app.evaluate(({ app: electronApp, BrowserWindow }) => {
+    electronApp.focus({ steal: true });
+    BrowserWindow.getAllWindows()[0].focus();
+  });
   await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isFocused())).toBe(true);
   const popupPromise = app.waitForEvent('window');
   await app.evaluate(() => {
@@ -52,6 +55,9 @@ async function openQuickHackFromMain(app: ElectronApplication) {
   });
   const popup = await popupPromise;
   await expect(popup.getByLabel('Quick Hack note')).toBeVisible();
+  await expect.poll(() => app.evaluate(({ BrowserWindow }) => (
+    BrowserWindow.getAllWindows().find(window => window.webContents.getURL().includes('#/quick-capture'))?.isFocused()
+  )), { message: 'Quick Hack has native focus before keyboard input' }).toBe(true);
   return { main, popup };
 }
 
