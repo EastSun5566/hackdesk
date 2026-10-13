@@ -38,6 +38,10 @@ Save all open notes before upgrading from beta.4; it cannot restore unsaved edit
 
 [Documentation](https://hackdesk.eastsun.me)
 
+[Code signing policy](docs/code-signing-policy.md): Windows test signing has passed;
+the Foundation production certificate is pending setup review. Published v2 betas
+remain unsigned.
+
 ### Main previews
 
 Main builds are published after the full CI workflow passes. Each preview has its own `main-<commit>` release and a version containing the commit SHA. Download them from [Releases](https://github.com/EastSun5566/hackdesk/releases); these builds are unsigned and require manual installation and updates.

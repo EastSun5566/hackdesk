@@ -10,6 +10,10 @@ import { data } from './release.data.ts'
 
 # Installation
 
+[Code signing policy](./code-signing-policy.md): Windows test signing has passed;
+the Foundation production certificate is pending setup review. These tests do not
+change the signing status of existing downloads.
+
 <div v-if="data.notice" class="warning custom-block">
   <p class="custom-block-title">Release details</p>
   <p>{{ data.notice }} <a :href="data.releasesUrl" target="_blank" rel="noreferrer">GitHub Releases</a></p>

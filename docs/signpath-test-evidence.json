@@ -1,0 +1,86 @@
+{
+  "warning": "Test certificate / not for release; production certificate and policy are pending review",
+  "workflowRunUrl": "https://github.com/EastSun5566/hackdesk/actions/runs/38436758001",
+  "commit": "ccadfb3cc804ea8d9cbffaa5cc3d637b28234f49",
+  "testCertificateSha256": "C435F8A8A17E62C8557A775FAF4479CD234F2201124FDB2BF4B0F261159B7D18",
+  "testPublisher": "CN=Test certificate for 'HackDesk [OSS]'",
+  "outputArtifact": {
+    "id": "11833069221",
+    "name": "hackdesk-installer-test-certificate-not-for-release-38436758001-1",
+    "expiresAt": "2026-10-20T17:23:21Z"
+  },
+  "signing": [
+    {
+      "role": "app",
+      "configuration": "windows-app-v1",
+      "artifactId": "11832873716",
+      "signingRequestId": "5d0278d8-a790-4004-8b32-d3fbf21d8d23",
+      "signingRequestUrl": "https://app.signpath.io/Web/17f28d05-3358-43ce-9547-e3509577e8fb/SigningRequests/5d0278d8-a790-4004-8b32-d3fbf21d8d23",
+      "status": "Valid",
+      "productName": "HackDesk",
+      "productVersion": "2.0.0.0",
+      "fileVersion": "2.0.0-beta.5",
+      "unsignedSha256": "81DBF88F0BF65705EACF607AA9F2C6E5D92F394D18771A25482B9436E765B704",
+      "signedSha256": "A70C808FBB404080E4E9775EBBCA9BED4EA4CE758752B05A5E1A5F3C17811BA7"
+    },
+    {
+      "role": "elevate",
+      "configuration": "windows-elevate-v1",
+      "artifactId": "11833677596",
+      "signingRequestId": "ba0999dc-aca2-4423-82cf-4d35c519785d",
+      "signingRequestUrl": "https://app.signpath.io/Web/17f28d05-3358-43ce-9547-e3509577e8fb/SigningRequests/ba0999dc-aca2-4423-82cf-4d35c519785d",
+      "status": "Valid",
+      "productName": "Elevate Application",
+      "productVersion": "1, 0, 0, 2894",
+      "fileVersion": "1, 0, 0, 2894",
+      "unsignedSha256": "9B1FBF0C11C520AE714AF8AA9AF12CFD48503EEDECD7398D8992EE94D1B4DC37",
+      "signedSha256": "02274B62604EEA76BDFE53F066E3C7AA063ED5023CA78D4A375FE17CFFA5DA33"
+    },
+    {
+      "role": "uninstaller",
+      "configuration": "windows-uninstaller-v1",
+      "artifactId": "11833044167",
+      "signingRequestId": "28d4582f-8f70-474a-8a7f-5597665b08ef",
+      "signingRequestUrl": "https://app.signpath.io/Web/17f28d05-3358-43ce-9547-e3509577e8fb/SigningRequests/28d4582f-8f70-474a-8a7f-5597665b08ef",
+      "status": "Valid",
+      "productName": "HackDesk",
+      "productVersion": "2.0.0-beta.5",
+      "fileVersion": "2.0.0-beta.5",
+      "unsignedSha256": "9BBD5816A134FF03B749E5F0C3C51A37075D31BF73A268327A24B944C6FE6C58",
+      "signedSha256": "6AE86AEAC0F68CF5C4E891766E379D643CCF64AC341E1C2F0CC0342F7C48EC59"
+    },
+    {
+      "role": "installer",
+      "configuration": "windows-installer-v1",
+      "artifactId": "11833962708",
+      "signingRequestId": "27c134d0-38a1-4877-9d64-325f2e8836a8",
+      "signingRequestUrl": "https://app.signpath.io/Web/17f28d05-3358-43ce-9547-e3509577e8fb/SigningRequests/27c134d0-38a1-4877-9d64-325f2e8836a8",
+      "status": "Valid",
+      "productName": "HackDesk",
+      "productVersion": "2.0.0-beta.5",
+      "fileVersion": "2.0.0-beta.5",
+      "unsignedSha256": "BA9E3E28F1B5C6831A5B31CF27168E7EE7B2A89FD77F69A7A1C47A10F3077B2B",
+      "signedSha256": "0CFEF481143644DFC41D3ED0ADCF591E1A0A0864D46E47F4A20498E4D574F782"
+    }
+  ],
+  "acceptance": {
+    "installedSignedCopyHashes": "matched for app, elevate, uninstaller",
+    "unpackedFuses": "verified",
+    "installedFuses": "verified",
+    "unpackedStartup": "1 passed",
+    "installedStartup": "1 passed",
+    "installation": "uninstalled",
+    "update": {
+      "installer": "HackDesk-2.0.0-beta.5-x64-test-certificate.exe",
+      "sha512": "OWBipqTpete2pt8QCSHVEuOKHZu9L6GYrlRGtVFZFN35qq9kaJQSUpD6jE50m6wuNCFPCnq013ivnr0+Q2YVkw==",
+      "size": 126457840,
+      "blockmap": "matched",
+      "metadataFiles": 1
+    }
+  },
+  "limitations": [
+    "Self-signed test certificate was temporarily trusted on the disposable runner",
+    "No production certificate trust or automatic-update acceptance",
+    "This signing workflow publishes CI artifacts only"
+  ]
+}

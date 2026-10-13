@@ -36,3 +36,5 @@ features:
     title: Hackable configuration
     details: Tune themes, fonts, editor modes, and shortcuts from the UI or settings.json.
 ---
+
+[Code signing policy](./code-signing-policy.md)

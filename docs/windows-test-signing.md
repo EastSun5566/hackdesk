@@ -1,8 +1,15 @@
 # Windows test signing
 
-This is the first step of [#181](https://github.com/EastSun5566/hackdesk/issues/181).
-It signs only the packaged **HackDesk.exe** with a self-signed test certificate.
-It does not sign an installer or uninstaller, create a GitHub Release, or publish updates.
+These are the artifact-only test workflows for [#181](https://github.com/EastSun5566/hackdesk/issues/181).
+The first signs **HackDesk.exe**; the [second](#complete-installer-test-step-two)
+also signs and tests the NSIS installer and its executable contents.
+Both use a self-signed test certificate and do not create a GitHub Release or publish updates.
+
+The complete test passed on October 14, 2026 (Taipei time).
+See the [review evidence](./signpath-foundation-review.md),
+[Code signing policy](./code-signing-policy.md), and
+[email draft](./signpath-foundation-email.md). The production certificate and release
+integration remain pending.
 
 The workflow first runs the full quality check on a GitHub-hosted Ubuntu runner,
 matching the regular CI environment. After that succeeds, it builds on a
