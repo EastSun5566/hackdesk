@@ -35,7 +35,9 @@ export function DeleteNoteDialog({
           <AlertDialogDescription>
             {isLocalNote
               ? 'This moves the local Markdown file to the system trash.'
-              : 'This deletes the note from HackMD. Local vault Markdown files are not affected. This cannot be undone from HackDesk.'}
+              : note?.teamPath
+                ? 'This deletes the note from HackMD. Local vault Markdown files are not affected. This cannot be undone from HackDesk.'
+                : 'This moves the note to your HackMD trash. Local vault Markdown files are not affected. You can undo this right after deleting.'}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {note ? (

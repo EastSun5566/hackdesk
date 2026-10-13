@@ -166,7 +166,9 @@ export function useDocumentCommands({
       message: `Delete “${deleteTarget.title || 'Untitled'}”?`,
       detail: note.teamPath === LOCAL_VAULT_TEAM_PATH
         ? 'This moves the Markdown file to the system trash.'
-        : 'This removes the note from HackMD. This action cannot be undone from HackDesk.',
+        : note.teamPath
+          ? 'This removes the note from HackMD. This action cannot be undone from HackDesk.'
+          : 'This moves the note to your HackMD trash. You can undo this right after deleting.',
       confirmLabel: 'Delete',
       cancelLabel: 'Cancel',
       destructive: true,

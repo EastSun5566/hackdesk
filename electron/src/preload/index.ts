@@ -81,6 +81,9 @@ const api: HackDeskElectronAPI = {
     getNote: (noteId: string, teamPath?: string | null) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetNote, noteId, teamPath)
     ),
+    getNoteIfChanged: (noteId: string, teamPath: string | null, etag: string) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetNoteIfChanged, noteId, teamPath, etag)
+    ),
     createNote: (input: CreateNoteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdCreateNote, input),
     createTeamNote: (teamPath: string, input: CreateNoteInput) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdCreateTeamNote, teamPath, input)
@@ -92,6 +95,7 @@ const api: HackDeskElectronAPI = {
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdUpdateTeamNote, teamPath, noteId, input)
     ),
     deleteNote: (noteId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdDeleteNote, noteId),
+    restoreNote: (noteId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdRestoreNote, noteId),
     deleteTeamNote: (teamPath: string, noteId: string) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdDeleteTeamNote, teamPath, noteId)
     ),

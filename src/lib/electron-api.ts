@@ -132,6 +132,8 @@ export type NoteSummary = {
 
 export type DocumentSummary = NoteSummary & {
   content: string;
+  /** HackMD ETag of this content, for conditional reads. Absent for local notes and new notes. */
+  etag?: string | null;
 };
 
 export type CreateNoteInput = {
@@ -357,11 +359,14 @@ export type HackDeskElectronAPI = {
     updateFolderOrder: (order: FolderOrder) => Promise<void>;
     updateTeamFolderOrder: (teamPath: string, order: FolderOrder) => Promise<void>;
     getNote: (noteId: string, teamPath?: string | null) => Promise<RepositoryValue<DocumentSummary>>;
+    /** Resolves null when the note still matches `etag`. */
+    getNoteIfChanged: (noteId: string, teamPath: string | null, etag: string) => Promise<DocumentSummary | null>;
     createNote: (input: CreateNoteInput) => Promise<DocumentSummary>;
     createTeamNote: (teamPath: string, input: CreateNoteInput) => Promise<DocumentSummary>;
     updateNote: (noteId: string, input: UpdateNoteInput) => Promise<DocumentSummary>;
     updateTeamNote: (teamPath: string, noteId: string, input: UpdateNoteInput) => Promise<DocumentSummary>;
     deleteNote: (noteId: string) => Promise<void>;
+    restoreNote: (noteId: string) => Promise<void>;
     deleteTeamNote: (teamPath: string, noteId: string) => Promise<void>;
     uploadNoteImage: (noteId: string, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
   };

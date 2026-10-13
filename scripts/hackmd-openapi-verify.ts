@@ -19,6 +19,7 @@ type OpenApiSchema = JsonRecord & {
 };
 
 type OpenApiResponse = JsonRecord & {
+  headers?: Record<string, unknown>;
   content?: {
     'application/json'?: {
       schema?: OpenApiSchema;
@@ -62,6 +63,7 @@ const REQUIRED_OPERATIONS: Array<readonly [string, string]> = [
   ['GET', '/notes/{noteId}'],
   ['PATCH', '/notes/{noteId}'],
   ['DELETE', '/notes/{noteId}'],
+  ['PUT', '/trash/{noteId}/restore'],
   ['POST', '/notes/{noteId}/images'],
   ['GET', '/history'],
   ['GET', '/folders'],
@@ -277,6 +279,11 @@ export function verifyHackmdOpenApiContract(contract: OpenApiContract): void {
 
   for (const [method, path] of REQUIRED_OPERATIONS.filter(([method]) => ['POST', 'PATCH', 'PUT'].includes(method))) {
     const operation = getOperation(contract, method, path);
+    if (path.endsWith('/restore')) {
+      // Restoring from the trash takes no body.
+      continue;
+    }
+
     if (path.endsWith('/images')) {
       assert(hasMultipartBody(operation), `Expected multipart body on ${method} ${path}.`, failures);
       assert(schemaContainsProperty(contract, getMultipartSchema(operation), 'image'), `Expected multipart image field on ${method} ${path}.`, failures);
@@ -319,10 +326,20 @@ export function verifyHackmdOpenApiContract(contract: OpenApiContract): void {
   }
 
   for (const path of ['/notes/{noteId}', '/teams/{teampath}/notes/{noteId}']) {
-    const schema = getResponseSchema(getOperation(contract, 'GET', path), '200');
+    const operation = getOperation(contract, 'GET', path);
+    const schema = getResponseSchema(operation, '200');
     for (const propertyName of ['id', 'content', 'lastChangedAt']) {
       assert(schemaContainsProperty(contract, schema, propertyName), `GET ${path} response missing ${propertyName}.`, failures);
     }
+
+    // The pre-save check sends the ETag from the last read and expects 304 when nothing changed.
+    assert(
+      operation?.parameters?.some((parameter) => parameter.name === 'If-None-Match' && parameter.in === 'header'),
+      `GET ${path} missing the If-None-Match header.`,
+      failures,
+    );
+    assert(isRecord(operation?.responses?.['200']?.headers?.ETag), `GET ${path} 200 missing the ETag header.`, failures);
+    assert(Boolean(operation?.responses?.['304']), `GET ${path} missing the 304 response.`, failures);
   }
 
   for (const path of ['/notes', '/teams/{teampath}/notes']) {
