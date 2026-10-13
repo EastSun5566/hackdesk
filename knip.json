@@ -10,6 +10,7 @@
     "electron/src/preload/quick-capture.ts",
     "scripts/*.ts",
     "docs/.vitepress/config.ts",
+    "docs/.vitepress/theme/index.ts",
     "docs/release.data.ts"
   ],
   "project": [

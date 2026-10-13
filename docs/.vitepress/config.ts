@@ -20,6 +20,7 @@ export default defineConfig({
 
   head: [
     ['link', { rel: 'icon', type: 'image/png', href: '/logo.png' }],
+    ['meta', { name: 'color-scheme', content: 'light dark' }],
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:title', content: TITLE }],
     ['meta', { property: 'og:image', content: `${DOCS_URL}/logo.png` }],
