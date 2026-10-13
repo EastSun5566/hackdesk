@@ -180,7 +180,7 @@ async function confirmDisconnectHackmd() {
 }
 
 async function expandTagBrowser() {
-  const trigger = await screen.findByRole('button', { name: 'Tags' });
+  const trigger = await screen.findByRole('button', { name: /^Tags\b/ });
   if (trigger.getAttribute('aria-expanded') !== 'true') {
     fireEvent.click(trigger);
     await waitFor(() => expect(trigger).toHaveAttribute('aria-expanded', 'true'));
@@ -1578,7 +1578,7 @@ describe('Home native-feel behavior', () => {
     }));
     await waitFor(() => {
       expect(screen.getByDisplayValue('Keyboard note')).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: 'Select Keyboard note tab' })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /^Keyboard note(?:, .+)?$/ })).toBeInTheDocument();
     });
   });
 
@@ -1665,7 +1665,7 @@ describe('Home native-feel behavior', () => {
     });
 
     expect(await screen.findByDisplayValue('Untitled')).toBeInTheDocument();
-    expect(await screen.findByRole('tab', { name: 'Select Untitled tab' })).toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: /^Untitled(?:, .+)?$/ })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByTestId('hackmd-markdown-editor')).toHaveTextContent('Captured');
     });
@@ -1833,7 +1833,7 @@ describe('Home native-feel behavior', () => {
 
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
     expect(api.app.confirm).not.toHaveBeenCalled();
-    fireEvent.click(await screen.findByRole('tab', { name: 'Select Draft Product Plan tab' }));
+    fireEvent.click(await screen.findByRole('tab', { name: /^Draft Product Plan(?:, .+)?$/ }));
     expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
   });
 
@@ -1904,7 +1904,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.keyDown(window, { key: 'w', metaKey: true });
 
     expect(await screen.findByDisplayValue('Product Plan')).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Select Design Spec tab' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /^Design Spec(?:, .+)?$/ })).not.toBeInTheDocument();
     expect(api.app.confirm).not.toHaveBeenCalled();
   });
 
@@ -1952,7 +1952,7 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.keyDown(window, { key: '\\', metaKey: true });
 
-    expect(await screen.findAllByRole('tab', { name: 'Select Test note tab' })).toHaveLength(1);
+    expect(await screen.findAllByRole('tab', { name: /^Test note(?:, .+)?$/ })).toHaveLength(1);
     expect(screen.getAllByText('Test note').length).toBeGreaterThan(1);
   });
 
@@ -1963,7 +1963,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Draft title' } });
     fireEvent.keyDown(window, { key: 't', metaKey: true });
 
-    expect(await screen.findAllByRole('tab', { name: 'Select Draft title tab' })).toHaveLength(2);
+    expect(await screen.findAllByRole('tab', { name: /^Draft title(?:, .+)?$/ })).toHaveLength(2);
   });
 
   it('focuses note tabs with next and previous shortcuts', async () => {
@@ -2150,7 +2150,7 @@ describe('Home native-feel behavior', () => {
 
     expect(screen.getByRole('button', { name: 'Expand note navigator' })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getAllByRole('button', { name: 'Expand note navigator' })).toHaveLength(1);
-    expect(window.document.getElementById('note-navigator-panel')).toHaveStyle({ width: '0px' });
+    expect(window.document.getElementById('note-navigator-panel')).toHaveStyle({ '--panel-width': '0px' });
   });
 
   it('updates the tab title from the draft title', async () => {
@@ -2159,7 +2159,7 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
     fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Draft title' } });
 
-    expect(await screen.findByRole('tab', { name: 'Select Draft title tab' })).toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: /^Draft title(?:, .+)?$/ })).toBeInTheDocument();
   });
 
   it('closes tabs to the right and reopens the last closed tab', async () => {
@@ -2197,21 +2197,21 @@ describe('Home native-feel behavior', () => {
     await screen.findByDisplayValue('Beta');
     fireEvent.click(await findNoteRow('Gamma'));
     await screen.findByDisplayValue('Gamma');
-    fireEvent.click(await screen.findByRole('tab', { name: 'Select Alpha tab' }));
+    fireEvent.click(await screen.findByRole('tab', { name: /^Alpha(?:, .+)?$/ }));
 
     act(() => {
       commandHandler?.({ type: 'close-tabs-to-right' });
     });
 
-    await waitFor(() => expect(screen.queryByRole('tab', { name: 'Select Beta tab' })).not.toBeInTheDocument());
-    expect(screen.queryByRole('tab', { name: 'Select Gamma tab' })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('tab', { name: /^Beta(?:, .+)?$/ })).not.toBeInTheDocument());
+    expect(screen.queryByRole('tab', { name: /^Gamma(?:, .+)?$/ })).not.toBeInTheDocument();
 
     act(() => {
       commandHandler?.({ type: 'reopen-last-closed-tab' });
     });
 
-    expect(await screen.findByRole('tab', { name: 'Select Gamma tab' })).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Select Beta tab' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: /^Gamma(?:, .+)?$/ })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /^Beta(?:, .+)?$/ })).not.toBeInTheDocument();
   });
 
   it('restores note tabs after remounting the same workspace scope', async () => {
@@ -2249,7 +2249,7 @@ describe('Home native-feel behavior', () => {
     cleanup();
     renderHome(api);
 
-    expect(await screen.findByRole('tab', { name: 'Select Product Plan tab' })).toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: /^Product Plan(?:, .+)?$/ })).toBeInTheDocument();
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
   });
 
@@ -2278,14 +2278,14 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
     await findRenderedNoteTitle();
     fireEvent.keyDown(window, { key: '\\', metaKey: true, shiftKey: true });
-    expect(await screen.findAllByRole('tab', { name: 'Select Test note tab' })).toHaveLength(1);
+    expect(await screen.findAllByRole('tab', { name: /^Test note(?:, .+)?$/ })).toHaveLength(1);
     expect(screen.getAllByText('Test note').length).toBeGreaterThan(1);
     act(() => {
       commandHandler?.({ type: 'delete-note' });
     });
 
     await waitFor(() => expect(api.hackmd.deleteNote).toHaveBeenCalledWith('note-1'));
-    await waitFor(() => expect(screen.queryByRole('tab', { name: 'Select Test note tab' })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('tab', { name: /^Test note(?:, .+)?$/ })).not.toBeInTheDocument());
   });
 
   it('does not auto-select a folder note over a dirty current tab', async () => {
@@ -2361,7 +2361,7 @@ describe('Home native-feel behavior', () => {
 
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
     expect(api.app.confirm).not.toHaveBeenCalled();
-    fireEvent.click(await screen.findByRole('tab', { name: 'Select Draft Product Plan tab' }));
+    fireEvent.click(await screen.findByRole('tab', { name: /^Draft Product Plan(?:, .+)?$/ }));
     expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
   });
 
@@ -2558,7 +2558,7 @@ describe('Home native-feel behavior', () => {
 
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
     expect(api.app.confirm).not.toHaveBeenCalled();
-    fireEvent.click(await screen.findByRole('tab', { name: 'Select Draft Product Plan tab' }));
+    fireEvent.click(await screen.findByRole('tab', { name: /^Draft Product Plan(?:, .+)?$/ }));
     expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
   });
 
@@ -2791,7 +2791,7 @@ describe('Home native-feel behavior', () => {
     expect(screen.getByRole('button', { name: 'Expand workspace sidebar' })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByRole('button', { name: 'Expand note navigator' })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getAllByRole('button', { name: 'Expand note navigator' })).toHaveLength(1);
-    expect(window.document.getElementById('note-navigator-panel')).toHaveStyle({ width: '0px' });
+    expect(window.document.getElementById('note-navigator-panel')).toHaveStyle({ '--panel-width': '0px' });
   });
 
   it('exposes expanded state when folders are collapsed and expanded', async () => {
@@ -3161,7 +3161,7 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findNoteRow('Product Plan');
-    expect(screen.getByRole('button', { name: 'Tags' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: /^Tags\b/ })).toHaveAttribute('aria-expanded', 'false');
     await expandTagBrowser();
     await screen.findByRole('button', { name: 'Filter by tag product' });
     fireEvent.click(screen.getByRole('button', { name: 'Filter by tag product' }));

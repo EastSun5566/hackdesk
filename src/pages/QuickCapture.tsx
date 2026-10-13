@@ -144,7 +144,7 @@ export function QuickCapture() {
   return (
     <main className="flex h-dvh flex-col bg-background-default text-text-default">
       {isMac ? (
-        <header className="relative flex h-10 shrink-0 items-center justify-center [-webkit-app-region:drag]">
+        <header className="relative flex h-10 shrink-0 items-center justify-center app-region-drag">
           <h1 className="max-w-56 truncate text-xs font-medium text-text-subtle">
             Quick Hack
           </h1>
@@ -213,7 +213,7 @@ export function QuickCapture() {
             disabled={submitting}
           >
             Capture
-            <kbd aria-hidden="true" className="font-sans text-[11px] font-normal text-text-subtle">
+            <kbd aria-hidden="true" className="font-sans text-2xs font-normal text-text-subtle">
               {isMac ? '⌘↵' : 'Ctrl+Enter'}
             </kbd>
           </Button>

@@ -4,6 +4,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Inline so the utilities read the variables where they are used: the command
+   palette swaps --command-item-* on selected items. */
+@theme inline {
+  --color-command-item-title: var(--command-item-title);
+  --color-command-item-meta: var(--command-item-meta);
+  --color-command-placeholder: var(--command-placeholder);
+}
+
 @theme {
   /* Core colors */
   --color-gray-200: #e7e7e7;
@@ -82,6 +90,13 @@
   --color-element-border-hover: var(--element-border-hover);
   --color-link-text-default: var(--link-text-default);
   --color-link-text-hover: var(--link-text-hover);
+  /* Translucent tokens painted onto the default surface, for layers that must be opaque. */
+  --color-background-selected-solid: var(--background-selected-solid, var(--background-selected));
+  --color-element-bg-hover-solid: var(--element-bg-hover-solid, var(--element-bg-hover));
+
+  /* Type scale below text-xs. The theme rescales it with the UI font size. */
+  --text-2xs: 0.625rem;
+  --text-2xs--line-height: 1.4;
 
   /* Animations */
   --animate-dialog-overlay-in: fadeIn 300ms ease-out;
@@ -323,8 +338,16 @@
     -webkit-app-region: no-drag;
   }
 
+  .app-region-drag {
+    -webkit-app-region: drag;
+  }
+
   .app-region-no-drag {
     -webkit-app-region: no-drag;
+  }
+
+  .scrollbar-gutter-stable {
+    scrollbar-gutter: stable;
   }
 
   .app-chrome {

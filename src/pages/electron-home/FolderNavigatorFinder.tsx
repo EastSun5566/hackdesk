@@ -12,6 +12,7 @@ import {
 import type { KeyboardEvent } from 'react';
 import { useState } from 'react';
 
+import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
 import { Toolbar } from '@/components/ui/toolbar';
 import type { NotePermissionRole } from '@/lib/electron-api';
@@ -74,7 +75,7 @@ function FilterChip({
       type="button"
       onClick={onRemove}
       className={cn(
-        'inline-flex h-6 min-w-0 items-center gap-1 rounded-[6px] border border-border-default bg-background-default px-2 text-xs text-text-default transition-colors hover:bg-element-bg-hover',
+        'inline-flex h-6 min-w-0 items-center gap-1 rounded-md border border-border-default bg-background-default px-2 text-xs text-text-default transition-colors hover:bg-element-bg-hover',
         FOCUS_RING_CLASS,
       )}
       aria-label={`Remove ${removeLabel}`}
@@ -135,7 +136,7 @@ export function NoteFinderToolbar({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5">
-        <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md border border-border-default bg-background-default px-2 transition-[border-color,box-shadow] focus-within:border-focus-ring focus-within:ring-2 focus-within:ring-focus-ring/60">
+        <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md border border-border-default bg-background-default px-2 transition focus-within:border-focus-ring focus-within:ring-2 focus-within:ring-focus-ring/60">
           <Search aria-hidden="true" className="h-4 w-4 shrink-0 text-text-subtle" />
           <span className="sr-only">Search notes</span>
           <input
@@ -149,14 +150,14 @@ export function NoteFinderToolbar({
           />
           {searchShortcut ? <kbd aria-hidden="true" data-search-shortcut className="shrink-0 rounded border border-border-default px-1 text-xs text-text-subtle">{searchShortcut}</kbd> : null}
           {state.query ? (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={() => updateState({ query: '' })}
-              className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default', FOCUS_RING_CLASS)}
               aria-label="Clear search"
             >
               <X aria-hidden="true" className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           ) : null}
         </label>
 
@@ -206,7 +207,7 @@ export function NoteFinderToolbar({
             >
               <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
               {activeFilterCount ? (
-                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-default px-1 text-[10px] leading-none text-primary-foreground">
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-default px-1 text-2xs leading-none text-primary-foreground">
                   {activeFilterCount}
                 </span>
               ) : null}
@@ -261,16 +262,9 @@ export function NoteFinderToolbar({
               <FilterChip key={`write:${permission}`} label={`Write: ${PERMISSION_LABELS[permission]}`} removeLabel={`write permission filter ${PERMISSION_LABELS[permission]}`} onRemove={() => removeWritePermission(permission)} />
             ))}
           </div>
-          <button
-            type="button"
-            onClick={clearFilters}
-            className={cn(
-              'h-6 shrink-0 rounded-[6px] px-2 text-xs text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default',
-              FOCUS_RING_CLASS,
-            )}
-          >
+          <Button variant="ghost" size="xs" onClick={clearFilters} className="font-normal">
             Clear
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>
@@ -335,16 +329,9 @@ export function TagBrowser({
           })}
           {tags.length > TAG_BROWSER_LIMIT ? (
             <li className="min-w-0">
-              <button
-                type="button"
-                onClick={() => setShowAll((current) => !current)}
-                className={cn(
-                  'mt-0.5 h-7 rounded-[6px] px-2 text-xs text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default',
-                  FOCUS_RING_CLASS,
-                )}
-              >
+              <Button variant="ghost" size="xs" onClick={() => setShowAll((current) => !current)} className="mt-0.5 font-normal">
                 {showAll ? 'Show less' : `Show ${tags.length - TAG_BROWSER_LIMIT} more`}
-              </button>
+              </Button>
             </li>
           ) : null}
         </ul>

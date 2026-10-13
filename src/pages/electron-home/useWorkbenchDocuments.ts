@@ -204,10 +204,17 @@ export function useWorkbenchDocuments({
       return 'saving';
     }
 
+    if (saveFailedTab) {
+      return 'save_failed';
+    }
+
+    // Unsaved edits on a file that changed on disk need a choice, not a retry.
+    if (isTabDirty(tab) && getTabDiskChanged(tab)) {
+      return 'conflict';
+    }
+
     if (
-      saveFailedTab
-      || (isTabDirty(tab) && getTabDiskChanged(tab))
-      || documentMissing
+      documentMissing
       || (getRepositoryError(documentResult) && !isShowingCachedFallback(documentResult))
     ) {
       return 'save_failed';

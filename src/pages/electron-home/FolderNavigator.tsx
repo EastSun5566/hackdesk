@@ -23,6 +23,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 
+import { Button } from '@/components/ui/button';
 import type { NoteSummary } from '@/lib/electron-api';
 import type { LocalVaultSkippedFile } from '@/lib/local-vault';
 import {
@@ -62,7 +63,6 @@ import {
 } from './FolderNavigatorRows';
 import { RepositoryNotice } from './RepositoryNotice';
 import { SkippedFilesNotice } from './SkippedFilesNotice';
-import { FOCUS_RING_CLASS } from './ui';
 import { FolderTreeFocusContext } from './FolderTreeFocusContext';
 import { useFolderTreeKeyboardNavigation } from './useFolderTreeKeyboardNavigation';
 
@@ -354,17 +354,14 @@ function NavigatorFilterBar({
       />
 
       {scope.type !== 'local' && !status.hasToken ? (
-        <button
-          type="button"
+        <Button
+          size="sm"
           onClick={actions.onOpenSettings}
-          className={cn(
-            'flex w-full items-center gap-2 rounded-[6px] border border-border-default bg-background-default px-2.5 py-1.5 text-left text-xs text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default',
-            FOCUS_RING_CLASS,
-          )}
+          className="w-full justify-start font-normal text-text-subtle hover:text-text-default"
         >
           <AlertCircle aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
           <span className="min-w-0 truncate">Configure HackMD API Token</span>
-        </button>
+        </Button>
       ) : null}
 
       <RepositoryNotice error={status.activeError} cached={status.showingCachedFallback} />
@@ -458,77 +455,53 @@ function NavigatorEmptyAction({
 }) {
   if (scope.type === 'local' && !status.hasLocalVault) {
     return (
-      <button
-        type="button"
+      <Button
+        variant="primary"
         onClick={actions.onChooseLocalVault}
-        className={cn(
-          'inline-flex h-9 items-center justify-center rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover',
-          FOCUS_RING_CLASS,
-        )}
       >
         Open Local Vault
-      </button>
+      </Button>
     );
   }
 
   if (!status.hasToken) {
     return (
-      <button
-        type="button"
+      <Button
+        variant="primary"
         onClick={actions.onOpenSettings}
-        className={cn(
-          'inline-flex h-9 items-center justify-center rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover',
-          FOCUS_RING_CLASS,
-        )}
       >
         Configure Token
-      </button>
+      </Button>
     );
   }
 
   if (isFinderMode) {
     return (
-      <button
-        type="button"
+      <Button
         onClick={() => actions.onFinderStateChange(DEFAULT_NOTE_FINDER_STATE)}
         disabled={finderState === DEFAULT_NOTE_FINDER_STATE}
-        className={cn(
-          'inline-flex h-9 items-center justify-center rounded-md border border-border-default px-3 text-sm font-medium text-text-default transition-colors hover:bg-element-bg-hover disabled:pointer-events-none disabled:opacity-50',
-          FOCUS_RING_CLASS,
-        )}
       >
         Clear Filters
-      </button>
+      </Button>
     );
   }
 
   if (status.canCreate) {
     return (
-      <button
-        type="button"
+      <Button
+        variant="primary"
         onClick={actions.onCreate}
         disabled={status.isCreating}
-        className={cn(
-          'inline-flex h-9 items-center justify-center rounded-md bg-primary-default px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50',
-          FOCUS_RING_CLASS,
-        )}
       >
         Create Note
-      </button>
+      </Button>
     );
   }
 
   return (
-    <button
-      type="button"
-      onClick={actions.onRefresh}
-      className={cn(
-        'inline-flex h-9 items-center justify-center rounded-md border border-border-default px-3 text-sm font-medium text-text-default transition-colors hover:bg-element-bg-hover',
-        FOCUS_RING_CLASS,
-      )}
-    >
+    <Button onClick={actions.onRefresh}>
       Refresh
-    </button>
+    </Button>
   );
 }
 

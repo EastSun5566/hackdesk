@@ -1,12 +1,11 @@
 import type { InputHTMLAttributes, ReactNode } from 'react';
 import { CircleHelp } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/field';
 import { Toggle } from '@/components/ui/toggle';
 import { Tooltip } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
 
-import { FOCUS_RING_CLASS } from './ui';
 
 export function SettingsSection({
   title,
@@ -67,16 +66,14 @@ function SettingsHelpTooltip({
 }) {
   return (
     <Tooltip content={children} side="right">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon-xs"
         aria-label={`About ${label}`}
-        className={cn(
-          "relative inline-flex size-5 items-center justify-center rounded-full text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default after:absolute after:-inset-2 after:content-['']",
-          FOCUS_RING_CLASS,
-        )}
+        className="relative rounded-full after:absolute after:-inset-2"
       >
         <CircleHelp className="h-3.5 w-3.5" aria-hidden="true" />
-      </button>
+      </Button>
     </Tooltip>
   );
 }

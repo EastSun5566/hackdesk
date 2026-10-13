@@ -1,22 +1,12 @@
 import type { FolderPathSummary } from '@/lib/electron-api';
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
-import { cn } from '@/lib/utils';
+import { buttonVariants } from '@/components/ui/button';
 
 export const FOCUS_RING_CLASS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring';
-export const PRESSED_CLASS = 'active:translate-y-px';
-export const PANEL_TRANSITION_CLASS = 'transition-[border-color,background-color] duration-150 ease-out motion-reduce:transition-none';
+export const PANEL_TRANSITION_CLASS = 'transition-colors duration-150 ease-out motion-reduce:transition-none';
 export const COLLAPSE_ICON_CLASS = 'transition-transform duration-150 ease-out motion-reduce:transition-none';
-export const ICON_BUTTON_CLASS = cn(
-  'inline-flex h-8 w-8 items-center justify-center rounded-md text-text-subtle transition-[background-color,border-color,color,transform] duration-150 ease-out hover:bg-element-bg-hover hover:text-text-default motion-reduce:transition-none disabled:pointer-events-none disabled:opacity-50',
-  PRESSED_CLASS,
-  FOCUS_RING_CLASS,
-);
-export const SECONDARY_BUTTON_CLASS = cn(
-  'inline-flex h-9 items-center gap-2 rounded-md border border-border-default px-3 text-sm transition-colors hover:bg-element-bg-hover active:bg-background-selected',
-  PRESSED_CLASS,
-  FOCUS_RING_CLASS,
-);
+export const ICON_BUTTON_CLASS = buttonVariants({ variant: 'ghost', size: 'icon' });
 const noteDateFormatter = new Intl.DateTimeFormat(undefined, {
   month: 'short',
   day: 'numeric',

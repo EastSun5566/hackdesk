@@ -114,14 +114,25 @@ describe('HackDesk themes', () => {
     }
   });
 
-  it('generates HackMD Neo surfaces from a custom Neutral seed', () => {
-    for (const mode of ['light', 'dark'] as const) {
-      const theme = resolveHackDeskTheme({ presetId: 'hackmd-neo', mode, customSeed: { neutral: '#6B7280' } });
-      expect(theme['--background-default']).not.toBe(resolveHackDeskTheme({ presetId: 'hackmd-neo', mode })['--background-default']);
-      expect(contrastRatio(theme['--text-default'], theme['--background-default']))
-        .toBeGreaterThan(contrastRatio(theme['--text-subtle'], theme['--background-default']));
-      expect(contrastRatio(theme['--icon-default'], theme['--background-default']))
-        .toBeGreaterThan(contrastRatio(theme['--icon-subtle'], theme['--background-default']));
+  it('lets a custom Neutral seed drive surfaces on every preset', () => {
+    for (const preset of HACKDESK_THEME_PRESETS) {
+      for (const mode of ['light', 'dark'] as const) {
+        const label = `${preset.id} ${mode}`;
+        const base = resolveHackDeskTheme({ presetId: preset.id, mode });
+        const theme = resolveHackDeskTheme({ presetId: preset.id, mode, customSeed: { neutral: '#6B7280' } });
+
+        expect(theme['--background-default'], label).not.toBe(base['--background-default']);
+        // The dialog scrim follows the seed like the other surfaces.
+        expect(theme['--background-overlay'], label).toBe(mode === 'dark' ? 'rgb(0 0 0 / 0.7)' : 'rgb(0 0 0 / 0.3)');
+        // Accent and syntax colors stay the preset's.
+        expect(theme['--code-keyword'], label).toBe(base['--code-keyword']);
+        expectContrast(theme['--text-default'], theme['--background-default'], 4.5, `${label} text`);
+        expectContrast(theme['--text-subtle'], theme['--background-default'], 4.5, `${label} subtle text`);
+        expect(contrastRatio(theme['--text-default'], theme['--background-default']))
+          .toBeGreaterThan(contrastRatio(theme['--text-subtle'], theme['--background-default']));
+        expect(contrastRatio(theme['--icon-default'], theme['--background-default']))
+          .toBeGreaterThan(contrastRatio(theme['--icon-subtle'], theme['--background-default']));
+      }
     }
   });
 

@@ -320,7 +320,7 @@ describe('useWorkbenchDocuments', () => {
       tabs: { [tab.tabId]: tab },
     })));
 
-    expect(result.current.getTabSyncState(tab)).toBe('save_failed');
+    expect(result.current.getTabSyncState(tab)).toBe('conflict');
     expect(result.current.getPaneView(pane).recovery).toEqual({
       kind: 'disk_changed',
       message: 'File changed on disk. Reload it or save a copy before writing.',

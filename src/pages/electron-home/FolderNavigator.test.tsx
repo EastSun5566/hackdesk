@@ -166,7 +166,7 @@ describe('FolderNavigator', () => {
   it('renders loading skeleton while notes load', () => {
     renderFolderNavigator({ status: { isLoading: true } });
 
-    expect(screen.getByLabelText('Loading notes')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Loading notes' })).toHaveAttribute('aria-busy', 'true');
   });
 
   it('counts notes with the right plural', () => {
@@ -359,7 +359,7 @@ describe('FolderNavigator', () => {
     expect(screen.queryByRole('menuitemcheckbox', { name: 'work' })).not.toBeInTheDocument();
 
     fireEvent.pointerDown(document.body);
-    fireEvent.click(screen.getByRole('button', { name: 'Tags' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Tags\b/ }));
     fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag work' }));
 
     expect(onFinderStateChange).toHaveBeenCalledWith({
@@ -399,7 +399,7 @@ describe('FolderNavigator', () => {
       layout: { collapsed: true },
     });
 
-    expect(container.firstElementChild).toHaveStyle({ width: '0px' });
+    expect(container.firstElementChild).toHaveStyle({ '--panel-width': '0px' });
     expect(screen.queryByRole('button', { name: 'Expand note navigator' })).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Search notes')).not.toBeInTheDocument();
   });

@@ -47,20 +47,42 @@ const DialogOverlay = React.forwardRef<
 ));
 DialogOverlay.displayName = 'DialogOverlay';
 
+const dialogSizeClassNames = {
+  default: 'max-w-lg',
+  // Onboarding and other short, single-column flows.
+  sm: 'w-[min(440px,calc(100dvw-2rem))]',
+  // Searchable lists that grow up to a fixed height and then scroll.
+  md: 'flex max-h-[min(760px,calc(100dvh-4rem))] w-[min(720px,calc(100dvw-3rem))] max-w-180 flex-col',
+  // Fixed-height layouts with their own scroll regions, such as Settings.
+  lg: 'flex h-[min(760px,calc(100dvh-4rem))] w-[min(820px,calc(100dvw-3rem))] max-w-205 flex-col',
+  // Wide, scrolling content such as side-by-side comparisons.
+  xl: 'max-h-[calc(100dvh-4rem)] max-w-4xl overflow-y-auto',
+} as const;
+
+const dialogPlacementClassNames = {
+  center: '',
+  // Pinned near the top so a growing result list does not move the input.
+  top: 'mt-[12dvh] self-start',
+} as const;
+
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Popup>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Popup> & {
     showCloseButton?: boolean;
+    size?: keyof typeof dialogSizeClassNames;
+    placement?: keyof typeof dialogPlacementClassNames;
   }
->(({ className, children, showCloseButton = true, ...props }, ref) => (
+>(({ className, children, showCloseButton = true, size = 'default', placement = 'center', ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Viewport className={cn('fixed inset-0 grid place-items-center', OVERLAY_LAYER_CLASS)}>
       <DialogPrimitive.Popup
         ref={ref}
         className={cn(
-          'relative grid w-full max-w-lg gap-4 border border-border-default bg-background-default p-6 text-text-default duration-150 data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none sm:rounded-md md:w-full',
+          'relative grid w-full gap-4 border border-border-default bg-background-default p-6 text-text-default duration-150 data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none sm:rounded-md md:w-full',
           ELEVATED_SURFACE_CLASS,
+          dialogSizeClassNames[size],
+          dialogPlacementClassNames[placement],
           className,
         )}
         {...props}

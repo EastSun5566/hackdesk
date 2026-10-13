@@ -88,9 +88,9 @@ import type { CommandPaletteState, WorkspaceScope } from './types';
 import { FOCUS_RING_CLASS } from './ui';
 import { PersonalWorkspaceIcon, TeamWorkspaceIcon } from './WorkspaceIcon';
 
-const COMMAND_ITEM_ICON_CLASS = 'mr-3 text-[color:var(--command-item-meta)]';
-const COMMAND_ITEM_TITLE_CLASS = 'block truncate font-medium text-[color:var(--command-item-title)]';
-const COMMAND_ITEM_META_CLASS = 'block truncate text-xs text-[color:var(--command-item-meta)]';
+const COMMAND_ITEM_ICON_CLASS = 'mr-3 text-command-item-meta';
+const COMMAND_ITEM_TITLE_CLASS = 'block truncate font-medium text-command-item-title';
+const COMMAND_ITEM_META_CLASS = 'block truncate text-xs text-command-item-meta';
 
 const THEME_MODE_COMMANDS: Array<{
   mode: ThemeMode;
@@ -408,7 +408,7 @@ export function CommandPaletteDialog({
         open ? { ...state, open } : { mode: 'commands', open: false, search: '' },
       )}
     >
-      <DialogContent className="mt-[12dvh] max-w-xl self-start overflow-hidden p-0" showCloseButton={false}>
+      <DialogContent placement="top" className="max-w-xl overflow-hidden p-0" showCloseButton={false}>
         <DialogHeader className="sr-only">
           <DialogTitle>{dialogTitle}</DialogTitle>
           <DialogDescription>{dialogDescription}</DialogDescription>

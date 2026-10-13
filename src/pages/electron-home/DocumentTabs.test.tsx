@@ -67,12 +67,12 @@ describe('DocumentTabs', () => {
   it('keeps note tabs custom while pane actions use toolbar roving focus', async () => {
     renderDocumentTabs();
 
-    expect(screen.getByRole('tab', { name: 'Select Daily Notes tab' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^Daily Notes(?:, .+)?$/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close Project Plan' })).toBeInTheDocument();
     await expectToolbarRovingFocus('Pane controls', ['Pane actions']);
   });
 
-  it('exposes manual-activation tabs with one tab stop and announced sync status', () => {
+  it('exposes manual-activation tabs with one tab stop', () => {
     renderDocumentTabs({ paneId: 'pane-1' });
     const list = screen.getByRole('tablist', { name: 'Open documents' });
     const tabs = within(list).getAllByRole('tab');
@@ -81,7 +81,8 @@ describe('DocumentTabs', () => {
     expect(tabs[1]).toHaveAttribute('aria-selected', 'false');
     expect(tabs.filter(tab => tab.tabIndex === 0)).toEqual([tabs[0]]);
     expect(tabs[0]).toHaveAttribute('aria-controls', 'document-pane-pane-1');
-    expect(tabs[0]).toHaveAccessibleDescription('Saved');
+    // A saved tab is named by its title alone.
+    expect(tabs[0]).toHaveAccessibleName('Daily Notes');
   });
 
   it('keeps empty document navigation named without visible placeholder copy', () => {
@@ -93,10 +94,10 @@ describe('DocumentTabs', () => {
     const openDocuments = screen.getByRole('navigation', { name: 'Open documents' });
     expect(openDocuments).toBeEmptyDOMElement();
     expect(within(openDocuments).queryByRole('list')).not.toBeInTheDocument();
-    expect(within(openDocuments).queryByRole('tab', { name: /Select .* tab/ })).not.toBeInTheDocument();
+    expect(within(openDocuments).queryByRole('tab')).not.toBeInTheDocument();
   });
 
-  it('uses the shared sync status labels for tab status accessibility', async () => {
+  it('names each tab by its title and its sync status unless it is saved', async () => {
     const states: DocumentSyncState[] = ['idle', 'loading', 'saving', 'saved', 'cached', 'save_failed', 'conflict'];
     renderDocumentTabs({
       activeTab: tab({
@@ -125,11 +126,13 @@ describe('DocumentTabs', () => {
     ];
 
     for (const [state, label] of expectedLabels) {
-      expect(screen.getByText(label).closest('[role="tab"]')).toHaveAccessibleDescription(label);
+      const name = state === 'saved' ? `${state} note` : `${state} note, ${label}`;
+      expect(screen.getByRole('tab', { name })).toBeInTheDocument();
       expect(document.querySelector(`[data-sync-state="${state}"]`)).toHaveAttribute('aria-hidden', 'true');
     }
 
     fireEvent.mouseEnter(document.querySelector('[data-sync-state="saving"]')!);
+    // The live region and the tooltip.
     expect(await screen.findAllByText('Saving…')).toHaveLength(2);
   });
 
@@ -153,7 +156,7 @@ describe('DocumentTabs', () => {
   it('keeps select and close tab payloads unchanged', () => {
     const props = renderDocumentTabs();
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Select Project Plan tab' }));
+    fireEvent.click(screen.getByRole('tab', { name: /^Project Plan(?:, .+)?$/ }));
     expect(props.onSelectTab).toHaveBeenCalledWith('tab-2');
 
     fireEvent.click(screen.getByRole('button', { name: 'Close Project Plan' }));
@@ -195,8 +198,8 @@ describe('DocumentTabs', () => {
 
   it('moves focus with arrows and Home/End without selecting or reordering', () => {
     const props = renderDocumentTabs();
-    const first = screen.getByRole('tab', { name: 'Select Daily Notes tab' });
-    const second = screen.getByRole('tab', { name: 'Select Project Plan tab' });
+    const first = screen.getByRole('tab', { name: /^Daily Notes(?:, .+)?$/ });
+    const second = screen.getByRole('tab', { name: /^Project Plan(?:, .+)?$/ });
     act(() => first.focus());
     fireEvent.keyDown(first, { key: 'ArrowRight' });
     expect(second).toHaveFocus();
@@ -222,7 +225,7 @@ describe('DocumentTabs', () => {
     fireEvent.click(document.activeElement!);
     expect(props.onCloseTab).toHaveBeenCalledWith('tab-1');
     rerender(<TooltipProvider><DocumentTabs {...props} activeTab={props.tabs[1]} tabs={[props.tabs[1]]} /></TooltipProvider>);
-    expect(screen.getByRole('tab', { name: 'Select Project Plan tab' })).toHaveFocus();
+    expect(screen.getByRole('tab', { name: /^Project Plan(?:, .+)?$/ })).toHaveFocus();
     rerender(<TooltipProvider><DocumentTabs {...props} activeTab={null} tabs={[]} /></TooltipProvider>);
     expect(screen.getByRole('button', { name: 'Pane actions' })).toHaveFocus();
   });
@@ -231,7 +234,7 @@ describe('DocumentTabs', () => {
     const props = createDocumentTabsProps();
     const view = (tabs: OpenNoteTab[]) => <TooltipProvider><input aria-label="Outside" /><DocumentTabs {...props} tabs={tabs} /></TooltipProvider>;
     const { rerender } = render(view(props.tabs));
-    act(() => screen.getByRole('tab', { name: 'Select Daily Notes tab' }).focus());
+    act(() => screen.getByRole('tab', { name: /^Daily Notes(?:, .+)?$/ }).focus());
     act(() => screen.getByRole('textbox', { name: 'Outside' }).focus());
     rerender(view([props.tabs[1]]));
     expect(screen.getByRole('textbox', { name: 'Outside' })).toHaveFocus();

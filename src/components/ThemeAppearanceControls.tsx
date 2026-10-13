@@ -90,7 +90,7 @@ export function ThemeAppearanceFields({
                 focusClassName,
                 compact
                   ? 'inline-flex h-8 w-auto items-center gap-1.5 rounded border-0 bg-transparent px-2.5 text-xs font-medium transition-colors hover:bg-element-bg-hover'
-                  : 'flex h-auto w-auto flex-col items-center gap-2 rounded-lg border-2 p-4 transition-[background-color,border-color,box-shadow] duration-150 ease-out hover:bg-element-bg-hover motion-reduce:transition-none',
+                  : 'flex h-auto w-auto flex-col items-center gap-2 rounded-lg border-2 p-4 transition duration-150 ease-out hover:bg-element-bg-hover motion-reduce:transition-none',
                 draftMode === option.id && compact ? 'bg-background-default text-text-default shadow-sm' : null,
                 draftMode === option.id && !compact ? 'border-primary-default bg-primary-soft' : null,
                 draftMode !== option.id && compact ? 'text-text-subtle' : null,
@@ -251,8 +251,8 @@ function ThemeSeedFields({
         <FieldLabel htmlFor={fieldId}>{field.label}</FieldLabel>
         <div className="flex items-center gap-2">
           <span
-            className="size-5 rounded border border-border-default"
-            style={{ backgroundColor: inputs[field.key] || 'transparent' }}
+            className="size-5 rounded border border-border-default bg-(--swatch)"
+            style={{ '--swatch': inputs[field.key] || 'transparent' }}
             aria-hidden="true"
           />
           <Input

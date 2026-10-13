@@ -114,6 +114,9 @@ function createWorkspaceProps(overrides: Partial<Parameters<typeof DocumentWorks
     onExportDraft: vi.fn(),
     onOpenAsNewDraft: vi.fn(),
     onRetryLoad: vi.fn(),
+    canCreateNote: true,
+    onCreateNote: vi.fn(),
+    onQuickOpen: vi.fn(),
     panes,
     shareOpen: true,
     ...overrides,
@@ -141,6 +144,23 @@ describe('DocumentWorkspace', () => {
 
     expect(screen.getByRole('heading', { name: 'No note selected' })).toBeInTheDocument();
     expect(screen.getByText('Choose a note from the navigator to read or edit.')).toBeInTheDocument();
+  });
+
+  it('offers to create or search for a note from the blank state', () => {
+    const props = renderWorkspace({ panes: [pane('pane-a', [], undefined, 100)] });
+
+    fireEvent.click(screen.getByRole('button', { name: 'New Note' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Search Notes' }));
+
+    expect(props.onCreateNote).toHaveBeenCalledOnce();
+    expect(props.onQuickOpen).toHaveBeenCalledOnce();
+  });
+
+  it('hides New Note in the blank state when the workspace is read-only', () => {
+    renderWorkspace({ panes: [pane('pane-a', [], undefined, 100)], canCreateNote: false });
+
+    expect(screen.queryByRole('button', { name: 'New Note' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Search Notes' })).toBeInTheDocument();
   });
 
   it('marks the active split pane with semantic and visual state', () => {

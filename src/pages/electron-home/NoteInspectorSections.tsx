@@ -15,7 +15,6 @@ import type { NotePermissionRole } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
 
 import { CollapsibleSection } from './interaction-primitives';
-import { FOCUS_RING_CLASS } from './ui';
 import type {
   FolderOption,
   InspectorDirtyState,
@@ -193,21 +192,22 @@ function TagEditor({
   return (
     <div className="space-y-1.5">
       <label className={INSPECTOR_LABEL_CLASS} htmlFor={id}>Tags</label>
-      <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-border-default bg-background-default px-2 py-1 transition-[border-color,box-shadow] focus-within:border-focus-ring focus-within:ring-2 focus-within:ring-inset focus-within:ring-focus-ring">
+      <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-border-default bg-background-default px-2 py-1 transition focus-within:border-focus-ring focus-within:ring-2 focus-within:ring-inset focus-within:ring-focus-ring">
         {tags.map((tag) => (
           <span
             key={tag}
-            className="inline-flex h-7 items-center gap-1 rounded-[6px] bg-background-selected px-2 text-xs text-text-default"
+            className="inline-flex h-7 items-center gap-1 rounded-md bg-background-selected px-2 text-xs text-text-default"
           >
             {tag}
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={() => onRemoveTag(tag)}
-              className={cn('-mr-1 grid size-6 shrink-0 place-items-center rounded-[4px] text-text-subtle hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_CLASS, 'focus-visible:ring-inset')}
+              className="-mr-1 rounded-sm focus-visible:ring-inset"
               aria-label={`Remove ${tag} tag`}
             >
               <X aria-hidden="true" className="h-3 w-3" />
-            </button>
+            </Button>
           </span>
         ))}
         <input
@@ -348,7 +348,7 @@ function PermissionSegmentedField({
             key={option.value}
             value={option.value}
             aria-label={option.label}
-            className="flex h-8 w-full min-w-0 cursor-pointer items-center justify-center overflow-hidden rounded-[5px] border-0 bg-transparent px-1.5 focus-visible:ring-inset focus-visible:ring-offset-0 text-center text-xs text-text-subtle data-[checked]:bg-background-selected data-[checked]:font-medium data-[checked]:text-text-default"
+            className="flex h-8 w-full min-w-0 cursor-pointer items-center justify-center overflow-hidden rounded-sm border-0 bg-transparent px-1.5 focus-visible:ring-inset focus-visible:ring-offset-0 text-center text-xs text-text-subtle data-[checked]:bg-background-selected data-[checked]:font-medium data-[checked]:text-text-default"
           >
             <span className="min-w-0 truncate whitespace-nowrap">
               {option.label}

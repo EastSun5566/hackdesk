@@ -11,9 +11,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import type { FolderTreeNode } from '@/lib/hackmd-folders';
-import { cn } from '@/lib/utils';
 
-import { FOCUS_RING_CLASS, PRESSED_CLASS, SECONDARY_BUTTON_CLASS } from './ui';
 
 export function DeleteFolderDialog({
   folder,
@@ -42,18 +40,13 @@ export function DeleteFolderDialog({
         <AlertDialogFooter>
           <AlertDialogCancel
             disabled={isDeleting}
-            className={SECONDARY_BUTTON_CLASS}
           >
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={() => folder && onDelete(folder)}
             disabled={isDeleting || !folder}
-            className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-md bg-destructive-default px-3 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive-hover disabled:pointer-events-none disabled:opacity-50',
-              PRESSED_CLASS,
-              FOCUS_RING_CLASS,
-            )}
+            variant="destructive-solid"
           >
             {isDeleting
               ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />

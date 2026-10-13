@@ -16,7 +16,6 @@ import {
 import { cn } from '@/lib/utils';
 
 import { SettingsRow, SettingsSecretInput, SettingsSection } from './SettingsPrimitives';
-import { FOCUS_RING_CLASS, PRESSED_CLASS, SECONDARY_BUTTON_CLASS } from './ui';
 
 const SETTINGS_TOKEN_ID = 'settings-hackmd-token';
 const SETTINGS_TOKEN_STATUS_ID = 'settings-hackmd-token-status';
@@ -117,16 +116,12 @@ export function HackmdSettingsPanel({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className={SECONDARY_BUTTON_CLASS}>
+            <AlertDialogCancel>
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDisconnect}
-              className={cn(
-                'inline-flex h-9 items-center gap-2 rounded-md bg-destructive-default px-3 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive-hover',
-                PRESSED_CLASS,
-                FOCUS_RING_CLASS,
-              )}
+              variant="destructive-solid"
             >
               <AlertCircle aria-hidden="true" className="h-4 w-4" />
               Disconnect HackMD

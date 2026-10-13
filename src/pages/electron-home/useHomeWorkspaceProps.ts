@@ -50,6 +50,7 @@ type WorkspaceActions = {
   handleOpenExternal: ElectronHomeWorkspaceProps['documentWorkspace']['onOpenExternal'];
   openHackmdTokenSetup: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenSettings'];
   openPalette: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenPalette'];
+  openQuickOpen: () => void;
   setFinderState: Dispatch<SetStateAction<NoteFinderState>>;
   setShareOpen: (open: boolean) => void;
   switchWorkspaceScope: (scope: WorkspaceScope) => void;
@@ -267,6 +268,9 @@ export function useHomeWorkspaceProps({
       onOpenEditor: actions.handleOpenEditor,
       onOpenExternal: actions.handleOpenExternal,
       onRevealInFinder: localVaultActions.revealLocalNote,
+      canCreateNote: homeStatus.navigatorStatus.canCreate,
+      onCreateNote: folderCommands.handleCreateNote,
+      onQuickOpen: actions.openQuickOpen,
       onCopyLink: actions.handleCopyNoteLink,
       onCopyMarkdownLink: actions.handleCopyNoteMarkdownLink,
       onExportMarkdown: actions.handleExportMarkdown,

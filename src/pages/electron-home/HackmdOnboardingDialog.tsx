@@ -185,7 +185,7 @@ export function HackmdOnboardingDialog({
         close();
       }
     }}>
-      <DialogContent className="w-[min(440px,calc(100dvw-2rem))] overflow-hidden p-0">
+      <DialogContent size="sm" className="overflow-hidden p-0">
         <OnboardingStepShell
           icon={<KeyRound aria-hidden="true" className="h-8 w-8" />}
           title="Connect HackMD"

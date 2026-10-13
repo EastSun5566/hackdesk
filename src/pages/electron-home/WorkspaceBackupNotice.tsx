@@ -1,4 +1,5 @@
 import { AlertCircle, Copy, Download, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export type WorkspaceBackupNoticeProps = {
   currentWorkspaceAffected: boolean;
@@ -9,7 +10,6 @@ export type WorkspaceBackupNoticeProps = {
   onRetry: () => void;
 };
 
-const buttonClassName = 'inline-flex h-7 items-center gap-1 rounded-[6px] border border-warning-default/35 bg-background-default px-2 text-xs font-medium text-text-default hover:bg-background-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-50';
 
 export function WorkspaceBackupNotice({
   currentWorkspaceAffected,
@@ -30,36 +30,36 @@ export function WorkspaceBackupNotice({
         </p>
         {currentWorkspaceAffected ? (
           <>
-            <button
-              type="button"
-              className={buttonClassName}
+            <Button
+              size="xs"
+              variant="warning-outline"
               disabled={!hasActiveDraft}
               title={hasActiveDraft ? undefined : 'The active tab has no unsaved draft.'}
               onClick={onCopyDraft}
             >
               <Copy aria-hidden="true" className="h-3.5 w-3.5" />
               Copy draft
-            </button>
-            <button
-              type="button"
-              className={buttonClassName}
+            </Button>
+            <Button
+              size="xs"
+              variant="warning-outline"
               disabled={!hasActiveDraft}
               title={hasActiveDraft ? undefined : 'The active tab has no unsaved draft.'}
               onClick={onExportDraft}
             >
               <Download aria-hidden="true" className="h-3.5 w-3.5" />
               Export draft
-            </button>
+            </Button>
           </>
         ) : null}
-        <button
-          type="button"
-          className="inline-flex h-7 items-center gap-1 rounded-[6px] bg-warning-default px-2 text-xs font-medium text-warning-foreground hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+        <Button
+          size="xs"
+          variant="warning"
           onClick={onRetry}
         >
           <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
           Retry backup
-        </button>
+        </Button>
       </div>
     </div>
   );

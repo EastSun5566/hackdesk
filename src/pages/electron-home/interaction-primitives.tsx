@@ -73,8 +73,8 @@ function entityRowClassName({
   className?: string;
 }) {
   return cn(
-    'group/entity-row relative flex w-full min-w-0 items-center text-left transition-[background-color,color,opacity] duration-150 ease-out motion-reduce:transition-none',
-    variant === 'compact' ? 'gap-2 rounded-[6px] px-2 py-1 text-sm' : 'gap-2.5 rounded-md px-2.5 py-2 text-sm',
+    'group/entity-row relative flex w-full min-w-0 items-center text-left transition duration-150 ease-out motion-reduce:transition-none',
+    variant === 'compact' ? 'gap-2 rounded-md px-2 py-1 text-sm' : 'gap-2.5 rounded-md px-2.5 py-2 text-sm',
     selected || active
       ? 'bg-background-selected text-text-default'
       : 'text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
@@ -162,7 +162,7 @@ function EntityRowContent({
           onClick={contentOnClick}
           aria-label={contentAriaLabel}
           aria-current={contentAriaCurrent}
-          className={cn('flex min-w-0 flex-1 items-center gap-2 rounded-[4px] text-left focus-visible:outline-none', contentClassName)}
+          className={cn('flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left focus-visible:outline-none', contentClassName)}
         >
           {iconElement}
           <span className="min-w-0 flex-1">{contentBody}</span>
@@ -315,10 +315,11 @@ export function PanelShell({
       aria-label={ariaLabel}
       className={cn(
         'flex shrink-0 flex-col overflow-hidden outline-none',
+        width && 'w-(--panel-width)',
         PANEL_TRANSITION_CLASS,
         className,
       )}
-      style={width ? { width: collapsed && collapsedWidth !== undefined ? collapsedWidth : width } : undefined}
+      style={width ? { '--panel-width': `${collapsed && collapsedWidth !== undefined ? collapsedWidth : width}px` } : undefined}
     >
       {children}
     </Component>
@@ -379,7 +380,7 @@ export function ToolbarIconButton({
   const tooltipContent = displayShortcut ? (
     <span className="flex items-center gap-3">
       <span>{tooltip}</span>
-      <kbd className="rounded-[4px] bg-background-muted px-1.5 py-0.5 font-mono text-[10px] leading-none text-text-subtle">
+      <kbd className="rounded-sm bg-background-muted px-1.5 py-0.5 font-mono text-2xs leading-none text-text-subtle">
         {displayShortcut}
       </kbd>
     </span>
@@ -457,23 +458,20 @@ function SectionHeader({
   subtitle,
   dirty,
   actions,
-  buttonProps,
 }: {
   title: ReactNode;
   subtitle?: ReactNode;
   dirty?: boolean;
   actions?: ReactNode;
-  buttonProps?: React.ComponentPropsWithoutRef<typeof CollapsibleTrigger>;
 }) {
   return (
     <div className="flex min-h-8 items-center justify-between gap-2">
       <CollapsibleTrigger
         type="button"
-        {...buttonProps}
+        aria-label={typeof title === 'string' ? [title, dirty && 'Unsaved changes', typeof subtitle === 'string' && subtitle].filter(Boolean).join(', ') : undefined}
         className={cn(
-          'flex min-w-0 flex-1 items-center gap-2 rounded-[6px] text-left text-xs font-semibold uppercase text-text-subtle transition-colors hover:text-text-default',
+          'flex min-w-0 flex-1 items-center gap-2 rounded-md text-left text-xs font-semibold uppercase text-text-subtle transition-colors hover:text-text-default',
           FOCUS_RING_CLASS,
-          buttonProps?.className,
         )}
       >
         <ChevronDown
@@ -481,7 +479,7 @@ function SectionHeader({
           className={cn('h-3.5 w-3.5 shrink-0 -rotate-90 group-data-[panel-open]:rotate-0', COLLAPSE_ICON_CLASS)}
         />
         <span className="min-w-0 truncate">{title}</span>
-        {dirty ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary-default" aria-label="Unsaved changes" /> : null}
+        {dirty ? <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary-default" /> : null}
         {subtitle ? <span className="min-w-0 truncate normal-case text-text-subtle">{subtitle}</span> : null}
       </CollapsibleTrigger>
       {actions ? <div className="shrink-0">{actions}</div> : null}
@@ -519,9 +517,6 @@ export function CollapsibleSection({
         subtitle={subtitle}
         dirty={dirty}
         actions={actions}
-        buttonProps={{
-          'aria-label': typeof title === 'string' ? title : undefined,
-        }}
       />
       <CollapsibleContent>
         <div className={cn('space-y-2.5 pt-2.5', contentClassName)}>

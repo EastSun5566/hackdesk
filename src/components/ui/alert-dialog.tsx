@@ -2,6 +2,7 @@ import * as React from 'react';
 import { AlertDialog as AlertDialogPrimitive } from '@base-ui/react/alert-dialog';
 
 import { cn } from '@/lib/utils';
+import { Button, buttonVariants, type ButtonProps, type ButtonSize, type ButtonVariant } from './button';
 import { DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './dialog';
 import { ELEVATED_SURFACE_CLASS, OVERLAY_LAYER_CLASS } from './layers';
 
@@ -54,19 +55,21 @@ const AlertDialogTitle = DialogTitle;
 
 const AlertDialogDescription = DialogDescription;
 
+type ButtonStyleProps = { variant?: ButtonVariant; size?: ButtonSize };
+
 const AlertDialogCancel = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Close>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Close>
->(({ className, ...props }, ref) => (
-  <AlertDialogPrimitive.Close ref={ref} className={className} {...props} />
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Close> & ButtonStyleProps
+>(({ className, variant = 'secondary', size = 'md', ...props }, ref) => (
+  <AlertDialogPrimitive.Close ref={ref} className={cn(buttonVariants({ variant, size }), className)} {...props} />
 ));
 AlertDialogCancel.displayName = 'AlertDialogCancel';
 
 const AlertDialogAction = React.forwardRef<
-  HTMLButtonElement,
-  React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ className, type = 'button', ...props }, ref) => (
-  <button ref={ref} type={type} className={className} {...props} />
+  React.ElementRef<typeof Button>,
+  ButtonProps
+>(({ variant = 'primary', ...props }, ref) => (
+  <Button ref={ref} variant={variant} {...props} />
 ));
 AlertDialogAction.displayName = 'AlertDialogAction';
 
