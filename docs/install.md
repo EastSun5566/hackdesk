@@ -2,81 +2,97 @@
 outline: deep
 ---
 
-<!-- markdownlint-disable MD033 MD041 -->
-
 <script setup>
 import { data } from './release.data.ts'
 </script>
 
-# Installation
+# Install HackDesk
+
+Download the v2 beta for your platform. Betas are unsigned and use manual updates. For older installations, see [legacy releases](#legacy-releases).
 
 <div v-if="data.notice" class="warning custom-block">
-  <p class="custom-block-title">Release details</p>
-  <p>{{ data.notice }} <a :href="data.releasesUrl" target="_blank" rel="noreferrer">GitHub Releases</a></p>
+  <p class="custom-block-title">Download information</p>
+  <p>{{ data.notice }} <a :href="data.releasesUrl" target="_blank" rel="noreferrer">Check GitHub Releases</a> for current downloads.</p>
 </div>
 
-## v2 Beta
-
-On macOS, HackDesk v2 beta requires macOS 13 or later. Beta builds are unsigned and use manual updates. Existing v0.1.5 installs do not update to v2 automatically. Your settings under `~/.hackdesk` are reused.
-
-Save all open notes before upgrading from beta.4; it cannot restore unsaved edits to existing notes after a restart.
+## Download the v2 beta
 
 <template v-if="data.beta">
-<p>The current beta is v{{ data.beta.version }}.</p>
+<p>The current published beta is v{{ data.beta.version }}. Choose your platform:</p>
 <ul>
   <li v-for="link in data.beta.links" :key="link.url"><a :href="link.url" target="_blank" rel="noreferrer">{{ link.label }}</a></li>
 </ul>
 </template>
-<p v-else>No beta download is listed here right now. Find betas on <a :href="data.releasesUrl" target="_blank" rel="noreferrer">GitHub Releases</a>.</p>
+<p v-else>No beta download is available in this listing. Check <a :href="data.releasesUrl" target="_blank" rel="noreferrer">GitHub Releases</a>.</p>
 
-On macOS, move HackDesk to Applications, then run:
+V2 guides and demonstration screenshots follow the current development build. Some details can differ from the published beta.
+
+### macOS
+
+V2 requires macOS 13 or later. Choose the Apple silicon or Intel disk image and move HackDesk to Applications.
+
+For an unsigned build downloaded from the official repository, remove its quarantine attribute:
 
 ```sh
 xattr -dr com.apple.quarantine "/Applications/HackDesk.app"
 ```
 
-If that does not work, try to open HackDesk once. Then open **System Settings → Privacy & Security**, scroll to **Security**, and click **Open Anyway**. Authenticate and confirm **Open**.
+If macOS still blocks launch, try opening HackDesk once. Then open **System Settings → Privacy & Security → Open Anyway**, authenticate, and confirm **Open**.
 
-On Windows, Microsoft Defender SmartScreen may show an unknown publisher warning. Choose **More info → Run anyway** to continue.
+### Windows
 
-Download each new beta manually from [GitHub Releases](https://github.com/EastSun5566/hackdesk/releases).
+Download and run the x64 installer. An unsigned beta can show a Microsoft Defender SmartScreen warning. For the official download, choose **More info → Run anyway** to continue.
 
-Report beta problems on [GitHub Issues](https://github.com/EastSun5566/hackdesk/issues).
+### Linux
 
-## Stable release
+Download the x64 AppImage and allow it to run. Replace the example name with your downloaded file:
 
-<p v-if="data.stable">The current stable release is v{{ data.stable.version }}.</p>
-<p v-else>Stable downloads are not listed here right now. Find them on <a :href="data.releasesUrl" target="_blank" rel="noreferrer">GitHub Releases</a>.</p>
+```sh
+chmod +x ./hackdesk_download.AppImage
+./hackdesk_download.AppImage
+```
 
-### macOS
+## Update a beta
 
-<ul v-if="data.stable">
-  <li v-for="link in data.stable.links.filter((item) => item.platform === 'macos')" :key="link.url"><a :href="link.url" target="_blank" rel="noreferrer">{{ link.fileName }}</a> ({{ link.label }})</li>
+Save open notes, quit HackDesk, and download the next beta manually. V2 reuses the settings folder at `~/.hackdesk` or `%USERPROFILE%\.hackdesk`.
+
+If upgrading from beta.4 or earlier, save all edits before closing the old version. Beta.4 cannot restore unsaved edits to existing notes after restart.
+
+V0.1.x does not update to v2 automatically. Install the v2 beta separately, following the platform steps above.
+
+## Try a main preview
+
+[GitHub Releases](https://github.com/EastSun5566/hackdesk/releases) also lists `main-<commit>` previews after CI passes. These builds include newer changes, are unsigned, and require manual installation and updates. Choose a published beta when you do not need a specific main change.
+
+## Legacy releases
+
+The stable download channel currently contains the older v0.1 series. Its installers and package-manager entries are separate from v2 beta downloads.
+
+<template v-if="data.stable">
+<p>The listed stable release is v{{ data.stable.version }}.</p>
+<ul>
+  <li v-for="link in data.stable.links" :key="link.url"><a :href="link.url" target="_blank" rel="noreferrer">{{ link.label }}</a></li>
 </ul>
+</template>
+<p v-else>Find older releases on <a :href="data.releasesUrl" target="_blank" rel="noreferrer">GitHub Releases</a>.</p>
+
+### macOS legacy install
+
+The Homebrew cask currently installs v0.1.5, not the v2 beta. Trust the official tap, install it, then remove quarantine:
 
 ```sh
 brew trust --tap eastsun5566/hackdesk && brew install --cask eastsun5566/hackdesk/hackdesk
 xattr -dr com.apple.quarantine "/Applications/HackDesk.app"
 ```
 
-If the Terminal setup does not work, try to open HackDesk once. Then open **System Settings → Privacy & Security**, scroll to **Security**, and click **Open Anyway**. This option is available for about one hour after the failed open attempt. Authenticate and confirm **Open**.
+If needed, use the **Open Anyway** steps above. Only use these overrides for official HackDesk downloads.
 
-Only use these overrides for HackDesk downloaded from the official tap or GitHub Releases.
+### Windows legacy install
 
-### Linux
-
-<ul v-if="data.stable">
-  <li v-for="link in data.stable.links.filter((item) => item.platform === 'linux')" :key="link.url"><a :href="link.url" target="_blank" rel="noreferrer">{{ link.fileName }}</a></li>
-</ul>
-
-### Windows
-
-<ul v-if="data.stable">
-  <li v-for="link in data.stable.links.filter((item) => item.platform === 'windows')" :key="link.url"><a :href="link.url" target="_blank" rel="noreferrer">{{ link.fileName }}</a></li>
-</ul>
+For the older Windows package, use:
 
 ```sh
 winget install EastSun5566.HackDesk
 ```
 
-You can see all releases on [GitHub](https://github.com/EastSun5566/hackdesk/releases)
+Report installation problems on [GitHub Issues](https://github.com/EastSun5566/hackdesk/issues). See the [Code signing policy](./code-signing-policy.md) for current signing status.

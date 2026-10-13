@@ -11,38 +11,42 @@
 
 > 📝 A hackable HackMD desktop application
 
-HackDesk works directly with the HackMD API and local Markdown vaults.
+Work with HackMD notes and local Markdown vaults.
 
-- **HackMD API-native:** Work with notes, folders, teams, history, and sharing.
-- **Local-first:** Open any folder as a portable Markdown vault.
-- **Hackable:** Tune themes, fonts, editor modes, and shortcuts in the UI or `~/.hackdesk/settings.json`.
+- **HackMD:** Browse personal and team notes, organize folders, and view history.
+- **Local Vault:** Open a folder of Markdown files without an account.
+- **Customize:** Change themes, fonts, editor modes, and shortcuts in Settings.
 
 ## Install
 
-### macOS
+[Download HackDesk v2.0.0-beta.5](https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.5) for macOS, Windows, or Linux. On macOS, v2 requires macOS 13 or later. Beta builds are unsigned and use manual updates.
 
-The Homebrew cask currently installs stable v0.1.5:
+Save all open notes before upgrading from beta.4 or earlier; those versions cannot restore unsaved edits to existing notes after a restart.
+
+See the [installation guide](https://hackdesk.eastsun.me/install) for platform steps and the [code signing policy](docs/code-signing-policy.md) for signing status.
+
+### Main previews
+
+[Releases](https://github.com/EastSun5566/hackdesk/releases) also lists `main-<commit>` previews after CI passes. These builds include newer changes, are unsigned, and use manual updates.
+
+### Legacy macOS install
+
+Homebrew currently installs v0.1.5, not the v2 beta:
 
 ```sh
 brew trust --tap eastsun5566/hackdesk && brew install --cask eastsun5566/hackdesk/hackdesk
 xattr -dr com.apple.quarantine "/Applications/HackDesk.app"
 ```
 
-### v2 beta
+## Guides
 
-On macOS, v2 beta requires macOS 13 or later. Beta builds are unsigned and use manual updates.
+[Get started](docs/intro.md) · [Work with notes](docs/features.md) · [Quick Hack](docs/quick-hack.md) · [Keyboard navigation](docs/keyboard-navigation.md) · [Customize HackDesk](docs/config.md)
 
-[Download HackDesk v2.0.0-beta.5](https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.5)
-
-Save all open notes before upgrading from beta.4; it cannot restore unsaved edits to existing notes after a restart.
-
-[Documentation](https://hackdesk.eastsun.me)
-
-### Main previews
-
-Main builds are published after the full CI workflow passes. Each preview has its own `main-<commit>` release and a version containing the commit SHA. Download them from [Releases](https://github.com/EastSun5566/hackdesk/releases); these builds are unsigned and require manual installation and updates.
+The [documentation website](https://hackdesk.eastsun.me) follows the current v2 development build. Published betas can differ.
 
 ## Development
+
+Use Node.js 24 and the pnpm version specified in `package.json`.
 
 ```sh
 pnpm install
@@ -51,5 +55,3 @@ pnpm run dev
 ```
 
 Run `pnpm run check` before opening a pull request.
-
-See [Windows test signing](docs/windows-test-signing.md) for the SignPath setup and artifact-only verification workflow.

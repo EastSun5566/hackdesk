@@ -40,17 +40,20 @@ export default defineConfig({
     },
 
     nav: [
-      { text: 'Guide', link: '/intro' },
+      { text: 'Get started', link: '/intro' },
     ],
 
     sidebar: [
       {
         text: 'Guide',
         items: [
-          { text: 'Introduction', link: '/intro' },
-          { text: 'Installation', link: '/install' },
-          { text: 'Features', link: '/features' },
-          { text: 'Config', link: '/config' },
+          { text: 'Get started', link: '/intro' },
+          { text: 'Install HackDesk', link: '/install' },
+          { text: 'Work with notes', link: '/features' },
+          { text: 'Quick Hack', link: '/quick-hack' },
+          { text: 'Keyboard navigation', link: '/keyboard-navigation' },
+          { text: 'Customize HackDesk', link: '/config' },
+          { text: 'Code signing policy', link: '/code-signing-policy' },
           { text: 'GitHub Issues', link: `${REPO_URL}/issues` },
         ],
       },

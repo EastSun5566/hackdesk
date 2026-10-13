@@ -1,38 +1,26 @@
 ---
-# https://vitepress.dev/reference/default-theme-home-page
 layout: home
-
 title: HackDesk
-titleTemplate: HackMD and local Markdown desktop workspace
-
+titleTemplate: A hackable HackMD desktop application
 hero:
   name: HackDesk
-  text: A hackable HackMD desktop application.
-  tagline: Built around the HackMD API and local-first Markdown.
+  text: A hackable HackMD desktop application
+  tagline: Work with HackMD notes and local Markdown vaults.
   image:
     src: ./logo.png
-    alt: HackDesk Logo
+    alt: HackDesk logo
   actions:
     - theme: brand
-      text: Install v2 Beta
+      text: Install v2 beta
       link: /install
     - theme: alt
-      text: Learn more
+      text: Get started
       link: /intro
     - theme: alt
-      text: View on GitHub
+      text: GitHub
       link: https://github.com/EastSun5566/hackdesk
-
-features:
-  - icon: ☁️
-    title: HackMD API-native
-    details: Work with notes, folders, teams, history, and sharing through the HackMD API.
-
-  - icon: 📁
-    title: Local-first Markdown
-    details: Open any folder as a vault. Your notes remain portable Markdown files on disk.
-
-  - icon: 🔧
-    title: Hackable configuration
-    details: Tune themes, fonts, editor modes, and shortcuts from the UI or settings.json.
 ---
+
+The guides follow the current v2 development build. Start with a [Local Vault or HackMD account](./intro.md), learn to [work with notes](./features.md), or explore [keyboard navigation](./keyboard-navigation.md).
+
+[Code signing policy](./code-signing-policy.md)
