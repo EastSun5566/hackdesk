@@ -966,6 +966,7 @@ const NEUTRAL_TOKENS = [
   '--text-subtle',
   '--background-default',
   '--background-muted',
+  '--background-overlay',
   '--border-default',
   '--border-bold',
   '--icon-default',
