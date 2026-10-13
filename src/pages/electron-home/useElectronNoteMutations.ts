@@ -737,7 +737,7 @@ export function useElectronNoteMutations({
     },
     onSuccess: (note) => {
       void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope) });
-      void queryClient.invalidateQueries({ queryKey: ['electron', 'hackmd', 'note', null, note.id] });
+      void queryClient.invalidateQueries({ queryKey: ['electron', 'hackmd', 'note', note.teamPath ?? null, note.id] });
       toast.success(`Restored “${note.title || 'Untitled'}”.`);
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to restore note.'),

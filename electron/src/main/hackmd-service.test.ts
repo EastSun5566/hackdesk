@@ -383,6 +383,12 @@ describe('hackmd-service request mapping', () => {
     await expect(service.getNoteIfChanged('note-1', null, 'W/"2"')).rejects.toThrow(HACKMD_NOTE_NOT_FOUND_MESSAGE);
   });
 
+  it('fails a conditional read that is not 304 and has no note', async () => {
+    const { service } = createService([textResponse('', { status: 200 })]);
+
+    await expect(service.getNoteIfChanged('note-1', null, 'W/"1"')).rejects.toThrow('HackMD returned an empty note.');
+  });
+
   it('keeps the ETag from the read after a 202 PATCH', async () => {
     const { service } = createService([
       textResponse('', { status: 202 }),

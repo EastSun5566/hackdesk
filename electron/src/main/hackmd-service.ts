@@ -344,6 +344,7 @@ function mapDocument(dto: NoteDto, etag: string | null = null): DocumentSummary 
 }
 
 const MAX_ERROR_DETAIL_LENGTH = 300;
+const EMPTY_NOTE_MESSAGE = 'HackMD returned an empty note.';
 
 /**
  * Reads the reason from a HackMD error body. The API answers with
@@ -611,15 +612,24 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
       : `/notes/${encodePathSegment(noteId)}`;
   }
 
+  /** Resolves null only for a 304. Any other response without a note fails, so the pre-save check fails closed. */
   async function readDocument(path: string, init: RequestInit = {}) {
     const response = await sendHackmd<NoteDto>(path, init, serviceOptions);
-    return response.data ? mapDocument(normalizeHackmdResponse(response.data) as NoteDto, response.etag) : null;
+    if (response.status === 304) {
+      return null;
+    }
+
+    if (!response.data) {
+      throw new Error(EMPTY_NOTE_MESSAGE);
+    }
+
+    return mapDocument(normalizeHackmdResponse(response.data) as NoteDto, response.etag);
   }
 
   async function fetchDocument(path: string) {
     const document = await readDocument(path);
     if (!document) {
-      throw new Error('HackMD returned an empty note.');
+      throw new Error(EMPTY_NOTE_MESSAGE);
     }
 
     return document;

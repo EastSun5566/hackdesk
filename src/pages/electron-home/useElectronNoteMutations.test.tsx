@@ -490,6 +490,7 @@ describe('useElectronNoteMutations delete undo', () => {
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Restored “Plan”.'));
     expect(api.hackmd.restoreNote).toHaveBeenCalledWith('note-1');
     expect(invalidate).toHaveBeenCalledWith({ queryKey: getWorkspaceQueryKey(scope) });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['electron', 'hackmd', 'note', null, 'note-1'] });
   });
 
   it('offers no undo for team notes', async () => {
