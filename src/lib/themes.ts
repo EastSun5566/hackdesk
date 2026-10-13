@@ -902,18 +902,18 @@ export function resolveHackDeskTheme({
         '--link-text-hover': mix(primary, '#000000', 76),
       };
   const customSeedColors = normalizeThemeSeed(customSeed);
-  const presetTokens = preset.tokens?.[mode] ?? {};
-  // A custom Neutral keeps generating HackMD Neo's surfaces from the seed.
-  const presetTokenOverrides = preset.id === 'hackmd-neo' && customSeedColors.neutral
-    ? Object.fromEntries(Object.entries(presetTokens).filter(([name]) => name.startsWith('--code-')))
-    : presetTokens;
+  // A custom Neutral replaces the preset's text, surface and border colors.
+  const customNeutralOverrides = customSeedColors.neutral
+    ? Object.fromEntries(NEUTRAL_TOKENS.map((name) => [name, seedTheme[name]]))
+    : {};
   const customAccentOverrides = Object.keys(customSeedColors).length > 0
     ? buildAccentTokenOverrides(seed, dark)
     : {};
   const colorTheme: ResolvedHackDeskTheme = {
     ...DEFAULT_SYNTAX_TOKENS,
     ...seedTheme,
-    ...presetTokenOverrides,
+    ...preset.tokens?.[mode],
+    ...customNeutralOverrides,
     ...customAccentOverrides,
   };
   const contrastTheme = resolveContrastTokens(colorTheme);
@@ -960,6 +960,19 @@ function rgbToHex({ r, g, b }: { r: number; g: number; b: number }) {
   const toHex = (value: number) => Math.round(Math.max(0, Math.min(255, value))).toString(16).padStart(2, '0');
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
 }
+
+const NEUTRAL_TOKENS = [
+  '--text-default',
+  '--text-subtle',
+  '--background-default',
+  '--background-muted',
+  '--border-default',
+  '--border-bold',
+  '--icon-default',
+  '--icon-subtle',
+  '--element-bg-hover',
+  '--element-border-hover',
+] as const;
 
 function buildAccentTokenOverrides(seed: ThemeSeed, dark: boolean): ThemeTokenOverrides {
   const { primary, success, warning, destructive } = seed;
