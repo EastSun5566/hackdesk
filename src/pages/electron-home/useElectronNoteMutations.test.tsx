@@ -399,6 +399,106 @@ describe('useElectronNoteMutations remote save conflicts', () => {
   });
 });
 
+describe('useElectronNoteMutations remote save with an ETag', () => {
+  const scope: WorkspaceScope = { type: 'personal', label: 'My Workspace' };
+
+  function setup(note: DocumentSummary, latest: DocumentSummary | null | Error) {
+    const api = { hackmd: {
+      getNote: vi.fn(async () => ({ source: 'remote', data: note })),
+      getNoteIfChanged: vi.fn(async () => {
+        if (latest instanceof Error) throw latest;
+        return latest;
+      }),
+      updateNote: vi.fn(async (_id: string, input: { content?: string }) => ({ ...note, content: input.content ?? note.content })),
+    } } as unknown as HackDeskElectronAPI;
+    const { queryClient, Wrapper } = createWrapper();
+    const { result } = renderHook(useElectronNoteMutations, { initialProps: createOptions({ api, scope }), wrapper: Wrapper });
+    const save = (baseContent: string) => act(() => {
+      result.current.updateNoteMutation.mutate({
+        note, input: { content: 'Edited' }, intent: 'content', tabId: 'tab-1',
+        submittedDraft: { title: note.title, content: 'Edited', baseTitle: note.title, baseContent },
+      });
+    });
+    return { api, queryClient, result, save };
+  }
+
+  it('saves after HackMD answers that the note is unchanged', async () => {
+    const { api, save } = setup(createDocument({ content: 'Base', etag: 'W/"1"' }), null);
+    save('Base');
+    await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', expect.objectContaining({ content: 'Edited' })));
+    expect(api.hackmd.getNoteIfChanged).toHaveBeenCalledWith('note-1', null, 'W/"1"');
+    expect(api.hackmd.getNote).not.toHaveBeenCalled();
+  });
+
+  it('saves when only metadata changed on HackMD', async () => {
+    const { api, save } = setup(createDocument({ content: 'Base', etag: 'W/"1"' }), createDocument({ title: 'Renamed', content: 'Base', etag: 'W/"2"' }));
+    save('Base');
+    await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalled());
+  });
+
+  it('does not write over content changed on HackMD', async () => {
+    const latest = createDocument({ content: 'Changed elsewhere', etag: 'W/"2"' });
+    const { api, queryClient, result, save } = setup(createDocument({ content: 'Base', etag: 'W/"1"' }), latest);
+    save('Base');
+    await waitFor(() => expect(result.current.updateNoteMutation.error?.message).toBe(HACKMD_NOTE_CHANGED_MESSAGE));
+    expect(api.hackmd.updateNote).not.toHaveBeenCalled();
+    expect(queryClient.getQueryData(['electron', 'hackmd', 'note', null, 'note-1'])).toEqual({ source: 'remote', data: latest });
+  });
+
+  it('does not write when the conditional read fails', async () => {
+    const { api, result, save } = setup(createDocument({ content: 'Base', etag: 'W/"1"' }), new Error('HackMD is offline.'));
+    save('Base');
+    await waitFor(() => expect(result.current.updateNoteMutation.error?.message)
+      .toBe('Could not check HackMD for newer changes, so your draft was not saved. HackMD is offline.'));
+    expect(api.hackmd.updateNote).not.toHaveBeenCalled();
+  });
+
+  it('reads the whole note when the draft did not start from the cached copy', async () => {
+    const { api, save } = setup(createDocument({ content: 'Newer cached copy', etag: 'W/"2"' }), null);
+    save('Base');
+    await waitFor(() => expect(api.hackmd.getNote).toHaveBeenCalledWith('note-1', null));
+    expect(api.hackmd.getNoteIfChanged).not.toHaveBeenCalled();
+  });
+});
+
+describe('useElectronNoteMutations delete undo', () => {
+  beforeEach(() => vi.mocked(toast.success).mockClear());
+
+  function setup(scope: WorkspaceScope, note: DocumentSummary) {
+    const api = { hackmd: {
+      deleteNote: vi.fn(async () => undefined),
+      deleteTeamNote: vi.fn(async () => undefined),
+      restoreNote: vi.fn(async () => undefined),
+    } } as unknown as HackDeskElectronAPI;
+    const { queryClient, Wrapper } = createWrapper();
+    const { result } = renderHook(useElectronNoteMutations, { initialProps: createOptions({ api, scope }), wrapper: Wrapper });
+    act(() => result.current.deleteNoteMutation.mutate(note));
+    return { api, queryClient };
+  }
+
+  it('restores a deleted personal note from the toast', async () => {
+    const scope: WorkspaceScope = { type: 'personal', label: 'My Workspace' };
+    const { api, queryClient } = setup(scope, createDocument({ title: 'Plan' }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Note deleted.', expect.objectContaining({
+      action: expect.objectContaining({ label: 'Undo' }),
+    })));
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const options = vi.mocked(toast.success).mock.calls[0][1]!;
+    act(() => options.action!.onClick());
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Restored “Plan”.'));
+    expect(api.hackmd.restoreNote).toHaveBeenCalledWith('note-1');
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: getWorkspaceQueryKey(scope) });
+  });
+
+  it('offers no undo for team notes', async () => {
+    const { api } = setup({ type: 'team', label: 'Team A', teamPath: 'team-a' }, createDocument({ teamPath: 'team-a' }));
+    await waitFor(() => expect(api.hackmd.deleteTeamNote).toHaveBeenCalled());
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Note deleted.', undefined));
+  });
+});
+
 describe('useElectronNoteMutations local folders', () => {
   const archiveFolder = {
     id: 'local-folder:Archive/Design',

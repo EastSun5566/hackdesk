@@ -20,6 +20,8 @@ const settingsMock = vi.hoisted(() => ({
   getSafeSettings: vi.fn(),
 }));
 const hackmdServiceMock = vi.hoisted(() => ({
+  getNoteIfChanged: vi.fn(),
+  restoreNote: vi.fn(),
   validateToken: vi.fn(async () => ({
     id: 'user-1',
     email: 'michael@example.com',
@@ -111,6 +113,7 @@ vi.mock('./hackmd-service', () => ({
   getFolder: vi.fn(),
   getFolderOrder: vi.fn(),
   getNote: vi.fn(),
+  getNoteIfChanged: hackmdServiceMock.getNoteIfChanged,
   getTeamFolder: vi.fn(),
   getTeamFolderOrder: vi.fn(),
   listFolders: vi.fn(),
@@ -119,6 +122,7 @@ vi.mock('./hackmd-service', () => ({
   listTeamFolders: vi.fn(),
   listTeamNotes: vi.fn(),
   listTeams: vi.fn(),
+  restoreNote: hackmdServiceMock.restoreNote,
   updateFolder: vi.fn(),
   updateFolderOrder: vi.fn(),
   updateNote: vi.fn(),
@@ -360,6 +364,18 @@ describe('registerIpcHandlers', () => {
 
     expect(close).toHaveBeenCalledOnce();
     expect(localVaultServiceMock.watchLocalVault).toHaveBeenCalledOnce();
+  });
+
+  it('validates conditional note reads and restores before calling HackMD', () => {
+    registerIpcHandlers(windowManager);
+
+    ipcHandlers.get(ELECTRON_CHANNELS.hackmdGetNoteIfChanged)?.({}, 'note-1', null, 'W/"1"');
+    ipcHandlers.get(ELECTRON_CHANNELS.hackmdRestoreNote)?.({}, 'note-1');
+
+    expect(hackmdServiceMock.getNoteIfChanged).toHaveBeenCalledWith('note-1', null, 'W/"1"');
+    expect(hackmdServiceMock.restoreNote).toHaveBeenCalledWith('note-1');
+    expect(() => ipcHandlers.get(ELECTRON_CHANNELS.hackmdGetNoteIfChanged)?.({}, 'note-1', null, '')).toThrow();
+    expect(() => ipcHandlers.get(ELECTRON_CHANNELS.hackmdRestoreNote)?.({}, '')).toThrow();
   });
 
   it('validates and forwards quick capture submissions', () => {

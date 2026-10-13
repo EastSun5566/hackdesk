@@ -367,6 +367,39 @@ describe('hackmd-service request mapping', () => {
     expect(updated).toMatchObject({ id: 'note-1', title: 'Updated', content: '# Updated' });
   });
 
+  it('keeps the ETag from note reads and skips the body on 304', async () => {
+    const { calls, service } = createService([
+      jsonResponse({ id: 'note-1', title: 'Note', content: 'Body' }, { headers: { ETag: 'W/"1"' } }),
+      new Response(null, { status: 304, headers: { ETag: 'W/"1"' } }),
+      jsonResponse({ id: 'note-1', title: 'Note', content: 'Changed' }, { headers: { ETag: 'W/"2"' } }),
+      jsonResponse({ message: 'Not Found' }, { status: 404, statusText: 'Not Found' }),
+    ]);
+
+    expect(await service.getNote('note-1')).toMatchObject({ source: 'remote', data: { content: 'Body', etag: 'W/"1"' } });
+    expect(await service.getNoteIfChanged('note-1', null, 'W/"1"')).toBeNull();
+    expect(calls[1].init.headers).toMatchObject({ Authorization: 'Bearer test-token', 'If-None-Match': 'W/"1"' });
+    expect(await service.getNoteIfChanged('note-1', 'team a', 'W/"1"')).toMatchObject({ content: 'Changed', etag: 'W/"2"' });
+    expect(calls[2].url).toBe('https://api.test/v1/teams/team%20a/notes/note-1');
+    await expect(service.getNoteIfChanged('note-1', null, 'W/"2"')).rejects.toThrow(HACKMD_NOTE_NOT_FOUND_MESSAGE);
+  });
+
+  it('keeps the ETag from the read after a 202 PATCH', async () => {
+    const { service } = createService([
+      textResponse('', { status: 202 }),
+      jsonResponse({ id: 'note-1', title: 'Note', content: 'Saved' }, { headers: { ETag: 'W/"3"' } }),
+    ]);
+
+    await expect(service.updateNote('note-1', { content: 'Saved' })).resolves.toMatchObject({ content: 'Saved', etag: 'W/"3"' });
+  });
+
+  it('restores a personal note from the trash', async () => {
+    const { calls, service } = createService([textResponse('', { status: 204 })]);
+
+    await service.restoreNote('note/1');
+    expect(calls[0].url).toBe('https://api.test/v1/trash/note%2F1/restore');
+    expect(calls[0].init.method).toBe('PUT');
+  });
+
   it('returns the created note from a 207 partial create', async () => {
     const { service } = createService([
       jsonResponse({ note: { id: 'partial', title: 'Partial', content: '' }, error: 'Folder not found' }, { status: 207 }),

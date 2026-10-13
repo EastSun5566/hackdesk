@@ -44,6 +44,7 @@ import {
   getFolder,
   getFolderOrder,
   getNote,
+  getNoteIfChanged,
   getTeamFolder,
   getTeamFolderOrder,
   listFolders,
@@ -52,6 +53,7 @@ import {
   listTeamFolders,
   listTeamNotes,
   listTeams,
+  restoreNote,
   updateFolder,
   updateFolderOrder,
   updateNote,
@@ -408,6 +410,13 @@ export function registerIpcHandlers(
       teamPath == null ? teamPath : validateNonEmptyString(ELECTRON_CHANNELS.hackmdGetNote, teamPath),
     )
   ));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdGetNoteIfChanged, (_event, noteId: string, teamPath: string | null, etag: string) => (
+    getNoteIfChanged(
+      validateNonEmptyString(ELECTRON_CHANNELS.hackmdGetNoteIfChanged, noteId),
+      teamPath == null ? null : validateNonEmptyString(ELECTRON_CHANNELS.hackmdGetNoteIfChanged, teamPath),
+      validateNonEmptyString(ELECTRON_CHANNELS.hackmdGetNoteIfChanged, etag),
+    )
+  ));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdCreateNote, (_event, input: CreateNoteInput) => (
     createNote(validateIpcInput(ELECTRON_CHANNELS.hackmdCreateNote, createNoteInputSchema, input))
   ));
@@ -432,6 +441,9 @@ export function registerIpcHandlers(
   ));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdDeleteNote, (_event, noteId: string) => (
     deleteNote(validateNonEmptyString(ELECTRON_CHANNELS.hackmdDeleteNote, noteId))
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdRestoreNote, (_event, noteId: string) => (
+    restoreNote(validateNonEmptyString(ELECTRON_CHANNELS.hackmdRestoreNote, noteId))
   ));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdDeleteTeamNote, (_event, teamPath: string, noteId: string) => (
     deleteTeamNote(

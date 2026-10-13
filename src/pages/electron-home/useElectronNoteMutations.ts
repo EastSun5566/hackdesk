@@ -39,6 +39,7 @@ import type { SettingsFormInput, WorkspaceScope } from './types';
 import { createQuickNoteContent } from './ui';
 
 const DEFAULT_DRAFT_NOTE_TITLE = 'Untitled';
+const NOTE_RESTORE_TOAST_MS = 10_000;
 
 // Mutation observers receive new options when the workspace changes. Carry the
 // initiating callbacks and API closure with each request, including its awaits.
@@ -566,16 +567,35 @@ export function useElectronNoteMutations({
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to create folder.'),
   });
 
-  // Requires a fresh read from HackMD and refuses to save over a
-  // newer remote version. Shows that version so it can be compared.
-  const assertRemoteNoteUnchanged = async (hackmd: HackDeskElectronAPI['hackmd'], note: DocumentSummary, baseContent: string) => {
+  // Reads the note from HackMD before saving, so a newer remote version is
+  // never overwritten. When the draft started from the cached note, its ETag
+  // lets HackMD answer 304 instead of sending the whole note again. Shows the
+  // newer version so it can be compared.
+  const readLatestRemoteNote = async (hackmd: HackDeskElectronAPI['hackmd'], note: DocumentSummary, baseContent: string) => {
+    const uncheckedMessage = 'Could not check HackMD for newer changes, so your draft was not saved.';
+    if (note.etag && note.content === baseContent) {
+      try {
+        return await hackmd.getNoteIfChanged(note.id, note.teamPath ?? null, note.etag);
+      } catch (error) {
+        throw new Error(`${uncheckedMessage}${error instanceof Error ? ` ${error.message}` : ''}`);
+      }
+    }
+
     const latest = await hackmd.getNote(note.id, note.teamPath ?? null);
     if (latest.source !== 'remote') {
       const reason = latest.source === 'error' ? ` ${latest.error}` : '';
-      throw new Error(`Could not check HackMD for newer changes, so your draft was not saved.${reason}`);
+      throw new Error(`${uncheckedMessage}${reason}`);
     }
-    if (latest.data.content !== baseContent) {
-      queryClient.setQueryData(['electron', 'hackmd', 'note', note.teamPath ?? null, note.id], latest);
+    return latest.data;
+  };
+
+  const assertRemoteNoteUnchanged = async (hackmd: HackDeskElectronAPI['hackmd'], note: DocumentSummary, baseContent: string) => {
+    const latest = await readLatestRemoteNote(hackmd, note, baseContent);
+    if (latest && latest.content !== baseContent) {
+      queryClient.setQueryData<RepositoryValue<DocumentSummary>>(
+        ['electron', 'hackmd', 'note', note.teamPath ?? null, note.id],
+        { source: 'remote', data: latest },
+      );
       throw new Error(HACKMD_NOTE_CHANGED_MESSAGE);
     }
   };
@@ -695,9 +715,32 @@ export function useElectronNoteMutations({
           queryKey: ['electron', 'hackmd', 'note', note.teamPath ?? null, note.id],
         });
       }
-      toast.success('Note deleted.');
+      // HackMD keeps deleted personal notes in its trash. Team notes have no
+      // restore endpoint, so only personal notes offer Undo.
+      const canRestore = scope.type !== 'local' && !note.teamPath;
+      toast.success('Note deleted.', canRestore ? {
+        duration: NOTE_RESTORE_TOAST_MS,
+        action: { label: 'Undo', onClick: () => restoreNoteMutation.mutate(note) },
+      } : undefined);
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to delete note.'),
+  });
+
+  const restoreNoteMutation = useWorkspaceMutation(scope, 'restore-note', {
+    mutationFn: async (note: DocumentSummary) => {
+      if (!api) {
+        throw new Error('Electron API is unavailable.');
+      }
+
+      await api.hackmd.restoreNote(note.id);
+      return note;
+    },
+    onSuccess: (note) => {
+      void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope) });
+      void queryClient.invalidateQueries({ queryKey: ['electron', 'hackmd', 'note', null, note.id] });
+      toast.success(`Restored “${note.title || 'Untitled'}”.`);
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to restore note.'),
   });
 
   const moveNoteMutation = useWorkspaceMutation(scope, 'move-note', {

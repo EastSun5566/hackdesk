@@ -60,7 +60,8 @@ describe('DeleteNoteDialog', () => {
     const { note, onCancel, onDelete } = renderDeleteNoteDialog();
 
     const dialog = screen.getByRole('alertdialog', { name: 'Delete Note' });
-    expect(within(dialog).getByText(/deletes the note from HackMD/i)).toBeVisible();
+    expect(within(dialog).getByText(/moves the note to your HackMD trash/i)).toBeVisible();
+    expect(within(dialog).getByText(/You can undo this right after deleting/i)).toBeVisible();
     expect(within(dialog).getByText(/Local vault Markdown files are not affected/i)).toBeVisible();
 
     const deleteButton = within(dialog).getByRole('button', { name: 'Delete' });
@@ -73,6 +74,13 @@ describe('DeleteNoteDialog', () => {
 
     fireEvent.click(deleteButton);
     expect(onDelete).toHaveBeenCalledWith(note);
+  });
+
+  it('says team notes cannot be undone', () => {
+    renderDeleteNoteDialog({ note: createNote({ teamPath: 'engineering' }) });
+
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete Note' });
+    expect(within(dialog).getByText(/deletes the note from HackMD.*cannot be undone from HackDesk/i)).toBeVisible();
   });
 
   it('uses system trash copy for local notes', () => {

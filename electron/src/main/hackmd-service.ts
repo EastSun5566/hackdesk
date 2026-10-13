@@ -333,12 +333,13 @@ export function mapNote(dto: NoteDto): NoteSummary {
   };
 }
 
-function mapDocument(dto: NoteDto): DocumentSummary {
+function mapDocument(dto: NoteDto, etag: string | null = null): DocumentSummary {
   const note = mapNote(dto);
 
   return {
     ...note,
     content: note.content ?? '',
+    etag,
   };
 }
 
@@ -424,11 +425,18 @@ async function readErrorBody(response: Response): Promise<unknown> {
   }
 }
 
-async function requestHackmd<T>(
+type HackmdResponse<T> = {
+  status: number;
+  etag: string | null;
+  data: T;
+};
+
+/** Sends a request and keeps the status and ETag. A 304 resolves with no data. */
+async function sendHackmd<T>(
   path: string,
-  init: RequestInit = {},
+  init: RequestInit,
   options: Required<HackmdServiceOptions>,
-): Promise<T> {
+): Promise<HackmdResponse<T | undefined>> {
   const token = await options.readToken();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
@@ -444,22 +452,18 @@ async function requestHackmd<T>(
       },
     });
 
+    const etag = response.headers.get('ETag');
+    if (response.status === 304) {
+      return { status: response.status, etag, data: undefined };
+    }
+
     if (!response.ok) {
       const body = await readErrorBody(response);
       throw Object.assign(new Error(getHackmdErrorMessage(response.status, response.statusText, body)), { status: response.status });
     }
 
-    if (response.status === 204) {
-      return undefined as T;
-    }
-
-    const text = await response.text();
-
-    if (!text) {
-      return undefined as T;
-    }
-
-    return JSON.parse(text) as T;
+    const text = response.status === 204 ? '' : await response.text();
+    return { status: response.status, etag, data: text ? JSON.parse(text) as T : undefined };
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error('HackMD took too long to respond. Please try again.');
@@ -469,6 +473,20 @@ async function requestHackmd<T>(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function requestHackmd<T>(
+  path: string,
+  init: RequestInit = {},
+  options: Required<HackmdServiceOptions>,
+): Promise<T> {
+  return (await sendHackmd<T>(path, init, options)).data as T;
+}
+
+function rethrowNoteNotFound(error: unknown): never {
+  // A 404 confirms the note is gone for this account, unlike a timeout or server error.
+  if ((error as { status?: unknown } | null)?.status === 404) throw new Error(HACKMD_NOTE_NOT_FOUND_MESSAGE);
+  throw error;
 }
 
 export function withCache<T>(cacheKey: CacheKey, promise: Promise<T>): Promise<RepositoryValue<T>> {
@@ -585,6 +603,27 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
     fetcher: options.fetcher ?? fetch,
     readToken: options.readToken ?? defaultReadHackmdApiToken,
   };
+
+  function getNotePath(noteId: string, teamPath?: string | null) {
+    const normalizedTeamPath = teamPath?.trim();
+    return normalizedTeamPath
+      ? `/teams/${encodePathSegment(normalizedTeamPath)}/notes/${encodePathSegment(noteId)}`
+      : `/notes/${encodePathSegment(noteId)}`;
+  }
+
+  async function readDocument(path: string, init: RequestInit = {}) {
+    const response = await sendHackmd<NoteDto>(path, init, serviceOptions);
+    return response.data ? mapDocument(normalizeHackmdResponse(response.data) as NoteDto, response.etag) : null;
+  }
+
+  async function fetchDocument(path: string) {
+    const document = await readDocument(path);
+    if (!document) {
+      throw new Error('HackMD returned an empty note.');
+    }
+
+    return document;
+  }
 
   async function createOrUpdateDocument(
     path: string,
@@ -741,25 +780,17 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
     },
 
     getNote(noteId: string, teamPath?: string | null) {
-      const normalizedNoteId = encodePathSegment(noteId);
       const normalizedTeamPath = teamPath?.trim();
-      const path = normalizedTeamPath
-        ? `/teams/${encodePathSegment(normalizedTeamPath)}/notes/${normalizedNoteId}`
-        : `/notes/${normalizedNoteId}`;
       const cacheKey: CacheKey = normalizedTeamPath
         ? `team:${normalizedTeamPath}:note:${noteId}`
         : `note:${noteId}`;
 
-      return withCache(
-        cacheKey,
-        requestHackmd<NoteDto>(path, {}, serviceOptions)
-          .then((response) => mapDocument(normalizeHackmdResponse(response) as NoteDto))
-          .catch((error: unknown) => {
-            // A 404 confirms the note is gone for this account, unlike a timeout or server error.
-            if ((error as { status?: unknown } | null)?.status === 404) throw new Error(HACKMD_NOTE_NOT_FOUND_MESSAGE);
-            throw error;
-          }),
-      );
+      return withCache(cacheKey, fetchDocument(getNotePath(noteId, teamPath)).catch(rethrowNoteNotFound));
+    },
+
+    /** Reads the note only if it changed since `etag`; resolves null when HackMD answers 304. */
+    getNoteIfChanged(noteId: string, teamPath: string | null, etag: string) {
+      return readDocument(getNotePath(noteId, teamPath), { headers: { 'If-None-Match': etag } }).catch(rethrowNoteNotFound);
     },
 
     createNote(input: CreateNoteInput) {
@@ -806,35 +837,33 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
     },
 
     updateNote(noteId: string, input: UpdateNoteInput) {
-      const path = `/notes/${encodePathSegment(noteId)}`;
-      return writing((key) => isNoteDependentKey(key, null, noteId), () => createOrUpdateDocument(
-        path,
-        'PATCH',
-        input,
-        async () => {
-          const response = await requestHackmd<NoteDto>(path, {}, serviceOptions);
-          return mapDocument(normalizeHackmdResponse(response) as NoteDto);
-        },
-      ));
+      const path = getNotePath(noteId);
+      return writing(
+        (key) => isNoteDependentKey(key, null, noteId),
+        () => createOrUpdateDocument(path, 'PATCH', input, () => fetchDocument(path)),
+      );
     },
 
     updateTeamNote(teamPath: string, noteId: string, input: UpdateNoteInput) {
-      const path = `/teams/${encodePathSegment(teamPath)}/notes/${encodePathSegment(noteId)}`;
-      return writing((key) => isNoteDependentKey(key, teamPath, noteId), () => createOrUpdateDocument(
-        path,
-        'PATCH',
-        input,
-        async () => {
-          const response = await requestHackmd<NoteDto>(path, {}, serviceOptions);
-          return mapDocument(normalizeHackmdResponse(response) as NoteDto);
-        },
-      ));
+      const path = getNotePath(noteId, teamPath);
+      return writing(
+        (key) => isNoteDependentKey(key, teamPath, noteId),
+        () => createOrUpdateDocument(path, 'PATCH', input, () => fetchDocument(path)),
+      );
     },
 
     deleteNote(noteId: string) {
       return writing(
         (key) => isNoteDependentKey(key, null, noteId),
         () => requestHackmd<void>(`/notes/${encodePathSegment(noteId)}`, { method: 'DELETE' }, serviceOptions),
+      );
+    },
+
+    /** Restores a personal note from the HackMD trash. */
+    restoreNote(noteId: string) {
+      return writing(
+        (key) => isNoteDependentKey(key, null, noteId),
+        () => requestHackmd<void>(`/trash/${encodePathSegment(noteId)}/restore`, { method: 'PUT' }, serviceOptions),
       );
     },
 
@@ -918,6 +947,8 @@ export const getTeamFolder = defaultHackmdService.getTeamFolder;
 export const getFolderOrder = defaultHackmdService.getFolderOrder;
 export const getTeamFolderOrder = defaultHackmdService.getTeamFolderOrder;
 export const getNote = defaultHackmdService.getNote;
+export const getNoteIfChanged = defaultHackmdService.getNoteIfChanged;
+export const restoreNote = defaultHackmdService.restoreNote;
 export const createNote = defaultHackmdService.createNote;
 export const createTeamNote = defaultHackmdService.createTeamNote;
 export const createFolder = defaultHackmdService.createFolder;
