@@ -342,7 +342,39 @@ function mapDocument(dto: NoteDto): DocumentSummary {
   };
 }
 
-export function getHackmdErrorMessage(status: number, statusText: string) {
+const MAX_ERROR_DETAIL_LENGTH = 300;
+
+/**
+ * Reads the reason from a HackMD error body. The API answers with
+ * `{ error: string }`, `{ message }`, `{ error_code, message }`, a quota
+ * error `{ error: { code, message } }` or a validation error with per-field
+ * `details`.
+ */
+export function getHackmdErrorDetail(body: unknown): { message: string | null; code: string | null } {
+  if (!body || typeof body !== 'object') {
+    return { message: null, code: null };
+  }
+
+  const { error, message, details, error_code: errorCode } = body as Record<string, unknown>;
+  if (error && typeof error === 'object') {
+    const quota = error as Record<string, unknown>;
+    return { message: asNullableString(quota.message), code: asNullableString(quota.code) };
+  }
+
+  const fields = details && typeof details === 'object'
+    ? Object.entries(details).flatMap(([field, detail]) => {
+      const fieldMessage = detail && typeof detail === 'object' ? asNullableString((detail as { message?: unknown }).message) : null;
+      return fieldMessage ? [`${field}: ${fieldMessage}`] : [];
+    })
+    : [];
+
+  return {
+    message: fields.length > 0 ? fields.join('; ') : asNullableString(error) ?? asNullableString(message),
+    code: asNullableString(errorCode),
+  };
+}
+
+export function getHackmdErrorMessage(status: number, statusText: string, body?: unknown) {
   if (status === 401) {
     return 'Your HackMD API token is invalid or expired.';
   }
@@ -351,15 +383,45 @@ export function getHackmdErrorMessage(status: number, statusText: string) {
     return 'Your HackMD API token does not have permission for this action.';
   }
 
-  if (status === 429) {
-    return 'HackMD is rate limiting requests right now. Please try again in a moment.';
-  }
-
   if (status >= 500) {
     return 'HackMD is having trouble right now. Please try again in a moment.';
   }
 
+  const detail = getHackmdErrorDetail(body);
+  const reason = detail.message && detail.message.length > MAX_ERROR_DETAIL_LENGTH
+    ? `${detail.message.slice(0, MAX_ERROR_DETAIL_LENGTH)}…`
+    : detail.message;
+
+  if (status === 429) {
+    if (detail.code === 'quota_exceeded') {
+      return `Your HackMD workspace has reached its quota.${reason ? ` ${reason}` : ''}`;
+    }
+
+    return 'HackMD is rate limiting requests right now. Please try again in a moment.';
+  }
+
+  if (reason) {
+    return `HackMD rejected the request: ${reason}`;
+  }
+
+  if (status === 413) {
+    return 'The file is too large for HackMD.';
+  }
+
+  if (status === 415) {
+    return 'HackMD does not accept this file type.';
+  }
+
   return `HackMD returned ${status} ${statusText}.`;
+}
+
+async function readErrorBody(response: Response): Promise<unknown> {
+  try {
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return null;
+  }
 }
 
 async function requestHackmd<T>(
@@ -383,7 +445,8 @@ async function requestHackmd<T>(
     });
 
     if (!response.ok) {
-      throw Object.assign(new Error(getHackmdErrorMessage(response.status, response.statusText)), { status: response.status });
+      const body = await readErrorBody(response);
+      throw Object.assign(new Error(getHackmdErrorMessage(response.status, response.statusText, body)), { status: response.status });
     }
 
     if (response.status === 204) {
