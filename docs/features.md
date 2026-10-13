@@ -2,42 +2,60 @@
 outline: deep
 ---
 
-# Features
+# Work with notes
 
-![Editor](/editor.png)
+Choose a workspace, organize notes in folders, and keep related documents open in tabs or split panes. [Get started](./intro.md) covers opening a vault and connecting HackMD.
 
-## HackMD API-native
+![HackDesk workbench showing fictional project notes in two editor panes](/editor.png)
 
-![API Integration](/api-integration.png)
+*V2 development build with demonstration data.*
 
-Connect a personal access token to use HackMD directly from the desktop app.
+## Choose a workspace
 
-- Browse, create, edit, and organize personal or team notes
-- Manage folders, history, sharing, and note metadata
-- Store the API token locally instead of sending it to another service
+The workspace sidebar separates your note collections:
 
-## Local-first Markdown
+- **My Workspace** contains your personal HackMD notes
+- **Pinned** contains the teams you use most
+- **More** contains unpinned teams
+- **Local Vault** opens the selected local Markdown folder
+- **History** shows recent HackMD browsing activity
 
-Open any folder as a Local Vault—no account or API token required.
+Hover a team row to pin or unpin it. Drag pinned teams to reorder them. My Workspace stays first. Use the [keyboard shortcuts](./keyboard-navigation.md) to switch workspaces without the pointer.
 
-- Notes remain ordinary Markdown files that other tools can read
-- Create, rename, move, trash, and reveal notes or folders from HackDesk
-- Keep local drafts recoverable without uploading them to a service
+Opening another Local Vault restores that vault's own tabs and recoverable drafts. A Local Vault does not automatically upload notes to HackMD.
 
-## Hackable configuration
+## Find and organize notes
 
-![Custom Settings](/custom-settings.png)
+Use **Search notes** to filter the selected workspace. Expand folders in the navigator, or use the tag browser to narrow the list.
 
-Use `CmdOrCtrl+,` for Settings or edit `~/.hackdesk/settings.json` while HackDesk is closed.
+Create folders with **New Folder**. Use a folder's menu to edit or delete it, or drag notes and folders to move them. Local deletion moves files to the system trash; HackMD deletion affects remote notes.
 
-- Choose themes, colors, fonts, and editor sizes
-- Switch between Standard, Vim, Helix, Emacs, and Kakoune modes
-- Remap desktop actions and use `CmdOrCtrl+K` for the command palette
+Press **Cmd+P** / **Ctrl+P** for **Quick Open** to search notes, folders, and workspaces. Press **Cmd+K** / **Ctrl+K** for the **Command Palette** to find actions.
 
-## Keyboard navigation
+## Arrange tabs and panes
 
-Press F6 (Shift+F6 for backwards) to cycle through the visible Workbench regions. Tabs and the folder tree use arrow keys to move focus; Enter selects or opens the focused item.
+Select a note to open it in a tab. Drag a tab's icon or title to reorder tabs within its pane.
 
-Hold Cmd on macOS or Ctrl on Windows/Linux to reveal shortcuts and navigation codes. Keep the modifier held while typing a code. Notes, folders, tabs, and workspaces navigate directly; ordinary buttons receive focus, then Enter performs the action. Escape cancels the current hold, Backspace removes a code prefix, and releasing the modifier clears the hints.
+To compare two notes:
 
-Press `?` outside text editing for searchable Keyboard Shortcuts help, or open it from Help or the command palette. `/` focuses Note Finder; Ctrl+U/D scrolls the focused UI region by half a page. Settings → Shortcuts shows the actual bindings and lets you customize or disable them. Text editors retain their own keys. If no safe navigation letters remain (including modal editor Ctrl bindings on Windows/Linux), hints explain this and normal keyboard navigation stays available.
+1. Open a note and choose **Pane actions → Split Right**.
+2. Open another note in the other pane.
+3. Drag the divider to resize the panes.
+
+HackDesk supports two editor panes. Use **Move Tab to Other Pane** to move a tab between them. The tab strip follows the active pane.
+
+**Close Tab** closes the active tab and keeps the workbench open after the last tab. When prompted about unsaved changes, save or discard them before closing.
+
+## Save changes
+
+Choose **Save** in the document toolbar to write the active note to its workspace. Save status distinguishes changes still in the editor from a saved note.
+
+HackDesk keeps recovery copies of unsaved edits. Recovery does not replace saving, and a reported backup failure means the edits need attention. If a note changed elsewhere, review the conflict or recovery message before saving again.
+
+## Edit Note Details
+
+Open **Note Details** to change the title and inspect metadata. HackMD notes also expose tags, permissions, and sharing information where supported.
+
+Local files and HackMD notes have different metadata. Controls reflect the selected workspace; they do not provide full team administration.
+
+For capture outside the main window, use [Quick Hack](./quick-hack.md). For editor modes and appearance, [customize HackDesk](./config.md).
