@@ -1,0 +1,176 @@
+/* HackMD Neo palette from src/lib/themes.ts; VitePress keeps its reader layout. */
+:root {
+  color-scheme: light;
+  --vp-font-family-base: Inter, system-ui, sans-serif;
+  --vp-font-family-mono: "Source Code Pro", ui-monospace, monospace;
+  --vp-c-bg: #fdfdfd;
+  --vp-c-bg-alt: #fafafa;
+  --vp-c-bg-elv: #fdfdfd;
+  --vp-c-bg-soft: #f4f4f5;
+  --vp-c-text-1: #3f3f46;
+  --vp-c-text-2: #71717a;
+  --vp-c-text-3: #71717a;
+  --vp-c-border: #d4d4d8;
+  --vp-c-divider: #d4d4d8;
+  --vp-c-gutter: #d4d4d8;
+  --vp-c-default-1: #d4d4d8;
+  --vp-c-default-2: #e4e4e7;
+  --vp-c-default-3: #f4f4f5;
+  --vp-c-default-soft: #f4f4f5;
+  --vp-c-brand-1: #564dff;
+  --vp-c-brand-2: #2e01a5;
+  --vp-c-brand-3: #564dff;
+  --vp-c-brand-soft: rgb(86 77 255 / 0.1);
+  --vp-c-success-1: #357520;
+  --vp-c-success-soft: #e5fbef;
+  --vp-c-warning-1: #b45309;
+  --vp-c-warning-soft: #fef8dd;
+  --vp-c-danger-1: #dc2626;
+  --vp-c-danger-soft: #feeeee;
+  --neo-control-border: #71717a;
+  --neo-primary-foreground: #ffffff;
+  --neo-selected: #ecebfe;
+
+  --vp-button-brand-text: var(--neo-primary-foreground);
+  --vp-button-brand-hover-text: var(--neo-primary-foreground);
+  --vp-button-brand-active-text: var(--neo-primary-foreground);
+  --vp-button-alt-border: var(--neo-control-border);
+  --vp-button-alt-bg: var(--vp-c-bg);
+  --vp-button-alt-hover-border: var(--vp-c-brand-1);
+  --vp-button-alt-hover-bg: var(--vp-c-default-soft);
+  --vp-button-alt-active-border: var(--vp-c-brand-1);
+  --vp-button-alt-active-bg: var(--neo-selected);
+  --vp-input-border-color: var(--neo-control-border);
+  --vp-local-search-result-selected-bg: var(--neo-selected);
+  --vp-local-search-highlight-text: var(--neo-primary-foreground);
+}
+
+.dark {
+  color-scheme: dark;
+  --vp-c-bg: #27272a;
+  --vp-c-bg-alt: #202022;
+  --vp-c-bg-elv: #27272a;
+  --vp-c-bg-soft: #3f3f46;
+  --vp-c-text-1: #d4d4d8;
+  --vp-c-text-2: #a1a1aa;
+  --vp-c-text-3: #a1a1aa;
+  --vp-c-border: #52525b;
+  --vp-c-divider: #52525b;
+  --vp-c-gutter: #52525b;
+  --vp-c-default-1: #71717a;
+  --vp-c-default-2: #52525b;
+  --vp-c-default-3: #3f3f46;
+  --vp-c-default-soft: #3f3f46;
+  --vp-c-brand-1: #9894f9;
+  --vp-c-brand-2: #b2abfb;
+  --vp-c-brand-3: #9894f9;
+  --vp-c-brand-soft: rgb(152 148 249 / 0.16);
+  --vp-c-success-1: #59c335;
+  --vp-c-success-soft: rgb(89 195 53 / 0.16);
+  --vp-c-warning-1: #fbbf24;
+  --vp-c-warning-soft: rgb(251 191 36 / 0.14);
+  --vp-c-danger-1: #f87171;
+  --vp-c-danger-soft: rgb(248 113 113 / 0.2);
+  --vp-code-color: var(--vp-c-text-1);
+  --neo-primary-foreground: #18181b;
+  --neo-selected: rgb(152 148 249 / 0.22);
+}
+
+::selection {
+  background: var(--neo-selected);
+  color: var(--vp-c-text-1);
+}
+
+:root .VPButton.medium,
+:root .VPButton.big {
+  border-radius: 6px;
+}
+
+:root .VPButton.medium {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+:root .VPNavBarSearch .DocSearch-Button {
+  border: 1px solid var(--neo-control-border);
+  border-radius: 6px;
+}
+
+:root .VPSidebarItem.level-1 > .item > .link {
+  padding: 0 10px;
+  min-height: 40px;
+  margin: 2px -10px;
+  border-radius: 6px;
+}
+
+:root .VPSidebarItem.level-1 > .item > .link > .text {
+  transition: none;
+}
+
+:root .VPSidebarItem.level-1 > .item > .link:hover {
+  background: var(--vp-c-default-soft);
+}
+
+:root .VPSidebarItem.level-1.is-link > .item > .link:hover > .text {
+  color: var(--vp-c-text-1);
+}
+
+:root .VPSidebarItem.level-1.is-active > .item > .link {
+  background: var(--neo-selected);
+}
+
+:root .VPSidebarItem.level-1.is-active > .item > .link > .text {
+  color: var(--vp-c-text-1);
+  font-weight: 600;
+}
+
+:root .VPButton:focus-visible,
+:root .VPSidebarItem .link:focus-visible,
+:root .VPNavBarSearch button:focus-visible {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 2px;
+}
+
+.vp-doc img {
+  border-radius: 6px;
+  outline: 1px solid rgb(0 0 0 / 0.1);
+}
+
+.dark .vp-doc img {
+  outline-color: rgb(255 255 255 / 0.1);
+}
+
+:root .VPLocalSearchBox .search-bar {
+  border-color: var(--neo-control-border);
+  border-radius: 6px;
+}
+
+:root .VPLocalSearchBox .search-bar:focus-within {
+  border-color: var(--vp-c-brand-1);
+}
+
+.VPLocalSearchBox .result {
+  background: var(--vp-local-search-result-bg);
+}
+
+/* VitePress uses brand text for selected titles; Neo uses its readable foreground. */
+.VPLocalSearchBox .result.selected {
+  --vp-c-brand-1: var(--vp-c-text-1);
+}
+
+.VPLocalSearchBox .excerpt {
+  opacity: 1;
+}
+
+@media (pointer: coarse) {
+  :root .VPSidebarItem.level-1 > .item > .link {
+    min-height: 44px;
+  }
+}
+
+@media (forced-colors: active) {
+  .VPSidebarItem.level-1.is-active > .item > .link {
+    outline: 1px solid Highlight;
+  }
+}
