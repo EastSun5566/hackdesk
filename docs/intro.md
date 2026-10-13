@@ -31,9 +31,9 @@ Connect your account to browse personal notes and team workspaces.
 
 HackDesk validates and stores the token locally using operating-system encryption. Keep tokens out of shared screenshots and configuration examples.
 
-![HackMD settings with an empty API Token field and fictional demo workspaces](/api-integration.png)
+![HackMD settings showing a fictional connected account without displaying an API token](/api-integration.png)
 
-*V2 development build with demonstration data. No token is shown.*
+*V2 development build with a fictional connected account. No token is shown.*
 
 ## Create and save a note
 
