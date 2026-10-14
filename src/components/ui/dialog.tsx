@@ -79,7 +79,7 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Popup
         ref={ref}
         className={cn(
-          'relative grid w-full gap-4 border border-border-default bg-background-default p-6 text-text-default duration-150 data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none sm:rounded-md md:w-full',
+          'relative grid w-full gap-4 border border-border-default bg-background-default p-6 text-text-default duration-150 data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none sm:rounded-md',
           ELEVATED_SURFACE_CLASS,
           dialogSizeClassNames[size],
           dialogPlacementClassNames[placement],

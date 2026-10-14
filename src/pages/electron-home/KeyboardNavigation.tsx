@@ -2,12 +2,12 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { ShortcutOverrides } from '@/lib/keyboard-shortcuts';
 import { isMacPlatform } from '@/lib/keyboard-shortcuts';
-import { allocateNavigationCodes, collectNavigationTargets, navigationHintPositions, navigationRect, navigateToTarget, safeNavigationLetters, type NavigationHint } from './keyboard-navigation';
+import { allocateNavigationCodes, collectNavigationTargets, getSettingsNavigationRoot, navigationHintPositions, navigationRect, navigateToTarget, safeNavigationLetters, type NavigationHint } from './keyboard-navigation';
 import { hasWorkbenchPopup } from './workbench-keyboard-context';
 
 import { NavigationHintsContext } from './KeyboardNavigationContext';
-type HintState = { context: symbol | null; held: boolean; hints: NavigationHint[]; prefix: string; reason: string };
-const EMPTY: HintState = { context: null, held: false, hints: [], prefix: '', reason: '' };
+type HintState = { scope: HTMLElement | null; context: symbol | null; held: boolean; hints: NavigationHint[]; prefix: string; reason: string };
+const EMPTY: HintState = { scope: null, context: null, held: false, hints: [], prefix: '', reason: '' };
 
 type NavigationProps = { workspaceKey: string | null; shortcuts?: ShortcutOverrides; platform: string; characterEnabled: boolean; children: ReactNode };
 export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcuts, platform, characterEnabled, children }: NavigationProps) {
@@ -26,6 +26,7 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
     let prefix = '';
     let reason = '';
     let origin: Element | null = null;
+    let scope: HTMLElement | null = null;
     let letters = '';
     let frame: number | null = null;
     const clear = (release = false) => {
@@ -35,26 +36,29 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
       hints = []; prefix = ''; reason = '';
       setState(EMPTY);
     };
-    const publish = () => setState({ context, held, hints, prefix, reason });
+    const publish = () => setState({ scope, context, held, hints, prefix, reason });
     const signature = () => collectNavigationTargets(shortcuts, platform, characterEnabled);
     const start = () => {
       held = true; suspended = false; prefix = ''; reason = '';
-      if (!workspaceKey || hasWorkbenchPopup() || document.querySelector('[data-hackdesk-dragging="true"]')) { clear(); return; }
+      scope = getSettingsNavigationRoot();
+      if ((!workspaceKey && !scope) || hasWorkbenchPopup(scope ?? undefined) || document.querySelector('[data-hackdesk-dragging="true"]')) { clear(); return; }
       origin = document.activeElement;
+      if (origin?.closest('[data-shortcut-recording="true"]')) { clear(); return; }
       letters = safeNavigationLetters(platform, shortcuts, characterEnabled, origin?.closest<HTMLElement>('.cm-editor') ?? null);
       const targets = signature();
-      const previous = codesByWorkspace.current.get(workspaceKey) ?? new Map();
+      const codebook = scope ? `settings:${workspaceKey}:${scope.dataset.navigationPage}` : workspaceKey!;
+      const previous = codesByWorkspace.current.get(codebook) ?? new Map();
       const codes = allocateNavigationCodes(targets.filter(target => !target.element.hasAttribute('aria-keyshortcuts')).map(target => target.id), letters, previous);
       if (!codes) reason = 'No safe navigation keys in this context. Use Tab or your configured shortcuts.';
-      if (codes) codesByWorkspace.current.set(workspaceKey, codes);
+      if (codes) codesByWorkspace.current.set(codebook, codes);
       hints = targets.map(target => ({ ...target, code: codes?.get(target.id) ?? '', rect: navigationRect(target.element) }));
-      observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'inert', 'aria-hidden', 'aria-disabled', 'disabled', 'data-hackdesk-dragging', 'data-editor-mode', 'data-editor-mode-loading', 'data-active-pane', 'data-closed', 'style', 'class'] });
+      observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'inert', 'aria-hidden', 'aria-disabled', 'disabled', 'data-hackdesk-dragging', 'data-editor-mode', 'data-editor-mode-loading', 'data-active-pane', 'data-closed', 'data-navigation-page', 'data-shortcut-recording', 'style', 'class'] });
       publish();
     };
     const changed = () => {
       if (!held || suspended) return;
       const targets = signature();
-      if (document.activeElement !== origin || targets.length !== hints.length || targets.some((target, index) => target.id !== hints[index].id || target.element !== hints[index].element)
+      if (getSettingsNavigationRoot() !== scope || document.activeElement !== origin || targets.length !== hints.length || targets.some((target, index) => target.id !== hints[index].id || target.element !== hints[index].element)
         || letters !== safeNavigationLetters(platform, shortcuts, characterEnabled, origin?.closest<HTMLElement>('.cm-editor') ?? null)) { clear(); return; }
       const next = hints.map(hint => ({ ...hint, rect: navigationRect(hint.element) }));
       if (next.some((hint, index) => ['left', 'top', 'width', 'height'].some(key => hint.rect[key as keyof DOMRect] !== hints[index].rect[key as keyof DOMRect]))) {
@@ -115,7 +119,7 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
   }, [workspaceKey, shortcuts, platform, characterEnabled, context]);
   const current = state.context === context ? state : EMPTY;
   const visible = current.hints.filter(hint => (!current.prefix || hint.code.startsWith(current.prefix)) && (hint.code || hint.shortcut));
-  return <NavigationHintsContext.Provider value={current.held}>
+  return <NavigationHintsContext.Provider value={current.held && !current.scope}>
     {children}
     {current.held ? createPortal(<div data-keyboard-navigation-overlay className="pointer-events-none fixed inset-0 z-40" aria-hidden="true">
       {navigationHintPositions(visible.filter(hint => !hint.element.hasAttribute('aria-keyshortcuts')), current.prefix, { width: window.innerWidth, height: window.innerHeight }).map(({ hint, shortcut, left, top }) =>
@@ -124,6 +128,6 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
           {shortcut ? <span className="text-2xs font-normal leading-3">{shortcut}</span> : null}
         </kbd>)}
       {current.reason ? <p data-navigation-unavailable className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded border border-border-default bg-background-default px-3 py-2 text-xs text-text-default shadow-sm">{current.reason}</p> : null}
-    </div>, document.body) : null}
+    </div>, current.scope?.parentElement ?? document.body) : null}
   </NavigationHintsContext.Provider>;
 }

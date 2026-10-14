@@ -43,7 +43,7 @@ Hold **Cmd** on macOS or **Ctrl** on Windows/Linux to reveal shortcuts and navig
 
 Keep the modifier held and type a displayed code. Notes, folders, tabs, and workspaces navigate directly. An ordinary action button receives focus; press Enter to execute it.
 
-Press Backspace to remove a code prefix, Escape to cancel, or release the modifier to clear hints. Dialogs and menus hide workbench hints. Quick Hack and Settings do not provide dynamic navigation codes.
+Press Backspace to remove a code prefix, Escape to cancel, or release the modifier to clear hints. Settings shows codes for its visible controls instead of workbench hints. A code focuses the control; press Enter or Space to operate it. Other dialogs, menus, and Quick Hack hide navigation hints. Recording a custom shortcut also hides hints.
 
 **Cmd+1** / **Ctrl+1** selects My Workspace. Numbers 2–9 select the first eight pinned teams. Utilities such as Local Vault and History do not take a workspace number.
 

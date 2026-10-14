@@ -37,8 +37,24 @@ export function isNavigationVisible(element: HTMLElement) {
   return !hit || element.contains(hit) || hit.contains(element);
 }
 
-export function collectNavigationTargets(shortcuts: ShortcutOverrides | undefined, platform: string, characterEnabled: boolean) {
-  if (hasWorkbenchPopup() || document.querySelector('[data-hackdesk-dragging="true"]')) return [];
+export function getSettingsNavigationRoot() {
+  return Array.from(document.querySelectorAll<HTMLElement>('[data-keyboard-navigation-scope="settings"]')).find(isNavigationVisible) ?? null;
+}
+
+export function collectNavigationTargets(shortcuts: ShortcutOverrides | undefined, platform: string, characterEnabled: boolean): NavigationTarget[] {
+  const settings = getSettingsNavigationRoot();
+  if (hasWorkbenchPopup(settings ?? undefined) || document.querySelector('[data-hackdesk-dragging="true"]')) return [];
+  if (settings) {
+    const ids = new Set<string>();
+    return Array.from(settings.querySelectorAll<HTMLElement>('button, input:not([type="hidden"]), textarea, select, [role="combobox"], [role="radio"], [role="checkbox"], [role="switch"], [role="slider"], a[href]'))
+      .filter(isNavigationVisible)
+      .map((element, index) => {
+        const base = `settings:${settings.dataset.navigationPage ?? ''}:${element.id || element.getAttribute('aria-label') || element.getAttribute('name') || index}`;
+        const id = ids.has(base) ? `${base}:${index}` : base;
+        ids.add(id);
+        return { id, element, activate: false };
+      });
+  }
   const targets: NavigationTarget[] = [];
   const ids = new Set<string>();
   for (const element of document.querySelectorAll<HTMLElement>(TARGET_SELECTOR)) {
