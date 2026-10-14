@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { watch, type BigIntStats, type FSWatcher } from 'node:fs';
+import { constants, watch, type BigIntStats, type FSWatcher } from 'node:fs';
 import {
   lstat,
   mkdir,
@@ -37,6 +37,7 @@ import type {
   LocalVaultWriteInput,
 } from '../../../src/lib/local-vault';
 import { LOCAL_NOTE_NOT_FOUND_MESSAGE } from '../../../src/lib/note-errors';
+import type { LocalImageRequest } from '../../../src/lib/local-image';
 import { readStoredSettings } from './settings';
 import { writeLog } from './logging';
 
@@ -69,6 +70,14 @@ const MARKDOWN_EXTENSION = '.md';
 const ATTACHMENTS_DIR = 'attachments';
 const MAX_MARKDOWN_BYTES = 10 * 1024 * 1024;
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+const IMAGE_MIME_TYPES: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+};
 const SCAN_CONCURRENCY = 16;
 
 const defaultManifest = (): VaultManifest => ({
@@ -631,6 +640,59 @@ async function readLocalNoteUnlocked(vaultRoot: string, noteId: string): Promise
 export async function readLocalNote(noteId: string): Promise<LocalDocument> {
   const vaultRoot = await requireActiveLocalVaultPath();
   return enqueueVaultOperation(vaultRoot, () => readLocalNoteUnlocked(vaultRoot, noteId));
+}
+
+/** Resolves only images belonging to a saved note in the currently selected vault. */
+export async function readLocalVaultImage(input: LocalImageRequest): Promise<{ bytes: Uint8Array<ArrayBuffer>; mimeType: string }> {
+  const vaultRoot = await requireActiveLocalVaultPath();
+  return enqueueVaultOperation(vaultRoot, async () => {
+    const manifest = await readManifest(vaultRoot);
+    if (manifest.vaultId !== input.vaultId || manifest.notes[input.relativePath]?.id !== input.noteId) {
+      throw new Error('Local image context is no longer available.');
+    }
+    const notePath = resolveInsideVault(vaultRoot, input.relativePath);
+    await assertCanonicalInsideVault(vaultRoot, notePath);
+    if (!(await stat(notePath)).isFile()) throw new Error('Local note is unavailable.');
+
+    // URL delimiters are removed before decoding: %23 is a filename character, not a fragment.
+    const imagePath = decodeURIComponent(input.src.split(/[?#]/, 1)[0]);
+    if (!imagePath || /[\\\0]/.test(imagePath) || imagePath.startsWith('/') || /^[a-z][a-z\d+.-]*:/i.test(imagePath)) {
+      throw new Error('Invalid relative image path.');
+    }
+    const relativePath = relative(vaultRoot, resolve(dirname(notePath), imagePath));
+    const filePath = resolveInsideVault(vaultRoot, relativePath);
+    if (relativePath.split(sep).some(segment => IGNORED_DIRS.has(segment))) throw new Error('Internal vault files cannot be previewed.');
+    const mimeType = IMAGE_MIME_TYPES[extname(filePath).toLowerCase()];
+    if (!mimeType) throw new Error('Unsupported image type.');
+    await assertCanonicalInsideVault(vaultRoot, filePath);
+    if (!(await lstat(filePath)).isFile()) throw new Error('Images must be regular files.');
+
+    // Read through one descriptor, with a bounded buffer even if another process grows the file.
+    const file = await open(filePath, constants.O_RDONLY | (process.platform === 'win32' ? 0 : constants.O_NOFOLLOW));
+    try {
+      const before = await file.stat();
+      if (!before.isFile() || before.size > MAX_ATTACHMENT_BYTES) throw new Error('Images cannot exceed 25 MiB.');
+      const buffer = Buffer.alloc(before.size + 1);
+      let length = 0;
+      while (length < buffer.length) {
+        const { bytesRead } = await file.read(buffer, length, buffer.length - length, length);
+        if (!bytesRead) break;
+        length += bytesRead;
+      }
+      await assertCanonicalInsideVault(vaultRoot, filePath);
+      const after = await stat(filePath);
+      if (length !== before.size || after.dev !== before.dev || after.ino !== before.ino
+        || after.size !== before.size || after.mtimeMs !== before.mtimeMs) {
+        throw new Error('Image changed while being read.');
+      }
+      if (await requireActiveLocalVaultPath() !== vaultRoot || (await readManifest(vaultRoot)).vaultId !== input.vaultId) {
+        throw new Error('Local image context is no longer available.');
+      }
+      return { bytes: new Uint8Array(buffer.subarray(0, length)), mimeType };
+    } finally {
+      await file.close();
+    }
+  });
 }
 
 async function createUniqueMarkdownPath(vaultRoot: string, parentPath: string | null, title: string) {

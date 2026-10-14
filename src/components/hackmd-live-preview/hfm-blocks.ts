@@ -1,5 +1,6 @@
 import {
   StateField,
+  StateEffect,
   type Range,
   type EditorState,
   type Extension,
@@ -13,6 +14,18 @@ import {
 
 import { getHfmDocumentIndex, hfmDocumentIndexExtension } from './hfm-document-index';
 import { treeGrowthEffect } from './tree-progress';
+import { resolvePreviewImageSource, type LocalImageContext } from '@/lib/local-image';
+
+export const setLocalImageContext = StateEffect.define<LocalImageContext | null>();
+const localImageContextField = StateField.define<LocalImageContext | null>({
+  create: () => null,
+  update(context, transaction) {
+    for (const effect of transaction.effects) {
+      if (effect.is(setLocalImageContext)) context = effect.value;
+    }
+    return context;
+  },
+});
 
 const imageDimensionCache = new Map<string, { height: number; width: number }>();
 const MAX_IMAGE_CACHE_ENTRIES = 128;
@@ -20,7 +33,7 @@ const fallbackImagePreviewHeight = 260;
 
 class ImagePreviewWidget extends WidgetType {
   constructor(
-    private readonly src: string,
+    private readonly src: string | null,
     private readonly alt: string,
     private readonly lineTo: number,
     private readonly width?: number,
@@ -42,7 +55,7 @@ class ImagePreviewWidget extends WidgetType {
       return this.height + 48;
     }
 
-    const cached = imageDimensionCache.get(this.src);
+    const cached = this.src ? imageDimensionCache.get(this.src) : undefined;
     if (cached) {
       return Math.min(Math.max(cached.height, 96), 520) + 48;
     }
@@ -56,11 +69,11 @@ class ImagePreviewWidget extends WidgetType {
     wrap.setAttribute('contenteditable', 'false');
 
     const image = document.createElement('img');
-    image.src = this.src;
+    if (this.src) image.src = this.src;
     image.alt = this.alt;
     image.loading = 'lazy';
 
-    const cached = imageDimensionCache.get(this.src);
+    const cached = this.src ? imageDimensionCache.get(this.src) : undefined;
     const stableWidth = this.width ?? cached?.width;
     const stableHeight = this.height ?? cached?.height;
     if (stableWidth && stableHeight) {
@@ -76,7 +89,7 @@ class ImagePreviewWidget extends WidgetType {
     }
 
     image.addEventListener('load', () => {
-      if (image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+      if (!this.src || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
         return;
       }
 
@@ -92,6 +105,17 @@ class ImagePreviewWidget extends WidgetType {
     });
 
     wrap.appendChild(image);
+
+    const unavailable = document.createElement('span');
+    unavailable.textContent = 'Image unavailable';
+    unavailable.hidden = Boolean(this.src);
+    image.hidden = !this.src;
+    image.addEventListener('error', () => {
+      image.hidden = true;
+      unavailable.hidden = false;
+      view.requestMeasure();
+    });
+    wrap.appendChild(unavailable);
 
     if (this.alt) {
       const caption = document.createElement('figcaption');
@@ -120,12 +144,13 @@ class ImagePreviewWidget extends WidgetType {
 
 function buildHfmBlocks(state: EditorState): DecorationSet {
   const ranges: Array<Range<Decoration>> = [];
+  const context = state.field(localImageContextField);
 
   for (const image of getHfmDocumentIndex(state).images) {
     ranges.push(Decoration.widget({
       block: true,
       side: 1,
-      widget: new ImagePreviewWidget(image.src, image.alt, image.lineTo, image.width, image.height),
+      widget: new ImagePreviewWidget(resolvePreviewImageSource(image.src, context), image.alt, image.lineTo, image.width, image.height),
     }).range(image.lineTo));
   }
 
@@ -136,7 +161,7 @@ const hfmBlocksField = StateField.define<DecorationSet>({
   create: (state) => buildHfmBlocks(state),
   update(decorations, transaction) {
     for (const effect of transaction.effects) {
-      if (effect.is(treeGrowthEffect)) {
+      if (effect.is(treeGrowthEffect) || effect.is(setLocalImageContext)) {
         return buildHfmBlocks(transaction.state);
       }
     }
@@ -150,6 +175,6 @@ const hfmBlocksField = StateField.define<DecorationSet>({
   provide: (field) => EditorView.decorations.from(field),
 });
 
-export function hfmBlocks(): Extension {
-  return [hfmDocumentIndexExtension, hfmBlocksField];
+export function hfmBlocks(context: LocalImageContext | null = null): Extension {
+  return [hfmDocumentIndexExtension, localImageContextField.init(() => context), hfmBlocksField];
 }

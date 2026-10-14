@@ -664,6 +664,9 @@ export const widgetTheme = {
     height: 'auto',
     borderRadius: '4px',
   },
+  '.cm-hackmd-image-preview img[hidden]': {
+    display: 'none',
+  },
   '.cm-hackmd-image-preview figcaption': {
     marginTop: '0.35rem',
     color: 'var(--text-subtle)',

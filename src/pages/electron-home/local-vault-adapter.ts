@@ -1,5 +1,6 @@
 import type { DocumentSummary, FolderSummary, NoteSummary, RepositoryValue } from '@/lib/electron-api';
 import type { LocalDocument, LocalFolder, LocalNoteSummary, LocalRevision, LocalVaultSnapshot } from '@/lib/local-vault';
+import type { LocalImageContext } from '@/lib/local-image';
 
 export const LOCAL_VAULT_TEAM_PATH = '__hackdesk_local_vault__';
 
@@ -142,6 +143,14 @@ export function getLocalRevision(value: unknown): LocalRevision | null {
     && typeof revision.contentHash === 'string'
     && typeof revision.mtimeMs === 'number'
     ? revision
+    : null;
+}
+
+export function getLocalImageContext(document: DocumentSummary | undefined): LocalImageContext | null {
+  if (document?.teamPath !== LOCAL_VAULT_TEAM_PATH) return null;
+  const local = document as Partial<LocalDocumentSummary>;
+  return local.localVaultId && local.localRelativePath
+    ? { vaultId: local.localVaultId, noteId: document.id, relativePath: local.localRelativePath }
     : null;
 }
 

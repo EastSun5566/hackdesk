@@ -1,6 +1,7 @@
-import { link, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import { link, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, symlink, truncate, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { writeFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const electronMock = vi.hoisted(() => ({
@@ -49,6 +50,7 @@ import {
   moveLocalNote,
   moveLocalFolder,
   readLocalNote,
+  readLocalVaultImage,
   revealLocalVaultFolder,
   revealLocalVaultNote,
   revealLocalVaultRoot,
@@ -113,6 +115,77 @@ describe('LocalVaultService', () => {
     expect(second.relativePath).toBe('Untitled 2.md');
     expect(reread.id).toBe(first.id);
     expect(reread.content).toBe('one');
+  });
+
+  it('loads note-relative images, URL-encoded filenames and parent folders without scanning notes', async () => {
+    await mkdir(join(vaultPath, 'notes', 'images'), { recursive: true });
+    await writeFile(join(vaultPath, 'notes', 'Note.md'), '![Image](images/圖%20%23%25.png)');
+    const image = Buffer.from([137, 80, 78, 71]);
+    await writeFile(join(vaultPath, 'notes', 'images', '圖 #%.png'), image);
+    await writeFile(join(vaultPath, 'shared.jpg'), image);
+    const snapshot = await scanLocalVault(vaultPath);
+    const context = { vaultId: snapshot.vaultId, noteId: snapshot.notes[0].id, relativePath: 'notes/Note.md' };
+    fsProbe.afterRead.mockClear();
+    for (const src of ['images/圖%20%23%25.png', './images/圖%20%23%25.png', 'images/圖%20%23%25.png?size=1#preview']) {
+      expect(await readLocalVaultImage({ ...context, src })).toEqual({ bytes: new Uint8Array(image), mimeType: 'image/png' });
+    }
+    await writeFile(join(vaultPath, 'notes', 'my image.png'), image);
+    expect((await readLocalVaultImage({ ...context, src: 'my image.png' })).bytes).toEqual(new Uint8Array(image));
+    expect((await readLocalVaultImage({ ...context, src: '../shared.jpg' })).mimeType).toBe('image/jpeg');
+    expect(fsProbe.afterRead.mock.calls.some(([path]) => path.endsWith('.md'))).toBe(false);
+    for (const [name, mimeType] of [['gif', 'image/gif'], ['webp', 'image/webp'], ['svg', 'image/svg+xml']]) {
+      await writeFile(join(vaultPath, `image.${name}`), image);
+      expect((await readLocalVaultImage({ ...context, src: `../image.${name}` })).mimeType).toBe(mimeType);
+    }
+  });
+
+  it('rejects unsafe paths, missing or non-image files and oversized images', async () => {
+    const { document, snapshot } = await createLocalNote({ title: 'Note' });
+    const context = { vaultId: snapshot.vaultId, noteId: document.id, relativePath: document.relativePath };
+    await writeFile(join(vaultPath, 'large.png'), '');
+    await truncate(join(vaultPath, 'large.png'), 25 * 1024 * 1024 + 1);
+    await mkdir(join(vaultPath, 'directory.png'));
+    for (const src of ['../outside.png', '%2e%2e/outside.png', '/tmp/image.png', '//server/image.png', 'C:/image.png', 'file:///image.png', 'images\\image.png', '%00.png', '%ZZ.png', '.hackdesk/image.png', '.git/image.png', 'Note.md', 'missing.png', 'directory.png', 'large.png']) {
+      await expect(readLocalVaultImage({ ...context, src })).rejects.toThrow();
+    }
+  });
+
+  it('rejects symlink images and symlink directories', async () => {
+    const { document, snapshot } = await createLocalNote({ title: 'Note' });
+    const context = { vaultId: snapshot.vaultId, noteId: document.id, relativePath: document.relativePath };
+    await writeFile(join(homePath, 'outside.png'), 'outside');
+    await symlink(join(homePath, 'outside.png'), join(vaultPath, 'alias.png'), 'file');
+    await symlink(homePath, join(vaultPath, 'alias'), process.platform === 'win32' ? 'junction' : 'dir');
+    for (const src of ['alias.png', 'alias/outside.png']) {
+      await expect(readLocalVaultImage({ ...context, src })).rejects.toThrow('symbolic links');
+    }
+  });
+
+  it('rejects stale note paths and vault identities, including a vault switch during a read', async () => {
+    const { document, snapshot } = await createLocalNote({ title: 'Note' });
+    await writeFile(join(vaultPath, 'image.png'), 'image');
+    const input = { vaultId: snapshot.vaultId, noteId: document.id, relativePath: document.relativePath, src: 'image.png' };
+    for (const change of [{ vaultId: 'old-vault' }, { noteId: 'missing-note' }, { relativePath: 'Old.md' }]) {
+      await expect(readLocalVaultImage({ ...input, ...change })).rejects.toThrow('context');
+    }
+    fsProbe.afterRead.mockImplementation(async path => {
+      if (path.endsWith('manifest.json')) {
+        await writeFile(getSettingsPath(), JSON.stringify({ localVault: { path: homePath } }));
+      }
+    });
+    await expect(readLocalVaultImage(input)).rejects.toThrow('context');
+  });
+
+  it('does not return an image that changes during its read', async () => {
+    const { document, snapshot } = await createLocalNote({ title: 'Note' });
+    const imagePath = join(await realpath(vaultPath), 'image.png');
+    await writeFile(imagePath, 'original image');
+    let checks = 0;
+    fsProbe.realpathOverride.mockImplementation(path => {
+      if (path === imagePath && ++checks === 2) writeFileSync(imagePath, 'changed image bytes');
+      return undefined;
+    });
+    await expect(readLocalVaultImage({ vaultId: snapshot.vaultId, noteId: document.id, relativePath: document.relativePath, src: 'image.png' })).rejects.toThrow('Image changed');
   });
 
   it('preserves IDs for external rename, move and folder rename across scans and reads', async () => {

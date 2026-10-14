@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { ELECTRON_CHANNELS } from '../src/shared/channels';
 import { defaultSettings } from '../../src/lib/settings';
+import { LOCAL_IMAGE_PNG } from './fixtures/local-image';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 
@@ -19,11 +20,11 @@ async function launch(home: string) {
 
 // Playwright cannot paste files from the OS clipboard, so dispatch the same paste event Chromium would.
 async function pasteImage(page: Page, name: string) {
-  await page.locator('.cm-content').evaluate((element, fileName) => {
+  await page.locator('.cm-content').evaluate((element, { name: fileName, bytes }) => {
     const data = new DataTransfer();
-    data.items.add(new File([new Uint8Array([137, 80, 78, 71])], fileName, { type: 'image/png' }));
+    data.items.add(new File([new Uint8Array(bytes)], fileName, { type: 'image/png' }));
     element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
-  }, name);
+  }, { name, bytes: [...LOCAL_IMAGE_PNG] });
 }
 
 // Release a held upload only after the renderer's request reached the handler.
@@ -135,10 +136,16 @@ test('a Local Vault image paste writes the attachment and inserts its link', asy
     await expect(editor).toContainText('Saved body');
     await editor.click();
     await page.keyboard.press('Control+End');
+    // The existing preview recognizes standalone image lines, not inline images.
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Enter');
     await pasteImage(page, 'local.png');
     await expect(editor).toContainText('![local.png](');
     await expect(editor).not.toContainText('Uploading image');
     await expect.poll(async () => readdir(join(vault, 'attachments')).catch(() => [])).toContain('local.png');
+    const image = page.locator('.cm-hackmd-image-preview img');
+    await image.scrollIntoViewIfNeeded();
+    await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(1);
   } finally {
     app.process().kill('SIGKILL');
   }

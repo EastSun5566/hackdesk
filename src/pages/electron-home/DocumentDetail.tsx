@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/MarkdownEditor';
+import type { LocalImageContext } from '@/lib/local-image';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,7 +48,7 @@ import {
   formatDate,
   getFolderPathLabel,
 } from './ui';
-import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
+import { getLocalImageContext, LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import {
   INSPECTOR_WIDTH_DEFAULT,
 } from './ui-preferences';
@@ -406,6 +407,7 @@ function ActiveDocumentDetail({
       <div className="flex min-h-0 flex-1">
         <DocumentBody
           key={editorKey}
+          localImageContext={getLocalImageContext(documentState.document)}
           content={documentState.content}
           editorMode={editorMode}
           onAttachImage={actions.onAttachImage}
@@ -723,6 +725,7 @@ function DocumentActionsMenu({
 }
 
 function DocumentBody({
+  localImageContext,
   content,
   editorMode,
   onAttachImage,
@@ -730,6 +733,7 @@ function DocumentBody({
   onOpenExternal,
   setEditorRef,
 }: {
+  localImageContext: LocalImageContext | null;
   content: string;
   editorMode: EditorMode;
   onAttachImage: (file: File, placeholder: string) => Promise<unknown>;
@@ -740,6 +744,7 @@ function DocumentBody({
   return (
     <MarkdownEditor
       ref={setEditorRef}
+      localImageContext={localImageContext}
       editorMode={editorMode}
       value={content}
       onAttachImage={onAttachImage}
