@@ -80,7 +80,6 @@ describe('HFM live-preview recognizers', () => {
     expect(getHfmLineDecorations('---').lineClasses).not.toContain('cm-hackmd-table-line');
     expect(getHfmLineDecorations('```javascript=101 [102-103]').lineClasses).toContain('cm-hackmd-code-fence-options');
     expect(getHfmLineDecorations('```mermaid').lineClasses).toContain('cm-hackmd-hfm-fence cm-hackmd-hfm-fence-mermaid');
-    expect(getHfmLineDecorations('    indented code').lineClasses).toContain('cm-hackmd-indented-code');
   });
 
   it('recognizes editable block ranges for containers and alerts', () => {

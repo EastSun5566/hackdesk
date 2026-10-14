@@ -831,6 +831,24 @@ describe('MarkdownEditor', () => {
     expect(editor.querySelector('.cm-hackmd-alert-heading-todo')).toHaveTextContent('Note');
   });
 
+  it.each([
+    ['nested bullets', '- Max\n    - 08/31\n        - Child', []],
+    ['nested ordered lists and tasks', '1. Parent\n    1. Child\n        - [ ] Task', []],
+    ['list continuation', '- Parent\n    continued text', []],
+    ['top-level code', '    first code\n      second code', ['    first code', '      second code']],
+    ['code inside a list', '- Parent\n\n      nested code', ['      nested code']],
+    ['tab-indented code', '\tcode', ['\tcode']],
+    ['fenced code', '```\n    code\n```', []],
+  ] as const)('styles only parsed indented code in %s', async (_name, markdown, expected) => {
+    const ref = createRef<MarkdownEditorHandle>();
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    const codeLines = [...editor.querySelectorAll('.cm-hackmd-indented-code')];
+    expect(codeLines.map(line => line.textContent)).toEqual(expected);
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+  });
+
   it('previews unordered list markers with atomic-style hanging indent', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const markdown = [

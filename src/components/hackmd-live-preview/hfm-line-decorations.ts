@@ -48,10 +48,6 @@ export function getHfmLineDecorations(text: string): HfmLineDecorations {
     lineClasses.push('cm-hackmd-table-line');
   }
 
-  if (/^(?: {4}|\t)\S/.test(text)) {
-    lineClasses.push('cm-hackmd-indented-code');
-  }
-
   if (trimmed === '$$') {
     lineClasses.push('cm-hackmd-math-block-line');
   }
