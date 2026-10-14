@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from '@/components/ui/toast';
 
 import { formatMarkdownImage } from '@/components/hackmd-live-preview/markdown-image';
@@ -26,6 +26,7 @@ export type TabImageUploadOptions = {
 export function useTabImageUploads(options: TabImageUploadOptions) {
   const latest = useRef(options);
   const pending = useRef(new Map<string, Set<AbortController>>());
+  const [uploadKeys, setUploadKeys] = useState<string[]>([]);
   useLayoutEffect(() => { latest.current = options; });
   useEffect(() => {
     const requests = pending.current;
@@ -53,6 +54,7 @@ export function useTabImageUploads(options: TabImageUploadOptions) {
         const controllers = pending.current.get(requestKey) ?? new Set<AbortController>();
         controllers.add(controller);
         pending.current.set(requestKey, controllers);
+        setUploadKeys([...pending.current.keys()]);
       }
       const bytes = await file.arrayBuffer();
       controller?.signal.throwIfAborted();
@@ -72,6 +74,7 @@ export function useTabImageUploads(options: TabImageUploadOptions) {
         const controllers = pending.current.get(requestKey);
         controllers?.delete(controller);
         if (!controllers?.size) pending.current.delete(requestKey);
+        setUploadKeys([...pending.current.keys()]);
       }
     }
 
@@ -118,5 +121,7 @@ export function useTabImageUploads(options: TabImageUploadOptions) {
       toast.info('The image was uploaded, but its placeholder was changed, so it was not inserted.', { description: markdown });
     }
   }, []);
-  return { attachImageToTab, cancelImageUpload };
+  const prefix = `${options.scopeKey}:`;
+  const uploadingTabIds = uploadKeys.filter(key => key.startsWith(prefix)).map(key => key.slice(prefix.length));
+  return { attachImageToTab, cancelImageUpload, uploadingTabIds };
 }

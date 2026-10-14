@@ -1,4 +1,4 @@
-import { _electron as electron, expect, test } from '@playwright/test';
+import { _electron as electron, expect, test, type Page } from '@playwright/test';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -6,6 +6,14 @@ import { defaultSettings } from '../../src/lib/settings';
 import { LOCAL_IMAGE_PNG } from './fixtures/local-image';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
+
+async function pasteImage(page: Page) {
+  await page.locator('.cm-content').evaluate((element, bytes) => {
+    const data = new DataTransfer();
+    data.items.add(new File([new Uint8Array(bytes)], 'fixture.png', { type: 'image/png' }));
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  }, [...LOCAL_IMAGE_PNG]);
+}
 
 test('retries a transient read and cancels a real upload request without losing edits', async () => {
   const home = await mkdtemp(join(tmpdir(), 'hackdesk-request-recovery-'));
@@ -33,13 +41,18 @@ test('retries a transient read and cancels a real upload request without losing 
 
     await editor.fill('Unsaved edit\n\n');
     await page.keyboard.press('Control+End');
-    await editor.evaluate((element, bytes) => {
-      const data = new DataTransfer();
-      data.items.add(new File([new Uint8Array(bytes)], 'fixture.png', { type: 'image/png' }));
-      element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
-    }, [...LOCAL_IMAGE_PNG]);
+    await pasteImage(page);
     await expect.poll(async () => (await fixture()).uploads).toBe(1);
     await expect(editor).toContainText('Uploading image');
+    // A second tab's upload must not hide the first tab's cancel action.
+    await page.getByRole('treeitem', { name: /Beta/ }).first().click();
+    await expect(editor).toContainText('Beta body');
+    await editor.click();
+    await page.keyboard.press('Control+End');
+    await pasteImage(page);
+    await expect.poll(async () => (await fixture()).uploads).toBe(2);
+    await page.getByRole('tab', { name: /^Alpha(?:, .+)?$/ }).click();
+    await editor.click();
     await page.keyboard.press('Control+End');
     await page.keyboard.insertText('\nLater edit');
     await page.getByRole('button', { name: 'More actions', exact: true }).click();
@@ -50,7 +63,15 @@ test('retries a transient read and cancels a real upload request without losing 
     await expect(editor).toContainText('Later edit');
     await expect.poll(() => page.evaluate(() => JSON.stringify(localStorage))).toContain('Later edit');
     expect((await fixture()).note.content).toBe('Alpha body');
-    expect((await fixture()).uploads).toBe(1);
+    expect((await fixture()).uploads).toBe(2);
+
+    await page.getByRole('tab', { name: /^Beta(?:, .+)?$/ }).click();
+    await expect(editor).toContainText('Uploading image');
+    await page.getByRole('button', { name: 'More actions', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Cancel Image Upload', exact: true }).click();
+    await expect.poll(async () => (await fixture()).aborted).toBe(2);
+    await expect(editor).not.toContainText('Uploading image');
+    await page.getByRole('tab', { name: /^Alpha(?:, .+)?$/ }).click();
 
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect.poll(async () => (await fixture()).writes).toBe(1);

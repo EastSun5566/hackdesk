@@ -7,6 +7,7 @@ safeStorage.encryptString = (value) => Buffer.from(value);
 safeStorage.decryptString = (value) => value.toString();
 
 const note = { id: 'note-a', title: 'Alpha', content: 'Alpha body', tags: [], readPermission: 'owner', writePermission: 'owner' };
+const notes = [note, { ...note, id: 'note-b', title: 'Beta', content: 'Beta body' }];
 const fixture = { reads: 0, uploads: 0, aborted: 0, writes: 0, note };
 globalThis.hackmdNetworkFixture = fixture;
 globalThis.fetch = async (url, init = {}) => {
@@ -18,7 +19,7 @@ globalThis.fetch = async (url, init = {}) => {
   if (path === '/v1/folders/folder-order') return json({});
   if (path === '/v1/notes' && method === 'GET') {
     fixture.reads += 1;
-    return fixture.reads === 1 ? new Response('', { status: 503 }) : json([note]);
+    return fixture.reads === 1 ? new Response('', { status: 503 }) : json(notes);
   }
   if (path === '/v1/notes/note-a' && method === 'GET') {
     const etag = `"fixture-${fixture.writes}"`;
@@ -31,7 +32,8 @@ globalThis.fetch = async (url, init = {}) => {
     Object.assign(note, JSON.parse(init.body));
     return json(note);
   }
-  if (path === '/v1/notes/note-a/images' && method === 'POST') {
+  if (path === '/v1/notes/note-b' && method === 'GET') return json(notes[1]);
+  if (/^\/v1\/notes\/note-[ab]\/images$/.test(path) && method === 'POST') {
     fixture.uploads += 1;
     return new Promise((_resolve, reject) => {
       const abort = () => { fixture.aborted += 1; reject(init.signal.reason); };

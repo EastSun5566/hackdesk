@@ -757,7 +757,7 @@ export function Home() {
     const result = await api.hackmd.getNote(identity.id, identity.teamPath);
     return result.source === 'error' ? undefined : result.data;
   }, [api]);
-  const { attachImageToTab, cancelImageUpload } = useTabImageUploads({
+  const { attachImageToTab, cancelImageUpload, uploadingTabIds } = useTabImageUploads({
     scopeKey: noteWorkspace.state.scopeKey,
     getTabDocument: workbenchDocuments.getTabDocument,
     getWorkspaceSnapshot: noteWorkspace.getWorkspaceSnapshot,
@@ -787,6 +787,7 @@ export function Home() {
     selectedFolder,
   });
   const workspaceProps = useHomeWorkspaceProps({
+    uploadingTabIds,
     actions: {
       attachImageToTab,
       cancelImageUpload,
