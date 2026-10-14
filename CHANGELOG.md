@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.0.0-beta.6](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.5...v2.0.0-beta.6) (2026-10-14)
+
+### UI and editing
+
+* Keep editor text in a centered, readable column on wide windows.
+* Align HackMD Neo light/dark colors, selections, and button states with the app theme.
+* Improve shared controls and accessible names for tabs and collapsible sections.
+* Refresh the English guides, safe demo screenshots, and documentation theme.
+
+### Performance and reliability
+
+* Ignore excluded directory events and bound Local Vault scanning concurrency.
+* Reduce Inline Preview work in large documents and avoid repeated command palette searches.
+* Recover the failing window and keep Quick Hack text available after renderer failures.
+* Keep inline preferences separate from Settings Save feedback.
+* Stabilize workspace drag smoke tests and extend macOS Quick Hack lifecycle checks.
+* Verify packaged startup on macOS, Windows, and Linux in CI.
+
+### HackMD
+
+* Use conditional ETag reads when checking a note before saving.
+* Offer Undo after deleting a personal note; team-note deletion remains irreversible.
+* Show clearer reasons for HackMD API errors.
+
+### Beta notes
+
+* Beta installers remain unsigned. Production Windows and macOS signing is being prepared separately.
+* Automatic updates remain disabled for beta builds. Download this version manually from GitHub Releases.
+* Existing settings, workspaces, and recoverable drafts are reused. Close the previous version before opening this one.
+* Keyboard navigation introduced in beta.5 remains available.
+* Report beta issues at [github.com/EastSun5566/hackdesk/issues](https://github.com/EastSun5566/hackdesk/issues).
+
 ## [2.0.0-beta.5](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.4...v2.0.0-beta.5) (2026-10-09)
 
 ### Stability and recovery
