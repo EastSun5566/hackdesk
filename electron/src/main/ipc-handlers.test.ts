@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { EventEmitter } from 'node:events';
 
 import { ELECTRON_CHANNELS } from '../shared/channels';
 
@@ -184,6 +185,32 @@ describe('registerIpcHandlers', () => {
     const handler = ipcHandlers.get(ELECTRON_CHANNELS.settingsGet);
     expect(() => handler?.({})).toThrow('Blocked untrusted IPC sender');
     expect(settingsMock.getSafeSettings).not.toHaveBeenCalled();
+  });
+
+  it('validates request IDs and cancels only the trusted owner request', async () => {
+    const registration = registerIpcHandlers(windowManager);
+    const read = ipcHandlers.get(ELECTRON_CHANNELS.hackmdGetNoteIfChanged)!;
+    const cancel = ipcHandlers.get(ELECTRON_CHANNELS.hackmdCancelRequest)!;
+    const sender = Object.assign(new EventEmitter(), { isDestroyed: () => false });
+    const other = Object.assign(new EventEmitter(), { isDestroyed: () => false });
+    const requestId = '930d83f6-a454-4a54-9d7c-0535ab682112';
+    expect(() => read({ sender }, 'note-1', null, '"1"', { requestId: 'invalid' })).toThrow(/Invalid/);
+    expect(hackmdServiceMock.getNoteIfChanged).not.toHaveBeenCalled();
+    let signal!: AbortSignal;
+    hackmdServiceMock.getNoteIfChanged.mockImplementationOnce((_id, _team, _etag, input: AbortSignal) => {
+      signal = input;
+      return new Promise((_resolve, reject) => input.addEventListener('abort', () => reject(input.reason), { once: true }));
+    });
+    const pending = expect(read({ sender }, 'note-1', null, '"1"', { requestId })).rejects.toMatchObject({ name: 'AbortError' });
+    cancel({ sender: other }, requestId);
+    expect(signal.aborted).toBe(false);
+    windowManager.isTrustedIpcSender.mockReturnValueOnce(false);
+    expect(() => cancel({ sender }, requestId)).toThrow('Blocked untrusted IPC sender');
+    expect(signal.aborted).toBe(false);
+    expect(() => cancel({ sender }, 'invalid')).toThrow(/Invalid/);
+    cancel({ sender }, requestId);
+    await pending;
+    registration.dispose();
   });
 
   it('imports hackmd-cli token by validating then saving it', async () => {

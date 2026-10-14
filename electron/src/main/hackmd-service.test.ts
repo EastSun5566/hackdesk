@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { HACKMD_NOTE_NOT_FOUND_MESSAGE } from '../../../src/lib/note-errors';
 
 import {
@@ -57,6 +57,132 @@ function createService(responses: Response[]) {
 
   return { ...mock, service };
 }
+
+describe('bounded HackMD requests', () => {
+  afterEach(() => vi.useRealTimers());
+  const image = { fileName: 'image.png', mimeType: 'image/png', bytes: new ArrayBuffer(4) };
+  const user = () => jsonResponse({ id: 'user', name: 'Fixture', teams: [] });
+  const serviceFor = (fetcher: typeof fetch, options: Parameters<typeof createHackmdService>[0] = {}) => createHackmdService({
+    fetcher, readToken: async () => 'fixture-token', ...options,
+  });
+
+  it.each(['seconds', 'HTTP-date'])('honors Retry-After as %s before retrying a rate-limited GET', async format => {
+    const hint = format === 'seconds' ? '1' : new Date(Date.now() + 2000).toUTCString();
+    const earliest = format === 'seconds' ? Date.now() + 1000 : Date.parse(hint);
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('busy', { status: 429, headers: { 'Retry-After': hint } }))
+      .mockImplementationOnce(async () => {
+        expect(Date.now()).toBeGreaterThanOrEqual(earliest);
+        return user();
+      });
+    await expect(serviceFor(fetcher).getCurrentUser()).resolves.toMatchObject({ source: 'remote', data: { id: 'user' } });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not shorten Retry-After to retry ahead of a server hint outside the budget', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response('busy', { status: 429, headers: { 'Retry-After': '60' } }));
+    await expect(serviceFor(fetcher).listNotes()).resolves.toMatchObject({ source: 'error', error: expect.stringContaining('rate limiting') });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it('backs off and stops after three server failures, retaining cached data', async () => {
+    const calls: number[] = [];
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(user()).mockImplementation(async () => {
+      calls.push(Date.now());
+      return new Response('busy', { status: 503 });
+    });
+    const service = serviceFor(fetcher);
+    await service.getCurrentUser();
+    expect(await service.getCurrentUser()).toMatchObject({ source: 'error', data: { id: 'user' }, error: expect.stringContaining('having trouble') });
+    expect(calls).toHaveLength(3);
+    expect(calls[1] - calls[0]).toBeGreaterThanOrEqual(200);
+    expect(calls[2] - calls[1]).toBeGreaterThanOrEqual(900);
+  });
+
+  it('retries a transient network failure', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockRejectedValueOnce(new TypeError('fetch failed')).mockResolvedValueOnce(user());
+    await expect(serviceFor(fetcher).getCurrentUser()).resolves.toMatchObject({ source: 'remote' });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([401, 403, 404])('does not retry a permanent %i read failure', async status => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response('', { status }));
+    expect(await serviceFor(fetcher).getNote('note')).toMatchObject({ source: 'error' });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it('cancels a backoff immediately without returning offline cached data', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(user()).mockResolvedValueOnce(
+      new Response('busy', { status: 429, headers: { 'Retry-After': '10' } }),
+    );
+    const service = serviceFor(fetcher);
+    await service.getCurrentUser();
+    const controller = new AbortController();
+    const pending = expect(service.getCurrentUser(controller.signal)).rejects.toMatchObject({ name: 'AbortError' });
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    controller.abort();
+    await pending;
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it('bounds the whole read, including a stalled fetch', async () => {
+    vi.useFakeTimers();
+    const fetcher = vi.fn<typeof fetch>(async (_url, init) => new Promise((_resolve, reject) => {
+      init!.signal!.addEventListener('abort', () => reject(init!.signal!.reason), { once: true });
+    }));
+    const pending = serviceFor(fetcher, { timeoutMs: 1000, readBudgetMs: 50 }).getCurrentUser();
+    await vi.advanceTimersByTimeAsync(50);
+    expect(await pending).toMatchObject({ source: 'error', error: expect.stringContaining('too long') });
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('lets an upload outlive the ordinary request timeout and sends its bytes only once', async () => {
+    vi.useFakeTimers();
+    const fetcher = vi.fn<typeof fetch>(async () => new Promise(resolve => {
+      setTimeout(() => resolve(jsonResponse({ data: { link: 'https://assets.test/image.png' } })), 50);
+    }));
+    const pending = serviceFor(fetcher, { timeoutMs: 10, uploadTimeoutMs: 100 }).uploadNoteImage('note', image);
+    await vi.advanceTimersByTimeAsync(20);
+    expect(fetcher.mock.calls[0][1]!.signal!.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(30);
+    await expect(pending).resolves.toEqual({ link: 'https://assets.test/image.png' });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it('does not resend a timed-out upload and reports its uncertain server outcome', async () => {
+    vi.useFakeTimers();
+    const fetcher = vi.fn<typeof fetch>(async (_url, init) => new Promise((_resolve, reject) => {
+      init!.signal!.addEventListener('abort', () => reject(init!.signal!.reason), { once: true });
+    }));
+    const pending = expect(serviceFor(fetcher, { uploadTimeoutMs: 50 }).uploadNoteImage('note', image)).rejects.toThrow('It may have reached HackMD');
+    await vi.advanceTimersByTimeAsync(50);
+    await pending;
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('cancels an in-flight upload without retrying it', async () => {
+    const controller = new AbortController();
+    const fetcher = vi.fn<typeof fetch>(async (_url, init) => new Promise((_resolve, reject) => {
+      init!.signal!.addEventListener('abort', () => reject(init!.signal!.reason), { once: true });
+    }));
+    const pending = expect(serviceFor(fetcher).uploadNoteImage('note', image, controller.signal)).rejects.toMatchObject({ name: 'AbortError' });
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
+    controller.abort();
+    await pending;
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it('never retries POST, PATCH, PUT or DELETE failures', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => new Response('busy', { status: 503 }));
+    const service = serviceFor(fetcher);
+    for (const write of [() => service.createNote({}), () => service.updateNote('note', {}), () => service.updateFolderOrder({}), () => service.deleteNote('note')]) {
+      await expect(write()).rejects.toThrow('having trouble');
+    }
+    expect(fetcher.mock.calls.map(([, init]) => init!.method)).toEqual(['POST', 'PATCH', 'PUT', 'DELETE']);
+  });
+});
 
 describe('hackmd-service DTO mapping', () => {
   it('maps swagger NoteType fields to NoteSummary', () => {
@@ -249,7 +375,7 @@ describe('hackmd-service request mapping', () => {
     const { service } = createService([
       jsonResponse({ id: 'cached', title: 'Cached', content: 'Cached body' }),
       jsonResponse({ message: 'Not Found' }, { status: 404, statusText: 'Not Found' }),
-      jsonResponse({ message: 'Unavailable' }, { status: 503, statusText: 'Service Unavailable' }),
+      ...Array.from({ length: 3 }, () => jsonResponse({ message: 'Unavailable' }, { status: 503, statusText: 'Service Unavailable' })),
     ]);
 
     await service.getNote('cached');

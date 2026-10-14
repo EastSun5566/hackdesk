@@ -22,6 +22,7 @@ import type {
 import type { AppSettings } from './settings';
 
 export type RuntimeEnvironment = 'electron' | 'web';
+export type HackmdRequestOptions = { requestId: string };
 
 export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'workspaceNavigation'> & {
   hasHackmdApiToken: boolean;
@@ -338,18 +339,20 @@ export type HackDeskElectronAPI = {
     importHackmdCliToken: () => Promise<ImportHackmdCliTokenResult>;
   };
   hackmd: {
-    validateToken: (token: string) => Promise<UserSummary>;
-    getCurrentUser: () => Promise<RepositoryValue<UserSummary>>;
-    listTeams: () => Promise<RepositoryValue<TeamSummary[]>>;
-    listNotes: () => Promise<RepositoryValue<NoteSummary[]>>;
-    listTeamNotes: (teamPath: string) => Promise<RepositoryValue<NoteSummary[]>>;
-    listHistory: (limit?: number) => Promise<RepositoryValue<NoteSummary[]>>;
-    listFolders: () => Promise<RepositoryValue<FolderSummary[]>>;
-    listTeamFolders: (teamPath: string) => Promise<RepositoryValue<FolderSummary[]>>;
-    getFolder: (folderId: string) => Promise<RepositoryValue<FolderSummary>>;
-    getTeamFolder: (teamPath: string, folderId: string) => Promise<RepositoryValue<FolderSummary>>;
-    getFolderOrder: () => Promise<RepositoryValue<FolderOrder>>;
-    getTeamFolderOrder: (teamPath: string) => Promise<RepositoryValue<FolderOrder>>;
+    /** Optional for renderer hot reloads against an older preload. */
+    cancelRequest?: (requestId: string) => Promise<void>;
+    validateToken: (token: string, options?: HackmdRequestOptions) => Promise<UserSummary>;
+    getCurrentUser: (options?: HackmdRequestOptions) => Promise<RepositoryValue<UserSummary>>;
+    listTeams: (options?: HackmdRequestOptions) => Promise<RepositoryValue<TeamSummary[]>>;
+    listNotes: (options?: HackmdRequestOptions) => Promise<RepositoryValue<NoteSummary[]>>;
+    listTeamNotes: (teamPath: string, options?: HackmdRequestOptions) => Promise<RepositoryValue<NoteSummary[]>>;
+    listHistory: (limit?: number, options?: HackmdRequestOptions) => Promise<RepositoryValue<NoteSummary[]>>;
+    listFolders: (options?: HackmdRequestOptions) => Promise<RepositoryValue<FolderSummary[]>>;
+    listTeamFolders: (teamPath: string, options?: HackmdRequestOptions) => Promise<RepositoryValue<FolderSummary[]>>;
+    getFolder: (folderId: string, options?: HackmdRequestOptions) => Promise<RepositoryValue<FolderSummary>>;
+    getTeamFolder: (teamPath: string, folderId: string, options?: HackmdRequestOptions) => Promise<RepositoryValue<FolderSummary>>;
+    getFolderOrder: (options?: HackmdRequestOptions) => Promise<RepositoryValue<FolderOrder>>;
+    getTeamFolderOrder: (teamPath: string, options?: HackmdRequestOptions) => Promise<RepositoryValue<FolderOrder>>;
     createFolder: (input: CreateFolderInput) => Promise<FolderSummary>;
     createTeamFolder: (teamPath: string, input: CreateFolderInput) => Promise<FolderSummary>;
     updateFolder: (folderId: string, input: UpdateFolderInput) => Promise<FolderSummary>;
@@ -358,9 +361,9 @@ export type HackDeskElectronAPI = {
     deleteTeamFolder: (teamPath: string, folderId: string) => Promise<void>;
     updateFolderOrder: (order: FolderOrder) => Promise<void>;
     updateTeamFolderOrder: (teamPath: string, order: FolderOrder) => Promise<void>;
-    getNote: (noteId: string, teamPath?: string | null) => Promise<RepositoryValue<DocumentSummary>>;
+    getNote: (noteId: string, teamPath?: string | null, options?: HackmdRequestOptions) => Promise<RepositoryValue<DocumentSummary>>;
     /** Resolves null when the note still matches `etag`. */
-    getNoteIfChanged: (noteId: string, teamPath: string | null, etag: string) => Promise<DocumentSummary | null>;
+    getNoteIfChanged: (noteId: string, teamPath: string | null, etag: string, options?: HackmdRequestOptions) => Promise<DocumentSummary | null>;
     createNote: (input: CreateNoteInput) => Promise<DocumentSummary>;
     createTeamNote: (teamPath: string, input: CreateNoteInput) => Promise<DocumentSummary>;
     updateNote: (noteId: string, input: UpdateNoteInput) => Promise<DocumentSummary>;
@@ -368,7 +371,7 @@ export type HackDeskElectronAPI = {
     deleteNote: (noteId: string) => Promise<void>;
     restoreNote: (noteId: string) => Promise<void>;
     deleteTeamNote: (teamPath: string, noteId: string) => Promise<void>;
-    uploadNoteImage: (noteId: string, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
+    uploadNoteImage: (noteId: string, input: UploadNoteImageInput, options?: HackmdRequestOptions) => Promise<UploadNoteImageResult>;
   };
   localVault: {
     choose: () => Promise<ChooseLocalVaultResult>;

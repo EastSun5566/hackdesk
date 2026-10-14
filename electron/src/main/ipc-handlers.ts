@@ -14,6 +14,7 @@ import type {
   FatalRendererError,
   ThemeSurfaceInput,
   UploadNoteImageInput,
+  HackmdRequestOptions,
 } from '../../../src/lib/electron-api';
 import type {
   LocalVaultCreateFolderInput,
@@ -86,6 +87,7 @@ import {
   type LocalVaultWatcher,
 } from './local-vault-service';
 import { openExternalUrl, openHackmdEditor } from './url-policy';
+import { createHackmdRequests } from './hackmd-requests';
 import type { WindowManager } from './window-manager';
 import { openTextFile, saveTextFile } from './app-file-dialog';
 import { checkForElectronUpdates } from './app-updater';
@@ -119,6 +121,7 @@ import {
   updateFolderInputSchema,
   updateNoteInputSchema,
   uploadNoteImageInputSchema,
+  hackmdRequestOptionsSchema,
   validateIpcInput,
   validateBoolean,
   validateNonEmptyString,
@@ -143,6 +146,22 @@ export function registerIpcHandlers(
       });
     },
   };
+  const requests = createHackmdRequests();
+  const runRequest = <const A extends unknown[], T>(
+    event: IpcMainInvokeEvent,
+    options: HackmdRequestOptions | undefined,
+    method: (...args: NoInfer<[...A, AbortSignal?]>) => Promise<T>,
+    args: A,
+  ) => {
+    const metadata = validateIpcInput('hackmd:request', hackmdRequestOptionsSchema, options);
+    if (metadata) return requests.run(event.sender, metadata.requestId, signal => method(...args, signal));
+    const parameters: [...A, AbortSignal?] = [...args];
+    return method(...parameters);
+  };
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdCancelRequest, (event, requestId) => {
+    const metadata = validateIpcInput(ELECTRON_CHANNELS.hackmdCancelRequest, hackmdRequestOptionsSchema, { requestId })!;
+    requests.cancel(event.sender, metadata.requestId);
+  });
   let localVaultWatcher: LocalVaultWatcher | null = null;
   let watchedLocalVaultPath: string | null = null;
   let localVaultWatcherGeneration = 0;
@@ -332,34 +351,34 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.localVaultRevealRoot, () => (
     revealLocalVaultRoot((path) => shell.openPath(path))
   ));
-  ipcMain.handle(ELECTRON_CHANNELS.hackmdValidateToken, (_event, token: string) => (
-    validateToken(validateNonEmptyString(ELECTRON_CHANNELS.hackmdValidateToken, token))
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdValidateToken, (event, token: string, options?: HackmdRequestOptions) => (
+    runRequest(event, options, validateToken, [validateNonEmptyString(ELECTRON_CHANNELS.hackmdValidateToken, token)])
   ));
-  ipcMain.handle(ELECTRON_CHANNELS.hackmdGetCurrentUser, () => getCurrentUser());
-  ipcMain.handle(ELECTRON_CHANNELS.hackmdListTeams, () => listTeams());
-  ipcMain.handle(ELECTRON_CHANNELS.hackmdListNotes, () => listNotes());
-  ipcMain.handle(ELECTRON_CHANNELS.hackmdListTeamNotes, (_event, teamPath: string) => (
-    listTeamNotes(validateNonEmptyString(ELECTRON_CHANNELS.hackmdListTeamNotes, teamPath))
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdGetCurrentUser, (event, options?: HackmdRequestOptions) => runRequest(event, options, getCurrentUser, []));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdListTeams, (event, options?: HackmdRequestOptions) => runRequest(event, options, listTeams, []));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdListNotes, (event, options?: HackmdRequestOptions) => runRequest(event, options, listNotes, []));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdListTeamNotes, (event, teamPath: string, options?: HackmdRequestOptions) => (
+    runRequest(event, options, listTeamNotes, [validateNonEmptyString(ELECTRON_CHANNELS.hackmdListTeamNotes, teamPath)])
   ));
-  ipcMain.handle(ELECTRON_CHANNELS.hackmdListHistory, (_event, limit?: number) => (
-    listHistory(validateOptionalNumber(ELECTRON_CHANNELS.hackmdListHistory, limit))
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdListHistory, (event, limit?: number, options?: HackmdRequestOptions) => (
+    runRequest(event, options, listHistory, [validateOptionalNumber(ELECTRON_CHANNELS.hackmdListHistory, limit)])
   ));
-  ipcMain.handle(ELECTRON_CHANNELS.hackmdListFolders, () => listFolders());
-  ipcMain.handle(ELECTRON_CHANNELS.hackmdListTeamFolders, (_event, teamPath: string) => (
-    listTeamFolders(validateNonEmptyString(ELECTRON_CHANNELS.hackmdListTeamFolders, teamPath))
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdListFolders, (event, options?: HackmdRequestOptions) => runRequest(event, options, listFolders, []));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdListTeamFolders, (event, teamPath: string, options?: HackmdRequestOptions) => (
+    runRequest(event, options, listTeamFolders, [validateNonEmptyString(ELECTRON_CHANNELS.hackmdListTeamFolders, teamPath)])
   ));
-  ipcMain.handle(ELECTRON_CHANNELS.hackmdGetFolder, (_event, folderId: string) => (
-    getFolder(validateNonEmptyString(ELECTRON_CHANNELS.hackmdGetFolder, folderId))
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdGetFolder, (event, folderId: string, options?: HackmdRequestOptions) => (
+    runRequest(event, options, getFolder, [validateNonEmptyString(ELECTRON_CHANNELS.hackmdGetFolder, folderId)])
   ));
-  ipcMain.handle(ELECTRON_CHANNELS.hackmdGetTeamFolder, (_event, teamPath: string, folderId: string) => (
-    getTeamFolder(
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdGetTeamFolder, (event, teamPath: string, folderId: string, options?: HackmdRequestOptions) => (
+    runRequest(event, options, getTeamFolder, [
       validateNonEmptyString(ELECTRON_CHANNELS.hackmdGetTeamFolder, teamPath),
       validateNonEmptyString(ELECTRON_CHANNELS.hackmdGetTeamFolder, folderId),
-    )
+    ])
   ));
-  ipcMain.handle(ELECTRON_CHANNELS.hackmdGetFolderOrder, () => getFolderOrder());
-  ipcMain.handle(ELECTRON_CHANNELS.hackmdGetTeamFolderOrder, (_event, teamPath: string) => (
-    getTeamFolderOrder(validateNonEmptyString(ELECTRON_CHANNELS.hackmdGetTeamFolderOrder, teamPath))
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdGetFolderOrder, (event, options?: HackmdRequestOptions) => runRequest(event, options, getFolderOrder, []));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdGetTeamFolderOrder, (event, teamPath: string, options?: HackmdRequestOptions) => (
+    runRequest(event, options, getTeamFolderOrder, [validateNonEmptyString(ELECTRON_CHANNELS.hackmdGetTeamFolderOrder, teamPath)])
   ));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdCreateFolder, (_event, input: CreateFolderInput) => (
     createFolder(validateIpcInput(ELECTRON_CHANNELS.hackmdCreateFolder, createFolderInputSchema, input))
@@ -404,18 +423,18 @@ export function registerIpcHandlers(
       validateIpcInput(ELECTRON_CHANNELS.hackmdUpdateTeamFolderOrder, folderOrderSchema, order),
     )
   ));
-  ipcMain.handle(ELECTRON_CHANNELS.hackmdGetNote, (_event, noteId: string, teamPath?: string | null) => (
-    getNote(
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdGetNote, (event, noteId: string, teamPath?: string | null, options?: HackmdRequestOptions) => (
+    runRequest(event, options, getNote, [
       validateNonEmptyString(ELECTRON_CHANNELS.hackmdGetNote, noteId),
       teamPath == null ? teamPath : validateNonEmptyString(ELECTRON_CHANNELS.hackmdGetNote, teamPath),
-    )
+    ])
   ));
-  ipcMain.handle(ELECTRON_CHANNELS.hackmdGetNoteIfChanged, (_event, noteId: string, teamPath: string | null, etag: string) => (
-    getNoteIfChanged(
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdGetNoteIfChanged, (event, noteId: string, teamPath: string | null, etag: string, options?: HackmdRequestOptions) => (
+    runRequest(event, options, getNoteIfChanged, [
       validateNonEmptyString(ELECTRON_CHANNELS.hackmdGetNoteIfChanged, noteId),
       teamPath == null ? null : validateNonEmptyString(ELECTRON_CHANNELS.hackmdGetNoteIfChanged, teamPath),
       validateNonEmptyString(ELECTRON_CHANNELS.hackmdGetNoteIfChanged, etag),
-    )
+    ])
   ));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdCreateNote, (_event, input: CreateNoteInput) => (
     createNote(validateIpcInput(ELECTRON_CHANNELS.hackmdCreateNote, createNoteInputSchema, input))
@@ -451,11 +470,11 @@ export function registerIpcHandlers(
       validateNonEmptyString(ELECTRON_CHANNELS.hackmdDeleteTeamNote, noteId),
     )
   ));
-  ipcMain.handle(ELECTRON_CHANNELS.hackmdUploadNoteImage, (_event, noteId: string, input: UploadNoteImageInput) => (
-    uploadNoteImage(
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdUploadNoteImage, (event, noteId: string, input: UploadNoteImageInput, options?: HackmdRequestOptions) => (
+    runRequest(event, options, uploadNoteImage, [
       validateNonEmptyString(ELECTRON_CHANNELS.hackmdUploadNoteImage, noteId),
       validateIpcInput(ELECTRON_CHANNELS.hackmdUploadNoteImage, uploadNoteImageInputSchema, input),
-    )
+    ])
   ));
   ipcMain.handle(ELECTRON_CHANNELS.shellOpenExternal, (_event, url: string) => (
     openExternalUrl(validateNonEmptyString(ELECTRON_CHANNELS.shellOpenExternal, url))
@@ -536,6 +555,9 @@ export function registerIpcHandlers(
   });
 
   return {
-    dispose: () => closeLocalVaultWatcher(true),
+    dispose: () => {
+      requests.dispose();
+      closeLocalVaultWatcher(true);
+    },
   };
 }

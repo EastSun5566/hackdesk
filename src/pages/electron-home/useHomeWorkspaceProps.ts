@@ -35,6 +35,7 @@ type RemoteDocumentRecovery = ReturnType<typeof useRemoteDocumentRecovery>;
 
 type WorkspaceActions = {
   attachImageToTab: ElectronHomeWorkspaceProps['documentWorkspace']['onAttachImage'];
+  cancelImageUpload?: ElectronHomeWorkspaceProps['documentWorkspace']['onCancelImageUpload'];
   copyDraftText: ElectronHomeWorkspaceProps['documentWorkspace']['onCopyDraft'];
   exportDraftText: ElectronHomeWorkspaceProps['documentWorkspace']['onExportDraft'];
   retryDocumentLoad: ElectronHomeWorkspaceProps['documentWorkspace']['onRetryLoad'];
@@ -306,6 +307,7 @@ export function useHomeWorkspaceProps({
         successMessage: 'Sharing settings updated.',
       }),
       onAttachImage: actions.attachImageToTab,
+      onCancelImageUpload: actions.cancelImageUpload,
       onDelete: actions.handleDeleteRequest,
       onTitleChange: documents.handleDocumentTitleChange,
       onContentChange: documents.handleDocumentContentChange,

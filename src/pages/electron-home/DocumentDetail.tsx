@@ -112,6 +112,7 @@ export type DocumentDetailActions = {
   onToggleInspector: () => void;
   /** Uploads `file` and replaces `placeholder` in this tab's content when done. */
   onAttachImage: (file: File, placeholder: string) => Promise<unknown>;
+  onCancelImageUpload?: () => void;
 };
 
 export type DocumentDetailProps = {
@@ -686,12 +687,15 @@ function DocumentActionsMenu({
             Reveal in Finder
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem disabled={status.uploadingImage} onSelect={onAttachImage}>
+        <DropdownMenuItem
+          disabled={status.uploadingImage && (isLocalDocument || !actions.onCancelImageUpload)}
+          onSelect={status.uploadingImage ? actions.onCancelImageUpload : onAttachImage}
+        >
           {status.uploadingImage
             ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
             : <ImagePlus aria-hidden="true" className="h-4 w-4" />}
-          Attach Image…
-          <ActionMenuShortcut actionId="attach-image" />
+          {status.uploadingImage && !isLocalDocument && actions.onCancelImageUpload ? 'Cancel Image Upload' : 'Attach Image…'}
+          {!status.uploadingImage ? <ActionMenuShortcut actionId="attach-image" /> : null}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => actions.onExportMarkdown(documentState.document, documentState.title, documentState.content)}>
           <Download aria-hidden="true" className="h-4 w-4" />

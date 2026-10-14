@@ -329,6 +329,8 @@ export const uploadNoteImageInputSchema = z.strictObject({
   bytes: z.instanceof(ArrayBuffer).refine((bytes) => bytes.byteLength <= 25 * 1024 * 1024, 'Image exceeds 25 MiB'),
 });
 
+export const hackmdRequestOptionsSchema = z.strictObject({ requestId: z.uuid() }).optional();
+
 export const openHackmdEditorInputSchema = z.strictObject({
   publishType: z.enum(['edit', 'view', 'slide', 'book']),
   shortId: z.string(),

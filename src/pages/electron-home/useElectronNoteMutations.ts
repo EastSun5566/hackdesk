@@ -16,6 +16,7 @@ import type {
   UploadNoteImageInput,
 } from '@/lib/electron-api';
 import type { LocalDocument, LocalVaultSnapshot } from '@/lib/local-vault';
+import { runHackmdRequest } from '@/lib/hackmd-requests';
 import { HACKMD_NOTE_CHANGED_MESSAGE } from '@/lib/note-errors';
 import type { FolderDropOperation } from '@/lib/hackmd-folder-dnd';
 
@@ -660,7 +661,7 @@ export function useElectronNoteMutations({
   });
 
   const uploadNoteImageMutation = useWorkspaceMutation(scope, 'upload-image', {
-    mutationFn: async ({ note, input }: { note: DocumentSummary; input: UploadNoteImageInput }) => {
+    mutationFn: async ({ note, input, signal }: { note: DocumentSummary; input: UploadNoteImageInput; signal?: AbortSignal }) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
       }
@@ -674,7 +675,7 @@ export function useElectronNoteMutations({
         return result.attachment;
       }
 
-      return api.hackmd.uploadNoteImage(note.id, input);
+      return runHackmdRequest(api.hackmd, signal, api.hackmd.uploadNoteImage, [note.id, input]);
     },
     onSuccess: (_uploadedImage, { note }) => {
       if (scope.type !== 'local' && note.teamPath !== LOCAL_VAULT_TEAM_PATH) {

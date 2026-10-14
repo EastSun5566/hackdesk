@@ -757,13 +757,13 @@ export function Home() {
     const result = await api.hackmd.getNote(identity.id, identity.teamPath);
     return result.source === 'error' ? undefined : result.data;
   }, [api]);
-  const attachImageToTab = useTabImageUploads({
+  const { attachImageToTab, cancelImageUpload } = useTabImageUploads({
     scopeKey: noteWorkspace.state.scopeKey,
     getTabDocument: workbenchDocuments.getTabDocument,
     getWorkspaceSnapshot: noteWorkspace.getWorkspaceSnapshot,
     replaceTabPlaceholder: noteWorkspace.replaceTabPlaceholder,
     readTabDocument: readBackgroundTabDocument,
-    uploadImage: (note, input) => mutations.uploadNoteImageMutation.mutateAsync({ note, input }),
+    uploadImage: (note, input, signal) => mutations.uploadNoteImageMutation.mutateAsync({ note, input, signal }),
   });
   const retryDocumentLoad = useCallback((tab: OpenNoteTab) => {
     const identity = getSavedTabNoteIdentity(tab);
@@ -789,6 +789,7 @@ export function Home() {
   const workspaceProps = useHomeWorkspaceProps({
     actions: {
       attachImageToTab,
+      cancelImageUpload,
       copyDraftText,
       exportDraftText,
       retryDocumentLoad,
