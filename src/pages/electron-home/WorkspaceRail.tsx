@@ -531,7 +531,7 @@ export function WorkspaceRail({
           </li>
         </ul>
 
-        <div data-testid="workspace-rail-team-navigation" className="min-h-0 flex-1 overflow-y-auto">
+        <div data-testid="workspace-rail-team-navigation" className={cn('min-h-0 flex-1 overflow-y-auto', collapsed && 'scrollbar-none')}>
           <PinnedTeamsSection
             collapsed={collapsed}
             headingId={teamsHeadingId}

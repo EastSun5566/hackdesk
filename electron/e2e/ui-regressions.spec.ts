@@ -221,6 +221,41 @@ test('palette enabled state and contrast survive real CSS in all built-in themes
   }
 });
 
+test('collapsed workspace icons stay centered with classic scrollbars and remain scrollable', async () => {
+  const { app, page } = await launchFixture();
+  try {
+    // A sized scrollbar reproduces macOS's non-overlay scrollbar without changing OS settings.
+    await page.addStyleTag({ content: `
+      [data-testid="workspace-rail-team-navigation"] { scrollbar-color: auto; }
+      [data-testid="workspace-rail-team-navigation"]::-webkit-scrollbar { width: 14px; }
+    ` });
+    const scroller = page.getByTestId('workspace-rail-team-navigation');
+    await scroller.evaluate(element => { element.style.flex = 'none'; element.style.height = '48px'; });
+    await page.keyboard.press(`${primary}+b`);
+    const first = page.getByRole('button', { name: `${teamNames[0]}, private`, exact: true });
+    const second = page.getByRole('button', { name: `${teamNames[1]}, private`, exact: true });
+    await expect.poll(() => page.evaluate(() => {
+      const personal = document.querySelector('[data-testid="workspace-rail-personal-avatar"]')!.getBoundingClientRect();
+      const team = document.querySelector('[data-testid="workspace-rail-team-logo-fixture-team-0"]')!.getBoundingClientRect();
+      return Math.abs((personal.left + personal.width / 2) - (team.left + team.width / 2));
+    })).toBeLessThan(1);
+    await first.focus();
+    await page.keyboard.press('Tab');
+    await expect(second).toBeFocused();
+    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+    await scroller.hover();
+    await page.mouse.wheel(0, -300);
+    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBe(0);
+    await page.mouse.wheel(0, 300);
+    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('19-collapsed-scrollbar.png') });
+    await page.keyboard.press(`${primary}+b`);
+    await expect.poll(() => scroller.evaluate(element => element.offsetWidth - element.clientWidth)).toBeGreaterThan(10);
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test('rail controls, one-pixel boundaries and full-height Settings workbench', async () => {
   const testInfo = test.info();
   const { app, page } = await launchFixture();
