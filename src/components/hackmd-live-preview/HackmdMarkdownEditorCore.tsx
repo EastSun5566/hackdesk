@@ -23,9 +23,10 @@ import { useTheme } from '@/components/theme-provider';
 import { registerEditorNavigationKeymap } from '@/lib/editor-navigation-keymap';
 import type { EditorMode } from '@/lib/settings';
 import type { ResolvedThemeMode } from '@/lib/themes';
+import type { LocalImageContext } from '@/lib/local-image';
 
 import { hackmdCodeLanguages } from './hackmd-code-languages';
-import { hfmBlocks } from './hfm-blocks';
+import { hfmBlocks, setLocalImageContext } from './hfm-blocks';
 import { hackmdTables } from './hackmd-tables';
 import { hackmdInlinePreview } from './inline-preview';
 import {
@@ -119,7 +120,6 @@ const editorExtensions: Extension[] = [
   initialRevealExtension(),
   hackmdRichPreviewNavigation(),
   hackmdRichPreviewWidgets(),
-  hfmBlocks(),
   EditorView.lineWrapping,
   keymap.of([
     indentWithTab,
@@ -149,6 +149,7 @@ type EditorRuntime = {
   value: string;
   editorMode: EditorMode;
   resolvedMode: ResolvedThemeMode;
+  localImageContext: LocalImageContext | null;
 };
 
 type CreateEditorViewOptions = {
@@ -163,6 +164,7 @@ function createEditorRuntime(
   value: string,
   editorMode: EditorMode,
   resolvedMode: ResolvedThemeMode,
+  localImageContext: LocalImageContext | null,
 ): EditorRuntime {
   return {
     view: null,
@@ -177,6 +179,7 @@ function createEditorRuntime(
     value,
     editorMode,
     resolvedMode,
+    localImageContext,
   };
 }
 
@@ -251,6 +254,7 @@ function createHackmdEditorView({
         runtime.editorModeCompartment.of(createEditorModeBaseExtension(runtime.editorMode)),
         hackmdLinkOpenAffordance(onOpenLinkRef),
         ...editorExtensions,
+        hfmBlocks(runtime.localImageContext),
         hackmdTables(onOpenLinkRef),
         runtime.themeCompartment.of(createHackmdPreviewTheme(runtime.resolvedMode)),
         inlineAttachmentExtension({
@@ -298,6 +302,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
   function HackmdMarkdownEditorCore({
     editorMode = 'standard',
     initialRevealText = null,
+    localImageContext = null,
     value,
     onChange,
     onAttachImage,
@@ -308,7 +313,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
     const onAttachImageRef = useLatestRef(onAttachImage);
     const onChangeRef = useLatestRef(onChange);
     const onOpenLinkRef = useLatestRef(onOpenLink);
-    const [runtime] = useState(() => createEditorRuntime(value, editorMode, resolvedMode));
+    const [runtime] = useState(() => createEditorRuntime(value, editorMode, resolvedMode, localImageContext));
     const dragDepthRef = useRef(0);
     const [isImageDragging, setIsImageDragging] = useState(false);
 
@@ -395,6 +400,15 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
         return revealTextWithRuntime(runtime, query);
       },
     }), [onChangeRef, runtime]);
+
+    useLayoutEffect(() => {
+      const previous = runtime.localImageContext;
+      if (previous?.vaultId === localImageContext?.vaultId
+        && previous?.noteId === localImageContext?.noteId
+        && previous?.relativePath === localImageContext?.relativePath) return;
+      runtime.localImageContext = localImageContext;
+      runtime.view?.dispatch({ effects: setLocalImageContext.of(localImageContext) });
+    }, [localImageContext, runtime]);
 
     useLayoutEffect(() => {
       runtime.resolvedMode = resolvedMode;

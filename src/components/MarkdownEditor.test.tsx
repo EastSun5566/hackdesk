@@ -1,6 +1,8 @@
 import { createRef, StrictMode, type RefObject } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { EditorView } from '@codemirror/view';
+import { undo } from '@codemirror/commands';
 
 import { hfmFixtures } from './hackmd-live-preview/hfm-fixtures';
 import { formatMarkdownImage } from './hackmd-live-preview/markdown-image';
@@ -1295,6 +1297,50 @@ describe('MarkdownEditor', () => {
     expect(secondImage).toHaveAttribute('width', '640');
     expect(secondImage).toHaveAttribute('height', '360');
     expect(secondRef.current?.getMarkdown()).toBe(markdown);
+  });
+
+  it('updates a local image context without replacing the editor, source, selection or undo history', async () => {
+    const markdown = 'Intro\n![Local](<my image.png>)';
+    const ref = createRef<MarkdownEditorHandle>();
+    const onChange = vi.fn();
+    const context = { vaultId: 'vault-a', noteId: 'note-a', relativePath: 'notes/Note.md' };
+    const { rerender } = render(<MarkdownEditor ref={ref} value={markdown} onChange={onChange} localImageContext={context} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    await waitFor(() => expect(editor.querySelector('.cm-hackmd-image-preview img')).toHaveAttribute('src', expect.stringContaining('hackdesk://vault-image/vault-a/note-a')));
+    const view = EditorView.findFromDOM(editor.querySelector('.cm-editor')!)!;
+    act(() => view.dispatch({ changes: { from: 0, insert: 'Draft ' }, selection: { anchor: 6 } }));
+    const content = view.state.doc.toString();
+    const calls = onChange.mock.calls.length;
+    for (const next of [{ ...context, relativePath: 'moved/Note.md' }, { ...context, vaultId: 'vault-b' }]) {
+      rerender(<MarkdownEditor ref={ref} value={content} onChange={onChange} localImageContext={next} />);
+      await waitFor(() => {
+        const url = new URL(editor.querySelector<HTMLImageElement>('.cm-hackmd-image-preview img')!.src);
+        expect(url.searchParams.get('notePath')).toBe(next.relativePath);
+        expect(url.pathname).toContain(next.vaultId);
+      });
+      expect(EditorView.findFromDOM(editor.querySelector('.cm-editor')!)).toBe(view);
+      expect(view.state.selection.main.anchor).toBe(6);
+      expect(ref.current?.getMarkdown()).toBe(content);
+    }
+    expect(onChange).toHaveBeenCalledTimes(calls);
+    act(() => { expect(undo(view)).toBe(true); });
+    expect(ref.current?.getMarkdown()).toBe(markdown);
+  });
+
+  it('keeps failed image source and alt text with an unobtrusive unavailable message', async () => {
+    const markdown = 'Intro\n![Diagram](image.png)';
+    const ref = createRef<MarkdownEditorHandle>();
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} localImageContext={{ vaultId: 'a', noteId: 'b', relativePath: 'Note.md' }} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const image = await waitFor(() => {
+      const image = editor.querySelector('.cm-hackmd-image-preview img');
+      expect(image).not.toBeNull();
+      return image!;
+    });
+    fireEvent.error(image);
+    expect(within(editor).getByText('Image unavailable')).toBeVisible();
+    expect(within(editor).getByText('Diagram', { selector: 'figcaption' })).toBeVisible();
+    expect(ref.current?.getMarkdown()).toBe(markdown);
   });
 
   it('focuses the image source line when the image preview is clicked', async () => {

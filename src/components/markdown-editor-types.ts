@@ -1,4 +1,5 @@
 import type { EditorMode } from '@/lib/settings';
+import type { LocalImageContext } from '@/lib/local-image';
 
 export type MarkdownEditorHandle = {
   focus: () => void;
@@ -10,6 +11,7 @@ export type MarkdownEditorHandle = {
 };
 
 export type MarkdownEditorProps = {
+  localImageContext?: LocalImageContext | null;
   editorMode?: EditorMode;
   initialRevealText?: string | null;
   value: string;

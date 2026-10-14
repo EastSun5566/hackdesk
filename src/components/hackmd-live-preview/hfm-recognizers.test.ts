@@ -27,6 +27,9 @@ describe('HFM live-preview recognizers', () => {
     });
     expect(parseMarkdownImage('![bad](javascript:alert(1))', 10)).toBeNull();
     expect(parseMarkdownImage('![bad](data:image/png;base64,abc)', 10)).toBeNull();
+    expect(parseMarkdownImage('![Alt](<圖 my image.png> =320x180 "Title")', 42)).toMatchObject({
+      src: '圖 my image.png', width: 320, height: 180,
+    });
   });
 
   it('recognizes every HackMD rich fence and external provider as low-noise source styling', () => {

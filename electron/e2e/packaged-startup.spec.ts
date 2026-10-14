@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import { spawn, type ChildProcess } from 'node:child_process';
 
 import { defaultSettings } from '../../src/lib/settings';
+import { LOCAL_IMAGE_PNG } from './fixtures/local-image';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const productName = 'HackDesk';
@@ -49,6 +50,8 @@ test('packaged binary launches and serves the packaged renderer (#140)', async (
   const home = await mkdtemp(join(tmpdir(), 'hackdesk-packaged-'));
   const vault = join(home, 'vault');
   await mkdir(vault);
+  await writeFile(join(vault, 'Image fixture.md'), '# Image fixture\n\n![Packaged](image%20sample.png)');
+  await writeFile(join(vault, 'image sample.png'), LOCAL_IMAGE_PNG);
   await mkdir(join(home, '.hackdesk'), { recursive: true });
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
     ...defaultSettings,
@@ -117,7 +120,9 @@ test('packaged binary launches and serves the packaged renderer (#140)', async (
     }
     const page = context.pages()[0] ?? (await context.waitForEvent('page'));
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.getByRole('heading', { name: 'No note selected' })).toBeVisible();
+    await page.getByRole('treeitem', { name: /Image fixture/ }).first().click();
+    const image = page.locator('.cm-hackmd-image-preview img');
+    await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(1);
 
     // The first window must use the packaged renderer, not a dev-server URL.
     // `getProductionRendererUrl()` returns `hackdesk://renderer/index.html#/electron`
