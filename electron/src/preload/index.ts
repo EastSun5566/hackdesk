@@ -10,6 +10,7 @@ import type {
   HackDeskCloseRequest,
   HackDeskCommandPaletteCommand,
   HackDeskElectronAPI,
+  HackmdRequestOptions,
   ThemeSurfaceInput,
   OpenTextFileInput,
   OpenHackmdEditorInput,
@@ -46,20 +47,21 @@ const api: HackDeskElectronAPI = {
     importHackmdCliToken: () => ipcRenderer.invoke(ELECTRON_CHANNELS.settingsImportHackmdCliToken),
   },
   hackmd: {
-    validateToken: (token: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdValidateToken, token),
-    getCurrentUser: () => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetCurrentUser),
-    listTeams: () => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListTeams),
-    listNotes: () => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListNotes),
-    listTeamNotes: (teamPath: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListTeamNotes, teamPath),
-    listHistory: (limit?: number) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListHistory, limit),
-    listFolders: () => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListFolders),
-    listTeamFolders: (teamPath: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListTeamFolders, teamPath),
-    getFolder: (folderId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetFolder, folderId),
-    getTeamFolder: (teamPath: string, folderId: string) => (
-      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetTeamFolder, teamPath, folderId)
+    cancelRequest: (requestId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdCancelRequest, requestId),
+    validateToken: (token: string, options?: HackmdRequestOptions) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdValidateToken, token, options),
+    getCurrentUser: (options?: HackmdRequestOptions) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetCurrentUser, options),
+    listTeams: (options?: HackmdRequestOptions) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListTeams, options),
+    listNotes: (options?: HackmdRequestOptions) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListNotes, options),
+    listTeamNotes: (teamPath: string, options?: HackmdRequestOptions) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListTeamNotes, teamPath, options),
+    listHistory: (limit?: number, options?: HackmdRequestOptions) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListHistory, limit, options),
+    listFolders: (options?: HackmdRequestOptions) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListFolders, options),
+    listTeamFolders: (teamPath: string, options?: HackmdRequestOptions) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListTeamFolders, teamPath, options),
+    getFolder: (folderId: string, options?: HackmdRequestOptions) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetFolder, folderId, options),
+    getTeamFolder: (teamPath: string, folderId: string, options?: HackmdRequestOptions) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetTeamFolder, teamPath, folderId, options)
     ),
-    getFolderOrder: () => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetFolderOrder),
-    getTeamFolderOrder: (teamPath: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetTeamFolderOrder, teamPath),
+    getFolderOrder: (options?: HackmdRequestOptions) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetFolderOrder, options),
+    getTeamFolderOrder: (teamPath: string, options?: HackmdRequestOptions) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetTeamFolderOrder, teamPath, options),
     createFolder: (input: CreateFolderInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdCreateFolder, input),
     createTeamFolder: (teamPath: string, input: CreateFolderInput) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdCreateTeamFolder, teamPath, input)
@@ -78,11 +80,11 @@ const api: HackDeskElectronAPI = {
     updateTeamFolderOrder: (teamPath: string, order: FolderOrder) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdUpdateTeamFolderOrder, teamPath, order)
     ),
-    getNote: (noteId: string, teamPath?: string | null) => (
-      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetNote, noteId, teamPath)
+    getNote: (noteId: string, teamPath?: string | null, options?: HackmdRequestOptions) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetNote, noteId, teamPath, options)
     ),
-    getNoteIfChanged: (noteId: string, teamPath: string | null, etag: string) => (
-      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetNoteIfChanged, noteId, teamPath, etag)
+    getNoteIfChanged: (noteId: string, teamPath: string | null, etag: string, options?: HackmdRequestOptions) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetNoteIfChanged, noteId, teamPath, etag, options)
     ),
     createNote: (input: CreateNoteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdCreateNote, input),
     createTeamNote: (teamPath: string, input: CreateNoteInput) => (
@@ -99,8 +101,8 @@ const api: HackDeskElectronAPI = {
     deleteTeamNote: (teamPath: string, noteId: string) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdDeleteTeamNote, teamPath, noteId)
     ),
-    uploadNoteImage: (noteId: string, input: UploadNoteImageInput) => (
-      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdUploadNoteImage, noteId, input)
+    uploadNoteImage: (noteId: string, input: UploadNoteImageInput, options?: HackmdRequestOptions) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdUploadNoteImage, noteId, input, options)
     ),
   },
   localVault: {

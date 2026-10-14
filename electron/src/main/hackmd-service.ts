@@ -18,9 +18,12 @@ import type {
   UserSummary,
 } from '../../../src/lib/electron-api';
 import { HACKMD_NOTE_NOT_FOUND_MESSAGE } from '../../../src/lib/note-errors';
+import { setTimeout as wait } from 'node:timers/promises';
 
 const HACKMD_API_BASE_URL = 'https://api.hackmd.io/v1';
 const HACKMD_TIMEOUT_MS = 20_000;
+const HACKMD_READ_BUDGET_MS = 30_000;
+const HACKMD_UPLOAD_TIMEOUT_MS = 60_000;
 
 type FolderPathDto = {
   id?: unknown;
@@ -134,6 +137,7 @@ function createFallbackCache() {
           return { source: 'remote' as const, data };
         })
         .catch((error) => {
+          if (error?.name === 'AbortError') throw error;
           const cached = entries.get(cacheKey) as T | undefined;
           const message = error instanceof Error ? error.message : 'Something went wrong while talking to HackMD.';
 
@@ -168,7 +172,16 @@ type HackmdServiceOptions = {
   timeoutMs?: number;
   fetcher?: HackmdFetch;
   readToken?: () => Promise<string>;
+  readAttempts?: number;
+  readBudgetMs?: number;
+  uploadTimeoutMs?: number;
 };
+
+function retryAfterMs(value: string | null) {
+  if (!value) return undefined;
+  const delay = /^\d+$/.test(value.trim()) ? Number(value) * 1000 : Date.parse(value) - Date.now();
+  return Number.isFinite(delay) ? Math.max(0, delay) : undefined;
+}
 
 function isFormDataBody(body: RequestInit['body']) {
   return typeof FormData !== 'undefined' && body instanceof FormData;
@@ -433,19 +446,20 @@ type HackmdResponse<T> = {
 };
 
 /** Sends a request and keeps the status and ETag. A 304 resolves with no data. */
-async function sendHackmd<T>(
+async function sendHackmdAttempt<T>(
   path: string,
   init: RequestInit,
   options: Required<HackmdServiceOptions>,
 ): Promise<HackmdResponse<T | undefined>> {
   const token = await options.readToken();
+  init.signal?.throwIfAborted();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
 
   try {
     const response = await options.fetcher(`${options.baseUrl}${path}`, {
       ...init,
-      signal: controller.signal,
+      signal: AbortSignal.any([controller.signal, ...(init.signal ? [init.signal] : [])]),
       headers: {
         Authorization: `Bearer ${token}`,
         ...(init.body && !isFormDataBody(init.body) ? { 'Content-Type': 'application/json' } : {}),
@@ -460,19 +474,56 @@ async function sendHackmd<T>(
 
     if (!response.ok) {
       const body = await readErrorBody(response);
-      throw Object.assign(new Error(getHackmdErrorMessage(response.status, response.statusText, body)), { status: response.status });
+      throw Object.assign(new Error(getHackmdErrorMessage(response.status, response.statusText, body)), {
+        status: response.status,
+        retryable: [408, 429, 500, 502, 503, 504].includes(response.status),
+        retryAfterMs: retryAfterMs(response.headers.get('Retry-After')),
+      });
     }
 
     const text = response.status === 204 ? '' : await response.text();
     return { status: response.status, etag, data: text ? JSON.parse(text) as T : undefined };
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('HackMD took too long to respond. Please try again.');
+    init.signal?.throwIfAborted();
+    if (controller.signal.aborted) {
+      throw Object.assign(new Error('HackMD took too long to respond. Please try again.'), { retryable: true, timeout: true });
     }
-
+    if (error instanceof TypeError) {
+      throw Object.assign(new Error('Unable to reach HackMD. Check your connection and try again.'), { retryable: true });
+    }
     throw error;
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+/** Only GETs may retry. The deadline includes attempts, response bodies and backoff. */
+async function sendHackmd<T>(path: string, init: RequestInit, options: Required<HackmdServiceOptions>): Promise<HackmdResponse<T | undefined>> {
+  if (init.method && init.method.toUpperCase() !== 'GET') return sendHackmdAttempt<T>(path, init, options);
+  const budget = new AbortController();
+  const deadline = Date.now() + options.readBudgetMs;
+  const timer = setTimeout(() => budget.abort(new Error('HackMD took too long to respond. Please try again.')), options.readBudgetMs);
+  const signal = AbortSignal.any([budget.signal, ...(init.signal ? [init.signal] : [])]);
+  try {
+    for (let attempt = 1; ; attempt += 1) {
+      signal.throwIfAborted();
+      try {
+        return await sendHackmdAttempt<T>(path, { ...init, signal }, options);
+      } catch (error) {
+        signal.throwIfAborted();
+        const failure = error as { retryable?: boolean; retryAfterMs?: number };
+        if (!failure.retryable || attempt >= options.readAttempts) throw error;
+        const delay = failure.retryAfterMs ?? 250 * 4 ** (attempt - 1);
+        // Never retry earlier than the server requested just to fit our budget.
+        if (Date.now() + delay >= deadline) throw error;
+        await wait(delay, undefined, { signal }).catch(error => {
+          signal.throwIfAborted();
+          throw error;
+        });
+      }
+    }
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -603,6 +654,9 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
     timeoutMs: options.timeoutMs ?? HACKMD_TIMEOUT_MS,
     fetcher: options.fetcher ?? fetch,
     readToken: options.readToken ?? defaultReadHackmdApiToken,
+    readAttempts: options.readAttempts ?? 3,
+    readBudgetMs: options.readBudgetMs ?? HACKMD_READ_BUDGET_MS,
+    uploadTimeoutMs: options.uploadTimeoutMs ?? HACKMD_UPLOAD_TIMEOUT_MS,
   };
 
   function getNotePath(noteId: string, teamPath?: string | null) {
@@ -626,8 +680,8 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
     return mapDocument(normalizeHackmdResponse(response.data) as NoteDto, response.etag);
   }
 
-  async function fetchDocument(path: string) {
-    const document = await readDocument(path);
+  async function fetchDocument(path: string, signal?: AbortSignal) {
+    const document = await readDocument(path, { signal });
     if (!document) {
       throw new Error(EMPTY_NOTE_MESSAGE);
     }
@@ -675,78 +729,78 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
     clearCache() {
       cache.clear();
     },
-    validateToken(token: string) {
+    validateToken(token: string, signal?: AbortSignal) {
       const normalizedToken = token.trim();
 
       if (!normalizedToken) {
         throw new Error('Enter a HackMD API token before testing it.');
       }
 
-      return requestHackmd<UserDto>('/me', {}, {
+      return requestHackmd<UserDto>('/me', { signal }, {
         ...serviceOptions,
         readToken: async () => normalizedToken,
       }).then(mapUser);
     },
 
-    getCurrentUser() {
+    getCurrentUser(signal?: AbortSignal) {
       return withCache(
         'currentUser',
-        requestHackmd<UserDto>('/me', {}, serviceOptions).then(mapUser),
+        requestHackmd<UserDto>('/me', { signal }, serviceOptions).then(mapUser),
       );
     },
 
-    listTeams() {
+    listTeams(signal?: AbortSignal) {
       return withCache(
         'teams',
-        requestHackmd<TeamDto[]>('/teams', {}, serviceOptions).then((teams) => teams.map(mapTeam)),
+        requestHackmd<TeamDto[]>('/teams', { signal }, serviceOptions).then((teams) => teams.map(mapTeam)),
       );
     },
 
-    listNotes() {
+    listNotes(signal?: AbortSignal) {
       return withCache(
         'notes',
-        requestHackmd<NoteDto[]>('/notes', {}, serviceOptions).then((notes) => sortNotes(notes.map(mapNote))),
+        requestHackmd<NoteDto[]>('/notes', { signal }, serviceOptions).then((notes) => sortNotes(notes.map(mapNote))),
       );
     },
 
-    listHistory(limit = 20) {
+    listHistory(limit = 20, signal?: AbortSignal) {
       const query = new URLSearchParams({ limit: String(limit) });
       return withCache(
         `history:${limit}`,
-        requestHackmd<NoteDto[]>(`/history?${query.toString()}`, {}, serviceOptions)
+        requestHackmd<NoteDto[]>(`/history?${query.toString()}`, { signal }, serviceOptions)
           .then((notes) => sortNotes(notes.map(mapNote))),
       );
     },
 
-    listFolders() {
+    listFolders(signal?: AbortSignal) {
       return withCache(
         'folders',
-        requestHackmd<FolderDto[]>('/folders', {}, serviceOptions)
+        requestHackmd<FolderDto[]>('/folders', { signal }, serviceOptions)
           .then((folders) => sortFolders(folders.map(mapFolder))),
       );
     },
 
-    listTeamFolders(teamPath: string) {
+    listTeamFolders(teamPath: string, signal?: AbortSignal) {
       const normalizedTeamPath = teamPath.trim();
 
       return withCache(
         `team:${normalizedTeamPath}:folders`,
-        requestHackmd<FolderDto[]>(`/teams/${encodePathSegment(normalizedTeamPath)}/folders`, {}, serviceOptions)
+        requestHackmd<FolderDto[]>(`/teams/${encodePathSegment(normalizedTeamPath)}/folders`, { signal }, serviceOptions)
           .then((folders) => sortFolders(folders.map(mapFolder))),
       );
     },
 
-    getFolder(folderId: string) {
+    getFolder(folderId: string, signal?: AbortSignal) {
       const normalizedFolderId = folderId.trim();
 
       return withCache(
         `folder:${normalizedFolderId}`,
-        requestHackmd<FolderDto>(`/folders/${encodePathSegment(normalizedFolderId)}`, {}, serviceOptions)
+        requestHackmd<FolderDto>(`/folders/${encodePathSegment(normalizedFolderId)}`, { signal }, serviceOptions)
           .then((folder) => mapFolder(normalizeHackmdResponse(folder) as FolderDto)),
       );
     },
 
-    getTeamFolder(teamPath: string, folderId: string) {
+    getTeamFolder(teamPath: string, folderId: string, signal?: AbortSignal) {
       const normalizedTeamPath = teamPath.trim();
       const normalizedFolderId = folderId.trim();
 
@@ -754,53 +808,53 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
         `team:${normalizedTeamPath}:folder:${normalizedFolderId}`,
         requestHackmd<FolderDto>(
           `/teams/${encodePathSegment(normalizedTeamPath)}/folders/${encodePathSegment(normalizedFolderId)}`,
-          {},
+          { signal },
           serviceOptions,
         ).then((folder) => mapFolder(normalizeHackmdResponse(folder) as FolderDto)),
       );
     },
 
-    getFolderOrder() {
+    getFolderOrder(signal?: AbortSignal) {
       return withCache(
         'folderOrder',
-        requestHackmd<FolderOrder>('/folders/folder-order', {}, serviceOptions).then(normalizeFolderOrder),
+        requestHackmd<FolderOrder>('/folders/folder-order', { signal }, serviceOptions).then(normalizeFolderOrder),
       );
     },
 
-    getTeamFolderOrder(teamPath: string) {
+    getTeamFolderOrder(teamPath: string, signal?: AbortSignal) {
       const normalizedTeamPath = teamPath.trim();
 
       return withCache(
         `team:${normalizedTeamPath}:folderOrder`,
         requestHackmd<FolderOrder>(
           `/teams/${encodePathSegment(normalizedTeamPath)}/folders/folder-order`,
-          {},
+          { signal },
           serviceOptions,
         ).then(normalizeFolderOrder),
       );
     },
 
-    listTeamNotes(teamPath: string) {
+    listTeamNotes(teamPath: string, signal?: AbortSignal) {
       const normalizedTeamPath = teamPath.trim();
       return withCache(
         `team:${normalizedTeamPath}:notes`,
-        requestHackmd<NoteDto[]>(`/teams/${encodePathSegment(normalizedTeamPath)}/notes`, {}, serviceOptions)
+        requestHackmd<NoteDto[]>(`/teams/${encodePathSegment(normalizedTeamPath)}/notes`, { signal }, serviceOptions)
           .then((notes) => sortNotes(notes.map(mapNote))),
       );
     },
 
-    getNote(noteId: string, teamPath?: string | null) {
+    getNote(noteId: string, teamPath?: string | null, signal?: AbortSignal) {
       const normalizedTeamPath = teamPath?.trim();
       const cacheKey: CacheKey = normalizedTeamPath
         ? `team:${normalizedTeamPath}:note:${noteId}`
         : `note:${noteId}`;
 
-      return withCache(cacheKey, fetchDocument(getNotePath(noteId, teamPath)).catch(rethrowNoteNotFound));
+      return withCache(cacheKey, fetchDocument(getNotePath(noteId, teamPath), signal).catch(rethrowNoteNotFound));
     },
 
     /** Reads the note only if it changed since `etag`; resolves null when HackMD answers 304. */
-    getNoteIfChanged(noteId: string, teamPath: string | null, etag: string) {
-      return readDocument(getNotePath(noteId, teamPath), { headers: { 'If-None-Match': etag } }).catch(rethrowNoteNotFound);
+    getNoteIfChanged(noteId: string, teamPath: string | null, etag: string, signal?: AbortSignal) {
+      return readDocument(getNotePath(noteId, teamPath), { signal, headers: { 'If-None-Match': etag } }).catch(rethrowNoteNotFound);
     },
 
     createNote(input: CreateNoteInput) {
@@ -921,7 +975,7 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
       );
     },
 
-    async uploadNoteImage(noteId: string, input: UploadNoteImageInput) {
+    async uploadNoteImage(noteId: string, input: UploadNoteImageInput, signal?: AbortSignal) {
       const form = new FormData();
       const blob = new Blob([input.bytes], { type: input.mimeType || 'application/octet-stream' });
 
@@ -932,9 +986,15 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
         {
           method: 'POST',
           body: form,
+          signal,
         },
-        serviceOptions,
-      );
+        { ...serviceOptions, timeoutMs: serviceOptions.uploadTimeoutMs },
+      ).catch((error: unknown) => {
+        if ((error as { timeout?: boolean } | null)?.timeout) {
+          throw new Error('Image upload timed out. It may have reached HackMD. Check the note before trying again.');
+        }
+        throw error;
+      });
 
       return mapImageUploadResponse(response);
     },

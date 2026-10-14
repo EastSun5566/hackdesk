@@ -72,6 +72,7 @@ export function DocumentWorkspace({
   onSaveMetadata,
   onSaveSharing,
   onAttachImage,
+  onCancelImageUpload,
   onDelete,
   onTitleChange,
   onContentChange,
@@ -110,6 +111,7 @@ export function DocumentWorkspace({
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveSharing: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onAttachImage: (tab: OpenNoteTab, file: File, placeholder: string) => Promise<unknown>;
+  onCancelImageUpload?: (tab: OpenNoteTab) => void;
   onDelete: (document: DocumentSummary) => void;
   onTitleChange: (tab: OpenNoteTab, title: string) => void;
   onContentChange: (tab: OpenNoteTab, content: string) => void;
@@ -245,6 +247,7 @@ export function DocumentWorkspace({
                       onSaveMetadata,
                       onSaveSharing,
                       onAttachImage: (file, placeholder) => (view.activeTab ? onAttachImage(view.activeTab, file, placeholder) : Promise.resolve()),
+                      onCancelImageUpload: onCancelImageUpload && (() => view.activeTab && onCancelImageUpload(view.activeTab)),
                       onDelete,
                       onTitleChange: (title) => view.activeTab && onTitleChange(view.activeTab, title),
                       onContentChange: (content) => view.activeTab && onContentChange(view.activeTab, content),

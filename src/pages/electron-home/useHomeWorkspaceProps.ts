@@ -35,6 +35,7 @@ type RemoteDocumentRecovery = ReturnType<typeof useRemoteDocumentRecovery>;
 
 type WorkspaceActions = {
   attachImageToTab: ElectronHomeWorkspaceProps['documentWorkspace']['onAttachImage'];
+  cancelImageUpload?: ElectronHomeWorkspaceProps['documentWorkspace']['onCancelImageUpload'];
   copyDraftText: ElectronHomeWorkspaceProps['documentWorkspace']['onCopyDraft'];
   exportDraftText: ElectronHomeWorkspaceProps['documentWorkspace']['onExportDraft'];
   retryDocumentLoad: ElectronHomeWorkspaceProps['documentWorkspace']['onRetryLoad'];
@@ -95,6 +96,7 @@ export function useHomeWorkspaceProps({
   toggleNavigatorCollapsed,
   toggleRailCollapsed,
   user,
+  uploadingTabIds = [],
 }: {
   actions: WorkspaceActions;
   activeFinderState: NoteFinderState;
@@ -137,6 +139,7 @@ export function useHomeWorkspaceProps({
   toggleNavigatorCollapsed: () => void;
   toggleRailCollapsed: () => void;
   user: UserSummary | undefined;
+  uploadingTabIds?: readonly string[];
 }): ElectronHomeWorkspaceProps {
   return {
     titlebar: {
@@ -262,7 +265,13 @@ export function useHomeWorkspaceProps({
       folderTree,
       shareOpen,
       isInspectorCollapsed: inspectorCollapsed,
-      getPaneView: documents.getPaneView,
+      getPaneView: (pane) => {
+        const view = documents.getPaneView(pane);
+        return {
+          ...view,
+          isUploadingImage: view.isUploadingImage || (!!view.activeTab && uploadingTabIds.includes(view.activeTab.tabId)),
+        };
+      },
       onResizePanes: noteWorkspace.resizePanes,
       onFocusPane: noteWorkspace.focusPane,
       onOpenEditor: actions.handleOpenEditor,
@@ -306,6 +315,7 @@ export function useHomeWorkspaceProps({
         successMessage: 'Sharing settings updated.',
       }),
       onAttachImage: actions.attachImageToTab,
+      onCancelImageUpload: actions.cancelImageUpload,
       onDelete: actions.handleDeleteRequest,
       onTitleChange: documents.handleDocumentTitleChange,
       onContentChange: documents.handleDocumentContentChange,

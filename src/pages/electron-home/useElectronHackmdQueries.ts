@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 
 import type { HackDeskElectronAPI } from '@/lib/electron-api';
+import { runHackmdRequest } from '@/lib/hackmd-requests';
 
 import { getNoteIdentityKey, type NoteIdentity } from './note-workspace';
 import {
@@ -47,7 +48,7 @@ export function useElectronHackmdQueries({
     refetch: refetchUser,
   } = useQuery({
     queryKey: ['electron', 'hackmd', 'current-user'],
-    queryFn: () => api?.hackmd.getCurrentUser(),
+    queryFn: ({ signal }) => api ? runHackmdRequest(api.hackmd, signal, api.hackmd.getCurrentUser, []) : Promise.resolve(undefined),
     enabled: !!api && hasToken,
   });
   const {
@@ -57,7 +58,7 @@ export function useElectronHackmdQueries({
     refetch: refetchTeams,
   } = useQuery({
     queryKey: ['electron', 'hackmd', 'teams'],
-    queryFn: () => api?.hackmd.listTeams(),
+    queryFn: ({ signal }) => api ? runHackmdRequest(api.hackmd, signal, api.hackmd.listTeams, []) : Promise.resolve(undefined),
     enabled: !!api && hasToken,
   });
 
@@ -68,18 +69,18 @@ export function useElectronHackmdQueries({
     refetch: refetchNotes,
   } = useQuery({
     queryKey: getWorkspaceQueryKey(scope),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
       }
 
       if (scope.type === 'team') {
-        return api.hackmd.listTeamNotes(scope.teamPath);
+        return runHackmdRequest(api.hackmd, signal, api.hackmd.listTeamNotes, [scope.teamPath]);
       }
 
       return scope.type === 'history'
-        ? api.hackmd.listHistory(40)
-        : api.hackmd.listNotes();
+        ? runHackmdRequest(api.hackmd, signal, api.hackmd.listHistory, [40])
+        : runHackmdRequest(api.hackmd, signal, api.hackmd.listNotes, []);
     },
     enabled: !!api && hasToken && remoteScope,
   });
@@ -91,16 +92,16 @@ export function useElectronHackmdQueries({
     refetch: refetchFolders,
   } = useQuery({
     queryKey: getFoldersQueryKey(scope),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
       }
 
       if (scope.type === 'team') {
-        return api.hackmd.listTeamFolders(scope.teamPath);
+        return runHackmdRequest(api.hackmd, signal, api.hackmd.listTeamFolders, [scope.teamPath]);
       }
 
-      return api.hackmd.listFolders();
+      return runHackmdRequest(api.hackmd, signal, api.hackmd.listFolders, []);
     },
     enabled: !!api && hasToken && remoteScope && scope.type !== 'history',
   });
@@ -112,16 +113,16 @@ export function useElectronHackmdQueries({
     refetch: refetchFolderOrder,
   } = useQuery({
     queryKey: getFolderOrderQueryKey(scope),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!api) {
         throw new Error('Electron API is unavailable.');
       }
 
       if (scope.type === 'team') {
-        return api.hackmd.getTeamFolderOrder(scope.teamPath);
+        return runHackmdRequest(api.hackmd, signal, api.hackmd.getTeamFolderOrder, [scope.teamPath]);
       }
 
-      return api.hackmd.getFolderOrder();
+      return runHackmdRequest(api.hackmd, signal, api.hackmd.getFolderOrder, []);
     },
     enabled: !!api && hasToken && remoteScope && scope.type !== 'history',
   });
@@ -151,12 +152,12 @@ export function useElectronHackmdQueries({
   const documentQueryResults = useQueries({
     queries: selectedDocumentNotes.map((note) => ({
       queryKey: ['electron', 'hackmd', 'note', note.teamPath ?? null, note.id],
-      queryFn: () => {
+      queryFn: ({ signal }) => {
         if (!api) {
           throw new Error('Electron API is unavailable.');
         }
 
-        return api.hackmd.getNote(note.id, note.teamPath);
+        return runHackmdRequest(api.hackmd, signal, api.hackmd.getNote, [note.id, note.teamPath]);
       },
       enabled: !!api && hasToken && !!note,
     })),

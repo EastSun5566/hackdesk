@@ -21,6 +21,7 @@ export const ELECTRON_CHANNELS = {
   localVaultRevealFolder: 'local-vault:reveal-folder',
   localVaultRevealRoot: 'local-vault:reveal-root',
   hackmdValidateToken: 'hackmd:validate-token',
+  hackmdCancelRequest: 'hackmd:cancel-request',
   hackmdGetCurrentUser: 'hackmd:get-current-user',
   hackmdListTeams: 'hackmd:list-teams',
   hackmdListNotes: 'hackmd:list-notes',

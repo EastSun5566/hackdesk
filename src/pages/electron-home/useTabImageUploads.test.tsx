@@ -41,7 +41,7 @@ function setup(initialScope = 'personal', savedContent?: Record<string, string>)
   const readTabDocument = vi.fn(async (_scope: string, tab: OpenNoteTab) => ('noteId' in tab ? document(tab.noteId, savedContent?.[tab.noteId]) : undefined));
   const hook = renderHook(({ scope }) => {
     const workspace = useNoteWorkspaceTabs(scope);
-    const attach = useTabImageUploads({
+    const { attachImageToTab: attach, cancelImageUpload: cancel } = useTabImageUploads({
       scopeKey: workspace.state.scopeKey,
       getTabDocument: (tab: OpenNoteTab) => ('noteId' in tab ? document(tab.noteId, savedContent?.[tab.noteId]) : undefined),
       getWorkspaceSnapshot: workspace.getWorkspaceSnapshot,
@@ -49,7 +49,7 @@ function setup(initialScope = 'personal', savedContent?: Record<string, string>)
       readTabDocument,
       uploadImage,
     });
-    return { workspace, attach };
+    return { workspace, attach, cancel };
   }, { initialProps: { scope: initialScope } });
   return { ...hook, upload, uploadImage, readTabDocument };
 }
@@ -62,6 +62,28 @@ function openWithDraft(result: { current: { workspace: ReturnType<typeof useNote
 }
 
 describe('image uploads finish in their own tab', () => {
+  it('cancels only the requested tab and keeps later edits after a late upload result', async () => {
+    const { result, upload, uploadImage } = setup();
+    const origin = openWithDraft(result, 'a', `Intro ${PLACEHOLDER}`);
+    let pending!: Promise<unknown>;
+    act(() => { pending = result.current.attach(origin, imageFile(), PLACEHOLDER); });
+    await vi.waitFor(() => expect(uploadImage).toHaveBeenCalledOnce());
+    const signal = uploadImage.mock.calls[0][2] as AbortSignal;
+    const other = openWithDraft(result, 'b', 'Other edits');
+    act(() => result.current.cancel(other));
+    expect(signal.aborted).toBe(false);
+    act(() => {
+      result.current.workspace.updateDraft(origin.tabId, { ...result.current.workspace.state.drafts[origin.tabId], content: `Intro ${PLACEHOLDER} later edit` });
+      result.current.cancel(origin);
+    });
+    expect(signal.aborted).toBe(true);
+    upload.resolve({ link: 'https://assets.example/diagram.png' });
+    await act(async () => { await pending; });
+    expect(result.current.workspace.state.drafts[origin.tabId].content).toBe('Intro  later edit');
+    expect(result.current.workspace.state.drafts[other.tabId].content).toBe('Other edits');
+    expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('cancelled'));
+  });
+
   it('replaces only its placeholder after switching tabs, keeping later edits and other tabs', async () => {
     const { result, upload } = setup();
     const origin = openWithDraft(result, 'a', `Intro ${PLACEHOLDER}`);

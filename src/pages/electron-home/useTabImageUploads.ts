@@ -1,10 +1,10 @@
-import { useCallback, useLayoutEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from '@/components/ui/toast';
 
 import { formatMarkdownImage } from '@/components/hackmd-live-preview/markdown-image';
 import type { DocumentSummary, UploadNoteImageInput, UploadNoteImageResult } from '@/lib/electron-api';
 
-import { getLocalRevision } from './local-vault-adapter';
+import { getLocalRevision, LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import type { NoteWorkspaceState, OpenNoteTab, SavedNoteDocument } from './note-workspace';
 
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
@@ -16,7 +16,7 @@ export type TabImageUploadOptions = {
   replaceTabPlaceholder: (scopeKey: string, tabId: string, placeholder: string, replacement: string, savedDocument?: SavedNoteDocument) => void;
   /** Re-reads a saved note whose workspace is no longer visible. */
   readTabDocument: (scopeKey: string, tab: OpenNoteTab) => Promise<DocumentSummary | undefined>;
-  uploadImage: (document: DocumentSummary, input: UploadNoteImageInput) => Promise<UploadNoteImageResult>;
+  uploadImage: (document: DocumentSummary, input: UploadNoteImageInput, signal?: AbortSignal) => Promise<UploadNoteImageResult>;
 };
 
 /**
@@ -25,24 +25,57 @@ export type TabImageUploadOptions = {
  */
 export function useTabImageUploads(options: TabImageUploadOptions) {
   const latest = useRef(options);
+  const pending = useRef(new Map<string, Set<AbortController>>());
+  const [uploadKeys, setUploadKeys] = useState<string[]>([]);
   useLayoutEffect(() => { latest.current = options; });
+  useEffect(() => {
+    const requests = pending.current;
+    return () => {
+      for (const controllers of requests.values()) for (const controller of controllers) controller.abort();
+      requests.clear();
+    };
+  }, []);
 
-  return useCallback(async (tab: OpenNoteTab, file: File, placeholder: string) => {
+  const cancelImageUpload = useCallback((tab: OpenNoteTab) => {
+    for (const controller of pending.current.get(`${latest.current.scopeKey}:${tab.tabId}`) ?? []) controller.abort();
+  }, []);
+  const attachImageToTab = useCallback(async (tab: OpenNoteTab, file: File, placeholder: string) => {
     const { scopeKey, getTabDocument, uploadImage } = latest.current;
     let markdown: string | null = null;
     let failure: string | null = null;
+    let controller: AbortController | undefined;
+    const requestKey = `${scopeKey}:${tab.tabId}`;
     try {
       const document = getTabDocument(tab);
       if (!document) throw new Error('Save the draft before attaching images.');
       if (file.size > MAX_IMAGE_BYTES) throw new Error('Images cannot exceed 25 MiB.');
+      if (document.teamPath !== LOCAL_VAULT_TEAM_PATH) {
+        controller = new AbortController();
+        const controllers = pending.current.get(requestKey) ?? new Set<AbortController>();
+        controllers.add(controller);
+        pending.current.set(requestKey, controllers);
+        setUploadKeys([...pending.current.keys()]);
+      }
+      const bytes = await file.arrayBuffer();
+      controller?.signal.throwIfAborted();
       const result = await uploadImage(document, {
-        bytes: await file.arrayBuffer(),
+        bytes,
         fileName: file.name || 'image',
         mimeType: file.type || 'application/octet-stream',
-      });
+      }, controller?.signal);
+      controller?.signal.throwIfAborted();
       markdown = formatMarkdownImage(file.name || 'image', result.link);
     } catch (error) {
-      failure = error instanceof Error ? error.message : 'Failed to insert image.';
+      failure = controller?.signal.aborted
+        ? 'Image upload cancelled. It may have reached HackMD.'
+        : error instanceof Error ? error.message : 'Failed to insert image.';
+    } finally {
+      if (controller) {
+        const controllers = pending.current.get(requestKey);
+        controllers?.delete(controller);
+        if (!controllers?.size) pending.current.delete(requestKey);
+        setUploadKeys([...pending.current.keys()]);
+      }
     }
 
     // Let the placeholder insertion commit before reading the workspace.
@@ -50,7 +83,10 @@ export function useTabImageUploads(options: TabImageUploadOptions) {
     const current = latest.current;
     const snapshot = current.getWorkspaceSnapshot(scopeKey);
     const replacement = markdown ?? '';
-    if (failure) toast.error(failure);
+    if (failure) {
+      if (controller?.signal.aborted) toast.info(failure);
+      else toast.error(failure);
+    }
 
     // Closing the tab cancels insertion; the result is never applied to another tab.
     if (!snapshot?.tabs[tab.tabId]) {
@@ -85,4 +121,7 @@ export function useTabImageUploads(options: TabImageUploadOptions) {
       toast.info('The image was uploaded, but its placeholder was changed, so it was not inserted.', { description: markdown });
     }
   }, []);
+  const prefix = `${options.scopeKey}:`;
+  const uploadingTabIds = uploadKeys.filter(key => key.startsWith(prefix)).map(key => key.slice(prefix.length));
+  return { attachImageToTab, cancelImageUpload, uploadingTabIds };
 }
