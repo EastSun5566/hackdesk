@@ -58,6 +58,7 @@ const lineClassByNodeName: Record<string, string> = {
   SetextHeading2: 'cm-hackmd-h2',
   Blockquote: 'cm-hackmd-blockquote',
   FencedCode: 'cm-hackmd-fenced-code',
+  CodeBlock: 'cm-hackmd-indented-code',
 };
 
 const inlineMarkClassByNodeName: Record<string, string> = {
