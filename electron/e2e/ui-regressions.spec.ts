@@ -245,42 +245,20 @@ test('rail controls, one-pixel boundaries and full-height Settings workbench', a
     const before = await workspace.boundingBox();
     await page.keyboard.down(primary);
     await expect(drag).toHaveCSS('opacity', '1');
-    const hint = workspace.locator('..').locator('[data-workspace-shortcut]');
-    const hintBounds = await hint.boundingBox();
-    const dragBounds = await drag.boundingBox();
-    const pinBounds = await pin.boundingBox();
-    expect(dragBounds!.x + dragBounds!.width).toBeLessThanOrEqual(hintBounds!.x);
-    expect(hintBounds!.x + hintBounds!.width).toBeLessThanOrEqual(pinBounds!.x);
-    const maskBounds = (await pin.locator('..').boundingBox())!;
-    expect(maskBounds.x).toBeLessThanOrEqual(hintBounds!.x);
-    expect(maskBounds.x + maskBounds.width).toBeGreaterThanOrEqual(pinBounds!.x + pinBounds!.width);
+    await expect.poll(() => workspace.locator('..').evaluate((row) => {
+      const hint = row.querySelector('[data-workspace-shortcut]')!.getBoundingClientRect();
+      const drag = row.querySelector('button[aria-label^="Reorder "]')!.getBoundingClientRect();
+      const pin = row.querySelector('button[aria-label^="Unpin "]')!;
+      const pinBounds = pin.getBoundingClientRect();
+      const mask = pin.parentElement!.getBoundingClientRect();
+      return drag.right <= hint.left && hint.right <= pinBounds.left
+        && mask.left <= hint.left && mask.right >= pinBounds.right;
+    }), { message: 'Drag, shortcut and pin controls have separate, covered positions' }).toBe(true);
     expect(await workspace.boundingBox()).toEqual(before);
     await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('02-rail-controls.png') });
     await page.keyboard.up(primary);
 
-    // Both sensors still reorder after moving the handle into normal layout.
-    await drag.focus();
-    // The keyboard sensor attaches its document listener in the next task.
-    await drag.press('Space', { delay: 50 });
-    await expect(drag).toHaveAttribute('aria-pressed', 'true');
-    await page.keyboard.press('ArrowDown', { delay: 50 });
-    await expect.poll(() => drag.locator('xpath=ancestor::li').evaluate(element => element.style.transform)).toMatch(/translate3d\(0px, (?!0px)[\d.]+px/);
-    await expect(drag).toBeFocused();
-    await page.keyboard.press('Space');
-    await expect(drag).not.toHaveAttribute('aria-pressed', 'true');
-    const teamList = page.getByTestId('workspace-rail-team-list');
-    await expect(teamList.getByRole('listitem').first()).toContainText('Second Team');
-    const first = await page.getByRole('button', { name: 'Reorder Second Team' }).boundingBox();
-    const last = await drag.boundingBox();
-    await page.mouse.move(first!.x + first!.width / 2, first!.y + first!.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(last!.x + last!.width / 2, last!.y + last!.height / 2, { steps: 10 });
-    await page.mouse.up();
-    await expect(teamList.getByRole('listitem').first()).toContainText(teamNames[0]);
-
-    while (await page.getByRole('button', { name: 'Close notification', exact: true }).count()) {
-      await page.getByRole('button', { name: 'Close notification', exact: true }).first().click();
-    }
+    // Reorder has its own fixture: dnd-kit briefly suppresses clicks after a drop.
     await openFixtureNote(page);
     const sashes = page.getByRole('button', { name: /^Resize .*Current width/ });
     expect(await sashes.count()).toBe(2);
@@ -329,6 +307,52 @@ test('rail controls, one-pixel boundaries and full-height Settings workbench', a
     }
     await page.getByRole('tab', { name: 'Shortcuts', exact: true }).click();
     await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('05-settings.png') });
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test('workspace keyboard reorder keeps focus and completes the drop', async () => {
+  const { app, page } = await launchFixture();
+  try {
+    const drag = page.getByRole('button', { name: `Reorder ${teamNames[0]}`, exact: true });
+    const teamList = page.getByTestId('workspace-rail-team-list');
+    await drag.focus();
+    // KeyboardSensor attaches its listener in the next task; keyup models a real press.
+    await drag.press('Space', { delay: 50 });
+    await expect(drag).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.press('ArrowDown', { delay: 50 });
+    await expect.poll(() => drag.locator('xpath=ancestor::li').evaluate(element => element.style.transform)).toMatch(/translate3d\(0px, (?!0px)[\d.]+px/);
+    await expect(drag).toBeFocused();
+    await page.keyboard.press('Space');
+    await expect(drag).not.toHaveAttribute('aria-pressed', 'true');
+    await expect(teamList.getByRole('listitem').first()).toContainText('Second Team');
+    await expect(drag).toBeFocused();
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test('workspace pointer reorder starts on a stable handle and completes the drop', async () => {
+  const { app, page } = await launchFixture();
+  try {
+    const teamList = page.getByTestId('workspace-rail-team-list');
+    const drag = page.getByRole('button', { name: `Reorder ${teamNames[0]}`, exact: true });
+    const target = page.getByRole('button', { name: 'Second Team, private', exact: true });
+    await drag.focus();
+    await expect(drag).toBeVisible();
+    // Locator hover waits for a stable target before mouse coordinates are sampled.
+    await drag.hover();
+    const start = (await drag.boundingBox())!;
+    const end = (await target.boundingBox())!;
+    await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2 + 8);
+    await expect(drag).toHaveAttribute('aria-pressed', 'true');
+    await page.mouse.move(start.x + start.width / 2, end.y + end.height / 2, { steps: 10 });
+    await page.mouse.up();
+    await expect(drag).not.toHaveAttribute('aria-pressed', 'true');
+    await expect(teamList.getByRole('listitem').first()).toContainText('Second Team');
   } finally {
     await stopApp(app);
   }
