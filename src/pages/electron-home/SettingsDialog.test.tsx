@@ -134,6 +134,46 @@ describe('SettingsDialog', () => {
     window.localStorage.clear();
   });
 
+  it('searches fields across sections, focuses the result and preserves unsaved input', async () => {
+    const { onSave } = renderSettingsDialog();
+    fireEvent.change(screen.getByLabelText('Window title'), { target: { value: 'Unsaved title' } });
+    const search = screen.getByLabelText('Search settings');
+    fireEvent.change(search, { target: { value: 'editor font' } });
+    fireEvent.click(screen.getByLabelText('Editor font, Appearance'));
+    await waitFor(() => expect(screen.getByLabelText('Editor font', { exact: true })).toHaveFocus());
+    fireEvent.change(search, { target: { value: 'window title' } });
+    fireEvent.keyDown(search, { key: 'Enter' });
+    await waitFor(() => expect(screen.getByLabelText('Window title')).toHaveFocus());
+    expect(screen.getByLabelText('Window title')).toHaveValue('Unsaved title');
+    expect(onSave).not.toHaveBeenCalled();
+    expect(search).toHaveValue('');
+  });
+
+  it('opens collapsed color fields and finds wrapped checkbox labels', async () => {
+    renderSettingsDialog();
+    const search = screen.getByLabelText('Search settings');
+    fireEvent.change(search, { target: { value: 'primary' } });
+    fireEvent.keyDown(search, { key: 'Enter' });
+    await waitFor(() => expect(screen.getByLabelText('Primary', { exact: true })).toHaveFocus());
+    expect(screen.getByRole('button', { name: 'Customize Colors' })).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.change(search, { target: { value: 'outside text editing' } });
+    fireEvent.keyDown(search, { key: 'Enter' });
+    await waitFor(() => expect(screen.getByLabelText('Enable ? and / outside text editing')).toHaveFocus());
+  });
+
+  it('does not search private input values and clears the query before closing', () => {
+    const { onOpenChange, onSave } = renderSettingsDialog();
+    fireEvent.change(screen.getByLabelText('Window title'), { target: { value: 'private-query-value' } });
+    const search = screen.getByLabelText('Search settings');
+    fireEvent.change(search, { target: { value: 'private-query-value' } });
+    expect(screen.getByRole('status')).toHaveTextContent('No settings found.');
+    fireEvent.keyDown(search, { key: 'Enter' });
+    expect(onSave).not.toHaveBeenCalled();
+    fireEvent.keyDown(search, { key: 'Escape' });
+    expect(search).toHaveValue('');
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
   it('renders a vertical settings tablist and activates tabs with vertical arrow keys', async () => {
     renderSettingsDialog();
 

@@ -5,8 +5,9 @@ import { matchShortcutConfig, type ShortcutOverrides } from '@/lib/keyboard-shor
 export const EDITING_SELECTOR = 'input, textarea, select, [contenteditable]:not([contenteditable="false"]), .cm-editor, [data-hackdesk-focus="editor"]';
 const POPUP_SELECTOR = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]';
 
-export function hasWorkbenchPopup() {
+export function hasWorkbenchPopup(allowedPopup?: HTMLElement) {
   return Array.from(document.querySelectorAll<HTMLElement>(POPUP_SELECTOR)).some(element => {
+    if (element === allowedPopup) return false;
     if (element.closest('[hidden], [inert], [data-closed], [aria-hidden="true"]')) return false;
     return window.getComputedStyle(element).display !== 'none' && window.getComputedStyle(element).visibility !== 'hidden';
   });

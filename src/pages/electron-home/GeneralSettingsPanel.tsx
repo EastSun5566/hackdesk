@@ -14,7 +14,6 @@ export function GeneralSettingsPanel({
         <SettingsInput
           id={SETTINGS_TITLE_ID}
           name="window-title"
-          autoFocus
           value={title}
           onChange={(event) => onTitleChange(event.target.value)}
           autoComplete="off"

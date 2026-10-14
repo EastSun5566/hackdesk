@@ -240,6 +240,15 @@ test('collapsed workspace icons stay centered with classic scrollbars and remain
       return Math.abs((personal.left + personal.width / 2) - (team.left + team.width / 2));
     })).toBeLessThan(1);
     await first.focus();
+    await page.keyboard.down(primary);
+    await expect(first.locator('[data-workspace-shortcut]')).toBeVisible();
+    await expect.poll(() => scroller.evaluate(element => element.scrollWidth - element.clientWidth)).toBe(0);
+    await expect.poll(() => first.evaluate(element => {
+      const hint = element.querySelector('[data-workspace-shortcut]')!.getBoundingClientRect();
+      const row = element.getBoundingClientRect();
+      return Math.abs(hint.left + hint.width / 2 - row.left - row.width / 2);
+    })).toBeLessThan(1);
+    await page.keyboard.up(primary);
     await page.keyboard.press('Tab');
     await expect(second).toBeFocused();
     await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
@@ -325,7 +334,7 @@ test('rail controls, one-pixel boundaries and full-height Settings workbench', a
     for (const height of [900, 660]) {
       await page.setViewportSize({ width: 1440, height });
       await expect(page.getByRole('dialog', { name: 'Settings' })).toHaveCSS('height', `${Math.min(760, height - 64)}px`);
-      const sidebar = page.getByRole('tablist', { name: 'Settings sections' });
+      const sidebar = page.getByRole('complementary', { name: 'Settings sidebar' });
       const assertFullHeight = async () => {
         await expect.poll(() => sidebar.evaluate((element) => {
           const own = element.getBoundingClientRect();
@@ -1129,5 +1138,100 @@ test('navigation codes avoid saved custom shortcuts', async () => {
     expect(codes.every(code=>!code?.includes('j'))).toBe(true);
     await expect(page.locator('[data-navigation-hint="finder"]')).toHaveAttribute('data-navigation-code', /^[a-z]{2,3}$/);
     await page.keyboard.up(primary);
+  } finally { await stopApp(app); }
+});
+
+test('onboarding stays compact at wide and narrow window sizes', async () => {
+  const { app, page } = await launchFixture('standard');
+  try {
+    await app.evaluate(({ ipcMain }, { channel, settings }) => {
+      ipcMain.removeHandler(channel);
+      ipcMain.handle(channel, () => ({ ...settings, hasHackmdApiToken: false, hasAppearanceSettings: true,
+        hasLocalVault: false, shouldShowHackmdOnboarding: true,
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false } }));
+    }, { channel: ELECTRON_CHANNELS.settingsGet, settings: defaultSettings });
+    await page.reload();
+    const dialog = page.getByRole('dialog', { name: 'Connect HackMD', exact: true });
+    for (const width of [1440, 400]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(dialog).toBeVisible();
+      await expect.poll(() => dialog.evaluate(element => {
+        const bounds = element.getBoundingClientRect();
+        return Math.abs(bounds.width - Math.min(440, innerWidth - 32))
+          + Math.abs(bounds.left + bounds.width / 2 - innerWidth / 2);
+      })).toBeLessThan(1);
+    }
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('20-onboarding-compact.png') });
+  } finally { await stopApp(app); }
+});
+
+test('classic horizontal scrollbars do not clip tabs and focus still scrolls the strip', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.getByRole('button', { name: 'Local Vault', exact: true }).click();
+    for (const name of ['Alpha', 'Beta', 'Gamma']) {
+      await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name, exact: true }).click();
+      await expect(page.getByRole('tab', { name: new RegExp(`^${name}(?:, .+)?$`) })).toHaveAttribute('aria-selected', 'true');
+    }
+    const strip = page.getByRole('navigation', { name: 'Open documents' });
+    await strip.evaluate(element => { element.style.flex = 'none'; element.style.width = '240px'; });
+    await page.addStyleTag({ content: 'nav[aria-label="Open documents"] { scrollbar-color: auto; } nav[aria-label="Open documents"]::-webkit-scrollbar { height: 14px; }' });
+    await expect.poll(() => strip.evaluate(element => element.scrollWidth - element.clientWidth)).toBeGreaterThan(0);
+    const tabs = strip.getByRole('tab');
+    await tabs.first().focus();
+    await page.keyboard.press('End');
+    await expect(tabs.last()).toBeFocused();
+    await expect.poll(() => strip.evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
+    await expect.poll(() => strip.evaluate(element => {
+      const bounds = element.getBoundingClientRect();
+      return Array.from(element.querySelectorAll('[data-tab-id]')).every(tab => {
+        const rect = tab.getBoundingClientRect();
+        return rect.height >= 24 && rect.top >= bounds.top && rect.bottom <= bounds.top + element.clientHeight;
+      });
+    })).toBe(true);
+    await page.keyboard.press('Home');
+    await expect(tabs.first()).toBeFocused();
+    await expect.poll(() => strip.evaluate(element => element.scrollLeft)).toBe(0);
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('21-tabs-classic-scrollbar.png') });
+  } finally { await stopApp(app); }
+});
+
+test('Settings search jumps to fields and held navigation stays inside the dialog', async () => {
+  const { app, page } = await launchFixture('standard');
+  try {
+    await page.keyboard.press(`${primary}+,`);
+    const dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
+    const search = dialog.getByRole('textbox', { name: 'Search settings', exact: true });
+    await expect(search).toBeFocused();
+    await dialog.getByLabel('Window title').fill('Unsaved fixture title');
+    await search.fill('editor font');
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('23-settings-search.png') });
+    await dialog.getByRole('button', { name: 'Editor font, Appearance', exact: true }).click();
+    await expect(dialog.getByLabel('Editor font', { exact: true })).toBeFocused();
+    await search.fill('primary');
+    await search.press('Enter');
+    await expect(dialog.locator('#theme-seed-primary')).toBeFocused();
+    await expect(dialog.getByRole('button', { name: 'Customize Colors', exact: true })).toHaveAttribute('aria-expanded', 'true');
+    await search.fill('window title');
+    await search.press('Enter');
+    await expect(dialog.getByLabel('Window title')).toBeFocused();
+    await expect(dialog.getByLabel('Window title')).toHaveValue('Unsaved fixture title');
+    await page.keyboard.down(primary);
+    const hints = page.locator('[data-navigation-hint]');
+    await expect(page.locator('[data-navigation-hint="settings:general:settings-title"]')).toBeVisible();
+    expect(await hints.evaluateAll(elements => elements.every(element => element.getAttribute('data-navigation-hint')?.startsWith('settings:')))).toBe(true);
+    expect(await page.locator('[data-workspace-shortcut]').count()).toBe(0);
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('22-settings-navigation.png') });
+    await useNavigationCode(page, 'settings:general:settings-title');
+    await page.keyboard.up(primary);
+    await expect(dialog.getByLabel('Window title')).toBeFocused();
+    await dialog.getByRole('tab', { name: 'Appearance', exact: true }).click();
+    await page.keyboard.down(primary);
+    await expect(hints.first()).toBeVisible();
+    await dialog.getByRole('combobox', { name: 'Theme preset' }).evaluate(element => (element as HTMLElement).click());
+    await expect(page.getByRole('listbox')).toBeVisible();
+    await expect(page.locator('[data-keyboard-navigation-overlay]')).toHaveCount(0);
+    await page.keyboard.up(primary);
+    await page.keyboard.press('Escape');
   } finally { await stopApp(app); }
 });

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from '@/components/ui/toast';
 
 import {
@@ -26,6 +26,7 @@ import {
 } from './SettingsDialogConfig';
 import { SettingsDialogFooter } from './SettingsDialogFooter';
 import { SettingsTabs } from './SettingsTabs';
+import type { SettingsSearchResult } from './settings-search';
 import { getShortcutsDraftStatus, ShortcutsSettingsPanel } from './ShortcutsSettingsPanel';
 import type { SettingsFormInput } from './types';
 import { VaultSettingsPanel } from './VaultSettingsPanel';
@@ -73,6 +74,8 @@ function SettingsDialogContent({
 }: SettingsDialogProps) {
   const { setAppearance } = useTheme();
   const tokenValidationRequestRef = useRef(0);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const [focusRequest, setFocusRequest] = useState<{ target: HTMLElement } | null>(null);
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const [formState, setFormState] = useState(() => ({
     title: settings?.title ?? 'HackDesk',
@@ -88,6 +91,29 @@ function SettingsDialogContent({
   }));
   const appearanceController = useThemeAppearanceDraft({ showTypography: true });
   const { editorMode, shortcuts, characterShortcutsEnabled, title, token, tokenTest, tokenVisible } = formState;
+
+  useEffect(() => {
+    const target = focusRequest?.target;
+    if (!target || !open) return;
+    for (let parent = target.parentElement; parent && parent !== dialogRef.current; parent = parent.parentElement) {
+      if (!parent.matches('[hidden], [data-closed]') || !parent.id) continue;
+      // Base UI omits aria-controls while closed; the trigger is a direct sibling.
+      const trigger = parent.parentElement?.querySelector<HTMLButtonElement>(':scope > button[aria-expanded="false"]');
+      trigger?.click();
+    }
+    const frame = requestAnimationFrame(() => {
+      setFocusRequest(null);
+      if (!target.isConnected) return;
+      target.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+      target.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusRequest, open]);
+  const navigateToSetting = (result: SettingsSearchResult) => {
+    setActiveTab(result.tab);
+    const target = result.target ?? dialogRef.current?.querySelector<HTMLElement>(`[data-settings-tab="${result.tab}"]`);
+    if (target) setFocusRequest({ target });
+  };
 
   const normalizedToken = token.trim();
   const isTestingToken = tokenTest.status === 'testing';
@@ -225,7 +251,7 @@ function SettingsDialogContent({
 
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent size="lg" className="overflow-hidden p-0">
+      <DialogContent ref={dialogRef} size="lg" className="overflow-hidden p-0" data-keyboard-navigation-scope="settings" data-navigation-page={activeTab}>
         <Tabs
           orientation="vertical"
           value={activeTab}
@@ -249,16 +275,16 @@ function SettingsDialogContent({
             }}
           >
             <div className="flex min-h-0 flex-1">
-              <SettingsTabs />
+              <SettingsTabs dialogRef={dialogRef} onNavigate={navigateToSetting} />
               <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                <TabsContent value="general" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="general" value="general" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <GeneralSettingsPanel
                     title={title}
                     onTitleChange={(nextTitle) => setFormState((current) => ({ ...current, title: nextTitle }))}
                   />
                 </TabsContent>
 
-                <TabsContent value="editor" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="editor" value="editor" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <EditorSettingsPanel
                     editorMode={editorMode}
                     onEditorModeChange={(nextEditorMode) => setFormState((current) => ({
@@ -268,11 +294,11 @@ function SettingsDialogContent({
                   />
                 </TabsContent>
 
-                <TabsContent value="appearance" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="appearance" value="appearance" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <AppearanceSettingsPanel controller={appearanceController} />
                 </TabsContent>
 
-                <TabsContent value="shortcuts" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="shortcuts" value="shortcuts" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <ShortcutsSettingsPanel
                     platform={platform}
                     characterShortcutsEnabled={characterShortcutsEnabled}
@@ -285,7 +311,7 @@ function SettingsDialogContent({
                   />
                 </TabsContent>
 
-                <TabsContent value="vault" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="vault" value="vault" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <VaultSettingsPanel
                     error={localVaultError}
                     settings={settings}
@@ -297,7 +323,7 @@ function SettingsDialogContent({
                   />
                 </TabsContent>
 
-                <TabsContent value="hackmd" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="hackmd" value="hackmd" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <HackmdSettingsPanel
                     hasHackmdApiToken={Boolean(settings?.hasHackmdApiToken)}
                     tokenStorageError={settings?.hackmdTokenStorageError}
@@ -321,7 +347,7 @@ function SettingsDialogContent({
                   />
                 </TabsContent>
 
-                <TabsContent value="advanced" keepMounted className={SETTINGS_PANEL_CLASS}>
+                <TabsContent data-settings-tab="advanced" value="advanced" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <AdvancedSettingsPanel appVersion={appVersion} onResetAllSettings={handleResetAllSettings} />
                 </TabsContent>
               </div>

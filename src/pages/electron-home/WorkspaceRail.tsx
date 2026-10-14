@@ -81,6 +81,7 @@ function WorkspaceRailButton({
   const shortcutHint = shortcutLabel && showShortcutHint ? (
     <span
       aria-hidden="true"
+      data-workspace-shortcut="true"
       className={cn(
         'flex w-5 shrink-0 items-center justify-center rounded px-1 py-0.5 text-center text-2xs font-medium text-text-subtle',
         'bg-background-muted',
@@ -93,9 +94,9 @@ function WorkspaceRailButton({
     <EntityRow
       selected={active}
       buttonProps={{ 'data-workspace-navigation-id': navigationId } as React.ButtonHTMLAttributes<HTMLButtonElement>}
-      icon={icon}
+      icon={collapsed && shortcutHint ? shortcutHint : icon}
       title={collapsed ? '' : label}
-      trailing={shortcutHint ?? (collapsed ? undefined : trailing)}
+      trailing={collapsed ? undefined : shortcutHint ?? trailing}
       variant="compact"
       onClick={onClick}
       ariaLabel={accessibleLabel ?? label}

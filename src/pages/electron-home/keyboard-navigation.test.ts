@@ -75,6 +75,22 @@ describe('visible navigation targets', () => {
     vi.mocked(button.getBoundingClientRect).mockReturnValue(new DOMRect(20,120,100,20));
     const parent=visibleRect(document.createElement('div'));parent.style.overflow='hidden';document.body.append(parent);parent.append(button);expect(isNavigationVisible(button)).toBe(false);
   });
+  it('scopes Settings hints to visible controls and only focuses them', () => {
+    document.body.innerHTML = '<button data-navigation-toolbar>Background</button><div role="dialog" data-keyboard-navigation-scope="settings" data-navigation-page="general"><input id="settings-title"><button aria-label="Save">Save</button><button aria-label="Save">Other save</button><input hidden></div>';
+    document.querySelectorAll<HTMLElement>('div,button,input').forEach(element => visibleRect(element));
+    const targets = collectNavigationTargets({}, 'darwin', true);
+    expect(targets).toHaveLength(3);
+    expect(new Set(targets.map(target => target.id)).size).toBe(3);
+    expect(targets.every(target => target.id.startsWith('settings:general:') && !target.activate)).toBe(true);
+    const click = vi.fn();
+    targets[1].element.onclick = click;
+    navigateToTarget(targets[1]);
+    expect(targets[1].element).toHaveFocus();
+    expect(click).not.toHaveBeenCalled();
+    const menu = visibleRect(document.createElement('div'));
+    menu.setAttribute('role', 'menu'); document.body.append(menu);
+    expect(collectNavigationTargets({}, 'darwin', true)).toEqual([]);
+  });
   it('removes background targets while a dialog or drag is active',()=>{
     document.body.innerHTML='<button data-navigation-toolbar>Button</button><div role="dialog">Modal</div>';
     visibleRect(document.querySelector('button')!);

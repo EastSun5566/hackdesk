@@ -258,6 +258,7 @@ export function ShortcutsSettingsPanel({
                           ref={isActive ? activeButtonRef : undefined}
                           size="sm"
                           data-shortcut-action={action.id}
+                          data-shortcut-recording={isActive || undefined}
                           aria-label={`Set shortcut for ${action.label}`}
                           onClick={() => {
                             setError(null);
