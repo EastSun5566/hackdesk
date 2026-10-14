@@ -38,12 +38,9 @@ test('editor text stays in a centered, readable column', async () => {
       // clientWidth leaves out the vertical scrollbar.
       return { columnWidth, width: text.width, left: text.left - box.left, right: box.left + scroller.clientWidth - text.right };
     });
-    const resize = (width: number) => app.evaluate(({ BrowserWindow }, size) => {
-      BrowserWindow.getAllWindows()[0].setContentSize(size, 900);
-    }, width);
+    // CSS layout should not depend on CI's virtual screen clamping a native window.
+    const resize = (width: number) => page.setViewportSize({ width, height: 900 });
 
-    // Measure the narrow window first. CI's virtual screen is 1280px wide, and
-    // shrinking a window from beyond the screen edge does not always apply.
     await resize(1100);
     await expect.poll(async () => {
       const { width, columnWidth } = await measure();
