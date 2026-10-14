@@ -1226,9 +1226,15 @@ test('Settings search jumps to fields and held navigation stays inside the dialo
     await page.keyboard.up(primary);
     await expect(dialog.getByLabel('Window title')).toBeFocused();
     await dialog.getByRole('tab', { name: 'Appearance', exact: true }).click();
+    await expect(dialog).toHaveAttribute('data-navigation-page', 'appearance');
+    const preset = dialog.getByRole('combobox', { name: 'Theme preset' });
+    // Changing the visible target set cancels a hold. Finish the tab's scroll/focus first.
+    await preset.scrollIntoViewIfNeeded();
+    await preset.focus();
+    await expect(preset).toBeFocused();
     await page.keyboard.down(primary);
     await expect(hints.first()).toBeVisible();
-    await dialog.getByRole('combobox', { name: 'Theme preset' }).evaluate(element => (element as HTMLElement).click());
+    await preset.evaluate(element => (element as HTMLElement).click());
     await expect(page.getByRole('listbox')).toBeVisible();
     await expect(page.locator('[data-keyboard-navigation-overlay]')).toHaveCount(0);
     await page.keyboard.up(primary);
