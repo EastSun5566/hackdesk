@@ -6,9 +6,11 @@ Use Node.js 24 and the pnpm version specified in `package.json`.
 
 ```sh
 pnpm install
-pnpm approve-builds --all
 pnpm run dev
 ```
+
+`pnpm install` uses the build-script allowlist in `pnpm-workspace.yaml`.
+Review changes to that allowlist instead of approving every dependency's scripts.
 
 ## Check changes
 
@@ -16,6 +18,9 @@ Run `pnpm run check` before opening a pull request. This also type-checks tests,
 Electron E2E, and docs.
 
 Run `pnpm run test:coverage` once to generate a local report in `.local/coverage/`.
+
+Keep pull requests focused and include how you checked the change. Report
+security vulnerabilities privately using the [security policy](SECURITY.md).
 
 ## Maintain workflows
 
