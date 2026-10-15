@@ -59,6 +59,10 @@ finally {
             ./scripts/signpath-installer.ps1 -Action Uninstall
         }
     }
+    catch {
+        # The success path checks uninstall; failed-run cleanup must not mask the original error.
+        Write-Warning "Installer fixture cleanup failed: $($_.Exception.Message)"
+    }
     finally {
         # Keep logs/reports in RUNNER_TEMP for failure diagnostics; never persist fixture private keys.
         foreach ($name in $previous.Keys) { [Environment]::SetEnvironmentVariable($name, $previous[$name]) }
