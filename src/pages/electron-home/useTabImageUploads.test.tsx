@@ -37,7 +37,7 @@ function deferred() {
 
 function setup(initialScope = 'personal', savedContent?: Record<string, string>) {
   const upload = deferred();
-  const uploadImage = vi.fn(() => upload.promise);
+  const uploadImage = vi.fn<Parameters<typeof useTabImageUploads>[0]['uploadImage']>(() => upload.promise);
   const readTabDocument = vi.fn(async (_scope: string, tab: OpenNoteTab) => ('noteId' in tab ? document(tab.noteId, savedContent?.[tab.noteId]) : undefined));
   const hook = renderHook(({ scope }) => {
     const workspace = useNoteWorkspaceTabs(scope);

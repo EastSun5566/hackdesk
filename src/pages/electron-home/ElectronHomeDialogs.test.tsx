@@ -87,7 +87,9 @@ function createProps(overrides: Partial<ElectronHomeDialogsProps> = {}): Electro
     scopeLabel: 'My Workspace',
     settings: {
       title: 'HackDesk',
+      workspaceNavigation: defaultSettings.workspaceNavigation,
       appearance: defaultSettings.appearance,
+      editor: defaultSettings.editor,
       hasAppearanceSettings: true,
       hasHackmdApiToken: false,
       hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
@@ -120,7 +122,9 @@ function createProps(overrides: Partial<ElectronHomeDialogsProps> = {}): Electro
     onImportHackmdCliToken: vi.fn(async () => ({
       settings: {
         title: 'HackDesk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
         appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
         hasAppearanceSettings: true,
         hasHackmdApiToken: true,
         hackmdCliConfig: { hasAccessToken: true, hasCustomEndpoint: false },

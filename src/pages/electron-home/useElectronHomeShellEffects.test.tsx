@@ -45,7 +45,7 @@ describe('useElectronHomeShellEffects', () => {
 
     renderHook(() => useElectronHomeShellEffects({
       collapsedFolderIds: new Set(['folder-a']),
-      openQuickCaptureDraft: vi.fn(() => ({ accepted: true })),
+      openQuickCaptureDraft: vi.fn(() => ({ accepted: true as const })),
       runAction: vi.fn(),
       scopeStorageKey,
     }));
@@ -59,7 +59,7 @@ describe('useElectronHomeShellEffects', () => {
     const { unmount } = renderHook(() => useElectronHomeShellEffects({
       api,
       collapsedFolderIds: new Set(),
-      openQuickCaptureDraft: vi.fn(() => ({ accepted: true })),
+      openQuickCaptureDraft: vi.fn(() => ({ accepted: true as const })),
       runAction,
       scopeStorageKey: 'personal',
     }));

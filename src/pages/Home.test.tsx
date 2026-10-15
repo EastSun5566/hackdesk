@@ -135,13 +135,17 @@ function createDeferred<T>() {
   return { promise, resolve, reject };
 }
 
-// Finder results are a list of buttons; the folder browser is a roving tree.
-function getNoteRow(name: string) {
-  return screen.getByRole(screen.queryByRole('tree') ? 'treeitem' : 'button', { name });
+// Query only the navigator; scanning the whole workbench can starve pending query updates.
+function queryNoteRow(name: string) {
+  const tree = screen.queryByTestId('folder-navigator-tree');
+  const rows = tree ?? screen.queryByLabelText('Search results');
+  return rows ? within(rows).queryByRole(tree ? 'treeitem' : 'button', { name }) : null;
 }
 
-function queryNoteRow(name: string) {
-  return screen.queryByRole(screen.queryByRole('tree') ? 'treeitem' : 'button', { name });
+function getNoteRow(name: string) {
+  const row = queryNoteRow(name);
+  if (!row) throw new Error(`Note row "${name}" is not ready`);
+  return row;
 }
 
 function findNoteRow(name: string, options?: Parameters<typeof waitFor>[1]) {
@@ -171,8 +175,20 @@ async function openNavigatorActions() {
   await screen.findByRole('menuitem', { name: 'New Folder' });
 }
 
+function findTeamWorkspace(options?: Parameters<typeof waitFor>[1]) {
+  return waitFor(() => within(screen.getByTestId('workspace-rail-team-list'))
+    .getByRole('button', { name: `${team.name}, private` }), options);
+}
+
+async function openAccountSettings() {
+  const avatar = await screen.findByTestId('workspace-rail-footer-avatar');
+  const button = avatar.closest('button')!;
+  expect(button).toHaveAccessibleName('Open settings for Michael');
+  fireEvent.click(button);
+}
+
 async function confirmDisconnectHackmd() {
-  fireEvent.click(await screen.findByRole('button', { name: 'Open settings for Michael' }));
+  await openAccountSettings();
   fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
   fireEvent.click(screen.getByRole('button', { name: 'Disconnect HackMD' }));
   const dialog = screen.getByRole('alertdialog', { name: 'Disconnect HackMD?' });
@@ -197,11 +213,12 @@ async function selectCurrentFolderScope() {
   fireEvent.click(screen.getByRole('menuitem', { name: 'Current Folder' }));
 }
 
-type HackDeskElectronAPIOverrides = Partial<Omit<HackDeskElectronAPI, 'settings' | 'hackmd' | 'shell' | 'app'>> & {
+type HackDeskElectronAPIOverrides = Partial<Omit<HackDeskElectronAPI, 'settings' | 'hackmd' | 'shell' | 'app' | 'localVault'>> & {
   settings?: Partial<HackDeskElectronAPI['settings']>;
   hackmd?: Partial<HackDeskElectronAPI['hackmd']>;
   shell?: Partial<HackDeskElectronAPI['shell']>;
   app?: Partial<HackDeskElectronAPI['app']>;
+  localVault?: Partial<HackDeskElectronAPI['localVault']>;
 };
 
 function createSafeSettings(overrides: Partial<ElectronSafeSettings> = {}): ElectronSafeSettings {
@@ -245,7 +262,7 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
     hackmd: {
       validateToken: vi.fn(),
       getCurrentUser: vi.fn(async () => ({
-        source: 'remote',
+        source: 'remote' as const,
         data: {
           id: 'user-1',
           email: 'michael@example.com',
@@ -256,16 +273,16 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
           teams: [],
         },
       })),
-      listTeams: vi.fn(async () => ({ source: 'remote', data: [] })),
-      listNotes: vi.fn(async () => ({ source: 'remote', data: [note] })),
+      listTeams: vi.fn(async () => ({ source: 'remote' as const, data: [] })),
+      listNotes: vi.fn(async () => ({ source: 'remote' as const, data: [note] })),
       listTeamNotes: vi.fn(),
       listHistory: vi.fn(),
-      listFolders: vi.fn(async () => ({ source: 'remote', data: [] })),
+      listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [] })),
       listTeamFolders: vi.fn(),
-      getFolder: vi.fn(async () => ({ source: 'remote', data: folder })),
+      getFolder: vi.fn(async () => ({ source: 'remote' as const, data: folder })),
       getTeamFolder: vi.fn(),
-      getFolderOrder: vi.fn(async () => ({ source: 'remote', data: {} })),
-      getTeamFolderOrder: vi.fn(async () => ({ source: 'remote', data: {} })),
+      getFolderOrder: vi.fn(async () => ({ source: 'remote' as const, data: {} })),
+      getTeamFolderOrder: vi.fn(async () => ({ source: 'remote' as const, data: {} })),
       createFolder: vi.fn(async () => folder),
       createTeamFolder: vi.fn(),
       updateFolder: vi.fn(async (_folderId: string, input: { name?: string; parentFolderId?: string | null }) => ({
@@ -278,7 +295,9 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       deleteTeamFolder: vi.fn(),
       updateFolderOrder: vi.fn(),
       updateTeamFolderOrder: vi.fn(),
-      getNote: vi.fn(async () => ({ source: 'remote', data: document })),
+      getNoteIfChanged: vi.fn(async () => null),
+      restoreNote: vi.fn(async () => undefined),
+      getNote: vi.fn(async () => ({ source: 'remote' as const, data: document })),
       createNote: vi.fn(async () => document),
       createTeamNote: vi.fn(),
       updateNote: vi.fn(async () => document),
@@ -289,6 +308,7 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
     },
     localVault: {
       choose: vi.fn(async () => ({ canceled: true })),
+      disconnect: vi.fn(async () => createSafeSettings()),
       getSnapshot: vi.fn(async () => null),
       readNote: vi.fn(),
       createNote: vi.fn(),
@@ -297,7 +317,10 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       moveNote: vi.fn(),
       trashNote: vi.fn(),
       revealNote: vi.fn(async () => undefined),
-      importAttachment: vi.fn(async () => ({ link: 'attachments/image.png', relativePath: 'attachments/image.png' })),
+      importAttachment: vi.fn(async () => ({
+        attachment: { link: 'attachments/image.png', relativePath: 'attachments/image.png' },
+        snapshot: { vaultId: 'vault-test', rootPath: '/tmp/vault', notes: [], folders: [] },
+      })),
       createFolder: vi.fn(),
       renameFolder: vi.fn(),
       moveFolder: vi.fn(),
@@ -317,12 +340,12 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       writeClipboardText: vi.fn(async () => undefined),
       saveTextFile: vi.fn(async () => '/tmp/test-note.md'),
       openTextFile: vi.fn(async () => null),
-      checkForUpdates: vi.fn(async () => ({ status: 'upToDate' })),
+      checkForUpdates: vi.fn(async () => ({ status: 'upToDate' as const })),
       getQuickCaptureShortcutStatus: vi.fn(async () => ({
-        accelerator: 'Control+Alt+H',
+        accelerator: 'Control+Alt+H' as const,
         registered: true,
       })),
-      submitQuickCapture: vi.fn(async () => ({ accepted: true })),
+      submitQuickCapture: vi.fn(async () => ({ accepted: true as const })),
       hideQuickCapture: vi.fn(async () => undefined),
       resolveQuickCaptureSubmission: vi.fn(async () => undefined),
       onCommand: vi.fn(() => () => undefined),
@@ -486,7 +509,7 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(getCurrentUser).toHaveBeenCalledOnce());
     await waitFor(() => expect(listTeams).toHaveBeenCalledOnce());
     expect(await screen.findByText('Michael')).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: `${team.name}, private` })).toBeInTheDocument();
+    expect(await findTeamWorkspace()).toBeInTheDocument();
     expect(listNotes).not.toHaveBeenCalled();
     expect(listFolders).not.toHaveBeenCalled();
     expect(getFolderOrder).not.toHaveBeenCalled();
@@ -817,7 +840,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Open settings for Michael' }));
+    await openAccountSettings();
     fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
     fireEvent.change(screen.getByLabelText('API Token'), {
       target: { value: 'settings-token' },
@@ -863,7 +886,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    expect(await screen.findByRole('button', { name: `${team.name}, private` })).toBeInTheDocument();
+    expect(await findTeamWorkspace()).toBeInTheDocument();
     expect(await findNoteRow(note.title)).toBeInTheDocument();
     await findRenderedNoteTitle();
     await confirmDisconnectHackmd();
@@ -964,7 +987,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Open settings for Michael' }));
+    await openAccountSettings();
     fireEvent.click(screen.getByRole('tab', { name: /Advanced/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Reset All Settings' }));
     const dialog = screen.getByRole('alertdialog', { name: 'Reset All Settings?' });
@@ -1062,9 +1085,9 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -1114,9 +1137,9 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -1255,10 +1278,10 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: [] })),
-        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: [] })),
+        listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder] })),
         createNote: vi.fn(async () => createdDocument),
-        getNote: vi.fn(async () => ({ source: 'remote', data: createdDocument })),
+        getNote: vi.fn(async () => ({ source: 'remote' as const, data: createdDocument })),
       },
     });
 
@@ -1309,10 +1332,10 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: [] })),
-        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: [] })),
+        listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder] })),
         createNote: vi.fn(async () => importedDocument),
-        getNote: vi.fn(async () => ({ source: 'remote', data: importedDocument })),
+        getNote: vi.fn(async () => ({ source: 'remote' as const, data: importedDocument })),
       },
       app: {
         openTextFile: vi.fn(async () => ({
@@ -1391,8 +1414,8 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: [] })),
-        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: [] })),
+        listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder] })),
         updateFolder: vi.fn(async (_folderId: string, input: { name?: string }) => ({
           ...folder,
           name: input.name ?? folder.name,
@@ -1431,8 +1454,8 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: [] })),
-        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: [] })),
+        listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder] })),
       },
       app: {
         confirm: vi.fn(async () => ({ confirmed: false })),
@@ -1487,7 +1510,7 @@ describe('Home native-feel behavior', () => {
       hackmd: {
         ...createApi().hackmd,
         getNote: vi.fn(async () => ({
-          source: 'error',
+          source: 'error' as const,
           error: 'HackMD is offline.',
           data: document,
         })),
@@ -1732,10 +1755,10 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
-        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
+        listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder] })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -1767,7 +1790,7 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
         getNote: vi.fn((noteId: string) => {
           if (noteId === 'note-design') {
             return secondNoteDeferred.promise;
@@ -1790,7 +1813,7 @@ describe('Home native-feel behavior', () => {
 
     await act(async () => {
       secondNoteDeferred.resolve({
-        source: 'remote',
+        source: 'remote' as const,
         data: { ...document, id: 'note-design', title: 'Design Spec', content: '# Design Spec' },
       });
     });
@@ -1806,9 +1829,9 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -1845,9 +1868,9 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -1883,9 +1906,9 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -1975,9 +1998,9 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -2014,9 +2037,9 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -2072,9 +2095,9 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -2172,9 +2195,9 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -2222,9 +2245,9 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -2259,7 +2282,7 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
         deleteNote: vi.fn(async (noteId: string) => {
           notes = notes.filter((candidate) => candidate.id !== noteId);
         }),
@@ -2294,10 +2317,10 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: [rootNote, folderNote] })),
-        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: [rootNote, folderNote] })),
+        listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder] })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -2332,9 +2355,9 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -2371,8 +2394,8 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: [folderNote, rootNote] })),
-        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: [folderNote, rootNote] })),
+        listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder] })),
       },
     });
 
@@ -2397,8 +2420,8 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: [folderNote, rootNote] })),
-        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: [folderNote, rootNote] })),
+        listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder] })),
       },
     });
 
@@ -2425,7 +2448,7 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
       },
     });
 
@@ -2452,7 +2475,7 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
       },
     });
 
@@ -2492,9 +2515,9 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -2530,9 +2553,9 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -2635,7 +2658,7 @@ describe('Home native-feel behavior', () => {
       hackmd: {
         ...createApi().hackmd,
         getCurrentUser: vi.fn(async () => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             id: 'user-1',
             email: 'michael@example.com',
@@ -2646,8 +2669,8 @@ describe('Home native-feel behavior', () => {
             teams: [team],
           },
         })),
-        listTeams: vi.fn(async () => ({ source: 'remote', data: [team] })),
-        listTeamNotes: vi.fn(async () => ({ source: 'remote', data: [{
+        listTeams: vi.fn(async () => ({ source: 'remote' as const, data: [team] })),
+        listTeamNotes: vi.fn(async () => ({ source: 'remote' as const, data: [{
           ...note,
           id: 'team-note',
           title: 'Team Recent',
@@ -2655,9 +2678,9 @@ describe('Home native-feel behavior', () => {
           teamPath: team.path,
           userPath: null,
         }] })),
-        listTeamFolders: vi.fn(async () => ({ source: 'remote', data: [] })),
+        listTeamFolders: vi.fn(async () => ({ source: 'remote' as const, data: [] })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -2686,7 +2709,7 @@ describe('Home native-feel behavior', () => {
       hackmd: {
         ...createApi().hackmd,
         getCurrentUser: vi.fn(async () => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             id: 'user-1',
             email: 'michael@example.com',
@@ -2697,9 +2720,9 @@ describe('Home native-feel behavior', () => {
             teams: [team],
           },
         })),
-        listTeams: vi.fn(async () => ({ source: 'remote', data: [team] })),
-        listTeamNotes: vi.fn(async () => ({ source: 'remote', data: [] })),
-        listTeamFolders: vi.fn(async () => ({ source: 'remote', data: [] })),
+        listTeams: vi.fn(async () => ({ source: 'remote' as const, data: [team] })),
+        listTeamNotes: vi.fn(async () => ({ source: 'remote' as const, data: [] })),
+        listTeamFolders: vi.fn(async () => ({ source: 'remote' as const, data: [] })),
       },
     });
 
@@ -2722,7 +2745,7 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listHistory: vi.fn(async () => ({ source: 'remote', data: [] })),
+        listHistory: vi.fn(async () => ({ source: 'remote' as const, data: [] })),
       },
     });
 
@@ -2749,7 +2772,7 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listHistory: vi.fn(async () => ({ source: 'remote', data: [] })),
+        listHistory: vi.fn(async () => ({ source: 'remote' as const, data: [] })),
       },
     });
 
@@ -2798,8 +2821,8 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: [] })),
-        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder, childFolder] })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: [] })),
+        listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder, childFolder] })),
       },
     });
 
@@ -2902,7 +2925,7 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder] })),
         updateNote: vi.fn(async (_noteId, input) => ({
           ...document,
           folderPaths: input.parentFolderId ? [folder] : document.folderPaths,
@@ -2929,9 +2952,9 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: [folderNote] })),
-        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
-        getNote: vi.fn(async () => ({ source: 'remote', data: folderDocument })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: [folderNote] })),
+        listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder] })),
+        getNote: vi.fn(async () => ({ source: 'remote' as const, data: folderDocument })),
         updateNote: vi.fn(async () => ({ ...folderDocument, folderPaths: [] })),
       },
     });
@@ -3032,7 +3055,7 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listFolders: vi.fn(async () => ({ source: 'remote', data: [folderWithMetadata] })),
+        listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folderWithMetadata] })),
       },
     });
 
@@ -3051,10 +3074,10 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: [firstNote, secondNote] })),
-        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: [firstNote, secondNote] })),
+        listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder] })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -3084,9 +3107,9 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: [firstNote, secondNote] })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: [firstNote, secondNote] })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -3128,7 +3151,7 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
       },
     });
 
@@ -3155,7 +3178,7 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
       },
     });
 
@@ -3185,7 +3208,7 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
       },
     });
 
@@ -3214,7 +3237,7 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
       },
     });
 
@@ -3241,7 +3264,7 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listHistory: vi.fn(async () => ({ source: 'remote', data: historyNotes })),
+        listHistory: vi.fn(async () => ({ source: 'remote' as const, data: historyNotes })),
       },
     });
 
@@ -3264,7 +3287,7 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
       },
     });
 
@@ -3294,8 +3317,8 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: [folderNote, childNote, rootNote] })),
-        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder, childFolder] })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: [folderNote, childNote, rootNote] })),
+        listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder, childFolder] })),
       },
     });
 
@@ -3323,9 +3346,9 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: notes })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             ...document,
             id: noteId,
@@ -3364,8 +3387,8 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: [{ ...note, folderPaths: [] }] })),
-        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: [{ ...note, folderPaths: [] }] })),
+        listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder] })),
         updateNote: vi.fn(async () => movedDocument),
       },
     });
@@ -3390,8 +3413,8 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: [folderNote] })),
-        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: [folderNote] })),
+        listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder] })),
         updateNote: vi.fn(async () => ({ ...document, folderPaths: [] })),
       },
     });
@@ -3452,11 +3475,11 @@ describe('Home native-feel behavior', () => {
       hackmd: {
         ...createApi().hackmd,
         listNotes: vi.fn(async () => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: [{ ...note, title: 'A [Note]' }],
         })),
         getNote: vi.fn(async () => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: { ...document, title: 'A [Note]' },
         })),
       },
@@ -3486,10 +3509,10 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: [{ ...note, folderPaths: [folder] }] })),
-        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: [{ ...note, folderPaths: [folder] }] })),
+        listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder] })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: noteId === 'note-copy' ? duplicated : { ...document, folderPaths: [folder] },
         })),
         createNote: vi.fn(async () => duplicated),
@@ -3535,7 +3558,7 @@ describe('Home native-feel behavior', () => {
       hackmd: {
         ...createApi().hackmd,
         getCurrentUser: vi.fn(async () => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             id: 'user-1',
             email: 'michael@example.com',
@@ -3546,17 +3569,17 @@ describe('Home native-feel behavior', () => {
             teams: [team],
           },
         })),
-        listTeams: vi.fn(async () => ({ source: 'remote', data: [team] })),
-        listTeamNotes: vi.fn(async () => ({ source: 'remote', data: [teamNote] })),
-        listTeamFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
-        getTeamFolderOrder: vi.fn(async () => ({ source: 'remote', data: {} })),
-        getNote: vi.fn(async () => ({ source: 'remote', data: movedDocument })),
+        listTeams: vi.fn(async () => ({ source: 'remote' as const, data: [team] })),
+        listTeamNotes: vi.fn(async () => ({ source: 'remote' as const, data: [teamNote] })),
+        listTeamFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder] })),
+        getTeamFolderOrder: vi.fn(async () => ({ source: 'remote' as const, data: {} })),
+        getNote: vi.fn(async () => ({ source: 'remote' as const, data: movedDocument })),
         updateTeamNote: vi.fn(async () => movedDocument),
       },
     });
 
     const { container } = renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace, private' }, { timeout: 5_000 }));
+    fireEvent.click(await findTeamWorkspace({ timeout: 5_000 }));
     fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
     const row = await waitFor(() => {
       const noteRow = container.querySelector('[data-note-id="note-1"]');
@@ -3588,7 +3611,7 @@ describe('Home native-feel behavior', () => {
       hackmd: {
         ...createApi().hackmd,
         getCurrentUser: vi.fn(async () => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             id: 'user-1',
             email: 'michael@example.com',
@@ -3599,17 +3622,17 @@ describe('Home native-feel behavior', () => {
             teams: [team],
           },
         })),
-        listTeams: vi.fn(async () => ({ source: 'remote', data: [team] })),
-        listTeamNotes: vi.fn(async () => ({ source: 'remote', data: [teamNote] })),
-        listTeamFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
-        getTeamFolderOrder: vi.fn(async () => ({ source: 'remote', data: {} })),
-        getNote: vi.fn(async () => ({ source: 'remote', data: movedDocument })),
+        listTeams: vi.fn(async () => ({ source: 'remote' as const, data: [team] })),
+        listTeamNotes: vi.fn(async () => ({ source: 'remote' as const, data: [teamNote] })),
+        listTeamFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder] })),
+        getTeamFolderOrder: vi.fn(async () => ({ source: 'remote' as const, data: {} })),
+        getNote: vi.fn(async () => ({ source: 'remote' as const, data: movedDocument })),
         updateTeamNote: vi.fn(async () => movedDocument),
       },
     });
 
     const { container } = renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace, private' }, { timeout: 5_000 }));
+    fireEvent.click(await findTeamWorkspace({ timeout: 5_000 }));
     fireEvent.click(await findNoteRow('Root'));
     const row = await waitFor(() => {
       const noteRow = container.querySelector('[data-note-id="note-1"]');
@@ -3647,7 +3670,7 @@ describe('Home native-feel behavior', () => {
       hackmd: {
         ...createApi().hackmd,
         getCurrentUser: vi.fn(async () => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             id: 'user-1',
             email: 'michael@example.com',
@@ -3658,12 +3681,12 @@ describe('Home native-feel behavior', () => {
             teams: [team],
           },
         })),
-        listTeams: vi.fn(async () => ({ source: 'remote', data: [team] })),
-        listTeamNotes: vi.fn(async () => ({ source: 'remote', data: [teamNote] })),
-        listTeamFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
-        getTeamFolderOrder: vi.fn(async () => ({ source: 'remote', data: {} })),
+        listTeams: vi.fn(async () => ({ source: 'remote' as const, data: [team] })),
+        listTeamNotes: vi.fn(async () => ({ source: 'remote' as const, data: [teamNote] })),
+        listTeamFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder] })),
+        getTeamFolderOrder: vi.fn(async () => ({ source: 'remote' as const, data: {} })),
         getNote: vi.fn(async (noteId: string) => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: noteId === 'team-copy' ? duplicated : teamDocument,
         })),
         createTeamNote: vi.fn(async () => duplicated),
@@ -3671,7 +3694,7 @@ describe('Home native-feel behavior', () => {
     });
 
     const { container } = renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace, private' }, { timeout: 5_000 }));
+    fireEvent.click(await findTeamWorkspace({ timeout: 5_000 }));
     const row = await waitFor(() => {
       const noteRow = container.querySelector('[data-note-id="note-1"]');
       expect(noteRow).toBeTruthy();
@@ -3703,7 +3726,7 @@ describe('Home native-feel behavior', () => {
       hackmd: {
         ...createApi().hackmd,
         getCurrentUser: vi.fn(async () => ({
-          source: 'remote',
+          source: 'remote' as const,
           data: {
             id: 'user-1',
             email: 'michael@example.com',
@@ -3714,11 +3737,11 @@ describe('Home native-feel behavior', () => {
             teams: [team],
           },
         })),
-        listTeams: vi.fn(async () => ({ source: 'remote', data: [team] })),
-        listTeamNotes: vi.fn(async () => ({ source: 'remote', data: [] })),
-        listTeamFolders: vi.fn(async () => ({ source: 'remote', data: [] })),
+        listTeams: vi.fn(async () => ({ source: 'remote' as const, data: [team] })),
+        listTeamNotes: vi.fn(async () => ({ source: 'remote' as const, data: [] })),
+        listTeamFolders: vi.fn(async () => ({ source: 'remote' as const, data: [] })),
         createTeamNote: vi.fn(async () => importedDocument),
-        getNote: vi.fn(async () => ({ source: 'remote', data: importedDocument })),
+        getNote: vi.fn(async () => ({ source: 'remote' as const, data: importedDocument })),
       },
       app: {
         openTextFile: vi.fn(async () => ({
@@ -3734,7 +3757,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'Team Workspace, private' }, { timeout: 5_000 }));
+    fireEvent.click(await findTeamWorkspace({ timeout: 5_000 }));
     act(() => {
       commandHandler?.({ type: 'import-markdown-note' });
     });
@@ -3772,8 +3795,8 @@ describe('Home native-feel behavior', () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
-        listNotes: vi.fn(async () => ({ source: 'remote', data: [] })),
-        listFolders: vi.fn(async () => ({ source: 'remote', data: [folder] })),
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: [] })),
+        listFolders: vi.fn(async () => ({ source: 'remote' as const, data: [folder] })),
         deleteFolder: vi.fn(async () => undefined),
       },
       app: {

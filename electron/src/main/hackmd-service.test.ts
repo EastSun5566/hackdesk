@@ -780,7 +780,7 @@ describe('hackmd-service fallback cache consistency', () => {
     let releaseUpdate!: () => void;
     const listGate = new Promise<void>((done) => { releaseList = done; });
     const updateGate = new Promise<void>((done) => { releaseUpdate = done; });
-    const route = { current: (async (url: string, init: RequestInit) => {
+    const route = { current: (async (_url: string, init: RequestInit) => {
       if (init.method === 'PATCH') { await updateGate; return jsonResponse(note('n1', 'Updated')); }
       await listGate;
       return jsonResponse([note('n1', 'Stale')]);

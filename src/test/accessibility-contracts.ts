@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { expect, type Mock } from 'vitest';
+import { expect } from 'vitest';
 
 export async function expectToolbarRovingFocus(toolbarName: string, buttonNames: [string, ...string[]]) {
   const toolbar = screen.getByRole('toolbar', { name: toolbarName });
@@ -28,7 +28,7 @@ export async function expectToolbarRovingFocus(toolbarName: string, buttonNames:
   await waitFor(() => expect(buttons.at(-1)).toHaveFocus());
 }
 
-export function expectDisabledToolbarAction(button: HTMLElement, onClick: Mock) {
+export function expectDisabledToolbarAction(button: HTMLElement, onClick: () => void) {
   expect(button).toHaveAttribute('aria-disabled', 'true');
   expect(button).toHaveAttribute('data-focusable');
   expect(button).toHaveClass('focus-visible:ring-2');

@@ -468,12 +468,12 @@ describe('useWorkbenchShortcuts', () => {
   });
 
   it('clears finder query, filters, and selected folder with Escape outside editor zones', () => {
-    const setFinderState = vi.fn((updater: (current: NoteFinderState) => NoteFinderState) => (
-      updater({
+    const setFinderState = vi.fn((updater: NoteFinderState | ((current: NoteFinderState) => NoteFinderState)) => (
+      typeof updater === 'function' ? updater({
         ...DEFAULT_NOTE_FINDER_STATE,
         query: 'draft',
         tagFilters: ['work'],
-      })
+      }) : updater
     ));
     const setSelectedFolderId = vi.fn();
     const { rerender } = renderHook((props: WorkbenchShortcutHandlers) => useWorkbenchShortcuts(props), {

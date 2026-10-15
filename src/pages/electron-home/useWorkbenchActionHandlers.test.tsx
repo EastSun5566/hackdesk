@@ -2,7 +2,8 @@ import { renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { DocumentSummary } from '@/lib/electron-api';
-import type { OpenNoteTab } from './note-workspace';
+
+import type { DraftOpenNoteTab, SavedOpenNoteTab } from './note-workspace';
 import {
   useWorkbenchActionHandlers,
   type WorkbenchActionHandlersOptions,
@@ -34,7 +35,7 @@ function createDocument(overrides: Partial<DocumentSummary> = {}): DocumentSumma
   };
 }
 
-function createTab(overrides: Partial<OpenNoteTab> = {}): OpenNoteTab {
+function createTab(overrides: Partial<SavedOpenNoteTab> = {}): SavedOpenNoteTab {
   return {
     noteId: 'note-1',
     shortId: 'note-1',
@@ -46,7 +47,7 @@ function createTab(overrides: Partial<OpenNoteTab> = {}): OpenNoteTab {
   };
 }
 
-function createDraftTab(overrides: Partial<OpenNoteTab> = {}): OpenNoteTab {
+function createDraftTab(overrides: Partial<DraftOpenNoteTab> = {}): DraftOpenNoteTab {
   return {
     kind: 'draft',
     draftId: 'draft-1',

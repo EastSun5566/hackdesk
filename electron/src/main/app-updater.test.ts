@@ -27,7 +27,7 @@ function createUpdater() {
     autoDownload: true,
     autoInstallOnAppQuit: false,
     autoRunAppAfterInstall: false,
-    logger: undefined,
+    logger: null,
     setFeedURL: vi.fn(),
     checkForUpdates: vi.fn(),
     downloadUpdate: vi.fn(),

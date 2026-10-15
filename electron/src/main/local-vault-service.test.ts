@@ -789,8 +789,8 @@ describe('LocalVaultService', () => {
     try {
       const { document } = await createLocalNote({ title: 'Original', content: 'Body' });
       await symlink(outside, join(vaultPath, 'attachments'), 'junction');
-      await expect(importLocalVaultAttachment({ noteId: document.id, fileName: 'image.png', bytes: new Uint8Array([1, 2, 3]).buffer }))
-        .rejects.toThrow();
+      await expect(importLocalVaultAttachment({ noteId: document.id, fileName: 'image.png', mimeType: 'image/png', bytes: new Uint8Array([1, 2, 3]).buffer }))
+        .rejects.toThrow('Local vault paths cannot traverse symbolic links.');
       expect(await readdir(outside)).toEqual([]);
     } finally { await rm(outside, { recursive: true, force: true }); }
   });

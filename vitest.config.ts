@@ -6,10 +6,47 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
-    environment: 'jsdom',
-    setupFiles: './src/test/setup.ts',
     maxWorkers: 4,
-    exclude: ['electron/e2e/**', '**/node_modules/**', '**/.git/**'],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'node',
+          environment: 'node',
+          include: [
+            'electron/src/**/*.test.ts',
+            'scripts/**/*.test.ts',
+            'docs/.vitepress/**/*.test.ts',
+            'src/test/**/*.test.ts',
+          ],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'renderer',
+          sequence: { groupOrder: 1 },
+          // Full workbench fixtures are CPU-heavy in jsdom.
+          maxWorkers: 2,
+          environment: 'jsdom',
+          setupFiles: ['./src/test/setup.ts'],
+          include: ['src/**/*.test.{ts,tsx}'],
+          exclude: ['src/test/**'],
+        },
+      },
+    ],
+    coverage: {
+      provider: 'v8',
+      reportsDirectory: '.local/coverage',
+      include: [
+        'src/**/*.{ts,tsx}',
+        'electron/src/**/*.ts',
+        'scripts/**/*.ts',
+        'docs/.vitepress/**/*.ts',
+      ],
+      exclude: ['**/*.test.*', '**/*.d.ts', 'src/test/**'],
+      reporter: ['text-summary', 'json-summary', 'html'],
+    },
   },
   resolve: {
     alias: {

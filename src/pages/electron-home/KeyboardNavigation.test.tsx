@@ -36,7 +36,7 @@ describe('held modifier navigation',()=>{
     }
   });
   it('cancels when targets change instead of reassigning mid-chord',async()=>{
-    const modifier=fixture();hold(modifier);const save=screen.getByText('Save');save.disabled=true;
+    const modifier=fixture();hold(modifier);const save=screen.getByRole<HTMLButtonElement>('button', { name: 'Save' });save.disabled=true;
     await waitFor(()=>expect(document.querySelector('[data-keyboard-navigation-overlay]')).toBeNull());
   });
   it.each(['darwin', 'win32', 'linux'])('passes additional modifiers through unchanged on %s', platform => {

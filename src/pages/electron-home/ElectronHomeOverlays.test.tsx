@@ -28,6 +28,7 @@ vi.mock('./ElectronHomeDialogs', () => ({
 }));
 
 const actionContext: ElectronActionContext = {
+  activeTabIsDraft: false,
   activePaneTabCount: 0,
   activePaneTabsToRightCount: 0,
   canCreate: true,
@@ -114,7 +115,9 @@ function createProps(overrides: Partial<ElectronHomeOverlaysProps> = {}): Electr
       onDeleteNoteCancel: vi.fn(),
       onImportHackmdCliToken: vi.fn(async () => ({
         settings: {
+          workspaceNavigation: defaultSettings.workspaceNavigation,
           appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
           hackmdCliConfig: { hasAccessToken: true, hasCustomEndpoint: false },
           hasAppearanceSettings: true,
           hasHackmdApiToken: true,
@@ -150,7 +153,9 @@ function createProps(overrides: Partial<ElectronHomeOverlaysProps> = {}): Electr
       renameFolderDialog: { open: false, folderId: null, name: '', description: '', icon: '', color: '' },
       scopeLabel: 'My Workspace',
       settings: {
+        workspaceNavigation: defaultSettings.workspaceNavigation,
         appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
         hasAppearanceSettings: true,
         hasHackmdApiToken: false,

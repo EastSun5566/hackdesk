@@ -245,7 +245,7 @@ describe('settings helpers', () => {
   });
 
   it('serializes validated settings with stable formatting', () => {
-    expect(serializeSettings({ title: 'Workspace', hackmdApiToken: 'token-123' })).toBe(`{
+    expect(serializeSettings({ ...defaultSettings, title: 'Workspace', hackmdApiToken: 'token-123' })).toBe(`{
   "title": "Workspace",
   "hackmdApiToken": "token-123",
   "appearance": {

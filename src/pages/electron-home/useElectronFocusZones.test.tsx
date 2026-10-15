@@ -44,7 +44,7 @@ async function cycleTo(target: HTMLElement, shiftKey = false) {
 describe('useElectronFocusZones', () => {
   it('cycles visible regions and each editor in both directions, retaining pane identity', async () => {
     const { result } = fixture();
-    const workspace = screen.getByRole('button', { name: 'Workspace', exact: true });
+    const workspace = screen.getByRole('button', { name: 'Workspace' });
     act(() => workspace.focus());
     await cycleTo(screen.getByRole('treeitem'));
     await cycleTo(screen.getByRole('tab'));
@@ -60,7 +60,7 @@ describe('useElectronFocusZones', () => {
 
   it('skips collapsed or absent regions and restores a valid last target', async () => {
     fixture({ workspaceCollapsed: true, details: false });
-    const search = screen.getByRole('textbox', { name: 'Search' });
+    const search = screen.getByRole<HTMLInputElement>('textbox', { name: 'Search' });
     act(() => search.focus());
     await cycleTo(screen.getByRole('tab'));
     await cycleTo(search, true);
@@ -111,7 +111,7 @@ describe('useElectronFocusZones', () => {
 
   it('cancels pending focus when unmounted', async () => {
     const { result, unmount } = fixture();
-    const workspace = screen.getByRole('button', { name: 'Workspace', exact: true });
+    const workspace = screen.getByRole('button', { name: 'Workspace' });
     act(() => workspace.focus());
     act(() => result.current.focusZone('editor'));
     unmount();

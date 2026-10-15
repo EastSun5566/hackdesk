@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { NoteSummary } from '@/lib/electron-api';
 
-import type { OpenNoteTab } from './note-workspace';
+import type { OpenNoteTab, SavedOpenNoteTab } from './note-workspace';
 import {
   useElectronHomeSelection,
   useElectronHomeSelectionRefs,
@@ -35,7 +35,7 @@ function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id' | 'title'>): 
   };
 }
 
-function tab(input: Partial<OpenNoteTab> & Pick<OpenNoteTab, 'noteId' | 'title'>): OpenNoteTab {
+function tab(input: Partial<SavedOpenNoteTab> & Pick<SavedOpenNoteTab, 'noteId' | 'title'>): SavedOpenNoteTab {
   return {
     noteId: input.noteId,
     shortId: input.shortId ?? input.noteId,

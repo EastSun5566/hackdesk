@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { defaultSettings } from '../../src/lib/settings';
 import { LOCAL_IMAGE_PNG } from './fixtures/local-image';
+import { definedEnvironment } from './fixtures/environment';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const primary = process.platform === 'darwin' ? 'Meta' : 'Control';
@@ -41,7 +42,7 @@ for (const renderer of ['production', 'development'] as const) {
       ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
     }));
 
-    const env = { ...process.env };
+    const env = { ...definedEnvironment(process.env) };
     delete env.ELECTRON_RUN_AS_NODE;
     delete env.HACKDESK_ELECTRON_DEV_SERVER_URL;
     let server: import('vite').ViteDevServer | undefined;

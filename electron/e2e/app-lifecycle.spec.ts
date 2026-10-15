@@ -2,6 +2,7 @@ import { _electron as electron, expect, test, type ElectronApplication } from '@
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { definedEnvironment } from './fixtures/environment';
 
 import { defaultSettings } from '../../src/lib/settings';
 
@@ -29,7 +30,7 @@ async function launchQuickHackFixture() {
     };
     require(${JSON.stringify(join(repoRoot, 'electron/dist/main.cjs'))});
   `);
-  const env: NodeJS.ProcessEnv = { ...process.env, HOME: home };
+  const env: Record<string, string> = { ...definedEnvironment(process.env), HOME: home };
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.HACKDESK_ELECTRON_DEV_SERVER_URL;
   return electron.launch({

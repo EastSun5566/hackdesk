@@ -69,7 +69,7 @@ esac
   return {
     directory,
     read: (name: string) => readFileSync(join(directory, name), 'utf8'),
-    run: (step: string, env: Record<string, string> = {}) => spawnSync('bash', ['-e', '-o', 'pipefail', '-c', stepScript(step)], {
+    run: (step: string, env: NodeJS.ProcessEnv = {}) => spawnSync('bash', ['-e', '-o', 'pipefail', '-c', stepScript(step)], {
       cwd: directory,
       encoding: 'utf8',
       env: {

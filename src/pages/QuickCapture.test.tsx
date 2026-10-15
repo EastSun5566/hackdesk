@@ -143,7 +143,7 @@ describe('QuickCapture', () => {
   it('allows hiding while a capture submission is pending', async () => {
     let resolveSubmission: ((result: { accepted: true }) => void) | undefined;
     const api = renderQuickCapture({
-      submit: vi.fn(() => new Promise((resolve) => {
+      submit: vi.fn(() => new Promise<{ accepted: true }>((resolve) => {
         resolveSubmission = resolve;
       })),
     });

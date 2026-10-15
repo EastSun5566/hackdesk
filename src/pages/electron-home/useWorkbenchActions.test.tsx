@@ -1,14 +1,14 @@
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { OpenNoteTab, NoteWorkspaceState } from './note-workspace';
+import type { OpenNoteTab, NoteWorkspaceState, SavedOpenNoteTab } from './note-workspace';
 import {
   useWorkbenchActions,
   type WorkbenchActionHandlers,
   type WorkbenchActionsOptions,
 } from './useWorkbenchActions';
 
-function createTab(overrides: Partial<OpenNoteTab> = {}): OpenNoteTab {
+function createTab(overrides: Partial<SavedOpenNoteTab> = {}): SavedOpenNoteTab {
   return {
     noteId: 'note-1',
     shortId: 'short-1',
@@ -37,7 +37,7 @@ function createWorkspaceState(tabs: OpenNoteTab[] = [createTab()]): NoteWorkspac
     recentlyClosedTabs: [],
     scopeKey: 'personal',
     tabs: tabMap,
-    version: 1,
+    version: 2,
   };
 }
 

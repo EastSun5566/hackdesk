@@ -100,9 +100,9 @@ function createOptions({
 }: {
   api: HackDeskElectronAPI;
   scope: WorkspaceScope;
-  onDraftNoteCreated?: (tabId: string, note: DocumentSummary) => void;
-  onFolderCreated?: ReturnType<typeof vi.fn>;
-  onFolderRenamed?: ReturnType<typeof vi.fn>;
+  onDraftNoteCreated?: Parameters<typeof useElectronNoteMutations>[0]['onDraftNoteCreated'];
+  onFolderCreated?: Parameters<typeof useElectronNoteMutations>[0]['onFolderCreated'];
+  onFolderRenamed?: Parameters<typeof useElectronNoteMutations>[0]['onFolderRenamed'];
   selectedParentFolderId?: string;
 }) {
   return {
@@ -364,14 +364,14 @@ describe('useElectronNoteMutations remote save conflicts', () => {
   }
 
   it('saves when HackMD still has the draft base', async () => {
-    const { api, save } = setup({ source: 'remote', data: createDocument({ teamPath: 'team-a', content: 'Base' }) });
+    const { api, save } = setup({ source: 'remote' as const, data: createDocument({ teamPath: 'team-a', content: 'Base' }) });
     save({ content: 'Edited' });
     await waitFor(() => expect(api.hackmd.updateTeamNote).toHaveBeenCalledWith('team-a', 'note-1', expect.objectContaining({ content: 'Edited' })));
     expect(api.hackmd.getNote).toHaveBeenCalledWith('note-1', 'team-a');
   });
 
   it('does not write over a note changed on HackMD and shows the latest copy', async () => {
-    const latest = { source: 'remote', data: createDocument({ teamPath: 'team-a', content: 'Changed elsewhere' }) };
+    const latest = { source: 'remote' as const, data: createDocument({ teamPath: 'team-a', content: 'Changed elsewhere' }) };
     const { api, queryClient, result, save } = setup(latest);
     save({ content: 'Edited' });
     await waitFor(() => expect(result.current.updateNoteMutation.isError).toBe(true));
@@ -382,7 +382,7 @@ describe('useElectronNoteMutations remote save conflicts', () => {
 
   it.each([
     ['a cached copy', { source: 'cached', data: createDocument({ teamPath: 'team-a', content: 'Base' }) }],
-    ['a read error', { source: 'error', error: 'HackMD is offline.' }],
+    ['a read error', { source: 'error' as const, error: 'HackMD is offline.' }],
   ])('does not write when the latest note is only %s', async (_label, latest) => {
     const { api, result, save } = setup(latest);
     save({ content: 'Edited' });
@@ -392,7 +392,7 @@ describe('useElectronNoteMutations remote save conflicts', () => {
   });
 
   it('saves metadata without checking content', async () => {
-    const { api, save } = setup({ source: 'remote', data: createDocument({ teamPath: 'team-a', content: 'Changed elsewhere' }) });
+    const { api, save } = setup({ source: 'remote' as const, data: createDocument({ teamPath: 'team-a', content: 'Changed elsewhere' }) });
     save({ tags: ['a'] }, 'metadata');
     await waitFor(() => expect(api.hackmd.updateTeamNote).toHaveBeenCalledWith('team-a', 'note-1', { tags: ['a'] }));
     expect(api.hackmd.getNote).not.toHaveBeenCalled();
@@ -404,7 +404,7 @@ describe('useElectronNoteMutations remote save with an ETag', () => {
 
   function setup(note: DocumentSummary, latest: DocumentSummary | null | Error) {
     const api = { hackmd: {
-      getNote: vi.fn(async () => ({ source: 'remote', data: note })),
+      getNote: vi.fn(async () => ({ source: 'remote' as const, data: note })),
       getNoteIfChanged: vi.fn(async () => {
         if (latest instanceof Error) throw latest;
         return latest;
@@ -442,7 +442,7 @@ describe('useElectronNoteMutations remote save with an ETag', () => {
     save('Base');
     await waitFor(() => expect(result.current.updateNoteMutation.error?.message).toBe(HACKMD_NOTE_CHANGED_MESSAGE));
     expect(api.hackmd.updateNote).not.toHaveBeenCalled();
-    expect(queryClient.getQueryData(['electron', 'hackmd', 'note', null, 'note-1'])).toEqual({ source: 'remote', data: latest });
+    expect(queryClient.getQueryData(['electron', 'hackmd', 'note', null, 'note-1'])).toEqual({ source: 'remote' as const, data: latest });
   });
 
   it('does not write when the conditional read fails', async () => {
@@ -677,8 +677,8 @@ describe('useElectronNoteMutations settings updates', () => {
       api,
       scope: { type: 'personal', label: 'My Workspace' },
     })), { wrapper: Wrapper });
-    const firstInput = { workspaceNavigation: { pinnedTeamIds: ['team-1'] } };
-    const secondInput = { workspaceNavigation: { pinnedTeamIds: ['team-2'] } };
+    const firstInput = { title: defaultSettings.title, workspaceNavigation: { pinnedTeamIds: ['team-1'] } };
+    const secondInput = { title: defaultSettings.title, workspaceNavigation: { pinnedTeamIds: ['team-2'] } };
 
     act(() => {
       result.current.updateSettingsMutation.mutate(firstInput);
@@ -764,7 +764,7 @@ describe('mutation workspace ownership', () => {
     const folderCreated = Promise.withResolvers<typeof folder>();
     const api = { hackmd: {
       createNote: vi.fn(() => created.promise), createTeamNote: vi.fn(() => created.promise),
-      getNote: vi.fn(async () => ({ source: 'remote', data: note })),
+      getNote: vi.fn(async () => ({ source: 'remote' as const, data: note })),
       updateNote: vi.fn(() => saved.promise), updateTeamNote: vi.fn(() => saved.promise),
       createFolder: vi.fn(() => folderCreated.promise), createTeamFolder: vi.fn(() => folderCreated.promise),
     } } as unknown as HackDeskElectronAPI;
@@ -795,7 +795,7 @@ describe('mutation workspace ownership', () => {
     expect(destination.onNoteCreated).not.toHaveBeenCalled();
     expect(destination.onNoteSaved).not.toHaveBeenCalled();
     expect(destination.onFolderCreated).not.toHaveBeenCalled();
-    expect(queryClient.getQueryData(getWorkspaceQueryKey(scope))).toEqual({ source: 'remote', data: [note] });
+    expect(queryClient.getQueryData(getWorkspaceQueryKey(scope))).toEqual({ source: 'remote' as const, data: [note] });
     expect(queryClient.getQueryData(getWorkspaceQueryKey(destination.scope))).toBeUndefined();
     // Folder invalidation must target A, even if B is now active.
     expect(queryClient.getQueryState(getFoldersQueryKey(scope))?.isInvalidated).toBe(true);

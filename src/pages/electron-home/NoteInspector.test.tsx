@@ -43,7 +43,13 @@ function documentSummary(overrides: Partial<DocumentSummary> = {}): DocumentSumm
   };
 }
 
-function renderNoteInspector(overrides: Partial<Parameters<typeof NoteInspector>[0]> = {}) {
+type NoteInspectorProps = Parameters<typeof NoteInspector>[0];
+
+type NoteInspectorPropsOverrides = Partial<Omit<NoteInspectorProps, 'actions'>> & {
+  actions?: Partial<NoteInspectorProps['actions']>;
+};
+
+function renderNoteInspector(overrides: NoteInspectorPropsOverrides = {}) {
   const document = documentSummary();
   const props: Parameters<typeof NoteInspector>[0] = {
     actions: {

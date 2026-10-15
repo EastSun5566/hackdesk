@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "vitest/globals", "@testing-library/jest-dom"],
+    "lib": ["ES2024", "DOM", "DOM.Iterable"]
+  },
+  "include": [
+    "src",
+    "electron/src/**/*.test.ts",
+    "scripts/**/*.test.ts",
+    "docs/.vitepress/**/*.test.ts",
+    "vitest.config.ts"
+  ]
+}

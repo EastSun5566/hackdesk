@@ -95,7 +95,14 @@ function documentSummary(overrides: Partial<DocumentSummary> = {}): DocumentSumm
   };
 }
 
-function renderDocumentDetail(overrides: Partial<DocumentDetailProps> = {}) {
+type DocumentDetailPropsOverrides = Partial<Omit<DocumentDetailProps, 'actions' | 'documentState' | 'layout' | 'status'>> & {
+  actions?: Partial<DocumentDetailProps['actions']>;
+  documentState?: Partial<DocumentDetailProps['documentState']>;
+  layout?: Partial<DocumentDetailProps['layout']>;
+  status?: Partial<DocumentDetailProps['status']>;
+};
+
+function renderDocumentDetail(overrides: DocumentDetailPropsOverrides = {}) {
   const document = documentSummary();
   const props: DocumentDetailProps = {
     actions: {
@@ -366,7 +373,7 @@ describe('DocumentDetail', () => {
   });
 
   it('passes editor image attachments and their placeholder to the tab attach action', async () => {
-    const onAttachImage = vi.fn(async () => undefined);
+    const onAttachImage = vi.fn<DocumentDetailProps['actions']['onAttachImage']>(async () => undefined);
     renderDocumentDetail({
       actions: { onAttachImage },
       documentState: {
@@ -384,7 +391,7 @@ describe('DocumentDetail', () => {
 
   it('attaches an image from the document file picker without saving the note', async () => {
     const onSave = vi.fn();
-    const onAttachImage = vi.fn(async () => undefined);
+    const onAttachImage = vi.fn<DocumentDetailProps['actions']['onAttachImage']>(async () => undefined);
     const document = documentSummary();
     renderDocumentDetail({
       actions: {

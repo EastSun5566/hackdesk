@@ -42,6 +42,7 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
   const onValidateToken = props.onValidateToken ?? vi.fn();
   const settings = props.settings ?? {
     title: 'HackDesk',
+    workspaceNavigation: defaultSettings.workspaceNavigation,
     appearance: defaultSettings.appearance,
     editor: defaultSettings.editor,
     hasHackmdApiToken: false,
@@ -134,31 +135,46 @@ describe('SettingsDialog', () => {
     window.localStorage.clear();
   });
 
-  it('searches fields across sections, focuses the result and preserves unsaved input', async () => {
-    const { onSave } = renderSettingsDialog();
-    fireEvent.change(screen.getByLabelText('Window title'), { target: { value: 'Unsaved title' } });
+  it('finds a field in another section and focuses it', async () => {
+    renderSettingsDialog();
     const search = screen.getByLabelText('Search settings');
     fireEvent.change(search, { target: { value: 'editor font' } });
     fireEvent.click(screen.getByLabelText('Editor font, Appearance'));
-    await waitFor(() => expect(screen.getByLabelText('Editor font', { exact: true })).toHaveFocus());
-    fireEvent.change(search, { target: { value: 'window title' } });
-    fireEvent.keyDown(search, { key: 'Enter' });
-    await waitFor(() => expect(screen.getByLabelText('Window title')).toHaveFocus());
-    expect(screen.getByLabelText('Window title')).toHaveValue('Unsaved title');
-    expect(onSave).not.toHaveBeenCalled();
+    const field = screen.getByLabelText('Editor font', { exact: true });
+    await waitFor(() => expect(field).toHaveFocus());
     expect(search).toHaveValue('');
   });
 
-  it('opens collapsed color fields and finds wrapped checkbox labels', async () => {
+  it('preserves unsaved input when navigating settings from search', async () => {
+    const { onSave } = renderSettingsDialog();
+    const title = screen.getByLabelText('Window title');
+    fireEvent.change(title, { target: { value: 'Unsaved title' } });
+    fireEvent.click(screen.getByRole('tab', { name: 'Editor' }));
+    const search = screen.getByLabelText('Search settings');
+    fireEvent.change(search, { target: { value: 'window title' } });
+    fireEvent.keyDown(search, { key: 'Enter' });
+    await waitFor(() => expect(title).toHaveFocus());
+    expect(title).toHaveValue('Unsaved title');
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('expands a collapsed section to focus a color search result', async () => {
     renderSettingsDialog();
     const search = screen.getByLabelText('Search settings');
     fireEvent.change(search, { target: { value: 'primary' } });
     fireEvent.keyDown(search, { key: 'Enter' });
-    await waitFor(() => expect(screen.getByLabelText('Primary', { exact: true })).toHaveFocus());
+    const field = screen.getByLabelText('Primary', { exact: true });
+    await waitFor(() => expect(field).toHaveFocus());
     expect(screen.getByRole('button', { name: 'Customize Colors' })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('finds and focuses a wrapped checkbox label', async () => {
+    renderSettingsDialog();
+    const search = screen.getByLabelText('Search settings');
     fireEvent.change(search, { target: { value: 'outside text editing' } });
     fireEvent.keyDown(search, { key: 'Enter' });
-    await waitFor(() => expect(screen.getByLabelText('Enable ? and / outside text editing')).toHaveFocus());
+    const field = screen.getByLabelText('Enable ? and / outside text editing');
+    await waitFor(() => expect(field).toHaveFocus());
   });
 
   it('does not search private input values and clears the query before closing', () => {
@@ -285,6 +301,7 @@ describe('SettingsDialog', () => {
     const { onSave } = renderSettingsDialog({
       settings: {
         title: 'HackDesk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
         appearance: defaultSettings.appearance,
         editor: { mode: 'vim' },
         hasHackmdApiToken: false,
@@ -559,6 +576,7 @@ describe('SettingsDialog', () => {
     const { onDisconnectHackmd, onSave } = renderSettingsDialog({
       settings: {
         title: 'HackDesk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
         appearance: defaultSettings.appearance,
         editor: defaultSettings.editor,
         hasHackmdApiToken: true,
@@ -590,6 +608,7 @@ describe('SettingsDialog', () => {
     renderSettingsDialog({
       settings: {
         title: 'HackDesk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
         appearance: defaultSettings.appearance,
         editor: defaultSettings.editor,
         hasHackmdApiToken: true,
@@ -627,6 +646,7 @@ describe('SettingsDialog', () => {
     const { onDisconnectHackmd } = renderSettingsDialog({
       settings: {
         title: 'HackDesk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
         appearance: defaultSettings.appearance,
         editor: defaultSettings.editor,
         hasHackmdApiToken: true,
@@ -688,6 +708,7 @@ describe('SettingsDialog', () => {
     } = renderSettingsDialog({
       settings: {
         title: 'HackDesk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
         appearance: defaultSettings.appearance,
         editor: defaultSettings.editor,
         hasHackmdApiToken: false,
@@ -741,7 +762,7 @@ describe('SettingsDialog', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk', shortcuts: {}, keyboardNavigation: { characterShortcutsEnabled: false } });
-    fireEvent.click(screen.getByRole('button', { name: 'Close', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     await act(async () => { rerenderSettingsDialog({ open: false }); });
     await act(async () => { rerenderSettingsDialog({ open: true }); });
     expect(screen.getByRole('checkbox', { name: 'Enable ? and / outside text editing' })).toBeChecked();
@@ -792,7 +813,7 @@ describe('SettingsDialog', () => {
     window.hackdeskAPI = {
       app: { getQuickCaptureShortcutStatus },
       platform: 'darwin',
-    } as typeof window.hackdeskAPI;
+    } as unknown as typeof window.hackdeskAPI;
 
     renderSettingsDialog();
     fireEvent.click(screen.getByRole('tab', { name: /Shortcuts/ }));
@@ -814,7 +835,7 @@ describe('SettingsDialog', () => {
         })),
       },
       platform: 'darwin',
-    } as typeof window.hackdeskAPI;
+    } as unknown as typeof window.hackdeskAPI;
 
     renderSettingsDialog();
     fireEvent.click(screen.getByRole('tab', { name: /Shortcuts/ }));

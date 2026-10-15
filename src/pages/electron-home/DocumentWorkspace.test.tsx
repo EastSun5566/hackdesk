@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { FolderTree } from '@/lib/hackmd-folders';
+import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
 
 import { DocumentWorkspace, type DocumentPaneView } from './DocumentWorkspace';
 import type { DocumentDetailProps } from './DocumentDetail';
@@ -60,6 +60,7 @@ function createView(candidate: NotePane): DocumentPaneView {
       updatedAtMillis: null,
     },
     content: '',
+    isDraft: false,
     isDeleting: false,
     isLoading: false,
     isSaving: false,
@@ -87,7 +88,7 @@ function createWorkspaceProps(overrides: Partial<Parameters<typeof DocumentWorks
     ],
     onEditorRequestHandled: vi.fn(),
     editorMode: 'standard',
-    folderTree: { root: { children: [], id: 'root', name: 'Root', path: '', type: 'folder' } } as FolderTree,
+    folderTree: buildHackmdFolderTree([]),
     getPaneView: vi.fn(createView),
     isInspectorCollapsed: false,
     onContentChange: vi.fn(),

@@ -17,10 +17,13 @@
     "preview": "vite preview",
     "package": "pnpm run build && electron-builder",
     "package:check": "pnpm run build && electron-builder --dir --publish never && node scripts/check-electron-fuses.ts",
-    "typecheck": "pnpm run typecheck:app && pnpm run typecheck:node && pnpm run typecheck:electron",
+    "typecheck": "pnpm run typecheck:app && pnpm run typecheck:node && pnpm run typecheck:electron && pnpm run typecheck:test && pnpm run typecheck:e2e && pnpm run typecheck:docs",
     "typecheck:app": "tsc -p tsconfig.app.json --noEmit",
     "typecheck:node": "tsc -p tsconfig.node.json --noEmit",
     "typecheck:electron": "tsc -p tsconfig.electron.json --noEmit",
+    "typecheck:test": "tsc -p tsconfig.test.json --noEmit",
+    "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit",
+    "typecheck:docs": "tsc -p tsconfig.docs.json --noEmit",
     "audit:prod": "pnpm audit --prod --audit-level high",
     "lint:ts": "oxlint .",
     "lint:ts:fix": "oxlint --fix .",
@@ -35,7 +38,7 @@
     "test": "vitest run electron src scripts docs/.vitepress",
     "test:smoke": "pnpm run build && playwright test --config electron/playwright.config.ts",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage",
+    "test:coverage": "vitest run --coverage",
     "release": "pnpm run build && electron-builder --publish always",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
@@ -155,7 +158,8 @@
     "@types/react": "^18.3.27",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.3.4",
-    "@vitest/ui": "^4.1.9",
+    "@vitest/coverage-v8": "4.1.9",
+    "@vitest/ui": "4.1.9",
     "electron": "^44.4.5",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.1",
@@ -172,7 +176,7 @@
     "typescript": "^7.0.2",
     "vite": "^7.3.6",
     "vitepress": "2.0.0-alpha.17",
-    "vitest": "^4.1.9"
+    "vitest": "4.1.9"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm exec lint-staged"

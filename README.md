@@ -54,4 +54,7 @@ pnpm approve-builds --all
 pnpm run dev
 ```
 
-Run `pnpm run check` before opening a pull request.
+Run `pnpm run check` before opening a pull request. This also type-checks tests,
+Electron E2E, and docs.
+
+Run `pnpm run test:coverage` once to generate a local report in `.local/coverage/`.

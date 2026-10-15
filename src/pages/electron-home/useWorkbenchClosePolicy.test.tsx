@@ -1,12 +1,12 @@
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { SavedOpenNoteTab } from './note-workspace';
 import type { HackDeskElectronAPI } from '@/lib/electron-api';
 
-import type { OpenNoteTab } from './note-workspace';
 import { useWorkbenchClosePolicy, type WorkbenchClosePolicyOptions } from './useWorkbenchClosePolicy';
 
-function createTab(overrides: Partial<OpenNoteTab> = {}): OpenNoteTab {
+function createTab(overrides: Partial<SavedOpenNoteTab> = {}): SavedOpenNoteTab {
   return {
     noteId: 'note-1',
     shortId: 'short-1',

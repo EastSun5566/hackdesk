@@ -5,10 +5,10 @@ import type { HackDeskElectronAPI, NoteSummary } from '@/lib/electron-api';
 import type { FolderTreeNote } from '@/lib/hackmd-folders';
 
 import type { DocumentSyncState } from './DocumentDetail';
-import type { NotePane, OpenNoteTab } from './note-workspace';
+import type { NotePane, OpenNoteTab, SavedOpenNoteTab } from './note-workspace';
 import { useWorkbenchTabLifecycle, type WorkbenchTabLifecycleOptions } from './useWorkbenchTabLifecycle';
 
-function createTab(overrides: Partial<OpenNoteTab> = {}): OpenNoteTab {
+function createTab(overrides: Partial<SavedOpenNoteTab> = {}): SavedOpenNoteTab {
   return {
     noteId: 'note-1',
     shortId: 'short-1',
