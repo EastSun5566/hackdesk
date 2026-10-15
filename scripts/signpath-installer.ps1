@@ -16,13 +16,16 @@ $root = $env:SIGNPATH_DIRECTORY
 $session = Get-Content -LiteralPath (Join-Path $root 'session.json') -Raw | ConvertFrom-Json
 $installation = Join-Path $root 'installed'
 function Invoke-BoundedProcess([string] $Executable, [string] $Arguments) {
+    $name = Split-Path -Leaf $Executable
+    Write-Host "Starting $Action process: $name"
     $process = Start-Process -FilePath $Executable -ArgumentList $Arguments -PassThru
     if (-not $process.WaitForExit(120000)) {
         Stop-Process -Id $process.Id -Force
-        throw 'Installer process timed out.'
+        throw "$Action process timed out after 120 seconds: $name"
     }
     $process.Refresh()
-    if ($process.ExitCode -ne 0) { throw "Installer process failed: $($process.ExitCode)" }
+    if ($process.ExitCode -ne 0) { throw "$Action process failed ($name): $($process.ExitCode)" }
+    Write-Host "$Action process completed: $name"
 }
 if ($Action -eq 'Install') {
     if (Test-Path -LiteralPath $installation) { throw 'Expected a fresh installation directory.' }

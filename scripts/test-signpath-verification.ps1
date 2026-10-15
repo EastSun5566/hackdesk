@@ -79,7 +79,34 @@ try {
     if ($helperReport.status -ne 'Valid') { throw 'Helper signature did not pass verification.' }
     Assert-Rejected 'helper presented as application' @{ UnsignedPath = $helperUnsigned; SignedPath = $helperSigned } 'Executable metadata mismatch'
 
-    if ($IncludeInstaller) { ./scripts/test-signpath-installer.ps1 -Certificate $certificate }
+    if ($IncludeInstaller) {
+        # Fail before building, with an incomplete installation that also makes cleanup fail.
+        & {
+            $fixture = @{ root = $null }
+            function node([string] $Script, [string] $Command) {
+                if ($Command -eq 'start') {
+                    $fixture.root = $env:SIGNPATH_DIRECTORY
+                    New-Item -ItemType Directory -Path (Join-Path $fixture.root 'installed') -Force | Out-Null
+                    '{}' | Set-Content (Join-Path $fixture.root 'session.json')
+                    throw 'Simulated installer fixture failure.'
+                }
+                if ($Command -ne 'cleanup') { throw "Unexpected fixture command: $Command" }
+            }
+            try {
+                $message = $null
+                try { ./scripts/test-signpath-installer.ps1 -Certificate $certificate }
+                catch { $message = $_.Exception.Message }
+                if ($message -cne 'Simulated installer fixture failure.') {
+                    throw "Installer cleanup masked the original failure: $message"
+                }
+                Write-Host 'Installer fixture preserved the original failure when cleanup also failed.'
+            }
+            finally {
+                if ($fixture.root) { Remove-Item -LiteralPath $fixture.root -Recurse -Force }
+            }
+        }
+        ./scripts/test-signpath-installer.ps1 -Certificate $certificate
+    }
     if (Test-Path -LiteralPath "Cert:\LocalMachine\Root\$($certificate.Thumbprint)") {
         throw 'Verification left test certificate trust installed.'
     }
