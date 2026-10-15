@@ -1,4 +1,4 @@
-import { build, context, type BuildOptions } from 'esbuild';
+import { build, context, type BuildContext, type BuildOptions } from 'esbuild';
 
 const isWatch = process.argv.includes('--watch');
 const common: BuildOptions = {
@@ -10,7 +10,7 @@ const common: BuildOptions = {
   logLevel: 'info',
 };
 
-async function buildTargets(): Promise<void> {
+export async function buildTargets(watch = false): Promise<void> {
   const mainOptions: BuildOptions = {
     ...common,
     entryPoints: ['electron/src/main/index.ts'],
@@ -27,31 +27,45 @@ async function buildTargets(): Promise<void> {
     outfile: 'electron/dist/quick-capture-preload.cjs',
   };
 
-  if (isWatch) {
-    await Promise.all([
-      build(mainOptions),
-      build(preloadOptions),
-      build(quickCapturePreloadOptions),
-    ]);
-
-    const [mainContext, preloadContext, quickCapturePreloadContext] = await Promise.all([
-      context(mainOptions),
-      context(preloadOptions),
-      context(quickCapturePreloadOptions),
-    ]);
-
-    await Promise.all([mainContext.watch(), preloadContext.watch(), quickCapturePreloadContext.watch()]);
+  const targets = [mainOptions, preloadOptions, quickCapturePreloadOptions];
+  if (watch) {
+    const contexts: BuildContext[] = [];
+    const initialBuilds: Promise<void>[] = [];
+    try {
+      for (const options of targets) {
+        let resolve!: () => void;
+        let reject!: (error: Error) => void;
+        initialBuilds.push(new Promise<void>((done, fail) => { resolve = done; reject = fail; }));
+        contexts.push(await context({
+          ...options,
+          plugins: [{
+            name: 'initial-build-ready',
+            setup(api) {
+              api.onEnd(result => {
+                if (result.errors.length) reject(new Error(`Initial Electron build failed: ${options.outfile}`));
+                else resolve();
+              });
+            },
+          }],
+        }));
+      }
+      // watch() starts its own initial build and returns before it completes.
+      await Promise.all([Promise.all(initialBuilds), Promise.all(contexts.map(entry => entry.watch()))]);
+    } catch (error) {
+      await Promise.all(contexts.map(entry => entry.dispose()));
+      throw error;
+    }
     return;
   }
 
-  await Promise.all([
-    build(mainOptions),
-    build(preloadOptions),
-    build(quickCapturePreloadOptions),
-  ]);
+  await Promise.all(targets.map(options => build(options)));
 }
 
-buildTargets().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+if (import.meta.main) {
+  buildTargets(isWatch).then(() => {
+    if (isWatch) process.send?.('electron-build-ready');
+  }).catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
