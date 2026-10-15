@@ -44,17 +44,6 @@ xattr -dr com.apple.quarantine "/Applications/HackDesk.app"
 
 The [documentation website](https://hackdesk.eastsun.me) follows the current v2 development build. Published betas can differ.
 
-## Development
+## Contributing
 
-Use Node.js 24 and the pnpm version specified in `package.json`.
-
-```sh
-pnpm install
-pnpm approve-builds --all
-pnpm run dev
-```
-
-Run `pnpm run check` before opening a pull request. This also type-checks tests,
-Electron E2E, and docs.
-
-Run `pnpm run test:coverage` once to generate a local report in `.local/coverage/`.
+See the [contribution guide](CONTRIBUTING.md) to run HackDesk locally and check changes.

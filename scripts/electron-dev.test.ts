@@ -3,7 +3,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, onTestFailed, vi } from 'vitest';
 import { waitForDevReady } from './electron-dev';
 
 const child = () => new EventEmitter() as unknown as ChildProcess;
@@ -58,6 +58,7 @@ describe('Electron dev startup', () => {
 });
 
 describe('real Electron watch build', () => {
+  // Includes a cold Node/esbuild process, initial build, rebuild and cleanup on Windows.
   it.each(['clean', 'stale', 'invalid'])('handles %s outputs before allowing startup', async mode => {
     const root = await mkdtemp(join(tmpdir(), 'hackdesk-dev-build-'));
     const targets = [
@@ -81,6 +82,9 @@ describe('real Electron watch build', () => {
     let stderr = '';
     builder.stdout!.resume();
     builder.stderr!.on('data', chunk => { stderr += chunk.toString(); });
+    onTestFailed(() => {
+      console.error(`Watch build (${mode}): exitCode=${builder.exitCode}, signalCode=${builder.signalCode}\n${stderr}`);
+    });
     try {
       const ready = waitForDevReady(child(), builder, Promise.resolve());
       if (mode === 'invalid') {
@@ -101,5 +105,5 @@ describe('real Electron watch build', () => {
       await exited;
       await rm(root, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 });

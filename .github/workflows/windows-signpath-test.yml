@@ -13,13 +13,17 @@ concurrency:
 
 jobs:
   quality:
+    permissions:
+      contents: read
     if: github.repository == 'EastSun5566/hackdesk' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
@@ -34,7 +38,9 @@ jobs:
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Check signing prerequisites
         shell: pwsh
         env:
@@ -48,8 +54,8 @@ jobs:
             }
           }
           "SIGNPATH_DIRECTORY=$(Join-Path $env:RUNNER_TEMP 'hackdesk-signpath')" >> $env:GITHUB_ENV
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
@@ -77,15 +83,16 @@ jobs:
           "file_version=$($metadata.FileVersion)" >> $env:GITHUB_OUTPUT
       - name: Upload unsigned executable
         id: unsigned
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
+          archive: true
           name: hackdesk-unsigned-test-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ env.SIGNPATH_DIRECTORY }}/unsigned/HackDesk.exe
           if-no-files-found: error
           retention-days: 7
       - name: Sign with the test certificate
         id: signing
-        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: 17f28d05-3358-43ce-9547-e3509577e8fb
@@ -139,7 +146,7 @@ jobs:
           'TEST CERTIFICATE / NOT FOR RELEASE. Extract the complete ZIP before running HackDesk.exe. This is an unpacked app, not a signed installer.' |
             Set-Content (Join-Path $env:SIGNPATH_DIRECTORY 'README.txt')
       - name: Upload verified test application and signing evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: hackdesk-test-certificate-not-for-release-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -150,7 +157,7 @@ jobs:
           retention-days: 7
       - name: Upload startup diagnostics on failure
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: signpath-startup-failure-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
