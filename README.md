@@ -62,4 +62,5 @@ Run `pnpm run test:coverage` once to generate a local report in `.local/coverage
 Workflow actions use full commit SHAs. Dependabot opens weekly update PRs;
 review the upstream changes and CI results before merging. Keep the version
 comments next to each pin, and verify new pins belong to the action's official
-repository. SignPath workflows keep their separately validated action versions.
+repository. Keep signing uploads as ZIP archives to match the SignPath artifact
+configurations.
