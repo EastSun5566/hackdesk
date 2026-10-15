@@ -32,7 +32,7 @@
     "contract:hackmd": "node scripts/hackmd-openapi-verify.ts",
     "contract:hackmd:live": "node scripts/hackmd-openapi-verify.ts --live",
     "contract:hackmd:update": "node scripts/hackmd-openapi-verify.ts --update",
-    "test": "vitest run electron src docs/.vitepress",
+    "test": "vitest run electron src scripts docs/.vitepress",
     "test:smoke": "pnpm run build && playwright test --config electron/playwright.config.ts",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
