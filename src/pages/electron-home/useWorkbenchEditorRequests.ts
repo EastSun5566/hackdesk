@@ -9,7 +9,7 @@ export type EditorRequestTarget = {
 
 export type EditorRequest = EditorRequestTarget & {
   id: number;
-  kind: 'focus' | 'search' | 'attach-image';
+  kind: 'focus' | 'search' | 'attach-image' | 'ai-assist';
 };
 
 export function useWorkbenchEditorRequests(target: EditorRequestTarget | null) {
@@ -41,6 +41,7 @@ export function useWorkbenchEditorRequests(target: EditorRequestTarget | null) {
   const requestEditorFocus = useCallback(() => request('focus'), [request]);
   const bumpEditorSearchRequest = useCallback(() => request('search'), [request]);
   const bumpAttachImageRequest = useCallback(() => request('attach-image'), [request]);
+  const bumpAiAssistRequest = useCallback(() => request('ai-assist'), [request]);
 
   return {
     editorRequests: state.key === key ? state.requests : [],
@@ -48,5 +49,6 @@ export function useWorkbenchEditorRequests(target: EditorRequestTarget | null) {
     requestEditorFocus,
     bumpEditorSearchRequest,
     bumpAttachImageRequest,
+    bumpAiAssistRequest,
   };
 }

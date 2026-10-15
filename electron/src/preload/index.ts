@@ -36,6 +36,7 @@ import type {
   LocalVaultTrashNoteInput,
   LocalVaultWriteInput,
 } from '../../../src/lib/local-vault';
+import type { AiProviderId, AiTurnDelta, AiTurnInput } from '../../../src/lib/ai';
 import { ELECTRON_CHANNELS } from '../shared/channels';
 
 const api: HackDeskElectronAPI = {
@@ -104,6 +105,20 @@ const api: HackDeskElectronAPI = {
     uploadNoteImage: (noteId: string, input: UploadNoteImageInput, options?: HackmdRequestOptions) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdUploadNoteImage, noteId, input, options)
     ),
+  },
+  ai: {
+    listProviders: () => ipcRenderer.invoke(ELECTRON_CHANNELS.aiListProviders),
+    refreshProvider: (providerId: AiProviderId) => ipcRenderer.invoke(ELECTRON_CHANNELS.aiRefreshProvider, providerId),
+    runTurn: (input: AiTurnInput, onDelta: (text: string) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, delta: AiTurnDelta) => {
+        if (delta.requestId === input.requestId) onDelta(delta.text);
+      };
+      ipcRenderer.on(ELECTRON_CHANNELS.aiTurnDelta, listener);
+      return ipcRenderer.invoke(ELECTRON_CHANNELS.aiRunTurn, input).finally(() => {
+        ipcRenderer.removeListener(ELECTRON_CHANNELS.aiTurnDelta, listener);
+      });
+    },
+    cancelTurn: (requestId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.aiCancelTurn, requestId),
   },
   localVault: {
     choose: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultChoose),

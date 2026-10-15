@@ -25,7 +25,19 @@ describe('settings helpers', () => {
       shortcuts: defaultSettings.shortcuts,
       keyboardNavigation: defaultSettings.keyboardNavigation,
       workspaceNavigation: defaultSettings.workspaceNavigation,
+      ai: defaultSettings.ai,
     });
+  });
+  it('keeps AI providers off unless turned on and drops a damaged AI section', () => {
+    expect(defaultSettings.ai.providers.codex.enabled).toBe(false);
+    expect(defaultSettings.ai.providers.claude.enabled).toBe(false);
+    const stored = parseStoredSettings(JSON.stringify({
+      title: 'HackDesk',
+      ai: { providers: { claude: { enabled: true, model: 'haiku' } }, defaultProvider: 'claude' },
+    }));
+    expect(stored.ai.providers.claude).toEqual({ enabled: true, model: 'haiku', commandPath: null });
+    expect(stored.ai.providers.codex.enabled).toBe(false);
+    expect(parseStoredSettings('{"title":"HackDesk","ai":{"defaultProvider":"gemini"}}').ai).toEqual(defaultSettings.ai);
   });
 
   it('parses appearance settings when present', () => {
@@ -46,6 +58,7 @@ describe('settings helpers', () => {
       shortcuts: defaultSettings.shortcuts,
       keyboardNavigation: defaultSettings.keyboardNavigation,
       workspaceNavigation: defaultSettings.workspaceNavigation,
+      ai: defaultSettings.ai,
     });
   });
 
@@ -274,6 +287,21 @@ describe('settings helpers', () => {
   },
   "workspaceNavigation": {
     "pinnedTeamIds": null
+  },
+  "ai": {
+    "providers": {
+      "codex": {
+        "enabled": false,
+        "model": null,
+        "commandPath": null
+      },
+      "claude": {
+        "enabled": false,
+        "model": null,
+        "commandPath": null
+      }
+    },
+    "defaultProvider": null
   }
 }`);
   });

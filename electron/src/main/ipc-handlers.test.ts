@@ -21,6 +21,14 @@ const settingsMock = vi.hoisted(() => ({
     shouldShowHackmdOnboarding: false,
   })),
   getSafeSettings: vi.fn(),
+  readStoredSettings: vi.fn(),
+}));
+const aiServiceMock = vi.hoisted(() => ({
+  listProviders: vi.fn(async () => []),
+  refresh: vi.fn(),
+  runTurn: vi.fn(),
+  applySettings: vi.fn(),
+  dispose: vi.fn(),
 }));
 const hackmdServiceMock = vi.hoisted(() => ({
   getNoteIfChanged: vi.fn(),
@@ -88,6 +96,8 @@ const localVaultServiceMock = vi.hoisted(() => ({
 vi.mock('electron', () => ({
   app: {
     getName: vi.fn(() => 'HackDesk'),
+    getVersion: vi.fn(() => '1.0.0'),
+    getPath: vi.fn(() => '/home/test'),
   },
   clipboard: clipboardMock,
   dialog: {
@@ -101,6 +111,7 @@ vi.mock('electron', () => ({
 }));
 
 vi.mock('./settings', () => settingsMock);
+vi.mock('./ai/ai-service', () => ({ createAiService: vi.fn(() => aiServiceMock) }));
 vi.mock('./local-vault-service', () => localVaultServiceMock);
 vi.mock('./hackmd-service', () => ({
   clearHackmdCache: vi.fn(),
@@ -187,6 +198,33 @@ describe('registerIpcHandlers', () => {
     const handler = ipcHandlers.get(ELECTRON_CHANNELS.settingsGet);
     expect(() => handler?.({})).toThrow('Blocked untrusted IPC sender');
     expect(settingsMock.getSafeSettings).not.toHaveBeenCalled();
+  });
+
+  it('streams AI turn deltas to the requesting window and cancels only its own turn', async () => {
+    const registration = registerIpcHandlers(windowManager);
+    const run = ipcHandlers.get(ELECTRON_CHANNELS.aiRunTurn)!;
+    const cancel = ipcHandlers.get(ELECTRON_CHANNELS.aiCancelTurn)!;
+    const send = vi.fn();
+    const sender = Object.assign(new EventEmitter(), { isDestroyed: () => false, send });
+    const other = Object.assign(new EventEmitter(), { isDestroyed: () => false, send: vi.fn() });
+    const requestId = '6c4a1a39-5d9b-4c4f-9a43-5f1c2b0d9e11';
+    const input = { requestId, providerId: 'claude', action: 'summarize', text: 'Note' };
+    expect(() => run({ sender }, { ...input, providerId: 'gemini' })).toThrow(/Invalid/);
+    expect(() => run({ sender }, { ...input, command: '/bin/sh' })).toThrow(/Invalid/);
+    let signal!: AbortSignal;
+    aiServiceMock.runTurn.mockImplementationOnce((_input, input: AbortSignal, onDelta: (text: string) => void) => {
+      signal = input;
+      onDelta('Sum');
+      return new Promise((_resolve, reject) => input.addEventListener('abort', () => reject(input.reason), { once: true }));
+    });
+    const pending = expect(run({ sender }, input)).rejects.toMatchObject({ name: 'AbortError' });
+    expect(send).toHaveBeenCalledWith(ELECTRON_CHANNELS.aiTurnDelta, { requestId, text: 'Sum' });
+    cancel({ sender: other }, requestId);
+    expect(signal.aborted).toBe(false);
+    cancel({ sender }, requestId);
+    await pending;
+    registration.dispose();
+    expect(aiServiceMock.dispose).toHaveBeenCalledOnce();
   });
 
   it('validates request IDs and cancels only the trusted owner request', async () => {

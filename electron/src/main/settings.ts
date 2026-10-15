@@ -58,6 +58,7 @@ function toSafeSettings(
     shortcuts: settings.shortcuts,
     keyboardNavigation: settings.keyboardNavigation,
     workspaceNavigation: settings.workspaceNavigation,
+    ai: settings.ai,
     hasHackmdApiToken,
     hackmdTokenStorageError: tokenStorageError ?? null,
     hasAppearanceSettings: hasStoredAppearance,
@@ -308,6 +309,7 @@ async function updateStoredSettingsUnlocked(
     shortcuts: update.shortcuts ?? current.shortcuts,
     keyboardNavigation: update.keyboardNavigation ?? current.keyboardNavigation,
     workspaceNavigation: update.workspaceNavigation ?? current.workspaceNavigation,
+    ai: update.ai ?? current.ai,
     onboarding: nextOnboarding,
     localVault: update.localVaultPath !== undefined ? { path: update.localVaultPath } : current.localVault,
   });

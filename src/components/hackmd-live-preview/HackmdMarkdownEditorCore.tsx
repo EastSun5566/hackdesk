@@ -388,6 +388,23 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
         });
         view.focus();
       },
+      getSelection() {
+        const view = runtime.view;
+        if (!view) return { from: 0, to: 0, text: '' };
+        const { from, to } = view.state.selection.main;
+        return { from, to, text: view.state.sliceDoc(from, to) };
+      },
+      replaceRange(from: number, to: number, expected: string, text: string) {
+        const view = runtime.view;
+        if (!view || to > view.state.doc.length || view.state.sliceDoc(from, to) !== expected) return false;
+        view.dispatch({
+          changes: { from, to, insert: text },
+          selection: { anchor: from, head: from + text.length },
+          scrollIntoView: true,
+        });
+        view.focus();
+        return true;
+      },
       openSearch() {
         const view = runtime.view;
         if (!view) {

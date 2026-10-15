@@ -1,5 +1,6 @@
 import { app, clipboard, dialog, ipcMain as electronIpcMain, shell } from 'electron';
 import type { IpcMainInvokeEvent, MessageBoxOptions } from 'electron';
+import { join } from 'node:path';
 
 import type {
   ConfirmDialogOptions,
@@ -65,7 +66,9 @@ import {
   validateToken,
   clearHackmdCache,
 } from './hackmd-service';
-import { getSafeSettings, readHackmdCliAccessToken, updateStoredSettings } from './settings';
+import { getSafeSettings, readHackmdCliAccessToken, readStoredSettings, updateStoredSettings } from './settings';
+import { createAiService } from './ai/ai-service';
+import { getHackDeskRootPath } from './paths';
 import {
   createLocalFolder,
   createLocalNote,
@@ -94,6 +97,8 @@ import { checkForElectronUpdates } from './app-updater';
 import { getQuickCaptureShortcutStatus } from './global-shortcuts';
 import { exportDebugLogs, recordFatalRendererError } from './logging';
 import {
+  aiProviderIdInputSchema,
+  aiTurnInputSchema,
   confirmDialogOptionsSchema,
   createFolderInputSchema,
   createNoteInputSchema,
@@ -167,6 +172,28 @@ export function registerIpcHandlers(
     const metadata = validateIpcInput(ELECTRON_CHANNELS.hackmdCancelRequest, hackmdRequestOptionsSchema, { requestId })!;
     requests.cancel(event.sender, metadata.requestId);
   });
+  const ai = createAiService({
+    appVersion: app.getVersion(),
+    rootPath: join(getHackDeskRootPath(), 'ai'),
+    readSettings: readStoredSettings,
+  });
+  // Same per-window ownership as HackMD requests: a closed or reloaded window cancels its turns.
+  const aiTurns = createHackmdRequests();
+  ipcMain.handle(ELECTRON_CHANNELS.aiListProviders, () => ai.listProviders());
+  ipcMain.handle(ELECTRON_CHANNELS.aiRefreshProvider, (_event, providerId) => (
+    ai.refresh(validateIpcInput(ELECTRON_CHANNELS.aiRefreshProvider, aiProviderIdInputSchema, providerId))
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.aiRunTurn, (event, input) => {
+    const turn = validateIpcInput(ELECTRON_CHANNELS.aiRunTurn, aiTurnInputSchema, input);
+    const sender = event.sender;
+    return aiTurns.run(sender, turn.requestId, signal => ai.runTurn(turn, signal, (text) => {
+      if (!sender.isDestroyed()) sender.send(ELECTRON_CHANNELS.aiTurnDelta, { requestId: turn.requestId, text });
+    }));
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.aiCancelTurn, (event, requestId) => {
+    const metadata = validateIpcInput(ELECTRON_CHANNELS.aiCancelTurn, hackmdRequestOptionsSchema, { requestId })!;
+    aiTurns.cancel(event.sender, metadata.requestId);
+  });
   let localVaultWatcher: LocalVaultWatcher | null = null;
   let watchedLocalVaultPath: string | null = null;
   let localVaultWatcherGeneration = 0;
@@ -222,6 +249,7 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.settingsUpdate, async (_event, settings) => {
     const nextSettings = await updateStoredSettings(validateIpcInput(ELECTRON_CHANNELS.settingsUpdate, settingsUpdateSchema, settings));
     clearHackmdCache();
+    if (nextSettings.ai) ai.applySettings(nextSettings.ai);
     options.onSettingsUpdated?.(nextSettings);
     return nextSettings;
   });
@@ -562,6 +590,8 @@ export function registerIpcHandlers(
   return {
     dispose: () => {
       requests.dispose();
+      aiTurns.dispose();
+      ai.dispose();
       closeLocalVaultWatcher(true);
     },
   };

@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Save,
   Share2,
+  Sparkles,
   Trash2,
 } from 'lucide-react';
 
@@ -42,6 +43,7 @@ import { cn } from '@/lib/utils';
 import { createImageUploadPlaceholder } from '@/components/hackmd-live-preview/markdown-image';
 
 import { EmptyState, PanelHeader, PanelShell, ToolbarDropdownMoreTrigger, ToolbarIconButton } from './interaction-primitives';
+import { AiAssistDialog, type AiApplyMode, type AiAssistSource } from './AiAssistDialog';
 import { NoteInspector } from './NoteInspector';
 import { ShareDialog } from './ShareDialog';
 import {
@@ -72,6 +74,7 @@ export type DocumentDetailDocumentState = {
 };
 
 export type DocumentDetailLayout = {
+  aiAssistRequestId?: number;
   attachImageRequestId: number;
   onRequestHandled?: (id: number) => void;
   focusZone?: string | null;
@@ -308,7 +311,15 @@ function ActiveDocumentDetail({
   const lastHandledAttachImageRequestRef = useRef(0);
   const lastHandledFocusRequestRef = useRef(0);
   const lastHandledSearchRequestRef = useRef(0);
+  const lastHandledAiAssistRequestRef = useRef(0);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [aiAssistSource, setAiAssistSource] = useState<AiAssistSource | null>(null);
+  // A new key per request gives each AI Assist session fresh state.
+  const [aiAssistSession, setAiAssistSession] = useState(0);
+  const openAiAssist = useCallback((handle: MarkdownEditorHandle) => {
+    setAiAssistSession(session => session + 1);
+    setAiAssistSource(getAiAssistSource(handle));
+  }, []);
   const inspectorPanelId = layout.inspectorPanelId ?? NOTE_INSPECTOR_PANEL_ID;
   const noteDirty = documentState.isDraft
     || (documentState.document
@@ -334,7 +345,13 @@ function ActiveDocumentDetail({
       onRequestHandled?.(layout.attachImageRequestId);
       fileInputRef.current.click();
     }
-  }, [layout.focusRequestId, layout.searchRequestId, layout.attachImageRequestId, onRequestHandled]);
+    const aiAssistRequestId = layout.aiAssistRequestId ?? 0;
+    if (aiAssistRequestId > lastHandledAiAssistRequestRef.current) {
+      lastHandledAiAssistRequestRef.current = aiAssistRequestId;
+      onRequestHandled?.(aiAssistRequestId);
+      openAiAssist(handle);
+    }
+  }, [layout.focusRequestId, layout.searchRequestId, layout.attachImageRequestId, layout.aiAssistRequestId, onRequestHandled, openAiAssist]);
   const setEditorRef = useCallback((handle: MarkdownEditorHandle | null) => {
     editorRef.current = handle;
     handleEditorRequests(handle);
@@ -347,6 +364,21 @@ function ActiveDocumentDetail({
   const requestAttachImage = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
+
+  const requestAiAssist = useCallback(() => {
+    const editor = editorRef.current;
+    if (editor?.getContentDOM()) openAiAssist(editor);
+  }, [openAiAssist]);
+
+  const applyAiResult = useCallback((mode: AiApplyMode, result: string) => {
+    const editor = editorRef.current;
+    const source = aiAssistSource;
+    if (!editor || !source) return false;
+    if (mode === 'replace') return editor.replaceRange(source.from, source.to, source.text, result);
+    // Rewriting the source with itself plus the addition also checks that it is unchanged.
+    const separator = source.text.endsWith('\n') ? '\n' : '\n\n';
+    return editor.replaceRange(source.from, source.to, source.text, `${source.text}${separator}${result}`);
+  }, [aiAssistSource]);
 
   const handleAttachImageFile = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -396,6 +428,7 @@ function ActiveDocumentDetail({
         noteDirty={noteDirty}
         onActionsOpenChange={setActionsOpen}
         onAttachImage={requestAttachImage}
+        onAiAssist={requestAiAssist}
         onOpenShareDialog={openShareDialogFromMenu}
         layout={layout}
         status={status}
@@ -435,6 +468,18 @@ function ActiveDocumentDetail({
         />
       </div>
 
+      <AiAssistDialog
+        key={aiAssistSession}
+        open={aiAssistSource !== null}
+        source={aiAssistSource}
+        noteTitle={documentState.title}
+        isTeamNote={Boolean(documentState.document?.teamPath) && !isLocalDocument}
+        onOpenChange={(open) => {
+          if (!open) setAiAssistSource(null);
+        }}
+        onApply={applyAiResult}
+      />
+
       {!documentState.document || isLocalDocument ? null : (
         <ShareDialog
           open={layout.shareOpen}
@@ -451,6 +496,14 @@ function ActiveDocumentDetail({
   );
 }
 
+
+/** The selection when there is one, otherwise the whole note. */
+function getAiAssistSource(editor: MarkdownEditorHandle): AiAssistSource {
+  const selection = editor.getSelection();
+  if (selection.text.trim()) return { ...selection, isSelection: true };
+  const text = editor.getMarkdown();
+  return { from: 0, to: text.length, text, isSelection: false };
+}
 
 function DocumentRecoveryBanner({
   actions,
@@ -545,6 +598,7 @@ function DocumentHeader({
   layout,
   noteDirty,
   onActionsOpenChange,
+  onAiAssist,
   onAttachImage,
   onOpenShareDialog,
   status,
@@ -556,6 +610,7 @@ function DocumentHeader({
   layout: DocumentDetailLayout;
   noteDirty: boolean;
   onActionsOpenChange: (open: boolean) => void;
+  onAiAssist: () => void;
   onAttachImage: () => void;
   onOpenShareDialog: () => void;
   status: DocumentDetailStatus;
@@ -631,6 +686,7 @@ function DocumentHeader({
               documentState={{ ...documentState, document: documentState.document }}
               open={actionsOpen}
               onOpenChange={onActionsOpenChange}
+              onAiAssist={onAiAssist}
               onAttachImage={onAttachImage}
               onOpenShareDialog={onOpenShareDialog}
               status={status}
@@ -647,6 +703,7 @@ function DocumentActionsMenu({
   documentState,
   open,
   onOpenChange,
+  onAiAssist,
   onAttachImage,
   onOpenShareDialog,
   status,
@@ -655,6 +712,7 @@ function DocumentActionsMenu({
   documentState: DocumentDetailDocumentState & { document: DocumentSummary };
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onAiAssist: () => void;
   onAttachImage: () => void;
   onOpenShareDialog: () => void;
   status: DocumentDetailStatus;
@@ -696,6 +754,11 @@ function DocumentActionsMenu({
             : <ImagePlus aria-hidden="true" className="h-4 w-4" />}
           {status.uploadingImage && !isLocalDocument && actions.onCancelImageUpload ? 'Cancel Image Upload' : 'Attach Image…'}
           {!status.uploadingImage ? <ActionMenuShortcut actionId="attach-image" /> : null}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onAiAssist}>
+          <Sparkles aria-hidden="true" className="h-4 w-4" />
+          AI Assist…
+          <ActionMenuShortcut actionId="ai-assist" />
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => actions.onExportMarkdown(documentState.document, documentState.title, documentState.content)}>
           <Download aria-hidden="true" className="h-4 w-4" />

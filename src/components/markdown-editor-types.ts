@@ -6,6 +6,10 @@ export type MarkdownEditorHandle = {
   getContentDOM: () => HTMLElement | null;
   getMarkdown: () => string;
   insertText: (text: string) => void;
+  /** The main selection; an empty selection has `from === to`. */
+  getSelection: () => { from: number; to: number; text: string };
+  /** Replaces `from..to` only while it still reads `expected`; false means the note changed meanwhile. */
+  replaceRange: (from: number, to: number, expected: string, text: string) => boolean;
   openSearch: () => void;
   revealText: (query: string) => boolean;
 };

@@ -65,6 +65,7 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     activeTab: createTab(),
     api: undefined,
     bumpAttachImageRequest: vi.fn(),
+    bumpAiAssistRequest: vi.fn(),
     bumpEditorSearchRequest: vi.fn(),
     createFolder: vi.fn(),
     createNote: vi.fn(),

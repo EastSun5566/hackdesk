@@ -271,6 +271,15 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     getDisabledReason: requireSelectedNote,
   },
   {
+    id: 'ai-assist',
+    label: 'AI Assist...',
+    description: 'Summarize, rewrite, continue or translate the selection or note with an AI provider on this computer.',
+    keywords: ['ai', 'assist', 'summarize', 'rewrite', 'continue', 'translate', 'codex', 'claude'],
+    category: 'note',
+    scope: 'editor',
+    getDisabledReason: requireOpenTab,
+  },
+  {
     id: 'attach-image',
     label: 'Attach Image...',
     description: 'Insert an image attachment at the current cursor.',

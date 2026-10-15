@@ -19,6 +19,7 @@ import type {
   LocalVaultTrashNoteInput,
   LocalVaultWriteInput,
 } from './local-vault';
+import type { AiProviderId, AiProviderStatus, AiTurnInput } from './ai';
 import type { AppSettings } from './settings';
 
 export type RuntimeEnvironment = 'electron' | 'web';
@@ -34,10 +35,11 @@ export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'e
   onboarding: AppSettings['onboarding'];
   shortcuts?: AppSettings['shortcuts'];
   keyboardNavigation?: AppSettings['keyboardNavigation'];
+  ai?: AppSettings['ai'];
   shouldShowHackmdOnboarding: boolean;
 };
 
-export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation' | 'keyboardNavigation'>> & {
+export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation' | 'keyboardNavigation' | 'ai'>> & {
   hackmdApiToken?: string;
 };
 
@@ -278,6 +280,7 @@ export type ElectronActionId =
   | 'save-note'
   | 'find-in-note'
   | 'attach-image'
+  | 'ai-assist'
   | 'export-note-markdown'
   | 'import-markdown-note'
   | 'open-note-web-editor'
@@ -372,6 +375,14 @@ export type HackDeskElectronAPI = {
     restoreNote: (noteId: string) => Promise<void>;
     deleteTeamNote: (teamPath: string, noteId: string) => Promise<void>;
     uploadNoteImage: (noteId: string, input: UploadNoteImageInput, options?: HackmdRequestOptions) => Promise<UploadNoteImageResult>;
+  };
+  /** Optional for renderer hot reloads against an older preload. */
+  ai?: {
+    listProviders: () => Promise<AiProviderStatus[]>;
+    refreshProvider: (providerId: AiProviderId) => Promise<AiProviderStatus>;
+    /** Resolves with the whole answer; `onDelta` receives it as it streams. */
+    runTurn: (input: AiTurnInput, onDelta: (text: string) => void) => Promise<string>;
+    cancelTurn: (requestId: string) => Promise<void>;
   };
   localVault: {
     choose: () => Promise<ChooseLocalVaultResult>;

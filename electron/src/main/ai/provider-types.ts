@@ -1,0 +1,32 @@
+import type { AiProviderStatus } from '../../../../src/lib/ai';
+
+export type ProviderLaunch = {
+  executable: string;
+  env: NodeJS.ProcessEnv;
+  /** A private, empty folder: never the user's vault or home. */
+  cwd: string;
+};
+
+export type ProviderProbe = Pick<AiProviderStatus, 'phase' | 'message' | 'version' | 'plan' | 'models' | 'usage'>;
+
+export type ProviderTurn = {
+  model: string | null;
+  system: string;
+  prompt: string;
+  signal: AbortSignal;
+  onDelta: (text: string) => void;
+};
+
+export type AiProviderAdapter = {
+  probe: (launch: ProviderLaunch, signal?: AbortSignal) => Promise<ProviderProbe>;
+  /** Resolves when the answer is complete; rejects with a user-facing message otherwise. */
+  stream: (launch: ProviderLaunch, turn: ProviderTurn) => Promise<void>;
+  dispose?: () => void;
+};
+
+export class AiTurnCancelledError extends Error {
+  constructor() {
+    super('The AI request was cancelled.');
+    this.name = 'AiTurnCancelledError';
+  }
+}

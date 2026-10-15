@@ -54,6 +54,7 @@ function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): Workb
     exportDebugLogs: vi.fn(),
     exportSelectedMarkdown: vi.fn(),
     attachImage: vi.fn(),
+    aiAssist: vi.fn(),
     findInNote: vi.fn(),
     focusEditor: vi.fn(),
     focusInspector: vi.fn(),
@@ -156,6 +157,15 @@ describe('useWorkbenchActions', () => {
     result.current.runAction('attach-image');
 
     expect(handlers.attachImage).toHaveBeenCalledOnce();
+  });
+
+  it('routes ai-assist to the AI Assist handler', () => {
+    const handlers = createHandlers();
+    const { result } = renderHook(() => useWorkbenchActions(createOptions({ handlers })));
+
+    result.current.runAction('ai-assist');
+
+    expect(handlers.aiAssist).toHaveBeenCalledOnce();
   });
 
   it('routes editor mode actions and ignores the active mode', () => {

@@ -21,6 +21,7 @@ export type WorkbenchActionHandlersOptions = {
   activeTab: OpenNoteTab | null;
   api?: HackDeskElectronAPI;
   bumpAttachImageRequest: () => void;
+  bumpAiAssistRequest: () => void;
   bumpEditorSearchRequest: () => void;
   createFolder: () => void;
   createNote: () => void;
@@ -72,6 +73,7 @@ export function useWorkbenchActionHandlers({
   activeTab,
   api,
   bumpAttachImageRequest,
+  bumpAiAssistRequest,
   bumpEditorSearchRequest,
   createFolder,
   createNote,
@@ -155,6 +157,7 @@ export function useWorkbenchActionHandlers({
       }
     },
     attachImage: bumpAttachImageRequest,
+    aiAssist: bumpAiAssistRequest,
     findInNote: bumpEditorSearchRequest,
     focusEditor: () => focusZone('editor'),
     focusInspector: () => focusZone('inspector'),
@@ -236,6 +239,7 @@ export function useWorkbenchActionHandlers({
     activeTab,
     api,
     bumpAttachImageRequest,
+    bumpAiAssistRequest,
     bumpEditorSearchRequest,
     createFolder,
     createNote,
