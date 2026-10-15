@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import http from 'node:http';
 import { once } from 'node:events';
+import { fileURLToPath } from 'node:url';
 
 const ELECTRON_RENDERER_URL = 'http://localhost:1421';
 const isWindows = process.platform === 'win32';
@@ -81,7 +82,7 @@ export async function waitForDevReady(renderer: ChildProcess, builder: ChildProc
   }
 }
 
-if (import.meta.main) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   process.on('SIGINT', () => {
     stopAll();
     process.exit(130);

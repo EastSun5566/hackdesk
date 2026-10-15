@@ -1,4 +1,5 @@
 import { build, context, type BuildContext, type BuildOptions } from 'esbuild';
+import { fileURLToPath } from 'node:url';
 
 const isWatch = process.argv.includes('--watch');
 const common: BuildOptions = {
@@ -61,7 +62,7 @@ export async function buildTargets(watch = false): Promise<void> {
   await Promise.all(targets.map(options => build(options)));
 }
 
-if (import.meta.main) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   buildTargets(isWatch).then(() => {
     if (isWatch) process.send?.('electron-build-ready');
   }).catch((error) => {
