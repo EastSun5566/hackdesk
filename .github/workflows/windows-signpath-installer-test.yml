@@ -13,13 +13,17 @@ concurrency:
 
 jobs:
   quality:
+    permissions:
+      contents: read
     if: github.repository == 'EastSun5566/hackdesk' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
           cache: pnpm
@@ -36,7 +40,9 @@ jobs:
       CERTIFICATE_BASE64: ${{ vars.SIGNPATH_TEST_CERTIFICATE_BASE64 }}
       CERTIFICATE_SHA256: ${{ vars.SIGNPATH_TEST_CERT_SHA256 }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
       - name: Check prerequisites
         shell: pwsh
         env:
@@ -46,8 +52,8 @@ jobs:
             if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) { throw "Missing $name" }
           }
           "SIGNPATH_DIRECTORY=$(Join-Path $env:RUNNER_TEMP 'hackdesk-signpath-installer')" >> $env:GITHUB_ENV
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
           cache: pnpm

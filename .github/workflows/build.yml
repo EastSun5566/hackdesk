@@ -12,13 +12,16 @@ concurrency:
 
 jobs:
   quality:
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
           cache: pnpm
@@ -29,7 +32,7 @@ jobs:
       - run: pnpm run audit:prod
       - name: Upload Playwright report on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: quality-playwright-report
           path: |
@@ -38,6 +41,7 @@ jobs:
           retention-days: 7
 
   package-smoke:
+    timeout-minutes: 45
     needs: quality
     strategy:
       fail-fast: false
@@ -47,9 +51,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
           cache: pnpm
@@ -80,7 +86,7 @@ jobs:
       - name: Run packaged-startup spec
         shell: bash
         run: |
-          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+          if [ "$RUNNER_OS" = "Linux" ]; then
             xvfb-run --auto-servernum pnpm exec playwright test \
               --config electron/playwright.packaged.config.ts \
               electron/e2e/packaged-startup.spec.ts
@@ -91,7 +97,7 @@ jobs:
           fi
       - name: Upload packaged-startup Playwright report on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: packaged-startup-report-${{ matrix.os }}
           path: |
@@ -106,13 +112,16 @@ jobs:
   # so the runner is scoped to macos-latest rather than a 3-OS matrix — running
   # it on ubuntu/windows would just spend runner minutes on a guaranteed skip.
   macos-lifecycle:
+    timeout-minutes: 20
     runs-on: macos-latest
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
           cache: pnpm
@@ -126,7 +135,7 @@ jobs:
         run: pnpm exec playwright test --config electron/playwright.config.ts electron/e2e/app-lifecycle.spec.ts
       - name: Upload Playwright report on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: macos-lifecycle-report
           path: |

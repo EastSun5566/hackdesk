@@ -16,17 +16,19 @@ permissions:
 
 jobs:
   pullfrog:
+    timeout-minutes: 70
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          persist-credentials: false
           fetch-depth: 1
       - name: Run agent
-        uses: pullfrog/pullfrog@v0
+        uses: pullfrog/pullfrog@ad4283a862b8377cb525a0f5bf30f17c023b18ea # v0
         with:
           prompt: ${{ inputs.prompt }}
         env:
