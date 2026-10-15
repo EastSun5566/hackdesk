@@ -492,6 +492,7 @@ export function CollapsibleSection({
   subtitle,
   dirty,
   defaultOpen = true,
+  onOpenChange,
   children,
   actions,
   className,
@@ -501,6 +502,7 @@ export function CollapsibleSection({
   subtitle?: ReactNode;
   dirty?: boolean;
   defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
   children: ReactNode;
   actions?: ReactNode;
   className?: string;
@@ -509,6 +511,7 @@ export function CollapsibleSection({
   return (
     <Collapsible
       defaultOpen={defaultOpen}
+      onOpenChange={onOpenChange}
       render={<section />}
       className={cn('border-b border-border-default/70 py-2.5 last:border-b-0', className)}
     >

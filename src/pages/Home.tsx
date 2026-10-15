@@ -94,6 +94,7 @@ export function Home() {
     palette,
     settingsOpen,
     shareOpen,
+    versionsOpen,
     setCreateDialog,
     setCreateFolderDialog,
     setDeleteFolderTarget,
@@ -102,6 +103,7 @@ export function Home() {
     setRenameFolderDialog,
     setSettingsOpen: setSettingsOpenState,
     setShareOpen,
+    setVersionsOpen,
   } = dialogState;
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('general');
   const setSettingsOpen = useCallback((open: boolean) => {
@@ -615,6 +617,7 @@ export function Home() {
     selectedDocument,
     selectedFolderId: selectedFolder?.id ?? null,
     setSettingsOpen,
+    setVersionsOpen,
     splitActiveTab: noteWorkspace.splitActiveTab,
     switchToHistory: () => switchWorkspaceScope({ type: 'history', label: 'History' }),
     toggleInspector: toggleInspectorCollapsed,
@@ -809,6 +812,7 @@ export function Home() {
       openQuickOpen,
       setFinderState,
       setShareOpen,
+      setVersionsOpen,
       switchWorkspaceScope,
     },
     activeFinderState,
@@ -842,6 +846,7 @@ export function Home() {
     setSettingsOpen,
     settings,
     shareOpen,
+    versionsOpen,
     tabLifecycle: {
       requestCloseOtherTabs,
       requestCloseTab,

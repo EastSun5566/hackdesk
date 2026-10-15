@@ -41,6 +41,8 @@ export type NoteInspectorStatus = {
 export type NoteInspectorActions = {
   onCopyLink: (document: DocumentSummary) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
+  /** Opens the Version History dialog; absent where versions are not offered. */
+  onShowVersions?: () => void;
 };
 
 export type InspectorDirtyState = {

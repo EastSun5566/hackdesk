@@ -137,6 +137,37 @@ export type DocumentSummary = NoteSummary & {
   etag?: string | null;
 };
 
+/** A saved HackMD version of a note. `user` versions were named by someone; `system` ones were saved automatically. */
+export type NoteVersionSummary = {
+  id: string;
+  name: string;
+  nameSource: 'user' | 'system';
+  description: string | null;
+  createdAtMillis: number | null;
+  createdBy: { userId: string; displayName: string; photo: string | null } | null;
+  contentAvailable: boolean;
+};
+
+export type NoteVersionDetail = NoteVersionSummary & {
+  content: string | null;
+};
+
+export type NoteVersionPage = {
+  versions: NoteVersionSummary[];
+  page: number;
+  totalPages: number;
+  total: number;
+};
+
+/** The live note, or a saved version. */
+export type NoteVersionRef = 'note_content' | `version:${string}`;
+
+export type NoteVersionsQuery = {
+  namedOnly?: boolean;
+  page?: number;
+  limit?: number;
+};
+
 export type CreateNoteInput = {
   title?: string;
   description?: string;
@@ -281,6 +312,7 @@ export type ElectronActionId =
   | 'export-note-markdown'
   | 'import-markdown-note'
   | 'open-note-web-editor'
+  | 'show-note-versions'
   | 'delete-note'
   | 'close-tab'
   | 'close-other-tabs'
@@ -372,6 +404,14 @@ export type HackDeskElectronAPI = {
     restoreNote: (noteId: string) => Promise<void>;
     deleteTeamNote: (teamPath: string, noteId: string) => Promise<void>;
     uploadNoteImage: (noteId: string, input: UploadNoteImageInput, options?: HackmdRequestOptions) => Promise<UploadNoteImageResult>;
+    listNoteVersions: (noteId: string, query: NoteVersionsQuery, options?: HackmdRequestOptions) => Promise<NoteVersionPage>;
+    getNoteVersion: (noteId: string, versionId: string, options?: HackmdRequestOptions) => Promise<NoteVersionDetail>;
+    compareNoteVersions: (
+      noteId: string,
+      base: NoteVersionRef,
+      target: NoteVersionRef,
+      options?: HackmdRequestOptions,
+    ) => Promise<{ unifiedDiff: string }>;
   };
   localVault: {
     choose: () => Promise<ChooseLocalVaultResult>;

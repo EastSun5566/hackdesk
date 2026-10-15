@@ -17,6 +17,14 @@ export function stripIpcErrorPrefix(message: string) {
 // and the write can still be overwritten.
 export const HACKMD_NOTE_CHANGED_MESSAGE = 'This note changed on HackMD after you started editing, so your draft was not saved.';
 
+// HackMD answers 403 or 404 when a note's versions can't be read, for example
+// a team note the API does not expose versions for.
+export const HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE = "Version history isn't available for this note.";
+
+export function isNoteVersionsUnavailableError(message: string | null | undefined) {
+  return !!message && message.includes(HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE);
+}
+
 export function isRemoteNoteChangedError(message: string | null | undefined) {
   return !!message && message.includes(HACKMD_NOTE_CHANGED_MESSAGE);
 }

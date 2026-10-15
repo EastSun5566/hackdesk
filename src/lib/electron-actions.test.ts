@@ -209,6 +209,15 @@ describe('electron action registry', () => {
     ]));
   });
 
+  it('offers version history only for a selected HackMD note', () => {
+    const action = getElectronAction('show-note-versions');
+
+    expect(getActionDisabledReason(action, baseContext)).toBeNull();
+    expect(getActionDisabledReason(action, { ...baseContext, selectedNoteId: null })).toBe('Select a note first.');
+    expect(getActionDisabledReason(action, { ...baseContext, scopeType: 'local' })).toBe('Version history is only available for HackMD notes.');
+    expect(getActionDisabledReason(action, { ...baseContext, hasToken: false })).toBe('Connect HackMD in Settings first.');
+  });
+
   it('reports disabled reasons from shared context', () => {
     expect(isElectronActionEnabled(getElectronAction('save-note'), baseContext)).toBe(true);
     expect(getActionDisabledReason(getElectronAction('save-note'), {

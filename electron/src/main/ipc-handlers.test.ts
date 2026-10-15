@@ -25,6 +25,9 @@ const settingsMock = vi.hoisted(() => ({
 const hackmdServiceMock = vi.hoisted(() => ({
   getNoteIfChanged: vi.fn(),
   restoreNote: vi.fn(),
+  listNoteVersions: vi.fn(),
+  getNoteVersion: vi.fn(),
+  compareNoteVersions: vi.fn(),
   validateToken: vi.fn(async () => ({
     id: 'user-1',
     email: 'michael@example.com',
@@ -126,6 +129,9 @@ vi.mock('./hackmd-service', () => ({
   listTeamNotes: vi.fn(),
   listTeams: vi.fn(),
   restoreNote: hackmdServiceMock.restoreNote,
+  listNoteVersions: hackmdServiceMock.listNoteVersions,
+  getNoteVersion: hackmdServiceMock.getNoteVersion,
+  compareNoteVersions: hackmdServiceMock.compareNoteVersions,
   updateFolder: vi.fn(),
   updateFolderOrder: vi.fn(),
   updateNote: vi.fn(),
@@ -405,6 +411,27 @@ describe('registerIpcHandlers', () => {
     expect(hackmdServiceMock.restoreNote).toHaveBeenCalledWith('note-1');
     expect(() => ipcHandlers.get(ELECTRON_CHANNELS.hackmdGetNoteIfChanged)?.({}, 'note-1', null, '')).toThrow();
     expect(() => ipcHandlers.get(ELECTRON_CHANNELS.hackmdRestoreNote)?.({}, '')).toThrow();
+  });
+
+  it('validates version history reads before calling HackMD', () => {
+    registerIpcHandlers(windowManager);
+    const list = ipcHandlers.get(ELECTRON_CHANNELS.hackmdListNoteVersions);
+    const read = ipcHandlers.get(ELECTRON_CHANNELS.hackmdGetNoteVersion);
+    const compare = ipcHandlers.get(ELECTRON_CHANNELS.hackmdCompareNoteVersions);
+
+    list?.({}, 'note-1', { namedOnly: true, page: 2, limit: 20 });
+    read?.({}, 'note-1', 'v-1');
+    compare?.({}, 'note-1', 'version:v-1', 'note_content');
+
+    expect(hackmdServiceMock.listNoteVersions).toHaveBeenCalledWith('note-1', { namedOnly: true, page: 2, limit: 20 });
+    expect(hackmdServiceMock.getNoteVersion).toHaveBeenCalledWith('note-1', 'v-1');
+    expect(hackmdServiceMock.compareNoteVersions).toHaveBeenCalledWith('note-1', 'version:v-1', 'note_content');
+    expect(() => list?.({}, 'note-1', { page: 0 })).toThrow();
+    expect(() => list?.({}, 'note-1', { limit: 500 })).toThrow();
+    expect(() => list?.({}, 'note-1', { sort: 'asc' })).toThrow();
+    expect(() => compare?.({}, 'note-1', 'version:v-1&target=x', 'note_content')).toThrow();
+    expect(() => compare?.({}, 'note-1', 'HEAD', 'note_content')).toThrow();
+    expect(() => read?.({}, 'note-1', '')).toThrow();
   });
 
   it('validates and forwards quick capture submissions', () => {

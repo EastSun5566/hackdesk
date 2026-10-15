@@ -44,6 +44,7 @@ export const ELECTRON_MENU_SCHEMA: ElectronMenuSchemaSection[] = [
       { type: 'action', actionId: 'export-note-markdown' },
       { type: 'separator' },
       { type: 'action', actionId: 'open-note-web-editor' },
+      { type: 'action', actionId: 'show-note-versions' },
       { type: 'action', actionId: 'delete-note' },
       { type: 'separator' },
       { type: 'action', actionId: 'close-tab' },

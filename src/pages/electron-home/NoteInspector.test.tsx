@@ -1,5 +1,6 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { DocumentSummary } from '@/lib/electron-api';
@@ -71,14 +72,54 @@ function renderNoteInspector(overrides: NoteInspectorPropsOverrides = {}) {
     status: { ...props.status, ...overrides.status },
   };
 
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = render(
-    <TooltipProvider>
-      <NoteInspector {...mergedProps} />
-    </TooltipProvider>,
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <NoteInspector {...mergedProps} />
+      </TooltipProvider>
+    </QueryClientProvider>,
   );
 
   return { ...view, ...mergedProps };
 }
+
+describe('NoteInspector versions', () => {
+  afterEach(() => {
+    delete window.hackdeskAPI;
+  });
+
+  it('loads the latest versions only after the section is opened', async () => {
+    const listNoteVersions = vi.fn(async () => ({
+      versions: [{
+        id: 'v-1', name: 'Before launch', nameSource: 'user' as const, description: null, createdAtMillis: Date.UTC(2026, 9, 14),
+        createdBy: { userId: 'u', displayName: 'Ada', photo: null }, contentAvailable: true,
+      }],
+      page: 1,
+      totalPages: 1,
+      total: 1,
+    }));
+    window.hackdeskAPI = { hackmd: { listNoteVersions } } as unknown as NonNullable<typeof window.hackdeskAPI>;
+    const onShowVersions = vi.fn();
+    const onSaveMetadata = vi.fn();
+    renderNoteInspector({ actions: { onShowVersions, onSaveMetadata } });
+
+    expect(listNoteVersions).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /^Versions/ }));
+
+    expect(await screen.findByText('Before launch')).toBeInTheDocument();
+    expect(listNoteVersions).toHaveBeenCalledWith('note-1', { limit: 3 });
+    fireEvent.click(screen.getByRole('button', { name: 'View all versions' }));
+    expect(onShowVersions).toHaveBeenCalledOnce();
+    expect(onSaveMetadata).not.toHaveBeenCalled();
+  });
+
+  it('has no versions section without a way to show them', () => {
+    renderNoteInspector();
+
+    expect(screen.queryByRole('button', { name: /^Versions/ })).not.toBeInTheDocument();
+  });
+});
 
 describe('NoteInspector', () => {
   it('saves metadata changes from split inspector sections', () => {

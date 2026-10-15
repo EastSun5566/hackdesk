@@ -68,6 +68,7 @@ export type WorkbenchActionHandlers = {
   openQuickOpen: () => void;
   openSettings: () => void;
   openSelectedWebEditor: () => void;
+  showNoteVersions: () => void;
   refreshWorkspace: () => void;
   renameSelectedFolder: () => void;
   reopenLastClosedTab: () => void;
@@ -284,6 +285,9 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'open-note-web-editor':
       handlers.openSelectedWebEditor();
+      break;
+    case 'show-note-versions':
+      handlers.showNoteVersions();
       break;
     case 'delete-note':
       handlers.deleteSelectedNote();
