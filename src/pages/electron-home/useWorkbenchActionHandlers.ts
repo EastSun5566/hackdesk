@@ -8,6 +8,7 @@ import type {
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import type { EditorMode } from '@/lib/settings';
 
+import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { isDraftNoteTab, type OpenNoteTab } from './note-workspace';
 import type { ElectronFocusZone } from './useElectronFocusZones';
 import {
@@ -58,6 +59,7 @@ export type WorkbenchActionHandlersOptions = {
   selectedDocument?: DocumentSummary;
   selectedFolderId: string | null;
   setSettingsOpen: (open: boolean) => void;
+  setVersionsOpen: (open: boolean) => void;
   splitActiveTab: () => void;
   switchToHistory: () => void;
   toggleInspector: () => void;
@@ -109,6 +111,7 @@ export function useWorkbenchActionHandlers({
   selectedDocument,
   selectedFolderId,
   setSettingsOpen,
+  setVersionsOpen,
   splitActiveTab,
   switchToHistory,
   toggleInspector,
@@ -200,6 +203,13 @@ export function useWorkbenchActionHandlers({
     openQuickOpen,
     openSelectedWebEditor: () => openHackmdWebEditor(api, selectedDocument, trackRecentNote),
     openSettings: () => setSettingsOpen(true),
+    showNoteVersions: () => {
+      if (!selectedDocument || selectedDocument.teamPath === LOCAL_VAULT_TEAM_PATH) {
+        toast.info('Version history is only available for HackMD notes.');
+        return;
+      }
+      setVersionsOpen(true);
+    },
     refreshWorkspace,
     renameSelectedFolder: () => {
       if (selectedFolderId && selectedFolderId !== UNFILED_FOLDER_ID) {
@@ -273,6 +283,7 @@ export function useWorkbenchActionHandlers({
     selectedDocument,
     selectedFolderId,
     setSettingsOpen,
+    setVersionsOpen,
     splitActiveTab,
     switchToHistory,
     toggleInspector,

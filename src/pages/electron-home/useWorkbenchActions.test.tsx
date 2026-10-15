@@ -74,6 +74,7 @@ function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): Workb
     openPalette: vi.fn(),
     openQuickOpen: vi.fn(),
     openSelectedWebEditor: vi.fn(),
+    showNoteVersions: vi.fn(),
     openSettings: vi.fn(),
     refreshWorkspace: vi.fn(),
     renameSelectedFolder: vi.fn(),

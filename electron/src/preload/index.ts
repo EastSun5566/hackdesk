@@ -19,6 +19,8 @@ import type {
   UpdateFolderInput,
   UpdateNoteInput,
   UploadNoteImageInput,
+  NoteVersionRef,
+  NoteVersionsQuery,
   WindowPresentationState,
 } from '../../../src/lib/electron-api';
 import type {
@@ -103,6 +105,15 @@ const api: HackDeskElectronAPI = {
     ),
     uploadNoteImage: (noteId: string, input: UploadNoteImageInput, options?: HackmdRequestOptions) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdUploadNoteImage, noteId, input, options)
+    ),
+    listNoteVersions: (noteId: string, query: NoteVersionsQuery, options?: HackmdRequestOptions) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListNoteVersions, noteId, query, options)
+    ),
+    getNoteVersion: (noteId: string, versionId: string, options?: HackmdRequestOptions) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetNoteVersion, noteId, versionId, options)
+    ),
+    compareNoteVersions: (noteId: string, base: NoteVersionRef, target: NoteVersionRef, options?: HackmdRequestOptions) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdCompareNoteVersions, noteId, base, target, options)
     ),
   },
   localVault: {

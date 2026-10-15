@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { HACKMD_NOTE_NOT_FOUND_MESSAGE } from '../../../src/lib/note-errors';
+import { HACKMD_NOTE_NOT_FOUND_MESSAGE, HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE } from '../../../src/lib/note-errors';
 
 import {
   createHackmdService,
@@ -9,6 +9,7 @@ import {
   mapTeam,
   mapUser,
   normalizeHackmdResponse,
+  parseTimestamp,
   toMillis,
   withCache,
 } from './hackmd-service';
@@ -712,6 +713,82 @@ describe('hackmd-service request mapping', () => {
 
     await expect(accountA.listNotes()).resolves.toMatchObject({ source: 'remote' });
     await expect(accountB.listNotes()).resolves.toEqual({ source: 'error', error: 'offline' });
+  });
+});
+
+describe('hackmd-service note versions', () => {
+  const named = {
+    id: 'v-2', name: 'Before launch', name_source: 'user', description: 'Ready', created_at: '2026-10-14T10:30:00.000Z',
+    created_by: { user_id: 'u-1', display_name: 'Michael', photo: 'https://cdn.test/m.png' }, authorship: [], content_available: true,
+  };
+  const automatic = {
+    id: 'v-1', name: '', name_source: 'system', description: null, created_at: '2026-10-13T08:00:00Z',
+    created_by: null, authorship: [], content_available: false,
+  };
+
+  it('reads ISO timestamps as well as epoch values', () => {
+    expect(parseTimestamp('2026-10-14T10:30:00.000Z')).toBe(Date.UTC(2026, 9, 14, 10, 30));
+    expect(parseTimestamp(1_700_000_000)).toBe(1_700_000_000_000);
+    expect(parseTimestamp('not a date')).toBeNull();
+  });
+
+  it('lists a page of versions with the requested filters', async () => {
+    const { calls, service } = createService([
+      jsonResponse({ data: [named, automatic], meta: { page: 2, total_pages: 3, total: 45, limit: 20 } }),
+    ]);
+
+    const page = await service.listNoteVersions('note/1', { namedOnly: true, page: 2, limit: 20 });
+
+    expect(calls[0].url).toBe('https://api.test/v1/notes/note%2F1/versions?named_only=true&page=2&limit=20');
+    expect(page).toEqual({
+      page: 2,
+      totalPages: 3,
+      total: 45,
+      versions: [
+        {
+          id: 'v-2', name: 'Before launch', nameSource: 'user', description: 'Ready', createdAtMillis: Date.UTC(2026, 9, 14, 10, 30),
+          createdBy: { userId: 'u-1', displayName: 'Michael', photo: 'https://cdn.test/m.png' }, contentAvailable: true,
+        },
+        {
+          id: 'v-1', name: '', nameSource: 'system', description: null, createdAtMillis: Date.UTC(2026, 9, 13, 8),
+          createdBy: null, contentAvailable: false,
+        },
+      ],
+    });
+  });
+
+  it('reads a version and its content only when HackMD has it', async () => {
+    const { calls, service } = createService([
+      jsonResponse({ ...named, content: '# Before' }),
+      jsonResponse({ ...automatic, content: 'stale' }),
+    ]);
+
+    await expect(service.getNoteVersion('note-1', 'v-2')).resolves.toMatchObject({ id: 'v-2', content: '# Before' });
+    await expect(service.getNoteVersion('note-1', 'v-1')).resolves.toMatchObject({ id: 'v-1', content: null });
+    expect(calls[0].url).toBe('https://api.test/v1/notes/note-1/versions/v-2');
+  });
+
+  it('compares a version with the live note', async () => {
+    const { calls, service } = createService([jsonResponse({ unified_diff: '@@ -1 +1 @@\n-a\n+b\n' })]);
+
+    await expect(service.compareNoteVersions('note-1', 'version:v-2', 'note_content')).resolves.toEqual({ unifiedDiff: '@@ -1 +1 @@\n-a\n+b\n' });
+    expect(calls[0].url).toBe('https://api.test/v1/notes/note-1/versions/compare?base=version%3Av-2&target=note_content');
+  });
+
+  it.each([403, 404])('reports version history as unavailable on %i', async (status) => {
+    const { service } = createService([jsonResponse({ error_code: 'forbidden', message: 'No access' }, { status, statusText: 'Nope' })]);
+
+    await expect(service.listNoteVersions('note-1', {})).rejects.toThrow(HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE);
+  });
+
+  it('retries a version read after a transient failure', async () => {
+    const { calls, service } = createService([
+      jsonResponse({ message: 'Unavailable' }, { status: 503, statusText: 'Service Unavailable', headers: { 'Retry-After': '0' } }),
+      jsonResponse({ data: [], meta: { page: 1, total_pages: 1, total: 0 } }),
+    ]);
+
+    await expect(service.listNoteVersions('note-1', {})).resolves.toMatchObject({ versions: [], totalPages: 1 });
+    expect(calls).toHaveLength(2);
   });
 });
 

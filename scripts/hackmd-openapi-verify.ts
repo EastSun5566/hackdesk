@@ -64,6 +64,9 @@ const REQUIRED_OPERATIONS: Array<readonly [string, string]> = [
   ['PATCH', '/notes/{noteId}'],
   ['DELETE', '/notes/{noteId}'],
   ['PUT', '/trash/{noteId}/restore'],
+  ['GET', '/notes/{noteId}/versions'],
+  ['GET', '/notes/{noteId}/versions/{versionId}'],
+  ['GET', '/notes/{noteId}/versions/compare'],
   ['POST', '/notes/{noteId}/images'],
   ['GET', '/history'],
   ['GET', '/folders'],
@@ -357,6 +360,32 @@ export function verifyHackmdOpenApiContract(contract: OpenApiContract): void {
     'GET /history missing the limit query parameter.',
     failures,
   );
+
+  // Version history reads these fields; the list is paged by meta.total_pages.
+  const versionsSchema = getResponseSchema(getOperation(contract, 'GET', '/notes/{noteId}/versions'), '200');
+  for (const path of [['data'], ['meta', 'page'], ['meta', 'total_pages']]) {
+    assert(schemaContainsPath(contract, versionsSchema, path), `GET /notes/{noteId}/versions response missing ${path.join('.')}.`, failures);
+  }
+  for (const propertyName of ['id', 'name_source', 'created_at', 'content_available', 'content']) {
+    assert(
+      schemaContainsProperty(contract, getResponseSchema(getOperation(contract, 'GET', '/notes/{noteId}/versions/{versionId}'), '200'), propertyName),
+      `GET /notes/{noteId}/versions/{versionId} response missing ${propertyName}.`,
+      failures,
+    );
+  }
+  const compareOperation = getOperation(contract, 'GET', '/notes/{noteId}/versions/compare');
+  assert(
+    schemaContainsProperty(contract, getResponseSchema(compareOperation, '200'), 'unified_diff'),
+    'Version compare response missing unified_diff.',
+    failures,
+  );
+  for (const name of ['base', 'target']) {
+    assert(
+      compareOperation?.parameters?.some((parameter) => parameter.name === name && parameter.in === 'query'),
+      `Version compare missing the ${name} query parameter.`,
+      failures,
+    );
+  }
 
   const permissionEnum = contract.components?.schemas?.NotePermissionRole?.enum ?? [];
   for (const permission of ['owner', 'signed_in', 'guest']) {

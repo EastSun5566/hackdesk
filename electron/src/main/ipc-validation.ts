@@ -83,6 +83,7 @@ const electronActionIdSchema = z.enum([
   'export-note-markdown',
   'import-markdown-note',
   'open-note-web-editor',
+  'show-note-versions',
   'delete-note',
   'close-tab',
   'close-other-tabs',
@@ -328,6 +329,15 @@ export const uploadNoteImageInputSchema = z.strictObject({
   mimeType: z.string(),
   bytes: z.instanceof(ArrayBuffer).refine((bytes) => bytes.byteLength <= 25 * 1024 * 1024, 'Image exceeds 25 MiB'),
 });
+
+export const noteVersionsQuerySchema = z.strictObject({
+  namedOnly: z.boolean().optional(),
+  page: z.number().int().min(1).optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+});
+
+/** `note_content` or `version:{id}`, the two references the HackMD compare endpoint accepts. */
+export const noteVersionRefSchema = z.string().regex(/^(?:note_content|version:[^\s/?#&]+)$/);
 
 export const hackmdRequestOptionsSchema = z.strictObject({ requestId: z.uuid() }).optional();
 

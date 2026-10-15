@@ -625,6 +625,27 @@ describe('DocumentDetail', () => {
     expect(screen.getByRole('menuitem', { name: 'Delete' })).toHaveAttribute('aria-disabled', 'true');
   });
 
+  it('opens version history from the actions menu of a HackMD note', async () => {
+    const onVersionsOpenChange = vi.fn();
+    renderDocumentDetail({ actions: { onVersionsOpenChange } });
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'More actions' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Version History…/ }));
+
+    await waitFor(() => expect(onVersionsOpenChange).toHaveBeenCalledWith(true));
+  });
+
+  it('offers no version history for local notes', async () => {
+    renderDocumentDetail({
+      actions: { onVersionsOpenChange: vi.fn() },
+      documentState: { document: documentSummary({ teamPath: LOCAL_VAULT_TEAM_PATH }) },
+    });
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'More actions' }));
+    await screen.findByRole('menu');
+    expect(screen.queryByText(/Version History/)).not.toBeInTheDocument();
+  });
+
   it('keeps local action menu focused on file actions', async () => {
     renderDocumentDetail({
       documentState: {

@@ -246,6 +246,7 @@ const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'export-note-markdown': <Download className="h-4 w-4" />,
   'import-markdown-note': <Upload className="h-4 w-4" />,
   'open-note-web-editor': <FileText className="h-4 w-4" />,
+  'show-note-versions': <History className="h-4 w-4" />,
   'delete-note': <Trash2 className="h-4 w-4" />,
   'close-tab': <X className="h-4 w-4" />,
   'close-other-tabs': <X className="h-4 w-4" />,

@@ -1,0 +1,161 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { DocumentSummary, NoteVersionSummary } from '@/lib/electron-api';
+import { HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE } from '@/lib/note-errors';
+
+import { NoteVersionsDialog } from './NoteVersionsDialog';
+
+vi.mock('@/components/ui/toast', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
+
+const note = {
+  id: 'note-1', title: 'Roadmap', content: 'Now', updatedAtMillis: Date.UTC(2026, 9, 15, 6), teamPath: null,
+  lastChangeUser: { name: 'Michael', username: 'michael', photo: null, biography: null },
+} as unknown as DocumentSummary;
+
+function version(overrides: Partial<NoteVersionSummary>): NoteVersionSummary {
+  return {
+    id: 'v', name: '', nameSource: 'system', description: null, createdAtMillis: Date.UTC(2026, 9, 14), createdBy: null,
+    contentAvailable: true, ...overrides,
+  };
+}
+
+const named = version({ id: 'v-2', name: 'Before launch', nameSource: 'user', createdBy: { userId: 'u', displayName: 'Ada', photo: null } });
+const automatic = version({ id: 'v-1' });
+
+function installApi(overrides: Partial<NonNullable<typeof window.hackdeskAPI>['hackmd']> = {}, confirmed = true) {
+  const hackmd = {
+    listNoteVersions: vi.fn(async (_noteId: string, query: { page?: number; namedOnly?: boolean }) => (
+      query.page === 2
+        ? { versions: [version({ id: 'v-0', name: 'Kickoff', nameSource: 'user' })], page: 2, totalPages: 2, total: 3 }
+        : { versions: query.namedOnly ? [named] : [named, automatic], page: 1, totalPages: query.namedOnly ? 1 : 2, total: 3 }
+    )),
+    getNoteVersion: vi.fn(async (_noteId: string, versionId: string) => ({ ...named, id: versionId, content: `content of ${versionId}` })),
+    compareNoteVersions: vi.fn(async () => ({ unifiedDiff: '@@ -1 +1 @@\n-Old line\n+Now\n' })),
+    ...overrides,
+  };
+  const confirm = vi.fn(async () => ({ confirmed }));
+  window.hackdeskAPI = { hackmd, app: { confirm } } as unknown as NonNullable<typeof window.hackdeskAPI>;
+  return { hackmd, confirm };
+}
+
+function renderDialog(props: Partial<Parameters<typeof NoteVersionsDialog>[0]> = {}) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const handlers = { onOpenChange: vi.fn(), onRestore: vi.fn(), onOpenAsNewDraft: vi.fn() };
+  render(
+    <QueryClientProvider client={queryClient}>
+      <NoteVersionsDialog open document={note} noteDirty={false} {...handlers} {...props} />
+    </QueryClientProvider>,
+  );
+  return handlers;
+}
+
+describe('NoteVersionsDialog', () => {
+  beforeEach(() => installApi());
+  afterEach(() => {
+    delete window.hackdeskAPI;
+  });
+
+  it('lists Current first, then versions, and shows changes for the newest version', async () => {
+    const { hackmd } = installApi();
+    renderDialog();
+
+    const list = await screen.findByRole('list', { name: 'Versions' });
+    const rows = within(list).getAllByRole('button');
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining('Current'),
+      expect.stringContaining('Before launch'),
+      expect.stringContaining('Auto-saved'),
+    ]);
+    expect(rows[1]).toHaveAttribute('aria-current', 'true');
+    expect(rows.map((row) => row.querySelector('[data-version-kind]')?.getAttribute('data-version-kind'))).toEqual(['current', 'named', 'auto']);
+    expect(rows[1]).toHaveTextContent('Ada');
+
+    const changes = await screen.findByRole('list', { name: 'Changes since Before launch' });
+    expect(within(changes).getByText('Removed:')).toBeInTheDocument();
+    expect(within(changes).getByText('Added:')).toBeInTheDocument();
+    expect(hackmd.compareNoteVersions).toHaveBeenCalledWith('note-1', 'version:v-2', 'note_content');
+  });
+
+  it('filters to named versions and loads more pages until the last one', async () => {
+    const { hackmd } = installApi();
+    renderDialog();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Load more' }));
+    expect(await screen.findByRole('button', { name: /Kickoff/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Named only' }));
+    await waitFor(() => expect(hackmd.listNoteVersions).toHaveBeenCalledWith('note-1', { namedOnly: true, page: 1, limit: 20 }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Auto-saved/ })).not.toBeInTheDocument());
+  });
+
+  it('describes the live note when Current is selected', async () => {
+    renderDialog();
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Current/ }));
+    expect(screen.getByRole('heading', { name: 'Current version on HackMD' })).toBeInTheDocument();
+    expect(screen.getByText(/by Michael/)).toBeInTheDocument();
+  });
+
+  it('disables Full text and restore when HackMD has no content for a version', async () => {
+    installApi({
+      listNoteVersions: vi.fn(async () => ({ versions: [version({ id: 'v-9', contentAvailable: false })], page: 1, totalPages: 1, total: 1 })),
+    });
+    renderDialog();
+
+    expect(await screen.findByRole('tab', { name: 'Full text' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('button', { name: 'Restore into Editor' })).toBeDisabled();
+  });
+
+  it('restores a version into the editor', async () => {
+    const { confirm } = installApi();
+    const { onRestore, onOpenChange } = renderDialog();
+
+    const restore = await screen.findByRole('button', { name: 'Restore into Editor' });
+    await waitFor(() => expect(restore).toBeEnabled());
+    fireEvent.click(restore);
+
+    await waitFor(() => expect(onRestore).toHaveBeenCalledWith('content of v-2'));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('asks before replacing unsaved edits', async () => {
+    const { confirm } = installApi({}, false);
+    const { onRestore } = renderDialog({ noteDirty: true });
+
+    expect(await screen.findByText(/without your unsaved edits/)).toBeInTheDocument();
+    const restore = screen.getByRole('button', { name: 'Restore into Editor' });
+    await waitFor(() => expect(restore).toBeEnabled());
+    fireEvent.click(restore);
+
+    await waitFor(() => expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ confirmLabel: 'Replace', destructive: true })));
+    expect(onRestore).not.toHaveBeenCalled();
+  });
+
+  it('opens a version as a new draft', async () => {
+    const { onOpenAsNewDraft } = renderDialog();
+
+    const open = await screen.findByRole('button', { name: 'Open as New Draft' });
+    await waitFor(() => expect(open).toBeEnabled());
+    fireEvent.click(open);
+
+    expect(onOpenAsNewDraft).toHaveBeenCalledWith('Roadmap (Before launch)', 'content of v-2');
+  });
+
+  it('shows the full text of a version', async () => {
+    renderDialog();
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Full text' }));
+    expect(await screen.findByText('content of v-2')).toBeInTheDocument();
+  });
+
+  it('says when HackMD does not offer history for the note', async () => {
+    installApi({ listNoteVersions: vi.fn(async () => { throw new Error(HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE); }) });
+    renderDialog();
+
+    expect(await screen.findByText(HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE)).toBeInTheDocument();
+  });
+});

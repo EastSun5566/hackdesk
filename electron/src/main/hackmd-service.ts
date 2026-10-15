@@ -6,6 +6,11 @@ import type {
   FolderPathSummary,
   FolderSummary,
   NotePermissionRole,
+  NoteVersionDetail,
+  NoteVersionPage,
+  NoteVersionRef,
+  NoteVersionSummary,
+  NoteVersionsQuery,
   NotePublishType,
   NoteSummary,
   RepositoryValue,
@@ -17,7 +22,7 @@ import type {
   UploadNoteImageResult,
   UserSummary,
 } from '../../../src/lib/electron-api';
-import { HACKMD_NOTE_NOT_FOUND_MESSAGE } from '../../../src/lib/note-errors';
+import { HACKMD_NOTE_NOT_FOUND_MESSAGE, HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE } from '../../../src/lib/note-errors';
 import { setTimeout as wait } from 'node:timers/promises';
 
 const HACKMD_API_BASE_URL = 'https://api.hackmd.io/v1';
@@ -98,6 +103,22 @@ type NoteDto = {
   readPermission?: unknown;
   writePermission?: unknown;
   folderPaths?: unknown;
+};
+
+type NoteVersionDto = {
+  id?: unknown;
+  name?: unknown;
+  name_source?: unknown;
+  description?: unknown;
+  created_at?: unknown;
+  created_by?: unknown;
+  content_available?: unknown;
+  content?: unknown;
+};
+
+type NoteVersionPageDto = {
+  data?: unknown;
+  meta?: { page?: unknown; total_pages?: unknown; total?: unknown };
 };
 
 type NoteImageUploadResponseDto = {
@@ -215,6 +236,17 @@ export function toMillis(value: unknown): number | null {
   }
 
   return value < 10_000_000_000 ? Math.round(value * 1000) : Math.round(value);
+}
+
+/** Like `toMillis`, but also reads ISO-8601 strings such as version `created_at`. */
+export function parseTimestamp(value: unknown): number | null {
+  const millis = toMillis(value);
+  if (millis !== null || typeof value !== 'string') {
+    return millis;
+  }
+
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function toPermission(value: unknown): NotePermissionRole {
@@ -354,6 +386,28 @@ function mapDocument(dto: NoteDto, etag: string | null = null): DocumentSummary 
     content: note.content ?? '',
     etag,
   };
+}
+
+export function mapNoteVersion(dto: NoteVersionDto): NoteVersionSummary {
+  const author = dto.created_by && typeof dto.created_by === 'object'
+    ? dto.created_by as { user_id?: unknown; display_name?: unknown; photo?: unknown }
+    : null;
+
+  return {
+    id: asString(dto.id),
+    name: asString(dto.name),
+    nameSource: dto.name_source === 'user' ? 'user' : 'system',
+    description: asNullableString(dto.description),
+    createdAtMillis: parseTimestamp(dto.created_at),
+    createdBy: author
+      ? { userId: asString(author.user_id), displayName: asString(author.display_name, 'Unknown User'), photo: asNullableString(author.photo) }
+      : null,
+    contentAvailable: asBoolean(dto.content_available),
+  };
+}
+
+function toPositiveInteger(value: unknown, fallback: number) {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : fallback;
 }
 
 const MAX_ERROR_DETAIL_LENGTH = 300;
@@ -533,6 +587,12 @@ async function requestHackmd<T>(
   options: Required<HackmdServiceOptions>,
 ): Promise<T> {
   return (await sendHackmd<T>(path, init, options)).data as T;
+}
+
+function rethrowVersionsUnavailable(error: unknown): never {
+  const status = (error as { status?: unknown } | null)?.status;
+  if (status === 403 || status === 404) throw new Error(HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE);
+  throw error;
 }
 
 function rethrowNoteNotFound(error: unknown): never {
@@ -975,6 +1035,52 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
       );
     },
 
+    async listNoteVersions(noteId: string, query: NoteVersionsQuery, signal?: AbortSignal): Promise<NoteVersionPage> {
+      const params = new URLSearchParams();
+      if (query.namedOnly) params.set('named_only', 'true');
+      if (query.page) params.set('page', String(query.page));
+      if (query.limit) params.set('limit', String(query.limit));
+      const search = params.size > 0 ? `?${params.toString()}` : '';
+      const response = await requestHackmd<NoteVersionPageDto>(
+        `/notes/${encodePathSegment(noteId)}/versions${search}`,
+        { signal },
+        serviceOptions,
+      ).catch(rethrowVersionsUnavailable);
+      const page = toPositiveInteger(response?.meta?.page, query.page ?? 1);
+
+      return {
+        versions: getJsonArray(response?.data).map((version) => mapNoteVersion(version as NoteVersionDto)),
+        page,
+        totalPages: toPositiveInteger(response?.meta?.total_pages, page),
+        total: typeof response?.meta?.total === 'number' ? response.meta.total : 0,
+      };
+    },
+
+    async getNoteVersion(noteId: string, versionId: string, signal?: AbortSignal): Promise<NoteVersionDetail> {
+      const response = await requestHackmd<NoteVersionDto>(
+        `/notes/${encodePathSegment(noteId)}/versions/${encodePathSegment(versionId)}`,
+        { signal },
+        serviceOptions,
+      ).catch(rethrowVersionsUnavailable);
+      const version = mapNoteVersion(response ?? {});
+
+      return {
+        ...version,
+        content: version.contentAvailable && typeof response?.content === 'string' ? response.content : null,
+      };
+    },
+
+    async compareNoteVersions(noteId: string, base: NoteVersionRef, target: NoteVersionRef, signal?: AbortSignal) {
+      const params = new URLSearchParams({ base, target });
+      const response = await requestHackmd<{ unified_diff?: unknown }>(
+        `/notes/${encodePathSegment(noteId)}/versions/compare?${params.toString()}`,
+        { signal },
+        serviceOptions,
+      ).catch(rethrowVersionsUnavailable);
+
+      return { unifiedDiff: typeof response?.unified_diff === 'string' ? response.unified_diff : '' };
+    },
+
     async uploadNoteImage(noteId: string, input: UploadNoteImageInput, signal?: AbortSignal) {
       const form = new FormData();
       const blob = new Blob([input.bytes], { type: input.mimeType || 'application/octet-stream' });
@@ -1034,3 +1140,6 @@ export const deleteTeamFolder = defaultHackmdService.deleteTeamFolder;
 export const updateFolderOrder = defaultHackmdService.updateFolderOrder;
 export const updateTeamFolderOrder = defaultHackmdService.updateTeamFolderOrder;
 export const uploadNoteImage = defaultHackmdService.uploadNoteImage;
+export const listNoteVersions = defaultHackmdService.listNoteVersions;
+export const getNoteVersion = defaultHackmdService.getNoteVersion;
+export const compareNoteVersions = defaultHackmdService.compareNoteVersions;

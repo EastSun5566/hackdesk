@@ -102,6 +102,7 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     selectedDocument: createDocument(),
     selectedFolderId: 'folder-1',
     setSettingsOpen: vi.fn(),
+    setVersionsOpen: vi.fn(),
     splitActiveTab: vi.fn(),
     switchToHistory: vi.fn(),
     toggleInspector: vi.fn(),
