@@ -1,4 +1,4 @@
-import { Loader2, Star, X } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import { useState, type Dispatch, type ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import type { NotePermissionRole } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
 
 import { CollapsibleSection } from './interaction-primitives';
-import { getVersionByline, getVersionTitle } from './NoteVersionList';
+import { getVersionByline, getVersionKind, getVersionTitle, VersionDot } from './NoteVersionList';
 import { getVersionErrorMessage, useNoteVersionPreview } from './useNoteVersions';
 import type {
   FolderOption,
@@ -413,10 +413,10 @@ function VersionsPreview({ noteId, onShowAll }: { noteId: string; onShowAll: () 
           {versions.map((version) => (
             <li key={version.id} className="min-w-0">
               <p className="flex items-center gap-1.5 truncate text-sm text-text-default">
-                {version.nameSource === 'user' ? <Star aria-hidden="true" className="size-3 shrink-0 fill-current text-warning-default" /> : null}
+                <VersionDot kind={getVersionKind(version)} />
                 <span className="truncate">{getVersionTitle(version)}</span>
               </p>
-              <p className="truncate text-xs text-text-subtle">{getVersionByline(version)}</p>
+              <p className="truncate pl-4 text-xs text-text-subtle">{getVersionByline(version)}</p>
             </li>
           ))}
         </ul>

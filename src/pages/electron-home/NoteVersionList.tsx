@@ -1,4 +1,4 @@
-import { Loader2, Star } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
@@ -8,6 +8,28 @@ import { cn } from '@/lib/utils';
 import { formatDate } from './ui';
 
 export const CURRENT_VERSION_ID = 'current';
+
+export type VersionKind = 'current' | 'named' | 'auto';
+
+export function getVersionKind(version: NoteVersionSummary): VersionKind {
+  return version.nameSource === 'user' ? 'named' : 'auto';
+}
+
+/** The same dot as the tab status indicator: green for the live note, filled for named versions, hollow for auto-saves. */
+export function VersionDot({ kind }: { kind: VersionKind }) {
+  return (
+    <span
+      aria-hidden="true"
+      data-version-kind={kind}
+      className={cn(
+        'size-2.5 shrink-0 rounded-full border',
+        kind === 'current' && 'border-success-default bg-success-default',
+        kind === 'named' && 'border-primary-default bg-primary-default',
+        kind === 'auto' && 'border-text-subtle bg-background-default',
+      )}
+    />
+  );
+}
 
 export function getVersionTitle(version: NoteVersionSummary) {
   return version.nameSource === 'user' && version.name ? version.name : 'Auto-saved';
@@ -22,13 +44,13 @@ function VersionRow({
   selected,
   title,
   detail,
-  named,
+  kind,
   onSelect,
 }: {
   selected: boolean;
   title: string;
   detail: string;
-  named?: boolean;
+  kind: VersionKind;
   onSelect: () => void;
 }) {
   return (
@@ -44,10 +66,11 @@ function VersionRow({
         )}
       >
         <span className="flex w-full min-w-0 items-center gap-1.5 text-sm font-medium text-text-default">
-          {named ? <Star aria-hidden="true" className="size-3.5 shrink-0 fill-current text-warning-default" /> : null}
+          <VersionDot kind={kind} />
           <span className="truncate">{title}</span>
         </span>
-        <span className="w-full truncate text-xs text-text-subtle">{detail}</span>
+        {/* Indented past the dot so the byline lines up with the title. */}
+        <span className="w-full truncate pl-4 text-xs text-text-subtle">{detail}</span>
       </button>
     </li>
   );
@@ -84,6 +107,7 @@ export function NoteVersionList({
           selected={selectedId === CURRENT_VERSION_ID}
           title="Current"
           detail={currentDetail}
+          kind="current"
           onSelect={() => onSelect(CURRENT_VERSION_ID)}
         />
         {versions.map((version) => (
@@ -92,7 +116,7 @@ export function NoteVersionList({
             selected={selectedId === version.id}
             title={getVersionTitle(version)}
             detail={getVersionByline(version)}
-            named={version.nameSource === 'user'}
+            kind={getVersionKind(version)}
             onSelect={() => onSelect(version.id)}
           />
         ))}

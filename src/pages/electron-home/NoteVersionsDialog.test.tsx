@@ -69,6 +69,7 @@ describe('NoteVersionsDialog', () => {
       expect.stringContaining('Auto-saved'),
     ]);
     expect(rows[1]).toHaveAttribute('aria-current', 'true');
+    expect(rows.map((row) => row.querySelector('[data-version-kind]')?.getAttribute('data-version-kind'))).toEqual(['current', 'named', 'auto']);
     expect(rows[1]).toHaveTextContent('Ada');
 
     const changes = await screen.findByRole('list', { name: 'Changes since Before launch' });
