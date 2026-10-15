@@ -7,7 +7,7 @@ import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
 
 import type { DocumentPaneView } from './DocumentWorkspace';
 import { ElectronHomeWorkspace, type ElectronHomeWorkspaceProps } from './ElectronHomeWorkspace';
-import type { NotePane, OpenNoteTab } from './note-workspace';
+import type { NotePane, OpenNoteTab, SavedOpenNoteTab } from './note-workspace';
 
 vi.mock('./AppTopBar', () => ({
   AppTopBar: (props: {
@@ -92,7 +92,7 @@ vi.mock('./DocumentWorkspace', () => ({
   ),
 }));
 
-function tab(overrides: Partial<OpenNoteTab> = {}): OpenNoteTab {
+function tab(overrides: Partial<SavedOpenNoteTab> = {}): SavedOpenNoteTab {
   return {
     tabId: 'tab-a',
     noteId: 'note-a',
@@ -124,6 +124,7 @@ function createView(pane: NotePane, activeTab: OpenNoteTab | null): DocumentPane
     document: undefined,
     title: activeTab?.title ?? '',
     content: '',
+    isDraft: false,
     isLoading: false,
     syncState: 'saved',
     isSaving: false,
@@ -134,7 +135,7 @@ function createView(pane: NotePane, activeTab: OpenNoteTab | null): DocumentPane
 }
 
 function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): ElectronHomeWorkspaceProps {
-  const tabs = {
+  const tabs: Record<string, SavedOpenNoteTab> = {
     'tab-a': tab(),
     'tab-b': tab({ tabId: 'tab-b', noteId: 'note-b', title: 'Markdown Playground' }),
     'tab-c': tab({ tabId: 'tab-c', noteId: 'note-c', title: 'Inactive Pane' }),
@@ -155,6 +156,7 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
         railCollapsed: false,
       },
       state: {
+        scopeKey: 'personal',
         activePaneId: 'pane-b',
         backStack: [{ paneId: 'pane-a', tabId: 'tab-a' }],
         forwardStack: [],
@@ -165,6 +167,7 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
         moveActiveTabToOtherPane: noop,
         navigateBack: vi.fn(),
         navigateForward: vi.fn(),
+        reorderTab: noop,
         reopenLastClosedTab: noop,
         requestCloseOtherTabs: vi.fn().mockResolvedValue(undefined),
         requestCloseTab: vi.fn().mockResolvedValue(undefined),
@@ -176,6 +179,9 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
       },
     },
     rail: {
+      platform: 'darwin',
+      pinnedTeamIds: null,
+      onPinnedTeamIdsChange: noop,
       scope: { type: 'personal', label: 'My Workspace' },
       user: user(),
       teams: [] as TeamSummary[],
@@ -212,6 +218,7 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
       status: {
         activeError: null,
         canCreate: true,
+        hasLocalVault: false,
         hasToken: true,
         isCreating: false,
         isFetching: false,
@@ -221,6 +228,9 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
         showingCachedFallback: false,
       },
       actions: {
+        onChooseLocalVault: noop,
+        onFolderRevealInFinder: noop,
+        onNoteRevealInFinder: noop,
         onCopyNoteLink: noop,
         onCopyNoteMarkdownLink: noop,
         onCreate: vi.fn(),
@@ -279,6 +289,17 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
       onContentChange: noop,
       onToggleInspector: noop,
       onShareOpenChange: noop,
+      onRevealInFinder: noop,
+      onReloadFromDisk: noop,
+      onReloadFromHackmd: noop,
+      onSaveAsCopy: noop,
+      onOpenAsNewDraft: noop,
+      onCreateNote: noop,
+      onCopyDraft: noop,
+      onExportDraft: noop,
+      onRetryLoad: noop,
+      canCreateNote: true,
+      onQuickOpen: noop,
     },
   };
 

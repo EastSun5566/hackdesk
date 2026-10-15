@@ -130,7 +130,12 @@ import {
 } from './ipc-validation';
 
 export function registerIpcHandlers(
-  windowManager: WindowManager,
+  windowManager: Pick<WindowManager,
+    | 'cancelClose' | 'confirmClose' | 'getMainWindow' | 'getTargetWindow'
+    | 'getWindowPresentationState' | 'hideQuickCaptureWindow' | 'isTrustedIpcSender'
+    | 'resolveQuickCaptureSubmission' | 'setMenuShortcutsIgnored' | 'setThemeSurface'
+    | 'submitQuickCapture'
+  >,
   options: { onSettingsUpdated?: (settings: Awaited<ReturnType<typeof updateStoredSettings>>) => void } = {},
 ) {
   const ipcMain = {

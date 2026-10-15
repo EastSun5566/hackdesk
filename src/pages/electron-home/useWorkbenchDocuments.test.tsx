@@ -12,6 +12,7 @@ import {
   type NoteIdentity,
   type NotePane,
   type OpenNoteTab,
+  type SavedOpenNoteTab,
 } from './note-workspace';
 import { useWorkbenchDocuments, type WorkbenchDocumentsOptions } from './useWorkbenchDocuments';
 
@@ -45,7 +46,7 @@ function localRevision(contentHash: string, mtimeMs: number): LocalRevision {
   return { contentHash, mtimeMs };
 }
 
-function createTab(overrides: Partial<OpenNoteTab> = {}): OpenNoteTab {
+function createTab(overrides: Partial<SavedOpenNoteTab> = {}): SavedOpenNoteTab {
   return {
     noteId: 'note-1',
     shortId: 'short-1',
@@ -67,7 +68,7 @@ function createPane(tab: OpenNoteTab): NotePane {
 }
 
 function remoteDocument(document: DocumentSummary): RepositoryValue<DocumentSummary> {
-  return { source: 'remote', data: document };
+  return { source: 'remote' as const, data: document };
 }
 
 function createOptions(overrides: Partial<WorkbenchDocumentsOptions> = {}): WorkbenchDocumentsOptions {
@@ -114,7 +115,7 @@ describe('useWorkbenchDocuments', () => {
     expect(clearDraft).not.toHaveBeenCalled();
     rerender({ ...options, documentQueriesByKey: new Map([[key, { isFetching: true }]]) });
     expect(clearDraft).not.toHaveBeenCalled();
-    rerender({ ...options, documentsByKey: new Map([[key, { source: 'error', error: 'offline', data: document }]]) });
+    rerender({ ...options, documentsByKey: new Map([[key, { source: 'error' as const, error: 'offline', data: document }]]) });
     expect(clearDraft).not.toHaveBeenCalled();
     rerender({ ...options, documentsByKey: new Map([[key, { source: 'cached', data: document }]]) });
     expect(clearDraft).not.toHaveBeenCalled();
@@ -171,12 +172,12 @@ describe('useWorkbenchDocuments', () => {
     expect(result.current.getTabSyncState(tab)).toBe('loading');
 
     rerender(createOptions({
-      documentsByKey: new Map([[key, { source: 'error', error: 'offline', data: createDocument() }]]),
+      documentsByKey: new Map([[key, { source: 'error' as const, error: 'offline', data: createDocument() }]]),
     }));
     expect(result.current.getTabSyncState(tab)).toBe('cached');
 
     rerender(createOptions({
-      documentsByKey: new Map([[key, { source: 'error', error: 'offline' }]]),
+      documentsByKey: new Map([[key, { source: 'error' as const, error: 'offline' }]]),
     }));
     expect(result.current.getTabSyncState(tab)).toBe('save_failed');
 
@@ -370,7 +371,7 @@ describe('useWorkbenchDocuments', () => {
     ])('treats %s as missing, ignores cached content and keeps the draft', (_, error) => {
       const clearDraft = vi.fn();
       const document = createDocument({ teamPath: tab.teamPath });
-      const options = { ...optionsWith({ source: 'error', error: `Error invoking remote method: Error: ${error}`, data: document }), clearDraft };
+      const options = { ...optionsWith({ source: 'error' as const, error: `Error invoking remote method: Error: ${error}`, data: document }), clearDraft };
       const { result } = renderHook(() => useWorkbenchDocuments(options));
       const view = result.current.getPaneView(createPane(tab));
       expect(view.document).toBeUndefined();
@@ -381,11 +382,11 @@ describe('useWorkbenchDocuments', () => {
     });
 
     it('reports a temporary read error without a document, but keeps a usable cached copy editable', () => {
-      const failed = renderHook(() => useWorkbenchDocuments(optionsWith({ source: 'error', error: 'EACCES: permission denied' })));
+      const failed = renderHook(() => useWorkbenchDocuments(optionsWith({ source: 'error' as const, error: 'EACCES: permission denied' })));
       expect(failed.result.current.getPaneView(createPane(tab)).unavailable).toEqual({
         kind: 'read_error', message: 'EACCES: permission denied', hasDraft: true, isRetrying: false,
       });
-      const cached = renderHook(() => useWorkbenchDocuments(optionsWith({ source: 'error', error: 'offline', data: createDocument({ teamPath: tab.teamPath }) })));
+      const cached = renderHook(() => useWorkbenchDocuments(optionsWith({ source: 'error' as const, error: 'offline', data: createDocument({ teamPath: tab.teamPath }) })));
       expect(cached.result.current.getPaneView(createPane(tab))).toMatchObject({ unavailable: null, document: { id: 'note-1' } });
     });
 
@@ -397,7 +398,7 @@ describe('useWorkbenchDocuments', () => {
     it('keeps independent drafts for two missing notes', () => {
       const second = createTab({ tabId: 'tab-2', noteId: 'note-2', teamPath: LOCAL_VAULT_TEAM_PATH });
       const secondKey = getNoteIdentityKey({ id: second.noteId, teamPath: second.teamPath });
-      const missing: RepositoryValue<DocumentSummary> = { source: 'error', error: LOCAL_NOTE_NOT_FOUND_MESSAGE };
+      const missing: RepositoryValue<DocumentSummary> = { source: 'error' as const, error: LOCAL_NOTE_NOT_FOUND_MESSAGE };
       const { result } = renderHook(() => useWorkbenchDocuments(createOptions({
         activeTab: tab,
         tabs: { [tab.tabId]: tab, [second.tabId]: second },

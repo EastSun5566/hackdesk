@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { SavedOpenNoteTab } from './note-workspace';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   expectDisabledToolbarAction,
@@ -9,9 +10,8 @@ import {
 } from '@/test/accessibility-contracts';
 
 import { AppTopBar } from './AppTopBar';
-import type { OpenNoteTab } from './note-workspace';
 
-function createTab(overrides: Partial<OpenNoteTab> = {}): OpenNoteTab {
+function createTab(overrides: Partial<SavedOpenNoteTab> = {}): SavedOpenNoteTab {
   return {
     noteId: 'note-1',
     shortId: 'short-1',
@@ -33,7 +33,7 @@ function renderTopBar(overrides: Partial<Parameters<typeof AppTopBar>[0]> = {}) 
   });
   const props: Parameters<typeof AppTopBar>[0] = {
     activeTab: firstTab,
-    getTabSyncState: vi.fn(() => 'saved'),
+    getTabSyncState: vi.fn(() => 'saved' as const),
     navigation: {
       canGoBack: true,
       canGoForward: true,

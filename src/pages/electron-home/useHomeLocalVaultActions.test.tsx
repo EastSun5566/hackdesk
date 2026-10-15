@@ -25,6 +25,7 @@ vi.mock('@/components/ui/toast', () => ({
 function safeSettings(overrides: Partial<ElectronSafeSettings> = {}): ElectronSafeSettings {
   return {
     title: 'HackDesk',
+    workspaceNavigation: defaultSettings.workspaceNavigation,
     appearance: defaultSettings.appearance,
     editor: defaultSettings.editor,
     hasHackmdApiToken: false,

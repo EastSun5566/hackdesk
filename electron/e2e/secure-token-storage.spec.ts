@@ -3,12 +3,13 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { defaultSettings } from '../../src/lib/settings';
+import { definedEnvironment } from './fixtures/environment';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const token = 'smoke-token-not-a-real-hackmd-token';
 
 async function launch(home: string) {
-  const env = { ...process.env };
+  const env = { ...definedEnvironment(process.env) };
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.HACKDESK_ELECTRON_DEV_SERVER_URL;
   const app = await electron.launch({ args: [repoRoot, `--hackdesk-home=${home}`, `--user-data-dir=${join(home, 'user-data')}`], cwd: repoRoot, env });

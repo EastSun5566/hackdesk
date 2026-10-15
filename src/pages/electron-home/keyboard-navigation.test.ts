@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { registerEditorNavigationKeymap } from '@/lib/editor-navigation-keymap';
 import { allocateNavigationCodes, collectNavigationTargets, isNavigationVisible, navigationHintPositions, navigateToTarget, safeNavigationLetters } from './keyboard-navigation';
 
-function visibleRect(element: HTMLElement, top = 40) {
-  vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(new DOMRect(40, top, 100, 30));
+function visibleRect<T extends HTMLElement>(element: T, top = 40) {
+  vi.spyOn(element as HTMLElement, 'getBoundingClientRect').mockReturnValue(new DOMRect(40, top, 100, 30));
   return element;
 }
 afterEach(() => { document.body.replaceChildren(); vi.restoreAllMocks(); });

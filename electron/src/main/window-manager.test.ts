@@ -185,14 +185,19 @@ import { app, dialog } from 'electron';
 import { exportDebugLogs } from './logging';
 import { WindowManager } from './window-manager';
 
+function getMockWindow(window: unknown) {
+  if (!(window instanceof mockState.BrowserWindowMock)) throw new Error('Expected a mocked BrowserWindow');
+  return window;
+}
+
 function createManagerWithWindow() {
   const manager = new WindowManager();
-  const window = manager.createMainWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+  const window = getMockWindow(manager.createMainWindow());
   return { manager, window };
 }
 
 function emitClose(window: InstanceType<typeof mockState.BrowserWindowMock>) {
-  const event = { preventDefault: vi.fn() };
+  const event = { preventDefault: vi.fn(), defaultPrevented: false };
   window.emit('close', event);
   return event;
 }
@@ -227,7 +232,7 @@ describe('WindowManager close intent', () => {
 
   it('reloads the failing main window even when Quick Hack has focus', async () => {
     const { manager, window } = createManagerWithWindow();
-    const capture = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    const capture = getMockWindow(manager.showQuickCaptureWindow());
     capture.focus();
     vi.mocked(dialog.showMessageBox).mockResolvedValueOnce({ response: 0, checkboxChecked: false });
 
@@ -242,7 +247,7 @@ describe('WindowManager close intent', () => {
 
   it('recovers Quick Hack on its own route and ignores canceled or subframe loads', async () => {
     const { manager, window } = createManagerWithWindow();
-    const capture = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    const capture = getMockWindow(manager.showQuickCaptureWindow());
     window.focus();
     const url = 'hackdesk://renderer/index.html#/quick-capture';
     capture.webContents.emit('did-fail-load', {}, -3, 'Canceled', url, true);
@@ -267,7 +272,7 @@ describe('WindowManager close intent', () => {
     vi.mocked(dialog.showMessageBox).mockImplementationOnce(() => new Promise(resolve => { answer = resolve; }));
     window.webContents.emit('preload-error', {}, '/preload.cjs', new Error('Preload failed'));
     window.destroy();
-    const replacement = manager.createMainWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    const replacement = getMockWindow(manager.createMainWindow());
     window.emit('ready-to-show');
     answer({ response, checkboxChecked: false });
     await vi.advanceTimersByTimeAsync(0);
@@ -363,7 +368,7 @@ describe('WindowManager close intent', () => {
 
   it('routes app quit through the renderer close coordinator', () => {
     const { manager, window } = createManagerWithWindow();
-    const event = { preventDefault: vi.fn() };
+    const event = { preventDefault: vi.fn(), defaultPrevented: false };
     manager.handleBeforeQuit(event);
 
     expect(event.preventDefault).toHaveBeenCalled();
@@ -372,7 +377,7 @@ describe('WindowManager close intent', () => {
 
   it('lets the approved quit close the main window without a second request', () => {
     const { manager, window } = createManagerWithWindow();
-    const quitEvent = { preventDefault: vi.fn() };
+    const quitEvent = { preventDefault: vi.fn(), defaultPrevented: false };
 
     manager.handleBeforeQuit(quitEvent);
     manager.confirmClose();
@@ -444,8 +449,8 @@ describe('WindowManager close intent', () => {
   it('opens and focuses a reusable quick capture window', () => {
     const { manager } = createManagerWithWindow();
 
-    const firstCapture = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
-    const secondCapture = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    const firstCapture = getMockWindow(manager.showQuickCaptureWindow());
+    const secondCapture = getMockWindow(manager.showQuickCaptureWindow());
 
     expect(firstCapture).toBe(secondCapture);
     expect(firstCapture.loadURL).toHaveBeenCalledWith('hackdesk://renderer/index.html#/quick-capture');
@@ -466,7 +471,7 @@ describe('WindowManager close intent', () => {
     const { manager, window } = createManagerWithWindow();
     mockState.state.lastWindow = null;
     window.show.mockClear();
-    const captureWindow = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    const captureWindow = getMockWindow(manager.showQuickCaptureWindow());
 
     expect(window.hide).toHaveBeenCalledTimes(2);
     manager.handleAppActivation();
@@ -487,7 +492,7 @@ describe('WindowManager close intent', () => {
     const { manager, window } = createManagerWithWindow();
     mockState.state.lastWindow = null;
     window.show.mockClear();
-    const captureWindow = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    const captureWindow = getMockWindow(manager.showQuickCaptureWindow());
     captureWindow.emit('ready-to-show');
 
     manager.handleAppActivation();
@@ -503,7 +508,7 @@ describe('WindowManager close intent', () => {
   it('returns focus to main when quick capture was opened from main on macOS', () => {
     vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
     const { manager, window } = createManagerWithWindow();
-    const captureWindow = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    const captureWindow = getMockWindow(manager.showQuickCaptureWindow());
     window.show.mockClear();
     window.focus.mockClear();
 
@@ -518,7 +523,7 @@ describe('WindowManager close intent', () => {
 
   it('keeps quick capture recoverable while quit is still unconfirmed', () => {
     const { manager } = createManagerWithWindow();
-    const captureWindow = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    const captureWindow = getMockWindow(manager.showQuickCaptureWindow());
     captureWindow.close();
 
     expect(captureWindow.hide).toHaveBeenCalledOnce();
@@ -529,7 +534,7 @@ describe('WindowManager close intent', () => {
     const { manager } = createManagerWithWindow();
     mockState.state.cursorScreenPointError = true;
 
-    const captureWindow = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    const captureWindow = getMockWindow(manager.showQuickCaptureWindow());
 
     expect(captureWindow.options).toEqual(expect.objectContaining({ x: 480, y: 162 }));
   });
@@ -538,7 +543,7 @@ describe('WindowManager close intent', () => {
     vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
     const { manager, window } = createManagerWithWindow();
     mockState.state.lastWindow = null;
-    const captureWindow = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    const captureWindow = getMockWindow(manager.showQuickCaptureWindow());
 
     window.show.mockClear();
     window.focus.mockClear();
@@ -571,8 +576,8 @@ describe('WindowManager close intent', () => {
     const { manager } = createManagerWithWindow();
     manager.closeMainWindow();
     manager.confirmClose();
-    const captureWindow = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
-    const event = { preventDefault: vi.fn() };
+    const captureWindow = getMockWindow(manager.showQuickCaptureWindow());
+    const event = { preventDefault: vi.fn(), defaultPrevented: false };
 
     captureWindow.webContents.emit('before-input-event', event, {
       type: 'keyDown', key: 'q', meta: true, alt: false, control: false, shift: false,
@@ -590,10 +595,10 @@ describe('WindowManager close intent', () => {
     manager.closeMainWindow();
     manager.confirmClose();
     mockState.state.lastWindow = null;
-    const captureWindow = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    const captureWindow = getMockWindow(manager.showQuickCaptureWindow());
 
     const submission = manager.submitQuickCapture('# Background draft');
-    const hiddenMain = manager.getMainWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    const hiddenMain = getMockWindow(manager.getMainWindow());
     const command = hiddenMain.webContents.send.mock.calls.find(([channel]) => channel === ELECTRON_CHANNELS.appCommand)?.[1];
     expect(command).toEqual(expect.objectContaining({ content: '# Background draft' }));
     expect(hiddenMain.show).not.toHaveBeenCalled();
@@ -630,7 +635,7 @@ describe('WindowManager close intent', () => {
 
   it('keeps quick capture open when the main window rejects the submission', async () => {
     const { manager, window } = createManagerWithWindow();
-    const captureWindow = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    const captureWindow = getMockWindow(manager.showQuickCaptureWindow());
     window.show.mockClear();
     const submission = manager.submitQuickCapture('# Capture');
     const command = window.webContents.send.mock.calls.find(([channel]) => (
@@ -669,7 +674,7 @@ describe('WindowManager close intent', () => {
 
   it('sends app menu commands to the main window when quick capture is focused', () => {
     const { manager, window } = createManagerWithWindow();
-    const captureWindow = manager.showQuickCaptureWindow() as InstanceType<typeof mockState.BrowserWindowMock>;
+    const captureWindow = getMockWindow(manager.showQuickCaptureWindow());
 
     expect(mockState.BrowserWindowMock.getFocusedWindow()).toBe(captureWindow);
 

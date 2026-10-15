@@ -2,6 +2,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Loc
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { definedEnvironment } from './fixtures/environment';
 
 import { ELECTRON_CHANNELS } from '../src/shared/channels';
 import { defaultSettings, type EditorMode } from '../../src/lib/settings';
@@ -30,7 +31,7 @@ async function launchFixture(editorMode: EditorMode = 'helix', navigationFixture
     editor: { mode: editorMode },
   };
   await writeFile(join(testHome, '.hackdesk', 'settings.json'), JSON.stringify(settings));
-  const env = { ...process.env };
+  const env = { ...definedEnvironment(process.env) };
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.HACKDESK_ELECTRON_DEV_SERVER_URL;
   const app = await electron.launch({
@@ -259,7 +260,7 @@ test('collapsed workspace icons stay centered with classic scrollbars and remain
     await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('19-collapsed-scrollbar.png') });
     await page.keyboard.press(`${primary}+b`);
-    await expect.poll(() => scroller.evaluate(element => element.offsetWidth - element.clientWidth)).toBeGreaterThan(10);
+    await expect.poll(() => scroller.evaluate((element: HTMLElement) => element.offsetWidth - element.clientWidth)).toBeGreaterThan(10);
   } finally {
     await stopApp(app);
   }
@@ -918,7 +919,7 @@ test('native help and palette region commands restore Workbench focus', async ()
       const entry = Menu.getApplicationMenu()!.items.find(section => section.label === 'Help')!.submenu!.items.find(item => item.label.startsWith('Keyboard Shortcuts'))!;
       expectNoAccelerator(entry.accelerator);
       entry.click();
-      function expectNoAccelerator(accelerator: string | undefined) { if (accelerator) throw new Error('Context key registered natively'); }
+      function expectNoAccelerator(accelerator: string | null | undefined) { if (accelerator) throw new Error('Context key registered natively'); }
     });
     await expect(help).toBeVisible();
     await expect(help.getByRole('button', { name: 'Current Region: Editor' })).toBeVisible();

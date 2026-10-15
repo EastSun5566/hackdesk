@@ -12,6 +12,7 @@ import { HACKDESK_THEME_PRESETS } from '@/lib/themes';
 import { CommandPaletteDialog } from './CommandPaletteDialog';
 
 const context: ElectronActionContext = {
+  activeTabIsDraft: false,
   activePaneTabCount: 1,
   activePaneTabsToRightCount: 0,
   canCreate: true,
@@ -63,7 +64,6 @@ function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id' | 'title'>): 
     createdAtMillis: null,
     description: input.description ?? '',
     folderPaths: input.folderPaths ?? [],
-    id: input.id,
     lastChangeUser: null,
     permalink: null,
     publishLink: '',
@@ -74,7 +74,6 @@ function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id' | 'title'>): 
     tags: input.tags ?? [],
     tagsUpdatedAtMillis: null,
     teamPath: input.teamPath ?? null,
-    title: input.title,
     titleUpdatedAtMillis: null,
     updatedAtMillis: input.updatedAtMillis ?? null,
     userPath: null,

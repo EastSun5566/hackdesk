@@ -9,7 +9,7 @@ let quickCaptureShortcutRegistered = false;
 
 export function registerQuickCaptureGlobalShortcut(
   windowManager: WindowManager,
-  shortcut = globalShortcut,
+  shortcut: Pick<typeof globalShortcut, 'register'> = globalShortcut,
 ) {
   quickCaptureShortcutRegistered = shortcut.register(QUICK_CAPTURE_GLOBAL_SHORTCUT, () => {
     windowManager.showQuickCaptureWindow();
@@ -27,7 +27,7 @@ export function registerQuickCaptureGlobalShortcut(
   return quickCaptureShortcutRegistered;
 }
 
-export function unregisterQuickCaptureGlobalShortcut(shortcut = globalShortcut) {
+export function unregisterQuickCaptureGlobalShortcut(shortcut: Pick<typeof globalShortcut, 'unregister'> = globalShortcut) {
   shortcut.unregister(QUICK_CAPTURE_GLOBAL_SHORTCUT);
   quickCaptureShortcutRegistered = false;
 }

@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { defaultSettings } from '../../src/lib/settings';
+import { definedEnvironment } from './fixtures/environment';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 
@@ -15,7 +16,7 @@ test('editor text stays in a centered, readable column', async () => {
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
     ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
   }));
-  const env = { ...process.env };
+  const env = { ...definedEnvironment(process.env) };
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.HACKDESK_ELECTRON_DEV_SERVER_URL;
   const app = await electron.launch({ args: [repoRoot, `--user-data-dir=${join(home, 'user-data')}`, `--hackdesk-home=${home}`], cwd: repoRoot, env });

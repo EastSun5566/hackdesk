@@ -24,7 +24,7 @@ function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id'>): NoteSummar
     tagsUpdatedAtMillis: null,
     titleUpdatedAtMillis: null,
     content: null,
-    publishLink: null,
+    publishLink: `https://hackmd.io/${input.id}`,
     shortId: input.shortId ?? input.id,
     permalink: null,
     teamPath: input.teamPath ?? null,

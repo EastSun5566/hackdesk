@@ -1,11 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import type { WindowManager } from './window-manager';
+import type { watchLocalVault } from './local-vault-service';
 import { EventEmitter } from 'node:events';
 
 import { ELECTRON_CHANNELS } from '../shared/channels';
 
 const ipcHandlers = vi.hoisted(() => new Map<string, (...args: unknown[]) => unknown>());
 const clipboardMock = vi.hoisted(() => ({
-  writeText: vi.fn(async () => undefined),
+  writeText: vi.fn(async (): Promise<void> => undefined),
 }));
 const settingsMock = vi.hoisted(() => ({
   readHackmdCliAccessToken: vi.fn(async () => 'cli-token'),
@@ -79,7 +81,7 @@ const localVaultServiceMock = vi.hoisted(() => ({
   scanLocalVault: vi.fn(async () => localVaultSnapshot),
   trashLocalFolder: vi.fn(),
   trashLocalNote: vi.fn(),
-  watchLocalVault: vi.fn(() => ({ close: vi.fn(), pause: vi.fn(), resume: vi.fn() })),
+  watchLocalVault: vi.fn<typeof watchLocalVault>(() => ({ close: vi.fn(), pause: vi.fn(), resume: vi.fn() })),
   writeLocalNote: vi.fn(),
 }));
 
@@ -161,7 +163,7 @@ import { registerIpcHandlers } from './ipc-handlers';
 const windowManager = {
   cancelClose: vi.fn(),
   confirmClose: vi.fn(),
-  getMainWindow: vi.fn(() => null),
+  getMainWindow: vi.fn<WindowManager['getMainWindow']>(() => null),
   getTargetWindow: vi.fn(() => null),
   getWindowPresentationState: vi.fn(() => ({ fullScreen: true })),
   hideQuickCaptureWindow: vi.fn(),
@@ -169,7 +171,7 @@ const windowManager = {
   resolveQuickCaptureSubmission: vi.fn(),
   setMenuShortcutsIgnored: vi.fn(),
   setThemeSurface: vi.fn(),
-  submitQuickCapture: vi.fn(async () => ({ accepted: true })),
+  submitQuickCapture: vi.fn(async () => ({ accepted: true as const })),
 };
 
 describe('registerIpcHandlers', () => {
@@ -317,7 +319,7 @@ describe('registerIpcHandlers', () => {
       return { close: vi.fn(), pause: vi.fn(), resume: vi.fn() };
     });
     const send = vi.fn();
-    windowManager.getMainWindow.mockReturnValue({ webContents: { send } });
+    windowManager.getMainWindow.mockReturnValue({ webContents: { send } } as unknown as NonNullable<ReturnType<WindowManager['getMainWindow']>>);
     registerIpcHandlers(windowManager);
 
     await ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetSnapshot)?.({});
@@ -428,7 +430,7 @@ describe('registerIpcHandlers', () => {
     registerIpcHandlers(windowManager);
     const handler = ipcHandlers.get(ELECTRON_CHANNELS.appResolveQuickCaptureSubmission);
 
-    handler?.({}, { requestId: 'capture-request', accepted: true });
+    handler?.({}, { requestId: 'capture-request', accepted: true as const });
 
     expect(windowManager.resolveQuickCaptureSubmission).toHaveBeenCalledWith({
       requestId: 'capture-request',

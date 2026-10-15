@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { defaultSettings } from '../../src/lib/settings';
 import { LOCAL_IMAGE_PNG } from './fixtures/local-image';
+import { definedEnvironment } from './fixtures/environment';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 
@@ -22,7 +23,7 @@ test('retries a transient read and cancels a real upload request without losing 
     ...defaultSettings, hackmdApiToken: 'synthetic-fixture-token',
     onboarding: { hackmdTokenSetupDeferred: true },
   }));
-  const env = { ...process.env };
+  const env = { ...definedEnvironment(process.env) };
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.HACKDESK_ELECTRON_DEV_SERVER_URL;
   const app = await electron.launch({

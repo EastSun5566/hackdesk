@@ -25,7 +25,6 @@ function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id' | 'title'>): 
     createdAtMillis: null,
     description: '',
     folderPaths: input.folderPaths ?? [],
-    id: input.id,
     lastChangeUser: null,
     permalink: null,
     publishLink: `https://hackmd.io/${input.id}`,
@@ -36,7 +35,6 @@ function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id' | 'title'>): 
     tags: input.tags ?? [],
     tagsUpdatedAtMillis: null,
     teamPath: input.teamPath ?? null,
-    title: input.title,
     titleUpdatedAtMillis: null,
     updatedAtMillis: input.updatedAtMillis ?? null,
     userPath: null,
@@ -97,7 +95,7 @@ describe('useWorkbenchNavigator', () => {
   });
 
   it('selects and expands a selected folder', () => {
-    const setCollapsedFolderIds = vi.fn((updater: (current: Set<string>) => Set<string>) => updater(new Set(['folder-a'])));
+    const setCollapsedFolderIds = vi.fn((updater: Set<string> | ((current: Set<string>) => Set<string>)) => typeof updater === 'function' ? updater(new Set(['folder-a'])) : updater);
     const setSelectedFolderId = vi.fn();
     const { result } = renderHook(() => useWorkbenchNavigator(createOptions({
       setCollapsedFolderIds,
@@ -114,7 +112,7 @@ describe('useWorkbenchNavigator', () => {
   it('shows finder results by expanding navigator, setting workspace query, and focusing navigator', () => {
     const expandNavigator = vi.fn();
     const focusNavigator = vi.fn();
-    const setFinderState = vi.fn((updater: (current: NoteFinderState) => NoteFinderState) => updater(DEFAULT_NOTE_FINDER_STATE));
+    const setFinderState = vi.fn((updater: NoteFinderState | ((current: NoteFinderState) => NoteFinderState)) => typeof updater === 'function' ? updater(DEFAULT_NOTE_FINDER_STATE) : updater);
     const { result } = renderHook(() => useWorkbenchNavigator(createOptions({
       expandNavigator,
       focusNavigator,

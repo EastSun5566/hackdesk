@@ -32,8 +32,6 @@ import {
 
 function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id' | 'title'>): NoteSummary {
   return {
-    id: input.id,
-    title: input.title,
     description: '',
     tags: [],
     updatedAtMillis: input.updatedAtMillis ?? null,
@@ -237,8 +235,8 @@ describe('note workspace tabs', () => {
     expect(state.panes).toHaveLength(2);
     expect(state.panes[0].tabIds).toHaveLength(1);
     expect(state.panes[1].tabIds).toHaveLength(1);
-    expect(getPaneActiveTab(state, state.panes[0].paneId)?.noteId).toBe('note-1');
-    expect(getPaneActiveTab(state, state.panes[1].paneId)?.noteId).toBe('note-1');
+    expect(getPaneActiveTab(state, state.panes[0].paneId)).toMatchObject({ noteId: 'note-1' });
+    expect(getPaneActiveTab(state, state.panes[1].paneId)).toMatchObject({ noteId: 'note-1' });
   });
 
   it('moves the active tab to the other pane and removes empty secondary panes after close', () => {
@@ -248,7 +246,7 @@ describe('note workspace tabs', () => {
     const moved = moveActiveTabToOtherPane(split);
     const active = getActiveTab(moved);
 
-    expect(active?.noteId).toBe('b');
+    expect(active).toMatchObject({ noteId: 'b' });
     expect(moved.panes[0].tabIds).toContain(active?.tabId);
 
     const closed = closeNoteTab(moved, active?.tabId ?? '');

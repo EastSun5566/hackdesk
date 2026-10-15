@@ -32,9 +32,9 @@ function setup(result: unknown) {
 
 describe('useRemoteDocumentRecovery', () => {
   it.each([
-    ['a query refetch', { data: { source: 'remote', data: document }, error: null }, undefined],
+    ['a query refetch', { data: { source: 'remote' as const, data: document }, error: null }, undefined],
     // Without a mounted query, the read is cached so the cleared tab shows it.
-    ['a direct read', { source: 'remote', data: document }, { source: 'remote', data: document }],
+    ['a direct read', { source: 'remote' as const, data: document }, { source: 'remote' as const, data: document }],
   ])('clears drafts after %s returns the note from HackMD', async (_label, result, cached) => {
     const { options, queryClient } = setup(result);
     await waitFor(() => expect(options.resetSaveMutation).toHaveBeenCalledOnce());
@@ -46,8 +46,8 @@ describe('useRemoteDocumentRecovery', () => {
 
   it.each([
     ['a cached copy', { source: 'cached', data: document }, 'Could not load the latest note from HackMD'],
-    ['a read error', { source: 'error', error: 'HackMD is offline.' }, 'HackMD is offline.'],
-    ['a failed query refetch that kept old data', { data: { source: 'remote', data: document }, error: new Error('Network failed.') }, 'Network failed.'],
+    ['a read error', { source: 'error' as const, error: 'HackMD is offline.' }, 'HackMD is offline.'],
+    ['a failed query refetch that kept old data', { data: { source: 'remote' as const, data: document }, error: new Error('Network failed.') }, 'Network failed.'],
   ])('keeps drafts when the reload returns %s', async (_label, result, message) => {
     const { options } = setup(result);
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining(message)));

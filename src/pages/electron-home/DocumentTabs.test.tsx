@@ -6,9 +6,9 @@ import { expectMenuReturnsFocus, expectToolbarRovingFocus } from '@/test/accessi
 
 import { DocumentTabs } from './DocumentTabs';
 import type { DocumentSyncState } from './document-sync-state';
-import type { OpenNoteTab } from './note-workspace';
+import type { OpenNoteTab, SavedOpenNoteTab } from './note-workspace';
 
-function tab(overrides: Partial<OpenNoteTab> = {}): OpenNoteTab {
+function tab(overrides: Partial<SavedOpenNoteTab> = {}): SavedOpenNoteTab {
   return {
     noteId: 'note-1',
     shortId: 'short-1',
@@ -27,7 +27,7 @@ function createDocumentTabsProps(overrides: Partial<Parameters<typeof DocumentTa
     canMoveToOtherPane: true,
     canReopenLastClosedTab: true,
     canSplit: true,
-    getTabSyncState: vi.fn(() => 'saved'),
+    getTabSyncState: vi.fn(() => 'saved' as const),
     onCloseOtherTabs: vi.fn(),
     onCloseTab: vi.fn(),
     onCloseTabsToRight: vi.fn(),
@@ -106,7 +106,7 @@ describe('DocumentTabs', () => {
         tabId: 'idle',
         title: 'Idle note',
       }),
-      getTabSyncState: vi.fn((currentTab: OpenNoteTab) => currentTab.noteId as DocumentSyncState),
+      getTabSyncState: vi.fn((currentTab: OpenNoteTab) => currentTab.tabId as DocumentSyncState),
       tabs: states.map((state) => tab({
         noteId: state,
         shortId: state,

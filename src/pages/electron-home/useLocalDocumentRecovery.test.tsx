@@ -3,11 +3,11 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { SavedOpenNoteTab } from './note-workspace';
 import type { HackDeskElectronAPI } from '@/lib/electron-api';
 import type { LocalDocument, LocalVaultSnapshot } from '@/lib/local-vault';
 
 import { LOCAL_VAULT_TEAM_PATH, toDocumentSummary, toNoteSummary } from './local-vault-adapter';
-import type { OpenNoteTab } from './note-workspace';
 import { useLocalDocumentRecovery } from './useLocalDocumentRecovery';
 
 function createLocalDocument(overrides: Partial<LocalDocument> = {}): LocalDocument {
@@ -40,7 +40,7 @@ function createSnapshot(document = createLocalDocument()): LocalVaultSnapshot {
   };
 }
 
-function createTab(overrides: Partial<OpenNoteTab> = {}): OpenNoteTab {
+function createTab(overrides: Partial<SavedOpenNoteTab> = {}): SavedOpenNoteTab {
   return {
     localRevision: { contentHash: 'old', mtimeMs: 1 },
     noteId: 'local-note-1',

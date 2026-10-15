@@ -867,7 +867,7 @@ describe('MarkdownEditor', () => {
       expect(node?.textContent).toBe('•');
       return node;
     });
-    const listLine = marker.closest<HTMLElement>('.cm-hackmd-list-line');
+    const listLine = marker?.closest<HTMLElement>('.cm-hackmd-list-line');
 
     expect(marker).toHaveClass('cm-hackmd-list-marker');
     expect(listLine?.style.paddingLeft).toBe('2em');

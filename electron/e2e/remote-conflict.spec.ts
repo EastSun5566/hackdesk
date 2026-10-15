@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { ELECTRON_CHANNELS } from '../src/shared/channels';
 import { defaultSettings } from '../../src/lib/settings';
+import { definedEnvironment } from './fixtures/environment';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 
@@ -11,7 +12,7 @@ test('does not save over a note changed on HackMD and keeps the draft recoverabl
   const home = await mkdtemp(join(tmpdir(), 'hackdesk-remote-conflict-'));
   await mkdir(join(home, '.hackdesk'));
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify(defaultSettings));
-  const env = { ...process.env };
+  const env = { ...definedEnvironment(process.env) };
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.HACKDESK_ELECTRON_DEV_SERVER_URL;
   const app = await electron.launch({ args: [repoRoot, `--user-data-dir=${join(home, 'user-data')}`, `--hackdesk-home=${home}`], cwd: repoRoot, env });

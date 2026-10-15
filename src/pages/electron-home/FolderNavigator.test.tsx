@@ -49,7 +49,15 @@ function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id' | 'title'>): 
   };
 }
 
-function renderFolderNavigator(overrides: Partial<FolderNavigatorProps> = {}) {
+type FolderNavigatorPropsOverrides = Partial<Omit<FolderNavigatorProps, 'actions' | 'emptyState' | 'layout' | 'selection' | 'status'>> & {
+  actions?: Partial<FolderNavigatorProps['actions']>;
+  emptyState?: Partial<FolderNavigatorProps['emptyState']>;
+  layout?: Partial<FolderNavigatorProps['layout']>;
+  selection?: Partial<FolderNavigatorProps['selection']>;
+  status?: Partial<FolderNavigatorProps['status']>;
+};
+
+function renderFolderNavigator(overrides: FolderNavigatorPropsOverrides = {}) {
   const projectFolder = folder({
     color: '#ff5500',
     icon: '1F525',
@@ -109,7 +117,7 @@ function renderFolderNavigator(overrides: Partial<FolderNavigatorProps> = {}) {
       onRenameFolder: vi.fn(),
       onToggleCollapsed: vi.fn(),
     },
-    scope: { id: 'personal', label: 'Personal', type: 'personal' },
+    scope: { label: 'Personal', type: 'personal' },
     selection: {
       selectedFolderId: UNFILED_FOLDER_ID,
       selectedNoteId: null,
@@ -211,7 +219,7 @@ describe('FolderNavigator', () => {
         title: 'Open a local folder',
       },
       actions: { onChooseLocalVault },
-      scope: { id: 'local', label: 'Local Vault', type: 'local' },
+      scope: { label: 'Local Vault', type: 'local' },
       status: { hasLocalVault: false },
       tree,
     });
@@ -230,7 +238,7 @@ describe('FolderNavigator', () => {
       { relativePath: 'Big.md', reason: 'Larger than 10 MiB' },
     ];
     const { rerender, props } = renderFolderNavigator({
-      scope: { id: 'local', label: 'Local Vault', type: 'local' },
+      scope: { label: 'Local Vault', type: 'local' },
       status: { skippedFiles },
     });
 

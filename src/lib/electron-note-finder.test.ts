@@ -68,7 +68,11 @@ describe('electron note finder', () => {
     const storageLike = {
       getItem: (key: string) => storage.get(key) ?? null,
       setItem: (key: string, value: string) => storage.set(key, value),
-    } as Storage;
+      get length() { return storage.size; },
+      clear: () => storage.clear(),
+      key: (index: number) => [...storage.keys()][index] ?? null,
+      removeItem: (key: string) => storage.delete(key),
+    } satisfies Storage;
 
     expect(readNoteFinderState(storageLike, 'personal')).toEqual(DEFAULT_NOTE_FINDER_STATE);
 

@@ -88,7 +88,8 @@ describe('useElectronHomeRecentNotes', () => {
     expect(readRecentNotes(localStorage)).toEqual([
       { ...records[0], title: 'Moved', shortId: 'Folder/Moved.md' }, records[1], records[2],
     ]);
-    act(() => result.current.syncLocalRecentNotes([{ ...moved, title: 'Wrong vault', localVaultId: 'B' }]));
+    const otherVaultNote = { ...moved, title: 'Wrong vault', localVaultId: 'B' };
+    act(() => result.current.syncLocalRecentNotes([otherVaultNote]));
     expect(result.current.recentNotes[0].title).toBe('Moved');
   });
 

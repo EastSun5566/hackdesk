@@ -117,7 +117,7 @@ describe('ErrorBoundary', () => {
         exportDebugLogs,
         recordFatalRendererError: vi.fn(async () => undefined),
       },
-    } as typeof window.hackdeskAPI;
+    } as unknown as typeof window.hackdeskAPI;
 
     render(
       <ErrorBoundary>
@@ -144,7 +144,7 @@ describe('ErrorBoundary', () => {
         exportDebugLogs,
         recordFatalRendererError: vi.fn(async () => undefined),
       },
-    } as typeof window.hackdeskAPI;
+    } as unknown as typeof window.hackdeskAPI;
 
     render(
       <ErrorBoundary>
@@ -167,7 +167,7 @@ describe('ErrorBoundary', () => {
         exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
         recordFatalRendererError,
       },
-    } as typeof window.hackdeskAPI;
+    } as unknown as typeof window.hackdeskAPI;
 
     render(
       <ErrorBoundary>

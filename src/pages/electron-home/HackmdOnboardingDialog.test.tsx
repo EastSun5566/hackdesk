@@ -25,6 +25,7 @@ function renderOnboarding(overrides: Partial<Parameters<typeof HackmdOnboardingD
     onImportHackmdCliToken: vi.fn(async () => ({
       settings: {
         title: 'HackDesk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
         appearance: defaultSettings.appearance,
         editor: defaultSettings.editor,
         hasHackmdApiToken: true,
