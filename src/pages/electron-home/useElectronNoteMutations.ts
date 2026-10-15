@@ -35,6 +35,7 @@ import {
   getWorkspaceQueryKey,
   getScopeStorageKey,
 } from './repository';
+import { noteVersionsKeys } from './useNoteVersions';
 import type { NoteDocumentDraft, NoteIdentity } from './note-workspace';
 import type { SettingsFormInput, WorkspaceScope } from './types';
 import { createQuickNoteContent } from './ui';
@@ -654,6 +655,8 @@ export function useElectronNoteMutations({
           ['electron', 'hackmd', 'note', variables.note.teamPath ?? null, variables.note.id],
           (current) => repositoryDocumentValue(current, updatedNote),
         );
+        // HackMD may save a version with each write. Refresh only version views that are open.
+        void queryClient.invalidateQueries({ queryKey: noteVersionsKeys.all(variables.note.id), refetchType: 'active' });
       }
       toast.success(variables.successMessage ?? 'Note saved.');
     },

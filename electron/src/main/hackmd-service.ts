@@ -6,6 +6,8 @@ import type {
   FolderPathSummary,
   FolderSummary,
   NotePermissionRole,
+  CreateNoteVersionInput,
+  CreateNoteVersionResult,
   NoteVersionDetail,
   NoteVersionPage,
   NoteVersionRef,
@@ -530,6 +532,7 @@ async function sendHackmdAttempt<T>(
       const body = await readErrorBody(response);
       throw Object.assign(new Error(getHackmdErrorMessage(response.status, response.statusText, body)), {
         status: response.status,
+        body,
         retryable: [408, 429, 500, 502, 503, 504].includes(response.status),
         retryAfterMs: retryAfterMs(response.headers.get('Retry-After')),
       });
@@ -1035,6 +1038,31 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
       );
     },
 
+    /** Names the note's current content as a version. A write, so it is sent once. */
+    async createNoteVersion(noteId: string, input: CreateNoteVersionInput): Promise<CreateNoteVersionResult> {
+      try {
+        const response = await requestHackmd<NoteVersionDto>(`/notes/${encodePathSegment(noteId)}/versions`, {
+          method: 'POST',
+          body: JSON.stringify({
+            base: 'note_content',
+            name: input.name,
+            ...(input.description ? { description: input.description } : {}),
+          }),
+        }, serviceOptions);
+        return { status: 'created', version: mapNoteVersion(response ?? {}) };
+      } catch (error) {
+        const { status, body } = (error ?? {}) as { status?: unknown; body?: unknown };
+        const conflict = status === 409 && body && typeof body === 'object' ? body as Record<string, unknown> : null;
+        if (conflict?.error_code === 'no_content_change') {
+          return { status: 'no_content_change', latestVersionId: asNullableString(conflict.latest_version_id) };
+        }
+        if (conflict?.error_code === 'version_already_named') {
+          return { status: 'version_already_named', latestVersionId: asNullableString(conflict.version_id) };
+        }
+        return rethrowVersionsUnavailable(error);
+      }
+    },
+
     async listNoteVersions(noteId: string, query: NoteVersionsQuery, signal?: AbortSignal): Promise<NoteVersionPage> {
       const params = new URLSearchParams();
       if (query.namedOnly) params.set('named_only', 'true');
@@ -1143,3 +1171,4 @@ export const uploadNoteImage = defaultHackmdService.uploadNoteImage;
 export const listNoteVersions = defaultHackmdService.listNoteVersions;
 export const getNoteVersion = defaultHackmdService.getNoteVersion;
 export const compareNoteVersions = defaultHackmdService.compareNoteVersions;
+export const createNoteVersion = defaultHackmdService.createNoteVersion;

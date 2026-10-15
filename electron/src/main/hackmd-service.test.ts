@@ -781,6 +781,35 @@ describe('hackmd-service note versions', () => {
     await expect(service.listNoteVersions('note-1', {})).rejects.toThrow(HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE);
   });
 
+  it('names the current content as a version, sent once', async () => {
+    const { calls, service } = createService([jsonResponse(named, { status: 201 })]);
+
+    await expect(service.createNoteVersion('note-1', { name: 'Before launch', description: 'Ready' }))
+      .resolves.toEqual({ status: 'created', version: expect.objectContaining({ id: 'v-2', nameSource: 'user' }) });
+    expect(calls[0].url).toBe('https://api.test/v1/notes/note-1/versions');
+    expect(calls[0].init.method).toBe('POST');
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ base: 'note_content', name: 'Before launch', description: 'Ready' });
+  });
+
+  it('reports the conflicts HackMD returns instead of failing', async () => {
+    const { service } = createService([
+      jsonResponse({ error_code: 'no_content_change', message: 'Nothing new', latest_version_id: 'v-2', latest_name_source: 'user' }, { status: 409, statusText: 'Conflict' }),
+      jsonResponse({ error_code: 'version_already_named', message: 'Named', version_id: 'v-3', name: 'x' }, { status: 409, statusText: 'Conflict' }),
+    ]);
+
+    await expect(service.createNoteVersion('note-1', { name: 'Again' })).resolves.toEqual({ status: 'no_content_change', latestVersionId: 'v-2' });
+    await expect(service.createNoteVersion('note-1', { name: 'Again' })).resolves.toEqual({ status: 'version_already_named', latestVersionId: 'v-3' });
+  });
+
+  it('does not retry a failed version write', async () => {
+    const { calls, service } = createService([
+      jsonResponse({ message: 'Unavailable' }, { status: 503, statusText: 'Service Unavailable' }),
+    ]);
+
+    await expect(service.createNoteVersion('note-1', { name: 'x' })).rejects.toThrow('having trouble');
+    expect(calls).toHaveLength(1);
+  });
+
   it('retries a version read after a transient failure', async () => {
     const { calls, service } = createService([
       jsonResponse({ message: 'Unavailable' }, { status: 503, statusText: 'Service Unavailable', headers: { 'Retry-After': '0' } }),

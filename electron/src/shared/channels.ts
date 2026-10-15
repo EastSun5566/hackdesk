@@ -54,6 +54,7 @@ export const ELECTRON_CHANNELS = {
   hackmdListNoteVersions: 'hackmd:list-note-versions',
   hackmdGetNoteVersion: 'hackmd:get-note-version',
   hackmdCompareNoteVersions: 'hackmd:compare-note-versions',
+  hackmdCreateNoteVersion: 'hackmd:create-note-version',
   shellOpenExternal: 'shell:open-external',
   shellOpenHackmdEditor: 'shell:open-hackmd-editor',
   appConfirm: 'app:confirm',

@@ -1564,6 +1564,140 @@
             }
           }
         }
+      },
+      "post": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNoteVersionBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteVersionMetadata"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "No content change or version already named",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateNoteVersionConflictError"
+                },
+                "examples": {
+                  "Example 1": {
+                    "value": {
+                      "error_code": "no_content_change",
+                      "message": "Current note content has no changes to save.",
+                      "latest_version_id": "01234567-89ab-4def-8123-456789abcdef",
+                      "latest_name_source": "user"
+                    }
+                  },
+                  "Example 2": {
+                    "value": {
+                      "error_code": "version_already_named",
+                      "message": "The version already has a name.",
+                      "version_id": "01234567-89ab-4def-8123-456789abcdef",
+                      "name": "Release checkpoint"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/notes/{noteId}/versions/{versionId}": {
@@ -3600,6 +3734,40 @@
         "type": "object",
         "additionalProperties": false
       },
+      "CreateNoteVersionBody": {
+        "properties": {
+          "base": {
+            "type": "string",
+            "description": "Saved content to name. Accepts note_content or version:{id}.",
+            "default": "note_content"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "\\S"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "CreateNoteVersionConflictError": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/NoContentChangeError"
+          },
+          {
+            "$ref": "#/components/schemas/VersionAlreadyNamedError"
+          }
+        ]
+      },
       "CreateTeamFolderBody": {
         "properties": {
           "color": {
@@ -3738,6 +3906,38 @@
           "$ref": "#/components/schemas/Note"
         },
         "type": "array"
+      },
+      "NoContentChangeError": {
+        "properties": {
+          "error_code": {
+            "type": "string",
+            "enum": [
+              "no_content_change"
+            ],
+            "nullable": false
+          },
+          "message": {
+            "type": "string"
+          },
+          "latest_version_id": {
+            "type": "string"
+          },
+          "latest_name_source": {
+            "type": "string",
+            "enum": [
+              "system",
+              "user"
+            ]
+          }
+        },
+        "required": [
+          "error_code",
+          "message",
+          "latest_version_id",
+          "latest_name_source"
+        ],
+        "type": "object",
+        "additionalProperties": false
       },
       "Note": {
         "properties": {
@@ -4433,6 +4633,34 @@
           "photo",
           "teams",
           "upgraded"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "VersionAlreadyNamedError": {
+        "properties": {
+          "error_code": {
+            "type": "string",
+            "enum": [
+              "version_already_named"
+            ],
+            "nullable": false
+          },
+          "message": {
+            "type": "string"
+          },
+          "version_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error_code",
+          "message",
+          "version_id",
+          "name"
         ],
         "type": "object",
         "additionalProperties": false
