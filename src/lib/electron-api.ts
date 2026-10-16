@@ -176,6 +176,21 @@ export type CreateNoteVersionResult =
   | { status: 'no_content_change'; latestVersionId: string | null }
   | { status: 'version_already_named'; latestVersionId: string | null };
 
+/** A personal note in the HackMD trash. HackMD does not return its content. */
+export type TrashedNoteSummary = {
+  id: string;
+  title: string;
+  tags: string[];
+  deletedAtMillis: number | null;
+  /** When HackMD will delete the note for good, if it has scheduled that. */
+  permanentDeleteAtMillis: number | null;
+};
+
+export type RestoreTrashFailureReason = 'NOT_FOUND' | 'PERMISSION_DENIED' | 'INTERNAL_ERROR' | 'UNKNOWN';
+
+/** One outcome per requested note id. A batch restore can partly succeed. */
+export type RestoreTrashResult = Record<string, { status: 'success' } | { status: 'failure'; reason: RestoreTrashFailureReason }>;
+
 export type NoteVersionsQuery = {
   namedOnly?: boolean;
   page?: number;
@@ -316,6 +331,7 @@ export type ElectronActionId =
   | 'navigate-forward'
   | 'export-debug-logs'
   | 'go-history'
+  | 'show-trash'
   | 'focus-workspace'
   | 'focus-navigator'
   | 'focus-editor'
@@ -416,6 +432,8 @@ export type HackDeskElectronAPI = {
     updateTeamNote: (teamPath: string, noteId: string, input: UpdateNoteInput) => Promise<DocumentSummary>;
     deleteNote: (noteId: string) => Promise<void>;
     restoreNote: (noteId: string) => Promise<void>;
+    listTrash: (options?: HackmdRequestOptions) => Promise<TrashedNoteSummary[]>;
+    restoreNotes: (noteIds: string[]) => Promise<RestoreTrashResult>;
     deleteTeamNote: (teamPath: string, noteId: string) => Promise<void>;
     uploadNoteImage: (noteId: string, input: UploadNoteImageInput, options?: HackmdRequestOptions) => Promise<UploadNoteImageResult>;
     listNoteVersions: (noteId: string, query: NoteVersionsQuery, options?: HackmdRequestOptions) => Promise<NoteVersionPage>;

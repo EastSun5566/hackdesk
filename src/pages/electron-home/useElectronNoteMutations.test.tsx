@@ -13,6 +13,7 @@ import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { deriveDraftNoteTitle, useElectronNoteMutations } from './useElectronNoteMutations';
 import type { SettingsFormInput, WorkspaceScope } from './types';
 import { getFoldersQueryKey, getWorkspaceQueryKey } from './repository';
+import { trashKeys } from './useTrash';
 import { defaultSettings } from '@/lib/settings';
 
 vi.mock('@/components/ui/toast', () => ({
@@ -503,6 +504,23 @@ describe('useElectronNoteMutations delete undo', () => {
     expect(api.hackmd.restoreNote).toHaveBeenCalledWith('note-1');
     expect(invalidate).toHaveBeenCalledWith({ queryKey: getWorkspaceQueryKey(scope) });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['electron', 'hackmd', 'note', null, 'note-1'] });
+  });
+
+  it('refreshes the trash after deleting and after undoing a personal note delete', async () => {
+    const { Wrapper, queryClient } = createWrapper();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    const api = { hackmd: { deleteNote: vi.fn(async () => undefined), restoreNote: vi.fn(async () => undefined) } } as unknown as HackDeskElectronAPI;
+    const { result } = renderHook(useElectronNoteMutations, {
+      initialProps: createOptions({ api, scope: { type: 'personal', label: 'My Workspace' } }),
+      wrapper: Wrapper,
+    });
+
+    act(() => result.current.deleteNoteMutation.mutate(createDocument({ title: 'Plan' })));
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: trashKeys.list }));
+    invalidate.mockClear();
+    const options = vi.mocked(toast.success).mock.calls[0][1]!;
+    act(() => options.action!.onClick());
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: trashKeys.list }));
   });
 
   it('offers no undo for team notes', async () => {

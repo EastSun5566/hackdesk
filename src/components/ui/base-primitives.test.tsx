@@ -1,7 +1,8 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
 import { Button } from './button';
+import { Checkbox } from './checkbox';
 import { Field, FieldLabel, Textarea } from './field';
 import { Tabs, TabsList, TabsTrigger } from './tabs';
 
@@ -18,6 +19,26 @@ describe('Button', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('type', 'submit');
   });
 
+});
+
+describe('Checkbox', () => {
+  it('toggles, reports a mixed state and takes its name from a label', () => {
+    const onCheckedChange = vi.fn();
+    const { rerender } = render(
+      <>
+        <Checkbox aria-labelledby="all-label" indeterminate checked={false} onCheckedChange={onCheckedChange} />
+        <span id="all-label">Select all</span>
+      </>,
+    );
+
+    const checkbox = screen.getByRole('checkbox', { name: 'Select all' });
+    expect(checkbox).toHaveAttribute('aria-checked', 'mixed');
+    fireEvent.click(checkbox);
+    expect(onCheckedChange).toHaveBeenCalledWith(true, expect.anything());
+
+    rerender(<Checkbox aria-label="Select note" checked onCheckedChange={onCheckedChange} />);
+    expect(screen.getByRole('checkbox', { name: 'Select note' })).toBeChecked();
+  });
 });
 
 describe('Field', () => {

@@ -297,6 +297,8 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       updateTeamFolderOrder: vi.fn(),
       getNoteIfChanged: vi.fn(async () => null),
       restoreNote: vi.fn(async () => undefined),
+      listTrash: vi.fn(async () => []),
+      restoreNotes: vi.fn(async () => ({})),
       getNote: vi.fn(async () => ({ source: 'remote' as const, data: document })),
       createNote: vi.fn(async () => document),
       createTeamNote: vi.fn(),

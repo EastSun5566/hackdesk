@@ -12,6 +12,9 @@ import type {
   NoteVersionPage,
   NoteVersionRef,
   NoteVersionSummary,
+  RestoreTrashFailureReason,
+  RestoreTrashResult,
+  TrashedNoteSummary,
   NoteVersionsQuery,
   NotePublishType,
   NoteSummary,
@@ -406,6 +409,40 @@ export function mapNoteVersion(dto: NoteVersionDto): NoteVersionSummary {
       : null,
     contentAvailable: asBoolean(dto.content_available),
   };
+}
+
+type TrashNoteDto = {
+  id?: unknown;
+  title?: unknown;
+  tags?: unknown;
+  deletedAt?: unknown;
+  permanentDeletedAt?: unknown;
+};
+
+function mapTrashedNote(dto: TrashNoteDto): TrashedNoteSummary {
+  return {
+    id: asString(dto.id),
+    title: asString(dto.title),
+    tags: getJsonArray(dto.tags).filter((tag): tag is string => typeof tag === 'string'),
+    deletedAtMillis: parseTimestamp(dto.deletedAt),
+    permanentDeleteAtMillis: parseTimestamp(dto.permanentDeletedAt),
+  };
+}
+
+const RESTORE_FAILURE_REASONS: ReadonlySet<RestoreTrashFailureReason> = new Set(['NOT_FOUND', 'PERMISSION_DENIED', 'INTERNAL_ERROR']);
+
+/** Reads one outcome per requested id. An id HackMD leaves out counts as a failure. */
+function mapRestoreTrashResult(noteIds: string[], body: unknown): RestoreTrashResult {
+  const outcomes = body && typeof body === 'object' ? body as Record<string, unknown> : {};
+
+  return Object.fromEntries(noteIds.map((noteId) => {
+    const outcome = Object.hasOwn(outcomes, noteId) ? outcomes[noteId] as { status?: unknown; reason?: unknown } | null : null;
+    if (outcome?.status === 'success') return [noteId, { status: 'success' }];
+    const reason = RESTORE_FAILURE_REASONS.has(outcome?.reason as RestoreTrashFailureReason)
+      ? outcome!.reason as RestoreTrashFailureReason
+      : 'UNKNOWN';
+    return [noteId, { status: 'failure', reason }];
+  }));
 }
 
 function toPositiveInteger(value: unknown, fallback: number) {
@@ -994,6 +1031,25 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
       );
     },
 
+    /** Lists the personal trash. Not cached: the trash only makes sense online. */
+    async listTrash(signal?: AbortSignal): Promise<TrashedNoteSummary[]> {
+      const notes = await requestHackmd<TrashNoteDto[]>('/trash', { signal }, serviceOptions);
+      return getJsonArray(notes)
+        .map((note) => mapTrashedNote(note as TrashNoteDto))
+        .sort((left, right) => (right.deletedAtMillis ?? 0) - (left.deletedAtMillis ?? 0));
+    },
+
+    /** Restores personal notes in one request. HackMD answers 207 when only some succeed. */
+    async restoreNotes(noteIds: string[]): Promise<RestoreTrashResult> {
+      return writing(
+        (key) => isNoteDependentKey(key, null) || noteIds.some((noteId) => key === `note:${noteId}`),
+        async () => mapRestoreTrashResult(noteIds, await requestHackmd<unknown>('/trash/batch-restore', {
+          method: 'PUT',
+          body: JSON.stringify({ noteIds }),
+        }, serviceOptions)),
+      );
+    },
+
     deleteTeamNote(teamPath: string, noteId: string) {
       return writing(
         (key) => isNoteDependentKey(key, teamPath, noteId),
@@ -1153,6 +1209,8 @@ export const getTeamFolderOrder = defaultHackmdService.getTeamFolderOrder;
 export const getNote = defaultHackmdService.getNote;
 export const getNoteIfChanged = defaultHackmdService.getNoteIfChanged;
 export const restoreNote = defaultHackmdService.restoreNote;
+export const listTrash = defaultHackmdService.listTrash;
+export const restoreNotes = defaultHackmdService.restoreNotes;
 export const createNote = defaultHackmdService.createNote;
 export const createTeamNote = defaultHackmdService.createTeamNote;
 export const createFolder = defaultHackmdService.createFolder;

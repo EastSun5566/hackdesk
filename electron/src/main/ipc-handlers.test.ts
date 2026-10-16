@@ -25,6 +25,8 @@ const settingsMock = vi.hoisted(() => ({
 const hackmdServiceMock = vi.hoisted(() => ({
   getNoteIfChanged: vi.fn(),
   restoreNote: vi.fn(),
+  listTrash: vi.fn(),
+  restoreNotes: vi.fn(),
   listNoteVersions: vi.fn(),
   getNoteVersion: vi.fn(),
   compareNoteVersions: vi.fn(),
@@ -130,6 +132,8 @@ vi.mock('./hackmd-service', () => ({
   listTeamNotes: vi.fn(),
   listTeams: vi.fn(),
   restoreNote: hackmdServiceMock.restoreNote,
+  listTrash: hackmdServiceMock.listTrash,
+  restoreNotes: hackmdServiceMock.restoreNotes,
   listNoteVersions: hackmdServiceMock.listNoteVersions,
   getNoteVersion: hackmdServiceMock.getNoteVersion,
   compareNoteVersions: hackmdServiceMock.compareNoteVersions,
@@ -413,6 +417,24 @@ describe('registerIpcHandlers', () => {
     expect(hackmdServiceMock.restoreNote).toHaveBeenCalledWith('note-1');
     expect(() => ipcHandlers.get(ELECTRON_CHANNELS.hackmdGetNoteIfChanged)?.({}, 'note-1', null, '')).toThrow();
     expect(() => ipcHandlers.get(ELECTRON_CHANNELS.hackmdRestoreNote)?.({}, '')).toThrow();
+  });
+
+  it('lists the trash and bounds a batch restore before calling HackMD', () => {
+    registerIpcHandlers(windowManager);
+    const list = ipcHandlers.get(ELECTRON_CHANNELS.hackmdListTrash);
+    const restore = ipcHandlers.get(ELECTRON_CHANNELS.hackmdRestoreNotes);
+
+    list?.({});
+    restore?.({}, [' note-1 ', 'note-2']);
+
+    expect(hackmdServiceMock.listTrash).toHaveBeenCalledWith();
+    expect(hackmdServiceMock.restoreNotes).toHaveBeenCalledWith(['note-1', 'note-2']);
+    expect(() => restore?.({}, [])).toThrow();
+    expect(() => restore?.({}, ['note-1', ''])).toThrow();
+    expect(() => restore?.({}, [1])).toThrow();
+    expect(() => restore?.({}, 'note-1')).toThrow();
+    expect(() => restore?.({}, Array.from({ length: 101 }, (_, index) => `note-${index}`))).toThrow();
+    expect(() => list?.({}, { requestId: 'invalid' })).toThrow(/Invalid/);
   });
 
   it('validates version history reads before calling HackMD', () => {

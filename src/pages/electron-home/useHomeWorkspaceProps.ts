@@ -54,6 +54,7 @@ type WorkspaceActions = {
   openQuickOpen: () => void;
   setFinderState: Dispatch<SetStateAction<NoteFinderState>>;
   setShareOpen: (open: boolean) => void;
+  setTrashOpen: (open: boolean) => void;
   setVersionsOpen: (open: boolean) => void;
   switchWorkspaceScope: (scope: WorkspaceScope) => void;
 };
@@ -191,6 +192,8 @@ export function useHomeWorkspaceProps({
       },
       onScopeChange: actions.switchWorkspaceScope,
       onOpenSettings: () => setSettingsOpen(true),
+      // The trash lives on HackMD, so it is offered only once a token is set.
+      onOpenTrash: settings?.hasHackmdApiToken ? () => actions.setTrashOpen(true) : undefined,
       onPinnedTeamIdsChange: (pinnedTeamIds) => {
         mutations.updateSettingsMutation.mutate({
           title: settings?.title ?? defaultSettings.title,

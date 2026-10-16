@@ -275,6 +275,7 @@ const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'navigate-back': <ArrowLeft className="h-4 w-4" />,
   'navigate-forward': <ArrowRight className="h-4 w-4" />,
   'go-history': <History className="h-4 w-4" />,
+  'show-trash': <Trash2 className="h-4 w-4" />,
   'export-debug-logs': <FileArchive className="h-4 w-4" />,
   'focus-workspace': <PanelLeft className="h-4 w-4" />,
   'focus-navigator': <FolderTree className="h-4 w-4" />,

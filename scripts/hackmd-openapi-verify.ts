@@ -16,6 +16,8 @@ type OpenApiSchema = JsonRecord & {
   oneOf?: OpenApiSchema[];
   allOf?: OpenApiSchema[];
   enum?: unknown[];
+  items?: OpenApiSchema;
+  additionalProperties?: OpenApiSchema | boolean;
 };
 
 type OpenApiResponse = JsonRecord & {
@@ -52,7 +54,7 @@ export type OpenApiContract = JsonRecord & {
   };
 };
 
-/** Success statuses the HackMD service handles. 207 is a partial note create. */
+/** Success statuses the HackMD service handles. 207 is a partial note create or trash restore. */
 const HANDLED_SUCCESS_STATUSES = new Set(['200', '201', '202', '204', '207']);
 
 const REQUIRED_OPERATIONS: Array<readonly [string, string]> = [
@@ -64,6 +66,8 @@ const REQUIRED_OPERATIONS: Array<readonly [string, string]> = [
   ['PATCH', '/notes/{noteId}'],
   ['DELETE', '/notes/{noteId}'],
   ['PUT', '/trash/{noteId}/restore'],
+  ['GET', '/trash'],
+  ['PUT', '/trash/batch-restore'],
   ['GET', '/notes/{noteId}/versions'],
   ['POST', '/notes/{noteId}/versions'],
   ['GET', '/notes/{noteId}/versions/{versionId}'],
@@ -204,6 +208,10 @@ function resolveRef(contract: OpenApiContract, ref: string): OpenApiSchema | nul
   return asSchema(current);
 }
 
+function resolveSchema(contract: OpenApiContract, schema: OpenApiSchema | null): OpenApiSchema | null {
+  return schema?.$ref ? resolveRef(contract, schema.$ref) : schema;
+}
+
 function schemaContainsProperty(
   contract: OpenApiContract,
   schema: OpenApiSchema | null,
@@ -283,7 +291,7 @@ export function verifyHackmdOpenApiContract(contract: OpenApiContract): void {
 
   for (const [method, path] of REQUIRED_OPERATIONS.filter(([method]) => ['POST', 'PATCH', 'PUT'].includes(method))) {
     const operation = getOperation(contract, method, path);
-    if (path.endsWith('/restore')) {
+    if (path.endsWith('/{noteId}/restore')) {
       // Restoring from the trash takes no body.
       continue;
     }
@@ -314,7 +322,11 @@ export function verifyHackmdOpenApiContract(contract: OpenApiContract): void {
     for (const [status, response] of Object.entries(operation?.responses ?? {})) {
       if (status.startsWith('2')) {
         assert(HANDLED_SUCCESS_STATUSES.has(status), `Unhandled success status ${status} on ${method} ${path}.`, failures);
-        assert(status !== '207' || path.endsWith('/notes'), `Unexpected partial success on ${method} ${path}.`, failures);
+        assert(
+          status !== '207' || path.endsWith('/notes') || path === '/trash/batch-restore',
+          `Unexpected partial success on ${method} ${path}.`,
+          failures,
+        );
         continue;
       }
 
@@ -397,6 +409,25 @@ export function verifyHackmdOpenApiContract(contract: OpenApiContract): void {
       `Version compare missing the ${name} query parameter.`,
       failures,
     );
+  }
+
+  // The trash dialog reads these fields of each trashed note.
+  const trashNote = getResponseSchema(getOperation(contract, 'GET', '/trash'), '200')?.items ?? null;
+  for (const propertyName of ['id', 'title', 'deletedAt', 'permanentDeletedAt']) {
+    assert(schemaContainsProperty(contract, trashNote, propertyName), `GET /trash item missing ${propertyName}.`, failures);
+  }
+  // Batch restore answers with one outcome per note id, keyed by the id.
+  const batchRestore = getOperation(contract, 'PUT', '/trash/batch-restore');
+  assert(schemaContainsProperty(contract, getJsonSchema(batchRestore), 'noteIds'), 'Batch restore body missing noteIds.', failures);
+  for (const status of ['200', '207']) {
+    const outcomes = resolveSchema(contract, getResponseSchema(batchRestore, status))?.additionalProperties;
+    for (const propertyName of ['status', 'reason']) {
+      assert(
+        schemaContainsProperty(contract, asSchema(outcomes), propertyName),
+        `Batch restore ${status} outcome missing ${propertyName}.`,
+        failures,
+      );
+    }
   }
 
   const permissionEnum = contract.components?.schemas?.NotePermissionRole?.enum ?? [];

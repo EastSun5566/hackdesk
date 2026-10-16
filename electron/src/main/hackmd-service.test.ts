@@ -533,6 +533,64 @@ describe('hackmd-service request mapping', () => {
     expect(calls[0].init.method).toBe('PUT');
   });
 
+  it('lists the trash newest first with seconds and nullable removal dates', async () => {
+    const { calls, service } = createService([jsonResponse([
+      { id: 'old', title: 'Old', tags: ['a', 1], deletedAt: 1_760_000_000, ownerId: 'u', teamId: null, shortId: 's1', publishType: 'edit', permanentDeletedAt: 1_762_592_000 },
+      { id: 'new', title: '', tags: [], deletedAt: 1_760_500_000_000, ownerId: 'u', teamId: null, shortId: 's2', publishType: 'view', permanentDeletedAt: null },
+    ])]);
+
+    await expect(service.listTrash()).resolves.toEqual([
+      { id: 'new', title: '', tags: [], deletedAtMillis: 1_760_500_000_000, permanentDeleteAtMillis: null },
+      { id: 'old', title: 'Old', tags: ['a'], deletedAtMillis: 1_760_000_000_000, permanentDeleteAtMillis: 1_762_592_000_000 },
+    ]);
+    expect(calls[0].url).toBe('https://api.test/v1/trash');
+  });
+
+  it('restores notes in one batch and reads a 207 partial result', async () => {
+    const { calls, service } = createService([jsonResponse({
+      'note-1': { status: 'success' },
+      'note-2': { status: 'failure', reason: 'NOT_FOUND' },
+      'note-3': { status: 'failure', reason: 'SOMETHING_NEW' },
+      extra: { status: 'success' },
+    }, { status: 207 })]);
+
+    await expect(service.restoreNotes(['note-1', 'note-2', 'note-3', 'note-4'])).resolves.toEqual({
+      'note-1': { status: 'success' },
+      'note-2': { status: 'failure', reason: 'NOT_FOUND' },
+      'note-3': { status: 'failure', reason: 'UNKNOWN' },
+      'note-4': { status: 'failure', reason: 'UNKNOWN' },
+    });
+    expect(calls[0].url).toBe('https://api.test/v1/trash/batch-restore');
+    expect(calls[0].init.method).toBe('PUT');
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ noteIds: ['note-1', 'note-2', 'note-3', 'note-4'] });
+  });
+
+  it('does not retry a failed batch restore', async () => {
+    const { calls, service } = createService([
+      jsonResponse({ message: 'Unavailable' }, { status: 503, statusText: 'Service Unavailable' }),
+    ]);
+
+    await expect(service.restoreNotes(['note-1'])).rejects.toThrow('having trouble');
+    expect(calls).toHaveLength(1);
+  });
+
+  it('drops cached notes and the restored note after a batch restore', async () => {
+    const failure = () => jsonResponse({ message: 'Bad' }, { status: 400, statusText: 'Bad Request' });
+    const { service } = createService([
+      jsonResponse([{ id: 'kept', title: 'Kept' }]),
+      jsonResponse({ id: 'note-1', title: 'Gone', content: 'Body' }),
+      jsonResponse({ 'note-1': { status: 'success' } }),
+      failure(),
+      failure(),
+    ]);
+
+    await service.listNotes();
+    await service.getNote('note-1');
+    await service.restoreNotes(['note-1']);
+    expect(await service.listNotes()).toEqual({ source: 'error', error: expect.any(String) });
+    expect(await service.getNote('note-1')).toEqual({ source: 'error', error: expect.any(String) });
+  });
+
   it('returns the created note from a 207 partial create', async () => {
     const { service } = createService([
       jsonResponse({ note: { id: 'partial', title: 'Partial', content: '' }, error: 'Folder not found' }, { status: 207 }),

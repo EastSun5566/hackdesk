@@ -58,6 +58,8 @@ import {
   listTeamNotes,
   listTeams,
   restoreNote,
+  listTrash,
+  restoreNotes,
   updateFolder,
   updateFolderOrder,
   updateNote,
@@ -130,6 +132,7 @@ import {
   uploadNoteImageInputSchema,
   noteVersionRefSchema,
   createNoteVersionInputSchema,
+  restoreNotesInputSchema,
   noteVersionsQuerySchema,
   hackmdRequestOptionsSchema,
   validateIpcInput,
@@ -478,6 +481,10 @@ export function registerIpcHandlers(
   ));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdRestoreNote, (_event, noteId: string) => (
     restoreNote(validateNonEmptyString(ELECTRON_CHANNELS.hackmdRestoreNote, noteId))
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdListTrash, (event, options?: HackmdRequestOptions) => runRequest(event, options, listTrash, []));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdRestoreNotes, (_event, noteIds: string[]) => (
+    restoreNotes(validateIpcInput(ELECTRON_CHANNELS.hackmdRestoreNotes, restoreNotesInputSchema, noteIds))
   ));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdDeleteTeamNote, (_event, teamPath: string, noteId: string) => (
     deleteTeamNote(

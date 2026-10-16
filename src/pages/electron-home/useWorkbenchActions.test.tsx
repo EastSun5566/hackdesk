@@ -75,6 +75,7 @@ function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): Workb
     openQuickOpen: vi.fn(),
     openSelectedWebEditor: vi.fn(),
     showNoteVersions: vi.fn(),
+    showTrash: vi.fn(),
     openSettings: vi.fn(),
     refreshWorkspace: vi.fn(),
     renameSelectedFolder: vi.fn(),
@@ -148,6 +149,15 @@ describe('useWorkbenchActions', () => {
 
     expect(handlers.openPalette).toHaveBeenCalledOnce();
     expect(handlers.openQuickOpen).toHaveBeenCalledOnce();
+  });
+
+  it('routes show-trash to the trash handler', () => {
+    const handlers = createHandlers();
+    const { result } = renderHook(() => useWorkbenchActions(createOptions({ handlers })));
+
+    result.current.runAction('show-trash');
+
+    expect(handlers.showTrash).toHaveBeenCalledOnce();
   });
 
   it('routes attach-image to the attachment handler', () => {
