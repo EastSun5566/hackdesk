@@ -310,6 +310,9 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
         throw new Error('Unexpected version read.');
       }),
       compareNoteVersions: vi.fn(async () => ({ unifiedDiff: '' })),
+      createNoteVersion: vi.fn(async () => {
+        throw new Error('Unexpected version write.');
+      }),
     },
     localVault: {
       choose: vi.fn(async () => ({ canceled: true })),

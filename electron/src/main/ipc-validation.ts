@@ -339,6 +339,12 @@ export const noteVersionsQuerySchema = z.strictObject({
 /** `note_content` or `version:{id}`, the two references the HackMD compare endpoint accepts. */
 export const noteVersionRefSchema = z.string().regex(/^(?:note_content|version:[^\s/?#&]+)$/);
 
+/** HackMD limits a version name to 80 characters and its description to 500. */
+export const createNoteVersionInputSchema = z.strictObject({
+  name: z.string().trim().min(1).max(80),
+  description: z.string().trim().max(500).optional(),
+});
+
 export const hackmdRequestOptionsSchema = z.strictObject({ requestId: z.uuid() }).optional();
 
 export const openHackmdEditorInputSchema = z.strictObject({

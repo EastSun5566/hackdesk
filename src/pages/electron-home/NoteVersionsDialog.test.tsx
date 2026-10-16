@@ -152,10 +152,46 @@ describe('NoteVersionsDialog', () => {
     expect(await screen.findByText('content of v-2')).toBeInTheDocument();
   });
 
+  it('saves the current content as a named version and selects it', async () => {
+    const saved = version({ id: 'v-3', name: 'Launch', nameSource: 'user' });
+    const { hackmd } = installApi({ createNoteVersion: vi.fn(async () => ({ status: 'created' as const, version: saved })) });
+    renderDialog();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Save Version…' }));
+    const form = screen.getByRole('form', { name: 'Save version' });
+    const submit = within(form).getByRole('button', { name: 'Save Version' });
+    expect(submit).toBeDisabled();
+    fireEvent.change(within(form).getByLabelText('Name'), { target: { value: '  Launch  ' } });
+    fireEvent.change(within(form).getByLabelText('Description'), { target: { value: 'Shipped' } });
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(hackmd.createNoteVersion).toHaveBeenCalledWith('note-1', { name: 'Launch', description: 'Shipped' }));
+    await waitFor(() => expect(screen.queryByRole('form', { name: 'Save version' })).not.toBeInTheDocument());
+    // The list refetches after the save.
+    await waitFor(() => expect(hackmd.listNoteVersions).toHaveBeenCalledTimes(2));
+  });
+
+  it.each([
+    ['no_content_change', /nothing new to save/],
+    ['version_already_named', /already has a name/],
+  ] as const)('explains a %s conflict and keeps the form open', async (status, message) => {
+    installApi({ createNoteVersion: vi.fn(async () => ({ status, latestVersionId: 'v-2' })) });
+    renderDialog({ noteDirty: true });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Save Version…' }));
+    const form = screen.getByRole('form', { name: 'Save version' });
+    expect(within(form).getByText(/Unsaved edits are not included/)).toBeInTheDocument();
+    fireEvent.change(within(form).getByLabelText('Name'), { target: { value: 'Again' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Save Version' }));
+
+    expect(await within(form).findByRole('status')).toHaveTextContent(message);
+  });
+
   it('says when HackMD does not offer history for the note', async () => {
     installApi({ listNoteVersions: vi.fn(async () => { throw new Error(HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE); }) });
     renderDialog();
 
     expect(await screen.findByText(HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save Version…' })).not.toBeInTheDocument();
   });
 });

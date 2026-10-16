@@ -65,6 +65,7 @@ const REQUIRED_OPERATIONS: Array<readonly [string, string]> = [
   ['DELETE', '/notes/{noteId}'],
   ['PUT', '/trash/{noteId}/restore'],
   ['GET', '/notes/{noteId}/versions'],
+  ['POST', '/notes/{noteId}/versions'],
   ['GET', '/notes/{noteId}/versions/{versionId}'],
   ['GET', '/notes/{noteId}/versions/compare'],
   ['POST', '/notes/{noteId}/images'],
@@ -373,6 +374,17 @@ export function verifyHackmdOpenApiContract(contract: OpenApiContract): void {
       failures,
     );
   }
+  // Saving a version reads these 409 codes and the version it returns.
+  const createVersion = getOperation(contract, 'POST', '/notes/{noteId}/versions');
+  assert(schemaContainsProperty(contract, getResponseSchema(createVersion, '201'), 'id'), 'Create version response missing id.', failures);
+  const createConflict = getResponseSchema(createVersion, '409');
+  for (const propertyName of ['error_code', 'latest_version_id', 'version_id']) {
+    assert(schemaContainsProperty(contract, createConflict, propertyName), `Create version 409 missing ${propertyName}.`, failures);
+  }
+  for (const propertyName of ['name', 'description', 'base']) {
+    assert(schemaContainsProperty(contract, getJsonSchema(createVersion), propertyName), `Create version body missing ${propertyName}.`, failures);
+  }
+
   const compareOperation = getOperation(contract, 'GET', '/notes/{noteId}/versions/compare');
   assert(
     schemaContainsProperty(contract, getResponseSchema(compareOperation, '200'), 'unified_diff'),

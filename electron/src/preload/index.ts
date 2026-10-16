@@ -21,6 +21,7 @@ import type {
   UploadNoteImageInput,
   NoteVersionRef,
   NoteVersionsQuery,
+  CreateNoteVersionInput,
   WindowPresentationState,
 } from '../../../src/lib/electron-api';
 import type {
@@ -111,6 +112,9 @@ const api: HackDeskElectronAPI = {
     ),
     getNoteVersion: (noteId: string, versionId: string, options?: HackmdRequestOptions) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetNoteVersion, noteId, versionId, options)
+    ),
+    createNoteVersion: (noteId: string, input: CreateNoteVersionInput) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdCreateNoteVersion, noteId, input)
     ),
     compareNoteVersions: (noteId: string, base: NoteVersionRef, target: NoteVersionRef, options?: HackmdRequestOptions) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdCompareNoteVersions, noteId, base, target, options)

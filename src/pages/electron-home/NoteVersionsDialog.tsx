@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { FilePlus, History, Loader2, RotateCcw } from 'lucide-react';
+import { BookmarkPlus, FilePlus, History, Loader2, RotateCcw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -14,6 +14,7 @@ import {
   getVersionTitle,
   NoteVersionList,
 } from './NoteVersionList';
+import { SaveVersionForm } from './SaveVersionForm';
 import { formatDate } from './ui';
 import { UnifiedDiffView } from './UnifiedDiffView';
 import {
@@ -141,6 +142,7 @@ function NoteVersionsBody({
   const [namedOnly, setNamedOnly] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<VersionTab>('changes');
+  const [savingVersion, setSavingVersion] = useState(false);
   const list = useNoteVersionList(document.id, namedOnly);
   const versions = useMemo(() => list.data?.pages.flatMap((page) => page.versions) ?? [], [list.data]);
   // Until something is picked, show the newest saved version.
@@ -171,20 +173,45 @@ function NoteVersionsBody({
   };
 
   const listError = list.isError ? getVersionErrorMessage(list.error) : null;
+  const versionsUnavailable = !!listError && isNoteVersionsUnavailableError(listError);
+
+  const handleVersionSaved = (version: NoteVersionSummary) => {
+    setSavingVersion(false);
+    setSelectedId(version.id);
+    setTab('changes');
+    toast.success(`Saved version “${getVersionTitle(version)}”.`);
+  };
 
   return (
     <>
-      <DialogHeader className="shrink-0 border-b border-border-default px-5 py-4">
-        <DialogTitle className="flex items-center gap-2">
-          <History aria-hidden="true" className="size-4" />
-          Version History
-        </DialogTitle>
-        <DialogDescription className="truncate">{document.title || 'Untitled'}</DialogDescription>
-      </DialogHeader>
+      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border-default py-4 pl-5 pr-14">
+        <DialogHeader className="min-w-0">
+          <DialogTitle className="flex items-center gap-2">
+            <History aria-hidden="true" className="size-4" />
+            Version History
+          </DialogTitle>
+          <DialogDescription className="truncate">{document.title || 'Untitled'}</DialogDescription>
+        </DialogHeader>
+        {versionsUnavailable || savingVersion ? null : (
+          <Button size="sm" variant="secondary" onClick={() => setSavingVersion(true)}>
+            <BookmarkPlus aria-hidden="true" className="size-4" />
+            Save Version…
+          </Button>
+        )}
+      </div>
+
+      {savingVersion ? (
+        <SaveVersionForm
+          noteId={document.id}
+          noteDirty={noteDirty}
+          onSaved={handleVersionSaved}
+          onCancel={() => setSavingVersion(false)}
+        />
+      ) : null}
 
       {listError ? (
         <StatusMessage>
-          {isNoteVersionsUnavailableError(listError) ? listError : `Could not load version history. ${listError}`}
+          {versionsUnavailable ? listError : `Could not load version history. ${listError}`}
         </StatusMessage>
       ) : list.isPending ? (
         <StatusMessage busy>Loading versions…</StatusMessage>

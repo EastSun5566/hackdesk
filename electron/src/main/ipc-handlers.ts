@@ -16,6 +16,7 @@ import type {
   UploadNoteImageInput,
   NoteVersionRef,
   NoteVersionsQuery,
+  CreateNoteVersionInput,
   HackmdRequestOptions,
 } from '../../../src/lib/electron-api';
 import type {
@@ -67,6 +68,7 @@ import {
   listNoteVersions,
   getNoteVersion,
   compareNoteVersions,
+  createNoteVersion,
   validateToken,
   clearHackmdCache,
 } from './hackmd-service';
@@ -127,6 +129,7 @@ import {
   updateNoteInputSchema,
   uploadNoteImageInputSchema,
   noteVersionRefSchema,
+  createNoteVersionInputSchema,
   noteVersionsQuerySchema,
   hackmdRequestOptionsSchema,
   validateIpcInput,
@@ -510,6 +513,12 @@ export function registerIpcHandlers(
       ])
     ),
   );
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdCreateNoteVersion, (_event, noteId: string, input: CreateNoteVersionInput) => (
+    createNoteVersion(
+      validateNonEmptyString(ELECTRON_CHANNELS.hackmdCreateNoteVersion, noteId),
+      validateIpcInput(ELECTRON_CHANNELS.hackmdCreateNoteVersion, createNoteVersionInputSchema, input),
+    )
+  ));
   ipcMain.handle(ELECTRON_CHANNELS.shellOpenExternal, (_event, url: string) => (
     openExternalUrl(validateNonEmptyString(ELECTRON_CHANNELS.shellOpenExternal, url))
   ));

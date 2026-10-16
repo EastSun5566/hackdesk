@@ -1,6 +1,6 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getHackDeskAPI, type NoteVersionPage } from '@/lib/electron-api';
+import { getHackDeskAPI, type CreateNoteVersionInput, type NoteVersionPage } from '@/lib/electron-api';
 import { runHackmdRequest } from '@/lib/hackmd-requests';
 import { isNoteVersionsUnavailableError, stripIpcErrorPrefix } from '@/lib/note-errors';
 
@@ -79,5 +79,17 @@ export function useNoteVersionDiff(noteId: string, versionId: string | null, ena
       return runHackmdRequest(hackmd, signal, hackmd.compareNoteVersions, [noteId, `version:${versionId!}`, 'note_content']);
     },
     retry: retryUnlessUnavailable,
+  });
+}
+
+export function useCreateNoteVersion(noteId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateNoteVersionInput) => requireApi().createNoteVersion(noteId, input),
+    onSuccess: (result) => {
+      if (result.status === 'created') {
+        void queryClient.invalidateQueries({ queryKey: noteVersionsKeys.all(noteId) });
+      }
+    },
   });
 }

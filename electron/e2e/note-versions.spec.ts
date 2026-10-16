@@ -8,7 +8,7 @@ import { definedEnvironment } from './fixtures/environment';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 
-type Fixture = { savedContent: string[]; compares: string[][] };
+type Fixture = { savedContent: string[]; compares: string[][]; createdVersions: unknown[] };
 
 async function launchWithVersionedNote() {
   const home = await mkdtemp(join(tmpdir(), 'hackdesk-note-versions-'));
@@ -33,7 +33,11 @@ async function launchWithVersionedNote() {
       lastChangeUser: null, publishedAtMillis: null, publishType: 'edit', tagsUpdatedAtMillis: null,
       titleUpdatedAtMillis: null, userPath: null, etag: 'W/"1"',
     };
-    const versions = [
+    type FixtureVersion = {
+      id: string; name: string; nameSource: string; description: string | null; createdAtMillis: number;
+      createdBy: { userId: string; displayName: string; photo: null } | null; contentAvailable: boolean;
+    };
+    const versions: FixtureVersion[] = [
       {
         id: 'v-2', name: 'Before launch', nameSource: 'user', description: 'Plan agreed with the team.',
         createdAtMillis: Date.UTC(2026, 9, 14, 10, 30), createdBy: { userId: 'u-1', displayName: 'Ada', photo: null }, contentAvailable: true,
@@ -47,7 +51,7 @@ async function launchWithVersionedNote() {
       'v-2': '# Roadmap\n\nShip v2 in October.\n',
       'v-1': '# Roadmap\n',
     };
-    const fixture = { savedContent: [] as string[], compares: [] as string[][] };
+    const fixture = { savedContent: [] as string[], compares: [] as string[][], createdVersions: [] as unknown[] };
     (globalThis as { versionsFixture?: typeof fixture }).versionsFixture = fixture;
     replace(channels.settingsGet, () => ({
       ...settings, hasHackmdApiToken: true, hasAppearanceSettings: true,
@@ -70,6 +74,19 @@ async function launchWithVersionedNote() {
       return { ...note };
     });
     replace(channels.hackmdListNoteVersions, () => ({ versions, page: 1, totalPages: 1, total: versions.length }));
+    replace(channels.hackmdCreateNoteVersion, (_event, _noteId: string, input: { name: string; description?: string }) => {
+      fixture.createdVersions.push(input);
+      if (fixture.createdVersions.length > 1) {
+        return { status: 'no_content_change', latestVersionId: 'v-3' };
+      }
+      const version = {
+        id: 'v-3', name: input.name, nameSource: 'user', description: input.description ?? null,
+        createdAtMillis: Date.UTC(2026, 9, 15, 7), createdBy: { userId: 'fixture-user', displayName: 'Fixture', photo: null }, contentAvailable: true,
+      };
+      versions.unshift(version);
+      contents['v-3'] = note.content;
+      return { status: 'created', version };
+    });
     replace(channels.hackmdGetNoteVersion, (_event, _noteId: string, versionId: string) => ({
       ...versions.find((version) => version.id === versionId), content: contents[versionId],
     }));
@@ -118,6 +135,35 @@ test('compares a saved version and restores it into the editor', async () => {
 
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect.poll(async () => (await readFixture(app)).savedContent).toEqual(['# Roadmap\n\nShip v2 in October.\n']);
+  } finally {
+    app.process().kill('SIGKILL');
+  }
+});
+
+test('saves the current content as a named version', async () => {
+  const { app, page } = await launchWithVersionedNote();
+  try {
+    await expect(page.locator('.cm-content')).toContainText('Ship v2 in November.');
+    await page.getByRole('button', { name: 'More actions' }).click();
+    await page.getByRole('menuitem', { name: /Version History/ }).click();
+    const dialog = page.getByRole('dialog', { name: 'Version History' });
+
+    await dialog.getByRole('button', { name: 'Save Version…' }).click();
+    const form = dialog.getByRole('form', { name: 'Save version' });
+    await form.getByLabel('Name').fill('Launch plan');
+    await form.getByRole('button', { name: 'Save Version' }).click();
+
+    await expect(form).toHaveCount(0);
+    const rows = dialog.getByRole('list', { name: 'Versions' }).getByRole('button');
+    await expect(rows.nth(1)).toHaveText(/Launch plan.*Fixture/);
+    await expect(rows.nth(1)).toHaveAttribute('aria-current', 'true');
+
+    // Saving again without changes is explained instead of failing.
+    await dialog.getByRole('button', { name: 'Save Version…' }).click();
+    await form.getByLabel('Name').fill('Launch plan again');
+    await form.getByRole('button', { name: 'Save Version' }).click();
+    await expect(form.getByRole('status')).toContainText('nothing new to save');
+    expect((await readFixture(app)).createdVersions).toEqual([{ name: 'Launch plan' }, { name: 'Launch plan again' }]);
   } finally {
     app.process().kill('SIGKILL');
   }

@@ -430,6 +430,18 @@ describe('useElectronNoteMutations remote save with an ETag', () => {
     expect(api.hackmd.getNote).not.toHaveBeenCalled();
   });
 
+  it('refreshes open version history after a save', async () => {
+    const { api, queryClient, save } = setup(createDocument({ content: 'Base', etag: 'W/"1"' }), null);
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    save('Base');
+
+    await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalled());
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ['electron', 'hackmd', 'note-versions', 'note-1'],
+      refetchType: 'active',
+    }));
+  });
+
   it('saves when only metadata changed on HackMD', async () => {
     const { api, save } = setup(createDocument({ content: 'Base', etag: 'W/"1"' }), createDocument({ title: 'Renamed', content: 'Base', etag: 'W/"2"' }));
     save('Base');

@@ -162,6 +162,20 @@ export type NoteVersionPage = {
 /** The live note, or a saved version. */
 export type NoteVersionRef = 'note_content' | `version:${string}`;
 
+export type CreateNoteVersionInput = {
+  name: string;
+  description?: string;
+};
+
+/**
+ * HackMD answers 409 when there is nothing new to name, so those cases come
+ * back as results the UI can explain instead of as errors.
+ */
+export type CreateNoteVersionResult =
+  | { status: 'created'; version: NoteVersionSummary }
+  | { status: 'no_content_change'; latestVersionId: string | null }
+  | { status: 'version_already_named'; latestVersionId: string | null };
+
 export type NoteVersionsQuery = {
   namedOnly?: boolean;
   page?: number;
@@ -406,6 +420,7 @@ export type HackDeskElectronAPI = {
     uploadNoteImage: (noteId: string, input: UploadNoteImageInput, options?: HackmdRequestOptions) => Promise<UploadNoteImageResult>;
     listNoteVersions: (noteId: string, query: NoteVersionsQuery, options?: HackmdRequestOptions) => Promise<NoteVersionPage>;
     getNoteVersion: (noteId: string, versionId: string, options?: HackmdRequestOptions) => Promise<NoteVersionDetail>;
+    createNoteVersion: (noteId: string, input: CreateNoteVersionInput) => Promise<CreateNoteVersionResult>;
     compareNoteVersions: (
       noteId: string,
       base: NoteVersionRef,

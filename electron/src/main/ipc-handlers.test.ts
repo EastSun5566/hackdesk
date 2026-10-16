@@ -28,6 +28,7 @@ const hackmdServiceMock = vi.hoisted(() => ({
   listNoteVersions: vi.fn(),
   getNoteVersion: vi.fn(),
   compareNoteVersions: vi.fn(),
+  createNoteVersion: vi.fn(),
   validateToken: vi.fn(async () => ({
     id: 'user-1',
     email: 'michael@example.com',
@@ -132,6 +133,7 @@ vi.mock('./hackmd-service', () => ({
   listNoteVersions: hackmdServiceMock.listNoteVersions,
   getNoteVersion: hackmdServiceMock.getNoteVersion,
   compareNoteVersions: hackmdServiceMock.compareNoteVersions,
+  createNoteVersion: hackmdServiceMock.createNoteVersion,
   updateFolder: vi.fn(),
   updateFolderOrder: vi.fn(),
   updateNote: vi.fn(),
@@ -432,6 +434,19 @@ describe('registerIpcHandlers', () => {
     expect(() => compare?.({}, 'note-1', 'version:v-1&target=x', 'note_content')).toThrow();
     expect(() => compare?.({}, 'note-1', 'HEAD', 'note_content')).toThrow();
     expect(() => read?.({}, 'note-1', '')).toThrow();
+  });
+
+  it('trims and bounds a new version name before calling HackMD', () => {
+    registerIpcHandlers(windowManager);
+    const create = ipcHandlers.get(ELECTRON_CHANNELS.hackmdCreateNoteVersion);
+
+    create?.({}, 'note-1', { name: '  Before launch  ', description: ' Ready ' });
+
+    expect(hackmdServiceMock.createNoteVersion).toHaveBeenCalledWith('note-1', { name: 'Before launch', description: 'Ready' });
+    expect(() => create?.({}, 'note-1', { name: '   ' })).toThrow();
+    expect(() => create?.({}, 'note-1', { name: 'x'.repeat(81) })).toThrow();
+    expect(() => create?.({}, 'note-1', { name: 'ok', description: 'x'.repeat(501) })).toThrow();
+    expect(() => create?.({}, 'note-1', { name: 'ok', base: 'version:v-1' })).toThrow();
   });
 
   it('validates and forwards quick capture submissions', () => {
