@@ -58,6 +58,20 @@ describe('Claude CLI provider', () => {
     expect(parseClaudeCatalog('not json')).toBeNull();
   });
 
+  it('takes the versioned name from the description an API-key sign-in sends', () => {
+    const output = JSON.stringify({ type: 'control_response', response: { response: { models: [
+      { value: 'sonnet', displayName: 'Sonnet', description: 'Sonnet 5.5 · Efficient for routine tasks · $2/$10 per Mtok', resolvedModel: 's' },
+      { value: 'opus', displayName: 'Opus 5.5', description: 'Best for everyday, complex tasks', resolvedModel: 'o' },
+      { value: 'bare', resolvedModel: 'b' },
+    ] } } });
+    expect(parseClaudeCatalog(output)?.models.map(model => model.label)).toEqual(['Sonnet 5.5', 'Opus 5.5', 'bare']);
+  });
+
+  it('names an exported API key as the plan when the account has none', async () => {
+    const fake = await createFakeCli('claude', { FAKE_NO_ACCOUNT: '1', ANTHROPIC_API_KEY: 'test-key-not-real' });
+    expect(await claudeProvider.probe(fake.launch)).toMatchObject({ phase: 'ready', plan: 'API key (ANTHROPIC_API_KEY)' });
+  });
+
   it('probes version, sign-in and models without sending a prompt', async () => {
     const fake = await createFakeCli('claude');
     const status = await claudeProvider.probe(fake.launch);

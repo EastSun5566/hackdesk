@@ -83,6 +83,16 @@ function planLabel(account: JsonObject | null) {
   return `Claude ${tier.charAt(0).toUpperCase()}${tier.slice(1)}`;
 }
 
+/**
+ * Signed in with an API key, `displayName` is only the family ("Sonnet") while `description`
+ * starts with the versioned name ("Sonnet 5.5 · Efficient for routine tasks"); prefer that part.
+ */
+function claudeModelLabel(entry: JsonObject, id: string) {
+  const description = asString(entry.description);
+  const versioned = description?.includes(' · ') ? description.split(' · ')[0]!.trim() : null;
+  return versioned || asString(entry.displayName) || id;
+}
+
 /** Reads the `initialize` control response: the model catalog and the signed-in plan. */
 export function parseClaudeCatalog(output: string): { models: AiModel[]; plan: string | null } | null {
   for (const line of output.split('\n')) {
@@ -101,7 +111,11 @@ export function parseClaudeCatalog(output: string): { models: AiModel[]; plan: s
       const target = asString(entry.resolvedModel) ?? id;
       if (seen.has(target)) continue;
       seen.add(target);
-      models.push({ id, label: asString(entry.displayName) ?? id, isDefault: target === defaultModel });
+      models.push({
+        id,
+        label: claudeModelLabel(entry, id),
+        isDefault: target === defaultModel,
+      });
     }
     return { models, plan: planLabel(asObject(payload.account)) };
   }
@@ -136,7 +150,9 @@ async function probe(launch: ProviderLaunch, signal?: AbortSignal): Promise<Prov
   if (!parsed || parsed.models.length === 0) {
     return { ...base, version, phase: 'failed', message: catalog.stderr || 'Claude Code listed no models. Update Claude Code, then refresh.' };
   }
-  return { ...base, version, phase: 'ready', message: null, models: parsed.models, plan: parsed.plan };
+  // An exported ANTHROPIC_API_KEY wins over the claude.ai sign-in, so say which one pays.
+  const plan = parsed.plan ?? (launch.env.ANTHROPIC_API_KEY ? 'API key (ANTHROPIC_API_KEY)' : null);
+  return { ...base, version, phase: 'ready', message: null, models: parsed.models, plan };
 }
 
 function resultError(object: JsonObject) {

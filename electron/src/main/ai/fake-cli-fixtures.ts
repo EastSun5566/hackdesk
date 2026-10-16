@@ -32,7 +32,7 @@ function handle(message) {
         { value: 'model-a', displayName: 'Model A again', resolvedModel: 'model-a' },
         { value: 'haiku', displayName: 'Haiku', resolvedModel: 'model-b' },
       ],
-      account: { subscriptionType: 'claude_max', apiProvider: 'firstParty' },
+      account: process.env.FAKE_NO_ACCOUNT ? { apiProvider: 'firstParty' } : { subscriptionType: 'claude_max', apiProvider: 'firstParty' },
     } } });
     return;
   }
