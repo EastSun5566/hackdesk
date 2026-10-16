@@ -1,17 +1,13 @@
 import { build, context, type BuildContext, type BuildOptions } from 'esbuild';
 import { fileURLToPath } from 'node:url';
+import { electronBundleOptions } from './electron-bundle.ts';
+import { writeThirdPartyNotices } from './third-party-notices.ts';
 
 const isWatch = process.argv.includes('--watch');
-const common: BuildOptions = {
-  bundle: true,
-  platform: 'node',
-  format: 'cjs',
-  external: ['electron'],
-  sourcemap: !process.env.CI,
-  logLevel: 'info',
-};
+const common = electronBundleOptions;
 
 export async function buildTargets(watch = false): Promise<void> {
+  if (!watch) await writeThirdPartyNotices();
   const mainOptions: BuildOptions = {
     ...common,
     entryPoints: ['electron/src/main/index.ts'],
@@ -39,7 +35,7 @@ export async function buildTargets(watch = false): Promise<void> {
         initialBuilds.push(new Promise<void>((done, fail) => { resolve = done; reject = fail; }));
         contexts.push(await context({
           ...options,
-          plugins: [{
+          plugins: [...common.plugins!, {
             name: 'initial-build-ready',
             setup(api) {
               api.onEnd(result => {
