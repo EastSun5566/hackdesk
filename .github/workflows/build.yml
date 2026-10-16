@@ -60,7 +60,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm exec vitest run electron/src/main/local-vault-service.test.ts electron/src/main/settings.test.ts electron/src/main/renderer-url.test.ts scripts/electron-build.test.ts scripts/electron-dev.test.ts
+      - run: pnpm exec vitest run electron/src/main/local-vault-service.test.ts electron/src/main/settings.test.ts electron/src/main/renderer-url.test.ts scripts/electron-build.test.ts scripts/electron-dev.test.ts scripts/electron-bundle.test.ts scripts/third-party-notices.test.ts scripts/check-packaged-contents.test.ts
       - run: pnpm run package:check
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
@@ -94,6 +94,14 @@ jobs:
             pnpm exec playwright test \
               --config electron/playwright.packaged.config.ts \
               electron/e2e/packaged-startup.spec.ts
+          fi
+      - name: Check the bundled updater against a local feed
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run --auto-servernum pnpm exec playwright test --config electron/playwright.config.ts electron/e2e/bundled-updater.spec.ts
+          else
+            pnpm exec playwright test --config electron/playwright.config.ts electron/e2e/bundled-updater.spec.ts
           fi
       - name: Upload packaged-startup Playwright report on failure
         if: failure()

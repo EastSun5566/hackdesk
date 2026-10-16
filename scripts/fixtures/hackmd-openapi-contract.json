@@ -1262,6 +1262,384 @@
         }
       }
     },
+    "/notes/{noteId}/comments": {
+      "get": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ApiCommentPage"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ApiCommentLimit"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "asc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "threadId",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ApiCommentThreadId"
+            }
+          },
+          {
+            "in": "query",
+            "name": "commentStatus",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ApiCommentStatus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "threadStatus",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ApiCommentStatus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "isThreadHead",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "enum": [
+                true
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetNoteComments"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiCommentError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Comments not readable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiCommentError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Note not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiCommentError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notes/{noteId}/comments/{commentId}/resolution": {
+      "put": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "commentId",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ApiCommentId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiCommentResolutionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Comment resolution forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiCommentError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiCommentError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Comment resolution conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiCommentResolutionConflictError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "commentId",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ApiCommentId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiCommentResolutionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Comment resolution forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiCommentError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiCommentError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Comment resolution conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiCommentResolutionConflictError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/notes/{noteId}/images": {
       "post": {
         "security": [
@@ -3636,6 +4014,723 @@
           }
         ]
       },
+      "ApiComment": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/ApiCommentHead"
+          },
+          {
+            "$ref": "#/components/schemas/ApiCommentListReply"
+          }
+        ]
+      },
+      "ApiCommentActor": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/ApiCommentUserActor"
+          },
+          {
+            "$ref": "#/components/schemas/ApiCommentGuestActor"
+          },
+          {
+            "$ref": "#/components/schemas/ApiCommentTeamActor"
+          },
+          {
+            "$ref": "#/components/schemas/ApiCommentDeletedUserActor"
+          }
+        ]
+      },
+      "ApiCommentAnchor": {
+        "properties": {
+          "offset": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "length": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "offset",
+          "length"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiCommentDeletedUserActor": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "deleted_user"
+            ],
+            "nullable": false
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiCommentDetail": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/ApiCommentHead"
+          },
+          {
+            "$ref": "#/components/schemas/ApiCommentDetailReply"
+          }
+        ]
+      },
+      "ApiCommentDetailReply": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "threadId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/ApiCommentActor"
+          },
+          "body": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string",
+            "enum": [
+              "plain_text"
+            ],
+            "nullable": false
+          },
+          "commentState": {
+            "$ref": "#/components/schemas/ApiCommentState"
+          },
+          "isPinned": {
+            "type": "boolean"
+          },
+          "anchor": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApiCommentAnchor"
+              }
+            ],
+            "nullable": true
+          },
+          "currentAnchor": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApiCommentAnchor"
+              }
+            ],
+            "nullable": true
+          },
+          "excerpt": {
+            "type": "string",
+            "nullable": true
+          },
+          "reactions": {
+            "items": {
+              "$ref": "#/components/schemas/ApiCommentReactionSummary"
+            },
+            "type": "array"
+          },
+          "createdAt": {
+            "type": "number",
+            "format": "double",
+            "description": "Unix timestamp in milliseconds."
+          },
+          "updatedAt": {
+            "type": "number",
+            "format": "double",
+            "description": "Unix timestamp in milliseconds."
+          },
+          "isThreadHead": {
+            "type": "boolean",
+            "enum": [
+              false
+            ],
+            "nullable": false
+          },
+          "threadState": {
+            "$ref": "#/components/schemas/ApiCommentThreadState"
+          }
+        },
+        "required": [
+          "id",
+          "threadId",
+          "actor",
+          "body",
+          "contentType",
+          "commentState",
+          "isPinned",
+          "anchor",
+          "currentAnchor",
+          "excerpt",
+          "reactions",
+          "createdAt",
+          "updatedAt",
+          "isThreadHead",
+          "threadState"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiCommentError": {
+        "properties": {
+          "errorCode": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "errorCode",
+          "message"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiCommentGuestActor": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "guest"
+            ],
+            "nullable": false
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "displayName"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiCommentHead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "threadId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/ApiCommentActor"
+          },
+          "body": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string",
+            "enum": [
+              "plain_text"
+            ],
+            "nullable": false
+          },
+          "commentState": {
+            "$ref": "#/components/schemas/ApiCommentState"
+          },
+          "isPinned": {
+            "type": "boolean"
+          },
+          "anchor": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApiCommentAnchor"
+              }
+            ],
+            "nullable": true
+          },
+          "currentAnchor": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApiCommentAnchor"
+              }
+            ],
+            "nullable": true
+          },
+          "excerpt": {
+            "type": "string",
+            "nullable": true
+          },
+          "reactions": {
+            "items": {
+              "$ref": "#/components/schemas/ApiCommentReactionSummary"
+            },
+            "type": "array"
+          },
+          "createdAt": {
+            "type": "number",
+            "format": "double",
+            "description": "Unix timestamp in milliseconds."
+          },
+          "updatedAt": {
+            "type": "number",
+            "format": "double",
+            "description": "Unix timestamp in milliseconds."
+          },
+          "isThreadHead": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "nullable": false
+          },
+          "replyCount": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "threadState": {
+            "$ref": "#/components/schemas/ApiCommentThreadState"
+          }
+        },
+        "required": [
+          "id",
+          "threadId",
+          "actor",
+          "body",
+          "contentType",
+          "commentState",
+          "isPinned",
+          "anchor",
+          "currentAnchor",
+          "excerpt",
+          "reactions",
+          "createdAt",
+          "updatedAt",
+          "isThreadHead",
+          "replyCount",
+          "threadState"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiCommentId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "ApiCommentLimit": {
+        "type": "integer",
+        "format": "int32",
+        "default": 50,
+        "minimum": 1,
+        "maximum": 100
+      },
+      "ApiCommentListReply": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "threadId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/ApiCommentActor"
+          },
+          "body": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string",
+            "enum": [
+              "plain_text"
+            ],
+            "nullable": false
+          },
+          "commentState": {
+            "$ref": "#/components/schemas/ApiCommentState"
+          },
+          "isPinned": {
+            "type": "boolean"
+          },
+          "anchor": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApiCommentAnchor"
+              }
+            ],
+            "nullable": true
+          },
+          "currentAnchor": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApiCommentAnchor"
+              }
+            ],
+            "nullable": true
+          },
+          "excerpt": {
+            "type": "string",
+            "nullable": true
+          },
+          "reactions": {
+            "items": {
+              "$ref": "#/components/schemas/ApiCommentReactionSummary"
+            },
+            "type": "array"
+          },
+          "createdAt": {
+            "type": "number",
+            "format": "double",
+            "description": "Unix timestamp in milliseconds."
+          },
+          "updatedAt": {
+            "type": "number",
+            "format": "double",
+            "description": "Unix timestamp in milliseconds."
+          },
+          "isThreadHead": {
+            "type": "boolean",
+            "enum": [
+              false
+            ],
+            "nullable": false
+          }
+        },
+        "required": [
+          "id",
+          "threadId",
+          "actor",
+          "body",
+          "contentType",
+          "commentState",
+          "isPinned",
+          "anchor",
+          "currentAnchor",
+          "excerpt",
+          "reactions",
+          "createdAt",
+          "updatedAt",
+          "isThreadHead"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiCommentPage": {
+        "type": "integer",
+        "format": "int32",
+        "default": 1,
+        "minimum": 1
+      },
+      "ApiCommentPagination": {
+        "properties": {
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "hasNext": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "page",
+          "limit",
+          "hasNext"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiCommentReactionShortcode": {
+        "type": "string",
+        "enum": [
+          "+1",
+          "-1",
+          "joy",
+          "tada",
+          "thinking_face",
+          "heart",
+          "rocket",
+          "eyes"
+        ]
+      },
+      "ApiCommentReactionSummary": {
+        "properties": {
+          "shortcode": {
+            "$ref": "#/components/schemas/ApiCommentReactionShortcode"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "shortcode",
+          "count"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiCommentResolutionCascade": {
+        "properties": {
+          "threadId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "threadId"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiCommentResolutionConflictError": {
+        "properties": {
+          "errorCode": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "commentState": {
+            "$ref": "#/components/schemas/ApiCommentState"
+          }
+        },
+        "required": [
+          "errorCode",
+          "message",
+          "commentState"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiCommentResolutionResponse": {
+        "properties": {
+          "comment": {
+            "$ref": "#/components/schemas/ApiCommentDetail"
+          },
+          "cascade": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApiCommentResolutionCascade"
+              }
+            ],
+            "nullable": true
+          }
+        },
+        "required": [
+          "comment",
+          "cascade"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiCommentState": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/ApiCommentStatus"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/ApiCommentStateReason"
+          },
+          "actedBy": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApiCommentStateActor"
+              }
+            ],
+            "nullable": true
+          },
+          "actedAt": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Unix timestamp in milliseconds."
+          }
+        },
+        "required": [
+          "status",
+          "reason",
+          "actedBy",
+          "actedAt"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiCommentStateActor": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/ApiCommentStateUserActor"
+          },
+          {
+            "$ref": "#/components/schemas/ApiCommentStateDeletedUserActor"
+          }
+        ]
+      },
+      "ApiCommentStateDeletedUserActor": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "deleted_user"
+            ],
+            "nullable": false
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiCommentStateReason": {
+        "type": "string",
+        "enum": [
+          "resolved",
+          "spam",
+          "abuse",
+          "off_topic",
+          null
+        ],
+        "nullable": true
+      },
+      "ApiCommentStateUserActor": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "user"
+            ],
+            "nullable": false
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "userId",
+          "displayName"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiCommentStatus": {
+        "type": "string",
+        "enum": [
+          "open",
+          "hidden"
+        ]
+      },
+      "ApiCommentTeamActor": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "team"
+            ],
+            "nullable": false
+          },
+          "teamId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "teamId",
+          "displayName"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiCommentThreadId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "ApiCommentThreadState": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/ApiCommentStatus"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/ApiCommentStateReason"
+          },
+          "actedBy": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApiCommentStateActor"
+              }
+            ],
+            "nullable": true
+          },
+          "actedAt": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Unix timestamp in milliseconds."
+          },
+          "sourceCommentId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "status",
+          "reason",
+          "actedBy",
+          "actedAt",
+          "sourceCommentId"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "ApiCommentUserActor": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "user"
+            ],
+            "nullable": false
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "userId",
+          "displayName"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
       "ApiError": {
         "properties": {
           "error_code": {
@@ -4085,6 +5180,25 @@
           "color",
           "parentId",
           "clientId"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "GetNoteComments": {
+        "properties": {
+          "comments": {
+            "items": {
+              "$ref": "#/components/schemas/ApiComment"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/ApiCommentPagination"
+          }
+        },
+        "required": [
+          "comments",
+          "pagination"
         ],
         "type": "object",
         "additionalProperties": false

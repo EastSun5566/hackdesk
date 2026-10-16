@@ -35,6 +35,7 @@ import { hackmdInlinePreview } from './inline-preview';
 import {
   clearInitialReveal,
   initialRevealExtension,
+  revealExpectedRangeInEditor,
   revealTextInEditor,
   scheduleInitialRevealClear,
 } from './initial-reveal';
@@ -197,13 +198,13 @@ function useLatestRef<T>(value: T): LatestRef<T> {
   return ref;
 }
 
-function revealTextWithRuntime(runtime: EditorRuntime, query: string): boolean {
+function revealWithRuntime(runtime: EditorRuntime, reveal: (view: EditorView) => boolean): boolean {
   const view = runtime.view;
   if (!view) {
     return false;
   }
 
-  const revealed = revealTextInEditor(view, query);
+  const revealed = reveal(view);
   if (!revealed) {
     return false;
   }
@@ -442,7 +443,10 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
         openSearchPanel(view);
       },
       revealText(query: string) {
-        return revealTextWithRuntime(runtime, query);
+        return revealWithRuntime(runtime, (view) => revealTextInEditor(view, query));
+      },
+      revealRange(from: number, to: number, expectedText: string) {
+        return revealWithRuntime(runtime, (view) => revealExpectedRangeInEditor(view, from, to, expectedText));
       },
     }), [aiHost, onChangeRef, runtime]);
 
@@ -594,7 +598,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
       }
 
       runtime.lastInitialRevealText = query;
-      revealTextWithRuntime(runtime, query);
+      revealWithRuntime(runtime, (view) => revealTextInEditor(view, query));
     }, [initialRevealText, runtime, value]);
 
     const handleDragEnter = (event: DragEvent<HTMLDivElement>) => {

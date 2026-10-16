@@ -16,7 +16,7 @@
     "build": "node scripts/electron-build.ts && vite build",
     "preview": "vite preview",
     "package": "pnpm run build && electron-builder",
-    "package:check": "pnpm run build && electron-builder --dir --publish never && node scripts/check-electron-fuses.ts",
+    "package:check": "pnpm run build && electron-builder --dir --publish never && node scripts/check-electron-fuses.ts && node scripts/check-packaged-contents.ts",
     "typecheck": "pnpm run typecheck:app && pnpm run typecheck:node && pnpm run typecheck:electron && pnpm run typecheck:test && pnpm run typecheck:e2e && pnpm run typecheck:docs",
     "typecheck:app": "tsc -p tsconfig.app.json --noEmit",
     "typecheck:node": "tsc -p tsconfig.node.json --noEmit",
@@ -67,7 +67,9 @@
     "files": [
       "electron/dist/**",
       "dist/**",
-      "package.json"
+      "package.json",
+      "LICENSE",
+      "!node_modules/**/*"
     ],
     "publish": {
       "provider": "github",

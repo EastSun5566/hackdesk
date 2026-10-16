@@ -18,6 +18,8 @@ export type MarkdownEditorHandle = {
   openAiMenu: () => boolean;
   openSearch: () => void;
   revealText: (query: string) => boolean;
+  /** Highlights `[from, to)` if it still holds `expectedText`, else the first match of `expectedText`. */
+  revealRange: (from: number, to: number, expectedText: string) => boolean;
 };
 
 /** Inline AI is owned by the page: the editor only hosts its panel and previews its answers. */

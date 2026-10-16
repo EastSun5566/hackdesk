@@ -186,6 +186,25 @@ describe('MarkdownEditor', () => {
     expect(ref.current?.getMarkdown()).toBe(markdown);
   });
 
+  it('reveals a saved range, or the first match when the range no longer holds the text', async () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const markdown = ['Alpha target', 'Beta target'].join('\n');
+
+    render(<MarkdownEditor ref={ref} value={markdown} onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    await waitFor(() => expect(ref.current?.getMarkdown()).toBe(markdown));
+    const matchLine = () => editor.querySelector('.cm-hackmd-initial-reveal-match')?.closest('.cm-line')?.textContent;
+
+    const second = markdown.lastIndexOf('target');
+    expect(ref.current?.revealRange(second, second + 'target'.length, 'target')).toBe(true);
+    await waitFor(() => expect(matchLine()).toBe('Beta target'));
+
+    expect(ref.current?.revealRange(0, 5, 'target')).toBe(true);
+    await waitFor(() => expect(matchLine()).toBe('Alpha target'));
+
+    expect(ref.current?.revealRange(0, 5, 'missing')).toBe(false);
+  });
+
   it('uses the latest change and attachment callbacks without remounting CodeMirror', async () => {
     const ref = createRef<MarkdownEditorHandle>();
     const firstOnChange = vi.fn();

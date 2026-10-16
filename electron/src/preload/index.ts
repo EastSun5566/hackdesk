@@ -20,6 +20,7 @@ import type {
   UpdateNoteInput,
   UploadNoteImageInput,
   NoteVersionRef,
+  NoteCommentsQuery,
   NoteVersionsQuery,
   CreateNoteVersionInput,
   WindowPresentationState,
@@ -104,6 +105,12 @@ const api: HackDeskElectronAPI = {
     restoreNote: (noteId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdRestoreNote, noteId),
     listTrash: (options?: HackmdRequestOptions) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListTrash, options),
     restoreNotes: (noteIds: string[]) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdRestoreNotes, noteIds),
+    listNoteComments: (noteId: string, query: NoteCommentsQuery, options?: HackmdRequestOptions) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListNoteComments, noteId, query, options)
+    ),
+    setNoteCommentResolved: (noteId: string, commentId: string, resolved: boolean) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdSetNoteCommentResolved, noteId, commentId, resolved)
+    ),
     deleteTeamNote: (teamPath: string, noteId: string) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdDeleteTeamNote, teamPath, noteId)
     ),

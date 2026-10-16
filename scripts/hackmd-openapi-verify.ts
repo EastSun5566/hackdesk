@@ -67,6 +67,9 @@ const REQUIRED_OPERATIONS: Array<readonly [string, string]> = [
   ['DELETE', '/notes/{noteId}'],
   ['PUT', '/trash/{noteId}/restore'],
   ['GET', '/trash'],
+  ['GET', '/notes/{noteId}/comments'],
+  ['PUT', '/notes/{noteId}/comments/{commentId}/resolution'],
+  ['DELETE', '/notes/{noteId}/comments/{commentId}/resolution'],
   ['PUT', '/trash/batch-restore'],
   ['GET', '/notes/{noteId}/versions'],
   ['POST', '/notes/{noteId}/versions'],
@@ -291,8 +294,8 @@ export function verifyHackmdOpenApiContract(contract: OpenApiContract): void {
 
   for (const [method, path] of REQUIRED_OPERATIONS.filter(([method]) => ['POST', 'PATCH', 'PUT'].includes(method))) {
     const operation = getOperation(contract, method, path);
-    if (path.endsWith('/{noteId}/restore')) {
-      // Restoring from the trash takes no body.
+    if (path.endsWith('/{noteId}/restore') || path.endsWith('/resolution')) {
+      // Restoring from the trash and resolving a comment take no body.
       continue;
     }
 
@@ -428,6 +431,31 @@ export function verifyHackmdOpenApiContract(contract: OpenApiContract): void {
         failures,
       );
     }
+  }
+
+  // The comments section groups by thread and jumps to each comment's anchor.
+  const commentsOperation = getOperation(contract, 'GET', '/notes/{noteId}/comments');
+  const commentsSchema = getResponseSchema(commentsOperation, '200');
+  for (const path of [['comments'], ['pagination', 'hasNext']]) {
+    assert(schemaContainsPath(contract, commentsSchema, path), `GET /notes/{noteId}/comments response missing ${path.join('.')}.`, failures);
+  }
+  const commentHead = resolveRef(contract, '#/components/schemas/ApiCommentHead');
+  for (const propertyName of ['threadId', 'actor', 'body', 'isThreadHead', 'anchor', 'currentAnchor', 'excerpt', 'threadState', 'commentState']) {
+    assert(schemaContainsProperty(contract, commentHead, propertyName), `Comment thread head missing ${propertyName}.`, failures);
+  }
+  for (const name of ['page', 'limit', 'sort']) {
+    assert(
+      commentsOperation?.parameters?.some((parameter) => parameter.name === name && parameter.in === 'query'),
+      `GET /notes/{noteId}/comments missing the ${name} query parameter.`,
+      failures,
+    );
+  }
+  for (const method of ['PUT', 'DELETE']) {
+    assert(
+      Boolean(getOperation(contract, method, '/notes/{noteId}/comments/{commentId}/resolution')?.responses?.['409']),
+      `${method} comment resolution missing the 409 response.`,
+      failures,
+    );
   }
 
   const permissionEnum = contract.components?.schemas?.NotePermissionRole?.enum ?? [];

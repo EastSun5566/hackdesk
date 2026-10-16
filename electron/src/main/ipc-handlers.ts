@@ -16,6 +16,7 @@ import type {
   ThemeSurfaceInput,
   UploadNoteImageInput,
   NoteVersionRef,
+  NoteCommentsQuery,
   NoteVersionsQuery,
   CreateNoteVersionInput,
   HackmdRequestOptions,
@@ -61,6 +62,8 @@ import {
   restoreNote,
   listTrash,
   restoreNotes,
+  listNoteComments,
+  setNoteCommentResolved,
   updateFolder,
   updateFolderOrder,
   updateNote,
@@ -138,6 +141,8 @@ import {
   noteVersionRefSchema,
   createNoteVersionInputSchema,
   restoreNotesInputSchema,
+  noteCommentsQuerySchema,
+  noteCommentIdSchema,
   noteVersionsQuerySchema,
   hackmdRequestOptionsSchema,
   validateIpcInput,
@@ -516,6 +521,19 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.hackmdListTrash, (event, options?: HackmdRequestOptions) => runRequest(event, options, listTrash, []));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdRestoreNotes, (_event, noteIds: string[]) => (
     restoreNotes(validateIpcInput(ELECTRON_CHANNELS.hackmdRestoreNotes, restoreNotesInputSchema, noteIds))
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdListNoteComments, (event, noteId: string, query: NoteCommentsQuery, options?: HackmdRequestOptions) => (
+    runRequest(event, options, listNoteComments, [
+      validateNonEmptyString(ELECTRON_CHANNELS.hackmdListNoteComments, noteId),
+      validateIpcInput(ELECTRON_CHANNELS.hackmdListNoteComments, noteCommentsQuerySchema, query),
+    ])
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdSetNoteCommentResolved, (_event, noteId: string, commentId: string, resolved: boolean) => (
+    setNoteCommentResolved(
+      validateNonEmptyString(ELECTRON_CHANNELS.hackmdSetNoteCommentResolved, noteId),
+      validateIpcInput(ELECTRON_CHANNELS.hackmdSetNoteCommentResolved, noteCommentIdSchema, commentId),
+      validateBoolean(ELECTRON_CHANNELS.hackmdSetNoteCommentResolved, resolved),
+    )
   ));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdDeleteTeamNote, (_event, teamPath: string, noteId: string) => (
     deleteTeamNote(
