@@ -337,6 +337,12 @@ export const noteVersionsQuerySchema = z.strictObject({
   limit: z.number().int().min(1).max(100).optional(),
 });
 
+export const noteCommentsQuerySchema = z.strictObject({
+  page: z.number().int().min(1).optional(),
+});
+
+export const noteCommentIdSchema = z.uuid();
+
 /** One restore request carries 1–100 note ids. The renderer splits a larger selection into batches. */
 export const restoreNotesInputSchema = z.array(nonEmptyStringSchema).min(1).max(100);
 

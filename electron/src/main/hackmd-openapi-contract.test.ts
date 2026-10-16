@@ -37,6 +37,13 @@ describe('HackMD OpenAPI contract', () => {
     expect(() => verifyHackmdOpenApiContract(contract)).toThrow(/Batch restore 207 outcome missing reason/);
   });
 
+  it('fails when comments stop carrying the current anchor', () => {
+    const contract = JSON.parse(readFileSync(contractPath, 'utf8'));
+    delete contract.components.schemas.ApiCommentHead.properties.currentAnchor;
+
+    expect(() => verifyHackmdOpenApiContract(contract)).toThrow(/Comment thread head missing currentAnchor/);
+  });
+
   it('keeps only the operations HackDesk calls and the schemas they reference', () => {
     const contract = JSON.parse(readFileSync(contractPath, 'utf8'));
     const spec = {

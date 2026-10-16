@@ -52,6 +52,24 @@ export function revealTextInEditor(view: EditorView, queryText: string): boolean
     return false;
   }
 
+  revealRangeInEditor(view, match);
+  return true;
+}
+
+/**
+ * Highlights `[from, to)` when it still holds `expectedText`, or else the first
+ * match of `expectedText`. Unsaved edits can shift a saved position.
+ */
+export function revealExpectedRangeInEditor(view: EditorView, from: number, to: number, expectedText: string): boolean {
+  if (from < to && to <= view.state.doc.length && view.state.sliceDoc(from, to) === expectedText) {
+    revealRangeInEditor(view, { from, to });
+    return true;
+  }
+
+  return revealTextInEditor(view, expectedText);
+}
+
+function revealRangeInEditor(view: EditorView, match: { from: number; to: number }): void {
   view.dispatch({
     effects: [
       setInitialReveal.of(match),
@@ -66,8 +84,6 @@ export function revealTextInEditor(view: EditorView, queryText: string): boolean
       scrollMatchNearTop(lineElement, 72);
     }
   });
-
-  return true;
 }
 
 export function scheduleInitialRevealClear(

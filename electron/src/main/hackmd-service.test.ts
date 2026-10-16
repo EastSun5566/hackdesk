@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { HACKMD_NOTE_NOT_FOUND_MESSAGE, HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE } from '../../../src/lib/note-errors';
+import { HACKMD_NOTE_COMMENTS_UNAVAILABLE_MESSAGE, HACKMD_NOTE_NOT_FOUND_MESSAGE, HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE } from '../../../src/lib/note-errors';
 
 import {
   createHackmdService,
@@ -589,6 +589,69 @@ describe('hackmd-service request mapping', () => {
     await service.restoreNotes(['note-1']);
     expect(await service.listNotes()).toEqual({ source: 'error', error: expect.any(String) });
     expect(await service.getNote('note-1')).toEqual({ source: 'error', error: expect.any(String) });
+  });
+
+  it('lists note comments with their threads, anchors and actors', async () => {
+    const head = {
+      id: 'c-1', threadId: 't-1', actor: { kind: 'user', userId: 'u', displayName: 'Ada' }, body: 'Should this be Q4?',
+      contentType: 'plain_text', commentState: { status: 'open', reason: null, actedBy: null, actedAt: null }, isPinned: false,
+      anchor: { offset: 4, length: 9 }, currentAnchor: { offset: 6, length: 9 }, excerpt: 'ship date', reactions: [],
+      createdAt: 1_760_000_000_000, updatedAt: 1_760_000_000_000, isThreadHead: true, replyCount: 1,
+      threadState: { status: 'hidden', reason: 'resolved', actedBy: null, actedAt: null, sourceCommentId: 'c-1' },
+    };
+    const reply = {
+      ...head, id: 'c-2', actor: { kind: 'deleted_user' }, body: '  Yes  ', anchor: null, currentAnchor: { offset: -1, length: 2 },
+      excerpt: null, isThreadHead: false, threadState: undefined,
+    };
+    const { calls, service } = createService([jsonResponse({ comments: [head, reply], pagination: { page: 2, limit: 100, hasNext: true } })]);
+
+    await expect(service.listNoteComments('note/1', { page: 2 })).resolves.toEqual({
+      page: 2,
+      hasNext: true,
+      comments: [
+        {
+          id: 'c-1', threadId: 't-1', actor: { kind: 'user', displayName: 'Ada' }, body: 'Should this be Q4?', status: 'open', statusReason: null,
+          isThreadHead: true, threadStatus: 'hidden', threadStatusReason: 'resolved', anchor: { offset: 4, length: 9 },
+          currentAnchor: { offset: 6, length: 9 }, excerpt: 'ship date', createdAtMillis: 1_760_000_000_000, updatedAtMillis: 1_760_000_000_000,
+        },
+        expect.objectContaining({
+          id: 'c-2', actor: { kind: 'deleted_user', displayName: null }, body: '  Yes  ', isThreadHead: false,
+          threadStatus: null, anchor: null, currentAnchor: null, excerpt: null,
+        }),
+      ],
+    });
+    expect(calls[0].url).toBe('https://api.test/v1/notes/note%2F1/comments?page=2&limit=100&sort=asc');
+  });
+
+  it.each([403, 404])('reports comments as unavailable on %i', async (status) => {
+    const { service } = createService([jsonResponse({ errorCode: 'forbidden', message: 'No access' }, { status, statusText: 'Nope' })]);
+
+    await expect(service.listNoteComments('note-1', {})).rejects.toThrow(HACKMD_NOTE_COMMENTS_UNAVAILABLE_MESSAGE);
+  });
+
+  it('resolves with PUT, reopens with DELETE and reports a conflict', async () => {
+    const { calls, service } = createService([
+      jsonResponse({ comment: {}, cascade: { threadId: 't-1' } }),
+      jsonResponse({ comment: {}, cascade: null }),
+      jsonResponse({ errorCode: 'already_resolved', message: 'Already resolved', commentState: {} }, { status: 409, statusText: 'Conflict' }),
+      jsonResponse({ errorCode: 'forbidden', message: 'No' }, { status: 403, statusText: 'Forbidden' }),
+    ]);
+
+    await expect(service.setNoteCommentResolved('note-1', 'c-1', true)).resolves.toEqual({ status: 'updated' });
+    await expect(service.setNoteCommentResolved('note-1', 'c-1', false)).resolves.toEqual({ status: 'updated' });
+    await expect(service.setNoteCommentResolved('note-1', 'c-1', true)).resolves.toEqual({ status: 'conflict' });
+    await expect(service.setNoteCommentResolved('note-1', 'c-1', true)).rejects.toThrow("You can't resolve comments on this note.");
+    expect(calls.map((call) => call.init.method)).toEqual(['PUT', 'DELETE', 'PUT', 'PUT']);
+    expect(calls[0].url).toBe('https://api.test/v1/notes/note-1/comments/c-1/resolution');
+  });
+
+  it('does not retry a failed comment resolution', async () => {
+    const { calls, service } = createService([
+      jsonResponse({ message: 'Unavailable' }, { status: 503, statusText: 'Service Unavailable' }),
+    ]);
+
+    await expect(service.setNoteCommentResolved('note-1', 'c-1', true)).rejects.toThrow('having trouble');
+    expect(calls).toHaveLength(1);
   });
 
   it('returns the created note from a 207 partial create', async () => {

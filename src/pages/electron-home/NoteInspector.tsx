@@ -14,6 +14,7 @@ import {
   VersionsSection,
 } from './NoteInspectorSections';
 import { PanelHeader, ToolbarIconButton } from './interaction-primitives';
+import { CommentsSection } from './NoteComments';
 import { useNoteInspectorForm, type NoteInspectorActions, type NoteInspectorStatus } from './useNoteInspectorForm';
 
 type NoteInspectorProps = {
@@ -75,6 +76,7 @@ function NoteInspectorPanel({
             writePermission={inspector.state.writePermission}
           />
           {actions.onShowVersions ? <VersionsSection noteId={document.id} onShowAll={actions.onShowVersions} /> : null}
+          {actions.onRevealComment ? <CommentsSection noteId={document.id} onRevealComment={actions.onRevealComment} /> : null}
         </div>
         <InspectorSaveFooter
           dirty={inspector.dirty.metadata}

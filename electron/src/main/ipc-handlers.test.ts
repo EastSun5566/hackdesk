@@ -27,6 +27,8 @@ const hackmdServiceMock = vi.hoisted(() => ({
   restoreNote: vi.fn(),
   listTrash: vi.fn(),
   restoreNotes: vi.fn(),
+  listNoteComments: vi.fn(),
+  setNoteCommentResolved: vi.fn(),
   listNoteVersions: vi.fn(),
   getNoteVersion: vi.fn(),
   compareNoteVersions: vi.fn(),
@@ -134,6 +136,8 @@ vi.mock('./hackmd-service', () => ({
   restoreNote: hackmdServiceMock.restoreNote,
   listTrash: hackmdServiceMock.listTrash,
   restoreNotes: hackmdServiceMock.restoreNotes,
+  listNoteComments: hackmdServiceMock.listNoteComments,
+  setNoteCommentResolved: hackmdServiceMock.setNoteCommentResolved,
   listNoteVersions: hackmdServiceMock.listNoteVersions,
   getNoteVersion: hackmdServiceMock.getNoteVersion,
   compareNoteVersions: hackmdServiceMock.compareNoteVersions,
@@ -435,6 +439,24 @@ describe('registerIpcHandlers', () => {
     expect(() => restore?.({}, 'note-1')).toThrow();
     expect(() => restore?.({}, Array.from({ length: 101 }, (_, index) => `note-${index}`))).toThrow();
     expect(() => list?.({}, { requestId: 'invalid' })).toThrow(/Invalid/);
+  });
+
+  it('validates comment reads and resolutions before calling HackMD', () => {
+    registerIpcHandlers(windowManager);
+    const list = ipcHandlers.get(ELECTRON_CHANNELS.hackmdListNoteComments);
+    const resolve = ipcHandlers.get(ELECTRON_CHANNELS.hackmdSetNoteCommentResolved);
+    const commentId = '930d83f6-a454-4a54-9d7c-0535ab682112';
+
+    list?.({}, 'note-1', { page: 2 });
+    resolve?.({}, 'note-1', commentId, true);
+
+    expect(hackmdServiceMock.listNoteComments).toHaveBeenCalledWith('note-1', { page: 2 });
+    expect(hackmdServiceMock.setNoteCommentResolved).toHaveBeenCalledWith('note-1', commentId, true);
+    expect(() => list?.({}, 'note-1', { page: 0 })).toThrow();
+    expect(() => list?.({}, 'note-1', { limit: 5 })).toThrow();
+    expect(() => resolve?.({}, 'note-1', 'c-1/../x', true)).toThrow();
+    expect(() => resolve?.({}, 'note-1', commentId, 'yes')).toThrow();
+    expect(() => resolve?.({}, '', commentId, false)).toThrow();
   });
 
   it('validates version history reads before calling HackMD', () => {
