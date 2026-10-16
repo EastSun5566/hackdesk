@@ -16,6 +16,7 @@ import {
   aiInlineField,
   closeAiInline,
   getAiInlineState,
+  getAiInsertPosition,
   openAiInline,
   type AiInlineState,
 } from './state';
@@ -86,7 +87,7 @@ function buildDecorations(state: EditorState, host: AiInlineHost): DecorationSet
   const session = getAiInlineState(state);
   if (session.phase === 'idle' || session.from > session.to) return Decoration.none;
   const ranges: Range<Decoration>[] = [];
-  const blockAt = state.doc.lineAt(session.to).to;
+  const blockAt = getAiInsertPosition(state, session.from, session.to);
   const output = session.output.trim();
   if (session.phase !== 'menu') {
     ranges.push(Decoration.widget({ widget: new PanelWidget(host, session.session), side: 2, block: true }).range(blockAt));
@@ -187,6 +188,7 @@ function createChipField(host: AiInlineHost) {
 function chipPlugin(host: AiInlineHost) {
   return ViewPlugin.fromClass(class {
     private pointerDown = false;
+    private frame = 0;
 
     constructor(private readonly view: EditorView) {
       view.contentDOM.addEventListener('mousedown', this.onMouseDown);
@@ -201,7 +203,8 @@ function chipPlugin(host: AiInlineHost) {
       if (!this.pointerDown) return;
       this.pointerDown = false;
       // After CodeMirror has applied the selection the drag made.
-      requestAnimationFrame(() => {
+      cancelAnimationFrame(this.frame);
+      this.frame = requestAnimationFrame(() => {
         const { state } = this.view;
         const { from, to } = state.selection.main;
         if (!host.showSelectionChip() || !host.isAvailable() || getAiInlineState(state).phase !== 'idle') return;
@@ -211,6 +214,8 @@ function chipPlugin(host: AiInlineHost) {
     };
 
     destroy() {
+      // A release that also closed the note must not dispatch on the destroyed view.
+      cancelAnimationFrame(this.frame);
       this.view.contentDOM.removeEventListener('mousedown', this.onMouseDown);
       document.removeEventListener('mouseup', this.onMouseUp);
     }
@@ -251,11 +256,15 @@ function aiKeymap(host: AiInlineHost) {
   ]));
 }
 
+/** Streamed words and moved ranges stay in the editor; the host hears only about turns of the session. */
 function stateListener(host: AiInlineHost) {
   return EditorView.updateListener.of((update) => {
     const before = getAiInlineState(update.startState);
     const after = getAiInlineState(update.state);
-    if (before !== after) host.onStateChange(after, update.view);
+    if (before.phase !== after.phase || before.session !== after.session
+      || before.delivery !== after.delivery || before.error !== after.error) {
+      host.onStateChange(after, update.view);
+    }
   });
 }
 

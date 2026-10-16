@@ -69,6 +69,18 @@ describe('AiInlinePanel', () => {
     expect(getAiInlineState(view.state).phase).toBe('idle');
   });
 
+  it('closes the menu when focus moves outside it, but not when an item is pressed', () => {
+    const { view, controller, renderPanel } = setup();
+    renderPanel();
+    const input = screen.getByRole('combobox', { name: 'Ask AI or pick a command' });
+    expect(fireEvent.mouseDown(screen.getByText('Improve writing'))).toBe(false);
+    fireEvent.blur(input, { relatedTarget: screen.getByRole('button', { name: /Switch provider/ }) });
+    expect(getAiInlineState(view.state).phase).toBe('menu');
+    fireEvent.blur(input, { relatedTarget: view.contentDOM });
+    expect(getAiInlineState(view.state).phase).toBe('idle');
+    expect(controller.run).not.toHaveBeenCalled();
+  });
+
   it('replaces the text when a previewed answer is accepted', () => {
     const { view, renderPanel } = setup('Hello wrold', { lastRun: { action: 'fix' } });
     const { session } = getAiInlineState(view.state);

@@ -14,6 +14,8 @@ import {
 import { AiTurnCancelledError, type AiProviderAdapter, type ProviderLaunch, type ProviderProbe, type ProviderTurn } from './provider-types';
 
 const MAX_LINE_CHARACTERS = 8 * 1024 * 1024;
+/** Thinking still streams events, so this long without any output means the CLI is stuck. */
+const STALL_TIMEOUT_MS = 120_000;
 const MODEL_REQUEST_ID = 'hackdesk-models';
 const MANAGED_MCP_PATHS: Partial<Record<NodeJS.Platform, string>> = {
   darwin: '/Library/Application Support/ClaudeCode/managed-mcp.json',
@@ -172,9 +174,11 @@ function stream(launch: ProviderLaunch, turn: ProviderTurn): Promise<void> {
     const stderr = createStderrTail();
     let streamedText = false;
     let settled = false;
+    let stallTimer: NodeJS.Timeout | undefined;
     const settle = (error?: Error) => {
       if (settled) return;
       settled = true;
+      clearTimeout(stallTimer);
       turn.signal.removeEventListener('abort', abort);
       // A stream-json turn is answered; closing stdin is what lets the CLI exit.
       child.stdin.end();
@@ -187,6 +191,13 @@ function stream(launch: ProviderLaunch, turn: ProviderTurn): Promise<void> {
     };
     const abort = () => settle(new AiTurnCancelledError());
     turn.signal.addEventListener('abort', abort, { once: true });
+    const watchForStall = () => {
+      clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => {
+        settle(new Error('Claude Code stopped responding. Try again, or check it in a terminal.'));
+      }, turn.stallTimeoutMs ?? STALL_TIMEOUT_MS);
+    };
+    watchForStall();
 
     const write = (line: string) => {
       if (!child.stdin.writable) return;
@@ -225,9 +236,13 @@ function stream(launch: ProviderLaunch, turn: ProviderTurn): Promise<void> {
 
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
-    child.stdout.on('data', createLineSplitter(MAX_LINE_CHARACTERS, handleLine, () => {
+    const splitLines = createLineSplitter(MAX_LINE_CHARACTERS, handleLine, () => {
       settle(new Error('Claude Code returned an oversized response.'));
-    }));
+    });
+    child.stdout.on('data', (chunk: string) => {
+      watchForStall();
+      splitLines(chunk);
+    });
     child.stderr.on('data', (chunk: string) => stderr.push(chunk));
     child.stdin.on('error', () => undefined);
     child.on('error', error => settle(new Error(`Claude Code could not start: ${error.message}`)));

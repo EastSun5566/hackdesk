@@ -97,6 +97,15 @@ export function getAiInlineTarget(state: EditorState) {
   return { from: 0, to: state.doc.length };
 }
 
+/**
+ * Where an added answer goes: the end of the passage's last line. A selection ending at the start
+ * of a line (a whole paragraph picked with its newline) ends on the line before.
+ */
+export function getAiInsertPosition(state: EditorState, from: number, to: number) {
+  const endsAtLineStart = to > from && state.doc.lineAt(to).from === to;
+  return state.doc.lineAt(endsAtLineStart ? to - 1 : to).to;
+}
+
 /** Applies the previewed answer as one undoable edit and selects what was written. */
 export function acceptAiInline(view: EditorView) {
   const session = getAiInlineState(view.state);
@@ -106,7 +115,7 @@ export function acceptAiInline(view: EditorView) {
     view.dispatch({ effects: closeAiInline.of(null) });
     return false;
   }
-  const insertAt = session.delivery === 'replace' ? session.from : view.state.doc.lineAt(session.to).to;
+  const insertAt = session.delivery === 'replace' ? session.from : getAiInsertPosition(view.state, session.from, session.to);
   const insert = session.delivery === 'replace' ? output : `\n\n${output}`;
   const start = session.delivery === 'replace' ? insertAt : insertAt + 2;
   view.dispatch({

@@ -98,3 +98,15 @@ export function getAiErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   return message.replace(/^Error invoking remote method '[^']*': (?:[A-Za-z]*Error: )?/, '');
 }
+
+const AI_SETTINGS_CHANGED_EVENT = 'hackdesk:ai-settings-changed';
+
+/** Settings › AI saves through IPC on its own; open notes listen for this to pick up the change. */
+export function notifyAiSettingsChanged() {
+  window.dispatchEvent(new Event(AI_SETTINGS_CHANGED_EVENT));
+}
+
+export function onAiSettingsChanged(listener: () => void) {
+  window.addEventListener(AI_SETTINGS_CHANGED_EVENT, listener);
+  return () => window.removeEventListener(AI_SETTINGS_CHANGED_EVENT, listener);
+}

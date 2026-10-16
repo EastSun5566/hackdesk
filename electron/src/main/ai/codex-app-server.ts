@@ -320,6 +320,7 @@ export function createCodexProvider(clientVersion: string): AiProviderAdapter {
     let threadId: string | null = null;
     let turnId: string | null = null;
     let unsubscribe = () => false;
+    let removeAbortListener: () => void = () => undefined;
     try {
       const thread = await client.request('thread/start', {
         ...(turn.model ? { model: turn.model } : {}),
@@ -337,6 +338,7 @@ export function createCodexProvider(clientVersion: string): AiProviderAdapter {
       const completion = new Promise<void>((resolve, reject) => {
         const abort = () => reject(new AiTurnCancelledError());
         turn.signal.addEventListener('abort', abort, { once: true });
+        removeAbortListener = () => turn.signal.removeEventListener('abort', abort);
         unsubscribe = client.onNotification((method, params) => {
           if (method === 'hackdesk/exited') {
             reject(new Error(asString(params.message) ?? 'Codex stopped.'));
@@ -375,6 +377,7 @@ export function createCodexProvider(clientVersion: string): AiProviderAdapter {
       throw error;
     } finally {
       unsubscribe();
+      removeAbortListener();
       release();
     }
   }

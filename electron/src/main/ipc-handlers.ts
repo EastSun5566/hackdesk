@@ -196,7 +196,7 @@ export function registerIpcHandlers(
     readSettings: readStoredSettings,
   });
   // Same per-window ownership as HackMD requests: a closed or reloaded window cancels its turns.
-  const aiTurns = createHackmdRequests();
+  const aiTurns = createHackmdRequests('AI');
   ipcMain.handle(ELECTRON_CHANNELS.aiListProviders, () => ai.listProviders());
   ipcMain.handle(ELECTRON_CHANNELS.aiRefreshProvider, (_event, providerId) => (
     ai.refresh(validateIpcInput(ELECTRON_CHANNELS.aiRefreshProvider, aiProviderIdInputSchema, providerId))

@@ -1,11 +1,11 @@
-import { useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useState, type FocusEvent, type KeyboardEvent, type MouseEvent } from 'react';
 import type { EditorView } from '@codemirror/view';
 import { AlertCircle, Check, Copy, Loader2, RotateCcw, Sparkles, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { toast } from '@/components/ui/toast';
-import { acceptAiInline, closeAiInline, type AiInlineState } from '@/components/hackmd-live-preview/ai-inline/state';
+import { acceptAiInline, closeAiInline, getAiInlineState, type AiInlineState } from '@/components/hackmd-live-preview/ai-inline/state';
 import { AI_ACTION_DETAILS, AI_PROVIDER_TITLES, MAX_AI_INSTRUCTION_CHARACTERS, getAiErrorMessage, type AiAction } from '@/lib/ai';
 import { getHackDeskAPI } from '@/lib/electron-api';
 
@@ -40,8 +40,24 @@ function AiMenu({ view, session, controller }: { view: EditorView; session: AiIn
     }
   };
 
+  // Clicking anywhere else dismisses the menu, like other popovers. Running a command also moves
+  // focus to the editor, but by then the session has left the menu phase, so it is not closed.
+  const handleBlur = (event: FocusEvent<HTMLDivElement>) => {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    if (getAiInlineState(view.state).phase === 'menu') view.dispatch({ effects: closeAiInline.of(null) });
+  };
+
   return (
-    <div className={`${PANEL_CLASS} w-96 overflow-hidden`} role="dialog" aria-label="Ask AI">
+    <div
+      className={`${PANEL_CLASS} w-96 overflow-hidden`}
+      role="dialog"
+      aria-label="Ask AI"
+      onBlur={handleBlur}
+      // Items are not focusable, so a press on one would blur the input and close the menu first.
+      onMouseDown={(event) => {
+        if (!(event.target instanceof HTMLInputElement)) event.preventDefault();
+      }}
+    >
       <Command loop label="Ask AI or pick a command" onKeyDown={handleKeyDown}>
         <CommandInput
           autoFocus
@@ -135,7 +151,7 @@ function AiStatus({ view, session, controller }: { view: EditorView; session: Ai
   }
 
   const copy = () => {
-    void writeClipboardText(getHackDeskAPI(), session.output.trim())
+    void writeClipboardText(getHackDeskAPI(), getAiInlineState(view.state).output.trim())
       .then(() => toast.success('Copied AI result.'))
       .catch(error => toast.error(getAiErrorMessage(error)));
   };

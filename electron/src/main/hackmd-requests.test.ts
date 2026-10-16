@@ -9,6 +9,16 @@ const hold = (signal: AbortSignal) => new Promise<never>((_resolve, reject) => {
 });
 
 describe('HackMD request ownership', () => {
+  it('names the kind of work in its errors', async () => {
+    const requests = createHackmdRequests('AI');
+    const sender = owner();
+    const pending = requests.run(sender, 'a', hold);
+    await expect(requests.run(sender, 'a', async () => 'duplicate')).rejects.toThrow('Too many or duplicate AI requests.');
+    requests.cancel(sender, 'a');
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    requests.dispose();
+  });
+
   it('scopes cancellation to the owning window and rejects duplicate active IDs', async () => {
     const requests = createHackmdRequests();
     const a = owner();

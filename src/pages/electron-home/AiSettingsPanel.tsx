@@ -15,6 +15,7 @@ import {
   type AiProviderStatus,
   type AiUsageWindow,
   getAiErrorMessage,
+  notifyAiSettingsChanged,
 } from '@/lib/ai';
 import { getHackDeskAPI } from '@/lib/electron-api';
 import type { AiSettings } from '@/lib/settings';
@@ -232,6 +233,7 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
     try {
       const saved = await api.settings.update({ ai: next });
       setAiSettings(saved.ai ?? next);
+      notifyAiSettingsChanged();
       if (refreshId) await refresh(refreshId);
     } catch (saveError) {
       setError(getAiErrorMessage(saveError));

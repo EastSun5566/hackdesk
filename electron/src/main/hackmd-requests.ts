@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { WebContents, WebContentsDidStartNavigationEventParams, Event } from 'electron';
 
 /** Request IDs are scoped to the sending window; no renderer can cancel another window's work. */
-export function createHackmdRequests() {
+export function createHackmdRequests(label = 'HackMD') {
   const owners = new Map<WebContents, { pending: Map<string, AbortController>; cleanup: () => void }>();
 
   function watch(owner: WebContents) {
@@ -36,7 +36,7 @@ export function createHackmdRequests() {
       if (owner.isDestroyed()) throw new Error('The requesting window has closed.');
       const entry = watch(owner);
       const id = requestId ?? randomUUID();
-      if (entry.pending.has(id) || entry.pending.size >= 64) throw new Error('Too many or duplicate HackMD requests.');
+      if (entry.pending.has(id) || entry.pending.size >= 64) throw new Error(`Too many or duplicate ${label} requests.`);
       const controller = new AbortController();
       entry.pending.set(id, controller);
       try {

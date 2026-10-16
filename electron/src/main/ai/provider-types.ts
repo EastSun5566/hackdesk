@@ -15,6 +15,8 @@ export type ProviderTurn = {
   prompt: string;
   signal: AbortSignal;
   onDelta: (text: string) => void;
+  /** How long a CLI may print nothing before the turn fails; tests shorten it. */
+  stallTimeoutMs?: number;
 };
 
 export type AiProviderAdapter = {

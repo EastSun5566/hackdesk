@@ -97,6 +97,26 @@ describe('inline AI editor extension', () => {
     expect(view.state.doc.toString()).toBe('First line\n\n- Summary\nSecond line');
   });
 
+  it('adds below the selected paragraph even when the selection ends at the next line start', () => {
+    const { view, host } = createView('First para\nSecond para', { anchor: 0, head: 11 });
+    openAiInlineMenu(view, host);
+    preview(view, '- Summary', 'insert-below');
+    expect(acceptAiInline(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe('First para\n\n- Summary\nSecond para');
+  });
+
+  it('tells the host about session turns, not every streamed word', () => {
+    const { view, host } = createView('alpha beta', { anchor: 0, head: 5 });
+    openAiInlineMenu(view, host);
+    const { session } = getAiInlineState(view.state);
+    view.dispatch({ effects: startAiInlineRun.of({ delivery: 'replace' }) });
+    const calls = vi.mocked(host.onStateChange).mock.calls.length;
+    for (const text of ['a', 'b', 'c']) view.dispatch({ effects: appendAiInlineOutput.of({ session, text }) });
+    expect(host.onStateChange).toHaveBeenCalledTimes(calls);
+    view.dispatch({ effects: finishAiInlineRun.of({ session, output: 'abc' }) });
+    expect(host.onStateChange).toHaveBeenLastCalledWith(expect.objectContaining({ phase: 'preview' }), view);
+  });
+
   it('keeps a preview when the note changes elsewhere and drops it when its text is edited', () => {
     const { view, host } = createView('one two three', { anchor: 4, head: 7 });
     openAiInlineMenu(view, host);

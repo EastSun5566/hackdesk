@@ -103,6 +103,11 @@ describe('Claude CLI provider', () => {
     expect(deltas.join('')).toBe('answered:error');
   });
 
+  it('fails a turn whose CLI stops printing anything', async () => {
+    const fake = await createFakeCli('claude', { FAKE_MODE: 'hang' });
+    await expect(claudeProvider.stream(fake.launch, turn({ stallTimeoutMs: 200 }).input)).rejects.toThrow('stopped responding');
+  });
+
   it('stops the CLI when the turn is cancelled', async () => {
     const fake = await createFakeCli('claude', { FAKE_MODE: 'hang' });
     const controller = new AbortController();

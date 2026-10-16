@@ -15,6 +15,7 @@ import {
   MAX_AI_CONTEXT_CHARACTERS,
   MAX_AI_INPUT_CHARACTERS,
   getAiErrorMessage,
+  onAiSettingsChanged,
   type AiAction,
   type AiProviderId,
 } from '@/lib/ai';
@@ -58,23 +59,30 @@ export function useAiInline({ noteTitle, isTeamNote }: { noteTitle: string; isTe
     noteTitleRef.current = noteTitle;
   }, [noteTitle]);
 
-  // Read once per note; Settings changes apply to the next note opened or the next menu after a reload.
+  // Read when the note opens and again whenever Settings › AI saves.
   useEffect(() => {
     if (!api?.ai) return undefined;
-    let cancelled = false;
-    void Promise.all([api.ai.listProviders(), api.settings.get()]).then(([statuses, settings]) => {
-      if (cancelled) return;
-      const enabled = statuses.filter(status => status.enabled).map(status => status.id);
-      const preferred = settings.ai?.defaultProvider;
-      setConfig({
-        providers: enabled,
-        selectionChip: settings.ai?.selectionChip ?? true,
-        translateLanguage: settings.ai?.translateLanguage ?? 'English',
-      });
-      setProviderId(preferred && enabled.includes(preferred) ? preferred : enabled[0] ?? null);
-    }).catch(() => undefined);
+    const ai = api.ai;
+    let generation = 0;
+    const load = () => {
+      const current = ++generation;
+      void Promise.all([ai.listProviders(), api.settings.get()]).then(([statuses, settings]) => {
+        if (current !== generation) return;
+        const enabled = statuses.filter(status => status.enabled).map(status => status.id);
+        const preferred = settings.ai?.defaultProvider;
+        setConfig({
+          providers: enabled,
+          selectionChip: settings.ai?.selectionChip ?? true,
+          translateLanguage: settings.ai?.translateLanguage ?? 'English',
+        });
+        setProviderId(preferred && enabled.includes(preferred) ? preferred : enabled[0] ?? null);
+      }).catch(() => undefined);
+    };
+    load();
+    const unsubscribe = onAiSettingsChanged(load);
     return () => {
-      cancelled = true;
+      generation += 1;
+      unsubscribe();
     };
   }, [api]);
 
@@ -138,7 +146,10 @@ export function useAiInline({ noteTitle, isTeamNote }: { noteTitle: string; isTe
     const active = activeRef.current;
     // Discarded, edited under, or replaced by a new session: the old answer is no longer wanted.
     if (active && (session.phase === 'idle' || session.session !== active.session)) cancelActive();
-    if (session.phase === 'idle' && view.hasFocus === false && isLive(view)) view.focus();
+    // A panel that held focus took it along when it closed; give it back, but never take it from
+    // a field the user moved to while the session ended under them.
+    const focusLost = !document.activeElement || document.activeElement === document.body;
+    if (session.phase === 'idle' && focusLost && isLive(view)) view.focus();
     if (session.phase === 'menu' && providerId) void api?.ai?.prewarm?.(providerId).catch(() => undefined);
   }, [api, cancelActive, providerId]);
 
