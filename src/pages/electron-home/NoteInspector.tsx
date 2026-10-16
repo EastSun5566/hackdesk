@@ -11,6 +11,7 @@ import {
   MetadataSection,
   InspectorSaveFooter,
   PermissionsSection,
+  VersionsSection,
 } from './NoteInspectorSections';
 import { PanelHeader, ToolbarIconButton } from './interaction-primitives';
 import { useNoteInspectorForm, type NoteInspectorActions, type NoteInspectorStatus } from './useNoteInspectorForm';
@@ -73,6 +74,7 @@ function NoteInspectorPanel({
             readPermission={inspector.state.readPermission}
             writePermission={inspector.state.writePermission}
           />
+          {actions.onShowVersions ? <VersionsSection noteId={document.id} onShowAll={actions.onShowVersions} /> : null}
         </div>
         <InspectorSaveFooter
           dirty={inspector.dirty.metadata}

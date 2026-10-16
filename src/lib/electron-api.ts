@@ -139,6 +139,66 @@ export type DocumentSummary = NoteSummary & {
   etag?: string | null;
 };
 
+/** A saved HackMD version of a note. `user` versions were named by someone; `system` ones were saved automatically. */
+export type NoteVersionSummary = {
+  id: string;
+  name: string;
+  nameSource: 'user' | 'system';
+  description: string | null;
+  createdAtMillis: number | null;
+  createdBy: { userId: string; displayName: string; photo: string | null } | null;
+  contentAvailable: boolean;
+};
+
+export type NoteVersionDetail = NoteVersionSummary & {
+  content: string | null;
+};
+
+export type NoteVersionPage = {
+  versions: NoteVersionSummary[];
+  page: number;
+  totalPages: number;
+  total: number;
+};
+
+/** The live note, or a saved version. */
+export type NoteVersionRef = 'note_content' | `version:${string}`;
+
+export type CreateNoteVersionInput = {
+  name: string;
+  description?: string;
+};
+
+/**
+ * HackMD answers 409 when there is nothing new to name, so those cases come
+ * back as results the UI can explain instead of as errors.
+ */
+export type CreateNoteVersionResult =
+  | { status: 'created'; version: NoteVersionSummary }
+  | { status: 'no_content_change'; latestVersionId: string | null }
+  | { status: 'version_already_named'; latestVersionId: string | null };
+
+/** A personal note in the HackMD trash. HackMD does not return its content. */
+export type TrashedNoteSummary = {
+  id: string;
+  title: string;
+  tags: string[];
+  deletedAtMillis: number | null;
+  /** When HackMD will delete the note for good, if it has scheduled that. */
+  permanentDeleteAtMillis: number | null;
+};
+
+export type RestoreTrashFailureReason = 'NOT_FOUND' | 'PERMISSION_DENIED' | 'INTERNAL_ERROR' | 'UNKNOWN';
+
+/** One outcome per requested note id. A batch restore can partly succeed. */
+export type RestoreTrashResult = Record<string, { status: 'success' } | { status: 'failure'; reason: RestoreTrashFailureReason }>;
+
+export type NoteVersionsQuery = {
+  namedOnly?: boolean;
+  page?: number;
+  limit?: number;
+};
+
 export type CreateNoteInput = {
   title?: string;
   description?: string;
@@ -273,6 +333,7 @@ export type ElectronActionId =
   | 'navigate-forward'
   | 'export-debug-logs'
   | 'go-history'
+  | 'show-trash'
   | 'focus-workspace'
   | 'focus-navigator'
   | 'focus-editor'
@@ -284,6 +345,7 @@ export type ElectronActionId =
   | 'export-note-markdown'
   | 'import-markdown-note'
   | 'open-note-web-editor'
+  | 'show-note-versions'
   | 'delete-note'
   | 'close-tab'
   | 'close-other-tabs'
@@ -373,8 +435,19 @@ export type HackDeskElectronAPI = {
     updateTeamNote: (teamPath: string, noteId: string, input: UpdateNoteInput) => Promise<DocumentSummary>;
     deleteNote: (noteId: string) => Promise<void>;
     restoreNote: (noteId: string) => Promise<void>;
+    listTrash: (options?: HackmdRequestOptions) => Promise<TrashedNoteSummary[]>;
+    restoreNotes: (noteIds: string[]) => Promise<RestoreTrashResult>;
     deleteTeamNote: (teamPath: string, noteId: string) => Promise<void>;
     uploadNoteImage: (noteId: string, input: UploadNoteImageInput, options?: HackmdRequestOptions) => Promise<UploadNoteImageResult>;
+    listNoteVersions: (noteId: string, query: NoteVersionsQuery, options?: HackmdRequestOptions) => Promise<NoteVersionPage>;
+    getNoteVersion: (noteId: string, versionId: string, options?: HackmdRequestOptions) => Promise<NoteVersionDetail>;
+    createNoteVersion: (noteId: string, input: CreateNoteVersionInput) => Promise<CreateNoteVersionResult>;
+    compareNoteVersions: (
+      noteId: string,
+      base: NoteVersionRef,
+      target: NoteVersionRef,
+      options?: HackmdRequestOptions,
+    ) => Promise<{ unifiedDiff: string }>;
   };
   /** Optional for renderer hot reloads against an older preload. */
   ai?: {

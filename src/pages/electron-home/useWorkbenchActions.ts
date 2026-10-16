@@ -61,6 +61,7 @@ export type WorkbenchActionHandlers = {
   focusWorkspace: () => void;
   focusWorkspaceSearch: () => void;
   goHistory: () => void;
+  showTrash: () => void;
   importMarkdownNote: () => void;
   moveTabToOtherPane: () => void;
   navigateBack: () => void;
@@ -69,6 +70,7 @@ export type WorkbenchActionHandlers = {
   openQuickOpen: () => void;
   openSettings: () => void;
   openSelectedWebEditor: () => void;
+  showNoteVersions: () => void;
   refreshWorkspace: () => void;
   renameSelectedFolder: () => void;
   reopenLastClosedTab: () => void;
@@ -262,6 +264,9 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     case 'go-history':
       handlers.goHistory();
       break;
+    case 'show-trash':
+      handlers.showTrash();
+      break;
     case 'toggle-workspace-rail':
       handlers.toggleWorkspaceRail();
       break;
@@ -288,6 +293,9 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'open-note-web-editor':
       handlers.openSelectedWebEditor();
+      break;
+    case 'show-note-versions':
+      handlers.showNoteVersions();
       break;
     case 'delete-note':
       handlers.deleteSelectedNote();

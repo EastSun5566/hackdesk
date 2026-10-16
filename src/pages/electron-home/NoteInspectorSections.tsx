@@ -1,5 +1,5 @@
 import { Loader2, X } from 'lucide-react';
-import type { Dispatch, ReactNode } from 'react';
+import { useState, type Dispatch, type ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel, Input, Textarea } from '@/components/ui/field';
@@ -15,6 +15,8 @@ import type { NotePermissionRole } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
 
 import { CollapsibleSection } from './interaction-primitives';
+import { getVersionByline, getVersionKind, getVersionTitle, VersionDot } from './NoteVersionList';
+import { getVersionErrorMessage, useNoteVersionPreview } from './useNoteVersions';
 import type {
   FolderOption,
   InspectorDirtyState,
@@ -391,5 +393,57 @@ export function InspectorSaveFooter({
         <span>{saving ? 'Saving…' : 'Save changes'}</span>
       </Button>
     </footer>
+  );
+}
+
+function VersionsPreview({ noteId, onShowAll }: { noteId: string; onShowAll: () => void }) {
+  const preview = useNoteVersionPreview(noteId);
+  const versions = preview.data?.versions ?? [];
+
+  return (
+    <div className="space-y-2">
+      {preview.isPending ? (
+        <p role="status" aria-busy="true" className="text-xs text-text-subtle">Loading versions…</p>
+      ) : preview.isError ? (
+        <p className="text-xs text-text-subtle">{getVersionErrorMessage(preview.error)}</p>
+      ) : versions.length === 0 ? (
+        <p className="text-xs text-text-subtle">No saved versions yet.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {versions.map((version) => (
+            <li key={version.id} className="min-w-0">
+              <p className="flex items-center gap-1.5 truncate text-sm text-text-default">
+                <VersionDot kind={getVersionKind(version)} />
+                <span className="truncate">{getVersionTitle(version)}</span>
+              </p>
+              <p className="truncate pl-4 text-xs text-text-subtle">{getVersionByline(version)}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+      {/* Inside the metadata form, so it must not submit. */}
+      <Button type="button" size="xs" variant="secondary" onClick={onShowAll}>
+        View all versions
+      </Button>
+    </div>
+  );
+}
+
+export function VersionsSection({ noteId, onShowAll }: { noteId: string; onShowAll: () => void }) {
+  // Fetch only after the section is first opened.
+  const [opened, setOpened] = useState(false);
+
+  return (
+    <CollapsibleSection
+      title="Versions"
+      defaultOpen={false}
+      onOpenChange={(open) => {
+        if (open) setOpened(true);
+      }}
+      className={INSPECTOR_SECTION_CLASS}
+      contentClassName={INSPECTOR_SECTION_CONTENT_CLASS}
+    >
+      {opened ? <VersionsPreview noteId={noteId} onShowAll={onShowAll} /> : null}
+    </CollapsibleSection>
   );
 }

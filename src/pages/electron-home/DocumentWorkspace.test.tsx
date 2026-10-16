@@ -108,6 +108,7 @@ function createWorkspaceProps(overrides: Partial<Parameters<typeof DocumentWorks
     onSaveMetadata: vi.fn(),
     onSaveSharing: vi.fn(),
     onShareOpenChange: vi.fn(),
+    onVersionsOpenChange: vi.fn(),
     onTitleChange: vi.fn(),
     onToggleInspector: vi.fn(),
     onAttachImage: vi.fn(),
@@ -120,6 +121,7 @@ function createWorkspaceProps(overrides: Partial<Parameters<typeof DocumentWorks
     onQuickOpen: vi.fn(),
     panes,
     shareOpen: true,
+    versionsOpen: false,
     ...overrides,
   };
 

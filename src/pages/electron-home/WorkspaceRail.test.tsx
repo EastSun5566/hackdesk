@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { TeamSummary, UserSummary } from '@/lib/electron-api';
@@ -319,6 +319,19 @@ describe('WorkspaceRail', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open settings for Michael Lee' }));
 
     expect(props.onOpenSettings).toHaveBeenCalledOnce();
+  });
+
+  it('opens the trash from the utilities only when a handler is given', () => {
+    renderWorkspaceRail();
+    expect(screen.queryByRole('button', { name: 'Trash' })).toBeNull();
+    cleanup();
+
+    const onOpenTrash = vi.fn();
+    renderWorkspaceRail({ onOpenTrash });
+    const utilities = screen.getByTestId('workspace-rail-utilities');
+    fireEvent.click(within(utilities).getByRole('button', { name: 'Trash' }));
+
+    expect(onOpenTrash).toHaveBeenCalledOnce();
   });
 
   it('shows a compact settings footer when no connected user exists', () => {

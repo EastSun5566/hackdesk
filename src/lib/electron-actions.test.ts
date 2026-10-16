@@ -209,6 +209,26 @@ describe('electron action registry', () => {
     ]));
   });
 
+  it('offers version history only for a selected HackMD note', () => {
+    const action = getElectronAction('show-note-versions');
+
+    expect(getActionDisabledReason(action, baseContext)).toBeNull();
+    expect(getActionDisabledReason(action, { ...baseContext, selectedNoteId: null })).toBe('Select a note first.');
+    expect(getActionDisabledReason(action, { ...baseContext, scopeType: 'local' })).toBe('Version history is only available for HackMD notes.');
+    expect(getActionDisabledReason(action, { ...baseContext, hasToken: false })).toBe('Connect HackMD in Settings first.');
+  });
+
+  it('offers the trash only with HackMD connected, next to History in the View menu', () => {
+    const action = getElectronAction('show-trash');
+    const viewActionIds = ELECTRON_MENU_SCHEMA.find((section) => section.id === 'view')?.items
+      .flatMap((item) => item.type === 'action' ? [item.actionId] : []) ?? [];
+
+    expect(action.category).toBe('navigation');
+    expect(getActionDisabledReason(action, { ...baseContext, scopeType: 'local', selectedNoteId: null })).toBeNull();
+    expect(getActionDisabledReason(action, { ...baseContext, hasToken: false })).toBe('Connect HackMD in Settings first.');
+    expect(viewActionIds.indexOf('show-trash')).toBe(viewActionIds.indexOf('go-history') + 1);
+  });
+
   it('reports disabled reasons from shared context', () => {
     expect(isElectronActionEnabled(getElectronAction('save-note'), baseContext)).toBe(true);
     expect(getActionDisabledReason(getElectronAction('save-note'), {

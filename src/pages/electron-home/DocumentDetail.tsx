@@ -11,6 +11,7 @@ import {
   Edit3,
   FilePlus,
   FolderOpen,
+  History,
   ImagePlus,
   Loader2,
   PanelRightClose,
@@ -46,6 +47,7 @@ import { createImageUploadPlaceholder } from '@/components/hackmd-live-preview/m
 import { EmptyState, PanelHeader, PanelShell, ToolbarDropdownMoreTrigger, ToolbarIconButton } from './interaction-primitives';
 import { NoteInspector } from './NoteInspector';
 import { useAiInline } from './useAiInline';
+import { NoteVersionsDialog } from './NoteVersionsDialog';
 import { ShareDialog } from './ShareDialog';
 import {
   formatDate,
@@ -84,6 +86,7 @@ export type DocumentDetailLayout = {
   inspectorPanelId?: string;
   searchRequestId: number;
   shareOpen: boolean;
+  versionsOpen?: boolean;
 };
 
 export type DocumentDetailStatus = {
@@ -112,6 +115,7 @@ export type DocumentDetailActions = {
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveSharing: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onShareOpenChange: (open: boolean) => void;
+  onVersionsOpenChange?: (open: boolean) => void;
   onTitleChange: (title: string) => void;
   onToggleInspector: () => void;
   /** Uploads `file` and replaces `placeholder` in this tab's content when done. */
@@ -400,10 +404,15 @@ function ActiveDocumentDetail({
     }
   }, [handleAttachImageFile]);
 
-  const openShareDialogFromMenu = () => {
+  // Let the menu close and return focus before the dialog takes it.
+  const openDialogFromMenu = (open: (open: boolean) => void) => {
     setActionsOpen(false);
-    window.setTimeout(() => actions.onShareOpenChange(true), 0);
+    window.setTimeout(() => open(true), 0);
   };
+  const openShareDialogFromMenu = () => openDialogFromMenu(actions.onShareOpenChange);
+  const openVersionsDialogFromMenu = actions.onVersionsOpenChange
+    ? () => openDialogFromMenu(actions.onVersionsOpenChange!)
+    : undefined;
 
   return (
     <PanelShell
@@ -420,6 +429,7 @@ function ActiveDocumentDetail({
         onAttachImage={requestAttachImage}
         onAiAssist={requestAiAssist}
         onOpenShareDialog={openShareDialogFromMenu}
+        onOpenVersionsDialog={openVersionsDialogFromMenu}
         layout={layout}
         status={status}
       />
@@ -469,6 +479,16 @@ function ActiveDocumentDetail({
           onCopyMarkdownLink={actions.onCopyMarkdownLink}
           onOpenEditor={actions.onOpenEditor}
           onSaveSharing={actions.onSaveSharing}
+        />
+      )}
+      {!documentState.document || isLocalDocument || !actions.onVersionsOpenChange ? null : (
+        <NoteVersionsDialog
+          open={!!layout.versionsOpen}
+          document={documentState.document}
+          noteDirty={noteDirty}
+          onOpenChange={actions.onVersionsOpenChange}
+          onRestore={actions.onContentChange}
+          onOpenAsNewDraft={actions.onOpenAsNewDraft}
         />
       )}
     </PanelShell>
@@ -572,6 +592,7 @@ function DocumentHeader({
   onAiAssist,
   onAttachImage,
   onOpenShareDialog,
+  onOpenVersionsDialog,
   status,
 }: {
   actions: DocumentDetailActions;
@@ -584,6 +605,7 @@ function DocumentHeader({
   onAiAssist: () => void;
   onAttachImage: () => void;
   onOpenShareDialog: () => void;
+  onOpenVersionsDialog?: () => void;
   status: DocumentDetailStatus;
 }) {
   const isLocalDocument = documentState.document?.teamPath === LOCAL_VAULT_TEAM_PATH;
@@ -660,6 +682,7 @@ function DocumentHeader({
               onAiAssist={onAiAssist}
               onAttachImage={onAttachImage}
               onOpenShareDialog={onOpenShareDialog}
+              onOpenVersionsDialog={onOpenVersionsDialog}
               status={status}
             />
           ) : null}
@@ -677,6 +700,7 @@ function DocumentActionsMenu({
   onAiAssist,
   onAttachImage,
   onOpenShareDialog,
+  onOpenVersionsDialog,
   status,
 }: {
   actions: DocumentDetailActions;
@@ -686,6 +710,7 @@ function DocumentActionsMenu({
   onAiAssist: () => void;
   onAttachImage: () => void;
   onOpenShareDialog: () => void;
+  onOpenVersionsDialog?: () => void;
   status: DocumentDetailStatus;
 }) {
   const isLocalDocument = documentState.document.teamPath === LOCAL_VAULT_TEAM_PATH;
@@ -708,6 +733,16 @@ function DocumentActionsMenu({
               <Share2 aria-hidden="true" className="h-4 w-4" />
               Share…
             </DropdownMenuItem>
+            {onOpenVersionsDialog ? (
+              <DropdownMenuItem onSelect={(event) => {
+                event.preventDefault();
+                onOpenVersionsDialog();
+              }}>
+                <History aria-hidden="true" className="h-4 w-4" />
+                Version History…
+                <ActionMenuShortcut actionId="show-note-versions" />
+              </DropdownMenuItem>
+            ) : null}
           </>
         )}
         {isLocalDocument ? (
@@ -836,6 +871,7 @@ function InspectorPanel({
           actions={{
             onSaveMetadata: actions.onSaveMetadata,
             onCopyLink: actions.onCopyLink,
+            onShowVersions: actions.onVersionsOpenChange && (() => actions.onVersionsOpenChange?.(true)),
           }}
         />
       )}

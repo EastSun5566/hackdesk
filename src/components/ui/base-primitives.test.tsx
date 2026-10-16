@@ -1,8 +1,10 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
 import { Button } from './button';
+import { Checkbox } from './checkbox';
 import { Field, FieldLabel, Textarea } from './field';
+import { Tabs, TabsList, TabsTrigger } from './tabs';
 
 describe('Button', () => {
   it('defaults to type button and preserves explicit submit buttons', () => {
@@ -17,6 +19,26 @@ describe('Button', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('type', 'submit');
   });
 
+});
+
+describe('Checkbox', () => {
+  it('toggles, reports a mixed state and takes its name from a label', () => {
+    const onCheckedChange = vi.fn();
+    const { rerender } = render(
+      <>
+        <Checkbox aria-labelledby="all-label" indeterminate checked={false} onCheckedChange={onCheckedChange} />
+        <span id="all-label">Select all</span>
+      </>,
+    );
+
+    const checkbox = screen.getByRole('checkbox', { name: 'Select all' });
+    expect(checkbox).toHaveAttribute('aria-checked', 'mixed');
+    fireEvent.click(checkbox);
+    expect(onCheckedChange).toHaveBeenCalledWith(true, expect.anything());
+
+    rerender(<Checkbox aria-label="Select note" checked onCheckedChange={onCheckedChange} />);
+    expect(screen.getByRole('checkbox', { name: 'Select note' })).toBeChecked();
+  });
 });
 
 describe('Field', () => {
@@ -35,5 +57,24 @@ describe('Field', () => {
     expect(textarea.tagName).toBe('TEXTAREA');
     expect(textarea).toHaveValue('Draft summary');
     expect(new FormData(screen.getByRole('form', { name: 'Metadata' }) as HTMLFormElement).get('description')).toBe('Draft summary');
+  });
+});
+
+describe('TabsTrigger', () => {
+  it('styles the tab Base UI marks as active', () => {
+    render(
+      <Tabs defaultValue="changes">
+        <TabsList>
+          <TabsTrigger value="changes">Changes</TabsTrigger>
+          <TabsTrigger value="full">Full text</TabsTrigger>
+        </TabsList>
+      </Tabs>,
+    );
+
+    const active = screen.getByRole('tab', { name: 'Changes' });
+    // The class selector must name the attribute Base UI actually sets.
+    expect(active).toHaveAttribute('data-active');
+    expect(active.className).toContain('data-[active]:bg-background-selected');
+    expect(screen.getByRole('tab', { name: 'Full text' })).not.toHaveAttribute('data-active');
   });
 });

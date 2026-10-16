@@ -78,7 +78,7 @@ export function SettingsTabs({ dialogRef, onNavigate }: {
               className={cn(
                 'inline-flex h-10 w-full min-w-0 shrink-0 items-center justify-start gap-2 rounded-md px-3 text-sm font-medium transition-colors hover:bg-element-bg-hover',
                 FOCUS_RING_CLASS,
-                'text-text-subtle data-[selected]:bg-background-default data-[selected]:text-text-default data-[selected]:shadow-sm',
+                'text-text-subtle data-[active]:bg-background-default data-[active]:text-text-default data-[active]:shadow-sm',
               )}
             >
               <span aria-hidden="true">{tab.icon}</span>

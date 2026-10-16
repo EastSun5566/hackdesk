@@ -1406,6 +1406,532 @@
         }
       }
     },
+    "/notes/{noteId}/versions": {
+      "get": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "named_only",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "created_by",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Return versions created at or after this ISO-8601 datetime.",
+            "in": "query",
+            "name": "created_after",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Return versions created at or before this ISO-8601 datetime.",
+            "in": "query",
+            "name": "created_before",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "format": "double",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "format": "double",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetNoteVersions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNoteVersionBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteVersionMetadata"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "No content change or version already named",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateNoteVersionConflictError"
+                },
+                "examples": {
+                  "Example 1": {
+                    "value": {
+                      "error_code": "no_content_change",
+                      "message": "Current note content has no changes to save.",
+                      "latest_version_id": "01234567-89ab-4def-8123-456789abcdef",
+                      "latest_name_source": "user"
+                    }
+                  },
+                  "Example 2": {
+                    "value": {
+                      "error_code": "version_already_named",
+                      "message": "The version already has a name.",
+                      "version_id": "01234567-89ab-4def-8123-456789abcdef",
+                      "name": "Release checkpoint"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notes/{noteId}/versions/{versionId}": {
+      "get": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "versionId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteVersion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notes/{noteId}/versions/compare": {
+      "get": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required comparison source. Use note_content or version:{id}.",
+            "in": "query",
+            "name": "base",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required comparison target. Use note_content or version:{id}.",
+            "in": "query",
+            "name": "target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompareNoteVersions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed or version content unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiValidationError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams": {
       "get": {
         "security": [
@@ -2849,6 +3375,71 @@
         }
       }
     },
+    "/trash": {
+      "get": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApiTrashNote"
+                  },
+                  "type": "array"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/trash/{noteId}/restore": {
       "put": {
         "security": [
@@ -2933,6 +3524,98 @@
           }
         }
       }
+    },
+    "/trash/batch-restore": {
+      "put": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchRestoreTrashBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrashBatchOperationResponse"
+                }
+              }
+            }
+          },
+          "207": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrashBatchOperationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2952,6 +3635,25 @@
             "$ref": "#/components/schemas/ApiRequestErrorResponse"
           }
         ]
+      },
+      "ApiError": {
+        "properties": {
+          "error_code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "unavailable_ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error_code",
+          "message"
+        ],
+        "type": "object",
+        "additionalProperties": false
       },
       "ApiErrorResponse": {
         "properties": {
@@ -3118,6 +3820,57 @@
           }
         ]
       },
+      "ApiTrashNote": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "deletedAt": {
+            "type": "number",
+            "format": "double"
+          },
+          "ownerId": {
+            "type": "string"
+          },
+          "teamId": {
+            "type": "string",
+            "nullable": true
+          },
+          "shortId": {
+            "type": "string"
+          },
+          "publishType": {
+            "type": "string"
+          },
+          "permanentDeletedAt": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "tags",
+          "deletedAt",
+          "ownerId",
+          "teamId",
+          "shortId",
+          "publishType",
+          "permanentDeletedAt"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
       "ApiValidationError": {
         "properties": {
           "message": {
@@ -3151,6 +3904,29 @@
         "type": "object",
         "additionalProperties": false
       },
+      "BatchOperationError": {
+        "enum": [
+          "NOT_FOUND",
+          "PERMISSION_DENIED",
+          "INTERNAL_ERROR"
+        ],
+        "type": "string"
+      },
+      "BatchRestoreTrashBody": {
+        "properties": {
+          "noteIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "noteIds"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
       "CommentPermissionType": {
         "enum": [
           "disabled",
@@ -3160,6 +3936,18 @@
           "everyone"
         ],
         "type": "string"
+      },
+      "CompareNoteVersions": {
+        "properties": {
+          "unified_diff": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "unified_diff"
+        ],
+        "type": "object",
+        "additionalProperties": false
       },
       "CreateNoteMultiStatusResponse": {
         "properties": {
@@ -3176,6 +3964,40 @@
         ],
         "type": "object",
         "additionalProperties": false
+      },
+      "CreateNoteVersionBody": {
+        "properties": {
+          "base": {
+            "type": "string",
+            "description": "Saved content to name. Accepts note_content or version:{id}.",
+            "default": "note_content"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "\\S"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "CreateNoteVersionConflictError": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/NoContentChangeError"
+          },
+          {
+            "$ref": "#/components/schemas/VersionAlreadyNamedError"
+          }
+        ]
       },
       "CreateTeamFolderBody": {
         "properties": {
@@ -3267,11 +4089,86 @@
         "type": "object",
         "additionalProperties": false
       },
+      "GetNoteVersions": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/NoteVersionMetadata"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "properties": {
+              "total_pages": {
+                "type": "number",
+                "format": "double"
+              },
+              "total": {
+                "type": "number",
+                "format": "double"
+              },
+              "limit": {
+                "type": "number",
+                "format": "double"
+              },
+              "page": {
+                "type": "number",
+                "format": "double"
+              }
+            },
+            "required": [
+              "total_pages",
+              "total",
+              "limit",
+              "page"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
       "GetUserHistory": {
         "items": {
           "$ref": "#/components/schemas/Note"
         },
         "type": "array"
+      },
+      "NoContentChangeError": {
+        "properties": {
+          "error_code": {
+            "type": "string",
+            "enum": [
+              "no_content_change"
+            ],
+            "nullable": false
+          },
+          "message": {
+            "type": "string"
+          },
+          "latest_version_id": {
+            "type": "string"
+          },
+          "latest_name_source": {
+            "type": "string",
+            "enum": [
+              "system",
+              "user"
+            ]
+          }
+        },
+        "required": [
+          "error_code",
+          "message",
+          "latest_version_id",
+          "latest_name_source"
+        ],
+        "type": "object",
+        "additionalProperties": false
       },
       "Note": {
         "properties": {
@@ -3518,6 +4415,132 @@
         ],
         "type": "object"
       },
+      "NoteVersion": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "name_source": {
+            "type": "string",
+            "enum": [
+              "user",
+              "system"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "created_by": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NoteVersionUser"
+              }
+            ],
+            "nullable": true
+          },
+          "authorship": {
+            "items": {
+              "$ref": "#/components/schemas/NoteVersionUser"
+            },
+            "type": "array"
+          },
+          "content_available": {
+            "type": "boolean"
+          },
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "name_source",
+          "created_at",
+          "created_by",
+          "authorship",
+          "content_available"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "NoteVersionMetadata": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "name_source": {
+            "type": "string",
+            "enum": [
+              "user",
+              "system"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "created_by": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NoteVersionUser"
+              }
+            ],
+            "nullable": true
+          },
+          "authorship": {
+            "items": {
+              "$ref": "#/components/schemas/NoteVersionUser"
+            },
+            "type": "array"
+          },
+          "content_available": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "name_source",
+          "created_at",
+          "created_by",
+          "authorship",
+          "content_available"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "NoteVersionUser": {
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "photo": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "display_name"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
       "Record_string.ApiValidationFieldError_": {
         "properties": {},
         "additionalProperties": {
@@ -3723,6 +4746,28 @@
         ],
         "type": "string"
       },
+      "TrashBatchOperationResponse": {
+        "properties": {},
+        "additionalProperties": {
+          "properties": {
+            "reason": {
+              "$ref": "#/components/schemas/BatchOperationError"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "success",
+                "failure"
+              ]
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "type": "object"
+        },
+        "type": "object"
+      },
       "UpdateFolderOrderBody": {
         "properties": {
           "order": {
@@ -3841,6 +4886,34 @@
           "photo",
           "teams",
           "upgraded"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "VersionAlreadyNamedError": {
+        "properties": {
+          "error_code": {
+            "type": "string",
+            "enum": [
+              "version_already_named"
+            ],
+            "nullable": false
+          },
+          "message": {
+            "type": "string"
+          },
+          "version_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error_code",
+          "message",
+          "version_id",
+          "name"
         ],
         "type": "object",
         "additionalProperties": false

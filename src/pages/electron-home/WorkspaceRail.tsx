@@ -26,6 +26,7 @@ import {
   Pin,
   PinOff,
   Settings2,
+  Trash2,
 } from 'lucide-react';
 import { useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
@@ -478,6 +479,7 @@ export function WorkspaceRail({
   onScopeChange,
   onChooseLocalVault,
   onOpenSettings,
+  onOpenTrash,
   onPinnedTeamIdsChange,
   localVaultConfigured,
 }: {
@@ -494,6 +496,8 @@ export function WorkspaceRail({
   onScopeChange: (scope: WorkspaceScope) => void;
   onChooseLocalVault: () => void;
   onOpenSettings: () => void;
+  /** Opens the HackMD trash. Leave it out to hide the button. */
+  onOpenTrash?: () => void;
   onPinnedTeamIdsChange: (pinnedTeamIds: string[]) => void;
 }) {
   const teamsHeadingId = `${id}-teams-heading`;
@@ -568,6 +572,16 @@ export function WorkspaceRail({
           label="History"
           onClick={() => onScopeChange({ type: 'history', label: 'History' })}
         />
+        {onOpenTrash ? (
+          <WorkspaceRailButton
+            navigationId="trash"
+            active={false}
+            collapsed={collapsed}
+            icon={<Trash2 className="h-4 w-4" />}
+            label="Trash"
+            onClick={onOpenTrash}
+          />
+        ) : null}
         <WorkspaceRailButton
           navigationId={localVaultConfigured ? 'local' : 'choose-vault'}
           active={scope.type === 'local'}

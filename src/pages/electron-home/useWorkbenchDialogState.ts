@@ -27,6 +27,8 @@ export type WorkbenchDialogState = {
   renameFolderDialog: RenameFolderDialogState;
   settingsOpen: boolean;
   shareOpen: boolean;
+  trashOpen: boolean;
+  versionsOpen: boolean;
   closeTransientLayer: () => boolean;
   setCreateDialog: (state: CreateNoteDialogState) => void;
   setCreateFolderDialog: (state: CreateFolderDialogState) => void;
@@ -36,6 +38,8 @@ export type WorkbenchDialogState = {
   setRenameFolderDialog: (state: RenameFolderDialogState) => void;
   setSettingsOpen: (open: boolean) => void;
   setShareOpen: (open: boolean) => void;
+  setTrashOpen: (open: boolean) => void;
+  setVersionsOpen: (open: boolean) => void;
 };
 
 export function useWorkbenchDialogState(): WorkbenchDialogState {
@@ -47,6 +51,8 @@ export function useWorkbenchDialogState(): WorkbenchDialogState {
   const [deleteTarget, setDeleteTarget] = useState<DocumentSummary | null>(null);
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<FolderTreeNode | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const [trashOpen, setTrashOpen] = useState(false);
 
   const closeTransientLayer = useCallback(() => {
     if (palette.open) {
@@ -56,6 +62,16 @@ export function useWorkbenchDialogState(): WorkbenchDialogState {
 
     if (shareOpen) {
       setShareOpen(false);
+      return true;
+    }
+
+    if (versionsOpen) {
+      setVersionsOpen(false);
+      return true;
+    }
+
+    if (trashOpen) {
+      setTrashOpen(false);
       return true;
     }
 
@@ -99,6 +115,8 @@ export function useWorkbenchDialogState(): WorkbenchDialogState {
     renameFolderDialog.open,
     settingsOpen,
     shareOpen,
+    trashOpen,
+    versionsOpen,
   ]);
 
   return {
@@ -110,6 +128,8 @@ export function useWorkbenchDialogState(): WorkbenchDialogState {
     renameFolderDialog,
     settingsOpen,
     shareOpen,
+    trashOpen,
+    versionsOpen,
     closeTransientLayer,
     setCreateDialog,
     setCreateFolderDialog,
@@ -119,5 +139,7 @@ export function useWorkbenchDialogState(): WorkbenchDialogState {
     setRenameFolderDialog,
     setSettingsOpen,
     setShareOpen,
+    setTrashOpen,
+    setVersionsOpen,
   };
 }

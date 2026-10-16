@@ -16,6 +16,8 @@ type OpenApiSchema = JsonRecord & {
   oneOf?: OpenApiSchema[];
   allOf?: OpenApiSchema[];
   enum?: unknown[];
+  items?: OpenApiSchema;
+  additionalProperties?: OpenApiSchema | boolean;
 };
 
 type OpenApiResponse = JsonRecord & {
@@ -52,7 +54,7 @@ export type OpenApiContract = JsonRecord & {
   };
 };
 
-/** Success statuses the HackMD service handles. 207 is a partial note create. */
+/** Success statuses the HackMD service handles. 207 is a partial note create or trash restore. */
 const HANDLED_SUCCESS_STATUSES = new Set(['200', '201', '202', '204', '207']);
 
 const REQUIRED_OPERATIONS: Array<readonly [string, string]> = [
@@ -64,6 +66,12 @@ const REQUIRED_OPERATIONS: Array<readonly [string, string]> = [
   ['PATCH', '/notes/{noteId}'],
   ['DELETE', '/notes/{noteId}'],
   ['PUT', '/trash/{noteId}/restore'],
+  ['GET', '/trash'],
+  ['PUT', '/trash/batch-restore'],
+  ['GET', '/notes/{noteId}/versions'],
+  ['POST', '/notes/{noteId}/versions'],
+  ['GET', '/notes/{noteId}/versions/{versionId}'],
+  ['GET', '/notes/{noteId}/versions/compare'],
   ['POST', '/notes/{noteId}/images'],
   ['GET', '/history'],
   ['GET', '/folders'],
@@ -200,6 +208,10 @@ function resolveRef(contract: OpenApiContract, ref: string): OpenApiSchema | nul
   return asSchema(current);
 }
 
+function resolveSchema(contract: OpenApiContract, schema: OpenApiSchema | null): OpenApiSchema | null {
+  return schema?.$ref ? resolveRef(contract, schema.$ref) : schema;
+}
+
 function schemaContainsProperty(
   contract: OpenApiContract,
   schema: OpenApiSchema | null,
@@ -279,7 +291,7 @@ export function verifyHackmdOpenApiContract(contract: OpenApiContract): void {
 
   for (const [method, path] of REQUIRED_OPERATIONS.filter(([method]) => ['POST', 'PATCH', 'PUT'].includes(method))) {
     const operation = getOperation(contract, method, path);
-    if (path.endsWith('/restore')) {
+    if (path.endsWith('/{noteId}/restore')) {
       // Restoring from the trash takes no body.
       continue;
     }
@@ -310,7 +322,11 @@ export function verifyHackmdOpenApiContract(contract: OpenApiContract): void {
     for (const [status, response] of Object.entries(operation?.responses ?? {})) {
       if (status.startsWith('2')) {
         assert(HANDLED_SUCCESS_STATUSES.has(status), `Unhandled success status ${status} on ${method} ${path}.`, failures);
-        assert(status !== '207' || path.endsWith('/notes'), `Unexpected partial success on ${method} ${path}.`, failures);
+        assert(
+          status !== '207' || path.endsWith('/notes') || path === '/trash/batch-restore',
+          `Unexpected partial success on ${method} ${path}.`,
+          failures,
+        );
         continue;
       }
 
@@ -357,6 +373,62 @@ export function verifyHackmdOpenApiContract(contract: OpenApiContract): void {
     'GET /history missing the limit query parameter.',
     failures,
   );
+
+  // Version history reads these fields; the list is paged by meta.total_pages.
+  const versionsSchema = getResponseSchema(getOperation(contract, 'GET', '/notes/{noteId}/versions'), '200');
+  for (const path of [['data'], ['meta', 'page'], ['meta', 'total_pages']]) {
+    assert(schemaContainsPath(contract, versionsSchema, path), `GET /notes/{noteId}/versions response missing ${path.join('.')}.`, failures);
+  }
+  for (const propertyName of ['id', 'name_source', 'created_at', 'content_available', 'content']) {
+    assert(
+      schemaContainsProperty(contract, getResponseSchema(getOperation(contract, 'GET', '/notes/{noteId}/versions/{versionId}'), '200'), propertyName),
+      `GET /notes/{noteId}/versions/{versionId} response missing ${propertyName}.`,
+      failures,
+    );
+  }
+  // Saving a version reads these 409 codes and the version it returns.
+  const createVersion = getOperation(contract, 'POST', '/notes/{noteId}/versions');
+  assert(schemaContainsProperty(contract, getResponseSchema(createVersion, '201'), 'id'), 'Create version response missing id.', failures);
+  const createConflict = getResponseSchema(createVersion, '409');
+  for (const propertyName of ['error_code', 'latest_version_id', 'version_id']) {
+    assert(schemaContainsProperty(contract, createConflict, propertyName), `Create version 409 missing ${propertyName}.`, failures);
+  }
+  for (const propertyName of ['name', 'description', 'base']) {
+    assert(schemaContainsProperty(contract, getJsonSchema(createVersion), propertyName), `Create version body missing ${propertyName}.`, failures);
+  }
+
+  const compareOperation = getOperation(contract, 'GET', '/notes/{noteId}/versions/compare');
+  assert(
+    schemaContainsProperty(contract, getResponseSchema(compareOperation, '200'), 'unified_diff'),
+    'Version compare response missing unified_diff.',
+    failures,
+  );
+  for (const name of ['base', 'target']) {
+    assert(
+      compareOperation?.parameters?.some((parameter) => parameter.name === name && parameter.in === 'query'),
+      `Version compare missing the ${name} query parameter.`,
+      failures,
+    );
+  }
+
+  // The trash dialog reads these fields of each trashed note.
+  const trashNote = getResponseSchema(getOperation(contract, 'GET', '/trash'), '200')?.items ?? null;
+  for (const propertyName of ['id', 'title', 'deletedAt', 'permanentDeletedAt']) {
+    assert(schemaContainsProperty(contract, trashNote, propertyName), `GET /trash item missing ${propertyName}.`, failures);
+  }
+  // Batch restore answers with one outcome per note id, keyed by the id.
+  const batchRestore = getOperation(contract, 'PUT', '/trash/batch-restore');
+  assert(schemaContainsProperty(contract, getJsonSchema(batchRestore), 'noteIds'), 'Batch restore body missing noteIds.', failures);
+  for (const status of ['200', '207']) {
+    const outcomes = resolveSchema(contract, getResponseSchema(batchRestore, status))?.additionalProperties;
+    for (const propertyName of ['status', 'reason']) {
+      assert(
+        schemaContainsProperty(contract, asSchema(outcomes), propertyName),
+        `Batch restore ${status} outcome missing ${propertyName}.`,
+        failures,
+      );
+    }
+  }
 
   const permissionEnum = contract.components?.schemas?.NotePermissionRole?.enum ?? [];
   for (const permission of ['owner', 'signed_in', 'guest']) {

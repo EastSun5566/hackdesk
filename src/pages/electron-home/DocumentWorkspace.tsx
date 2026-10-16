@@ -52,6 +52,7 @@ export function DocumentWorkspace({
   editorMode,
   folderTree,
   shareOpen,
+  versionsOpen,
   isInspectorCollapsed,
   getPaneView,
   scopeKey,
@@ -78,6 +79,7 @@ export function DocumentWorkspace({
   onContentChange,
   onToggleInspector,
   onShareOpenChange,
+  onVersionsOpenChange,
   onCopyDraft,
   onExportDraft,
   onOpenAsNewDraft,
@@ -91,6 +93,7 @@ export function DocumentWorkspace({
   editorMode: EditorMode;
   folderTree: FolderTree;
   shareOpen: boolean;
+  versionsOpen: boolean;
   isInspectorCollapsed: boolean;
   getPaneView: (pane: NotePane) => DocumentPaneView;
   scopeKey: string;
@@ -117,6 +120,7 @@ export function DocumentWorkspace({
   onContentChange: (tab: OpenNoteTab, content: string) => void;
   onToggleInspector: () => void;
   onShareOpenChange: (open: boolean) => void;
+  onVersionsOpenChange: (open: boolean) => void;
   onCopyDraft: (content: string) => void;
   onExportDraft: (title: string, content: string) => void;
   onOpenAsNewDraft: (title: string, content: string, paneId: string) => void;
@@ -224,6 +228,7 @@ export function DocumentWorkspace({
                       aiAssistRequestId: requestId('ai-assist'),
                       onRequestHandled: onEditorRequestHandled,
                       shareOpen: isActivePane && shareOpen,
+                      versionsOpen: isActivePane && versionsOpen,
                       inspectorCollapsed: !isActivePane || isInspectorCollapsed,
                     }}
                     status={{
@@ -254,6 +259,7 @@ export function DocumentWorkspace({
                       onContentChange: (content) => view.activeTab && onContentChange(view.activeTab, content),
                       onToggleInspector,
                       onShareOpenChange,
+                      onVersionsOpenChange,
                     }}
                   />
                 )}

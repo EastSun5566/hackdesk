@@ -35,9 +35,11 @@ import {
   getWorkspaceQueryKey,
   getScopeStorageKey,
 } from './repository';
+import { noteVersionsKeys } from './useNoteVersions';
 import type { NoteDocumentDraft, NoteIdentity } from './note-workspace';
 import type { SettingsFormInput, WorkspaceScope } from './types';
 import { createQuickNoteContent } from './ui';
+import { trashKeys } from './useTrash';
 
 const DEFAULT_DRAFT_NOTE_TITLE = 'Untitled';
 const NOTE_RESTORE_TOAST_MS = 10_000;
@@ -654,6 +656,8 @@ export function useElectronNoteMutations({
           ['electron', 'hackmd', 'note', variables.note.teamPath ?? null, variables.note.id],
           (current) => repositoryDocumentValue(current, updatedNote),
         );
+        // HackMD may save a version with each write. Refresh only version views that are open.
+        void queryClient.invalidateQueries({ queryKey: noteVersionsKeys.all(variables.note.id), refetchType: 'active' });
       }
       toast.success(variables.successMessage ?? 'Note saved.');
     },
@@ -715,6 +719,7 @@ export function useElectronNoteMutations({
         void queryClient.invalidateQueries({
           queryKey: ['electron', 'hackmd', 'note', note.teamPath ?? null, note.id],
         });
+        if (!note.teamPath) void queryClient.invalidateQueries({ queryKey: trashKeys.list });
       }
       // HackMD keeps deleted personal notes in its trash. Team notes have no
       // restore endpoint, so only personal notes offer Undo.
@@ -739,6 +744,7 @@ export function useElectronNoteMutations({
     onSuccess: (note) => {
       void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope) });
       void queryClient.invalidateQueries({ queryKey: ['electron', 'hackmd', 'note', note.teamPath ?? null, note.id] });
+      void queryClient.invalidateQueries({ queryKey: trashKeys.list });
       toast.success(`Restored “${note.title || 'Untitled'}”.`);
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to restore note.'),

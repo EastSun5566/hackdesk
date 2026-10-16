@@ -73,6 +73,7 @@ const electronActionIdSchema = z.enum([
   'navigate-forward',
   'export-debug-logs',
   'go-history',
+  'show-trash',
   'focus-workspace',
   'focus-navigator',
   'focus-editor',
@@ -84,6 +85,7 @@ const electronActionIdSchema = z.enum([
   'export-note-markdown',
   'import-markdown-note',
   'open-note-web-editor',
+  'show-note-versions',
   'delete-note',
   'close-tab',
   'close-other-tabs',
@@ -354,6 +356,24 @@ export const uploadNoteImageInputSchema = z.strictObject({
   fileName: nonEmptyStringSchema,
   mimeType: z.string(),
   bytes: z.instanceof(ArrayBuffer).refine((bytes) => bytes.byteLength <= 25 * 1024 * 1024, 'Image exceeds 25 MiB'),
+});
+
+export const noteVersionsQuerySchema = z.strictObject({
+  namedOnly: z.boolean().optional(),
+  page: z.number().int().min(1).optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+});
+
+/** One restore request carries 1–100 note ids. The renderer splits a larger selection into batches. */
+export const restoreNotesInputSchema = z.array(nonEmptyStringSchema).min(1).max(100);
+
+/** `note_content` or `version:{id}`, the two references the HackMD compare endpoint accepts. */
+export const noteVersionRefSchema = z.string().regex(/^(?:note_content|version:[^\s/?#&]+)$/);
+
+/** HackMD limits a version name to 80 characters and its description to 500. */
+export const createNoteVersionInputSchema = z.strictObject({
+  name: z.string().trim().min(1).max(80),
+  description: z.string().trim().max(500).optional(),
 });
 
 export const hackmdRequestOptionsSchema = z.strictObject({ requestId: z.uuid() }).optional();

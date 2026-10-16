@@ -34,6 +34,12 @@ const aiServiceMock = vi.hoisted(() => ({
 const hackmdServiceMock = vi.hoisted(() => ({
   getNoteIfChanged: vi.fn(),
   restoreNote: vi.fn(),
+  listTrash: vi.fn(),
+  restoreNotes: vi.fn(),
+  listNoteVersions: vi.fn(),
+  getNoteVersion: vi.fn(),
+  compareNoteVersions: vi.fn(),
+  createNoteVersion: vi.fn(),
   validateToken: vi.fn(async () => ({
     id: 'user-1',
     email: 'michael@example.com',
@@ -138,6 +144,12 @@ vi.mock('./hackmd-service', () => ({
   listTeamNotes: vi.fn(),
   listTeams: vi.fn(),
   restoreNote: hackmdServiceMock.restoreNote,
+  listTrash: hackmdServiceMock.listTrash,
+  restoreNotes: hackmdServiceMock.restoreNotes,
+  listNoteVersions: hackmdServiceMock.listNoteVersions,
+  getNoteVersion: hackmdServiceMock.getNoteVersion,
+  compareNoteVersions: hackmdServiceMock.compareNoteVersions,
+  createNoteVersion: hackmdServiceMock.createNoteVersion,
   updateFolder: vi.fn(),
   updateFolderOrder: vi.fn(),
   updateNote: vi.fn(),
@@ -444,6 +456,58 @@ describe('registerIpcHandlers', () => {
     expect(hackmdServiceMock.restoreNote).toHaveBeenCalledWith('note-1');
     expect(() => ipcHandlers.get(ELECTRON_CHANNELS.hackmdGetNoteIfChanged)?.({}, 'note-1', null, '')).toThrow();
     expect(() => ipcHandlers.get(ELECTRON_CHANNELS.hackmdRestoreNote)?.({}, '')).toThrow();
+  });
+
+  it('lists the trash and bounds a batch restore before calling HackMD', () => {
+    registerIpcHandlers(windowManager);
+    const list = ipcHandlers.get(ELECTRON_CHANNELS.hackmdListTrash);
+    const restore = ipcHandlers.get(ELECTRON_CHANNELS.hackmdRestoreNotes);
+
+    list?.({});
+    restore?.({}, [' note-1 ', 'note-2']);
+
+    expect(hackmdServiceMock.listTrash).toHaveBeenCalledWith();
+    expect(hackmdServiceMock.restoreNotes).toHaveBeenCalledWith(['note-1', 'note-2']);
+    expect(() => restore?.({}, [])).toThrow();
+    expect(() => restore?.({}, ['note-1', ''])).toThrow();
+    expect(() => restore?.({}, [1])).toThrow();
+    expect(() => restore?.({}, 'note-1')).toThrow();
+    expect(() => restore?.({}, Array.from({ length: 101 }, (_, index) => `note-${index}`))).toThrow();
+    expect(() => list?.({}, { requestId: 'invalid' })).toThrow(/Invalid/);
+  });
+
+  it('validates version history reads before calling HackMD', () => {
+    registerIpcHandlers(windowManager);
+    const list = ipcHandlers.get(ELECTRON_CHANNELS.hackmdListNoteVersions);
+    const read = ipcHandlers.get(ELECTRON_CHANNELS.hackmdGetNoteVersion);
+    const compare = ipcHandlers.get(ELECTRON_CHANNELS.hackmdCompareNoteVersions);
+
+    list?.({}, 'note-1', { namedOnly: true, page: 2, limit: 20 });
+    read?.({}, 'note-1', 'v-1');
+    compare?.({}, 'note-1', 'version:v-1', 'note_content');
+
+    expect(hackmdServiceMock.listNoteVersions).toHaveBeenCalledWith('note-1', { namedOnly: true, page: 2, limit: 20 });
+    expect(hackmdServiceMock.getNoteVersion).toHaveBeenCalledWith('note-1', 'v-1');
+    expect(hackmdServiceMock.compareNoteVersions).toHaveBeenCalledWith('note-1', 'version:v-1', 'note_content');
+    expect(() => list?.({}, 'note-1', { page: 0 })).toThrow();
+    expect(() => list?.({}, 'note-1', { limit: 500 })).toThrow();
+    expect(() => list?.({}, 'note-1', { sort: 'asc' })).toThrow();
+    expect(() => compare?.({}, 'note-1', 'version:v-1&target=x', 'note_content')).toThrow();
+    expect(() => compare?.({}, 'note-1', 'HEAD', 'note_content')).toThrow();
+    expect(() => read?.({}, 'note-1', '')).toThrow();
+  });
+
+  it('trims and bounds a new version name before calling HackMD', () => {
+    registerIpcHandlers(windowManager);
+    const create = ipcHandlers.get(ELECTRON_CHANNELS.hackmdCreateNoteVersion);
+
+    create?.({}, 'note-1', { name: '  Before launch  ', description: ' Ready ' });
+
+    expect(hackmdServiceMock.createNoteVersion).toHaveBeenCalledWith('note-1', { name: 'Before launch', description: 'Ready' });
+    expect(() => create?.({}, 'note-1', { name: '   ' })).toThrow();
+    expect(() => create?.({}, 'note-1', { name: 'x'.repeat(81) })).toThrow();
+    expect(() => create?.({}, 'note-1', { name: 'ok', description: 'x'.repeat(501) })).toThrow();
+    expect(() => create?.({}, 'note-1', { name: 'ok', base: 'version:v-1' })).toThrow();
   });
 
   it('validates and forwards quick capture submissions', () => {

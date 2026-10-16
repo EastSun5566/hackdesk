@@ -54,6 +54,8 @@ type WorkspaceActions = {
   openQuickOpen: () => void;
   setFinderState: Dispatch<SetStateAction<NoteFinderState>>;
   setShareOpen: (open: boolean) => void;
+  setTrashOpen: (open: boolean) => void;
+  setVersionsOpen: (open: boolean) => void;
   switchWorkspaceScope: (scope: WorkspaceScope) => void;
 };
 
@@ -90,6 +92,7 @@ export function useHomeWorkspaceProps({
   setSettingsOpen,
   settings,
   shareOpen,
+  versionsOpen,
   tabLifecycle,
   teams,
   toggleInspectorCollapsed,
@@ -130,6 +133,7 @@ export function useHomeWorkspaceProps({
   setSettingsOpen: (open: boolean) => void;
   settings: ElectronSafeSettings | undefined;
   shareOpen: boolean;
+  versionsOpen: boolean;
   tabLifecycle: Pick<
     ElectronHomeWorkspaceProps['titlebar']['actions'],
     'requestCloseOtherTabs' | 'requestCloseTab' | 'requestCloseTabsToRight'
@@ -188,6 +192,8 @@ export function useHomeWorkspaceProps({
       },
       onScopeChange: actions.switchWorkspaceScope,
       onOpenSettings: () => setSettingsOpen(true),
+      // The trash lives on HackMD, so it is offered only once a token is set.
+      onOpenTrash: settings?.hasHackmdApiToken ? () => actions.setTrashOpen(true) : undefined,
       onPinnedTeamIdsChange: (pinnedTeamIds) => {
         mutations.updateSettingsMutation.mutate({
           title: settings?.title ?? defaultSettings.title,
@@ -264,6 +270,7 @@ export function useHomeWorkspaceProps({
       editorMode,
       folderTree,
       shareOpen,
+      versionsOpen,
       isInspectorCollapsed: inspectorCollapsed,
       getPaneView: (pane) => {
         const view = documents.getPaneView(pane);
@@ -326,6 +333,7 @@ export function useHomeWorkspaceProps({
       onOpenAsNewDraft: (title, content, paneId) => noteWorkspace.openDraftNote({ title, content, paneId }),
       onRetryLoad: actions.retryDocumentLoad,
       onShareOpenChange: actions.setShareOpen,
+      onVersionsOpenChange: actions.setVersionsOpen,
     },
   };
 }

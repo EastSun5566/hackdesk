@@ -297,6 +297,8 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       updateTeamFolderOrder: vi.fn(),
       getNoteIfChanged: vi.fn(async () => null),
       restoreNote: vi.fn(async () => undefined),
+      listTrash: vi.fn(async () => []),
+      restoreNotes: vi.fn(async () => ({})),
       getNote: vi.fn(async () => ({ source: 'remote' as const, data: document })),
       createNote: vi.fn(async () => document),
       createTeamNote: vi.fn(),
@@ -305,6 +307,14 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       deleteNote: vi.fn(async () => undefined),
       deleteTeamNote: vi.fn(),
       uploadNoteImage: vi.fn(async () => ({ link: 'https://hackmd.io/uploads/image.png' })),
+      listNoteVersions: vi.fn(async () => ({ versions: [], page: 1, totalPages: 1, total: 0 })),
+      getNoteVersion: vi.fn(async () => {
+        throw new Error('Unexpected version read.');
+      }),
+      compareNoteVersions: vi.fn(async () => ({ unifiedDiff: '' })),
+      createNoteVersion: vi.fn(async () => {
+        throw new Error('Unexpected version write.');
+      }),
     },
     localVault: {
       choose: vi.fn(async () => ({ canceled: true })),

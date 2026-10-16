@@ -15,6 +15,9 @@ import type {
   FatalRendererError,
   ThemeSurfaceInput,
   UploadNoteImageInput,
+  NoteVersionRef,
+  NoteVersionsQuery,
+  CreateNoteVersionInput,
   HackmdRequestOptions,
 } from '../../../src/lib/electron-api';
 import type {
@@ -56,6 +59,8 @@ import {
   listTeamNotes,
   listTeams,
   restoreNote,
+  listTrash,
+  restoreNotes,
   updateFolder,
   updateFolderOrder,
   updateNote,
@@ -63,6 +68,10 @@ import {
   updateTeamFolderOrder,
   updateTeamNote,
   uploadNoteImage,
+  listNoteVersions,
+  getNoteVersion,
+  compareNoteVersions,
+  createNoteVersion,
   validateToken,
   clearHackmdCache,
 } from './hackmd-service';
@@ -126,6 +135,10 @@ import {
   updateFolderInputSchema,
   updateNoteInputSchema,
   uploadNoteImageInputSchema,
+  noteVersionRefSchema,
+  createNoteVersionInputSchema,
+  restoreNotesInputSchema,
+  noteVersionsQuerySchema,
   hackmdRequestOptionsSchema,
   validateIpcInput,
   validateBoolean,
@@ -500,6 +513,10 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.hackmdRestoreNote, (_event, noteId: string) => (
     restoreNote(validateNonEmptyString(ELECTRON_CHANNELS.hackmdRestoreNote, noteId))
   ));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdListTrash, (event, options?: HackmdRequestOptions) => runRequest(event, options, listTrash, []));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdRestoreNotes, (_event, noteIds: string[]) => (
+    restoreNotes(validateIpcInput(ELECTRON_CHANNELS.hackmdRestoreNotes, restoreNotesInputSchema, noteIds))
+  ));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdDeleteTeamNote, (_event, teamPath: string, noteId: string) => (
     deleteTeamNote(
       validateNonEmptyString(ELECTRON_CHANNELS.hackmdDeleteTeamNote, teamPath),
@@ -511,6 +528,34 @@ export function registerIpcHandlers(
       validateNonEmptyString(ELECTRON_CHANNELS.hackmdUploadNoteImage, noteId),
       validateIpcInput(ELECTRON_CHANNELS.hackmdUploadNoteImage, uploadNoteImageInputSchema, input),
     ])
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdListNoteVersions, (event, noteId: string, query: NoteVersionsQuery, options?: HackmdRequestOptions) => (
+    runRequest(event, options, listNoteVersions, [
+      validateNonEmptyString(ELECTRON_CHANNELS.hackmdListNoteVersions, noteId),
+      validateIpcInput(ELECTRON_CHANNELS.hackmdListNoteVersions, noteVersionsQuerySchema, query),
+    ])
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdGetNoteVersion, (event, noteId: string, versionId: string, options?: HackmdRequestOptions) => (
+    runRequest(event, options, getNoteVersion, [
+      validateNonEmptyString(ELECTRON_CHANNELS.hackmdGetNoteVersion, noteId),
+      validateNonEmptyString(ELECTRON_CHANNELS.hackmdGetNoteVersion, versionId),
+    ])
+  ));
+  ipcMain.handle(
+    ELECTRON_CHANNELS.hackmdCompareNoteVersions,
+    (event, noteId: string, base: NoteVersionRef, target: NoteVersionRef, options?: HackmdRequestOptions) => (
+      runRequest(event, options, compareNoteVersions, [
+        validateNonEmptyString(ELECTRON_CHANNELS.hackmdCompareNoteVersions, noteId),
+        validateIpcInput(ELECTRON_CHANNELS.hackmdCompareNoteVersions, noteVersionRefSchema, base) as NoteVersionRef,
+        validateIpcInput(ELECTRON_CHANNELS.hackmdCompareNoteVersions, noteVersionRefSchema, target) as NoteVersionRef,
+      ])
+    ),
+  );
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdCreateNoteVersion, (_event, noteId: string, input: CreateNoteVersionInput) => (
+    createNoteVersion(
+      validateNonEmptyString(ELECTRON_CHANNELS.hackmdCreateNoteVersion, noteId),
+      validateIpcInput(ELECTRON_CHANNELS.hackmdCreateNoteVersion, createNoteVersionInputSchema, input),
+    )
   ));
   ipcMain.handle(ELECTRON_CHANNELS.shellOpenExternal, (_event, url: string) => (
     openExternalUrl(validateNonEmptyString(ELECTRON_CHANNELS.shellOpenExternal, url))

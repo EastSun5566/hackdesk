@@ -2,6 +2,7 @@ import { KeyboardNavigation } from './electron-home/KeyboardNavigation';
 import { getElectronAction } from '@/lib/electron-actions';
 import { ActionShortcutContext } from './electron-home/ActionShortcutContext';
 import { KeyboardShortcutsDialog } from './electron-home/KeyboardShortcutsDialog';
+import { TrashDialog } from './electron-home/TrashDialog';
 import type { SettingsTab } from './electron-home/SettingsDialogConfig';
 import type { ElectronFocusZone } from './electron-home/useElectronFocusZones';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -94,6 +95,8 @@ export function Home() {
     palette,
     settingsOpen,
     shareOpen,
+    trashOpen,
+    versionsOpen,
     setCreateDialog,
     setCreateFolderDialog,
     setDeleteFolderTarget,
@@ -102,6 +105,8 @@ export function Home() {
     setRenameFolderDialog,
     setSettingsOpen: setSettingsOpenState,
     setShareOpen,
+    setTrashOpen,
+    setVersionsOpen,
   } = dialogState;
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('general');
   const setSettingsOpen = useCallback((open: boolean) => {
@@ -616,6 +621,8 @@ export function Home() {
     selectedDocument,
     selectedFolderId: selectedFolder?.id ?? null,
     setSettingsOpen,
+    setTrashOpen,
+    setVersionsOpen,
     splitActiveTab: noteWorkspace.splitActiveTab,
     switchToHistory: () => switchWorkspaceScope({ type: 'history', label: 'History' }),
     toggleInspector: toggleInspectorCollapsed,
@@ -810,6 +817,8 @@ export function Home() {
       openQuickOpen,
       setFinderState,
       setShareOpen,
+      setTrashOpen,
+      setVersionsOpen,
       switchWorkspaceScope,
     },
     activeFinderState,
@@ -843,6 +852,7 @@ export function Home() {
     setSettingsOpen,
     settings,
     shareOpen,
+    versionsOpen,
     tabLifecycle: {
       requestCloseOtherTabs,
       requestCloseTab,
@@ -922,6 +932,7 @@ export function Home() {
           <ElectronHomeWorkspace {...workspaceProps} backupNotice={backupNotice} />
 
           <ElectronHomeOverlays {...overlayProps} dialogs={{ ...overlayProps.dialogs, settingsInitialTab, onSettingsOpenChange: setSettingsOpen }} />
+          <TrashDialog open={trashOpen} onOpenChange={setTrashOpen} onOpenNote={(note) => void requestSelectNote(note, { focusEditor: true })} />
           {shortcutHelp ? <KeyboardShortcutsDialog
             open region={shortcutHelp.region} returnFocus={shortcutHelp.target}
             shortcuts={settings?.shortcuts} platform={api.platform}

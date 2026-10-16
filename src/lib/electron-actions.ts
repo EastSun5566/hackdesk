@@ -83,6 +83,12 @@ function requireSelectedNote(context: ElectronActionContext) {
   return context.selectedNoteId ? null : 'Select a note first.';
 }
 
+function requireHackmdNote(context: ElectronActionContext) {
+  if (!context.selectedNoteId) return 'Select a note first.';
+  if (context.scopeType === 'local') return 'Version history is only available for HackMD notes.';
+  return requireHackmd(context);
+}
+
 function requireOpenTab(context: ElectronActionContext) {
   return context.openTabCount > 0 ? null : 'Open a note tab first.';
 }
@@ -322,6 +328,15 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     category: 'note',
     scope: 'editor',
     getDisabledReason: requireSelectedNote,
+  },
+  {
+    id: 'show-note-versions',
+    label: 'Show Version History',
+    description: 'Browse saved HackMD versions of the selected note.',
+    keywords: ['history', 'versions', 'revisions', 'restore', 'diff', 'compare'],
+    category: 'note',
+    scope: 'editor',
+    getDisabledReason: requireHackmdNote,
   },
   {
     id: 'delete-note',
@@ -607,6 +622,15 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     label: 'Go to History',
     description: 'Show recently visited HackMD notes from your history.',
     keywords: ['recent', 'activity', 'visited'],
+    category: 'navigation',
+    scope: 'workspace',
+    getDisabledReason: requireHackmd,
+  },
+  {
+    id: 'show-trash',
+    label: 'Show Trash',
+    description: 'Restore personal notes deleted from HackMD.',
+    keywords: ['deleted', 'restore', 'recover', 'bin', 'undelete'],
     category: 'navigation',
     scope: 'workspace',
     getDisabledReason: requireHackmd,

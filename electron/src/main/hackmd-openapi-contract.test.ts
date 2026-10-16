@@ -30,6 +30,13 @@ describe('HackMD OpenAPI contract', () => {
     expect(() => verifyHackmdOpenApiContract(contract)).toThrow(/Unhandled success status 206 on PATCH \/notes\/\{noteId\}/);
   });
 
+  it('fails when a batch restore outcome stops reporting the failure reason', () => {
+    const contract = JSON.parse(readFileSync(contractPath, 'utf8'));
+    delete contract.components.schemas.TrashBatchOperationResponse.additionalProperties.properties.reason;
+
+    expect(() => verifyHackmdOpenApiContract(contract)).toThrow(/Batch restore 207 outcome missing reason/);
+  });
+
   it('keeps only the operations HackDesk calls and the schemas they reference', () => {
     const contract = JSON.parse(readFileSync(contractPath, 'utf8'));
     const spec = {
