@@ -1,6 +1,8 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 
 const KILL_GRACE_MS = 2_000;
+/** How long output may keep arriving after a CLI exits before its pipes are given up on. */
+const EXIT_DRAIN_MS = 1_000;
 const STDERR_TAIL_CHARACTERS = 16_384;
 // oxlint-disable-next-line no-control-regex
 const ANSI_PATTERN = /\u001B\[[0-9;?]*[A-Za-z]/g;
@@ -101,10 +103,12 @@ export function runCli(executable: string, args: string[], options: CliRunOption
     const stderr = createStderrTail();
     let timedOut = false;
     let settled = false;
+    let drain: NodeJS.Timeout | undefined;
     const finish = (code: number | null) => {
       if (settled) return;
       settled = true;
       clearTimeout(watchdog);
+      clearTimeout(drain);
       options.signal?.removeEventListener('abort', abort);
       resolve({ code, stdout, stderr: stderr.text, timedOut });
     };
@@ -133,6 +137,14 @@ export function runCli(executable: string, args: string[], options: CliRunOption
       finish(-1);
     });
     child.on('close', code => finish(code));
+    // A background process the CLI started can inherit stdout and hold it open long after the CLI exits.
+    child.on('exit', (code) => {
+      drain = setTimeout(() => {
+        child.stdout.destroy();
+        child.stderr.destroy();
+        finish(code);
+      }, EXIT_DRAIN_MS);
+    });
     child.stdin.end(options.input ?? '');
   });
 }
