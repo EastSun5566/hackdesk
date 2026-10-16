@@ -17,9 +17,10 @@ function actionMenuItem(
   const action = getElectronAction(actionId);
   const keybinding = resolveWorkbenchShortcut(actionId, shortcuts, characterShortcutsEnabled);
 
+  const rendererHandled = Boolean(action.keyboardContext || action.rendererShortcut);
   return {
-    label: action.keyboardContext && keybinding !== 'none' ? `${action.label}    ${displayShortcutConfig(keybinding, process.platform)}`.trimEnd() : action.label,
-    accelerator: action.keyboardContext || keybinding === 'none'
+    label: rendererHandled && keybinding !== 'none' ? `${action.label}    ${displayShortcutConfig(keybinding, process.platform)}`.trimEnd() : action.label,
+    accelerator: rendererHandled || keybinding === 'none'
       ? undefined
       : toMenuAccelerator(keybinding, process.platform),
     click: () => sendCommand({ type: action.id }),

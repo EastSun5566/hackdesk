@@ -225,6 +225,7 @@ export function DocumentWorkspace({
                       focusRequestId: requestId('focus'),
                       searchRequestId: requestId('search'),
                       attachImageRequestId: requestId('attach-image'),
+                      aiAssistRequestId: requestId('ai-assist'),
                       onRequestHandled: onEditorRequestHandled,
                       shareOpen: isActivePane && shareOpen,
                       versionsOpen: isActivePane && versionsOpen,

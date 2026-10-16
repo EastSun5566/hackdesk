@@ -81,6 +81,7 @@ const electronActionIdSchema = z.enum([
   'save-note',
   'find-in-note',
   'attach-image',
+  'ai-assist',
   'export-note-markdown',
   'import-markdown-note',
   'open-note-web-editor',
@@ -137,6 +138,13 @@ const pinnedTeamIdsSchema = z.array(nonEmptyStringSchema).nullable().refine(
   'Pinned team IDs must be unique.',
 );
 
+const aiProviderIdSchema = z.enum(['codex', 'claude']);
+const aiProviderSettingsSchema = z.strictObject({
+  enabled: z.boolean(),
+  model: z.string().trim().min(1).max(200).nullable(),
+  commandPath: z.string().trim().min(1).max(4096).nullable(),
+});
+
 export const settingsUpdateSchema = z.strictObject({
   title: optionalStringSchema,
   hackmdApiToken: optionalStringSchema,
@@ -157,7 +165,26 @@ export const settingsUpdateSchema = z.strictObject({
   onboarding: z.strictObject({
     hackmdTokenSetupDeferred: z.boolean(),
   }).optional(),
+  ai: z.strictObject({
+    providers: z.strictObject({ codex: aiProviderSettingsSchema, claude: aiProviderSettingsSchema }),
+    defaultProvider: aiProviderIdSchema.nullable(),
+    selectionChip: z.boolean(),
+    translateLanguage: z.string().trim().min(1).max(64),
+  }).optional(),
 });
+
+export const aiProviderIdInputSchema = aiProviderIdSchema;
+
+export const aiTurnInputSchema = z.strictObject({
+  requestId: z.uuid(),
+  providerId: aiProviderIdSchema,
+  action: z.enum(['fix', 'improve', 'shorter', 'longer', 'translate', 'summarize', 'continue', 'custom']),
+  text: z.string().min(1).max(200_000),
+  noteTitle: z.string().max(500).optional(),
+  targetLanguage: z.string().trim().max(64).optional(),
+  instruction: z.string().trim().min(1).max(500).optional(),
+  context: z.strictObject({ before: z.string().max(2_000), after: z.string().max(2_000) }).optional(),
+}).refine(input => input.action !== 'custom' || Boolean(input.instruction), 'A custom AI request needs an instruction.');
 
 export const localVaultRevisionSchema = z.strictObject({
   contentHash: nonEmptyStringSchema,

@@ -38,6 +38,9 @@ vi.mock('@/components/MarkdownEditor', async () => {
         getContentDOM: vi.fn(() => contentRef.current),
         getMarkdown: vi.fn(() => props.value),
         insertText: markdownEditorInsertText,
+        getSelection: vi.fn(() => ({ from: 0, to: 0, text: '' })),
+        replaceRange: vi.fn(() => true),
+        openAiMenu: vi.fn(() => false),
         openSearch: markdownEditorOpenSearch,
       }) : null);
 

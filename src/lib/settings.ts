@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { DEFAULT_TITLE } from '@/constants';
+import { AI_PROVIDER_IDS, type AiProviderId } from '@/lib/ai';
 import { ELECTRON_ACTIONS } from '@/lib/electron-actions';
 import type { ElectronActionId } from '@/lib/electron-api';
 import { isValidCustomShortcutConfig } from '@/lib/keyboard-shortcuts';
@@ -54,6 +55,21 @@ export type WorkspaceNavigationSettings = {
   pinnedTeamIds: string[] | null;
 };
 
+export type AiProviderSettings = {
+  /** Off until the user turns it on: the switch is the user's grant to run that CLI. */
+  enabled: boolean;
+  model: string | null;
+  commandPath: string | null;
+};
+
+export type AiSettings = {
+  providers: Record<AiProviderId, AiProviderSettings>;
+  defaultProvider: AiProviderId | null;
+  /** Shows the "✦ AI" button after selecting text with the mouse. */
+  selectionChip: boolean;
+  translateLanguage: string;
+};
+
 export const defaultAppearanceSettings: AppearanceSettings = {
   theme: 'system',
   presetId: 'hackmd-neo',
@@ -77,6 +93,15 @@ export const defaultShortcutSettings: ShortcutSettings = {};
 
 export const defaultWorkspaceNavigationSettings: WorkspaceNavigationSettings = {
   pinnedTeamIds: null,
+};
+
+const defaultAiProviderSettings: AiProviderSettings = { enabled: false, model: null, commandPath: null };
+
+export const defaultAiSettings: AiSettings = {
+  providers: { codex: defaultAiProviderSettings, claude: defaultAiProviderSettings },
+  defaultProvider: null,
+  selectionChip: true,
+  translateLanguage: 'English',
 };
 
 const hexColorSchema = z.string().regex(/^#[\da-fA-F]{6}$/);
@@ -105,6 +130,20 @@ const shortcutSettingsSchema = z.record(z.string(), shortcutConfigSchema)
     }
     return shortcuts;
   });
+const aiProviderSettingsSchema = z.object({
+  enabled: z.boolean().default(false),
+  model: z.string().trim().min(1).max(200).nullable().default(null),
+  commandPath: z.string().trim().min(1).max(4096).nullable().default(null),
+}).default(defaultAiProviderSettings);
+const aiSettingsSchema = z.object({
+  providers: z.object({
+    codex: aiProviderSettingsSchema,
+    claude: aiProviderSettingsSchema,
+  }).default(defaultAiSettings.providers),
+  defaultProvider: z.enum(AI_PROVIDER_IDS).nullable().default(null),
+  selectionChip: z.boolean().default(true),
+  translateLanguage: z.string().trim().min(1).max(64).default('English'),
+}).default(defaultAiSettings);
 const pinnedTeamIdsSchema = z.array(z.string().trim().min(1)).nullable().refine(
   (teamIds) => teamIds === null || new Set(teamIds).size === teamIds.length,
   'Pinned team IDs must be unique.',
@@ -148,6 +187,7 @@ export const settingsSchema = z.object({
   workspaceNavigation: z.object({
     pinnedTeamIds: pinnedTeamIdsSchema.default(null),
   }).default(defaultWorkspaceNavigationSettings),
+  ai: aiSettingsSchema,
 });
 
 export type AppSettings = z.infer<typeof settingsSchema>;
@@ -162,6 +202,7 @@ export const defaultSettings: AppSettings = {
   shortcuts: defaultShortcutSettings,
   keyboardNavigation: { characterShortcutsEnabled: true },
   workspaceNavigation: defaultWorkspaceNavigationSettings,
+  ai: defaultAiSettings,
 };
 
 const storedShortcutSettingsSchema = z.record(z.string(), z.unknown())
@@ -190,6 +231,7 @@ const storedSettingsSchema = z.object({
   shortcuts: storedShortcutSettingsSchema.default(defaultSettings.shortcuts),
   keyboardNavigation: settingsSchema.shape.keyboardNavigation.catch(defaultSettings.keyboardNavigation),
   workspaceNavigation: settingsSchema.shape.workspaceNavigation.catch(defaultSettings.workspaceNavigation),
+  ai: settingsSchema.shape.ai.catch(defaultSettings.ai),
 });
 
 export function normalizeAppearanceSettings(

@@ -16,6 +16,7 @@ import type { LocalVaultSnapshot } from '@/lib/local-vault';
 import { defaultSettings } from '@/lib/settings';
 
 import { AdvancedSettingsPanel } from './AdvancedSettingsPanel';
+import { AiSettingsPanel } from './AiSettingsPanel';
 import { AppearanceSettingsPanel } from './AppearanceSettingsPanel';
 import { EditorSettingsPanel } from './EditorSettingsPanel';
 import { GeneralSettingsPanel } from './GeneralSettingsPanel';
@@ -345,6 +346,10 @@ function SettingsDialogContent({
                     }}
                     onTokenVisibleChange={(nextVisible) => setFormState((current) => ({ ...current, tokenVisible: nextVisible }))}
                   />
+                </TabsContent>
+
+                <TabsContent data-settings-tab="ai" value="ai" keepMounted className={SETTINGS_PANEL_CLASS}>
+                  <AiSettingsPanel active={open && activeTab === 'ai'} />
                 </TabsContent>
 
                 <TabsContent data-settings-tab="advanced" value="advanced" keepMounted className={SETTINGS_PANEL_CLASS}>

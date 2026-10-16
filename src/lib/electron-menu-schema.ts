@@ -68,6 +68,7 @@ export const ELECTRON_MENU_SCHEMA: ElectronMenuSchemaSection[] = [
       { type: 'role', role: 'selectAll' },
       { type: 'separator' },
       { type: 'action', actionId: 'find-in-note' },
+      { type: 'action', actionId: 'ai-assist' },
     ],
   },
   {

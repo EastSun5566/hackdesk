@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { DragEvent } from 'react';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
@@ -18,13 +19,15 @@ import {
 } from '@codemirror/view';
 import { inlineAttachmentExtension } from 'inline-attacher';
 
-import type { MarkdownEditorHandle, MarkdownEditorProps } from '@/components/markdown-editor-types';
+import type { MarkdownEditorAi, MarkdownEditorHandle, MarkdownEditorProps } from '@/components/markdown-editor-types';
 import { useTheme } from '@/components/theme-provider';
 import { registerEditorNavigationKeymap } from '@/lib/editor-navigation-keymap';
 import type { EditorMode } from '@/lib/settings';
 import type { ResolvedThemeMode } from '@/lib/themes';
 import type { LocalImageContext } from '@/lib/local-image';
 
+import { aiInline, formatAiShortcut, openAiInlineMenu, type AiInlineHost } from './ai-inline/extension';
+import { getAiInlineTarget, IDLE_AI_INLINE, type AiInlineState } from './ai-inline/state';
 import { hackmdCodeLanguages } from './hackmd-code-languages';
 import { hfmBlocks, setLocalImageContext } from './hfm-blocks';
 import { hackmdTables } from './hackmd-tables';
@@ -156,6 +159,7 @@ type EditorRuntime = {
 type CreateEditorViewOptions = {
   parent: HTMLDivElement;
   runtime: EditorRuntime;
+  aiHost: AiInlineHost;
   onAttachImageRef: LatestRef<MarkdownEditorProps['onAttachImage']>;
   onChangeRef: LatestRef<MarkdownEditorProps['onChange']>;
   onOpenLinkRef: LatestRef<MarkdownEditorProps['onOpenLink']>;
@@ -243,6 +247,7 @@ function getChangedSpan(current: string, next: string) {
 function createHackmdEditorView({
   parent,
   runtime,
+  aiHost,
   onAttachImageRef,
   onChangeRef,
   onOpenLinkRef,
@@ -257,6 +262,7 @@ function createHackmdEditorView({
         ...editorExtensions,
         hfmBlocks(runtime.localImageContext),
         hackmdTables(onOpenLinkRef),
+        aiInline(aiHost),
         runtime.themeCompartment.of(createHackmdPreviewTheme(runtime.resolvedMode)),
         inlineAttachmentExtension({
           allowedTypes: ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'],
@@ -301,6 +307,7 @@ function createHackmdEditorView({
 
 export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, MarkdownEditorProps>(
   function HackmdMarkdownEditorCore({
+    ai = null,
     editorMode = 'standard',
     initialRevealText = null,
     localImageContext = null,
@@ -314,7 +321,21 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
     const onAttachImageRef = useLatestRef(onAttachImage);
     const onChangeRef = useLatestRef(onChange);
     const onOpenLinkRef = useLatestRef(onOpenLink);
+    const aiRef = useLatestRef<MarkdownEditorAi | null>(ai);
     const [runtime] = useState(() => createEditorRuntime(value, editorMode, resolvedMode, localImageContext));
+    const [aiPanel, setAiPanel] = useState<{ dom: HTMLElement; view: EditorView } | null>(null);
+    const [aiSession, setAiSession] = useState<AiInlineState>(IDLE_AI_INLINE);
+    const [aiHost] = useState<AiInlineHost>(() => ({
+      isAvailable: () => aiRef.current?.available ?? false,
+      showSelectionChip: () => aiRef.current?.selectionChip ?? false,
+      shortcutLabel: formatAiShortcut,
+      mountPanel: (dom, view) => setAiPanel({ dom, view }),
+      releasePanel: dom => setAiPanel(current => (current?.dom === dom ? null : current)),
+      onStateChange: (session, view) => {
+        setAiSession(session);
+        aiRef.current?.onSessionChange?.(session, view);
+      },
+    }));
     const dragDepthRef = useRef(0);
     const [isImageDragging, setIsImageDragging] = useState(false);
 
@@ -327,6 +348,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
       const view = createHackmdEditorView({
         parent,
         runtime,
+        aiHost,
         onAttachImageRef,
         onChangeRef,
         onOpenLinkRef,
@@ -355,7 +377,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
           runtime.appliedResolvedMode = runtime.resolvedMode;
         }
       };
-    }, [onAttachImageRef, onChangeRef, onOpenLinkRef, runtime]);
+    }, [aiHost, onAttachImageRef, onChangeRef, onOpenLinkRef, runtime]);
 
     // Publish the handle only after the CodeMirror view is ready.
     useImperativeHandle(ref, () => ({
@@ -389,6 +411,29 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
         });
         view.focus();
       },
+      getSelection() {
+        const view = runtime.view;
+        if (!view) return { from: 0, to: 0, text: '' };
+        const { from, to } = view.state.selection.main;
+        return { from, to, text: view.state.sliceDoc(from, to) };
+      },
+      replaceRange(from: number, to: number, expected: string, text: string) {
+        const view = runtime.view;
+        if (!view || to > view.state.doc.length || view.state.sliceDoc(from, to) !== expected) return false;
+        view.dispatch({
+          changes: { from, to, insert: text },
+          selection: { anchor: from, head: from + text.length },
+          scrollIntoView: true,
+        });
+        view.focus();
+        return true;
+      },
+      openAiMenu() {
+        const view = runtime.view;
+        if (!view) return false;
+        view.focus();
+        return openAiInlineMenu(view, aiHost, getAiInlineTarget(view.state));
+      },
       openSearch() {
         const view = runtime.view;
         if (!view) {
@@ -403,7 +448,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
       revealRange(from: number, to: number, expectedText: string) {
         return revealWithRuntime(runtime, (view) => revealExpectedRangeInEditor(view, from, to, expectedText));
       },
-    }), [onChangeRef, runtime]);
+    }), [aiHost, onChangeRef, runtime]);
 
     useLayoutEffect(() => {
       const previous = runtime.localImageContext;
@@ -601,6 +646,9 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
             Drop image to attach
           </div>
         ) : null}
+        {ai && aiPanel && aiSession.phase !== 'idle'
+          ? createPortal(ai.renderPanel({ view: aiPanel.view, session: aiSession }), aiPanel.dom)
+          : null}
       </div>
     );
   },

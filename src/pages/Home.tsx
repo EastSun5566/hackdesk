@@ -152,7 +152,7 @@ export function Home() {
   const flushWorkspace = noteWorkspace.flush;
   useLayoutEffect(() => { beforeVaultChange.current = flushWorkspace; }, [flushWorkspace]);
   const activeTab = noteWorkspace.activeTab;
-  const { editorRequests, consumeEditorRequest, requestEditorFocus, bumpEditorSearchRequest, bumpAttachImageRequest } = useWorkbenchEditorRequests(
+  const { editorRequests, consumeEditorRequest, requestEditorFocus, bumpEditorSearchRequest, bumpAttachImageRequest, bumpAiAssistRequest } = useWorkbenchEditorRequests(
     scopeStorageKey && activeTab ? { scopeKey: scopeStorageKey, paneId: noteWorkspace.state.activePaneId, tabId: activeTab.tabId, documentId: 'noteId' in activeTab ? activeTab.noteId : activeTab.draftId } : null,
   );
   const {
@@ -567,6 +567,7 @@ export function Home() {
     activePaneId: noteWorkspace.state.activePaneId,
     activeTab,
     bumpAttachImageRequest,
+    bumpAiAssistRequest,
     bumpEditorSearchRequest,
     api,
     createFolder: folderCommands.handleCreateFolder,

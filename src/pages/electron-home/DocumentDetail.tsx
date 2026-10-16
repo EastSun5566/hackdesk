@@ -19,10 +19,12 @@ import {
   RefreshCw,
   Save,
   Share2,
+  Sparkles,
   Trash2,
 } from 'lucide-react';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/MarkdownEditor';
+import type { MarkdownEditorAi } from '@/components/markdown-editor-types';
 import type { LocalImageContext } from '@/lib/local-image';
 import {
   DropdownMenu,
@@ -45,6 +47,7 @@ import { createImageUploadPlaceholder } from '@/components/hackmd-live-preview/m
 
 import { EmptyState, PanelHeader, PanelShell, ToolbarDropdownMoreTrigger, ToolbarIconButton } from './interaction-primitives';
 import { NoteInspector } from './NoteInspector';
+import { useAiInline } from './useAiInline';
 import { NoteVersionsDialog } from './NoteVersionsDialog';
 import { ShareDialog } from './ShareDialog';
 import {
@@ -75,6 +78,7 @@ export type DocumentDetailDocumentState = {
 };
 
 export type DocumentDetailLayout = {
+  aiAssistRequestId?: number;
   attachImageRequestId: number;
   onRequestHandled?: (id: number) => void;
   focusZone?: string | null;
@@ -313,7 +317,13 @@ function ActiveDocumentDetail({
   const lastHandledAttachImageRequestRef = useRef(0);
   const lastHandledFocusRequestRef = useRef(0);
   const lastHandledSearchRequestRef = useRef(0);
+  const lastHandledAiAssistRequestRef = useRef(0);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const isTeamNote = Boolean(documentState.document?.teamPath) && documentState.document?.teamPath !== LOCAL_VAULT_TEAM_PATH;
+  const ai = useAiInline({ noteTitle: documentState.title, isTeamNote });
+  const openAiAssist = useCallback((handle: MarkdownEditorHandle) => {
+    if (!handle.openAiMenu()) toast.error('Turn on Codex or Claude in Settings › AI to use AI in the editor.');
+  }, []);
   const inspectorPanelId = layout.inspectorPanelId ?? NOTE_INSPECTOR_PANEL_ID;
   const noteDirty = documentState.isDraft
     || (documentState.document
@@ -339,7 +349,13 @@ function ActiveDocumentDetail({
       onRequestHandled?.(layout.attachImageRequestId);
       fileInputRef.current.click();
     }
-  }, [layout.focusRequestId, layout.searchRequestId, layout.attachImageRequestId, onRequestHandled]);
+    const aiAssistRequestId = layout.aiAssistRequestId ?? 0;
+    if (aiAssistRequestId > lastHandledAiAssistRequestRef.current) {
+      lastHandledAiAssistRequestRef.current = aiAssistRequestId;
+      onRequestHandled?.(aiAssistRequestId);
+      openAiAssist(handle);
+    }
+  }, [layout.focusRequestId, layout.searchRequestId, layout.attachImageRequestId, layout.aiAssistRequestId, onRequestHandled, openAiAssist]);
   // Anchors point at the saved note; revealRange falls back to the excerpt when unsaved edits moved it.
   const revealComment = useCallback((comment: NoteComment) => {
     const editor = editorRef.current;
@@ -361,6 +377,12 @@ function ActiveDocumentDetail({
   const requestAttachImage = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
+
+  const requestAiAssist = useCallback(() => {
+    const editor = editorRef.current;
+    // Leave the actions menu a frame to close and hand focus back before the editor opens its own.
+    if (editor?.getContentDOM()) window.requestAnimationFrame(() => openAiAssist(editor));
+  }, [openAiAssist]);
 
   const handleAttachImageFile = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -415,6 +437,7 @@ function ActiveDocumentDetail({
         noteDirty={noteDirty}
         onActionsOpenChange={setActionsOpen}
         onAttachImage={requestAttachImage}
+        onAiAssist={requestAiAssist}
         onOpenShareDialog={openShareDialogFromMenu}
         onOpenVersionsDialog={openVersionsDialogFromMenu}
         layout={layout}
@@ -431,6 +454,7 @@ function ActiveDocumentDetail({
           localImageContext={getLocalImageContext(documentState.document)}
           content={documentState.content}
           editorMode={editorMode}
+          ai={ai}
           onAttachImage={actions.onAttachImage}
           onContentChange={actions.onContentChange}
           onOpenExternal={actions.onOpenExternal}
@@ -576,6 +600,7 @@ function DocumentHeader({
   layout,
   noteDirty,
   onActionsOpenChange,
+  onAiAssist,
   onAttachImage,
   onOpenShareDialog,
   onOpenVersionsDialog,
@@ -588,6 +613,7 @@ function DocumentHeader({
   layout: DocumentDetailLayout;
   noteDirty: boolean;
   onActionsOpenChange: (open: boolean) => void;
+  onAiAssist: () => void;
   onAttachImage: () => void;
   onOpenShareDialog: () => void;
   onOpenVersionsDialog?: () => void;
@@ -664,6 +690,7 @@ function DocumentHeader({
               documentState={{ ...documentState, document: documentState.document }}
               open={actionsOpen}
               onOpenChange={onActionsOpenChange}
+              onAiAssist={onAiAssist}
               onAttachImage={onAttachImage}
               onOpenShareDialog={onOpenShareDialog}
               onOpenVersionsDialog={onOpenVersionsDialog}
@@ -681,6 +708,7 @@ function DocumentActionsMenu({
   documentState,
   open,
   onOpenChange,
+  onAiAssist,
   onAttachImage,
   onOpenShareDialog,
   onOpenVersionsDialog,
@@ -690,6 +718,7 @@ function DocumentActionsMenu({
   documentState: DocumentDetailDocumentState & { document: DocumentSummary };
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onAiAssist: () => void;
   onAttachImage: () => void;
   onOpenShareDialog: () => void;
   onOpenVersionsDialog?: () => void;
@@ -743,6 +772,11 @@ function DocumentActionsMenu({
           {status.uploadingImage && !isLocalDocument && actions.onCancelImageUpload ? 'Cancel Image Upload' : 'Attach Image…'}
           {!status.uploadingImage ? <ActionMenuShortcut actionId="attach-image" /> : null}
         </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onAiAssist}>
+          <Sparkles aria-hidden="true" className="h-4 w-4" />
+          Ask AI…
+          <ActionMenuShortcut actionId="ai-assist" />
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => actions.onExportMarkdown(documentState.document, documentState.title, documentState.content)}>
           <Download aria-hidden="true" className="h-4 w-4" />
           Export Markdown
@@ -775,6 +809,7 @@ function DocumentActionsMenu({
 }
 
 function DocumentBody({
+  ai,
   localImageContext,
   content,
   editorMode,
@@ -783,6 +818,7 @@ function DocumentBody({
   onOpenExternal,
   setEditorRef,
 }: {
+  ai: MarkdownEditorAi | null;
   localImageContext: LocalImageContext | null;
   content: string;
   editorMode: EditorMode;
@@ -794,6 +830,7 @@ function DocumentBody({
   return (
     <MarkdownEditor
       ref={setEditorRef}
+      ai={ai}
       localImageContext={localImageContext}
       editorMode={editorMode}
       value={content}
