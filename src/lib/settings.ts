@@ -65,6 +65,9 @@ export type AiProviderSettings = {
 export type AiSettings = {
   providers: Record<AiProviderId, AiProviderSettings>;
   defaultProvider: AiProviderId | null;
+  /** Shows the "✦ AI" button after selecting text with the mouse. */
+  selectionChip: boolean;
+  translateLanguage: string;
 };
 
 export const defaultAppearanceSettings: AppearanceSettings = {
@@ -97,6 +100,8 @@ const defaultAiProviderSettings: AiProviderSettings = { enabled: false, model: n
 export const defaultAiSettings: AiSettings = {
   providers: { codex: defaultAiProviderSettings, claude: defaultAiProviderSettings },
   defaultProvider: null,
+  selectionChip: true,
+  translateLanguage: 'English',
 };
 
 const hexColorSchema = z.string().regex(/^#[\da-fA-F]{6}$/);
@@ -136,6 +141,8 @@ const aiSettingsSchema = z.object({
     claude: aiProviderSettingsSchema,
   }).default(defaultAiSettings.providers),
   defaultProvider: z.enum(AI_PROVIDER_IDS).nullable().default(null),
+  selectionChip: z.boolean().default(true),
+  translateLanguage: z.string().trim().min(1).max(64).default('English'),
 }).default(defaultAiSettings);
 const pinnedTeamIdsSchema = z.array(z.string().trim().min(1)).nullable().refine(
   (teamIds) => teamIds === null || new Set(teamIds).size === teamIds.length,

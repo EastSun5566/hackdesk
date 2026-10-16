@@ -42,6 +42,11 @@ export type ElectronActionDefinition = {
   category: ElectronActionCategory;
   scope?: ElectronActionScope;
   keyboardContext?: 'character' | 'region' | 'scroll';
+  /**
+   * The renderer owns this shortcut and the native menu only shows it, so a focused editor can use
+   * the same keys first (⌘K asks AI about a selection and opens the palette otherwise).
+   */
+  rendererShortcut?: boolean;
   defaultKeybinding?: string;
   shortcut?: string;
   menuAccelerator?: string;
@@ -272,8 +277,8 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
   },
   {
     id: 'ai-assist',
-    label: 'AI Assist...',
-    description: 'Summarize, rewrite, continue or translate the selection or note with an AI provider on this computer.',
+    label: 'Ask AI...',
+    description: 'Fix, rewrite, translate or ask AI about the selection, or the whole note when nothing is selected. With a selection, ⌘K does the same.',
     keywords: ['ai', 'assist', 'summarize', 'rewrite', 'continue', 'translate', 'codex', 'claude'],
     category: 'note',
     scope: 'editor',
@@ -506,6 +511,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     defaultKeybinding: 'mod+k,mod+shift+p',
     shortcut: '⌘K',
     menuAccelerator: 'CmdOrCtrl+K',
+    rendererShortcut: true,
   },
   {
     id: 'open-quick-open',

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/MarkdownEditor';
+import type { MarkdownEditorAi } from '@/components/markdown-editor-types';
 import type { LocalImageContext } from '@/lib/local-image';
 import {
   DropdownMenu,
@@ -43,8 +44,8 @@ import { cn } from '@/lib/utils';
 import { createImageUploadPlaceholder } from '@/components/hackmd-live-preview/markdown-image';
 
 import { EmptyState, PanelHeader, PanelShell, ToolbarDropdownMoreTrigger, ToolbarIconButton } from './interaction-primitives';
-import { AiAssistDialog, type AiApplyMode, type AiAssistSource } from './AiAssistDialog';
 import { NoteInspector } from './NoteInspector';
+import { useAiInline } from './useAiInline';
 import { ShareDialog } from './ShareDialog';
 import {
   formatDate,
@@ -313,12 +314,10 @@ function ActiveDocumentDetail({
   const lastHandledSearchRequestRef = useRef(0);
   const lastHandledAiAssistRequestRef = useRef(0);
   const [actionsOpen, setActionsOpen] = useState(false);
-  const [aiAssistSource, setAiAssistSource] = useState<AiAssistSource | null>(null);
-  // A new key per request gives each AI Assist session fresh state.
-  const [aiAssistSession, setAiAssistSession] = useState(0);
+  const isTeamNote = Boolean(documentState.document?.teamPath) && documentState.document?.teamPath !== LOCAL_VAULT_TEAM_PATH;
+  const ai = useAiInline({ noteTitle: documentState.title, isTeamNote });
   const openAiAssist = useCallback((handle: MarkdownEditorHandle) => {
-    setAiAssistSession(session => session + 1);
-    setAiAssistSource(getAiAssistSource(handle));
+    if (!handle.openAiMenu()) toast.error('Turn on Codex or Claude in Settings › AI to use AI in the editor.');
   }, []);
   const inspectorPanelId = layout.inspectorPanelId ?? NOTE_INSPECTOR_PANEL_ID;
   const noteDirty = documentState.isDraft
@@ -367,18 +366,9 @@ function ActiveDocumentDetail({
 
   const requestAiAssist = useCallback(() => {
     const editor = editorRef.current;
-    if (editor?.getContentDOM()) openAiAssist(editor);
+    // Leave the actions menu a frame to close and hand focus back before the editor opens its own.
+    if (editor?.getContentDOM()) window.requestAnimationFrame(() => openAiAssist(editor));
   }, [openAiAssist]);
-
-  const applyAiResult = useCallback((mode: AiApplyMode, result: string) => {
-    const editor = editorRef.current;
-    const source = aiAssistSource;
-    if (!editor || !source) return false;
-    if (mode === 'replace') return editor.replaceRange(source.from, source.to, source.text, result);
-    // Rewriting the source with itself plus the addition also checks that it is unchanged.
-    const separator = source.text.endsWith('\n') ? '\n' : '\n\n';
-    return editor.replaceRange(source.from, source.to, source.text, `${source.text}${separator}${result}`);
-  }, [aiAssistSource]);
 
   const handleAttachImageFile = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -444,6 +434,7 @@ function ActiveDocumentDetail({
           localImageContext={getLocalImageContext(documentState.document)}
           content={documentState.content}
           editorMode={editorMode}
+          ai={ai}
           onAttachImage={actions.onAttachImage}
           onContentChange={actions.onContentChange}
           onOpenExternal={actions.onOpenExternal}
@@ -468,18 +459,6 @@ function ActiveDocumentDetail({
         />
       </div>
 
-      <AiAssistDialog
-        key={aiAssistSession}
-        open={aiAssistSource !== null}
-        source={aiAssistSource}
-        noteTitle={documentState.title}
-        isTeamNote={Boolean(documentState.document?.teamPath) && !isLocalDocument}
-        onOpenChange={(open) => {
-          if (!open) setAiAssistSource(null);
-        }}
-        onApply={applyAiResult}
-      />
-
       {!documentState.document || isLocalDocument ? null : (
         <ShareDialog
           open={layout.shareOpen}
@@ -496,14 +475,6 @@ function ActiveDocumentDetail({
   );
 }
 
-
-/** The selection when there is one, otherwise the whole note. */
-function getAiAssistSource(editor: MarkdownEditorHandle): AiAssistSource {
-  const selection = editor.getSelection();
-  if (selection.text.trim()) return { ...selection, isSelection: true };
-  const text = editor.getMarkdown();
-  return { from: 0, to: text.length, text, isSelection: false };
-}
 
 function DocumentRecoveryBanner({
   actions,
@@ -757,7 +728,7 @@ function DocumentActionsMenu({
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={onAiAssist}>
           <Sparkles aria-hidden="true" className="h-4 w-4" />
-          AI Assist…
+          Ask AI…
           <ActionMenuShortcut actionId="ai-assist" />
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => actions.onExportMarkdown(documentState.document, documentState.title, documentState.content)}>
@@ -792,6 +763,7 @@ function DocumentActionsMenu({
 }
 
 function DocumentBody({
+  ai,
   localImageContext,
   content,
   editorMode,
@@ -800,6 +772,7 @@ function DocumentBody({
   onOpenExternal,
   setEditorRef,
 }: {
+  ai: MarkdownEditorAi | null;
   localImageContext: LocalImageContext | null;
   content: string;
   editorMode: EditorMode;
@@ -811,6 +784,7 @@ function DocumentBody({
   return (
     <MarkdownEditor
       ref={setEditorRef}
+      ai={ai}
       localImageContext={localImageContext}
       editorMode={editorMode}
       value={content}

@@ -119,6 +119,7 @@ const api: HackDeskElectronAPI = {
       });
     },
     cancelTurn: (requestId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.aiCancelTurn, requestId),
+    prewarm: (providerId: AiProviderId) => ipcRenderer.invoke(ELECTRON_CHANNELS.aiPrewarm, providerId),
   },
   localVault: {
     choose: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultChoose),

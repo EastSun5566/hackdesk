@@ -27,6 +27,7 @@ const aiServiceMock = vi.hoisted(() => ({
   listProviders: vi.fn(async () => []),
   refresh: vi.fn(),
   runTurn: vi.fn(),
+  prewarm: vi.fn(async () => undefined),
   applySettings: vi.fn(),
   dispose: vi.fn(),
 }));

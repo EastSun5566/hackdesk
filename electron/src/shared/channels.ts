@@ -54,6 +54,7 @@ export const ELECTRON_CHANNELS = {
   aiListProviders: 'ai:list-providers',
   aiRefreshProvider: 'ai:refresh-provider',
   aiRunTurn: 'ai:run-turn',
+  aiPrewarm: 'ai:prewarm',
   aiCancelTurn: 'ai:cancel-turn',
   aiTurnDelta: 'ai:turn-delta',
   shellOpenExternal: 'shell:open-external',

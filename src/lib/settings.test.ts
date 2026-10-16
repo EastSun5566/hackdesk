@@ -301,7 +301,9 @@ describe('settings helpers', () => {
         "commandPath": null
       }
     },
-    "defaultProvider": null
+    "defaultProvider": null,
+    "selectionChip": true,
+    "translateLanguage": "English"
   }
 }`);
   });

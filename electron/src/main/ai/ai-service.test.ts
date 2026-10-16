@@ -68,8 +68,8 @@ describe('AI service', () => {
     expect(deltas).toEqual(['result']);
     const turn = vi.mocked(on.claude.stream).mock.calls[0]![1];
     expect(turn.model).toBe('haiku');
-    expect(turn.prompt).toContain('Translate the text into French');
-    expect(turn.prompt).toContain('<note>\nhello\n</note>');
+    expect(turn.prompt).toContain('Translate the selection into French');
+    expect(turn.prompt).toContain('<selection>\nhello\n</selection>');
   });
 
   it('stops a provider process when the provider is switched off', async () => {

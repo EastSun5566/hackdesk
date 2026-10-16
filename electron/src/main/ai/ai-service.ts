@@ -114,6 +114,17 @@ export function createAiService(options: AiServiceOptions) {
     return text;
   }
 
+  /** Best effort: a menu opening starts the provider so the first words arrive sooner. */
+  async function prewarm(id: AiProviderId) {
+    const adapter = adapters[id];
+    if (!adapter.prewarm) return;
+    const settings = await options.readSettings();
+    if (!settings.ai.providers[id].enabled) return;
+    const launch = await resolveLaunch(id, settings);
+    if ('error' in launch) return;
+    await adapter.prewarm(launch).catch(() => undefined);
+  }
+
   /** Called after settings change: a provider switched off must not keep a process running. */
   function applySettings(settings: AppSettings['ai']) {
     for (const id of AI_PROVIDER_IDS) {
@@ -125,5 +136,5 @@ export function createAiService(options: AiServiceOptions) {
     for (const adapter of Object.values(adapters)) adapter.dispose?.();
   }
 
-  return { listProviders, refresh, runTurn, applySettings, dispose };
+  return { listProviders, refresh, runTurn, prewarm, applySettings, dispose };
 }

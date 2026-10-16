@@ -21,6 +21,8 @@ export type AiProviderAdapter = {
   probe: (launch: ProviderLaunch, signal?: AbortSignal) => Promise<ProviderProbe>;
   /** Resolves when the answer is complete; rejects with a user-facing message otherwise. */
   stream: (launch: ProviderLaunch, turn: ProviderTurn) => Promise<void>;
+  /** Starts anything slow ahead of a turn the user is about to ask for. */
+  prewarm?: (launch: ProviderLaunch) => Promise<void>;
   dispose?: () => void;
 };
 

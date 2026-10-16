@@ -166,6 +166,8 @@ export const settingsUpdateSchema = z.strictObject({
   ai: z.strictObject({
     providers: z.strictObject({ codex: aiProviderSettingsSchema, claude: aiProviderSettingsSchema }),
     defaultProvider: aiProviderIdSchema.nullable(),
+    selectionChip: z.boolean(),
+    translateLanguage: z.string().trim().min(1).max(64),
   }).optional(),
 });
 
@@ -174,11 +176,13 @@ export const aiProviderIdInputSchema = aiProviderIdSchema;
 export const aiTurnInputSchema = z.strictObject({
   requestId: z.uuid(),
   providerId: aiProviderIdSchema,
-  action: z.enum(['summarize', 'rewrite', 'continue', 'translate']),
+  action: z.enum(['fix', 'improve', 'shorter', 'longer', 'translate', 'summarize', 'continue', 'custom']),
   text: z.string().min(1).max(200_000),
   noteTitle: z.string().max(500).optional(),
   targetLanguage: z.string().trim().max(64).optional(),
-});
+  instruction: z.string().trim().min(1).max(500).optional(),
+  context: z.strictObject({ before: z.string().max(2_000), after: z.string().max(2_000) }).optional(),
+}).refine(input => input.action !== 'custom' || Boolean(input.instruction), 'A custom AI request needs an instruction.');
 
 export const localVaultRevisionSchema = z.strictObject({
   contentHash: nonEmptyStringSchema,

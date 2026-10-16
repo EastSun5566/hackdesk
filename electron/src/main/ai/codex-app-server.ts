@@ -379,5 +379,12 @@ export function createCodexProvider(clientVersion: string): AiProviderAdapter {
     }
   }
 
-  return { probe, stream, dispose: () => client.stop() };
+  return {
+    probe,
+    stream,
+    prewarm: async (launch) => {
+      await client.ensureStarted(launch);
+    },
+    dispose: () => client.stop(),
+  };
 }

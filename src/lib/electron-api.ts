@@ -383,6 +383,7 @@ export type HackDeskElectronAPI = {
     /** Resolves with the whole answer; `onDelta` receives it as it streams. */
     runTurn: (input: AiTurnInput, onDelta: (text: string) => void) => Promise<string>;
     cancelTurn: (requestId: string) => Promise<void>;
+    prewarm?: (providerId: AiProviderId) => Promise<void>;
   };
   localVault: {
     choose: () => Promise<ChooseLocalVaultResult>;

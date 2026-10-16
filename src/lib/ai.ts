@@ -2,15 +2,33 @@
 export const AI_PROVIDER_IDS = ['codex', 'claude'] as const;
 export type AiProviderId = typeof AI_PROVIDER_IDS[number];
 
-export const AI_ACTIONS = ['summarize', 'rewrite', 'continue', 'translate'] as const;
+export const AI_ACTIONS = ['fix', 'improve', 'shorter', 'longer', 'translate', 'summarize', 'continue', 'custom'] as const;
 export type AiAction = typeof AI_ACTIONS[number];
 
-export const AI_ACTION_LABELS: Record<AiAction, string> = {
-  summarize: 'Summarize',
-  rewrite: 'Rewrite',
-  continue: 'Continue writing',
-  translate: 'Translate',
+/** Rewrites replace the text they were given; Summarize and Continue add a new paragraph after it. */
+export type AiDelivery = 'replace' | 'insert-below';
+
+export type AiActionDetails = {
+  label: string;
+  progressLabel: string;
+  delivery: AiDelivery;
+  keywords: string[];
 };
+
+export const AI_ACTION_DETAILS: Record<AiAction, AiActionDetails> = {
+  fix: { label: 'Fix spelling & grammar', progressLabel: 'Fixing…', delivery: 'replace', keywords: ['fix', 'typo', 'grammar', 'spelling', 'proofread'] },
+  improve: { label: 'Improve writing', progressLabel: 'Improving…', delivery: 'replace', keywords: ['improve', 'rewrite', 'clarity', 'polish'] },
+  shorter: { label: 'Make shorter', progressLabel: 'Shortening…', delivery: 'replace', keywords: ['shorter', 'concise', 'shorten', 'trim'] },
+  longer: { label: 'Make longer', progressLabel: 'Expanding…', delivery: 'replace', keywords: ['longer', 'expand', 'elaborate', 'detail'] },
+  translate: { label: 'Translate', progressLabel: 'Translating…', delivery: 'replace', keywords: ['translate', 'language'] },
+  summarize: { label: 'Summarize', progressLabel: 'Summarizing…', delivery: 'insert-below', keywords: ['summarize', 'summary', 'tldr'] },
+  continue: { label: 'Continue writing', progressLabel: 'Writing…', delivery: 'insert-below', keywords: ['continue', 'write', 'next'] },
+  custom: { label: 'Ask AI', progressLabel: 'Working…', delivery: 'replace', keywords: [] },
+};
+
+export const MAX_AI_INSTRUCTION_CHARACTERS = 500;
+/** Text around the selection sent along so the result matches its tone; never rewritten. */
+export const MAX_AI_CONTEXT_CHARACTERS = 1_500;
 
 export const AI_PROVIDER_TITLES: Record<AiProviderId, string> = {
   codex: 'Codex',
@@ -65,6 +83,9 @@ export type AiTurnInput = {
   text: string;
   noteTitle?: string;
   targetLanguage?: string;
+  /** The user's own request; only for the `custom` action. */
+  instruction?: string;
+  context?: { before: string; after: string };
 };
 
 /** Streamed while a turn runs; the turn's promise carries the final text or the error. */

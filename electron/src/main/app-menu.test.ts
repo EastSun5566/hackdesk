@@ -41,15 +41,23 @@ describe('createApplicationMenu', () => {
 
   it('uses shortcut overrides for native menu accelerators', () => {
     createApplicationMenu(vi.fn(), {
-      'open-command-palette': 'mod+j',
+      'new-note': 'mod+j',
       'open-quick-open': 'none',
     }, vi.fn());
 
-    expect(findMenuItem('Command Palette')).toMatchObject({
+    expect(findMenuItem('New Note')).toMatchObject({
       accelerator: process.platform === 'darwin' ? 'Command+J' : 'Ctrl+J',
     });
     expect(findMenuItem('Quick Open')?.accelerator).toBeUndefined();
     expect(menuMock.setApplicationMenu).toHaveBeenCalledOnce();
+  });
+
+  it('leaves the command palette shortcut to the renderer so the editor can use ⌘K first', () => {
+    createApplicationMenu(vi.fn(), {}, vi.fn());
+    const view = currentTemplate().flatMap(section => (section.submenu as Electron.MenuItemConstructorOptions[] | undefined) ?? []);
+    const palette = view.find(entry => entry.label?.startsWith('Command Palette'));
+    expect(palette?.accelerator).toBeUndefined();
+    expect(palette?.label).toContain(process.platform === 'darwin' ? '⌘K' : 'Ctrl+K');
   });
 
   it('displays contextual keys without registering native accelerators', () => {

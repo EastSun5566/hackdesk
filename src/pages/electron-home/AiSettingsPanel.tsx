@@ -247,7 +247,7 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
     const defaultProvider = aiSettings.defaultProvider && providers[aiSettings.defaultProvider].enabled
       ? aiSettings.defaultProvider
       : enabledIds[0] ?? null;
-    void save({ providers, defaultProvider }, refreshAfter ? id : undefined);
+    void save({ ...aiSettings, providers, defaultProvider }, refreshAfter ? id : undefined);
   };
 
   const handleEnabledChange = async (id: AiProviderId, enabled: boolean) => {
@@ -318,6 +318,49 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
           </Select>
         </SettingsSection>
       ) : null}
+
+      {aiSettings && enabledIds.length > 0 ? (
+        <SettingsSection
+          title="In the editor"
+          description="Select text and press ⌘K (Ctrl+K on Windows and Linux) to fix, rewrite, translate or ask AI about it."
+        >
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <label htmlFor="settings-ai-selection-chip" className="font-medium">Show the ✦ AI button after selecting with the mouse</label>
+            <Switch
+              id="settings-ai-selection-chip"
+              checked={aiSettings.selectionChip}
+              disabled={busy}
+              onCheckedChange={checked => void save({ ...aiSettings, selectionChip: checked })}
+            />
+          </div>
+          <TranslateLanguageField
+            value={aiSettings.translateLanguage}
+            disabled={busy}
+            onCommit={translateLanguage => void save({ ...aiSettings, translateLanguage })}
+          />
+        </SettingsSection>
+      ) : null}
+    </div>
+  );
+}
+
+function TranslateLanguageField({ value, disabled, onCommit }: { value: string; disabled: boolean; onCommit: (value: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  return (
+    <div className="grid gap-2 text-sm">
+      <label htmlFor="settings-ai-translate-language" className="font-medium">Translate into</label>
+      <Input
+        id="settings-ai-translate-language"
+        value={draft}
+        maxLength={64}
+        disabled={disabled}
+        onChange={event => setDraft(event.target.value)}
+        onBlur={() => {
+          const next = draft.trim();
+          if (next && next !== value) onCommit(next);
+          else setDraft(value);
+        }}
+      />
     </div>
   );
 }

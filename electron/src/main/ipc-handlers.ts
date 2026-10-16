@@ -183,6 +183,9 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.aiRefreshProvider, (_event, providerId) => (
     ai.refresh(validateIpcInput(ELECTRON_CHANNELS.aiRefreshProvider, aiProviderIdInputSchema, providerId))
   ));
+  ipcMain.handle(ELECTRON_CHANNELS.aiPrewarm, (_event, providerId) => (
+    ai.prewarm(validateIpcInput(ELECTRON_CHANNELS.aiPrewarm, aiProviderIdInputSchema, providerId))
+  ));
   ipcMain.handle(ELECTRON_CHANNELS.aiRunTurn, (event, input) => {
     const turn = validateIpcInput(ELECTRON_CHANNELS.aiRunTurn, aiTurnInputSchema, input);
     const sender = event.sender;
