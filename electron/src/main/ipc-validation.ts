@@ -337,7 +337,7 @@ export const noteVersionsQuerySchema = z.strictObject({
   limit: z.number().int().min(1).max(100).optional(),
 });
 
-/** A batch restore takes 1–100 note ids. */
+/** One restore request carries 1–100 note ids. The renderer splits a larger selection into batches. */
 export const restoreNotesInputSchema = z.array(nonEmptyStringSchema).min(1).max(100);
 
 /** `note_content` or `version:{id}`, the two references the HackMD compare endpoint accepts. */

@@ -6,6 +6,9 @@ import { stripIpcErrorPrefix } from '@/lib/note-errors';
 
 import { getWorkspaceQueryKey } from './repository';
 
+/** The most note ids one restore request carries. A larger selection is sent in batches. */
+const RESTORE_BATCH_SIZE = 100;
+
 export const trashKeys = {
   list: ['electron', 'hackmd', 'trash'] as const,
 };
@@ -39,7 +42,21 @@ export function getRestoredIds(result: RestoreTrashResult) {
 export function useRestoreNotes() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (noteIds: string[]) => requireApi().restoreNotes(noteIds),
+    mutationFn: async (noteIds: string[]) => {
+      const hackmd = requireApi();
+      const result: RestoreTrashResult = {};
+      for (let start = 0; start < noteIds.length; start += RESTORE_BATCH_SIZE) {
+        try {
+          Object.assign(result, await hackmd.restoreNotes(noteIds.slice(start, start + RESTORE_BATCH_SIZE)));
+        } catch (error) {
+          if (start === 0) throw error;
+          // Earlier batches went through, so report the rest as failed instead of losing those results.
+          for (const noteId of noteIds.slice(start)) result[noteId] = { status: 'failure', reason: 'UNKNOWN' };
+          break;
+        }
+      }
+      return result;
+    },
     onSuccess: (result) => {
       const restored = new Set(getRestoredIds(result));
       if (restored.size === 0) return;
