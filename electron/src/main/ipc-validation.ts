@@ -73,6 +73,7 @@ const electronActionIdSchema = z.enum([
   'navigate-forward',
   'export-debug-logs',
   'go-history',
+  'show-trash',
   'focus-workspace',
   'focus-navigator',
   'focus-editor',
@@ -335,6 +336,9 @@ export const noteVersionsQuerySchema = z.strictObject({
   page: z.number().int().min(1).optional(),
   limit: z.number().int().min(1).max(100).optional(),
 });
+
+/** One restore request carries 1–100 note ids. The renderer splits a larger selection into batches. */
+export const restoreNotesInputSchema = z.array(nonEmptyStringSchema).min(1).max(100);
 
 /** `note_content` or `version:{id}`, the two references the HackMD compare endpoint accepts. */
 export const noteVersionRefSchema = z.string().regex(/^(?:note_content|version:[^\s/?#&]+)$/);

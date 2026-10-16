@@ -612,6 +612,15 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     getDisabledReason: requireHackmd,
   },
   {
+    id: 'show-trash',
+    label: 'Show Trash',
+    description: 'Restore personal notes deleted from HackMD.',
+    keywords: ['deleted', 'restore', 'recover', 'bin', 'undelete'],
+    category: 'navigation',
+    scope: 'workspace',
+    getDisabledReason: requireHackmd,
+  },
+  {
     id: 'export-debug-logs',
     label: 'Export Debug Logs',
     description: 'Export HackDesk logs and local crash reports for debugging.',

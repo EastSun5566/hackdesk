@@ -49,6 +49,8 @@ export const ELECTRON_CHANNELS = {
   hackmdUpdateTeamNote: 'hackmd:update-team-note',
   hackmdDeleteNote: 'hackmd:delete-note',
   hackmdRestoreNote: 'hackmd:restore-note',
+  hackmdListTrash: 'hackmd:list-trash',
+  hackmdRestoreNotes: 'hackmd:restore-notes',
   hackmdDeleteTeamNote: 'hackmd:delete-team-note',
   hackmdUploadNoteImage: 'hackmd:upload-note-image',
   hackmdListNoteVersions: 'hackmd:list-note-versions',

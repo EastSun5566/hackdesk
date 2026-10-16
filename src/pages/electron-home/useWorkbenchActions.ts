@@ -60,6 +60,7 @@ export type WorkbenchActionHandlers = {
   focusWorkspace: () => void;
   focusWorkspaceSearch: () => void;
   goHistory: () => void;
+  showTrash: () => void;
   importMarkdownNote: () => void;
   moveTabToOtherPane: () => void;
   navigateBack: () => void;
@@ -261,6 +262,9 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'go-history':
       handlers.goHistory();
+      break;
+    case 'show-trash':
+      handlers.showTrash();
       break;
     case 'toggle-workspace-rail':
       handlers.toggleWorkspaceRail();

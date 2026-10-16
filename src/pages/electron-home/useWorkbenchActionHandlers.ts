@@ -59,6 +59,7 @@ export type WorkbenchActionHandlersOptions = {
   selectedDocument?: DocumentSummary;
   selectedFolderId: string | null;
   setSettingsOpen: (open: boolean) => void;
+  setTrashOpen: (open: boolean) => void;
   setVersionsOpen: (open: boolean) => void;
   splitActiveTab: () => void;
   switchToHistory: () => void;
@@ -111,6 +112,7 @@ export function useWorkbenchActionHandlers({
   selectedDocument,
   selectedFolderId,
   setSettingsOpen,
+  setTrashOpen,
   setVersionsOpen,
   splitActiveTab,
   switchToHistory,
@@ -211,6 +213,7 @@ export function useWorkbenchActionHandlers({
       setVersionsOpen(true);
     },
     refreshWorkspace,
+    showTrash: () => setTrashOpen(true),
     renameSelectedFolder: () => {
       if (selectedFolderId && selectedFolderId !== UNFILED_FOLDER_ID) {
         renameFolder(selectedFolderId);
@@ -283,6 +286,7 @@ export function useWorkbenchActionHandlers({
     selectedDocument,
     selectedFolderId,
     setSettingsOpen,
+    setTrashOpen,
     setVersionsOpen,
     splitActiveTab,
     switchToHistory,
