@@ -25,6 +25,14 @@ export function isNoteVersionsUnavailableError(message: string | null | undefine
   return !!message && message.includes(HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE);
 }
 
+// HackMD answers 403 or 404 when a note's comments can't be read, for example
+// when commenting is turned off for the note.
+export const HACKMD_NOTE_COMMENTS_UNAVAILABLE_MESSAGE = "Comments aren't available for this note.";
+
+export function isNoteCommentsUnavailableError(message: string | null | undefined) {
+  return !!message && message.includes(HACKMD_NOTE_COMMENTS_UNAVAILABLE_MESSAGE);
+}
+
 export function isRemoteNoteChangedError(message: string | null | undefined) {
   return !!message && message.includes(HACKMD_NOTE_CHANGED_MESSAGE);
 }

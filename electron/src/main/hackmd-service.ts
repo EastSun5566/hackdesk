@@ -13,6 +13,12 @@ import type {
   NoteVersionRef,
   NoteVersionSummary,
   RestoreTrashFailureReason,
+  NoteComment,
+  NoteCommentActor,
+  NoteCommentAnchor,
+  NoteCommentPage,
+  NoteCommentResolutionResult,
+  NoteCommentsQuery,
   RestoreTrashResult,
   TrashedNoteSummary,
   NoteVersionsQuery,
@@ -27,7 +33,11 @@ import type {
   UploadNoteImageResult,
   UserSummary,
 } from '../../../src/lib/electron-api';
-import { HACKMD_NOTE_NOT_FOUND_MESSAGE, HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE } from '../../../src/lib/note-errors';
+import {
+  HACKMD_NOTE_COMMENTS_UNAVAILABLE_MESSAGE,
+  HACKMD_NOTE_NOT_FOUND_MESSAGE,
+  HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE,
+} from '../../../src/lib/note-errors';
 import { setTimeout as wait } from 'node:timers/promises';
 
 const HACKMD_API_BASE_URL = 'https://api.hackmd.io/v1';
@@ -411,6 +421,50 @@ export function mapNoteVersion(dto: NoteVersionDto): NoteVersionSummary {
   };
 }
 
+type CommentDto = Record<string, unknown>;
+
+const COMMENT_ACTOR_KINDS: ReadonlySet<NoteCommentActor['kind']> = new Set(['user', 'guest', 'team', 'deleted_user']);
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? value as Record<string, unknown> : null;
+}
+
+function toCommentStatus(value: unknown) {
+  return value === 'open' || value === 'hidden' ? value : null;
+}
+
+function mapCommentAnchor(value: unknown): NoteCommentAnchor | null {
+  const anchor = asRecord(value);
+  const { offset, length } = anchor ?? {};
+  return Number.isInteger(offset) && Number.isInteger(length) && (offset as number) >= 0 && (length as number) >= 0
+    ? { offset: offset as number, length: length as number }
+    : null;
+}
+
+function mapNoteComment(dto: CommentDto): NoteComment {
+  const actor = asRecord(dto.actor);
+  const kind = COMMENT_ACTOR_KINDS.has(actor?.kind as NoteCommentActor['kind']) ? actor!.kind as NoteCommentActor['kind'] : 'user';
+  const state = asRecord(dto.commentState);
+  const threadState = asRecord(dto.threadState);
+
+  return {
+    id: asString(dto.id),
+    threadId: asString(dto.threadId),
+    actor: { kind, displayName: asNullableString(actor?.displayName) },
+    body: typeof dto.body === 'string' ? dto.body : '',
+    status: toCommentStatus(state?.status) ?? 'open',
+    statusReason: asNullableString(state?.reason),
+    isThreadHead: asBoolean(dto.isThreadHead),
+    threadStatus: toCommentStatus(threadState?.status),
+    threadStatusReason: asNullableString(threadState?.reason),
+    anchor: mapCommentAnchor(dto.anchor),
+    currentAnchor: mapCommentAnchor(dto.currentAnchor),
+    excerpt: typeof dto.excerpt === 'string' && dto.excerpt ? dto.excerpt : null,
+    createdAtMillis: parseTimestamp(dto.createdAt),
+    updatedAtMillis: parseTimestamp(dto.updatedAt),
+  };
+}
+
 type TrashNoteDto = {
   id?: unknown;
   title?: unknown;
@@ -449,6 +503,7 @@ function toPositiveInteger(value: unknown, fallback: number) {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : fallback;
 }
 
+const COMMENT_PAGE_SIZE = 100;
 const MAX_ERROR_DETAIL_LENGTH = 300;
 const EMPTY_NOTE_MESSAGE = 'HackMD returned an empty note.';
 
@@ -632,6 +687,12 @@ async function requestHackmd<T>(
 function rethrowVersionsUnavailable(error: unknown): never {
   const status = (error as { status?: unknown } | null)?.status;
   if (status === 403 || status === 404) throw new Error(HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE);
+  throw error;
+}
+
+function rethrowCommentsUnavailable(error: unknown): never {
+  const status = (error as { status?: unknown } | null)?.status;
+  if (status === 403 || status === 404) throw new Error(HACKMD_NOTE_COMMENTS_UNAVAILABLE_MESSAGE);
   throw error;
 }
 
@@ -1165,6 +1226,40 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
       return { unifiedDiff: typeof response?.unified_diff === 'string' ? response.unified_diff : '' };
     },
 
+    /** Lists comments and replies, oldest first. Not cached: comments are only useful online. */
+    async listNoteComments(noteId: string, query: NoteCommentsQuery, signal?: AbortSignal): Promise<NoteCommentPage> {
+      const page = query.page ?? 1;
+      const params = new URLSearchParams({ page: String(page), limit: String(COMMENT_PAGE_SIZE), sort: 'asc' });
+      const response = await requestHackmd<{ comments?: unknown; pagination?: { page?: unknown; hasNext?: unknown } }>(
+        `/notes/${encodePathSegment(noteId)}/comments?${params.toString()}`,
+        { signal },
+        serviceOptions,
+      ).catch(rethrowCommentsUnavailable);
+
+      return {
+        comments: getJsonArray(response?.comments).map((comment) => mapNoteComment(asRecord(comment) ?? {})),
+        page: toPositiveInteger(response?.pagination?.page, page),
+        hasNext: asBoolean(response?.pagination?.hasNext),
+      };
+    },
+
+    /** Resolves or reopens a comment thread. A write, so it is sent once. */
+    async setNoteCommentResolved(noteId: string, commentId: string, resolved: boolean): Promise<NoteCommentResolutionResult> {
+      try {
+        await requestHackmd<unknown>(
+          `/notes/${encodePathSegment(noteId)}/comments/${encodePathSegment(commentId)}/resolution`,
+          { method: resolved ? 'PUT' : 'DELETE' },
+          serviceOptions,
+        );
+        return { status: 'updated' };
+      } catch (error) {
+        const status = (error as { status?: unknown } | null)?.status;
+        if (status === 409) return { status: 'conflict' };
+        if (status === 403) throw new Error("You can't resolve comments on this note.");
+        throw error;
+      }
+    },
+
     async uploadNoteImage(noteId: string, input: UploadNoteImageInput, signal?: AbortSignal) {
       const form = new FormData();
       const blob = new Blob([input.bytes], { type: input.mimeType || 'application/octet-stream' });
@@ -1211,6 +1306,8 @@ export const getNoteIfChanged = defaultHackmdService.getNoteIfChanged;
 export const restoreNote = defaultHackmdService.restoreNote;
 export const listTrash = defaultHackmdService.listTrash;
 export const restoreNotes = defaultHackmdService.restoreNotes;
+export const listNoteComments = defaultHackmdService.listNoteComments;
+export const setNoteCommentResolved = defaultHackmdService.setNoteCommentResolved;
 export const createNote = defaultHackmdService.createNote;
 export const createTeamNote = defaultHackmdService.createTeamNote;
 export const createFolder = defaultHackmdService.createFolder;

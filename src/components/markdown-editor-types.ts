@@ -8,6 +8,8 @@ export type MarkdownEditorHandle = {
   insertText: (text: string) => void;
   openSearch: () => void;
   revealText: (query: string) => boolean;
+  /** Highlights `[from, to)` if it still holds `expectedText`, else the first match of `expectedText`. */
+  revealRange: (from: number, to: number, expectedText: string) => boolean;
 };
 
 export type MarkdownEditorProps = {

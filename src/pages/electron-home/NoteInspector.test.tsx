@@ -114,6 +114,15 @@ describe('NoteInspector versions', () => {
     expect(onSaveMetadata).not.toHaveBeenCalled();
   });
 
+  it('offers comments only with a way to show them in the note', () => {
+    const { unmount } = renderNoteInspector();
+    expect(screen.queryByRole('button', { name: /^Comments/ })).not.toBeInTheDocument();
+    unmount();
+
+    renderNoteInspector({ actions: { onRevealComment: vi.fn(() => true) } });
+    expect(screen.getByRole('button', { name: /^Comments/ })).toBeInTheDocument();
+  });
+
   it('has no versions section without a way to show them', () => {
     renderNoteInspector();
 

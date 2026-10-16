@@ -176,6 +176,45 @@ export type CreateNoteVersionResult =
   | { status: 'no_content_change'; latestVersionId: string | null }
   | { status: 'version_already_named'; latestVersionId: string | null };
 
+export type NoteCommentActor = {
+  kind: 'user' | 'guest' | 'team' | 'deleted_user';
+  displayName: string | null;
+};
+
+/** A span of the note's saved content, counted in characters. */
+export type NoteCommentAnchor = { offset: number; length: number };
+
+/** A HackMD comment or reply. Comments are plain text. */
+export type NoteComment = {
+  id: string;
+  threadId: string;
+  actor: NoteCommentActor;
+  body: string;
+  /** `hidden` with a reason such as `spam`, or `resolved` for a resolved thread. */
+  status: 'open' | 'hidden';
+  statusReason: string | null;
+  isThreadHead: boolean;
+  /** The whole thread's state. Only thread heads carry it. */
+  threadStatus: 'open' | 'hidden' | null;
+  threadStatusReason: string | null;
+  anchor: NoteCommentAnchor | null;
+  currentAnchor: NoteCommentAnchor | null;
+  excerpt: string | null;
+  createdAtMillis: number | null;
+  updatedAtMillis: number | null;
+};
+
+export type NoteCommentPage = {
+  comments: NoteComment[];
+  page: number;
+  hasNext: boolean;
+};
+
+export type NoteCommentsQuery = { page?: number };
+
+/** HackMD answers 409 when the thread already has the requested state. */
+export type NoteCommentResolutionResult = { status: 'updated' } | { status: 'conflict' };
+
 /** A personal note in the HackMD trash. HackMD does not return its content. */
 export type TrashedNoteSummary = {
   id: string;
@@ -434,6 +473,8 @@ export type HackDeskElectronAPI = {
     restoreNote: (noteId: string) => Promise<void>;
     listTrash: (options?: HackmdRequestOptions) => Promise<TrashedNoteSummary[]>;
     restoreNotes: (noteIds: string[]) => Promise<RestoreTrashResult>;
+    listNoteComments: (noteId: string, query: NoteCommentsQuery, options?: HackmdRequestOptions) => Promise<NoteCommentPage>;
+    setNoteCommentResolved: (noteId: string, commentId: string, resolved: boolean) => Promise<NoteCommentResolutionResult>;
     deleteTeamNote: (teamPath: string, noteId: string) => Promise<void>;
     uploadNoteImage: (noteId: string, input: UploadNoteImageInput, options?: HackmdRequestOptions) => Promise<UploadNoteImageResult>;
     listNoteVersions: (noteId: string, query: NoteVersionsQuery, options?: HackmdRequestOptions) => Promise<NoteVersionPage>;

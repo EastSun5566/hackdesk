@@ -34,6 +34,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type {
   DocumentSummary,
+  NoteComment,
   NoteSummary,
   UpdateNoteInput,
 } from '@/lib/electron-api';
@@ -339,6 +340,15 @@ function ActiveDocumentDetail({
       fileInputRef.current.click();
     }
   }, [layout.focusRequestId, layout.searchRequestId, layout.attachImageRequestId, onRequestHandled]);
+  // Anchors point at the saved note; revealRange falls back to the excerpt when unsaved edits moved it.
+  const revealComment = useCallback((comment: NoteComment) => {
+    const editor = editorRef.current;
+    const anchor = comment.currentAnchor ?? comment.anchor;
+    if (!editor || !comment.excerpt) return false;
+    return anchor
+      ? editor.revealRange(anchor.offset, anchor.offset + anchor.length, comment.excerpt)
+      : editor.revealText(comment.excerpt);
+  }, []);
   const setEditorRef = useCallback((handle: MarkdownEditorHandle | null) => {
     editorRef.current = handle;
     handleEditorRequests(handle);
@@ -436,6 +446,7 @@ function ActiveDocumentDetail({
         />
         <InspectorPanel
           actions={actions}
+          onRevealComment={revealComment}
           document={documentState.document}
           folderTree={folderTree}
           inspectorCollapsed={layout.inspectorCollapsed}
@@ -795,6 +806,7 @@ function DocumentBody({
 
 function InspectorPanel({
   actions,
+  onRevealComment,
   document,
   folderTree,
   inspectorCollapsed,
@@ -808,6 +820,7 @@ function InspectorPanel({
   inspectorCollapsed: boolean;
   inspectorPanelId: string;
   isLocalDocument: boolean;
+  onRevealComment: (comment: NoteComment) => boolean;
   status: DocumentDetailStatus;
 }) {
   if (!document || isLocalDocument) {
@@ -835,6 +848,8 @@ function InspectorPanel({
             onSaveMetadata: actions.onSaveMetadata,
             onCopyLink: actions.onCopyLink,
             onShowVersions: actions.onVersionsOpenChange && (() => actions.onVersionsOpenChange?.(true)),
+            // Comments live on HackMD, so they are offered where versions are.
+            onRevealComment: actions.onVersionsOpenChange && onRevealComment,
           }}
         />
       )}

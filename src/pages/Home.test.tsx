@@ -299,6 +299,8 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       restoreNote: vi.fn(async () => undefined),
       listTrash: vi.fn(async () => []),
       restoreNotes: vi.fn(async () => ({})),
+      listNoteComments: vi.fn(async () => ({ comments: [], page: 1, hasNext: false })),
+      setNoteCommentResolved: vi.fn(async () => ({ status: 'updated' as const })),
       getNote: vi.fn(async () => ({ source: 'remote' as const, data: document })),
       createNote: vi.fn(async () => document),
       createTeamNote: vi.fn(),

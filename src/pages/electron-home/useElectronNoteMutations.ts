@@ -36,6 +36,7 @@ import {
   getScopeStorageKey,
 } from './repository';
 import { noteVersionsKeys } from './useNoteVersions';
+import { noteCommentsKeys } from './useNoteComments';
 import type { NoteDocumentDraft, NoteIdentity } from './note-workspace';
 import type { SettingsFormInput, WorkspaceScope } from './types';
 import { createQuickNoteContent } from './ui';
@@ -658,6 +659,8 @@ export function useElectronNoteMutations({
         );
         // HackMD may save a version with each write. Refresh only version views that are open.
         void queryClient.invalidateQueries({ queryKey: noteVersionsKeys.all(variables.note.id), refetchType: 'active' });
+        // A write can move comment anchors too.
+        void queryClient.invalidateQueries({ queryKey: noteCommentsKeys.all(variables.note.id), refetchType: 'active' });
       }
       toast.success(variables.successMessage ?? 'Note saved.');
     },

@@ -3,6 +3,7 @@ import { toast } from '@/components/ui/toast';
 
 import type {
   DocumentSummary,
+  NoteComment,
   NotePermissionRole,
   UpdateNoteInput,
 } from '@/lib/electron-api';
@@ -43,6 +44,8 @@ export type NoteInspectorActions = {
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
   /** Opens the Version History dialog; absent where versions are not offered. */
   onShowVersions?: () => void;
+  /** Highlights a comment's text in the editor and reports whether it was found; absent where comments are not offered. */
+  onRevealComment?: (comment: NoteComment) => boolean;
 };
 
 export type InspectorDirtyState = {
