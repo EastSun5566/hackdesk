@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
@@ -37,5 +37,13 @@ it('fails when a package explicitly declares a missing license file', async () =
 
 it('rejects a declared license outside its package', async () => {
   const dependency = await fixture('escape', 'SEE LICENSE IN ../outside.txt');
+  await expect(collectNotices([{ dependencies: { dependency } }])).rejects.toThrow('License file escapes package');
+});
+
+it('rejects a license reached through a directory symlink outside the package', async () => {
+  const dependency = await fixture('linked', 'SEE LICENSE IN legal/LICENSE');
+  const outside = await fixture('outside', 'MIT');
+  await writeFile(join(outside.path, 'LICENSE'), 'Outside package');
+  await symlink(outside.path, join(dependency.path, 'legal'), process.platform === 'win32' ? 'junction' : 'dir');
   await expect(collectNotices([{ dependencies: { dependency } }])).rejects.toThrow('License file escapes package');
 });

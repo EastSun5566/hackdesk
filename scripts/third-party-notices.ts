@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { isAbsolute, join, relative, resolve } from 'node:path';
+import { mkdir, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 interface Dependency {
   path?: string;
@@ -28,10 +28,16 @@ export async function collectNotices(roots: Dependency[]) {
           }
           names.add(declared);
         }
+        const packageRoot = await realpath(dependency.path);
         const files: Record<string, Buffer> = {};
         for (const name of [...names].sort()) {
           // A declared license must exist; do not silently ship incomplete notices.
-          files[name.replaceAll('\\', '/')] = await readFile(join(dependency.path, name));
+          const path = await realpath(join(dependency.path, name));
+          const rel = relative(packageRoot, path);
+          if (isAbsolute(rel) || rel === '..' || rel.startsWith(`..${sep}`)) {
+            throw new Error(`License file escapes package: ${key}`);
+          }
+          files[name.replaceAll('\\', '/')] = await readFile(path);
         }
         packages.set(key, { name: pkg.name, version: pkg.version, license, files });
       }
