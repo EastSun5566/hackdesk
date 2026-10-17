@@ -27,6 +27,10 @@ export const AI_ACTION_DETAILS: Record<AiAction, AiActionDetails> = {
 };
 
 export const MAX_AI_INSTRUCTION_CHARACTERS = 500;
+/** A saved command's prompt may be longer than a request typed into the menu. */
+export const MAX_AI_COMMAND_PROMPT_CHARACTERS = 2_000;
+export const MAX_AI_COMMAND_NAME_CHARACTERS = 60;
+export const MAX_AI_CUSTOM_COMMANDS = 50;
 /** Text around the selection sent along so the result matches its tone; never rewritten. */
 export const MAX_AI_CONTEXT_CHARACTERS = 1_500;
 
@@ -85,6 +89,8 @@ export type AiTurnInput = {
   targetLanguage?: string;
   /** The user's own request; only for the `custom` action. */
   instruction?: string;
+  /** Where a `custom` answer goes; other actions have their own. */
+  delivery?: AiDelivery;
   context?: { before: string; after: string };
 };
 

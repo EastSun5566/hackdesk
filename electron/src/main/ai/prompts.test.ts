@@ -26,10 +26,22 @@ describe('AI prompts', () => {
     expect(buildAiPrompt({ ...base, action: 'translate', targetLanguage: 'Japanese' })).toContain('into Japanese');
   });
 
+  it('asks a custom request for an addition when its command adds below', () => {
+    expect(buildAiPrompt({ ...base, action: 'custom', instruction: 'List the to-dos', delivery: 'insert-below' }))
+      .toContain('reply with only the new text to add after it: "List the to-dos"');
+    expect(buildAiPrompt({ ...base, action: 'custom', instruction: 'Make it formal', delivery: 'replace' }))
+      .toContain('reply with only the text that should replace it: "Make it formal"');
+  });
+
+  it('accepts a saved command\'s longer prompt and its placement', () => {
+    expect(aiTurnInputSchema.safeParse({ ...base, action: 'custom', instruction: 'x'.repeat(2_000), delivery: 'insert-below' }).success).toBe(true);
+    expect(aiTurnInputSchema.safeParse({ ...base, action: 'custom', instruction: 'x'.repeat(2_001) }).success).toBe(false);
+    expect(aiTurnInputSchema.safeParse({ ...base, action: 'custom', instruction: 'x', delivery: 'sideways' }).success).toBe(false);
+  });
+
   it('accepts only bounded requests, and custom ones with an instruction', () => {
     expect(aiTurnInputSchema.safeParse({ ...base, action: 'fix' }).success).toBe(true);
     expect(aiTurnInputSchema.safeParse({ ...base, action: 'custom' }).success).toBe(false);
-    expect(aiTurnInputSchema.safeParse({ ...base, action: 'custom', instruction: 'x'.repeat(501) }).success).toBe(false);
     expect(aiTurnInputSchema.safeParse({ ...base, action: 'fix', context: { before: 'x'.repeat(2_001), after: '' } }).success).toBe(false);
     expect(aiTurnInputSchema.safeParse({ ...base, action: 'rewrite' }).success).toBe(false);
   });

@@ -17,13 +17,24 @@ import {
   getAiErrorMessage,
   onAiSettingsChanged,
   type AiAction,
+  type AiDelivery,
   type AiProviderId,
 } from '@/lib/ai';
 import { getHackDeskAPI } from '@/lib/electron-api';
+import type { AiCustomCommand } from '@/lib/settings';
 
 import { AiInlinePanel } from './AiInlinePanel';
 
-export type AiInlineRun = { action: AiAction; instruction?: string };
+export type AiInlineRun = {
+  action: AiAction;
+  instruction?: string;
+  /** Overrides the action's own placement; saved commands choose theirs. */
+  delivery?: AiDelivery;
+  /** Shown while it runs, such as a saved command's name. */
+  label?: string;
+  /** Set when the run came from a saved command, so it is not offered for saving again. */
+  commandId?: string;
+};
 
 type ActiveRequest = { requestId: string; session: number };
 
@@ -32,6 +43,7 @@ export type AiInlineController = {
   providerId: AiProviderId | null;
   setProviderId: (id: AiProviderId) => void;
   translateLanguage: string;
+  customCommands: AiCustomCommand[];
   isTeamNote: boolean;
   run: (view: EditorView, request: AiInlineRun) => void;
   retry: (view: EditorView) => void;
@@ -45,12 +57,18 @@ function isLive(view: EditorView) {
 /** Owns inline AI for one note: which providers are on, the running request, and its cancellation. */
 export function useAiInline({ noteTitle, isTeamNote }: { noteTitle: string; isTeamNote: boolean }): MarkdownEditorAi | null {
   const api = getHackDeskAPI();
-  const [config, setConfig] = useState<{ providers: AiProviderId[]; selectionChip: boolean; translateLanguage: string }>({
+  const [config, setConfig] = useState<{
+    providers: AiProviderId[];
+    selectionChip: boolean;
+    translateLanguage: string;
+    customCommands: AiCustomCommand[];
+  }>({
     providers: [],
     selectionChip: true,
     translateLanguage: 'English',
+    customCommands: [],
   });
-  const { providers, selectionChip, translateLanguage } = config;
+  const { providers, selectionChip, translateLanguage, customCommands } = config;
   const [providerId, setProviderId] = useState<AiProviderId | null>(null);
   const [lastRun, setLastRun] = useState<AiInlineRun | null>(null);
   const activeRef = useRef<ActiveRequest | null>(null);
@@ -74,6 +92,7 @@ export function useAiInline({ noteTitle, isTeamNote }: { noteTitle: string; isTe
           providers: enabled,
           selectionChip: settings.ai?.selectionChip ?? true,
           translateLanguage: settings.ai?.translateLanguage ?? 'English',
+          customCommands: settings.ai?.customCommands ?? [],
         });
         setProviderId(preferred && enabled.includes(preferred) ? preferred : enabled[0] ?? null);
       }).catch(() => undefined);
@@ -97,10 +116,11 @@ export function useAiInline({ noteTitle, isTeamNote }: { noteTitle: string; isTe
 
   const run = useCallback((view: EditorView, request: AiInlineRun) => {
     const session = getAiInlineState(view.state);
+    const delivery = request.delivery ?? AI_ACTION_DETAILS[request.action].delivery;
     if (!api?.ai || !providerId || session.phase === 'idle') return;
     if (!session.original.trim()) return;
     if (session.original.length > MAX_AI_INPUT_CHARACTERS) {
-      view.dispatch({ effects: [startAiInlineRun.of({ delivery: AI_ACTION_DETAILS[request.action].delivery })] });
+      view.dispatch({ effects: [startAiInlineRun.of({ delivery })] });
       view.dispatch({ effects: failAiInlineRun.of({ session: session.session, message: 'This text is too long for AI. Select a shorter part of the note.' }) });
       return;
     }
@@ -109,7 +129,7 @@ export function useAiInline({ noteTitle, isTeamNote }: { noteTitle: string; isTe
     const requestId = crypto.randomUUID();
     activeRef.current = { requestId, session: session.session };
     const isCurrent = () => activeRef.current?.requestId === requestId && isLive(view);
-    view.dispatch({ effects: startAiInlineRun.of({ delivery: AI_ACTION_DETAILS[request.action].delivery }) });
+    view.dispatch({ effects: startAiInlineRun.of({ delivery }) });
     // Enter accepts and Escape discards from the editor, so it keeps the keyboard while the answer streams.
     view.focus();
     const { doc } = view.state;
@@ -121,6 +141,7 @@ export function useAiInline({ noteTitle, isTeamNote }: { noteTitle: string; isTe
       noteTitle: noteTitleRef.current || undefined,
       ...(request.action === 'translate' ? { targetLanguage: translateLanguage } : {}),
       ...(request.instruction ? { instruction: request.instruction } : {}),
+      ...(request.action === 'custom' ? { delivery } : {}),
       context: {
         before: doc.sliceString(Math.max(0, session.from - MAX_AI_CONTEXT_CHARACTERS), session.from),
         after: doc.sliceString(session.to, Math.min(doc.length, session.to + MAX_AI_CONTEXT_CHARACTERS)),
@@ -158,11 +179,12 @@ export function useAiInline({ noteTitle, isTeamNote }: { noteTitle: string; isTe
     providerId,
     setProviderId,
     translateLanguage,
+    customCommands,
     isTeamNote,
     run,
     retry,
     lastRun,
-  }), [isTeamNote, lastRun, providerId, providers, retry, run, translateLanguage]);
+  }), [customCommands, isTeamNote, lastRun, providerId, providers, retry, run, translateLanguage]);
 
   return useMemo<MarkdownEditorAi | null>(() => (api?.ai ? {
     available: providers.length > 0,

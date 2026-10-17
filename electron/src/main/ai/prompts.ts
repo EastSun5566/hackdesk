@@ -19,7 +19,9 @@ const ACTION_INSTRUCTIONS: Record<AiAction, (input: AiTurnInput) => string> = {
   translate: input => `Translate the selection into ${input.targetLanguage?.trim() || 'English'}. Keep Markdown structure, links and code blocks unchanged.`,
   summarize: () => 'Summarize the selection as concise Markdown bullet points, in the same language as the selection.',
   continue: () => 'Continue writing from where the selection ends. Reply with only the new text that should follow it, matching its tone, language and Markdown style.',
-  custom: input => `Apply this request to the selection and reply with only the text that should replace it: ${JSON.stringify(input.instruction?.trim() ?? '')}`,
+  custom: input => input.delivery === 'insert-below'
+    ? `Apply this request to the selection and reply with only the new text to add after it: ${JSON.stringify(input.instruction?.trim() ?? '')}`
+    : `Apply this request to the selection and reply with only the text that should replace it: ${JSON.stringify(input.instruction?.trim() ?? '')}`,
 };
 
 function escapeAttribute(value: string) {

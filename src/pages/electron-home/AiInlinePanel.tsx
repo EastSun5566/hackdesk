@@ -1,15 +1,24 @@
 import { useState, type FocusEvent, type KeyboardEvent, type MouseEvent } from 'react';
 import type { EditorView } from '@codemirror/view';
-import { AlertCircle, Check, Copy, Loader2, RotateCcw, Sparkles, X } from 'lucide-react';
+import { AlertCircle, BookmarkPlus, Check, Copy, Loader2, RotateCcw, Sparkles, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { toast } from '@/components/ui/toast';
 import { acceptAiInline, closeAiInline, getAiInlineState, type AiInlineState } from '@/components/hackmd-live-preview/ai-inline/state';
-import { AI_ACTION_DETAILS, AI_PROVIDER_TITLES, MAX_AI_INSTRUCTION_CHARACTERS, getAiErrorMessage, type AiAction } from '@/lib/ai';
+import {
+  AI_ACTION_DETAILS,
+  AI_PROVIDER_TITLES,
+  MAX_AI_COMMAND_NAME_CHARACTERS,
+  MAX_AI_INSTRUCTION_CHARACTERS,
+  getAiErrorMessage,
+  type AiAction,
+} from '@/lib/ai';
 import { getHackDeskAPI } from '@/lib/electron-api';
 
-import type { AiInlineController } from './useAiInline';
+import { AiCommandDialog } from './AiCommandDialog';
+import { createAiCustomCommand, updateAiCustomCommands } from './ai-commands';
+import type { AiInlineController, AiInlineRun } from './useAiInline';
 import { writeClipboardText } from './useDocumentCommands';
 
 const MENU_ACTIONS: AiAction[] = ['fix', 'improve', 'shorter', 'longer', 'translate', 'summarize', 'continue'];
@@ -66,6 +75,27 @@ function AiMenu({ view, session, controller }: { view: EditorView; session: AiIn
           placeholder="Ask AI or pick a command…"
         />
         <CommandList>
+          {controller.customCommands.length > 0 ? (
+            <CommandGroup heading="Your commands">
+              {controller.customCommands.map(command => (
+                <CommandItem
+                  key={command.id}
+                  // Unique even when two commands share a name; the name keeps it searchable.
+                  value={`${command.name} ${command.id}`}
+                  keywords={[command.name]}
+                  onSelect={() => controller.run(view, {
+                    action: 'custom',
+                    instruction: command.prompt,
+                    delivery: command.delivery,
+                    label: command.name,
+                    commandId: command.id,
+                  })}
+                >
+                  <span className="truncate">{command.name}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ) : null}
           <CommandGroup heading={`Edit ${scope}`}>
             {MENU_ACTIONS.map((action) => {
               const details = AI_ACTION_DETAILS[action];
@@ -118,15 +148,50 @@ function AiMenu({ view, session, controller }: { view: EditorView; session: AiIn
   );
 }
 
+/** Offered after a typed request, so a prompt that worked can be kept as a command. */
+function SaveAsCommandButton({ run }: { run: AiInlineRun & { instruction: string } }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button size="xs" variant="ghost" onMouseDown={keepEditorFocus} onClick={() => setOpen(true)}>
+        <BookmarkPlus aria-hidden="true" className="h-3.5 w-3.5" />
+        Save as command
+      </Button>
+      {open ? (
+        <AiCommandDialog
+          open
+          title="Save as AI command"
+          description="Saved commands appear at the top of the ⌘K menu."
+          submitLabel="Save"
+          initial={{
+            name: run.instruction.slice(0, MAX_AI_COMMAND_NAME_CHARACTERS),
+            prompt: run.instruction,
+            delivery: run.delivery ?? 'replace',
+          }}
+          onOpenChange={setOpen}
+          onSubmit={async (draft) => {
+            await updateAiCustomCommands(commands => [...commands, createAiCustomCommand(draft)]);
+            toast.success(`Saved "${draft.name}" to your AI commands.`);
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
 function AiStatus({ view, session, controller }: { view: EditorView; session: AiInlineState; controller: AiInlineController }) {
-  const action = controller.lastRun?.action ?? 'custom';
-  const details = AI_ACTION_DETAILS[action];
+  const run = controller.lastRun;
+  const details = AI_ACTION_DETAILS[run?.action ?? 'custom'];
+  const progressLabel = run?.label ? `${run.label}…` : details.progressLabel;
+  const savable = run?.action === 'custom' && !run.commandId && run.instruction
+    ? { ...run, instruction: run.instruction }
+    : null;
 
   if (session.phase === 'running') {
     return (
       <div className={`${PANEL_CLASS} flex items-center gap-2 px-2 py-1.5 text-xs`} role="status" aria-live="polite">
         <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin text-primary-default motion-reduce:animate-none" />
-        <span>{details.progressLabel}</span>
+        <span>{progressLabel}</span>
         <Button size="xs" variant="ghost" onMouseDown={keepEditorFocus} onClick={() => close(view)}>
           <X aria-hidden="true" className="h-3.5 w-3.5" />
           Stop
@@ -145,6 +210,7 @@ function AiStatus({ view, session, controller }: { view: EditorView; session: Ai
           <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />
           Retry
         </Button>
+        {savable ? <SaveAsCommandButton run={savable} /> : null}
         <Button size="xs" variant="ghost" onMouseDown={keepEditorFocus} onClick={() => close(view)}>Close</Button>
       </div>
     );
@@ -160,7 +226,7 @@ function AiStatus({ view, session, controller }: { view: EditorView; session: Ai
     <div className={`${PANEL_CLASS} flex items-center gap-1 px-1.5 py-1 text-xs`} role="toolbar" aria-label="AI result">
       <Button size="xs" variant="primary" onMouseDown={keepEditorFocus} onClick={() => acceptAiInline(view)}>
         <Check aria-hidden="true" className="h-3.5 w-3.5" />
-        {details.delivery === 'replace' ? 'Replace' : 'Insert'}
+        {session.delivery === 'replace' ? 'Replace' : 'Insert'}
         <kbd className="opacity-70">⏎</kbd>
       </Button>
       <Button size="xs" variant="ghost" onMouseDown={keepEditorFocus} onClick={() => close(view)}>
@@ -175,6 +241,7 @@ function AiStatus({ view, session, controller }: { view: EditorView; session: Ai
         <Copy aria-hidden="true" className="h-3.5 w-3.5" />
         Copy
       </Button>
+      {savable ? <SaveAsCommandButton run={savable} /> : null}
     </div>
   );
 }
