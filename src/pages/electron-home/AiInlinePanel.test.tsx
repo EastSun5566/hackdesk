@@ -1,10 +1,12 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { EditorSelection, EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { aiInline, openAiInlineMenu, type AiInlineHost } from '@/components/hackmd-live-preview/ai-inline/extension';
 import { finishAiInlineRun, getAiInlineState, startAiInlineRun } from '@/components/hackmd-live-preview/ai-inline/state';
+
+import { defaultSettings } from '@/lib/settings';
 
 import { AiInlinePanel } from './AiInlinePanel';
 import type { AiInlineController } from './useAiInline';
@@ -31,6 +33,7 @@ function setup(doc = 'Hello wrold', overrides: Partial<AiInlineController> = {})
     providerId: 'claude',
     setProviderId: vi.fn(),
     translateLanguage: 'Japanese',
+    customCommands: [],
     isTeamNote: false,
     run: vi.fn(),
     retry: vi.fn(),
@@ -42,6 +45,7 @@ function setup(doc = 'Hello wrold', overrides: Partial<AiInlineController> = {})
 }
 
 afterEach(() => {
+  delete window.hackdeskAPI;
   view?.dom.parentElement?.remove();
   view?.destroy();
   view = null;
@@ -79,6 +83,51 @@ describe('AiInlinePanel', () => {
     fireEvent.blur(input, { relatedTarget: view.contentDOM });
     expect(getAiInlineState(view.state).phase).toBe('idle');
     expect(controller.run).not.toHaveBeenCalled();
+  });
+
+  it('lists saved commands first and runs one with its prompt and placement', () => {
+    const command = { id: 'c1', name: 'Meeting notes', prompt: 'Turn into meeting notes', delivery: 'insert-below' as const };
+    const { view, controller, renderPanel } = setup('Hello wrold', { customCommands: [command] });
+    renderPanel();
+    expect(screen.getByText('Your commands')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Meeting notes'));
+    expect(controller.run).toHaveBeenCalledWith(view, {
+      action: 'custom',
+      instruction: 'Turn into meeting notes',
+      delivery: 'insert-below',
+      label: 'Meeting notes',
+      commandId: 'c1',
+    });
+  });
+
+  it('offers to save a typed request as a command, but not a saved one', async () => {
+    const update = vi.fn(async (input: { ai: typeof defaultSettings.ai }) => ({ ai: input.ai }));
+    window.hackdeskAPI = {
+      getRuntimeEnvironment: () => 'electron',
+      settings: { get: vi.fn(async () => ({ ai: defaultSettings.ai })), update },
+    } as unknown as typeof window.hackdeskAPI;
+    const preview = (lastRun: AiInlineController['lastRun']) => {
+      const context = setup('Hello wrold', { lastRun });
+      const { session } = getAiInlineState(context.view.state);
+      context.view.dispatch({ effects: startAiInlineRun.of({ delivery: 'replace' }) });
+      context.view.dispatch({ effects: finishAiInlineRun.of({ session, output: 'Hello world' }) });
+      return context;
+    };
+
+    const saved = preview({ action: 'custom', instruction: 'x', commandId: 'c1', label: 'X' });
+    const { unmount } = saved.renderPanel();
+    expect(screen.queryByRole('button', { name: /Save as command/ })).not.toBeInTheDocument();
+    unmount();
+    saved.view.destroy();
+
+    preview({ action: 'custom', instruction: 'Make it formal' }).renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /Save as command/ }));
+    expect(screen.getByLabelText('Name')).toHaveValue('Make it formal');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(update).toHaveBeenCalledOnce());
+    expect(update.mock.calls[0]![0].ai.customCommands).toEqual([
+      expect.objectContaining({ name: 'Make it formal', prompt: 'Make it formal', delivery: 'replace' }),
+    ]);
   });
 
   it('replaces the text when a previewed answer is accepted', () => {

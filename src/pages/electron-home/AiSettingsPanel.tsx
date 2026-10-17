@@ -1,26 +1,31 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Meter } from '@base-ui/react/meter';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Loader2, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/field';
 import { Select, SelectContent, SelectItem, SelectLabelValue, SelectTrigger } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { toast } from '@/components/ui/toast';
 import {
   AI_PROVIDER_COMMANDS,
   AI_PROVIDER_IDS,
   AI_PROVIDER_TITLES,
   AI_SIGN_IN_COMMANDS,
+  MAX_AI_CUSTOM_COMMANDS,
   type AiProviderId,
   type AiProviderStatus,
   type AiUsageWindow,
   getAiErrorMessage,
   notifyAiSettingsChanged,
+  onAiSettingsChanged,
 } from '@/lib/ai';
 import { getHackDeskAPI } from '@/lib/electron-api';
-import type { AiSettings } from '@/lib/settings';
+import type { AiCustomCommand, AiSettings } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 
+import { AiCommandDialog } from './AiCommandDialog';
+import { createAiCustomCommand, updateAiCustomCommands } from './ai-commands';
 import { SettingsSection } from './SettingsPrimitives';
 
 const DEFAULT_MODEL_VALUE = '__default__';
@@ -226,6 +231,14 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
     for (const id of AI_PROVIDER_IDS) void refresh(id);
   }, [active, api, refresh]);
 
+  // A command saved from the ⌘K menu while Settings is open shows up here too.
+  useEffect(() => {
+    if (!api) return undefined;
+    return onAiSettingsChanged(() => {
+      void api.settings.get().then(settings => setAiSettings(current => (current ? settings.ai ?? current : current)));
+    });
+  }, [api]);
+
   const save = async (next: AiSettings, refreshId?: AiProviderId) => {
     if (!api) return;
     setBusy(true);
@@ -342,7 +355,105 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
           />
         </SettingsSection>
       ) : null}
+
+      {aiSettings ? (
+        <CustomCommandsSection
+          commands={aiSettings.customCommands}
+          hasProvider={enabledIds.length > 0}
+          onChange={customCommands => setAiSettings(current => (current ? { ...current, customCommands } : current))}
+        />
+      ) : null}
     </div>
+  );
+}
+
+type CommandEditor = { mode: 'new' } | { mode: 'edit'; command: AiCustomCommand };
+
+function CustomCommandsSection({
+  commands,
+  hasProvider,
+  onChange,
+}: {
+  commands: AiCustomCommand[];
+  hasProvider: boolean;
+  onChange: (commands: AiCustomCommand[]) => void;
+}) {
+  const api = getHackDeskAPI();
+  const [editor, setEditor] = useState<CommandEditor | null>(null);
+  const full = commands.length >= MAX_AI_CUSTOM_COMMANDS;
+
+  const remove = async (command: AiCustomCommand) => {
+    const confirmed = await api?.app.confirm({
+      title: `Delete "${command.name}"?`,
+      message: 'This removes the command from the ⌘K menu.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      destructive: true,
+    });
+    if (!confirmed?.confirmed) return;
+    try {
+      onChange(await updateAiCustomCommands(current => current.filter(item => item.id !== command.id)));
+    } catch (error) {
+      toast.error(getAiErrorMessage(error));
+    }
+  };
+
+  return (
+    <SettingsSection
+      title="Custom commands"
+      description={hasProvider
+        ? 'Your own prompts, shown at the top of the ⌘K menu. You can also save a request you typed there with "Save as command".'
+        : 'Your own prompts for the ⌘K menu. Turn on Codex or Claude above to use them.'}
+    >
+      {commands.length > 0 ? (
+        <ul className="divide-y divide-border-default rounded-lg border border-border-default">
+          {commands.map(command => (
+            <li key={command.id} className="flex items-start gap-3 px-3 py-2.5">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{command.name}</p>
+                <p className="truncate text-xs text-text-subtle">
+                  {command.delivery === 'replace' ? 'Replaces the selection' : 'Adds below'}
+                  {' · '}
+                  {command.prompt}
+                </p>
+              </div>
+              <Button size="icon-sm" variant="ghost" aria-label={`Edit ${command.name}`} onClick={() => setEditor({ mode: 'edit', command })}>
+                <Pencil aria-hidden="true" className="h-3.5 w-3.5" />
+              </Button>
+              <Button size="icon-sm" variant="ghost" aria-label={`Delete ${command.name}`} onClick={() => void remove(command)}>
+                <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <div>
+        <Button variant="secondary" size="sm" disabled={full} onClick={() => setEditor({ mode: 'new' })}>
+          <Plus aria-hidden="true" className="h-3.5 w-3.5" />
+          New command
+        </Button>
+        {full ? <p className="mt-1 text-xs text-text-subtle">You can save up to {MAX_AI_CUSTOM_COMMANDS} commands.</p> : null}
+      </div>
+      {editor ? (
+        <AiCommandDialog
+          open
+          title={editor.mode === 'new' ? 'New AI command' : 'Edit AI command'}
+          description="Runs on the selected text, or the whole note when nothing is selected."
+          submitLabel={editor.mode === 'new' ? 'Create' : 'Save'}
+          initial={editor.mode === 'new'
+            ? { name: '', prompt: '', delivery: 'replace' }
+            : { name: editor.command.name, prompt: editor.command.prompt, delivery: editor.command.delivery }}
+          onOpenChange={(open) => {
+            if (!open) setEditor(null);
+          }}
+          onSubmit={async (draft) => {
+            onChange(await updateAiCustomCommands(current => (editor.mode === 'new'
+              ? [...current, createAiCustomCommand(draft)]
+              : current.map(item => (item.id === editor.command.id ? { ...item, ...draft } : item)))));
+          }}
+        />
+      ) : null}
+    </SettingsSection>
   );
 }
 

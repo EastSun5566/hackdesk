@@ -139,6 +139,7 @@ const pinnedTeamIdsSchema = z.array(nonEmptyStringSchema).nullable().refine(
 );
 
 const aiProviderIdSchema = z.enum(['codex', 'claude']);
+const aiDeliverySchema = z.enum(['replace', 'insert-below']);
 const aiProviderSettingsSchema = z.strictObject({
   enabled: z.boolean(),
   model: z.string().trim().min(1).max(200).nullable(),
@@ -170,6 +171,12 @@ export const settingsUpdateSchema = z.strictObject({
     defaultProvider: aiProviderIdSchema.nullable(),
     selectionChip: z.boolean(),
     translateLanguage: z.string().trim().min(1).max(64),
+    customCommands: z.array(z.strictObject({
+      id: z.uuid(),
+      name: z.string().trim().min(1).max(60),
+      prompt: z.string().trim().min(1).max(2_000),
+      delivery: aiDeliverySchema,
+    })).max(50).refine(commands => new Set(commands.map(command => command.id)).size === commands.length, 'Command IDs must be unique.'),
   }).optional(),
 });
 
@@ -182,7 +189,8 @@ export const aiTurnInputSchema = z.strictObject({
   text: z.string().min(1).max(200_000),
   noteTitle: z.string().max(500).optional(),
   targetLanguage: z.string().trim().max(64).optional(),
-  instruction: z.string().trim().min(1).max(500).optional(),
+  instruction: z.string().trim().min(1).max(2_000).optional(),
+  delivery: aiDeliverySchema.optional(),
   context: z.strictObject({ before: z.string().max(2_000), after: z.string().max(2_000) }).optional(),
 }).refine(input => input.action !== 'custom' || Boolean(input.instruction), 'A custom AI request needs an instruction.');
 

@@ -1,7 +1,14 @@
 import { z } from 'zod';
 
 import { DEFAULT_TITLE } from '@/constants';
-import { AI_PROVIDER_IDS, type AiProviderId } from '@/lib/ai';
+import {
+  AI_PROVIDER_IDS,
+  MAX_AI_COMMAND_NAME_CHARACTERS,
+  MAX_AI_COMMAND_PROMPT_CHARACTERS,
+  MAX_AI_CUSTOM_COMMANDS,
+  type AiDelivery,
+  type AiProviderId,
+} from '@/lib/ai';
 import { ELECTRON_ACTIONS } from '@/lib/electron-actions';
 import type { ElectronActionId } from '@/lib/electron-api';
 import { isValidCustomShortcutConfig } from '@/lib/keyboard-shortcuts';
@@ -62,12 +69,21 @@ export type AiProviderSettings = {
   commandPath: string | null;
 };
 
+/** A prompt saved under a name, offered in the ⌘K menu. */
+export type AiCustomCommand = {
+  id: string;
+  name: string;
+  prompt: string;
+  delivery: AiDelivery;
+};
+
 export type AiSettings = {
   providers: Record<AiProviderId, AiProviderSettings>;
   defaultProvider: AiProviderId | null;
   /** Shows the "✦ AI" button after selecting text with the mouse. */
   selectionChip: boolean;
   translateLanguage: string;
+  customCommands: AiCustomCommand[];
 };
 
 export const defaultAppearanceSettings: AppearanceSettings = {
@@ -102,6 +118,7 @@ export const defaultAiSettings: AiSettings = {
   defaultProvider: null,
   selectionChip: true,
   translateLanguage: 'English',
+  customCommands: [],
 };
 
 const hexColorSchema = z.string().regex(/^#[\da-fA-F]{6}$/);
@@ -135,6 +152,27 @@ const aiProviderSettingsSchema = z.object({
   model: z.string().trim().min(1).max(200).nullable().default(null),
   commandPath: z.string().trim().min(1).max(4096).nullable().default(null),
 }).default(defaultAiProviderSettings);
+export const aiCustomCommandSchema = z.object({
+  id: z.string().trim().min(1).max(64),
+  name: z.string().trim().min(1).max(MAX_AI_COMMAND_NAME_CHARACTERS),
+  prompt: z.string().trim().min(1).max(MAX_AI_COMMAND_PROMPT_CHARACTERS),
+  delivery: z.enum(['replace', 'insert-below']),
+});
+/**
+ * One damaged command is dropped on its own: failing the whole list would reset the `ai` section,
+ * and with it the provider switches.
+ */
+const aiCustomCommandsSchema = z.array(z.unknown()).default([]).transform((items): AiCustomCommand[] => {
+  const seen = new Set<string>();
+  const commands: AiCustomCommand[] = [];
+  for (const item of items) {
+    const result = aiCustomCommandSchema.safeParse(item);
+    if (!result.success || seen.has(result.data.id)) continue;
+    seen.add(result.data.id);
+    commands.push(result.data);
+  }
+  return commands.slice(0, MAX_AI_CUSTOM_COMMANDS);
+});
 const aiSettingsSchema = z.object({
   providers: z.object({
     codex: aiProviderSettingsSchema,
@@ -143,6 +181,7 @@ const aiSettingsSchema = z.object({
   defaultProvider: z.enum(AI_PROVIDER_IDS).nullable().default(null),
   selectionChip: z.boolean().default(true),
   translateLanguage: z.string().trim().min(1).max(64).default('English'),
+  customCommands: aiCustomCommandsSchema,
 }).default(defaultAiSettings);
 const pinnedTeamIdsSchema = z.array(z.string().trim().min(1)).nullable().refine(
   (teamIds) => teamIds === null || new Set(teamIds).size === teamIds.length,

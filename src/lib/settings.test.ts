@@ -40,6 +40,21 @@ describe('settings helpers', () => {
     expect(parseStoredSettings('{"title":"HackDesk","ai":{"defaultProvider":"gemini"}}').ai).toEqual(defaultSettings.ai);
   });
 
+  it('keeps saved AI commands and drops only a damaged one', () => {
+    const command = { id: 'c1', name: 'Meeting notes', prompt: 'Turn into meeting notes', delivery: 'insert-below' };
+    const stored = parseStoredSettings(JSON.stringify({
+      title: 'HackDesk',
+      ai: {
+        providers: { claude: { enabled: true } },
+        customCommands: [command, { id: 'c2', name: '', prompt: 'x', delivery: 'replace' }, { ...command, name: 'Duplicate id' }, 'junk'],
+      },
+    }));
+    expect(stored.ai.customCommands).toEqual([command]);
+    // A damaged command must not reset the provider switches with it.
+    expect(stored.ai.providers.claude.enabled).toBe(true);
+    expect(parseSettings('{"title":"HackDesk"}').ai.customCommands).toEqual([]);
+  });
+
   it('parses appearance settings when present', () => {
     expect(parseSettings('{"title":"Workspace","appearance":{"theme":"dark","presetId":"noctis","customSeed":{"primary":"#123ABC"}}}')).toEqual({
       title: 'Workspace',
@@ -303,7 +318,8 @@ describe('settings helpers', () => {
     },
     "defaultProvider": null,
     "selectionChip": true,
-    "translateLanguage": "English"
+    "translateLanguage": "English",
+    "customCommands": []
   }
 }`);
   });
