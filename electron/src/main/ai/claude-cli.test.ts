@@ -69,13 +69,27 @@ describe('Claude CLI provider', () => {
 
   it('names an exported API key as the plan when the account has none', async () => {
     const fake = await createFakeCli('claude', { FAKE_NO_ACCOUNT: '1', ANTHROPIC_API_KEY: 'test-key-not-real' });
-    expect(await claudeProvider.probe(fake.launch)).toMatchObject({ phase: 'ready', plan: 'API key (ANTHROPIC_API_KEY)' });
+    // An API key has no subscription windows.
+    expect(await claudeProvider.probe(fake.launch)).toMatchObject({ phase: 'ready', plan: 'API key (ANTHROPIC_API_KEY)', usage: null });
+  });
+
+  it('runs a script under Node when the launch has prefix arguments', async () => {
+    const fake = await createFakeCli('claude');
+    const launch = { ...fake.launch, executable: process.execPath, prefixArgs: [fake.executable] };
+    expect(await claudeProvider.probe(launch)).toMatchObject({ phase: 'ready' });
+    const { deltas, input } = turn();
+    await claudeProvider.stream(launch, input);
+    expect(deltas.join('')).toBe('Hello');
   });
 
   it('probes version, sign-in and models without sending a prompt', async () => {
     const fake = await createFakeCli('claude');
     const status = await claudeProvider.probe(fake.launch);
     expect(status).toMatchObject({ phase: 'ready', version: '2.1.0', plan: 'Claude Max' });
+    expect(status.usage).toEqual({
+      primary: { usedPercent: 74, windowMinutes: 300, resetsAt: Date.parse('2026-10-17T20:20:00.000Z') / 1000 },
+      secondary: { usedPercent: 46, windowMinutes: 10080, resetsAt: Date.parse('2026-10-22T14:00:00.000Z') / 1000 },
+    });
     expect(status.models.map(model => model.id)).toEqual(['opus', 'haiku']);
 
     const signedOut = await createFakeCli('claude', { FAKE_LOGGED_IN: '0' });

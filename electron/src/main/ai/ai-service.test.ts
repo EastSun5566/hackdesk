@@ -23,7 +23,7 @@ function adapter(): AiProviderAdapter {
   };
 }
 
-async function setup(settings: AppSettings) {
+async function setup(settings: AppSettings, env: NodeJS.ProcessEnv = {}) {
   const fake = await createFakeCli('claude');
   const claude = adapter();
   const codex = adapter();
@@ -33,7 +33,7 @@ async function setup(settings: AppSettings) {
     rootPath,
     readSettings: async () => settings,
     adapters: { claude, codex },
-    locator: { env: { PATH: dirname(fake.executable) }, platform: process.platform, home: '/nonexistent', loginShellPath: async () => null },
+    locator: { env: { PATH: dirname(fake.executable), ...env }, platform: process.platform, home: '/nonexistent', loginShellPath: async () => null },
   });
   return { service, claude, codex, rootPath };
 }
@@ -70,6 +70,20 @@ describe('AI service', () => {
     expect(turn.model).toBe('haiku');
     expect(turn.prompt).toContain('Translate the selection into French');
     expect(turn.prompt).toContain('<selection>\nhello\n</selection>');
+  });
+
+  it('can run Claude without an exported API key so the claude.ai sign-in is used', async () => {
+    const env = { ANTHROPIC_API_KEY: 'test-key-not-real', ANTHROPIC_AUTH_TOKEN: 'test-token-not-real', KEEP: '1' };
+    const keep = await setup(settingsWith({ enabled: true }), env);
+    expect(await keep.service.refresh('claude')).toMatchObject({ apiKeyInEnvironment: true });
+    expect(vi.mocked(keep.claude.probe).mock.calls[0]![0].env.ANTHROPIC_API_KEY).toBe('test-key-not-real');
+
+    const ignore = await setup(settingsWith({ enabled: true, ignoreApiKey: true }), env);
+    expect(await ignore.service.refresh('claude')).toMatchObject({ apiKeyInEnvironment: true });
+    const launched = vi.mocked(ignore.claude.probe).mock.calls[0]![0].env;
+    expect(launched.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(launched.ANTHROPIC_AUTH_TOKEN).toBeUndefined();
+    expect(launched.KEEP).toBe('1');
   });
 
   it('stops a provider process when the provider is switched off', async () => {

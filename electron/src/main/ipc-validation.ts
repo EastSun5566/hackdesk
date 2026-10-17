@@ -144,6 +144,7 @@ const aiProviderSettingsSchema = z.strictObject({
   enabled: z.boolean(),
   model: z.string().trim().min(1).max(200).nullable(),
   commandPath: z.string().trim().min(1).max(4096).nullable(),
+  ignoreApiKey: z.boolean(),
 });
 
 export const settingsUpdateSchema = z.strictObject({

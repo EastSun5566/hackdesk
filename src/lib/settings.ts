@@ -67,6 +67,8 @@ export type AiProviderSettings = {
   enabled: boolean;
   model: string | null;
   commandPath: string | null;
+  /** Claude only: run without ANTHROPIC_API_KEY so the claude.ai sign-in is used. */
+  ignoreApiKey: boolean;
 };
 
 /** A prompt saved under a name, offered in the ⌘K menu. */
@@ -111,7 +113,7 @@ export const defaultWorkspaceNavigationSettings: WorkspaceNavigationSettings = {
   pinnedTeamIds: null,
 };
 
-const defaultAiProviderSettings: AiProviderSettings = { enabled: false, model: null, commandPath: null };
+const defaultAiProviderSettings: AiProviderSettings = { enabled: false, model: null, commandPath: null, ignoreApiKey: false };
 
 export const defaultAiSettings: AiSettings = {
   providers: { codex: defaultAiProviderSettings, claude: defaultAiProviderSettings },
@@ -151,6 +153,7 @@ const aiProviderSettingsSchema = z.object({
   enabled: z.boolean().default(false),
   model: z.string().trim().min(1).max(200).nullable().default(null),
   commandPath: z.string().trim().min(1).max(4096).nullable().default(null),
+  ignoreApiKey: z.boolean().default(false),
 }).default(defaultAiProviderSettings);
 export const aiCustomCommandSchema = z.object({
   // Saving requires a UUID, so an entry without one is dropped here instead of breaking every save.

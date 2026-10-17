@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Meter } from '@base-ui/react/meter';
-import { Loader2, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Loader2, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/field';
@@ -87,6 +87,7 @@ function ProviderCard({
   onEnabledChange,
   onModelChange,
   onCommandPathChange,
+  onIgnoreApiKeyChange,
   onRefresh,
 }: {
   id: AiProviderId;
@@ -97,12 +98,16 @@ function ProviderCard({
   onEnabledChange: (enabled: boolean) => void;
   onModelChange: (model: string | null) => void;
   onCommandPathChange: (path: string | null) => void;
+  onIgnoreApiKeyChange: (ignore: boolean) => void;
   onRefresh: () => void;
 }) {
   const title = AI_PROVIDER_TITLES[id];
   const switchId = `settings-ai-${id}-enabled`;
   const modelId = `settings-ai-${id}-model`;
   const pathId = `settings-ai-${id}-command`;
+  const ignoreKeyId = `settings-ai-${id}-ignore-api-key`;
+  // Only Claude reads ANTHROPIC_API_KEY, and the choice only matters once a key is exported.
+  const showApiKeyChoice = id === 'claude' && (status?.apiKeyInEnvironment || settings.ignoreApiKey);
   const [commandPath, setCommandPath] = useState(settings.commandPath ?? '');
   const checking = status?.phase === 'checking';
   const modelLabels: Record<string, string> = {
@@ -180,6 +185,23 @@ function ProviderCard({
           {settings.enabled && status?.usage?.primary ? <UsageRow window={status.usage.primary} /> : null}
           {settings.enabled && status?.usage?.secondary ? <UsageRow window={status.usage.secondary} /> : null}
 
+          {showApiKeyChoice ? (
+            <div className="flex items-start justify-between gap-3 text-sm">
+              <div className="min-w-0">
+                <label htmlFor={ignoreKeyId} className="font-medium">Use my Claude subscription instead of ANTHROPIC_API_KEY</label>
+                <p className="text-xs leading-5 text-text-subtle">
+                  An ANTHROPIC_API_KEY in HackDesk&apos;s environment bills that key. Turn this on to use your claude.ai sign-in.
+                </p>
+              </div>
+              <Switch
+                id={ignoreKeyId}
+                checked={settings.ignoreApiKey}
+                disabled={busy}
+                onCheckedChange={checked => onIgnoreApiKeyChange(checked)}
+              />
+            </div>
+          ) : null}
+
           <div className="grid gap-2 text-sm">
             <label htmlFor={pathId} className="font-medium">Command path</label>
             <span className="text-xs leading-5 text-text-subtle">
@@ -214,7 +236,7 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
 
   const refresh = useCallback(async (id: AiProviderId) => {
     if (!api?.ai) return;
-    setStatuses(current => ({ ...current, [id]: { ...(current[id] ?? { id, enabled: false, message: null, version: null, command: null, plan: null, models: [], usage: null }), phase: 'checking' } }));
+    setStatuses(current => ({ ...current, [id]: { ...(current[id] ?? { id, enabled: false, message: null, version: null, command: null, plan: null, models: [], usage: null, apiKeyInEnvironment: false }), phase: 'checking' } }));
     try {
       const status = await api.ai.refreshProvider(id);
       setStatuses(current => ({ ...current, [id]: status }));
@@ -305,6 +327,7 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
             onEnabledChange={enabled => void handleEnabledChange(id, enabled)}
             onModelChange={model => updateProvider(id, { model })}
             onCommandPathChange={commandPath => updateProvider(id, { commandPath }, true)}
+            onIgnoreApiKeyChange={ignoreApiKey => updateProvider(id, { ignoreApiKey }, true)}
             onRefresh={() => void refresh(id)}
           />
         )) : (
@@ -382,6 +405,23 @@ function CustomCommandsSection({
   const [editor, setEditor] = useState<CommandEditor | null>(null);
   const full = commands.length >= MAX_AI_CUSTOM_COMMANDS;
 
+  // The ⌘K menu lists commands in this order.
+  const move = async (index: number, offset: -1 | 1) => {
+    const id = commands[index]?.id;
+    try {
+      onChange(await updateAiCustomCommands((current) => {
+        const from = current.findIndex(item => item.id === id);
+        const to = from + offset;
+        if (from < 0 || to < 0 || to >= current.length) return current;
+        const next = [...current];
+        [next[from], next[to]] = [next[to]!, next[from]!];
+        return next;
+      }));
+    } catch (error) {
+      toast.error(getAiErrorMessage(error));
+    }
+  };
+
   const remove = async (command: AiCustomCommand) => {
     const confirmed = await api?.app.confirm({
       title: `Delete "${command.name}"?`,
@@ -407,9 +447,9 @@ function CustomCommandsSection({
     >
       {commands.length > 0 ? (
         <ul className="divide-y divide-border-default rounded-lg border border-border-default">
-          {commands.map(command => (
-            <li key={command.id} className="flex items-start gap-3 px-3 py-2.5">
-              <div className="min-w-0 flex-1">
+          {commands.map((command, index) => (
+            <li key={command.id} className="flex items-start gap-1 px-3 py-2.5">
+              <div className="mr-2 min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{command.name}</p>
                 <p className="truncate text-xs text-text-subtle">
                   {command.delivery === 'replace' ? 'Replaces the selection' : 'Adds below'}
@@ -417,6 +457,12 @@ function CustomCommandsSection({
                   {command.prompt}
                 </p>
               </div>
+              <Button size="icon-sm" variant="ghost" aria-label={`Move ${command.name} up`} disabled={index === 0} onClick={() => void move(index, -1)}>
+                <ArrowUp aria-hidden="true" className="h-3.5 w-3.5" />
+              </Button>
+              <Button size="icon-sm" variant="ghost" aria-label={`Move ${command.name} down`} disabled={index === commands.length - 1} onClick={() => void move(index, 1)}>
+                <ArrowDown aria-hidden="true" className="h-3.5 w-3.5" />
+              </Button>
               <Button size="icon-sm" variant="ghost" aria-label={`Edit ${command.name}`} onClick={() => setEditor({ mode: 'edit', command })}>
                 <Pencil aria-hidden="true" className="h-3.5 w-3.5" />
               </Button>

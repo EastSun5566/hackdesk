@@ -41,6 +41,15 @@ function handle(message) {
     } } });
     return;
   }
+  if (message.type === 'control_request' && message.request.subtype === 'get_usage') {
+    out({ type: 'control_response', response: { subtype: 'success', request_id: message.request_id, response: process.env.FAKE_NO_ACCOUNT
+      ? { rate_limits_available: false, rate_limits: {} }
+      : { rate_limits_available: true, rate_limits: {
+        five_hour: { utilization: 74, resets_at: '2026-10-17T20:20:00.000Z' },
+        seven_day: { utilization: 46, resets_at: '2026-10-22T14:00:00.000Z' },
+      } } } });
+    return;
+  }
   if (message.type === 'control_response') {
     out({ type: 'result', subtype: 'success', is_error: false, result: 'answered:' + message.response.subtype });
     return;

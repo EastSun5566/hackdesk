@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 
-import type { AiModel } from '../../../../src/lib/ai';
+import type { AiModel, AiUsageWindow } from '../../../../src/lib/ai';
 import {
   cleanCliMessage,
   createLineSplitter,
@@ -12,12 +12,14 @@ import {
   spawnCli,
   terminate,
 } from './cli-process';
-import { AiTurnCancelledError, type AiProviderAdapter, type ProviderLaunch, type ProviderProbe, type ProviderTurn } from './provider-types';
+import { AiTurnCancelledError, cliArgs, type AiProviderAdapter, type ProviderLaunch, type ProviderProbe, type ProviderTurn } from './provider-types';
 
 const MAX_LINE_CHARACTERS = 8 * 1024 * 1024;
 /** Thinking still streams events, so this long without any output means the CLI is stuck. */
 const STALL_TIMEOUT_MS = 120_000;
 const MODEL_REQUEST_ID = 'hackdesk-models';
+const USAGE_REQUEST_ID = 'hackdesk-usage';
+const USAGE_WINDOW_MINUTES = { five_hour: 5 * 60, seven_day: 7 * 24 * 60 } as const;
 const MANAGED_MCP_PATHS: Partial<Record<NodeJS.Platform, string>> = {
   darwin: '/Library/Application Support/ClaudeCode/managed-mcp.json',
   linux: '/etc/claude-code/managed-mcp.json',
@@ -125,6 +127,34 @@ export function parseClaudeCatalog(output: string): { models: AiModel[]; plan: s
   return null;
 }
 
+function parseUsageWindow(value: unknown, windowMinutes: number): AiUsageWindow | null {
+  const window = asObject(value);
+  const utilization = window?.utilization;
+  if (typeof utilization !== 'number' || !Number.isFinite(utilization)) return null;
+  const resetsAt = typeof window?.resets_at === 'string' ? Date.parse(window.resets_at) : Number.NaN;
+  return {
+    usedPercent: Math.min(100, Math.max(0, utilization)),
+    windowMinutes,
+    resetsAt: Number.isFinite(resetsAt) ? Math.round(resetsAt / 1000) : null,
+  };
+}
+
+/** Reads the `get_usage` answer: the subscription's 5-hour and weekly windows, none for an API key. */
+export function parseClaudeUsage(output: string): ProviderProbe['usage'] {
+  for (const line of output.split('\n')) {
+    const object = parseJsonObject(line.trim());
+    const response = asObject(object?.response);
+    if (object?.type !== 'control_response' || response?.request_id !== USAGE_REQUEST_ID) continue;
+    const payload = asObject(response.response);
+    const limits = asObject(payload?.rate_limits);
+    if (!payload || payload.rate_limits_available === false || !limits) return null;
+    const primary = parseUsageWindow(limits.five_hour, USAGE_WINDOW_MINUTES.five_hour);
+    const secondary = parseUsageWindow(limits.seven_day, USAGE_WINDOW_MINUTES.seven_day);
+    return primary || secondary ? { primary, secondary } : null;
+  }
+  return null;
+}
+
 function isLoggedIn(output: string) {
   const status = parseJsonObject(output.trim());
   if (!status) return null;
@@ -133,21 +163,24 @@ function isLoggedIn(output: string) {
 
 async function probe(launch: ProviderLaunch, signal?: AbortSignal): Promise<ProviderProbe> {
   const base = { version: null, plan: null, models: [], usage: null };
-  const versionResult = await runCli(launch.executable, ['--version'], { ...launch, signal });
+  const versionResult = await runCli(launch.executable, cliArgs(launch, ['--version']), { ...launch, signal });
   if (versionResult.code !== 0) {
     return { ...base, phase: 'failed', message: versionResult.stderr || 'Claude Code did not report its version.' };
   }
   const version = parseVersion(versionResult.stdout);
-  const auth = await runCli(launch.executable, ['auth', 'status', '--json'], { ...launch, signal });
+  const auth = await runCli(launch.executable, cliArgs(launch, ['auth', 'status', '--json']), { ...launch, signal });
   if (isLoggedIn(auth.stdout) === false) {
     return { ...base, version, phase: 'sign-in-required', message: 'Run `claude auth login` in a terminal, then refresh.' };
   }
-  // No prompt follows the request, so the CLI answers it and exits without calling a model.
-  const catalog = await runCli(launch.executable, sessionArguments(), {
+  // No prompt follows the requests, so the CLI answers both and exits without calling a model.
+  const catalog = await runCli(launch.executable, cliArgs(launch, sessionArguments()), {
     ...launch,
     signal,
     timeoutMs: 30_000,
-    input: `${JSON.stringify({ type: 'control_request', request_id: MODEL_REQUEST_ID, request: { subtype: 'initialize' } })}\n`,
+    input: [
+      { type: 'control_request', request_id: MODEL_REQUEST_ID, request: { subtype: 'initialize' } },
+      { type: 'control_request', request_id: USAGE_REQUEST_ID, request: { subtype: 'get_usage' } },
+    ].map(request => `${JSON.stringify(request)}\n`).join(''),
   });
   const parsed = parseClaudeCatalog(catalog.stdout);
   if (!parsed || parsed.models.length === 0) {
@@ -155,7 +188,7 @@ async function probe(launch: ProviderLaunch, signal?: AbortSignal): Promise<Prov
   }
   // An exported ANTHROPIC_API_KEY wins over the claude.ai sign-in, so say which one pays.
   const plan = parsed.plan ?? (launch.env.ANTHROPIC_API_KEY ? 'API key (ANTHROPIC_API_KEY)' : null);
-  return { ...base, version, phase: 'ready', message: null, models: parsed.models, plan };
+  return { ...base, version, phase: 'ready', message: null, models: parsed.models, plan, usage: parseClaudeUsage(catalog.stdout) };
 }
 
 function resultError(object: JsonObject) {
@@ -171,7 +204,7 @@ function stream(launch: ProviderLaunch, turn: ProviderTurn): Promise<void> {
       reject(new AiTurnCancelledError());
       return;
     }
-    const child = spawnCli(launch.executable, claudeTurnArguments(turn.model, turn.system), launch);
+    const child = spawnCli(launch.executable, cliArgs(launch, claudeTurnArguments(turn.model, turn.system)), launch);
     const stderr = createStderrTail();
     let streamedText = false;
     let settled = false;
