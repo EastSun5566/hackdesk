@@ -380,7 +380,17 @@ export const noteVersionRefSchema = z.string().regex(/^(?:note_content|version:[
 export const createNoteVersionInputSchema = z.strictObject({
   name: z.string().trim().min(1).max(80),
   description: z.string().trim().max(500).optional(),
+  base: noteVersionRefSchema.optional(),
 });
+
+/** Editing always sends both fields; an empty description removes it. */
+export const updateNoteVersionInputSchema = z.strictObject({
+  name: z.string().trim().min(1).max(80),
+  description: z.string().trim().max(500),
+});
+
+/** A version id, kept to characters that are safe inside `version:{id}`. */
+export const noteVersionIdSchema = z.string().regex(/^[^\s/?#&]+$/);
 
 export const hackmdRequestOptionsSchema = z.strictObject({ requestId: z.uuid() }).optional();
 

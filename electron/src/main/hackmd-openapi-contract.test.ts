@@ -44,6 +44,13 @@ describe('HackMD OpenAPI contract', () => {
     expect(() => verifyHackmdOpenApiContract(contract)).toThrow(/Comment thread head missing currentAnchor/);
   });
 
+  it('fails when a version edit stops taking the base version', () => {
+    const contract = JSON.parse(readFileSync(contractPath, 'utf8'));
+    for (const option of contract.components.schemas.UpdateNoteVersionBody.anyOf) delete option.properties.base;
+
+    expect(() => verifyHackmdOpenApiContract(contract)).toThrow(/Update version body missing base/);
+  });
+
   it('keeps only the operations HackDesk calls and the schemas they reference', () => {
     const contract = JSON.parse(readFileSync(contractPath, 'utf8'));
     const spec = {

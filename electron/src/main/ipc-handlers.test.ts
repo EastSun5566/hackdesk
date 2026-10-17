@@ -42,6 +42,7 @@ const hackmdServiceMock = vi.hoisted(() => ({
   getNoteVersion: vi.fn(),
   compareNoteVersions: vi.fn(),
   createNoteVersion: vi.fn(),
+  updateNoteVersion: vi.fn(),
   validateToken: vi.fn(async () => ({
     id: 'user-1',
     email: 'michael@example.com',
@@ -154,6 +155,7 @@ vi.mock('./hackmd-service', () => ({
   getNoteVersion: hackmdServiceMock.getNoteVersion,
   compareNoteVersions: hackmdServiceMock.compareNoteVersions,
   createNoteVersion: hackmdServiceMock.createNoteVersion,
+  updateNoteVersion: hackmdServiceMock.updateNoteVersion,
   updateFolder: vi.fn(),
   updateFolderOrder: vi.fn(),
   updateNote: vi.fn(),
@@ -529,7 +531,24 @@ describe('registerIpcHandlers', () => {
     expect(() => create?.({}, 'note-1', { name: '   ' })).toThrow();
     expect(() => create?.({}, 'note-1', { name: 'x'.repeat(81) })).toThrow();
     expect(() => create?.({}, 'note-1', { name: 'ok', description: 'x'.repeat(501) })).toThrow();
-    expect(() => create?.({}, 'note-1', { name: 'ok', base: 'version:v-1' })).toThrow();
+    expect(() => create?.({}, 'note-1', { name: 'ok', base: 'HEAD' })).toThrow();
+  });
+
+  it('accepts a version base when naming, and bounds a version edit', () => {
+    registerIpcHandlers(windowManager);
+    const create = ipcHandlers.get(ELECTRON_CHANNELS.hackmdCreateNoteVersion);
+    const update = ipcHandlers.get(ELECTRON_CHANNELS.hackmdUpdateNoteVersion);
+
+    create?.({}, 'note-1', { name: 'Draft A', base: 'version:v-1' });
+    update?.({}, 'note-1', 'v-2', { name: ' Launch v2 ', description: '' });
+
+    expect(hackmdServiceMock.createNoteVersion).toHaveBeenCalledWith('note-1', { name: 'Draft A', base: 'version:v-1' });
+    expect(hackmdServiceMock.updateNoteVersion).toHaveBeenCalledWith('note-1', 'v-2', { name: 'Launch v2', description: '' });
+    expect(() => create?.({}, 'note-1', { name: 'x', base: 'version:v-1&x' })).toThrow();
+    expect(() => update?.({}, 'note-1', 'v/2', { name: 'x', description: '' })).toThrow();
+    expect(() => update?.({}, 'note-1', 'v-2', { name: '  ', description: '' })).toThrow();
+    expect(() => update?.({}, 'note-1', 'v-2', { name: 'x', description: 'x'.repeat(501) })).toThrow();
+    expect(() => update?.({}, 'note-1', 'v-2', { name: 'x' })).toThrow();
   });
 
   it('validates and forwards quick capture submissions', () => {

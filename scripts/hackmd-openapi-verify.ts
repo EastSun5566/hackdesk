@@ -73,6 +73,7 @@ const REQUIRED_OPERATIONS: Array<readonly [string, string]> = [
   ['PUT', '/trash/batch-restore'],
   ['GET', '/notes/{noteId}/versions'],
   ['POST', '/notes/{noteId}/versions'],
+  ['PATCH', '/notes/{noteId}/versions'],
   ['GET', '/notes/{noteId}/versions/{versionId}'],
   ['GET', '/notes/{noteId}/versions/compare'],
   ['POST', '/notes/{noteId}/images'],
@@ -399,6 +400,14 @@ export function verifyHackmdOpenApiContract(contract: OpenApiContract): void {
   for (const propertyName of ['name', 'description', 'base']) {
     assert(schemaContainsProperty(contract, getJsonSchema(createVersion), propertyName), `Create version body missing ${propertyName}.`, failures);
   }
+
+  // Editing a named version reads these, and 422 means the version has no name.
+  const updateVersion = getOperation(contract, 'PATCH', '/notes/{noteId}/versions');
+  for (const propertyName of ['base', 'name', 'description']) {
+    assert(schemaContainsProperty(contract, getJsonSchema(updateVersion), propertyName), `Update version body missing ${propertyName}.`, failures);
+  }
+  assert(schemaContainsProperty(contract, getResponseSchema(updateVersion, '200'), 'id'), 'Update version response missing id.', failures);
+  assert(Boolean(updateVersion?.responses?.['422']), 'Update version missing the 422 response.', failures);
 
   const compareOperation = getOperation(contract, 'GET', '/notes/{noteId}/versions/compare');
   assert(

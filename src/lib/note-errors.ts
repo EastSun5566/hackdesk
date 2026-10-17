@@ -21,6 +21,9 @@ export const HACKMD_NOTE_CHANGED_MESSAGE = 'This note changed on HackMD after yo
 // a team note the API does not expose versions for.
 export const HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE = "Version history isn't available for this note.";
 
+// HackMD answers 422 when editing a version that has no name yet.
+export const HACKMD_NOTE_VERSION_NOT_NAMED_MESSAGE = 'This version has no name yet.';
+
 export function isNoteVersionsUnavailableError(message: string | null | undefined) {
   return !!message && message.includes(HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE);
 }
