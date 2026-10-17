@@ -167,6 +167,14 @@ export type NoteVersionRef = 'note_content' | `version:${string}`;
 export type CreateNoteVersionInput = {
   name: string;
   description?: string;
+  /** What to name: the live note (default) or an existing auto-saved version. */
+  base?: NoteVersionRef;
+};
+
+/** New metadata for an already named version. An empty description removes it. */
+export type UpdateNoteVersionInput = {
+  name: string;
+  description: string;
 };
 
 /**
@@ -483,6 +491,7 @@ export type HackDeskElectronAPI = {
     listNoteVersions: (noteId: string, query: NoteVersionsQuery, options?: HackmdRequestOptions) => Promise<NoteVersionPage>;
     getNoteVersion: (noteId: string, versionId: string, options?: HackmdRequestOptions) => Promise<NoteVersionDetail>;
     createNoteVersion: (noteId: string, input: CreateNoteVersionInput) => Promise<CreateNoteVersionResult>;
+    updateNoteVersion: (noteId: string, versionId: string, input: UpdateNoteVersionInput) => Promise<NoteVersionSummary>;
     compareNoteVersions: (
       noteId: string,
       base: NoteVersionRef,

@@ -1,6 +1,11 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getHackDeskAPI, type CreateNoteVersionInput, type NoteVersionPage } from '@/lib/electron-api';
+import {
+  getHackDeskAPI,
+  type CreateNoteVersionInput,
+  type NoteVersionPage,
+  type UpdateNoteVersionInput,
+} from '@/lib/electron-api';
 import { runHackmdRequest } from '@/lib/hackmd-requests';
 import { isNoteVersionsUnavailableError, stripIpcErrorPrefix } from '@/lib/note-errors';
 
@@ -91,5 +96,16 @@ export function useCreateNoteVersion(noteId: string) {
         void queryClient.invalidateQueries({ queryKey: noteVersionsKeys.all(noteId) });
       }
     },
+  });
+}
+
+export function useUpdateNoteVersion(noteId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ versionId, input }: { versionId: string; input: UpdateNoteVersionInput }) => (
+      requireApi().updateNoteVersion(noteId, versionId, input)
+    ),
+    // Settled, not success: a 422 means the list is out of date too.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: noteVersionsKeys.all(noteId) }),
   });
 }

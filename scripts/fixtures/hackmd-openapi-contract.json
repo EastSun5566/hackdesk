@@ -2076,6 +2076,131 @@
             }
           }
         }
+      },
+      "patch": {
+        "security": [
+          {
+            "token": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "noteId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateNoteVersionBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteVersionMetadata"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiRequestErrorResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Version is not named",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionNotNamedError"
+                },
+                "examples": {
+                  "Example 1": {
+                    "value": {
+                      "error_code": "version_not_named",
+                      "message": "The version is not named. Use POST with base=version:{id} first.",
+                      "version_id": "01234567-89ab-4def-8123-456789abcdef"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit or workspace quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRateLimitErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiServerErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/notes/{noteId}/versions/{versionId}": {
@@ -5894,6 +6019,56 @@
         "type": "object",
         "additionalProperties": false
       },
+      "UpdateNoteVersionBody": {
+        "anyOf": [
+          {
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 500
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80,
+                "pattern": "\\S"
+              },
+              "base": {
+                "type": "string",
+                "description": "Existing named version to update, formatted as version:{id}."
+              }
+            },
+            "required": [
+              "name",
+              "base"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "description": {
+                "type": "string",
+                "maxLength": 500
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80,
+                "pattern": "\\S"
+              },
+              "base": {
+                "type": "string",
+                "description": "Existing named version to update, formatted as version:{id}."
+              }
+            },
+            "required": [
+              "description",
+              "base"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "UpdateTeamFolderBody": {
         "properties": {
           "parentFolderId": {
@@ -6028,6 +6203,30 @@
           "message",
           "version_id",
           "name"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "VersionNotNamedError": {
+        "properties": {
+          "error_code": {
+            "type": "string",
+            "enum": [
+              "version_not_named"
+            ],
+            "nullable": false
+          },
+          "message": {
+            "type": "string"
+          },
+          "version_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error_code",
+          "message",
+          "version_id"
         ],
         "type": "object",
         "additionalProperties": false

@@ -8,6 +8,7 @@ import type {
   NotePermissionRole,
   CreateNoteVersionInput,
   CreateNoteVersionResult,
+  UpdateNoteVersionInput,
   NoteVersionDetail,
   NoteVersionPage,
   NoteVersionRef,
@@ -36,6 +37,7 @@ import type {
 import {
   HACKMD_NOTE_COMMENTS_UNAVAILABLE_MESSAGE,
   HACKMD_NOTE_NOT_FOUND_MESSAGE,
+  HACKMD_NOTE_VERSION_NOT_NAMED_MESSAGE,
   HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE,
 } from '../../../src/lib/note-errors';
 import { setTimeout as wait } from 'node:timers/promises';
@@ -850,6 +852,20 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
     return document;
   }
 
+  async function readNoteVersion(noteId: string, versionId: string, signal?: AbortSignal): Promise<NoteVersionDetail> {
+    const response = await requestHackmd<NoteVersionDto>(
+      `/notes/${encodePathSegment(noteId)}/versions/${encodePathSegment(versionId)}`,
+      { signal },
+      serviceOptions,
+    ).catch(rethrowVersionsUnavailable);
+    const version = mapNoteVersion(response ?? {});
+
+    return {
+      ...version,
+      content: version.contentAvailable && typeof response?.content === 'string' ? response.content : null,
+    };
+  }
+
   async function createOrUpdateDocument(
     path: string,
     method: 'POST' | 'PATCH',
@@ -1161,7 +1177,7 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
         const response = await requestHackmd<NoteVersionDto>(`/notes/${encodePathSegment(noteId)}/versions`, {
           method: 'POST',
           body: JSON.stringify({
-            base: 'note_content',
+            base: input.base ?? 'note_content',
             name: input.name,
             ...(input.description ? { description: input.description } : {}),
           }),
@@ -1178,6 +1194,20 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
         }
         return rethrowVersionsUnavailable(error);
       }
+    },
+
+    /** Renames or redescribes a named version. A write, so it is sent once. */
+    async updateNoteVersion(noteId: string, versionId: string, input: UpdateNoteVersionInput): Promise<NoteVersionSummary> {
+      const response = await requestHackmd<NoteVersionDto>(`/notes/${encodePathSegment(noteId)}/versions`, {
+        method: 'PATCH',
+        body: JSON.stringify({ base: `version:${versionId}`, name: input.name, description: input.description }),
+      }, serviceOptions).catch((error: unknown) => {
+        if ((error as { status?: unknown } | null)?.status === 422) throw new Error(HACKMD_NOTE_VERSION_NOT_NAMED_MESSAGE);
+        return rethrowVersionsUnavailable(error);
+      });
+      const version = mapNoteVersion(response ?? {});
+      // Without an id the answer can't describe the version, so read it back.
+      return version.id ? version : readNoteVersion(noteId, versionId);
     },
 
     async listNoteVersions(noteId: string, query: NoteVersionsQuery, signal?: AbortSignal): Promise<NoteVersionPage> {
@@ -1201,18 +1231,8 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
       };
     },
 
-    async getNoteVersion(noteId: string, versionId: string, signal?: AbortSignal): Promise<NoteVersionDetail> {
-      const response = await requestHackmd<NoteVersionDto>(
-        `/notes/${encodePathSegment(noteId)}/versions/${encodePathSegment(versionId)}`,
-        { signal },
-        serviceOptions,
-      ).catch(rethrowVersionsUnavailable);
-      const version = mapNoteVersion(response ?? {});
-
-      return {
-        ...version,
-        content: version.contentAvailable && typeof response?.content === 'string' ? response.content : null,
-      };
+    getNoteVersion(noteId: string, versionId: string, signal?: AbortSignal): Promise<NoteVersionDetail> {
+      return readNoteVersion(noteId, versionId, signal);
     },
 
     async compareNoteVersions(noteId: string, base: NoteVersionRef, target: NoteVersionRef, signal?: AbortSignal) {
@@ -1327,3 +1347,4 @@ export const listNoteVersions = defaultHackmdService.listNoteVersions;
 export const getNoteVersion = defaultHackmdService.getNoteVersion;
 export const compareNoteVersions = defaultHackmdService.compareNoteVersions;
 export const createNoteVersion = defaultHackmdService.createNoteVersion;
+export const updateNoteVersion = defaultHackmdService.updateNoteVersion;

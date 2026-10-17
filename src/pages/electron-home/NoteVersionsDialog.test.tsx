@@ -2,8 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { toast } from '@/components/ui/toast';
 import type { DocumentSummary, NoteVersionSummary } from '@/lib/electron-api';
-import { HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE } from '@/lib/note-errors';
+import { HACKMD_NOTE_VERSION_NOT_NAMED_MESSAGE, HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE } from '@/lib/note-errors';
 
 import { NoteVersionsDialog } from './NoteVersionsDialog';
 
@@ -185,6 +186,70 @@ describe('NoteVersionsDialog', () => {
     fireEvent.click(within(form).getByRole('button', { name: 'Save Version' }));
 
     expect(await within(form).findByRole('status')).toHaveTextContent(message);
+  });
+
+  it('edits a named version with its details filled in, and can clear the description', async () => {
+    const withDescription = { ...named, description: 'Shipped' };
+    const updated = { ...withDescription, name: 'Launch v2', description: null };
+    const { hackmd } = installApi({
+      listNoteVersions: vi.fn(async () => ({ versions: [withDescription, automatic], page: 1, totalPages: 1, total: 2 })),
+      updateNoteVersion: vi.fn(async () => updated),
+    });
+    renderDialog();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit…' }));
+    const form = screen.getByRole('form', { name: 'Edit version' });
+    expect(within(form).getByLabelText('Name')).toHaveValue('Before launch');
+    expect(within(form).getByLabelText('Description')).toHaveValue('Shipped');
+    expect(within(form).queryByText(/Unsaved edits are not included/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save Version…' })).not.toBeInTheDocument();
+
+    fireEvent.change(within(form).getByLabelText('Name'), { target: { value: ' Launch v2 ' } });
+    fireEvent.change(within(form).getByLabelText('Description'), { target: { value: '' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Save Changes' }));
+
+    await waitFor(() => expect(hackmd.updateNoteVersion).toHaveBeenCalledWith('note-1', 'v-2', { name: 'Launch v2', description: '' }));
+    await waitFor(() => expect(screen.queryByRole('form', { name: 'Edit version' })).not.toBeInTheDocument());
+    expect(toast.success).toHaveBeenCalledWith('Updated version “Launch v2”.');
+  });
+
+  it('names an auto-saved version from that version', async () => {
+    const { hackmd } = installApi({
+      createNoteVersion: vi.fn(async () => ({ status: 'created' as const, version: { ...automatic, name: 'Draft A', nameSource: 'user' as const } })),
+    });
+    renderDialog();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Auto-saved/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Name Version…' }));
+    const form = screen.getByRole('form', { name: 'Name version' });
+    expect(within(form).getByText(/Name the version auto-saved Oct 1[34]/)).toBeInTheDocument();
+    expect(within(form).getByLabelText('Name')).toHaveValue('');
+    fireEvent.change(within(form).getByLabelText('Name'), { target: { value: 'Draft A' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Name Version' }));
+
+    await waitFor(() => expect(hackmd.createNoteVersion).toHaveBeenCalledWith('note-1', { name: 'Draft A', base: 'version:v-1' }));
+    expect(toast.success).toHaveBeenCalledWith('Named version “Draft A”.');
+  });
+
+  it('explains a version that was named or unnamed meanwhile', async () => {
+    installApi({
+      createNoteVersion: vi.fn(async () => ({ status: 'version_already_named' as const, latestVersionId: 'v-1' })),
+      updateNoteVersion: vi.fn(async () => { throw new Error(HACKMD_NOTE_VERSION_NOT_NAMED_MESSAGE); }),
+    });
+    renderDialog();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit…' }));
+    let form = screen.getByRole('form', { name: 'Edit version' });
+    fireEvent.click(within(form).getByRole('button', { name: 'Save Changes' }));
+    expect(await within(form).findByRole('status')).toHaveTextContent(HACKMD_NOTE_VERSION_NOT_NAMED_MESSAGE);
+    fireEvent.click(within(form).getByRole('button', { name: 'Cancel' }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Auto-saved/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Name Version…' }));
+    form = screen.getByRole('form', { name: 'Name version' });
+    fireEvent.change(within(form).getByLabelText('Name'), { target: { value: 'Again' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Name Version' }));
+    expect(await within(form).findByRole('status')).toHaveTextContent('This version already has a name.');
   });
 
   it('says when HackMD does not offer history for the note', async () => {

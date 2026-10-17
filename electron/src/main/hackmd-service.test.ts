@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { HACKMD_NOTE_COMMENTS_UNAVAILABLE_MESSAGE, HACKMD_NOTE_NOT_FOUND_MESSAGE, HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE } from '../../../src/lib/note-errors';
+import {
+  HACKMD_NOTE_COMMENTS_UNAVAILABLE_MESSAGE,
+  HACKMD_NOTE_NOT_FOUND_MESSAGE,
+  HACKMD_NOTE_VERSION_NOT_NAMED_MESSAGE,
+  HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE,
+} from '../../../src/lib/note-errors';
 
 import {
   createHackmdService,
@@ -920,6 +925,46 @@ describe('hackmd-service note versions', () => {
 
     await expect(service.createNoteVersion('note-1', { name: 'Again' })).resolves.toEqual({ status: 'no_content_change', latestVersionId: 'v-2' });
     await expect(service.createNoteVersion('note-1', { name: 'Again' })).resolves.toEqual({ status: 'version_already_named', latestVersionId: 'v-3' });
+  });
+
+  it('names an auto-saved version by sending it as the base', async () => {
+    const { calls, service } = createService([jsonResponse({ ...automatic, name: 'Draft A', name_source: 'user' }, { status: 201 })]);
+
+    await expect(service.createNoteVersion('note-1', { name: 'Draft A', base: 'version:v-1' }))
+      .resolves.toEqual({ status: 'created', version: expect.objectContaining({ id: 'v-1', name: 'Draft A' }) });
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ base: 'version:v-1', name: 'Draft A' });
+  });
+
+  it('edits a named version with PATCH, sent once', async () => {
+    const { calls, service } = createService([jsonResponse({ ...named, name: 'Launch v2', description: null })]);
+
+    await expect(service.updateNoteVersion('note-1', 'v-2', { name: 'Launch v2', description: '' }))
+      .resolves.toEqual(expect.objectContaining({ id: 'v-2', name: 'Launch v2', description: null }));
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('https://api.test/v1/notes/note-1/versions');
+    expect(calls[0].init.method).toBe('PATCH');
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ base: 'version:v-2', name: 'Launch v2', description: '' });
+  });
+
+  it('reads the version back when the edit answer has no id', async () => {
+    const { calls, service } = createService([textResponse('', { status: 200 }), jsonResponse({ ...named, name: 'Launch v2' })]);
+
+    await expect(service.updateNoteVersion('note-1', 'v-2', { name: 'Launch v2', description: 'Ready' }))
+      .resolves.toEqual(expect.objectContaining({ id: 'v-2', name: 'Launch v2' }));
+    expect(calls[1].url).toBe('https://api.test/v1/notes/note-1/versions/v-2');
+  });
+
+  it('explains editing a version that has no name, and missing history', async () => {
+    const { calls, service } = createService([
+      jsonResponse({ error_code: 'version_not_named', message: 'Not named', version_id: 'v-1' }, { status: 422, statusText: 'Unprocessable Entity' }),
+      jsonResponse({ message: 'Nope' }, { status: 404, statusText: 'Not Found' }),
+      jsonResponse({ message: 'Unavailable' }, { status: 503, statusText: 'Service Unavailable' }),
+    ]);
+
+    await expect(service.updateNoteVersion('note-1', 'v-1', { name: 'x', description: '' })).rejects.toThrow(HACKMD_NOTE_VERSION_NOT_NAMED_MESSAGE);
+    await expect(service.updateNoteVersion('note-1', 'v-1', { name: 'x', description: '' })).rejects.toThrow(HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE);
+    await expect(service.updateNoteVersion('note-1', 'v-1', { name: 'x', description: '' })).rejects.toThrow('having trouble');
+    expect(calls).toHaveLength(3);
   });
 
   it('does not retry a failed version write', async () => {

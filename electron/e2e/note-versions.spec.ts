@@ -8,7 +8,7 @@ import { definedEnvironment } from './fixtures/environment';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 
-type Fixture = { savedContent: string[]; compares: string[][]; createdVersions: unknown[] };
+type Fixture = { savedContent: string[]; compares: string[][]; createdVersions: unknown[]; updatedVersions: unknown[] };
 
 async function launchWithVersionedNote() {
   const home = await mkdtemp(join(tmpdir(), 'hackdesk-note-versions-'));
@@ -51,7 +51,7 @@ async function launchWithVersionedNote() {
       'v-2': '# Roadmap\n\nShip v2 in October.\n',
       'v-1': '# Roadmap\n',
     };
-    const fixture = { savedContent: [] as string[], compares: [] as string[][], createdVersions: [] as unknown[] };
+    const fixture = { savedContent: [] as string[], compares: [] as string[][], createdVersions: [] as unknown[], updatedVersions: [] as unknown[] };
     (globalThis as { versionsFixture?: typeof fixture }).versionsFixture = fixture;
     replace(channels.settingsGet, () => ({
       ...settings, hasHackmdApiToken: true, hasAppearanceSettings: true,
@@ -74,8 +74,13 @@ async function launchWithVersionedNote() {
       return { ...note };
     });
     replace(channels.hackmdListNoteVersions, () => ({ versions, page: 1, totalPages: 1, total: versions.length }));
-    replace(channels.hackmdCreateNoteVersion, (_event, _noteId: string, input: { name: string; description?: string }) => {
+    replace(channels.hackmdCreateNoteVersion, (_event, _noteId: string, input: { name: string; description?: string; base?: string }) => {
       fixture.createdVersions.push(input);
+      const named = input.base?.startsWith('version:') ? versions.find((version) => `version:${version.id}` === input.base) : null;
+      if (named) {
+        Object.assign(named, { name: input.name, nameSource: 'user', description: input.description ?? null });
+        return { status: 'created', version: { ...named } };
+      }
       if (fixture.createdVersions.length > 1) {
         return { status: 'no_content_change', latestVersionId: 'v-3' };
       }
@@ -86,6 +91,12 @@ async function launchWithVersionedNote() {
       versions.unshift(version);
       contents['v-3'] = note.content;
       return { status: 'created', version };
+    });
+    replace(channels.hackmdUpdateNoteVersion, (_event, _noteId: string, versionId: string, input: { name: string; description: string }) => {
+      fixture.updatedVersions.push([versionId, input]);
+      const version = versions.find((candidate) => candidate.id === versionId)!;
+      Object.assign(version, { name: input.name, description: input.description || null });
+      return { ...version };
     });
     replace(channels.hackmdGetNoteVersion, (_event, _noteId: string, versionId: string) => ({
       ...versions.find((version) => version.id === versionId), content: contents[versionId],
@@ -164,6 +175,40 @@ test('saves the current content as a named version', async () => {
     await form.getByRole('button', { name: 'Save Version' }).click();
     await expect(form.getByRole('status')).toContainText('nothing new to save');
     expect((await readFixture(app)).createdVersions).toEqual([{ name: 'Launch plan' }, { name: 'Launch plan again' }]);
+  } finally {
+    app.process().kill('SIGKILL');
+  }
+});
+
+test('names an auto-saved version and edits a named one', async () => {
+  const { app, page } = await launchWithVersionedNote();
+  try {
+    await expect(page.locator('.cm-content')).toContainText('Ship v2 in November.');
+    await page.getByRole('button', { name: 'More actions' }).click();
+    await page.getByRole('menuitem', { name: /Version History/ }).click();
+    const dialog = page.getByRole('dialog', { name: 'Version History' });
+    const rows = dialog.getByRole('list', { name: 'Versions' }).getByRole('button');
+
+    await rows.filter({ hasText: 'Auto-saved' }).click();
+    await dialog.getByRole('button', { name: 'Name Version…' }).click();
+    const nameForm = dialog.getByRole('form', { name: 'Name version' });
+    await nameForm.getByLabel('Name').fill('Draft A');
+    await nameForm.getByRole('button', { name: 'Name Version' }).click();
+    await expect(nameForm).toHaveCount(0);
+    await expect(rows.filter({ hasText: 'Draft A' })).toHaveAttribute('aria-current', 'true');
+
+    await rows.filter({ hasText: 'Before launch' }).click();
+    await dialog.getByRole('button', { name: 'Edit…' }).click();
+    const editForm = dialog.getByRole('form', { name: 'Edit version' });
+    await expect(editForm.getByLabel('Description')).toHaveValue('Plan agreed with the team.');
+    await editForm.getByLabel('Name').fill('Launch v2');
+    await editForm.getByRole('button', { name: 'Save Changes' }).click();
+    await expect(editForm).toHaveCount(0);
+    await expect(dialog.getByRole('heading', { name: 'Launch v2' })).toBeVisible();
+
+    const fixture = await readFixture(app);
+    expect(fixture.createdVersions).toEqual([{ name: 'Draft A', base: 'version:v-1' }]);
+    expect(fixture.updatedVersions).toEqual([['v-2', { name: 'Launch v2', description: 'Plan agreed with the team.' }]]);
   } finally {
     app.process().kill('SIGKILL');
   }

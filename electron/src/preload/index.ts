@@ -23,6 +23,7 @@ import type {
   NoteCommentsQuery,
   NoteVersionsQuery,
   CreateNoteVersionInput,
+  UpdateNoteVersionInput,
   WindowPresentationState,
 } from '../../../src/lib/electron-api';
 import type {
@@ -125,6 +126,9 @@ const api: HackDeskElectronAPI = {
     ),
     createNoteVersion: (noteId: string, input: CreateNoteVersionInput) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdCreateNoteVersion, noteId, input)
+    ),
+    updateNoteVersion: (noteId: string, versionId: string, input: UpdateNoteVersionInput) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdUpdateNoteVersion, noteId, versionId, input)
     ),
     compareNoteVersions: (noteId: string, base: NoteVersionRef, target: NoteVersionRef, options?: HackmdRequestOptions) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdCompareNoteVersions, noteId, base, target, options)

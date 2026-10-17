@@ -317,6 +317,9 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       createNoteVersion: vi.fn(async () => {
         throw new Error('Unexpected version write.');
       }),
+      updateNoteVersion: vi.fn(async () => {
+        throw new Error('Unexpected version write.');
+      }),
     },
     localVault: {
       choose: vi.fn(async () => ({ canceled: true })),

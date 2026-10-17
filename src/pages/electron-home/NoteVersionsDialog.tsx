@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { BookmarkPlus, FilePlus, History, Loader2, RotateCcw } from 'lucide-react';
+import { BookmarkPlus, FilePlus, History, Loader2, Pencil, RotateCcw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -14,7 +14,7 @@ import {
   getVersionTitle,
   NoteVersionList,
 } from './NoteVersionList';
-import { SaveVersionForm } from './SaveVersionForm';
+import { SaveVersionForm, type VersionFormMode } from './SaveVersionForm';
 import { formatDate } from './ui';
 import { UnifiedDiffView } from './UnifiedDiffView';
 import {
@@ -68,22 +68,34 @@ function VersionPanel({
   noteDirty,
   tab,
   onTabChange,
+  onEditDetails,
 }: {
   noteId: string;
   version: NoteVersionSummary;
   noteDirty: boolean;
   tab: VersionTab;
   onTabChange: (tab: VersionTab) => void;
+  /** Opens the form to name an auto-saved version or edit a named one; absent while a form is open. */
+  onEditDetails?: () => void;
 }) {
+  const named = version.nameSource === 'user';
   const diff = useNoteVersionDiff(noteId, version.id, tab === 'changes');
   const content = useNoteVersionContent(noteId, version.id, tab === 'full' && version.contentAvailable);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="min-w-0">
-        <h3 className="truncate text-sm font-medium text-text-default">{getVersionTitle(version)}</h3>
-        <p className="truncate text-xs text-text-subtle">{getVersionByline(version)}</p>
-        {version.description ? <p className="mt-1 text-sm text-text-subtle">{version.description}</p> : null}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-medium text-text-default">{getVersionTitle(version)}</h3>
+          <p className="truncate text-xs text-text-subtle">{getVersionByline(version)}</p>
+          {version.description ? <p className="mt-1 text-sm text-text-subtle">{version.description}</p> : null}
+        </div>
+        {onEditDetails ? (
+          <Button size="xs" variant="ghost" onClick={onEditDetails}>
+            {named ? <Pencil aria-hidden="true" className="size-3.5" /> : <BookmarkPlus aria-hidden="true" className="size-3.5" />}
+            {named ? 'Edit…' : 'Name Version…'}
+          </Button>
+        ) : null}
       </div>
       <Tabs value={tab} onValueChange={(value) => onTabChange(value as VersionTab)} className="flex min-h-0 flex-1 flex-col gap-2">
         <TabsList aria-label="Version view">
@@ -142,7 +154,7 @@ function NoteVersionsBody({
   const [namedOnly, setNamedOnly] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<VersionTab>('changes');
-  const [savingVersion, setSavingVersion] = useState(false);
+  const [versionForm, setVersionForm] = useState<VersionFormMode | null>(null);
   const list = useNoteVersionList(document.id, namedOnly);
   const versions = useMemo(() => list.data?.pages.flatMap((page) => page.versions) ?? [], [list.data]);
   // Until something is picked, show the newest saved version.
@@ -176,10 +188,11 @@ function NoteVersionsBody({
   const versionsUnavailable = !!listError && isNoteVersionsUnavailableError(listError);
 
   const handleVersionSaved = (version: NoteVersionSummary) => {
-    setSavingVersion(false);
+    const verb = versionForm?.kind === 'edit' ? 'Updated' : versionForm?.kind === 'name' ? 'Named' : 'Saved';
+    setVersionForm(null);
     setSelectedId(version.id);
     setTab('changes');
-    toast.success(`Saved version “${getVersionTitle(version)}”.`);
+    toast.success(`${verb} version “${getVersionTitle(version)}”.`);
   };
 
   return (
@@ -192,20 +205,23 @@ function NoteVersionsBody({
           </DialogTitle>
           <DialogDescription className="truncate">{document.title || 'Untitled'}</DialogDescription>
         </DialogHeader>
-        {versionsUnavailable || savingVersion ? null : (
-          <Button size="sm" variant="secondary" onClick={() => setSavingVersion(true)}>
+        {versionsUnavailable || versionForm ? null : (
+          <Button size="sm" variant="secondary" onClick={() => setVersionForm({ kind: 'create' })}>
             <BookmarkPlus aria-hidden="true" className="size-4" />
             Save Version…
           </Button>
         )}
       </div>
 
-      {savingVersion ? (
+      {versionForm ? (
         <SaveVersionForm
+          // A new form for each mode and version, so it starts from that version's details.
+          key={versionForm.kind === 'create' ? 'create' : `${versionForm.kind}:${versionForm.version.id}`}
           noteId={document.id}
           noteDirty={noteDirty}
+          mode={versionForm}
           onSaved={handleVersionSaved}
-          onCancel={() => setSavingVersion(false)}
+          onCancel={() => setVersionForm(null)}
         />
       ) : null}
 
@@ -240,6 +256,10 @@ function NoteVersionsBody({
                 noteDirty={noteDirty}
                 tab={tab}
                 onTabChange={setTab}
+                onEditDetails={versionForm ? undefined : () => setVersionForm({
+                  kind: selectedVersion.nameSource === 'user' ? 'edit' : 'name',
+                  version: selectedVersion,
+                })}
               />
             ) : (
               <CurrentVersionPanel document={document} noteDirty={noteDirty} />
