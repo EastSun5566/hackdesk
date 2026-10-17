@@ -153,7 +153,8 @@ const aiProviderSettingsSchema = z.object({
   commandPath: z.string().trim().min(1).max(4096).nullable().default(null),
 }).default(defaultAiProviderSettings);
 export const aiCustomCommandSchema = z.object({
-  id: z.string().trim().min(1).max(64),
+  // Saving requires a UUID, so an entry without one is dropped here instead of breaking every save.
+  id: z.uuid(),
   name: z.string().trim().min(1).max(MAX_AI_COMMAND_NAME_CHARACTERS),
   prompt: z.string().trim().min(1).max(MAX_AI_COMMAND_PROMPT_CHARACTERS),
   delivery: z.enum(['replace', 'insert-below']),

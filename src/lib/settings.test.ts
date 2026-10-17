@@ -41,12 +41,19 @@ describe('settings helpers', () => {
   });
 
   it('keeps saved AI commands and drops only a damaged one', () => {
-    const command = { id: 'c1', name: 'Meeting notes', prompt: 'Turn into meeting notes', delivery: 'insert-below' };
+    const command = { id: '0b6a8f4e-2d64-4f0e-9a6c-3f1f2a1c9d10', name: 'Meeting notes', prompt: 'Turn into meeting notes', delivery: 'insert-below' };
     const stored = parseStoredSettings(JSON.stringify({
       title: 'HackDesk',
       ai: {
         providers: { claude: { enabled: true } },
-        customCommands: [command, { id: 'c2', name: '', prompt: 'x', delivery: 'replace' }, { ...command, name: 'Duplicate id' }, 'junk'],
+        customCommands: [
+          command,
+          { id: '1b6a8f4e-2d64-4f0e-9a6c-3f1f2a1c9d10', name: '', prompt: 'x', delivery: 'replace' },
+          { ...command, name: 'Duplicate id' },
+          // Hand-edited ids that saving would reject.
+          { ...command, id: 'c1', name: 'Not a UUID' },
+          'junk',
+        ],
       },
     }));
     expect(stored.ai.customCommands).toEqual([command]);
