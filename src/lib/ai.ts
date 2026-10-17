@@ -78,6 +78,8 @@ export type AiProviderStatus = {
   plan: string | null;
   models: AiModel[];
   usage: { primary: AiUsageWindow | null; secondary: AiUsageWindow | null } | null;
+  /** Claude only: an exported ANTHROPIC_API_KEY would bill instead of the claude.ai sign-in. */
+  apiKeyInEnvironment: boolean;
 };
 
 export type AiTurnInput = {

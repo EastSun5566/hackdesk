@@ -2,6 +2,8 @@ import type { AiProviderStatus } from '../../../../src/lib/ai';
 
 export type ProviderLaunch = {
   executable: string;
+  /** Arguments that come before the CLI's own, such as the script an npm shim runs under Node. */
+  prefixArgs?: string[];
   env: NodeJS.ProcessEnv;
   /** A private, empty folder: never the user's vault or home. */
   cwd: string;
@@ -33,4 +35,9 @@ export class AiTurnCancelledError extends Error {
     super('The AI request was cancelled.');
     this.name = 'AiTurnCancelledError';
   }
+}
+
+/** The full argument list for a CLI call, after any `prefixArgs` the launch needs. */
+export function cliArgs(launch: ProviderLaunch, args: string[]) {
+  return [...(launch.prefixArgs ?? []), ...args];
 }

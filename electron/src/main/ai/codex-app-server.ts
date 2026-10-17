@@ -11,7 +11,7 @@ import {
   spawnCli,
   terminate,
 } from './cli-process';
-import { AiTurnCancelledError, type AiProviderAdapter, type ProviderLaunch, type ProviderProbe, type ProviderTurn } from './provider-types';
+import { AiTurnCancelledError, cliArgs, type AiProviderAdapter, type ProviderLaunch, type ProviderProbe, type ProviderTurn } from './provider-types';
 
 type JsonObject = Record<string, unknown>;
 type Pending = { resolve: (value: JsonObject) => void; reject: (error: Error) => void; timer: NodeJS.Timeout };
@@ -113,7 +113,7 @@ export class CodexAppServerClient {
   constructor(private readonly clientVersion: string) {}
 
   async ensureStarted(launch: ProviderLaunch) {
-    const key = `${launch.executable}\0${launch.cwd}`;
+    const key = [launch.executable, ...(launch.prefixArgs ?? []), launch.cwd].join('\0');
     while (this.starting) await this.starting.catch(() => undefined);
     if (this.child && this.launchKey === key) return;
     this.stop();
@@ -126,7 +126,7 @@ export class CodexAppServerClient {
   }
 
   private async launch(launch: ProviderLaunch, key: string) {
-    const listing = await runCli(launch.executable, [...CODEX_CONFIG_FLAGS, 'mcp', 'list', '--json'], launch);
+    const listing = await runCli(launch.executable, cliArgs(launch, [...CODEX_CONFIG_FLAGS, 'mcp', 'list', '--json']), launch);
     const names = listing.code === 0 ? parseMcpServerNames(listing.stdout) : null;
     if (!names) {
       throw new Error('HackDesk could not read which MCP servers your Codex configuration runs, so it did not start Codex. Run `codex mcp list` in a terminal to see why.');
@@ -137,7 +137,7 @@ export class CodexAppServerClient {
     }
 
     this.stderr = createStderrTail();
-    const child = spawnCli(launch.executable, codexAppServerArguments(names), launch);
+    const child = spawnCli(launch.executable, cliArgs(launch, codexAppServerArguments(names)), launch);
     this.child = child;
     this.launchKey = key;
     child.stdout.setEncoding('utf8');
@@ -281,7 +281,7 @@ export function createCodexProvider(clientVersion: string): AiProviderAdapter {
 
   async function probe(launch: ProviderLaunch, signal?: AbortSignal): Promise<ProviderProbe> {
     const base = { version: null, plan: null, models: [], usage: null };
-    const versionResult = await runCli(launch.executable, ['--version'], { ...launch, signal });
+    const versionResult = await runCli(launch.executable, cliArgs(launch, ['--version']), { ...launch, signal });
     if (versionResult.code !== 0) {
       return { ...base, phase: 'failed', message: versionResult.stderr || 'Codex did not report its version.' };
     }

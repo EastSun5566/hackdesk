@@ -12,7 +12,7 @@ import { defaultSettings } from '@/lib/settings';
 import { useAiInline, type AiInlineController } from './useAiInline';
 
 function status(id: AiProviderStatus['id'], enabled: boolean): AiProviderStatus {
-  return { id, enabled, phase: 'ready', message: null, version: '1', command: null, plan: null, models: [], usage: null };
+  return { id, enabled, phase: 'ready', message: null, version: '1', command: null, plan: null, models: [], usage: null, apiKeyInEnvironment: false };
 }
 
 function installApi() {

@@ -55,6 +55,12 @@ describe('Codex app-server provider', () => {
     expect(launches.find(args => args.at(-1) === 'app-server')).toContain('mcp_servers.mine.enabled=false');
   });
 
+  it('starts a script under Node when the launch has prefix arguments', async () => {
+    const fake = await createFakeCli('codex');
+    const launch = { ...fake.launch, executable: process.execPath, prefixArgs: [fake.executable] };
+    expect(await provider().probe(launch)).toMatchObject({ phase: 'ready', plan: 'ChatGPT Plus' });
+  });
+
   it('asks a signed-out user to run codex login', async () => {
     const fake = await createFakeCli('codex', { FAKE_SIGNED_OUT: '1' });
     expect(await provider().probe(fake.launch)).toMatchObject({ phase: 'sign-in-required', models: [] });

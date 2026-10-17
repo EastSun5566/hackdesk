@@ -26,8 +26,11 @@ export type AiServiceOptions = {
 };
 
 function emptyStatus(id: AiProviderId, enabled: boolean): AiProviderStatus {
-  return { id, enabled, phase: 'idle', message: null, version: null, command: null, plan: null, models: [], usage: null };
+  return { id, enabled, phase: 'idle', message: null, version: null, command: null, plan: null, models: [], usage: null, apiKeyInEnvironment: false };
 }
+
+/** Claude Code bills an exported key instead of the claude.ai sign-in, so these can be held back. */
+const ANTHROPIC_KEY_VARIABLES = ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN'];
 
 export function createAiService(options: AiServiceOptions) {
   const adapters: Record<AiProviderId, AiProviderAdapter> = {
@@ -45,23 +48,45 @@ export function createAiService(options: AiServiceOptions) {
     return path;
   }
 
+  /** Finds the CLI and the environment it runs with; only `resolveLaunch` also prepares its folder. */
+  async function locate(id: AiProviderId, settings: AppSettings) {
+    const providerSettings = settings.ai.providers[id];
+    const resolved = await resolveCommand(AI_PROVIDER_COMMANDS[id], providerSettings.commandPath, options.locator);
+    if (!resolved.ok) return resolved;
+    const env = { ...resolved.env };
+    const apiKeyInEnvironment = id === 'claude' && ANTHROPIC_KEY_VARIABLES.some(key => Boolean(env[key]));
+    if (id === 'claude' && providerSettings.ignoreApiKey) {
+      for (const key of ANTHROPIC_KEY_VARIABLES) delete env[key];
+    }
+    // What the user would recognize: the script an npm shim runs, not the Node binary running it.
+    const command = resolved.prefixArgs[0] ?? resolved.executable;
+    return { ...resolved, env, apiKeyInEnvironment, command };
+  }
+
   async function resolveLaunch(id: AiProviderId, settings: AppSettings): Promise<ProviderLaunch | { error: string }> {
-    const resolved = await resolveCommand(AI_PROVIDER_COMMANDS[id], settings.ai.providers[id].commandPath, options.locator);
-    if (!resolved.ok) return { error: resolved.message };
-    return { executable: resolved.executable, env: resolved.env, cwd: await prepareWorkspace(id) };
+    const located = await locate(id, settings);
+    if (!located.ok) return { error: located.message };
+    return { executable: located.executable, prefixArgs: located.prefixArgs, env: located.env, cwd: await prepareWorkspace(id) };
   }
 
   async function check(id: AiProviderId): Promise<AiProviderStatus> {
     const settings = await options.readSettings();
     const enabled = settings.ai.providers[id].enabled;
-    const resolved = await resolveCommand(AI_PROVIDER_COMMANDS[id], settings.ai.providers[id].commandPath, options.locator);
-    if (!resolved.ok) {
-      return { ...emptyStatus(id, enabled), phase: 'not-installed', message: resolved.message };
+    const located = await locate(id, settings);
+    if (!located.ok) {
+      const phase = located.reason === 'unsupported-shim' ? 'failed' : 'not-installed';
+      return { ...emptyStatus(id, enabled), phase, message: located.message };
     }
+    const found = { ...emptyStatus(id, enabled), command: located.command, apiKeyInEnvironment: located.apiKeyInEnvironment };
     // Locating the command runs nothing; only a provider the user turned on is started.
-    if (!enabled) return { ...emptyStatus(id, false), command: resolved.executable };
-    const probe = await adapters[id].probe({ executable: resolved.executable, env: resolved.env, cwd: await prepareWorkspace(id) });
-    return { ...emptyStatus(id, true), ...probe, command: resolved.executable };
+    if (!enabled) return found;
+    const probe = await adapters[id].probe({
+      executable: located.executable,
+      prefixArgs: located.prefixArgs,
+      env: located.env,
+      cwd: await prepareWorkspace(id),
+    });
+    return { ...found, ...probe };
   }
 
   function refresh(id: AiProviderId) {

@@ -35,7 +35,7 @@ describe('settings helpers', () => {
       title: 'HackDesk',
       ai: { providers: { claude: { enabled: true, model: 'haiku' } }, defaultProvider: 'claude' },
     }));
-    expect(stored.ai.providers.claude).toEqual({ enabled: true, model: 'haiku', commandPath: null });
+    expect(stored.ai.providers.claude).toEqual({ enabled: true, model: 'haiku', commandPath: null, ignoreApiKey: false });
     expect(stored.ai.providers.codex.enabled).toBe(false);
     expect(parseStoredSettings('{"title":"HackDesk","ai":{"defaultProvider":"gemini"}}').ai).toEqual(defaultSettings.ai);
   });
@@ -315,12 +315,14 @@ describe('settings helpers', () => {
       "codex": {
         "enabled": false,
         "model": null,
-        "commandPath": null
+        "commandPath": null,
+        "ignoreApiKey": false
       },
       "claude": {
         "enabled": false,
         "model": null,
-        "commandPath": null
+        "commandPath": null,
+        "ignoreApiKey": false
       }
     },
     "defaultProvider": null,
