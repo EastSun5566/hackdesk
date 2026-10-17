@@ -108,6 +108,13 @@ describe('Claude CLI provider', () => {
     await expect(claudeProvider.stream(fake.launch, turn({ stallTimeoutMs: 200 }).input)).rejects.toThrow('stopped responding');
   });
 
+  it.skipIf(process.platform === 'win32')('fails a turn soon after the CLI exits while a background process holds its output', async () => {
+    const fake = await createFakeCli('claude', { FAKE_MODE: 'orphan' });
+    const started = Date.now();
+    await expect(claudeProvider.stream(fake.launch, turn().input)).rejects.toThrow('crashed mid-turn');
+    expect(Date.now() - started).toBeLessThan(4_000);
+  });
+
   it('stops the CLI when the turn is cancelled', async () => {
     const fake = await createFakeCli('claude', { FAKE_MODE: 'hang' });
     const controller = new AbortController();

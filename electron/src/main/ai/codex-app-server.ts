@@ -4,6 +4,7 @@ import type { AiModel, AiUsageWindow } from '../../../../src/lib/ai';
 import {
   createLineSplitter,
   createStderrTail,
+  onCliGone,
   parseJsonObject,
   parseVersion,
   runCli,
@@ -147,7 +148,7 @@ export class CodexAppServerClient {
     child.stderr.on('data', (chunk: string) => this.stderr.push(chunk));
     child.stdin.on('error', () => undefined);
     child.on('error', error => this.fail(child, `Codex could not start: ${error.message}`));
-    child.on('close', code => this.fail(child, this.stderr.text || `Codex exited with status ${code ?? 'unknown'}.`));
+    onCliGone(child, code => this.fail(child, this.stderr.text || `Codex exited with status ${code ?? 'unknown'}.`));
 
     try {
       await this.request('initialize', {
