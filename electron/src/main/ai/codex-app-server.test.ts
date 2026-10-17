@@ -99,4 +99,17 @@ describe('Codex app-server provider', () => {
       onDelta: () => undefined,
     })).rejects.toThrow('Usage limit reached');
   });
+
+  it.skipIf(process.platform === 'win32')('fails a turn soon after Codex exits while a background process holds its output', async () => {
+    const fake = await createFakeCli('codex', { FAKE_MODE: 'orphan' });
+    const started = Date.now();
+    await expect(provider().stream(fake.launch, {
+      model: null,
+      system: 's',
+      prompt: 'p',
+      signal: new AbortController().signal,
+      onDelta: () => undefined,
+    })).rejects.toThrow('crashed mid-turn');
+    expect(Date.now() - started).toBeLessThan(4_000);
+  });
 });

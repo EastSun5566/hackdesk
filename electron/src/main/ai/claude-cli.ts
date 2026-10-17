@@ -5,6 +5,7 @@ import {
   cleanCliMessage,
   createLineSplitter,
   createStderrTail,
+  onCliGone,
   parseJsonObject,
   parseVersion,
   runCli,
@@ -246,7 +247,8 @@ function stream(launch: ProviderLaunch, turn: ProviderTurn): Promise<void> {
     child.stderr.on('data', (chunk: string) => stderr.push(chunk));
     child.stdin.on('error', () => undefined);
     child.on('error', error => settle(new Error(`Claude Code could not start: ${error.message}`)));
-    child.on('close', (code) => {
+    // A result that arrived before the CLI exited has already settled the turn.
+    onCliGone(child, (code) => {
       settle(new Error(cleanCliMessage(stderr.text) || `Claude Code exited with status ${code ?? 'unknown'}.`));
     });
     write(claudeUserMessage(turn.prompt));

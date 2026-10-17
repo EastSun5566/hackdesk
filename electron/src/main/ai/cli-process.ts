@@ -44,6 +44,29 @@ export function terminate(child: ChildProcessWithoutNullStreams) {
   child.once('exit', () => clearTimeout(timer));
 }
 
+/**
+ * Calls `onGone` once a CLI is finished: on 'close', or shortly after 'exit' when a background
+ * process the CLI started inherited stdout and holds it open long after the CLI exits.
+ */
+export function onCliGone(child: ChildProcessWithoutNullStreams, onGone: (code: number | null) => void) {
+  let gone = false;
+  let drain: NodeJS.Timeout | undefined;
+  const finish = (code: number | null) => {
+    if (gone) return;
+    gone = true;
+    clearTimeout(drain);
+    onGone(code);
+  };
+  child.on('close', finish);
+  child.on('exit', (code) => {
+    drain = setTimeout(() => {
+      child.stdout.destroy();
+      child.stderr.destroy();
+      finish(code);
+    }, EXIT_DRAIN_MS);
+  });
+}
+
 export function cleanCliMessage(text: string) {
   return text.replace(ANSI_PATTERN, '').trim();
 }
@@ -103,12 +126,10 @@ export function runCli(executable: string, args: string[], options: CliRunOption
     const stderr = createStderrTail();
     let timedOut = false;
     let settled = false;
-    let drain: NodeJS.Timeout | undefined;
     const finish = (code: number | null) => {
       if (settled) return;
       settled = true;
       clearTimeout(watchdog);
-      clearTimeout(drain);
       options.signal?.removeEventListener('abort', abort);
       resolve({ code, stdout, stderr: stderr.text, timedOut });
     };
@@ -136,15 +157,7 @@ export function runCli(executable: string, args: string[], options: CliRunOption
       stderr.push(error.message);
       finish(-1);
     });
-    child.on('close', code => finish(code));
-    // A background process the CLI started can inherit stdout and hold it open long after the CLI exits.
-    child.on('exit', (code) => {
-      drain = setTimeout(() => {
-        child.stdout.destroy();
-        child.stderr.destroy();
-        finish(code);
-      }, EXIT_DRAIN_MS);
-    });
+    onCliGone(child, finish);
     child.stdin.end(options.input ?? '');
   });
 }

@@ -10,6 +10,11 @@ const fs = require('node:fs');
 const args = process.argv.slice(2);
 if (process.env.FAKE_ARGS_FILE) fs.appendFileSync(process.env.FAKE_ARGS_FILE, JSON.stringify(args) + '\n');
 const out = (value) => process.stdout.write(JSON.stringify(value) + '\n');
+// Leaves a background process holding stdout open, then exits without answering.
+const exitLeavingOrphan = () => {
+  require('node:child_process').spawn('sleep', ['30'], { stdio: ['ignore', 'inherit', 'inherit'] }).unref();
+  process.stderr.write('crashed mid-turn\n', () => process.exit(1));
+};
 if (args[0] === '--version') { console.log('2.1.0 (Claude Code)'); process.exit(0); }
 if (args[0] === 'auth') { out({ loggedIn: process.env.FAKE_LOGGED_IN !== '0', subscriptionType: 'max' }); process.exit(0); }
 let buffer = '';
@@ -43,6 +48,7 @@ function handle(message) {
   if (message.type !== 'user') return;
   const mode = process.env.FAKE_MODE || 'ok';
   if (mode === 'hang') return;
+  if (mode === 'orphan') return exitLeavingOrphan();
   if (mode === 'error') { out({ type: 'result', subtype: 'success', is_error: true, result: 'Not logged in' }); return; }
   if (mode === 'ask') { out({ type: 'control_request', request_id: 'ask-1', request: { subtype: 'can_use_tool', tool_name: 'Bash', input: {} } }); return; }
   for (const text of ['Hel', 'lo']) out({ type: 'stream_event', event: { type: 'content_block_delta', delta: { type: 'text_delta', text } } });
@@ -56,6 +62,11 @@ const fs = require('node:fs');
 const args = process.argv.slice(2);
 if (process.env.FAKE_ARGS_FILE) fs.appendFileSync(process.env.FAKE_ARGS_FILE, JSON.stringify(args) + '\n');
 const out = (value) => process.stdout.write(JSON.stringify(value) + '\n');
+// Leaves a background process holding stdout open, then exits without answering.
+const exitLeavingOrphan = () => {
+  require('node:child_process').spawn('sleep', ['30'], { stdio: ['ignore', 'inherit', 'inherit'] }).unref();
+  process.stderr.write('crashed mid-turn\n', () => process.exit(1));
+};
 if (args[0] === '--version') { console.log('codex-cli 0.200.0'); process.exit(0); }
 if (args.includes('mcp')) { console.log(JSON.stringify(process.env.FAKE_MCP ? JSON.parse(process.env.FAKE_MCP) : [{ name: 'mine', enabled: true }])); process.exit(0); }
 if (args[args.length - 1] !== 'app-server') process.exit(2);
@@ -92,6 +103,7 @@ function handle(message) {
       if (process.env.FAKE_THREAD_FILE) fs.writeFileSync(process.env.FAKE_THREAD_FILE, JSON.stringify(message.params));
       return reply({ thread: { id: 't1' } });
     case 'turn/start':
+      if (process.env.FAKE_MODE === 'orphan') return exitLeavingOrphan();
       turn = message.params;
       reply({ turn: { id: 'u1', status: 'inProgress' } });
       out({ id: 'srv-1', method: 'item/commandExecution/requestApproval', params: { threadId: 't1', turnId: 'u1' } });
