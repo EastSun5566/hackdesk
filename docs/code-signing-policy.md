@@ -31,6 +31,14 @@ because it is opened. Using a local vault is not a guarantee of no network traff
   browsing fetches notes and folders; saving remote notes and uploading images sends
   the selected content to HackMD. Its [privacy policy](https://hackmd.io/s/privacy)
   applies. You can disconnect the account by forgetting the configured token.
+- **AI writing:** Providers are off by default. Enabling Codex or Claude lets
+  HackDesk run that installed CLI with its existing sign-in. AI actions send
+  the selected text (or whole note), note title, nearby context and instructions
+  through the CLI to its configured provider. Provider checks can contact the
+  service for account, model and usage information. HackDesk disables tool use
+  for these writing requests. The provider's account terms and data controls apply;
+  see the [OpenAI privacy policy](https://openai.com/policies/privacy-policy/) and
+  [Anthropic privacy policy](https://www.anthropic.com/legal/privacy).
 - **Remote images and links:** Rendering a note's HTTPS image or a workspace avatar
   or team logo can contact its host without a separate click. That host receives the
   image request and network information such as the IP address. Following external

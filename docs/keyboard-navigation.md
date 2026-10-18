@@ -8,7 +8,7 @@ Move through the workbench, find commands, and discover available actions withou
 
 ## Find commands and shortcuts
 
-Open the **Command Palette** with **Cmd+K** on macOS or **Ctrl+K** on Windows/Linux. Search for an action and press Enter to run it.
+Open the **Command Palette** with **Cmd+K** on macOS or **Ctrl+K** on Windows/Linux. Search for an action and press Enter to run it. With text selected in the editor and an AI provider enabled, **Cmd+K** / **Ctrl+K** opens AI actions instead. Use **Cmd+Shift+P** / **Ctrl+Shift+P** to open the Command Palette in that context.
 
 Open **Keyboard Shortcuts** from Help or the command palette to search bindings for the current region or all actions. Outside text editing, `?` also opens help.
 
