@@ -30,7 +30,7 @@ Use **Search notes** to filter the selected workspace. Expand folders in the nav
 
 Create folders with **New Folder**. Use a folder's menu to edit or delete it, or drag notes and folders to move them. Local deletion moves files to the system trash; HackMD deletion affects remote notes.
 
-Press **Cmd+P** / **Ctrl+P** for **Quick Open** to search notes, folders, and workspaces. Press **Cmd+K** / **Ctrl+K** for the **Command Palette** to find actions.
+Press **Cmd+P** / **Ctrl+P** for **Quick Open** to search notes, folders, and workspaces. Press **Cmd+K** / **Ctrl+K** for the **Command Palette** to find actions. With text selected in the editor and an AI provider enabled, this shortcut opens AI actions instead; **Cmd+Shift+P** / **Ctrl+Shift+P** still opens the Command Palette.
 
 ## Arrange tabs and panes
 
@@ -51,6 +51,14 @@ HackDesk supports two editor panes. Use **Move Tab to Other Pane** to move a tab
 Choose **Save** in the document toolbar to write the active note to its workspace. Save status distinguishes changes still in the editor from a saved note.
 
 HackDesk keeps recovery copies of unsaved edits. Recovery does not replace saving, and a reported backup failure means the edits need attention. If a note changed elsewhere, review the conflict or recovery message before saving again.
+
+## Write with AI
+
+AI is optional and off by default. Install and sign in to the Codex or Claude CLI separately, then enable it in **Settings → AI**.
+
+Select text and press **Cmd+K** / **Ctrl+K** to choose a writing action. Review the result, then choose **Replace**, **Insert**, or **Discard**. To work on the whole note without selecting text, choose **Ask AI...** from the Command Palette.
+
+Save and reorder your own prompts in **Settings → AI**. AI requests use your CLI provider's service and account limits. They send the selected text, note title, nearby context and instruction to that provider; see [privacy and network behavior](./code-signing-policy.md#privacy-and-network-behavior).
 
 ## Edit Note Details
 

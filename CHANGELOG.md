@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.0.0-beta.7](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.6...v2.0.0-beta.7) (2026-10-18)
+
+### AI writing
+
+* Use installed Codex and Claude CLIs from Settings → AI. Providers stay off until you enable them.
+* Select text and press Cmd+K / Ctrl+K to rewrite, translate, summarize or run your own saved commands. Review results before replacing or inserting text.
+* Choose models, inspect available usage information, and reorder saved commands. Improve Windows npm CLI detection and finish runs whose background processes keep output open.
+
+### HackMD notes
+
+* Browse and compare note versions, restore version content into the editor, save named versions and edit their names and descriptions.
+* Restore personal notes from the HackMD trash and read note comments in Note Details.
+
+### UI and reliability
+
+* Preview Local Vault images relative to the note, including pasted attachments.
+* Search Settings and jump to a field; use held-key navigation inside Settings. Keep onboarding compact and avoid scrollbar clipping.
+* Render indented Markdown code correctly, retry transient HackMD reads and cancel image uploads without losing edits.
+* Remove duplicated npm files from packaged apps while preserving third-party licenses and runtime dependency auditing.
+
+### Beta notes
+
+* Beta installers remain unsigned. SignPath test-certificate validation is separate from production signing.
+* Automatic updates remain disabled for beta builds. Download beta.7 manually and close the previous version before opening it.
+* Existing settings, vault identity, tabs, split panes and recoverable drafts are reused.
+* AI requires a separately installed and signed-in CLI. Requests use that provider's service and account; they do not run an on-device model.
+
 ## [2.0.0-beta.6](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.5...v2.0.0-beta.6) (2026-10-14)
 
 ### UI and editing
