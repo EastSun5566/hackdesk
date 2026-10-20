@@ -38,6 +38,7 @@ export type MarkdownEditorDictation = {
   start: DictationHost['start'];
   /** The current Start Dictation shortcut, such as "⇧⌘D". */
   shortcutLabel: string;
+  isShortcut: DictationHost['isShortcut'];
 };
 
 export type MarkdownEditorProps = {

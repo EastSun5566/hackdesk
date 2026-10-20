@@ -345,6 +345,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
     const [dictationHost] = useState<DictationHost>(() => ({
       start: callbacks => dictationRef.current?.start(callbacks) ?? null,
       shortcutLabel: () => dictationRef.current?.shortcutLabel ?? '',
+      isShortcut: event => dictationRef.current?.isShortcut(event) ?? false,
     }));
     const dragDepthRef = useRef(0);
     const [isImageDragging, setIsImageDragging] = useState(false);

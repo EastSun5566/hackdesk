@@ -1,6 +1,7 @@
 import { EditorState } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import { EditorView, keymap } from '@codemirror/view';
 import { undo, history } from '@codemirror/commands';
+import { searchKeymap } from '@codemirror/search';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { DictationEvent } from '@/lib/dictation';
@@ -18,10 +19,11 @@ function setup(doc: string, cursor = doc.length) {
       return recording;
     },
     shortcutLabel: () => '⇧⌘D',
+    isShortcut: event => event.key.toLowerCase() === 'd' && event.ctrlKey && event.shiftKey,
   };
   const view = new EditorView({
     parent: document.body.appendChild(document.createElement('div')),
-    state: EditorState.create({ doc, selection: { anchor: cursor }, extensions: [history(), dictation(host)] }),
+    state: EditorState.create({ doc, selection: { anchor: cursor }, extensions: [history(), keymap.of(searchKeymap), dictation(host)] }),
   });
   const send = (event: DictationEvent) => callbacks!.onEvent(event);
   return { view, host, recording, send, callbacks: () => callbacks! };
@@ -93,6 +95,19 @@ describe('dictation', () => {
     view.destroy();
   });
 
+  it('takes its shortcut before the editor keymap reads Ctrl+Shift+D as Mod-d', () => {
+    const { view, recording } = setup('one one');
+    // Linux reports the letter in lower case, which the search keymap would take as "select next match".
+    const event = new KeyboardEvent('keydown', { key: 'd', keyCode: 68, ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true });
+    view.contentDOM.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(getDictationState(view.state).phase).toBe('starting');
+    view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', keyCode: 68, ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }));
+    expect(recording.stop).toHaveBeenCalledOnce();
+    expect(view.state.selection.ranges).toHaveLength(1);
+    view.destroy();
+  });
+
   it('cancels the recording when the editor closes', () => {
     const { view, host, recording } = setup('');
     toggleDictation(view, host);
@@ -102,7 +117,7 @@ describe('dictation', () => {
 
   it('ends quietly when the host cannot record', () => {
     const { view } = setup('x');
-    const host: DictationHost = { start: () => null, shortcutLabel: () => '' };
+    const host: DictationHost = { start: () => null, shortcutLabel: () => '', isShortcut: () => false };
     expect(toggleDictation(view, host)).toBe(false);
     expect(getDictationState(view.state).phase).toBe('idle');
     view.destroy();

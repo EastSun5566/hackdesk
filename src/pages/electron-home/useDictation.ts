@@ -1,19 +1,25 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { DictationHost } from '@/components/hackmd-live-preview/dictation/extension';
 import type { MarkdownEditorDictation } from '@/components/markdown-editor-types';
 import { toast } from '@/components/ui/toast';
 import { getAiErrorMessage } from '@/lib/ai';
 import { onDictationSettingsChanged } from '@/lib/dictation';
+import { resolveWorkbenchShortcut } from '@/lib/electron-actions';
 import { getHackDeskAPI } from '@/lib/electron-api';
+import { matchShortcutConfig } from '@/lib/keyboard-shortcuts';
 import type { DictationSettings } from '@/lib/settings';
 
-import { useActionShortcut } from './ActionShortcutContext';
+import { ActionShortcutContext, useActionShortcut } from './ActionShortcutContext';
 
 /** Owns dictation for one note: whether it is on, and the recording it started. */
 export function useDictation(): MarkdownEditorDictation | null {
   const api = getHackDeskAPI();
   const shortcutLabel = useActionShortcut('dictate') ?? '';
+  const { shortcuts, platform, characterShortcutsEnabled } = useContext(ActionShortcutContext);
+  const isShortcut = useCallback((event: KeyboardEvent) => (
+    matchShortcutConfig(resolveWorkbenchShortcut('dictate', shortcuts, characterShortcutsEnabled), event, platform)
+  ), [characterShortcutsEnabled, platform, shortcuts]);
   const [settings, setSettings] = useState<DictationSettings | null>(null);
   const activeRef = useRef<string | null>(null);
 
@@ -64,5 +70,5 @@ export function useDictation(): MarkdownEditorDictation | null {
     };
   }, [api, settings]);
 
-  return useMemo(() => (api?.dictation ? { start, shortcutLabel } : null), [api, shortcutLabel, start]);
+  return useMemo(() => (api?.dictation ? { start, shortcutLabel, isShortcut } : null), [api, isShortcut, shortcutLabel, start]);
 }

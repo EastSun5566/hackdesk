@@ -37,6 +37,8 @@ export type DictationHost = {
   }) => DictationRecording | null;
   /** The pill's hint, such as "⇧⌘D". */
   shortcutLabel: () => string;
+  /** Whether a key press is the Start Dictation shortcut. */
+  isShortcut: (event: KeyboardEvent) => boolean;
 };
 
 const beginDictation = StateEffect.define<{ from: number; to: number }>();
@@ -260,30 +262,41 @@ function buildDecorations(state: EditorState, host: DictationHost): DecorationSe
   return Decoration.set(ranges, true);
 }
 
-function dictationKeymap() {
-  return Prec.highest(keymap.of([
-    {
-      key: 'Enter',
-      run: (view) => {
-        const state = getDictationState(view.state);
-        if (state.phase !== 'recording') return state.phase !== 'idle';
-        const active = recordings.get(view);
-        if (active?.session !== state.session) return false;
-        active.recording.stop();
-        view.dispatch({ effects: finishDictation.of(state.session) });
+function dictationKeymap(host: DictationHost) {
+  return Prec.highest([
+    // Ahead of the editor's own bindings: on Linux, Ctrl+Shift+D can also read as Mod-d (select next match).
+    EditorView.domEventHandlers({
+      keydown(event, view) {
+        if (event.repeat || !host.isShortcut(event)) return false;
+        event.preventDefault();
+        toggleDictation(view, host);
         return true;
       },
-    },
-    {
-      key: 'Escape',
-      run: (view) => {
-        if (getDictationState(view.state).phase === 'idle') return false;
-        cancelRecording(view);
-        view.dispatch({ effects: endDictation.of(null) });
-        return true;
+    }),
+    keymap.of([
+      {
+        key: 'Enter',
+        run: (view) => {
+          const state = getDictationState(view.state);
+          if (state.phase !== 'recording') return state.phase !== 'idle';
+          const active = recordings.get(view);
+          if (active?.session !== state.session) return false;
+          active.recording.stop();
+          view.dispatch({ effects: finishDictation.of(state.session) });
+          return true;
+        },
       },
-    },
-  ]));
+      {
+        key: 'Escape',
+        run: (view) => {
+          if (getDictationState(view.state).phase === 'idle') return false;
+          cancelRecording(view);
+          view.dispatch({ effects: endDictation.of(null) });
+          return true;
+        },
+      },
+    ]),
+  ]);
 }
 
 /** A note closed or switched mid-recording stops the microphone. */
@@ -356,7 +369,7 @@ export function dictation(host: DictationHost): Extension {
   return [
     dictationField,
     EditorView.decorations.compute([dictationField], state => buildDecorations(state, host)),
-    dictationKeymap(),
+    dictationKeymap(host),
     cancelOnDestroy,
     dictationTheme,
   ];
