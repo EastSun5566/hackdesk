@@ -300,6 +300,8 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     defaultKeybinding: 'mod+shift+d',
     shortcut: '⇧⌘D',
     menuAccelerator: 'CmdOrCtrl+Shift+D',
+    // A toggle must run once per press: on Windows and Linux a native accelerator would fire too.
+    rendererShortcut: true,
     getDisabledReason: requireSelectedNote,
   },
   {

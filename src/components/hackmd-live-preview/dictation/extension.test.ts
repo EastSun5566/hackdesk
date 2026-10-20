@@ -81,6 +81,18 @@ describe('dictation', () => {
     second.view.destroy();
   });
 
+  it('keeps text typed while recording and replaces only the original selection', () => {
+    const { view, host, callbacks } = setup('Hi there', 8);
+    view.dispatch({ selection: { anchor: 3, head: 8 } });
+    toggleDictation(view, host);
+    // Typed at both edges of the selected "there" while the recording runs.
+    view.dispatch({ changes: [{ from: 3, insert: 'big ' }, { from: 8, insert: '!' }] });
+    toggleDictation(view, host);
+    callbacks().onDone('world');
+    expect(view.state.doc.toString()).toBe('Hi big world!');
+    view.destroy();
+  });
+
   it('cancels the recording when the editor closes', () => {
     const { view, host, recording } = setup('');
     toggleDictation(view, host);

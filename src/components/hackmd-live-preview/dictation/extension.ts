@@ -49,7 +49,9 @@ export const dictationField = StateField.define<DictationState>({
   update(value, tr) {
     let next = value;
     if (tr.docChanged && next.phase !== 'idle') {
-      next = { ...next, from: tr.changes.mapPos(next.from, -1), to: tr.changes.mapPos(next.to, 1) };
+      // Text typed at either edge while recording stays outside the range, so finishing keeps it.
+      const from = tr.changes.mapPos(next.from, 1);
+      next = { ...next, from, to: Math.max(from, tr.changes.mapPos(next.to, -1)) };
     }
     for (const effect of tr.effects) {
       if (effect.is(beginDictation)) {
