@@ -64,6 +64,8 @@ jobs:
       - run: pnpm run package:check
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          # Fails the build with the reason instead of only the packaged-contents check.
+          HACKDESK_REQUIRE_SPEECH_HELPER: ${{ matrix.os == 'macos-latest' && '1' || '' }}
       - name: Test Windows signing and installation without SignPath credentials
         if: matrix.os == 'windows-latest'
         timeout-minutes: 15

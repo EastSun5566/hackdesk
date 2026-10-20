@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { access, readFile, readdir, stat } from 'node:fs/promises';
+import { access, constants, readFile, readdir, stat } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -26,7 +26,11 @@ export function inspectArchive(archive: string) {
   return { files, payloadBytes, nodeModulesBytes };
 }
 
-export async function checkPackagedContents(resources: string) {
+/**
+ * `requireSpeechHelper` is for macOS packages: electron-builder only warns when the dictation
+ * helper is missing, so the artifact itself is checked.
+ */
+export async function checkPackagedContents(resources: string, { requireSpeechHelper = false } = {}) {
   const archive = join(resources, 'app.asar');
   const contents = inspectArchive(archive);
   assert(!contents.files.some(name => name.split('/').includes('node_modules')), 'Packaged npm files duplicate bundled dependencies');
@@ -49,6 +53,11 @@ export async function checkPackagedContents(resources: string) {
   }
   await checkUnpacked(`${archive}.unpacked`);
   await access(join(resources, 'assets/icon.png'));
+  if (requireSpeechHelper) {
+    await access(join(resources, 'native/hackdesk-speech'), constants.X_OK).catch(() => {
+      throw new Error('Missing packaged dictation helper: native/hackdesk-speech');
+    });
+  }
   return { asarBytes: (await stat(archive)).size, payloadBytes: contents.payloadBytes, nodeModulesBytes: contents.nodeModulesBytes, files: contents.files.length };
 }
 
@@ -59,5 +68,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     ? join(process.arch === 'arm64' ? 'mac-arm64' : 'mac', `${pkg.productName}.app`, 'Contents', 'Resources')
     : join(process.platform === 'win32' ? 'win-unpacked' : 'linux-unpacked', 'resources');
   const resources = process.argv[2] ?? join(root, pkg.build.directories.output, folder);
-  console.log('Packaged contents verified:', await checkPackagedContents(resources));
+  console.log('Packaged contents verified:', await checkPackagedContents(resources, { requireSpeechHelper: process.platform === 'darwin' }));
 }
