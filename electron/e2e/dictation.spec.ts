@@ -38,10 +38,28 @@ async function launch() {
 
 /** Presses the shortcut and, when no recording appears, says what happened instead. */
 async function startDictation(page: Page) {
+  await page.evaluate(() => {
+    const keys: unknown[] = [];
+    (window as unknown as { dictationKeys: unknown[] }).dictationKeys = keys;
+    const log = (phase: string) => (event: KeyboardEvent) => keys.push([phase, event.key, event.ctrlKey, event.metaKey, event.shiftKey, event.defaultPrevented]);
+    window.addEventListener('keydown', log('capture'), true);
+    window.addEventListener('keydown', log('bubble'));
+  });
   await page.keyboard.press(`${mod}+Shift+d`);
   const notifications = page.getByLabel('Notifications', { exact: true });
   const inserted = page.locator('.cm-line', { hasText: 'Second line.' });
-  await expect(page.locator('.cm-dictation-pill').or(notifications.getByRole('status')).or(inserted).first()).toBeVisible();
+  try {
+    await expect(page.locator('.cm-dictation-pill').or(notifications.getByRole('status')).or(inserted).first()).toBeVisible();
+  } catch (error) {
+    // Nothing happened at all: report how far the key press got.
+    const details = await page.evaluate(async () => ({
+      keys: (window as unknown as { dictationKeys: unknown[] }).dictationKeys,
+      focused: document.activeElement?.className,
+      settings: (await window.hackdeskAPI?.settings.get())?.dictation,
+      status: await window.hackdeskAPI?.dictation?.status().catch((statusError: unknown) => String(statusError)),
+    }));
+    throw new Error(`No recording started: ${JSON.stringify(details)}`, { cause: error });
+  }
   expect(await notifications.innerText(), 'an error toast').toBe('');
   await expect(inserted, 'stopped at once, as if pressed twice').toHaveCount(0);
 }
