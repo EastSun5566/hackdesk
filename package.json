@@ -13,7 +13,7 @@
   },
   "scripts": {
     "dev": "node scripts/electron-dev.ts",
-    "build": "node scripts/electron-build.ts && vite build",
+    "build": "node scripts/build-speech-helper.ts && node scripts/electron-build.ts && vite build",
     "preview": "vite preview",
     "package": "pnpm run build && electron-builder",
     "package:check": "pnpm run build && electron-builder --dir --publish never && node scripts/check-electron-fuses.ts && node scripts/check-packaged-contents.ts",
@@ -92,7 +92,19 @@
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "notarize": true,
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extraResources": [
+        {
+          "from": "build/native/hackdesk-speech",
+          "to": "native/hackdesk-speech"
+        }
+      ],
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "HackDesk listens only while you dictate into a note. Speech is recognized on this Mac.",
+        "NSSpeechRecognitionUsageDescription": "HackDesk turns your dictation into text on this Mac."
+      }
     },
     "win": {
       "icon": "build/icon.ico",

@@ -55,6 +55,7 @@ function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): Workb
     exportSelectedMarkdown: vi.fn(),
     attachImage: vi.fn(),
     aiAssist: vi.fn(),
+    dictate: vi.fn(),
     findInNote: vi.fn(),
     focusEditor: vi.fn(),
     focusInspector: vi.fn(),
@@ -177,6 +178,15 @@ describe('useWorkbenchActions', () => {
     result.current.runAction('ai-assist');
 
     expect(handlers.aiAssist).toHaveBeenCalledOnce();
+  });
+
+  it('routes dictate to the dictation handler', () => {
+    const handlers = createHandlers();
+    const { result } = renderHook(() => useWorkbenchActions(createOptions({ handlers })));
+
+    result.current.runAction('dictate');
+
+    expect(handlers.dictate).toHaveBeenCalledOnce();
   });
 
   it('routes editor mode actions and ignores the active mode', () => {

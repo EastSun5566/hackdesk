@@ -23,6 +23,7 @@ export type WorkbenchActionHandlersOptions = {
   api?: HackDeskElectronAPI;
   bumpAttachImageRequest: () => void;
   bumpAiAssistRequest: () => void;
+  bumpDictateRequest: () => void;
   bumpEditorSearchRequest: () => void;
   createFolder: () => void;
   createNote: () => void;
@@ -77,6 +78,7 @@ export function useWorkbenchActionHandlers({
   api,
   bumpAttachImageRequest,
   bumpAiAssistRequest,
+  bumpDictateRequest,
   bumpEditorSearchRequest,
   createFolder,
   createNote,
@@ -163,6 +165,7 @@ export function useWorkbenchActionHandlers({
     },
     attachImage: bumpAttachImageRequest,
     aiAssist: bumpAiAssistRequest,
+    dictate: bumpDictateRequest,
     findInNote: bumpEditorSearchRequest,
     focusEditor: () => focusZone('editor'),
     focusInspector: () => focusZone('inspector'),
@@ -253,6 +256,7 @@ export function useWorkbenchActionHandlers({
     api,
     bumpAttachImageRequest,
     bumpAiAssistRequest,
+    bumpDictateRequest,
     bumpEditorSearchRequest,
     createFolder,
     createNote,

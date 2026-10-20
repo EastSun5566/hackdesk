@@ -105,6 +105,9 @@ jobs:
             exit 1
           fi
       - run: pnpm run build
+        env:
+          # A macOS release without the dictation helper would silently lose dictation.
+          HACKDESK_REQUIRE_SPEECH_HELPER: ${{ matrix.os == 'macos-latest' && '1' || '' }}
       - name: Build unsigned beta
         if: needs.quality.outputs.is_beta == 'true'
         shell: bash

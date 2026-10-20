@@ -26,8 +26,17 @@ describe('settings helpers', () => {
       keyboardNavigation: defaultSettings.keyboardNavigation,
       workspaceNavigation: defaultSettings.workspaceNavigation,
       ai: defaultSettings.ai,
+      dictation: defaultSettings.dictation,
     });
   });
+  it('keeps dictation off until turned on and drops a damaged dictation section', () => {
+    expect(defaultSettings.dictation).toEqual({ enabled: false, locale: null });
+    expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', dictation: { enabled: true, locale: 'zh-TW' } })).dictation)
+      .toEqual({ enabled: true, locale: 'zh-TW' });
+    expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', dictation: { enabled: 'yes' } })).dictation)
+      .toEqual(defaultSettings.dictation);
+  });
+
   it('keeps AI providers off unless turned on and drops a damaged AI section', () => {
     expect(defaultSettings.ai.providers.codex.enabled).toBe(false);
     expect(defaultSettings.ai.providers.claude.enabled).toBe(false);
@@ -81,6 +90,7 @@ describe('settings helpers', () => {
       keyboardNavigation: defaultSettings.keyboardNavigation,
       workspaceNavigation: defaultSettings.workspaceNavigation,
       ai: defaultSettings.ai,
+      dictation: defaultSettings.dictation,
     });
   });
 
@@ -329,6 +339,10 @@ describe('settings helpers', () => {
     "selectionChip": true,
     "translateLanguage": "English",
     "customCommands": []
+  },
+  "dictation": {
+    "enabled": false,
+    "locale": null
   }
 }`);
   });

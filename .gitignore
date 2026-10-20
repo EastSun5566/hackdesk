@@ -46,3 +46,6 @@ docs/.vitepress/cache
 # playwright
 playwright-report/
 test-results/
+
+# Native helpers built by scripts/build-speech-helper.ts
+/build/native/

@@ -9,6 +9,7 @@ import {
   type AiDelivery,
   type AiProviderId,
 } from '@/lib/ai';
+import { MAX_DICTATION_LOCALE_LENGTH } from '@/lib/dictation';
 import { ELECTRON_ACTIONS } from '@/lib/electron-actions';
 import type { ElectronActionId } from '@/lib/electron-api';
 import { isValidCustomShortcutConfig } from '@/lib/keyboard-shortcuts';
@@ -88,6 +89,13 @@ export type AiSettings = {
   customCommands: AiCustomCommand[];
 };
 
+export type DictationSettings = {
+  /** Off until the user turns it on in Settings, which is their consent to microphone use. */
+  enabled: boolean;
+  /** A BCP 47 tag such as zh-TW, or null to follow the system's preferred languages. */
+  locale: string | null;
+};
+
 export const defaultAppearanceSettings: AppearanceSettings = {
   theme: 'system',
   presetId: 'hackmd-neo',
@@ -121,6 +129,11 @@ export const defaultAiSettings: AiSettings = {
   selectionChip: true,
   translateLanguage: 'English',
   customCommands: [],
+};
+
+export const defaultDictationSettings: DictationSettings = {
+  enabled: false,
+  locale: null,
 };
 
 const hexColorSchema = z.string().regex(/^#[\da-fA-F]{6}$/);
@@ -187,6 +200,10 @@ const aiSettingsSchema = z.object({
   translateLanguage: z.string().trim().min(1).max(64).default('English'),
   customCommands: aiCustomCommandsSchema,
 }).default(defaultAiSettings);
+const dictationSettingsSchema = z.object({
+  enabled: z.boolean().default(false),
+  locale: z.string().trim().min(1).max(MAX_DICTATION_LOCALE_LENGTH).nullable().default(null),
+}).default(defaultDictationSettings);
 const pinnedTeamIdsSchema = z.array(z.string().trim().min(1)).nullable().refine(
   (teamIds) => teamIds === null || new Set(teamIds).size === teamIds.length,
   'Pinned team IDs must be unique.',
@@ -231,6 +248,7 @@ export const settingsSchema = z.object({
     pinnedTeamIds: pinnedTeamIdsSchema.default(null),
   }).default(defaultWorkspaceNavigationSettings),
   ai: aiSettingsSchema,
+  dictation: dictationSettingsSchema,
 });
 
 export type AppSettings = z.infer<typeof settingsSchema>;
@@ -246,6 +264,7 @@ export const defaultSettings: AppSettings = {
   keyboardNavigation: { characterShortcutsEnabled: true },
   workspaceNavigation: defaultWorkspaceNavigationSettings,
   ai: defaultAiSettings,
+  dictation: defaultDictationSettings,
 };
 
 const storedShortcutSettingsSchema = z.record(z.string(), z.unknown())
@@ -275,6 +294,7 @@ const storedSettingsSchema = z.object({
   keyboardNavigation: settingsSchema.shape.keyboardNavigation.catch(defaultSettings.keyboardNavigation),
   workspaceNavigation: settingsSchema.shape.workspaceNavigation.catch(defaultSettings.workspaceNavigation),
   ai: settingsSchema.shape.ai.catch(defaultSettings.ai),
+  dictation: settingsSchema.shape.dictation.catch(defaultSettings.dictation),
 });
 
 export function normalizeAppearanceSettings(

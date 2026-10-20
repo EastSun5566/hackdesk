@@ -59,6 +59,7 @@ function toSafeSettings(
     keyboardNavigation: settings.keyboardNavigation,
     workspaceNavigation: settings.workspaceNavigation,
     ai: settings.ai,
+    dictation: settings.dictation,
     hasHackmdApiToken,
     hackmdTokenStorageError: tokenStorageError ?? null,
     hasAppearanceSettings: hasStoredAppearance,
@@ -310,6 +311,7 @@ async function updateStoredSettingsUnlocked(
     keyboardNavigation: update.keyboardNavigation ?? current.keyboardNavigation,
     workspaceNavigation: update.workspaceNavigation ?? current.workspaceNavigation,
     ai: update.ai ?? current.ai,
+    dictation: update.dictation ?? current.dictation,
     onboarding: nextOnboarding,
     localVault: update.localVaultPath !== undefined ? { path: update.localVaultPath } : current.localVault,
   });

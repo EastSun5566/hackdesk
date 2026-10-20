@@ -291,6 +291,18 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     getDisabledReason: requireOpenTab,
   },
   {
+    id: 'dictate',
+    label: 'Start Dictation',
+    description: 'Dictate at the cursor. Press again or Enter to insert the text; Escape cancels. Speech is recognized on this Mac.',
+    keywords: ['dictation', 'dictate', 'voice', 'speech', 'microphone', 'transcribe'],
+    category: 'note',
+    scope: 'editor',
+    defaultKeybinding: 'mod+shift+d',
+    shortcut: '⇧⌘D',
+    menuAccelerator: 'CmdOrCtrl+Shift+D',
+    getDisabledReason: requireSelectedNote,
+  },
+  {
     id: 'attach-image',
     label: 'Attach Image...',
     description: 'Insert an image attachment at the current cursor.',

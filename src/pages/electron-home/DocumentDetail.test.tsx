@@ -41,6 +41,7 @@ vi.mock('@/components/MarkdownEditor', async () => {
         getSelection: vi.fn(() => ({ from: 0, to: 0, text: '' })),
         replaceRange: vi.fn(() => true),
         openAiMenu: vi.fn(() => false),
+        toggleDictation: vi.fn(() => false),
         openSearch: markdownEditorOpenSearch,
       }) : null);
 

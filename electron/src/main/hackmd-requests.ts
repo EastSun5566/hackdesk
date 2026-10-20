@@ -45,6 +45,9 @@ export function createHackmdRequests(label = 'HackMD') {
         if (entry.pending.get(id) === controller) entry.pending.delete(id);
       }
     },
+    owns(owner: WebContents, requestId: string) {
+      return owners.get(owner)?.pending.has(requestId) ?? false;
+    },
     cancel(owner: WebContents, requestId: string) {
       owners.get(owner)?.pending.get(requestId)?.abort();
     },

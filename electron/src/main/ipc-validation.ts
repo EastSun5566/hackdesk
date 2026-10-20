@@ -82,6 +82,7 @@ const electronActionIdSchema = z.enum([
   'find-in-note',
   'attach-image',
   'ai-assist',
+  'dictate',
   'export-note-markdown',
   'import-markdown-note',
   'open-note-web-editor',
@@ -140,6 +141,8 @@ const pinnedTeamIdsSchema = z.array(nonEmptyStringSchema).nullable().refine(
 
 const aiProviderIdSchema = z.enum(['codex', 'claude']);
 const aiDeliverySchema = z.enum(['replace', 'insert-below']);
+/** A BCP 47 tag such as zh-TW; the helper checks it against the languages macOS supports. */
+const dictationLocaleSchema = z.string().regex(/^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8}){0,4}$/).max(35);
 const aiProviderSettingsSchema = z.strictObject({
   enabled: z.boolean(),
   model: z.string().trim().min(1).max(200).nullable(),
@@ -179,9 +182,23 @@ export const settingsUpdateSchema = z.strictObject({
       delivery: aiDeliverySchema,
     })).max(50).refine(commands => new Set(commands.map(command => command.id)).size === commands.length, 'Command IDs must be unique.'),
   }).optional(),
+  dictation: z.strictObject({
+    enabled: z.boolean(),
+    locale: dictationLocaleSchema.nullable(),
+  }).optional(),
 });
 
 export const aiProviderIdInputSchema = aiProviderIdSchema;
+
+export const dictationStartInputSchema = z.strictObject({
+  requestId: z.uuid(),
+  locale: dictationLocaleSchema.nullable(),
+});
+
+export const dictationInstallInputSchema = z.strictObject({
+  requestId: z.uuid(),
+  locale: dictationLocaleSchema,
+});
 
 export const aiTurnInputSchema = z.strictObject({
   requestId: z.uuid(),

@@ -1,5 +1,5 @@
 import { app, clipboard, dialog, ipcMain as electronIpcMain, shell } from 'electron';
-import type { IpcMainInvokeEvent, MessageBoxOptions } from 'electron';
+import type { IpcMainInvokeEvent, MessageBoxOptions, WebContents } from 'electron';
 import { join } from 'node:path';
 
 import type {
@@ -37,6 +37,7 @@ import type {
   LocalVaultTrashNoteInput,
   LocalVaultWriteInput,
 } from '../../../src/lib/local-vault';
+import type { DictationEvent } from '../../../src/lib/dictation';
 import { ELECTRON_CHANNELS } from '../shared/channels';
 import {
   createFolder,
@@ -82,6 +83,7 @@ import {
 } from './hackmd-service';
 import { getSafeSettings, readHackmdCliAccessToken, readStoredSettings, updateStoredSettings } from './settings';
 import { createAiService } from './ai/ai-service';
+import { createDictationService, locateSpeechHelper } from './dictation/dictation-service';
 import { getHackDeskRootPath } from './paths';
 import {
   createLocalFolder,
@@ -113,6 +115,8 @@ import { exportDebugLogs, recordFatalRendererError } from './logging';
 import {
   aiProviderIdInputSchema,
   aiTurnInputSchema,
+  dictationInstallInputSchema,
+  dictationStartInputSchema,
   confirmDialogOptionsSchema,
   createFolderInputSchema,
   createNoteInputSchema,
@@ -218,6 +222,34 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.aiCancelTurn, (event, requestId) => {
     const metadata = validateIpcInput(ELECTRON_CHANNELS.aiCancelTurn, hackmdRequestOptionsSchema, { requestId })!;
     aiTurns.cancel(event.sender, metadata.requestId);
+  });
+  const dictation = createDictationService(() => locateSpeechHelper(app));
+  // Recordings and downloads belong to the window that started them, like AI turns.
+  const dictationRequests = createHackmdRequests('Dictation');
+  const sendDictationEvent = (sender: WebContents, requestId: string) => (event: DictationEvent) => {
+    if (!sender.isDestroyed()) sender.send(ELECTRON_CHANNELS.dictationEvent, { requestId, event });
+  };
+  ipcMain.handle(ELECTRON_CHANNELS.dictationStatus, () => dictation.status());
+  ipcMain.handle(ELECTRON_CHANNELS.dictationInstall, (event, input) => {
+    const { requestId, locale } = validateIpcInput(ELECTRON_CHANNELS.dictationInstall, dictationInstallInputSchema, input);
+    const send = sendDictationEvent(event.sender, requestId);
+    return dictationRequests.run(event.sender, requestId, signal => (
+      dictation.install(locale, signal, fraction => send({ type: 'progress', fraction }))
+    ));
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.dictationStart, (event, input) => {
+    const { requestId, locale } = validateIpcInput(ELECTRON_CHANNELS.dictationStart, dictationStartInputSchema, input);
+    return dictationRequests.run(event.sender, requestId, signal => (
+      dictation.start(requestId, locale, signal, sendDictationEvent(event.sender, requestId))
+    ));
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.dictationStop, (event, requestId) => {
+    const metadata = validateIpcInput(ELECTRON_CHANNELS.dictationStop, hackmdRequestOptionsSchema, { requestId })!;
+    if (dictationRequests.owns(event.sender, metadata.requestId)) dictation.stop(metadata.requestId);
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.dictationCancel, (event, requestId) => {
+    const metadata = validateIpcInput(ELECTRON_CHANNELS.dictationCancel, hackmdRequestOptionsSchema, { requestId })!;
+    dictationRequests.cancel(event.sender, metadata.requestId);
   });
   let localVaultWatcher: LocalVaultWatcher | null = null;
   let watchedLocalVaultPath: string | null = null;
@@ -669,6 +701,8 @@ export function registerIpcHandlers(
       requests.dispose();
       aiTurns.dispose();
       ai.dispose();
+      dictationRequests.dispose();
+      dictation.dispose();
       closeLocalVaultWatcher(true);
     },
   };
