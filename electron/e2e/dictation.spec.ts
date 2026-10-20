@@ -1,4 +1,4 @@
-import { _electron as electron, expect, test } from '@playwright/test';
+import { _electron as electron, expect, test, type Page } from '@playwright/test';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -36,10 +36,20 @@ async function launch() {
   return { app, page };
 }
 
+/** Presses the shortcut and, when no recording appears, says what happened instead. */
+async function startDictation(page: Page) {
+  await page.keyboard.press(`${mod}+Shift+d`);
+  const notifications = page.getByLabel('Notifications', { exact: true });
+  const inserted = page.locator('.cm-line', { hasText: 'Second line.' });
+  await expect(page.locator('.cm-dictation-pill').or(notifications.getByRole('status')).or(inserted).first()).toBeVisible();
+  expect(await notifications.innerText(), 'an error toast').toBe('');
+  await expect(inserted, 'stopped at once, as if pressed twice').toHaveCount(0);
+}
+
 test('dictation shows what it hears, then inserts it in one undoable edit', async () => {
   const { app, page } = await launch();
   try {
-    await page.keyboard.press(`${mod}+Shift+d`);
+    await startDictation(page);
     // Heard words show at the cursor; the note itself is unchanged until the recording ends.
     await expect(page.locator('.cm-dictation-text')).toHaveText(' Hello world. Second');
     await expect(page.locator('.cm-dictation-pill')).toContainText('Esc to cancel');
@@ -59,7 +69,7 @@ test('dictation shows what it hears, then inserts it in one undoable edit', asyn
 test('Escape cancels dictation without touching the note', async () => {
   const { app, page } = await launch();
   try {
-    await page.keyboard.press(`${mod}+Shift+d`);
+    await startDictation(page);
     await expect(page.locator('.cm-dictation-text')).toHaveText(' Hello world. Second');
     await page.keyboard.press('Escape');
     await expect(page.locator('.cm-dictation-pill')).toHaveCount(0);
