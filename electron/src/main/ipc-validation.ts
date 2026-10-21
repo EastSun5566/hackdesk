@@ -203,7 +203,7 @@ export const dictationInstallInputSchema = z.strictObject({
 export const aiTurnInputSchema = z.strictObject({
   requestId: z.uuid(),
   providerId: aiProviderIdSchema,
-  action: z.enum(['fix', 'improve', 'shorter', 'longer', 'translate', 'summarize', 'continue', 'custom']),
+  action: z.enum(['fix', 'improve', 'shorter', 'longer', 'translate', 'summarize', 'continue', 'cleanup', 'custom']),
   text: z.string().min(1).max(200_000),
   noteTitle: z.string().max(500).optional(),
   targetLanguage: z.string().trim().max(64).optional(),

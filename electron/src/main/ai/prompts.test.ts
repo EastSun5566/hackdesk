@@ -21,6 +21,13 @@ describe('AI prompts', () => {
     expect(AI_SYSTEM_PROMPT).toContain('Only the <selection> may change');
   });
 
+  it('cleans up dictation without changing its language or adding to it', () => {
+    const prompt = buildAiPrompt({ ...base, action: 'cleanup', text: '嗯 那個 我們明天開會' });
+    expect(prompt).toContain('dictated by voice');
+    expect(prompt).toContain("Keep the speaker's wording, meaning and language");
+    expect(aiTurnInputSchema.safeParse({ ...base, action: 'cleanup' }).success).toBe(true);
+  });
+
   it('quotes a custom request so it stays the user\'s words', () => {
     expect(buildAiPrompt({ ...base, action: 'custom', instruction: 'say "hi"' })).toContain('"say \\"hi\\""');
     expect(buildAiPrompt({ ...base, action: 'translate', targetLanguage: 'Japanese' })).toContain('into Japanese');

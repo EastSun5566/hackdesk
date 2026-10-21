@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { DictationEvent } from '@/lib/dictation';
 
-import { dictation, getDictationState, joinDictation, toggleDictation, type DictationHost } from './extension';
+import { dictation, getDictationState, isDictatedRange, joinDictation, toggleDictation, type DictationHost } from './extension';
 
 type Callbacks = Parameters<DictationHost['start']>[0];
 
@@ -105,6 +105,33 @@ describe('dictation', () => {
     view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', keyCode: 68, ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }));
     expect(recording.stop).toHaveBeenCalledOnce();
     expect(view.state.selection.ranges).toHaveLength(1);
+    view.destroy();
+  });
+
+  it('remembers the inserted text for ⌘K until it is edited', () => {
+    const { view, host, callbacks } = setup('Notes:');
+    const record = (text: string) => {
+      toggleDictation(view, host);
+      toggleDictation(view, host);
+      callbacks().onDone(text);
+    };
+    record('Hello there.');
+    const dictated = () => {
+      const { from, to } = view.state.selection.main;
+      return isDictatedRange(view.state, from, to);
+    };
+    expect(dictated()).toBe(true);
+
+    // Typing before it moves the range along.
+    view.dispatch({ changes: { from: 0, insert: '# ' } });
+    const { from, to } = view.state.selection.main;
+    expect(view.state.sliceDoc(from, to)).toBe('Hello there.');
+    expect(isDictatedRange(view.state, from, to)).toBe(true);
+    expect(isDictatedRange(view.state, from, to - 1)).toBe(false);
+
+    // Editing inside it forgets it.
+    view.dispatch({ changes: { from: from + 5, insert: ',' } });
+    expect(isDictatedRange(view.state, from, to + 1)).toBe(false);
     view.destroy();
   });
 

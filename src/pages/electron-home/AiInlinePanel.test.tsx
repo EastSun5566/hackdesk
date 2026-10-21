@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { aiInline, openAiInlineMenu, type AiInlineHost } from '@/components/hackmd-live-preview/ai-inline/extension';
 import { finishAiInlineRun, getAiInlineState, startAiInlineRun } from '@/components/hackmd-live-preview/ai-inline/state';
+import { dictation, toggleDictation, type DictationHost } from '@/components/hackmd-live-preview/dictation/extension';
 
 import { defaultSettings } from '@/lib/settings';
 
@@ -52,6 +53,45 @@ afterEach(() => {
 });
 
 describe('AiInlinePanel', () => {
+  it('offers to clean up text just dictated first, once', () => {
+    let finish: ((text: string | null) => void) | undefined;
+    const recorder: DictationHost = {
+      start: ({ onDone }) => {
+        finish = onDone;
+        return { stop: () => undefined, cancel: () => undefined };
+      },
+      shortcutLabel: () => '',
+      isShortcut: () => false,
+    };
+    view = new EditorView({
+      parent: document.body.appendChild(document.createElement('div')),
+      state: EditorState.create({ doc: 'Notes:', selection: { anchor: 6 }, extensions: [aiInline(host), dictation(recorder)] }),
+    });
+    toggleDictation(view, recorder);
+    toggleDictation(view, recorder);
+    finish!('um so the meeting is moved');
+    openAiInlineMenu(view, host);
+    const controller: AiInlineController = {
+      providers: ['claude'], providerId: 'claude', setProviderId: vi.fn(), translateLanguage: 'English',
+      customCommands: [], isTeamNote: false, run: vi.fn(), retry: vi.fn(), lastRun: null,
+    };
+    const { unmount } = render(<AiInlinePanel view={view} session={getAiInlineState(view.state)} controller={controller} />);
+    const options = screen.getAllByRole('option');
+    expect(options[0]).toHaveTextContent('Clean up dictation');
+    expect(screen.getAllByText('Clean up dictation')).toHaveLength(1);
+    fireEvent.click(options[0]!);
+    expect(controller.run).toHaveBeenCalledWith(view, { action: 'cleanup' });
+    unmount();
+  });
+
+  it('lists Clean up dictation last among the edits for other text', () => {
+    const { renderPanel } = setup();
+    renderPanel();
+    const options = screen.getAllByRole('option');
+    expect(options[0]).toHaveTextContent('Fix spelling & grammar');
+    expect(options.at(-1)).toHaveTextContent('Clean up dictation');
+  });
+
   it('runs a command from the menu and offers the typed text as a custom request', () => {
     const { view, controller, renderPanel } = setup();
     renderPanel();

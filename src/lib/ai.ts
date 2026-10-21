@@ -2,7 +2,7 @@
 export const AI_PROVIDER_IDS = ['codex', 'claude'] as const;
 export type AiProviderId = typeof AI_PROVIDER_IDS[number];
 
-export const AI_ACTIONS = ['fix', 'improve', 'shorter', 'longer', 'translate', 'summarize', 'continue', 'custom'] as const;
+export const AI_ACTIONS = ['fix', 'improve', 'shorter', 'longer', 'translate', 'summarize', 'continue', 'cleanup', 'custom'] as const;
 export type AiAction = typeof AI_ACTIONS[number];
 
 /** Rewrites replace the text they were given; Summarize and Continue add a new paragraph after it. */
@@ -23,6 +23,7 @@ export const AI_ACTION_DETAILS: Record<AiAction, AiActionDetails> = {
   translate: { label: 'Translate', progressLabel: 'Translating…', delivery: 'replace', keywords: ['translate', 'language'] },
   summarize: { label: 'Summarize', progressLabel: 'Summarizing…', delivery: 'insert-below', keywords: ['summarize', 'summary', 'tldr'] },
   continue: { label: 'Continue writing', progressLabel: 'Writing…', delivery: 'insert-below', keywords: ['continue', 'write', 'next'] },
+  cleanup: { label: 'Clean up dictation', progressLabel: 'Cleaning up…', delivery: 'replace', keywords: ['dictation', 'transcript', 'voice', 'speech', 'filler', 'clean', 'tidy'] },
   custom: { label: 'Ask AI', progressLabel: 'Working…', delivery: 'replace', keywords: [] },
 };
 
