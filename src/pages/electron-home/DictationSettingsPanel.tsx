@@ -126,7 +126,7 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
     <div className="space-y-6">
       <SettingsSection
         title="Dictation"
-        description="Press ⇧⌘D in a note to dictate at the cursor, then ⇧⌘D or Enter to insert the text. macOS recognizes speech on this Mac; the audio is never saved or sent anywhere."
+        description="Press ⇧⌘D in a note to dictate at the cursor, then ⇧⌘D or Enter to insert the text. Press ⌘K right after to clean it up with AI. macOS recognizes speech on this Mac; the audio is never saved or sent anywhere."
       >
         {error ? <p role="alert" className="text-sm text-destructive-default">{error}</p> : null}
         {!status || !settings ? (

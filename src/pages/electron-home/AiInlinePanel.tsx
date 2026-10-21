@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { toast } from '@/components/ui/toast';
 import { acceptAiInline, closeAiInline, getAiInlineState, type AiInlineState } from '@/components/hackmd-live-preview/ai-inline/state';
+import { isDictatedRange } from '@/components/hackmd-live-preview/dictation/extension';
 import {
   AI_ACTION_DETAILS,
   AI_PROVIDER_TITLES,
@@ -21,7 +22,7 @@ import { createAiCustomCommand, updateAiCustomCommands } from './ai-commands';
 import type { AiInlineController, AiInlineRun } from './useAiInline';
 import { writeClipboardText } from './useDocumentCommands';
 
-const MENU_ACTIONS: AiAction[] = ['fix', 'improve', 'shorter', 'longer', 'translate', 'summarize', 'continue'];
+const MENU_ACTIONS: AiAction[] = ['fix', 'improve', 'shorter', 'longer', 'translate', 'summarize', 'continue', 'cleanup'];
 const PANEL_CLASS = 'rounded-lg border border-border-default bg-background-default text-text-default shadow-lg';
 
 /** Clicking a panel button must not take focus from the editor, whose keys accept and discard. */
@@ -39,6 +40,9 @@ function AiMenu({ view, session, controller }: { view: EditorView; session: AiIn
   const instruction = query.trim().slice(0, MAX_AI_INSTRUCTION_CHARACTERS);
   const scope = session.from === 0 && session.to === view.state.doc.length ? 'the whole note' : 'the selection';
   const provider = controller.providerId;
+  // Text just dictated is offered its cleanup first, so ⌘K then Enter runs it.
+  const dictated = isDictatedRange(view.state, session.from, session.to);
+  const actions = dictated ? MENU_ACTIONS.filter(action => action !== 'cleanup') : MENU_ACTIONS;
 
   const handleKeyDown = (event: KeyboardEvent) => {
     // The workbench and the editor both listen for Escape; this one only closes the menu.
@@ -75,6 +79,17 @@ function AiMenu({ view, session, controller }: { view: EditorView; session: AiIn
           placeholder="Ask AI or pick a command…"
         />
         <CommandList>
+          {dictated ? (
+            <CommandGroup heading="Dictation">
+              <CommandItem
+                value={AI_ACTION_DETAILS.cleanup.label}
+                keywords={AI_ACTION_DETAILS.cleanup.keywords}
+                onSelect={() => controller.run(view, { action: 'cleanup' })}
+              >
+                {AI_ACTION_DETAILS.cleanup.label}
+              </CommandItem>
+            </CommandGroup>
+          ) : null}
           {controller.customCommands.length > 0 ? (
             <CommandGroup heading="Your commands">
               {controller.customCommands.map(command => (
@@ -97,7 +112,7 @@ function AiMenu({ view, session, controller }: { view: EditorView; session: AiIn
             </CommandGroup>
           ) : null}
           <CommandGroup heading={`Edit ${scope}`}>
-            {MENU_ACTIONS.map((action) => {
+            {actions.map((action) => {
               const details = AI_ACTION_DETAILS[action];
               const label = action === 'translate' ? `Translate to ${controller.translateLanguage}` : details.label;
               return (

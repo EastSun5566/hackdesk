@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+import { createFakeCli } from '../src/main/ai/fake-cli-fixtures';
 import { createFakeSpeechHelper } from '../src/main/dictation/fake-speech-helper';
 import { defaultSettings } from '../../src/lib/settings';
 import { definedEnvironment } from './fixtures/environment';
@@ -11,18 +12,27 @@ const repoRoot = resolve(import.meta.dirname, '../..');
 const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
 
 /** Opens HackDesk on a one-note vault with dictation on, backed by a fake helper that hears "Hello world. Second line." */
-async function launch() {
+async function launch({ withAi = false } = {}) {
   const home = await mkdtemp(join(tmpdir(), 'hackdesk-dictation-'));
   const vault = join(home, 'vault');
   await mkdir(join(home, '.hackdesk'), { recursive: true });
   await mkdir(vault);
   await writeFile(join(vault, 'Draft.md'), '# Draft\n\nNotes:\n');
   const fake = await createFakeSpeechHelper();
+  // A fake `claude` that answers "Hello", for cleaning up what was dictated.
+  const claude = withAi ? await createFakeCli('claude') : null;
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
     ...defaultSettings,
     localVault: { path: vault },
     onboarding: { hackmdTokenSetupDeferred: true },
     dictation: { enabled: true, locale: 'en-US' },
+    ...(claude ? {
+      ai: {
+        ...defaultSettings.ai,
+        providers: { ...defaultSettings.ai.providers, claude: { ...defaultSettings.ai.providers.claude, enabled: true, commandPath: claude.executable } },
+        defaultProvider: 'claude',
+      },
+    } : {}),
   }));
   const env = { ...definedEnvironment(process.env) };
   delete env.ELECTRON_RUN_AS_NODE;
@@ -73,6 +83,33 @@ test('Escape cancels dictation without touching the note', async () => {
     await expect(page.locator('.cm-dictation-text')).toHaveText(' Hello world. Second');
     await page.keyboard.press('Escape');
     await expect(page.locator('.cm-dictation-pill')).toHaveCount(0);
+    await expect(page.locator('.cm-line', { hasText: 'Notes:' })).toHaveText('Notes:');
+  } finally {
+    await app.close();
+  }
+});
+
+test('⌘K right after dictating offers to clean it up first', async () => {
+  const { app, page } = await launch({ withAi: true });
+  try {
+    await startDictation(page);
+    await expect(page.locator('.cm-dictation-text')).toHaveText(' Hello world. Second');
+    await page.keyboard.press(`${mod}+Shift+d`);
+    await expect(page.locator('.cm-line', { hasText: 'Notes:' })).toHaveText('Notes: Hello world. Second line.');
+
+    await page.keyboard.press(`${mod}+k`);
+    const menu = page.getByRole('dialog', { name: 'Ask AI' });
+    await expect(menu.getByRole('option').first()).toHaveText('Clean up dictation');
+    await page.keyboard.press('Enter');
+    // The fake answers "Hello", previewed as the rest struck out; the note is unchanged until accepted.
+    await expect(page.locator('.cm-ai-deleted').first()).toBeVisible();
+    await expect(page.locator('.cm-content')).toContainText('Hello world. Second line.');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.cm-line', { hasText: 'Notes:' })).toHaveText('Notes: Hello');
+
+    await page.keyboard.press(`${mod}+z`);
+    await expect(page.locator('.cm-line', { hasText: 'Notes:' })).toHaveText('Notes: Hello world. Second line.');
+    await page.keyboard.press(`${mod}+z`);
     await expect(page.locator('.cm-line', { hasText: 'Notes:' })).toHaveText('Notes:');
   } finally {
     await app.close();

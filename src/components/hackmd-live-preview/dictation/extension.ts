@@ -74,6 +74,31 @@ export const dictationField = StateField.define<DictationState>({
   },
 });
 
+const markDictated = StateEffect.define<{ from: number; to: number }>();
+
+/** The text the last recording wrote, so ⌘K can offer to clean it up; forgotten once it is edited. */
+const lastDictationField = StateField.define<{ from: number; to: number } | null>({
+  create: () => null,
+  update(range, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(markDictated)) return effect.value;
+      if (effect.is(beginDictation)) return null;
+    }
+    if (!range || !tr.docChanged) return range;
+    let touched = false;
+    tr.changes.iterChangedRanges((from, to) => {
+      if ((from < range.to && to > range.from) || (from === to && from > range.from && from < range.to)) touched = true;
+    });
+    return touched ? null : { from: tr.changes.mapPos(range.from, 1), to: tr.changes.mapPos(range.to, -1) };
+  },
+});
+
+/** Whether `from..to` is exactly the text the last recording inserted, unedited since. */
+export function isDictatedRange(state: EditorState, from: number, to: number) {
+  const range = state.field(lastDictationField, false);
+  return Boolean(range && to > from && range.from === from && range.to === to);
+}
+
 export function getDictationState(state: EditorState) {
   return state.field(dictationField, false) ?? IDLE_DICTATION;
 }
@@ -116,7 +141,7 @@ function insertDictation(view: EditorView, session: number, text: string) {
   view.dispatch({
     changes: { from, to, insert: joined.insert },
     selection: { anchor, head: anchor + joined.length },
-    effects: endDictation.of(null),
+    effects: [endDictation.of(null), markDictated.of({ from: anchor, to: anchor + joined.length })],
     annotations: Transaction.userEvent.of('input.dictation'),
     scrollIntoView: true,
   });
@@ -368,6 +393,7 @@ const dictationTheme = EditorView.baseTheme({
 export function dictation(host: DictationHost): Extension {
   return [
     dictationField,
+    lastDictationField,
     EditorView.decorations.compute([dictationField], state => buildDecorations(state, host)),
     dictationKeymap(host),
     cancelOnDestroy,

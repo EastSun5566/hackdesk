@@ -18,6 +18,13 @@ const ACTION_INSTRUCTIONS: Record<AiAction, (input: AiTurnInput) => string> = {
   longer: () => `Expand the selection with more detail and explanation, matching its tone. ${KEEP_FORMAT}`,
   translate: input => `Translate the selection into ${input.targetLanguage?.trim() || 'English'}. Keep Markdown structure, links and code blocks unchanged.`,
   summarize: () => 'Summarize the selection as concise Markdown bullet points, in the same language as the selection.',
+  cleanup: () => [
+    'The selection was dictated by voice. Clean it up into written text:',
+    'remove filler words and false starts (such as "um", "uh", "you know", 嗯, 呃, 那個, 就是),',
+    'fix punctuation and capitalization, and correct words that were clearly misheard given the context.',
+    'Break it into paragraphs or a list only where the speaker clearly meant that.',
+    `Keep the speaker's wording, meaning and language; do not add, answer or summarize anything. ${KEEP_FORMAT}`,
+  ].join(' '),
   continue: () => 'Continue writing from where the selection ends. Reply with only the new text that should follow it, matching its tone, language and Markdown style.',
   custom: input => input.delivery === 'insert-below'
     ? `Apply this request to the selection and reply with only the new text to add after it: ${JSON.stringify(input.instruction?.trim() ?? '')}`
