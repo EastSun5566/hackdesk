@@ -23,5 +23,9 @@
   "ignoreDependencies": [
     "tailwindcss",
     "tailwindcss-animate"
+  ],
+  "ignoreBinaries": [
+    "xcrun",
+    "lipo"
   ]
 }

@@ -17,6 +17,7 @@ import { defaultSettings } from '@/lib/settings';
 
 import { AdvancedSettingsPanel } from './AdvancedSettingsPanel';
 import { AiSettingsPanel } from './AiSettingsPanel';
+import { DictationSettingsPanel } from './DictationSettingsPanel';
 import { AppearanceSettingsPanel } from './AppearanceSettingsPanel';
 import { EditorSettingsPanel } from './EditorSettingsPanel';
 import { GeneralSettingsPanel } from './GeneralSettingsPanel';
@@ -350,6 +351,10 @@ function SettingsDialogContent({
 
                 <TabsContent data-settings-tab="ai" value="ai" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <AiSettingsPanel active={open && activeTab === 'ai'} />
+                </TabsContent>
+
+                <TabsContent data-settings-tab="dictation" value="dictation" keepMounted className={SETTINGS_PANEL_CLASS}>
+                  <DictationSettingsPanel active={open && activeTab === 'dictation'} />
                 </TabsContent>
 
                 <TabsContent data-settings-tab="advanced" value="advanced" keepMounted className={SETTINGS_PANEL_CLASS}>

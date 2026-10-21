@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { EditorView } from '@codemirror/view';
 
 import type { AiInlineState } from '@/components/hackmd-live-preview/ai-inline/state';
+import type { DictationHost } from '@/components/hackmd-live-preview/dictation/extension';
 import type { EditorMode } from '@/lib/settings';
 import type { LocalImageContext } from '@/lib/local-image';
 
@@ -16,6 +17,8 @@ export type MarkdownEditorHandle = {
   replaceRange: (from: number, to: number, expected: string, text: string) => boolean;
   /** Opens the inline AI menu on the selection, or on the whole note; false when AI is unavailable. */
   openAiMenu: () => boolean;
+  /** Starts dictating at the selection, or stops and inserts; false when dictation is unavailable. */
+  toggleDictation: () => boolean;
   openSearch: () => void;
   revealText: (query: string) => boolean;
   /** Highlights `[from, to)` if it still holds `expectedText`, else the first match of `expectedText`. */
@@ -30,8 +33,17 @@ export type MarkdownEditorAi = {
   onSessionChange?: (session: AiInlineState, view: EditorView) => void;
 };
 
+/** Dictation is owned by the page: the editor shows what is heard and inserts the transcript. */
+export type MarkdownEditorDictation = {
+  start: DictationHost['start'];
+  /** The current Start Dictation shortcut, such as "⇧⌘D". */
+  shortcutLabel: string;
+  isShortcut: DictationHost['isShortcut'];
+};
+
 export type MarkdownEditorProps = {
   ai?: MarkdownEditorAi | null;
+  dictation?: MarkdownEditorDictation | null;
   localImageContext?: LocalImageContext | null;
   editorMode?: EditorMode;
   initialRevealText?: string | null;

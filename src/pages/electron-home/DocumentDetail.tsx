@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/MarkdownEditor';
-import type { MarkdownEditorAi } from '@/components/markdown-editor-types';
+import type { MarkdownEditorAi, MarkdownEditorDictation } from '@/components/markdown-editor-types';
 import type { LocalImageContext } from '@/lib/local-image';
 import {
   DropdownMenu,
@@ -48,6 +48,7 @@ import { createImageUploadPlaceholder } from '@/components/hackmd-live-preview/m
 import { EmptyState, PanelHeader, PanelShell, ToolbarDropdownMoreTrigger, ToolbarIconButton } from './interaction-primitives';
 import { NoteInspector } from './NoteInspector';
 import { useAiInline } from './useAiInline';
+import { useDictation } from './useDictation';
 import { NoteVersionsDialog } from './NoteVersionsDialog';
 import { ShareDialog } from './ShareDialog';
 import {
@@ -79,6 +80,7 @@ export type DocumentDetailDocumentState = {
 
 export type DocumentDetailLayout = {
   aiAssistRequestId?: number;
+  dictateRequestId?: number;
   attachImageRequestId: number;
   onRequestHandled?: (id: number) => void;
   focusZone?: string | null;
@@ -318,12 +320,19 @@ function ActiveDocumentDetail({
   const lastHandledFocusRequestRef = useRef(0);
   const lastHandledSearchRequestRef = useRef(0);
   const lastHandledAiAssistRequestRef = useRef(0);
+  const lastHandledDictateRequestRef = useRef(0);
   const [actionsOpen, setActionsOpen] = useState(false);
   const isTeamNote = Boolean(documentState.document?.teamPath) && documentState.document?.teamPath !== LOCAL_VAULT_TEAM_PATH;
   const ai = useAiInline({ noteTitle: documentState.title, isTeamNote });
   const openAiAssist = useCallback((handle: MarkdownEditorHandle) => {
     if (!handle.openAiMenu()) toast.error('Turn on Codex or Claude in Settings › AI to use AI in the editor.');
   }, []);
+  const dictation = useDictation();
+  const hasDictation = Boolean(dictation);
+  const toggleDictation = useCallback((handle: MarkdownEditorHandle) => {
+    if (!hasDictation) toast.error('Dictation is available in the HackDesk desktop app on macOS 26 or later.');
+    else handle.toggleDictation();
+  }, [hasDictation]);
   const inspectorPanelId = layout.inspectorPanelId ?? NOTE_INSPECTOR_PANEL_ID;
   const noteDirty = documentState.isDraft
     || (documentState.document
@@ -355,7 +364,16 @@ function ActiveDocumentDetail({
       onRequestHandled?.(aiAssistRequestId);
       openAiAssist(handle);
     }
-  }, [layout.focusRequestId, layout.searchRequestId, layout.attachImageRequestId, layout.aiAssistRequestId, onRequestHandled, openAiAssist]);
+    const dictateRequestId = layout.dictateRequestId ?? 0;
+    if (dictateRequestId > lastHandledDictateRequestRef.current) {
+      lastHandledDictateRequestRef.current = dictateRequestId;
+      onRequestHandled?.(dictateRequestId);
+      toggleDictation(handle);
+    }
+  }, [
+    layout.focusRequestId, layout.searchRequestId, layout.attachImageRequestId, layout.aiAssistRequestId, layout.dictateRequestId,
+    onRequestHandled, openAiAssist, toggleDictation,
+  ]);
   // Anchors point at the saved note; revealRange falls back to the excerpt when unsaved edits moved it.
   const revealComment = useCallback((comment: NoteComment) => {
     const editor = editorRef.current;
@@ -455,6 +473,7 @@ function ActiveDocumentDetail({
           content={documentState.content}
           editorMode={editorMode}
           ai={ai}
+          dictation={dictation}
           onAttachImage={actions.onAttachImage}
           onContentChange={actions.onContentChange}
           onOpenExternal={actions.onOpenExternal}
@@ -810,6 +829,7 @@ function DocumentActionsMenu({
 
 function DocumentBody({
   ai,
+  dictation,
   localImageContext,
   content,
   editorMode,
@@ -819,6 +839,7 @@ function DocumentBody({
   setEditorRef,
 }: {
   ai: MarkdownEditorAi | null;
+  dictation: MarkdownEditorDictation | null;
   localImageContext: LocalImageContext | null;
   content: string;
   editorMode: EditorMode;
@@ -831,6 +852,7 @@ function DocumentBody({
     <MarkdownEditor
       ref={setEditorRef}
       ai={ai}
+      dictation={dictation}
       localImageContext={localImageContext}
       editorMode={editorMode}
       value={content}

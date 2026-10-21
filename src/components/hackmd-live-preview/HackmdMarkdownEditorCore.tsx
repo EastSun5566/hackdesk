@@ -19,7 +19,7 @@ import {
 } from '@codemirror/view';
 import { inlineAttachmentExtension } from 'inline-attacher';
 
-import type { MarkdownEditorAi, MarkdownEditorHandle, MarkdownEditorProps } from '@/components/markdown-editor-types';
+import type { MarkdownEditorAi, MarkdownEditorDictation, MarkdownEditorHandle, MarkdownEditorProps } from '@/components/markdown-editor-types';
 import { useTheme } from '@/components/theme-provider';
 import { registerEditorNavigationKeymap } from '@/lib/editor-navigation-keymap';
 import type { EditorMode } from '@/lib/settings';
@@ -28,6 +28,7 @@ import type { LocalImageContext } from '@/lib/local-image';
 
 import { aiInline, formatAiShortcut, openAiInlineMenu, type AiInlineHost } from './ai-inline/extension';
 import { getAiInlineTarget, IDLE_AI_INLINE, type AiInlineState } from './ai-inline/state';
+import { dictation as dictationExtension, toggleDictation, type DictationHost } from './dictation/extension';
 import { hackmdCodeLanguages } from './hackmd-code-languages';
 import { hfmBlocks, setLocalImageContext } from './hfm-blocks';
 import { hackmdTables } from './hackmd-tables';
@@ -160,6 +161,7 @@ type CreateEditorViewOptions = {
   parent: HTMLDivElement;
   runtime: EditorRuntime;
   aiHost: AiInlineHost;
+  dictationHost: DictationHost;
   onAttachImageRef: LatestRef<MarkdownEditorProps['onAttachImage']>;
   onChangeRef: LatestRef<MarkdownEditorProps['onChange']>;
   onOpenLinkRef: LatestRef<MarkdownEditorProps['onOpenLink']>;
@@ -248,6 +250,7 @@ function createHackmdEditorView({
   parent,
   runtime,
   aiHost,
+  dictationHost,
   onAttachImageRef,
   onChangeRef,
   onOpenLinkRef,
@@ -263,6 +266,7 @@ function createHackmdEditorView({
         hfmBlocks(runtime.localImageContext),
         hackmdTables(onOpenLinkRef),
         aiInline(aiHost),
+        dictationExtension(dictationHost),
         runtime.themeCompartment.of(createHackmdPreviewTheme(runtime.resolvedMode)),
         inlineAttachmentExtension({
           allowedTypes: ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'],
@@ -308,6 +312,7 @@ function createHackmdEditorView({
 export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, MarkdownEditorProps>(
   function HackmdMarkdownEditorCore({
     ai = null,
+    dictation = null,
     editorMode = 'standard',
     initialRevealText = null,
     localImageContext = null,
@@ -322,6 +327,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
     const onChangeRef = useLatestRef(onChange);
     const onOpenLinkRef = useLatestRef(onOpenLink);
     const aiRef = useLatestRef<MarkdownEditorAi | null>(ai);
+    const dictationRef = useLatestRef<MarkdownEditorDictation | null>(dictation);
     const [runtime] = useState(() => createEditorRuntime(value, editorMode, resolvedMode, localImageContext));
     const [aiPanel, setAiPanel] = useState<{ dom: HTMLElement; view: EditorView } | null>(null);
     const [aiSession, setAiSession] = useState<AiInlineState>(IDLE_AI_INLINE);
@@ -336,6 +342,11 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
         aiRef.current?.onSessionChange?.(session, view);
       },
     }));
+    const [dictationHost] = useState<DictationHost>(() => ({
+      start: callbacks => dictationRef.current?.start(callbacks) ?? null,
+      shortcutLabel: () => dictationRef.current?.shortcutLabel ?? '',
+      isShortcut: event => dictationRef.current?.isShortcut(event) ?? false,
+    }));
     const dragDepthRef = useRef(0);
     const [isImageDragging, setIsImageDragging] = useState(false);
 
@@ -349,6 +360,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
         parent,
         runtime,
         aiHost,
+        dictationHost,
         onAttachImageRef,
         onChangeRef,
         onOpenLinkRef,
@@ -377,7 +389,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
           runtime.appliedResolvedMode = runtime.resolvedMode;
         }
       };
-    }, [aiHost, onAttachImageRef, onChangeRef, onOpenLinkRef, runtime]);
+    }, [aiHost, dictationHost, onAttachImageRef, onChangeRef, onOpenLinkRef, runtime]);
 
     // Publish the handle only after the CodeMirror view is ready.
     useImperativeHandle(ref, () => ({
@@ -434,6 +446,12 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
         view.focus();
         return openAiInlineMenu(view, aiHost, getAiInlineTarget(view.state));
       },
+      toggleDictation() {
+        const view = runtime.view;
+        if (!view || !dictationRef.current) return false;
+        view.focus();
+        return toggleDictation(view, dictationHost);
+      },
       openSearch() {
         const view = runtime.view;
         if (!view) {
@@ -448,7 +466,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
       revealRange(from: number, to: number, expectedText: string) {
         return revealWithRuntime(runtime, (view) => revealExpectedRangeInEditor(view, from, to, expectedText));
       },
-    }), [aiHost, onChangeRef, runtime]);
+    }), [aiHost, dictationHost, dictationRef, onChangeRef, runtime]);
 
     useLayoutEffect(() => {
       const previous = runtime.localImageContext;

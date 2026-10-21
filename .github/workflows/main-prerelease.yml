@@ -98,6 +98,9 @@ jobs:
             fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
           '
       - run: pnpm run build
+        env:
+          # A macOS release without the dictation helper would silently lose dictation.
+          HACKDESK_REQUIRE_SPEECH_HELPER: ${{ matrix.os == 'macos-latest' && '1' || '' }}
       - name: Build unsigned main assets
         shell: bash
         run: |

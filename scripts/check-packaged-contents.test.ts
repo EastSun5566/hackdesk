@@ -38,6 +38,14 @@ it('reads a real ASAR and verifies bundles, renderer, icon and licenses', async 
   expect(result.nodeModulesBytes).toBe(0);
   expect(result.asarBytes).toBeGreaterThan(result.payloadBytes);
 });
+it('requires an executable dictation helper when asked to', async () => {
+  const resources = await fixture();
+  await expect(checkPackagedContents(resources, { requireSpeechHelper: true })).rejects.toThrow('Missing packaged dictation helper');
+  await mkdir(join(resources, 'native'));
+  await writeFile(join(resources, 'native/hackdesk-speech'), '#!/bin/sh\n', { mode: 0o755 });
+  await expect(checkPackagedContents(resources, { requireSpeechHelper: true })).resolves.toMatchObject({ files: expect.any(Number) });
+});
+
 it('rejects copied npm files even when all bundles exist', async () => {
   await expect(checkPackagedContents(await fixture({ 'node_modules/example/index.js': 'duplicate' }))).rejects.toThrow('duplicate bundled dependencies');
 });

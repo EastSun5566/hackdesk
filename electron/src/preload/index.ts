@@ -42,7 +42,19 @@ import type {
   LocalVaultWriteInput,
 } from '../../../src/lib/local-vault';
 import type { AiProviderId, AiTurnDelta, AiTurnInput } from '../../../src/lib/ai';
+import type { DictationEvent, DictationEventMessage, DictationInstallInput, DictationStartInput } from '../../../src/lib/dictation';
 import { ELECTRON_CHANNELS } from '../shared/channels';
+
+/** Passes a request's streamed dictation events to `onEvent` until the request settles. */
+function withDictationEvents<T>(requestId: string, onEvent: (event: DictationEvent) => void, invoke: () => Promise<T>) {
+  const listener = (_event: Electron.IpcRendererEvent, message: DictationEventMessage) => {
+    if (message.requestId === requestId) onEvent(message.event);
+  };
+  ipcRenderer.on(ELECTRON_CHANNELS.dictationEvent, listener);
+  return invoke().finally(() => {
+    ipcRenderer.removeListener(ELECTRON_CHANNELS.dictationEvent, listener);
+  });
+}
 
 const api: HackDeskElectronAPI = {
   getRuntimeEnvironment: () => 'electron',
@@ -148,6 +160,17 @@ const api: HackDeskElectronAPI = {
     },
     cancelTurn: (requestId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.aiCancelTurn, requestId),
     prewarm: (providerId: AiProviderId) => ipcRenderer.invoke(ELECTRON_CHANNELS.aiPrewarm, providerId),
+  },
+  dictation: {
+    status: () => ipcRenderer.invoke(ELECTRON_CHANNELS.dictationStatus),
+    install: (input: DictationInstallInput, onEvent: (event: DictationEvent) => void) => (
+      withDictationEvents(input.requestId, onEvent, () => ipcRenderer.invoke(ELECTRON_CHANNELS.dictationInstall, input))
+    ),
+    start: (input: DictationStartInput, onEvent: (event: DictationEvent) => void) => (
+      withDictationEvents(input.requestId, onEvent, () => ipcRenderer.invoke(ELECTRON_CHANNELS.dictationStart, input))
+    ),
+    stop: (requestId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.dictationStop, requestId),
+    cancel: (requestId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.dictationCancel, requestId),
   },
   localVault: {
     choose: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultChoose),

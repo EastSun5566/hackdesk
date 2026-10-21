@@ -20,6 +20,7 @@ import type {
   LocalVaultWriteInput,
 } from './local-vault';
 import type { AiProviderId, AiProviderStatus, AiTurnInput } from './ai';
+import type { DictationEvent, DictationInstallInput, DictationStartInput, DictationStatus } from './dictation';
 import type { AppSettings } from './settings';
 
 export type RuntimeEnvironment = 'electron' | 'web';
@@ -36,10 +37,11 @@ export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'e
   shortcuts?: AppSettings['shortcuts'];
   keyboardNavigation?: AppSettings['keyboardNavigation'];
   ai?: AppSettings['ai'];
+  dictation?: AppSettings['dictation'];
   shouldShowHackmdOnboarding: boolean;
 };
 
-export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation' | 'keyboardNavigation' | 'ai'>> & {
+export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation' | 'keyboardNavigation' | 'ai' | 'dictation'>> & {
   hackmdApiToken?: string;
 };
 
@@ -389,6 +391,7 @@ export type ElectronActionId =
   | 'find-in-note'
   | 'attach-image'
   | 'ai-assist'
+  | 'dictate'
   | 'export-note-markdown'
   | 'import-markdown-note'
   | 'open-note-web-editor'
@@ -507,6 +510,16 @@ export type HackDeskElectronAPI = {
     runTurn: (input: AiTurnInput, onDelta: (text: string) => void) => Promise<string>;
     cancelTurn: (requestId: string) => Promise<void>;
     prewarm?: (providerId: AiProviderId) => Promise<void>;
+  };
+  /** Optional for renderer hot reloads against an older preload. */
+  dictation?: {
+    status: () => Promise<DictationStatus>;
+    /** Resolves true once installed, or false when cancelled; `onEvent` receives progress. */
+    install: (input: DictationInstallInput, onEvent: (event: DictationEvent) => void) => Promise<boolean>;
+    /** Records until `stop`, then resolves with the transcript; null when cancelled. */
+    start: (input: DictationStartInput, onEvent: (event: DictationEvent) => void) => Promise<string | null>;
+    stop: (requestId: string) => Promise<void>;
+    cancel: (requestId: string) => Promise<void>;
   };
   localVault: {
     choose: () => Promise<ChooseLocalVaultResult>;
