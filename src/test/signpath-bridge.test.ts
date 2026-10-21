@@ -11,7 +11,8 @@ const directories: string[] = [];
 const roles = ['app', 'elevate', 'uninstaller', 'installer'];
 const names = ['HackDesk.exe', 'elevate.exe', 'Uninstall-HackDesk.exe', 'HackDesk-Installer.exe'];
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
-async function fixture(timeoutMs = 1000) {
+// Generous waits: a loaded CI runner can take over a second to write a request or a reply.
+async function fixture(timeoutMs = 10_000) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'signpath-bridge-')));
   directories.push(root);
   const session = { root, output: join(root, 'output'), installer: join(root, 'output', 'HackDesk-test.exe'), nonce: 'run-1', certificateSha256: 'a'.repeat(64) };
@@ -21,7 +22,7 @@ async function fixture(timeoutMs = 1000) {
   async function reply(index: number, changes = {}, mutateInput = false) {
     const directory = join(root, roles[index]);
     const requestFile = join(directory, 'request.json');
-    const deadline = Date.now() + 1000;
+    const deadline = Date.now() + 10_000;
     let request;
     while (!request) {
       try { request = JSON.parse(await readFile(requestFile, 'utf8')); }
