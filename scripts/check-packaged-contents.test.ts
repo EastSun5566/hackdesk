@@ -1,12 +1,15 @@
 import { createRequire } from 'node:module';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
 import { checkPackagedContents } from './check-packaged-contents';
 
 const packagerRequire = createRequire(createRequire(import.meta.resolve('electron-builder')).resolve('app-builder-lib'));
-const { createPackage } = packagerRequire('@electron/asar') as { createPackage(source: string, destination: string): Promise<void> };
+const { createPackage, getRawHeader } = packagerRequire('@electron/asar') as {
+  createPackage(source: string, destination: string): Promise<void>;
+  getRawHeader(archive: string): { headerSize: number };
+};
 const temporary: string[] = [];
 afterEach(async () => { await Promise.all(temporary.splice(0).map(path => rm(path, { recursive: true, force: true }))); });
 
@@ -21,14 +24,22 @@ async function fixture(extra: Record<string, string> = {}, omit?: string) {
     'electron/dist/third-party/packages.json': JSON.stringify([{ name: 'example', version: '1', files: ['example/LICENSE'] }]),
     'electron/dist/third-party/example/LICENSE': 'Original license', LICENSE: 'Project license', ...extra,
   };
+  let payloadBytes = 0;
   for (const [name, value] of Object.entries(files)) {
     if (name === omit) continue;
+    payloadBytes += Buffer.byteLength(value);
     await mkdir(dirname(join(source, name)), { recursive: true });
     await writeFile(join(source, name), value);
   }
   await mkdir(join(resources, 'assets'), { recursive: true });
   await writeFile(join(resources, 'assets/icon.png'), 'icon');
-  await createPackage(source, join(resources, 'app.asar'));
+  const archive = join(resources, 'app.asar');
+  await createPackage(source, archive);
+  // createPackage resolves before its write stream flushes, so wait for the whole archive.
+  const size = 8 + getRawHeader(archive).headerSize + payloadBytes;
+  for (let attempt = 0; attempt < 200 && (await stat(archive)).size < size; attempt += 1) {
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
   return resources;
 }
 
