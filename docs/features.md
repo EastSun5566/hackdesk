@@ -60,6 +60,14 @@ Select text and press **Cmd+K** / **Ctrl+K** to choose a writing action. Review 
 
 Save and reorder your own prompts in **Settings → AI**. AI requests use your CLI provider's service and account limits. They send the selected text, note title, nearby context and instruction to that provider; see [privacy and network behavior](./code-signing-policy.md#privacy-and-network-behavior).
 
+## Dictate
+
+Dictation is available on macOS 26 or later and is off by default. Turn it on in **Settings → Dictation** and choose a language. The first time you use a language, choose **Download**: macOS fetches its speech model from Apple once and shares it with other apps.
+
+In a note, press **Cmd+Shift+D** to dictate at the cursor. What you say appears at the cursor as you speak, but the note changes only when you finish. Press **Cmd+Shift+D** again or **Enter** to insert the text, or **Escape** to cancel. A recording stops on its own after five minutes. The first recording asks for microphone access.
+
+The inserted text stays selected. With an AI provider enabled, press **Cmd+K** and choose **Clean up dictation**, first in the list, to remove filler words and fix punctuation. Review the result before replacing the text; undo brings back the original dictation.
+
 ## Edit Note Details
 
 Open **Note Details** to change the title and inspect metadata. HackMD notes also expose tags, permissions, and sharing information where supported.

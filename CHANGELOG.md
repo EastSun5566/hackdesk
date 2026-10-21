@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.0.0-beta.8](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.7...v2.0.0-beta.8) (2026-10-22)
+
+### Dictation
+
+* Dictate into notes on macOS 26 or later with Cmd+Shift+D. macOS recognizes the speech on this Mac; turn dictation on and choose a language in Settings → Dictation.
+* See what you say at the cursor as you speak. The text is inserted as one undoable edit when you finish, and Escape cancels without changing the note.
+* Press Cmd+K right after dictating and choose Clean up dictation to remove filler words and fix punctuation with your AI provider.
+
+### Beta notes
+
+* Beta installers remain unsigned. Automatic updates remain disabled for beta builds. Download beta.8 manually and close the previous version before opening it.
+* Dictation asks for microphone access the first time you use it. Each language's speech model downloads from Apple once through macOS.
+* Dictation is not available on Windows, Linux or macOS versions before 26 yet.
+
 ## [2.0.0-beta.7](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.6...v2.0.0-beta.7) (2026-10-18)
 
 ### AI writing
