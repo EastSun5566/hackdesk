@@ -20,7 +20,7 @@ Work with HackMD notes and local Markdown vaults.
 
 ## Install
 
-[Download HackDesk v2.0.0-beta.8](https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.8) for macOS, Windows, or Linux. On macOS, v2 requires macOS 13 or later. Beta builds are unsigned and use manual updates.
+[Download HackDesk v2.0.0-beta.6](https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.6) for macOS, Windows, or Linux. On macOS, v2 requires macOS 13 or later. Beta builds are unsigned and use manual updates.
 
 Save all open notes before upgrading from beta.4 or earlier; those versions cannot restore unsaved edits to existing notes after a restart.
 
