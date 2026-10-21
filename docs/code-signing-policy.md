@@ -39,6 +39,12 @@ because it is opened. Using a local vault is not a guarantee of no network traff
   for these writing requests. The provider's account terms and data controls apply;
   see the [OpenAI privacy policy](https://openai.com/policies/privacy-policy/) and
   [Anthropic privacy policy](https://www.anthropic.com/legal/privacy).
+- **Dictation:** Off by default and available on macOS 26 or later. HackDesk
+  records the microphone only while you dictate, and macOS recognizes the speech
+  on this Mac. HackDesk keeps the audio in memory only; it does not save or send
+  it. Downloading a dictation language fetches its speech model from Apple through
+  macOS; see the [Apple privacy policy](https://www.apple.com/legal/privacy/).
+  Cleaning up dictated text with AI sends it like any other AI action.
 - **Remote images and links:** Rendering a note's HTTPS image or a workspace avatar
   or team logo can contact its host without a separate click. That host receives the
   image request and network information such as the IP address. Following external

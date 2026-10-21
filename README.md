@@ -15,6 +15,7 @@ Work with HackMD notes and local Markdown vaults.
 
 - **HackMD:** Browse personal and team notes, organize folders, and view history.
 - **Local Vault:** Open a folder of Markdown files without an account.
+- **AI and dictation:** Rewrite with your installed Codex or Claude CLI, and dictate on macOS 26 or later.
 - **Customize:** Change themes, fonts, editor modes, and shortcuts in Settings.
 
 ## Install
