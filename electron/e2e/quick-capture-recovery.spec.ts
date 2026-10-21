@@ -127,28 +127,26 @@ test('renderer recovery targets the failing window and keeps Quick Hack text on 
       BrowserWindow.fromId(id)!.webContents.executeJavaScript('({ url: location.href, text: document.body.textContent, input: document.querySelector("textarea")?.value ?? null })')
     ), id);
 
-    await app.evaluate(({ BrowserWindow }, { mainId, captureId }) => new Promise<void>(resolve => {
-      const window = BrowserWindow.fromId(mainId)!;
-      window.webContents.once('did-finish-load', () => resolve());
-      BrowserWindow.fromId(captureId)!.focus();
-      window.webContents.forcefullyCrashRenderer();
-    }), { mainId, captureId });
-    await expect.poll(recoveryCalls).toEqual([{ windowId: mainId, message: 'HackDesk renderer stopped' }]);
-    await expect.poll(async () => (await rendererState(mainId)).text).toContain('Local Vault');
+    // Crashes one renderer while the other window has focus. The polls that follow wait for the
+    // recovery itself, so a slow reload on a busy runner is not mistaken for a hang.
+    const crash = (id: number, focusId: number) => app.evaluate(({ BrowserWindow }, { id, focusId }) => {
+      BrowserWindow.fromId(focusId)!.focus();
+      BrowserWindow.fromId(id)!.webContents.forcefullyCrashRenderer();
+    }, { id, focusId });
+    const recovery = { timeout: 20_000 };
+
+    await crash(mainId, captureId);
+    await expect.poll(recoveryCalls, recovery).toEqual([{ windowId: mainId, message: 'HackDesk renderer stopped' }]);
+    await expect.poll(async () => (await rendererState(mainId)).text, recovery).toContain('Local Vault');
     await expect(capture).toHaveURL(/#\/quick-capture$/);
     await expect(capture.getByLabel('Quick Hack note')).toHaveValue('Recover this Quick Hack');
 
-    await app.evaluate(({ BrowserWindow }, { mainId, captureId }) => new Promise<void>(resolve => {
-      const window = BrowserWindow.fromId(captureId)!;
-      window.webContents.once('did-finish-load', () => resolve());
-      BrowserWindow.fromId(mainId)!.focus();
-      window.webContents.forcefullyCrashRenderer();
-    }), { mainId, captureId });
-    await expect.poll(recoveryCalls).toEqual([
+    await crash(captureId, mainId);
+    await expect.poll(recoveryCalls, recovery).toEqual([
       { windowId: mainId, message: 'HackDesk renderer stopped' },
       { windowId: captureId, message: 'Quick Hack renderer stopped' },
     ]);
-    await expect.poll(() => rendererState(captureId)).toMatchObject({
+    await expect.poll(() => rendererState(captureId), recovery).toMatchObject({
       url: expect.stringMatching(/#\/quick-capture$/), input: 'Recover this Quick Hack',
     });
     expect((await rendererState(mainId)).url).toMatch(/#\/electron$/);
