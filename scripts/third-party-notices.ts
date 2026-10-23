@@ -50,14 +50,21 @@ export async function collectNotices(roots: Dependency[]) {
   return [...packages.entries()].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([, pkg]) => pkg);
 }
 
-export async function writeThirdPartyNotices() {
-  // npm_execpath is supplied by pnpm on all three build platforms. The fallback
-  // also supports invoking electron-build.ts directly from a developer shell.
+export function readProductionDependencies(): Dependency[] {
+  // pnpm 12 is native; older pnpm and Corepack use JavaScript launchers.
+  const launcher = process.env.npm_execpath;
+  const isJavaScript = launcher && /\.[cm]?js$/i.test(launcher);
   const args = ['list', '--prod', '--depth', 'Infinity', '--json'];
-  const output = process.env.npm_execpath
-    ? execFileSync(process.execPath, [process.env.npm_execpath, ...args], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
-    : execFileSync('pnpm', args, { encoding: 'utf8', shell: process.platform === 'win32', maxBuffer: 64 * 1024 * 1024 });
-  const packages = await collectNotices(JSON.parse(output));
+  const output = execFileSync(isJavaScript ? process.execPath : launcher ?? 'pnpm', isJavaScript ? [launcher, ...args] : args, {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    shell: !launcher && process.platform === 'win32',
+  });
+  return JSON.parse(output);
+}
+
+export async function writeThirdPartyNotices() {
+  const packages = await collectNotices(readProductionDependencies());
   const directory = 'electron/dist/third-party';
   await rm(directory, { recursive: true, force: true });
   await mkdir(directory, { recursive: true });

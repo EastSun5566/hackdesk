@@ -2,7 +2,8 @@
 
 ## Run locally
 
-Use Node.js 24 and the pnpm version specified in `package.json`.
+Use Node.js 26.12.1 (see `.node-version` or `.nvmrc`) and the pnpm version
+specified in `package.json`. Electron uses its own bundled Node.js runtime.
 
 ```sh
 pnpm install
