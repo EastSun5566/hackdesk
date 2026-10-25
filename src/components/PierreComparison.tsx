@@ -46,8 +46,8 @@ export default function PierreComparison({ input, beforeLabel, afterLabel }: Com
   const changed = files.some((file) => file.hunks.some((hunk) => hunk.hunkContent.some((part) => part.type === 'change')));
   return <div ref={root}>
     {wide && changed ? <Button size="xs" variant="secondary" className="mb-2" aria-pressed={split} onClick={() => setSplit(!split)}>Split view</Button> : null}
-    {!changed ? <p className="py-6 text-center text-sm text-text-subtle">No changes.</p> : files.map((file, index) =>
-      <div key={index} role="region" aria-label={`${beforeLabel} compared with ${afterLabel}`} tabIndex={0}
+    {!changed ? <p className="py-6 text-center text-sm text-text-subtle">No changes.</p> : files.map((file) =>
+      <div key={file.name} role="region" aria-label={`${beforeLabel} compared with ${afterLabel}`} tabIndex={0}
         className="min-w-0 overflow-hidden rounded-md border border-border-default focus-visible:outline-2 focus-visible:outline-focus-ring">
         <FileDiff fileDiff={file} disableWorkerPool options={{
           onPostRender: (node, _instance, phase) => {

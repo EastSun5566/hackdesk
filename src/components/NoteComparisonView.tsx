@@ -1,7 +1,7 @@
 import { Component, lazy, Suspense, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toast';
-import { comparisonTexts, comparisonTooLarge, type NoteComparison } from '@/lib/note-comparison';
+import { comparisonTooLarge, type NoteComparison } from '@/lib/note-comparison';
 
 const PierreComparison = lazy(() => import('./PierreComparison'));
 
@@ -18,18 +18,20 @@ class ComparisonBoundary extends Component<
 }
 
 function PlainComparison({ input, beforeLabel, afterLabel, reason }: ComparisonProps & { reason?: string }) {
+  const sections = input.kind === 'patch'
+    ? [{ id: 'patch', label: 'Original patch', text: input.patch }]
+    : [{ id: 'before', label: beforeLabel, text: input.before }, { id: 'after', label: afterLabel, text: input.after }];
   return (
     <div className="space-y-3">
       {reason ? <p role="status" className="text-sm text-text-subtle">{reason}</p> : null}
-      {comparisonTexts(input).map((text, index) => {
-        const label = input.kind === 'patch' ? 'Original patch' : index === 0 ? beforeLabel : afterLabel;
+      {sections.map(({ id, label, text }) => {
+        const copyLabel = input.kind === 'patch' ? 'Copy full text' : `Copy ${label}`;
         const preview = text.slice(0, 64_000).split('\n').slice(0, 500).join('\n');
         return (
-          <section key={index} aria-label={label}>
+          <section key={id} aria-label={label}>
             <h3 className="mb-1 text-sm font-medium">{label}</h3>
             <Button
               size="xs" variant="secondary" className="mb-2"
-              aria-label={input.kind === 'patch' ? 'Copy full text' : `Copy ${label}`}
               onClick={() => {
                 void navigator.clipboard.writeText(text).then(
                   () => toast.success('Copied original text.'),
@@ -37,10 +39,10 @@ function PlainComparison({ input, beforeLabel, afterLabel, reason }: ComparisonP
                 );
               }}
             >
-              Copy full text
+              {copyLabel}
             </Button>
             <pre
-              role="region" aria-label={`${label} text`} tabIndex={0}
+              role="document" aria-label={`${label} text`} tabIndex={0}
               className="comparison-text-preview overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-default p-3 font-mono text-xs focus-visible:outline-2 focus-visible:outline-focus-ring"
             >{preview}</pre>
             {preview.length < text.length ? (

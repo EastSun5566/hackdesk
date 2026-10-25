@@ -26,3 +26,13 @@ it('limits oversized previews but copies the complete original text', async () =
   fireEvent.click(screen.getByRole('button', { name: 'Copy full text' }));
   expect(writeText).toHaveBeenCalledWith(patch);
 });
+
+it('copies the intended side with a visible, distinct label', () => {
+  const writeText = vi.fn(async () => {});
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  render(<NoteComparisonView input={{ kind: 'text', before: 'Saved body', after: 'Draft body' }} beforeLabel="On disk" afterLabel="Your draft" />);
+  fireEvent.click(screen.getByRole('button', { name: 'Plain text' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Copy On disk' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Copy Your draft' }));
+  expect(writeText.mock.calls).toEqual([['Saved body'], ['Draft body']]);
+});
