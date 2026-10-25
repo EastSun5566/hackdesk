@@ -5,6 +5,7 @@ vi.mock('./logging', () => ({
 }));
 
 import {
+  restoreNotesInputSchema,
   createFolderInputSchema,
   createNoteInputSchema,
   folderOrderSchema,
@@ -21,6 +22,15 @@ import {
 import { writeLog } from './logging';
 
 describe('IPC runtime validation', () => {
+  it('rejects oversized restore batches before validating individual elements', () => {
+    const result = restoreNotesInputSchema.safeParse(Array(101).fill(null));
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toMatchObject([{ code: 'too_big', path: [] }]);
+    expect(result.error?.issues).toHaveLength(1);
+    expect(restoreNotesInputSchema.parse(Array.from({ length: 100 }, (_, index) => `note-${index}`))).toHaveLength(100);
+    expect(restoreNotesInputSchema.safeParse(['valid-note', null]).success).toBe(false);
+  });
+
   it('accepts valid HackMD note and folder payloads', () => {
     expect(validateIpcInput('hackmd:create-note', createNoteInputSchema, {
       title: 'Spec',
