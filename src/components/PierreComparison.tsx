@@ -13,6 +13,7 @@ const themeCSS = `
   --comparison-background: var(--background-default);
   --diffs-font-family: var(--font-editor);
   --diffs-font-size: var(--font-size-editor);
+  --diffs-line-height: calc(var(--font-size-editor) * 1.5);
   --diffs-fg-number-override: var(--text-subtle);
   --diffs-addition-color-override: var(--success-default);
   --diffs-deletion-color-override: var(--destructive-default);

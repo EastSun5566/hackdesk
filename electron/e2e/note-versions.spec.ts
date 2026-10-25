@@ -148,6 +148,13 @@ test('compares a saved version and restores it into the editor', async () => {
     const custom = resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'dark', customSeed: { primary: '#00a896', neutral: '#302d40' } });
     await page.evaluate((values) => { for (const [key, value] of Object.entries(values)) document.documentElement.style.setProperty(key, value); }, custom);
     await expect.poll(() => changes.locator('pre').first().evaluate((element) => getComputedStyle(element).getPropertyValue('--comparison-foreground').trim())).toBe(custom['--text-default']);
+    await page.locator('html').evaluate((element) => (element as HTMLElement).style.setProperty('--font-size-editor', '2rem'));
+    const largeFont = await changes.locator('pre').first().evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { size: Number.parseFloat(style.fontSize), lineHeight: Number.parseFloat(style.lineHeight) };
+    });
+    expect(largeFont.size).toBe(32);
+    expect(largeFont.lineHeight).toBeGreaterThanOrEqual(largeFont.size);
     await page.locator('html').evaluate((element, value) => value === null ? element.removeAttribute('style') : element.setAttribute('style', value), originalStyle);
 
     const split = dialog.getByRole('button', { name: 'Split view' });
