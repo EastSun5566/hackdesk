@@ -27,12 +27,19 @@ it('limits oversized previews but copies the complete original text', async () =
   expect(writeText).toHaveBeenCalledWith(patch);
 });
 
-it('copies the intended side with a visible, distinct label', () => {
+it('copies the intended side through native IPC when browser clipboard is denied', () => {
   const writeText = vi.fn(async () => {});
-  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
-  render(<NoteComparisonView input={{ kind: 'text', before: 'Saved body', after: 'Draft body' }} beforeLabel="On disk" afterLabel="Your draft" />);
-  fireEvent.click(screen.getByRole('button', { name: 'Plain text' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Copy On disk' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Copy Your draft' }));
-  expect(writeText.mock.calls).toEqual([['Saved body'], ['Draft body']]);
+  const browserWrite = vi.fn(async () => { throw new Error('Clipboard permission denied'); });
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: browserWrite } });
+  window.hackdeskAPI = { app: { writeClipboardText: writeText } } as unknown as NonNullable<typeof window.hackdeskAPI>;
+  try {
+    render(<NoteComparisonView input={{ kind: 'text', before: 'Saved body', after: 'Draft body' }} beforeLabel="On disk" afterLabel="Your draft" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Plain text' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy On disk' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy Your draft' }));
+    expect(writeText.mock.calls).toEqual([['Saved body'], ['Draft body']]);
+    expect(browserWrite).not.toHaveBeenCalled();
+  } finally {
+    delete window.hackdeskAPI;
+  }
 });

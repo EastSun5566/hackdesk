@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { writeClipboardText } from '@/lib/clipboard';
 import { toast } from '@/components/ui/toast';
 
 import type {
@@ -28,18 +29,6 @@ function createDeleteNoteTarget(note: NoteSummary): DocumentSummary {
   };
 }
 
-export async function writeClipboardText(api: HackDeskElectronAPI | undefined, text: string) {
-  if (api?.app.writeClipboardText) {
-    await api.app.writeClipboardText(text);
-    return;
-  }
-
-  if (!navigator.clipboard?.writeText) {
-    throw new Error('Clipboard is unavailable.');
-  }
-
-  await navigator.clipboard.writeText(text);
-}
 
 export type DocumentCommandOptions = {
   api?: HackDeskElectronAPI;

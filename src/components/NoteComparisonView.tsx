@@ -1,4 +1,6 @@
 import { Component, lazy, Suspense, useState, type ReactNode } from 'react';
+import { getHackDeskAPI } from '@/lib/electron-api';
+import { writeClipboardText } from '@/lib/clipboard';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toast';
 import { comparisonTooLarge, type NoteComparison } from '@/lib/note-comparison';
@@ -33,7 +35,7 @@ function PlainComparison({ input, beforeLabel, afterLabel, reason }: ComparisonP
             <Button
               size="xs" variant="secondary" className="mb-2"
               onClick={() => {
-                void navigator.clipboard.writeText(text).then(
+                void writeClipboardText(getHackDeskAPI(), text).then(
                   () => toast.success('Copied original text.'),
                   () => toast.error('Could not copy text.'),
                 );

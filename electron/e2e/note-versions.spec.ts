@@ -162,6 +162,14 @@ test('compares a saved version and restores it into the editor', async () => {
     await expect(changes).toBeFocused();
     await dialog.getByRole('button', { name: 'Plain text', exact: true }).click();
     await expect(dialog.getByRole('region', { name: 'Original patch' })).toContainText('Ship v2 in November.');
+    // Capture native copy requests without accessing the system clipboard.
+    await app.evaluate(({ ipcMain }, channel) => {
+      ipcMain.removeHandler(channel);
+      ipcMain.handle(channel, (_event, text: string) => { (globalThis as { comparisonCopiedText?: string }).comparisonCopiedText = text; });
+    }, ELECTRON_CHANNELS.appWriteClipboardText);
+    await dialog.getByRole('button', { name: 'Copy full text' }).click();
+    await expect.poll(() => app.evaluate(() => (globalThis as { comparisonCopiedText?: string }).comparisonCopiedText ?? '')).toContain('Ship v2 in October.');
+
     await dialog.getByRole('button', { name: 'Show changes' }).click();
 
     await dialog.getByRole('tab', { name: 'Full text' }).click();
