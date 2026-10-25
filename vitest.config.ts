@@ -29,6 +29,8 @@ export default defineConfig({
           // Full workbench fixtures are CPU-heavy in jsdom.
           maxWorkers: 2,
           environment: 'jsdom',
+          // Let jsdom own Web Storage instead of Node's file-backed globals.
+          execArgv: ['--no-experimental-webstorage'],
           setupFiles: ['./src/test/setup.ts'],
           include: ['src/**/*.test.{ts,tsx}'],
           exclude: ['src/test/**'],

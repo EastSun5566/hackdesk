@@ -1,17 +1,43 @@
+import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, expect, it } from 'vitest';
-import { collectNotices } from './third-party-notices';
+import { afterEach, expect, it, vi } from 'vitest';
+import { collectNotices, readProductionDependencies } from './third-party-notices';
+
+vi.mock('node:child_process', () => ({ execFileSync: vi.fn() }));
 
 const temporary: string[] = [];
-afterEach(async () => { await Promise.all(temporary.splice(0).map(path => rm(path, { recursive: true, force: true }))); });
+afterEach(async () => {
+  vi.unstubAllEnvs();
+  vi.clearAllMocks();
+  await Promise.all(temporary.splice(0).map(path => rm(path, { recursive: true, force: true })));
+});
 async function fixture(name: string, license: string) {
   const path = await mkdtemp(join(tmpdir(), 'hackdesk-notices-'));
   temporary.push(path);
   await writeFile(join(path, 'package.json'), JSON.stringify({ name, version: '1.0.0', license }));
   return { path };
 }
+
+it.each([
+  ['/tools/pnpm.cjs', true],
+  ['/tools/corepack/pnpm.js', true],
+  ['/tools/pnpm', false],
+  ['C:\\tools\\pnpm.exe', false],
+])('reads the dependency tree through launcher %s', (launcher, isJavaScript) => {
+  const tree = [{ dependencies: { example: { path: '/packages/example' } } }];
+  vi.stubEnv('npm_execpath', launcher);
+  vi.mocked(execFileSync).mockReturnValue(JSON.stringify(tree));
+
+  expect(readProductionDependencies()).toEqual(tree);
+  const args = ['list', '--prod', '--depth', 'Infinity', '--json'];
+  expect(execFileSync).toHaveBeenCalledWith(
+    isJavaScript ? process.execPath : launcher,
+    isJavaScript ? [launcher, ...args] : args,
+    expect.objectContaining({ encoding: 'utf8', shell: false }),
+  );
+});
 
 it('collects the resolved transitive closure once, in stable order, preserving original notices', async () => {
   const a = await fixture('a', 'MIT');
