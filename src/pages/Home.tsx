@@ -796,6 +796,8 @@ export function Home() {
     selectedFolder,
   });
   const workspaceProps = useHomeWorkspaceProps({
+    api,
+    localVaultId: vaultSession.vaultId,
     uploadingTabIds,
     actions: {
       attachImageToTab,

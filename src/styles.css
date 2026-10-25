@@ -387,3 +387,11 @@
   }
 
 }
+
+/* Comparisons own their width without changing other dialogs. */
+.note-comparison-dialog {
+  width: min(75rem, calc(100dvw - 3rem));
+  max-width: 75rem;
+  max-height: calc(100dvh - 4rem);
+}
+.comparison-text-preview { max-height: 40dvh; }

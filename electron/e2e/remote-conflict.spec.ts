@@ -35,7 +35,7 @@ test('does not save over a note changed on HackMD and keeps the draft recoverabl
       };
       const fixture = { writes: 0 };
       (globalThis as { remoteConflictFixture?: typeof fixture }).remoteConflictFixture = fixture;
-      ipcMain.on('fixture:change-remote', () => { note.content = 'Changed on HackMD'; note.updatedAtMillis = 2; });
+      ipcMain.on('fixture:change-remote', () => { note.content = note.updatedAtMillis === 1 ? 'Changed on HackMD' : 'Changed again before comparison'; note.updatedAtMillis += 1; });
       replace(channels.settingsGet, () => ({
         ...settings, hasHackmdApiToken: true, hasAppearanceSettings: true,
         shouldShowHackmdOnboarding: false, hasLocalVault: false,
@@ -68,10 +68,11 @@ test('does not save over a note changed on HackMD and keeps the draft recoverabl
     await expect(editor).toContainText('My local edit');
     expect(await app.evaluate(() => (globalThis as { remoteConflictFixture?: { writes: number } }).remoteConflictFixture?.writes)).toBe(0);
 
+    await app.evaluate(({ ipcMain }) => { ipcMain.emit('fixture:change-remote'); });
     await page.getByRole('button', { name: 'Compare with HackMD' }).click();
     const dialog = page.getByRole('dialog', { name: 'Compare with HackMD' });
-    await expect(dialog.getByRole('region', { name: 'Your draft' })).toContainText('My local edit');
-    await expect(dialog.getByRole('region', { name: 'On HackMD' })).toContainText('Changed on HackMD');
+    await expect(dialog.getByRole('region', { name: /On (?:disk|HackMD) compared with Your draft/ })).toContainText('My local edit');
+    await expect(dialog.getByRole('region', { name: /On (?:disk|HackMD) compared with Your draft/ })).toContainText('Changed again before comparison');
     await page.keyboard.press('Escape');
 
     // The draft can be kept as a new note, leaving the original untouched.
@@ -82,7 +83,7 @@ test('does not save over a note changed on HackMD and keeps the draft recoverabl
     await page.getByRole('tab', { name: /^Remote(?:, .+)?$/, selected: false }).click();
 
     await page.getByRole('button', { name: 'Reload from HackMD' }).click();
-    await expect(editor).toContainText('Changed on HackMD');
+    await expect(editor).toContainText('Changed again before comparison');
     await expect(page.getByText('This note changed on HackMD. Your draft is still open.')).toHaveCount(0);
     expect(await app.evaluate(() => (globalThis as { remoteConflictFixture?: { writes: number } }).remoteConflictFixture?.writes)).toBe(0);
   } finally {

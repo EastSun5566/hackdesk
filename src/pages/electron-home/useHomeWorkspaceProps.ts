@@ -1,8 +1,10 @@
 import type { Dispatch, SetStateAction } from 'react';
 
+import { readComparisonSource } from './read-comparison-source';
 import type { NoteFinderState } from '@/lib/electron-note-finder';
 import type {
   DocumentSummary,
+  HackDeskElectronAPI,
   ElectronSafeSettings,
   TeamSummary,
   UserSummary,
@@ -60,6 +62,8 @@ type WorkspaceActions = {
 };
 
 export function useHomeWorkspaceProps({
+  api,
+  localVaultId,
   actions,
   activeFinderState,
   collapsedFolderIds,
@@ -101,6 +105,8 @@ export function useHomeWorkspaceProps({
   user,
   uploadingTabIds = [],
 }: {
+  api?: HackDeskElectronAPI;
+  localVaultId?: string | null;
   actions: WorkspaceActions;
   activeFinderState: NoteFinderState;
   collapsedFolderIds: Set<string>;
@@ -290,6 +296,7 @@ export function useHomeWorkspaceProps({
       onCopyLink: actions.handleCopyNoteLink,
       onCopyMarkdownLink: actions.handleCopyNoteMarkdownLink,
       onExportMarkdown: actions.handleExportMarkdown,
+      onReadComparison: (document, signal) => readComparisonSource(api, document, signal, localVaultId),
       onReloadFromDisk: localDocumentRecovery.reloadFromDisk,
       onReloadFromHackmd: remoteDocumentRecovery.reloadFromHackmd,
       onSave: (tab, input) => {

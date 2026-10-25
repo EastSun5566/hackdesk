@@ -8,6 +8,8 @@ import { HACKMD_NOTE_VERSION_NOT_NAMED_MESSAGE, HACKMD_NOTE_VERSIONS_UNAVAILABLE
 
 import { NoteVersionsDialog } from './NoteVersionsDialog';
 
+vi.mock('@/components/NoteComparisonView', () => ({ NoteComparisonView: ({ input, beforeLabel, afterLabel }: { input: { patch: string }; beforeLabel: string; afterLabel: string }) => <section aria-label={`${beforeLabel} → ${afterLabel}`}>{input.patch}</section> }));
+
 vi.mock('@/components/ui/toast', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
 const note = {
@@ -73,9 +75,9 @@ describe('NoteVersionsDialog', () => {
     expect(rows.map((row) => row.querySelector('[data-version-kind]')?.getAttribute('data-version-kind'))).toEqual(['current', 'named', 'auto']);
     expect(rows[1]).toHaveTextContent('Ada');
 
-    const changes = await screen.findByRole('list', { name: 'Changes since Before launch' });
-    expect(within(changes).getByText('Removed:')).toBeInTheDocument();
-    expect(within(changes).getByText('Added:')).toBeInTheDocument();
+    const changes = await screen.findByRole('region', { name: 'Before launch → Saved on HackMD' });
+    expect(changes).toHaveTextContent('-Old line');
+    expect(changes).toHaveTextContent('+Now');
     expect(hackmd.compareNoteVersions).toHaveBeenCalledWith('note-1', 'version:v-2', 'note_content');
   });
 

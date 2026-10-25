@@ -16,7 +16,7 @@ import {
 } from './NoteVersionList';
 import { SaveVersionForm, type VersionFormMode } from './SaveVersionForm';
 import { formatDate } from './ui';
-import { UnifiedDiffView } from './UnifiedDiffView';
+import { NoteComparisonView } from '@/components/NoteComparisonView';
 import {
   getVersionErrorMessage,
   useNoteVersionContent,
@@ -108,7 +108,7 @@ function VersionPanel({
           ) : null}
           {diff.isPending ? <StatusMessage busy>Comparing…</StatusMessage> : null}
           {diff.isError ? <StatusMessage>{getVersionErrorMessage(diff.error)}</StatusMessage> : null}
-          {diff.data ? <UnifiedDiffView diff={diff.data.unifiedDiff} label={`Changes since ${getVersionTitle(version)}`} /> : null}
+          {diff.data ? <NoteComparisonView input={{ kind: 'patch', patch: diff.data.unifiedDiff }} beforeLabel={getVersionTitle(version)} afterLabel="Saved on HackMD" /> : null}
         </TabsContent>
         <TabsContent value="full" className="min-h-0 flex-1 overflow-y-auto">
           {content.isPending ? <StatusMessage busy>Loading version…</StatusMessage> : null}
@@ -136,7 +136,7 @@ type NoteVersionsDialogProps = {
 export function NoteVersionsDialog({ open, onOpenChange, ...props }: NoteVersionsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="lg" className="gap-0 overflow-hidden p-0">
+      <DialogContent size="lg" className="note-comparison-dialog gap-0 overflow-hidden p-0">
         {/* The popup unmounts when closed, so each opening starts fresh. */}
         <NoteVersionsBody {...props} onClose={() => onOpenChange(false)} />
       </DialogContent>
