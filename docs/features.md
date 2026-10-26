@@ -26,7 +26,9 @@ Opening another Local Vault restores that vault's own tabs and recoverable draft
 
 ## Find and organize notes
 
-Use **Search notes** to filter the selected workspace. Expand folders in the navigator, or use the tag browser to narrow the list.
+Use **Search notes** to filter the selected workspace by title, tag or text. Matching text appears under each note with the words highlighted. In a Local Vault, the text of every note is searched. In HackMD, only the notes you have opened in HackDesk are searched by text, because HackDesk never downloads notes you have not opened. The results say how many notes were covered. Expand folders in the navigator, or use the tag browser to narrow the list.
+
+HackMD notes you open are kept on this computer, so they stay readable when you are offline or HackMD is unreachable, even after restarting HackDesk. A note shown this way is marked **Cached** and may be behind HackMD. To stop keeping notes, or to clear them, use **Settings → General → Offline and search**.
 
 Create folders with **New Folder**. Use a folder's menu to edit or delete it, or drag notes and folders to move them. Local deletion moves files to the system trash; HackMD deletion affects remote notes.
 

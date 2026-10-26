@@ -637,6 +637,28 @@ async function readLocalNoteUnlocked(vaultRoot: string, noteId: string): Promise
   return { ...note, content };
 }
 
+/**
+ * Reads the text of `notes` for the search index, by the paths a scan of `snapshot` reported.
+ * A file that vanished, grew too large or moved outside the vault since is left out.
+ */
+export async function readLocalVaultNotesForIndex(snapshot: LocalVaultSnapshot, notes: readonly LocalNoteSummary[]) {
+  const vaultRoot = await realpath(snapshot.rootPath);
+  return enqueueVaultOperation(vaultRoot, async () => {
+    const read = await mapScanItems(notes, async (note) => {
+      try {
+        const absolutePath = resolveInsideVault(vaultRoot, note.relativePath);
+        await assertCanonicalInsideVault(vaultRoot, absolutePath);
+        if ((await stat(absolutePath)).size > MAX_MARKDOWN_BYTES) return null;
+        const content = await readFile(absolutePath, 'utf8');
+        return { note, content, contentHash: hashContent(content) };
+      } catch {
+        return null;
+      }
+    });
+    return read.filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+  });
+}
+
 export async function readLocalNote(noteId: string): Promise<LocalDocument> {
   const vaultRoot = await requireActiveLocalVaultPath();
   return enqueueVaultOperation(vaultRoot, () => readLocalNoteUnlocked(vaultRoot, noteId));

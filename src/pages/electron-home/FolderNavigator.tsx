@@ -65,6 +65,7 @@ import { RepositoryNotice } from './RepositoryNotice';
 import { SkippedFilesNotice } from './SkippedFilesNotice';
 import { FolderTreeFocusContext } from './FolderTreeFocusContext';
 import { useFolderTreeKeyboardNavigation } from './useFolderTreeKeyboardNavigation';
+import type { NoteTextSearch } from './useNoteTextSearch';
 
 export type FolderNavigatorSelection = {
   selectedFolderId: string | null;
@@ -136,6 +137,8 @@ export type FolderNavigatorProps = {
   scope: WorkspaceScope;
   selection: FolderNavigatorSelection;
   status: FolderNavigatorStatus;
+  /** Notes whose text matched the finder query, with snippets. */
+  textSearch?: NoteTextSearch;
   tree: FolderTree;
 };
 
@@ -149,6 +152,7 @@ export function FolderNavigator({
   scope,
   selection,
   status,
+  textSearch,
   tree,
 }: FolderNavigatorProps) {
   return (
@@ -170,6 +174,7 @@ export function FolderNavigator({
           scope={scope}
           selection={selection}
           status={status}
+          textSearch={textSearch}
           tree={tree}
         />
       )}
@@ -186,6 +191,7 @@ function ExpandedNavigator({
   scope,
   selection,
   status,
+  textSearch,
   tree,
 }: Omit<FolderNavigatorProps, 'id'>) {
   const isFinderMode = isNoteFinderActive(finderState);
@@ -231,6 +237,7 @@ function ExpandedNavigator({
         selection={selection}
         scope={scope}
         status={status}
+        textSearch={textSearch}
         tree={tree}
         treeFocusRequestId={treeFocusRequestId}
       />
@@ -381,6 +388,7 @@ function NavigatorContent({
   selection,
   scope,
   status,
+  textSearch,
   tree,
   treeFocusRequestId,
 }: {
@@ -394,6 +402,7 @@ function NavigatorContent({
   selection: FolderNavigatorSelection;
   scope: WorkspaceScope;
   status: FolderNavigatorStatus;
+  textSearch?: NoteTextSearch;
   tree: FolderTree;
   treeFocusRequestId: number;
 }) {
@@ -424,6 +433,7 @@ function NavigatorContent({
           entries={entries}
           selectedFolderForNoteMove={selectedFolderForNoteMove}
           selectedNoteId={selection.selectedNoteId}
+          textSearch={finderState.query.trim() ? textSearch : undefined}
         />
       ) : (
         <NavigatorTree
@@ -510,35 +520,46 @@ function FinderResultList({
   entries,
   selectedFolderForNoteMove,
   selectedNoteId,
+  textSearch,
 }: {
   actions: FolderNavigatorActions;
   entries: FolderTreeNote[];
   selectedFolderForNoteMove: FolderTreeNode | null;
   selectedNoteId: string | null;
+  textSearch?: NoteTextSearch;
 }) {
   return (
-    <ul className="m-0 min-w-0 list-none space-y-1 p-0" aria-label="Search results">
-      {entries.map((entry) => (
-        <li key={`${entry.folderLabel}:${entry.note.id}`} className="min-w-0">
-          <NoteRow
-            entry={entry}
-            selected={entry.note.id === selectedNoteId}
-            onSelect={actions.onNoteSelect}
-            onOpen={actions.onOpenNote}
-            onCopyLink={actions.onCopyNoteLink}
-            onCopyMarkdownLink={actions.onCopyNoteMarkdownLink}
-            onDuplicate={actions.onDuplicateNote}
-            onExportMarkdown={actions.onExportNoteMarkdown}
-            onDelete={actions.onDeleteNote}
-            onRevealFolder={actions.onRevealNoteFolder}
-            onRevealInFinder={actions.onNoteRevealInFinder}
-            onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}
-            selectedFolder={selectedFolderForNoteMove}
-            showInFolderAction
-          />
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="m-0 min-w-0 list-none space-y-1 p-0" aria-label="Search results">
+        {entries.map((entry) => (
+          <li key={`${entry.folderLabel}:${entry.note.id}`} className="min-w-0">
+            <NoteRow
+              entry={entry}
+              selected={entry.note.id === selectedNoteId}
+              onSelect={actions.onNoteSelect}
+              onOpen={actions.onOpenNote}
+              onCopyLink={actions.onCopyNoteLink}
+              onCopyMarkdownLink={actions.onCopyNoteMarkdownLink}
+              onDuplicate={actions.onDuplicateNote}
+              onExportMarkdown={actions.onExportNoteMarkdown}
+              onDelete={actions.onDeleteNote}
+              onRevealFolder={actions.onRevealNoteFolder}
+              onRevealInFinder={actions.onNoteRevealInFinder}
+              onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}
+              selectedFolder={selectedFolderForNoteMove}
+              showInFolderAction
+              snippet={textSearch?.matches.get(entry.note.id)}
+            />
+          </li>
+        ))}
+      </ul>
+      {textSearch?.source === 'hackmd' ? (
+        // HackMD note text is known only for notes opened on this computer.
+        <p className="px-2 pt-3 text-xs text-text-subtle">
+          {`Searched the text of ${textSearch.indexedCount} ${textSearch.indexedCount === 1 ? 'note' : 'notes'} you've opened.`}
+        </p>
+      ) : null}
+    </>
   );
 }
 

@@ -43,6 +43,7 @@ import type {
 } from '../../../src/lib/local-vault';
 import type { AiProviderId, AiTurnDelta, AiTurnInput } from '../../../src/lib/ai';
 import type { DictationEvent, DictationEventMessage, DictationInstallInput, DictationStartInput } from '../../../src/lib/dictation';
+import type { NoteSearchInput } from '../../../src/lib/note-index';
 import { ELECTRON_CHANNELS } from '../shared/channels';
 
 /** Passes a request's streamed dictation events to `onEvent` until the request settles. */
@@ -171,6 +172,11 @@ const api: HackDeskElectronAPI = {
     ),
     stop: (requestId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.dictationStop, requestId),
     cancel: (requestId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.dictationCancel, requestId),
+  },
+  noteIndex: {
+    search: (input: NoteSearchInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.noteIndexSearch, input),
+    status: () => ipcRenderer.invoke(ELECTRON_CHANNELS.noteIndexStatus),
+    clear: () => ipcRenderer.invoke(ELECTRON_CHANNELS.noteIndexClear),
   },
   localVault: {
     choose: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultChoose),

@@ -27,8 +27,17 @@ describe('settings helpers', () => {
       workspaceNavigation: defaultSettings.workspaceNavigation,
       ai: defaultSettings.ai,
       dictation: defaultSettings.dictation,
+      offline: defaultSettings.offline,
     });
   });
+  it('keeps opened HackMD notes offline by default and drops a damaged offline section', () => {
+    expect(defaultSettings.offline).toEqual({ keepHackmdNotes: true });
+    expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', offline: { keepHackmdNotes: false } })).offline)
+      .toEqual({ keepHackmdNotes: false });
+    expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', offline: { keepHackmdNotes: 'no' } })).offline)
+      .toEqual(defaultSettings.offline);
+  });
+
   it('keeps dictation off until turned on and drops a damaged dictation section', () => {
     expect(defaultSettings.dictation).toEqual({ enabled: false, locale: null });
     expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', dictation: { enabled: true, locale: 'zh-TW' } })).dictation)
@@ -91,6 +100,7 @@ describe('settings helpers', () => {
       workspaceNavigation: defaultSettings.workspaceNavigation,
       ai: defaultSettings.ai,
       dictation: defaultSettings.dictation,
+      offline: defaultSettings.offline,
     });
   });
 
@@ -343,6 +353,9 @@ describe('settings helpers', () => {
   "dictation": {
     "enabled": false,
     "locale": null
+  },
+  "offline": {
+    "keepHackmdNotes": true
   }
 }`);
   });

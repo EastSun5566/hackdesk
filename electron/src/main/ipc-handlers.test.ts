@@ -84,6 +84,7 @@ const localVaultFolderMutationResult = vi.hoisted(() => ({
   snapshot: localVaultSnapshot,
 }));
 const localVaultServiceMock = vi.hoisted(() => ({
+  readLocalVaultNotesForIndex: vi.fn(async () => []),
   createLocalFolder: vi.fn(),
   createLocalNote: vi.fn(async () => localVaultMutationResult),
   getActiveLocalVaultSnapshot: vi.fn(async () => localVaultSnapshot),
@@ -123,8 +124,19 @@ vi.mock('electron', () => ({
 vi.mock('./settings', () => settingsMock);
 vi.mock('./ai/ai-service', () => ({ createAiService: vi.fn(() => aiServiceMock) }));
 vi.mock('./local-vault-service', () => localVaultServiceMock);
+const noteIndexMock = vi.hoisted(() => ({
+  hackmdFallback: null,
+  setKeepHackmdNotes: vi.fn(),
+  indexVault: vi.fn(async () => undefined),
+  forgetVaults: vi.fn(async () => undefined),
+  search: vi.fn(() => ({ matches: [], indexedCount: 0 })),
+  status: vi.fn(() => ({ hackmdNotes: 0, hackmdBytes: 0, localNotes: 0 })),
+  close: vi.fn(async () => undefined),
+}));
+vi.mock('./note-index/note-index-service', () => ({ createNoteIndexService: () => noteIndexMock }));
 vi.mock('./hackmd-service', () => ({
   clearHackmdCache: vi.fn(),
+  setHackmdDurableFallback: vi.fn(),
   createFolder: vi.fn(),
   createNote: vi.fn(),
   createTeamFolder: vi.fn(),
@@ -189,6 +201,7 @@ vi.mock('./global-shortcuts', () => ({
 }));
 
 import { registerIpcHandlers } from './ipc-handlers';
+import { clearHackmdCache } from './hackmd-service';
 
 const windowManager = {
   cancelClose: vi.fn(),
@@ -270,6 +283,34 @@ describe('registerIpcHandlers', () => {
     cancel({ sender }, requestId);
     await pending;
     registration.dispose();
+  });
+
+  it('keeps cached HackMD notes across settings saves unless the token changes', async () => {
+    registerIpcHandlers(windowManager);
+    const update = ipcHandlers.get(ELECTRON_CHANNELS.settingsUpdate);
+    vi.mocked(clearHackmdCache).mockClear();
+
+    await update?.({}, { title: 'Renamed' });
+    expect(clearHackmdCache).not.toHaveBeenCalled();
+
+    await update?.({}, { offline: { keepHackmdNotes: false } });
+    expect(noteIndexMock.setKeepHackmdNotes).toHaveBeenCalledWith(false);
+    expect(clearHackmdCache).not.toHaveBeenCalled();
+
+    await update?.({}, { hackmdApiToken: '' });
+    expect(clearHackmdCache).toHaveBeenCalledOnce();
+  });
+
+  it('searches note text and clears the cache through the note index', async () => {
+    registerIpcHandlers(windowManager);
+    const input = { query: 'offline', scope: { type: 'hackmd', teamPath: null } };
+    await ipcHandlers.get(ELECTRON_CHANNELS.noteIndexSearch)?.({}, input);
+    expect(noteIndexMock.search).toHaveBeenCalledWith(input);
+    expect(() => ipcHandlers.get(ELECTRON_CHANNELS.noteIndexSearch)?.({}, { query: 'x'.repeat(201), scope: input.scope })).toThrow('Too big');
+
+    vi.mocked(clearHackmdCache).mockClear();
+    await ipcHandlers.get(ELECTRON_CHANNELS.noteIndexClear)?.({});
+    expect(clearHackmdCache).toHaveBeenCalledOnce();
   });
 
   it('imports hackmd-cli token by validating then saving it', async () => {

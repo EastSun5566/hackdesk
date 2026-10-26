@@ -1019,16 +1019,19 @@ describe('hackmd-service fallback cache consistency', () => {
   });
 
   it.each([
-    ['update', (service: ReturnType<typeof createHackmdService>) => service.updateNote('n1', { content: 'Updated' })],
-    ['delete', (service: ReturnType<typeof createHackmdService>) => service.deleteNote('n1')],
-  ])('invalidates note lists, the document and history after %s', async (_, mutate) => {
+    // The saved document is the newest copy, so it becomes the note's fallback.
+    ['update', (service: ReturnType<typeof createHackmdService>) => service.updateNote('n1', { content: 'Updated' }), 'Updated body'],
+    ['delete', (service: ReturnType<typeof createHackmdService>) => service.deleteNote('n1'), null],
+  ])('invalidates note lists, the document and history after %s', async (_, mutate, fallbackContent) => {
     const route = { current: okRoute({ '/notes': [note('n1')], '/notes/n1': note('n1'), '/history?limit=20': [note('n1')] }) };
     const service = createRoutedService(route);
     await Promise.all([service.listNotes(), service.getNote('n1'), service.listHistory(20)]);
     await mutate(service);
     route.current = offline;
     expect(await service.listNotes()).toEqual({ source: 'error', error: 'offline' });
-    expect(await service.getNote('n1')).toEqual({ source: 'error', error: 'offline' });
+    expect(await service.getNote('n1')).toEqual(fallbackContent === null
+      ? { source: 'error', error: 'offline' }
+      : { source: 'error', error: 'offline', data: expect.objectContaining({ id: 'n1', content: fallbackContent }) });
     expect(await service.listHistory(20)).toEqual({ source: 'error', error: 'offline' });
   });
 
@@ -1039,7 +1042,7 @@ describe('hackmd-service fallback cache consistency', () => {
     await service.updateTeamNote('design', 'n1', { content: 'Updated' });
     route.current = offline;
     expect(await service.listTeamNotes('design')).toEqual({ source: 'error', error: 'offline' });
-    expect(await service.getNote('n1', 'design')).toEqual({ source: 'error', error: 'offline' });
+    expect(await service.getNote('n1', 'design')).toEqual({ source: 'error', error: 'offline', data: expect.objectContaining({ content: 'Updated body' }) });
     expect(await service.listHistory(20)).toEqual({ source: 'error', error: 'offline' });
     expect((await service.listNotes()).data?.map((item) => item.id)).toEqual(['other']);
   });

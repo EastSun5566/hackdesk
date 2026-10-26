@@ -96,6 +96,11 @@ export type DictationSettings = {
   locale: string | null;
 };
 
+export type OfflineSettings = {
+  /** Keeps opened HackMD notes on this computer for offline reading and text search. */
+  keepHackmdNotes: boolean;
+};
+
 export const defaultAppearanceSettings: AppearanceSettings = {
   theme: 'system',
   presetId: 'hackmd-neo',
@@ -129,6 +134,10 @@ export const defaultAiSettings: AiSettings = {
   selectionChip: true,
   translateLanguage: 'English',
   customCommands: [],
+};
+
+export const defaultOfflineSettings: OfflineSettings = {
+  keepHackmdNotes: true,
 };
 
 export const defaultDictationSettings: DictationSettings = {
@@ -200,6 +209,9 @@ const aiSettingsSchema = z.object({
   translateLanguage: z.string().trim().min(1).max(64).default('English'),
   customCommands: aiCustomCommandsSchema,
 }).default(defaultAiSettings);
+const offlineSettingsSchema = z.object({
+  keepHackmdNotes: z.boolean().default(true),
+}).default(defaultOfflineSettings);
 const dictationSettingsSchema = z.object({
   enabled: z.boolean().default(false),
   locale: z.string().trim().min(1).max(MAX_DICTATION_LOCALE_LENGTH).nullable().default(null),
@@ -249,6 +261,7 @@ export const settingsSchema = z.object({
   }).default(defaultWorkspaceNavigationSettings),
   ai: aiSettingsSchema,
   dictation: dictationSettingsSchema,
+  offline: offlineSettingsSchema,
 });
 
 export type AppSettings = z.infer<typeof settingsSchema>;
@@ -265,6 +278,7 @@ export const defaultSettings: AppSettings = {
   workspaceNavigation: defaultWorkspaceNavigationSettings,
   ai: defaultAiSettings,
   dictation: defaultDictationSettings,
+  offline: defaultOfflineSettings,
 };
 
 const storedShortcutSettingsSchema = z.record(z.string(), z.unknown())
@@ -295,6 +309,7 @@ const storedSettingsSchema = z.object({
   workspaceNavigation: settingsSchema.shape.workspaceNavigation.catch(defaultSettings.workspaceNavigation),
   ai: settingsSchema.shape.ai.catch(defaultSettings.ai),
   dictation: settingsSchema.shape.dictation.catch(defaultSettings.dictation),
+  offline: settingsSchema.shape.offline.catch(defaultSettings.offline),
 });
 
 export function normalizeAppearanceSettings(

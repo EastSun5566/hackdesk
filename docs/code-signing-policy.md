@@ -39,6 +39,12 @@ because it is opened. Using a local vault is not a guarantee of no network traff
   for these writing requests. The provider's account terms and data controls apply;
   see the [OpenAI privacy policy](https://openai.com/policies/privacy-policy/) and
   [Anthropic privacy policy](https://www.anthropic.com/legal/privacy).
+- **Offline copies and search:** HackDesk keeps the HackMD notes you open, the
+  workspace lists it showed, and a text index of the active Local Vault in
+  `~/.hackdesk/cache`, readable only by your user account and not encrypted, like
+  the vault's own files. Nothing is sent anywhere. HackMD copies are removed when
+  you disconnect HackMD, change the token, or sign in as another account, and you
+  can turn them off or clear them in **Settings → General → Offline and search**.
 - **Dictation:** Off by default and available on macOS 26 or later. HackDesk
   records the microphone only while you dictate, and macOS recognizes the speech
   on this Mac. HackDesk keeps the audio in memory only; it does not save or send

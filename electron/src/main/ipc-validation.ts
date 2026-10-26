@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { MAX_NOTE_SEARCH_QUERY_LENGTH } from '../../../src/lib/note-index';
+
 import { writeLog } from './logging';
 
 const notePermissionSchema = z.enum(['owner', 'signed_in', 'guest']);
@@ -186,9 +188,21 @@ export const settingsUpdateSchema = z.strictObject({
     enabled: z.boolean(),
     locale: dictationLocaleSchema.nullable(),
   }).optional(),
+  offline: z.strictObject({
+    keepHackmdNotes: z.boolean(),
+  }).optional(),
 });
 
 export const aiProviderIdInputSchema = aiProviderIdSchema;
+
+export const noteSearchInputSchema = z.strictObject({
+  query: z.string().max(MAX_NOTE_SEARCH_QUERY_LENGTH),
+  scope: z.discriminatedUnion('type', [
+    z.strictObject({ type: z.literal('local'), vaultId: z.string().min(1).max(200) }),
+    z.strictObject({ type: z.literal('hackmd'), teamPath: z.string().min(1).max(200).nullable() }),
+  ]),
+  limit: z.number().int().min(1).max(200).optional(),
+});
 
 export const dictationStartInputSchema = z.strictObject({
   requestId: z.uuid(),

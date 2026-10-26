@@ -10,6 +10,7 @@ import type { FolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
 import type { WorkspaceScope } from './types';
+import type { NoteTextSearch } from './useNoteTextSearch';
 import {
   getFolderNoteEntries,
   getFolderPathLabel,
@@ -28,6 +29,7 @@ export type WorkbenchNavigatorOptions = {
   setCollapsedFolderIds: Dispatch<SetStateAction<Set<string>>>;
   setFinderState: Dispatch<SetStateAction<NoteFinderState>>;
   setSelectedFolderId: Dispatch<SetStateAction<string | null>>;
+  textSearch?: NoteTextSearch;
   tree: FolderTree;
 };
 
@@ -44,11 +46,13 @@ export function useWorkbenchNavigator({
   setCollapsedFolderIds,
   setFinderState,
   setSelectedFolderId,
+  textSearch,
   tree,
 }: WorkbenchNavigatorOptions) {
+  const textMatches = textSearch?.matches;
   const visibleEntries = useMemo(() => {
     const entries = finderActive
-      ? applyNoteFinder(tree, deferredFinderState, selectedFolderId)
+      ? applyNoteFinder(tree, deferredFinderState, selectedFolderId, textMatches)
       : getFolderNoteEntries(tree, selectedFolderId);
 
     const seen = new Set<string>();
@@ -61,7 +65,7 @@ export function useWorkbenchNavigator({
       seen.add(key);
       return true;
     });
-  }, [deferredFinderState, finderActive, selectedFolderId, tree]);
+  }, [deferredFinderState, finderActive, selectedFolderId, textMatches, tree]);
 
   const selectedFolder = selectedFolderId === UNFILED_FOLDER_ID
     ? tree.unfiled
@@ -162,6 +166,7 @@ export function useWorkbenchNavigator({
     selectedFolder,
     selectedFolderLabel,
     selectedParentFolderId,
+    textSearch,
     toggleFolderCollapsed,
     visibleEntries,
   };
