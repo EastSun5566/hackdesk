@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { ELECTRON_CHANNELS } from '../src/shared/channels';
+import { HACKDESK_THEME_PRESETS, resolveHackDeskTheme } from '../../src/lib/themes';
 import { defaultSettings } from '../../src/lib/settings';
 import { definedEnvironment } from './fixtures/environment';
 
@@ -124,6 +125,7 @@ test('compares a saved version and restores it into the editor', async () => {
     const editor = page.locator('.cm-content');
     await expect(editor).toContainText('Ship v2 in November.');
 
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1440, 900));
     await page.getByRole('button', { name: 'More actions' }).click();
     await page.getByRole('menuitem', { name: /Version History/ }).click();
     const dialog = page.getByRole('dialog', { name: 'Version History' });
@@ -131,10 +133,51 @@ test('compares a saved version and restores it into the editor', async () => {
       /Current/, /Before launch.*Ada/, /Auto-saved/,
     ]);
 
-    const changes = dialog.getByRole('list', { name: 'Changes since Before launch' });
-    await expect(changes).toContainText('Removed: Ship v2 in October.');
-    await expect(changes).toContainText('Added: Ship v2 in November.');
+    const changes = dialog.getByRole('region', { name: 'Before launch compared with Saved on HackMD' });
+    await expect(changes).toContainText('Ship v2 in October.');
+    await expect(changes).toContainText('Ship v2 in November.');
     expect((await readFixture(app)).compares).toEqual([['version:v-2', 'note_content']]);
+    const originalStyle = await page.locator('html').getAttribute('style');
+    for (const preset of HACKDESK_THEME_PRESETS) {
+      for (const mode of ['light', 'dark'] as const) {
+        const tokens = resolveHackDeskTheme({ presetId: preset.id, mode });
+        await page.evaluate((values) => { for (const [key, value] of Object.entries(values)) document.documentElement.style.setProperty(key, value); }, tokens);
+        await expect.poll(() => changes.locator('pre').first().evaluate((element) => getComputedStyle(element).getPropertyValue('--comparison-background').trim())).toBe(tokens['--background-default']);
+      }
+    }
+    const custom = resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'dark', customSeed: { primary: '#00a896', neutral: '#302d40' } });
+    await page.evaluate((values) => { for (const [key, value] of Object.entries(values)) document.documentElement.style.setProperty(key, value); }, custom);
+    await expect.poll(() => changes.locator('pre').first().evaluate((element) => getComputedStyle(element).getPropertyValue('--comparison-foreground').trim())).toBe(custom['--text-default']);
+    await page.locator('html').evaluate((element) => (element as HTMLElement).style.setProperty('--font-size-editor', '2rem'));
+    const largeFont = await changes.locator('pre').first().evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { size: Number.parseFloat(style.fontSize), lineHeight: Number.parseFloat(style.lineHeight) };
+    });
+    expect(largeFont.size).toBe(32);
+    expect(largeFont.lineHeight).toBeGreaterThanOrEqual(largeFont.size);
+    await page.locator('html').evaluate((element, value) => value === null ? element.removeAttribute('style') : element.setAttribute('style', value), originalStyle);
+
+    const split = dialog.getByRole('button', { name: 'Split view' });
+    await expect(split).toBeVisible();
+    await split.click();
+    await expect(split).toHaveAttribute('aria-pressed', 'true');
+    await expect(changes).toContainText('Ship v2 in November.');
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(640, 700));
+    await expect(split).toHaveCount(0);
+    await expect(changes).toContainText('Ship v2 in October.');
+    await changes.focus();
+    await expect(changes).toBeFocused();
+    await dialog.getByRole('button', { name: 'Plain text', exact: true }).click();
+    await expect(dialog.getByRole('region', { name: 'Original patch' })).toContainText('Ship v2 in November.');
+    // Capture native copy requests without accessing the system clipboard.
+    await app.evaluate(({ ipcMain }, channel) => {
+      ipcMain.removeHandler(channel);
+      ipcMain.handle(channel, (_event, text: string) => { (globalThis as { comparisonCopiedText?: string }).comparisonCopiedText = text; });
+    }, ELECTRON_CHANNELS.appWriteClipboardText);
+    await dialog.getByRole('button', { name: 'Copy full text' }).click();
+    await expect.poll(() => app.evaluate(() => (globalThis as { comparisonCopiedText?: string }).comparisonCopiedText ?? '')).toContain('Ship v2 in October.');
+
+    await dialog.getByRole('button', { name: 'Show changes' }).click();
 
     await dialog.getByRole('tab', { name: 'Full text' }).click();
     await expect(dialog.getByText('Ship v2 in October.')).toBeVisible();

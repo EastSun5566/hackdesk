@@ -123,6 +123,18 @@ test('packaged binary launches and serves the packaged renderer (#140)', async (
     await page.getByRole('treeitem', { name: /Image fixture/ }).first().click();
     const image = page.locator('.cm-hackmd-image-preview img');
     await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(1);
+    // The lazy diff and JS highlighter must work under the packaged CSP too.
+    await page.locator('.cm-content').fill('My packaged draft');
+    await writeFile(join(vault, 'Image fixture.md'), '# Changed on disk\n');
+    await page.getByRole('button', { name: 'Compare with disk' }).click();
+    const comparison = page.getByRole('dialog', { name: 'Compare with disk' });
+    const changes = comparison.getByRole('region', { name: 'On disk compared with Your draft' });
+    await expect(changes).toContainText('Changed on disk');
+    await expect(changes).toContainText('My packaged draft');
+    await page.keyboard.press('Escape');
+    await expect(comparison).toHaveCount(0);
+    await expect(page.locator('.cm-content')).toContainText('My packaged draft');
+
 
     // The first window must use the packaged renderer, not a dev-server URL.
     // `getProductionRendererUrl()` returns `hackdesk://renderer/index.html#/electron`

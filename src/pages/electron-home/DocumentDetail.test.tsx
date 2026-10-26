@@ -20,6 +20,8 @@ const markdownEditorInsertText = vi.hoisted(() => vi.fn());
 const markdownEditorOpenSearch = vi.hoisted(() => vi.fn());
 const markdownEditorMounts = vi.hoisted(() => ({ nextId: 0 }));
 
+vi.mock('@/components/NoteComparisonView', () => ({ NoteComparisonView: ({ input, beforeLabel, afterLabel }: { input: { before: string; after: string }; beforeLabel: string; afterLabel: string }) => <><section aria-label={beforeLabel}>{input.before}</section><section aria-label={afterLabel}>{input.after}</section></> }));
+
 vi.mock('@/components/MarkdownEditor', async () => {
   const React = await import('react');
 
@@ -466,7 +468,7 @@ describe('DocumentDetail', () => {
     const onReloadFromDisk = vi.fn();
     const onSaveAsCopy = vi.fn();
     renderDocumentDetail({
-      actions: { onReloadFromDisk, onSaveAsCopy },
+      actions: { onReloadFromDisk, onSaveAsCopy, onReadComparison: async () => ({ title: 'Disk title', content: 'External edit' }) },
       documentState: {
         title: 'Draft title', content: 'Recovered edit',
         document: documentSummary({ title: 'Disk title', content: 'External edit', teamPath: LOCAL_VAULT_TEAM_PATH }),
@@ -475,7 +477,7 @@ describe('DocumentDetail', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Compare with disk' }));
     const dialog = await screen.findByRole('dialog', { name: 'Compare with disk' });
-    expect(within(dialog).getByRole('region', { name: 'Your draft' })).toHaveTextContent('Recovered edit');
+    expect(await within(dialog).findByRole('region', { name: 'Your draft' })).toHaveTextContent('Recovered edit');
     expect(within(dialog).getByRole('region', { name: 'On disk' })).toHaveTextContent('External edit');
     expect(onReloadFromDisk).not.toHaveBeenCalled();
     expect(onSaveAsCopy).not.toHaveBeenCalled();
@@ -487,7 +489,7 @@ describe('DocumentDetail', () => {
     const onSave = vi.fn();
     const document = documentSummary({ title: 'Remote title', content: 'Changed on HackMD' });
     renderDocumentDetail({
-      actions: { onReloadFromHackmd, onOpenAsNewDraft, onSave },
+      actions: { onReloadFromHackmd, onOpenAsNewDraft, onSave, onReadComparison: async () => ({ title: 'Remote title', content: 'Changed on HackMD' }) },
       documentState: {
         title: 'Draft title', content: 'My edit', document,
         recovery: { kind: 'remote_changed', message: 'This note changed on HackMD.' },
@@ -498,7 +500,7 @@ describe('DocumentDetail', () => {
     expect(screen.queryByRole('button', { name: 'Save as copy' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Compare with HackMD' }));
     const dialog = await screen.findByRole('dialog', { name: 'Compare with HackMD' });
-    expect(within(dialog).getByRole('region', { name: 'Your draft' })).toHaveTextContent('My edit');
+    expect(await within(dialog).findByRole('region', { name: 'Your draft' })).toHaveTextContent('My edit');
     expect(within(dialog).getByRole('region', { name: 'On HackMD' })).toHaveTextContent('Changed on HackMD');
     fireEvent.keyDown(dialog, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());

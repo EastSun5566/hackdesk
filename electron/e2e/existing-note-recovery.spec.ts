@@ -113,8 +113,8 @@ test('keeps both versions after a disk change, rejects overwrite through both Sa
     await expect(page.getByText('File changed on disk. Your draft is still open.')).toBeVisible();
     await page.getByRole('button', { name: 'Compare with disk' }).click();
     const comparison = page.getByRole('dialog', { name: 'Compare with disk' });
-    await expect(comparison.getByRole('region', { name: 'Your draft' })).toContainText('Recovered draft');
-    await expect(comparison.getByRole('region', { name: 'On disk' })).toContainText('External edit');
+    await expect(comparison.getByRole('region', { name: /On (?:disk|HackMD) compared with Your draft/ })).toContainText('Recovered draft');
+    await expect(comparison.getByRole('region', { name: /On (?:disk|HackMD) compared with Your draft/ })).toContainText('External edit');
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('recovered-draft-comparison.png') });
     await page.keyboard.press('Escape');
     for (const save of ['shortcut', 'toolbar']) {

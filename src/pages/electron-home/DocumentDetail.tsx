@@ -1,3 +1,4 @@
+import { ConflictComparison } from './ConflictComparison';
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
@@ -33,7 +34,6 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type {
   DocumentSummary,
   NoteComment,
@@ -109,6 +109,7 @@ export type DocumentDetailActions = {
   onOpenEditor: (document: DocumentSummary) => void;
   onOpenExternal: (url: string) => void;
   onRevealInFinder: (document: DocumentSummary) => void;
+  onReadComparison?: (document: DocumentSummary, signal: AbortSignal) => Promise<{ title: string; content: string }>;
   onReloadFromDisk: (document: DocumentSummary) => void;
   onReloadFromHackmd: (document: DocumentSummary) => void;
   /** Opens the draft as a new unsaved note; the original note is left untouched. */
@@ -462,6 +463,7 @@ function ActiveDocumentDetail({
         status={status}
       />
       <DocumentRecoveryBanner
+        key={`${documentState.document?.teamPath}:${documentState.document?.id}:${getLocalImageContext(documentState.document)?.vaultId ?? ''}`}
         actions={actions}
         documentState={documentState}
       />
@@ -583,30 +585,11 @@ function DocumentRecoveryBanner({
           </Button>
         )}
       </div>
-      <Dialog open={comparing} onOpenChange={setComparing}>
-        <DialogContent size="xl">
-          <DialogHeader>
-            <DialogTitle>Compare with {source}</DialogTitle>
-            <DialogDescription>
-              {isRemote
-                ? 'Compare both versions before reloading or opening your draft as a new note. Opening a new draft keeps this draft open.'
-                : 'Compare both versions before reloading or saving a copy. Saving a copy keeps the original draft open.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid min-h-0 gap-4 sm:grid-cols-2">
-            {[
-              { label: 'Your draft', title: documentState.title, content: documentState.content },
-              { label: isRemote ? 'On HackMD' : 'On disk', title: document.title, content: document.content },
-            ].map(({ label, title, content }) => (
-              <section key={label} aria-label={label} className="min-w-0 space-y-2">
-                <h3 className="text-sm font-medium text-text-default">{label}</h3>
-                <p className="break-words text-sm text-text-subtle">{title}</p>
-                <pre tabIndex={0} className="max-h-[50dvh] overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-default bg-background-muted p-3 text-sm text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">{content}</pre>
-              </section>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {comparing ? <ConflictComparison
+        key={`${document.teamPath}:${document.id}:${getLocalImageContext(document)?.vaultId ?? ''}`}
+        document={document} draftTitle={documentState.title} draftContent={documentState.content}
+        source={source} onClose={() => setComparing(false)} readSource={actions.onReadComparison}
+      /> : null}
     </div>
   );
 }

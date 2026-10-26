@@ -66,6 +66,7 @@ export function DocumentWorkspace({
   onCopyLink,
   onCopyMarkdownLink,
   onExportMarkdown,
+  onReadComparison,
   onReloadFromDisk,
   onReloadFromHackmd,
   onSave,
@@ -107,6 +108,7 @@ export function DocumentWorkspace({
   onCopyLink: (document: DocumentSummary) => void;
   onCopyMarkdownLink: (document: DocumentSummary) => void;
   onExportMarkdown: (document: DocumentSummary, title: string, content: string) => void;
+  onReadComparison?: (document: DocumentSummary, signal: AbortSignal) => Promise<{ title: string; content: string }>;
   onReloadFromDisk: (document: DocumentSummary) => void;
   onReloadFromHackmd: (document: DocumentSummary) => void;
   onSave: (tab: OpenNoteTab, input: UpdateNoteInput) => void;
@@ -246,6 +248,7 @@ export function DocumentWorkspace({
                       onCopyLink,
                       onCopyMarkdownLink,
                       onExportMarkdown,
+                      onReadComparison,
                       onReloadFromDisk,
                       onReloadFromHackmd,
                       onOpenAsNewDraft: (title, content) => onOpenAsNewDraft(title, content, pane.paneId),

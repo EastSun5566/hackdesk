@@ -20,7 +20,7 @@ import { getHackDeskAPI } from '@/lib/electron-api';
 import { AiCommandDialog } from './AiCommandDialog';
 import { createAiCustomCommand, updateAiCustomCommands } from './ai-commands';
 import type { AiInlineController, AiInlineRun } from './useAiInline';
-import { writeClipboardText } from './useDocumentCommands';
+import { writeClipboardText } from '@/lib/clipboard';
 
 const MENU_ACTIONS: AiAction[] = ['fix', 'improve', 'shorter', 'longer', 'translate', 'summarize', 'continue', 'cleanup'];
 const PANEL_CLASS = 'rounded-lg border border-border-default bg-background-default text-text-default shadow-lg';

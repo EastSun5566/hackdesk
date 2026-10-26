@@ -4,7 +4,7 @@ import { toast } from '@/components/ui/toast';
 import type { HackDeskElectronAPI } from '@/lib/electron-api';
 import { buildMarkdownExportInput } from '@/lib/electron-note-portability';
 
-import { writeClipboardText } from './useDocumentCommands';
+import { writeClipboardText } from '@/lib/clipboard';
 
 /** Copy or export draft text that has no usable note behind it. */
 export function useDraftTextActions(api?: HackDeskElectronAPI) {
