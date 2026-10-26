@@ -262,7 +262,7 @@ function stateListener(host: AiInlineHost) {
     const before = getAiInlineState(update.startState);
     const after = getAiInlineState(update.state);
     if (before.phase !== after.phase || before.session !== after.session
-      || before.delivery !== after.delivery || before.error !== after.error) {
+      || before.delivery !== after.delivery || before.error !== after.error || before.comparison !== after.comparison) {
       host.onStateChange(after, update.view);
     }
   });
