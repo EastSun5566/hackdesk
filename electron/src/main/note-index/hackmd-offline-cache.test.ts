@@ -105,6 +105,27 @@ describe('HackMD offline cache', () => {
     expect(store.getNote('hackmd', 'personal', 'n1')?.content).toBe('newer');
   });
 
+  it('keeps the newest version when two reads of one note answer out of order', async () => {
+    const store = openNoteStore(':memory:');
+    const releases: (() => void)[] = [];
+    let reads = 0;
+    const fetcher = (async () => {
+      reads += 1;
+      // The first read saw the note before a remote edit and answers last.
+      const body = reads === 1 ? { ...note('n1', 'before the edit'), lastChangedAt: 1 } : { ...note('n1', 'after the edit'), lastChangedAt: 2 };
+      const response = new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json', ETag: `"e${reads}"` } });
+      return reads === 1 ? new Promise<Response>(resolve => releases.push(() => resolve(response))) : response;
+    }) as typeof fetch;
+    const { service } = restart(store, fetcher);
+
+    const first = service.getNote('n1');
+    await expect(service.getNote('n1')).resolves.toMatchObject({ data: { content: 'after the edit' } });
+    releases.forEach(release => release());
+    // The caller still gets what HackMD answered; only the cached copy keeps the newer one.
+    await expect(first).resolves.toMatchObject({ data: { content: 'before the edit' } });
+    expect(store.getNote('hackmd', 'personal', 'n1')?.content).toBe('after the edit');
+  });
+
   it('drops one account\'s notes when another signs in, and everything when turned off', async () => {
     const store = openNoteStore(':memory:');
     const routes: Routes = { 'GET /me': { id: 'user-1' }, 'GET /notes/n1': note('n1', 'private text') };

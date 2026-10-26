@@ -176,6 +176,15 @@ function createFallbackCache() {
     const value = (data as { updatedAtMillis?: unknown } | null)?.updatedAtMillis;
     return typeof value === 'number' ? value : null;
   };
+  /** Caches `data` unless a newer version of the note was seen; then the newer one stays, or comes back. */
+  const keepNewest = (cacheKey: CacheKey, data: unknown) => {
+    const at = changedAt(data);
+    const known = newest.get(cacheKey);
+    const kept = at !== null && known && at < known.at ? known.data : data;
+    if (kept === data && at !== null) newest.set(cacheKey, { at, data });
+    entries.set(cacheKey, kept);
+    durable?.write(cacheKey, kept);
+  };
 
   return {
     setDurable(next: HackmdDurableFallback | null) {
@@ -185,12 +194,8 @@ function createFallbackCache() {
       const startedGeneration = generation;
       return promise
         .then((data) => {
-          if (startedGeneration === generation) {
-            entries.set(cacheKey, data);
-            durable?.write(cacheKey, data);
-            const at = changedAt(data);
-            if (at !== null && at >= (newest.get(cacheKey)?.at ?? -Infinity)) newest.set(cacheKey, { at, data });
-          }
+          // Overlapping reads of one note can answer out of order too.
+          if (startedGeneration === generation) keepNewest(cacheKey, data);
           return { source: 'remote' as const, data };
         })
         .catch((error) => {
@@ -207,13 +212,7 @@ function createFallbackCache() {
     },
     /** Records a value read or written outside `load`, such as a saved note, unless a newer one was. */
     remember(cacheKey: CacheKey, data: unknown) {
-      const at = changedAt(data);
-      const known = newest.get(cacheKey);
-      // An older answer keeps the newer version, putting it back if the write's invalidation took it.
-      const kept = at !== null && known && at < known.at ? known.data : data;
-      if (kept === data && at !== null) newest.set(cacheKey, { at, data });
-      entries.set(cacheKey, kept);
-      durable?.write(cacheKey, kept);
+      keepNewest(cacheKey, data);
     },
     invalidate(matches: (key: CacheKey) => boolean) {
       generation += 1;
