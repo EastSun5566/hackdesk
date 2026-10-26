@@ -77,6 +77,34 @@ describe('HackMD offline cache', () => {
     expect(store.getNote('hackmd', 'personal', 'n1')).toBeNull();
   });
 
+  it('keeps the newest saved text when overlapping saves or a late re-read answer out of order', async () => {
+    const store = openNoteStore(':memory:');
+    const pending: (() => void)[] = [];
+    const fetcher = (async (_input: string | URL | Request, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      if (method === 'PATCH') {
+        const { content } = JSON.parse(String(init?.body)) as { content: string };
+        const body = { ...note('n1', content), lastChangedAt: content === 'newer' ? 3 : 2 };
+        const response = new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } });
+        // The older save's answer arrives last.
+        if (content === 'older') return new Promise<Response>(resolve => pending.push(() => resolve(response)));
+        return response;
+      }
+      const stale = { ...note('n1', 'stale re-read'), lastChangedAt: 1 };
+      return new Response(JSON.stringify(stale), { headers: { 'Content-Type': 'application/json', ETag: '"e0"' } });
+    }) as typeof fetch;
+    const { service } = restart(store, fetcher);
+
+    const older = service.updateNote('n1', { content: 'older' });
+    await service.updateNote('n1', { content: 'newer' });
+    pending.forEach(release => release());
+    await older;
+    expect(store.getNote('hackmd', 'personal', 'n1')?.content).toBe('newer');
+
+    await service.getNoteIfChanged('n1', null, '"e-old"');
+    expect(store.getNote('hackmd', 'personal', 'n1')?.content).toBe('newer');
+  });
+
   it('drops one account\'s notes when another signs in, and everything when turned off', async () => {
     const store = openNoteStore(':memory:');
     const routes: Routes = { 'GET /me': { id: 'user-1' }, 'GET /notes/n1': note('n1', 'private text') };

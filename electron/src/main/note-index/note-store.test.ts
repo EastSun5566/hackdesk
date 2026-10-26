@@ -31,6 +31,25 @@ describe('note store', () => {
     expect(store.search({ query: 'missing words', source: 'local', workspace: 'vault-1' })).toEqual({ matches: [], indexedCount: 2 });
   });
 
+  it('marks the text around a match found only in the title', () => {
+    const store = openNoteStore(':memory:');
+    store.putNotes([note('Roadmap 2027', 'Plans for the roadmap ahead.', { title: 'Roadmap 2027' })]);
+    store.putNotes([note('Untitled', 'Nothing here.', { title: 'Quarterly roadmap' })]);
+    const [planned, titleOnly] = ['Roadmap 2027', 'Untitled'].map(noteId => store.search({ query: 'roadmap', source: 'local', workspace: 'vault-1' })
+      .matches.find(match => match.noteId === noteId)!);
+    expect(planned.snippet).toContain(`${MATCH_START}roadmap${MATCH_END}`);
+    // No marker to show when only the title matched, and no stray text either.
+    expect(titleOnly.snippet).toBe('Nothing here.');
+  });
+
+  it('counts the cache size in bytes, including Chinese text', () => {
+    const store = openNoteStore(':memory:');
+    store.putNote(note('n1', '中文', { source: 'hackmd', workspace: 'personal' }));
+    store.putResponse('notes', '中');
+    // Two 3-byte characters, plus `"中"` as JSON: 1 + 3 + 1 bytes.
+    expect(store.status().hackmdBytes).toBe(6 + 5);
+  });
+
   it('falls back to scanning for one- and two-character queries', () => {
     const store = openNoteStore(':memory:');
     store.putNotes([note('a', '這是搜尋測試'), note('b', 'plain 100% text_x')]);

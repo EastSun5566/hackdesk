@@ -169,6 +169,13 @@ function createFallbackCache() {
   const entries = new Map<CacheKey, unknown>();
   let generation = 0;
   let durable: HackmdDurableFallback | null = null;
+  // The newest note version seen per key. It outlives invalidation, which empties `entries` around
+  // every write, so an overlapping write's older response cannot replace (or erase) a newer one.
+  const newest = new Map<CacheKey, { at: number; data: unknown }>();
+  const changedAt = (data: unknown) => {
+    const value = (data as { updatedAtMillis?: unknown } | null)?.updatedAtMillis;
+    return typeof value === 'number' ? value : null;
+  };
 
   return {
     setDurable(next: HackmdDurableFallback | null) {
@@ -181,6 +188,8 @@ function createFallbackCache() {
           if (startedGeneration === generation) {
             entries.set(cacheKey, data);
             durable?.write(cacheKey, data);
+            const at = changedAt(data);
+            if (at !== null && at >= (newest.get(cacheKey)?.at ?? -Infinity)) newest.set(cacheKey, { at, data });
           }
           return { source: 'remote' as const, data };
         })
@@ -196,10 +205,15 @@ function createFallbackCache() {
           return { source: 'error' as const, error: message };
         });
     },
-    /** Records a value read or written outside `load`, such as a saved note. */
+    /** Records a value read or written outside `load`, such as a saved note, unless a newer one was. */
     remember(cacheKey: CacheKey, data: unknown) {
-      entries.set(cacheKey, data);
-      durable?.write(cacheKey, data);
+      const at = changedAt(data);
+      const known = newest.get(cacheKey);
+      // An older answer keeps the newer version, putting it back if the write's invalidation took it.
+      const kept = at !== null && known && at < known.at ? known.data : data;
+      if (kept === data && at !== null) newest.set(cacheKey, { at, data });
+      entries.set(cacheKey, kept);
+      durable?.write(cacheKey, kept);
     },
     invalidate(matches: (key: CacheKey) => boolean) {
       generation += 1;
@@ -211,6 +225,7 @@ function createFallbackCache() {
     clear() {
       generation += 1;
       entries.clear();
+      newest.clear();
       durable?.clear();
     },
   };

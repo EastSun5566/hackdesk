@@ -213,7 +213,7 @@ export function openNoteStore(path: string, { log = () => undefined }: { log?: (
     status() {
       const count = (source: NoteSource) => (db.prepare('select count(*) as count from notes where source = ?').get(source) as { count: number }).count;
       const bytes = (db.prepare(`
-        select coalesce(sum(length(cast(content as blob))), 0) + coalesce((select sum(length(json)) from responses), 0) as bytes
+        select coalesce(sum(length(cast(content as blob))), 0) + coalesce((select sum(length(cast(json as blob))) from responses), 0) as bytes
         from notes where source = 'hackmd'
       `).get() as { bytes: number }).bytes;
       return { hackmdNotes: count('hackmd'), hackmdBytes: bytes, localNotes: count('local') };

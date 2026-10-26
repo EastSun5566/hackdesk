@@ -54,13 +54,20 @@ export function searchNoteIndex(db: DatabaseSync, { query, source, workspace, li
 
   if (words.every(word => [...word].length >= MIN_INDEXED_LENGTH)) {
     const rows = db.prepare(`
-      select notes.note_id as noteId, notes.title as title,
+      select notes.note_id as noteId, notes.title as title, notes.content as content,
         snippet(notes_fts, 1, ?, ?, '…', 12) as snippet
       from notes_fts join notes on notes.rowid = notes_fts.rowid
       where notes_fts match ? and notes.source = ? and notes.workspace = ?
       order by rank limit ?
-    `).all(MATCH_START, MATCH_END, toFtsQuery(words), source, workspace, limit) as NoteSearchMatch[];
-    return { matches: rows.map(row => ({ ...row, snippet: flatten(row.snippet) })), indexedCount };
+    `).all(MATCH_START, MATCH_END, toFtsQuery(words), source, workspace, limit) as (NoteSearchMatch & { content: string })[];
+    return {
+      // A match only in the title leaves the content snippet unmarked; show the text around the first word instead.
+      matches: rows.map(({ content, ...row }) => ({
+        ...row,
+        snippet: row.snippet.includes(MATCH_START) ? flatten(row.snippet) : makeSnippet(content, words[0]!),
+      })),
+      indexedCount,
+    };
   }
 
   // Short words cannot use the trigram index; a plain scan is fine at note-collection sizes.
