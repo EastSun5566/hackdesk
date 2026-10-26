@@ -34,7 +34,7 @@ async function launch(customCommands: AiCustomCommand[] = []) {
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.HACKDESK_ELECTRON_DEV_SERVER_URL;
   const app = await electron.launch({ args: [repoRoot, `--user-data-dir=${join(home, 'user-data')}`, `--hackdesk-home=${home}`], cwd: repoRoot, env });
-  return { app, page: await app.firstWindow() };
+  return { app, page: await app.firstWindow(), vault };
 }
 
 async function selectDraftLine(page: Page) {
@@ -55,7 +55,27 @@ test('selected text is fixed inline with ⌘K, previewed, accepted and undone', 
     // The fake answers "Hello"; the note keeps its text until the answer is accepted.
     await expect(page.locator('.cm-ai-inserted')).toHaveText('Hello');
     await expect(page.locator('.cm-content')).toContainText('Helo wrold');
+    const compare = page.getByRole('button', { name: 'Compare changes', exact: true });
+    await compare.focus();
     await page.keyboard.press('Enter');
+    const comparison = page.getByRole('dialog', { name: 'Compare AI changes' });
+    await expect(comparison).toBeVisible();
+    await expect(comparison.locator('[data-note-comparison]')).toContainText('Before → After AI');
+    await expect(comparison.getByText('Hello', { exact: true })).toBeVisible();
+    await expect(page.locator('.cm-content')).toContainText('Helo wrold');
+    await comparison.getByRole('button', { name: 'Back', exact: true }).click();
+    await expect(comparison).not.toBeVisible();
+    await expect(page.locator('.cm-content')).toBeFocused();
+    await expect.poll(() => page.evaluate(() => window.getSelection()?.toString())).toBe('Helo wrold');
+    await compare.click();
+    await expect(comparison).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(comparison).not.toBeVisible();
+    await expect(compare).toBeVisible();
+    await expect(page.locator('.cm-content')).toBeFocused();
+    await compare.click();
+    await comparison.getByRole('button', { name: 'Replace', exact: true }).click();
+    await expect(comparison).not.toBeVisible();
     await expect(page.locator('.cm-line', { hasText: 'Hello' })).toHaveText('Hello');
 
     await page.keyboard.press(`${mod}+z`);
@@ -82,7 +102,12 @@ test('a saved command runs from the menu and adds its answer below', async () =>
     await menu.getByText('List the to-dos').click();
 
     await expect(page.locator('.cm-ai-inserted-block')).toHaveText('Hello');
-    await page.keyboard.press('Enter');
+    await page.getByRole('button', { name: 'Compare changes', exact: true }).click();
+    const comparison = page.getByRole('dialog', { name: 'Compare AI changes' });
+    await comparison.getByRole('button', { name: 'Plain text', exact: true }).click();
+    await expect(comparison.getByRole('document', { name: 'Before text' })).toHaveText('# Draft\n\nHelo wrold\n');
+    await expect(comparison.getByRole('document', { name: 'After AI text' })).toHaveText('# Draft\n\nHelo wrold\n\nHello\n');
+    await comparison.getByRole('button', { name: 'Insert', exact: true }).click();
     // The original stays and the answer follows it as a new paragraph.
     await expect.poll(() => page.locator('.cm-content').innerText()).toMatch(/Helo wrold\n+Hello/);
 
@@ -116,6 +141,25 @@ test('a typed request can be saved as a command from its preview', async () => {
     const menu = page.getByRole('dialog', { name: 'Ask AI' });
     await expect(menu.getByText('Your commands')).toBeVisible();
     await expect(menu.getByText('make it formal', { exact: true })).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
+test('an external edit closes the detailed comparison without applying the old answer', async () => {
+  const { app, page, vault } = await launch();
+  try {
+    await selectDraftLine(page);
+    await page.keyboard.press(`${mod}+k`);
+    await page.getByRole('dialog', { name: 'Ask AI' }).getByText('Fix spelling & grammar').click();
+    await expect(page.locator('.cm-ai-inserted')).toHaveText('Hello');
+    await page.getByRole('button', { name: 'Compare changes', exact: true }).click();
+    const comparison = page.getByRole('dialog', { name: 'Compare AI changes' });
+    await expect(comparison).toBeVisible();
+    await writeFile(join(vault, 'Draft.md'), '# Draft\n\nChanged externally\n');
+    await expect(comparison).not.toBeVisible();
+    await expect(page.locator('.cm-content')).toContainText('Changed externally');
+    await expect(page.locator('.cm-content')).not.toContainText('Hello');
   } finally {
     await app.close();
   }

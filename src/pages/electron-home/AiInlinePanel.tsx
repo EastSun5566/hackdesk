@@ -1,11 +1,11 @@
 import { useState, type FocusEvent, type KeyboardEvent, type MouseEvent } from 'react';
 import type { EditorView } from '@codemirror/view';
-import { AlertCircle, BookmarkPlus, Check, Copy, Loader2, RotateCcw, Sparkles, X } from 'lucide-react';
+import { AlertCircle, BookmarkPlus, Check, Copy, GitCompareArrows, Loader2, RotateCcw, Sparkles, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { toast } from '@/components/ui/toast';
-import { acceptAiInline, closeAiInline, getAiInlineState, type AiInlineState } from '@/components/hackmd-live-preview/ai-inline/state';
+import { acceptAiInline, closeAiInline, getAiInlineState, openAiComparison, type AiInlineState } from '@/components/hackmd-live-preview/ai-inline/state';
 import { isDictatedRange } from '@/components/hackmd-live-preview/dictation/extension';
 import {
   AI_ACTION_DETAILS,
@@ -18,6 +18,7 @@ import {
 import { getHackDeskAPI } from '@/lib/electron-api';
 
 import { AiCommandDialog } from './AiCommandDialog';
+import { AiComparisonDialog } from './AiComparisonDialog';
 import { createAiCustomCommand, updateAiCustomCommands } from './ai-commands';
 import type { AiInlineController, AiInlineRun } from './useAiInline';
 import { writeClipboardText } from '@/lib/clipboard';
@@ -238,11 +239,15 @@ function AiStatus({ view, session, controller }: { view: EditorView; session: Ai
   };
 
   return (
-    <div className={`${PANEL_CLASS} flex items-center gap-1 px-1.5 py-1 text-xs`} role="toolbar" aria-label="AI result">
+    <div className={`${PANEL_CLASS} flex flex-wrap items-center gap-1 px-1.5 py-1 text-xs`} role="toolbar" aria-label="AI result">
       <Button size="xs" variant="primary" onMouseDown={keepEditorFocus} onClick={() => acceptAiInline(view)}>
         <Check aria-hidden="true" className="h-3.5 w-3.5" />
         {session.delivery === 'replace' ? 'Replace' : 'Insert'}
         <kbd className="opacity-70">⏎</kbd>
+      </Button>
+      <Button size="xs" variant="ghost" onMouseDown={keepEditorFocus} onClick={() => view.dispatch({ effects: openAiComparison.of(null) })}>
+        <GitCompareArrows aria-hidden="true" className="h-3.5 w-3.5" />
+        Compare changes
       </Button>
       <Button size="xs" variant="ghost" onMouseDown={keepEditorFocus} onClick={() => close(view)}>
         Discard
@@ -257,6 +262,7 @@ function AiStatus({ view, session, controller }: { view: EditorView; session: Ai
         Copy
       </Button>
       {savable ? <SaveAsCommandButton run={savable} /> : null}
+      {session.comparison ? <AiComparisonDialog view={view} snapshot={session.comparison} /> : null}
     </div>
   );
 }

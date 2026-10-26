@@ -7,9 +7,13 @@ import { aiInline, openAiInlineMenu, type AiInlineHost } from './extension';
 import {
   acceptAiInline,
   appendAiInlineOutput,
+  closeAiComparison,
+  closeAiInline,
   finishAiInlineRun,
   getAiInlineState,
+  getAiInlineEdit,
   getAiInlineTarget,
+  openAiComparison,
   startAiInlineRun,
 } from './state';
 
@@ -59,6 +63,72 @@ afterEach(() => {
 });
 
 describe('inline AI editor extension', () => {
+  it('keeps editor keys from accepting or discarding while comparison takes focus', () => {
+    const { view, host } = createView('Helo', { anchor: 0, head: 4 });
+    openAiInlineMenu(view, host);
+    preview(view, 'Hello');
+    view.dispatch({ effects: openAiComparison.of(null) });
+    const selection = view.state.selection;
+    view.dispatch({ selection: { anchor: 0 } });
+    expect(press(view, 'Escape')).toBe(true);
+    expect(getAiInlineState(view.state)).toMatchObject({ phase: 'preview', comparison: null });
+    expect(view.state.selection.eq(selection)).toBe(true);
+    view.dispatch({ effects: openAiComparison.of(null) });
+    const snapshot = getAiInlineState(view.state).comparison;
+    for (const [key, modifiers] of [['Enter', {}], ['Enter', mod], ['k', mod]] as const) {
+      expect(press(view, key, modifiers)).toBe(true);
+      expect(getAiInlineState(view.state)).toMatchObject({ phase: 'preview', comparison: snapshot });
+      expect(view.state.sliceDoc()).toBe('Helo');
+    }
+  });
+
+  it.each([
+    { doc: '# Note\n\nHelo wrold\n\nKeep this.', from: 8, to: 18, output: '  Hello world\n ', delivery: 'replace' as const, expected: '# Note\n\nHello world\n\nKeep this.' },
+    { doc: 'First para\nSecond para', from: 0, to: 11, output: ' \n摘要\n ', delivery: 'insert-below' as const, expected: 'First para\n\n摘要\nSecond para' },
+    { doc: 'First line\nSecond line', from: 0, to: 5, output: '- Summary', delivery: 'insert-below' as const, expected: 'First line\n\n- Summary\nSecond line' },
+    { doc: '舊內容', from: 0, to: 3, output: ' 新\r\n內容 ', delivery: 'replace' as const, expected: '新\n內容' },
+  ])('compares and accepts the same $delivery edit, with one undo', ({ doc, from, to, output, delivery, expected }) => {
+    const { view, host } = createView(doc, { anchor: to, head: from });
+    openAiInlineMenu(view, host);
+    preview(view, output, delivery);
+    const edit = getAiInlineEdit(view.state)!;
+    expect(view.state.changes(edit.changes).apply(view.state.doc).toString()).toBe(expected);
+    view.dispatch({ effects: openAiComparison.of(null) });
+    expect(getAiInlineState(view.state).comparison?.doc).toBe(view.state.doc);
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(acceptAiInline(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(expected);
+    expect(view.state.sliceDoc(view.state.selection.main.from, view.state.selection.main.to)).toBe(output.trim().replace(/\r\n/g, '\n'));
+    undo(view);
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  it('invalidates the detailed snapshot on edits anywhere, retry, new session or discard', () => {
+    const { view, host } = createView('one two three', { anchor: 4, head: 7 });
+    openAiInlineMenu(view, host);
+    preview(view, 'TWO');
+    const open = () => view.dispatch({ effects: openAiComparison.of(null) });
+    open();
+    view.dispatch({ effects: closeAiComparison.of(null) });
+    expect(getAiInlineState(view.state)).toMatchObject({ phase: 'preview', comparison: null });
+    open();
+    view.dispatch({ changes: { from: 0, insert: 'zero ' } });
+    expect(getAiInlineState(view.state)).toMatchObject({ phase: 'preview', comparison: null });
+    expect(host.onStateChange).toHaveBeenLastCalledWith(expect.objectContaining({ comparison: null }), view);
+    open();
+    view.dispatch({ effects: startAiInlineRun.of({ delivery: 'replace' }) });
+    expect(getAiInlineState(view.state).comparison).toBeNull();
+    expect(getAiInlineEdit(view.state)).toBeNull();
+    preview(view, 'two');
+    open();
+    openAiInlineMenu(view, host);
+    expect(getAiInlineState(view.state).comparison).toBeNull();
+    preview(view, 'two');
+    open();
+    view.dispatch({ effects: closeAiInline.of(null) });
+    expect(getAiInlineState(view.state)).toMatchObject({ phase: 'idle', comparison: null });
+  });
+
   it('leaves ⌘K to the command palette without a selection or without a provider', () => {
     expect(press(createView('Hello world', { anchor: 3 }).view, 'k', mod)).toBe(false);
     expect(press(createView('Hello world', { anchor: 0, head: 5 }, createHost({ isAvailable: () => false })).view, 'k', mod)).toBe(false);
