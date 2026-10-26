@@ -63,6 +63,25 @@ afterEach(() => {
 });
 
 describe('inline AI editor extension', () => {
+  it('keeps editor keys from accepting or discarding while comparison takes focus', () => {
+    const { view, host } = createView('Helo', { anchor: 0, head: 4 });
+    openAiInlineMenu(view, host);
+    preview(view, 'Hello');
+    view.dispatch({ effects: openAiComparison.of(null) });
+    const selection = view.state.selection;
+    view.dispatch({ selection: { anchor: 0 } });
+    expect(press(view, 'Escape')).toBe(true);
+    expect(getAiInlineState(view.state)).toMatchObject({ phase: 'preview', comparison: null });
+    expect(view.state.selection.eq(selection)).toBe(true);
+    view.dispatch({ effects: openAiComparison.of(null) });
+    const snapshot = getAiInlineState(view.state).comparison;
+    for (const [key, modifiers] of [['Enter', {}], ['Enter', mod], ['k', mod]] as const) {
+      expect(press(view, key, modifiers)).toBe(true);
+      expect(getAiInlineState(view.state)).toMatchObject({ phase: 'preview', comparison: snapshot });
+      expect(view.state.sliceDoc()).toBe('Helo');
+    }
+  });
+
   it.each([
     { doc: '# Note\n\nHelo wrold\n\nKeep this.', from: 8, to: 18, output: '  Hello world\n ', delivery: 'replace' as const, expected: '# Note\n\nHello world\n\nKeep this.' },
     { doc: 'First para\nSecond para', from: 0, to: 11, output: ' \n摘要\n ', delivery: 'insert-below' as const, expected: 'First para\n\n摘要\nSecond para' },

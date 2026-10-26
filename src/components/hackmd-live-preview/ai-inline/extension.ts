@@ -14,6 +14,7 @@ import { diffWords } from './diff';
 import {
   acceptAiInline,
   aiInlineField,
+  closeAiComparison,
   closeAiInline,
   getAiInlineState,
   getAiInsertPosition,
@@ -234,22 +235,32 @@ function aiKeymap(host: AiInlineHost) {
   const runIfOpen = (run: (view: EditorView) => boolean) => (view: EditorView) => (
     getAiInlineState(view.state).phase === 'idle' ? false : run(view)
   );
+  // The dialog may mount before its initial focus leaves the editor.
+  const accept = (view: EditorView) => {
+    const session = getAiInlineState(view.state);
+    return session.comparison ? true : session.phase === 'preview' && acceptAiInline(view);
+  };
   return Prec.highest(keymap.of([
     {
       key: 'Mod-k',
       run: (view) => {
+        if (getAiInlineState(view.state).comparison) return true;
         // Without a selection ⌘K stays the command palette.
         const { from, to } = view.state.selection.main;
         if (!view.state.sliceDoc(from, to).trim()) return false;
         return openAiInlineMenu(view, host);
       },
     },
-    { key: 'Enter', run: view => getAiInlineState(view.state).phase === 'preview' && acceptAiInline(view) },
-    { key: 'Mod-Enter', run: view => getAiInlineState(view.state).phase === 'preview' && acceptAiInline(view) },
+    { key: 'Enter', run: accept },
+    { key: 'Mod-Enter', run: accept },
     {
       key: 'Escape',
       run: runIfOpen((view) => {
-        view.dispatch({ effects: closeAiInline.of(null) });
+        const comparison = getAiInlineState(view.state).comparison;
+        view.dispatch({
+          effects: comparison ? closeAiComparison.of(null) : closeAiInline.of(null),
+          ...(comparison ? { selection: comparison.selection } : {}),
+        });
         return true;
       }),
     },
