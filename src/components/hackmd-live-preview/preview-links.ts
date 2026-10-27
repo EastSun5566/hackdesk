@@ -89,6 +89,13 @@ export function hackmdLinkOpenAffordance(onOpenLinkRef: OpenLinkRef): Extension 
   ];
 }
 
+/** A relative link to a Markdown note, such as `./plan.md` or `../notes/a.md#goals`. */
+export function getRelativeNoteLink(rawUrl: string): string | null {
+  const trimmed = rawUrl.trim().replace(/^<|>$/g, '');
+  if (!trimmed || trimmed.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return null;
+  return /\.(?:md|markdown)(?:[?#].*)?$/i.test(trimmed) ? trimmed : null;
+}
+
 export function getSafeExternalLink(rawUrl: string): string | null {
   const trimmed = rawUrl.trim().replace(/^<|>$/g, '');
   if (!trimmed) {
@@ -172,11 +179,13 @@ function buildLinkOpenDecorations(state: EditorState): DecorationSet {
         return;
       }
 
-      const url = getSafeExternalLink(extractLinkUrl(state, {
+      const rawUrl = extractLinkUrl(state, {
         from: node.from,
         name: node.name,
         to: node.to,
-      }));
+      });
+      // The page decides where a note link goes: a tab for a known note, the browser otherwise.
+      const url = getSafeExternalLink(rawUrl) ?? getRelativeNoteLink(rawUrl);
       if (!url) {
         return;
       }

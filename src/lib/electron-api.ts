@@ -21,7 +21,15 @@ import type {
 } from './local-vault';
 import type { AiProviderId, AiProviderStatus, AiTurnInput } from './ai';
 import type { DictationEvent, DictationInstallInput, DictationStartInput, DictationStatus } from './dictation';
-import type { NoteIndexStatus, NoteSearchInput, NoteSearchResponse } from './note-index';
+import type {
+  NoteBacklinksInput,
+  NoteBacklinksResponse,
+  NoteIndexStatus,
+  NoteLinkTarget,
+  NoteSearchInput,
+  NoteSearchResponse,
+  ResolveNoteLinkInput,
+} from './note-index';
 import type { AppSettings } from './settings';
 
 export type RuntimeEnvironment = 'electron' | 'web';
@@ -481,6 +489,8 @@ export type HackDeskElectronAPI = {
     getNote: (noteId: string, teamPath?: string | null, options?: HackmdRequestOptions) => Promise<RepositoryValue<DocumentSummary>>;
     /** Resolves null when the note still matches `etag`. */
     getNoteIfChanged: (noteId: string, teamPath: string | null, etag: string, options?: HackmdRequestOptions) => Promise<DocumentSummary | null>;
+    /** Finds the note a link names (a short ID, `@owner/permalink` or note URL); one API call. */
+    resolveNote?: (ref: string, options?: HackmdRequestOptions) => Promise<{ noteId: string; teamPath: string | null; title: string; shortId: string }>;
     createNote: (input: CreateNoteInput) => Promise<DocumentSummary>;
     createTeamNote: (teamPath: string, input: CreateNoteInput) => Promise<DocumentSummary>;
     updateNote: (noteId: string, input: UpdateNoteInput) => Promise<DocumentSummary>;
@@ -530,6 +540,10 @@ export type HackDeskElectronAPI = {
     status: () => Promise<NoteIndexStatus>;
     /** Forgets the cached HackMD notes; the Local Vault index stays. */
     clear: () => Promise<NoteIndexStatus>;
+    /** Finds the note a link points to from local data only; null when nothing here knows it. */
+    resolveLink: (input: ResolveNoteLinkInput) => Promise<NoteLinkTarget | null>;
+    /** Notes that link to `target`, from the Local Vault and the HackMD notes opened before. */
+    backlinks: (input: NoteBacklinksInput) => Promise<NoteBacklinksResponse>;
   };
   localVault: {
     choose: () => Promise<ChooseLocalVaultResult>;

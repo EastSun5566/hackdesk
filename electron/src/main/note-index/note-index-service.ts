@@ -1,7 +1,16 @@
 import { rmSync } from 'node:fs';
 
 import type { LocalVaultSnapshot } from '../../../../src/lib/local-vault';
-import type { NoteIndexStatus, NoteSearchInput, NoteSearchResponse } from '../../../../src/lib/note-index';
+import type {
+  NoteBacklinksInput,
+  NoteBacklinksResponse,
+  NoteIndexStatus,
+  NoteLinkTarget,
+  NoteSearchInput,
+  NoteSearchResponse,
+  ResolveNoteLinkInput,
+} from '../../../../src/lib/note-index';
+import { hackmdNoteKeys, localLinkKey, parseEmbedRef, parseHackmdUrl, resolveLocalLink } from '../../../../src/lib/note-links';
 import {
   createHackmdOfflineCache,
   PERSONAL_WORKSPACE,
@@ -97,6 +106,51 @@ export function createNoteIndexService({ path, readNotes, keepHackmdNotes = true
         source: scope.type === 'local' ? 'local' : 'hackmd',
         workspace: scope.type === 'local' ? scope.vaultId : scope.teamPath ?? PERSONAL_WORKSPACE,
       });
+    },
+
+    /** Finds the note a link points to, from what this computer already has; never calls HackMD. */
+    resolveLink({ target, kind, from }: ResolveNoteLinkInput): NoteLinkTarget | null {
+      const { store } = open();
+      if (!store) return null;
+      const ref = kind === 'embed' ? parseEmbedRef(target) : parseHackmdUrl(target);
+      if (ref) {
+        if (!keepHackmd) return null;
+        const found = store.findHackmdNote(ref);
+        return found ? { kind: 'hackmd', ...found } : null;
+      }
+      if (kind !== 'url' || from.source !== 'local') return null;
+      const fromNote = store.getNote('local', from.vaultId, from.noteId);
+      const fromPath = fromNote?.meta ? (JSON.parse(fromNote.meta) as { relativePath?: string }).relativePath : undefined;
+      const path = fromPath ? resolveLocalLink(fromPath, target) : null;
+      const found = path ? store.findLocalNoteByPath(from.vaultId, path) : null;
+      return found ? { kind: 'local', vaultId: from.vaultId, ...found } : null;
+    },
+
+    backlinks({ target }: NoteBacklinksInput): NoteBacklinksResponse {
+      const { store } = open();
+      if (!store) return { notes: [], hackmdIndexed: 0 };
+      let keys: string[];
+      if (target.source === 'local') {
+        const note = store.getNote('local', target.vaultId, target.noteId);
+        const path = note?.meta ? (JSON.parse(note.meta) as { relativePath?: string }).relativePath : undefined;
+        keys = path ? [localLinkKey(path)] : [];
+      } else {
+        keys = hackmdNoteKeys(target);
+      }
+      const self = target.source === 'local' ? target.noteId : target.id;
+      return {
+        notes: store.backlinks(keys).filter(note => note.noteId !== self).map((note): NoteLinkTarget => (note.source === 'local'
+          ? { kind: 'local', vaultId: note.workspace, noteId: note.noteId, title: note.title, snippet: null }
+          : {
+              kind: 'hackmd',
+              noteId: note.noteId,
+              teamPath: note.workspace === PERSONAL_WORKSPACE ? null : note.workspace,
+              title: note.title,
+              shortId: (note.meta ? (JSON.parse(note.meta) as { shortId?: string }).shortId : undefined) ?? note.noteId,
+              snippet: null,
+            })),
+        hackmdIndexed: keepHackmd ? store.status().hackmdNotes : 0,
+      };
     },
 
     status(): NoteIndexStatus {

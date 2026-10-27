@@ -27,7 +27,7 @@ export async function indexLocalVault(store: NoteStore, snapshot: LocalVaultSnap
       title: note.title,
       content,
       revision: contentHash,
-      meta: null,
+      meta: JSON.stringify({ relativePath: note.relativePath }),
     })));
     await yieldToEventLoop();
   }

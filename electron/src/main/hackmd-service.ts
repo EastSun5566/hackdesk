@@ -1075,6 +1075,15 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
       return withCache(cacheKey, fetchDocument(getNotePath(noteId, teamPath), signal).catch(rethrowNoteNotFound));
     },
 
+    /**
+     * Finds the note a link names. HackMD's `/notes/{noteId}` also accepts a short ID,
+     * `@owner/permalink` or a full note URL. Costs one API call, so it runs only when a link is opened.
+     */
+    async resolveNote(ref: string, signal?: AbortSignal) {
+      const note = mapNote(await requestHackmd<NoteDto>(`/notes/${encodeURIComponent(ref.trim())}`, { signal }, serviceOptions));
+      return { noteId: note.id, teamPath: note.teamPath, title: note.title, shortId: note.shortId };
+    },
+
     /** Reads the note only if it changed since `etag`; resolves null when HackMD answers 304. */
     getNoteIfChanged(noteId: string, teamPath: string | null, etag: string, signal?: AbortSignal) {
       return readDocument(getNotePath(noteId, teamPath), { signal, headers: { 'If-None-Match': etag } })
@@ -1372,6 +1381,7 @@ export const getFolderOrder = defaultHackmdService.getFolderOrder;
 export const getTeamFolderOrder = defaultHackmdService.getTeamFolderOrder;
 export const getNote = defaultHackmdService.getNote;
 export const getNoteIfChanged = defaultHackmdService.getNoteIfChanged;
+export const resolveNote = defaultHackmdService.resolveNote;
 export const restoreNote = defaultHackmdService.restoreNote;
 export const listTrash = defaultHackmdService.listTrash;
 export const restoreNotes = defaultHackmdService.restoreNotes;

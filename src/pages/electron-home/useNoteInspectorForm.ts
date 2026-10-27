@@ -10,6 +10,7 @@ import type {
 import type { FolderTree, FolderTreeNode } from '@/lib/hackmd-folders';
 
 import { getFolderPathLabel } from './ui';
+import type { OpenNoteTarget } from './useNoteLinkOpener';
 
 export type FolderOption = {
   id: string;
@@ -46,6 +47,8 @@ export type NoteInspectorActions = {
   onShowVersions?: () => void;
   /** Highlights a comment's text in the editor and reports whether it was found; absent where comments are not offered. */
   onRevealComment?: (comment: NoteComment) => boolean;
+  /** Opens a note that links here; absent where notes cannot be opened from the inspector. */
+  onOpenNote?: OpenNoteTarget;
 };
 
 export type InspectorDirtyState = {

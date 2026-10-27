@@ -14,8 +14,10 @@ import {
   VersionsSection,
 } from './NoteInspectorSections';
 import { PanelHeader, ToolbarIconButton } from './interaction-primitives';
+import { BacklinksSection } from './NoteBacklinks';
 import { CommentsSection } from './NoteComments';
 import { useNoteInspectorForm, type NoteInspectorActions, type NoteInspectorStatus } from './useNoteInspectorForm';
+import type { OpenNoteTarget } from './useNoteLinkOpener';
 
 type NoteInspectorProps = {
   actions: NoteInspectorActions;
@@ -76,6 +78,7 @@ function NoteInspectorPanel({
             writePermission={inspector.state.writePermission}
           />
           {actions.onShowVersions ? <VersionsSection noteId={document.id} onShowAll={actions.onShowVersions} /> : null}
+          {actions.onOpenNote ? <BacklinksSection document={document} onOpenNote={actions.onOpenNote} /> : null}
           {actions.onRevealComment ? <CommentsSection noteId={document.id} onRevealComment={actions.onRevealComment} /> : null}
         </div>
         <InspectorSaveFooter
@@ -83,6 +86,22 @@ function NoteInspectorPanel({
           saving={status.saving}
         />
       </form>
+    </aside>
+  );
+}
+
+/** A Local Vault note has no HackMD metadata, so its details are the notes linking to it. */
+export function LocalNoteInspector({ document, onOpenNote }: { document: DocumentSummary; onOpenNote: OpenNoteTarget }) {
+  return (
+    <aside
+      data-hackdesk-focus="inspector"
+      tabIndex={-1}
+      className="flex h-full w-80 flex-col bg-background-muted outline-none"
+    >
+      <PanelHeader title="Note Details" className="px-4 py-2.5" />
+      <div className="min-h-0 flex-1 overflow-auto overscroll-contain px-5 py-3 scrollbar-gutter-stable">
+        <BacklinksSection key={document.id} document={document} onOpenNote={onOpenNote} defaultOpen />
+      </div>
     </aside>
   );
 }

@@ -19,7 +19,13 @@ import {
 } from '@codemirror/view';
 import { inlineAttachmentExtension } from 'inline-attacher';
 
-import type { MarkdownEditorAi, MarkdownEditorDictation, MarkdownEditorHandle, MarkdownEditorProps } from '@/components/markdown-editor-types';
+import type {
+  MarkdownEditorAi,
+  MarkdownEditorDictation,
+  MarkdownEditorHandle,
+  MarkdownEditorNoteLinks,
+  MarkdownEditorProps,
+} from '@/components/markdown-editor-types';
 import { useTheme } from '@/components/theme-provider';
 import { registerEditorNavigationKeymap } from '@/lib/editor-navigation-keymap';
 import type { EditorMode } from '@/lib/settings';
@@ -29,6 +35,8 @@ import type { LocalImageContext } from '@/lib/local-image';
 import { aiInline, formatAiShortcut, openAiInlineMenu, type AiInlineHost } from './ai-inline/extension';
 import { getAiInlineTarget, IDLE_AI_INLINE, type AiInlineState } from './ai-inline/state';
 import { dictation as dictationExtension, toggleDictation, type DictationHost } from './dictation/extension';
+import { noteEmbeds, type NoteEmbedHost } from './note-embeds/extension';
+import { noteLinkCompletions, type NoteLinksHost } from './note-links/extension';
 import { hackmdCodeLanguages } from './hackmd-code-languages';
 import { hfmBlocks, setLocalImageContext } from './hfm-blocks';
 import { hackmdTables } from './hackmd-tables';
@@ -162,6 +170,8 @@ type CreateEditorViewOptions = {
   runtime: EditorRuntime;
   aiHost: AiInlineHost;
   dictationHost: DictationHost;
+  noteEmbedHost: NoteEmbedHost;
+  noteLinksHost: NoteLinksHost;
   onAttachImageRef: LatestRef<MarkdownEditorProps['onAttachImage']>;
   onChangeRef: LatestRef<MarkdownEditorProps['onChange']>;
   onOpenLinkRef: LatestRef<MarkdownEditorProps['onOpenLink']>;
@@ -251,6 +261,8 @@ function createHackmdEditorView({
   runtime,
   aiHost,
   dictationHost,
+  noteEmbedHost,
+  noteLinksHost,
   onAttachImageRef,
   onChangeRef,
   onOpenLinkRef,
@@ -267,6 +279,8 @@ function createHackmdEditorView({
         hackmdTables(onOpenLinkRef),
         aiInline(aiHost),
         dictationExtension(dictationHost),
+        noteEmbeds(noteEmbedHost),
+        noteLinkCompletions(noteLinksHost),
         runtime.themeCompartment.of(createHackmdPreviewTheme(runtime.resolvedMode)),
         inlineAttachmentExtension({
           allowedTypes: ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'],
@@ -313,6 +327,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
   function HackmdMarkdownEditorCore({
     ai = null,
     dictation = null,
+    noteLinks = null,
     editorMode = 'standard',
     initialRevealText = null,
     localImageContext = null,
@@ -328,6 +343,15 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
     const onOpenLinkRef = useLatestRef(onOpenLink);
     const aiRef = useLatestRef<MarkdownEditorAi | null>(ai);
     const dictationRef = useLatestRef<MarkdownEditorDictation | null>(dictation);
+    const noteLinksRef = useLatestRef<MarkdownEditorNoteLinks | null>(noteLinks);
+    const [noteEmbedHost] = useState<NoteEmbedHost>(() => ({
+      describe: embed => noteLinksRef.current?.describe(embed) ?? Promise.resolve(null),
+      open: embed => noteLinksRef.current?.openEmbed(embed),
+    }));
+    const [noteLinksHost] = useState<NoteLinksHost>(() => ({
+      candidates: () => noteLinksRef.current?.candidates() ?? [],
+      titleForUrl: url => noteLinksRef.current?.titleForUrl(url) ?? Promise.resolve(null),
+    }));
     const [runtime] = useState(() => createEditorRuntime(value, editorMode, resolvedMode, localImageContext));
     const [aiPanel, setAiPanel] = useState<{ dom: HTMLElement; view: EditorView } | null>(null);
     const [aiSession, setAiSession] = useState<AiInlineState>(IDLE_AI_INLINE);
@@ -361,6 +385,8 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
         runtime,
         aiHost,
         dictationHost,
+        noteEmbedHost,
+        noteLinksHost,
         onAttachImageRef,
         onChangeRef,
         onOpenLinkRef,
@@ -389,7 +415,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
           runtime.appliedResolvedMode = runtime.resolvedMode;
         }
       };
-    }, [aiHost, dictationHost, onAttachImageRef, onChangeRef, onOpenLinkRef, runtime]);
+    }, [aiHost, dictationHost, noteEmbedHost, noteLinksHost, onAttachImageRef, onChangeRef, onOpenLinkRef, runtime]);
 
     // Publish the handle only after the CodeMirror view is ready.
     useImperativeHandle(ref, () => ({

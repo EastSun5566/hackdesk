@@ -33,6 +33,7 @@ const aiServiceMock = vi.hoisted(() => ({
 }));
 const hackmdServiceMock = vi.hoisted(() => ({
   getNoteIfChanged: vi.fn(),
+  resolveNote: vi.fn(),
   restoreNote: vi.fn(),
   listTrash: vi.fn(),
   restoreNotes: vi.fn(),
@@ -131,6 +132,8 @@ const noteIndexMock = vi.hoisted(() => ({
   forgetVaults: vi.fn(async () => undefined),
   search: vi.fn(() => ({ matches: [], indexedCount: 0 })),
   status: vi.fn(() => ({ hackmdNotes: 0, hackmdBytes: 0, localNotes: 0 })),
+  resolveLink: vi.fn(() => null),
+  backlinks: vi.fn(() => ({ notes: [], hackmdIndexed: 0 })),
   close: vi.fn(async () => undefined),
 }));
 vi.mock('./note-index/note-index-service', () => ({ createNoteIndexService: () => noteIndexMock }));
@@ -176,6 +179,7 @@ vi.mock('./hackmd-service', () => ({
   updateTeamNote: vi.fn(),
   uploadNoteImage: vi.fn(),
   validateToken: hackmdServiceMock.validateToken,
+  resolveNote: hackmdServiceMock.resolveNote,
 }));
 vi.mock('./url-policy', () => ({
   openExternalUrl: vi.fn(),
@@ -311,6 +315,22 @@ describe('registerIpcHandlers', () => {
     vi.mocked(clearHackmdCache).mockClear();
     await ipcHandlers.get(ELECTRON_CHANNELS.noteIndexClear)?.({});
     expect(clearHackmdCache).toHaveBeenCalledOnce();
+  });
+
+  it('resolves note links locally, and through HackMD only on request', async () => {
+    registerIpcHandlers(windowManager);
+    const link = { target: './b.md', kind: 'url', from: { source: 'local', vaultId: 'vault-1', noteId: 'a.md' } };
+    await ipcHandlers.get(ELECTRON_CHANNELS.noteIndexResolveLink)?.({}, link);
+    expect(noteIndexMock.resolveLink).toHaveBeenCalledWith(link);
+    expect(() => ipcHandlers.get(ELECTRON_CHANNELS.noteIndexResolveLink)?.({}, { ...link, kind: 'image' })).toThrow();
+
+    const target = { source: 'hackmd', id: 'note-1', shortId: 'abc', permalink: null, userPath: 'me', teamPath: null };
+    await ipcHandlers.get(ELECTRON_CHANNELS.noteIndexBacklinks)?.({}, { target });
+    expect(noteIndexMock.backlinks).toHaveBeenCalledWith({ target });
+
+    await ipcHandlers.get(ELECTRON_CHANNELS.hackmdResolveNote)?.({}, ' @fixture/beta ');
+    expect(hackmdServiceMock.resolveNote.mock.calls[0]?.[0]).toBe('@fixture/beta');
+    expect(() => ipcHandlers.get(ELECTRON_CHANNELS.hackmdResolveNote)?.({}, '')).toThrow();
   });
 
   it('imports hackmd-cli token by validating then saving it', async () => {

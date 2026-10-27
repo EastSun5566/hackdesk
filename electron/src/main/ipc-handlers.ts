@@ -53,6 +53,7 @@ import {
   getFolderOrder,
   getNote,
   getNoteIfChanged,
+  resolveNote,
   getTeamFolder,
   getTeamFolderOrder,
   listFolders,
@@ -121,6 +122,9 @@ import {
   dictationInstallInputSchema,
   dictationStartInputSchema,
   noteSearchInputSchema,
+  noteBacklinksInputSchema,
+  resolveNoteLinkInputSchema,
+  hackmdNoteRefSchema,
   confirmDialogOptionsSchema,
   createFolderInputSchema,
   createNoteInputSchema,
@@ -268,6 +272,16 @@ export function registerIpcHandlers(
     noteIndex.search(validateIpcInput(ELECTRON_CHANNELS.noteIndexSearch, noteSearchInputSchema, input))
   ));
   ipcMain.handle(ELECTRON_CHANNELS.noteIndexStatus, () => noteIndex.status());
+  ipcMain.handle(ELECTRON_CHANNELS.noteIndexResolveLink, (_event, input) => (
+    noteIndex.resolveLink(validateIpcInput(ELECTRON_CHANNELS.noteIndexResolveLink, resolveNoteLinkInputSchema, input))
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.noteIndexBacklinks, (_event, input) => (
+    noteIndex.backlinks(validateIpcInput(ELECTRON_CHANNELS.noteIndexBacklinks, noteBacklinksInputSchema, input))
+  ));
+  // One HackMD API call; the renderer asks only when the user opens a link nothing local resolves.
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdResolveNote, (event, ref: unknown, options?: HackmdRequestOptions) => (
+    runRequest(event, options, resolveNote, [validateIpcInput(ELECTRON_CHANNELS.hackmdResolveNote, hackmdNoteRefSchema, ref)])
+  ));
   ipcMain.handle(ELECTRON_CHANNELS.noteIndexClear, () => {
     // The in-memory fallback goes too, so nothing cached survives the request.
     clearHackmdCache();

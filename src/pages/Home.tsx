@@ -516,6 +516,7 @@ export function Home() {
     commandPaletteProps,
     openPalette,
     openQuickOpen,
+    openNoteTarget,
     switchWorkspaceScope,
   } = useElectronHomeCommandPalette({
     localVaultId: vaultSession.vaultId,
@@ -528,6 +529,7 @@ export function Home() {
     palette,
     recentNotes,
     removeRecentNoteEntry,
+    requestSelectNote,
     revealFolderIds,
     revealNoteEntry,
     scope,
@@ -800,6 +802,7 @@ export function Home() {
   });
   const workspaceProps = useHomeWorkspaceProps({
     api,
+    openNoteTarget,
     localVaultId: vaultSession.vaultId,
     uploadingTabIds,
     actions: {

@@ -3,6 +3,7 @@ import type { EditorView } from '@codemirror/view';
 
 import type { AiInlineState } from '@/components/hackmd-live-preview/ai-inline/state';
 import type { DictationHost } from '@/components/hackmd-live-preview/dictation/extension';
+import type { NoteEmbedHost } from '@/components/hackmd-live-preview/note-embeds/extension';
 import type { EditorMode } from '@/lib/settings';
 import type { LocalImageContext } from '@/lib/local-image';
 
@@ -41,8 +42,30 @@ export type MarkdownEditorDictation = {
   isShortcut: DictationHost['isShortcut'];
 };
 
+/** A note that can be linked or embedded from the current one, as the editor offers it. */
+export type NoteLinkCandidate = {
+  title: string;
+  /** Shown under the title, such as the vault path. */
+  detail: string;
+  /** What a Markdown link to it points at: a relative vault path or a HackMD URL. */
+  link: string;
+  /** What `{%hackmd %}` names it by; null for vault notes, which HackMD cannot embed. */
+  embedRef: string | null;
+};
+
+/** Note links are owned by the page: it knows the other notes and how to open them. */
+export type MarkdownEditorNoteLinks = {
+  candidates: () => NoteLinkCandidate[];
+  describe: NoteEmbedHost['describe'];
+  /** Opens an embed or preview card's note. */
+  openEmbed: NoteEmbedHost['open'];
+  /** The title for a pasted URL when HackDesk knows the note, for a Reference link. */
+  titleForUrl: (url: string) => Promise<string | null>;
+};
+
 export type MarkdownEditorProps = {
   ai?: MarkdownEditorAi | null;
+  noteLinks?: MarkdownEditorNoteLinks | null;
   dictation?: MarkdownEditorDictation | null;
   localImageContext?: LocalImageContext | null;
   editorMode?: EditorMode;
