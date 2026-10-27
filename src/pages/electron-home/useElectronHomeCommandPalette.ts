@@ -1,9 +1,10 @@
 import { useCallback, useEffect } from 'react';
 
-import type { TeamSummary } from '@/lib/electron-api';
-import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
+import type { NoteSummary, TeamSummary } from '@/lib/electron-api';
+import { recentNoteMatches, type ElectronRecentNote } from '@/lib/electron-recent-notes';
 import type { FolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
 
+import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import type { CommandPaletteState, WorkspaceScope } from './types';
 import { usePendingRecentNoteRestore } from './usePendingRecentNoteRestore';
 import { useWorkbenchQuickOpen } from './useWorkbenchQuickOpen';
@@ -19,6 +20,7 @@ export type ElectronHomeCommandPaletteOptions = {
   palette: CommandPaletteState;
   recentNotes: ElectronRecentNote[];
   removeRecentNoteEntry: (noteId: string, teamPath: string | null) => void;
+  requestSelectNote: (note: NoteSummary, options?: { focusEditor?: boolean; trackRecent?: boolean }) => Promise<boolean>;
   revealFolderIds: (folderIds: string[]) => void;
   revealNoteEntry: (entry: FolderTreeNote) => Promise<boolean>;
   scope: WorkspaceScope;
@@ -42,6 +44,7 @@ export function useElectronHomeCommandPalette({
   palette,
   recentNotes,
   removeRecentNoteEntry,
+  requestSelectNote,
   revealFolderIds,
   revealNoteEntry,
   scope,
@@ -103,6 +106,18 @@ export function useElectronHomeCommandPalette({
     tree,
   });
 
+  /**
+   * Opens the note a link points to. A linked HackMD note may be in no workspace list, such as
+   * someone else's note, so one that is not loaded opens directly; HackDesk reads it by ID.
+   */
+  const openNoteTarget = useCallback((entry: ElectronRecentNote) => {
+    if (entry.teamPath === LOCAL_VAULT_TEAM_PATH || tree.allNotes.some(candidate => recentNoteMatches(candidate.note, entry))) {
+      handleQuickOpenRecentNote(entry);
+      return;
+    }
+    void requestSelectNote(linkedNoteSummary(entry), { focusEditor: true, trackRecent: true });
+  }, [handleQuickOpenRecentNote, requestSelectNote, tree.allNotes]);
+
   return {
     commandPaletteProps: {
       folderTree: tree,
@@ -121,6 +136,33 @@ export function useElectronHomeCommandPalette({
     },
     openPalette,
     openQuickOpen,
+    openNoteTarget,
     switchWorkspaceScope,
+  };
+}
+
+/** Enough of a note to open its tab; the full note arrives when it is read. */
+function linkedNoteSummary(entry: ElectronRecentNote): NoteSummary {
+  return {
+    id: entry.noteId,
+    title: entry.title,
+    description: '',
+    tags: [],
+    updatedAtMillis: null,
+    createdAtMillis: null,
+    publishedAtMillis: null,
+    tagsUpdatedAtMillis: null,
+    titleUpdatedAtMillis: null,
+    content: null,
+    publishLink: '',
+    shortId: entry.shortId,
+    permalink: null,
+    teamPath: entry.teamPath,
+    userPath: null,
+    publishType: 'edit',
+    readPermission: 'owner',
+    writePermission: 'owner',
+    lastChangeUser: null,
+    folderPaths: [],
   };
 }

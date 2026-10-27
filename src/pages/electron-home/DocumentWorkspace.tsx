@@ -18,6 +18,7 @@ import type { NotePane, OpenNoteTab } from './note-workspace';
 import { EmptyState } from './interaction-primitives';
 import { UnavailableDocumentDetail } from './UnavailableDocumentDetail';
 import { documentPaneId, documentTabId } from './document-tab-ids';
+import type { OpenNoteTarget } from './useNoteLinkOpener';
 
 export type DocumentPaneView = {
   pane: NotePane;
@@ -62,6 +63,7 @@ export function DocumentWorkspace({
   onFocusPane,
   onOpenEditor,
   onOpenExternal,
+  onOpenNoteTarget,
   onRevealInFinder,
   onCopyLink,
   onCopyMarkdownLink,
@@ -104,6 +106,8 @@ export function DocumentWorkspace({
   onFocusPane: (paneId: string) => void;
   onOpenEditor: (document: DocumentSummary) => void;
   onOpenExternal: (url: string) => void;
+  /** Opens a linked note in a tab, switching workspace when needed. */
+  onOpenNoteTarget?: OpenNoteTarget;
   onRevealInFinder: (document: DocumentSummary) => void;
   onCopyLink: (document: DocumentSummary) => void;
   onCopyMarkdownLink: (document: DocumentSummary) => void;
@@ -244,6 +248,7 @@ export function DocumentWorkspace({
                     actions={{
                       onOpenEditor,
                       onOpenExternal,
+                      onOpenNoteTarget,
                       onRevealInFinder,
                       onCopyLink,
                       onCopyMarkdownLink,

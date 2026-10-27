@@ -25,6 +25,7 @@ import type { useNoteWorkspaceTabs } from './useNoteWorkspaceTabs';
 import type { useWorkbenchDocuments } from './useWorkbenchDocuments';
 import type { useWorkbenchFolderCommands } from './useWorkbenchFolderCommands';
 import type { useWorkbenchNavigator } from './useWorkbenchNavigator';
+import type { OpenNoteTarget } from './useNoteLinkOpener';
 
 type HomeStatus = ReturnType<typeof useElectronHomeStatus>;
 type NoteMutations = ReturnType<typeof useElectronNoteMutations>;
@@ -63,6 +64,7 @@ type WorkspaceActions = {
 
 export function useHomeWorkspaceProps({
   api,
+  openNoteTarget,
   localVaultId,
   actions,
   activeFinderState,
@@ -106,6 +108,7 @@ export function useHomeWorkspaceProps({
   uploadingTabIds = [],
 }: {
   api?: HackDeskElectronAPI;
+  openNoteTarget?: OpenNoteTarget;
   localVaultId?: string | null;
   actions: WorkspaceActions;
   activeFinderState: NoteFinderState;
@@ -290,6 +293,7 @@ export function useHomeWorkspaceProps({
       onFocusPane: noteWorkspace.focusPane,
       onOpenEditor: actions.handleOpenEditor,
       onOpenExternal: actions.handleOpenExternal,
+      onOpenNoteTarget: openNoteTarget,
       onRevealInFinder: localVaultActions.revealLocalNote,
       canCreateNote: homeStatus.navigatorStatus.canCreate,
       onCreateNote: folderCommands.handleCreateNote,

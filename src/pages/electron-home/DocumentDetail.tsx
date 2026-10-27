@@ -1,6 +1,6 @@
 import { ConflictComparison } from './ConflictComparison';
 import { ActionMenuShortcut } from './ActionShortcutContext';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { toast } from '@/components/ui/toast';
 import {
@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from '@/components/MarkdownEditor';
-import type { MarkdownEditorAi, MarkdownEditorDictation } from '@/components/markdown-editor-types';
+import type { MarkdownEditorAi, MarkdownEditorDictation, MarkdownEditorNoteLinks } from '@/components/markdown-editor-types';
 import type { LocalImageContext } from '@/lib/local-image';
 import {
   DropdownMenu,
@@ -46,9 +46,11 @@ import { cn } from '@/lib/utils';
 import { createImageUploadPlaceholder } from '@/components/hackmd-live-preview/markdown-image';
 
 import { EmptyState, PanelHeader, PanelShell, ToolbarDropdownMoreTrigger, ToolbarIconButton } from './interaction-primitives';
-import { NoteInspector } from './NoteInspector';
+import { LocalNoteInspector, NoteInspector } from './NoteInspector';
 import { useAiInline } from './useAiInline';
 import { useDictation } from './useDictation';
+import { useNoteLinkOpener, type OpenNoteTarget } from './useNoteLinkOpener';
+import { useNoteLinks } from './useNoteLinks';
 import { NoteVersionsDialog } from './NoteVersionsDialog';
 import { ShareDialog } from './ShareDialog';
 import {
@@ -108,6 +110,8 @@ export type DocumentDetailActions = {
   onExportMarkdown: (document: DocumentSummary, title: string, content: string) => void;
   onOpenEditor: (document: DocumentSummary) => void;
   onOpenExternal: (url: string) => void;
+  /** Opens a linked note in a tab, switching workspace when needed. */
+  onOpenNoteTarget?: OpenNoteTarget;
   onRevealInFinder: (document: DocumentSummary) => void;
   onReadComparison?: (document: DocumentSummary, signal: AbortSignal) => Promise<{ title: string; content: string }>;
   onReloadFromDisk: (document: DocumentSummary) => void;
@@ -329,6 +333,15 @@ function ActiveDocumentDetail({
     if (!handle.openAiMenu()) toast.error('Turn on Codex or Claude in Settings › AI to use AI in the editor.');
   }, []);
   const dictation = useDictation();
+  const openNoteLink = useNoteLinkOpener({
+    document: documentState.document,
+    openNoteTarget: actions.onOpenNoteTarget,
+    openExternal: actions.onOpenExternal,
+  });
+  const openLink = useCallback((url: string) => void openNoteLink(url), [openNoteLink]);
+  const openTarget = useCallback((target: string, kind: 'url' | 'embed') => void openNoteLink(target, kind), [openNoteLink]);
+  const linkableNotes = useMemo(() => folderTree.allNotes.map(entry => entry.note), [folderTree.allNotes]);
+  const noteLinks = useNoteLinks({ document: documentState.document, notes: linkableNotes, openLink: openTarget });
   const hasDictation = Boolean(dictation);
   const toggleDictation = useCallback((handle: MarkdownEditorHandle) => {
     if (!hasDictation) toast.error('Dictation is available in the HackDesk desktop app on macOS 26 or later.');
@@ -476,9 +489,10 @@ function ActiveDocumentDetail({
           editorMode={editorMode}
           ai={ai}
           dictation={dictation}
+          noteLinks={noteLinks}
           onAttachImage={actions.onAttachImage}
           onContentChange={actions.onContentChange}
-          onOpenExternal={actions.onOpenExternal}
+          onOpenExternal={openLink}
           setEditorRef={setEditorRef}
         />
         <input
@@ -675,7 +689,8 @@ function DocumentHeader({
           >
             {status.saving ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Save aria-hidden="true" className="h-4 w-4" />}
           </ToolbarIconButton>
-          {!documentState.document || isLocalDocument ? null : (
+          {/* A vault note's details are only the notes linking to it. */}
+          {!documentState.document || (isLocalDocument && !actions.onOpenNoteTarget) ? null : (
             <ToolbarIconButton
               actionId="toggle-inspector"
               onClick={actions.onToggleInspector}
@@ -813,6 +828,7 @@ function DocumentActionsMenu({
 function DocumentBody({
   ai,
   dictation,
+  noteLinks,
   localImageContext,
   content,
   editorMode,
@@ -823,6 +839,7 @@ function DocumentBody({
 }: {
   ai: MarkdownEditorAi | null;
   dictation: MarkdownEditorDictation | null;
+  noteLinks: MarkdownEditorNoteLinks | null;
   localImageContext: LocalImageContext | null;
   content: string;
   editorMode: EditorMode;
@@ -836,6 +853,7 @@ function DocumentBody({
       ref={setEditorRef}
       ai={ai}
       dictation={dictation}
+      noteLinks={noteLinks}
       localImageContext={localImageContext}
       editorMode={editorMode}
       value={content}
@@ -865,7 +883,7 @@ function InspectorPanel({
   onRevealComment: (comment: NoteComment) => boolean;
   status: DocumentDetailStatus;
 }) {
-  if (!document || isLocalDocument) {
+  if (!document || (isLocalDocument && !actions.onOpenNoteTarget)) {
     return null;
   }
 
@@ -879,7 +897,9 @@ function InspectorPanel({
       )}
       style={{ '--inspector-width': `${INSPECTOR_WIDTH_DEFAULT}px` }}
     >
-      {inspectorCollapsed ? null : (
+      {inspectorCollapsed ? null : isLocalDocument ? (
+        <LocalNoteInspector document={document} onOpenNote={actions.onOpenNoteTarget!} />
+      ) : (
         <NoteInspector
           document={document}
           folderTree={folderTree}
@@ -892,6 +912,7 @@ function InspectorPanel({
             onShowVersions: actions.onVersionsOpenChange && (() => actions.onVersionsOpenChange?.(true)),
             // Comments live on HackMD, so they are offered where versions are.
             onRevealComment: actions.onVersionsOpenChange && onRevealComment,
+            onOpenNote: actions.onOpenNoteTarget,
           }}
         />
       )}

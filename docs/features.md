@@ -48,6 +48,20 @@ HackDesk supports two editor panes. Use **Move Tab to Other Pane** to move a tab
 
 **Close Tab** closes the active tab and keeps the workbench open after the last tab. When prompted about unsaved changes, save or discard them before closing.
 
+## Link and embed notes
+
+HackDesk understands the ways HackMD links notes:
+
+- **Links**: In a Local Vault, `[Plan](./plan.md)` links to another note by its path. In HackMD, use the note's URL, such as `https://hackmd.io/@you/plan`.
+- **Embeds**: A line with `{%hackmd @you/plan %}` or `{%hackmd <short ID> %}` embeds a HackMD note.
+- **Link previews**: A line with `{%preview https://… %}` shows a preview card on HackMD.
+
+To insert one, type `[text](` to pick a note by title, or `{%hackmd ` to pick a note to embed. When you paste a URL, choose **URL**, **Reference** (`[title](url)`) or **Preview** (`{%preview %}`).
+
+Embeds and previews appear as cards under their line, with the note's title and an **Open** button. Choosing **Open link** next to a link, or **Open** on a card, opens the note in a tab when HackDesk knows it, and anything else in your browser. Cards and links use what HackDesk already has on this computer. Opening a HackMD link that it does not recognize asks HackMD once, which counts toward your API limit.
+
+**Note Details → Linked from** lists the notes that link to or embed the current note. It covers every note in your Local Vault, and only the HackMD notes you have opened in HackDesk.
+
 ## Save changes
 
 Choose **Save** in the document toolbar to write the active note to its workspace. Save status distinguishes changes still in the editor from a saved note.
@@ -72,7 +86,7 @@ The inserted text stays selected. With an AI provider enabled, press **Cmd+K** a
 
 ## Edit Note Details
 
-Open **Note Details** to change the title and inspect metadata. HackMD notes also expose tags, permissions, and sharing information where supported.
+Open **Note Details** to change the title and inspect metadata. HackMD notes also expose tags, permissions, and sharing information where supported. For a Local Vault note, Note Details shows only the notes linking to it.
 
 Local files and HackMD notes have different metadata. Controls reflect the selected workspace; they do not provide full team administration.
 

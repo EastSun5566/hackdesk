@@ -275,3 +275,40 @@ describe('NoteInspector', () => {
     expect(screen.queryByRole('button', { name: 'Insert image' })).toBeNull();
   });
 });
+
+describe('NoteInspector Linked from', () => {
+  afterEach(() => {
+    delete window.hackdeskAPI;
+  });
+
+  function installBacklinks(notes: unknown[]) {
+    const backlinks = vi.fn(async () => ({ notes, hackmdIndexed: 2 }));
+    window.hackdeskAPI = { getRuntimeEnvironment: () => 'electron', noteIndex: { backlinks } } as unknown as typeof window.hackdeskAPI;
+    return backlinks;
+  }
+
+  it('lists the notes that link here and opens them in their workspace', async () => {
+    const backlinks = installBacklinks([{ kind: 'hackmd', noteId: 'long-2', teamPath: 'team-a', title: 'Roadmap', shortId: 'road', snippet: null }]);
+    const onOpenNote = vi.fn();
+    renderNoteInspector({ document: documentSummary({ permalink: 'hello', userPath: 'me' }), actions: { onOpenNote } });
+
+    fireEvent.click(await screen.findByRole('button', { name: /Linked from/ }));
+    expect(backlinks).toHaveBeenCalledWith({
+      target: { source: 'hackmd', id: 'note-1', shortId: 'note-1', permalink: 'hello', userPath: 'me', teamPath: null },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: /Roadmap/ }));
+    expect(onOpenNote).toHaveBeenCalledWith(expect.objectContaining({ noteId: 'long-2', teamPath: 'team-a', shortId: 'road', title: 'Roadmap' }));
+    expect(screen.getByText('From notes you\'ve opened and your Local Vault.')).toBeTruthy();
+  });
+
+  it('says when nothing links here, and is hidden where notes cannot be opened', async () => {
+    installBacklinks([]);
+    const { unmount } = renderNoteInspector({ actions: { onOpenNote: vi.fn() } });
+    fireEvent.click(await screen.findByRole('button', { name: /Linked from/ }));
+    expect(await screen.findByText('No other notes link here.')).toBeTruthy();
+    unmount();
+
+    renderNoteInspector();
+    expect(screen.queryByRole('button', { name: /Linked from/ })).toBeNull();
+  });
+});

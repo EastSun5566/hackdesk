@@ -90,6 +90,38 @@ describe('note store', () => {
     expect(store.getMeta('account_id')).toBeNull();
   });
 
+  it('keeps each note\'s links current and answers backlinks across vaults and HackMD', () => {
+    const store = openNoteStore(':memory:');
+    const vaultNote = (noteId: string, path: string, content: string) => note(noteId, content, { meta: JSON.stringify({ relativePath: path }) });
+    store.putNotes([
+      vaultNote('a', 'notes/a.md', 'See [B](./b.md) and https://hackmd.io/@me/plan'),
+      vaultNote('b', 'notes/b.md', 'Nothing linked.'),
+    ]);
+    store.putNote(note('h1', '{%hackmd @me/plan %}', { source: 'hackmd', workspace: 'personal', title: 'Embedding note' }));
+
+    expect(store.backlinks(['local:notes/b.md']).map(linking => linking.noteId)).toEqual(['a']);
+    expect(store.backlinks(['hackmd:named:me/plan']).map(linking => linking.title).sort()).toEqual(['Embedding note', 'a']);
+
+    store.putNote(vaultNote('a', 'notes/a.md', 'No links any more.'));
+    expect(store.backlinks(['local:notes/b.md'])).toEqual([]);
+    store.deleteNote('hackmd', 'personal', 'h1');
+    expect(store.backlinks(['hackmd:named:me/plan'])).toEqual([]);
+    expect(store.findLocalNoteByPath('vault-1', 'notes/b.md')).toMatchObject({ noteId: 'b', title: 'b' });
+    expect(store.findLocalNoteByPath('vault-1', 'notes/missing.md')).toBeNull();
+  });
+
+  it('finds HackMD notes from opened copies and from the cached workspace lists', () => {
+    const store = openNoteStore(':memory:');
+    const summary = { id: 'long-1', shortId: 'abc', permalink: 'roadmap', userPath: null, teamPath: 'team-a', title: 'Roadmap' };
+    store.putResponse('team:team-a:notes', [summary]);
+    expect(store.findHackmdNote({ kind: 'short', id: 'abc' })).toEqual({ noteId: 'long-1', teamPath: 'team-a', title: 'Roadmap', shortId: 'abc', snippet: null });
+    expect(store.findHackmdNote({ kind: 'named', owner: 'TEAM-A', slug: 'roadmap' })).toMatchObject({ noteId: 'long-1' });
+    expect(store.findHackmdNote({ kind: 'short', id: 'missing' })).toBeNull();
+
+    store.putNote(note('long-1', 'Roadmap body text', { source: 'hackmd', workspace: 'team-a', meta: JSON.stringify(summary) }));
+    expect(store.findHackmdNote({ kind: 'short', id: 'long-1' })).toMatchObject({ snippet: 'Roadmap body text' });
+  });
+
   it('is private to this account and rebuilds when its schema is outdated', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'hackdesk-note-store-'));
     directories.push(directory);

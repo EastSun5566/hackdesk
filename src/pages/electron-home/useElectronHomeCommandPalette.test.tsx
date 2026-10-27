@@ -78,6 +78,7 @@ function createOptions(overrides: Partial<ElectronHomeCommandPaletteOptions> = {
     isWorkspaceFetching: false,
     isWorkspaceLoading: false,
     palette: { mode: 'commands', open: false, search: '' },
+    requestSelectNote: vi.fn(async () => true),
     recentNotes: [recent()],
     removeRecentNoteEntry: vi.fn(),
     revealFolderIds: vi.fn(),
@@ -177,5 +178,20 @@ describe('useElectronHomeCommandPalette', () => {
     });
     expect(toast.info).toHaveBeenCalledWith('Loading Team One before opening “Team note”.');
     expect(options.focusNavigator).toHaveBeenCalledOnce();
+  });
+
+  it('opens a linked HackMD note that no loaded list has directly, and a loaded one from its workspace', () => {
+    const options = createOptions();
+    const { result } = renderHook(() => useElectronHomeCommandPalette(options));
+
+    act(() => result.current.openNoteTarget(recent({ noteId: 'someone-else', shortId: 'abc', title: 'Shared plan' })));
+    expect(options.requestSelectNote).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'someone-else', shortId: 'abc', title: 'Shared plan', teamPath: null }),
+      { focusEditor: true, trackRecent: true },
+    );
+    expect(options.setWorkspaceScope).not.toHaveBeenCalled();
+
+    act(() => result.current.openNoteTarget(recent()));
+    expect(options.revealNoteEntry).toHaveBeenCalledWith(expect.objectContaining({ note: expect.objectContaining({ id: 'note-1' }) }));
   });
 });

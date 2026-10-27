@@ -195,6 +195,33 @@ export const settingsUpdateSchema = z.strictObject({
 
 export const aiProviderIdInputSchema = aiProviderIdSchema;
 
+const noteLinkSourceSchema = z.discriminatedUnion('source', [
+  z.strictObject({ source: z.literal('local'), vaultId: z.string().min(1).max(200), noteId: z.string().min(1).max(200) }),
+  z.strictObject({ source: z.literal('hackmd'), teamPath: z.string().min(1).max(200).nullable(), noteId: z.string().min(1).max(200) }),
+]);
+
+export const resolveNoteLinkInputSchema = z.strictObject({
+  target: z.string().min(1).max(2_000),
+  kind: z.enum(['url', 'embed']),
+  from: noteLinkSourceSchema,
+});
+
+export const noteBacklinksInputSchema = z.strictObject({
+  target: z.discriminatedUnion('source', [
+    z.strictObject({ source: z.literal('local'), vaultId: z.string().min(1).max(200), noteId: z.string().min(1).max(200) }),
+    z.strictObject({
+      source: z.literal('hackmd'),
+      id: z.string().min(1).max(200),
+      shortId: z.string().min(1).max(200),
+      permalink: z.string().max(500).nullable(),
+      userPath: z.string().max(200).nullable(),
+      teamPath: z.string().max(200).nullable(),
+    }),
+  ]),
+});
+
+export const hackmdNoteRefSchema = z.string().trim().min(1).max(2_000);
+
 export const noteSearchInputSchema = z.strictObject({
   query: z.string().max(MAX_NOTE_SEARCH_QUERY_LENGTH),
   scope: z.discriminatedUnion('type', [

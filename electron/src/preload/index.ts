@@ -43,7 +43,7 @@ import type {
 } from '../../../src/lib/local-vault';
 import type { AiProviderId, AiTurnDelta, AiTurnInput } from '../../../src/lib/ai';
 import type { DictationEvent, DictationEventMessage, DictationInstallInput, DictationStartInput } from '../../../src/lib/dictation';
-import type { NoteSearchInput } from '../../../src/lib/note-index';
+import type { NoteBacklinksInput, NoteSearchInput, ResolveNoteLinkInput } from '../../../src/lib/note-index';
 import { ELECTRON_CHANNELS } from '../shared/channels';
 
 /** Passes a request's streamed dictation events to `onEvent` until the request settles. */
@@ -105,6 +105,7 @@ const api: HackDeskElectronAPI = {
     getNoteIfChanged: (noteId: string, teamPath: string | null, etag: string, options?: HackmdRequestOptions) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdGetNoteIfChanged, noteId, teamPath, etag, options)
     ),
+    resolveNote: (ref: string, options?: HackmdRequestOptions) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdResolveNote, ref, options),
     createNote: (input: CreateNoteInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdCreateNote, input),
     createTeamNote: (teamPath: string, input: CreateNoteInput) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdCreateTeamNote, teamPath, input)
@@ -177,6 +178,8 @@ const api: HackDeskElectronAPI = {
     search: (input: NoteSearchInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.noteIndexSearch, input),
     status: () => ipcRenderer.invoke(ELECTRON_CHANNELS.noteIndexStatus),
     clear: () => ipcRenderer.invoke(ELECTRON_CHANNELS.noteIndexClear),
+    resolveLink: (input: ResolveNoteLinkInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.noteIndexResolveLink, input),
+    backlinks: (input: NoteBacklinksInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.noteIndexBacklinks, input),
   },
   localVault: {
     choose: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultChoose),
