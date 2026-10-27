@@ -2,6 +2,7 @@ import { KeyboardNavigation } from './electron-home/KeyboardNavigation';
 import { getElectronAction } from '@/lib/electron-actions';
 import { ActionShortcutContext } from './electron-home/ActionShortcutContext';
 import { KeyboardShortcutsDialog } from './electron-home/KeyboardShortcutsDialog';
+import { BookSessionContext, useBookSession } from './electron-home/useBookSession';
 import { TrashDialog } from './electron-home/TrashDialog';
 import type { SettingsTab } from './electron-home/SettingsDialogConfig';
 import type { ElectronFocusZone } from './electron-home/useElectronFocusZones';
@@ -541,6 +542,7 @@ export function Home() {
     teams,
     tree: folderTree,
   });
+  const bookSession = useBookSession({ document: selectedDocument, openNoteTarget, openExternal: handleOpenExternal });
 
   const {
     confirmCloseUnsafeTabs,
@@ -567,6 +569,7 @@ export function Home() {
   });
 
   const actionHandlers = useWorkbenchActionHandlers({
+    book: bookSession,
     openKeyboardShortcuts,
     focusNextRegion: focusNextZone,
     activePaneId: noteWorkspace.state.activePaneId,
@@ -938,7 +941,9 @@ export function Home() {
     <ActionShortcutContext.Provider value={shortcutContext}>
       <KeyboardNavigation workspaceKey={scopeStorageKey} shortcuts={settings?.shortcuts} platform={api.platform} characterEnabled={settings?.keyboardNavigation?.characterShortcutsEnabled ?? true}>
         <div className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
-          <ElectronHomeWorkspace {...workspaceProps} backupNotice={backupNotice} />
+          <BookSessionContext.Provider value={bookSession}>
+            <ElectronHomeWorkspace {...workspaceProps} backupNotice={backupNotice} />
+          </BookSessionContext.Provider>
 
           <ElectronHomeOverlays {...overlayProps} dialogs={{ ...overlayProps.dialogs, settingsInitialTab, onSettingsOpenChange: setSettingsOpen }} />
           <TrashDialog open={trashOpen} onOpenChange={setTrashOpen} onOpenNote={(note) => void requestSelectNote(note, { focusEditor: true })} />

@@ -64,6 +64,7 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     activePaneId: 'pane-1',
     activeTab: createTab(),
     api: undefined,
+    book: { book: null, open: vi.fn(), close: vi.fn(), openChapter: vi.fn(), positionOf: vi.fn(() => null) },
     bumpAttachImageRequest: vi.fn(),
     bumpAiAssistRequest: vi.fn(),
     bumpDictateRequest: vi.fn(),

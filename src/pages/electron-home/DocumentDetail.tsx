@@ -12,6 +12,7 @@ import {
   Edit3,
   FilePlus,
   FolderOpen,
+  BookOpen,
   History,
   ImagePlus,
   Loader2,
@@ -50,6 +51,8 @@ import { LocalNoteInspector, NoteInspector } from './NoteInspector';
 import { useAiInline } from './useAiInline';
 import { useDictation } from './useDictation';
 import { useNoteLinkOpener, type OpenNoteTarget } from './useNoteLinkOpener';
+import { BookContents, ChapterNav } from './BookContents';
+import { useBookSessionContext } from './useBookSession';
 import { useNoteLinks } from './useNoteLinks';
 import { NoteVersionsDialog } from './NoteVersionsDialog';
 import { ShareDialog } from './ShareDialog';
@@ -456,6 +459,10 @@ function ActiveDocumentDetail({
     ? () => openDialogFromMenu(actions.onVersionsOpenChange!)
     : undefined;
 
+  const bookSession = useBookSessionContext();
+  const bookPosition = bookSession?.book ? bookSession.positionOf(documentState.document) : null;
+  const openBook = bookSession?.book && bookPosition ? { session: { ...bookSession, book: bookSession.book }, position: bookPosition } : null;
+
   return (
     <PanelShell
       focusZone={focusZone}
@@ -482,6 +489,7 @@ function ActiveDocumentDetail({
       />
 
       <div className="flex min-h-0 flex-1">
+        {openBook ? <BookContents {...openBook} /> : null}
         <DocumentBody
           key={editorKey}
           localImageContext={getLocalImageContext(documentState.document)}
@@ -514,6 +522,7 @@ function ActiveDocumentDetail({
           status={status}
         />
       </div>
+      {openBook ? <ChapterNav {...openBook} /> : null}
 
       {!documentState.document || isLocalDocument ? null : (
         <ShareDialog
@@ -742,6 +751,7 @@ function DocumentActionsMenu({
   status: DocumentDetailStatus;
 }) {
   const isLocalDocument = documentState.document.teamPath === LOCAL_VAULT_TEAM_PATH;
+  const bookSession = useBookSessionContext();
 
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -773,6 +783,13 @@ function DocumentActionsMenu({
             ) : null}
           </>
         )}
+        {bookSession ? (
+          <DropdownMenuItem onSelect={() => bookSession.open(documentState.document)}>
+            <BookOpen aria-hidden="true" className="h-4 w-4" />
+            Open as Book
+            <ActionMenuShortcut actionId="open-as-book" />
+          </DropdownMenuItem>
+        ) : null}
         {isLocalDocument ? (
           <DropdownMenuItem onSelect={() => actions.onRevealInFinder(documentState.document)}>
             <FolderOpen aria-hidden="true" className="h-4 w-4" />

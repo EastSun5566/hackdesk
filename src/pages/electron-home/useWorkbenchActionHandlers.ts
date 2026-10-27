@@ -10,6 +10,7 @@ import type { EditorMode } from '@/lib/settings';
 
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { isDraftNoteTab, type OpenNoteTab } from './note-workspace';
+import type { BookSession } from './useBookSession';
 import type { ElectronFocusZone } from './useElectronFocusZones';
 import {
   exportDebugLogs,
@@ -21,6 +22,7 @@ export type WorkbenchActionHandlersOptions = {
   activePaneId: string;
   activeTab: OpenNoteTab | null;
   api?: HackDeskElectronAPI;
+  book: BookSession;
   bumpAttachImageRequest: () => void;
   bumpAiAssistRequest: () => void;
   bumpDictateRequest: () => void;
@@ -76,6 +78,7 @@ export function useWorkbenchActionHandlers({
   activePaneId,
   activeTab,
   api,
+  book,
   bumpAttachImageRequest,
   bumpAiAssistRequest,
   bumpDictateRequest,
@@ -211,6 +214,17 @@ export function useWorkbenchActionHandlers({
     openQuickOpen,
     openSelectedWebEditor: () => openHackmdWebEditor(api, selectedDocument, trackRecentNote),
     openSettings: () => setSettingsOpen(true),
+    openAsBook: () => {
+      if (selectedDocument) book.open(selectedDocument);
+    },
+    openAdjacentChapter: (step) => {
+      const position = book.positionOf(selectedDocument);
+      if (!position) {
+        toast.info('Open a book and one of its chapters first.');
+        return;
+      }
+      book.openChapter((position.chapterIndex ?? -1) + step);
+    },
     showNoteVersions: () => {
       if (!selectedDocument || selectedDocument.teamPath === LOCAL_VAULT_TEAM_PATH) {
         toast.info('Version history is only available for HackMD notes.');
@@ -254,6 +268,7 @@ export function useWorkbenchActionHandlers({
     activePaneId,
     activeTab,
     api,
+    book,
     bumpAttachImageRequest,
     bumpAiAssistRequest,
     bumpDictateRequest,

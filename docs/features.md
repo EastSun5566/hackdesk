@@ -62,6 +62,18 @@ Embeds and previews appear as cards under their line, with the note's title and 
 
 **Note Details → Linked from** lists the notes that link to or embed the current note. It covers every note in your Local Vault, and only the HackMD notes you have opened in HackDesk.
 
+## Read books
+
+A HackMD book is a note whose headings and bulleted links form a table of contents. When you open a note that HackMD publishes as a book, HackDesk shows its **Book contents** beside the editor. To read any note as a book, including a Local Vault note, choose **Open as Book** from the note's **More actions** menu or the Command Palette.
+
+- Headings and link-less bullets are sections.
+- Each bulleted link is a chapter.
+- A link marked `[target=_blank]` opens in your browser.
+
+Choose a chapter to open it in a tab. While you read, the contents mark the current chapter. **Previous Chapter** and **Next Chapter** move through the book, from the buttons under the note or from the Command Palette. Chapters open the same way as other links, so a HackMD chapter HackDesk has not seen before asks HackMD once.
+
+To change the book, edit its links in the editor; the contents update when you save. **Close book** hides the contents until you open the book again.
+
 ## Save changes
 
 Choose **Save** in the document toolbar to write the active note to its workspace. Save status distinguishes changes still in the editor from a saved note.
