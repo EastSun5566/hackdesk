@@ -60,6 +60,7 @@ import { useElectronHomeStatus } from './electron-home/useElectronHomeStatus';
 import { useWorkbenchFinder } from './electron-home/useWorkbenchFinder';
 import { useWorkbenchFolderCommands } from './electron-home/useWorkbenchFolderCommands';
 import { useWorkbenchNavigator } from './electron-home/useWorkbenchNavigator';
+import { useNoteTextSearch } from './electron-home/useNoteTextSearch';
 import { useWorkbenchEditorRequests } from './electron-home/useWorkbenchEditorRequests';
 import { useWorkbenchPanelState } from './electron-home/useWorkbenchPanelState';
 import { useWorkbenchShortcuts } from './electron-home/useWorkbenchShortcuts';
@@ -377,6 +378,7 @@ export function Home() {
     getTabsMatching: noteWorkspace.getTabsMatching,
     resetSaveMutation: mutations.updateNoteMutation.reset,
   });
+  const textSearch = useNoteTextSearch(scope, finderActive ? deferredFinderState.query : '', folderTree);
   const workbenchNavigator = useWorkbenchNavigator({
     canUseHackmd: canUseCurrentWorkspace,
     deferredFinderState,
@@ -395,6 +397,7 @@ export function Home() {
     setCollapsedFolderIds,
     setFinderState,
     setSelectedFolderId,
+    textSearch,
     tree: folderTree,
   });
   const {

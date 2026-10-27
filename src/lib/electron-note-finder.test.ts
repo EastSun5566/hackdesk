@@ -120,6 +120,19 @@ describe('electron note finder', () => {
     expect(noteMatchesFinderQuery(entry, 'missing')).toBe(false);
   });
 
+  it('includes notes whose text matched the query, still applying the filters', () => {
+    const titled = note({ id: 'titled', title: 'Offline plan' });
+    const bodyOnly = note({ id: 'body-only', title: 'Meeting', tags: ['work'] });
+    const filteredOut = note({ id: 'filtered-out', title: 'Draft' });
+    const tree = buildHackmdFolderTree([titled, bodyOnly, filteredOut], []);
+    const state = { ...DEFAULT_NOTE_FINDER_STATE, query: 'offline' };
+    const textMatches = new Map([['body-only', 'snippet'], ['filtered-out', 'snippet']]);
+
+    expect(applyNoteFinder(tree, state, null).map((entry) => entry.note.id)).toEqual(['titled']);
+    expect(applyNoteFinder(tree, state, null, textMatches).map((entry) => entry.note.id).sort()).toEqual(['body-only', 'filtered-out', 'titled']);
+    expect(applyNoteFinder(tree, { ...state, tagFilters: ['work'] }, null, textMatches).map((entry) => entry.note.id)).toEqual(['body-only']);
+  });
+
   it('filters workspace or current folder entries', () => {
     const workspaceNote = note({ id: 'root-note', title: 'Root' });
     const folderNote = note({ id: 'folder-note', title: 'Folder', folderPaths: [folder] });

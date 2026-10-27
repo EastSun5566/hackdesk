@@ -190,10 +190,17 @@ function getFinderBaseEntries(tree: FolderTree, state: NoteFinderState, selected
   return selectedFolderId ? tree.nodesById.get(selectedFolderId)?.notes ?? [] : tree.allNotes;
 }
 
-export function applyNoteFinder(tree: FolderTree, state: NoteFinderState, selectedFolderId: string | null) {
+/** `textMatches` holds notes whose text matched the query, found by the note index. */
+export function applyNoteFinder(
+  tree: FolderTree,
+  state: NoteFinderState,
+  selectedFolderId: string | null,
+  textMatches: ReadonlyMap<string, string> = new Map(),
+) {
   const entries: FolderTreeNote[] = [];
   for (const entry of getFinderBaseEntries(tree, state, selectedFolderId)) {
-    if (noteMatchesFinderQuery(entry, state.query) && noteMatchesFilters(entry, state)) {
+    const matchesQuery = noteMatchesFinderQuery(entry, state.query) || textMatches.has(entry.note.id);
+    if (matchesQuery && noteMatchesFilters(entry, state)) {
       entries.push(entry);
     }
   }

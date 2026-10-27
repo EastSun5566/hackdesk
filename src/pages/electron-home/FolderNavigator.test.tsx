@@ -273,6 +273,16 @@ describe('FolderNavigator', () => {
     });
   });
 
+  it("shows where a note's text matched, and how much of HackMD the search covered", () => {
+    renderFolderNavigator({
+      finderState: { ...DEFAULT_NOTE_FINDER_STATE, query: 'budget' },
+      textSearch: { matches: new Map([['loose-note', '…the \u0001budget\u0002 for Q3…']]), indexedCount: 4, source: 'hackmd' },
+    });
+    const highlight = screen.getByText('budget', { selector: 'mark' });
+    expect(highlight.closest('[data-note-id]')).toHaveAttribute('data-note-id', 'loose-note');
+    expect(screen.getByText("Searched the text of 4 notes you've opened.")).toBeInTheDocument();
+  });
+
   it('clears search and filters with Escape before returning focus to the tree', async () => {
     const onFinderStateChange = vi.fn();
     const queryView = renderFolderNavigator({

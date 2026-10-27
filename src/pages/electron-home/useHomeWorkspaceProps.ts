@@ -216,6 +216,7 @@ export function useHomeWorkspaceProps({
       scope: displayScope,
       tree: folderTree,
       entries: navigator.visibleEntries,
+      textSearch: navigator.textSearch,
       finderState: activeFinderState,
       selection: {
         selectedFolderId,

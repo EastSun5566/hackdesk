@@ -33,6 +33,7 @@ import { COLLAPSE_ICON_CLASS, FOCUS_RING_CLASS, formatCompactDate, formatDate, g
 import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
+import { NoteMatchSnippet } from './NoteMatchSnippet';
 
 import { useFolderTreeControlId, useFolderTreeGroupId, useFolderTreeItem } from './FolderTreeFocusContext';
 
@@ -73,6 +74,7 @@ export function NoteRow({
   disabledDrag = false,
   active = false,
   compact = false,
+  snippet,
 }: {
   entry: FolderTreeNote;
   selected: boolean;
@@ -93,6 +95,8 @@ export function NoteRow({
   disabledDrag?: boolean;
   active?: boolean;
   compact?: boolean;
+  /** Where the note's text matched the search, shown in place of its folder and tags. */
+  snippet?: string;
 }) {
   const metadata = [
     entry.folderLabel,
@@ -166,7 +170,7 @@ export function NoteRow({
               </button>
             ) : null}
             title={entry.note.title || 'Untitled'}
-            subtitle={metadata || entry.note.shortId}
+            subtitle={snippet ? <NoteMatchSnippet snippet={snippet} /> : metadata || entry.note.shortId}
             trailing={(
               <time title={formatDate(entry.note.updatedAtMillis)} dateTime={entry.note.updatedAtMillis ? new Date(entry.note.updatedAtMillis).toISOString() : undefined}>
                 {formatCompactDate(entry.note.updatedAtMillis)}

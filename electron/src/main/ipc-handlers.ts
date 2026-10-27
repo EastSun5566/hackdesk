@@ -80,10 +80,12 @@ import {
   updateNoteVersion,
   validateToken,
   clearHackmdCache,
+  setHackmdDurableFallback,
 } from './hackmd-service';
 import { getSafeSettings, readHackmdCliAccessToken, readStoredSettings, updateStoredSettings } from './settings';
 import { createAiService } from './ai/ai-service';
 import { createDictationService, locateSpeechHelper } from './dictation/dictation-service';
+import { createNoteIndexService } from './note-index/note-index-service';
 import { getHackDeskRootPath } from './paths';
 import {
   createLocalFolder,
@@ -91,6 +93,7 @@ import {
   getActiveLocalVaultSnapshot,
   importLocalVaultAttachment,
   readLocalNote,
+  readLocalVaultNotesForIndex,
   revealLocalVaultFolder,
   revealLocalVaultNote,
   revealLocalVaultRoot,
@@ -111,12 +114,13 @@ import type { WindowManager } from './window-manager';
 import { openTextFile, saveTextFile } from './app-file-dialog';
 import { checkForElectronUpdates } from './app-updater';
 import { getQuickCaptureShortcutStatus } from './global-shortcuts';
-import { exportDebugLogs, recordFatalRendererError } from './logging';
+import { exportDebugLogs, recordFatalRendererError, writeLog } from './logging';
 import {
   aiProviderIdInputSchema,
   aiTurnInputSchema,
   dictationInstallInputSchema,
   dictationStartInputSchema,
+  noteSearchInputSchema,
   confirmDialogOptionsSchema,
   createFolderInputSchema,
   createNoteInputSchema,
@@ -251,6 +255,25 @@ export function registerIpcHandlers(
     const metadata = validateIpcInput(ELECTRON_CHANNELS.dictationCancel, hackmdRequestOptionsSchema, { requestId })!;
     dictationRequests.cancel(event.sender, metadata.requestId);
   });
+  const noteIndex = createNoteIndexService({
+    path: join(getHackDeskRootPath(), 'cache', 'notes.sqlite'),
+    readNotes: readLocalVaultNotesForIndex,
+    log: (message, error) => writeLog('main', message, error, error ? 'warn' : 'info'),
+  });
+  setHackmdDurableFallback(noteIndex.hackmdFallback);
+  void Promise.resolve().then(readStoredSettings)
+    .then(settings => noteIndex.setKeepHackmdNotes(settings.offline.keepHackmdNotes))
+    .catch(() => undefined);
+  ipcMain.handle(ELECTRON_CHANNELS.noteIndexSearch, (_event, input) => (
+    noteIndex.search(validateIpcInput(ELECTRON_CHANNELS.noteIndexSearch, noteSearchInputSchema, input))
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.noteIndexStatus, () => noteIndex.status());
+  ipcMain.handle(ELECTRON_CHANNELS.noteIndexClear, () => {
+    // The in-memory fallback goes too, so nothing cached survives the request.
+    clearHackmdCache();
+    return noteIndex.status();
+  });
+
   let localVaultWatcher: LocalVaultWatcher | null = null;
   let watchedLocalVaultPath: string | null = null;
   let localVaultWatcherGeneration = 0;
@@ -271,6 +294,7 @@ export function registerIpcHandlers(
     closeLocalVaultWatcher();
     watchedLocalVaultPath = vaultPath;
     localVaultWatcher = watchLocalVault(vaultPath, (snapshot) => {
+      void noteIndex.indexVault(snapshot);
       windowManager.getMainWindow()?.webContents.send(ELECTRON_CHANNELS.localVaultDidChange, {
         snapshot,
       });
@@ -289,7 +313,9 @@ export function registerIpcHandlers(
       if (localVaultWatcherGeneration !== watcherGeneration) {
         throw new Error('The active local vault changed while the operation was running.');
       }
-      watchedLocalVaultPath = getSnapshot(result).rootPath;
+      const snapshot = getSnapshot(result);
+      watchedLocalVaultPath = snapshot.rootPath;
+      void noteIndex.indexVault(snapshot);
       return result;
     } catch (error) {
       refreshOnResume = true;
@@ -304,8 +330,11 @@ export function registerIpcHandlers(
 
   ipcMain.handle(ELECTRON_CHANNELS.settingsGet, () => getSafeSettings());
   ipcMain.handle(ELECTRON_CHANNELS.settingsUpdate, async (_event, settings) => {
-    const nextSettings = await updateStoredSettings(validateIpcInput(ELECTRON_CHANNELS.settingsUpdate, settingsUpdateSchema, settings));
-    clearHackmdCache();
+    const update = validateIpcInput(ELECTRON_CHANNELS.settingsUpdate, settingsUpdateSchema, settings);
+    const nextSettings = await updateStoredSettings(update);
+    // Another token may mean another account: nothing cached for the old one may remain.
+    if (update.hackmdApiToken !== undefined) clearHackmdCache();
+    if (update.offline) noteIndex.setKeepHackmdNotes(update.offline.keepHackmdNotes);
     if (nextSettings.ai) ai.applySettings(nextSettings.ai);
     options.onSettingsUpdated?.(nextSettings);
     return nextSettings;
@@ -339,10 +368,12 @@ export function registerIpcHandlers(
     const settings = await updateStoredSettings({ localVaultPath: rootPath });
     options.onSettingsUpdated?.(settings);
     ensureLocalVaultWatcher(snapshot.rootPath);
+    void noteIndex.indexVault(snapshot);
     return { canceled: false, settings, snapshot };
   });
   ipcMain.handle(ELECTRON_CHANNELS.localVaultDisconnect, async () => {
     closeLocalVaultWatcher(true);
+    void noteIndex.forgetVaults();
     const settings = await updateStoredSettings({ localVaultPath: null });
     options.onSettingsUpdated?.(settings);
     return settings;
@@ -351,6 +382,7 @@ export function registerIpcHandlers(
     const snapshot = await getActiveLocalVaultSnapshot();
     if (snapshot) {
       ensureLocalVaultWatcher(snapshot.rootPath);
+      void noteIndex.indexVault(snapshot);
     }
 
     return snapshot;
@@ -703,6 +735,8 @@ export function registerIpcHandlers(
       ai.dispose();
       dictationRequests.dispose();
       dictation.dispose();
+      setHackmdDurableFallback(null);
+      void noteIndex.close();
       closeLocalVaultWatcher(true);
     },
   };

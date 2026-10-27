@@ -21,6 +21,7 @@ import type {
 } from './local-vault';
 import type { AiProviderId, AiProviderStatus, AiTurnInput } from './ai';
 import type { DictationEvent, DictationInstallInput, DictationStartInput, DictationStatus } from './dictation';
+import type { NoteIndexStatus, NoteSearchInput, NoteSearchResponse } from './note-index';
 import type { AppSettings } from './settings';
 
 export type RuntimeEnvironment = 'electron' | 'web';
@@ -38,10 +39,11 @@ export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'e
   keyboardNavigation?: AppSettings['keyboardNavigation'];
   ai?: AppSettings['ai'];
   dictation?: AppSettings['dictation'];
+  offline?: AppSettings['offline'];
   shouldShowHackmdOnboarding: boolean;
 };
 
-export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation' | 'keyboardNavigation' | 'ai' | 'dictation'>> & {
+export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation' | 'keyboardNavigation' | 'ai' | 'dictation' | 'offline'>> & {
   hackmdApiToken?: string;
 };
 
@@ -520,6 +522,14 @@ export type HackDeskElectronAPI = {
     start: (input: DictationStartInput, onEvent: (event: DictationEvent) => void) => Promise<string | null>;
     stop: (requestId: string) => Promise<void>;
     cancel: (requestId: string) => Promise<void>;
+  };
+  /** Optional for renderer hot reloads against an older preload. */
+  noteIndex?: {
+    /** Searches note text: every note of a Local Vault, or the HackMD notes opened before. */
+    search: (input: NoteSearchInput) => Promise<NoteSearchResponse>;
+    status: () => Promise<NoteIndexStatus>;
+    /** Forgets the cached HackMD notes; the Local Vault index stays. */
+    clear: () => Promise<NoteIndexStatus>;
   };
   localVault: {
     choose: () => Promise<ChooseLocalVaultResult>;

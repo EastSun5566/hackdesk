@@ -42,6 +42,8 @@ import {
 } from '../../../src/lib/note-errors';
 import { setTimeout as wait } from 'node:timers/promises';
 
+import type { HackmdDurableFallback } from './note-index/hackmd-offline-cache';
+
 const HACKMD_API_BASE_URL = 'https://api.hackmd.io/v1';
 const HACKMD_TIMEOUT_MS = 20_000;
 const HACKMD_READ_BUDGET_MS = 30_000;
@@ -160,23 +162,45 @@ type CacheKey =
 /**
  * Fallback values for offline reads. Every invalidation starts a new
  * generation, and a response is cached only if no invalidation happened while
- * it was in flight, so a late response cannot restore stale data.
+ * it was in flight, so a late response cannot restore stale data. An optional
+ * durable layer keeps the values across restarts.
  */
 function createFallbackCache() {
   const entries = new Map<CacheKey, unknown>();
   let generation = 0;
+  let durable: HackmdDurableFallback | null = null;
+  // The newest note version seen per key. It outlives invalidation, which empties `entries` around
+  // every write, so an overlapping write's older response cannot replace (or erase) a newer one.
+  const newest = new Map<CacheKey, { at: number; data: unknown }>();
+  const changedAt = (data: unknown) => {
+    const value = (data as { updatedAtMillis?: unknown } | null)?.updatedAtMillis;
+    return typeof value === 'number' ? value : null;
+  };
+  /** Caches `data` unless a newer version of the note was seen; then the newer one stays, or comes back. */
+  const keepNewest = (cacheKey: CacheKey, data: unknown) => {
+    const at = changedAt(data);
+    const known = newest.get(cacheKey);
+    const kept = at !== null && known && at < known.at ? known.data : data;
+    if (kept === data && at !== null) newest.set(cacheKey, { at, data });
+    entries.set(cacheKey, kept);
+    durable?.write(cacheKey, kept);
+  };
 
   return {
+    setDurable(next: HackmdDurableFallback | null) {
+      durable = next;
+    },
     load<T>(cacheKey: CacheKey, promise: Promise<T>): Promise<RepositoryValue<T>> {
       const startedGeneration = generation;
       return promise
         .then((data) => {
-          if (startedGeneration === generation) entries.set(cacheKey, data);
+          // Overlapping reads of one note can answer out of order too.
+          if (startedGeneration === generation) keepNewest(cacheKey, data);
           return { source: 'remote' as const, data };
         })
         .catch((error) => {
           if (error?.name === 'AbortError') throw error;
-          const cached = entries.get(cacheKey) as T | undefined;
+          const cached = (entries.get(cacheKey) ?? durable?.read(cacheKey)) as T | undefined;
           const message = error instanceof Error ? error.message : 'Something went wrong while talking to HackMD.';
 
           if (cached !== undefined) {
@@ -186,15 +210,22 @@ function createFallbackCache() {
           return { source: 'error' as const, error: message };
         });
     },
+    /** Records a value read or written outside `load`, such as a saved note, unless a newer one was. */
+    remember(cacheKey: CacheKey, data: unknown) {
+      keepNewest(cacheKey, data);
+    },
     invalidate(matches: (key: CacheKey) => boolean) {
       generation += 1;
       for (const key of entries.keys()) {
         if (matches(key)) entries.delete(key);
       }
+      durable?.invalidate(key => matches(key as CacheKey));
     },
     clear() {
       generation += 1;
       entries.clear();
+      newest.clear();
+      durable?.clear();
     },
   };
 }
@@ -822,6 +853,19 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
     uploadTimeoutMs: options.uploadTimeoutMs ?? HACKMD_UPLOAD_TIMEOUT_MS,
   };
 
+  function noteCacheKey(noteId: string, teamPath?: string | null): CacheKey {
+    const normalizedTeamPath = teamPath?.trim();
+    return normalizedTeamPath ? `team:${normalizedTeamPath}:note:${noteId}` : `note:${noteId}`;
+  }
+
+  /** Keeps a note just written or re-read for offline reading; runs after the write's invalidation. */
+  function rememberDocument(teamPath: string | null | undefined) {
+    return (document: DocumentSummary) => {
+      if (document.id) cache.remember(noteCacheKey(document.id, teamPath ?? document.teamPath), document);
+      return document;
+    };
+  }
+
   function getNotePath(noteId: string, teamPath?: string | null) {
     const normalizedTeamPath = teamPath?.trim();
     return normalizedTeamPath
@@ -905,6 +949,10 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
   return {
     clearCache() {
       cache.clear();
+    },
+    /** Keeps fallback values on disk too; null keeps them in memory only. */
+    setDurableFallback(durable: HackmdDurableFallback | null) {
+      cache.setDurable(durable);
     },
     validateToken(token: string, signal?: AbortSignal) {
       const normalizedToken = token.trim();
@@ -1021,31 +1069,31 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
     },
 
     getNote(noteId: string, teamPath?: string | null, signal?: AbortSignal) {
-      const normalizedTeamPath = teamPath?.trim();
-      const cacheKey: CacheKey = normalizedTeamPath
-        ? `team:${normalizedTeamPath}:note:${noteId}`
-        : `note:${noteId}`;
-
+      const cacheKey = noteCacheKey(noteId, teamPath);
+      // A 404 still returns the last copy, so the missing-note recovery can keep it; the next list
+      // refresh drops it from the disk cache.
       return withCache(cacheKey, fetchDocument(getNotePath(noteId, teamPath), signal).catch(rethrowNoteNotFound));
     },
 
     /** Reads the note only if it changed since `etag`; resolves null when HackMD answers 304. */
     getNoteIfChanged(noteId: string, teamPath: string | null, etag: string, signal?: AbortSignal) {
-      return readDocument(getNotePath(noteId, teamPath), { signal, headers: { 'If-None-Match': etag } }).catch(rethrowNoteNotFound);
+      return readDocument(getNotePath(noteId, teamPath), { signal, headers: { 'If-None-Match': etag } })
+        .then(document => (document ? rememberDocument(teamPath)(document) : document))
+        .catch(rethrowNoteNotFound);
     },
 
     createNote(input: CreateNoteInput) {
       return writing(
         (key) => isNoteDependentKey(key, null),
         () => createOrUpdateDocument('/notes', 'POST', input),
-      );
+      ).then(rememberDocument(null));
     },
 
     createTeamNote(teamPath: string, input: CreateNoteInput) {
       return writing(
         (key) => isNoteDependentKey(key, teamPath),
         () => createOrUpdateDocument(`/teams/${encodePathSegment(teamPath)}/notes`, 'POST', input),
-      );
+      ).then(rememberDocument(teamPath));
     },
 
     createFolder(input: CreateFolderInput) {
@@ -1082,7 +1130,7 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
       return writing(
         (key) => isNoteDependentKey(key, null, noteId),
         () => createOrUpdateDocument(path, 'PATCH', input, () => fetchDocument(path)),
-      );
+      ).then(rememberDocument(null));
     },
 
     updateTeamNote(teamPath: string, noteId: string, input: UpdateNoteInput) {
@@ -1090,7 +1138,7 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
       return writing(
         (key) => isNoteDependentKey(key, teamPath, noteId),
         () => createOrUpdateDocument(path, 'PATCH', input, () => fetchDocument(path)),
-      );
+      ).then(rememberDocument(teamPath));
     },
 
     deleteNote(noteId: string) {
@@ -1309,6 +1357,7 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
 const defaultHackmdService = createHackmdService();
 
 export const clearHackmdCache = defaultHackmdService.clearCache;
+export const setHackmdDurableFallback = defaultHackmdService.setDurableFallback;
 export const validateToken = defaultHackmdService.validateToken;
 export const getCurrentUser = defaultHackmdService.getCurrentUser;
 export const listTeams = defaultHackmdService.listTeams;

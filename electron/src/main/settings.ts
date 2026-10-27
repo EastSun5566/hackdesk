@@ -60,6 +60,7 @@ function toSafeSettings(
     workspaceNavigation: settings.workspaceNavigation,
     ai: settings.ai,
     dictation: settings.dictation,
+    offline: settings.offline,
     hasHackmdApiToken,
     hackmdTokenStorageError: tokenStorageError ?? null,
     hasAppearanceSettings: hasStoredAppearance,
@@ -312,6 +313,7 @@ async function updateStoredSettingsUnlocked(
     workspaceNavigation: update.workspaceNavigation ?? current.workspaceNavigation,
     ai: update.ai ?? current.ai,
     dictation: update.dictation ?? current.dictation,
+    offline: update.offline ?? current.offline,
     onboarding: nextOnboarding,
     localVault: update.localVaultPath !== undefined ? { path: update.localVaultPath } : current.localVault,
   });

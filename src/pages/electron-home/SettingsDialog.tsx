@@ -18,6 +18,7 @@ import { defaultSettings } from '@/lib/settings';
 import { AdvancedSettingsPanel } from './AdvancedSettingsPanel';
 import { AiSettingsPanel } from './AiSettingsPanel';
 import { DictationSettingsPanel } from './DictationSettingsPanel';
+import { OfflineSettingsSection } from './OfflineSettingsSection';
 import { AppearanceSettingsPanel } from './AppearanceSettingsPanel';
 import { EditorSettingsPanel } from './EditorSettingsPanel';
 import { GeneralSettingsPanel } from './GeneralSettingsPanel';
@@ -284,6 +285,9 @@ function SettingsDialogContent({
                     title={title}
                     onTitleChange={(nextTitle) => setFormState((current) => ({ ...current, title: nextTitle }))}
                   />
+                  <div className="mt-6">
+                    <OfflineSettingsSection active={open && activeTab === 'general'} />
+                  </div>
                 </TabsContent>
 
                 <TabsContent data-settings-tab="editor" value="editor" keepMounted className={SETTINGS_PANEL_CLASS}>
