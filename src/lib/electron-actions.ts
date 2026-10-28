@@ -358,6 +358,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     description: 'Start a note from one in the workspace\'s Templates folder.',
     keywords: ['template', 'create', 'new', 'note', 'boilerplate'],
     category: 'note',
+    scope: 'navigator',
     getDisabledReason: requireWritableWorkspace,
   },
   {
