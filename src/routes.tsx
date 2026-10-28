@@ -1,10 +1,17 @@
-import { useLayoutEffect } from 'react';
+import { lazy, Suspense, useLayoutEffect } from 'react';
 import { useLocation, useRoutes, type RouteObject } from 'react-router-dom';
 
 import { Home } from './pages/Home';
 import { QuickCapture } from './pages/QuickCapture';
 
+// reveal.js and its highlighter load only in the presentation window.
+const Presentation = lazy(() => import('./pages/Presentation'));
+
 const routes: RouteObject[] = [
+  {
+    path: '/present',
+    element: <Suspense><Presentation /></Suspense>,
+  },
   {
     path: '/electron',
     element: <Home />,

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
@@ -12,9 +12,13 @@ describe('HFM live-preview recognizers', () => {
   it('keeps HFM live preview independent from removed reader renderer packages', () => {
     const packageJson = readFileSync(`${process.cwd()}/package.json`, 'utf8');
 
-    expect(packageJson).not.toContain('"markdown-it"');
     expect(packageJson).not.toContain('"shiki"');
     expect(packageJson).not.toContain('electron-markdown-renderer');
+    // markdown-it renders slides in the presentation window only, never in the editor.
+    const componentsDir = `${process.cwd()}/src/components`;
+    const importers = readdirSync(componentsDir, { recursive: true, encoding: 'utf8' })
+      .filter(file => /(?<!\.test)\.tsx?$/.test(file) && readFileSync(`${componentsDir}/${file}`, 'utf8').includes("from 'markdown-it'"));
+    expect(importers).toEqual([]);
   });
 
   it('recognizes HackMD image size syntax without unsafe URL schemes', () => {

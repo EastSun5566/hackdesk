@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import type {
   HackDeskCommandPaletteCommand,
+  PresentationDeck,
   QuickCaptureSubmissionAck,
   QuickCaptureSubmitResult,
 } from '../../../src/lib/electron-api';
@@ -16,11 +17,16 @@ import { isTrustedRendererUrl } from './renderer-url';
 import { createUnresponsiveSampler } from './unresponsive-sampler';
 import { persistWindowState, readWindowState } from './window-state';
 
+const PRESENTATION_BACKGROUND_COLOR = '#191919';
 const WINDOW_BACKGROUND_COLOR = process.platform === 'darwin' ? '#00000000' : '#fdfdfd';
 const DEFAULT_WINDOW_SIZE = { width: 1180, height: 760 };
 const QUICK_CAPTURE_SIZE = { width: 480, height: 320 };
 const QUICK_CAPTURE_PRESENTATION_TIMEOUT_MS = 1000;
 const QUICK_CAPTURE_SUBMISSION_TIMEOUT_MS = 15_000;
+
+// Channels only the Quick Hack and presentation windows may call; the main window may call the rest.
+const QUICK_CAPTURE_CHANNELS = new Set<string>([ELECTRON_CHANNELS.appSubmitQuickCapture, ELECTRON_CHANNELS.appHideQuickCapture]);
+const PRESENTATION_CHANNELS = new Set<string>([ELECTRON_CHANNELS.appGetPresentation, ELECTRON_CHANNELS.appClosePresentation]);
 
 type PendingQuickCaptureSubmission = {
   resolve: (result: QuickCaptureSubmitResult) => void;
@@ -30,6 +36,8 @@ type PendingQuickCaptureSubmission = {
 export class WindowManager {
   private mainWindow: BrowserWindow | null = null;
   private quickCaptureWindow: BrowserWindow | null = null;
+  private presentationWindow: BrowserWindow | null = null;
+  private presentationDeck: PresentationDeck | null = null;
   private recoveryDialogs = new Set<BrowserWindow>();
   private allowAppQuit = false;
   private activationMode: 'regular' | 'accessory' = 'regular';
@@ -48,6 +56,10 @@ export class WindowManager {
   getTargetWindow() {
     const focusedWindow = BrowserWindow.getFocusedWindow() ?? this.getMainWindow();
     return focusedWindow && !focusedWindow.isDestroyed() ? focusedWindow : null;
+  }
+
+  getPresentationWindow() {
+    return this.presentationWindow && !this.presentationWindow.isDestroyed() ? this.presentationWindow : null;
   }
 
   getQuickCaptureWindow() {
@@ -157,11 +169,14 @@ export class WindowManager {
       return false;
     }
     if (event.sender === this.getQuickCaptureWindow()?.webContents) {
-      return channel === ELECTRON_CHANNELS.appSubmitQuickCapture || channel === ELECTRON_CHANNELS.appHideQuickCapture;
+      return QUICK_CAPTURE_CHANNELS.has(channel);
+    }
+    if (event.sender === this.getPresentationWindow()?.webContents) {
+      return PRESENTATION_CHANNELS.has(channel);
     }
     return event.sender === this.getMainWindow()?.webContents
-      && channel !== ELECTRON_CHANNELS.appSubmitQuickCapture
-      && channel !== ELECTRON_CHANNELS.appHideQuickCapture;
+      && !QUICK_CAPTURE_CHANNELS.has(channel)
+      && !PRESENTATION_CHANNELS.has(channel);
   }
 
   showAndFocusMainWindow() {
@@ -366,6 +381,62 @@ export class WindowManager {
     this.getMainWindow()?.webContents.session.flushStorageData();
     this.hideQuickCaptureWindow();
     pending.resolve({ accepted: true });
+  }
+
+  /** Presents a note full screen, on the main window's display. Presenting again shows the new deck. */
+  showPresentationWindow(deck: PresentationDeck) {
+    this.presentationDeck = deck;
+    const existingWindow = this.getPresentationWindow();
+    if (existingWindow) {
+      existingWindow.webContents.reload();
+      existingWindow.focus();
+      return existingWindow;
+    }
+
+    const mainWindow = this.getMainWindow();
+    const display = mainWindow ? screen.getDisplayMatching(mainWindow.getBounds()) : screen.getPrimaryDisplay();
+    const window = new BrowserWindow({
+      ...display.bounds,
+      show: false,
+      title: deck.title || 'Presentation',
+      fullscreen: true,
+      backgroundColor: PRESENTATION_BACKGROUND_COLOR,
+      icon: getAppIconPath(),
+      webPreferences: {
+        preload: join(__dirname, 'presentation-preload.cjs'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+        webviewTag: false,
+      },
+    });
+    this.presentationWindow = window;
+    this.configureWindowPolicy(window);
+    const rendererUrl = getRendererRouteUrl('/present');
+    this.configureWindowRecovery(window, rendererUrl, 'Presentation');
+
+    window.once('ready-to-show', () => {
+      if (window.isDestroyed()) return;
+      window.show();
+      window.focus();
+    });
+    window.on('closed', () => {
+      if (this.presentationWindow !== window) return;
+      this.presentationWindow = null;
+      this.presentationDeck = null;
+      this.getMainWindow()?.focus();
+    });
+
+    void window.loadURL(rendererUrl).catch(error => writeLog('renderer', 'Presentation load failed', error, 'error'));
+    return window;
+  }
+
+  getPresentationDeck() {
+    return this.presentationDeck;
+  }
+
+  closePresentationWindow() {
+    this.getPresentationWindow()?.close();
   }
 
   createMainWindow(options: { showOnReady?: boolean } = {}) {

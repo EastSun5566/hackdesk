@@ -73,6 +73,7 @@ export type WorkbenchActionHandlers = {
   openSelectedWebEditor: () => void;
   showNoteVersions: () => void;
   openAsBook: () => void;
+  presentNote: () => void;
   createNoteFromTemplate: () => void;
   saveAsTemplate: () => void;
   openAdjacentChapter: (step: -1 | 1) => void;
@@ -313,6 +314,9 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'open-as-book':
       handlers.openAsBook();
+      break;
+    case 'present-note':
+      handlers.presentNote();
       break;
     case 'previous-chapter':
       handlers.openAdjacentChapter(-1);

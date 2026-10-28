@@ -65,6 +65,7 @@ describe('real Electron watch build', () => {
       ['electron/src/main/index.ts', 'electron/dist/main.cjs'],
       ['electron/src/preload/index.ts', 'electron/dist/preload.cjs'],
       ['electron/src/preload/quick-capture.ts', 'electron/dist/quick-capture-preload.cjs'],
+      ['electron/src/preload/presentation.ts', 'electron/dist/presentation-preload.cjs'],
     ];
     for (const [source, output] of targets) {
       await mkdir(dirname(join(root, source)), { recursive: true });

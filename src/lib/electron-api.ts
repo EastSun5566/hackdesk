@@ -407,6 +407,7 @@ export type ElectronActionId =
   | 'open-note-web-editor'
   | 'show-note-versions'
   | 'open-as-book'
+  | 'present-note'
   | 'new-note-from-template'
   | 'save-as-template'
   | 'previous-chapter'
@@ -594,7 +595,19 @@ export type HackDeskElectronAPI = {
     submitQuickCapture?: (content: string) => Promise<QuickCaptureSubmitResult>;
     hideQuickCapture?: () => Promise<void>;
     resolveQuickCaptureSubmission?: (ack: QuickCaptureSubmissionAck) => Promise<void>;
+    openPresentation?: (deck: PresentationDeck) => Promise<void>;
   };
+};
+
+/** A note to present as slides: the editor's text, including unsaved changes. */
+export type PresentationDeck = {
+  title: string;
+  content: string;
+};
+
+export type HackDeskPresentationAPI = {
+  getDeck: () => Promise<PresentationDeck | null>;
+  close: () => Promise<void>;
 };
 
 export type HackDeskQuickCaptureAPI = {
@@ -603,7 +616,7 @@ export type HackDeskQuickCaptureAPI = {
 };
 
 export function getRuntimeEnvironment(): RuntimeEnvironment {
-  if (typeof window !== 'undefined' && (window.hackdeskAPI || window.hackdeskQuickCaptureAPI)) {
+  if (typeof window !== 'undefined' && (window.hackdeskAPI || window.hackdeskQuickCaptureAPI || window.hackdeskPresentationAPI)) {
     return 'electron';
   }
 

@@ -24,7 +24,13 @@ export async function buildTargets(watch = false): Promise<void> {
     outfile: 'electron/dist/quick-capture-preload.cjs',
   };
 
-  const targets = [mainOptions, preloadOptions, quickCapturePreloadOptions];
+  const presentationPreloadOptions: BuildOptions = {
+    ...common,
+    entryPoints: ['electron/src/preload/presentation.ts'],
+    outfile: 'electron/dist/presentation-preload.cjs',
+  };
+
+  const targets = [mainOptions, preloadOptions, quickCapturePreloadOptions, presentationPreloadOptions];
   if (watch) {
     const contexts: BuildContext[] = [];
     const initialBuilds: Promise<void>[] = [];

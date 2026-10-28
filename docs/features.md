@@ -83,6 +83,18 @@ Choose a chapter to open it in a tab. While you read, the contents mark the curr
 
 To change the book, edit its links in the editor; the contents update when you save. **Close book** hides the contents until you open the book again.
 
+## Present slides
+
+Choose **Present** from a note's **More actions** menu, the **View** menu, or the Command Palette to show the note as full-screen slides. Unsaved changes are included. Notes that HackMD publishes as slides, or that have `type: slide` in their front matter, also show **Present** in the document toolbar.
+
+- A `---` line with a blank line above and below starts a new slide; `----` starts a slide below the current one.
+- Everything after a line starting with `note:` is speaker notes, which are hidden.
+- `<!-- .slide: data-background="#123456" -->` and `<!-- .element: class="fragment" -->` set attributes on the slide or the element before the comment.
+- In code blocks, `js=` numbers the lines and `js=[1,3|4]` highlights lines step by step. Math works as it does in the editor.
+- `slideOptions` in the front matter set [reveal.js options](https://revealjs.com/config/) such as `theme`, `transition`, and `controls`. Options that would load scripts are ignored.
+
+Use the arrow keys or Space to move, **O** for an overview, and **Esc** to leave. Embeds such as `{%youtube %}` and diagrams show as text. Themes that use web fonts use system fonts instead.
+
 ## Save changes
 
 Choose **Save** in the document toolbar to write the active note to its workspace. Save status distinguishes changes still in the editor from a saved note.

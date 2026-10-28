@@ -90,6 +90,7 @@ const electronActionIdSchema = z.enum([
   'open-note-web-editor',
   'show-note-versions',
   'open-as-book',
+  'present-note',
   'new-note-from-template',
   'save-as-template',
   'previous-chapter',
@@ -422,6 +423,11 @@ export const quickCaptureSubmissionAckSchema = z.discriminatedUnion('accepted', 
 
 export const quickCaptureContentSchema = z.string().refine((value) => value.trim().length > 0, {
   message: 'Content must not be blank',
+});
+
+export const presentationDeckSchema = z.strictObject({
+  title: z.string(),
+  content: z.string(),
 });
 
 export const uploadNoteImageInputSchema = z.strictObject({

@@ -6,6 +6,7 @@ import { Group, Panel, Separator } from 'react-resizable-panels';
 import type {
   DocumentSummary,
   NoteSummary,
+  PresentationDeck,
   UpdateNoteInput,
 } from '@/lib/electron-api';
 import type { FolderTree } from '@/lib/hackmd-folders';
@@ -65,6 +66,7 @@ export function DocumentWorkspace({
   onOpenExternal,
   onOpenNoteTarget,
   onSaveAsTemplate,
+  onPresent,
   onRevealInFinder,
   onCopyLink,
   onCopyMarkdownLink,
@@ -110,6 +112,7 @@ export function DocumentWorkspace({
   /** Opens a linked note in a tab, switching workspace when needed. */
   onOpenNoteTarget?: OpenNoteTarget;
   onSaveAsTemplate?: () => void;
+  onPresent?: (deck: PresentationDeck) => void;
   onRevealInFinder: (document: DocumentSummary) => void;
   onCopyLink: (document: DocumentSummary) => void;
   onCopyMarkdownLink: (document: DocumentSummary) => void;
@@ -252,6 +255,7 @@ export function DocumentWorkspace({
                       onOpenExternal,
                       onOpenNoteTarget,
                       onSaveAsTemplate,
+                      onPresent,
                       onRevealInFinder,
                       onCopyLink,
                       onCopyMarkdownLink,

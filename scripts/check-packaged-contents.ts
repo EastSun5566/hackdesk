@@ -34,7 +34,7 @@ export async function checkPackagedContents(resources: string, { requireSpeechHe
   const archive = join(resources, 'app.asar');
   const contents = inspectArchive(archive);
   assert(!contents.files.some(name => name.split('/').includes('node_modules')), 'Packaged npm files duplicate bundled dependencies');
-  for (const file of ['electron/dist/main.cjs', 'electron/dist/preload.cjs', 'electron/dist/quick-capture-preload.cjs', 'dist/index.html', 'electron/dist/third-party/packages.json', 'LICENSE']) {
+  for (const file of ['electron/dist/main.cjs', 'electron/dist/preload.cjs', 'electron/dist/quick-capture-preload.cjs', 'electron/dist/presentation-preload.cjs', 'dist/index.html', 'electron/dist/third-party/packages.json', 'LICENSE']) {
     assert(contents.files.includes(file), `Missing packaged file: ${file}`);
   }
   const notices = JSON.parse(asar.extractFile(archive, join('electron', 'dist', 'third-party', 'packages.json')).toString());

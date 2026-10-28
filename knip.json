@@ -8,6 +8,7 @@
     "electron/src/main/index.ts",
     "electron/src/preload/index.ts",
     "electron/src/preload/quick-capture.ts",
+    "electron/src/preload/presentation.ts",
     "scripts/*.ts",
     "docs/.vitepress/config.ts",
     "docs/.vitepress/theme/index.ts",

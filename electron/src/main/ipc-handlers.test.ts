@@ -219,6 +219,9 @@ const windowManager = {
   setMenuShortcutsIgnored: vi.fn(),
   setThemeSurface: vi.fn(),
   submitQuickCapture: vi.fn(async () => ({ accepted: true as const })),
+  showPresentationWindow: vi.fn(),
+  getPresentationDeck: vi.fn(() => ({ title: 'Deck', content: '# One' })),
+  closePresentationWindow: vi.fn(),
 };
 
 describe('registerIpcHandlers', () => {
@@ -620,6 +623,17 @@ describe('registerIpcHandlers', () => {
 
     expect(windowManager.submitQuickCapture).toHaveBeenCalledWith('  # Capture  ');
     expect(() => handler?.({}, '   ')).toThrow(/Invalid app:submit-quick-capture payload/);
+  });
+
+  it('validates decks to present, and serves and closes the presentation', () => {
+    registerIpcHandlers(windowManager);
+
+    ipcHandlers.get(ELECTRON_CHANNELS.appOpenPresentation)?.({}, { title: 'Deck', content: '# One' });
+    expect(windowManager.showPresentationWindow).toHaveBeenCalledWith({ title: 'Deck', content: '# One' });
+    expect(() => ipcHandlers.get(ELECTRON_CHANNELS.appOpenPresentation)?.({}, { title: 'Deck' })).toThrow(/Invalid app:open-presentation payload/);
+    expect(ipcHandlers.get(ELECTRON_CHANNELS.appGetPresentation)?.({})).toEqual({ title: 'Deck', content: '# One' });
+    ipcHandlers.get(ELECTRON_CHANNELS.appClosePresentation)?.({});
+    expect(windowManager.closePresentationWindow).toHaveBeenCalledOnce();
   });
 
   it('hides the quick capture window from renderer requests', () => {
