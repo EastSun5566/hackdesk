@@ -353,6 +353,23 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     getDisabledReason: requireHackmdNote,
   },
   {
+    id: 'new-note-from-template',
+    label: 'New Note from Template…',
+    description: 'Start a note from one in the workspace\'s Templates folder.',
+    keywords: ['template', 'create', 'new', 'note', 'boilerplate'],
+    category: 'note',
+    getDisabledReason: requireWritableWorkspace,
+  },
+  {
+    id: 'save-as-template',
+    label: 'Save as Template',
+    description: 'Copy the selected note into the workspace\'s Templates folder.',
+    keywords: ['template', 'save', 'copy', 'reuse'],
+    category: 'note',
+    scope: 'editor',
+    getDisabledReason: (context) => requireSelectedNote(context) ?? requireWritableWorkspace(context),
+  },
+  {
     id: 'open-as-book',
     label: 'Open as Book',
     description: 'Show the selected note\'s links as a book with chapters.',

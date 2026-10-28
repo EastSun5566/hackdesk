@@ -73,6 +73,8 @@ export type WorkbenchActionHandlers = {
   openSelectedWebEditor: () => void;
   showNoteVersions: () => void;
   openAsBook: () => void;
+  createNoteFromTemplate: () => void;
+  saveAsTemplate: () => void;
   openAdjacentChapter: (step: -1 | 1) => void;
   refreshWorkspace: () => void;
   renameSelectedFolder: () => void;
@@ -302,6 +304,12 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'show-note-versions':
       handlers.showNoteVersions();
+      break;
+    case 'new-note-from-template':
+      handlers.createNoteFromTemplate();
+      break;
+    case 'save-as-template':
+      handlers.saveAsTemplate();
       break;
     case 'open-as-book':
       handlers.openAsBook();

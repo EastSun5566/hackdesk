@@ -65,6 +65,7 @@ type WorkspaceActions = {
 export function useHomeWorkspaceProps({
   api,
   openNoteTarget,
+  saveAsTemplate,
   localVaultId,
   actions,
   activeFinderState,
@@ -109,6 +110,8 @@ export function useHomeWorkspaceProps({
 }: {
   api?: HackDeskElectronAPI;
   openNoteTarget?: OpenNoteTarget;
+  /** Copies the active note into the Templates folder. */
+  saveAsTemplate?: () => void;
   localVaultId?: string | null;
   actions: WorkspaceActions;
   activeFinderState: NoteFinderState;
@@ -294,6 +297,7 @@ export function useHomeWorkspaceProps({
       onOpenEditor: actions.handleOpenEditor,
       onOpenExternal: actions.handleOpenExternal,
       onOpenNoteTarget: openNoteTarget,
+      onSaveAsTemplate: saveAsTemplate,
       onRevealInFinder: localVaultActions.revealLocalNote,
       canCreateNote: homeStatus.navigatorStatus.canCreate,
       onCreateNote: folderCommands.handleCreateNote,

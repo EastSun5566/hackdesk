@@ -29,6 +29,8 @@ export type WorkbenchActionHandlersOptions = {
   bumpEditorSearchRequest: () => void;
   createFolder: () => void;
   createNote: () => void;
+  createNoteFromTemplate: () => void;
+  saveAsTemplate: () => void;
   deleteNote: (note: DocumentSummary) => void;
   documentContent: string;
   documentTitle: string;
@@ -85,6 +87,8 @@ export function useWorkbenchActionHandlers({
   bumpEditorSearchRequest,
   createFolder,
   createNote,
+  createNoteFromTemplate,
+  saveAsTemplate,
   deleteNote,
   documentContent,
   documentTitle,
@@ -214,6 +218,8 @@ export function useWorkbenchActionHandlers({
     openQuickOpen,
     openSelectedWebEditor: () => openHackmdWebEditor(api, selectedDocument, trackRecentNote),
     openSettings: () => setSettingsOpen(true),
+    createNoteFromTemplate,
+    saveAsTemplate,
     openAsBook: () => {
       if (selectedDocument) book.open(selectedDocument);
     },
@@ -275,6 +281,8 @@ export function useWorkbenchActionHandlers({
     bumpEditorSearchRequest,
     createFolder,
     createNote,
+    createNoteFromTemplate,
+    saveAsTemplate,
     deleteNote,
     documentContent,
     documentTitle,

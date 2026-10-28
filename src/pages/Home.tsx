@@ -3,6 +3,8 @@ import { getElectronAction } from '@/lib/electron-actions';
 import { ActionShortcutContext } from './electron-home/ActionShortcutContext';
 import { KeyboardShortcutsDialog } from './electron-home/KeyboardShortcutsDialog';
 import { BookSessionContext, useBookSession } from './electron-home/useBookSession';
+import { TemplatePickerDialog } from './electron-home/TemplatePickerDialog';
+import { useNoteTemplates } from './electron-home/useNoteTemplates';
 import { TrashDialog } from './electron-home/TrashDialog';
 import type { SettingsTab } from './electron-home/SettingsDialogConfig';
 import type { ElectronFocusZone } from './electron-home/useElectronFocusZones';
@@ -464,6 +466,16 @@ export function Home() {
     scopeType: scope.type,
   });
 
+  const noteTemplates = useNoteTemplates({
+    api,
+    folderTree,
+    openDraftNote: (draft) => {
+      noteWorkspace.openDraftNote(draft);
+      focusZone('editor');
+    },
+    saveAsTemplate: mutations.saveAsTemplateMutation.mutate,
+  });
+
   const folderCommands = useWorkbenchFolderCommands({
     api,
     currentFolders,
@@ -479,6 +491,7 @@ export function Home() {
       noteWorkspace.openDraftNote();
       focusZone('editor');
     },
+    openTemplatePicker: () => noteTemplates.setPickerOpen(true),
     scopeType: scope.type,
     setCreateDialog,
     setCreateFolderDialog,
@@ -581,6 +594,8 @@ export function Home() {
     api,
     createFolder: folderCommands.handleCreateFolder,
     createNote: folderCommands.handleCreateNote,
+    createNoteFromTemplate: folderCommands.handleCreateNoteFromTemplate,
+    saveAsTemplate: () => noteTemplates.saveDocumentAsTemplate(selectedDocument, { title: documentTitle, content: documentContent }),
     deleteNote: handleDeleteRequest,
     documentContent,
     documentTitle,
@@ -806,6 +821,7 @@ export function Home() {
   const workspaceProps = useHomeWorkspaceProps({
     api,
     openNoteTarget,
+    saveAsTemplate: () => noteTemplates.saveDocumentAsTemplate(selectedDocument, { title: documentTitle, content: documentContent }),
     localVaultId: vaultSession.vaultId,
     uploadingTabIds,
     actions: {
@@ -946,6 +962,12 @@ export function Home() {
           </BookSessionContext.Provider>
 
           <ElectronHomeOverlays {...overlayProps} dialogs={{ ...overlayProps.dialogs, settingsInitialTab, onSettingsOpenChange: setSettingsOpen }} />
+          <TemplatePickerDialog
+            open={noteTemplates.pickerOpen}
+            onOpenChange={noteTemplates.setPickerOpen}
+            templates={noteTemplates.templates}
+            onChoose={noteTemplates.chooseTemplate}
+          />
           <TrashDialog open={trashOpen} onOpenChange={setTrashOpen} onOpenNote={(note) => void requestSelectNote(note, { focusEditor: true })} />
           {shortcutHelp ? <KeyboardShortcutsDialog
             open region={shortcutHelp.region} returnFocus={shortcutHelp.target}

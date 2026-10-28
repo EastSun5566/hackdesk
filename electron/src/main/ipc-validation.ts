@@ -90,6 +90,8 @@ const electronActionIdSchema = z.enum([
   'open-note-web-editor',
   'show-note-versions',
   'open-as-book',
+  'new-note-from-template',
+  'save-as-template',
   'previous-chapter',
   'next-chapter',
   'delete-note',

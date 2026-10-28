@@ -88,6 +88,19 @@ describe('useWorkbenchFolderCommands', () => {
     expect(options.setCreateFolderDialog).not.toHaveBeenCalled();
   });
 
+  it('opens the template picker only where a note can be created', () => {
+    const openTemplatePicker = vi.fn();
+    const allowed = renderHook(() => useWorkbenchFolderCommands(createOptions({ openTemplatePicker })));
+    act(() => allowed.result.current.handleCreateNoteFromTemplate());
+    expect(openTemplatePicker).toHaveBeenCalledOnce();
+
+    const options = createOptions({ openTemplatePicker, hasToken: false });
+    const blocked = renderHook(() => useWorkbenchFolderCommands(options));
+    act(() => blocked.result.current.handleCreateNoteFromTemplate());
+    expect(openTemplatePicker).toHaveBeenCalledOnce();
+    expect(options.setSettingsOpen).toHaveBeenCalledWith(true);
+  });
+
   it('selects the target folder before opening create-inside-folder', () => {
     const options = createOptions();
     const { result } = renderHook(() => useWorkbenchFolderCommands(options));
