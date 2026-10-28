@@ -96,11 +96,16 @@ describe('useBookSession', () => {
     const twice = hackmdNote({
       id: 'twice', publishType: 'book', content: '- [Setup](https://hackmd.io/@me/setup)\n- [Setup again](https://hackmd.io/@me/setup)',
     });
-    const { result } = await setup(twice);
+    const { result, rerender } = await setup(twice);
     expect(result.current.positionOf(SETUP)).toEqual({ isBook: false, chapterIndex: 0 });
     await act(async () => result.current.openChapter(1));
     await settle();
     expect(result.current.positionOf(SETUP)).toEqual({ isBook: false, chapterIndex: 1 });
+
+    // Saving the book keeps the mark on the same repeat, even with a chapter added before it.
+    rerender({ current: { ...twice, content: `- [Intro](https://example.com/intro) [target=_blank]\n${twice.content}` } });
+    await settle();
+    expect(result.current.positionOf(SETUP)).toEqual({ isBook: false, chapterIndex: 2 });
   });
 
   it('reads vault book links as vault paths', () => {

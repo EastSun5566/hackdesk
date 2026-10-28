@@ -39,6 +39,13 @@ function documentKey(document: DocumentSummary) {
 
 const recentNoteKey = (note: ElectronRecentNote) => noteKey(note);
 
+/** The chapter in `next` with the same link as `index` in `previous`, counting repeats of that link. */
+function sameOccurrence(previous: Book, index: number, next: Book) {
+  const target = previous.chapters[index]?.target;
+  const occurrence = previous.chapters.slice(0, index).filter(chapter => chapter.target === target).length;
+  return next.chapters.filter(chapter => chapter.target === target)[occurrence]?.index ?? null;
+}
+
 /** A chapter link as a full address: HackMD books use links relative to hackmd.io, vault books relative paths. */
 export function chapterTarget(book: DocumentSummary, target: string) {
   if (book.teamPath === LOCAL_VAULT_TEAM_PATH || /^[a-z][a-z0-9+.-]*:/i.test(target)) return target;
@@ -63,17 +70,19 @@ export function useBookSession({ document, openNoteTarget, openExternal }: {
   const open = useCallback((book: DocumentSummary) => {
     const contents = parseBook(book.content);
     const key = documentKey(book);
-    setState(current => ({
-      document: book,
-      contents,
-      // Keep what is known about chapters whose links did not change.
-      chapterNotes: contents.chapters.map((chapter) => {
-        if (!current || documentKey(current.document) !== key) return null;
-        const same = current.contents.chapters.findIndex(known => known.target === chapter.target);
-        return same >= 0 ? current.chapterNotes[same] ?? null : null;
-      }),
-      lastChapter: null,
-    }));
+    setState((current) => {
+      const previous = current && documentKey(current.document) === key ? current : null;
+      return {
+        document: book,
+        contents,
+        // Keep what is known about chapters whose links did not change.
+        chapterNotes: contents.chapters.map((chapter) => {
+          const same = previous?.contents.chapters.findIndex(known => known.target === chapter.target) ?? -1;
+          return same >= 0 ? previous!.chapterNotes[same] ?? null : null;
+        }),
+        lastChapter: previous?.lastChapter == null ? null : sameOccurrence(previous.contents, previous.lastChapter, contents),
+      };
+    });
 
     const api = getHackDeskAPI();
     const from = getNoteLinkSource(book);
