@@ -72,6 +72,8 @@ export type WorkbenchActionHandlers = {
   openSettings: () => void;
   openSelectedWebEditor: () => void;
   showNoteVersions: () => void;
+  openAsBook: () => void;
+  openAdjacentChapter: (step: -1 | 1) => void;
   refreshWorkspace: () => void;
   renameSelectedFolder: () => void;
   reopenLastClosedTab: () => void;
@@ -300,6 +302,15 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'show-note-versions':
       handlers.showNoteVersions();
+      break;
+    case 'open-as-book':
+      handlers.openAsBook();
+      break;
+    case 'previous-chapter':
+      handlers.openAdjacentChapter(-1);
+      break;
+    case 'next-chapter':
+      handlers.openAdjacentChapter(1);
       break;
     case 'delete-note':
       handlers.deleteSelectedNote();
