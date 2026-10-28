@@ -91,7 +91,7 @@ Choose **Present** from a note's **More actions** menu, the **View** menu, or th
 - Everything after a line starting with `note:` is speaker notes, which are hidden.
 - `<!-- .slide: data-background="#123456" -->` and `<!-- .element: class="fragment" -->` set attributes on the slide or the element before the comment.
 - In code blocks, `js=` numbers the lines and `js=[1,3|4]` highlights lines step by step. Math works as it does in the editor.
-- `slideOptions` in the front matter set [reveal.js options](https://revealjs.com/config/) such as `theme`, `transition`, and `controls`. Options that would load scripts are ignored.
+- `slideOptions` in the front matter set [reveal.js options](https://revealjs.com/config/) such as `theme`, `transition`, and `controls`. Options that would load scripts are ignored, and `hash` and `history` stay off because the window keeps its own place in the URL.
 
 Use the arrow keys or Space to move, **O** for an overview, and **Esc** to leave. Embeds such as `{%youtube %}` and diagrams show as text. Themes that use web fonts use system fonts instead.
 
