@@ -24,6 +24,8 @@ type OpenBook = {
   contents: Book;
   /** The note each chapter opens, once known: from local data, or from opening it. */
   chapterNotes: (string | null)[];
+  /** The chapter last opened, which wins when a book lists the same note twice. */
+  lastChapter: number | null;
 };
 
 /** Identifies a note across workspaces. */
@@ -70,6 +72,7 @@ export function useBookSession({ document, openNoteTarget, openExternal }: {
         const same = current.contents.chapters.findIndex(known => known.target === chapter.target);
         return same >= 0 ? current.chapterNotes[same] ?? null : null;
       }),
+      lastChapter: null,
     }));
 
     const api = getHackDeskAPI();
@@ -103,7 +106,7 @@ export function useBookSession({ document, openNoteTarget, openExternal }: {
     void openNoteLink({ target, document: book, openNoteTarget, openExternal }).then((note) => {
       if (!note) return;
       setState(current => (current?.contents === contents
-        ? { ...current, chapterNotes: current.chapterNotes.map((known, at) => (at === index ? recentNoteKey(note) : known)) }
+        ? { ...current, lastChapter: index, chapterNotes: current.chapterNotes.map((known, at) => (at === index ? recentNoteKey(note) : known)) }
         : current));
     });
   }, [openExternal, openNoteTarget, state]);
@@ -112,7 +115,9 @@ export function useBookSession({ document, openNoteTarget, openExternal }: {
     if (!state || !current) return null;
     const key = documentKey(current);
     if (key === documentKey(state.document)) return { isBook: true, chapterIndex: null };
-    const chapterIndex = state.chapterNotes.indexOf(key);
+    const chapterIndex = state.lastChapter !== null && state.chapterNotes[state.lastChapter] === key
+      ? state.lastChapter
+      : state.chapterNotes.indexOf(key);
     return chapterIndex >= 0 ? { isBook: false, chapterIndex } : null;
   }, [state]);
 

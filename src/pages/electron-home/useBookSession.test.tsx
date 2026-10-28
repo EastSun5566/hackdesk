@@ -38,10 +38,14 @@ function installApi() {
   return { resolveLink, resolveNote };
 }
 
-function setup(document: DocumentSummary | undefined = BOOK) {
+/** Lets the chapter lookups an opened book starts settle inside `act`. */
+const settle = () => act(async () => {});
+
+async function setup(document: DocumentSummary | undefined = BOOK) {
   const openNoteTarget = vi.fn();
   const openExternal = vi.fn();
   const hook = renderHook(({ current }) => useBookSession({ document: current, openNoteTarget, openExternal }), { initialProps: { current: document } });
+  await settle();
   return { ...hook, openNoteTarget, openExternal };
 }
 
@@ -52,7 +56,7 @@ afterEach(() => {
 describe('useBookSession', () => {
   it('opens a HackMD book by itself and matches chapters from local data', async () => {
     const { resolveLink } = installApi();
-    const { result } = setup();
+    const { result } = await setup();
     expect(result.current.book?.title).toBe('Handbook');
     expect(result.current.positionOf(BOOK)).toEqual({ isBook: true, chapterIndex: null });
     // Links relative to hackmd.io are read as hackmd.io addresses; new-tab links are not looked up.
@@ -63,7 +67,7 @@ describe('useBookSession', () => {
 
   it('learns a chapter when opening it asks HackMD, and sends new-tab links to the browser', async () => {
     const { resolveNote } = installApi();
-    const { result, openNoteTarget, openExternal } = setup();
+    const { result, openNoteTarget, openExternal } = await setup();
     await act(async () => result.current.openChapter(1));
     await waitFor(() => expect(openNoteTarget).toHaveBeenCalledWith(expect.objectContaining({ noteId: 'tools-id' })));
     expect(resolveNote).toHaveBeenCalledOnce();
@@ -73,9 +77,9 @@ describe('useBookSession', () => {
     expect(openExternal).toHaveBeenCalledWith('https://example.com/docs');
   });
 
-  it('stays closed while shown, and opens any note as a book on request', () => {
+  it('stays closed while shown, and opens any note as a book on request', async () => {
     installApi();
-    const { result, rerender } = setup();
+    const { result, rerender } = await setup();
     act(() => result.current.close());
     expect(result.current.book).toBeNull();
     rerender({ current: { ...BOOK } });
@@ -83,7 +87,20 @@ describe('useBookSession', () => {
 
     const notes = hackmdNote({ id: 'list', content: '- [Setup](https://hackmd.io/@me/setup)' });
     act(() => result.current.open(notes));
+    await settle();
     expect(result.current.book?.contents.chapters).toHaveLength(1);
+  });
+
+  it('marks the chapter last opened when a book lists the same note twice', async () => {
+    installApi();
+    const twice = hackmdNote({
+      id: 'twice', publishType: 'book', content: '- [Setup](https://hackmd.io/@me/setup)\n- [Setup again](https://hackmd.io/@me/setup)',
+    });
+    const { result } = await setup(twice);
+    expect(result.current.positionOf(SETUP)).toEqual({ isBook: false, chapterIndex: 0 });
+    await act(async () => result.current.openChapter(1));
+    await settle();
+    expect(result.current.positionOf(SETUP)).toEqual({ isBook: false, chapterIndex: 1 });
   });
 
   it('reads vault book links as vault paths', () => {
@@ -107,7 +124,7 @@ describe('BookContents', () => {
 
   it('lists chapters, marks the current one, and moves with the arrow keys', async () => {
     installApi();
-    const { result } = setup();
+    const { result } = await setup();
     const open = { ...result.current, book: result.current.book!, openChapter: vi.fn() };
     render(<BookContents session={open} position={{ isBook: false, chapterIndex: 0 }} />);
 
@@ -121,9 +138,9 @@ describe('BookContents', () => {
 
   });
 
-  it('offers the next chapter from the book, and both neighbours from a chapter', () => {
+  it('offers the next chapter from the book, and both neighbours from a chapter', async () => {
     installApi();
-    const { result } = setup();
+    const { result } = await setup();
     const open = { ...result.current, book: result.current.book!, openChapter: vi.fn() };
     const { rerender } = render(<ChapterNav session={open} position={{ isBook: true, chapterIndex: null }} />);
     expect(screen.queryByRole('button', { name: /Previous chapter/ })).toBeNull();
