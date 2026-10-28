@@ -3,7 +3,7 @@
   "productName": "HackDesk",
   "description": "📝 A hackable HackMD desktop application",
   "private": true,
-  "version": "2.0.0-beta.8",
+  "version": "2.0.0-beta.9",
   "type": "module",
   "packageManager": "pnpm@12.15.0",
   "main": "electron/dist/main.cjs",

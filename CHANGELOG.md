@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.0.0-beta.9](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.8...v2.0.0-beta.9) (2026-10-29)
+
+### Offline and search
+
+* Read the HackMD notes you have opened, and the workspace lists you have seen, offline and after a restart. They are marked Cached; turn this off or clear it in Settings → General → Offline and search.
+* Search notes now matches note text, in English and Chinese, and shows the matching words. Local Vault searches every note; HackMD searches the notes you have opened, without downloading others.
+
+### Links, books, templates and slides
+
+* Link and embed notes the way HackMD does: pick a note while typing `[text](` or `{%hackmd `, see embeds and `{%preview %}` as cards, open linked notes in a tab, and find backlinks under Note Details → Linked from.
+* Read a HackMD book with its contents beside the editor and Previous / Next Chapter, or open any note as a book.
+* Start notes from a top-level Templates folder with New Note from Template…, and save a note as a template.
+* Present a note as full-screen reveal.js slides, with speaker notes hidden, slide and element attributes, stepped code highlights, math and themes from `slideOptions`.
+
+### AI writing
+
+* Ask Your Notes answers a question from the current workspace's notes with your Codex or Claude CLI, lists its sources and cites them as `[1]`, `[2]` that open the note. Follow-up questions keep the conversation.
+* Compare AI changes against the whole note before replacing or inserting them.
+* Version History and save conflicts share one comparison view with unified and split layouts.
+
+### Maintenance
+
+* Develop and build with Node.js 26 and pnpm 12, and update Zod and DOMPurify for security advisories.
+
+### Beta notes
+
+* Beta installers remain unsigned. Automatic updates remain disabled for beta builds. Download beta.9 manually and close the previous version before opening it.
+* The first start builds a text index of the active Local Vault under `~/.hackdesk/cache`. HackMD notes are added to it only when you open them.
+* Ask Your Notes sends your question and the matching passages to your AI provider, like other AI actions. Slides do not support speaker view or PDF export yet.
+
 ## [2.0.0-beta.8](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.7...v2.0.0-beta.8) (2026-10-21)
 
 ### Dictation
