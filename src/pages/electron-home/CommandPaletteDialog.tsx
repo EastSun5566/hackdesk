@@ -2,6 +2,7 @@ import { useContext, useMemo, useRef } from 'react';
 import { ActionShortcutContext } from './ActionShortcutContext';
 import {
   BookOpen,
+  LayoutTemplate,
   FileText,
   FileArchive,
   Download,
@@ -253,6 +254,8 @@ const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'open-note-web-editor': <FileText className="h-4 w-4" />,
   'show-note-versions': <History className="h-4 w-4" />,
   'open-as-book': <BookOpen className="h-4 w-4" />,
+  'new-note-from-template': <LayoutTemplate className="h-4 w-4" />,
+  'save-as-template': <LayoutTemplate className="h-4 w-4" />,
   'previous-chapter': <StepBack className="h-4 w-4" />,
   'next-chapter': <StepForward className="h-4 w-4" />,
   'delete-note': <Trash2 className="h-4 w-4" />,

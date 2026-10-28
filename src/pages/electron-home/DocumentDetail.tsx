@@ -14,6 +14,7 @@ import {
   FolderOpen,
   BookOpen,
   History,
+  LayoutTemplate,
   ImagePlus,
   Loader2,
   PanelRightClose,
@@ -115,6 +116,8 @@ export type DocumentDetailActions = {
   onOpenExternal: (url: string) => void;
   /** Opens a linked note in a tab, switching workspace when needed. */
   onOpenNoteTarget?: OpenNoteTarget;
+  /** Copies this note into the workspace's Templates folder; absent where templates are not offered. */
+  onSaveAsTemplate?: () => void;
   onRevealInFinder: (document: DocumentSummary) => void;
   onReadComparison?: (document: DocumentSummary, signal: AbortSignal) => Promise<{ title: string; content: string }>;
   onReloadFromDisk: (document: DocumentSummary) => void;
@@ -783,6 +786,13 @@ function DocumentActionsMenu({
             ) : null}
           </>
         )}
+        {actions.onSaveAsTemplate ? (
+          <DropdownMenuItem onSelect={actions.onSaveAsTemplate}>
+            <LayoutTemplate aria-hidden="true" className="h-4 w-4" />
+            Save as Template
+            <ActionMenuShortcut actionId="save-as-template" />
+          </DropdownMenuItem>
+        ) : null}
         {bookSession ? (
           <DropdownMenuItem onSelect={() => bookSession.open(documentState.document)}>
             <BookOpen aria-hidden="true" className="h-4 w-4" />

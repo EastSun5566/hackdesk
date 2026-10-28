@@ -64,6 +64,7 @@ export function DocumentWorkspace({
   onOpenEditor,
   onOpenExternal,
   onOpenNoteTarget,
+  onSaveAsTemplate,
   onRevealInFinder,
   onCopyLink,
   onCopyMarkdownLink,
@@ -108,6 +109,7 @@ export function DocumentWorkspace({
   onOpenExternal: (url: string) => void;
   /** Opens a linked note in a tab, switching workspace when needed. */
   onOpenNoteTarget?: OpenNoteTarget;
+  onSaveAsTemplate?: () => void;
   onRevealInFinder: (document: DocumentSummary) => void;
   onCopyLink: (document: DocumentSummary) => void;
   onCopyMarkdownLink: (document: DocumentSummary) => void;
@@ -249,6 +251,7 @@ export function DocumentWorkspace({
                       onOpenEditor,
                       onOpenExternal,
                       onOpenNoteTarget,
+                      onSaveAsTemplate,
                       onRevealInFinder,
                       onCopyLink,
                       onCopyMarkdownLink,

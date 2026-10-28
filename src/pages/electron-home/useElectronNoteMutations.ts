@@ -28,6 +28,7 @@ import {
   toNoteSummary,
   type LocalDocumentSummary,
 } from './local-vault-adapter';
+import { TEMPLATES_FOLDER_NAME } from '@/lib/note-templates';
 import { getLocalVaultDocumentQueryKey, cacheLocalVaultSnapshot as cacheSnapshot } from './useElectronLocalVault';
 import {
   getFoldersQueryKey,
@@ -498,6 +499,48 @@ export function useElectronNoteMutations({
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to duplicate note.'),
   });
 
+  /** Copies a note into the Templates folder, creating the folder the first time. */
+  const saveAsTemplateMutation = useWorkspaceMutation(scope, 'save-as-template', {
+    mutationFn: async ({ title, content, templatesFolderId }: { title: string; content: string; templatesFolderId: string | null }) => {
+      if (!api) {
+        throw new Error('Electron API is unavailable.');
+      }
+
+      if (scope.type === 'history') {
+        throw new Error('Choose My Workspace or a team before saving templates.');
+      }
+
+      if (scope.type === 'local') {
+        let parentPath = getLocalFolderPathFromFolderId(templatesFolderId);
+        if (!parentPath) {
+          const created = await api.localVault.createFolder({ name: TEMPLATES_FOLDER_NAME, parentPath: null });
+          cacheLocalVaultSnapshot(created.snapshot);
+          parentPath = created.folder.relativePath;
+        }
+        const { document: createdDocument, snapshot } = await api.localVault.createNote({ title, content, parentPath });
+        cacheLocalVaultSnapshot(snapshot);
+        return toDocumentSummary(createdDocument, snapshot);
+      }
+
+      const folderInput = { name: TEMPLATES_FOLDER_NAME };
+      const parentFolderId = templatesFolderId ?? (scope.type === 'team'
+        ? await api.hackmd.createTeamFolder(scope.teamPath, folderInput)
+        : await api.hackmd.createFolder(folderInput)).id;
+      const input = { title, content, parentFolderId };
+      return scope.type === 'team'
+        ? api.hackmd.createTeamNote(scope.teamPath, input)
+        : api.hackmd.createNote(input);
+    },
+    onSuccess: (createdNote) => {
+      if (scope.type !== 'local') {
+        seedWorkspaceNote(createdNote);
+      }
+      void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope) });
+      toast.success(`Saved “${createdNote.title || 'Untitled'}” to ${TEMPLATES_FOLDER_NAME}.`);
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to save the template.'),
+  });
+
   const importMarkdownNoteMutation = useWorkspaceMutation(scope, 'import-note', {
     mutationFn: async (input: CreateNoteInput) => {
       if (!api) {
@@ -927,6 +970,7 @@ export function useElectronNoteMutations({
     createNoteMutation,
     createDraftNoteMutation,
     duplicateNoteMutation,
+    saveAsTemplateMutation,
     importMarkdownNoteMutation,
     createFolderMutation,
     renameFolderMutation,

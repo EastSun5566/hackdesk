@@ -36,6 +36,7 @@ export const ELECTRON_MENU_SCHEMA: ElectronMenuSchemaSection[] = [
     items: [
       { type: 'action', actionId: 'new-tab' },
       { type: 'action', actionId: 'new-note' },
+      { type: 'action', actionId: 'new-note-from-template' },
       { type: 'action', actionId: 'new-folder' },
       { type: 'action', actionId: 'import-markdown-note' },
       { type: 'separator' },

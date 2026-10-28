@@ -526,7 +526,7 @@ describe('CommandPaletteDialog', () => {
     });
 
     const input = screen.getByRole('combobox', { name: 'Search notes, folders, and commands' });
-    const action = screen.getByRole('option', { name: /New Note/ });
+    const action = screen.getByRole('option', { name: /^New Note(?! from)/ });
     expect(action).toHaveAttribute('aria-selected', 'true');
     expect(within(action).getByText('⌘N')).toBeVisible();
 
@@ -547,7 +547,7 @@ describe('CommandPaletteDialog', () => {
       state: { mode: 'commands', open: true, search: 'new note' },
     });
 
-    const action = screen.getByRole('option', { name: /New Note/ });
+    const action = screen.getByRole('option', { name: /^New Note(?! from)/ });
     expect(within(action).getByText('⌘J')).toBeVisible();
     expect(within(action).queryByText('⌘N')).not.toBeInTheDocument();
   });

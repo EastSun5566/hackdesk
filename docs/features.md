@@ -34,6 +34,15 @@ Create folders with **New Folder**. Use a folder's menu to edit or delete it, or
 
 Press **Cmd+P** / **Ctrl+P** for **Quick Open** to search notes, folders, and workspaces. Press **Cmd+K** / **Ctrl+K** for the **Command Palette** to find actions. With text selected in the editor and an AI provider enabled, this shortcut opens AI actions instead; **Cmd+Shift+P** / **Ctrl+Shift+P** still opens the Command Palette.
 
+## Start from a template
+
+Templates are the notes in a top-level **Templates** folder of the current workspace. This works in My Workspace, in a team, where everyone shares the team's folder, and in a Local Vault.
+
+- To start from one, choose **New Note from Template…** from the File menu or the Command Palette. The new note opens as a draft with the template's text, and you save it like any new note. Content is copied as-is, without placeholders.
+- To make a template, open a note and choose **Save as Template** from **More actions**. HackDesk copies it into the Templates folder, and creates the folder the first time.
+
+Templates you saved in HackMD's web app are not available, because the HackMD API does not provide them. To use one, copy it into the Templates folder.
+
 ## Arrange tabs and panes
 
 Select a note to open it in a tab. Drag a tab's icon or title to reorder tabs within its pane.

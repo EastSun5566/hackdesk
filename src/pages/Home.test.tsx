@@ -2779,7 +2779,8 @@ describe('Home native-feel behavior', () => {
     const historyPalette = await screen.findByRole('dialog', { name: 'Command Palette' });
     fireEvent.change(within(historyPalette).getByPlaceholderText('Search notes, folders, and commands…'), { target: { value: 'new note' } });
 
-    expect(await within(historyPalette).findByText('Choose My Workspace or a team first.')).toBeInTheDocument();
+    // New Note and New Note from Template both need a writable workspace.
+    expect(await within(historyPalette).findAllByText('Choose My Workspace or a team first.')).toHaveLength(2);
   });
 
   it('restores the last active history workspace on startup', async () => {

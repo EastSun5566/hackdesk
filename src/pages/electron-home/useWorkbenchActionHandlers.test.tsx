@@ -71,6 +71,8 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     bumpEditorSearchRequest: vi.fn(),
     createFolder: vi.fn(),
     createNote: vi.fn(),
+    createNoteFromTemplate: vi.fn(),
+    saveAsTemplate: vi.fn(),
     deleteNote: vi.fn(),
     documentContent: 'Draft body',
     documentTitle: 'Draft title',

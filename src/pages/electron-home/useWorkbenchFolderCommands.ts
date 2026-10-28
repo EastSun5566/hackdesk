@@ -32,6 +32,8 @@ export type WorkbenchFolderCommandsOptions = {
   moveFolder: (operation: FolderDropOperation) => void;
   onChooseLocalVault: () => void;
   openDraftNote: () => void;
+  /** Opens the Templates picker; absent where templates are not offered. */
+  openTemplatePicker?: () => void;
   scopeType: WorkspaceScope['type'];
   setCreateDialog: (state: CreateNoteDialogState) => void;
   setCreateFolderDialog: (state: CreateFolderDialogState) => void;
@@ -51,6 +53,7 @@ export function useWorkbenchFolderCommands({
   moveFolder,
   onChooseLocalVault,
   openDraftNote,
+  openTemplatePicker,
   scopeType,
   setCreateDialog,
   setCreateFolderDialog,
@@ -59,24 +62,33 @@ export function useWorkbenchFolderCommands({
   setSelectedFolderId,
   setSettingsOpen,
 }: WorkbenchFolderCommandsOptions) {
-  const handleCreateNote = useCallback(() => {
+  /** Whether a note can be created here; otherwise shows the user what to do first. */
+  const canCreateNote = useCallback(() => {
     if (scopeType === 'local' && !hasLocalVault) {
       onChooseLocalVault();
-      return;
+      return false;
     }
 
     if (!hasToken && scopeType !== 'local') {
       setSettingsOpen(true);
-      return;
+      return false;
     }
 
     if (scopeType === 'history') {
       toast.info('Choose My Workspace or a team before creating a note.');
-      return;
+      return false;
     }
 
-    openDraftNote();
-  }, [hasLocalVault, hasToken, onChooseLocalVault, openDraftNote, scopeType, setSettingsOpen]);
+    return true;
+  }, [hasLocalVault, hasToken, onChooseLocalVault, scopeType, setSettingsOpen]);
+
+  const handleCreateNote = useCallback(() => {
+    if (canCreateNote()) openDraftNote();
+  }, [canCreateNote, openDraftNote]);
+
+  const handleCreateNoteFromTemplate = useCallback(() => {
+    if (canCreateNote()) openTemplatePicker?.();
+  }, [canCreateNote, openTemplatePicker]);
 
   const handleCreateFolder = useCallback(() => {
     if (scopeType === 'local' && !hasLocalVault) {
@@ -187,6 +199,7 @@ export function useWorkbenchFolderCommands({
     handleCreateFolder,
     handleCreateFolderInside,
     handleCreateNote,
+    handleCreateNoteFromTemplate,
     handleCreateNoteInside,
     handleDeleteFolderRequest,
     handleFolderDrop,
