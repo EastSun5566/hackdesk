@@ -78,6 +78,7 @@ function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): Workb
     openSelectedWebEditor: vi.fn(),
     showNoteVersions: vi.fn(),
     openAsBook: vi.fn(),
+    askNotes: vi.fn(),
     presentNote: vi.fn(),
     createNoteFromTemplate: vi.fn(),
     saveAsTemplate: vi.fn(),

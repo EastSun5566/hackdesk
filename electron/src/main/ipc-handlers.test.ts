@@ -27,6 +27,7 @@ const aiServiceMock = vi.hoisted(() => ({
   listProviders: vi.fn(async () => []),
   refresh: vi.fn(),
   runTurn: vi.fn(),
+  askNotes: vi.fn(async (_input: unknown, _signal: AbortSignal, _onDelta: (text: string) => void) => 'answer'),
   prewarm: vi.fn(async () => undefined),
   applySettings: vi.fn(),
   dispose: vi.fn(),
@@ -131,6 +132,7 @@ const noteIndexMock = vi.hoisted(() => ({
   indexVault: vi.fn(async () => undefined),
   forgetVaults: vi.fn(async () => undefined),
   search: vi.fn(() => ({ matches: [], indexedCount: 0 })),
+  findPassages: vi.fn(() => ({ passages: [], indexedCount: 0 })),
   status: vi.fn(() => ({ hackmdNotes: 0, hackmdBytes: 0, localNotes: 0 })),
   resolveLink: vi.fn(() => null),
   backlinks: vi.fn(() => ({ notes: [], hackmdIndexed: 0 })),
@@ -264,6 +266,34 @@ describe('registerIpcHandlers', () => {
     await pending;
     registration.dispose();
     expect(aiServiceMock.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('validates questions about notes and streams their answers to the asking window', async () => {
+    registerIpcHandlers(windowManager);
+    const scope = { type: 'local', vaultId: 'vault-1' };
+    await ipcHandlers.get(ELECTRON_CHANNELS.noteIndexFindPassages)?.({}, { question: ' 結論是什麼？ ', scope });
+    expect(noteIndexMock.findPassages).toHaveBeenCalledWith({ question: '結論是什麼？', scope });
+    expect(() => ipcHandlers.get(ELECTRON_CHANNELS.noteIndexFindPassages)?.({}, { question: '  ', scope })).toThrow(/Invalid/);
+
+    const ask = ipcHandlers.get(ELECTRON_CHANNELS.aiAskNotes)!;
+    const send = vi.fn();
+    const sender = Object.assign(new EventEmitter(), { isDestroyed: () => false, send });
+    const input = {
+      requestId: '6c4a1a39-5d9b-4c4f-9a43-5f1c2b0d9e11',
+      providerId: 'claude',
+      question: 'What did we decide?',
+      sources: [{ title: 'Weekly', text: 'We ship offline reading.' }],
+      history: [],
+    };
+    aiServiceMock.askNotes.mockImplementationOnce(async (_input, _signal, onDelta: (text: string) => void) => {
+      onDelta('Offline [1]');
+      return 'Offline [1]';
+    });
+    await expect(ask({ sender }, input)).resolves.toBe('Offline [1]');
+    expect(send).toHaveBeenCalledWith(ELECTRON_CHANNELS.aiTurnDelta, { requestId: input.requestId, text: 'Offline [1]' });
+    expect(() => ask({ sender }, { ...input, sources: [] })).toThrow(/Invalid/);
+    expect(() => ask({ sender }, { ...input, sources: Array.from({ length: 9 }, () => input.sources[0]) })).toThrow(/Invalid/);
+    expect(() => ask({ sender }, { ...input, history: [{ question: 'a', answer: 'x'.repeat(2_001) }] })).toThrow(/Invalid/);
   });
 
   it('validates request IDs and cancels only the trusted owner request', async () => {

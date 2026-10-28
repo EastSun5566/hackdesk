@@ -15,7 +15,6 @@ import {
   MAX_AI_CONTEXT_CHARACTERS,
   MAX_AI_INPUT_CHARACTERS,
   getAiErrorMessage,
-  onAiSettingsChanged,
   type AiAction,
   type AiDelivery,
   type AiProviderId,
@@ -24,6 +23,7 @@ import { getHackDeskAPI } from '@/lib/electron-api';
 import type { AiCustomCommand } from '@/lib/settings';
 
 import { AiInlinePanel } from './AiInlinePanel';
+import { useAiProviders } from './useAiProviders';
 
 export type AiInlineRun = {
   action: AiAction;
@@ -57,53 +57,16 @@ function isLive(view: EditorView) {
 /** Owns inline AI for one note: which providers are on, the running request, and its cancellation. */
 export function useAiInline({ noteTitle, isTeamNote }: { noteTitle: string; isTeamNote: boolean }): MarkdownEditorAi | null {
   const api = getHackDeskAPI();
-  const [config, setConfig] = useState<{
-    providers: AiProviderId[];
-    selectionChip: boolean;
-    translateLanguage: string;
-    customCommands: AiCustomCommand[];
-  }>({
-    providers: [],
-    selectionChip: true,
-    translateLanguage: 'English',
-    customCommands: [],
-  });
-  const { providers, selectionChip, translateLanguage, customCommands } = config;
-  const [providerId, setProviderId] = useState<AiProviderId | null>(null);
+  const { providers, settings, providerId, setProviderId } = useAiProviders();
+  const selectionChip = settings?.selectionChip ?? true;
+  const translateLanguage = settings?.translateLanguage ?? 'English';
+  const customCommands = useMemo(() => settings?.customCommands ?? [], [settings]);
   const [lastRun, setLastRun] = useState<AiInlineRun | null>(null);
   const activeRef = useRef<ActiveRequest | null>(null);
   const noteTitleRef = useRef(noteTitle);
   useLayoutEffect(() => {
     noteTitleRef.current = noteTitle;
   }, [noteTitle]);
-
-  // Read when the note opens and again whenever Settings › AI saves.
-  useEffect(() => {
-    if (!api?.ai) return undefined;
-    const ai = api.ai;
-    let generation = 0;
-    const load = () => {
-      const current = ++generation;
-      void Promise.all([ai.listProviders(), api.settings.get()]).then(([statuses, settings]) => {
-        if (current !== generation) return;
-        const enabled = statuses.filter(status => status.enabled).map(status => status.id);
-        const preferred = settings.ai?.defaultProvider;
-        setConfig({
-          providers: enabled,
-          selectionChip: settings.ai?.selectionChip ?? true,
-          translateLanguage: settings.ai?.translateLanguage ?? 'English',
-          customCommands: settings.ai?.customCommands ?? [],
-        });
-        setProviderId(preferred && enabled.includes(preferred) ? preferred : enabled[0] ?? null);
-      }).catch(() => undefined);
-    };
-    load();
-    const unsubscribe = onAiSettingsChanged(load);
-    return () => {
-      generation += 1;
-      unsubscribe();
-    };
-  }, [api]);
 
   const cancelActive = useCallback(() => {
     const active = activeRef.current;
@@ -184,7 +147,7 @@ export function useAiInline({ noteTitle, isTeamNote }: { noteTitle: string; isTe
     run,
     retry,
     lastRun,
-  }), [customCommands, isTeamNote, lastRun, providerId, providers, retry, run, translateLanguage]);
+  }), [customCommands, isTeamNote, lastRun, providerId, providers, retry, run, setProviderId, translateLanguage]);
 
   return useMemo<MarkdownEditorAi | null>(() => (api?.ai ? {
     available: providers.length > 0,

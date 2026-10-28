@@ -34,7 +34,9 @@ because it is opened. Using a local vault is not a guarantee of no network traff
 - **AI writing:** Providers are off by default. Enabling Codex or Claude lets
   HackDesk run that installed CLI with its existing sign-in. AI actions send
   the selected text (or whole note), note title, nearby context and instructions
-  through the CLI to its configured provider. Provider checks can contact the
+  through the CLI to its configured provider. **Ask Your Notes** sends your question,
+  its earlier questions and answers, and the matching passages and titles of up to
+  eight notes from the current workspace's offline copies the same way. Provider checks can contact the
   service for account, model and usage information. HackDesk disables tool use
   for these writing requests. The provider's account terms and data controls apply;
   see the [OpenAI privacy policy](https://openai.com/policies/privacy-policy/) and

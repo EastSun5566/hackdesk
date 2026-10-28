@@ -72,6 +72,7 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     createFolder: vi.fn(),
     createNote: vi.fn(),
     createNoteFromTemplate: vi.fn(),
+    askNotes: vi.fn(),
     saveAsTemplate: vi.fn(),
     deleteNote: vi.fn(),
     documentContent: 'Draft body',

@@ -30,6 +30,7 @@ export type WorkbenchActionHandlersOptions = {
   createFolder: () => void;
   createNote: () => void;
   createNoteFromTemplate: () => void;
+  askNotes: () => void;
   saveAsTemplate: () => void;
   deleteNote: (note: DocumentSummary) => void;
   documentContent: string;
@@ -88,6 +89,7 @@ export function useWorkbenchActionHandlers({
   createFolder,
   createNote,
   createNoteFromTemplate,
+  askNotes,
   saveAsTemplate,
   deleteNote,
   documentContent,
@@ -219,6 +221,7 @@ export function useWorkbenchActionHandlers({
     openSelectedWebEditor: () => openHackmdWebEditor(api, selectedDocument, trackRecentNote),
     openSettings: () => setSettingsOpen(true),
     createNoteFromTemplate,
+    askNotes,
     saveAsTemplate,
     openAsBook: () => {
       if (selectedDocument) book.open(selectedDocument);
@@ -285,6 +288,7 @@ export function useWorkbenchActionHandlers({
     createFolder,
     createNote,
     createNoteFromTemplate,
+    askNotes,
     saveAsTemplate,
     deleteNote,
     documentContent,

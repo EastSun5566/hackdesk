@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 import type { NoteSummary } from '../../../../src/lib/electron-api';
 import { extractNoteLinks, hackmdNoteKeys, hackmdRefKey, type HackmdNoteRef } from '../../../../src/lib/note-links';
+import { findPassages } from './note-passages';
 import { searchNoteIndex, type NoteSearchInput, type NoteSearchResult } from './note-search';
 
 /** Bump to rebuild every cache on upgrade; the store holds nothing that cannot be fetched again. */
@@ -248,6 +249,10 @@ export function openNoteStore(path: string, { log = () => undefined }: { log?: (
 
     search(input: NoteSearchInput): NoteSearchResult {
       return searchNoteIndex(db, input);
+    },
+
+    findPassages(input: { question: string; source: NoteSource; workspace: string }) {
+      return findPassages(db, input);
     },
 
     /** Notes whose text links to any of `keys`, across vaults and HackMD workspaces. */

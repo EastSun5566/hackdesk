@@ -291,6 +291,14 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     getDisabledReason: requireOpenTab,
   },
   {
+    id: 'ask-notes',
+    label: 'Ask Your Notes...',
+    description: 'Ask AI a question answered from this workspace\'s notes, with links to the notes it used.',
+    keywords: ['ai', 'ask', 'question', 'answer', 'chat', 'search', 'notes', 'codex', 'claude'],
+    category: 'navigation',
+    scope: 'workspace',
+  },
+  {
     id: 'dictate',
     label: 'Start Dictation',
     description: 'Dictate at the cursor. Press again or Enter to insert the text; Escape cancels. Speech is recognized on this Mac.',

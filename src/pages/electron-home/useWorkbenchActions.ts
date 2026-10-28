@@ -50,6 +50,7 @@ export type WorkbenchActionHandlers = {
   exportSelectedMarkdown: () => void;
   attachImage: () => void;
   aiAssist: () => void;
+  askNotes: () => void;
   dictate: () => void;
   findInNote: () => void;
   focusEditor: () => void;
@@ -293,6 +294,9 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'ai-assist':
       handlers.aiAssist();
+      break;
+    case 'ask-notes':
+      handlers.askNotes();
       break;
     case 'dictate':
       handlers.dictate();

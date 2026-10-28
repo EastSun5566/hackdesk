@@ -72,6 +72,21 @@ describe('AI service', () => {
     expect(turn.prompt).toContain('<selection>\nhello\n</selection>');
   });
 
+  it('answers questions about notes with their own instructions and numbered sources', async () => {
+    const { service, claude } = await setup(settingsWith({ enabled: true }));
+    const text = await service.askNotes({
+      requestId: 'r',
+      providerId: 'claude',
+      question: '結論是什麼？',
+      sources: [{ title: '週會', text: '結論：先做離線閱讀。' }],
+      history: [],
+    }, new AbortController().signal, () => undefined);
+    expect(text).toBe('result');
+    const turn = vi.mocked(claude.stream).mock.calls[0]![1];
+    expect(turn.system).toContain('Answer only from the text inside <source> tags');
+    expect(turn.prompt).toContain('<source id="1" title="週會">\n結論：先做離線閱讀。\n</source>');
+  });
+
   it('can run Claude without an exported API key so the claude.ai sign-in is used', async () => {
     const env = { ANTHROPIC_API_KEY: 'test-key-not-real', ANTHROPIC_AUTH_TOKEN: 'test-token-not-real', KEEP: '1' };
     const keep = await setup(settingsWith({ enabled: true }), env);

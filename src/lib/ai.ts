@@ -97,6 +97,21 @@ export type AiTurnInput = {
   context?: { before: string; after: string };
 };
 
+export const MAX_ASK_NOTES_SOURCES = 8;
+export const MAX_ASK_NOTES_SOURCE_CHARACTERS = 2_000;
+export const MAX_ASK_NOTES_HISTORY = 2;
+
+/** A question about the user's notes, answered from the passages found for it. */
+export type AskNotesInput = {
+  requestId: string;
+  providerId: AiProviderId;
+  question: string;
+  /** Numbered from 1 in this order; the answer cites them as `[1]`. */
+  sources: { title: string; text: string }[];
+  /** Earlier questions and answers in the same conversation, oldest first. */
+  history: { question: string; answer: string }[];
+};
+
 /** Streamed while a turn runs; the turn's promise carries the final text or the error. */
 export type AiTurnDelta = {
   requestId: string;
