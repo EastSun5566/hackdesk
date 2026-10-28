@@ -8,12 +8,13 @@ import {
   type AiProviderId,
   type AiProviderStatus,
   type AiTurnInput,
+  type AskNotesInput,
 } from '../../../../src/lib/ai';
 import type { AppSettings } from '../../../../src/lib/settings';
 import { claudeProvider } from './claude-cli';
 import { createCodexProvider } from './codex-app-server';
 import { resolveCommand, type LocatorOptions } from './executable-locator';
-import { AI_SYSTEM_PROMPT, buildAiPrompt } from './prompts';
+import { AI_SYSTEM_PROMPT, ASK_NOTES_SYSTEM_PROMPT, buildAiPrompt, buildAskNotesPrompt } from './prompts';
 import type { AiProviderAdapter, ProviderLaunch } from './provider-types';
 
 export type AiServiceOptions = {
@@ -118,18 +119,23 @@ export function createAiService(options: AiServiceOptions) {
     });
   }
 
-  async function runTurn(input: AiTurnInput, signal: AbortSignal, onDelta: (text: string) => void) {
+  async function streamTurn(
+    providerId: AiProviderId,
+    { system, prompt }: { system: string; prompt: string },
+    signal: AbortSignal,
+    onDelta: (text: string) => void,
+  ) {
     const settings = await options.readSettings();
-    const providerSettings = settings.ai.providers[input.providerId];
-    const title = AI_PROVIDER_TITLES[input.providerId];
+    const providerSettings = settings.ai.providers[providerId];
+    const title = AI_PROVIDER_TITLES[providerId];
     if (!providerSettings.enabled) throw new Error(`Turn on ${title} in Settings › AI before using it.`);
-    const launch = await resolveLaunch(input.providerId, settings);
+    const launch = await resolveLaunch(providerId, settings);
     if ('error' in launch) throw new Error(launch.error);
     let text = '';
-    await adapters[input.providerId].stream(launch, {
+    await adapters[providerId].stream(launch, {
       model: providerSettings.model,
-      system: AI_SYSTEM_PROMPT,
-      prompt: buildAiPrompt(input),
+      system,
+      prompt,
       signal,
       onDelta: (delta) => {
         text += delta;
@@ -137,6 +143,14 @@ export function createAiService(options: AiServiceOptions) {
       },
     });
     return text;
+  }
+
+  function runTurn(input: AiTurnInput, signal: AbortSignal, onDelta: (text: string) => void) {
+    return streamTurn(input.providerId, { system: AI_SYSTEM_PROMPT, prompt: buildAiPrompt(input) }, signal, onDelta);
+  }
+
+  function askNotes(input: AskNotesInput, signal: AbortSignal, onDelta: (text: string) => void) {
+    return streamTurn(input.providerId, { system: ASK_NOTES_SYSTEM_PROMPT, prompt: buildAskNotesPrompt(input) }, signal, onDelta);
   }
 
   /** Best effort: a menu opening starts the provider so the first words arrive sooner. */
@@ -161,5 +175,5 @@ export function createAiService(options: AiServiceOptions) {
     for (const adapter of Object.values(adapters)) adapter.dispose?.();
   }
 
-  return { listProviders, refresh, runTurn, prewarm, applySettings, dispose };
+  return { listProviders, refresh, runTurn, askNotes, prewarm, applySettings, dispose };
 }

@@ -17,6 +17,19 @@ export type NoteSearchResponse = {
   indexedCount: number;
 };
 
+export const MAX_NOTE_QUESTION_LENGTH = 1_000;
+
+export type NotePassagesInput = { question: string; scope: NoteSearchScope };
+
+/** A note that may answer a question, with the parts of its text most related to it. */
+export type NotePassage = { note: NoteLinkTarget; text: string };
+
+export type NotePassagesResponse = {
+  passages: NotePassage[];
+  /** How many notes of the workspace were searched. */
+  indexedCount: number;
+};
+
 export type NoteIndexStatus = { hackmdNotes: number; hackmdBytes: number; localNotes: number };
 
 export const MAX_NOTE_SEARCH_QUERY_LENGTH = 200;

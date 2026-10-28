@@ -6,6 +6,8 @@ import type {
   NoteBacklinksResponse,
   NoteIndexStatus,
   NoteLinkTarget,
+  NotePassagesInput,
+  NotePassagesResponse,
   NoteSearchInput,
   NoteSearchResponse,
   ResolveNoteLinkInput,
@@ -106,6 +108,31 @@ export function createNoteIndexService({ path, readNotes, keepHackmdNotes = true
         source: scope.type === 'local' ? 'local' : 'hackmd',
         workspace: scope.type === 'local' ? scope.vaultId : scope.teamPath ?? PERSONAL_WORKSPACE,
       });
+    },
+
+    /** The passages of the scope's notes that best answer a question, for Ask Your Notes. */
+    findPassages({ question, scope }: NotePassagesInput): NotePassagesResponse {
+      if (scope.type === 'hackmd' && !keepHackmd) return { passages: [], indexedCount: 0 };
+      const { store } = open();
+      if (!store) return { passages: [], indexedCount: 0 };
+      const workspace = scope.type === 'local' ? scope.vaultId : scope.teamPath ?? PERSONAL_WORKSPACE;
+      const { passages, indexedCount } = store.findPassages({ question, source: scope.type === 'local' ? 'local' : 'hackmd', workspace });
+      return {
+        passages: passages.map(({ noteId, title, meta, text }) => ({
+          text,
+          note: scope.type === 'local'
+            ? { kind: 'local', vaultId: scope.vaultId, noteId, title, snippet: null }
+            : {
+                kind: 'hackmd',
+                noteId,
+                teamPath: scope.teamPath,
+                title,
+                shortId: (meta ? (JSON.parse(meta) as { shortId?: string }).shortId : undefined) ?? noteId,
+                snippet: null,
+              },
+        })),
+        indexedCount,
+      };
     },
 
     /** Finds the note a link points to, from what this computer already has; never calls HackMD. */

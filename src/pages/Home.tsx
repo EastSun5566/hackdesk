@@ -5,6 +5,10 @@ import { KeyboardShortcutsDialog } from './electron-home/KeyboardShortcutsDialog
 import { BookSessionContext, useBookSession } from './electron-home/useBookSession';
 import { TemplatePickerDialog } from './electron-home/TemplatePickerDialog';
 import { useNoteTemplates } from './electron-home/useNoteTemplates';
+import { useAskNotes } from './electron-home/useAskNotes';
+import { AskNotesDialog } from './electron-home/AskNotesDialog';
+import { toRecentNote } from './electron-home/useNoteLinkOpener';
+import { toast } from '@/components/ui/toast';
 import { TrashDialog } from './electron-home/TrashDialog';
 import type { SettingsTab } from './electron-home/SettingsDialogConfig';
 import type { ElectronFocusZone } from './electron-home/useElectronFocusZones';
@@ -63,7 +67,7 @@ import { useElectronHomeStatus } from './electron-home/useElectronHomeStatus';
 import { useWorkbenchFinder } from './electron-home/useWorkbenchFinder';
 import { useWorkbenchFolderCommands } from './electron-home/useWorkbenchFolderCommands';
 import { useWorkbenchNavigator } from './electron-home/useWorkbenchNavigator';
-import { useNoteTextSearch } from './electron-home/useNoteTextSearch';
+import { getNoteSearchScope, useNoteTextSearch } from './electron-home/useNoteTextSearch';
 import { useWorkbenchEditorRequests } from './electron-home/useWorkbenchEditorRequests';
 import { useWorkbenchPanelState } from './electron-home/useWorkbenchPanelState';
 import { useWorkbenchShortcuts } from './electron-home/useWorkbenchShortcuts';
@@ -556,6 +560,8 @@ export function Home() {
     tree: folderTree,
   });
   const bookSession = useBookSession({ document: selectedDocument, openNoteTarget, openExternal: handleOpenExternal });
+  const askNotesScope = getNoteSearchScope(scope);
+  const askNotes = useAskNotes(askNotesScope);
 
   const {
     confirmCloseUnsafeTabs,
@@ -595,6 +601,11 @@ export function Home() {
     createFolder: folderCommands.handleCreateFolder,
     createNote: folderCommands.handleCreateNote,
     createNoteFromTemplate: folderCommands.handleCreateNoteFromTemplate,
+    askNotes: () => {
+      if (!askNotesScope) toast.info('Ask Your Notes works in a workspace or Local Vault, not History.');
+      else if (!askNotes.available) toast.info('Turn on Codex or Claude in Settings › AI to ask your notes.');
+      else askNotes.setOpen(true);
+    },
     saveAsTemplate: () => noteTemplates.saveDocumentAsTemplate(selectedDocument, { title: documentTitle, content: documentContent }),
     deleteNote: handleDeleteRequest,
     documentContent,
@@ -968,6 +979,7 @@ export function Home() {
             templates={noteTemplates.templates}
             onChoose={noteTemplates.chooseTemplate}
           />
+          <AskNotesDialog askNotes={askNotes} onOpenNote={note => openNoteTarget(toRecentNote(note))} />
           <TrashDialog open={trashOpen} onOpenChange={setTrashOpen} onOpenNote={(note) => void requestSelectNote(note, { focusEditor: true })} />
           {shortcutHelp ? <KeyboardShortcutsDialog
             open region={shortcutHelp.region} returnFocus={shortcutHelp.target}

@@ -8,7 +8,7 @@ import type { ProviderLaunch } from './provider-types';
 const FAKE_CLAUDE = String.raw`
 const fs = require('node:fs');
 const args = process.argv.slice(2);
-if (process.env.FAKE_ARGS_FILE) fs.appendFileSync(process.env.FAKE_ARGS_FILE, JSON.stringify(args) + '\n');
+fs.appendFileSync(process.env.FAKE_ARGS_FILE || require('node:path').join(__dirname, 'args.ndjson'), JSON.stringify(args) + '\n');
 const out = (value) => process.stdout.write(JSON.stringify(value) + '\n');
 // Leaves a background process holding stdout open, then exits without answering.
 const exitLeavingOrphan = () => {
@@ -55,13 +55,17 @@ function handle(message) {
     return;
   }
   if (message.type !== 'user') return;
+  // Kept beside the script, so tests can see what was asked even when HackDesk launched it.
+  fs.appendFileSync(require('node:path').join(__dirname, 'prompts.ndjson'), JSON.stringify(message.message.content) + '\n');
   const mode = process.env.FAKE_MODE || 'ok';
   if (mode === 'hang') return;
   if (mode === 'orphan') return exitLeavingOrphan();
   if (mode === 'error') { out({ type: 'result', subtype: 'success', is_error: true, result: 'Not logged in' }); return; }
   if (mode === 'ask') { out({ type: 'control_request', request_id: 'ask-1', request: { subtype: 'can_use_tool', tool_name: 'Bash', input: {} } }); return; }
-  for (const text of ['Hel', 'lo']) out({ type: 'stream_event', event: { type: 'content_block_delta', delta: { type: 'text_delta', text } } });
-  out({ type: 'result', subtype: 'success', is_error: false, result: 'Hello' });
+  // A question about notes gets an answer citing its first source.
+  const reply = String(message.message.content).includes('<source id=') ? ['Offline reading ships first ', '[1].'] : ['Hel', 'lo'];
+  for (const text of reply) out({ type: 'stream_event', event: { type: 'content_block_delta', delta: { type: 'text_delta', text } } });
+  out({ type: 'result', subtype: 'success', is_error: false, result: reply.join('') });
 }
 `;
 
@@ -134,5 +138,5 @@ export async function createFakeCli(kind: 'claude' | 'codex', extraEnv: Record<s
     cwd: directory,
     env: { ...process.env, FAKE_ARGS_FILE: join(directory, 'args.ndjson'), ...extraEnv },
   };
-  return { directory, executable, workspace, launch, argsFile: join(directory, 'args.ndjson') };
+  return { directory, executable, workspace, launch, argsFile: join(directory, 'args.ndjson'), promptsFile: join(directory, 'prompts.ndjson') };
 }

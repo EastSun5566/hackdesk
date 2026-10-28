@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-import { MAX_NOTE_SEARCH_QUERY_LENGTH } from '../../../src/lib/note-index';
+import { MAX_ASK_NOTES_HISTORY, MAX_ASK_NOTES_SOURCE_CHARACTERS, MAX_ASK_NOTES_SOURCES } from '../../../src/lib/ai';
+import { MAX_NOTE_QUESTION_LENGTH, MAX_NOTE_SEARCH_QUERY_LENGTH } from '../../../src/lib/note-index';
 
 import { writeLog } from './logging';
 
@@ -84,6 +85,7 @@ const electronActionIdSchema = z.enum([
   'find-in-note',
   'attach-image',
   'ai-assist',
+  'ask-notes',
   'dictate',
   'export-note-markdown',
   'import-markdown-note',
@@ -237,6 +239,11 @@ export const noteSearchInputSchema = z.strictObject({
   limit: z.number().int().min(1).max(200).optional(),
 });
 
+export const notePassagesInputSchema = z.strictObject({
+  question: z.string().trim().min(1).max(MAX_NOTE_QUESTION_LENGTH),
+  scope: noteSearchInputSchema.shape.scope,
+});
+
 export const dictationStartInputSchema = z.strictObject({
   requestId: z.uuid(),
   locale: dictationLocaleSchema.nullable(),
@@ -258,6 +265,20 @@ export const aiTurnInputSchema = z.strictObject({
   delivery: aiDeliverySchema.optional(),
   context: z.strictObject({ before: z.string().max(2_000), after: z.string().max(2_000) }).optional(),
 }).refine(input => input.action !== 'custom' || Boolean(input.instruction), 'A custom AI request needs an instruction.');
+
+export const askNotesInputSchema = z.strictObject({
+  requestId: z.uuid(),
+  providerId: aiProviderIdSchema,
+  question: z.string().trim().min(1).max(MAX_NOTE_QUESTION_LENGTH),
+  sources: z.array(z.strictObject({
+    title: z.string().max(500),
+    text: z.string().max(MAX_ASK_NOTES_SOURCE_CHARACTERS),
+  })).min(1).max(MAX_ASK_NOTES_SOURCES),
+  history: z.array(z.strictObject({
+    question: z.string().max(MAX_NOTE_QUESTION_LENGTH),
+    answer: z.string().max(MAX_ASK_NOTES_SOURCE_CHARACTERS),
+  })).max(MAX_ASK_NOTES_HISTORY),
+});
 
 export const localVaultRevisionSchema = z.strictObject({
   contentHash: nonEmptyStringSchema,

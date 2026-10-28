@@ -42,9 +42,9 @@ import type {
   LocalVaultTrashNoteInput,
   LocalVaultWriteInput,
 } from '../../../src/lib/local-vault';
-import type { AiProviderId, AiTurnDelta, AiTurnInput } from '../../../src/lib/ai';
+import type { AiProviderId, AiTurnDelta, AiTurnInput, AskNotesInput } from '../../../src/lib/ai';
 import type { DictationEvent, DictationEventMessage, DictationInstallInput, DictationStartInput } from '../../../src/lib/dictation';
-import type { NoteBacklinksInput, NoteSearchInput, ResolveNoteLinkInput } from '../../../src/lib/note-index';
+import type { NoteBacklinksInput, NotePassagesInput, NoteSearchInput, ResolveNoteLinkInput } from '../../../src/lib/note-index';
 import { ELECTRON_CHANNELS } from '../shared/channels';
 
 /** Passes a request's streamed dictation events to `onEvent` until the request settles. */
@@ -161,6 +161,15 @@ const api: HackDeskElectronAPI = {
         ipcRenderer.removeListener(ELECTRON_CHANNELS.aiTurnDelta, listener);
       });
     },
+    askNotes: (input: AskNotesInput, onDelta: (text: string) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, delta: AiTurnDelta) => {
+        if (delta.requestId === input.requestId) onDelta(delta.text);
+      };
+      ipcRenderer.on(ELECTRON_CHANNELS.aiTurnDelta, listener);
+      return ipcRenderer.invoke(ELECTRON_CHANNELS.aiAskNotes, input).finally(() => {
+        ipcRenderer.removeListener(ELECTRON_CHANNELS.aiTurnDelta, listener);
+      });
+    },
     cancelTurn: (requestId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.aiCancelTurn, requestId),
     prewarm: (providerId: AiProviderId) => ipcRenderer.invoke(ELECTRON_CHANNELS.aiPrewarm, providerId),
   },
@@ -177,6 +186,7 @@ const api: HackDeskElectronAPI = {
   },
   noteIndex: {
     search: (input: NoteSearchInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.noteIndexSearch, input),
+    findPassages: (input: NotePassagesInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.noteIndexFindPassages, input),
     status: () => ipcRenderer.invoke(ELECTRON_CHANNELS.noteIndexStatus),
     clear: () => ipcRenderer.invoke(ELECTRON_CHANNELS.noteIndexClear),
     resolveLink: (input: ResolveNoteLinkInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.noteIndexResolveLink, input),

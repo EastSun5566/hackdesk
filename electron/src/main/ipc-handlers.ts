@@ -120,9 +120,11 @@ import { exportDebugLogs, recordFatalRendererError, writeLog } from './logging';
 import {
   aiProviderIdInputSchema,
   aiTurnInputSchema,
+  askNotesInputSchema,
   dictationInstallInputSchema,
   dictationStartInputSchema,
   noteSearchInputSchema,
+  notePassagesInputSchema,
   noteBacklinksInputSchema,
   resolveNoteLinkInputSchema,
   hackmdNoteRefSchema,
@@ -229,6 +231,13 @@ export function registerIpcHandlers(
       if (!sender.isDestroyed()) sender.send(ELECTRON_CHANNELS.aiTurnDelta, { requestId: turn.requestId, text });
     }));
   });
+  ipcMain.handle(ELECTRON_CHANNELS.aiAskNotes, (event, input) => {
+    const turn = validateIpcInput(ELECTRON_CHANNELS.aiAskNotes, askNotesInputSchema, input);
+    const sender = event.sender;
+    return aiTurns.run(sender, turn.requestId, signal => ai.askNotes(turn, signal, (text) => {
+      if (!sender.isDestroyed()) sender.send(ELECTRON_CHANNELS.aiTurnDelta, { requestId: turn.requestId, text });
+    }));
+  });
   ipcMain.handle(ELECTRON_CHANNELS.aiCancelTurn, (event, requestId) => {
     const metadata = validateIpcInput(ELECTRON_CHANNELS.aiCancelTurn, hackmdRequestOptionsSchema, { requestId })!;
     aiTurns.cancel(event.sender, metadata.requestId);
@@ -272,6 +281,9 @@ export function registerIpcHandlers(
     .catch(() => undefined);
   ipcMain.handle(ELECTRON_CHANNELS.noteIndexSearch, (_event, input) => (
     noteIndex.search(validateIpcInput(ELECTRON_CHANNELS.noteIndexSearch, noteSearchInputSchema, input))
+  ));
+  ipcMain.handle(ELECTRON_CHANNELS.noteIndexFindPassages, (_event, input) => (
+    noteIndex.findPassages(validateIpcInput(ELECTRON_CHANNELS.noteIndexFindPassages, notePassagesInputSchema, input))
   ));
   ipcMain.handle(ELECTRON_CHANNELS.noteIndexStatus, () => noteIndex.status());
   ipcMain.handle(ELECTRON_CHANNELS.noteIndexResolveLink, (_event, input) => (

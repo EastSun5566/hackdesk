@@ -109,6 +109,12 @@ Select text and press **Cmd+K** / **Ctrl+K** to choose a writing action. Review 
 
 Save and reorder your own prompts in **Settings → AI**. AI requests use your CLI provider's service and account limits. They send the selected text, note title, nearby context and instruction to that provider; see [privacy and network behavior](./code-signing-policy.md#privacy-and-network-behavior).
 
+### Ask your notes
+
+Choose **Ask Your Notes...** from the Command Palette or the **Edit** menu, then ask a question in any language, such as what a meeting decided. HackDesk finds the passages that best match among the current workspace's notes it already has: every Local Vault note, or the HackMD notes you have opened. It never downloads other notes. Your AI provider answers from those passages only, with tools still off, and marks where each point comes from as `[1]`, `[2]`.
+
+The numbered sources appear above the answer. Choose one, or a `[1]` in the answer, to open that note; the conversation is still there when you open Ask Your Notes again. Follow-up questions include the previous answers, so you can ask "and after that?". **New conversation** starts over, and so does moving to another workspace. If no notes match, HackDesk says so without asking the AI.
+
 ## Dictate
 
 Dictation is available on macOS 26 or later and is off by default. Turn it on in **Settings → Dictation** and choose a language. The first time you use a language, choose **Download**: macOS fetches its speech model from Apple once and shares it with other apps.

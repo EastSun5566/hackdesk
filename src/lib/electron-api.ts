@@ -19,13 +19,15 @@ import type {
   LocalVaultTrashNoteInput,
   LocalVaultWriteInput,
 } from './local-vault';
-import type { AiProviderId, AiProviderStatus, AiTurnInput } from './ai';
+import type { AiProviderId, AiProviderStatus, AiTurnInput, AskNotesInput } from './ai';
 import type { DictationEvent, DictationInstallInput, DictationStartInput, DictationStatus } from './dictation';
 import type {
   NoteBacklinksInput,
   NoteBacklinksResponse,
   NoteIndexStatus,
   NoteLinkTarget,
+  NotePassagesInput,
+  NotePassagesResponse,
   NoteSearchInput,
   NoteSearchResponse,
   ResolveNoteLinkInput,
@@ -401,6 +403,7 @@ export type ElectronActionId =
   | 'find-in-note'
   | 'attach-image'
   | 'ai-assist'
+  | 'ask-notes'
   | 'dictate'
   | 'export-note-markdown'
   | 'import-markdown-note'
@@ -526,6 +529,8 @@ export type HackDeskElectronAPI = {
     refreshProvider: (providerId: AiProviderId) => Promise<AiProviderStatus>;
     /** Resolves with the whole answer; `onDelta` receives it as it streams. */
     runTurn: (input: AiTurnInput, onDelta: (text: string) => void) => Promise<string>;
+    /** Answers a question from the given note passages; streams like `runTurn`. */
+    askNotes?: (input: AskNotesInput, onDelta: (text: string) => void) => Promise<string>;
     cancelTurn: (requestId: string) => Promise<void>;
     prewarm?: (providerId: AiProviderId) => Promise<void>;
   };
@@ -543,6 +548,8 @@ export type HackDeskElectronAPI = {
   noteIndex?: {
     /** Searches note text: every note of a Local Vault, or the HackMD notes opened before. */
     search: (input: NoteSearchInput) => Promise<NoteSearchResponse>;
+    /** The passages of the scope's notes that best answer a question. */
+    findPassages?: (input: NotePassagesInput) => Promise<NotePassagesResponse>;
     status: () => Promise<NoteIndexStatus>;
     /** Forgets the cached HackMD notes; the Local Vault index stays. */
     clear: () => Promise<NoteIndexStatus>;
