@@ -32,6 +32,8 @@ describe('parseSlides', () => {
     expect(contents('one\r\n\r\n---\r\n\r\ntwo')).toEqual([['one'], ['two']]);
     expect(contents('one\r\r---\r\rtwo')).toEqual([['one'], ['two']]);
     expect(contents('one\n\n---\n')).toEqual([['one'], ['']]);
+    // As in HackMD, splitting is by line alone, even inside code.
+    expect(contents('```yaml\n\n---\n\n```')).toEqual([['```yaml'], ['```']]);
   });
 
   it('reads the front matter without splitting at its fences', () => {

@@ -87,7 +87,7 @@ To change the book, edit its links in the editor; the contents update when you s
 
 Choose **Present** from a note's **More actions** menu, the **View** menu, or the Command Palette to show the note as full-screen slides. Unsaved changes are included. Notes that HackMD publishes as slides, or that have `type: slide` in their front matter, also show **Present** in the document toolbar.
 
-- A `---` line with a blank line above and below starts a new slide; `----` starts a slide below the current one.
+- A `---` line with a blank line above and below starts a new slide; `----` starts a slide below the current one. This applies inside code blocks too, so leave out the blank lines around `---` in code samples.
 - Everything after a line starting with `note:` is speaker notes, which are hidden.
 - `<!-- .slide: data-background="#123456" -->` and `<!-- .element: class="fragment" -->` set attributes on the slide or the element before the comment.
 - In code blocks, `js=` numbers the lines and `js=[1,3|4]` highlights lines step by step. Math works as it does in the editor.

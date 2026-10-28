@@ -72,17 +72,29 @@ export default function Presentation() {
       const keyboard = typeof slides.options.keyboard === 'object' ? slides.options.keyboard : {};
       reveal = new Reveal(element, {
         ...slides.options,
+        // The window's own route is the URL hash, so reveal.js must never write to it.
+        hash: false,
+        history: false,
         keyboard: { ...keyboard, [ESCAPE_KEY]: () => void api.close() },
         plugins: [RevealHighlight],
       });
       await reveal.initialize();
     };
 
+    // reveal.js follows `#/2` and slide-id links itself; any other `#` link would replace the route.
+    const keepRoute = (event: MouseEvent) => {
+      if (!event.defaultPrevented && event.target instanceof Element && event.target.closest('a[href^="#"]')) {
+        event.preventDefault();
+      }
+    };
+    window.addEventListener('click', keepRoute);
+
     start().catch((reason: unknown) => {
       if (!cancelled) setError(reason instanceof Error ? reason.message : 'Could not present this note.');
     });
     return () => {
       cancelled = true;
+      window.removeEventListener('click', keepRoute);
       reveal?.destroy();
     };
   }, []);

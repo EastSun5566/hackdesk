@@ -67,6 +67,7 @@ export function hasSlideType(markdown: string) {
   return yaml !== null && /^type:\s*["']?slide["']?\s*$/m.test(yaml);
 }
 
+/** Splitting is by line alone, as HackMD does, so a `---` with blank lines around it splits even inside code. */
 function splitSlides(body: string): string[][] {
   const lines = body.split('\n');
   const stacks: string[][][] = [[[]]];

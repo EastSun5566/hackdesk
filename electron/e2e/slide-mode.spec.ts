@@ -22,9 +22,12 @@ const DECK = [
   'slideOptions:',
   '  theme: solarized', // imports web fonts, which must not stop the theme loading
   '  transition: fade',
+  '  hash: true', // the window keeps its own route in the URL hash
   '---',
   '',
   '# Welcome',
+  '',
+  '[Skip to the end](#the-end)',
   '',
   '---',
   '',
@@ -87,10 +90,15 @@ test('a note is presented full screen as slides, unsaved changes included', asyn
     expect(await presentation.evaluate(() => 'injected' in window)).toBe(false);
 
     await expect(presentation.locator('section.present h1')).toHaveText('Welcome');
+    // A `#` link to no slide must not replace the window's route.
+    await presentation.getByRole('link', { name: 'Skip to the end' }).click();
+    await expect(presentation).toHaveURL(/#\/present$/);
+    await expect(presentation.locator('section.present h1')).toHaveText('Welcome');
     await presentation.keyboard.press('ArrowRight');
     await expect(presentation.locator('section.present h2').first()).toHaveText('Agenda');
     await presentation.keyboard.press('ArrowDown');
     await expect(presentation.locator('section.present h2').last()).toHaveText('Agenda details');
+    await expect(presentation).toHaveURL(/#\/present$/);
 
     const closed = presentation.waitForEvent('close');
     // The window closes while the key press is still being delivered.
