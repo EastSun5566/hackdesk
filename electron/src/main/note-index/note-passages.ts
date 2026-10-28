@@ -66,7 +66,8 @@ export function findPassages(db: DatabaseSync, { question, source, workspace }: 
   let total = 0;
   for (const { content, ...row } of rows) {
     const text = bestPassages(splitFrontMatter(content).body, terms).slice(0, Math.min(MAX_NOTE_TEXT, MAX_TOTAL_TEXT - total));
-    if (!text) break;
+    // An empty note adds nothing; once the budget is spent, every later note is empty too.
+    if (!text) continue;
     passages.push({ ...row, text });
     total += text.length;
   }

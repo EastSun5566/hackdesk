@@ -60,6 +60,15 @@ describe('findPassages', () => {
     expect(passages.reduce((total, passage) => total + passage.text.length, 0)).toBeLessThanOrEqual(16_000);
   });
 
+  it('skips a note with no text and keeps the notes ranked below it', () => {
+    const store = openNoteStore(':memory:');
+    store.putNotes([
+      note('empty', '---\ntags: roadmap\n---\n', { title: 'Roadmap' }),
+      note('body', 'The roadmap starts with offline reading.'),
+    ]);
+    expect(find(store, 'roadmap').passages.map(passage => passage.noteId)).toEqual(['body']);
+  });
+
   it('searches one workspace, and finds nothing without searchable words', () => {
     const store = openNoteStore(':memory:');
     store.putNotes([note('here', 'release checklist'), note('there', 'release checklist', { workspace: 'vault-2' })]);

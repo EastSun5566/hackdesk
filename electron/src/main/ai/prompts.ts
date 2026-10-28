@@ -52,8 +52,11 @@ export const ASK_NOTES_SYSTEM_PROMPT = [
   'Reply in the language of the question, as concise Markdown, with no preamble.',
 ].join(' ');
 
+/** A note that contains `</source>` must not be able to end its own source early. */
+const keepInside = (text: string) => text.replace(/<\/(source|earlier_question|earlier_answer)/gi, '<\\/$1');
+
 export function buildAskNotesPrompt(input: Pick<AskNotesInput, 'question' | 'sources' | 'history'>) {
-  const history = input.history.map(turn => `<earlier_question>\n${turn.question}\n</earlier_question>\n<earlier_answer>\n${turn.answer}\n</earlier_answer>\n`).join('');
-  const sources = input.sources.map((source, index) => `<source id="${index + 1}" title="${escapeAttribute(source.title)}">\n${source.text}\n</source>\n`).join('');
+  const history = input.history.map(turn => `<earlier_question>\n${keepInside(turn.question)}\n</earlier_question>\n<earlier_answer>\n${keepInside(turn.answer)}\n</earlier_answer>\n`).join('');
+  const sources = input.sources.map((source, index) => `<source id="${index + 1}" title="${escapeAttribute(source.title)}">\n${keepInside(source.text)}\n</source>\n`).join('');
   return `${history}${sources}\nQuestion: ${input.question.trim()}`;
 }
