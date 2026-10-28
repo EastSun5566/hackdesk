@@ -1,3 +1,5 @@
+import { splitFrontMatter } from './front-matter';
+
 /**
  * A HackMD book is a note whose headings and bulleted links form a table of contents. Headings
  * and link-less bullets are sections, bulleted links are chapters, and `---` is a divider.
@@ -56,7 +58,7 @@ export function parseBook(markdown: string): Book {
     orderedIndent = null;
   };
 
-  for (const line of withoutFrontMatter(markdown).split('\n')) {
+  for (const line of splitFrontMatter(markdown).body.split('\n')) {
     const fenceMark = FENCE.exec(line)?.[1];
     if (fence) {
       if (fenceMark?.[0] === fence[0] && fenceMark.length >= fence.length) fence = null;
@@ -128,12 +130,6 @@ export function parseBook(markdown: string): Book {
   }
 
   return { nodes: prune(nodes, listSections), chapters };
-}
-
-function withoutFrontMatter(markdown: string) {
-  const text = markdown.replace(/\r\n?/g, '\n');
-  const match = /^---\n[\s\S]*?\n(?:---|\.\.\.)[ \t]*(?:\n|$)/.exec(text);
-  return match ? text.slice(match[0].length) : text;
 }
 
 const unescape = (text: string) => text.replace(/\\(.)/g, '$1');

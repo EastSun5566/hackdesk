@@ -80,6 +80,7 @@ const mockState = vi.hoisted(() => {
       if (state.loadError) throw state.loadError;
     });
     maximize = vi.fn();
+    getBounds = vi.fn(() => ({ x: 0, y: 0, width: 1180, height: 760 }));
     show = vi.fn(() => { this.visibleValue = true; });
     focus = vi.fn(() => {
       state.lastWindow = this;
@@ -106,6 +107,7 @@ const mockState = vi.hoisted(() => {
       isLoading: vi.fn(() => this.isLoadingValue),
       getURL: vi.fn(() => 'hackdesk://renderer/index.html'),
       send: vi.fn(),
+      reload: vi.fn(),
       setIgnoreMenuShortcuts: vi.fn(),
       setWindowOpenHandler: vi.fn(),
     });
@@ -144,6 +146,7 @@ vi.mock('electron', () => ({
     }),
     getDisplayNearestPoint: vi.fn(() => mockState.state.cursorDisplay),
     getPrimaryDisplay: vi.fn(() => mockState.state.primaryDisplay),
+    getDisplayMatching: vi.fn(() => ({ bounds: { x: 1440, y: 0, width: 1920, height: 1080 } })),
   },
 }));
 
@@ -464,6 +467,46 @@ describe('WindowManager close intent', () => {
     expect(secondCapture.show).toHaveBeenCalledOnce();
     expect(secondCapture.focus).toHaveBeenCalledOnce();
     expect(mockState.state.windows).toHaveLength(2);
+  });
+
+  it('presents a deck full screen on the main window display, and shows a new deck in the same window', () => {
+    const { manager, window } = createManagerWithWindow();
+
+    const presentation = getMockWindow(manager.showPresentationWindow({ title: 'Deck', content: '# One' }));
+    expect(presentation.loadURL).toHaveBeenCalledWith('hackdesk://renderer/index.html#/present');
+    expect(presentation.options).toEqual(expect.objectContaining({
+      x: 1440,
+      width: 1920,
+      fullscreen: true,
+      webPreferences: expect.objectContaining({ preload: expect.stringContaining('presentation-preload.cjs'), sandbox: true, contextIsolation: true }),
+    }));
+    expect(manager.getPresentationDeck()).toEqual({ title: 'Deck', content: '# One' });
+
+    expect(manager.showPresentationWindow({ title: 'Deck', content: '# Two' })).toBe(presentation);
+    expect(presentation.webContents.reload).toHaveBeenCalledOnce();
+    expect(manager.getPresentationDeck()?.content).toBe('# Two');
+
+    manager.closePresentationWindow();
+    expect(manager.getPresentationWindow()).toBeNull();
+    expect(manager.getPresentationDeck()).toBeNull();
+    expect(window.focus).toHaveBeenCalled();
+  });
+
+  it('lets each window call only its own IPC channels', () => {
+    const { manager, window } = createManagerWithWindow();
+    const capture = getMockWindow(manager.showQuickCaptureWindow());
+    const presentation = getMockWindow(manager.showPresentationWindow({ title: 'Deck', content: '' }));
+    const allowed = (from: typeof window) => [
+      ELECTRON_CHANNELS.settingsGet,
+      ELECTRON_CHANNELS.appOpenPresentation,
+      ELECTRON_CHANNELS.appSubmitQuickCapture,
+      ELECTRON_CHANNELS.appGetPresentation,
+      ELECTRON_CHANNELS.appClosePresentation,
+    ].filter(channel => manager.isTrustedIpcSender({ sender: from.webContents, senderFrame: from.webContents.mainFrame } as never, channel));
+
+    expect(allowed(window)).toEqual([ELECTRON_CHANNELS.settingsGet, ELECTRON_CHANNELS.appOpenPresentation]);
+    expect(allowed(capture)).toEqual([ELECTRON_CHANNELS.appSubmitQuickCapture]);
+    expect(allowed(presentation)).toEqual([ELECTRON_CHANNELS.appGetPresentation, ELECTRON_CHANNELS.appClosePresentation]);
   });
 
   it('keeps main hidden across external quick capture dismissal and reopening on macOS', () => {

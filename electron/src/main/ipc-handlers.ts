@@ -8,6 +8,7 @@ import type {
   CreateNoteInput,
   FolderOrder,
   OpenTextFileInput,
+  PresentationDeck,
   QuickCaptureSubmissionAck,
   SaveTextFileInput,
   UpdateFolderInput,
@@ -144,6 +145,7 @@ import {
   localVaultWriteInputSchema,
   openHackmdEditorInputSchema,
   openTextFileInputSchema,
+  presentationDeckSchema,
   quickCaptureContentSchema,
   quickCaptureSubmissionAckSchema,
   saveTextFileInputSchema,
@@ -173,7 +175,7 @@ export function registerIpcHandlers(
     | 'cancelClose' | 'confirmClose' | 'getMainWindow' | 'getTargetWindow'
     | 'getWindowPresentationState' | 'hideQuickCaptureWindow' | 'isTrustedIpcSender'
     | 'resolveQuickCaptureSubmission' | 'setMenuShortcutsIgnored' | 'setThemeSurface'
-    | 'submitQuickCapture'
+    | 'submitQuickCapture' | 'showPresentationWindow' | 'getPresentationDeck' | 'closePresentationWindow'
   >,
   options: { onSettingsUpdated?: (settings: Awaited<ReturnType<typeof updateStoredSettings>>) => void } = {},
 ) {
@@ -719,6 +721,13 @@ export function registerIpcHandlers(
       quickCaptureSubmissionAckSchema,
       ack,
     ));
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.appOpenPresentation, (_event, deck: PresentationDeck) => {
+    windowManager.showPresentationWindow(validateIpcInput(ELECTRON_CHANNELS.appOpenPresentation, presentationDeckSchema, deck));
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.appGetPresentation, () => windowManager.getPresentationDeck());
+  ipcMain.handle(ELECTRON_CHANNELS.appClosePresentation, () => {
+    windowManager.closePresentationWindow();
   });
   ipcMain.handle(ELECTRON_CHANNELS.appConfirm, async (_event, options: ConfirmDialogOptions) => {
     const validatedOptions = validateIpcInput(ELECTRON_CHANNELS.appConfirm, confirmDialogOptionsSchema, options);

@@ -20,7 +20,8 @@ async function fixture(extra: Record<string, string> = {}, omit?: string) {
   const resources = join(root, 'resources');
   const files = {
     'electron/dist/main.cjs': 'main', 'electron/dist/preload.cjs': 'preload',
-    'electron/dist/quick-capture-preload.cjs': 'quick', 'dist/index.html': '<html></html>',
+    'electron/dist/quick-capture-preload.cjs': 'quick', 'electron/dist/presentation-preload.cjs': 'present',
+    'dist/index.html': '<html></html>',
     'electron/dist/third-party/packages.json': JSON.stringify([{ name: 'example', version: '1', files: ['example/LICENSE'] }]),
     'electron/dist/third-party/example/LICENSE': 'Original license', LICENSE: 'Project license', ...extra,
   };
@@ -45,7 +46,7 @@ async function fixture(extra: Record<string, string> = {}, omit?: string) {
 
 it('reads a real ASAR and verifies bundles, renderer, icon and licenses', async () => {
   const result = await checkPackagedContents(await fixture());
-  expect(result.files).toBe(7);
+  expect(result.files).toBe(8);
   expect(result.nodeModulesBytes).toBe(0);
   expect(result.asarBytes).toBeGreaterThan(result.payloadBytes);
 });

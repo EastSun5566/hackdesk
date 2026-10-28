@@ -298,6 +298,7 @@ export function useHomeWorkspaceProps({
       onOpenExternal: actions.handleOpenExternal,
       onOpenNoteTarget: openNoteTarget,
       onSaveAsTemplate: saveAsTemplate,
+      onPresent: api?.app.openPresentation && ((deck) => void api.app.openPresentation?.(deck)),
       onRevealInFinder: localVaultActions.revealLocalNote,
       canCreateNote: homeStatus.navigatorStatus.canCreate,
       onCreateNote: folderCommands.handleCreateNote,

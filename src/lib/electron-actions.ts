@@ -380,6 +380,15 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     getDisabledReason: requireSelectedNote,
   },
   {
+    id: 'present-note',
+    label: 'Present',
+    description: 'Show the selected note as full-screen slides, split at --- lines.',
+    keywords: ['slide', 'slides', 'present', 'presentation', 'deck', 'reveal'],
+    category: 'note',
+    scope: 'editor',
+    getDisabledReason: requireSelectedNote,
+  },
+  {
     id: 'previous-chapter',
     label: 'Previous Chapter',
     description: 'Open the previous chapter of the open book.',

@@ -34,6 +34,7 @@ describe('Electron build readiness', () => {
     await buildTargets();
     expect(vi.mocked(build).mock.calls.map(([options]) => options!.outfile)).toEqual([
       'electron/dist/main.cjs', 'electron/dist/preload.cjs', 'electron/dist/quick-capture-preload.cjs',
+      'electron/dist/presentation-preload.cjs',
     ]);
     expect(context).not.toHaveBeenCalled();
   });
@@ -41,12 +42,13 @@ describe('Electron build readiness', () => {
   it('waits for every first watch build without an extra explicit build, then keeps watching', async () => {
     let ready = false;
     const pending = buildTargets(true).then(() => { ready = true; });
-    await vi.waitFor(() => expect(watchers).toHaveLength(3));
+    await vi.waitFor(() => expect(watchers).toHaveLength(4));
     watchers[0].finish({ ...success, errors: [] });
     watchers[1].finish(success);
     await Promise.resolve();
     expect(ready).toBe(false);
     watchers[2].finish(success);
+    watchers[3].finish(success);
     await pending;
     expect(ready).toBe(true);
     expect(build).not.toHaveBeenCalled();
@@ -54,12 +56,12 @@ describe('Electron build readiness', () => {
     // Later rebuilds keep the existing watchers instead of restarting Electron.
     watchers[0].finish({ ...success, errors: [{ text: 'rebuild error' } as BuildResult['errors'][number]] });
     watchers[0].finish({ ...success, errors: [] });
-    expect(context).toHaveBeenCalledTimes(3);
+    expect(context).toHaveBeenCalledTimes(4);
   });
 
   it('rejects an unbundled package before announcing watch readiness', async () => {
     const pending = expect(buildTargets(true)).rejects.toThrow('Initial Electron build failed');
-    await vi.waitFor(() => expect(watchers).toHaveLength(3));
+    await vi.waitFor(() => expect(watchers).toHaveLength(4));
     watchers[0].finish({ ...success, errors: [], metafile: {
       inputs: {}, outputs: { 'main.cjs': { imports: [{ path: 'missing-package', external: true, kind: 'require-call' }], exports: [], inputs: {}, bytes: 1 } },
     } });
@@ -69,7 +71,7 @@ describe('Electron build readiness', () => {
 
   it('rejects the initial build and disposes all watchers if any output fails', async () => {
     const pending = expect(buildTargets(true)).rejects.toThrow('Initial Electron build failed: electron/dist/preload.cjs');
-    await vi.waitFor(() => expect(watchers).toHaveLength(3));
+    await vi.waitFor(() => expect(watchers).toHaveLength(4));
     watchers[0].finish({ ...success, errors: [] });
     watchers[1].finish({ ...success, errors: [{ text: 'invalid source' } as BuildResult['errors'][number]] });
     await pending;

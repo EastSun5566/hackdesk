@@ -19,6 +19,7 @@ import {
   Loader2,
   PanelRightClose,
   PanelRightOpen,
+  Presentation,
   RefreshCw,
   Save,
   Share2,
@@ -40,9 +41,11 @@ import type {
   DocumentSummary,
   NoteComment,
   NoteSummary,
+  PresentationDeck,
   UpdateNoteInput,
 } from '@/lib/electron-api';
 import type { FolderTree } from '@/lib/hackmd-folders';
+import { hasSlideType } from '@/lib/slides';
 import type { EditorMode } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 import { createImageUploadPlaceholder } from '@/components/hackmd-live-preview/markdown-image';
@@ -118,6 +121,8 @@ export type DocumentDetailActions = {
   onOpenNoteTarget?: OpenNoteTarget;
   /** Copies this note into the workspace's Templates folder; absent where templates are not offered. */
   onSaveAsTemplate?: () => void;
+  /** Shows the note as full-screen slides, unsaved changes included. */
+  onPresent?: (deck: PresentationDeck) => void;
   onRevealInFinder: (document: DocumentSummary) => void;
   onReadComparison?: (document: DocumentSummary, signal: AbortSignal) => Promise<{ title: string; content: string }>;
   onReloadFromDisk: (document: DocumentSummary) => void;
@@ -701,6 +706,15 @@ function DocumentHeader({
           >
             {status.saving ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Save aria-hidden="true" className="h-4 w-4" />}
           </ToolbarIconButton>
+          {actions.onPresent && (documentState.document?.publishType === 'slide' || hasSlideType(documentState.content)) ? (
+            <ToolbarIconButton
+              actionId="present-note"
+              onClick={() => actions.onPresent?.({ title: documentState.title, content: documentState.content })}
+              label="Present"
+            >
+              <Presentation aria-hidden="true" className="h-4 w-4" />
+            </ToolbarIconButton>
+          ) : null}
           {/* A vault note's details are only the notes linking to it. */}
           {!documentState.document || (isLocalDocument && !actions.onOpenNoteTarget) ? null : (
             <ToolbarIconButton
@@ -791,6 +805,13 @@ function DocumentActionsMenu({
             <LayoutTemplate aria-hidden="true" className="h-4 w-4" />
             Save as Template
             <ActionMenuShortcut actionId="save-as-template" />
+          </DropdownMenuItem>
+        ) : null}
+        {actions.onPresent ? (
+          <DropdownMenuItem onSelect={() => actions.onPresent?.({ title: documentState.title, content: documentState.content })}>
+            <Presentation aria-hidden="true" className="h-4 w-4" />
+            Present
+            <ActionMenuShortcut actionId="present-note" />
           </DropdownMenuItem>
         ) : null}
         {bookSession ? (

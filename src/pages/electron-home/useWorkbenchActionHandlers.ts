@@ -223,6 +223,9 @@ export function useWorkbenchActionHandlers({
     openAsBook: () => {
       if (selectedDocument) book.open(selectedDocument);
     },
+    presentNote: () => {
+      if (activeTab) void api?.app.openPresentation?.({ title: documentTitle, content: documentContent });
+    },
     openAdjacentChapter: (step) => {
       const position = book.positionOf(selectedDocument);
       if (!position) {

@@ -14,6 +14,7 @@ import type {
   ThemeSurfaceInput,
   OpenTextFileInput,
   OpenHackmdEditorInput,
+  PresentationDeck,
   QuickCaptureSubmissionAck,
   SaveTextFileInput,
   UpdateFolderInput,
@@ -249,6 +250,7 @@ const api: HackDeskElectronAPI = {
     resolveQuickCaptureSubmission: (ack: QuickCaptureSubmissionAck) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.appResolveQuickCaptureSubmission, ack)
     ),
+    openPresentation: (deck: PresentationDeck) => ipcRenderer.invoke(ELECTRON_CHANNELS.appOpenPresentation, deck),
     onCommand: (callback: (command: HackDeskCommandPaletteCommand) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, command: HackDeskCommandPaletteCommand) => {
         callback(command);

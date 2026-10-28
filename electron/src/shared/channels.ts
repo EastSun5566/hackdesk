@@ -99,4 +99,7 @@ export const ELECTRON_CHANNELS = {
   appSubmitQuickCapture: 'app:submit-quick-capture',
   appHideQuickCapture: 'app:hide-quick-capture',
   appResolveQuickCaptureSubmission: 'app:resolve-quick-capture-submission',
+  appOpenPresentation: 'app:open-presentation',
+  appGetPresentation: 'app:get-presentation',
+  appClosePresentation: 'app:close-presentation',
 } as const;

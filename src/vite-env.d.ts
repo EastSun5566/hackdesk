@@ -6,5 +6,6 @@ declare global {
   interface Window {
     hackdeskAPI?: HackDeskElectronAPI;
     hackdeskQuickCaptureAPI?: import('./lib/electron-api').HackDeskQuickCaptureAPI;
+    hackdeskPresentationAPI?: import('./lib/electron-api').HackDeskPresentationAPI;
   }
 }
