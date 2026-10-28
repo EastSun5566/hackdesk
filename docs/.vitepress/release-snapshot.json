@@ -1,6 +1,70 @@
 {
-  "savedAt": "2026-10-22T14:04:52.338Z",
+  "savedAt": "2026-10-28T21:39:12.807Z",
   "releases": [
+    {
+      "tag_name": "v2.0.0-beta.9",
+      "html_url": "https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.9",
+      "draft": false,
+      "prerelease": true,
+      "assets": [
+        {
+          "name": "beta-linux.yml",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.9/beta-linux.yml"
+        },
+        {
+          "name": "beta-mac.yml",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.9/beta-mac.yml"
+        },
+        {
+          "name": "beta.yml",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.9/beta.yml"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.9-arm64.dmg",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.9/HackDesk-2.0.0-beta.9-arm64.dmg"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.9-arm64.dmg.blockmap",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.9/HackDesk-2.0.0-beta.9-arm64.dmg.blockmap"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.9-arm64.zip",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.9/HackDesk-2.0.0-beta.9-arm64.zip"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.9-arm64.zip.blockmap",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.9/HackDesk-2.0.0-beta.9-arm64.zip.blockmap"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.9-x64.dmg",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.9/HackDesk-2.0.0-beta.9-x64.dmg"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.9-x64.dmg.blockmap",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.9/HackDesk-2.0.0-beta.9-x64.dmg.blockmap"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.9-x64.exe",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.9/HackDesk-2.0.0-beta.9-x64.exe"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.9-x64.exe.blockmap",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.9/HackDesk-2.0.0-beta.9-x64.exe.blockmap"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.9-x64.zip",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.9/HackDesk-2.0.0-beta.9-x64.zip"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.9-x64.zip.blockmap",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.9/HackDesk-2.0.0-beta.9-x64.zip.blockmap"
+        },
+        {
+          "name": "HackDesk-2.0.0-beta.9-x86_64.AppImage",
+          "browser_download_url": "https://github.com/EastSun5566/hackdesk/releases/download/v2.0.0-beta.9/HackDesk-2.0.0-beta.9-x86_64.AppImage"
+        }
+      ]
+    },
     {
       "tag_name": "v2.0.0-beta.8",
       "html_url": "https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.8",
