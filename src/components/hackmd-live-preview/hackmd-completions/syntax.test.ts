@@ -127,6 +127,27 @@ describe('container completions', () => {
   });
 });
 
+describe('typing on while the list is open', () => {
+  it('completes from where the typing ended, for containers, code blocks and embeds', async () => {
+    for (const [doc, more, label, result] of [
+      [':::wa', 'rn', 'warning', ':::warning\n\n:::'],
+      ['```mer', 'ma', 'mermaid', '```mermaid\n\n```'],
+      ['{%yo', 'ut', 'youtube', '{%youtube  %}'],
+    ]) {
+      const view = setup(doc!);
+      expect(await labels(view)).toContain(label);
+      // Still matches, so CodeMirror keeps the open list instead of asking the source again.
+      view.dispatch({ changes: { from: doc!.length, insert: more! }, selection: { anchor: doc!.length + more!.length }, userEvent: 'input.type' });
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const index = currentCompletions(view.state).findIndex(option => option.label === label);
+      expect(index).toBeGreaterThanOrEqual(0);
+      view.dispatch({ effects: setSelectedCompletion(index) });
+      acceptCompletion(view);
+      expect(view.state.doc.toString(), doc).toBe(result);
+    }
+  });
+});
+
 describe('embed completions', () => {
   it('lists embeds after {% and completes one with its closing marks', async () => {
     const view = setup('{%you}', 5);

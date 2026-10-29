@@ -53,10 +53,12 @@ function allEmoji() {
   return emojiOptions;
 }
 
-function textBefore(context: CompletionContext) {
-  const line = context.state.doc.lineAt(context.pos);
-  return { line, before: line.text.slice(0, context.pos - line.from), after: line.text.slice(context.pos - line.from) };
+function textAround(state: EditorState, pos: number) {
+  const line = state.doc.lineAt(pos);
+  return { line, before: line.text.slice(0, pos - line.from), after: line.text.slice(pos - line.from) };
 }
+
+const textBefore = (context: CompletionContext) => textAround(context.state, context.pos);
 
 /**
  * `:sm` lists emoji. The colon must not follow a letter, digit or another colon, so times (10:30), web
@@ -87,19 +89,18 @@ function writesNewBlock(state: EditorState, line: Line, after: string) {
 /**
  * Completes the word after a block marker (``` or :::). For a new block it also adds the closing marker
  * and leaves the cursor on the empty line between, replacing what closeBrackets typed after the cursor.
+ * Options are reused while the user keeps typing, so they read the document as it is when chosen.
  */
-function blockOptions(context: CompletionContext, names: [name: string, detail: string][], marker: string, indent: string, typed: string) {
-  const { line, after } = textBefore(context);
-  const from = context.pos - typed.length;
-  const closes = writesNewBlock(context.state, line, after.replace(/^[`~]+$/, ''));
+function blockOptions(names: [name: string, detail: string][], marker: string, indent: string) {
   return names.map(([name, detail]): Completion => ({
     label: name,
     detail,
     type: 'keyword',
-    apply: (view: EditorView) => {
-      if (!closes) {
+    apply: (view: EditorView, _completion: Completion, from: number, to: number) => {
+      const { line, after } = textAround(view.state, to);
+      if (!writesNewBlock(view.state, line, after.replace(/^[`~]+$/, ''))) {
         const word = /^[\w+-]*/.exec(after)![0];
-        view.dispatch({ changes: { from, to: context.pos + word.length, insert: name } });
+        view.dispatch({ changes: { from, to: to + word.length, insert: name } });
         return;
       }
       const insert = `${name}\n${indent}\n${indent}${marker}`;
@@ -124,7 +125,7 @@ function fenceSource(context: CompletionContext): CompletionResult | null {
   ];
   return {
     from: context.pos - match[3]!.length,
-    options: blockOptions(context, languages, match[2]!, match[1]!, match[3]!),
+    options: blockOptions(languages, match[2]!, match[1]!),
     validFor: /^[\w+-]*$/,
   };
 }
@@ -137,31 +138,29 @@ function containerSource(context: CompletionContext): CompletionResult | null {
   if (!match || (!match[2] && !context.explicit) || isInCodeOrFrontMatter(context.state, context.pos)) return null;
   return {
     from: context.pos - match[2]!.length,
-    options: blockOptions(context, CONTAINERS, ':::', match[1]!, match[2]!),
+    options: blockOptions(CONTAINERS, ':::', match[1]!),
     validFor: /^[a-z]*$/i,
   };
 }
 
 /** `{%` at the start of a line lists embeds; `{%hackmd` then lists the notes to embed. */
 function embedNameSource(context: CompletionContext): CompletionResult | null {
-  const { line, before, after } = textBefore(context);
+  const { before } = textBefore(context);
   const match = /^\s*\{%([a-z]*)$/i.exec(before);
   if (!match || isInCodeOrFrontMatter(context.state, context.pos)) return null;
-  const typed = match[1]!;
-  const from = context.pos - typed.length;
-  // closeBrackets may have typed the closing brace already.
-  const unfinished = /^\s*%?\}?\s*$/.test(after);
   return {
-    from,
+    from: context.pos - match[1]!.length,
     validFor: /^[a-z]*$/i,
     options: EMBEDS.map(([name, detail]): Completion => ({
       label: name,
       detail,
       type: 'keyword',
-      apply: (view: EditorView) => {
-        if (!unfinished) {
+      apply: (view: EditorView, _completion: Completion, from: number, to: number) => {
+        const { line, after } = textAround(view.state, to);
+        // closeBrackets may have typed the closing brace already.
+        if (!/^\s*%?\}?\s*$/.test(after)) {
           const word = /^[a-z]*/i.exec(after)![0];
-          view.dispatch({ changes: { from, to: context.pos + word.length, insert: name } });
+          view.dispatch({ changes: { from, to: to + word.length, insert: name } });
           return;
         }
         view.dispatch({ changes: { from, to: line.to, insert: `${name}  %}` }, selection: { anchor: from + name.length + 1 } });
