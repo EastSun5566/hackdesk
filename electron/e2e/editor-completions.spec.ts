@@ -10,6 +10,11 @@ const repoRoot = resolve(import.meta.dirname, '../..');
 
 const suggestions = (page: Page) => page.locator('.cm-tooltip-autocomplete');
 
+// CodeMirror ignores Enter for a moment after the list opens, so a fast test runner clicks instead.
+async function choose(page: Page, label: string) {
+  await suggestions(page).getByRole('option', { name: new RegExp(`^${label}`) }).click();
+}
+
 test('typing HackMD syntax suggests emoji, code languages, containers and embeds', async () => {
   const home = await mkdtemp(join(tmpdir(), 'hackdesk-completions-'));
   const vault = join(home, 'vault');
@@ -33,27 +38,24 @@ test('typing HackMD syntax suggests emoji, code languages, containers and embeds
     await page.keyboard.press('ControlOrMeta+End');
 
     await page.keyboard.type('\nShip it :smi');
-    await suggestions(page).getByRole('option', { name: /^:smile:/ }).click();
+    await choose(page, ':smile:');
 
     // A time is ordinary text.
     await page.keyboard.type(' at 10:30');
     await expect(suggestions(page)).toHaveCount(0);
 
     await page.keyboard.type('\n\n```mer');
-    await expect(suggestions(page).getByRole('option').first()).toHaveText(/^mermaid/);
-    await page.keyboard.press('Enter');
+    await choose(page, 'mermaid');
     await page.keyboard.type('graph TD');
     await page.keyboard.press('ControlOrMeta+End');
 
     await page.keyboard.type('\n\n:::wa');
-    await expect(suggestions(page).getByRole('option').first()).toHaveText(/^warning/);
-    await page.keyboard.press('Enter');
+    await choose(page, 'warning');
     await page.keyboard.type('Careful');
     await page.keyboard.press('ControlOrMeta+End');
 
     await page.keyboard.type('\n\n{%you');
-    await expect(suggestions(page).getByRole('option').first()).toHaveText(/^youtube/);
-    await page.keyboard.press('Enter');
+    await choose(page, 'youtube');
     await page.keyboard.type('abc123');
 
     await page.keyboard.press('ControlOrMeta+s');
