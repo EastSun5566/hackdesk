@@ -3,7 +3,7 @@ import { Decoration, EditorView, WidgetType, type DecorationSet } from '@codemir
 
 import { parseEmbedLine, type EmbedLine } from '@/lib/note-links';
 
-import { isInCodeOrFrontMatter } from '../note-links/extension';
+import { isInCodeOrFrontMatter } from '../hackmd-completions/note-links';
 
 /** What a card shows once the embedded or previewed note is known. */
 export type NoteEmbedCard = { title: string; snippet: string | null };

@@ -36,7 +36,7 @@ import { aiInline, formatAiShortcut, openAiInlineMenu, type AiInlineHost } from 
 import { getAiInlineTarget, IDLE_AI_INLINE, type AiInlineState } from './ai-inline/state';
 import { dictation as dictationExtension, toggleDictation, type DictationHost } from './dictation/extension';
 import { noteEmbeds, type NoteEmbedHost } from './note-embeds/extension';
-import { noteLinkCompletions, type NoteLinksHost } from './note-links/extension';
+import { hackmdCompletions, type NoteLinksHost } from './hackmd-completions';
 import { hackmdCodeLanguages } from './hackmd-code-languages';
 import { hfmBlocks, setLocalImageContext } from './hfm-blocks';
 import { hackmdTables } from './hackmd-tables';
@@ -280,7 +280,7 @@ function createHackmdEditorView({
         aiInline(aiHost),
         dictationExtension(dictationHost),
         noteEmbeds(noteEmbedHost),
-        noteLinkCompletions(noteLinksHost),
+        hackmdCompletions(noteLinksHost),
         runtime.themeCompartment.of(createHackmdPreviewTheme(runtime.resolvedMode)),
         inlineAttachmentExtension({
           allowedTypes: ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'],

@@ -1,5 +1,4 @@
 import {
-  autocompletion,
   startCompletion,
   type Completion,
   type CompletionContext,
@@ -26,9 +25,17 @@ const CODE_NODES = new Set(['FencedCode', 'CodeBlock', 'CodeText', 'InlineCode',
 
 /** Links are not completed, nor embeds shown, inside code or YAML front matter. */
 export function isInCodeOrFrontMatter(state: EditorState, pos: number) {
+  return isInCode(state, pos) || isInFrontMatter(state, pos);
+}
+
+function isInCode(state: EditorState, pos: number) {
   for (let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, -1); node; node = node.parent) {
     if (CODE_NODES.has(node.name)) return true;
   }
+  return false;
+}
+
+export function isInFrontMatter(state: EditorState, pos: number) {
   if (!state.doc.line(1).text.startsWith('---')) return false;
   for (let number = 2; number <= state.doc.lines; number += 1) {
     const line = state.doc.line(number);
@@ -148,14 +155,10 @@ const pasteHandler = EditorView.domEventHandlers({
   },
 });
 
+/** Records pasted URLs so the next completion can offer their formats. */
+export const pastedUrlTracking: Extension = [pasteField, pasteHandler];
+
 /** HackMD's ways of linking notes: `[text](` searches notes, `{%hackmd ` lists embeddable notes, pasted URLs offer formats. */
-export function noteLinkCompletions(host: NoteLinksHost): Extension {
-  return [
-    pasteField,
-    pasteHandler,
-    autocompletion({
-      override: [linkSource(host), embedSource(host), pastedUrlSource(host)],
-      icons: false,
-    }),
-  ];
+export function noteLinkSources(host: NoteLinksHost) {
+  return [linkSource(host), embedSource(host), pastedUrlSource(host)];
 }
