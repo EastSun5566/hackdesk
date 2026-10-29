@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { NoteLinkCandidate } from '@/components/markdown-editor-types';
 
-import { noteLinkCompletions, type NoteLinksHost } from './extension';
+import { hackmdCompletions } from '.';
+import type { NoteLinksHost } from './note-links';
 
 const candidates: NoteLinkCandidate[] = [
   { title: 'Beta plan', detail: '@me/beta', link: 'https://hackmd.io/@me/beta', embedRef: '@me/beta' },
@@ -19,7 +20,7 @@ function setup(doc: string, host: Partial<NoteLinksHost> = {}) {
     state: EditorState.create({
       doc,
       selection: { anchor: doc.length },
-      extensions: [markdown(), noteLinkCompletions({ candidates: () => candidates, titleForUrl: async () => null, ...host })],
+      extensions: [markdown(), hackmdCompletions({ candidates: () => candidates, titleForUrl: async () => null, ...host })],
     }),
   });
   return view;

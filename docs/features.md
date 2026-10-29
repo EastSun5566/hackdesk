@@ -71,6 +71,17 @@ Embeds and previews appear as cards under their line, with the note's title and 
 
 **Note Details → Linked from** lists the notes that link to or embed the current note. It covers every note in your Local Vault, and only the HackMD notes you have opened in HackDesk.
 
+### Suggestions while you type
+
+The editor suggests HackMD syntax as you type it. Use the arrow keys and Enter to choose, or Esc to dismiss.
+
+- `:` and two letters, such as `:smi`, lists emoji. A colon after a letter or digit, as in `10:30` or `https:`, does not.
+- ` ``` ` and a letter lists code languages and diagrams such as `mermaid`.
+- `:::` and a letter lists container styles such as `warning`.
+- `{%` at the start of a line lists embeds such as `youtube` and `hackmd`.
+
+For a new code block or container, the closing line is added for you. Suggestions do not appear inside code or front matter.
+
 ## Read books
 
 A HackMD book is a note whose headings and bulleted links form a table of contents. When you open a note that HackMD publishes as a book, HackDesk shows its **Book contents** beside the editor. To read any note as a book, including a Local Vault note, choose **Open as Book** from the note's **More actions** menu or the Command Palette.
