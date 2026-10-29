@@ -1,5 +1,7 @@
 import Fuse from 'fuse.js';
 
+import { findMatchRanges } from './match-highlight';
+
 type SearchText = string | null | undefined | Array<string | null | undefined>;
 
 type FuzzySearchOptions<T> = {
@@ -40,8 +42,22 @@ function getLiteralRank(record: SearchRecord<unknown>, query: string) {
   if (record.secondary.some((field) => field.includes(query)) || record.secondary.join(' ').includes(query)) {
     return 3;
   }
+  // Words of a title in any order: "tabs right" finds Close Tabs to Right. Only titles count, so
+  // hidden IDs and descriptions do not pull in loosely related notes.
+  const words = query.split(/\s+/);
+  const title = record.primary.join(' ');
+  if (words.length > 1 && words.every((word) => title.includes(word))) {
+    return 2;
+  }
 
   return null;
+}
+
+// Letters that start words, as "nn" for New Note, rank just behind literal matches.
+const ACRONYM_SCORE = 0.05;
+
+function hasAcronymMatch(record: SearchRecord<unknown>, query: string) {
+  return record.primary.some((field) => findMatchRanges(field, query).length > 0);
 }
 
 function isAdjacentTransposition(left: string, right: string) {
@@ -111,7 +127,9 @@ export function createFuzzySearch<T>(items: T[], options: FuzzySearchOptions<T>)
       fuse.search(normalizedQuery).map((result) => [result.item, result.score ?? 1]),
     );
     for (const record of records) {
-      if (!fuzzyScores.has(record) && hasAdjacentTransposition(record, normalizedQuery)) {
+      if (hasAcronymMatch(record, normalizedQuery)) {
+        fuzzyScores.set(record, Math.min(fuzzyScores.get(record) ?? 1, ACRONYM_SCORE));
+      } else if (!fuzzyScores.has(record) && hasAdjacentTransposition(record, normalizedQuery)) {
         fuzzyScores.set(record, 0.35);
       }
     }

@@ -62,9 +62,19 @@ function createDraftTab(overrides: Partial<DraftOpenNoteTab> = {}): DraftOpenNot
 function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}): WorkbenchActionHandlersOptions {
   return {
     activePaneId: 'pane-1',
+    activePaneTabIds: ['tab-0', 'tab-1', 'tab-2'],
     activeTab: createTab(),
     api: undefined,
-    book: { book: null, open: vi.fn(), close: vi.fn(), openChapter: vi.fn(), positionOf: vi.fn(() => null) },
+    book: { book: null, open: vi.fn(), close: vi.fn(), contentsHidden: false, toggleContents: vi.fn(), openChapter: vi.fn(), positionOf: vi.fn(() => null) },
+    chooseLocalVault: vi.fn(),
+    copyNoteLink: vi.fn(),
+    copyNoteMarkdownLink: vi.fn(),
+    duplicateNote: vi.fn(),
+    openMoveNotePicker: vi.fn(),
+    openShare: vi.fn(),
+    reorderTab: vi.fn(),
+    revealLocalNote: vi.fn(),
+    revealLocalVault: vi.fn(async () => undefined),
     bumpAttachImageRequest: vi.fn(),
     bumpAiAssistRequest: vi.fn(),
     bumpDictateRequest: vi.fn(),
@@ -139,6 +149,48 @@ describe('useWorkbenchActionHandlers', () => {
     result.current.saveNote();
 
     expect(saveNote).toHaveBeenCalledOnce();
+  });
+
+  it('moves the active tab past its neighbour, and acts on the selected note', () => {
+    const options = createOptions();
+    const { result } = renderHook(() => useWorkbenchActionHandlers(options));
+
+    result.current.moveTab(-1);
+    expect(options.reorderTab).toHaveBeenLastCalledWith('pane-1', 'tab-1', 'tab-0');
+    result.current.moveTab(1);
+    expect(options.reorderTab).toHaveBeenLastCalledWith('pane-1', 'tab-1', 'tab-2');
+
+    result.current.duplicateSelectedNote();
+    result.current.copyNoteLink();
+    result.current.copyMarkdownLink();
+    result.current.revealNoteInFinder();
+    expect(options.duplicateNote).toHaveBeenCalledWith(options.selectedDocument);
+    expect(options.copyNoteLink).toHaveBeenCalledWith(options.selectedDocument);
+    expect(options.copyNoteMarkdownLink).toHaveBeenCalledWith(options.selectedDocument);
+    expect(options.revealLocalNote).toHaveBeenCalledWith(options.selectedDocument);
+  });
+
+  it('does not move a tab past the end of its pane', () => {
+    const options = createOptions({ activePaneTabIds: ['tab-1'] });
+    const { result } = renderHook(() => useWorkbenchActionHandlers(options));
+
+    result.current.moveTab(-1);
+    result.current.moveTab(1);
+    expect(options.reorderTab).not.toHaveBeenCalled();
+  });
+
+  it('focuses and selects the title of the note in the active pane', async () => {
+    document.body.innerHTML = '<section data-active-pane="false"><input name="title" value="Other"></section>'
+      + '<section data-active-pane="true"><input name="title" value="Plan"></section>';
+    const { result } = renderHook(() => useWorkbenchActionHandlers(createOptions()));
+
+    result.current.renameNote();
+    await new Promise(resolve => window.requestAnimationFrame(resolve));
+
+    const title = document.querySelector<HTMLInputElement>('[data-active-pane="true"] input')!;
+    expect(document.activeElement).toBe(title);
+    expect([title.selectionStart, title.selectionEnd]).toEqual([0, 4]);
+    document.body.innerHTML = '';
   });
 
   it('saves a draft tab through create instead of update', () => {

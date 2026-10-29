@@ -113,6 +113,8 @@ export function useWorkbenchQuickOpen({
       setWorkspaceScope({ type: 'personal', label: workspace.label });
     } else if (workspace.type === 'history') {
       setWorkspaceScope({ type: 'history', label: workspace.label });
+    } else if (workspace.type === 'local') {
+      setWorkspaceScope({ type: 'local', label: workspace.label });
     } else {
       setWorkspaceScope({ type: 'team', label: workspace.label, teamPath: workspace.teamPath });
     }

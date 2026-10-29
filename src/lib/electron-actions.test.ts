@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ELECTRON_ACTIONS,
   getActionDisabledReason,
+  getActionLabel,
   getCommandPaletteActions,
   getElectronActionLabel,
   getElectronAction,
@@ -25,6 +26,7 @@ const baseContext: ElectronActionContext = {
   isSavingNote: false,
   openTabCount: 2,
   activePaneTabCount: 2,
+  activePaneTabsToLeftCount: 0,
   activePaneTabsToRightCount: 1,
   navigationBackCount: 1,
   navigationForwardCount: 1,
@@ -33,6 +35,9 @@ const baseContext: ElectronActionContext = {
   inspectorCollapsed: false,
   navigatorCollapsed: false,
   workspaceRailCollapsed: false,
+  bookOpen: false,
+  bookContentsHidden: false,
+  hasLocalVault: false,
 };
 
 describe('electron action registry', () => {
@@ -227,6 +232,26 @@ describe('electron action registry', () => {
     expect(getActionDisabledReason(action, { ...baseContext, scopeType: 'local', selectedNoteId: null })).toBeNull();
     expect(getActionDisabledReason(action, { ...baseContext, hasToken: false })).toBe('Connect HackMD in Settings first.');
     expect(viewActionIds.indexOf('show-trash')).toBe(viewActionIds.indexOf('go-history') + 1);
+  });
+
+  it('explains when note, tab, book and vault actions do not apply', () => {
+    const reason = (id: Parameters<typeof getElectronAction>[0], context: Partial<ElectronActionContext> = {}) => (
+      getActionDisabledReason(getElectronAction(id), { ...baseContext, ...context })
+    );
+
+    expect(reason('reveal-note-in-finder')).toBe('Only Local Vault notes are files on this computer.');
+    expect(reason('reveal-note-in-finder', { scopeType: 'local' })).toBeNull();
+    expect(reason('share-note', { scopeType: 'local' })).toBe('Sharing is only available for HackMD notes.');
+    expect(reason('move-note-to-folder', { scopeType: 'history' })).toBe('Choose My Workspace or a team first.');
+    expect(reason('duplicate-note', { selectedNoteId: null })).toBe('Select a note first.');
+    expect(reason('move-tab-left')).toBe('No tabs to the left in this pane.');
+    expect(reason('move-tab-left', { activePaneTabsToLeftCount: 1 })).toBeNull();
+    expect(reason('move-tab-right')).toBeNull();
+    expect(reason('close-book')).toBe('Open a book first.');
+    expect(reason('reveal-vault-in-finder')).toBe('Open a local folder first.');
+    expect(getActionLabel(getElectronAction('toggle-book-contents'), { ...baseContext, bookOpen: true, bookContentsHidden: true })).toBe('Show Book Contents');
+    expect(getActionLabel(getElectronAction('change-local-vault'), baseContext)).toBe('Open Local Folder…');
+    expect(getActionLabel(getElectronAction('change-local-vault'), { ...baseContext, hasLocalVault: true })).toBe('Change Local Vault…');
   });
 
   it('reports disabled reasons from shared context', () => {

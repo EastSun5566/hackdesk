@@ -20,9 +20,12 @@ import { isDraftNoteTab, type NoteWorkspaceState } from './note-workspace';
 import type { WorkspaceScope } from './types';
 
 export type WorkbenchActionContextInput = {
+  bookContentsHidden: boolean;
+  bookOpen: boolean;
   canCreate: boolean;
   canModifySelectedFolder: boolean;
   editorMode: EditorMode;
+  hasLocalVault: boolean;
   hasToken: boolean;
   inspectorCollapsed: boolean;
   isSavingNote: boolean;
@@ -88,6 +91,19 @@ export type WorkbenchActionHandlers = {
   toggleNavigator: () => void;
   toggleTheme: () => void;
   toggleWorkspaceRail: () => void;
+  renameNote: () => void;
+  duplicateSelectedNote: () => void;
+  moveNoteToFolder: () => void;
+  revealNoteInFinder: () => void;
+  copyNoteLink: () => void;
+  copyMarkdownLink: () => void;
+  shareNote: () => void;
+  moveTab: (step: -1 | 1) => void;
+  toggleBookContents: () => void;
+  closeBook: () => void;
+  changeLocalVault: () => void;
+  revealVaultInFinder: () => void;
+  clearOfflineCopies: () => void;
 };
 
 export type WorkbenchActionsOptions = WorkbenchActionContextInput & {
@@ -96,9 +112,12 @@ export type WorkbenchActionsOptions = WorkbenchActionContextInput & {
 };
 
 export function createWorkbenchActionContext({
+  bookContentsHidden,
+  bookOpen,
   canCreate,
   canModifySelectedFolder,
   editorMode,
+  hasLocalVault,
   hasToken,
   inspectorCollapsed,
   isSavingNote,
@@ -117,10 +136,14 @@ export function createWorkbenchActionContext({
   return {
     activeTabIsDraft: isDraftNoteTab(activeTab),
     activePaneTabCount: activePane?.tabIds.length ?? 0,
+    activePaneTabsToLeftCount: Math.max(activeTabIndex, 0),
     activePaneTabsToRightCount: activePane && activeTabIndex >= 0 ? activePane.tabIds.length - activeTabIndex - 1 : 0,
+    bookContentsHidden,
+    bookOpen,
     canCreate,
     canModifySelectedFolder,
     editorMode,
+    hasLocalVault,
     hasToken,
     inspectorCollapsed,
     isSavingNote,
@@ -140,11 +163,14 @@ export function createWorkbenchActionContext({
 
 export function useWorkbenchActions(options: WorkbenchActionsOptions) {
   const {
+    bookContentsHidden,
+    bookOpen,
     canCreate,
     canModifySelectedFolder,
     editorMode,
     handlers,
     hasActiveTab,
+    hasLocalVault,
     hasToken,
     inspectorCollapsed,
     isSavingNote,
@@ -157,9 +183,12 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     workspaceState,
   } = options;
   const actionContext = useMemo(() => createWorkbenchActionContext({
+    bookContentsHidden,
+    bookOpen,
     canCreate,
     canModifySelectedFolder,
     editorMode,
+    hasLocalVault,
     hasToken,
     inspectorCollapsed,
     isSavingNote,
@@ -171,9 +200,12 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     workspaceRailCollapsed,
     workspaceState,
   }), [
+    bookContentsHidden,
+    bookOpen,
     canCreate,
     canModifySelectedFolder,
     editorMode,
+    hasLocalVault,
     hasToken,
     inspectorCollapsed,
     isSavingNote,
@@ -331,6 +363,48 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     case 'delete-note':
       handlers.deleteSelectedNote();
       break;
+    case 'rename-note':
+      handlers.renameNote();
+      break;
+    case 'duplicate-note':
+      handlers.duplicateSelectedNote();
+      break;
+    case 'move-note-to-folder':
+      handlers.moveNoteToFolder();
+      break;
+    case 'reveal-note-in-finder':
+      handlers.revealNoteInFinder();
+      break;
+    case 'copy-note-link':
+      handlers.copyNoteLink();
+      break;
+    case 'copy-markdown-link':
+      handlers.copyMarkdownLink();
+      break;
+    case 'share-note':
+      handlers.shareNote();
+      break;
+    case 'toggle-book-contents':
+      handlers.toggleBookContents();
+      break;
+    case 'close-book':
+      handlers.closeBook();
+      break;
+    case 'move-tab-left':
+      handlers.moveTab(-1);
+      break;
+    case 'move-tab-right':
+      handlers.moveTab(1);
+      break;
+    case 'change-local-vault':
+      handlers.changeLocalVault();
+      break;
+    case 'reveal-vault-in-finder':
+      handlers.revealVaultInFinder();
+      break;
+    case 'clear-offline-copies':
+      handlers.clearOfflineCopies();
+      break;
     case 'close-tab':
       handlers.closeActiveTab();
       break;
@@ -391,6 +465,27 @@ export function exportDebugLogs(api: HackDeskElectronAPI | undefined) {
     .then((path) => toast.success('Debug logs exported.', { description: path }))
     .catch((error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to export debug logs.');
+    });
+}
+
+export function clearOfflineCopies(api: HackDeskElectronAPI | undefined) {
+  const noteIndex = api?.noteIndex;
+  if (!api || !noteIndex) return;
+  void api.app.confirm({
+    title: 'Clear Offline Copies',
+    message: 'Clear the HackMD notes kept on this computer?',
+    detail: 'They are no longer readable offline or searchable by text until you open them again. Local Vault notes and unsaved edits are not affected.',
+    confirmLabel: 'Clear',
+    cancelLabel: 'Cancel',
+    destructive: true,
+  })
+    .then(async ({ confirmed }) => {
+      if (!confirmed) return;
+      await noteIndex.clear();
+      toast.success('Offline copies cleared.');
+    })
+    .catch((error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to clear offline copies.');
     });
 }
 

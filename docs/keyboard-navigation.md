@@ -8,7 +8,7 @@ Move through the workbench, find commands, and discover available actions withou
 
 ## Find commands and shortcuts
 
-Open the **Command Palette** with **Cmd+K** on macOS or **Ctrl+K** on Windows/Linux. Search for an action and press Enter to run it. With text selected in the editor and an AI provider enabled, **Cmd+K** / **Ctrl+K** opens AI actions instead. Use **Cmd+Shift+P** / **Ctrl+Shift+P** to open the Command Palette in that context.
+Open the **Command Palette** with **Cmd+K** on macOS or **Ctrl+K** on Windows/Linux. Search for an action and press Enter to run it. Search matches whole words in any order (`tabs right`) and the first letters of words (`nn` for **New Note**), and the matched letters are highlighted. Besides actions, the palette opens a page of Settings (`settings ai`), switches workspaces, including the Local Vault, and changes the theme. With text selected in the editor and an AI provider enabled, **Cmd+K** / **Ctrl+K** opens AI actions instead. Use **Cmd+Shift+P** / **Ctrl+Shift+P** to open the Command Palette in that context.
 
 Open **Keyboard Shortcuts** from Help or the command palette to search bindings for the current region or all actions. Outside text editing, `?` also opens help.
 

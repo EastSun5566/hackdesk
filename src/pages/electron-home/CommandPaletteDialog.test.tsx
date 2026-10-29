@@ -14,6 +14,7 @@ import { CommandPaletteDialog } from './CommandPaletteDialog';
 const context: ElectronActionContext = {
   activeTabIsDraft: false,
   activePaneTabCount: 1,
+  activePaneTabsToLeftCount: 0,
   activePaneTabsToRightCount: 0,
   canCreate: true,
   canModifySelectedFolder: true,
@@ -32,6 +33,9 @@ const context: ElectronActionContext = {
   selectedFolderId: 'folder-alpha',
   selectedNoteId: 'exact',
   workspaceRailCollapsed: false,
+  bookOpen: false,
+  bookContentsHidden: false,
+  hasLocalVault: false,
 };
 
 const folder: FolderSummary = {
@@ -98,11 +102,9 @@ function renderPalette(overrides: Partial<CommandPaletteDialogProps> = {}) {
     folderTree: buildHackmdFolderTree(notes, [folder]),
     onRunAction: vi.fn(),
     onConnectHackmd: vi.fn(),
-    onCopyCurrentNoteLink: vi.fn(),
-    onCopyCurrentNoteMarkdownLink: vi.fn(),
-    onOpenLocalFolder: vi.fn(),
+    onMoveNoteToFolder: vi.fn(),
+    onOpenSettingsTab: vi.fn(),
     onRequestDisconnectHackmd: vi.fn(),
-    onShareCurrentNote: vi.fn(),
     onSelectFolder: vi.fn(),
     onSelectNote: vi.fn(),
     onSelectRecentNote: vi.fn(),
@@ -128,8 +130,6 @@ function renderPalette(overrides: Partial<CommandPaletteDialogProps> = {}) {
     scope: { label: 'My Workspace', type: 'personal' },
     selectedFolderId: 'folder-alpha',
     selectedNoteId: 'exact',
-    currentNoteIsRemote: true,
-    hasCurrentNote: true,
     hasHackmdApiToken: true,
     hasLocalVault: true,
     platform: 'darwin',
@@ -141,7 +141,6 @@ function renderPalette(overrides: Partial<CommandPaletteDialogProps> = {}) {
     themePresets: HACKDESK_THEME_PRESETS,
     onSelectThemeMode: vi.fn(),
     onSelectThemePreset: vi.fn(),
-    onSwitchLocalVault: vi.fn(),
     ...overrides,
   };
 
@@ -430,90 +429,133 @@ describe('CommandPaletteDialog', () => {
     expect(onStateChange).toHaveBeenCalledWith({ mode: 'commands', open: false, search: '' });
   });
 
-  it('runs Local Vault commands based on configuration state', () => {
-    const onOpenLocalFolder = vi.fn();
-    const openLocal = renderPalette({
-      hasLocalVault: false,
-      onOpenLocalFolder,
-      state: { mode: 'commands', open: true, search: 'local' },
+  it('offers Open Local Folder until a vault is set, then Change Local Vault', () => {
+    const onRunAction = vi.fn();
+    const onStateChange = vi.fn();
+    const view = renderPalette({
+      context: { ...context, hasLocalVault: false },
+      onRunAction,
+      onStateChange,
+      state: { mode: 'commands', open: true, search: 'open local folder' },
     });
 
-    fireEvent.click(screen.getByRole('option', { name: /Open Local Folder/ }));
+    fireEvent.click(screen.getByRole('option', { name: /Open Local Folder…/ }));
 
-    expect(onOpenLocalFolder).toHaveBeenCalledOnce();
-    expect(openLocal.onStateChange).toHaveBeenCalledWith({ mode: 'commands', open: false, search: '' });
+    expect(onRunAction).toHaveBeenCalledWith('change-local-vault');
+    expect(onStateChange).toHaveBeenCalledWith({ mode: 'commands', open: false, search: '' });
+    view.rerender({ context: { ...context, hasLocalVault: true }, state: { mode: 'commands', open: true, search: 'vault' } });
+    expect(screen.getByRole('option', { name: /Change Local Vault…/ })).toBeVisible();
   });
 
-  it('switches to a configured Local Vault from the Local command', () => {
-    const onSwitchLocalVault = vi.fn();
-    const onStateChange = vi.fn();
-    renderPalette({
-      hasLocalVault: true,
-      onStateChange,
-      onSwitchLocalVault,
-      state: { mode: 'commands', open: true, search: 'vault' },
-    });
+  it('switches to a configured Local Vault from Workspaces', () => {
+    const onSelectWorkspace = vi.fn();
+    renderPalette({ onSelectWorkspace, state: { mode: 'commands', open: true, search: 'vault' } });
 
-    fireEvent.click(screen.getByRole('option', { name: /Switch to Local Vault/ }));
+    const workspaces = screen.getByRole('group', { name: 'Workspaces' });
+    fireEvent.click(within(workspaces).getByRole('option', { name: /^Local Vault/ }));
 
-    expect(onSwitchLocalVault).toHaveBeenCalledOnce();
-    expect(onStateChange).toHaveBeenCalledWith({ mode: 'commands', open: false, search: '' });
+    expect(onSelectWorkspace).toHaveBeenCalledWith(expect.objectContaining({ type: 'local' }));
+  });
+
+  it('leaves the Local Vault out of Workspaces until one is set', () => {
+    renderPalette({ hasLocalVault: false, state: { mode: 'quick-open', open: true, search: 'vault' } });
+    expect(screen.queryByRole('option', { name: /^Local Vault/ })).not.toBeInTheDocument();
   });
 
   it('tolerates typos in action commands', () => {
     renderPalette({ state: { mode: 'commands', open: true, search: 'setings' } });
-    expect(screen.getByRole('option', { name: /Open Settings/ })).toBeVisible();
+    expect(screen.getAllByRole('option', { name: /Open Settings/ })[0]).toBeVisible();
   });
 
-  it('tolerates adjacent transpositions in Local Vault commands', () => {
+  it('tolerates adjacent transpositions in workspace names', () => {
     renderPalette({ state: { mode: 'commands', open: true, search: 'vualt' } });
-    expect(screen.getByRole('option', { name: /Switch to Local Vault/ })).toBeVisible();
+    expect(screen.getByRole('option', { name: /^Local Vault/ })).toBeVisible();
   });
 
-  it('copies the current note link from current note commands', () => {
-    const onCopyCurrentNoteLink = vi.fn();
-    renderPalette({
-      onCopyCurrentNoteLink,
-      state: { mode: 'commands', open: true, search: 'copy link' },
-    });
+  it('runs note link and sharing actions, which explain when they do not apply', () => {
+    const onRunAction = vi.fn();
+    const view = renderPalette({ onRunAction, state: { mode: 'commands', open: true, search: 'copy link' } });
 
     fireEvent.click(screen.getByRole('option', { name: /Copy Note Link/ }));
+    expect(onRunAction).toHaveBeenLastCalledWith('copy-note-link');
 
-    expect(onCopyCurrentNoteLink).toHaveBeenCalledOnce();
-  });
-
-  it('copies the current note markdown link from current note commands', () => {
-    const onCopyCurrentNoteMarkdownLink = vi.fn();
-    renderPalette({
-      onCopyCurrentNoteMarkdownLink,
-      state: { mode: 'commands', open: true, search: 'markdown link' },
-    });
-
+    view.rerender({ state: { mode: 'commands', open: true, search: 'markdown link' } });
     fireEvent.click(screen.getByRole('option', { name: /Copy Markdown Link/ }));
+    expect(onRunAction).toHaveBeenLastCalledWith('copy-markdown-link');
 
-    expect(onCopyCurrentNoteMarkdownLink).toHaveBeenCalledOnce();
-  });
-
-  it('opens sharing for remote current notes only', () => {
-    const onShareCurrentNote = vi.fn();
-    renderPalette({
-      currentNoteIsRemote: true,
-      onShareCurrentNote,
-      state: { mode: 'commands', open: true, search: 'share' },
-    });
-
+    view.rerender({ state: { mode: 'commands', open: true, search: 'share' } });
     fireEvent.click(screen.getByRole('option', { name: /Share Note…/ }));
+    expect(onRunAction).toHaveBeenLastCalledWith('share-note');
 
-    expect(onShareCurrentNote).toHaveBeenCalledOnce();
+    view.rerender({ context: { ...context, scopeType: 'local' }, state: { mode: 'commands', open: true, search: 'share' } });
+    const share = screen.getByRole('option', { name: /Share Note…/ });
+    expect(share).toHaveAttribute('aria-disabled', 'true');
+    expect(share).toHaveTextContent('Sharing is only available for HackMD notes.');
   });
 
-  it('hides sharing for local current notes', () => {
-    renderPalette({
-      currentNoteIsRemote: false,
-      state: { mode: 'commands', open: true, search: 'share' },
-    });
+  it('highlights the matched part of each result title', () => {
+    renderPalette({ state: { mode: 'commands', open: true, search: 'nn' } });
 
-    expect(screen.queryByRole('option', { name: /Share Note…/ })).not.toBeInTheDocument();
+    const newNote = screen.getByRole('option', { name: /^New Note(?! from)/ });
+    expect([...newNote.querySelectorAll('mark')].map(mark => mark.textContent)).toEqual(['N', 'N']);
+  });
+
+  it('highlights Chinese and multi-word matches, and nothing without a query', () => {
+    const view = renderPalette({
+      folderTree: buildHackmdFolderTree([note({ id: 'weekly', title: '產品週會紀錄' })], []),
+      state: { mode: 'quick-open', open: true, search: '週會' },
+    });
+    expect(screen.getByRole('option', { name: /產品週會紀錄/ }).querySelector('mark')?.textContent).toBe('週會');
+
+    view.rerender({ state: { mode: 'commands', open: true, search: 'tabs right' } });
+    expect([...screen.getByRole('option', { name: /Close Tabs to Right/ }).querySelectorAll('mark')].map(mark => mark.textContent))
+      .toEqual(['Tabs', 'Right']);
+
+    view.rerender({ state: { mode: 'commands', open: true, search: '' } });
+    expect(screen.getByRole('dialog').querySelector('mark')).toBeNull();
+  });
+
+  it('opens a Settings page from the Settings group', () => {
+    const onOpenSettingsTab = vi.fn();
+    const onStateChange = vi.fn();
+    renderPalette({ onOpenSettingsTab, onStateChange, state: { mode: 'commands', open: true, search: 'settings ai' } });
+
+    fireEvent.click(screen.getByRole('option', { name: /Open Settings: AI/ }));
+
+    expect(onOpenSettingsTab).toHaveBeenCalledWith('ai');
+    expect(onStateChange).toHaveBeenCalledWith({ mode: 'commands', open: false, search: '' });
+  });
+
+  it('switches to the folder list from Move Note to Folder… without closing', () => {
+    const onRunAction = vi.fn();
+    const onStateChange = vi.fn();
+    renderPalette({ onRunAction, onStateChange, state: { mode: 'commands', open: true, search: 'move note' } });
+
+    fireEvent.click(screen.getByRole('option', { name: /Move Note to Folder…/ }));
+
+    expect(onStateChange).toHaveBeenCalledWith({ mode: 'move-note', open: true, search: '' });
+    expect(onStateChange).not.toHaveBeenCalledWith(expect.objectContaining({ open: false }));
+    expect(onRunAction).not.toHaveBeenCalled();
+  });
+
+  it('lists every folder, including Root, to move the selected note to', () => {
+    const onMoveNoteToFolder = vi.fn();
+    const onSelectFolder = vi.fn();
+    const view = renderPalette({ onMoveNoteToFolder, onSelectFolder, state: { mode: 'move-note', open: true, search: '' } });
+
+    const group = screen.getByRole('group', { name: 'Move to' });
+    expect(within(group).getAllByRole('option').map(option => option.textContent)).toEqual([
+      expect.stringContaining('Root'),
+      expect.stringContaining('Alpha Folder'),
+    ]);
+    expect(screen.queryByRole('group', { name: 'Actions' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Workspaces' })).not.toBeInTheDocument();
+
+    view.rerender({ state: { mode: 'move-note', open: true, search: 'alpha' } });
+    fireEvent.click(screen.getByRole('option', { name: /Alpha Folder/ }));
+
+    expect(onMoveNoteToFolder).toHaveBeenCalledWith(expect.objectContaining({ id: 'folder-alpha' }));
+    expect(onSelectFolder).not.toHaveBeenCalled();
   });
 
   it('keeps keyboard selection, action shortcuts, and close reset behavior', async () => {

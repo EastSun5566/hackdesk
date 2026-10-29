@@ -95,14 +95,30 @@ function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): Workb
     toggleNavigator: vi.fn(),
     toggleTheme: vi.fn(),
     toggleWorkspaceRail: vi.fn(),
+    renameNote: vi.fn(),
+    duplicateSelectedNote: vi.fn(),
+    moveNoteToFolder: vi.fn(),
+    revealNoteInFinder: vi.fn(),
+    copyNoteLink: vi.fn(),
+    copyMarkdownLink: vi.fn(),
+    shareNote: vi.fn(),
+    moveTab: vi.fn(),
+    toggleBookContents: vi.fn(),
+    closeBook: vi.fn(),
+    changeLocalVault: vi.fn(),
+    revealVaultInFinder: vi.fn(),
+    clearOfflineCopies: vi.fn(),
     ...overrides,
   };
 }
 
 function createOptions(overrides: Partial<WorkbenchActionsOptions> = {}): WorkbenchActionsOptions {
   return {
+    bookContentsHidden: false,
+    bookOpen: false,
     canCreate: true,
     canModifySelectedFolder: false,
+    hasLocalVault: false,
     editorMode: 'standard',
     handlers: createHandlers(),
     hasActiveTab: true,

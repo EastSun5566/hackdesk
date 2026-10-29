@@ -2,12 +2,15 @@ import { useContext, useMemo, useRef } from 'react';
 import { ActionShortcutContext } from './ActionShortcutContext';
 import {
   BookOpen,
+  Copy,
+  FolderInput,
   LayoutTemplate,
   FileText,
   FileArchive,
   Download,
   Folder,
   FolderOpen,
+  FolderSearch,
   FolderTree,
   FolderPlus,
   FolderPen,
@@ -20,6 +23,12 @@ import {
   Palette,
   Share2,
   Trash2,
+  PanelLeftDashed,
+  ArrowBigLeftDash,
+  ArrowBigRightDash,
+  PencilLine,
+  DatabaseZap,
+  BookX,
   Keyboard,
   MessagesSquare,
   Mic,
@@ -92,11 +101,14 @@ import type { ThemeMode, ThemePreset, ThemePresetId } from '@/lib/themes';
 
 import type { CommandPaletteState, WorkspaceScope } from './types';
 import { FOCUS_RING_CLASS } from './ui';
+import { HighlightedText } from './HighlightedText';
+import { SETTINGS_TABS, type SettingsTab } from './SettingsDialogConfig';
 import { PersonalWorkspaceIcon, TeamWorkspaceIcon } from './WorkspaceIcon';
 
 const COMMAND_ITEM_ICON_CLASS = 'mr-3 text-command-item-meta';
 const COMMAND_ITEM_TITLE_CLASS = 'block truncate font-medium text-command-item-title';
 const COMMAND_ITEM_META_CLASS = 'block truncate text-xs text-command-item-meta';
+const MOVE_NOTE_FOLDER_LIMIT = 200;
 
 const THEME_MODE_COMMANDS: Array<{
   mode: ThemeMode;
@@ -175,64 +187,13 @@ function getAccountCommands(query: string, hasHackmdApiToken: boolean) {
   return searchCommands([command], query);
 }
 
-function getLocalVaultCommands(query: string, hasLocalVault: boolean) {
-  const command = hasLocalVault
-    ? {
-        id: 'switch-local-vault' as const,
-        label: 'Switch to Local Vault',
-        description: 'Open your configured local Markdown folder.',
-        keywords: ['local', 'vault', 'folder', 'offline', 'workspace', 'switch'],
-        icon: <Folder className="h-4 w-4" />,
-      }
-    : {
-        id: 'open-local-folder' as const,
-        label: 'Open Local Folder',
-        description: 'Choose a local Markdown folder to use in HackDesk.',
-        keywords: ['local', 'vault', 'folder', 'offline', 'open', 'picker'],
-        icon: <FolderOpen className="h-4 w-4" />,
-      };
-
-  return searchCommands([command], query);
-}
-
-function getCurrentNoteCommands(query: string, {
-  currentNoteIsRemote,
-  hasCurrentNote,
-}: {
-  currentNoteIsRemote: boolean;
-  hasCurrentNote: boolean;
-}) {
-  if (!hasCurrentNote) {
-    return [];
-  }
-
-  const commands = [
-    {
-      id: 'copy-note-link' as const,
-      label: 'Copy Note Link',
-      description: 'Copy the HackMD link for the current note.',
-      keywords: ['copy', 'link', 'url', 'note', 'current', 'hackmd'],
-      icon: <Link className="h-4 w-4" />,
-    },
-    {
-      id: 'copy-markdown-link' as const,
-      label: 'Copy Markdown Link',
-      description: 'Copy a Markdown link for the current note.',
-      keywords: ['copy', 'markdown', 'link', 'note', 'current'],
-      icon: <Link className="h-4 w-4" />,
-    },
-    ...(currentNoteIsRemote
-      ? [{
-          id: 'share-note' as const,
-          label: 'Share Note…',
-          description: 'Open sharing settings for the current note.',
-          keywords: ['share', 'access', 'permission', 'note', 'current'],
-          icon: <Share2 className="h-4 w-4" />,
-        }]
-      : []),
-  ];
-
-  return searchCommands(commands, query);
+function getSettingsCommands(query: string) {
+  return searchCommands(SETTINGS_TABS.map((tab) => ({
+    ...tab,
+    label: `Open Settings: ${tab.label}`,
+    description: `Open the ${tab.label} page of Settings.`,
+    keywords: ['settings', 'preferences', 'options', tab.id],
+  })), query);
 }
 
 const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
@@ -296,6 +257,20 @@ const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'focus-navigator': <FolderTree className="h-4 w-4" />,
   'focus-editor': <PanelRight className="h-4 w-4" />,
   'focus-inspector': <PanelRightClose className="h-4 w-4" />,
+  'rename-note': <PencilLine className="h-4 w-4" />,
+  'duplicate-note': <Copy className="h-4 w-4" />,
+  'move-note-to-folder': <FolderInput className="h-4 w-4" />,
+  'reveal-note-in-finder': <FolderSearch className="h-4 w-4" />,
+  'copy-note-link': <Link className="h-4 w-4" />,
+  'copy-markdown-link': <Link className="h-4 w-4" />,
+  'share-note': <Share2 className="h-4 w-4" />,
+  'move-tab-left': <ArrowBigLeftDash className="h-4 w-4" />,
+  'move-tab-right': <ArrowBigRightDash className="h-4 w-4" />,
+  'toggle-book-contents': <PanelLeftDashed className="h-4 w-4" />,
+  'close-book': <BookX className="h-4 w-4" />,
+  'change-local-vault': <FolderOpen className="h-4 w-4" />,
+  'reveal-vault-in-finder': <FolderSearch className="h-4 w-4" />,
+  'clear-offline-copies': <DatabaseZap className="h-4 w-4" />,
 };
 
 export function CommandPaletteDialog({
@@ -308,8 +283,6 @@ export function CommandPaletteDialog({
   scope,
   selectedNoteId,
   selectedFolderId,
-  currentNoteIsRemote,
-  hasCurrentNote,
   hasHackmdApiToken,
   hasLocalVault,
   themeMode,
@@ -320,14 +293,11 @@ export function CommandPaletteDialog({
   onStateChange,
   onRunAction,
   onConnectHackmd,
-  onCopyCurrentNoteLink,
-  onCopyCurrentNoteMarkdownLink,
-  onOpenLocalFolder,
+  onMoveNoteToFolder,
+  onOpenSettingsTab,
   onRequestDisconnectHackmd,
-  onShareCurrentNote,
   onSelectThemeMode,
   onSelectThemePreset,
-  onSwitchLocalVault,
   onSelectNote,
   onSelectRecentNote,
   onSelectFolder,
@@ -343,8 +313,6 @@ export function CommandPaletteDialog({
   scope: WorkspaceScope;
   selectedNoteId: string | null;
   selectedFolderId: string | null;
-  currentNoteIsRemote: boolean;
-  hasCurrentNote: boolean;
   hasHackmdApiToken: boolean;
   hasLocalVault: boolean;
   themeMode: ThemeMode;
@@ -355,14 +323,11 @@ export function CommandPaletteDialog({
   onStateChange: (state: CommandPaletteState) => void;
   onRunAction: (actionId: ElectronActionId) => void;
   onConnectHackmd: () => void;
-  onCopyCurrentNoteLink: () => void;
-  onCopyCurrentNoteMarkdownLink: () => void;
-  onOpenLocalFolder: () => void;
+  onMoveNoteToFolder: (folder: QuickOpenFolderResult) => void;
+  onOpenSettingsTab: (tab: SettingsTab) => void;
   onRequestDisconnectHackmd: () => void;
-  onShareCurrentNote: () => void;
   onSelectThemeMode: (mode: ThemeMode) => void;
   onSelectThemePreset: (presetId: ThemePresetId) => void;
-  onSwitchLocalVault: () => void;
   onSelectNote: (entry: FolderTreeNote) => void;
   onSelectRecentNote: (entry: ElectronRecentNote) => void;
   onSelectFolder: (folder: QuickOpenFolderResult) => void;
@@ -372,42 +337,50 @@ export function CommandPaletteDialog({
   const { characterShortcutsEnabled } = useContext(ActionShortcutContext);
   const pendingContextAction = useRef<ElectronActionId | null>(null);
   const isQuickOpen = state.mode === 'quick-open';
+  const isMoveNote = state.mode === 'move-note';
+  // Searches beyond notes, folders and workspaces belong to the full palette.
+  const isCommands = state.mode === 'commands';
   const trimmedSearch = state.search.trim();
   const hasQuery = trimmedSearch.length > 0;
   const noteSearch = useMemo(
-    () => state.open ? createQuickOpenNoteSearch(folderTree, recentNotes) : null,
-    [state.open, folderTree, recentNotes],
+    () => state.open && !isMoveNote ? createQuickOpenNoteSearch(folderTree, recentNotes) : null,
+    [state.open, isMoveNote, folderTree, recentNotes],
   );
   const folderSearch = useMemo(
     () => state.open && context.scopeType !== 'history' ? createQuickOpenFolderSearch(folderTree) : null,
     [state.open, context.scopeType, folderTree],
   );
   const noteResults = useMemo(() => noteSearch?.(state.search) ?? [], [noteSearch, state.search]);
-  const folderResults = useMemo(() => folderSearch?.(state.search) ?? [], [folderSearch, state.search]);
-  const recentResults = state.open ? getQuickOpenRecentNoteResults(recentNotes, state.search) : [];
-  const workspaceResults = state.open ? getQuickOpenWorkspaceResults(teams, state.search) : [];
-  const actionResults = state.open && !isQuickOpen ? getQuickOpenActionResults(getCommandPaletteActions(), state.search) : [];
-  const accountResults = state.open && hasQuery && !isQuickOpen ? getAccountCommands(state.search, hasHackmdApiToken) : [];
-  const localVaultResults = state.open && hasQuery && !isQuickOpen ? getLocalVaultCommands(state.search, hasLocalVault) : [];
-  const currentNoteResults = state.open && hasQuery && !isQuickOpen
-    ? getCurrentNoteCommands(state.search, { currentNoteIsRemote, hasCurrentNote })
+  // Moving lists every folder; searching shows the best few.
+  const folderResults = useMemo(
+    () => folderSearch?.(state.search, isMoveNote ? MOVE_NOTE_FOLDER_LIMIT : undefined) ?? [],
+    [folderSearch, isMoveNote, state.search],
+  );
+  const recentResults = state.open && !isMoveNote ? getQuickOpenRecentNoteResults(recentNotes, state.search) : [];
+  const workspaceResults = state.open && !isMoveNote ? getQuickOpenWorkspaceResults(teams, state.search, undefined, hasLocalVault) : [];
+  const actionResults = state.open && isCommands
+    ? getQuickOpenActionResults(getCommandPaletteActions(), state.search, undefined, (action) => getActionLabel(action, context))
     : [];
-  const themeModeResults = state.open && hasQuery && !isQuickOpen ? getThemeModeCommands(state.search, themeMode) : [];
-  const themePresetResults = state.open && hasQuery && !isQuickOpen
+  const accountResults = state.open && hasQuery && isCommands ? getAccountCommands(state.search, hasHackmdApiToken) : [];
+  const settingsResults = state.open && hasQuery && isCommands ? getSettingsCommands(state.search) : [];
+  const themeModeResults = state.open && hasQuery && isCommands ? getThemeModeCommands(state.search, themeMode) : [];
+  const themePresetResults = state.open && hasQuery && isCommands
     ? getThemePresetCommands(state.search, themePresets, themePresetId)
     : [];
   const hasAccountResults = accountResults.length > 0;
-  const hasLocalVaultResults = localVaultResults.length > 0;
-  const hasCurrentNoteResults = currentNoteResults.length > 0;
   const hasAppearanceResults = themeModeResults.length > 0 || themePresetResults.length > 0;
-  const showFinderAction = !isQuickOpen && shouldShowFinderQuickAction(state.search);
-  const dialogTitle = isQuickOpen ? 'Quick Open' : 'Command Palette';
+  const showFinderAction = isCommands && shouldShowFinderQuickAction(state.search);
+  const dialogTitle = isQuickOpen ? 'Quick Open' : isMoveNote ? 'Move Note to Folder' : 'Command Palette';
   const dialogDescription = isQuickOpen
     ? 'Search notes, folders, and workspaces.'
-    : 'Search notes, folders, workspaces, and commands.';
+    : isMoveNote
+      ? 'Choose the folder to move the selected note to.'
+      : 'Search notes, folders, workspaces, and commands.';
   const searchLabel = isQuickOpen
     ? 'Search notes, folders, and workspaces'
-    : 'Search notes, folders, and commands';
+    : isMoveNote
+      ? 'Search folders'
+      : 'Search notes, folders, and commands';
 
   const closePalette = () => onStateChange({ mode: 'commands', open: false, search: '' });
 
@@ -446,7 +419,7 @@ export function CommandPaletteDialog({
             )}
           />
           <CommandList className="overscroll-contain">
-            <CommandEmpty>{isQuickOpen ? 'No notes, folders, or workspaces found.' : 'No commands found.'}</CommandEmpty>
+            <CommandEmpty>{isQuickOpen ? 'No notes, folders, or workspaces found.' : isMoveNote ? 'No folders found.' : 'No commands found.'}</CommandEmpty>
             {!hasQuery && recentResults.length > 0 ? (
               <CommandGroup heading="Recent Notes">
                 {recentResults.map((entry) => {
@@ -503,8 +476,8 @@ export function CommandPaletteDialog({
                     >
                       <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}><FileText className="h-4 w-4" /></span>
                       <span className="min-w-0 flex-1">
-                        <span className={COMMAND_ITEM_TITLE_CLASS}>{entry.note.title || 'Untitled'}</span>
-                        <span className={COMMAND_ITEM_META_CLASS}>{metadata}</span>
+                        <span className={COMMAND_ITEM_TITLE_CLASS}><HighlightedText text={entry.note.title || 'Untitled'} query={trimmedSearch} /></span>
+                        <span className={COMMAND_ITEM_META_CLASS}><HighlightedText text={metadata} query={trimmedSearch} acronym={false} /></span>
                       </span>
                       {selectedNoteId === entry.note.id ? (
                         <span className="ml-auto inline-flex shrink-0 items-center text-primary-default">
@@ -518,25 +491,26 @@ export function CommandPaletteDialog({
               </CommandGroup>
             ) : null}
 
-            {hasQuery && folderResults.length > 0 ? (
-              <CommandGroup heading="Folders">
+            {(hasQuery || isMoveNote) && folderResults.length > 0 ? (
+              <CommandGroup heading={isMoveNote ? 'Move to' : 'Folders'}>
                 {folderResults.map((folder) => (
                   <CommandItem
                     key={`folder:${folder.id}`}
                     value={`folder ${folder.label}`}
                     onSelect={() => {
-                      onSelectFolder(folder);
+                      if (isMoveNote) onMoveNoteToFolder(folder);
+                      else onSelectFolder(folder);
                       closePalette();
                     }}
                   >
                     <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}><Folder className="h-4 w-4" /></span>
                     <span className="min-w-0 flex-1">
-                      <span className={COMMAND_ITEM_TITLE_CLASS}>{folder.name}</span>
+                      <span className={COMMAND_ITEM_TITLE_CLASS}><HighlightedText text={folder.name} query={trimmedSearch} /></span>
                       <span className={COMMAND_ITEM_META_CLASS}>
                         {folder.label}{folder.noteCount > 0 ? ` · ${folder.noteCount} ${folder.noteCount === 1 ? 'note' : 'notes'}` : ''}
                       </span>
                     </span>
-                    {selectedFolderId === folder.id ? (
+                    {!isMoveNote && selectedFolderId === folder.id ? (
                       <span className="ml-auto inline-flex shrink-0 items-center text-primary-default">
                         <Check aria-hidden="true" className="h-4 w-4" />
                         <span className="sr-only">Current folder</span>
@@ -568,13 +542,15 @@ export function CommandPaletteDialog({
                       <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}>
                         {workspace.type === 'history'
                           ? <History className="h-4 w-4" />
-                          : team
+                          : workspace.type === 'local'
+                            ? <Folder className="h-4 w-4" />
+                            : team
                             ? <TeamWorkspaceIcon team={team} className="size-5" testId={`command-palette-team-logo-${team.id}`} />
                             : <PersonalWorkspaceIcon user={user} className="size-5" testId="command-palette-personal-avatar" />}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className={COMMAND_ITEM_TITLE_CLASS}>{workspace.label}</span>
-                        <span className={COMMAND_ITEM_META_CLASS}>{workspace.description}</span>
+                        <span className={COMMAND_ITEM_TITLE_CLASS}><HighlightedText text={workspace.label} query={trimmedSearch} /></span>
+                        <span className={COMMAND_ITEM_META_CLASS}><HighlightedText text={workspace.description} query={trimmedSearch} acronym={false} /></span>
                       </span>
                       {selected ? (
                         <span className="ml-auto inline-flex shrink-0 items-center text-primary-default">
@@ -605,8 +581,8 @@ export function CommandPaletteDialog({
                           return;
                         }
 
-                        if (action.id === 'open-quick-open') {
-                          onStateChange({ mode: 'quick-open', open: true, search: '' });
+                        if (action.id === 'open-quick-open' || action.id === 'move-note-to-folder') {
+                          onStateChange({ mode: action.id === 'open-quick-open' ? 'quick-open' : 'move-note', open: true, search: '' });
                           return;
                         }
 
@@ -620,43 +596,15 @@ export function CommandPaletteDialog({
                     >
                       <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}>{ACTION_ICONS[action.id]}</span>
                       <span className="min-w-0 flex-1">
-                        <span className={COMMAND_ITEM_TITLE_CLASS}>{actionLabel}</span>
+                        <span className={COMMAND_ITEM_TITLE_CLASS}><HighlightedText text={actionLabel} query={trimmedSearch} /></span>
                         <span className={COMMAND_ITEM_META_CLASS}>
-                          {disabledReason ?? action.description}
+                          {disabledReason ?? <HighlightedText text={action.description} query={trimmedSearch} acronym={false} />}
                         </span>
                       </span>
                       {shortcut ? <CommandShortcut>{shortcut}</CommandShortcut> : null}
                     </CommandItem>
                   );
                 })}
-              </CommandGroup>
-            ) : null}
-
-            {hasCurrentNoteResults ? (
-              <CommandGroup heading="Current Note">
-                {currentNoteResults.map((command) => (
-                  <CommandItem
-                    key={`current-note:${command.id}`}
-                    value={`${command.label} ${command.description} ${command.keywords.join(' ')}`}
-                    onSelect={() => {
-                      if (command.id === 'copy-note-link') {
-                        onCopyCurrentNoteLink();
-                      } else if (command.id === 'copy-markdown-link') {
-                        onCopyCurrentNoteMarkdownLink();
-                      } else {
-                        onShareCurrentNote();
-                      }
-
-                      closePalette();
-                    }}
-                  >
-                    <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}>{command.icon}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className={COMMAND_ITEM_TITLE_CLASS}>{command.label}</span>
-                      <span className={COMMAND_ITEM_META_CLASS}>{command.description}</span>
-                    </span>
-                  </CommandItem>
-                ))}
               </CommandGroup>
             ) : null}
 
@@ -678,7 +626,7 @@ export function CommandPaletteDialog({
                   >
                     <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}>{command.icon}</span>
                     <span className="min-w-0 flex-1">
-                      <span className={COMMAND_ITEM_TITLE_CLASS}>{command.label}</span>
+                      <span className={COMMAND_ITEM_TITLE_CLASS}><HighlightedText text={command.label} query={trimmedSearch} /></span>
                       <span className={COMMAND_ITEM_META_CLASS}>{command.description}</span>
                     </span>
                   </CommandItem>
@@ -686,25 +634,20 @@ export function CommandPaletteDialog({
               </CommandGroup>
             ) : null}
 
-            {hasLocalVaultResults ? (
-              <CommandGroup heading="Local">
-                {localVaultResults.map((command) => (
+            {settingsResults.length > 0 ? (
+              <CommandGroup heading="Settings">
+                {settingsResults.map((command) => (
                   <CommandItem
-                    key={`local:${command.id}`}
+                    key={`settings:${command.id}`}
                     value={`${command.label} ${command.description} ${command.keywords.join(' ')}`}
                     onSelect={() => {
-                      if (command.id === 'open-local-folder') {
-                        onOpenLocalFolder();
-                      } else {
-                        onSwitchLocalVault();
-                      }
-
                       closePalette();
+                      onOpenSettingsTab(command.id);
                     }}
                   >
                     <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}>{command.icon}</span>
                     <span className="min-w-0 flex-1">
-                      <span className={COMMAND_ITEM_TITLE_CLASS}>{command.label}</span>
+                      <span className={COMMAND_ITEM_TITLE_CLASS}><HighlightedText text={command.label} query={trimmedSearch} /></span>
                       <span className={COMMAND_ITEM_META_CLASS}>{command.description}</span>
                     </span>
                   </CommandItem>
@@ -730,7 +673,7 @@ export function CommandPaletteDialog({
                   >
                     <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}>{command.icon}</span>
                     <span className="min-w-0 flex-1">
-                      <span className={COMMAND_ITEM_TITLE_CLASS}>{command.label}</span>
+                      <span className={COMMAND_ITEM_TITLE_CLASS}><HighlightedText text={command.label} query={trimmedSearch} /></span>
                       <span className={COMMAND_ITEM_META_CLASS}>
                         {command.active ? 'Current appearance · Already active' : command.description}
                       </span>
@@ -759,7 +702,7 @@ export function CommandPaletteDialog({
                   >
                     <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}><Palette className="h-4 w-4" /></span>
                     <span className="min-w-0 flex-1">
-                      <span className={COMMAND_ITEM_TITLE_CLASS}>{command.label}</span>
+                      <span className={COMMAND_ITEM_TITLE_CLASS}><HighlightedText text={command.label} query={trimmedSearch} /></span>
                       <span className={COMMAND_ITEM_META_CLASS}>
                         {command.active ? 'Current theme · Already active' : command.description}
                       </span>

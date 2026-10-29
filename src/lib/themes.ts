@@ -1051,6 +1051,8 @@ function resolveCommandPaletteTokens(theme: ResolvedHackDeskTheme): ResolvedHack
     '--command-placeholder': ensureContrast(theme['--text-subtle'], background, 4.5),
     '--command-selected-title': ensureContrast(theme['--text-default'], selectedBackground, 4.5),
     '--command-selected-meta': ensureContrast(theme['--text-subtle'], selectedBackground, 4.5),
+    '--command-item-match': ensureContrast(theme['--primary-default'], background, 4.5),
+    '--command-selected-match': ensureContrast(theme['--primary-default'], selectedBackground, 4.5),
   };
 }
 
@@ -1099,7 +1101,9 @@ function ensureContrast(value: string | undefined, background: string | undefine
     return value ?? '';
   }
 
-  const target = luminance(background) > luminance(value) ? '#000000' : '#FFFFFF';
+  // Move toward whichever extreme stands out from the background, even when the color is lighter
+  // than a light background (an accent of #FFFFFF on #FDFDFD).
+  const target = contrastRatio('#000000', background) >= contrastRatio('#FFFFFF', background) ? '#000000' : '#FFFFFF';
   for (let weight = 95; weight >= 0; weight -= 5) {
     const candidate = mix(value, target, weight);
     if (contrastRatio(candidate, background) >= minRatio) {

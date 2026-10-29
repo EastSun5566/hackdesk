@@ -14,7 +14,8 @@ export type WorkspaceScope =
   | { type: 'team'; label: string; teamPath: string };
 
 export type CommandPaletteState = {
-  mode: 'commands' | 'quick-open';
+  /** move-note lists folders for the selected note instead of searching. */
+  mode: 'commands' | 'quick-open' | 'move-note';
   open: boolean;
   search: string;
 };

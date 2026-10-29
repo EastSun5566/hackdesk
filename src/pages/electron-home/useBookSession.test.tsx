@@ -121,6 +121,8 @@ describe('BookContents', () => {
       book: { title: 'Handbook', contents: { nodes: [], chapters: [] } },
       open: vi.fn(),
       close: vi.fn(),
+      contentsHidden: false,
+      toggleContents: vi.fn(),
       openChapter: vi.fn(),
       positionOf: vi.fn(),
       ...overrides,
@@ -155,6 +157,23 @@ describe('BookContents', () => {
     rerender(<ChapterNav session={open} position={{ isBook: false, chapterIndex: 1 }} />);
     expect(screen.getByRole('button', { name: 'Previous chapter: Setup' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Next chapter: Docs' })).toBeTruthy();
+  });
+
+  it('hides the contents until toggled back, and shows them again for a reopened book', async () => {
+    installApi();
+    const { result } = await setup();
+    expect(result.current.contentsHidden).toBe(false);
+
+    act(() => result.current.toggleContents());
+    expect(result.current.contentsHidden).toBe(true);
+    act(() => result.current.toggleContents());
+    expect(result.current.contentsHidden).toBe(false);
+
+    act(() => result.current.toggleContents());
+    act(() => result.current.close());
+    expect(result.current.contentsHidden).toBe(false);
+    act(() => result.current.open(BOOK));
+    expect(result.current.contentsHidden).toBe(false);
   });
 
   it('explains an empty book', () => {
