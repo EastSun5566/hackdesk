@@ -9,6 +9,7 @@
 @theme inline {
   --color-command-item-title: var(--command-item-title);
   --color-command-item-meta: var(--command-item-meta);
+  --color-command-item-match: var(--command-item-match);
   --color-command-placeholder: var(--command-placeholder);
 }
 

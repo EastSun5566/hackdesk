@@ -59,4 +59,22 @@ describe('fuzzySearch', () => {
 
     expect(fuzzySearch(items, 'new note', options).map((item) => item.label)).toEqual(['New Note']);
   });
+
+  it('finds title words in any order, but not words spread into metadata', () => {
+    const items = [
+      { label: 'Close Tabs to Right' },
+      { label: 'Close Other Tabs' },
+      { label: 'Notes', keywords: ['right'] },
+    ];
+
+    expect(fuzzySearch(items, 'tabs right', options).map((item) => item.label)).toEqual(['Close Tabs to Right']);
+    expect(fuzzySearch(items, 'notes right', options)).toEqual([]);
+  });
+
+  it('finds letters that start words', () => {
+    const items = [{ label: 'Nano' }, { label: 'New Note' }, { label: 'Close Tabs to Right' }];
+
+    expect(fuzzySearch(items, 'nn', options).map((item) => item.label)).toEqual(['New Note']);
+    expect(fuzzySearch(items, 'ctr', options).map((item) => item.label)).toEqual(['Close Tabs to Right']);
+  });
 });

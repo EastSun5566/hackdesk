@@ -15,6 +15,9 @@ export type BookSession = {
   book: { title: string; contents: Book } | null;
   open: (document: DocumentSummary) => void;
   close: () => void;
+  /** Whether the reader hid the contents beside the book; they show again when it reopens. */
+  contentsHidden: boolean;
+  toggleContents: () => void;
   openChapter: (index: number) => void;
   positionOf: (document: DocumentSummary | undefined) => BookPosition | null;
 };
@@ -101,6 +104,11 @@ export function useBookSession({ document, openNoteTarget, openExternal }: {
   }, []);
 
   const close = useCallback(() => setState(null), []);
+  const [hiddenFor, setHiddenFor] = useState<Book | null>(null);
+  const contentsHidden = state !== null && hiddenFor === state.contents;
+  const toggleContents = useCallback(() => {
+    setHiddenFor(hidden => (state && hidden !== state.contents ? state.contents : null));
+  }, [state]);
 
   const openChapter = useCallback((index: number) => {
     if (!state) return;
@@ -145,9 +153,11 @@ export function useBookSession({ document, openNoteTarget, openExternal }: {
     book: state ? { title: state.document.title || 'Untitled book', contents: state.contents } : null,
     open,
     close,
+    contentsHidden,
+    toggleContents,
     openChapter,
     positionOf,
-  }), [close, open, openChapter, positionOf, state]);
+  }), [close, contentsHidden, open, openChapter, positionOf, state, toggleContents]);
 }
 
 export const BookSessionContext = createContext<BookSession | null>(null);

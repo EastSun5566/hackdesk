@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, ExternalLink, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
-import { useState, type KeyboardEvent } from 'react';
+import type { KeyboardEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
 import type { BookNode } from '@/lib/book';
@@ -65,12 +65,10 @@ function BookTree({ nodes, session, current }: { nodes: BookNode[]; session: Ope
 
 /** The open book's table of contents, beside the book or one of its chapters. */
 export function BookContents({ session, position }: { session: OpenBookSession; position: BookPosition }) {
-  const [collapsed, setCollapsed] = useState(false);
-
-  if (collapsed) {
+  if (session.contentsHidden) {
     return (
       <div className="shrink-0 border-r border-border-default bg-background-muted p-1.5">
-        <ToolbarIconButton label="Show book contents" onClick={() => setCollapsed(false)}>
+        <ToolbarIconButton label="Show book contents" actionId="toggle-book-contents" onClick={session.toggleContents}>
           <PanelLeftOpen aria-hidden="true" className="h-4 w-4" />
         </ToolbarIconButton>
       </div>
@@ -86,10 +84,10 @@ export function BookContents({ session, position }: { session: OpenBookSession; 
         actionsLabel="Book actions"
         actions={(
           <>
-            <ToolbarIconButton label="Hide book contents" onClick={() => setCollapsed(true)}>
+            <ToolbarIconButton label="Hide book contents" actionId="toggle-book-contents" onClick={session.toggleContents}>
               <PanelLeftClose aria-hidden="true" className="h-4 w-4" />
             </ToolbarIconButton>
-            <ToolbarIconButton label="Close book" onClick={session.close}>
+            <ToolbarIconButton label="Close book" actionId="close-book" onClick={session.close}>
               <X aria-hidden="true" className="h-4 w-4" />
             </ToolbarIconButton>
           </>

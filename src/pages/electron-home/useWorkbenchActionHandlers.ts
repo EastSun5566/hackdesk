@@ -4,6 +4,7 @@ import { toast } from '@/components/ui/toast';
 import type {
   DocumentSummary,
   HackDeskElectronAPI,
+  NoteSummary,
 } from '@/lib/electron-api';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import type { EditorMode } from '@/lib/settings';
@@ -13,6 +14,7 @@ import { isDraftNoteTab, type OpenNoteTab } from './note-workspace';
 import type { BookSession } from './useBookSession';
 import type { ElectronFocusZone } from './useElectronFocusZones';
 import {
+  clearOfflineCopies,
   exportDebugLogs,
   openHackmdWebEditor,
   type WorkbenchActionHandlers,
@@ -20,6 +22,7 @@ import {
 
 export type WorkbenchActionHandlersOptions = {
   activePaneId: string;
+  activePaneTabIds: string[];
   activeTab: OpenNoteTab | null;
   api?: HackDeskElectronAPI;
   book: BookSession;
@@ -75,10 +78,20 @@ export type WorkbenchActionHandlersOptions = {
   toggleTheme: () => void;
   toggleWorkspaceRail: () => void;
   trackRecentNote: (note: DocumentSummary) => void;
+  chooseLocalVault: () => void;
+  copyNoteLink: (note: NoteSummary) => void;
+  copyNoteMarkdownLink: (note: NoteSummary) => void;
+  duplicateNote: (note: NoteSummary) => void;
+  openMoveNotePicker: () => void;
+  openShare: () => void;
+  reorderTab: (paneId: string, tabId: string, overTabId: string) => void;
+  revealLocalNote: (note: NoteSummary) => void;
+  revealLocalVault: () => Promise<void>;
 };
 
 export function useWorkbenchActionHandlers({
   activePaneId,
+  activePaneTabIds,
   activeTab,
   api,
   book,
@@ -134,6 +147,15 @@ export function useWorkbenchActionHandlers({
   toggleTheme,
   toggleWorkspaceRail,
   trackRecentNote,
+  chooseLocalVault,
+  copyNoteLink,
+  copyNoteMarkdownLink,
+  duplicateNote,
+  openMoveNotePicker,
+  openShare,
+  reorderTab,
+  revealLocalNote,
+  revealLocalVault,
 }: WorkbenchActionHandlersOptions): WorkbenchActionHandlers {
   return useMemo<WorkbenchActionHandlers>(() => ({
     closeActiveTab: () => {
@@ -276,6 +298,42 @@ export function useWorkbenchActionHandlers({
     toggleNavigator,
     toggleTheme,
     toggleWorkspaceRail,
+    renameNote: () => {
+      // After the palette or menu that ran this has handed focus back.
+      window.requestAnimationFrame(() => {
+        const title = document.querySelector<HTMLInputElement>('[data-active-pane="true"] input[name="title"]');
+        title?.focus();
+        title?.select();
+      });
+    },
+    duplicateSelectedNote: () => {
+      if (selectedDocument) duplicateNote(selectedDocument);
+    },
+    moveNoteToFolder: openMoveNotePicker,
+    revealNoteInFinder: () => {
+      if (selectedDocument) revealLocalNote(selectedDocument);
+    },
+    copyNoteLink: () => {
+      if (selectedDocument) copyNoteLink(selectedDocument);
+    },
+    copyMarkdownLink: () => {
+      if (selectedDocument) copyNoteMarkdownLink(selectedDocument);
+    },
+    shareNote: openShare,
+    moveTab: (step) => {
+      const index = activeTab ? activePaneTabIds.indexOf(activeTab.tabId) : -1;
+      const overTabId = index >= 0 ? activePaneTabIds[index + step] : undefined;
+      if (activeTab && overTabId) reorderTab(activePaneId, activeTab.tabId, overTabId);
+    },
+    toggleBookContents: book.toggleContents,
+    closeBook: book.close,
+    changeLocalVault: chooseLocalVault,
+    revealVaultInFinder: () => {
+      void revealLocalVault().catch((error) => {
+        toast.error(error instanceof Error ? error.message : 'Failed to reveal the local vault.');
+      });
+    },
+    clearOfflineCopies: () => clearOfflineCopies(api),
   }), [
     activePaneId,
     activeTab,
@@ -333,5 +391,15 @@ export function useWorkbenchActionHandlers({
     toggleTheme,
     toggleWorkspaceRail,
     trackRecentNote,
+    activePaneTabIds,
+    chooseLocalVault,
+    copyNoteLink,
+    copyNoteMarkdownLink,
+    duplicateNote,
+    openMoveNotePicker,
+    openShare,
+    reorderTab,
+    revealLocalNote,
+    revealLocalVault,
   ]);
 }

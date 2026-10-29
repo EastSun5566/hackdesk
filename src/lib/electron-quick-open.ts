@@ -28,6 +28,12 @@ export type QuickOpenWorkspaceResult =
     description: string;
   }
   | {
+    id: 'local';
+    type: 'local';
+    label: string;
+    description: string;
+  }
+  | {
     id: `team:${string}`;
     type: 'team';
     label: string;
@@ -149,7 +155,12 @@ export function getQuickOpenRecentNoteResults(recentNotes: ElectronRecentNote[],
   return recentNotes.slice(0, limit);
 }
 
-export function getQuickOpenWorkspaceResults(teams: TeamSummary[], query: string, limit = QUICK_OPEN_RESULT_LIMIT): QuickOpenWorkspaceResult[] {
+export function getQuickOpenWorkspaceResults(
+  teams: TeamSummary[],
+  query: string,
+  limit = QUICK_OPEN_RESULT_LIMIT,
+  hasLocalVault = false,
+): QuickOpenWorkspaceResult[] {
   const workspaces: QuickOpenWorkspaceResult[] = [
     {
       id: 'personal',
@@ -163,6 +174,12 @@ export function getQuickOpenWorkspaceResults(teams: TeamSummary[], query: string
       label: 'History',
       description: 'Recently visited HackMD notes',
     },
+    ...(hasLocalVault ? [{
+      id: 'local',
+      type: 'local',
+      label: 'Local Vault',
+      description: 'Markdown files in your local folder',
+    } satisfies QuickOpenWorkspaceResult] : []),
     ...teams.map((team): QuickOpenWorkspaceResult => ({
       id: `team:${team.path}`,
       type: 'team',
@@ -181,11 +198,17 @@ export function getQuickOpenWorkspaceResults(teams: TeamSummary[], query: string
   }).slice(0, limit);
 }
 
-export function getQuickOpenActionResults(actions: ElectronActionDefinition[], query: string, limit = QUICK_OPEN_RESULT_LIMIT) {
+export function getQuickOpenActionResults(
+  actions: ElectronActionDefinition[],
+  query: string,
+  limit = QUICK_OPEN_RESULT_LIMIT,
+  // The label shown now, such as Show Book Contents, which can differ from the action's default.
+  labelOf: (action: ElectronActionDefinition) => string = (action) => action.label,
+) {
   const normalizedQuery = normalizeQuery(query);
   const results = normalizedQuery
     ? fuzzySearch(actions, normalizedQuery, {
-        primary: (action) => action.label,
+        primary: (action) => [action.label, labelOf(action)],
         secondary: (action) => [action.description, action.category, ...action.keywords],
       })
     : actions.filter((action) => action.category === 'create' || action.category === 'note' || action.category === 'folder' || action.category === 'view');

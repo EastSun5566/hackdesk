@@ -1750,7 +1750,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands…'), {
       target: { value: 'vim editor mode' },
     });
-    fireEvent.click(await within(palette).findByText('Use Vim Editor Mode'));
+    fireEvent.click(await within(palette).findByRole('option', { name: /^Use Vim Editor Mode/ }));
 
     await waitFor(() => expect(api.settings.update).toHaveBeenCalledWith({
       title: 'HackDesk',
@@ -1790,7 +1790,7 @@ describe('Home native-feel behavior', () => {
 
     const palette = await screen.findByRole('dialog', { name: 'Quick Open' });
     fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and workspaces…'), { target: { value: 'design' } });
-    fireEvent.click(await within(palette).findByText('Design Spec'));
+    fireEvent.click(await within(palette).findByRole('option', { name: /^Design Spec/ }));
 
     expect(screen.queryByRole('dialog', { name: 'Quick Open' })).not.toBeInTheDocument();
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
@@ -2395,7 +2395,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
     fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands…'), { target: { value: 'design' } });
-    fireEvent.click(await within(palette).findByText('Design Spec'));
+    fireEvent.click(await within(palette).findByRole('option', { name: /^Design Spec/ }));
 
     expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
     expect(api.app.confirm).not.toHaveBeenCalled();
@@ -2420,7 +2420,7 @@ describe('Home native-feel behavior', () => {
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
     fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands…'), { target: { value: 'Projects' } });
-    fireEvent.click(await within(palette).findByText('Projects'));
+    fireEvent.click(await within(palette).findByRole('option', { name: /^Projects/ }));
 
     await selectCurrentFolderScope();
 
@@ -2446,7 +2446,8 @@ describe('Home native-feel behavior', () => {
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
     fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands…'), { target: { value: 'Root' } });
-    fireEvent.click(await within(palette).findByText('Root'));
+    const folders = await within(palette).findByRole('group', { name: 'Folders' });
+    fireEvent.click(within(folders).getByRole('option', { name: /^Root/ }));
 
     await selectCurrentFolderScope();
 
@@ -2770,7 +2771,7 @@ describe('Home native-feel behavior', () => {
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
     fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands…'), { target: { value: 'history' } });
-    fireEvent.click(await within(palette).findByText('Go to History'));
+    fireEvent.click(await within(palette).findByRole('option', { name: /^Go to History/ }));
 
     await waitFor(() => expect(api.hackmd.listHistory).toHaveBeenCalledWith(40));
     expect(await screen.findByText('No history yet')).toBeInTheDocument();

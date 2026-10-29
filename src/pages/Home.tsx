@@ -19,6 +19,8 @@ import { useTheme } from '@/components/theme-provider';
 import { getDesktopAPI } from '@/lib/desktop-api';
 import type { FolderSummary } from '@/lib/electron-api';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
+import { getNoteCurrentFolderId } from '@/lib/hackmd-note-dnd';
+import type { QuickOpenFolderResult } from '@/lib/electron-quick-open';
 import { defaultSettings } from '@/lib/settings';
 
 import { ElectronHomeOverlays } from './electron-home/ElectronHomeOverlays';
@@ -587,8 +589,21 @@ export function Home() {
     visibleEntries,
   });
 
+  const activePaneTabIds = noteWorkspace.state.panes.find(pane => pane.paneId === noteWorkspace.state.activePaneId)?.tabIds ?? [];
   const actionHandlers = useWorkbenchActionHandlers({
+    activePaneTabIds,
     book: bookSession,
+    chooseLocalVault: () => {
+      void localVaultActions.chooseLocalVault();
+    },
+    copyNoteLink: handleCopyNoteLink,
+    copyNoteMarkdownLink: handleCopyNoteMarkdownLink,
+    duplicateNote: handleDuplicateNote,
+    openMoveNotePicker: () => setPalette({ mode: 'move-note', open: true, search: '' }),
+    openShare: () => setShareOpen(true),
+    reorderTab: noteWorkspace.reorderTab,
+    revealLocalNote: localVaultActions.revealLocalNote,
+    revealLocalVault: localVaultActions.openLocalVault,
     openKeyboardShortcuts,
     focusNextRegion: focusNextZone,
     activePaneId: noteWorkspace.state.activePaneId,
@@ -668,7 +683,10 @@ export function Home() {
   });
 
   const { actionContext, runAction } = useWorkbenchActions({
+    bookContentsHidden: bookSession.contentsHidden,
+    bookOpen: bookSession.book !== null,
     canCreate,
+    hasLocalVault: hasConfiguredLocalVault,
     canModifySelectedFolder,
     editorMode: settings?.editor?.mode ?? defaultSettings.editor.mode,
     hasActiveTab: Boolean(activeTab),
@@ -749,6 +767,20 @@ export function Home() {
   const openHackmdTokenSetup = useCallback(() => {
     setOnboardingOpen(true);
   }, [setOnboardingOpen]);
+  const openSettingsTab = useCallback((tab: SettingsTab) => {
+    setSettingsInitialTab(tab);
+    setSettingsOpenState(true);
+  }, [setSettingsOpenState]);
+  const { handleNoteMove } = workbenchNavigator;
+  const moveSelectedNoteToFolder = useCallback((folder: QuickOpenFolderResult) => {
+    const entry = folderTree.allNotes.find(candidate => candidate.note.id === selectedNote?.id);
+    if (!entry) {
+      toast.info('Select a note in this workspace first.');
+      return;
+    }
+    const targetFolderId = folder.id === UNFILED_FOLDER_ID ? null : folder.id;
+    handleNoteMove({ note: entry, targetFolderId, changed: getNoteCurrentFolderId(entry) !== targetFolderId });
+  }, [folderTree.allNotes, handleNoteMove, selectedNote?.id]);
 
   const workspaceNavigation = useMemo(() => getWorkspaceNavigationTeams(
     teams,
@@ -915,26 +947,11 @@ export function Home() {
       onSelectThemePreset: setPresetId,
     },
     commandPaletteUtilities: {
-      currentNoteIsRemote: Boolean(selectedDocument && selectedDocument.teamPath !== LOCAL_VAULT_TEAM_PATH),
-      hasCurrentNote: Boolean(selectedDocument),
       hasHackmdApiToken: settings?.hasHackmdApiToken === true,
       hasLocalVault: hasConfiguredLocalVault,
       onConnectHackmd: openHackmdTokenSetup,
-      onCopyCurrentNoteLink: () => {
-        if (selectedDocument) {
-          handleCopyNoteLink(selectedDocument);
-        }
-      },
-      onCopyCurrentNoteMarkdownLink: () => {
-        if (selectedDocument) {
-          handleCopyNoteMarkdownLink(selectedDocument);
-        }
-      },
-      onOpenLocalFolder: () => {
-        void localVaultActions.chooseLocalVault();
-      },
-      onShareCurrentNote: () => setShareOpen(true),
-      onSwitchLocalVault: () => switchWorkspaceScope({ type: 'local', label: 'Local Vault' }),
+      onMoveNoteToFolder: moveSelectedNoteToFolder,
+      onOpenSettingsTab: openSettingsTab,
     },
     dialogState,
     displayScope,

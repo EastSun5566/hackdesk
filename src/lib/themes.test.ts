@@ -73,10 +73,10 @@ describe('HackDesk themes', () => {
           const theme = resolveHackDeskTheme({ presetId: preset.id, mode, customSeed });
           const background = theme['--background-default'];
           const selected = paintedSurface(theme['--background-selected'], background);
-          for (const token of ['--command-item-title', '--command-item-meta', '--command-placeholder']) {
+          for (const token of ['--command-item-title', '--command-item-meta', '--command-placeholder', '--command-item-match']) {
             expectContrast(theme[token], background, 4.5, token);
           }
-          for (const token of ['--command-selected-title', '--command-selected-meta']) {
+          for (const token of ['--command-selected-title', '--command-selected-meta', '--command-selected-match']) {
             expectContrast(theme[token], selected, 4.5, token);
           }
         }

@@ -22,6 +22,7 @@ export type ElectronActionContext = {
   isSavingNote: boolean;
   openTabCount: number;
   activePaneTabCount: number;
+  activePaneTabsToLeftCount: number;
   activePaneTabsToRightCount: number;
   navigationBackCount: number;
   navigationForwardCount: number;
@@ -30,6 +31,9 @@ export type ElectronActionContext = {
   inspectorCollapsed: boolean;
   navigatorCollapsed: boolean;
   workspaceRailCollapsed: boolean;
+  bookOpen: boolean;
+  bookContentsHidden: boolean;
+  hasLocalVault: boolean;
 };
 
 export type ElectronActionWhen = (context: ElectronActionContext) => boolean;
@@ -87,6 +91,27 @@ function requireHackmdNote(context: ElectronActionContext) {
   if (!context.selectedNoteId) return 'Select a note first.';
   if (context.scopeType === 'local') return 'Version history is only available for HackMD notes.';
   return requireHackmd(context);
+}
+
+function requireLocalNote(context: ElectronActionContext) {
+  if (!context.selectedNoteId) return 'Select a note first.';
+  return context.scopeType === 'local' ? null : 'Only Local Vault notes are files on this computer.';
+}
+
+function requireMovableNote(context: ElectronActionContext) {
+  return requireSelectedNote(context) ?? requireWritableWorkspace(context);
+}
+
+function requireBook(context: ElectronActionContext) {
+  return context.bookOpen ? null : 'Open a book first.';
+}
+
+function requireLocalVault(context: ElectronActionContext) {
+  return context.hasLocalVault ? null : 'Open a local folder first.';
+}
+
+function requireTabsToLeft(context: ElectronActionContext) {
+  return requireOpenTab(context) ?? (context.activePaneTabsToLeftCount > 0 ? null : 'No tabs to the left in this pane.');
 }
 
 function requireOpenTab(context: ElectronActionContext) {
@@ -397,6 +422,91 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     getDisabledReason: requireSelectedNote,
   },
   {
+    id: 'rename-note',
+    label: 'Rename Note',
+    description: 'Edit the title of the note in the active pane.',
+    keywords: ['title', 'rename', 'name'],
+    category: 'note',
+    scope: 'editor',
+    getDisabledReason: requireOpenTab,
+  },
+  {
+    id: 'duplicate-note',
+    label: 'Duplicate Note',
+    description: 'Make a copy of the selected note in the same folder.',
+    keywords: ['copy', 'clone', 'duplicate'],
+    category: 'note',
+    scope: 'editor',
+    getDisabledReason: requireMovableNote,
+  },
+  {
+    id: 'move-note-to-folder',
+    label: 'Move Note to Folder…',
+    description: 'Choose a folder for the selected note.',
+    keywords: ['move', 'folder', 'organize', 'file'],
+    category: 'note',
+    scope: 'editor',
+    getDisabledReason: requireMovableNote,
+  },
+  {
+    id: 'reveal-note-in-finder',
+    label: 'Reveal Note in Finder',
+    description: 'Show the selected Local Vault note in the file manager.',
+    keywords: ['finder', 'explorer', 'file', 'folder', 'show', 'local'],
+    category: 'note',
+    scope: 'editor',
+    getDisabledReason: requireLocalNote,
+  },
+  {
+    id: 'copy-note-link',
+    label: 'Copy Note Link',
+    description: 'Copy the link to the selected note.',
+    keywords: ['copy', 'link', 'url', 'hackmd'],
+    category: 'note',
+    scope: 'editor',
+    getDisabledReason: requireSelectedNote,
+  },
+  {
+    id: 'copy-markdown-link',
+    label: 'Copy Markdown Link',
+    description: 'Copy a Markdown link to the selected note.',
+    keywords: ['copy', 'markdown', 'link', 'reference'],
+    category: 'note',
+    scope: 'editor',
+    getDisabledReason: requireSelectedNote,
+  },
+  {
+    id: 'share-note',
+    label: 'Share Note…',
+    description: 'Change who can read and edit the selected HackMD note.',
+    keywords: ['share', 'access', 'permission', 'publish'],
+    category: 'note',
+    scope: 'editor',
+    getDisabledReason: (context) => {
+      if (!context.selectedNoteId) return 'Select a note first.';
+      return context.scopeType === 'local' ? 'Sharing is only available for HackMD notes.' : requireHackmd(context);
+    },
+  },
+  {
+    id: 'toggle-book-contents',
+    label: 'Toggle Book Contents',
+    description: 'Show or hide the contents of the open book.',
+    keywords: ['book', 'contents', 'chapters', 'toc', 'sidebar'],
+    category: 'view',
+    scope: 'editor',
+    getLabel: (context) => (context.bookContentsHidden ? 'Show Book Contents' : 'Hide Book Contents'),
+    getDisabledReason: requireBook,
+  },
+  {
+    id: 'close-book',
+    label: 'Close Book',
+    description: 'Close the open book; its chapters stay open in tabs.',
+    keywords: ['book', 'close', 'contents'],
+    category: 'view',
+    scope: 'editor',
+    getDisabledReason: requireBook,
+  },
+  {
     id: 'previous-chapter',
     label: 'Previous Chapter',
     description: 'Open the previous chapter of the open book.',
@@ -464,6 +574,24 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     shortcut: '⇧⌘T',
     menuAccelerator: 'Shift+CmdOrCtrl+T',
     getDisabledReason: requireRecentlyClosedTab,
+  },
+  {
+    id: 'move-tab-left',
+    label: 'Move Tab Left',
+    description: 'Move the active tab one place to the left.',
+    keywords: ['reorder', 'tab', 'left'],
+    category: 'view',
+    scope: 'workspace',
+    getDisabledReason: requireTabsToLeft,
+  },
+  {
+    id: 'move-tab-right',
+    label: 'Move Tab Right',
+    description: 'Move the active tab one place to the right.',
+    keywords: ['reorder', 'tab', 'right'],
+    category: 'view',
+    scope: 'workspace',
+    getDisabledReason: requireTabsToRight,
   },
   {
     id: 'split-pane-right',
@@ -710,6 +838,32 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     category: 'navigation',
     scope: 'workspace',
     getDisabledReason: requireHackmd,
+  },
+  {
+    id: 'change-local-vault',
+    label: 'Change Local Vault…',
+    description: 'Choose another folder of Markdown files to use as the Local Vault.',
+    keywords: ['local', 'vault', 'folder', 'open', 'switch', 'choose'],
+    category: 'app',
+    scope: 'global',
+    getLabel: (context) => (context.hasLocalVault ? 'Change Local Vault…' : 'Open Local Folder…'),
+  },
+  {
+    id: 'reveal-vault-in-finder',
+    label: 'Reveal Local Vault in Finder',
+    description: 'Show the Local Vault folder in the file manager.',
+    keywords: ['local', 'vault', 'folder', 'finder', 'explorer', 'show'],
+    category: 'app',
+    scope: 'global',
+    getDisabledReason: requireLocalVault,
+  },
+  {
+    id: 'clear-offline-copies',
+    label: 'Clear Offline Copies…',
+    description: 'Remove the HackMD notes kept on this computer for offline reading and search.',
+    keywords: ['offline', 'cache', 'clear', 'storage', 'index', 'privacy'],
+    category: 'app',
+    scope: 'global',
   },
   {
     id: 'export-debug-logs',
