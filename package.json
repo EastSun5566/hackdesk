@@ -151,14 +151,14 @@
     "fuse.js": "^7.5.0",
     "gemoji": "^8.1.0",
     "inline-attacher": "^0.1.1",
-    "katex": "0.17.0",
+    "katex": "0.18.10",
     "lucide-react": "^1.17.0",
     "markdown-it": "^15.0.3",
     "papaparse": "^5.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-resizable-panels": "^4.11.2",
-    "react-router-dom": "^6.30.6",
+    "react-router": "7.18.5",
     "reveal.js": "^6.0.2",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
@@ -176,8 +176,8 @@
     "@types/react": "^18.3.27",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.3.4",
-    "@vitest/coverage-v8": "4.1.9",
-    "@vitest/ui": "4.1.9",
+    "@vitest/coverage-v8": "4.1.12",
+    "@vitest/ui": "4.1.12",
     "electron": "^44.4.5",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.1",
@@ -194,7 +194,7 @@
     "typescript": "^7.0.2",
     "vite": "^7.3.6",
     "vitepress": "2.0.0-alpha.17",
-    "vitest": "4.1.9"
+    "vitest": "4.1.12"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm exec lint-staged"
