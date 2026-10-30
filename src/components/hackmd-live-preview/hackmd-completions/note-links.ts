@@ -13,6 +13,8 @@ import type { NoteLinkCandidate } from '@/components/markdown-editor-types';
 export type NoteLinksHost = {
   candidates: () => NoteLinkCandidate[];
   titleForUrl: (url: string) => Promise<string | null>;
+  tags: () => string[];
+  userName: () => string | null;
 };
 
 const MAX_OPTIONS = 20;
@@ -28,11 +30,18 @@ export function isInCodeOrFrontMatter(state: EditorState, pos: number) {
   return isInCode(state, pos) || isInFrontMatter(state, pos);
 }
 
-function isInCode(state: EditorState, pos: number) {
+function isInCode(state: EditorState, pos: number, nodes = CODE_NODES) {
   for (let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, -1); node; node = node.parent) {
-    if (CODE_NODES.has(node.name)) return true;
+    if (nodes.has(node.name)) return true;
   }
   return false;
+}
+
+const CODE_BLOCK_NODES = new Set(['FencedCode', 'CodeBlock']);
+
+/** Inside a code block; inline code does not count. */
+export function isInCodeBlock(state: EditorState, pos: number) {
+  return isInCode(state, pos, CODE_BLOCK_NODES);
 }
 
 export function isInFrontMatter(state: EditorState, pos: number) {

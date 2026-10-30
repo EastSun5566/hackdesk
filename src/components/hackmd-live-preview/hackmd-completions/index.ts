@@ -2,6 +2,7 @@ import { autocompletion } from '@codemirror/autocomplete';
 import type { Extension } from '@codemirror/state';
 
 import { noteLinkSources, pastedUrlTracking, type NoteLinksHost } from './note-links';
+import { frontMatterSources } from './front-matter';
 import { syntaxSources } from './syntax';
 
 export type { NoteLinksHost } from './note-links';
@@ -11,7 +12,7 @@ export function hackmdCompletions(host: NoteLinksHost): Extension {
   return [
     pastedUrlTracking,
     autocompletion({
-      override: [...noteLinkSources(host), ...syntaxSources],
+      override: [...noteLinkSources(host), ...syntaxSources(host), ...frontMatterSources(host)],
       icons: false,
     }),
   ];

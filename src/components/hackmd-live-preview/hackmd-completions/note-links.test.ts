@@ -20,7 +20,7 @@ function setup(doc: string, host: Partial<NoteLinksHost> = {}) {
     state: EditorState.create({
       doc,
       selection: { anchor: doc.length },
-      extensions: [markdown(), hackmdCompletions({ candidates: () => candidates, titleForUrl: async () => null, ...host })],
+      extensions: [markdown(), hackmdCompletions({ candidates: () => candidates, titleForUrl: async () => null, tags: () => [], userName: () => null, ...host })],
     }),
   });
   return view;

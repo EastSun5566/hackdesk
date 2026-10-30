@@ -351,6 +351,8 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
     const [noteLinksHost] = useState<NoteLinksHost>(() => ({
       candidates: () => noteLinksRef.current?.candidates() ?? [],
       titleForUrl: url => noteLinksRef.current?.titleForUrl(url) ?? Promise.resolve(null),
+      tags: () => noteLinksRef.current?.tags() ?? [],
+      userName: () => noteLinksRef.current?.userName() ?? null,
     }));
     const [runtime] = useState(() => createEditorRuntime(value, editorMode, resolvedMode, localImageContext));
     const [aiPanel, setAiPanel] = useState<{ dom: HTMLElement; view: EditorView } | null>(null);

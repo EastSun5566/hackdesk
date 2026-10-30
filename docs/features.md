@@ -79,8 +79,13 @@ The editor suggests HackMD syntax as you type it. Use the arrow keys and Enter t
 - ` ``` ` and a letter lists code languages and diagrams such as `mermaid`.
 - `:::` and a letter lists container styles such as `warning`.
 - `{%` at the start of a line lists embeds such as `youtube` and `hackmd`.
+- `[!` in a blockquote lists alert types such as `NOTE` and `WARNING`.
+- `[` and a letter at the start of a line offers `[TOC]`. In a blockquote or list item it offers `[name=]` with your HackMD name, `[time=]` with the current time, and `[color=]`.
+- `<!-- .` lists `slide:` and `element:`, then the attributes slides accept, such as `class="fragment"`.
+- In front matter, keys such as `title`, `tags`, `type` and `slideOptions` are suggested, then fixed values such as `type: slide` or a slide `theme`.
+- `tags:` in front matter, and a `###### tags:` line, offer the tags your notes already use. Local Vault notes do not have tags yet, so this works in HackMD workspaces.
 
-For a new code block or container, the closing line is added for you. Suggestions do not appear inside code or front matter.
+For a new code block or container, the closing line is added for you. Suggestions do not appear inside code, and only front matter suggestions appear inside front matter.
 
 ## Read books
 
