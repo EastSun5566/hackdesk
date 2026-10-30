@@ -1,7 +1,6 @@
 import {
   AlertCircle,
   FileText,
-  PanelLeftClose,
   Plus,
   RefreshCcw,
 } from 'lucide-react';
@@ -124,7 +123,6 @@ export type FolderNavigatorActions = {
   onRefresh: () => void;
   onRevealNoteFolder: (entry: FolderTreeNote) => void;
   onRenameFolder: (folderId: string) => void;
-  onToggleCollapsed: () => void;
 };
 
 export type FolderNavigatorProps = {
@@ -301,14 +299,6 @@ function NavigatorHeader({
             onDeleteFolder={actions.onDeleteFolder}
             onOpenPalette={actions.onOpenPalette}
           />
-          <ToolbarIconButton
-            actionId="toggle-navigator"
-            onClick={actions.onToggleCollapsed}
-            aria-expanded={true}
-            label="Collapse note navigator"
-          >
-            <PanelLeftClose aria-hidden="true" className="h-4 w-4" />
-          </ToolbarIconButton>
         </>
       )}
     />

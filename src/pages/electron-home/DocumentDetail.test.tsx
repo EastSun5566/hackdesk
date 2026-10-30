@@ -546,27 +546,43 @@ describe('DocumentDetail', () => {
       },
     });
 
-    expect(screen.getByText(formatDate(1_700_000_000_000))).toBeVisible();
-    expect(screen.getByText('@team-a')).toBeVisible();
-    expect(screen.getByText('Projects')).toBeVisible();
+    // The path shows where the note lives; the date moves to its tooltip.
+    expect(screen.getByTitle(`Updated ${formatDate(1_700_000_000_000)}`)).toHaveTextContent('@team-a/Projects');
+    expect(screen.queryByText(formatDate(1_700_000_000_000))).not.toBeInTheDocument();
     expect(screen.queryByText('owner read')).not.toBeInTheDocument();
     expect(screen.queryByText('signed_in write')).not.toBeInTheDocument();
   });
 
-  it('shows local path context without duplicating sync state in the subtitle', () => {
+  it('shows a vault note\'s folders without its file name, and keeps a saved state out of sight', () => {
     renderDocumentDetail({
       documentState: {
         document: documentSummary({
-          description: 'Projects/Note.md',
+          description: 'Projects/Plans/Note.md',
           teamPath: LOCAL_VAULT_TEAM_PATH,
         }),
         syncState: 'saved',
       },
     });
 
-    expect(screen.getByText('Projects/Note.md')).toBeVisible();
-    expect(screen.getByRole('status', { name: 'Sync state: Saved' })).toBeVisible();
+    expect(screen.getByTitle(/^Updated /)).toHaveTextContent('Local Vault/Projects/Plans');
+    expect(screen.queryByText('Note.md')).not.toBeInTheDocument();
+    // Still announced, but the tab dot is the only visible save state.
+    expect(screen.getByRole('status', { name: 'Sync state: Saved' })).toHaveClass('sr-only');
     expect(screen.queryByText('Saved locally')).not.toBeInTheDocument();
+  });
+
+  it('shows the sync state when the note needs attention', () => {
+    renderDocumentDetail({ documentState: { syncState: 'save_failed' } });
+    expect(screen.getByRole('status', { name: /^Sync state: / })).not.toHaveClass('sr-only');
+  });
+
+  it('keeps document actions out of sight until needed, and in view while there are unsaved changes', () => {
+    const { props, rerenderDocumentDetail } = renderDocumentDetail();
+    const actions = () => screen.getByRole('toolbar', { name: 'Document actions' }).parentElement!;
+    expect(actions()).toHaveClass('opacity-0');
+
+    rerenderDocumentDetail({ ...props, documentState: { ...props.documentState, title: 'Renamed' } });
+    expect(actions()).not.toHaveClass('opacity-0');
   });
 
   it('keeps a single editor surface and inspector actions wired', () => {

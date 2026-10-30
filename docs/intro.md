@@ -44,6 +44,6 @@ Create notes in the selected workspace. In a Local Vault, saving writes a Markdo
 3. Enter a title and Markdown content.
 4. Choose **Save** in the document toolbar, or press **Cmd+S** / **Ctrl+S**.
 
-Wait for **Saved** before treating the note as written to its destination. A recoverable draft is not the same as a saved file or HackMD note.
+Wait for the dot on the note's tab to clear before treating the note as written to its destination. A recoverable draft is not the same as a saved file or HackMD note.
 
 Continue with [Quick Hack](./quick-hack.md) to capture a draft from another app, or [keyboard navigation](./keyboard-navigation.md) to move through the workbench.

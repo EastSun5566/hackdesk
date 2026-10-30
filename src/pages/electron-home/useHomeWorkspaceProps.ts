@@ -264,7 +264,6 @@ export function useHomeWorkspaceProps({
         onExportNoteMarkdown: actions.handleExportNoteMarkdown,
         onDeleteNote: actions.handleDeleteRequest,
         onImportMarkdown: actions.handleImportMarkdownNote,
-        onToggleCollapsed: toggleNavigatorCollapsed,
         onOpenPalette: actions.openPalette,
         onOpenSettings: actions.openHackmdTokenSetup,
       },

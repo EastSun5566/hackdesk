@@ -98,8 +98,9 @@ export function NoteRow({
   /** Where the note's text matched the search, shown in place of its folder and tags. */
   snippet?: string;
 }) {
+  // In the tree a note already sits under its folder, so only search results name it.
   const metadata = [
-    entry.folderLabel,
+    compact ? '' : entry.folderLabel,
     entry.note.tags.slice(0, 2).join(', '),
   ].filter(Boolean).join(' · ');
   const {
@@ -170,7 +171,7 @@ export function NoteRow({
               </button>
             ) : null}
             title={entry.note.title || 'Untitled'}
-            subtitle={snippet ? <NoteMatchSnippet snippet={snippet} /> : metadata || entry.note.shortId}
+            subtitle={snippet ? <NoteMatchSnippet snippet={snippet} /> : metadata || (compact ? undefined : entry.note.shortId)}
             trailing={(
               <time title={formatDate(entry.note.updatedAtMillis)} dateTime={entry.note.updatedAtMillis ? new Date(entry.note.updatedAtMillis).toISOString() : undefined}>
                 {formatCompactDate(entry.note.updatedAtMillis)}

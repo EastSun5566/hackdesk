@@ -62,7 +62,6 @@ import { NoteVersionsDialog } from './NoteVersionsDialog';
 import { ShareDialog } from './ShareDialog';
 import {
   formatDate,
-  getFolderPathLabel,
 } from './ui';
 import { getLocalImageContext, LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import {
@@ -176,6 +175,9 @@ function getEffectiveSyncState({
   return syncState;
 }
 
+// Shown on hover, keyboard focus, or while navigation hints are held.
+const DOCUMENT_ACTIONS_ON_DEMAND_CLASS = 'opacity-0 transition-opacity group-hover/document-header:opacity-100 group-focus-within/document-header:opacity-100 [body:has([data-keyboard-navigation-overlay])_&]:opacity-100 motion-reduce:transition-none';
+
 function SyncStateBadge({
   state,
 }: {
@@ -198,12 +200,17 @@ function SyncStateBadge({
         ? <AlertCircle aria-hidden="true" className="h-3 w-3" />
         : <CheckCircle2 aria-hidden="true" className="h-3 w-3" />;
 
+  // The tab's dot covers routine states; the header speaks up only when the note needs attention.
+  const needsAttention = state === 'cached' || state === 'save_failed' || state === 'conflict';
+
   return (
     <span
       role="status"
       aria-live="polite"
       aria-atomic="true"
-      className={cn('inline-flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-xs font-medium', className)}
+      className={needsAttention
+        ? cn('inline-flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-xs font-medium', className)
+        : 'sr-only'}
       aria-label={`Sync state: ${DOCUMENT_SYNC_STATE_LABELS[state]}`}
     >
       {icon}
@@ -212,24 +219,13 @@ function SyncStateBadge({
   );
 }
 
-function getDocumentHeaderSubtitleParts(document: DocumentSummary, isLocalDocument: boolean) {
-  const parts = [formatDate(document.updatedAtMillis)];
-
+/** Where the note lives, as a quiet path: its workspace, then its folders. */
+function getDocumentHeaderPath(document: DocumentSummary, isLocalDocument: boolean) {
   if (isLocalDocument) {
-    if (document.description) {
-      parts.push(document.description);
-    }
-    return parts;
+    // A vault note's description is its path in the vault; the file name repeats the title.
+    return ['Local Vault', ...(document.description ?? '').split('/').slice(0, -1).filter(Boolean)];
   }
-
-  parts.push(document.teamPath ? `@${document.teamPath}` : 'My Workspace');
-
-  const folderPath = getFolderPathLabel(document.folderPaths);
-  if (folderPath) {
-    parts.push(folderPath);
-  }
-
-  return parts;
+  return [document.teamPath ? `@${document.teamPath}` : 'My Workspace', ...document.folderPaths.map(folder => folder.name)];
 }
 
 export function DocumentDetail({
@@ -658,9 +654,13 @@ function DocumentHeader({
     saving: status.saving,
     syncState: documentState.syncState,
   });
-  const subtitleParts = documentState.document
-    ? getDocumentHeaderSubtitleParts(documentState.document, isLocalDocument)
+  const path = documentState.document
+    ? getDocumentHeaderPath(documentState.document, isLocalDocument)
     : ['Unsaved draft'];
+  const updated = documentState.document ? `Updated ${formatDate(documentState.document.updatedAtMillis)}` : undefined;
+  // Routine controls step back until the header is hovered or focused; pending work keeps them in view.
+  const revealActions = noteDirty || actionsOpen || status.saving
+    || effectiveSyncState === 'cached' || effectiveSyncState === 'save_failed' || effectiveSyncState === 'conflict';
   const saveTooltip = status.saving
     ? 'Saving note…'
     : documentState.isDraft
@@ -671,7 +671,8 @@ function DocumentHeader({
 
   return (
     <PanelHeader
-      className="px-4 py-2.5"
+      className="group/document-header px-4 py-2.5"
+      actionsClassName={revealActions ? undefined : DOCUMENT_ACTIONS_ON_DEMAND_CLASS}
       titleElement="div"
       actionsLabel="Document actions"
       title={(
@@ -686,9 +687,12 @@ function DocumentHeader({
         </label>
       )}
       subtitle={(
-        <span className="flex flex-wrap items-center gap-2">
-          {subtitleParts.map((part, index) => (
-            <span key={`${part}:${index}`} className={index === 0 ? 'tabular-nums' : undefined}>{part}</span>
+        <span className="flex flex-wrap items-center gap-1.5" title={updated}>
+          {path.map((part, index) => (
+            <span key={`${part}:${index}`} className="contents">
+              {index > 0 ? <span aria-hidden="true" className="text-text-subtle/60">/</span> : null}
+              <span>{part}</span>
+            </span>
           ))}
         </span>
       )}
