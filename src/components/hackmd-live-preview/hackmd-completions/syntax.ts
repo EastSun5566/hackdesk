@@ -172,10 +172,10 @@ function embedNameSource(context: CompletionContext): CompletionResult | null {
 
 const ALERTS = ['Note', 'Tip', 'Important', 'Warning', 'Caution'];
 
-/** `[!` in a blockquote lists alert types. On a new alert the next line starts its text. */
+/** `[!` right after `>` lists alert types, where an alert starts. On a new alert the next line starts its text. */
 function alertSource(context: CompletionContext): CompletionResult | null {
   const { before } = textBefore(context);
-  const match = /^\s*>.*\[!([a-z]*)$/i.exec(before);
+  const match = /^\s*>\s*\[!([a-z]*)$/i.exec(before);
   if (!match || isInCodeOrFrontMatter(context.state, context.pos)) return null;
   return {
     from: context.pos - match[1]!.length,

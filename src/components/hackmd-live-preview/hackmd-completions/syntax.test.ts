@@ -104,6 +104,9 @@ describe('alert completions', () => {
     await choose(view, 'Note');
     expect(view.state.doc.toString()).toBe('> [!NOTE]\n> ');
     expect(await offersWhileTyping('Text [!no')).toBe(false);
+    // Only `[!` right after `>` starts an alert.
+    expect(await offersWhileTyping('> Ship it [!no')).toBe(false);
+    expect(await offersWhileTyping('> - [!no')).toBe(false);
   });
 });
 
