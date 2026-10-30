@@ -13,6 +13,8 @@ describe('settings helpers', () => {
   it('defaults older settings to character navigation and preserves explicit disable', () => {
     expect(parseSettings('{"title":"HackDesk"}').keyboardNavigation.characterShortcutsEnabled).toBe(true);
     expect(parseStoredSettings('{"title":"HackDesk","keyboardNavigation":{"characterShortcutsEnabled":false}}').keyboardNavigation.characterShortcutsEnabled).toBe(false);
+    // Settings saved before key hints existed show them.
+    expect(parseStoredSettings('{"title":"HackDesk","keyboardNavigation":{"characterShortcutsEnabled":false}}').keyboardNavigation.keyHintsVisible).toBe(true);
   });
   it('parses valid settings content', () => {
     expect(parseSettings('{"title":"Workspace"}')).toEqual({
@@ -325,7 +327,8 @@ describe('settings helpers', () => {
   },
   "shortcuts": {},
   "keyboardNavigation": {
-    "characterShortcutsEnabled": true
+    "characterShortcutsEnabled": true,
+    "keyHintsVisible": true
   },
   "workspaceNavigation": {
     "pinnedTeamIds": null

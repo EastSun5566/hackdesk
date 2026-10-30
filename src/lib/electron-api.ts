@@ -383,6 +383,7 @@ export type ElectronActionId =
   | 'toggle-workspace-rail'
   | 'toggle-navigator'
   | 'toggle-inspector'
+  | 'toggle-key-hints'
   | 'refresh'
   | 'search-notes'
   | 'show-keyboard-shortcuts'

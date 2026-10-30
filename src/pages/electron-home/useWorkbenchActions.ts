@@ -29,6 +29,7 @@ export type WorkbenchActionContextInput = {
   hasToken: boolean;
   inspectorCollapsed: boolean;
   isSavingNote: boolean;
+  keyHintsVisible: boolean;
   navigatorCollapsed: boolean;
   noteDirty: boolean;
   scopeType: WorkspaceScope['type'];
@@ -88,6 +89,7 @@ export type WorkbenchActionHandlers = {
   setEditorMode: (mode: EditorMode) => void;
   splitPaneRight: () => void;
   toggleInspector: () => void;
+  toggleKeyHints: () => void;
   toggleNavigator: () => void;
   toggleTheme: () => void;
   toggleWorkspaceRail: () => void;
@@ -121,6 +123,7 @@ export function createWorkbenchActionContext({
   hasToken,
   inspectorCollapsed,
   isSavingNote,
+  keyHintsVisible,
   navigatorCollapsed,
   noteDirty,
   scopeType,
@@ -147,6 +150,7 @@ export function createWorkbenchActionContext({
     hasToken,
     inspectorCollapsed,
     isSavingNote,
+    keyHintsVisible,
     navigatorCollapsed,
     noteDirty,
     navigationBackCount: workspaceState.backStack.length,
@@ -174,6 +178,7 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     hasToken,
     inspectorCollapsed,
     isSavingNote,
+    keyHintsVisible,
     navigatorCollapsed,
     noteDirty,
     scopeType,
@@ -192,6 +197,7 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     hasToken,
     inspectorCollapsed,
     isSavingNote,
+    keyHintsVisible,
     navigatorCollapsed,
     noteDirty,
     scopeType,
@@ -209,6 +215,7 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     hasToken,
     inspectorCollapsed,
     isSavingNote,
+    keyHintsVisible,
     navigatorCollapsed,
     noteDirty,
     scopeType,
@@ -314,6 +321,9 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'toggle-inspector':
       handlers.toggleInspector();
+      break;
+    case 'toggle-key-hints':
+      handlers.toggleKeyHints();
       break;
     case 'save-note':
       handlers.saveNote();

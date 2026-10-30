@@ -64,6 +64,7 @@ const electronActionIdSchema = z.enum([
   'toggle-workspace-rail',
   'toggle-navigator',
   'toggle-inspector',
+  'toggle-key-hints',
   'refresh',
   'search-notes',
   'show-keyboard-shortcuts',
@@ -187,7 +188,7 @@ export const settingsUpdateSchema = z.strictObject({
     mode: z.enum(['standard', 'emacs', 'vim', 'helix', 'kakoune']),
   }).optional(),
   shortcuts: shortcutsSchema.optional(),
-  keyboardNavigation: z.strictObject({ characterShortcutsEnabled: z.boolean() }).optional(),
+  keyboardNavigation: z.strictObject({ characterShortcutsEnabled: z.boolean(), keyHintsVisible: z.boolean() }).optional(),
   workspaceNavigation: z.strictObject({
     pinnedTeamIds: pinnedTeamIdsSchema,
   }).optional(),

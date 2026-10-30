@@ -52,6 +52,7 @@ const actionContext: ElectronActionContext = {
   bookOpen: false,
   bookContentsHidden: false,
   hasLocalVault: false,
+  keyHintsVisible: true,
 };
 
 function createProps(overrides: Partial<ElectronHomeOverlaysProps> = {}): ElectronHomeOverlaysProps {

@@ -36,6 +36,7 @@ const context: ElectronActionContext = {
   bookOpen: false,
   bookContentsHidden: false,
   hasLocalVault: false,
+  keyHintsVisible: true,
 };
 
 const folder: FolderSummary = {

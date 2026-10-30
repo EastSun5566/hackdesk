@@ -2,6 +2,7 @@ import { KeyboardNavigation } from './electron-home/KeyboardNavigation';
 import { getElectronAction } from '@/lib/electron-actions';
 import { ActionShortcutContext } from './electron-home/ActionShortcutContext';
 import { KeyboardShortcutsDialog } from './electron-home/KeyboardShortcutsDialog';
+import { KeyHintBar } from './electron-home/KeyHintBar';
 import { BookSessionContext, useBookSession } from './electron-home/useBookSession';
 import { TemplatePickerDialog } from './electron-home/TemplatePickerDialog';
 import { useNoteTemplates } from './electron-home/useNoteTemplates';
@@ -676,6 +677,13 @@ export function Home() {
     splitActiveTab: noteWorkspace.splitActiveTab,
     switchToHistory: () => switchWorkspaceScope({ type: 'history', label: 'History' }),
     toggleInspector: toggleInspectorCollapsed,
+    toggleKeyHints: () => {
+      const keyboardNavigation = settings?.keyboardNavigation ?? defaultSettings.keyboardNavigation;
+      mutations.updateSettingsMutation.mutate({
+        title: settings?.title ?? defaultSettings.title,
+        keyboardNavigation: { ...keyboardNavigation, keyHintsVisible: !(keyboardNavigation.keyHintsVisible ?? true) },
+      });
+    },
     toggleNavigator: toggleNavigatorCollapsed,
     toggleTheme: () => setTheme(resolvedMode === 'dark' ? 'light' : 'dark'),
     toggleWorkspaceRail: toggleRailCollapsed,
@@ -694,6 +702,7 @@ export function Home() {
     hasToken: canUseCurrentWorkspace,
     inspectorCollapsed,
     isSavingNote: mutations.updateNoteMutation.isPending || mutations.createDraftNoteMutation.isPending,
+    keyHintsVisible: settings?.keyboardNavigation?.keyHintsVisible ?? true,
     navigatorCollapsed,
     noteDirty: activeTab && isDraftNoteTab(activeTab) ? true : noteDirty,
     scopeType: scope.type,
@@ -988,6 +997,15 @@ export function Home() {
           <BookSessionContext.Provider value={bookSession}>
             <ElectronHomeWorkspace {...workspaceProps} backupNotice={backupNotice} />
           </BookSessionContext.Provider>
+          {settings?.keyboardNavigation?.keyHintsVisible ?? true ? (
+            <KeyHintBar
+              actionContext={actionContext}
+              shortcuts={settings?.shortcuts}
+              platform={api.platform}
+              characterShortcutsEnabled={settings?.keyboardNavigation?.characterShortcutsEnabled ?? true}
+              onOpenShortcuts={openKeyboardShortcuts}
+            />
+          ) : null}
 
           <ElectronHomeOverlays {...overlayProps} dialogs={{ ...overlayProps.dialogs, settingsInitialTab, onSettingsOpenChange: setSettingsOpen }} />
           <TemplatePickerDialog
