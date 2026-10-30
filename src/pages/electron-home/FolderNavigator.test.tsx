@@ -115,7 +115,6 @@ function renderFolderNavigator(overrides: FolderNavigatorPropsOverrides = {}) {
       onRefresh: vi.fn(),
       onRevealNoteFolder: vi.fn(),
       onRenameFolder: vi.fn(),
-      onToggleCollapsed: vi.fn(),
     },
     scope: { label: 'Personal', type: 'personal' },
     selection: {
@@ -328,6 +327,16 @@ describe('FolderNavigator', () => {
     treeView.unmount();
   });
 
+  it('shows tags under tree notes, not the folder they already sit in', () => {
+    renderFolderNavigator();
+
+    const nested = screen.getByRole('treeitem', { name: 'Nested note' });
+    expect(nested).toHaveTextContent('work');
+    expect(nested).not.toHaveTextContent('Projects');
+    // A note with nothing to add gets no second line.
+    expect(screen.getByRole('treeitem', { name: 'Loose note' })).not.toHaveTextContent('loose-note');
+  });
+
   it('uses roving focus for navigator header actions', async () => {
     renderFolderNavigator();
 
@@ -335,7 +344,6 @@ describe('FolderNavigator', () => {
       'Refresh notes',
       'Create note',
       'Navigator actions',
-      'Collapse note navigator',
     ]);
   });
 

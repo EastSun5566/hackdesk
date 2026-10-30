@@ -100,11 +100,12 @@ describe('visible navigation targets', () => {
   });
 });
 
-it('keeps dense toolbar hints within the viewport and apart', () => {
-  const hints = Array.from({ length: 8 }, (_, index) => ({ id: String(index), element: document.createElement('button'), activate: false, code: 'ij', shortcut: 'Ctrl+Alt+B', rect: new DOMRect(index * 28, 0, 24, 24) }));
+it.each([['Ctrl+Alt+B', 70], ['Ctrl+Shift+R', 82]])('keeps dense toolbar hints showing %s within the viewport and apart', (shortcut, width) => {
+  const hints = Array.from({ length: 8 }, (_, index) => ({ id: String(index), element: document.createElement('button'), activate: false, code: 'ij', shortcut, rect: new DOMRect(index * 28, 0, 24, 24) }));
   const positions = navigationHintPositions(hints, '', { width: 600, height: 400 });
+  // Each hint is as wide as its rendered shortcut: about 6px a glyph, plus padding and border.
   for (const a of positions) {
     expect(a.top).toBeGreaterThanOrEqual(2);
-    for (const b of positions) if (a !== b) expect(a.left < b.left + 58 && a.left + 58 > b.left && a.top < b.top + 30 && a.top + 30 > b.top).toBe(false);
+    for (const b of positions) if (a !== b) expect(a.left < b.left + width && a.left + width > b.left && a.top < b.top + 30 && a.top + 30 > b.top).toBe(false);
   }
 });

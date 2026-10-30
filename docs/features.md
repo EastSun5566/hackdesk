@@ -113,7 +113,7 @@ Use the arrow keys or Space to move, **O** for an overview, and **Esc** to leave
 
 ## Save changes
 
-Choose **Save** in the document toolbar to write the active note to its workspace. Save status distinguishes changes still in the editor from a saved note.
+Choose **Save** in the document toolbar to write the active note to its workspace. A dot on the note's tab shows unsaved changes, saving, or a problem, and disappears once the note is saved. The header names the state only when it needs attention, such as a failed save or a conflict. Document toolbar buttons appear when you point at or tab into the header, and stay visible while the note has unsaved changes.
 
 HackDesk keeps recovery copies of unsaved edits. Recovery does not replace saving, and a reported backup failure means the edits need attention. If a note changed elsewhere, review the conflict or recovery message before saving again.
 

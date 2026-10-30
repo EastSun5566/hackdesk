@@ -43,7 +43,8 @@ function TabStatusIndicator({ state }: { state: DocumentSyncState }) {
             && "border-primary-default bg-primary-soft before:absolute before:left-1/2 before:top-1/2 before:h-px before:w-1.5 before:-translate-x-1/2 before:-translate-y-1/2 before:bg-primary-default",
             state === 'saving'
             && "border-primary-default bg-primary-soft before:absolute before:left-1/2 before:top-1/2 before:size-1 before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-full before:bg-primary-default after:absolute after:-inset-0.5 after:rounded-full after:border after:border-primary-default/40",
-            state === 'saved' && 'border-success-default bg-success-default',
+            // A saved note needs no mark; the dot appears only when something is pending or wrong.
+            state === 'saved' && 'border-transparent',
             (state === 'save_failed' || state === 'conflict')
             && "border-destructive-default bg-destructive-soft before:absolute before:left-1/2 before:top-1/2 before:h-px before:w-1.5 before:-translate-x-1/2 before:-translate-y-1/2 before:rotate-45 before:bg-destructive-default after:absolute after:left-1/2 after:top-1/2 after:h-px after:w-1.5 after:-translate-x-1/2 after:-translate-y-1/2 after:-rotate-45 after:bg-destructive-default",
           )}

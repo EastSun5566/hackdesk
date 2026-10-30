@@ -28,6 +28,11 @@ describe('held modifier navigation',()=>{
     fireEvent.keyDown(window,{...modifier,key:'Backspace'});expect(document.querySelectorAll('[data-navigation-code]')).toHaveLength(2);
     type(code,modifier);expect(save).toHaveFocus();expect(click).not.toHaveBeenCalled();
   });
+  it('marks the document while hints show, so on-demand controls appear before codes are assigned',()=>{
+    const modifier=fixture();expect(document.documentElement.dataset.navigationHints).toBeUndefined();
+    hold(modifier);expect(document.documentElement.dataset.navigationHints).toBe('true');
+    fireEvent.keyDown(window,{...modifier,key:'Escape'});expect(document.documentElement.dataset.navigationHints).toBeUndefined();
+  });
   it('preserves fixed shortcuts and clears on Escape, blur, IME and unmount',()=>{
     const modifier=fixture();hold(modifier);
     const event=new KeyboardEvent('keydown',{...modifier,key:'s',cancelable:true});window.dispatchEvent(event);expect(event.defaultPrevented).toBe(false);

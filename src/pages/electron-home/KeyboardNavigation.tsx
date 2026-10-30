@@ -31,6 +31,7 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
     let frame: number | null = null;
     const clear = (release = false) => {
       observer.disconnect();
+      delete document.documentElement.dataset.navigationHints;
       if (release) held = false;
       suspended = true;
       hints = []; prefix = ''; reason = '';
@@ -45,6 +46,8 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
       origin = document.activeElement;
       if (origin?.closest('[data-shortcut-recording="true"]')) { clear(); return; }
       letters = safeNavigationLetters(platform, shortcuts, characterEnabled, origin?.closest<HTMLElement>('.cm-editor') ?? null);
+      // Controls that show only on demand appear first, so they get codes and the target list stays put.
+      document.documentElement.dataset.navigationHints = 'true';
       const targets = signature();
       const codebook = scope ? `settings:${workspaceKey}:${scope.dataset.navigationPage}` : workspaceKey!;
       const previous = codesByWorkspace.current.get(codebook) ?? new Map();
@@ -114,6 +117,7 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
       window.removeEventListener('resize', scheduleCheck);
       document.removeEventListener('focusin', scheduleCheck);
       observer.disconnect();
+      delete document.documentElement.dataset.navigationHints;
       if (frame !== null) cancelAnimationFrame(frame);
     };
   }, [workspaceKey, shortcuts, platform, characterEnabled, context]);
@@ -122,8 +126,9 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
   return <NavigationHintsContext.Provider value={current.held && !current.scope}>
     {children}
     {current.held ? createPortal(<div data-keyboard-navigation-overlay className="pointer-events-none fixed inset-0 z-40" aria-hidden="true">
-      {navigationHintPositions(visible.filter(hint => !hint.element.hasAttribute('aria-keyshortcuts')), current.prefix, { width: window.innerWidth, height: window.innerHeight }).map(({ hint, shortcut, left, top }) =>
-        <kbd key={hint.id} data-navigation-hint={hint.id} data-navigation-code={hint.code || undefined} className="absolute left-(--hint-left) top-(--hint-top) flex flex-col items-center whitespace-nowrap rounded border border-border-default bg-background-default px-1 font-mono font-semibold text-command-item-title shadow-sm" style={{ '--hint-left': `${left}px`, '--hint-top': `${top}px` }}>
+      {navigationHintPositions(visible.filter(hint => !hint.element.hasAttribute('aria-keyshortcuts')), current.prefix, { width: window.innerWidth, height: window.innerHeight }).map(({ hint, shortcut, left, top, width }) =>
+        // The hint takes the width it was placed with, so fonts cannot make it overlap a neighbour.
+        <kbd key={hint.id} data-navigation-hint={hint.id} data-navigation-code={hint.code || undefined} className="absolute left-(--hint-left) top-(--hint-top) flex w-(--hint-width) flex-col items-center whitespace-nowrap rounded border border-border-default bg-background-default font-mono font-semibold text-command-item-title shadow-sm" style={{ '--hint-left': `${left}px`, '--hint-top': `${top}px`, '--hint-width': `${width}px` }}>
           <span className="text-2xs leading-4">{hint.code.toUpperCase()}</span>
           {shortcut ? <span className="text-2xs font-normal leading-3">{shortcut}</span> : null}
         </kbd>)}

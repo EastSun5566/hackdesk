@@ -331,6 +331,7 @@ export function PanelHeader({
   subtitle,
   actions,
   actionsLabel,
+  actionsClassName,
   titleElement: TitleElement = 'h2',
   className,
 }: {
@@ -338,6 +339,7 @@ export function PanelHeader({
   subtitle?: ReactNode;
   actions?: ReactNode;
   actionsLabel?: string;
+  actionsClassName?: string;
   titleElement?: 'h2' | 'div';
   className?: string;
 }) {
@@ -349,12 +351,11 @@ export function PanelHeader({
           {subtitle ? <p className="mt-1 truncate text-xs text-text-subtle">{subtitle}</p> : null}
         </div>
         {actions ? (
-          <Toolbar
-            aria-label={actionsLabel ?? (typeof title === 'string' ? `${title} actions` : 'Panel actions')}
-            className="shrink-0"
-          >
-            {actions}
-          </Toolbar>
+          <div className={cn('shrink-0', actionsClassName)}>
+            <Toolbar aria-label={actionsLabel ?? (typeof title === 'string' ? `${title} actions` : 'Panel actions')}>
+              {actions}
+            </Toolbar>
+          </div>
         ) : null}
       </div>
     </header>

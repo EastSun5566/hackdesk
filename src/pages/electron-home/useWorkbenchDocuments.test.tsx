@@ -190,6 +190,17 @@ describe('useWorkbenchDocuments', () => {
     expect(result.current.getTabSyncState(tab)).toBe('saved');
   });
 
+  it('marks a clean background tab that has not loaded yet as saved, not unsaved', () => {
+    const tab = createTab();
+    const { result } = renderHook(() => useWorkbenchDocuments(createOptions({
+      documentQueriesByKey: new Map(),
+      documentsByKey: new Map(),
+    })));
+
+    expect(result.current.isTabDirty(tab)).toBe(false);
+    expect(result.current.getTabSyncState(tab)).toBe('saved');
+  });
+
   it('keeps the active editor mounted during background document refetches', () => {
     const tab = createTab();
     const pane = createPane(tab);

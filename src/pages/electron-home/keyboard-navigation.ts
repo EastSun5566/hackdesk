@@ -138,11 +138,14 @@ export function navigateToTarget(target: NavigationTarget) {
   return true;
 }
 
+const HINT_CHAR_WIDTH = 6;
+
 export function navigationHintPositions(hints: NavigationHint[], prefix: string, viewport: { width: number; height: number }) {
   const occupied: DOMRect[] = [];
   return hints.map(hint => {
     const shortcut = !prefix ? hint.shortcut?.split(', ')[0] : undefined;
-    const width = Math.max(24, hint.code.length * 6 + 8, (shortcut?.length ?? 0) * 5 + 8);
+    // A 10px monospace glyph is about 6px wide; add 8px of padding and the 2px border.
+    const width = Math.max(24, hint.code.length * HINT_CHAR_WIDTH + 10, (shortcut?.length ?? 0) * HINT_CHAR_WIDTH + 10);
     const height = shortcut ? 30 : 18;
     const left = Math.max(2, Math.min(viewport.width - width - 2, hint.rect.right - width));
     const preferred = Math.max(2, hint.rect.top - 6);
@@ -150,6 +153,6 @@ export function navigationHintPositions(hints: NavigationHint[], prefix: string,
     for (let offset = 1; offset <= hints.length; offset++) candidates.push(preferred + offset * (height + 2), preferred - offset * (height + 2));
     const top = candidates.find(value => value >= 2 && value + height <= viewport.height - 2 && !occupied.some(rect => left < rect.right + 2 && left + width + 2 > rect.left && value < rect.bottom + 2 && value + height + 2 > rect.top)) ?? preferred;
     occupied.push(new DOMRect(left, top, width, height));
-    return { hint, shortcut, left, top };
+    return { hint, shortcut, left, top, width };
   });
 }

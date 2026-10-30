@@ -254,7 +254,6 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
         onRefresh: noop,
         onRevealNoteFolder: noop,
         onRenameFolder: noop,
-        onToggleCollapsed: noop,
       },
     },
     navigatorResize: {
