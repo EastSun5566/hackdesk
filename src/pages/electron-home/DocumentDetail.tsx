@@ -67,7 +67,7 @@ import { getLocalImageContext, LOCAL_VAULT_TEAM_PATH } from './local-vault-adapt
 import {
   INSPECTOR_WIDTH_DEFAULT,
 } from './ui-preferences';
-import { DOCUMENT_SYNC_STATE_LABELS, type DocumentSyncState } from './document-sync-state';
+import { DOCUMENT_SYNC_STATE_LABELS, syncStateNeedsAttention, type DocumentSyncState } from './document-sync-state';
 
 const NOTE_INSPECTOR_PANEL_ID = 'note-inspector-panel';
 
@@ -201,7 +201,7 @@ function SyncStateBadge({
         : <CheckCircle2 aria-hidden="true" className="h-3 w-3" />;
 
   // The tab's dot covers routine states; the header speaks up only when the note needs attention.
-  const needsAttention = state === 'cached' || state === 'save_failed' || state === 'conflict';
+  const needsAttention = syncStateNeedsAttention(state);
 
   return (
     <span
@@ -660,7 +660,7 @@ function DocumentHeader({
   const updated = documentState.document ? `Updated ${formatDate(documentState.document.updatedAtMillis)}` : undefined;
   // Routine controls step back until the header is hovered or focused; pending work keeps them in view.
   const revealActions = noteDirty || actionsOpen || status.saving
-    || effectiveSyncState === 'cached' || effectiveSyncState === 'save_failed' || effectiveSyncState === 'conflict';
+    || syncStateNeedsAttention(effectiveSyncState);
   const saveTooltip = status.saving
     ? 'Saving note…'
     : documentState.isDraft
