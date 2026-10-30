@@ -228,7 +228,8 @@ export function useWorkbenchDocuments({
       return 'cached';
     }
 
-    return documentResultValue ? 'saved' : 'idle';
+    // A background tab that has not loaded yet has no unsaved changes either.
+    return 'saved';
   }, [
     documentQueriesByKey,
     getTabDocumentResult,
