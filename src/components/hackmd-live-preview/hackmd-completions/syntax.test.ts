@@ -1,63 +1,8 @@
-import {
-  acceptCompletion,
-  closeBrackets,
-  CompletionContext,
-  currentCompletions,
-  setSelectedCompletion,
-  startCompletion,
-} from '@codemirror/autocomplete';
-import { markdown } from '@codemirror/lang-markdown';
-import { EditorState } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { acceptCompletion } from '@codemirror/autocomplete';
+import { afterEach, describe, expect, it } from 'vitest';
 
-import { hackmdCompletions } from '.';
-import { syntaxSources } from './syntax';
-
-function setup(doc: string, cursor = doc.length) {
-  return new EditorView({
-    parent: document.body.appendChild(document.createElement('div')),
-    state: EditorState.create({
-      doc,
-      selection: { anchor: cursor },
-      extensions: [
-        markdown(),
-        closeBrackets(),
-        hackmdCompletions({
-          candidates: () => [{ title: 'Beta plan', detail: '@me/beta', link: 'https://hackmd.io/@me/beta', embedRef: '@me/beta' }],
-          titleForUrl: async () => null,
-        }),
-      ],
-    }),
-  });
-}
-
-async function labels(view: EditorView) {
-  startCompletion(view);
-  await vi.waitFor(() => expect(currentCompletions(view.state).length).toBeGreaterThan(0));
-  // Accepting is ignored until the menu has been open briefly (`interactionDelay`).
-  await new Promise(resolve => setTimeout(resolve, 100));
-  return currentCompletions(view.state).map(option => option.label);
-}
-
-async function choose(view: EditorView, label: string) {
-  const index = (await labels(view)).indexOf(label);
-  expect(index).toBeGreaterThanOrEqual(0);
-  view.dispatch({ effects: setSelectedCompletion(index) });
-  acceptCompletion(view);
-}
-
-/** Whether any source answers while typing (not an explicit request) at `|`, or at the end of `doc`. */
-async function offersWhileTyping(marked: string) {
-  const cursor = marked.includes('|') ? marked.indexOf('|') : marked.length;
-  const doc = marked.replace('|', '');
-  const state = EditorState.create({ doc, extensions: [markdown()] });
-  const context = new CompletionContext(state, cursor, false);
-  const results = await Promise.all(syntaxSources.map(source => source(context)));
-  return results.some(Boolean);
-}
-
-const cursorLine = (view: EditorView) => view.state.doc.lineAt(view.state.selection.main.head).number;
+import { formatMetadataTime } from './syntax';
+import { choose, cursorLine, labels, offersWhileTyping, setup, typeOnThenChoose } from './test-utils';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -128,23 +73,99 @@ describe('container completions', () => {
 });
 
 describe('typing on while the list is open', () => {
-  it('completes from where the typing ended, for containers, code blocks and embeds', async () => {
+  it('completes from where the typing ended, for every kind of suggestion', async () => {
     for (const [doc, more, label, result] of [
       [':::wa', 'rn', 'warning', ':::warning\n\n:::'],
       ['```mer', 'ma', 'mermaid', '```mermaid\n\n```'],
       ['{%yo', 'ut', 'youtube', '{%youtube  %}'],
+      ['> [!wa', 'rn', 'Warning', '> [!WARNING]\n> '],
+      ['[t', 'o', 'TOC', '[TOC]'],
+      ['<!-- .sl', 'id', 'slide:', '<!-- .slide:  -->'],
+      ['---\nty|\n---', 'p', 'type', '---\ntype: \n---'],
     ]) {
-      const view = setup(doc!);
-      expect(await labels(view)).toContain(label);
-      // Still matches, so CodeMirror keeps the open list instead of asking the source again.
-      view.dispatch({ changes: { from: doc!.length, insert: more! }, selection: { anchor: doc!.length + more!.length }, userEvent: 'input.type' });
-      await new Promise(resolve => setTimeout(resolve, 100));
-      const index = currentCompletions(view.state).findIndex(option => option.label === label);
-      expect(index).toBeGreaterThanOrEqual(0);
-      view.dispatch({ effects: setSelectedCompletion(index) });
-      acceptCompletion(view);
+      const view = setup(doc!.replace('|', ''), doc!.includes('|') ? doc!.indexOf('|') : doc!.length);
+      await typeOnThenChoose(view, more!, label!);
       expect(view.state.doc.toString(), doc).toBe(result);
     }
+  });
+});
+
+describe('alert completions', () => {
+  it('lists the five alert types in a blockquote and starts the alert text', async () => {
+    const view = setup('> [!');
+    expect((await labels(view)).sort()).toEqual(['Caution', 'Important', 'Note', 'Tip', 'Warning']);
+    await choose(view, 'Tip');
+    expect(view.state.doc.toString()).toBe('> [!TIP]\n> ');
+    expect(cursorLine(view)).toBe(2);
+  });
+
+  it('takes the bracket closeBrackets added, and stays quiet outside a blockquote', async () => {
+    const view = setup('> [!no]', 6);
+    await choose(view, 'Note');
+    expect(view.state.doc.toString()).toBe('> [!NOTE]\n> ');
+    expect(await offersWhileTyping('Text [!no')).toBe(false);
+    // Only `[!` right after `>` starts an alert.
+    expect(await offersWhileTyping('> Ship it [!no')).toBe(false);
+    expect(await offersWhileTyping('> - [!no')).toBe(false);
+  });
+});
+
+describe('metadata completions', () => {
+  it('offers [TOC] at the start of a line only', async () => {
+    const view = setup('[to]', 3);
+    expect(await labels(view)).toEqual(['TOC']);
+    acceptCompletion(view);
+    expect(view.state.doc.toString()).toBe('[TOC]');
+    expect(await offersWhileTyping('See [to')).toBe(false);
+  });
+
+  it('offers name, time and color in a blockquote or list item, filling the signed-in name', async () => {
+    const view = setup('> Ship it [na', undefined, { userName: () => 'Ada' });
+    await choose(view, 'name=');
+    expect(view.state.doc.toString()).toBe('> Ship it [name=Ada]');
+
+    const nameless = setup('- [na');
+    await choose(nameless, 'name=');
+    expect(nameless.state.doc.toString()).toBe('- [name=]');
+    expect(nameless.state.selection.main.head).toBe('- [name='.length);
+
+    const time = setup('> [ti');
+    await choose(time, 'time=');
+    expect(time.state.doc.toString()).toMatch(/^> \[time=\w{3}, \w{3} \d{1,2}, \d{4} \d{1,2}:\d{2} [AP]M\]$/);
+
+    const color = setup('* [co');
+    await choose(color, 'color=');
+    expect(color.state.doc.toString()).toMatch(/^\* \[color=#[0-9a-f]{6}\]$/);
+  });
+
+  it('writes times the way hackmd.io does', () => {
+    expect(formatMetadataTime(new Date(2026, 9, 29, 19, 41))).toBe('Thu, Oct 29, 2026 7:41 PM');
+    expect(formatMetadataTime(new Date(2026, 0, 4, 0, 5))).toBe('Sun, Jan 4, 2026 12:05 AM');
+  });
+
+  it('leaves links in ordinary text alone', async () => {
+    expect(await offersWhileTyping('Read [na')).toBe(false);
+    expect(await offersWhileTyping('[Plan')).toBe(false);
+    expect(await offersWhileTyping('> [')).toBe(false);
+  });
+});
+
+describe('slide attribute completions', () => {
+  it('lists slide and element, then the attributes for each', async () => {
+    const view = setup('<!-- .');
+    expect((await labels(view)).sort()).toEqual(['element:', 'slide:']);
+    await choose(view, 'element:');
+    expect(view.state.doc.toString()).toBe('<!-- .element:  -->');
+    expect(await labels(view)).toContain('class="fragment"');
+    await choose(view, 'class="fragment"');
+    expect(view.state.doc.toString()).toBe('<!-- .element: class="fragment" -->');
+  });
+
+  it('leaves the cursor inside an empty attribute value', async () => {
+    const view = setup('<!-- .slide: data-bac -->', '<!-- .slide: data-bac'.length);
+    await choose(view, 'data-background-color');
+    expect(view.state.doc.toString()).toBe('<!-- .slide: data-background-color="" -->');
+    expect(view.state.selection.main.head).toBe('<!-- .slide: data-background-color="'.length);
   });
 });
 

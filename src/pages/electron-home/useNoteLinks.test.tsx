@@ -5,7 +5,7 @@ import type { DocumentSummary, NoteSummary } from '@/lib/electron-api';
 
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { useNoteLinkOpener } from './useNoteLinkOpener';
-import { getNoteLinkCandidates } from './useNoteLinks';
+import { getNoteLinkCandidates, getWorkspaceTags } from './useNoteLinks';
 
 const toastError = vi.hoisted(() => vi.fn());
 vi.mock('@/components/ui/toast', () => ({ toast: { error: toastError } }));
@@ -47,6 +47,16 @@ describe('getNoteLinkCandidates', () => {
     const [candidate] = getNoteLinkCandidates(hackmd, [hackmd, note({ id: 'h2', shortId: 'beta', permalink: 'beta-plan', userPath: 'me', title: 'Beta' })]);
     expect(candidate).toMatchObject({ title: 'Beta', embedRef: '@me/beta-plan' });
     expect(candidate?.link).toMatch(/^https:\/\/hackmd\.io\//);
+  });
+});
+
+describe('getWorkspaceTags', () => {
+  it('lists each tag the notes use once, in order', () => {
+    expect(getWorkspaceTags([
+      note({ id: 'a', tags: ['release', 'design'] }),
+      note({ id: 'b', tags: ['design', 'Planning'] }),
+      note({ id: 'c', tags: [] }),
+    ])).toEqual(['design', 'Planning', 'release']);
   });
 });
 

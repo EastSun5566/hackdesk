@@ -61,6 +61,10 @@ export type MarkdownEditorNoteLinks = {
   openEmbed: NoteEmbedHost['open'];
   /** The title for a pasted URL when HackDesk knows the note, for a Reference link. */
   titleForUrl: (url: string) => Promise<string | null>;
+  /** Tags used in this workspace, for tag suggestions. */
+  tags: () => string[];
+  /** The signed-in HackMD user's name for `[name=]`, or null for a Local Vault note. */
+  userName: () => string | null;
 };
 
 export type MarkdownEditorProps = {

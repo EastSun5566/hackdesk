@@ -1,13 +1,15 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { QueryClientContext } from '@tanstack/react-query';
+import { useCallback, useContext, useMemo, useRef } from 'react';
 
 import type { NoteEmbedCard } from '@/components/hackmd-live-preview/note-embeds/extension';
 import type { MarkdownEditorNoteLinks, NoteLinkCandidate } from '@/components/markdown-editor-types';
-import { getHackDeskAPI, type DocumentSummary, type NoteSummary } from '@/lib/electron-api';
+import { getHackDeskAPI, type DocumentSummary, type NoteSummary, type RepositoryValue, type UserSummary } from '@/lib/electron-api';
 import { getHackmdNoteUrl } from '@/lib/electron-note-links';
 import type { NoteLinkSource } from '@/lib/note-index';
 import { hackmdEmbedRef, relativeVaultLink, type EmbedLine } from '@/lib/note-links';
 
 import { getLocalImageContext, LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
+import { unwrapRepositoryValue } from './repository';
 import { getNoteLinkSource } from './useNoteLinkOpener';
 
 /** The other notes in this workspace, written as links from `document`. */
@@ -29,6 +31,11 @@ export function getNoteLinkCandidates(document: DocumentSummary | undefined, not
     });
 }
 
+/** Every tag the workspace's notes use, once each, in order. */
+export function getWorkspaceTags(notes: NoteSummary[]) {
+  return [...new Set(notes.flatMap(note => note.tags))].sort((left, right) => left.localeCompare(right));
+}
+
 const embedKey = (embed: EmbedLine) => (embed.kind === 'embed' ? `embed:${embed.raw}` : `url:${embed.url}`);
 
 /**
@@ -41,6 +48,8 @@ export function useNoteLinks({ document, notes, openLink }: {
   openLink: (target: string, kind: 'url' | 'embed') => void;
 }): MarkdownEditorNoteLinks | null {
   const api = getHackDeskAPI();
+  // The signed-in user is already cached for the workspace rail; read it when a suggestion needs it.
+  const queryClient = useContext(QueryClientContext);
   const from = getNoteLinkSource(document);
   const fromKey = from ? JSON.stringify(from) : null;
   const latest = useRef({ document, notes });
@@ -70,5 +79,11 @@ export function useNoteLinks({ document, notes, openLink }: {
     describe,
     openEmbed: embed => (embed.kind === 'embed' ? openLink(embed.raw, 'embed') : openLink(embed.url, 'url')),
     titleForUrl: async url => (await resolve(url, 'url'))?.title ?? null,
-  } : null), [api, describe, openLink, resolve]);
+    tags: () => getWorkspaceTags(latest.current.notes),
+    userName: () => {
+      if (latest.current.document?.teamPath === LOCAL_VAULT_TEAM_PATH) return null;
+      const user = unwrapRepositoryValue(queryClient?.getQueryData<RepositoryValue<UserSummary>>(['electron', 'hackmd', 'current-user']));
+      return user?.name || null;
+    },
+  } : null), [api, describe, openLink, queryClient, resolve]);
 }
