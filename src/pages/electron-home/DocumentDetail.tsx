@@ -176,7 +176,7 @@ function getEffectiveSyncState({
 }
 
 // Shown on hover, keyboard focus, or while navigation hints are held.
-const DOCUMENT_ACTIONS_ON_DEMAND_CLASS = 'opacity-0 transition-opacity group-hover/document-header:opacity-100 group-focus-within/document-header:opacity-100 [body:has([data-keyboard-navigation-overlay])_&]:opacity-100 motion-reduce:transition-none';
+const DOCUMENT_ACTIONS_ON_DEMAND_CLASS = 'opacity-0 transition-opacity group-hover/document-header:opacity-100 group-focus-within/document-header:opacity-100 [html[data-navigation-hints]_&]:opacity-100 [html[data-navigation-hints]_&]:transition-none motion-reduce:transition-none';
 
 function SyncStateBadge({
   state,

@@ -31,6 +31,7 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
     let frame: number | null = null;
     const clear = (release = false) => {
       observer.disconnect();
+      delete document.documentElement.dataset.navigationHints;
       if (release) held = false;
       suspended = true;
       hints = []; prefix = ''; reason = '';
@@ -45,6 +46,8 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
       origin = document.activeElement;
       if (origin?.closest('[data-shortcut-recording="true"]')) { clear(); return; }
       letters = safeNavigationLetters(platform, shortcuts, characterEnabled, origin?.closest<HTMLElement>('.cm-editor') ?? null);
+      // Controls that show only on demand appear first, so they get codes and the target list stays put.
+      document.documentElement.dataset.navigationHints = 'true';
       const targets = signature();
       const codebook = scope ? `settings:${workspaceKey}:${scope.dataset.navigationPage}` : workspaceKey!;
       const previous = codesByWorkspace.current.get(codebook) ?? new Map();
@@ -114,6 +117,7 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
       window.removeEventListener('resize', scheduleCheck);
       document.removeEventListener('focusin', scheduleCheck);
       observer.disconnect();
+      delete document.documentElement.dataset.navigationHints;
       if (frame !== null) cancelAnimationFrame(frame);
     };
   }, [workspaceKey, shortcuts, platform, characterEnabled, context]);
