@@ -1,5 +1,5 @@
 import { lazy, Suspense, useLayoutEffect } from 'react';
-import { useLocation, useRoutes, type RouteObject } from 'react-router-dom';
+import { useLocation, useRoutes, type RouteObject } from 'react-router';
 
 import { Home } from './pages/Home';
 import { QuickCapture } from './pages/QuickCapture';

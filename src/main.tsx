@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, HashRouter } from 'react-router-dom';
+import { BrowserRouter, HashRouter } from 'react-router';
 
 import App from '@/App';
 import { getRuntimeEnvironment } from '@/lib/electron-api';
