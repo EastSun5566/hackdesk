@@ -35,7 +35,6 @@ export type WorkbenchActionContextInput = {
   scopeType: WorkspaceScope['type'];
   selectedFolderId: string | null;
   selectedNoteId: string | null;
-  workspaceRailCollapsed: boolean;
   workspaceState: NoteWorkspaceState;
 };
 
@@ -65,7 +64,7 @@ export type WorkbenchActionHandlers = {
   focusNextTab: () => void;
   focusPreviousPane: () => void;
   focusPreviousTab: () => void;
-  focusWorkspace: () => void;
+  openWorkspaceSwitcher: () => void;
   focusWorkspaceSearch: () => void;
   goHistory: () => void;
   showTrash: () => void;
@@ -93,7 +92,6 @@ export type WorkbenchActionHandlers = {
   toggleKeyHints: () => void;
   toggleNavigator: () => void;
   toggleTheme: () => void;
-  toggleWorkspaceRail: () => void;
   renameNote: () => void;
   duplicateSelectedNote: () => void;
   moveNoteToFolder: () => void;
@@ -130,7 +128,6 @@ export function createWorkbenchActionContext({
   scopeType,
   selectedFolderId,
   selectedNoteId,
-  workspaceRailCollapsed,
   workspaceState,
 }: WorkbenchActionContextInput): ElectronActionContext {
   const activePane = workspaceState.panes.find((pane) => pane.paneId === workspaceState.activePaneId);
@@ -162,7 +159,6 @@ export function createWorkbenchActionContext({
     scopeType,
     selectedFolderId,
     selectedNoteId,
-    workspaceRailCollapsed,
   };
 }
 
@@ -185,7 +181,6 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     scopeType,
     selectedFolderId,
     selectedNoteId,
-    workspaceRailCollapsed,
     workspaceState,
   } = options;
   const actionContext = useMemo(() => createWorkbenchActionContext({
@@ -204,7 +199,6 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     scopeType,
     selectedFolderId,
     selectedNoteId,
-    workspaceRailCollapsed,
     workspaceState,
   }), [
     bookContentsHidden,
@@ -222,7 +216,6 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     scopeType,
     selectedFolderId,
     selectedNoteId,
-    workspaceRailCollapsed,
     workspaceState,
   ]);
 
@@ -316,9 +309,6 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'show-trash':
       handlers.showTrash();
-      break;
-    case 'toggle-workspace-rail':
-      handlers.toggleWorkspaceRail();
       break;
     case 'toggle-navigator':
       handlers.toggleNavigator();
@@ -453,7 +443,7 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       handlers.exportDebugLogs();
       break;
     case 'focus-workspace':
-      handlers.focusWorkspace();
+      handlers.openWorkspaceSwitcher();
       break;
     case 'focus-navigator':
       handlers.focusNavigator();

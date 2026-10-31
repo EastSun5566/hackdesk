@@ -5,23 +5,13 @@ import { DocumentWorkspace, type DocumentPaneView } from './DocumentWorkspace';
 import { FolderNavigator } from './FolderNavigator';
 import type { NotePane, NoteWorkspaceState, OpenNoteTab } from './note-workspace';
 import { PanelResizeSash } from './PanelResizeSash';
-import {
-  NAVIGATOR_WIDTH_DEFAULT,
-  NAVIGATOR_WIDTH_MAX,
-  NAVIGATOR_WIDTH_MIN,
-  RAIL_WIDTH_DEFAULT,
-  RAIL_WIDTH_MAX,
-  RAIL_WIDTH_MIN,
-} from './ui-preferences';
+import { NAVIGATOR_WIDTH_DEFAULT, NAVIGATOR_WIDTH_MAX, NAVIGATOR_WIDTH_MIN } from './ui-preferences';
 import { WorkspaceBackupNotice, type WorkspaceBackupNoticeProps } from './WorkspaceBackupNotice';
-import { WorkspaceRail } from './WorkspaceRail';
 
-const WORKSPACE_RAIL_PANEL_ID = 'workspace-rail-panel';
 const NOTE_NAVIGATOR_PANEL_ID = 'note-navigator-panel';
 
 type AppTopBarProps = ComponentProps<typeof AppTopBar>;
 type FolderNavigatorProps = ComponentProps<typeof FolderNavigator>;
-type WorkspaceRailProps = ComponentProps<typeof WorkspaceRail>;
 
 export type ElectronHomeWorkspaceProps = {
   backupNotice?: WorkspaceBackupNoticeProps | null;
@@ -32,19 +22,12 @@ export type ElectronHomeWorkspaceProps = {
     value: number;
     onChange: (value: number) => void;
   };
-  rail: Omit<WorkspaceRailProps, 'id'>;
-  railResize: {
-    disabled: boolean;
-    value: number;
-    onChange: (value: number) => void;
-  };
   titlebar: {
     getPaneTabs: (pane: NotePane) => OpenNoteTab[];
     getPaneView: (pane: NotePane) => DocumentPaneView;
     getTabSyncState: AppTopBarProps['getTabSyncState'];
     layout: {
       navigatorCollapsed: boolean;
-      railCollapsed: boolean;
     };
     state: Pick<NoteWorkspaceState, 'scopeKey' | 'activePaneId' | 'backStack' | 'forwardStack' | 'panes' | 'recentlyClosedTabs'>;
     actions: {
@@ -59,7 +42,6 @@ export type ElectronHomeWorkspaceProps = {
       reorderTab: (paneId: string, tabId: string, overTabId: string) => void;
       splitActiveTab: () => void;
       toggleNavigator: () => void;
-      toggleRail: () => void;
     };
   };
 };
@@ -69,8 +51,6 @@ export function ElectronHomeWorkspace({
   documentWorkspace,
   navigator,
   navigatorResize,
-  rail,
-  railResize,
   titlebar,
 }: ElectronHomeWorkspaceProps) {
   const activeTitlebarPane = titlebar.state.panes.find((pane) => pane.paneId === titlebar.state.activePaneId) ?? null;
@@ -122,30 +102,16 @@ export function ElectronHomeWorkspace({
         platform={window.hackdeskAPI?.platform ?? 'unknown'}
         navigatorCollapsed={titlebar.layout.navigatorCollapsed}
         navigatorPanelId={NOTE_NAVIGATOR_PANEL_ID}
-        railCollapsed={titlebar.layout.railCollapsed}
-        railPanelId={WORKSPACE_RAIL_PANEL_ID}
         tabs={activeTitlebarTabs}
         onToggleNavigator={titlebar.actions.toggleNavigator}
-        onToggleRail={titlebar.actions.toggleRail}
       />
 
       {backupNotice ? <WorkspaceBackupNotice {...backupNotice} /> : null}
 
       <main className="flex min-h-0 min-w-0 flex-1">
-        <WorkspaceRail id={WORKSPACE_RAIL_PANEL_ID} {...rail} />
-        <PanelResizeSash
-          label="Resize workspace sidebar"
-          value={railResize.value}
-          min={RAIL_WIDTH_MIN}
-          max={RAIL_WIDTH_MAX}
-          defaultValue={RAIL_WIDTH_DEFAULT}
-          disabled={railResize.disabled}
-          onChange={railResize.onChange}
-        />
-
         <FolderNavigator id={NOTE_NAVIGATOR_PANEL_ID} {...navigator} />
         <PanelResizeSash
-          label="Resize note navigator"
+          label="Resize sidebar"
           value={navigatorResize.value}
           min={NAVIGATOR_WIDTH_MIN}
           max={NAVIGATOR_WIDTH_MAX}

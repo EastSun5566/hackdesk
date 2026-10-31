@@ -32,7 +32,6 @@ const context: ElectronActionContext = {
   scopeType: 'personal',
   selectedFolderId: 'folder-alpha',
   selectedNoteId: 'exact',
-  workspaceRailCollapsed: false,
   bookOpen: false,
   bookContentsHidden: false,
   hasLocalVault: false,

@@ -20,8 +20,8 @@ Press **Space** outside text editing, or **Cmd+J** on macOS or **Ctrl+J** on Win
 | --- | --- | --- |
 | N | Note | N new, R rename, D duplicate, M move to folder, X delete |
 | T | Tab | W close, S split right, U reopen closed, H / L move left / right |
-| G | Go | O Quick Open, S search notes, H History, B / F back / forward |
-| V | View | S workspace sidebar, N navigator, D Note Details, K key hints |
+| G | Go | W switch workspace, O Quick Open, S search notes, H History, B / F back / forward |
+| V | View | S sidebar, D Note Details, K key hints |
 | A | AI | A Ask AI, Q Ask Your Notes, D dictate |
 | F | Folder | N new, R rename, X delete |
 
@@ -41,6 +41,8 @@ Open **Keyboard Shortcuts** from Help or the command palette to search bindings 
 | New note | Cmd+N | Ctrl+N |
 | Save note | Cmd+S | Ctrl+S |
 | Close active tab | Cmd+W | Ctrl+W |
+| Toggle sidebar | Cmd+B | Ctrl+B |
+| Go to My Workspace / pinned team | Cmd+1 / Cmd+2–9 | Ctrl+1 / Ctrl+2–9 |
 | Next workbench region | F6 | F6 |
 | Previous workbench region | Shift+F6 | Shift+F6 |
 | Focus Note Finder outside text editing | `/` | `/` |
@@ -48,7 +50,11 @@ Open **Keyboard Shortcuts** from Help or the command palette to search bindings 
 
 ## Move between regions
 
-Press **F6** to move through visible workspace controls, the navigator, tabs, editor panes, and expanded Note Details. Press **Shift+F6** to move backwards. Collapsed or unavailable regions are skipped.
+Press **F6** to move through the sidebar, tabs, editor panes, and expanded Note Details. Press **Shift+F6** to move backwards. Collapsed or unavailable regions are skipped.
+
+To switch workspaces, choose the workspace name at the top of the sidebar, or run **Switch Workspace…** from the leader menu (**G W**) or the command palette. Up and Down move through the list, Enter switches, and Escape closes it.
+
+In **Search notes** and **Search settings**, focus stays in the search box: Up and Down, or Ctrl+N and Ctrl+P, move the highlighted result and Enter opens it. With an empty note search, Down moves into the folder tree.
 
 In tabs, use Left/Right or Home/End to move focus; Enter selects the focused tab. In the folder tree, arrow keys move focus or expand and collapse folders; Enter selects a folder or opens a note.
 
@@ -66,10 +72,12 @@ Keep the modifier held and type a displayed code. Notes, folders, tabs, and work
 
 Press Backspace to remove a code prefix, Escape to cancel, or release the modifier to clear hints. Settings shows codes for its visible controls instead of workbench hints. A code focuses the control; press Enter or Space to operate it. Other dialogs, menus, and Quick Hack hide navigation hints. Recording a custom shortcut also hides hints.
 
-**Cmd+1** / **Ctrl+1** selects My Workspace. Numbers 2–9 select the first eight pinned teams. Utilities such as Local Vault and History do not take a workspace number.
+**Cmd+1** / **Ctrl+1** selects My Workspace. Numbers 2–9 select the first eight pinned teams. While you hold the modifier, a card beside the sidebar shows which workspace each number opens. Utilities such as Local Vault and History do not take a workspace number.
+
+When an editor keeps every letter for its own keys, its codes are hidden and the hints show only shortcuts.
 
 ## Customize bindings
 
 Open **Settings → Shortcuts** to change or disable actions. The **Enable ?, / and Space outside text editing** option controls the default character shortcuts. Input fields, text editors, and IME composition retain normal input behavior.
 
-The hint allocator avoids occupied keys. If no safe codes remain, it explains the limitation; use F6, normal tab navigation, or the command palette instead.
+The hint allocator avoids occupied keys. If no safe codes remain, codes are hidden; use F6, normal tab navigation, or the command palette instead.

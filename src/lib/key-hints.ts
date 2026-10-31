@@ -5,10 +5,10 @@ import {
   type ElectronActionContext,
 } from './electron-actions';
 import type { ElectronActionId } from './electron-api';
-import { displayShortcutConfig, type ShortcutOverrides } from './keyboard-shortcuts';
+import type { ShortcutOverrides } from './keyboard-shortcuts';
 
 /** Where keyboard focus is: a workbench region, or the note search box inside the navigator. */
-export type KeyHintContext = 'workspace' | 'navigator' | 'finder' | 'tabs' | 'editor' | 'inspector';
+export type KeyHintContext = 'navigator' | 'finder' | 'tabs' | 'editor' | 'inspector';
 
 export type KeyHint = { keys: string; label: string };
 
@@ -22,7 +22,7 @@ export const WIDGET_KEYS = [
   { region: 'navigator', label: 'Find by name', keys: 'Type a name', description: 'Focus the next matching tree item.' },
 ] as const;
 
-const SPACE_LEADER_CONTEXTS = new Set<KeyHintContext>(['navigator', 'tabs', 'workspace']);
+const SPACE_LEADER_CONTEXTS = new Set<KeyHintContext>(['navigator', 'tabs']);
 
 type HintSpec = { keys: string; label: string } | { action: ElectronActionId; label: string };
 
@@ -37,8 +37,9 @@ const HINTS: Record<KeyHintContext, HintSpec[]> = {
   ],
   finder: [
     { keys: 'Type', label: 'Filter notes' },
+    { keys: '↑ ↓', label: 'Move' },
+    { keys: '↵', label: 'Open' },
     { keys: 'Esc', label: 'Clear, then back to the tree' },
-    { action: 'focus-next-region', label: 'Next area' },
   ],
   tabs: [
     { keys: '← →', label: 'Move' },
@@ -57,12 +58,6 @@ const HINTS: Record<KeyHintContext, HintSpec[]> = {
   inspector: [
     { keys: 'Tab', label: 'Next field' },
     { action: 'focus-next-region', label: 'Next area' },
-    { keys: 'leader', label: 'Commands' },
-  ],
-  workspace: [
-    { keys: '↑ ↓', label: 'Move' },
-    { keys: '↵', label: 'Switch' },
-    { keys: 'workspace-numbers', label: 'Jump to workspace' },
     { keys: 'leader', label: 'Commands' },
   ],
 };
@@ -84,7 +79,6 @@ export function getKeyHints(context: KeyHintContext, {
 }): KeyHint[] {
   return HINTS[context].flatMap((spec): KeyHint[] => {
     if (!('action' in spec)) {
-      if (spec.keys === 'workspace-numbers') return [{ keys: `${displayShortcutConfig('mod+1', platform)}–9`, label: spec.label }];
       if (spec.keys !== 'leader') return [spec];
       // Space opens the leader menu where it is not typed; text fields use the leader shortcut.
       if (characterShortcutsEnabled && SPACE_LEADER_CONTEXTS.has(context)) return [{ keys: 'Space', label: spec.label }];

@@ -1,4 +1,4 @@
-import { _electron as electron, expect, test } from '@playwright/test';
+import { _electron as electron, expect, test, type Page } from '@playwright/test';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -8,6 +8,13 @@ import { definedEnvironment } from './fixtures/environment';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
 const primary = process.platform === 'darwin' ? 'Meta' : 'Control';
+
+async function switchWorkspace(page: Page, name: string) {
+  const list = page.getByRole('dialog', { name: 'Workspaces' });
+  if (!(await list.isVisible())) await page.getByRole('button', { name: /^Switch workspace, current: / }).click();
+  await list.getByRole('button', { name, exact: true }).click();
+  await expect(list).toBeHidden();
+}
 
 for (const origin of ['personal', 'team-a']) {
   test(`delayed ${origin} create and save preserve the originating draft and leave Team B alone`, async () => {
@@ -71,10 +78,11 @@ for (const origin of ['personal', 'team-a']) {
         replace(channels.hackmdUpdateTeamNote, (_event, teamPath, _id, input) => hold(input, teamPath));
       }, { channels: ELECTRON_CHANNELS, settings: defaultSettings });
       await page.reload();
-      await expect(page.getByRole('button', { name: 'Team B, private', exact: true })).toBeVisible();
+      await page.getByRole('button', { name: /^Switch workspace, current: / }).click();
+      await expect(page.getByRole('dialog', { name: 'Workspaces' }).getByRole('button', { name: 'Team B, private', exact: true })).toBeVisible();
       const originButton = origin === 'personal' ? 'My Workspace' : 'Team A, private';
       const scopeKey = origin === 'personal' ? origin : `team:${origin}`;
-      await page.getByRole('button', { name: originButton, exact: true }).click();
+      await switchWorkspace(page, originButton);
       await page.keyboard.press(`${primary}+n`);
       const editor = page.locator('.cm-content');
       await editor.fill('# Origin submitted');
@@ -82,16 +90,16 @@ for (const origin of ['personal', 'team-a']) {
       const waitForPending = () => expect.poll(() => app.evaluate(({ ipcMain }, owner) => ipcMain.listenerCount(`fixture:complete:${owner}`), origin)).toBe(1);
       await waitForPending();
       await editor.fill('# Origin later');
-      await page.getByRole('button', { name: 'Team B, private', exact: true }).click();
+      await switchWorkspace(page, 'Team B, private');
       await page.keyboard.press(`${primary}+n`);
       await editor.fill('B untouched');
       // A pending create must not block the same shortcut in B. Returning to A
       // while both are pending must still prevent a duplicate submission.
       await page.keyboard.press(`${primary}+s`);
       await expect.poll(() => app.evaluate(({ ipcMain }) => ipcMain.listenerCount('fixture:complete:team-b'))).toBe(1);
-      await page.getByRole('button', { name: originButton, exact: true }).click();
+      await switchWorkspace(page, originButton);
       await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
-      await page.getByRole('button', { name: 'Team B, private', exact: true }).click();
+      await switchWorkspace(page, 'Team B, private');
       await app.evaluate(({ ipcMain }) => { ipcMain.emit('fixture:complete:team-b'); });
       await expect.poll(() => page.evaluate(() => localStorage.getItem('hackdesk_note_workspace:team:team-b'))).toContain('B untouched');
       await expect(page.getByRole('tab', { name: /^B untouched(?:, .+)?$/ })).toHaveCount(1);
@@ -102,12 +110,12 @@ for (const origin of ['personal', 'team-a']) {
       await expect(editor).toContainText('B untouched');
       await expect(page.getByRole('tab', { name: /^Origin submitted(?:, .+)?$/ })).toHaveCount(0);
       expect(await page.evaluate(() => localStorage.getItem('hackdesk_note_workspace:team:team-b'))).toBe(destination);
-      await page.getByRole('button', { name: originButton, exact: true }).click();
+      await switchWorkspace(page, originButton);
       await expect(editor).toContainText('# Origin later');
       await page.getByRole('button', { name: 'Save', exact: true }).click();
       await waitForPending();
       await editor.fill('# Origin even later');
-      await page.getByRole('button', { name: 'Team B, private', exact: true }).click();
+      await switchWorkspace(page, 'Team B, private');
       await app.evaluate(({ ipcMain }, owner) => { ipcMain.emit(`fixture:complete:${owner}`); }, origin);
       await expect.poll(() => page.evaluate((key) => {
         const layout = JSON.parse(localStorage.getItem(`hackdesk_note_workspace:${key}`) ?? '{}');
@@ -115,7 +123,7 @@ for (const origin of ['personal', 'team-a']) {
       }, scopeKey)).toEqual(['# Origin later']);
       await expect(editor).toContainText('B untouched');
       await page.reload();
-      await page.getByRole('button', { name: originButton, exact: true }).click();
+      await switchWorkspace(page, originButton);
       await expect(editor).toContainText('# Origin even later');
       await expect(page.getByRole('tab', { name: /^Origin submitted(?:, .+)?$/ })).toHaveCount(1);
     } finally {

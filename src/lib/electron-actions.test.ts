@@ -35,7 +35,6 @@ const baseContext: ElectronActionContext = {
   paneCount: 1,
   inspectorCollapsed: false,
   navigatorCollapsed: false,
-  workspaceRailCollapsed: false,
   bookOpen: false,
   bookContentsHidden: false,
   hasLocalVault: false,
@@ -90,15 +89,13 @@ describe('electron action registry', () => {
       label: 'Use Kakoune Editor Mode',
       category: 'app',
     });
-    expect(getElectronAction('toggle-workspace-rail')).toMatchObject({
+    expect(getElectronAction('toggle-navigator')).toMatchObject({
+      label: 'Toggle Sidebar',
       shortcut: '⌘B',
       menuAccelerator: 'CmdOrCtrl+B',
     });
-    expect(getElectronAction('toggle-navigator')).toMatchObject({
-      label: 'Toggle Note Navigator',
-      shortcut: '⌥⌘B',
-      menuAccelerator: 'CmdOrCtrl+Alt+B',
-    });
+    expect(getElectronAction('focus-workspace')).toMatchObject({ label: 'Switch Workspace…', scope: 'global' });
+    expect(getElectronAction('focus-workspace').defaultKeybinding).toBeUndefined();
     expect(getElectronAction('export-debug-logs')).toMatchObject({
       label: 'Export Debug Logs',
       menuAccelerator: 'Shift+CmdOrCtrl+L',
@@ -183,7 +180,7 @@ describe('electron action registry', () => {
   });
 
   it('exposes action labels and display shortcut helpers from the registry', () => {
-    expect(getElectronActionLabel('toggle-navigator')).toBe('Toggle Note Navigator');
+    expect(getElectronActionLabel('toggle-navigator')).toBe('Toggle Sidebar');
     expect(getResolvedActionShortcut('open-command-palette', undefined, 'darwin')).toBe('⌘K, ⇧⌘P');
     expect(getResolvedActionShortcut('open-command-palette', { 'open-command-palette': 'mod+j' }, 'darwin')).toBe('⌘J');
     expect(getResolvedActionShortcut('open-command-palette', { 'open-command-palette': 'none' }, 'darwin')).toBeUndefined();

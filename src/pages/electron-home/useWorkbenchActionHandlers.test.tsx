@@ -127,7 +127,7 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     toggleInspector: vi.fn(),
     toggleNavigator: vi.fn(),
     toggleTheme: vi.fn(),
-    toggleWorkspaceRail: vi.fn(),
+    openWorkspaceSwitcher: vi.fn(),
     trackRecentNote: vi.fn(),
     ...overrides,
   };

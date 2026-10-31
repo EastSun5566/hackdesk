@@ -88,7 +88,7 @@ async function launchFixture(editorMode: EditorMode = 'helix', navigationFixture
     }
   }, { channels: ELECTRON_CHANNELS, storedSettings: settings, names: teamNames });
   await page.reload();
-  await expect(page.getByRole('button', { name: `${teamNames[0]}, private`, exact: true })).toBeVisible();
+  await expect(page.getByTestId('sidebar-footer').getByRole('button', { name: /^Open settings for Fixture User/ })).toBeVisible();
   await expect(page.getByRole('treeitem', { name: 'UI fixture', exact: true })).toBeVisible();
   return { app, page };
 }
@@ -104,8 +104,66 @@ async function stopApp(app: ElectronApplication, recordKeyboard = false) {
   await exited;
 }
 
+// Describes the focused element if its outer focus ring is cut off by a clipping ancestor.
+async function clippedFocusRing(page: Page) {
+  return page.evaluate(() => {
+    const element = document.activeElement as HTMLElement | null;
+    if (!element || element === document.body) return null;
+    const shadow = getComputedStyle(element).boxShadow;
+    if (!shadow || shadow === 'none' || shadow.includes('inset')) return null;
+    const rect = element.getBoundingClientRect();
+    const ring = 2;
+    for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+      const style = getComputedStyle(parent);
+      const clipsX = ['hidden', 'auto', 'scroll', 'clip'].includes(style.overflowX);
+      const clipsY = ['hidden', 'auto', 'scroll', 'clip'].includes(style.overflowY);
+      if (!clipsX && !clipsY) continue;
+      const bounds = parent.getBoundingClientRect();
+      if ((clipsX && (rect.left - ring < bounds.left - 0.5 || rect.right + ring > bounds.right + 0.5))
+        || (clipsY && (rect.top - ring < bounds.top - 0.5 || rect.bottom + ring > bounds.bottom + 0.5))) {
+        const name = element.getAttribute('aria-label') || element.id || element.getAttribute('placeholder') || element.getAttribute('name') || element.textContent?.trim().slice(0, 40) || '';
+        return `${element.tagName.toLowerCase()}[${element.getAttribute('role') ?? ''}] "${name}"`;
+      }
+    }
+    return null;
+  });
+}
+
+async function clippedFocusRingsWhileTabbing(page: Page, steps: number) {
+  const clipped = new Set<string>();
+  for (let step = 0; step < steps; step++) {
+    await page.keyboard.press('Tab');
+    const found = await clippedFocusRing(page);
+    if (found) clipped.add(found);
+  }
+  return [...clipped];
+}
+
+async function openWorkspaceSwitcher(page: Page) {
+  const list = page.getByRole('dialog', { name: 'Workspaces' });
+  if (!(await list.isVisible())) await page.getByRole('button', { name: /^Switch workspace, current: / }).click();
+  await expect(list).toBeVisible();
+  await list.evaluate(element => Promise.all(element.getAnimations().map(animation => animation.finished)));
+  return list;
+}
+
+async function switchWorkspace(page: Page, name: string) {
+  await (await openWorkspaceSwitcher(page)).getByRole('button', { name, exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Workspaces' })).toBeHidden();
+}
+
+// Hints cancel while the page is still changing, so hold the key again until they stay.
+async function holdForHints(page: Page, target: Locator, ready = () => page.locator('[data-keyboard-navigation-overlay]').isVisible()) {
+  await expect.poll(async () => {
+    await page.keyboard.up(primary);
+    await target.focus();
+    await page.keyboard.down(primary);
+    return ready();
+  }).toBe(true);
+}
+
 async function openFixtureNote(page: Page) {
-  await page.getByRole('button', { name: 'Local Vault', exact: true }).click();
+  await switchWorkspace(page, 'Local Vault');
   await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'UI fixture', exact: true }).click();
   await expect(page.locator('.cm-content')).toContainText('Test note for layout checks.');
 }
@@ -222,106 +280,86 @@ test('palette enabled state and contrast survive real CSS in all built-in themes
   }
 });
 
-test('collapsed workspace icons stay centered with classic scrollbars and remain scrollable', async () => {
-  const { app, page } = await launchFixture();
+test('focus rings stay visible instead of being cut off by their containers', async () => {
+  const { app, page } = await launchFixture('standard', true);
   try {
-    // A sized scrollbar reproduces macOS's non-overlay scrollbar without changing OS settings.
-    await page.addStyleTag({ content: `
-      [data-testid="workspace-rail-team-navigation"] { scrollbar-color: auto; }
-      [data-testid="workspace-rail-team-navigation"]::-webkit-scrollbar { width: 14px; }
-    ` });
-    const scroller = page.getByTestId('workspace-rail-team-navigation');
-    await scroller.evaluate(element => { element.style.flex = 'none'; element.style.height = '48px'; });
-    await page.keyboard.press(`${primary}+b`);
-    const first = page.getByRole('button', { name: `${teamNames[0]}, private`, exact: true });
-    const second = page.getByRole('button', { name: `${teamNames[1]}, private`, exact: true });
-    await expect.poll(() => page.evaluate(() => {
-      const personal = document.querySelector('[data-testid="workspace-rail-personal-avatar"]')!.getBoundingClientRect();
-      const team = document.querySelector('[data-testid="workspace-rail-team-logo-fixture-team-0"]')!.getBoundingClientRect();
-      return Math.abs((personal.left + personal.width / 2) - (team.left + team.width / 2));
-    })).toBeLessThan(1);
-    await first.focus();
-    await page.keyboard.down(primary);
-    await expect(first.locator('[data-workspace-shortcut]')).toBeVisible();
-    await expect.poll(() => scroller.evaluate(element => element.scrollWidth - element.clientWidth)).toBe(0);
-    await expect.poll(() => first.evaluate(element => {
-      const hint = element.querySelector('[data-workspace-shortcut]')!.getBoundingClientRect();
-      const row = element.getBoundingClientRect();
-      return Math.abs(hint.left + hint.width / 2 - row.left - row.width / 2);
-    })).toBeLessThan(1);
-    await page.keyboard.up(primary);
-    await page.keyboard.press('Tab');
-    await expect(second).toBeFocused();
-    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
-    await scroller.hover();
-    await page.mouse.wheel(0, -300);
-    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBe(0);
-    await page.mouse.wheel(0, 300);
-    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
-    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('19-collapsed-scrollbar.png') });
-    await page.keyboard.press(`${primary}+b`);
-    await expect.poll(() => scroller.evaluate((element: HTMLElement) => element.offsetWidth - element.clientWidth)).toBeGreaterThan(10);
+    await page.setViewportSize({ width: 1280, height: 760 });
+    await openFixtureNote(page);
+    await page.getByRole('treeitem', { name: 'UI fixture', exact: true }).focus();
+    const clipped = await clippedFocusRingsWhileTabbing(page, 60);
+    const list = await openWorkspaceSwitcher(page);
+    for (const row of await list.locator('[data-workspace-row]').all()) {
+      await row.focus();
+      const found = await clippedFocusRing(page);
+      if (found) clipped.push(`switcher ${found}`);
+    }
+    await page.keyboard.press('Escape');
+    await page.keyboard.press(`${primary}+,`);
+    await page.getByRole('dialog', { name: 'Settings', exact: true }).getByRole('combobox', { name: 'Search settings' }).fill('a');
+    clipped.push(...(await clippedFocusRingsWhileTabbing(page, 40)).map(found => `settings ${found}`));
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press(`${primary}+k`);
+    clipped.push(...(await clippedFocusRingsWhileTabbing(page, 10)).map(found => `palette ${found}`));
+    // Tabbing may leave focus on a palette control, where the first Escape only clears it.
+    await expect(async () => {
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog', { name: 'Command Palette' })).toBeHidden({ timeout: 500 });
+    }).toPass();
+    // Note Details, opened from the leader menu.
+    await page.locator('.cm-content').focus();
+    await page.keyboard.press(`${primary}+j`);
+    await expect(page.getByRole('menu', { name: 'Commands' })).toBeVisible();
+    await page.keyboard.press('v');
+    await page.keyboard.press('d');
+    const details = page.locator('[data-hackdesk-focus="inspector"]');
+    await expect(details).toBeVisible();
+    await details.locator('input, textarea, button').first().focus();
+    clipped.push(...(await clippedFocusRingsWhileTabbing(page, 30)).map(found => `details ${found}`));
+    expect(clipped).toEqual([]);
   } finally {
     await stopApp(app);
   }
 });
 
-test('rail controls, one-pixel boundaries and full-height Settings workbench', async () => {
+test('workspace switcher rows, one-pixel boundaries and full-height Settings workbench', async () => {
   const testInfo = test.info();
   const { app, page } = await launchFixture();
   try {
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1440, 900));
-    await page.getByRole('button', { name: /^Resize workspace sidebar/ }).focus();
-    await page.keyboard.press('Home');
-    await expect.poll(async () => (await page.getByRole('complementary', { name: 'Workspace switcher' }).boundingBox())!.width).toBe(192);
-    const workspace = page.getByRole('button', { name: `${teamNames[0]}, private`, exact: true });
-    const drag = page.getByRole('button', { name: `Reorder ${teamNames[0]}`, exact: true });
-    const pin = page.getByRole('button', { name: `Unpin ${teamNames[0]}`, exact: true });
-    await page.getByRole('button', { name: 'My Workspace', exact: true }).focus();
-    await page.mouse.move(900, 100);
+    const list = await openWorkspaceSwitcher(page);
+    const workspace = list.getByRole('button', { name: `${teamNames[0]}, private`, exact: true });
+    const drag = list.getByRole('button', { name: `Reorder ${teamNames[0]}`, exact: true });
+    const pin = list.getByRole('button', { name: `Unpin ${teamNames[0]}`, exact: true });
+    await expect(list.getByRole('button', { name: 'Local Vault', exact: true })).toBeFocused();
+    await page.mouse.move(900, 600);
     const rowBounds = (await workspace.locator('..').boundingBox())!;
-    expect((await workspace.boundingBox())!.width).toBe(rowBounds.width);
+    expect(Math.abs((await workspace.boundingBox())!.width - rowBounds.width)).toBeLessThan(1);
     await expect(drag).toHaveCSS('opacity', '0');
     await expect(pin.locator('..')).toHaveCSS('opacity', '0');
-    await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('10-rail-idle.png') });
-    await workspace.click();
+    await expect(workspace).toContainText(process.platform === 'darwin' ? '⌘2' : 'Ctrl+2');
+    await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('10-switcher-idle.png') });
     await workspace.hover();
-    await drag.focus();
-    const before = await workspace.boundingBox();
-    await page.keyboard.down(primary);
     await expect(drag).toHaveCSS('opacity', '1');
-    await expect.poll(() => workspace.locator('..').evaluate((row) => {
-      const hint = row.querySelector('[data-workspace-shortcut]')!.getBoundingClientRect();
-      const drag = row.querySelector('button[aria-label^="Reorder "]')!.getBoundingClientRect();
-      const pin = row.querySelector('button[aria-label^="Unpin "]')!;
-      const pinBounds = pin.getBoundingClientRect();
-      const mask = pin.parentElement!.getBoundingClientRect();
-      return drag.right <= hint.left && hint.right <= pinBounds.left
-        && mask.left <= hint.left && mask.right >= pinBounds.right;
-    }), { message: 'Drag, shortcut and pin controls have separate, covered positions' }).toBe(true);
-    expect(await workspace.boundingBox()).toEqual(before);
-    await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('02-rail-controls.png') });
-    await page.keyboard.up(primary);
+    await expect(pin.locator('..')).toHaveCSS('opacity', '1');
+    await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('02-switcher-controls.png') });
+    await page.keyboard.press('Escape');
+    await expect(list).toBeHidden();
+    await expect(page.getByRole('button', { name: /^Switch workspace, current: / })).toBeFocused();
 
     // Reorder has its own fixture: dnd-kit briefly suppresses clicks after a drop.
     await openFixtureNote(page);
-    const sashes = page.getByRole('button', { name: /^Resize .*Current width/ });
-    expect(await sashes.count()).toBe(2);
-    for (const sash of await sashes.all()) expect((await sash.boundingBox())!.width).toBe(1);
-    const rail = page.getByRole('complementary', { name: 'Workspace switcher' });
-    await expect(rail).toHaveCSS('border-right-width', '0px');
-    await page.keyboard.press(`${primary}+b`);
-    await expect(rail).toHaveCSS('border-right-width', '1px');
-    await expect(page.getByRole('button', { name: /^Resize workspace sidebar/ })).toHaveCount(0);
-    await page.keyboard.press(`${primary}+b`);
-    const railSash = sashes.first();
-    const sashBounds = (await railSash.boundingBox())!;
-    const initialRailWidth = (await page.getByRole('complementary', { name: 'Workspace switcher' }).boundingBox())!.width;
+    const sash = page.getByRole('button', { name: /^Resize sidebar.*Current width/ });
+    await expect(sash).toHaveCount(1);
+    expect((await sash.boundingBox())!.width).toBe(1);
+    const sidebar = page.locator('#note-navigator-panel');
+    const sashBounds = (await sash.boundingBox())!;
+    const initialWidth = (await sidebar.boundingBox())!.width;
     await page.mouse.move(sashBounds.x - 2, sashBounds.y + 100);
     await page.mouse.down();
     await page.mouse.move(sashBounds.x + 30, sashBounds.y + 100);
     await page.mouse.up();
-    await expect.poll(async () => (await page.getByRole('complementary', { name: 'Workspace switcher' }).boundingBox())!.width).toBeGreaterThan(initialRailWidth);
+    await expect.poll(async () => (await sidebar.boundingBox())!.width).toBeGreaterThan(initialWidth);
     await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('03-panel-boundaries.png') });
     await page.keyboard.press(`${primary}+\\`);
     const separator = page.getByRole('separator', { name: /Resize document panes/ });
@@ -335,9 +373,9 @@ test('rail controls, one-pixel boundaries and full-height Settings workbench', a
     for (const height of [900, 660]) {
       await page.setViewportSize({ width: 1440, height });
       await expect(page.getByRole('dialog', { name: 'Settings' })).toHaveCSS('height', `${Math.min(760, height - 64)}px`);
-      const sidebar = page.getByRole('complementary', { name: 'Settings sidebar' });
+      const settingsSidebar = page.getByRole('complementary', { name: 'Settings sidebar' });
       const assertFullHeight = async () => {
-        await expect.poll(() => sidebar.evaluate((element) => {
+        await expect.poll(() => settingsSidebar.evaluate((element) => {
           const own = element.getBoundingClientRect();
           const parent = element.parentElement!.getBoundingClientRect();
           return Math.abs(own.bottom - parent.bottom) + Math.abs(own.top - parent.top);
@@ -361,7 +399,7 @@ test('workspace keyboard reorder keeps focus and completes the drop', async () =
   const { app, page } = await launchFixture();
   try {
     const drag = page.getByRole('button', { name: `Reorder ${teamNames[0]}`, exact: true });
-    const teamList = page.getByTestId('workspace-rail-team-list');
+    const teamList = (await openWorkspaceSwitcher(page)).getByTestId('workspace-switcher-team-list');
     await drag.focus();
     // KeyboardSensor attaches its listener in the next task; keyup models a real press.
     await drag.press('Space', { delay: 50 });
@@ -381,7 +419,7 @@ test('workspace keyboard reorder keeps focus and completes the drop', async () =
 test('workspace pointer reorder starts on a stable handle and completes the drop', async () => {
   const { app, page } = await launchFixture();
   try {
-    const teamList = page.getByTestId('workspace-rail-team-list');
+    const teamList = (await openWorkspaceSwitcher(page)).getByTestId('workspace-switcher-team-list');
     const drag = page.getByRole('button', { name: `Reorder ${teamNames[0]}`, exact: true });
     const target = page.getByRole('button', { name: 'Second Team, private', exact: true });
     await drag.focus();
@@ -403,12 +441,72 @@ test('workspace pointer reorder starts on a stable handle and completes the drop
   }
 });
 
+test('one sidebar switches workspaces from its title, with Trash and Settings at the bottom', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1280, height: 760 });
+    const trigger = page.getByRole('button', { name: /^Switch workspace, current: / });
+    await expect(trigger).toHaveAccessibleName('Switch workspace, current: Local Vault');
+    const footer = page.getByTestId('sidebar-footer');
+    await expect(footer.getByRole('button', { name: 'Trash', exact: true })).toBeVisible();
+    // Holding the key also shows which number opens which workspace, beside the sidebar. Hints and the
+    // card cancel while the page still changes, so check them together in one look.
+    const peekShortcut = process.platform === 'darwin' ? '⌘2' : 'Ctrl+2';
+    await holdForHints(page, trigger, () => page.evaluate(({ name, shortcut }) => {
+      const hints = document.querySelectorAll('[data-navigation-hint="workspace:switcher"], [data-navigation-hint="workspace:trash"]').length;
+      const card = document.querySelector('[data-workspace-peek]');
+      const row = card?.querySelectorAll('li')[1]?.textContent ?? '';
+      const sidebar = document.getElementById('note-navigator-panel')!.getBoundingClientRect();
+      return hints === 2 && row.includes(name) && row.includes(shortcut) && card!.getBoundingClientRect().left >= sidebar.right;
+    }, { name: teamNames[0], shortcut: peekShortcut }));
+    const peek = page.locator('[data-workspace-peek]');
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('24-workspace-peek.png') });
+    await page.keyboard.up(primary);
+    await expect(peek).toHaveCount(0);
+    await switchWorkspace(page, `${teamNames[0]}, private`);
+    await expect(trigger).toHaveAccessibleName(`Switch workspace, current: ${teamNames[0]}`);
+    await page.keyboard.press(`${primary}+1`);
+    await expect(trigger).toHaveAccessibleName('Switch workspace, current: My Workspace');
+
+    await footer.getByRole('button', { name: 'Trash', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Trash' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await footer.getByRole('button', { name: /^Open settings for Fixture User/ }).click();
+    await expect(page.getByRole('dialog', { name: 'Settings', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    await page.keyboard.press(`${primary}+b`);
+    await expect(page.getByRole('button', { name: 'Expand sidebar', exact: true })).toBeVisible();
+    await expect(trigger).toHaveCount(0);
+    await page.keyboard.press(`${primary}+b`);
+    await expect(trigger).toBeVisible();
+
+    // The leader menu opens the switcher from the keyboard; arrows move and Enter switches.
+    await page.keyboard.press(`${primary}+j`);
+    await page.keyboard.press('g');
+    await page.keyboard.press('w');
+    const list = page.getByRole('dialog', { name: 'Workspaces' });
+    await expect(list.getByRole('button', { name: 'My Workspace', exact: true })).toBeFocused();
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('23-workspace-switcher.png') });
+    await page.keyboard.press('ArrowUp');
+    await expect(list.getByRole('button', { name: 'History', exact: true })).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await expect(list.getByRole('button', { name: 'Local Vault', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(list).toBeHidden();
+    await expect(trigger).toHaveAccessibleName('Switch workspace, current: Local Vault');
+    await expect(page.getByRole('treeitem', { name: 'Alpha', exact: true })).toBeVisible();
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test('tab drag, keyboard actions, persistence and pane isolation', async () => {
   const { app, page } = await launchFixture('standard', true);
   const testInfo = test.info();
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.getByRole('button', { name: 'Local Vault', exact: true }).click();
+    await switchWorkspace(page, 'Local Vault');
     const openNote = async (name: string) => {
       await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name, exact: true }).click();
       await expect(page.getByRole('tab', { name: new RegExp(`^${name}(?:, .+)?$`) })).toHaveAttribute('aria-selected', 'true');
@@ -501,7 +599,7 @@ test('tab drag, keyboard actions, persistence and pane isolation', async () => {
 test('tree guides connect mixed children and end at the last folder row', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
-    await page.getByRole('button', { name: 'Local Vault', exact: true }).click();
+    await switchWorkspace(page, 'Local Vault');
     for (const name of ['Projects', 'Sub', 'Folders only', 'Last']) {
       const expand = page.getByRole('button', { name: `Expand ${name}`, exact: true });
       if (await expand.count()) await expand.click();
@@ -544,7 +642,7 @@ for (const editorMode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as con
     const testInfo = test.info();
     const { app, page } = await launchFixture(editorMode);
     try {
-      await page.getByRole('button', { name: 'My Workspace', exact: true }).click();
+      await switchWorkspace(page, 'My Workspace');
       await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'Remote UI fixture', exact: true }).click();
       await page.getByRole('button', { name: 'Expand note details', exact: true }).click();
       const tags = page.getByRole('textbox', { name: 'Tags', exact: true });
@@ -613,7 +711,7 @@ test('keyboard foundation separates focus from selection and protects drafts', a
   const { app, page } = await launchFixture('standard', true, true);
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.getByRole('button', { name: 'Local Vault', exact: true }).click();
+    await switchWorkspace(page, 'Local Vault');
     const tree = page.getByRole('tree', { name: 'Folders and notes' });
     const alpha = tree.getByRole('treeitem', { name: 'Alpha', exact: true });
     const beta = tree.getByRole('treeitem', { name: 'Beta', exact: true });
@@ -746,8 +844,8 @@ test('pane promotion and workspace restore do not replay editor commands', async
     await left.locator('.cm-content').click();
     await expect(left.locator('.cm-search')).toHaveCount(0);
     await expect(left.locator('input[type="file"]')).toHaveAttribute('data-picker-requests', '1');
-    await page.getByRole('button', { name: 'My Workspace', exact: true }).click();
-    await page.getByRole('button', { name: 'Local Vault', exact: true }).click();
+    await switchWorkspace(page, 'My Workspace');
+    await switchWorkspace(page, 'Local Vault');
     await expect(page.locator('.cm-content')).toHaveCount(2);
     await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     await expect(page.locator('.cm-search')).toHaveCount(0);
@@ -767,10 +865,8 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
       await page.getByRole('menuitem', { name: 'Split Right', exact: true }).press('Enter');
       const editors = page.locator('.cm-content');
       await expect(editors).toHaveCount(2);
-      const local = page.getByRole('button', { name: 'Local Vault', exact: true });
-      await local.focus();
-      await page.keyboard.press('F6');
-      await expect(page.getByRole('treeitem', { name: 'UI fixture', exact: true })).toBeFocused();
+      const tree = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
+      await tree.focus();
       await page.keyboard.press('F6');
       await expect(page.getByRole('tab', { name: /^UI fixture(?:, .+)?$/ })).toBeFocused();
       await page.keyboard.press('F6');
@@ -779,7 +875,7 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
       await page.keyboard.press('F6');
       await expect(editors.last()).toBeFocused();
       await page.keyboard.press('F6');
-      await expect(local).toBeFocused();
+      await expect(tree).toBeFocused();
       await page.keyboard.press('Shift+F6');
       await expect(editors.last()).toBeFocused();
       // A field is remembered on return, while collapsed regions are skipped.
@@ -795,8 +891,7 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
       await page.keyboard.press('?');
       await expect(page.getByRole('dialog', { name: 'Keyboard Shortcuts', exact: true })).toHaveCount(0);
       await page.keyboard.press('Escape');
-      await page.getByRole('button', { name: 'Collapse workspace sidebar', exact: true }).click();
-      await page.getByRole('toolbar', { name: 'Application controls', exact: true }).getByRole('button', { name: 'Collapse note navigator', exact: true }).click();
+      await page.getByRole('toolbar', { name: 'Application controls', exact: true }).getByRole('button', { name: 'Collapse sidebar', exact: true }).click();
       await editors.last().focus();
       await page.keyboard.press('F6');
       await expect(page.getByRole('tab').first()).toBeFocused();
@@ -824,7 +919,7 @@ test('shortcut help is searchable in light and dark and restores focus', async (
     const help = page.getByRole('dialog', { name: 'Keyboard Shortcuts', exact: true });
     await expect(help).toBeVisible();
     await expect(help.getByPlaceholder('Search keyboard shortcuts')).toBeFocused();
-    await expect(help.getByRole('button', { name: 'Current Region: Navigator' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(help.getByRole('button', { name: 'Current Region: Sidebar' })).toHaveAttribute('aria-pressed', 'true');
     await help.getByRole('button', { name: 'All Actions' }).click();
     await help.getByPlaceholder('Search keyboard shortcuts').fill('half page');
     await expect(help.getByText('Scroll Half Page Down', { exact: true })).toBeVisible();
@@ -928,7 +1023,7 @@ test('native help and palette region commands restore Workbench focus', async ()
     await page.keyboard.press(`${primary}+k`);
     await page.getByRole('combobox', { name: 'Search notes, folders, and commands' }).fill('Next Workbench Region');
     await page.getByRole('option', { name: /^Next Workbench Region / }).click();
-    await expect(page.getByRole('button', { name: 'Local Vault', exact: true })).toBeFocused();
+    await expect.poll(() => page.evaluate(() => Boolean(document.activeElement?.closest('[data-hackdesk-focus="navigator"]')))).toBe(true);
   } finally { await stopApp(app); }
 });
 
@@ -946,11 +1041,8 @@ test('navigation codes are stable, prefix-free and do not overlap', async () => 
     await page.setViewportSize({ width: 1280, height: 760 });
     await openFixtureNote(page);
     const note = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
-    await note.focus();
-    await page.keyboard.down(primary);
+    await holdForHints(page, note);
     const overlay = page.locator('[data-keyboard-navigation-overlay]');
-    await expect(overlay).toBeVisible();
-    await expect(page.locator('[data-navigation-unavailable]')).toHaveCount(0);
     const hints = await page.locator('[data-navigation-code]').evaluateAll(elements => elements.map(element => ({ id: element.getAttribute('data-navigation-hint'), code: element.getAttribute('data-navigation-code')! })));
     expect(new Set(hints.map(hint => hint.code)).size).toBe(hints.length);
     for (const a of hints) for (const b of hints) if (a.id !== b.id) expect(a.code.startsWith(b.code)).toBe(false);
@@ -990,18 +1082,18 @@ test('navigation focuses buttons before Enter and preserves fixed shortcuts', as
     const navigator = page.locator('[data-hackdesk-focus="navigator"]');
     const width = (await navigator.boundingBox())!.width;
     for (const letter of collapseCode!) await page.keyboard.press(letter);
-    await expect(page.getByRole('toolbar', { name: 'Application controls' }).getByRole('button', { name: 'Collapse note navigator', exact: true })).toBeFocused();
+    await expect(page.getByRole('toolbar', { name: 'Application controls' }).getByRole('button', { name: 'Collapse sidebar', exact: true })).toBeFocused();
     expect((await navigator.boundingBox())!.width).toBe(width);
     await page.keyboard.up(primary); await page.keyboard.press('Enter');
-    await expect(page.getByRole('button', { name: 'Expand note navigator', exact: true })).toBeVisible();
-    await page.keyboard.press(`${primary}+Alt+b`);
-    await expect(page.getByRole('toolbar', { name: 'Application controls' }).getByRole('button', { name: 'Collapse note navigator', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Expand sidebar', exact: true })).toBeVisible();
+    await page.keyboard.press(`${primary}+b`);
+    await expect(page.getByRole('button', { name: 'Collapse sidebar', exact: true })).toBeVisible();
 
     await note.focus(); await page.keyboard.down(primary);
     await page.keyboard.press('b'); await page.keyboard.up(primary);
-    await expect(page.getByRole('button', { name: 'Expand workspace sidebar', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Expand sidebar', exact: true })).toBeVisible();
     await page.keyboard.press(`${primary}+b`);
-    await expect(page.getByRole('button', { name: 'Collapse workspace sidebar', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Collapse sidebar', exact: true })).toBeVisible();
   } finally { await stopApp(app); }
 });
 
@@ -1038,9 +1130,10 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
       const before = await editors.allTextContents();
       await editors.last().focus();
       await page.keyboard.down(primary);
-      const unavailable = page.locator('[data-navigation-unavailable]');
-      if (await unavailable.count()) {
-        await expect(page.locator('[data-navigation-code]:not([data-navigation-code=""])')).toHaveCount(0);
+      await expect(page.locator('[data-keyboard-navigation-overlay]')).toBeAttached();
+      // Without safe letters in this editor, codes stay hidden and nothing explains it, to keep the editor quiet.
+      if (!(await page.locator('[data-navigation-code]').count())) {
+        await expect(page.locator('[data-keyboard-navigation-overlay]')).not.toContainText('No safe navigation keys');
       } else {
         const id = await page.locator('[data-navigation-hint^="editor:"]').first().getAttribute('data-navigation-hint');
         await useNavigationCode(page, id!);
@@ -1048,7 +1141,7 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
       }
       await page.keyboard.up(primary);
       // Navigation from a Workbench region remains available even if the active editor exhausts safe keys.
-      await page.getByRole('button', { name: 'Local Vault', exact: true }).focus();
+      await page.getByRole('button', { name: /^Switch workspace, current: / }).focus();
       await page.keyboard.down(primary);
       const editorHints = page.locator('[data-navigation-hint^="editor:"]');
       await expect(editorHints).toHaveCount(2);
@@ -1169,7 +1262,7 @@ test('onboarding stays compact at wide and narrow window sizes', async () => {
 test('classic horizontal scrollbars do not clip tabs and focus still scrolls the strip', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
-    await page.getByRole('button', { name: 'Local Vault', exact: true }).click();
+    await switchWorkspace(page, 'Local Vault');
     for (const name of ['Alpha', 'Beta', 'Gamma']) {
       await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name, exact: true }).click();
       await expect(page.getByRole('tab', { name: new RegExp(`^${name}(?:, .+)?$`) })).toHaveAttribute('aria-selected', 'true');
@@ -1202,17 +1295,26 @@ test('Settings search jumps to fields and held navigation stays inside the dialo
   try {
     await page.keyboard.press(`${primary}+,`);
     const dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
-    const search = dialog.getByRole('textbox', { name: 'Search settings', exact: true });
+    const search = dialog.getByRole('combobox', { name: 'Search settings', exact: true });
     await expect(search).toBeFocused();
     await dialog.getByLabel('Window title').fill('Unsaved fixture title');
     await search.fill('editor font');
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('23-settings-search.png') });
-    await dialog.getByRole('button', { name: 'Editor font, Appearance', exact: true }).click();
+    await dialog.getByRole('option', { name: 'Editor font, Appearance', exact: true }).click();
     await expect(dialog.getByLabel('Editor font', { exact: true })).toBeFocused();
     await search.fill('primary');
     await search.press('Enter');
     await expect(dialog.locator('#theme-seed-primary')).toBeFocused();
     await expect(dialog.getByRole('button', { name: 'Customize Colors', exact: true })).toHaveAttribute('aria-expanded', 'true');
+    await search.fill('font');
+    const options = dialog.getByRole('listbox', { name: 'Settings search results' }).getByRole('option');
+    await search.press('ArrowDown');
+    await search.press('ArrowDown');
+    await expect(search).toBeFocused();
+    await expect(options.nth(2)).toHaveAttribute('aria-selected', 'true');
+    const third = (await options.nth(2).getAttribute('aria-label'))!.split(', ')[0];
+    await search.press('Enter');
+    await expect(dialog.getByLabel(third, { exact: true })).toBeFocused();
     await search.fill('window title');
     await search.press('Enter');
     await expect(dialog.getByLabel('Window title')).toBeFocused();

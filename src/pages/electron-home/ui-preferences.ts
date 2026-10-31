@@ -2,18 +2,12 @@ import { trySetStorageItem } from '@/lib/storage';
 
 import type { WorkspaceScope } from './types';
 
-export const RAIL_COLLAPSED_KEY = 'hackdesk_rail_collapsed';
-export const NAVIGATOR_COLLAPSED_KEY = 'hackdesk_navigator_collapsed';
+export const NAVIGATOR_COLLAPSED_KEY = 'hackdesk_sidebar_collapsed';
 export const INSPECTOR_COLLAPSED_KEY = 'hackdesk_inspector_collapsed';
-export const RAIL_WIDTH_KEY = 'hackdesk_rail_width';
 export const NAVIGATOR_WIDTH_KEY = 'hackdesk_navigator_width';
 export const FOLDER_COLLAPSED_PREFIX = 'hackdesk_folder_collapsed:';
 export const LAST_WORKSPACE_SCOPE_KEY = 'hackdesk_last_workspace_scope';
 
-export const RAIL_WIDTH_DEFAULT = 256;
-export const RAIL_COLLAPSED_WIDTH = 64;
-export const RAIL_WIDTH_MIN = 192;
-export const RAIL_WIDTH_MAX = 340;
 export const NAVIGATOR_WIDTH_DEFAULT = 400;
 export const NAVIGATOR_WIDTH_MIN = 300;
 export const NAVIGATOR_WIDTH_MAX = 560;
@@ -31,6 +25,37 @@ export function readBooleanStorage(key: string, fallback: boolean) {
   return window.localStorage.getItem(key) === null
     ? fallback
     : window.localStorage.getItem(key) === 'true';
+}
+
+// Kept only to carry the layout over from when the workspace rail sat beside the navigator.
+const LEGACY_NAVIGATOR_COLLAPSED_KEY = 'hackdesk_navigator_collapsed';
+const LEGACY_RAIL_COLLAPSED_KEY = 'hackdesk_rail_collapsed';
+const LEGACY_RAIL_WIDTH_KEY = 'hackdesk_rail_width';
+
+/**
+ * Reads whether the sidebar is hidden. The first time, it is hidden only if both the old rail
+ * and navigator were, so someone who kept the rail open does not lose their workspaces.
+ */
+export function readSidebarCollapsed() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const storage = window.localStorage;
+  if (storage.getItem(NAVIGATOR_COLLAPSED_KEY) === null && storage.getItem(LEGACY_NAVIGATOR_COLLAPSED_KEY) !== null) {
+    writeBooleanStorage(
+      NAVIGATOR_COLLAPSED_KEY,
+      readBooleanStorage(LEGACY_NAVIGATOR_COLLAPSED_KEY, false) && readBooleanStorage(LEGACY_RAIL_COLLAPSED_KEY, false),
+    );
+  }
+  for (const key of [LEGACY_NAVIGATOR_COLLAPSED_KEY, LEGACY_RAIL_COLLAPSED_KEY, LEGACY_RAIL_WIDTH_KEY]) {
+    try {
+      storage.removeItem(key);
+    } catch {
+      // Unavailable storage keeps the old keys; they are ignored.
+    }
+  }
+  return readBooleanStorage(NAVIGATOR_COLLAPSED_KEY, false);
 }
 
 export function writeBooleanStorage(key: string, value: boolean) {

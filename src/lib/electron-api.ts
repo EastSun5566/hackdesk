@@ -380,7 +380,6 @@ export type ElectronActionId =
   | 'new-folder'
   | 'rename-folder'
   | 'delete-folder'
-  | 'toggle-workspace-rail'
   | 'toggle-navigator'
   | 'toggle-inspector'
   | 'toggle-key-hints'

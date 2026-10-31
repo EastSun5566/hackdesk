@@ -96,7 +96,6 @@ export const ELECTRON_MENU_SCHEMA: ElectronMenuSchemaSection[] = [
       { type: 'action', actionId: 'navigate-back' },
       { type: 'action', actionId: 'navigate-forward' },
       { type: 'separator' },
-      { type: 'action', actionId: 'toggle-workspace-rail' },
       { type: 'action', actionId: 'toggle-navigator' },
       { type: 'action', actionId: 'toggle-inspector' },
       { type: 'action', actionId: 'toggle-key-hints' },

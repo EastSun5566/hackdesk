@@ -8,13 +8,9 @@ import {
   NAVIGATOR_WIDTH_KEY,
   NAVIGATOR_WIDTH_MAX,
   NAVIGATOR_WIDTH_MIN,
-  RAIL_COLLAPSED_KEY,
-  RAIL_WIDTH_DEFAULT,
-  RAIL_WIDTH_KEY,
-  RAIL_WIDTH_MAX,
-  RAIL_WIDTH_MIN,
   readBooleanStorage,
   readNumberStorage,
+  readSidebarCollapsed,
   writeBooleanStorage,
   writeNumberStorage,
 } from './ui-preferences';
@@ -23,15 +19,11 @@ export type WorkbenchPanelState = {
   inspectorCollapsed: boolean;
   navigatorCollapsed: boolean;
   navigatorWidth: number;
-  railCollapsed: boolean;
-  railWidth: number;
   expandNavigator: () => void;
   setNavigatorCollapsed: Dispatch<SetStateAction<boolean>>;
   setNavigatorWidth: (width: number) => void;
-  setRailWidth: (width: number) => void;
   toggleInspectorCollapsed: () => void;
   toggleNavigatorCollapsed: () => void;
-  toggleRailCollapsed: () => void;
 };
 
 function writeNavigatorCollapsed(collapsed: boolean) {
@@ -40,22 +32,10 @@ function writeNavigatorCollapsed(collapsed: boolean) {
 
 export function useWorkbenchPanelState(): WorkbenchPanelState {
   const [inspectorCollapsed, setInspectorCollapsed] = useState(() => readBooleanStorage(INSPECTOR_COLLAPSED_KEY, true));
-  const [railCollapsed, setRailCollapsed] = useState(() => readBooleanStorage(RAIL_COLLAPSED_KEY, false));
-  const [navigatorCollapsed, setNavigatorCollapsedState] = useState(() => readBooleanStorage(NAVIGATOR_COLLAPSED_KEY, false));
-  const [railWidth, setRailWidthState] = useState(() => (
-    readNumberStorage(RAIL_WIDTH_KEY, RAIL_WIDTH_DEFAULT, RAIL_WIDTH_MIN, RAIL_WIDTH_MAX)
-  ));
+  const [navigatorCollapsed, setNavigatorCollapsedState] = useState(readSidebarCollapsed);
   const [navigatorWidth, setNavigatorWidthState] = useState(() => (
     readNumberStorage(NAVIGATOR_WIDTH_KEY, NAVIGATOR_WIDTH_DEFAULT, NAVIGATOR_WIDTH_MIN, NAVIGATOR_WIDTH_MAX)
   ));
-
-  const toggleRailCollapsed = useCallback(() => {
-    setRailCollapsed((current) => {
-      const next = !current;
-      writeBooleanStorage(RAIL_COLLAPSED_KEY, next);
-      return next;
-    });
-  }, []);
 
   const setNavigatorCollapsed = useCallback<Dispatch<SetStateAction<boolean>>>((value) => {
     setNavigatorCollapsedState((current) => {
@@ -85,11 +65,6 @@ export function useWorkbenchPanelState(): WorkbenchPanelState {
     setNavigatorCollapsed(false);
   }, [setNavigatorCollapsed]);
 
-  const setRailWidth = useCallback((width: number) => {
-    setRailWidthState(width);
-    writeNumberStorage(RAIL_WIDTH_KEY, width);
-  }, []);
-
   const setNavigatorWidth = useCallback((width: number) => {
     setNavigatorWidthState(width);
     writeNumberStorage(NAVIGATOR_WIDTH_KEY, width);
@@ -99,14 +74,10 @@ export function useWorkbenchPanelState(): WorkbenchPanelState {
     inspectorCollapsed,
     navigatorCollapsed,
     navigatorWidth,
-    railCollapsed,
-    railWidth,
     expandNavigator,
     setNavigatorCollapsed,
     setNavigatorWidth,
-    setRailWidth,
     toggleInspectorCollapsed,
     toggleNavigatorCollapsed,
-    toggleRailCollapsed,
   };
 }

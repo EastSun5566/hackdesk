@@ -86,17 +86,33 @@ function FilterChip({
   );
 }
 
+export const NOTE_FINDER_RESULTS_ID = 'note-finder-results';
+
+/**
+ * The finder's result list, driven from the search box while focus stays there. Result rows hold
+ * their own controls, so they are not listbox options; the highlight is announced instead.
+ */
+export type NoteFinderResults = {
+  activeId?: string;
+  /** What a screen reader hears when the highlight moves, such as "Plan, 2 of 5. Enter opens it." */
+  announcement: string;
+  move: (step: 1 | -1) => void;
+  open: () => void;
+};
+
 export function NoteFinderToolbar({
   state,
   selectedFolderId,
   options,
   onChange,
+  results,
   onEscapeToTree,
 }: {
   state: NoteFinderState;
   selectedFolderId: string | null;
   options: ReturnType<typeof getNoteFinderOptions>;
   onChange: (state: NoteFinderState) => void;
+  results?: NoteFinderResults;
   onEscapeToTree: () => void;
 }) {
   const activeFilterCount = getActiveNoteFinderFilterCount(state);
@@ -111,6 +127,25 @@ export function NoteFinderToolbar({
   });
   const clearFilters = () => onChange(clearNoteFinderFilters(state));
   const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing) return;
+    const step = event.key === 'ArrowDown' || (event.ctrlKey && event.key === 'n') ? 1
+      : event.key === 'ArrowUp' || (event.ctrlKey && event.key === 'p') ? -1 : 0;
+    if (step && results) {
+      event.preventDefault();
+      results.move(step);
+      return;
+    }
+    if (event.key === 'ArrowDown' && !results) {
+      // Without a search, the tree is the list: Down moves into it.
+      event.preventDefault();
+      onEscapeToTree();
+      return;
+    }
+    if (event.key === 'Enter' && results?.activeId) {
+      event.preventDefault();
+      results.open();
+      return;
+    }
     if (event.key !== 'Escape') {
       return;
     }
@@ -141,6 +176,7 @@ export function NoteFinderToolbar({
           <span className="sr-only">Search notes</span>
           <input
             name="noteSearch"
+            aria-controls={results ? NOTE_FINDER_RESULTS_ID : undefined}
             value={state.query}
             onChange={(event) => updateState({ query: event.target.value })}
             onKeyDown={handleSearchKeyDown}
@@ -160,6 +196,7 @@ export function NoteFinderToolbar({
             </Button>
           ) : null}
         </label>
+        <span role="status" aria-live="polite" className="sr-only">{results?.announcement}</span>
 
         <Toolbar aria-label="Note finder controls" className="gap-1.5">
           <DropdownMenu>

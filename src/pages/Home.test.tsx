@@ -175,13 +175,28 @@ async function openNavigatorActions() {
   await screen.findByRole('menuitem', { name: 'New Folder' });
 }
 
-function findTeamWorkspace(options?: Parameters<typeof waitFor>[1]) {
-  return waitFor(() => within(screen.getByTestId('workspace-rail-team-list'))
+async function openWorkspaceSwitcher() {
+  if (!screen.queryByRole('dialog', { name: 'Workspaces' })) {
+    fireEvent.click(await screen.findByRole('button', { name: /^Switch workspace, current: / }));
+  }
+  return screen.findByRole('dialog', { name: 'Workspaces' });
+}
+
+async function findTeamWorkspace(options?: Parameters<typeof waitFor>[1]) {
+  await openWorkspaceSwitcher();
+  return waitFor(() => within(screen.getByTestId('workspace-switcher-team-list'))
     .getByRole('button', { name: `${team.name}, private` }), options);
 }
 
+async function expectTeamWorkspaceListed() {
+  const row = await findTeamWorkspace();
+  expect(row).toBeInTheDocument();
+  fireEvent.keyDown(row, { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Workspaces' })).toBeNull());
+}
+
 async function openAccountSettings() {
-  const avatar = await screen.findByTestId('workspace-rail-footer-avatar');
+  const avatar = await screen.findByTestId('sidebar-footer-avatar');
   const button = avatar.closest('button')!;
   expect(button).toHaveAccessibleName('Open settings for Michael');
   fireEvent.click(button);
@@ -524,7 +539,7 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(getCurrentUser).toHaveBeenCalledOnce());
     await waitFor(() => expect(listTeams).toHaveBeenCalledOnce());
     expect(await screen.findByText('Michael')).toBeInTheDocument();
-    expect(await findTeamWorkspace()).toBeInTheDocument();
+    await expectTeamWorkspaceListed();
     expect(listNotes).not.toHaveBeenCalled();
     expect(listFolders).not.toHaveBeenCalled();
     expect(getFolderOrder).not.toHaveBeenCalled();
@@ -561,7 +576,7 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(getCurrentUser).toHaveBeenCalledOnce());
     await waitFor(() => expect(listTeams).toHaveBeenCalledOnce());
     expect(screen.queryByText('HackMD token expired.')).toBeNull();
-    expect(screen.getByTestId('workspace-rail-account-attention')).toBeInTheDocument();
+    expect(screen.getByTestId('sidebar-account-attention')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open settings. HackMD account needs attention' })).toBeInTheDocument();
     expect(listNotes).not.toHaveBeenCalled();
     expect(listFolders).not.toHaveBeenCalled();
@@ -901,7 +916,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    expect(await findTeamWorkspace()).toBeInTheDocument();
+    await expectTeamWorkspaceListed();
     expect(await findNoteRow(note.title)).toBeInTheDocument();
     await findRenderedNoteTitle();
     await confirmDisconnectHackmd();
@@ -973,7 +988,7 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(updateSettings).toHaveBeenCalledOnce());
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Disconnect HackMD' })).toBeInTheDocument();
-    expect(screen.getByTestId('workspace-rail-footer-avatar')).toBeInTheDocument();
+    expect(screen.getByTestId('sidebar-footer-avatar')).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({});
   });
 
@@ -2154,41 +2169,45 @@ describe('Home native-feel behavior', () => {
     expect(titleInput).toHaveFocus();
   });
 
-  it('toggles the workspace sidebar with Cmd+B', async () => {
+  it('toggles the sidebar with Cmd+B, and Cmd+Option+B no longer does', async () => {
     const api = createApi();
 
     renderHome(api);
-    expect(await screen.findByRole('button', { name: 'Collapse workspace sidebar' })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Collapse note navigator' })).not.toHaveLength(0);
+    await findRenderedNoteTitle();
+    fireEvent.keyDown(window, { key: 'b', altKey: true, metaKey: true });
+    expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toHaveAttribute('aria-expanded', 'true');
 
     fireEvent.keyDown(window, { key: 'b', metaKey: true });
 
-    expect(await screen.findByRole('button', { name: 'Expand workspace sidebar' })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Collapse note navigator' })).not.toHaveLength(0);
+    expect(await screen.findByRole('button', { name: 'Expand sidebar' })).toHaveAttribute('aria-expanded', 'false');
+    expect(window.document.getElementById('note-navigator-panel')).toHaveStyle({ '--panel-width': '0px' });
+  });
+
+  it('names the sidebar landmark and does not reopen the switcher after hiding the sidebar with it open', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    expect(screen.getByRole('complementary', { name: 'Sidebar' })).toHaveAttribute('id', 'note-navigator-panel');
+    await openWorkspaceSwitcher();
+
+    // The native menu still toggles while the list is open; the titlebar button takes the same path.
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Expand sidebar' }));
+
+    expect(await screen.findByRole('button', { name: /^Switch workspace, current: / })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('dialog', { name: 'Workspaces' })).toBeNull();
   });
 
   it('leaves macOS Ctrl+B available for editor text navigation', async () => {
     const api = createApi();
 
     renderHome(api);
-    expect(await screen.findByRole('button', { name: 'Collapse workspace sidebar' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Collapse sidebar' })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'b', ctrlKey: true });
 
-    expect(screen.getByRole('button', { name: 'Collapse workspace sidebar' })).toBeInTheDocument();
-  });
-
-  it('toggles the note navigator with Cmd+Option+B', async () => {
-    const api = createApi();
-
-    renderHome(api);
-    await findRenderedNoteTitle();
-
-    fireEvent.keyDown(window, { key: 'b', altKey: true, metaKey: true });
-
-    expect(screen.getByRole('button', { name: 'Expand note navigator' })).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getAllByRole('button', { name: 'Expand note navigator' })).toHaveLength(1);
-    expect(window.document.getElementById('note-navigator-panel')).toHaveStyle({ '--panel-width': '0px' });
+    expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toBeInTheDocument();
   });
 
   it('updates the tab title from the draft title', async () => {
@@ -2816,21 +2835,19 @@ describe('Home native-feel behavior', () => {
     expect(screen.queryByRole('heading', { name: 'Note Details' })).not.toBeInTheDocument();
   });
 
-  it('exposes consistent expanded state for collapsible workspace and navigator panels', async () => {
+  it('exposes the sidebar expanded state on its titlebar toggle', async () => {
     const api = createApi();
 
     renderHome(api);
     await findRenderedNoteTitle();
 
-    expect(screen.getByRole('button', { name: 'Collapse workspace sidebar' })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getAllByRole('button', { name: 'Collapse note navigator' })[0]).toHaveAttribute('aria-expanded', 'true');
+    const toggle = screen.getByRole('button', { name: 'Collapse sidebar' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(toggle).toHaveAttribute('aria-controls', 'note-navigator-panel');
+    fireEvent.click(toggle);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse workspace sidebar' }));
-    fireEvent.click(screen.getAllByRole('button', { name: 'Collapse note navigator' })[0]);
-
-    expect(screen.getByRole('button', { name: 'Expand workspace sidebar' })).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByRole('button', { name: 'Expand note navigator' })).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getAllByRole('button', { name: 'Expand note navigator' })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Expand sidebar' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getAllByRole('button', { name: 'Expand sidebar' })).toHaveLength(1);
     expect(window.document.getElementById('note-navigator-panel')).toHaveStyle({ '--panel-width': '0px' });
   });
 
@@ -3286,7 +3303,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.click(await screen.findByRole('button', { name: 'History' }));
+    fireEvent.click(within(await openWorkspaceSwitcher()).getByRole('button', { name: 'History' }));
     await findNoteRow('History Product');
     await expandTagBrowser();
     fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag product' }));

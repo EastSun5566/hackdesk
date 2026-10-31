@@ -6,8 +6,8 @@ import { allocateNavigationCodes, collectNavigationTargets, getSettingsNavigatio
 import { hasWorkbenchPopup } from './workbench-keyboard-context';
 
 import { NavigationHintsContext } from './KeyboardNavigationContext';
-type HintState = { scope: HTMLElement | null; context: symbol | null; held: boolean; hints: NavigationHint[]; prefix: string; reason: string };
-const EMPTY: HintState = { scope: null, context: null, held: false, hints: [], prefix: '', reason: '' };
+type HintState = { scope: HTMLElement | null; context: symbol | null; held: boolean; hints: NavigationHint[]; prefix: string };
+const EMPTY: HintState = { scope: null, context: null, held: false, hints: [], prefix: '' };
 
 type NavigationProps = { workspaceKey: string | null; shortcuts?: ShortcutOverrides; platform: string; characterEnabled: boolean; children: ReactNode };
 export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcuts, platform, characterEnabled, children }: NavigationProps) {
@@ -24,7 +24,6 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
     let suspended = false;
     let hints: NavigationHint[] = [];
     let prefix = '';
-    let reason = '';
     let origin: Element | null = null;
     let scope: HTMLElement | null = null;
     let letters = '';
@@ -34,13 +33,13 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
       delete document.documentElement.dataset.navigationHints;
       if (release) held = false;
       suspended = true;
-      hints = []; prefix = ''; reason = '';
+      hints = []; prefix = '';
       setState(EMPTY);
     };
-    const publish = () => setState({ scope, context, held, hints, prefix, reason });
+    const publish = () => setState({ scope, context, held, hints, prefix });
     const signature = () => collectNavigationTargets(shortcuts, platform, characterEnabled);
     const start = () => {
-      held = true; suspended = false; prefix = ''; reason = '';
+      held = true; suspended = false; prefix = '';
       scope = getSettingsNavigationRoot();
       if ((!workspaceKey && !scope) || hasWorkbenchPopup(scope ?? undefined) || document.querySelector('[data-hackdesk-dragging="true"]')) { clear(); return; }
       origin = document.activeElement;
@@ -52,7 +51,7 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
       const codebook = scope ? `settings:${workspaceKey}:${scope.dataset.navigationPage}` : workspaceKey!;
       const previous = codesByWorkspace.current.get(codebook) ?? new Map();
       const codes = allocateNavigationCodes(targets.filter(target => !target.element.hasAttribute('aria-keyshortcuts')).map(target => target.id), letters, previous);
-      if (!codes) reason = 'No safe navigation keys in this context. Use Tab or your configured shortcuts.';
+      // Without safe letters, only each control's own shortcut shows; editors keep their keys.
       if (codes) codesByWorkspace.current.set(codebook, codes);
       hints = targets.map(target => ({ ...target, code: codes?.get(target.id) ?? '', rect: navigationRect(target.element) }));
       observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'inert', 'aria-hidden', 'aria-disabled', 'disabled', 'data-hackdesk-dragging', 'data-editor-mode', 'data-editor-mode-loading', 'data-active-pane', 'data-closed', 'data-navigation-page', 'data-shortcut-recording', 'style', 'class'] });
@@ -132,7 +131,6 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
           <span className="text-2xs leading-4">{hint.code.toUpperCase()}</span>
           {shortcut ? <span className="text-2xs font-normal leading-3">{shortcut}</span> : null}
         </kbd>)}
-      {current.reason ? <p data-navigation-unavailable className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded border border-border-default bg-background-default px-3 py-2 text-xs text-text-default shadow-sm">{current.reason}</p> : null}
     </div>, current.scope?.parentElement ?? document.body) : null}
   </NavigationHintsContext.Provider>;
 }

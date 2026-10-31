@@ -24,7 +24,6 @@ const actionContext: ElectronActionContext = {
   paneCount: 1,
   inspectorCollapsed: true,
   navigatorCollapsed: false,
-  workspaceRailCollapsed: false,
   bookOpen: false,
   bookContentsHidden: false,
   hasLocalVault: false,
@@ -39,10 +38,9 @@ const text = (list: ReturnType<typeof getKeyHints>) => list.map(hint => `${hint.
 describe('getKeyHints', () => {
   it('lists the most useful keys for each place focus can be', () => {
     expect(text(hints('navigator'))).toEqual(['↑ ↓ Move', '↵ Open', 'Space Commands', '/ Search', '⌘N New note']);
-    expect(text(hints('finder'))).toEqual(['Type Filter notes', 'Esc Clear, then back to the tree', 'F6 Next area']);
+    expect(text(hints('finder'))).toEqual(['Type Filter notes', '↑ ↓ Move', '↵ Open', 'Esc Clear, then back to the tree']);
     expect(text(hints('tabs'))).toEqual(['← → Move', '↵ Select', 'Space Commands', '⌘W Close', '⌘\\ Split right']);
     expect(text(hints('editor'))).toEqual(['⌘J Commands', '⌘K Palette', '⌘P Open note', '⌘F Find']);
-    expect(text(hints('workspace'))).toContain('⌘1–9 Jump to workspace');
   });
 
   it('offers Save only while there is something to save', () => {

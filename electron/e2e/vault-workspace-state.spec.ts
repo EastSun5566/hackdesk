@@ -122,7 +122,7 @@ test('Quick Hack rejects capture during a native vault picker and keeps popup te
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({ ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true } }));
   const { app, page } = await launch(home);
   try {
-    await expect(page.getByRole('button', { name: 'Local Vault', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Switch workspace, current: / })).toBeVisible();
     await openVaultSettings(page);
     await app.evaluate(({ dialog }) => {
       dialog.showOpenDialog = () => new Promise((resolvePicker) => {

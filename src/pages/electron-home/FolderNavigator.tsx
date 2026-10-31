@@ -51,7 +51,7 @@ import { cn } from '@/lib/utils';
 import { EmptyState, PanelHeader, PanelShell, ToolbarIconButton } from './interaction-primitives';
 import type { WorkspaceScope } from './types';
 import { FolderActionsDropdown } from './FolderNavigatorActionsDropdown';
-import { NoteFinderToolbar, TagBrowser } from './FolderNavigatorFinder';
+import { NOTE_FINDER_RESULTS_ID, NoteFinderToolbar, TagBrowser, type NoteFinderResults } from './FolderNavigatorFinder';
 import {
   FolderDragOverlay,
   FolderTreeView,
@@ -64,6 +64,7 @@ import { RepositoryNotice } from './RepositoryNotice';
 import { SkippedFilesNotice } from './SkippedFilesNotice';
 import { FolderTreeFocusContext } from './FolderTreeFocusContext';
 import { useFolderTreeKeyboardNavigation } from './useFolderTreeKeyboardNavigation';
+import { SidebarFooter, WorkspaceSwitcher, type WorkspaceSidebarProps } from './WorkspaceSwitcher';
 import type { NoteTextSearch } from './useNoteTextSearch';
 
 export type FolderNavigatorSelection = {
@@ -138,6 +139,8 @@ export type FolderNavigatorProps = {
   /** Notes whose text matched the finder query, with snippets. */
   textSearch?: NoteTextSearch;
   tree: FolderTree;
+  /** The workspace switcher in the title and the account row at the bottom. */
+  workspace: WorkspaceSidebarProps;
 };
 
 export function FolderNavigator({
@@ -152,10 +155,13 @@ export function FolderNavigator({
   status,
   textSearch,
   tree,
+  workspace,
 }: FolderNavigatorProps) {
   return (
     <PanelShell
       id={id}
+      as="aside"
+      ariaLabel="Sidebar"
       focusZone="navigator"
       collapsed={layout.collapsed}
       width={layout.width}
@@ -174,8 +180,10 @@ export function FolderNavigator({
           status={status}
           textSearch={textSearch}
           tree={tree}
+          workspace={workspace}
         />
       )}
+      {layout.collapsed ? null : <SidebarFooter accountStatus={workspace.accountStatus} user={workspace.user} onOpenSettings={workspace.onOpenSettings} onOpenTrash={workspace.onOpenTrash} />}
     </PanelShell>
   );
 }
@@ -191,6 +199,7 @@ function ExpandedNavigator({
   status,
   textSearch,
   tree,
+  workspace,
 }: Omit<FolderNavigatorProps, 'id'>) {
   const isFinderMode = isNoteFinderActive(finderState);
   const finderOptions = useMemo(() => getNoteFinderOptions(tree.allNotes), [tree.allNotes]);
@@ -203,13 +212,29 @@ function ExpandedNavigator({
     : selectedConcreteFolder;
   const [treeFocusRequestId, setTreeFocusRequestId] = useState(0);
   const requestTreeFocus = () => setTreeFocusRequestId((current) => current + 1);
+  // The highlighted result follows the search box's arrow keys and starts over when results change.
+  const resultsKey = entries.map((entry) => entry.note.id).join('\n');
+  const [highlight, setHighlight] = useState({ key: '', index: 0 });
+  const highlightedIndex = isFinderMode && entries.length ? (highlight.key === resultsKey ? highlight.index : 0) : -1;
+  const highlightedEntry = highlightedIndex >= 0 ? entries[highlightedIndex] : undefined;
+  const results: NoteFinderResults | undefined = isFinderMode ? {
+    activeId: highlightedEntry ? finderResultId(highlightedEntry) : undefined,
+    announcement: highlightedEntry
+      ? `${highlightedEntry.note.title || 'Untitled'}, ${highlightedIndex + 1} of ${entries.length}. Enter opens it.`
+      : '',
+    move: (step) => {
+      if (!entries.length) return;
+      setHighlight({ key: resultsKey, index: (Math.max(highlightedIndex, 0) + step + entries.length) % entries.length });
+    },
+    open: () => { if (highlightedEntry) actions.onNoteSelect(highlightedEntry.note); },
+  } : undefined;
 
   return (
     <>
       <NavigatorHeader
         actions={actions}
         isFinderMode={isFinderMode}
-        scope={scope}
+        workspace={workspace}
         selectedFolder={selectedConcreteFolder}
         status={status}
         resultCount={entries.length}
@@ -222,6 +247,7 @@ function ExpandedNavigator({
         selectedFolderId={selection.selectedFolderId}
         status={status}
         tagIndex={tagIndex}
+        results={results}
         onEscapeToTree={requestTreeFocus}
       />
       <NavigatorContent
@@ -230,6 +256,7 @@ function ExpandedNavigator({
         entries={entries}
         finderState={finderState}
         isFinderMode={isFinderMode}
+        highlightedResultId={results?.activeId}
         layout={layout}
         selectedFolderForNoteMove={selectedFolderForNoteMove}
         selection={selection}
@@ -247,16 +274,16 @@ function NavigatorHeader({
   actions,
   isFinderMode,
   resultCount,
-  scope,
   selectedFolder,
   status,
+  workspace,
 }: {
   actions: FolderNavigatorActions;
   isFinderMode: boolean;
   resultCount: number;
-  scope: WorkspaceScope;
   selectedFolder: FolderTreeNode | null;
   status: FolderNavigatorStatus;
+  workspace: WorkspaceSidebarProps;
 }) {
   const navigatorSubtitle = status.isLoading
     ? 'Loading…'
@@ -268,7 +295,8 @@ function NavigatorHeader({
 
   return (
     <PanelHeader
-      title={scope.label}
+      title={<WorkspaceSwitcher {...workspace} />}
+      titleElement="div"
       subtitle={navigatorSubtitle}
       className="px-3 py-2.5"
       actionsLabel="Note navigator actions"
@@ -313,6 +341,7 @@ function NavigatorFilterBar({
   selectedFolderId,
   status,
   tagIndex,
+  results,
   onEscapeToTree,
 }: {
   actions: FolderNavigatorActions;
@@ -322,6 +351,7 @@ function NavigatorFilterBar({
   selectedFolderId: string | null;
   status: FolderNavigatorStatus;
   tagIndex: ReturnType<typeof buildNoteTagIndex>;
+  results?: NoteFinderResults;
   onEscapeToTree: () => void;
 }) {
   const handleTagToggle = (tag: string) => {
@@ -341,6 +371,7 @@ function NavigatorFilterBar({
         selectedFolderId={selectedFolderId}
         options={finderOptions}
         onChange={actions.onFinderStateChange}
+        results={results}
         onEscapeToTree={onEscapeToTree}
       />
       <TagBrowser
@@ -373,6 +404,7 @@ function NavigatorContent({
   entries,
   finderState,
   isFinderMode,
+  highlightedResultId,
   layout,
   selectedFolderForNoteMove,
   selection,
@@ -387,6 +419,7 @@ function NavigatorContent({
   entries: FolderTreeNote[];
   finderState: NoteFinderState;
   isFinderMode: boolean;
+  highlightedResultId?: string;
   layout: FolderNavigatorLayout;
   selectedFolderForNoteMove: FolderTreeNode | null;
   selection: FolderNavigatorSelection;
@@ -421,6 +454,7 @@ function NavigatorContent({
         <FinderResultList
           actions={actions}
           entries={entries}
+          highlightedResultId={highlightedResultId}
           selectedFolderForNoteMove={selectedFolderForNoteMove}
           selectedNoteId={selection.selectedNoteId}
           textSearch={finderState.query.trim() ? textSearch : undefined}
@@ -505,26 +539,37 @@ function NavigatorEmptyAction({
   );
 }
 
+function finderResultId(entry: FolderTreeNote) {
+  return `note-finder-result-${entry.note.id}`;
+}
+
 function FinderResultList({
   actions,
   entries,
+  highlightedResultId,
   selectedFolderForNoteMove,
   selectedNoteId,
   textSearch,
 }: {
   actions: FolderNavigatorActions;
   entries: FolderTreeNote[];
+  highlightedResultId?: string;
   selectedFolderForNoteMove: FolderTreeNode | null;
   selectedNoteId: string | null;
   textSearch?: NoteTextSearch;
 }) {
+  useEffect(() => {
+    if (highlightedResultId) document.getElementById(highlightedResultId)?.scrollIntoView({ block: 'nearest' });
+  }, [highlightedResultId]);
+
   return (
     <>
-      <ul className="m-0 min-w-0 list-none space-y-1 p-0" aria-label="Search results">
+      <ul id={NOTE_FINDER_RESULTS_ID} className="m-0 min-w-0 list-none space-y-1 p-0" aria-label="Search results">
         {entries.map((entry) => (
           <li key={`${entry.folderLabel}:${entry.note.id}`} className="min-w-0">
             <NoteRow
               entry={entry}
+              highlightId={finderResultId(entry) === highlightedResultId ? highlightedResultId : undefined}
               selected={entry.note.id === selectedNoteId}
               onSelect={actions.onNoteSelect}
               onOpen={actions.onOpenNote}

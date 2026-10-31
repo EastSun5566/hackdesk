@@ -85,7 +85,7 @@ test('restores one note from the trash and opens it', async () => {
   const { app, page } = await launchWithTrash();
   try {
     await expect(page.getByRole('treeitem', { name: 'Kept', exact: true })).toBeVisible();
-    await page.getByTestId('workspace-rail-utilities').getByRole('button', { name: 'Trash' }).click();
+    await page.getByTestId('sidebar-footer').getByRole('button', { name: 'Trash' }).click();
 
     const dialog = page.getByRole('dialog', { name: 'Trash' });
     const rows = dialog.getByRole('list', { name: 'Deleted notes' }).getByRole('listitem');
@@ -113,7 +113,7 @@ test('keeps notes HackMD could not restore in a batch', async () => {
       (globalThis as unknown as { trashFixture: Fixture }).trashFixture.failIds.push('meeting');
     });
     await expect(page.getByRole('treeitem', { name: 'Kept', exact: true })).toBeVisible();
-    await page.getByTestId('workspace-rail-utilities').getByRole('button', { name: 'Trash' }).click();
+    await page.getByTestId('sidebar-footer').getByRole('button', { name: 'Trash' }).click();
 
     const dialog = page.getByRole('dialog', { name: 'Trash' });
     const rows = dialog.getByRole('list', { name: 'Deleted notes' }).getByRole('listitem');

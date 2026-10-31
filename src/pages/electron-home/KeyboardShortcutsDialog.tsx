@@ -9,7 +9,7 @@ import { WIDGET_KEYS } from '@/lib/key-hints';
 import type { ElectronFocusZone } from './useElectronFocusZones';
 import { FOCUS_RING_CLASS } from './ui';
 
-const REGION_NAMES: Record<ElectronFocusZone, string> = { workspace: 'Workspace', navigator: 'Navigator', tabs: 'Tabs', editor: 'Editor', inspector: 'Note Details' };
+const REGION_NAMES: Record<ElectronFocusZone, string> = { navigator: 'Sidebar', tabs: 'Tabs', editor: 'Editor', inspector: 'Note Details' };
 
 export function KeyboardShortcutsDialog({ open, region, returnFocus, shortcuts, platform, characterShortcutsEnabled, onOpenChange, onCustomize }: {
   open: boolean;
@@ -27,7 +27,7 @@ export function KeyboardShortcutsDialog({ open, region, returnFocus, shortcuts, 
   const [currentOnly, setCurrentOnly] = useState(true);
   const scope = region === 'tabs' ? 'editor' : region;
   const matches = (value: string) => value.toLowerCase().includes(query.trim().toLowerCase());
-  const actions = ELECTRON_ACTIONS.filter(action => (!currentOnly || !action.scope || action.scope === 'global' || action.scope === scope)
+  const actions = ELECTRON_ACTIONS.filter(action => (!currentOnly || !action.scope || action.scope === 'global' || action.scope === scope || (scope === 'navigator' && action.scope === 'workspace'))
     && matches([action.label, action.description, ...action.keywords, getResolvedActionShortcut(action.id, shortcuts, platform, characterShortcutsEnabled) ?? ''].join(' ')));
   const widgets = WIDGET_KEYS.filter(item => (!currentOnly || item.region === region) && matches(`${item.label} ${item.description} ${item.keys}`));
 
@@ -65,7 +65,7 @@ export function KeyboardShortcutsDialog({ open, region, returnFocus, shortcuts, 
               <kbd className="shrink-0 rounded-md border border-border-default bg-background-muted px-2 py-1 text-xs">{item.keys}</kbd>
             </li>)}
             {matches('hold keyboard navigation hints Cmd Ctrl') ? <li className="py-3"><p className="text-sm font-medium">Hold {platform === 'darwin' ? 'Cmd' : 'Ctrl'} for Navigation Hints</p><p className="text-xs text-text-subtle">Keep the modifier held and type a visible code. Escape cancels; release to start again. Buttons receive focus, then Enter runs the action.</p></li> : null}
-            {(!currentOnly || region === 'workspace') && matches('Switch workspace My Workspace pinned teams') ? <li className="flex items-center gap-4 py-3"><div className="flex-1"><p className="text-sm font-medium">Switch Workspace</p><p className="text-xs text-text-subtle">1: My Workspace; 2–9: pinned teams. Fixed workspace keys.</p></div><kbd className="text-xs">{displayShortcutConfig('mod+1', platform)}…9</kbd></li> : null}
+            {(!currentOnly || region === 'navigator') && matches('Go to workspace My Workspace pinned teams') ? <li className="flex items-center gap-4 py-3"><div className="flex-1"><p className="text-sm font-medium">Go to Workspace</p><p className="text-xs text-text-subtle">1: My Workspace; 2–9: pinned teams. Fixed workspace keys.</p></div><kbd className="text-xs">{displayShortcutConfig('mod+1', platform)}…9</kbd></li> : null}
             {!currentOnly && matches('Quick Hack global') ? <li className="flex items-center gap-4 py-3"><div className="flex-1"><p className="text-sm font-medium">Quick Hack</p><p className="text-xs text-text-subtle">Global · Open from any app.</p></div><kbd className="text-xs">{displayShortcutConfig('ctrl+alt+h', platform)}</kbd></li> : null}
           </ul>
         </div>
