@@ -2,7 +2,6 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
-  INSPECTOR_COLLAPSED_KEY,
   NAVIGATOR_COLLAPSED_KEY,
   NAVIGATOR_WIDTH_KEY,
 } from './ui-preferences';
@@ -17,12 +16,21 @@ describe('useWorkbenchPanelState', () => {
     const { result } = renderHook(() => useWorkbenchPanelState());
 
     act(() => {
-      result.current.toggleInspectorCollapsed();
       result.current.toggleNavigatorCollapsed();
     });
 
-    expect(window.localStorage.getItem(INSPECTOR_COLLAPSED_KEY)).toBe('false');
     expect(window.localStorage.getItem(NAVIGATOR_COLLAPSED_KEY)).toBe('true');
+  });
+
+  it('always starts with Note Details closed and does not remember it open', () => {
+    window.localStorage.setItem('hackdesk_inspector_collapsed', 'false');
+    const { result } = renderHook(() => useWorkbenchPanelState());
+    expect(result.current.inspectorCollapsed).toBe(true);
+
+    act(() => result.current.toggleInspectorCollapsed());
+
+    expect(result.current.inspectorCollapsed).toBe(false);
+    expect(window.localStorage.getItem('hackdesk_inspector_collapsed')).toBe('false');
   });
 
   it('persists the sidebar width', () => {

@@ -3,6 +3,7 @@ import { getElectronAction } from '@/lib/electron-actions';
 import { ActionShortcutContext } from './electron-home/ActionShortcutContext';
 import { KeyboardShortcutsDialog } from './electron-home/KeyboardShortcutsDialog';
 import { KeyHintBar } from './electron-home/KeyHintBar';
+import { useWritingFade } from './electron-home/useWritingFade';
 import { LeaderMenu } from './electron-home/LeaderMenu';
 import { getLeaderLevel } from '@/lib/leader-keys';
 import { BookSessionContext, useBookSession } from './electron-home/useBookSession';
@@ -215,6 +216,16 @@ export function Home() {
   const openKeyboardShortcuts = useCallback(() => {
     setShortcutHelp({ region: focusedZone, target: getLastFocusedTarget() });
   }, [focusedZone, getLastFocusedTarget]);
+  useWritingFade(settingsQuery.data?.workbench?.fadeWhileTyping ?? true);
+  // Note Details floats over the note: opening it moves focus inside, and closing it from inside
+  // returns to the note rather than leaving focus nowhere.
+  const toggleNoteDetails = useCallback(() => {
+    const active = document.activeElement;
+    const leavingDetails = !active || active === document.body || Boolean(active.closest('[data-hackdesk-focus="inspector"]'));
+    toggleInspectorCollapsed();
+    if (inspectorCollapsed) focusZone('inspector');
+    else if (leavingDetails) focusZone('editor');
+  }, [focusZone, inspectorCollapsed, toggleInspectorCollapsed]);
   const activeDocumentNotes = useMemo(() => (
     noteWorkspace.visibleActiveTabs
       .map(getSavedTabNoteIdentity)
@@ -684,7 +695,7 @@ export function Home() {
     setVersionsOpen,
     splitActiveTab: noteWorkspace.splitActiveTab,
     switchToHistory: () => switchWorkspaceScope({ type: 'history', label: 'History' }),
-    toggleInspector: toggleInspectorCollapsed,
+    toggleInspector: toggleNoteDetails,
     toggleKeyHints: () => {
       const keyboardNavigation = settings?.keyboardNavigation ?? defaultSettings.keyboardNavigation;
       mutations.updateSettingsMutation.mutate({
@@ -947,7 +958,7 @@ export function Home() {
       requestCloseTabsToRight,
     },
     teams,
-    toggleInspectorCollapsed,
+    toggleInspectorCollapsed: toggleNoteDetails,
     toggleNavigatorCollapsed: toggleSidebar,
     user,
     workspaceSwitcherOpen,

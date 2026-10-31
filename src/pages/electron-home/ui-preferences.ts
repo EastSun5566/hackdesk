@@ -3,7 +3,6 @@ import { trySetStorageItem } from '@/lib/storage';
 import type { WorkspaceScope } from './types';
 
 export const NAVIGATOR_COLLAPSED_KEY = 'hackdesk_sidebar_collapsed';
-export const INSPECTOR_COLLAPSED_KEY = 'hackdesk_inspector_collapsed';
 export const NAVIGATOR_WIDTH_KEY = 'hackdesk_navigator_width';
 export const FOLDER_COLLAPSED_PREFIX = 'hackdesk_folder_collapsed:';
 export const LAST_WORKSPACE_SCOPE_KEY = 'hackdesk_last_workspace_scope';

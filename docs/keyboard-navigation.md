@@ -8,7 +8,7 @@ Move through the workbench, find commands, and discover available actions withou
 
 ## See keys for where you are
 
-A line at the bottom of the window lists the keys that matter where focus is: moving and opening notes in the folder tree, filtering in the search box, switching tabs, or the commands to reach from a note. Keys follow your current shortcuts. The line fades while you type in a note and comes back when you pause, move the pointer, or press a modifier. Choose **? Shortcuts** at its right end for the full list.
+A line at the bottom of the window lists the keys that matter where focus is: moving and opening notes in the folder tree, filtering in the search box, switching tabs, or the commands to reach from a note. Keys follow your current shortcuts. While you type in a note, the line fades along with the sidebar, the tabs and the note's buttons, so only your text stays. They come back when you move the pointer, press Cmd, Ctrl or Option, or leave the note; a pause does not bring them back. Turn this off with **Fade the workbench while typing** in **Settings → Editor**. Choose **? Shortcuts** at its right end for the full list.
 
 To hide the line, choose **Hide Key Hints** from the Command Palette or the View menu, or turn off **Show key hints at the bottom of the window** in **Settings → Shortcuts**.
 
@@ -50,7 +50,7 @@ Open **Keyboard Shortcuts** from Help or the command palette to search bindings 
 
 ## Move between regions
 
-Press **F6** to move through the sidebar, tabs, editor panes, and expanded Note Details. Press **Shift+F6** to move backwards. Collapsed or unavailable regions are skipped.
+Press **F6** to move through the sidebar, tabs, editor panes, and open Note Details. Press **Shift+F6** to move backwards. Collapsed or unavailable regions are skipped.
 
 To switch workspaces, choose the workspace name at the top of the sidebar, or run **Switch Workspace…** from the leader menu (**G W**) or the command palette. Up and Down move through the list, Enter switches, and Escape closes it.
 

@@ -61,6 +61,11 @@ export type KeyboardNavigationSettings = {
   keyHintsVisible: boolean;
 };
 
+export type WorkbenchSettings = {
+  /** Fade the sidebar, top bar and key hints while typing in a note. */
+  fadeWhileTyping: boolean;
+};
+
 export type WorkspaceNavigationSettings = {
   pinnedTeamIds: string[] | null;
 };
@@ -259,6 +264,9 @@ export const settingsSchema = z.object({
     characterShortcutsEnabled: z.boolean().default(true),
     keyHintsVisible: z.boolean().default(true),
   }).default({ characterShortcutsEnabled: true, keyHintsVisible: true }),
+  workbench: z.object({
+    fadeWhileTyping: z.boolean().default(true),
+  }).default({ fadeWhileTyping: true }),
   workspaceNavigation: z.object({
     pinnedTeamIds: pinnedTeamIdsSchema.default(null),
   }).default(defaultWorkspaceNavigationSettings),
@@ -278,6 +286,7 @@ export const defaultSettings: AppSettings = {
   editor: defaultEditorSettings,
   shortcuts: defaultShortcutSettings,
   keyboardNavigation: { characterShortcutsEnabled: true, keyHintsVisible: true },
+  workbench: { fadeWhileTyping: true },
   workspaceNavigation: defaultWorkspaceNavigationSettings,
   ai: defaultAiSettings,
   dictation: defaultDictationSettings,
@@ -309,6 +318,7 @@ const storedSettingsSchema = z.object({
   editor: settingsSchema.shape.editor.catch(defaultSettings.editor),
   shortcuts: storedShortcutSettingsSchema.default(defaultSettings.shortcuts),
   keyboardNavigation: settingsSchema.shape.keyboardNavigation.catch(defaultSettings.keyboardNavigation),
+  workbench: settingsSchema.shape.workbench.catch(defaultSettings.workbench),
   workspaceNavigation: settingsSchema.shape.workspaceNavigation.catch(defaultSettings.workspaceNavigation),
   ai: settingsSchema.shape.ai.catch(defaultSettings.ai),
   dictation: settingsSchema.shape.dictation.catch(defaultSettings.dictation),

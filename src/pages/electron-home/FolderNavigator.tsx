@@ -47,6 +47,7 @@ import { buildNoteTagIndex } from '@/lib/electron-note-tags';
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { cn } from '@/lib/utils';
+import { WRITING_FADE_CLASS } from './ui';
 
 import { EmptyState, PanelHeader, PanelShell, ToolbarIconButton } from './interaction-primitives';
 import type { WorkspaceScope } from './types';
@@ -166,7 +167,7 @@ export function FolderNavigator({
       collapsed={layout.collapsed}
       width={layout.width}
       collapsedWidth={0}
-      className="note-navigator bg-background-muted"
+      className={cn('note-navigator bg-background-muted', WRITING_FADE_CLASS)}
     >
       {layout.collapsed ? null : (
         <ExpandedNavigator

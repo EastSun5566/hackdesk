@@ -1345,6 +1345,52 @@ test('Settings search jumps to fields and held navigation stays inside the dialo
   } finally { await stopApp(app); }
 });
 
+test('the fade can be turned off, and Note Details floats over the note', async () => {
+  const { app, page } = await launchFixture('standard');
+  try {
+    await page.setViewportSize({ width: 1280, height: 760 });
+    await openFixtureNote(page);
+    const editor = page.locator('.cm-content');
+    const editorWidth = async () => (await page.locator('.cm-editor').boundingBox())!.width;
+    const before = await editorWidth();
+
+    // Note Details opens from the leader menu over the editor, takes focus, and Escape returns to the note.
+    await editor.click();
+    await page.keyboard.press(`${primary}+j`);
+    await expect(page.getByRole('menu', { name: 'Commands' })).toBeVisible();
+    await page.keyboard.press('v');
+    await page.keyboard.press('d');
+    const details = page.getByRole('complementary', { name: 'Note details' });
+    await expect(details).toBeVisible();
+    await expect.poll(() => page.evaluate(() => Boolean(document.activeElement?.closest('[data-hackdesk-focus="inspector"]')))).toBe(true);
+    expect(await editorWidth()).toBe(before);
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('25-note-details-overlay.png') });
+    await page.keyboard.press('Escape');
+    await expect(details).toBeHidden();
+    await expect(editor).toBeFocused();
+
+    // With the setting off, typing leaves the workbench in view.
+    await page.keyboard.press(`${primary}+,`);
+    const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
+    await settings.getByRole('tab', { name: 'Editor', exact: true }).click();
+    await settings.getByRole('checkbox', { name: 'Fade the workbench while typing' }).uncheck();
+    await settings.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(settings).toBeHidden();
+    await editor.click();
+    await page.keyboard.type('still visible');
+    await page.waitForTimeout(400);
+    expect(await page.locator('.app-topbar').evaluate(element => getComputedStyle(element).opacity)).toBe('1');
+    expect(await page.evaluate(() => document.documentElement.dataset.writing)).toBeUndefined();
+  } finally {
+    // Typing dirties the note; approve only the fixture cleanup.
+    await app.evaluate(({ ipcMain }, channel) => {
+      ipcMain.removeHandler(channel);
+      ipcMain.handle(channel, () => ({ confirmed: true }));
+    }, ELECTRON_CHANNELS.appConfirm);
+    await stopApp(app);
+  }
+});
+
 test('the key hint bar follows focus, fades while typing, and can be hidden', async () => {
   const { app, page } = await launchFixture('standard');
   try {
@@ -1357,10 +1403,20 @@ test('the key hint bar follows focus, fades while typing, and can be hidden', as
     await page.locator('.cm-content').click();
     await page.keyboard.press('End');
     await page.keyboard.type(' typed');
-    await expect(bar).toHaveAttribute('data-typing', 'true');
+    // The bar fades with the rest of the workbench and returns when the pointer moves.
+    const opacity = (locator: Locator) => locator.evaluate(element => getComputedStyle(element).opacity);
+    const chrome = [bar, page.locator('.app-topbar'), page.locator('#note-navigator-panel')];
+    for (const part of chrome) await expect.poll(() => opacity(part)).toBe('0');
+    await page.waitForTimeout(1800);
+    await expect.poll(() => opacity(bar)).toBe('0');
     await page.mouse.move(400, 300);
     await page.mouse.move(420, 320);
-    await expect(bar).not.toHaveAttribute('data-typing');
+    for (const part of chrome) await expect.poll(() => opacity(part)).toBe('1');
+    await page.keyboard.type('x');
+    await expect.poll(() => opacity(bar)).toBe('0');
+    await page.keyboard.down(primary);
+    await page.keyboard.up(primary);
+    await expect.poll(() => opacity(bar)).toBe('1');
     await expect(bar).toContainText('Open note');
 
     await bar.getByRole('button', { name: /Shortcuts/ }).click();

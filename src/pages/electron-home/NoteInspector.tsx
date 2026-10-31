@@ -41,6 +41,7 @@ function NoteInspectorPanel({
 
   return (
     <aside
+      aria-label="Note details"
       data-hackdesk-focus="inspector"
       tabIndex={-1}
       className="flex h-full w-80 flex-col bg-background-muted outline-none"
@@ -94,6 +95,7 @@ function NoteInspectorPanel({
 export function LocalNoteInspector({ document, onOpenNote }: { document: DocumentSummary; onOpenNote: OpenNoteTarget }) {
   return (
     <aside
+      aria-label="Note details"
       data-hackdesk-focus="inspector"
       tabIndex={-1}
       className="flex h-full w-80 flex-col bg-background-muted outline-none"

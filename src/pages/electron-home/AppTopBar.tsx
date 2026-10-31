@@ -8,6 +8,7 @@ import { DocumentTabs } from './DocumentTabs';
 import type { DocumentSyncState } from './DocumentDetail';
 import type { ElectronActionId } from '@/lib/electron-api';
 import type { OpenNoteTab } from './note-workspace';
+import { WRITING_FADE_CLASS } from './ui';
 
 function TopBarIconButton({
   actionId,
@@ -125,6 +126,7 @@ export function AppTopBar({
   return (
     <header className={cn(
       'app-topbar flex h-10 shrink-0 items-center gap-2 border-b border-border-default bg-background-default pr-2',
+      WRITING_FADE_CLASS,
       platform === 'darwin' && !fullScreen ? 'pl-21.5' : 'pl-2',
     )}>
       <Toolbar aria-label="Application controls" className="shrink-0">

@@ -61,16 +61,20 @@ export function useElectronFocusZones() {
   }, []);
 
   const focusZone = useCallback((zone: ElectronFocusZone) => {
-    // Resolve after React has applied the active-pane change requested by an action.
+    // Resolve after React has applied the change requested by an action, such as opening a panel.
+    // An action run from a frame callback renders later, so wait a few frames for the region.
     if (pendingFrameRef.current !== null) window.cancelAnimationFrame(pendingFrameRef.current);
-    pendingFrameRef.current = window.requestAnimationFrame(() => {
+    let attempts = 0;
+    const resolve = () => {
       pendingFrameRef.current = null;
       const candidates = getRegions().filter(region => region.dataset.hackdeskFocus === zone);
       const activePane = document.querySelector('[data-active-pane="true"]');
       const region = candidates.find(candidate => candidate.closest('[data-active-pane="true"]'))
         ?? (zone === 'editor' && activePane ? undefined : candidates[0]);
       if (region) focusRegion(regionKey(region), zone === 'editor');
-    });
+      else if (attempts++ < 8) pendingFrameRef.current = window.requestAnimationFrame(resolve);
+    };
+    pendingFrameRef.current = window.requestAnimationFrame(resolve);
   }, [focusRegion]);
 
   const focusNextZone = useCallback((backwards = false) => {

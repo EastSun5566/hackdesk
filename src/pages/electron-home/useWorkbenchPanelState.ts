@@ -2,13 +2,11 @@ import { useCallback, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
 import {
-  INSPECTOR_COLLAPSED_KEY,
   NAVIGATOR_COLLAPSED_KEY,
   NAVIGATOR_WIDTH_DEFAULT,
   NAVIGATOR_WIDTH_KEY,
   NAVIGATOR_WIDTH_MAX,
   NAVIGATOR_WIDTH_MIN,
-  readBooleanStorage,
   readNumberStorage,
   readSidebarCollapsed,
   writeBooleanStorage,
@@ -31,7 +29,8 @@ function writeNavigatorCollapsed(collapsed: boolean) {
 }
 
 export function useWorkbenchPanelState(): WorkbenchPanelState {
-  const [inspectorCollapsed, setInspectorCollapsed] = useState(() => readBooleanStorage(INSPECTOR_COLLAPSED_KEY, true));
+  // Note Details is an overlay over the note, so it always starts closed.
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(true);
   const [navigatorCollapsed, setNavigatorCollapsedState] = useState(readSidebarCollapsed);
   const [navigatorWidth, setNavigatorWidthState] = useState(() => (
     readNumberStorage(NAVIGATOR_WIDTH_KEY, NAVIGATOR_WIDTH_DEFAULT, NAVIGATOR_WIDTH_MIN, NAVIGATOR_WIDTH_MAX)
@@ -54,11 +53,7 @@ export function useWorkbenchPanelState(): WorkbenchPanelState {
   }, []);
 
   const toggleInspectorCollapsed = useCallback(() => {
-    setInspectorCollapsed((current) => {
-      const next = !current;
-      writeBooleanStorage(INSPECTOR_COLLAPSED_KEY, next);
-      return next;
-    });
+    setInspectorCollapsed((current) => !current);
   }, []);
 
   const expandNavigator = useCallback(() => {

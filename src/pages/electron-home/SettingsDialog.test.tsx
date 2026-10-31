@@ -321,7 +321,19 @@ describe('SettingsDialog', () => {
     expect(onSave).toHaveBeenCalledWith({
       title: 'HackDesk',
       editor: { mode: 'kakoune' },
+      workbench: { fadeWhileTyping: true },
     });
+  });
+
+  it('saves whether the workbench fades while typing from the Editor tab', async () => {
+    const onSave = vi.fn();
+    renderSettingsDialog({ onSave });
+    fireEvent.click(screen.getByRole('tab', { name: /Editor/ }));
+    const fade = screen.getByRole('checkbox', { name: 'Fade the workbench while typing' });
+    expect(fade).toBeChecked();
+    fireEvent.click(fade);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ workbench: { fadeWhileTyping: false } })));
   });
 
   it('confirms before resetting editor mode with all other settings', async () => {

@@ -6,6 +6,11 @@ import { buttonVariants } from '@/components/ui/button';
 export const FOCUS_RING_CLASS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring';
 /** For rows and controls inside a scrolling or clipped container, where an outer ring would be cut off. */
 export const FOCUS_RING_INSET_CLASS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring';
+/**
+ * Chrome that fades while you type in a note; see useWritingFade. It stays clickable: reaching it
+ * moves the pointer, which brings it back first.
+ */
+export const WRITING_FADE_CLASS = 'transition-opacity duration-300 motion-reduce:transition-none [html[data-writing]_&]:opacity-0';
 export const PANEL_TRANSITION_CLASS = 'transition-colors duration-150 ease-out motion-reduce:transition-none';
 export const COLLAPSE_ICON_CLASS = 'transition-transform duration-150 ease-out motion-reduce:transition-none';
 export const ICON_BUTTON_CLASS = buttonVariants({ variant: 'ghost', size: 'icon' });

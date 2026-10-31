@@ -42,32 +42,9 @@ describe('KeyHintBar', () => {
     expect(bar).not.toHaveTextContent('New note');
   });
 
-  it('fades while typing in a note, and returns on a pause, the pointer, or a modifier', () => {
-    vi.useFakeTimers();
+  it('fades with the rest of the workbench while the page is marked as writing', () => {
     const { bar } = setup();
-    const note = screen.getByRole('textbox', { name: 'Note' });
-    act(() => note.focus());
-
-    fireEvent.keyDown(note, { key: 'a' });
-    expect(bar).toHaveClass('opacity-0');
-    act(() => { vi.advanceTimersByTime(1500); });
-    expect(bar).not.toHaveClass('opacity-0');
-
-    fireEvent.keyDown(note, { key: 'b' });
-    fireEvent.pointerMove(document);
-    expect(bar).not.toHaveClass('opacity-0');
-
-    fireEvent.keyDown(note, { key: 'c' });
-    fireEvent.keyDown(note, { key: 'Meta', metaKey: true });
-    expect(bar).not.toHaveClass('opacity-0');
-  });
-
-  it('keeps showing while keys move around outside a note', () => {
-    const { bar } = setup();
-    const row = screen.getByRole('treeitem');
-    act(() => row.focus());
-    fireEvent.keyDown(row, { key: 'ArrowDown' });
-    expect(bar).not.toHaveClass('opacity-0');
+    expect(bar.className).toContain('[html[data-writing]_&]:opacity-0');
   });
 
   it('opens Keyboard Shortcuts from its ? button', () => {

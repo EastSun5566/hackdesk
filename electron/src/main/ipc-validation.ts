@@ -189,6 +189,7 @@ export const settingsUpdateSchema = z.strictObject({
   }).optional(),
   shortcuts: shortcutsSchema.optional(),
   keyboardNavigation: z.strictObject({ characterShortcutsEnabled: z.boolean(), keyHintsVisible: z.boolean() }).optional(),
+  workbench: z.strictObject({ fadeWhileTyping: z.boolean() }).optional(),
   workspaceNavigation: z.strictObject({
     pinnedTeamIds: pinnedTeamIdsSchema,
   }).optional(),
