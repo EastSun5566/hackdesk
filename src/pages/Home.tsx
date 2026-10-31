@@ -3,6 +3,8 @@ import { getElectronAction } from '@/lib/electron-actions';
 import { ActionShortcutContext } from './electron-home/ActionShortcutContext';
 import { KeyboardShortcutsDialog } from './electron-home/KeyboardShortcutsDialog';
 import { KeyHintBar } from './electron-home/KeyHintBar';
+import { LeaderMenu } from './electron-home/LeaderMenu';
+import { getLeaderLevel } from '@/lib/leader-keys';
 import { BookSessionContext, useBookSession } from './electron-home/useBookSession';
 import { TemplatePickerDialog } from './electron-home/TemplatePickerDialog';
 import { useNoteTemplates } from './electron-home/useNoteTemplates';
@@ -124,6 +126,9 @@ export function Home() {
     if (open) setSettingsInitialTab('general');
     setSettingsOpenState(open);
   }, [setSettingsOpenState]);
+  // The letters typed into the leader menu so far, or null while it is closed.
+  const [leaderPath, setLeaderPath] = useState<string[] | null>(null);
+  const openLeaderMenu = useCallback(() => setLeaderPath([]), []);
   const [shortcutHelp, setShortcutHelp] = useState<{ region: ElectronFocusZone; target: HTMLElement | null } | null>(null);
   const closeTransientLayerWithHelp = useCallback(() => {
     if (shortcutHelp) { setShortcutHelp(null); return true; }
@@ -593,6 +598,7 @@ export function Home() {
   const activePaneTabIds = noteWorkspace.state.panes.find(pane => pane.paneId === noteWorkspace.state.activePaneId)?.tabIds ?? [];
   const actionHandlers = useWorkbenchActionHandlers({
     activePaneTabIds,
+    openLeaderMenu,
     book: bookSession,
     chooseLocalVault: () => {
       void localVaultActions.chooseLocalVault();
@@ -817,6 +823,7 @@ export function Home() {
     handleCreateNote: folderCommands.handleCreateNote,
     noteDirty,
     openPalette,
+    openLeaderMenu,
     platform: api?.platform ?? navigator.platform,
     refreshWorkspace,
     runAction,
@@ -980,6 +987,12 @@ export function Home() {
     user,
   });
 
+  const leaderLevel = leaderPath && getLeaderLevel(leaderPath, {
+    actionContext,
+    shortcuts: settings?.shortcuts,
+    platform: api?.platform ?? navigator.platform,
+    characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true,
+  });
   const shortcutContext = useMemo(() => ({ shortcuts: settings?.shortcuts, platform: api?.platform ?? navigator.platform, characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true }), [settings?.shortcuts, settings?.keyboardNavigation?.characterShortcutsEnabled, api?.platform]);
 
   if (!api) {
@@ -997,9 +1010,18 @@ export function Home() {
           <BookSessionContext.Provider value={bookSession}>
             <ElectronHomeWorkspace {...workspaceProps} backupNotice={backupNotice} />
           </BookSessionContext.Provider>
+          {leaderLevel ? (
+            <LeaderMenu
+              level={leaderLevel}
+              onPathChange={setLeaderPath}
+              onClose={() => setLeaderPath(null)}
+              onRun={id => runPaletteAction(id)}
+            />
+          ) : null}
           {settings?.keyboardNavigation?.keyHintsVisible ?? true ? (
             <KeyHintBar
               actionContext={actionContext}
+              leader={leaderLevel}
               shortcuts={settings?.shortcuts}
               platform={api.platform}
               characterShortcutsEnabled={settings?.keyboardNavigation?.characterShortcutsEnabled ?? true}

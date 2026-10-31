@@ -20,8 +20,8 @@ describe('keyboard shortcuts help', () => {
   });
   it('shows actual custom keys and disabled status, and opens customization', () => {
     const onCustomize = vi.fn();
-    fixture({ shortcuts: { 'show-keyboard-shortcuts': 'mod+j', 'focus-next-tab': 'none' }, characterShortcutsEnabled: false, onCustomize });
-    expect(screen.getByText('⌘J')).toBeInTheDocument();
+    fixture({ shortcuts: { 'show-keyboard-shortcuts': 'mod+e', 'focus-next-tab': 'none' }, characterShortcutsEnabled: false, onCustomize });
+    expect(screen.getByText('⌘E')).toBeInTheDocument();
     expect(screen.queryByText('⌃Tab')).not.toBeInTheDocument();
     expect(screen.getAllByText('Disabled').length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: 'Customize in Settings' }));

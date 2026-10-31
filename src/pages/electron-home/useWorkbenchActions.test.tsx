@@ -96,6 +96,7 @@ function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): Workb
     toggleTheme: vi.fn(),
     toggleWorkspaceRail: vi.fn(),
     toggleKeyHints: vi.fn(),
+    openLeaderMenu: vi.fn(),
     renameNote: vi.fn(),
     duplicateSelectedNote: vi.fn(),
     moveNoteToFolder: vi.fn(),

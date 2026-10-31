@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 
 import type { ElectronActionContext } from '@/lib/electron-actions';
-import { getKeyHints, type KeyHintContext } from '@/lib/key-hints';
+import { getKeyHints, type KeyHint, type KeyHintContext } from '@/lib/key-hints';
+import type { LeaderLevel } from '@/lib/leader-keys';
 import type { ShortcutOverrides } from '@/lib/keyboard-shortcuts';
 import { cn } from '@/lib/utils';
 
@@ -29,9 +30,12 @@ export function KeyHintBar({
   shortcuts,
   platform,
   characterShortcutsEnabled,
+  leader,
   onOpenShortcuts,
 }: {
   actionContext: ElectronActionContext;
+  /** While the leader menu is open, the bar shows its keys. */
+  leader?: LeaderLevel | null;
   shortcuts: ShortcutOverrides | undefined;
   platform: string;
   characterShortcutsEnabled: boolean;
@@ -63,17 +67,23 @@ export function KeyHintBar({
     };
   }, []);
 
-  const hints = getKeyHints(context, { actionContext, shortcuts, platform, characterShortcutsEnabled });
+  const hints: KeyHint[] = leader
+    ? [
+      ...leader.items.slice(0, 6).map(item => ({ keys: item.key.toUpperCase(), label: item.label })),
+      ...(leader.path.length ? [{ keys: '⌫', label: 'Back' }] : []),
+      { keys: 'Esc', label: 'Close' },
+    ]
+    : getKeyHints(context, { actionContext, shortcuts, platform, characterShortcutsEnabled });
 
   return (
     <footer
       role="note"
       aria-label="Keys you can press"
-      data-key-hint-context={context}
-      data-typing={typing ? 'true' : undefined}
+      data-key-hint-context={leader ? 'leader' : context}
+      data-typing={typing && !leader ? 'true' : undefined}
       className={cn(
         'flex h-6 shrink-0 items-center gap-4 overflow-hidden border-t border-border-default bg-background-muted px-3 text-2xs text-text-subtle transition-opacity duration-300 motion-reduce:transition-none',
-        typing && 'opacity-0',
+        typing && !leader && 'opacity-0',
       )}
     >
       <ul className="flex min-w-0 flex-1 items-center gap-4 overflow-hidden whitespace-nowrap">

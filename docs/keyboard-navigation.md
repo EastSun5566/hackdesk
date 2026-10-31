@@ -12,6 +12,21 @@ A line at the bottom of the window lists the keys that matter where focus is: mo
 
 To hide the line, choose **Hide Key Hints** from the Command Palette or the View menu, or turn off **Show key hints at the bottom of the window** in **Settings → Shortcuts**.
 
+## Run commands with a few keys
+
+Press **Space** outside text editing, or **Cmd+J** on macOS or **Ctrl+J** on Windows/Linux anywhere, including a note, to open the leader menu. Press a letter for a group, then a letter for the command: **Space N N** makes a new note and **Cmd+J T S** splits the tab to the right. The menu lists each command's own shortcut too, and keeps unavailable commands dimmed with the reason. Press **Backspace** to go back a level or **Escape** to close.
+
+| Key | Group | Examples |
+| --- | --- | --- |
+| N | Note | N new, R rename, D duplicate, M move to folder, X delete |
+| T | Tab | W close, S split right, U reopen closed, H / L move left / right |
+| G | Go | O Quick Open, S search notes, H History, B / F back / forward |
+| V | View | S workspace sidebar, N navigator, D Note Details, K key hints |
+| A | AI | A Ask AI, Q Ask Your Notes, D dictate |
+| F | Folder | N new, R rename, X delete |
+
+**K** opens the Command Palette, **?** all shortcuts and **,** Settings. Editor modes keep their own Space key, including Helix's Space menu; use Cmd+J / Ctrl+J there. Change Cmd+J under **Leader Menu** in **Settings → Shortcuts**; turning off **Enable ?, / and Space outside text editing** leaves Space as an ordinary key.
+
 ## Find commands and shortcuts
 
 Open the **Command Palette** with **Cmd+K** on macOS or **Ctrl+K** on Windows/Linux. Search for an action and press Enter to run it. Search matches whole words in any order (`tabs right`) and the first letters of words (`nn` for **New Note**), and the matched letters are highlighted. Besides actions, the palette opens a page of Settings (`settings ai`), switches workspaces, including the Local Vault, and changes the theme. With text selected in the editor and an AI provider enabled, **Cmd+K** / **Ctrl+K** opens AI actions instead. Use **Cmd+Shift+P** / **Ctrl+Shift+P** to open the Command Palette in that context.
@@ -35,7 +50,7 @@ Open **Keyboard Shortcuts** from Help or the command palette to search bindings 
 
 Press **F6** to move through visible workspace controls, the navigator, tabs, editor panes, and expanded Note Details. Press **Shift+F6** to move backwards. Collapsed or unavailable regions are skipped.
 
-In tabs, use Left/Right or Home/End to move focus; Enter or Space selects the focused tab. In the folder tree, arrow keys move focus or expand and collapse folders; Enter selects a folder or opens a note.
+In tabs, use Left/Right or Home/End to move focus; Enter selects the focused tab. In the folder tree, arrow keys move focus or expand and collapse folders; Enter selects a folder or opens a note.
 
 Outside text editing, **Ctrl+U** and **Ctrl+D** scroll the focused UI region by half a page. Text editors retain their own bindings, including modal editor commands.
 
@@ -55,6 +70,6 @@ Press Backspace to remove a code prefix, Escape to cancel, or release the modifi
 
 ## Customize bindings
 
-Open **Settings → Shortcuts** to change or disable actions. The **Enable ? and / outside text editing** option controls the default character shortcuts. Input fields, text editors, and IME composition retain normal input behavior.
+Open **Settings → Shortcuts** to change or disable actions. The **Enable ?, / and Space outside text editing** option controls the default character shortcuts. Input fields, text editors, and IME composition retain normal input behavior.
 
 The hint allocator avoids occupied keys. If no safe codes remain, it explains the limitation; use F6, normal tab navigation, or the command palette instead.

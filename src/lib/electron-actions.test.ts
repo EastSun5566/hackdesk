@@ -9,6 +9,7 @@ import {
   getElectronAction,
   getResolvedActionShortcut,
   isElectronActionEnabled,
+  resolveWorkbenchShortcut,
   type ElectronActionContext,
 } from './electron-actions';
 import { ELECTRON_MENU_SCHEMA } from './electron-menu-schema';
@@ -331,4 +332,11 @@ describe('electron action registry', () => {
     })).toBe('Kakoune editor mode is already active.');
   });
 
+  it('lets a saved shortcut keep keys that a later default also uses', () => {
+    expect(resolveWorkbenchShortcut('open-leader-menu', { 'new-note': 'mod+j' })).toBe('none');
+    expect(getResolvedActionShortcut('open-leader-menu', { 'new-note': 'mod+j' }, 'darwin')).toBeUndefined();
+    expect(resolveWorkbenchShortcut('new-note', { 'new-note': 'mod+j' })).toBe('mod+j');
+    expect(resolveWorkbenchShortcut('open-leader-menu', { 'new-note': 'mod+e' })).toBe('mod+j');
+    expect(resolveWorkbenchShortcut('open-leader-menu', { 'open-leader-menu': 'mod+e', 'new-note': 'mod+j' })).toBe('mod+e');
+  });
 });

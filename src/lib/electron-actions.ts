@@ -1,6 +1,7 @@
 import type { ElectronActionId } from './electron-api';
 import {
   displayShortcutConfig,
+  getShortcutConflicts,
   resolveActionShortcut,
   type ShortcutOverrides,
 } from './keyboard-shortcuts';
@@ -177,6 +178,15 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     scope: 'global',
     defaultKeybinding: '?',
     keyboardContext: 'character',
+  },
+  {
+    id: 'open-leader-menu',
+    label: 'Leader Menu',
+    description: 'Run a command with a few letters, such as N then N for a new note. Space also opens it outside text editing.',
+    keywords: ['leader', 'which key', 'commands', 'keys', 'space'],
+    category: 'app',
+    scope: 'global',
+    defaultKeybinding: 'mod+j',
   },
   {
     id: 'focus-next-region',
@@ -955,7 +965,11 @@ export const DEFAULT_ACTION_KEYBINDINGS = ELECTRON_ACTIONS.reduce((acc, action) 
 
 export function resolveWorkbenchShortcut(actionId: ElectronActionId, shortcuts: ShortcutOverrides | undefined, characterShortcutsEnabled = true) {
   if (!characterShortcutsEnabled && getElectronAction(actionId).keyboardContext === 'character' && shortcuts?.[actionId] === undefined) return 'none';
-  return resolveActionShortcut(actionId, DEFAULT_ACTION_KEYBINDINGS, shortcuts);
+  const resolved = resolveActionShortcut(actionId, DEFAULT_ACTION_KEYBINDINGS, shortcuts);
+  // A default added after someone saved the same keys for another action yields to their choice.
+  if (resolved && shortcuts && shortcuts[actionId] === undefined
+    && ['darwin', 'win32'].some(platform => getShortcutConflicts(actionId, resolved, shortcuts, {}, platform).length > 0)) return 'none';
+  return resolved;
 }
 
 export function getResolvedActionShortcut(

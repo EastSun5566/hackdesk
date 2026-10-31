@@ -68,6 +68,7 @@ const electronActionIdSchema = z.enum([
   'refresh',
   'search-notes',
   'show-keyboard-shortcuts',
+  'open-leader-menu',
   'focus-next-region',
   'focus-previous-region',
   'scroll-half-page-up',

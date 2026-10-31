@@ -629,7 +629,7 @@ test('keyboard foundation separates focus from selection and protects drafts', a
     await expect(firstTab).toBeFocused();
     await expect(secondTab).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator('.cm-content')).toContainText('# Beta');
-    await firstTab.press('Space');
+    await firstTab.press('Enter');
     await expect(firstTab).toHaveAttribute('aria-selected', 'true');
     const panelId = await firstTab.getAttribute('aria-controls');
     const panel = page.getByRole('tabpanel');
@@ -891,18 +891,18 @@ test('saved shortcut preferences update hints and disable character shortcuts', 
     await expect(help).toHaveCount(0);
     await expect(settings).toBeVisible();
     await expect(settings.getByRole('tab', { name: 'Shortcuts', exact: true })).toHaveAttribute('aria-selected', 'true');
-    await settings.getByRole('checkbox', { name: 'Enable ? and / outside text editing' }).uncheck();
+    await settings.getByRole('checkbox', { name: 'Enable ?, / and Space outside text editing' }).uncheck();
     const filter = settings.getByPlaceholder('Search shortcuts', { exact: true });
     await filter.fill('Focus Note Finder');
     const binding = settings.getByRole('button', { name: 'Set shortcut for Focus Note Finder', exact: true });
-    await binding.click(); await page.keyboard.press(`${primary}+j`);
+    await binding.click(); await page.keyboard.press(`${primary}+e`);
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(settings).toBeHidden();
-    await expect(page.locator('[data-search-shortcut]')).toHaveText(process.platform === 'darwin' ? '⌘J' : 'Ctrl+J');
+    await expect(page.locator('[data-search-shortcut]')).toHaveText(process.platform === 'darwin' ? '⌘E' : 'Ctrl+E');
     await note.focus(); await page.keyboard.press('?');
     await expect(help).toHaveCount(0);
     await page.keyboard.press('/'); await expect(search).not.toBeFocused();
-    await page.keyboard.press(`${primary}+j`); await expect(search).toBeFocused();
+    await page.keyboard.press(`${primary}+e`); await expect(search).toBeFocused();
     await page.screenshot({ path: test.info().outputPath('15-custom-search-hint.png'), animations: 'disabled' });
   } finally { await stopApp(app); }
 });
@@ -1132,11 +1132,11 @@ test('navigation codes avoid saved custom shortcuts', async () => {
     await settings.getByRole('tab',{name:'Shortcuts',exact:true}).click();
     await settings.getByPlaceholder('Search shortcuts',{exact:true}).fill('New Note');
     await settings.getByRole('button',{name:'Set shortcut for New Note',exact:true}).click();
-    await page.keyboard.press(`${primary}+j`);
+    await page.keyboard.press(`${primary}+e`);
     await settings.getByRole('button',{name:'Save',exact:true}).click();
     await expect(settings).toBeHidden(); await note.focus(); await page.keyboard.down(primary);
     const codes = await page.locator('[data-navigation-code]').evaluateAll(elements=>elements.map(element=>element.getAttribute('data-navigation-code')));
-    expect(codes.every(code=>!code?.includes('j'))).toBe(true);
+    expect(codes.every(code=>!code?.includes('e'))).toBe(true);
     await expect(page.locator('[data-navigation-hint="finder"]')).toHaveAttribute('data-navigation-code', /^[a-z]{2,3}$/);
     await page.keyboard.up(primary);
   } finally { await stopApp(app); }
@@ -1269,5 +1269,43 @@ test('the key hint bar follows focus, fades while typing, and can be hidden', as
     await page.getByRole('combobox').fill('hide key hints');
     await page.getByRole('option', { name: /^Hide Key Hints/ }).click();
     await expect(bar).toHaveCount(0);
+  } finally { await stopApp(app); }
+});
+
+test('the leader menu runs commands from a few letters with Space or the leader shortcut', async () => {
+  const { app, page } = await launchFixture('standard');
+  try {
+    await openFixtureNote(page);
+    const tree = page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'UI fixture', exact: true });
+    await tree.focus();
+
+    // Space on a tree item opens the menu instead of the note.
+    await page.keyboard.press('Space');
+    const menu = page.getByRole('menu', { name: 'Commands' });
+    await expect(menu).toBeVisible();
+    await expect(page.getByRole('note', { name: 'Keys you can press' })).toContainText('Esc');
+    await page.keyboard.press('t');
+    await expect(page.getByRole('menu', { name: 'Commands › Tab' })).toBeVisible();
+    await page.keyboard.press('Backspace');
+    await expect(menu).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+    await expect(tree).toBeFocused();
+
+    // In the editor, Space types and the leader shortcut opens the menu.
+    await page.locator('.cm-content').click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' x');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect(page.locator('.cm-content')).toContainText('x');
+    await page.keyboard.press(`${primary}+j`);
+    await page.keyboard.press('t');
+    await page.keyboard.press('s');
+    await expect(page.locator('[data-active-pane]')).toHaveCount(2);
+
+    await page.keyboard.press(`${primary}+j`);
+    await page.keyboard.press('v');
+    await page.keyboard.press('k');
+    await expect(page.getByRole('note', { name: 'Keys you can press' })).toHaveCount(0);
   } finally { await stopApp(app); }
 });

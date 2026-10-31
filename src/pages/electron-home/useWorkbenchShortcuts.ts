@@ -14,7 +14,17 @@ import {
   type ShortcutOverrides,
 } from '@/lib/keyboard-shortcuts';
 
-import { canRunContextShortcut, hasWorkbenchPopup } from './workbench-keyboard-context';
+import { canRunContextShortcut, EDITING_SELECTOR, hasWorkbenchPopup } from './workbench-keyboard-context';
+
+// Space activates these itself, so it opens the leader menu only elsewhere. Tree items and tabs open
+// with Enter, which leaves Space free there.
+const SPACE_CONTROLS = 'button:not([role="treeitem"]):not([role="tab"]), [role="button"], [role="checkbox"], [role="switch"], [role="radio"], [role="menuitem"], [role="option"], summary, a[href]';
+
+function opensLeaderMenu(event: KeyboardEvent, enabled: boolean) {
+  if (!enabled || event.key !== ' ' || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return false;
+  const target = event.target instanceof Element ? event.target : null;
+  return !hasWorkbenchPopup() && !target?.closest(EDITING_SELECTOR) && !target?.closest(SPACE_CONTROLS);
+}
 
 export type WorkbenchShortcutHandlers = {
   activeFinderState: NoteFinderState;
@@ -22,6 +32,8 @@ export type WorkbenchShortcutHandlers = {
   handleCreateNote: () => void;
   noteDirty: boolean;
   openPalette: () => void;
+  /** Opens the leader menu; Space does too, outside text editing. */
+  openLeaderMenu?: () => void;
   platform: string;
   refreshWorkspace: () => void;
   runAction: (actionId: ElectronActionId) => void | boolean;
@@ -39,6 +51,7 @@ export function useWorkbenchShortcuts({
   handleCreateNote,
   noteDirty,
   openPalette,
+  openLeaderMenu,
   platform,
   refreshWorkspace,
   runAction,
@@ -51,6 +64,12 @@ export function useWorkbenchShortcuts({
 }: WorkbenchShortcutHandlers) {
   const handleGlobalKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.defaultPrevented || event.isComposing || event.repeat) {
+      return;
+    }
+
+    if (openLeaderMenu && opensLeaderMenu(event, characterShortcutsEnabled)) {
+      event.preventDefault();
+      openLeaderMenu();
       return;
     }
 
@@ -121,6 +140,7 @@ export function useWorkbenchShortcuts({
     handleCreateNote,
     noteDirty,
     openPalette,
+    openLeaderMenu,
     platform,
     refreshWorkspace,
     runAction,
