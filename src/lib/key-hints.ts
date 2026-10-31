@@ -83,8 +83,6 @@ export function getKeyHints(context: KeyHintContext, {
       if (spec.keys !== 'workspace-numbers') return [spec];
       return [{ keys: `${displayShortcutConfig('mod+1', platform)}–9`, label: spec.label }];
     }
-    // Save matters only when there is something to save.
-    if (spec.action === 'save-note' && !actionContext.noteDirty) return [];
     if (getActionDisabledReason(getElectronAction(spec.action), actionContext)) return [];
     const keys = getResolvedActionShortcut(spec.action, shortcuts, platform, characterShortcutsEnabled);
     return keys ? [{ keys: keys.split(', ')[0]!, label: spec.label }] : [];
