@@ -301,10 +301,15 @@ test('focus rings stay visible instead of being cut off by their containers', as
     await page.keyboard.press('Escape');
     await page.keyboard.press(`${primary}+k`);
     clipped.push(...(await clippedFocusRingsWhileTabbing(page, 10)).map(found => `palette ${found}`));
-    await page.keyboard.press('Escape');
+    // Tabbing may leave focus on a palette control, where the first Escape only clears it.
+    await expect(async () => {
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog', { name: 'Command Palette' })).toBeHidden({ timeout: 500 });
+    }).toPass();
     // Note Details, opened from the leader menu.
     await page.locator('.cm-content').focus();
     await page.keyboard.press(`${primary}+j`);
+    await expect(page.getByRole('menu', { name: 'Commands' })).toBeVisible();
     await page.keyboard.press('v');
     await page.keyboard.press('d');
     const details = page.locator('[data-hackdesk-focus="inspector"]');
