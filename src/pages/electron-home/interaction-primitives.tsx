@@ -15,6 +15,7 @@ import type { ElectronActionId } from '@/lib/electron-api';
 import {
   COLLAPSE_ICON_CLASS,
   FOCUS_RING_CLASS,
+  FOCUS_RING_INSET_CLASS,
   ICON_BUTTON_CLASS,
   PANEL_TRANSITION_CLASS,
 } from './ui';
@@ -80,7 +81,7 @@ function entityRowClassName({
       : 'text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
     selectedIndicator && 'overflow-hidden',
     selectedIndicator && selected && 'before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-0.5 before:rounded-full before:bg-primary-default',
-    clickable && FOCUS_RING_CLASS,
+    clickable && FOCUS_RING_INSET_CLASS,
     disabled && 'pointer-events-none opacity-50',
     className,
   );
@@ -347,7 +348,8 @@ export function PanelHeader({
     <header className={cn('border-b border-border-default px-4 py-3', className)}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <TitleElement className="truncate text-base font-semibold text-text-default">{title}</TitleElement>
+          {/* A control as the title truncates itself, so its focus ring is not clipped here. */}
+          <TitleElement className={cn('text-base font-semibold text-text-default', typeof title === 'string' && 'truncate')}>{title}</TitleElement>
           {subtitle ? <p className="mt-1 truncate text-xs text-text-subtle">{subtitle}</p> : null}
         </div>
         {actions ? (

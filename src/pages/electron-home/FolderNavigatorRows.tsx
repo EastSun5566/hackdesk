@@ -29,7 +29,7 @@ import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { cn } from '@/lib/utils';
 
 import { EntityRow } from './interaction-primitives';
-import { COLLAPSE_ICON_CLASS, FOCUS_RING_CLASS, formatCompactDate, formatDate, getFolderTotalNoteCount } from './ui';
+import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS, formatCompactDate, formatDate, getFolderTotalNoteCount } from './ui';
 import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
@@ -37,6 +37,8 @@ import { NoteMatchSnippet } from './NoteMatchSnippet';
 
 import { useFolderTreeControlId, useFolderTreeGroupId, useFolderTreeItem } from './FolderTreeFocusContext';
 
+// The search box keeps focus, so its highlighted result shows only while the box is focused.
+const SEARCH_HIGHLIGHT_CLASS = '[.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-2 [.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-inset [.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-focus-ring/80';
 const TREE_ROW_FOCUS_CLASS = 'focus-within:bg-background-selected focus-within:text-text-default focus-within:ring-2 focus-within:ring-inset focus-within:ring-focus-ring/80';
 
 function focusTreeRowPrimary(rowId: string) {
@@ -74,6 +76,7 @@ export function NoteRow({
   disabledDrag = false,
   active = false,
   compact = false,
+  highlightId,
   snippet,
 }: {
   entry: FolderTreeNote;
@@ -95,6 +98,8 @@ export function NoteRow({
   disabledDrag?: boolean;
   active?: boolean;
   compact?: boolean;
+  /** Marks the search result highlighted from the search box, and is the id it points to. */
+  highlightId?: string;
   /** Where the note's text matched the search, shown in place of its folder and tags. */
   snippet?: string;
 }) {
@@ -135,6 +140,7 @@ export function NoteRow({
         <div
           ref={setNodeRef}
           style={style}
+          id={highlightId}
           data-folder-tree-row-id={rowId}
           data-folder-tree-kind="note"
           data-folder-tree-note-id={entry.note.id}
@@ -151,7 +157,7 @@ export function NoteRow({
                 id={dragControlId}
                 className={cn(
                   'group/drag-handle -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default',
-                  FOCUS_RING_CLASS,
+                  FOCUS_RING_INSET_CLASS,
                 )}
                 aria-label={`Drag ${entry.note.title || 'Untitled'}`}
                 data-folder-tree-ignore-keyboard="true"
@@ -186,7 +192,7 @@ export function NoteRow({
             contentFocusTarget={focusTarget}
             contentButtonProps={treeItemProps}
             selectedIndicator
-            className={cn(TREE_ROW_FOCUS_CLASS, selected && 'bg-primary-soft')}
+            className={cn(TREE_ROW_FOCUS_CLASS, selected && 'bg-primary-soft', highlightId && SEARCH_HIGHLIGHT_CLASS)}
           />
         </div>
       </ContextMenuTrigger>
@@ -329,7 +335,7 @@ function FolderButton({
                   aria-hidden={!hasChildren ? true : undefined}
                   className={cn(
                     '-my-2 flex h-10 w-6 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default disabled:pointer-events-none disabled:opacity-0',
-                    FOCUS_RING_CLASS,
+                    FOCUS_RING_INSET_CLASS,
                   )}
                   aria-label={hasChildren ? (collapsed ? `Expand ${node.name}` : `Collapse ${node.name}`) : undefined}
                   aria-expanded={hasChildren ? !collapsed : undefined}
@@ -345,7 +351,7 @@ function FolderButton({
                   className={cn(
                     'group/drag-handle -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default',
                     disabledDrag && 'opacity-40 hover:text-text-subtle',
-                    FOCUS_RING_CLASS,
+                    FOCUS_RING_INSET_CLASS,
                   )}
                   aria-label={`Drag ${node.name}`}
                   id={dragControlId}

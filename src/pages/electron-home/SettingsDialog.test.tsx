@@ -158,6 +158,33 @@ describe('SettingsDialog', () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
+  it('moves the highlighted result with the arrow keys or Ctrl+N and Ctrl+P while focus stays in the search box', async () => {
+    renderSettingsDialog();
+    const search = screen.getByLabelText('Search settings');
+    fireEvent.change(search, { target: { value: 'font' } });
+    const options = within(screen.getByRole('listbox', { name: 'Settings search results' })).getAllByRole('option');
+    expect(options.length).toBeGreaterThan(2);
+    expect(search).toHaveAttribute('role', 'combobox');
+    expect(search).toHaveAttribute('aria-activedescendant', options[0].id);
+    expect(options[0]).toHaveAttribute('aria-selected', 'true');
+
+    fireEvent.keyDown(search, { key: 'ArrowDown' });
+    fireEvent.keyDown(search, { key: 'n', ctrlKey: true });
+    expect(search).toHaveAttribute('aria-activedescendant', options[2].id);
+    fireEvent.keyDown(search, { key: 'p', ctrlKey: true });
+    expect(search).toHaveAttribute('aria-activedescendant', options[1].id);
+    expect(search).toHaveFocus();
+    fireEvent.keyDown(search, { key: 'ArrowUp' });
+    fireEvent.keyDown(search, { key: 'ArrowUp' });
+    expect(search).toHaveAttribute('aria-activedescendant', options.at(-1)!.id);
+
+    fireEvent.keyDown(search, { key: 'ArrowDown' });
+    fireEvent.keyDown(search, { key: 'ArrowDown' });
+    const label = options[1].getAttribute('aria-label')!.split(', ')[0];
+    fireEvent.keyDown(search, { key: 'Enter' });
+    await waitFor(() => expect(screen.getByLabelText(label, { exact: true })).toHaveFocus());
+  });
+
   it('expands a collapsed section to focus a color search result', async () => {
     renderSettingsDialog();
     const search = screen.getByLabelText('Search settings');

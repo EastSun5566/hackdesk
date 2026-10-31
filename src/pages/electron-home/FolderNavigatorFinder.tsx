@@ -86,17 +86,28 @@ function FilterChip({
   );
 }
 
+export const NOTE_FINDER_RESULTS_ID = 'note-finder-results';
+
+/** The finder's result list, driven from the search box while focus stays there. */
+export type NoteFinderResults = {
+  activeId?: string;
+  move: (step: 1 | -1) => void;
+  open: () => void;
+};
+
 export function NoteFinderToolbar({
   state,
   selectedFolderId,
   options,
   onChange,
+  results,
   onEscapeToTree,
 }: {
   state: NoteFinderState;
   selectedFolderId: string | null;
   options: ReturnType<typeof getNoteFinderOptions>;
   onChange: (state: NoteFinderState) => void;
+  results?: NoteFinderResults;
   onEscapeToTree: () => void;
 }) {
   const activeFilterCount = getActiveNoteFinderFilterCount(state);
@@ -111,6 +122,25 @@ export function NoteFinderToolbar({
   });
   const clearFilters = () => onChange(clearNoteFinderFilters(state));
   const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing) return;
+    const step = event.key === 'ArrowDown' || (event.ctrlKey && event.key === 'n') ? 1
+      : event.key === 'ArrowUp' || (event.ctrlKey && event.key === 'p') ? -1 : 0;
+    if (step && results) {
+      event.preventDefault();
+      results.move(step);
+      return;
+    }
+    if (event.key === 'ArrowDown' && !results) {
+      // Without a search, the tree is the list: Down moves into it.
+      event.preventDefault();
+      onEscapeToTree();
+      return;
+    }
+    if (event.key === 'Enter' && results?.activeId) {
+      event.preventDefault();
+      results.open();
+      return;
+    }
     if (event.key !== 'Escape') {
       return;
     }
@@ -141,6 +171,11 @@ export function NoteFinderToolbar({
           <span className="sr-only">Search notes</span>
           <input
             name="noteSearch"
+            role="combobox"
+            aria-expanded={Boolean(results)}
+            aria-controls={results ? NOTE_FINDER_RESULTS_ID : undefined}
+            aria-activedescendant={results?.activeId}
+            aria-autocomplete="list"
             value={state.query}
             onChange={(event) => updateState({ query: event.target.value })}
             onKeyDown={handleSearchKeyDown}

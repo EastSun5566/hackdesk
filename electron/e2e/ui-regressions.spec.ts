@@ -104,6 +104,41 @@ async function stopApp(app: ElectronApplication, recordKeyboard = false) {
   await exited;
 }
 
+// Describes the focused element if its outer focus ring is cut off by a clipping ancestor.
+async function clippedFocusRing(page: Page) {
+  return page.evaluate(() => {
+    const element = document.activeElement as HTMLElement | null;
+    if (!element || element === document.body) return null;
+    const shadow = getComputedStyle(element).boxShadow;
+    if (!shadow || shadow === 'none' || shadow.includes('inset')) return null;
+    const rect = element.getBoundingClientRect();
+    const ring = 2;
+    for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+      const style = getComputedStyle(parent);
+      const clipsX = ['hidden', 'auto', 'scroll', 'clip'].includes(style.overflowX);
+      const clipsY = ['hidden', 'auto', 'scroll', 'clip'].includes(style.overflowY);
+      if (!clipsX && !clipsY) continue;
+      const bounds = parent.getBoundingClientRect();
+      if ((clipsX && (rect.left - ring < bounds.left - 0.5 || rect.right + ring > bounds.right + 0.5))
+        || (clipsY && (rect.top - ring < bounds.top - 0.5 || rect.bottom + ring > bounds.bottom + 0.5))) {
+        const name = element.getAttribute('aria-label') || element.id || element.getAttribute('placeholder') || element.getAttribute('name') || element.textContent?.trim().slice(0, 40) || '';
+        return `${element.tagName.toLowerCase()}[${element.getAttribute('role') ?? ''}] "${name}"`;
+      }
+    }
+    return null;
+  });
+}
+
+async function clippedFocusRingsWhileTabbing(page: Page, steps: number) {
+  const clipped = new Set<string>();
+  for (let step = 0; step < steps; step++) {
+    await page.keyboard.press('Tab');
+    const found = await clippedFocusRing(page);
+    if (found) clipped.add(found);
+  }
+  return [...clipped];
+}
+
 async function openWorkspaceSwitcher(page: Page) {
   const list = page.getByRole('dialog', { name: 'Workspaces' });
   if (!(await list.isVisible())) await page.getByRole('button', { name: /^Switch workspace, current: / }).click();
@@ -245,6 +280,43 @@ test('palette enabled state and contrast survive real CSS in all built-in themes
   }
 });
 
+test('focus rings stay visible instead of being cut off by their containers', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1280, height: 760 });
+    await openFixtureNote(page);
+    await page.getByRole('treeitem', { name: 'UI fixture', exact: true }).focus();
+    const clipped = await clippedFocusRingsWhileTabbing(page, 60);
+    const list = await openWorkspaceSwitcher(page);
+    for (const row of await list.locator('[data-workspace-row]').all()) {
+      await row.focus();
+      const found = await clippedFocusRing(page);
+      if (found) clipped.push(`switcher ${found}`);
+    }
+    await page.keyboard.press('Escape');
+    await page.keyboard.press(`${primary}+,`);
+    await page.getByRole('dialog', { name: 'Settings', exact: true }).getByRole('combobox', { name: 'Search settings' }).fill('a');
+    clipped.push(...(await clippedFocusRingsWhileTabbing(page, 40)).map(found => `settings ${found}`));
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press(`${primary}+k`);
+    clipped.push(...(await clippedFocusRingsWhileTabbing(page, 10)).map(found => `palette ${found}`));
+    await page.keyboard.press('Escape');
+    // Note Details, opened from the leader menu.
+    await page.locator('.cm-content').focus();
+    await page.keyboard.press(`${primary}+j`);
+    await page.keyboard.press('v');
+    await page.keyboard.press('d');
+    const details = page.locator('[data-hackdesk-focus="inspector"]');
+    await expect(details).toBeVisible();
+    await details.locator('input, textarea, button').first().focus();
+    clipped.push(...(await clippedFocusRingsWhileTabbing(page, 30)).map(found => `details ${found}`));
+    expect(clipped).toEqual([]);
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test('workspace switcher rows, one-pixel boundaries and full-height Settings workbench', async () => {
   const testInfo = test.info();
   const { app, page } = await launchFixture();
@@ -373,7 +445,15 @@ test('one sidebar switches workspaces from its title, with Trash and Settings at
     const footer = page.getByTestId('sidebar-footer');
     await expect(footer.getByRole('button', { name: 'Trash', exact: true })).toBeVisible();
     await holdForHints(page, trigger, async () => await page.locator('[data-navigation-hint="workspace:switcher"], [data-navigation-hint="workspace:trash"]').count() === 2);
+    // Holding the key also shows which number opens which workspace, beside the sidebar.
+    const peek = page.locator('[data-workspace-peek]');
+    await expect(peek).toBeVisible();
+    await expect(peek.locator('li').nth(1)).toContainText(teamNames[0]);
+    await expect(peek.locator('li').nth(1)).toContainText(process.platform === 'darwin' ? '⌘2' : 'Ctrl+2');
+    expect((await peek.boundingBox())!.x).toBeGreaterThanOrEqual((await page.locator('#note-navigator-panel').boundingBox())!.width);
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('24-workspace-peek.png') });
     await page.keyboard.up(primary);
+    await expect(peek).toHaveCount(0);
     await switchWorkspace(page, `${teamNames[0]}, private`);
     await expect(trigger).toHaveAccessibleName(`Switch workspace, current: ${teamNames[0]}`);
     await page.keyboard.press(`${primary}+1`);
@@ -954,7 +1034,6 @@ test('navigation codes are stable, prefix-free and do not overlap', async () => 
     const note = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
     await holdForHints(page, note);
     const overlay = page.locator('[data-keyboard-navigation-overlay]');
-    await expect(page.locator('[data-navigation-unavailable]')).toHaveCount(0);
     const hints = await page.locator('[data-navigation-code]').evaluateAll(elements => elements.map(element => ({ id: element.getAttribute('data-navigation-hint'), code: element.getAttribute('data-navigation-code')! })));
     expect(new Set(hints.map(hint => hint.code)).size).toBe(hints.length);
     for (const a of hints) for (const b of hints) if (a.id !== b.id) expect(a.code.startsWith(b.code)).toBe(false);
@@ -1042,9 +1121,10 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
       const before = await editors.allTextContents();
       await editors.last().focus();
       await page.keyboard.down(primary);
-      const unavailable = page.locator('[data-navigation-unavailable]');
-      if (await unavailable.count()) {
-        await expect(page.locator('[data-navigation-code]:not([data-navigation-code=""])')).toHaveCount(0);
+      await expect(page.locator('[data-keyboard-navigation-overlay]')).toBeAttached();
+      // Without safe letters in this editor, codes stay hidden and nothing explains it, to keep the editor quiet.
+      if (!(await page.locator('[data-navigation-code]').count())) {
+        await expect(page.locator('[data-keyboard-navigation-overlay]')).not.toContainText('No safe navigation keys');
       } else {
         const id = await page.locator('[data-navigation-hint^="editor:"]').first().getAttribute('data-navigation-hint');
         await useNavigationCode(page, id!);
@@ -1206,17 +1286,26 @@ test('Settings search jumps to fields and held navigation stays inside the dialo
   try {
     await page.keyboard.press(`${primary}+,`);
     const dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
-    const search = dialog.getByRole('textbox', { name: 'Search settings', exact: true });
+    const search = dialog.getByRole('combobox', { name: 'Search settings', exact: true });
     await expect(search).toBeFocused();
     await dialog.getByLabel('Window title').fill('Unsaved fixture title');
     await search.fill('editor font');
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('23-settings-search.png') });
-    await dialog.getByRole('button', { name: 'Editor font, Appearance', exact: true }).click();
+    await dialog.getByRole('option', { name: 'Editor font, Appearance', exact: true }).click();
     await expect(dialog.getByLabel('Editor font', { exact: true })).toBeFocused();
     await search.fill('primary');
     await search.press('Enter');
     await expect(dialog.locator('#theme-seed-primary')).toBeFocused();
     await expect(dialog.getByRole('button', { name: 'Customize Colors', exact: true })).toHaveAttribute('aria-expanded', 'true');
+    await search.fill('font');
+    const options = dialog.getByRole('listbox', { name: 'Settings search results' }).getByRole('option');
+    await search.press('ArrowDown');
+    await search.press('ArrowDown');
+    await expect(search).toBeFocused();
+    await expect(options.nth(2)).toHaveAttribute('aria-selected', 'true');
+    const third = (await options.nth(2).getAttribute('aria-label'))!.split(', ')[0];
+    await search.press('Enter');
+    await expect(dialog.getByLabel(third, { exact: true })).toBeFocused();
     await search.fill('window title');
     await search.press('Enter');
     await expect(dialog.getByLabel('Window title')).toBeFocused();

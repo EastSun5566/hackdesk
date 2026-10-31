@@ -183,6 +183,35 @@ function focusTreeRow(container: HTMLElement, rowId: string) {
 }
 
 describe('FolderNavigator', () => {
+  it('moves the highlighted search result from the search box and opens it with Enter', () => {
+    const { props } = renderFolderNavigator({ finderState: { ...DEFAULT_NOTE_FINDER_STATE, query: 'note' } });
+    const search = screen.getByPlaceholderText('Search notes');
+    const results = within(screen.getByRole('list', { name: 'Search results' })).getAllByRole('listitem');
+    const rowId = (index: number) => results[index].querySelector('[data-folder-tree-kind="note"]')!.id;
+    search.focus();
+
+    expect(search).toHaveAttribute('role', 'combobox');
+    expect(search).toHaveAttribute('aria-activedescendant', rowId(0));
+    fireEvent.keyDown(search, { key: 'ArrowDown' });
+    expect(search).toHaveAttribute('aria-activedescendant', rowId(1));
+    fireEvent.keyDown(search, { key: 'n', ctrlKey: true });
+    expect(search).toHaveAttribute('aria-activedescendant', rowId(0));
+    fireEvent.keyDown(search, { key: 'p', ctrlKey: true });
+    fireEvent.keyDown(search, { key: 'Enter' });
+
+    expect(search).toHaveFocus();
+    expect(props.actions.onNoteSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'loose-note' }));
+  });
+
+  it('moves from an empty search box into the tree with Down', async () => {
+    renderFolderNavigator();
+    const search = screen.getByPlaceholderText('Search notes');
+    search.focus();
+    fireEvent.keyDown(search, { key: 'ArrowDown' });
+    await waitFor(() => expect(document.activeElement).toHaveAttribute('role', 'treeitem'));
+    expect(search).not.toHaveAttribute('aria-activedescendant');
+  });
+
   it('renders loading skeleton while notes load', () => {
     renderFolderNavigator({ status: { isLoading: true } });
 

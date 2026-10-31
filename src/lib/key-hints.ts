@@ -37,8 +37,9 @@ const HINTS: Record<KeyHintContext, HintSpec[]> = {
   ],
   finder: [
     { keys: 'Type', label: 'Filter notes' },
+    { keys: '↑ ↓', label: 'Move' },
+    { keys: '↵', label: 'Open' },
     { keys: 'Esc', label: 'Clear, then back to the tree' },
-    { action: 'focus-next-region', label: 'Next area' },
   ],
   tabs: [
     { keys: '← →', label: 'Move' },

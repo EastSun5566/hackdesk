@@ -6,7 +6,7 @@ outline: deep
 
 Use Settings to change appearance, editor mode, shortcuts, or the connected account. Open it with **Cmd+,** on macOS or **Ctrl+,** on Windows/Linux.
 
-Use **Search settings** in the sidebar to find a field. For example, search `font` and choose **Editor font** to open Appearance and focus that input. Searching does not save your changes.
+Use **Search settings** in the sidebar to find a field. For example, search `font` and choose **Editor font** to open Appearance and focus that input. Up and Down move through the results, and Enter opens the highlighted one. Searching does not save your changes.
 
 ## Change appearance
 

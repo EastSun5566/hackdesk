@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { TeamSummary, UserSummary } from '@/lib/electron-api';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
+import { NavigationHintsContext } from './KeyboardNavigationContext';
 import { SidebarFooter, WorkspaceSwitcher, type WorkspaceSidebarProps } from './WorkspaceSwitcher';
 
 function user(overrides: Partial<UserSummary> = {}): UserSummary {
@@ -168,6 +169,55 @@ describe('WorkspaceSwitcher', () => {
     expect(row('My Workspace')).toHaveFocus();
     fireEvent.keyDown(row('My Workspace'), { key: 'ArrowUp' });
     expect(row('History')).toHaveFocus();
+  });
+});
+
+describe('WorkspaceSwitcher while the primary key is held', () => {
+  function renderHeld(open: boolean, held = true) {
+    const teams = Array.from({ length: 10 }, (_, index) => team({ id: `team-${index}`, name: `Team ${index}`, path: `team-${index}` }));
+    render(
+      <TooltipProvider delayDuration={0}>
+        <NavigationHintsContext.Provider value={held}>
+          <WorkspaceSwitcher
+            scope={{ type: 'personal', label: 'My Workspace' }}
+            teams={teams}
+            localVaultConfigured
+            platform="darwin"
+            pinnedTeamIds={null}
+            switcherOpen={open}
+            onSwitcherOpenChange={vi.fn()}
+            onScopeChange={vi.fn()}
+            onChooseLocalVault={vi.fn()}
+            onPinnedTeamIdsChange={vi.fn()}
+          />
+        </NavigationHintsContext.Provider>
+      </TooltipProvider>,
+    );
+  }
+
+  it('shows which workspace each number opens, up to nine, without taking pointer or reader focus', () => {
+    renderHeld(false);
+    const peek = document.querySelector<HTMLElement>('[data-workspace-peek]')!;
+    expect(peek).toHaveAttribute('aria-hidden', 'true');
+    expect(peek).toHaveClass('pointer-events-none');
+    const rows = Array.from(peek.querySelectorAll('li')).map(row => row.textContent);
+    expect(rows).toHaveLength(9);
+    expect(rows[0]).toBe('My Workspace⌘1');
+    expect(rows[1]).toBe('TTeam 0⌘2');
+    expect(rows[8]).toBe('TTeam 7⌘9');
+  });
+
+  it('hides the card when the key is released or the list is open', () => {
+    renderHeld(false, false);
+    expect(document.querySelector('[data-workspace-peek]')).toBeNull();
+    cleanup();
+    renderHeld(true);
+    expect(document.querySelector('[data-workspace-peek]')).toBeNull();
+  });
+
+  it('keeps its focus ring inside the sidebar title', () => {
+    renderHeld(false, false);
+    expect(screen.getByRole('button', { name: /^Switch workspace, current: / }).className).toContain('focus-visible:ring-inset');
   });
 });
 
