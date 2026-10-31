@@ -1389,14 +1389,17 @@ test('Hack Mode leaves only the active note, centered, until the same key is pre
     await expect(page.locator('section[data-document-pane-id]:visible')).toHaveCount(2);
     expect((await sidebar.boundingBox())!.width).toBe(sidebarWidth);
 
-    // The leader menu enters it too, and Cmd+B leaves it with the sidebar shown.
+    // The leader menu enters it too, and toggling the sidebar leaves it with the sidebar shown. The
+    // leader runs it here because vim keeps Ctrl+B, the sidebar key on Linux, for scrolling.
     await editor.click();
-    await page.keyboard.press(`${primary}+j`);
-    await expect(page.getByRole('menu', { name: 'Commands' })).toBeVisible();
-    await page.keyboard.press('v');
-    await page.keyboard.press('f');
+    const leader = async (keys: string) => {
+      await page.keyboard.press(`${primary}+j`);
+      await expect(page.getByRole('menu', { name: 'Commands' })).toBeVisible();
+      for (const key of keys) await page.keyboard.press(key);
+    };
+    await leader('vf');
     await expect(page.locator('.app-chrome')).toHaveAttribute('data-hack-mode', 'true');
-    await page.keyboard.press(`${primary}+b`);
+    await leader('vs');
     await expect(page.locator('.app-chrome')).not.toHaveAttribute('data-hack-mode');
     await expect(sidebar).toBeVisible();
   } finally {
