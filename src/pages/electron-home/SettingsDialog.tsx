@@ -91,9 +91,10 @@ function SettingsDialogContent({
     } as TokenTestState,
     shortcuts: settings?.shortcuts ?? defaultSettings.shortcuts,
     characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true,
+    keyHintsVisible: settings?.keyboardNavigation?.keyHintsVisible ?? true,
   }));
   const appearanceController = useThemeAppearanceDraft({ showTypography: true });
-  const { editorMode, shortcuts, characterShortcutsEnabled, title, token, tokenTest, tokenVisible } = formState;
+  const { editorMode, shortcuts, characterShortcutsEnabled, keyHintsVisible, title, token, tokenTest, tokenVisible } = formState;
 
   useEffect(() => {
     const target = focusRequest?.target;
@@ -121,7 +122,8 @@ function SettingsDialogContent({
   const normalizedToken = token.trim();
   const isTestingToken = tokenTest.status === 'testing';
   const shortcutStatus = getShortcutsDraftStatus(settings?.shortcuts, shortcuts);
-  const keyboardChanged = characterShortcutsEnabled !== (settings?.keyboardNavigation?.characterShortcutsEnabled ?? true);
+  const keyboardChanged = characterShortcutsEnabled !== (settings?.keyboardNavigation?.characterShortcutsEnabled ?? true)
+    || keyHintsVisible !== (settings?.keyboardNavigation?.keyHintsVisible ?? true);
   const canSaveSettings = Boolean(title.trim())
     && (activeTab !== 'hackmd' || Boolean(normalizedToken))
     && (activeTab !== 'shortcuts' || ((shortcutStatus.hasDraftChanges || keyboardChanged) && !shortcutStatus.error));
@@ -155,7 +157,7 @@ function SettingsDialogContent({
       onSave({
         title: title.trim(),
         shortcuts,
-        keyboardNavigation: { characterShortcutsEnabled },
+        keyboardNavigation: { characterShortcutsEnabled, keyHintsVisible },
       });
       return;
     }
@@ -218,6 +220,7 @@ function SettingsDialogContent({
       tokenTest: { status: 'idle', message: '' },
       shortcuts: defaultSettings.shortcuts,
       characterShortcutsEnabled: true,
+      keyHintsVisible: true,
     });
     setAppearance(defaultSettings.appearance);
     onSave({
@@ -238,6 +241,7 @@ function SettingsDialogContent({
         ...current,
         shortcuts: settings?.shortcuts ?? defaultSettings.shortcuts,
         characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true,
+        keyHintsVisible: settings?.keyboardNavigation?.keyHintsVisible ?? true,
       }));
     }
     onOpenChange(nextOpen);
@@ -309,6 +313,8 @@ function SettingsDialogContent({
                     platform={platform}
                     characterShortcutsEnabled={characterShortcutsEnabled}
                     onCharacterShortcutsChange={value => setFormState(current => ({ ...current, characterShortcutsEnabled: value }))}
+                    keyHintsVisible={keyHintsVisible}
+                    onKeyHintsVisibleChange={value => setFormState(current => ({ ...current, keyHintsVisible: value }))}
                     shortcuts={shortcuts}
                     onShortcutsChange={(nextShortcuts) => setFormState((current) => ({
                       ...current,

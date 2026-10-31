@@ -38,6 +38,7 @@ const baseContext: ElectronActionContext = {
   bookOpen: false,
   bookContentsHidden: false,
   hasLocalVault: false,
+  keyHintsVisible: true,
 };
 
 describe('electron action registry', () => {

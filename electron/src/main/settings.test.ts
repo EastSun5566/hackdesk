@@ -75,11 +75,12 @@ describe('Electron settings', () => {
     await rm(electronMock.homePath, { force: true, recursive: true });
   });
 
-  it('persists character navigation through the existing settings update', async () => {
-    const saved = await updateStoredSettings({ keyboardNavigation: { characterShortcutsEnabled: false } });
-    expect(saved.keyboardNavigation).toEqual({ characterShortcutsEnabled: false });
-    expect((await getSafeSettings()).keyboardNavigation).toEqual({ characterShortcutsEnabled: false });
-    expect(JSON.parse(await readFile(getSettingsPath(), 'utf8')).keyboardNavigation).toEqual({ characterShortcutsEnabled: false });
+  it('persists keyboard navigation through the existing settings update', async () => {
+    const keyboardNavigation = { characterShortcutsEnabled: false, keyHintsVisible: false };
+    const saved = await updateStoredSettings({ keyboardNavigation });
+    expect(saved.keyboardNavigation).toEqual(keyboardNavigation);
+    expect((await getSafeSettings()).keyboardNavigation).toEqual(keyboardNavigation);
+    expect(JSON.parse(await readFile(getSettingsPath(), 'utf8')).keyboardNavigation).toEqual(keyboardNavigation);
   });
 
   it('defaults onboarding state for old settings files without exposing the token', async () => {

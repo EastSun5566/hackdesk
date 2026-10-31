@@ -34,6 +34,7 @@ export type ElectronActionContext = {
   bookOpen: boolean;
   bookContentsHidden: boolean;
   hasLocalVault: boolean;
+  keyHintsVisible: boolean;
 };
 
 export type ElectronActionWhen = (context: ElectronActionContext) => boolean;
@@ -773,6 +774,15 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     category: 'view',
     scope: 'inspector',
     getDisabledReason: requireSelectedNote,
+  },
+  {
+    id: 'toggle-key-hints',
+    label: 'Toggle Key Hints',
+    description: 'Show or hide the keys for where you are, at the bottom of the window.',
+    keywords: ['keys', 'hints', 'shortcuts', 'status', 'bar', 'help'],
+    category: 'view',
+    scope: 'global',
+    getLabel: (context) => (context.keyHintsVisible ? 'Hide Key Hints' : 'Show Key Hints'),
   },
   {
     id: 'refresh',

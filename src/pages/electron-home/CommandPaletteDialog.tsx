@@ -246,6 +246,7 @@ const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'toggle-workspace-rail': <PanelLeftClose className="h-4 w-4" />,
   'toggle-navigator': <PanelLeft className="h-4 w-4" />,
   'toggle-inspector': <PanelRightClose className="h-4 w-4" />,
+  'toggle-key-hints': <Keyboard className="h-4 w-4" />,
   refresh: <RefreshCcw className="h-4 w-4" />,
   'search-notes': <Search className="h-4 w-4" />,
   'navigate-back': <ArrowLeft className="h-4 w-4" />,

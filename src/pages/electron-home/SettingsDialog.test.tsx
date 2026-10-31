@@ -754,6 +754,15 @@ describe('SettingsDialog', () => {
     expect(onForgetLocalVault).toHaveBeenCalledOnce();
   });
 
+  it('saves whether key hints show', () => {
+    const { onSave } = renderSettingsDialog({ initialTab: 'shortcuts' });
+    const toggle = screen.getByRole('checkbox', { name: 'Show key hints at the bottom of the window' });
+    expect(toggle).toBeChecked();
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk', shortcuts: {}, keyboardNavigation: { characterShortcutsEnabled: true, keyHintsVisible: false } });
+  });
+
   it('saves character navigation independently and cancels unsaved changes', async () => {
     const { onSave, rerenderSettingsDialog } = renderSettingsDialog({ initialTab: 'shortcuts' });
     const toggle = screen.getByRole('checkbox', { name: 'Enable ? and / outside text editing' });
@@ -761,7 +770,7 @@ describe('SettingsDialog', () => {
     fireEvent.click(toggle);
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk', shortcuts: {}, keyboardNavigation: { characterShortcutsEnabled: false } });
+    expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk', shortcuts: {}, keyboardNavigation: { characterShortcutsEnabled: false, keyHintsVisible: true } });
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     await act(async () => { rerenderSettingsDialog({ open: false }); });
     await act(async () => { rerenderSettingsDialog({ open: true }); });
@@ -787,7 +796,7 @@ describe('SettingsDialog', () => {
 
     expect(onSave).toHaveBeenCalledWith({
       title: 'HackDesk',
-      keyboardNavigation: { characterShortcutsEnabled: true },
+      keyboardNavigation: { characterShortcutsEnabled: true, keyHintsVisible: true },
       shortcuts: {
         'open-command-palette': 'mod+j',
       },

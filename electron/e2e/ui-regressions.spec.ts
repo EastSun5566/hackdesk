@@ -1242,3 +1242,32 @@ test('Settings search jumps to fields and held navigation stays inside the dialo
     await page.keyboard.press('Escape');
   } finally { await stopApp(app); }
 });
+
+test('the key hint bar follows focus, fades while typing, and can be hidden', async () => {
+  const { app, page } = await launchFixture('standard');
+  try {
+    await openFixtureNote(page);
+    const bar = page.getByRole('note', { name: 'Keys you can press' });
+    await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'UI fixture', exact: true }).focus();
+    await expect(bar).toContainText('Open');
+    await expect(bar).toContainText('New note');
+
+    await page.locator('.cm-content').click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' typed');
+    await expect(bar).toHaveAttribute('data-typing', 'true');
+    await page.mouse.move(400, 300);
+    await page.mouse.move(420, 320);
+    await expect(bar).not.toHaveAttribute('data-typing');
+    await expect(bar).toContainText('Open note');
+
+    await bar.getByRole('button', { name: /Shortcuts/ }).click();
+    await expect(page.getByRole('dialog', { name: 'Keyboard Shortcuts' })).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    await page.keyboard.press(`${primary}+Shift+P`);
+    await page.getByRole('combobox').fill('hide key hints');
+    await page.getByRole('option', { name: /^Hide Key Hints/ }).click();
+    await expect(bar).toHaveCount(0);
+  } finally { await stopApp(app); }
+});

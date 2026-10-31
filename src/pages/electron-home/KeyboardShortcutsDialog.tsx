@@ -5,18 +5,11 @@ import { Toggle } from '@/components/ui/toggle';
 import { ELECTRON_ACTIONS, getResolvedActionShortcut, resolveWorkbenchShortcut } from '@/lib/electron-actions';
 import type { ShortcutOverrides } from '@/lib/keyboard-shortcuts';
 import { displayShortcutConfig } from '@/lib/keyboard-shortcuts';
+import { WIDGET_KEYS } from '@/lib/key-hints';
 import type { ElectronFocusZone } from './useElectronFocusZones';
 import { FOCUS_RING_CLASS } from './ui';
 
 const REGION_NAMES: Record<ElectronFocusZone, string> = { workspace: 'Workspace', navigator: 'Navigator', tabs: 'Tabs', editor: 'Editor', inspector: 'Note Details' };
-const WIDGET_KEYS = [
-  { region: 'tabs', label: 'Move tab focus', keys: '← / → / Home / End', description: 'Move focus without selecting a tab.' },
-  { region: 'tabs', label: 'Select focused tab', keys: 'Enter / Space', description: 'Activate the focused tab.' },
-  { region: 'navigator', label: 'Move tree focus', keys: '↑ / ↓ / Home / End', description: 'Move focus without opening a note.' },
-  { region: 'navigator', label: 'Expand / collapse folder', keys: '→ / ←', description: 'Expand a folder or move to its parent.' },
-  { region: 'navigator', label: 'Open focused tree item', keys: 'Enter / Space', description: 'Select a folder or open a note.' },
-  { region: 'navigator', label: 'Find by name', keys: 'Type a name', description: 'Focus the next matching tree item.' },
-];
 
 export function KeyboardShortcutsDialog({ open, region, returnFocus, shortcuts, platform, characterShortcutsEnabled, onOpenChange, onCustomize }: {
   open: boolean;

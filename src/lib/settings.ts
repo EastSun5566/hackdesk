@@ -57,6 +57,8 @@ export type ShortcutSettings = Partial<Record<ElectronActionId, string>>;
 
 export type KeyboardNavigationSettings = {
   characterShortcutsEnabled: boolean;
+  /** The line of keys for where focus is, at the bottom of the window. */
+  keyHintsVisible: boolean;
 };
 
 export type WorkspaceNavigationSettings = {
@@ -255,7 +257,8 @@ export const settingsSchema = z.object({
   shortcuts: shortcutSettingsSchema,
   keyboardNavigation: z.object({
     characterShortcutsEnabled: z.boolean().default(true),
-  }).default({ characterShortcutsEnabled: true }),
+    keyHintsVisible: z.boolean().default(true),
+  }).default({ characterShortcutsEnabled: true, keyHintsVisible: true }),
   workspaceNavigation: z.object({
     pinnedTeamIds: pinnedTeamIdsSchema.default(null),
   }).default(defaultWorkspaceNavigationSettings),
@@ -274,7 +277,7 @@ export const defaultSettings: AppSettings = {
   localVault: defaultLocalVaultSettings,
   editor: defaultEditorSettings,
   shortcuts: defaultShortcutSettings,
-  keyboardNavigation: { characterShortcutsEnabled: true },
+  keyboardNavigation: { characterShortcutsEnabled: true, keyHintsVisible: true },
   workspaceNavigation: defaultWorkspaceNavigationSettings,
   ai: defaultAiSettings,
   dictation: defaultDictationSettings,

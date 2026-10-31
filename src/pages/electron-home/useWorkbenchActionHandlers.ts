@@ -74,6 +74,7 @@ export type WorkbenchActionHandlersOptions = {
   splitActiveTab: () => void;
   switchToHistory: () => void;
   toggleInspector: () => void;
+  toggleKeyHints: () => void;
   toggleNavigator: () => void;
   toggleTheme: () => void;
   toggleWorkspaceRail: () => void;
@@ -143,6 +144,7 @@ export function useWorkbenchActionHandlers({
   splitActiveTab,
   switchToHistory,
   toggleInspector,
+  toggleKeyHints,
   toggleNavigator,
   toggleTheme,
   toggleWorkspaceRail,
@@ -295,6 +297,7 @@ export function useWorkbenchActionHandlers({
       focusZone('editor');
     },
     toggleInspector,
+    toggleKeyHints,
     toggleNavigator,
     toggleTheme,
     toggleWorkspaceRail,
@@ -387,6 +390,7 @@ export function useWorkbenchActionHandlers({
     splitActiveTab,
     switchToHistory,
     toggleInspector,
+    toggleKeyHints,
     toggleNavigator,
     toggleTheme,
     toggleWorkspaceRail,
