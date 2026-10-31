@@ -160,6 +160,8 @@ export function FolderNavigator({
   return (
     <PanelShell
       id={id}
+      as="aside"
+      ariaLabel="Sidebar"
       focusZone="navigator"
       collapsed={layout.collapsed}
       width={layout.width}

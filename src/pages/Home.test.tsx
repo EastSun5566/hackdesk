@@ -2183,6 +2183,22 @@ describe('Home native-feel behavior', () => {
     expect(window.document.getElementById('note-navigator-panel')).toHaveStyle({ '--panel-width': '0px' });
   });
 
+  it('names the sidebar landmark and does not reopen the switcher after hiding the sidebar with it open', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    expect(screen.getByRole('complementary', { name: 'Sidebar' })).toHaveAttribute('id', 'note-navigator-panel');
+    await openWorkspaceSwitcher();
+
+    // The native menu still toggles while the list is open; the titlebar button takes the same path.
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Expand sidebar' }));
+
+    expect(await screen.findByRole('button', { name: /^Switch workspace, current: / })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('dialog', { name: 'Workspaces' })).toBeNull();
+  });
+
   it('leaves macOS Ctrl+B available for editor text navigation', async () => {
     const api = createApi();
 

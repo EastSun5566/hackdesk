@@ -159,6 +159,11 @@ export function Home() {
     toggleNavigatorCollapsed,
   } = panelState;
   const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
+  // Hiding the sidebar unmounts the switcher, so it must not come back open.
+  const toggleSidebar = useCallback(() => {
+    setWorkspaceSwitcherOpen(false);
+    toggleNavigatorCollapsed();
+  }, [toggleNavigatorCollapsed]);
   const noteWorkspace = useNoteWorkspaceTabs(scopeStorageKey);
   const currentScopeKeyRef = useRef(scopeStorageKey);
   useLayoutEffect(() => { currentScopeKeyRef.current = scopeStorageKey; }, [scopeStorageKey]);
@@ -687,7 +692,7 @@ export function Home() {
         keyboardNavigation: { ...keyboardNavigation, keyHintsVisible: !(keyboardNavigation.keyHintsVisible ?? true) },
       });
     },
-    toggleNavigator: toggleNavigatorCollapsed,
+    toggleNavigator: toggleSidebar,
     toggleTheme: () => setTheme(resolvedMode === 'dark' ? 'light' : 'dark'),
     openWorkspaceSwitcher: () => {
       expandNavigator();
@@ -943,7 +948,7 @@ export function Home() {
     },
     teams,
     toggleInspectorCollapsed,
-    toggleNavigatorCollapsed,
+    toggleNavigatorCollapsed: toggleSidebar,
     user,
     workspaceSwitcherOpen,
     setWorkspaceSwitcherOpen,

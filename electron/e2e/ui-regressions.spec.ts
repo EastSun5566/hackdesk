@@ -117,6 +117,16 @@ async function switchWorkspace(page: Page, name: string) {
   await expect(page.getByRole('dialog', { name: 'Workspaces' })).toBeHidden();
 }
 
+// Hints cancel while the page is still changing, so hold the key again until they stay.
+async function holdForHints(page: Page, target: Locator, ready = () => page.locator('[data-keyboard-navigation-overlay]').isVisible()) {
+  await expect.poll(async () => {
+    await page.keyboard.up(primary);
+    await target.focus();
+    await page.keyboard.down(primary);
+    return ready();
+  }).toBe(true);
+}
+
 async function openFixtureNote(page: Page) {
   await switchWorkspace(page, 'Local Vault');
   await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'UI fixture', exact: true }).click();
@@ -362,13 +372,7 @@ test('one sidebar switches workspaces from its title, with Trash and Settings at
     await expect(trigger).toHaveAccessibleName('Switch workspace, current: Local Vault');
     const footer = page.getByTestId('sidebar-footer');
     await expect(footer.getByRole('button', { name: 'Trash', exact: true })).toBeVisible();
-    // Hints cancel while the page is still changing, so hold the key again until it settles.
-    await expect.poll(async () => {
-      await page.keyboard.up(primary);
-      await trigger.focus();
-      await page.keyboard.down(primary);
-      return page.locator('[data-navigation-hint="workspace:switcher"], [data-navigation-hint="workspace:trash"]').count();
-    }).toBe(2);
+    await holdForHints(page, trigger, async () => await page.locator('[data-navigation-hint="workspace:switcher"], [data-navigation-hint="workspace:trash"]').count() === 2);
     await page.keyboard.up(primary);
     await switchWorkspace(page, `${teamNames[0]}, private`);
     await expect(trigger).toHaveAccessibleName(`Switch workspace, current: ${teamNames[0]}`);
@@ -948,10 +952,8 @@ test('navigation codes are stable, prefix-free and do not overlap', async () => 
     await page.setViewportSize({ width: 1280, height: 760 });
     await openFixtureNote(page);
     const note = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
-    await note.focus();
-    await page.keyboard.down(primary);
+    await holdForHints(page, note);
     const overlay = page.locator('[data-keyboard-navigation-overlay]');
-    await expect(overlay).toBeVisible();
     await expect(page.locator('[data-navigation-unavailable]')).toHaveCount(0);
     const hints = await page.locator('[data-navigation-code]').evaluateAll(elements => elements.map(element => ({ id: element.getAttribute('data-navigation-hint'), code: element.getAttribute('data-navigation-code')! })));
     expect(new Set(hints.map(hint => hint.code)).size).toBe(hints.length);
