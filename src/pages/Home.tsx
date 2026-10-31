@@ -152,16 +152,13 @@ export function Home() {
     inspectorCollapsed,
     navigatorCollapsed,
     navigatorWidth,
-    railCollapsed,
-    railWidth,
     expandNavigator,
     setNavigatorCollapsed,
     setNavigatorWidth,
-    setRailWidth,
     toggleInspectorCollapsed,
     toggleNavigatorCollapsed,
-    toggleRailCollapsed,
   } = panelState;
+  const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
   const noteWorkspace = useNoteWorkspaceTabs(scopeStorageKey);
   const currentScopeKeyRef = useRef(scopeStorageKey);
   useLayoutEffect(() => { currentScopeKeyRef.current = scopeStorageKey; }, [scopeStorageKey]);
@@ -692,7 +689,10 @@ export function Home() {
     },
     toggleNavigator: toggleNavigatorCollapsed,
     toggleTheme: () => setTheme(resolvedMode === 'dark' ? 'light' : 'dark'),
-    toggleWorkspaceRail: toggleRailCollapsed,
+    openWorkspaceSwitcher: () => {
+      expandNavigator();
+      setWorkspaceSwitcherOpen(true);
+    },
     trackRecentNote,
   });
 
@@ -714,7 +714,6 @@ export function Home() {
     scopeType: scope.type,
     selectedFolderId,
     selectedNoteId: selectedNote?.id ?? null,
-    workspaceRailCollapsed: railCollapsed,
     workspaceState: noteWorkspace.state,
   });
 
@@ -929,13 +928,10 @@ export function Home() {
     navigatorCollapsed,
     navigatorWidth,
     noteWorkspace,
-    railCollapsed,
-    railWidth,
     refreshWorkspace,
     selectedFolderId,
     selectedNote,
     setNavigatorWidth,
-    setRailWidth,
     setSettingsOpen,
     settings,
     shareOpen,
@@ -948,8 +944,9 @@ export function Home() {
     teams,
     toggleInspectorCollapsed,
     toggleNavigatorCollapsed,
-    toggleRailCollapsed,
     user,
+    workspaceSwitcherOpen,
+    setWorkspaceSwitcherOpen,
   });
   const overlayProps = useHomeOverlayProps({
     actionContext,

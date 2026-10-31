@@ -136,7 +136,7 @@ describe('useWorkbenchShortcuts', () => {
     expect(handlers.runAction).toHaveBeenCalledWith('open-quick-open');
   });
 
-  it('keeps bare Option+B for text input and uses Cmd+Option+B for navigator toggle', () => {
+  it('keeps bare Option+B for text input and uses Cmd+B for the sidebar', () => {
     const handlers = createHandlers();
 
     renderHook(() => useWorkbenchShortcuts(handlers));
@@ -148,19 +148,11 @@ describe('useWorkbenchShortcuts', () => {
     });
     window.dispatchEvent(optionOnlyEvent);
     fireEvent.keyDown(window, { key: 'b', altKey: true, metaKey: true });
+    fireEvent.keyDown(window, { key: 'b', metaKey: true });
 
     expect(optionOnlyEvent.defaultPrevented).toBe(false);
     expect(handlers.runAction).toHaveBeenCalledOnce();
     expect(handlers.runAction).toHaveBeenCalledWith('toggle-navigator');
-  });
-
-  it('keeps Cmd+B mapped to the workspace rail', () => {
-    const handlers = createHandlers();
-
-    renderHook(() => useWorkbenchShortcuts(handlers));
-    fireEvent.keyDown(window, { key: 'b', metaKey: true });
-
-    expect(handlers.runAction).toHaveBeenCalledWith('toggle-workspace-rail');
   });
 
   it('leaves macOS Ctrl letter shortcuts available for editor text navigation', () => {
@@ -461,7 +453,7 @@ describe('useWorkbenchShortcuts', () => {
     fireEvent.keyDown(window, { key: '2', ctrlKey: true });
 
     expect(handlers.runAction).toHaveBeenNthCalledWith(1, 'find-in-note');
-    expect(handlers.runAction).toHaveBeenNthCalledWith(2, 'toggle-workspace-rail');
+    expect(handlers.runAction).toHaveBeenNthCalledWith(2, 'toggle-navigator');
     expect(handlers.runAction).toHaveBeenNthCalledWith(3, 'save-note');
     expect(handlers.switchWorkspaceAtIndex).toHaveBeenNthCalledWith(1, 0);
     expect(handlers.switchWorkspaceAtIndex).toHaveBeenNthCalledWith(2, 1);

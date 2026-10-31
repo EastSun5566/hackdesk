@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export type ElectronFocusZone = 'workspace' | 'navigator' | 'tabs' | 'editor' | 'inspector';
-const ZONE_ORDER: ElectronFocusZone[] = ['workspace', 'navigator', 'tabs', 'editor', 'inspector'];
+export type ElectronFocusZone = 'navigator' | 'tabs' | 'editor' | 'inspector';
+const ZONE_ORDER: ElectronFocusZone[] = ['navigator', 'tabs', 'editor', 'inspector'];
 
 function isAvailable(element: HTMLElement) {
   if (!element.isConnected || element.closest('[hidden], [inert], [aria-hidden="true"], [data-hackdesk-focus-disabled="true"]')) return false;

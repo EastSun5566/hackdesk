@@ -20,8 +20,8 @@ Press **Space** outside text editing, or **Cmd+J** on macOS or **Ctrl+J** on Win
 | --- | --- | --- |
 | N | Note | N new, R rename, D duplicate, M move to folder, X delete |
 | T | Tab | W close, S split right, U reopen closed, H / L move left / right |
-| G | Go | O Quick Open, S search notes, H History, B / F back / forward |
-| V | View | S workspace sidebar, N navigator, D Note Details, K key hints |
+| G | Go | W switch workspace, O Quick Open, S search notes, H History, B / F back / forward |
+| V | View | S sidebar, D Note Details, K key hints |
 | A | AI | A Ask AI, Q Ask Your Notes, D dictate |
 | F | Folder | N new, R rename, X delete |
 
@@ -41,6 +41,8 @@ Open **Keyboard Shortcuts** from Help or the command palette to search bindings 
 | New note | Cmd+N | Ctrl+N |
 | Save note | Cmd+S | Ctrl+S |
 | Close active tab | Cmd+W | Ctrl+W |
+| Toggle sidebar | Cmd+B | Ctrl+B |
+| Go to My Workspace / pinned team | Cmd+1 / Cmd+2–9 | Ctrl+1 / Ctrl+2–9 |
 | Next workbench region | F6 | F6 |
 | Previous workbench region | Shift+F6 | Shift+F6 |
 | Focus Note Finder outside text editing | `/` | `/` |
@@ -48,7 +50,9 @@ Open **Keyboard Shortcuts** from Help or the command palette to search bindings 
 
 ## Move between regions
 
-Press **F6** to move through visible workspace controls, the navigator, tabs, editor panes, and expanded Note Details. Press **Shift+F6** to move backwards. Collapsed or unavailable regions are skipped.
+Press **F6** to move through the sidebar, tabs, editor panes, and expanded Note Details. Press **Shift+F6** to move backwards. Collapsed or unavailable regions are skipped.
+
+To switch workspaces, choose the workspace name at the top of the sidebar, or run **Switch Workspace…** from the leader menu (**G W**) or the command palette. Up and Down move through the list, Enter switches, and Escape closes it.
 
 In tabs, use Left/Right or Home/End to move focus; Enter selects the focused tab. In the folder tree, arrow keys move focus or expand and collapse folders; Enter selects a folder or opens a note.
 

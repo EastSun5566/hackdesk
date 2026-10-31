@@ -15,11 +15,8 @@ function useElectronFocusZones() {
   return zones;
 }
 
-function fixture({ workspaceCollapsed = false, navigatorCollapsed = false, details = true, rightEditor = true } = {}) {
+function fixture({ navigatorCollapsed = false, details = true, rightEditor = true } = {}) {
   render(<>
-    <section data-hackdesk-focus="workspace" data-hackdesk-focus-disabled={workspaceCollapsed ? 'true' : undefined}>
-      <button>Workspace</button><button>Other workspace</button>
-    </section>
     <section data-hackdesk-focus="navigator" data-hackdesk-focus-disabled={navigatorCollapsed ? 'true' : undefined}>
       <input aria-label="Search" />
       <button role="treeitem" tabIndex={0}>Tree</button>
@@ -44,22 +41,21 @@ async function cycleTo(target: HTMLElement, shiftKey = false) {
 describe('useElectronFocusZones', () => {
   it('cycles visible regions and each editor in both directions, retaining pane identity', async () => {
     const { result } = fixture();
-    const workspace = screen.getByRole('button', { name: 'Workspace' });
-    act(() => workspace.focus());
-    await cycleTo(screen.getByRole('treeitem'));
+    const tree = screen.getByRole('treeitem');
+    act(() => tree.focus());
     await cycleTo(screen.getByRole('tab'));
     await cycleTo(screen.getByRole('textbox', { name: 'Left editor' }));
     expect(result.current.focusedPaneId).toBe('left');
     await cycleTo(screen.getByRole('textbox', { name: 'Right editor' }));
     expect(result.current.focusedPaneId).toBe('right');
     await cycleTo(screen.getByRole('textbox', { name: 'Description' }));
-    await cycleTo(workspace);
+    await cycleTo(tree);
     await cycleTo(screen.getByRole('textbox', { name: 'Description' }), true);
     await cycleTo(screen.getByRole('textbox', { name: 'Right editor' }), true);
   });
 
   it('skips collapsed or absent regions and restores a valid last target', async () => {
-    fixture({ workspaceCollapsed: true, details: false });
+    fixture({ details: false });
     const search = screen.getByRole<HTMLInputElement>('textbox', { name: 'Search' });
     act(() => search.focus());
     await cycleTo(screen.getByRole('tab'));
@@ -111,11 +107,11 @@ describe('useElectronFocusZones', () => {
 
   it('cancels pending focus when unmounted', async () => {
     const { result, unmount } = fixture();
-    const workspace = screen.getByRole('button', { name: 'Workspace' });
-    act(() => workspace.focus());
+    const tab = screen.getByRole('tab');
+    act(() => tab.focus());
     act(() => result.current.focusZone('editor'));
     unmount();
     await new Promise(resolve => setTimeout(resolve, 40));
-    expect(workspace).toHaveFocus();
+    expect(tab).toHaveFocus();
   });
 });

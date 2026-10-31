@@ -78,7 +78,7 @@ export type WorkbenchActionHandlersOptions = {
   toggleKeyHints: () => void;
   toggleNavigator: () => void;
   toggleTheme: () => void;
-  toggleWorkspaceRail: () => void;
+  openWorkspaceSwitcher: () => void;
   trackRecentNote: (note: DocumentSummary) => void;
   chooseLocalVault: () => void;
   copyNoteLink: (note: NoteSummary) => void;
@@ -149,7 +149,7 @@ export function useWorkbenchActionHandlers({
   toggleKeyHints,
   toggleNavigator,
   toggleTheme,
-  toggleWorkspaceRail,
+  openWorkspaceSwitcher,
   trackRecentNote,
   chooseLocalVault,
   copyNoteLink,
@@ -221,7 +221,7 @@ export function useWorkbenchActionHandlers({
       focusPreviousTab();
       focusZone('editor');
     },
-    focusWorkspace: () => focusZone('workspace'),
+    openWorkspaceSwitcher,
     focusWorkspaceSearch,
     goHistory: () => {
       switchToHistory();
@@ -303,7 +303,6 @@ export function useWorkbenchActionHandlers({
     toggleKeyHints,
     toggleNavigator,
     toggleTheme,
-    toggleWorkspaceRail,
     renameNote: () => {
       // After the palette or menu that ran this has handed focus back.
       window.requestAnimationFrame(() => {
@@ -397,7 +396,7 @@ export function useWorkbenchActionHandlers({
     toggleKeyHints,
     toggleNavigator,
     toggleTheme,
-    toggleWorkspaceRail,
+    openWorkspaceSwitcher,
     trackRecentNote,
     activePaneTabIds,
     chooseLocalVault,

@@ -48,7 +48,6 @@ const actionContext: ElectronActionContext = {
   scopeType: 'personal',
   selectedFolderId: null,
   selectedNoteId: null,
-  workspaceRailCollapsed: false,
   bookOpen: false,
   bookContentsHidden: false,
   hasLocalVault: false,

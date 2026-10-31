@@ -27,7 +27,7 @@ Connect your account to browse personal notes and team workspaces.
 1. Create an API token in [HackMD settings](https://hackmd.io/settings#api).
 2. Open HackDesk **Settings → HackMD**.
 3. Paste the token into **API Token** and choose **Save**.
-4. Select **My Workspace** or a team in the workspace sidebar.
+4. Choose the workspace name at the top of the sidebar, then **My Workspace** or a team.
 
 HackDesk validates and stores the token locally using operating-system encryption. Keep tokens out of shared screenshots and configuration examples.
 

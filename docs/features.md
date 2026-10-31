@@ -12,7 +12,7 @@ Choose a workspace, organize notes in folders, and keep related documents open i
 
 ## Choose a workspace
 
-The workspace sidebar separates your note collections:
+The workspace name at the top of the sidebar opens the workspace switcher, which separates your note collections:
 
 - **My Workspace** contains your personal HackMD notes
 - **Pinned** contains the teams you use most
@@ -20,7 +20,7 @@ The workspace sidebar separates your note collections:
 - **Local Vault** opens the selected local Markdown folder
 - **History** shows recent HackMD browsing activity
 
-Hover a team row to pin or unpin it. Drag pinned teams to reorder them. My Workspace stays first. Use the [keyboard shortcuts](./keyboard-navigation.md) to switch workspaces without the pointer.
+Hover a team row to pin or unpin it. Drag pinned teams to reorder them. My Workspace stays first. Trash and your account, which opens Settings, sit at the bottom of the sidebar. Press **Cmd+B** on macOS or **Ctrl+B** on Windows/Linux to hide or show the sidebar. Use the [keyboard shortcuts](./keyboard-navigation.md) to switch workspaces without the pointer.
 
 Opening another Local Vault restores that vault's own tabs and recoverable drafts. A Local Vault does not automatically upload notes to HackMD.
 

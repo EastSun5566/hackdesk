@@ -18,7 +18,6 @@ vi.mock('./AppTopBar', () => ({
     onCloseTabsToRight: (tabId: string) => void;
     onSelectTab: (tabId: string) => void;
     onToggleNavigator: () => void;
-    onToggleRail: () => void;
     tabs: OpenNoteTab[];
   }) => (
     <header data-testid="app-topbar">
@@ -29,22 +28,9 @@ vi.mock('./AppTopBar', () => ({
       <button type="button" onClick={() => props.onCloseOtherTabs('tab-b')}>close others</button>
       <button type="button" onClick={() => props.onCloseTabsToRight('tab-b')}>close right</button>
       <button type="button" onClick={props.onToggleNavigator}>toggle navigator</button>
-      <button type="button" onClick={props.onToggleRail}>toggle rail</button>
       <button type="button" onClick={props.navigation.onBack}>back</button>
       <button type="button" onClick={props.navigation.onForward}>forward</button>
     </header>
-  ),
-}));
-
-vi.mock('./WorkspaceRail', () => ({
-  WorkspaceRail: (props: {
-    id: string;
-    collapsed: boolean;
-    onOpenSettings: () => void;
-  }) => (
-    <aside data-testid="workspace-rail" data-collapsed={String(props.collapsed)} id={props.id}>
-      <button type="button" onClick={props.onOpenSettings}>open settings</button>
-    </aside>
   ),
 }));
 
@@ -153,7 +139,6 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
       getTabSyncState: () => 'saved',
       layout: {
         navigatorCollapsed: false,
-        railCollapsed: false,
       },
       state: {
         scopeKey: 'personal',
@@ -175,31 +160,25 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
         selectTab: vi.fn(),
         splitActiveTab: noop,
         toggleNavigator: vi.fn(),
-        toggleRail: vi.fn(),
       },
-    },
-    rail: {
-      platform: 'darwin',
-      pinnedTeamIds: null,
-      onPinnedTeamIdsChange: noop,
-      scope: { type: 'personal', label: 'My Workspace' },
-      user: user(),
-      teams: [] as TeamSummary[],
-      collapsed: false,
-      localVaultConfigured: false,
-      width: 64,
-      onChooseLocalVault: noop,
-      onScopeChange: noop,
-      onOpenSettings: vi.fn(),
-    },
-    railResize: {
-      disabled: false,
-      value: 64,
-      onChange: vi.fn(),
     },
     navigator: {
       scope: { type: 'personal', label: 'My Workspace' },
       tree,
+      workspace: {
+        platform: 'darwin',
+        pinnedTeamIds: null,
+        onPinnedTeamIdsChange: noop,
+        scope: { type: 'personal', label: 'My Workspace' },
+        user: user(),
+        teams: [] as TeamSummary[],
+        localVaultConfigured: false,
+        switcherOpen: false,
+        onSwitcherOpenChange: noop,
+        onChooseLocalVault: noop,
+        onScopeChange: noop,
+        onOpenSettings: vi.fn(),
+      },
       entries: [],
       finderState: DEFAULT_NOTE_FINDER_STATE,
       selection: {
@@ -317,7 +296,6 @@ describe('ElectronHomeWorkspace', () => {
     render(<ElectronHomeWorkspace {...props} />);
 
     expect(screen.getByTestId('app-topbar')).toBeInTheDocument();
-    expect(screen.getByTestId('workspace-rail')).toHaveAttribute('id', 'workspace-rail-panel');
     expect(screen.getByTestId('folder-navigator')).toHaveAttribute('id', 'note-navigator-panel');
     expect(screen.getByTestId('document-workspace')).toHaveAttribute('data-active-pane', 'pane-b');
     expect(screen.getByTestId('active-tab')).toHaveTextContent('Markdown Playground');
@@ -348,14 +326,12 @@ describe('ElectronHomeWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'create note' }));
     fireEvent.click(screen.getByRole('button', { name: 'delete folder' }));
     fireEvent.click(screen.getByRole('button', { name: 'toggle navigator' }));
-    fireEvent.click(screen.getByRole('button', { name: 'toggle rail' }));
     fireEvent.click(screen.getByRole('button', { name: 'back' }));
     fireEvent.click(screen.getByRole('button', { name: 'forward' }));
 
     expect(props.navigator.actions.onCreate).toHaveBeenCalledTimes(1);
     expect(props.navigator.actions.onDeleteFolder).toHaveBeenCalledWith('folder-a');
     expect(props.titlebar.actions.toggleNavigator).toHaveBeenCalledTimes(1);
-    expect(props.titlebar.actions.toggleRail).toHaveBeenCalledTimes(1);
     expect(props.titlebar.actions.navigateBack).toHaveBeenCalledTimes(1);
     expect(props.titlebar.actions.navigateForward).toHaveBeenCalledTimes(1);
   });

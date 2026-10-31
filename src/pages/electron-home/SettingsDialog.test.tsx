@@ -809,9 +809,9 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Shortcuts/ }));
     fireEvent.change(screen.getByLabelText('Search shortcuts'), { target: { value: 'workspace' } });
 
-    const row = screen.getByText('Focus Workspace').closest('li');
+    const row = screen.getByText('Switch Workspace…').closest('li');
     expect(row).not.toBeNull();
-    expect(within(row as HTMLElement).getByRole('button', { name: 'Set shortcut for Focus Workspace' })).toHaveTextContent('Unassigned');
+    expect(within(row as HTMLElement).getByRole('button', { name: 'Set shortcut for Switch Workspace…' })).toHaveTextContent('Unassigned');
   });
 
   it('shows quick capture global shortcut registration status', async () => {

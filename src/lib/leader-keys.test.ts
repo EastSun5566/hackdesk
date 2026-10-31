@@ -8,7 +8,7 @@ const actionContext = {
   canModifySelectedFolder: false, selectedNoteId: 'note-1', activeTabIsDraft: false, noteDirty: false, isSavingNote: false,
   openTabCount: 1, activePaneTabCount: 1, activePaneTabsToLeftCount: 0, activePaneTabsToRightCount: 0,
   navigationBackCount: 0, navigationForwardCount: 0, recentlyClosedTabCount: 0, paneCount: 1, inspectorCollapsed: true,
-  navigatorCollapsed: false, workspaceRailCollapsed: false, bookOpen: false, bookContentsHidden: false, hasLocalVault: false,
+  navigatorCollapsed: false, bookOpen: false, bookContentsHidden: false, hasLocalVault: false,
   keyHintsVisible: true,
 } satisfies ElectronActionContext;
 const options = { actionContext, shortcuts: undefined, platform: 'darwin', characterShortcutsEnabled: true };

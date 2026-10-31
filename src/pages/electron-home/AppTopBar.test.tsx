@@ -56,11 +56,8 @@ function renderTopBar(overrides: Partial<Parameters<typeof AppTopBar>[0]> = {}) 
     platform: 'darwin',
     navigatorCollapsed: false,
     navigatorPanelId: 'note-navigator-panel',
-    railCollapsed: false,
-    railPanelId: 'workspace-rail-panel',
     tabs: [firstTab, secondTab],
     onToggleNavigator: vi.fn(),
-    onToggleRail: vi.fn(),
     ...overrides,
   };
 
@@ -84,17 +81,13 @@ describe('AppTopBar', () => {
     expect(screen.getByRole('toolbar', { name: 'Application controls' })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Open documents' })).toBeInTheDocument();
     expect(screen.getByRole('toolbar', { name: 'Pane controls' })).toBeInTheDocument();
-    const sidebarToggle = screen.getByRole('button', { name: 'Collapse workspace sidebar' });
-    const navigatorToggle = screen.getByRole('button', { name: 'Collapse note navigator' });
+    const navigatorToggle = screen.getByRole('button', { name: 'Collapse sidebar' });
     const backButton = screen.getByRole('button', { name: 'Back' });
     const forwardButton = screen.getByRole('button', { name: 'Forward' });
     const firstTab = screen.getByRole('tab', { name: /^Product Plan(?:, .+)?$/ });
     const applicationControls = screen.getByRole('toolbar', { name: 'Application controls' });
 
     expect(within(applicationControls).getByRole('separator')).toBeInTheDocument();
-    expect(sidebarToggle).toHaveClass('app-region-no-drag');
-    expect(sidebarToggle).toHaveAttribute('aria-controls', 'workspace-rail-panel');
-    expect(sidebarToggle).toHaveAttribute('aria-expanded', 'true');
     expect(navigatorToggle).toHaveClass('app-region-no-drag');
     expect(navigatorToggle).toHaveAttribute('aria-controls', 'note-navigator-panel');
     expect(navigatorToggle).toHaveAttribute('aria-expanded', 'true');
@@ -148,19 +141,18 @@ describe('AppTopBar', () => {
     renderTopBar();
 
     await expectToolbarRovingFocus('Application controls', [
-      'Collapse workspace sidebar',
-      'Collapse note navigator',
+      'Collapse sidebar',
       'Back',
       'Forward',
     ]);
   });
 
-  it('calls the note navigator toggle from the titlebar', () => {
+  it('calls the sidebar toggle from the titlebar', () => {
     const props = renderTopBar({
       navigatorCollapsed: true,
     });
 
-    const navigatorToggle = screen.getByRole('button', { name: 'Expand note navigator' });
+    const navigatorToggle = screen.getByRole('button', { name: 'Expand sidebar' });
     fireEvent.click(navigatorToggle);
 
     expect(navigatorToggle).toHaveClass('app-region-no-drag');
@@ -171,12 +163,12 @@ describe('AppTopBar', () => {
   it('shows action shortcuts in titlebar button tooltips without changing accessible names', async () => {
     renderTopBar();
 
-    const navigatorToggle = screen.getByRole('button', { name: 'Collapse note navigator' });
+    const navigatorToggle = screen.getByRole('button', { name: 'Collapse sidebar' });
     fireEvent.focus(navigatorToggle);
     fireEvent.mouseOver(navigatorToggle);
 
-    expect(navigatorToggle).toHaveAccessibleName('Collapse note navigator');
-    expect(await screen.findAllByText('⌥⌘B')).not.toHaveLength(0);
+    expect(navigatorToggle).toHaveAccessibleName('Collapse sidebar');
+    expect(await screen.findAllByText('⌘B')).not.toHaveLength(0);
   });
 
   it('runs workbench navigation callbacks from the titlebar', () => {

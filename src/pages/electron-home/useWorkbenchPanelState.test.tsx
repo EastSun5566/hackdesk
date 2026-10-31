@@ -5,8 +5,6 @@ import {
   INSPECTOR_COLLAPSED_KEY,
   NAVIGATOR_COLLAPSED_KEY,
   NAVIGATOR_WIDTH_KEY,
-  RAIL_COLLAPSED_KEY,
-  RAIL_WIDTH_KEY,
 } from './ui-preferences';
 import { useWorkbenchPanelState } from './useWorkbenchPanelState';
 
@@ -20,26 +18,46 @@ describe('useWorkbenchPanelState', () => {
 
     act(() => {
       result.current.toggleInspectorCollapsed();
-      result.current.toggleRailCollapsed();
       result.current.toggleNavigatorCollapsed();
     });
 
     expect(window.localStorage.getItem(INSPECTOR_COLLAPSED_KEY)).toBe('false');
-    expect(window.localStorage.getItem(RAIL_COLLAPSED_KEY)).toBe('true');
     expect(window.localStorage.getItem(NAVIGATOR_COLLAPSED_KEY)).toBe('true');
   });
 
-  it('persists panel widths', () => {
+  it('persists the sidebar width', () => {
     const { result } = renderHook(() => useWorkbenchPanelState());
 
     act(() => {
-      result.current.setRailWidth(240);
       result.current.setNavigatorWidth(420);
     });
 
-    expect(result.current.railWidth).toBe(240);
     expect(result.current.navigatorWidth).toBe(420);
-    expect(window.localStorage.getItem(RAIL_WIDTH_KEY)).toBe('240');
     expect(window.localStorage.getItem(NAVIGATOR_WIDTH_KEY)).toBe('420');
+  });
+
+  it.each([
+    ['the rail was open', 'false', false],
+    ['the rail was never closed', null, false],
+    ['the rail was closed too', 'true', true],
+  ])('moves a hidden navigator to one sidebar when %s, forgetting the old keys', (_case, rail, collapsed) => {
+    window.localStorage.setItem('hackdesk_navigator_collapsed', 'true');
+    if (rail !== null) window.localStorage.setItem('hackdesk_rail_collapsed', rail);
+    window.localStorage.setItem('hackdesk_rail_width', '240');
+
+    const { result } = renderHook(() => useWorkbenchPanelState());
+
+    expect(result.current.navigatorCollapsed).toBe(collapsed);
+    expect(window.localStorage.getItem(NAVIGATOR_COLLAPSED_KEY)).toBe(String(collapsed));
+    for (const key of ['hackdesk_navigator_collapsed', 'hackdesk_rail_collapsed', 'hackdesk_rail_width']) {
+      expect(window.localStorage.getItem(key)).toBeNull();
+    }
+  });
+
+  it('keeps a sidebar hidden after the move', () => {
+    window.localStorage.setItem(NAVIGATOR_COLLAPSED_KEY, 'true');
+    window.localStorage.setItem('hackdesk_navigator_collapsed', 'false');
+
+    expect(renderHook(() => useWorkbenchPanelState()).result.current.navigatorCollapsed).toBe(true);
   });
 });

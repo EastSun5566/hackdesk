@@ -88,14 +88,11 @@ export function useHomeWorkspaceProps({
   navigatorCollapsed,
   navigatorWidth,
   noteWorkspace,
-  railCollapsed,
-  railWidth,
   refreshWorkspace,
   remoteDocumentRecovery,
   selectedFolderId,
   selectedNote,
   setNavigatorWidth,
-  setRailWidth,
   setSettingsOpen,
   settings,
   shareOpen,
@@ -104,9 +101,10 @@ export function useHomeWorkspaceProps({
   teams,
   toggleInspectorCollapsed,
   toggleNavigatorCollapsed,
-  toggleRailCollapsed,
   user,
   uploadingTabIds = [],
+  workspaceSwitcherOpen,
+  setWorkspaceSwitcherOpen,
 }: {
   api?: HackDeskElectronAPI;
   openNoteTarget?: OpenNoteTarget;
@@ -134,14 +132,11 @@ export function useHomeWorkspaceProps({
   navigatorCollapsed: boolean;
   navigatorWidth: number;
   noteWorkspace: NoteWorkspace;
-  railCollapsed: boolean;
-  railWidth: number;
   refreshWorkspace: () => void;
   remoteDocumentRecovery: RemoteDocumentRecovery;
   selectedFolderId: string | null;
   selectedNote: { id: string } | null;
   setNavigatorWidth: (width: number) => void;
-  setRailWidth: (width: number) => void;
   setSettingsOpen: (open: boolean) => void;
   settings: ElectronSafeSettings | undefined;
   shareOpen: boolean;
@@ -153,9 +148,10 @@ export function useHomeWorkspaceProps({
   teams: TeamSummary[];
   toggleInspectorCollapsed: () => void;
   toggleNavigatorCollapsed: () => void;
-  toggleRailCollapsed: () => void;
   user: UserSummary | undefined;
   uploadingTabIds?: readonly string[];
+  workspaceSwitcherOpen: boolean;
+  setWorkspaceSwitcherOpen: (open: boolean) => void;
 }): ElectronHomeWorkspaceProps {
   return {
     titlebar: {
@@ -164,7 +160,6 @@ export function useHomeWorkspaceProps({
       getTabSyncState,
       layout: {
         navigatorCollapsed,
-        railCollapsed,
       },
       state: {
         scopeKey: noteWorkspace.state.scopeKey,
@@ -186,41 +181,35 @@ export function useHomeWorkspaceProps({
         reorderTab: noteWorkspace.reorderTab,
         splitActiveTab: noteWorkspace.splitActiveTab,
         toggleNavigator: toggleNavigatorCollapsed,
-        toggleRail: toggleRailCollapsed,
       },
-    },
-    rail: {
-      scope: displayScope,
-      user,
-      teams,
-      platform: window.hackdeskAPI?.platform ?? window.navigator.platform,
-      pinnedTeamIds: settings?.workspaceNavigation?.pinnedTeamIds ?? null,
-      collapsed: railCollapsed,
-      accountStatus: homeStatus.accountStatus,
-      localVaultConfigured: hasConfiguredLocalVault,
-      width: railWidth,
-      onChooseLocalVault: () => {
-        void localVaultActions.chooseLocalVault();
-      },
-      onScopeChange: actions.switchWorkspaceScope,
-      onOpenSettings: () => setSettingsOpen(true),
-      // The trash lives on HackMD, so it is offered only once a token is set.
-      onOpenTrash: settings?.hasHackmdApiToken ? () => actions.setTrashOpen(true) : undefined,
-      onPinnedTeamIdsChange: (pinnedTeamIds) => {
-        mutations.updateSettingsMutation.mutate({
-          title: settings?.title ?? defaultSettings.title,
-          workspaceNavigation: { pinnedTeamIds },
-        });
-      },
-    },
-    railResize: {
-      disabled: railCollapsed,
-      value: railWidth,
-      onChange: setRailWidth,
     },
     navigator: {
       scope: displayScope,
       tree: folderTree,
+      workspace: {
+        scope: displayScope,
+        user,
+        teams,
+        platform: window.hackdeskAPI?.platform ?? window.navigator.platform,
+        pinnedTeamIds: settings?.workspaceNavigation?.pinnedTeamIds ?? null,
+        accountStatus: homeStatus.accountStatus,
+        localVaultConfigured: hasConfiguredLocalVault,
+        switcherOpen: workspaceSwitcherOpen,
+        onSwitcherOpenChange: setWorkspaceSwitcherOpen,
+        onChooseLocalVault: () => {
+          void localVaultActions.chooseLocalVault();
+        },
+        onScopeChange: actions.switchWorkspaceScope,
+        onOpenSettings: () => setSettingsOpen(true),
+        // The trash lives on HackMD, so it is offered only once a token is set.
+        onOpenTrash: settings?.hasHackmdApiToken ? () => actions.setTrashOpen(true) : undefined,
+        onPinnedTeamIdsChange: (pinnedTeamIds) => {
+          mutations.updateSettingsMutation.mutate({
+            title: settings?.title ?? defaultSettings.title,
+            workspaceNavigation: { pinnedTeamIds },
+          });
+        },
+      },
       entries: navigator.visibleEntries,
       textSearch: navigator.textSearch,
       finderState: activeFinderState,

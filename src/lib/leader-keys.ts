@@ -34,14 +34,14 @@ export const LEADER_KEYS: Record<string, LeaderEntry> = {
   g: {
     label: 'Go',
     keys: {
-      o: 'open-quick-open', s: 'search-notes', h: 'go-history', t: 'show-trash', b: 'navigate-back', f: 'navigate-forward',
-      e: 'focus-editor', n: 'focus-navigator', d: 'focus-inspector',
+      w: 'focus-workspace', o: 'open-quick-open', s: 'search-notes', h: 'go-history', t: 'show-trash', b: 'navigate-back',
+      f: 'navigate-forward', e: 'focus-editor', n: 'focus-navigator', d: 'focus-inspector',
     },
   },
   v: {
     label: 'View',
     keys: {
-      s: 'toggle-workspace-rail', n: 'toggle-navigator', d: 'toggle-inspector', t: 'toggle-theme', k: 'toggle-key-hints',
+      s: 'toggle-navigator', d: 'toggle-inspector', t: 'toggle-theme', k: 'toggle-key-hints',
       c: 'toggle-book-contents',
     },
   },

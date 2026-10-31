@@ -31,7 +31,6 @@ export type ElectronActionContext = {
   paneCount: number;
   inspectorCollapsed: boolean;
   navigatorCollapsed: boolean;
-  workspaceRailCollapsed: boolean;
   bookOpen: boolean;
   bookContentsHidden: boolean;
   hasLocalVault: boolean;
@@ -755,26 +754,15 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     menuAccelerator: 'CmdOrCtrl+P',
   },
   {
-    id: 'toggle-workspace-rail',
-    label: 'Toggle Workspace Rail',
-    description: 'Collapse or expand the workspace rail.',
-    keywords: ['sidebar', 'workspace', 'view'],
+    id: 'toggle-navigator',
+    label: 'Toggle Sidebar',
+    description: 'Hide or show the sidebar with your workspaces, folders and notes.',
+    keywords: ['sidebar', 'navigator', 'folders', 'notes', 'view'],
     category: 'view',
-    scope: 'workspace',
+    scope: 'navigator',
     defaultKeybinding: 'mod+b',
     shortcut: '⌘B',
     menuAccelerator: 'CmdOrCtrl+B',
-  },
-  {
-    id: 'toggle-navigator',
-    label: 'Toggle Note Navigator',
-    description: 'Collapse or expand the note navigator.',
-    keywords: ['folders', 'notes', 'sidebar'],
-    category: 'view',
-    scope: 'navigator',
-    defaultKeybinding: 'mod+alt+b',
-    shortcut: '⌥⌘B',
-    menuAccelerator: 'CmdOrCtrl+Alt+B',
   },
   {
     id: 'toggle-inspector',
@@ -898,16 +886,16 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
   },
   {
     id: 'focus-workspace',
-    label: 'Focus Workspace',
-    description: 'Move keyboard focus to the workspace list.',
-    keywords: ['sidebar', 'team'],
+    label: 'Switch Workspace…',
+    description: 'Open the workspace switcher at the top of the sidebar.',
+    keywords: ['workspace', 'team', 'switch', 'local vault', 'history'],
     category: 'navigation',
-    scope: 'workspace',
+    scope: 'global',
   },
   {
     id: 'focus-navigator',
-    label: 'Focus Navigator',
-    description: 'Move keyboard focus to the note navigator.',
+    label: 'Focus Sidebar',
+    description: 'Move keyboard focus to the folders and notes in the sidebar.',
     keywords: ['folders', 'notes'],
     category: 'navigation',
     scope: 'navigator',

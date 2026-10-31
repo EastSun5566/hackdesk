@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, FolderTree, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { ArrowLeft, ArrowRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { Toolbar, ToolbarSeparator } from '@/components/ui/toolbar';
@@ -62,11 +62,8 @@ export function AppTopBar({
   platform,
   navigatorCollapsed,
   navigatorPanelId,
-  railCollapsed,
-  railPanelId,
   tabs,
   onToggleNavigator,
-  onToggleRail,
 }: {
   activeTab: OpenNoteTab | null;
   tabStripId?: string;
@@ -94,11 +91,8 @@ export function AppTopBar({
   platform: string;
   navigatorCollapsed: boolean;
   navigatorPanelId: string;
-  railCollapsed: boolean;
-  railPanelId: string;
   tabs: OpenNoteTab[];
   onToggleNavigator: () => void;
-  onToggleRail: () => void;
 }) {
   const [fullScreen, setFullScreen] = useState(false);
 
@@ -135,22 +129,13 @@ export function AppTopBar({
     )}>
       <Toolbar aria-label="Application controls" className="shrink-0">
         <TopBarIconButton
-          actionId="toggle-workspace-rail"
-          controls={railPanelId}
-          expanded={!railCollapsed}
-          label={railCollapsed ? 'Expand workspace sidebar' : 'Collapse workspace sidebar'}
-          onClick={onToggleRail}
-        >
-          {railCollapsed ? <PanelLeftOpen aria-hidden="true" className="size-4.5" /> : <PanelLeftClose aria-hidden="true" className="size-4.5" />}
-        </TopBarIconButton>
-        <TopBarIconButton
           actionId="toggle-navigator"
           controls={navigatorPanelId}
           expanded={!navigatorCollapsed}
-          label={navigatorCollapsed ? 'Expand note navigator' : 'Collapse note navigator'}
+          label={navigatorCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           onClick={onToggleNavigator}
         >
-          <FolderTree aria-hidden="true" className="size-4.5" />
+          {navigatorCollapsed ? <PanelLeftOpen aria-hidden="true" className="size-4.5" /> : <PanelLeftClose aria-hidden="true" className="size-4.5" />}
         </TopBarIconButton>
         <ToolbarSeparator />
         <TopBarIconButton

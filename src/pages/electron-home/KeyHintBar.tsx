@@ -18,7 +18,7 @@ function currentContext(fallback: KeyHintContext): KeyHintContext {
   if (!(element instanceof HTMLElement)) return fallback;
   if (element.matches('input[name="noteSearch"]')) return 'finder';
   const zone = element.closest<HTMLElement>('[data-hackdesk-focus]')?.dataset.hackdeskFocus;
-  return zone === 'workspace' || zone === 'navigator' || zone === 'tabs' || zone === 'editor' || zone === 'inspector' ? zone : fallback;
+  return zone === 'navigator' || zone === 'tabs' || zone === 'editor' || zone === 'inspector' ? zone : fallback;
 }
 
 /**
