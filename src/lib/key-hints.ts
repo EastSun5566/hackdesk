@@ -15,12 +15,14 @@ export type KeyHint = { keys: string; label: string };
 /** Keys built into a region's widgets, which have no action of their own. */
 export const WIDGET_KEYS = [
   { region: 'tabs', label: 'Move tab focus', keys: '← / → / Home / End', description: 'Move focus without selecting a tab.' },
-  { region: 'tabs', label: 'Select focused tab', keys: 'Enter / Space', description: 'Activate the focused tab.' },
+  { region: 'tabs', label: 'Select focused tab', keys: 'Enter', description: 'Activate the focused tab.' },
   { region: 'navigator', label: 'Move tree focus', keys: '↑ / ↓ / Home / End', description: 'Move focus without opening a note.' },
   { region: 'navigator', label: 'Expand / collapse folder', keys: '→ / ←', description: 'Expand a folder or move to its parent.' },
-  { region: 'navigator', label: 'Open focused tree item', keys: 'Enter / Space', description: 'Select a folder or open a note.' },
+  { region: 'navigator', label: 'Open focused tree item', keys: 'Enter', description: 'Select a folder or open a note.' },
   { region: 'navigator', label: 'Find by name', keys: 'Type a name', description: 'Focus the next matching tree item.' },
 ] as const;
+
+const SPACE_LEADER_CONTEXTS = new Set<KeyHintContext>(['navigator', 'tabs', 'workspace']);
 
 type HintSpec = { keys: string; label: string } | { action: ElectronActionId; label: string };
 
@@ -29,9 +31,9 @@ const HINTS: Record<KeyHintContext, HintSpec[]> = {
   navigator: [
     { keys: '↑ ↓', label: 'Move' },
     { keys: '↵', label: 'Open' },
+    { keys: 'leader', label: 'Commands' },
     { action: 'search-notes', label: 'Search' },
     { action: 'new-note', label: 'New note' },
-    { action: 'open-command-palette', label: 'Commands' },
   ],
   finder: [
     { keys: 'Type', label: 'Filter notes' },
@@ -41,11 +43,13 @@ const HINTS: Record<KeyHintContext, HintSpec[]> = {
   tabs: [
     { keys: '← →', label: 'Move' },
     { keys: '↵', label: 'Select' },
+    { keys: 'leader', label: 'Commands' },
     { action: 'close-tab', label: 'Close' },
     { action: 'split-pane-right', label: 'Split right' },
   ],
   editor: [
-    { action: 'open-command-palette', label: 'Commands' },
+    { keys: 'leader', label: 'Commands' },
+    { action: 'open-command-palette', label: 'Palette' },
     { action: 'open-quick-open', label: 'Open note' },
     { action: 'save-note', label: 'Save' },
     { action: 'find-in-note', label: 'Find' },
@@ -53,13 +57,13 @@ const HINTS: Record<KeyHintContext, HintSpec[]> = {
   inspector: [
     { keys: 'Tab', label: 'Next field' },
     { action: 'focus-next-region', label: 'Next area' },
-    { action: 'open-command-palette', label: 'Commands' },
+    { keys: 'leader', label: 'Commands' },
   ],
   workspace: [
     { keys: '↑ ↓', label: 'Move' },
     { keys: '↵', label: 'Switch' },
     { keys: 'workspace-numbers', label: 'Jump to workspace' },
-    { action: 'open-command-palette', label: 'Commands' },
+    { keys: 'leader', label: 'Commands' },
   ],
 };
 
@@ -80,8 +84,12 @@ export function getKeyHints(context: KeyHintContext, {
 }): KeyHint[] {
   return HINTS[context].flatMap((spec): KeyHint[] => {
     if (!('action' in spec)) {
-      if (spec.keys !== 'workspace-numbers') return [spec];
-      return [{ keys: `${displayShortcutConfig('mod+1', platform)}–9`, label: spec.label }];
+      if (spec.keys === 'workspace-numbers') return [{ keys: `${displayShortcutConfig('mod+1', platform)}–9`, label: spec.label }];
+      if (spec.keys !== 'leader') return [spec];
+      // Space opens the leader menu where it is not typed; text fields use the leader shortcut.
+      if (characterShortcutsEnabled && SPACE_LEADER_CONTEXTS.has(context)) return [{ keys: 'Space', label: spec.label }];
+      const keys = getResolvedActionShortcut('open-leader-menu', shortcuts, platform, characterShortcutsEnabled);
+      return keys ? [{ keys: keys.split(', ')[0]!, label: spec.label }] : [];
     }
     if (getActionDisabledReason(getElectronAction(spec.action), actionContext)) return [];
     const keys = getResolvedActionShortcut(spec.action, shortcuts, platform, characterShortcutsEnabled);

@@ -124,8 +124,9 @@ export function allocateNavigationCodes(ids: string[], letters: string, previous
     for (let i = 0; i < length; i++) values = values.flatMap(prefix => Array.from(letters, letter => prefix + letter));
     return values.filter(code => !conflicts(code));
   };
+  // Windows and Linux leave few letters free, so long lists may need four.
   let available = codes(2);
-  if (available.length < missing.length) available = codes(3);
+  for (let length = 3; length <= 4 && available.length < missing.length; length++) available = codes(length);
   if (available.length < missing.length) return null;
   missing.forEach((id, index) => assigned.set(id, available[index]));
   return assigned;

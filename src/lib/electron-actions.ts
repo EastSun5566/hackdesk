@@ -179,6 +179,15 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keyboardContext: 'character',
   },
   {
+    id: 'open-leader-menu',
+    label: 'Leader Menu',
+    description: 'Run a command with a few letters, such as N then N for a new note. Space also opens it outside text editing.',
+    keywords: ['leader', 'which key', 'commands', 'keys', 'space'],
+    category: 'app',
+    scope: 'global',
+    defaultKeybinding: 'mod+j',
+  },
+  {
     id: 'focus-next-region',
     label: 'Next Workbench Region',
     description: 'Focus the next visible Workbench region.',

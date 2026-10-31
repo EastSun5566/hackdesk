@@ -38,10 +38,10 @@ const text = (list: ReturnType<typeof getKeyHints>) => list.map(hint => `${hint.
 
 describe('getKeyHints', () => {
   it('lists the most useful keys for each place focus can be', () => {
-    expect(text(hints('navigator'))).toEqual(['↑ ↓ Move', '↵ Open', '/ Search', '⌘N New note', '⌘K Commands']);
+    expect(text(hints('navigator'))).toEqual(['↑ ↓ Move', '↵ Open', 'Space Commands', '/ Search', '⌘N New note']);
     expect(text(hints('finder'))).toEqual(['Type Filter notes', 'Esc Clear, then back to the tree', 'F6 Next area']);
-    expect(text(hints('tabs'))).toEqual(['← → Move', '↵ Select', '⌘W Close', '⌘\\ Split right']);
-    expect(text(hints('editor'))).toEqual(['⌘K Commands', '⌘P Open note', '⌘F Find']);
+    expect(text(hints('tabs'))).toEqual(['← → Move', '↵ Select', 'Space Commands', '⌘W Close', '⌘\\ Split right']);
+    expect(text(hints('editor'))).toEqual(['⌘J Commands', '⌘K Palette', '⌘P Open note', '⌘F Find']);
     expect(text(hints('workspace'))).toContain('⌘1–9 Jump to workspace');
   });
 
@@ -59,6 +59,8 @@ describe('getKeyHints', () => {
 
   it('drops / when character shortcuts are off, and uses Ctrl elsewhere', () => {
     expect(text(hints('navigator', { characterShortcutsEnabled: false }))).not.toContain('/ Search');
+    // Without single-key shortcuts, Space types as usual and the leader shortcut opens the menu.
+    expect(text(hints('navigator', { characterShortcutsEnabled: false }))).toContain('⌘J Commands');
     expect(text(hints('navigator', { platform: 'win32' }))).toContain('Ctrl+N New note');
   });
 });

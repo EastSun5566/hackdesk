@@ -53,6 +53,7 @@ export type WorkbenchActionHandlersOptions = {
   navigateForward: () => void;
   noteDirty: boolean;
   openKeyboardShortcuts: () => void;
+  openLeaderMenu: () => void;
   focusNextRegion: (backwards?: boolean) => boolean;
   openPalette: () => void;
   openQuickOpen: () => void;
@@ -123,6 +124,7 @@ export function useWorkbenchActionHandlers({
   navigateForward,
   noteDirty,
   openKeyboardShortcuts,
+  openLeaderMenu,
   focusNextRegion,
   openPalette,
   openQuickOpen,
@@ -239,6 +241,7 @@ export function useWorkbenchActionHandlers({
       focusZone('editor');
     },
     openKeyboardShortcuts,
+    openLeaderMenu,
     focusNextRegion,
     openPalette,
     openQuickOpen,
@@ -369,6 +372,7 @@ export function useWorkbenchActionHandlers({
     navigateForward,
     noteDirty,
     openKeyboardShortcuts,
+    openLeaderMenu,
     focusNextRegion,
     openPalette,
     openQuickOpen,

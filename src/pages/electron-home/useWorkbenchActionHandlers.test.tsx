@@ -68,6 +68,7 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     book: { book: null, open: vi.fn(), close: vi.fn(), contentsHidden: false, toggleContents: vi.fn(), openChapter: vi.fn(), positionOf: vi.fn(() => null) },
     chooseLocalVault: vi.fn(),
     toggleKeyHints: vi.fn(),
+    openLeaderMenu: vi.fn(),
     copyNoteLink: vi.fn(),
     copyNoteMarkdownLink: vi.fn(),
     duplicateNote: vi.fn(),

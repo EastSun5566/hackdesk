@@ -37,21 +37,21 @@ describe('useWorkbenchShortcuts', () => {
     vi.mocked(handlers.runAction).mockClear();
     fireEvent.keyDown(input, { key: '?' }); fireEvent.keyDown(input, { key: '/' });
     expect(handlers.runAction).not.toHaveBeenCalled();
-    rerender({ ...handlers, characterShortcutsEnabled: false, shortcuts: { 'show-keyboard-shortcuts': 'mod+j' } });
+    rerender({ ...handlers, characterShortcutsEnabled: false, shortcuts: { 'show-keyboard-shortcuts': 'mod+e' } });
     fireEvent.keyDown(window, { key: '/' }); fireEvent.keyDown(window, { key: '?' });
     expect(handlers.runAction).not.toHaveBeenCalled();
-    fireEvent.keyDown(input, { key: 'j', metaKey: true });
+    fireEvent.keyDown(input, { key: 'e', metaKey: true });
     expect(handlers.runAction).toHaveBeenCalledWith('show-keyboard-shortcuts');
     input.remove();
   });
 
   it('releases Ctrl+Tab aliases when next/previous actions are overridden or disabled', () => {
-    const handlers = createHandlers({ shortcuts: { 'focus-next-tab': 'none', 'focus-previous-tab': 'mod+j' } });
+    const handlers = createHandlers({ shortcuts: { 'focus-next-tab': 'none', 'focus-previous-tab': 'mod+e' } });
     renderHook(() => useWorkbenchShortcuts(handlers));
     expect(fireEvent.keyDown(window, { key: 'Tab', ctrlKey: true })).toBe(true);
     expect(fireEvent.keyDown(window, { key: 'Tab', ctrlKey: true, shiftKey: true })).toBe(true);
     expect(handlers.runAction).not.toHaveBeenCalled();
-    fireEvent.keyDown(window, { key: 'j', metaKey: true });
+    fireEvent.keyDown(window, { key: 'e', metaKey: true });
     expect(handlers.runAction).toHaveBeenCalledWith('focus-previous-tab');
   });
 
@@ -97,7 +97,7 @@ describe('useWorkbenchShortcuts', () => {
   it('uses custom shortcut overrides and replaces default aliases', () => {
     const handlers = createHandlers({
       shortcuts: {
-        'open-command-palette': 'mod+j',
+        'open-command-palette': 'mod+e',
         'open-quick-open': 'none',
       },
     });
@@ -117,7 +117,7 @@ describe('useWorkbenchShortcuts', () => {
     });
     window.dispatchEvent(defaultPaletteEvent);
     window.dispatchEvent(disabledQuickOpenEvent);
-    fireEvent.keyDown(window, { key: 'j', metaKey: true });
+    fireEvent.keyDown(window, { key: 'e', metaKey: true });
 
     expect(defaultPaletteEvent.defaultPrevented).toBe(false);
     expect(disabledQuickOpenEvent.defaultPrevented).toBe(false);
@@ -512,5 +512,37 @@ describe('useWorkbenchShortcuts', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
 
     expect(setSelectedFolderId).toHaveBeenCalledWith(null);
+  });
+
+  it('opens the leader menu with Space where Space is not typed or used to press something', () => {
+    const openLeaderMenu = vi.fn();
+    const handlers = createHandlers({ openLeaderMenu });
+    const { rerender } = renderHook((props: WorkbenchShortcutHandlers) => useWorkbenchShortcuts(props), { initialProps: handlers });
+    document.body.innerHTML = '<button role="treeitem">Plan</button><button>Refresh</button><input aria-label="Search"><div class="cm-editor"><div contenteditable="true">Note</div></div>';
+    const press = (target: Element) => fireEvent.keyDown(target, { key: ' ' });
+
+    expect(press(document.querySelector('[role="treeitem"]')!)).toBe(false);
+    expect(openLeaderMenu).toHaveBeenCalledOnce();
+
+    // A button, a field and the editor keep Space.
+    press(document.querySelector('button:not([role])')!);
+    press(document.querySelector('input')!);
+    press(document.querySelector('[contenteditable]')!);
+    fireEvent.keyDown(document.querySelector('[role="treeitem"]')!, { key: ' ', shiftKey: true });
+    expect(openLeaderMenu).toHaveBeenCalledOnce();
+
+    rerender({ ...handlers, characterShortcutsEnabled: false });
+    press(document.querySelector('[role="treeitem"]')!);
+    expect(openLeaderMenu).toHaveBeenCalledOnce();
+    document.body.innerHTML = '';
+  });
+
+  it('opens the leader menu with ⌘J anywhere, including the editor', () => {
+    const runAction = vi.fn(() => true);
+    renderHook(() => useWorkbenchShortcuts(createHandlers({ runAction })));
+    document.body.innerHTML = '<div class="cm-editor"><div contenteditable="true">Note</div></div>';
+    fireEvent.keyDown(document.querySelector('[contenteditable]')!, { key: 'j', metaKey: true });
+    expect(runAction).toHaveBeenCalledWith('open-leader-menu');
+    document.body.innerHTML = '';
   });
 });

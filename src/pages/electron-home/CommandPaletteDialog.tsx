@@ -198,6 +198,7 @@ function getSettingsCommands(query: string) {
 
 const ACTION_ICONS: Record<ElectronActionId, ReactNode> = {
   'show-keyboard-shortcuts': <Keyboard className="h-4 w-4" />,
+  'open-leader-menu': <Keyboard className="h-4 w-4" />,
   'focus-next-region': <StepForward className="h-4 w-4" />,
   'focus-previous-region': <StepBack className="h-4 w-4" />,
   'scroll-half-page-up': <StepBack className="h-4 w-4" />,

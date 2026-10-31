@@ -173,7 +173,7 @@ describe('SettingsDialog', () => {
     const search = screen.getByLabelText('Search settings');
     fireEvent.change(search, { target: { value: 'outside text editing' } });
     fireEvent.keyDown(search, { key: 'Enter' });
-    const field = screen.getByLabelText('Enable ? and / outside text editing');
+    const field = screen.getByLabelText('Enable ?, / and Space outside text editing');
     await waitFor(() => expect(field).toHaveFocus());
   });
 
@@ -765,7 +765,7 @@ describe('SettingsDialog', () => {
 
   it('saves character navigation independently and cancels unsaved changes', async () => {
     const { onSave, rerenderSettingsDialog } = renderSettingsDialog({ initialTab: 'shortcuts' });
-    const toggle = screen.getByRole('checkbox', { name: 'Enable ? and / outside text editing' });
+    const toggle = screen.getByRole('checkbox', { name: 'Enable ?, / and Space outside text editing' });
     expect(toggle).toBeChecked();
     fireEvent.click(toggle);
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
@@ -774,7 +774,7 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     await act(async () => { rerenderSettingsDialog({ open: false }); });
     await act(async () => { rerenderSettingsDialog({ open: true }); });
-    expect(screen.getByRole('checkbox', { name: 'Enable ? and / outside text editing' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Enable ?, / and Space outside text editing' })).toBeChecked();
   });
 
   it('captures and saves shortcut overrides from the Shortcuts tab', async () => {
@@ -789,16 +789,16 @@ describe('SettingsDialog', () => {
     const shortcutButton = screen.getByRole('button', { name: 'Set shortcut for Command Palette' });
     fireEvent.click(shortcutButton);
     await waitFor(() => expect(shortcutButton).toHaveTextContent('Press keys…'));
-    fireEvent.keyDown(shortcutButton, { key: 'j', metaKey: true });
+    fireEvent.keyDown(shortcutButton, { key: 'e', metaKey: true });
 
-    await waitFor(() => expect(shortcutButton).toHaveTextContent('⌘J'));
+    await waitFor(() => expect(shortcutButton).toHaveTextContent('⌘E'));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(onSave).toHaveBeenCalledWith({
       title: 'HackDesk',
       keyboardNavigation: { characterShortcutsEnabled: true, keyHintsVisible: true },
       shortcuts: {
-        'open-command-palette': 'mod+j',
+        'open-command-palette': 'mod+e',
       },
     });
   });

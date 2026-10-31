@@ -18,12 +18,13 @@ describe('navigation codes', () => {
     expect(next.get('c')).toBe(first.get('c'));
     expect(next.get('new')).not.toBe(next.get('b'));
   });
-  it('uses three letters when needed without changing surviving two-letter codes', () => {
+  it('uses three or four letters when needed without changing surviving two-letter codes', () => {
     const prior = new Map([['a','ii']]);
     const result = allocateNavigationCodes(['a',...Array.from({length:5},(_,i)=>String(i))], 'ij', prior)!;
     expect(result.get('a')).toBe('ii');
     for (const code of result.values()) for (const other of result.values()) if (code !== other) expect(other.startsWith(code)).toBe(false);
-    expect(allocateNavigationCodes(Array.from({length:9},(_,i)=>String(i)), 'ij', new Map())).toBeNull();
+    expect(allocateNavigationCodes(Array.from({length:9},(_,i)=>String(i)), 'ij', new Map())?.get('0')).toHaveLength(4);
+    expect(allocateNavigationCodes(Array.from({length:17},(_,i)=>String(i)), 'ij', new Map())).toBeNull();
     expect(allocateNavigationCodes(['a'], 'i', new Map())).toBeNull();
   });
   it('never allocates native, app, custom or installed editor bindings', () => {
@@ -45,12 +46,13 @@ describe('navigation codes', () => {
     expect(allocateNavigationCodes(ids, letters, new Map())?.size).toBe(40);
     expect(allocateNavigationCodes(ids, safeNavigationLetters(platform, {}, true, null), new Map())?.size).toBe(40);
     expect(safeNavigationLetters(platform, { 'new-note': 'mod+l' }, true, null)).not.toContain('l');
+    expect(safeNavigationLetters(platform, {}, true, null)).not.toContain('j');
     const editor = document.createElement('div');
     editor.dataset.editorMode = 'standard';
-    registerEditorNavigationKeymap(editor, () => [[{ key: 'Mod-Shift-l' }, { key: 'Mod-Alt-j' }, { key: 'Mod-i' }]]);
+    registerEditorNavigationKeymap(editor, () => [[{ key: 'Mod-Shift-l' }, { key: 'Mod-Alt-g' }, { key: 'Mod-i' }]]);
     const editorLetters = safeNavigationLetters(platform, {}, true, editor);
     expect(editorLetters).toContain('l');
-    expect(editorLetters).toContain('j');
+    expect(editorLetters).toContain('g');
     expect(editorLetters).not.toContain('i');
   });
 });

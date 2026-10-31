@@ -190,7 +190,7 @@ export function ShortcutsSettingsPanel({
   return (
     <SettingsSection title="Shortcuts">
       <div className="space-y-4">
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={characterShortcutsEnabled} onChange={event => onCharacterShortcutsChange(event.target.checked)} />Enable ? and / outside text editing</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={characterShortcutsEnabled} onChange={event => onCharacterShortcutsChange(event.target.checked)} />Enable ?, / and Space outside text editing</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={keyHintsVisible} onChange={event => onKeyHintsVisibleChange(event.target.checked)} />Show key hints at the bottom of the window</label>
         <div className="relative">
           <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-subtle" />

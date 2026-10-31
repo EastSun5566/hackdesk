@@ -41,6 +41,7 @@ export type WorkbenchActionContextInput = {
 
 export type WorkbenchActionHandlers = {
   openKeyboardShortcuts: () => void;
+  openLeaderMenu: () => void;
   focusNextRegion: (backwards?: boolean) => boolean;
   closeActiveTab: () => void;
   closeOtherTabs: () => void;
@@ -236,6 +237,9 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     switch (actionId) {
     case 'show-keyboard-shortcuts':
       handlers.openKeyboardShortcuts();
+      break;
+    case 'open-leader-menu':
+      handlers.openLeaderMenu();
       break;
     case 'focus-next-region':
       return handlers.focusNextRegion();
