@@ -1345,6 +1345,96 @@ test('Settings search jumps to fields and held navigation stays inside the dialo
   } finally { await stopApp(app); }
 });
 
+test('Hack Mode leaves only the active note, centered, until the same key is pressed again', async () => {
+  const { app, page } = await launchFixture('vim', true);
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openFixtureNote(page);
+    await page.getByRole('button', { name: 'Pane actions', exact: true }).press('Enter');
+    await page.getByRole('menuitem', { name: 'Split Right', exact: true }).press('Enter');
+    await expect(page.locator('.cm-content')).toHaveCount(2);
+    const sidebar = page.locator('#note-navigator-panel');
+    const sidebarWidth = (await sidebar.boundingBox())!.width;
+    const chrome = [
+      page.getByRole('toolbar', { name: 'Application controls' }),
+      page.getByRole('navigation', { name: 'Open documents' }),
+      sidebar,
+      page.getByRole('note', { name: 'Keys you can press' }),
+      page.locator('[data-active-pane="true"] header').first(),
+    ];
+
+    const editor = page.locator('[data-active-pane="true"] .cm-content');
+    await editor.click();
+    await page.keyboard.press(`${primary}+.`);
+    await expect(page.locator('.app-chrome')).toHaveAttribute('data-hack-mode', 'true');
+    for (const part of chrome) await expect(part).toBeHidden();
+    await expect(page.locator('section[data-document-pane-id]:visible')).toHaveCount(1);
+    await expect(editor).toBeFocused();
+    // The note's column is centered in the window.
+    await expect.poll(async () => {
+      const box = (await editor.boundingBox())!;
+      return Math.abs(box.x + box.width / 2 - 720);
+    }).toBeLessThan(16);
+    // The top bar stays as a blank strip, so the window can still be dragged, and the accent line clears.
+    await expect(page.locator('.app-topbar')).toBeVisible();
+    await expect.poll(() => page.locator('[data-active-pane="true"]').evaluate(element => getComputedStyle(element, '::before').backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+    // Vim's Escape stays with the editor.
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.app-chrome')).toHaveAttribute('data-hack-mode', 'true');
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('27-hack-mode.png') });
+
+    await page.keyboard.press(`${primary}+.`);
+    await expect(page.locator('.app-chrome')).not.toHaveAttribute('data-hack-mode');
+    for (const part of chrome) await expect(part).toBeVisible();
+    await expect(page.locator('section[data-document-pane-id]:visible')).toHaveCount(2);
+    expect((await sidebar.boundingBox())!.width).toBe(sidebarWidth);
+
+    // The leader menu enters it too, and toggling the sidebar leaves it with the sidebar shown. The
+    // leader runs it here because vim keeps Ctrl+B, the sidebar key on Linux, for scrolling.
+    await editor.click();
+    const leader = async (keys: string) => {
+      await page.keyboard.press(`${primary}+j`);
+      await expect(page.getByRole('menu', { name: 'Commands' })).toBeVisible();
+      for (const key of keys) await page.keyboard.press(key);
+    };
+    await leader('vf');
+    await expect(page.locator('.app-chrome')).toHaveAttribute('data-hack-mode', 'true');
+    await leader('vs');
+    await expect(page.locator('.app-chrome')).not.toHaveAttribute('data-hack-mode');
+    await expect(sidebar).toBeVisible();
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test('Note Details floats over the note and Escape returns to it', async () => {
+  const { app, page } = await launchFixture('standard');
+  try {
+    await page.setViewportSize({ width: 1280, height: 760 });
+    await openFixtureNote(page);
+    const editor = page.locator('.cm-content');
+    const editorWidth = async () => (await page.locator('.cm-editor').boundingBox())!.width;
+    const before = await editorWidth();
+
+    // Note Details opens from the leader menu over the editor, takes focus, and Escape returns to the note.
+    await editor.click();
+    await page.keyboard.press(`${primary}+j`);
+    await expect(page.getByRole('menu', { name: 'Commands' })).toBeVisible();
+    await page.keyboard.press('v');
+    await page.keyboard.press('d');
+    const details = page.getByRole('complementary', { name: 'Note details' });
+    await expect(details).toBeVisible();
+    await expect.poll(() => page.evaluate(() => Boolean(document.activeElement?.closest('[data-hackdesk-focus="inspector"]')))).toBe(true);
+    expect(await editorWidth()).toBe(before);
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('25-note-details-overlay.png') });
+    await page.keyboard.press('Escape');
+    await expect(details).toBeHidden();
+    await expect(editor).toBeFocused();
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test('the key hint bar follows focus, fades while typing, and can be hidden', async () => {
   const { app, page } = await launchFixture('standard');
   try {

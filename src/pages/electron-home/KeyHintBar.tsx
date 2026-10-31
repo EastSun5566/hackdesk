@@ -6,7 +6,7 @@ import type { LeaderLevel } from '@/lib/leader-keys';
 import type { ShortcutOverrides } from '@/lib/keyboard-shortcuts';
 import { cn } from '@/lib/utils';
 
-import { FOCUS_RING_CLASS } from './ui';
+import { FOCUS_RING_CLASS, HACK_MODE_HIDDEN_CLASS } from './ui';
 
 /** How long after the last keystroke the bar comes back. */
 const TYPING_PAUSE_MS = 1500;
@@ -83,6 +83,7 @@ export function KeyHintBar({
       data-typing={typing && !leader ? 'true' : undefined}
       className={cn(
         'flex h-6 shrink-0 items-center gap-4 overflow-hidden border-t border-border-default bg-background-muted px-3 text-2xs text-text-subtle transition-opacity duration-300 motion-reduce:transition-none',
+        HACK_MODE_HIDDEN_CLASS,
         typing && !leader && 'opacity-0',
       )}
     >

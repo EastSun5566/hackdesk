@@ -21,7 +21,7 @@ Press **Space** outside text editing, or **Cmd+J** on macOS or **Ctrl+J** on Win
 | N | Note | N new, R rename, D duplicate, M move to folder, X delete |
 | T | Tab | W close, S split right, U reopen closed, H / L move left / right |
 | G | Go | W switch workspace, O Quick Open, S search notes, H History, B / F back / forward |
-| V | View | S sidebar, D Note Details, K key hints |
+| V | View | S sidebar, F Hack Mode, D Note Details, K key hints |
 | A | AI | A Ask AI, Q Ask Your Notes, D dictate |
 | F | Folder | N new, R rename, X delete |
 
@@ -48,9 +48,13 @@ Open **Keyboard Shortcuts** from Help or the command palette to search bindings 
 | Focus Note Finder outside text editing | `/` | `/` |
 | Shortcut help outside text editing | `?` | `?` |
 
+## Write in Hack Mode
+
+Press **Cmd+.** on macOS or **Ctrl+.** on Windows/Linux, or **V F** in the leader menu, to enter Hack Mode. It hides the sidebar, the tabs, the note header and the key hints, and keeps only the active pane, so the note sits centered in the window. Press the same key again to leave; Escape stays with the editor. Toggling the sidebar with **Cmd+B**, searching notes with `/`, or switching workspaces leaves Hack Mode first. The palette, Quick Open and Note Details work as usual. Change the key under **Toggle Hack Mode** in **Settings → Shortcuts**.
+
 ## Move between regions
 
-Press **F6** to move through the sidebar, tabs, editor panes, and expanded Note Details. Press **Shift+F6** to move backwards. Collapsed or unavailable regions are skipped.
+Press **F6** to move through the sidebar, tabs, editor panes, and open Note Details. Press **Shift+F6** to move backwards. Collapsed or unavailable regions are skipped.
 
 To switch workspaces, choose the workspace name at the top of the sidebar, or run **Switch Workspace…** from the leader menu (**G W**) or the command palette. Up and Down move through the list, Enter switches, and Escape closes it.
 

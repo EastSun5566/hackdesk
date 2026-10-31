@@ -40,6 +40,7 @@ describe('leader keys', () => {
     expect(note.items.find(item => item.key === 's')?.disabledReason).toBe('No unsaved note changes.');
     const view = getLeaderLevel(['v'], { ...options, actionContext: { ...actionContext, keyHintsVisible: false } })!;
     expect(view.items.find(item => item.key === 'k')?.label).toBe('Show Key Hints');
+    expect(view.items.find(item => item.key === 'f')).toMatchObject({ actionId: 'toggle-hack-mode', label: 'Enter Hack Mode', shortcut: '⌘.' });
   });
 
   it('has no level past an action or for an unknown letter', () => {

@@ -387,6 +387,18 @@
     }
   }
 
+  /* Hack Mode keeps only the active pane, which then fills the window. The pane library sizes
+     its outer panel inline, so the panel and divider are hidden here rather than by a class. */
+  [data-hack-mode] [data-panel]:not(:has([data-active-pane='true'])),
+  [data-hack-mode] [data-separator] {
+    display: none !important;
+  }
+
+  /* With one pane left, the active pane's accent line has nothing to tell apart. */
+  [data-hack-mode] [data-active-pane='true']::before {
+    background-color: transparent !important;
+  }
+
 }
 
 /* Comparisons own their width without changing other dialogs. */

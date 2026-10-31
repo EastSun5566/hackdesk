@@ -54,6 +54,7 @@ export type WorkbenchActionHandlersOptions = {
   noteDirty: boolean;
   openKeyboardShortcuts: () => void;
   openLeaderMenu: () => void;
+  toggleHackMode: () => void;
   focusNextRegion: (backwards?: boolean) => boolean;
   openPalette: () => void;
   openQuickOpen: () => void;
@@ -125,6 +126,7 @@ export function useWorkbenchActionHandlers({
   noteDirty,
   openKeyboardShortcuts,
   openLeaderMenu,
+  toggleHackMode,
   focusNextRegion,
   openPalette,
   openQuickOpen,
@@ -242,6 +244,7 @@ export function useWorkbenchActionHandlers({
     },
     openKeyboardShortcuts,
     openLeaderMenu,
+    toggleHackMode,
     focusNextRegion,
     openPalette,
     openQuickOpen,
@@ -372,6 +375,7 @@ export function useWorkbenchActionHandlers({
     noteDirty,
     openKeyboardShortcuts,
     openLeaderMenu,
+    toggleHackMode,
     focusNextRegion,
     openPalette,
     openQuickOpen,

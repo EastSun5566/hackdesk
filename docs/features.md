@@ -57,6 +57,8 @@ HackDesk supports two editor panes. Use **Move Tab to Other Pane** to move a tab
 
 **Close Tab** closes the active tab and keeps the workbench open after the last tab. When prompted about unsaved changes, save or discard them before closing.
 
+To write without the rest of the workbench, press **Cmd+.** / **Ctrl+.** for [Hack Mode](./keyboard-navigation.md#write-in-hack-mode): only the active note stays, centered in the window.
+
 ## Link and embed notes
 
 HackDesk understands the ways HackMD links notes:
@@ -141,7 +143,7 @@ The inserted text stays selected. With an AI provider enabled, press **Cmd+K** a
 
 ## Edit Note Details
 
-Open **Note Details** to change the title and inspect metadata. HackMD notes also expose tags, permissions, and sharing information where supported. For a Local Vault note, Note Details shows only the notes linking to it.
+Open **Note Details** to change the title and inspect metadata. It slides in over the right side of the note, so the editor keeps its width, and takes keyboard focus; press **Escape** to close it and return to the note. HackMD notes also expose tags, permissions, and sharing information where supported. For a Local Vault note, Note Details shows only the notes linking to it.
 
 Local files and HackMD notes have different metadata. Controls reflect the selected workspace; they do not provide full team administration.
 

@@ -57,6 +57,7 @@ const HINTS: Record<KeyHintContext, HintSpec[]> = {
   ],
   inspector: [
     { keys: 'Tab', label: 'Next field' },
+    { keys: 'Esc', label: 'Close' },
     { action: 'focus-next-region', label: 'Next area' },
     { keys: 'leader', label: 'Commands' },
   ],

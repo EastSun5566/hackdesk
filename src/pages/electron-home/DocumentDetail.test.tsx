@@ -602,6 +602,30 @@ describe('DocumentDetail', () => {
     expect(onToggleInspector).toHaveBeenCalledOnce();
   });
 
+  it('shows Note Details as an overlay over the editor that Escape closes, unless a field takes Escape', () => {
+    const onToggleInspector = vi.fn();
+    renderDocumentDetail({ actions: { onToggleInspector }, layout: { inspectorCollapsed: false } });
+
+    const details = screen.getByRole('complementary', { name: 'Note details' });
+    const overlay = document.getElementById('inspector-test')!;
+    expect(overlay).toContainElement(details);
+    expect(overlay).toHaveClass('absolute');
+    expect(overlay).not.toHaveAttribute('hidden');
+
+    const field = details.querySelector<HTMLElement>('input, textarea')!;
+    field.addEventListener('keydown', event => { if (event.key === 'Escape') event.preventDefault(); }, { once: true });
+    fireEvent.keyDown(field, { key: 'Escape' });
+    expect(onToggleInspector).not.toHaveBeenCalled();
+    fireEvent.keyDown(field, { key: 'Escape' });
+    expect(onToggleInspector).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the closed Note Details out of view and reach', () => {
+    renderDocumentDetail({ layout: { inspectorCollapsed: true } });
+    expect(document.getElementById('inspector-test')).toHaveAttribute('hidden');
+    expect(screen.queryByRole('complementary', { name: 'Note details' })).toBeNull();
+  });
+
   it('uses the document toolbar focus contract for editor actions', async () => {
     renderDocumentDetail();
 

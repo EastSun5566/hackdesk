@@ -62,6 +62,7 @@ const electronActionIdSchema = z.enum([
   'rename-folder',
   'delete-folder',
   'toggle-navigator',
+  'toggle-hack-mode',
   'toggle-inspector',
   'toggle-key-hints',
   'refresh',
