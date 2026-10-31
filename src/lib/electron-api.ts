@@ -47,14 +47,13 @@ export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'e
   onboarding: AppSettings['onboarding'];
   shortcuts?: AppSettings['shortcuts'];
   keyboardNavigation?: AppSettings['keyboardNavigation'];
-  workbench?: AppSettings['workbench'];
   ai?: AppSettings['ai'];
   dictation?: AppSettings['dictation'];
   offline?: AppSettings['offline'];
   shouldShowHackmdOnboarding: boolean;
 };
 
-export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation' | 'keyboardNavigation' | 'workbench' | 'ai' | 'dictation' | 'offline'>> & {
+export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation' | 'keyboardNavigation' | 'ai' | 'dictation' | 'offline'>> & {
   hackmdApiToken?: string;
 };
 
@@ -382,6 +381,7 @@ export type ElectronActionId =
   | 'rename-folder'
   | 'delete-folder'
   | 'toggle-navigator'
+  | 'toggle-hack-mode'
   | 'toggle-inspector'
   | 'toggle-key-hints'
   | 'refresh'

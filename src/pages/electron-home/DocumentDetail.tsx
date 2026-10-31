@@ -62,7 +62,7 @@ import { NoteVersionsDialog } from './NoteVersionsDialog';
 import { ShareDialog } from './ShareDialog';
 import {
   formatDate,
-  WRITING_FADE_CLASS,
+  HACK_MODE_HIDDEN_CLASS,
 } from './ui';
 import { getLocalImageContext, LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import {
@@ -672,8 +672,8 @@ function DocumentHeader({
 
   return (
     <PanelHeader
-      className="group/document-header px-4 py-2.5"
-      actionsClassName={cn(revealActions ? undefined : DOCUMENT_ACTIONS_ON_DEMAND_CLASS, WRITING_FADE_CLASS)}
+      className={cn('group/document-header px-4 py-2.5', HACK_MODE_HIDDEN_CLASS)}
+      actionsClassName={revealActions ? undefined : DOCUMENT_ACTIONS_ON_DEMAND_CLASS}
       titleElement="div"
       actionsLabel="Document actions"
       title={(
@@ -688,7 +688,7 @@ function DocumentHeader({
         </label>
       )}
       subtitle={(
-        <span className={cn('flex flex-wrap items-center gap-1.5', WRITING_FADE_CLASS)} title={updated}>
+        <span className="flex flex-wrap items-center gap-1.5" title={updated}>
           {path.map((part, index) => (
             <span key={`${part}:${index}`} className="contents">
               {index > 0 ? <span aria-hidden="true" className="text-text-subtle/60">/</span> : null}

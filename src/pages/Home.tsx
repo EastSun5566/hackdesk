@@ -1,9 +1,8 @@
 import { KeyboardNavigation } from './electron-home/KeyboardNavigation';
-import { getElectronAction } from '@/lib/electron-actions';
+import { getElectronAction, getResolvedActionShortcut } from '@/lib/electron-actions';
 import { ActionShortcutContext } from './electron-home/ActionShortcutContext';
 import { KeyboardShortcutsDialog } from './electron-home/KeyboardShortcutsDialog';
 import { KeyHintBar } from './electron-home/KeyHintBar';
-import { useWritingFade } from './electron-home/useWritingFade';
 import { LeaderMenu } from './electron-home/LeaderMenu';
 import { getLeaderLevel } from '@/lib/leader-keys';
 import { BookSessionContext, useBookSession } from './electron-home/useBookSession';
@@ -160,11 +159,19 @@ export function Home() {
     toggleNavigatorCollapsed,
   } = panelState;
   const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
-  // Hiding the sidebar unmounts the switcher, so it must not come back open.
+  // Hack Mode hides everything but the note. It is not saved, so the app always opens as usual.
+  const [hackMode, setHackMode] = useState(false);
+  // Hiding the sidebar unmounts the switcher, so it must not come back open. In Hack Mode the
+  // sidebar is hidden with everything else, so the key leaves Hack Mode and shows it.
   const toggleSidebar = useCallback(() => {
     setWorkspaceSwitcherOpen(false);
+    if (hackMode) {
+      setHackMode(false);
+      expandNavigator();
+      return;
+    }
     toggleNavigatorCollapsed();
-  }, [toggleNavigatorCollapsed]);
+  }, [expandNavigator, hackMode, toggleNavigatorCollapsed]);
   const noteWorkspace = useNoteWorkspaceTabs(scopeStorageKey);
   const currentScopeKeyRef = useRef(scopeStorageKey);
   useLayoutEffect(() => { currentScopeKeyRef.current = scopeStorageKey; }, [scopeStorageKey]);
@@ -216,7 +223,6 @@ export function Home() {
   const openKeyboardShortcuts = useCallback(() => {
     setShortcutHelp({ region: focusedZone, target: getLastFocusedTarget() });
   }, [focusedZone, getLastFocusedTarget]);
-  useWritingFade(settingsQuery.data?.workbench?.fadeWhileTyping ?? true);
   // Note Details floats over the note: opening it moves focus inside, and closing it from inside
   // returns to the note rather than leaving focus nowhere.
   const toggleNoteDetails = useCallback(() => {
@@ -226,6 +232,21 @@ export function Home() {
     if (inspectorCollapsed) focusZone('inspector');
     else if (leavingDetails) focusZone('editor');
   }, [focusZone, inspectorCollapsed, toggleInspectorCollapsed]);
+  const toggleHackMode = useCallback(() => {
+    if (hackMode) {
+      setHackMode(false);
+      return;
+    }
+    setHackMode(true);
+    const shortcut = getResolvedActionShortcut('toggle-hack-mode', settingsQuery.data?.shortcuts, api?.platform ?? navigator.platform);
+    toast.info(shortcut ? `Hack Mode · Press ${shortcut.split(', ')[0]} to leave` : 'Hack Mode');
+    if (!document.activeElement?.closest('[data-hackdesk-focus="editor"]')) focusZone('editor');
+  }, [api?.platform, focusZone, hackMode, settingsQuery.data?.shortcuts]);
+  // Actions that need the hidden sidebar leave Hack Mode first.
+  const focusZoneShowingSidebar = useCallback((zone: Parameters<typeof focusZone>[0]) => {
+    if (zone === 'navigator') setHackMode(false);
+    focusZone(zone);
+  }, [focusZone]);
   const activeDocumentNotes = useMemo(() => (
     noteWorkspace.visibleActiveTabs
       .map(getSavedTabNoteIdentity)
@@ -651,8 +672,11 @@ export function Home() {
     focusNextTab: noteWorkspace.focusNextTab,
     focusPreviousPane: noteWorkspace.focusPreviousPane,
     focusPreviousTab: noteWorkspace.focusPreviousTab,
-    focusWorkspaceSearch,
-    focusZone,
+    focusWorkspaceSearch: () => {
+      setHackMode(false);
+      focusWorkspaceSearch();
+    },
+    focusZone: focusZoneShowingSidebar,
     importMarkdownNote: handleImportMarkdownNote,
     isSavingNote: mutations.updateNoteMutation.isPending,
     moveActiveTabToOtherPane: noteWorkspace.moveActiveTabToOtherPane,
@@ -706,9 +730,11 @@ export function Home() {
     toggleNavigator: toggleSidebar,
     toggleTheme: () => setTheme(resolvedMode === 'dark' ? 'light' : 'dark'),
     openWorkspaceSwitcher: () => {
+      setHackMode(false);
       expandNavigator();
       setWorkspaceSwitcherOpen(true);
     },
+    toggleHackMode,
     trackRecentNote,
   });
 
@@ -725,6 +751,7 @@ export function Home() {
     inspectorCollapsed,
     isSavingNote: mutations.updateNoteMutation.isPending || mutations.createDraftNoteMutation.isPending,
     keyHintsVisible: settings?.keyboardNavigation?.keyHintsVisible ?? true,
+    hackMode,
     navigatorCollapsed,
     noteDirty: activeTab && isDraftNoteTab(activeTab) ? true : noteDirty,
     scopeType: scope.type,
@@ -1019,7 +1046,7 @@ export function Home() {
   return (
     <ActionShortcutContext.Provider value={shortcutContext}>
       <KeyboardNavigation workspaceKey={scopeStorageKey} shortcuts={settings?.shortcuts} platform={api.platform} characterEnabled={settings?.keyboardNavigation?.characterShortcutsEnabled ?? true}>
-        <div className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
+        <div data-hack-mode={hackMode || undefined} className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
           <BookSessionContext.Provider value={bookSession}>
             <ElectronHomeWorkspace {...workspaceProps} backupNotice={backupNotice} />
           </BookSessionContext.Provider>

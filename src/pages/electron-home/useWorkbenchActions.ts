@@ -30,6 +30,7 @@ export type WorkbenchActionContextInput = {
   inspectorCollapsed: boolean;
   isSavingNote: boolean;
   keyHintsVisible: boolean;
+  hackMode?: boolean;
   navigatorCollapsed: boolean;
   noteDirty: boolean;
   scopeType: WorkspaceScope['type'];
@@ -91,6 +92,7 @@ export type WorkbenchActionHandlers = {
   toggleInspector: () => void;
   toggleKeyHints: () => void;
   toggleNavigator: () => void;
+  toggleHackMode: () => void;
   toggleTheme: () => void;
   renameNote: () => void;
   duplicateSelectedNote: () => void;
@@ -123,6 +125,7 @@ export function createWorkbenchActionContext({
   inspectorCollapsed,
   isSavingNote,
   keyHintsVisible,
+  hackMode,
   navigatorCollapsed,
   noteDirty,
   scopeType,
@@ -149,6 +152,7 @@ export function createWorkbenchActionContext({
     inspectorCollapsed,
     isSavingNote,
     keyHintsVisible,
+    hackMode,
     navigatorCollapsed,
     noteDirty,
     navigationBackCount: workspaceState.backStack.length,
@@ -176,6 +180,7 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     inspectorCollapsed,
     isSavingNote,
     keyHintsVisible,
+    hackMode,
     navigatorCollapsed,
     noteDirty,
     scopeType,
@@ -194,6 +199,7 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     inspectorCollapsed,
     isSavingNote,
     keyHintsVisible,
+    hackMode,
     navigatorCollapsed,
     noteDirty,
     scopeType,
@@ -211,6 +217,7 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     inspectorCollapsed,
     isSavingNote,
     keyHintsVisible,
+    hackMode,
     navigatorCollapsed,
     noteDirty,
     scopeType,
@@ -312,6 +319,9 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'toggle-navigator':
       handlers.toggleNavigator();
+      break;
+    case 'toggle-hack-mode':
+      handlers.toggleHackMode();
       break;
     case 'toggle-inspector':
       handlers.toggleInspector();

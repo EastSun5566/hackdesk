@@ -19,13 +19,9 @@ const EDITOR_MODE_OPTIONS: {
 export function EditorSettingsPanel({
   editorMode,
   onEditorModeChange,
-  fadeWhileTyping,
-  onFadeWhileTypingChange,
 }: {
   editorMode: EditorMode;
   onEditorModeChange: (mode: EditorMode) => void;
-  fadeWhileTyping: boolean;
-  onFadeWhileTypingChange: (fade: boolean) => void;
 }) {
   return (
     <SettingsSection title="Editor">
@@ -58,11 +54,6 @@ export function EditorSettingsPanel({
         ))}
         </RadioGroup>
       </fieldset>
-      <label className="mt-4 flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={fadeWhileTyping} onChange={event => onFadeWhileTypingChange(event.target.checked)} />
-        Fade the workbench while typing
-      </label>
-      <p className="ml-6 mt-1 text-xs text-text-subtle">The sidebar, tabs and key hints come back when you move the pointer or press a modifier key.</p>
     </SettingsSection>
   );
 }

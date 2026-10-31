@@ -8,7 +8,7 @@ Move through the workbench, find commands, and discover available actions withou
 
 ## See keys for where you are
 
-A line at the bottom of the window lists the keys that matter where focus is: moving and opening notes in the folder tree, filtering in the search box, switching tabs, or the commands to reach from a note. Keys follow your current shortcuts. While you type in a note, the line fades along with the sidebar, the tabs and the note's buttons, so only your text stays. They come back when you move the pointer, press Cmd, Ctrl or Option, or leave the note; a pause does not bring them back. Turn this off with **Fade the workbench while typing** in **Settings → Editor**. Choose **? Shortcuts** at its right end for the full list.
+A line at the bottom of the window lists the keys that matter where focus is: moving and opening notes in the folder tree, filtering in the search box, switching tabs, or the commands to reach from a note. Keys follow your current shortcuts. The line fades while you type in a note and comes back when you pause, move the pointer, or press a modifier. Choose **? Shortcuts** at its right end for the full list.
 
 To hide the line, choose **Hide Key Hints** from the Command Palette or the View menu, or turn off **Show key hints at the bottom of the window** in **Settings → Shortcuts**.
 
@@ -21,7 +21,7 @@ Press **Space** outside text editing, or **Cmd+J** on macOS or **Ctrl+J** on Win
 | N | Note | N new, R rename, D duplicate, M move to folder, X delete |
 | T | Tab | W close, S split right, U reopen closed, H / L move left / right |
 | G | Go | W switch workspace, O Quick Open, S search notes, H History, B / F back / forward |
-| V | View | S sidebar, D Note Details, K key hints |
+| V | View | S sidebar, F Hack Mode, D Note Details, K key hints |
 | A | AI | A Ask AI, Q Ask Your Notes, D dictate |
 | F | Folder | N new, R rename, X delete |
 
@@ -47,6 +47,10 @@ Open **Keyboard Shortcuts** from Help or the command palette to search bindings 
 | Previous workbench region | Shift+F6 | Shift+F6 |
 | Focus Note Finder outside text editing | `/` | `/` |
 | Shortcut help outside text editing | `?` | `?` |
+
+## Write in Hack Mode
+
+Press **Cmd+.** on macOS or **Ctrl+.** on Windows/Linux, or **V F** in the leader menu, to enter Hack Mode. It hides the sidebar, the tabs, the note header and the key hints, and keeps only the active pane, so the note sits centered in the window. Press the same key again to leave; Escape stays with the editor. Toggling the sidebar with **Cmd+B**, searching notes with `/`, or switching workspaces leaves Hack Mode first. The palette, Quick Open and Note Details work as usual. Change the key under **Toggle Hack Mode** in **Settings → Shortcuts**.
 
 ## Move between regions
 

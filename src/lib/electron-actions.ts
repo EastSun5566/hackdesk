@@ -35,6 +35,8 @@ export type ElectronActionContext = {
   bookContentsHidden: boolean;
   hasLocalVault: boolean;
   keyHintsVisible: boolean;
+  /** Hack Mode leaves only the note, centered in the window. */
+  hackMode?: boolean;
 };
 
 export type ElectronActionWhen = (context: ElectronActionContext) => boolean;
@@ -763,6 +765,18 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     defaultKeybinding: 'mod+b',
     shortcut: '⌘B',
     menuAccelerator: 'CmdOrCtrl+B',
+  },
+  {
+    id: 'toggle-hack-mode',
+    label: 'Toggle Hack Mode',
+    description: 'Leave only the note, centered in the window, without the sidebar, tabs, header or key hints.',
+    keywords: ['hack mode', 'focus', 'zen', 'distraction free', 'writing', 'hide'],
+    category: 'view',
+    scope: 'global',
+    defaultKeybinding: 'mod+.',
+    shortcut: '⌘.',
+    menuAccelerator: 'CmdOrCtrl+.',
+    getLabel: (context) => (context.hackMode ? 'Leave Hack Mode' : 'Enter Hack Mode'),
   },
   {
     id: 'toggle-inspector',

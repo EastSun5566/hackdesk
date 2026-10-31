@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { toast } from '@/components/ui/toast';
 
 import type {
   DocumentSummary,
@@ -2181,6 +2182,28 @@ describe('Home native-feel behavior', () => {
 
     expect(await screen.findByRole('button', { name: 'Expand sidebar' })).toHaveAttribute('aria-expanded', 'false');
     expect(window.document.getElementById('note-navigator-panel')).toHaveStyle({ '--panel-width': '0px' });
+  });
+
+  it('enters and leaves Hack Mode with Cmd+., and Cmd+B leaves it with the sidebar shown', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    const chrome = () => window.document.querySelector('.app-chrome')!;
+    expect(chrome()).not.toHaveAttribute('data-hack-mode');
+
+    const info = vi.spyOn(toast, 'info');
+    fireEvent.keyDown(window, { key: '.', metaKey: true });
+    expect(chrome()).toHaveAttribute('data-hack-mode', 'true');
+    expect(info).toHaveBeenCalledWith('Hack Mode · Press ⌘. to leave');
+    info.mockRestore();
+    fireEvent.keyDown(window, { key: '.', metaKey: true });
+    expect(chrome()).not.toHaveAttribute('data-hack-mode');
+
+    fireEvent.keyDown(window, { key: '.', metaKey: true });
+    fireEvent.keyDown(window, { key: 'b', metaKey: true });
+    expect(chrome()).not.toHaveAttribute('data-hack-mode');
+    expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('names the sidebar landmark and does not reopen the switcher after hiding the sidebar with it open', async () => {

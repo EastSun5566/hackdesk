@@ -15,8 +15,6 @@ describe('settings helpers', () => {
     expect(parseStoredSettings('{"title":"HackDesk","keyboardNavigation":{"characterShortcutsEnabled":false}}').keyboardNavigation.characterShortcutsEnabled).toBe(false);
     // Settings saved before key hints existed show them.
     expect(parseStoredSettings('{"title":"HackDesk","keyboardNavigation":{"characterShortcutsEnabled":false}}').keyboardNavigation.keyHintsVisible).toBe(true);
-    expect(parseStoredSettings('{"title":"HackDesk"}').workbench.fadeWhileTyping).toBe(true);
-    expect(parseStoredSettings('{"title":"HackDesk","workbench":{"fadeWhileTyping":"no"}}').workbench.fadeWhileTyping).toBe(true);
   });
   it('parses valid settings content', () => {
     expect(parseSettings('{"title":"Workspace"}')).toEqual({
@@ -28,7 +26,6 @@ describe('settings helpers', () => {
       editor: defaultSettings.editor,
       shortcuts: defaultSettings.shortcuts,
       keyboardNavigation: defaultSettings.keyboardNavigation,
-      workbench: defaultSettings.workbench,
       workspaceNavigation: defaultSettings.workspaceNavigation,
       ai: defaultSettings.ai,
       dictation: defaultSettings.dictation,
@@ -102,7 +99,6 @@ describe('settings helpers', () => {
       editor: defaultSettings.editor,
       shortcuts: defaultSettings.shortcuts,
       keyboardNavigation: defaultSettings.keyboardNavigation,
-      workbench: defaultSettings.workbench,
       workspaceNavigation: defaultSettings.workspaceNavigation,
       ai: defaultSettings.ai,
       dictation: defaultSettings.dictation,
@@ -333,9 +329,6 @@ describe('settings helpers', () => {
   "keyboardNavigation": {
     "characterShortcutsEnabled": true,
     "keyHintsVisible": true
-  },
-  "workbench": {
-    "fadeWhileTyping": true
   },
   "workspaceNavigation": {
     "pinnedTeamIds": null

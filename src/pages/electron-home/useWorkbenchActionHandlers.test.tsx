@@ -69,6 +69,7 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     chooseLocalVault: vi.fn(),
     toggleKeyHints: vi.fn(),
     openLeaderMenu: vi.fn(),
+    toggleHackMode: vi.fn(),
     copyNoteLink: vi.fn(),
     copyNoteMarkdownLink: vi.fn(),
     duplicateNote: vi.fn(),

@@ -95,6 +95,10 @@ describe('electron action registry', () => {
       menuAccelerator: 'CmdOrCtrl+B',
     });
     expect(getElectronAction('focus-workspace')).toMatchObject({ label: 'Switch Workspace…', scope: 'global' });
+    expect(getResolvedActionShortcut('toggle-hack-mode', undefined, 'darwin')).toBe('⌘.');
+    expect(getResolvedActionShortcut('toggle-hack-mode', undefined, 'win32')).toBe('Ctrl+.');
+    expect(getActionLabel(getElectronAction('toggle-hack-mode'), { ...baseContext, hackMode: true })).toBe('Leave Hack Mode');
+    expect(getActionLabel(getElectronAction('toggle-hack-mode'), baseContext)).toBe('Enter Hack Mode');
     expect(getElectronAction('focus-workspace').defaultKeybinding).toBeUndefined();
     expect(getElectronAction('export-debug-logs')).toMatchObject({
       label: 'Export Debug Logs',

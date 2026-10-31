@@ -1345,7 +1345,66 @@ test('Settings search jumps to fields and held navigation stays inside the dialo
   } finally { await stopApp(app); }
 });
 
-test('the fade can be turned off, and Note Details floats over the note', async () => {
+test('Hack Mode leaves only the active note, centered, until the same key is pressed again', async () => {
+  const { app, page } = await launchFixture('vim', true);
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openFixtureNote(page);
+    await page.getByRole('button', { name: 'Pane actions', exact: true }).press('Enter');
+    await page.getByRole('menuitem', { name: 'Split Right', exact: true }).press('Enter');
+    await expect(page.locator('.cm-content')).toHaveCount(2);
+    const sidebar = page.locator('#note-navigator-panel');
+    const sidebarWidth = (await sidebar.boundingBox())!.width;
+    const chrome = [
+      page.getByRole('toolbar', { name: 'Application controls' }),
+      page.getByRole('navigation', { name: 'Open documents' }),
+      sidebar,
+      page.getByRole('note', { name: 'Keys you can press' }),
+      page.locator('[data-active-pane="true"] header').first(),
+    ];
+
+    const editor = page.locator('[data-active-pane="true"] .cm-content');
+    await editor.click();
+    await page.keyboard.press(`${primary}+.`);
+    await expect(page.locator('.app-chrome')).toHaveAttribute('data-hack-mode', 'true');
+    for (const part of chrome) await expect(part).toBeHidden();
+    await expect(page.locator('section[data-document-pane-id]:visible')).toHaveCount(1);
+    await expect(editor).toBeFocused();
+    // The note's column is centered in the window.
+    await expect.poll(async () => {
+      const box = (await editor.boundingBox())!;
+      return Math.abs(box.x + box.width / 2 - 720);
+    }).toBeLessThan(16);
+    // The top bar stays as a blank strip, so the window can still be dragged, and the accent line clears.
+    await expect(page.locator('.app-topbar')).toBeVisible();
+    await expect.poll(() => page.locator('[data-active-pane="true"]').evaluate(element => getComputedStyle(element, '::before').backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+    // Vim's Escape stays with the editor.
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.app-chrome')).toHaveAttribute('data-hack-mode', 'true');
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('27-hack-mode.png') });
+
+    await page.keyboard.press(`${primary}+.`);
+    await expect(page.locator('.app-chrome')).not.toHaveAttribute('data-hack-mode');
+    for (const part of chrome) await expect(part).toBeVisible();
+    await expect(page.locator('section[data-document-pane-id]:visible')).toHaveCount(2);
+    expect((await sidebar.boundingBox())!.width).toBe(sidebarWidth);
+
+    // The leader menu enters it too, and Cmd+B leaves it with the sidebar shown.
+    await editor.click();
+    await page.keyboard.press(`${primary}+j`);
+    await expect(page.getByRole('menu', { name: 'Commands' })).toBeVisible();
+    await page.keyboard.press('v');
+    await page.keyboard.press('f');
+    await expect(page.locator('.app-chrome')).toHaveAttribute('data-hack-mode', 'true');
+    await page.keyboard.press(`${primary}+b`);
+    await expect(page.locator('.app-chrome')).not.toHaveAttribute('data-hack-mode');
+    await expect(sidebar).toBeVisible();
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test('Note Details floats over the note and Escape returns to it', async () => {
   const { app, page } = await launchFixture('standard');
   try {
     await page.setViewportSize({ width: 1280, height: 760 });
@@ -1368,25 +1427,7 @@ test('the fade can be turned off, and Note Details floats over the note', async 
     await page.keyboard.press('Escape');
     await expect(details).toBeHidden();
     await expect(editor).toBeFocused();
-
-    // With the setting off, typing leaves the workbench in view.
-    await page.keyboard.press(`${primary}+,`);
-    const settings = page.getByRole('dialog', { name: 'Settings', exact: true });
-    await settings.getByRole('tab', { name: 'Editor', exact: true }).click();
-    await settings.getByRole('checkbox', { name: 'Fade the workbench while typing' }).uncheck();
-    await settings.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(settings).toBeHidden();
-    await editor.click();
-    await page.keyboard.type('still visible');
-    await page.waitForTimeout(400);
-    expect(await page.locator('.app-topbar').evaluate(element => getComputedStyle(element).opacity)).toBe('1');
-    expect(await page.evaluate(() => document.documentElement.dataset.writing)).toBeUndefined();
   } finally {
-    // Typing dirties the note; approve only the fixture cleanup.
-    await app.evaluate(({ ipcMain }, channel) => {
-      ipcMain.removeHandler(channel);
-      ipcMain.handle(channel, () => ({ confirmed: true }));
-    }, ELECTRON_CHANNELS.appConfirm);
     await stopApp(app);
   }
 });
@@ -1403,20 +1444,10 @@ test('the key hint bar follows focus, fades while typing, and can be hidden', as
     await page.locator('.cm-content').click();
     await page.keyboard.press('End');
     await page.keyboard.type(' typed');
-    // The bar fades with the rest of the workbench and returns when the pointer moves.
-    const opacity = (locator: Locator) => locator.evaluate(element => getComputedStyle(element).opacity);
-    const chrome = [bar, page.locator('.app-topbar'), page.locator('#note-navigator-panel')];
-    for (const part of chrome) await expect.poll(() => opacity(part)).toBe('0');
-    await page.waitForTimeout(1800);
-    await expect.poll(() => opacity(bar)).toBe('0');
+    await expect(bar).toHaveAttribute('data-typing', 'true');
     await page.mouse.move(400, 300);
     await page.mouse.move(420, 320);
-    for (const part of chrome) await expect.poll(() => opacity(part)).toBe('1');
-    await page.keyboard.type('x');
-    await expect.poll(() => opacity(bar)).toBe('0');
-    await page.keyboard.down(primary);
-    await page.keyboard.up(primary);
-    await expect.poll(() => opacity(bar)).toBe('1');
+    await expect(bar).not.toHaveAttribute('data-typing');
     await expect(bar).toContainText('Open note');
 
     await bar.getByRole('button', { name: /Shortcuts/ }).click();

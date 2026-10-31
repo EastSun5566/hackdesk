@@ -41,7 +41,7 @@ export const LEADER_KEYS: Record<string, LeaderEntry> = {
   v: {
     label: 'View',
     keys: {
-      s: 'toggle-navigator', d: 'toggle-inspector', t: 'toggle-theme', k: 'toggle-key-hints',
+      s: 'toggle-navigator', f: 'toggle-hack-mode', d: 'toggle-inspector', t: 'toggle-theme', k: 'toggle-key-hints',
       c: 'toggle-book-contents',
     },
   },

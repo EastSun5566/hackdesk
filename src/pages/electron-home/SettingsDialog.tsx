@@ -92,10 +92,9 @@ function SettingsDialogContent({
     shortcuts: settings?.shortcuts ?? defaultSettings.shortcuts,
     characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true,
     keyHintsVisible: settings?.keyboardNavigation?.keyHintsVisible ?? true,
-    fadeWhileTyping: settings?.workbench?.fadeWhileTyping ?? true,
   }));
   const appearanceController = useThemeAppearanceDraft({ showTypography: true });
-  const { editorMode, fadeWhileTyping, shortcuts, characterShortcutsEnabled, keyHintsVisible, title, token, tokenTest, tokenVisible } = formState;
+  const { editorMode, shortcuts, characterShortcutsEnabled, keyHintsVisible, title, token, tokenTest, tokenVisible } = formState;
 
   useEffect(() => {
     const target = focusRequest?.target;
@@ -146,7 +145,6 @@ function SettingsDialogContent({
       onSave({
         title: title.trim(),
         editor: { mode: editorMode },
-        workbench: { fadeWhileTyping },
       });
       return;
     }
@@ -223,7 +221,6 @@ function SettingsDialogContent({
       shortcuts: defaultSettings.shortcuts,
       characterShortcutsEnabled: true,
       keyHintsVisible: true,
-      fadeWhileTyping: true,
     });
     setAppearance(defaultSettings.appearance);
     onSave({
@@ -233,7 +230,6 @@ function SettingsDialogContent({
       editor: defaultSettings.editor,
       shortcuts: defaultSettings.shortcuts,
       keyboardNavigation: defaultSettings.keyboardNavigation,
-      workbench: defaultSettings.workbench,
     });
   };
 
@@ -246,7 +242,6 @@ function SettingsDialogContent({
         shortcuts: settings?.shortcuts ?? defaultSettings.shortcuts,
         characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true,
         keyHintsVisible: settings?.keyboardNavigation?.keyHintsVisible ?? true,
-        fadeWhileTyping: settings?.workbench?.fadeWhileTyping ?? true,
       }));
     }
     onOpenChange(nextOpen);
@@ -306,8 +301,6 @@ function SettingsDialogContent({
                       ...current,
                       editorMode: nextEditorMode,
                     }))}
-                    fadeWhileTyping={fadeWhileTyping}
-                    onFadeWhileTypingChange={(fade) => setFormState((current) => ({ ...current, fadeWhileTyping: fade }))}
                   />
                 </TabsContent>
 
