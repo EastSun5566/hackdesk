@@ -187,15 +187,17 @@ describe('FolderNavigator', () => {
     const { props } = renderFolderNavigator({ finderState: { ...DEFAULT_NOTE_FINDER_STATE, query: 'note' } });
     const search = screen.getByPlaceholderText('Search notes');
     const results = within(screen.getByRole('list', { name: 'Search results' })).getAllByRole('listitem');
-    const rowId = (index: number) => results[index].querySelector('[data-folder-tree-kind="note"]')!.id;
+    const highlighted = () => results.findIndex(result => result.querySelector('[data-folder-tree-kind="note"]')!.id !== '');
+    const status = screen.getByRole('status');
     search.focus();
 
-    expect(search).toHaveAttribute('role', 'combobox');
-    expect(search).toHaveAttribute('aria-activedescendant', rowId(0));
+    expect(highlighted()).toBe(0);
+    expect(status).toHaveTextContent('Nested note, 1 of 2. Enter opens it.');
     fireEvent.keyDown(search, { key: 'ArrowDown' });
-    expect(search).toHaveAttribute('aria-activedescendant', rowId(1));
+    expect(highlighted()).toBe(1);
+    expect(status).toHaveTextContent('Loose note, 2 of 2.');
     fireEvent.keyDown(search, { key: 'n', ctrlKey: true });
-    expect(search).toHaveAttribute('aria-activedescendant', rowId(0));
+    expect(highlighted()).toBe(0);
     fireEvent.keyDown(search, { key: 'p', ctrlKey: true });
     fireEvent.keyDown(search, { key: 'Enter' });
 
@@ -209,7 +211,6 @@ describe('FolderNavigator', () => {
     search.focus();
     fireEvent.keyDown(search, { key: 'ArrowDown' });
     await waitFor(() => expect(document.activeElement).toHaveAttribute('role', 'treeitem'));
-    expect(search).not.toHaveAttribute('aria-activedescendant');
   });
 
   it('renders loading skeleton while notes load', () => {

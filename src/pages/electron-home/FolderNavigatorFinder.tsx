@@ -88,9 +88,14 @@ function FilterChip({
 
 export const NOTE_FINDER_RESULTS_ID = 'note-finder-results';
 
-/** The finder's result list, driven from the search box while focus stays there. */
+/**
+ * The finder's result list, driven from the search box while focus stays there. Result rows hold
+ * their own controls, so they are not listbox options; the highlight is announced instead.
+ */
 export type NoteFinderResults = {
   activeId?: string;
+  /** What a screen reader hears when the highlight moves, such as "Plan, 2 of 5. Enter opens it." */
+  announcement: string;
   move: (step: 1 | -1) => void;
   open: () => void;
 };
@@ -171,11 +176,7 @@ export function NoteFinderToolbar({
           <span className="sr-only">Search notes</span>
           <input
             name="noteSearch"
-            role="combobox"
-            aria-expanded={Boolean(results)}
             aria-controls={results ? NOTE_FINDER_RESULTS_ID : undefined}
-            aria-activedescendant={results?.activeId}
-            aria-autocomplete="list"
             value={state.query}
             onChange={(event) => updateState({ query: event.target.value })}
             onKeyDown={handleSearchKeyDown}
@@ -195,6 +196,7 @@ export function NoteFinderToolbar({
             </Button>
           ) : null}
         </label>
+        <span role="status" aria-live="polite" className="sr-only">{results?.announcement}</span>
 
         <Toolbar aria-label="Note finder controls" className="gap-1.5">
           <DropdownMenu>

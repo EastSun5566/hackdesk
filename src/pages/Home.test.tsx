@@ -2099,7 +2099,7 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findRenderedNoteTitle();
-    const searchInput = screen.getByRole('combobox', { name: 'Search notes' });
+    const searchInput = screen.getByRole('textbox', { name: 'Search notes' });
     fireEvent.keyDown(window, { key: 'f', metaKey: true, shiftKey: true });
     expect(searchInput).not.toHaveFocus();
     fireEvent.keyDown(window, { key: '/' });

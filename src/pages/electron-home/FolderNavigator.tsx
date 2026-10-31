@@ -219,6 +219,9 @@ function ExpandedNavigator({
   const highlightedEntry = highlightedIndex >= 0 ? entries[highlightedIndex] : undefined;
   const results: NoteFinderResults | undefined = isFinderMode ? {
     activeId: highlightedEntry ? finderResultId(highlightedEntry) : undefined,
+    announcement: highlightedEntry
+      ? `${highlightedEntry.note.title || 'Untitled'}, ${highlightedIndex + 1} of ${entries.length}. Enter opens it.`
+      : '',
     move: (step) => {
       if (!entries.length) return;
       setHighlight({ key: resultsKey, index: (Math.max(highlightedIndex, 0) + step + entries.length) % entries.length });
