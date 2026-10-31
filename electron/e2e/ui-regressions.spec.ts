@@ -444,13 +444,17 @@ test('one sidebar switches workspaces from its title, with Trash and Settings at
     await expect(trigger).toHaveAccessibleName('Switch workspace, current: Local Vault');
     const footer = page.getByTestId('sidebar-footer');
     await expect(footer.getByRole('button', { name: 'Trash', exact: true })).toBeVisible();
-    await holdForHints(page, trigger, async () => await page.locator('[data-navigation-hint="workspace:switcher"], [data-navigation-hint="workspace:trash"]').count() === 2);
-    // Holding the key also shows which number opens which workspace, beside the sidebar.
+    // Holding the key also shows which number opens which workspace, beside the sidebar. Hints and the
+    // card cancel while the page still changes, so check them together in one look.
+    const peekShortcut = process.platform === 'darwin' ? '⌘2' : 'Ctrl+2';
+    await holdForHints(page, trigger, () => page.evaluate(({ name, shortcut }) => {
+      const hints = document.querySelectorAll('[data-navigation-hint="workspace:switcher"], [data-navigation-hint="workspace:trash"]').length;
+      const card = document.querySelector('[data-workspace-peek]');
+      const row = card?.querySelectorAll('li')[1]?.textContent ?? '';
+      const sidebar = document.getElementById('note-navigator-panel')!.getBoundingClientRect();
+      return hints === 2 && row.includes(name) && row.includes(shortcut) && card!.getBoundingClientRect().left >= sidebar.right;
+    }, { name: teamNames[0], shortcut: peekShortcut }));
     const peek = page.locator('[data-workspace-peek]');
-    await expect(peek).toBeVisible();
-    await expect(peek.locator('li').nth(1)).toContainText(teamNames[0]);
-    await expect(peek.locator('li').nth(1)).toContainText(process.platform === 'darwin' ? '⌘2' : 'Ctrl+2');
-    expect((await peek.boundingBox())!.x).toBeGreaterThanOrEqual((await page.locator('#note-navigator-panel').boundingBox())!.width);
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('24-workspace-peek.png') });
     await page.keyboard.up(primary);
     await expect(peek).toHaveCount(0);
