@@ -53,7 +53,7 @@ export function LeaderMenu({
         else close();
         return;
       }
-      if (event.key.length === 1) choose(event.key.toLowerCase());
+      if (event.key.length === 1 && event.key !== ' ') choose(event.key.toLowerCase());
     };
     const pointerdown = (event: PointerEvent) => {
       if (!menuRef.current?.contains(event.target as Node)) latest.current.onClose();

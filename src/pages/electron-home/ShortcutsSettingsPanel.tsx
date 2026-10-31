@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { RotateCcw, Search } from 'lucide-react';
 
 import {
-  DEFAULT_ACTION_KEYBINDINGS,
   ELECTRON_ACTIONS,
   getResolvedActionShortcut,
   resolveWorkbenchShortcut,
@@ -16,7 +15,6 @@ import {
   isReservedShortcutConfig,
   isValidCustomShortcutConfig,
   recordShortcutFromEvent,
-  resolveActionShortcut,
   type ShortcutOverrides,
 } from '@/lib/keyboard-shortcuts';
 import { cn } from '@/lib/utils';
@@ -102,7 +100,7 @@ export function ShortcutsSettingsPanel({
   const resolvedShortcuts = useMemo(() => Object.fromEntries(
     EDITABLE_ACTIONS.map((action) => [
       action.id,
-      resolveActionShortcut(action.id, DEFAULT_ACTION_KEYBINDINGS, shortcuts),
+      resolveWorkbenchShortcut(action.id, shortcuts),
     ]),
   ) as Partial<Record<ElectronActionId, string>>, [shortcuts]);
 

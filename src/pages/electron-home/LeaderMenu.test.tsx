@@ -71,6 +71,8 @@ describe('LeaderMenu', () => {
     expect(screen.getByRole('status')).toHaveTextContent('No unsaved note changes.');
     press('z');
     expect(screen.getByRole('status')).toHaveTextContent('Z is not a command here.');
+    press(' ');
+    expect(screen.getByRole('status')).toHaveTextContent('Z is not a command here.');
     expect(onRun).not.toHaveBeenCalled();
     expect(screen.getByRole('menu')).toBeVisible();
   });
