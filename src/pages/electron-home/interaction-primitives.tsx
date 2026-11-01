@@ -347,7 +347,7 @@ export function PanelHeader({
   className?: string;
 }) {
   return (
-    <header className={cn('border-b border-border-default px-4 py-3', className)}>
+    <header className={cn('px-4 py-3', className)}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           {/* A control as the title truncates itself, so its focus ring is not clipped here. */}
@@ -475,7 +475,8 @@ function SectionHeader({
         type="button"
         aria-label={typeof title === 'string' ? [title, dirty && 'Unsaved changes', typeof subtitle === 'string' && subtitle].filter(Boolean).join(', ') : undefined}
         className={cn(
-          'flex min-w-0 flex-1 items-center gap-2 rounded-md text-left text-xs font-semibold uppercase text-text-subtle transition-colors hover:text-text-default',
+          // The row itself is the target: sections are told apart by spacing, not lines.
+          '-mx-2 flex min-h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left text-xs font-semibold uppercase text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default',
           FOCUS_RING_CLASS,
         )}
       >
@@ -518,7 +519,7 @@ export function CollapsibleSection({
       defaultOpen={defaultOpen}
       onOpenChange={onOpenChange}
       render={<section />}
-      className={cn('border-b border-border-default/70 py-2.5 last:border-b-0', className)}
+      className={cn('py-0.5', className)}
     >
       <SectionHeader
         title={title}
@@ -527,7 +528,7 @@ export function CollapsibleSection({
         actions={actions}
       />
       <CollapsibleContent>
-        <div className={cn('space-y-2.5 pt-2.5', contentClassName)}>
+        <div className={cn('space-y-2.5 pb-3 pt-1.5', contentClassName)}>
           {children}
         </div>
       </CollapsibleContent>

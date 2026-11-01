@@ -202,8 +202,12 @@ test('inline preview follows scrolling and reveals source without losing edits',
     const lastLine = content.locator('.cm-line').filter({ hasText: 'bottom' });
     await expect(lastLine).toHaveText('**bottom** and [link](https://example.com)');
     await page.keyboard.press(`${primary}+Home`);
-    await page.locator('.cm-scroller').evaluate((element) => { element.scrollTop = element.scrollHeight; });
-    await expect(lastLine).toHaveText('bottom and link');
+    // The editor renders only visible lines and measures them as they appear, so the bottom can move
+    // after the first jump; keep scrolling until the last line is drawn.
+    await expect(async () => {
+      await page.locator('.cm-scroller').evaluate((element) => { element.scrollTop = element.scrollHeight; });
+      await expect(lastLine).toHaveText('bottom and link', { timeout: 500 });
+    }).toPass();
     await lastLine.click();
     await expect(lastLine).toHaveText('**bottom** and [link](https://example.com)');
     await page.keyboard.press(`${primary}+End`);
@@ -433,8 +437,14 @@ test('a keyboard-only tour of the main flows in light theme at a narrow window, 
     const [start, ...rest] = visited;
     expect(rest).toEqual(['navigator', 'tabs', 'editor note-pane-primary', start, 'navigator']);
 
-    // A folder in the note's location opens it in the sidebar and moves focus there.
-    const deepLocation = page.getByRole('navigation', { name: 'Note location' }).filter({ hasText: 'Folders only' });
+    // A folder in the note's location opens it in the sidebar and moves focus there. Open a note
+    // in a folder first, rather than relying on which note the fixture opened.
+    await page.getByRole('textbox', { name: 'Search notes' }).focus();
+    await page.keyboard.type('Deep');
+    await expect(page.getByRole('status').filter({ hasText: 'Deep, 1 of 1' })).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('tab', { name: /^Deep(?:, .+)?$/ })).toHaveAttribute('aria-selected', 'true');
+    const deepLocation = page.locator('[data-active-pane="true"]').getByRole('navigation', { name: 'Note location' });
     await expect(deepLocation).toHaveText(/Folders only\s*\/\s*Last\s*\/\s*Deep$/);
     await deepLocation.getByRole('button', { name: 'Last', exact: true }).focus();
     await page.keyboard.press('Enter');
@@ -452,7 +462,7 @@ test('a keyboard-only tour of the main flows in light theme at a narrow window, 
   }
 });
 
-test('workspace switcher rows, one-pixel boundaries and full-height Settings workbench', async () => {
+test('workspace switcher rows, gap boundaries and full-height Settings workbench', async () => {
   const testInfo = test.info();
   const { app, page } = await launchFixture();
   try {
@@ -481,11 +491,12 @@ test('workspace switcher rows, one-pixel boundaries and full-height Settings wor
     await openFixtureNote(page);
     const sash = page.getByRole('button', { name: /^Resize sidebar.*Current width/ });
     await expect(sash).toHaveCount(1);
-    expect((await sash.boundingBox())!.width).toBe(1);
+    // The resize handles are the gaps between surfaces.
+    expect((await sash.boundingBox())!.width).toBe(6);
     const sidebar = page.locator('#note-navigator-panel');
     const sashBounds = (await sash.boundingBox())!;
     const initialWidth = (await sidebar.boundingBox())!.width;
-    await page.mouse.move(sashBounds.x - 2, sashBounds.y + 100);
+    await page.mouse.move(sashBounds.x + 3, sashBounds.y + 100);
     await page.mouse.down();
     await page.mouse.move(sashBounds.x + 30, sashBounds.y + 100);
     await page.mouse.up();
@@ -494,7 +505,7 @@ test('workspace switcher rows, one-pixel boundaries and full-height Settings wor
     await page.keyboard.press(`${primary}+\\`);
     const separator = page.getByRole('separator', { name: /Resize document panes/ });
     await expect(separator).toBeVisible();
-    expect((await separator.boundingBox())!.width).toBe(1);
+    expect((await separator.boundingBox())!.width).toBe(6);
     await separator.focus();
     await page.keyboard.press('ArrowLeft');
     await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('04-document-panes.png') });
@@ -1556,6 +1567,68 @@ test('Hack Mode leaves only the active note, centered, until the same key is pre
     await leader('vs');
     await expect(page.locator('.app-chrome')).not.toHaveAttribute('data-hack-mode');
     await expect(sidebar).toBeVisible();
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test('the workbench draws no divider lines at rest, and lines show only while content scrolls under them', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1100, height: 620 });
+    await openFixtureNote(page);
+    const pane = page.locator('[data-active-pane="true"]');
+    const lineOpacity = (selector: string, pseudo: '::before' | '::after') => page.evaluate(([selector, pseudo]) => {
+      const element = document.querySelector(selector);
+      return element ? Number(getComputedStyle(element, pseudo).opacity) : -1;
+    }, [selector, pseudo] as const);
+
+    // The top bar, key hints and the sidebar's resize handle draw nothing of their own.
+    const chrome = await page.evaluate(() => {
+      const style = (selector: string) => getComputedStyle(document.querySelector(selector)!);
+      return {
+        topBar: style('.app-topbar').borderBottomWidth,
+        keyHints: style('footer[aria-label="Keys you can press"]').borderTopWidth,
+        sash: style('button[aria-label^="Resize sidebar"]').backgroundColor,
+      };
+    });
+    expect(chrome).toEqual({ topBar: '0px', keyHints: '0px', sash: 'rgba(0, 0, 0, 0)' });
+
+    // The note header shows its line only once the note scrolls under it.
+    const header = '[data-active-pane="true"] header.scroll-edge-top';
+    await expect.poll(() => lineOpacity(header, '::after')).toBe(0);
+    await pane.locator('.cm-content').click();
+    await page.keyboard.press(`${primary}+End`);
+    await page.keyboard.insertText(Array.from({ length: 80 }, (_, line) => `Line ${line + 1}`).join('\n'));
+    await expect.poll(() => lineOpacity(header, '::after')).toBe(1);
+    await pane.locator('.cm-scroller').evaluate(scroller => scroller.scrollTo({ top: 0 }));
+    await expect.poll(() => lineOpacity(header, '::after')).toBe(0);
+
+    // The sidebar footer shows its line while the list continues under it, and not at the end.
+    const footer = '[data-testid="sidebar-footer"]';
+    const list = page.locator('#note-navigator-panel .scroll-edges-source');
+    await list.evaluate(element => element.scrollTo({ top: 0 }));
+    await expect.poll(() => lineOpacity(footer, '::before')).toBe(1);
+    await list.evaluate(element => element.scrollTo({ top: element.scrollHeight }));
+    await expect.poll(() => lineOpacity(footer, '::before')).toBe(0);
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('29-fewer-dividers.png') });
+
+    // Split panes are two cards a gap apart; only the active one is outlined in the accent color.
+    await page.keyboard.press(`${primary}+\\`);
+    const panes = page.locator('[data-document-pane-id][data-active-pane]');
+    await expect(panes).toHaveCount(2);
+    const layout = await panes.evaluateAll(elements => elements.map(element => ({
+      left: element.getBoundingClientRect().left,
+      right: element.getBoundingClientRect().right,
+      active: element.getAttribute('data-active-pane') === 'true',
+      border: getComputedStyle(element).borderTopColor,
+      radius: getComputedStyle(element).borderTopLeftRadius,
+    })));
+    expect(layout[1].left - layout[0].right).toBeGreaterThanOrEqual(4);
+    expect(layout.every(card => card.radius !== '0px')).toBe(true);
+    expect(layout.filter(card => card.active)).toHaveLength(1);
+    expect(layout[0].border).not.toBe(layout[1].border);
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('29-fewer-dividers-split.png') });
   } finally {
     await stopApp(app);
   }

@@ -75,12 +75,13 @@ export function BookContents({ session, position }: { session: OpenBookSession; 
     );
   }
 
+  // The header shows its line only while the contents scroll under it.
   return (
-    <nav aria-label="Book contents" className="flex w-64 shrink-0 flex-col border-r border-border-default bg-background-muted">
+    <nav aria-label="Book contents" className="scroll-edges flex w-64 shrink-0 flex-col border-r border-border-default bg-background-muted">
       <PanelHeader
         title={session.book.title}
         subtitle="Book"
-        className="px-3 py-2.5"
+        className="scroll-edge-top relative px-3 py-2.5"
         actionsLabel="Book actions"
         actions={(
           <>
@@ -93,7 +94,7 @@ export function BookContents({ session, position }: { session: OpenBookSession; 
           </>
         )}
       />
-      <div className="min-h-0 flex-1 overflow-auto overscroll-contain px-2 py-2" onKeyDown={moveFocus}>
+      <div className="scroll-edges-source min-h-0 flex-1 overflow-auto overscroll-contain px-2 py-2" onKeyDown={moveFocus}>
         {session.book.contents.chapters.length ? (
           <BookTree nodes={session.book.contents.nodes} session={session} current={position.chapterIndex} />
         ) : (

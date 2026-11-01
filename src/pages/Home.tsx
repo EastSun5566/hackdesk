@@ -20,6 +20,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { useTheme } from '@/components/theme-provider';
 import { getDesktopAPI } from '@/lib/desktop-api';
+import { clearNoteFinderQuery } from '@/lib/electron-note-finder';
 import type { FolderSummary } from '@/lib/electron-api';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { getNoteCurrentFolderId } from '@/lib/hackmd-note-dnd';
@@ -461,9 +462,11 @@ export function Home() {
     visibleEntries,
   } = workbenchNavigator;
   // The note header's location: a folder opens, is selected and takes focus in the tree; the
-  // workspace selects none and focuses the sidebar.
+  // workspace selects none and focuses the sidebar. A search shows results instead of the tree, so
+  // it is cleared first.
   const revealFolder = useCallback((folderIds: string[]) => {
     const folderId = folderIds.at(-1);
+    setFinderState(current => clearNoteFinderQuery(current));
     expandNavigator();
     revealFolderIds(folderIds);
     setSelectedFolderId(folderId ?? null);
@@ -471,13 +474,15 @@ export function Home() {
       focusZone('navigator');
       return;
     }
-    // The opened folders render on the next frame.
-    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+    // The opened folders, and the tree in place of search results, render over the next frames.
+    const focusRow = (framesLeft: number) => window.requestAnimationFrame(() => {
       const row = window.document.querySelector<HTMLElement>(`[data-folder-tree-folder-id="${CSS.escape(folderId)}"] [role="treeitem"]`);
       if (row) row.focus();
+      else if (framesLeft > 0) focusRow(framesLeft - 1);
       else focusZone('navigator');
-    }));
-  }, [expandNavigator, focusZone, revealFolderIds, setSelectedFolderId]);
+    });
+    focusRow(10);
+  }, [expandNavigator, focusZone, revealFolderIds, setFinderState, setSelectedFolderId]);
   const { getAutoSelectSuppressionKey } = useWorkbenchAutoSelection({
     autoSelectSuppressionRef,
     hasActiveDocument: Boolean(activeTab),

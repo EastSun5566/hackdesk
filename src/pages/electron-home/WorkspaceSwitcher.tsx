@@ -493,7 +493,7 @@ export function SidebarFooter({
   );
 
   return (
-    <div data-testid="sidebar-footer" className="flex items-center gap-1 border-t border-border-default p-1.5">
+    <div data-testid="sidebar-footer" className="scroll-edge-bottom relative flex items-center gap-1 p-1.5">
       <EntityRow
         icon={user ? <PersonalWorkspaceIcon user={user} testId="sidebar-footer-avatar" /> : <Settings2 className="size-4" />}
         title={displayName}

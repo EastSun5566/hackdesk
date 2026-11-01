@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { DocumentDetail, type DocumentSyncState } from './DocumentDetail';
 import type { NotePane, OpenNoteTab } from './note-workspace';
 import { EmptyState } from './interaction-primitives';
+import { CARD_SURFACE_CLASS, GAP_SASH_CLASS } from './ui';
 import { UnavailableDocumentDetail } from './UnavailableDocumentDetail';
 import { documentPaneId, documentTabId } from './document-tab-ids';
 import type { OpenNoteTarget } from './useNoteLinkOpener';
@@ -145,7 +146,7 @@ export function DocumentWorkspace({
 }) {
   if (panes.every((pane) => pane.tabIds.length === 0)) {
     return (
-      <section className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background-default">
+      <section className={cn('flex min-w-0 flex-1 flex-col', CARD_SURFACE_CLASS)}>
         <EmptyState
           icon={<FileText className="size-6" />}
           title="No note selected"
@@ -167,7 +168,7 @@ export function DocumentWorkspace({
     <Group
       id="document-workspace-panes"
       orientation="horizontal"
-      className="min-w-0 flex-1 bg-background-default"
+      className="min-w-0 flex-1"
       defaultLayout={defaultLayout}
       onLayoutChanged={onResizePanes}
     >
@@ -185,7 +186,7 @@ export function DocumentWorkspace({
               <Separator
                 id={`document-pane-separator-${pane.paneId}`}
                 aria-label={`Resize document panes between pane ${index} and pane ${index + 1}`}
-                className="relative w-px cursor-col-resize bg-border-default/50 outline-none transition-colors before:absolute before:inset-y-0 before:left-1/2 before:w-2 before:-translate-x-1/2 hover:bg-primary-default focus-visible:bg-primary-default motion-reduce:transition-none"
+                className={GAP_SASH_CLASS}
               />
             ) : null}
             <Panel
@@ -204,8 +205,10 @@ export function DocumentWorkspace({
                 aria-label={isActivePane ? `Active document pane ${index + 1}` : `Document pane ${index + 1}`}
                 data-active-pane={isActivePane ? 'true' : 'false'}
                 className={cn(
-                  'relative flex h-full min-w-0 flex-col bg-background-default before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:z-10 before:h-0.5 before:bg-transparent',
-                  isActivePane && 'before:bg-primary-default',
+                  'scroll-edges relative flex h-full min-w-0 flex-col',
+                  CARD_SURFACE_CLASS,
+                  // Only two panes need telling apart; Hack Mode leaves one.
+                  isActivePane && panes.length > 1 && 'border-primary-default/50',
                 )}
                 onFocusCapture={() => onFocusPane(pane.paneId)}
               >

@@ -125,7 +125,7 @@ export function AppTopBar({
 
   return (
     <header className={cn(
-      'app-topbar flex h-10 shrink-0 items-center gap-2 border-b border-border-default bg-background-default pr-2',
+      'app-topbar flex h-10 shrink-0 items-center gap-2 pr-2',
       HACK_MODE_DRAG_STRIP_CLASS,
       platform === 'darwin' && !fullScreen ? 'pl-21.5' : 'pl-2',
     )}>

@@ -42,15 +42,15 @@ export function AskNotesDialog({ askNotes, onOpenNote }: {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent size="lg" className="gap-0 p-0">
-        <DialogHeader className="border-b border-border-default px-5 pb-3 pt-4">
+      <DialogContent size="lg" className="scroll-edges gap-0 p-0">
+        <DialogHeader className="scroll-edge-top relative px-5 pb-3 pt-4">
           <DialogTitle>Ask Your Notes</DialogTitle>
           <DialogDescription>
             Answers come from this workspace&apos;s notes that HackDesk has: every Local Vault note, or the HackMD notes you&apos;ve opened.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-4" aria-live="polite">
+        <div className="scroll-edges-source min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-4" aria-live="polite">
           {turns.length === 0 ? (
             <p className="text-sm text-text-subtle">Ask a question, such as what a meeting decided or where a topic was discussed.</p>
           ) : turns.map(turn => (
@@ -64,7 +64,7 @@ export function AskNotesDialog({ askNotes, onOpenNote }: {
         </div>
 
         <form
-          className="space-y-2 border-t border-border-default px-5 py-3"
+          className="scroll-edge-bottom relative space-y-2 px-5 py-3"
           onSubmit={(event) => {
             event.preventDefault();
             submit();

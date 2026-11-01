@@ -351,11 +351,61 @@
     display: none !important;
   }
 
-  /* With one pane left, the active pane's accent line has nothing to tell apart. */
-  [data-hack-mode] [data-active-pane='true']::before {
-    background-color: transparent !important;
+}
+
+/*
+ * A fixed header or footer shows its line only while content scrolls under it. The scroll container
+ * is the timeline's source and the header or footer, outside it, reads the timeline through their
+ * shared scope. Content that does not scroll leaves the timeline inactive, so no line shows; the
+ * line is decorative, so engines without scroll-driven animations simply never show it.
+ */
+@supports ((animation-timeline: scroll()) and (animation-range: 0% 100%)) {
+  .scroll-edges {
+    timeline-scope: --scroll-edge;
   }
 
+  .scroll-edges-source,
+  .scroll-edges .cm-scroller {
+    scroll-timeline: --scroll-edge block;
+  }
+
+  .scroll-edge-top::after,
+  .scroll-edge-bottom::before {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    height: 1px;
+    background-color: var(--border-default);
+    pointer-events: none;
+  }
+
+  /* Hidden at the top, shown once content has scrolled under the header. */
+  .scroll-edge-top::after {
+    bottom: 0;
+    opacity: 0;
+    animation: scroll-edge-show linear both;
+    animation-timeline: --scroll-edge;
+    animation-range: 0 1rem;
+  }
+
+  /* Shown while content continues under the footer, hidden at the end. */
+  .scroll-edge-bottom::before {
+    top: 0;
+    opacity: 0;
+    animation: scroll-edge-hide linear both;
+    animation-timeline: --scroll-edge;
+    animation-range: calc(100% - 1rem) 100%;
+  }
+
+  @keyframes scroll-edge-show {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes scroll-edge-hide {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
 }
 
 /* Comparisons own their width without changing other dialogs. */

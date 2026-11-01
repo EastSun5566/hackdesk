@@ -44,7 +44,8 @@ function NoteInspectorPanel({
       aria-label="Note details"
       data-hackdesk-focus="inspector"
       tabIndex={-1}
-      className="flex h-full w-80 flex-col bg-background-muted outline-none"
+      // The header and footer show their lines only while the sections scroll under them.
+      className="scroll-edges flex h-full w-80 flex-col bg-background-muted outline-none"
     >
       <InspectorHeader
         document={document}
@@ -54,7 +55,7 @@ function NoteInspectorPanel({
       <form className="flex min-h-0 flex-1 flex-col" onSubmit={inspector.submit.metadata}>
         <div
           data-inspector-scroll-region="true"
-          className="min-h-0 flex-1 scroll-py-3 overflow-auto overscroll-contain px-5 py-3 scrollbar-gutter-stable"
+          className="scroll-edges-source min-h-0 flex-1 scroll-py-3 overflow-auto overscroll-contain px-5 pb-3 pt-1 scrollbar-gutter-stable"
         >
           <MetadataSection
             dirty={inspector.dirty}
@@ -98,10 +99,11 @@ export function LocalNoteInspector({ document, onOpenNote }: { document: Documen
       aria-label="Note details"
       data-hackdesk-focus="inspector"
       tabIndex={-1}
-      className="flex h-full w-80 flex-col bg-background-muted outline-none"
+      // The header and footer show their lines only while the sections scroll under them.
+      className="scroll-edges flex h-full w-80 flex-col bg-background-muted outline-none"
     >
-      <PanelHeader title="Note Details" className="px-4 py-2.5" />
-      <div className="min-h-0 flex-1 overflow-auto overscroll-contain px-5 py-3 scrollbar-gutter-stable">
+      <PanelHeader title="Note Details" className="scroll-edge-top relative px-4 py-2.5" />
+      <div className="scroll-edges-source min-h-0 flex-1 overflow-auto overscroll-contain px-5 pb-3 pt-1 scrollbar-gutter-stable">
         <BacklinksSection key={document.id} document={document} onOpenNote={onOpenNote} defaultOpen />
       </div>
     </aside>
@@ -149,7 +151,7 @@ function InspectorHeader({
   return (
     <PanelHeader
       title="Note Details"
-      className="px-4 py-2.5"
+      className="scroll-edge-top relative px-4 py-2.5"
       actionsLabel="Note details actions"
       actions={(
         <ToolbarIconButton

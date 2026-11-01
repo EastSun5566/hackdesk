@@ -50,8 +50,7 @@ export function BacklinksSection({ document, onOpenNote, defaultOpen = false }: 
       title="Linked from"
       subtitle={backlinks.data ? `${notes.length}` : undefined}
       defaultOpen={defaultOpen}
-      className="py-3"
-      contentClassName="space-y-2 pb-1 pt-3"
+      contentClassName="space-y-2 pb-3 pt-1.5"
     >
       {backlinks.isPending ? (
         <p role="status" aria-busy="true" className="text-xs text-text-subtle">Finding links…</p>
