@@ -3,7 +3,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-import { ArrowLeft, ArrowRight, ArrowLeftRight, Columns2, FileText, MoreHorizontal, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowLeftRight, Columns2, Equal, FileText, Maximize2, MoreHorizontal, Rows2, X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type MutableRefObject } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -147,6 +147,13 @@ function DocumentTab({
   );
 }
 
+export type PaneLayoutMenuActions = {
+  zoomed: boolean;
+  onSplitDown: () => void;
+  onToggleZoom: () => void;
+  onEqualize: () => void;
+};
+
 export function DocumentTabs({
   activeTab,
   canMoveToOtherPane,
@@ -162,6 +169,7 @@ export function DocumentTabs({
   onReorderTab,
   onSelectTab,
   onSplitPane,
+  paneLayout,
   tabs,
   paneId,
 }: {
@@ -178,6 +186,8 @@ export function DocumentTabs({
   onReopenLastClosedTab: () => void;
   onReorderTab: (tabId: string, overTabId: string) => void;
   onSelectTab: (tabId: string) => void;
+  /** Splitting down, zoom and equal sizes for the pane layout. */
+  paneLayout: PaneLayoutMenuActions;
   onSplitPane: () => void;
   tabs: OpenNoteTab[];
   paneId?: string;
@@ -284,9 +294,24 @@ export function DocumentTabs({
                 Split Right
                 <ActionMenuShortcut actionId="split-pane-right" />
               </DropdownMenuItem>
+              <DropdownMenuItem disabled={!activeTab || !canSplit} onSelect={paneLayout.onSplitDown}>
+                <Rows2 aria-hidden="true" className="h-4 w-4" />
+                Split Down
+                <ActionMenuShortcut actionId="split-pane-down" />
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={!canMoveToOtherPane} onSelect={paneLayout.onToggleZoom}>
+                <Maximize2 aria-hidden="true" className="h-4 w-4" />
+                {paneLayout.zoomed ? 'Restore Panes' : 'Zoom Pane'}
+                <ActionMenuShortcut actionId="toggle-pane-zoom" />
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={!canMoveToOtherPane} onSelect={paneLayout.onEqualize}>
+                <Equal aria-hidden="true" className="h-4 w-4" />
+                Equalize Pane Sizes
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem disabled={!activeTab || !canMoveToOtherPane} onSelect={onMoveTabToOtherPane}>
                 <ArrowLeftRight aria-hidden="true" className="h-4 w-4" />
-                Move Tab to Other Pane
+                Move Tab to Next Pane
                 <ActionMenuShortcut actionId="move-tab-to-other-pane" />
               </DropdownMenuItem>
               <DropdownMenuItem disabled={activeTabIndex <= 0} onSelect={() => activeTab && activeTabIndex > 0 && onReorderTab(activeTab.tabId, tabs[activeTabIndex - 1].tabId)}>

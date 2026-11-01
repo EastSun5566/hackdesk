@@ -18,6 +18,7 @@ import { scrollFocusedRegion } from './workbench-keyboard-context';
 
 import { isDraftNoteTab, type NoteWorkspaceState } from './note-workspace';
 import type { WorkspaceScope } from './types';
+import type { PaneDirection } from './pane-layout';
 
 export type WorkbenchActionContextInput = {
   bookContentsHidden: boolean;
@@ -89,6 +90,10 @@ export type WorkbenchActionHandlers = {
   saveNote: () => void;
   setEditorMode: (mode: EditorMode) => void;
   splitPaneRight: () => void;
+  splitPaneDown: () => void;
+  focusPaneInDirection: (direction: PaneDirection) => void;
+  togglePaneZoom: () => void;
+  equalizePanes: () => void;
   toggleInspector: () => void;
   toggleKeyHints: () => void;
   toggleNavigator: () => void;
@@ -160,6 +165,7 @@ export function createWorkbenchActionContext({
     navigationForwardCount: workspaceState.forwardStack.length,
     openTabCount: Object.keys(workspaceState.tabs).length,
     paneCount: workspaceState.panes.length,
+    paneZoomed: Boolean(workspaceState.zoomedPaneId),
     recentlyClosedTabCount: workspaceState.recentlyClosedTabs.length,
     scopeType,
     selectedFolderId,
@@ -437,6 +443,21 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'split-pane-right':
       handlers.splitPaneRight();
+      break;
+    case 'split-pane-down':
+      handlers.splitPaneDown();
+      break;
+    case 'toggle-pane-zoom':
+      handlers.togglePaneZoom();
+      break;
+    case 'equalize-panes':
+      handlers.equalizePanes();
+      break;
+    case 'focus-pane-left':
+    case 'focus-pane-down':
+    case 'focus-pane-up':
+    case 'focus-pane-right':
+      handlers.focusPaneInDirection(actionId.slice('focus-pane-'.length) as PaneDirection);
       break;
     case 'move-tab-to-other-pane':
       handlers.moveTabToOtherPane();

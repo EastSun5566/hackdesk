@@ -1638,6 +1638,76 @@ test('the workbench draws no divider lines at rest, and lines show only while co
   }
 });
 
+test('panes split right and down, move by direction, and zoom without losing editor state', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await openFixtureNote(page);
+    // Each command waits for the menu to close, so the next one does not type into a closing menu.
+    const leader = async (keys: string) => {
+      const menu = page.getByRole('menu', { name: 'Commands' });
+      await page.keyboard.press(`${primary}+j`);
+      await expect(menu).toBeVisible();
+      for (const key of keys) await page.keyboard.press(key);
+      await expect(menu).toBeHidden();
+    };
+    const panes = page.locator('section[data-document-pane-id]');
+    const visiblePanes = page.locator('section[data-document-pane-id]:visible');
+    const activePaneBox = async () => (await page.locator('section[data-active-pane="true"]').boundingBox())!;
+
+    // Right, then down from the new pane: an L, with the left pane full height.
+    await page.locator('.cm-content').click();
+    await page.keyboard.press(`${primary}+\\`);
+    await page.keyboard.press(`${primary}+Shift+\\`);
+    await expect(panes).toHaveCount(3);
+    const boxes = await panes.evaluateAll(elements => elements.map(element => {
+      const box = element.getBoundingClientRect();
+      return { x: Math.round(box.x), y: Math.round(box.y), height: Math.round(box.height) };
+    }));
+    const [left, top, bottom] = [...boxes].sort((a, b) => a.x - b.x || a.y - b.y);
+    expect(top.x).toBe(bottom.x);
+    expect(bottom.y).toBeGreaterThan(top.y);
+    expect(left.height).toBeGreaterThan(top.height + bottom.height);
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('30-panes-l.png') });
+
+    // The Pane group moves focus by where panes are.
+    expect(Math.round((await activePaneBox()).y)).toBe(bottom.y);
+    await leader('pk');
+    await expect.poll(async () => Math.round((await activePaneBox()).y)).toBe(top.y);
+    await leader('ph');
+    await expect.poll(async () => Math.round((await activePaneBox()).x)).toBe(left.x);
+    await leader('pl');
+    await expect.poll(async () => Math.round((await activePaneBox()).x)).toBe(top.x);
+    await leader('pj');
+    await expect.poll(async () => Math.round((await activePaneBox()).y)).toBe(bottom.y);
+
+    // Zoom fills the editor area with the active pane; the others come back as they were.
+    const editor = page.locator('section[data-active-pane="true"] .cm-content');
+    await editor.click();
+    await page.keyboard.press(`${primary}+End`);
+    await page.keyboard.type(' zoomed edit');
+    await page.keyboard.press(`${primary}+Shift+Enter`);
+    await expect(visiblePanes).toHaveCount(1);
+    await expect(page.getByText(/^Pane zoomed · Press/)).toBeVisible();
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('30-panes-zoomed.png') });
+    await page.keyboard.press(`${primary}+Shift+Enter`);
+    await expect(visiblePanes).toHaveCount(3);
+    await expect(editor).toContainText('zoomed edit');
+    // The editor kept its undo history through zoom.
+    await editor.click();
+    await page.keyboard.press(`${primary}+z`);
+    await expect(editor).not.toContainText('zoomed edit');
+
+    // Hack Mode leaves only the active pane of the nested split too.
+    await page.keyboard.press(`${primary}+.`);
+    await expect(visiblePanes).toHaveCount(1);
+    await page.keyboard.press(`${primary}+.`);
+    await expect(visiblePanes).toHaveCount(3);
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test('Note Details floats over the note and Escape returns to it', async () => {
   const { app, page } = await launchFixture('standard');
   try {
@@ -1741,7 +1811,7 @@ test('the leader menu runs commands from a few letters with Space or the leader 
     await expect(page.getByRole('menu')).toHaveCount(0);
     await expect(page.locator('.cm-content')).toContainText('x');
     await page.keyboard.press(`${primary}+j`);
-    await page.keyboard.press('t');
+    await page.keyboard.press('p');
     await page.keyboard.press('s');
     await expect(page.locator('[data-active-pane]')).toHaveCount(2);
 

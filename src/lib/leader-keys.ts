@@ -27,8 +27,15 @@ export const LEADER_KEYS: Record<string, LeaderEntry> = {
   t: {
     label: 'Tab',
     keys: {
-      w: 'close-tab', o: 'close-other-tabs', r: 'close-tabs-to-right', u: 'reopen-last-closed-tab', s: 'split-pane-right',
-      m: 'move-tab-to-other-pane', h: 'move-tab-left', l: 'move-tab-right', j: 'focus-next-tab', k: 'focus-previous-tab',
+      w: 'close-tab', o: 'close-other-tabs', r: 'close-tabs-to-right', u: 'reopen-last-closed-tab',
+      h: 'move-tab-left', l: 'move-tab-right', j: 'focus-next-tab', k: 'focus-previous-tab',
+    },
+  },
+  p: {
+    label: 'Pane',
+    keys: {
+      s: 'split-pane-right', d: 'split-pane-down', z: 'toggle-pane-zoom', '=': 'equalize-panes', m: 'move-tab-to-other-pane',
+      h: 'focus-pane-left', j: 'focus-pane-down', k: 'focus-pane-up', l: 'focus-pane-right',
     },
   },
   g: {

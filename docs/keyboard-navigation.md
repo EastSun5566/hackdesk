@@ -14,12 +14,13 @@ To hide the line, choose **Hide Key Hints** from the Command Palette or the View
 
 ## Run commands with a few keys
 
-Press **Space** outside text editing, or **Cmd+J** on macOS or **Ctrl+J** on Windows/Linux anywhere, including a note, to open the leader menu. Press a letter for a group, then a letter for the command: **Space N N** makes a new note and **Cmd+J T S** splits the tab to the right. The menu lists each command's own shortcut too, and keeps unavailable commands dimmed with the reason. Press **Backspace** to go back a level or **Escape** to close.
+Press **Space** outside text editing, or **Cmd+J** on macOS or **Ctrl+J** on Windows/Linux anywhere, including a note, to open the leader menu. Press a letter for a group, then a letter for the command: **Space N N** makes a new note and **Cmd+J P S** splits the pane to the right. The menu lists each command's own shortcut too, and keeps unavailable commands dimmed with the reason. Press **Backspace** to go back a level or **Escape** to close.
 
 | Key | Group | Examples |
 | --- | --- | --- |
 | N | Note | N new, R rename, D duplicate, M move to folder, X delete |
-| T | Tab | W close, S split right, U reopen closed, H / L move left / right |
+| T | Tab | W close, U reopen closed, H / L move left / right, J / K next / previous |
+| P | Pane | S split right, D split down, H / J / K / L focus left / down / up / right, Z zoom, = equal sizes, M move tab to next pane |
 | G | Go | W switch workspace, O Quick Open, S search notes, H History, B / F back / forward |
 | V | View | S sidebar, F Hack Mode, D Note Details, K key hints |
 | A | AI | A Ask AI, Q Ask Your Notes, D dictate |

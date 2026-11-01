@@ -62,7 +62,6 @@ function createPane(tab: OpenNoteTab): NotePane {
   return {
     activeTabId: tab.tabId,
     paneId: 'pane-1',
-    size: 100,
     tabIds: [tab.tabId],
   };
 }

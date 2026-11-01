@@ -2,6 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 
 import type { NoteSummary } from '@/lib/electron-api';
 
+import type { PaneDirection } from './pane-layout';
+
 import {
   clearNoteTabDraft,
   closeNoteTab,
@@ -26,7 +28,11 @@ import {
   readNoteWorkspaceLayoutStorage,
   reopenLastClosedTab,
   reorderNoteTab,
-  resizeNotePanes,
+  resizeNoteSplit,
+  equalizeNotePanes,
+  focusPaneInDirection,
+  toggleNotePaneZoom,
+  splitActivePane,
   reconcileSavedNoteTab,
   replaceNoteTabPlaceholder,
   selectNoteTab,
@@ -183,6 +189,22 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
     setState(duplicateActiveNoteTab);
   }, []);
 
+  const splitActivePaneDown = useCallback(() => {
+    setState((current) => splitActivePane(current, 'down'));
+  }, []);
+
+  const focusPaneToward = useCallback((direction: PaneDirection) => {
+    setState((current) => focusPaneInDirection(current, direction));
+  }, []);
+
+  const togglePaneZoom = useCallback(() => {
+    setState(toggleNotePaneZoom);
+  }, []);
+
+  const equalizePanes = useCallback(() => {
+    setState(equalizeNotePanes);
+  }, []);
+
   const splitActiveTab = useCallback(() => {
     setState(splitActiveTabRight);
   }, []);
@@ -223,8 +245,8 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
     setState((current) => clearNoteTabDraft(current, tabId));
   }, []);
 
-  const resizePanes = useCallback((sizes: Record<string, number>) => {
-    setState((current) => resizeNotePanes(current, sizes));
+  const resizeSplit = useCallback((splitId: string, sizes: Record<string, number>) => {
+    setState((current) => resizeNoteSplit(current, splitId, sizes));
   }, []);
 
   const syncNoteSummary = useCallback((note: NoteSummary) => {
@@ -282,6 +304,10 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
     reopenLastClosed,
     duplicateActiveTab,
     splitActiveTab,
+    splitActivePaneDown,
+    focusPaneToward,
+    togglePaneZoom,
+    equalizePanes,
     moveActiveTabToOtherPane: moveActiveTabToOtherPaneAction,
     navigateBack,
     navigateForward,
@@ -291,7 +317,7 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
     focusPreviousTab,
     updateDraft,
     clearDraft,
-    resizePanes,
+    resizeSplit,
     syncNoteSummary,
     syncNoteSummaries,
     reconcileSavedNote,

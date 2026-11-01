@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Toolbar, ToolbarSeparator } from '@/components/ui/toolbar';
 import { cn } from '@/lib/utils';
 import { ToolbarIconButton } from './interaction-primitives';
-import { DocumentTabs } from './DocumentTabs';
+import { DocumentTabs, type PaneLayoutMenuActions } from './DocumentTabs';
 import type { DocumentSyncState } from './DocumentDetail';
 import type { ElectronActionId } from '@/lib/electron-api';
 import type { OpenNoteTab } from './note-workspace';
@@ -59,6 +59,7 @@ export function AppTopBar({
   onReorderTab,
   onSelectTab,
   onSplitPane,
+  paneLayout,
   paneActions,
   platform,
   navigatorCollapsed,
@@ -84,6 +85,7 @@ export function AppTopBar({
   onReorderTab: (tabId: string, overTabId: string) => void;
   onSelectTab: (tabId: string) => void;
   onSplitPane: () => void;
+  paneLayout: PaneLayoutMenuActions;
   paneActions: {
     canMoveToOtherPane: boolean;
     canReopenLastClosedTab: boolean;
@@ -176,6 +178,7 @@ export function AppTopBar({
         onReorderTab={onReorderTab}
         onSelectTab={onSelectTab}
         onSplitPane={onSplitPane}
+        paneLayout={paneLayout}
         tabs={tabs}
       />
     </header>

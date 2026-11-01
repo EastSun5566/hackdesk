@@ -23,7 +23,7 @@ export function migrateLocalWorkspaceStorage(storage: Storage, snapshot: LocalVa
     if (prefix === prefixes[0]) {
       try {
         const layout = JSON.parse(old);
-        if (!layout || layout.scopeKey !== 'local' || ![1, 2].includes(layout.version)) continue;
+        if (!layout || layout.scopeKey !== 'local' || ![1, 2, 3].includes(layout.version)) continue;
         storage.setItem(target, JSON.stringify({ ...layout, scopeKey }));
       } catch (error) {
         if (!(error instanceof SyntaxError)) throw error;

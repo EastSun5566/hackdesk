@@ -47,13 +47,15 @@ Templates you saved in HackMD's web app are not available, because the HackMD AP
 
 Select a note to open it in a tab. Drag a tab's icon or title to reorder tabs within its pane.
 
-To compare two notes:
+To compare notes:
 
-1. Open a note and choose **Pane actions → Split Right**.
-2. Open another note in the other pane.
-3. Drag the divider to resize the panes.
+1. Open a note and choose **Pane actions → Split Right** (**Cmd+\\** / **Ctrl+\\**) or **Split Down** (**Cmd+Shift+\\** / **Ctrl+Shift+\\**).
+2. Open another note in the new pane.
+3. Drag the gap between panes to resize them, or choose **Equalize Pane Sizes**.
 
-HackDesk supports two editor panes. Use **Move Tab to Other Pane** to move a tab between them. The tab strip follows the active pane.
+Any pane can be split again, right or down, up to six panes. A pane closes with its last tab. **Move Tab to Next Pane** moves the active tab along, and the **P** group in the [leader menu](./keyboard-navigation.md#run-commands-with-a-few-keys) moves between panes by direction. The tab strip follows the active pane.
+
+To focus on one pane without closing the others, press **Cmd+Shift+Enter** / **Ctrl+Shift+Enter** for **Zoom Pane**: it fills the editor area, and the same key brings the other panes back as they were.
 
 **Close Tab** closes the active tab and keeps the workbench open after the last tab. When prompted about unsaved changes, save or discard them before closing.
 

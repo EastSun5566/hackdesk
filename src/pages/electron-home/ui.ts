@@ -23,6 +23,8 @@ export const PANEL_MOTION_CLASS = 'transition-all duration-200 ease-out motion-r
 export const CARD_SURFACE_CLASS = 'overflow-clip rounded-lg border border-border-default/60 bg-background-default [[data-hack-mode]_&]:rounded-none [[data-hack-mode]_&]:border-transparent';
 /** A resize handle in the gap between surfaces: invisible until pointed at or focused. */
 export const GAP_SASH_CLASS = 'relative w-1.5 shrink-0 cursor-col-resize border-0 bg-transparent outline-none after:absolute after:inset-y-3 after:left-1/2 after:w-0.5 after:-translate-x-1/2 after:rounded-full after:bg-transparent after:transition-colors hover:after:bg-primary-default focus-visible:after:bg-primary-default motion-reduce:after:transition-none';
+/** The same handle between stacked surfaces. */
+export const GAP_SASH_ROW_CLASS = 'relative h-1.5 shrink-0 cursor-row-resize border-0 bg-transparent outline-none after:absolute after:inset-x-3 after:top-1/2 after:h-0.5 after:-translate-y-1/2 after:rounded-full after:bg-transparent after:transition-colors hover:after:bg-primary-default focus-visible:after:bg-primary-default motion-reduce:after:transition-none';
 export const COLLAPSE_ICON_CLASS = 'transition-transform duration-150 ease-out motion-reduce:transition-none';
 export const ICON_BUTTON_CLASS = buttonVariants({ variant: 'ghost', size: 'icon' });
 const noteDateFormatter = new Intl.DateTimeFormat(undefined, {

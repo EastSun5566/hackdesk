@@ -243,10 +243,17 @@ export function Home() {
     toast.info(shortcut ? `Hack Mode · Press ${shortcut.split(', ')[0]} to leave` : 'Hack Mode');
     if (!document.activeElement?.closest('[data-hackdesk-focus="editor"]')) focusZone('editor');
   }, [api?.platform, focusZone, hackMode, settingsQuery.data?.shortcuts]);
+  const togglePaneZoom = useCallback(() => {
+    const zooming = !noteWorkspace.state.zoomedPaneId;
+    noteWorkspace.togglePaneZoom();
+    if (!zooming) return;
+    const shortcut = getResolvedActionShortcut('toggle-pane-zoom', settingsQuery.data?.shortcuts, api?.platform ?? navigator.platform);
+    toast.info(shortcut ? `Pane zoomed · Press ${shortcut.split(', ')[0]} to restore` : 'Pane zoomed');
+  }, [api?.platform, noteWorkspace, settingsQuery.data?.shortcuts]);
   // Actions that need the hidden sidebar leave Hack Mode first.
-  const focusZoneShowingSidebar = useCallback((zone: Parameters<typeof focusZone>[0]) => {
+  const focusZoneShowingSidebar = useCallback((...[zone, options]: Parameters<typeof focusZone>) => {
     if (zone === 'navigator') setHackMode(false);
-    focusZone(zone);
+    focusZone(zone, options);
   }, [focusZone]);
   const activeDocumentNotes = useMemo(() => (
     noteWorkspace.visibleActiveTabs
@@ -693,6 +700,10 @@ export function Home() {
     duplicateActiveTab: noteWorkspace.duplicateActiveTab,
     exportMarkdown: handleExportMarkdown,
     focusNextPane: noteWorkspace.focusNextPane,
+    focusPaneToward: noteWorkspace.focusPaneToward,
+    togglePaneZoom,
+    equalizePanes: noteWorkspace.equalizePanes,
+    splitActivePaneDown: noteWorkspace.splitActivePaneDown,
     focusNextTab: noteWorkspace.focusNextTab,
     focusPreviousPane: noteWorkspace.focusPreviousPane,
     focusPreviousTab: noteWorkspace.focusPreviousTab,
@@ -959,6 +970,7 @@ export function Home() {
     localVaultId: vaultSession.vaultId,
     uploadingTabIds,
     actions: {
+      togglePaneZoom,
       attachImageToTab,
       cancelImageUpload,
       copyDraftText,

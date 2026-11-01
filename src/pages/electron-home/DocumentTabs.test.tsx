@@ -36,6 +36,7 @@ function createDocumentTabsProps(overrides: Partial<Parameters<typeof DocumentTa
     onReorderTab: vi.fn(),
     onSelectTab: vi.fn(),
     onSplitPane: vi.fn(),
+    paneLayout: { zoomed: false, onSplitDown: vi.fn(), onToggleZoom: vi.fn(), onEqualize: vi.fn() },
     tabs: [
       firstTab,
       tab({
@@ -286,7 +287,10 @@ describe('DocumentTabs', () => {
 
     const disabledItems = [
       await screen.findByRole('menuitem', { name: 'Split Right' }),
-      screen.getByRole('menuitem', { name: 'Move Tab to Other Pane' }),
+      screen.getByRole('menuitem', { name: 'Split Down' }),
+      screen.getByRole('menuitem', { name: 'Zoom Pane' }),
+      screen.getByRole('menuitem', { name: 'Equalize Pane Sizes' }),
+      screen.getByRole('menuitem', { name: 'Move Tab to Next Pane' }),
       screen.getByRole('menuitem', { name: 'Close Other Tabs' }),
       screen.getByRole('menuitem', { name: 'Close Tabs to Right' }),
       screen.getByRole('menuitem', { name: 'Reopen Last Closed Tab' }),

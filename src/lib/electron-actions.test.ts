@@ -316,8 +316,11 @@ describe('electron action registry', () => {
     })).toBe('No next note location.');
     expect(getActionDisabledReason(getElectronAction('split-pane-right'), {
       ...baseContext,
-      paneCount: 2,
-    })).toBe('HackDesk supports two note panes in this version.');
+      paneCount: 6,
+    })).toBe('The editor holds up to 6 panes. Close one first.');
+    expect(getActionDisabledReason(getElectronAction('split-pane-down'), { ...baseContext, paneCount: 5 })).toBeNull();
+    expect(getActionDisabledReason(getElectronAction('toggle-pane-zoom'), { ...baseContext, paneCount: 1 })).toBe('Split the editor first.');
+    expect(getActionLabel(getElectronAction('toggle-pane-zoom'), { ...baseContext, paneCount: 2, paneZoomed: true })).toBe('Restore Panes');
     expect(getActionDisabledReason(getElectronAction('move-tab-to-other-pane'), {
       ...baseContext,
       paneCount: 1,

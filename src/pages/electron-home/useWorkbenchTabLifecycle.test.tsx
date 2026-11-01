@@ -68,7 +68,6 @@ function createOptions(overrides: Partial<WorkbenchTabLifecycleOptions> = {}): W
   const pane: NotePane = {
     activeTabId: firstTab.tabId,
     paneId: 'pane-1',
-    size: 100,
     tabIds: [firstTab.tabId, secondTab.tabId],
   };
 
