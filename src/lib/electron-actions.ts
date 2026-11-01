@@ -634,6 +634,8 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     defaultKeybinding: 'mod+\\',
     shortcut: '⌘\\',
     menuAccelerator: 'CmdOrCtrl+\\',
+    // Steps and toggles run once per press: on Windows and Linux a native accelerator would fire too.
+    rendererShortcut: true,
     getDisabledReason: requireSplitAvailable,
   },
   {
@@ -646,6 +648,8 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     defaultKeybinding: 'mod+shift+\\',
     shortcut: '⇧⌘\\',
     menuAccelerator: 'CmdOrCtrl+Shift+\\',
+    // Steps and toggles run once per press: on Windows and Linux a native accelerator would fire too.
+    rendererShortcut: true,
     getDisabledReason: requireSplitAvailable,
   },
   {
@@ -658,6 +662,8 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     defaultKeybinding: 'mod+shift+enter',
     shortcut: '⇧⌘↩',
     menuAccelerator: 'CmdOrCtrl+Shift+Enter',
+    // Steps and toggles run once per press: on Windows and Linux a native accelerator would fire too.
+    rendererShortcut: true,
     getLabel: (context) => (context.paneZoomed ? 'Restore Panes' : 'Zoom Pane'),
     getDisabledReason: requireSeveralPanes,
   },
@@ -689,6 +695,8 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     defaultKeybinding: 'mod+alt+arrowright,ctrl+tab',
     shortcut: '⌥⌘→',
     menuAccelerator: 'CmdOrCtrl+Alt+Right',
+    // Steps and toggles run once per press: on Windows and Linux a native accelerator would fire too.
+    rendererShortcut: true,
     getDisabledReason: requireAnotherTab,
   },
   {
@@ -701,6 +709,8 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     defaultKeybinding: 'mod+alt+arrowleft,ctrl+shift+tab',
     shortcut: '⌥⌘←',
     menuAccelerator: 'CmdOrCtrl+Alt+Left',
+    // Steps and toggles run once per press: on Windows and Linux a native accelerator would fire too.
+    rendererShortcut: true,
     getDisabledReason: requireAnotherTab,
   },
   {
