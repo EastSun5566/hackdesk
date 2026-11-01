@@ -97,5 +97,8 @@ describe('pane layout', () => {
     expect(parsePaneLayout({ type: 'split', id: 's', orientation: 'diagonal', children: [], sizes: [] })).toBeNull();
     expect(parsePaneLayout({ type: 'split', id: 's', orientation: 'horizontal', children: [paneLeaf('a'), paneLeaf('a')], sizes: [50, 50] })).toBeNull();
     expect(parsePaneLayout('pane')).toBeNull();
+    // Two splits sharing an id would resize together, so the tree is rejected.
+    const column = (id: string, a: string, b: string) => ({ type: 'split', id, orientation: 'vertical', children: [paneLeaf(a), paneLeaf(b)], sizes: [50, 50] });
+    expect(parsePaneLayout({ type: 'split', id: 'root', orientation: 'horizontal', children: [column('s', 'a', 'b'), column('s', 'c', 'd')], sizes: [50, 50] })).toBeNull();
   });
 });

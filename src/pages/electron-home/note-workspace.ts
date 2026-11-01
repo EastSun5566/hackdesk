@@ -1,5 +1,6 @@
 import type { NoteSummary } from '@/lib/electron-api';
 import type { LocalRevision } from '@/lib/local-vault';
+import { MAX_NOTE_PANES } from '@/lib/electron-actions';
 import { trySetStorageItem } from '@/lib/storage';
 
 import {
@@ -86,8 +87,7 @@ export type PersistedNoteWorkspaceLayout = Pick<
 >;
 
 const NOTE_WORKSPACE_LAYOUT_PREFIX = 'hackdesk_note_workspace:';
-/** Each visible pane holds an editor, so the split stops here. */
-export const MAX_PANES = 6;
+export const MAX_PANES = MAX_NOTE_PANES;
 const MAX_RECENTLY_CLOSED_TABS = 10;
 const MAX_NAVIGATION_STACK = 50;
 

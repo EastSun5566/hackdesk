@@ -153,9 +153,10 @@ export function reconcileLayout(node: PaneLayoutNode | null, paneIds: readonly s
   return layout ?? paneLeaf(paneIds[0] ?? 'note-pane-primary');
 }
 
-/** Reads a saved tree, or returns null when it is not one; a pane may appear only once. */
+/** Reads a saved tree, or returns null when it is not one; each pane and each split appears only once. */
 export function parsePaneLayout(value: unknown): PaneLayoutNode | null {
   const seen = new Set<string>();
+  const seenSplits = new Set<string>();
   const parse = (input: unknown, depth: number): PaneLayoutNode | null => {
     if (!input || typeof input !== 'object' || depth > 8) return null;
     const candidate = input as Record<string, unknown>;
@@ -164,8 +165,9 @@ export function parsePaneLayout(value: unknown): PaneLayoutNode | null {
       seen.add(candidate.paneId);
       return paneLeaf(candidate.paneId);
     }
-    if (candidate.type !== 'split' || typeof candidate.id !== 'string' || !Array.isArray(candidate.children)
+    if (candidate.type !== 'split' || typeof candidate.id !== 'string' || seenSplits.has(candidate.id) || !Array.isArray(candidate.children)
       || (candidate.orientation !== 'horizontal' && candidate.orientation !== 'vertical')) return null;
+    seenSplits.add(candidate.id);
     const children = candidate.children.map(child => parse(child, depth + 1));
     if (children.length === 0 || children.some(child => !child)) return null;
     const sizes = Array.isArray(candidate.sizes) ? candidate.sizes.map(Number) : [];

@@ -295,7 +295,7 @@ export function DocumentWorkspace({
             {index > 0 ? (
               <Separator
                 id={`document-pane-separator-${childId}`}
-                aria-label={`Resize document panes ${orientation === 'horizontal' ? 'side by side' : 'stacked'}`}
+                aria-label={`Resize document panes ${orientation === 'horizontal' ? 'side by side' : 'stacked'}, between pane ${paneOrder.indexOf(layoutPaneIds(children[index - 1]).at(-1)!) + 1} and pane ${paneOrder.indexOf(layoutPaneIds(child)[0]) + 1}`}
                 className={orientation === 'horizontal' ? GAP_SASH_CLASS : GAP_SASH_ROW_CLASS}
               />
             ) : null}

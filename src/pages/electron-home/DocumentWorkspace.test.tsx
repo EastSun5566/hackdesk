@@ -287,7 +287,7 @@ describe('DocumentWorkspace', () => {
   it('labels the split pane resize separator', () => {
     renderWorkspace();
 
-    const separator = screen.getByLabelText('Resize document panes side by side');
+    const separator = screen.getByLabelText('Resize document panes side by side, between pane 1 and pane 2');
 
     expect(separator).toHaveAttribute('id', 'document-pane-separator-pane-b');
     expect(separator).toHaveClass('focus-visible:after:bg-primary-default');
