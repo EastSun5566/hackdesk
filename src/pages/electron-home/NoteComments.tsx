@@ -160,7 +160,6 @@ function CommentsBody({
         <CollapsibleSection
           title={`Resolved (${threads.resolved.length})`}
           defaultOpen={false}
-          className="border-b-0 py-1"
           contentClassName="pt-2"
         >
           {renderThreads(threads.resolved, true, 'Resolved comments')}
@@ -211,8 +210,7 @@ export function CommentsSection({
           </Button>
         </Tooltip>
       ) : undefined}
-      className="py-3"
-      contentClassName="pb-1 pt-3"
+      contentClassName="pb-3 pt-1.5"
     >
       {opened ? <CommentsBody noteId={noteId} onRevealComment={onRevealComment} /> : null}
     </CollapsibleSection>

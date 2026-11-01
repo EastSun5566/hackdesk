@@ -41,8 +41,7 @@ export type PermissionsSectionIds = {
 
 const INSPECTOR_INPUT_CLASS = 'h-9 bg-background-default px-2.5 text-text-default focus-visible:ring-inset';
 const INSPECTOR_TEXTAREA_CLASS = 'min-h-16 bg-background-default px-2.5 py-2 text-text-default focus-visible:ring-inset';
-const INSPECTOR_SECTION_CLASS = 'py-3';
-const INSPECTOR_SECTION_CONTENT_CLASS = 'space-y-4 pb-1 pt-3';
+const INSPECTOR_SECTION_CONTENT_CLASS = 'space-y-4 pb-3 pt-1.5';
 const INSPECTOR_LABEL_CLASS = 'text-xs font-medium text-text-subtle';
 
 function InspectorField({
@@ -131,7 +130,6 @@ export function MetadataSection({
     <CollapsibleSection
       title="Metadata"
       dirty={dirty.description || dirty.tags || dirty.permalink}
-      className={INSPECTOR_SECTION_CLASS}
       contentClassName={INSPECTOR_SECTION_CONTENT_CLASS}
     >
       <fieldset className="space-y-4">
@@ -259,7 +257,6 @@ export function LocationSection({
       title="Location"
       dirty={dirty}
       defaultOpen={false}
-      className={INSPECTOR_SECTION_CLASS}
       contentClassName={INSPECTOR_SECTION_CONTENT_CLASS}
     >
       <fieldset>
@@ -298,7 +295,6 @@ export function PermissionsSection({
       title="Permissions"
       dirty={dirty}
       defaultOpen={false}
-      className={INSPECTOR_SECTION_CLASS}
       contentClassName={INSPECTOR_SECTION_CONTENT_CLASS}
     >
       <div className="space-y-4">
@@ -378,7 +374,7 @@ export function InspectorSaveFooter({
   return (
     <footer
       data-inspector-save-footer="true"
-      className="flex shrink-0 items-center justify-between gap-3 border-t border-border-default/70 bg-background-muted px-4 py-3"
+      className="scroll-edge-bottom relative flex shrink-0 items-center justify-between gap-3 bg-background-muted px-4 py-3"
     >
       <span className="min-w-0 truncate text-xs text-text-subtle" aria-live="polite">
         {status}
@@ -440,7 +436,6 @@ export function VersionsSection({ noteId, onShowAll }: { noteId: string; onShowA
       onOpenChange={(open) => {
         if (open) setOpened(true);
       }}
-      className={INSPECTOR_SECTION_CLASS}
       contentClassName={INSPECTOR_SECTION_CONTENT_CLASS}
     >
       {opened ? <VersionsPreview noteId={noteId} onShowAll={onShowAll} /> : null}
