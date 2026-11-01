@@ -104,7 +104,8 @@ export function useWorkbenchShortcuts({
       if (matchedAction === 'open-command-palette') openPalette();
       else if (matchedAction === 'new-note') handleCreateNote();
       else if (matchedAction === 'refresh') refreshWorkspace();
-      // An unavailable action still takes the key, so the app menu does not run it a second time.
+      // An unavailable action still takes the key, which on macOS keeps the app menu from running it
+      // again; on Windows and Linux the menu gets the key first and marks the command as a shortcut.
       else if (runAction(matchedAction) === false) return;
       event.preventDefault();
       return;

@@ -452,7 +452,8 @@ export type ElectronActionId =
   | 'focus-previous-pane';
 
 export type HackDeskCommandPaletteCommand =
-  | { type: ElectronActionId }
+  /** `fromShortcut` marks an app-menu accelerator, which runs an unavailable action quietly like any shortcut. */
+  | { type: ElectronActionId; fromShortcut?: boolean }
   | {
     type: 'quick-capture:create-draft';
     content: string;
