@@ -460,6 +460,24 @@ export function Home() {
     selectedParentFolderId,
     visibleEntries,
   } = workbenchNavigator;
+  // The note header's location: a folder opens, is selected and takes focus in the tree; the
+  // workspace selects none and focuses the sidebar.
+  const revealFolder = useCallback((folderIds: string[]) => {
+    const folderId = folderIds.at(-1);
+    expandNavigator();
+    revealFolderIds(folderIds);
+    setSelectedFolderId(folderId ?? null);
+    if (!folderId) {
+      focusZone('navigator');
+      return;
+    }
+    // The opened folders render on the next frame.
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      const row = window.document.querySelector<HTMLElement>(`[data-folder-tree-folder-id="${CSS.escape(folderId)}"] [role="treeitem"]`);
+      if (row) row.focus();
+      else focusZone('navigator');
+    }));
+  }, [expandNavigator, focusZone, revealFolderIds, setSelectedFolderId]);
   const { getAutoSelectSuppressionKey } = useWorkbenchAutoSelection({
     autoSelectSuppressionRef,
     hasActiveDocument: Boolean(activeTab),
@@ -931,6 +949,7 @@ export function Home() {
   const workspaceProps = useHomeWorkspaceProps({
     api,
     openNoteTarget,
+    revealFolder,
     saveAsTemplate: () => noteTemplates.saveDocumentAsTemplate(selectedDocument, { title: documentTitle, content: documentContent }),
     localVaultId: vaultSession.vaultId,
     uploadingTabIds,

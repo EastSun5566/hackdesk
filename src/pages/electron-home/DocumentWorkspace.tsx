@@ -65,6 +65,7 @@ export function DocumentWorkspace({
   onOpenEditor,
   onOpenExternal,
   onOpenNoteTarget,
+  onRevealFolder,
   onSaveAsTemplate,
   onPresent,
   onRevealInFinder,
@@ -111,6 +112,8 @@ export function DocumentWorkspace({
   onOpenExternal: (url: string) => void;
   /** Opens a linked note in a tab, switching workspace when needed. */
   onOpenNoteTarget?: OpenNoteTarget;
+  /** Shows a folder of the note's location in the sidebar; no IDs means the workspace root. */
+  onRevealFolder?: (folderIds: string[]) => void;
   onSaveAsTemplate?: () => void;
   onPresent?: (deck: PresentationDeck) => void;
   onRevealInFinder: (document: DocumentSummary) => void;
@@ -255,6 +258,7 @@ export function DocumentWorkspace({
                       onOpenEditor,
                       onOpenExternal,
                       onOpenNoteTarget,
+                      onRevealFolder,
                       onSaveAsTemplate,
                       onPresent,
                       onRevealInFinder,

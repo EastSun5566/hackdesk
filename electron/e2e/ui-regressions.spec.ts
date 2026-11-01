@@ -371,7 +371,7 @@ test('a keyboard-only tour of the main flows in light theme at a narrow window, 
 
     // The header is one line: where the note lives, and its buttons.
     await page.locator('.cm-content').click();
-    await expect(page.getByRole('navigation', { name: 'Note location' })).toHaveText('Local Vault');
+    await expect(page.getByRole('navigation', { name: 'Note location' })).toHaveText(/^Local Vault\s*\/\s*Alpha$/);
     await expect(page.getByRole('textbox', { name: 'Note title' })).toHaveCount(0);
 
     // Rename from the leader menu.
@@ -432,6 +432,16 @@ test('a keyboard-only tour of the main flows in light theme at a narrow window, 
     // Around once: the sidebar, the tabs, both editors and back to where it started.
     const [start, ...rest] = visited;
     expect(rest).toEqual(['navigator', 'tabs', 'editor note-pane-primary', start, 'navigator']);
+
+    // A folder in the note's location opens it in the sidebar and moves focus there.
+    const deepLocation = page.getByRole('navigation', { name: 'Note location' }).filter({ hasText: 'Folders only' });
+    await expect(deepLocation).toHaveText(/Folders only\s*\/\s*Last\s*\/\s*Deep$/);
+    await deepLocation.getByRole('button', { name: 'Last', exact: true }).focus();
+    await page.keyboard.press('Enter');
+    await expect.poll(() => page.evaluate(() => {
+      const item = document.activeElement?.closest('[data-folder-tree-folder-id]');
+      return document.activeElement?.getAttribute('role') === 'treeitem' ? item?.textContent?.trim() ?? '' : '';
+    })).toMatch(/^Last/);
     await shot('done');
   } finally {
     await app.evaluate(({ ipcMain }, channel) => {

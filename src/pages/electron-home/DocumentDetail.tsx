@@ -63,6 +63,7 @@ import { NoteVersionsDialog } from './NoteVersionsDialog';
 import { RenameNoteDialog } from './RenameNoteDialog';
 import { ShareDialog } from './ShareDialog';
 import {
+  FOCUS_RING_INSET_CLASS,
   formatDate,
   HACK_MODE_HIDDEN_CLASS,
 } from './ui';
@@ -122,6 +123,8 @@ export type DocumentDetailActions = {
   onOpenExternal: (url: string) => void;
   /** Opens a linked note in a tab, switching workspace when needed. */
   onOpenNoteTarget?: OpenNoteTarget;
+  /** Shows a folder of the note's location in the sidebar; no IDs means the workspace root. */
+  onRevealFolder?: (folderIds: string[]) => void;
   /** Copies this note into the workspace's Templates folder; absent where templates are not offered. */
   onSaveAsTemplate?: () => void;
   /** Shows the note as full-screen slides, unsaved changes included. */
@@ -225,13 +228,31 @@ function SyncStateBadge({
   );
 }
 
-/** Where the note lives, as a quiet path: its workspace, then its folders. */
-function getDocumentHeaderPath(document: DocumentSummary, isLocalDocument: boolean) {
+type HeaderPathPart = { label: string; folderIds: string[] };
+
+/**
+ * Where the note lives: its workspace, then its folders. Each part carries the folder IDs down to it,
+ * so choosing one can show that folder in the sidebar; the workspace has none.
+ */
+function getDocumentHeaderPath(document: DocumentSummary, isLocalDocument: boolean): HeaderPathPart[] {
   if (isLocalDocument) {
-    // A vault note's description is its path in the vault; the file name repeats the title.
-    return ['Local Vault', ...(document.description ?? '').split('/').slice(0, -1).filter(Boolean)];
+    // A vault note's description is its path in the vault; each folder's ID is its own path.
+    const folders = (document.description ?? '').split('/').slice(0, -1).filter(Boolean);
+    return [
+      { label: 'Local Vault', folderIds: [] },
+      ...folders.map((label, index) => ({
+        label,
+        folderIds: folders.slice(0, index + 1).map((_, depth) => `local-folder:${folders.slice(0, depth + 1).join('/')}`),
+      })),
+    ];
   }
-  return [document.teamPath ? `@${document.teamPath}` : 'My Workspace', ...document.folderPaths.map(folder => folder.name)];
+  return [
+    { label: document.teamPath ? `@${document.teamPath}` : 'My Workspace', folderIds: [] },
+    ...document.folderPaths.map((folder, index) => ({
+      label: folder.name,
+      folderIds: document.folderPaths.slice(0, index + 1).map(path => path.id),
+    })),
+  ];
 }
 
 export function DocumentDetail({
@@ -687,9 +708,8 @@ function DocumentHeader({
     saving: status.saving,
     syncState: documentState.syncState,
   });
-  const path = documentState.document
-    ? getDocumentHeaderPath(documentState.document, isLocalDocument)
-    : ['Unsaved draft'];
+  const path = documentState.document ? getDocumentHeaderPath(documentState.document, isLocalDocument) : [];
+  const title = documentState.isDraft ? 'Unsaved draft' : documentState.title.trim() || documentState.document?.title || 'Untitled';
   const updated = documentState.document ? `Updated ${formatDate(documentState.document.updatedAtMillis)}` : undefined;
   // Routine controls step back until the header is hovered or focused; pending work keeps them in view.
   const revealActions = noteDirty || actionsOpen || status.saving
@@ -708,17 +728,27 @@ function DocumentHeader({
       actionsClassName={revealActions ? undefined : DOCUMENT_ACTIONS_ON_DEMAND_CLASS}
       titleElement="div"
       actionsLabel="Document actions"
-      // The title already shows in the tab and the note's heading, so the header keeps to one line:
-      // where the note lives. Rename Note changes the title.
+      // One line: where the note lives, ending in its title, which stays in view as the note scrolls.
+      // Rename Note changes the title.
       title={(
-        <nav aria-label="Note location" className="flex min-h-8 min-w-0 items-center gap-1.5 text-sm font-normal text-text-subtle" title={updated}>
+        <nav aria-label="Note location" className="flex min-h-8 min-w-0 items-center gap-1 overflow-hidden text-sm font-normal text-text-subtle" title={updated}>
           {path.map((part, index) => (
-            <span key={`${part}:${index}`} className="contents">
+            <span key={`${part.label}:${index}`} className="contents">
               {index > 0 ? <span aria-hidden="true" className="shrink-0 text-text-subtle/60">/</span> : null}
-              {/* Outer folders give way first, so the note's own folder stays readable. */}
-              <span className={cn('min-w-0 truncate', index < path.length - 1 && 'shrink-4')}>{part}</span>
+              {/* Folders give way; the title keeps its length up to most of the line. */}
+              {actions.onRevealFolder ? (
+                <button
+                  type="button"
+                  className={cn('min-w-0 truncate rounded-sm px-1 hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_INSET_CLASS)}
+                  onClick={() => actions.onRevealFolder?.(part.folderIds)}
+                >
+                  {part.label}
+                </button>
+              ) : <span className="min-w-0 truncate px-1">{part.label}</span>}
             </span>
           ))}
+          {path.length ? <span aria-hidden="true" className="shrink-0 text-text-subtle/60">/</span> : null}
+          <span aria-current="page" className="max-w-4/5 shrink-0 truncate px-1 text-text-default">{title}</span>
         </nav>
       )}
       actions={(
