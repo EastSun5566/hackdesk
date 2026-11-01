@@ -72,7 +72,7 @@ export function LeaderMenu({
       role="menu"
       aria-label={level.title.join(' › ')}
       data-leader-menu
-      className="fixed bottom-8 right-3 z-50 w-75 rounded-lg border border-border-default bg-background-default p-2 text-sm text-text-default shadow-lg"
+      className="fixed bottom-8 right-3 z-50 w-75 origin-bottom-right rounded-lg border border-border-default bg-background-default p-2 text-sm text-text-default shadow-lg ease-out animate-in fade-in-0 zoom-in-95 motion-reduce:animate-none"
     >
       <p className="px-2 pb-1.5 pt-0.5 text-2xs font-medium uppercase tracking-wide text-text-subtle">{level.title.join(' › ')}</p>
       <ul className="max-h-96 overflow-y-auto">

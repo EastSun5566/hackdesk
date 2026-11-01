@@ -17,7 +17,7 @@ const AlertDialogOverlay = React.forwardRef<
   <AlertDialogPrimitive.Backdrop
     ref={ref}
     className={cn(
-      'fixed inset-0 bg-background-overlay data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 motion-reduce:animate-none',
+      'fixed inset-0 bg-background-overlay ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 motion-reduce:animate-none',
       OVERLAY_LAYER_CLASS,
       className,
     )}
@@ -36,7 +36,7 @@ const AlertDialogContent = React.forwardRef<
       <AlertDialogPrimitive.Popup
         ref={ref}
         className={cn(
-          'grid w-full max-w-md gap-4 border border-border-default bg-background-default p-6 text-text-default duration-150 data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none sm:rounded-md',
+          'grid w-full max-w-md gap-4 border border-border-default bg-background-default p-6 text-text-default duration-150 ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none sm:rounded-md',
           ELEVATED_SURFACE_CLASS,
           className,
         )}

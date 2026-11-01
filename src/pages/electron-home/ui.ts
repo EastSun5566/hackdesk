@@ -10,7 +10,11 @@ export const FOCUS_RING_INSET_CLASS = 'focus-visible:outline-none focus-visible:
 export const HACK_MODE_HIDDEN_CLASS = '[[data-hack-mode]_&]:hidden';
 /** The top bar stays as a blank strip in Hack Mode, so the window can still be dragged. */
 export const HACK_MODE_DRAG_STRIP_CLASS = '[[data-hack-mode]_&]:border-transparent [[data-hack-mode]_&>*]:invisible';
-export const PANEL_TRANSITION_CLASS = 'transition-colors duration-150 ease-out motion-reduce:transition-none';
+/**
+ * Motion: floating popups take 150ms, easing out on the way in and in on the way out, and grow from
+ * their trigger. Panels take 200ms easing out. Reduced motion turns every one of them off.
+ */
+export const PANEL_MOTION_CLASS = 'transition-all duration-200 ease-out motion-reduce:transition-none [html[data-panel-resizing]_&]:transition-none';
 export const COLLAPSE_ICON_CLASS = 'transition-transform duration-150 ease-out motion-reduce:transition-none';
 export const ICON_BUTTON_CLASS = buttonVariants({ variant: 'ghost', size: 'icon' });
 const noteDateFormatter = new Intl.DateTimeFormat(undefined, {

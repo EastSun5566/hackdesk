@@ -8,6 +8,8 @@ import { hasWorkbenchPopup } from './workbench-keyboard-context';
 import { NavigationHintsContext } from './KeyboardNavigationContext';
 type HintState = { scope: HTMLElement | null; context: symbol | null; held: boolean; hints: NavigationHint[]; prefix: string };
 const EMPTY: HintState = { scope: null, context: null, held: false, hints: [], prefix: '' };
+/** How long the primary key is held before hints show, so quick chords such as Cmd+Right never flash them. */
+export const HINT_DELAY_MS = 400;
 
 type NavigationProps = { workspaceKey: string | null; shortcuts?: ShortcutOverrides; platform: string; characterEnabled: boolean; children: ReactNode };
 export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcuts, platform, characterEnabled, children }: NavigationProps) {
@@ -28,7 +30,12 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
     let scope: HTMLElement | null = null;
     let letters = '';
     let frame: number | null = null;
+    let timer: number | undefined;
+    let shown = false;
     const clear = (release = false) => {
+      window.clearTimeout(timer);
+      timer = undefined;
+      shown = false;
       observer.disconnect();
       delete document.documentElement.dataset.navigationHints;
       if (release) held = false;
@@ -55,10 +62,19 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
       if (codes) codesByWorkspace.current.set(codebook, codes);
       hints = targets.map(target => ({ ...target, code: codes?.get(target.id) ?? '', rect: navigationRect(target.element) }));
       observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'inert', 'aria-hidden', 'aria-disabled', 'disabled', 'data-hackdesk-dragging', 'data-editor-mode', 'data-editor-mode-loading', 'data-active-pane', 'data-closed', 'data-navigation-page', 'data-shortcut-recording', 'style', 'class'] });
+      shown = true;
       publish();
     };
+    // Holding the key arms the hints; they show only if it is still held, alone, after the delay.
+    const arm = () => {
+      held = true; suspended = false;
+      timer = window.setTimeout(() => {
+        timer = undefined;
+        if (held && !suspended) start();
+      }, HINT_DELAY_MS);
+    };
     const changed = () => {
-      if (!held || suspended) return;
+      if (!shown || suspended) return;
       const targets = signature();
       if (getSettingsNavigationRoot() !== scope || document.activeElement !== origin || targets.length !== hints.length || targets.some((target, index) => target.id !== hints[index].id || target.element !== hints[index].element)
         || letters !== safeNavigationLetters(platform, shortcuts, characterEnabled, origin?.closest<HTMLElement>('.cm-editor') ?? null)) { clear(); return; }
@@ -67,14 +83,16 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
         hints = next; publish();
       }
     };
-    const scheduleCheck = () => { if (held && !suspended && frame === null) frame = requestAnimationFrame(() => { frame = null; changed(); }); };
+    const scheduleCheck = () => { if (shown && !suspended && frame === null) frame = requestAnimationFrame(() => { frame = null; changed(); }); };
     const down = (event: KeyboardEvent) => {
       if (event.key === primary && !event.repeat && !event.isComposing) {
         if (event.altKey || event.shiftKey || (mac ? event.ctrlKey : event.metaKey)) clear();
-        else if (!held) start();
+        else if (!held) arm();
         return;
       }
       if (!held || suspended) return;
+      // Another key before the hints show makes this a shortcut such as Cmd+Right; it passes through.
+      if (!shown) { clear(); return; }
       if (event.isComposing) { clear(); return; }
       if (event.repeat) return;
       if (!(mac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey) || event.altKey || event.shiftKey) { clear(); return; }
@@ -116,6 +134,7 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
       window.removeEventListener('resize', scheduleCheck);
       document.removeEventListener('focusin', scheduleCheck);
       observer.disconnect();
+      window.clearTimeout(timer);
       delete document.documentElement.dataset.navigationHints;
       if (frame !== null) cancelAnimationFrame(frame);
     };

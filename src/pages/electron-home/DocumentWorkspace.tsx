@@ -65,6 +65,7 @@ export function DocumentWorkspace({
   onOpenEditor,
   onOpenExternal,
   onOpenNoteTarget,
+  onRevealFolder,
   onSaveAsTemplate,
   onPresent,
   onRevealInFinder,
@@ -111,6 +112,8 @@ export function DocumentWorkspace({
   onOpenExternal: (url: string) => void;
   /** Opens a linked note in a tab, switching workspace when needed. */
   onOpenNoteTarget?: OpenNoteTarget;
+  /** Shows a folder of the note's location in the sidebar; no IDs means the workspace root. */
+  onRevealFolder?: (folderIds: string[]) => void;
   onSaveAsTemplate?: () => void;
   onPresent?: (deck: PresentationDeck) => void;
   onRevealInFinder: (document: DocumentSummary) => void;
@@ -182,7 +185,7 @@ export function DocumentWorkspace({
               <Separator
                 id={`document-pane-separator-${pane.paneId}`}
                 aria-label={`Resize document panes between pane ${index} and pane ${index + 1}`}
-                className="relative w-px cursor-col-resize bg-border-default/50 outline-none before:absolute before:inset-y-0 before:left-1/2 before:w-2 before:-translate-x-1/2 hover:bg-primary-default focus-visible:bg-primary-default"
+                className="relative w-px cursor-col-resize bg-border-default/50 outline-none transition-colors before:absolute before:inset-y-0 before:left-1/2 before:w-2 before:-translate-x-1/2 hover:bg-primary-default focus-visible:bg-primary-default motion-reduce:transition-none"
               />
             ) : null}
             <Panel
@@ -236,6 +239,7 @@ export function DocumentWorkspace({
                       focusRequestId: requestId('focus'),
                       searchRequestId: requestId('search'),
                       attachImageRequestId: requestId('attach-image'),
+                      renameRequestId: requestId('rename'),
                       aiAssistRequestId: requestId('ai-assist'),
                       dictateRequestId: requestId('dictate'),
                       onRequestHandled: onEditorRequestHandled,
@@ -254,6 +258,7 @@ export function DocumentWorkspace({
                       onOpenEditor,
                       onOpenExternal,
                       onOpenNoteTarget,
+                      onRevealFolder,
                       onSaveAsTemplate,
                       onPresent,
                       onRevealInFinder,

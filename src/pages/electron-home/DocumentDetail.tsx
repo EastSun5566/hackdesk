@@ -19,6 +19,7 @@ import {
   Loader2,
   PanelRightClose,
   PanelRightOpen,
+  PencilLine,
   Presentation,
   RefreshCw,
   Save,
@@ -59,8 +60,10 @@ import { BookContents, ChapterNav } from './BookContents';
 import { useBookSessionContext } from './useBookSession';
 import { useNoteLinks } from './useNoteLinks';
 import { NoteVersionsDialog } from './NoteVersionsDialog';
+import { RenameNoteDialog } from './RenameNoteDialog';
 import { ShareDialog } from './ShareDialog';
 import {
+  FOCUS_RING_INSET_CLASS,
   formatDate,
   HACK_MODE_HIDDEN_CLASS,
 } from './ui';
@@ -91,6 +94,7 @@ export type DocumentDetailLayout = {
   aiAssistRequestId?: number;
   dictateRequestId?: number;
   attachImageRequestId: number;
+  renameRequestId?: number;
   onRequestHandled?: (id: number) => void;
   focusZone?: string | null;
   focusRequestId: number;
@@ -119,6 +123,8 @@ export type DocumentDetailActions = {
   onOpenExternal: (url: string) => void;
   /** Opens a linked note in a tab, switching workspace when needed. */
   onOpenNoteTarget?: OpenNoteTarget;
+  /** Shows a folder of the note's location in the sidebar; no IDs means the workspace root. */
+  onRevealFolder?: (folderIds: string[]) => void;
   /** Copies this note into the workspace's Templates folder; absent where templates are not offered. */
   onSaveAsTemplate?: () => void;
   /** Shows the note as full-screen slides, unsaved changes included. */
@@ -177,7 +183,9 @@ function getEffectiveSyncState({
 }
 
 // Shown on hover, keyboard focus, or while navigation hints are held.
-const DOCUMENT_ACTIONS_ON_DEMAND_CLASS = 'opacity-0 transition-opacity group-hover/document-header:opacity-100 group-focus-within/document-header:opacity-100 [html[data-navigation-hints]_&]:opacity-100 [html[data-navigation-hints]_&]:transition-none motion-reduce:transition-none';
+// While hidden, the actions lie over the end of the location instead of keeping their width, so a
+// narrow pane still shows the path; once shown, they cover its end with the header background.
+const DOCUMENT_ACTIONS_ON_DEMAND_CLASS = 'absolute inset-y-0 right-4 flex items-center bg-background-default pl-2 opacity-0 transition-opacity group-hover/document-header:opacity-100 group-focus-within/document-header:opacity-100 [html[data-navigation-hints]_&]:opacity-100 [html[data-navigation-hints]_&]:transition-none motion-reduce:transition-none';
 
 function SyncStateBadge({
   state,
@@ -220,13 +228,31 @@ function SyncStateBadge({
   );
 }
 
-/** Where the note lives, as a quiet path: its workspace, then its folders. */
-function getDocumentHeaderPath(document: DocumentSummary, isLocalDocument: boolean) {
+type HeaderPathPart = { label: string; folderIds: string[] };
+
+/**
+ * Where the note lives: its workspace, then its folders. Each part carries the folder IDs down to it,
+ * so choosing one can show that folder in the sidebar; the workspace has none.
+ */
+function getDocumentHeaderPath(document: DocumentSummary, isLocalDocument: boolean): HeaderPathPart[] {
   if (isLocalDocument) {
-    // A vault note's description is its path in the vault; the file name repeats the title.
-    return ['Local Vault', ...(document.description ?? '').split('/').slice(0, -1).filter(Boolean)];
+    // A vault note's description is its path in the vault; each folder's ID is its own path.
+    const folders = (document.description ?? '').split('/').slice(0, -1).filter(Boolean);
+    return [
+      { label: 'Local Vault', folderIds: [] },
+      ...folders.map((label, index) => ({
+        label,
+        folderIds: folders.slice(0, index + 1).map((_, depth) => `local-folder:${folders.slice(0, depth + 1).join('/')}`),
+      })),
+    ];
   }
-  return [document.teamPath ? `@${document.teamPath}` : 'My Workspace', ...document.folderPaths.map(folder => folder.name)];
+  return [
+    { label: document.teamPath ? `@${document.teamPath}` : 'My Workspace', folderIds: [] },
+    ...document.folderPaths.map((folder, index) => ({
+      label: folder.name,
+      folderIds: document.folderPaths.slice(0, index + 1).map(path => path.id),
+    })),
+  ];
 }
 
 export function DocumentDetail({
@@ -334,7 +360,17 @@ function ActiveDocumentDetail({
   const lastHandledSearchRequestRef = useRef(0);
   const lastHandledAiAssistRequestRef = useRef(0);
   const lastHandledDictateRequestRef = useRef(0);
+  const lastHandledRenameRequestRef = useRef(0);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const renameRequestId = layout.renameRequestId ?? 0;
+  useEffect(() => {
+    if (renameRequestId <= lastHandledRenameRequestRef.current) return;
+    lastHandledRenameRequestRef.current = renameRequestId;
+    layout.onRequestHandled?.(renameRequestId);
+    // Rename Note is unavailable for a draft, which takes its title from its first line on save.
+    if (documentState.document) setRenameOpen(true);
+  }, [documentState.document, layout, renameRequestId]);
   const isTeamNote = Boolean(documentState.document?.teamPath) && documentState.document?.teamPath !== LOCAL_VAULT_TEAM_PATH;
   const ai = useAiInline({ noteTitle: documentState.title, isTeamNote });
   const openAiAssist = useCallback((handle: MarkdownEditorHandle) => {
@@ -484,6 +520,7 @@ function ActiveDocumentDetail({
         onAiAssist={requestAiAssist}
         onOpenShareDialog={openShareDialogFromMenu}
         onOpenVersionsDialog={openVersionsDialogFromMenu}
+        onOpenRenameDialog={() => openDialogFromMenu(setRenameOpen)}
         layout={layout}
         status={status}
       />
@@ -493,7 +530,9 @@ function ActiveDocumentDetail({
         documentState={documentState}
       />
 
-      <div className="relative flex min-h-0 flex-1">
+      {/* Clip, not hide: Note Details slides in from past the right edge and takes focus at once, and a
+          hidden overflow would scroll sideways to show it, shifting the whole note. */}
+      <div className="relative flex min-h-0 flex-1 overflow-clip">
         {openBook ? <BookContents {...openBook} /> : null}
         <DocumentBody
           key={editorKey}
@@ -528,6 +567,18 @@ function ActiveDocumentDetail({
         />
       </div>
       {openBook ? <ChapterNav {...openBook} /> : null}
+      <RenameNoteDialog
+        open={renameOpen}
+        title={documentState.title}
+        isSaving={status.saving}
+        localVault={isLocalDocument}
+        onOpenChange={setRenameOpen}
+        onRename={(title) => {
+          actions.onTitleChange(title);
+          actions.onSave({ title, content: documentState.content });
+          setRenameOpen(false);
+        }}
+      />
 
       {!documentState.document || isLocalDocument ? null : (
         <ShareDialog
@@ -634,6 +685,7 @@ function DocumentHeader({
   onAttachImage,
   onOpenShareDialog,
   onOpenVersionsDialog,
+  onOpenRenameDialog,
   status,
 }: {
   actions: DocumentDetailActions;
@@ -647,6 +699,7 @@ function DocumentHeader({
   onAttachImage: () => void;
   onOpenShareDialog: () => void;
   onOpenVersionsDialog?: () => void;
+  onOpenRenameDialog: () => void;
   status: DocumentDetailStatus;
 }) {
   const isLocalDocument = documentState.document?.teamPath === LOCAL_VAULT_TEAM_PATH;
@@ -655,9 +708,8 @@ function DocumentHeader({
     saving: status.saving,
     syncState: documentState.syncState,
   });
-  const path = documentState.document
-    ? getDocumentHeaderPath(documentState.document, isLocalDocument)
-    : ['Unsaved draft'];
+  const path = documentState.document ? getDocumentHeaderPath(documentState.document, isLocalDocument) : [];
+  const title = documentState.isDraft ? 'Unsaved draft' : documentState.title.trim() || documentState.document?.title || 'Untitled';
   const updated = documentState.document ? `Updated ${formatDate(documentState.document.updatedAtMillis)}` : undefined;
   // Routine controls step back until the header is hovered or focused; pending work keeps them in view.
   const revealActions = noteDirty || actionsOpen || status.saving
@@ -672,30 +724,32 @@ function DocumentHeader({
 
   return (
     <PanelHeader
-      className={cn('group/document-header px-4 py-2.5', HACK_MODE_HIDDEN_CLASS)}
+      className={cn('group/document-header relative px-4 py-1.5', HACK_MODE_HIDDEN_CLASS)}
       actionsClassName={revealActions ? undefined : DOCUMENT_ACTIONS_ON_DEMAND_CLASS}
       titleElement="div"
       actionsLabel="Document actions"
+      // One line: where the note lives, ending in its title, which stays in view as the note scrolls.
+      // Rename Note changes the title.
       title={(
-        <label className="-mx-1.5 block min-w-0">
-          <span className="sr-only">Note title</span>
-          <input
-            name="title"
-            value={documentState.title}
-            onChange={(event) => actions.onTitleChange(event.target.value)}
-            className="w-full min-w-0 truncate rounded-md bg-transparent px-1.5 py-0.5 text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-          />
-        </label>
-      )}
-      subtitle={(
-        <span className="flex flex-wrap items-center gap-1.5" title={updated}>
+        <nav aria-label="Note location" className="flex min-h-8 min-w-0 items-center gap-1 overflow-hidden text-sm font-normal text-text-subtle" title={updated}>
           {path.map((part, index) => (
-            <span key={`${part}:${index}`} className="contents">
-              {index > 0 ? <span aria-hidden="true" className="text-text-subtle/60">/</span> : null}
-              <span>{part}</span>
+            <span key={`${part.label}:${index}`} className="contents">
+              {index > 0 ? <span aria-hidden="true" className="shrink-0 text-text-subtle/60">/</span> : null}
+              {/* Folders give way; the title keeps its length up to most of the line. */}
+              {actions.onRevealFolder ? (
+                <button
+                  type="button"
+                  className={cn('min-w-0 truncate rounded-sm px-1 hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_INSET_CLASS)}
+                  onClick={() => actions.onRevealFolder?.(part.folderIds)}
+                >
+                  {part.label}
+                </button>
+              ) : <span className="min-w-0 truncate px-1">{part.label}</span>}
             </span>
           ))}
-        </span>
+          {path.length ? <span aria-hidden="true" className="shrink-0 text-text-subtle/60">/</span> : null}
+          <span aria-current="page" className="max-w-4/5 shrink-0 truncate px-1 text-text-default">{title}</span>
+        </nav>
       )}
       actions={(
         <>
@@ -742,6 +796,7 @@ function DocumentHeader({
               onAttachImage={onAttachImage}
               onOpenShareDialog={onOpenShareDialog}
               onOpenVersionsDialog={onOpenVersionsDialog}
+              onOpenRenameDialog={onOpenRenameDialog}
               status={status}
             />
           ) : null}
@@ -760,6 +815,7 @@ function DocumentActionsMenu({
   onAttachImage,
   onOpenShareDialog,
   onOpenVersionsDialog,
+  onOpenRenameDialog,
   status,
 }: {
   actions: DocumentDetailActions;
@@ -770,6 +826,7 @@ function DocumentActionsMenu({
   onAttachImage: () => void;
   onOpenShareDialog: () => void;
   onOpenVersionsDialog?: () => void;
+  onOpenRenameDialog: () => void;
   status: DocumentDetailStatus;
 }) {
   const isLocalDocument = documentState.document.teamPath === LOCAL_VAULT_TEAM_PATH;
@@ -779,6 +836,15 @@ function DocumentActionsMenu({
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <ToolbarDropdownMoreTrigger />
       <DropdownMenuContent align="end">
+        {/* The header shows no editable title, so renaming lives here and in Rename Note. */}
+        <DropdownMenuItem onSelect={(event) => {
+          event.preventDefault();
+          onOpenRenameDialog();
+        }}>
+          <PencilLine aria-hidden="true" className="h-4 w-4" />
+          Rename…
+          <ActionMenuShortcut actionId="rename-note" />
+        </DropdownMenuItem>
         {isLocalDocument ? null : (
           <>
             <DropdownMenuItem onSelect={() => actions.onOpenEditor(documentState.document)}>
@@ -936,25 +1002,40 @@ function InspectorPanel({
   onRevealComment: (comment: NoteComment) => boolean;
   status: DocumentDetailStatus;
 }) {
+  // The details mount when first opened and stay through the closing slide, then unmount, so a
+  // note opened with them closed loads nothing extra.
+  const [showContent, setShowContent] = useState(!inspectorCollapsed);
+  if (!inspectorCollapsed && !showContent) setShowContent(true);
+  useEffect(() => {
+    if (!inspectorCollapsed) return undefined;
+    const timer = window.setTimeout(() => setShowContent(false), 250);
+    return () => window.clearTimeout(timer);
+  }, [inspectorCollapsed]);
+
   if (!document || (isLocalDocument && !actions.onOpenNoteTarget)) {
     return null;
   }
 
   // An overlay over the editor's right side, so the editor keeps its width. Escape closes it;
-  // a field or menu that handles Escape itself prevents the default and keeps it open.
+  // a field or menu that handles Escape itself prevents the default and keeps it open. It stays
+  // in place, inert while closed, so it slides out as well as in.
   return (
     <div
       id={inspectorPanelId}
-      hidden={inspectorCollapsed}
+      data-state={inspectorCollapsed ? 'closed' : 'open'}
+      {...({ inert: inspectorCollapsed ? '' : undefined } as Record<string, string | undefined>)}
       onKeyDown={(event) => {
         if (event.key !== 'Escape' || event.defaultPrevented || event.nativeEvent.isComposing) return;
         event.preventDefault();
         actions.onToggleInspector();
       }}
-      className="absolute inset-y-0 right-0 z-20 w-(--inspector-width) max-w-full border-l border-border-default bg-background-muted shadow-lg motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-4 motion-safe:duration-150"
+      className={cn(
+        'absolute inset-y-0 right-0 z-20 w-(--inspector-width) max-w-full border-l border-border-default bg-background-muted shadow-lg transition duration-200 ease-out motion-reduce:transition-none',
+        inspectorCollapsed && 'pointer-events-none translate-x-full opacity-0 ease-in',
+      )}
       style={{ '--inspector-width': `${INSPECTOR_WIDTH_DEFAULT}px` }}
     >
-      {inspectorCollapsed ? null : isLocalDocument ? (
+      {!showContent ? null : isLocalDocument ? (
         <LocalNoteInspector document={document} onOpenNote={actions.onOpenNoteTarget!} />
       ) : (
         <NoteInspector

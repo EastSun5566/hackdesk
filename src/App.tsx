@@ -1,9 +1,22 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Routes from '@/routes';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+
+// TanStack Query watches page visibility, which stays visible when you switch to another app in
+// Electron. The window's focus is what tells HackDesk you came back.
+focusManager.setEventListener((handleFocus) => {
+  const focus = () => handleFocus(true);
+  const blur = () => handleFocus(false);
+  window.addEventListener('focus', focus);
+  window.addEventListener('blur', blur);
+  return () => {
+    window.removeEventListener('focus', focus);
+    window.removeEventListener('blur', blur);
+  };
+});
 
 const queryClient = new QueryClient({
   defaultOptions: {

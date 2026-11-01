@@ -191,7 +191,7 @@ export function ThemeAppearanceFields({
               )}
             >
               <span>Customize Colors</span>
-              <ChevronRight className="h-4 w-4 text-text-subtle transition-transform group-data-[panel-open]:rotate-90 motion-reduce:transition-none" />
+              <ChevronRight className="h-4 w-4 text-text-subtle transition-transform duration-150 ease-out group-data-[panel-open]:rotate-90 motion-reduce:transition-none" />
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="grid grid-cols-1 gap-3 pt-2">

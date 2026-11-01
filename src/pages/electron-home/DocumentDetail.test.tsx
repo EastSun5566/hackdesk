@@ -195,6 +195,41 @@ describe('DocumentDetail', () => {
     markdownEditorMounts.nextId = 0;
   });
 
+  it('shows where the note lives, ending in its title, and each folder shows itself in the sidebar', () => {
+    const onRevealFolder = vi.fn();
+    const folderPaths = [
+      { id: 'folder-blogs', name: 'blogs', icon: null, color: null, parentId: null, clientId: null },
+      { id: 'folder-2026', name: '2026', icon: null, color: null, parentId: 'folder-blogs', clientId: null },
+    ];
+    renderDocumentDetail({
+      actions: { onRevealFolder },
+      documentState: { document: documentSummary({ folderPaths }), title: 'Collaboration notes' },
+    });
+    const location = screen.getByRole('navigation', { name: 'Note location' });
+    expect(location).toHaveTextContent('My Workspace/blogs/2026/Collaboration notes');
+    expect(within(location).getByText('Collaboration notes')).toHaveAttribute('aria-current', 'page');
+
+    fireEvent.click(within(location).getByRole('button', { name: '2026' }));
+    expect(onRevealFolder).toHaveBeenLastCalledWith(['folder-blogs', 'folder-2026']);
+    fireEvent.click(within(location).getByRole('button', { name: 'My Workspace' }));
+    expect(onRevealFolder).toHaveBeenLastCalledWith([]);
+  });
+
+  it('gives a Local Vault note\'s folders their vault paths as IDs', () => {
+    const onRevealFolder = vi.fn();
+    renderDocumentDetail({
+      actions: { onRevealFolder },
+      documentState: {
+        document: documentSummary({ teamPath: LOCAL_VAULT_TEAM_PATH, description: 'Projects/Sub/One.md' }),
+        title: 'One',
+      },
+    });
+    const location = screen.getByRole('navigation', { name: 'Note location' });
+    expect(location).toHaveTextContent('Local Vault/Projects/Sub/One');
+    fireEvent.click(within(location).getByRole('button', { name: 'Sub' }));
+    expect(onRevealFolder).toHaveBeenCalledWith(['local-folder:Projects', 'local-folder:Projects/Sub']);
+  });
+
   it('renders loading and empty branches explicitly', () => {
     renderDocumentDetail({ status: { loading: true } });
     expect(screen.getByRole('status', { name: 'Loading note' })).toHaveAttribute('aria-busy', 'true');
@@ -622,7 +657,10 @@ describe('DocumentDetail', () => {
 
   it('keeps the closed Note Details out of view and reach', () => {
     renderDocumentDetail({ layout: { inspectorCollapsed: true } });
-    expect(document.getElementById('inspector-test')).toHaveAttribute('hidden');
+    const overlay = document.getElementById('inspector-test')!;
+    expect(overlay).toHaveAttribute('inert');
+    expect(overlay).toHaveAttribute('data-state', 'closed');
+    expect(overlay).toHaveClass('translate-x-full', 'opacity-0');
     expect(screen.queryByRole('complementary', { name: 'Note details' })).toBeNull();
   });
 

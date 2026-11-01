@@ -383,8 +383,8 @@ describe('FolderNavigator', () => {
   it('uses roving focus for navigator header actions', async () => {
     renderFolderNavigator();
 
+    // Refresh happens when the window regains focus, so the header has no refresh button.
     await expectToolbarRovingFocus('Note navigator actions', [
-      'Refresh notes',
       'Create note',
       'Navigator actions',
     ]);
@@ -406,71 +406,52 @@ describe('FolderNavigator', () => {
     expect(await screen.findByText('Connect HackMD to create notes.')).toBeVisible();
   });
 
-  it('uses roving focus for finder dropdown controls', async () => {
+  it('keeps one View options button beside the search box', async () => {
     renderFolderNavigator();
 
-    await expectToolbarRovingFocus('Note finder controls', [
-      'Search scope',
-      'Sort notes',
-      'Filter notes',
-    ]);
+    await expectToolbarRovingFocus('Note finder controls', ['View options']);
   });
 
-  it('keeps tag selection in the tag browser instead of the filter menu', async () => {
-    const onFinderStateChange = vi.fn();
-    renderFolderNavigator({ actions: { onFinderStateChange } });
-
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Filter notes' }));
-    const filterMenu = await screen.findByRole('menu');
-
-    expect(filterMenu).toHaveTextContent('Read Permission');
-    expect(filterMenu).toHaveTextContent('Write Permission');
-    expect(screen.queryByRole('menuitemcheckbox', { name: 'work' })).not.toBeInTheDocument();
-
-    fireEvent.pointerDown(document.body);
-    fireEvent.click(screen.getByRole('button', { name: /^Tags\b/ }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag work' }));
-
-    expect(onFinderStateChange).toHaveBeenCalledWith({
-      ...DEFAULT_NOTE_FINDER_STATE,
-      searchScope: 'workspace',
-      tagFilters: ['work'],
-    });
-  });
-
-  it('adds tag browser selections to active tag filters', () => {
+  it('holds scope, sort, permissions and tags in View options, and counts what differs from the default', async () => {
     const onFinderStateChange = vi.fn();
     renderFolderNavigator({
       actions: { onFinderStateChange },
-      finderState: { ...DEFAULT_NOTE_FINDER_STATE, tagFilters: ['existing'] },
+      finderState: { ...DEFAULT_NOTE_FINDER_STATE, sortMode: 'title-asc', tagFilters: ['existing'] },
     });
+    const trigger = screen.getByRole('button', { name: 'View options' });
+    expect(trigger).toHaveTextContent('2');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Filter by tag work' }));
+    fireEvent.pointerDown(trigger);
+    const menu = await screen.findByRole('menu');
+    for (const section of ['Search In', 'Sort', 'Read Permission', 'Write Permission', 'Tags']) expect(menu).toHaveTextContent(section);
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /^work/ }));
 
     expect(onFinderStateChange).toHaveBeenCalledWith({
       ...DEFAULT_NOTE_FINDER_STATE,
+      sortMode: 'title-asc',
       searchScope: 'workspace',
       tagFilters: ['existing', 'work'],
     });
   });
 
-  it('returns focus to finder dropdown trigger when its menu closes', async () => {
+  it('returns focus to the View options button when its menu closes', async () => {
     renderFolderNavigator();
 
-    const trigger = screen.getByRole('button', { name: 'Search scope' });
+    const trigger = screen.getByRole('button', { name: 'View options' });
     await expectMenuReturnsFocus(trigger, (menu) => {
       fireEvent.keyDown(menu, { key: 'Escape' });
     });
   });
 
-  it('collapses to zero width without rendering a mini navigator rail', () => {
+  it('collapses to zero width, keeping its contents mounted but out of reach so the width can animate', () => {
     const { container } = renderFolderNavigator({
       layout: { collapsed: true },
     });
 
     expect(container.firstElementChild).toHaveStyle({ '--panel-width': '0px' });
+    expect(container.firstElementChild).toHaveAttribute('inert');
     expect(screen.queryByRole('button', { name: 'Expand note navigator' })).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('Search notes')).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search notes').closest('[inert]')).toBe(container.firstElementChild);
   });
 
   it('keeps folder toggle and note select callbacks wired', () => {

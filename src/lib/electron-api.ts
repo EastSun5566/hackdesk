@@ -386,6 +386,7 @@ export type ElectronActionId =
   | 'toggle-key-hints'
   | 'refresh'
   | 'search-notes'
+  | 'show-view-options'
   | 'show-keyboard-shortcuts'
   | 'open-leader-menu'
   | 'focus-next-region'

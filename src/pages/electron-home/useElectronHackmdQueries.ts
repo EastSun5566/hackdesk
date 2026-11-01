@@ -83,6 +83,8 @@ export function useElectronHackmdQueries({
         : runHackmdRequest(api.hackmd, signal, api.hackmd.listNotes, []);
     },
     enabled: !!api && hasToken && remoteScope,
+    // Changes made in HackMD's web app arrive when you come back to the window.
+    refetchOnWindowFocus: true,
   });
 
   const {
@@ -104,6 +106,7 @@ export function useElectronHackmdQueries({
       return runHackmdRequest(api.hackmd, signal, api.hackmd.listFolders, []);
     },
     enabled: !!api && hasToken && remoteScope && scope.type !== 'history',
+    refetchOnWindowFocus: true,
   });
 
   const {
@@ -125,6 +128,7 @@ export function useElectronHackmdQueries({
       return runHackmdRequest(api.hackmd, signal, api.hackmd.getFolderOrder, []);
     },
     enabled: !!api && hasToken && remoteScope && scope.type !== 'history',
+    refetchOnWindowFocus: true,
   });
 
   const selectedDocumentNotes = useMemo(() => {

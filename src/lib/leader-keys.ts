@@ -34,7 +34,7 @@ export const LEADER_KEYS: Record<string, LeaderEntry> = {
   g: {
     label: 'Go',
     keys: {
-      w: 'focus-workspace', o: 'open-quick-open', s: 'search-notes', h: 'go-history', t: 'show-trash', b: 'navigate-back',
+      w: 'focus-workspace', o: 'open-quick-open', s: 'search-notes', v: 'show-view-options', h: 'go-history', t: 'show-trash', b: 'navigate-back',
       f: 'navigate-forward', e: 'focus-editor', n: 'focus-navigator', d: 'focus-inspector',
     },
   },

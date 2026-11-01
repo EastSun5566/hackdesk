@@ -92,7 +92,7 @@ function ToastList() {
             aria-live="polite"
             aria-atomic="true"
             className={cn(
-              'group pointer-events-auto flex w-full items-center gap-2.5 rounded-xl border border-border-default/80 bg-background-default/95 px-3 py-2.5 text-text-default shadow-[0_18px_45px_rgba(0,0,0,0.22),0_1px_0_rgba(255,255,255,0.04)_inset] backdrop-blur data-[ending-style]:animate-out data-[starting-style]:animate-in data-[ending-style]:fade-out-0 data-[starting-style]:fade-in-0 data-[ending-style]:slide-out-to-bottom-1 data-[starting-style]:slide-in-from-bottom-1 motion-reduce:animate-none',
+              'group pointer-events-auto flex w-full items-center gap-2.5 rounded-xl border border-border-default/80 bg-background-default/95 px-3 py-2.5 text-text-default shadow-[0_18px_45px_rgba(0,0,0,0.22),0_1px_0_rgba(255,255,255,0.04)_inset] backdrop-blur transition duration-150 ease-out data-[ending-style]:ease-in data-[starting-style]:translate-y-1 data-[starting-style]:opacity-0 data-[ending-style]:translate-y-1 data-[ending-style]:opacity-0 motion-reduce:transition-none',
               ELEVATED_SURFACE_CLASS,
               variant === 'success' && 'border-success-default/30',
               variant === 'error' && 'border-destructive-default/35',

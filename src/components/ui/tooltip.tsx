@@ -59,7 +59,7 @@ const TooltipContent = React.forwardRef<
       <TooltipPrimitive.Popup
         ref={ref}
         className={cn(
-          'max-w-64 rounded-md border border-border-default bg-text-default px-2 py-1 text-xs text-background-default data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 motion-reduce:animate-none',
+          'max-w-64 rounded-md border border-border-default bg-text-default px-2 py-1 text-xs text-background-default origin-(--transform-origin) ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 motion-reduce:animate-none',
           ELEVATED_SURFACE_CLASS,
           className,
         )}
