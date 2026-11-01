@@ -202,8 +202,12 @@ test('inline preview follows scrolling and reveals source without losing edits',
     const lastLine = content.locator('.cm-line').filter({ hasText: 'bottom' });
     await expect(lastLine).toHaveText('**bottom** and [link](https://example.com)');
     await page.keyboard.press(`${primary}+Home`);
-    await page.locator('.cm-scroller').evaluate((element) => { element.scrollTop = element.scrollHeight; });
-    await expect(lastLine).toHaveText('bottom and link');
+    // The editor renders only visible lines and measures them as they appear, so the bottom can move
+    // after the first jump; keep scrolling until the last line is drawn.
+    await expect(async () => {
+      await page.locator('.cm-scroller').evaluate((element) => { element.scrollTop = element.scrollHeight; });
+      await expect(lastLine).toHaveText('bottom and link', { timeout: 500 });
+    }).toPass();
     await lastLine.click();
     await expect(lastLine).toHaveText('**bottom** and [link](https://example.com)');
     await page.keyboard.press(`${primary}+End`);
