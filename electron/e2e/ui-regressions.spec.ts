@@ -437,8 +437,14 @@ test('a keyboard-only tour of the main flows in light theme at a narrow window, 
     const [start, ...rest] = visited;
     expect(rest).toEqual(['navigator', 'tabs', 'editor note-pane-primary', start, 'navigator']);
 
-    // A folder in the note's location opens it in the sidebar and moves focus there.
-    const deepLocation = page.getByRole('navigation', { name: 'Note location' }).filter({ hasText: 'Folders only' });
+    // A folder in the note's location opens it in the sidebar and moves focus there. Open a note
+    // in a folder first, rather than relying on which note the fixture opened.
+    await page.getByRole('textbox', { name: 'Search notes' }).focus();
+    await page.keyboard.type('Deep');
+    await expect(page.getByRole('status').filter({ hasText: 'Deep, 1 of 1' })).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('tab', { name: /^Deep(?:, .+)?$/ })).toHaveAttribute('aria-selected', 'true');
+    const deepLocation = page.locator('[data-active-pane="true"]').getByRole('navigation', { name: 'Note location' });
     await expect(deepLocation).toHaveText(/Folders only\s*\/\s*Last\s*\/\s*Deep$/);
     await deepLocation.getByRole('button', { name: 'Last', exact: true }).focus();
     await page.keyboard.press('Enter');
