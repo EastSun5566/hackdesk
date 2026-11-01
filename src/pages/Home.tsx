@@ -803,6 +803,8 @@ export function Home() {
     workspaceState: noteWorkspace.state,
   });
 
+  // A shortcut with nothing to do does nothing, as in other editors, instead of explaining itself.
+  const runShortcutAction = useCallback((id: Parameters<typeof runAction>[0]) => runAction(id, { quiet: true }), [runAction]);
   const runPaletteAction = useCallback((id: Parameters<typeof runAction>[0]) => {
     const context = getElectronAction(id).keyboardContext;
     if (context === 'region' || context === 'scroll') {
@@ -911,7 +913,7 @@ export function Home() {
     openLeaderMenu,
     platform: api?.platform ?? navigator.platform,
     refreshWorkspace,
-    runAction,
+    runAction: runShortcutAction,
     selectedFolderId,
     setFinderState,
     setSelectedFolderId,

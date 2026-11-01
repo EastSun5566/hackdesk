@@ -65,6 +65,7 @@ export function DocumentWorkspace({
   editorRequests,
   onEditorRequestHandled,
   onResizeSplit,
+  onTogglePaneZoom,
   onFocusPane,
   onOpenEditor,
   onOpenExternal,
@@ -115,6 +116,8 @@ export function DocumentWorkspace({
   editorRequests: EditorRequest[];
   onEditorRequestHandled: (id: number) => void;
   onResizeSplit: (splitId: string, sizes: Record<string, number>) => void;
+  /** Zooms the active pane or restores the others; a pane's button makes it active first. */
+  onTogglePaneZoom: () => void;
   onFocusPane: (paneId: string) => void;
   onOpenEditor: (document: DocumentSummary) => void;
   onOpenExternal: (url: string) => void;
@@ -235,6 +238,7 @@ export function DocumentWorkspace({
             shareOpen: isActivePane && shareOpen,
             versionsOpen: isActivePane && versionsOpen,
             inspectorCollapsed: !isActivePane || isInspectorCollapsed,
+            paneZoom: panes.length > 1 ? { zoomed: zoomedPaneId === pane.paneId, onToggle: onTogglePaneZoom } : undefined,
           }}
           status={{
             loading: view.isLoading,

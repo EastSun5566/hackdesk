@@ -1655,8 +1655,13 @@ test('panes split right and down, move by direction, and zoom without losing edi
     const visiblePanes = page.locator('section[data-document-pane-id]:visible');
     const activePaneBox = async () => (await page.locator('section[data-active-pane="true"]').boundingBox())!;
 
-    // Right, then down from the new pane: an L, with the left pane full height.
+    // With one tab, next tab has nothing to do and says nothing.
     await page.locator('.cm-content').click();
+    await page.keyboard.press(`${primary}+Alt+ArrowRight`);
+    await page.waitForTimeout(300);
+    await expect(page.getByText('Open another tab first.')).toHaveCount(0);
+
+    // Right, then down from the new pane: an L, with the left pane full height.
     await page.keyboard.press(`${primary}+\\`);
     await page.keyboard.press(`${primary}+Shift+\\`);
     await expect(panes).toHaveCount(3);
@@ -1681,6 +1686,23 @@ test('panes split right and down, move by direction, and zoom without losing edi
     await leader('pj');
     await expect.poll(async () => Math.round((await activePaneBox()).y)).toBe(bottom.y);
 
+    // Control+Command+arrows move by direction too, on macOS.
+    if (process.platform === 'darwin') {
+      await page.keyboard.press('Control+Meta+ArrowUp');
+      await expect.poll(async () => Math.round((await activePaneBox()).y)).toBe(top.y);
+      await page.keyboard.press('Control+Meta+ArrowLeft');
+      await expect.poll(async () => Math.round((await activePaneBox()).x)).toBe(left.x);
+      await page.keyboard.press('Control+Meta+ArrowDown');
+      await expect.poll(async () => Math.round((await activePaneBox()).x)).toBe(left.x);
+    } else {
+      await leader('ph');
+    }
+    // Next tab runs on past a pane's last tab into the next pane, in reading order.
+    await page.keyboard.press(`${primary}+Alt+ArrowRight`);
+    await expect.poll(async () => Math.round((await activePaneBox()).y)).toBe(top.y);
+    await page.keyboard.press(`${primary}+Alt+ArrowRight`);
+    await expect.poll(async () => Math.round((await activePaneBox()).y)).toBe(bottom.y);
+
     // Zoom fills the editor area with the active pane; the others come back as they were.
     const editor = page.locator('section[data-active-pane="true"] .cm-content');
     await editor.click();
@@ -1697,6 +1719,14 @@ test('panes split right and down, move by direction, and zoom without losing edi
     await editor.click();
     await page.keyboard.press(`${primary}+z`);
     await expect(editor).not.toContainText('zoomed edit');
+
+    // Each pane's header has a zoom button too.
+    const header = page.locator('section[data-active-pane="true"] header');
+    await header.hover();
+    await header.getByRole('button', { name: 'Zoom pane' }).click();
+    await expect(visiblePanes).toHaveCount(1);
+    await page.locator('section[data-active-pane="true"] header').getByRole('button', { name: 'Restore panes' }).click();
+    await expect(visiblePanes).toHaveCount(3);
 
     // Hack Mode leaves only the active pane of the nested split too.
     await page.keyboard.press(`${primary}+.`);

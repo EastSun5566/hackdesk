@@ -62,6 +62,13 @@ describe('useWorkbenchShortcuts', () => {
     expect(handlers.runAction).toHaveBeenCalledWith('scroll-half-page-down');
   });
 
+  it('takes the key of an unavailable action, so nothing else runs it again', () => {
+    const handlers = createHandlers({ runAction: vi.fn(() => 'unavailable' as const) });
+    renderHook(() => useWorkbenchShortcuts(handlers));
+    expect(fireEvent.keyDown(window, { key: 'ArrowRight', metaKey: true, altKey: true })).toBe(false);
+    expect(handlers.runAction).toHaveBeenCalledWith('focus-next-tab');
+  });
+
   it('keeps Cmd+F for in-note search and releases Cmd+Shift+F', () => {
     const handlers = createHandlers();
 

@@ -51,7 +51,7 @@ export type WorkbenchActionHandlersOptions = {
   focusPreviousPane: () => void;
   focusPreviousTab: () => void;
   focusWorkspaceSearch: () => void;
-  focusZone: (zone: ElectronFocusZone, options?: { afterPaneChange?: boolean }) => void;
+  focusZone: (zone: ElectronFocusZone, options?: { afterMove?: boolean }) => void;
   importMarkdownNote: () => void;
   isSavingNote: boolean;
   moveActiveTabToOtherPane: () => void;
@@ -222,19 +222,19 @@ export function useWorkbenchActionHandlers({
     focusNavigator: () => focusZone('navigator'),
     focusNextPane: () => {
       focusNextPane();
-      focusZone('editor', { afterPaneChange: true });
+      focusZone('editor', { afterMove: true });
     },
     focusNextTab: () => {
       focusNextTab();
-      focusZone('editor');
+      focusZone('editor', { afterMove: true });
     },
     focusPreviousPane: () => {
       focusPreviousPane();
-      focusZone('editor', { afterPaneChange: true });
+      focusZone('editor', { afterMove: true });
     },
     focusPreviousTab: () => {
       focusPreviousTab();
-      focusZone('editor');
+      focusZone('editor', { afterMove: true });
     },
     openWorkspaceSwitcher,
     focusWorkspaceSearch,
@@ -245,7 +245,7 @@ export function useWorkbenchActionHandlers({
     importMarkdownNote,
     moveTabToOtherPane: () => {
       moveActiveTabToOtherPane();
-      focusZone('editor', { afterPaneChange: true });
+      focusZone('editor', { afterMove: true });
     },
     navigateBack: () => {
       navigateBack();
@@ -314,15 +314,15 @@ export function useWorkbenchActionHandlers({
     setEditorMode,
     splitPaneRight: () => {
       splitActiveTab();
-      focusZone('editor', { afterPaneChange: true });
+      focusZone('editor', { afterMove: true });
     },
     splitPaneDown: () => {
       splitActivePaneDown();
-      focusZone('editor', { afterPaneChange: true });
+      focusZone('editor', { afterMove: true });
     },
     focusPaneInDirection: (direction) => {
       focusPaneToward(direction);
-      focusZone('editor', { afterPaneChange: true });
+      focusZone('editor', { afterMove: true });
     },
     togglePaneZoom,
     equalizePanes,

@@ -104,6 +104,7 @@ function createWorkspaceProps(overrides: Partial<Parameters<typeof DocumentWorks
     onReloadFromDisk: vi.fn(),
     onReloadFromHackmd: vi.fn(),
     onResizeSplit: vi.fn(),
+    onTogglePaneZoom: vi.fn(),
     onRevealInFinder: vi.fn(),
     onSave: vi.fn(),
     onSaveAsCopy: vi.fn(),

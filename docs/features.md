@@ -53,9 +53,15 @@ To compare notes:
 2. Open another note in the new pane.
 3. Drag the gap between panes to resize them, or choose **Equalize Pane Sizes**.
 
-Any pane can be split again, right or down, up to six panes. A pane closes with its last tab. **Move Tab to Next Pane** moves the active tab along, and the **P** group in the [leader menu](./keyboard-navigation.md#run-commands-with-a-few-keys) moves between panes by direction. The tab strip follows the active pane.
+Any pane can be split again, right or down, up to six panes. A pane closes with its last tab. The tab strip follows the active pane.
 
-To focus on one pane without closing the others, press **Cmd+Shift+Enter** / **Ctrl+Shift+Enter** for **Zoom Pane**: it fills the editor area, and the same key brings the other panes back as they were.
+To move around without the pointer:
+
+- **Option+Cmd+Left** / **Right** (**Ctrl+Alt+Left** / **Right** on Windows/Linux) goes to the previous or next tab, and past a pane's last tab into the next pane, left to right and top to bottom.
+- **Control+Cmd+arrow keys** on macOS, or the **P** group in the [leader menu](./keyboard-navigation.md#run-commands-with-a-few-keys), move to the pane in that direction.
+- **Move Tab to Next Pane** moves the active tab along.
+
+To focus on one pane without closing the others, choose **Zoom pane** at the top right of the pane, or press **Cmd+Shift+Enter** / **Ctrl+Shift+Enter**: it fills the editor area, and the same button or key brings the other panes back as they were.
 
 **Close Tab** closes the active tab and keeps the workbench open after the last tab. When prompted about unsaved changes, save or discard them before closing.
 

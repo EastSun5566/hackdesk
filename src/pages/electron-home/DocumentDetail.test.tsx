@@ -230,6 +230,19 @@ describe('DocumentDetail', () => {
     expect(onRevealFolder).toHaveBeenCalledWith(['local-folder:Projects', 'local-folder:Projects/Sub']);
   });
 
+  it('offers pane zoom only beside other panes, and says when it would restore them', () => {
+    const onToggle = vi.fn();
+    const { rerenderDocumentDetail, props } = renderDocumentDetail({ layout: { paneZoom: { zoomed: false, onToggle } } });
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom pane' }));
+    expect(onToggle).toHaveBeenCalledOnce();
+
+    rerenderDocumentDetail({ ...props, layout: { ...props.layout, paneZoom: { zoomed: true, onToggle } } });
+    expect(screen.getByRole('button', { name: 'Restore panes' })).toHaveAttribute('aria-pressed', 'true');
+
+    rerenderDocumentDetail({ ...props, layout: { ...props.layout, paneZoom: undefined } });
+    expect(screen.queryByRole('button', { name: /Zoom pane|Restore panes/ })).not.toBeInTheDocument();
+  });
+
   it('renders loading and empty branches explicitly', () => {
     renderDocumentDetail({ status: { loading: true } });
     expect(screen.getByRole('status', { name: 'Loading note' })).toHaveAttribute('aria-busy', 'true');

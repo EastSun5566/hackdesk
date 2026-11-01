@@ -260,6 +260,7 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
       editorRequests: [],
       onEditorRequestHandled: noop,
       onResizeSplit: noop,
+      onTogglePaneZoom: noop,
       onFocusPane: noop,
       onOpenEditor: noop,
       onOpenExternal: noop,

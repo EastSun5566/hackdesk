@@ -552,6 +552,22 @@ describe('note workspace panes', () => {
     expect(closed.activePaneId).toBe(layoutPaneIds(closed.layout)[1]);
   });
 
+  it('steps through tabs across panes in reading order, wrapping at the ends', () => {
+    // Left pane keeps n0 and n1; the right pane gets n2.
+    const split = splitActiveTabRight(withNotes());
+    const [left, right] = layoutPaneIds(split.layout);
+    const leftPane = split.panes.find(pane => pane.paneId === left)!;
+    const atLastLeft = selectNoteTab(split, left, leftPane.tabIds.at(-1)!);
+
+    const intoRight = focusAdjacentTab(atLastLeft, 'next');
+    expect(intoRight.activePaneId).toBe(right);
+    const backToLeft = focusAdjacentTab(intoRight, 'previous');
+    expect([backToLeft.activePaneId, getActiveTab(backToLeft)?.tabId]).toEqual([left, leftPane.tabIds.at(-1)]);
+    // Past the last tab of the last pane, it wraps to the first tab of the first pane.
+    const wrapped = focusAdjacentTab(intoRight, 'next');
+    expect([wrapped.activePaneId, getActiveTab(wrapped)?.tabId]).toEqual([left, leftPane.tabIds[0]]);
+  });
+
   it(`stops at ${MAX_PANES} panes`, () => {
     let state = withNotes(MAX_PANES + 1);
     for (let split = 0; split < MAX_PANES + 2; split++) state = splitActivePane(state, split % 2 ? 'down' : 'right');

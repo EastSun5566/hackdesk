@@ -128,6 +128,11 @@ function requireSavedTab(context: ElectronActionContext) {
   return requireOpenTab(context) ?? (context.selectedNoteId ? null : 'Save the draft first; its first line becomes the title.');
 }
 
+/** Next and previous tab step across panes, so any second tab will do. */
+function requireAnotherTab(context: ElectronActionContext) {
+  return context.openTabCount > 1 ? null : 'Open another tab first.';
+}
+
 function requireOtherTabs(context: ElectronActionContext) {
   const tabReason = requireOpenTab(context);
   if (tabReason) {
@@ -677,26 +682,26 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
   {
     id: 'focus-next-tab',
     label: 'Next Tab',
-    description: 'Focus the next note tab in the active pane.',
+    description: 'Focus the next note tab, continuing into the next pane.',
     keywords: ['tab', 'next'],
     category: 'navigation',
     scope: 'editor',
     defaultKeybinding: 'mod+alt+arrowright,ctrl+tab',
     shortcut: '⌥⌘→',
     menuAccelerator: 'CmdOrCtrl+Alt+Right',
-    getDisabledReason: requireOtherTabs,
+    getDisabledReason: requireAnotherTab,
   },
   {
     id: 'focus-previous-tab',
     label: 'Previous Tab',
-    description: 'Focus the previous note tab in the active pane.',
+    description: 'Focus the previous note tab, continuing into the previous pane.',
     keywords: ['tab', 'previous'],
     category: 'navigation',
     scope: 'editor',
     defaultKeybinding: 'mod+alt+arrowleft,ctrl+shift+tab',
     shortcut: '⌥⌘←',
     menuAccelerator: 'CmdOrCtrl+Alt+Left',
-    getDisabledReason: requireOtherTabs,
+    getDisabledReason: requireAnotherTab,
   },
   {
     id: 'focus-next-pane',
@@ -707,6 +712,8 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     scope: 'editor',
     getDisabledReason: (context) => context.paneCount > 1 ? null : 'Split the editor before switching panes.',
   },
+  // Control+Command+arrow on macOS; elsewhere Control+Windows+arrow belongs to the system, so these
+  // keys simply never arrive and the commands are assigned in Settings.
   ...(['left', 'down', 'up', 'right'] as const).map((direction): ElectronActionDefinition => ({
     id: `focus-pane-${direction}`,
     label: `Focus Pane ${direction[0].toUpperCase()}${direction.slice(1)}`,
@@ -714,6 +721,8 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['pane', 'focus', direction],
     category: 'navigation',
     scope: 'editor',
+    defaultKeybinding: `ctrl+meta+arrow${direction}`,
+    shortcut: `⌃⌘${{ left: '←', down: '↓', up: '↑', right: '→' }[direction]}`,
     getDisabledReason: (context) => context.paneCount > 1 ? null : 'Split the editor before switching panes.',
   })),
   {

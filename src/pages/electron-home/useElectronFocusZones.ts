@@ -67,20 +67,23 @@ export function useElectronFocusZones() {
     pendingFrameRef.current = window.requestAnimationFrame(focusWhenReady);
   }, []);
 
-  const focusZone = useCallback((zone: ElectronFocusZone, options: { afterPaneChange?: boolean } = {}) => {
+  const focusZone = useCallback((zone: ElectronFocusZone, options: { afterMove?: boolean } = {}) => {
     // Resolve after React has applied the change requested by an action, such as opening a panel.
     // An action run from a frame callback renders later, so wait a few frames for the region. After
-    // a command that moves to another pane, wait until that pane is the active one, or the editor of
-    // the pane being left would take focus and make it active again.
+    // a command that moves to another tab or pane, wait until it is the active one, or the editor
+    // being left would take focus and make its pane active again.
     if (pendingFrameRef.current !== null) window.cancelAnimationFrame(pendingFrameRef.current);
-    const activePaneId = () => document.querySelector<HTMLElement>('[data-active-pane="true"]')?.dataset.documentPaneId;
-    const leavingPaneId = options.afterPaneChange ? activePaneId() : undefined;
+    const activeTarget = () => {
+      const pane = document.querySelector<HTMLElement>('[data-active-pane="true"]');
+      return `${pane?.dataset.documentPaneId}:${pane?.dataset.navigationEditorId}`;
+    };
+    const leavingTarget = options.afterMove ? activeTarget() : undefined;
     const request = ++requestRef.current;
     let attempts = 0;
     const resolve = () => {
       pendingFrameRef.current = null;
       if (request !== requestRef.current) return;
-      if (leavingPaneId !== undefined && activePaneId() === leavingPaneId && attempts++ < 8) {
+      if (leavingTarget !== undefined && activeTarget() === leavingTarget && attempts++ < 8) {
         pendingFrameRef.current = window.requestAnimationFrame(resolve);
         return;
       }

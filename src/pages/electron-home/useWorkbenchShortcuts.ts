@@ -38,7 +38,8 @@ export type WorkbenchShortcutHandlers = {
   openLeaderMenu?: () => void;
   platform: string;
   refreshWorkspace: () => void;
-  runAction: (actionId: ElectronActionId) => void | boolean;
+  /** Runs a shortcut's action quietly; an unavailable action returns 'unavailable' and still takes the key. */
+  runAction: (actionId: ElectronActionId) => void | boolean | 'unavailable';
   selectedFolderId: string | null;
   setFinderState: Dispatch<SetStateAction<NoteFinderState>>;
   setSelectedFolderId: Dispatch<SetStateAction<string | null>>;
@@ -103,6 +104,7 @@ export function useWorkbenchShortcuts({
       if (matchedAction === 'open-command-palette') openPalette();
       else if (matchedAction === 'new-note') handleCreateNote();
       else if (matchedAction === 'refresh') refreshWorkspace();
+      // An unavailable action still takes the key, so the app menu does not run it a second time.
       else if (runAction(matchedAction) === false) return;
       event.preventDefault();
       return;

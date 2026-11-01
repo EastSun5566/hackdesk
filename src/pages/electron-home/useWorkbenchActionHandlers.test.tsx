@@ -253,7 +253,9 @@ describe('useWorkbenchActionHandlers', () => {
 
     expect(focusNextTab).toHaveBeenCalledOnce();
     expect(focusPreviousPane).toHaveBeenCalledOnce();
-    expect(focusZone).toHaveBeenCalledWith('editor');
+    // Both may land in another pane, so focus waits until the move has rendered.
+    expect(focusZone).toHaveBeenNthCalledWith(1, 'editor', { afterMove: true });
+    expect(focusZone).toHaveBeenNthCalledWith(2, 'editor', { afterMove: true });
   });
 
   it('routes folder actions only when a real folder is selected', () => {

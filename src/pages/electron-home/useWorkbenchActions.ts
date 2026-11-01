@@ -233,10 +233,15 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     workspaceState,
   ]);
 
-  const runAction = useCallback((actionId: ElectronActionId) => {
+  /**
+   * Runs an action, or explains why it cannot run. A shortcut runs it quietly: like other editors, a
+   * key with nothing to do does nothing, and it is reported as unavailable so the key is still used.
+   */
+  const runAction = useCallback((actionId: ElectronActionId, options: { quiet?: boolean } = {}): boolean | 'unavailable' | void => {
     const action = getElectronAction(actionId);
     const disabledReason = getActionDisabledReason(action, actionContext);
     if (disabledReason) {
+      if (options.quiet) return 'unavailable';
       toast.info(disabledReason);
       return false;
     }

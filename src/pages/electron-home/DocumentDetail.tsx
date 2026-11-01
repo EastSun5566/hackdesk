@@ -17,6 +17,8 @@ import {
   LayoutTemplate,
   ImagePlus,
   Loader2,
+  Maximize2,
+  Minimize2,
   PanelRightClose,
   PanelRightOpen,
   PencilLine,
@@ -103,6 +105,8 @@ export type DocumentDetailLayout = {
   searchRequestId: number;
   shareOpen: boolean;
   versionsOpen?: boolean;
+  /** With several panes, this pane can fill the editor area; `zoomed` says it does now. */
+  paneZoom?: { zoomed: boolean; onToggle: () => void };
 };
 
 export type DocumentDetailStatus = {
@@ -773,6 +777,16 @@ function DocumentHeader({
               label="Present"
             >
               <Presentation aria-hidden="true" className="h-4 w-4" />
+            </ToolbarIconButton>
+          ) : null}
+          {layout.paneZoom ? (
+            <ToolbarIconButton
+              actionId="toggle-pane-zoom"
+              onClick={layout.paneZoom.onToggle}
+              aria-pressed={layout.paneZoom.zoomed}
+              label={layout.paneZoom.zoomed ? 'Restore panes' : 'Zoom pane'}
+            >
+              {layout.paneZoom.zoomed ? <Minimize2 aria-hidden="true" className="h-4 w-4" /> : <Maximize2 aria-hidden="true" className="h-4 w-4" />}
             </ToolbarIconButton>
           ) : null}
           {/* A vault note's details are only the notes linking to it. */}

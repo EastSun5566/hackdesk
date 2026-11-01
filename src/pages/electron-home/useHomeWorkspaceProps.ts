@@ -292,6 +292,7 @@ export function useHomeWorkspaceProps({
         };
       },
       onResizeSplit: noteWorkspace.resizeSplit,
+      onTogglePaneZoom: actions.togglePaneZoom,
       onFocusPane: noteWorkspace.focusPane,
       onOpenEditor: actions.handleOpenEditor,
       onOpenExternal: actions.handleOpenExternal,

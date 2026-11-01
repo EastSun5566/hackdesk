@@ -821,19 +821,27 @@ export function toggleNotePaneZoom(state: NoteWorkspaceState) {
   return { ...state, zoomedPaneId: state.zoomedPaneId ? null : state.activePaneId };
 }
 
+/**
+ * Steps through every tab as one sequence, pane by pane in reading order: past the end of a pane it
+ * continues into the next pane, and past the last tab it wraps to the first.
+ */
 export function focusAdjacentTab(state: NoteWorkspaceState, direction: 'next' | 'previous') {
-  const pane = getActivePane(state);
-  if (!pane || pane.tabIds.length <= 1) {
+  const sequence = layoutPaneIds(state.layout).flatMap((paneId) => (
+    state.panes.find((pane) => pane.paneId === paneId)?.tabIds.map((tabId) => ({ paneId, tabId })) ?? []
+  ));
+  if (sequence.length <= 1) {
     return state;
   }
 
-  const currentIndex = pane.activeTabId ? pane.tabIds.indexOf(pane.activeTabId) : 0;
-  const safeIndex = currentIndex >= 0 ? currentIndex : 0;
-  const nextIndex = direction === 'next'
-    ? (safeIndex + 1) % pane.tabIds.length
-    : (safeIndex - 1 + pane.tabIds.length) % pane.tabIds.length;
+  const activePane = getActivePane(state);
+  const currentIndex = Math.max(0, sequence.findIndex((entry) => (
+    entry.paneId === activePane?.paneId && entry.tabId === activePane.activeTabId
+  )));
+  const next = sequence[direction === 'next'
+    ? (currentIndex + 1) % sequence.length
+    : (currentIndex - 1 + sequence.length) % sequence.length];
 
-  return selectNoteTab(state, pane.paneId, pane.tabIds[nextIndex]);
+  return selectNoteTab(state, next.paneId, next.tabId);
 }
 
 export function updateNoteTabDraft(state: NoteWorkspaceState, tabId: string, draft: NoteDocumentDraft) {
