@@ -121,6 +121,11 @@ function requireOpenTab(context: ElectronActionContext) {
   return context.openTabCount > 0 ? null : 'Open a note tab first.';
 }
 
+// A draft has no title of its own yet: saving it names it from its first line.
+function requireSavedTab(context: ElectronActionContext) {
+  return requireOpenTab(context) ?? (context.selectedNoteId ? null : 'Save the draft first; its first line becomes the title.');
+}
+
 function requireOtherTabs(context: ElectronActionContext) {
   const tabReason = requireOpenTab(context);
   if (tabReason) {
@@ -440,7 +445,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keywords: ['title', 'rename', 'name'],
     category: 'note',
     scope: 'editor',
-    getDisabledReason: requireOpenTab,
+    getDisabledReason: requireSavedTab,
   },
   {
     id: 'duplicate-note',

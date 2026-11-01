@@ -347,8 +347,9 @@ function ActiveDocumentDetail({
     if (renameRequestId <= lastHandledRenameRequestRef.current) return;
     lastHandledRenameRequestRef.current = renameRequestId;
     layout.onRequestHandled?.(renameRequestId);
-    setRenameOpen(true);
-  }, [layout, renameRequestId]);
+    // Rename Note is unavailable for a draft, which takes its title from its first line on save.
+    if (documentState.document) setRenameOpen(true);
+  }, [documentState.document, layout, renameRequestId]);
   const isTeamNote = Boolean(documentState.document?.teamPath) && documentState.document?.teamPath !== LOCAL_VAULT_TEAM_PATH;
   const ai = useAiInline({ noteTitle: documentState.title, isTeamNote });
   const openAiAssist = useCallback((handle: MarkdownEditorHandle) => {

@@ -247,6 +247,9 @@ describe('electron action registry', () => {
     expect(reason('share-note', { scopeType: 'local' })).toBe('Sharing is only available for HackMD notes.');
     expect(reason('move-note-to-folder', { scopeType: 'history' })).toBe('Choose My Workspace or a team first.');
     expect(reason('duplicate-note', { selectedNoteId: null })).toBe('Select a note first.');
+    expect(reason('rename-note')).toBeNull();
+    expect(reason('rename-note', { selectedNoteId: null })).toBe('Save the draft first; its first line becomes the title.');
+    expect(reason('rename-note', { selectedNoteId: null, openTabCount: 0 })).toBe('Open a note tab first.');
     expect(reason('move-tab-left')).toBe('No tabs to the left in this pane.');
     expect(reason('move-tab-left', { activePaneTabsToLeftCount: 1 })).toBeNull();
     expect(reason('move-tab-right')).toBeNull();
