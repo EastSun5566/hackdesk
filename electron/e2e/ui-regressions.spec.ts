@@ -1558,7 +1558,23 @@ test('Note Details floats over the note and Escape returns to it', async () => {
     await openFixtureNote(page);
     const editor = page.locator('.cm-content');
     const editorWidth = async () => (await page.locator('.cm-editor').boundingBox())!.width;
+    const editorLeft = async () => (await page.locator('.cm-editor').boundingBox())!.x;
     const before = await editorWidth();
+    const left = await editorLeft();
+
+    // Closed, it waits past the right edge. Nothing around it may scroll sideways, or taking focus
+    // while it slides in would scroll the whole note to the left.
+    const sidewaysScrollers = () => page.evaluate(() => {
+      const toggle = document.querySelector('[data-active-pane="true"] [aria-controls][aria-label$="note details"]');
+      const found: string[] = [];
+      for (let element = document.getElementById(toggle?.getAttribute('aria-controls') ?? '')?.parentElement; element; element = element.parentElement) {
+        element.scrollLeft = 40;
+        if (element.scrollLeft > 0) found.push(`${element.tagName.toLowerCase()}.${element.className}`.slice(0, 80));
+        element.scrollLeft = 0;
+      }
+      return found;
+    });
+    expect(await sidewaysScrollers()).toEqual([]);
 
     // Note Details opens from the leader menu over the editor, takes focus, and Escape returns to the note.
     await editor.click();
@@ -1570,6 +1586,9 @@ test('Note Details floats over the note and Escape returns to it', async () => {
     await expect(details).toBeVisible();
     await expect.poll(() => page.evaluate(() => Boolean(document.activeElement?.closest('[data-hackdesk-focus="inspector"]')))).toBe(true);
     expect(await editorWidth()).toBe(before);
+    // Taking focus while it slides in does not scroll the note sideways.
+    await page.waitForTimeout(300);
+    expect(await editorLeft()).toBe(left);
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('25-note-details-overlay.png') });
     await page.keyboard.press('Escape');
     await expect(details).toBeHidden();

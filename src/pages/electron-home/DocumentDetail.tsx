@@ -509,7 +509,9 @@ function ActiveDocumentDetail({
         documentState={documentState}
       />
 
-      <div className="relative flex min-h-0 flex-1">
+      {/* Clip, not hide: Note Details slides in from past the right edge and takes focus at once, and a
+          hidden overflow would scroll sideways to show it, shifting the whole note. */}
+      <div className="relative flex min-h-0 flex-1 overflow-clip">
         {openBook ? <BookContents {...openBook} /> : null}
         <DocumentBody
           key={editorKey}
