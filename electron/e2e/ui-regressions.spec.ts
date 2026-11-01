@@ -1697,10 +1697,12 @@ test('panes split right and down, move by direction, and zoom without losing edi
     } else {
       await leader('ph');
     }
-    // Next tab runs on past a pane's last tab into the next pane, in reading order.
-    await page.keyboard.press(`${primary}+Alt+ArrowRight`);
+    // Next tab runs on past a pane's last tab into the next pane, in reading order. Elsewhere the
+    // test uses next tab's Ctrl+Tab, since Alt there also reaches the window's menu bar.
+    const nextTab = process.platform === 'darwin' ? 'Meta+Alt+ArrowRight' : 'Control+Tab';
+    await page.keyboard.press(nextTab);
     await expect.poll(async () => Math.round((await activePaneBox()).y)).toBe(top.y);
-    await page.keyboard.press(`${primary}+Alt+ArrowRight`);
+    await page.keyboard.press(nextTab);
     await expect.poll(async () => Math.round((await activePaneBox()).y)).toBe(bottom.y);
 
     // Zoom fills the editor area with the active pane; the others come back as they were.
