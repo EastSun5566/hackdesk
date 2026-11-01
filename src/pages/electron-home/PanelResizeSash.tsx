@@ -38,6 +38,11 @@ export function PanelResizeSash({
       onPointerDown={(event) => {
         dragStart.current = { x: event.clientX, value };
         event.currentTarget.setPointerCapture(event.pointerId);
+        // Panels animate their width, except while dragged, so the edge follows the pointer.
+        document.documentElement.dataset.panelResizing = 'true';
+      }}
+      onLostPointerCapture={() => {
+        delete document.documentElement.dataset.panelResizing;
       }}
       onPointerMove={(event) => {
         if (!dragStart.current || event.buttons === 0) {

@@ -100,6 +100,19 @@ describe('useElectronFocusZones', () => {
     expect(input).toHaveFocus();
   });
 
+  it('keeps F6 from a window listener, such as the notifications viewport, once it moves focus', async () => {
+    fixture();
+    const windowKeyDown = vi.fn();
+    window.addEventListener('keydown', windowKeyDown);
+    try {
+      act(() => screen.getByRole('treeitem').focus());
+      await cycleTo(screen.getByRole('tab'));
+      expect(windowKeyDown).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('keydown', windowKeyDown);
+    }
+  });
+
   it('does not consume F6 when no regions are available', () => {
     renderHook(() => useElectronFocusZones());
     expect(fireEvent.keyDown(document.body, { key: 'F6' })).toBe(true);

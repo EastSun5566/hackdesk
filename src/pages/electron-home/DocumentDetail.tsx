@@ -19,6 +19,7 @@ import {
   Loader2,
   PanelRightClose,
   PanelRightOpen,
+  PencilLine,
   Presentation,
   RefreshCw,
   Save,
@@ -59,6 +60,7 @@ import { BookContents, ChapterNav } from './BookContents';
 import { useBookSessionContext } from './useBookSession';
 import { useNoteLinks } from './useNoteLinks';
 import { NoteVersionsDialog } from './NoteVersionsDialog';
+import { RenameNoteDialog } from './RenameNoteDialog';
 import { ShareDialog } from './ShareDialog';
 import {
   formatDate,
@@ -91,6 +93,7 @@ export type DocumentDetailLayout = {
   aiAssistRequestId?: number;
   dictateRequestId?: number;
   attachImageRequestId: number;
+  renameRequestId?: number;
   onRequestHandled?: (id: number) => void;
   focusZone?: string | null;
   focusRequestId: number;
@@ -177,7 +180,9 @@ function getEffectiveSyncState({
 }
 
 // Shown on hover, keyboard focus, or while navigation hints are held.
-const DOCUMENT_ACTIONS_ON_DEMAND_CLASS = 'opacity-0 transition-opacity group-hover/document-header:opacity-100 group-focus-within/document-header:opacity-100 [html[data-navigation-hints]_&]:opacity-100 [html[data-navigation-hints]_&]:transition-none motion-reduce:transition-none';
+// While hidden, the actions lie over the end of the location instead of keeping their width, so a
+// narrow pane still shows the path; once shown, they cover its end with the header background.
+const DOCUMENT_ACTIONS_ON_DEMAND_CLASS = 'absolute inset-y-0 right-4 flex items-center bg-background-default pl-2 opacity-0 transition-opacity group-hover/document-header:opacity-100 group-focus-within/document-header:opacity-100 [html[data-navigation-hints]_&]:opacity-100 [html[data-navigation-hints]_&]:transition-none motion-reduce:transition-none';
 
 function SyncStateBadge({
   state,
@@ -334,7 +339,16 @@ function ActiveDocumentDetail({
   const lastHandledSearchRequestRef = useRef(0);
   const lastHandledAiAssistRequestRef = useRef(0);
   const lastHandledDictateRequestRef = useRef(0);
+  const lastHandledRenameRequestRef = useRef(0);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const renameRequestId = layout.renameRequestId ?? 0;
+  useEffect(() => {
+    if (renameRequestId <= lastHandledRenameRequestRef.current) return;
+    lastHandledRenameRequestRef.current = renameRequestId;
+    layout.onRequestHandled?.(renameRequestId);
+    setRenameOpen(true);
+  }, [layout, renameRequestId]);
   const isTeamNote = Boolean(documentState.document?.teamPath) && documentState.document?.teamPath !== LOCAL_VAULT_TEAM_PATH;
   const ai = useAiInline({ noteTitle: documentState.title, isTeamNote });
   const openAiAssist = useCallback((handle: MarkdownEditorHandle) => {
@@ -484,6 +498,7 @@ function ActiveDocumentDetail({
         onAiAssist={requestAiAssist}
         onOpenShareDialog={openShareDialogFromMenu}
         onOpenVersionsDialog={openVersionsDialogFromMenu}
+        onOpenRenameDialog={() => openDialogFromMenu(setRenameOpen)}
         layout={layout}
         status={status}
       />
@@ -528,6 +543,18 @@ function ActiveDocumentDetail({
         />
       </div>
       {openBook ? <ChapterNav {...openBook} /> : null}
+      <RenameNoteDialog
+        open={renameOpen}
+        title={documentState.title}
+        isSaving={status.saving}
+        localVault={isLocalDocument}
+        onOpenChange={setRenameOpen}
+        onRename={(title) => {
+          actions.onTitleChange(title);
+          actions.onSave({ title, content: documentState.content });
+          setRenameOpen(false);
+        }}
+      />
 
       {!documentState.document || isLocalDocument ? null : (
         <ShareDialog
@@ -634,6 +661,7 @@ function DocumentHeader({
   onAttachImage,
   onOpenShareDialog,
   onOpenVersionsDialog,
+  onOpenRenameDialog,
   status,
 }: {
   actions: DocumentDetailActions;
@@ -647,6 +675,7 @@ function DocumentHeader({
   onAttachImage: () => void;
   onOpenShareDialog: () => void;
   onOpenVersionsDialog?: () => void;
+  onOpenRenameDialog: () => void;
   status: DocumentDetailStatus;
 }) {
   const isLocalDocument = documentState.document?.teamPath === LOCAL_VAULT_TEAM_PATH;
@@ -672,30 +701,22 @@ function DocumentHeader({
 
   return (
     <PanelHeader
-      className={cn('group/document-header px-4 py-2.5', HACK_MODE_HIDDEN_CLASS)}
+      className={cn('group/document-header relative px-4 py-1.5', HACK_MODE_HIDDEN_CLASS)}
       actionsClassName={revealActions ? undefined : DOCUMENT_ACTIONS_ON_DEMAND_CLASS}
       titleElement="div"
       actionsLabel="Document actions"
+      // The title already shows in the tab and the note's heading, so the header keeps to one line:
+      // where the note lives. Rename Note changes the title.
       title={(
-        <label className="-mx-1.5 block min-w-0">
-          <span className="sr-only">Note title</span>
-          <input
-            name="title"
-            value={documentState.title}
-            onChange={(event) => actions.onTitleChange(event.target.value)}
-            className="w-full min-w-0 truncate rounded-md bg-transparent px-1.5 py-0.5 text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-          />
-        </label>
-      )}
-      subtitle={(
-        <span className="flex flex-wrap items-center gap-1.5" title={updated}>
+        <nav aria-label="Note location" className="flex min-h-8 min-w-0 items-center gap-1.5 text-sm font-normal text-text-subtle" title={updated}>
           {path.map((part, index) => (
             <span key={`${part}:${index}`} className="contents">
-              {index > 0 ? <span aria-hidden="true" className="text-text-subtle/60">/</span> : null}
-              <span>{part}</span>
+              {index > 0 ? <span aria-hidden="true" className="shrink-0 text-text-subtle/60">/</span> : null}
+              {/* Outer folders give way first, so the note's own folder stays readable. */}
+              <span className={cn('min-w-0 truncate', index < path.length - 1 && 'shrink-4')}>{part}</span>
             </span>
           ))}
-        </span>
+        </nav>
       )}
       actions={(
         <>
@@ -742,6 +763,7 @@ function DocumentHeader({
               onAttachImage={onAttachImage}
               onOpenShareDialog={onOpenShareDialog}
               onOpenVersionsDialog={onOpenVersionsDialog}
+              onOpenRenameDialog={onOpenRenameDialog}
               status={status}
             />
           ) : null}
@@ -760,6 +782,7 @@ function DocumentActionsMenu({
   onAttachImage,
   onOpenShareDialog,
   onOpenVersionsDialog,
+  onOpenRenameDialog,
   status,
 }: {
   actions: DocumentDetailActions;
@@ -770,6 +793,7 @@ function DocumentActionsMenu({
   onAttachImage: () => void;
   onOpenShareDialog: () => void;
   onOpenVersionsDialog?: () => void;
+  onOpenRenameDialog: () => void;
   status: DocumentDetailStatus;
 }) {
   const isLocalDocument = documentState.document.teamPath === LOCAL_VAULT_TEAM_PATH;
@@ -779,6 +803,15 @@ function DocumentActionsMenu({
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <ToolbarDropdownMoreTrigger />
       <DropdownMenuContent align="end">
+        {/* The header shows no editable title, so renaming lives here and in Rename Note. */}
+        <DropdownMenuItem onSelect={(event) => {
+          event.preventDefault();
+          onOpenRenameDialog();
+        }}>
+          <PencilLine aria-hidden="true" className="h-4 w-4" />
+          Rename…
+          <ActionMenuShortcut actionId="rename-note" />
+        </DropdownMenuItem>
         {isLocalDocument ? null : (
           <>
             <DropdownMenuItem onSelect={() => actions.onOpenEditor(documentState.document)}>
@@ -936,25 +969,40 @@ function InspectorPanel({
   onRevealComment: (comment: NoteComment) => boolean;
   status: DocumentDetailStatus;
 }) {
+  // The details mount when first opened and stay through the closing slide, then unmount, so a
+  // note opened with them closed loads nothing extra.
+  const [showContent, setShowContent] = useState(!inspectorCollapsed);
+  if (!inspectorCollapsed && !showContent) setShowContent(true);
+  useEffect(() => {
+    if (!inspectorCollapsed) return undefined;
+    const timer = window.setTimeout(() => setShowContent(false), 250);
+    return () => window.clearTimeout(timer);
+  }, [inspectorCollapsed]);
+
   if (!document || (isLocalDocument && !actions.onOpenNoteTarget)) {
     return null;
   }
 
   // An overlay over the editor's right side, so the editor keeps its width. Escape closes it;
-  // a field or menu that handles Escape itself prevents the default and keeps it open.
+  // a field or menu that handles Escape itself prevents the default and keeps it open. It stays
+  // in place, inert while closed, so it slides out as well as in.
   return (
     <div
       id={inspectorPanelId}
-      hidden={inspectorCollapsed}
+      data-state={inspectorCollapsed ? 'closed' : 'open'}
+      {...({ inert: inspectorCollapsed ? '' : undefined } as Record<string, string | undefined>)}
       onKeyDown={(event) => {
         if (event.key !== 'Escape' || event.defaultPrevented || event.nativeEvent.isComposing) return;
         event.preventDefault();
         actions.onToggleInspector();
       }}
-      className="absolute inset-y-0 right-0 z-20 w-(--inspector-width) max-w-full border-l border-border-default bg-background-muted shadow-lg motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-4 motion-safe:duration-150"
+      className={cn(
+        'absolute inset-y-0 right-0 z-20 w-(--inspector-width) max-w-full border-l border-border-default bg-background-muted shadow-lg transition duration-200 ease-out motion-reduce:transition-none',
+        inspectorCollapsed && 'pointer-events-none translate-x-full opacity-0 ease-in',
+      )}
       style={{ '--inspector-width': `${INSPECTOR_WIDTH_DEFAULT}px` }}
     >
-      {inspectorCollapsed ? null : isLocalDocument ? (
+      {!showContent ? null : isLocalDocument ? (
         <LocalNoteInspector document={document} onOpenNote={actions.onOpenNoteTarget!} />
       ) : (
         <NoteInspector

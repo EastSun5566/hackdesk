@@ -18,7 +18,9 @@ import { canRunContextShortcut, EDITING_SELECTOR, hasWorkbenchPopup } from './wo
 
 // Space activates these itself, so it opens the leader menu only elsewhere. Tree items and tabs open
 // with Enter, which leaves Space free there.
-const SPACE_CONTROLS = 'button:not([role="treeitem"]):not([role="tab"]), [role="button"], [role="checkbox"], [role="switch"], [role="radio"], [role="menuitem"], [role="option"], summary, a[href]';
+const REGION_ACTIONS: ElectronActionId[] = ['focus-next-region', 'focus-previous-region'];
+
+const SPACE_CONTROLS ='button:not([role="treeitem"]):not([role="tab"]), [role="button"], [role="checkbox"], [role="switch"], [role="radio"], [role="menuitem"], [role="option"], summary, a[href]';
 
 function opensLeaderMenu(event: KeyboardEvent, enabled: boolean) {
   if (!enabled || event.key !== ' ' || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return false;
@@ -153,9 +155,23 @@ export function useWorkbenchShortcuts({
   ]);
 
   useEffect(() => {
+    // The notifications viewport also listens on window and takes F6 to focus itself. Region keys
+    // are handled on document, which hears them first, so they keep cycling while a toast shows.
+    const handleRegionKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      const isRegionKey = REGION_ACTIONS.some(id =>
+        matchShortcutConfig(resolveWorkbenchShortcut(id, shortcuts, characterShortcutsEnabled), event, platform));
+      if (!isRegionKey) return;
+      handleGlobalKeyDown(event);
+      if (event.defaultPrevented) event.stopPropagation();
+    };
+    document.addEventListener('keydown', handleRegionKeyDown);
     window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [handleGlobalKeyDown]);
+    return () => {
+      document.removeEventListener('keydown', handleRegionKeyDown);
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, [characterShortcutsEnabled, handleGlobalKeyDown, platform, shortcuts]);
 }
 
 function matchesActionShortcut(

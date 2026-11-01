@@ -622,7 +622,10 @@ describe('DocumentDetail', () => {
 
   it('keeps the closed Note Details out of view and reach', () => {
     renderDocumentDetail({ layout: { inspectorCollapsed: true } });
-    expect(document.getElementById('inspector-test')).toHaveAttribute('hidden');
+    const overlay = document.getElementById('inspector-test')!;
+    expect(overlay).toHaveAttribute('inert');
+    expect(overlay).toHaveAttribute('data-state', 'closed');
+    expect(overlay).toHaveClass('translate-x-full', 'opacity-0');
     expect(screen.queryByRole('complementary', { name: 'Note details' })).toBeNull();
   });
 

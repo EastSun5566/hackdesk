@@ -178,7 +178,7 @@ export function Home() {
   const flushWorkspace = noteWorkspace.flush;
   useLayoutEffect(() => { beforeVaultChange.current = flushWorkspace; }, [flushWorkspace]);
   const activeTab = noteWorkspace.activeTab;
-  const { editorRequests, consumeEditorRequest, requestEditorFocus, bumpEditorSearchRequest, bumpAttachImageRequest, bumpAiAssistRequest, bumpDictateRequest } = useWorkbenchEditorRequests(
+  const { editorRequests, consumeEditorRequest, requestEditorFocus, bumpEditorSearchRequest, bumpAttachImageRequest, bumpAiAssistRequest, bumpDictateRequest, bumpRenameRequest } = useWorkbenchEditorRequests(
     scopeStorageKey && activeTab ? { scopeKey: scopeStorageKey, paneId: noteWorkspace.state.activePaneId, tabId: activeTab.tabId, documentId: 'noteId' in activeTab ? activeTab.noteId : activeTab.draftId } : null,
   );
   const {
@@ -650,6 +650,7 @@ export function Home() {
     activePaneId: noteWorkspace.state.activePaneId,
     activeTab,
     bumpAttachImageRequest,
+    bumpRenameRequest,
     bumpAiAssistRequest,
     bumpDictateRequest,
     bumpEditorSearchRequest,
@@ -735,6 +736,14 @@ export function Home() {
       setWorkspaceSwitcherOpen(true);
     },
     toggleHackMode,
+    // Sort, scope and filters live in the sidebar's View options menu; show the sidebar and open it.
+    openViewOptions: () => {
+      setHackMode(false);
+      expandNavigator();
+      window.requestAnimationFrame(() => {
+        window.document.querySelector<HTMLButtonElement>('#note-navigator-panel button[aria-label="View options"]')?.click();
+      });
+    },
     trackRecentNote,
   });
 

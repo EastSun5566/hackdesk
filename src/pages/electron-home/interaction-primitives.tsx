@@ -17,7 +17,7 @@ import {
   FOCUS_RING_CLASS,
   FOCUS_RING_INSET_CLASS,
   ICON_BUTTON_CLASS,
-  PANEL_TRANSITION_CLASS,
+  PANEL_MOTION_CLASS,
 } from './ui';
 import { DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipRoot, TooltipTrigger } from '@/components/ui/tooltip';
@@ -312,12 +312,14 @@ export function PanelShell({
       id={id}
       data-hackdesk-focus={focusZone}
       data-hackdesk-focus-disabled={collapsed ? 'true' : undefined}
+      // A collapsed panel stays mounted so its width can animate; inert keeps it out of reach.
+      {...({ inert: collapsed ? '' : undefined } as Record<string, string | undefined>)}
       tabIndex={focusZone ? -1 : undefined}
       aria-label={ariaLabel}
       className={cn(
         'flex shrink-0 flex-col overflow-hidden outline-none',
         width && 'w-(--panel-width)',
-        PANEL_TRANSITION_CLASS,
+        PANEL_MOTION_CLASS,
         className,
       )}
       style={width ? { '--panel-width': `${collapsed && collapsedWidth !== undefined ? collapsedWidth : width}px` } : undefined}

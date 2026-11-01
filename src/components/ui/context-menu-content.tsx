@@ -19,7 +19,7 @@ const ContextMenuContent = React.forwardRef<
       <ContextMenuPrimitive.Popup
         ref={ref}
         className={cn(
-          'min-w-44 overflow-hidden rounded-md border border-border-default bg-background-default p-1 text-text-default data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none',
+          'min-w-44 overflow-hidden rounded-md border border-border-default bg-background-default p-1 text-text-default origin-(--transform-origin) ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none',
           ELEVATED_SURFACE_CLASS,
           className,
         )}

@@ -93,6 +93,7 @@ export type WorkbenchActionHandlers = {
   toggleKeyHints: () => void;
   toggleNavigator: () => void;
   toggleHackMode: () => void;
+  openViewOptions: () => void;
   toggleTheme: () => void;
   renameNote: () => void;
   duplicateSelectedNote: () => void;
@@ -304,6 +305,9 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'search-notes':
       handlers.focusWorkspaceSearch();
+      break;
+    case 'show-view-options':
+      handlers.openViewOptions();
       break;
     case 'navigate-back':
       handlers.navigateBack();

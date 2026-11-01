@@ -27,6 +27,7 @@ export type WorkbenchActionHandlersOptions = {
   api?: HackDeskElectronAPI;
   book: BookSession;
   bumpAttachImageRequest: () => void;
+  bumpRenameRequest: () => void;
   bumpAiAssistRequest: () => void;
   bumpDictateRequest: () => void;
   bumpEditorSearchRequest: () => void;
@@ -55,6 +56,7 @@ export type WorkbenchActionHandlersOptions = {
   openKeyboardShortcuts: () => void;
   openLeaderMenu: () => void;
   toggleHackMode: () => void;
+  openViewOptions: () => void;
   focusNextRegion: (backwards?: boolean) => boolean;
   openPalette: () => void;
   openQuickOpen: () => void;
@@ -99,6 +101,7 @@ export function useWorkbenchActionHandlers({
   api,
   book,
   bumpAttachImageRequest,
+  bumpRenameRequest,
   bumpAiAssistRequest,
   bumpDictateRequest,
   bumpEditorSearchRequest,
@@ -127,6 +130,7 @@ export function useWorkbenchActionHandlers({
   openKeyboardShortcuts,
   openLeaderMenu,
   toggleHackMode,
+  openViewOptions,
   focusNextRegion,
   openPalette,
   openQuickOpen,
@@ -245,6 +249,7 @@ export function useWorkbenchActionHandlers({
     openKeyboardShortcuts,
     openLeaderMenu,
     toggleHackMode,
+    openViewOptions,
     focusNextRegion,
     openPalette,
     openQuickOpen,
@@ -306,14 +311,8 @@ export function useWorkbenchActionHandlers({
     toggleKeyHints,
     toggleNavigator,
     toggleTheme,
-    renameNote: () => {
-      // After the palette or menu that ran this has handed focus back.
-      window.requestAnimationFrame(() => {
-        const title = document.querySelector<HTMLInputElement>('[data-active-pane="true"] input[name="title"]');
-        title?.focus();
-        title?.select();
-      });
-    },
+    // The active pane opens its Rename Note dialog.
+    renameNote: bumpRenameRequest,
     duplicateSelectedNote: () => {
       if (selectedDocument) duplicateNote(selectedDocument);
     },
@@ -348,6 +347,7 @@ export function useWorkbenchActionHandlers({
     api,
     book,
     bumpAttachImageRequest,
+    bumpRenameRequest,
     bumpAiAssistRequest,
     bumpDictateRequest,
     bumpEditorSearchRequest,
@@ -376,6 +376,7 @@ export function useWorkbenchActionHandlers({
     openKeyboardShortcuts,
     openLeaderMenu,
     toggleHackMode,
+    openViewOptions,
     focusNextRegion,
     openPalette,
     openQuickOpen,

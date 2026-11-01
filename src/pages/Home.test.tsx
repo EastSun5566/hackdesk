@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from '@/components/ui/toast';
+import { EditorView } from '@codemirror/view';
 
 import type {
   DocumentSummary,
@@ -114,8 +115,34 @@ async function selectOption(
   fireEvent.click(option);
 }
 
-function findRenderedNoteTitle() {
-  return screen.findByDisplayValue('Test note', {}, { timeout: 3000 });
+// The note header no longer shows the title; the open note's tab does.
+function activeTabName(title: string) {
+  return new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:, .+)?$`);
+}
+
+function findRenderedNoteTitle(title = 'Test note') {
+  return screen.findByRole('tab', { name: activeTabName(title), selected: true }, { timeout: 3000 });
+}
+
+function queryRenderedNoteTitle(title: string) {
+  return screen.queryByRole('tab', { name: activeTabName(title), selected: true });
+}
+
+/** Types into the open note so it has unsaved changes. */
+async function editNote(text = ' edited') {
+  const editor = await screen.findByTestId('hackmd-markdown-editor');
+  await waitFor(() => expect(editor.querySelector('.cm-editor')).not.toBeNull());
+  const view = EditorView.findFromDOM(editor.querySelector<HTMLElement>('.cm-editor')!)!;
+  act(() => view.dispatch({ changes: { from: view.state.doc.length, insert: text } }));
+}
+
+/** Renames the open note from its More actions menu; the dialog saves right away. */
+async function renameNote(title: string) {
+  await openDocumentActions();
+  fireEvent.click(screen.getByRole('menuitem', { name: /^Rename…/ }));
+  const field = await screen.findByLabelText('Title');
+  fireEvent.change(field, { target: { value: title } });
+  fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
 }
 
 function findHackmdOnboardingDialog() {
@@ -211,17 +238,18 @@ async function confirmDisconnectHackmd() {
   fireEvent.click(within(dialog).getByRole('button', { name: 'Disconnect HackMD' }));
 }
 
-async function expandTagBrowser() {
-  const trigger = await screen.findByRole('button', { name: /^Tags\b/ });
-  if (trigger.getAttribute('aria-expanded') !== 'true') {
-    fireEvent.click(trigger);
-    await waitFor(() => expect(trigger).toHaveAttribute('aria-expanded', 'true'));
-  }
+// Scope, sort, permission and tag filters share the sidebar's View options menu.
+async function openViewOptions() {
+  if (!screen.queryByRole('menu')) fireEvent.pointerDown(screen.getByRole('button', { name: 'View options' }));
+  await screen.findByRole('menuitem', { name: 'Workspace' });
+}
+
+function findTagOption(tag: string) {
+  return screen.findByRole('menuitemcheckbox', { name: new RegExp(`^${tag}\\d`) });
 }
 
 async function openSearchScopeMenu() {
-  fireEvent.pointerDown(screen.getByRole('button', { name: 'Search scope' }));
-  await screen.findByRole('menuitem', { name: 'Workspace' });
+  await openViewOptions();
 }
 
 async function selectCurrentFolderScope() {
@@ -933,7 +961,7 @@ describe('Home native-feel behavior', () => {
     expect(screen.queryByRole('button', { name: `${team.name}, private` })).not.toBeInTheDocument();
     expect(screen.queryByText('TEAMS')).not.toBeInTheDocument();
     expect(queryNoteRow(note.title)).not.toBeInTheDocument();
-    expect(screen.queryByDisplayValue(note.title)).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Note location' })).not.toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({
       type: 'personal',
       label: 'My Workspace',
@@ -1068,7 +1096,8 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Unsaved title' } });
+    await findRenderedNoteTitle();
+    await editNote();
 
     act(() => {
       closeHandler?.();
@@ -1097,7 +1126,8 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Unsaved title' } });
+    await findRenderedNoteTitle();
+    await editNote();
 
     act(() => {
       closeHandler?.();
@@ -1137,10 +1167,12 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.change(await screen.findByDisplayValue('Product Plan'), { target: { value: 'Draft Product Plan' } });
+    await findRenderedNoteTitle('Product Plan');
+    await editNote();
     await screen.findByRole('status', { name: 'Sync state: Unsaved' });
     fireEvent.click(await findNoteRow('Design Spec'));
-    fireEvent.change(await screen.findByDisplayValue('Design Spec'), { target: { value: 'Draft Design Spec' } });
+    await findRenderedNoteTitle('Design Spec');
+    await editNote();
     await screen.findAllByText('Unsaved');
 
     act(() => {
@@ -1192,11 +1224,12 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.change(await screen.findByDisplayValue('Product Plan'), { target: { value: 'Draft Product Plan' } });
+    await findRenderedNoteTitle('Product Plan');
+    await editNote();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await screen.findByLabelText('Sync state: Save failed');
     fireEvent.click(await findNoteRow('Design Spec'));
-    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Design Spec')).toBeInTheDocument();
 
     act(() => {
       closeHandler?.();
@@ -1279,7 +1312,8 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Unsaved title' } });
+    await findRenderedNoteTitle();
+    await editNote();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await screen.findByLabelText('Sync state: Save failed');
 
@@ -1320,23 +1354,29 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
     fireEvent.click(screen.getByRole('button', { name: 'Create note' }));
-    fireEvent.change(await screen.findByLabelText('Note title'), { target: { value: 'Folder note' } });
+    await editNote('# Folder note');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(api.hackmd.createNote).toHaveBeenCalledWith({
       title: 'Folder note',
-      content: '',
+      content: '# Folder note',
       parentFolderId: 'folder-1',
     }));
   });
 
-  it('exports the current editor draft as markdown', async () => {
-    const api = createApi();
+  it('exports the current note as markdown with a safe file name', async () => {
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        updateNote: vi.fn(async (_noteId, input) => ({ ...document, ...input })),
+      },
+    });
 
     renderHome(api);
 
-    const titleInput = await findRenderedNoteTitle();
-    fireEvent.change(titleInput, { target: { value: 'Draft: Test note' } });
+    await findRenderedNoteTitle();
+    await renameNote('Draft: Test note');
+    await findRenderedNoteTitle('Draft: Test note');
     await openDocumentActions();
     fireEvent.click(screen.getByText('Export Markdown'));
 
@@ -1526,8 +1566,8 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Renamed note' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await findRenderedNoteTitle();
+    await renameNote('Renamed note');
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
       title: 'Renamed note',
@@ -1555,7 +1595,8 @@ describe('Home native-feel behavior', () => {
 
     expect(await screen.findByLabelText('Sync state: Cached')).toBeInTheDocument();
 
-    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Save failure' } });
+    await findRenderedNoteTitle();
+    await editNote();
     await waitFor(() => expect(screen.getByLabelText('Sync state: Unsaved')).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -1575,9 +1616,11 @@ describe('Home native-feel behavior', () => {
     const api = createApi();
 
     renderHome(api);
-    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Draft title' } });
+    await findRenderedNoteTitle();
 
     expect(screen.getByTestId('hackmd-markdown-editor')).toBeInTheDocument();
+    // The header shows where the note lives, not an editable title.
+    expect(screen.queryByRole('textbox', { name: 'Note title' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'View' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
@@ -1585,7 +1628,7 @@ describe('Home native-feel behavior', () => {
     expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Export' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Delete note' })).not.toBeInTheDocument();
-    expect(await screen.findByDisplayValue('Draft title')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Note location' })).toHaveTextContent('My Workspace');
   });
 
   it('saves the current draft from the single editor surface', async () => {
@@ -1601,12 +1644,13 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Reader draft' } });
+    await findRenderedNoteTitle();
+    await editNote(' draft');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
-      title: 'Reader draft',
-      content: '# Test note',
+      title: 'Test note',
+      content: '# Test note draft',
     }));
   });
 
@@ -1623,17 +1667,15 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Keyboard note' } });
+    await findRenderedNoteTitle();
+    await editNote(' saved');
     fireEvent.keyDown(window, { key: 's', metaKey: true });
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
-      title: 'Keyboard note',
-      content: '# Test note',
+      title: 'Test note',
+      content: '# Test note saved',
     }));
-    await waitFor(() => {
-      expect(screen.getByDisplayValue('Keyboard note')).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: /^Keyboard note(?:, .+)?$/ })).toBeInTheDocument();
-    });
+    await waitFor(() => expect(screen.getByLabelText('Sync state: Saved')).toBeInTheDocument());
   });
 
   it('reconciles a Local Vault draft saved with the keyboard action', async () => {
@@ -1682,13 +1724,14 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Keyboard note' } });
+    await findRenderedNoteTitle();
+    await editNote(' saved');
     fireEvent.keyDown(window, { key: 's', metaKey: true });
 
+    // An unchanged title is left out, so the file keeps its name.
     await waitFor(() => expect(writeNote).toHaveBeenCalledWith({
       noteId: 'local-note-1',
-      title: 'Keyboard note',
-      content: '# Test note',
+      content: '# Test note saved',
       expectedRevision: { contentHash: 'old-hash', mtimeMs: 1 },
     }));
     await waitFor(() => expect(screen.getByLabelText('Sync state: Saved')).toBeInTheDocument());
@@ -1718,7 +1761,7 @@ describe('Home native-feel behavior', () => {
       });
     });
 
-    expect(await screen.findByDisplayValue('Untitled')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Untitled')).toBeInTheDocument();
     expect(await screen.findByRole('tab', { name: /^Untitled(?:, .+)?$/ })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByTestId('hackmd-markdown-editor')).toHaveTextContent('Captured');
@@ -1809,7 +1852,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(await within(palette).findByRole('option', { name: /^Design Spec/ }));
 
     expect(screen.queryByRole('dialog', { name: 'Quick Open' })).not.toBeInTheDocument();
-    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Design Spec')).toBeInTheDocument();
   });
 
   it('does not show the previous document while the selected note is loading', async () => {
@@ -1836,10 +1879,10 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    expect(await screen.findByDisplayValue('Product Plan')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Product Plan')).toBeInTheDocument();
     fireEvent.click(await findNoteRow('Design Spec'));
 
-    expect(screen.queryByDisplayValue('Product Plan')).not.toBeInTheDocument();
+    expect(queryRenderedNoteTitle('Product Plan')).not.toBeInTheDocument();
     expect(screen.getAllByText('Loading note…').length).toBeGreaterThan(0);
 
     await act(async () => {
@@ -1849,7 +1892,7 @@ describe('Home native-feel behavior', () => {
       });
     });
 
-    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Design Spec')).toBeInTheDocument();
   });
 
   it('opens another note in a tab without discarding the dirty current tab', async () => {
@@ -1880,15 +1923,15 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    const titleInput = await screen.findByDisplayValue('Product Plan');
-    fireEvent.change(titleInput, { target: { value: 'Draft Product Plan' } });
+    await findRenderedNoteTitle('Product Plan');
+    await editNote();
     await screen.findByRole('status', { name: 'Sync state: Unsaved' });
     fireEvent.click(await findNoteRow('Design Spec'));
 
-    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Design Spec')).toBeInTheDocument();
     expect(api.app.confirm).not.toHaveBeenCalled();
-    fireEvent.click(await screen.findByRole('tab', { name: /^Draft Product Plan(?:, .+)?$/ }));
-    expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('tab', { name: /^Product Plan(?:, .+)?$/ }));
+    expect(await findRenderedNoteTitle('Product Plan')).toBeInTheDocument();
   });
 
   it('focuses an existing tab when the same note is selected again', async () => {
@@ -1919,13 +1962,14 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.change(await screen.findByDisplayValue('Product Plan'), { target: { value: 'Draft Product Plan' } });
+    await findRenderedNoteTitle('Product Plan');
+    await editNote();
     await screen.findByRole('status', { name: 'Sync state: Unsaved' });
     fireEvent.click(await findNoteRow('Design Spec'));
-    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Design Spec')).toBeInTheDocument();
     fireEvent.click(await findNoteRow('Product Plan'));
 
-    expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Product Plan')).toBeInTheDocument();
     expect(api.app.confirm).not.toHaveBeenCalled();
   });
 
@@ -1951,13 +1995,13 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByDisplayValue('Product Plan');
+    await findRenderedNoteTitle('Product Plan');
     fireEvent.click(await findNoteRow('Design Spec'));
-    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Design Spec')).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'w', metaKey: true });
 
-    expect(await screen.findByDisplayValue('Product Plan')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Product Plan')).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /^Design Spec(?:, .+)?$/ })).not.toBeInTheDocument();
     expect(api.app.confirm).not.toHaveBeenCalled();
   });
@@ -1983,19 +2027,20 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Unsaved title' } });
+    await findRenderedNoteTitle();
+    await editNote();
     await screen.findByRole('status', { name: 'Sync state: Unsaved' });
 
     fireEvent.keyDown(window, { key: 'w', metaKey: true });
 
     await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Close Tab',
-      message: 'Close “Unsaved title”?',
+      message: 'Close “Test note”?',
       confirmLabel: 'Close Tab',
       cancelLabel: 'Keep Editing',
       destructive: true,
     })));
-    expect(screen.getByDisplayValue('Unsaved title')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^Test note(?:, .+)?$/ })).toBeInTheDocument();
   });
 
   it('splits the active note into a second editor pane', async () => {
@@ -2014,10 +2059,11 @@ describe('Home native-feel behavior', () => {
     const api = createApi();
 
     renderHome(api);
-    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Draft title' } });
+    await findRenderedNoteTitle();
+    await editNote();
     fireEvent.keyDown(window, { key: 't', metaKey: true });
 
-    expect(await screen.findAllByRole('tab', { name: /^Draft title(?:, .+)?$/ })).toHaveLength(2);
+    expect(await screen.findAllByRole('tab', { name: /^Test note(?:, .+)?$/ })).toHaveLength(2);
   });
 
   it('focuses note tabs with next and previous shortcuts', async () => {
@@ -2043,20 +2089,20 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByDisplayValue('Alpha');
+    await findRenderedNoteTitle('Alpha');
     fireEvent.click(await findNoteRow('Beta'));
-    await screen.findByDisplayValue('Beta');
+    await findRenderedNoteTitle('Beta');
     fireEvent.click(await findNoteRow('Gamma'));
-    await screen.findByDisplayValue('Gamma');
+    await findRenderedNoteTitle('Gamma');
 
     fireEvent.keyDown(window, { key: 'ArrowRight', metaKey: true, altKey: true });
-    expect(await screen.findByDisplayValue('Alpha')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Alpha')).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'ArrowRight', metaKey: true, altKey: true });
-    expect(await screen.findByDisplayValue('Beta')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Beta')).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'ArrowLeft', metaKey: true, altKey: true });
-    expect(await screen.findByDisplayValue('Alpha')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Alpha')).toBeInTheDocument();
   });
 
   it('navigates focused note locations with titlebar buttons and Cmd+brackets', async () => {
@@ -2082,17 +2128,17 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByDisplayValue('Alpha');
+    await findRenderedNoteTitle('Alpha');
     fireEvent.click(await findNoteRow('Beta'));
-    await screen.findByDisplayValue('Beta');
+    await findRenderedNoteTitle('Beta');
     fireEvent.click(await findNoteRow('Gamma'));
-    await screen.findByDisplayValue('Gamma');
+    await findRenderedNoteTitle('Gamma');
 
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(await screen.findByDisplayValue('Beta')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Beta')).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: ']', metaKey: true });
-    expect(await screen.findByDisplayValue('Gamma')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Gamma')).toBeInTheDocument();
   });
 
   it('focuses workspace note search with slash and releases Cmd+Shift+F', async () => {
@@ -2140,7 +2186,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByDisplayValue('Product Plan');
+    await findRenderedNoteTitle('Product Plan');
     fireEvent.click(await findNoteRow('Design Spec'));
 
     await waitFor(() => {
@@ -2149,25 +2195,16 @@ describe('Home native-feel behavior', () => {
     });
   });
 
-  it('does not focus the note title input when opening note search with Cmd+F', async () => {
-    const api = createApi();
-
-    renderHome(api);
-    const titleInput = await findRenderedNoteTitle();
-    fireEvent.keyDown(window, { key: 'f', metaKey: true });
-
-    await waitFor(() => expect(titleInput).not.toHaveFocus());
-  });
-
   it('leaves macOS Ctrl+F available for editor text navigation', async () => {
     const api = createApi();
 
     renderHome(api);
-    const titleInput = await findRenderedNoteTitle();
-    titleInput.focus();
+    await findRenderedNoteTitle();
+    const search = screen.getByRole('textbox', { name: 'Search notes' });
+    search.focus();
     fireEvent.keyDown(window, { key: 'f', ctrlKey: true });
 
-    expect(titleInput).toHaveFocus();
+    expect(search).toHaveFocus();
   });
 
   it('toggles the sidebar with Cmd+B, and Cmd+Option+B no longer does', async () => {
@@ -2233,13 +2270,20 @@ describe('Home native-feel behavior', () => {
     expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toBeInTheDocument();
   });
 
-  it('updates the tab title from the draft title', async () => {
-    const api = createApi();
+  it('renames the note from its More actions and shows the new title in the tab', async () => {
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        updateNote: vi.fn(async (_noteId, input) => ({ ...document, ...input })),
+      },
+    });
 
     renderHome(api);
-    fireEvent.change(await findRenderedNoteTitle(), { target: { value: 'Draft title' } });
+    await findRenderedNoteTitle();
+    await renameNote('Renamed title');
 
-    expect(await screen.findByRole('tab', { name: /^Draft title(?:, .+)?$/ })).toBeInTheDocument();
+    await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', { title: 'Renamed title', content: '# Test note' }));
+    expect(await findRenderedNoteTitle('Renamed title')).toBeInTheDocument();
   });
 
   it('closes tabs to the right and reopens the last closed tab', async () => {
@@ -2272,11 +2316,11 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByDisplayValue('Alpha');
+    await findRenderedNoteTitle('Alpha');
     fireEvent.click(await findNoteRow('Beta'));
-    await screen.findByDisplayValue('Beta');
+    await findRenderedNoteTitle('Beta');
     fireEvent.click(await findNoteRow('Gamma'));
-    await screen.findByDisplayValue('Gamma');
+    await findRenderedNoteTitle('Gamma');
     fireEvent.click(await screen.findByRole('tab', { name: /^Alpha(?:, .+)?$/ }));
 
     act(() => {
@@ -2316,9 +2360,9 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByDisplayValue('Product Plan');
+    await findRenderedNoteTitle('Product Plan');
     fireEvent.click(await findNoteRow('Design Spec'));
-    await screen.findByDisplayValue('Design Spec');
+    await findRenderedNoteTitle('Design Spec');
     await waitFor(() => expect(Array.from({ length: window.localStorage.length }, (_value, index) => {
       const key = window.localStorage.key(index);
       return key?.startsWith('hackdesk_note_workspace:personal')
@@ -2330,7 +2374,7 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
 
     expect(await screen.findByRole('tab', { name: /^Product Plan(?:, .+)?$/ })).toBeInTheDocument();
-    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Design Spec')).toBeInTheDocument();
   });
 
   it('closes duplicated matching tabs after deleting a note', async () => {
@@ -2396,12 +2440,13 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.change(await screen.findByDisplayValue('Root Note'), { target: { value: 'Draft Root Note' } });
+    await findRenderedNoteTitle('Root Note');
+    await editNote();
     await screen.findByRole('status', { name: 'Sync state: Unsaved' });
     fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
 
     expect(api.app.confirm).not.toHaveBeenCalled();
-    expect(screen.getByDisplayValue('Draft Root Note')).toBeInTheDocument();
+    expect((await findRenderedNoteTitle('Root Note'))).toBeInTheDocument();
   });
 
   it('quick-opens another note without discarding a dirty current tab', async () => {
@@ -2432,17 +2477,18 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.change(await screen.findByDisplayValue('Product Plan'), { target: { value: 'Draft Product Plan' } });
+    await findRenderedNoteTitle('Product Plan');
+    await editNote();
     await screen.findByRole('status', { name: 'Sync state: Unsaved' });
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
     fireEvent.change(within(palette).getByPlaceholderText('Search notes, folders, and commands…'), { target: { value: 'design' } });
     fireEvent.click(await within(palette).findByRole('option', { name: /^Design Spec/ }));
 
-    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Design Spec')).toBeInTheDocument();
     expect(api.app.confirm).not.toHaveBeenCalled();
-    fireEvent.click(await screen.findByRole('tab', { name: /^Draft Product Plan(?:, .+)?$/ }));
-    expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('tab', { name: /^Product Plan(?:, .+)?$/ }));
+    expect(await findRenderedNoteTitle('Product Plan')).toBeInTheDocument();
   });
 
   it('quick-opens a folder from the command palette', async () => {
@@ -2593,7 +2639,7 @@ describe('Home native-feel behavior', () => {
     const recentGroup = within(palette).getByText('Recent Notes').closest('[cmdk-group]')!;
     fireEvent.click(within(recentGroup as HTMLElement).getByRole('option', { name: /Design Spec/ }));
 
-    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Design Spec')).toBeInTheDocument();
   });
 
   it('quick-opens a recent note without discarding a dirty current tab', async () => {
@@ -2631,16 +2677,17 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.change(await screen.findByDisplayValue('Product Plan'), { target: { value: 'Draft Product Plan' } });
+    await findRenderedNoteTitle('Product Plan');
+    await editNote();
     await screen.findByRole('status', { name: 'Sync state: Unsaved' });
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
     fireEvent.click(within(palette).getAllByText('Design Spec')[0]);
 
-    expect(await screen.findByDisplayValue('Design Spec')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Design Spec')).toBeInTheDocument();
     expect(api.app.confirm).not.toHaveBeenCalled();
-    fireEvent.click(await screen.findByRole('tab', { name: /^Draft Product Plan(?:, .+)?$/ }));
-    expect(await screen.findByDisplayValue('Draft Product Plan')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('tab', { name: /^Product Plan(?:, .+)?$/ }));
+    expect(await findRenderedNoteTitle('Product Plan')).toBeInTheDocument();
   });
 
   it('waits for the Local Vault identity before showing and restoring a legacy local recent note', async () => {
@@ -2700,7 +2747,7 @@ describe('Home native-feel behavior', () => {
     });
 
     fireEvent.click(await within(palette).findByText('Local Recent'));
-    expect(await screen.findByDisplayValue('Local Recent')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Local Recent')).toBeInTheDocument();
     expect(readNote).toHaveBeenCalledWith('local-note');
   });
 
@@ -2759,7 +2806,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(within(palette).getByText('Team Recent'));
 
     await waitFor(() => expect(api.hackmd.listTeamNotes).toHaveBeenCalledWith('team-workspace'));
-    expect(await screen.findByDisplayValue('Team Recent')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Team Recent')).toBeInTheDocument();
   });
 
   it('switches workspaces from command palette workspace results', async () => {
@@ -2855,7 +2902,8 @@ describe('Home native-feel behavior', () => {
     expect(screen.getByRole('button', { name: 'Collapse note details' })).toHaveAttribute('aria-expanded', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse note details' }));
-    expect(screen.queryByRole('heading', { name: 'Note Details' })).not.toBeInTheDocument();
+    // The details stay through the closing slide, then unmount.
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Note Details' })).not.toBeInTheDocument());
   });
 
   it('exposes the sidebar expanded state on its titlebar toggle', async () => {
@@ -3145,7 +3193,7 @@ describe('Home native-feel behavior', () => {
     });
 
     const { container } = renderHome(api);
-    expect(await screen.findByDisplayValue('First note')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('First note')).toBeInTheDocument();
     const row = await waitFor(() => {
       const noteRow = container.querySelector('[data-note-id="note-second"]');
       expect(noteRow).toBeTruthy();
@@ -3155,7 +3203,7 @@ describe('Home native-feel behavior', () => {
     expect(within(row).getByRole('button', { name: 'Drag Second note' })).toBeInTheDocument();
     fireEvent.click(within(row).getByRole('treeitem', { name: 'Second note' }));
 
-    expect(await screen.findByDisplayValue('Second note')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Second note')).toBeInTheDocument();
   });
 
   it('selects a note when clicking its drag handle without starting a drag', async () => {
@@ -3177,7 +3225,7 @@ describe('Home native-feel behavior', () => {
     });
 
     const { container } = renderHome(api);
-    expect(await screen.findByDisplayValue('First note')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('First note')).toBeInTheDocument();
     const row = await waitFor(() => {
       const noteRow = container.querySelector('[data-note-id="note-second"]');
       expect(noteRow).toBeTruthy();
@@ -3186,7 +3234,7 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.click(within(row).getByRole('button', { name: 'Drag Second note' }));
 
-    expect(await screen.findByDisplayValue('Second note')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Second note')).toBeInTheDocument();
   });
 
   it('does not expose note drag handles in search results', async () => {
@@ -3214,8 +3262,8 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findNoteRow('Product Plan');
-    await expandTagBrowser();
-    fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag product' }));
+    await openViewOptions();
+    fireEvent.click(await findTagOption('product'));
 
     await screen.findByText('1 result');
     expect(getNoteRow('Product Plan')).toBeInTheDocument();
@@ -3227,7 +3275,7 @@ describe('Home native-feel behavior', () => {
     expect(getNoteRow('Design Spec')).toBeInTheDocument();
   });
 
-  it('filters notes from the tag browser and clears the active tag when clicked again', async () => {
+  it('filters notes from View options and clears the active tag when clicked again', async () => {
     const notes = [
       { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', tags: ['product'], updatedAtMillis: 3000 },
       { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', tags: ['design'], updatedAtMillis: 2000 },
@@ -3241,22 +3289,21 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findNoteRow('Product Plan');
-    expect(screen.getByRole('button', { name: /^Tags\b/ })).toHaveAttribute('aria-expanded', 'false');
-    await expandTagBrowser();
-    await screen.findByRole('button', { name: 'Filter by tag product' });
-    fireEvent.click(screen.getByRole('button', { name: 'Filter by tag product' }));
+    await openViewOptions();
+    fireEvent.click(await findTagOption('product'));
 
     await screen.findByText('1 result');
     expect(getNoteRow('Product Plan')).toBeInTheDocument();
     expect(queryNoteRow('Design Spec')).not.toBeInTheDocument();
+    expect(await findTagOption('product')).toHaveAttribute('aria-checked', 'true');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Clear tag product' }));
+    fireEvent.click(await findTagOption('product'));
 
     await screen.findByText('2 notes');
     expect(getNoteRow('Design Spec')).toBeInTheDocument();
   });
 
-  it('shows multi-tag state in filter chips and the tag browser', async () => {
+  it('shows multi-tag state in filter chips and View options', async () => {
     const notes = [
       { ...note, id: 'note-product', title: 'Product Plan', shortId: 'product', tags: ['product'], updatedAtMillis: 3000 },
       { ...note, id: 'note-design', title: 'Design Spec', shortId: 'design', tags: ['design'], updatedAtMillis: 2000 },
@@ -3271,18 +3318,19 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findNoteRow('Product Plan');
-    await expandTagBrowser();
-    fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag product' }));
-    await screen.findByRole('button', { name: 'Clear tag product' });
-    fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag design' }));
+    await openViewOptions();
+    fireEvent.click(await findTagOption('product'));
+    fireEvent.click(await findTagOption('design'));
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Remove tag filter product', hidden: true })).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: 'Clear tag product', hidden: true })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Clear tag design', hidden: true })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Clear tag ops', hidden: true })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remove tag filter design', hidden: true })).toBeInTheDocument();
+    expect(await findTagOption('product')).toHaveAttribute('aria-checked', 'true');
+    expect(await findTagOption('design')).toHaveAttribute('aria-checked', 'true');
+    expect(await findTagOption('ops')).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('button', { name: /^View options/ })).toHaveTextContent('2');
   });
 
-  it('toggles long tag lists with show all and show less', async () => {
+  it('lists every tag in View options', async () => {
     const notes = Array.from({ length: 13 }, (_, index) => ({
       ...note,
       id: `note-${index + 1}`,
@@ -3300,20 +3348,12 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findNoteRow('Note 1');
-    await expandTagBrowser();
-    await screen.findByRole('button', { name: 'Filter by tag tag-01' });
-    expect(screen.queryByRole('button', { name: 'Filter by tag tag-13' })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Show 7 more' }));
-
-    expect(screen.getByRole('button', { name: 'Filter by tag tag-13' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Show less' }));
-
-    expect(screen.queryByRole('button', { name: 'Filter by tag tag-13' })).not.toBeInTheDocument();
+    await openViewOptions();
+    expect(await findTagOption('tag-01')).toBeInTheDocument();
+    expect(await findTagOption('tag-13')).toBeInTheDocument();
   });
 
-  it('uses the tag browser in history scope', async () => {
+  it('filters by tag in history scope', async () => {
     const historyNotes = [
       { ...note, id: 'history-product', title: 'History Product', shortId: 'history-product', tags: ['product'], updatedAtMillis: 3000 },
       { ...note, id: 'history-design', title: 'History Design', shortId: 'history-design', tags: ['design'], updatedAtMillis: 2000 },
@@ -3328,8 +3368,8 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
     fireEvent.click(within(await openWorkspaceSwitcher()).getByRole('button', { name: 'History' }));
     await findNoteRow('History Product');
-    await expandTagBrowser();
-    fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag product' }));
+    await openViewOptions();
+    fireEvent.click(await findTagOption('product'));
 
     await screen.findByText('1 result');
     expect(getNoteRow('History Product')).toBeInTheDocument();
@@ -3350,7 +3390,7 @@ describe('Home native-feel behavior', () => {
 
     const { container } = renderHome(api);
     await findNoteRow('Beta');
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Sort notes' }));
+    await openViewOptions();
     fireEvent.click(await screen.findByText('Title A-Z'));
 
     await waitFor(() => {
@@ -3416,16 +3456,19 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    await screen.findByDisplayValue('Product Plan');
+    await findRenderedNoteTitle('Product Plan');
     fireEvent.change(screen.getByPlaceholderText('Search notes'), { target: { value: 'Product' } });
-    await expandTagBrowser();
-    fireEvent.click(await screen.findByRole('button', { name: 'Filter by tag product' }));
+    await openViewOptions();
+    fireEvent.click(await findTagOption('product'));
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
 
-    const titleInput = screen.getByDisplayValue('Product Plan');
-    fireEvent.change(titleInput, { target: { value: 'Draft Title' } });
-    fireEvent.keyDown(titleInput, { key: 'Escape' });
+    // Escape inside the note stays with the editor.
+    await editNote(' draft');
+    const content = screen.getByTestId('hackmd-markdown-editor').querySelector<HTMLElement>('.cm-content')!;
+    fireEvent.keyDown(content, { key: 'Escape' });
 
-    expect(screen.getByDisplayValue('Draft Title')).toBeInTheDocument();
+    expect(content).toHaveTextContent('draft');
     expect(screen.getByPlaceholderText('Search notes')).toHaveValue('Product');
 
     fireEvent.keyDown(window, { key: 'Escape' });
@@ -3594,7 +3637,7 @@ describe('Home native-feel behavior', () => {
       writePermission: 'owner',
       parentFolderId: 'folder-1',
     }));
-    expect(await screen.findByDisplayValue('Copy of Test note')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Copy of Test note')).toBeInTheDocument();
     expect(window.localStorage.getItem(ELECTRON_RECENT_NOTES_STORAGE_KEY)).toContain('note-copy');
   });
 
@@ -3765,7 +3808,7 @@ describe('Home native-feel behavior', () => {
       content: '# Test note',
       parentFolderId: 'folder-1',
     })));
-    expect(await screen.findByDisplayValue('Copy of Test note')).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Copy of Test note')).toBeInTheDocument();
   });
 
   it('imports a markdown file through the team create endpoint', async () => {

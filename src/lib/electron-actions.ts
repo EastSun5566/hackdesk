@@ -820,6 +820,14 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     keyboardContext: 'character',
   },
   {
+    id: 'show-view-options',
+    label: 'Show View Options',
+    description: 'Choose where note search looks, how notes sort, and filter by permission or tag.',
+    keywords: ['sort', 'filter', 'tags', 'scope', 'permissions', 'view'],
+    category: 'navigation',
+    scope: 'navigator',
+  },
+  {
     id: 'navigate-back',
     label: 'Back',
     description: 'Go back to the previous note tab location.',

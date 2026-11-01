@@ -48,7 +48,10 @@ test('the palette highlights matches, moves and renames notes, and opens a Setti
 
     await openPalette(page, 'rename note');
     await page.getByRole('option', { name: /^Rename Note/ }).click();
-    await expect(page.locator('[data-active-pane="true"] input[name="title"]')).toBeFocused();
+    const rename = page.getByRole('dialog', { name: 'Rename Note' });
+    await expect(rename.getByLabel('Title')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(rename).toHaveCount(0);
 
     await openPalette(page, 'settings ai');
     await page.getByRole('option', { name: /^Open Settings: AI/ }).click();

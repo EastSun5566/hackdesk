@@ -1,24 +1,19 @@
 import { useActionShortcut } from './ActionShortcutContext';
 import {
-  ArrowDownUp,
   Check,
-  FileText,
-  FolderOpen,
   Search,
   SlidersHorizontal,
-  Tag,
   X,
 } from 'lucide-react';
 import type { KeyboardEvent } from 'react';
-import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { Toggle } from '@/components/ui/toggle';
 import { Toolbar } from '@/components/ui/toolbar';
 import type { NotePermissionRole } from '@/lib/electron-api';
 import {
   clearNoteFinderFilters,
   clearNoteFinderQuery,
+  DEFAULT_NOTE_FINDER_STATE,
   getActiveNoteFinderFilterCount,
   getNoteFinderOptions,
   hasActiveNoteFinderFilters,
@@ -29,7 +24,7 @@ import {
 import type { ElectronNoteTag } from '@/lib/electron-note-tags';
 import { cn } from '@/lib/utils';
 
-import { CollapsibleSection, ToolbarDropdownIconTrigger } from './interaction-primitives';
+import { ToolbarDropdownIconTrigger } from './interaction-primitives';
 import { FOCUS_RING_CLASS } from './ui';
 import {
   DropdownMenu,
@@ -49,7 +44,6 @@ const SORT_LABELS: Record<NoteFinderSortMode, string> = {
 };
 
 const SORT_MODES: NoteFinderSortMode[] = ['updated-desc', 'updated-asc', 'title-asc', 'title-desc', 'created-desc'];
-const TAG_BROWSER_LIMIT = 6;
 
 const PERMISSION_LABELS: Record<NotePermissionRole, string> = {
   owner: 'Owner',
@@ -106,6 +100,8 @@ export function NoteFinderToolbar({
   options,
   onChange,
   results,
+  tags,
+  onTagToggle,
   onEscapeToTree,
 }: {
   state: NoteFinderState;
@@ -113,9 +109,15 @@ export function NoteFinderToolbar({
   options: ReturnType<typeof getNoteFinderOptions>;
   onChange: (state: NoteFinderState) => void;
   results?: NoteFinderResults;
+  /** Tags across the workspace, offered as filters in View options. */
+  tags: ElectronNoteTag[];
+  onTagToggle: (tag: string) => void;
   onEscapeToTree: () => void;
 }) {
-  const activeFilterCount = getActiveNoteFinderFilterCount(state);
+  // Filters, plus a scope or order that differs from the default.
+  const viewOptionCount = getActiveNoteFinderFilterCount(state)
+    + (state.searchScope === DEFAULT_NOTE_FINDER_STATE.searchScope ? 0 : 1)
+    + (state.sortMode === DEFAULT_NOTE_FINDER_STATE.sortMode ? 0 : 1);
   const currentFolderDisabled = !selectedFolderId;
   const updateState = (patch: Partial<NoteFinderState>) => onChange({ ...state, ...patch });
   const removeTag = (tag: string) => updateState({ tagFilters: state.tagFilters.filter((candidate) => candidate !== tag) });
@@ -166,7 +168,6 @@ export function NoteFinderToolbar({
     onEscapeToTree();
   };
   const searchShortcut = useActionShortcut('search-notes');
-  const scopeLabel = state.searchScope === 'workspace' ? 'Workspace' : 'Current Folder';
 
   return (
     <div className="space-y-1.5">
@@ -199,14 +200,22 @@ export function NoteFinderToolbar({
         <span role="status" aria-live="polite" className="sr-only">{results?.announcement}</span>
 
         <Toolbar aria-label="Note finder controls" className="gap-1.5">
+          {/* One menu holds where to search, the order, and every filter, so the bar stays quiet. */}
           <DropdownMenu>
-            <ToolbarDropdownIconTrigger label="Search scope" tooltip={`Scope: ${scopeLabel}`} className="h-8 w-8">
-              {state.searchScope === 'current-folder'
-                ? <FolderOpen aria-hidden="true" className="h-4 w-4" />
-                : <FileText aria-hidden="true" className="h-4 w-4" />}
+            <ToolbarDropdownIconTrigger
+              label="View options"
+              tooltip={viewOptionCount ? `View options · ${viewOptionCount} changed` : 'View options'}
+              className={cn('relative h-8 w-8', viewOptionCount && 'bg-background-selected text-text-default')}
+            >
+              <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
+              {viewOptionCount ? (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-default px-1 text-2xs leading-none text-primary-foreground">
+                  {viewOptionCount}
+                </span>
+              ) : null}
             </ToolbarDropdownIconTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Search Scope</DropdownMenuLabel>
+            <DropdownMenuContent align="end" className="max-h-96 min-w-56 overflow-auto">
+              <DropdownMenuLabel>Search In</DropdownMenuLabel>
               <DropdownMenuItem onSelect={() => updateState({ searchScope: 'workspace' })}>
                 <CheckedIcon checked={state.searchScope === 'workspace'} />
                 Workspace
@@ -218,14 +227,7 @@ export function NoteFinderToolbar({
                 <CheckedIcon checked={state.searchScope === 'current-folder'} />
                 Current Folder
               </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <ToolbarDropdownIconTrigger label="Sort notes" tooltip={SORT_LABELS[state.sortMode]} className="h-8 w-8">
-              <ArrowDownUp aria-hidden="true" className="h-3.5 w-3.5" />
-            </ToolbarDropdownIconTrigger>
-            <DropdownMenuContent align="end">
+              <DropdownMenuSeparator />
               <DropdownMenuLabel>Sort</DropdownMenuLabel>
               {SORT_MODES.map((sortMode) => (
                 <DropdownMenuItem key={sortMode} onSelect={() => updateState({ sortMode })}>
@@ -233,23 +235,7 @@ export function NoteFinderToolbar({
                   {SORT_LABELS[sortMode]}
                 </DropdownMenuItem>
               ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <ToolbarDropdownIconTrigger
-              label="Filter notes"
-              tooltip={activeFilterCount ? `${activeFilterCount} active filters` : 'Filter notes'}
-              className={cn('relative h-8 w-8', activeFilterCount && 'bg-background-selected text-text-default')}
-            >
-              <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
-              {activeFilterCount ? (
-                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-default px-1 text-2xs leading-none text-primary-foreground">
-                  {activeFilterCount}
-                </span>
-              ) : null}
-            </ToolbarDropdownIconTrigger>
-            <DropdownMenuContent align="end" className="max-h-96 min-w-56 overflow-auto">
+              <DropdownMenuSeparator />
               <DropdownMenuLabel>Read Permission</DropdownMenuLabel>
               {options.readPermissions.map((permission) => (
                 <DropdownMenuCheckboxItem
@@ -273,6 +259,23 @@ export function NoteFinderToolbar({
                   {PERMISSION_LABELS[permission]}
                 </DropdownMenuCheckboxItem>
               ))}
+              {tags.length ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Tags</DropdownMenuLabel>
+                  {tags.map((entry) => (
+                    <DropdownMenuCheckboxItem
+                      key={`tag:${entry.tag}`}
+                      checked={state.tagFilters.includes(entry.tag)}
+                      onSelect={(event) => event.preventDefault()}
+                      onCheckedChange={() => onTagToggle(entry.tag)}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{entry.tag}</span>
+                      <span className="shrink-0 tabular-nums text-text-subtle">{entry.count}</span>
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </>
+              ) : null}
               {hasActiveNoteFinderFilters(state) ? (
                 <>
                   <DropdownMenuSeparator />
@@ -305,74 +308,5 @@ export function NoteFinderToolbar({
         </div>
       ) : null}
     </div>
-  );
-}
-
-export function TagBrowser({
-  tags,
-  activeTags,
-  isLoading,
-  onTagToggle,
-}: {
-  tags: ElectronNoteTag[];
-  activeTags: string[];
-  isLoading: boolean;
-  onTagToggle: (tag: string) => void;
-}) {
-  const [showAll, setShowAll] = useState(false);
-  const visibleTags = showAll ? tags : tags.slice(0, TAG_BROWSER_LIMIT);
-
-  if (isLoading) {
-    return null;
-  }
-
-  if (tags.length === 0 && activeTags.length === 0) {
-    return null;
-  }
-
-  return (
-    <CollapsibleSection
-      key={activeTags.length > 0 ? 'tags-active' : 'tags-idle'}
-      title="Tags"
-      subtitle={tags.length > 0 ? String(tags.length) : undefined}
-      defaultOpen={activeTags.length > 0}
-      className="border-b-0 py-0.5"
-      contentClassName="space-y-0.5 pt-0.5"
-    >
-      {tags.length === 0 ? (
-        <div className="rounded-md border border-border-default bg-background-default px-2 py-1.5 text-xs text-text-subtle">
-          No tags yet
-        </div>
-      ) : (
-        <ul className="m-0 list-none space-y-1 p-0" aria-label="Tags">
-          {visibleTags.map((entry) => {
-            const active = activeTags.includes(entry.tag);
-            return (
-              <li key={entry.tag} className="min-w-0">
-                <Toggle
-                  pressed={active}
-                  onPressedChange={() => onTagToggle(entry.tag)}
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`${active ? 'Clear' : 'Filter by'} tag ${entry.tag}`}
-                  className="h-7 w-full min-w-0 justify-start gap-2 px-2 py-0 text-xs font-normal data-[pressed]:font-medium"
-                >
-                  <Tag aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-text-subtle" />
-                  <span className="min-w-0 flex-1 truncate text-left">{entry.tag}</span>
-                  <span className="shrink-0 tabular-nums text-text-subtle">{entry.count}</span>
-                </Toggle>
-              </li>
-            );
-          })}
-          {tags.length > TAG_BROWSER_LIMIT ? (
-            <li className="min-w-0">
-              <Button variant="ghost" size="xs" onClick={() => setShowAll((current) => !current)} className="mt-0.5 font-normal">
-                {showAll ? 'Show less' : `Show ${tags.length - TAG_BROWSER_LIMIT} more`}
-              </Button>
-            </li>
-          ) : null}
-        </ul>
-      )}
-    </CollapsibleSection>
   );
 }

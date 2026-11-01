@@ -26,11 +26,11 @@ Opening another Local Vault restores that vault's own tabs and recoverable draft
 
 ## Find and organize notes
 
-Use **Search notes** to filter the selected workspace by title, tag or text. Matching text appears under each note with the words highlighted. In a Local Vault, the text of every note is searched. In HackMD, only the notes you have opened in HackDesk are searched by text, because HackDesk never downloads notes you have not opened. The results say how many notes were covered. Expand folders in the navigator, or use the tag browser to narrow the list.
+Use **Search notes** to filter the selected workspace by title, tag or text. Matching text appears under each note with the words highlighted. In a Local Vault, the text of every note is searched. In HackMD, only the notes you have opened in HackDesk are searched by text, because HackDesk never downloads notes you have not opened. The results say how many notes were covered. Expand folders in the navigator. **View options**, next to the search box, chooses where to search and how to sort, and narrows the list by permission or tag; a badge counts the options in use. HackMD lists refresh when you come back to the window.
 
 HackMD notes you open are kept on this computer, so they stay readable when you are offline or HackMD is unreachable, even after restarting HackDesk. A note shown this way is marked **Cached** and may be behind HackMD. To stop keeping notes, or to clear them, use **Settings → General → Offline and search**.
 
-Create folders with **New Folder**. Use a folder's menu to edit or delete it, or drag notes and folders to move them. From the keyboard, **Move Note to Folder…** in the Command Palette lists the workspace's folders, and **Rename Note** puts the cursor in the note's title. Local deletion moves files to the system trash; HackMD deletion affects remote notes.
+Create folders with **New Folder**. Use a folder's menu to edit or delete it, or drag notes and folders to move them. From the keyboard, **Move Note to Folder…** in the Command Palette lists the workspace's folders, and **Rename Note** asks for a new title and saves it. Local deletion moves files to the system trash; HackMD deletion affects remote notes.
 
 Press **Cmd+P** / **Ctrl+P** for **Quick Open** to search notes, folders, and workspaces. Press **Cmd+K** / **Ctrl+K** for the **Command Palette** to find actions. With text selected in the editor and an AI provider enabled, this shortcut opens AI actions instead; **Cmd+Shift+P** / **Ctrl+Shift+P** still opens the Command Palette.
 
@@ -115,7 +115,7 @@ Use the arrow keys or Space to move, **O** for an overview, and **Esc** to leave
 
 ## Save changes
 
-Choose **Save** in the document toolbar to write the active note to its workspace. A dot on the note's tab shows unsaved changes, saving, or a problem, and disappears once the note is saved. The header names the state only when it needs attention, such as a failed save or a conflict. Document toolbar buttons appear when you point at or tab into the header, and stay visible while the note has unsaved changes.
+Choose **Save** in the document toolbar to write the active note to its workspace. A dot on the note's tab shows unsaved changes, saving, or a problem, and disappears once the note is saved. The header is one line with the note's location, and names the state only when it needs attention, such as a failed save or a conflict. Document toolbar buttons appear when you point at or tab into the header, and stay visible while the note has unsaved changes.
 
 HackDesk keeps recovery copies of unsaved edits. Recovery does not replace saving, and a reported backup failure means the edits need attention. If a note changed elsewhere, review the conflict or recovery message before saving again.
 
@@ -143,7 +143,7 @@ The inserted text stays selected. With an AI provider enabled, press **Cmd+K** a
 
 ## Edit Note Details
 
-Open **Note Details** to change the title and inspect metadata. It slides in over the right side of the note, so the editor keeps its width, and takes keyboard focus; press **Escape** to close it and return to the note. HackMD notes also expose tags, permissions, and sharing information where supported. For a Local Vault note, Note Details shows only the notes linking to it.
+Choose **Rename Note** from the note's More actions, the command palette, or **N R** in the leader menu to change a note's title; for a Local Vault note the file takes the new name. Open **Note Details** to inspect metadata. It slides in over the right side of the note, so the editor keeps its width, and takes keyboard focus; press **Escape** to close it and return to the note. HackMD notes also expose tags, permissions, and sharing information where supported. For a Local Vault note, Note Details shows only the notes linking to it.
 
 Local files and HackMD notes have different metadata. Controls reflect the selected workspace; they do not provide full team administration.
 

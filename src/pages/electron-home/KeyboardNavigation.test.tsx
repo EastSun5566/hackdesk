@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { KeyboardNavigation } from './KeyboardNavigation';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { HINT_DELAY_MS, KeyboardNavigation } from './KeyboardNavigation';
 
 function fixture(platform = 'darwin') {
   render(<KeyboardNavigation workspaceKey="local:vault" platform={platform} characterEnabled><button data-workspace-navigation-id="local">Vault</button><button data-navigation-toolbar="true">Save</button></KeyboardNavigation>);
@@ -8,12 +8,38 @@ function fixture(platform = 'darwin') {
   screen.getByText('Vault').focus();
   return platform === 'darwin' ? {key:'Meta',metaKey:true} : {key:'Control',ctrlKey:true};
 }
-function hold(modifier: ReturnType<typeof fixture>){fireEvent.keyDown(window,modifier);}
+// Hints show only after the key has been held for a moment.
+function hold(modifier: ReturnType<typeof fixture>){fireEvent.keyDown(window,modifier);act(()=>{vi.advanceTimersByTime(HINT_DELAY_MS);});}
 function codeFor(id:string){return document.querySelector<HTMLElement>(`[data-navigation-hint="${id}"]`)!.dataset.navigationCode!;}
 function type(code:string, modifier:ReturnType<typeof fixture>){for(const key of code)fireEvent.keyDown(window,{...modifier,key});}
-afterEach(()=>{vi.restoreAllMocks();});
+// Only timeouts are faked: frame callbacks and Testing Library's polling keep real time.
+beforeEach(()=>{vi.useFakeTimers({toFake:['setTimeout','clearTimeout']});});
+afterEach(()=>{vi.useRealTimers();vi.restoreAllMocks();});
 
 describe('held modifier navigation',()=>{
+  it('waits a moment before showing hints, and a quick chord such as Cmd+Right never shows them',()=>{
+    const modifier=fixture();
+    fireEvent.keyDown(window,modifier);
+    act(()=>{vi.advanceTimersByTime(HINT_DELAY_MS-50);});
+    expect(document.querySelector('[data-keyboard-navigation-overlay]')).toBeNull();
+    expect(document.documentElement.dataset.navigationHints).toBeUndefined();
+    const arrow=new KeyboardEvent('keydown',{...modifier,key:'ArrowRight',cancelable:true});
+    act(()=>{window.dispatchEvent(arrow);});
+    expect(arrow.defaultPrevented).toBe(false);
+    act(()=>{vi.advanceTimersByTime(HINT_DELAY_MS);});
+    expect(document.querySelector('[data-keyboard-navigation-overlay]')).toBeNull();
+
+    fireEvent.keyUp(window,{...modifier,metaKey:false});
+    hold(modifier);
+    expect(document.querySelector('[data-keyboard-navigation-overlay]')).not.toBeNull();
+  });
+  it('drops a pending hold when the key is released early',()=>{
+    const modifier=fixture();
+    fireEvent.keyDown(window,modifier);
+    fireEvent.keyUp(window,{...modifier,metaKey:false});
+    act(()=>{vi.advanceTimersByTime(HINT_DELAY_MS);});
+    expect(document.querySelector('[data-keyboard-navigation-overlay]')).toBeNull();
+  });
   it.each(['darwin','win32','linux'])('navigates in %s, then clears until release',platform=>{
     const modifier=fixture(platform);const click=vi.fn();screen.getByText('Vault').onclick=click;
     hold(modifier);const code=codeFor('workspace:local');type(code,modifier);
@@ -41,7 +67,7 @@ describe('held modifier navigation',()=>{
     }
   });
   it('cancels when targets change instead of reassigning mid-chord',async()=>{
-    const modifier=fixture();hold(modifier);const save=screen.getByRole<HTMLButtonElement>('button', { name: 'Save' });save.disabled=true;
+    const modifier=fixture();hold(modifier);vi.useRealTimers();const save=screen.getByRole<HTMLButtonElement>('button', { name: 'Save' });save.disabled=true;
     await waitFor(()=>expect(document.querySelector('[data-keyboard-navigation-overlay]')).toBeNull());
   });
   it.each(['darwin', 'win32', 'linux'])('passes additional modifiers through unchanged on %s', platform => {
@@ -59,7 +85,7 @@ describe('held modifier navigation',()=>{
     const child=<input aria-label="Draft" defaultValue="Unsaved draft"/>;
     const {rerender}=render(<KeyboardNavigation workspaceKey="a" platform="darwin" characterEnabled>{child}</KeyboardNavigation>);
     const input=screen.getByLabelText('Draft');
-    fireEvent.keyDown(window,{key:'Meta',metaKey:true});
+    hold({key:'Meta',metaKey:true});
     rerender(<KeyboardNavigation workspaceKey="b" platform="darwin" characterEnabled>{child}</KeyboardNavigation>);
     expect(screen.getByLabelText('Draft')).toBe(input);
     expect(document.querySelector('[data-keyboard-navigation-overlay]')).toBeNull();

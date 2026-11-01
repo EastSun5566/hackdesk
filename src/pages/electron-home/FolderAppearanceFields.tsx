@@ -120,7 +120,7 @@ export function FolderAppearanceFields({
           <span>Custom values</span>
           <ChevronRight
             aria-hidden="true"
-            className="h-3.5 w-3.5 transition-transform group-data-[panel-open]:rotate-90 motion-reduce:transition-none"
+            className="h-3.5 w-3.5 transition-transform duration-150 ease-out group-data-[panel-open]:rotate-90 motion-reduce:transition-none"
           />
         </CollapsibleTrigger>
         <CollapsibleContent>

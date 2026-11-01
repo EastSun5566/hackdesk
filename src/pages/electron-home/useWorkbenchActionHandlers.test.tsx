@@ -70,6 +70,8 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     toggleKeyHints: vi.fn(),
     openLeaderMenu: vi.fn(),
     toggleHackMode: vi.fn(),
+    openViewOptions: vi.fn(),
+    bumpRenameRequest: vi.fn(),
     copyNoteLink: vi.fn(),
     copyNoteMarkdownLink: vi.fn(),
     duplicateNote: vi.fn(),
@@ -182,18 +184,13 @@ describe('useWorkbenchActionHandlers', () => {
     expect(options.reorderTab).not.toHaveBeenCalled();
   });
 
-  it('focuses and selects the title of the note in the active pane', async () => {
-    document.body.innerHTML = '<section data-active-pane="false"><input name="title" value="Other"></section>'
-      + '<section data-active-pane="true"><input name="title" value="Plan"></section>';
-    const { result } = renderHook(() => useWorkbenchActionHandlers(createOptions()));
+  it('asks the active pane to open its Rename Note dialog', () => {
+    const bumpRenameRequest = vi.fn();
+    const { result } = renderHook(() => useWorkbenchActionHandlers({ ...createOptions(), bumpRenameRequest }));
 
     result.current.renameNote();
-    await new Promise(resolve => window.requestAnimationFrame(resolve));
 
-    const title = document.querySelector<HTMLInputElement>('[data-active-pane="true"] input')!;
-    expect(document.activeElement).toBe(title);
-    expect([title.selectionStart, title.selectionEnd]).toEqual([0, 4]);
-    document.body.innerHTML = '';
+    expect(bumpRenameRequest).toHaveBeenCalledOnce();
   });
 
   it('saves a draft tab through create instead of update', () => {

@@ -98,49 +98,6 @@
   /* Type scale below text-xs. The theme rescales it with the UI font size. */
   --text-2xs: 0.625rem;
   --text-2xs--line-height: 1.4;
-
-  /* Animations */
-  --animate-dialog-overlay-in: fadeIn 300ms ease-out;
-  --animate-dialog-overlay-out: fadeOut 200ms ease-in;
-  --animate-dialog-in: dialogIn 300ms ease-out;
-  --animate-dialog-out: dialogOut 200ms ease-in;
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-  @keyframes fadeOut {
-    from {
-      opacity: 1;
-    }
-    to {
-      opacity: 0;
-    }
-  }
-  @keyframes dialogIn {
-    0% {
-      opacity: 0;
-      transform: translateX(-50%) scale(0.95);
-    }
-    100% {
-      opacity: 1;
-      transform: translateX(-50%) scale(1);
-    }
-  }
-  @keyframes dialogOut {
-    0% {
-      opacity: 1;
-      transform: translateX(-50%) scale(1);
-    }
-    100% {
-      opacity: 0;
-      transform: translateX(-50%) scale(0.95);
-    }
-  }
 }
 
 @layer base {

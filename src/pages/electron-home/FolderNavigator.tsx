@@ -2,7 +2,6 @@ import {
   AlertCircle,
   FileText,
   Plus,
-  RefreshCcw,
 } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
@@ -52,7 +51,7 @@ import { HACK_MODE_HIDDEN_CLASS } from './ui';
 import { EmptyState, PanelHeader, PanelShell, ToolbarIconButton } from './interaction-primitives';
 import type { WorkspaceScope } from './types';
 import { FolderActionsDropdown } from './FolderNavigatorActionsDropdown';
-import { NOTE_FINDER_RESULTS_ID, NoteFinderToolbar, TagBrowser, type NoteFinderResults } from './FolderNavigatorFinder';
+import { NOTE_FINDER_RESULTS_ID, NoteFinderToolbar, type NoteFinderResults } from './FolderNavigatorFinder';
 import {
   FolderDragOverlay,
   FolderTreeView,
@@ -169,7 +168,9 @@ export function FolderNavigator({
       collapsedWidth={0}
       className={cn('note-navigator bg-background-muted', HACK_MODE_HIDDEN_CLASS)}
     >
-      {layout.collapsed ? null : (
+      {/* Stays mounted at its full width while collapsed, so the panel clips it as the width
+          animates instead of reflowing it every frame. */}
+      <div className="flex min-h-0 w-(--sidebar-content-width) flex-1 shrink-0 flex-col" style={{ '--sidebar-content-width': `${layout.width}px` }}>
         <ExpandedNavigator
           actions={actions}
           emptyState={emptyState}
@@ -183,8 +184,8 @@ export function FolderNavigator({
           tree={tree}
           workspace={workspace}
         />
-      )}
-      {layout.collapsed ? null : <SidebarFooter accountStatus={workspace.accountStatus} user={workspace.user} onOpenSettings={workspace.onOpenSettings} onOpenTrash={workspace.onOpenTrash} />}
+        <SidebarFooter accountStatus={workspace.accountStatus} user={workspace.user} onOpenSettings={workspace.onOpenSettings} onOpenTrash={workspace.onOpenTrash} />
+      </div>
     </PanelShell>
   );
 }
@@ -303,13 +304,8 @@ function NavigatorHeader({
       actionsLabel="Note navigator actions"
       actions={(
         <>
-          <ToolbarIconButton
-            actionId="refresh"
-            onClick={actions.onRefresh}
-            label="Refresh notes"
-          >
-            <RefreshCcw aria-hidden="true" className={cn('h-4 w-4', status.isFetching && 'animate-spin motion-reduce:animate-none')} />
-          </ToolbarIconButton>
+          {/* No refresh button: HackMD lists refresh when the window regains focus, a Local Vault
+              watches its folder, and Shift+Cmd+R still refreshes by hand. */}
           <ToolbarIconButton
             actionId="new-note"
             onClick={actions.onCreate}
@@ -373,13 +369,9 @@ function NavigatorFilterBar({
         options={finderOptions}
         onChange={actions.onFinderStateChange}
         results={results}
-        onEscapeToTree={onEscapeToTree}
-      />
-      <TagBrowser
         tags={tagIndex}
-        activeTags={finderState.tagFilters}
-        isLoading={status.isLoading}
         onTagToggle={handleTagToggle}
+        onEscapeToTree={onEscapeToTree}
       />
 
       {scope.type !== 'local' && !status.hasToken ? (

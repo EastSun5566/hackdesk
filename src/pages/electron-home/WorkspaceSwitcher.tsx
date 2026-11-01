@@ -42,7 +42,7 @@ import { cn } from '@/lib/utils';
 import { EntityRow } from './interaction-primitives';
 import { NavigationHintsContext } from './KeyboardNavigationContext';
 import type { WorkspaceScope } from './types';
-import { FOCUS_RING_INSET_CLASS } from './ui';
+import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS } from './ui';
 import {
   getWorkspaceAriaShortcut,
   getWorkspaceNavigationTeams,
@@ -285,7 +285,7 @@ function MoreTeams({
         onClick={() => setOpen(!isOpen)}
         className={cn('flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-sm font-medium text-text-subtle hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_INSET_CLASS)}
       >
-        <ChevronDown className={cn('size-4 transition-transform', !isOpen && '-rotate-90')} />
+        <ChevronDown className={cn('size-4', COLLAPSE_ICON_CLASS, !isOpen && '-rotate-90')} />
         <span>More</span>
       </button>
       {isOpen ? (
@@ -341,7 +341,7 @@ function WorkspacePeek({
       ref={peekRef}
       aria-hidden="true"
       data-workspace-peek
-      className="pointer-events-none fixed left-(--peek-left) top-(--peek-top) z-30 w-64 rounded-md border border-border-default bg-background-default p-1.5 text-sm text-text-default shadow-lg"
+      className="pointer-events-none fixed left-(--peek-left) top-(--peek-top) z-30 w-64 origin-top-left rounded-md border border-border-default bg-background-default p-1.5 text-sm text-text-default shadow-lg ease-out animate-in fade-in-0 zoom-in-95 motion-reduce:animate-none"
     >
       <ol className="list-none space-y-0.5">
         {rows.map((row, index) => (

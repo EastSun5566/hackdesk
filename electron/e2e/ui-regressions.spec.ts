@@ -12,7 +12,7 @@ const repoRoot = resolve(import.meta.dirname, '../..');
 const primary = process.platform === 'darwin' ? 'Meta' : 'Control';
 const teamNames = ['A very long workspace name for layout checks', 'Second Team'];
 
-async function launchFixture(editorMode: EditorMode = 'helix', navigationFixtures = false, recordKeyboard = false) {
+async function launchFixture(editorMode: EditorMode = 'helix', navigationFixtures = false, recordKeyboard = false, theme: 'dark' | 'light' = 'dark') {
   const testHome = await mkdtemp(join(tmpdir(), 'hackdesk-ui-'));
   const vault = join(testHome, 'vault');
   await mkdir(join(testHome, '.hackdesk'), { recursive: true });
@@ -26,7 +26,7 @@ async function launchFixture(editorMode: EditorMode = 'helix', navigationFixture
   }
   const settings = {
     ...defaultSettings,
-    appearance: { ...defaultSettings.appearance, theme: 'dark' as const },
+    appearance: { ...defaultSettings.appearance, theme },
     localVault: { path: vault },
     editor: { mode: editorMode },
   };
@@ -152,12 +152,18 @@ async function switchWorkspace(page: Page, name: string) {
   await expect(page.getByRole('dialog', { name: 'Workspaces' })).toBeHidden();
 }
 
+// Hints show after the primary key has been held for a moment (HINT_DELAY_MS in KeyboardNavigation).
+async function holdPrimary(page: Page) {
+  await page.keyboard.down(primary);
+  await page.waitForTimeout(500);
+}
+
 // Hints cancel while the page is still changing, so hold the key again until they stay.
 async function holdForHints(page: Page, target: Locator, ready = () => page.locator('[data-keyboard-navigation-overlay]').isVisible()) {
   await expect.poll(async () => {
     await page.keyboard.up(primary);
     await target.focus();
-    await page.keyboard.down(primary);
+    await holdPrimary(page);
     return ready();
   }).toBe(true);
 }
@@ -322,6 +328,120 @@ test('focus rings stay visible instead of being cut off by their containers', as
   }
 });
 
+test('a keyboard-only tour of the main flows in light theme at a narrow window, with consistent motion', async () => {
+  const { app, page } = await launchFixture('standard', true, false, 'light');
+  try {
+    await page.setViewportSize({ width: 900, height: 700 });
+    const shot = (name: string) => page.screenshot({ animations: 'disabled', path: test.info().outputPath(`28-tour-${name}.png`) });
+    const leader = async (keys: string) => {
+      await page.keyboard.press(`${primary}+j`);
+      await expect(page.getByRole('menu', { name: 'Commands' })).toBeVisible();
+      for (const key of keys) await page.keyboard.press(key);
+    };
+    const trigger = page.getByRole('button', { name: /^Switch workspace, current: / });
+
+    // Switch workspaces from the switcher, then return to the Local Vault.
+    await page.keyboard.press(`${primary}+1`);
+    await expect(trigger).toHaveAccessibleName('Switch workspace, current: My Workspace');
+    await leader('gw');
+    const switcher = page.getByRole('dialog', { name: 'Workspaces' });
+    await expect(switcher.getByRole('button', { name: 'My Workspace', exact: true })).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowUp');
+    await expect(switcher.getByRole('button', { name: 'Local Vault', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(trigger).toHaveAccessibleName('Switch workspace, current: Local Vault');
+
+    // Search, move through results, open one.
+    await page.keyboard.press('/');
+    const search = page.getByRole('textbox', { name: 'Search notes' });
+    await expect(search).toBeFocused();
+    await page.keyboard.type('Alpha');
+    await expect(page.getByRole('status').filter({ hasText: 'Alpha, 1 of 1' })).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('tab', { name: /^Alpha(?:, .+)?$/ })).toHaveAttribute('aria-selected', 'true');
+    await shot('search');
+
+    // View options holds scope, sort and filters.
+    await leader('gv');
+    await expect(page.getByRole('menu').getByText('Search In')).toBeVisible();
+    await shot('view-options');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+
+    // The header is one line: where the note lives, and its buttons.
+    await page.locator('.cm-content').click();
+    await expect(page.getByRole('navigation', { name: 'Note location' })).toHaveText('Local Vault');
+    await expect(page.getByRole('textbox', { name: 'Note title' })).toHaveCount(0);
+
+    // Rename from the leader menu.
+    await leader('nr');
+    const rename = page.getByRole('dialog', { name: 'Rename Note' });
+    await expect(rename.getByLabel('Title')).toBeFocused();
+    await shot('rename');
+    await page.keyboard.press(`${primary}+a`);
+    await page.keyboard.type('Alpha renamed');
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('tab', { name: /^Alpha renamed(?:, .+)?$/ })).toBeVisible();
+
+    // Note Details slides in and out over the note, taking focus and returning it.
+    await leader('vd');
+    const details = page.locator('[data-active-pane="true"] [data-state]').filter({ has: page.getByRole('complementary', { name: 'Note details' }) });
+    await expect(details).toHaveAttribute('data-state', 'open');
+    expect(await details.evaluate(element => getComputedStyle(element).transitionDuration)).toBe('0.2s');
+    await expect.poll(() => page.evaluate(() => Boolean(document.activeElement?.closest('[data-hackdesk-focus="inspector"]')))).toBe(true);
+    await shot('details');
+    await page.keyboard.press('Escape');
+    await expect(details).toHaveAttribute('data-state', 'closed');
+    await expect.poll(() => details.evaluate(element => getComputedStyle(element).opacity)).toBe('0');
+    await expect(page.locator('[data-active-pane="true"] .cm-content')).toBeFocused();
+
+    // The sidebar animates its width with the same panel motion.
+    const sidebar = page.locator('#note-navigator-panel');
+    expect(await sidebar.evaluate(element => getComputedStyle(element).transitionDuration)).toBe('0.2s');
+    await page.keyboard.press(`${primary}+b`);
+    await expect.poll(async () => (await sidebar.boundingBox())!.width).toBe(0);
+    await page.keyboard.press(`${primary}+b`);
+    await expect.poll(async () => (await sidebar.boundingBox())!.width).toBeGreaterThan(200);
+
+    // Split, then Hack Mode in and out.
+    await page.locator('[data-active-pane="true"] .cm-content').click();
+    await page.keyboard.press(`${primary}+\\`);
+    await expect(page.locator('section[data-document-pane-id]')).toHaveCount(2);
+    await page.keyboard.press(`${primary}+.`);
+    await expect(page.locator('.app-chrome')).toHaveAttribute('data-hack-mode', 'true');
+    await shot('hack-mode');
+    await page.keyboard.press(`${primary}+.`);
+    await expect(page.locator('.app-chrome')).not.toHaveAttribute('data-hack-mode');
+
+    // F6 goes around the regions, even with the Hack Mode toast still showing.
+    await expect(page.getByRole('region', { name: 'Notifications' }).getByText(/^Hack Mode/)).toBeVisible();
+    // Both panes' editors are regions, so the pane tells them apart.
+    const focusedZone = () => page.evaluate(() => {
+      const zone = document.activeElement?.closest<HTMLElement>('[data-hackdesk-focus]')?.dataset.hackdeskFocus ?? '';
+      const pane = document.activeElement?.closest<HTMLElement>('[data-document-pane-id]')?.dataset.documentPaneId;
+      return zone === 'editor' && pane ? `editor ${pane}` : zone;
+    });
+    const visited: string[] = [await focusedZone()];
+    for (let step = 0; step < 5; step++) {
+      await page.keyboard.press('F6');
+      // Focus moves after a frame; wait for it before pressing again.
+      await expect.poll(focusedZone).not.toBe(visited.at(-1));
+      visited.push(await focusedZone());
+    }
+    // Around once: the sidebar, the tabs, both editors and back to where it started.
+    const [start, ...rest] = visited;
+    expect(rest).toEqual(['navigator', 'tabs', 'editor note-pane-primary', start, 'navigator']);
+    await shot('done');
+  } finally {
+    await app.evaluate(({ ipcMain }, channel) => {
+      ipcMain.removeHandler(channel);
+      ipcMain.handle(channel, () => ({ confirmed: true }));
+    }, ELECTRON_CHANNELS.appConfirm);
+    await stopApp(app);
+  }
+});
+
 test('workspace switcher rows, one-pixel boundaries and full-height Settings workbench', async () => {
   const testInfo = test.info();
   const { app, page } = await launchFixture();
@@ -477,7 +597,9 @@ test('one sidebar switches workspaces from its title, with Trash and Settings at
 
     await page.keyboard.press(`${primary}+b`);
     await expect(page.getByRole('button', { name: 'Expand sidebar', exact: true })).toBeVisible();
-    await expect(trigger).toHaveCount(0);
+    // The collapsed sidebar stays mounted so its width animates, but nothing in it can be reached.
+    await expect(page.locator('#note-navigator-panel')).toHaveAttribute('inert', '');
+    await expect.poll(async () => (await page.locator('#note-navigator-panel').boundingBox())!.width).toBe(0);
     await page.keyboard.press(`${primary}+b`);
     await expect(trigger).toBeVisible();
 
@@ -569,10 +691,11 @@ test('tab drag, keyboard actions, persistence and pane isolation', async () => {
     await page.keyboard.press(`${primary}+\\`);
     await expect(page.getByRole('separator', { name: /Resize document panes/ })).toBeVisible();
     await openNote('UI fixture');
-    const firstPaneTitle = await page.getByLabel('Note title', { exact: true }).first().inputValue();
+    const firstPaneNote = () => page.locator('section[data-document-pane-id]').first().locator('.cm-content').innerText();
+    const firstPaneText = await firstPaneNote();
     await dragTab('UI fixture', 'Gamma');
     await expect.poll(labels).toEqual(['UI fixture', 'Gamma']);
-    expect(await page.getByLabel('Note title', { exact: true }).first().inputValue()).toBe(firstPaneTitle);
+    expect(await firstPaneNote()).toBe(firstPaneText);
     await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('08-tab-reorder.png') });
     await strip.getByRole('button', { name: 'Close Gamma', exact: true }).click();
     await expect.poll(labels).toEqual(['UI fixture']);
@@ -674,8 +797,13 @@ for (const editorMode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as con
       await expect(page.locator('.cm-panels').first()).toBeVisible();
       await expect(page.locator('.cm-editor')).toHaveCSS('isolation', 'isolate');
       // Save uses real filesystem IPC and produces a real notification.
-      await page.getByLabel('Note title', { exact: true }).fill(`UI fixture ${editorMode}`);
-      await page.getByRole('button', { name: 'Save', exact: true }).click();
+      // Rename Note saves right away, from the leader menu in every editor mode.
+      await page.keyboard.press(`${primary}+j`);
+      await page.keyboard.press('n');
+      await page.keyboard.press('r');
+      const rename = page.getByRole('dialog', { name: 'Rename Note' });
+      await rename.getByLabel('Title').fill(`UI fixture ${editorMode}`);
+      await rename.getByRole('button', { name: 'Rename', exact: true }).click();
       const notification = page.getByRole('status').filter({ hasText: 'Note saved.' });
       await expect(notification).toBeVisible();
       const bottomPanels = page.locator('.cm-panels-bottom');
@@ -1035,6 +1163,22 @@ async function useNavigationCode(page: Page, id: string) {
   await expect(hint).toHaveCount(0);
 }
 
+test('a quick Cmd chord in a note moves the cursor without flashing navigation hints', async () => {
+  const { app, page } = await launchFixture('standard');
+  try {
+    await openFixtureNote(page);
+    const overlay = page.locator('[data-keyboard-navigation-overlay]');
+    await page.locator('.cm-content').click();
+    await page.keyboard.press('Home');
+    await page.keyboard.down(primary);
+    await page.keyboard.press(process.platform === 'darwin' ? 'ArrowRight' : 'End');
+    await page.waitForTimeout(600);
+    await expect(overlay).toHaveCount(0);
+    await page.keyboard.up(primary);
+    await expect(page.locator('.cm-content')).toBeFocused();
+  } finally { await stopApp(app); }
+});
+
 test('navigation codes are stable, prefix-free and do not overlap', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
@@ -1059,7 +1203,7 @@ test('navigation codes are stable, prefix-free and do not overlap', async () => 
     await useNavigationCode(page, 'finder');
     await expect(page.getByPlaceholder('Search notes', { exact: true })).toBeFocused();
     await page.keyboard.up(primary);
-    await note.focus(); await page.keyboard.down(primary);
+    await note.focus(); await holdPrimary(page);
     await expect(page.locator('[data-navigation-hint="finder"]')).toHaveAttribute('data-navigation-code', finderCode!);
     await page.keyboard.press('Escape'); await expect(overlay).toHaveCount(0);
     await page.keyboard.up(primary);
@@ -1073,7 +1217,7 @@ test('navigation focuses buttons before Enter and preserves fixed shortcuts', as
     await openFixtureNote(page);
     const note = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
     await note.focus();
-    await page.keyboard.down(primary);
+    await holdPrimary(page);
     const saveHint = page.locator('[data-navigation-hint$=":save-note"]');
     // Saved notes disable Save; mutation controls are never activated by hints.
     await expect(saveHint).toHaveCount(0);
@@ -1089,7 +1233,7 @@ test('navigation focuses buttons before Enter and preserves fixed shortcuts', as
     await page.keyboard.press(`${primary}+b`);
     await expect(page.getByRole('button', { name: 'Collapse sidebar', exact: true })).toBeVisible();
 
-    await note.focus(); await page.keyboard.down(primary);
+    await note.focus(); await holdPrimary(page);
     await page.keyboard.press('b'); await page.keyboard.up(primary);
     await expect(page.getByRole('button', { name: 'Expand sidebar', exact: true })).toBeVisible();
     await page.keyboard.press(`${primary}+b`);
@@ -1106,12 +1250,12 @@ test('navigation hints cancel for popups, blur and IME', async () => {
     const overlay = page.locator('[data-keyboard-navigation-overlay]');
     await page.keyboard.press(`${primary}+k`);
     await expect(page.getByRole('dialog', { name: 'Command Palette', exact: true })).toBeVisible();
-    await page.keyboard.down(primary); await expect(overlay).toHaveCount(0); await page.keyboard.up(primary); await page.keyboard.press('Escape');
+    await holdPrimary(page); await expect(overlay).toHaveCount(0); await page.keyboard.up(primary); await page.keyboard.press('Escape');
 
-    await note.focus(); await page.keyboard.down(primary);
+    await note.focus(); await holdPrimary(page);
     await page.evaluate(() => window.dispatchEvent(new Event('blur')));
     await expect(overlay).toHaveCount(0); await page.keyboard.up(primary);
-    await note.focus(); await page.keyboard.down(primary);
+    await note.focus(); await holdPrimary(page);
     await page.evaluate(() => window.dispatchEvent(new CompositionEvent('compositionstart')));
     await expect(overlay).toHaveCount(0); await page.keyboard.up(primary);
   } finally { await stopApp(app); }
@@ -1129,7 +1273,7 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
       await expect(editors).toHaveCount(2);
       const before = await editors.allTextContents();
       await editors.last().focus();
-      await page.keyboard.down(primary);
+      await holdPrimary(page);
       await expect(page.locator('[data-keyboard-navigation-overlay]')).toBeAttached();
       // Without safe letters in this editor, codes stay hidden and nothing explains it, to keep the editor quiet.
       if (!(await page.locator('[data-navigation-code]').count())) {
@@ -1142,7 +1286,7 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
       await page.keyboard.up(primary);
       // Navigation from a Workbench region remains available even if the active editor exhausts safe keys.
       await page.getByRole('button', { name: /^Switch workspace, current: / }).focus();
-      await page.keyboard.down(primary);
+      await holdPrimary(page);
       const editorHints = page.locator('[data-navigation-hint^="editor:"]');
       await expect(editorHints).toHaveCount(2);
       await useNavigationCode(page, (await editorHints.first().getAttribute('data-navigation-hint'))!);
@@ -1161,20 +1305,20 @@ test('navigation follows visible tabs and tree targets and cancels changed conte
     await page.setViewportSize({ width: 1280, height: 760 });
     await openFixtureNote(page);
     const ui = page.getByRole('treeitem', { name: 'UI fixture', exact: true });
-    await ui.focus(); await page.keyboard.down(primary);
+    await ui.focus(); await holdPrimary(page);
     const betaRow = page.locator('[data-folder-tree-kind="note"]').filter({has:page.getByRole('treeitem',{name:'Beta',exact:true})});
     const betaId = await betaRow.getAttribute('data-folder-tree-row-id');
     await useNavigationCode(page, `tree:${betaId}`); await page.keyboard.up(primary);
     await expect(page.locator('.cm-content')).toContainText('# Beta');
     const uiTab = page.getByRole('tab', { name: /^UI fixture(?:, .+)?$/ });
-    await uiTab.scrollIntoViewIfNeeded(); await uiTab.focus(); await page.keyboard.down(primary);
+    await uiTab.scrollIntoViewIfNeeded(); await uiTab.focus(); await holdPrimary(page);
     await useNavigationCode(page, `tab:${await uiTab.getAttribute('data-navigation-tab-id')}`); await page.keyboard.up(primary);
     await expect(uiTab).toHaveAttribute('aria-selected','true');
     await expect(page.locator('.cm-content')).toContainText('Test note for layout checks.');
     // Horizontally clipped tabs receive no code; scrolling changes the target set and cancels the hold.
     const tabNav = page.getByRole('navigation', { name: 'Open documents', exact: true });
     await tabNav.evaluate(element => { element.style.flex = 'none'; element.style.width = '100px'; element.scrollLeft = 0; });
-    await ui.focus(); await page.keyboard.down(primary);
+    await ui.focus(); await holdPrimary(page);
     const tabHints = await page.locator('[data-navigation-hint^="tab:"]').count();
     expect(tabHints).toBeLessThan(await page.getByRole('tablist', { name: 'Open documents', exact: true }).getByRole('tab').count());
     await tabNav.evaluate(element => { element.scrollLeft = element.scrollWidth; });
@@ -1184,7 +1328,7 @@ test('navigation follows visible tabs and tree targets and cancels changed conte
     await page.getByRole('treeitem',{name:'Projects',exact:true}).scrollIntoViewIfNeeded();
     const projects = page.getByRole('treeitem',{name:'Projects',exact:true});
     const folderId = await projects.evaluate(element=>element.closest('[data-folder-tree-row-id]')!.getAttribute('data-folder-tree-row-id'));
-    await projects.focus(); await page.keyboard.down(primary);
+    await projects.focus(); await holdPrimary(page);
     await useNavigationCode(page, `tree:${folderId}`); await page.keyboard.up(primary);
     await expect(projects).toBeFocused();
     await page.keyboard.press(`${primary}+Shift+n`);
@@ -1192,11 +1336,11 @@ test('navigation follows visible tabs and tree targets and cancels changed conte
     await expect(createNoteDialog.getByText('Local Vault / Projects',{exact:true})).toBeVisible();
     await createNoteDialog.getByRole('button',{name:'Cancel',exact:true}).click();
     // Each hold fixes its visible target set; collapsing a folder cancels it.
-    await projects.focus(); await page.keyboard.down(primary);
+    await projects.focus(); await holdPrimary(page);
     await page.getByRole('button', {name:'Collapse Projects',exact:true}).evaluate(element => (element as HTMLButtonElement).click());
     await expect(page.locator('[data-keyboard-navigation-overlay]')).toHaveCount(0);
     await page.keyboard.up(primary);
-    await projects.press('ArrowRight'); await page.keyboard.down(primary);
+    await projects.press('ArrowRight'); await holdPrimary(page);
     await page.evaluate(()=>document.querySelector('[data-folder-tree-ignore-keyboard]')?.setAttribute('data-hackdesk-dragging','true'));
     await expect(page.locator('[data-keyboard-navigation-overlay]')).toHaveCount(0);
     await page.keyboard.up(primary);
@@ -1206,7 +1350,7 @@ test('navigation follows visible tabs and tree targets and cancels changed conte
         for (const [name, value] of Object.entries(theme)) document.documentElement.style.setProperty(name, value);
       }, resolveHackDeskTheme({ presetId: 'hackmd-neo', mode }));
       await projects.focus();
-      await page.keyboard.down(primary);
+      await holdPrimary(page);
       await expect(page.locator('[data-navigation-hint="finder"]')).toBeVisible();
       if (mode === 'light') await page.screenshot({ path: test.info().outputPath('18-held-navigation-light.png'), animations: 'disabled' });
       await page.keyboard.up(primary);
@@ -1227,7 +1371,7 @@ test('navigation codes avoid saved custom shortcuts', async () => {
     await settings.getByRole('button',{name:'Set shortcut for New Note',exact:true}).click();
     await page.keyboard.press(`${primary}+e`);
     await settings.getByRole('button',{name:'Save',exact:true}).click();
-    await expect(settings).toBeHidden(); await note.focus(); await page.keyboard.down(primary);
+    await expect(settings).toBeHidden(); await note.focus(); await holdPrimary(page);
     const codes = await page.locator('[data-navigation-code]').evaluateAll(elements=>elements.map(element=>element.getAttribute('data-navigation-code')));
     expect(codes.every(code=>!code?.includes('e'))).toBe(true);
     await expect(page.locator('[data-navigation-hint="finder"]')).toHaveAttribute('data-navigation-code', /^[a-z]{2,3}$/);
@@ -1319,7 +1463,7 @@ test('Settings search jumps to fields and held navigation stays inside the dialo
     await search.press('Enter');
     await expect(dialog.getByLabel('Window title')).toBeFocused();
     await expect(dialog.getByLabel('Window title')).toHaveValue('Unsaved fixture title');
-    await page.keyboard.down(primary);
+    await holdPrimary(page);
     const hints = page.locator('[data-navigation-hint]');
     await expect(page.locator('[data-navigation-hint="settings:general:settings-title"]')).toBeVisible();
     expect(await hints.evaluateAll(elements => elements.every(element => element.getAttribute('data-navigation-hint')?.startsWith('settings:')))).toBe(true);
@@ -1335,7 +1479,7 @@ test('Settings search jumps to fields and held navigation stays inside the dialo
     await preset.scrollIntoViewIfNeeded();
     await preset.focus();
     await expect(preset).toBeFocused();
-    await page.keyboard.down(primary);
+    await holdPrimary(page);
     await expect(hints.first()).toBeVisible();
     await preset.evaluate(element => (element as HTMLElement).click());
     await expect(page.getByRole('listbox')).toBeVisible();

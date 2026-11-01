@@ -66,7 +66,7 @@ Outside text editing, **Ctrl+U** and **Ctrl+D** scroll the focused UI region by 
 
 ## Reveal navigation hints
 
-Hold **Cmd** on macOS or **Ctrl** on Windows/Linux to reveal shortcuts and navigation codes for visible workbench elements.
+Hold **Cmd** on macOS or **Ctrl** on Windows/Linux for a moment to reveal shortcuts and navigation codes for visible workbench elements. A quick shortcut such as **Cmd+Right** in the editor does not show them.
 
 ![Workbench showing keyboard navigation codes over fictional notes and controls](/keyboard-navigation.png)
 
