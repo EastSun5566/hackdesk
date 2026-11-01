@@ -263,9 +263,10 @@ function SettingsDialogContent({
           orientation="vertical"
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as SettingsTab)}
-          className="flex min-h-0 flex-1 flex-col"
+          // The header and footer show their lines only while the page scrolls under them.
+          className="scroll-edges flex min-h-0 flex-1 flex-col"
         >
-          <DialogHeader className="shrink-0 border-b border-border-default px-5 py-4">
+          <DialogHeader className="scroll-edge-top relative shrink-0 px-5 py-4">
             <DialogTitle>Settings</DialogTitle>
             <DialogDescription className="sr-only">
               Configure the local Electron app and HackMD API access.

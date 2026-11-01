@@ -91,6 +91,7 @@ test('restores one note from the trash and opens it', async () => {
     const rows = dialog.getByRole('list', { name: 'Deleted notes' }).getByRole('listitem');
     await expect(rows).toHaveCount(2);
     await expect(rows.nth(1)).toContainText('Kept until');
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('trash.png') });
 
     await dialog.getByRole('button', { name: 'Restore Roadmap' }).click();
     await expect(rows).toHaveCount(1);

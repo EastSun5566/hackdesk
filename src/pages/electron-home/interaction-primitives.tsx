@@ -347,7 +347,7 @@ export function PanelHeader({
   className?: string;
 }) {
   return (
-    <header className={cn('border-b border-border-default px-4 py-3', className)}>
+    <header className={cn('px-4 py-3', className)}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           {/* A control as the title truncates itself, so its focus ring is not clipped here. */}

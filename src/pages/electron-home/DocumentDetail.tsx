@@ -724,7 +724,8 @@ function DocumentHeader({
 
   return (
     <PanelHeader
-      className={cn('group/document-header relative px-4 py-1.5', HACK_MODE_HIDDEN_CLASS)}
+      // Its line shows only once the note scrolls under it; the pane is the scroll-edge scope.
+      className={cn('group/document-header scroll-edge-top relative px-4 py-1.5', HACK_MODE_HIDDEN_CLASS)}
       actionsClassName={revealActions ? undefined : DOCUMENT_ACTIONS_ON_DEMAND_CLASS}
       titleElement="div"
       actionsLabel="Document actions"
@@ -1030,7 +1031,8 @@ function InspectorPanel({
         actions.onToggleInspector();
       }}
       className={cn(
-        'absolute inset-y-0 right-0 z-20 w-(--inspector-width) max-w-full border-l border-border-default bg-background-muted shadow-lg transition duration-200 ease-out motion-reduce:transition-none',
+        // A card floating over the note, a gap in from the pane's edges.
+        'absolute inset-y-1.5 right-1.5 z-20 w-(--inspector-width) max-w-full overflow-clip rounded-lg border border-border-default/60 bg-background-muted shadow-lg transition duration-200 ease-out motion-reduce:transition-none',
         inspectorCollapsed && 'pointer-events-none translate-x-full opacity-0 ease-in',
       )}
       style={{ '--inspector-width': `${INSPECTOR_WIDTH_DEFAULT}px` }}

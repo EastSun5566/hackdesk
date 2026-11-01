@@ -1,5 +1,7 @@
 import type { ComponentProps } from 'react';
 
+import { cn } from '@/lib/utils';
+
 import { AppTopBar } from './AppTopBar';
 import { DocumentWorkspace, type DocumentPaneView } from './DocumentWorkspace';
 import { FolderNavigator } from './FolderNavigator';
@@ -108,7 +110,11 @@ export function ElectronHomeWorkspace({
 
       {backupNotice ? <WorkspaceBackupNotice {...backupNotice} /> : null}
 
-      <main className="flex min-h-0 min-w-0 flex-1">
+      {/* Notes sit on cards a gap in from the window; the sidebar's resize handle is the gap beside it. */}
+      <main className={cn(
+        'flex min-h-0 min-w-0 flex-1 pr-1.5 pb-1.5 [[data-hack-mode]_&]:p-0',
+        navigatorResize.disabled && 'pl-1.5',
+      )}>
         <FolderNavigator id={NOTE_NAVIGATOR_PANEL_ID} {...navigator} />
         <PanelResizeSash
           label="Resize sidebar"

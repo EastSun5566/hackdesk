@@ -170,7 +170,7 @@ export function FolderNavigator({
     >
       {/* Stays mounted at its full width while collapsed, so the panel clips it as the width
           animates instead of reflowing it every frame. */}
-      <div className="flex min-h-0 w-(--sidebar-content-width) flex-1 shrink-0 flex-col" style={{ '--sidebar-content-width': `${layout.width}px` }}>
+      <div className="scroll-edges flex min-h-0 w-(--sidebar-content-width) flex-1 shrink-0 flex-col" style={{ '--sidebar-content-width': `${layout.width}px` }}>
         <ExpandedNavigator
           actions={actions}
           emptyState={emptyState}
@@ -362,7 +362,7 @@ function NavigatorFilterBar({
   };
 
   return (
-    <div className="space-y-1 border-b border-border-default px-3 pb-1.5 pt-2">
+    <div className="space-y-1 px-3 pb-1.5 pt-2">
       <NoteFinderToolbar
         state={finderState}
         selectedFolderId={selectedFolderId}
@@ -425,7 +425,7 @@ function NavigatorContent({
   const hasTreeContent = tree.roots.length > 0 || tree.unfiled.notes.length > 0;
 
   return (
-    <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2">
+    <div className="scroll-edges-source min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2">
       {status.isLoading ? (
         <NoteListSkeleton />
       ) : entries.length === 0 && (!hasTreeContent || isFinderMode) ? (

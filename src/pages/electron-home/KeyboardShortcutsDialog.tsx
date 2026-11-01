@@ -33,12 +33,12 @@ export function KeyboardShortcutsDialog({ open, region, returnFocus, shortcuts, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent initialFocus={searchRef} finalFocus={() => !customizing.current && returnFocus?.isConnected ? returnFocus : false} size="md" className="overflow-hidden p-0">
-        <DialogHeader className="shrink-0 border-b border-border-default p-5 pr-12">
+      <DialogContent initialFocus={searchRef} finalFocus={() => !customizing.current && returnFocus?.isConnected ? returnFocus : false} size="md" className="scroll-edges overflow-hidden p-0">
+        <DialogHeader className="shrink-0 p-5 pb-0 pr-12">
           <DialogTitle>Keyboard Shortcuts</DialogTitle>
           <DialogDescription>Discover actions and their current keys. Text editors keep their own navigation bindings.</DialogDescription>
         </DialogHeader>
-        <div className="shrink-0 space-y-3 px-5 pt-4">
+        <div className="scroll-edge-top relative shrink-0 space-y-3 px-5 pb-3 pt-4">
           <label className="block">
             <span className="sr-only">Search keyboard shortcuts</span>
             <input ref={searchRef} value={query} onChange={event => setQuery(event.target.value)} placeholder="Search keyboard shortcuts" className={`h-9 w-full rounded-md border border-border-default bg-background-muted px-3 text-sm ${FOCUS_RING_CLASS}`} />
@@ -48,9 +48,9 @@ export function KeyboardShortcutsDialog({ open, region, returnFocus, shortcuts, 
             <Toggle pressed={!currentOnly} onPressedChange={() => setCurrentOnly(false)}>All Actions</Toggle>
           </div>
         </div>
-        <div className="min-h-0 overflow-y-auto px-5 py-4">
+        <div className="scroll-edges-source min-h-0 overflow-y-auto px-5 pb-4">
           {!actions.length && !widgets.length ? <p className="text-sm text-text-subtle">No matching shortcuts.</p> : null}
-          <ul className="divide-y divide-border-default">
+          <ul>
             {actions.map(action => {
               const config = resolveWorkbenchShortcut(action.id, shortcuts, characterShortcutsEnabled);
               const shortcut = getResolvedActionShortcut(action.id, shortcuts, platform, characterShortcutsEnabled);
@@ -69,7 +69,7 @@ export function KeyboardShortcutsDialog({ open, region, returnFocus, shortcuts, 
             {!currentOnly && matches('Quick Hack global') ? <li className="flex items-center gap-4 py-3"><div className="flex-1"><p className="text-sm font-medium">Quick Hack</p><p className="text-xs text-text-subtle">Global · Open from any app.</p></div><kbd className="text-xs">{displayShortcutConfig('ctrl+alt+h', platform)}</kbd></li> : null}
           </ul>
         </div>
-        <div className="flex shrink-0 justify-end border-t border-border-default p-4"><Button onClick={() => { customizing.current = true; onCustomize(); }}>Customize in Settings</Button></div>
+        <div className="scroll-edge-bottom relative flex shrink-0 justify-end p-4"><Button onClick={() => { customizing.current = true; onCustomize(); }}>Customize in Settings</Button></div>
       </DialogContent>
     </Dialog>
   );

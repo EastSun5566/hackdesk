@@ -1,5 +1,8 @@
 import { useRef } from 'react';
 
+import { cn } from '@/lib/utils';
+
+import { GAP_SASH_CLASS } from './ui';
 import { clampPanelWidth } from './ui-preferences';
 
 export function PanelResizeSash({
@@ -34,7 +37,7 @@ export function PanelResizeSash({
       type="button"
       aria-label={resizeLabel}
       title={defaultValue ? `${label}. Double-click to reset.` : label}
-      className="relative z-20 h-auto w-px shrink-0 cursor-col-resize border-0 bg-border-default/50 outline-none before:absolute before:inset-y-0 before:left-1/2 before:w-2 before:-translate-x-1/2 before:bg-transparent transition-colors hover:bg-primary-default focus-visible:bg-primary-default motion-reduce:transition-none [[data-hack-mode]_&]:hidden"
+      className={cn(GAP_SASH_CLASS, 'z-20 h-auto [[data-hack-mode]_&]:hidden')}
       onPointerDown={(event) => {
         dragStart.current = { x: event.clientX, value };
         event.currentTarget.setPointerCapture(event.pointerId);

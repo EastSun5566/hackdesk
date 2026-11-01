@@ -51,7 +51,7 @@ type TrashDialogProps = {
 export function TrashDialog({ open, onOpenChange, onOpenNote }: TrashDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="md" className="gap-0 overflow-hidden p-0">
+      <DialogContent size="md" className="scroll-edges gap-0 overflow-hidden p-0">
         {/* The popup unmounts when closed, so each opening starts with nothing selected. */}
         <TrashBody onClose={() => onOpenChange(false)} onOpenNote={onOpenNote} />
       </DialogContent>
@@ -78,7 +78,7 @@ function TrashRow({
   const failureId = useId();
 
   return (
-    <li className="flex items-center gap-3 px-3 py-2">
+    <li className="flex items-center gap-3 rounded-md px-2.5 py-2 hover:bg-element-bg-hover">
       <Checkbox
         aria-label={`Select ${title}`}
         aria-describedby={failure ? failureId : undefined}
@@ -183,7 +183,7 @@ function TrashBody({ onClose, onOpenNote }: { onClose: () => void; onOpenNote: (
   } else {
     content = (
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border-default px-3 py-2 text-sm">
+        <div className="scroll-edge-top relative flex shrink-0 items-center justify-between gap-3 px-4 py-2 text-sm">
           <label className="flex items-center gap-3 text-text-default">
             <Checkbox
               aria-labelledby={selectAllId}
@@ -195,7 +195,7 @@ function TrashBody({ onClose, onOpenNote }: { onClose: () => void; onOpenNote: (
           </label>
           {selectedIds.length > 0 ? <span className="text-xs text-text-subtle">{selectedIds.length} selected</span> : null}
         </div>
-        <ul aria-label="Deleted notes" className="min-h-0 flex-1 list-none divide-y divide-border-default overflow-y-auto">
+        <ul aria-label="Deleted notes" className="scroll-edges-source min-h-0 flex-1 list-none space-y-0.5 overflow-y-auto px-1.5 pb-1.5">
           {notes.map((note) => (
             <TrashRow
               key={note.id}
@@ -214,7 +214,7 @@ function TrashBody({ onClose, onOpenNote }: { onClose: () => void; onOpenNote: (
 
   return (
     <>
-      <div className="shrink-0 border-b border-border-default py-4 pl-5 pr-14">
+      <div className="shrink-0 py-4 pl-5 pr-14">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Trash2 aria-hidden="true" className="size-4" />
@@ -224,7 +224,7 @@ function TrashBody({ onClose, onOpenNote }: { onClose: () => void; onOpenNote: (
         </DialogHeader>
       </div>
       {content}
-      <DialogFooter className="shrink-0 gap-2 border-t border-border-default px-5 py-3">
+      <DialogFooter className="scroll-edge-bottom relative shrink-0 gap-2 px-5 py-3">
         <Button variant="primary" disabled={selectedIds.length === 0 || restore.isPending} onClick={() => restoreIds(selectedIds)}>
           {restore.isPending
             ? <Loader2 aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />

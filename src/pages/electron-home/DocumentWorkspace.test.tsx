@@ -180,7 +180,8 @@ describe('DocumentWorkspace', () => {
     expect(activePane).toHaveAttribute('aria-current', 'true');
     expect(screen.getByTestId('document-detail-Left note')).toHaveAttribute('data-focus-zone', 'editor');
     expect(screen.getByTestId('document-detail-Right note')).toHaveAttribute('data-focus-zone', 'editor');
-    expect(activePane).toHaveClass('before:bg-primary-default');
+    expect(activePane).toHaveClass('border-primary-default/50');
+    expect(inactivePane).not.toHaveClass('border-primary-default/50');
   });
 
   it('only routes active-pane requests to the active document detail', () => {
@@ -287,7 +288,7 @@ describe('DocumentWorkspace', () => {
     const separator = screen.getByLabelText('Resize document panes between pane 1 and pane 2');
 
     expect(separator).toHaveAttribute('id', 'document-pane-separator-pane-b');
-    expect(separator).toHaveClass('focus-visible:bg-primary-default');
+    expect(separator).toHaveClass('focus-visible:after:bg-primary-default');
   });
 
   it('shows a retained draft with copy, export and new-draft actions when the original is missing', () => {

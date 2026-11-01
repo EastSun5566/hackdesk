@@ -28,7 +28,7 @@ export function SettingsTabs({ dialogRef, onNavigate }: {
   }, [search.active, search.results]);
 
   return (
-    <aside aria-label="Settings sidebar" className="flex min-h-0 w-48 shrink-0 self-stretch flex-col gap-3 border-r border-border-default bg-background-muted/40 p-3">
+    <aside aria-label="Settings sidebar" className="flex min-h-0 w-48 shrink-0 self-stretch flex-col gap-3 bg-background-muted/40 p-3">
       <Input
         autoFocus
         aria-label="Search settings"
