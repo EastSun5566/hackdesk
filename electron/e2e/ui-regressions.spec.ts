@@ -444,6 +444,10 @@ test('a keyboard-only tour of the main flows in light theme at a narrow window, 
     await expect(page.getByRole('status').filter({ hasText: 'Deep, 1 of 1' })).toBeVisible();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('tab', { name: /^Deep(?:, .+)?$/ })).toHaveAttribute('aria-selected', 'true');
+    // A non-default sort also lists results instead of the tree; the location still reveals the folder.
+    await page.getByRole('button', { name: 'View options' }).click();
+    await page.getByRole('menu').getByText('Title A-Z', { exact: true }).click();
+    await page.keyboard.press('Escape');
     const deepLocation = page.locator('[data-active-pane="true"]').getByRole('navigation', { name: 'Note location' });
     await expect(deepLocation).toHaveText(/Folders only\s*\/\s*Last\s*\/\s*Deep$/);
     await deepLocation.getByRole('button', { name: 'Last', exact: true }).focus();

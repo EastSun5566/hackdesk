@@ -20,7 +20,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { useTheme } from '@/components/theme-provider';
 import { getDesktopAPI } from '@/lib/desktop-api';
-import { clearNoteFinderQuery } from '@/lib/electron-note-finder';
+import { DEFAULT_NOTE_FINDER_STATE } from '@/lib/electron-note-finder';
 import type { FolderSummary } from '@/lib/electron-api';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { getNoteCurrentFolderId } from '@/lib/hackmd-note-dnd';
@@ -462,11 +462,11 @@ export function Home() {
     visibleEntries,
   } = workbenchNavigator;
   // The note header's location: a folder opens, is selected and takes focus in the tree; the
-  // workspace selects none and focuses the sidebar. A search shows results instead of the tree, so
-  // it is cleared first.
+  // workspace selects none and focuses the sidebar. Any search, filter, scope or sort shows results
+  // instead of the tree, so the finder goes back to its defaults first.
   const revealFolder = useCallback((folderIds: string[]) => {
     const folderId = folderIds.at(-1);
-    setFinderState(current => clearNoteFinderQuery(current));
+    setFinderState(DEFAULT_NOTE_FINDER_STATE);
     expandNavigator();
     revealFolderIds(folderIds);
     setSelectedFolderId(folderId ?? null);
