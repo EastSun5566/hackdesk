@@ -1,6 +1,7 @@
 import type { EditorRequest } from './useWorkbenchEditorRequests';
 import { FileText } from 'lucide-react';
-import { Fragment } from 'react';
+import { Fragment, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 
 import type {
@@ -22,6 +23,52 @@ import { CARD_SURFACE_CLASS, GAP_SASH_CLASS, GAP_SASH_ROW_CLASS } from './ui';
 import { UnavailableDocumentDetail } from './UnavailableDocumentDetail';
 import { documentPaneId, documentTabId } from './document-tab-ids';
 import type { OpenNoteTarget } from './useNoteLinkOpener';
+
+function movePaneHost(host: HTMLElement, target: HTMLElement) {
+  if (host.parentElement === target) return;
+  // DOM moves still relocate live selection ranges, even when moveBefore keeps focus intact.
+  const selection = document.getSelection();
+  const range = selection?.anchorNode && selection.focusNode
+    && host.contains(selection.anchorNode) && host.contains(selection.focusNode)
+    ? { anchor: selection.anchorNode, anchorOffset: selection.anchorOffset, focus: selection.focusNode, focusOffset: selection.focusOffset }
+    : null;
+  if ('moveBefore' in target && host.isConnected && target.isConnected) {
+    target.moveBefore(host, null);
+  } else {
+    const focused = host.contains(document.activeElement) ? document.activeElement as HTMLElement : null;
+    target.appendChild(host);
+    focused?.focus({ preventScroll: true });
+  }
+  if (range && selection) selection.setBaseAndExtent(range.anchor, range.anchorOffset, range.focus, range.focusOffset);
+}
+
+type PaneHost = {
+  element: HTMLDivElement;
+  scroll: Array<{ element: HTMLElement; top: number; left: number }>;
+};
+
+function PaneOutlet({ host }: { host: PaneHost }) {
+  const workspace = useRef<HTMLElement | null>(null);
+  const attach = useCallback((slot: HTMLDivElement | null) => {
+    if (slot) {
+      workspace.current = slot.closest<HTMLElement>('[data-document-workspace]');
+      movePaneHost(host.element, slot);
+      for (const position of host.scroll) {
+        position.element.scrollTop = position.top;
+        position.element.scrollLeft = position.left;
+      }
+      host.scroll = [];
+    } else if (workspace.current?.isConnected) {
+      // Park the editor before React removes its old split, keeping it connected during reparenting.
+      // The temporary parent can clamp scroll offsets before the new panel acquires its size.
+      host.scroll = Array.from(host.element.querySelectorAll<HTMLElement>('*'))
+        .filter(element => element.scrollTop !== 0 || element.scrollLeft !== 0)
+        .map(element => ({ element, top: element.scrollTop, left: element.scrollLeft }));
+      movePaneHost(host.element, workspace.current);
+    }
+  }, [host]);
+  return <div ref={attach} className="flex min-h-0 min-w-0 flex-1" />;
+}
 
 export type DocumentPaneView = {
   pane: NotePane;
@@ -154,7 +201,28 @@ export function DocumentWorkspace({
   onCreateNote: () => void;
   onQuickOpen: () => void;
 }) {
-  if (panes.every((pane) => pane.tabIds.length === 0)) {
+  const [paneHosts] = useState(() => new Map<string, PaneHost>());
+  const isEmpty = panes.every(pane => pane.tabIds.length === 0);
+  useLayoutEffect(() => {
+    const livePanes = new Set(isEmpty ? [] : panes.map(pane => pane.paneId));
+    for (const [id, host] of paneHosts) {
+      if (!livePanes.has(id)) {
+        host.element.remove();
+        paneHosts.delete(id);
+      }
+    }
+  }, [isEmpty, paneHosts, panes]);
+  const paneHost = (paneId: string) => {
+    let host = paneHosts.get(paneId);
+    if (!host) {
+      const element = document.createElement('div');
+      element.className = 'flex min-h-0 min-w-0 flex-1 flex-col';
+      host = { element, scroll: [] };
+      paneHosts.set(paneId, host);
+    }
+    return host;
+  };
+  if (isEmpty) {
     return (
       <section className={cn('flex min-w-0 flex-1 flex-col', CARD_SURFACE_CLASS)}>
         <EmptyState
@@ -310,7 +378,7 @@ export function DocumentWorkspace({
             >
               {child.type === 'split'
                 ? renderGroup(child, child.children, child.orientation, child.sizes)
-                : pane ? renderPane(pane) : null}
+                : pane ? <PaneOutlet host={paneHost(pane.paneId)} /> : null}
             </Panel>
           </Fragment>
         );
@@ -320,10 +388,12 @@ export function DocumentWorkspace({
 
   return (
     // While a pane is zoomed, the others stay mounted but hidden, keeping their editors' state.
-    <div data-pane-zoomed={zoomedPaneId ? 'true' : undefined} className="flex min-h-0 min-w-0 flex-1">
+    <div data-document-workspace="" data-pane-zoomed={zoomedPaneId ? 'true' : undefined} className="flex min-h-0 min-w-0 flex-1">
       {layout.type === 'split'
         ? renderGroup(layout, layout.children, layout.orientation, layout.sizes)
         : renderGroup(layout, [layout], 'horizontal', [100])}
+      {/* Editor ownership stays flat even when the resize tree gains or loses split groups. */}
+      {panes.map(pane => createPortal(renderPane(pane), paneHost(pane.paneId).element, `${scopeKey}:${pane.paneId}`))}
     </div>
   );
 }

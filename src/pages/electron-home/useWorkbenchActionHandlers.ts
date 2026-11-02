@@ -179,7 +179,9 @@ export function useWorkbenchActionHandlers({
   return useMemo<WorkbenchActionHandlers>(() => ({
     closeActiveTab: () => {
       if (activeTab) {
-        void requestCloseTab(activeTab.tabId);
+        void requestCloseTab(activeTab.tabId).then((closed) => {
+          if (closed) focusZone('editor', { afterMove: true });
+        });
       }
     },
     closeOtherTabs: () => {
