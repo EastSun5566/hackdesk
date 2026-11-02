@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
@@ -6,7 +7,7 @@ import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
 import { DocumentWorkspace, type DocumentPaneView } from './DocumentWorkspace';
 import type { DocumentDetailProps } from './DocumentDetail';
 import type { NotePane } from './note-workspace';
-import { equalizeLayout, reconcileLayout } from './pane-layout';
+import { equalizeLayout, reconcileLayout, removeLayoutPane, splitLayoutPane } from './pane-layout';
 
 const documentDetailMounts = vi.hoisted(() => ({ nextId: 0 }));
 
@@ -173,6 +174,63 @@ describe('DocumentWorkspace', () => {
       height.mockRestore();
       document.documentElement.style.fontSize = previousFontSize;
     }
+  });
+
+  it.each(['split', 'collapse', 'promote'])('keeps surviving editors mounted when panes %s', (operation) => {
+    const a = pane('pane-a', ['tab-a']);
+    const b = pane('pane-b', ['tab-b']);
+    const c = pane('pane-c', ['tab-c']);
+    const row = reconcileLayout(null, ['pane-a', 'pane-b']);
+    const nested = splitLayoutPane(row, 'pane-b', 'pane-c', 'down');
+    const props = createWorkspaceProps({
+      panes: operation === 'split' ? [a, b] : [a, b, c],
+      layout: operation === 'split' ? row : nested,
+      getPaneView: candidate => ({ ...createView(candidate), title: candidate.paneId }),
+    });
+    const { rerender } = render(<DocumentWorkspace {...props} />, { wrapper: StrictMode });
+    const editor = screen.getByTestId('document-detail-pane-b');
+    const mountId = editor.getAttribute('data-mount-id');
+    editor.focus();
+    const text = editor.querySelector('button')!.firstChild!;
+    const selection = document.getSelection()!;
+    selection.setBaseAndExtent(text, 4, text, 0);
+
+    rerender(<DocumentWorkspace {...props}
+      panes={operation === 'split' ? [a, b, c] : operation === 'collapse' ? [a, b] : [b, c]}
+      layout={operation === 'split' ? nested : removeLayoutPane(nested, operation === 'collapse' ? 'pane-c' : 'pane-a')!}
+    />);
+
+    expect(screen.getByTestId('document-detail-pane-b')).toBe(editor);
+    expect(editor).toHaveAttribute('data-mount-id', mountId);
+    expect(editor).toHaveFocus();
+    expect(selection.anchorNode).toBe(text);
+    expect(selection.anchorOffset).toBe(4);
+    expect(selection.focusNode).toBe(text);
+    expect(selection.focusOffset).toBe(0);
+    expect(editor.closest('[data-panel]')).toHaveAttribute('data-panel', 'true');
+    if (operation === 'collapse') expect(screen.queryByTestId('document-detail-pane-c')).toBeNull();
+    if (operation === 'promote') expect(screen.queryByTestId('document-detail-pane-a')).toBeNull();
+  });
+
+  it('disposes closed panes and starts fresh when they are reopened', () => {
+    const props = createWorkspaceProps();
+    const { rerender } = render(<DocumentWorkspace {...props} />);
+    const closedEditor = screen.getByTestId('document-detail-Right note');
+    rerender(<DocumentWorkspace {...props} panes={[props.panes[0]]} layout={reconcileLayout(null, ['pane-a'])} />);
+    expect(closedEditor).not.toBeInTheDocument();
+
+    rerender(<DocumentWorkspace {...props} />);
+    expect(screen.getByTestId('document-detail-Right note')).not.toBe(closedEditor);
+    expect(screen.getAllByTestId('document-detail-Right note')).toHaveLength(1);
+  });
+
+  it('resets pane editors when the workspace identity changes', () => {
+    const props = createWorkspaceProps();
+    const { rerender } = render(<DocumentWorkspace {...props} />);
+    const previousEditor = screen.getByTestId('document-detail-Right note');
+    rerender(<DocumentWorkspace {...props} scopeKey="local:other-vault" />);
+    expect(previousEditor).not.toBeInTheDocument();
+    expect(screen.getByTestId('document-detail-Right note')).not.toBe(previousEditor);
   });
 
   it('shows a semantic blank state when no tabs are open', () => {

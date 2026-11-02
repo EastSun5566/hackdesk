@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { DocumentSummary } from '@/lib/electron-api';
@@ -141,6 +141,17 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
 }
 
 describe('useWorkbenchActionHandlers', () => {
+  it.each([true, false])('returns to the surviving editor only when closing is confirmed: %s', async (confirmed) => {
+    const options = createOptions({ requestCloseTab: vi.fn(async () => confirmed) });
+    const { result } = renderHook(() => useWorkbenchActionHandlers(options));
+
+    await act(async () => { result.current.closeActiveTab(); });
+
+    expect(options.requestCloseTab).toHaveBeenCalledWith('tab-1');
+    if (confirmed) expect(options.focusZone).toHaveBeenCalledWith('editor', { afterMove: true });
+    else expect(options.focusZone).not.toHaveBeenCalled();
+  });
+
   it('saves the active note only when it has dirty content and is not already saving', () => {
     const saveNote = vi.fn();
     const selectedDocument = createDocument();
