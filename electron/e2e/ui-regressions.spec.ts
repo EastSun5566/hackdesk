@@ -1643,7 +1643,7 @@ test('panes split right and down, move by direction, and zoom without losing edi
   try {
     await page.setViewportSize({ width: 1280, height: 800 });
     await openFixtureNote(page);
-    // Each command waits for the menu to close, so the next one does not type into a closing menu.
+    // The menu closes before its command runs; callers also wait for the target pane's focus.
     const leader = async (keys: string) => {
       const menu = page.getByRole('menu', { name: 'Commands' });
       await page.keyboard.press(`${primary}+j`);
@@ -1653,21 +1653,26 @@ test('panes split right and down, move by direction, and zoom without losing edi
     };
     const panes = page.locator('section[data-document-pane-id]');
     const visiblePanes = page.locator('section[data-document-pane-id]:visible');
-    const activePaneBox = async () => (await page.locator('section[data-active-pane="true"]').boundingBox())!;
+    const expectActivePane = async (paneId: string) => {
+      const pane = page.locator(`section[data-document-pane-id="${paneId}"]`);
+      await expect(pane).toHaveAttribute('data-active-pane', 'true');
+      await expect(pane.locator('.cm-content')).toBeFocused();
+    };
 
     // With one tab, next tab has nothing to do and says nothing.
     await page.locator('.cm-content').click();
     await page.keyboard.press(`${primary}+Alt+ArrowRight`);
-    await page.waitForTimeout(300);
     await expect(page.getByText('Open another tab first.')).toHaveCount(0);
 
     // Right, then down from the new pane: an L, with the left pane full height.
     await page.keyboard.press(`${primary}+\\`);
+    await expect(panes).toHaveCount(2);
+    await expect(page.locator('section[data-active-pane="true"] .cm-content')).toBeFocused();
     await page.keyboard.press(`${primary}+Shift+\\`);
     await expect(panes).toHaveCount(3);
     const boxes = await panes.evaluateAll(elements => elements.map(element => {
       const box = element.getBoundingClientRect();
-      return { x: Math.round(box.x), y: Math.round(box.y), height: Math.round(box.height) };
+      return { paneId: element.getAttribute('data-document-pane-id')!, x: Math.round(box.x), y: Math.round(box.y), height: Math.round(box.height) };
     }));
     const [left, top, bottom] = [...boxes].sort((a, b) => a.x - b.x || a.y - b.y);
     expect(top.x).toBe(bottom.x);
@@ -1676,34 +1681,35 @@ test('panes split right and down, move by direction, and zoom without losing edi
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('30-panes-l.png') });
 
     // The Pane group moves focus by where panes are.
-    expect(Math.round((await activePaneBox()).y)).toBe(bottom.y);
+    await expectActivePane(bottom.paneId);
     await leader('pk');
-    await expect.poll(async () => Math.round((await activePaneBox()).y)).toBe(top.y);
+    await expectActivePane(top.paneId);
     await leader('ph');
-    await expect.poll(async () => Math.round((await activePaneBox()).x)).toBe(left.x);
+    await expectActivePane(left.paneId);
     await leader('pl');
-    await expect.poll(async () => Math.round((await activePaneBox()).x)).toBe(top.x);
+    await expectActivePane(top.paneId);
     await leader('pj');
-    await expect.poll(async () => Math.round((await activePaneBox()).y)).toBe(bottom.y);
+    await expectActivePane(bottom.paneId);
 
     // Control+Command+arrows move by direction too, on macOS.
     if (process.platform === 'darwin') {
       await page.keyboard.press('Control+Meta+ArrowUp');
-      await expect.poll(async () => Math.round((await activePaneBox()).y)).toBe(top.y);
+      await expectActivePane(top.paneId);
       await page.keyboard.press('Control+Meta+ArrowLeft');
-      await expect.poll(async () => Math.round((await activePaneBox()).x)).toBe(left.x);
+      await expectActivePane(left.paneId);
       await page.keyboard.press('Control+Meta+ArrowDown');
-      await expect.poll(async () => Math.round((await activePaneBox()).x)).toBe(left.x);
+      await expectActivePane(left.paneId);
     } else {
       await leader('ph');
+      await expectActivePane(left.paneId);
     }
     // Next tab runs on past a pane's last tab into the next pane, in reading order. Elsewhere the
     // test uses next tab's Ctrl+Tab, since Alt there also reaches the window's menu bar.
     const nextTab = process.platform === 'darwin' ? 'Meta+Alt+ArrowRight' : 'Control+Tab';
     await page.keyboard.press(nextTab);
-    await expect.poll(async () => Math.round((await activePaneBox()).y)).toBe(top.y);
+    await expectActivePane(top.paneId);
     await page.keyboard.press(nextTab);
-    await expect.poll(async () => Math.round((await activePaneBox()).y)).toBe(bottom.y);
+    await expectActivePane(bottom.paneId);
 
     // Zoom fills the editor area with the active pane; the others come back as they were.
     const editor = page.locator('section[data-active-pane="true"] .cm-content');
