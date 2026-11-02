@@ -75,6 +75,7 @@ function emojiSource(context: CompletionContext): CompletionResult | null {
 function opensCodeBlock(state: EditorState, line: Line) {
   for (let node = syntaxTree(state).resolveInner(line.to, -1); node; node = node.parent!) {
     if (node.name === 'FencedCode') return node.from >= line.from;
+    if (node.name === 'CodeBlock') return false;
     if (!node.parent) break;
   }
   return true;
@@ -86,19 +87,24 @@ function writesNewBlock(state: EditorState, line: Line, after: string) {
   return line.number === state.doc.lines || !state.doc.line(line.number + 1).text.trim();
 }
 
+function writesNewCodeBlock(state: EditorState, line: Line, after: string) {
+  // An unfinished fence also owns its following text; only scaffold at an empty document tail.
+  return writesNewBlock(state, line, after) && !state.doc.sliceString(line.to).trim();
+}
+
 /**
  * Completes the word after a block marker (``` or :::). For a new block it also adds the closing marker
  * and leaves the cursor on the empty line between, replacing what closeBrackets typed after the cursor.
  * Options are reused while the user keeps typing, so they read the document as it is when chosen.
  */
-function blockOptions(names: [name: string, detail: string][], marker: string, indent: string) {
+function blockOptions(names: [name: string, detail: string][], marker: string, indent: string, isNewBlock = writesNewBlock) {
   return names.map(([name, detail]): Completion => ({
     label: name,
     detail,
     type: 'keyword',
     apply: (view: EditorView, _completion: Completion, from: number, to: number) => {
       const { line, after } = textAround(view.state, to);
-      if (!writesNewBlock(view.state, line, after.replace(/^[`~]+$/, ''))) {
+      if (!isNewBlock(view.state, line, after.replace(/^[`~]+$/, ''))) {
         const word = /^[\w+-]*/.exec(after)![0];
         view.dispatch({ changes: { from, to: to + word.length, insert: name } });
         return;
@@ -125,7 +131,7 @@ function fenceSource(context: CompletionContext): CompletionResult | null {
   ];
   return {
     from: context.pos - match[3]!.length,
-    options: blockOptions(languages, match[2]!, match[1]!),
+    options: blockOptions(languages, match[2]!, match[1]!, writesNewCodeBlock),
     validFor: /^[\w+-]*$/,
   };
 }

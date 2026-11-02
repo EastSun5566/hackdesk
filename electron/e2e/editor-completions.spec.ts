@@ -15,6 +15,47 @@ async function choose(page: Page, label: string) {
   await suggestions(page).getByRole('option', { name: new RegExp(`^${label}`) }).click();
 }
 
+test('completing an existing fence preserves its body, closing marker and undo history', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'hackdesk-completions-'));
+  const vault = join(home, 'vault');
+  await mkdir(join(home, '.hackdesk'), { recursive: true });
+  await mkdir(vault);
+  const notePath = join(vault, 'Fence.md');
+  const body = '\n\nprint(1)\n```\n\nAfter the block\n';
+  await writeFile(notePath, `\`\`\`py${body}`);
+  await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
+    ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
+  }));
+  const env = { ...definedEnvironment(process.env) };
+  delete env.ELECTRON_RUN_AS_NODE;
+  delete env.HACKDESK_ELECTRON_DEV_SERVER_URL;
+  const app = await electron.launch({ args: [repoRoot, `--user-data-dir=${join(home, 'user-data')}`, `--hackdesk-home=${home}`], cwd: repoRoot, env });
+  try {
+    const page = await app.firstWindow();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.getByRole('treeitem', { name: /^Fence/ }).first().click();
+    const editor = page.locator('.cm-content');
+    await expect(editor).toContainText('print(1)');
+    await editor.focus();
+    await page.keyboard.press('ControlOrMeta+Home');
+    await page.keyboard.press('End');
+    await page.keyboard.press('Control+Space');
+    await choose(page, 'python');
+    const expectSaved = async (language: string) => {
+      await page.keyboard.press('ControlOrMeta+s');
+      await expect.poll(() => readFile(notePath, 'utf8')).toBe(`\`\`\`${language}${body}`);
+      await expect(page.getByRole('status', { name: /Sync state: (Saved|Synced)/ })).toBeVisible();
+    };
+    await expectSaved('python');
+    await page.keyboard.press('ControlOrMeta+z');
+    await expectSaved('py');
+    await page.keyboard.press('ControlOrMeta+Shift+z');
+    await expectSaved('python');
+  } finally {
+    await app.close();
+  }
+});
+
 test('typing HackMD syntax suggests emoji, code languages, containers and embeds', async () => {
   const home = await mkdtemp(join(tmpdir(), 'hackdesk-completions-'));
   const vault = join(home, 'vault');
