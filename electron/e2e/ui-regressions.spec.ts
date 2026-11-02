@@ -1638,6 +1638,89 @@ test('the workbench draws no divider lines at rest, and lines show only while co
   }
 });
 
+test('Equalize updates flat and nested pane sizes and keeps the saved layout in sync', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await openFixtureNote(page);
+    const panes = page.locator('section[data-document-pane-id]');
+    const dimensions = () => panes.evaluateAll(elements => elements.map(element => {
+      const { width, height } = element.getBoundingClientRect();
+      return { width, height };
+    }));
+    const equalize = async () => {
+      await page.keyboard.press(`${primary}+j`);
+      await expect(page.getByRole('menu', { name: 'Commands' })).toBeVisible();
+      await page.keyboard.press('p');
+      await page.getByRole('menuitem', { name: /Equalize Pane Sizes/ }).click();
+      await expect(page.getByRole('menu')).toBeHidden();
+    };
+
+    await page.keyboard.press(`${primary}+\\`);
+    await expect(panes).toHaveCount(2);
+    const horizontal = page.getByRole('separator', { name: /Resize document panes side by side/ });
+    await horizontal.press('ArrowLeft');
+    await expect.poll(async () => { const [a, b] = await dimensions(); return Math.abs(a.width - b.width); }).toBeGreaterThan(20);
+    await equalize();
+    await expect.poll(async () => { const [a, b] = await dimensions(); return Math.abs(a.width - b.width); }).toBeLessThan(2);
+
+    await panes.last().locator('.cm-content').focus();
+    await page.keyboard.press(`${primary}+Shift+\\`);
+    await expect(panes).toHaveCount(3);
+    // Resize one split with the pointer and the nested split with the keyboard.
+    await horizontal.hover();
+    const box = (await horizontal.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 80, box.y + box.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await page.getByRole('separator', { name: /Resize document panes stacked/ }).press('ArrowDown');
+    await expect.poll(async () => {
+      const [a, b, c] = await dimensions();
+      return Math.abs(a.width - b.width) > 20 && Math.abs(b.height - c.height) > 20;
+    }).toBe(true);
+
+    const editors = page.locator('.cm-content');
+    const originals = await editors.elementHandles();
+    const editor = panes.last().locator('.cm-content');
+    await editor.focus();
+    await page.keyboard.press(`${primary}+End`);
+    await page.keyboard.type(' equalize draft');
+    // Hidden panes still need the new percentages when zoom is restored.
+    await page.keyboard.press(`${primary}+Shift+Enter`);
+    await expect(page.locator('section[data-document-pane-id]:visible')).toHaveCount(1);
+    await equalize();
+    await page.keyboard.press(`${primary}+Shift+Enter`);
+    await expect(page.locator('section[data-document-pane-id]:visible')).toHaveCount(3);
+    const expectEqualSizes = async () => expect.poll(async () => {
+      const [a, b, c] = await dimensions();
+      return Math.abs(a.width - b.width) < 2 && Math.abs(b.height - c.height) < 2;
+    }).toBe(true);
+    await expectEqualSizes();
+    expect(await editors.evaluateAll((elements, previous) => elements.every((element, index) => element === previous[index]), originals)).toBe(true);
+    await editor.focus();
+    await page.keyboard.press(`${primary}+z`);
+    await expect(editor).not.toContainText('equalize draft');
+    await page.keyboard.press(`${primary}+Shift+z`);
+    await expect(editor).toContainText('equalize draft');
+
+    const tabId = (await panes.last().getAttribute('data-navigation-editor-id'))!;
+    const savedState = () => page.evaluate(() => Object.entries(localStorage)
+      .filter(([key]) => key.startsWith('hackdesk_note_workspace:local:'))
+      .map(([, value]) => JSON.parse(value)).find(state => state.panes.length === 3));
+    await expect.poll(async () => (await savedState())?.drafts[tabId]?.content).toContain('equalize draft');
+    const saved = await savedState();
+    expect(saved.layout).toMatchObject({ sizes: [50, 50], children: [{ type: 'pane' }, { type: 'split', sizes: [50, 50] }] });
+    await page.reload();
+    await expect(panes).toHaveCount(3);
+    await expectEqualSizes();
+    await expect(panes.last().locator('.cm-content')).toContainText('equalize draft');
+    expect((await savedState()).layout).toEqual(saved.layout);
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test('panes split right and down, move by direction, and zoom without losing editor state', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
