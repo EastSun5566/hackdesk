@@ -2,7 +2,7 @@ import type { EditorRequest } from './useWorkbenchEditorRequests';
 import { FileText } from 'lucide-react';
 import { Fragment, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Group, Panel, Separator } from 'react-resizable-panels';
+import { Group, Panel, Separator, type GroupImperativeHandle, type GroupProps } from 'react-resizable-panels';
 
 import type {
   DocumentSummary,
@@ -23,6 +23,23 @@ import { CARD_SURFACE_CLASS, GAP_SASH_CLASS, GAP_SASH_ROW_CLASS } from './ui';
 import { UnavailableDocumentDetail } from './UnavailableDocumentDetail';
 import { documentPaneId, documentTabId } from './document-tab-ids';
 import type { OpenNoteTarget } from './useNoteLinkOpener';
+
+function PaneGroup({ layout, id, orientation, ...props }: Omit<GroupProps, 'defaultLayout' | 'groupRef'> & { layout: Record<string, number> }) {
+  const groupRef = useRef<GroupImperativeHandle | null>(null);
+  // Only changed percentages should synchronize; unrelated renders must not reset an ongoing drag.
+  const layoutKey = JSON.stringify(layout);
+  useLayoutEffect(() => {
+    const group = groupRef.current;
+    if (!group) return;
+    const desired: Record<string, number> = JSON.parse(layoutKey);
+    const current = group.getLayout();
+    const ids = Object.keys(desired);
+    // The library defers layout while a group mounts hidden or its panels are registering.
+    if (ids.length !== Object.keys(current).length || ids.some(id => current[id] === undefined)) return;
+    if (ids.some(id => Math.abs(current[id] - desired[id]) > 0.001)) group.setLayout(desired);
+  }, [layoutKey, id, orientation]);
+  return <Group {...props} id={id} orientation={orientation} defaultLayout={layout} groupRef={groupRef} />;
+}
 
 function movePaneHost(host: HTMLElement, target: HTMLElement) {
   if (host.parentElement === target) return;
@@ -352,11 +369,11 @@ export function DocumentWorkspace({
   // A split is a panel group running its way; a pane is a card. Each child is known by its id, which
   // is also how the group reports sizes back.
   const renderGroup = (node: PaneLayoutNode, children: PaneLayoutNode[], orientation: 'horizontal' | 'vertical', sizes: number[]) => (
-    <Group
+    <PaneGroup
       id={node.type === 'split' ? node.id : 'document-workspace-panes'}
       orientation={orientation}
       className="min-h-0 min-w-0 flex-1"
-      defaultLayout={Object.fromEntries(children.map((child, index) => [layoutNodeId(child), sizes[index]]))}
+      layout={Object.fromEntries(children.map((child, index) => [layoutNodeId(child), sizes[index]]))}
       onLayoutChanged={node.type === 'split' ? (sizesById) => onResizeSplit(node.id, sizesById) : undefined}
     >
       {children.map((child, index) => {
@@ -383,7 +400,7 @@ export function DocumentWorkspace({
           </Fragment>
         );
       })}
-    </Group>
+    </PaneGroup>
   );
 
   return (

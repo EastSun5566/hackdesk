@@ -7,7 +7,7 @@ import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
 import { DocumentWorkspace, type DocumentPaneView } from './DocumentWorkspace';
 import type { DocumentDetailProps } from './DocumentDetail';
 import type { NotePane } from './note-workspace';
-import { reconcileLayout, removeLayoutPane, splitLayoutPane } from './pane-layout';
+import { equalizeLayout, reconcileLayout, removeLayoutPane, splitLayoutPane } from './pane-layout';
 
 const documentDetailMounts = vi.hoisted(() => ({ nextId: 0 }));
 
@@ -141,6 +141,41 @@ function renderWorkspace(overrides: Partial<Parameters<typeof DocumentWorkspace>
 }
 
 describe('DocumentWorkspace', () => {
+  it('applies equalized sizes to mounted panels without replacing their editors', () => {
+    const width = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(1000);
+    const height = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(800);
+    const previousFontSize = document.documentElement.style.fontSize;
+    document.documentElement.style.fontSize = '16px';
+    try {
+      const props = createWorkspaceProps();
+      if (props.layout.type !== 'split') throw new Error('Expected a split.');
+      props.layout = { ...props.layout, sizes: [30, 70] };
+      const { container, rerender, unmount } = render(<DocumentWorkspace {...props} />);
+      const panels = () => Array.from(container.querySelectorAll<HTMLElement>('[data-panel]')).map(panel => panel.style.flexGrow);
+      const editor = screen.getByTestId('document-detail-Right note');
+      expect(panels()).toEqual(['30', '70']);
+
+      const equalized = equalizeLayout(props.layout);
+      rerender(<DocumentWorkspace {...props} layout={equalized} />);
+
+      expect(panels()).toEqual(['50', '50']);
+      expect(screen.getByTestId('document-detail-Right note')).toBe(editor);
+      expect(props.onResizeSplit).toHaveBeenLastCalledWith(props.layout.id, { 'pane-a': 50, 'pane-b': 50 });
+
+      // A native resize may precede the model update; an unrelated render must not snap it back.
+      fireEvent.keyDown(screen.getByRole('separator'), { key: 'ArrowRight' });
+      const resized = panels();
+      expect(resized).not.toEqual(['50', '50']);
+      rerender(<DocumentWorkspace {...props} layout={equalized} shareOpen={false} />);
+      expect(panels()).toEqual(resized);
+      unmount();
+    } finally {
+      width.mockRestore();
+      height.mockRestore();
+      document.documentElement.style.fontSize = previousFontSize;
+    }
+  });
+
   it.each(['split', 'collapse', 'promote'])('keeps surviving editors mounted when panes %s', (operation) => {
     const a = pane('pane-a', ['tab-a']);
     const b = pane('pane-b', ['tab-b']);
