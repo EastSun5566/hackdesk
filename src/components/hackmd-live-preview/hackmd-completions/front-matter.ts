@@ -79,7 +79,11 @@ function valueOptions(values: readonly string[]): Completion[] {
     type: 'constant',
     apply: (view: EditorView, _completion: Completion, from: number, to: number) => {
       const { line } = textAround(view.state, to);
-      view.dispatch({ changes: { from, to: line.to, insert: value }, selection: { anchor: from + value.length } });
+      // Match the source's unquoted value grammar, leaving comment separators untouched.
+      const current = /^[\w, -]*/.exec(view.state.doc.sliceString(from, line.to))![0].trimEnd();
+      const end = from + current.length;
+      const insert = !current && view.state.doc.sliceString(end, end + 1) === '#' ? `${value} ` : value;
+      view.dispatch({ changes: { from, to: end, insert }, selection: { anchor: from + value.length } });
     },
   }));
 }
