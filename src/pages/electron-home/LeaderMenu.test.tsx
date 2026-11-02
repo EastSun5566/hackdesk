@@ -50,6 +50,28 @@ describe('LeaderMenu', () => {
     expect(note).toHaveValue('');
   });
 
+  it('consumes auto-repeat without running a command, but accepts the next deliberate press', () => {
+    vi.useFakeTimers();
+    const { onRun, onClose, note, press } = setup();
+    press('n');
+    const noteKeydown = vi.fn();
+    note.addEventListener('keydown', noteKeydown);
+
+    expect(fireEvent.keyDown(note, { key: 'n', repeat: true })).toBe(false);
+    vi.advanceTimersToNextFrame();
+    expect(screen.getByRole('menu', { name: 'Commands › Note' })).toBeVisible();
+    expect(onRun).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(noteKeydown).not.toHaveBeenCalled();
+    expect(note).toHaveFocus();
+    expect(note).toHaveValue('');
+
+    press('n');
+    vi.advanceTimersToNextFrame();
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(onRun).toHaveBeenCalledExactlyOnceWith('new-note');
+  });
+
   it('goes back with Backspace and closes with Escape or Backspace at the top', () => {
     const { onClose, press } = setup();
     press('t');
