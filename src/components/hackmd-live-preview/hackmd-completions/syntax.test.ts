@@ -1,4 +1,6 @@
 import { acceptCompletion } from '@codemirror/autocomplete';
+import { history, redo, undo } from '@codemirror/commands';
+import { StateEffect } from '@codemirror/state';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { formatMetadataTime } from './syntax';
@@ -48,6 +50,36 @@ describe('code block completions', () => {
     const view = setup('```py\nprint(1)\n```', 5);
     await choose(view, 'python');
     expect(view.state.doc.toString()).toBe('```python\nprint(1)\n```');
+  });
+
+  it.each([
+    { name: 'blank first content line', before: '```py\n\nprint(1)\n```', after: '```python\n\nprint(1)\n```' },
+    { name: 'empty closed block', before: '```py\n\n```', after: '```python\n\n```' },
+    { name: 'long tilde fence', before: '~~~~py\n\nprint(1)\n~~~~', after: '~~~~python\n\nprint(1)\n~~~~' },
+    { name: 'unfinished block with content', before: '```py\n\n\nprint(1)', after: '```python\n\n\nprint(1)' },
+  ])('preserves the existing $name when choosing a language', async ({ before, after }) => {
+    const view = setup(before, before.indexOf('py') + 2);
+    try {
+      view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+      await choose(view, 'python');
+      expect(view.state.doc.toString()).toBe(after);
+      expect(cursorLine(view)).toBe(1);
+      expect(undo(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe(before);
+      expect(redo(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe(after);
+    } finally { view.destroy(); }
+  });
+
+  it('stays quiet in indented literal code while allowing indented Markdown fences', async () => {
+    for (const doc of ['Text\n\n    ```py', '    ~~~py', '\t```py']) {
+      expect(await offersWhileTyping(doc), doc).toBe(false);
+    }
+    const view = setup('   ```py');
+    try {
+      await choose(view, 'python');
+      expect(view.state.doc.toString()).toBe('   ```python\n   \n   ```');
+    } finally { view.destroy(); }
   });
 
   it('stays quiet on a closing fence, and until a letter is typed', async () => {
