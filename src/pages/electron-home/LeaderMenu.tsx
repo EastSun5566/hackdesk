@@ -45,6 +45,7 @@ export function LeaderMenu({
       if (event.metaKey || event.ctrlKey || event.altKey) { latest.current.onClose(); return; }
       event.preventDefault();
       event.stopPropagation();
+      if (event.repeat) return;
       const { level: current, onPathChange: setPath, onClose: close } = latest.current;
       if (event.key === 'Escape') { close(); return; }
       if (event.key === 'Backspace') {
