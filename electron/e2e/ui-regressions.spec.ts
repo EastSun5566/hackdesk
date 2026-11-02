@@ -172,6 +172,8 @@ async function openFixtureNote(page: Page) {
   await switchWorkspace(page, 'Local Vault');
   await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'UI fixture', exact: true }).click();
   await expect(page.locator('.cm-content')).toContainText('Test note for layout checks.');
+  // Opening a note also requests editor focus; let that finish before moving focus elsewhere.
+  await expect(page.locator('.cm-content')).toBeFocused();
 }
 
 async function expectInsetFocus(locator: Locator, container = false) {
@@ -1960,11 +1962,15 @@ test('the key hint bar follows focus, fades while typing, and can be hidden', as
   try {
     await openFixtureNote(page);
     const bar = page.getByRole('note', { name: 'Keys you can press' });
-    await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'UI fixture', exact: true }).focus();
+    const tree = page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'UI fixture', exact: true });
+    await tree.focus();
+    await expect(tree).toBeFocused();
+    await expect(bar).toHaveAttribute('data-key-hint-context', 'navigator');
     await expect(bar).toContainText('Open');
     await expect(bar).toContainText('New note');
 
     await page.locator('.cm-content').click();
+    await expect(bar).toHaveAttribute('data-key-hint-context', 'editor');
     await page.keyboard.press('End');
     await page.keyboard.type(' typed');
     await expect(bar).toHaveAttribute('data-typing', 'true');
