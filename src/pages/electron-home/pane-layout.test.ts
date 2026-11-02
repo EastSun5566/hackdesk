@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   equalizeLayout,
   layoutPaneIds,
+  normalizeSizes,
   paneInDirection,
   paneLeaf,
   paneRects,
@@ -25,6 +26,48 @@ function lShape() {
   const row = splitLayoutPane(paneLeaf('a'), 'a', 'b', 'right');
   return splitLayoutPane(row, 'b', 'c', 'down');
 }
+
+function expectUsableSizes(sizes: number[]) {
+  sizes.forEach(size => expect(size).toBeGreaterThanOrEqual(10));
+  expect(sizes.reduce((sum, size) => sum + size, 0)).toBeCloseTo(100, 10);
+}
+
+function splitSizes(node: PaneLayoutNode): number[][] {
+  return node.type === 'pane' ? [] : [node.sizes, ...node.children.flatMap(splitSizes)];
+}
+
+describe('pane size normalization', () => {
+  it.each([
+    [99, 1],
+    [80, 9, 1],
+    [50, 25, 12.5, 6.25, 3.125, 3.125],
+    [1, 2, 3, 4, 5, 6],
+    [Number.MAX_VALUE, Number.MAX_VALUE, Number.MIN_VALUE],
+    [Number.MIN_VALUE, Number.MIN_VALUE],
+    [10, 20, 69.9999999],
+    Array.from({ length: 10 }, (_, index) => index + 1),
+  ].map(input => ({ input })))('keeps sizes usable and stable for $input', ({ input }) => {
+    const normalized = normalizeSizes(input, input.length);
+    expectUsableSizes(normalized);
+    const again = normalizeSizes(normalized, normalized.length);
+    again.forEach((size, index) => expect(size).toBeCloseTo(normalized[index], 10));
+  });
+
+  it('preserves the ratio of panes that do not need the minimum', () => {
+    const sizes = normalizeSizes([90, 30, 1], 3);
+    expectUsableSizes(sizes);
+    expect(sizes[0] / sizes[1]).toBeCloseTo(3, 10);
+    expect(sizes[2]).toBe(10);
+  });
+
+  it('keeps fallback sizes finite for invalid inputs and infeasible pane counts', () => {
+    for (const input of [[], [NaN, 1], [Infinity, 1], [0, 1], [-1, 1]]) {
+      expect(normalizeSizes(input, 2)).toEqual([50, 50]);
+    }
+    expect(normalizeSizes([], 1)).toEqual([100]);
+    expect(normalizeSizes(Array(11).fill(1), 11)).toEqual(Array(11).fill(100 / 11));
+  });
+});
 
 describe('pane layout', () => {
   it('splits beside a pane, joining a split that runs the same way and nesting otherwise', () => {
@@ -55,9 +98,9 @@ describe('pane layout', () => {
 
     const resized = resizeLayoutSplit(layout, column.id, { b: 70, c: 30 });
     expect(shape(resized)).toEqual({ row: ['a', { column: ['b', 'c'], sizes: [70, 30] }], sizes: [50, 50] });
-    expect(shape(resizeLayoutSplit(layout, layout.id, { a: 99, [column.id]: 1 }))).toEqual({
-      row: ['a', { column: ['b', 'c'], sizes: [50, 50] }], sizes: [91, 9],
-    });
+    const constrained = resizeLayoutSplit(layout, layout.id, { a: 99, [column.id]: 1 });
+    expect(constrained).toMatchObject({ type: 'split', id: layout.id, children: layout.children });
+    splitSizes(constrained).forEach(expectUsableSizes);
     expect(shape(equalizeLayout(resized))).toEqual(shape(layout));
   });
 
@@ -100,5 +143,25 @@ describe('pane layout', () => {
     // Two splits sharing an id would resize together, so the tree is rejected.
     const column = (id: string, a: string, b: string) => ({ type: 'split', id, orientation: 'vertical', children: [paneLeaf(a), paneLeaf(b)], sizes: [50, 50] });
     expect(parsePaneLayout({ type: 'split', id: 'root', orientation: 'horizontal', children: [column('s', 'a', 'b'), column('s', 'c', 'd')], sizes: [50, 50] })).toBeNull();
+  });
+
+  it.each(['flat', 'nested'])('keeps a six-pane %s layout stable across repeated saves and restores', kind => {
+    let layout = paneLeaf('p0');
+    for (let index = 1; index < 6; index += 1) {
+      layout = splitLayoutPane(layout, `p${index - 1}`, `p${index}`, kind === 'nested' && index % 2 === 0 ? 'down' : 'right');
+      splitSizes(layout).forEach(expectUsableSizes);
+    }
+    const ids = layoutPaneIds(layout);
+    const original = splitSizes(layout);
+    for (let round = 0; round < 10; round += 1) {
+      layout = parsePaneLayout(JSON.parse(JSON.stringify(layout)))!;
+      expect(layoutPaneIds(layout)).toEqual(ids);
+      const restored = splitSizes(layout);
+      expect(restored).toHaveLength(original.length);
+      restored.forEach((sizes, split) => {
+        expectUsableSizes(sizes);
+        sizes.forEach((size, index) => expect(size).toBeCloseTo(original[split][index], 10));
+      });
+    }
   });
 });

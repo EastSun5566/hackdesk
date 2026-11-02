@@ -35,7 +35,7 @@ import {
   toPersistedNoteWorkspaceLayout,
   updateNoteTabDraft,
 } from './note-workspace';
-import { layoutPaneIds, type PaneLayoutNode } from './pane-layout';
+import { layoutPaneIds, paneRects, type PaneLayoutNode } from './pane-layout';
 
 function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id' | 'title'>): NoteSummary {
   return {
@@ -573,6 +573,27 @@ describe('note workspace panes', () => {
     for (let split = 0; split < MAX_PANES + 2; split++) state = splitActivePane(state, split % 2 ? 'down' : 'right');
     expect(state.panes).toHaveLength(MAX_PANES);
     expect(layoutPaneIds(state.layout)).toHaveLength(MAX_PANES);
+  });
+
+  it.each(['flat', 'nested'])('preserves a full %s workspace through repeated persistence', kind => {
+    let state = withNotes(MAX_PANES);
+    for (let index = 1; index < MAX_PANES; index += 1) {
+      state = splitActivePane(state, kind === 'nested' && index % 2 === 0 ? 'down' : 'right');
+    }
+    const original = toPersistedNoteWorkspaceLayout(state);
+    const rects = paneRects(state.layout);
+    for (let round = 0; round < 10; round += 1) {
+      state = hydrateNoteWorkspaceLayout(state.scopeKey, JSON.parse(JSON.stringify(toPersistedNoteWorkspaceLayout(state))));
+      expect(state.panes).toEqual(original.panes);
+      expect(state.activePaneId).toBe(original.activePaneId);
+      const restored = paneRects(state.layout);
+      expect(restored.map(rect => rect.paneId)).toEqual(rects.map(rect => rect.paneId));
+      restored.forEach((rect, index) => {
+        for (const dimension of ['x', 'y', 'width', 'height'] as const) {
+          expect(rect[dimension]).toBeCloseTo(rects[index][dimension], 10);
+        }
+      });
+    }
   });
 
   it('zooms the active pane and leaves zoom when splitting or moving to another pane', () => {
