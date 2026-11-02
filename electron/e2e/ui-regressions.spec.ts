@@ -90,7 +90,7 @@ async function launchFixture(editorMode: EditorMode = 'helix', navigationFixture
   await page.reload();
   await expect(page.getByTestId('sidebar-footer').getByRole('button', { name: /^Open settings for Fixture User/ })).toBeVisible();
   await expect(page.getByRole('treeitem', { name: 'UI fixture', exact: true })).toBeVisible();
-  return { app, page };
+  return { app, page, vault };
 }
 
 async function stopApp(app: ElectronApplication, recordKeyboard = false) {
@@ -1633,6 +1633,85 @@ test('the workbench draws no divider lines at rest, and lines show only while co
     expect(layout.filter(card => card.active)).toHaveLength(1);
     expect(layout[0].border).not.toBe(layout[1].border);
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('29-fewer-dividers-split.png') });
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test('nested splits and collapse preserve the surviving editor, selection, scroll and undo', async () => {
+  const { app, page, vault } = await launchFixture('standard', true);
+  try {
+    const content = `# UI fixture\n\nTest note for layout checks.\n${Array.from({ length: 120 }, (_, index) => `Line ${index + 1}`).join('\n')}\n`;
+    await writeFile(join(vault, 'UI fixture.md'), content);
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await openFixtureNote(page);
+    await page.keyboard.press(`${primary}+\\`);
+    const panes = page.locator('section[data-document-pane-id]');
+    await expect(panes).toHaveCount(2);
+    const paneId = await page.locator('section[data-active-pane="true"]').getAttribute('data-document-pane-id');
+    const pane = page.locator(`section[data-document-pane-id="${paneId}"]`);
+    const editor = pane.locator('.cm-content');
+    const scroller = pane.locator('.cm-scroller');
+    const originalEditor = await editor.elementHandle();
+    const marker = 'Unsaved before split';
+    await editor.focus();
+    await page.keyboard.press(`${primary}+End`);
+    await page.keyboard.type(marker);
+    await page.keyboard.press('Shift+Home');
+    await expect.poll(() => page.evaluate(() => window.getSelection()?.toString())).toBe(marker);
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    });
+    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+    const readAnchor = () => scroller.evaluate(element => {
+      const top = element.getBoundingClientRect().top;
+      const line = Array.from(element.querySelectorAll('.cm-line')).find(line => line.getBoundingClientRect().bottom > top);
+      if (!line) throw new Error('The editor has no visible line.');
+      return { text: line.textContent, offset: line.getBoundingClientRect().top - top };
+    });
+    const anchorBefore = await readAnchor();
+
+    await page.keyboard.press(`${primary}+Shift+\\`);
+    await expect(panes).toHaveCount(3);
+    expect(await editor.evaluate((element, original) => element === original, originalEditor)).toBe(true);
+    // CodeMirror may remeasure line heights; preserve the reading position, rather than its estimated pixel total.
+    await expect.poll(async () => (await readAnchor()).text).toBe(anchorBefore.text);
+    await expect.poll(async () => (await readAnchor()).offset).toBeCloseTo(anchorBefore.offset, 0);
+    // Return through the real focus command without a click changing the selection.
+    await page.keyboard.press(`${primary}+j`);
+    const menu = page.getByRole('menu', { name: 'Commands' });
+    await expect(menu).toBeVisible();
+    await page.keyboard.press('p');
+    await page.keyboard.press('k');
+    await expect(menu).toBeHidden();
+    await expect(editor).toBeFocused();
+    await page.keyboard.type('Replacement');
+    await expect(editor).toContainText('Replacement');
+    await expect(editor).not.toContainText(marker);
+    await page.keyboard.press(`${primary}+z`);
+    await expect(editor).toContainText(marker);
+    await page.keyboard.press(`${primary}+z`);
+    await expect(editor).not.toContainText(marker);
+    await page.keyboard.press(`${primary}+Shift+z`);
+    await expect(editor).toContainText(marker);
+
+    // Closing the new pane folds its parent split back into the original row.
+    const newPane = panes.last();
+    await newPane.locator('.cm-content').focus();
+    await expect(newPane).toHaveAttribute('data-active-pane', 'true');
+    await app.evaluate(({ ipcMain }, channel) => {
+      ipcMain.removeHandler(channel);
+      ipcMain.handle(channel, () => ({ confirmed: true }));
+    }, ELECTRON_CHANNELS.appConfirm);
+    await page.keyboard.press(`${primary}+w`);
+    await expect(panes).toHaveCount(2);
+    expect(await editor.evaluate((element, original) => element === original, originalEditor)).toBe(true);
+    await expect(editor).toBeFocused();
+    await page.keyboard.press(`${primary}+z`);
+    await expect(editor).not.toContainText(marker);
+    await page.keyboard.press(`${primary}+Shift+z`);
+    await expect(editor).toContainText(marker);
   } finally {
     await stopApp(app);
   }
