@@ -8,6 +8,7 @@ import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
 import type { DocumentPaneView } from './DocumentWorkspace';
 import { ElectronHomeWorkspace, type ElectronHomeWorkspaceProps } from './ElectronHomeWorkspace';
 import type { NotePane, OpenNoteTab, SavedOpenNoteTab } from './note-workspace';
+import { reconcileLayout } from './pane-layout';
 
 vi.mock('./AppTopBar', () => ({
   AppTopBar: (props: {
@@ -127,8 +128,8 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
     'tab-c': tab({ tabId: 'tab-c', noteId: 'note-c', title: 'Inactive Pane' }),
   };
   const panes: NotePane[] = [
-    { paneId: 'pane-a', tabIds: ['tab-a'], activeTabId: 'tab-a', size: 60 },
-    { paneId: 'pane-b', tabIds: ['tab-b', 'tab-c'], activeTabId: 'tab-b', size: 40 },
+    { paneId: 'pane-a', tabIds: ['tab-a'], activeTabId: 'tab-a' },
+    { paneId: 'pane-b', tabIds: ['tab-b', 'tab-c'], activeTabId: 'tab-b' },
   ];
   const tree = buildHackmdFolderTree([]);
   const noop = vi.fn();
@@ -147,6 +148,7 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
         forwardStack: [],
         panes,
         recentlyClosedTabs: [],
+        zoomedPaneId: null,
       },
       actions: {
         moveActiveTabToOtherPane: noop,
@@ -159,6 +161,9 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
         requestCloseTabsToRight: vi.fn().mockResolvedValue(undefined),
         selectTab: vi.fn(),
         splitActiveTab: noop,
+        splitActivePaneDown: noop,
+        togglePaneZoom: noop,
+        equalizePanes: noop,
         toggleNavigator: vi.fn(),
       },
     },
@@ -242,6 +247,8 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
     },
     documentWorkspace: {
       panes,
+      layout: reconcileLayout(null, panes.map(candidate => candidate.paneId)),
+      zoomedPaneId: null,
       activePaneId: 'pane-b',
       editorMode: 'standard',
       folderTree: tree,
@@ -252,7 +259,8 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
       scopeKey: 'personal',
       editorRequests: [],
       onEditorRequestHandled: noop,
-      onResizePanes: noop,
+      onResizeSplit: noop,
+      onTogglePaneZoom: noop,
       onFocusPane: noop,
       onOpenEditor: noop,
       onOpenExternal: noop,

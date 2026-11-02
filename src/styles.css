@@ -344,10 +344,13 @@
     }
   }
 
-  /* Hack Mode keeps only the active pane, which then fills the window. The pane library sizes
-     its outer panel inline, so the panel and divider are hidden here rather than by a class. */
+  /* Hack Mode and pane zoom keep only the active pane, which then fills the space. The pane library
+     sizes its panels inline, so the other panels and dividers are hidden here rather than by a
+     class; they stay mounted, so their editors keep their state. */
   [data-hack-mode] [data-panel]:not(:has([data-active-pane='true'])),
-  [data-hack-mode] [data-separator] {
+  [data-hack-mode] [data-separator],
+  [data-pane-zoomed] [data-panel]:not(:has([data-active-pane='true'])),
+  [data-pane-zoomed] [data-separator] {
     display: none !important;
   }
 

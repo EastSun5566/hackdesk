@@ -40,7 +40,7 @@ export type ElectronHomeShellEffectsOptions = {
   api?: HackDeskElectronAPI;
   collapsedFolderIds: Set<string>;
   openQuickCaptureDraft: (content: string) => QuickCaptureDraftResult;
-  runAction: (actionId: ElectronActionId) => void;
+  runAction: (actionId: ElectronActionId, options?: { quiet?: boolean }) => unknown;
   scopeStorageKey: string | null;
 };
 
@@ -72,7 +72,7 @@ export function useElectronHomeShellEffects({
         return;
       }
 
-      runAction(command.type);
+      runAction(command.type, { quiet: command.fromShortcut });
     });
   }, [api, openQuickCaptureDraft, runAction]);
 }

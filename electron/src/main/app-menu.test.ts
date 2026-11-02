@@ -69,6 +69,9 @@ describe('createApplicationMenu', () => {
     expect(item?.accelerator).toBeUndefined();
     item?.click?.({} as Electron.MenuItem, undefined, {} as Electron.KeyboardEvent);
     expect(send).toHaveBeenCalledWith({ type: 'show-keyboard-shortcuts' });
+    // A click from an accelerator tells the page it was a key, so an unavailable action stays quiet.
+    item?.click?.({} as Electron.MenuItem, undefined, { triggeredByAccelerator: true } as Electron.KeyboardEvent);
+    expect(send).toHaveBeenLastCalledWith({ type: 'show-keyboard-shortcuts', fromShortcut: true });
     expect(findMenuItem('Focus Note Finder')?.accelerator).toBeUndefined();
     createApplicationMenu(send, {}, vi.fn(), false);
     const disabledHelp = currentTemplate().find(section => section.label === 'Help')?.submenu as Electron.MenuItemConstructorOptions[];

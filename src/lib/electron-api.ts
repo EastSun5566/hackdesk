@@ -390,6 +390,13 @@ export type ElectronActionId =
   | 'show-keyboard-shortcuts'
   | 'open-leader-menu'
   | 'focus-next-region'
+  | 'split-pane-down'
+  | 'toggle-pane-zoom'
+  | 'equalize-panes'
+  | 'focus-pane-left'
+  | 'focus-pane-down'
+  | 'focus-pane-up'
+  | 'focus-pane-right'
   | 'focus-previous-region'
   | 'scroll-half-page-up'
   | 'scroll-half-page-down'
@@ -445,7 +452,8 @@ export type ElectronActionId =
   | 'focus-previous-pane';
 
 export type HackDeskCommandPaletteCommand =
-  | { type: ElectronActionId }
+  /** `fromShortcut` marks an app-menu accelerator, which runs an unavailable action quietly like any shortcut. */
+  | { type: ElectronActionId; fromShortcut?: boolean }
   | {
     type: 'quick-capture:create-draft';
     content: string;

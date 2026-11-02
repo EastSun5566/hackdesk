@@ -6,6 +6,7 @@ import { buildHackmdFolderTree } from '@/lib/hackmd-folders';
 import { DocumentWorkspace, type DocumentPaneView } from './DocumentWorkspace';
 import type { DocumentDetailProps } from './DocumentDetail';
 import type { NotePane } from './note-workspace';
+import { reconcileLayout } from './pane-layout';
 
 const documentDetailMounts = vi.hoisted(() => ({ nextId: 0 }));
 
@@ -38,11 +39,10 @@ vi.mock('./DocumentDetail', async () => {
   };
 });
 
-function pane(paneId: string, tabIds: string[], activeTabId = tabIds[0], size = 50): NotePane {
+function pane(paneId: string, tabIds: string[], activeTabId = tabIds[0]): NotePane {
   return {
     activeTabId,
     paneId,
-    size,
     tabIds,
   };
 }
@@ -75,10 +75,12 @@ function createView(candidate: NotePane): DocumentPaneView {
 
 function createWorkspaceProps(overrides: Partial<Parameters<typeof DocumentWorkspace>[0]> = {}) {
   const panes = [
-    pane('pane-a', ['tab-a'], 'tab-a', 48),
-    pane('pane-b', ['tab-b'], 'tab-b', 52),
+    pane('pane-a', ['tab-a'], 'tab-a'),
+    pane('pane-b', ['tab-b'], 'tab-b'),
   ];
   const props: Parameters<typeof DocumentWorkspace>[0] = {
+    layout: reconcileLayout(null, (overrides.panes ?? panes).map(candidate => candidate.paneId)),
+    zoomedPaneId: null,
     activePaneId: 'pane-b',
     scopeKey: 'personal',
     editorRequests: [
@@ -101,7 +103,8 @@ function createWorkspaceProps(overrides: Partial<Parameters<typeof DocumentWorks
     onOpenExternal: vi.fn(),
     onReloadFromDisk: vi.fn(),
     onReloadFromHackmd: vi.fn(),
-    onResizePanes: vi.fn(),
+    onResizeSplit: vi.fn(),
+    onTogglePaneZoom: vi.fn(),
     onRevealInFinder: vi.fn(),
     onSave: vi.fn(),
     onSaveAsCopy: vi.fn(),
@@ -140,8 +143,8 @@ describe('DocumentWorkspace', () => {
   it('shows a semantic blank state when no tabs are open', () => {
     renderWorkspace({
       panes: [
-        pane('pane-a', [], undefined, 48),
-        pane('pane-b', [], undefined, 52),
+        pane('pane-a', [], undefined),
+        pane('pane-b', [], undefined),
       ],
     });
 
@@ -150,7 +153,7 @@ describe('DocumentWorkspace', () => {
   });
 
   it('offers to create or search for a note from the blank state', () => {
-    const props = renderWorkspace({ panes: [pane('pane-a', [], undefined, 100)] });
+    const props = renderWorkspace({ panes: [pane('pane-a', [], undefined)] });
 
     fireEvent.click(screen.getByRole('button', { name: 'New Note' }));
     fireEvent.click(screen.getByRole('button', { name: 'Search Notes' }));
@@ -160,7 +163,7 @@ describe('DocumentWorkspace', () => {
   });
 
   it('hides New Note in the blank state when the workspace is read-only', () => {
-    renderWorkspace({ panes: [pane('pane-a', [], undefined, 100)], canCreateNote: false });
+    renderWorkspace({ panes: [pane('pane-a', [], undefined)], canCreateNote: false });
 
     expect(screen.queryByRole('button', { name: 'New Note' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Search Notes' })).toBeInTheDocument();
@@ -216,14 +219,14 @@ describe('DocumentWorkspace', () => {
   });
 
   it('changes the editor identity without remounting document controls when the active tab changes', () => {
-    const firstPane = pane('pane-a', ['tab-a', 'tab-b'], 'tab-a', 100);
+    const firstPane = pane('pane-a', ['tab-a', 'tab-b'], 'tab-a');
     const props = createWorkspaceProps({ activePaneId: 'pane-a', panes: [firstPane] });
     const { rerender } = render(<DocumentWorkspace {...props} />);
     const firstDetail = screen.getByTestId('document-detail-Left note');
     const firstMountId = firstDetail.getAttribute('data-mount-id');
     expect(firstDetail).toHaveAttribute('data-editor-key', 'tab-a');
 
-    const secondPane = pane('pane-a', ['tab-a', 'tab-b'], 'tab-b', 100);
+    const secondPane = pane('pane-a', ['tab-a', 'tab-b'], 'tab-b');
     rerender(<DocumentWorkspace {...props} panes={[secondPane]} />);
 
     expect(screen.getByTestId('document-detail-Left note'))
@@ -232,7 +235,7 @@ describe('DocumentWorkspace', () => {
   });
 
   it('keeps the document detail mounted for updates within the same tab', () => {
-    const activePane = pane('pane-a', ['tab-a'], 'tab-a', 100);
+    const activePane = pane('pane-a', ['tab-a'], 'tab-a');
     const props = createWorkspaceProps({ activePaneId: 'pane-a', panes: [activePane] });
     const { rerender } = render(<DocumentWorkspace {...props} />);
     const firstMountId = screen.getByTestId('document-detail-Left note').getAttribute('data-mount-id');
@@ -248,7 +251,7 @@ describe('DocumentWorkspace', () => {
   });
 
   it('keeps the document detail mounted when a draft materializes in place', () => {
-    const activePane = pane('pane-a', ['draft-tab'], 'draft-tab', 100);
+    const activePane = pane('pane-a', ['draft-tab'], 'draft-tab');
     const draftView = createView(activePane);
     const props = createWorkspaceProps({
       activePaneId: 'pane-a',
@@ -285,7 +288,7 @@ describe('DocumentWorkspace', () => {
   it('labels the split pane resize separator', () => {
     renderWorkspace();
 
-    const separator = screen.getByLabelText('Resize document panes between pane 1 and pane 2');
+    const separator = screen.getByLabelText('Resize document panes side by side, between pane 1 and pane 2');
 
     expect(separator).toHaveAttribute('id', 'document-pane-separator-pane-b');
     expect(separator).toHaveClass('focus-visible:after:bg-primary-default');
@@ -328,7 +331,7 @@ describe('DocumentWorkspace', () => {
 
   it('offers retry for a temporary read error and no draft actions without a draft', () => {
     const props = renderWorkspace({
-      panes: [pane('pane-a', ['tab-a'], 'tab-a', 100)],
+      panes: [pane('pane-a', ['tab-a'], 'tab-a')],
       activePaneId: 'pane-a',
       getPaneView: vi.fn((candidate: NotePane) => ({
         ...createView(candidate),

@@ -19,6 +19,7 @@ import {
   openHackmdWebEditor,
   type WorkbenchActionHandlers,
 } from './useWorkbenchActions';
+import type { PaneDirection } from './pane-layout';
 
 export type WorkbenchActionHandlersOptions = {
   activePaneId: string;
@@ -42,11 +43,15 @@ export type WorkbenchActionHandlersOptions = {
   duplicateActiveTab: () => void;
   exportMarkdown: (note: DocumentSummary, title: string, content: string) => void;
   focusNextPane: () => void;
+  focusPaneToward: (direction: PaneDirection) => void;
+  togglePaneZoom: () => void;
+  equalizePanes: () => void;
+  splitActivePaneDown: () => void;
   focusNextTab: () => void;
   focusPreviousPane: () => void;
   focusPreviousTab: () => void;
   focusWorkspaceSearch: () => void;
-  focusZone: (zone: ElectronFocusZone) => void;
+  focusZone: (zone: ElectronFocusZone, options?: { afterMove?: boolean }) => void;
   importMarkdownNote: () => void;
   isSavingNote: boolean;
   moveActiveTabToOtherPane: () => void;
@@ -116,6 +121,10 @@ export function useWorkbenchActionHandlers({
   duplicateActiveTab,
   exportMarkdown,
   focusNextPane,
+  focusPaneToward,
+  togglePaneZoom,
+  equalizePanes,
+  splitActivePaneDown,
   focusNextTab,
   focusPreviousPane,
   focusPreviousTab,
@@ -213,19 +222,19 @@ export function useWorkbenchActionHandlers({
     focusNavigator: () => focusZone('navigator'),
     focusNextPane: () => {
       focusNextPane();
-      focusZone('editor');
+      focusZone('editor', { afterMove: true });
     },
     focusNextTab: () => {
       focusNextTab();
-      focusZone('editor');
+      focusZone('editor', { afterMove: true });
     },
     focusPreviousPane: () => {
       focusPreviousPane();
-      focusZone('editor');
+      focusZone('editor', { afterMove: true });
     },
     focusPreviousTab: () => {
       focusPreviousTab();
-      focusZone('editor');
+      focusZone('editor', { afterMove: true });
     },
     openWorkspaceSwitcher,
     focusWorkspaceSearch,
@@ -236,7 +245,7 @@ export function useWorkbenchActionHandlers({
     importMarkdownNote,
     moveTabToOtherPane: () => {
       moveActiveTabToOtherPane();
-      focusZone('editor');
+      focusZone('editor', { afterMove: true });
     },
     navigateBack: () => {
       navigateBack();
@@ -305,8 +314,18 @@ export function useWorkbenchActionHandlers({
     setEditorMode,
     splitPaneRight: () => {
       splitActiveTab();
-      focusZone('editor');
+      focusZone('editor', { afterMove: true });
     },
+    splitPaneDown: () => {
+      splitActivePaneDown();
+      focusZone('editor', { afterMove: true });
+    },
+    focusPaneInDirection: (direction) => {
+      focusPaneToward(direction);
+      focusZone('editor', { afterMove: true });
+    },
+    togglePaneZoom,
+    equalizePanes,
     toggleInspector,
     toggleKeyHints,
     toggleNavigator,

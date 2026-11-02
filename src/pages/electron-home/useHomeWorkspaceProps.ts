@@ -37,6 +37,8 @@ type LocalDocumentRecovery = ReturnType<typeof useLocalDocumentRecovery>;
 type RemoteDocumentRecovery = ReturnType<typeof useRemoteDocumentRecovery>;
 
 type WorkspaceActions = {
+  /** Zooms or restores the active pane, saying how to restore it. */
+  togglePaneZoom: () => void;
   attachImageToTab: ElectronHomeWorkspaceProps['documentWorkspace']['onAttachImage'];
   cancelImageUpload?: ElectronHomeWorkspaceProps['documentWorkspace']['onCancelImageUpload'];
   copyDraftText: ElectronHomeWorkspaceProps['documentWorkspace']['onCopyDraft'];
@@ -171,6 +173,7 @@ export function useHomeWorkspaceProps({
         forwardStack: noteWorkspace.state.forwardStack,
         panes: noteWorkspace.state.panes,
         recentlyClosedTabs: noteWorkspace.state.recentlyClosedTabs,
+        zoomedPaneId: noteWorkspace.state.zoomedPaneId,
       },
       actions: {
         moveActiveTabToOtherPane: noteWorkspace.moveActiveTabToOtherPane,
@@ -183,6 +186,9 @@ export function useHomeWorkspaceProps({
         selectTab: noteWorkspace.selectTab,
         reorderTab: noteWorkspace.reorderTab,
         splitActiveTab: noteWorkspace.splitActiveTab,
+        splitActivePaneDown: noteWorkspace.splitActivePaneDown,
+        togglePaneZoom: actions.togglePaneZoom,
+        equalizePanes: noteWorkspace.equalizePanes,
         toggleNavigator: toggleNavigatorCollapsed,
       },
     },
@@ -267,6 +273,8 @@ export function useHomeWorkspaceProps({
     },
     documentWorkspace: {
       panes: noteWorkspace.state.panes,
+      layout: noteWorkspace.state.layout,
+      zoomedPaneId: noteWorkspace.state.zoomedPaneId,
       activePaneId: noteWorkspace.state.activePaneId,
       scopeKey: noteWorkspace.state.scopeKey,
       editorRequests,
@@ -283,7 +291,8 @@ export function useHomeWorkspaceProps({
           isUploadingImage: view.isUploadingImage || (!!view.activeTab && uploadingTabIds.includes(view.activeTab.tabId)),
         };
       },
-      onResizePanes: noteWorkspace.resizePanes,
+      onResizeSplit: noteWorkspace.resizeSplit,
+      onTogglePaneZoom: actions.togglePaneZoom,
       onFocusPane: noteWorkspace.focusPane,
       onOpenEditor: actions.handleOpenEditor,
       onOpenExternal: actions.handleOpenExternal,

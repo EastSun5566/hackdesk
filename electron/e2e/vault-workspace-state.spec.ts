@@ -98,6 +98,14 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
       main?.show(); main?.focus();
     });
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('vault-A-restored.png') });
+    // A pane below the right one makes an L, which comes back after the restart too.
+    await page.getByRole('button', { name: 'Pane actions', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Split Down', exact: true }).click();
+    await expect(page.locator('[data-active-pane]')).toHaveCount(3);
+    // The workspace saves shortly after a change; wait for the three panes to be written.
+    await expect.poll(() => page.evaluate(() => Object.keys(localStorage)
+      .filter(key => key.startsWith('hackdesk_note_workspace:'))
+      .some(key => (JSON.parse(localStorage.getItem(key) ?? '{}').panes ?? []).length === 3))).toBe(true);
     // Commit Chromium's DOM storage to disk before simulating a process crash.
     await app.evaluate(({ BrowserWindow }) => {
       for (const window of BrowserWindow.getAllWindows()) window.webContents.session.flushStorageData();
@@ -105,7 +113,9 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
     await stop(app);
     ({ app, page } = await launch(home));
     await expect(page.locator('.cm-content').last()).toContainText('Draft A — latest input');
-    await expect(page.locator('[data-active-pane]')).toHaveCount(2);
+    await expect(page.locator('[data-active-pane]')).toHaveCount(3);
+    const columns = await page.locator('[data-active-pane]').evaluateAll(elements => new Set(elements.map(element => Math.round(element.getBoundingClientRect().x))).size);
+    expect(columns).toBe(2);
     await openVaultSettings(page);
     await choose(app, page, vaultB);
     await expect(page.locator('.cm-content')).toContainText('Draft B');

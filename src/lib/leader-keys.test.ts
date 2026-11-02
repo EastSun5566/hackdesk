@@ -28,7 +28,7 @@ describe('leader keys', () => {
     const top = getLeaderLevel([], options)!;
     expect(top.title).toEqual(['Commands']);
     expect(top.items.filter(item => !item.actionId).map(item => `${item.key} ${item.label}`))
-      .toEqual(['n Note', 't Tab', 'g Go', 'v View', 'a AI', 'f Folder']);
+      .toEqual(['n Note', 't Tab', 'p Pane', 'g Go', 'v View', 'a AI', 'f Folder']);
 
     const note = getLeaderLevel(['n'], options)!;
     expect(note.title).toEqual(['Commands', 'Note']);

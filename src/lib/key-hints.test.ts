@@ -51,7 +51,7 @@ describe('getKeyHints', () => {
     expect(text(hints('editor', { shortcuts: { 'open-quick-open': 'mod+shift+o' } }))).toContain('⇧⌘O Open note');
     expect(text(hints('editor', { shortcuts: { 'find-in-note': 'none' } }))).not.toContain('⌘F Find');
     // Splitting needs a free pane, and closing needs a tab.
-    expect(text(hints('tabs', { actionContext: { ...actionContext, paneCount: 2 } }))).not.toContain('⌘\\ Split right');
+    expect(text(hints('tabs', { actionContext: { ...actionContext, paneCount: 6 } }))).not.toContain('⌘\\ Split right');
     expect(text(hints('tabs', { actionContext: { ...actionContext, openTabCount: 0 } }))).not.toContain('⌘W Close');
   });
 

@@ -29,6 +29,8 @@ export type ElectronActionContext = {
   navigationForwardCount: number;
   recentlyClosedTabCount: number;
   paneCount: number;
+  /** The active pane fills the editor area while the others wait hidden. */
+  paneZoomed?: boolean;
   inspectorCollapsed: boolean;
   navigatorCollapsed: boolean;
   bookOpen: boolean;
@@ -126,6 +128,11 @@ function requireSavedTab(context: ElectronActionContext) {
   return requireOpenTab(context) ?? (context.selectedNoteId ? null : 'Save the draft first; its first line becomes the title.');
 }
 
+/** Next and previous tab step across panes, so any second tab will do. */
+function requireAnotherTab(context: ElectronActionContext) {
+  return context.openTabCount > 1 ? null : 'Open another tab first.';
+}
+
 function requireOtherTabs(context: ElectronActionContext) {
   const tabReason = requireOpenTab(context);
   if (tabReason) {
@@ -156,13 +163,20 @@ function requireNavigationForward(context: ElectronActionContext) {
   return context.navigationForwardCount > 0 ? null : 'No next note location.';
 }
 
+/** Each visible pane holds an editor, so the editor area splits into at most this many. */
+export const MAX_NOTE_PANES = 6;
+
 function requireSplitAvailable(context: ElectronActionContext) {
   const tabReason = requireOpenTab(context);
   if (tabReason) {
     return tabReason;
   }
 
-  return context.paneCount < 2 ? null : 'HackDesk supports two note panes in this version.';
+  return context.paneCount < MAX_NOTE_PANES ? null : `The editor holds up to ${MAX_NOTE_PANES} panes. Close one first.`;
+}
+
+function requireSeveralPanes(context: ElectronActionContext) {
+  return context.paneCount > 1 ? null : 'Split the editor first.';
 }
 
 function requireOtherPane(context: ElectronActionContext) {
@@ -613,19 +627,59 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
   {
     id: 'split-pane-right',
     label: 'Split Pane Right',
-    description: 'Move the active note tab into a second editor pane.',
+    description: 'Open the active note tab in a new pane to the right.',
     keywords: ['pane', 'split', 'layout'],
     category: 'view',
     scope: 'editor',
     defaultKeybinding: 'mod+\\',
     shortcut: '⌘\\',
     menuAccelerator: 'CmdOrCtrl+\\',
+    // Steps and toggles run once per press: on Windows and Linux a native accelerator would fire too.
+    rendererShortcut: true,
     getDisabledReason: requireSplitAvailable,
   },
   {
+    id: 'split-pane-down',
+    label: 'Split Pane Down',
+    description: 'Open the active note tab in a new pane below.',
+    keywords: ['pane', 'split', 'layout', 'below', 'vertical'],
+    category: 'view',
+    scope: 'editor',
+    defaultKeybinding: 'mod+shift+\\',
+    shortcut: '⇧⌘\\',
+    menuAccelerator: 'CmdOrCtrl+Shift+\\',
+    // Steps and toggles run once per press: on Windows and Linux a native accelerator would fire too.
+    rendererShortcut: true,
+    getDisabledReason: requireSplitAvailable,
+  },
+  {
+    id: 'toggle-pane-zoom',
+    label: 'Toggle Pane Zoom',
+    description: 'Let the active pane fill the editor area, or bring the other panes back.',
+    keywords: ['pane', 'zoom', 'maximize', 'fullscreen', 'restore'],
+    category: 'view',
+    scope: 'editor',
+    defaultKeybinding: 'mod+shift+enter',
+    shortcut: '⇧⌘↩',
+    menuAccelerator: 'CmdOrCtrl+Shift+Enter',
+    // Steps and toggles run once per press: on Windows and Linux a native accelerator would fire too.
+    rendererShortcut: true,
+    getLabel: (context) => (context.paneZoomed ? 'Restore Panes' : 'Zoom Pane'),
+    getDisabledReason: requireSeveralPanes,
+  },
+  {
+    id: 'equalize-panes',
+    label: 'Equalize Pane Sizes',
+    description: 'Give every editor pane an equal share of its split.',
+    keywords: ['pane', 'equal', 'even', 'reset', 'layout', 'size'],
+    category: 'view',
+    scope: 'editor',
+    getDisabledReason: requireSeveralPanes,
+  },
+  {
     id: 'move-tab-to-other-pane',
-    label: 'Move Tab to Other Pane',
-    description: 'Move the active note tab to the other editor pane.',
+    label: 'Move Tab to Next Pane',
+    description: 'Move the active note tab to the next editor pane.',
     keywords: ['pane', 'move', 'tab'],
     category: 'view',
     scope: 'editor',
@@ -634,26 +688,30 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
   {
     id: 'focus-next-tab',
     label: 'Next Tab',
-    description: 'Focus the next note tab in the active pane.',
+    description: 'Focus the next note tab, continuing into the next pane.',
     keywords: ['tab', 'next'],
     category: 'navigation',
     scope: 'editor',
     defaultKeybinding: 'mod+alt+arrowright,ctrl+tab',
     shortcut: '⌥⌘→',
     menuAccelerator: 'CmdOrCtrl+Alt+Right',
-    getDisabledReason: requireOtherTabs,
+    // Steps and toggles run once per press: on Windows and Linux a native accelerator would fire too.
+    rendererShortcut: true,
+    getDisabledReason: requireAnotherTab,
   },
   {
     id: 'focus-previous-tab',
     label: 'Previous Tab',
-    description: 'Focus the previous note tab in the active pane.',
+    description: 'Focus the previous note tab, continuing into the previous pane.',
     keywords: ['tab', 'previous'],
     category: 'navigation',
     scope: 'editor',
     defaultKeybinding: 'mod+alt+arrowleft,ctrl+shift+tab',
     shortcut: '⌥⌘←',
     menuAccelerator: 'CmdOrCtrl+Alt+Left',
-    getDisabledReason: requireOtherTabs,
+    // Steps and toggles run once per press: on Windows and Linux a native accelerator would fire too.
+    rendererShortcut: true,
+    getDisabledReason: requireAnotherTab,
   },
   {
     id: 'focus-next-pane',
@@ -664,6 +722,19 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     scope: 'editor',
     getDisabledReason: (context) => context.paneCount > 1 ? null : 'Split the editor before switching panes.',
   },
+  // Control+Command+arrow on macOS; elsewhere Control+Windows+arrow belongs to the system, so these
+  // keys simply never arrive and the commands are assigned in Settings.
+  ...(['left', 'down', 'up', 'right'] as const).map((direction): ElectronActionDefinition => ({
+    id: `focus-pane-${direction}`,
+    label: `Focus Pane ${direction[0].toUpperCase()}${direction.slice(1)}`,
+    description: `Focus the editor pane ${direction === 'up' ? 'above' : direction === 'down' ? 'below' : `to the ${direction}`}.`,
+    keywords: ['pane', 'focus', direction],
+    category: 'navigation',
+    scope: 'editor',
+    defaultKeybinding: `ctrl+meta+arrow${direction}`,
+    shortcut: `⌃⌘${{ left: '←', down: '↓', up: '↑', right: '→' }[direction]}`,
+    getDisabledReason: (context) => context.paneCount > 1 ? null : 'Split the editor before switching panes.',
+  })),
   {
     id: 'focus-previous-pane',
     label: 'Previous Pane',

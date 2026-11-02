@@ -33,13 +33,20 @@ export function useElectronFocusZones() {
   const [focusedPaneId, setFocusedPaneId] = useState<string | null>(null);
   const rememberedTargetsRef = useRef(new Map<string, HTMLElement>());
   const pendingFrameRef = useRef<number | null>(null);
+  // Only the latest request may move focus, so a slow one cannot land after a newer command.
+  const requestRef = useRef(0);
 
-  const focusRegion = useCallback((key: string, waitForEditor = false) => {
+  const focusRegion = useCallback((key: string, waitForEditor = false, request = ++requestRef.current) => {
     if (pendingFrameRef.current !== null) window.cancelAnimationFrame(pendingFrameRef.current);
     let attempts = 0;
     const focusWhenReady = () => {
       pendingFrameRef.current = null;
-      if (hasOpenPopup()) return;
+      if (request !== requestRef.current) return;
+      // A menu that ran the command may still be closing; give it a few frames.
+      if (hasOpenPopup()) {
+        if (attempts++ < 8) pendingFrameRef.current = window.requestAnimationFrame(focusWhenReady);
+        return;
+      }
       const region = getRegions().find(candidate => regionKey(candidate) === key);
       if (!region) return;
       const remembered = rememberedTargetsRef.current.get(key);
@@ -60,18 +67,31 @@ export function useElectronFocusZones() {
     pendingFrameRef.current = window.requestAnimationFrame(focusWhenReady);
   }, []);
 
-  const focusZone = useCallback((zone: ElectronFocusZone) => {
+  const focusZone = useCallback((zone: ElectronFocusZone, options: { afterMove?: boolean } = {}) => {
     // Resolve after React has applied the change requested by an action, such as opening a panel.
-    // An action run from a frame callback renders later, so wait a few frames for the region.
+    // An action run from a frame callback renders later, so wait a few frames for the region. After
+    // a command that moves to another tab or pane, wait until it is the active one, or the editor
+    // being left would take focus and make its pane active again.
     if (pendingFrameRef.current !== null) window.cancelAnimationFrame(pendingFrameRef.current);
+    const activeTarget = () => {
+      const pane = document.querySelector<HTMLElement>('[data-active-pane="true"]');
+      return `${pane?.dataset.documentPaneId}:${pane?.dataset.navigationEditorId}`;
+    };
+    const leavingTarget = options.afterMove ? activeTarget() : undefined;
+    const request = ++requestRef.current;
     let attempts = 0;
     const resolve = () => {
       pendingFrameRef.current = null;
+      if (request !== requestRef.current) return;
+      if (leavingTarget !== undefined && activeTarget() === leavingTarget && attempts++ < 8) {
+        pendingFrameRef.current = window.requestAnimationFrame(resolve);
+        return;
+      }
       const candidates = getRegions().filter(region => region.dataset.hackdeskFocus === zone);
       const activePane = document.querySelector('[data-active-pane="true"]');
       const region = candidates.find(candidate => candidate.closest('[data-active-pane="true"]'))
         ?? (zone === 'editor' && activePane ? undefined : candidates[0]);
-      if (region) focusRegion(regionKey(region), zone === 'editor');
+      if (region) focusRegion(regionKey(region), zone === 'editor', request);
       else if (attempts++ < 8) pendingFrameRef.current = window.requestAnimationFrame(resolve);
     };
     pendingFrameRef.current = window.requestAnimationFrame(resolve);

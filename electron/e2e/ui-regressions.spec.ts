@@ -444,6 +444,10 @@ test('a keyboard-only tour of the main flows in light theme at a narrow window, 
     await expect(page.getByRole('status').filter({ hasText: 'Deep, 1 of 1' })).toBeVisible();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('tab', { name: /^Deep(?:, .+)?$/ })).toHaveAttribute('aria-selected', 'true');
+    // A non-default sort also lists results instead of the tree; the location still reveals the folder.
+    await page.getByRole('button', { name: 'View options' }).click();
+    await page.getByRole('menu').getByText('Title A-Z', { exact: true }).click();
+    await page.keyboard.press('Escape');
     const deepLocation = page.locator('[data-active-pane="true"]').getByRole('navigation', { name: 'Note location' });
     await expect(deepLocation).toHaveText(/Folders only\s*\/\s*Last\s*\/\s*Deep$/);
     await deepLocation.getByRole('button', { name: 'Last', exact: true }).focus();
@@ -1634,6 +1638,108 @@ test('the workbench draws no divider lines at rest, and lines show only while co
   }
 });
 
+test('panes split right and down, move by direction, and zoom without losing editor state', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await openFixtureNote(page);
+    // Each command waits for the menu to close, so the next one does not type into a closing menu.
+    const leader = async (keys: string) => {
+      const menu = page.getByRole('menu', { name: 'Commands' });
+      await page.keyboard.press(`${primary}+j`);
+      await expect(menu).toBeVisible();
+      for (const key of keys) await page.keyboard.press(key);
+      await expect(menu).toBeHidden();
+    };
+    const panes = page.locator('section[data-document-pane-id]');
+    const visiblePanes = page.locator('section[data-document-pane-id]:visible');
+    const activePaneBox = async () => (await page.locator('section[data-active-pane="true"]').boundingBox())!;
+
+    // With one tab, next tab has nothing to do and says nothing.
+    await page.locator('.cm-content').click();
+    await page.keyboard.press(`${primary}+Alt+ArrowRight`);
+    await page.waitForTimeout(300);
+    await expect(page.getByText('Open another tab first.')).toHaveCount(0);
+
+    // Right, then down from the new pane: an L, with the left pane full height.
+    await page.keyboard.press(`${primary}+\\`);
+    await page.keyboard.press(`${primary}+Shift+\\`);
+    await expect(panes).toHaveCount(3);
+    const boxes = await panes.evaluateAll(elements => elements.map(element => {
+      const box = element.getBoundingClientRect();
+      return { x: Math.round(box.x), y: Math.round(box.y), height: Math.round(box.height) };
+    }));
+    const [left, top, bottom] = [...boxes].sort((a, b) => a.x - b.x || a.y - b.y);
+    expect(top.x).toBe(bottom.x);
+    expect(bottom.y).toBeGreaterThan(top.y);
+    expect(left.height).toBeGreaterThan(top.height + bottom.height);
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('30-panes-l.png') });
+
+    // The Pane group moves focus by where panes are.
+    expect(Math.round((await activePaneBox()).y)).toBe(bottom.y);
+    await leader('pk');
+    await expect.poll(async () => Math.round((await activePaneBox()).y)).toBe(top.y);
+    await leader('ph');
+    await expect.poll(async () => Math.round((await activePaneBox()).x)).toBe(left.x);
+    await leader('pl');
+    await expect.poll(async () => Math.round((await activePaneBox()).x)).toBe(top.x);
+    await leader('pj');
+    await expect.poll(async () => Math.round((await activePaneBox()).y)).toBe(bottom.y);
+
+    // Control+Command+arrows move by direction too, on macOS.
+    if (process.platform === 'darwin') {
+      await page.keyboard.press('Control+Meta+ArrowUp');
+      await expect.poll(async () => Math.round((await activePaneBox()).y)).toBe(top.y);
+      await page.keyboard.press('Control+Meta+ArrowLeft');
+      await expect.poll(async () => Math.round((await activePaneBox()).x)).toBe(left.x);
+      await page.keyboard.press('Control+Meta+ArrowDown');
+      await expect.poll(async () => Math.round((await activePaneBox()).x)).toBe(left.x);
+    } else {
+      await leader('ph');
+    }
+    // Next tab runs on past a pane's last tab into the next pane, in reading order. Elsewhere the
+    // test uses next tab's Ctrl+Tab, since Alt there also reaches the window's menu bar.
+    const nextTab = process.platform === 'darwin' ? 'Meta+Alt+ArrowRight' : 'Control+Tab';
+    await page.keyboard.press(nextTab);
+    await expect.poll(async () => Math.round((await activePaneBox()).y)).toBe(top.y);
+    await page.keyboard.press(nextTab);
+    await expect.poll(async () => Math.round((await activePaneBox()).y)).toBe(bottom.y);
+
+    // Zoom fills the editor area with the active pane; the others come back as they were.
+    const editor = page.locator('section[data-active-pane="true"] .cm-content');
+    await editor.click();
+    await page.keyboard.press(`${primary}+End`);
+    await page.keyboard.type(' zoomed edit');
+    await page.keyboard.press(`${primary}+Shift+Enter`);
+    await expect(visiblePanes).toHaveCount(1);
+    await expect(page.getByText(/^Pane zoomed · Press/)).toBeVisible();
+    await page.screenshot({ animations: 'disabled', path: test.info().outputPath('30-panes-zoomed.png') });
+    await page.keyboard.press(`${primary}+Shift+Enter`);
+    await expect(visiblePanes).toHaveCount(3);
+    await expect(editor).toContainText('zoomed edit');
+    // The editor kept its undo history through zoom.
+    await editor.click();
+    await page.keyboard.press(`${primary}+z`);
+    await expect(editor).not.toContainText('zoomed edit');
+
+    // Each pane's header has a zoom button too.
+    const header = page.locator('section[data-active-pane="true"] header');
+    await header.hover();
+    await header.getByRole('button', { name: 'Zoom pane' }).click();
+    await expect(visiblePanes).toHaveCount(1);
+    await page.locator('section[data-active-pane="true"] header').getByRole('button', { name: 'Restore panes' }).click();
+    await expect(visiblePanes).toHaveCount(3);
+
+    // Hack Mode leaves only the active pane of the nested split too.
+    await page.keyboard.press(`${primary}+.`);
+    await expect(visiblePanes).toHaveCount(1);
+    await page.keyboard.press(`${primary}+.`);
+    await expect(visiblePanes).toHaveCount(3);
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test('Note Details floats over the note and Escape returns to it', async () => {
   const { app, page } = await launchFixture('standard');
   try {
@@ -1737,7 +1843,7 @@ test('the leader menu runs commands from a few letters with Space or the leader 
     await expect(page.getByRole('menu')).toHaveCount(0);
     await expect(page.locator('.cm-content')).toContainText('x');
     await page.keyboard.press(`${primary}+j`);
-    await page.keyboard.press('t');
+    await page.keyboard.press('p');
     await page.keyboard.press('s');
     await expect(page.locator('[data-active-pane]')).toHaveCount(2);
 

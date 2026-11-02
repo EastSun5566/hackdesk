@@ -29,15 +29,16 @@ function createWorkspaceState(tabs: OpenNoteTab[] = [createTab()]): NoteWorkspac
     panes: [{
       activeTabId: tabs[0]?.tabId ?? null,
       paneId: 'pane-1',
-      size: 100,
       tabIds: tabs.map((tab) => tab.tabId),
     }],
+    layout: { type: 'pane', paneId: 'pane-1' },
+    zoomedPaneId: null,
     backStack: [],
     forwardStack: [],
     recentlyClosedTabs: [],
     scopeKey: 'personal',
     tabs: tabMap,
-    version: 2,
+    version: 3,
   };
 }
 
@@ -91,6 +92,10 @@ function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): Workb
     saveNote: vi.fn(),
     setEditorMode: vi.fn(),
     splitPaneRight: vi.fn(),
+    splitPaneDown: vi.fn(),
+    focusPaneInDirection: vi.fn(),
+    togglePaneZoom: vi.fn(),
+    equalizePanes: vi.fn(),
     toggleInspector: vi.fn(),
     toggleNavigator: vi.fn(),
     toggleTheme: vi.fn(),

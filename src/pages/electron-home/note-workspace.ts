@@ -1,6 +1,20 @@
 import type { NoteSummary } from '@/lib/electron-api';
 import type { LocalRevision } from '@/lib/local-vault';
+import { MAX_NOTE_PANES } from '@/lib/electron-actions';
 import { trySetStorageItem } from '@/lib/storage';
+
+import {
+  equalizeLayout,
+  layoutPaneIds,
+  paneInDirection,
+  paneLeaf,
+  parsePaneLayout,
+  reconcileLayout,
+  resizeLayoutSplit,
+  splitLayoutPane,
+  type PaneDirection,
+  type PaneLayoutNode,
+} from './pane-layout';
 
 export type NoteIdentity = Pick<NoteSummary, 'id' | 'teamPath'>;
 
@@ -30,7 +44,6 @@ export type NotePane = {
   paneId: string;
   tabIds: string[];
   activeTabId: string | null;
-  size: number;
 };
 
 export type NoteNavigationTarget = {
@@ -53,10 +66,14 @@ export type OpenDraftNoteOptions = {
 };
 
 export type NoteWorkspaceState = {
-  version: 2;
+  version: 3;
   scopeKey: string;
   tabs: Record<string, OpenNoteTab>;
   panes: NotePane[];
+  /** How the panes are arranged; see pane-layout. */
+  layout: PaneLayoutNode;
+  /** The pane filling the editor area while the others wait hidden, kept only for this session. */
+  zoomedPaneId: string | null;
   activePaneId: string;
   drafts: Record<string, NoteDocumentDraft>;
   recentlyClosedTabs: OpenNoteTab[];
@@ -66,15 +83,13 @@ export type NoteWorkspaceState = {
 
 export type PersistedNoteWorkspaceLayout = Pick<
   NoteWorkspaceState,
-  'version' | 'scopeKey' | 'tabs' | 'panes' | 'activePaneId' | 'drafts'
+  'version' | 'scopeKey' | 'tabs' | 'panes' | 'layout' | 'activePaneId' | 'drafts'
 >;
 
 const NOTE_WORKSPACE_LAYOUT_PREFIX = 'hackdesk_note_workspace:';
-const MAX_PANES = 2;
+export const MAX_PANES = MAX_NOTE_PANES;
 const MAX_RECENTLY_CLOSED_TABS = 10;
 const MAX_NAVIGATION_STACK = 50;
-const MIN_PANE_SIZE = 10;
-const MAX_PANE_SIZE = 90;
 
 let nextTabId = 0;
 let nextPaneId = 0;
@@ -120,17 +135,18 @@ function createInitialPane(paneId = createPaneId()): NotePane {
     paneId,
     tabIds: [],
     activeTabId: null,
-    size: 100,
   };
 }
 
 export function createEmptyNoteWorkspaceState(scopeKey: string): NoteWorkspaceState {
   const pane = createInitialPane('note-pane-primary');
   return {
-    version: 2,
+    version: 3,
     scopeKey,
     tabs: {},
     panes: [pane],
+    layout: paneLeaf(pane.paneId),
+    zoomedPaneId: null,
     activePaneId: pane.paneId,
     drafts: {},
     recentlyClosedTabs: [],
@@ -227,47 +243,52 @@ function createDraftTab(): DraftOpenNoteTab {
   };
 }
 
+/** A pane goes when its last tab does, except the last pane, which stays to show the empty state. */
 function normalizePanes(state: NoteWorkspaceState): NotePane[] {
   const tabs = state.tabs;
-  const inputPanes = state.panes.slice(0, MAX_PANES);
-  const panes = inputPanes.map((pane) => {
-    const tabIds = pane.tabIds.filter((tabId, index, ids) => tabs[tabId] && ids.indexOf(tabId) === index);
-    const activeTabId = pane.activeTabId && tabIds.includes(pane.activeTabId)
-      ? pane.activeTabId
+  const panes = state.panes.slice(0, MAX_PANES).map(({ paneId, tabIds: inputTabIds, activeTabId: inputActiveTabId }) => {
+    const tabIds = inputTabIds.filter((tabId, index, ids) => tabs[tabId] && ids.indexOf(tabId) === index);
+    const activeTabId = inputActiveTabId && tabIds.includes(inputActiveTabId)
+      ? inputActiveTabId
       : tabIds[0] ?? null;
-    return { ...pane, size: normalizePaneSize(pane.size, inputPanes.length), tabIds, activeTabId };
+    return { paneId, tabIds, activeTabId };
   });
+  const withTabs = panes.filter((pane) => pane.tabIds.length > 0);
 
-  return panes.length > 0 ? panes : [createInitialPane('note-pane-primary')];
-}
-
-function normalizePaneSize(size: number, paneCount: number) {
-  if (paneCount <= 1) {
-    return 100;
-  }
-
-  return Number.isFinite(size)
-    ? Math.min(Math.max(size, MIN_PANE_SIZE), MAX_PANE_SIZE)
-    : 50;
+  if (withTabs.length > 0) return withTabs;
+  return panes.length > 0 ? [panes[0]] : [createInitialPane('note-pane-primary')];
 }
 
 function normalizeState(state: NoteWorkspaceState): NoteWorkspaceState {
   const panes = normalizePanes(state);
+  const layout = reconcileLayout(state.layout, panes.map((pane) => pane.paneId));
+  const paneOrder = layoutPaneIds(layout);
   const activePaneId = panes.some((pane) => pane.paneId === state.activePaneId)
     ? state.activePaneId
-    : panes[0].paneId;
+    : nearestRemainingPane(state, paneOrder);
+  const zoomedPaneId = state.zoomedPaneId && panes.length > 1 && state.zoomedPaneId === activePaneId
+    ? state.zoomedPaneId
+    : null;
   const tabIds = new Set(Object.keys(state.tabs));
   const drafts = Object.fromEntries(
     Object.entries(state.drafts).filter(([tabId]) => tabIds.has(tabId)),
   );
 
-  const normalizedBase = { ...state, panes, activePaneId, drafts };
+  const normalizedBase = { ...state, panes, layout, zoomedPaneId, activePaneId, drafts };
 
   return {
     ...normalizedBase,
     backStack: normalizeNavigationStack(normalizedBase, state.backStack),
     forwardStack: normalizeNavigationStack(normalizedBase, state.forwardStack),
   };
+}
+
+/** When the active pane closes, focus moves to the pane that came before it, as tabs do. */
+function nearestRemainingPane(state: NoteWorkspaceState, paneOrder: string[]) {
+  const previousOrder = state.layout ? layoutPaneIds(state.layout) : [];
+  const closedIndex = previousOrder.indexOf(state.activePaneId);
+  const before = previousOrder.slice(0, Math.max(closedIndex, 0)).reverse().find((paneId) => paneOrder.includes(paneId));
+  return before ?? paneOrder[0];
 }
 
 function pushRecentlyClosedTab(state: NoteWorkspaceState, tab: OpenNoteTab) {
@@ -496,8 +517,9 @@ export function reorderNoteTab(state: NoteWorkspaceState, paneId: string, tabId:
 }
 
 export function focusNotePane(state: NoteWorkspaceState, paneId: string) {
+  // Moving to another pane leaves zoom, so that pane can be seen.
   const next = state.panes.some((pane) => pane.paneId === paneId)
-    ? { ...state, activePaneId: paneId }
+    ? { ...state, activePaneId: paneId, zoomedPaneId: state.zoomedPaneId === paneId ? state.zoomedPaneId : null }
     : state;
   return withNavigationHistory(state, next);
 }
@@ -524,7 +546,7 @@ export function closeNoteTab(state: NoteWorkspaceState, tabId: string) {
       ? tabIds[Math.min(closedIndex, tabIds.length - 1)] ?? null
       : pane.activeTabId;
     return { ...pane, tabIds, activeTabId: nextActiveTabId };
-  }).filter((pane, index) => pane.tabIds.length > 0 || index === 0);
+  });
 
   return normalizeState({
     ...state,
@@ -681,7 +703,11 @@ export function reopenLastClosedTab(state: NoteWorkspaceState) {
   return withNavigationHistory(state, next);
 }
 
-export function splitActiveTabRight(state: NoteWorkspaceState) {
+/**
+ * Opens the active tab in a new pane beside the active one. A tab alone in its pane is copied, so
+ * neither pane is left empty; otherwise it moves.
+ */
+export function splitActivePane(state: NoteWorkspaceState, direction: PaneDirection) {
   const activePane = getActivePane(state);
   const activeTabId = activePane?.activeTabId;
   if (!activePane || !activeTabId || state.panes.length >= MAX_PANES) {
@@ -689,6 +715,7 @@ export function splitActiveTabRight(state: NoteWorkspaceState) {
   }
 
   const nextPane = createInitialPane();
+  const layout = splitLayoutPane(state.layout, activePane.paneId, nextPane.paneId, direction);
   if (activePane.tabIds.length === 1) {
     const sourceTab = state.tabs[activeTabId];
     const clonedTab = { ...sourceTab, tabId: createTabId() };
@@ -701,15 +728,9 @@ export function splitActiveTabRight(state: NoteWorkspaceState) {
       drafts: state.drafts[activeTabId]
         ? { ...state.drafts, [clonedTab.tabId]: state.drafts[activeTabId] }
         : state.drafts,
-      panes: [
-        ...state.panes.map((pane) => pane.paneId === activePane.paneId ? { ...pane, size: 50 } : pane),
-        {
-          ...nextPane,
-          tabIds: [clonedTab.tabId],
-          activeTabId: clonedTab.tabId,
-          size: 50,
-        },
-      ],
+      panes: [...state.panes, { ...nextPane, tabIds: [clonedTab.tabId], activeTabId: clonedTab.tabId }],
+      layout,
+      zoomedPaneId: null,
       activePaneId: nextPane.paneId,
     });
     return withNavigationHistory(state, next);
@@ -719,25 +740,28 @@ export function splitActiveTabRight(state: NoteWorkspaceState) {
     ...state,
     panes: [
       ...state.panes.map((pane) => pane.paneId === activePane.paneId
-        ? { ...pane, tabIds: pane.tabIds.filter((tabId) => tabId !== activeTabId), size: 50 }
+        ? { ...pane, tabIds: pane.tabIds.filter((tabId) => tabId !== activeTabId) }
         : pane),
-      {
-        ...nextPane,
-        tabIds: [activeTabId],
-        activeTabId,
-        size: 50,
-      },
+      { ...nextPane, tabIds: [activeTabId], activeTabId },
     ],
+    layout,
+    zoomedPaneId: null,
     activePaneId: nextPane.paneId,
   });
   return withNavigationHistory(state, next);
 }
 
+export function splitActiveTabRight(state: NoteWorkspaceState) {
+  return splitActivePane(state, 'right');
+}
+
+/** Moves the active tab to the next pane in reading order, wrapping around. */
 export function moveActiveTabToOtherPane(state: NoteWorkspaceState) {
   const activePane = getActivePane(state);
   const activeTabId = activePane?.activeTabId;
-  const targetPane = state.panes.find((pane) => pane.paneId !== activePane?.paneId);
-  if (!activePane || !activeTabId || !targetPane) {
+  const order = layoutPaneIds(state.layout);
+  const targetPaneId = order.length > 1 ? order[(order.indexOf(activePane?.paneId ?? '') + 1) % order.length] : null;
+  if (!activePane || !activeTabId || !targetPaneId || targetPaneId === activePane.paneId) {
     return state;
   }
 
@@ -748,7 +772,7 @@ export function moveActiveTabToOtherPane(state: NoteWorkspaceState) {
         return { ...pane, tabIds: pane.tabIds.filter((tabId) => tabId !== activeTabId) };
       }
 
-      if (pane.paneId === targetPane.paneId) {
+      if (pane.paneId === targetPaneId) {
         return {
           ...pane,
           tabIds: pane.tabIds.includes(activeTabId) ? pane.tabIds : [...pane.tabIds, activeTabId],
@@ -758,47 +782,66 @@ export function moveActiveTabToOtherPane(state: NoteWorkspaceState) {
 
       return pane;
     }),
-    activePaneId: targetPane.paneId,
+    activePaneId: targetPaneId,
   });
   return withNavigationHistory(state, next);
 }
 
-export function resizeNotePanes(state: NoteWorkspaceState, sizes: Record<string, number>) {
-  return normalizeState({
-    ...state,
-    panes: state.panes.map((pane) => ({
-      ...pane,
-      size: Number.isFinite(sizes[pane.paneId]) ? normalizePaneSize(sizes[pane.paneId], state.panes.length) : pane.size,
-    })),
-  });
+/** Applies the sizes one split reports, keyed by each child's panel id. */
+export function resizeNoteSplit(state: NoteWorkspaceState, splitId: string, sizes: Record<string, number>) {
+  return { ...state, layout: resizeLayoutSplit(state.layout, splitId, sizes) };
+}
+
+export function equalizeNotePanes(state: NoteWorkspaceState) {
+  return { ...state, layout: equalizeLayout(state.layout) };
 }
 
 export function focusAdjacentPane(state: NoteWorkspaceState, direction: 'next' | 'previous') {
-  if (state.panes.length <= 1) {
+  const order = layoutPaneIds(state.layout);
+  if (order.length <= 1) {
     return state;
   }
 
-  const currentIndex = Math.max(0, state.panes.findIndex((pane) => pane.paneId === state.activePaneId));
+  const currentIndex = Math.max(0, order.indexOf(state.activePaneId));
   const nextIndex = direction === 'next'
-    ? (currentIndex + 1) % state.panes.length
-    : (currentIndex - 1 + state.panes.length) % state.panes.length;
+    ? (currentIndex + 1) % order.length
+    : (currentIndex - 1 + order.length) % order.length;
 
-  return focusNotePane(state, state.panes[nextIndex].paneId);
+  return focusNotePane(state, order[nextIndex]);
 }
 
+export function focusPaneInDirection(state: NoteWorkspaceState, direction: PaneDirection) {
+  const paneId = paneInDirection(state.layout, state.activePaneId, direction);
+  return paneId ? focusNotePane(state, paneId) : state;
+}
+
+/** The active pane fills the editor area, or the others come back. One pane has nothing to zoom from. */
+export function toggleNotePaneZoom(state: NoteWorkspaceState) {
+  if (state.panes.length <= 1) return state;
+  return { ...state, zoomedPaneId: state.zoomedPaneId ? null : state.activePaneId };
+}
+
+/**
+ * Steps through every tab as one sequence, pane by pane in reading order: past the end of a pane it
+ * continues into the next pane, and past the last tab it wraps to the first.
+ */
 export function focusAdjacentTab(state: NoteWorkspaceState, direction: 'next' | 'previous') {
-  const pane = getActivePane(state);
-  if (!pane || pane.tabIds.length <= 1) {
+  const sequence = layoutPaneIds(state.layout).flatMap((paneId) => (
+    state.panes.find((pane) => pane.paneId === paneId)?.tabIds.map((tabId) => ({ paneId, tabId })) ?? []
+  ));
+  if (sequence.length <= 1) {
     return state;
   }
 
-  const currentIndex = pane.activeTabId ? pane.tabIds.indexOf(pane.activeTabId) : 0;
-  const safeIndex = currentIndex >= 0 ? currentIndex : 0;
-  const nextIndex = direction === 'next'
-    ? (safeIndex + 1) % pane.tabIds.length
-    : (safeIndex - 1 + pane.tabIds.length) % pane.tabIds.length;
+  const activePane = getActivePane(state);
+  const currentIndex = Math.max(0, sequence.findIndex((entry) => (
+    entry.paneId === activePane?.paneId && entry.tabId === activePane.activeTabId
+  )));
+  const next = sequence[direction === 'next'
+    ? (currentIndex + 1) % sequence.length
+    : (currentIndex - 1 + sequence.length) % sequence.length];
 
-  return selectNoteTab(state, pane.paneId, pane.tabIds[nextIndex]);
+  return selectNoteTab(state, next.paneId, next.tabId);
 }
 
 export function updateNoteTabDraft(state: NoteWorkspaceState, tabId: string, draft: NoteDocumentDraft) {
@@ -955,11 +998,12 @@ export function toPersistedNoteWorkspaceLayout(state: NoteWorkspaceState): Persi
   });
 
   return {
-    version: 2,
+    version: 3,
     scopeKey: state.scopeKey,
     tabs: persistedTabs,
     drafts: meaningfulDrafts,
     panes,
+    layout: state.layout,
     activePaneId: panes.some((pane) => pane.paneId === state.activePaneId)
       ? state.activePaneId
       : panes[0]?.paneId ?? 'note-pane-primary',
@@ -988,11 +1032,11 @@ export function hydrateNoteWorkspaceLayout(scopeKey: string, layout: unknown): N
 
   const value = layout as Partial<PersistedNoteWorkspaceLayout>;
   const layoutVersion = (layout as { version?: number }).version;
-  if ((layoutVersion !== 1 && layoutVersion !== 2) || value.scopeKey !== scopeKey || !value.tabs || !Array.isArray(value.panes)) {
+  if ((layoutVersion !== 1 && layoutVersion !== 2 && layoutVersion !== 3) || value.scopeKey !== scopeKey || !value.tabs || !Array.isArray(value.panes)) {
     return createEmptyNoteWorkspaceState(scopeKey);
   }
 
-  const persistedDrafts = layoutVersion === 2 && value.drafts && typeof value.drafts === 'object' ? value.drafts : {};
+  const persistedDrafts = layoutVersion !== 1 && value.drafts && typeof value.drafts === 'object' ? value.drafts : {};
   const tabs = Object.fromEntries(
     Object.entries(value.tabs).filter((entry): entry is [string, OpenNoteTab] => {
       const [tabId, tab] = entry;
@@ -1032,14 +1076,15 @@ export function hydrateNoteWorkspaceLayout(scopeKey: string, layout: unknown): N
       && pane.tabIds.every((tabId) => typeof tabId === 'string')
       && (typeof pane.activeTabId === 'string' || pane.activeTabId === null),
     ))
-    .map((pane) => ({ ...pane, size: normalizePaneSize(pane.size, value.panes?.length ?? 1) }))
     .slice(0, MAX_PANES);
 
   return normalizeState({
-    version: 2,
+    version: 3,
     scopeKey,
     tabs,
     panes,
+    layout: parsePaneLayout(value.layout) ?? legacyPaneLayout(value.panes) ?? paneLeaf(panes[0]?.paneId ?? 'note-pane-primary'),
+    zoomedPaneId: null,
     activePaneId: typeof value.activePaneId === 'string' ? value.activePaneId : panes[0]?.paneId ?? 'note-pane-primary',
     drafts: Object.fromEntries(Object.entries(persistedDrafts).flatMap(([tabId, value]) => {
       const draft = normalizePersistedDraft(value);
@@ -1048,6 +1093,23 @@ export function hydrateNoteWorkspaceLayout(scopeKey: string, layout: unknown): N
     recentlyClosedTabs: [],
     backStack: [],
     forwardStack: [],
+  });
+}
+
+/** Earlier layouts kept up to two panes side by side, each with its own size. */
+function legacyPaneLayout(panes: unknown[]): PaneLayoutNode | null {
+  const sized = panes.flatMap((pane) => {
+    const candidate = pane as { paneId?: unknown; size?: unknown } | null;
+    return typeof candidate?.paneId === 'string' ? [{ paneId: candidate.paneId, size: Number(candidate.size) }] : [];
+  });
+  if (sized.length === 0) return null;
+  if (sized.length === 1) return paneLeaf(sized[0].paneId);
+  return parsePaneLayout({
+    type: 'split',
+    id: 'note-split-root',
+    orientation: 'horizontal',
+    children: sized.map((pane) => paneLeaf(pane.paneId)),
+    sizes: sized.map((pane) => pane.size),
   });
 }
 

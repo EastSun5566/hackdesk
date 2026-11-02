@@ -23,7 +23,7 @@ function createApiMock() {
 
   return {
     api,
-    emitRefreshCommand: () => commandListener?.({ type: 'refresh' }),
+    emitRefreshCommand: (fromShortcut?: boolean) => commandListener?.(fromShortcut ? { type: 'refresh', fromShortcut } : { type: 'refresh' }),
     emitQuickCaptureCommand: (content: string, expiresAt = Date.now() + 1000) => commandListener?.({
       type: 'quick-capture:create-draft',
       content,
@@ -68,7 +68,11 @@ describe('useElectronHomeShellEffects', () => {
       emitRefreshCommand();
     });
 
-    expect(runAction).toHaveBeenCalledWith('refresh');
+    expect(runAction).toHaveBeenCalledWith('refresh', { quiet: undefined });
+    act(() => {
+      emitRefreshCommand(true);
+    });
+    expect(runAction).toHaveBeenLastCalledWith('refresh', { quiet: true });
 
     unmount();
 

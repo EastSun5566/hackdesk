@@ -23,7 +23,10 @@ function actionMenuItem(
     accelerator: rendererHandled || keybinding === 'none'
       ? undefined
       : toMenuAccelerator(keybinding, process.platform),
-    click: () => sendCommand({ type: action.id }),
+    // On Windows and Linux an accelerator reaches the menu before the page, so the page is told it was a key.
+    click: (_item: Electron.MenuItem, _window: Electron.BaseWindow | undefined, event: Electron.KeyboardEvent) => (
+      sendCommand(event?.triggeredByAccelerator ? { type: action.id, fromShortcut: true } : { type: action.id })
+    ),
   };
 }
 

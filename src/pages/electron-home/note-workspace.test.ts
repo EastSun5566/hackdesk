@@ -24,11 +24,18 @@ import {
   reorderNoteTab,
   reconcileSavedNoteTab,
   selectNoteTab,
+  splitActivePane,
   splitActiveTabRight,
   syncNoteTabSummary,
+  equalizeNotePanes,
+  focusPaneInDirection,
+  toggleNotePaneZoom,
+  focusNotePane,
+  MAX_PANES,
   toPersistedNoteWorkspaceLayout,
   updateNoteTabDraft,
 } from './note-workspace';
+import { layoutPaneIds, type PaneLayoutNode } from './pane-layout';
 
 function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id' | 'title'>): NoteSummary {
   return {
@@ -166,13 +173,13 @@ describe('note workspace tabs', () => {
     expect(hydrated.panes[0]).toMatchObject({ tabIds: [], activeTabId: null });
   });
 
-  it('persists only meaningful provisional drafts in schema version 2', () => {
+  it('persists only meaningful provisional drafts in schema version 3', () => {
     const withDraft = openDraftNoteTab(createEmptyNoteWorkspaceState('personal'), { content: 'Recover me' });
     const persisted = toPersistedNoteWorkspaceLayout(withDraft);
     const hydrated = hydrateNoteWorkspaceLayout('personal', persisted);
     const tab = getActiveTab(hydrated);
 
-    expect(persisted.version).toBe(2);
+    expect(persisted.version).toBe(3);
     expect(isDraftNoteTab(tab)).toBe(true);
     expect(hydrated.drafts[tab?.tabId ?? '']?.content).toBe('Recover me');
   });
@@ -361,7 +368,7 @@ describe('note workspace tabs', () => {
 
     expect(Object.values(hydrated.tabs)).toHaveLength(0);
     expect(hydrated.panes).toHaveLength(1);
-    expect(hydrated.panes[0]).toMatchObject({ tabIds: [], activeTabId: null, size: 100 });
+    expect(hydrated.panes[0]).toMatchObject({ tabIds: [], activeTabId: null });
   });
 
   it('normalizes corrupted pane sizes on hydrate and resize', () => {
@@ -379,7 +386,8 @@ describe('note workspace tabs', () => {
       activePaneId: split.activePaneId,
     });
 
-    expect(hydrated.panes.map((pane) => pane.size)).toEqual([10, 90]);
+    // Earlier layouts kept a size on each pane; unusable sizes become an even split.
+    expect(hydrated.layout).toMatchObject({ type: 'split', orientation: 'horizontal', sizes: [50, 50] });
   });
 
   it('cycles tabs inside the active pane', () => {
@@ -503,3 +511,100 @@ describe('pane tab order', () => {
     expect(closed.panes[0].tabIds).toEqual(reordered.panes[0].tabIds.slice(0, 2));
   });
 });
+
+describe('note workspace panes', () => {
+  // Three notes, so splitting moves tabs instead of copying a lone one.
+  function withNotes(count = 3) {
+    return Array.from({ length: count }, (_, index) => note({ id: `n${index}`, title: `Note ${index}` }))
+      .reduce((current, item) => openNoteTab(current, item), createEmptyNoteWorkspaceState('personal'));
+  }
+
+  function shape(node: PaneLayoutNode, names: Record<string, string>): unknown {
+    return node.type === 'pane'
+      ? names[node.paneId]
+      : { [node.orientation === 'horizontal' ? 'row' : 'column']: node.children.map(child => shape(child, names)) };
+  }
+
+  it('splits right then down into an L, and finds panes by direction', () => {
+    const start = withNotes();
+    const left = start.activePaneId;
+    const right = splitActivePane(start, 'right');
+    const top = right.activePaneId;
+    const l = splitActivePane(selectNoteTab(right, top, right.panes[1].tabIds[0]), 'down');
+    const bottom = l.activePaneId;
+    const names = { [left]: 'left', [top]: 'top', [bottom]: 'bottom' };
+
+    expect(shape(l.layout, names)).toEqual({ row: ['left', { column: ['top', 'bottom'] }] });
+    expect(focusPaneInDirection(l, 'up').activePaneId).toBe(top);
+    expect(focusPaneInDirection(l, 'left').activePaneId).toBe(left);
+    expect(focusPaneInDirection(focusNotePane(l, left), 'right').activePaneId).toBe(top);
+    expect(focusPaneInDirection(l, 'down')).toBe(l);
+  });
+
+  it('closes a pane with its last tab, folding its split, and focuses the pane before it', () => {
+    const l = splitActivePane(splitActivePane(withNotes(), 'right'), 'down');
+    const bottom = l.activePaneId;
+    const closed = closeNoteTab(l, l.panes.find(pane => pane.paneId === bottom)!.tabIds[0]);
+
+    expect(closed.panes).toHaveLength(2);
+    expect(layoutPaneIds(closed.layout)).not.toContain(bottom);
+    expect(closed.layout).toMatchObject({ type: 'split', orientation: 'horizontal' });
+    expect(closed.activePaneId).toBe(layoutPaneIds(closed.layout)[1]);
+  });
+
+  it('steps through tabs across panes in reading order, wrapping at the ends', () => {
+    // Left pane keeps n0 and n1; the right pane gets n2.
+    const split = splitActiveTabRight(withNotes());
+    const [left, right] = layoutPaneIds(split.layout);
+    const leftPane = split.panes.find(pane => pane.paneId === left)!;
+    const atLastLeft = selectNoteTab(split, left, leftPane.tabIds.at(-1)!);
+
+    const intoRight = focusAdjacentTab(atLastLeft, 'next');
+    expect(intoRight.activePaneId).toBe(right);
+    const backToLeft = focusAdjacentTab(intoRight, 'previous');
+    expect([backToLeft.activePaneId, getActiveTab(backToLeft)?.tabId]).toEqual([left, leftPane.tabIds.at(-1)]);
+    // Past the last tab of the last pane, it wraps to the first tab of the first pane.
+    const wrapped = focusAdjacentTab(intoRight, 'next');
+    expect([wrapped.activePaneId, getActiveTab(wrapped)?.tabId]).toEqual([left, leftPane.tabIds[0]]);
+  });
+
+  it(`stops at ${MAX_PANES} panes`, () => {
+    let state = withNotes(MAX_PANES + 1);
+    for (let split = 0; split < MAX_PANES + 2; split++) state = splitActivePane(state, split % 2 ? 'down' : 'right');
+    expect(state.panes).toHaveLength(MAX_PANES);
+    expect(layoutPaneIds(state.layout)).toHaveLength(MAX_PANES);
+  });
+
+  it('zooms the active pane and leaves zoom when splitting or moving to another pane', () => {
+    expect(toggleNotePaneZoom(withNotes()).zoomedPaneId).toBeNull();
+    const split = splitActiveTabRight(withNotes());
+    const zoomed = toggleNotePaneZoom(split);
+    expect(zoomed.zoomedPaneId).toBe(split.activePaneId);
+    expect(toggleNotePaneZoom(zoomed).zoomedPaneId).toBeNull();
+    expect(focusPaneInDirection(zoomed, 'left').zoomedPaneId).toBeNull();
+    expect(splitActivePane(zoomed, 'down').zoomedPaneId).toBeNull();
+    // Closing the zoomed pane leaves nothing zoomed.
+    const zoomedPane = zoomed.panes.find(pane => pane.paneId === zoomed.zoomedPaneId)!;
+    expect(closeNoteTab(zoomed, zoomedPane.tabIds[0]).zoomedPaneId).toBeNull();
+  });
+
+  it('saves the layout, but not zoom, and upgrades side-by-side layouts from before', () => {
+    const l = equalizeNotePanes(splitActivePane(splitActivePane(withNotes(), 'right'), 'down'));
+    const restored = hydrateNoteWorkspaceLayout('personal', JSON.parse(JSON.stringify(toPersistedNoteWorkspaceLayout(toggleNotePaneZoom(l)))));
+    expect(restored.layout).toEqual(l.layout);
+    expect(restored.zoomedPaneId).toBeNull();
+
+    const twoPanes = splitActiveTabRight(withNotes());
+    const legacy = hydrateNoteWorkspaceLayout('personal', {
+      version: 2,
+      scopeKey: 'personal',
+      tabs: twoPanes.tabs,
+      drafts: {},
+      panes: twoPanes.panes.map((pane, index) => ({ ...pane, size: index ? 70 : 30 })),
+      activePaneId: twoPanes.activePaneId,
+    });
+    expect(legacy.layout).toMatchObject({ type: 'split', orientation: 'horizontal', sizes: [30, 70] });
+    expect(layoutPaneIds(legacy.layout)).toEqual(twoPanes.panes.map(pane => pane.paneId));
+  });
+});
+

@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'react';
 
+import { MAX_NOTE_PANES } from '@/lib/electron-actions';
 import { cn } from '@/lib/utils';
 
 import { AppTopBar } from './AppTopBar';
@@ -31,7 +32,7 @@ export type ElectronHomeWorkspaceProps = {
     layout: {
       navigatorCollapsed: boolean;
     };
-    state: Pick<NoteWorkspaceState, 'scopeKey' | 'activePaneId' | 'backStack' | 'forwardStack' | 'panes' | 'recentlyClosedTabs'>;
+    state: Pick<NoteWorkspaceState, 'scopeKey' | 'activePaneId' | 'backStack' | 'forwardStack' | 'panes' | 'recentlyClosedTabs' | 'zoomedPaneId'>;
     actions: {
       moveActiveTabToOtherPane: () => void;
       navigateBack: () => void;
@@ -43,6 +44,9 @@ export type ElectronHomeWorkspaceProps = {
       selectTab: (paneId: string, tabId: string) => void;
       reorderTab: (paneId: string, tabId: string, overTabId: string) => void;
       splitActiveTab: () => void;
+      splitActivePaneDown: () => void;
+      togglePaneZoom: () => void;
+      equalizePanes: () => void;
       toggleNavigator: () => void;
     };
   };
@@ -96,10 +100,16 @@ export function ElectronHomeWorkspace({
           }
         }}
         onSplitPane={titlebar.actions.splitActiveTab}
+        paneLayout={{
+          zoomed: Boolean(titlebar.state.zoomedPaneId),
+          onSplitDown: titlebar.actions.splitActivePaneDown,
+          onToggleZoom: titlebar.actions.togglePaneZoom,
+          onEqualize: titlebar.actions.equalizePanes,
+        }}
         paneActions={{
           canMoveToOtherPane: titlebar.state.panes.length > 1,
           canReopenLastClosedTab: titlebar.state.recentlyClosedTabs.length > 0,
-          canSplit: titlebar.state.panes.length < 2,
+          canSplit: titlebar.state.panes.length < MAX_NOTE_PANES,
         }}
         platform={window.hackdeskAPI?.platform ?? 'unknown'}
         navigatorCollapsed={titlebar.layout.navigatorCollapsed}

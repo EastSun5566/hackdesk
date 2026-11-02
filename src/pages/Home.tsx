@@ -20,7 +20,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { useTheme } from '@/components/theme-provider';
 import { getDesktopAPI } from '@/lib/desktop-api';
-import { clearNoteFinderQuery } from '@/lib/electron-note-finder';
+import { DEFAULT_NOTE_FINDER_STATE } from '@/lib/electron-note-finder';
 import type { FolderSummary } from '@/lib/electron-api';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { getNoteCurrentFolderId } from '@/lib/hackmd-note-dnd';
@@ -243,10 +243,17 @@ export function Home() {
     toast.info(shortcut ? `Hack Mode · Press ${shortcut.split(', ')[0]} to leave` : 'Hack Mode');
     if (!document.activeElement?.closest('[data-hackdesk-focus="editor"]')) focusZone('editor');
   }, [api?.platform, focusZone, hackMode, settingsQuery.data?.shortcuts]);
+  const togglePaneZoom = useCallback(() => {
+    const zooming = !noteWorkspace.state.zoomedPaneId;
+    noteWorkspace.togglePaneZoom();
+    if (!zooming) return;
+    const shortcut = getResolvedActionShortcut('toggle-pane-zoom', settingsQuery.data?.shortcuts, api?.platform ?? navigator.platform);
+    toast.info(shortcut ? `Pane zoomed · Press ${shortcut.split(', ')[0]} to restore` : 'Pane zoomed');
+  }, [api?.platform, noteWorkspace, settingsQuery.data?.shortcuts]);
   // Actions that need the hidden sidebar leave Hack Mode first.
-  const focusZoneShowingSidebar = useCallback((zone: Parameters<typeof focusZone>[0]) => {
+  const focusZoneShowingSidebar = useCallback((...[zone, options]: Parameters<typeof focusZone>) => {
     if (zone === 'navigator') setHackMode(false);
-    focusZone(zone);
+    focusZone(zone, options);
   }, [focusZone]);
   const activeDocumentNotes = useMemo(() => (
     noteWorkspace.visibleActiveTabs
@@ -462,11 +469,11 @@ export function Home() {
     visibleEntries,
   } = workbenchNavigator;
   // The note header's location: a folder opens, is selected and takes focus in the tree; the
-  // workspace selects none and focuses the sidebar. A search shows results instead of the tree, so
-  // it is cleared first.
+  // workspace selects none and focuses the sidebar. Any search, filter, scope or sort shows results
+  // instead of the tree, so the finder goes back to its defaults first.
   const revealFolder = useCallback((folderIds: string[]) => {
     const folderId = folderIds.at(-1);
-    setFinderState(current => clearNoteFinderQuery(current));
+    setFinderState(DEFAULT_NOTE_FINDER_STATE);
     expandNavigator();
     revealFolderIds(folderIds);
     setSelectedFolderId(folderId ?? null);
@@ -693,6 +700,10 @@ export function Home() {
     duplicateActiveTab: noteWorkspace.duplicateActiveTab,
     exportMarkdown: handleExportMarkdown,
     focusNextPane: noteWorkspace.focusNextPane,
+    focusPaneToward: noteWorkspace.focusPaneToward,
+    togglePaneZoom,
+    equalizePanes: noteWorkspace.equalizePanes,
+    splitActivePaneDown: noteWorkspace.splitActivePaneDown,
     focusNextTab: noteWorkspace.focusNextTab,
     focusPreviousPane: noteWorkspace.focusPreviousPane,
     focusPreviousTab: noteWorkspace.focusPreviousTab,
@@ -792,6 +803,8 @@ export function Home() {
     workspaceState: noteWorkspace.state,
   });
 
+  // A shortcut with nothing to do does nothing, as in other editors, instead of explaining itself.
+  const runShortcutAction = useCallback((id: Parameters<typeof runAction>[0]) => runAction(id, { quiet: true }), [runAction]);
   const runPaletteAction = useCallback((id: Parameters<typeof runAction>[0]) => {
     const context = getElectronAction(id).keyboardContext;
     if (context === 'region' || context === 'scroll') {
@@ -900,7 +913,7 @@ export function Home() {
     openLeaderMenu,
     platform: api?.platform ?? navigator.platform,
     refreshWorkspace,
-    runAction,
+    runAction: runShortcutAction,
     selectedFolderId,
     setFinderState,
     setSelectedFolderId,
@@ -959,6 +972,7 @@ export function Home() {
     localVaultId: vaultSession.vaultId,
     uploadingTabIds,
     actions: {
+      togglePaneZoom,
       attachImageToTab,
       cancelImageUpload,
       copyDraftText,
