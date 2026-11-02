@@ -40,10 +40,11 @@ describe('front matter completions', () => {
     ['breaks: tr|  # 中文註解', 'true', 'breaks: true  # 中文註解'],
     ['breaks: | # keep the comment', 'false', 'breaks: false # keep the comment'],
     ['breaks: |# keep the comment', 'false', 'breaks: false # keep the comment'],
+    ['breaks: tr|# literal hash', 'true', 'breaks: true# literal hash'],
     ['slideOptions:\n  theme: so|larized\t# theme', 'solarized', 'slideOptions:\n  theme: solarized\t# theme'],
     ['slideOptions:\n  transition: fa| # slow', 'fade', 'slideOptions:\n  transition: fade # slow'],
     ['robots: no|index, nofollow # privacy', 'noindex, nofollow', 'robots: noindex, nofollow # privacy'],
-  ])('preserves comments and spacing when completing %s', async (marked, value, completed) => {
+  ])('preserves trailing text when completing %s', async (marked, value, completed) => {
     const before = `---\n${marked.replace('|', '')}\n---`;
     const cursor = marked.indexOf('|') + '---\n'.length;
     const view = setup(before, cursor);
