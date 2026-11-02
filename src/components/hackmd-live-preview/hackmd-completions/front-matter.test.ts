@@ -1,4 +1,6 @@
 import { currentCompletions, startCompletion } from '@codemirror/autocomplete';
+import { history, redo, undo } from '@codemirror/commands';
+import { StateEffect } from '@codemirror/state';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { choose, labels, offersWhileTyping, setup } from './test-utils';
@@ -33,11 +35,41 @@ describe('front matter completions', () => {
     expect(transition.state.doc.toString()).toBe('---\nslideOptions:\n  transition: fade\n---');
   });
 
+  it.each([
+    ['breaks: tr|ue # keep this explanation', 'true', 'breaks: true # keep this explanation'],
+    ['breaks: tr|  # 中文註解', 'true', 'breaks: true  # 中文註解'],
+    ['breaks: | # keep the comment', 'false', 'breaks: false # keep the comment'],
+    ['breaks: |# keep the comment', 'false', 'breaks: false # keep the comment'],
+    ['breaks: tr|# literal hash', 'true', 'breaks: true# literal hash'],
+    ['slideOptions:\n  theme: so|larized\t# theme', 'solarized', 'slideOptions:\n  theme: solarized\t# theme'],
+    ['slideOptions:\n  transition: fa| # slow', 'fade', 'slideOptions:\n  transition: fade # slow'],
+    ['robots: no|index, nofollow # privacy', 'noindex, nofollow', 'robots: noindex, nofollow # privacy'],
+  ])('preserves trailing text when completing %s', async (marked, value, completed) => {
+    const before = `---\n${marked.replace('|', '')}\n---`;
+    const cursor = marked.indexOf('|') + '---\n'.length;
+    const view = setup(before, cursor);
+    view.dispatch({ effects: StateEffect.appendConfig.of(history()) });
+    try {
+      await choose(view, value);
+      const after = `---\n${completed}\n---`;
+      expect(view.state.doc.toString()).toBe(after);
+      expect(view.state.doc.sliceString(view.state.selection.main.head - value.length, view.state.selection.main.head)).toBe(value);
+      expect(undo(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe(before);
+      expect(redo(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe(after);
+    } finally {
+      view.destroy();
+    }
+  });
+
   it('stays quiet outside front matter, under other keys, and until a letter is typed', async () => {
     expect(await offersWhileTyping('Intro\nty')).toBe(false);
     expect(await offersWhileTyping('---\ntitle: x\n  th|\n---')).toBe(false);
     expect(await offersWhileTyping('---\n|\n---')).toBe(false);
     expect(await offersWhileTyping('---\nti|\n---')).toBe(true);
+    expect(await offersWhileTyping('---\nbreaks: "tr| # quoted"\n---')).toBe(false);
+    expect(await offersWhileTyping('---\nbreaks: true # tr|\n---')).toBe(false);
   });
 });
 

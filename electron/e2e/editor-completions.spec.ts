@@ -126,7 +126,9 @@ test('typing suggests front matter, alerts, metadata and slide attributes', asyn
   const vault = join(home, 'vault');
   await mkdir(join(home, '.hackdesk'), { recursive: true });
   await mkdir(vault);
-  await writeFile(join(vault, 'Deck.md'), '---\n\n---\n# Deck\n');
+  const notePath = join(vault, 'Deck.md');
+  const original = '---\nbreaks: tr  # Keep this explanation\n---\n# Deck\n';
+  await writeFile(notePath, original);
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
     ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
   }));
@@ -143,6 +145,23 @@ test('typing suggests front matter, alerts, metadata and slide attributes', asyn
     await editor.click();
     await page.keyboard.press('ControlOrMeta+Home');
     await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Home');
+    for (let i = 0; i < 'breaks: tr'.length; i += 1) await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Control+Space');
+    await choose(page, 'true');
+    const expectSaved = async (content: string) => {
+      await page.keyboard.press('ControlOrMeta+s');
+      await expect.poll(() => readFile(notePath, 'utf8')).toBe(content);
+      await expect(page.getByRole('status', { name: /Sync state: (Saved|Synced)/ })).toBeVisible();
+    };
+    const completed = original.replace('breaks: tr ', 'breaks: true ');
+    await expectSaved(completed);
+    await page.keyboard.press('ControlOrMeta+z');
+    await expectSaved(original);
+    await page.keyboard.press('ControlOrMeta+Shift+z');
+    await expectSaved(completed);
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
 
     await page.keyboard.type('ty');
     await choose(page, 'type');
@@ -175,6 +194,7 @@ test('typing suggests front matter, alerts, metadata and slide attributes', asyn
     await expect(page.getByRole('status', { name: /Sync state: (Saved|Synced)/ })).toBeVisible();
     await expect.poll(() => readFile(join(vault, 'Deck.md'), 'utf8')).toMatch(new RegExp([
       '^---',
+      'breaks: true  # Keep this explanation',
       'type: slide',
       'slideOptions:',
       '  theme: solarized',
