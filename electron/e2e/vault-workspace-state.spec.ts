@@ -16,7 +16,7 @@ async function launch(home: string) {
   await expect.poll(() => app.windows().some((page) => page.url().includes('#/electron'))).toBe(true);
   const page = app.windows().find((candidate) => candidate.url().includes('#/electron'))!;
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  return { app, page };
+  return { app, page, appProcess: app.process() };
 }
 
 async function stop(app: ElectronApplication) {
@@ -61,7 +61,7 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
   await writeFile(join(vaultA, 'A folder', 'A note.md'), '# A note\n\nOnly in A.');
   await writeFile(join(vaultB, 'B note.md'), '# B note\n\nOnly in B.');
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({ ...defaultSettings, localVault: { path: vaultA }, onboarding: { hackmdTokenSetupDeferred: true } }));
-  let { app, page } = await launch(home);
+  let { app, page, appProcess } = await launch(home);
   try {
     await expect(page.locator('.cm-content')).toContainText('Only in A.');
     await page.getByRole('button', { name: 'Collapse A folder', exact: true }).click();
@@ -106,12 +106,12 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
     await expect.poll(() => page.evaluate(() => Object.keys(localStorage)
       .filter(key => key.startsWith('hackdesk_note_workspace:'))
       .some(key => (JSON.parse(localStorage.getItem(key) ?? '{}').panes ?? []).length === 3))).toBe(true);
-    // Commit Chromium's DOM storage to disk before simulating a process crash.
-    await app.evaluate(({ BrowserWindow }) => {
-      for (const window of BrowserWindow.getAllWindows()) window.webContents.session.flushStorageData();
+    // Exercise a normal restart; flushStorageData has no completion signal before SIGKILL.
+    await app.evaluate(({ app: electronApp }) => {
+      setImmediate(() => electronApp.quit());
     });
-    await stop(app);
-    ({ app, page } = await launch(home));
+    await expect.poll(() => appProcess.exitCode).toBe(0);
+    ({ app, page, appProcess } = await launch(home));
     await expect(page.locator('.cm-content').last()).toContainText('Draft A — latest input');
     await expect(page.locator('[data-active-pane]')).toHaveCount(3);
     const columns = await page.locator('[data-active-pane]').evaluateAll(elements => new Set(elements.map(element => Math.round(element.getBoundingClientRect().x))).size);
@@ -121,7 +121,7 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
     await expect(page.locator('.cm-content')).toContainText('Draft B');
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((window) => window.webContents.getURL().includes('#/electron'))?.show());
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('vault-B-restored.png') });
-  } finally { await stop(app); }
+  } finally { if (appProcess.exitCode === null) await stop(app); }
 });
 
 test('Quick Hack rejects capture during a native vault picker and keeps popup text', async () => {
