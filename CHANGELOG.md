@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.0.0-beta.10](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.9...v2.0.0-beta.10) (2026-11-03)
+
+### Workbench
+
+* Switch workspaces from the sidebar and see shortcuts for the current region at the bottom of the window.
+* Run commands from the leader menu with Space outside text editing, or Cmd+J / Ctrl+J.
+* Split panes right or down, move between them by direction, equalize their sizes, and zoom a pane.
+* Focus on a note with Hack Mode, open Note Details as an overlay, and use a quieter layout with fewer dividers and shorter labels.
+
+### Editing and fixes
+
+* Complete emoji, code languages, containers, embeds, alerts, front matter, tags and slide attributes while typing.
+* Preserve existing code blocks and YAML comments when accepting completions.
+* Keep editor selection, scroll and undo history when splitting or collapsing panes, and restore pane sizes consistently.
+* Use configured shortcuts in key hints, ignore held-key repeats in the leader menu, and show the correct Local Vault labels in the palette.
+* Update dependencies for security fixes.
+
+### Beta notes
+
+* Beta installers remain unsigned. Automatic updates remain disabled. Download beta.10 manually and close the previous version before opening it.
+* Older betas cannot restore beta.10's workspace layouts, including tabs and unsaved drafts. Back up app data before downgrading.
+
 ## [2.0.0-beta.9](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.8...v2.0.0-beta.9) (2026-10-28)
 
 ### Offline and search
