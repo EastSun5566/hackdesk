@@ -4,46 +4,38 @@ outline: deep
 
 # Get started
 
-Open a local Markdown folder or connect HackMD, then create and save a note. [Install HackDesk](./install.md) before following these steps.
-
-::: info Version
-These guides follow the current v2 development build. Published betas can differ. Screenshots use fictional demonstration data.
-:::
+[Install HackDesk](./install.md), open a Markdown folder or connect HackMD, then save your first note.
 
 ## Open a Local Vault
 
-A Local Vault is a folder of Markdown files on your computer. It does not require an account.
+A Local Vault is a folder of Markdown files. No account is required.
 
-1. Open HackDesk and choose **Open local folder**.
-2. Select an existing Markdown folder or an empty folder for new notes.
-3. Select a note in the navigator to open it.
+1. Choose **Open local folder** on the welcome screen, or **Settings → Vault → Change Vault**.
+2. Select a Markdown folder or an empty folder.
+3. Select a note in the sidebar to open it.
 
-HackDesk reads Markdown files from the selected folder. [Work with notes](./features.md) explains folders, tabs, and split panes.
+Each vault keeps its own tabs and recoverable drafts. Opening a vault does not upload its files to HackMD.
 
 ## Connect HackMD
 
-Connect your account to browse personal notes and team workspaces.
-
 1. Create an API token in [HackMD settings](https://hackmd.io/settings#api).
-2. Open HackDesk **Settings → HackMD**.
+2. Open **Settings → HackMD**.
 3. Paste the token into **API Token** and choose **Save**.
-4. Choose the workspace name at the top of the sidebar, then **My Workspace** or a team.
+4. Open the workspace switcher at the top of the sidebar. Choose **My Workspace** or a team.
 
-HackDesk validates and stores the token locally using operating-system encryption. Keep tokens out of shared screenshots and configuration examples.
+HackDesk validates the token and encrypts it with the operating system. Do not include it in shared screenshots or configuration files.
 
-![HackMD settings showing a fictional connected account without displaying an API token](/api-integration.png)
+![HackMD settings with an empty API Token field](/api-integration.png)
 
-*V2 development build with a fictional connected account. No token is shown.*
+*HackDesk beta.10. Demonstration data; no token is shown.*
 
 ## Create and save a note
 
-Create notes in the selected workspace. In a Local Vault, saving writes a Markdown file; in a HackMD workspace, saving sends the note to HackMD.
+1. Select a workspace and, optionally, a folder.
+2. Press **Cmd+N** on macOS or **Ctrl+N** on Windows/Linux.
+3. Write your note. The first line becomes its title when saved.
+4. Press **Cmd+S** / **Ctrl+S**, or choose **Save** in the note toolbar.
 
-1. Select the destination workspace and, optionally, a folder.
-2. Choose **New Note** from the command palette or press **Cmd+N** on macOS, **Ctrl+N** on Windows/Linux.
-3. Enter a title and Markdown content.
-4. Choose **Save** in the document toolbar, or press **Cmd+S** / **Ctrl+S**.
+Saving writes a Markdown file in a Local Vault or sends the note to HackMD. The dot on the tab clears when the save finishes. A recovery copy protects unsaved work; it does not replace saving.
 
-Wait for the dot on the note's tab to clear before treating the note as written to its destination. A recoverable draft is not the same as a saved file or HackMD note.
-
-Continue with [Quick Hack](./quick-hack.md) to capture a draft from another app, or [keyboard navigation](./keyboard-navigation.md) to move through the workbench.
+Next, [arrange notes in panes](./features.md#arrange-tabs-and-panes), [capture a draft with Quick Hack](./quick-hack.md), or [learn the keyboard controls](./keyboard-navigation.md).

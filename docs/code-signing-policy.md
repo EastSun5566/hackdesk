@@ -22,8 +22,7 @@ manual approval by the release approver. Production signing is not enabled yet.
 
 ## Privacy and network behavior
 
-This describes the current v2 desktop app and the separate documentation website. A local vault does not upload its Markdown files merely
-because it is opened. Using a local vault is not a guarantee of no network traffic:
+Opening a Local Vault does not upload its files. Other features can use the network as described below. The documentation website is separate from the desktop app.
 
 - **HackMD:** Connecting an account sends its API token to `api.hackmd.io` for
   authentication. With a token configured, HackDesk can automatically fetch account
@@ -44,7 +43,7 @@ because it is opened. Using a local vault is not a guarantee of no network traff
 - **Offline copies and search:** HackDesk keeps the HackMD notes you open, the
   workspace lists it showed, and a text index of the active Local Vault in
   `~/.hackdesk/cache`, readable only by your user account and not encrypted, like
-  the vault's own files. Nothing is sent anywhere. HackMD copies are removed when
+  the vault's own files. These copies and the search index stay on your computer. HackMD copies are removed when
   you disconnect HackMD, change the token, or sign in as another account, and you
   can turn them off or clear them in **Settings → General → Offline and search**.
 - **Dictation:** Off by default and available on macOS 26 or later. HackDesk

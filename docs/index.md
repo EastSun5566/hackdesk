@@ -21,6 +21,10 @@ hero:
       link: https://github.com/EastSun5566/hackdesk
 ---
 
-The guides follow the current v2 development build. Start with a [Local Vault or HackMD account](./intro.md), learn to [work with notes](./features.md), or explore [keyboard navigation](./keyboard-navigation.md).
+Open a [Local Vault or HackMD account](./intro.md), [arrange your notes](./features.md), or [navigate with the keyboard](./keyboard-navigation.md).
+
+![HackDesk showing demonstration notes in split panes](/editor.png)
+
+*HackDesk beta.10 with demonstration notes.*
 
 [Code signing policy](./code-signing-policy.md)

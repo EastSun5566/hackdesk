@@ -25,7 +25,7 @@ Download the v2 beta for your platform. Betas are unsigned and use manual update
 </template>
 <p v-else>No beta download is available in this listing. Check <a :href="data.releasesUrl" target="_blank" rel="noreferrer">GitHub Releases</a>.</p>
 
-V2 guides and demonstration screenshots follow the current development build. Some details can differ from the published beta.
+These guides and screenshots cover beta.10. Main previews may differ.
 
 ### macOS
 
@@ -57,6 +57,8 @@ chmod +x ./hackdesk_download.AppImage
 Save open notes, quit HackDesk, and download the next beta manually. V2 reuses the settings folder at `~/.hackdesk` or `%USERPROFILE%\.hackdesk`.
 
 If upgrading from beta.4 or earlier, save all edits before closing the old version. Beta.4 cannot restore unsaved edits to existing notes after restart.
+
+Beta.10 uses a newer workspace layout. Older betas cannot restore its tabs, panes, or unsaved drafts. Save your work and back up your settings before downgrading.
 
 V0.1.x does not update to v2 automatically. Install the v2 beta separately, following the platform steps above.
 
