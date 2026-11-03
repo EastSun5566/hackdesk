@@ -10,6 +10,7 @@ import * as noteFinder from '@/lib/electron-note-finder';
 import { HACKDESK_THEME_PRESETS } from '@/lib/themes';
 
 import { CommandPaletteDialog } from './CommandPaletteDialog';
+import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 
 const context: ElectronActionContext = {
   activeTabIsDraft: false,
@@ -191,6 +192,28 @@ describe('CommandPaletteDialog', () => {
     props.rerender({ recentNotes: [] });
     expect(noteSearch).toHaveBeenCalledTimes(3);
     expect(folderSearch).toHaveBeenCalledTimes(2);
+  });
+
+  it('labels local recent and search results without exposing the internal team marker', () => {
+    const localNote = note({ id: 'local-1', title: 'Local plan', teamPath: LOCAL_VAULT_TEAM_PATH });
+    const recent = { lastOpenedAtMillis: 500, noteId: localNote.id, shortId: localNote.shortId, teamPath: LOCAL_VAULT_TEAM_PATH, vaultId: 'vault-1', title: localNote.title };
+    const props = renderPalette({
+      context: { ...context, scopeType: 'local' },
+      scope: { type: 'local', label: 'Local Vault' },
+      recentNotes: [recent],
+      folderTree: buildHackmdFolderTree([localNote]),
+    });
+    const result = () => screen.getByRole('option', { name: /^Local plan/ });
+    expect(result()).toHaveTextContent('Local Vault');
+    expect(result()).not.toHaveTextContent(LOCAL_VAULT_TEAM_PATH);
+    fireEvent.click(result());
+    expect(props.onSelectRecentNote).toHaveBeenCalledWith(recent);
+
+    props.rerender({ state: { mode: 'quick-open', open: true, search: 'Local plan' } });
+    expect(result()).toHaveTextContent('Local Vault');
+    expect(result()).not.toHaveTextContent('My Workspace');
+    fireEvent.click(result());
+    expect(props.onSelectNote).toHaveBeenCalledWith(expect.objectContaining({ note: localNote }));
   });
 
   it('shows a contextual home without duplicating recent notes', () => {
@@ -377,7 +400,7 @@ describe('CommandPaletteDialog', () => {
     });
 
     expect(screen.getByText('Current theme')).toBeInTheDocument();
-    expect(screen.getByText('Current theme · Already active')).toBeVisible();
+    expect(screen.getByRole('option', { name: /Solarized.*Current theme/ })).toHaveAttribute('aria-disabled', 'true');
     expect(onSelectThemeMode).not.toHaveBeenCalled();
     expect(onSelectThemePreset).not.toHaveBeenCalled();
   });
@@ -389,7 +412,7 @@ describe('CommandPaletteDialog', () => {
     });
 
     expect(screen.getByText('Current appearance')).toBeInTheDocument();
-    expect(screen.getByText('Current appearance · Already active')).toBeVisible();
+    expect(screen.getByRole('option', { name: /Use Dark Theme.*Current appearance/ })).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('opens onboarding from the Connect HackMD account command', () => {

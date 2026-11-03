@@ -242,7 +242,6 @@ describe('DocumentWorkspace', () => {
     });
 
     expect(screen.getByRole('heading', { name: 'No note selected' })).toBeInTheDocument();
-    expect(screen.getByText('Choose a note from the navigator to read or edit.')).toBeInTheDocument();
   });
 
   it('offers to create or search for a note from the blank state', () => {
@@ -399,7 +398,7 @@ describe('DocumentWorkspace', () => {
     });
     const recovery = screen.getByRole('region', { name: 'Unsaved draft' });
     expect(screen.getByRole('alert')).toHaveTextContent('The original note is no longer available. Local note was not found.');
-    expect(screen.getByRole('alert')).toHaveTextContent('never recreated or overwritten automatically');
+    expect(screen.getByRole('alert')).toHaveTextContent('Copy or export your draft before closing this tab.');
     expect(recovery).toHaveTextContent('Edited body');
     expect(screen.getByTestId('document-detail-Edited title')).toBeInTheDocument();
 

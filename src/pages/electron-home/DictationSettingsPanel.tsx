@@ -126,7 +126,7 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
     <div className="space-y-6">
       <SettingsSection
         title="Dictation"
-        description="Press ⇧⌘D in a note to dictate at the cursor, then ⇧⌘D or Enter to insert the text. Press ⌘K right after to clean it up with AI. macOS recognizes speech on this Mac; the audio is never saved or sent anywhere."
+        description="Speech stays on this Mac. Audio is not saved."
       >
         {error ? <p role="alert" className="text-sm text-destructive-default">{error}</p> : null}
         {!status || !settings ? (
@@ -171,7 +171,6 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border-default px-4 py-3 text-sm">
                 <div className="min-w-0">
                   <p className="font-medium">{describeDictationLocale(locale)} needs a one-time download</p>
-                  <p className="text-xs leading-5 text-text-subtle">macOS downloads the speech model from Apple and shares it with other apps.</p>
                 </div>
                 {download?.locale === locale ? (
                   <Meter.Root value={Math.round(download.fraction * 100)} aria-label={`Downloading ${describeDictationLocale(locale)}`} className="flex items-center gap-3">

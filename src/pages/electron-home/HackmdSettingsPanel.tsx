@@ -68,7 +68,7 @@ export function HackmdSettingsPanel({
         {hasHackmdApiToken ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="inline-flex w-fit items-center rounded-full border border-success-default/30 bg-success-soft px-2 py-1 text-xs font-medium text-success-default">
-              Token configured · leave blank to keep it
+              Token saved
             </p>
             <Button
               ref={disconnectButtonRef}
@@ -89,7 +89,7 @@ export function HackmdSettingsPanel({
             onVisibleChange={onTokenVisibleChange}
             value={token}
             onChange={(event) => onTokenChange(event.target.value)}
-            placeholder={hasHackmdApiToken ? 'Token configured' : 'Paste token'}
+            placeholder={hasHackmdApiToken ? 'Paste a new token' : 'Paste token'}
             autoComplete="off"
             aria-describedby={SETTINGS_TOKEN_STATUS_ID}
             aria-invalid={tokenTest.status === 'error'}
@@ -112,7 +112,7 @@ export function HackmdSettingsPanel({
           <AlertDialogHeader>
             <AlertDialogTitle>Disconnect HackMD?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the HackMD API token stored by HackDesk. Your HackMD notes and Local Vault files are not deleted.
+              Removes the saved token. Your notes and vault files stay unchanged.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

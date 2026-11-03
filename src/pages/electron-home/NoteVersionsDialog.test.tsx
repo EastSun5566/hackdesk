@@ -129,7 +129,7 @@ describe('NoteVersionsDialog', () => {
     const { confirm } = installApi({}, false);
     const { onRestore } = renderDialog({ noteDirty: true });
 
-    expect(await screen.findByText(/without your unsaved edits/)).toBeInTheDocument();
+    expect(await screen.findByText(/Unsaved edits are not included/)).toBeInTheDocument();
     const restore = screen.getByRole('button', { name: 'Restore into Editor' });
     await waitFor(() => expect(restore).toBeEnabled());
     fireEvent.click(restore);
@@ -183,7 +183,7 @@ describe('NoteVersionsDialog', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Save Version…' }));
     const form = screen.getByRole('form', { name: 'Save version' });
-    expect(within(form).getByText(/Unsaved edits are not included/)).toBeInTheDocument();
+    expect(within(form).getByText(/Save your note to include these edits/)).toBeInTheDocument();
     fireEvent.change(within(form).getByLabelText('Name'), { target: { value: 'Again' } });
     fireEvent.click(within(form).getByRole('button', { name: 'Save Version' }));
 
@@ -203,7 +203,7 @@ describe('NoteVersionsDialog', () => {
     const form = screen.getByRole('form', { name: 'Edit version' });
     expect(within(form).getByLabelText('Name')).toHaveValue('Before launch');
     expect(within(form).getByLabelText('Description')).toHaveValue('Shipped');
-    expect(within(form).queryByText(/Unsaved edits are not included/)).not.toBeInTheDocument();
+    expect(within(form).queryByText(/Save your note to include these edits/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Save Version…' })).not.toBeInTheDocument();
 
     fireEvent.change(within(form).getByLabelText('Name'), { target: { value: ' Launch v2 ' } });

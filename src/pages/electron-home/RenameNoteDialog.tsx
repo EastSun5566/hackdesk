@@ -49,8 +49,8 @@ export function RenameNoteDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Rename Note</DialogTitle>
-          <DialogDescription id={RENAME_NOTE_DESCRIPTION_ID}>
-            {localVault ? 'The file takes the new name when you rename it.' : 'The new title is saved to HackMD.'}
+          <DialogDescription id={RENAME_NOTE_DESCRIPTION_ID} className={localVault ? undefined : 'sr-only'}>
+            {localVault ? 'Renames the Markdown file.' : 'Rename this HackMD note.'}
           </DialogDescription>
         </DialogHeader>
         <form

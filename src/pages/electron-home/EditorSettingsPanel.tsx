@@ -7,13 +7,12 @@ import { SettingsSection } from './SettingsPrimitives';
 const EDITOR_MODE_OPTIONS: {
   mode: EditorMode;
   label: string;
-  description: string;
 }[] = [
-  { mode: 'standard', label: 'Standard', description: 'Default CodeMirror keyboard shortcuts.' },
-  { mode: 'emacs', label: 'Emacs', description: 'Emacs navigation, mark, kill-ring, and key chords.' },
-  { mode: 'vim', label: 'Vim', description: 'Vim motions, operators, and command mode.' },
-  { mode: 'helix', label: 'Helix', description: 'Selection-first Helix editing and command mode.' },
-  { mode: 'kakoune', label: 'Kakoune (Experimental)', description: 'Selection-first Kakoune editing with a focused core keymap.' },
+  { mode: 'standard', label: 'Standard' },
+  { mode: 'emacs', label: 'Emacs' },
+  { mode: 'vim', label: 'Vim' },
+  { mode: 'helix', label: 'Helix' },
+  { mode: 'kakoune', label: 'Kakoune (Experimental)' },
 ];
 
 export function EditorSettingsPanel({
@@ -37,7 +36,7 @@ export function EditorSettingsPanel({
           <RadioGroupItem
             key={option.mode}
             value={option.mode}
-            aria-label={`${option.label}: ${option.description}`}
+            aria-label={option.label}
             className={cn(
               'group flex h-auto w-full cursor-pointer items-start justify-start gap-3 rounded-md border border-border-default bg-background-default px-3 py-2.5 text-left text-primary-default hover:bg-element-bg-hover',
               editorMode === option.mode && 'border-primary-default/50 bg-primary-soft/40',
@@ -48,7 +47,6 @@ export function EditorSettingsPanel({
             </span>
             <span className="min-w-0">
               <span className="block text-sm font-medium text-text-default">{option.label}</span>
-              <span className="mt-0.5 block text-xs text-text-subtle">{option.description}</span>
             </span>
           </RadioGroupItem>
         ))}

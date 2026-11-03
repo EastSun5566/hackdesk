@@ -18,9 +18,9 @@ import type { AiCommandDraft } from './ai-commands';
 const NAME_ID = 'ai-command-name';
 const PROMPT_ID = 'ai-command-prompt';
 
-const DELIVERY_OPTIONS: { value: AiDelivery; label: string; description: string }[] = [
-  { value: 'replace', label: 'Replace the selection', description: 'For rewrites, such as changing tone or format.' },
-  { value: 'insert-below', label: 'Add below', description: 'For new text, such as a summary or a to-do list.' },
+const DELIVERY_OPTIONS: { value: AiDelivery; label: string }[] = [
+  { value: 'replace', label: 'Replace the selection' },
+  { value: 'insert-below', label: 'Add below' },
 ];
 
 /** Creates or edits a saved AI command; Settings and the ⌘K menu's "Save as command" both use it. */
@@ -123,7 +123,6 @@ export function AiCommandDialog({
                   </span>
                   <span className="min-w-0">
                     <span className="block text-sm font-medium text-text-default">{option.label}</span>
-                    <span className="mt-0.5 block text-xs text-text-subtle">{option.description}</span>
                   </span>
                 </RadioGroupItem>
               ))}

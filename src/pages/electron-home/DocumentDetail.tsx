@@ -333,7 +333,7 @@ function LoadingDocumentDetail({
 function EmptyDocumentDetail() {
   return (
     <PanelShell className="h-full flex-1 bg-background-default">
-      <EmptyState title="No note selected" description="Choose a note from the navigator to read or edit." />
+      <EmptyState title="No note selected" />
     </PanelShell>
   );
 }

@@ -22,10 +22,10 @@ import {
   type ThemeAppearanceDraftController,
 } from '@/components/useThemeAppearanceDraft';
 
-const themeModeOptions: { id: ThemeMode; label: string; description: string; icon: ReactNode }[] = [
-  { id: 'light', label: 'Light', description: 'Light mode', icon: <Sun className="h-5 w-5" /> },
-  { id: 'dark', label: 'Dark', description: 'Dark mode', icon: <Moon className="h-5 w-5" /> },
-  { id: 'system', label: 'System', description: 'Follow system settings', icon: <Laptop className="h-5 w-5" /> },
+const themeModeOptions: { id: ThemeMode; label: string; icon: ReactNode }[] = [
+  { id: 'light', label: 'Light', icon: <Sun className="h-5 w-5" /> },
+  { id: 'dark', label: 'Dark', icon: <Moon className="h-5 w-5" /> },
+  { id: 'system', label: 'System', icon: <Laptop className="h-5 w-5" /> },
 ];
 
 const focusClassName = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default';
@@ -69,9 +69,6 @@ export function ThemeAppearanceFields({
     <div className={cn(compact ? 'space-y-4' : 'space-y-6')}>
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Mode</legend>
-        {compact ? null : <p className="mb-3 text-sm text-text-subtle">
-          Choose how HackDesk resolves light and dark mode.
-        </p>}
         <RadioGroup
           value={draftMode}
           onValueChange={(value) => draftActions.changeMode(value as ThemeMode)}
@@ -106,7 +103,6 @@ export function ThemeAppearanceFields({
                 </div>
               )}
               <span className={cn(compact ? null : 'text-sm font-medium')}>{option.label}</span>
-              {compact ? null : <span className="text-xs text-text-subtle">{option.description}</span>}
             </RadioGroupItem>
           ))}
         </RadioGroup>
@@ -114,9 +110,6 @@ export function ThemeAppearanceFields({
 
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Preset</legend>
-        {compact ? null : <p className="mb-3 text-sm text-text-subtle">
-          Start from a preset, then tune the seed colors below.
-        </p>}
         <Select value={draftPresetId} onValueChange={(value) => draftActions.changePreset(value as ThemePresetId)}>
           <SelectTrigger aria-label="Theme preset" className={compact ? 'w-full' : 'max-w-sm'}>
             <SelectLabelValue
@@ -132,17 +125,11 @@ export function ThemeAppearanceFields({
           ))}
           </SelectContent>
         </Select>
-        <p className="text-xs text-text-subtle">
-          {presets.find((preset) => preset.id === draftPresetId)?.description}
-        </p>
       </fieldset>
 
       {showTypography ? (
         <fieldset className="space-y-3">
           <legend className="text-sm font-medium">Typography</legend>
-          {compact ? null : <p className="mb-3 text-sm text-text-subtle">
-            Choose local font stacks for HackDesk chrome and the markdown editor.
-          </p>}
           <div className="space-y-3">
             <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-3">
               <ThemeFontField
@@ -205,7 +192,7 @@ export function ThemeAppearanceFields({
           </Collapsible>
         ) : (
           <>
-            <p className="mb-3 text-sm text-text-subtle">Leave a seed empty to use the selected preset value.</p>
+            <p className="mb-3 text-sm text-text-subtle">Empty colors use the preset.</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <ThemeSeedFields
                 errors={errors}

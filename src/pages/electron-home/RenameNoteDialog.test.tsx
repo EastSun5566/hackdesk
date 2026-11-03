@@ -31,7 +31,7 @@ describe('RenameNoteDialog', () => {
 
   it('says a Local Vault file takes the new name', () => {
     setup({ localVault: true });
-    expect(screen.getByText('The file takes the new name when you rename it.')).toBeInTheDocument();
+    expect(screen.getByText('Renames the Markdown file.')).toBeInTheDocument();
   });
 
   it('starts over from the note title each time it opens', () => {

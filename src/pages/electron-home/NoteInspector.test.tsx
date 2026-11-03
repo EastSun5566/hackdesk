@@ -298,7 +298,7 @@ describe('NoteInspector Linked from', () => {
     });
     fireEvent.click(await screen.findByRole('button', { name: /Roadmap/ }));
     expect(onOpenNote).toHaveBeenCalledWith(expect.objectContaining({ noteId: 'long-2', teamPath: 'team-a', shortId: 'road', title: 'Roadmap' }));
-    expect(screen.getByText('From notes you\'ve opened and your Local Vault.')).toBeTruthy();
+    expect(screen.getByText('Local Vault and opened HackMD notes.')).toBeVisible();
   });
 
   it('says when nothing links here, and is hidden where notes cannot be opened', async () => {

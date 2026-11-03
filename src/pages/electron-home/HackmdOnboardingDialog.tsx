@@ -189,7 +189,7 @@ export function HackmdOnboardingDialog({
         <OnboardingStepShell
           icon={<KeyRound aria-hidden="true" className="h-8 w-8" />}
           title="Connect HackMD"
-          description="Import your hackmd-cli token or paste a HackMD API token. HackDesk tests it before saving."
+          description="Connect with a HackMD API token."
         >
           <HackmdCliImportCard
             config={hackmdCliConfig}
@@ -301,9 +301,6 @@ function HackmdCliImportCard({
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-text-default">hackmd-cli token found</p>
-          <p className="mt-1 text-xs leading-5 text-text-subtle">
-            Use the token from <code className="font-mono">hackmd-cli login</code>.
-          </p>
           {unsupportedCustomEndpoint ? (
             <p className="mt-2 text-xs leading-5 text-warning-default">
               Custom endpoints are not imported in this version.
@@ -341,7 +338,7 @@ function OnboardingStepShell({
           {icon}
         </div>
         <DialogTitle>{title}</DialogTitle>
-        <DialogDescription className="max-w-sm">{description}</DialogDescription>
+        <DialogDescription className="sr-only">{description}</DialogDescription>
       </DialogHeader>
       <div className="mt-6">{children}</div>
     </div>

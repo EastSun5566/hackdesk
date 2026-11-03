@@ -56,8 +56,7 @@ function CurrentVersionPanel({ document, noteDirty }: { document: DocumentSummar
         Last changed {formatDate(document.updatedAtMillis)}
         {document.lastChangeUser ? ` by ${document.lastChangeUser.name}` : ''}.
       </p>
-      <p className="text-text-subtle">Choose a saved version to see what changed since then, or to bring it back.</p>
-      {noteDirty ? <p className="text-text-subtle">Your unsaved edits are not part of HackMD&apos;s history yet.</p> : null}
+      {noteDirty ? <p className="text-text-subtle">Unsaved edits are not included.</p> : null}
     </div>
   );
 }
@@ -104,7 +103,7 @@ function VersionPanel({
         </TabsList>
         <TabsContent value="changes" className="min-h-0 flex-1 overflow-y-auto">
           {noteDirty ? (
-            <p className="mb-2 text-xs text-text-subtle">Compared with the note as last saved on HackMD, without your unsaved edits.</p>
+            <p className="mb-2 text-xs text-text-subtle">Unsaved edits are not included.</p>
           ) : null}
           {diff.isPending ? <StatusMessage busy>Comparing…</StatusMessage> : null}
           {diff.isError ? <StatusMessage>{getVersionErrorMessage(diff.error)}</StatusMessage> : null}

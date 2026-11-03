@@ -98,6 +98,6 @@ describe('TemplatePickerDialog', () => {
 
   it('explains where templates come from when there are none', () => {
     render(<TemplatePickerDialog open onOpenChange={vi.fn()} templates={[]} onChoose={vi.fn()} />);
-    expect(screen.getByText('No templates yet. Add notes to a Templates folder, or use Save as Template.')).toBeTruthy();
+    expect(screen.getByText('No templates yet. Use Save as Template to add one.')).toBeTruthy();
   });
 });

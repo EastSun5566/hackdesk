@@ -345,8 +345,8 @@ describe('SettingsDialog', () => {
 
     const dialog = screen.getByRole('alertdialog', { name: 'Reset All Settings?' });
     expect(dialog).toBeVisible();
-    expect(screen.getByText(/restores local preferences, editor mode, appearance/i)).toBeVisible();
-    expect(screen.getByText(/Local vault Markdown files are not deleted/i)).toBeVisible();
+    expect(screen.getByText(/Resets preferences and disconnects HackMD/)).toBeVisible();
+    expect(screen.getByText(/Your notes and vault files stay unchanged/i)).toBeVisible();
     expect(onSave).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -691,7 +691,7 @@ describe('SettingsDialog', () => {
 
     const dialog = screen.getByRole('alertdialog', { name: 'Disconnect HackMD?' });
     expect(dialog).toBeVisible();
-    expect(screen.getByText(/API token stored by HackDesk/i)).toBeVisible();
+    expect(screen.getByText(/Removes the saved token/i)).toBeVisible();
     expect(onDisconnectHackmd).not.toHaveBeenCalled();
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
@@ -760,7 +760,6 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
 
     expect(screen.getByText('/Users/michael/Notes')).toBeInTheDocument();
-    expect(screen.getByText('These actions change HackDesk settings only. Markdown files are not deleted.')).toBeVisible();
     expect(screen.getByText('Notes')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByText('Folders')).toBeInTheDocument();
@@ -783,7 +782,7 @@ describe('SettingsDialog', () => {
 
   it('saves whether key hints show', () => {
     const { onSave } = renderSettingsDialog({ initialTab: 'shortcuts' });
-    const toggle = screen.getByRole('checkbox', { name: 'Show key hints at the bottom of the window' });
+    const toggle = screen.getByRole('checkbox', { name: 'Show key hints' });
     expect(toggle).toBeChecked();
     fireEvent.click(toggle);
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -900,7 +899,6 @@ describe('SettingsDialog', () => {
     renderSettingsDialog({ appVersion: '2.0.0' });
 
     fireEvent.click(screen.getByRole('tab', { name: /Advanced/ }));
-    expect(screen.getByText('Restores local preferences and clears the configured HackMD token. Notes and vault files are not deleted.')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Check for Updates' }));
 
     expect(toastErrorMock).toHaveBeenCalledWith('Update checks are available only in the packaged Electron app.');
@@ -921,7 +919,7 @@ describe('SettingsDialog', () => {
     const checkingButton = screen.getByRole('button', { name: 'Checking…' });
     expect(checkingButton).toBeDisabled();
     await waitFor(() => {
-      expect(toastInfoMock).toHaveBeenCalledWith('You’re already on the latest version of HackDesk.');
+      expect(toastInfoMock).toHaveBeenCalledWith('HackDesk is up to date.');
     });
     expect(checkForUpdates).toHaveBeenCalledOnce();
   });

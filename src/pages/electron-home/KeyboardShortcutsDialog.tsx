@@ -36,7 +36,7 @@ export function KeyboardShortcutsDialog({ open, region, returnFocus, shortcuts, 
       <DialogContent initialFocus={searchRef} finalFocus={() => !customizing.current && returnFocus?.isConnected ? returnFocus : false} size="md" className="scroll-edges overflow-hidden p-0">
         <DialogHeader className="shrink-0 p-5 pb-0 pr-12">
           <DialogTitle>Keyboard Shortcuts</DialogTitle>
-          <DialogDescription>Discover actions and their current keys. Text editors keep their own navigation bindings.</DialogDescription>
+          <DialogDescription className="sr-only">Shortcuts for the current region or all actions.</DialogDescription>
         </DialogHeader>
         <div className="scroll-edge-top relative shrink-0 space-y-3 px-5 pb-3 pt-4">
           <label className="block">
@@ -56,17 +56,17 @@ export function KeyboardShortcutsDialog({ open, region, returnFocus, shortcuts, 
               const shortcut = getResolvedActionShortcut(action.id, shortcuts, platform, characterShortcutsEnabled);
               const contextLabel = action.keyboardContext === 'scroll' ? 'Non-editing UI' : action.keyboardContext === 'region' ? 'Workbench' : action.keyboardContext === 'character' && (config === '/' || config === '?') ? 'Non-editing Workbench' : 'App';
               return <li key={action.id} className="flex items-center gap-4 py-3">
-                <div className="min-w-0 flex-1"><p className="text-sm font-medium">{action.label}</p><p className="text-xs text-text-subtle">{action.description}</p><p className="mt-1 text-xs text-text-subtle">{contextLabel} · {action.scope === 'inspector' ? 'Note Details' : action.scope ?? 'global'}</p></div>
+                <div className="min-w-0 flex-1"><p className="text-sm font-medium">{action.label}</p><p className="text-xs text-text-subtle">{contextLabel}</p></div>
                 <kbd className="shrink-0 rounded-md border border-border-default bg-background-muted px-2 py-1 text-xs">{shortcut || (config === 'none' ? 'Disabled' : 'Unassigned')}</kbd>
               </li>;
             })}
             {widgets.map(item => <li key={item.label} className="flex items-center gap-4 py-3">
-              <div className="min-w-0 flex-1"><p className="text-sm font-medium">{item.label}</p><p className="text-xs text-text-subtle">{item.description}</p><p className="mt-1 text-xs text-text-subtle">{item.region} · Built-in widget keys</p></div>
+              <div className="min-w-0 flex-1"><p className="text-sm font-medium">{item.label}</p><p className="text-xs text-text-subtle">{item.description}</p></div>
               <kbd className="shrink-0 rounded-md border border-border-default bg-background-muted px-2 py-1 text-xs">{item.keys}</kbd>
             </li>)}
-            {matches('hold keyboard navigation hints Cmd Ctrl') ? <li className="py-3"><p className="text-sm font-medium">Hold {platform === 'darwin' ? 'Cmd' : 'Ctrl'} for Navigation Hints</p><p className="text-xs text-text-subtle">Keep the modifier held and type a visible code. Escape cancels; release to start again. Buttons receive focus, then Enter runs the action.</p></li> : null}
-            {(!currentOnly || region === 'navigator') && matches('Go to workspace My Workspace pinned teams') ? <li className="flex items-center gap-4 py-3"><div className="flex-1"><p className="text-sm font-medium">Go to Workspace</p><p className="text-xs text-text-subtle">1: My Workspace; 2–9: pinned teams. Fixed workspace keys.</p></div><kbd className="text-xs">{displayShortcutConfig('mod+1', platform)}…9</kbd></li> : null}
-            {!currentOnly && matches('Quick Hack global') ? <li className="flex items-center gap-4 py-3"><div className="flex-1"><p className="text-sm font-medium">Quick Hack</p><p className="text-xs text-text-subtle">Global · Open from any app.</p></div><kbd className="text-xs">{displayShortcutConfig('ctrl+alt+h', platform)}</kbd></li> : null}
+            {matches('hold keyboard navigation hints Cmd Ctrl') ? <li className="py-3"><p className="text-sm font-medium">Hold {platform === 'darwin' ? 'Cmd' : 'Ctrl'} for hints</p><p className="text-xs text-text-subtle">Type a code. Enter activates focused buttons; Esc cancels.</p></li> : null}
+            {(!currentOnly || region === 'navigator') && matches('Go to workspace My Workspace pinned teams') ? <li className="flex items-center gap-4 py-3"><div className="flex-1"><p className="text-sm font-medium">Go to Workspace</p><p className="text-xs text-text-subtle">1: My Workspace · 2–9: pinned teams</p></div><kbd className="text-xs">{displayShortcutConfig('mod+1', platform)}…9</kbd></li> : null}
+            {!currentOnly && matches('Quick Hack global') ? <li className="flex items-center gap-4 py-3"><div className="flex-1"><p className="text-sm font-medium">Quick Hack</p><p className="text-xs text-text-subtle">From any app</p></div><kbd className="text-xs">{displayShortcutConfig('ctrl+alt+h', platform)}</kbd></li> : null}
           </ul>
         </div>
         <div className="scroll-edge-bottom relative flex shrink-0 justify-end p-4"><Button onClick={() => { customizing.current = true; onCustomize(); }}>Customize in Settings</Button></div>

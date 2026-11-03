@@ -52,11 +52,11 @@ export function OfflineSettingsSection({ active }: { active: boolean }) {
   return (
     <SettingsSection
       title="Offline and search"
-      description="Search notes looks through the text of every Local Vault note. HackMD notes you open can be kept on this computer, so you can read and search them without a connection. HackDesk never downloads notes you have not opened."
+      description="Only opened HackMD notes are cached."
     >
       {error ? <p role="alert" className="text-sm text-destructive-default">{error}</p> : null}
       <div className="flex items-center justify-between gap-3 text-sm">
-        <label htmlFor="settings-offline-keep-hackmd" className="font-medium">Keep opened HackMD notes for offline reading and search</label>
+        <label htmlFor="settings-offline-keep-hackmd" className="font-medium">Keep opened HackMD notes offline</label>
         <Switch
           id="settings-offline-keep-hackmd"
           checked={settings?.keepHackmdNotes ?? defaultOfflineSettings.keepHackmdNotes}

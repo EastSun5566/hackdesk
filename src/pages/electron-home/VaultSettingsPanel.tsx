@@ -56,7 +56,6 @@ export function VaultSettingsPanel({
       <SettingsSection title="Local Vault">
         <div className="rounded-md border border-border-default bg-background-default p-3">
           <div className="space-y-1">
-            <p className="text-xs font-medium uppercase text-text-subtle">Folder</p>
             <p className="break-all font-mono text-sm text-text-default">
               {vaultPath ?? 'No local vault configured'}
             </p>
@@ -111,9 +110,6 @@ export function VaultSettingsPanel({
             Forget Vault
           </SettingsActionButton>
         </div>
-        <p className="text-xs leading-5 text-text-subtle">
-          These actions change HackDesk settings only. Markdown files are not deleted.
-        </p>
       </SettingsSection>
     </div>
   );

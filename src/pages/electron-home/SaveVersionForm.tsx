@@ -93,7 +93,7 @@ export function SaveVersionForm({
         <p className="text-xs text-text-subtle">Name the version auto-saved {formatDate(mode.version.createdAtMillis)}.</p>
       ) : null}
       {mode.kind === 'create' && noteDirty ? (
-        <p className="text-xs text-text-subtle">Save the note first. Unsaved edits are not included in the version.</p>
+        <p className="text-xs text-text-subtle">Save your note to include these edits.</p>
       ) : null}
       <Field>
         <FieldLabel htmlFor={nameId}>Name</FieldLabel>

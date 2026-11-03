@@ -110,6 +110,7 @@ import { FOCUS_RING_CLASS } from './ui';
 import { HighlightedText } from './HighlightedText';
 import { SETTINGS_TABS, type SettingsTab } from './SettingsDialogConfig';
 import { PersonalWorkspaceIcon, TeamWorkspaceIcon } from './WorkspaceIcon';
+import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 
 const COMMAND_ITEM_ICON_CLASS = 'mr-3 text-command-item-meta';
 const COMMAND_ITEM_TITLE_CLASS = 'block truncate font-medium text-command-item-title';
@@ -439,7 +440,9 @@ export function CommandPaletteDialog({
             {!hasQuery && recentResults.length > 0 ? (
               <CommandGroup heading="Recent Notes">
                 {recentResults.map((entry) => {
-                  const workspaceLabel = entry.teamPath ? `Team: ${entry.teamPath}` : 'My Workspace';
+                  const workspaceLabel = entry.teamPath === LOCAL_VAULT_TEAM_PATH
+                    ? 'Local Vault'
+                    : entry.teamPath ? `Team: ${entry.teamPath}` : 'My Workspace';
 
                   return (
                     <CommandItem
@@ -474,7 +477,7 @@ export function CommandPaletteDialog({
                     ? 'History'
                     : scope.type === 'team'
                       ? scope.label
-                      : 'My Workspace';
+                      : scope.type === 'local' ? 'Local Vault' : 'My Workspace';
                   const metadata = [
                     workspaceLabel,
                     context.scopeType === 'history' ? null : entry.folderLabel || 'Root',
@@ -566,7 +569,7 @@ export function CommandPaletteDialog({
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className={COMMAND_ITEM_TITLE_CLASS}><HighlightedText text={workspace.label} query={trimmedSearch} /></span>
-                        <span className={COMMAND_ITEM_META_CLASS}><HighlightedText text={workspace.description} query={trimmedSearch} acronym={false} /></span>
+                        {workspace.type === 'team' ? <span className={COMMAND_ITEM_META_CLASS}><HighlightedText text={workspace.description} query={trimmedSearch} acronym={false} /></span> : null}
                       </span>
                       {selected ? (
                         <span className="ml-auto inline-flex shrink-0 items-center text-primary-default">
@@ -613,9 +616,7 @@ export function CommandPaletteDialog({
                       <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}>{ACTION_ICONS[action.id]}</span>
                       <span className="min-w-0 flex-1">
                         <span className={COMMAND_ITEM_TITLE_CLASS}><HighlightedText text={actionLabel} query={trimmedSearch} /></span>
-                        <span className={COMMAND_ITEM_META_CLASS}>
-                          {disabledReason ?? <HighlightedText text={action.description} query={trimmedSearch} acronym={false} />}
-                        </span>
+                        {disabledReason ? <span className={COMMAND_ITEM_META_CLASS}>{disabledReason}</span> : null}
                       </span>
                       {shortcut ? <CommandShortcut>{shortcut}</CommandShortcut> : null}
                     </CommandItem>
@@ -643,7 +644,6 @@ export function CommandPaletteDialog({
                     <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}>{command.icon}</span>
                     <span className="min-w-0 flex-1">
                       <span className={COMMAND_ITEM_TITLE_CLASS}><HighlightedText text={command.label} query={trimmedSearch} /></span>
-                      <span className={COMMAND_ITEM_META_CLASS}>{command.description}</span>
                     </span>
                   </CommandItem>
                 ))}
@@ -664,7 +664,6 @@ export function CommandPaletteDialog({
                     <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}>{command.icon}</span>
                     <span className="min-w-0 flex-1">
                       <span className={COMMAND_ITEM_TITLE_CLASS}><HighlightedText text={command.label} query={trimmedSearch} /></span>
-                      <span className={COMMAND_ITEM_META_CLASS}>{command.description}</span>
                     </span>
                   </CommandItem>
                 ))}
@@ -690,9 +689,6 @@ export function CommandPaletteDialog({
                     <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}>{command.icon}</span>
                     <span className="min-w-0 flex-1">
                       <span className={COMMAND_ITEM_TITLE_CLASS}><HighlightedText text={command.label} query={trimmedSearch} /></span>
-                      <span className={COMMAND_ITEM_META_CLASS}>
-                        {command.active ? 'Current appearance · Already active' : command.description}
-                      </span>
                     </span>
                     {command.active ? (
                       <span className="ml-auto inline-flex shrink-0 items-center text-primary-default">
@@ -719,9 +715,6 @@ export function CommandPaletteDialog({
                     <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}><Palette className="h-4 w-4" /></span>
                     <span className="min-w-0 flex-1">
                       <span className={COMMAND_ITEM_TITLE_CLASS}><HighlightedText text={command.label} query={trimmedSearch} /></span>
-                      <span className={COMMAND_ITEM_META_CLASS}>
-                        {command.active ? 'Current theme · Already active' : command.description}
-                      </span>
                     </span>
                     {command.active ? (
                       <span className="ml-auto inline-flex shrink-0 items-center text-primary-default">
@@ -746,7 +739,6 @@ export function CommandPaletteDialog({
                   <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}><Search className="h-4 w-4" /></span>
                   <span className="min-w-0 flex-1">
                     <span className={COMMAND_ITEM_TITLE_CLASS}>{`Show Finder Results for “${trimmedSearch}”`}</span>
-                    <span className={COMMAND_ITEM_META_CLASS}>Filter the current workspace in the navigator.</span>
                   </span>
                 </CommandItem>
               </CommandGroup>

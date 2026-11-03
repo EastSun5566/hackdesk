@@ -33,8 +33,8 @@ export function DeleteFolderDialog({
           <AlertDialogTitle>{isLocalFolder ? 'Move Folder to Trash' : 'Delete Folder'}</AlertDialogTitle>
           <AlertDialogDescription>
             {isLocalFolder
-              ? `Move “${folder?.name}” to the system trash? Local Markdown files inside the folder move with it.`
-              : `Delete “${folder?.name}”? This deletes the folder from HackMD. Local vault files are not affected. This cannot be undone from HackDesk.`}
+              ? `Move “${folder?.name}” and everything inside to the system trash?`
+              : `Delete “${folder?.name}” from HackMD? You cannot undo this in HackDesk. Local files stay unchanged.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

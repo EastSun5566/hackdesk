@@ -74,7 +74,7 @@ export function BacklinksSection({ document, onOpenNote, defaultOpen = false }: 
         </ul>
       )}
       {target.source === 'hackmd' ? (
-        <p className="text-xs text-text-subtle">From notes you&apos;ve opened and your Local Vault.</p>
+        <p className="text-xs text-text-subtle">Local Vault and opened HackMD notes.</p>
       ) : null}
     </CollapsibleSection>
   );

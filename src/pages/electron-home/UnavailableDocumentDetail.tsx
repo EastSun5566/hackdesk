@@ -20,7 +20,7 @@ function getMessage({ kind, message, hasDraft }: UnavailableDocumentDetailProps[
     ? `The original note is no longer available. ${message}`
     : `The original note could not be loaded. ${message}`;
   return hasDraft
-    ? `${reason} Your unsaved draft is kept here until you close this tab. The original is never recreated or overwritten automatically.`
+    ? `${reason} Copy or export your draft before closing this tab.`
     : reason;
 }
 

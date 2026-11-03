@@ -24,7 +24,7 @@ export function AiComparisonDialog({ view, snapshot }: { view: EditorView; snaps
     >
       <DialogHeader className="shrink-0 pr-7">
         <DialogTitle>Compare AI changes</DialogTitle>
-        <DialogDescription>Review the whole note before accepting this answer. Your draft has not changed.</DialogDescription>
+        <DialogDescription>Your draft is unchanged.</DialogDescription>
       </DialogHeader>
       <div className="min-h-0 overflow-auto p-1">
         <NoteComparisonView input={input} beforeLabel="Before" afterLabel="After AI" />

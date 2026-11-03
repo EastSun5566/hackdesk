@@ -47,8 +47,8 @@ describe('DeleteFolderDialog', () => {
     const { folder, onCancel, onDelete } = renderDeleteFolderDialog();
 
     const dialog = screen.getByRole('alertdialog', { name: 'Delete Folder' });
-    expect(within(dialog).getByText(/deletes the folder from HackMD/i)).toBeVisible();
-    expect(within(dialog).getByText(/Local vault files are not affected/i)).toBeVisible();
+    expect(within(dialog).getByText(/Delete “Projects” from HackMD/i)).toBeVisible();
+    expect(within(dialog).getByText(/Local files stay unchanged/i)).toBeVisible();
 
     const deleteButton = within(dialog).getByRole('button', { name: 'Delete' });
     expect(deleteButton).toHaveClass('bg-destructive-default');
@@ -68,8 +68,7 @@ describe('DeleteFolderDialog', () => {
     });
 
     const dialog = screen.getByRole('alertdialog', { name: 'Move Folder to Trash' });
-    expect(within(dialog).getByText(/Move “Projects” to the system trash/i)).toBeVisible();
-    expect(within(dialog).getByText(/Local Markdown files inside the folder move with it/i)).toBeVisible();
+    expect(within(dialog).getByText(/Move “Projects” and everything inside to the system trash/i)).toBeVisible();
     expect(within(dialog).getByRole('button', { name: 'Move to Trash' })).toBeVisible();
   });
 
