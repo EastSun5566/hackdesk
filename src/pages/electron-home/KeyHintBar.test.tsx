@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ElectronActionContext } from '@/lib/electron-actions';
+import type { ShortcutOverrides } from '@/lib/keyboard-shortcuts';
 
 import { KeyHintBar } from './KeyHintBar';
 
@@ -11,7 +12,12 @@ const actionContext = {
   selectedFolderId: null, canModifySelectedFolder: false, inspectorCollapsed: true, navigatorCollapsed: false,
 } as unknown as ElectronActionContext;
 
-function setup(onOpenShortcuts = vi.fn()) {
+function setup({ shortcuts, characterShortcutsEnabled = true, platform = 'darwin' }: {
+  shortcuts?: ShortcutOverrides;
+  characterShortcutsEnabled?: boolean;
+  platform?: string;
+} = {}) {
+  const onOpenShortcuts = vi.fn();
   render(
     <>
       <div data-hackdesk-focus="navigator">
@@ -19,7 +25,7 @@ function setup(onOpenShortcuts = vi.fn()) {
         <button type="button" role="treeitem">Plan</button>
       </div>
       <div data-hackdesk-focus="editor"><div className="cm-editor"><div role="textbox" tabIndex={0} aria-label="Note" /></div></div>
-      <KeyHintBar actionContext={actionContext} shortcuts={undefined} platform="darwin" characterShortcutsEnabled onOpenShortcuts={onOpenShortcuts} />
+      <KeyHintBar actionContext={actionContext} shortcuts={shortcuts} platform={platform} characterShortcutsEnabled={characterShortcutsEnabled} onOpenShortcuts={onOpenShortcuts} />
     </>,
   );
   return { bar: screen.getByRole('note', { name: 'Keys you can press' }), onOpenShortcuts };
@@ -70,9 +76,27 @@ describe('KeyHintBar', () => {
     expect(bar).not.toHaveClass('opacity-0');
   });
 
-  it('opens Keyboard Shortcuts from its ? button', () => {
+  it('shows the default ? shortcut and opens Keyboard Shortcuts', () => {
     const { onOpenShortcuts } = setup();
-    fireEvent.click(screen.getByRole('button', { name: /Shortcuts/ }));
+    const button = screen.getByRole('button', { name: /Shortcuts/ });
+    expect(button.querySelector('kbd')).toHaveTextContent('?');
+    fireEvent.click(button);
+    expect(onOpenShortcuts).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    { name: 'custom macOS binding', shortcuts: { 'show-keyboard-shortcuts': 'mod+shift+h' }, platform: 'darwin', characterShortcutsEnabled: true, expected: '⇧⌘H' },
+    { name: 'custom Windows binding', shortcuts: { 'show-keyboard-shortcuts': 'mod+shift+h' }, platform: 'win32', characterShortcutsEnabled: true, expected: 'Ctrl+Shift+H' },
+    { name: 'disabled binding', shortcuts: { 'show-keyboard-shortcuts': 'none' }, characterShortcutsEnabled: true, expected: undefined },
+    { name: 'character shortcuts off', shortcuts: undefined, characterShortcutsEnabled: false, expected: undefined },
+    { name: 'custom binding with character shortcuts off', shortcuts: { 'show-keyboard-shortcuts': 'mod+shift+h' }, characterShortcutsEnabled: false, expected: '⇧⌘H' },
+  ])('keeps the button usable with $name', ({ expected, ...options }) => {
+    const { onOpenShortcuts } = setup(options);
+    const button = screen.getByRole('button', { name: /Shortcuts/ });
+    const badge = button.querySelector('kbd');
+    if (expected) expect(badge).toHaveTextContent(expected);
+    else expect(badge).toBeNull();
+    fireEvent.click(button);
     expect(onOpenShortcuts).toHaveBeenCalledOnce();
   });
 });
