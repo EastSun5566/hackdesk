@@ -10,7 +10,7 @@ Move through the workbench, find commands, and discover available actions withou
 
 A line at the bottom of the window lists the keys that matter where focus is: moving and opening notes in the folder tree, filtering in the search box, switching tabs, or the commands to reach from a note. Keys follow your current shortcuts. The line fades while you type in a note and comes back when you pause, move the pointer, or press a modifier. Choose **? Shortcuts** at its right end for the full list.
 
-To hide the line, choose **Hide Key Hints** from the Command Palette or the View menu, or turn off **Show key hints at the bottom of the window** in **Settings → Shortcuts**.
+To hide the line, choose **Hide Key Hints** from the Command Palette or the View menu, or turn off **Show key hints** in **Settings → Shortcuts**.
 
 ## Run commands with a few keys
 
