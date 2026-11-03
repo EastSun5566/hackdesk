@@ -4,155 +4,144 @@ outline: deep
 
 # Work with notes
 
-Choose a workspace, organize notes in folders, and keep related documents open in tabs or split panes. [Get started](./intro.md) covers opening a vault and connecting HackMD.
+Open notes in tabs, arrange them in panes, and save them to a Local Vault or HackMD. To connect a workspace, [get started](./intro.md).
 
-![HackDesk workbench showing fictional project notes in two editor panes](/editor.png)
+![Reading notes and a project plan open side by side in HackDesk](/editor.png)
 
-*V2 development build with demonstration data.*
+*HackDesk beta.10 with demonstration notes.*
 
 ## Choose a workspace
 
-The workspace name at the top of the sidebar opens the workspace switcher, which separates your note collections:
+Open the workspace switcher at the top of the sidebar:
 
-- **My Workspace** contains your personal HackMD notes
-- **Pinned** contains the teams you use most
-- **More** contains unpinned teams
-- **Local Vault** opens the selected local Markdown folder
-- **History** shows recent HackMD browsing activity
+- **My Workspace** holds your personal HackMD notes.
+- **Pinned** and **More** list your teams. Hover a team to pin it, or drag a pinned team to reorder it.
+- **Local Vault** opens your selected Markdown folder.
+- **History** shows recent HackMD browsing activity.
 
-Hover a team row to pin or unpin it. Drag pinned teams to reorder them. My Workspace stays first. Trash and your account, which opens Settings, sit at the bottom of the sidebar. Press **Cmd+B** on macOS or **Ctrl+B** on Windows/Linux to hide or show the sidebar. Use the [keyboard shortcuts](./keyboard-navigation.md) to switch workspaces without the pointer.
+Settings and Trash are at the bottom of the sidebar. Press **Cmd+B** on macOS or **Ctrl+B** on Windows/Linux to hide or show the sidebar.
 
-Opening another Local Vault restores that vault's own tabs and recoverable drafts. A Local Vault does not automatically upload notes to HackMD.
+Switching Local Vaults restores each vault's own tabs and recoverable drafts. Files are not uploaded to HackMD.
 
 ## Find and organize notes
 
-Use **Search notes** to filter the selected workspace by title, tag or text. Matching text appears under each note with the words highlighted. In a Local Vault, the text of every note is searched. In HackMD, only the notes you have opened in HackDesk are searched by text, because HackDesk never downloads notes you have not opened. The results say how many notes were covered. Expand folders in the navigator. **View options**, next to the search box, chooses where to search and how to sort, and narrows the list by permission or tag; a badge counts the options in use. HackMD lists refresh when you come back to the window.
+Use **Search notes** to find titles, tags, or text. **View options**, beside the search box, controls search scope, sorting, and filters.
 
-HackMD notes you open are kept on this computer, so they stay readable when you are offline or HackMD is unreachable, even after restarting HackDesk. A note shown this way is marked **Cached** and may be behind HackMD. To stop keeping notes, or to clear them, use **Settings → General → Offline and search**.
+Text search covers all notes in a Local Vault. For HackMD, it covers only notes you have opened in HackDesk. Results show the search coverage.
 
-Create folders with **New Folder**. Use a folder's menu to edit or delete it, or drag notes and folders to move them. From the keyboard, **Move Note to Folder…** in the Command Palette lists the workspace's folders, and **Rename Note** asks for a new title and saves it. Local deletion moves files to the system trash; HackMD deletion affects remote notes.
+Opened HackMD notes remain readable offline, including after a restart. **Cached** means the copy may be older than HackMD. Manage these copies in **Settings → General → Offline and search**.
 
-Press **Cmd+P** / **Ctrl+P** for **Quick Open** to search notes, folders, and workspaces. Press **Cmd+K** / **Ctrl+K** for the **Command Palette** to find actions. With text selected in the editor and an AI provider enabled, this shortcut opens AI actions instead; **Cmd+Shift+P** / **Ctrl+Shift+P** still opens the Command Palette.
+Create a folder with **New Folder**. Drag notes and folders to move them, or use **Move Note to Folder…** in the Command Palette. Use a folder's menu to rename or delete it. Local deletion uses the system trash; HackMD deletion affects remote notes.
 
-## Start from a template
-
-Templates are the notes in a top-level **Templates** folder of the current workspace. This works in My Workspace, in a team, where everyone shares the team's folder, and in a Local Vault.
-
-- To start from one, choose **New Note from Template…** from the File menu or the Command Palette. The new note opens as a draft with the template's text, and you save it like any new note. Content is copied as-is, without placeholders.
-- To make a template, open a note and choose **Save as Template** from **More actions**. HackDesk copies it into the Templates folder, and creates the folder the first time.
-
-Templates you saved in HackMD's web app are not available, because the HackMD API does not provide them. To use one, copy it into the Templates folder.
+Press **Cmd+P** / **Ctrl+P** for **Quick Open** to find notes, folders, and workspaces. Press **Cmd+K** / **Ctrl+K** for the **Command Palette** to find actions. If selected text opens AI actions instead, use **Cmd+Shift+P** / **Ctrl+Shift+P**.
 
 ## Arrange tabs and panes
 
-Select a note to open it in a tab. Drag a tab's icon or title to reorder tabs within its pane.
+Drag a tab's icon or title to reorder it within its pane.
 
-To compare notes:
+1. Choose **Pane actions → Split Right** (**Cmd+\\** / **Ctrl+\\**) or **Split Down** (**Cmd+Shift+\\** / **Ctrl+Shift+\\**).
+2. Open a note in the new pane.
+3. Drag the divider to resize, or choose **Equalize Pane Sizes**.
 
-1. Open a note and choose **Pane actions → Split Right** (**Cmd+\\** / **Ctrl+\\**) or **Split Down** (**Cmd+Shift+\\** / **Ctrl+Shift+\\**).
-2. Open another note in the new pane.
-3. Drag the gap between panes to resize them, or choose **Equalize Pane Sizes**.
+Split any pane again, up to six panes. The tab strip follows the active pane. Closing a pane's last tab removes that pane; closing the last tab in the workbench leaves it open.
 
-Any pane can be split again, right or down, up to six panes. A pane closes with its last tab. The tab strip follows the active pane.
+Choose **Zoom pane**, or press **Cmd+Shift+Enter** / **Ctrl+Shift+Enter**, to fill the editor area with one pane. Repeat to restore the layout. Use **Move Tab to Next Pane** to move a tab between panes.
 
-To move around without the pointer:
-
-- **Option+Cmd+Left** / **Right** (**Ctrl+Alt+Left** / **Right** on Windows/Linux) goes to the previous or next tab, and past a pane's last tab into the next pane, left to right and top to bottom.
-- **Control+Cmd+arrow keys** on macOS, or the **P** group in the [leader menu](./keyboard-navigation.md#run-commands-with-a-few-keys), move to the pane in that direction.
-- **Move Tab to Next Pane** moves the active tab along.
-
-To focus on one pane without closing the others, choose **Zoom pane** at the top right of the pane, or press **Cmd+Shift+Enter** / **Ctrl+Shift+Enter**: it fills the editor area, and the same button or key brings the other panes back as they were.
-
-**Close Tab** closes the active tab and keeps the workbench open after the last tab. When prompted about unsaved changes, save or discard them before closing.
-
-To write without the rest of the workbench, press **Cmd+.** / **Ctrl+.** for [Hack Mode](./keyboard-navigation.md#write-in-hack-mode): only the active note stays, centered in the window.
-
-## Link and embed notes
-
-HackDesk understands the ways HackMD links notes:
-
-- **Links**: In a Local Vault, `[Plan](./plan.md)` links to another note by its path. In HackMD, use the note's URL, such as `https://hackmd.io/@you/plan`.
-- **Embeds**: A line with `{%hackmd @you/plan %}` or `{%hackmd <short ID> %}` embeds a HackMD note.
-- **Link previews**: A line with `{%preview https://… %}` shows a preview card on HackMD.
-
-To insert one, type `[text](` to pick a note by title, or `{%hackmd ` to pick a note to embed. When you paste a URL, choose **URL**, **Reference** (`[title](url)`) or **Preview** (`{%preview %}`).
-
-Embeds and previews appear as cards under their line, with the note's title and an **Open** button. Choosing **Open link** next to a link, or **Open** on a card, opens the note in a tab when HackDesk knows it, and anything else in your browser. Cards and links use what HackDesk already has on this computer. Opening a HackMD link that it does not recognize asks HackMD once, which counts toward your API limit.
-
-**Note Details → Linked from** lists the notes that link to or embed the current note. It covers every note in your Local Vault, and only the HackMD notes you have opened in HackDesk.
-
-### Suggestions while you type
-
-The editor suggests HackMD syntax as you type it. Use the arrow keys and Enter to choose, or Esc to dismiss.
-
-- `:` and two letters, such as `:smi`, lists emoji. A colon after a letter or digit, as in `10:30` or `https:`, does not.
-- ` ``` ` and a letter lists code languages and diagrams such as `mermaid`.
-- `:::` and a letter lists container styles such as `warning`.
-- `{%` at the start of a line lists embeds such as `youtube` and `hackmd`.
-- `[!` in a blockquote lists alert types such as `NOTE` and `WARNING`.
-- `[` and a letter at the start of a line offers `[TOC]`. In a blockquote or list item it offers `[name=]` with your HackMD name, `[time=]` with the current time, and `[color=]`.
-- `<!-- .` lists `slide:` and `element:`, then the attributes slides accept, such as `class="fragment"`.
-- In front matter, keys such as `title`, `tags`, `type` and `slideOptions` are suggested, then fixed values such as `type: slide` or a slide `theme`.
-- `tags:` in front matter, and a `###### tags:` line, offer the tags your notes already use. Local Vault notes do not have tags yet, so this works in HackMD workspaces.
-
-For a new code block or container, the closing line is added for you. Suggestions do not appear inside code, and only front matter suggestions appear inside front matter.
-
-## Read books
-
-A HackMD book is a note whose headings and bulleted links form a table of contents. When you open a note that HackMD publishes as a book, HackDesk shows its **Book contents** beside the editor. To read any note as a book, including a Local Vault note, choose **Open as Book** from the note's **More actions** menu or the Command Palette.
-
-- Headings and link-less bullets are sections.
-- Each bulleted link is a chapter.
-- A link marked `[target=_blank]` opens in your browser.
-
-Choose a chapter to open it in a tab. While you read, the contents mark the current chapter. **Previous Chapter** and **Next Chapter** move through the book, from the buttons under the note or from the Command Palette. Chapters open the same way as other links, so a HackMD chapter HackDesk has not seen before asks HackMD once.
-
-To change the book, edit its links in the editor; the contents update when you save. **Close book** hides the contents until you open the book again.
-
-## Present slides
-
-Choose **Present** from a note's **More actions** menu, the **View** menu, or the Command Palette to show the note as full-screen slides. Unsaved changes are included. Notes that HackMD publishes as slides, or that have `type: slide` in their front matter, also show **Present** in the document toolbar.
-
-- A `---` line with a blank line above and below starts a new slide; `----` starts a slide below the current one. This applies inside code blocks too, so leave out the blank lines around `---` in code samples.
-- Everything after a line starting with `note:` is speaker notes, which are hidden.
-- `<!-- .slide: data-background="#123456" -->` and `<!-- .element: class="fragment" -->` set attributes on the slide or the element before the comment.
-- In code blocks, `js=` numbers the lines and `js=[1,3|4]` highlights lines step by step. Math works as it does in the editor.
-- `slideOptions` in the front matter set [reveal.js options](https://revealjs.com/config/) such as `theme`, `transition`, and `controls`. Options that would load scripts are ignored, and `hash` and `history` stay off because the window keeps its own place in the URL.
-
-Use the arrow keys or Space to move, **O** for an overview, and **Esc** to leave. Embeds such as `{%youtube %}` and diagrams show as text. Themes that use web fonts use system fonts instead.
+For distraction-free writing, press **Cmd+.** / **Ctrl+.** to enter [Hack Mode](./keyboard-navigation.md#write-in-hack-mode).
 
 ## Save changes
 
-Choose **Save** in the document toolbar to write the active note to its workspace. A dot on the note's tab shows unsaved changes, saving, or a problem, and disappears once the note is saved. The header is one line: the note's workspace, folders and title, which stays in view as you scroll. Choose the workspace or a folder there to show it in the sidebar. The header names the state only when it needs attention, such as a failed save or a conflict. Document toolbar buttons appear when you point at or tab into the header, and stay visible while the note has unsaved changes.
+Press **Cmd+S** / **Ctrl+S** to save the active note. A dot on its tab marks unsaved work, saving, or a problem. It disappears after a successful save.
 
-HackDesk keeps recovery copies of unsaved edits. Recovery does not replace saving, and a reported backup failure means the edits need attention. If a note changed elsewhere, review the conflict or recovery message before saving again.
+The note header shows its location. Choose a workspace or folder there to reveal it in the sidebar. Toolbar actions appear on hover or keyboard focus, and stay visible while edits are unsaved.
+
+HackDesk keeps recovery copies of unsaved edits. If a backup fails, save or copy the text. If a note changes elsewhere, review the conflict before saving again.
+
+## Review versions and conflicts
+
+For a HackMD note, choose **More actions → Version History…**. Select a version to compare it with the saved HackMD content, or choose **Full text**. Unsaved edits are excluded. Use **Restore into Editor** to load a version for editing, or open it as a new draft. Confirm before replacing unsaved edits, then save when ready. Local Vault notes do not have HackMD version history.
+
+If a note changes elsewhere, choose **Compare with disk** or **Compare with HackMD** in the conflict message. The latest saved content appears beside **Your draft**. Opening the comparison does not save or replace your edits.
+
+## Start from a template
+
+Templates are notes in a top-level **Templates** folder in the current workspace, including Local Vaults and teams.
+
+- Choose **New Note from Template…** from the File menu or Command Palette. Edit the new draft, then save it.
+- Choose **Save as Template** from a note's **More actions** menu to copy it into Templates. HackDesk creates the folder if needed.
+
+Template content is copied as written; placeholders are not expanded. Templates saved through HackMD's web app are not exposed by its API. Copy them into the Templates folder to use them here.
+
+## Link and embed notes
+
+In a Local Vault, link by relative path: `[Plan](./plan.md)`. In HackMD, use the note URL: `https://hackmd.io/@you/plan`.
+
+Type `[text](` to pick a note, or `{%hackmd ` to pick an embed. When pasting a URL, choose **URL**, **Reference**, or **Preview**. Standalone embeds and previews appear as cards with an **Open** button.
+
+Known notes open in tabs; other links open in your browser. Resolving an unknown HackMD note makes an API request. **Note Details → Linked from** lists backlinks across the Local Vault or the HackMD notes you have opened.
+
+For local images, use a path relative to the note, such as `![Diagram](./images/diagram.png)`. Paths must stay inside the vault. New drafts need to be saved before relative images can resolve.
+
+### Insert Markdown syntax
+
+Start typing syntax to see suggestions. Use arrow keys and Enter to choose, or Escape to dismiss.
+
+| Start typing | Suggestions |
+| --- | --- |
+| `:smi` | Emoji |
+| Three backticks followed by a letter | Code languages and diagrams |
+| `:::w` | Container styles |
+| `{%` at the start of a line | Embeds |
+| `> [!` | Alerts |
+| `<!-- .` | Slide and element attributes |
+| Front matter keys and values | Metadata and slide options |
+
+HackMD tag fields also suggest existing tags. New code blocks and containers include a closing line.
+
+## Read books
+
+A book note uses headings and bulleted links as its table of contents. HackMD books open with **Book contents** beside the editor. For another note, choose **Open as Book** from **More actions** or the Command Palette.
+
+Choose a chapter, or use **Previous Chapter** and **Next Chapter**. Chapters follow the same link rules as other notes. Edit the table of contents and save to update it. **Close book** hides the contents.
+
+## Present slides
+
+Choose **Present** from **More actions**, the View menu, or the Command Palette. The presentation includes unsaved edits. Notes with `type: slide` also show Present in the toolbar.
+
+- Use `---` on its own line, with blank lines above and below, for a new slide; use `----` for a slide below. These separators also apply inside code blocks.
+- Start a line with `note:` for hidden speaker notes.
+- Use `<!-- .slide: ... -->` and `<!-- .element: ... -->` for slide and element attributes.
+- Set the theme, transition, and controls through `slideOptions` in front matter. Script-loading options are ignored.
+
+Arrow keys or Space advance, **O** opens the overview, and **Escape** exits. Math is supported; embeds and diagrams remain text. Themes use system fonts instead of remote web fonts.
 
 ## Write with AI
 
-AI is optional and off by default. Install and sign in to the Codex or Claude CLI separately, then enable it in **Settings → AI**.
+Install and sign in to the Codex or Claude CLI, then enable the provider in **Settings → AI**. AI is off by default.
 
-Select text and press **Cmd+K** / **Ctrl+K** to choose a writing action. Review the result, then choose **Replace**, **Insert**, or **Discard**. To work on the whole note without selecting text, choose **Ask AI...** from the Command Palette.
+Select text and press **Cmd+K** / **Ctrl+K**. Choose an action, review the result, then **Replace**, **Insert**, or **Discard**. Use **Compare changes** for a full-note comparison. For the whole note, choose **Ask AI...** from the Command Palette.
 
-Save and reorder your own prompts in **Settings → AI**. AI requests use your CLI provider's service and account limits. They send the selected text, note title, nearby context and instruction to that provider; see [privacy and network behavior](./code-signing-policy.md#privacy-and-network-behavior).
+Save custom prompts in **Settings → AI**. Requests use your CLI account and send note text and context to the provider. Read the [privacy and network details](./code-signing-policy.md#privacy-and-network-behavior).
 
 ### Ask your notes
 
-Choose **Ask Your Notes...** from the Command Palette or the **Edit** menu, then ask a question in any language, such as what a meeting decided. HackDesk finds the passages that best match among the current workspace's notes it already has: every Local Vault note, or the HackMD notes you have opened. It never downloads other notes. Your AI provider answers from those passages only, with tools still off, and marks where each point comes from as `[1]`, `[2]`.
+Choose **Ask Your Notes...** from the Edit menu or Command Palette. Ask a question; HackDesk finds relevant passages in the current workspace's local copies and sends them to your AI provider. It searches all Local Vault notes or the HackMD notes you have opened, without downloading other notes.
 
-The numbered sources appear above the answer. Choose one, or a `[1]` in the answer, to open that note; the conversation is still there when you open Ask Your Notes again. Follow-up questions include the previous answers, so you can ask "and after that?". **New conversation** starts over, and so does moving to another workspace. If no notes match, HackDesk says so without asking the AI.
+Choose a numbered source to open its note. Follow-up questions keep the conversation. **New conversation** or switching workspaces starts over. If no notes match, HackDesk does not send a request.
 
 ## Dictate
 
-Dictation is available on macOS 26 or later and is off by default. Turn it on in **Settings → Dictation** and choose a language. The first time you use a language, choose **Download**: macOS fetches its speech model from Apple once and shares it with other apps.
+On macOS 26 or later, enable **Settings → Dictation**, choose a language, and download its speech model.
 
-In a note, press **Cmd+Shift+D** to dictate at the cursor. What you say appears at the cursor as you speak, but the note changes only when you finish. Press **Cmd+Shift+D** again or **Enter** to insert the text, or **Escape** to cancel. A recording stops on its own after five minutes. The first recording asks for microphone access.
+1. Press **Cmd+Shift+D** in a note. Allow microphone access when prompted.
+2. Speak. Press **Cmd+Shift+D** again or **Enter** to insert the text, or **Escape** to cancel.
 
-The inserted text stays selected. With an AI provider enabled, press **Cmd+K** and choose **Clean up dictation**, first in the list, to remove filler words and fix punctuation. Review the result before replacing the text; undo brings back the original dictation.
+A recording stops after five minutes. Speech recognition runs on your Mac; HackDesk does not save the audio. With AI enabled, select **Clean up dictation** to review a revised version before replacing the text.
 
 ## Edit Note Details
 
-Choose **Rename Note** from the note's More actions, the command palette, or **N R** in the leader menu to change a note's title; for a Local Vault note the file takes the new name. Open **Note Details** to inspect metadata. It slides in over the right side of the note, so the editor keeps its width, and takes keyboard focus; press **Escape** to close it and return to the note. HackMD notes also expose tags, permissions, and sharing information where supported. For a Local Vault note, Note Details shows only the notes linking to it.
+Choose **Rename Note** from **More actions** or the Command Palette to change a saved note's title. In a Local Vault, this also renames the file.
 
-Local files and HackMD notes have different metadata. Controls reflect the selected workspace; they do not provide full team administration.
+Open **Note Details** to view metadata and backlinks. HackMD notes also offer tags, permissions, and sharing controls. Press **Escape** to close the panel and return to the note.
 
-For capture outside the main window, use [Quick Hack](./quick-hack.md). For editor modes and appearance, [customize HackDesk](./config.md).
+For capture outside the main window, use [Quick Hack](./quick-hack.md). For themes and editor modes, [customize HackDesk](./config.md).

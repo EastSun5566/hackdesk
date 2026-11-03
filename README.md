@@ -15,15 +15,17 @@ Work with HackMD notes and local Markdown vaults.
 
 - **HackMD:** Browse personal and team notes, organize folders, view history, and read opened notes offline.
 - **Local Vault:** Open a folder of Markdown files without an account.
-- **Links, books and slides:** Link, embed and backlink notes, read books, start from templates, and present slides.
+- **Markdown:** Link notes, use templates, read books, and present slides.
 - **AI and dictation:** Rewrite with your installed Codex or Claude CLI, ask questions across your notes, and dictate on macOS 26 or later.
 - **Customize:** Change themes, fonts, editor modes, and shortcuts in Settings.
 
+![HackDesk with demonstration notes in split panes](./docs/public/editor.png)
+
 ## Install
 
-[Download HackDesk v2.0.0-beta.9](https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.9) for macOS, Windows, or Linux. On macOS, v2 requires macOS 13 or later. Beta builds are unsigned and use manual updates.
+[Download HackDesk v2.0.0-beta.10](https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.10) for macOS, Windows, or Linux. On macOS, v2 requires macOS 13 or later. Beta builds are unsigned and use manual updates.
 
-Save all open notes before upgrading from beta.4 or earlier; those versions cannot restore unsaved edits to existing notes after a restart.
+Save open notes before upgrading. Older betas cannot restore beta.10's tabs, panes, or unsaved drafts after a downgrade.
 
 See the [installation guide](https://hackdesk.eastsun.me/install) for platform steps and the [code signing policy](docs/code-signing-policy.md) for signing status.
 
@@ -44,7 +46,7 @@ xattr -dr com.apple.quarantine "/Applications/HackDesk.app"
 
 [Get started](docs/intro.md) · [Work with notes](docs/features.md) · [Quick Hack](docs/quick-hack.md) · [Keyboard navigation](docs/keyboard-navigation.md) · [Customize HackDesk](docs/config.md)
 
-The [documentation website](https://hackdesk.eastsun.me) follows the current v2 development build. Published betas can differ.
+The [documentation website](https://hackdesk.eastsun.me) covers beta.10. Screenshots use demonstration data.
 
 ## Contributing
 
