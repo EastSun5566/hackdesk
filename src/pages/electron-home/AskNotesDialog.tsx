@@ -46,14 +46,12 @@ export function AskNotesDialog({ askNotes, onOpenNote }: {
         <DialogHeader className="scroll-edge-top relative px-5 pb-3 pt-4">
           <DialogTitle>Ask Your Notes</DialogTitle>
           <DialogDescription>
-            Answers come from this workspace&apos;s notes that HackDesk has: every Local Vault note, or the HackMD notes you&apos;ve opened.
+            Searches Local Vault notes and opened HackMD notes in this workspace.
           </DialogDescription>
         </DialogHeader>
 
         <div className="scroll-edges-source min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-4" aria-live="polite">
-          {turns.length === 0 ? (
-            <p className="text-sm text-text-subtle">Ask a question, such as what a meeting decided or where a topic was discussed.</p>
-          ) : turns.map(turn => (
+          {turns.map(turn => (
             <TurnView
               key={turn.requestId}
               turn={turn}

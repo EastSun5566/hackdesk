@@ -189,7 +189,7 @@ export function ShortcutsSettingsPanel({
     <SettingsSection title="Shortcuts">
       <div className="space-y-4">
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={characterShortcutsEnabled} onChange={event => onCharacterShortcutsChange(event.target.checked)} />Enable ?, / and Space outside text editing</label>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={keyHintsVisible} onChange={event => onKeyHintsVisibleChange(event.target.checked)} />Show key hints at the bottom of the window</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={keyHintsVisible} onChange={event => onKeyHintsVisibleChange(event.target.checked)} />Show key hints</label>
         <div className="relative">
           <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-subtle" />
           <SettingsInput
@@ -217,9 +217,6 @@ export function ShortcutsSettingsPanel({
                 <li className="flex min-w-0 items-center gap-3 px-3 py-2.5">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-text-default">Quick Hack</p>
-                    <p className="truncate text-xs text-text-subtle">
-                      Open a Quick Hack window from anywhere.
-                    </p>
                   </div>
                   <span className="inline-flex h-8 min-w-28 items-center justify-center rounded-md border border-border-default bg-background-default px-3 text-xs font-medium text-text-default">
                     {quickCaptureShortcut}
@@ -255,7 +252,6 @@ export function ShortcutsSettingsPanel({
                       <li key={action.id} className="flex min-w-0 items-center gap-3 px-3 py-2.5">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-text-default">{action.label}</p>
-                          <p className="truncate text-xs text-text-subtle">{action.description}</p>
                         </div>
                         <Button
                           ref={isActive ? activeButtonRef : undefined}

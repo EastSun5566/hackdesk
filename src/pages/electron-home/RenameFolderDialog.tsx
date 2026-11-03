@@ -73,9 +73,6 @@ export function RenameFolderDialog({
             Update the folder name, description, icon, and color.
           </DialogDescription>
         </DialogHeader>
-        <p className="rounded-md border border-border-default bg-background-muted px-3 py-2 text-xs text-text-subtle">
-          Update folder details and appearance.
-        </p>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <Field>
             <FieldLabel htmlFor={EDIT_FOLDER_NAME_ID}>Name</FieldLabel>

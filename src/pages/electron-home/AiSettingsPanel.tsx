@@ -22,7 +22,6 @@ import {
 } from '@/lib/ai';
 import { getHackDeskAPI } from '@/lib/electron-api';
 import type { AiCustomCommand, AiSettings } from '@/lib/settings';
-import { cn } from '@/lib/utils';
 
 import { AiCommandDialog } from './AiCommandDialog';
 import { createAiCustomCommand, updateAiCustomCommands } from './ai-commands';
@@ -125,8 +124,6 @@ function ProviderCard({
             {isDefault ? <span className="ml-2 rounded-full bg-background-selected px-1.5 py-0.5 text-2xs font-medium text-text-subtle">Default</span> : null}
           </label>
           <p className="truncate text-xs text-text-subtle">
-            {status?.command ? `Installed command · ${AI_PROVIDER_COMMANDS[id]}` : `${PROVIDER_VENDORS[id]} · ${AI_PROVIDER_COMMANDS[id]} command`}
-            {' · '}
             {describeAiProviderStatus(status)}
           </p>
         </div>
@@ -142,9 +139,6 @@ function ProviderCard({
         <div className="space-y-3 border-t border-border-default px-4 py-3">
           <div className="flex items-start justify-between gap-3 text-sm">
             <div className="min-w-0">
-              <p className={cn('font-medium', (status?.phase === 'failed' || status?.phase === 'sign-in-required') && 'text-destructive-default')}>
-                {status?.phase === 'ready' ? 'Ready' : describeAiProviderStatus(status)}
-              </p>
               <p className="text-xs leading-5 text-text-subtle" role={status?.phase === 'failed' ? 'alert' : undefined}>
                 {status?.phase === 'sign-in-required'
                   ? `Run \`${AI_SIGN_IN_COMMANDS[id]}\` in a terminal, then refresh.`
@@ -188,9 +182,9 @@ function ProviderCard({
           {showApiKeyChoice ? (
             <div className="flex items-start justify-between gap-3 text-sm">
               <div className="min-w-0">
-                <label htmlFor={ignoreKeyId} className="font-medium">Use my Claude subscription instead of ANTHROPIC_API_KEY</label>
+                <label htmlFor={ignoreKeyId} className="font-medium">Use Claude subscription</label>
                 <p className="text-xs leading-5 text-text-subtle">
-                  An ANTHROPIC_API_KEY in HackDesk&apos;s environment bills that key. Turn this on to use your claude.ai sign-in.
+                  Use your claude.ai plan instead of ANTHROPIC_API_KEY billing.
                 </p>
               </div>
               <Switch
@@ -204,9 +198,6 @@ function ProviderCard({
 
           <div className="grid gap-2 text-sm">
             <label htmlFor={pathId} className="font-medium">Command path</label>
-            <span className="text-xs leading-5 text-text-subtle">
-              Leave blank to find <code>{AI_PROVIDER_COMMANDS[id]}</code> the way your terminal does.
-            </span>
             <Input
               id={pathId}
               value={commandPath}
@@ -313,7 +304,7 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
     <div className="space-y-6">
       <SettingsSection
         title="AI Providers"
-        description="HackDesk uses the AI command-line tools already signed in on this computer. Turning one on lets HackDesk run it for AI actions; its keys are never read or stored."
+        help="Uses your signed-in Codex or Claude CLI."
       >
         {error ? <p role="alert" className="text-sm text-destructive-default">{error}</p> : null}
         {aiSettings ? AI_PROVIDER_IDS.map(id => (
@@ -336,7 +327,7 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
       </SettingsSection>
 
       {aiSettings && enabledIds.length > 1 ? (
-        <SettingsSection title="Default provider" description="Used for AI actions unless you pick another one.">
+        <SettingsSection title="Default provider">
           <Select
             name="settings-ai-default-provider"
             value={aiSettings.defaultProvider ?? enabledIds[0]}
@@ -360,10 +351,9 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
       {aiSettings && enabledIds.length > 0 ? (
         <SettingsSection
           title="In the editor"
-          description="Select text and press ⌘K (Ctrl+K on Windows and Linux) to fix, rewrite, translate or ask AI about it."
         >
           <div className="flex items-center justify-between gap-3 text-sm">
-            <label htmlFor="settings-ai-selection-chip" className="font-medium">Show the ✦ AI button after selecting with the mouse</label>
+            <label htmlFor="settings-ai-selection-chip" className="font-medium">Show AI button on selection</label>
             <Switch
               id="settings-ai-selection-chip"
               checked={aiSettings.selectionChip}
@@ -441,9 +431,7 @@ function CustomCommandsSection({
   return (
     <SettingsSection
       title="Custom commands"
-      description={hasProvider
-        ? 'Your own prompts, shown at the top of the ⌘K menu. You can also save a request you typed there with "Save as command".'
-        : 'Your own prompts for the ⌘K menu. Turn on Codex or Claude above to use them.'}
+      description={hasProvider ? undefined : 'Enable an AI provider to run commands.'}
     >
       {commands.length > 0 ? (
         <ul className="divide-y divide-border-default rounded-lg border border-border-default">
@@ -484,7 +472,7 @@ function CustomCommandsSection({
         <AiCommandDialog
           open
           title={editor.mode === 'new' ? 'New AI command' : 'Edit AI command'}
-          description="Runs on the selected text, or the whole note when nothing is selected."
+          description="Uses the selection, or the whole note if nothing is selected."
           submitLabel={editor.mode === 'new' ? 'Create' : 'Save'}
           initial={editor.mode === 'new'
             ? { name: '', prompt: '', delivery: 'replace' }

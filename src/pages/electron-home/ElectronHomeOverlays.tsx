@@ -44,7 +44,7 @@ export function ElectronHomeOverlays({
           <AlertDialogHeader>
             <AlertDialogTitle>Disconnect HackMD?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the HackMD API token stored by HackDesk. Your HackMD notes and Local Vault files are not deleted.
+              Removes the saved token. Your notes and vault files stay unchanged.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

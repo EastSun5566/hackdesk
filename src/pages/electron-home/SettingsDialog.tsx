@@ -269,7 +269,7 @@ function SettingsDialogContent({
           <DialogHeader className="scroll-edge-top relative shrink-0 px-5 py-4">
             <DialogTitle>Settings</DialogTitle>
             <DialogDescription className="sr-only">
-              Configure the local Electron app and HackMD API access.
+              HackDesk preferences.
             </DialogDescription>
           </DialogHeader>
 

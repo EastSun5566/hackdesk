@@ -220,7 +220,7 @@ function TrashBody({ onClose, onOpenNote }: { onClose: () => void; onOpenNote: (
             <Trash2 aria-hidden="true" className="size-4" />
             Trash
           </DialogTitle>
-          <DialogDescription>Notes you deleted from My Workspace. Team notes are not listed here.</DialogDescription>
+          <DialogDescription>Deleted notes from My Workspace.</DialogDescription>
         </DialogHeader>
       </div>
       {content}

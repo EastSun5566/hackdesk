@@ -60,9 +60,9 @@ describe('DeleteNoteDialog', () => {
     const { note, onCancel, onDelete } = renderDeleteNoteDialog();
 
     const dialog = screen.getByRole('alertdialog', { name: 'Delete Note' });
-    expect(within(dialog).getByText(/moves the note to your HackMD trash/i)).toBeVisible();
+    expect(within(dialog).getByText(/Moves the note to HackMD trash/i)).toBeVisible();
     expect(within(dialog).getByText(/You can undo this right after deleting/i)).toBeVisible();
-    expect(within(dialog).getByText(/Local vault Markdown files are not affected/i)).toBeVisible();
+    expect(within(dialog).getByText(/Local files stay unchanged/i)).toBeVisible();
 
     const deleteButton = within(dialog).getByRole('button', { name: 'Delete' });
     expect(deleteButton).toHaveClass('bg-destructive-default');
@@ -80,7 +80,7 @@ describe('DeleteNoteDialog', () => {
     renderDeleteNoteDialog({ note: createNote({ teamPath: 'engineering' }) });
 
     const dialog = screen.getByRole('alertdialog', { name: 'Delete Note' });
-    expect(within(dialog).getByText(/deletes the note from HackMD.*cannot be undone from HackDesk/i)).toBeVisible();
+    expect(within(dialog).getByText(/Deletes the HackMD note.*cannot undo this in HackDesk/i)).toBeVisible();
   });
 
   it('uses system trash copy for local notes', () => {
@@ -94,7 +94,7 @@ describe('DeleteNoteDialog', () => {
     });
 
     const dialog = screen.getByRole('alertdialog', { name: 'Move Note to Trash' });
-    expect(within(dialog).getByText(/local Markdown file to the system trash/i)).toBeVisible();
+    expect(within(dialog).getByText(/Markdown file to the system trash/i)).toBeVisible();
     expect(within(dialog).getByRole('button', { name: 'Move to Trash' })).toBeVisible();
   });
 

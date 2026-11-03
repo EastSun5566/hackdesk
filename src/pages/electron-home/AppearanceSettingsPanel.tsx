@@ -11,7 +11,7 @@ export function AppearanceSettingsPanel({
   return (
     <SettingsSection
       title="Appearance"
-      help="Theme changes preview immediately. Apply Theme keeps the preview; Cancel Preview restores the saved theme."
+      help="Changes preview until you apply or cancel."
     >
       <ThemeAppearanceFields
         controller={controller}

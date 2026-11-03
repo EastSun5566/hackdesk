@@ -245,7 +245,6 @@ export function DocumentWorkspace({
         <EmptyState
           icon={<FileText className="size-6" />}
           title="No note selected"
-          description="Choose a note from the navigator to read or edit."
           action={(
             <div className="flex flex-wrap justify-center gap-2">
               {canCreateNote ? <Button variant="primary" onClick={onCreateNote}>New Note</Button> : null}

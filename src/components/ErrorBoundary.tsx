@@ -93,9 +93,6 @@ export class ErrorBoundary extends Component<Props, State> {
               <h1 className="text-2xl font-semibold text-text-default text-balance">
                 HackDesk hit an error
               </h1>
-              <p className="text-sm leading-6 text-text-subtle text-pretty">
-                Try to recover the current view, reload the app, or export debug logs if this keeps happening.
-              </p>
             </div>
 
             <details className="rounded-lg border border-border-default bg-background-muted px-3 py-2 text-sm">
@@ -132,9 +129,6 @@ export class ErrorBoundary extends Component<Props, State> {
               ) : null}
             </div>
 
-            <p className="text-xs leading-5 text-text-subtle">
-              Local files and unsynced editor changes are not intentionally modified by this recovery screen.
-            </p>
           </div>
         </div>
       );

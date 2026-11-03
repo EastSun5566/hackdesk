@@ -42,7 +42,6 @@ describe('ErrorBoundary', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'HackDesk hit an error' })).toBeInTheDocument();
-    expect(screen.getByText('Try to recover the current view, reload the app, or export debug logs if this keeps happening.')).toBeInTheDocument();
     expect(screen.getByText('Error details')).toBeInTheDocument();
     expect(screen.getByText('Test error')).toBeInTheDocument();
   });

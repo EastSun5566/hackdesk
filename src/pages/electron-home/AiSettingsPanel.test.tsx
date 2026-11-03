@@ -48,7 +48,7 @@ describe('AiSettingsPanel', () => {
   it('offers the subscription switch only when an ANTHROPIC_API_KEY is exported', async () => {
     const { update } = installApi({ apiKeyInEnvironment: true });
     render(<AiSettingsPanel active />);
-    const toggle = await screen.findByRole('switch', { name: 'Use my Claude subscription instead of ANTHROPIC_API_KEY' });
+    const toggle = await screen.findByRole('switch', { name: 'Use Claude subscription' });
     fireEvent.click(toggle);
     await waitFor(() => expect(update).toHaveBeenCalled());
     expect(update.mock.calls.at(-1)![0].ai.providers.claude.ignoreApiKey).toBe(true);
@@ -58,7 +58,7 @@ describe('AiSettingsPanel', () => {
     installApi();
     render(<AiSettingsPanel active />);
     await screen.findByText('First');
-    expect(screen.queryByRole('switch', { name: 'Use my Claude subscription instead of ANTHROPIC_API_KEY' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Use Claude subscription' })).not.toBeInTheDocument();
   });
 
   it('reorders custom commands, with the ends unable to move further', async () => {

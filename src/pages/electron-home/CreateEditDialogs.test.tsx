@@ -130,7 +130,6 @@ describe('create and edit dialogs', () => {
     );
 
     const dialog = screen.getByRole('dialog', { name: 'Edit Folder' });
-    expect(within(dialog).getByText('Update folder details and appearance.')).toBeVisible();
     expect(screen.queryByText(/in HackMD/i)).not.toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save Changes' }));
 

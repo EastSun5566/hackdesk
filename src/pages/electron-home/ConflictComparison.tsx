@@ -34,7 +34,7 @@ export function ConflictComparison(props: {
     <DialogContent size="xl" className="flex note-comparison-dialog flex-col overflow-hidden">
       <DialogHeader className="shrink-0 pr-7">
         <DialogTitle>Compare with {snapshot.source}</DialogTitle>
-        <DialogDescription>Review the latest saved content and your draft. Comparing does not save or reload either version.</DialogDescription>
+        <DialogDescription className="sr-only">Compare saved content with your draft.</DialogDescription>
       </DialogHeader>
       <div className="min-h-0 overflow-auto">
         {error ? <div className="space-y-2"><p role="status">{error}</p><Button size="sm" variant="secondary" onClick={() => { setError(null); setResult(null); setAttempt(attempt + 1); }}>Retry</Button></div> : !result ? <p className="text-sm text-text-subtle">Reading latest content…</p> : <>

@@ -57,7 +57,7 @@ export function AdvancedSettingsPanel({
       .then((result) => {
         switch (result.status) {
         case 'upToDate':
-          toast.info('You’re already on the latest version of HackDesk.');
+          toast.info('HackDesk is up to date.');
           break;
         case 'declined':
           toast.info(`Skipped installing HackDesk v${result.version}.`);
@@ -120,9 +120,6 @@ export function AdvancedSettingsPanel({
 
       <SettingsSection title="Reset">
         <div className="rounded-md border border-destructive-default/40 bg-background-default p-3">
-          <p className="mb-3 text-xs leading-5 text-text-subtle">
-            Restores local preferences and clears the configured HackMD token. Notes and vault files are not deleted.
-          </p>
           <Button
             ref={resetButtonRef}
             variant="destructive"
@@ -139,8 +136,7 @@ export function AdvancedSettingsPanel({
           <AlertDialogHeader>
             <AlertDialogTitle>Reset All Settings?</AlertDialogTitle>
             <AlertDialogDescription>
-              This restores local preferences, editor mode, appearance, and clears the configured HackMD token.
-              Local vault Markdown files are not deleted.
+              Resets preferences and disconnects HackMD. Your notes and vault files stay unchanged.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

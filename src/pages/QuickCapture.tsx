@@ -47,7 +47,6 @@ export function QuickCapture() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const isMac = navigator.userAgent.includes('Mac');
-  const characterCount = Array.from(content).length;
 
   const focusTextarea = useCallback(() => {
     if (focusFrameRef.current !== null) {
@@ -169,7 +168,7 @@ export function QuickCapture() {
             name="content"
             aria-describedby={error ? 'quick-capture-error' : undefined}
             value={content}
-            placeholder="Write a quick note…"
+            placeholder="Write a note…"
             className="h-auto min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-5 py-4 text-base leading-7 text-text-default caret-primary-default shadow-none outline-none transition-none placeholder:text-text-subtle focus:border-transparent focus-visible:ring-0 data-[invalid]:border-0 data-[invalid]:focus:border-transparent data-[invalid]:focus-visible:ring-0"
             disabled={submitting}
             onChange={(event) => {
@@ -198,11 +197,9 @@ export function QuickCapture() {
           ) : null}
         </Field>
         <footer className="relative flex h-10 shrink-0 items-center justify-end px-2.5">
-          {submitting || (!error && characterCount > 0) ? (
+          {submitting ? (
             <span className="pointer-events-none absolute inset-x-32 text-center text-xs tabular-nums text-text-subtle">
-              {submitting
-                ? 'Capturing…'
-                : `${characterCount} ${characterCount === 1 ? 'character' : 'characters'}`}
+              Capturing…
             </span>
           ) : null}
           <Button

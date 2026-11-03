@@ -27,8 +27,8 @@ export function TemplatePickerDialog({ open, onOpenChange, templates, onChoose }
       <DialogContent size="md" className="gap-0 overflow-hidden p-0">
         <DialogHeader className="px-4 pb-2 pt-4">
           <DialogTitle>New Note from Template</DialogTitle>
-          <DialogDescription>
-            {`Templates are the notes in this workspace's ${TEMPLATES_FOLDER_NAME} folder.`}
+          <DialogDescription className="sr-only">
+            Choose a note from the {TEMPLATES_FOLDER_NAME} folder.
           </DialogDescription>
         </DialogHeader>
         <Command loop label="Templates">
@@ -37,7 +37,7 @@ export function TemplatePickerDialog({ open, onOpenChange, templates, onChoose }
             <CommandEmpty>
               {templates.length
                 ? 'No matching templates.'
-                : `No templates yet. Add notes to a ${TEMPLATES_FOLDER_NAME} folder, or use Save as Template.`}
+                : 'No templates yet. Use Save as Template to add one.'}
             </CommandEmpty>
             {templates.map(template => (
               <CommandItem
