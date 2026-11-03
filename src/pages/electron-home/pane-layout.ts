@@ -41,13 +41,28 @@ function equalSizes(count: number) {
   return Array.from({ length: count }, () => 100 / count);
 }
 
-/** Keeps every child at least MIN_SIZE and the total at 100; anything unusable becomes equal. */
+/** Keeps children at MIN_SIZE and totals 100; unusable or infeasible inputs become equal. */
 export function normalizeSizes(sizes: readonly number[], count: number) {
   if (count <= 1) return [100];
-  if (sizes.length !== count || sizes.some(size => !Number.isFinite(size) || size <= 0)) return equalSizes(count);
-  const clamped = sizes.map(size => Math.max(size, MIN_SIZE));
-  const total = clamped.reduce((sum, size) => sum + size, 0);
-  return clamped.map(size => (size / total) * 100);
+  if (count * MIN_SIZE >= 100 || sizes.length !== count || sizes.some(size => !Number.isFinite(size) || size <= 0)) return equalSizes(count);
+  // Scale weights first so even finite inputs whose sum overflows stay usable.
+  const largest = Math.max(...sizes);
+  const weights = sizes.map(size => size / largest);
+  const normalized = sizes.map(() => 0);
+  let flexible = sizes.map((_, index) => index);
+  let remaining = 100;
+  while (flexible.length) {
+    const total = flexible.reduce((sum, index) => sum + weights[index], 0);
+    const belowMinimum = flexible.filter(index => (weights[index] / total) * remaining < MIN_SIZE);
+    if (!belowMinimum.length) {
+      flexible.forEach(index => { normalized[index] = (weights[index] / total) * remaining; });
+      break;
+    }
+    // Pinned panes keep their minimum; only the others share the remaining budget.
+    belowMinimum.forEach(index => { normalized[index] = MIN_SIZE; remaining -= MIN_SIZE; });
+    flexible = flexible.filter(index => normalized[index] === 0);
+  }
+  return normalized;
 }
 
 function makeSplit(orientation: PaneSplitOrientation, children: PaneLayoutNode[], sizes: number[], id = createSplitId()): PaneLayoutNode {
