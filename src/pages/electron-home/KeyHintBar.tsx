@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import type { ElectronActionContext } from '@/lib/electron-actions';
+import { getResolvedActionShortcut, type ElectronActionContext } from '@/lib/electron-actions';
 import { getKeyHints, type KeyHint, type KeyHintContext } from '@/lib/key-hints';
 import type { LeaderLevel } from '@/lib/leader-keys';
 import type { ShortcutOverrides } from '@/lib/keyboard-shortcuts';
@@ -67,6 +67,7 @@ export function KeyHintBar({
     };
   }, []);
 
+  const helpKeys = getResolvedActionShortcut('show-keyboard-shortcuts', shortcuts, platform, characterShortcutsEnabled);
   const hints: KeyHint[] = leader
     ? [
       ...leader.items.slice(0, 6).map(item => ({ keys: item.key.toUpperCase(), label: item.label })),
@@ -100,7 +101,7 @@ export function KeyHintBar({
         onClick={onOpenShortcuts}
         className={cn('flex shrink-0 items-center gap-1.5 rounded-sm px-1 hover:text-text-default', FOCUS_RING_CLASS)}
       >
-        <kbd className="rounded-sm border border-border-default bg-background-default px-1 font-mono leading-4 text-text-default">?</kbd>
+        {helpKeys ? <kbd className="rounded-sm border border-border-default bg-background-default px-1 font-mono leading-4 text-text-default">{helpKeys}</kbd> : null}
         <span>Shortcuts</span>
       </button>
     </footer>

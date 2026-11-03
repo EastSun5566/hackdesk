@@ -1149,6 +1149,12 @@ test('saved shortcut preferences update hints and disable character shortcuts', 
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(settings).toBeHidden();
     await expect(page.locator('[data-search-shortcut]')).toHaveText(process.platform === 'darwin' ? '⌘E' : 'Ctrl+E');
+    const shortcutsButton = page.getByRole('note', { name: 'Keys you can press' }).getByRole('button', { name: /Shortcuts/ });
+    await expect(shortcutsButton.locator('kbd')).toHaveCount(0);
+    await shortcutsButton.click();
+    await expect(help).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(help).toHaveCount(0);
     await note.focus(); await page.keyboard.press('?');
     await expect(help).toHaveCount(0);
     await page.keyboard.press('/'); await expect(search).not.toBeFocused();
