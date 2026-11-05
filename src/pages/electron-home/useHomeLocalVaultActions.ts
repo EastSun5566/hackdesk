@@ -44,7 +44,7 @@ export function useHomeLocalVaultActions({
     if (result.snapshot) {
       queryClient.setQueryData(getLocalVaultSnapshotQueryKey(result.settings?.localVault.path ?? null), result.snapshot);
     }
-    setWorkspaceScope({ type: 'local', label: 'Local Vault' });
+    setWorkspaceScope({ type: 'local', label: 'Local Vault', vaultId: result.snapshot?.vaultId });
     return true;
   }, [api, queryClient, setWorkspaceScope]);
 

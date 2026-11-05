@@ -14,6 +14,7 @@ export type ElectronActionContext = {
   editorMode: EditorMode;
   hasToken: boolean;
   canCreate: boolean;
+  canStartDraft?: boolean;
   scopeType: 'local' | 'personal' | 'team' | 'history';
   selectedFolderId: string | null;
   canModifySelectedFolder: boolean;
@@ -270,7 +271,7 @@ export const ELECTRON_ACTIONS: ElectronActionDefinition[] = [
     defaultKeybinding: 'mod+n',
     shortcut: '⌘N',
     menuAccelerator: 'Command+N',
-    getDisabledReason: requireWritableWorkspace,
+    getDisabledReason: context => context.canStartDraft ? null : requireWritableWorkspace(context),
   },
   {
     id: 'new-folder',

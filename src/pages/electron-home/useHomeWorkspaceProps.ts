@@ -16,7 +16,7 @@ import type { ElectronHomeWorkspaceProps } from './ElectronHomeWorkspace';
 import type { HomeLocalVaultActions } from './useHomeLocalVaultActions';
 import type { EditorRequest } from './useWorkbenchEditorRequests';
 import type { WorkspaceScope } from './types';
-import { isDraftNoteTab } from './note-workspace';
+import { isDraftNoteTab, type OpenNoteTab } from './note-workspace';
 import type { useElectronHomeStatus } from './useElectronHomeStatus';
 import type { useElectronNoteMutations } from './useElectronNoteMutations';
 import type { useLocalDocumentRecovery } from './useLocalDocumentRecovery';
@@ -37,6 +37,7 @@ type LocalDocumentRecovery = ReturnType<typeof useLocalDocumentRecovery>;
 type RemoteDocumentRecovery = ReturnType<typeof useRemoteDocumentRecovery>;
 
 type WorkspaceActions = {
+  saveDraftNote: (tab: OpenNoteTab, input: { title?: string; content?: string }) => void;
   /** Zooms or restores the active pane, saying how to restore it. */
   togglePaneZoom: () => void;
   attachImageToTab: ElectronHomeWorkspaceProps['documentWorkspace']['onAttachImage'];
@@ -312,7 +313,7 @@ export function useHomeWorkspaceProps({
       onReloadFromHackmd: remoteDocumentRecovery.reloadFromHackmd,
       onSave: (tab, input) => {
         if (isDraftNoteTab(tab)) {
-          mutations.createDraftNoteMutation.mutate({ tabId: tab.tabId, input });
+          actions.saveDraftNote(tab, input);
           return;
         }
 

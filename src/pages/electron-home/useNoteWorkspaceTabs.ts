@@ -40,21 +40,25 @@ import {
   syncNoteTabSummary,
   updateNoteTabDraft,
   writeNoteWorkspaceLayoutStorage,
+  hasNoteWorkspaceLayoutStorage,
   type NoteDocumentDraft,
   type NoteIdentity,
   type NoteWorkspaceState,
   type OpenDraftNoteOptions,
   type SavedNoteDocument,
 } from './note-workspace';
+import { INITIAL_DRAFT_SCOPE_KEY, mergeInitialDrafts } from './initial-draft-workspace';
 
-function readInitialState(scopeKey: string | null) {
-  return !scopeKey || typeof window === 'undefined'
+function readInitialState(scopeKey: string | null, initializeDraft = false) {
+  const state = !scopeKey || typeof window === 'undefined'
     ? createEmptyNoteWorkspaceState(scopeKey ?? '')
     : readNoteWorkspaceLayoutStorage(window.localStorage, scopeKey);
+  return scopeKey && initializeDraft && typeof window !== 'undefined' && !hasNoteWorkspaceLayoutStorage(window.localStorage, scopeKey)
+    ? openDraftNoteTab(state) : state;
 }
 
-export function useNoteWorkspaceTabs(scopeKey: string | null) {
-  const [state, setState] = useState<NoteWorkspaceState>(() => readInitialState(scopeKey));
+export function useNoteWorkspaceTabs(scopeKey: string | null, initializeDraft = false) {
+  const [state, setState] = useState<NoteWorkspaceState>(() => readInitialState(scopeKey, initializeDraft));
   const stateRef = useRef(state);
   const [statesByScope, setStatesByScope] = useState<Record<string, NoteWorkspaceState>>({});
   // Scopes whose latest in-memory state could not be written. Their drafts stay
@@ -78,7 +82,7 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
   // Update this hook's state before children commit, without mutating refs during render.
   if (state.scopeKey !== (scopeKey ?? '')) {
     if (state.scopeKey) setStatesByScope({ ...statesByScope, [state.scopeKey]: state });
-    setState((scopeKey && statesByScope[scopeKey]) || readInitialState(scopeKey));
+    setState((scopeKey && statesByScope[scopeKey]) || readInitialState(scopeKey, initializeDraft));
   }
   // Scope cleanup runs before the next committed state replaces this ref.
   useLayoutEffect(() => () => { flush(); }, [scopeKey, flush]);
@@ -117,6 +121,21 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
   const getWorkspaceSnapshot = useCallback((key: string) => (
     stateRef.current.scopeKey === key ? stateRef.current : statesByScopeRef.current[key] ?? null
   ), []);
+
+  const transferInitialDrafts = useCallback((targetKey: string, selectedTabId?: string | null) => {
+    const source = stateRef.current;
+    if (source.scopeKey !== INITIAL_DRAFT_SCOPE_KEY) return;
+    const target = getWorkspaceSnapshot(targetKey) ?? readInitialState(targetKey);
+    const next = mergeInitialDrafts(source, target, selectedTabId);
+    const empty = createEmptyNoteWorkspaceState(INITIAL_DRAFT_SCOPE_KEY);
+    // Preserve the last input before copying; never clear the source before the target is backed up.
+    if (!persist(source) || !persist(next) || !persist(empty)) {
+      throw new Error('HackDesk could not back up these drafts. Your text is still here.');
+    }
+    stateRef.current = empty;
+    setState(empty);
+    setStatesByScope(current => ({ ...current, [targetKey]: next }));
+  }, [getWorkspaceSnapshot, persist]);
 
   const updateWorkspace = useCallback((key: string | null, update: (current: NoteWorkspaceState) => NoteWorkspaceState) => {
     if (!key) return;
@@ -322,6 +341,7 @@ export function useNoteWorkspaceTabs(scopeKey: string | null) {
     syncNoteSummaries,
     reconcileSavedNote,
     getWorkspaceSnapshot,
+    transferInitialDrafts,
     replaceTabPlaceholder,
     getPaneTab,
     getTabHostPane,

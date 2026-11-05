@@ -1117,6 +1117,11 @@ function getStorageKey(scopeKey: string) {
   return `${NOTE_WORKSPACE_LAYOUT_PREFIX}${scopeKey}`;
 }
 
+export function hasNoteWorkspaceLayoutStorage(storage: Storage, scopeKey: string) {
+  try { return storage.getItem(getStorageKey(scopeKey)) !== null; }
+  catch { return false; }
+}
+
 export function readNoteWorkspaceLayoutStorage(storage: Storage, scopeKey: string) {
   try {
     return hydrateNoteWorkspaceLayout(scopeKey, JSON.parse(storage.getItem(getStorageKey(scopeKey)) ?? 'null'));

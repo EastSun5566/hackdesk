@@ -42,6 +42,7 @@ export default defineConfig({
 
     nav: [
       { text: 'Get started', link: '/intro' },
+      { text: 'Blog', link: 'https://hackmd.io/@hackdesk' },
     ],
 
     sidebar: [

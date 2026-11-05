@@ -10,12 +10,15 @@ import {
   writeWorkspaceScopeStorage,
 } from './ui-preferences';
 import { getScopeStorageKey } from './repository';
+import { INITIAL_DRAFT_SCOPE_KEY } from './initial-draft-workspace';
 
 export const DEFAULT_WORKSPACE_SCOPE: WorkspaceScope = { type: 'personal', label: 'My Workspace' };
 
 export type WorkbenchWorkspaceStateOptions = {
   localVaultId?: string | null;
   initialWorkspaceScope: WorkspaceScope;
+  initialDrafts?: boolean;
+  settingsReady?: boolean;
   manualEmptyWorkspaceRef: MutableRefObject<boolean>;
 };
 
@@ -37,13 +40,15 @@ export function getInitialWorkspaceScope() {
 export function useWorkbenchWorkspaceState({
   initialWorkspaceScope,
   localVaultId,
+  initialDrafts = false,
+  settingsReady = true,
   manualEmptyWorkspaceRef,
 }: WorkbenchWorkspaceStateOptions): WorkbenchWorkspaceState {
   const [storedScope, setScopeState] = useState<WorkspaceScope>(() => initialWorkspaceScope);
-  const scope = useMemo(() => storedScope.type === 'local'
+  const scope = useMemo(() => initialDrafts ? DEFAULT_WORKSPACE_SCOPE : storedScope.type === 'local'
     ? { ...storedScope, vaultId: localVaultId ?? undefined }
-    : storedScope, [storedScope, localVaultId]);
-  const scopeStorageKey = getScopeStorageKey(scope);
+    : storedScope, [storedScope, localVaultId, initialDrafts]);
+  const scopeStorageKey = !settingsReady ? null : initialDrafts ? INITIAL_DRAFT_SCOPE_KEY : getScopeStorageKey(scope);
   const [folderScopeKey, setFolderScopeKey] = useState(scopeStorageKey);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [collapsedFolderIds, setCollapsedFolderIds] = useState(() => scopeStorageKey

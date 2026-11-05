@@ -167,7 +167,8 @@ overrides:
   electron-updater>js-yaml: 4.3.2
 
 patchedDependencies:
-  codemirror-kakoune@0.2.5: 2c542d0381e00ef1127ca869a722d775876f3e21e117247a422fb59baac17594
+  codemirror-kakoune@0.5.0: 98668c65b678bdeffdd74a7734dec31fd41c647289955ffddf809b1e45723e8d
+  kakoune-core-js@0.5.0: 919f8932fcddc725206ad363bef7e77e4c2c30b553e96b842739098b288a6523
 
 importers:
 
@@ -237,11 +238,11 @@ importers:
         specifier: ^1.1.1
         version: 1.1.1(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       codemirror-helix:
-        specifier: ^0.5.7
-        version: 0.5.7(@codemirror/commands@6.10.3)(@codemirror/language@6.12.3)(@codemirror/search@6.7.1)(@codemirror/state@6.6.0)(@codemirror/view@6.43.1)
+        specifier: 0.6.1
+        version: 0.6.1(@codemirror/commands@6.10.3)(@codemirror/language@6.12.3)(@codemirror/search@6.7.1)(@codemirror/state@6.6.0)(@codemirror/view@6.43.1)
       codemirror-kakoune:
-        specifier: 0.2.5
-        version: 0.2.5(patch_hash=2c542d0381e00ef1127ca869a722d775876f3e21e117247a422fb59baac17594)
+        specifier: 0.5.0
+        version: 0.5.0(patch_hash=98668c65b678bdeffdd74a7734dec31fd41c647289955ffddf809b1e45723e8d)
       dompurify:
         specifier: ^3.4.17
         version: 3.4.17
@@ -2632,17 +2633,17 @@ packages:
     engines: {node: '>=20'}
     hasBin: true
 
-  codemirror-helix@0.5.7:
-    resolution: {integrity: sha512-pyXuycW2RviAjvLWbkUgFWQlFA/ubKzJPnMXRv+ibziBuxUK0qjn+yV4OoV4+w7bMxZ/6zZnigOm/ytyrHq87Q==}
+  codemirror-helix@0.6.1:
+    resolution: {integrity: sha512-q4TJsqoQQfvsOvUrlHc4qdrrP7220AW+C0FLmpNip8BoX9CaVx6kGLNhULMjixeyxwLSmctwSmoWsWDj3UQUtw==}
     peerDependencies:
       '@codemirror/commands': ^6.0.0
       '@codemirror/language': ^6.0.0
       '@codemirror/search': ^6.2.0
-      '@codemirror/state': ^6.3.0
+      '@codemirror/state': ^6.6.0
       '@codemirror/view': ^6.22.0
 
-  codemirror-kakoune@0.2.5:
-    resolution: {integrity: sha512-b6qPHYZ2oaagk4eFRxhdmPQs19ku7Iq6xmofuXiz9/syIgVHtA9XXskeeszW0Y7sqmzWc1SkRpdpa84kOlkB2g==}
+  codemirror-kakoune@0.5.0:
+    resolution: {integrity: sha512-ZevsGYOU8puKRnriLwC0/T6Uq+/9ZKxRqnIO2cuQ3yTWYtJYIcsrf1ZHK8wcjZc2ZMXMnwYljWOzEo+tOC7r2A==}
 
   color-convert@2.0.1:
     resolution: {integrity: sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==}
@@ -3286,6 +3287,9 @@ packages:
 
   jsonfile@6.2.1:
     resolution: {integrity: sha512-zwOTdL3rFQ/lRdBnntKVOX6k5cKJwEc1HdilT71BWEu7J41gXIB2MRp+vxduPSwZJPWBxEzv4yH1wYLJGUHX4Q==}
+
+  kakoune-core-js@0.5.0:
+    resolution: {integrity: sha512-9Vsdhj7gQxFp5UOJ0sKG/IRhOciW2pNqu5yBGSJ/GPbJf+v14AjnxQIPcqYk+PdP9DrzQ56ZjbfXoPv6au6u4w==}
 
   katex@0.18.10:
     resolution: {integrity: sha512-/B6p9eY9DX7aHBfpkHdpirDTZ5QH9xTwL9y837PWuzuv41O5jFdqNQwVQEQsimY0/iVNkwBY4+4hMfhQ7d4Dbw==}
@@ -6465,7 +6469,7 @@ snapshots:
 
   cn@0.4.0: {}
 
-  codemirror-helix@0.5.7(@codemirror/commands@6.10.3)(@codemirror/language@6.12.3)(@codemirror/search@6.7.1)(@codemirror/state@6.6.0)(@codemirror/view@6.43.1):
+  codemirror-helix@0.6.1(@codemirror/commands@6.10.3)(@codemirror/language@6.12.3)(@codemirror/search@6.7.1)(@codemirror/state@6.6.0)(@codemirror/view@6.43.1):
     dependencies:
       '@codemirror/commands': 6.10.3
       '@codemirror/language': 6.12.3
@@ -6473,12 +6477,13 @@ snapshots:
       '@codemirror/state': 6.6.0
       '@codemirror/view': 6.43.1
 
-  codemirror-kakoune@0.2.5(patch_hash=2c542d0381e00ef1127ca869a722d775876f3e21e117247a422fb59baac17594):
+  codemirror-kakoune@0.5.0(patch_hash=98668c65b678bdeffdd74a7734dec31fd41c647289955ffddf809b1e45723e8d):
     dependencies:
       '@codemirror/commands': 6.10.3
       '@codemirror/search': 6.7.1
       '@codemirror/state': 6.6.0
       '@codemirror/view': 6.43.1
+      kakoune-core-js: 0.5.0(patch_hash=919f8932fcddc725206ad363bef7e77e4c2c30b553e96b842739098b288a6523)
 
   color-convert@2.0.1:
     dependencies:
@@ -7188,6 +7193,8 @@ snapshots:
       universalify: 2.0.1
     optionalDependencies:
       graceful-fs: 4.2.11
+
+  kakoune-core-js@0.5.0(patch_hash=919f8932fcddc725206ad363bef7e77e4c2c30b553e96b842739098b288a6523): {}
 
   katex@0.18.10:
     dependencies:

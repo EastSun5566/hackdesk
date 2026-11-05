@@ -1,0 +1,47 @@
+diff --git a/dist/commands.js b/dist/commands.js
+--- a/dist/commands.js
++++ b/dist/commands.js
+@@ -1,5 +1,5 @@
+-import { isEmptyRange, rangeFrom, rangeTo } from "./types";
+-import { clamp, lineColumnPos, moveWordBackwardRange, moveWordEndRange, moveWordForwardRange } from "./document";
++import { isEmptyRange, rangeFrom, rangeTo } from "./types.js";
++import { clamp, lineColumnPos, moveWordBackwardRange, moveWordEndRange, moveWordForwardRange } from "./document.js";
+ export function setMode(editor, mode) {
+     editor.setMode(mode);
+     return true;
+diff --git a/dist/index.js b/dist/index.js
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -1,7 +1,7 @@
+-export { isEmptyRange, rangeFrom, rangeTo } from "./types";
+-export { clamp, isWordChar, getCharClass, isAtWordEnd, isAtWordStart, moveWordForwardRange, moveWordBackwardRange, moveWordEndRange, lineColumnPos } from "./document";
+-export { KakouneKeyProcessor } from "./processor";
+-export { normalizeKeyStroke, normalizeCm5Key, normalizeCm5Keys } from "./normalize";
+-export { portableCommands, setMode, moveLeft, moveRight, moveDown, moveUp, extendLeft, extendRight, extendDown, extendUp, selectWordForward, selectWordBackward, selectWordEnd, extendWordForward, extendWordBackward, extendWordEnd, moveLineStart, moveLineEnd, extendLineStart, extendLineEnd, extendToLine, extendDocumentStart, extendDocumentEnd, jumpDocumentStart, jumpDocumentEnd, selectAll, selectLine, joinLines, copySelectionsOnNextLines, toUpperCaseSelection, toLowerCaseSelection, swapCaseSelection, trimSelections, addEmptyLineBelow, addEmptyLineAbove, reduceToCursor, flipSelectionDirection, ensureForwardDirection, clearOtherSelections, clearMainSelection, deleteSelection, yankSelection, undoEdit, redoEdit, enterInsert, enterInsertLineStart, enterInsertLineEnd, openLineBelow, openLineAbove, changeSelection } from "./commands";
+-export { KakounePromptController, selectRegexMatches, splitSelectionsByRegex } from "./prompt";
+-export { parseKakrc, tokenizeKakrcKeys } from "./kakrc";
++export { isEmptyRange, rangeFrom, rangeTo } from "./types.js";
++export { clamp, isWordChar, getCharClass, isAtWordEnd, isAtWordStart, moveWordForwardRange, moveWordBackwardRange, moveWordEndRange, lineColumnPos } from "./document.js";
++export { KakouneKeyProcessor } from "./processor.js";
++export { normalizeKeyStroke, normalizeCm5Key, normalizeCm5Keys } from "./normalize.js";
++export { portableCommands, setMode, moveLeft, moveRight, moveDown, moveUp, extendLeft, extendRight, extendDown, extendUp, selectWordForward, selectWordBackward, selectWordEnd, extendWordForward, extendWordBackward, extendWordEnd, moveLineStart, moveLineEnd, extendLineStart, extendLineEnd, extendToLine, extendDocumentStart, extendDocumentEnd, jumpDocumentStart, jumpDocumentEnd, selectAll, selectLine, joinLines, copySelectionsOnNextLines, toUpperCaseSelection, toLowerCaseSelection, swapCaseSelection, trimSelections, addEmptyLineBelow, addEmptyLineAbove, reduceToCursor, flipSelectionDirection, ensureForwardDirection, clearOtherSelections, clearMainSelection, deleteSelection, yankSelection, undoEdit, redoEdit, enterInsert, enterInsertLineStart, enterInsertLineEnd, openLineBelow, openLineAbove, changeSelection } from "./commands.js";
++export { KakounePromptController, selectRegexMatches, splitSelectionsByRegex } from "./prompt.js";
++export { parseKakrc, tokenizeKakrcKeys } from "./kakrc.js";
+diff --git a/dist/processor.js b/dist/processor.js
+--- a/dist/processor.js
++++ b/dist/processor.js
+@@ -1,4 +1,4 @@
+-import { parseKakrc } from "./kakrc";
++import { parseKakrc } from "./kakrc.js";
+ function sequenceKey(sequence) {
+     return sequence.join("\u0001");
+ }
+diff --git a/dist/prompt.js b/dist/prompt.js
+--- a/dist/prompt.js
++++ b/dist/prompt.js
+@@ -1,4 +1,4 @@
+-import { rangeFrom, rangeTo } from "./types";
++import { rangeFrom, rangeTo } from "./types.js";
+ function compileRegex(pattern) {
+     try {
+         return new RegExp(pattern, "gu");

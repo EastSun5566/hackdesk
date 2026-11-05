@@ -2,7 +2,7 @@ import { createRef, StrictMode, type RefObject } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorView } from '@codemirror/view';
-import { undo } from '@codemirror/commands';
+import { redo, undo } from '@codemirror/commands';
 
 import { hfmFixtures } from './hackmd-live-preview/hfm-fixtures';
 import { formatMarkdownImage } from './hackmd-live-preview/markdown-image';
@@ -462,6 +462,23 @@ describe('MarkdownEditor', () => {
       height: '32px',
       borderRadius: '6px',
     });
+  });
+
+  it.each(['helix', 'kakoune'] as const)('keeps selection and undo history when switching to %s', async editorMode => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const { rerender } = render(<MarkdownEditor ref={ref} value="alpha beta" onChange={vi.fn()} />);
+    const editor = await screen.findByTestId('hackmd-markdown-editor');
+    const root = editor.querySelector<HTMLElement>('.cm-editor')!;
+    const view = EditorView.findFromDOM(root)!;
+    act(() => { view.dispatch({ changes: { from: view.state.doc.length, insert: '!' }, selection: { anchor: 1, head: 4 } }); });
+    rerender(<MarkdownEditor ref={ref} editorMode={editorMode} value="alpha beta!" onChange={vi.fn()} />);
+    await waitFor(() => expect(root).toHaveAttribute('data-editor-mode', editorMode));
+    expect(editor.querySelector('.cm-editor')).toBe(root);
+    expect(view.state.selection.main).toMatchObject({ anchor: 1, head: 4 });
+    act(() => { expect(undo(view)).toBe(true); });
+    expect(view.state.doc.toString()).toBe('alpha beta');
+    act(() => { expect(redo(view)).toBe(true); });
+    expect(view.state.doc.toString()).toBe('alpha beta!');
   });
 
   it('runs Emacs movement keys without opening HackDesk search', async () => {

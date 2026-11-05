@@ -4,13 +4,23 @@ outline: deep
 
 # Get started
 
-[Install HackDesk](./install.md), open a Markdown folder or connect HackMD, then save your first note.
+[Install HackDesk](./install.md), write a note, and choose where to save it.
+
+## Write your first note
+
+This flow is available in [main previews](./install.md#try-a-main-preview). In beta.10, open a Local Vault or connect HackMD first.
+
+1. Write in the draft that opens on first launch. Its first line becomes the title when saved.
+2. Press **Cmd+S** on macOS or **Ctrl+S** on Windows/Linux.
+3. Choose **Local Vault** to select a Markdown folder, or **HackMD** to connect your account.
+
+Your other initial drafts move into the same workspace but remain unsaved. Canceling setup keeps your text. Drafts reopen when you restart HackDesk; a recovery copy does not replace saving.
 
 ## Open a Local Vault
 
 A Local Vault is a folder of Markdown files. No account is required.
 
-1. Choose **Open local folder** on the welcome screen, or **Settings → Vault → Change Vault**.
+1. Choose **Local Vault** when saving your first draft, or **Settings → Vault → Change Vault**.
 2. Select a Markdown folder or an empty folder.
 3. Select a note in the sidebar to open it.
 

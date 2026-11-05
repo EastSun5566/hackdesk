@@ -4,6 +4,8 @@ import { ActionShortcutContext } from './electron-home/ActionShortcutContext';
 import { KeyboardShortcutsDialog } from './electron-home/KeyboardShortcutsDialog';
 import { KeyHintBar } from './electron-home/KeyHintBar';
 import { LeaderMenu } from './electron-home/LeaderMenu';
+import { DraftDestinationDialog } from './electron-home/DraftDestinationDialog';
+import { INITIAL_DRAFT_SCOPE_KEY } from './electron-home/initial-draft-workspace';
 import { getLeaderLevel } from '@/lib/leader-keys';
 import { BookSessionContext, useBookSession } from './electron-home/useBookSession';
 import { TemplatePickerDialog } from './electron-home/TemplatePickerDialog';
@@ -21,7 +23,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/components/theme-provider';
 import { getDesktopAPI } from '@/lib/desktop-api';
 import { DEFAULT_NOTE_FINDER_STATE } from '@/lib/electron-note-finder';
-import type { FolderSummary } from '@/lib/electron-api';
+import type { ElectronSafeSettings, FolderSummary } from '@/lib/electron-api';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { getNoteCurrentFolderId } from '@/lib/hackmd-note-dnd';
 import type { QuickOpenFolderResult } from '@/lib/electron-quick-open';
@@ -81,7 +83,8 @@ import { useWorkbenchTabLifecycle } from './electron-home/useWorkbenchTabLifecyc
 import { useHomeLocalVaultActions } from './electron-home/useHomeLocalVaultActions';
 import { useHomeOverlayProps } from './electron-home/useHomeOverlayProps';
 import { useHomeWorkspaceProps } from './electron-home/useHomeWorkspaceProps';
-import { getSavedTabNoteIdentity, isDraftNoteTab, type OpenNoteTab } from './electron-home/note-workspace';
+import { getSavedTabNoteIdentity, isDraftNoteTab, readNoteWorkspaceLayoutStorage, type OpenNoteTab } from './electron-home/note-workspace';
+import { EMPTY_FOLDERS, EMPTY_NOTES, getScopeStorageKey } from './electron-home/repository';
 import {
   DEFAULT_WORKSPACE_SCOPE,
   getInitialWorkspaceScope,
@@ -94,6 +97,13 @@ export function Home() {
   const queryClient = useQueryClient();
   const rawApi = getDesktopAPI();
   const settingsQuery = useElectronSettings(rawApi);
+  const [initialDraftsPending, setInitialDraftsPending] = useState(() => Object.keys(readNoteWorkspaceLayoutStorage(window.localStorage, INITIAL_DRAFT_SCOPE_KEY).tabs).length > 0);
+  const settingsReady = settingsQuery.data !== undefined;
+  const setupMissing = settingsQuery.data !== undefined && !settingsQuery.data.hasHackmdApiToken && !settingsQuery.data.hasLocalVault;
+  const usingInitialDrafts = settingsReady && (initialDraftsPending || setupMissing);
+  if (setupMissing && !initialDraftsPending) setInitialDraftsPending(true);
+  const [destinationOpen, setDestinationOpen] = useState(false);
+  const pendingInitialSave = useRef<string | null>(null);
   const beforeVaultChange = useRef<() => void>(() => {});
   const vaultSession = useLocalVaultSession(rawApi, settingsQuery.data, beforeVaultChange);
   const api = vaultSession.api;
@@ -107,7 +117,6 @@ export function Home() {
   const {
     closeTransientLayer,
     palette,
-    settingsOpen,
     shareOpen,
     trashOpen,
     versionsOpen,
@@ -138,6 +147,8 @@ export function Home() {
   const workspaceState = useWorkbenchWorkspaceState({
     initialWorkspaceScope,
     localVaultId: vaultSession.vaultId,
+    initialDrafts: usingInitialDrafts,
+    settingsReady,
     manualEmptyWorkspaceRef: selectionRefs.manualEmptyWorkspaceRef,
   });
   const {
@@ -173,10 +184,11 @@ export function Home() {
     }
     toggleNavigatorCollapsed();
   }, [expandNavigator, hackMode, toggleNavigatorCollapsed]);
-  const noteWorkspace = useNoteWorkspaceTabs(scopeStorageKey);
+  const noteWorkspace = useNoteWorkspaceTabs(scopeStorageKey, usingInitialDrafts && settingsQuery.data?.shouldShowHackmdOnboarding === true);
   const currentScopeKeyRef = useRef(scopeStorageKey);
   useLayoutEffect(() => { currentScopeKeyRef.current = scopeStorageKey; }, [scopeStorageKey]);
   const flushWorkspace = noteWorkspace.flush;
+  const transferInitialDrafts = noteWorkspace.transferInitialDrafts;
   useLayoutEffect(() => { beforeVaultChange.current = flushWorkspace; }, [flushWorkspace]);
   const activeTab = noteWorkspace.activeTab;
   const { editorRequests, consumeEditorRequest, requestEditorFocus, bumpEditorSearchRequest, bumpAttachImageRequest, bumpAiAssistRequest, bumpDictateRequest, bumpRenameRequest } = useWorkbenchEditorRequests(
@@ -214,13 +226,30 @@ export function Home() {
     setNavigatorCollapsed,
   });
   const setWorkspaceScope = useCallback((nextScope: WorkspaceScope) => {
-    flushWorkspace();
+    if (usingInitialDrafts) {
+      if (nextScope.type === 'history') return;
+      const configured = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
+      const next = nextScope.type === 'local' ? { ...nextScope, vaultId: nextScope.vaultId ?? vaultSession.vaultId ?? undefined } : nextScope;
+      const targetKey = next.type === 'local' || configured?.hasHackmdApiToken ? getScopeStorageKey(next) : null;
+      if (!targetKey) return;
+      transferInitialDrafts(targetKey, pendingInitialSave.current);
+      setInitialDraftsPending(false);
+    } else {
+      flushWorkspace();
+    }
     setWorkspaceScopeState(nextScope);
-  }, [flushWorkspace, setWorkspaceScopeState]);
+  }, [flushWorkspace, transferInitialDrafts, queryClient, setWorkspaceScopeState, usingInitialDrafts, vaultSession.vaultId]);
   const handleOnboardingConnected = useCallback(() => {
     setWorkspaceScope(DEFAULT_WORKSPACE_SCOPE);
   }, [setWorkspaceScope]);
   const { focusZone, focusNextZone, focusedZone, getLastFocusedTarget } = useElectronFocusZones();
+  const initialFocusGiven = useRef(false);
+  useEffect(() => {
+    if (usingInitialDrafts && activeTab && !initialFocusGiven.current) {
+      initialFocusGiven.current = true;
+      focusZone('editor');
+    }
+  }, [usingInitialDrafts, activeTab, focusZone]);
   const openKeyboardShortcuts = useCallback(() => {
     setShortcutHelp({ region: focusedZone, target: getLastFocusedTarget() });
   }, [focusedZone, getLastFocusedTarget]);
@@ -296,8 +325,8 @@ export function Home() {
     },
     setWorkspaceScope,
   });
-  const currentNotes = scope.type === 'local' ? localVault.currentNotes : remoteNotes;
-  const currentFolders = scope.type === 'local' ? localVault.currentFolders : remoteFolders;
+  const currentNotes = usingInitialDrafts ? EMPTY_NOTES : scope.type === 'local' ? localVault.currentNotes : remoteNotes;
+  const currentFolders = usingInitialDrafts ? EMPTY_FOLDERS : scope.type === 'local' ? localVault.currentFolders : remoteFolders;
   const currentFolderOrder = scope.type === 'local' ? undefined : remoteFolderOrder;
   const documentsByKey = scope.type === 'local' ? localVault.documentsByKey : remoteDocumentsByKey;
   useEffect(() => { syncLocalRecentNotes(localVault.currentNotes); }, [localVault.currentNotes, syncLocalRecentNotes]);
@@ -310,7 +339,7 @@ export function Home() {
     ? vaultSession.isLoading || localVault.snapshotQuery.isError || !!vaultSession.error
     : queries.notesQuery.isLoading;
   const hasConfiguredLocalVault = settings?.hasLocalVault === true;
-  const canUseCurrentWorkspace = scope.type === 'local' ? !!vaultSession.snapshot && !vaultSession.isChanging : hasToken;
+  const canUseCurrentWorkspace = !usingInitialDrafts && (scope.type === 'local' ? !!vaultSession.snapshot && !vaultSession.isChanging : hasToken);
   const handleHackmdDisconnected = useCallback(() => {
     setWorkspaceScope(hasConfiguredLocalVault
       ? { type: 'local', label: 'Local Vault' }
@@ -318,7 +347,7 @@ export function Home() {
   }, [hasConfiguredLocalVault, setWorkspaceScope]);
 
   useEffect(() => {
-    if (settings === undefined || initialWorkspaceResolvedRef.current) {
+    if (settings === undefined || usingInitialDrafts || initialWorkspaceResolvedRef.current) {
       return;
     }
 
@@ -326,17 +355,17 @@ export function Home() {
     if (settings.hasLocalVault && scope.type !== 'local' && initialWorkspaceScope.type === 'personal') {
       setWorkspaceScope({ type: 'local', label: 'Local Vault' });
     }
-  }, [initialWorkspaceScope.type, scope.type, setWorkspaceScope, settings]);
+  }, [initialWorkspaceScope.type, scope.type, setWorkspaceScope, settings, usingInitialDrafts]);
 
   useEffect(() => {
-    if (settings?.shouldShowHackmdOnboarding && !settingsOpen && !vaultSession.isChanging) {
-      setOnboardingOpen(true);
-    }
-  }, [
-    settings?.shouldShowHackmdOnboarding,
-    settingsOpen,
-    vaultSession.isChanging,
-  ]);
+    if (!usingInitialDrafts || vaultSession.isChanging) return;
+    const target: WorkspaceScope | null = settings?.hasLocalVault
+      ? vaultSession.vaultId ? { type: 'local', label: 'Local Vault', vaultId: vaultSession.vaultId } : null
+      : hasToken ? DEFAULT_WORKSPACE_SCOPE : null;
+    if (!target) return;
+    try { setWorkspaceScope(target); }
+    catch (error) { toast.error(error instanceof Error ? error.message : 'Failed to move drafts.'); }
+  }, [usingInitialDrafts, settings?.hasLocalVault, hasToken, vaultSession.vaultId, vaultSession.isChanging, setWorkspaceScope]);
 
   const {
     displayScope,
@@ -415,6 +444,28 @@ export function Home() {
       void requestSelectNote(note, { trackRecent: true });
     },
   });
+  const saveDraftNote = useCallback((tab: OpenNoteTab, input: { title?: string; content?: string }) => {
+    if (usingInitialDrafts) {
+      if (!flushWorkspace()) {
+        toast.error('HackDesk could not back up this draft. Your text is still here.');
+        return;
+      }
+      pendingInitialSave.current = tab.tabId;
+      setDestinationOpen(true);
+    } else {
+      mutations.createDraftNoteMutation.mutate({ tabId: tab.tabId, input });
+    }
+  }, [flushWorkspace, mutations.createDraftNoteMutation, usingInitialDrafts]);
+  useEffect(() => {
+    const tabId = pendingInitialSave.current;
+    if (usingInitialDrafts || !tabId || !scopeStorageKey || noteWorkspace.state.scopeKey !== scopeStorageKey) return;
+    pendingInitialSave.current = null;
+    const tab = noteWorkspace.state.tabs[tabId];
+    if (!isDraftNoteTab(tab)) return;
+    const draft = noteWorkspace.state.drafts[tabId];
+    mutations.createDraftNoteMutation.mutate({ tabId, input: { title: draft?.title ?? tab.title, content: draft?.content ?? '' } });
+    requestEditorFocus();
+  }, [usingInitialDrafts, scopeStorageKey, noteWorkspace.state, mutations.createDraftNoteMutation, requestEditorFocus]);
   const localDocumentRecovery = useLocalDocumentRecovery({
     api,
     clearDraft: noteWorkspace.clearDraft,
@@ -559,6 +610,7 @@ export function Home() {
     folderTree,
     hasLocalVault: hasConfiguredLocalVault,
     hasToken,
+    canStartDraft: usingInitialDrafts,
     moveFolder: mutations.moveFolderMutation.mutate,
     onChooseLocalVault: () => {
       void localVaultActions.chooseLocalVault();
@@ -739,7 +791,7 @@ export function Home() {
         submittedDraft: { ...noteWorkspace.state.drafts[activeTab.tabId], ...input },
       });
     },
-    saveDraftNote: (tab, input) => mutations.createDraftNoteMutation.mutate({ tabId: tab.tabId, input }),
+    saveDraftNote,
     setEditorMode: (mode) => {
       mutations.updateSettingsMutation.mutate({
         title: settings?.title ?? defaultSettings.title,
@@ -782,6 +834,7 @@ export function Home() {
   });
 
   const { actionContext, runAction } = useWorkbenchActions({
+    canStartDraft: usingInitialDrafts,
     bookContentsHidden: bookSession.contentsHidden,
     bookOpen: bookSession.book !== null,
     canCreate,
@@ -951,7 +1004,7 @@ export function Home() {
   const homeStatus = useElectronHomeStatus({
     isLocalVaultLoading: vaultSession.isLoading,
     isLocalVaultFetching: vaultSession.snapshotQuery.isFetching || vaultSession.isChanging,
-    canCreate,
+    canCreate: usingInitialDrafts || canCreate,
     finderActive,
     hasLocalVault: hasConfiguredLocalVault,
     hasToken: canUseCurrentWorkspace,
@@ -972,6 +1025,7 @@ export function Home() {
     localVaultId: vaultSession.vaultId,
     uploadingTabIds,
     actions: {
+      saveDraftNote,
       togglePaneZoom,
       attachImageToTab,
       cancelImageUpload,
@@ -1082,6 +1136,25 @@ export function Home() {
   });
   const shortcutContext = useMemo(() => ({ shortcuts: settings?.shortcuts, platform: api?.platform ?? navigator.platform, characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true }), [settings?.shortcuts, settings?.keyboardNavigation?.characterShortcutsEnabled, api?.platform]);
 
+  const chooseDraftDestination = async (destination: 'local' | 'hackmd') => {
+    setDestinationOpen(false);
+    try {
+      if (destination === 'hackmd') {
+        if (hasToken) setWorkspaceScope(DEFAULT_WORKSPACE_SCOPE);
+        else setOnboardingOpen(true);
+      } else if (settings?.hasLocalVault && vaultSession.vaultId && !vaultSession.isChanging) {
+        setWorkspaceScope({ type: 'local', label: 'Local Vault', vaultId: vaultSession.vaultId });
+      } else if (!await localVaultActions.chooseLocalVault()) {
+        pendingInitialSave.current = null;
+        requestEditorFocus();
+      }
+    } catch (error) {
+      pendingInitialSave.current = null;
+      toast.error(error instanceof Error ? error.message : 'Failed to move drafts.');
+      requestEditorFocus();
+    }
+  };
+
   if (!api) {
     return (
       <div className="flex h-dvh items-center justify-center bg-background-muted text-sm text-text-subtle">
@@ -1116,7 +1189,28 @@ export function Home() {
             />
           ) : null}
 
-          <ElectronHomeOverlays {...overlayProps} dialogs={{ ...overlayProps.dialogs, settingsInitialTab, onSettingsOpenChange: setSettingsOpen }} />
+          <DraftDestinationDialog
+            open={destinationOpen}
+            onCloseComplete={() => { if (!pendingInitialSave.current) requestEditorFocus(); }}
+            onOpenChange={open => {
+              setDestinationOpen(open);
+              if (!open) { pendingInitialSave.current = null; requestEditorFocus(); }
+            }}
+            onChoose={destination => { void chooseDraftDestination(destination); }}
+          />
+          <ElectronHomeOverlays {...overlayProps} dialogs={{
+            ...overlayProps.dialogs,
+            settingsInitialTab,
+            onSettingsOpenChange: setSettingsOpen,
+            onOnboardingOpenChange: open => {
+              setOnboardingOpen(open);
+              const configured = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
+              if (!open && !configured?.hasHackmdApiToken && !configured?.hasLocalVault) {
+                pendingInitialSave.current = null;
+                requestEditorFocus();
+              }
+            },
+          }} />
           <TemplatePickerDialog
             open={noteTemplates.pickerOpen}
             onOpenChange={noteTemplates.setPickerOpen}

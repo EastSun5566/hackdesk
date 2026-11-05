@@ -1,0 +1,62 @@
+diff --git a/dist/adapter.js b/dist/adapter.js
+--- a/dist/adapter.js
++++ b/dist/adapter.js
+@@ -1,6 +1,6 @@
+ import { EditorSelection } from "@codemirror/state";
+ import { redo, undo } from "@codemirror/commands";
+-import { kakouneStateField, setKakouneModeEffect, setKakouneRegisterEffect, setKakouneReplaceInsertAnchorsEffect } from "./state";
++import { kakouneStateField, setKakouneModeEffect, setKakouneRegisterEffect, setKakouneReplaceInsertAnchorsEffect } from "./state.js";
+ export class Cm6Adapter {
+     view;
+     constructor(view) {
+diff --git a/dist/commands.js b/dist/commands.js
+--- a/dist/commands.js
++++ b/dist/commands.js
+@@ -2,9 +2,9 @@
+ import { redo, undo, isolateHistory } from "@codemirror/commands";
+ import { EditorView } from "@codemirror/view";
+ import { enterInsert, enterInsertLineEnd, enterInsertLineStart, moveDown, moveLeft, moveLineEnd, moveLineStart, moveRight, moveUp, moveWordBackwardRange as coreWordBackward, moveWordEndRange as coreWordEnd, moveWordForwardRange as coreWordForward, selectWordBackward, selectWordEnd, selectWordForward, joinLines, copySelectionsOnNextLines, toUpperCaseSelection, toLowerCaseSelection, swapCaseSelection, trimSelections, addEmptyLineBelow, addEmptyLineAbove, ensureForwardDirection } from "kakoune-core-js";
+-import { withAdapter } from "./adapter";
++import { withAdapter } from "./adapter.js";
+ import { getSearchQuery, SearchQuery, findNext, findPrevious, setSearchQuery } from "@codemirror/search";
+-import { kakouneStateField, kakouneSelectionTypeField, setKakouneCommandErrorEffect, setKakouneJumpStateEffect, setKakouneSearchPromptEffect, setKakouneSearchSelectionEffect, setKakouneSelectPromptEffect, setKakouneSelectSelectionEffect, setKakouneSplitPromptEffect, setKakouneSplitSelectionEffect, setKakouneModeEffect, setKakouneRegisterLinewiseEffect, setKakouneRegisterEffect, setKakouneRegisterSelectionsEffect, setKakouneReplaceInsertAnchorsEffect, setKakouneSelectionLinewiseEffect, setKakouneSelectionTypeEffect, setKakouneSelectionHistoryEffect, setKakouneLastSelectEffect, setKakounePipePromptEffect, kakouneGotoFileFacet, kakouneGotoBufferFacet, kakounePipeFacet } from "./state";
++import { kakouneStateField, kakouneSelectionTypeField, setKakouneCommandErrorEffect, setKakouneJumpStateEffect, setKakouneSearchPromptEffect, setKakouneSearchSelectionEffect, setKakouneSelectPromptEffect, setKakouneSelectSelectionEffect, setKakouneSplitPromptEffect, setKakouneSplitSelectionEffect, setKakouneModeEffect, setKakouneRegisterLinewiseEffect, setKakouneRegisterEffect, setKakouneRegisterSelectionsEffect, setKakouneReplaceInsertAnchorsEffect, setKakouneSelectionLinewiseEffect, setKakouneSelectionTypeEffect, setKakouneSelectionHistoryEffect, setKakouneLastSelectEffect, setKakounePipePromptEffect, kakouneGotoFileFacet, kakouneGotoBufferFacet, kakounePipeFacet } from "./state.js";
+ function snapshotJumpEntry(selection) {
+     return {
+         ranges: selection.ranges.map(range => ({ anchor: range.anchor, head: range.head })),
+diff --git a/dist/index.js b/dist/index.js
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -4,13 +4,13 @@
+ import { keymap, ViewPlugin } from "@codemirror/view";
+ import { history } from "@codemirror/commands";
+ import { search } from "@codemirror/search";
+-import { kakouneInitialModeFacet, kakouneStateField, kakouneWhichKeyFacet, kakouneGotoFileFacet, kakouneGotoBufferFacet, kakounePipeFacet, kakouneExecuteCommandFacet, kakouneSelectionTypeField } from "./state";
+-import { KakouneKeyProcessor, normalizeKeyStroke } from "./keys";
+-import { buildKakouneCommands, commitSearchPrompt, deleteSearchPromptChar, cancelSearchPrompt, commitPipePrompt, deletePipePromptChar, cancelPipePrompt, handlePipePromptKey, handleSearchPromptKey, commitSelectPrompt, deleteSelectPromptChar, cancelSelectPrompt, handleSelectPromptKey, commitSplitPrompt, deleteSplitPromptChar, cancelSplitPrompt, handleSplitPromptKey } from "./commands";
+-export { kakouneStateField, kakouneInitialModeFacet, setKakouneModeEffect, setKakouneNamedRegistersEffect, setKakouneSelectionHistoryEffect, setKakouneLastSelectEffect, setKakouneSearchPromptEffect, setKakouneSearchSelectionEffect, setKakouneSelectPromptEffect, setKakouneSelectSelectionEffect, setKakouneSplitPromptEffect, setKakouneSplitSelectionEffect, kakouneWhichKeyFacet, kakouneGotoFileFacet, kakouneGotoBufferFacet, kakounePipeFacet, kakouneExecuteCommandFacet, kakouneSelectionTypeField, setKakouneSelectionTypeEffect } from "./state";
+-export { normalizeKeyStroke, normalizeCm5Key, normalizeCm5Keys, KakouneKeyProcessor } from "./keys";
+-export { Cm6Adapter, withAdapter } from "./adapter";
+-export { buildKakouneCommands, commitSearchPrompt, deleteSearchPromptChar, cancelSearchPrompt, handleSearchPromptKey, commitSelectPrompt, deleteSelectPromptChar, cancelSelectPrompt, handleSelectPromptKey, commitSplitPrompt, deleteSplitPromptChar, cancelSplitPrompt, handleSplitPromptKey, gotoFile, extendGotoFile, gotoLastBuffer, extendGotoLastBuffer, gotoBufferEnd, extendGotoBufferEnd, centerMainSelectionVertically, centerMainSelectionHorizontally, scrollMainSelectionToTop, scrollMainSelectionToBottom, scrollMainSelectionToLeft, scrollMainSelectionToRight, scrollViewportLines, scrollViewportColumns, scrollPageMoveSelections, kakouneCommands } from "./commands";
++import { kakouneInitialModeFacet, kakouneStateField, kakouneWhichKeyFacet, kakouneGotoFileFacet, kakouneGotoBufferFacet, kakounePipeFacet, kakouneExecuteCommandFacet, kakouneSelectionTypeField } from "./state.js";
++import { KakouneKeyProcessor, normalizeKeyStroke } from "./keys.js";
++import { buildKakouneCommands, commitSearchPrompt, deleteSearchPromptChar, cancelSearchPrompt, commitPipePrompt, deletePipePromptChar, cancelPipePrompt, handlePipePromptKey, handleSearchPromptKey, commitSelectPrompt, deleteSelectPromptChar, cancelSelectPrompt, handleSelectPromptKey, commitSplitPrompt, deleteSplitPromptChar, cancelSplitPrompt, handleSplitPromptKey } from "./commands.js";
++export { kakouneStateField, kakouneInitialModeFacet, setKakouneModeEffect, setKakouneNamedRegistersEffect, setKakouneSelectionHistoryEffect, setKakouneLastSelectEffect, setKakouneSearchPromptEffect, setKakouneSearchSelectionEffect, setKakouneSelectPromptEffect, setKakouneSelectSelectionEffect, setKakouneSplitPromptEffect, setKakouneSplitSelectionEffect, kakouneWhichKeyFacet, kakouneGotoFileFacet, kakouneGotoBufferFacet, kakounePipeFacet, kakouneExecuteCommandFacet, kakouneSelectionTypeField, setKakouneSelectionTypeEffect } from "./state.js";
++export { normalizeKeyStroke, normalizeCm5Key, normalizeCm5Keys, KakouneKeyProcessor } from "./keys.js";
++export { Cm6Adapter, withAdapter } from "./adapter.js";
++export { buildKakouneCommands, commitSearchPrompt, deleteSearchPromptChar, cancelSearchPrompt, handleSearchPromptKey, commitSelectPrompt, deleteSelectPromptChar, cancelSelectPrompt, handleSelectPromptKey, commitSplitPrompt, deleteSplitPromptChar, cancelSplitPrompt, handleSplitPromptKey, gotoFile, extendGotoFile, gotoLastBuffer, extendGotoLastBuffer, gotoBufferEnd, extendGotoBufferEnd, centerMainSelectionVertically, centerMainSelectionHorizontally, scrollMainSelectionToTop, scrollMainSelectionToBottom, scrollMainSelectionToLeft, scrollMainSelectionToRight, scrollViewportLines, scrollViewportColumns, scrollPageMoveSelections, kakouneCommands } from "./commands.js";
+ function createKakouneHandler(processor) {
+     return EditorView.domEventHandlers({
+         beforeinput(event, view) {
+diff --git a/dist/keys.js b/dist/keys.js
+--- a/dist/keys.js
++++ b/dist/keys.js
+@@ -1,6 +1,6 @@
+ import { EditorSelection } from "@codemirror/state";
+-import { kakouneStateField, setKakouneNamedRegistersEffect, setKakounePipePromptEffect, setKakouneReplaceInsertAnchorsEffect, setKakouneSelectionRepeatCountEffect, setKakouneCommandErrorEffect, kakouneGotoFileFacet, kakouneGotoBufferFacet, kakouneExecuteCommandFacet } from "./state";
+-import { handlePipePromptKey } from "./commands";
++import { kakouneStateField, setKakouneNamedRegistersEffect, setKakounePipePromptEffect, setKakouneReplaceInsertAnchorsEffect, setKakouneSelectionRepeatCountEffect, setKakouneCommandErrorEffect, kakouneGotoFileFacet, kakouneGotoBufferFacet, kakouneExecuteCommandFacet } from "./state.js";
++import { handlePipePromptKey } from "./commands.js";
+ export { normalizeKeyStroke, normalizeCm5Key, normalizeCm5Keys } from "kakoune-core-js";
+ function isFindToCharKey(key) {
+     return key === "f" || key === "t" || key === "F" || key === "T" || /^<a-[ft]>$/i.test(key);

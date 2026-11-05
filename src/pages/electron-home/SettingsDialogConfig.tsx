@@ -17,7 +17,7 @@ export const SETTINGS_TABS: {
   { id: 'appearance', label: 'Appearance', icon: <Monitor className="h-4 w-4" /> },
   { id: 'vault', label: 'Vault', icon: <FolderOpen className="h-4 w-4" /> },
   { id: 'hackmd', label: 'HackMD', icon: <Shield className="h-4 w-4" /> },
-  { id: 'ai', label: 'AI', icon: <Sparkles className="h-4 w-4" /> },
-  { id: 'dictation', label: 'Dictation', icon: <Mic className="h-4 w-4" /> },
+  { id: 'ai', label: 'AI (Experimental)', icon: <Sparkles className="h-4 w-4" /> },
+  { id: 'dictation', label: 'Dictation (Experimental)', icon: <Mic className="h-4 w-4" /> },
   { id: 'advanced', label: 'Advanced', icon: <Zap className="h-4 w-4" /> },
 ];

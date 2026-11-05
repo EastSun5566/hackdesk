@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { OpenNoteTab, NoteWorkspaceState, SavedOpenNoteTab } from './note-workspace';
@@ -145,6 +145,16 @@ function createOptions(overrides: Partial<WorkbenchActionsOptions> = {}): Workbe
 }
 
 describe('useWorkbenchActions', () => {
+  it('creates initial drafts with New Note and New Tab without enabling folder writes', () => {
+    const handlers = createHandlers();
+    const { result } = renderHook(() => useWorkbenchActions(createOptions({
+      handlers, canStartDraft: true, hasToken: false, canCreate: false, hasActiveTab: false,
+    })));
+    act(() => { result.current.runAction('new-note'); result.current.runAction('new-tab'); result.current.runAction('new-folder'); });
+    expect(handlers.createNote).toHaveBeenCalledTimes(2);
+    expect(handlers.createFolder).not.toHaveBeenCalled();
+    expect(handlers.openPalette).not.toHaveBeenCalled();
+  });
   it('runs save-note only when the action context allows saving', () => {
     const handlers = createHandlers();
     const { result, rerender } = renderHook((props: WorkbenchActionsOptions) => useWorkbenchActions(props), {

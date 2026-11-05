@@ -1422,6 +1422,9 @@ test('onboarding stays compact at wide and narrow window sizes', async () => {
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false } }));
     }, { channel: ELECTRON_CHANNELS.settingsGet, settings: defaultSettings });
     await page.reload();
+    await expect(page.locator('.cm-content')).toBeVisible();
+    await page.keyboard.press(`${primary}+s`);
+    await page.getByRole('button', { name: 'HackMD', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Connect HackMD', exact: true });
     for (const width of [1440, 400]) {
       await page.setViewportSize({ width, height: 900 });
