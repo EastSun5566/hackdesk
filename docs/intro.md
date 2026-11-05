@@ -8,7 +8,7 @@ outline: deep
 
 ## Write your first note
 
-This flow is available in [main previews](./install.md#try-a-main-preview). In beta.10, open a Local Vault or connect HackMD first.
+Starting with beta.11, you can write before setting up a workspace. In earlier betas, open a Local Vault or connect HackMD first.
 
 1. Write in the draft that opens on first launch. Its first line becomes the title when saved.
 2. Press **Cmd+S** on macOS or **Ctrl+S** on Windows/Linux.

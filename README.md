@@ -23,9 +23,9 @@ Work with HackMD notes and local Markdown vaults.
 
 ## Install
 
-[Download HackDesk v2.0.0-beta.10](https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.10) for macOS, Windows, or Linux. On macOS, v2 requires macOS 13 or later. Beta builds are unsigned and use manual updates.
+[Download HackDesk v2.0.0-beta.11](https://github.com/EastSun5566/hackdesk/releases/tag/v2.0.0-beta.11) for macOS, Windows, or Linux. On macOS, v2 requires macOS 13 or later. Beta builds are unsigned and use manual updates.
 
-Save open notes before upgrading. Older betas cannot restore beta.10's tabs, panes, or unsaved drafts after a downgrade.
+Save open notes before upgrading. Versions before beta.10 cannot restore newer tabs, panes, or unsaved drafts after a downgrade.
 
 See the [installation guide](https://hackdesk.eastsun.me/install) for platform steps and the [code signing policy](docs/code-signing-policy.md) for signing status.
 
@@ -46,7 +46,7 @@ xattr -dr com.apple.quarantine "/Applications/HackDesk.app"
 
 [Get started](docs/intro.md) · [Work with notes](docs/features.md) · [Quick Hack](docs/quick-hack.md) · [Keyboard navigation](docs/keyboard-navigation.md) · [Customize HackDesk](docs/config.md)
 
-The [documentation website](https://hackdesk.eastsun.me) covers beta.10. Screenshots use demonstration data.
+The [documentation website](https://hackdesk.eastsun.me) covers beta.11. Screenshots use demonstration data from beta.10.
 
 ## Contributing
 
