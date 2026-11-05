@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.0.0-beta.11](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.10...v2.0.0-beta.11) (2026-11-05)
+
+### Start writing
+
+* Write a recoverable draft on first launch without setting up an account or folder. Choose Local Vault or HackMD when you save.
+* Keep initial drafts through canceled or failed setup and after a restart. All initial drafts move to the chosen workspace; only the selected draft is saved.
+
+### Editor and settings
+
+* Update Helix to 0.6.1 and Kakoune to 0.5.0.
+* Mark AI and Dictation settings as experimental and add the Blog link to the docs.
+
+### Beta notes
+
+* Beta installers remain unsigned. Automatic updates remain disabled. Download beta.11 manually and close the previous version before opening it.
+* Chinese IME behavior in the updated Helix and Kakoune modes still needs manual verification. Kakoune remains experimental.
+* Versions before beta.10 cannot restore newer workspace layouts, including tabs and unsaved drafts. Back up app data before downgrading.
+
 ## [2.0.0-beta.10](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.9...v2.0.0-beta.10) (2026-11-03)
 
 ### Workbench
