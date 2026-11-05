@@ -97,13 +97,13 @@ export function SettingsTabs({ dialogRef, onNavigate }: {
               key={tab.id}
               value={tab.id}
               className={cn(
-                'inline-flex h-10 w-full min-w-0 shrink-0 items-center justify-start gap-2 rounded-md px-3 text-sm font-medium transition-colors hover:bg-element-bg-hover',
+                'inline-flex min-h-10 h-auto w-full min-w-0 shrink-0 items-center justify-start gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-element-bg-hover',
                 FOCUS_RING_CLASS,
                 'text-text-subtle data-[active]:bg-background-default data-[active]:text-text-default data-[active]:shadow-sm',
               )}
             >
               <span aria-hidden="true">{tab.icon}</span>
-              <span className="truncate">{tab.label}</span>
+              <span className="min-w-0 whitespace-normal text-left leading-snug">{tab.label}</span>
             </TabsTrigger>
           ))}
         </TabsList>

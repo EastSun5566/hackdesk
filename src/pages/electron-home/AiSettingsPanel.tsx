@@ -303,7 +303,7 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
   return (
     <div className="space-y-6">
       <SettingsSection
-        title="AI Providers"
+        title="AI (Experimental)"
         help="Uses your signed-in Codex or Claude CLI."
       >
         {error ? <p role="alert" className="text-sm text-destructive-default">{error}</p> : null}

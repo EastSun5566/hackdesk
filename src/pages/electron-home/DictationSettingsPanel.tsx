@@ -125,7 +125,7 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
   return (
     <div className="space-y-6">
       <SettingsSection
-        title="Dictation"
+        title="Dictation (Experimental)"
         description="Speech stays on this Mac. Audio is not saved."
       >
         {error ? <p role="alert" className="text-sm text-destructive-default">{error}</p> : null}
