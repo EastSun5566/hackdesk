@@ -142,7 +142,7 @@ describe('useHomeLocalVaultActions', () => {
     expect(api.localVault.choose).toHaveBeenCalledOnce();
     expect(queryClient.getQueryData(['electron', 'settings'])).toBe(nextSettings);
     expect(queryClient.getQueryData(getLocalVaultSnapshotQueryKey(nextSettings.localVault.path))).toBe(nextSnapshot);
-    expect(setWorkspaceScope).toHaveBeenCalledWith({ type: 'local', label: 'Local Vault' });
+    expect(setWorkspaceScope).toHaveBeenCalledWith({ type: 'local', label: 'Local Vault', vaultId: nextSnapshot.vaultId });
   });
 
   it('does not switch scope when local vault choosing is canceled', async () => {

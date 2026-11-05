@@ -24,6 +24,7 @@ export type WorkbenchActionContextInput = {
   bookContentsHidden: boolean;
   bookOpen: boolean;
   canCreate: boolean;
+  canStartDraft?: boolean;
   canModifySelectedFolder: boolean;
   editorMode: EditorMode;
   hasLocalVault: boolean;
@@ -124,6 +125,7 @@ export function createWorkbenchActionContext({
   bookContentsHidden,
   bookOpen,
   canCreate,
+  canStartDraft,
   canModifySelectedFolder,
   editorMode,
   hasLocalVault,
@@ -151,6 +153,7 @@ export function createWorkbenchActionContext({
     bookContentsHidden,
     bookOpen,
     canCreate,
+    canStartDraft,
     canModifySelectedFolder,
     editorMode,
     hasLocalVault,
@@ -178,6 +181,7 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     bookContentsHidden,
     bookOpen,
     canCreate,
+    canStartDraft,
     canModifySelectedFolder,
     editorMode,
     handlers,
@@ -199,6 +203,7 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     bookContentsHidden,
     bookOpen,
     canCreate,
+    canStartDraft,
     canModifySelectedFolder,
     editorMode,
     hasLocalVault,
@@ -217,6 +222,7 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
     bookContentsHidden,
     bookOpen,
     canCreate,
+    canStartDraft,
     canModifySelectedFolder,
     editorMode,
     hasLocalVault,
@@ -289,7 +295,9 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       handlers.setEditorMode('kakoune');
       break;
     case 'new-tab':
-      if (hasActiveTab) {
+      if (canStartDraft) {
+        handlers.createNote();
+      } else if (hasActiveTab) {
         handlers.duplicateActiveTab();
         handlers.focusEditor();
       } else {
@@ -496,7 +504,7 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     }
     return true;
-  }, [actionContext, handlers, hasActiveTab]);
+  }, [actionContext, canStartDraft, handlers, hasActiveTab]);
 
   return {
     actionContext,

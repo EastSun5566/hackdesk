@@ -29,6 +29,7 @@ export type WorkbenchFolderCommandsOptions = {
   folderTree: FolderTree;
   hasToken: boolean;
   hasLocalVault: boolean;
+  canStartDraft?: boolean;
   moveFolder: (operation: FolderDropOperation) => void;
   onChooseLocalVault: () => void;
   openDraftNote: () => void;
@@ -50,6 +51,7 @@ export function useWorkbenchFolderCommands({
   folderTree,
   hasToken,
   hasLocalVault,
+  canStartDraft = false,
   moveFolder,
   onChooseLocalVault,
   openDraftNote,
@@ -83,8 +85,8 @@ export function useWorkbenchFolderCommands({
   }, [hasLocalVault, hasToken, onChooseLocalVault, scopeType, setSettingsOpen]);
 
   const handleCreateNote = useCallback(() => {
-    if (canCreateNote()) openDraftNote();
-  }, [canCreateNote, openDraftNote]);
+    if (canStartDraft || canCreateNote()) openDraftNote();
+  }, [canStartDraft, canCreateNote, openDraftNote]);
 
   const handleCreateNoteFromTemplate = useCallback(() => {
     if (canCreateNote()) openTemplatePicker?.();
@@ -115,6 +117,7 @@ export function useWorkbenchFolderCommands({
   }, [handleCreateFolder, setSelectedFolderId]);
 
   const handleCreateNoteInside = useCallback((folderId: string | null) => {
+    if (canStartDraft) { openDraftNote(); return; }
     setSelectedFolderId(folderId ?? UNFILED_FOLDER_ID);
     if (scopeType === 'local' && !hasLocalVault) {
       onChooseLocalVault();
@@ -133,6 +136,8 @@ export function useWorkbenchFolderCommands({
 
     setCreateDialog({ open: true, title: '' });
   }, [
+    canStartDraft,
+    openDraftNote,
     hasLocalVault,
     hasToken,
     onChooseLocalVault,

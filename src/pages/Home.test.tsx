@@ -145,7 +145,14 @@ async function renameNote(title: string) {
   fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
 }
 
-function findHackmdOnboardingDialog() {
+async function openHackmdOnboardingDialog() {
+  if (!queryHackmdOnboardingDialog()) {
+    await screen.findByRole('button', { name: /^Switch workspace, current:/ });
+    fireEvent.keyDown(window, { key: 'P', code: 'KeyP', metaKey: true, shiftKey: true });
+    const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
+    fireEvent.change(within(palette).getByRole('combobox'), { target: { value: 'Connect HackMD' } });
+    fireEvent.click(await within(palette).findByRole('option', { name: /^Connect HackMD\b/ }));
+  }
   return screen.findByRole('dialog', { name: 'Connect HackMD' });
 }
 
@@ -513,7 +520,7 @@ describe('Home native-feel behavior', () => {
     expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
   });
 
-  it('opens first-run HackMD onboarding when no token is configured', async () => {
+  it('starts a recoverable draft without opening setup when no destination is configured', async () => {
     const api = createApi({
       settings: {
         get: vi.fn(async () => createSafeSettings({
@@ -526,7 +533,14 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
 
-    expect(await findHackmdOnboardingDialog()).toBeInTheDocument();
+    expect(await findRenderedNoteTitle('Untitled')).toBeInTheDocument();
+    expect(await screen.findByTestId('hackmd-markdown-editor', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(queryHackmdOnboardingDialog()).not.toBeInTheDocument();
+    await editNote('First draft');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByRole('dialog', { name: 'Save note' })).toBeInTheDocument();
+    expect(api.hackmd.createNote).not.toHaveBeenCalled();
+    expect(JSON.parse(localStorage.getItem('hackdesk_note_workspace:initial-drafts') ?? '{}').drafts).not.toEqual({});
   });
 
   it('connects the configured HackMD account on startup without leaving the local vault workspace', async () => {
@@ -647,6 +661,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
+    await openHackmdOnboardingDialog();
     fireEvent.click(await screen.findByRole('button', { name: 'Setup later' }));
 
     await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({
@@ -702,7 +717,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    const onboardingDialog = await findHackmdOnboardingDialog();
+    const onboardingDialog = await openHackmdOnboardingDialog();
     fireEvent.change(within(onboardingDialog).getByLabelText('HackMD API Token'), {
       target: { value: ' secret-token ' },
     });
@@ -727,8 +742,10 @@ describe('Home native-feel behavior', () => {
   });
 
   it('opens a local folder from HackMD onboarding as a secondary path', async () => {
+    const snapshot: LocalVaultSnapshot = { vaultId: 'first-vault', rootPath: '/Users/michael/Notes', notes: [], folders: [] };
     const chooseLocalVault = vi.fn(async () => ({
       canceled: false,
+      snapshot,
       settings: createSafeSettings({
         hasHackmdApiToken: false,
         hasLocalVault: true,
@@ -751,7 +768,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    const onboardingDialog = await findHackmdOnboardingDialog();
+    const onboardingDialog = await openHackmdOnboardingDialog();
     fireEvent.click(within(onboardingDialog).getByRole('button', { name: 'Open local folder' }));
 
     await waitFor(() => expect(chooseLocalVault).toHaveBeenCalledOnce());
@@ -761,6 +778,7 @@ describe('Home native-feel behavior', () => {
     expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({
       type: 'local',
       label: 'Local Vault',
+      vaultId: 'first-vault',
     });
   });
 
@@ -794,6 +812,7 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
+    await openHackmdOnboardingDialog();
     fireEvent.click(await screen.findByRole('button', { name: 'Import token' }));
 
     await waitFor(() => expect(importHackmdCliToken).toHaveBeenCalledOnce());
@@ -836,7 +855,7 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
     fireEvent.click(await screen.findByRole('button', { name: 'Configure Token' }));
 
-    const onboardingDialog = await findHackmdOnboardingDialog();
+    const onboardingDialog = await openHackmdOnboardingDialog();
     fireEvent.change(within(onboardingDialog).getByLabelText('HackMD API Token'), {
       target: { value: 'configured-token' },
     });
@@ -1055,7 +1074,8 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(updateSettings).toHaveBeenCalledWith(expect.objectContaining({
       hackmdApiToken: '',
     })));
-    expect(await screen.findByRole('heading', { name: 'Connect HackMD' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument());
+    expect(queryHackmdOnboardingDialog()).not.toBeInTheDocument();
     expect(screen.queryByText('Michael')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: `${team.name}, private` })).not.toBeInTheDocument();
   });

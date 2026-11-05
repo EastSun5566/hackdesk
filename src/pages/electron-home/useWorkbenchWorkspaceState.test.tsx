@@ -25,6 +25,22 @@ describe('useWorkbenchWorkspaceState', () => {
     expect(getInitialWorkspaceScope()).toEqual(teamScope);
   });
 
+  it('waits for settings and an existing vault identity without falling back to initial drafts', () => {
+    const initialProps: { ready: boolean; vaultId: string | null } = { ready: false, vaultId: null };
+    const { result, rerender } = renderHook(({ ready, vaultId }: { ready: boolean; vaultId: string | null }) => useWorkbenchWorkspaceState({
+      initialWorkspaceScope: { type: 'local', label: 'Local Vault' },
+      settingsReady: ready,
+      localVaultId: vaultId,
+      manualEmptyWorkspaceRef: { current: false },
+    }), { initialProps });
+    expect(result.current.scopeStorageKey).toBeNull();
+    rerender({ ready: true, vaultId: null });
+    expect(result.current.scope.type).toBe('local');
+    expect(result.current.scopeStorageKey).toBeNull();
+    rerender({ ready: true, vaultId: 'vault-a' });
+    expect(result.current.scopeStorageKey).toBe('local:vault-a');
+  });
+
   it('restores collapsed folders and clears folder selection when scope changes', () => {
     const initialWorkspaceScope: WorkspaceScope = { type: 'personal', label: 'My Workspace' };
     const teamScope: WorkspaceScope = { type: 'team', label: 'Design', teamPath: 'design' };
