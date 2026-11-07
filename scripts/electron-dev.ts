@@ -102,7 +102,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 
   waitForDevReady(renderer, builder, waitForUrl(ELECTRON_RENDERER_URL))
     .then(async () => {
-      const electron = run(electronCommand, ['.'], {
+      // Opt-in DevTools Protocol port for tooling such as `pnpm design:audit`.
+      const debugPort = process.env.HACKDESK_REMOTE_DEBUGGING_PORT;
+      const electron = run(electronCommand, debugPort ? ['.', `--remote-debugging-port=${debugPort}`] : ['.'], {
         env: {
           HACKDESK_ELECTRON_DEV_SERVER_URL: ELECTRON_RENDERER_URL,
         },

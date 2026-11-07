@@ -15,6 +15,7 @@
     "dev": "node scripts/electron-dev.ts",
     "build": "node scripts/build-speech-helper.ts && node scripts/electron-build.ts && vite build",
     "preview": "vite preview",
+    "design:audit": "node scripts/design-audit.ts",
     "package": "pnpm run build && electron-builder",
     "package:check": "pnpm run build && electron-builder --dir --publish never && node scripts/check-electron-fuses.ts && node scripts/check-packaged-contents.ts",
     "typecheck": "pnpm run typecheck:app && pnpm run typecheck:node && pnpm run typecheck:electron && pnpm run typecheck:test && pnpm run typecheck:e2e && pnpm run typecheck:docs",
