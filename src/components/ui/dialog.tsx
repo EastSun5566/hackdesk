@@ -16,7 +16,7 @@ const DialogClose = React.forwardRef<
   <DialogPrimitive.Close
     ref={ref}
     className={cn(
-      'rounded-sm p-1 text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none',
+      'rounded p-1 text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-emphasize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default disabled:pointer-events-none',
       className,
     )}
     {...props}
@@ -48,9 +48,9 @@ const DialogOverlay = React.forwardRef<
 DialogOverlay.displayName = 'DialogOverlay';
 
 const dialogSizeClassNames = {
-  default: 'max-w-lg',
+  default: 'max-w-[600px]',
   // Onboarding and other short, single-column flows.
-  sm: 'w-[min(440px,calc(100dvw-2rem))]',
+  sm: 'w-[min(400px,calc(100dvw-2rem))] max-w-[400px]',
   // Searchable lists that grow up to a fixed height and then scroll.
   md: 'flex max-h-[min(760px,calc(100dvh-4rem))] w-[min(720px,calc(100dvw-3rem))] max-w-180 flex-col',
   // Fixed-height layouts with their own scroll regions, such as Settings.
@@ -79,7 +79,7 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Popup
         ref={ref}
         className={cn(
-          'relative grid w-full gap-4 border border-border-default bg-background-default p-6 text-text-default duration-150 ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none sm:rounded-md',
+          'relative grid w-full gap-4 rounded-lg border border-border-default bg-background-default p-5 text-text-default duration-150 ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none',
           ELEVATED_SURFACE_CLASS,
           dialogSizeClassNames[size],
           dialogPlacementClassNames[placement],
@@ -101,7 +101,7 @@ const DialogHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      'flex flex-col space-y-1.5 text-center sm:text-left',
+      'flex flex-col gap-1.5',
       className,
     )}
     {...props}
@@ -115,7 +115,7 @@ const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      'flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2',
+      'flex flex-col-reverse sm:flex-row sm:justify-end sm:gap-2',
       className,
     )}
     {...props}
@@ -130,7 +130,7 @@ const DialogTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     className={cn(
-      'text-lg font-semibold leading-none text-balance',
+      'text-lg font-bold leading-6 text-text-emphasize text-balance',
       className,
     )}
     {...props}

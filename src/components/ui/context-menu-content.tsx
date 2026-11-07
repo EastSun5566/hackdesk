@@ -3,7 +3,7 @@ import { ContextMenu as ContextMenuPrimitive } from '@base-ui/react/context-menu
 
 import { cn } from '@/lib/utils';
 
-import { ELEVATED_SURFACE_CLASS, FLOATING_LAYER_CLASS } from './layers';
+import { FLOATING_LAYER_CLASS, MENU_POPUP_CLASS } from './layers';
 import { ContextMenuPortal } from './context-menu-root';
 
 const ContextMenuContent = React.forwardRef<
@@ -19,8 +19,8 @@ const ContextMenuContent = React.forwardRef<
       <ContextMenuPrimitive.Popup
         ref={ref}
         className={cn(
-          'min-w-44 overflow-hidden rounded-md border border-border-default bg-background-default p-1 text-text-default origin-(--transform-origin) ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none',
-          ELEVATED_SURFACE_CLASS,
+          MENU_POPUP_CLASS,
+          'origin-(--transform-origin) ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none',
           className,
         )}
         {...props}

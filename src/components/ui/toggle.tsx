@@ -5,9 +5,9 @@ import { cn } from '@/lib/utils';
 
 const toggleVariantClassNames = {
   secondary:
-    'border border-border-default text-text-subtle hover:bg-element-bg-hover hover:text-text-default data-[pressed]:bg-background-selected data-[pressed]:text-text-default data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+    'border-border-default text-text-subtle hover:border-element-border-hover hover:bg-element-bg-hover hover:text-text-emphasize data-[pressed]:border-border-default data-[pressed]:bg-background-selected data-[pressed]:text-text-default data-[disabled]:pointer-events-none data-[disabled]:opacity-65',
   ghost:
-    'text-text-subtle hover:bg-element-bg-hover hover:text-text-default data-[pressed]:bg-background-selected data-[pressed]:text-text-default data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+    'text-text-subtle hover:bg-element-bg-hover hover:text-text-emphasize data-[pressed]:bg-background-selected data-[pressed]:text-text-default data-[disabled]:pointer-events-none data-[disabled]:opacity-65',
 } as const;
 
 const toggleSizeClassNames = {
@@ -31,7 +31,7 @@ const Toggle = React.forwardRef<
     ref={ref}
     type={type}
     className={cn(
-      'inline-flex items-center justify-center rounded-md font-medium transition-[background-color,border-color,color,transform] duration-150 ease-out active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring motion-reduce:transition-none',
+      'inline-flex items-center justify-center rounded border border-transparent font-normal transition-[background-color,border-color,color,transform] duration-150 ease-out active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring motion-reduce:transition-none',
       toggleSizeClassNames[size],
       toggleVariantClassNames[variant],
       className,

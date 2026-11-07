@@ -26,17 +26,26 @@ const AlertDialogOverlay = React.forwardRef<
 ));
 AlertDialogOverlay.displayName = 'AlertDialogOverlay';
 
+const alertDialogSizeClassNames = {
+  sm: 'max-w-[400px]',
+  md: 'max-w-[600px]',
+  lg: 'max-w-[900px]',
+} as const;
+
 const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Popup>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Popup>
->(({ className, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Popup> & {
+    size?: keyof typeof alertDialogSizeClassNames;
+  }
+>(({ className, size = 'sm', ...props }, ref) => (
   <AlertDialogPortal>
     <AlertDialogOverlay />
     <AlertDialogPrimitive.Viewport className={cn('fixed inset-0 grid place-items-center', OVERLAY_LAYER_CLASS)}>
       <AlertDialogPrimitive.Popup
         ref={ref}
         className={cn(
-          'grid w-full max-w-md gap-4 border border-border-default bg-background-default p-6 text-text-default duration-150 ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none sm:rounded-md',
+          'grid w-full gap-4 rounded-lg border border-border-default bg-background-default p-5 text-text-default duration-150 ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none',
+          alertDialogSizeClassNames[size],
           ELEVATED_SURFACE_CLASS,
           className,
         )}

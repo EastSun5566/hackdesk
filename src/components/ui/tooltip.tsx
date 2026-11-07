@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip';
 
 import { cn } from '@/lib/utils';
-import { ELEVATED_SURFACE_CLASS, FLOATING_LAYER_CLASS } from './layers';
+import { FLOATING_LAYER_CLASS } from './layers';
 
 type TooltipProviderProps = React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Provider> & {
   delayDuration?: number;
@@ -59,8 +59,7 @@ const TooltipContent = React.forwardRef<
       <TooltipPrimitive.Popup
         ref={ref}
         className={cn(
-          'max-w-64 rounded-md border border-border-default bg-text-default px-2 py-1 text-xs text-background-default origin-(--transform-origin) ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 motion-reduce:animate-none',
-          ELEVATED_SURFACE_CLASS,
+          'max-w-64 rounded border border-zinc-500 bg-zinc-700 px-2 py-1 text-xs font-medium leading-4 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.65)] origin-(--transform-origin) ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 motion-reduce:animate-none',
           className,
         )}
         {...props}

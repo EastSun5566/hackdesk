@@ -3,6 +3,7 @@ import { Command as CommandPrimitive } from 'cmdk';
 import { Search } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { MENU_ITEM_ARIA_SELECTED_CLASS, MENU_SEPARATOR_CLASS, MENU_SHORTCUT_CLASS } from './layers';
 
 const Command = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive>,
@@ -11,7 +12,7 @@ const Command = React.forwardRef<
   <CommandPrimitive
     ref={ref}
     className={cn(
-      'flex h-full w-full flex-col overflow-hidden rounded-md bg-background-default text-text-default',
+      'flex h-full w-full flex-col overflow-hidden rounded bg-background-default text-text-default',
       className,
     )}
     {...props}
@@ -30,7 +31,7 @@ const CommandInput = React.forwardRef<
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
-        'flex h-11 w-full rounded-md bg-transparent py-3 text-sm text-[color:var(--command-item-title)] outline-hidden placeholder:text-[color:var(--command-placeholder)] disabled:opacity-50',
+        'flex h-11 w-full rounded bg-transparent py-3 text-sm text-[color:var(--command-item-title)] outline-hidden placeholder:text-[color:var(--command-placeholder)] disabled:opacity-50',
         className,
       )}
       {...props}
@@ -74,7 +75,7 @@ const CommandGroup = React.forwardRef<
   <CommandPrimitive.Group
     ref={ref}
     className={cn(
-      'overflow-hidden p-1 text-text-default **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-semibold **:[[cmdk-group-heading]]:text-[color:var(--command-item-meta)]',
+      'overflow-hidden text-text-default **:[[cmdk-group-heading]]:px-5 **:[[cmdk-group-heading]]:py-2 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-semibold **:[[cmdk-group-heading]]:text-[color:var(--command-item-meta)]',
       className,
     )}
     {...props}
@@ -89,7 +90,7 @@ const CommandSeparator = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <CommandPrimitive.Separator
     ref={ref}
-    className={cn('-mx-1 h-px bg-border-default/80', className)}
+    className={cn(MENU_SEPARATOR_CLASS, className)}
     {...props}
   />
 ));
@@ -102,7 +103,8 @@ const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm text-[color:var(--command-item-title)] outline-hidden transition-colors aria-selected:bg-background-selected aria-selected:[--command-item-title:var(--command-selected-title)] aria-selected:[--command-item-meta:var(--command-selected-meta)] aria-selected:[--command-item-match:var(--command-selected-match)] data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50',
+      MENU_ITEM_ARIA_SELECTED_CLASS,
+      'text-[color:var(--command-item-title)] outline-hidden aria-selected:[--command-item-title:var(--command-selected-title)] aria-selected:[--command-item-meta:var(--command-selected-meta)] aria-selected:[--command-item-match:var(--command-selected-match)]',
       className,
     )}
     {...props}
@@ -118,7 +120,8 @@ const CommandShortcut = ({
   return (
     <span
       className={cn(
-        'ml-auto text-xs tabular-nums text-[color:var(--command-item-meta)]',
+        MENU_SHORTCUT_CLASS,
+        'tabular-nums text-[color:var(--command-item-meta)]',
         className,
       )}
       {...props}

@@ -2,6 +2,7 @@ import * as React from 'react';
 import { ContextMenu as ContextMenuPrimitive } from '@base-ui/react/context-menu';
 
 import { cn } from '@/lib/utils';
+import { MENU_ITEM_CLASS } from './layers';
 
 type ContextMenuItemSelectEvent = React.MouseEvent<HTMLElement>;
 
@@ -26,8 +27,8 @@ const ContextMenuItem = React.forwardRef<
       onClick?.(event);
     }}
     className={cn(
-      'relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors data-[highlighted]:bg-element-bg-hover data-[highlighted]:text-text-default data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
-      destructive && 'text-destructive-default data-[highlighted]:text-destructive-default',
+      MENU_ITEM_CLASS,
+      destructive && 'text-destructive-default data-[highlighted]:text-destructive-default [&_svg]:text-destructive-default',
       className,
     )}
     {...props}

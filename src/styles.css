@@ -35,7 +35,9 @@
 
   --color-primary-50: #ecebfe;
   --color-primary-100: #cccafc;
+  --color-primary-200: #b2abfb;
   --color-primary-300: #9894f9;
+  --color-primary-400: #766df8;
   --color-primary-500: #564dff;
   --color-primary-600: #453aff;
   --color-primary-800: #2e01a5;
@@ -65,11 +67,17 @@
   /* Semantic colors */
   --color-text-default: var(--text-default);
   --color-text-subtle: var(--text-subtle);
+  --color-text-subtler: var(--text-subtler);
+  --color-text-emphasize: var(--text-emphasize);
   --color-background-default: var(--background-default);
   --color-background-muted: var(--background-muted);
+  --color-background-subtler: var(--background-subtler);
+  --color-background-primary-subtler: var(--background-primary-subtler);
   --color-background-overlay: var(--background-overlay);
   --color-background-selected: var(--background-selected);
   --color-border-default: var(--border-default);
+  --color-border-primary-default: var(--border-primary-default);
+  --color-border-primary-subtler: var(--border-primary-subtler);
   --color-primary-default: var(--primary-default);
   --color-primary-hover: var(--primary-hover);
   --color-primary-soft: var(--primary-soft);
@@ -80,15 +88,24 @@
   --color-warning-default: var(--warning-default);
   --color-warning-soft: var(--warning-soft);
   --color-warning-foreground: var(--warning-foreground);
+  --color-state-warning-text: var(--state-warning-text);
+  --color-state-warning-background: var(--state-warning-background);
+  --color-state-warning-border: var(--state-warning-border);
+  --color-state-warning-default: var(--state-warning-default);
   --color-destructive-default: var(--destructive-default);
   --color-destructive-soft: var(--destructive-soft);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive-hover: var(--destructive-hover);
   --color-icon-default: var(--icon-default);
   --color-icon-subtle: var(--icon-subtle);
+  --color-icon-subtlest: var(--icon-subtlest);
   --color-border-bold: var(--border-bold);
+  --color-element-bg-default: var(--element-bg-default);
   --color-element-bg-hover: var(--element-bg-hover);
+  --color-element-bg-disabled: var(--element-bg-disabled);
+  --color-element-text-disabled: var(--element-text-disabled);
   --color-element-border-hover: var(--element-border-hover);
+  --color-element-border-disabled: var(--element-border-disabled);
   --color-link-text-default: var(--link-text-default);
   --color-link-text-hover: var(--link-text-hover);
   /* Translucent tokens painted onto the default surface, for layers that must be opaque. */
@@ -138,10 +155,11 @@
     --hmd-tw-background-primary-hover: var(--color-primary-800);
     --hmd-tw-background-primary-disabled: var(--color-primary-300);
     --hmd-tw-background-primary-focus: var(--color-primary-800);
-    --hmd-tw-background-blur: rgb(253 253 253 / 0.72);
+    --hmd-tw-background-blur: rgb(253 253 253 / 0.6);
     --hmd-tw-icon-default: var(--color-zinc-500);
     --hmd-tw-icon-subtle: var(--color-zinc-400);
     --hmd-tw-icon-subtler: var(--color-zinc-300);
+    --hmd-tw-icon-subtlest: var(--color-zinc-200);
     --hmd-tw-icon-disabled: var(--color-zinc-400);
     --hmd-tw-icon-primary: var(--hmd-tw-text-primary);
     --hmd-tw-icon-emphasize: var(--color-zinc-800);
@@ -150,9 +168,9 @@
     --hmd-tw-border-subtle: var(--color-zinc-500);
     --hmd-tw-border-subtler: var(--color-zinc-400);
     --hmd-tw-border-subtlest: var(--color-zinc-200);
-    --hmd-tw-border-primary-focus: var(--color-primary-300);
+    --hmd-tw-border-primary-focus: var(--color-primary-400);
     --hmd-tw-border-primary-default: var(--color-primary-500);
-    --hmd-tw-border-primary-subtler: var(--color-primary-300);
+    --hmd-tw-border-primary-subtler: var(--color-primary-400);
     --hmd-tw-overlay: rgb(0 0 0 / 0.3);
     --hmd-tw-state-info-text: var(--color-sky-600);
     --hmd-tw-state-info-background: var(--color-sky-100);
@@ -161,25 +179,39 @@
     --hmd-tw-state-success-background: var(--color-emerald-75);
     --hmd-tw-state-success-border: var(--color-green-200);
     --hmd-tw-state-success-default: var(--color-green-400);
+    --hmd-tw-state-warning-text: #d97706;
+    --hmd-tw-state-warning-background: var(--color-amber-75);
+    --hmd-tw-state-warning-border: var(--color-amber-300);
+    --hmd-tw-state-warning-default: var(--color-amber-400);
     --hmd-tw-state-danger-text: var(--color-red-500);
     --hmd-tw-state-danger-bg-light: var(--color-red-75);
     --hmd-tw-state-danger-bg-default: var(--color-red-500);
     --hmd-tw-state-danger-bg-hover: var(--color-red-600);
     --hmd-tw-state-danger-border: var(--color-red-300);
     --hmd-tw-state-danger-default: var(--color-red-500);
-    --hmd-tw-element-bg-hover: var(--color-zinc-100);
-    --hmd-tw-element-border-hover: var(--color-zinc-300);
+    --hmd-tw-element-bg-default: var(--color-zinc-100);
+    --hmd-tw-element-bg-hover: var(--color-zinc-200);
+    --hmd-tw-element-bg-disabled: var(--color-zinc-200);
+    --hmd-tw-element-text-disabled: var(--color-zinc-400);
+    --hmd-tw-element-border-hover: var(--color-zinc-500);
+    --hmd-tw-element-border-disabled: var(--color-zinc-400);
     --hmd-tw-link-text-default: var(--color-primary-500);
     --hmd-tw-link-text-hover: var(--color-primary-800);
 
     --text-default: var(--hmd-tw-text-default);
     --text-subtle: var(--hmd-tw-text-subtle);
+    --text-subtler: var(--hmd-tw-text-subtler);
+    --text-emphasize: var(--hmd-tw-text-emphasize);
     --background-default: var(--hmd-tw-background-default);
     --background-muted: var(--hmd-tw-background-subtler);
+    --background-subtler: var(--hmd-tw-background-subtler);
+    --background-primary-subtler: var(--hmd-tw-background-primary-subtler);
     --background-overlay: var(--hmd-tw-overlay);
     --background-selected: var(--hmd-tw-background-selected);
     --border-default: var(--hmd-tw-border-default);
     --border-bold: var(--hmd-tw-border-bold);
+    --border-primary-default: var(--hmd-tw-border-primary-default);
+    --border-primary-subtler: var(--hmd-tw-border-primary-subtler);
     --primary-default: var(--hmd-tw-background-primary-default);
     --primary-hover: var(--hmd-tw-background-primary-hover);
     --primary-soft: var(--hmd-tw-background-primary-subtler);
@@ -189,14 +221,23 @@
     --warning-default: var(--color-amber-400);
     --warning-soft: var(--color-amber-75);
     --warning-foreground: var(--color-zinc-950);
+    --state-warning-text: var(--hmd-tw-state-warning-text);
+    --state-warning-background: var(--hmd-tw-state-warning-background);
+    --state-warning-border: var(--hmd-tw-state-warning-border);
+    --state-warning-default: var(--hmd-tw-state-warning-default);
     --destructive-default: var(--hmd-tw-state-danger-default);
     --destructive-soft: var(--hmd-tw-state-danger-bg-light);
     --destructive-foreground: var(--color-zinc-950);
     --destructive-hover: var(--hmd-tw-state-danger-bg-hover);
     --icon-default: var(--hmd-tw-icon-default);
     --icon-subtle: var(--hmd-tw-icon-subtle);
+    --icon-subtlest: var(--hmd-tw-icon-subtlest);
+    --element-bg-default: var(--hmd-tw-element-bg-default);
     --element-bg-hover: var(--hmd-tw-element-bg-hover);
+    --element-bg-disabled: var(--hmd-tw-element-bg-disabled);
+    --element-text-disabled: var(--hmd-tw-element-text-disabled);
     --element-border-hover: var(--hmd-tw-element-border-hover);
+    --element-border-disabled: var(--hmd-tw-element-border-disabled);
     --link-text-default: var(--hmd-tw-link-text-default);
     --link-text-hover: var(--hmd-tw-link-text-hover);
   }
@@ -217,13 +258,14 @@
     --hmd-tw-background-primary-default: var(--color-primary-500);
     --hmd-tw-background-primary-subtler: #2c2a4a;
     --hmd-tw-background-primary-subtle: #302d6a;
-    --hmd-tw-background-primary-hover: var(--color-primary-300);
+    --hmd-tw-background-primary-hover: var(--color-primary-400);
     --hmd-tw-background-primary-disabled: #3932aa;
-    --hmd-tw-background-primary-focus: var(--color-primary-300);
+    --hmd-tw-background-primary-focus: var(--color-primary-400);
     --hmd-tw-background-blur: rgb(39 39 42 / 0.6);
     --hmd-tw-icon-default: var(--color-zinc-300);
     --hmd-tw-icon-subtle: var(--color-zinc-400);
     --hmd-tw-icon-subtler: var(--color-zinc-500);
+    --hmd-tw-icon-subtlest: var(--color-zinc-600);
     --hmd-tw-icon-disabled: var(--color-zinc-500);
     --hmd-tw-icon-primary: var(--hmd-tw-text-primary);
     --hmd-tw-icon-emphasize: var(--color-zinc-100);
@@ -232,9 +274,9 @@
     --hmd-tw-border-subtle: var(--color-zinc-400);
     --hmd-tw-border-subtler: var(--color-zinc-500);
     --hmd-tw-border-subtlest: var(--color-zinc-700);
-    --hmd-tw-border-primary-focus: var(--color-primary-300);
+    --hmd-tw-border-primary-focus: var(--color-primary-400);
     --hmd-tw-border-primary-default: var(--color-primary-300);
-    --hmd-tw-border-primary-subtler: var(--color-primary-300);
+    --hmd-tw-border-primary-subtler: var(--color-primary-400);
     --hmd-tw-overlay: rgb(0 0 0 / 0.7);
     --hmd-tw-state-info-text: var(--color-sky-400);
     --hmd-tw-state-info-background: rgb(56 189 248 / 0.1);
@@ -243,19 +285,31 @@
     --hmd-tw-state-success-background: rgb(109 177 157 / 0.15);
     --hmd-tw-state-success-border: var(--color-emerald-600);
     --hmd-tw-state-success-default: var(--color-green-500);
+    --hmd-tw-state-warning-text: var(--color-amber-400);
+    --hmd-tw-state-warning-background: rgb(251 191 36 / 0.1);
+    --hmd-tw-state-warning-border: var(--color-amber-500);
+    --hmd-tw-state-warning-default: var(--color-amber-500);
     --hmd-tw-state-danger-text: var(--color-red-400);
     --hmd-tw-state-danger-bg-light: rgb(239 68 68 / 0.2);
     --hmd-tw-state-danger-bg-default: var(--color-red-500);
     --hmd-tw-state-danger-bg-hover: var(--color-red-400);
     --hmd-tw-state-danger-border: var(--color-red-400);
     --hmd-tw-state-danger-default: var(--color-red-400);
-    --primary-default: var(--color-primary-300);
-    --primary-foreground: var(--color-zinc-900);
-    --destructive-foreground: var(--color-zinc-950);
-    --hmd-tw-element-bg-hover: var(--color-zinc-750);
+    --hmd-tw-element-bg-default: var(--color-zinc-750);
+    --hmd-tw-element-bg-hover: var(--color-zinc-700);
+    --hmd-tw-element-bg-disabled: var(--color-zinc-750);
+    --hmd-tw-element-text-disabled: var(--color-zinc-500);
     --hmd-tw-element-border-hover: var(--color-zinc-500);
+    --hmd-tw-element-border-disabled: var(--color-zinc-500);
     --hmd-tw-link-text-default: var(--color-primary-300);
     --hmd-tw-link-text-hover: var(--color-primary-100);
+
+    /* HackMD Neo dark keeps a light primary with dark text; hover gets lighter. */
+    --primary-default: var(--color-primary-300);
+    --primary-hover: var(--color-primary-200);
+    --primary-foreground: var(--color-zinc-900);
+    --destructive-foreground: var(--color-zinc-950);
+    --warning-soft: rgb(251 191 36 / 0.1);
   }
 }
 

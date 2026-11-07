@@ -66,7 +66,7 @@ describe('DeleteNoteDialog', () => {
 
     const deleteButton = within(dialog).getByRole('button', { name: 'Delete' });
     expect(deleteButton).toHaveClass('bg-destructive-default');
-    expect(deleteButton).toHaveClass('text-destructive-foreground');
+    expect(deleteButton).toHaveClass('text-white');
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(onCancel).toHaveBeenCalledOnce();
