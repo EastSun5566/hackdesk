@@ -78,7 +78,8 @@ export const searchPanelTheme = {
   '.cm-panel.cm-vim-panel, .cm-panel.cm-hx-status-panel, .cm-panel.cm-hx-command-panel, .cm-panel.cm-kakoune-status-panel': {
     boxSizing: 'border-box',
     minHeight: EDITOR_CONTROL_HEIGHT,
-    padding: '0 10px',
+    // Text lines up with the note header's breadcrumb above it.
+    padding: '0 16px',
     borderTop: '1px solid var(--border-subtle)',
     backgroundColor: 'var(--background-default)',
     color: 'var(--text-subtle)',

@@ -26,7 +26,7 @@ const CommandInput = React.forwardRef<
     trailing?: React.ReactNode;
   }
 >(({ className, trailing, ...props }, ref) => (
-  <div className="flex items-center border-b border-border-default px-3" data-cmdk-input-wrapper="">
+  <div className="flex items-center border-b border-border-subtle px-5" data-cmdk-input-wrapper="">
     <Search aria-hidden="true" className="mr-2 h-4 w-4 shrink-0 text-[color:var(--command-placeholder)]" />
     <CommandPrimitive.Input
       ref={ref}

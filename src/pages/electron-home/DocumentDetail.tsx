@@ -729,7 +729,7 @@ function DocumentHeader({
   return (
     <PanelHeader
       // Its line shows only once the note scrolls under it; the pane is the scroll-edge scope.
-      className={cn('group/document-header scroll-edge-top relative px-4 py-1.5', HACK_MODE_HIDDEN_CLASS)}
+      className={cn('group/document-header scroll-edge-top relative px-4 py-2.25', HACK_MODE_HIDDEN_CLASS)}
       actionsClassName={revealActions ? undefined : DOCUMENT_ACTIONS_ON_DEMAND_CLASS}
       titleElement="div"
       actionsLabel="Document actions"
