@@ -61,18 +61,26 @@ export const editorChromeTheme = {
 };
 
 export const searchPanelTheme = {
+  // Panels sit inside the note card, so they share its surface. Each panel draws its own divider;
+  // the container draws none, or the edge between it and its first panel would be a double line.
   '.cm-panels': {
-    backgroundColor: 'var(--background-muted)',
+    backgroundColor: 'var(--background-default)',
     color: 'var(--text-default)',
-    borderColor: 'var(--border-default)',
+    borderColor: 'var(--border-subtle)',
     fontFamily: 'var(--font-sans)',
+  },
+  '.cm-panels.cm-panels-top': {
+    borderBottom: '0',
+  },
+  '.cm-panels.cm-panels-bottom': {
+    borderTop: '0',
   },
   '.cm-panel.cm-vim-panel, .cm-panel.cm-hx-status-panel, .cm-panel.cm-hx-command-panel, .cm-panel.cm-kakoune-status-panel': {
     boxSizing: 'border-box',
     minHeight: EDITOR_CONTROL_HEIGHT,
     padding: '0 10px',
-    borderTop: '1px solid var(--border-default)',
-    backgroundColor: 'var(--background-muted)',
+    borderTop: '1px solid var(--border-subtle)',
+    backgroundColor: 'var(--background-default)',
     color: 'var(--text-subtle)',
     fontFamily: 'var(--font-editor)',
     fontSize: '0.875em',
@@ -141,8 +149,8 @@ export const searchPanelTheme = {
     color: 'var(--text-default)',
   },
   '.cm-panel.cm-search.cm-hackdesk-search-panel': {
-    borderBottom: '1px solid var(--border-default)',
-    backgroundColor: 'var(--background-muted)',
+    borderBottom: '1px solid var(--border-subtle)',
+    backgroundColor: 'var(--background-default)',
     padding: '8px',
   },
   '.cm-hackdesk-search-form': {

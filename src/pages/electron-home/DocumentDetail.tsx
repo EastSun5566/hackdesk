@@ -1046,7 +1046,7 @@ function InspectorPanel({
       }}
       className={cn(
         // A card floating over the note, a gap in from the pane's edges.
-        'absolute inset-y-1.5 right-1.5 z-20 w-(--inspector-width) max-w-full overflow-clip rounded-lg border border-border-default/60 bg-background-muted shadow-lg transition duration-200 ease-out motion-reduce:transition-none',
+        'absolute inset-y-1.5 right-1.5 z-20 w-(--inspector-width) max-w-full overflow-clip rounded-lg border border-border-subtle bg-background-muted shadow-lg transition duration-200 ease-out motion-reduce:transition-none',
         inspectorCollapsed && 'pointer-events-none translate-x-full opacity-0 ease-in',
       )}
       style={{ '--inspector-width': `${INSPECTOR_WIDTH_DEFAULT}px` }}

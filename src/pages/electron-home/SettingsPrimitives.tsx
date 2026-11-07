@@ -20,7 +20,7 @@ export function SettingsSection({
     <section className="flex flex-col gap-5">
       <div>
         <div className="flex items-center gap-1.5">
-          <h3 className="text-sm font-semibold leading-5 text-balance">{title}</h3>
+          <h3 className="text-base font-semibold leading-6 text-text-emphasize text-balance">{title}</h3>
           {help ? <SettingsHelpTooltip label={title}>{help}</SettingsHelpTooltip> : null}
         </div>
         {description ? <p className="mt-1 text-xs leading-5 text-text-subtle">{description}</p> : null}

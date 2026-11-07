@@ -300,7 +300,7 @@ function NavigatorHeader({
       title={<WorkspaceSwitcher {...workspace} />}
       titleElement="div"
       subtitle={navigatorSubtitle}
-      className="px-3 py-2.5"
+      className="px-4 py-2.5"
       actionsLabel="Note navigator actions"
       actions={(
         <>
@@ -362,7 +362,7 @@ function NavigatorFilterBar({
   };
 
   return (
-    <div className="space-y-1 px-3 pb-1.5 pt-2">
+    <div className="space-y-1 px-2 pb-1.5 pt-2">
       <NoteFinderToolbar
         state={finderState}
         selectedFolderId={selectedFolderId}

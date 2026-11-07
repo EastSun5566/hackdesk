@@ -83,7 +83,7 @@ export function KeyHintBar({
       data-key-hint-context={leader ? 'leader' : context}
       data-typing={typing && !leader ? 'true' : undefined}
       className={cn(
-        'flex h-6 shrink-0 items-center gap-4 overflow-hidden px-3 text-2xs text-text-subtle transition-opacity duration-300 motion-reduce:transition-none',
+        'flex h-6 shrink-0 items-center gap-4 overflow-hidden px-4 text-2xs text-text-subtle transition-opacity duration-300 motion-reduce:transition-none',
         HACK_MODE_HIDDEN_CLASS,
         typing && !leader && 'opacity-0',
       )}

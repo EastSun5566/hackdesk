@@ -20,7 +20,7 @@ export const PANEL_MOTION_CLASS = 'transition-all duration-200 ease-out motion-r
  * a gap apart. A card keeps a faint outline because some themes barely tell the two surfaces apart.
  * Hack Mode is edge to edge. Lines only mark content scrolling under a header; see .scroll-edges.
  */
-export const CARD_SURFACE_CLASS = 'overflow-clip rounded-lg border border-border-default/60 bg-background-default [[data-hack-mode]_&]:rounded-none [[data-hack-mode]_&]:border-transparent';
+export const CARD_SURFACE_CLASS = 'overflow-clip rounded-lg border border-border-subtle bg-background-default [[data-hack-mode]_&]:rounded-none [[data-hack-mode]_&]:border-transparent';
 /** A resize handle in the gap between surfaces: invisible until pointed at or focused. */
 export const GAP_SASH_CLASS = 'relative w-1.5 shrink-0 cursor-col-resize border-0 bg-transparent outline-none after:absolute after:inset-y-3 after:left-1/2 after:w-0.5 after:-translate-x-1/2 after:rounded-full after:bg-transparent after:transition-colors hover:after:bg-primary-default focus-visible:after:bg-primary-default motion-reduce:after:transition-none';
 /** The same handle between stacked surfaces. */

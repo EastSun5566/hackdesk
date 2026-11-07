@@ -108,6 +108,7 @@ export function NoteRow({
     compact ? '' : entry.folderLabel,
     entry.note.tags.slice(0, 2).join(', '),
   ].filter(Boolean).join(' · ');
+  const editedLabel = entry.note.updatedAtMillis ? `Edited ${formatCompactDate(entry.note.updatedAtMillis)}` : undefined;
   const {
     attributes,
     listeners,
@@ -156,7 +157,9 @@ export function NoteRow({
                 type="button"
                 id={dragControlId}
                 className={cn(
-                  'group/drag-handle -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default',
+                  // Wider than its icon for an easier grab; the negative margins keep the icon on the
+                  // same column as folder icons.
+                  'group/drag-handle -mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-icon-default hover:text-text-default',
                   FOCUS_RING_INSET_CLASS,
                 )}
                 aria-label={`Drag ${entry.note.title || 'Untitled'}`}
@@ -177,8 +180,10 @@ export function NoteRow({
               </button>
             ) : null}
             title={entry.note.title || 'Untitled'}
-            subtitle={snippet ? <NoteMatchSnippet snippet={snippet} /> : metadata || (compact ? undefined : entry.note.shortId)}
-            trailing={(
+            // Every note row keeps two lines, so the list has one rhythm: a note without folder or
+            // tags shows its edited date there instead of in the trailing column.
+            subtitle={snippet ? <NoteMatchSnippet snippet={snippet} /> : metadata || (compact ? editedLabel : entry.note.shortId)}
+            trailing={!metadata && compact && !snippet ? undefined : (
               <time title={formatDate(entry.note.updatedAtMillis)} dateTime={entry.note.updatedAtMillis ? new Date(entry.note.updatedAtMillis).toISOString() : undefined}>
                 {formatCompactDate(entry.note.updatedAtMillis)}
               </time>
@@ -349,7 +354,9 @@ function FolderButton({
                 <button
                   type="button"
                   className={cn(
-                    'group/drag-handle -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default',
+                    // Wider than its icon for an easier grab; the negative margins keep the icon on the
+                  // same column as folder icons.
+                  'group/drag-handle -mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-icon-default hover:text-text-default',
                     disabledDrag && 'opacity-40 hover:text-text-subtle',
                     FOCUS_RING_INSET_CLASS,
                   )}
@@ -573,9 +580,9 @@ export function FolderTreeView({
 
     return (
       <li role="presentation" key={node.id} className="relative min-w-0">
-        {depth > 0 && !lastChild ? <span aria-hidden="true" data-tree-guide="continuation" className="pointer-events-none absolute -left-1.75 -top-0.5 bottom-0 w-px bg-border-default/70" /> : null}
+        {depth > 0 && !lastChild ? <span aria-hidden="true" data-tree-guide="continuation" className="pointer-events-none absolute -left-1.75 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
         <div className="relative min-w-0">
-          {depth > 0 && lastChild ? <span aria-hidden="true" data-tree-guide="end" className="pointer-events-none absolute -left-1.75 -top-0.5 bottom-1/2 w-px bg-border-default/70" /> : null}
+          {depth > 0 && lastChild ? <span aria-hidden="true" data-tree-guide="end" className="pointer-events-none absolute -left-1.75 -top-0.5 bottom-1/2 w-px bg-border-subtle" /> : null}
         <FolderButton
           node={node}
           selected={selectedFolderId === node.id}
@@ -636,7 +643,7 @@ export function FolderTreeView({
 
   const noteItems = notes.map((entry, index) => (
     <li role="presentation" key={`note:${entry.note.id}`} className="relative min-w-0">
-      {depth > 0 ? <span aria-hidden="true" data-tree-guide={index === notes.length - 1 ? 'end' : 'continuation'} className={cn('pointer-events-none absolute -left-1.75 -top-0.5 w-px bg-border-default/70', index === notes.length - 1 ? 'bottom-1/2' : 'bottom-0')} /> : null}
+      {depth > 0 ? <span aria-hidden="true" data-tree-guide={index === notes.length - 1 ? 'end' : 'continuation'} className={cn('pointer-events-none absolute -left-1.75 -top-0.5 w-px bg-border-subtle', index === notes.length - 1 ? 'bottom-1/2' : 'bottom-0')} /> : null}
       <NoteRow
         entry={entry}
         selected={entry.note.id === selectedNoteId}

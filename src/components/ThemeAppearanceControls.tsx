@@ -68,7 +68,7 @@ export function ThemeAppearanceFields({
   return (
     <div className={cn(compact ? 'space-y-4' : 'space-y-6')}>
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">Mode</legend>
+        <legend className="text-sm font-semibold leading-5">Mode</legend>
         <RadioGroup
           value={draftMode}
           onValueChange={(value) => draftActions.changeMode(value as ThemeMode)}
@@ -109,7 +109,7 @@ export function ThemeAppearanceFields({
       </fieldset>
 
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">Preset</legend>
+        <legend className="text-sm font-semibold leading-5">Preset</legend>
         <Select value={draftPresetId} onValueChange={(value) => draftActions.changePreset(value as ThemePresetId)}>
           <SelectTrigger aria-label="Theme preset" className={compact ? 'w-full' : 'max-w-sm'}>
             <SelectLabelValue
@@ -129,7 +129,7 @@ export function ThemeAppearanceFields({
 
       {showTypography ? (
         <fieldset className="space-y-3">
-          <legend className="text-sm font-medium">Typography</legend>
+          <legend className="text-sm font-semibold leading-5">Typography</legend>
           <div className="space-y-3">
             <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-3">
               <ThemeFontField
@@ -168,12 +168,12 @@ export function ThemeAppearanceFields({
       ) : null}
 
       <fieldset className="space-y-2">
-        <legend className={compact ? 'sr-only' : 'text-sm font-medium'}>Custom Seeds</legend>
+        <legend className={compact ? 'sr-only' : 'text-sm font-semibold leading-5'}>Custom Seeds</legend>
         {compact ? (
           <Collapsible defaultOpen={customSeedsDefaultOpen}>
             <CollapsibleTrigger
               className={cn(
-                'flex w-full items-center justify-between rounded-md border border-border-default bg-background-default px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-element-bg-hover',
+                'flex h-8.5 w-full items-center justify-between rounded border border-border-default bg-transparent px-3 text-left text-sm transition-colors hover:bg-element-bg-hover',
                 focusClassName,
               )}
             >
@@ -282,7 +282,7 @@ function ThemeFontField({
         id={fieldId}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-9 bg-background-default px-2 text-text-default"
+        className="text-text-default"
         placeholder={label === 'UI font' ? 'Inter, system-ui, sans-serif' : '"Source Code Pro", ui-monospace, monospace'}
         autoComplete="off"
         spellCheck={false}
@@ -322,7 +322,7 @@ function ThemeFontSizeField({
         max={max}
         step={1}
         onChange={(event) => onChange(event.target.value)}
-        className="h-9 bg-background-default px-2 tabular-nums text-text-default"
+        className="tabular-nums text-text-default"
         autoComplete="off"
         aria-describedby={error ? errorId : undefined}
       />

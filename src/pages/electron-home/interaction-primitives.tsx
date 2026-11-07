@@ -78,7 +78,7 @@ function entityRowClassName({
     variant === 'compact' ? 'gap-1.5 rounded px-2 py-1 text-sm leading-5' : 'gap-1.5 rounded px-2.5 py-1.5 text-sm leading-5',
     selected || active
       ? 'bg-background-primary-subtler text-text-emphasize'
-      : 'text-text-subtle hover:bg-background-subtler hover:text-text-default',
+      : 'text-text-default hover:bg-background-subtler hover:text-text-emphasize',
     selectedIndicator && 'overflow-hidden',
     selectedIndicator && selected && 'before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-0.5 before:rounded-full before:bg-primary-default',
     clickable && FOCUS_RING_INSET_CLASS,
@@ -358,11 +358,12 @@ export function PanelHeader({
 }) {
   return (
     <header className={cn('px-4 py-3', className)}>
+      {/* Actions share the title's line, so they centre on the title rather than on the title and
+          subtitle together. */}
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           {/* A control as the title truncates itself, so its focus ring is not clipped here. */}
           <TitleElement className={cn('text-base font-semibold text-text-default', typeof title === 'string' && 'truncate')}>{title}</TitleElement>
-          {subtitle ? <p className="mt-1 truncate text-xs text-text-subtle">{subtitle}</p> : null}
         </div>
         {actions ? (
           <div className={cn('shrink-0', actionsClassName)}>
@@ -372,6 +373,7 @@ export function PanelHeader({
           </div>
         ) : null}
       </div>
+      {subtitle ? <p className="mt-0.5 truncate text-xs text-text-subtle">{subtitle}</p> : null}
     </header>
   );
 }

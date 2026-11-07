@@ -923,6 +923,8 @@ export function resolveHackDeskTheme({
     ...resolveStateActionTokens(contrastTheme, dark),
     ...resolveNativeSurfaceTokens(contrastTheme),
     ...resolveCommandPaletteTokens(contrastTheme),
+    // Quiet structural lines (card outlines, in-panel dividers, tree guides), solid in every theme.
+    '--border-subtle': 'color-mix(in srgb, var(--border-default) 55%, var(--background-default))',
     ...resolveThemeTypography(typography),
   };
 }

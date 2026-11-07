@@ -76,6 +76,7 @@
   --color-background-overlay: var(--background-overlay);
   --color-background-selected: var(--background-selected);
   --color-border-default: var(--border-default);
+  --color-border-subtle: var(--border-subtle);
   --color-border-primary-default: var(--border-primary-default);
   --color-border-primary-subtler: var(--border-primary-subtler);
   --color-primary-default: var(--primary-default);
@@ -215,6 +216,11 @@
     --background-overlay: var(--hmd-tw-overlay);
     --background-selected: var(--hmd-tw-background-selected);
     --border-default: var(--hmd-tw-border-default);
+    /* Quiet structural lines: card outlines, dividers inside panels, tree guides. Derived rather
+       than set per theme so every preset and custom theme gets a solid, consistent colour,
+       instead of components painting border-default at different opacities over different
+       surfaces. */
+    --border-subtle: color-mix(in srgb, var(--border-default) 55%, var(--background-default));
     --border-bold: var(--hmd-tw-border-bold);
     --border-primary-default: var(--hmd-tw-border-primary-default);
     --border-primary-subtler: var(--hmd-tw-border-primary-subtler);

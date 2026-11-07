@@ -58,7 +58,9 @@ const buttonSizeClassNames = {
   'icon-xs': 'size-5 gap-0 p-0',
 } as const;
 
-const filledButtonVariants = new Set<ButtonVariant>(['primary', 'destructive-solid', 'warning']);
+/** Variants that keep their own look when disabled and only dim. A ghost button has no box at rest,
+ *  so it must not gain the disabled fill and border either. */
+const filledButtonVariants = new Set<ButtonVariant>(['primary', 'destructive-solid', 'warning', 'ghost']);
 
 export type ButtonVariant = keyof typeof buttonVariantClassNames;
 export type ButtonSize = keyof typeof buttonSizeClassNames;
