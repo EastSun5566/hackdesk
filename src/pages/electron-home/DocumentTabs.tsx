@@ -98,7 +98,7 @@ function DocumentTab({
         'group/tab app-region-no-drag relative flex h-8 min-w-0 max-w-56 shrink-0 items-center gap-2 rounded-md border px-2 text-sm transition-colors duration-150 motion-reduce:transition-none',
         isDragging && 'z-10 opacity-70',
         selected
-          ? 'border-border-default bg-background-default text-text-default shadow-sm'
+          ? 'border-border-subtle bg-background-default text-text-default'
           : 'border-transparent bg-transparent text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
       )}
     >

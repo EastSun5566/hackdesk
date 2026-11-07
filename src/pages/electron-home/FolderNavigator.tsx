@@ -301,6 +301,9 @@ function NavigatorHeader({
       titleElement="div"
       subtitle={navigatorSubtitle}
       className="px-4 py-2.5"
+      // Icon buttons carry 8px of padding, so pulling them out by 8px puts their glyphs on the
+      // same 16px edge as the rest of the sidebar.
+      actionsClassName="-mr-2"
       actionsLabel="Note navigator actions"
       actions={(
         <>

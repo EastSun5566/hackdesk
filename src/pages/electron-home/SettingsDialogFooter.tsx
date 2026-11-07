@@ -1,4 +1,4 @@
-import { Loader2, Save } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import type { ThemeAppearanceDraftController } from '@/components/useThemeAppearanceDraft';
@@ -54,7 +54,7 @@ export function SettingsDialogFooter({
           >
             {isSaving || isTestingToken
               ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
-              : <Save aria-hidden="true" className="h-4 w-4" />}
+              : null}
             {isTestingToken ? 'Testing…' : isSaving ? 'Saving…' : 'Save'}
           </Button>
         ) : null}

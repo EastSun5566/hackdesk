@@ -450,7 +450,7 @@
     position: absolute;
     inset-inline: 0;
     height: 1px;
-    background-color: var(--border-default);
+    background-color: var(--border-subtle);
     pointer-events: none;
   }
 
