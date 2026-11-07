@@ -88,7 +88,7 @@ export function ThemeAppearanceFields({
                 compact
                   ? 'inline-flex h-8 w-auto items-center gap-1.5 rounded border-0 bg-transparent px-2.5 text-xs font-medium transition-colors hover:bg-element-bg-hover'
                   : 'flex h-auto w-auto flex-col items-center gap-2 rounded-lg border-2 p-4 transition duration-150 ease-out hover:bg-element-bg-hover motion-reduce:transition-none',
-                draftMode === option.id && compact ? 'bg-background-default text-text-emphasize shadow-sm ring-1 ring-border-default' : null,
+                draftMode === option.id && compact ? 'bg-background-default text-primary-default shadow-sm' : null,
                 draftMode === option.id && !compact ? 'border-primary-default bg-primary-soft' : null,
                 draftMode !== option.id && compact ? 'text-text-subtle' : null,
                 draftMode !== option.id && !compact ? 'border-border-default bg-background-default hover:border-primary-default hover:bg-element-bg-hover' : null,
