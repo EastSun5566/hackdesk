@@ -673,10 +673,12 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
     };
 
     return (
-      <div className="relative flex min-h-0 flex-1">
+      // min-w-0 on both flex items: wide content (a max-content table, a long code line) would
+      // otherwise set their automatic minimum width and push the centered column off-screen.
+      <div className="relative flex min-h-0 min-w-0 flex-1">
         <div
           ref={parentRef}
-          className="markdown-editor min-h-0 flex-1 overflow-hidden"
+          className="markdown-editor min-h-0 min-w-0 flex-1 overflow-hidden"
           data-testid="hackmd-markdown-editor"
           onDragEnter={handleDragEnter}
           onDragOver={handleImageDragOver}
