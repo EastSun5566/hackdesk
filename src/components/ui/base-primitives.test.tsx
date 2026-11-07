@@ -74,7 +74,7 @@ describe('TabsTrigger', () => {
     const active = screen.getByRole('tab', { name: 'Changes' });
     // The class selector must name the attribute Base UI actually sets.
     expect(active).toHaveAttribute('data-active');
-    expect(active.className).toContain('data-[active]:bg-background-selected');
+    expect(active.className).toContain('data-[active]:bg-background-primary-subtler');
     expect(screen.getByRole('tab', { name: 'Full text' })).not.toHaveAttribute('data-active');
   });
 });

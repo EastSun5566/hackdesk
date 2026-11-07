@@ -2,6 +2,7 @@ import * as React from 'react';
 import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react';
 import { Toast as ToastPrimitive } from '@base-ui/react/toast';
 
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ELEVATED_SURFACE_CLASS, TOAST_LAYER_CLASS } from './layers';
 
@@ -92,19 +93,19 @@ function ToastList() {
             aria-live="polite"
             aria-atomic="true"
             className={cn(
-              'group pointer-events-auto flex w-full items-center gap-2.5 rounded-xl border border-border-default/80 bg-background-default/95 px-3 py-2.5 text-text-default shadow-[0_18px_45px_rgba(0,0,0,0.22),0_1px_0_rgba(255,255,255,0.04)_inset] backdrop-blur transition duration-150 ease-out data-[ending-style]:ease-in data-[starting-style]:translate-y-1 data-[starting-style]:opacity-0 data-[ending-style]:translate-y-1 data-[ending-style]:opacity-0 motion-reduce:transition-none',
+              'group pointer-events-auto flex w-full items-center gap-2.5 rounded-lg border border-border-default/80 bg-background-default/95 p-2.5 text-text-default shadow-[0_18px_45px_rgba(0,0,0,0.22),0_1px_0_rgba(255,255,255,0.04)_inset] backdrop-blur data-[ending-style]:animate-out data-[starting-style]:animate-in data-[ending-style]:fade-out-0 data-[starting-style]:fade-in-0 data-[ending-style]:slide-out-to-bottom-1 data-[starting-style]:slide-in-from-bottom-1 motion-reduce:animate-none',
               ELEVATED_SURFACE_CLASS,
-              variant === 'success' && 'border-success-default/30',
-              variant === 'error' && 'border-destructive-default/35',
-              variant === 'info' && 'border-primary-default/25',
+              variant === 'success' && 'border-state-success-border',
+              variant === 'error' && 'border-state-danger-border',
+              variant === 'info' && 'border-border-primary-subtler',
             )}
           >
             <span
               className={cn(
                 'inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full',
-                variant === 'success' && 'bg-success-soft text-success-default',
-                variant === 'error' && 'bg-destructive-soft text-destructive-default',
-                variant === 'info' && 'bg-primary-soft text-primary-default',
+                variant === 'success' && 'bg-state-success-background text-state-success-text',
+                variant === 'error' && 'bg-state-danger-bg-light text-state-danger-text',
+                variant === 'info' && 'bg-background-primary-subtler text-primary-default',
               )}
               aria-hidden="true"
             >
@@ -124,15 +125,13 @@ function ToastList() {
             </ToastPrimitive.Content>
             {toastItem.actionProps ? (
               <ToastPrimitive.Action
-                className={cn(
-                  'inline-flex h-8 shrink-0 items-center justify-center rounded-md bg-primary-default px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default',
-                  toastItem.actionProps.className,
-                )}
+                render={<Button size="sm" variant="primary" className="shrink-0" />}
+                className={toastItem.actionProps.className}
               />
             ) : null}
             <ToastPrimitive.Close
               aria-label="Close notification"
-              className="-mr-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-text-subtle transition-colors hover:bg-element-bg-hover hover:text-text-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default"
+              render={<Button size="icon" variant="ghost" className="-mr-1 shrink-0" />}
             >
               <X className="h-3.5 w-3.5" />
             </ToastPrimitive.Close>

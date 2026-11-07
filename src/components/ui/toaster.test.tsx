@@ -34,7 +34,7 @@ describe('Toaster', () => {
     expect(notification).toHaveAttribute('aria-live', 'polite');
     expect(notification).toHaveAttribute('aria-atomic', 'true');
     expect(notification).toHaveClass('items-center');
-    expect(notification).toHaveClass('border-success-default/30');
+    expect(notification).toHaveClass('border-state-success-border');
   });
 
   it('keeps error toasts visible and readable without relying on color alone', async () => {
@@ -48,7 +48,7 @@ describe('Toaster', () => {
     expect(screen.getByText('Permission denied.')).toBeInTheDocument();
 
     const notification = screen.getByText('Failed to export note.').closest('[role="status"]');
-    expect(notification).toHaveClass('border-destructive-default/35');
+    expect(notification).toHaveClass('border-state-danger-border');
     expect(notification?.querySelector('svg')).toBeInTheDocument();
   });
 

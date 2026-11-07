@@ -75,14 +75,14 @@ function entityRowClassName({
 }) {
   return cn(
     'group/entity-row relative flex w-full min-w-0 items-center text-left transition duration-150 ease-out motion-reduce:transition-none',
-    variant === 'compact' ? 'gap-2 rounded-md px-2 py-1 text-sm' : 'gap-2.5 rounded-md px-2.5 py-2 text-sm',
+    variant === 'compact' ? 'gap-1.5 rounded px-2 py-1 text-sm leading-5' : 'gap-1.5 rounded px-2.5 py-1.5 text-sm leading-5',
     selected || active
-      ? 'bg-background-selected text-text-default'
-      : 'text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
+      ? 'bg-background-primary-subtler text-text-emphasize'
+      : 'text-text-subtle hover:bg-background-subtler hover:text-text-default',
     selectedIndicator && 'overflow-hidden',
     selectedIndicator && selected && 'before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-0.5 before:rounded-full before:bg-primary-default',
     clickable && FOCUS_RING_INSET_CLASS,
-    disabled && 'pointer-events-none opacity-50',
+    disabled && 'pointer-events-none opacity-65',
     className,
   );
 }
@@ -104,6 +104,8 @@ function EntityRowContent({
   contentAriaCurrent,
   contentFocusTarget,
   contentButtonProps,
+  selected,
+  active,
 }: Required<Pick<EntityRowProps, 'variant'>> & Pick<EntityRowProps,
   'leadingControls'
   | 'icon'
@@ -120,6 +122,8 @@ function EntityRowContent({
   | 'contentAriaCurrent'
   | 'contentFocusTarget'
   | 'contentButtonProps'
+  | 'selected'
+  | 'active'
 >) {
   const contentBody = (
     <>
@@ -137,7 +141,11 @@ function EntityRowContent({
   const iconElement = icon ? (
     <span
       aria-hidden="true"
-      className={cn('shrink-0 text-text-subtle group-hover/entity-row:text-text-default', variant === 'compact' && 'mt-0.5')}
+      className={cn(
+        'shrink-0 text-icon-default group-hover/entity-row:text-text-default',
+        (selected || active) && 'text-primary-default',
+        variant === 'compact' && 'mt-0.5',
+      )}
     >
       {icon}
     </span>
@@ -237,6 +245,8 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
       contentAriaCurrent={contentAriaCurrent}
       contentFocusTarget={contentFocusTarget}
       contentButtonProps={contentButtonProps}
+      selected={selected}
+      active={active}
     />
   );
   const rowClassName = entityRowClassName({
@@ -549,15 +559,15 @@ export function EmptyState({
 }) {
   return (
     <div className="flex h-full items-center justify-center px-6 text-center">
-      <div className="max-w-72 space-y-2">
+      <div className="max-w-72 flex flex-col gap-2.5">
         {icon ? (
           <div aria-hidden="true" className="mx-auto flex size-8 items-center justify-center text-text-subtle">
             {icon}
           </div>
         ) : null}
-        <h2 className="text-sm font-medium text-text-default text-balance">{title}</h2>
-        {description ? <p className="text-xs leading-5 text-text-subtle">{description}</p> : null}
-        {action ? <div className="pt-2">{action}</div> : null}
+        <h2 className="text-base font-bold text-text-emphasize text-balance">{title}</h2>
+        {description ? <p className="text-sm text-text-subtle">{description}</p> : null}
+        {action ? <div className="pt-0.5">{action}</div> : null}
       </div>
     </div>
   );

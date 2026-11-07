@@ -224,7 +224,7 @@ function TrashBody({ onClose, onOpenNote }: { onClose: () => void; onOpenNote: (
         </DialogHeader>
       </div>
       {content}
-      <DialogFooter className="scroll-edge-bottom relative shrink-0 gap-2 px-5 py-3">
+      <DialogFooter className="scroll-edge-bottom relative shrink-0">
         <Button variant="primary" disabled={selectedIds.length === 0 || restore.isPending} onClick={() => restoreIds(selectedIds)}>
           {restore.isPending
             ? <Loader2 aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />

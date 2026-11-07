@@ -108,7 +108,6 @@ function WorkspaceRow({
       icon={icon}
       title={label}
       trailing={trailing ?? (active ? <Check aria-hidden="true" className="size-3.5" /> : undefined)}
-      variant="compact"
       onClick={onClick}
       ariaLabel={accessibleLabel ?? label}
       ariaCurrent={active ? 'page' : undefined}
@@ -499,7 +498,6 @@ export function SidebarFooter({
         title={displayName}
         subtitle={user ? `@${user.username}` : undefined}
         trailing={trailing}
-        variant="compact"
         onClick={onOpenSettings}
         ariaLabel={hasAccountAttention ? `${label}. HackMD account needs attention` : label}
         className="min-h-11 min-w-0 flex-1"

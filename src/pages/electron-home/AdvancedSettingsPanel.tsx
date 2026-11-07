@@ -95,7 +95,7 @@ export function AdvancedSettingsPanel({
   return (
     <div className="space-y-4">
       <SettingsSection title="Version">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-default bg-background-default px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-border-default bg-background-default px-2.5 py-2">
           <div className="flex flex-col gap-0.5">
             <span className="text-sm text-text-subtle">HackDesk v{appVersion}</span>
             {isBeta ? <span className="text-xs text-text-subtle">Unsigned beta · Manual updates</span> : null}
@@ -119,7 +119,7 @@ export function AdvancedSettingsPanel({
       </SettingsSection>
 
       <SettingsSection title="Reset">
-        <div className="rounded-md border border-destructive-default/40 bg-background-default p-3">
+        <div className="rounded border border-state-danger-border bg-background-default p-5">
           <Button
             ref={resetButtonRef}
             variant="destructive"

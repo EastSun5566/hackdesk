@@ -75,8 +75,9 @@ export function SettingsTabs({ dialogRef, onNavigate }: {
                   onPointerDown={event => event.preventDefault()}
                   onClick={() => choose(result)}
                   className={cn(
-                    'flex min-w-0 cursor-default flex-col items-start rounded-md px-3 py-1.5 text-sm text-text-default',
-                    index === search.active ? 'bg-background-selected' : 'hover:bg-element-bg-hover',
+                    'flex min-w-0 cursor-default flex-col items-start rounded px-2.5 py-1.5 text-sm leading-5 text-text-default',
+                    index === search.active ? 'bg-background-primary-subtler text-text-emphasize' : 'hover:bg-background-subtler',
+                    FOCUS_RING_CLASS,
                   )}
                 >
                   <span className="max-w-full truncate">{result.label}</span>
@@ -96,11 +97,7 @@ export function SettingsTabs({ dialogRef, onNavigate }: {
             <TabsTrigger
               key={tab.id}
               value={tab.id}
-              className={cn(
-                'inline-flex min-h-10 h-auto w-full min-w-0 shrink-0 items-center justify-start gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-element-bg-hover',
-                FOCUS_RING_CLASS,
-                'text-text-subtle data-[active]:bg-background-default data-[active]:text-text-default data-[active]:shadow-sm',
-              )}
+              className="h-auto w-full min-w-0 shrink-0 justify-start whitespace-normal text-left"
             >
               <span aria-hidden="true">{tab.icon}</span>
               <span className="min-w-0 whitespace-normal text-left leading-snug">{tab.label}</span>

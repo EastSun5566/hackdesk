@@ -88,6 +88,12 @@
   --color-warning-default: var(--warning-default);
   --color-warning-soft: var(--warning-soft);
   --color-warning-foreground: var(--warning-foreground);
+  --color-state-success-text: var(--state-success-text);
+  --color-state-success-background: var(--state-success-background);
+  --color-state-success-border: var(--state-success-border);
+  --color-state-danger-text: var(--state-danger-text);
+  --color-state-danger-bg-light: var(--state-danger-bg-light);
+  --color-state-danger-border: var(--state-danger-border);
   --color-state-warning-text: var(--state-warning-text);
   --color-state-warning-background: var(--state-warning-background);
   --color-state-warning-border: var(--state-warning-border);
@@ -221,6 +227,12 @@
     --warning-default: var(--color-amber-400);
     --warning-soft: var(--color-amber-75);
     --warning-foreground: var(--color-zinc-950);
+    --state-success-text: var(--hmd-tw-state-success-text);
+    --state-success-background: var(--hmd-tw-state-success-background);
+    --state-success-border: var(--hmd-tw-state-success-border);
+    --state-danger-text: var(--hmd-tw-state-danger-text);
+    --state-danger-bg-light: var(--hmd-tw-state-danger-bg-light);
+    --state-danger-border: var(--hmd-tw-state-danger-border);
     --state-warning-text: var(--hmd-tw-state-warning-text);
     --state-warning-background: var(--hmd-tw-state-warning-background);
     --state-warning-border: var(--hmd-tw-state-warning-border);

@@ -39,7 +39,7 @@ import { useFolderTreeControlId, useFolderTreeGroupId, useFolderTreeItem } from 
 
 // The search box keeps focus, so its highlighted result shows only while the box is focused.
 const SEARCH_HIGHLIGHT_CLASS = '[.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-2 [.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-inset [.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-focus-ring/80';
-const TREE_ROW_FOCUS_CLASS = 'focus-within:bg-background-selected focus-within:text-text-default focus-within:ring-2 focus-within:ring-inset focus-within:ring-focus-ring/80';
+const TREE_ROW_FOCUS_CLASS = 'focus-within:bg-background-primary-subtler focus-within:text-text-emphasize focus-within:ring-2 focus-within:ring-inset focus-within:ring-focus-ring/80';
 
 function focusTreeRowPrimary(rowId: string) {
   const row = Array.from(document.querySelectorAll<HTMLElement>('[data-folder-tree-row-id]'))
@@ -192,7 +192,7 @@ export function NoteRow({
             contentFocusTarget={focusTarget}
             contentButtonProps={treeItemProps}
             selectedIndicator
-            className={cn(TREE_ROW_FOCUS_CLASS, selected && 'bg-primary-soft', highlightId && SEARCH_HIGHLIGHT_CLASS)}
+            className={cn(TREE_ROW_FOCUS_CLASS, highlightId && SEARCH_HIGHLIGHT_CLASS)}
           />
         </div>
       </ContextMenuTrigger>
@@ -677,12 +677,12 @@ export function NoteListSkeleton() {
     <div role="status" aria-busy="true" aria-label="Loading notes" className="space-y-2 px-2 py-3">
       {Array.from({ length: 8 }).map((_, index) => (
         <div key={index} className="flex items-center gap-3 rounded-md px-2 py-2">
-          <div className="size-4 animate-pulse rounded bg-background-selected motion-reduce:animate-none" />
+          <div className="size-4 animate-pulse rounded bg-background-primary-subtler motion-reduce:animate-none" />
           <div className="min-w-0 flex-1 space-y-2">
-            <div className="h-3 animate-pulse rounded bg-background-selected motion-reduce:animate-none" />
+            <div className="h-3 animate-pulse rounded bg-background-primary-subtler motion-reduce:animate-none" />
             <div className="h-2 w-1/2 animate-pulse rounded bg-background-default motion-reduce:animate-none" />
           </div>
-          <div className="h-3 w-14 animate-pulse rounded bg-background-selected motion-reduce:animate-none" />
+          <div className="h-3 w-14 animate-pulse rounded bg-background-primary-subtler motion-reduce:animate-none" />
         </div>
       ))}
     </div>

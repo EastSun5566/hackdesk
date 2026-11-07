@@ -18,7 +18,7 @@ export function RepositoryNotice({
       role={cached ? 'status' : 'alert'}
       aria-atomic="true"
       className={cn(
-        'flex items-start gap-2 rounded-md px-3 py-2 text-sm',
+        'flex items-start gap-2 rounded px-2.5 py-2 text-sm',
         cached
           ? 'bg-primary-soft text-primary-default'
           : 'bg-destructive-soft text-destructive-default',

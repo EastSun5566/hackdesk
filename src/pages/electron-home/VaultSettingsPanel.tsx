@@ -54,14 +54,14 @@ export function VaultSettingsPanel({
   return (
     <div className="space-y-4">
       <SettingsSection title="Local Vault">
-        <div className="rounded-md border border-border-default bg-background-default p-3">
+        <div className="rounded border border-border-default bg-background-default p-5">
           <div className="space-y-1">
             <p className="break-all font-mono text-sm text-text-default">
               {vaultPath ?? 'No local vault configured'}
             </p>
           </div>
           {error ? (
-            <div className="mt-3 flex gap-2 rounded-md border border-destructive-default/30 bg-destructive-soft px-3 py-2 text-sm text-destructive-default">
+            <div className="mt-3 flex gap-2 rounded border border-state-danger-border bg-state-danger-bg-light px-2.5 py-2 text-sm text-state-danger-text">
               <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
               <span>{error}</span>
             </div>
