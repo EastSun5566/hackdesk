@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from '@/components/ui/toast';
 
 import {
@@ -75,7 +75,7 @@ function SettingsDialogContent({
   onSave,
   onValidateToken,
 }: SettingsDialogProps) {
-  const { setAppearance } = useTheme();
+  const { cancelPreview, setAppearance } = useTheme();
   const tokenValidationRequestRef = useRef(0);
   const dialogRef = useRef<HTMLDivElement>(null);
   const [focusRequest, setFocusRequest] = useState<{ target: HTMLElement } | null>(null);
@@ -94,6 +94,18 @@ function SettingsDialogContent({
     keyHintsVisible: settings?.keyboardNavigation?.keyHintsVisible ?? true,
   }));
   const appearanceController = useThemeAppearanceDraft({ showTypography: true });
+  // An unapplied appearance preview must not outlive the dialog. The parent can close it directly
+  // (for example after saving from another tab) or remount it, bypassing handleDialogOpenChange;
+  // a leaked preview shows the draft theme for the rest of the session while the saved one returns
+  // on the next launch.
+  const cancelAppearanceDraftRef = useRef(appearanceController.actions.cancel);
+  useLayoutEffect(() => {
+    cancelAppearanceDraftRef.current = appearanceController.actions.cancel;
+  });
+  useEffect(() => {
+    if (!open) cancelAppearanceDraftRef.current();
+  }, [open]);
+  useEffect(() => cancelPreview, [cancelPreview]);
   const { editorMode, shortcuts, characterShortcutsEnabled, keyHintsVisible, title, token, tokenTest, tokenVisible } = formState;
 
   useEffect(() => {

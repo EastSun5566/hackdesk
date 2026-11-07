@@ -390,6 +390,37 @@ describe('SettingsDialog', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
+  it('rolls back an unapplied appearance preview when the parent closes settings', async () => {
+    // Saving from another tab closes settings through the parent's open prop, not the dialog's
+    // own close handler; the preview must not outlive the dialog in that path either.
+    const { rerenderSettingsDialog } = renderSettingsDialog();
+
+    await previewDraculaTheme();
+    rerenderSettingsDialog({ open: false });
+
+    await waitFor(() => {
+      expect(document.documentElement.dataset.themePreset).toBe('hackmd-neo');
+    });
+    expect(localStorage.getItem(THEME_STORAGE_KEYS.presetId)).not.toBe('dracula');
+
+    // Reopening starts from the saved appearance, not the abandoned draft.
+    rerenderSettingsDialog({ open: true });
+    fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
+    expect(screen.getByLabelText('Theme preset')).toHaveTextContent('HackMD Neo');
+    expect(screen.queryByRole('button', { name: 'Cancel Preview' })).toBeNull();
+  });
+
+  it('rolls back an unapplied appearance preview when settings remounts', async () => {
+    const { rerenderSettingsDialog } = renderSettingsDialog();
+
+    await previewDraculaTheme();
+    rerenderSettingsDialog({ initialTab: 'editor' });
+
+    await waitFor(() => {
+      expect(document.documentElement.dataset.themePreset).toBe('hackmd-neo');
+    });
+  });
+
   it('keeps custom seed inputs mounted while collapsed and preserves validation state', () => {
     const { onOpenChange } = renderSettingsDialog();
 
