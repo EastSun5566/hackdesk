@@ -926,6 +926,9 @@ export function resolveHackDeskTheme({
     ...resolveCommandPaletteTokens(contrastTheme),
     // Quiet structural lines (card outlines, in-panel dividers, tree guides), solid in every theme.
     '--border-subtle': 'color-mix(in srgb, var(--border-default) 55%, var(--background-default))',
+    // Overlays (dialogs, the palette) sit one step above the editor card. Light mode already gets
+    // that from the scrim and shadow; dark needs a lighter surface to read as raised.
+    '--background-raised': dark ? 'color-mix(in srgb, var(--background-default) 94%, #ffffff)' : 'var(--background-default)',
     // Row hover: a tint of the text colour, so it shows on the sidebar and the card alike.
     '--background-hover': 'color-mix(in srgb, var(--text-default) 7%, transparent)',
     ...resolveThemeTypography(typography),

@@ -84,7 +84,8 @@ export const searchPanelTheme = {
     backgroundColor: 'var(--background-default)',
     color: 'var(--text-subtle)',
     fontFamily: 'var(--font-editor)',
-    fontSize: '0.875em',
+    // The chrome's meta size (12px at the default 14px UI), not a fraction of the editor font.
+    fontSize: 'calc(var(--font-size-ui) - 2px)',
     lineHeight: 'normal',
   },
   '.cm-panel.cm-vim-panel, .cm-panel.cm-hx-status-panel, .cm-panel.cm-kakoune-status-panel': {

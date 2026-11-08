@@ -68,7 +68,7 @@ export function OfflineSettingsSection({ active }: { active: boolean }) {
         />
       </div>
       <div className="flex items-center justify-between gap-3 text-sm">
-        <p className="text-text-subtle" role="status">
+        <p className="text-xs leading-5 text-text-subtle" role="status">
           {status ? `${cached} HackMD ${cached === 1 ? 'note' : 'notes'} kept${cached ? ` · ${formatBytes(status.hackmdBytes)}` : ''}` : 'Checking…'}
         </p>
         <Button variant="secondary" disabled={busy || !cached} onClick={() => void run(() => api.noteIndex!.clear())}>
