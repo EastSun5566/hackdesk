@@ -5,6 +5,7 @@ const EDITOR_FOCUS_RING = '0 0 0 2px color-mix(in oklch, var(--focus-ring) 26%, 
 export const EDITOR_LINE_WIDTH = '46em';
 const EDITOR_SIDE_PADDING = 'clamp(20px, 6%, 48px)';
 export const EDITOR_SELECTION_BACKGROUND = 'color-mix(in srgb, var(--primary-default) 24%, transparent)';
+const EDITOR_BLOCK_CURSOR_BACKGROUND = 'color-mix(in srgb, var(--primary-default) 55%, transparent)';
 
 export const editorChromeTheme = {
   '&': {
@@ -57,6 +58,28 @@ export const editorChromeTheme = {
   // of the app-wide selection foreground.
   '.cm-content ::selection, .cm-content::selection': {
     color: 'currentcolor',
+  },
+  // Kakoune mode hides the drawn selection with a base-theme rule that stays in the document
+  // after the mode is switched off, which would leave every other mode without a visible
+  // selection until reload. Show it again everywhere Kakoune isn't running.
+  '&:not([data-kakoune-mode]) .cm-selectionLayer > .cm-selectionBackground': {
+    display: 'block',
+  },
+  // Kakoune marks its selections inline instead, in CodeMirror's default grey.
+  '& .cm-content .cm-kakoune-selection': {
+    backgroundColor: EDITOR_SELECTION_BACKGROUND,
+  },
+  '&[data-kakoune-mode]': {
+    '--caret-color': 'var(--primary-default)',
+  },
+  // Block cursors (Vim, Helix) ship their own fixed colors; tint them with the primary instead,
+  // a step stronger than the selection so the cursor stays findable inside one.
+  '&.cm-editor .cm-fat-cursor, &.cm-editor .cm-hx-block-cursor .cm-hx-cursor': {
+    background: EDITOR_BLOCK_CURSOR_BACKGROUND,
+  },
+  '&:not(.cm-focused).cm-editor .cm-fat-cursor': {
+    background: 'none',
+    outline: '1px solid var(--primary-default)',
   },
 };
 
