@@ -234,9 +234,8 @@ async function expectTeamWorkspaceListed() {
 
 async function openAccountSettings() {
   const avatar = await screen.findByTestId('sidebar-footer-avatar');
-  const button = avatar.closest('button')!;
-  expect(button).toHaveAccessibleName('Open settings for Michael');
-  fireEvent.click(button);
+  expect(avatar.closest('button')).toHaveAccessibleName('Account: Michael');
+  fireEvent.click(within(screen.getByTestId('sidebar-footer')).getByRole('button', { name: 'Settings' }));
 }
 
 async function confirmDisconnectHackmd() {
@@ -537,7 +536,7 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
 
     await findRenderedNoteTitle();
-    fireEvent.click(screen.getByRole('button', { name: 'Open settings for Michael' }));
+    fireEvent.click(within(screen.getByTestId('sidebar-footer')).getByRole('button', { name: 'Settings' }));
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'Escape' });
@@ -644,7 +643,7 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(listTeams).toHaveBeenCalledOnce());
     expect(screen.queryByText('HackMD token expired.')).toBeNull();
     expect(screen.getByTestId('sidebar-account-attention')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open settings. HackMD account needs attention' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Account: Not signed in. HackMD account needs attention' })).toBeInTheDocument();
     expect(listNotes).not.toHaveBeenCalled();
     expect(listFolders).not.toHaveBeenCalled();
     expect(getFolderOrder).not.toHaveBeenCalled();
@@ -762,7 +761,7 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(listNotes).toHaveBeenCalledOnce());
     await waitFor(() => expect(listFolders).toHaveBeenCalledOnce());
     await waitFor(() => expect(getCurrentUser).toHaveBeenCalledOnce());
-    expect(await screen.findByRole('button', { name: 'Open settings for Michael' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Account: Michael' })).toBeInTheDocument();
   });
 
   it('opens a local folder from HackMD onboarding as a secondary path', async () => {
@@ -999,8 +998,8 @@ describe('Home native-feel behavior', () => {
     }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Configure Token' })).toBeInTheDocument());
     expect(queryHackmdOnboardingDialog()).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Open settings for Michael' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open settings' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Account: Michael' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Account: Not signed in' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: `${team.name}, private` })).not.toBeInTheDocument();
     expect(screen.queryByText('TEAMS')).not.toBeInTheDocument();
     expect(queryNoteRow(note.title)).not.toBeInTheDocument();
@@ -1313,7 +1312,7 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findRenderedNoteTitle();
-    fireEvent.click(screen.getByRole('button', { name: 'Open settings for Michael' }));
+    fireEvent.click(within(screen.getByTestId('sidebar-footer')).getByRole('button', { name: 'Settings' }));
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
 
     act(() => {
@@ -1814,7 +1813,7 @@ describe('Home native-feel behavior', () => {
     const api = createApi();
     renderHome(api);
     await findRenderedNoteTitle();
-    fireEvent.click(screen.getByRole('button', { name: 'Open settings for Michael' }));
+    fireEvent.click(within(screen.getByTestId('sidebar-footer')).getByRole('button', { name: 'Settings' }));
     fireEvent.change(screen.getByLabelText('Window title'), { target: { value: 'My HackDesk' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(api.settings.update).toHaveBeenCalledWith({ title: 'My HackDesk' }));

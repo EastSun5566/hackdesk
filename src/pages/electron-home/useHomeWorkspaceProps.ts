@@ -7,6 +7,7 @@ import type {
   DocumentSummary,
   HackDeskElectronAPI,
   ElectronSafeSettings,
+  NoteSummary,
   TeamSummary,
   UserSummary,
 } from '@/lib/electron-api';
@@ -56,6 +57,7 @@ type WorkspaceActions = {
   handleExportNoteMarkdown: ElectronHomeWorkspaceProps['navigator']['actions']['onExportNoteMarkdown'];
   handleImportMarkdownNote: ElectronHomeWorkspaceProps['navigator']['actions']['onImportMarkdown'];
   handleCreateNoteFromTemplate: () => void;
+  handleHackmdDisconnected: () => void;
   handleNoteSelect: ElectronHomeWorkspaceProps['navigator']['actions']['onNoteSelect'];
   handleOpenEditor: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenNote'];
   handleOpenExternal: ElectronHomeWorkspaceProps['documentWorkspace']['onOpenExternal'];
@@ -67,6 +69,7 @@ type WorkspaceActions = {
   setTrashOpen: (open: boolean) => void;
   setVersionsOpen: (open: boolean) => void;
   switchWorkspaceScope: (scope: WorkspaceScope) => void;
+  openTrashNote: (note: NoteSummary) => void;
 };
 
 export function useHomeWorkspaceProps({
@@ -115,6 +118,7 @@ export function useHomeWorkspaceProps({
   setWorkspaceSwitcherOpen,
   onNewTab,
   recentNotes,
+  trashOpen,
 }: {
   api?: HackDeskElectronAPI;
   openNoteTarget?: OpenNoteTarget;
@@ -166,6 +170,7 @@ export function useHomeWorkspaceProps({
   setWorkspaceSwitcherOpen: (open: boolean) => void;
   onNewTab: () => void;
   recentNotes: ElectronRecentNote[];
+  trashOpen: boolean;
 }): ElectronHomeWorkspaceProps {
   return {
     titlebar: {
@@ -218,8 +223,14 @@ export function useHomeWorkspaceProps({
         onChooseLocalVault: () => {
           void localVaultActions.chooseLocalVault();
         },
-        onScopeChange: actions.switchWorkspaceScope,
+        onScopeChange: (next) => {
+          actions.setTrashOpen(false);
+          actions.switchWorkspaceScope(next);
+        },
         onOpenSettings: () => setSettingsOpen(true),
+        onSignOut: settings?.hasHackmdApiToken
+          ? () => mutations.disconnectHackmdMutation.mutate(undefined, { onSuccess: actions.handleHackmdDisconnected })
+          : undefined,
         // The trash lives on HackMD, so it is offered only once a token is set.
         onOpenTrash: settings?.hasHackmdApiToken ? () => actions.setTrashOpen(true) : undefined,
         onPinnedTeamIdsChange: (pinnedTeamIds) => {
@@ -243,6 +254,11 @@ export function useHomeWorkspaceProps({
       },
       emptyState: homeStatus.emptyState,
       status: homeStatus.navigatorStatus,
+      trash: settings?.hasHackmdApiToken ? {
+        open: trashOpen,
+        onOpenChange: actions.setTrashOpen,
+        onOpenNote: actions.openTrashNote,
+      } : undefined,
       actions: {
         onFolderSelect: navigator.handleFolderSelect,
         onFolderToggle: navigator.toggleFolderCollapsed,

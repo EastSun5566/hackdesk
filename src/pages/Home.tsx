@@ -16,7 +16,6 @@ import { useAskNotes } from './electron-home/useAskNotes';
 import { AskNotesDialog } from './electron-home/AskNotesDialog';
 import { toRecentNote } from './electron-home/useNoteLinkOpener';
 import { toast } from '@/components/ui/toast';
-import { TrashDialog } from './electron-home/TrashDialog';
 import type { SettingsTab } from './electron-home/SettingsDialogConfig';
 import type { ElectronFocusZone } from './electron-home/useElectronFocusZones';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SetStateAction } from 'react';
@@ -1085,6 +1084,7 @@ export function Home() {
       handleExportNoteMarkdown,
       handleImportMarkdownNote,
       handleCreateNoteFromTemplate: folderCommands.handleCreateNoteFromTemplate,
+      handleHackmdDisconnected,
       handleNoteSelect,
       handleOpenEditor,
       handleOpenExternal,
@@ -1096,6 +1096,7 @@ export function Home() {
       setTrashOpen,
       setVersionsOpen,
       switchWorkspaceScope,
+      openTrashNote: (note) => void requestSelectNote(note, { focusEditor: true }),
     },
     activeFinderState,
     collapsedFolderIds,
@@ -1139,6 +1140,7 @@ export function Home() {
     setWorkspaceSwitcherOpen,
     onNewTab: () => runShortcutAction('new-tab'),
     recentNotes,
+    trashOpen,
   });
   const overlayProps = useHomeOverlayProps({
     actionContext,
@@ -1271,7 +1273,6 @@ export function Home() {
           />
           <AskNotesDialog askNotes={askNotes} onOpenNote={note => openNoteTarget(toRecentNote(note))} />
           <ConfirmDialogHost />
-          <TrashDialog open={trashOpen} onOpenChange={setTrashOpen} onOpenNote={(note) => void requestSelectNote(note, { focusEditor: true })} />
           {shortcutHelp ? <KeyboardShortcutsDialog
             open region={shortcutHelp.region} returnFocus={shortcutHelp.target}
             shortcuts={settings?.shortcuts} platform={api.platform}

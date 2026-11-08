@@ -70,6 +70,14 @@ import { FolderTreeFocusContext } from './FolderTreeFocusContext';
 import { useFolderTreeKeyboardNavigation } from './useFolderTreeKeyboardNavigation';
 import { SidebarFooter, WorkspaceSwitcher, type WorkspaceSidebarProps } from './WorkspaceSwitcher';
 import type { NoteTextSearch } from './useNoteTextSearch';
+import { TrashNavigatorHeader, TrashNavigatorList, type TrashNavigatorViewProps } from './TrashView';
+import { useTrashList } from './useTrash';
+
+function TrashNavigatorTitleBar({ trash }: { trash: TrashNavigatorViewProps }) {
+  const list = useTrashList(trash.open);
+  const count = list.isSuccess ? list.data?.length : undefined;
+  return <TrashNavigatorHeader count={count} onBack={() => trash.onOpenChange(false)} />;
+}
 
 export type FolderNavigatorSelection = {
   selectedFolderId: string | null;
@@ -145,6 +153,7 @@ export type FolderNavigatorProps = {
   /** Notes whose text matched the finder query, with snippets. */
   textSearch?: NoteTextSearch;
   tree: FolderTree;
+  trash?: TrashNavigatorViewProps;
   /** The workspace switcher in the title and the account row at the bottom. */
   workspace: WorkspaceSidebarProps;
 };
@@ -206,7 +215,7 @@ function FolderNavigatorPanel({
           tree={tree}
           workspace={workspace}
         />
-        <SidebarFooter accountStatus={workspace.accountStatus} user={workspace.user} onOpenSettings={workspace.onOpenSettings} onOpenTrash={workspace.onOpenTrash} />
+        <SidebarFooter accountStatus={workspace.accountStatus} user={workspace.user} onOpenSettings={workspace.onOpenSettings} onOpenTrash={workspace.onOpenTrash} onSignOut={workspace.onSignOut} />
       </div>
     </PanelShell>
   );
@@ -223,6 +232,7 @@ function ExpandedNavigator({
   status,
   textSearch,
   tree,
+  trash,
   workspace,
 }: Omit<FolderNavigatorProps, 'id'>) {
   const isFinderMode = isNoteFinderActive(finderState);
@@ -273,6 +283,7 @@ function ExpandedNavigator({
         results={results}
         onEscapeToTree={requestTreeFocus}
       />
+      {trash?.open ? <TrashNavigatorTitleBar trash={trash} /> : null}
       <MemoNavigatorContent
         actions={actions}
         emptyState={emptyState}
@@ -287,6 +298,7 @@ function ExpandedNavigator({
         status={status}
         textSearch={textSearch}
         tree={tree}
+        trash={trash}
         treeFocusRequestId={treeFocusRequestId}
       />
     </>
@@ -427,6 +439,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   status,
   textSearch,
   tree,
+  trash,
   treeFocusRequestId,
 }: {
   actions: FolderNavigatorActions;
@@ -442,13 +455,21 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   status: FolderNavigatorStatus;
   textSearch?: NoteTextSearch;
   tree: FolderTree;
+  trash?: TrashNavigatorViewProps;
   treeFocusRequestId: number;
 }) {
   const hasTreeContent = tree.roots.length > 0 || tree.unfiled.notes.length > 0;
+  const trashActive = Boolean(trash?.open);
 
   return (
     <div className="scroll-edges-source min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2">
-      {status.isLoading ? (
+      {trashActive && trash ? (
+        <TrashNavigatorList
+          open={trash.open}
+          onOpenChange={trash.onOpenChange}
+          onOpenNote={trash.onOpenNote}
+        />
+      ) : status.isLoading ? (
         <NoteListSkeleton />
       ) : entries.length === 0 && (!hasTreeContent || isFinderMode) ? (
         <EmptyState
@@ -484,7 +505,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
       ) : null}
       {/* The tree stays mounted (hidden) while search results show: rebuilding hundreds of rows
           when the search clears was the slowest keystroke. */}
-      {!status.isLoading && hasTreeContent && scope.type !== 'history' ? (
+      {!trashActive && !status.isLoading && hasTreeContent && scope.type !== 'history' ? (
         <div hidden={isFinderMode}>
           <MemoNavigatorTree
             actions={actions}
