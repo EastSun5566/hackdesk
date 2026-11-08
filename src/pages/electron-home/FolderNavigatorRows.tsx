@@ -11,6 +11,7 @@ import {
   GripVertical,
   Trash2,
 } from 'lucide-react';
+import { memo } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -68,6 +69,21 @@ export function NoteSummaryCard({ entry }: { entry: FolderTreeNote }) {
   );
 }
 
+/**
+ * Note rows re-render only when their data changes. Lists hold hundreds of them, each with a menu,
+ * a hover card and drag hooks, so re-rendering all of them on every search keystroke was slow.
+ * Callbacks are skipped in the comparison: they come from stable wrappers (useStableCallbacks) or
+ * are thin arrows over props that are compared.
+ */
+function areNoteRowPropsEqual(previous: Record<string, unknown>, next: Record<string, unknown>) {
+  const keys = new Set([...Object.keys(previous), ...Object.keys(next)]);
+  for (const key of keys) {
+    if (typeof previous[key] === 'function' && typeof next[key] === 'function') continue;
+    if (!Object.is(previous[key], next[key])) return false;
+  }
+  return true;
+}
+
 function focusTreeRowPrimary(rowId: string) {
   const row = Array.from(document.querySelectorAll<HTMLElement>('[data-folder-tree-row-id]'))
     .find((candidate) => candidate.dataset.folderTreeRowId === rowId);
@@ -83,7 +99,7 @@ function runAfterMenuClose(rowId: string, action: () => void) {
   }, 0);
 }
 
-export function NoteRow({
+function NoteRowView({
   entry,
   selected,
   focusTarget = false,
@@ -715,3 +731,5 @@ export function NoteListSkeleton() {
     </div>
   );
 }
+
+export const NoteRow = memo(NoteRowView, areNoteRowPropsEqual) as typeof NoteRowView;

@@ -484,17 +484,22 @@ const MemoNavigatorContent = memo(function NavigatorContent({
           selectedFolderForNoteMove={selectedFolderForNoteMove}
           selectedNoteId={selection.selectedNoteId}
         />
-      ) : (
-        <NavigatorTree
-          actions={actions}
-          layout={layout}
-          selectedFolderForNoteMove={selectedFolderForNoteMove}
-          selection={selection}
-          status={status}
-          tree={tree}
-          treeFocusRequestId={treeFocusRequestId}
-        />
-      )}
+      ) : null}
+      {/* The tree stays mounted (hidden) while search results show: rebuilding hundreds of rows
+          when the search clears was the slowest keystroke. */}
+      {!status.isLoading && hasTreeContent && scope.type !== 'history' ? (
+        <div hidden={isFinderMode}>
+          <MemoNavigatorTree
+            actions={actions}
+            layout={layout}
+            selectedFolderForNoteMove={selectedFolderForNoteMove}
+            selection={selection}
+            status={status}
+            tree={tree}
+            treeFocusRequestId={treeFocusRequestId}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }, arePanelPropsEqual);
@@ -611,6 +616,8 @@ function HistoryList({
   );
 }
 
+const RESULT_BATCH_SIZE = 50;
+
 function FinderResultList({
   actions,
   entries,
@@ -626,6 +633,26 @@ function FinderResultList({
   selectedNoteId: string | null;
   textSearch?: NoteTextSearch;
 }) {
+  // Results render in batches: a one-letter search can match hundreds of notes, and mounting them
+  // all at once made that keystroke slow. More load as the end scrolls near; the keyboard-highlighted
+  // result is always rendered so arrow keys and End can reach it.
+  const [batch, setBatch] = useState({ entries, limit: RESULT_BATCH_SIZE });
+  if (batch.entries !== entries) setBatch({ entries, limit: RESULT_BATCH_SIZE });
+  const highlightedIndex = highlightedResultId ? entries.findIndex((entry) => finderResultId(entry) === highlightedResultId) : -1;
+  const shownCount = Math.min(entries.length, Math.max(batch.limit, highlightedIndex + 1));
+  const sentinelRef = useRef<HTMLLIElement | null>(null);
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver((records) => {
+      if (records.some((record) => record.isIntersecting)) {
+        setBatch((current) => ({ ...current, limit: current.limit + RESULT_BATCH_SIZE }));
+      }
+    }, { rootMargin: '240px' });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [shownCount]);
+
   useEffect(() => {
     if (highlightedResultId) document.getElementById(highlightedResultId)?.scrollIntoView({ block: 'nearest' });
   }, [highlightedResultId]);
@@ -633,7 +660,7 @@ function FinderResultList({
   return (
     <>
       <ul id={NOTE_FINDER_RESULTS_ID} className="m-0 min-w-0 list-none space-y-1 p-0" aria-label="Search results">
-        {entries.map((entry) => (
+        {entries.slice(0, shownCount).map((entry) => (
           <li key={`${entry.folderLabel}:${entry.note.id}`} className="min-w-0">
             <NoteRow
               entry={entry}
@@ -655,6 +682,7 @@ function FinderResultList({
             />
           </li>
         ))}
+        {shownCount < entries.length ? <li ref={sentinelRef} aria-hidden="true" className="h-px" /> : null}
       </ul>
       {textSearch?.source === 'hackmd' ? (
         // HackMD note text is known only for notes opened on this computer.
@@ -665,6 +693,8 @@ function FinderResultList({
     </>
   );
 }
+
+const MemoNavigatorTree = memo(NavigatorTree, arePanelPropsEqual);
 
 function NavigatorTree({
   actions,

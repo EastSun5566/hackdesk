@@ -172,9 +172,11 @@ function createDeferred<T>() {
 
 // Query only the navigator; scanning the whole workbench can starve pending query updates.
 function queryNoteRow(name: string) {
+  // Search results show over the tree, which stays mounted (hidden) while searching.
+  const results = screen.queryByLabelText('Search results') ?? screen.queryByLabelText('Recently opened notes');
+  if (results) return within(results).queryByRole('button', { name });
   const tree = screen.queryByTestId('folder-navigator-tree');
-  const rows = tree ?? screen.queryByLabelText('Search results') ?? screen.queryByLabelText('Recently opened notes');
-  return rows ? within(rows).queryByRole(tree ? 'treeitem' : 'button', { name }) : null;
+  return tree ? within(tree).queryByRole('treeitem', { name }) : null;
 }
 
 function getNoteRow(name: string) {
@@ -3407,13 +3409,14 @@ describe('Home native-feel behavior', () => {
       },
     });
 
-    const { container } = renderHome(api);
+    renderHome(api);
     await findNoteRow('Beta');
     await openViewOptions();
     fireEvent.click(await screen.findByText('Title A-Z'));
 
     await waitFor(() => {
-      expect([...container.querySelectorAll('[data-note-id]')].map((row) => row.getAttribute('data-note-id'))).toEqual([
+      // Only the results: the tree stays mounted, hidden, behind them.
+      expect([...screen.getByLabelText('Search results').querySelectorAll('[data-note-id]')].map((row) => row.getAttribute('data-note-id'))).toEqual([
         'note-a',
         'note-b',
       ]);
