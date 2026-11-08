@@ -27,6 +27,7 @@ import {
   Lock,
   Pin,
   PinOff,
+  Search,
   Settings2,
   Trash2,
 } from 'lucide-react';
@@ -81,6 +82,8 @@ export type WorkspaceSidebarProps = {
 };
 
 const ROW_SELECTOR = '[data-workspace-row]';
+// With more teams than this, the switcher offers a field to find one by name.
+const TEAM_FILTER_THRESHOLD = 6;
 
 function WorkspaceRow({
   active,
@@ -401,7 +404,25 @@ export function WorkspaceSwitcher({
     onSwitcherOpenChange(false);
     onScopeChange(next);
   };
+  const [teamQuery, setTeamQuery] = useState('');
+  // Each opening starts with the whole list.
+  if (!switcherOpen && teamQuery) setTeamQuery('');
+  const teamFilterRef = useRef<HTMLInputElement | null>(null);
+  const teamListRef = useRef<HTMLDivElement | null>(null);
+  const filteredTeams = useMemo(() => {
+    const query = teamQuery.trim().toLowerCase();
+    if (!query) return [];
+    return teams.filter((team) => team.name.toLowerCase().includes(query) || team.path.toLowerCase().includes(query));
+  }, [teamQuery, teams]);
+
   const moveFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+    // Typing a letter anywhere in the switcher starts finding a team.
+    const filter = teamFilterRef.current;
+    if (filter && event.target !== filter && event.key.length === 1 && /\S/.test(event.key)
+      && !event.metaKey && !event.ctrlKey && !event.altKey && !event.nativeEvent.isComposing) {
+      filter.focus();
+      return;
+    }
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
     const rows = Array.from(popupRef.current?.querySelectorAll<HTMLElement>(ROW_SELECTOR) ?? []);
     const index = rows.indexOf(document.activeElement as HTMLElement);
@@ -429,10 +450,10 @@ export function WorkspaceSwitcher({
         onKeyDown={moveFocus}
         className="w-72 overflow-hidden"
       >
-        {/* The padding belongs to the scrolling list, so rows scroll to the frame's edge instead of
-            being clipped short of it, and keyboard focus scrolls a row clear of the edge. */}
-        <nav aria-label="Workspaces" className="max-h-96 scroll-py-1.5 overflow-y-auto p-1.5">
-          <ul className="list-none space-y-0.5">
+        <nav aria-label="Workspaces" className="flex max-h-128 flex-col">
+          {/* Places stay put above the teams, so History and Local Vault never scroll out of reach
+              however many teams there are. */}
+          <ul className="list-none space-y-0.5 p-1.5">
             <li className="flex">
               <WorkspaceRow
                 active={scope.type === 'personal'}
@@ -443,10 +464,14 @@ export function WorkspaceSwitcher({
                 onClick={() => choose({ type: 'personal', label: 'My Workspace' })}
               />
             </li>
-          </ul>
-          <PinnedTeams navigation={navigation} onPinnedTeamIdsChange={onPinnedTeamIdsChange} onScopeChange={choose} pinnedTeamIds={pinnedTeamIds} platform={platform} scope={scope} teams={teams} />
-          <MoreTeams navigation={navigation} onPinnedTeamIdsChange={onPinnedTeamIdsChange} onScopeChange={choose} pinnedTeamIds={pinnedTeamIds} platform={platform} scope={scope} teams={teams} />
-          <ul className="mt-1.5 list-none space-y-0.5 border-t border-border-default pt-1.5">
+            <li className="flex">
+              <WorkspaceRow
+                active={scope.type === 'history'}
+                icon={<History className="size-4" />}
+                label="History"
+                onClick={() => choose({ type: 'history', label: 'History' })}
+              />
+            </li>
             <li className="flex">
               <WorkspaceRow
                 active={scope.type === 'local'}
@@ -460,15 +485,73 @@ export function WorkspaceSwitcher({
                 }}
               />
             </li>
-            <li className="flex">
-              <WorkspaceRow
-                active={scope.type === 'history'}
-                icon={<History className="size-4" />}
-                label="History"
-                onClick={() => choose({ type: 'history', label: 'History' })}
-              />
-            </li>
           </ul>
+          {teams.length > 0 ? (
+            <div className="flex min-h-0 flex-col border-t border-border-subtle">
+              {teams.length > TEAM_FILTER_THRESHOLD ? (
+                <label className="mx-1.5 mt-1.5 flex h-8 shrink-0 items-center gap-2 rounded-md border border-border-default px-2 focus-within:border-border-primary-subtler">
+                  <Search aria-hidden="true" className="size-3.5 shrink-0 text-icon-default" />
+                  <input
+                    ref={teamFilterRef}
+                    value={teamQuery}
+                    onChange={(event) => setTeamQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.nativeEvent.isComposing) return;
+                      if (event.key === 'Enter' && filteredTeams[0]) {
+                        event.preventDefault();
+                        const team = filteredTeams[0];
+                        choose({ type: 'team', label: team.name, teamPath: team.path });
+                      } else if (event.key === 'ArrowDown') {
+                        event.preventDefault();
+                        teamListRef.current?.querySelector<HTMLElement>(ROW_SELECTOR)?.focus();
+                      } else if (event.key === 'Escape' && teamQuery) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setTeamQuery('');
+                      }
+                    }}
+                    placeholder="Find a team"
+                    aria-label="Find a team"
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="min-w-0 flex-1 bg-transparent text-sm text-text-default outline-none placeholder:text-text-subtle"
+                  />
+                </label>
+              ) : null}
+              {/* The padding belongs to the scrolling list, so rows scroll to the edge instead of
+                  being clipped short of it, and keyboard focus scrolls a row clear of the edge. */}
+              <div ref={teamListRef} className="min-h-0 scroll-py-1.5 overflow-y-auto p-1.5 pt-0">
+                {teamQuery.trim() ? (
+                  filteredTeams.length ? (
+                    <ul aria-label="Matching teams" className="mt-1.5 list-none space-y-0.5">
+                      {filteredTeams.map((team) => {
+                        const pinned = navigation.pinnedTeams.some((candidate) => candidate.id === team.id);
+                        return (
+                          <li key={team.id}>
+                            <TeamRow
+                              active={scope.type === 'team' && scope.teamPath === team.path}
+                              onPinChange={() => onPinnedTeamIdsChange(pinned
+                                ? unpinWorkspaceTeam(teams, pinnedTeamIds, team.id)
+                                : pinWorkspaceTeam(teams, pinnedTeamIds, team.id))}
+                              onScopeChange={() => choose({ type: 'team', label: team.name, teamPath: team.path })}
+                              platform={platform}
+                              pinned={pinned}
+                              team={team}
+                            />
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : <p role="status" className="px-2 py-3 text-xs text-text-subtle">No teams match.</p>
+                ) : (
+                  <>
+                    <PinnedTeams navigation={navigation} onPinnedTeamIdsChange={onPinnedTeamIdsChange} onScopeChange={choose} pinnedTeamIds={pinnedTeamIds} platform={platform} scope={scope} teams={teams} />
+                    <MoreTeams navigation={navigation} onPinnedTeamIdsChange={onPinnedTeamIdsChange} onScopeChange={choose} pinnedTeamIds={pinnedTeamIds} platform={platform} scope={scope} teams={teams} />
+                  </>
+                )}
+              </div>
+            </div>
+          ) : null}
         </nav>
       </PopoverContent>
       {hintsHeld && !switcherOpen ? <WorkspacePeek anchorRef={triggerRef} navigation={navigation} platform={platform} user={user} /> : null}

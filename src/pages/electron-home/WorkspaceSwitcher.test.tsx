@@ -79,12 +79,12 @@ describe('WorkspaceSwitcher', () => {
     expect(await screen.findByRole('dialog', { name: 'Workspaces' })).toBeVisible();
   });
 
-  it('lists My Workspace, pinned teams, then Local Vault and History, and passes each scope unchanged', async () => {
+  it('lists the places (My Workspace, History, Local Vault) above the teams, and passes each scope unchanged', async () => {
     const atlas = team();
     const props = renderSwitcher({ teams: [atlas], localVaultConfigured: true });
 
     const rows = within(await screen.findByRole('dialog', { name: 'Workspaces' })).getAllByRole('button', { name: /^(My Workspace|Atlas Team|Local Vault|History)$/ });
-    expect(rows.map(row => row.getAttribute('aria-label'))).toEqual(['My Workspace', 'Atlas Team', 'Local Vault', 'History']);
+    expect(rows.map(row => row.getAttribute('aria-label'))).toEqual(['My Workspace', 'History', 'Local Vault', 'Atlas Team']);
 
     fireEvent.click(within(list()).getByRole('button', { name: 'Atlas Team' }));
     expect(props.onScopeChange).toHaveBeenCalledWith({ type: 'team', label: atlas.name, teamPath: atlas.path });
@@ -167,12 +167,30 @@ describe('WorkspaceSwitcher', () => {
 
     await waitFor(() => expect(row('Atlas Team')).toHaveFocus());
     fireEvent.keyDown(row('Atlas Team'), { key: 'ArrowDown' });
-    expect(row('Local Vault')).toHaveFocus();
-    fireEvent.keyDown(row('Local Vault'), { key: 'ArrowDown' });
-    fireEvent.keyDown(row('History'), { key: 'ArrowDown' });
     expect(row('My Workspace')).toHaveFocus();
-    fireEvent.keyDown(row('My Workspace'), { key: 'ArrowUp' });
+    fireEvent.keyDown(row('My Workspace'), { key: 'ArrowDown' });
     expect(row('History')).toHaveFocus();
+    fireEvent.keyDown(row('History'), { key: 'ArrowDown' });
+    expect(row('Local Vault')).toHaveFocus();
+    fireEvent.keyDown(row('Local Vault'), { key: 'ArrowUp' });
+    expect(row('History')).toHaveFocus();
+  });
+
+  it('finds a team by name when there are many, and opens the first match with Enter', async () => {
+    const many = Array.from({ length: 9 }, (_, index) => team({ id: `team-${index}`, name: `Team ${index}`, path: `team-${index}` }));
+    const harbor = team({ id: 'harbor', name: 'Harbor Crew', path: 'harbor' });
+    const props = renderSwitcher({ teams: [...many, harbor], pinnedTeamIds: ['team-0'] });
+    const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
+
+    const filter = within(dialog).getByRole('textbox', { name: 'Find a team' });
+    fireEvent.change(filter, { target: { value: 'harb' } });
+    const matches = within(dialog).getByRole('list', { name: 'Matching teams' });
+    expect(within(matches).getAllByRole('button', { name: /Crew|Team/ }).map((row) => row.getAttribute('aria-label'))).toEqual(['Harbor Crew']);
+    // History and Local Vault stay in reach while filtering.
+    expect(within(dialog).getByRole('button', { name: 'History' })).toBeInTheDocument();
+
+    fireEvent.keyDown(filter, { key: 'Enter' });
+    expect(props.onScopeChange).toHaveBeenCalledWith({ type: 'team', label: 'Harbor Crew', teamPath: 'harbor' });
   });
 });
 
