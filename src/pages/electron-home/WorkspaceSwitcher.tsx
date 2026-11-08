@@ -442,7 +442,8 @@ export function WorkspaceSwitcher({
         ref={triggerRef}
         data-workspace-navigation-id="switcher"
         aria-label={`Switch workspace, current: ${scope.label}`}
-        className={cn('-ml-2 flex min-w-0 max-w-full items-center gap-2 rounded-md px-1.5 py-1 text-left hover:bg-element-bg-hover', FOCUS_RING_INSET_CLASS)}
+        // The same 32px box and corners as the header's icon buttons beside it.
+        className={cn('-ml-2 flex h-8 min-w-0 max-w-full items-center gap-2 rounded px-1.5 text-left hover:bg-element-bg-hover', FOCUS_RING_INSET_CLASS)}
       >
         <span aria-hidden="true" className="flex shrink-0 text-text-subtle"><ScopeIcon scope={scope} teams={teams} user={user} /></span>
         <span className="min-w-0 truncate text-sm font-semibold text-text-default">{scope.label}</span>
