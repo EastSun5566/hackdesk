@@ -17,7 +17,7 @@ export const editorChromeTheme = {
   '.cm-scroller': {
     fontFamily: 'var(--font-editor)',
     fontSize: 'var(--font-size-editor)',
-    lineHeight: '1.7',
+    lineHeight: '1.6',
   },
   '.cm-content': {
     padding: `24px ${EDITOR_SIDE_PADDING} 36vh`,
@@ -241,44 +241,43 @@ export const searchPanelTheme = {
 };
 
 export const proseTheme = {
-  // A proportional heading scale over the 15px body: 27 / 22 / 18 / 16px, tighter leading than
-  // prose, and room above each heading so sections read as sections. Line padding (not margin)
-  // keeps CodeMirror's height map exact.
+  // Headings sit close to the body size and lean on weight and the space above them, the way
+  // Obsidian's Minimal theme does: a long note reads as one column, not a stack of banners.
+  // H1 keeps one clear step because it usually names the note. Line padding (not margin) keeps
+  // CodeMirror's height map exact.
   '.cm-hackmd-h1': {
-    fontSize: '1.8em',
-    fontWeight: '700',
-    lineHeight: '1.3',
-    letterSpacing: '-0.015em',
-    paddingTop: '0.7em',
-    paddingBottom: '0.15em',
-    color: 'var(--text-default)',
-  },
-  '.cm-hackmd-h2': {
-    fontSize: '1.45em',
+    fontSize: '1.3em',
     fontWeight: '650',
-    lineHeight: '1.35',
+    lineHeight: '1.4',
     letterSpacing: '-0.01em',
-    paddingTop: '0.8em',
+    paddingTop: '0.9em',
     paddingBottom: '0.1em',
     color: 'var(--text-default)',
   },
+  '.cm-hackmd-h2': {
+    fontSize: '1.15em',
+    fontWeight: '600',
+    lineHeight: '1.45',
+    paddingTop: '0.85em',
+    color: 'var(--text-default)',
+  },
   '.cm-hackmd-h3': {
-    fontSize: '1.2em',
-    fontWeight: '650',
-    lineHeight: '1.4',
+    fontSize: '1.05em',
+    fontWeight: '600',
+    lineHeight: '1.5',
     paddingTop: '0.7em',
     color: 'var(--text-default)',
   },
   '.cm-hackmd-h4': {
-    fontSize: '1.05em',
     fontWeight: '600',
-    paddingTop: '0.5em',
+    paddingTop: '0.6em',
     color: 'var(--text-default)',
   },
   '.cm-hackmd-h5, .cm-hackmd-h6': {
+    fontSize: '0.9em',
     fontWeight: '600',
-    paddingTop: '0.4em',
-    color: 'var(--text-default)',
+    paddingTop: '0.6em',
+    color: 'var(--text-subtle)',
   },
   '.cm-hackmd-blockquote': {
     color: 'var(--text-subtle)',
