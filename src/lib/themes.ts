@@ -4,11 +4,16 @@ export type ResolvedThemeMode = Exclude<ThemeMode, 'system'>;
 
 export type ThemePresetId = 'hackmd-neo' | 'solarized' | 'catppuccin' | 'dracula' | 'gruvbox' | 'noctis';
 
+/** `antialiased` draws text in grayscale with thin stems, as native macOS apps do; `auto` keeps
+ *  Chromium's default, which thickens stems slightly. */
+export type FontSmoothing = 'antialiased' | 'auto';
+
 export type ThemeTypography = {
   uiFontStack: string;
   editorFontStack: string;
   uiFontSize: number;
   editorFontSize: number;
+  fontSmoothing: FontSmoothing;
 };
 
 export type ThemeSeed = {
@@ -65,6 +70,7 @@ export const defaultThemeTypography: ThemeTypography = {
   editorFontStack: DEFAULT_EDITOR_FONT_STACK,
   uiFontSize: DEFAULT_UI_FONT_SIZE,
   editorFontSize: DEFAULT_EDITOR_FONT_SIZE,
+  fontSmoothing: 'antialiased',
 };
 
 const DEFAULT_SYNTAX_TOKENS: ThemeTokenOverrides = {
@@ -746,6 +752,7 @@ export function normalizeThemeTypography(value: unknown): ThemeTypography {
       MIN_EDITOR_FONT_SIZE,
       MAX_EDITOR_FONT_SIZE,
     ),
+    fontSmoothing: candidate.fontSmoothing === 'auto' ? 'auto' : 'antialiased',
   };
 }
 
@@ -794,6 +801,7 @@ export function resolveThemeTypography(typography: ThemeTypography): ResolvedHac
     '--font-mono': withCjkFallback(MONO_FONT_STACK),
     '--font-size-ui': pxToRem(normalized.uiFontSize),
     '--font-size-editor': pxToRem(normalized.editorFontSize),
+    '--font-smoothing': normalized.fontSmoothing,
     '--text-2xs': 'calc(var(--font-size-ui) * 0.7142857143)',
     '--text-xs': 'calc(var(--font-size-ui) * 0.8571428571)',
     '--text-sm': 'var(--font-size-ui)',

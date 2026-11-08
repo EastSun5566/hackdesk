@@ -315,6 +315,13 @@ describe('HackDesk themes', () => {
     expectContrast(theme['--selection-background'], theme['--background-default'], 3, 'adjusted custom selection');
   });
 
+  it('draws text with grayscale smoothing unless the preference turns it off', () => {
+    expect(resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'light' })['--font-smoothing']).toBe('antialiased');
+    const typography = normalizeThemeTypography({ ...defaultThemeTypography, fontSmoothing: 'auto' });
+    expect(resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'light', typography })['--font-smoothing']).toBe('auto');
+    expect(normalizeThemeTypography({ ...defaultThemeTypography, fontSmoothing: 'bogus' }).fontSmoothing).toBe('antialiased');
+  });
+
   it('adds CJK faces before the first generic family, once', () => {
     expect(withCjkFallback('Inter, system-ui, sans-serif')).toBe(`Inter, ${CJK_FALLBACK_FAMILIES.join(', ')}, system-ui, sans-serif`);
     expect(withCjkFallback('"Avenir Next"')).toBe(`"Avenir Next", ${CJK_FALLBACK_FAMILIES.join(', ')}`);

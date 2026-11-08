@@ -3,6 +3,7 @@ import { ChevronRight, Laptop, Moon, Sun } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { FontStackPicker } from '@/components/FontStackPicker';
+import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Field, FieldError, FieldLabel, Input } from '@/components/ui/field';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -164,6 +165,17 @@ export function ThemeAppearanceFields({
                 max={MAX_EDITOR_FONT_SIZE}
                 error={typographyErrors.editorFontSize}
                 onChange={(value) => draftActions.changeTypography('editorFontSize', value)}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3 pt-1 text-sm">
+              <div className="min-w-0">
+                <label htmlFor="theme-font-smoothing" className="font-semibold leading-5">Smooth text</label>
+                <p className="text-xs leading-5 text-text-subtle">Thinner grayscale text, as in native Mac apps. Off keeps Chromium’s heavier default.</p>
+              </div>
+              <Switch
+                id="theme-font-smoothing"
+                checked={draftTypography.fontSmoothing !== 'auto'}
+                onCheckedChange={(checked) => draftActions.changeTypography('fontSmoothing', checked ? 'antialiased' : 'auto')}
               />
             </div>
           </div>

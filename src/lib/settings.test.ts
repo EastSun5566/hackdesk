@@ -137,6 +137,8 @@ describe('settings helpers', () => {
         editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
         uiFontSize: 16,
         editorFontSize: 18,
+        // Settings saved before the toggle existed get the default.
+        fontSmoothing: 'antialiased',
       },
     });
 
@@ -313,7 +315,8 @@ describe('settings helpers', () => {
       "uiFontStack": "Inter, system-ui, sans-serif",
       "editorFontStack": "Inter, system-ui, sans-serif",
       "uiFontSize": 14,
-      "editorFontSize": 15
+      "editorFontSize": 15,
+      "fontSmoothing": "antialiased"
     }
   },
   "onboarding": {

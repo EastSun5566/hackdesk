@@ -45,6 +45,7 @@ const typographySchema = z.strictObject({
   editorFontStack: customFontStackSchema,
   uiFontSize: z.number().int().min(12).max(18),
   editorFontSize: z.number().int().min(10).max(32),
+  fontSmoothing: z.enum(['antialiased', 'auto']).default('antialiased'),
 });
 const electronActionIdSchema = z.enum([
   'open-command-palette',

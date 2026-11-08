@@ -104,6 +104,7 @@ function typographyToInputs(typography: ThemeTypography): ThemeTypographyInputs 
     editorFontStack: typography.editorFontStack,
     uiFontSize: String(typography.uiFontSize),
     editorFontSize: String(typography.editorFontSize),
+    fontSmoothing: typography.fontSmoothing,
   };
 }
 
@@ -113,6 +114,7 @@ function getTypographyErrors(typography: ThemeTypographyInputs) {
     editorFontStack: getFontStackError(typography.editorFontStack),
     uiFontSize: getFontSizeError(typography.uiFontSize, MIN_UI_FONT_SIZE, MAX_UI_FONT_SIZE),
     editorFontSize: getFontSizeError(typography.editorFontSize, MIN_EDITOR_FONT_SIZE, MAX_EDITOR_FONT_SIZE),
+    fontSmoothing: null,
   };
 }
 
@@ -136,7 +138,8 @@ function typographyInputsEqual(left: ThemeTypographyInputs, right: ThemeTypograp
   return left.uiFontStack === right.uiFontStack
     && left.editorFontStack === right.editorFontStack
     && left.uiFontSize === right.uiFontSize
-    && left.editorFontSize === right.editorFontSize;
+    && left.editorFontSize === right.editorFontSize
+    && left.fontSmoothing === right.fontSmoothing;
 }
 
 export function useThemeAppearanceDraft({
