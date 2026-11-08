@@ -10,7 +10,7 @@ import {
   GripVertical,
   Trash2,
 } from 'lucide-react';
-import { memo, useLayoutEffect, useRef } from 'react';
+import { memo, useLayoutEffect, useRef, useState } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -65,15 +65,7 @@ function areNoteRowPropsEqual(previous: Record<string, unknown>, next: Record<st
  * here re-renders this small button instead of the whole row. The row shows the drag through a
  * data attribute.
  */
-function NoteDragHandle({
-  noteId,
-  title,
-  controlId,
-  tabIndex,
-  disabledDrag,
-  compact,
-  onSelect,
-}: {
+type NoteDragHandleProps = {
   noteId: string;
   title: string;
   controlId?: string;
@@ -81,7 +73,60 @@ function NoteDragHandle({
   disabledDrag: boolean;
   compact: boolean;
   onSelect: () => void;
-}) {
+};
+
+const NOTE_DRAG_HANDLE_CLASS = cn(
+  // Wider than its icon for an easier grab; the negative margins keep the icon on the same column
+  // as folder icons.
+  'group/drag-handle relative -mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-icon-subtle group-hover/entity-row:text-icon-default hover:text-text-default',
+  FOCUS_RING_INSET_CLASS,
+);
+
+function NoteDragHandleGlyphs({ compact }: { compact: boolean }) {
+  return (
+    <>
+      <FileText aria-hidden="true" className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+      {/* The grip floats left of the icon on hover, part of this handle, without moving it. */}
+      <GripVertical aria-hidden="true" className="absolute -left-3 top-1/2 size-3.5 -translate-y-1/2 text-icon-subtle opacity-0 transition-opacity group-hover/entity-row:opacity-100 group-focus-visible/drag-handle:opacity-100 motion-reduce:transition-none" />
+    </>
+  );
+}
+
+/**
+ * Hundreds of rows each holding a drag hook re-rendered on every drag-context change (switching
+ * tabs, opening folders). A row arms its drag hook only while pointed at or focused; before that
+ * the handle is a plain button that looks the same.
+ */
+function NoteDragHandle({ armed, ...props }: NoteDragHandleProps & { armed: boolean }) {
+  if (armed) return <LiveNoteDragHandle {...props} />;
+  return (
+    <button
+      type="button"
+      id={props.controlId}
+      className={NOTE_DRAG_HANDLE_CLASS}
+      aria-label={`Drag ${props.title}`}
+      data-folder-tree-ignore-keyboard="true"
+      onClick={(event) => {
+        event.stopPropagation();
+        if (!props.disabledDrag) props.onSelect();
+      }}
+      tabIndex={props.tabIndex}
+      aria-disabled={props.disabledDrag || undefined}
+    >
+      <NoteDragHandleGlyphs compact={props.compact} />
+    </button>
+  );
+}
+
+function LiveNoteDragHandle({
+  noteId,
+  title,
+  controlId,
+  tabIndex,
+  disabledDrag,
+  compact,
+  onSelect,
+}: NoteDragHandleProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: buildNoteDragId(noteId),
     disabled: disabledDrag,
@@ -99,12 +144,7 @@ function NoteDragHandle({
         buttonRef.current = element;
         setNodeRef(element);
       }}
-      className={cn(
-        // Wider than its icon for an easier grab; the negative margins keep the icon on the
-        // same column as folder icons.
-        'group/drag-handle relative -mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-icon-subtle group-hover/entity-row:text-icon-default hover:text-text-default',
-        FOCUS_RING_INSET_CLASS,
-      )}
+      className={NOTE_DRAG_HANDLE_CLASS}
       aria-label={`Drag ${title}`}
       data-folder-tree-ignore-keyboard="true"
       onClick={(event) => {
@@ -116,9 +156,7 @@ function NoteDragHandle({
       tabIndex={tabIndex}
       aria-disabled={disabledDrag || attributes['aria-disabled']}
     >
-      <FileText aria-hidden="true" className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
-      {/* The grip floats left of the icon on hover, part of this handle, without moving it. */}
-      <GripVertical aria-hidden="true" className="absolute -left-3 top-1/2 size-3.5 -translate-y-1/2 text-icon-subtle opacity-0 transition-opacity group-hover/entity-row:opacity-100 group-focus-visible/drag-handle:opacity-100 motion-reduce:transition-none" />
+      <NoteDragHandleGlyphs compact={compact} />
     </button>
   );
 }
@@ -198,6 +236,7 @@ function NoteRowView({
   );
   const isLocalNote = entry.note.teamPath === LOCAL_VAULT_TEAM_PATH;
   const rowId = `note:${entry.note.id}`;
+  const [dragArmed, setDragArmed] = useState(false);
   const treeItemProps = useFolderTreeItem(rowId, selected, undefined, draggable ? ['drag'] : []);
   const dragControlId = useFolderTreeControlId(rowId, 'drag');
   const canShowInFolder = showInFolderAction && entry.folderPath.length > 0;
@@ -207,6 +246,8 @@ function NoteRowView({
       <ContextMenuTrigger asChild>
         <div
           id={highlightId}
+          onPointerEnter={draggable && !dragArmed ? () => setDragArmed(true) : undefined}
+          onFocus={draggable && !dragArmed ? () => setDragArmed(true) : undefined}
           data-folder-tree-row-id={rowId}
           data-folder-tree-kind="note"
           data-folder-tree-note-id={entry.note.id}
@@ -222,6 +263,7 @@ function NoteRowView({
                 icon={draggable ? undefined : <FileText className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />}
                 leadingControls={draggable ? (
                   <NoteDragHandle
+                    armed={dragArmed}
                     noteId={entry.note.id}
                     title={entry.note.title || 'Untitled'}
                     controlId={dragControlId}
