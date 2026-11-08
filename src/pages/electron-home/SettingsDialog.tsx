@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { toast } from '@/components/ui/toast';
 
 import {
   Dialog,
@@ -252,7 +251,6 @@ function SettingsDialogContent({
       return;
     }
 
-    toast.success('Theme applied');
     onOpenChange(false);
   };
 

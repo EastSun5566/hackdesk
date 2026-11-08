@@ -318,7 +318,7 @@ export function useHomeWorkspaceProps({
       onReadComparison: (document, signal) => readComparisonSource(api, document, signal, localVaultId),
       onReloadFromDisk: localDocumentRecovery.reloadFromDisk,
       onReloadFromHackmd: remoteDocumentRecovery.reloadFromHackmd,
-      onSave: (tab, input) => {
+      onSave: (tab, input, options) => {
         if (isDraftNoteTab(tab)) {
           actions.saveDraftNote(tab, input);
           return;
@@ -331,6 +331,7 @@ export function useHomeWorkspaceProps({
             input,
             intent: 'content',
             tabId: tab.tabId,
+            successMessage: options?.successMessage,
             submittedDraft: {
               ...noteWorkspace.state.drafts[tab.tabId],
               title: input.title ?? document.title,

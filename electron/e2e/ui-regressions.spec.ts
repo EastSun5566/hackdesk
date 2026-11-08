@@ -824,15 +824,15 @@ for (const editorMode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as con
       await page.keyboard.press(`${primary}+f`);
       await expect(page.locator('.cm-panels').first()).toBeVisible();
       await expect(page.locator('.cm-editor')).toHaveCSS('isolation', 'isolate');
-      // Save uses real filesystem IPC and produces a real notification.
-      // Rename Note saves right away, from the leader menu in every editor mode.
+      // Save uses real filesystem IPC. Routine saves are quiet; Rename Note confirms with a real
+      // notification. It saves right away, from the leader menu in every editor mode.
       await page.keyboard.press(`${primary}+j`);
       await page.keyboard.press('n');
       await page.keyboard.press('r');
       const rename = page.getByRole('dialog', { name: 'Rename Note' });
       await rename.getByLabel('Title').fill(`UI fixture ${editorMode}`);
       await rename.getByRole('button', { name: 'Rename', exact: true }).click();
-      const notification = page.getByRole('status').filter({ hasText: 'Note saved.' });
+      const notification = page.getByRole('status').filter({ hasText: `Renamed to “UI fixture ${editorMode}”.` });
       await expect(notification).toBeVisible();
       const bottomPanels = page.locator('.cm-panels-bottom');
       const panels = await bottomPanels.count() ? bottomPanels : page.locator('.cm-panels-top');

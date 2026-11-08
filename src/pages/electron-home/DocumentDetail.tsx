@@ -140,7 +140,8 @@ export type DocumentDetailActions = {
   onReloadFromHackmd: (document: DocumentSummary) => void;
   /** Opens the draft as a new unsaved note; the original note is left untouched. */
   onOpenAsNewDraft: (title: string, content: string) => void;
-  onSave: (input: UpdateNoteInput) => void;
+  /** `successMessage` confirms a deliberate change (Rename); routine saves show only in the tab. */
+  onSave: (input: UpdateNoteInput, options?: { successMessage?: string }) => void;
   onSaveAsCopy: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveSharing: (document: DocumentSummary, input: UpdateNoteInput) => void;
@@ -216,15 +217,30 @@ function SyncStateBadge({
 
   // The tab's dot covers routine states; the header speaks up only when the note needs attention.
   const needsAttention = syncStateNeedsAttention(state);
+  // A save that just finished shows a quiet "Saved" for a moment, in place of a toast.
+  const [previousState, setPreviousState] = useState(state);
+  const [justSaved, setJustSaved] = useState(false);
+  if (previousState !== state) {
+    setPreviousState(state);
+    setJustSaved(previousState === 'saving' && state === 'saved');
+  }
+  useEffect(() => {
+    if (!justSaved) return;
+    const timer = window.setTimeout(() => setJustSaved(false), 2000);
+    return () => window.clearTimeout(timer);
+  }, [justSaved]);
 
   return (
     <span
       role="status"
       aria-live="polite"
       aria-atomic="true"
+      data-just-saved={justSaved || undefined}
       className={needsAttention
         ? cn('inline-flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-xs font-medium', className)
-        : 'sr-only'}
+        : justSaved
+          ? 'inline-flex h-7 shrink-0 items-center gap-1 px-1 text-xs text-text-subtle animate-in fade-in-0 motion-reduce:animate-none'
+          : 'sr-only'}
       aria-label={`Sync state: ${DOCUMENT_SYNC_STATE_LABELS[state]}`}
     >
       {icon}
@@ -627,7 +643,7 @@ function ActiveDocumentDetail({
         onOpenChange={setRenameOpen}
         onRename={(title) => {
           actions.onTitleChange(title);
-          actions.onSave({ title, content: documentState.content });
+          actions.onSave({ title, content: documentState.content }, { successMessage: `Renamed to “${title.trim() || 'Untitled'}”.` });
           setRenameOpen(false);
         }}
       />

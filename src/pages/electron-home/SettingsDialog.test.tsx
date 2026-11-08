@@ -373,7 +373,8 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Apply Theme' }));
 
     expect(localStorage.getItem(THEME_STORAGE_KEYS.presetId)).toBe('dracula');
-    expect(toastSuccessMock).toHaveBeenCalledWith('Theme applied');
+    // Applying shows in the app itself; no toast.
+    expect(toastSuccessMock).not.toHaveBeenCalled();
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 

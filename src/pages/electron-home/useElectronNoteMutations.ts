@@ -321,7 +321,6 @@ export function useElectronNoteMutations({
     try {
       await updateSettingsMutation.mutateAsync(input);
       onSettingsSaved();
-      toast.success('Settings saved.');
     } catch {
       // The mutation reports persistence errors and leaves Settings open.
     }
@@ -395,7 +394,6 @@ export function useElectronNoteMutations({
       }
       onNoteCreated(createdNote);
       void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope), refetchType: 'inactive' });
-      toast.success('Note created.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to create note.'),
   });
@@ -441,7 +439,6 @@ export function useElectronNoteMutations({
         content: variables.input.content ?? '',
       });
       void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope), refetchType: 'inactive' });
-      toast.success('Note saved.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to save note.'),
   });
@@ -494,7 +491,6 @@ export function useElectronNoteMutations({
       }
       onNoteCreated(createdNote);
       void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope), refetchType: 'inactive' });
-      toast.success('Note duplicated.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to duplicate note.'),
   });
@@ -609,7 +605,6 @@ export function useElectronNoteMutations({
         void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
       }
       onFolderCreated(createdFolder);
-      toast.success('Folder created.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to create folder.'),
   });
@@ -705,7 +700,8 @@ export function useElectronNoteMutations({
         // A write can move comment anchors too.
         void queryClient.invalidateQueries({ queryKey: noteCommentsKeys.all(variables.note.id), refetchType: 'active' });
       }
-      toast.success(variables.successMessage ?? 'Note saved.');
+      // Routine saves show in the tab and the editor header; only a named change gets a toast.
+      if (variables.successMessage) toast.success(variables.successMessage);
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to save note.'),
   });
@@ -842,7 +838,6 @@ export function useElectronNoteMutations({
         });
       }
       onNoteMoved(note, targetFolderId);
-      toast.success('Note moved.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to move note.'),
   });
@@ -879,7 +874,6 @@ export function useElectronNoteMutations({
         void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
       }
       onFolderRenamed(updatedFolder);
-      toast.success('Folder renamed.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to rename folder.'),
   });
@@ -955,7 +949,6 @@ export function useElectronNoteMutations({
         void queryClient.invalidateQueries({ queryKey: getFoldersQueryKey(scope) });
         void queryClient.invalidateQueries({ queryKey: getFolderOrderQueryKey(scope) });
       }
-      toast.success('Folder moved.');
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to move folder.'),
   });

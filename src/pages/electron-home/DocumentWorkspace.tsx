@@ -198,7 +198,7 @@ export function DocumentWorkspace({
   onReadComparison?: (document: DocumentSummary, signal: AbortSignal) => Promise<{ title: string; content: string }>;
   onReloadFromDisk: (document: DocumentSummary) => void;
   onReloadFromHackmd: (document: DocumentSummary) => void;
-  onSave: (tab: OpenNoteTab, input: UpdateNoteInput) => void;
+  onSave: (tab: OpenNoteTab, input: UpdateNoteInput, options?: { successMessage?: string }) => void;
   onSaveAsCopy: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveSharing: (document: DocumentSummary, input: UpdateNoteInput) => void;
@@ -346,7 +346,7 @@ export function DocumentWorkspace({
             onReloadFromDisk,
             onReloadFromHackmd,
             onOpenAsNewDraft: (title, content) => onOpenAsNewDraft(title, content, pane.paneId),
-            onSave: (input) => view.activeTab && onSave(view.activeTab, input),
+            onSave: (input, options) => view.activeTab && onSave(view.activeTab, input, options),
             onSaveAsCopy,
             onSaveMetadata,
             onSaveSharing,
