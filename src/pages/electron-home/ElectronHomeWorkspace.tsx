@@ -137,7 +137,7 @@ export function ElectronHomeWorkspace({
           disabled={navigatorResize.disabled}
           onChange={navigatorResize.onChange}
           previewTargetId={NOTE_NAVIGATOR_PANEL_ID}
-          edgeSelector="section[data-document-pane-id]"
+          edge
           previewProperties={['--panel-width', '--sidebar-content-width']}
         />
 

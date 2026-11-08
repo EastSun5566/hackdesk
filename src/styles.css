@@ -452,6 +452,34 @@
     mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
   }
 
+  /* A resize handle that is a surface's border (PanelResizeSash edge): it lays a primary line over
+     the border beside it while hovered, focused or dragged. The line fades out toward both ends,
+     before the surface's rounded corners turn away from it. */
+  .edge-sash::after {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    /* Over the 1px border and 1px inside it: as strong as the old handle line. */
+    right: -2px;
+    width: 2px;
+    background: linear-gradient(to bottom, transparent, var(--primary-default) 3rem, var(--primary-default) calc(100% - 3rem), transparent);
+    opacity: 0;
+    transition: opacity 150ms ease-out;
+    pointer-events: none;
+  }
+
+  .edge-sash:hover::after,
+  .edge-sash:focus-visible::after,
+  :root[data-panel-resizing] .edge-sash::after {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .edge-sash::after {
+      transition: none;
+    }
+  }
+
   /* A number field with its own stepper buttons beside it, so the native spin arrows go. */
   .no-spinner {
     appearance: textfield;
@@ -616,21 +644,3 @@
   max-height: calc(100dvh - 4rem);
 }
 .comparison-text-preview { max-height: 40dvh; }
-
-/* Unlayered, so it outranks the surface's own border-color utility. */
-/* A surface's border standing in for the resize handle beside it (PanelResizeSash edgeSelector):
-   the border turns primary, and a 1px inner stroke with the surface's own radius thickens it and
-   tapers into the rounded corners, so the highlight is the edge itself rather than a line in the gap. */
-[data-sash-edge] {
-  border-left-color: var(--primary-default);
-}
-
-[data-sash-edge]::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 30;
-  border-left: 1px solid var(--primary-default);
-  border-radius: inherit;
-  pointer-events: none;
-}

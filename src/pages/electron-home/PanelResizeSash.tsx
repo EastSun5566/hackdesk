@@ -6,7 +6,7 @@ import { GAP_SASH_CLASS } from './ui';
 
 // The gap between two surfaces, with no line of its own: the adjacent surface's border lights up
 // instead. Its grip reaches 4px over that border, so the border itself can be grabbed.
-const EDGE_SASH_CLASS = 'relative w-1.5 shrink-0 cursor-col-resize border-0 bg-transparent outline-none before:absolute before:inset-y-0 before:left-0 before:-right-1';
+const EDGE_SASH_CLASS = 'edge-sash relative w-1.5 shrink-0 cursor-col-resize border-0 bg-transparent outline-none before:absolute before:inset-y-0 before:left-0 before:-right-1';
 import { clampPanelWidth } from './ui-preferences';
 
 export function PanelResizeSash({
@@ -19,7 +19,7 @@ export function PanelResizeSash({
   onChange,
   previewTargetId,
   previewProperties = [],
-  edgeSelector,
+  edge = false,
 }: {
   label: string;
   value: number;
@@ -36,29 +36,12 @@ export function PanelResizeSash({
   previewTargetId?: string;
   previewProperties?: string[];
   /**
-   * Surfaces whose edge this handle is. While it's hovered, focused or dragged, the ones that start
-   * at its right edge light that border up (data-sash-edge, see styles.css), so the border itself
-   * reads as the handle instead of a separate line in the gap.
+   * The handle sits against a surface's border: it lights that border up while hovered, focused or
+   * dragged (.edge-sash in styles.css) instead of drawing a line in the gap.
    */
-  edgeSelector?: string;
+  edge?: boolean;
 }) {
   const dragStart = useRef<{ x: number; value: number; latest: number } | null>(null);
-  const engaged = useRef({ hover: false, focus: false, drag: false });
-  const markEdges = (sash: HTMLElement) => {
-    if (!edgeSelector) return;
-    const { hover, focus, drag } = engaged.current;
-    const active = hover || focus || drag;
-    const edgeX = sash.getBoundingClientRect().right;
-    for (const surface of document.querySelectorAll<HTMLElement>(edgeSelector)) {
-      const touches = Math.abs(surface.getBoundingClientRect().left - edgeX) < 2;
-      if (active && touches) surface.dataset.sashEdge = 'true';
-      else delete surface.dataset.sashEdge;
-    }
-  };
-  const engage = (sash: HTMLElement, key: keyof typeof engaged.current, on: boolean) => {
-    engaged.current[key] = on;
-    markEdges(sash);
-  };
   const preview = (width: number) => {
     const target = previewTargetId ? document.getElementById(previewTargetId) : null;
     if (!target || previewProperties.length === 0) return false;
@@ -80,23 +63,17 @@ export function PanelResizeSash({
       aria-label={resizeLabel}
       title={defaultValue ? `${label}. Double-click to reset.` : label}
       className={cn(
-        edgeSelector ? EDGE_SASH_CLASS : GAP_SASH_CLASS,
+        edge ? EDGE_SASH_CLASS : GAP_SASH_CLASS,
         'z-20 h-auto [[data-hack-mode]_&]:hidden',
       )}
-      onPointerEnter={(event) => engage(event.currentTarget, 'hover', true)}
-      onPointerLeave={(event) => engage(event.currentTarget, 'hover', false)}
-      onFocus={(event) => engage(event.currentTarget, 'focus', event.currentTarget.matches(':focus-visible'))}
-      onBlur={(event) => engage(event.currentTarget, 'focus', false)}
       onPointerDown={(event) => {
-        engage(event.currentTarget, 'drag', true);
         dragStart.current = { x: event.clientX, value, latest: value };
         event.currentTarget.setPointerCapture(event.pointerId);
         // Panels animate their width, except while dragged, so the edge follows the pointer.
         document.documentElement.dataset.panelResizing = 'true';
       }}
-      onLostPointerCapture={(event) => {
+      onLostPointerCapture={() => {
         delete document.documentElement.dataset.panelResizing;
-        engage(event.currentTarget, 'drag', false);
       }}
       onPointerMove={(event) => {
         if (!dragStart.current || event.buttons === 0) {
@@ -106,7 +83,6 @@ export function PanelResizeSash({
         const width = clampPanelWidth(dragStart.current.value + event.clientX - dragStart.current.x, min, max);
         dragStart.current.latest = width;
         if (!preview(width)) onChange(width);
-        markEdges(event.currentTarget);
       }}
       onPointerUp={() => {
         const drag = dragStart.current;
