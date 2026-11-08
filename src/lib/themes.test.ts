@@ -72,7 +72,8 @@ describe('HackDesk themes', () => {
         for (const customSeed of [undefined, { primary: '#FFFFFF' }, { primary: '#000000' }, { neutral: '#123ABC', primary: '#EEDD00' }]) {
           const theme = resolveHackDeskTheme({ presetId: preset.id, mode, customSeed });
           const background = theme['--background-default'];
-          const selected = paintedSurface(theme['--background-selected'], background);
+          // The palette paints its keyboard cursor with the menu highlight.
+          const selected = paintedSurface(theme['--element-bg-hover'], background);
           for (const token of ['--command-item-title', '--command-item-meta', '--command-placeholder', '--command-item-match']) {
             expectContrast(theme[token], background, 4.5, token);
           }

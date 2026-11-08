@@ -53,7 +53,7 @@ export function VaultSettingsPanel({
 
   return (
     <div className="space-y-4">
-      <SettingsSection title="Local Vault">
+      <SettingsSection page title="Local Vault">
         <div className="rounded border border-border-default bg-background-default p-5">
           <div className="space-y-1">
             <p className="break-all font-mono text-sm text-text-default">

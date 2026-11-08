@@ -5,7 +5,7 @@ import { Input as InputPrimitive } from '@base-ui/react/input';
 import { cn } from '@/lib/utils';
 
 const fieldInputClassName = cn(
-  'h-[34px] w-full rounded border border-border-default bg-transparent px-3 py-1.5 text-sm leading-5 text-text-default outline-none transition-[border-color,box-shadow]',
+  'h-[34px] w-full text-ellipsis rounded border border-border-default bg-transparent px-3 py-1.5 text-sm leading-5 text-text-default outline-none transition-[border-color,box-shadow]',
   'placeholder:text-text-subtler',
   'focus:border-border-primary-subtler focus-visible:ring-1 focus-visible:ring-border-primary-subtler',
   'data-[invalid]:border-destructive-default data-[invalid]:focus:border-destructive-default',

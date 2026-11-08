@@ -23,7 +23,7 @@ export function EditorSettingsPanel({
   onEditorModeChange: (mode: EditorMode) => void;
 }) {
   return (
-    <SettingsSection title="Editor">
+    <SettingsSection page title="Editor">
       <fieldset>
         <legend className="sr-only">Editor mode</legend>
         <RadioGroup

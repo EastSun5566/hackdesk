@@ -118,18 +118,26 @@ function settingsScene(tab: string): Scene {
   };
 }
 
+// After a reload the workspace paints skeletons first; grade it only once the tree, the account
+// and the open note have loaded.
+const workspaceLoaded = (cdp: Cdp) => waitFor(cdp, `document.querySelector('[data-testid=folder-navigator-tree] [data-folder-tree-row-id^="note:"]')
+  && document.querySelector('[data-testid=sidebar-footer-avatar]')
+  && !document.querySelector('.animate-pulse')
+  && !document.body.innerText.includes('Loading note')`, 20000);
+
 const SCENES: Scene[] = [
   {
     name: 'workspace',
     enter: async (cdp) => {
       await closeDialogs(cdp);
-      return true;
+      return workspaceLoaded(cdp);
     },
   },
   {
     name: 'tree-expanded',
     enter: async (cdp) => {
       await closeDialogs(cdp);
+      if (!await workspaceLoaded(cdp)) return false;
       // Expand the first collapsed folder so nested rows and tree guides are on screen.
       return cdp.evaluate<boolean>(`(() => {
         const tree = document.querySelector('[data-testid=folder-navigator-tree]');

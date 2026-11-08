@@ -318,12 +318,12 @@ function LoadingDocumentDetail({
         />
       ) : null}
       <div role="status" aria-busy="true" aria-label="Loading note" className="flex min-h-0 flex-1 flex-col gap-4 p-6">
-        <div className="h-4 w-2/3 animate-pulse rounded bg-background-selected motion-reduce:animate-none" />
-        <div className="h-4 w-1/2 animate-pulse rounded bg-background-selected motion-reduce:animate-none" />
+        <div className="h-4 w-2/3 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
+        <div className="h-4 w-1/2 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
         <div className="mt-4 space-y-3">
-          <div className="h-3 w-full animate-pulse rounded bg-background-muted motion-reduce:animate-none" />
-          <div className="h-3 w-11/12 animate-pulse rounded bg-background-muted motion-reduce:animate-none" />
-          <div className="h-3 w-4/5 animate-pulse rounded bg-background-muted motion-reduce:animate-none" />
+          <div className="h-3 w-full animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
+          <div className="h-3 w-11/12 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
+          <div className="h-3 w-4/5 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
         </div>
       </div>
     </PanelShell>

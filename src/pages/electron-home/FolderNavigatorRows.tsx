@@ -685,12 +685,12 @@ export function NoteListSkeleton() {
     <div role="status" aria-busy="true" aria-label="Loading notes" className="space-y-2 px-2 py-3">
       {Array.from({ length: 8 }).map((_, index) => (
         <div key={index} className="flex items-center gap-3 rounded-md px-2 py-2">
-          <div className="size-4 animate-pulse rounded bg-background-primary-subtler motion-reduce:animate-none" />
+          <div className="size-4 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
           <div className="min-w-0 flex-1 space-y-2">
-            <div className="h-3 animate-pulse rounded bg-background-primary-subtler motion-reduce:animate-none" />
-            <div className="h-2 w-1/2 animate-pulse rounded bg-background-default motion-reduce:animate-none" />
+            <div className="h-3 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
+            <div className="h-2 w-1/2 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
           </div>
-          <div className="h-3 w-14 animate-pulse rounded bg-background-primary-subtler motion-reduce:animate-none" />
+          <div className="h-3 w-14 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
         </div>
       ))}
     </div>

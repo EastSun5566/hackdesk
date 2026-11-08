@@ -10,6 +10,7 @@ export function AppearanceSettingsPanel({
 }) {
   return (
     <SettingsSection
+      page
       title="Appearance"
       help="Changes preview until you apply or cancel."
     >

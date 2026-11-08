@@ -186,7 +186,7 @@ export function ShortcutsSettingsPanel({
   };
 
   return (
-    <SettingsSection title="Shortcuts">
+    <SettingsSection page title="Shortcuts">
       <div className="space-y-4">
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={characterShortcutsEnabled} onChange={event => onCharacterShortcutsChange(event.target.checked)} />Enable ?, / and Space outside text editing</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={keyHintsVisible} onChange={event => onKeyHintsVisibleChange(event.target.checked)} />Show key hints</label>

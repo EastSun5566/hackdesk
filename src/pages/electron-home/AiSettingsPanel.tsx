@@ -303,6 +303,7 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
   return (
     <div className="space-y-6">
       <SettingsSection
+        page
         title="AI (Experimental)"
         help="Uses your signed-in Codex or Claude CLI."
       >

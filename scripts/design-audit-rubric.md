@@ -59,7 +59,9 @@ A rating without evidence does not count.
 
 - Items in a row share a vertical centre (icon buttons beside a title, for example).
 - Gutters repeat: the sidebar's inner padding matches the editor header's, and the footer's matches
-  the top bar's.
+  the top bar's. The system has two lines per panel: boxes (hover rows, the search field) sit 8px
+  from the panel edge, and glyphs (icons, text, avatars) sit 16px from it. A box at 8px whose glyph
+  lands on 16px is aligned, not off by 8.
 - Spacing comes from the 4px scale. No cramped or over-padded one-offs.
 
 ### 5. Typography (weight 10)
@@ -70,6 +72,8 @@ A rating without evidence does not count.
 ### 6. Controls and states (weight 10)
 
 - Buttons, icon buttons, tabs, inputs and keyboard hints each have one style and one size per context.
+  HackDesk follows HackMD web's metrics: text fields and selects are 34px, standard buttons 38px,
+  small buttons 32px. Judge a control against its own kind, not against a different kind beside it.
 - Disabled, active and focus states are visible and consistent.
 
 ### 7. Theme parity (weight 10)

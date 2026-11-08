@@ -1048,7 +1048,8 @@ function resolveContrastTokens(theme: ResolvedHackDeskTheme): ResolvedHackDeskTh
 // rather than the uncomposited accent or only the default surface.
 function resolveCommandPaletteTokens(theme: ResolvedHackDeskTheme): ResolvedHackDeskTheme {
   const background = theme['--background-default'];
-  const selectedBackground = compositeThemeColor(theme['--background-selected'], background);
+  // The palette marks its keyboard cursor with the menu highlight, so contrast is checked there.
+  const selectedBackground = compositeThemeColor(theme['--element-bg-hover'] ?? theme['--background-selected'], background);
 
   return {
     '--command-item-title': ensureContrast(theme['--text-default'], background, 4.5),

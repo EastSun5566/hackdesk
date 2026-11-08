@@ -5,22 +5,26 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/field';
 import { Toggle } from '@/components/ui/toggle';
 import { Tooltip } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 export function SettingsSection({
   title,
   description,
   help,
+  page = false,
   children,
 }: {
   title: string;
   description?: string;
   help?: ReactNode;
+  /** The section named after its settings page: its title is the page heading, a tier above. */
+  page?: boolean;
   children: ReactNode;
 }) {
   return (
     <section className="flex flex-col gap-5">
       <div>
         <div className="flex items-center gap-1.5">
-          <h3 className="text-base font-semibold leading-6 text-text-emphasize text-balance">{title}</h3>
+          <h3 className={cn('font-semibold text-text-emphasize text-balance', page ? 'text-lg leading-7' : 'text-base leading-6')}>{title}</h3>
           {help ? <SettingsHelpTooltip label={title}>{help}</SettingsHelpTooltip> : null}
         </div>
         {description ? <p className="mt-1 text-xs leading-5 text-text-subtle">{description}</p> : null}

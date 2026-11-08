@@ -63,7 +63,7 @@ export function HackmdSettingsPanel({
 
   return (
     <>
-      <SettingsSection title="HackMD">
+      <SettingsSection page title="HackMD">
         {tokenStorageError ? <p role="alert" className="text-sm text-destructive-default">{tokenStorageError}</p> : null}
         {hasHackmdApiToken ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
