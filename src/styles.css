@@ -145,8 +145,9 @@
   :root.light {
     color-scheme: light;
 
-    --font-system: Inter, "PingFang TC", "PingFang SC", "Hiragino Sans", "Noto Sans CJK TC", "Microsoft JhengHei", system-ui, sans-serif;
+    --font-system: Inter, system-ui, "PingFang TC", "PingFang SC", "Hiragino Sans", "Noto Sans CJK TC", "Microsoft JhengHei", sans-serif;
     --font-sans: var(--font-system);
+    --font-keys: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     --font-editor: var(--font-system);
     --font-mono: "JetBrains Mono", "Source Code Pro", "PingFang TC", "PingFang SC", "Hiragino Sans", "Noto Sans CJK TC", "Microsoft JhengHei", ui-monospace, SFMono-Regular, Menlo, monospace;
     --font-size-ui: 0.875rem;
@@ -389,6 +390,13 @@
      so expanding or collapsing a folder never shifts the rows sideways. */
   :root[data-scrollbars='classic'] :where(.scroll-edges-source, .cm-scroller) {
     scrollbar-gutter: stable;
+  }
+
+  /* Shortcuts use the system UI font (SF Pro on macOS), as the system's own menus do: it draws
+     ⌘ ⇧ ⌥ ⌃ at the letters' size and weight. Mono and most UI fonts lack them, and the fallback
+     (often a CJK font) draws them mismatched. */
+  kbd {
+    font-family: var(--font-keys);
   }
 
   ::selection {

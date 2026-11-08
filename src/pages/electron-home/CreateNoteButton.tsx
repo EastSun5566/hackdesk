@@ -53,7 +53,7 @@ export function CreateNoteButton({
     >
       <Plus aria-hidden="true" className="size-4 shrink-0" />
       <span className="min-w-0 truncate">New Note</span>
-      {shortcut ? <kbd aria-hidden="true" className="ml-auto font-sans text-xs opacity-70">{shortcut}</kbd> : null}
+      {shortcut ? <kbd aria-hidden="true" className="ml-auto text-xs opacity-70">{shortcut}</kbd> : null}
     </Button>
   );
 

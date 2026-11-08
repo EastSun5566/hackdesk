@@ -100,7 +100,7 @@ export function LeaderMenu({
               <span className="w-6 shrink-0 text-center font-mono font-semibold text-primary-default">{item.key.toUpperCase()}</span>
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
               {item.actionId ? (
-                item.shortcut ? <kbd className="font-mono text-2xs text-text-subtle">{item.shortcut}</kbd> : <span />
+                item.shortcut ? <kbd className="text-2xs text-text-subtle">{item.shortcut}</kbd> : <span />
               ) : <ChevronRight aria-hidden="true" className="h-3.5 w-3.5 text-text-subtle" />}
             </button>
           </li>

@@ -414,7 +414,7 @@ export function ToolbarIconButton({
   const tooltipContent = displayShortcut ? (
     <span className="flex items-center gap-3">
       <span>{tooltip}</span>
-      <kbd className="rounded-sm bg-background-muted px-1.5 py-0.5 font-mono text-2xs leading-none text-text-subtle">
+      <kbd className="rounded-sm bg-background-muted px-1.5 py-0.5 text-2xs leading-none text-text-subtle">
         {displayShortcut}
       </kbd>
     </span>

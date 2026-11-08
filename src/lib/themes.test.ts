@@ -323,8 +323,9 @@ describe('HackDesk themes', () => {
     expect(normalizeThemeTypography({ ...defaultThemeTypography, fontSmoothing: 'bogus' }).fontSmoothing).toBe('antialiased');
   });
 
-  it('adds CJK faces before the first generic family, once', () => {
-    expect(withCjkFallback('Inter, system-ui, sans-serif', [])).toBe(`Inter, ${CJK_FALLBACK_FAMILIES.join(', ')}, system-ui, sans-serif`);
+  it('adds CJK faces after the system UI font and before the first generic family, once', () => {
+    // The system UI font draws Latin when the first choice is missing; CJK still reaches the CJK faces.
+    expect(withCjkFallback('Inter, system-ui, sans-serif', [])).toBe(`Inter, system-ui, ${CJK_FALLBACK_FAMILIES.join(', ')}, sans-serif`);
     expect(withCjkFallback('"Avenir Next"', [])).toBe(`"Avenir Next", ${CJK_FALLBACK_FAMILIES.join(', ')}`);
     expect(withCjkFallback('Inter, "PingFang SC", sans-serif', [])).toBe('Inter, "PingFang SC", sans-serif');
   });

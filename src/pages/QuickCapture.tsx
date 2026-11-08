@@ -209,7 +209,7 @@ export function QuickCapture() {
             disabled={submitting}
           >
             Capture
-            <kbd aria-hidden="true" className="font-sans text-2xs font-normal text-text-subtle">
+            <kbd aria-hidden="true" className="text-2xs font-normal text-text-subtle">
               {isMac ? '⌘↵' : 'Ctrl+Enter'}
             </kbd>
           </Button>

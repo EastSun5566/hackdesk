@@ -793,9 +793,14 @@ export function getCjkFallbackFamilies(languages: readonly string[] = typeof nav
   const preferred = languages.flatMap((language) => cjkFamilyForLanguage(language) ?? []);
   return [...new Set([...preferred, ...CJK_FALLBACK_FAMILIES])];
 }
+// Families that resolve to a locale font: on a Japanese-first Mac, ui-monospace is Osaka-Mono,
+// which would draw Chinese text. CJK faces go before these. The system UI font (system-ui and its
+// aliases) is not here: it has no CJK glyphs, so it draws Latin text and passes CJK down the list.
+// Placing CJK faces before it meant a missing first choice (Inter isn't bundled) left a CJK face
+// drawing every Latin letter.
 const GENERIC_FONT_FAMILIES = new Set([
-  'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-serif', 'ui-sans-serif',
-  'ui-monospace', 'ui-rounded', 'math', 'emoji', 'fangsong', '-apple-system', 'blinkmacsystemfont',
+  'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'ui-serif', 'ui-sans-serif',
+  'ui-monospace', 'ui-rounded', 'math', 'emoji', 'fangsong',
 ]);
 
 /** A stack with CJK faces inserted before its first generic family, unless it names them already. */

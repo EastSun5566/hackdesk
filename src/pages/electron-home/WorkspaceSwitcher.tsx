@@ -122,7 +122,7 @@ function WorkspaceRow({
 }
 
 function ShortcutLabel({ children }: { children: string }) {
-  return <kbd className="font-mono text-2xs text-text-subtle">{children}</kbd>;
+  return <kbd className="text-2xs text-text-subtle">{children}</kbd>;
 }
 
 type TeamRowProps = {

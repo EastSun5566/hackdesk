@@ -58,7 +58,7 @@ function HintList({ hints }: { hints: KeyHint[] }) {
       {hints.map(hint => (
         // As tall as the list, so a wrapped hint starts fully below it instead of peeking in.
         <li key={`${hint.keys}:${hint.label}`} className="flex h-5 shrink-0 items-center gap-1.5">
-          <kbd className="rounded-sm border border-border-default bg-background-default px-1 font-mono leading-4 text-text-default">{hint.keys}</kbd>
+          <kbd className="rounded-sm border border-border-default bg-background-default px-1 leading-4 text-text-default">{hint.keys}</kbd>
           <span>{hint.label}</span>
         </li>
       ))}
@@ -81,7 +81,7 @@ function ShortcutsButton({
       onClick={onOpenShortcuts}
       className={cn('-mr-1 flex h-6 shrink-0 items-center gap-1.5 rounded-sm px-1 hover:text-text-default', FOCUS_RING_CLASS, className)}
     >
-      {helpKeys ? <kbd className="rounded-sm border border-border-default bg-background-default px-1 font-mono leading-4 text-text-default">{helpKeys}</kbd> : null}
+      {helpKeys ? <kbd className="rounded-sm border border-border-default bg-background-default px-1 leading-4 text-text-default">{helpKeys}</kbd> : null}
       <span>Shortcuts</span>
     </button>
   );
@@ -213,7 +213,7 @@ export function KeyHintBar({
           <ul className="flex min-w-0 flex-1 items-center gap-4 overflow-hidden whitespace-nowrap">
             {hints.map(hint => (
               <li key={`${hint.keys}:${hint.label}`} className="flex shrink-0 items-center gap-1.5">
-                <kbd className="rounded-sm border border-border-default bg-background-default px-1 font-mono leading-4 text-text-default">{hint.keys}</kbd>
+                <kbd className="rounded-sm border border-border-default bg-background-default px-1 leading-4 text-text-default">{hint.keys}</kbd>
                 <span>{hint.label}</span>
               </li>
             ))}
