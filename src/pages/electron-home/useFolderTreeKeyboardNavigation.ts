@@ -15,6 +15,7 @@ import {
   getKeyboardFocusRowId,
   normalizeCreateNoteFolderId,
   shouldIgnoreFolderTreeKeydown,
+  withTrashFocusItem,
 } from './folder-tree-focus';
 
 export type FolderTreeKeyboardActions = {
@@ -35,6 +36,8 @@ export type UseFolderTreeKeyboardNavigationOptions = {
   collapsedFolderIds: Set<string>;
   tree: FolderTree;
   treeRef: RefObject<HTMLDivElement | null>;
+  showTrash?: boolean;
+  onOpenTrash?: () => void;
 };
 
 export function useFolderTreeKeyboardNavigation({
@@ -44,12 +47,14 @@ export function useFolderTreeKeyboardNavigation({
   collapsedFolderIds,
   tree,
   treeRef,
+  showTrash = false,
+  onOpenTrash,
 }: UseFolderTreeKeyboardNavigationOptions) {
   const typeaheadBufferRef = useRef('');
   const typeaheadResetTimerRef = useRef<number | null>(null);
   const focusItems = useMemo(
-    () => getFolderTreeFocusItems(tree, collapsedFolderIds),
-    [collapsedFolderIds, tree],
+    () => withTrashFocusItem(getFolderTreeFocusItems(tree, collapsedFolderIds), showTrash),
+    [collapsedFolderIds, showTrash, tree],
   );
   const [focusedId, setFocusedId] = useState(selectedRowId);
   const itemsById = useMemo(() => new Map(focusItems.map(item => [item.id, item])), [focusItems]);
@@ -293,6 +298,11 @@ export function useFolderTreeKeyboardNavigation({
 
       if (currentItem.kind === 'note' && currentItem.note) {
         actions.onNoteSelect(currentItem.note.note);
+        return;
+      }
+
+      if (currentItem.kind === 'trash') {
+        onOpenTrash?.();
       }
     }
   }, [
@@ -302,6 +312,7 @@ export function useFolderTreeKeyboardNavigation({
     focusItemAtIndex,
     focusItems,
     focusTreeItem,
+    onOpenTrash,
     runTypeahead,
   ]);
 

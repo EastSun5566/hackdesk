@@ -434,9 +434,25 @@ describe('FolderNavigator', () => {
     expect(await screen.findByText('Connect HackMD to create notes.')).toBeVisible();
   });
 
+  it('opens trash from a row at the end of the sidebar tree', () => {
+    const onOpenChange = vi.fn();
+    window.hackdeskAPI = {
+      hackmd: { listTrash: vi.fn(async () => []) },
+    } as unknown as NonNullable<typeof window.hackdeskAPI>;
+    renderFolderNavigator({
+      trash: { open: false, onOpenChange, onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } },
+    });
+
+    fireEvent.click(within(screen.getByTestId('folder-navigator-tree')).getByRole('treeitem', { name: 'Trash' }));
+    expect(onOpenChange).toHaveBeenCalledWith(true);
+    delete window.hackdeskAPI;
+  });
+
   it('shows Trash in place of the tree, with a way back', async () => {
     const onOpenChange = vi.fn();
-    renderFolderNavigator({ trash: { open: true, onOpenChange, onOpenNote: vi.fn() } });
+    renderFolderNavigator({
+      trash: { open: true, onOpenChange, onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } },
+    });
 
     expect(screen.getByText('Trash')).toBeInTheDocument();
     expect(screen.queryByRole('tree')).not.toBeInTheDocument();

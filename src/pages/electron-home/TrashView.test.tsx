@@ -5,7 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from '@/components/ui/toast';
 import type { RestoreTrashResult, TrashedNoteSummary } from '@/lib/electron-api';
 
+import { HACKMD_TEAM_TRASH_FORBIDDEN_MESSAGE } from '@/lib/note-errors';
+
 import { TrashNavigatorList } from './TrashView';
+import type { WorkspaceScope } from './types';
+
+const personalScope: WorkspaceScope = { type: 'personal', label: 'My Workspace' };
+const teamScope: WorkspaceScope = { type: 'team', label: 'Demo', teamPath: 'demo-team' };
 
 vi.mock('@/components/ui/toast', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
@@ -29,12 +35,12 @@ function installApi(overrides: Partial<NonNullable<typeof window.hackdeskAPI>['h
   return hackmd;
 }
 
-function renderTrash() {
+function renderTrash(scope: WorkspaceScope = personalScope) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const handlers = { onOpenChange: vi.fn(), onOpenNote: vi.fn() };
   render(
     <QueryClientProvider client={queryClient}>
-      <TrashNavigatorList open {...handlers} />
+      <TrashNavigatorList open scope={scope} {...handlers} />
     </QueryClientProvider>,
   );
   return { ...handlers, queryClient };
@@ -72,6 +78,27 @@ describe('TrashNavigatorList', () => {
     renderTrash();
 
     expect(await screen.findByText('Trash is empty')).toBeInTheDocument();
+  });
+
+  it('loads team trash for the current workspace', async () => {
+    const listTrash = vi.fn(async () => []);
+    installApi({ listTrash });
+    renderTrash(teamScope);
+
+    await screen.findByText('Trash is empty');
+    expect(listTrash).toHaveBeenCalledWith('demo-team');
+  });
+
+  it('shows a calm message when team trash is admin-only', async () => {
+    installApi({
+      listTrash: vi.fn(async () => {
+        throw new Error(HACKMD_TEAM_TRASH_FORBIDDEN_MESSAGE);
+      }),
+    });
+    renderTrash(teamScope);
+
+    expect(await screen.findByText(HACKMD_TEAM_TRASH_FORBIDDEN_MESSAGE)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
   });
 
   it('retries after a failed load', async () => {

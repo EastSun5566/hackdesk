@@ -24,7 +24,13 @@ import {
 } from '@/lib/electron-api';
 import { EmptyState, EntityRow } from './interaction-primitives';
 import { formatCompactDate, formatDate, ICON_BUTTON_CLASS } from './ui';
-import { getRestoredIds, getTrashErrorMessage, useRestoreNotes, useTrashList } from './useTrash';
+import {
+  HACKMD_TEAM_TRASH_FORBIDDEN_MESSAGE,
+  isTeamTrashForbiddenError,
+} from '@/lib/note-errors';
+
+import type { WorkspaceScope } from './types';
+import { getRestoredIds, getTrashErrorMessage, trashTeamPathForScope, useRestoreNotes, useTrashList } from './useTrash';
 
 const FAILURE_MESSAGES: Record<RestoreTrashFailureReason, string> = {
   NOT_FOUND: 'Already removed or restored.',
@@ -37,6 +43,7 @@ export type TrashNavigatorViewProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenNote: (note: NoteSummary) => void;
+  scope: WorkspaceScope;
 };
 
 const TREE_ROW_FOCUS_CLASS = 'focus-within:bg-background-primary-subtler focus-within:text-text-emphasize focus-within:ring-2 focus-within:ring-inset focus-within:ring-focus-ring/80';
@@ -210,9 +217,11 @@ export function TrashNavigatorList({
   open,
   onOpenChange,
   onOpenNote,
+  scope,
 }: TrashNavigatorViewProps) {
-  const list = useTrashList(open);
-  const restore = useRestoreNotes();
+  const teamPath = trashTeamPathForScope(scope);
+  const list = useTrashList(open && teamPath !== undefined, teamPath ?? null);
+  const restore = useRestoreNotes(scope);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [failures, setFailures] = useState<Record<string, RestoreTrashFailureReason>>({});
   const anchorIndexRef = useRef<number | null>(null);
@@ -338,9 +347,13 @@ export function TrashNavigatorList({
   }
 
   if (list.isError) {
+    const message = getTrashErrorMessage(list.error);
+    if (isTeamTrashForbiddenError(message)) {
+      return <StatusMessage>{HACKMD_TEAM_TRASH_FORBIDDEN_MESSAGE}</StatusMessage>;
+    }
     return (
       <StatusMessage>
-        <span>Could not load the trash. {getTrashErrorMessage(list.error)}</span>
+        <span>Could not load the trash. {message}</span>
         <Button size="sm" variant="secondary" onClick={() => void list.refetch()}>Retry</Button>
       </StatusMessage>
     );

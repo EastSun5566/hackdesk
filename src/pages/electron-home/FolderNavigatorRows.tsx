@@ -37,6 +37,7 @@ import { FolderGlyph } from './FolderNavigatorGlyph';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { NoteMatchSnippet } from './NoteMatchSnippet';
 
+import { TRASH_TREE_FOCUS_ID } from './folder-tree-focus';
 import { useFolderTreeControlId, useFolderTreeGroupId, useFolderTreeItem } from './FolderTreeFocusContext';
 
 // The search box keeps focus, so its highlighted result shows only while the box is focused.
@@ -528,6 +529,45 @@ function FolderButtonView({
  * clicking it leaves the selected folder, right-clicking it creates at the top level, and while
  * something is dragged it becomes the target for moving it out of its folder.
  */
+export function TrashTreeRow({
+  selected,
+  onOpen,
+}: {
+  selected: boolean;
+  onOpen: () => void;
+}) {
+  const treeItemProps = useFolderTreeItem(TRASH_TREE_FOCUS_ID, selected, undefined, []);
+
+  return (
+    <li role="presentation" className="min-w-0">
+      <div
+        data-folder-tree-row-id={TRASH_TREE_FOCUS_ID}
+        data-folder-tree-kind="trash"
+        className="min-w-0"
+      >
+        <EntityRow
+          selected={selected}
+          // The same box as a note row's icon (its drag handle), so height and title column match.
+          leadingControls={(
+            <span aria-hidden="true" className="-mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center text-icon-subtle group-hover/entity-row:text-icon-default">
+              <Trash2 className="h-3.5 w-3.5" />
+            </span>
+          )}
+          title="Trash"
+          variant="compact"
+          tone="quiet"
+          selectedIndicator
+          contentAriaLabel="Trash"
+          contentOnClick={onOpen}
+          contentFocusTarget
+          contentButtonProps={treeItemProps}
+          className={TREE_ROW_FOCUS_CLASS}
+        />
+      </div>
+    </li>
+  );
+}
+
 export function TopLevelDropArea({
   dragActive,
   onSelect,

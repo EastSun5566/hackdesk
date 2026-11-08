@@ -260,19 +260,6 @@ describe('SidebarFooter', () => {
     expect(props.onOpenSettings).toHaveBeenCalledOnce();
   });
 
-  it('shows Trash only with a handler', () => {
-    renderFooter();
-    expect(screen.queryByRole('button', { name: 'Trash' })).toBeNull();
-    cleanup();
-
-    const onOpenTrash = vi.fn();
-    renderFooter({ onOpenTrash });
-    const trash = within(screen.getByTestId('sidebar-footer')).getByRole('button', { name: 'Trash' });
-    expect(trash).toHaveAttribute('data-workspace-navigation-id', 'trash');
-    fireEvent.click(trash);
-    expect(onOpenTrash).toHaveBeenCalledOnce();
-  });
-
   it('shows a quiet loading dot or an attention mark without the error text', () => {
     renderFooter({ accountStatus: { activeError: null, isFetching: true, isLoading: true, showingCachedFallback: false } });
     expect(screen.getByText('Not signed in')).toBeInTheDocument();

@@ -63,18 +63,21 @@ import {
   NoteListSkeleton,
   NoteRow,
   TopLevelDropArea,
+  TrashTreeRow,
 } from './FolderNavigatorRows';
 import { RepositoryNotice } from './RepositoryNotice';
 import { SkippedFilesNotice } from './SkippedFilesNotice';
+import { TRASH_TREE_FOCUS_ID } from './folder-tree-focus';
 import { FolderTreeFocusContext } from './FolderTreeFocusContext';
 import { useFolderTreeKeyboardNavigation } from './useFolderTreeKeyboardNavigation';
 import { SidebarFooter, WorkspaceSwitcher, type WorkspaceSidebarProps } from './WorkspaceSwitcher';
 import type { NoteTextSearch } from './useNoteTextSearch';
 import { TrashNavigatorHeader, TrashNavigatorList, type TrashNavigatorViewProps } from './TrashView';
-import { useTrashList } from './useTrash';
+import { trashTeamPathForScope, useTrashList } from './useTrash';
 
 function TrashNavigatorTitleBar({ trash }: { trash: TrashNavigatorViewProps }) {
-  const list = useTrashList(trash.open);
+  const teamPath = trashTeamPathForScope(trash.scope);
+  const list = useTrashList(trash.open && teamPath !== undefined, teamPath ?? null);
   const count = list.isSuccess ? list.data?.length : undefined;
   return <TrashNavigatorHeader count={count} onBack={() => trash.onOpenChange(false)} />;
 }
@@ -217,7 +220,7 @@ function FolderNavigatorPanel({
           trash={trash}
           workspace={workspace}
         />
-        <SidebarFooter accountStatus={workspace.accountStatus} user={workspace.user} onOpenSettings={workspace.onOpenSettings} onOpenTrash={workspace.onOpenTrash} onSignOut={workspace.onSignOut} />
+        <SidebarFooter accountStatus={workspace.accountStatus} user={workspace.user} onOpenSettings={workspace.onOpenSettings} onSignOut={workspace.onSignOut} />
       </div>
     </PanelShell>
   );
@@ -462,6 +465,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
 }) {
   const hasTreeContent = tree.roots.length > 0 || tree.unfiled.notes.length > 0;
   const trashActive = Boolean(trash?.open);
+  const showTrashRow = Boolean(trash && (scope.type === 'personal' || scope.type === 'team'));
 
   return (
     <div className="scroll-edges-source min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2">
@@ -470,6 +474,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
           open={trash.open}
           onOpenChange={trash.onOpenChange}
           onOpenNote={trash.onOpenNote}
+          scope={trash.scope}
         />
       ) : status.isLoading ? (
         <NoteListSkeleton />
@@ -507,7 +512,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
       ) : null}
       {/* The tree stays mounted (hidden) while search results show: rebuilding hundreds of rows
           when the search clears was the slowest keystroke. */}
-      {!trashActive && !status.isLoading && hasTreeContent && scope.type !== 'history' ? (
+      {!trashActive && !status.isLoading && scope.type !== 'history' && (hasTreeContent || showTrashRow) ? (
         <div hidden={isFinderMode}>
           <MemoNavigatorTree
             actions={actions}
@@ -516,6 +521,8 @@ const MemoNavigatorContent = memo(function NavigatorContent({
             selection={selection}
             status={status}
             tree={tree}
+            trash={trash}
+            showTrashRow={showTrashRow}
             treeFocusRequestId={treeFocusRequestId}
           />
         </div>
@@ -723,6 +730,8 @@ function NavigatorTree({
   selection,
   status,
   tree,
+  trash,
+  showTrashRow,
   treeFocusRequestId,
 }: {
   actions: FolderNavigatorActions;
@@ -731,6 +740,8 @@ function NavigatorTree({
   selection: FolderNavigatorSelection;
   status: FolderNavigatorStatus;
   tree: FolderTree;
+  trash?: TrashNavigatorViewProps;
+  showTrashRow: boolean;
   treeFocusRequestId: number;
 }) {
   const treeRef = useRef<HTMLDivElement | null>(null);
@@ -754,11 +765,13 @@ function NavigatorTree({
   const treeId = useId();
   const { focusContext } = useFolderTreeKeyboardNavigation({
     treeId,
-    selectedRowId: selection.selectedNoteId ? `note:${selection.selectedNoteId}` : selection.selectedFolderId ? `folder:${selection.selectedFolderId}` : null,
+    selectedRowId: trash?.open ? TRASH_TREE_FOCUS_ID : selection.selectedNoteId ? `note:${selection.selectedNoteId}` : selection.selectedFolderId ? `folder:${selection.selectedFolderId}` : null,
     actions,
     collapsedFolderIds: layout.collapsedFolderIds,
     tree,
     treeRef,
+    showTrash: showTrashRow,
+    onOpenTrash: trash ? () => trash.onOpenChange(true) : undefined,
   });
 
   // Keep the open note in view, so opening it from a tab, link or the palette shows where it lives.
@@ -915,6 +928,9 @@ function NavigatorTree({
                   />
                 </li>
               ))}
+              {showTrashRow && trash ? (
+                <TrashTreeRow selected={Boolean(trash.open)} onOpen={() => trash.onOpenChange(true)} />
+              ) : null}
             </ul>
             <TopLevelDropArea
               dragActive={Boolean(activeFolderId || activeNoteId)}

@@ -168,6 +168,7 @@ import {
   validateIpcInput,
   validateBoolean,
   validateNonEmptyString,
+  listTrashTeamPathSchema,
   validateOptionalNumber,
   validateString,
 } from './ipc-validation';
@@ -614,7 +615,11 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.hackmdRestoreNote, (_event, noteId: string) => (
     restoreNote(validateNonEmptyString(ELECTRON_CHANNELS.hackmdRestoreNote, noteId))
   ));
-  ipcMain.handle(ELECTRON_CHANNELS.hackmdListTrash, (event, options?: HackmdRequestOptions) => runRequest(event, options, listTrash, []));
+  ipcMain.handle(ELECTRON_CHANNELS.hackmdListTrash, (event, teamPath: string | null, options?: HackmdRequestOptions) => (
+    runRequest(event, options, listTrash, [
+      validateIpcInput(ELECTRON_CHANNELS.hackmdListTrash, listTrashTeamPathSchema, teamPath),
+    ])
+  ));
   ipcMain.handle(ELECTRON_CHANNELS.hackmdRestoreNotes, (_event, noteIds: string[]) => (
     restoreNotes(validateIpcInput(ELECTRON_CHANNELS.hackmdRestoreNotes, restoreNotesInputSchema, noteIds))
   ));

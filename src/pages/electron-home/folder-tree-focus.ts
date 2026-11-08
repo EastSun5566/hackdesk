@@ -1,12 +1,14 @@
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
+export const TRASH_TREE_FOCUS_ID = 'trash:hackmd';
+
 export type TreeFocusItem = {
   depth: number;
   folderId?: string;
   hasChildren?: boolean;
   id: string;
-  kind: 'folder' | 'note';
+  kind: 'folder' | 'note' | 'trash';
   label: string;
   note?: FolderTreeNote;
   parentFolderId: string | null;
@@ -72,6 +74,20 @@ export function getFolderTreeFocusItems(tree: FolderTree, collapsedFolderIds: Se
   }
 
   return items;
+}
+
+export function withTrashFocusItem(items: TreeFocusItem[], showTrash: boolean): TreeFocusItem[] {
+  if (!showTrash) return items;
+  return [
+    ...items,
+    {
+      depth: 0,
+      id: TRASH_TREE_FOCUS_ID,
+      kind: 'trash',
+      label: 'Trash',
+      parentFolderId: null,
+    },
+  ];
 }
 
 export function getKeyboardFocusRowId(target: EventTarget | null) {

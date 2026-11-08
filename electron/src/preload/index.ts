@@ -119,7 +119,9 @@ const api: HackDeskElectronAPI = {
     ),
     deleteNote: (noteId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdDeleteNote, noteId),
     restoreNote: (noteId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdRestoreNote, noteId),
-    listTrash: (options?: HackmdRequestOptions) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListTrash, options),
+    listTrash: (teamPath: string | null, options?: HackmdRequestOptions) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListTrash, teamPath, options)
+    ),
     restoreNotes: (noteIds: string[]) => ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdRestoreNotes, noteIds),
     listNoteComments: (noteId: string, query: NoteCommentsQuery, options?: HackmdRequestOptions) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.hackmdListNoteComments, noteId, query, options)

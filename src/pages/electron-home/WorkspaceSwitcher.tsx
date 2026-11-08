@@ -28,7 +28,6 @@ import {
   PinOff,
   Search,
   Settings2,
-  Trash2,
 } from 'lucide-react';
 import { useContext, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
@@ -77,8 +76,6 @@ export type WorkspaceSidebarProps = {
   onScopeChange: (scope: WorkspaceScope) => void;
   onChooseLocalVault: () => void;
   onOpenSettings: () => void;
-  /** Opens the HackMD trash. Leave it out to hide the button. */
-  onOpenTrash?: () => void;
   /** Removes the HackMD token. Leave it out to hide Sign Out. */
   onSignOut?: () => void;
   onPinnedTeamIdsChange: (pinnedTeamIds: string[]) => void;
@@ -403,7 +400,7 @@ export function WorkspaceSwitcher({
   onScopeChange,
   onChooseLocalVault,
   onPinnedTeamIdsChange,
-}: Omit<WorkspaceSidebarProps, 'accountStatus' | 'onOpenSettings' | 'onOpenTrash' | 'onSignOut'>) {
+}: Omit<WorkspaceSidebarProps, 'accountStatus' | 'onOpenSettings' | 'onSignOut'>) {
   const popupRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const hintsHeld = useContext(NavigationHintsContext) === true;
@@ -567,14 +564,13 @@ export function WorkspaceSwitcher({
   );
 }
 
-/** The bottom of the sidebar: the account hub, Settings, and the HackMD trash. */
+/** The bottom of the sidebar: the account hub and Settings. */
 export function SidebarFooter({
   accountStatus,
   user,
   onOpenSettings,
-  onOpenTrash,
   onSignOut,
-}: Pick<WorkspaceSidebarProps, 'accountStatus' | 'user' | 'onOpenSettings' | 'onOpenTrash' | 'onSignOut'>) {
+}: Pick<WorkspaceSidebarProps, 'accountStatus' | 'user' | 'onOpenSettings' | 'onSignOut'>) {
   const hasAccountAttention = Boolean(accountStatus?.activeError);
   const isLoadingAccount = !user && Boolean(accountStatus?.isLoading || accountStatus?.isFetching);
 
@@ -597,13 +593,6 @@ export function SidebarFooter({
           <Settings2 aria-hidden="true" className="size-4" />
         </Button>
       </Tooltip>
-      {onOpenTrash ? (
-        <Tooltip content="Trash" side="top">
-          <Button variant="ghost" size="icon" aria-label="Trash" data-workspace-navigation-id="trash" onClick={onOpenTrash}>
-            <Trash2 aria-hidden="true" className="size-4" />
-          </Button>
-        </Tooltip>
-      ) : null}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   HACKMD_NOTE_COMMENTS_UNAVAILABLE_MESSAGE,
+  HACKMD_TEAM_TRASH_FORBIDDEN_MESSAGE,
   HACKMD_NOTE_NOT_FOUND_MESSAGE,
   HACKMD_NOTE_VERSION_NOT_NAMED_MESSAGE,
   HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE,
@@ -549,6 +550,21 @@ describe('hackmd-service request mapping', () => {
       { id: 'old', title: 'Old', tags: ['a'], deletedAtMillis: 1_760_000_000_000, permanentDeleteAtMillis: 1_762_592_000_000 },
     ]);
     expect(calls[0].url).toBe('https://api.test/v1/trash');
+  });
+
+  it('lists team trash with an encoded team path', async () => {
+    const { calls, service } = createService([jsonResponse([])]);
+
+    await expect(service.listTrash('team/with space')).resolves.toEqual([]);
+    expect(calls[0].url).toBe('https://api.test/v1/teams/team%2Fwith%20space/trash');
+  });
+
+  it('reports team trash as admin-only on 403', async () => {
+    const { service } = createService([
+      jsonResponse({ errorCode: 'forbidden', message: 'No' }, { status: 403, statusText: 'Forbidden' }),
+    ]);
+
+    await expect(service.listTrash('team-a')).rejects.toThrow(HACKMD_TEAM_TRASH_FORBIDDEN_MESSAGE);
   });
 
   it('restores notes in one batch and reads a 207 partial result', async () => {

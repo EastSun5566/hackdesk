@@ -231,8 +231,6 @@ export function useHomeWorkspaceProps({
         onSignOut: settings?.hasHackmdApiToken
           ? () => mutations.disconnectHackmdMutation.mutate(undefined, { onSuccess: actions.handleHackmdDisconnected })
           : undefined,
-        // The trash lives on HackMD, so it is offered only once a token is set.
-        onOpenTrash: settings?.hasHackmdApiToken ? () => actions.setTrashOpen(true) : undefined,
         onPinnedTeamIdsChange: (pinnedTeamIds) => {
           mutations.updateSettingsMutation.mutate({
             title: settings?.title ?? defaultSettings.title,
@@ -254,10 +252,11 @@ export function useHomeWorkspaceProps({
       },
       emptyState: homeStatus.emptyState,
       status: homeStatus.navigatorStatus,
-      trash: settings?.hasHackmdApiToken ? {
+      trash: settings?.hasHackmdApiToken && (displayScope.type === 'personal' || displayScope.type === 'team') ? {
         open: trashOpen,
         onOpenChange: actions.setTrashOpen,
         onOpenNote: actions.openTrashNote,
+        scope: displayScope,
       } : undefined,
       actions: {
         onFolderSelect: navigator.handleFolderSelect,

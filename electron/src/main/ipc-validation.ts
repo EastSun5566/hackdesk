@@ -518,6 +518,9 @@ export const noteVersionIdSchema = z.string().regex(/^[^\s/?#&]+$/);
 
 export const hackmdRequestOptionsSchema = z.strictObject({ requestId: z.uuid() }).optional();
 
+/** `null` lists personal trash; otherwise a team path segment. */
+export const listTrashTeamPathSchema = z.string().min(1).max(200).nullable();
+
 export const openHackmdEditorInputSchema = z.strictObject({
   publishType: z.enum(['edit', 'view', 'slide', 'book']),
   shortId: z.string(),

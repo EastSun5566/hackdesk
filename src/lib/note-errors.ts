@@ -36,6 +36,13 @@ export function isNoteCommentsUnavailableError(message: string | null | undefine
   return !!message && message.includes(HACKMD_NOTE_COMMENTS_UNAVAILABLE_MESSAGE);
 }
 
+// Team trash is visible only to team admins; HackMD answers 403 for everyone else.
+export const HACKMD_TEAM_TRASH_FORBIDDEN_MESSAGE = "Only team admins can see this team's trash.";
+
+export function isTeamTrashForbiddenError(message: string | null | undefined) {
+  return !!message && message.includes(HACKMD_TEAM_TRASH_FORBIDDEN_MESSAGE);
+}
+
 export function isRemoteNoteChangedError(message: string | null | undefined) {
   return !!message && message.includes(HACKMD_NOTE_CHANGED_MESSAGE);
 }
