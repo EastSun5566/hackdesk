@@ -12,6 +12,7 @@ import type { ElectronActionId } from '@/lib/electron-api';
 import {
   displayShortcutConfig,
   getShortcutConflicts,
+  isMacPlatform,
   isReservedShortcutConfig,
   isValidCustomShortcutConfig,
   recordShortcutFromEvent,
@@ -19,6 +20,7 @@ import {
 } from '@/lib/keyboard-shortcuts';
 import { cn } from '@/lib/utils';
 
+import { holdHintsPreference, leaderSpacePreference } from './keyboard-feature-preferences';
 import { SettingsInput, SettingsSection } from './SettingsPrimitives';
 
 const EDITABLE_ACTIONS = ELECTRON_ACTIONS;
@@ -66,6 +68,8 @@ export function ShortcutsSettingsPanel({
   shortcuts: ShortcutOverrides;
   onShortcutsChange: (shortcuts: ShortcutOverrides) => void;
 }) {
+  const leaderSpaceEnabled = leaderSpacePreference.use();
+  const holdHintsEnabled = holdHintsPreference.use();
   const [filter, setFilter] = useState('');
   const [activeActionId, setActiveActionId] = useState<ElectronActionId | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -190,6 +194,9 @@ export function ShortcutsSettingsPanel({
       <div className="space-y-4">
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={characterShortcutsEnabled} onChange={event => onCharacterShortcutsChange(event.target.checked)} />Enable ?, / and Space outside text editing</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={keyHintsVisible} onChange={event => onKeyHintsVisibleChange(event.target.checked)} />Show key hints</label>
+        {/* Kept on this computer and applied at once, unlike the options above, which save with the dialog. */}
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={leaderSpaceEnabled} onChange={event => leaderSpacePreference.set(event.target.checked)} />Space opens the leader menu</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={holdHintsEnabled} onChange={event => holdHintsPreference.set(event.target.checked)} />Hold {isMacPlatform(platform) ? '⌘' : 'Ctrl'} to show navigation hints</label>
         <div className="relative">
           <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-subtle" />
           <SettingsInput

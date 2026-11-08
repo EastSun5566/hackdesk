@@ -8,6 +8,7 @@ import type { ShortcutOverrides } from '@/lib/keyboard-shortcuts';
 import { cn } from '@/lib/utils';
 
 import { FOCUS_RING_CLASS, HACK_MODE_HIDDEN_CLASS } from './ui';
+import { leaderSpacePreference } from './keyboard-feature-preferences';
 
 /** How long after the last keystroke the bar comes back. */
 const TYPING_PAUSE_MS = 1500;
@@ -31,8 +32,9 @@ function hintOptions(
   shortcuts: ShortcutOverrides | undefined,
   platform: string,
   characterShortcutsEnabled: boolean,
+  leaderSpaceEnabled: boolean,
 ) {
-  return { actionContext, shortcuts, platform, characterShortcutsEnabled };
+  return { actionContext, shortcuts, platform, characterShortcutsEnabled, leaderSpaceEnabled };
 }
 
 function EditorStatusText({ status }: { status: EditorStatusSnapshot }) {
@@ -144,7 +146,8 @@ export function KeyHintBar({
     };
   }, []);
 
-  const options = hintOptions(actionContext, shortcuts, platform, characterShortcutsEnabled);
+  const leaderSpaceEnabled = leaderSpacePreference.use();
+  const options = hintOptions(actionContext, shortcuts, platform, characterShortcutsEnabled, leaderSpaceEnabled);
   const helpKeys = getResolvedActionShortcut('show-keyboard-shortcuts', shortcuts, platform, characterShortcutsEnabled);
   const hints: KeyHint[] = leader
     ? [

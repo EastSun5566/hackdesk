@@ -6,6 +6,7 @@ import { allocateNavigationCodes, collectNavigationTargets, getSettingsNavigatio
 import { hasWorkbenchPopup } from './workbench-keyboard-context';
 
 import { NavigationHintsContext } from './KeyboardNavigationContext';
+import { holdHintsPreference } from './keyboard-feature-preferences';
 type HintState = { scope: HTMLElement | null; context: symbol | null; held: boolean; hints: NavigationHint[]; prefix: string };
 const EMPTY: HintState = { scope: null, context: null, held: false, hints: [], prefix: '' };
 /** How long the primary key is held before hints show, so quick chords such as Cmd+Right never flash them. */
@@ -13,6 +14,7 @@ export const HINT_DELAY_MS = 400;
 
 type NavigationProps = { workspaceKey: string | null; shortcuts?: ShortcutOverrides; platform: string; characterEnabled: boolean; children: ReactNode };
 export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcuts, platform, characterEnabled, children }: NavigationProps) {
+  const holdHintsEnabled = holdHintsPreference.use();
   const codesByWorkspace = useRef(new Map<string, Map<string, string>>());
   const signature = JSON.stringify(configuredShortcuts ?? {});
   const shortcuts = useMemo<ShortcutOverrides>(() => JSON.parse(signature), [signature]);
@@ -20,6 +22,8 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
   const context = useMemo(() => Symbol(contextKey), [contextKey]);
   const [state, setState] = useState<HintState>(EMPTY);
   useEffect(() => {
+    // Switched off in Settings → Shortcuts: holding ⌘ shows nothing.
+    if (!holdHintsEnabled) return;
     const mac = isMacPlatform(platform);
     const primary = mac ? 'Meta' : 'Control';
     let held = false;
@@ -138,7 +142,7 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
       delete document.documentElement.dataset.navigationHints;
       if (frame !== null) cancelAnimationFrame(frame);
     };
-  }, [workspaceKey, shortcuts, platform, characterEnabled, context]);
+  }, [workspaceKey, shortcuts, platform, characterEnabled, context, holdHintsEnabled]);
   const current = state.context === context ? state : EMPTY;
   const visible = current.hints.filter(hint => (!current.prefix || hint.code.startsWith(current.prefix)) && (hint.code || hint.shortcut));
   return <NavigationHintsContext.Provider value={current.held && !current.scope}>
