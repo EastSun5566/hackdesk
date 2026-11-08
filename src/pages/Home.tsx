@@ -17,7 +17,7 @@ import { toast } from '@/components/ui/toast';
 import { TrashDialog } from './electron-home/TrashDialog';
 import type { SettingsTab } from './electron-home/SettingsDialogConfig';
 import type { ElectronFocusZone } from './electron-home/useElectronFocusZones';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SetStateAction } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useTheme } from '@/components/theme-provider';
@@ -152,11 +152,11 @@ export function Home() {
     manualEmptyWorkspaceRef: selectionRefs.manualEmptyWorkspaceRef,
   });
   const {
-    collapsedFolderIds,
+    expandedFolderIds,
     scope,
     scopeStorageKey,
     selectedFolderId,
-    setCollapsedFolderIds,
+    setExpandedFolderIds,
     setSelectedFolderId,
     setWorkspaceScope: setWorkspaceScopeState,
   } = workspaceState;
@@ -380,6 +380,26 @@ export function Home() {
     syncOpenNoteSummaries: noteWorkspace.syncNoteSummaries,
     teams,
   });
+  // Folders start collapsed: the stored set is the folders you opened, and every other folder in
+  // the tree reads as collapsed. Callers keep working in collapsed terms through this adapter.
+  const allFolderIds = useMemo(() => [...folderTree.nodesById.keys()], [folderTree.nodesById]);
+  const collapsedFolderIds = useMemo(
+    () => new Set(allFolderIds.filter((id) => !expandedFolderIds.has(id))),
+    [allFolderIds, expandedFolderIds],
+  );
+  const setCollapsedFolderIds = useCallback((update: SetStateAction<Set<string>>) => {
+    setExpandedFolderIds((currentExpanded) => {
+      const currentCollapsed = new Set(allFolderIds.filter((id) => !currentExpanded.has(id)));
+      const nextCollapsed = typeof update === 'function' ? update(currentCollapsed) : update;
+      if (nextCollapsed === currentCollapsed) return currentExpanded;
+      const next = new Set(currentExpanded);
+      for (const id of allFolderIds) {
+        if (nextCollapsed.has(id)) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+  }, [allFolderIds, setExpandedFolderIds]);
 
   const mutations = useElectronNoteMutations({
     api,
@@ -911,9 +931,20 @@ export function Home() {
     scope.type,
   ]);
 
+  // Folders start collapsed, so open the ones above the open note: it stays visible in the tree.
+  const selectedNoteFolderIds = useMemo(() => folderTree.allNotes
+    .find((candidate) => candidate.note.id === selectedNote?.id)?.folderPath.map((folder) => folder.id) ?? [],
+  [folderTree.allNotes, selectedNote?.id]);
+  useEffect(() => {
+    if (!selectedNoteFolderIds.length) return;
+    setExpandedFolderIds((current) => (selectedNoteFolderIds.every((id) => current.has(id))
+      ? current
+      : new Set([...current, ...selectedNoteFolderIds])));
+  }, [selectedNoteFolderIds, setExpandedFolderIds]);
+
   useElectronHomeShellEffects({
     api,
-    collapsedFolderIds,
+    expandedFolderIds,
     openQuickCaptureDraft,
     runAction,
     scopeStorageKey,

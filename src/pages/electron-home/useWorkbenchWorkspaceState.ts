@@ -3,7 +3,7 @@ import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 
 import type { WorkspaceScope } from './types';
 import {
-  FOLDER_COLLAPSED_PREFIX,
+  FOLDER_EXPANDED_PREFIX,
   LAST_WORKSPACE_SCOPE_KEY,
   readStringArrayStorage,
   readWorkspaceScopeStorage,
@@ -23,12 +23,12 @@ export type WorkbenchWorkspaceStateOptions = {
 };
 
 export type WorkbenchWorkspaceState = {
-  collapsedFolderIds: Set<string>;
+  expandedFolderIds: Set<string>;
   initialScopeStorageKey: string | null;
   scope: WorkspaceScope;
   scopeStorageKey: string | null;
   selectedFolderId: string | null;
-  setCollapsedFolderIds: Dispatch<SetStateAction<Set<string>>>;
+  setExpandedFolderIds: Dispatch<SetStateAction<Set<string>>>;
   setSelectedFolderId: Dispatch<SetStateAction<string | null>>;
   setWorkspaceScope: (scope: WorkspaceScope) => void;
 };
@@ -51,12 +51,12 @@ export function useWorkbenchWorkspaceState({
   const scopeStorageKey = !settingsReady ? null : initialDrafts ? INITIAL_DRAFT_SCOPE_KEY : getScopeStorageKey(scope);
   const [folderScopeKey, setFolderScopeKey] = useState(scopeStorageKey);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  const [collapsedFolderIds, setCollapsedFolderIds] = useState(() => scopeStorageKey
-    ? readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${scopeStorageKey}`) : new Set<string>());
+  const [expandedFolderIds, setExpandedFolderIds] = useState(() => scopeStorageKey
+    ? readStringArrayStorage(`${FOLDER_EXPANDED_PREFIX}${scopeStorageKey}`) : new Set<string>());
   if (folderScopeKey !== scopeStorageKey) {
     setFolderScopeKey(scopeStorageKey);
-    setCollapsedFolderIds(scopeStorageKey
-      ? readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${scopeStorageKey}`) : new Set<string>());
+    setExpandedFolderIds(scopeStorageKey
+      ? readStringArrayStorage(`${FOLDER_EXPANDED_PREFIX}${scopeStorageKey}`) : new Set<string>());
     setSelectedFolderId(null);
   }
   useLayoutEffect(() => { manualEmptyWorkspaceRef.current = false; }, [scopeStorageKey, manualEmptyWorkspaceRef]);
@@ -69,12 +69,12 @@ export function useWorkbenchWorkspaceState({
   }, [manualEmptyWorkspaceRef]);
 
   return {
-    collapsedFolderIds,
+    expandedFolderIds,
     initialScopeStorageKey: scopeStorageKey,
     scope,
     scopeStorageKey,
     selectedFolderId,
-    setCollapsedFolderIds,
+    setExpandedFolderIds,
     setSelectedFolderId,
     setWorkspaceScope,
   };

@@ -459,6 +459,13 @@ function NavigatorContent({
           selectedNoteId={selection.selectedNoteId}
           textSearch={finderState.query.trim() ? textSearch : undefined}
         />
+      ) : scope.type === 'history' ? (
+        <HistoryList
+          actions={actions}
+          entries={tree.allNotes}
+          selectedFolderForNoteMove={selectedFolderForNoteMove}
+          selectedNoteId={selection.selectedNoteId}
+        />
       ) : (
         <NavigatorTree
           actions={actions}
@@ -541,6 +548,49 @@ function NavigatorEmptyAction({
 
 function finderResultId(entry: FolderTreeNote) {
   return `note-finder-result-${entry.note.id}`;
+}
+
+/**
+ * History is a time order, not a place, so it lists notes most recent first instead of nesting
+ * them in folders. Each row's hover card names its workspace folder.
+ */
+function HistoryList({
+  actions,
+  entries,
+  selectedFolderForNoteMove,
+  selectedNoteId,
+}: {
+  actions: FolderNavigatorActions;
+  entries: FolderTreeNote[];
+  selectedFolderForNoteMove: FolderTreeNode | null;
+  selectedNoteId: string | null;
+}) {
+  return (
+    <ul className="m-0 grid min-w-0 list-none gap-0.5 p-0" aria-label="Recently opened notes">
+      {entries.map((entry) => (
+        <li key={`history:${entry.note.id}`} className="min-w-0">
+          <NoteRow
+            entry={entry}
+            selected={entry.note.id === selectedNoteId}
+            focusTarget={entry.note.id === selectedNoteId}
+            onSelect={actions.onNoteSelect}
+            onOpen={actions.onOpenNote}
+            onCopyLink={actions.onCopyNoteLink}
+            onCopyMarkdownLink={actions.onCopyNoteMarkdownLink}
+            onDuplicate={actions.onDuplicateNote}
+            onExportMarkdown={actions.onExportNoteMarkdown}
+            onDelete={actions.onDeleteNote}
+            onRevealFolder={actions.onRevealNoteFolder}
+            onRevealInFinder={actions.onNoteRevealInFinder}
+            onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}
+            selectedFolder={selectedFolderForNoteMove}
+            showInFolderAction
+            compact
+          />
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function FinderResultList({

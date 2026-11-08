@@ -4,7 +4,7 @@ import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 
 export const LOCAL_WORKSPACE_MIGRATION_KEY = 'hackdesk_local_workspace_migration_v1';
 export const LOCAL_WORKSPACE_BACKUP_KEY = 'hackdesk_local_workspace_backup_v1';
-const prefixes = ['hackdesk_note_workspace:', 'hackdesk_note_finder:', 'hackdesk_folder_collapsed:'];
+const prefixes = ['hackdesk_note_workspace:', 'hackdesk_note_finder:', 'hackdesk_folder_collapsed:', 'hackdesk_folder_expanded:'];
 
 export function migrateLocalWorkspaceStorage(storage: Storage, snapshot: LocalVaultSnapshot) {
   if (storage.getItem(LOCAL_WORKSPACE_MIGRATION_KEY)) return;

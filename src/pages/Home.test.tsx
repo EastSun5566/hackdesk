@@ -173,7 +173,7 @@ function createDeferred<T>() {
 // Query only the navigator; scanning the whole workbench can starve pending query updates.
 function queryNoteRow(name: string) {
   const tree = screen.queryByTestId('folder-navigator-tree');
-  const rows = tree ?? screen.queryByLabelText('Search results');
+  const rows = tree ?? screen.queryByLabelText('Search results') ?? screen.queryByLabelText('Recently opened notes');
   return rows ? within(rows).queryByRole(tree ? 'treeitem' : 'button', { name }) : null;
 }
 
@@ -2942,7 +2942,7 @@ describe('Home native-feel behavior', () => {
     expect(window.document.getElementById('note-navigator-panel')).toHaveStyle({ '--panel-width': '0px' });
   });
 
-  it('exposes expanded state when folders are collapsed and expanded', async () => {
+  it('starts folders collapsed and exposes expanded state as they open and close', async () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
@@ -2953,10 +2953,12 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
 
-    expect(await screen.findByRole('button', { name: 'Collapse Projects' })).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByRole('button', { name: 'Expand Projects' })).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Projects' }));
+    expect(screen.getByRole('button', { name: 'Collapse Projects' })).toHaveAttribute('aria-expanded', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse Projects' }));
-
     expect(screen.getByRole('button', { name: 'Expand Projects' })).toHaveAttribute('aria-expanded', 'false');
   });
 
@@ -3388,6 +3390,9 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
     fireEvent.click(within(await openWorkspaceSwitcher()).getByRole('button', { name: 'History' }));
     await findNoteRow('History Product');
+    // History is a flat list, most recent first, not a folder tree.
+    expect(screen.queryByTestId('folder-navigator-tree')).not.toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Recently opened notes' })).toBeInTheDocument();
     await openViewOptions();
     fireEvent.click(await findTagOption('product'));
 
