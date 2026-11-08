@@ -30,7 +30,7 @@ import { TooltipContent, TooltipRoot, TooltipTrigger } from '@/components/ui/too
 import { cn } from '@/lib/utils';
 
 import { EntityRow } from './interaction-primitives';
-import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS, formatCompactDate, formatDate, getFolderTotalNoteCount } from './ui';
+import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS, formatCompactDate, formatDate } from './ui';
 import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
@@ -327,7 +327,6 @@ function FolderButton({
   onRevealInFinder?: (folderId: string) => void;
 }) {
   const hasChildren = node.children.length > 0 || node.notes.length > 0;
-  const totalNotes = getFolderTotalNoteCount(node);
   const isLocalFolder = node.id.startsWith('local-folder:');
   const {
     attributes,
@@ -411,7 +410,6 @@ function FolderButton({
               </span>
             )}
             title={node.name}
-            trailing={totalNotes}
             contentOnClick={() => onSelect(node.id)}
             contentAriaLabel={node.name}
             contentAriaCurrent={treeItemProps ? undefined : selected ? 'page' : undefined}
@@ -451,62 +449,46 @@ function FolderButton({
   );
 }
 
-export function RootFolderRow({
-  selected,
-  focusTarget = false,
-  noteCount,
-  folderDragActive,
-  noteDragActive,
+/**
+ * The space under the tree stands for the workspace's top level, which has no row of its own:
+ * clicking it leaves the selected folder, right-clicking it creates at the top level, and while
+ * something is dragged it becomes the target for moving it out of its folder.
+ */
+export function TopLevelDropArea({
+  dragActive,
   onSelect,
   onCreateFolder,
   onCreateNote,
 }: {
-  selected: boolean;
-  focusTarget?: boolean;
-  noteCount: number;
-  folderDragActive: boolean;
-  noteDragActive: boolean;
+  dragActive: boolean;
   onSelect: () => void;
   onCreateFolder: () => void;
   onCreateNote: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: ROOT_FOLDER_DROP_ID });
-  const rowId = `folder:${UNFILED_FOLDER_ID}`;
-  const treeItemProps = useFolderTreeItem(rowId, selected, true);
 
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
           ref={setNodeRef}
-          className="min-w-0"
-          data-folder-tree-row-id={rowId}
-          data-folder-tree-kind="folder"
-          data-folder-tree-folder-id={UNFILED_FOLDER_ID}
+          data-testid="tree-top-level"
+          onClick={onSelect}
+          className={cn(
+            'mt-0.5 flex min-h-10 flex-1 items-start rounded px-2 py-1.5 text-xs text-text-subtle transition-colors',
+            dragActive && 'border border-dashed border-border-default',
+            dragActive && isOver && 'border-primary-default bg-background-primary-subtler text-text-default',
+          )}
         >
-          <EntityRow
-            selected={selected || ((folderDragActive || noteDragActive) && isOver)}
-            title="Root"
-            trailing={noteCount}
-            variant="compact"
-            // Root holds every top-level folder and note, so it reads as the tree's section label
-            // rather than as a sibling of what it contains.
-            titleClassName="text-xs font-semibold text-text-subtle"
-            className={cn('min-h-7', TREE_ROW_FOCUS_CLASS)}
-            focusTarget={focusTarget}
-            selectedIndicator
-            ariaCurrent={treeItemProps ? undefined : selected ? 'page' : undefined}
-            buttonProps={treeItemProps}
-            onClick={onSelect}
-          />
+          {dragActive ? 'Move to top level' : null}
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, onCreateNote)}>
+        <ContextMenuItem onSelect={onCreateNote}>
           <FileText aria-hidden="true" className="h-4 w-4" />
           New Note
         </ContextMenuItem>
-        <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, onCreateFolder)}>
+        <ContextMenuItem onSelect={onCreateFolder}>
           <FolderPlus aria-hidden="true" className="h-4 w-4" />
           New Folder
         </ContextMenuItem>

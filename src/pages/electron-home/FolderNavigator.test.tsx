@@ -363,7 +363,7 @@ describe('FolderNavigator', () => {
     fireEvent.keyDown(emptyInput, { key: 'Escape' });
 
     await waitFor(() => {
-      expect(getFocusedTreeRowId()).toBe(`folder:${UNFILED_FOLDER_ID}`);
+      expect(getFocusedTreeRowId()).toBe('folder:projects');
     });
 
     treeView.unmount();
@@ -564,8 +564,7 @@ describe('FolderNavigator', () => {
     const nested = within(group!).getByRole('treeitem', { name: 'Nested note' });
     expect(nested).toHaveAttribute('aria-level', '2');
     expect(nested).not.toHaveAttribute('aria-expanded');
-    const root = within(tree).getByRole('treeitem', { name: /Root/ });
-    expect(root).not.toHaveAttribute('aria-expanded');
+    expect(within(tree).queryByRole('treeitem', { name: /Root/ })).not.toBeInTheDocument();
     expect(within(tree).getByRole('treeitem', { name: 'Loose note' })).toHaveAttribute('aria-level', '1');
   });
 
@@ -612,19 +611,19 @@ describe('FolderNavigator', () => {
 
   it('moves focus through visible tree rows with arrow keys and Ctrl+N/P', () => {
     const { container } = renderFolderNavigator();
-    const root = focusTreeRow(container, `folder:${UNFILED_FOLDER_ID}`);
+    const projects = focusTreeRow(container, 'folder:projects');
 
-    fireEvent.keyDown(root, { key: 'ArrowDown' });
-    expect(getFocusedTreeRowId()).toBe('folder:projects');
-
-    fireEvent.keyDown(document.activeElement ?? root, { ctrlKey: true, key: 'n' });
+    fireEvent.keyDown(projects, { key: 'ArrowDown' });
     expect(getFocusedTreeRowId()).toBe('note:nested-note');
 
-    fireEvent.keyDown(document.activeElement ?? root, { ctrlKey: true, key: 'p' });
-    expect(getFocusedTreeRowId()).toBe('folder:projects');
+    fireEvent.keyDown(document.activeElement ?? projects, { ctrlKey: true, key: 'n' });
+    expect(getFocusedTreeRowId()).toBe('note:loose-note');
 
-    fireEvent.keyDown(document.activeElement ?? root, { key: 'ArrowUp' });
-    expect(getFocusedTreeRowId()).toBe(`folder:${UNFILED_FOLDER_ID}`);
+    fireEvent.keyDown(document.activeElement ?? projects, { ctrlKey: true, key: 'p' });
+    expect(getFocusedTreeRowId()).toBe('note:nested-note');
+
+    fireEvent.keyDown(document.activeElement ?? projects, { key: 'ArrowUp' });
+    expect(getFocusedTreeRowId()).toBe('folder:projects');
   });
 
   it('moves focus to first and last visible tree rows with Home and End', () => {
@@ -635,7 +634,7 @@ describe('FolderNavigator', () => {
     expect(getFocusedTreeRowId()).toBe('note:loose-note');
 
     fireEvent.keyDown(document.activeElement ?? projects, { key: 'Home' });
-    expect(getFocusedTreeRowId()).toBe(`folder:${UNFILED_FOLDER_ID}`);
+    expect(getFocusedTreeRowId()).toBe('folder:projects');
   });
 
   it('expands and collapses folders with right and left arrows', () => {
@@ -679,7 +678,7 @@ describe('FolderNavigator', () => {
     const onFolderSelect = vi.fn();
     const onNoteSelect = vi.fn();
     const { container } = renderFolderNavigator({ actions: { onFolderSelect, onNoteSelect } });
-    const root = focusTreeRow(container, `folder:${UNFILED_FOLDER_ID}`);
+    const root = focusTreeRow(container, 'note:loose-note');
 
     fireEvent.keyDown(root, { key: 'p' });
     expect(getFocusedTreeRowId()).toBe('folder:projects');
@@ -694,7 +693,7 @@ describe('FolderNavigator', () => {
     vi.useFakeTimers();
     try {
       const { container } = renderFolderNavigator();
-      const root = focusTreeRow(container, `folder:${UNFILED_FOLDER_ID}`);
+      const root = focusTreeRow(container, 'note:loose-note');
 
       fireEvent.keyDown(root, { key: 'p' });
       expect(getFocusedTreeRowId()).toBe('folder:projects');
@@ -714,11 +713,11 @@ describe('FolderNavigator', () => {
     const { container } = renderFolderNavigator({
       layout: { collapsedFolderIds: new Set(['projects']) },
     });
-    const root = focusTreeRow(container, `folder:${UNFILED_FOLDER_ID}`);
+    const root = focusTreeRow(container, 'note:loose-note');
 
     fireEvent.keyDown(root, { key: 'n' });
 
-    expect(getFocusedTreeRowId()).toBe(`folder:${UNFILED_FOLDER_ID}`);
+    expect(getFocusedTreeRowId()).toBe('note:loose-note');
     expect(container.querySelector('[data-folder-tree-row-id="note:nested-note"]')).not.toBeInTheDocument();
     expect(screen.queryByText('Nested note')).not.toBeInTheDocument();
   });
@@ -771,14 +770,13 @@ describe('FolderNavigator', () => {
     expect(onDeleteNote).toHaveBeenCalledWith(expect.objectContaining({ id: 'nested-note' }));
   });
 
-  it('does not delete with bare Delete or Backspace and does not delete root', () => {
+  it('does not delete with bare Delete or Backspace', () => {
     const onDeleteFolder = vi.fn();
     const onDeleteNote = vi.fn();
     const { container } = renderFolderNavigator({ actions: { onDeleteFolder, onDeleteNote } });
-    const root = focusTreeRow(container, `folder:${UNFILED_FOLDER_ID}`);
+    const projects = focusTreeRow(container, 'folder:projects');
 
-    fireEvent.keyDown(root, { key: 'Backspace', metaKey: true });
-    fireEvent.keyDown(root, { key: 'Delete' });
+    fireEvent.keyDown(projects, { key: 'Delete' });
 
     const nestedNote = focusTreeRow(container, 'note:nested-note');
     fireEvent.keyDown(nestedNote, { key: 'Backspace' });
@@ -800,7 +798,8 @@ describe('FolderNavigator', () => {
       expect(document.activeElement).toBe(screen.getByRole('treeitem', { name: 'Projects' }));
     });
 
-    fireEvent.contextMenu(screen.getByRole('treeitem', { name: /Root/ }));
+    // The space under the tree stands for the top level.
+    fireEvent.contextMenu(screen.getByTestId('tree-top-level'));
     fireEvent.click(await screen.findByText('New Note'));
 
     await waitFor(() => {

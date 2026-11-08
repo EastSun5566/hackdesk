@@ -61,8 +61,8 @@ function createTree() {
 
 describe('folder tree focus model', () => {
   it('builds visible focus items in tree order', () => {
+    // The top level has no row: the tree starts at its first folder or note.
     expect(getFolderTreeFocusItems(createTree(), new Set()).map((item) => item.id)).toEqual([
-      createFolderFocusId(UNFILED_FOLDER_ID),
       createFolderFocusId('projects'),
       createFolderFocusId('design'),
       createNoteFocusId('design-note'),
@@ -73,7 +73,6 @@ describe('folder tree focus model', () => {
 
   it('skips collapsed children without expanding folders', () => {
     expect(getFolderTreeFocusItems(createTree(), new Set(['projects'])).map((item) => item.id)).toEqual([
-      createFolderFocusId(UNFILED_FOLDER_ID),
       createFolderFocusId('projects'),
       createNoteFocusId('daily'),
     ]);

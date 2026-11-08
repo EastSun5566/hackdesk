@@ -3540,7 +3540,7 @@ describe('Home native-feel behavior', () => {
     });
 
     const { container } = renderHome(api);
-    fireEvent.click(await findNoteRow('Root'));
+    fireEvent.click(await screen.findByTestId('tree-top-level'));
     const row = await waitFor(() => {
       const noteRow = container.querySelector('[data-note-id="note-1"]');
       expect(noteRow).toBeTruthy();
@@ -3753,7 +3753,7 @@ describe('Home native-feel behavior', () => {
 
     const { container } = renderHome(api);
     fireEvent.click(await findTeamWorkspace({ timeout: 5_000 }));
-    fireEvent.click(await findNoteRow('Root'));
+    fireEvent.click(await screen.findByTestId('tree-top-level'));
     const row = await waitFor(() => {
       const noteRow = container.querySelector('[data-note-id="note-1"]');
       expect(noteRow).toBeTruthy();

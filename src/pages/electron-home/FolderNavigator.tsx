@@ -59,7 +59,7 @@ import {
   NoteDragOverlay,
   NoteListSkeleton,
   NoteRow,
-  RootFolderRow,
+  TopLevelDropArea,
 } from './FolderNavigatorRows';
 import { RepositoryNotice } from './RepositoryNotice';
 import { SkippedFilesNotice } from './SkippedFilesNotice';
@@ -740,20 +740,6 @@ function NavigatorTree({
         >
           <FolderTreeFocusContext.Provider value={focusContext}>
             <ul role="group" className="m-0 grid min-w-0 list-none gap-0.5 p-0">
-              {/* Root only matters once there are folders to move notes out of; without them it would
-                  label the whole list with a word that says nothing. */}
-              {tree.roots.length ? <li role="presentation" className="min-w-0">
-                <RootFolderRow
-                  selected={selection.selectedFolderId === UNFILED_FOLDER_ID}
-                  focusTarget={selection.selectedFolderId === UNFILED_FOLDER_ID && !selection.selectedNoteId}
-                  noteCount={tree.unfiled.notes.length}
-                  folderDragActive={Boolean(activeFolderId)}
-                  noteDragActive={Boolean(activeNoteId)}
-                  onSelect={() => actions.onFolderSelect(UNFILED_FOLDER_ID)}
-                  onCreateFolder={() => actions.onCreateFolderInside(null)}
-                  onCreateNote={() => actions.onCreateNoteInside(null)}
-                />
-              </li> : null}
               <FolderTreeView
                 nodes={tree.roots}
                 selectedFolderId={selection.selectedFolderId}
@@ -808,6 +794,12 @@ function NavigatorTree({
                 </li>
               ))}
             </ul>
+            <TopLevelDropArea
+              dragActive={Boolean(activeFolderId || activeNoteId)}
+              onSelect={() => actions.onFolderSelect(UNFILED_FOLDER_ID)}
+              onCreateFolder={() => actions.onCreateFolderInside(null)}
+              onCreateNote={() => actions.onCreateNoteInside(null)}
+            />
           </FolderTreeFocusContext.Provider>
         </div>
       </SortableContext>

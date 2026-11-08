@@ -21,15 +21,8 @@ export function createNoteFocusId(noteId: string) {
 }
 
 export function getFolderTreeFocusItems(tree: FolderTree, collapsedFolderIds: Set<string>): TreeFocusItem[] {
-  const items: TreeFocusItem[] = [{
-    depth: 0,
-    folderId: UNFILED_FOLDER_ID,
-    hasChildren: false,
-    id: createFolderFocusId(UNFILED_FOLDER_ID),
-    kind: 'folder',
-    label: 'Root',
-    parentFolderId: null,
-  }];
+  // The top level has no row of its own: top-level folders and notes start the tree.
+  const items: TreeFocusItem[] = [];
 
   const appendFolder = (node: FolderTreeNode, parentFolderId: string | null, depth: number) => {
     const collapsed = collapsedFolderIds.has(node.id);
