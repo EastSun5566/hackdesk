@@ -12,6 +12,7 @@ import {
 } from '@/test/accessibility-contracts';
 
 import { FolderNavigator, type FolderNavigatorProps } from './FolderNavigator';
+import { NoteSummaryCard } from './FolderNavigatorRows';
 
 function folder(input: Partial<FolderPathSummary> & Pick<FolderPathSummary, 'id' | 'name'>): FolderPathSummary {
   return {
@@ -368,14 +369,24 @@ describe('FolderNavigator', () => {
     treeView.unmount();
   });
 
-  it('keeps tree notes to one line, with tags only in the hover title', () => {
+  it('keeps tree notes to one line; the hover card carries the full title, folder and tags', () => {
     renderFolderNavigator();
 
     const nested = screen.getByRole('treeitem', { name: 'Nested note' });
     expect(nested).not.toHaveTextContent('work');
     expect(nested).not.toHaveTextContent('Projects');
-    expect(nested.closest('[title]')).toHaveAttribute('title', expect.stringContaining('work'));
     expect(screen.getByRole('treeitem', { name: 'Loose note' })).not.toHaveTextContent('loose-note');
+
+    const { container } = render(<NoteSummaryCard entry={{
+      note: note({ id: 'card-note', title: 'A long nested note title', tags: ['work'], updatedAtMillis: Date.UTC(2026, 9, 15) }),
+      folderLabel: 'Projects',
+      folderPath: [],
+    }} />);
+    const card = within(container);
+    expect(card.getByText('A long nested note title')).toBeInTheDocument();
+    expect(card.getByText('Projects')).toBeInTheDocument();
+    expect(card.getByText('work')).toBeInTheDocument();
+    expect(card.getByText(/^Edited /)).toBeInTheDocument();
   });
 
   it('uses roving focus for navigator header actions', async () => {
