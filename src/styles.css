@@ -357,21 +357,23 @@
   }
 
   /* Classic (mouse) scrollbars: a thin rounded thumb on a clear track, so a scrollbar looks the same
-     on the sidebar and inside the editor card instead of painting a grey gutter stripe. Trackpads
-     keep macOS overlay scrollbars. Standard scrollbar-color would disable this styling, so it is set
-     only for increased contrast below. */
-  ::-webkit-scrollbar {
+     on the sidebar and inside the editor card instead of painting a grey gutter stripe. Styling
+     ::-webkit-scrollbar makes every scrollbar classic, so this applies only where the system's are
+     classic already (data-scrollbars, set at startup by applyScrollbarMode): overlay scrollbars keep
+     floating inside the content and never change its width. Standard scrollbar-color would disable
+     this styling, so it is set only for increased contrast below. */
+  :root[data-scrollbars='classic'] ::-webkit-scrollbar {
     width: 12px;
     height: 12px;
     background-color: transparent;
   }
 
-  ::-webkit-scrollbar-track,
-  ::-webkit-scrollbar-corner {
+  :root[data-scrollbars='classic'] ::-webkit-scrollbar-track,
+  :root[data-scrollbars='classic'] ::-webkit-scrollbar-corner {
     background-color: transparent;
   }
 
-  ::-webkit-scrollbar-thumb {
+  :root[data-scrollbars='classic'] ::-webkit-scrollbar-thumb {
     min-height: 32px;
     border: 3px solid transparent;
     border-radius: 9999px;
@@ -379,8 +381,14 @@
     background-color: color-mix(in srgb, var(--text-default) 24%, transparent);
   }
 
-  ::-webkit-scrollbar-thumb:hover {
+  :root[data-scrollbars='classic'] ::-webkit-scrollbar-thumb:hover {
     background-color: color-mix(in srgb, var(--text-default) 40%, transparent);
+  }
+
+  /* Classic scrollbars take width; the main lists keep their gutter even while nothing overflows,
+     so expanding or collapsing a folder never shifts the rows sideways. */
+  :root[data-scrollbars='classic'] :where(.scroll-edges-source, .cm-scroller) {
+    scrollbar-gutter: stable;
   }
 
   ::selection {
