@@ -468,10 +468,11 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   const pinnedRootShown = !trashActive && !isFinderMode && !status.isLoading && scope.type !== 'history' && hasTreeContent;
 
   return (
-    <div
-      className="scroll-edges-source edge-fade-y min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2"
-      style={pinnedRootShown ? ({ '--edge-fade-inset-top': '40px' } as CSSProperties) : undefined}
-    >
+    <div className="scroll-edges-source min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2">
+      {/* Edge fades (see .edge-fade-top in styles.css): zero-height, so they never move the rows. */}
+      <div aria-hidden="true" className={cn('edge-fade-top pointer-events-none sticky z-10 -mx-2 h-0', pinnedRootShown ? 'top-8' : '-top-2')}>
+        <div className="h-8 bg-linear-to-b from-background-muted to-transparent" />
+      </div>
       {trashActive && trash ? (
         <TrashNavigatorList
           open={trash.open}
@@ -529,6 +530,9 @@ const MemoNavigatorContent = memo(function NavigatorContent({
           />
         </div>
       ) : null}
+      <div aria-hidden="true" className="edge-fade-bottom pointer-events-none sticky -bottom-2 z-10 -mx-2 h-0">
+        <div className="absolute inset-x-0 bottom-0 h-8 bg-linear-to-t from-background-muted to-transparent" />
+      </div>
     </div>
   );
 }, arePanelPropsEqual);
