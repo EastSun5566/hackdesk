@@ -96,3 +96,20 @@ const Button = React.forwardRef<
 Button.displayName = 'Button';
 
 export { Button };
+
+/**
+ * Joins buttons into one control, such as a split button: inner corners go square, and each
+ * button after the first is set off by a faint rule in its own text colour.
+ */
+export function ButtonGroup({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
+  return (
+    <div
+      role="group"
+      className={cn(
+        'flex min-w-0 [&>*:not(:first-child)]:rounded-l-none [&>*:not(:last-child)]:rounded-r-none [&>*+*]:border-l-current/25',
+        className,
+      )}
+      {...props}
+    />
+  );
+}

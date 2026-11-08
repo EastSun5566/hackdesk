@@ -2,7 +2,6 @@ import {
   AlertCircle,
   FileText,
   Loader2,
-  Plus,
 } from 'lucide-react';
 import { memo, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
@@ -52,8 +51,9 @@ import { applyTreeGuides } from './tree-guides-preference';
 import { cn } from '@/lib/utils';
 import { HACK_MODE_HIDDEN_CLASS } from './ui';
 
-import { EmptyState, PanelHeader, PanelShell, ToolbarIconButton } from './interaction-primitives';
+import { EmptyState, PanelHeader, PanelShell } from './interaction-primitives';
 import type { WorkspaceScope } from './types';
+import { CreateNoteButton } from './CreateNoteButton';
 import { FolderActionsDropdown } from './FolderNavigatorActionsDropdown';
 import { NOTE_FINDER_RESULTS_ID, NoteFinderToolbar, type NoteFinderResults } from './FolderNavigatorFinder';
 import {
@@ -106,6 +106,8 @@ export type FolderNavigatorActions = {
   onCopyNoteMarkdownLink: (note: NoteSummary) => void;
   onCreate: () => void;
   onCreateFolder: () => void;
+  /** Absent where templates aren't available. */
+  onCreateFromTemplate?: () => void;
   onCreateFolderInside: (folderId: string | null) => void;
   onCreateNoteInside: (folderId: string | null) => void;
   onChooseLocalVault: () => void;
@@ -324,20 +326,8 @@ function NavigatorHeader({
           ) : null}
           {/* No refresh button: HackMD lists refresh when the window regains focus, a Local Vault
               watches its folder, and Shift+Cmd+R still refreshes by hand. */}
-          <ToolbarIconButton
-            actionId="new-note"
-            onClick={actions.onCreate}
-            disabled={!status.canCreate || status.isCreating}
-            label="Create note"
-            tooltip={!status.canCreate ? 'Connect HackMD to create notes.' : status.isCreating ? 'Creating note…' : undefined}
-          >
-            <Plus aria-hidden="true" className="h-4 w-4" />
-          </ToolbarIconButton>
           <FolderActionsDropdown
             selectedFolder={selectedFolder}
-            canCreate={status.canCreate && !status.isCreating}
-            onCreateFolder={actions.onCreateFolder}
-            onImportMarkdown={actions.onImportMarkdown}
             onRenameFolder={actions.onRenameFolder}
             onDeleteFolder={actions.onDeleteFolder}
             onOpenPalette={actions.onOpenPalette}
@@ -391,6 +381,18 @@ function NavigatorFilterBar({
         onTagToggle={handleTagToggle}
         onEscapeToTree={onEscapeToTree}
       />
+
+      {/* Below search, as on HackMD web: find first, then make. */}
+      <div className="pt-1">
+        <CreateNoteButton
+          canCreate={status.canCreate && !status.isCreating}
+          disabledReason={!status.canCreate ? 'Connect HackMD to create notes.' : status.isCreating ? 'Creating note…' : undefined}
+          onCreate={actions.onCreate}
+          onCreateFromTemplate={actions.onCreateFromTemplate}
+          onImportMarkdown={actions.onImportMarkdown}
+          onCreateFolder={actions.onCreateFolder}
+        />
+      </div>
 
       {scope.type !== 'local' && !status.hasToken ? (
         <Button

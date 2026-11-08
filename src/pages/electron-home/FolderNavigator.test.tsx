@@ -6,7 +6,6 @@ import type { FolderPathSummary, NoteSummary } from '@/lib/electron-api';
 import { buildHackmdFolderTree, UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
-  expectDisabledToolbarAction,
   expectMenuReturnsFocus,
   expectToolbarRovingFocus,
 } from '@/test/accessibility-contracts';
@@ -393,10 +392,22 @@ describe('FolderNavigator', () => {
     renderFolderNavigator();
 
     // Refresh happens when the window regains focus, so the header has no refresh button.
-    await expectToolbarRovingFocus('Note navigator actions', [
-      'Create note',
-      'Navigator actions',
-    ]);
+    await expectToolbarRovingFocus('Note navigator actions', ['Navigator actions']);
+  });
+
+  it('creates a note from the split button, and offers the other ways to create in its menu', async () => {
+    const onCreate = vi.fn();
+    const onCreateFolder = vi.fn();
+    renderFolderNavigator({ actions: { onCreate, onCreateFolder } });
+
+    const group = within(screen.getByRole('group', { name: 'Create' }));
+    fireEvent.click(group.getByRole('button', { name: /New Note/ }));
+    expect(onCreate).toHaveBeenCalledTimes(1);
+
+    fireEvent.pointerDown(group.getByRole('button', { name: 'More ways to create' }));
+    expect(await screen.findByRole('menuitem', { name: /Import Markdown Note/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('menuitem', { name: /New Folder/ }));
+    await vi.waitFor(() => expect(onCreateFolder).toHaveBeenCalledTimes(1));
   });
 
   it('keeps disabled create action focusable and explainable', async () => {
@@ -408,9 +419,13 @@ describe('FolderNavigator', () => {
       },
     });
 
-    const createButton = screen.getByRole('button', { name: 'Create note' });
+    const createButton = within(screen.getByRole('group', { name: 'Create' })).getByRole('button', { name: /New Note/ });
+    expect(createButton).toHaveAttribute('aria-disabled', 'true');
+    createButton.focus();
+    fireEvent.click(createButton);
+    expect(createButton).toHaveFocus();
+    expect(onCreate).not.toHaveBeenCalled();
     fireEvent.mouseOver(createButton);
-    expectDisabledToolbarAction(createButton, onCreate);
 
     expect(await screen.findByText('Connect HackMD to create notes.')).toBeVisible();
   });
@@ -804,7 +819,7 @@ describe('FolderNavigator', () => {
 
     // The space under the tree stands for the top level.
     fireEvent.contextMenu(screen.getByTestId('tree-top-level'));
-    fireEvent.click(await screen.findByText('New Note'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^New Note/ }));
 
     await waitFor(() => {
       expect(onCreateNoteInside).toHaveBeenCalledWith(null);

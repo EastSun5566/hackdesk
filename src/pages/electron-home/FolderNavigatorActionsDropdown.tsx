@@ -1,10 +1,8 @@
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import {
   FolderPen,
-  FolderPlus,
   MoreHorizontal,
   Trash2,
-  Upload,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -20,17 +18,11 @@ import { ToolbarDropdownMoreTrigger } from './interaction-primitives';
 
 export function FolderActionsDropdown({
   selectedFolder,
-  canCreate,
-  onCreateFolder,
-  onImportMarkdown,
   onRenameFolder,
   onDeleteFolder,
   onOpenPalette,
 }: {
   selectedFolder: FolderTreeNode | null;
-  canCreate: boolean;
-  onCreateFolder: () => void;
-  onImportMarkdown: () => void;
   onRenameFolder: (folderId: string) => void;
   onDeleteFolder: (folderId: string) => void;
   onOpenPalette: () => void;
@@ -46,23 +38,6 @@ export function FolderActionsDropdown({
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <ToolbarDropdownMoreTrigger label="Navigator actions" />
       <DropdownMenuContent>
-        <DropdownMenuItem disabled={!canCreate} onSelect={(event) => {
-          event.preventDefault();
-          runAfterClose(onCreateFolder);
-        }}>
-          <FolderPlus aria-hidden="true" className="h-4 w-4" />
-          New Folder
-          <ActionMenuShortcut actionId="new-folder" />
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={!canCreate} onSelect={(event) => {
-          event.preventDefault();
-          runAfterClose(onImportMarkdown);
-        }}>
-          <Upload aria-hidden="true" className="h-4 w-4" />
-          Import Markdown Note
-          <ActionMenuShortcut actionId="import-markdown-note" />
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
         <DropdownMenuItem disabled={!selectedFolder} onSelect={(event) => {
           event.preventDefault();
           if (selectedFolder) {
