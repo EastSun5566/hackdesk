@@ -141,10 +141,10 @@
   :root.light {
     color-scheme: light;
 
-    --font-system: Inter, system-ui, sans-serif;
+    --font-system: Inter, "PingFang TC", "PingFang SC", "Hiragino Sans", "Noto Sans CJK TC", "Microsoft JhengHei", system-ui, sans-serif;
     --font-sans: var(--font-system);
     --font-editor: var(--font-system);
-    --font-mono: "JetBrains Mono", "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --font-mono: "JetBrains Mono", "Source Code Pro", "PingFang TC", "PingFang SC", "Hiragino Sans", "Noto Sans CJK TC", "Microsoft JhengHei", ui-monospace, SFMono-Regular, Menlo, monospace;
     --font-size-ui: 0.875rem;
     --font-size-editor: 0.9375rem;
 

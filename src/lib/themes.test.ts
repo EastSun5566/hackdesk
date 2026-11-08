@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildThemeStyleText,
+  CJK_FALLBACK_FAMILIES,
   defaultThemeTypography,
   HACKDESK_THEME_PRESETS,
   isSafeFontStack,
@@ -10,6 +11,7 @@ import {
   parseStoredThemeSeed,
   resolveHackDeskTheme,
   serializeThemeSeed,
+  withCjkFallback,
 } from './themes';
 
 function hexToRgb(hex: string) {
@@ -313,6 +315,12 @@ describe('HackDesk themes', () => {
     expectContrast(theme['--selection-background'], theme['--background-default'], 3, 'adjusted custom selection');
   });
 
+  it('adds CJK faces before the first generic family, once', () => {
+    expect(withCjkFallback('Inter, system-ui, sans-serif')).toBe(`Inter, ${CJK_FALLBACK_FAMILIES.join(', ')}, system-ui, sans-serif`);
+    expect(withCjkFallback('"Avenir Next"')).toBe(`"Avenir Next", ${CJK_FALLBACK_FAMILIES.join(', ')}`);
+    expect(withCjkFallback('Inter, "PingFang SC", sans-serif')).toBe('Inter, "PingFang SC", sans-serif');
+  });
+
   it('resolves safe font stacks directly', () => {
     const typography = normalizeThemeTypography({
       uiFontStack: 'system-ui, sans-serif',
@@ -324,7 +332,9 @@ describe('HackDesk themes', () => {
 
     expect(theme['--font-system']).toContain('system-ui');
     expect(theme['--font-sans']).toBe(theme['--font-system']);
-    expect(theme['--font-editor']).toBe('"JetBrains Mono", ui-monospace, monospace');
+    // CJK faces come before the generic families, which would pick a locale font (Osaka-Mono for
+    // a Japanese-first Mac) for Chinese text.
+    expect(theme['--font-editor']).toBe(`"JetBrains Mono", ${CJK_FALLBACK_FAMILIES.join(', ')}, ui-monospace, monospace`);
     // Code keeps a monospace face whatever face the editor prose uses.
     expect(theme['--font-mono']).toContain('monospace');
     expect(theme['--font-size-ui']).toBe('1rem');

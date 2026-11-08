@@ -765,15 +765,33 @@ export function serializeThemeTypography(typography: ThemeTypography) {
   return JSON.stringify(normalizeThemeTypography(typography));
 }
 
+// CJK faces tried before any generic family. Generic families resolve by the system locale, so
+// with Japanese first in macOS's language list, `monospace` picks Osaka-Mono and `system-ui`
+// picks Hiragino: Japanese glyph shapes, and Osaka's heavy strokes, for Chinese text.
+export const CJK_FALLBACK_FAMILIES = ['"PingFang TC"', '"PingFang SC"', '"Hiragino Sans"', '"Noto Sans CJK TC"', '"Microsoft JhengHei"'];
+const GENERIC_FONT_FAMILIES = new Set([
+  'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-serif', 'ui-sans-serif',
+  'ui-monospace', 'ui-rounded', 'math', 'emoji', 'fangsong', '-apple-system', 'blinkmacsystemfont',
+]);
+
+/** A stack with CJK faces inserted before its first generic family, unless it names them already. */
+export function withCjkFallback(stack: string) {
+  const families = stack.split(',').map((family) => family.trim()).filter(Boolean);
+  if (families.some((family) => /pingfang|hiragino|noto sans cjk|jhenghei|yahei/i.test(family))) return stack;
+  const genericIndex = families.findIndex((family) => GENERIC_FONT_FAMILIES.has(family.toLowerCase()));
+  const at = genericIndex === -1 ? families.length : genericIndex;
+  return [...families.slice(0, at), ...CJK_FALLBACK_FAMILIES, ...families.slice(at)].join(', ');
+}
+
 export function resolveThemeTypography(typography: ThemeTypography): ResolvedHackDeskTheme {
   const normalized = normalizeThemeTypography(typography);
 
   return {
-    '--font-system': normalized.uiFontStack,
-    '--font-sans': normalized.uiFontStack,
-    '--font-editor': normalized.editorFontStack,
+    '--font-system': withCjkFallback(normalized.uiFontStack),
+    '--font-sans': withCjkFallback(normalized.uiFontStack),
+    '--font-editor': withCjkFallback(normalized.editorFontStack),
     // Code, front matter and the command line stay monospace whatever the editor face is.
-    '--font-mono': MONO_FONT_STACK,
+    '--font-mono': withCjkFallback(MONO_FONT_STACK),
     '--font-size-ui': pxToRem(normalized.uiFontSize),
     '--font-size-editor': pxToRem(normalized.editorFontSize),
     '--text-2xs': 'calc(var(--font-size-ui) * 0.7142857143)',
