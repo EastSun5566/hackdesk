@@ -178,7 +178,7 @@ export function NoteRow({
           {/* Hovering a row for a moment shows a card with the full title and what the one-line row
               leaves out: folder, tags and the edited date. */}
           <TooltipRoot>
-            <TooltipTrigger delay={600} render={<div className="min-w-0" />}>
+            <TooltipTrigger delay={300} render={<div className="min-w-0" />}>
               <EntityRow
                 selected={selected}
                 icon={draggable ? undefined : <FileText className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />}
