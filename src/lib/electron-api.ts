@@ -618,6 +618,8 @@ export type HackDeskElectronAPI = {
     onCloseRequest: (callback: (request: HackDeskCloseRequest) => void) => () => void;
     confirmClose: () => Promise<void>;
     cancelClose: () => Promise<void>;
+    /** The window is asking the user about unsaved changes, so the close request is not stuck. */
+    holdClose?: () => Promise<void>;
     checkForUpdates: () => Promise<CheckForUpdatesResult>;
     setThemeSurface?: (input: ThemeSurfaceInput) => Promise<void>;
     setMenuShortcutsIgnored?: (ignore: boolean) => Promise<void>;

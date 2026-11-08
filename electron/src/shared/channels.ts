@@ -87,6 +87,7 @@ export const ELECTRON_CHANNELS = {
   appCloseRequested: 'app:close-requested',
   appConfirmClose: 'app:confirm-close',
   appCancelClose: 'app:cancel-close',
+  appHoldClose: 'app:hold-close',
   appExportDebugLogs: 'app:export-debug-logs',
   appRecordFatalRendererError: 'app:record-fatal-renderer-error',
   appWriteClipboardText: 'app:write-clipboard-text',

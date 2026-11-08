@@ -333,6 +333,19 @@ describe('WindowManager close intent', () => {
     expect(app.quit).not.toHaveBeenCalled();
   });
 
+  it('drops the close fallback once the window says it is asking the user', async () => {
+    const { manager, window } = createManagerWithWindow();
+    emitClose(window);
+    await vi.advanceTimersByTimeAsync(5_000);
+    manager.holdClose();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(dialog.showMessageBox).not.toHaveBeenCalled();
+
+    // The answer still settles the original request.
+    manager.confirmClose();
+    expect(window.destroy).toHaveBeenCalled();
+  });
+
   it('ignores a late close fallback answer after the original window is destroyed', async () => {
     const { manager, window } = createManagerWithWindow();
     let answer!: (value: { response: number; checkboxChecked: boolean }) => void;

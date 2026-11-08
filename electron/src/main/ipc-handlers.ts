@@ -175,7 +175,7 @@ import {
 
 export function registerIpcHandlers(
   windowManager: Pick<WindowManager,
-    | 'cancelClose' | 'confirmClose' | 'getMainWindow' | 'getTargetWindow'
+    | 'cancelClose' | 'confirmClose' | 'holdClose' | 'getMainWindow' | 'getTargetWindow'
     | 'getWindowPresentationState' | 'hideQuickCaptureWindow' | 'isTrustedIpcSender'
     | 'resolveQuickCaptureSubmission' | 'setMenuShortcutsIgnored' | 'setThemeSurface'
     | 'submitQuickCapture' | 'showPresentationWindow' | 'getPresentationDeck' | 'closePresentationWindow'
@@ -698,6 +698,9 @@ export function registerIpcHandlers(
   });
   ipcMain.handle(ELECTRON_CHANNELS.appCancelClose, () => {
     windowManager.cancelClose();
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.appHoldClose, () => {
+    windowManager.holdClose();
   });
   ipcMain.handle(ELECTRON_CHANNELS.appWriteClipboardText, (_event, text: string) => (
     clipboard.writeText(validateString(ELECTRON_CHANNELS.appWriteClipboardText, text))

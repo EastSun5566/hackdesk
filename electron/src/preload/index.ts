@@ -285,6 +285,7 @@ const api: HackDeskElectronAPI = {
     },
     confirmClose: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appConfirmClose),
     cancelClose: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appCancelClose),
+    holdClose: () => ipcRenderer.invoke(ELECTRON_CHANNELS.appHoldClose),
   },
 };
 

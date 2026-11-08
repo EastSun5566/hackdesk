@@ -61,6 +61,9 @@ export function useWorkbenchClosePolicy({
     }
 
     const allTabs = Object.values(openTabs);
+    // The question may stay open a while: tell the main process the window is answering, so its
+    // unresponsive-window fallback doesn't stack a native alert on the dialog.
+    void api.app.holdClose?.().catch(() => {});
     const confirmed = backupFailed
       ? await confirmCloseWithoutBackup()
       : await confirmCloseUnsafeTabs(allTabs, 'Close HackDesk', 'Close', 'retain');

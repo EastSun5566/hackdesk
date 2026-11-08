@@ -151,6 +151,16 @@ export class WindowManager {
     }
   }
 
+  /**
+   * The window has the close request and is asking the user about unsaved changes. The timeout
+   * guards against a window that never answers, not a person reading the question, so it stops.
+   */
+  holdClose() {
+    if (!this.pendingCloseSource) return;
+    this.clearPendingCloseTimeout();
+    writeLog('main', 'renderer is confirming close with the user');
+  }
+
   cancelClose() {
     this.clearPendingCloseTimeout();
     writeLog('main', 'renderer cancelled window close');

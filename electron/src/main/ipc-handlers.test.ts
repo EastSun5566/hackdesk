@@ -211,6 +211,7 @@ import { clearHackmdCache } from './hackmd-service';
 
 const windowManager = {
   cancelClose: vi.fn(),
+  holdClose: vi.fn(),
   confirmClose: vi.fn(),
   getMainWindow: vi.fn<WindowManager['getMainWindow']>(() => null),
   getTargetWindow: vi.fn(() => null),
