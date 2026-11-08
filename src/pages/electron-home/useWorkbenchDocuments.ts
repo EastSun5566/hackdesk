@@ -16,6 +16,7 @@ import {
 import {
   getSavedTabNoteIdentity,
   getNoteIdentityKey,
+  isBlankNoteTab,
   isDraftNoteTab,
   noteIdentityMatches,
   type NoteDocumentDraft,
@@ -85,7 +86,7 @@ export function useWorkbenchDocuments({
   }), []);
 
   const getTabDocumentResult = useCallback((tab: OpenNoteTab) => (
-    isDraftNoteTab(tab)
+    isDraftNoteTab(tab) || isBlankNoteTab(tab)
       ? undefined
       : documentsByKey.get(getNoteIdentityKey(getTabIdentity(tab)))
   ), [documentsByKey, getTabIdentity]);
@@ -102,7 +103,7 @@ export function useWorkbenchDocuments({
 
   useEffect(() => {
     for (const tab of Object.values(tabs)) {
-      if (isDraftNoteTab(tab)) continue;
+      if (isDraftNoteTab(tab) || isBlankNoteTab(tab)) continue;
       const draft = drafts[tab.tabId];
       if (!draft) continue;
       const documentResult = getTabDocumentResult(tab);
@@ -119,6 +120,10 @@ export function useWorkbenchDocuments({
   }, [clearDraft, documentQueriesByKey, drafts, getTabDocument, getTabDocumentResult, getTabIdentity, latestLocalRevisionByNoteId, tabs]);
 
   const getTabTitle = useCallback((tab: OpenNoteTab) => {
+    if (isBlankNoteTab(tab)) {
+      return tab.title;
+    }
+
     if (isDraftNoteTab(tab)) {
       return getTabDraft(tab)?.title ?? tab.title;
     }
@@ -128,7 +133,7 @@ export function useWorkbenchDocuments({
   }, [getTabDocument, getTabDraft]);
 
   const getTabContent = useCallback((tab: OpenNoteTab) => {
-    if (isDraftNoteTab(tab)) {
+    if (isBlankNoteTab(tab) || isDraftNoteTab(tab)) {
       return getTabDraft(tab)?.content ?? '';
     }
 
@@ -137,8 +142,8 @@ export function useWorkbenchDocuments({
   }, [getTabDocument, getTabDraft]);
 
   const isTabDirty = useCallback((tab: OpenNoteTab) => {
-    if (isDraftNoteTab(tab)) {
-      return true;
+    if (isBlankNoteTab(tab) || isDraftNoteTab(tab)) {
+      return isDraftNoteTab(tab);
     }
 
     const documentResult = getTabDocument(tab);
@@ -159,7 +164,7 @@ export function useWorkbenchDocuments({
   const noteDirty = activeTab ? isTabDirty(activeTab) : false;
 
   const getTabDiskChanged = useCallback((tab: OpenNoteTab) => {
-    if (isDraftNoteTab(tab)) {
+    if (isDraftNoteTab(tab) || isBlankNoteTab(tab)) {
       return false;
     }
 
@@ -175,6 +180,10 @@ export function useWorkbenchDocuments({
   }, [getTabDocument, getTabDraft, latestLocalRevisionByNoteId]);
 
   const getTabSyncState = useCallback((tab: OpenNoteTab): DocumentSyncState => {
+    if (isBlankNoteTab(tab)) {
+      return 'saved';
+    }
+
     if (isDraftNoteTab(tab)) {
       if (isSavingDraftNote && savingDraftTabId === tab.tabId) {
         return 'saving';
@@ -351,7 +360,7 @@ export function useWorkbenchDocuments({
     const documentResult = tab ? getTabDocumentResult(tab) : undefined;
     const documentValue = tab ? getTabDocument(tab) : undefined;
     const syncState = tab ? getTabSyncState(tab) : 'idle';
-    const identity = tab && !isDraftNoteTab(tab) ? getTabIdentity(tab) : null;
+    const identity = tab && !isDraftNoteTab(tab) && !isBlankNoteTab(tab) ? getTabIdentity(tab) : null;
     const isSavingTab = Boolean(identity && isSavingNote && noteIdentityMatches(savingNote, identity));
     const isSavingDraftTab = Boolean(tab && isDraftNoteTab(tab) && isSavingDraftNote && savingDraftTabId === tab.tabId);
     const isUploadingTab = Boolean(identity && isUploadingImage && noteIdentityMatches(uploadingNote, identity));
@@ -362,6 +371,7 @@ export function useWorkbenchDocuments({
       activeTab: tab,
       selectedNote: tab ? { id: identity?.id, title: getTabTitle(tab) } : null,
       document: documentValue,
+      isBlank: Boolean(tab && isBlankNoteTab(tab)),
       isDraft: Boolean(tab && isDraftNoteTab(tab)),
       title: tab ? getTabTitle(tab) : '',
       content: tab ? getTabContent(tab) : '',

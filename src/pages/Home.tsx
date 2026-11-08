@@ -85,7 +85,7 @@ import { useWorkbenchTabLifecycle } from './electron-home/useWorkbenchTabLifecyc
 import { useHomeLocalVaultActions } from './electron-home/useHomeLocalVaultActions';
 import { useHomeOverlayProps } from './electron-home/useHomeOverlayProps';
 import { useHomeWorkspaceProps } from './electron-home/useHomeWorkspaceProps';
-import { getSavedTabNoteIdentity, isDraftNoteTab, readNoteWorkspaceLayoutStorage, type OpenNoteTab } from './electron-home/note-workspace';
+import { getSavedTabNoteIdentity, isBlankNoteTab, isDraftNoteTab, readNoteWorkspaceLayoutStorage, type OpenNoteTab } from './electron-home/note-workspace';
 import { EMPTY_FOLDERS, EMPTY_NOTES, getScopeStorageKey } from './electron-home/repository';
 import {
   DEFAULT_WORKSPACE_SCOPE,
@@ -194,7 +194,13 @@ export function Home() {
   useLayoutEffect(() => { beforeVaultChange.current = flushWorkspace; }, [flushWorkspace]);
   const activeTab = noteWorkspace.activeTab;
   const { editorRequests, consumeEditorRequest, requestEditorFocus, bumpEditorSearchRequest, bumpAttachImageRequest, bumpAiAssistRequest, bumpDictateRequest, bumpRenameRequest } = useWorkbenchEditorRequests(
-    scopeStorageKey && activeTab ? { scopeKey: scopeStorageKey, paneId: noteWorkspace.state.activePaneId, tabId: activeTab.tabId, documentId: 'noteId' in activeTab ? activeTab.noteId : activeTab.draftId } : null,
+    scopeStorageKey && activeTab ? {
+      scopeKey: scopeStorageKey,
+      paneId: noteWorkspace.state.activePaneId,
+      tabId: activeTab.tabId,
+      documentId: getSavedTabNoteIdentity(activeTab)?.id
+        ?? (isDraftNoteTab(activeTab) ? activeTab.draftId : isBlankNoteTab(activeTab) ? activeTab.tabId : activeTab.noteId),
+    } : null,
   );
   const {
     autoSelectSuppressionRef,
@@ -777,6 +783,7 @@ export function Home() {
     documentContent,
     documentTitle,
     duplicateActiveTab: noteWorkspace.duplicateActiveTab,
+    openBlankTab: noteWorkspace.openBlankTab,
     exportMarkdown: handleExportMarkdown,
     focusNextPane: noteWorkspace.focusNextPane,
     focusPaneToward: noteWorkspace.focusPaneToward,
@@ -1077,6 +1084,7 @@ export function Home() {
       handleExportMarkdown,
       handleExportNoteMarkdown,
       handleImportMarkdownNote,
+      handleCreateNoteFromTemplate: folderCommands.handleCreateNoteFromTemplate,
       handleNoteSelect,
       handleOpenEditor,
       handleOpenExternal,
@@ -1129,6 +1137,8 @@ export function Home() {
     user,
     workspaceSwitcherOpen,
     setWorkspaceSwitcherOpen,
+    onNewTab: () => runShortcutAction('new-tab'),
+    recentNotes,
   });
   const overlayProps = useHomeOverlayProps({
     actionContext,

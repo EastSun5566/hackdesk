@@ -48,6 +48,7 @@ export type ElectronHomeWorkspaceProps = {
       togglePaneZoom: () => void;
       equalizePanes: () => void;
       toggleNavigator: () => void;
+      onNewTab: () => void;
     };
   };
 };
@@ -116,6 +117,7 @@ export function ElectronHomeWorkspace({
         navigatorPanelId={NOTE_NAVIGATOR_PANEL_ID}
         tabs={activeTitlebarTabs}
         onToggleNavigator={titlebar.actions.toggleNavigator}
+        onNewTab={titlebar.actions.onNewTab}
       />
 
       {backupNotice ? <WorkspaceBackupNotice {...backupNotice} /> : null}

@@ -17,6 +17,7 @@ import type { EditorMode } from '@/lib/settings';
 
 import { scrollFocusedRegion } from './workbench-keyboard-context';
 
+import { readNewTabOpens } from './new-tab-preference';
 import { isDraftNoteTab, type NoteWorkspaceState } from './note-workspace';
 import type { WorkspaceScope } from './types';
 import type { PaneDirection } from './pane-layout';
@@ -54,6 +55,7 @@ export type WorkbenchActionHandlers = {
   deleteSelectedFolder: () => void;
   deleteSelectedNote: () => void;
   duplicateActiveTab: () => void;
+  openBlankTab: () => void;
   exportDebugLogs: () => void;
   exportSelectedMarkdown: () => void;
   attachImage: () => void;
@@ -299,8 +301,14 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       if (canStartDraft) {
         handlers.createNote();
       } else if (hasActiveTab) {
-        handlers.duplicateActiveTab();
+        if (readNewTabOpens() === 'empty') {
+          handlers.openBlankTab();
+        } else {
+          handlers.duplicateActiveTab();
+        }
         handlers.focusEditor();
+      } else if (readNewTabOpens() === 'empty') {
+        handlers.openBlankTab();
       } else {
         handlers.openPalette();
       }

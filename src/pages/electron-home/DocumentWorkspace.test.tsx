@@ -61,6 +61,7 @@ function createView(candidate: NotePane): DocumentPaneView {
       updatedAtMillis: null,
     },
     content: '',
+    isBlank: false,
     isDraft: false,
     isDeleting: false,
     isLoading: false,

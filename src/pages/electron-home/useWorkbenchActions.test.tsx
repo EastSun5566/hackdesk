@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { NEW_TAB_OPENS_KEY } from './new-tab-preference';
 import type { OpenNoteTab, NoteWorkspaceState, SavedOpenNoteTab } from './note-workspace';
 import {
   useWorkbenchActions,
@@ -52,6 +53,7 @@ function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): Workb
     deleteSelectedFolder: vi.fn(),
     deleteSelectedNote: vi.fn(),
     duplicateActiveTab: vi.fn(),
+    openBlankTab: vi.fn(),
     exportDebugLogs: vi.fn(),
     exportSelectedMarkdown: vi.fn(),
     attachImage: vi.fn(),
@@ -246,20 +248,31 @@ describe('useWorkbenchActions', () => {
     expect(handlers.setEditorMode).toHaveBeenCalledTimes(4);
   });
 
-  it('duplicates the active tab for New Tab and opens the palette when no tab is active', () => {
+  it('opens a blank tab by default and respects the duplicate preference', () => {
+    window.localStorage.removeItem(NEW_TAB_OPENS_KEY);
     const handlers = createHandlers();
     const { result, rerender } = renderHook((props: WorkbenchActionsOptions) => useWorkbenchActions(props), {
       initialProps: createOptions({ handlers, hasActiveTab: true }),
     });
 
     result.current.runAction('new-tab');
-    expect(handlers.duplicateActiveTab).toHaveBeenCalledOnce();
+    expect(handlers.openBlankTab).toHaveBeenCalledOnce();
+    expect(handlers.duplicateActiveTab).not.toHaveBeenCalled();
     expect(handlers.focusEditor).toHaveBeenCalledOnce();
-    expect(handlers.openPalette).not.toHaveBeenCalled();
 
-    rerender(createOptions({ handlers, hasActiveTab: false, workspaceState: createWorkspaceState([]) }));
+    window.localStorage.setItem(NEW_TAB_OPENS_KEY, 'duplicate');
+    rerender(createOptions({ handlers, hasActiveTab: true }));
     result.current.runAction('new-tab');
     expect(handlers.duplicateActiveTab).toHaveBeenCalledOnce();
+
+    window.localStorage.removeItem(NEW_TAB_OPENS_KEY);
+    rerender(createOptions({ handlers, hasActiveTab: false, workspaceState: createWorkspaceState([]) }));
+    result.current.runAction('new-tab');
+    expect(handlers.openBlankTab).toHaveBeenCalledTimes(2);
+
+    window.localStorage.setItem(NEW_TAB_OPENS_KEY, 'duplicate');
+    rerender(createOptions({ handlers, hasActiveTab: false, workspaceState: createWorkspaceState([]) }));
+    result.current.runAction('new-tab');
     expect(handlers.openPalette).toHaveBeenCalledOnce();
   });
 

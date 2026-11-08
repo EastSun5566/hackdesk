@@ -4,7 +4,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-import { ArrowLeft, ArrowRight, ArrowLeftRight, Columns2, Equal, FileText, Maximize2, MoreHorizontal, Rows2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowLeftRight, Columns2, Equal, FileText, Maximize2, MoreHorizontal, Plus, Rows2, X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type MutableRefObject } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-import { isDraftNoteTab, type OpenNoteTab } from './note-workspace';
+import { isBlankNoteTab, isDraftNoteTab, type OpenNoteTab } from './note-workspace';
 import { ToolbarDropdownIconTrigger } from './interaction-primitives';
 import { DOCUMENT_SYNC_STATE_LABELS, type DocumentSyncState } from './document-sync-state';
 import { documentPaneId, documentTabId } from './document-tab-ids';
@@ -82,7 +82,7 @@ function DocumentTab({
 }) {
   const title = tab.title || 'Untitled';
   const lookupNoteSummary = useNoteSummaryLookup();
-  const summary = isDraftNoteTab(tab) ? undefined : lookupNoteSummary(tab.noteId);
+  const summary = isDraftNoteTab(tab) || isBlankNoteTab(tab) ? undefined : lookupNoteSummary(tab.noteId);
   const { isDragging, listeners, setNodeRef, setActivatorNodeRef, transform, transition } = useSortable({ id: tab.tabId });
   const setTabNode = useCallback((element: HTMLLIElement | null) => {
     setNodeRef(element);
@@ -117,7 +117,7 @@ function DocumentTab({
         tabIndex={focused ? 0 : -1}
         aria-selected={selected}
         aria-controls={paneId ? documentPaneId(paneId) : undefined}
-        aria-label={syncState === 'saved' ? title : `${title}, ${DOCUMENT_SYNC_STATE_LABELS[syncState]}`}
+        aria-label={isBlankNoteTab(tab) || syncState === 'saved' ? title : `${title}, ${DOCUMENT_SYNC_STATE_LABELS[syncState]}`}
         className="app-region-no-drag flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
         ref={setActivatorNodeRef}
         {...listeners}
@@ -132,14 +132,14 @@ function DocumentTab({
       >
         <FileText aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
         <span data-tab-title className="min-w-0 truncate">{title}</span>
-        <TabStatusIndicator state={syncState} />
+        {!isBlankNoteTab(tab) ? <TabStatusIndicator state={syncState} /> : null}
       </button>
         </TooltipTrigger>
         <TooltipContent side="bottom" sideOffset={8} className={NOTE_CARD_CLASS}>
           {summary ? <NoteSummaryCard entry={{ ...summary, note: { ...summary.note, title } }} /> : (
             <div className="space-y-1.5">
               <p className="font-medium text-text-emphasize text-pretty">{title}</p>
-              <p className="text-xs text-text-subtle">{isDraftNoteTab(tab) ? 'Unsaved draft' : DOCUMENT_SYNC_STATE_LABELS[syncState]}</p>
+              <p className="text-xs text-text-subtle">{isBlankNoteTab(tab) ? 'New tab page' : isDraftNoteTab(tab) ? 'Unsaved draft' : DOCUMENT_SYNC_STATE_LABELS[syncState]}</p>
             </div>
           )}
         </TooltipContent>
@@ -186,6 +186,7 @@ export function DocumentTabs({
   onReorderTab,
   onSelectTab,
   onSplitPane,
+  onNewTab,
   paneLayout,
   tabs,
   paneId,
@@ -206,6 +207,7 @@ export function DocumentTabs({
   /** Splitting down, zoom and equal sizes for the pane layout. */
   paneLayout: PaneLayoutMenuActions;
   onSplitPane: () => void;
+  onNewTab: () => void;
   tabs: OpenNoteTab[];
   paneId?: string;
 }) {
@@ -297,34 +299,56 @@ export function DocumentTabs({
           aria-label="Open documents"
           data-overflow-start={overflow.start || undefined}
           data-overflow-end={overflow.end || undefined}
-          className="edge-fade-x flex h-full min-w-0 flex-1 items-center overflow-x-auto overflow-y-hidden overscroll-x-contain scrollbar-none px-1 py-1"
+          className="edge-fade-x flex h-full min-w-0 flex-initial items-center overflow-x-auto overflow-y-hidden overscroll-x-contain scrollbar-none px-1 py-1"
         >
-          {tabs.length > 0 ? (
-            <SortableContext items={tabs.map(tab => tab.tabId)} strategy={horizontalListSortingStrategy}>
-              <ul role="tablist" aria-label="Open documents" className="m-0 flex min-w-0 list-none items-center gap-1 p-0">
-                {tabs.map((tab) => (
-                  <DocumentTab
-                    key={tab.tabId}
-                    tab={tab}
-                    selected={activeTab?.tabId === tab.tabId}
-                    focused={effectiveFocusedTabId === tab.tabId}
-                    paneId={paneId}
-                    onFocus={() => {
-                      setFocusedTabId(tab.tabId);
-                      lastFocusedElementRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-                    }}
-                    onKeyDown={(event) => handleTabKeyDown(event, tab.tabId)}
-                    syncState={getTabSyncState(tab)}
-                    draggedRef={draggedRef}
-                    activeTabRef={activeTab?.tabId === tab.tabId ? activeTabRef : undefined}
-                    onSelect={() => onSelectTab(tab.tabId)}
-                    onClose={() => onCloseTab(tab.tabId)}
-                  />
-                ))}
-              </ul>
-            </SortableContext>
-          ) : null}
+          <div className="flex min-w-0 items-center gap-1">
+            {tabs.length > 0 ? (
+              <SortableContext items={tabs.map(tab => tab.tabId)} strategy={horizontalListSortingStrategy}>
+                <ul role="tablist" aria-label="Open documents" className="m-0 flex min-w-0 list-none items-center gap-1 p-0">
+                  {tabs.map((tab) => (
+                    <DocumentTab
+                      key={tab.tabId}
+                      tab={tab}
+                      selected={activeTab?.tabId === tab.tabId}
+                      focused={effectiveFocusedTabId === tab.tabId}
+                      paneId={paneId}
+                      onFocus={() => {
+                        setFocusedTabId(tab.tabId);
+                        lastFocusedElementRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+                      }}
+                      onKeyDown={(event) => handleTabKeyDown(event, tab.tabId)}
+                      syncState={getTabSyncState(tab)}
+                      draggedRef={draggedRef}
+                      activeTabRef={activeTab?.tabId === tab.tabId ? activeTabRef : undefined}
+                      onSelect={() => onSelectTab(tab.tabId)}
+                      onClose={() => onCloseTab(tab.tabId)}
+                    />
+                  ))}
+                </ul>
+              </SortableContext>
+            ) : null}
+          </div>
         </nav>
+        {/* Outside the scrolling strip, so it stays in reach however many tabs are open: right
+            after the last tab, or at the strip's end once the tabs overflow. */}
+        <Tooltip content={(
+          <span className="inline-flex items-center gap-2">
+            New Tab
+            <ActionMenuShortcut actionId="new-tab" />
+          </span>
+        )}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="app-region-no-drag h-7 w-7 shrink-0 rounded-md"
+            aria-label="New Tab"
+            onClick={onNewTab}
+          >
+            <Plus aria-hidden="true" className="size-3.5" />
+          </Button>
+        </Tooltip>
+        <div aria-hidden="true" className="min-w-0 flex-1" />
         <Toolbar aria-label="Pane controls">
           <DropdownMenu>
             <ToolbarDropdownIconTrigger label="Pane actions" className="app-region-no-drag h-7 w-7">

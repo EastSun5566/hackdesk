@@ -12,6 +12,7 @@ import {
   closeTabsByNoteIdentity,
   createEmptyNoteWorkspaceState,
   duplicateActiveNoteTab,
+  openBlankNoteTab,
   focusAdjacentPane,
   focusAdjacentTab,
   focusNotePane,
@@ -208,6 +209,10 @@ export function useNoteWorkspaceTabs(scopeKey: string | null, initializeDraft = 
     setState(duplicateActiveNoteTab);
   }, []);
 
+  const openBlankTab = useCallback(() => {
+    setState(openBlankNoteTab);
+  }, []);
+
   const splitActivePaneDown = useCallback(() => {
     setState((current) => splitActivePane(current, 'down'));
   }, []);
@@ -322,6 +327,7 @@ export function useNoteWorkspaceTabs(scopeKey: string | null, initializeDraft = 
     closeByNoteIdentity,
     reopenLastClosed,
     duplicateActiveTab,
+    openBlankTab,
     splitActiveTab,
     splitActivePaneDown,
     focusPaneToward,

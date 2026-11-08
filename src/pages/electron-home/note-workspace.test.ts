@@ -9,6 +9,9 @@ import {
   closeTabsByNoteIdentity,
   createEmptyNoteWorkspaceState,
   duplicateActiveNoteTab,
+  BLANK_NOTE_TAB_TITLE,
+  isBlankNoteTab,
+  openBlankNoteTab,
   focusAdjacentTab,
   getActiveTab,
   getActiveNavigationTarget,
@@ -103,6 +106,38 @@ describe('note workspace tabs', () => {
 
     expect(Object.values(reopened.tabs)).toHaveLength(1);
     expect(getActiveTab(reopened)?.title).toBe('Alpha');
+  });
+
+  it('opens blank tabs after the active tab and omits them from persistence', () => {
+    const state = openNoteTab(createEmptyNoteWorkspaceState('personal'), note({ id: 'note-1', title: 'Alpha' }));
+    const withBlank = openBlankNoteTab(state);
+    const blank = getActiveTab(withBlank);
+
+    expect(isBlankNoteTab(blank)).toBe(true);
+    expect(blank?.title).toBe(BLANK_NOTE_TAB_TITLE);
+    expect(withBlank.panes[0].tabIds).toHaveLength(2);
+    expect(Object.keys(toPersistedNoteWorkspaceLayout(withBlank).tabs)).toHaveLength(1);
+    expect(closeNoteTab(withBlank, blank!.tabId).recentlyClosedTabs).toEqual([]);
+  });
+
+  it('replaces a blank tab when opening a note in the same pane', () => {
+    const state = openBlankNoteTab(createEmptyNoteWorkspaceState('personal'));
+    const blankId = getActiveTab(state)!.tabId;
+    const opened = openNoteTab(state, note({ id: 'note-1', title: 'Alpha' }));
+
+    expect(Object.values(opened.tabs)).toHaveLength(1);
+    expect(opened.panes[0].activeTabId).toBe(blankId);
+    expect(isBlankNoteTab(getActiveTab(opened))).toBe(false);
+  });
+
+  it('closes the blank tab when it leads to a note that is already open', () => {
+    const alpha = note({ id: 'note-1', title: 'Alpha' });
+    const state = openBlankNoteTab(openNoteTab(createEmptyNoteWorkspaceState('personal'), alpha));
+    const opened = openNoteTab(state, alpha);
+
+    expect(Object.values(opened.tabs)).toHaveLength(1);
+    expect(getActiveTab(opened)?.title).toBe('Alpha');
+    expect(opened.recentlyClosedTabs).toEqual([]);
   });
 
   it('treats personal and team notes as different identities', () => {

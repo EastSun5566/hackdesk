@@ -14,7 +14,7 @@ import {
   type LocalDocumentSummary,
   type LocalNoteListSummary,
 } from './local-vault-adapter';
-import { isDraftNoteTab, type NoteDocumentDraft, type NoteIdentity, type OpenNoteTab } from './note-workspace';
+import { isBlankNoteTab, isDraftNoteTab, type NoteDocumentDraft, type NoteIdentity, type OpenNoteTab } from './note-workspace';
 import {
   getLocalVaultDocumentQueryKey,
   cacheLocalVaultSnapshot,
@@ -102,7 +102,7 @@ export function useLocalDocumentRecovery({
     }
 
     for (const tab of Object.values(tabs)) {
-      if (isDraftNoteTab(tab)) {
+      if (isDraftNoteTab(tab) || isBlankNoteTab(tab)) {
         continue;
       }
 

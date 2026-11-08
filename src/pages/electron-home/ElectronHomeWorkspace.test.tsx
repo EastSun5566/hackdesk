@@ -111,6 +111,7 @@ function createView(pane: NotePane, activeTab: OpenNoteTab | null): DocumentPane
     document: undefined,
     title: activeTab?.title ?? '',
     content: '',
+    isBlank: false,
     isDraft: false,
     isLoading: false,
     syncState: 'saved',
@@ -165,6 +166,7 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
         togglePaneZoom: noop,
         equalizePanes: noop,
         toggleNavigator: vi.fn(),
+        onNewTab: vi.fn(),
       },
     },
     navigator: {

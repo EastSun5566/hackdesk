@@ -10,7 +10,7 @@ import type {
 import type { FolderTreeNote } from '@/lib/hackmd-folders';
 
 import type { DocumentSyncState } from './DocumentDetail';
-import type { NotePane, OpenNoteTab } from './note-workspace';
+import { isBlankNoteTab, type NotePane, type OpenNoteTab } from './note-workspace';
 
 export type WorkbenchTabLifecycleOptions = {
   api?: HackDeskElectronAPI;
@@ -93,7 +93,7 @@ export function useWorkbenchTabLifecycle({
       return false;
     }
 
-    if (!await confirmCloseUnsafeTabs([tab], 'Close Tab', 'Close Tab')) {
+    if (!isBlankNoteTab(tab) && !await confirmCloseUnsafeTabs([tab], 'Close Tab', 'Close Tab')) {
       return false;
     }
 

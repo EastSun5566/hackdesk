@@ -93,6 +93,7 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     documentContent: 'Draft body',
     documentTitle: 'Draft title',
     duplicateActiveTab: vi.fn(),
+    openBlankTab: vi.fn(),
     exportMarkdown: vi.fn(),
     focusNextPane: vi.fn(),
     focusPaneToward: vi.fn(),

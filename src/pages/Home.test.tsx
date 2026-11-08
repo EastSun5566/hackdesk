@@ -207,9 +207,9 @@ async function openDocumentActions() {
   await screen.findByRole('menuitem', { name: 'Open in HackMD' });
 }
 
-async function openNavigatorActions() {
-  fireEvent.pointerDown(screen.getByRole('button', { name: 'Navigator actions' }));
-  await screen.findByRole('menuitem', { name: 'New Folder' });
+async function openCreateMenu() {
+  fireEvent.pointerDown(screen.getByRole('button', { name: 'More ways to create' }));
+  await screen.findByRole('menuitem', { name: /New Folder/ });
 }
 
 async function openWorkspaceSwitcher() {
@@ -1378,7 +1378,7 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
 
     fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
-    fireEvent.click(screen.getByRole('button', { name: 'Create note' }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'Create' })).getByRole('button', { name: /New Note/ }));
     await editNote('# Folder note');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -2071,7 +2071,19 @@ describe('Home native-feel behavior', () => {
     expect(screen.getAllByText('Test note').length).toBeGreaterThan(1);
   });
 
-  it('opens a duplicate active note tab with Cmd+T', async () => {
+  it('opens a blank tab with Cmd+T by default', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    fireEvent.keyDown(window, { key: 't', metaKey: true });
+
+    expect(await screen.findByRole('tab', { name: 'New Tab' })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab', { name: /^Test note(?:, .+)?$/ })).toHaveLength(1);
+  });
+
+  it('opens a duplicate active note tab with Cmd+T when configured', async () => {
+    window.localStorage.setItem('hackdesk_new_tab_opens', 'duplicate');
     const api = createApi();
 
     renderHome(api);
@@ -3152,8 +3164,8 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findRenderedNoteTitle();
-    await openNavigatorActions();
-    fireEvent.click(screen.getByText('New Folder'));
+    await openCreateMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: /New Folder/ }));
     const dialog = within(await screen.findByRole('dialog', { name: 'New Folder' }));
     fireEvent.change(dialog.getByLabelText('Name'), { target: { value: 'Design' } });
     fireEvent.change(dialog.getByLabelText('Description'), { target: { value: 'Design notes' } });

@@ -26,6 +26,8 @@ import type { useNoteWorkspaceTabs } from './useNoteWorkspaceTabs';
 import type { useWorkbenchDocuments } from './useWorkbenchDocuments';
 import type { useWorkbenchFolderCommands } from './useWorkbenchFolderCommands';
 import type { useWorkbenchNavigator } from './useWorkbenchNavigator';
+import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
+
 import type { OpenNoteTarget } from './useNoteLinkOpener';
 
 type HomeStatus = ReturnType<typeof useElectronHomeStatus>;
@@ -53,6 +55,7 @@ type WorkspaceActions = {
   handleExportMarkdown: ElectronHomeWorkspaceProps['documentWorkspace']['onExportMarkdown'];
   handleExportNoteMarkdown: ElectronHomeWorkspaceProps['navigator']['actions']['onExportNoteMarkdown'];
   handleImportMarkdownNote: ElectronHomeWorkspaceProps['navigator']['actions']['onImportMarkdown'];
+  handleCreateNoteFromTemplate: () => void;
   handleNoteSelect: ElectronHomeWorkspaceProps['navigator']['actions']['onNoteSelect'];
   handleOpenEditor: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenNote'];
   handleOpenExternal: ElectronHomeWorkspaceProps['documentWorkspace']['onOpenExternal'];
@@ -110,6 +113,8 @@ export function useHomeWorkspaceProps({
   uploadingTabIds = [],
   workspaceSwitcherOpen,
   setWorkspaceSwitcherOpen,
+  onNewTab,
+  recentNotes,
 }: {
   api?: HackDeskElectronAPI;
   openNoteTarget?: OpenNoteTarget;
@@ -159,6 +164,8 @@ export function useHomeWorkspaceProps({
   uploadingTabIds?: readonly string[];
   workspaceSwitcherOpen: boolean;
   setWorkspaceSwitcherOpen: (open: boolean) => void;
+  onNewTab: () => void;
+  recentNotes: ElectronRecentNote[];
 }): ElectronHomeWorkspaceProps {
   return {
     titlebar: {
@@ -192,6 +199,7 @@ export function useHomeWorkspaceProps({
         togglePaneZoom: actions.togglePaneZoom,
         equalizePanes: noteWorkspace.equalizePanes,
         toggleNavigator: toggleNavigatorCollapsed,
+        onNewTab,
       },
     },
     navigator: {
@@ -270,6 +278,7 @@ export function useHomeWorkspaceProps({
         onExportNoteMarkdown: actions.handleExportNoteMarkdown,
         onDeleteNote: actions.handleDeleteRequest,
         onImportMarkdown: actions.handleImportMarkdownNote,
+        onCreateFromTemplate: actions.handleCreateNoteFromTemplate,
         onOpenPalette: actions.openPalette,
         onOpenSettings: actions.openHackmdTokenSetup,
       },
@@ -312,6 +321,7 @@ export function useHomeWorkspaceProps({
       canCreateNote: homeStatus.navigatorStatus.canCreate,
       onCreateNote: folderCommands.handleCreateNote,
       onQuickOpen: actions.openQuickOpen,
+      recentNotes,
       onCopyLink: actions.handleCopyNoteLink,
       onCopyMarkdownLink: actions.handleCopyNoteMarkdownLink,
       onExportMarkdown: actions.handleExportMarkdown,

@@ -38,7 +38,15 @@ export type DraftOpenNoteTab = {
   updatedAtMillis: null;
 };
 
-export type OpenNoteTab = SavedOpenNoteTab | DraftOpenNoteTab;
+export type BlankOpenNoteTab = {
+  kind: 'blank';
+  tabId: string;
+  title: string;
+};
+
+export type OpenNoteTab = SavedOpenNoteTab | DraftOpenNoteTab | BlankOpenNoteTab;
+
+export const BLANK_NOTE_TAB_TITLE = 'New Tab';
 
 export type NotePane = {
   paneId: string;
@@ -113,8 +121,12 @@ export function isDraftNoteTab(tab: OpenNoteTab | undefined | null): tab is Draf
   return tab?.kind === 'draft';
 }
 
+export function isBlankNoteTab(tab: OpenNoteTab | undefined | null): tab is BlankOpenNoteTab {
+  return tab?.kind === 'blank';
+}
+
 export function getSavedTabNoteIdentity(tab: OpenNoteTab | undefined | null): NoteIdentity | null {
-  return tab && !isDraftNoteTab(tab)
+  return tab && !isDraftNoteTab(tab) && !isBlankNoteTab(tab)
     ? { id: tab.noteId, teamPath: tab.teamPath }
     : null;
 }
@@ -243,6 +255,62 @@ function createDraftTab(): DraftOpenNoteTab {
   };
 }
 
+function createBlankTab(tabId = createTabId()): BlankOpenNoteTab {
+  return {
+    kind: 'blank',
+    tabId,
+    title: BLANK_NOTE_TAB_TITLE,
+  };
+}
+
+function insertTabAfterActive(state: NoteWorkspaceState, paneId: string, tab: OpenNoteTab) {
+  const pane = state.panes.find((candidate) => candidate.paneId === paneId) ?? getActivePane(state);
+  const activeTabId = pane.activeTabId;
+  const activeIndex = activeTabId ? pane.tabIds.indexOf(activeTabId) : -1;
+  const nextTabIds = activeIndex >= 0
+    ? [
+      ...pane.tabIds.slice(0, activeIndex + 1),
+      tab.tabId,
+      ...pane.tabIds.slice(activeIndex + 1),
+    ]
+    : [...pane.tabIds, tab.tabId];
+
+  return normalizeState({
+    ...state,
+    tabs: {
+      ...state.tabs,
+      [tab.tabId]: tab,
+    },
+    panes: state.panes.map((candidate) => candidate.paneId === pane.paneId
+      ? { ...candidate, tabIds: nextTabIds, activeTabId: tab.tabId }
+      : candidate),
+    activePaneId: pane.paneId,
+  });
+}
+
+function replaceActiveBlankTab(state: NoteWorkspaceState, paneId: string, tab: OpenNoteTab) {
+  const pane = state.panes.find((candidate) => candidate.paneId === paneId) ?? getActivePane(state);
+  const activeTabId = pane.activeTabId;
+  const activeTab = activeTabId ? state.tabs[activeTabId] : null;
+  if (!isBlankNoteTab(activeTab) || !activeTabId) {
+    return null;
+  }
+
+  const replacedTab = { ...tab, tabId: activeTabId };
+
+  return normalizeState({
+    ...state,
+    tabs: {
+      ...state.tabs,
+      [activeTabId]: replacedTab,
+    },
+    panes: state.panes.map((candidate) => candidate.paneId === pane.paneId
+      ? { ...candidate, activeTabId }
+      : candidate),
+    activePaneId: pane.paneId,
+  });
+}
+
 /** A pane goes when its last tab does, except the last pane, which stays to show the empty state. */
 function normalizePanes(state: NoteWorkspaceState): NotePane[] {
   const tabs = state.tabs;
@@ -292,7 +360,7 @@ function nearestRemainingPane(state: NoteWorkspaceState, paneOrder: string[]) {
 }
 
 function pushRecentlyClosedTab(state: NoteWorkspaceState, tab: OpenNoteTab) {
-  if (isDraftNoteTab(tab)) {
+  if (isDraftNoteTab(tab) || isBlankNoteTab(tab)) {
     return state.recentlyClosedTabs;
   }
 
@@ -306,9 +374,12 @@ function pushRecentlyClosedTab(state: NoteWorkspaceState, tab: OpenNoteTab) {
 }
 
 function getClosedTabKey(tab: OpenNoteTab) {
-  return isDraftNoteTab(tab)
-    ? `draft:${tab.draftId}`
-    : getNoteIdentityKey({ id: tab.noteId, teamPath: tab.teamPath });
+  if (isDraftNoteTab(tab)) {
+    return `draft:${tab.draftId}`;
+  }
+
+  const identity = getSavedTabNoteIdentity(tab);
+  return identity ? getNoteIdentityKey(identity) : `blank:${tab.tabId}`;
 }
 
 function navigationTargetEquals(left: NoteNavigationTarget | null, right: NoteNavigationTarget | null) {
@@ -397,27 +468,22 @@ export function navigateNoteWorkspace(state: NoteWorkspaceState, direction: 'bac
 export function openNoteTab(state: NoteWorkspaceState, note: NoteSummary, paneId = state.activePaneId) {
   const existingTab = getTabByNoteIdentity(state, note);
   if (existingTab) {
-    const pane = getTabPane(state, existingTab.tabId) ?? getActivePane(state);
-    return selectNoteTab(state, pane.paneId, existingTab.tabId);
+    // A new-tab page that only led to an already open note has done its job, as in a browser.
+    const sourcePane = state.panes.find((candidate) => candidate.paneId === paneId) ?? getActivePane(state);
+    const blankTabId = sourcePane.activeTabId && isBlankNoteTab(state.tabs[sourcePane.activeTabId]) ? sourcePane.activeTabId : null;
+    const base = blankTabId ? closeNoteTab(state, blankTabId) : state;
+    const pane = getTabPane(base, existingTab.tabId) ?? getActivePane(base);
+    return selectNoteTab(base, pane.paneId, existingTab.tabId);
   }
 
   const pane = state.panes.find((candidate) => candidate.paneId === paneId) ?? getActivePane(state);
+  const replaced = replaceActiveBlankTab(state, pane.paneId, createTabFromNote(note));
+  if (replaced) {
+    return withNavigationHistory(state, replaced);
+  }
+
   const tab = createTabFromNote(note);
-  const next = normalizeState({
-    ...state,
-    tabs: {
-      ...state.tabs,
-      [tab.tabId]: tab,
-    },
-    panes: state.panes.map((candidate) => candidate.paneId === pane.paneId
-      ? {
-        ...candidate,
-        tabIds: [...candidate.tabIds, tab.tabId],
-        activeTabId: tab.tabId,
-      }
-      : candidate),
-    activePaneId: pane.paneId,
-  });
+  const next = insertTabAfterActive(state, pane.paneId, tab);
   return withNavigationHistory(state, next);
 }
 
@@ -431,29 +497,21 @@ export function openDraftNoteTab(state: NoteWorkspaceState, options?: string | O
   const pane = state.panes.find((candidate) => candidate.paneId === paneId) ?? getActivePane(state);
   const tab = createDraftTab();
   const draftTitle = draftOptions.title?.trim() || tab.title;
-  const next = normalizeState({
-    ...state,
-    tabs: {
-      ...state.tabs,
-      [tab.tabId]: tab,
-    },
+  const draftEntry = {
+    title: draftTitle,
+    content: draftOptions.content ?? '',
+  };
+  const replaced = replaceActiveBlankTab(state, pane.paneId, tab);
+  const base = replaced ?? insertTabAfterActive(state, pane.paneId, tab);
+  const tabId = replaced && pane.activeTabId ? pane.activeTabId : tab.tabId;
+  const withDraft = normalizeState({
+    ...base,
     drafts: {
-      ...state.drafts,
-      [tab.tabId]: {
-        title: draftTitle,
-        content: draftOptions.content ?? '',
-      },
+      ...base.drafts,
+      [tabId]: draftEntry,
     },
-    panes: state.panes.map((candidate) => candidate.paneId === pane.paneId
-      ? {
-        ...candidate,
-        tabIds: [...candidate.tabIds, tab.tabId],
-        activeTabId: tab.tabId,
-      }
-      : candidate),
-    activePaneId: pane.paneId,
   });
-  return withNavigationHistory(state, next);
+  return withNavigationHistory(state, withDraft);
 }
 
 export function materializeDraftNoteTab(state: NoteWorkspaceState, tabId: string, note: NoteSummary, submittedDraft?: NoteDocumentDraft) {
@@ -641,12 +699,23 @@ export function closeTabsByNoteIdentity(state: NoteWorkspaceState, note: NoteIde
   };
 }
 
+export function openBlankNoteTab(state: NoteWorkspaceState) {
+  const activePane = getActivePane(state);
+  const tab = createBlankTab();
+  const next = insertTabAfterActive(state, activePane.paneId, tab);
+  return withNavigationHistory(state, next);
+}
+
 export function duplicateActiveNoteTab(state: NoteWorkspaceState) {
   const activePane = getActivePane(state);
   const activeTabId = activePane.activeTabId;
   const activeTab = activeTabId ? state.tabs[activeTabId] : null;
   if (!activeTab || !activeTabId) {
     return state;
+  }
+
+  if (isBlankNoteTab(activeTab)) {
+    return openBlankNoteTab(state);
   }
 
   const duplicateTab = { ...activeTab, tabId: createTabId() };
@@ -910,7 +979,7 @@ export function reconcileSavedNoteTab(
   input: { tabId: string; submittedDraft: NoteDocumentDraft; note: NoteSummary },
 ) {
   const tab = state.tabs[input.tabId];
-  if (!tab || isDraftNoteTab(tab)) {
+  if (!tab || isDraftNoteTab(tab) || isBlankNoteTab(tab)) {
     return state;
   }
 
@@ -947,15 +1016,16 @@ export function reconcileSavedNoteTab(
 }
 
 export function syncNoteTabSummary(state: NoteWorkspaceState, note: NoteSummary) {
-  const matching = Object.values(state.tabs).filter((tab) => (
-    !isDraftNoteTab(tab) && noteIdentityMatches(getSavedTabNoteIdentity(tab), note)
+  const matching = Object.values(state.tabs).filter((tab): tab is SavedOpenNoteTab => (
+    !isDraftNoteTab(tab)
+    && !isBlankNoteTab(tab)
+    && noteIdentityMatches(getSavedTabNoteIdentity(tab), note)
   ));
   if (!matching.length) return state;
   const savedLocalRevision = note.content !== null ? getNoteLocalRevision(note) : undefined;
   const tabs = { ...state.tabs };
   const drafts = { ...state.drafts };
   for (const tab of matching) {
-    if (isDraftNoteTab(tab)) continue;
     const draft = drafts[tab.tabId];
     if (getNoteLocalRevision(note) && tab.shortId !== note.shortId && typeof draft?.baseTitle === 'string') {
       drafts[tab.tabId] = {
@@ -984,7 +1054,10 @@ export function toPersistedNoteWorkspaceLayout(state: NoteWorkspaceState): Persi
       : draft.title !== draft.baseTitle || draft.content !== draft.baseContent;
   }));
   const persistedTabs = Object.fromEntries(
-    Object.entries(state.tabs).filter(([tabId, tab]) => !isDraftNoteTab(tab) || Boolean(meaningfulDrafts[tabId])),
+    Object.entries(state.tabs).filter(([tabId, tab]) => (
+      !isBlankNoteTab(tab)
+      && (!isDraftNoteTab(tab) || Boolean(meaningfulDrafts[tabId]))
+    )),
   );
   const panes = state.panes.map((pane) => {
     const tabIds = pane.tabIds.filter((tabId) => persistedTabs[tabId]);
@@ -1050,6 +1123,9 @@ export function hydrateNoteWorkspaceLayout(scopeKey: string, layout: unknown): N
           && typeof draft.title === 'string'
           && typeof draft.content === 'string'
         );
+      }
+      if (isBlankNoteTab(tab)) {
+        return false;
       }
       return Boolean(
         tab
