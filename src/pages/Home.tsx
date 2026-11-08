@@ -1,4 +1,5 @@
 import { KeyboardNavigation } from './electron-home/KeyboardNavigation';
+import { NoteSummaryLookupContext } from '@/pages/electron-home/NoteSummaryCard';
 import { ConfirmDialogHost } from '@/components/ConfirmDialogHost';
 import { getElectronAction, getResolvedActionShortcut } from '@/lib/electron-actions';
 import { ActionShortcutContext } from './electron-home/ActionShortcutContext';
@@ -381,6 +382,9 @@ export function Home() {
     syncOpenNoteSummaries: noteWorkspace.syncNoteSummaries,
     teams,
   });
+  // Tabs show the same hover card as the tree, so they look notes up by ID.
+  const noteSummariesById = useMemo(() => new Map(folderTree.allNotes.map((entry) => [entry.note.id, entry])), [folderTree.allNotes]);
+  const lookupNoteSummary = useCallback((noteId: string) => noteSummariesById.get(noteId), [noteSummariesById]);
   // Folders start collapsed: the stored set is the folders you opened, and every other folder in
   // the tree reads as collapsed. Callers keep working in collapsed terms through this adapter.
   const allFolderIds = useMemo(() => [...folderTree.nodesById.keys()], [folderTree.nodesById]);
@@ -1200,7 +1204,9 @@ export function Home() {
       <KeyboardNavigation workspaceKey={scopeStorageKey} shortcuts={settings?.shortcuts} platform={api.platform} characterEnabled={settings?.keyboardNavigation?.characterShortcutsEnabled ?? true}>
         <div data-hack-mode={hackMode || undefined} className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
           <BookSessionContext.Provider value={bookSession}>
-            <ElectronHomeWorkspace {...workspaceProps} backupNotice={backupNotice} />
+            <NoteSummaryLookupContext.Provider value={lookupNoteSummary}>
+              <ElectronHomeWorkspace {...workspaceProps} backupNotice={backupNotice} />
+            </NoteSummaryLookupContext.Provider>
           </BookSessionContext.Provider>
           {leaderLevel ? (
             <LeaderMenu

@@ -4,7 +4,6 @@ import {
   CopyPlus,
   Download,
   FileText,
-  Folder,
   FolderOpen,
   FolderPen,
   FolderPlus,
@@ -31,6 +30,7 @@ import { TooltipContent, TooltipRoot, TooltipTrigger } from '@/components/ui/too
 import { cn } from '@/lib/utils';
 
 import { EntityRow } from './interaction-primitives';
+import { NOTE_CARD_CLASS, NoteSummaryCard } from './NoteSummaryCard';
 import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS, formatCompactDate, formatDate } from './ui';
 import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
@@ -43,31 +43,6 @@ import { useFolderTreeControlId, useFolderTreeGroupId, useFolderTreeItem } from 
 const SEARCH_HIGHLIGHT_CLASS = '[.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-2 [.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-inset [.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-focus-ring/80';
 const TREE_ROW_FOCUS_CLASS = 'focus-within:bg-background-primary-subtler focus-within:text-text-emphasize focus-within:ring-2 focus-within:ring-inset focus-within:ring-focus-ring/80';
 
-const NOTE_CARD_CLASS = 'w-64 max-w-64 rounded-md border-border-default bg-background-raised px-3 py-2.5 text-sm font-normal leading-5 text-text-default shadow-lg drop-shadow-none';
-
-/** The hover card for a note row: the full title, then where it lives, its tags and when it changed. */
-export function NoteSummaryCard({ entry }: { entry: FolderTreeNote }) {
-  const { note } = entry;
-  return (
-    <div className="space-y-1.5">
-      <p className="font-medium text-text-emphasize text-pretty">{note.title || 'Untitled'}</p>
-      {entry.folderLabel ? (
-        <p className="flex min-w-0 items-center gap-1.5 text-xs text-text-subtle">
-          <Folder aria-hidden="true" className="size-3.5 shrink-0" />
-          <span className="truncate">{entry.folderLabel}</span>
-        </p>
-      ) : null}
-      {note.tags.length ? (
-        <p className="flex flex-wrap gap-1">
-          {note.tags.map((tag) => (
-            <span key={tag} className="rounded-sm bg-background-hover px-1.5 text-xs leading-5 text-text-default">{tag}</span>
-          ))}
-        </p>
-      ) : null}
-      {note.updatedAtMillis ? <p className="text-xs text-text-subtle">Edited {formatDate(note.updatedAtMillis)}</p> : null}
-    </div>
-  );
-}
 
 /**
  * Note rows re-render only when their data changes. Lists hold hundreds of them, each with a menu,
@@ -733,3 +708,5 @@ export function NoteListSkeleton() {
 }
 
 export const NoteRow = memo(NoteRowView, areNoteRowPropsEqual) as typeof NoteRowView;
+
+export { NoteSummaryCard } from './NoteSummaryCard';

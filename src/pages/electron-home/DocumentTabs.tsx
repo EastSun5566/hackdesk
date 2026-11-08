@@ -1,4 +1,5 @@
 import { ActionMenuShortcut } from './ActionShortcutContext';
+import { NOTE_CARD_CLASS, NoteSummaryCard, useNoteSummaryLookup } from './NoteSummaryCard';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -8,7 +9,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Keyboar
 
 import { Button } from '@/components/ui/button';
 import { Toolbar } from '@/components/ui/toolbar';
-import { Tooltip } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipRoot, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-import type { OpenNoteTab } from './note-workspace';
+import { isDraftNoteTab, type OpenNoteTab } from './note-workspace';
 import { ToolbarDropdownIconTrigger } from './interaction-primitives';
 import { DOCUMENT_SYNC_STATE_LABELS, type DocumentSyncState } from './document-sync-state';
 import { documentPaneId, documentTabId } from './document-tab-ids';
@@ -80,6 +81,8 @@ function DocumentTab({
   onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void;
 }) {
   const title = tab.title || 'Untitled';
+  const lookupNoteSummary = useNoteSummaryLookup();
+  const summary = isDraftNoteTab(tab) ? undefined : lookupNoteSummary(tab.noteId);
   const { isDragging, listeners, setNodeRef, setActivatorNodeRef, transform, transition } = useSortable({ id: tab.tabId });
   const setTabNode = useCallback((element: HTMLLIElement | null) => {
     setNodeRef(element);
@@ -102,6 +105,10 @@ function DocumentTab({
           : 'border-transparent bg-transparent text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
       )}
     >
+      {/* Hovering a tab for a moment opens the note's card beneath it: the full title (tabs
+          truncate), then its folder, tags and edited date when the sidebar knows the note. */}
+      <TooltipRoot>
+        <TooltipTrigger delay={300} render={<span className="flex min-w-0 flex-1" />}>
       <button
         type="button"
         role="tab"
@@ -127,6 +134,16 @@ function DocumentTab({
         <span data-tab-title className="min-w-0 truncate">{title}</span>
         <TabStatusIndicator state={syncState} />
       </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" sideOffset={8} className={NOTE_CARD_CLASS}>
+          {summary ? <NoteSummaryCard entry={{ ...summary, note: { ...summary.note, title } }} /> : (
+            <div className="space-y-1.5">
+              <p className="font-medium text-text-emphasize text-pretty">{title}</p>
+              <p className="text-xs text-text-subtle">{isDraftNoteTab(tab) ? 'Unsaved draft' : DOCUMENT_SYNC_STATE_LABELS[syncState]}</p>
+            </div>
+          )}
+        </TooltipContent>
+      </TooltipRoot>
       <Button
         variant="ghost"
         size="icon-sm"
