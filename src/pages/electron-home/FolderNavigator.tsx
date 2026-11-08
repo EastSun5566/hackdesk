@@ -54,7 +54,6 @@ import { HACK_MODE_HIDDEN_CLASS } from './ui';
 import { EmptyState, PanelHeader, PanelShell } from './interaction-primitives';
 import type { WorkspaceScope } from './types';
 import { CreateNoteButton } from './CreateNoteButton';
-import { FolderActionsDropdown } from './FolderNavigatorActionsDropdown';
 import { NOTE_FINDER_RESULTS_ID, NoteFinderToolbar, type NoteFinderResults } from './FolderNavigatorFinder';
 import {
   FolderDragOverlay,
@@ -287,12 +286,7 @@ function ExpandedNavigator({
 
   return (
     <>
-      <NavigatorHeader
-        actions={actions}
-        workspace={workspace}
-        selectedFolder={selectedConcreteFolder}
-        status={status}
-      />
+      <NavigatorHeader workspace={workspace} status={status} />
       <NavigatorFilterBar
         actions={actions}
         finderOptions={finderOptions}
@@ -327,13 +321,9 @@ function ExpandedNavigator({
 }
 
 function NavigatorHeader({
-  actions,
-  selectedFolder,
   status,
   workspace,
 }: {
-  actions: FolderNavigatorActions;
-  selectedFolder: FolderTreeNode | null;
   status: FolderNavigatorStatus;
   workspace: WorkspaceSidebarProps;
 }) {
@@ -352,23 +342,14 @@ function NavigatorHeader({
       // same 16px edge as the rest of the sidebar.
       actionsClassName="-mr-2"
       actionsLabel="Note navigator actions"
-      actions={(
-        <>
-          {busyLabel ? (
-            <span role="status" aria-label={busyLabel} title={busyLabel} className="flex size-8 items-center justify-center text-icon-default">
-              <Loader2 aria-hidden="true" className="size-3.5 animate-spin motion-reduce:animate-none" />
-            </span>
-          ) : null}
-          {/* No refresh button: HackMD lists refresh when the window regains focus, a Local Vault
-              watches its folder, and Shift+Cmd+R still refreshes by hand. */}
-          <FolderActionsDropdown
-            selectedFolder={selectedFolder}
-            onRenameFolder={actions.onRenameFolder}
-            onDeleteFolder={actions.onDeleteFolder}
-            onOpenPalette={actions.onOpenPalette}
-          />
-        </>
-      )}
+      // No buttons here. Folder actions live in each folder's context menu; the command palette is
+      // a keyboard path (⌘K); and lists refresh on window focus, a Local Vault watches its folder,
+      // with Shift+Cmd+R by hand. Only the busy spinner shows, while notes load or sync.
+      actions={busyLabel ? (
+        <span role="status" aria-label={busyLabel} title={busyLabel} className="flex size-8 items-center justify-center text-icon-default">
+          <Loader2 aria-hidden="true" className="size-3.5 animate-spin motion-reduce:animate-none" />
+        </span>
+      ) : undefined}
     />
   );
 }

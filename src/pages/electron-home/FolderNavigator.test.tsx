@@ -305,7 +305,6 @@ describe('FolderNavigator', () => {
     const onFinderStateChange = vi.fn();
     renderFolderNavigator({ actions: { onFinderStateChange } });
 
-    expect(screen.getByRole('toolbar', { name: 'Note navigator actions' })).toBeInTheDocument();
     expect(screen.getByRole('toolbar', { name: 'Note finder controls' })).toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText('Search notes'), {
       target: { value: 'nested' },
@@ -392,11 +391,12 @@ describe('FolderNavigator', () => {
     expect(card.getByText(/^Edited /)).toBeInTheDocument();
   });
 
-  it('uses roving focus for navigator header actions', async () => {
+  it('keeps the header to the workspace switcher, with no action buttons', () => {
     renderFolderNavigator();
 
-    // Refresh happens when the window regains focus, so the header has no refresh button.
-    await expectToolbarRovingFocus('Note navigator actions', ['Navigator actions']);
+    // Folder actions are in context menus and the palette is a keyboard path, so nothing else here.
+    expect(screen.queryByRole('toolbar', { name: 'Note navigator actions' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Navigator actions' })).not.toBeInTheDocument();
   });
 
   it('creates a note from the split button, and offers the other ways to create in its menu', async () => {
