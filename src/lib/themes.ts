@@ -56,7 +56,7 @@ const QUOTED_FONT_FAMILY_RE = /^(?:"[^"\\\r\n]+"|'[^'\\\r\n]+')$/;
 
 export const DEFAULT_UI_FONT_STACK = 'Inter, system-ui, sans-serif';
 // Notes are prose, so the editor reads in the UI's proportional face; code keeps a monospace face.
-export const DEFAULT_EDITOR_FONT_STACK = DEFAULT_UI_FONT_STACK;
+export const DEFAULT_EDITOR_FONT_STACK = 'Inter, system-ui, sans-serif';
 export const MONO_FONT_STACK = '"JetBrains Mono", "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, monospace';
 export const DEFAULT_UI_FONT_SIZE = 14;
 export const MIN_UI_FONT_SIZE = 12;
