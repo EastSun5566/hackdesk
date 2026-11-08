@@ -616,3 +616,21 @@
   max-height: calc(100dvh - 4rem);
 }
 .comparison-text-preview { max-height: 40dvh; }
+
+/* Unlayered, so it outranks the surface's own border-color utility. */
+/* A surface's border standing in for the resize handle beside it (PanelResizeSash edgeSelector):
+   the border turns primary, and a 1px inner stroke with the surface's own radius thickens it and
+   tapers into the rounded corners, so the highlight is the edge itself rather than a line in the gap. */
+[data-sash-edge] {
+  border-left-color: var(--primary-default);
+}
+
+[data-sash-edge]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  border-left: 1px solid var(--primary-default);
+  border-radius: inherit;
+  pointer-events: none;
+}
