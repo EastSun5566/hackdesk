@@ -1,6 +1,7 @@
 import {
   AlertCircle,
   FileText,
+  Loader2,
   Plus,
 } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -287,20 +288,15 @@ function NavigatorHeader({
   status: FolderNavigatorStatus;
   workspace: WorkspaceSidebarProps;
 }) {
-  const navigatorSubtitle = status.isLoading
-    ? 'Loading…'
-    : status.isFetching
-      ? 'Syncing…'
-      : isFinderMode
-        ? `${resultCount} ${resultCount === 1 ? 'result' : 'results'}`
-        // The tree shows the notes; a bare count adds a line without telling anything new.
-        : undefined;
+  // Status sits in the action row, so the header keeps one height: a spinner while the list loads
+  // or syncs, and the result count while searching. The tree itself shows the notes.
+  const busyLabel = status.isLoading ? 'Loading notes…' : status.isFetching ? 'Syncing notes…' : undefined;
+  const resultLabel = isFinderMode ? `${resultCount} ${resultCount === 1 ? 'result' : 'results'}` : undefined;
 
   return (
     <PanelHeader
       title={<WorkspaceSwitcher {...workspace} />}
       titleElement="div"
-      subtitle={navigatorSubtitle}
       className="px-4 pb-1 pt-2.5"
       // Icon buttons carry 8px of padding, so pulling them out by 8px puts their glyphs on the
       // same 16px edge as the rest of the sidebar.
@@ -308,6 +304,13 @@ function NavigatorHeader({
       actionsLabel="Note navigator actions"
       actions={(
         <>
+          {busyLabel ? (
+            <span role="status" aria-label={busyLabel} title={busyLabel} className="flex size-8 items-center justify-center text-icon-default">
+              <Loader2 aria-hidden="true" className="size-3.5 animate-spin motion-reduce:animate-none" />
+            </span>
+          ) : resultLabel ? (
+            <span className="px-1 text-xs tabular-nums text-text-subtle">{resultLabel}</span>
+          ) : null}
           {/* No refresh button: HackMD lists refresh when the window regains focus, a Local Vault
               watches its folder, and Shift+Cmd+R still refreshes by hand. */}
           <ToolbarIconButton

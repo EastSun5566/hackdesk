@@ -581,9 +581,10 @@ export function FolderTreeView({
 
     return (
       <li role="presentation" key={node.id} className="relative min-w-0">
-        {depth > 0 && !lastChild ? <span aria-hidden="true" data-tree-guide="continuation" className="pointer-events-none absolute -left-1.75 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
+        {/* Guides run the full height of each child, last one included, so a folder's line covers
+            everything it contains. A half-height end would need a horizontal stroke to read. */}
+        {depth > 0 ? <span aria-hidden="true" data-tree-guide={lastChild ? 'end' : 'continuation'} className="pointer-events-none absolute -left-1.75 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
         <div className="relative min-w-0">
-          {depth > 0 && lastChild ? <span aria-hidden="true" data-tree-guide="end" className="pointer-events-none absolute -left-1.75 -top-0.5 bottom-1/2 w-px bg-border-subtle" /> : null}
         <FolderButton
           node={node}
           selected={selectedFolderId === node.id}
@@ -644,7 +645,7 @@ export function FolderTreeView({
 
   const noteItems = notes.map((entry, index) => (
     <li role="presentation" key={`note:${entry.note.id}`} className="relative min-w-0">
-      {depth > 0 ? <span aria-hidden="true" data-tree-guide={index === notes.length - 1 ? 'end' : 'continuation'} className={cn('pointer-events-none absolute -left-1.75 -top-0.5 w-px bg-border-subtle', index === notes.length - 1 ? 'bottom-1/2' : 'bottom-0')} /> : null}
+      {depth > 0 ? <span aria-hidden="true" data-tree-guide={index === notes.length - 1 ? 'end' : 'continuation'} className="pointer-events-none absolute -left-1.75 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
       <NoteRow
         entry={entry}
         selected={entry.note.id === selectedNoteId}
