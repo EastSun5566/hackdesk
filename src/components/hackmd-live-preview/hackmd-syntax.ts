@@ -54,10 +54,6 @@ export const hackmdMarkdownHighlightStyle = HighlightStyle.define([
     color: 'var(--border-default)',
   },
   {
-    tag: tags.list,
-    color: 'var(--text-subtle)',
-  },
-  {
     tag: tags.meta,
     color: 'var(--text-subtle)',
   },
