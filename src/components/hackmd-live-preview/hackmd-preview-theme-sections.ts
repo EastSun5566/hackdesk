@@ -247,7 +247,7 @@ export const proseTheme = {
   // step because it usually names the note. Line padding (not margin) keeps CodeMirror's height
   // map exact.
   '.cm-hackmd-h1': {
-    fontSize: '1.3em',
+    fontSize: '1.2em',
     fontWeight: '650',
     lineHeight: '1.35',
     letterSpacing: '-0.01em',
@@ -255,7 +255,7 @@ export const proseTheme = {
     color: 'var(--text-default)',
   },
   '.cm-hackmd-h2': {
-    fontSize: '1.15em',
+    fontSize: '1.1em',
     fontWeight: '600',
     lineHeight: '1.4',
     paddingTop: '0.15em',
