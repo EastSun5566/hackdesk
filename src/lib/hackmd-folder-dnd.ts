@@ -3,6 +3,12 @@ import type { FolderTree, FolderTreeNode } from './hackmd-folders';
 import { ROOT_FOLDER_ORDER_KEY } from './hackmd-folders';
 
 export const ROOT_FOLDER_DROP_ID = '__hackdesk_root_folder_drop__';
+/** Same drop meaning as ROOT_FOLDER_DROP_ID; separate id so two droppables can coexist. */
+export const ROOT_FOLDER_DROP_ROW_ID = '__hackdesk_root_folder_drop_row__';
+
+export function isRootFolderDropTarget(overId: string) {
+  return overId === ROOT_FOLDER_DROP_ID || overId === ROOT_FOLDER_DROP_ROW_ID;
+}
 const FOLDER_DND_INDENT_WIDTH = 20;
 
 export type FlattenedFolderItem = {
@@ -104,7 +110,7 @@ export function getProjectedFolderDrop({
     return null;
   }
 
-  if (overId === ROOT_FOLDER_DROP_ID) {
+  if (isRootFolderDropTarget(overId)) {
     return { parentId: null, depth: 0 };
   }
 

@@ -9,13 +9,13 @@ import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { createFolderTreeFocusStore } from './FolderTreeFocusContext';
 
 import {
+  buildFolderNavigatorFocusItems,
   createFolderFocusId,
   findTypeaheadMatch,
-  getFolderTreeFocusItems,
   getKeyboardFocusRowId,
   normalizeCreateNoteFolderId,
   shouldIgnoreFolderTreeKeydown,
-  withTrashFocusItem,
+  WORKSPACE_ROOT_FOCUS_ID,
 } from './folder-tree-focus';
 
 export type FolderTreeKeyboardActions = {
@@ -36,8 +36,10 @@ export type UseFolderTreeKeyboardNavigationOptions = {
   collapsedFolderIds: Set<string>;
   tree: FolderTree;
   treeRef: RefObject<HTMLDivElement | null>;
-  showTrash?: boolean;
-  onOpenTrash?: () => void;
+  showRoot: boolean;
+  rootSectionExpanded: boolean;
+  rootLabel: string;
+  onRootSectionToggle?: () => void;
 };
 
 export function useFolderTreeKeyboardNavigation({
@@ -47,16 +49,31 @@ export function useFolderTreeKeyboardNavigation({
   collapsedFolderIds,
   tree,
   treeRef,
-  showTrash = false,
-  onOpenTrash,
+  showRoot,
+  rootSectionExpanded,
+  rootLabel,
+  onRootSectionToggle,
 }: UseFolderTreeKeyboardNavigationOptions) {
   const typeaheadBufferRef = useRef('');
   const typeaheadResetTimerRef = useRef<number | null>(null);
   const focusItems = useMemo(
-    () => withTrashFocusItem(getFolderTreeFocusItems(tree, collapsedFolderIds), showTrash),
-    [collapsedFolderIds, showTrash, tree],
+    () => buildFolderNavigatorFocusItems({
+      tree,
+      collapsedFolderIds,
+      showRoot,
+      rootSectionExpanded,
+      rootLabel,
+    }),
+    [collapsedFolderIds, rootLabel, rootSectionExpanded, showRoot, tree],
   );
   const [focusedId, setFocusedId] = useState(selectedRowId);
+  // The tree's tab stop follows the selection: opening a note elsewhere (a tab, the palette) makes
+  // its row the place Tab and Cmd+Shift+E land, not wherever focus last was in the tree.
+  const [previousSelectedRowId, setPreviousSelectedRowId] = useState(selectedRowId);
+  if (previousSelectedRowId !== selectedRowId) {
+    setPreviousSelectedRowId(selectedRowId);
+    if (selectedRowId) setFocusedId(selectedRowId);
+  }
   const itemsById = useMemo(() => new Map(focusItems.map(item => [item.id, item])), [focusItems]);
   const previousItemsRef = useRef(focusItems);
   const lastFocusedElementRef = useRef<HTMLElement | null>(null);
@@ -254,6 +271,20 @@ export function useFolderTreeKeyboardNavigation({
       return;
     }
 
+    if (!event.ctrlKey && isPlainKey && event.key === 'ArrowRight' && currentItem?.kind === 'root') {
+      event.preventDefault();
+      if (!rootSectionExpanded) {
+        onRootSectionToggle?.();
+        return;
+      }
+
+      const nextItem = focusItems.find((item) => item.id !== WORKSPACE_ROOT_FOCUS_ID);
+      if (nextItem) {
+        focusTreeItem(nextItem.id);
+      }
+      return;
+    }
+
     if (!event.ctrlKey && isPlainKey && event.key === 'ArrowRight' && currentItem?.kind === 'folder') {
       event.preventDefault();
       if (currentItem.folderId && currentItem.folderId !== UNFILED_FOLDER_ID && currentItem.hasChildren && collapsedFolderIds.has(currentItem.folderId)) {
@@ -268,6 +299,14 @@ export function useFolderTreeKeyboardNavigation({
       return;
     }
 
+    if (!event.ctrlKey && isPlainKey && event.key === 'ArrowLeft' && currentItem?.kind === 'root') {
+      event.preventDefault();
+      if (rootSectionExpanded) {
+        onRootSectionToggle?.();
+      }
+      return;
+    }
+
     if (!event.ctrlKey && isPlainKey && event.key === 'ArrowLeft' && currentItem) {
       event.preventDefault();
       if (currentItem.kind === 'folder' && currentItem.folderId && currentItem.folderId !== UNFILED_FOLDER_ID && currentItem.hasChildren && !collapsedFolderIds.has(currentItem.folderId)) {
@@ -277,6 +316,11 @@ export function useFolderTreeKeyboardNavigation({
 
       if (currentItem.parentFolderId) {
         focusTreeItem(createFolderFocusId(currentItem.parentFolderId));
+        return;
+      }
+
+      if (showRoot && currentItem.depth === 1) {
+        focusTreeItem(WORKSPACE_ROOT_FOCUS_ID);
       }
       return;
     }
@@ -291,6 +335,11 @@ export function useFolderTreeKeyboardNavigation({
       }
 
       event.preventDefault();
+      if (currentItem.kind === 'root') {
+        actions.onFolderSelect(UNFILED_FOLDER_ID);
+        return;
+      }
+
       if (currentItem.kind === 'folder' && currentItem.folderId) {
         actions.onFolderSelect(currentItem.folderId);
         return;
@@ -301,9 +350,6 @@ export function useFolderTreeKeyboardNavigation({
         return;
       }
 
-      if (currentItem.kind === 'trash') {
-        onOpenTrash?.();
-      }
     }
   }, [
     shortcutContext,
@@ -312,8 +358,10 @@ export function useFolderTreeKeyboardNavigation({
     focusItemAtIndex,
     focusItems,
     focusTreeItem,
-    onOpenTrash,
+    onRootSectionToggle,
+    rootSectionExpanded,
     runTypeahead,
+    showRoot,
   ]);
 
   useEffect(() => {

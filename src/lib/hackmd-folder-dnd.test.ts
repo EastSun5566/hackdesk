@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildFolderDropOperation, flattenFolderTree, getProjectedFolderDrop, ROOT_FOLDER_DROP_ID } from './hackmd-folder-dnd';
+import { buildFolderDropOperation, flattenFolderTree, getProjectedFolderDrop, ROOT_FOLDER_DROP_ID, ROOT_FOLDER_DROP_ROW_ID } from './hackmd-folder-dnd';
 import { buildHackmdFolderTree } from './hackmd-folders';
 
 const folders = [
@@ -81,6 +81,14 @@ describe('hackmd folder dnd helpers', () => {
     });
 
     expect(projection).toEqual({ parentId: null, depth: 0 });
+    const rowProjection = getProjectedFolderDrop({
+      items: visibleItems,
+      activeId: 'c',
+      overId: ROOT_FOLDER_DROP_ROW_ID,
+      dragOffsetX: 0,
+    });
+    expect(rowProjection).toEqual({ parentId: null, depth: 0 });
+
     expect(buildFolderDropOperation({
       tree,
       visibleItems,

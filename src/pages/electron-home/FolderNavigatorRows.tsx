@@ -8,7 +8,10 @@ import {
   FolderPen,
   FolderPlus,
   GripVertical,
+  HardDrive,
+  Lock,
   Trash2,
+  Users,
 } from 'lucide-react';
 import { memo, useLayoutEffect, useRef, useState } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
@@ -32,13 +35,14 @@ import { cn } from '@/lib/utils';
 import { EntityRow } from './interaction-primitives';
 import { NOTE_CARD_CLASS, NoteSummaryCard } from './NoteSummaryCard';
 import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS, formatCompactDate, formatDate } from './ui';
-import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
+import { ROOT_FOLDER_DROP_ID, ROOT_FOLDER_DROP_ROW_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { NoteMatchSnippet } from './NoteMatchSnippet';
 
-import { TRASH_TREE_FOCUS_ID } from './folder-tree-focus';
+import { WORKSPACE_ROOT_FOCUS_ID } from './folder-tree-focus';
 import { useFolderTreeControlId, useFolderTreeGroupId, useFolderTreeItem } from './FolderTreeFocusContext';
+import type { WorkspaceScope } from './types';
 
 // The search box keeps focus, so its highlighted result shows only while the box is focused.
 const SEARCH_HIGHLIGHT_CLASS = '[.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-2 [.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-inset [.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-focus-ring/80';
@@ -524,47 +528,159 @@ function FolderButtonView({
   );
 }
 
+function WorkspaceRootScopeIcon({ scope }: { scope: WorkspaceScope }) {
+  if (scope.type === 'team') return <Users className="h-3.5 w-3.5" />;
+  if (scope.type === 'local') return <HardDrive className="h-3.5 w-3.5" />;
+  return <Lock className="h-3.5 w-3.5" />;
+}
+
 /**
- * The space under the tree stands for the workspace's top level, which has no row of its own:
- * clicking it leaves the selected folder, right-clicking it creates at the top level, and while
- * something is dragged it becomes the target for moving it out of its folder.
+ * Pinned workspace header row: collapse hides the folder tree; the row is also a top-level drop
+ * target while dragging.
  */
-export function TrashTreeRow({
+export function WorkspaceRootTreeRow({
+  scope,
+  label,
+  selected,
+  sectionExpanded,
+  dragActive,
+  onSelectTopLevel,
+  onSectionToggle,
+  onCreateFolder,
+  onCreateNote,
+}: {
+  scope: WorkspaceScope;
+  label: string;
+  selected: boolean;
+  sectionExpanded: boolean;
+  dragActive: boolean;
+  onSelectTopLevel: () => void;
+  onSectionToggle: () => void;
+  onCreateFolder: () => void;
+  onCreateNote: () => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: ROOT_FOLDER_DROP_ROW_ID });
+  const treeItemProps = useFolderTreeItem(WORKSPACE_ROOT_FOCUS_ID, selected, sectionExpanded, ['toggle']);
+  const toggleControlId = useFolderTreeControlId(WORKSPACE_ROOT_FOCUS_ID, 'toggle');
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div
+          ref={setNodeRef}
+          data-folder-tree-row-id={WORKSPACE_ROOT_FOCUS_ID}
+          data-folder-tree-kind="root"
+          // Sticks to the scroll area's very top, covering its 8px padding too, so rows scrolling
+          // past never show through the strip above the root.
+          className="sticky -top-2 z-10 -mt-2 min-w-0 bg-background-muted pt-2"
+        >
+          <EntityRow
+            selected={selected}
+            active={dragActive && isOver}
+            variant="compact"
+            tone="quiet"
+            selectedIndicator
+            leadingControls={(
+              <button
+                type="button"
+                id={toggleControlId}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSectionToggle();
+                }}
+                className={cn(
+                  '-mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-icon-subtle group-hover/entity-row:text-icon-default hover:text-text-default',
+                  FOCUS_RING_INSET_CLASS,
+                )}
+                aria-label={sectionExpanded ? `Collapse ${label}` : `Expand ${label}`}
+                aria-expanded={sectionExpanded}
+                tabIndex={treeItemProps?.tabIndex}
+              >
+                <span className="group-hover/entity-row:hidden group-focus-within/entity-row:hidden">
+                  <WorkspaceRootScopeIcon scope={scope} />
+                </span>
+                <ChevronRight
+                  aria-hidden="true"
+                  className={cn(
+                    'hidden size-3.5 group-hover/entity-row:block group-focus-within/entity-row:block',
+                    COLLAPSE_ICON_CLASS,
+                    sectionExpanded && 'rotate-90',
+                  )}
+                />
+              </button>
+            )}
+            title={label}
+            contentAriaLabel={label}
+            contentOnClick={() => {
+              onSelectTopLevel();
+              if (!sectionExpanded) onSectionToggle();
+            }}
+            contentFocusTarget
+            contentButtonProps={treeItemProps}
+            menu={(
+              <button
+                type="button"
+                className={cn(
+                  'flex size-7 items-center justify-center rounded text-icon-subtle hover:text-text-default',
+                  FOCUS_RING_INSET_CLASS,
+                )}
+                aria-label="New Folder"
+                data-folder-tree-ignore-keyboard="true"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onCreateFolder();
+                }}
+              >
+                <FolderPlus aria-hidden="true" className="size-3.5" />
+              </button>
+            )}
+            className={TREE_ROW_FOCUS_CLASS}
+          />
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onSelect={onCreateNote}>
+          <FileText aria-hidden="true" className="h-4 w-4" />
+          New Note
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={onCreateFolder}>
+          <FolderPlus aria-hidden="true" className="h-4 w-4" />
+          New Folder
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+}
+
+/** The trash's place in the sidebar: a row styled like the tree's, outside it, above the account. */
+export function SidebarTrashRow({
+  label,
   selected,
   onOpen,
 }: {
+  label: string;
   selected: boolean;
   onOpen: () => void;
 }) {
-  const treeItemProps = useFolderTreeItem(TRASH_TREE_FOCUS_ID, selected, undefined, []);
-
   return (
-    <li role="presentation" className="min-w-0">
-      <div
-        data-folder-tree-row-id={TRASH_TREE_FOCUS_ID}
-        data-folder-tree-kind="trash"
-        className="min-w-0"
-      >
-        <EntityRow
-          selected={selected}
-          // The same box as a note row's icon (its drag handle), so height and title column match.
-          leadingControls={(
-            <span aria-hidden="true" className="-mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center text-icon-subtle group-hover/entity-row:text-icon-default">
-              <Trash2 className="h-3.5 w-3.5" />
-            </span>
-          )}
-          title="Trash"
-          variant="compact"
-          tone="quiet"
-          selectedIndicator
-          contentAriaLabel="Trash"
-          contentOnClick={onOpen}
-          contentFocusTarget
-          contentButtonProps={treeItemProps}
-          className={TREE_ROW_FOCUS_CLASS}
-        />
-      </div>
-    </li>
+    <div data-testid="sidebar-trash-row" className="min-w-0">
+      <EntityRow
+        selected={selected}
+        leadingControls={(
+          <span aria-hidden="true" className="-mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center text-icon-subtle group-hover/entity-row:text-icon-default">
+            <Trash2 className="h-3.5 w-3.5" />
+          </span>
+        )}
+        title={label}
+        variant="compact"
+        tone="quiet"
+        selectedIndicator
+        contentAriaLabel={label}
+        contentOnClick={onOpen}
+        contentAriaCurrent={selected ? 'page' : undefined}
+        className={TREE_ROW_FOCUS_CLASS}
+      />
+    </div>
   );
 }
 
@@ -670,6 +786,7 @@ export function FolderTreeView({
   selectedFolderForNoteMove,
   isMovingNote,
   isMovingFolder,
+  topLevelGuides = false,
 }: {
   nodes: FolderTreeNode[];
   notes?: FolderTreeNote[];
@@ -700,6 +817,8 @@ export function FolderTreeView({
   selectedFolderForNoteMove: FolderTreeNode | null;
   isMovingNote: boolean;
   isMovingFolder: boolean;
+  /** Draws guides on top-level rows too, when they sit under the workspace root. */
+  topLevelGuides?: boolean;
 }) {
   const groupId = useFolderTreeGroupId(parentFolderId ?? '');
   if (nodes.length === 0 && notes.length === 0) {
@@ -715,7 +834,7 @@ export function FolderTreeView({
       <li role="presentation" key={node.id} className="relative min-w-0">
         {/* Guides run the full height of each child, last one included, so a folder's line covers
             everything it contains. A half-height end would need a horizontal stroke to read. */}
-        {depth > 0 ? <span aria-hidden="true" data-tree-guide={lastChild ? 'end' : 'continuation'} className="pointer-events-none absolute -left-1.5 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
+        {depth > 0 || topLevelGuides ? <span aria-hidden="true" data-tree-guide={lastChild ? 'end' : 'continuation'} className="pointer-events-none absolute -left-1.5 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
         <div className="relative min-w-0">
         <FolderButton
           node={node}
@@ -779,7 +898,7 @@ export function FolderTreeView({
 
   const noteItems = notes.map((entry, index) => (
     <li role="presentation" key={`note:${entry.note.id}`} className="tree-row-lazy relative min-w-0">
-      {depth > 0 ? <span aria-hidden="true" data-tree-guide={index === notes.length - 1 ? 'end' : 'continuation'} className="pointer-events-none absolute -left-1.5 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
+      {depth > 0 || topLevelGuides ? <span aria-hidden="true" data-tree-guide={index === notes.length - 1 ? 'end' : 'continuation'} className="pointer-events-none absolute -left-1.5 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
       <NoteRow
         entry={entry}
         // The open note shows as selected only while its folder is the selection; clicking another

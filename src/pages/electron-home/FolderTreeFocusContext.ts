@@ -73,12 +73,15 @@ export function useFolderTreeItem(id: string, selected: boolean, expanded?: bool
   if (kind === 'folder' && expanded && hasChildren === '1') {
     ownedIds.push(`${context.treeId}-children-${encodeURIComponent(folderId ?? '')}`);
   }
+  if (kind === 'root' && expanded) {
+    ownedIds.push(`${context.treeId}-workspace-children`);
+  }
   return {
     role: 'treeitem',
     tabIndex: focused === '1' ? 0 : -1,
     'aria-level': Number(depth) + 1,
     'aria-selected': selected && isSelectedRow === '1',
-    'aria-expanded': hasChildren === '1' ? expanded : undefined,
+    'aria-expanded': (kind === 'folder' || kind === 'root') && hasChildren === '1' ? expanded : undefined,
     'aria-owns': ownedIds.length ? ownedIds.join(' ') : undefined,
     onFocus: () => context.onFocus(id),
   };

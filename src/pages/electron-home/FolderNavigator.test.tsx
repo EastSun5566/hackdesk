@@ -366,7 +366,7 @@ describe('FolderNavigator', () => {
     fireEvent.keyDown(emptyInput, { key: 'Escape' });
 
     await waitFor(() => {
-      expect(getFocusedTreeRowId()).toBe('folder:projects');
+      expect(getFocusedTreeRowId()).toBe('workspace:root');
     });
 
     treeView.unmount();
@@ -434,7 +434,7 @@ describe('FolderNavigator', () => {
     expect(await screen.findByText('Connect HackMD to create notes.')).toBeVisible();
   });
 
-  it('opens trash from a row at the end of the sidebar tree', () => {
+  it('pins Trash above the account row, outside the tree', () => {
     const onOpenChange = vi.fn();
     window.hackdeskAPI = {
       hackmd: { listTrash: vi.fn(async () => []) },
@@ -443,7 +443,10 @@ describe('FolderNavigator', () => {
       trash: { open: false, onOpenChange, onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } },
     });
 
-    fireEvent.click(within(screen.getByTestId('folder-navigator-tree')).getByRole('treeitem', { name: 'Trash' }));
+    const tree = screen.getByTestId('folder-navigator-tree');
+    const trashRow = screen.getByTestId('sidebar-trash-row');
+    expect(tree).not.toContainElement(trashRow);
+    fireEvent.click(within(trashRow).getByRole('button', { name: 'My Trash' }));
     expect(onOpenChange).toHaveBeenCalledWith(true);
     delete window.hackdeskAPI;
   });
@@ -602,8 +605,11 @@ describe('FolderNavigator', () => {
     const tree = screen.getByRole('tree', { name: 'Folders and notes' });
     const items = within(tree).getAllByRole('treeitem');
     expect(items.filter(item => item.tabIndex === 0)).toHaveLength(1);
+    const workspaceRoot = within(tree).getByRole('treeitem', { name: 'My Notes' });
+    expect(workspaceRoot).toHaveAttribute('aria-level', '1');
+    expect(workspaceRoot).toHaveAttribute('aria-expanded', 'true');
     const projects = within(tree).getByRole('treeitem', { name: 'Projects' });
-    expect(projects).toHaveAttribute('aria-level', '1');
+    expect(projects).toHaveAttribute('aria-level', '2');
     expect(projects).toHaveAttribute('aria-expanded', 'true');
     const owned = projects.getAttribute('aria-owns')!.split(' ').map(id => document.getElementById(id)!);
     expect(owned[0]).toHaveAccessibleName('Collapse Projects');
@@ -611,10 +617,9 @@ describe('FolderNavigator', () => {
     const group = owned[2];
     expect(group).toHaveAttribute('role', 'group');
     const nested = within(group!).getByRole('treeitem', { name: 'Nested note' });
-    expect(nested).toHaveAttribute('aria-level', '2');
+    expect(nested).toHaveAttribute('aria-level', '3');
     expect(nested).not.toHaveAttribute('aria-expanded');
-    expect(within(tree).queryByRole('treeitem', { name: /Root/ })).not.toBeInTheDocument();
-    expect(within(tree).getByRole('treeitem', { name: 'Loose note' })).toHaveAttribute('aria-level', '1');
+    expect(within(tree).getByRole('treeitem', { name: 'Loose note' })).toHaveAttribute('aria-level', '2');
   });
 
   it('returns a hidden child focus to its collapsed parent', () => {
@@ -660,8 +665,12 @@ describe('FolderNavigator', () => {
 
   it('moves focus through visible tree rows with arrow keys and Ctrl+N/P', () => {
     const { container } = renderFolderNavigator();
-    const projects = focusTreeRow(container, 'folder:projects');
+    const root = focusTreeRow(container, 'workspace:root');
 
+    fireEvent.keyDown(root, { key: 'ArrowDown' });
+    expect(getFocusedTreeRowId()).toBe('folder:projects');
+
+    const projects = focusTreeRow(container, 'folder:projects');
     fireEvent.keyDown(projects, { key: 'ArrowDown' });
     expect(getFocusedTreeRowId()).toBe('note:nested-note');
 
@@ -676,14 +685,17 @@ describe('FolderNavigator', () => {
   });
 
   it('moves focus to first and last visible tree rows with Home and End', () => {
-    const { container } = renderFolderNavigator();
+    const onOpenChange = vi.fn();
+    const { container } = renderFolderNavigator({
+      trash: { open: false, onOpenChange, onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } },
+    });
     const projects = focusTreeRow(container, 'folder:projects');
 
     fireEvent.keyDown(projects, { key: 'End' });
     expect(getFocusedTreeRowId()).toBe('note:loose-note');
 
     fireEvent.keyDown(document.activeElement ?? projects, { key: 'Home' });
-    expect(getFocusedTreeRowId()).toBe('folder:projects');
+    expect(getFocusedTreeRowId()).toBe('workspace:root');
   });
 
   it('expands and collapses folders with right and left arrows', () => {
@@ -885,5 +897,61 @@ describe('FolderNavigator', () => {
       }));
       expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Nested note' }));
     });
+  });
+
+  it('renders the workspace root with the personal label', () => {
+    renderFolderNavigator({ scope: { type: 'personal', label: 'Ignored' } });
+    expect(within(screen.getByTestId('folder-navigator-tree')).getByRole('treeitem', { name: 'My Notes' })).toBeInTheDocument();
+  });
+
+  it('selects the top level when the workspace root row is clicked', () => {
+    const onFolderSelect = vi.fn();
+    renderFolderNavigator({ actions: { onFolderSelect } });
+    fireEvent.click(screen.getByRole('treeitem', { name: 'My Notes' }));
+    expect(onFolderSelect).toHaveBeenCalledWith(UNFILED_FOLDER_ID);
+  });
+
+  it('collapses the tree, persisting per scope', () => {
+    window.localStorage.clear();
+    const onOpenChange = vi.fn();
+    const { props, rerender } = renderFolderNavigator({
+      trash: { open: false, onOpenChange, onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse My Notes' }));
+    expect(screen.queryByRole('treeitem', { name: 'Projects' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'My Trash' })).toBeInTheDocument();
+
+    rerender(<TooltipProvider><FolderNavigator {...props} /></TooltipProvider>);
+    expect(screen.queryByRole('treeitem', { name: 'Projects' })).not.toBeInTheDocument();
+  });
+
+  it('creates a top-level folder from the root hover action and context menu', async () => {
+    const onCreateFolderInside = vi.fn();
+    renderFolderNavigator({ actions: { onCreateFolderInside } });
+    fireEvent.click(screen.getByRole('button', { name: 'New Folder' }));
+    expect(onCreateFolderInside).toHaveBeenCalledWith(null);
+
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'My Notes' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^New Folder/ }));
+    expect(onCreateFolderInside).toHaveBeenCalledTimes(2);
+  });
+
+  it('expands and collapses the root section with arrow keys', () => {
+    const { container } = renderFolderNavigator();
+    const root = focusTreeRow(container, 'workspace:root');
+    fireEvent.keyDown(root, { key: 'ArrowLeft' });
+    expect(screen.queryByRole('treeitem', { name: 'Projects' })).not.toBeInTheDocument();
+    fireEvent.keyDown(root, { key: 'ArrowRight' });
+    expect(screen.getByRole('treeitem', { name: 'Projects' })).toBeInTheDocument();
+  });
+
+  it('omits the workspace root on the history scope', () => {
+    const historyTree = buildHackmdFolderTree([note({ id: 'h1', title: 'Recent' })], []);
+    renderFolderNavigator({
+      scope: { type: 'history', label: 'History' },
+      tree: historyTree,
+      entries: historyTree.allNotes,
+    });
+    expect(screen.queryByRole('treeitem', { name: 'My Notes' })).not.toBeInTheDocument();
   });
 });

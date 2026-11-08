@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { FolderSummary, NoteSummary } from './electron-api';
-import { ROOT_FOLDER_DROP_ID } from './hackmd-folder-dnd';
+import { ROOT_FOLDER_DROP_ID, ROOT_FOLDER_DROP_ROW_ID } from './hackmd-folder-dnd';
 import {
   buildNoteDragId,
   buildNoteDropOperation,
@@ -93,6 +93,14 @@ describe('note dnd helpers', () => {
     });
 
     expect(operation).toMatchObject({
+      targetFolderId: null,
+      changed: true,
+    });
+    expect(buildNoteDropOperation({
+      tree,
+      activeId: buildNoteDragId(note.id),
+      overId: ROOT_FOLDER_DROP_ROW_ID,
+    })).toMatchObject({
       targetFolderId: null,
       changed: true,
     });
