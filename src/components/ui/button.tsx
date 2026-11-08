@@ -106,7 +106,9 @@ export function ButtonGroup({ className, ...props }: React.ComponentPropsWithout
     <div
       role="group"
       className={cn(
-        'flex min-w-0 [&>*:not(:first-child)]:rounded-l-none [&>*:not(:last-child)]:rounded-r-none [&>*+*]:border-l-current/25',
+        // Matched by button type, not position: an open menu inserts focus-guard spans beside its
+        // trigger, which would otherwise round the trigger's inner corners while it's open.
+        'flex min-w-0 [&>button:not(:first-of-type)]:rounded-l-none [&>button:not(:last-of-type)]:rounded-r-none [&>button:not(:first-of-type)]:border-l-current/25',
         className,
       )}
       {...props}
