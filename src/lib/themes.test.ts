@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildThemeStyleText,
   CJK_FALLBACK_FAMILIES,
+  getCjkFallbackFamilies,
   defaultThemeTypography,
   HACKDESK_THEME_PRESETS,
   isSafeFontStack,
@@ -323,9 +324,16 @@ describe('HackDesk themes', () => {
   });
 
   it('adds CJK faces before the first generic family, once', () => {
-    expect(withCjkFallback('Inter, system-ui, sans-serif')).toBe(`Inter, ${CJK_FALLBACK_FAMILIES.join(', ')}, system-ui, sans-serif`);
-    expect(withCjkFallback('"Avenir Next"')).toBe(`"Avenir Next", ${CJK_FALLBACK_FAMILIES.join(', ')}`);
-    expect(withCjkFallback('Inter, "PingFang SC", sans-serif')).toBe('Inter, "PingFang SC", sans-serif');
+    expect(withCjkFallback('Inter, system-ui, sans-serif', [])).toBe(`Inter, ${CJK_FALLBACK_FAMILIES.join(', ')}, system-ui, sans-serif`);
+    expect(withCjkFallback('"Avenir Next"', [])).toBe(`"Avenir Next", ${CJK_FALLBACK_FAMILIES.join(', ')}`);
+    expect(withCjkFallback('Inter, "PingFang SC", sans-serif', [])).toBe('Inter, "PingFang SC", sans-serif');
+  });
+
+  it('orders CJK faces by the preferred languages, as native apps do', () => {
+    expect(getCjkFallbackFamilies(['ja', 'ja-TW', 'en-TW', 'zh-Hant-TW']).slice(0, 2)).toEqual(['"Hiragino Sans"', '"PingFang TC"']);
+    expect(getCjkFallbackFamilies(['zh-Hans-CN', 'en'])[0]).toBe('"PingFang SC"');
+    expect(getCjkFallbackFamilies(['zh-HK'])[0]).toBe('"PingFang HK"');
+    expect(getCjkFallbackFamilies(['en-US'])).toEqual(CJK_FALLBACK_FAMILIES);
   });
 
   it('resolves safe font stacks directly', () => {
@@ -341,7 +349,7 @@ describe('HackDesk themes', () => {
     expect(theme['--font-sans']).toBe(theme['--font-system']);
     // CJK faces come before the generic families, which would pick a locale font (Osaka-Mono for
     // a Japanese-first Mac) for Chinese text.
-    expect(theme['--font-editor']).toBe(`"JetBrains Mono", ${CJK_FALLBACK_FAMILIES.join(', ')}, ui-monospace, monospace`);
+    expect(theme['--font-editor']).toBe(`"JetBrains Mono", ${getCjkFallbackFamilies().join(', ')}, ui-monospace, monospace`);
     // Code keeps a monospace face whatever face the editor prose uses.
     expect(theme['--font-mono']).toContain('monospace');
     expect(theme['--font-size-ui']).toBe('1rem');

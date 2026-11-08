@@ -772,22 +772,39 @@ export function serializeThemeTypography(typography: ThemeTypography) {
   return JSON.stringify(normalizeThemeTypography(typography));
 }
 
-// CJK faces tried before any generic family. Generic families resolve by the system locale, so
-// with Japanese first in macOS's language list, `monospace` picks Osaka-Mono and `system-ui`
-// picks Hiragino: Japanese glyph shapes, and Osaka's heavy strokes, for Chinese text.
-export const CJK_FALLBACK_FAMILIES = ['"PingFang TC"', '"PingFang SC"', '"Hiragino Sans"', '"Noto Sans CJK TC"', '"Microsoft JhengHei"'];
+// CJK faces tried before any generic family. Left to the generic families, `monospace` resolves
+// to Osaka-Mono on a Mac with Japanese in its language list: an old face with heavy strokes. The
+// system's own text faces come first instead, ordered by the user's preferred languages as native
+// apps order them, so Japanese-first gets Hiragino Sans and Chinese-first gets PingFang.
+export const CJK_FALLBACK_FAMILIES = ['"PingFang TC"', '"PingFang SC"', '"Hiragino Sans"', '"Apple SD Gothic Neo"', '"Noto Sans CJK TC"', '"Microsoft JhengHei"'];
+
+function cjkFamilyForLanguage(language: string) {
+  const [primary, ...rest] = language.toLowerCase().split('-');
+  if (primary === 'ja') return '"Hiragino Sans"';
+  if (primary === 'ko') return '"Apple SD Gothic Neo"';
+  if (primary !== 'zh') return null;
+  if (rest.includes('hk') || rest.includes('mo')) return '"PingFang HK"';
+  if (rest.includes('hant') || rest.includes('tw')) return '"PingFang TC"';
+  return '"PingFang SC"';
+}
+
+/** CJK faces in the order of the user's preferred languages, then the rest of the defaults. */
+export function getCjkFallbackFamilies(languages: readonly string[] = typeof navigator === 'undefined' ? [] : navigator.languages ?? []) {
+  const preferred = languages.flatMap((language) => cjkFamilyForLanguage(language) ?? []);
+  return [...new Set([...preferred, ...CJK_FALLBACK_FAMILIES])];
+}
 const GENERIC_FONT_FAMILIES = new Set([
   'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-serif', 'ui-sans-serif',
   'ui-monospace', 'ui-rounded', 'math', 'emoji', 'fangsong', '-apple-system', 'blinkmacsystemfont',
 ]);
 
 /** A stack with CJK faces inserted before its first generic family, unless it names them already. */
-export function withCjkFallback(stack: string) {
+export function withCjkFallback(stack: string, languages?: readonly string[]) {
   const families = stack.split(',').map((family) => family.trim()).filter(Boolean);
-  if (families.some((family) => /pingfang|hiragino|noto sans cjk|jhenghei|yahei/i.test(family))) return stack;
+  if (families.some((family) => /pingfang|hiragino|noto sans cjk|jhenghei|yahei|apple sd gothic/i.test(family))) return stack;
   const genericIndex = families.findIndex((family) => GENERIC_FONT_FAMILIES.has(family.toLowerCase()));
   const at = genericIndex === -1 ? families.length : genericIndex;
-  return [...families.slice(0, at), ...CJK_FALLBACK_FAMILIES, ...families.slice(at)].join(', ');
+  return [...families.slice(0, at), ...getCjkFallbackFamilies(languages), ...families.slice(at)].join(', ');
 }
 
 export function resolveThemeTypography(typography: ThemeTypography): ResolvedHackDeskTheme {
