@@ -241,42 +241,39 @@ export const searchPanelTheme = {
 };
 
 export const proseTheme = {
-  // Headings sit close to the body size and lean on weight and the space above them, the way
-  // Obsidian's Minimal theme does: a long note reads as one column, not a stack of banners.
-  // H1 keeps one clear step because it usually names the note. Line padding (not margin) keeps
-  // CodeMirror's height map exact.
+  // Headings sit close to the body size and lean on weight, the way Obsidian's Minimal theme does,
+  // so a long note reads as one column. Markdown already leaves a blank line before a heading, so
+  // headings add only a touch of space of their own; more would double the gap. H1 keeps one clear
+  // step because it usually names the note. Line padding (not margin) keeps CodeMirror's height
+  // map exact.
   '.cm-hackmd-h1': {
     fontSize: '1.3em',
     fontWeight: '650',
-    lineHeight: '1.4',
+    lineHeight: '1.35',
     letterSpacing: '-0.01em',
-    paddingTop: '0.9em',
-    paddingBottom: '0.1em',
+    paddingTop: '0.2em',
     color: 'var(--text-default)',
   },
   '.cm-hackmd-h2': {
     fontSize: '1.15em',
     fontWeight: '600',
-    lineHeight: '1.45',
-    paddingTop: '0.85em',
+    lineHeight: '1.4',
+    paddingTop: '0.15em',
     color: 'var(--text-default)',
   },
   '.cm-hackmd-h3': {
     fontSize: '1.05em',
     fontWeight: '600',
-    lineHeight: '1.5',
-    paddingTop: '0.7em',
+    lineHeight: '1.45',
     color: 'var(--text-default)',
   },
   '.cm-hackmd-h4': {
     fontWeight: '600',
-    paddingTop: '0.6em',
     color: 'var(--text-default)',
   },
   '.cm-hackmd-h5, .cm-hackmd-h6': {
     fontSize: '0.9em',
     fontWeight: '600',
-    paddingTop: '0.6em',
     color: 'var(--text-subtle)',
   },
   '.cm-hackmd-blockquote': {
