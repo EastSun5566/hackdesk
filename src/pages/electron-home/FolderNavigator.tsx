@@ -481,9 +481,14 @@ const MemoNavigatorContent = memo(function NavigatorContent({
 }) {
   const hasTreeContent = tree.roots.length > 0 || tree.unfiled.notes.length > 0;
   const trashActive = Boolean(trash?.open);
+  // The pinned workspace row (8px of cover plus its 32px row) stays solid; rows fade under it.
+  const pinnedRootShown = !trashActive && !isFinderMode && !status.isLoading && scope.type !== 'history' && hasTreeContent;
 
   return (
-    <div className="scroll-edges-source min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2">
+    <div
+      className="scroll-edges-source edge-fade-y min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2"
+      style={pinnedRootShown ? ({ '--edge-fade-inset-top': '40px' } as CSSProperties) : undefined}
+    >
       {trashActive && trash ? (
         <TrashNavigatorList
           open={trash.open}

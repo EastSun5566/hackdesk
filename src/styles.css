@@ -524,6 +524,19 @@
 
 }
 
+/* Registered so the edge fades can animate them; unregistered custom properties only flip. */
+@property --edge-fade-top {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --edge-fade-bottom {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
 /*
  * A fixed header or footer shows its line only while content scrolls under it. The scroll container
  * is the timeline's source and the header or footer, outside it, reads the timeline through their
@@ -566,6 +579,34 @@
     animation: scroll-edge-hide linear both;
     animation-timeline: --scroll-edge;
     animation-range: calc(100% - 1rem) 100%;
+  }
+
+  /* A list that fades out at the top or bottom while more content lies past that edge, like the
+     tab strip's edge-fade-x. The fade grows over the first and last 2rem of scrolling, so a list that
+     doesn't scroll, or sits at an end, shows none there. --edge-fade-inset-top keeps a pinned
+     header (the sidebar's workspace row) at full strength and fades the rows under it instead. */
+  .edge-fade-y {
+    mask-image: linear-gradient(
+      to bottom,
+      #000 var(--edge-fade-inset-top, 0px),
+      transparent var(--edge-fade-inset-top, 0px),
+      #000 calc(var(--edge-fade-inset-top, 0px) + var(--edge-fade-top)),
+      #000 calc(100% - var(--edge-fade-bottom)),
+      transparent
+    );
+    animation: edge-fade-top linear both, edge-fade-bottom linear both;
+    animation-timeline: scroll(self block), scroll(self block);
+    animation-range: 0 2rem, calc(100% - 2rem) 100%;
+  }
+
+  @keyframes edge-fade-top {
+    from { --edge-fade-top: 0px; }
+    to { --edge-fade-top: 32px; }
+  }
+
+  @keyframes edge-fade-bottom {
+    from { --edge-fade-bottom: 32px; }
+    to { --edge-fade-bottom: 0px; }
   }
 
   @keyframes scroll-edge-show {
