@@ -90,10 +90,17 @@ async function attachVimListener(view: EditorView, status: ActiveEditorStatus) {
   status.vimDispose = undefined;
   if (status.editorMode !== 'vim' || status.vimAttaching) return;
   status.vimAttaching = true;
-  const { getCM } = await import('@replit/codemirror-vim');
-  status.vimAttaching = false;
+  let cm: ReturnType<typeof import('@replit/codemirror-vim').getCM> = null;
+  try {
+    const { getCM } = await import('@replit/codemirror-vim');
+    cm = getCM(view);
+  } catch {
+    // The mode is a nicety: if Vim can't be reached (or the view is gone), show no mode.
+    return;
+  } finally {
+    status.vimAttaching = false;
+  }
   // Vim loads after the editor; until it has, updates keep retrying (see updateViewState).
-  const cm = getCM(view);
   if (!cm || status.vimDispose) return;
   // Vim starts in Normal mode and only reports later changes.
   status.vimMode ??= 'NORMAL';
