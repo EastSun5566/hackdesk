@@ -49,12 +49,12 @@ function EditorStatusText({ status }: { status: EditorStatusSnapshot }) {
   );
 }
 
-function HintList({ hints, faded = false }: { hints: KeyHint[]; faded?: boolean }) {
+function HintList({ hints }: { hints: KeyHint[] }) {
   if (!hints.length) return null;
   return (
     // Hints that don't fit wrap onto a second row that the fixed height clips, so a hint drops out
     // whole instead of being cut mid-word at the split.
-    <ul className={cn('flex h-5 min-w-0 flex-wrap content-start items-center gap-x-4 overflow-hidden whitespace-nowrap transition-opacity duration-300 motion-reduce:transition-none', faded && 'opacity-0')}>
+    <ul className="flex h-5 min-w-0 flex-wrap content-start items-center gap-x-4 overflow-hidden whitespace-nowrap">
       {hints.map(hint => (
         // As tall as the list, so a wrapped hint starts fully below it instead of peeking in.
         <li key={`${hint.keys}:${hint.label}`} className="flex h-5 shrink-0 items-center gap-1.5">
@@ -177,7 +177,7 @@ export function KeyHintBar({
         // between the card and the window edge.
         'flex h-8 shrink-0 items-center gap-4 overflow-hidden px-4 pb-1.5 text-2xs text-text-subtle transition-opacity duration-300 motion-reduce:transition-none',
         HACK_MODE_HIDDEN_CLASS,
-        // The split line keeps the editor's status in view while typing; only its hints fade.
+        // The split line holds still while typing: its text never changes, so it has nothing to hide.
         typing && !leader && !showSplit && 'opacity-0',
       )}
     >
@@ -191,7 +191,7 @@ export function KeyHintBar({
                 !leftActive && HALF_DIM_CLASS,
               )}
             >
-              <HintList hints={leftHints} faded={typing} />
+              <HintList hints={leftHints} />
             </div>
           ) : null}
           <div
@@ -204,7 +204,7 @@ export function KeyHintBar({
             )}
           >
             <EditorStatusText status={editorStatus} />
-            <HintList hints={rightHints} faded={typing} />
+            <HintList hints={rightHints} />
             <ShortcutsButton helpKeys={helpKeys} onOpenShortcuts={onOpenShortcuts} className="ml-auto" />
           </div>
         </div>
