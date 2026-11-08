@@ -143,22 +143,21 @@ function TeamRow({ dragHandle, active, onPinChange, onScopeChange, platform, pin
         ariaKeyShortcuts={shortcutIndex ? getWorkspaceAriaShortcut(platform, shortcutIndex) : undefined}
         icon={<span className={cn('flex items-center gap-1', dragHandle && 'group-hover/team-row:opacity-0 group-focus-within/team-row:opacity-0')}><TeamWorkspaceIcon team={team} testId={`workspace-switcher-team-logo-${team.id}`} /></span>}
         label={team.name}
+        // The pin takes this spot on hover, so the hints step aside rather than sit under a mask.
         trailing={(
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-1.5 transition-opacity group-hover/team-row:opacity-0 group-focus-within/team-row:opacity-0">
             {isPrivate ? <Lock aria-hidden="true" data-private-team-lock="true" className="size-3.5" /> : null}
             {shortcutIndex ? <ShortcutLabel>{getWorkspaceShortcutLabel(platform, shortcutIndex)}</ShortcutLabel> : null}
           </span>
         )}
         onClick={onScopeChange}
-        className={cn(!active && 'group-hover/team-row:bg-element-bg-hover group-focus-within/team-row:bg-element-bg-hover')}
+        // One hover tint for the whole row, the pin included.
+        className={cn(!active && 'group-hover/team-row:bg-background-hover group-focus-within/team-row:bg-background-hover')}
       />
       {dragHandle}
-      <div className={cn(
-        'pointer-events-none absolute inset-y-1 right-1 flex items-center rounded-md pl-10 opacity-0 group-hover/team-row:pointer-events-auto group-hover/team-row:opacity-100 group-focus-within/team-row:pointer-events-auto group-focus-within/team-row:opacity-100',
-        active ? 'bg-background-selected-solid' : 'bg-element-bg-hover-solid',
-      )}>
+      <div className="pointer-events-none absolute inset-y-0 right-0.5 flex items-center opacity-0 group-hover/team-row:pointer-events-auto group-hover/team-row:opacity-100 group-focus-within/team-row:pointer-events-auto group-focus-within/team-row:opacity-100">
         <Tooltip content={pinned ? `Unpin ${team.name}` : `Pin ${team.name}`} side="right">
-          <Button variant="ghost" size="icon" aria-label={pinned ? `Unpin ${team.name}` : `Pin ${team.name}`} onClick={onPinChange}>
+          <Button variant="ghost" size="icon" className="text-icon-default hover:bg-transparent hover:text-text-emphasize" aria-label={pinned ? `Unpin ${team.name}` : `Pin ${team.name}`} onClick={onPinChange}>
             {pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
           </Button>
         </Tooltip>
