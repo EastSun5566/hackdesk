@@ -410,6 +410,20 @@
     -webkit-app-region: no-drag;
   }
 
+  /* A horizontal strip that fades out at an edge with more content past it (data-overflow-start /
+     data-overflow-end). A mask, not a shadow, so it reads the same on light and dark chrome. */
+  .edge-fade-x[data-overflow-start] {
+    mask-image: linear-gradient(to right, transparent, #000 40px);
+  }
+
+  .edge-fade-x[data-overflow-end] {
+    mask-image: linear-gradient(to left, transparent, #000 40px);
+  }
+
+  .edge-fade-x[data-overflow-start][data-overflow-end] {
+    mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+  }
+
   /* A font previewed in its own face; the stack comes from --font-preview set on the element. */
   .font-preview {
     font-family: var(--font-preview, inherit);

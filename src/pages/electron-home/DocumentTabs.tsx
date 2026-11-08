@@ -250,12 +250,37 @@ export function DocumentTabs({
     });
   }, [activeTab?.tabId, activeTabIndex]);
 
+  // Tabs past either edge fade out there, so a cut-off strip reads as one that continues.
+  const stripRef = useRef<HTMLElement | null>(null);
+  const [overflow, setOverflow] = useState({ start: false, end: false });
+  useEffect(() => {
+    const strip = stripRef.current;
+    if (!strip) return;
+    const update = () => {
+      const start = strip.scrollLeft > 1;
+      const end = strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1;
+      setOverflow((current) => (current.start === start && current.end === end ? current : { start, end }));
+    };
+    update();
+    strip.addEventListener('scroll', update, { passive: true });
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    observer?.observe(strip);
+    if (strip.firstElementChild) observer?.observe(strip.firstElementChild);
+    return () => {
+      strip.removeEventListener('scroll', update);
+      observer?.disconnect();
+    };
+  }, [tabs.length]);
+
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={() => { draggedRef.current = true; }} onDragEnd={handleDragEnd}>
       <div ref={regionRef} data-hackdesk-focus="tabs" data-document-pane-id={paneId} className={cn('flex min-w-0 flex-1 items-center gap-2', className)}>
         <nav
+          ref={stripRef}
           aria-label="Open documents"
-          className="flex h-full min-w-0 flex-1 items-center overflow-x-auto overflow-y-hidden overscroll-x-contain scrollbar-none px-1 py-1"
+          data-overflow-start={overflow.start || undefined}
+          data-overflow-end={overflow.end || undefined}
+          className="edge-fade-x flex h-full min-w-0 flex-1 items-center overflow-x-auto overflow-y-hidden overscroll-x-contain scrollbar-none px-1 py-1"
         >
           {tabs.length > 0 ? (
             <SortableContext items={tabs.map(tab => tab.tabId)} strategy={horizontalListSortingStrategy}>
