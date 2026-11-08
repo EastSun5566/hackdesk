@@ -29,9 +29,9 @@ test('editor text stays in a centered, readable column', async () => {
     const measure = () => paragraph.evaluate((line) => {
       const content = line.closest('.cm-content')!;
       const scroller = line.closest('.cm-scroller')!;
+      // The readable column is 46em of the editor font (EDITOR_LINE_WIDTH), about 75 characters of prose.
       const probe = document.body.appendChild(document.createElement('span'));
-      probe.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${getComputedStyle(content).font}`;
-      probe.textContent = '0'.repeat(90);
+      probe.style.cssText = `position:absolute;visibility:hidden;display:block;width:46em;font:${getComputedStyle(content).font}`;
       const columnWidth = probe.getBoundingClientRect().width;
       probe.remove();
       const box = scroller.getBoundingClientRect();
@@ -42,7 +42,8 @@ test('editor text stays in a centered, readable column', async () => {
     // CSS layout should not depend on CI's virtual screen clamping a native window.
     const resize = (width: number) => page.setViewportSize({ width, height: 900 });
 
-    await resize(1100);
+    // Narrow enough that the 46em column can't fit: it squeezes, keeping its margins.
+    await resize(900);
     await expect.poll(async () => {
       const { width, columnWidth } = await measure();
       return width < columnWidth - 2;
@@ -54,6 +55,7 @@ test('editor text stays in a centered, readable column', async () => {
     await resize(2400);
     await expect.poll(async () => (await measure()).left).toBeGreaterThan(200);
     const wide = await measure();
+    // A full line is the column exactly: the side padding doesn't widen it.
     expect(Math.abs(wide.width - wide.columnWidth)).toBeLessThanOrEqual(2);
     expect(Math.abs(wide.left - wide.right)).toBeLessThanOrEqual(2);
 

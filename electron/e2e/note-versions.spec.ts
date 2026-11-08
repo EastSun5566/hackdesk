@@ -180,7 +180,7 @@ test('compares a saved version and restores it into the editor', async () => {
     await dialog.getByRole('button', { name: 'Show changes' }).click();
 
     await dialog.getByRole('tab', { name: 'Full text' }).click();
-    await expect(dialog.getByText('Ship v2 in October.')).toBeVisible();
+    await expect(dialog.locator('pre.whitespace-pre-wrap', { hasText: 'Ship v2 in October.' }).first()).toBeVisible();
 
     await dialog.getByRole('button', { name: 'Restore into Editor' }).click();
     await expect(dialog).toHaveCount(0);

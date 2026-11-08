@@ -1,4 +1,4 @@
-import { _electron as electron, expect, test, type ElectronApplication } from '@playwright/test';
+import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { mkdir, mkdtemp, readdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -16,15 +16,20 @@ async function launch(home: string) {
   const app = await electron.launch({ args: [repoRoot, `--user-data-dir=${join(home, 'user-data')}`, `--hackdesk-home=${home}`], cwd: repoRoot, env });
   const page = await app.firstWindow();
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.evaluate(() => localStorage.setItem('hackdesk_new_tab_opens', 'duplicate'));
   return { app, page };
 }
 
-async function quit(app: ElectronApplication) {
+async function quit(app: ElectronApplication, page: Page) {
   const process = app.process();
   await app.evaluate(({ app, dialog }) => {
     dialog.showMessageBox = async () => ({ response: 0, checkboxChecked: false });
     setImmediate(() => app.quit());
   });
+  const closeHackDesk = page.getByRole('alertdialog');
+  if (await closeHackDesk.isVisible().catch(() => false)) {
+    await closeHackDesk.getByRole('button', { name: 'Close' }).click();
+  }
   await expect.poll(() => process.exitCode).toBe(0);
 }
 
@@ -40,7 +45,7 @@ test('starts without setup, preserves drafts through cancel/restart, and saves o
     await page.keyboard.press(`${primary}+n`);
     await expect(page.getByRole('tab')).toHaveCount(2);
     await page.locator('.cm-content').fill('# Second draft\n\nKeep this unsaved');
-    await quit(app);
+    await quit(app, page);
     ({ app, page } = await launch(home));
     await expect(page.locator('.cm-content')).toContainText('Keep this unsaved');
     await expect(page.getByRole('tab')).toHaveCount(2);
@@ -65,7 +70,7 @@ test('starts without setup, preserves drafts through cancel/restart, and saves o
     await expect.poll(() => page.evaluate(key => Object.keys(JSON.parse(localStorage.getItem(key) ?? '{}').tabs ?? {}).length, initialKey)).toBe(0);
     await page.getByRole('tab').last().click();
     await expect(page.locator('.cm-content')).toContainText('Keep this unsaved');
-    await quit(app);
+    await quit(app, page);
     ({ app, page } = await launch(home));
     await expect(page.locator('.cm-content')).toContainText('Keep this unsaved');
     expect((await readdir(vault)).filter(name => name.endsWith('.md'))).toHaveLength(1);

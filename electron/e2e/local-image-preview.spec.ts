@@ -59,7 +59,8 @@ for (const renderer of ['production', 'development'] as const) {
       app = await electron.launch({ args: [repoRoot, `--hackdesk-home=${home}`, `--user-data-dir=${join(home, 'user-data')}`], cwd: repoRoot, env });
       const page = await app.firstWindow();
       await page.setViewportSize({ width: 1440, height: 900 });
-      await page.getByRole('treeitem', { name: /Note A/ }).first().click();
+      await page.getByRole('button', { name: 'Expand alpha', exact: true }).click();
+      await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'Note A', exact: true }).click();
       await loadImage(page, 'Vector', 41);
       await loadImage(page, 'Encoded', 1);
       await loadImage(page, 'Space', 1);
@@ -69,7 +70,9 @@ for (const renderer of ['production', 'development'] as const) {
       // Different notes with the same relative image path must never share their URLs or dimensions.
       await page.getByRole('button', { name: 'Pane actions', exact: true }).click();
       await page.getByRole('menuitem', { name: 'Split Right', exact: true }).click();
-      await page.getByRole('treeitem', { name: /Note B/ }).first().click();
+      const expandBeta = page.getByRole('button', { name: 'Expand beta', exact: true });
+      if (await expandBeta.count()) await expandBeta.click();
+      await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'Note B', exact: true }).click();
       await loadImage(page, 'Vector', 41);
       await loadImage(page, 'Other', 73);
       const oldUrl = await page.locator('.cm-hackmd-image-preview img[alt="Vector"]').getAttribute('src');

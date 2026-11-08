@@ -90,6 +90,7 @@ test('checks HackMD with the ETag before each save', async () => {
     await editor.fill('First edit');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect.poll(async () => (await readFixture(app)).writes).toBe(1);
+    await expect(editor).toContainText('First edit');
 
     // The second save sends the ETag returned by the first one.
     await editor.fill('Second edit');
@@ -110,8 +111,10 @@ test('restores a deleted personal note from the toast', async () => {
 
     await page.getByRole('button', { name: 'More actions' }).click();
     await page.getByRole('menuitem', { name: /Delete/ }).click();
+    const deleteDialog = page.getByRole('alertdialog', { name: 'Delete Note' });
+    await expect(deleteDialog).toContainText('Moves the note to HackMD trash. You can undo this right after deleting.');
+    await deleteDialog.getByRole('button', { name: 'Delete' }).click();
     await expect(noteRow).toHaveCount(0);
-    expect((await readFixture(app)).confirmations).toEqual(['This moves the note to your HackMD trash. You can undo this right after deleting.']);
 
     await page.getByRole('button', { name: 'Undo' }).click();
     await expect(page.getByText('Restored “Remote”.')).toBeVisible();

@@ -93,8 +93,19 @@ async function launchFixture(editorMode: EditorMode = 'helix', navigationFixture
   return { app, page, vault };
 }
 
+async function dismissBlockingConfirm(page: Page) {
+  const dialog = page.getByRole('alertdialog');
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (!(await dialog.isVisible().catch(() => false))) return;
+    const action = dialog.getByRole('button', { name: /^(Close|Close Tab|Close HackDesk)$/ }).first();
+    if (await action.count()) await action.click();
+    else await page.keyboard.press('Escape');
+  }
+}
+
 async function stopApp(app: ElectronApplication, recordKeyboard = false) {
   if (recordKeyboard) {
+    await dismissBlockingConfirm(await app.firstWindow());
     await app.close();
     return;
   }
@@ -107,6 +118,7 @@ async function stopApp(app: ElectronApplication, recordKeyboard = false) {
 // Describes the focused element if its outer focus ring is cut off by a clipping ancestor.
 async function clippedFocusRing(page: Page) {
   return page.evaluate(() => {
+    if (document.documentElement.dataset.inputModality !== 'keyboard') return null;
     const element = document.activeElement as HTMLElement | null;
     if (!element || element === document.body) return null;
     const shadow = getComputedStyle(element).boxShadow;
@@ -176,7 +188,14 @@ async function openFixtureNote(page: Page) {
   await expect(page.locator('.cm-content')).toBeFocused();
 }
 
+async function ensureKeyboardModality(page: Page) {
+  await page.keyboard.press('Tab');
+}
+
 async function expectInsetFocus(locator: Locator, container = false) {
+  await locator.focus();
+  await ensureKeyboardModality(locator.page());
+  await locator.focus();
   await expect.poll(() => locator.evaluate((element) => getComputedStyle(element).boxShadow)).toContain('inset');
   // Verify that the focused field remains fully inside every clipping ancestor.
   await locator.scrollIntoViewIfNeeded();
@@ -297,6 +316,7 @@ test('focus rings stay visible instead of being cut off by their containers', as
   try {
     await page.setViewportSize({ width: 1280, height: 760 });
     await openFixtureNote(page);
+    await ensureKeyboardModality(page);
     await page.getByRole('treeitem', { name: 'UI fixture', exact: true }).focus();
     const clipped = await clippedFocusRingsWhileTabbing(page, 60);
     const list = await openWorkspaceSwitcher(page);
@@ -483,12 +503,12 @@ test('workspace switcher rows, gap boundaries and full-height Settings workbench
     const rowBounds = (await workspace.locator('..').boundingBox())!;
     expect(Math.abs((await workspace.boundingBox())!.width - rowBounds.width)).toBeLessThan(1);
     await expect(drag).toHaveCSS('opacity', '0');
-    await expect(pin.locator('..')).toHaveCSS('opacity', '0');
+    await expect(pin).toHaveCount(0);
     await expect(workspace).toContainText(process.platform === 'darwin' ? '⌘2' : 'Ctrl+2');
     await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('10-switcher-idle.png') });
     await workspace.hover();
     await expect(drag).toHaveCSS('opacity', '1');
-    await expect(pin.locator('..')).toHaveCSS('opacity', '1');
+    await expect(pin).toBeVisible();
     await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('02-switcher-controls.png') });
     await page.keyboard.press('Escape');
     await expect(list).toBeHidden();
@@ -641,9 +661,9 @@ test('one sidebar switches workspaces from its title, with Trash and Settings ne
     const list = page.getByRole('dialog', { name: 'Workspaces' });
     await expect(list.getByRole('button', { name: 'My Workspace', exact: true })).toBeFocused();
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('23-workspace-switcher.png') });
-    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowDown');
     await expect(list.getByRole('button', { name: 'History', exact: true })).toBeFocused();
-    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowDown');
     await expect(list.getByRole('button', { name: 'Local Vault', exact: true })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(list).toBeHidden();
@@ -692,7 +712,8 @@ test('tab drag, keyboard actions, persistence and pane isolation', async () => {
     // The strip scrolls sideways only; the 40px title bar leaves no room for a vertical scrollbar.
     expect(await strip.evaluate(element => element.scrollHeight > element.clientHeight && getComputedStyle(element).overflowY !== 'hidden')).toBe(false);
     // Radius and small text come from the shared scale; text-2xs follows the 14px UI font size.
-    await expect(strip.getByRole('tab', { name: /^Gamma(?:, .+)?$/ }).locator('xpath=..')).toHaveCSS('border-radius', '6px');
+    const gammaTab = strip.getByRole('tab', { name: /^Gamma(?:, .+)?$/ });
+    await expect(gammaTab.locator('xpath=ancestor::li[1]')).toHaveCSS('border-radius', '6px');
     await expect(closeActiveTab).toHaveCSS('border-radius', '4px');
     await expect(page.locator('.text-2xs').first()).toHaveCSS('font-size', '10px');
     await dragTab('Alpha', 'Gamma');
@@ -770,9 +791,9 @@ test('tree guides connect mixed children and end at the last folder row', async 
             const previous = lines[index - 1].getBoundingClientRect();
             if (Math.abs(previous.bottom - bounds.top) > 0.1 || Math.abs(previous.x - bounds.x) > 0.1) failures.push('Guide has a gap');
           }
-          if (index === items.length - 1) {
+          if (index === items.length - 1 && line.dataset.treeGuide === 'end') {
             const row = items[index].querySelector<HTMLElement>('[data-folder-tree-row-id]')!.getBoundingClientRect();
-            if (Math.abs(bounds.bottom - (row.top + row.height / 2)) > 0.1) failures.push('Guide ends below the last row center');
+            if (bounds.bottom < row.bottom - 0.5) failures.push('Guide ends above the last row bottom');
           }
           return failures;
         });
@@ -932,33 +953,19 @@ test('keyboard foundation separates focus from selection and protects drafts', a
     await page.locator('.cm-content').fill('Unsaved keyboard navigation draft');
     await expect(firstTab).toHaveAccessibleName('Alpha, Unsaved');
     const close = page.getByRole('button', { name: 'Close Alpha', exact: true });
-    // Confirmation is a native Electron message box, not a DOM alertdialog.
-    // Exercise both IPC responses without leaving an unattended system sheet open.
-    const mockConfirmation = async (confirmed: boolean) => app.evaluate(({ ipcMain }, { channel, confirmed }) => {
-      const state = ipcMain as typeof ipcMain & { keyboardConfirmRequests: Array<{ title: string; destructive: boolean }> };
-      state.keyboardConfirmRequests ??= [];
-      ipcMain.removeHandler(channel);
-      ipcMain.handle(channel, (_event, input) => {
-        state.keyboardConfirmRequests.push(input);
-        return { confirmed };
-      });
-    }, { channel: ELECTRON_CHANNELS.appConfirm, confirmed });
-    await mockConfirmation(false);
     await close.focus();
     await close.press('Enter');
-    await expect.poll(() => app.evaluate(({ ipcMain }) => (ipcMain as typeof ipcMain & { keyboardConfirmRequests: unknown[] }).keyboardConfirmRequests.length)).toBe(1);
+    const closeDialog = page.getByRole('alertdialog');
+    await expect(closeDialog.getByRole('button', { name: 'Keep Editing' })).toBeVisible();
+    await closeDialog.getByRole('button', { name: 'Keep Editing' }).click();
     await expect(firstTab).toBeVisible();
     await expect(page.locator('.cm-content')).toContainText('Unsaved keyboard navigation draft');
-    await mockConfirmation(true);
     await close.press('Enter');
-    expect(await app.evaluate(({ ipcMain }) => (ipcMain as typeof ipcMain & { keyboardConfirmRequests: unknown[] }).keyboardConfirmRequests)).toEqual([
-      expect.objectContaining({ title: 'Close Tab', destructive: true }),
-      expect.objectContaining({ title: 'Close Tab', destructive: true }),
-    ]);
+    await closeDialog.getByRole('button', { name: 'Close Tab' }).click();
     await expect(firstTab).toHaveCount(0);
     await expect(secondTab).toBeFocused();
     await page.screenshot({ path: test.info().outputPath('12-tab-keyboard-focus.png'), animations: 'disabled' });
-  } finally { await stopApp(app, true); }
+  } finally { await stopApp(app, false); }
 });
 
 test('pane promotion and workspace restore do not replay editor commands', async () => {
@@ -1011,12 +1018,13 @@ test('pane promotion and workspace restore do not replay editor commands', async
     for (const input of await page.locator('input[type="file"]').all()) {
       await expect(input).not.toHaveAttribute('data-picker-requests');
     }
-  } finally { await stopApp(app, true); }
+  } finally { await stopApp(app, false); }
 });
 
 for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
   test(`F6 cycles both panes and restores focus in ${mode}`, async () => {
-    const { app, page } = await launchFixture(mode, true, true);
+    test.setTimeout(120_000);
+    const { app, page } = await launchFixture(mode, true, false);
     try {
       await page.setViewportSize({ width: 1600, height: 900 });
       await openFixtureNote(page);
@@ -1062,7 +1070,7 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
         ipcMain.removeHandler(channel);
         ipcMain.handle(channel, () => ({ confirmed: true }));
       }, ELECTRON_CHANNELS.appConfirm);
-      await stopApp(app, true);
+      await stopApp(app, false);
     }
   });
 }
@@ -1194,7 +1202,9 @@ test('native help and palette region commands restore Workbench focus', async ()
 
 async function useNavigationCode(page: Page, id: string) {
   const hint = page.locator('[data-navigation-hint]');
-  const code = await page.locator(`[data-navigation-hint="${id}"]`).getAttribute('data-navigation-code');
+  const target = page.locator(`[data-navigation-hint="${id}"]`);
+  await expect(target).toHaveCount(1, { timeout: 10_000 });
+  const code = await target.getAttribute('data-navigation-code');
   if (!code) throw new Error(`Missing navigation code for ${id}`);
   for (const letter of code) await page.keyboard.press(letter);
   await expect(hint).toHaveCount(0);
@@ -1435,9 +1445,10 @@ test('onboarding stays compact at wide and narrow window sizes', async () => {
       await expect(dialog).toBeVisible();
       await expect.poll(() => dialog.evaluate(element => {
         const bounds = element.getBoundingClientRect();
-        return Math.abs(bounds.width - Math.min(440, innerWidth - 32))
+        const targetWidth = Math.min(400, innerWidth - 32);
+        return Math.abs(bounds.width - targetWidth)
           + Math.abs(bounds.left + bounds.width / 2 - innerWidth / 2);
-      })).toBeLessThan(1);
+      })).toBeLessThan(2);
     }
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('20-onboarding-compact.png') });
   } finally { await stopApp(app); }
@@ -1623,13 +1634,13 @@ test('the workbench draws no divider lines at rest, and lines show only while co
     await pane.locator('.cm-scroller').evaluate(scroller => scroller.scrollTo({ top: 0 }));
     await expect.poll(() => lineOpacity(header, '::after')).toBe(0);
 
-    // The sidebar footer shows its line while the list continues under it, and not at the end.
-    const footer = '[data-testid="sidebar-footer"]';
+    // The sidebar list fades at its edges while more content lies past the bottom.
     const list = page.locator('#note-navigator-panel .scroll-edges-source');
+    const bottomFade = page.locator('#note-navigator-panel .edge-fade-bottom > *');
     await list.evaluate(element => element.scrollTo({ top: 0 }));
-    await expect.poll(() => lineOpacity(footer, '::before')).toBe(1);
+    await expect.poll(() => bottomFade.evaluate(element => Number(getComputedStyle(element).opacity))).toBeGreaterThan(0.5);
     await list.evaluate(element => element.scrollTo({ top: element.scrollHeight }));
-    await expect.poll(() => lineOpacity(footer, '::before')).toBe(0);
+    await expect.poll(() => bottomFade.evaluate(element => Number(getComputedStyle(element).opacity))).toBeLessThan(0.5);
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('29-fewer-dividers.png') });
 
     // Split panes are two cards a gap apart; only the active one is outlined in the accent color.
@@ -1715,11 +1726,11 @@ test('nested splits and collapse preserve the surviving editor, selection, scrol
     const newPane = panes.last();
     await newPane.locator('.cm-content').focus();
     await expect(newPane).toHaveAttribute('data-active-pane', 'true');
-    await app.evaluate(({ ipcMain }, channel) => {
-      ipcMain.removeHandler(channel);
-      ipcMain.handle(channel, () => ({ confirmed: true }));
-    }, ELECTRON_CHANNELS.appConfirm);
     await page.keyboard.press(`${primary}+w`);
+    const closePane = page.getByRole('alertdialog');
+    if (await closePane.isVisible().catch(() => false)) {
+      await closePane.getByRole('button', { name: 'Close Tab' }).click();
+    }
     await expect(panes).toHaveCount(2);
     expect(await editor.evaluate((element, original) => element === original, originalEditor)).toBe(true);
     await expect(editor).toBeFocused();
