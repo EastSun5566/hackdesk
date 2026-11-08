@@ -180,7 +180,7 @@ function NoteRowView({
                     className={cn(
                       // Wider than its icon for an easier grab; the negative margins keep the icon on the
                       // same column as folder icons.
-                      'group/drag-handle -mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-icon-default hover:text-text-default',
+                      'group/drag-handle relative -mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-icon-default hover:text-text-default',
                       FOCUS_RING_INSET_CLASS,
                     )}
                     aria-label={`Drag ${entry.note.title || 'Untitled'}`}
@@ -196,8 +196,9 @@ function NoteRowView({
                     tabIndex={treeItemProps?.tabIndex}
                     aria-disabled={disabledDrag || attributes['aria-disabled']}
                   >
-                    <FileText aria-hidden="true" className={cn('group-hover/drag-handle:hidden group-focus-visible/drag-handle:hidden', compact ? 'h-3.5 w-3.5' : 'h-4 w-4')} />
-                    <GripVertical aria-hidden="true" className="hidden h-3.5 w-3.5 group-hover/drag-handle:block group-focus-visible/drag-handle:block" />
+                    <FileText aria-hidden="true" className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+                    {/* The grip floats left of the icon on hover, part of this handle, without moving it. */}
+                    <GripVertical aria-hidden="true" className="absolute -left-3 top-1/2 size-3.5 -translate-y-1/2 text-icon-subtle opacity-0 transition-opacity group-hover/entity-row:opacity-100 group-focus-visible/drag-handle:opacity-100 motion-reduce:transition-none" />
                   </button>
                 ) : null}
                 title={entry.note.title || 'Untitled'}
@@ -355,34 +356,39 @@ function FolderButton({
             selected={selected}
             active={noteDropTarget && isOver}
             variant="compact"
+            // The icon slot lines up with note icons at the same level. Hovering or focusing the row
+            // turns the folder icon into the expand arrow in that same spot (as on HackMD web); the
+            // drag handle floats just left of it, so neither shifts the row.
             leadingControls={(
-              <span className="flex items-center gap-0.5">
+              <span className="relative flex items-center">
                 <button
                   type="button"
                   onClick={() => onToggle(node.id)}
                   id={toggleControlId}
                   disabled={!hasChildren}
-                  aria-hidden={!hasChildren ? true : undefined}
                   className={cn(
-                    '-my-2 flex h-10 w-6 shrink-0 items-center justify-center rounded text-text-subtle hover:text-text-default disabled:pointer-events-none disabled:opacity-0',
+                    '-mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-icon-default hover:text-text-default disabled:pointer-events-none',
                     FOCUS_RING_INSET_CLASS,
                   )}
-                  aria-label={hasChildren ? (collapsed ? `Expand ${node.name}` : `Collapse ${node.name}`) : undefined}
+                  aria-label={hasChildren ? (collapsed ? `Expand ${node.name}` : `Collapse ${node.name}`) : `${node.name}, empty`}
                   aria-expanded={hasChildren ? !collapsed : undefined}
                   tabIndex={treeItemProps?.tabIndex}
                 >
-                  <ChevronRight
-                    aria-hidden="true"
-                    className={cn('h-3.5 w-3.5', COLLAPSE_ICON_CLASS, !collapsed && 'rotate-90')}
-                  />
+                  <span className={cn(hasChildren && 'group-hover/entity-row:hidden group-focus-within/entity-row:hidden')}>
+                    <FolderGlyph icon={node.icon} color={node.color} open={!collapsed} />
+                  </span>
+                  {hasChildren ? (
+                    <ChevronRight
+                      aria-hidden="true"
+                      className={cn('hidden size-3.5 group-hover/entity-row:block group-focus-within/entity-row:block', COLLAPSE_ICON_CLASS, !collapsed && 'rotate-90')}
+                    />
+                  ) : null}
                 </button>
                 <button
                   type="button"
                   className={cn(
-                    // Wider than its icon for an easier grab; the negative margins keep the icon on the
-                  // same column as folder icons.
-                  'group/drag-handle -mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-icon-default hover:text-text-default',
-                    disabledDrag && 'opacity-40 hover:text-text-subtle',
+                    'absolute -left-3.5 top-1/2 flex h-6 w-3 -translate-y-1/2 items-center justify-center rounded-sm text-icon-subtle opacity-0 transition-opacity hover:text-text-default focus-visible:opacity-100 group-hover/entity-row:opacity-100 motion-reduce:transition-none',
+                    disabledDrag && 'pointer-events-none',
                     FOCUS_RING_INSET_CLASS,
                   )}
                   aria-label={`Drag ${node.name}`}
@@ -393,10 +399,7 @@ function FolderButton({
                   tabIndex={treeItemProps?.tabIndex}
                   aria-disabled={disabledDrag || attributes['aria-disabled']}
                 >
-                  <span className="group-hover/drag-handle:hidden group-focus-visible/drag-handle:hidden">
-                    <FolderGlyph icon={node.icon} color={node.color} open={!collapsed} />
-                  </span>
-                  <GripVertical aria-hidden="true" className="hidden h-3.5 w-3.5 group-hover/drag-handle:block group-focus-visible/drag-handle:block" />
+                  <GripVertical aria-hidden="true" className="size-3.5" />
                 </button>
               </span>
             )}
@@ -592,7 +595,7 @@ export function FolderTreeView({
       <li role="presentation" key={node.id} className="relative min-w-0">
         {/* Guides run the full height of each child, last one included, so a folder's line covers
             everything it contains. A half-height end would need a horizontal stroke to read. */}
-        {depth > 0 ? <span aria-hidden="true" data-tree-guide={lastChild ? 'end' : 'continuation'} className="pointer-events-none absolute -left-1.75 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
+        {depth > 0 ? <span aria-hidden="true" data-tree-guide={lastChild ? 'end' : 'continuation'} className="pointer-events-none absolute -left-1.5 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
         <div className="relative min-w-0">
         <FolderButton
           node={node}
@@ -654,7 +657,7 @@ export function FolderTreeView({
 
   const noteItems = notes.map((entry, index) => (
     <li role="presentation" key={`note:${entry.note.id}`} className="relative min-w-0">
-      {depth > 0 ? <span aria-hidden="true" data-tree-guide={index === notes.length - 1 ? 'end' : 'continuation'} className="pointer-events-none absolute -left-1.75 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
+      {depth > 0 ? <span aria-hidden="true" data-tree-guide={index === notes.length - 1 ? 'end' : 'continuation'} className="pointer-events-none absolute -left-1.5 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
       <NoteRow
         entry={entry}
         selected={entry.note.id === selectedNoteId}
