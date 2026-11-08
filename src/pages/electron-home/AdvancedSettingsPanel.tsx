@@ -17,7 +17,10 @@ import { getHackDeskAPI } from '@/lib/electron-api';
 import { isBetaVersion } from '@/lib/version';
 import { version as packageVersion } from '../../../package.json';
 
+import { Switch } from '@/components/ui/switch';
+
 import { SettingsSection } from './SettingsPrimitives';
+import { setSplitStatusLine, useSplitStatusLine } from './split-status-line-preference';
 
 const RELEASES_URL = 'https://github.com/EastSun5566/hackdesk/releases';
 
@@ -42,6 +45,7 @@ export function AdvancedSettingsPanel({
 }) {
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const splitStatusLine = useSplitStatusLine();
   const resetButtonRef = useRef<HTMLButtonElement>(null);
   const isBeta = isBetaVersion(appVersion);
 
@@ -115,6 +119,16 @@ export function AdvancedSettingsPanel({
               {isCheckingUpdates ? 'Checking…' : 'Check for Updates'}
             </Button>
           )}
+        </div>
+      </SettingsSection>
+
+      <SettingsSection title="Experimental">
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <div className="min-w-0">
+            <label htmlFor="settings-split-status-line" className="font-semibold leading-5">Split status line</label>
+            <p className="text-xs leading-5 text-text-subtle">Keep sidebar keys under the sidebar and editor status under the editor, instead of swapping the line on focus.</p>
+          </div>
+          <Switch id="settings-split-status-line" checked={splitStatusLine} onCheckedChange={setSplitStatusLine} />
         </div>
       </SettingsSection>
 
