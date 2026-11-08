@@ -115,7 +115,7 @@ function WorkspaceRow({
       ariaLabel={accessibleLabel ?? label}
       ariaCurrent={active ? 'page' : undefined}
       ariaKeyShortcuts={ariaKeyShortcuts}
-      className={cn('min-h-9 flex-1 text-menu', className)}
+      className={cn('min-h-8 flex-1 py-1 text-xs', className)}
       trailingClassName="opacity-70"
     />
   );
@@ -155,7 +155,7 @@ function TeamRow({ dragHandle, active, onPinChange, onScopeChange, platform, pin
         accessibleLabel={isPrivate ? `${team.name}, private` : team.name}
         active={active}
         ariaKeyShortcuts={shortcutIndex ? getWorkspaceAriaShortcut(platform, shortcutIndex) : undefined}
-        icon={<span className={cn('flex items-center gap-1', dragHandle && 'group-hover/team-row:opacity-0 group-focus-within/team-row:opacity-0')}><TeamWorkspaceIcon team={team} className="size-5" testId={`workspace-switcher-team-logo-${team.id}`} /></span>}
+        icon={<span className={cn('flex items-center gap-1', dragHandle && 'group-hover/team-row:opacity-0 group-focus-within/team-row:opacity-0')}><TeamWorkspaceIcon team={team} className="size-4.5" testId={`workspace-switcher-team-logo-${team.id}`} /></span>}
         label={team.name}
         // The pin takes this spot on hover, so the hints step aside rather than sit under a mask.
         trailing={(
@@ -295,7 +295,7 @@ function MoreTeams({
         aria-expanded={isOpen}
         aria-controls="workspace-switcher-more"
         onClick={() => setOpen(!isOpen)}
-        className={cn('flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-menu font-medium text-text-subtle hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_INSET_CLASS)}
+        className={cn('flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-xs font-medium text-text-subtle hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_INSET_CLASS)}
       >
         <ChevronDown className={cn('size-4', COLLAPSE_ICON_CLASS, !isOpen && '-rotate-90')} />
         <span>More</span>
@@ -369,9 +369,9 @@ function WorkspacePeek({
   );
 }
 
-/** A 16px glyph in the 20px box workspace avatars use, so every row's icon has one size. */
-function IconBox({ children }: { children: ReactNode }) {
-  return <span className="flex size-5 items-center justify-center">{children}</span>;
+/** A glyph in the box workspace avatars use (20px in the header, 18px in the switcher), so every icon has one size. */
+function IconBox({ children, small = false }: { children: ReactNode; small?: boolean }) {
+  return <span className={cn('flex items-center justify-center', small ? 'size-4.5' : 'size-5')}>{children}</span>;
 }
 
 function ScopeIcon({ scope, teams, user }: { scope: WorkspaceScope; teams: TeamSummary[]; user?: WorkspaceUser }) {
@@ -463,7 +463,7 @@ export function WorkspaceSwitcher({
               <WorkspaceRow
                 active={scope.type === 'personal'}
                 ariaKeyShortcuts={getWorkspaceAriaShortcut(platform, 1)}
-                icon={<PersonalWorkspaceIcon user={user} className="size-5" testId="workspace-switcher-personal-avatar" />}
+                icon={<PersonalWorkspaceIcon user={user} className="size-4.5" testId="workspace-switcher-personal-avatar" />}
                 label="My Workspace"
                 trailing={<ShortcutLabel>{getWorkspaceShortcutLabel(platform, 1)}</ShortcutLabel>}
                 onClick={() => choose({ type: 'personal', label: 'My Workspace' })}
@@ -472,7 +472,7 @@ export function WorkspaceSwitcher({
             <li className="flex">
               <WorkspaceRow
                 active={scope.type === 'history'}
-                icon={<IconBox><History className="size-4" /></IconBox>}
+                icon={<IconBox small><History className="size-3.5" /></IconBox>}
                 label="History"
                 onClick={() => choose({ type: 'history', label: 'History' })}
               />
@@ -480,7 +480,7 @@ export function WorkspaceSwitcher({
             <li className="flex">
               <WorkspaceRow
                 active={scope.type === 'local'}
-                icon={<IconBox>{localVaultConfigured ? <HardDrive className="size-4" /> : <FolderOpen className="size-4" />}</IconBox>}
+                icon={<IconBox small>{localVaultConfigured ? <HardDrive className="size-3.5" /> : <FolderOpen className="size-3.5" />}</IconBox>}
                 label={localVaultConfigured ? 'Local Vault' : 'Open local folder'}
                 trailing={localVaultConfigured ? undefined : <span />}
                 onClick={() => {
@@ -519,7 +519,7 @@ export function WorkspaceSwitcher({
                     aria-label="Find a team"
                     autoComplete="off"
                     spellCheck={false}
-                    className="min-w-0 flex-1 bg-transparent text-menu text-text-default outline-none placeholder:text-text-subtle"
+                    className="min-w-0 flex-1 bg-transparent text-xs text-text-default outline-none placeholder:text-text-subtle"
                   />
                 </label>
               ) : null}
