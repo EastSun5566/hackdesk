@@ -13,6 +13,8 @@ export function PanelResizeSash({
   defaultValue,
   disabled,
   onChange,
+  previewTargetId,
+  previewProperties = [],
 }: {
   label: string;
   value: number;
@@ -21,8 +23,21 @@ export function PanelResizeSash({
   defaultValue?: number;
   disabled?: boolean;
   onChange: (value: number) => void;
+  /**
+   * While dragging, the handle sets these CSS variables (in px) on this element directly and calls
+   * onChange once on release. Updating app state on every pointer move re-rendered the workbench
+   * each frame.
+   */
+  previewTargetId?: string;
+  previewProperties?: string[];
 }) {
-  const dragStart = useRef<{ x: number; value: number } | null>(null);
+  const dragStart = useRef<{ x: number; value: number; latest: number } | null>(null);
+  const preview = (width: number) => {
+    const target = previewTargetId ? document.getElementById(previewTargetId) : null;
+    if (!target || previewProperties.length === 0) return false;
+    for (const property of previewProperties) target.style.setProperty(property, `${width}px`);
+    return true;
+  };
 
   if (disabled) {
     return null;
@@ -39,7 +54,7 @@ export function PanelResizeSash({
       title={defaultValue ? `${label}. Double-click to reset.` : label}
       className={cn(GAP_SASH_CLASS, 'z-20 h-auto [[data-hack-mode]_&]:hidden')}
       onPointerDown={(event) => {
-        dragStart.current = { x: event.clientX, value };
+        dragStart.current = { x: event.clientX, value, latest: value };
         event.currentTarget.setPointerCapture(event.pointerId);
         // Panels animate their width, except while dragged, so the edge follows the pointer.
         document.documentElement.dataset.panelResizing = 'true';
@@ -52,10 +67,14 @@ export function PanelResizeSash({
           return;
         }
 
-        onChange(clampPanelWidth(dragStart.current.value + event.clientX - dragStart.current.x, min, max));
+        const width = clampPanelWidth(dragStart.current.value + event.clientX - dragStart.current.x, min, max);
+        dragStart.current.latest = width;
+        if (!preview(width)) onChange(width);
       }}
       onPointerUp={() => {
+        const drag = dragStart.current;
         dragStart.current = null;
+        if (drag && drag.latest !== drag.value && previewTargetId) onChange(drag.latest);
       }}
       onDoubleClick={() => {
         if (defaultValue) {

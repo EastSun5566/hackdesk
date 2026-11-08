@@ -4,7 +4,7 @@ import {
   Loader2,
   Plus,
 } from 'lucide-react';
-import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   closestCenter,
   DndContext,
@@ -182,10 +182,12 @@ function FolderNavigatorPanel({
       width={layout.width}
       collapsedWidth={0}
       className={cn('note-navigator bg-background-muted', HACK_MODE_HIDDEN_CLASS)}
+      // On the panel, not the content, so the resize handle can update both widths while dragging.
+      style={{ '--sidebar-content-width': `${layout.width}px` } as CSSProperties}
     >
       {/* Stays mounted at its full width while collapsed, so the panel clips it as the width
           animates instead of reflowing it every frame. */}
-      <div className="scroll-edges flex min-h-0 w-(--sidebar-content-width) flex-1 shrink-0 flex-col" style={{ '--sidebar-content-width': `${layout.width}px` }}>
+      <div className="scroll-edges flex min-h-0 w-(--sidebar-content-width) flex-1 shrink-0 flex-col">
         <ExpandedNavigator
           actions={actions}
           emptyState={emptyState}

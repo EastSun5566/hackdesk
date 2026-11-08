@@ -1,10 +1,12 @@
 import { ChevronDown, MoreHorizontal } from 'lucide-react';
-import type {
-  ButtonHTMLAttributes,
-  Ref,
-  ReactNode,
+import {
+  forwardRef,
+  useContext,
+  type ButtonHTMLAttributes,
+  type CSSProperties,
+  type ReactNode,
+  type Ref,
 } from 'react';
-import { forwardRef, useContext } from 'react';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Toolbar, ToolbarButton } from '@/components/ui/toolbar';
@@ -304,6 +306,7 @@ export function PanelShell({
   width,
   collapsedWidth,
   className,
+  style,
   children,
 }: {
   id?: string;
@@ -314,6 +317,8 @@ export function PanelShell({
   width?: number;
   collapsedWidth?: number;
   className?: string;
+  /** Extra CSS variables, e.g. widths that a resize handle updates while dragging. */
+  style?: CSSProperties;
   children: ReactNode;
 }) {
   return (
@@ -331,7 +336,7 @@ export function PanelShell({
         PANEL_MOTION_CLASS,
         className,
       )}
-      style={width ? { '--panel-width': `${collapsed && collapsedWidth !== undefined ? collapsedWidth : width}px` } : undefined}
+      style={width ? { ...style, '--panel-width': `${collapsed && collapsedWidth !== undefined ? collapsedWidth : width}px` } as CSSProperties : style}
     >
       {children}
     </Component>

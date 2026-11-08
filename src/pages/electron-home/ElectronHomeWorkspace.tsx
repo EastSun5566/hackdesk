@@ -134,6 +134,8 @@ export function ElectronHomeWorkspace({
           defaultValue={NAVIGATOR_WIDTH_DEFAULT}
           disabled={navigatorResize.disabled}
           onChange={navigatorResize.onChange}
+          previewTargetId={NOTE_NAVIGATOR_PANEL_ID}
+          previewProperties={['--panel-width', '--sidebar-content-width']}
         />
 
         <DocumentWorkspace {...documentWorkspace} />
