@@ -4,7 +4,7 @@ import {
   Loader2,
   Plus,
 } from 'lucide-react';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   closestCenter,
   DndContext,
@@ -46,6 +46,7 @@ import {
 import { buildNoteTagIndex } from '@/lib/electron-note-tags';
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
+import { arePanelPropsEqual, useStableCallbacks } from '@/lib/stable-props';
 import { cn } from '@/lib/utils';
 import { HACK_MODE_HIDDEN_CLASS } from './ui';
 
@@ -144,7 +145,20 @@ export type FolderNavigatorProps = {
   workspace: WorkspaceSidebarProps;
 };
 
-export function FolderNavigator({
+/**
+ * The sidebar re-renders only when its data changes. The workbench rebuilds these props on every
+ * keystroke in the editor, and re-rendering every note row (each with its menu, hover card and drag
+ * hooks) cost ~200ms a key; callbacks go through stable wrappers so skipped renders stay correct.
+ */
+export function FolderNavigator(props: FolderNavigatorProps) {
+  const actions = useStableCallbacks(props.actions);
+  const workspace = useStableCallbacks(props.workspace);
+  return <MemoFolderNavigator {...props} actions={actions} workspace={workspace} />;
+}
+
+const MemoFolderNavigator = memo(FolderNavigatorPanel, arePanelPropsEqual);
+
+function FolderNavigatorPanel({
   actions,
   emptyState,
   entries,
