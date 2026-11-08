@@ -352,8 +352,9 @@ test('a keyboard-only tour of the main flows in light theme at a narrow window, 
     await leader('gw');
     const switcher = page.getByRole('dialog', { name: 'Workspaces' });
     await expect(switcher.getByRole('button', { name: 'My Workspace', exact: true })).toBeFocused();
-    await page.keyboard.press('ArrowUp');
-    await page.keyboard.press('ArrowUp');
+    // Places sit together at the top: My Workspace, History, Local Vault.
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
     await expect(switcher.getByRole('button', { name: 'Local Vault', exact: true })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(trigger).toHaveAccessibleName('Switch workspace, current: Local Vault');
