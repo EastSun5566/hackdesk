@@ -241,6 +241,7 @@ function ExpandedNavigator({
     announcement: highlightedEntry
       ? `${highlightedEntry.note.title || 'Untitled'}, ${highlightedIndex + 1} of ${entries.length}. Enter opens it.`
       : '',
+    count: entries.length,
     move: (step) => {
       if (!entries.length) return;
       setHighlight({ key: resultsKey, index: (Math.max(highlightedIndex, 0) + step + entries.length) % entries.length });
@@ -252,11 +253,9 @@ function ExpandedNavigator({
     <>
       <NavigatorHeader
         actions={actions}
-        isFinderMode={isFinderMode}
         workspace={workspace}
         selectedFolder={selectedConcreteFolder}
         status={status}
-        resultCount={entries.length}
       />
       <NavigatorFilterBar
         actions={actions}
@@ -291,23 +290,18 @@ function ExpandedNavigator({
 
 function NavigatorHeader({
   actions,
-  isFinderMode,
-  resultCount,
   selectedFolder,
   status,
   workspace,
 }: {
   actions: FolderNavigatorActions;
-  isFinderMode: boolean;
-  resultCount: number;
   selectedFolder: FolderTreeNode | null;
   status: FolderNavigatorStatus;
   workspace: WorkspaceSidebarProps;
 }) {
   // Status sits in the action row, so the header keeps one height: a spinner while the list loads
-  // or syncs, and the result count while searching. The tree itself shows the notes.
+  // or syncs. The result count shows in the search field, so typing never squeezes the name.
   const busyLabel = status.isLoading ? 'Loading notes…' : status.isFetching ? 'Syncing notes…' : undefined;
-  const resultLabel = isFinderMode ? `${resultCount} ${resultCount === 1 ? 'result' : 'results'}` : undefined;
 
   return (
     <PanelHeader
@@ -324,8 +318,6 @@ function NavigatorHeader({
             <span role="status" aria-label={busyLabel} title={busyLabel} className="flex size-8 items-center justify-center text-icon-default">
               <Loader2 aria-hidden="true" className="size-3.5 animate-spin motion-reduce:animate-none" />
             </span>
-          ) : resultLabel ? (
-            <span className="px-1 text-xs tabular-nums text-text-subtle">{resultLabel}</span>
           ) : null}
           {/* No refresh button: HackMD lists refresh when the window regains focus, a Local Vault
               watches its folder, and Shift+Cmd+R still refreshes by hand. */}

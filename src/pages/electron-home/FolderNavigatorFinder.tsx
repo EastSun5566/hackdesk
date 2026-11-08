@@ -90,6 +90,8 @@ export type NoteFinderResults = {
   activeId?: string;
   /** What a screen reader hears when the highlight moves, such as "Plan, 2 of 5. Enter opens it." */
   announcement: string;
+  /** How many notes match, shown in the search field while searching. */
+  count: number;
   move: (step: 1 | -1) => void;
   open: () => void;
 };
@@ -185,7 +187,10 @@ export function NoteFinderToolbar({
             enterKeyHint="search"
             className="min-w-0 flex-1 bg-transparent text-sm outline-none"
           />
-          {searchShortcut ? <kbd aria-hidden="true" data-search-shortcut className="shrink-0 rounded border border-border-default px-1 text-xs text-text-subtle">{searchShortcut}</kbd> : null}
+          {/* The count lives in the field, not the header, so typing never squeezes the workspace name. */}
+          {results ? (
+            <span className="shrink-0 text-xs tabular-nums text-text-subtle">{`${results.count} ${results.count === 1 ? 'result' : 'results'}`}</span>
+          ) : searchShortcut ? <kbd aria-hidden="true" data-search-shortcut className="shrink-0 rounded border border-border-default px-1 text-xs text-text-subtle">{searchShortcut}</kbd> : null}
           {state.query ? (
             <Button
               variant="ghost"
