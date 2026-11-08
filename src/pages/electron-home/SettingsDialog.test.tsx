@@ -192,7 +192,7 @@ describe('SettingsDialog', () => {
     fireEvent.keyDown(search, { key: 'Enter' });
     const field = screen.getByLabelText('Primary', { exact: true });
     await waitFor(() => expect(field).toHaveFocus());
-    expect(screen.getByRole('button', { name: 'Customize Colors' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Customize colors' })).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('finds and focuses a wrapped checkbox label', async () => {
@@ -395,7 +395,7 @@ describe('SettingsDialog', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
 
-    const trigger = screen.getByRole('button', { name: 'Customize Colors' });
+    const trigger = screen.getByRole('button', { name: 'Customize colors' });
     const primaryInput = screen.getByLabelText('Primary');
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     expect(primaryInput).not.toBeVisible();

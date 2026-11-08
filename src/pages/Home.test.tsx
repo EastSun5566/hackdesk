@@ -2616,7 +2616,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
 
-    expect(within(palette).getByText('Recent Notes')).toBeInTheDocument();
+    expect(within(palette).getByText('Recent notes')).toBeInTheDocument();
     expect(within(palette).getByText('Workspaces')).toBeInTheDocument();
     expect(within(palette).getByText('Quick Actions')).toBeInTheDocument();
     expect(within(palette).queryByText('Notes')).not.toBeInTheDocument();
@@ -2656,7 +2656,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
-    const recentGroup = within(palette).getByText('Recent Notes').closest('[cmdk-group]')!;
+    const recentGroup = within(palette).getByText('Recent notes').closest('[cmdk-group]')!;
     fireEvent.click(within(recentGroup as HTMLElement).getByRole('option', { name: /Design Spec/ }));
 
     expect(await findRenderedNoteTitle('Design Spec')).toBeInTheDocument();

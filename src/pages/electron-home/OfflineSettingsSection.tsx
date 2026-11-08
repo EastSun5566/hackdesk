@@ -56,7 +56,7 @@ export function OfflineSettingsSection({ active }: { active: boolean }) {
     >
       {error ? <p role="alert" className="text-sm text-destructive-default">{error}</p> : null}
       <div className="flex items-center justify-between gap-3 text-sm">
-        <label htmlFor="settings-offline-keep-hackmd" className="font-medium">Keep opened HackMD notes offline</label>
+        <label htmlFor="settings-offline-keep-hackmd" className="font-semibold">Keep opened HackMD notes offline</label>
         <Switch
           id="settings-offline-keep-hackmd"
           checked={settings?.keepHackmdNotes ?? defaultOfflineSettings.keepHackmdNotes}
@@ -71,8 +71,8 @@ export function OfflineSettingsSection({ active }: { active: boolean }) {
         <p className="text-text-subtle" role="status">
           {status ? `${cached} HackMD ${cached === 1 ? 'note' : 'notes'} kept${cached ? ` · ${formatBytes(status.hackmdBytes)}` : ''}` : 'Checking…'}
         </p>
-        <Button variant="secondary" size="sm" disabled={busy || !cached} onClick={() => void run(() => api.noteIndex!.clear())}>
-          Clear cached notes
+        <Button variant="secondary" disabled={busy || !cached} onClick={() => void run(() => api.noteIndex!.clear())}>
+          Clear Cached Notes
         </Button>
       </div>
     </SettingsSection>

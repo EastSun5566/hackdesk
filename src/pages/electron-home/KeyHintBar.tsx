@@ -99,7 +99,7 @@ export function KeyHintBar({
       <button
         type="button"
         onClick={onOpenShortcuts}
-        className={cn('-mr-1 flex shrink-0 items-center gap-1.5 rounded-sm px-1 hover:text-text-default', FOCUS_RING_CLASS)}
+        className={cn('-mr-1 flex h-6 shrink-0 items-center gap-1.5 rounded-sm px-1 hover:text-text-default', FOCUS_RING_CLASS)}
       >
         {helpKeys ? <kbd className="rounded-sm border border-border-default bg-background-default px-1 font-mono leading-4 text-text-default">{helpKeys}</kbd> : null}
         <span>Shortcuts</span>

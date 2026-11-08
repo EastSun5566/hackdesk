@@ -736,7 +736,7 @@ function DocumentHeader({
       // One line: where the note lives, ending in its title, which stays in view as the note scrolls.
       // Rename Note changes the title.
       title={(
-        <nav aria-label="Note location" className="flex min-h-8 min-w-0 items-center gap-1 overflow-hidden text-sm font-normal text-text-subtle" title={updated}>
+        <nav aria-label="Note location" className="-ml-1 flex min-h-8 min-w-0 items-center gap-1 overflow-hidden text-sm font-normal text-text-subtle" title={updated}>
           {path.map((part, index) => (
             <span key={`${part.label}:${index}`} className="contents">
               {index > 0 ? <span aria-hidden="true" className="shrink-0 text-text-subtle/60">/</span> : null}

@@ -123,7 +123,7 @@ describe('HackDesk themes', () => {
 
         expect(theme['--background-default'], label).not.toBe(base['--background-default']);
         // The dialog scrim follows the seed like the other surfaces.
-        expect(theme['--background-overlay'], label).toBe(mode === 'dark' ? 'rgb(0 0 0 / 0.7)' : 'rgb(0 0 0 / 0.3)');
+        expect(theme['--background-overlay'], label).toBe(mode === 'dark' ? 'rgb(0 0 0 / 0.5)' : 'rgb(0 0 0 / 0.3)');
         // Accent and syntax colors stay the preset's.
         expect(theme['--code-keyword'], label).toBe(base['--code-keyword']);
         expectContrast(theme['--text-default'], theme['--background-default'], 4.5, `${label} text`);

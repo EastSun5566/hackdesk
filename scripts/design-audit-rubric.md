@@ -49,7 +49,10 @@ A rating without evidence does not count.
 - The hierarchy is clear: the title outranks metadata (weight, size, or colour), folders read
   differently from notes, and the indentation step is consistent, with guides that line up with
   parent icons.
-- Hover, selected and focused rows are distinct and use the shared selection colours.
+- Hover, selected and focused rows are distinct and use the shared selection colours. The system:
+  the violet tint marks the current item (the open note, the active settings page); neutral grey
+  marks the transient keyboard cursor or hover in menus, the command palette and search results.
+  Judge each surface against that rule, not against a single colour everywhere.
 - Counts, chevrons and trailing actions sit in one aligned column.
 
 ### 4. Alignment and spacing (weight 15)

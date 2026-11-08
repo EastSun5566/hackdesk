@@ -506,7 +506,7 @@ export function SidebarFooter({
       />
       {onOpenTrash ? (
         <Tooltip content="Trash" side="top">
-          <Button variant="ghost" size="icon" className="size-7" aria-label="Trash" data-workspace-navigation-id="trash" onClick={onOpenTrash}>
+          <Button variant="ghost" size="icon" className="h-7 w-8" aria-label="Trash" data-workspace-navigation-id="trash" onClick={onOpenTrash}>
             <Trash2 aria-hidden="true" className="size-4" />
           </Button>
         </Tooltip>

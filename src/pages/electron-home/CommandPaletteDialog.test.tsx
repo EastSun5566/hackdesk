@@ -224,11 +224,11 @@ describe('CommandPaletteDialog', () => {
     expect(screen.getByRole('dialog', { name: 'Command Palette' })).toHaveAccessibleDescription(
       'Search notes, folders, workspaces, and commands.',
     );
-    expect(screen.getByText('Recent Notes')).toBeVisible();
+    expect(screen.getByText('Recent notes')).toBeVisible();
     expect(screen.getByText('Workspaces')).toBeVisible();
     expect(screen.getByText('Quick Actions')).toBeVisible();
     expect(Array.from(document.querySelectorAll('[cmdk-group-heading]')).map((heading) => heading.textContent)).toEqual([
-      'Recent Notes',
+      'Recent notes',
       'Workspaces',
       'Quick Actions',
     ]);
@@ -258,7 +258,7 @@ describe('CommandPaletteDialog', () => {
       'Search notes, folders, and workspaces…',
     );
     expect(Array.from(document.querySelectorAll('[cmdk-group-heading]')).map((heading) => heading.textContent)).toEqual([
-      'Recent Notes',
+      'Recent notes',
       'Workspaces',
     ]);
     expect(screen.queryByText('Quick Actions')).not.toBeInTheDocument();
@@ -319,7 +319,7 @@ describe('CommandPaletteDialog', () => {
   it('preserves helper ranking and group order for searched results', () => {
     renderPalette({ state: { mode: 'commands', open: true, search: 'alpha' } });
 
-    expect(screen.queryByText('Recent Notes')).not.toBeInTheDocument();
+    expect(screen.queryByText('Recent notes')).not.toBeInTheDocument();
     const headings = Array.from(document.querySelectorAll('[cmdk-group-heading]'))
       .map((heading) => heading.textContent);
     expect(headings).toEqual(['Notes', 'Folders', 'Workspaces', 'Finder']);

@@ -1485,7 +1485,7 @@ test('Settings search jumps to fields and held navigation stays inside the dialo
     await search.fill('primary');
     await search.press('Enter');
     await expect(dialog.locator('#theme-seed-primary')).toBeFocused();
-    await expect(dialog.getByRole('button', { name: 'Customize Colors', exact: true })).toHaveAttribute('aria-expanded', 'true');
+    await expect(dialog.getByRole('button', { name: 'Customize colors', exact: true })).toHaveAttribute('aria-expanded', 'true');
     await search.fill('font');
     const options = dialog.getByRole('listbox', { name: 'Settings search results' }).getByRole('option');
     await search.press('ArrowDown');

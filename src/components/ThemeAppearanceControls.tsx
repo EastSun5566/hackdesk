@@ -86,9 +86,9 @@ export function ThemeAppearanceFields({
               className={cn(
                 focusClassName,
                 compact
-                  ? 'inline-flex h-8 w-auto items-center gap-1.5 rounded border-0 bg-transparent px-2.5 text-xs font-medium transition-colors hover:bg-element-bg-hover'
+                  ? 'inline-flex h-7 w-auto items-center gap-1.5 rounded border-0 bg-transparent px-2.5 text-sm font-medium transition-colors hover:bg-element-bg-hover'
                   : 'flex h-auto w-auto flex-col items-center gap-2 rounded-lg border-2 p-4 transition duration-150 ease-out hover:bg-element-bg-hover motion-reduce:transition-none',
-                draftMode === option.id && compact ? 'bg-background-default text-primary-default shadow-sm' : null,
+                draftMode === option.id && compact ? 'bg-background-primary-subtler text-primary-default' : null,
                 draftMode === option.id && !compact ? 'border-primary-default bg-primary-soft' : null,
                 draftMode !== option.id && compact ? 'text-text-subtle' : null,
                 draftMode !== option.id && !compact ? 'border-border-default bg-background-default hover:border-primary-default hover:bg-element-bg-hover' : null,
@@ -129,7 +129,7 @@ export function ThemeAppearanceFields({
 
       {showTypography ? (
         <fieldset className="space-y-3">
-          <legend className="text-sm font-semibold leading-5">Typography</legend>
+          <legend className={compact ? 'mb-5 text-base font-semibold leading-6 text-text-emphasize' : 'text-sm font-semibold leading-5'}>Typography</legend>
           <div className="space-y-3">
             <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-3">
               <ThemeFontField
@@ -173,12 +173,12 @@ export function ThemeAppearanceFields({
           <Collapsible defaultOpen={customSeedsDefaultOpen}>
             <CollapsibleTrigger
               className={cn(
-                'flex h-8.5 w-full items-center justify-between rounded border border-border-default bg-transparent px-3 text-left text-sm transition-colors hover:bg-element-bg-hover',
+                'group -mx-2 flex h-8 items-center gap-1.5 rounded px-2 text-left text-sm font-semibold transition-colors hover:bg-background-hover',
                 focusClassName,
               )}
             >
-              <span>Customize Colors</span>
-              <ChevronRight className="h-4 w-4 text-text-subtle transition-transform duration-150 ease-out group-data-[panel-open]:rotate-90 motion-reduce:transition-none" />
+              <ChevronRight className="h-4 w-4 text-icon-default transition-transform duration-150 ease-out group-data-[panel-open]:rotate-90 motion-reduce:transition-none" />
+              <span>Customize colors</span>
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="grid grid-cols-1 gap-3 pt-2">
