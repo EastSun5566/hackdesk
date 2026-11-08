@@ -12,6 +12,12 @@ vi.mock('@/components/NoteComparisonView', () => ({ NoteComparisonView: ({ input
 
 vi.mock('@/components/ui/toast', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
+const confirmDialogMock = vi.hoisted(() => vi.fn());
+
+vi.mock('@/components/ConfirmDialogHost', () => ({
+  confirmDialog: confirmDialogMock,
+}));
+
 const note = {
   id: 'note-1', title: 'Roadmap', content: 'Now', updatedAtMillis: Date.UTC(2026, 9, 15, 6), teamPath: null,
   lastChangeUser: { name: 'Michael', username: 'michael', photo: null, biography: null },
@@ -28,6 +34,7 @@ const named = version({ id: 'v-2', name: 'Before launch', nameSource: 'user', cr
 const automatic = version({ id: 'v-1' });
 
 function installApi(overrides: Partial<NonNullable<typeof window.hackdeskAPI>['hackmd']> = {}, confirmed = true) {
+  confirmDialogMock.mockResolvedValue({ confirmed });
   const hackmd = {
     listNoteVersions: vi.fn(async (_noteId: string, query: { page?: number; namedOnly?: boolean }) => (
       query.page === 2
@@ -38,9 +45,8 @@ function installApi(overrides: Partial<NonNullable<typeof window.hackdeskAPI>['h
     compareNoteVersions: vi.fn(async () => ({ unifiedDiff: '@@ -1 +1 @@\n-Old line\n+Now\n' })),
     ...overrides,
   };
-  const confirm = vi.fn(async () => ({ confirmed }));
-  window.hackdeskAPI = { hackmd, app: { confirm } } as unknown as NonNullable<typeof window.hackdeskAPI>;
-  return { hackmd, confirm };
+  window.hackdeskAPI = { hackmd, app: { confirm: vi.fn(async () => ({ confirmed })) } } as unknown as NonNullable<typeof window.hackdeskAPI>;
+  return { hackmd };
 }
 
 function renderDialog(props: Partial<Parameters<typeof NoteVersionsDialog>[0]> = {}) {
@@ -113,7 +119,7 @@ describe('NoteVersionsDialog', () => {
   });
 
   it('restores a version into the editor', async () => {
-    const { confirm } = installApi();
+    installApi();
     const { onRestore, onOpenChange } = renderDialog();
 
     const restore = await screen.findByRole('button', { name: 'Restore into Editor' });
@@ -122,11 +128,11 @@ describe('NoteVersionsDialog', () => {
 
     await waitFor(() => expect(onRestore).toHaveBeenCalledWith('content of v-2'));
     expect(onOpenChange).toHaveBeenCalledWith(false);
-    expect(confirm).not.toHaveBeenCalled();
+    expect(confirmDialogMock).not.toHaveBeenCalled();
   });
 
   it('asks before replacing unsaved edits', async () => {
-    const { confirm } = installApi({}, false);
+    installApi({}, false);
     const { onRestore } = renderDialog({ noteDirty: true });
 
     expect(await screen.findByText(/Unsaved edits are not included/)).toBeInTheDocument();
@@ -134,7 +140,7 @@ describe('NoteVersionsDialog', () => {
     await waitFor(() => expect(restore).toBeEnabled());
     fireEvent.click(restore);
 
-    await waitFor(() => expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ confirmLabel: 'Replace', destructive: true })));
+    await waitFor(() => expect(confirmDialogMock).toHaveBeenCalledWith(expect.objectContaining({ confirmLabel: 'Replace', destructive: true })));
     expect(onRestore).not.toHaveBeenCalled();
   });
 

@@ -245,6 +245,31 @@ async function confirmDisconnectHackmd() {
   fireEvent.click(within(dialog).getByRole('button', { name: 'Disconnect HackMD' }));
 }
 
+async function cancelDeleteNoteDialog() {
+  const dialog = await screen.findByRole('alertdialog', { name: 'Delete Note' });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+}
+
+async function confirmDeleteNoteDialog() {
+  const dialog = await screen.findByRole('alertdialog', { name: 'Delete Note' });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+}
+
+async function confirmDeleteFolderDialog() {
+  const dialog = await screen.findByRole('alertdialog', { name: 'Delete Folder' });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+}
+
+async function acceptAppConfirmDialog(confirmLabel: string) {
+  const dialog = await screen.findByRole('alertdialog');
+  fireEvent.click(within(dialog).getByRole('button', { name: confirmLabel }));
+}
+
+async function cancelAppConfirmDialog(cancelLabel = 'Keep Editing') {
+  const dialog = await screen.findByRole('alertdialog');
+  fireEvent.click(within(dialog).getByRole('button', { name: cancelLabel }));
+}
+
 // Scope, sort, permission and tag filters share the sidebar's View options menu.
 async function openViewOptions() {
   if (!screen.queryByRole('menu')) fireEvent.pointerDown(screen.getByRole('button', { name: 'View options' }));
@@ -445,7 +470,7 @@ describe('Home native-feel behavior', () => {
     globalThis.document.body.style.pointerEvents = '';
   });
 
-  it('does not delete a note when native confirmation is cancelled', async () => {
+  it('does not delete a note when confirmation is cancelled', async () => {
     const api = createApi();
 
     renderHome(api);
@@ -453,18 +478,14 @@ describe('Home native-feel behavior', () => {
     await findRenderedNoteTitle();
     await openDocumentActions();
     fireEvent.click(screen.getByText('Delete'));
+    await cancelDeleteNoteDialog();
 
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      destructive: true,
-      confirmLabel: 'Delete',
-    })));
     expect(api.hackmd.deleteNote).not.toHaveBeenCalled();
   });
 
-  it('deletes a note after native confirmation succeeds', async () => {
+  it('deletes a note after confirmation succeeds', async () => {
     const api = createApi({
       app: {
-        confirm: vi.fn(async () => ({ confirmed: true })),
         exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
         recordFatalRendererError: vi.fn(async () => undefined),
         onCommand: vi.fn(() => () => undefined),
@@ -476,6 +497,7 @@ describe('Home native-feel behavior', () => {
     await findRenderedNoteTitle();
     await openDocumentActions();
     fireEvent.click(screen.getByText('Delete'));
+    await confirmDeleteNoteDialog();
 
     await waitFor(() => expect(api.hackmd.deleteNote).toHaveBeenCalledWith('note-1'));
   });
@@ -490,7 +512,6 @@ describe('Home native-feel behavior', () => {
     }]));
     const api = createApi({
       app: {
-        confirm: vi.fn(async () => ({ confirmed: true })),
         exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
         recordFatalRendererError: vi.fn(async () => undefined),
         onCommand: vi.fn(() => () => undefined),
@@ -502,6 +523,7 @@ describe('Home native-feel behavior', () => {
     await findRenderedNoteTitle();
     await openDocumentActions();
     fireEvent.click(screen.getByText('Delete'));
+    await confirmDeleteNoteDialog();
 
     await waitFor(() => expect(api.hackmd.deleteNote).toHaveBeenCalledWith('note-1'));
     await waitFor(() => expect(JSON.parse(window.localStorage.getItem(ELECTRON_RECENT_NOTES_STORAGE_KEY) ?? '[]')).toEqual([]));
@@ -1103,11 +1125,10 @@ describe('Home native-feel behavior', () => {
     expect(api.app.confirm).not.toHaveBeenCalled();
   });
 
-  it('cancels the native close request when closing with unsaved changes is rejected', async () => {
+  it('cancels the close request when closing with unsaved changes is rejected', async () => {
     let closeHandler: (() => void) | null = null;
     const api = createApi({
       app: {
-        confirm: vi.fn(async () => ({ confirmed: false })),
         onCloseRequest: vi.fn((handler) => {
           closeHandler = handler;
           return () => undefined;
@@ -1123,21 +1144,16 @@ describe('Home native-feel behavior', () => {
       closeHandler?.();
     });
 
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Close HackDesk',
-      confirmLabel: 'Close',
-      cancelLabel: 'Keep Editing',
-      destructive: false,
-    })));
+    await screen.findByRole('alertdialog', { name: 'Close HackDesk with unsaved changes?' });
+    await cancelAppConfirmDialog('Keep Editing');
     await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
     expect(api.app.confirmClose).not.toHaveBeenCalled();
   });
 
-  it('confirms the native close request after closing with unsaved changes is accepted', async () => {
+  it('confirms the close request after closing with unsaved changes is accepted', async () => {
     let closeHandler: (() => void) | null = null;
     const api = createApi({
       app: {
-        confirm: vi.fn(async () => ({ confirmed: true })),
         onCloseRequest: vi.fn((handler) => {
           closeHandler = handler;
           return () => undefined;
@@ -1153,6 +1169,8 @@ describe('Home native-feel behavior', () => {
       closeHandler?.();
     });
 
+    await screen.findByRole('alertdialog', { name: 'Close HackDesk with unsaved changes?' });
+    await acceptAppConfirmDialog('Close');
     await waitFor(() => expect(api.app.confirmClose).toHaveBeenCalled());
     expect(api.app.cancelClose).not.toHaveBeenCalled();
   });
@@ -1178,7 +1196,6 @@ describe('Home native-feel behavior', () => {
         })),
       },
       app: {
-        confirm: vi.fn(async () => ({ confirmed: false })),
         onCloseRequest: vi.fn((handler) => {
           closeHandler = handler;
           return () => undefined;
@@ -1199,14 +1216,9 @@ describe('Home native-feel behavior', () => {
       closeHandler?.();
     });
 
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Close HackDesk',
-      message: 'Close HackDesk with unsaved changes?',
-      detail: expect.stringContaining('2 notes have unsaved changes'),
-      confirmLabel: 'Close',
-      cancelLabel: 'Keep Editing',
-      destructive: false,
-    })));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Close HackDesk with unsaved changes?' });
+    expect(dialog).toHaveTextContent('2 notes have unsaved changes');
+    await cancelAppConfirmDialog('Keep Editing');
     await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
     expect(api.app.confirmClose).not.toHaveBeenCalled();
   });
@@ -1235,7 +1247,6 @@ describe('Home native-feel behavior', () => {
         }),
       },
       app: {
-        confirm: vi.fn(async () => ({ confirmed: false })),
         onCloseRequest: vi.fn((handler) => {
           closeHandler = handler;
           return () => undefined;
@@ -1255,11 +1266,9 @@ describe('Home native-feel behavior', () => {
       closeHandler?.();
     });
 
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Close HackDesk',
-      detail: expect.stringContaining('1 note has a failed save'),
-      confirmLabel: 'Close',
-    })));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Close HackDesk with unsaved changes?' });
+    expect(dialog).toHaveTextContent('1 note has a failed save');
+    await cancelAppConfirmDialog('Keep Editing');
     await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
     expect(api.app.confirmClose).not.toHaveBeenCalled();
   });
@@ -1323,7 +1332,6 @@ describe('Home native-feel behavior', () => {
         }),
       },
       app: {
-        confirm: vi.fn(async () => ({ confirmed: false })),
         onCloseRequest: vi.fn((handler) => {
           closeHandler = handler;
           return () => undefined;
@@ -1341,14 +1349,9 @@ describe('Home native-feel behavior', () => {
       closeHandler?.();
     });
 
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Close HackDesk',
-      message: 'Close HackDesk with unsaved changes?',
-      detail: expect.stringContaining('1 note has a failed save'),
-      confirmLabel: 'Close',
-      cancelLabel: 'Keep Editing',
-      destructive: false,
-    })));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Close HackDesk with unsaved changes?' });
+    expect(dialog).toHaveTextContent('1 note has a failed save');
+    await cancelAppConfirmDialog('Keep Editing');
     await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
     expect(api.app.confirmClose).not.toHaveBeenCalled();
   });
@@ -2040,11 +2043,7 @@ describe('Home native-feel behavior', () => {
   });
 
   it('keeps a dirty tab open when Cmd+W discard is cancelled', async () => {
-    const api = createApi({
-      app: {
-        confirm: vi.fn(async () => ({ confirmed: false })),
-      },
-    });
+    const api = createApi();
 
     renderHome(api);
     await findRenderedNoteTitle();
@@ -2053,13 +2052,8 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.keyDown(window, { key: 'w', metaKey: true });
 
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Close Tab',
-      message: 'Close “Test note”?',
-      confirmLabel: 'Close Tab',
-      cancelLabel: 'Keep Editing',
-      destructive: true,
-    })));
+    await screen.findByRole('alertdialog', { name: 'Close “Test note”?' });
+    await cancelAppConfirmDialog('Keep Editing');
     expect(screen.getByRole('tab', { name: /^Test note(?:, .+)?$/ })).toBeInTheDocument();
   });
 
@@ -2409,7 +2403,6 @@ describe('Home native-feel behavior', () => {
         }),
       },
       app: {
-        confirm: vi.fn(async () => ({ confirmed: true })),
         exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
         recordFatalRendererError: vi.fn(async () => undefined),
         onCommand: vi.fn((handler) => {
@@ -2427,6 +2420,7 @@ describe('Home native-feel behavior', () => {
     act(() => {
       commandHandler?.({ type: 'delete-note' });
     });
+    await confirmDeleteNoteDialog();
 
     await waitFor(() => expect(api.hackmd.deleteNote).toHaveBeenCalledWith('note-1'));
     await waitFor(() => expect(screen.queryByRole('tab', { name: /^Test note(?:, .+)?$/ })).not.toBeInTheDocument());
@@ -3915,7 +3909,7 @@ describe('Home native-feel behavior', () => {
     }));
   });
 
-  it('deletes the selected folder after native confirmation succeeds', async () => {
+  it('deletes the selected folder after confirmation succeeds', async () => {
     let commandHandler: ((command: HackDeskCommandPaletteCommand) => void) | null = null;
     const api = createApi({
       hackmd: {
@@ -3925,7 +3919,6 @@ describe('Home native-feel behavior', () => {
         deleteFolder: vi.fn(async () => undefined),
       },
       app: {
-        confirm: vi.fn(async () => ({ confirmed: true })),
         exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
         recordFatalRendererError: vi.fn(async () => undefined),
         onCommand: vi.fn((handler) => {
@@ -3940,11 +3933,8 @@ describe('Home native-feel behavior', () => {
     act(() => {
       commandHandler?.({ type: 'delete-folder' });
     });
+    await confirmDeleteFolderDialog();
 
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      destructive: true,
-      confirmLabel: 'Delete',
-    })));
     await waitFor(() => expect(api.hackmd.deleteFolder).toHaveBeenCalledWith('folder-1'));
   });
 });

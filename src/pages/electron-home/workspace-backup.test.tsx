@@ -11,8 +11,14 @@ import { useWorkbenchClosePolicy } from './useWorkbenchClosePolicy';
 import { useWorkspaceBackupNotice } from './useWorkspaceBackupNotice';
 import { WorkspaceBackupNotice } from './WorkspaceBackupNotice';
 
-const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+const { toast, confirmDialogMock } = vi.hoisted(() => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+  confirmDialogMock: vi.fn(),
+}));
 vi.mock('@/components/ui/toast', () => ({ toast }));
+vi.mock('@/components/ConfirmDialogHost', () => ({
+  confirmDialog: confirmDialogMock,
+}));
 
 afterEach(() => {
   cleanup();
@@ -194,6 +200,7 @@ describe('workspace backup notice', () => {
   });
 
   it('confirms before closing while drafts are not backed up', async () => {
+    confirmDialogMock.mockResolvedValue({ confirmed: false });
     const api = createApi();
     const confirmCloseUnsafeTabs = vi.fn(async () => true);
     const { result } = renderHook(() => useWorkbenchClosePolicy({
@@ -204,7 +211,7 @@ describe('workspace backup notice', () => {
       openTabs: {},
     }));
     await act(async () => { await result.current.settleCloseRequest({ source: 'app-quit' }); });
-    expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({ message: 'Workspace backup failed. Close anyway?' }));
+    expect(confirmDialogMock).toHaveBeenCalledWith(expect.objectContaining({ message: 'Workspace backup failed. Close anyway?' }));
     expect(api.app.cancelClose).toHaveBeenCalledOnce();
     expect(api.app.confirmClose).not.toHaveBeenCalled();
   });

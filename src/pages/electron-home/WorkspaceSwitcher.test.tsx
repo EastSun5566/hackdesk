@@ -137,6 +137,8 @@ describe('WorkspaceSwitcher', () => {
 
     expect(within(dialog).queryByRole('button', { name: 'Harbor Team' })).toBeNull();
     fireEvent.click(within(dialog).getByRole('button', { name: 'More' }));
+    // The pin appears while its row is hovered or focused.
+    fireEvent.focus(within(dialog).getByRole('button', { name: 'Harbor Team' }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Pin Harbor Team' }));
     expect(props.onPinnedTeamIdsChange).toHaveBeenCalledWith(['team-1', 'team-2']);
 
@@ -152,6 +154,8 @@ describe('WorkspaceSwitcher', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
 
     expect(within(dialog).getByRole('button', { name: 'Reorder Atlas Team' })).toHaveAttribute('tabindex', '0');
+    expect(within(dialog).queryByRole('button', { name: 'Unpin Atlas Team' })).toBeNull();
+    fireEvent.focus(within(dialog).getByRole('button', { name: 'Atlas Team' }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Unpin Atlas Team' }));
     expect(props.onPinnedTeamIdsChange).toHaveBeenCalledWith(['team-2']);
   });

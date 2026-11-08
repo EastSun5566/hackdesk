@@ -1,11 +1,12 @@
 import { useMemo, useState, type ReactNode } from 'react';
+import { confirmDialog } from '@/components/ConfirmDialogHost';
 import { BookmarkPlus, FilePlus, History, Loader2, Pencil, RotateCcw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/components/ui/toast';
-import { getHackDeskAPI, type DocumentSummary, type NoteVersionSummary } from '@/lib/electron-api';
+import type { DocumentSummary, NoteVersionSummary } from '@/lib/electron-api';
 import { isNoteVersionsUnavailableError } from '@/lib/note-errors';
 
 import {
@@ -27,7 +28,6 @@ import {
 type VersionTab = 'changes' | 'full';
 
 async function confirmReplaceDraft() {
-  const confirm = getHackDeskAPI()?.app.confirm;
   const options = {
     title: 'Replace Unsaved Changes',
     message: 'Replace your unsaved changes with this version?',
@@ -36,7 +36,7 @@ async function confirmReplaceDraft() {
     cancelLabel: 'Cancel',
     destructive: true,
   };
-  return confirm ? (await confirm(options)).confirmed : window.confirm(options.message);
+  return (await confirmDialog(options)).confirmed;
 }
 
 function StatusMessage({ children, busy }: { children: ReactNode; busy?: boolean }) {

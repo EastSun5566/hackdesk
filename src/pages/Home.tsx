@@ -1,4 +1,5 @@
 import { KeyboardNavigation } from './electron-home/KeyboardNavigation';
+import { ConfirmDialogHost } from '@/components/ConfirmDialogHost';
 import { getElectronAction, getResolvedActionShortcut } from '@/lib/electron-actions';
 import { ActionShortcutContext } from './electron-home/ActionShortcutContext';
 import { KeyboardShortcutsDialog } from './electron-home/KeyboardShortcutsDialog';
@@ -1249,6 +1250,7 @@ export function Home() {
             onChoose={noteTemplates.chooseTemplate}
           />
           <AskNotesDialog askNotes={askNotes} onOpenNote={note => openNoteTarget(toRecentNote(note))} />
+          <ConfirmDialogHost />
           <TrashDialog open={trashOpen} onOpenChange={setTrashOpen} onOpenNote={(note) => void requestSelectNote(note, { focusEditor: true })} />
           {shortcutHelp ? <KeyboardShortcutsDialog
             open region={shortcutHelp.region} returnFocus={shortcutHelp.target}

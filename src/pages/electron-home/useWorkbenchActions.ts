@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { confirmDialog } from '@/components/ConfirmDialogHost';
 import { toast } from '@/components/ui/toast';
 
 import type {
@@ -523,7 +524,7 @@ export function exportDebugLogs(api: HackDeskElectronAPI | undefined) {
 export function clearOfflineCopies(api: HackDeskElectronAPI | undefined) {
   const noteIndex = api?.noteIndex;
   if (!api || !noteIndex) return;
-  void api.app.confirm({
+  void confirmDialog({
     title: 'Clear Offline Copies',
     message: 'Clear the HackMD notes kept on this computer?',
     detail: 'They are no longer readable offline or searchable by text until you open them again. Local Vault notes and unsaved edits are not affected.',

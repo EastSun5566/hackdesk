@@ -172,28 +172,9 @@ export function useWorkbenchFolderCommands({
       return;
     }
 
-    if (!api?.app.confirm) {
-      setDeleteFolderTarget(folder);
-      return;
-    }
+    // The in-app delete dialog asks, so the question matches the app rather than the system.
+    setDeleteFolderTarget(folder);
 
-    const isLocalFolder = scopeType === 'local';
-    api.app.confirm({
-      title: isLocalFolder ? 'Move Folder to Trash' : 'Delete Folder',
-      message: `${isLocalFolder ? 'Move' : 'Delete'} “${folder.name}”?`,
-      detail: isLocalFolder
-        ? 'This moves the local folder to the system trash. Local Markdown files inside the folder move with it.'
-        : 'This deletes the folder from HackMD. Local vault files are not affected. This cannot be undone from HackDesk.',
-      confirmLabel: isLocalFolder ? 'Move to Trash' : 'Delete',
-      cancelLabel: 'Cancel',
-      destructive: true,
-    }).then(({ confirmed }) => {
-      if (confirmed) {
-        deleteFolder({ folderId: folder.id, parentFolderId: folder.parentId });
-      }
-    }).catch((error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to confirm folder deletion.');
-    });
   }, [api, deleteFolder, folderTree.nodesById, scopeType, setDeleteFolderTarget]);
 
   const handleFolderDrop = useCallback((operation: FolderDropOperation) => {
