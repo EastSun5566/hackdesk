@@ -33,6 +33,7 @@ import { defaultSettings } from '@/lib/settings';
 import { ElectronHomeOverlays } from './electron-home/ElectronHomeOverlays';
 import { ElectronHomeWorkspace, NOTE_NAVIGATOR_PANEL_ID } from './electron-home/ElectronHomeWorkspace';
 import { useSplitStatusLine } from './electron-home/split-status-line-preference';
+import { useStatusLineVisible } from './electron-home/status-line-preference';
 import { useElectronSettings } from './electron-home/useElectronSettings';
 import { useLocalVaultSession } from './electron-home/useLocalVaultSession';
 import { LOCAL_VAULT_TEAM_PATH, toDocumentSummary } from './electron-home/local-vault-adapter';
@@ -176,6 +177,7 @@ export function Home() {
   // Hack Mode hides everything but the note. It is not saved, so the app always opens as usual.
   const [hackMode, setHackMode] = useState(false);
   const splitStatusLine = useSplitStatusLine();
+  const statusLineVisible = useStatusLineVisible();
   const [sidebarWidth, setSidebarWidth] = useState(0);
   // Hiding the sidebar unmounts the switcher, so it must not come back open. In Hack Mode the
   // sidebar is hidden with everything else, so the key leaves Hack Mode and shows it.
@@ -1246,7 +1248,8 @@ export function Home() {
               onRun={id => runPaletteAction(id)}
             />
           ) : null}
-          {(settings?.keyboardNavigation?.keyHintsVisible ?? true) || splitStatusLine ? (
+          {/* Appearance → Status line hides it outright; otherwise it shows while there's anything to say. */}
+          {statusLineVisible && ((settings?.keyboardNavigation?.keyHintsVisible ?? true) || splitStatusLine) ? (
             <KeyHintBar
               actionContext={actionContext}
               leader={leaderLevel}

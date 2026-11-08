@@ -57,6 +57,7 @@ import { hackmdRichPreviewWidgets } from './rich-preview-widgets';
 import { treeProgressPlugin } from './tree-progress';
 import { editorStatusExtension } from './editor-status-extension';
 import { useSplitStatusLine } from '@/pages/electron-home/split-status-line-preference';
+import { useStatusLineVisible } from '@/pages/electron-home/status-line-preference';
 
 const reservedAppShortcutKeymap = Prec.highest(keymap.of([
   {
@@ -342,7 +343,10 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
     onOpenLink,
   }, ref) {
     const { resolvedMode } = useTheme();
-    const hideEditorModeStatus = useSplitStatusLine();
+    // The editor's own mode bar goes only while the split line shows the mode instead.
+    const splitStatusLine = useSplitStatusLine();
+    const statusLineVisible = useStatusLineVisible();
+    const hideEditorModeStatus = splitStatusLine && statusLineVisible;
     const parentRef = useRef<HTMLDivElement | null>(null);
     const onAttachImageRef = useLatestRef(onAttachImage);
     const onChangeRef = useLatestRef(onChange);
