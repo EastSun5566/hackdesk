@@ -626,6 +626,9 @@ export function WorkspaceRootTreeRow({
                 )}
                 aria-label="New Folder"
                 data-folder-tree-ignore-keyboard="true"
+                // Like other rows' controls: a tab stop only while the root is the tree's current
+                // row, or Shift+Tab out of the tree would land here and make the root the tab stop.
+                tabIndex={treeItemProps?.tabIndex}
                 onClick={(event) => {
                   event.stopPropagation();
                   onCreateFolder();

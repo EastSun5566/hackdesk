@@ -7,7 +7,7 @@ import type { LeaderLevel } from '@/lib/leader-keys';
 import type { ShortcutOverrides } from '@/lib/keyboard-shortcuts';
 import { cn } from '@/lib/utils';
 
-import { FOCUS_RING_CLASS, HACK_MODE_HIDDEN_CLASS } from './ui';
+import { FOCUS_RING_INSET_CLASS, HACK_MODE_HIDDEN_CLASS } from './ui';
 import { leaderSpacePreference } from './keyboard-feature-preferences';
 
 /** How long after the last keystroke the bar comes back. */
@@ -81,7 +81,8 @@ function ShortcutsButton({
     <button
       type="button"
       onClick={onOpenShortcuts}
-      className={cn('-mr-1 flex h-6 shrink-0 items-center gap-1.5 rounded-sm px-1 hover:text-text-default', FOCUS_RING_CLASS, className)}
+      // Inset: the line clips what reaches past it.
+      className={cn('-mr-1 flex h-6 shrink-0 items-center gap-1.5 rounded-sm px-1 hover:text-text-default', FOCUS_RING_INSET_CLASS, className)}
     >
       {helpKeys ? <kbd className="rounded-sm border border-border-default bg-background-default px-1 leading-4 text-text-default">{helpKeys}</kbd> : null}
       <span>Shortcuts</span>

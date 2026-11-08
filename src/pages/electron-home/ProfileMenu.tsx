@@ -83,7 +83,7 @@ export function ProfileMenu({
           type="button"
           aria-label={needsAttention ? `Account: ${displayName}. HackMD account needs attention` : `Account: ${displayName}`}
           title={user ? `${displayName} @${user.username}` : undefined}
-          className="app-region-no-drag flex h-8 min-w-0 flex-1 items-center gap-2 rounded px-1.5 text-left text-sm text-text-default transition-colors hover:bg-background-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring data-[popup-open]:bg-background-hover"
+          className="app-region-no-drag flex h-8 min-w-0 flex-1 items-center gap-2 rounded px-1.5 text-left text-sm text-text-default transition-colors hover:bg-background-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring data-[popup-open]:bg-background-hover"
         >
         {user
           ? <PersonalWorkspaceIcon user={user} className="size-5" testId="sidebar-footer-avatar" />

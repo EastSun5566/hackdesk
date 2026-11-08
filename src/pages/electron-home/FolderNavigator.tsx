@@ -472,7 +472,9 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   const pinnedRootShown = !trashActive && !isFinderMode && !status.isLoading && scope.type !== 'history' && hasTreeContent;
 
   return (
-    <div className="scroll-edges-source min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2">
+    // While the workspace row is pinned, rows scrolled into view (keyboard, reveal, hints) stop
+    // below it instead of under it: 2.5rem is its 8px cover plus its 32px row.
+    <div className={cn('scroll-edges-source min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2', pinnedRootShown && 'scroll-pt-10')}>
       {/* Edge fades (see .edge-fade-top in styles.css): zero-height, so they never move the rows. */}
       <div aria-hidden="true" className={cn('edge-fade-top pointer-events-none sticky z-10 -mx-2 h-0', pinnedRootShown ? 'top-8' : '-top-2')}>
         <div className="h-8 bg-linear-to-b from-background-muted to-transparent" />

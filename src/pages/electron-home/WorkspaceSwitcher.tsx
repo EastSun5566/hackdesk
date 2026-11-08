@@ -41,7 +41,7 @@ import { cn } from '@/lib/utils';
 import { EntityRow } from './interaction-primitives';
 import { NavigationHintsContext } from './KeyboardNavigationContext';
 import type { WorkspaceScope } from './types';
-import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS } from './ui';
+import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS, ICON_BUTTON_CLASS } from './ui';
 import {
   getWorkspaceAriaShortcut,
   getWorkspaceNavigationTeams,
@@ -594,9 +594,10 @@ export function SidebarFooter({
         onSignOut={onSignOut}
       />
       <Tooltip content={<>Settings <ActionMenuShortcut actionId="open-settings" /></>} side="top">
-        <Button variant="ghost" size="icon" aria-label="Settings" onClick={onOpenSettings}>
+        {/* The footer sits on the sidebar's bottom edge, so its rings draw inside the buttons. */}
+        <button type="button" aria-label="Settings" className={cn(ICON_BUTTON_CLASS, 'focus-visible:ring-inset')} onClick={onOpenSettings}>
           <Settings2 aria-hidden="true" className="size-4" />
-        </Button>
+        </button>
       </Tooltip>
     </div>
   );
