@@ -180,7 +180,7 @@ function NoteRowView({
                     className={cn(
                       // Wider than its icon for an easier grab; the negative margins keep the icon on the
                       // same column as folder icons.
-                      'group/drag-handle relative -mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-icon-default hover:text-text-default',
+                      'group/drag-handle relative -mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-icon-subtle group-hover/entity-row:text-icon-default hover:text-text-default',
                       FOCUS_RING_INSET_CLASS,
                     )}
                     aria-label={`Drag ${entry.note.title || 'Untitled'}`}
@@ -219,6 +219,8 @@ function NoteRowView({
                 contentFocusTarget={focusTarget}
                 contentButtonProps={treeItemProps}
                 selectedIndicator
+                // The tree steps back from the editor: subtle text, full strength on hover and selection.
+                tone="quiet"
                 className={cn(TREE_ROW_FOCUS_CLASS, highlightId && SEARCH_HIGHLIGHT_CLASS)}
               />
             </TooltipTrigger>
@@ -367,7 +369,7 @@ function FolderButton({
                   id={toggleControlId}
                   disabled={!hasChildren}
                   className={cn(
-                    '-mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-icon-default hover:text-text-default disabled:pointer-events-none',
+                    '-mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-icon-subtle group-hover/entity-row:text-icon-default hover:text-text-default disabled:pointer-events-none',
                     FOCUS_RING_INSET_CLASS,
                   )}
                   aria-label={hasChildren ? (collapsed ? `Expand ${node.name}` : `Collapse ${node.name}`) : `${node.name}, empty`}
@@ -410,6 +412,7 @@ function FolderButton({
             contentFocusTarget={focusTarget}
             contentButtonProps={treeItemProps}
             selectedIndicator
+            tone="quiet"
             className={TREE_ROW_FOCUS_CLASS}
           />
         </div>

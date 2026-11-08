@@ -821,6 +821,7 @@ export function resolveThemeTypography(typography: ThemeTypography): ResolvedHac
     '--font-smoothing': normalized.fontSmoothing,
     '--text-2xs': 'calc(var(--font-size-ui) * 0.7142857143)',
     '--text-xs': 'calc(var(--font-size-ui) * 0.8571428571)',
+    '--text-menu': 'calc(var(--font-size-ui) * 0.9285714286)',
     '--text-sm': 'var(--font-size-ui)',
     '--text-base': 'calc(var(--font-size-ui) * 1.1428571429)',
     '--text-lg': 'calc(var(--font-size-ui) * 1.2857142857)',

@@ -115,7 +115,7 @@ function WorkspaceRow({
       ariaLabel={accessibleLabel ?? label}
       ariaCurrent={active ? 'page' : undefined}
       ariaKeyShortcuts={ariaKeyShortcuts}
-      className={cn('min-h-9 flex-1', className)}
+      className={cn('min-h-9 flex-1 text-menu', className)}
       trailingClassName="opacity-70"
     />
   );
@@ -295,7 +295,7 @@ function MoreTeams({
         aria-expanded={isOpen}
         aria-controls="workspace-switcher-more"
         onClick={() => setOpen(!isOpen)}
-        className={cn('flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-sm font-medium text-text-subtle hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_INSET_CLASS)}
+        className={cn('flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-menu font-medium text-text-subtle hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_INSET_CLASS)}
       >
         <ChevronDown className={cn('size-4', COLLAPSE_ICON_CLASS, !isOpen && '-rotate-90')} />
         <span>More</span>
@@ -519,7 +519,7 @@ export function WorkspaceSwitcher({
                     aria-label="Find a team"
                     autoComplete="off"
                     spellCheck={false}
-                    className="min-w-0 flex-1 bg-transparent text-sm text-text-default outline-none placeholder:text-text-subtle"
+                    className="min-w-0 flex-1 bg-transparent text-menu text-text-default outline-none placeholder:text-text-subtle"
                   />
                 </label>
               ) : null}

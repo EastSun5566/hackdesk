@@ -124,6 +124,10 @@
   /* Type scale below text-xs. The theme rescales it with the UI font size. */
   --text-2xs: 0.625rem;
   --text-2xs--line-height: 1.4;
+  /* Menus, selects, the palette and the workspace switcher: 13px at the default 14px UI, as
+     macOS menus are. The theme rescales it with the UI font size. */
+  --text-menu: 0.8125rem;
+  --text-menu--line-height: 1.25rem;
 }
 
 @layer base {

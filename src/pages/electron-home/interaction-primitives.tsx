@@ -39,6 +39,9 @@ type EntityRowProps = {
   active?: boolean;
   disabled?: boolean;
   variant?: EntityRowVariant;
+  /** `quiet` sets a list (the sidebar tree) a step back from the editor: subtle text at normal
+   *  weight and lighter icons, full strength on hover and when selected. */
+  tone?: 'default' | 'quiet';
   className?: string;
   contentClassName?: string;
   titleClassName?: string;
@@ -65,6 +68,7 @@ function entityRowClassName({
   variant,
   clickable,
   selectedIndicator,
+  tone = 'default',
   className,
 }: {
   selected?: boolean;
@@ -73,6 +77,7 @@ function entityRowClassName({
   variant: EntityRowVariant;
   clickable: boolean;
   selectedIndicator?: boolean;
+  tone?: 'default' | 'quiet';
   className?: string;
 }) {
   return cn(
@@ -80,7 +85,9 @@ function entityRowClassName({
     variant === 'compact' ? 'gap-1.5 rounded px-2 py-1 text-sm leading-5' : 'gap-1.5 rounded px-2.5 py-1.5 text-sm leading-5',
     selected || active
       ? 'bg-background-primary-subtler text-text-emphasize'
-      : 'text-text-default hover:bg-background-hover hover:text-text-emphasize',
+      : tone === 'quiet'
+        ? 'text-text-subtle hover:bg-background-hover hover:text-text-default'
+        : 'text-text-default hover:bg-background-hover hover:text-text-emphasize',
     selectedIndicator && 'overflow-hidden',
     selectedIndicator && selected && 'before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-0.5 before:rounded-full before:bg-primary-default',
     clickable && FOCUS_RING_INSET_CLASS,
@@ -107,6 +114,7 @@ function EntityRowContent({
   contentButtonProps,
   selected,
   active,
+  tone,
 }: Required<Pick<EntityRowProps, 'variant'>> & Pick<EntityRowProps,
   'leadingControls'
   | 'icon'
@@ -125,11 +133,12 @@ function EntityRowContent({
   | 'contentButtonProps'
   | 'selected'
   | 'active'
+  | 'tone'
 >) {
   const contentBody = (
     <>
       <span className={cn('flex min-w-0 items-center gap-2', titleClassName)}>
-        <span className="min-w-0 truncate font-medium">{title}</span>
+        <span className={cn('min-w-0 truncate', tone === 'quiet' && !(selected || active) ? 'font-normal' : 'font-medium')}>{title}</span>
         {badges ? <span className="shrink-0">{badges}</span> : null}
       </span>
       {subtitle ? (
@@ -144,7 +153,8 @@ function EntityRowContent({
       aria-hidden="true"
       className={cn(
         // A flex box, so the icon centres on the row instead of sitting on the text baseline.
-        'flex shrink-0 items-center text-icon-default group-hover/entity-row:text-text-default',
+        'flex shrink-0 items-center group-hover/entity-row:text-text-default',
+        tone === 'quiet' ? 'text-icon-subtle' : 'text-icon-default',
         (selected || active) && 'text-primary-default',
       )}
     >
@@ -210,6 +220,7 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
   active,
   disabled,
   variant = 'default',
+  tone = 'default',
   className,
   contentClassName,
   titleClassName,
@@ -248,6 +259,7 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
       contentButtonProps={contentButtonProps}
       selected={selected}
       active={active}
+      tone={tone}
     />
   );
   const rowClassName = entityRowClassName({
@@ -257,6 +269,7 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
     variant,
     clickable: Boolean(onClick),
     selectedIndicator,
+    tone,
     className,
   });
 
