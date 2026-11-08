@@ -47,6 +47,7 @@ export function PersonalWorkspaceIcon({
   );
 }
 
+/** Round like a person's avatar, so every workspace picture reads as the same kind of thing. */
 export function TeamWorkspaceIcon({
   team,
   className,
@@ -60,7 +61,7 @@ export function TeamWorkspaceIcon({
 
   if (team.logo && team.logo !== failedLogo) {
     return (
-      <Avatar className={cn('size-6 rounded-md text-2xs font-semibold uppercase text-text-subtle', className)}>
+      <Avatar className={cn('size-6 rounded-full text-2xs font-semibold uppercase text-text-subtle', className)}>
         <img
           src={team.logo}
           alt=""
@@ -77,7 +78,7 @@ export function TeamWorkspaceIcon({
   }
 
   return (
-    <Avatar className={cn('size-6 rounded-md text-2xs font-semibold uppercase text-text-subtle', className)}>
+    <Avatar className={cn('size-6 rounded-full text-2xs font-semibold uppercase text-text-subtle', className)}>
       <AvatarFallback data-testid={testId}>{team.name.trim().slice(0, 1) || 'T'}</AvatarFallback>
     </Avatar>
   );
