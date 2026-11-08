@@ -492,9 +492,9 @@ export function SidebarFooter({
   );
 
   return (
-    // One line, the same height as the editor's status bar, with the same always-on top line, so
-    // the two read as one bottom edge across the window.
-    <div data-testid="sidebar-footer" className="flex h-8.25 items-center gap-1 border-t border-border-subtle px-2">
+    // No divider: the footer sits in the chrome like the header, so it has no line to line up with
+    // the editor card's status bar. The row box keeps the sidebar's 8px edge.
+    <div data-testid="sidebar-footer" className="flex shrink-0 items-center gap-1 px-2 py-1.5">
       <EntityRow
         icon={user ? <PersonalWorkspaceIcon user={user} className="size-5" testId="sidebar-footer-avatar" /> : <Settings2 className="size-4" />}
         title={displayName}
@@ -502,12 +502,12 @@ export function SidebarFooter({
         onClick={onOpenSettings}
         ariaLabel={hasAccountAttention ? `${label}. HackMD account needs attention` : label}
         titleAttribute={user ? `${displayName} @${user.username}` : undefined}
-        className="min-w-0 flex-1 px-2 py-1"
+        className="h-8 min-w-0 flex-1 px-1.5 py-0"
         trailingClassName="text-text-subtle"
       />
       {onOpenTrash ? (
         <Tooltip content="Trash" side="top">
-          <Button variant="ghost" size="icon" className="h-7 w-8" aria-label="Trash" data-workspace-navigation-id="trash" onClick={onOpenTrash}>
+          <Button variant="ghost" size="icon" aria-label="Trash" data-workspace-navigation-id="trash" onClick={onOpenTrash}>
             <Trash2 aria-hidden="true" className="size-4" />
           </Button>
         </Tooltip>

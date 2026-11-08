@@ -95,7 +95,6 @@ function EntityRowContent({
   badges,
   trailing,
   menu,
-  variant,
   contentClassName,
   titleClassName,
   trailingClassName,
@@ -142,9 +141,9 @@ function EntityRowContent({
     <span
       aria-hidden="true"
       className={cn(
-        'shrink-0 text-icon-default group-hover/entity-row:text-text-default',
+        // A flex box, so the icon centres on the row instead of sitting on the text baseline.
+        'flex shrink-0 items-center text-icon-default group-hover/entity-row:text-text-default',
         (selected || active) && 'text-primary-default',
-        variant === 'compact' && 'mt-0.5',
       )}
     >
       {icon}

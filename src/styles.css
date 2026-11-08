@@ -339,7 +339,33 @@
 @layer base {
   html {
     accent-color: var(--primary-default);
-    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+
+  /* Classic (mouse) scrollbars: a thin rounded thumb on a clear track, so a scrollbar looks the same
+     on the sidebar and inside the editor card instead of painting a grey gutter stripe. Trackpads
+     keep macOS overlay scrollbars. Standard scrollbar-color would disable this styling, so it is set
+     only for increased contrast below. */
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+    background-color: transparent;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background-color: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    min-height: 32px;
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    background-clip: padding-box;
+    background-color: color-mix(in srgb, var(--text-default) 24%, transparent);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in srgb, var(--text-default) 40%, transparent);
   }
 
   ::selection {

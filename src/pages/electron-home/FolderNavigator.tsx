@@ -301,7 +301,7 @@ function NavigatorHeader({
       title={<WorkspaceSwitcher {...workspace} />}
       titleElement="div"
       subtitle={navigatorSubtitle}
-      className="px-4 py-2.5"
+      className="px-4 pb-1 pt-2.5"
       // Icon buttons carry 8px of padding, so pulling them out by 8px puts their glyphs on the
       // same 16px edge as the rest of the sidebar.
       actionsClassName="-mr-2"
@@ -366,7 +366,7 @@ function NavigatorFilterBar({
   };
 
   return (
-    <div className="space-y-1 px-2 pb-1.5 pt-1">
+    <div className="space-y-1 px-2 pb-3">
       <NoteFinderToolbar
         state={finderState}
         selectedFolderId={selectedFolderId}
