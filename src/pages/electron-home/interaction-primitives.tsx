@@ -78,7 +78,7 @@ function entityRowClassName({
     variant === 'compact' ? 'gap-1.5 rounded px-2 py-1 text-sm leading-5' : 'gap-1.5 rounded px-2.5 py-1.5 text-sm leading-5',
     selected || active
       ? 'bg-background-primary-subtler text-text-emphasize'
-      : 'text-text-default hover:bg-background-subtler hover:text-text-emphasize',
+      : 'text-text-default hover:bg-background-hover hover:text-text-emphasize',
     selectedIndicator && 'overflow-hidden',
     selectedIndicator && selected && 'before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-0.5 before:rounded-full before:bg-primary-default',
     clickable && FOCUS_RING_INSET_CLASS,

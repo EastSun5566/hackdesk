@@ -492,20 +492,21 @@ export function SidebarFooter({
   );
 
   return (
-    <div data-testid="sidebar-footer" className="scroll-edge-bottom relative flex items-center gap-1 p-1.5">
+    // One line, the same height as the editor's status bar, so the two bottom edges meet.
+    <div data-testid="sidebar-footer" className="scroll-edge-bottom relative flex h-8.25 items-center gap-1 px-2">
       <EntityRow
-        icon={user ? <PersonalWorkspaceIcon user={user} testId="sidebar-footer-avatar" /> : <Settings2 className="size-4" />}
+        icon={user ? <PersonalWorkspaceIcon user={user} className="size-5" testId="sidebar-footer-avatar" /> : <Settings2 className="size-4" />}
         title={displayName}
-        subtitle={user ? `@${user.username}` : undefined}
         trailing={trailing}
         onClick={onOpenSettings}
         ariaLabel={hasAccountAttention ? `${label}. HackMD account needs attention` : label}
-        className="min-h-11 min-w-0 flex-1"
+        titleAttribute={user ? `${displayName} @${user.username}` : undefined}
+        className="min-w-0 flex-1 px-2 py-1"
         trailingClassName="text-text-subtle"
       />
       {onOpenTrash ? (
         <Tooltip content="Trash" side="top">
-          <Button variant="ghost" size="icon" aria-label="Trash" data-workspace-navigation-id="trash" onClick={onOpenTrash}>
+          <Button variant="ghost" size="icon" className="size-7" aria-label="Trash" data-workspace-navigation-id="trash" onClick={onOpenTrash}>
             <Trash2 aria-hidden="true" className="size-4" />
           </Button>
         </Tooltip>

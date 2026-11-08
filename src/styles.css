@@ -77,6 +77,7 @@
   --color-background-selected: var(--background-selected);
   --color-border-default: var(--border-default);
   --color-border-subtle: var(--border-subtle);
+  --color-background-hover: var(--background-hover);
   --color-border-primary-default: var(--border-primary-default);
   --color-border-primary-subtler: var(--border-primary-subtler);
   --color-primary-default: var(--primary-default);
@@ -221,6 +222,8 @@
        instead of components painting border-default at different opacities over different
        surfaces. */
     --border-subtle: color-mix(in srgb, var(--border-default) 55%, var(--background-default));
+    /* Row hover: a tint of the text colour, visible on any surface. */
+    --background-hover: color-mix(in srgb, var(--text-default) 7%, transparent);
     --border-bold: var(--hmd-tw-border-bold);
     --border-primary-default: var(--hmd-tw-border-primary-default);
     --border-primary-subtler: var(--hmd-tw-border-primary-subtler);

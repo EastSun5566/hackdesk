@@ -232,7 +232,7 @@ describe('SidebarFooter', () => {
     const props = renderFooter({ user: user() });
 
     expect(screen.getByText('Demo Writer')).toBeInTheDocument();
-    expect(screen.getByText('@demo')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open settings for Demo Writer' })).toHaveAttribute('title', 'Demo Writer @demo');
     expect(screen.getByTestId('sidebar-footer-avatar')).toHaveTextContent('DW');
     fireEvent.click(screen.getByRole('button', { name: 'Open settings for Demo Writer' }));
     expect(props.onOpenSettings).toHaveBeenCalledOnce();

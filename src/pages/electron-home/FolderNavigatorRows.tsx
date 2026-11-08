@@ -4,7 +4,6 @@ import {
   CopyPlus,
   Download,
   FileText,
-  Folder,
   FolderOpen,
   FolderPen,
   FolderPlus,
@@ -451,11 +450,13 @@ export function RootFolderRow({
         >
           <EntityRow
             selected={selected || ((folderDragActive || noteDragActive) && isOver)}
-            icon={<Folder className="h-3.5 w-3.5" />}
             title="Root"
             trailing={noteCount}
             variant="compact"
-            className={TREE_ROW_FOCUS_CLASS}
+            // Root holds every top-level folder and note, so it reads as the tree's section label
+            // rather than as a sibling of what it contains.
+            titleClassName="text-xs font-semibold text-text-subtle"
+            className={cn('min-h-7', TREE_ROW_FOCUS_CLASS)}
             focusTarget={focusTarget}
             selectedIndicator
             ariaCurrent={treeItemProps ? undefined : selected ? 'page' : undefined}

@@ -76,7 +76,7 @@ export function SettingsTabs({ dialogRef, onNavigate }: {
                   onClick={() => choose(result)}
                   className={cn(
                     'flex min-w-0 cursor-default flex-col items-start rounded px-2.5 py-1.5 text-sm leading-5 text-text-default',
-                    index === search.active ? 'bg-background-primary-subtler text-text-emphasize' : 'hover:bg-background-subtler',
+                    index === search.active ? 'bg-background-primary-subtler text-text-emphasize' : 'hover:bg-background-hover',
                     FOCUS_RING_CLASS,
                   )}
                 >

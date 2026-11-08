@@ -104,9 +104,10 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
     tokens: {
       light: {
         '--text-default': '#3F3F46',
-        '--text-subtle': '#71717A',
+        // A step past zinc-500 so 12px meta text stays above 4.5:1 on the zinc-100 sidebar.
+        '--text-subtle': '#696972',
         '--background-default': '#FDFDFD',
-        '--background-muted': '#FAFAFA',
+        '--background-muted': '#F4F4F5',
         '--background-overlay': 'rgb(0 0 0 / 0.3)',
         '--background-selected': '#ECEBFE',
         '--border-default': '#D4D4D8',
@@ -925,6 +926,8 @@ export function resolveHackDeskTheme({
     ...resolveCommandPaletteTokens(contrastTheme),
     // Quiet structural lines (card outlines, in-panel dividers, tree guides), solid in every theme.
     '--border-subtle': 'color-mix(in srgb, var(--border-default) 55%, var(--background-default))',
+    // Row hover: a tint of the text colour, so it shows on the sidebar and the card alike.
+    '--background-hover': 'color-mix(in srgb, var(--text-default) 7%, transparent)',
     ...resolveThemeTypography(typography),
   };
 }

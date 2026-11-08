@@ -635,6 +635,17 @@ function NavigatorTree({
     treeRef,
   });
 
+  // Keep the open note in view, so opening it from a tab, link or the palette shows where it lives.
+  useEffect(() => {
+    if (!selection.selectedNoteId) {
+      return;
+    }
+
+    const row = Array.from(treeRef.current?.querySelectorAll<HTMLElement>('[data-folder-tree-row-id]') ?? [])
+      .find((candidate) => candidate.dataset.folderTreeRowId === `note:${selection.selectedNoteId}`);
+    row?.scrollIntoView?.({ block: 'nearest' });
+  }, [selection.selectedNoteId]);
+
   useEffect(() => {
     if (treeFocusRequestId === 0) {
       return;

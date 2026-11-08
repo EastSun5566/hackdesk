@@ -90,7 +90,7 @@ describe('HackDesk themes', () => {
 
     expect(light['--background-default']).toBe('#FDFDFD');
     expect(light['--text-default']).toBe('#3F3F46');
-    expect(light['--text-subtle']).toBe('#71717A');
+    expect(light['--text-subtle']).toBe('#696972');
     expect(light['--primary-default']).toBe('#564DFF');
     expect(light['--primary-foreground']).toBe('#FFFFFF');
     expect(dark['--background-default']).toBe('#27272A');
