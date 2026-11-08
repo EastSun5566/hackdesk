@@ -447,6 +447,11 @@
     -webkit-appearance: none;
   }
 
+  /* Appearance > Indent guides off: the tree draws no guide lines. */
+  :root[data-tree-guides='hidden'] [data-tree-guide] {
+    display: none;
+  }
+
   /* A font previewed in its own face; the stack comes from --font-preview set on the element. */
   .font-preview {
     font-family: var(--font-preview, inherit);

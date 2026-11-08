@@ -47,6 +47,8 @@ import { buildNoteTagIndex } from '@/lib/electron-note-tags';
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { arePanelPropsEqual, useStableCallbacks } from '@/lib/stable-props';
+
+import { applyTreeGuides } from './tree-guides-preference';
 import { cn } from '@/lib/utils';
 import { HACK_MODE_HIDDEN_CLASS } from './ui';
 
@@ -151,6 +153,7 @@ export type FolderNavigatorProps = {
  * hooks) cost ~200ms a key; callbacks go through stable wrappers so skipped renders stay correct.
  */
 export function FolderNavigator(props: FolderNavigatorProps) {
+  useEffect(() => applyTreeGuides(), []);
   const actions = useStableCallbacks(props.actions);
   const workspace = useStableCallbacks(props.workspace);
   return <MemoFolderNavigator {...props} actions={actions} workspace={workspace} />;
