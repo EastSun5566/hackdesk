@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_NOTE_FINDER_STATE } from '@/lib/electron-note-finder';
 import type { FolderPathSummary, NoteSummary } from '@/lib/electron-api';
 import { buildHackmdFolderTree, UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   expectMenuReturnsFocus,
@@ -158,10 +159,13 @@ function renderFolderNavigator(overrides: FolderNavigatorPropsOverrides = {}) {
     status: { ...props.status, ...overrides.status },
   };
 
+  // As a wrapper, the query client survives rerender() calls that pass only the navigator.
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = render(
     <TooltipProvider>
       <FolderNavigator {...mergedProps} />
     </TooltipProvider>,
+    { wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider> },
   );
   return { ...view, props: mergedProps };
 }
@@ -428,6 +432,16 @@ describe('FolderNavigator', () => {
     fireEvent.mouseOver(createButton);
 
     expect(await screen.findByText('Connect HackMD to create notes.')).toBeVisible();
+  });
+
+  it('shows Trash in place of the tree, with a way back', async () => {
+    const onOpenChange = vi.fn();
+    renderFolderNavigator({ trash: { open: true, onOpenChange, onOpenNote: vi.fn() } });
+
+    expect(screen.getByText('Trash')).toBeInTheDocument();
+    expect(screen.queryByRole('tree')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to notes' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it('keeps one View options button beside the search box', async () => {

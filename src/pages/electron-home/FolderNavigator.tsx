@@ -184,6 +184,7 @@ function FolderNavigatorPanel({
   status,
   textSearch,
   tree,
+  trash,
   workspace,
 }: FolderNavigatorProps) {
   return (
@@ -213,6 +214,7 @@ function FolderNavigatorPanel({
           status={status}
           textSearch={textSearch}
           tree={tree}
+          trash={trash}
           workspace={workspace}
         />
         <SidebarFooter accountStatus={workspace.accountStatus} user={workspace.user} onOpenSettings={workspace.onOpenSettings} onOpenTrash={workspace.onOpenTrash} onSignOut={workspace.onSignOut} />

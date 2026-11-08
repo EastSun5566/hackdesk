@@ -22,8 +22,8 @@ import {
   type RestoreTrashFailureReason,
   type TrashedNoteSummary,
 } from '@/lib/electron-api';
-import { EmptyState, EntityRow, ToolbarIconButton } from './interaction-primitives';
-import { formatDate, ICON_BUTTON_CLASS } from './ui';
+import { EmptyState, EntityRow } from './interaction-primitives';
+import { formatCompactDate, formatDate, ICON_BUTTON_CLASS } from './ui';
 import { getRestoredIds, getTrashErrorMessage, useRestoreNotes, useTrashList } from './useTrash';
 
 const FAILURE_MESSAGES: Record<RestoreTrashFailureReason, string> = {
@@ -63,12 +63,11 @@ export function TrashNavigatorHeader({
 }) {
   return (
     <div className="flex min-w-0 items-center gap-1 px-2 pb-1 pt-0.5">
-      <ToolbarIconButton
-        label="Back to notes"
-        onClick={onBack}
-      >
-        <ChevronLeft aria-hidden="true" className="size-4" />
-      </ToolbarIconButton>
+      <Tooltip content="Back to notes">
+        <Button variant="ghost" size="icon" aria-label="Back to notes" onClick={onBack}>
+          <ChevronLeft aria-hidden="true" className="size-4" />
+        </Button>
+      </Tooltip>
       <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-default">Trash</span>
       {count === undefined ? null : (
         <span className="shrink-0 text-xs tabular-nums text-text-subtle">{count}</span>
@@ -97,9 +96,11 @@ function TrashRow({
   const title = getTitle(note);
   const failureId = useId();
 
+  // One line like the tree: the title, with the deleted date as quiet trailing meta. A failed
+  // restore adds a second line saying why.
   const subtitle = failure
     ? <span id={failureId} className="text-destructive-default">{FAILURE_MESSAGES[failure]}</span>
-    : `Deleted ${formatDate(note.deletedAtMillis)}`;
+    : undefined;
 
   const entity = (
     <EntityRow
@@ -107,6 +108,13 @@ function TrashRow({
       icon={<FileText aria-hidden="true" className="h-3.5 w-3.5" />}
       title={title}
       subtitle={subtitle}
+      trailing={(
+        <time title={`Deleted ${formatDate(note.deletedAtMillis)}`} dateTime={note.deletedAtMillis ? new Date(note.deletedAtMillis).toISOString() : undefined}>
+          {formatCompactDate(note.deletedAtMillis)}
+        </time>
+      )}
+      // Always shown, unlike the tree's edited date: here the date is what tells notes apart.
+      trailingClassName="max-w-20 truncate text-right"
       variant="compact"
       tone="quiet"
       selectedIndicator
@@ -139,7 +147,7 @@ function TrashRow({
         {entity}
       </TooltipTrigger>
       <TooltipContent side="right" sideOffset={10}>
-        Kept until {formatDate(note.permanentDeleteAtMillis)}
+        Deleted {formatDate(note.deletedAtMillis)} · Kept until {formatDate(note.permanentDeleteAtMillis)}
       </TooltipContent>
     </TooltipRoot>
   ) : (

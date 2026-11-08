@@ -60,10 +60,10 @@ describe('TrashNavigatorList', () => {
     const rows = await findRows();
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveTextContent('Roadmap');
-    expect(rows[0]).toHaveTextContent(/Deleted Oct 15/);
+    expect(within(rows[0]).getByTitle(/^Deleted Oct 15/)).toBeInTheDocument();
     expect(rows[0]).not.toHaveTextContent('Kept until');
     expect(rows[1]).toHaveTextContent('Untitled');
-    expect(rows[1]).toHaveTextContent(/Deleted Oct 12/);
+    expect(within(rows[1]).getByTitle(/^Deleted Oct 12/)).toBeInTheDocument();
     expect(rows[1]).not.toHaveTextContent('Kept until');
   });
 
