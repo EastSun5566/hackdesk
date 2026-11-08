@@ -406,7 +406,7 @@ export function WorkspaceSwitcher({
         ref={triggerRef}
         data-workspace-navigation-id="switcher"
         aria-label={`Switch workspace, current: ${scope.label}`}
-        className={cn('-ml-1 flex min-w-0 max-w-full items-center gap-2 rounded-md px-1 py-0.5 text-left hover:bg-element-bg-hover', FOCUS_RING_INSET_CLASS)}
+        className={cn('-ml-2 flex min-w-0 max-w-full items-center gap-2 rounded-md px-1 py-0.5 text-left hover:bg-element-bg-hover', FOCUS_RING_INSET_CLASS)}
       >
         <span aria-hidden="true" className="flex shrink-0 text-text-subtle"><ScopeIcon scope={scope} teams={teams} user={user} /></span>
         <span className="min-w-0 truncate text-base font-semibold text-text-default">{scope.label}</span>
