@@ -16,7 +16,6 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-  AlertCircle,
   Check,
   ChevronDown,
   ChevronsUpDown,
@@ -52,6 +51,8 @@ import {
   reorderPinnedWorkspaceTeams,
   unpinWorkspaceTeam,
 } from './workspace-navigation';
+import { ActionMenuShortcut } from './ActionShortcutContext';
+import { ProfileMenu } from './ProfileMenu';
 import { PersonalWorkspaceIcon, TeamWorkspaceIcon } from './WorkspaceIcon';
 
 type WorkspaceUser = Pick<UserSummary, 'name' | 'username' | 'photo'>;
@@ -78,6 +79,8 @@ export type WorkspaceSidebarProps = {
   onOpenSettings: () => void;
   /** Opens the HackMD trash. Leave it out to hide the button. */
   onOpenTrash?: () => void;
+  /** Removes the HackMD token. Leave it out to hide Sign Out. */
+  onSignOut?: () => void;
   onPinnedTeamIdsChange: (pinnedTeamIds: string[]) => void;
 };
 
@@ -400,7 +403,7 @@ export function WorkspaceSwitcher({
   onScopeChange,
   onChooseLocalVault,
   onPinnedTeamIdsChange,
-}: Omit<WorkspaceSidebarProps, 'accountStatus' | 'onOpenSettings' | 'onOpenTrash'>) {
+}: Omit<WorkspaceSidebarProps, 'accountStatus' | 'onOpenSettings' | 'onOpenTrash' | 'onSignOut'>) {
   const popupRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const hintsHeld = useContext(NavigationHintsContext) === true;
@@ -564,47 +567,36 @@ export function WorkspaceSwitcher({
   );
 }
 
-function getUserDisplayName(user: WorkspaceUser) {
-  return user.name.trim() || user.username.trim() || 'Settings';
-}
-
-/** The bottom of the sidebar: the account, which opens Settings, and the HackMD trash. */
+/** The bottom of the sidebar: the account hub, Settings, and the HackMD trash. */
 export function SidebarFooter({
   accountStatus,
   user,
   onOpenSettings,
   onOpenTrash,
-}: Pick<WorkspaceSidebarProps, 'accountStatus' | 'user' | 'onOpenSettings' | 'onOpenTrash'>) {
-  const displayName = user ? getUserDisplayName(user) : 'Settings';
+  onSignOut,
+}: Pick<WorkspaceSidebarProps, 'accountStatus' | 'user' | 'onOpenSettings' | 'onOpenTrash' | 'onSignOut'>) {
   const hasAccountAttention = Boolean(accountStatus?.activeError);
   const isLoadingAccount = !user && Boolean(accountStatus?.isLoading || accountStatus?.isFetching);
-  const label = user ? `Open settings for ${displayName}` : 'Open settings';
-  const trailing = hasAccountAttention ? (
-    <AlertCircle
-      aria-hidden="true"
-      data-testid="sidebar-account-attention"
-      className={cn('size-3.5', accountStatus?.showingCachedFallback ? 'text-primary-default' : 'text-destructive-default')}
-    />
-  ) : isLoadingAccount ? (
-    <span aria-hidden="true" data-testid="sidebar-account-loading" className="block size-1.5 rounded-full bg-text-subtle opacity-70 motion-safe:animate-pulse" />
-  ) : (
-    <Settings2 className="size-3.5" />
-  );
 
   return (
-    // No divider: the footer sits in the chrome like the header, so it has no line to line up with
-    // the editor card's status bar. The row box keeps the sidebar's 8px edge.
-    <div data-testid="sidebar-footer" className="flex shrink-0 items-center gap-1 px-2 py-1.5">
-      <EntityRow
-        icon={user ? <PersonalWorkspaceIcon user={user} className="size-5" testId="sidebar-footer-avatar" /> : <Settings2 className="size-4" />}
-        title={displayName}
-        trailing={trailing}
-        onClick={onOpenSettings}
-        ariaLabel={hasAccountAttention ? `${label}. HackMD account needs attention` : label}
-        titleAttribute={user ? `${displayName} @${user.username}` : undefined}
-        className="h-8 min-w-0 flex-1 px-1.5 py-0"
-        trailingClassName="text-text-subtle"
+    // No divider: the footer sits in the chrome like the header. Its 32px row ends 1px above the
+    // footer's bottom, where the editor card's border is, so it shares a centre line with the
+    // editor's status bar.
+    <div data-testid="sidebar-footer" className="flex shrink-0 items-center gap-1 px-2 pb-px pt-1.5">
+      <ProfileMenu
+        user={user}
+        needsAttention={hasAccountAttention}
+        attentionTone={accountStatus?.showingCachedFallback ? 'primary' : 'destructive'}
+        loading={isLoadingAccount}
+        onOpenSettings={onOpenSettings}
+        onConnect={onOpenSettings}
+        onSignOut={onSignOut}
       />
+      <Tooltip content={<>Settings <ActionMenuShortcut actionId="open-settings" /></>} side="top">
+        <Button variant="ghost" size="icon" aria-label="Settings" onClick={onOpenSettings}>
+          <Settings2 aria-hidden="true" className="size-4" />
+        </Button>
+      </Tooltip>
       {onOpenTrash ? (
         <Tooltip content="Trash" side="top">
           <Button variant="ghost" size="icon" aria-label="Trash" data-workspace-navigation-id="trash" onClick={onOpenTrash}>

@@ -250,13 +250,13 @@ describe('SidebarFooter', () => {
     return props;
   }
 
-  it('opens Settings from the account', () => {
+  it('keeps the account and Settings as separate buttons', () => {
     const props = renderFooter({ user: user() });
 
     expect(screen.getByText('Demo Writer')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open settings for Demo Writer' })).toHaveAttribute('title', 'Demo Writer @demo');
+    expect(screen.getByRole('button', { name: 'Account: Demo Writer' })).toHaveAttribute('title', 'Demo Writer @demo');
     expect(screen.getByTestId('sidebar-footer-avatar')).toHaveTextContent('DW');
-    fireEvent.click(screen.getByRole('button', { name: 'Open settings for Demo Writer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(props.onOpenSettings).toHaveBeenCalledOnce();
   });
 
@@ -273,16 +273,15 @@ describe('SidebarFooter', () => {
     expect(onOpenTrash).toHaveBeenCalledOnce();
   });
 
-  it('shows Settings, a quiet loading dot, or an attention mark without the error text', () => {
+  it('shows a quiet loading dot or an attention mark without the error text', () => {
     renderFooter({ accountStatus: { activeError: null, isFetching: true, isLoading: true, showingCachedFallback: false } });
-    expect(screen.getByText('Settings')).toBeInTheDocument();
+    expect(screen.getByText('Not signed in')).toBeInTheDocument();
     expect(screen.getByTestId('sidebar-account-loading')).toBeInTheDocument();
     cleanup();
 
-    const props = renderFooter({ accountStatus: { activeError: 'HackMD token expired.', isFetching: false, isLoading: false, showingCachedFallback: false } });
+    renderFooter({ accountStatus: { activeError: 'HackMD token expired.', isFetching: false, isLoading: false, showingCachedFallback: false } });
     expect(screen.getByTestId('sidebar-account-attention')).toBeInTheDocument();
     expect(screen.queryByText('HackMD token expired.')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Open settings. HackMD account needs attention' }));
-    expect(props.onOpenSettings).toHaveBeenCalledOnce();
+    expect(screen.getByRole('button', { name: 'Account: Not signed in. HackMD account needs attention' })).toBeInTheDocument();
   });
 });
