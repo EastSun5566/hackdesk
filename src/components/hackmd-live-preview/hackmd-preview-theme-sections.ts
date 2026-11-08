@@ -248,7 +248,7 @@ export const proseTheme = {
   // map exact.
   '.cm-hackmd-h1': {
     fontSize: '1.2em',
-    fontWeight: '650',
+    fontWeight: '600',
     lineHeight: '1.35',
     letterSpacing: '-0.01em',
     paddingTop: '0.2em',

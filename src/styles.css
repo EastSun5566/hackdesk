@@ -339,6 +339,9 @@
 @layer base {
   html {
     accent-color: var(--primary-default);
+    /* Grayscale antialiasing, as native macOS apps draw text; the default thickens glyph stems. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   /* Classic (mouse) scrollbars: a thin rounded thumb on a clear track, so a scrollbar looks the same
