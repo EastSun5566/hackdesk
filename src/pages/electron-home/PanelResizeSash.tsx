@@ -74,6 +74,11 @@ export function PanelResizeSash({
       }}
       onLostPointerCapture={() => {
         delete document.documentElement.dataset.panelResizing;
+        // A drag that ends without pointerup (pointercancel, a system gesture) still commits the
+        // previewed width, or the panel would keep showing a width the app never saved.
+        const drag = dragStart.current;
+        dragStart.current = null;
+        if (drag && drag.latest !== drag.value && previewTargetId) onChange(drag.latest);
       }}
       onPointerMove={(event) => {
         if (!dragStart.current || event.buttons === 0) {

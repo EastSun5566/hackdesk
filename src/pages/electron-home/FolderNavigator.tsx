@@ -173,8 +173,12 @@ export function FolderNavigator(props: FolderNavigatorProps) {
   useEffect(() => applyTreeGuides(), []);
   const actions = useStableCallbacks(props.actions);
   const workspace = useStableCallbacks(props.workspace);
-  return <MemoFolderNavigator {...props} actions={actions} workspace={workspace} />;
+  // Its callbacks are rebuilt each render too (openTrashNote is inline), which would defeat the memo.
+  const trash = useStableCallbacks(props.trash ?? NO_TRASH);
+  return <MemoFolderNavigator {...props} actions={actions} workspace={workspace} trash={props.trash ? trash as TrashNavigatorViewProps : undefined} />;
 }
+
+const NO_TRASH = {};
 
 const MemoFolderNavigator = memo(FolderNavigatorPanel, arePanelPropsEqual);
 

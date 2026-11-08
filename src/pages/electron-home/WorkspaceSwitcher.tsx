@@ -425,6 +425,10 @@ export function WorkspaceSwitcher({
     const filter = teamFilterRef.current;
     if (filter && event.target !== filter && event.key.length === 1 && /\S/.test(event.key)
       && !event.metaKey && !event.ctrlKey && !event.altKey && !event.nativeEvent.isComposing) {
+      // The keypress began on a row, so the field never receives it: carry the character over,
+      // or the first letter of every search would be lost.
+      event.preventDefault();
+      setTeamQuery((query) => query + event.key);
       filter.focus();
       return;
     }

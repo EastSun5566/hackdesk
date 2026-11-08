@@ -192,6 +192,19 @@ describe('WorkspaceSwitcher', () => {
     fireEvent.keyDown(filter, { key: 'Enter' });
     expect(props.onScopeChange).toHaveBeenCalledWith({ type: 'team', label: 'Harbor Crew', teamPath: 'harbor' });
   });
+
+  it('keeps the first letter typed on a row, moving it into the team filter', async () => {
+    const many = Array.from({ length: 9 }, (_, index) => team({ id: `team-${index}`, name: `Team ${index}`, path: `team-${index}` }));
+    renderSwitcher({ teams: many });
+    const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
+    const history = within(dialog).getByRole('button', { name: 'History' });
+    history.focus();
+
+    fireEvent.keyDown(history, { key: 'h' });
+    const filter = within(dialog).getByRole('textbox', { name: 'Find a team' });
+    expect(filter).toHaveFocus();
+    expect(filter).toHaveValue('h');
+  });
 });
 
 describe('WorkspaceSwitcher while the primary key is held', () => {
