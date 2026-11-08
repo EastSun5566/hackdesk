@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ChevronRight, Laptop, Moon, Sun } from 'lucide-react';
+import { ChevronRight, Laptop, Minus, Moon, Plus, Sun } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { FontStackPicker } from '@/components/FontStackPicker';
@@ -135,38 +135,34 @@ export function ThemeAppearanceFields({
         <fieldset className="space-y-3">
           <legend className={compact ? 'mb-5 text-base font-semibold leading-6 text-text-emphasize' : 'text-sm font-semibold leading-5'}>Typography</legend>
           <div className="space-y-3">
-            <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-3">
-              <ThemeFontField
-                label="UI font"
-                value={draftTypography.uiFontStack}
-                error={typographyErrors.uiFontStack}
-                onChange={(value) => draftActions.changeTypography('uiFontStack', value)}
-              />
-              <ThemeFontSizeField
-                label="UI font size"
-                value={draftTypography.uiFontSize}
-                min={MIN_UI_FONT_SIZE}
-                max={MAX_UI_FONT_SIZE}
-                error={typographyErrors.uiFontSize}
-                onChange={(value) => draftActions.changeTypography('uiFontSize', value)}
-              />
-            </div>
-            <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-3">
-              <ThemeFontField
-                label="Editor font"
-                value={draftTypography.editorFontStack}
-                error={typographyErrors.editorFontStack}
-                onChange={(value) => draftActions.changeTypography('editorFontStack', value)}
-              />
-              <ThemeFontSizeField
-                label="Editor font size"
-                value={draftTypography.editorFontSize}
-                min={MIN_EDITOR_FONT_SIZE}
-                max={MAX_EDITOR_FONT_SIZE}
-                error={typographyErrors.editorFontSize}
-                onChange={(value) => draftActions.changeTypography('editorFontSize', value)}
-              />
-            </div>
+            <ThemeFontField
+              label="UI font"
+              value={draftTypography.uiFontStack}
+              error={typographyErrors.uiFontStack}
+              onChange={(value) => draftActions.changeTypography('uiFontStack', value)}
+              size={{
+                label: 'UI font size',
+                value: draftTypography.uiFontSize,
+                min: MIN_UI_FONT_SIZE,
+                max: MAX_UI_FONT_SIZE,
+                error: typographyErrors.uiFontSize,
+                onChange: (value) => draftActions.changeTypography('uiFontSize', value),
+              }}
+            />
+            <ThemeFontField
+              label="Editor font"
+              value={draftTypography.editorFontStack}
+              error={typographyErrors.editorFontStack}
+              onChange={(value) => draftActions.changeTypography('editorFontStack', value)}
+              size={{
+                label: 'Editor font size',
+                value: draftTypography.editorFontSize,
+                min: MIN_EDITOR_FONT_SIZE,
+                max: MAX_EDITOR_FONT_SIZE,
+                error: typographyErrors.editorFontSize,
+                onChange: (value) => draftActions.changeTypography('editorFontSize', value),
+              }}
+            />
             <div className="flex items-center justify-between gap-3 pt-1 text-sm">
               <div className="min-w-0">
                 <label htmlFor="theme-font-smoothing" className="font-semibold leading-5">Smooth text</label>
@@ -276,70 +272,92 @@ function ThemeSeedFields({
   });
 }
 
+type FontSizeStepperProps = {
+  label: string;
+  value: string;
+  min: number;
+  max: number;
+  error: string | null;
+  onChange: (value: string) => void;
+};
+
+/**
+ * One face and its size on one row. The size needs no label of its own beside the font it sizes,
+ * so it is a compact stepper named for assistive tech only, and nothing can wrap out of line.
+ */
 function ThemeFontField({
   error,
   label,
   onChange,
   value,
+  size,
 }: {
   error: string | null;
   label: string;
   onChange: (value: string) => void;
   value: string;
+  size: FontSizeStepperProps;
 }) {
   const fieldId = `theme-font-${label.toLowerCase().replace(/\W+/g, '-')}`;
   const errorId = `${fieldId}-error`;
+  const sizeErrorId = `${fieldId}-size-error`;
 
   return (
-    <Field invalid={Boolean(error)}>
+    <Field invalid={Boolean(error || size.error)}>
       <FieldLabel htmlFor={fieldId}>{label}</FieldLabel>
-      <FontStackPicker
-        id={fieldId}
-        value={value}
-        defaultStack={label === 'UI font' ? DEFAULT_UI_FONT_STACK : DEFAULT_EDITOR_FONT_STACK}
-        invalid={Boolean(error)}
-        describedBy={error ? errorId : undefined}
-        onChange={onChange}
-      />
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <FontStackPicker
+            id={fieldId}
+            value={value}
+            defaultStack={label === 'UI font' ? DEFAULT_UI_FONT_STACK : DEFAULT_EDITOR_FONT_STACK}
+            invalid={Boolean(error)}
+            describedBy={error ? errorId : undefined}
+            onChange={onChange}
+          />
+        </div>
+        <FontSizeStepper {...size} errorId={size.error ? sizeErrorId : undefined} />
+      </div>
       {error ? <FieldError id={errorId} match={Boolean(error)}>{error}</FieldError> : null}
+      {size.error ? <FieldError id={sizeErrorId} match={Boolean(size.error)}>{size.error}</FieldError> : null}
     </Field>
   );
 }
 
-function ThemeFontSizeField({
-  error,
-  label,
-  max,
-  min,
-  onChange,
-  value,
-}: {
-  error: string | null;
-  label: string;
-  max: number;
-  min: number;
-  onChange: (value: string) => void;
-  value: string;
-}) {
-  const fieldId = `theme-font-size-${label.toLowerCase().replace(/\W+/g, '-')}`;
-  const errorId = `${fieldId}-error`;
+function FontSizeStepper({ label, value, min, max, error, errorId, onChange }: FontSizeStepperProps & { errorId?: string }) {
+  const parsed = Number(value);
+  const step = (delta: number) => {
+    const base = Number.isInteger(parsed) ? parsed : delta > 0 ? min : max;
+    onChange(String(Math.min(max, Math.max(min, base + delta))));
+  };
 
   return (
-    <Field invalid={Boolean(error)}>
-      <FieldLabel htmlFor={fieldId}>{label}</FieldLabel>
-      <Input
-        id={fieldId}
+    <div
+      className={cn(
+        'flex h-8.5 shrink-0 items-center rounded border bg-transparent text-sm text-text-default',
+        error ? 'border-destructive-default' : 'border-border-default',
+      )}
+    >
+      <Button type="button" variant="ghost" size="icon" className="h-full w-7 rounded-r-none" aria-label={`Decrease ${label.toLowerCase()}`} disabled={Number.isInteger(parsed) && parsed <= min} onClick={() => step(-1)}>
+        <Minus aria-hidden="true" className="size-3.5" />
+      </Button>
+      <input
         type="number"
+        inputMode="numeric"
+        aria-label={label}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={errorId}
         value={value}
         min={min}
         max={max}
         step={1}
         onChange={(event) => onChange(event.target.value)}
-        className="tabular-nums text-text-default"
+        className="no-spinner h-full w-9 bg-transparent text-center tabular-nums outline-none focus-visible:bg-background-hover"
         autoComplete="off"
-        aria-describedby={error ? errorId : undefined}
       />
-      {error ? <FieldError id={errorId} match={Boolean(error)}>{error}</FieldError> : null}
-    </Field>
+      <Button type="button" variant="ghost" size="icon" className="h-full w-7 rounded-l-none" aria-label={`Increase ${label.toLowerCase()}`} disabled={Number.isInteger(parsed) && parsed >= max} onClick={() => step(1)}>
+        <Plus aria-hidden="true" className="size-3.5" />
+      </Button>
+    </div>
   );
 }

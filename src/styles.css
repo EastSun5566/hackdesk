@@ -424,6 +424,17 @@
     mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
   }
 
+  /* A number field with its own stepper buttons beside it, so the native spin arrows go. */
+  .no-spinner {
+    appearance: textfield;
+  }
+
+  .no-spinner::-webkit-inner-spin-button,
+  .no-spinner::-webkit-outer-spin-button {
+    margin: 0;
+    -webkit-appearance: none;
+  }
+
   /* A font previewed in its own face; the stack comes from --font-preview set on the element. */
   .font-preview {
     font-family: var(--font-preview, inherit);
