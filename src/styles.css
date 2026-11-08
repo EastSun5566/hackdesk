@@ -407,6 +407,11 @@
     -webkit-app-region: no-drag;
   }
 
+  /* A font previewed in its own face; the stack comes from --font-preview set on the element. */
+  .font-preview {
+    font-family: var(--font-preview, inherit);
+  }
+
   .scrollbar-none {
     scrollbar-width: none;
   }

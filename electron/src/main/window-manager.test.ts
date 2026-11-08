@@ -186,7 +186,7 @@ vi.mock('./window-state', () => ({
 
 import { app, dialog } from 'electron';
 import { exportDebugLogs } from './logging';
-import { WindowManager } from './window-manager';
+import { isGrantedRendererPermission, WindowManager } from './window-manager';
 
 function getMockWindow(window: unknown) {
   if (!(window instanceof mockState.BrowserWindowMock)) throw new Error('Expected a mocked BrowserWindow');
@@ -204,6 +204,16 @@ function emitClose(window: InstanceType<typeof mockState.BrowserWindowMock>) {
   window.emit('close', event);
   return event;
 }
+
+describe('renderer permissions', () => {
+  it('grants only installed-font access, and only to a trusted renderer', () => {
+    expect(isGrantedRendererPermission('local-fonts', 'hackdesk://renderer')).toBe(true);
+    expect(isGrantedRendererPermission('local-fonts', undefined)).toBe(false);
+    for (const permission of ['notifications', 'media', 'clipboard-read', 'geolocation']) {
+      expect(isGrantedRendererPermission(permission, 'hackdesk://renderer')).toBe(false);
+    }
+  });
+});
 
 describe('WindowManager close intent', () => {
   beforeEach(() => {

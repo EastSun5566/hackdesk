@@ -14,6 +14,14 @@ import { getAppIconPath } from './app-icon';
 import { ELECTRON_CHANNELS } from '../shared/channels';
 import { exportDebugLogs, writeLog } from './logging';
 import { isTrustedRendererUrl } from './renderer-url';
+
+/**
+ * The one permission the app's own renderer gets: reading installed font names for the Appearance
+ * font picker. Every other permission, and every other origin, stays denied.
+ */
+export function isGrantedRendererPermission(permission: string, url: string | undefined) {
+  return permission === 'local-fonts' && Boolean(url) && isTrustedRendererUrl(url!);
+}
 import { createUnresponsiveSampler } from './unresponsive-sampler';
 import { persistWindowState, readWindowState } from './window-state';
 
@@ -606,6 +614,10 @@ export class WindowManager {
     const { session } = window.webContents;
 
     session.setPermissionRequestHandler((webContents, permission, callback, details) => {
+      if (isGrantedRendererPermission(permission, details.requestingUrl)) {
+        callback(true);
+        return;
+      }
       writeLog('security', 'permission request denied', {
         permission,
         requestingUrl: details.requestingUrl,
@@ -615,6 +627,9 @@ export class WindowManager {
     });
 
     session.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+      if (isGrantedRendererPermission(permission, requestingOrigin)) {
+        return true;
+      }
       writeLog('security', 'permission check denied', {
         permission,
         requestingOrigin,

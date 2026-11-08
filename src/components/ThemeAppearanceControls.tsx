@@ -2,11 +2,14 @@ import type { ReactNode } from 'react';
 import { ChevronRight, Laptop, Moon, Sun } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { FontStackPicker } from '@/components/FontStackPicker';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Field, FieldError, FieldLabel, Input } from '@/components/ui/field';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectLabelValue, SelectTrigger } from '@/components/ui/select';
 import {
+  DEFAULT_EDITOR_FONT_STACK,
+  DEFAULT_UI_FONT_STACK,
   HACKDESK_THEME_PRESETS,
   MAX_EDITOR_FONT_SIZE,
   MAX_UI_FONT_SIZE,
@@ -278,15 +281,13 @@ function ThemeFontField({
   return (
     <Field invalid={Boolean(error)}>
       <FieldLabel htmlFor={fieldId}>{label}</FieldLabel>
-      <Input
+      <FontStackPicker
         id={fieldId}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="text-text-default"
-        placeholder={label === 'UI font' ? 'Inter, system-ui, sans-serif' : 'Inter, system-ui, sans-serif'}
-        autoComplete="off"
-        spellCheck={false}
-        aria-describedby={error ? errorId : undefined}
+        defaultStack={label === 'UI font' ? DEFAULT_UI_FONT_STACK : DEFAULT_EDITOR_FONT_STACK}
+        invalid={Boolean(error)}
+        describedBy={error ? errorId : undefined}
+        onChange={onChange}
       />
       {error ? <FieldError id={errorId} match={Boolean(error)}>{error}</FieldError> : null}
     </Field>

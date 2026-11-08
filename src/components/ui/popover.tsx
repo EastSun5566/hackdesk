@@ -20,7 +20,7 @@ const PopoverContent = React.forwardRef<
       <PopoverPrimitive.Popup
         ref={ref}
         className={cn(
-          'rounded border border-border-default bg-background-subtler text-text-default outline-none origin-(--transform-origin) ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none',
+          'rounded border border-border-default bg-background-raised text-text-default outline-none origin-(--transform-origin) ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none',
           ELEVATED_SURFACE_CLASS,
           className,
         )}
