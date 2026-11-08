@@ -267,7 +267,7 @@ function ExpandedNavigator({
         results={results}
         onEscapeToTree={requestTreeFocus}
       />
-      <NavigatorContent
+      <MemoNavigatorContent
         actions={actions}
         emptyState={emptyState}
         entries={entries}
@@ -412,7 +412,9 @@ function NavigatorFilterBar({
   );
 }
 
-function NavigatorContent({
+// The note list re-renders only on its own data: opening the workspace switcher or typing in the
+// header must not re-render every row.
+const MemoNavigatorContent = memo(function NavigatorContent({
   actions,
   emptyState,
   entries,
@@ -493,7 +495,7 @@ function NavigatorContent({
       )}
     </div>
   );
-}
+}, arePanelPropsEqual);
 
 function NavigatorEmptyAction({
   actions,

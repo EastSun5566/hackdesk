@@ -135,8 +135,19 @@ type TeamRowProps = {
 
 function TeamRow({ dragHandle, active, onPinChange, onScopeChange, platform, pinned, shortcutIndex, team }: TeamRowProps) {
   const isPrivate = team.visibility === 'private';
+  // The pin (and its tooltip) mounts only while the row is pointed at or focused: the switcher
+  // lists every team, and a tooltip per row made opening it noticeably slow.
+  const [showPin, setShowPin] = useState(false);
   return (
-    <div className="group/team-row relative flex min-w-0 items-center">
+    <div
+      className="group/team-row relative flex min-w-0 items-center"
+      onPointerEnter={() => setShowPin(true)}
+      onPointerLeave={() => setShowPin(false)}
+      onFocus={() => setShowPin(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setShowPin(false);
+      }}
+    >
       <WorkspaceRow
         accessibleLabel={isPrivate ? `${team.name}, private` : team.name}
         active={active}
@@ -155,13 +166,13 @@ function TeamRow({ dragHandle, active, onPinChange, onScopeChange, platform, pin
         className={cn(!active && 'group-hover/team-row:bg-background-hover group-focus-within/team-row:bg-background-hover')}
       />
       {dragHandle}
-      <div className="pointer-events-none absolute inset-y-0 right-0.5 flex items-center opacity-0 group-hover/team-row:pointer-events-auto group-hover/team-row:opacity-100 group-focus-within/team-row:pointer-events-auto group-focus-within/team-row:opacity-100">
+      {showPin ? <div className="pointer-events-none absolute inset-y-0 right-0.5 flex items-center opacity-0 group-hover/team-row:pointer-events-auto group-hover/team-row:opacity-100 group-focus-within/team-row:pointer-events-auto group-focus-within/team-row:opacity-100">
         <Tooltip content={pinned ? `Unpin ${team.name}` : `Pin ${team.name}`} side="right">
           <Button variant="ghost" size="icon" className="text-icon-default hover:bg-transparent hover:text-text-emphasize" aria-label={pinned ? `Unpin ${team.name}` : `Pin ${team.name}`} onClick={onPinChange}>
             {pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
           </Button>
         </Tooltip>
-      </div>
+      </div> : null}
     </div>
   );
 }
