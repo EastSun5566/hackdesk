@@ -36,7 +36,8 @@ describe('HackMD preview widget theme', () => {
   });
 
   it('centers editor text in a readable column measured in the editor font', () => {
-    expect(EDITOR_LINE_WIDTH).toMatch(/ch$/);
+    // In em, so the measure follows the editor font size for a proportional or monospace face.
+    expect(EDITOR_LINE_WIDTH).toMatch(/em$/);
     expect(editorChromeTheme['.cm-content']).toMatchObject({
       padding: '24px clamp(20px, 6%, 48px) 36vh',
       maxWidth: `calc(${EDITOR_LINE_WIDTH} + 2 * clamp(20px, 6%, 48px))`,
@@ -49,7 +50,7 @@ describe('HackMD preview widget theme', () => {
     expect(editorChromeTheme['.cm-scroller']).toHaveProperty('fontSize', 'var(--font-size-editor)');
     expect(searchPanelTheme['.cm-panel.cm-vim-panel, .cm-panel.cm-hx-status-panel, .cm-panel.cm-hx-command-panel, .cm-panel.cm-kakoune-status-panel'])
       .toMatchObject({
-        fontFamily: 'var(--font-editor)',
+        fontFamily: 'var(--font-mono)',
         minHeight: '32px',
       });
     expect(searchPanelTheme['.cm-hackdesk-search-input']).toMatchObject({
@@ -92,7 +93,7 @@ describe('HackMD preview widget theme', () => {
     });
     expect(searchPanelTheme['.cm-panel.cm-vim-panel input']).toMatchObject({
       height: '32px',
-      fontFamily: 'var(--font-editor)',
+      fontFamily: 'var(--font-mono)',
       backgroundColor: 'var(--background-default)',
     });
     expect(searchPanelTheme['.cm-hx-command-popup']).toMatchObject({

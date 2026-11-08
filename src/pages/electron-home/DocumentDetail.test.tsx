@@ -243,6 +243,17 @@ describe('DocumentDetail', () => {
     expect(screen.queryByRole('button', { name: /Zoom pane|Restore panes/ })).not.toBeInTheDocument();
   });
 
+  it('shows the final breadcrumb while the note loads, so nothing shifts when it arrives', () => {
+    const summary = documentSummary({ teamPath: 'team', folderPaths: [{ id: 'folder-1', name: 'Specs' }] as DocumentSummary['folderPaths'] });
+    renderDocumentDetail({
+      status: { loading: true },
+      documentState: { selectedNote: { id: summary.id, title: 'Plan' } },
+      folderTree: buildHackmdFolderTree([summary]),
+    });
+    expect(screen.getByRole('navigation', { name: 'Note location' })).toHaveTextContent('@team/Specs/Plan');
+    expect(screen.getByRole('status', { name: 'Loading note' })).toBeInTheDocument();
+  });
+
   it('renders loading and empty branches explicitly', () => {
     renderDocumentDetail({ status: { loading: true } });
     expect(screen.getByRole('status', { name: 'Loading note' })).toHaveAttribute('aria-busy', 'true');

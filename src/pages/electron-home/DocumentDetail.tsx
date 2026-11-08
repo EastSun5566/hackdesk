@@ -87,7 +87,7 @@ export type DocumentDetailDocumentState = {
     kind: 'disk_changed' | 'remote_changed' | 'save_failed';
     message: string;
   } | null;
-  selectedNote?: Pick<NoteSummary, 'title'> | null;
+  selectedNote?: Pick<NoteSummary, 'title'> & Partial<Pick<NoteSummary, 'id'>> | null;
   syncState: DocumentSyncState;
   title: string;
 };
@@ -234,11 +234,46 @@ function SyncStateBadge({
 
 type HeaderPathPart = { label: string; folderIds: string[] };
 
+/** One line: where the note lives, ending in its title, which stays in view as the note scrolls. */
+function DocumentBreadcrumb({
+  path,
+  title,
+  updated,
+  onRevealFolder,
+}: {
+  path: HeaderPathPart[];
+  title: string;
+  updated?: string;
+  onRevealFolder?: (folderIds: string[]) => void;
+}) {
+  return (
+    <nav aria-label="Note location" className="-ml-1 flex min-h-8 min-w-0 items-center gap-1 overflow-hidden text-sm font-normal text-text-subtle" title={updated}>
+      {path.map((part, index) => (
+        <span key={`${part.label}:${index}`} className="contents">
+          {index > 0 ? <span aria-hidden="true" className="shrink-0 text-text-subtle/60">/</span> : null}
+          {/* Folders give way; the title keeps its length up to most of the line. */}
+          {onRevealFolder ? (
+            <button
+              type="button"
+              className={cn('min-w-0 truncate rounded-sm px-1 hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_INSET_CLASS)}
+              onClick={() => onRevealFolder(part.folderIds)}
+            >
+              {part.label}
+            </button>
+          ) : <span className="min-w-0 truncate px-1">{part.label}</span>}
+        </span>
+      ))}
+      {path.length ? <span aria-hidden="true" className="shrink-0 text-text-subtle/60">/</span> : null}
+      <span aria-current="page" className="max-w-4/5 shrink-0 truncate px-1 text-text-default">{title}</span>
+    </nav>
+  );
+}
+
 /**
  * Where the note lives: its workspace, then its folders. Each part carries the folder IDs down to it,
  * so choosing one can show that folder in the sidebar; the workspace has none.
  */
-function getDocumentHeaderPath(document: DocumentSummary, isLocalDocument: boolean): HeaderPathPart[] {
+function getDocumentHeaderPath(document: Pick<NoteSummary, 'description' | 'folderPaths' | 'teamPath'>, isLocalDocument: boolean): HeaderPathPart[] {
   if (isLocalDocument) {
     // A vault note's description is its path in the vault; each folder's ID is its own path.
     const folders = (document.description ?? '').split('/').slice(0, -1).filter(Boolean);
@@ -275,6 +310,8 @@ export function DocumentDetail({
       <LoadingDocumentDetail
         focusZone={focusZone}
         selectedNote={documentState.selectedNote}
+        summary={documentState.selectedNote?.id ? folderTree.allNotes.find((entry) => entry.note.id === documentState.selectedNote?.id)?.note : undefined}
+        onRevealFolder={actions.onRevealFolder}
       />
     );
   }
@@ -300,10 +337,19 @@ export function DocumentDetail({
 function LoadingDocumentDetail({
   focusZone,
   selectedNote,
+  summary,
+  onRevealFolder,
 }: {
   focusZone?: string;
-  selectedNote?: Pick<NoteSummary, 'title'> | null;
+  selectedNote?: DocumentDetailDocumentState['selectedNote'];
+  /** The note as the sidebar already lists it, with its workspace and folders. */
+  summary?: NoteSummary;
+  onRevealFolder?: (folderIds: string[]) => void;
 }) {
+  // The list already knows where the note lives, so the header shows its final breadcrumb now and
+  // nothing shifts when the content arrives; only the body waits.
+  const path = summary ? getDocumentHeaderPath(summary, summary.teamPath === LOCAL_VAULT_TEAM_PATH) : [];
+
   return (
     <PanelShell
       focusZone={focusZone}
@@ -311,9 +357,8 @@ function LoadingDocumentDetail({
     >
       {selectedNote ? (
         <PanelHeader
-          className="px-4 py-2.5"
-          title={selectedNote.title || 'Untitled'}
-          subtitle="Loading note…"
+          className="relative px-4 py-2.25"
+          title={<DocumentBreadcrumb path={path} title={selectedNote.title || 'Untitled'} onRevealFolder={onRevealFolder} />}
           titleElement="div"
         />
       ) : null}
@@ -735,27 +780,7 @@ function DocumentHeader({
       actionsLabel="Document actions"
       // One line: where the note lives, ending in its title, which stays in view as the note scrolls.
       // Rename Note changes the title.
-      title={(
-        <nav aria-label="Note location" className="-ml-1 flex min-h-8 min-w-0 items-center gap-1 overflow-hidden text-sm font-normal text-text-subtle" title={updated}>
-          {path.map((part, index) => (
-            <span key={`${part.label}:${index}`} className="contents">
-              {index > 0 ? <span aria-hidden="true" className="shrink-0 text-text-subtle/60">/</span> : null}
-              {/* Folders give way; the title keeps its length up to most of the line. */}
-              {actions.onRevealFolder ? (
-                <button
-                  type="button"
-                  className={cn('min-w-0 truncate rounded-sm px-1 hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_INSET_CLASS)}
-                  onClick={() => actions.onRevealFolder?.(part.folderIds)}
-                >
-                  {part.label}
-                </button>
-              ) : <span className="min-w-0 truncate px-1">{part.label}</span>}
-            </span>
-          ))}
-          {path.length ? <span aria-hidden="true" className="shrink-0 text-text-subtle/60">/</span> : null}
-          <span aria-current="page" className="max-w-4/5 shrink-0 truncate px-1 text-text-default">{title}</span>
-        </nav>
-      )}
+      title={<DocumentBreadcrumb path={path} title={title} updated={updated} onRevealFolder={actions.onRevealFolder} />}
       actions={(
         <>
           <SyncStateBadge state={effectiveSyncState} />

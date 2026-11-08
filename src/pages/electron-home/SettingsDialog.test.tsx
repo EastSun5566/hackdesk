@@ -490,10 +490,10 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel Preview' }));
 
     expect(uiFontSize).toHaveValue(14);
-    expect(editorFontSize).toHaveValue(14);
+    expect(editorFontSize).toHaveValue(15);
     await waitFor(() => {
       expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-ui: 0.875rem');
-      expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-editor: 0.875rem');
+      expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-editor: 0.9375rem');
     });
   });
 

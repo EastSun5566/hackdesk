@@ -172,7 +172,7 @@ describe('settings helpers', () => {
       uiFontStack: 'system-ui, sans-serif',
       editorFontStack: 'ui-monospace, monospace',
       uiFontSize: 14,
-      editorFontSize: 14,
+      editorFontSize: 15,
     });
   });
 
@@ -311,9 +311,9 @@ describe('settings helpers', () => {
     "customSeed": {},
     "typography": {
       "uiFontStack": "Inter, system-ui, sans-serif",
-      "editorFontStack": "\\"Source Code Pro\\", ui-monospace, monospace",
+      "editorFontStack": "Inter, system-ui, sans-serif",
       "uiFontSize": 14,
-      "editorFontSize": 14
+      "editorFontSize": 15
     }
   },
   "onboarding": {

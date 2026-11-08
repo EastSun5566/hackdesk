@@ -50,11 +50,13 @@ const UNQUOTED_FONT_FAMILY_RE = /^[-\w. ]+$/;
 const QUOTED_FONT_FAMILY_RE = /^(?:"[^"\\\r\n]+"|'[^'\\\r\n]+')$/;
 
 export const DEFAULT_UI_FONT_STACK = 'Inter, system-ui, sans-serif';
-export const DEFAULT_EDITOR_FONT_STACK = '"Source Code Pro", ui-monospace, monospace';
+// Notes are prose, so the editor reads in the UI's proportional face; code keeps a monospace face.
+export const DEFAULT_EDITOR_FONT_STACK = DEFAULT_UI_FONT_STACK;
+export const MONO_FONT_STACK = '"JetBrains Mono", "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, monospace';
 export const DEFAULT_UI_FONT_SIZE = 14;
 export const MIN_UI_FONT_SIZE = 12;
 export const MAX_UI_FONT_SIZE = 18;
-export const DEFAULT_EDITOR_FONT_SIZE = 14;
+export const DEFAULT_EDITOR_FONT_SIZE = 15;
 export const MIN_EDITOR_FONT_SIZE = 10;
 export const MAX_EDITOR_FONT_SIZE = 32;
 
@@ -770,7 +772,8 @@ export function resolveThemeTypography(typography: ThemeTypography): ResolvedHac
     '--font-system': normalized.uiFontStack,
     '--font-sans': normalized.uiFontStack,
     '--font-editor': normalized.editorFontStack,
-    '--font-mono': normalized.editorFontStack,
+    // Code, front matter and the command line stay monospace whatever the editor face is.
+    '--font-mono': MONO_FONT_STACK,
     '--font-size-ui': pxToRem(normalized.uiFontSize),
     '--font-size-editor': pxToRem(normalized.editorFontSize),
     '--text-2xs': 'calc(var(--font-size-ui) * 0.7142857143)',

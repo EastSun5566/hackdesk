@@ -1,8 +1,8 @@
 const EDITOR_CONTROL_HEIGHT = '32px';
 const EDITOR_CONTROL_RADIUS = '6px';
 const EDITOR_FOCUS_RING = '0 0 0 2px color-mix(in oklch, var(--focus-ring) 26%, transparent)';
-// Readable line length, measured in the editor font so it follows the editor font size.
-export const EDITOR_LINE_WIDTH = '90ch';
+// Readable line length in the editor font's em, about 75 characters of prose at any font size.
+export const EDITOR_LINE_WIDTH = '46em';
 const EDITOR_SIDE_PADDING = 'clamp(20px, 6%, 48px)';
 export const EDITOR_SELECTION_BACKGROUND = 'color-mix(in srgb, var(--primary-default) 24%, transparent)';
 
@@ -17,7 +17,7 @@ export const editorChromeTheme = {
   '.cm-scroller': {
     fontFamily: 'var(--font-editor)',
     fontSize: 'var(--font-size-editor)',
-    lineHeight: '1.72',
+    lineHeight: '1.7',
   },
   '.cm-content': {
     padding: `24px ${EDITOR_SIDE_PADDING} 36vh`,
@@ -83,7 +83,7 @@ export const searchPanelTheme = {
     borderTop: '1px solid var(--border-subtle)',
     backgroundColor: 'var(--background-default)',
     color: 'var(--text-subtle)',
-    fontFamily: 'var(--font-editor)',
+    fontFamily: 'var(--font-mono)',
     // The chrome's meta size (12px at the default 14px UI), not a fraction of the editor font.
     fontSize: 'calc(var(--font-size-ui) - 2px)',
     lineHeight: 'normal',
@@ -107,7 +107,7 @@ export const searchPanelTheme = {
     backgroundColor: 'var(--background-default)',
     color: 'var(--text-default)',
     caretColor: 'var(--primary-default)',
-    fontFamily: 'var(--font-editor)',
+    fontFamily: 'var(--font-mono)',
     outline: 'none',
     padding: '0 9px',
     transition: 'border-color 120ms ease, box-shadow 120ms ease',
@@ -121,7 +121,7 @@ export const searchPanelTheme = {
     backgroundColor: 'var(--background-default)',
     color: 'var(--text-default)',
     caretColor: 'var(--primary-default)',
-    fontFamily: 'var(--font-editor)',
+    fontFamily: 'var(--font-mono)',
     outline: 'none',
     padding: '0 9px',
     transition: 'border-color 120ms ease, box-shadow 120ms ease',
@@ -241,25 +241,43 @@ export const searchPanelTheme = {
 };
 
 export const proseTheme = {
+  // A proportional heading scale over the 15px body: 27 / 22 / 18 / 16px, tighter leading than
+  // prose, and room above each heading so sections read as sections. Line padding (not margin)
+  // keeps CodeMirror's height map exact.
   '.cm-hackmd-h1': {
-    fontSize: '1.55em',
-    fontWeight: '750',
-    lineHeight: '1.45',
+    fontSize: '1.8em',
+    fontWeight: '700',
+    lineHeight: '1.3',
+    letterSpacing: '-0.015em',
+    paddingTop: '0.7em',
+    paddingBottom: '0.15em',
     color: 'var(--text-default)',
   },
   '.cm-hackmd-h2': {
-    fontSize: '1.34em',
-    fontWeight: '720',
-    lineHeight: '1.5',
+    fontSize: '1.45em',
+    fontWeight: '650',
+    lineHeight: '1.35',
+    letterSpacing: '-0.01em',
+    paddingTop: '0.8em',
+    paddingBottom: '0.1em',
     color: 'var(--text-default)',
   },
   '.cm-hackmd-h3': {
-    fontSize: '1.16em',
-    fontWeight: '680',
+    fontSize: '1.2em',
+    fontWeight: '650',
+    lineHeight: '1.4',
+    paddingTop: '0.7em',
     color: 'var(--text-default)',
   },
-  '.cm-hackmd-h4, .cm-hackmd-h5, .cm-hackmd-h6': {
-    fontWeight: '650',
+  '.cm-hackmd-h4': {
+    fontSize: '1.05em',
+    fontWeight: '600',
+    paddingTop: '0.5em',
+    color: 'var(--text-default)',
+  },
+  '.cm-hackmd-h5, .cm-hackmd-h6': {
+    fontWeight: '600',
+    paddingTop: '0.4em',
     color: 'var(--text-default)',
   },
   '.cm-hackmd-blockquote': {
@@ -270,6 +288,8 @@ export const proseTheme = {
   '.cm-hackmd-frontmatter': {
     color: 'var(--text-subtle)',
     backgroundColor: 'var(--background-muted)',
+    fontFamily: 'var(--font-mono)',
+    fontSize: '0.88em',
   },
   '.cm-hackmd-hr': {
     color: 'transparent',
@@ -288,7 +308,8 @@ export const proseTheme = {
 
 export const codeAndBlockTheme = {
   '.cm-hackmd-fenced-code': {
-    fontFamily: 'var(--font-editor)',
+    fontFamily: 'var(--font-mono)',
+    fontSize: '0.88em',
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--text-default) 8%)',
     boxShadow: 'inset 2px 0 0 color-mix(in oklch, var(--border-bold) 82%, var(--primary-default) 18%)',
     paddingInline: '0.875rem',
@@ -391,6 +412,8 @@ export const codeAndBlockTheme = {
     paddingInlineStart: '0.75rem',
   },
   '.cm-hackmd-indented-code': {
+    fontFamily: 'var(--font-mono)',
+    fontSize: '0.88em',
     color: 'var(--text-subtle)',
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 92%, var(--text-default) 8%)',
     boxShadow: 'inset 2px 0 0 var(--border-bold)',
@@ -416,6 +439,8 @@ export const inlineMarksTheme = {
     textDecorationColor: 'var(--text-subtle)',
   },
   '.cm-hackmd-inline-code': {
+    fontFamily: 'var(--font-mono)',
+    fontSize: '0.88em',
     borderRadius: '4px',
     backgroundColor: 'var(--primary-soft)',
     color: 'var(--primary-default)',
@@ -498,6 +523,8 @@ export const inlineMarksTheme = {
     textUnderlineOffset: '0.16em',
   },
   '.cm-hackmd-raw-html': {
+    fontFamily: 'var(--font-mono)',
+    fontSize: '0.88em',
     color: 'var(--text-subtle)',
     backgroundColor: 'color-mix(in oklch, var(--background-muted) 70%, transparent)',
     borderRadius: '3px',
@@ -642,7 +669,7 @@ export const widgetTheme = {
     borderRadius: '4px',
     backgroundColor: 'var(--primary-soft)',
     color: 'var(--primary-default)',
-    fontFamily: 'var(--font-editor)',
+    fontFamily: 'var(--font-mono)',
     padding: '0 0.2em',
   },
   '.cm-hackmd-table-cell-link': {

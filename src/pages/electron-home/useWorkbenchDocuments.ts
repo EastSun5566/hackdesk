@@ -360,7 +360,7 @@ export function useWorkbenchDocuments({
     return {
       pane,
       activeTab: tab,
-      selectedNote: tab ? { title: getTabTitle(tab) } : null,
+      selectedNote: tab ? { id: identity?.id, title: getTabTitle(tab) } : null,
       document: documentValue,
       isDraft: Boolean(tab && isDraftNoteTab(tab)),
       title: tab ? getTabTitle(tab) : '',

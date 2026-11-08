@@ -1903,7 +1903,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(await findNoteRow('Design Spec'));
 
     expect(queryRenderedNoteTitle('Product Plan')).not.toBeInTheDocument();
-    expect(screen.getAllByText('Loading note…').length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('status', { name: 'Loading note' }).length).toBeGreaterThan(0);
 
     await act(async () => {
       secondNoteDeferred.resolve({

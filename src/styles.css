@@ -143,10 +143,10 @@
 
     --font-system: Inter, system-ui, sans-serif;
     --font-sans: var(--font-system);
-    --font-editor: "Source Code Pro", ui-monospace, monospace;
-    --font-mono: var(--font-editor);
+    --font-editor: var(--font-system);
+    --font-mono: "JetBrains Mono", "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, monospace;
     --font-size-ui: 0.875rem;
-    --font-size-editor: 0.875rem;
+    --font-size-editor: 0.9375rem;
 
     --hmd-tw-text-default: var(--color-zinc-700);
     --hmd-tw-text-subtle: var(--color-zinc-500);

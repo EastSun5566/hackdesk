@@ -283,7 +283,7 @@ function ThemeFontField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="text-text-default"
-        placeholder={label === 'UI font' ? 'Inter, system-ui, sans-serif' : '"Source Code Pro", ui-monospace, monospace'}
+        placeholder={label === 'UI font' ? 'Inter, system-ui, sans-serif' : 'Inter, system-ui, sans-serif'}
         autoComplete="off"
         spellCheck={false}
         aria-describedby={error ? errorId : undefined}

@@ -325,7 +325,8 @@ describe('HackDesk themes', () => {
     expect(theme['--font-system']).toContain('system-ui');
     expect(theme['--font-sans']).toBe(theme['--font-system']);
     expect(theme['--font-editor']).toBe('"JetBrains Mono", ui-monospace, monospace');
-    expect(theme['--font-mono']).toBe(theme['--font-editor']);
+    // Code keeps a monospace face whatever face the editor prose uses.
+    expect(theme['--font-mono']).toContain('monospace');
     expect(theme['--font-size-ui']).toBe('1rem');
     expect(theme['--font-size-editor']).toBe('1.25rem');
     expect(theme['--text-sm']).toBe('var(--font-size-ui)');
