@@ -294,12 +294,15 @@ export function DocumentTabs({
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={() => { draggedRef.current = true; }} onDragEnd={handleDragEnd}>
       <div ref={regionRef} data-hackdesk-focus="tabs" data-document-pane-id={paneId} className={cn('flex min-w-0 flex-1 items-center gap-2', className)}>
+        {/* Not a window drag region, gaps included: a drag region swallows the wheel, so scrolling the
+            tabs stopped whenever the pointer crossed a gap. It is only as wide as the tabs, so the
+            empty title bar after them still drags the window. */}
         <nav
           ref={stripRef}
           aria-label="Open documents"
           data-overflow-start={overflow.start || undefined}
           data-overflow-end={overflow.end || undefined}
-          className="edge-fade-x flex h-full min-w-0 flex-initial items-center overflow-x-auto overflow-y-hidden overscroll-x-contain scrollbar-none px-1 py-1"
+          className="edge-fade-x app-region-no-drag flex h-full min-w-0 flex-initial items-center overflow-x-auto overflow-y-hidden overscroll-x-contain scrollbar-none px-1 py-1"
         >
           <div className="flex min-w-0 items-center gap-1">
             {tabs.length > 0 ? (
