@@ -6,6 +6,8 @@ import type { NoteSummary } from '@/lib/electron-api';
 import type { FolderTree } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
+import { createFolderTreeFocusStore } from './FolderTreeFocusContext';
+
 import {
   createFolderFocusId,
   findTypeaheadMatch,
@@ -103,9 +105,12 @@ export function useFolderTreeKeyboardNavigation({
     setFocusedId(id);
     lastFocusedElementRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   }, []);
-  const focusContext = useMemo(() => ({
-    treeId, focusedId: effectiveFocusedId, selectedId: selectedRowId, items: itemsById, onFocus,
-  }), [treeId, effectiveFocusedId, selectedRowId, itemsById, onFocus]);
+  // Rows read focus through a store (see FolderTreeFocusContext), so the context value stays the
+  // same and only rows whose slice changed re-render.
+  const [focusStore] = useState(() => createFolderTreeFocusStore({ focusedId: effectiveFocusedId, selectedId: selectedRowId, items: itemsById }));
+  focusStore.setState({ focusedId: effectiveFocusedId, selectedId: selectedRowId, items: itemsById });
+  useLayoutEffect(() => focusStore.notify());
+  const focusContext = useMemo(() => ({ treeId, store: focusStore, onFocus }), [treeId, focusStore, onFocus]);
 
   const focusItemAtIndex = useCallback((index: number) => {
     const item = focusItems[Math.max(0, Math.min(index, focusItems.length - 1))];

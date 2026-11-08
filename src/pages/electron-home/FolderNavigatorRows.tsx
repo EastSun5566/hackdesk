@@ -10,7 +10,7 @@ import {
   GripVertical,
   Trash2,
 } from 'lucide-react';
-import { memo } from 'react';
+import { memo, useLayoutEffect, useRef } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -57,6 +57,70 @@ function areNoteRowPropsEqual(previous: Record<string, unknown>, next: Record<st
     if (!Object.is(previous[key], next[key])) return false;
   }
   return true;
+}
+
+/**
+ * The note's drag handle owns its drag hook. Drag-and-drop state is a context every draggable
+ * reads, and it changes whenever the tree's drop targets do (a folder opening); keeping the hook
+ * here re-renders this small button instead of the whole row. The row shows the drag through a
+ * data attribute.
+ */
+function NoteDragHandle({
+  noteId,
+  title,
+  controlId,
+  tabIndex,
+  disabledDrag,
+  compact,
+  onSelect,
+}: {
+  noteId: string;
+  title: string;
+  controlId?: string;
+  tabIndex?: number;
+  disabledDrag: boolean;
+  compact: boolean;
+  onSelect: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: buildNoteDragId(noteId),
+    disabled: disabledDrag,
+  });
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  useLayoutEffect(() => {
+    buttonRef.current?.closest('[data-folder-tree-row-id]')?.toggleAttribute('data-hackdesk-dragging', isDragging);
+  }, [isDragging]);
+
+  return (
+    <button
+      type="button"
+      id={controlId}
+      ref={(element) => {
+        buttonRef.current = element;
+        setNodeRef(element);
+      }}
+      className={cn(
+        // Wider than its icon for an easier grab; the negative margins keep the icon on the
+        // same column as folder icons.
+        'group/drag-handle relative -mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-icon-subtle group-hover/entity-row:text-icon-default hover:text-text-default',
+        FOCUS_RING_INSET_CLASS,
+      )}
+      aria-label={`Drag ${title}`}
+      data-folder-tree-ignore-keyboard="true"
+      onClick={(event) => {
+        event.stopPropagation();
+        if (!disabledDrag) onSelect();
+      }}
+      {...attributes}
+      {...(disabledDrag ? {} : listeners)}
+      tabIndex={tabIndex}
+      aria-disabled={disabledDrag || attributes['aria-disabled']}
+    >
+      <FileText aria-hidden="true" className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+      {/* The grip floats left of the icon on hover, part of this handle, without moving it. */}
+      <GripVertical aria-hidden="true" className="absolute -left-3 top-1/2 size-3.5 -translate-y-1/2 text-icon-subtle opacity-0 transition-opacity group-hover/entity-row:opacity-100 group-focus-visible/drag-handle:opacity-100 motion-reduce:transition-none" />
+    </button>
+  );
 }
 
 function focusTreeRowPrimary(rowId: string) {
@@ -126,19 +190,6 @@ function NoteRowView({
     compact ? '' : entry.folderLabel,
     entry.note.tags.slice(0, 2).join(', '),
   ].filter(Boolean).join(' · ');
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    isDragging,
-  } = useDraggable({
-    id: buildNoteDragId(entry.note.id),
-    disabled: !draggable || disabledDrag,
-  });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-  };
   const canMoveToSelectedFolder = Boolean(
     selectedFolder
     && (selectedFolder.id === UNFILED_FOLDER_ID
@@ -149,22 +200,18 @@ function NoteRowView({
   const rowId = `note:${entry.note.id}`;
   const treeItemProps = useFolderTreeItem(rowId, selected, undefined, draggable ? ['drag'] : []);
   const dragControlId = useFolderTreeControlId(rowId, 'drag');
-  const dragListeners = disabledDrag ? {} : listeners;
   const canShowInFolder = showInFolderAction && entry.folderPath.length > 0;
 
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
-          ref={setNodeRef}
-          style={style}
           id={highlightId}
           data-folder-tree-row-id={rowId}
           data-folder-tree-kind="note"
           data-folder-tree-note-id={entry.note.id}
           data-note-id={entry.note.id}
-          data-hackdesk-dragging={isDragging || undefined}
-          className={cn('min-w-0', (isDragging || active) && 'opacity-40')}
+          className={cn('min-w-0 [&[data-hackdesk-dragging]]:opacity-40', active && 'opacity-40')}
         >
           {/* Hovering a row for a moment shows a card with the full title and what the one-line row
               leaves out: folder, tags and the edited date. */}
@@ -174,32 +221,15 @@ function NoteRowView({
                 selected={selected}
                 icon={draggable ? undefined : <FileText className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />}
                 leadingControls={draggable ? (
-                  <button
-                    type="button"
-                    id={dragControlId}
-                    className={cn(
-                      // Wider than its icon for an easier grab; the negative margins keep the icon on the
-                      // same column as folder icons.
-                      'group/drag-handle relative -mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-icon-subtle group-hover/entity-row:text-icon-default hover:text-text-default',
-                      FOCUS_RING_INSET_CLASS,
-                    )}
-                    aria-label={`Drag ${entry.note.title || 'Untitled'}`}
-                    data-folder-tree-ignore-keyboard="true"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      if (!disabledDrag) {
-                        onSelect(entry.note);
-                      }
-                    }}
-                    {...attributes}
-                    {...dragListeners}
+                  <NoteDragHandle
+                    noteId={entry.note.id}
+                    title={entry.note.title || 'Untitled'}
+                    controlId={dragControlId}
                     tabIndex={treeItemProps?.tabIndex}
-                    aria-disabled={disabledDrag || attributes['aria-disabled']}
-                  >
-                    <FileText aria-hidden="true" className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
-                    {/* The grip floats left of the icon on hover, part of this handle, without moving it. */}
-                    <GripVertical aria-hidden="true" className="absolute -left-3 top-1/2 size-3.5 -translate-y-1/2 text-icon-subtle opacity-0 transition-opacity group-hover/entity-row:opacity-100 group-focus-visible/drag-handle:opacity-100 motion-reduce:transition-none" />
-                  </button>
+                    disabledDrag={disabledDrag}
+                    compact={compact}
+                    onSelect={() => onSelect(entry.note)}
+                  />
                 ) : null}
                 title={entry.note.title || 'Untitled'}
                 // In the tree a note is one line: its title, with the edited date as quiet trailing meta.
@@ -289,7 +319,7 @@ function NoteRowView({
   );
 }
 
-function FolderButton({
+function FolderButtonView({
   node,
   selected,
   focusTarget = false,
@@ -666,7 +696,7 @@ export function FolderTreeView({
   });
 
   const noteItems = notes.map((entry, index) => (
-    <li role="presentation" key={`note:${entry.note.id}`} className="relative min-w-0">
+    <li role="presentation" key={`note:${entry.note.id}`} className="tree-row-lazy relative min-w-0">
       {depth > 0 ? <span aria-hidden="true" data-tree-guide={index === notes.length - 1 ? 'end' : 'continuation'} className="pointer-events-none absolute -left-1.5 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
       <NoteRow
         entry={entry}
@@ -725,3 +755,6 @@ export function NoteListSkeleton() {
 export const NoteRow = memo(NoteRowView, areNoteRowPropsEqual) as typeof NoteRowView;
 
 export { NoteSummaryCard } from './NoteSummaryCard';
+
+// Folder rows re-render only when their data changes (callbacks compare as equal; see NoteRow).
+const FolderButton = memo(FolderButtonView, areNoteRowPropsEqual) as typeof FolderButtonView;

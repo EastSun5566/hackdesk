@@ -715,6 +715,10 @@ function NavigatorTree({
     () => flattenFolderTree(tree, layout.collapsedFolderIds),
     [layout.collapsedFolderIds, tree],
   );
+  // One array per distinct list of IDs: SortableContext treats a new array as a new list and
+  // re-renders every sortable folder row, which made each expand and collapse re-render them all.
+  const sortableFolderKey = visibleFolderItems.map((item) => item.id).join('\n');
+  const sortableFolderIds = useMemo(() => (sortableFolderKey ? sortableFolderKey.split('\n') : []), [sortableFolderKey]);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -821,7 +825,7 @@ function NavigatorTree({
       onDragEnd={handleDragEnd}
     >
       <SortableContext
-        items={visibleFolderItems.map((item) => item.id)}
+        items={sortableFolderIds}
         strategy={verticalListSortingStrategy}
       >
         <div

@@ -447,6 +447,13 @@
     -webkit-appearance: none;
   }
 
+  /* Long trees: rows outside the scrolled view skip style, layout and paint (rows are 32px). Opening
+     or closing a big folder otherwise laid out every row in the workspace. */
+  .tree-row-lazy {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 32px;
+  }
+
   /* Appearance > Indent guides off: the tree draws no guide lines. */
   :root[data-tree-guides='hidden'] [data-tree-guide] {
     display: none;
