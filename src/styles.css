@@ -651,3 +651,16 @@
   max-height: calc(100dvh - 4rem);
 }
 .comparison-text-preview { max-height: 40dvh; }
+
+/* Focus rings are for keyboard use. After a pointer press (data-input-modality, see
+   input-modality.ts) they stay hidden until a key is pressed, including on text fields, which keep
+   their border color change, on wrappers that ring what they contain (focus-within), and on focus
+   the app moves in response to a click. Unlayered and
+   important, so it outranks every focus-visible ring and outline utility. */
+:root[data-input-modality='pointer'] :focus-visible,
+:root[data-input-modality='pointer'] :focus-within {
+  outline: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-inset-ring-shadow: 0 0 #0000 !important;
+}
