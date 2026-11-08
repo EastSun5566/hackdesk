@@ -337,6 +337,14 @@
 }
 
 @layer base {
+  /* The app shell fills the window and scrolls inside its panels. The page itself never scrolls, so
+     a popup that reaches past the window edge (a hover card near the bottom of the tree) cannot add
+     a window-level scrollbar. */
+  html,
+  body {
+    overflow: hidden;
+  }
+
   html {
     accent-color: var(--primary-default);
     /* Appearance > Font smoothing: grayscale antialiasing by default, as native macOS apps draw

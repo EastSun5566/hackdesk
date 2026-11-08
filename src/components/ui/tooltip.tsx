@@ -55,7 +55,8 @@ const TooltipContent = React.forwardRef<
   }
 >(({ className, side, sideOffset = 6, ...props }, ref) => (
   <TooltipPortal>
-    <TooltipPrimitive.Positioner side={side} sideOffset={sideOffset} className={FLOATING_LAYER_CLASS}>
+    {/* Fixed, and kept 8px inside the window, so a card near an edge shifts in instead of overflowing. */}
+    <TooltipPrimitive.Positioner side={side} sideOffset={sideOffset} positionMethod="fixed" collisionPadding={8} className={FLOATING_LAYER_CLASS}>
       <TooltipPrimitive.Popup
         ref={ref}
         className={cn(
