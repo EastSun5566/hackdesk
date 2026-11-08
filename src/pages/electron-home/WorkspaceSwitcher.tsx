@@ -427,9 +427,11 @@ export function WorkspaceSwitcher({
         aria-label="Workspaces"
         initialFocus={() => popupRef.current?.querySelector<HTMLElement>(`${ROW_SELECTOR}[aria-current="page"]`) ?? popupRef.current?.querySelector<HTMLElement>(ROW_SELECTOR) ?? true}
         onKeyDown={moveFocus}
-        className="w-72 p-1.5"
+        className="w-72 overflow-hidden"
       >
-        <nav aria-label="Workspaces" className="max-h-96 overflow-y-auto">
+        {/* The padding belongs to the scrolling list, so rows scroll to the frame's edge instead of
+            being clipped short of it, and keyboard focus scrolls a row clear of the edge. */}
+        <nav aria-label="Workspaces" className="max-h-96 scroll-py-1.5 overflow-y-auto p-1.5">
           <ul className="list-none space-y-0.5">
             <li className="flex">
               <WorkspaceRow
