@@ -49,14 +49,15 @@ function EditorStatusText({ status }: { status: EditorStatusSnapshot }) {
   );
 }
 
-function HintList({ hints }: { hints: KeyHint[] }) {
+function HintList({ hints, faded = false }: { hints: KeyHint[]; faded?: boolean }) {
   if (!hints.length) return null;
   return (
     // Hints that don't fit wrap onto a second row that the fixed height clips, so a hint drops out
     // whole instead of being cut mid-word at the split.
-    <ul className="flex h-5 min-w-0 flex-wrap items-center gap-x-4 overflow-hidden whitespace-nowrap">
+    <ul className={cn('flex h-5 min-w-0 flex-wrap content-start items-center gap-x-4 overflow-hidden whitespace-nowrap transition-opacity duration-300 motion-reduce:transition-none', faded && 'opacity-0')}>
       {hints.map(hint => (
-        <li key={`${hint.keys}:${hint.label}`} className="flex shrink-0 items-center gap-1.5">
+        // As tall as the list, so a wrapped hint starts fully below it instead of peeking in.
+        <li key={`${hint.keys}:${hint.label}`} className="flex h-5 shrink-0 items-center gap-1.5">
           <kbd className="rounded-sm border border-border-default bg-background-default px-1 font-mono leading-4 text-text-default">{hint.keys}</kbd>
           <span>{hint.label}</span>
         </li>
@@ -176,7 +177,8 @@ export function KeyHintBar({
         // between the card and the window edge.
         'flex h-8 shrink-0 items-center gap-4 overflow-hidden px-4 pb-1.5 text-2xs text-text-subtle transition-opacity duration-300 motion-reduce:transition-none',
         HACK_MODE_HIDDEN_CLASS,
-        typing && !leader && 'opacity-0',
+        // The split line keeps the editor's status in view while typing; only its hints fade.
+        typing && !leader && !showSplit && 'opacity-0',
       )}
     >
       {showSplit ? (
@@ -189,7 +191,7 @@ export function KeyHintBar({
                 !leftActive && HALF_DIM_CLASS,
               )}
             >
-              <HintList hints={leftHints} />
+              <HintList hints={leftHints} faded={typing} />
             </div>
           ) : null}
           <div
@@ -202,7 +204,7 @@ export function KeyHintBar({
             )}
           >
             <EditorStatusText status={editorStatus} />
-            <HintList hints={rightHints} />
+            <HintList hints={rightHints} faded={typing} />
             <ShortcutsButton helpKeys={helpKeys} onOpenShortcuts={onOpenShortcuts} className="ml-auto" />
           </div>
         </div>
