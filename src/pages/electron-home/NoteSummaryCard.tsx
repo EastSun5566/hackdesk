@@ -40,3 +40,10 @@ export const NoteSummaryLookupContext = createContext<(noteId: string) => Folder
 export function useNoteSummaryLookup() {
   return useContext(NoteSummaryLookupContext);
 }
+
+/** Team names by team path, so surfaces such as the note breadcrumb can name a team workspace. */
+export const TeamNameLookupContext = createContext<(teamPath: string) => string | undefined>(() => undefined);
+
+export function useTeamNameLookup() {
+  return useContext(TeamNameLookupContext);
+}

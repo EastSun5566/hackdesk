@@ -1,4 +1,5 @@
 import { ConflictComparison } from './ConflictComparison';
+import { useTeamNameLookup } from './NoteSummaryCard';
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
@@ -273,7 +274,7 @@ function DocumentBreadcrumb({
  * Where the note lives: its workspace, then its folders. Each part carries the folder IDs down to it,
  * so choosing one can show that folder in the sidebar; the workspace has none.
  */
-function getDocumentHeaderPath(document: Pick<NoteSummary, 'description' | 'folderPaths' | 'teamPath'>, isLocalDocument: boolean): HeaderPathPart[] {
+function getDocumentHeaderPath(document: Pick<NoteSummary, 'description' | 'folderPaths' | 'teamPath'>, isLocalDocument: boolean, teamName?: string): HeaderPathPart[] {
   if (isLocalDocument) {
     // A vault note's description is its path in the vault; each folder's ID is its own path.
     const folders = (document.description ?? '').split('/').slice(0, -1).filter(Boolean);
@@ -286,7 +287,8 @@ function getDocumentHeaderPath(document: Pick<NoteSummary, 'description' | 'fold
     ];
   }
   return [
-    { label: document.teamPath ? `@${document.teamPath}` : 'My Workspace', folderIds: [] },
+    // The team's name, as the workspace switcher shows it; its path only while teams are loading.
+    { label: document.teamPath ? teamName ?? `@${document.teamPath}` : 'My Workspace', folderIds: [] },
     ...document.folderPaths.map((folder, index) => ({
       label: folder.name,
       folderIds: document.folderPaths.slice(0, index + 1).map(path => path.id),
@@ -348,7 +350,8 @@ function LoadingDocumentDetail({
 }) {
   // The list already knows where the note lives, so the header shows its final breadcrumb now and
   // nothing shifts when the content arrives; only the body waits.
-  const path = summary ? getDocumentHeaderPath(summary, summary.teamPath === LOCAL_VAULT_TEAM_PATH) : [];
+  const lookupTeamName = useTeamNameLookup();
+  const path = summary ? getDocumentHeaderPath(summary, summary.teamPath === LOCAL_VAULT_TEAM_PATH, summary.teamPath ? lookupTeamName(summary.teamPath) : undefined) : [];
 
   return (
     <PanelShell
@@ -757,7 +760,9 @@ function DocumentHeader({
     saving: status.saving,
     syncState: documentState.syncState,
   });
-  const path = documentState.document ? getDocumentHeaderPath(documentState.document, isLocalDocument) : [];
+  const lookupTeamName = useTeamNameLookup();
+  const teamPath = documentState.document?.teamPath;
+  const path = documentState.document ? getDocumentHeaderPath(documentState.document, isLocalDocument, teamPath ? lookupTeamName(teamPath) : undefined) : [];
   const title = documentState.isDraft ? 'Unsaved draft' : documentState.title.trim() || documentState.document?.title || 'Untitled';
   const updated = documentState.document ? `Updated ${formatDate(documentState.document.updatedAtMillis)}` : undefined;
   // Routine controls step back until the header is hovered or focused; pending work keeps them in view.
