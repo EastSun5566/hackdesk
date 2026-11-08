@@ -293,7 +293,8 @@ function NavigatorHeader({
       ? 'Syncing…'
       : isFinderMode
         ? `${resultCount} ${resultCount === 1 ? 'result' : 'results'}`
-        : `${resultCount} ${resultCount === 1 ? 'note' : 'notes'}`;
+        // The tree shows the notes; a bare count adds a line without telling anything new.
+        : undefined;
 
   return (
     <PanelHeader
@@ -365,7 +366,7 @@ function NavigatorFilterBar({
   };
 
   return (
-    <div className="space-y-1 px-2 pb-1.5 pt-2">
+    <div className="space-y-1 px-2 pb-1.5 pt-1">
       <NoteFinderToolbar
         state={finderState}
         selectedFolderId={selectedFolderId}
@@ -736,7 +737,9 @@ function NavigatorTree({
         >
           <FolderTreeFocusContext.Provider value={focusContext}>
             <ul role="group" className="m-0 grid min-w-0 list-none gap-0.5 p-0">
-              <li role="presentation" className="min-w-0">
+              {/* Root only matters once there are folders to move notes out of; without them it would
+                  label the whole list with a word that says nothing. */}
+              {tree.roots.length ? <li role="presentation" className="min-w-0">
                 <RootFolderRow
                   selected={selection.selectedFolderId === UNFILED_FOLDER_ID}
                   focusTarget={selection.selectedFolderId === UNFILED_FOLDER_ID && !selection.selectedNoteId}
@@ -747,7 +750,7 @@ function NavigatorTree({
                   onCreateFolder={() => actions.onCreateFolderInside(null)}
                   onCreateNote={() => actions.onCreateNoteInside(null)}
                 />
-              </li>
+              </li> : null}
               <FolderTreeView
                 nodes={tree.roots}
                 selectedFolderId={selection.selectedFolderId}

@@ -3291,8 +3291,8 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove tag filter product' }));
 
-    await screen.findByText('2 notes');
-    expect(getNoteRow('Design Spec')).toBeInTheDocument();
+    await findNoteRow('Design Spec');
+    expect(screen.queryByText('1 result')).not.toBeInTheDocument();
   });
 
   it('filters notes from View options and clears the active tag when clicked again', async () => {
@@ -3319,8 +3319,8 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.click(await findTagOption('product'));
 
-    await screen.findByText('2 notes');
-    expect(getNoteRow('Design Spec')).toBeInTheDocument();
+    await findNoteRow('Design Spec');
+    expect(screen.queryByText('1 result')).not.toBeInTheDocument();
   });
 
   it('shows multi-tag state in filter chips and View options', async () => {

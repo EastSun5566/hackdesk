@@ -107,7 +107,6 @@ export function NoteRow({
     compact ? '' : entry.folderLabel,
     entry.note.tags.slice(0, 2).join(', '),
   ].filter(Boolean).join(' · ');
-  const editedLabel = entry.note.updatedAtMillis ? `Edited ${formatCompactDate(entry.note.updatedAtMillis)}` : undefined;
   const {
     attributes,
     listeners,
@@ -179,10 +178,11 @@ export function NoteRow({
               </button>
             ) : null}
             title={entry.note.title || 'Untitled'}
-            // Every note row keeps two lines, so the list has one rhythm: a note without folder or
-            // tags shows its edited date there instead of in the trailing column.
-            subtitle={snippet ? <NoteMatchSnippet snippet={snippet} /> : metadata || (compact ? editedLabel : entry.note.shortId)}
-            trailing={!metadata && compact && !snippet ? undefined : (
+            // In the tree a note is one line: its title, with the edited date as quiet trailing meta.
+            // Search results add a second line for where the note lives or where the text matched.
+            subtitle={snippet ? <NoteMatchSnippet snippet={snippet} /> : compact ? undefined : metadata || entry.note.shortId}
+            titleAttribute={compact && metadata ? `${entry.note.title || 'Untitled'} · ${metadata}` : undefined}
+            trailing={(
               <time title={formatDate(entry.note.updatedAtMillis)} dateTime={entry.note.updatedAtMillis ? new Date(entry.note.updatedAtMillis).toISOString() : undefined}>
                 {formatCompactDate(entry.note.updatedAtMillis)}
               </time>

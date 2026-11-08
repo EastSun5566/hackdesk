@@ -4,7 +4,7 @@ export const TOAST_LAYER_CLASS = 'z-[70]';
 export const ELEVATED_SURFACE_CLASS = 'shadow-lg';
 
 export const MENU_POPUP_CLASS =
-  'min-w-[208px] overflow-hidden rounded border border-border-default bg-background-subtler py-1.5 text-text-default shadow-[0_3px_15px_0_rgba(0,0,0,0.15)]';
+  'min-w-[208px] overflow-hidden rounded border border-border-default bg-background-raised py-1.5 text-text-default outline-none shadow-[0_3px_15px_0_rgba(0,0,0,0.15)]';
 
 export const MENU_ITEM_CLASS =
   'relative flex cursor-default select-none items-center gap-1.5 px-5 py-1.5 text-sm leading-5 text-text-default outline-none transition-colors data-[highlighted]:bg-element-bg-hover data-[highlighted]:text-text-emphasize data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-icon-default';

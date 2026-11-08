@@ -492,8 +492,9 @@ export function SidebarFooter({
   );
 
   return (
-    // One line, the same height as the editor's status bar, so the two bottom edges meet.
-    <div data-testid="sidebar-footer" className="scroll-edge-bottom relative flex h-8.25 items-center gap-1 px-2">
+    // One line, the same height as the editor's status bar, with the same always-on top line, so
+    // the two read as one bottom edge across the window.
+    <div data-testid="sidebar-footer" className="flex h-8.25 items-center gap-1 border-t border-border-subtle px-2">
       <EntityRow
         icon={user ? <PersonalWorkspaceIcon user={user} className="size-5" testId="sidebar-footer-avatar" /> : <Settings2 className="size-4" />}
         title={displayName}

@@ -219,12 +219,10 @@ describe('FolderNavigator', () => {
     expect(screen.getByRole('status', { name: 'Loading notes' })).toHaveAttribute('aria-busy', 'true');
   });
 
-  it('counts notes with the right plural', () => {
-    const { rerender, props } = renderFolderNavigator();
-    expect(screen.getByText('2 notes')).toBeInTheDocument();
-
-    rerender(<FolderNavigator {...props} entries={props.entries.slice(0, 1)} />);
-    expect(screen.getByText('1 note')).toBeInTheDocument();
+  it('leaves the header without a bare note count', () => {
+    renderFolderNavigator();
+    // The tree shows the notes; the header names a count only for search results.
+    expect(screen.queryByText('2 notes')).not.toBeInTheDocument();
   });
 
   it('shows token setup actions when HackMD token is missing', () => {
@@ -370,13 +368,13 @@ describe('FolderNavigator', () => {
     treeView.unmount();
   });
 
-  it('shows tags under tree notes, not the folder they already sit in', () => {
+  it('keeps tree notes to one line, with tags only in the hover title', () => {
     renderFolderNavigator();
 
     const nested = screen.getByRole('treeitem', { name: 'Nested note' });
-    expect(nested).toHaveTextContent('work');
+    expect(nested).not.toHaveTextContent('work');
     expect(nested).not.toHaveTextContent('Projects');
-    // A note with nothing to add gets no second line.
+    expect(nested.closest('[title]')).toHaveAttribute('title', expect.stringContaining('work'));
     expect(screen.getByRole('treeitem', { name: 'Loose note' })).not.toHaveTextContent('loose-note');
   });
 
