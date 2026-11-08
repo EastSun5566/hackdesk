@@ -88,7 +88,7 @@ async function launchFixture(editorMode: EditorMode = 'helix', navigationFixture
     }
   }, { channels: ELECTRON_CHANNELS, storedSettings: settings, names: teamNames });
   await page.reload();
-  await expect(page.getByTestId('sidebar-footer').getByRole('button', { name: /^Open settings for Fixture User/ })).toBeVisible();
+  await expect(page.getByTestId('sidebar-footer').getByRole('button', { name: /^Account: Fixture User/ })).toBeVisible();
   await expect(page.getByRole('treeitem', { name: 'UI fixture', exact: true })).toBeVisible();
   return { app, page, vault };
 }
@@ -589,23 +589,24 @@ test('workspace pointer reorder starts on a stable handle and completes the drop
   }
 });
 
-test('one sidebar switches workspaces from its title, with Trash and Settings at the bottom', async () => {
+test('one sidebar switches workspaces from its title, with Trash and Settings near the bottom', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
     await page.setViewportSize({ width: 1280, height: 760 });
     const trigger = page.getByRole('button', { name: /^Switch workspace, current: / });
     await expect(trigger).toHaveAccessibleName('Switch workspace, current: Local Vault');
     const footer = page.getByTestId('sidebar-footer');
-    await expect(footer.getByRole('button', { name: 'Trash', exact: true })).toBeVisible();
+    // Trash belongs to HackMD workspaces: it isn't offered in a Local Vault.
+    await expect(page.getByTestId('sidebar-trash-row')).toHaveCount(0);
     // Holding the key also shows which number opens which workspace, beside the sidebar. Hints and the
     // card cancel while the page still changes, so check them together in one look.
     const peekShortcut = process.platform === 'darwin' ? '⌘2' : 'Ctrl+2';
     await holdForHints(page, trigger, () => page.evaluate(({ name, shortcut }) => {
-      const hints = document.querySelectorAll('[data-navigation-hint="workspace:switcher"], [data-navigation-hint="workspace:trash"]').length;
+      const hints = document.querySelectorAll('[data-navigation-hint="workspace:switcher"]').length;
       const card = document.querySelector('[data-workspace-peek]');
       const row = card?.querySelectorAll('li')[1]?.textContent ?? '';
       const sidebar = document.getElementById('note-navigator-panel')!.getBoundingClientRect();
-      return hints === 2 && row.includes(name) && row.includes(shortcut) && card!.getBoundingClientRect().left >= sidebar.right;
+      return hints === 1 && row.includes(name) && row.includes(shortcut) && card!.getBoundingClientRect().left >= sidebar.right;
     }, { name: teamNames[0], shortcut: peekShortcut }));
     const peek = page.locator('[data-workspace-peek]');
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('24-workspace-peek.png') });
@@ -616,10 +617,12 @@ test('one sidebar switches workspaces from its title, with Trash and Settings at
     await page.keyboard.press(`${primary}+1`);
     await expect(trigger).toHaveAccessibleName('Switch workspace, current: My Workspace');
 
-    await footer.getByRole('button', { name: 'Trash', exact: true }).click();
-    await expect(page.getByRole('dialog', { name: 'Trash' })).toBeVisible();
+    // Trash opens in the sidebar, from its row above the account; Escape goes back to the notes.
+    await page.getByTestId('sidebar-trash-row').getByRole('button', { name: 'My Trash' }).click();
+    await expect(page.getByRole('button', { name: 'Back to notes' })).toBeVisible();
     await page.keyboard.press('Escape');
-    await footer.getByRole('button', { name: /^Open settings for Fixture User/ }).click();
+    await expect(page.getByRole('button', { name: 'Back to notes' })).toHaveCount(0);
+    await footer.getByRole('button', { name: 'Settings', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Settings', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
 

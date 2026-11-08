@@ -85,13 +85,13 @@ test('restores one note from the trash and opens it', async () => {
   const { app, page } = await launchWithTrash();
   try {
     await expect(page.getByRole('treeitem', { name: 'Kept', exact: true })).toBeVisible();
-    await page.getByTestId('sidebar-footer').getByRole('button', { name: 'Trash' }).click();
+    await page.getByTestId('sidebar-trash-row').getByRole('button', { name: 'My Trash' }).click();
 
     const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
     const rows = sidebar.getByRole('list', { name: 'Deleted notes' }).getByRole('listitem');
     await expect(rows).toHaveCount(2);
     await expect(sidebar.getByRole('button', { name: 'Back to notes' })).toBeVisible();
-    await expect(sidebar.getByText('Trash')).toBeVisible();
+    await expect(sidebar.getByText('Trash', { exact: true })).toBeVisible();
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('trash.png') });
 
     await sidebar.getByRole('button', { name: 'Restore Roadmap' }).click();
@@ -115,13 +115,13 @@ test('keeps notes HackMD could not restore in a batch', async () => {
       (globalThis as unknown as { trashFixture: Fixture }).trashFixture.failIds.push('meeting');
     });
     await expect(page.getByRole('treeitem', { name: 'Kept', exact: true })).toBeVisible();
-    await page.getByTestId('sidebar-footer').getByRole('button', { name: 'Trash' }).click();
+    await page.getByTestId('sidebar-trash-row').getByRole('button', { name: 'My Trash' }).click();
 
     const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
     const rows = sidebar.getByRole('list', { name: 'Deleted notes' }).getByRole('listitem');
     await expect(rows).toHaveCount(2);
-    await rows.nth(0).getByRole('button', { name: 'Roadmap' }).click({ modifiers: ['Meta'] });
-    await rows.nth(1).getByRole('button', { name: 'Meeting' }).click({ modifiers: ['Meta'] });
+    await rows.nth(0).getByRole('button', { name: 'Roadmap', exact: true }).click({ modifiers: ['Meta'] });
+    await rows.nth(1).getByRole('button', { name: 'Meeting', exact: true }).click({ modifiers: ['Meta'] });
     await sidebar.getByRole('button', { name: 'Restore', exact: true }).click();
 
     await expect(rows).toHaveCount(1);
