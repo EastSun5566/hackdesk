@@ -24,8 +24,10 @@ export const editorChromeTheme = {
     padding: `24px ${EDITOR_SIDE_PADDING} 36vh`,
     // CodeMirror draws selections up to the content box, so the column is a
     // centered max-width box rather than padding inside a full-width one.
+    width: `min(100%, calc(${EDITOR_LINE_WIDTH} + 2 * ${EDITOR_SIDE_PADDING}))`,
     maxWidth: `calc(${EDITOR_LINE_WIDTH} + 2 * ${EDITOR_SIDE_PADDING})`,
     marginInline: 'auto',
+    boxSizing: 'border-box',
     caretColor: 'var(--primary-default)',
     minWidth: '0',
   },

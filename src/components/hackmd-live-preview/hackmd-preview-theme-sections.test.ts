@@ -40,8 +40,10 @@ describe('HackMD preview widget theme', () => {
     expect(EDITOR_LINE_WIDTH).toMatch(/em$/);
     expect(editorChromeTheme['.cm-content']).toMatchObject({
       padding: '24px clamp(20px, 6%, 48px) 36vh',
+      width: `min(100%, calc(${EDITOR_LINE_WIDTH} + 2 * clamp(20px, 6%, 48px)))`,
       maxWidth: `calc(${EDITOR_LINE_WIDTH} + 2 * clamp(20px, 6%, 48px))`,
       marginInline: 'auto',
+      boxSizing: 'border-box',
     });
   });
 
