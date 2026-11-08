@@ -866,7 +866,7 @@ function NavigatorTree({
                 <li role="presentation" key={`root:${entry.note.id}`} className="min-w-0">
                   <NoteRow
                     entry={entry}
-                    selected={entry.note.id === selection.selectedNoteId}
+                    selected={entry.note.id === selection.selectedNoteId && (!selection.selectedFolderId || selection.selectedFolderId === UNFILED_FOLDER_ID)}
                     focusTarget={entry.note.id === selection.selectedNoteId}
                     onSelect={actions.onNoteSelect}
                     onOpen={actions.onOpenNote}

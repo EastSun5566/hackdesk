@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 
+import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { readComparisonSource } from './read-comparison-source';
 import type { NoteFinderState } from '@/lib/electron-note-finder';
 import type {
@@ -238,7 +239,13 @@ export function useHomeWorkspaceProps({
         onFolderSelect: navigator.handleFolderSelect,
         onFolderToggle: navigator.toggleFolderCollapsed,
         onFolderRevealInFinder: localVaultActions.revealLocalFolder,
-        onNoteSelect: actions.handleNoteSelect,
+        // Opening a note from the sidebar makes its folder the selection, so the tree highlights
+        // one row (the note) and new notes go beside it.
+        onNoteSelect: (note) => {
+          const entry = folderTree.allNotes.find((candidate) => candidate.note.id === note.id);
+          if (entry) navigator.handleFolderSelect(entry.folderPath.at(-1)?.id ?? UNFILED_FOLDER_ID);
+          actions.handleNoteSelect(note);
+        },
         onNoteRevealInFinder: localVaultActions.revealLocalNote,
         onFinderStateChange: actions.setFinderState,
         onRefresh: refreshWorkspace,

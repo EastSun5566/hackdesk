@@ -406,7 +406,12 @@ function FolderButton({
               </span>
             )}
             title={node.name}
-            contentOnClick={() => onSelect(node.id)}
+            // Clicking the row selects the folder and toggles it, like the arrow: selecting opens a
+            // closed folder, and a second click closes it again.
+            contentOnClick={() => {
+              onSelect(node.id);
+              if (hasChildren && !collapsed) onToggle(node.id);
+            }}
             contentAriaLabel={node.name}
             contentAriaCurrent={treeItemProps ? undefined : selected ? 'page' : undefined}
             contentFocusTarget={focusTarget}
@@ -602,7 +607,9 @@ export function FolderTreeView({
         <div className="relative min-w-0">
         <FolderButton
           node={node}
-          selected={selectedFolderId === node.id}
+          // The open note's folder is the selected folder too; only the note row shows it, so one
+          // selection never lights up two rows.
+          selected={selectedFolderId === node.id && !(selectedNoteId && node.notes.some((entry) => entry.note.id === selectedNoteId))}
           focusTarget={selectedFolderId === node.id && !selectedNoteId}
           collapsed={collapsed}
           active={isActiveFolder}
@@ -663,7 +670,9 @@ export function FolderTreeView({
       {depth > 0 ? <span aria-hidden="true" data-tree-guide={index === notes.length - 1 ? 'end' : 'continuation'} className="pointer-events-none absolute -left-1.5 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
       <NoteRow
         entry={entry}
-        selected={entry.note.id === selectedNoteId}
+        // The open note shows as selected only while its folder is the selection; clicking another
+        // folder moves the one highlight there.
+        selected={entry.note.id === selectedNoteId && (!selectedFolderId || selectedFolderId === parentFolderId)}
         focusTarget={entry.note.id === selectedNoteId}
         onSelect={onNoteSelect}
         onOpen={onNoteOpen}
