@@ -279,13 +279,15 @@ function FolderNavigatorPanel({
       collapsed={layout.collapsed}
       width={layout.width}
       collapsedWidth={0}
-      className={cn('note-navigator bg-background-muted', HACK_MODE_HIDDEN_CLASS)}
+      className={cn('bg-background-muted', layout.collapsed && 'mr-1.5', HACK_MODE_HIDDEN_CLASS)}
       // On the panel, not the content, so the resize handle can update both widths while dragging.
       style={{ '--sidebar-content-width': `${layout.width}px` } as CSSProperties}
     >
       {/* Stays mounted at its full width while collapsed, so the panel clips it as the width
-          animates instead of reflowing it every frame. */}
-      <div className="scroll-edges flex min-h-0 w-(--sidebar-content-width) flex-1 shrink-0 flex-col">
+          animates instead of reflowing it every frame. Held to the panel's right edge, it slides out
+          to the left with that edge rather than sitting still under the note card. The width queries
+          (note-navigator) read this full width, so rows never change mid-animation. */}
+      <div className="note-navigator scroll-edges flex min-h-0 w-(--sidebar-content-width) flex-1 shrink-0 flex-col self-end">
         <ExpandedNavigator
           actions={actions}
           emptyState={emptyState}

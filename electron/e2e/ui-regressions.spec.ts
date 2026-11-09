@@ -832,6 +832,32 @@ test('tree guides connect mixed children and end at the last folder row', async 
   }
 });
 
+test('collapsing the sidebar slides its content out to the left without nudging the sidebar', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    // Slowed, so a frame mid-collapse can be measured.
+    await page.addStyleTag({ content: '#note-navigator-panel { transition-duration: 1500ms !important; }' });
+    const measure = () => page.evaluate(() => {
+      const panel = document.getElementById('note-navigator-panel')!.getBoundingClientRect();
+      const row = document.querySelector('#note-navigator-panel [data-folder-tree-row-id]')!.getBoundingClientRect();
+      const card = document.querySelector('section[data-document-pane-id]')!.getBoundingClientRect();
+      return { panelX: panel.x, panelRight: panel.right, rowRight: row.right, cardX: card.x };
+    });
+    const before = await measure();
+    await page.getByRole('button', { name: 'Collapse sidebar' }).click();
+    await page.waitForTimeout(500);
+    const during = await measure();
+    expect(during.panelX).toBe(before.panelX);
+    expect(during.panelRight).toBeLessThan(before.panelRight);
+    // The content keeps its place against the sidebar's right edge, so it slides out with it.
+    expect(during.panelRight - during.rowRight).toBeCloseTo(before.panelRight - before.rowRight, 0);
+    await expect.poll(async () => (await measure()).cardX).toBe(6);
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test('rows share one hover card and one context menu, and the workspace row keeps its own', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
