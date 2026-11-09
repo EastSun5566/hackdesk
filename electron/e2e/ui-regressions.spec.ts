@@ -518,12 +518,13 @@ test('workspace switcher rows, gap boundaries and full-height Settings workbench
     await openFixtureNote(page);
     const sash = page.getByRole('button', { name: /^Resize sidebar.*Current width/ });
     await expect(sash).toHaveCount(1);
-    // The resize handles are the gaps between surfaces.
-    expect((await sash.boundingBox())!.width).toBe(6);
+    // The sidebar's handle is the editor's border, with no gap of its own, so the sidebar sits as
+    // far from the editor as from the window's edge. It is grabbed on that border.
+    expect((await sash.boundingBox())!.width).toBe(0);
     const sidebar = page.locator('#note-navigator-panel');
     const sashBounds = (await sash.boundingBox())!;
     const initialWidth = (await sidebar.boundingBox())!.width;
-    await page.mouse.move(sashBounds.x + 3, sashBounds.y + 100);
+    await page.mouse.move(sashBounds.x + 1, sashBounds.y + 100);
     await page.mouse.down();
     await page.mouse.move(sashBounds.x + 30, sashBounds.y + 100);
     await page.mouse.up();

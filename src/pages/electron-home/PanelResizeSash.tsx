@@ -4,9 +4,10 @@ import { cn } from '@/lib/utils';
 
 import { GAP_SASH_CLASS } from './ui';
 
-// The gap between two surfaces, with no line of its own: the adjacent surface's border lights up
-// instead. Its grip reaches 4px over that border, so the border itself can be grabbed.
-const EDGE_SASH_CLASS = 'edge-sash relative w-1.5 shrink-0 cursor-col-resize border-0 bg-transparent outline-none before:absolute before:inset-y-0 before:left-0 before:-right-1';
+// A surface's border, with no line or gap of its own: the border lights up instead. It takes no
+// width, so the panel before it keeps the same inset from the border as from the window's other
+// edge. Its grip reaches 6px back over the panel and 4px over the border.
+const EDGE_SASH_CLASS = 'edge-sash relative w-0 shrink-0 cursor-col-resize border-0 bg-transparent outline-none before:absolute before:inset-y-0 before:-left-1.5 before:-right-1';
 import { clampPanelWidth } from './ui-preferences';
 
 export function PanelResizeSash({
