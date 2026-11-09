@@ -51,6 +51,14 @@ import type { WorkspaceScope } from './types';
 // The search box keeps focus, so its highlighted result shows only while the box is focused.
 const SEARCH_HIGHLIGHT_CLASS = '[.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-2 [.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-inset [.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-focus-ring/80';
 const TREE_ROW_FOCUS_CLASS = 'focus-within:bg-background-primary-subtler focus-within:text-text-emphasize focus-within:ring-2 focus-within:ring-inset focus-within:ring-focus-ring/80';
+/**
+ * Folder and note rows keep a 16px gutter before their icon, where the drag grip shows on hover.
+ * Children indent so each guide runs down the parent icon's centre, along the row's left edge:
+ * 16px under the workspace root (its icon sits 8px in), 24px under a folder (its icon sits 16px in).
+ */
+const DRAGGABLE_ROW_CLASS = cn(TREE_ROW_FOCUS_CLASS, 'pl-4');
+export const ROOT_CHILDREN_INDENT_CLASS = 'pl-4';
+export const TREE_GUIDE_CLASS = 'pointer-events-none absolute -left-px -top-0.5 bottom-0 w-px bg-border-subtle';
 
 
 /**
@@ -299,10 +307,9 @@ function NoteRowView({
                 contentAriaCurrent={treeItemProps ? undefined : selected ? 'page' : undefined}
                 contentFocusTarget={focusTarget}
                 contentButtonProps={treeItemProps}
-                selectedIndicator
                 // The tree steps back from the editor: subtle text, full strength on hover and selection.
                 tone="quiet"
-                className={cn(TREE_ROW_FOCUS_CLASS, highlightId && SEARCH_HIGHLIGHT_CLASS)}
+                className={cn(DRAGGABLE_ROW_CLASS, highlightId && SEARCH_HIGHLIGHT_CLASS)}
               />
             </TooltipTrigger>
             <TooltipContent side="right" sideOffset={10} className={NOTE_CARD_CLASS}>
@@ -497,9 +504,8 @@ function FolderButtonView({
             contentAriaCurrent={treeItemProps ? undefined : selected ? 'page' : undefined}
             contentFocusTarget={focusTarget}
             contentButtonProps={treeItemProps}
-            selectedIndicator
             tone="quiet"
-            className={TREE_ROW_FOCUS_CLASS}
+            className={DRAGGABLE_ROW_CLASS}
           />
         </div>
       </ContextMenuTrigger>
@@ -598,7 +604,6 @@ export function WorkspaceRootTreeRow({
             active={dragActive && isOver}
             variant="compact"
             tone="quiet"
-            selectedIndicator
             leadingControls={(
               <button
                 type="button"
@@ -737,7 +742,6 @@ export function SidebarTrashRow({
         title={label}
         variant="compact"
         tone="quiet"
-        selectedIndicator
         contentAriaLabel={label}
         contentOnClick={onOpen}
         contentAriaCurrent={selected ? 'page' : undefined}
@@ -907,7 +911,7 @@ export function FolderTreeView({
       <li role="presentation" key={node.id} className="relative min-w-0">
         {/* Guides run the full height of each child, last one included, so a folder's line covers
             everything it contains. A half-height end would need a horizontal stroke to read. */}
-        {depth > 0 || topLevelGuides ? <span aria-hidden="true" data-tree-guide={lastChild ? 'end' : 'continuation'} className="pointer-events-none absolute -left-1.5 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
+        {depth > 0 || topLevelGuides ? <span aria-hidden="true" data-tree-guide={lastChild ? 'end' : 'continuation'} className={TREE_GUIDE_CLASS} /> : null}
         <div className="relative min-w-0">
         <FolderButton
           node={node}
@@ -971,7 +975,7 @@ export function FolderTreeView({
 
   const noteItems = notes.map((entry, index) => (
     <li role="presentation" key={`note:${entry.note.id}`} className="tree-row-lazy relative min-w-0">
-      {depth > 0 || topLevelGuides ? <span aria-hidden="true" data-tree-guide={index === notes.length - 1 ? 'end' : 'continuation'} className="pointer-events-none absolute -left-1.5 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
+      {depth > 0 || topLevelGuides ? <span aria-hidden="true" data-tree-guide={index === notes.length - 1 ? 'end' : 'continuation'} className={TREE_GUIDE_CLASS} /> : null}
       <NoteRow
         entry={entry}
         // The open note shows as selected only while its folder is the selection; clicking another
@@ -1002,7 +1006,7 @@ export function FolderTreeView({
   }
 
   return (
-    <ul role="group" id={parentFolderId ? groupId : undefined} data-tree-children="true" className="relative m-0 grid min-w-0 list-none gap-0.5 p-0 pl-5">
+    <ul role="group" id={parentFolderId ? groupId : undefined} data-tree-children="true" className="relative m-0 grid min-w-0 list-none gap-0.5 p-0 pl-6">
       {items}
       {noteItems}
     </ul>

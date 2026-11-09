@@ -53,7 +53,6 @@ type EntityRowProps = {
   contentFocusTarget?: boolean;
   contentButtonProps?: ButtonHTMLAttributes<HTMLButtonElement>;
   buttonProps?: ButtonHTMLAttributes<HTMLButtonElement>;
-  selectedIndicator?: boolean;
   onClick?: () => void;
   ariaLabel?: string;
   ariaCurrent?: ButtonHTMLAttributes<HTMLButtonElement>['aria-current'];
@@ -67,7 +66,6 @@ function entityRowClassName({
   disabled,
   variant,
   clickable,
-  selectedIndicator,
   tone = 'default',
   className,
 }: {
@@ -76,7 +74,6 @@ function entityRowClassName({
   disabled?: boolean;
   variant: EntityRowVariant;
   clickable: boolean;
-  selectedIndicator?: boolean;
   tone?: 'default' | 'quiet';
   className?: string;
 }) {
@@ -88,8 +85,6 @@ function entityRowClassName({
       : tone === 'quiet'
         ? 'text-text-subtle hover:bg-background-hover hover:text-text-default'
         : 'text-text-default hover:bg-background-hover hover:text-text-emphasize',
-    selectedIndicator && 'overflow-hidden',
-    selectedIndicator && selected && 'before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-0.5 before:rounded-full before:bg-primary-default',
     clickable && FOCUS_RING_INSET_CLASS,
     disabled && 'pointer-events-none opacity-65',
     className,
@@ -231,7 +226,6 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
   contentAriaCurrent,
   contentFocusTarget,
   contentButtonProps,
-  selectedIndicator,
   onClick,
   ariaLabel,
   ariaCurrent,
@@ -268,7 +262,6 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
     disabled,
     variant,
     clickable: Boolean(onClick),
-    selectedIndicator,
     tone,
     className,
   });

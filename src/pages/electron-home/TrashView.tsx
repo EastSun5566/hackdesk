@@ -124,7 +124,6 @@ function TrashRow({
       trailingClassName="max-w-20 truncate text-right"
       variant="compact"
       tone="quiet"
-      selectedIndicator
       contentAriaLabel={title}
       contentButtonProps={failure ? { 'aria-describedby': failureId } : undefined}
       contentOnClick={((event: ReactMouseEvent<HTMLButtonElement>) => onPointerSelect(index, event)) as () => void}

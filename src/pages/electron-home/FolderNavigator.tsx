@@ -62,8 +62,10 @@ import {
   NoteDragOverlay,
   NoteListSkeleton,
   NoteRow,
+  ROOT_CHILDREN_INDENT_CLASS,
   TopLevelDropArea,
   SidebarTrashRow,
+  TREE_GUIDE_CLASS,
   WorkspaceRootScopeIcon,
   WorkspaceRootTreeRow,
 } from './FolderNavigatorRows';
@@ -945,7 +947,7 @@ function NavigatorTree({
   />
   {tree.unfiled.notes.map((entry, index) => (
     <li role="presentation" key={`root:${entry.note.id}`} className="tree-row-lazy relative min-w-0">
-      {showRootRow ? <span aria-hidden="true" data-tree-guide={index === tree.unfiled.notes.length - 1 ? 'end' : 'continuation'} className="pointer-events-none absolute -left-1.5 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
+      {showRootRow ? <span aria-hidden="true" data-tree-guide={index === tree.unfiled.notes.length - 1 ? 'end' : 'continuation'} className={TREE_GUIDE_CLASS} /> : null}
       <NoteRow
         entry={entry}
         selected={entry.note.id === selection.selectedNoteId && (!selection.selectedFolderId || selection.selectedFolderId === UNFILED_FOLDER_ID)}
@@ -1031,7 +1033,7 @@ function NavigatorTree({
                 id={workspaceChildrenGroupId}
                 role="group"
                 hidden={showRootRow && !rootSectionExpanded}
-                className={cn('m-0 grid min-w-0 list-none gap-0.5 p-0', showRootRow && 'relative mt-0.5 pl-5')}
+                className={cn('m-0 grid min-w-0 list-none gap-0.5 p-0', showRootRow && cn('relative mt-0.5', ROOT_CHILDREN_INDENT_CLASS))}
               >
                 {treeRows}
               </ul>
