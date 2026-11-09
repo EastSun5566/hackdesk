@@ -42,6 +42,8 @@ export type UseFolderTreeKeyboardNavigationOptions = {
   onRootSectionToggle?: () => void;
 };
 
+const NO_COLLAPSED_FOLDERS = new Set<string>();
+
 export function useFolderTreeKeyboardNavigation({
   treeId,
   selectedRowId,
@@ -74,11 +76,12 @@ export function useFolderTreeKeyboardNavigation({
     setPreviousSelectedRowId(selectedRowId);
     if (selectedRowId) setFocusedId(selectedRowId);
   }
-  // What each row reads: every row of the tree, open root or not. Collapsing the root hides its rows
-  // without unmounting them, and rows whose entry vanished would all re-render on every toggle.
+  // What each row reads: every row of the tree, as if every folder and the root were open. Closing a
+  // folder or the root hides its rows without unmounting them; built from the tree alone, no row's
+  // entry changes on a toggle, so no row re-renders for one.
   const rowItems = useMemo(
-    () => (rootSectionExpanded ? focusItems : buildFolderNavigatorFocusItems({ tree, collapsedFolderIds, showRoot, rootSectionExpanded: true, rootLabel })),
-    [collapsedFolderIds, focusItems, rootLabel, rootSectionExpanded, showRoot, tree],
+    () => buildFolderNavigatorFocusItems({ tree, collapsedFolderIds: NO_COLLAPSED_FOLDERS, showRoot, rootSectionExpanded: true, rootLabel }),
+    [rootLabel, showRoot, tree],
   );
   const itemsById = useMemo(() => new Map(rowItems.map(item => [item.id, item])), [rowItems]);
   // What the keyboard can reach: rows under a collapsed root are skipped.

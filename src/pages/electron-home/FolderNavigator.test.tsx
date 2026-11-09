@@ -925,6 +925,27 @@ describe('FolderNavigator', () => {
     expect(screen.queryByRole('treeitem', { name: 'Projects' })).not.toBeInTheDocument();
   });
 
+  it('mounts a folder\'s rows when first opened, then keeps them hidden while it is closed', () => {
+    window.localStorage.clear();
+    const { container, props, rerender } = renderFolderNavigator({ layout: { collapsedFolderIds: new Set(['projects']) } });
+    const nestedRow = () => container.querySelector('[data-folder-tree-row-id="note:nested-note"]');
+    // Never opened: nothing is built for it.
+    expect(nestedRow()).toBeNull();
+
+    const view = (collapsed: boolean) => (
+      <TooltipProvider><FolderNavigator {...props} layout={{ ...props.layout, collapsedFolderIds: new Set(collapsed ? ['projects'] : []) }} /></TooltipProvider>
+    );
+    rerender(view(false));
+    const row = nestedRow();
+    expect(row).not.toBeNull();
+    expect(screen.getByRole('treeitem', { name: 'Nested note' })).toBeVisible();
+
+    rerender(view(true));
+    expect(nestedRow()).toBe(row);
+    expect(row!.closest('[hidden]')).not.toBeNull();
+    expect(screen.queryByRole('treeitem', { name: 'Nested note' })).not.toBeInTheDocument();
+  });
+
   it('keeps the rows mounted while the root is collapsed, so opening it is cheap', () => {
     window.localStorage.clear();
     const { container } = renderFolderNavigator();

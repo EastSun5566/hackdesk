@@ -780,7 +780,8 @@ test('tree guides connect mixed children and end at the last folder row', async 
       if (await expand.count()) await expand.click();
     }
     const assertGuides = async () => {
-      const problems = await page.locator('[data-tree-children]').evaluateAll(lists => lists.flatMap(list => {
+      // A closed folder keeps its rows mounted but hidden; only lists on screen draw guides.
+      const problems = await page.locator('[data-tree-children]:visible').evaluateAll(lists => lists.flatMap(list => {
         const items = Array.from(list.children) as HTMLElement[];
         const lines = items.map(item => item.querySelector<HTMLElement>(':scope > [data-tree-guide], :scope > div > [data-tree-guide]')!);
         return lines.flatMap((line, index) => {

@@ -13,7 +13,7 @@ import {
   Trash2,
   Users,
 } from 'lucide-react';
-import { memo, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -759,6 +759,16 @@ export function NoteDragOverlay({ entry }: { entry: FolderTreeNote | null }) {
   );
 }
 
+/**
+ * A folder's contents mount the first time it opens, then stay mounted (hidden) when it closes:
+ * reopening is a style change rather than rebuilding every row. Folders never opened cost nothing.
+ */
+function KeepMountedOnceOpen({ open, children }: { open: boolean; children: ReactNode }) {
+  const [opened, setOpened] = useState(open);
+  if (open && !opened) setOpened(true);
+  return opened ? <div hidden={!open} className="contents">{children}</div> : null;
+}
+
 export function FolderTreeView({
   nodes,
   notes = [],
@@ -858,7 +868,7 @@ export function FolderTreeView({
           onRevealInFinder={onFolderRevealInFinder}
         />
         </div>
-        {!collapsed && !isActiveFolder ? <div className="grid overflow-hidden">
+        <KeepMountedOnceOpen open={!collapsed && !isActiveFolder}><div className="grid overflow-hidden">
           <div className="min-h-0 overflow-hidden">
             <div className="mt-0.5 min-w-0">
               <FolderTreeView
@@ -894,7 +904,7 @@ export function FolderTreeView({
               />
             </div>
           </div>
-        </div> : null}
+        </div></KeepMountedOnceOpen>
       </li>
     );
   });
