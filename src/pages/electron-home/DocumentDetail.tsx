@@ -42,6 +42,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { Tooltip } from '@/components/ui/tooltip';
 import type {
   DocumentSummary,
   NoteComment,
@@ -258,12 +259,34 @@ function DocumentBreadcrumb({
   title,
   updated,
   onRevealFolder,
+  book,
 }: {
   path: HeaderPathPart[];
   title: string;
   updated?: string;
   onRevealFolder?: (folderIds: string[]) => void;
+  /** A chapter's place is its book, not its folder: the book's name, back to its table of contents. */
+  book?: { title: string; onOpenContents: () => void };
 }) {
+  if (book) {
+    return (
+      <nav aria-label="Note location" className="-ml-1 flex min-h-8 min-w-0 items-center gap-1 overflow-hidden text-sm font-normal text-text-subtle" title={updated}>
+        <Tooltip content="Edit table of contents">
+          <button
+            type="button"
+            className={cn('flex min-w-0 items-center gap-1.5 rounded-sm px-1 hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_INSET_CLASS)}
+            aria-label={`${book.title}, edit table of contents`}
+            onClick={book.onOpenContents}
+          >
+            <BookOpen aria-hidden="true" className="size-3.5 shrink-0" />
+            <span className="truncate">{book.title}</span>
+          </button>
+        </Tooltip>
+        <span aria-hidden="true" className="shrink-0 text-text-subtle/60">/</span>
+        <span aria-current="page" className="max-w-4/5 shrink-0 truncate px-1 text-text-default">{title}</span>
+      </nav>
+    );
+  }
   return (
     <nav aria-label="Note location" className="-ml-1 flex min-h-8 min-w-0 items-center gap-1 overflow-hidden text-sm font-normal text-text-subtle" title={updated}>
       {path.map((part, index) => (
@@ -794,6 +817,11 @@ function DocumentHeader({
   const lookupTeamName = useTeamNameLookup();
   const teamPath = documentState.document?.teamPath;
   const path = documentState.document ? getDocumentHeaderPath(documentState.document, isLocalDocument, teamPath ? lookupTeamName(teamPath) : undefined) : [];
+  const bookSession = useBookSessionContext();
+  const bookPosition = bookSession?.book ? bookSession.positionOf(documentState.document) : null;
+  const chapterOf = bookSession?.book && bookPosition && !bookPosition.isBook
+    ? { title: bookSession.book.title, onOpenContents: bookSession.openContentsPage }
+    : undefined;
   const title = documentState.isDraft ? 'Unsaved draft' : documentState.title.trim() || documentState.document?.title || 'Untitled';
   const updated = documentState.document ? `Updated ${formatDate(documentState.document.updatedAtMillis)}` : undefined;
   // Routine controls step back until the header is hovered or focused; pending work keeps them in view.
@@ -816,7 +844,7 @@ function DocumentHeader({
       actionsLabel="Document actions"
       // One line: where the note lives, ending in its title, which stays in view as the note scrolls.
       // Rename Note changes the title.
-      title={<DocumentBreadcrumb path={path} title={title} updated={updated} onRevealFolder={actions.onRevealFolder} />}
+      title={<DocumentBreadcrumb path={path} title={title} updated={updated} onRevealFolder={actions.onRevealFolder} book={chapterOf} />}
       actions={(
         <>
           <SyncStateBadge state={effectiveSyncState} />

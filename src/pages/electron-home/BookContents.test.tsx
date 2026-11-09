@@ -37,6 +37,20 @@ describe('BookContents', () => {
     expect(screen.getByRole('navigation', { name: 'Book contents' })).toBeInTheDocument();
   });
 
+  it('offers to edit the table of contents from a chapter, not from the contents page itself', () => {
+    const openContentsPage = vi.fn();
+    const session = {
+      book: { title: 'Guide', contents: parseBook('- [Intro](intro.md)\n') },
+      open: vi.fn(), close: vi.fn(), contentsHidden: false, toggleContents: vi.fn(), openChapter: vi.fn(),
+      openContentsPage, positionOf: () => null, positionOfNote: () => null,
+    };
+    const { rerender } = render(<BookContents session={session} position={{ isBook: false, chapterIndex: 0 }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit table of contents' }));
+    expect(openContentsPage).toHaveBeenCalledOnce();
+    rerender(<BookContents session={session} position={{ isBook: true, chapterIndex: null }} />);
+    expect(screen.queryByRole('button', { name: 'Edit table of contents' })).not.toBeInTheDocument();
+  });
+
   it('opens a chapter from the contents', () => {
     const openChapter = vi.fn();
     render(<Harness openChapter={openChapter} />);

@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, ExternalLink, List, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, FilePen, List, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import { useRef, type KeyboardEvent, type ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -89,6 +89,11 @@ export function BookContents({ session, position }: { session: OpenBookSession; 
         actionsLabel="Book actions"
         actions={(
           <>
+            {position.isBook ? null : (
+              <ToolbarIconButton label="Edit table of contents" onClick={session.openContentsPage}>
+                <FilePen aria-hidden="true" className="h-4 w-4" />
+              </ToolbarIconButton>
+            )}
             <ToolbarIconButton label="Hide book contents" actionId="toggle-book-contents" onClick={session.toggleContents}>
               <PanelLeftClose aria-hidden="true" className="h-4 w-4" />
             </ToolbarIconButton>
