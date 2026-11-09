@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file. See [standa
 
 ### Beta notes
 
+* Electron is updated to 44.10.2, including protection against compromised TLS intermediate certificates.
 * Beta installers remain unsigned. Automatic updates remain disabled. Download beta.12 manually and close the previous version before opening it.
 * Folders start collapsed. Earlier folder expansion preferences are not carried over. Empty New Tab pages are not restored after restart; note tabs and recoverable drafts are retained.
 * Chinese IME behavior in Helix and Kakoune still needs manual verification. Kakoune remains experimental.
