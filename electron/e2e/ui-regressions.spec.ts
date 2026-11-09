@@ -832,6 +832,43 @@ test('tree guides connect mixed children and end at the last folder row', async 
   }
 });
 
+test('rows share one hover card and one context menu, and the workspace row keeps its own', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await switchWorkspace(page, 'Local Vault');
+    const card = page.locator('[data-row-card]');
+    // A note row's card follows the pointer from row to row.
+    await page.getByRole('treeitem', { name: 'Alpha', exact: true }).hover();
+    await expect(card).toContainText('Alpha');
+    await page.getByRole('treeitem', { name: 'Beta', exact: true }).hover();
+    await expect(card).toContainText('Beta');
+    await expect(card).not.toContainText('Alpha');
+
+    // Each row's menu is its own, and Escape returns to the row it opened from.
+    const alpha = page.getByRole('treeitem', { name: 'Alpha', exact: true });
+    await alpha.click({ button: 'right' });
+    await expect(card).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: 'Duplicate Note' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect(alpha).toBeFocused();
+
+    await page.getByRole('treeitem', { name: 'Projects', exact: true }).click({ button: 'right' });
+    await expect(page.getByRole('menuitem', { name: 'New Note Inside' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Duplicate Note' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+
+    // The workspace row's menu is its own, not a row menu on top of it.
+    await page.getByRole('treeitem', { name: 'Local Vault', exact: true }).click({ button: 'right' });
+    await expect(page.getByRole('menuitem', { name: 'New Folder' })).toBeVisible();
+    await expect(page.getByRole('menu')).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test('dropping a folder or a note on the workspace row moves it to the top level', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {

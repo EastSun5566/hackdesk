@@ -16,7 +16,7 @@ import {
   Upload,
   Users,
 } from 'lucide-react';
-import { memo, useLayoutEffect, useRef, useState, type KeyboardEventHandler, type PointerEventHandler, type ReactNode } from 'react';
+import { memo, useCallback, useLayoutEffect, useRef, useState, type KeyboardEventHandler, type PointerEventHandler, type ReactNode } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -32,16 +32,17 @@ import type { NoteSummary } from '@/lib/electron-api';
 import { buildNoteDragId, getNoteCurrentFolderId } from '@/lib/hackmd-note-dnd';
 import type { FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
-import { Tooltip, TooltipContent, TooltipRoot, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 import { ActionMenuShortcut, useActionShortcut } from './ActionShortcutContext';
 import { EntityRow } from './interaction-primitives';
-import { NOTE_CARD_CLASS, NoteSummaryCard } from './NoteSummaryCard';
+import { NoteSummaryCard } from './NoteSummaryCard';
 import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS, formatCompactDate, formatDate } from './ui';
 import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
+import { useRowOverlays } from './row-overlays';
 import { NoteMatchSnippet } from './NoteMatchSnippet';
 
 import { WORKSPACE_ROOT_FOCUS_ID } from './folder-tree-focus';
@@ -300,77 +301,9 @@ function NoteRowView({
   const dragControlId = useFolderTreeControlId(rowId, 'drag');
   const canShowInFolder = showInFolderAction && entry.folderPath.length > 0;
 
-  return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div
-          id={highlightId}
-          onPointerEnter={draggable && !dragArmed ? () => setDragArmed(true) : undefined}
-          onFocus={draggable && !dragArmed ? () => setDragArmed(true) : undefined}
-          // Pressing anywhere on the row can drag it; it starts after 4px of movement, so clicks stay clicks.
-          onPointerDown={draggable ? (event) => {
-            if (rowDrag.current.start) {
-              rowDrag.current.start(event);
-            } else if (!dragArmed) {
-              rowDrag.current.pending = event;
-              setDragArmed(true);
-            }
-          } : undefined}
-          data-folder-tree-row-id={rowId}
-          data-folder-tree-kind="note"
-          data-folder-tree-note-id={entry.note.id}
-          data-note-id={entry.note.id}
-          className={cn('min-w-0 [&[data-hackdesk-dragging]]:opacity-40', active && 'opacity-40')}
-        >
-          {/* Hovering a row for a moment shows a card with the full title and what the one-line row
-              leaves out: folder, tags and the edited date. */}
-          <TooltipRoot>
-            <TooltipTrigger delay={300} render={<div className="min-w-0" />}>
-              <EntityRow
-                selected={selected}
-                icon={draggable ? undefined : <FileText className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />}
-                leadingControls={draggable ? (
-                  <NoteDragHandle
-                    armed={dragArmed}
-                    noteId={entry.note.id}
-                    rowDrag={rowDrag}
-                    title={entry.note.title || 'Untitled'}
-                    controlId={dragControlId}
-                    tabIndex={treeItemProps?.tabIndex}
-                    disabledDrag={disabledDrag}
-                    compact={compact}
-                    onSelect={() => onSelect(entry.note)}
-                  />
-                ) : null}
-                title={entry.note.title || 'Untitled'}
-                // In the tree a note is one line: its title, with the edited date as quiet trailing meta.
-                // Search results add a second line for where the note lives or where the text matched.
-                subtitle={snippet ? <NoteMatchSnippet snippet={snippet} /> : compact ? undefined : metadata || entry.note.shortId}
-                    trailing={(
-                  <time title={formatDate(entry.note.updatedAtMillis)} dateTime={entry.note.updatedAtMillis ? new Date(entry.note.updatedAtMillis).toISOString() : undefined}>
-                    {formatCompactDate(entry.note.updatedAtMillis)}
-                  </time>
-                )}
-                trailingClassName="note-row-date max-w-20 truncate text-right"
-                variant={compact ? 'compact' : 'default'}
-                active={active}
-                contentOnClick={() => onSelect(entry.note)}
-                contentAriaLabel={entry.note.title || 'Untitled'}
-                contentAriaCurrent={treeItemProps ? undefined : selected ? 'page' : undefined}
-                contentFocusTarget={focusTarget}
-                contentButtonProps={treeItemProps}
-                // The tree steps back from the editor: subtle text, full strength on hover and selection.
-                tone="quiet"
-                className={cn(TREE_ROW_FOCUS_CLASS, highlightId && SEARCH_HIGHLIGHT_CLASS)}
-              />
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={10} className={NOTE_CARD_CLASS}>
-              <NoteSummaryCard entry={entry} />
-            </TooltipContent>
-          </TooltipRoot>
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent>
+  const overlayRef = useRowOverlays(
+    () => (
+      <>
         {isLocalNote ? null : (
           <>
             <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onOpen(entry.note))}>
@@ -424,8 +357,74 @@ function NoteRowView({
           <Trash2 aria-hidden="true" className="h-4 w-4" />
           {isLocalNote ? 'Move to Trash' : 'Delete'}
         </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+      </>
+    ),
+    () => <NoteSummaryCard entry={entry} />,
+  );
+
+  return (
+    <div
+      ref={overlayRef}
+      id={highlightId}
+      onPointerEnter={draggable && !dragArmed ? () => setDragArmed(true) : undefined}
+      onFocus={draggable && !dragArmed ? () => setDragArmed(true) : undefined}
+      // Pressing anywhere on the row can drag it; it starts after 4px of movement, so clicks stay clicks.
+      onPointerDown={draggable ? (event) => {
+        if (rowDrag.current.start) {
+          rowDrag.current.start(event);
+        } else if (!dragArmed) {
+          rowDrag.current.pending = event;
+          setDragArmed(true);
+        }
+      } : undefined}
+      data-folder-tree-row-id={rowId}
+      data-folder-tree-kind="note"
+      data-folder-tree-note-id={entry.note.id}
+      data-note-id={entry.note.id}
+      className={cn('min-w-0 [&[data-hackdesk-dragging]]:opacity-40', active && 'opacity-40')}
+    >
+      {/* Hovering a row for a moment shows a card with the full title and what the one-line row
+          leaves out: folder, tags and the edited date (see the RowOverlayHost). */}
+      <div className="min-w-0">
+        <EntityRow
+          selected={selected}
+          icon={draggable ? undefined : <FileText className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />}
+          leadingControls={draggable ? (
+            <NoteDragHandle
+              armed={dragArmed}
+              noteId={entry.note.id}
+              rowDrag={rowDrag}
+              title={entry.note.title || 'Untitled'}
+              controlId={dragControlId}
+              tabIndex={treeItemProps?.tabIndex}
+              disabledDrag={disabledDrag}
+              compact={compact}
+              onSelect={() => onSelect(entry.note)}
+            />
+          ) : null}
+          title={entry.note.title || 'Untitled'}
+          // In the tree a note is one line: its title, with the edited date as quiet trailing meta.
+          // Search results add a second line for where the note lives or where the text matched.
+          subtitle={snippet ? <NoteMatchSnippet snippet={snippet} /> : compact ? undefined : metadata || entry.note.shortId}
+          trailing={(
+            <time title={formatDate(entry.note.updatedAtMillis)} dateTime={entry.note.updatedAtMillis ? new Date(entry.note.updatedAtMillis).toISOString() : undefined}>
+              {formatCompactDate(entry.note.updatedAtMillis)}
+            </time>
+          )}
+          trailingClassName="note-row-date max-w-20 truncate text-right"
+          variant={compact ? 'compact' : 'default'}
+          active={active}
+          contentOnClick={() => onSelect(entry.note)}
+          contentAriaLabel={entry.note.title || 'Untitled'}
+          contentAriaCurrent={treeItemProps ? undefined : selected ? 'page' : undefined}
+          contentFocusTarget={focusTarget}
+          contentButtonProps={treeItemProps}
+          // The tree steps back from the editor: subtle text, full strength on hover and selection.
+          tone="quiet"
+          className={cn(TREE_ROW_FOCUS_CLASS, highlightId && SEARCH_HIGHLIGHT_CLASS)}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -480,115 +479,119 @@ function FolderButtonView({
   const dragControlId = useFolderTreeControlId(rowId, 'drag');
   const toggleControlId = useFolderTreeControlId(rowId, 'toggle');
 
+  const overlayRef = useRowOverlays(() => (
+    <>
+      <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onCreateNoteInside(node.id))}>
+        <FileText aria-hidden="true" className="h-4 w-4" />
+        New Note Inside
+      </ContextMenuItem>
+      <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onCreateFolderInside(node.id))}>
+        <FolderPlus aria-hidden="true" className="h-4 w-4" />
+        New Folder Inside
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onRenameFolder(node.id))}>
+        <FolderPen aria-hidden="true" className="h-4 w-4" />
+        Edit Folder
+      </ContextMenuItem>
+      {isLocalFolder && onRevealInFinder ? (
+        <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onRevealInFinder(node.id))}>
+          <FolderOpen aria-hidden="true" className="h-4 w-4" />
+          Reveal in Finder
+        </ContextMenuItem>
+      ) : null}
+      <ContextMenuItem destructive onSelect={() => runAfterMenuClose(rowId, () => onDeleteFolder(node.id))}>
+        <Trash2 aria-hidden="true" className="h-4 w-4" />
+        {isLocalFolder ? 'Move to Trash' : 'Delete'}
+      </ContextMenuItem>
+    </>
+  ));
+  // The row is both the drag-and-drop node and where its menu opens.
+  const rowRef = useCallback((element: HTMLDivElement | null) => {
+    setNodeRef(element);
+    overlayRef(element);
+  }, [setNodeRef, overlayRef]);
+
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div
-          ref={setNodeRef}
-          style={style}
-          data-folder-tree-row-id={rowId}
-          data-folder-tree-kind="folder"
-          data-folder-tree-folder-id={node.id}
-          data-folder-id={node.id}
-          data-hackdesk-dragging={isDragging || undefined}
-          // Pressing anywhere on the row can drag it; it starts after 4px of movement, so clicks stay clicks.
-          onPointerDown={disabledDrag ? undefined : pointerDragListener(listeners)}
-          className={cn('min-w-0', FOLDER_DROP_MARK_CLASS, (isDragging || active) && 'opacity-40')}
-        >
-          <EntityRow
-            selected={selected}
-            active={noteDropTarget && isOver}
-            variant="compact"
-            // The icon slot lines up with note icons at the same level. Hovering or focusing the row
-            // turns the folder icon into the expand arrow in that same spot (as on HackMD web). The
-            // row itself drags; the drag button just left of the icon is for the keyboard, and shows
-            // only while it has keyboard focus.
-            leadingControls={(
-              <span className="relative flex items-center">
-                <button
-                  type="button"
-                  onClick={() => onToggle(node.id)}
-                  id={toggleControlId}
-                  disabled={!hasChildren}
-                  className={cn(
-                    '-mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-icon-subtle group-hover/entity-row:text-icon-default hover:text-text-default disabled:pointer-events-none',
-                    FOCUS_RING_INSET_CLASS,
-                  )}
-                  aria-label={hasChildren ? (collapsed ? `Expand ${node.name}` : `Collapse ${node.name}`) : `${node.name}, empty`}
-                  aria-expanded={hasChildren ? !collapsed : undefined}
-                  tabIndex={treeItemProps?.tabIndex}
-                >
-                  <span className={cn(hasChildren && 'group-hover/entity-row:hidden group-focus-within/entity-row:hidden')}>
-                    <FolderGlyph icon={node.icon} color={node.color} open={!collapsed} />
-                  </span>
-                  {hasChildren ? (
-                    <ChevronRight
-                      aria-hidden="true"
-                      className={cn('hidden size-3.5 group-hover/entity-row:block group-focus-within/entity-row:block', COLLAPSE_ICON_CLASS, !collapsed && 'rotate-90')}
-                    />
-                  ) : null}
-                </button>
-                <button
-                  type="button"
-                  className={cn(
-                    'absolute -left-3.5 top-1/2 flex h-6 w-3 -translate-y-1/2 items-center justify-center rounded-sm text-icon-subtle opacity-0 transition-opacity focus-visible:opacity-100 motion-reduce:transition-none',
-                    disabledDrag && 'pointer-events-none',
-                    FOCUS_RING_INSET_CLASS,
-                  )}
-                  aria-label={`Drag ${node.name}`}
-                  id={dragControlId}
-                  data-folder-tree-ignore-keyboard="true"
-                  {...attributes}
-                  onKeyDown={disabledDrag ? undefined : keyboardDragListener(listeners)}
-                  tabIndex={treeItemProps?.tabIndex}
-                  aria-disabled={disabledDrag || attributes['aria-disabled']}
-                >
-                  <GripVertical aria-hidden="true" className="size-3.5" />
-                </button>
+    <div
+      ref={rowRef}
+      style={style}
+      data-folder-tree-row-id={rowId}
+      data-folder-tree-kind="folder"
+      data-folder-tree-folder-id={node.id}
+      data-folder-id={node.id}
+      data-hackdesk-dragging={isDragging || undefined}
+      // Pressing anywhere on the row can drag it; it starts after 4px of movement, so clicks stay clicks.
+      onPointerDown={disabledDrag ? undefined : pointerDragListener(listeners)}
+      className={cn('min-w-0', FOLDER_DROP_MARK_CLASS, (isDragging || active) && 'opacity-40')}
+    >
+      <EntityRow
+        selected={selected}
+        active={noteDropTarget && isOver}
+        variant="compact"
+        // The icon slot lines up with note icons at the same level. Hovering or focusing the row
+        // turns the folder icon into the expand arrow in that same spot (as on HackMD web). The
+        // row itself drags; the drag button just left of the icon is for the keyboard, and shows
+        // only while it has keyboard focus.
+        leadingControls={(
+          <span className="relative flex items-center">
+            <button
+              type="button"
+              onClick={() => onToggle(node.id)}
+              id={toggleControlId}
+              disabled={!hasChildren}
+              className={cn(
+                '-mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-icon-subtle group-hover/entity-row:text-icon-default hover:text-text-default disabled:pointer-events-none',
+                FOCUS_RING_INSET_CLASS,
+              )}
+              aria-label={hasChildren ? (collapsed ? `Expand ${node.name}` : `Collapse ${node.name}`) : `${node.name}, empty`}
+              aria-expanded={hasChildren ? !collapsed : undefined}
+              tabIndex={treeItemProps?.tabIndex}
+            >
+              <span className={cn(hasChildren && 'group-hover/entity-row:hidden group-focus-within/entity-row:hidden')}>
+                <FolderGlyph icon={node.icon} color={node.color} open={!collapsed} />
               </span>
-            )}
-            title={node.name}
-            // Clicking the row selects the folder and toggles it, like the arrow: selecting opens a
-            // closed folder, and a second click closes it again.
-            contentOnClick={() => {
-              onSelect(node.id);
-              if (hasChildren && !collapsed) onToggle(node.id);
-            }}
-            contentAriaLabel={node.name}
-            contentAriaCurrent={treeItemProps ? undefined : selected ? 'page' : undefined}
-            contentFocusTarget={focusTarget}
-            contentButtonProps={treeItemProps}
-            tone="quiet"
-            className={TREE_ROW_FOCUS_CLASS}
-          />
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent>
-        <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onCreateNoteInside(node.id))}>
-          <FileText aria-hidden="true" className="h-4 w-4" />
-          New Note Inside
-        </ContextMenuItem>
-        <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onCreateFolderInside(node.id))}>
-          <FolderPlus aria-hidden="true" className="h-4 w-4" />
-          New Folder Inside
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onRenameFolder(node.id))}>
-          <FolderPen aria-hidden="true" className="h-4 w-4" />
-          Edit Folder
-        </ContextMenuItem>
-        {isLocalFolder && onRevealInFinder ? (
-          <ContextMenuItem onSelect={() => runAfterMenuClose(rowId, () => onRevealInFinder(node.id))}>
-            <FolderOpen aria-hidden="true" className="h-4 w-4" />
-            Reveal in Finder
-          </ContextMenuItem>
-        ) : null}
-        <ContextMenuItem destructive onSelect={() => runAfterMenuClose(rowId, () => onDeleteFolder(node.id))}>
-          <Trash2 aria-hidden="true" className="h-4 w-4" />
-          {isLocalFolder ? 'Move to Trash' : 'Delete'}
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+              {hasChildren ? (
+                <ChevronRight
+                  aria-hidden="true"
+                  className={cn('hidden size-3.5 group-hover/entity-row:block group-focus-within/entity-row:block', COLLAPSE_ICON_CLASS, !collapsed && 'rotate-90')}
+                />
+              ) : null}
+            </button>
+            <button
+              type="button"
+              className={cn(
+                'absolute -left-3.5 top-1/2 flex h-6 w-3 -translate-y-1/2 items-center justify-center rounded-sm text-icon-subtle opacity-0 transition-opacity focus-visible:opacity-100 motion-reduce:transition-none',
+                disabledDrag && 'pointer-events-none',
+                FOCUS_RING_INSET_CLASS,
+              )}
+              aria-label={`Drag ${node.name}`}
+              id={dragControlId}
+              data-folder-tree-ignore-keyboard="true"
+              {...attributes}
+              onKeyDown={disabledDrag ? undefined : keyboardDragListener(listeners)}
+              tabIndex={treeItemProps?.tabIndex}
+              aria-disabled={disabledDrag || attributes['aria-disabled']}
+            >
+              <GripVertical aria-hidden="true" className="size-3.5" />
+            </button>
+          </span>
+        )}
+        title={node.name}
+        // Clicking the row selects the folder and toggles it, like the arrow: selecting opens a
+        // closed folder, and a second click closes it again.
+        contentOnClick={() => {
+          onSelect(node.id);
+          if (hasChildren && !collapsed) onToggle(node.id);
+        }}
+        contentAriaLabel={node.name}
+        contentAriaCurrent={treeItemProps ? undefined : selected ? 'page' : undefined}
+        contentFocusTarget={focusTarget}
+        contentButtonProps={treeItemProps}
+        tone="quiet"
+        className={TREE_ROW_FOCUS_CLASS}
+      />
+    </div>
   );
 }
 

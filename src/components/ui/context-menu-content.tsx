@@ -12,10 +12,12 @@ const ContextMenuContent = React.forwardRef<
     align?: React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Positioner>['align'];
     side?: React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Positioner>['side'];
     sideOffset?: React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Positioner>['sideOffset'];
+    /** Where the menu opens, for a menu opened without a trigger (a list's shared row menu). */
+    anchor?: React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Positioner>['anchor'];
   }
->(({ className, align = 'start', side = 'right', sideOffset = 4, ...props }, ref) => (
+>(({ className, align = 'start', side = 'right', sideOffset = 4, anchor, ...props }, ref) => (
   <ContextMenuPortal>
-    <ContextMenuPrimitive.Positioner side={side} align={align} sideOffset={sideOffset} className={FLOATING_LAYER_CLASS}>
+    <ContextMenuPrimitive.Positioner side={side} align={align} sideOffset={sideOffset} anchor={anchor} className={FLOATING_LAYER_CLASS}>
       <ContextMenuPrimitive.Popup
         ref={ref}
         className={cn(
