@@ -27,9 +27,7 @@ export default defineConfig({
   // CI stays serial on its small runners; visible local runs too, since windows fight for focus.
   fullyParallel: runInBackground,
   workers: runInBackground ? 4 : 1,
-  // Under parallel load a few timing-sensitive UI tests occasionally miss; one retry keeps a
-  // local run green while the report still lists them as flaky.
-  retries: runInBackground ? 1 : 0,
+  retries: 0,
   // Refuse committed `.only` calls in CI so a forgotten focus on a single
   // test cannot ship under the guise of a full suite. Local runs still
   // allow it (so a developer can debug one test without ceremony).

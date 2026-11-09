@@ -30,7 +30,8 @@ test('a question is answered from the vault notes it matches, citing them', asyn
       defaultProvider: 'claude',
     },
   }));
-  const env = { ...definedEnvironment(process.env) };
+  // CLI discovery reads a login shell; keep it out of the developer's shell configuration.
+  const env: Record<string, string> = { ...definedEnvironment(process.env), HOME: home, USERPROFILE: home, ZDOTDIR: home };
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.HACKDESK_ELECTRON_DEV_SERVER_URL;
   const app = await electron.launch({ args: [repoRoot, `--user-data-dir=${join(home, 'user-data')}`, `--hackdesk-home=${home}`], cwd: repoRoot, env });
