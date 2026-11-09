@@ -60,7 +60,7 @@ import { LocalNoteInspector, NoteInspector } from './NoteInspector';
 import { useAiInline } from './useAiInline';
 import { useDictation } from './useDictation';
 import { useNoteLinkOpener, type OpenNoteTarget } from './useNoteLinkOpener';
-import { BookContents, ChapterNav } from './BookContents';
+import { BookPane, ChapterNav } from './BookContents';
 import { useBookSessionContext } from './useBookSession';
 import { useNoteLinks } from './useNoteLinks';
 import { NoteVersionsDialog } from './NoteVersionsDialog';
@@ -324,32 +324,30 @@ export function DocumentDetail({
 }: DocumentDetailProps) {
   const focusZone = layout.focusZone === undefined ? 'editor' : layout.focusZone ?? undefined;
 
-  if (status.loading) {
-    return (
-      <LoadingDocumentDetail
-        focusZone={focusZone}
-        selectedNote={documentState.selectedNote}
-        summary={documentState.selectedNote?.id ? folderTree.allNotes.find((entry) => entry.note.id === documentState.selectedNote?.id)?.note : undefined}
-        onRevealFolder={actions.onRevealFolder}
-      />
-    );
-  }
-
-  if (!documentState.document && !documentState.isDraft) {
-    return <EmptyDocumentDetail />;
-  }
-
   return (
-    <ActiveDocumentDetail
-      actions={actions}
-      documentState={documentState}
-      editorKey={editorKey}
-      editorMode={editorMode}
-      focusZone={focusZone}
-      folderTree={folderTree}
-      layout={layout}
-      status={status}
-    />
+    <BookPane document={documentState.document} loading={status.loading}>
+      {status.loading ? (
+        <LoadingDocumentDetail
+          focusZone={focusZone}
+          selectedNote={documentState.selectedNote}
+          summary={documentState.selectedNote?.id ? folderTree.allNotes.find((entry) => entry.note.id === documentState.selectedNote?.id)?.note : undefined}
+          onRevealFolder={actions.onRevealFolder}
+        />
+      ) : !documentState.document && !documentState.isDraft ? (
+        <EmptyDocumentDetail />
+      ) : (
+        <ActiveDocumentDetail
+          actions={actions}
+          documentState={documentState}
+          editorKey={editorKey}
+          editorMode={editorMode}
+          focusZone={focusZone}
+          folderTree={folderTree}
+          layout={layout}
+          status={status}
+        />
+      )}
+    </BookPane>
   );
 }
 
@@ -609,7 +607,6 @@ function ActiveDocumentDetail({
       {/* Clip, not hide: Note Details slides in from past the right edge and takes focus at once, and a
           hidden overflow would scroll sideways to show it, shifting the whole note. */}
       <div className="relative flex min-h-0 flex-1 overflow-clip">
-        {openBook ? <BookContents {...openBook} /> : null}
         <DocumentBody
           key={editorKey}
           localImageContext={getLocalImageContext(documentState.document)}

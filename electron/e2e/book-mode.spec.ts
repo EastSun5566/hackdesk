@@ -85,12 +85,32 @@ test('any Local Vault note opens as a book', async () => {
     await page.getByRole('button', { name: 'More actions' }).click();
     await page.getByRole('menuitem', { name: /Open as Book/ }).click();
 
+    // Reading with the sidebar hidden: chapters open in place and leave it hidden.
+    await page.getByRole('button', { name: 'Collapse sidebar' }).click();
+    const expandSidebar = page.getByRole('button', { name: 'Expand sidebar' });
+    await expect(expandSidebar).toBeVisible();
+    // The contents stay through every chapter switch, even for a frame while the chapter loads.
+    await page.evaluate(() => {
+      const state = window as unknown as { bookContentsGone?: boolean };
+      state.bookContentsGone = false;
+      new MutationObserver(() => {
+        if (!document.querySelector('nav[aria-label="Book contents"]')) state.bookContentsGone = true;
+      }).observe(document.body, { childList: true, subtree: true });
+    });
     await contents(page).getByRole('button', { name: 'Alpha' }).click();
     await expect(editor(page)).toContainText('Alpha body text.');
     await page.getByRole('button', { name: 'Next chapter: Beta' }).click();
     await expect(editor(page)).toContainText('Beta body text.');
     await page.getByRole('button', { name: 'Previous chapter: Alpha' }).click();
     await expect(editor(page)).toContainText('Alpha body text.');
+    await expect(expandSidebar).toBeVisible();
+    expect(await page.evaluate(() => (window as unknown as { bookContentsGone?: boolean }).bookContentsGone)).toBe(false);
+
+    // The contents hide and show again.
+    await contents(page).getByRole('button', { name: 'Hide book contents' }).click();
+    await expect(contents(page)).toHaveCount(0);
+    await page.getByRole('button', { name: 'Show book contents' }).click();
+    await expect(contents(page).getByRole('button', { name: 'Beta' })).toBeVisible();
   } finally {
     await app.close();
   }

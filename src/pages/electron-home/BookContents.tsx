@@ -1,12 +1,15 @@
 import { ChevronLeft, ChevronRight, ExternalLink, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
-import type { KeyboardEvent } from 'react';
+import { useRef, type KeyboardEvent, type ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { Toolbar } from '@/components/ui/toolbar';
 import type { BookNode } from '@/lib/book';
 import { cn } from '@/lib/utils';
 
 import { PanelHeader, ToolbarIconButton } from './interaction-primitives';
-import type { BookPosition, BookSession } from './useBookSession';
+import type { DocumentSummary } from '@/lib/electron-api';
+
+import { useBookSessionContext, type BookPosition, type BookSession } from './useBookSession';
 
 type OpenBookSession = BookSession & { book: NonNullable<BookSession['book']> };
 
@@ -67,11 +70,12 @@ function BookTree({ nodes, session, current }: { nodes: BookNode[]; session: Ope
 export function BookContents({ session, position }: { session: OpenBookSession; position: BookPosition }) {
   if (session.contentsHidden) {
     return (
-      <div className="shrink-0 border-r border-border-default bg-background-muted p-1.5">
+      // A toolbar, like the header's buttons it replaces: its button is a toolbar part.
+      <Toolbar aria-label="Book actions" orientation="vertical" className="shrink-0 flex-col border-r border-border-default bg-background-muted p-1.5">
         <ToolbarIconButton label="Show book contents" actionId="toggle-book-contents" onClick={session.toggleContents}>
           <PanelLeftOpen aria-hidden="true" className="h-4 w-4" />
         </ToolbarIconButton>
-      </div>
+      </Toolbar>
     );
   }
 
@@ -102,6 +106,29 @@ export function BookContents({ session, position }: { session: OpenBookSession; 
         )}
       </div>
     </nav>
+  );
+}
+
+/**
+ * A document pane with the open book's contents beside it, when the pane shows the book or one of
+ * its chapters. The contents belong to the reading session, not to one note: they sit beside the
+ * whole note, header included, and stay put while the next chapter loads (a loading note can't
+ * yet say which chapter it is, so the contents last shown stay).
+ */
+export function BookPane({ document, loading, children }: { document: DocumentSummary | undefined; loading: boolean; children: ReactNode }) {
+  const session = useBookSessionContext();
+  const position = session?.book ? session.positionOf(document) : null;
+  const shownWhileLoaded = useRef<BookPosition | null>(null);
+  if (!loading) shownWhileLoaded.current = position;
+  const shown = loading ? shownWhileLoaded.current : position;
+  const book = session?.book;
+
+  return (
+    // Always this row, the note in the same place, so opening or closing a book never remounts the editor.
+    <div className="flex min-h-0 min-w-0 flex-1">
+      {book && shown ? <BookContents session={{ ...session, book }} position={shown} /> : null}
+      {children}
+    </div>
   );
 }
 

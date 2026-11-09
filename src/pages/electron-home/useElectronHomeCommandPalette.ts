@@ -5,6 +5,7 @@ import { recentNoteMatches, type ElectronRecentNote } from '@/lib/electron-recen
 import type { FolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
 
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
+import type { RevealNoteOptions } from './useWorkbenchNavigator';
 import type { CommandPaletteState, WorkspaceScope } from './types';
 import { usePendingRecentNoteRestore } from './usePendingRecentNoteRestore';
 import { useWorkbenchQuickOpen } from './useWorkbenchQuickOpen';
@@ -22,7 +23,7 @@ export type ElectronHomeCommandPaletteOptions = {
   removeRecentNoteEntry: (noteId: string, teamPath: string | null) => void;
   requestSelectNote: (note: NoteSummary, options?: { focusEditor?: boolean; trackRecent?: boolean }) => Promise<boolean>;
   revealFolderIds: (folderIds: string[]) => void;
-  revealNoteEntry: (entry: FolderTreeNote) => Promise<boolean>;
+  revealNoteEntry: (entry: FolderTreeNote, options?: RevealNoteOptions) => Promise<boolean>;
   scope: WorkspaceScope;
   selectedFolderId: string | null;
   selectedNoteId: string | null;
@@ -109,10 +110,11 @@ export function useElectronHomeCommandPalette({
   /**
    * Opens the note a link points to. A linked HackMD note may be in no workspace list, such as
    * someone else's note, so one that is not loaded opens directly; HackDesk reads it by ID.
+   * Following a link (or a book's chapter) keeps the sidebar as it is: a hidden one stays hidden.
    */
   const openNoteTarget = useCallback((entry: ElectronRecentNote) => {
     if (entry.teamPath === LOCAL_VAULT_TEAM_PATH || tree.allNotes.some(candidate => recentNoteMatches(candidate.note, entry))) {
-      handleQuickOpenRecentNote(entry);
+      handleQuickOpenRecentNote(entry, { expandNavigator: false });
       return;
     }
     void requestSelectNote(linkedNoteSummary(entry), { focusEditor: true, trackRecent: true });
