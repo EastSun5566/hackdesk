@@ -16,7 +16,7 @@ import {
   Upload,
   Users,
 } from 'lucide-react';
-import { memo, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { memo, useLayoutEffect, useRef, useState, type KeyboardEventHandler, type PointerEventHandler, type ReactNode } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -52,13 +52,15 @@ import type { WorkspaceScope } from './types';
 const SEARCH_HIGHLIGHT_CLASS = '[.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-2 [.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-inset [.note-navigator:has(input[name=noteSearch]:focus)_&]:ring-focus-ring/80';
 const TREE_ROW_FOCUS_CLASS = 'focus-within:bg-background-primary-subtler focus-within:text-text-emphasize focus-within:ring-2 focus-within:ring-inset focus-within:ring-focus-ring/80';
 /**
- * Folder and note rows keep a 16px gutter before their icon, where the drag grip shows on hover.
- * Children indent so each guide runs down the parent icon's centre, along the row's left edge:
- * 16px under the workspace root (its icon sits 8px in), 24px under a folder (its icon sits 16px in).
+ * Children indent 20px; each guide runs 6px before the row, under the parent icon's centre. An
+ * indented item reaches back over its indent and down over the 2px gap below it, so its guide
+ * shows and meets the next one: lazy rows (content-visibility) paint only inside their own box.
  */
-const DRAGGABLE_ROW_CLASS = cn(TREE_ROW_FOCUS_CLASS, 'pl-4');
-export const ROOT_CHILDREN_INDENT_CLASS = 'pl-4';
-export const TREE_GUIDE_CLASS = 'pointer-events-none absolute -left-px -top-0.5 bottom-0 w-px bg-border-subtle';
+export const TREE_CHILDREN_INDENT_CLASS = 'pl-5';
+export function treeItemClassName(indented: boolean, lazy = false) {
+  return cn('relative min-w-0', indented && '-mb-0.5 -ml-5 pb-0.5 pl-5', lazy && 'tree-row-lazy');
+}
+export const TREE_GUIDE_CLASS = 'pointer-events-none absolute inset-y-0 left-3.5 w-px bg-border-subtle';
 
 
 /**
@@ -76,14 +78,29 @@ function areNoteRowPropsEqual(previous: Record<string, unknown>, next: Record<st
   return true;
 }
 
+type DragListeners = ReturnType<typeof useDraggable>['listeners'];
+
+/** dnd-kit types its listeners as bare functions; the row takes the pointer one, the handle the key one. */
+function pointerDragListener(listeners: DragListeners) {
+  return listeners?.onPointerDown as PointerEventHandler | undefined;
+}
+
+function keyboardDragListener(listeners: DragListeners) {
+  return listeners?.onKeyDown as KeyboardEventHandler<HTMLButtonElement> | undefined;
+}
+
 /**
  * The note's drag handle owns its drag hook. Drag-and-drop state is a context every draggable
  * reads, and it changes whenever the tree's drop targets do (a folder opening); keeping the hook
  * here re-renders this small button instead of the whole row. The row shows the drag through a
  * data attribute.
+ *
+ * The pointer drags the whole row: the hook hands its pointer listener to the row through
+ * `rowPointerDown`. The handle keeps the keyboard drag, so a press never starts two drags.
  */
 type NoteDragHandleProps = {
   noteId: string;
+  rowPointerDown: { current: PointerEventHandler | null };
   title: string;
   controlId?: string;
   tabIndex?: number;
@@ -100,13 +117,7 @@ const NOTE_DRAG_HANDLE_CLASS = cn(
 );
 
 function NoteDragHandleGlyphs({ compact }: { compact: boolean }) {
-  return (
-    <>
-      <FileText aria-hidden="true" className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
-      {/* The grip floats left of the icon on hover, part of this handle, without moving it. */}
-      <GripVertical aria-hidden="true" className="absolute -left-3 top-1/2 size-3.5 -translate-y-1/2 text-icon-subtle opacity-0 transition-opacity group-hover/entity-row:opacity-100 group-focus-visible/drag-handle:opacity-100 motion-reduce:transition-none" />
-    </>
-  );
+  return <FileText aria-hidden="true" className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />;
 }
 
 /**
@@ -137,6 +148,7 @@ function NoteDragHandle({ armed, ...props }: NoteDragHandleProps & { armed: bool
 
 function LiveNoteDragHandle({
   noteId,
+  rowPointerDown,
   title,
   controlId,
   tabIndex,
@@ -152,6 +164,11 @@ function LiveNoteDragHandle({
   useLayoutEffect(() => {
     buttonRef.current?.closest('[data-folder-tree-row-id]')?.toggleAttribute('data-hackdesk-dragging', isDragging);
   }, [isDragging]);
+  const onPointerDown = disabledDrag ? undefined : pointerDragListener(listeners);
+  useLayoutEffect(() => {
+    rowPointerDown.current = onPointerDown ?? null;
+    return () => { rowPointerDown.current = null; };
+  }, [rowPointerDown, onPointerDown]);
 
   return (
     <button
@@ -159,7 +176,8 @@ function LiveNoteDragHandle({
       id={controlId}
       ref={(element) => {
         buttonRef.current = element;
-        setNodeRef(element);
+        // The whole row is what moves, so the drag preview starts where the row is.
+        setNodeRef(element?.closest<HTMLElement>('[data-folder-tree-row-id]') ?? element);
       }}
       className={NOTE_DRAG_HANDLE_CLASS}
       aria-label={`Drag ${title}`}
@@ -169,7 +187,7 @@ function LiveNoteDragHandle({
         if (!disabledDrag) onSelect();
       }}
       {...attributes}
-      {...(disabledDrag ? {} : listeners)}
+      onKeyDown={disabledDrag ? undefined : keyboardDragListener(listeners)}
       tabIndex={tabIndex}
       aria-disabled={disabledDrag || attributes['aria-disabled']}
     >
@@ -254,6 +272,7 @@ function NoteRowView({
   const isLocalNote = entry.note.teamPath === LOCAL_VAULT_TEAM_PATH;
   const rowId = `note:${entry.note.id}`;
   const [dragArmed, setDragArmed] = useState(false);
+  const rowPointerDown = useRef<PointerEventHandler | null>(null);
   const treeItemProps = useFolderTreeItem(rowId, selected, undefined, draggable ? ['drag'] : []);
   const dragControlId = useFolderTreeControlId(rowId, 'drag');
   const canShowInFolder = showInFolderAction && entry.folderPath.length > 0;
@@ -265,6 +284,8 @@ function NoteRowView({
           id={highlightId}
           onPointerEnter={draggable && !dragArmed ? () => setDragArmed(true) : undefined}
           onFocus={draggable && !dragArmed ? () => setDragArmed(true) : undefined}
+          // Pressing anywhere on the row can drag it; it starts after 4px of movement, so clicks stay clicks.
+          onPointerDown={draggable ? (event) => rowPointerDown.current?.(event) : undefined}
           data-folder-tree-row-id={rowId}
           data-folder-tree-kind="note"
           data-folder-tree-note-id={entry.note.id}
@@ -282,6 +303,7 @@ function NoteRowView({
                   <NoteDragHandle
                     armed={dragArmed}
                     noteId={entry.note.id}
+                    rowPointerDown={rowPointerDown}
                     title={entry.note.title || 'Untitled'}
                     controlId={dragControlId}
                     tabIndex={treeItemProps?.tabIndex}
@@ -309,7 +331,7 @@ function NoteRowView({
                 contentButtonProps={treeItemProps}
                 // The tree steps back from the editor: subtle text, full strength on hover and selection.
                 tone="quiet"
-                className={cn(DRAGGABLE_ROW_CLASS, highlightId && SEARCH_HIGHLIGHT_CLASS)}
+                className={cn(TREE_ROW_FOCUS_CLASS, highlightId && SEARCH_HIGHLIGHT_CLASS)}
               />
             </TooltipTrigger>
             <TooltipContent side="right" sideOffset={10} className={NOTE_CARD_CLASS}>
@@ -427,7 +449,6 @@ function FolderButtonView({
   const treeItemProps = useFolderTreeItem(rowId, selected, !collapsed, hasChildren ? ['toggle', 'drag'] : ['drag']);
   const dragControlId = useFolderTreeControlId(rowId, 'drag');
   const toggleControlId = useFolderTreeControlId(rowId, 'toggle');
-  const dragListeners = disabledDrag ? {} : listeners;
 
   return (
     <ContextMenu>
@@ -440,6 +461,8 @@ function FolderButtonView({
           data-folder-tree-folder-id={node.id}
           data-folder-id={node.id}
           data-hackdesk-dragging={isDragging || undefined}
+          // Pressing anywhere on the row can drag it; it starts after 4px of movement, so clicks stay clicks.
+          onPointerDown={disabledDrag ? undefined : pointerDragListener(listeners)}
           className={cn('min-w-0', (isDragging || active) && 'opacity-40')}
         >
           <EntityRow
@@ -447,8 +470,9 @@ function FolderButtonView({
             active={noteDropTarget && isOver}
             variant="compact"
             // The icon slot lines up with note icons at the same level. Hovering or focusing the row
-            // turns the folder icon into the expand arrow in that same spot (as on HackMD web); the
-            // drag handle floats just left of it, so neither shifts the row.
+            // turns the folder icon into the expand arrow in that same spot (as on HackMD web). The
+            // row itself drags; the drag button just left of the icon is for the keyboard, and shows
+            // only while it has keyboard focus.
             leadingControls={(
               <span className="relative flex items-center">
                 <button
@@ -477,7 +501,7 @@ function FolderButtonView({
                 <button
                   type="button"
                   className={cn(
-                    'absolute -left-3.5 top-1/2 flex h-6 w-3 -translate-y-1/2 items-center justify-center rounded-sm text-icon-subtle opacity-0 transition-opacity hover:text-text-default focus-visible:opacity-100 group-hover/entity-row:opacity-100 motion-reduce:transition-none',
+                    'absolute -left-3.5 top-1/2 flex h-6 w-3 -translate-y-1/2 items-center justify-center rounded-sm text-icon-subtle opacity-0 transition-opacity focus-visible:opacity-100 motion-reduce:transition-none',
                     disabledDrag && 'pointer-events-none',
                     FOCUS_RING_INSET_CLASS,
                   )}
@@ -485,7 +509,7 @@ function FolderButtonView({
                   id={dragControlId}
                   data-folder-tree-ignore-keyboard="true"
                   {...attributes}
-                  {...dragListeners}
+                  onKeyDown={disabledDrag ? undefined : keyboardDragListener(listeners)}
                   tabIndex={treeItemProps?.tabIndex}
                   aria-disabled={disabledDrag || attributes['aria-disabled']}
                 >
@@ -505,7 +529,7 @@ function FolderButtonView({
             contentFocusTarget={focusTarget}
             contentButtonProps={treeItemProps}
             tone="quiet"
-            className={DRAGGABLE_ROW_CLASS}
+            className={TREE_ROW_FOCUS_CLASS}
           />
         </div>
       </ContextMenuTrigger>
@@ -908,7 +932,7 @@ export function FolderTreeView({
     const isActiveFolder = activeFolderId === node.id;
 
     return (
-      <li role="presentation" key={node.id} className="relative min-w-0">
+      <li role="presentation" key={node.id} className={treeItemClassName(depth > 0 || topLevelGuides)}>
         {/* Guides run the full height of each child, last one included, so a folder's line covers
             everything it contains. A half-height end would need a horizontal stroke to read. */}
         {depth > 0 || topLevelGuides ? <span aria-hidden="true" data-tree-guide={lastChild ? 'end' : 'continuation'} className={TREE_GUIDE_CLASS} /> : null}
@@ -974,7 +998,7 @@ export function FolderTreeView({
   });
 
   const noteItems = notes.map((entry, index) => (
-    <li role="presentation" key={`note:${entry.note.id}`} className="tree-row-lazy relative min-w-0">
+    <li role="presentation" key={`note:${entry.note.id}`} className={treeItemClassName(depth > 0 || topLevelGuides, true)}>
       {depth > 0 || topLevelGuides ? <span aria-hidden="true" data-tree-guide={index === notes.length - 1 ? 'end' : 'continuation'} className={TREE_GUIDE_CLASS} /> : null}
       <NoteRow
         entry={entry}
@@ -1006,7 +1030,7 @@ export function FolderTreeView({
   }
 
   return (
-    <ul role="group" id={parentFolderId ? groupId : undefined} data-tree-children="true" className="relative m-0 grid min-w-0 list-none gap-0.5 p-0 pl-6">
+    <ul role="group" id={parentFolderId ? groupId : undefined} data-tree-children="true" className={cn('relative m-0 grid min-w-0 list-none gap-0.5 p-0', TREE_CHILDREN_INDENT_CLASS)}>
       {items}
       {noteItems}
     </ul>

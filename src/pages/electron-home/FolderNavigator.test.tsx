@@ -546,20 +546,22 @@ describe('FolderNavigator', () => {
     expect(onFolderSelect).toHaveBeenCalledWith('projects');
   });
 
-  it('keeps folder and note icons in one column, with the arrow in the folder icon slot and a floating grip', () => {
+  it('keeps folder and note icons in one column, with the arrow in the folder icon slot and no hover grip', () => {
     renderFolderNavigator();
 
     // The folder's icon slot is its expand/collapse control: the glyph, turning into the arrow on hover.
     const toggle = screen.getByRole('button', { name: 'Collapse Projects' });
     expect(toggle.querySelector('[data-folder-glyph]')).toBeInTheDocument();
     expect(toggle.querySelector('.lucide-chevron-right')).toBeInTheDocument();
-    // Drag handles float beside the icon instead of replacing it.
+    // Rows drag from anywhere, so hovering shows no grip. The folder's drag button floats beside
+    // its icon for the keyboard and shows only while it has keyboard focus.
     const folderHandle = screen.getByRole('button', { name: 'Drag Projects' });
     expect(folderHandle.className).toContain('absolute');
-    expect(folderHandle.querySelector('.lucide-grip-vertical')).toBeInTheDocument();
+    expect(folderHandle.className).toContain('focus-visible:opacity-100');
+    expect(folderHandle.className).not.toContain('group-hover/entity-row:opacity-100');
     const noteHandle = screen.getByRole('button', { name: 'Drag Nested note' });
     expect(noteHandle.querySelector('.lucide-file-text')).toBeInTheDocument();
-    expect(noteHandle.querySelector('.lucide-grip-vertical')).toHaveClass('absolute');
+    expect(noteHandle.querySelector('.lucide-grip-vertical')).not.toBeInTheDocument();
   });
 
   it('shows a compact note date with the full value in its tooltip', () => {

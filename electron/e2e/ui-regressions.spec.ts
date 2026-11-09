@@ -814,6 +814,46 @@ test('tree guides connect mixed children and end at the last folder row', async 
   }
 });
 
+test('tree rows drag by their title, with no grip on hover', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await switchWorkspace(page, 'Local Vault');
+    const tree = page.locator('aside');
+    const row = (kind: 'note' | 'folder', name: string) => page.locator(`[data-folder-tree-kind="${kind}"]`).filter({ has: page.getByRole('treeitem', { name, exact: true }) });
+    const alpha = row('note', 'Alpha');
+    const projects = row('folder', 'Projects');
+    await alpha.hover();
+    await expect(alpha.locator('.lucide-grip-vertical')).toHaveCount(0);
+    await projects.hover();
+    await expect(projects.getByRole('button', { name: 'Drag Projects', exact: true })).toHaveCSS('opacity', '0');
+
+    // A folder starts dragging from its title; Escape cancels.
+    const folderBox = (await projects.getByRole('treeitem', { name: 'Projects', exact: true }).boundingBox())!;
+    await page.mouse.move(folderBox.x + folderBox.width / 2, folderBox.y + folderBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(folderBox.x + folderBox.width / 2, folderBox.y + folderBox.height / 2 + 30, { steps: 6 });
+    await expect(projects).toHaveAttribute('data-hackdesk-dragging');
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(projects).not.toHaveAttribute('data-hackdesk-dragging');
+
+    // A note dropped on a folder by its title moves into it.
+    const source = (await alpha.getByRole('treeitem', { name: 'Alpha', exact: true }).boundingBox())!;
+    const target = (await projects.getByRole('treeitem', { name: 'Projects', exact: true }).boundingBox())!;
+    await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 12 });
+    await page.mouse.up();
+    await expect.poll(() => tree.evaluate(() => {
+      const alphaRow = [...document.querySelectorAll<HTMLElement>('[data-folder-tree-kind="note"]')].find(element => element.querySelector('[role="treeitem"]')?.getAttribute('aria-label') === 'Alpha');
+      const folderItem = alphaRow?.closest('ul[role="group"]')?.closest('li');
+      return folderItem?.querySelector('[data-folder-tree-kind="folder"] [role="treeitem"]')?.getAttribute('aria-label') ?? null;
+    })).toBe('Projects');
+  } finally {
+    await stopApp(app);
+  }
+});
+
 for (const editorMode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
   test(`Note Details focus and toast layering in ${editorMode} mode`, async () => {
     const testInfo = test.info();
