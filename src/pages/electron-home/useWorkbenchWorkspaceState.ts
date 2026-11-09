@@ -2,6 +2,7 @@ import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 
 import type { WorkspaceScope } from './types';
+import { readWindowWorkspaceFromLocation } from '@/lib/window-workspace';
 import {
   FOLDER_EXPANDED_PREFIX,
   LAST_WORKSPACE_SCOPE_KEY,
@@ -33,7 +34,21 @@ export type WorkbenchWorkspaceState = {
   setWorkspaceScope: (scope: WorkspaceScope) => void;
 };
 
-export function getInitialWorkspaceScope() {
+export function hasWindowWorkspaceScope() {
+  return typeof window !== 'undefined' && readWindowWorkspaceFromLocation(window.location) !== null;
+}
+
+export function getInitialWorkspaceScope(): WorkspaceScope {
+  // A window opened onto a workspace carries it in its URL, so the first render already shows it.
+  if (typeof window !== 'undefined') {
+    const scoped = readWindowWorkspaceFromLocation(window.location);
+    if (scoped?.type === 'team' && scoped.teamPath) {
+      return { type: 'team', label: scoped.label, teamPath: scoped.teamPath };
+    }
+    if (scoped && scoped.type !== 'team') {
+      return { type: scoped.type, label: scoped.label };
+    }
+  }
   return readWorkspaceScopeStorage(LAST_WORKSPACE_SCOPE_KEY, DEFAULT_WORKSPACE_SCOPE);
 }
 

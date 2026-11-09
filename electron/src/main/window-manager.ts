@@ -4,10 +4,12 @@ import { join } from 'node:path';
 
 import type {
   HackDeskCommandPaletteCommand,
+  NewWindowInput,
   PresentationDeck,
   QuickCaptureSubmissionAck,
   QuickCaptureSubmitResult,
 } from '../../../src/lib/electron-api';
+import { appendWindowWorkspaceToUrl } from '../../../src/lib/window-workspace';
 import { getRendererEntryUrl, getRendererRouteUrl } from './paths';
 import { openExternalUrl } from './url-policy';
 import { getAppIconPath } from './app-icon';
@@ -155,8 +157,12 @@ export class WindowManager {
   }
 
   /** Opens a fresh main window next to the focused one. Every window runs the same app. */
-  newMainWindow() {
-    const window = this.createMainWindow({ showOnReady: false });
+  newMainWindow(input: NewWindowInput = {}) {
+    const entryUrl = getRendererEntryUrl();
+    const window = this.createMainWindow({
+      showOnReady: false,
+      initialUrl: input.workspace ? appendWindowWorkspaceToUrl(entryUrl, input.workspace) : entryUrl,
+    });
     window.once('ready-to-show', () => {
       if (window.isDestroyed()) return;
       window.show();
@@ -611,10 +617,10 @@ export class WindowManager {
     this.getPresentationWindow()?.close();
   }
 
-  createMainWindow(options: { showOnReady?: boolean } = {}) {
+  createMainWindow(options: { showOnReady?: boolean; initialUrl?: string } = {}) {
     const showOnReady = options.showOnReady ?? true;
     const isMac = process.platform === 'darwin';
-    const rendererUrl = getRendererEntryUrl();
+    const rendererUrl = options.initialUrl ?? getRendererEntryUrl();
     const workArea = screen.getPrimaryDisplay().workArea;
     const centeredFallback = {
       width: DEFAULT_WINDOW_SIZE.width,

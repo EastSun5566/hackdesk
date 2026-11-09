@@ -91,6 +91,11 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
     await app.evaluate(({ dialog }) => { dialog.showMessageBox = async () => ({ response: 0, checkboxChecked: false }); });
     await page.getByRole('button', { name: 'Forget Vault', exact: true }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Forget Vault', exact: true }).click();
+    // Forgetting the active vault falls back to the other known vault; forgetting again empties the list.
+    await expect(page.locator('.cm-content')).toContainText('Draft B');
+    await openVaultSettings(page);
+    await page.getByRole('button', { name: 'Forget Vault', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Forget Vault', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Settings' }).getByText('No local vault configured', { exact: true })).toBeVisible();
     await choose(app, page, vaultA);
     await expect(page.locator('.cm-content').last()).toContainText('Draft A — latest input');

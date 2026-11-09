@@ -19,6 +19,7 @@ import {
   Check,
   ChevronDown,
   ChevronsUpDown,
+  ExternalLink,
   FolderOpen,
   GripVertical,
   HardDrive,
@@ -75,6 +76,8 @@ export type WorkspaceSidebarProps = {
   onSwitcherOpenChange: (open: boolean) => void;
   onScopeChange: (scope: WorkspaceScope) => void;
   onChooseLocalVault: () => void;
+  /** Opens a workspace in a new window. Leave it out to hide the open-out buttons. */
+  onOpenInNewWindow?: (scope: WorkspaceScope) => void;
   onOpenSettings: () => void;
   /** Removes the HackMD token. Leave it out to hide Sign Out. */
   onSignOut?: () => void;
@@ -94,6 +97,8 @@ function WorkspaceRow({
   trailing,
   className,
   onClick,
+  onOpenInNewWindow,
+  openModifierHint,
 }: {
   active: boolean;
   ariaKeyShortcuts?: string;
@@ -102,22 +107,54 @@ function WorkspaceRow({
   label: string;
   trailing?: ReactNode;
   className?: string;
-  onClick: () => void;
+  onClick: (event: React.MouseEvent) => void;
+  /** Opens the row's workspace in a new window: the hover button and ⌘/Ctrl-click. */
+  onOpenInNewWindow?: () => void;
+  openModifierHint?: string;
 }) {
+  const openLabel = openModifierHint
+    ? `Open ${label} in a new window (${openModifierHint})`
+    : `Open ${label} in a new window`;
   return (
-    <EntityRow
-      selected={active}
-      buttonProps={{ 'data-workspace-row': '' } as React.ButtonHTMLAttributes<HTMLButtonElement>}
-      icon={icon}
-      title={label}
-      trailing={trailing ?? (active ? <Check aria-hidden="true" className="size-3.5" /> : undefined)}
-      onClick={onClick}
-      ariaLabel={accessibleLabel ?? label}
-      ariaCurrent={active ? 'page' : undefined}
-      ariaKeyShortcuts={ariaKeyShortcuts}
-      className={cn('min-h-8 flex-1 py-1 text-xs', className)}
-      trailingClassName="opacity-70"
-    />
+    <div className="group/ws-row relative flex min-w-0 flex-1 items-center">
+      <EntityRow
+        selected={active}
+        buttonProps={{ 'data-workspace-row': '' } as React.ButtonHTMLAttributes<HTMLButtonElement>}
+        icon={icon}
+        title={label}
+        trailing={trailing ?? (active ? <Check aria-hidden="true" className="size-3.5" /> : undefined)}
+        onClick={(event) => {
+          if (onOpenInNewWindow && (event.metaKey || event.ctrlKey)) {
+            onOpenInNewWindow();
+          } else {
+            onClick(event);
+          }
+        }}
+        ariaLabel={accessibleLabel ?? label}
+        ariaCurrent={active ? 'page' : undefined}
+        ariaKeyShortcuts={ariaKeyShortcuts}
+        className={cn('min-h-8 flex-1 py-1 text-xs', className)}
+        trailingClassName={cn('opacity-70', onOpenInNewWindow && 'group-hover/ws-row:opacity-0 group-focus-within/ws-row:opacity-0')}
+      />
+      {onOpenInNewWindow ? (
+        <div className="pointer-events-none absolute inset-y-0 right-0.5 flex items-center opacity-0 transition-opacity group-hover/ws-row:pointer-events-auto group-hover/ws-row:opacity-100 group-focus-within/ws-row:pointer-events-auto group-focus-within/ws-row:opacity-100 motion-reduce:transition-none">
+          <Tooltip content={openLabel} side="right">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-icon-default hover:bg-transparent hover:text-text-emphasize"
+              aria-label={openLabel}
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenInNewWindow();
+              }}
+            >
+              <ExternalLink aria-hidden="true" className="size-3.5" />
+            </Button>
+          </Tooltip>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -130,14 +167,20 @@ type TeamRowProps = {
   active: boolean;
   onPinChange: () => void;
   onScopeChange: () => void;
+  onOpenInNewWindow?: (scope: WorkspaceScope) => void;
+  openModifierHint?: string;
   platform: string;
   pinned: boolean;
   shortcutIndex?: number;
   team: TeamSummary;
 };
 
-function TeamRow({ dragHandle, active, onPinChange, onScopeChange, platform, pinned, shortcutIndex, team }: TeamRowProps) {
+function TeamRow({ dragHandle, active, onPinChange, onScopeChange, onOpenInNewWindow, openModifierHint, platform, pinned, shortcutIndex, team }: TeamRowProps) {
   const isPrivate = team.visibility === 'private';
+  const teamScope: WorkspaceScope = { type: 'team', label: team.name, teamPath: team.path };
+  const openLabel = openModifierHint
+    ? `Open ${team.name} in a new window (${openModifierHint})`
+    : `Open ${team.name} in a new window`;
   // The pin (and its tooltip) mounts only while the row is pointed at or focused: the switcher
   // lists every team, and a tooltip per row made opening it noticeably slow.
   const [showPin, setShowPin] = useState(false);
@@ -164,12 +207,34 @@ function TeamRow({ dragHandle, active, onPinChange, onScopeChange, platform, pin
             {shortcutIndex ? <ShortcutLabel>{getWorkspaceShortcutLabel(platform, shortcutIndex)}</ShortcutLabel> : null}
           </span>
         )}
-        onClick={onScopeChange}
+        onClick={(event) => {
+          if (onOpenInNewWindow && (event.metaKey || event.ctrlKey)) {
+            onOpenInNewWindow(teamScope);
+          } else {
+            onScopeChange();
+          }
+        }}
         // One hover tint for the whole row, the pin included.
         className={cn(!active && 'group-hover/team-row:bg-background-hover group-focus-within/team-row:bg-background-hover')}
       />
       {dragHandle}
       {showPin ? <div className="pointer-events-none absolute inset-y-0 right-0.5 flex items-center opacity-0 group-hover/team-row:pointer-events-auto group-hover/team-row:opacity-100 group-focus-within/team-row:pointer-events-auto group-focus-within/team-row:opacity-100">
+        {onOpenInNewWindow ? (
+          <Tooltip content={openLabel} side="right">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-icon-default hover:bg-transparent hover:text-text-emphasize"
+              aria-label={openLabel}
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenInNewWindow(teamScope);
+              }}
+            >
+              <ExternalLink aria-hidden="true" className="size-3.5" />
+            </Button>
+          </Tooltip>
+        ) : null}
         <Tooltip content={pinned ? `Unpin ${team.name}` : `Pin ${team.name}`} side="right">
           <Button variant="ghost" size="icon" className="text-icon-default hover:bg-transparent hover:text-text-emphasize" aria-label={pinned ? `Unpin ${team.name}` : `Pin ${team.name}`} onClick={onPinChange}>
             {pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
@@ -214,6 +279,8 @@ function PinnedTeams({
   navigation,
   onPinnedTeamIdsChange,
   onScopeChange,
+  onOpenInNewWindow,
+  openModifierHint,
   pinnedTeamIds,
   platform,
   scope,
@@ -222,6 +289,8 @@ function PinnedTeams({
   navigation: ReturnType<typeof getWorkspaceNavigationTeams>;
   onPinnedTeamIdsChange: (pinnedTeamIds: string[]) => void;
   onScopeChange: (scope: WorkspaceScope) => void;
+  onOpenInNewWindow?: (scope: WorkspaceScope) => void;
+  openModifierHint?: string;
   pinnedTeamIds: string[] | null;
   platform: string;
   scope: WorkspaceScope;
@@ -254,6 +323,8 @@ function PinnedTeams({
                 active={scope.type === 'team' && scope.teamPath === team.path}
                 onPinChange={() => onPinnedTeamIdsChange(unpinWorkspaceTeam(teams, pinnedTeamIds, team.id))}
                 onScopeChange={() => onScopeChange({ type: 'team', label: team.name, teamPath: team.path })}
+                onOpenInNewWindow={onOpenInNewWindow}
+                openModifierHint={openModifierHint}
                 platform={platform}
                 shortcutIndex={index < 8 ? index + 2 : undefined}
                 team={team}
@@ -270,6 +341,8 @@ function MoreTeams({
   navigation,
   onPinnedTeamIdsChange,
   onScopeChange,
+  onOpenInNewWindow,
+  openModifierHint,
   pinnedTeamIds,
   platform,
   scope,
@@ -278,6 +351,8 @@ function MoreTeams({
   navigation: ReturnType<typeof getWorkspaceNavigationTeams>;
   onPinnedTeamIdsChange: (pinnedTeamIds: string[]) => void;
   onScopeChange: (scope: WorkspaceScope) => void;
+  onOpenInNewWindow?: (scope: WorkspaceScope) => void;
+  openModifierHint?: string;
   pinnedTeamIds: string[] | null;
   platform: string;
   scope: WorkspaceScope;
@@ -308,6 +383,8 @@ function MoreTeams({
                 active={scope.type === 'team' && scope.teamPath === team.path}
                 onPinChange={() => onPinnedTeamIdsChange(pinWorkspaceTeam(teams, pinnedTeamIds, team.id))}
                 onScopeChange={() => onScopeChange({ type: 'team', label: team.name, teamPath: team.path })}
+                onOpenInNewWindow={onOpenInNewWindow}
+                openModifierHint={openModifierHint}
                 platform={platform}
                 pinned={false}
                 team={team}
@@ -399,6 +476,7 @@ export function WorkspaceSwitcher({
   onSwitcherOpenChange,
   onScopeChange,
   onChooseLocalVault,
+  onOpenInNewWindow,
   onPinnedTeamIdsChange,
 }: Omit<WorkspaceSidebarProps, 'accountStatus' | 'onOpenSettings' | 'onSignOut'>) {
   const popupRef = useRef<HTMLDivElement>(null);
@@ -409,6 +487,12 @@ export function WorkspaceSwitcher({
     onSwitcherOpenChange(false);
     onScopeChange(next);
   };
+  // A workspace opens in a new window from its hover button or ⌘/Ctrl-click.
+  const openModifierHint = platform === 'darwin' ? '⌘-click' : 'Ctrl-click';
+  const openOut = onOpenInNewWindow ? (next: WorkspaceScope) => {
+    onSwitcherOpenChange(false);
+    onOpenInNewWindow(next);
+  } : undefined;
   const [teamQuery, setTeamQuery] = useState('');
   // Each opening starts with the whole list.
   if (!switcherOpen && teamQuery) setTeamQuery('');
@@ -472,6 +556,8 @@ export function WorkspaceSwitcher({
                 label="My Workspace"
                 trailing={<ShortcutLabel>{getWorkspaceShortcutLabel(platform, 1)}</ShortcutLabel>}
                 onClick={() => choose({ type: 'personal', label: 'My Workspace' })}
+                onOpenInNewWindow={openOut ? () => openOut({ type: 'personal', label: 'My Workspace' }) : undefined}
+                openModifierHint={openModifierHint}
               />
             </li>
             <li className="flex">
@@ -480,6 +566,8 @@ export function WorkspaceSwitcher({
                 icon={<IconBox small><History className="size-3.5" /></IconBox>}
                 label="History"
                 onClick={() => choose({ type: 'history', label: 'History' })}
+                onOpenInNewWindow={openOut ? () => openOut({ type: 'history', label: 'History' }) : undefined}
+                openModifierHint={openModifierHint}
               />
             </li>
             <li className="flex">
@@ -493,6 +581,8 @@ export function WorkspaceSwitcher({
                   onSwitcherOpenChange(false);
                   onChooseLocalVault();
                 }}
+                onOpenInNewWindow={localVaultConfigured && openOut ? () => openOut({ type: 'local', label: 'Local Vault' }) : undefined}
+                openModifierHint={openModifierHint}
               />
             </li>
           </ul>
@@ -544,6 +634,8 @@ export function WorkspaceSwitcher({
                                 ? unpinWorkspaceTeam(teams, pinnedTeamIds, team.id)
                                 : pinWorkspaceTeam(teams, pinnedTeamIds, team.id))}
                               onScopeChange={() => choose({ type: 'team', label: team.name, teamPath: team.path })}
+                              onOpenInNewWindow={openOut}
+                              openModifierHint={openModifierHint}
                               platform={platform}
                               pinned={pinned}
                               team={team}
@@ -555,8 +647,8 @@ export function WorkspaceSwitcher({
                   ) : <p role="status" className="px-2 py-3 text-xs text-text-subtle">No teams match.</p>
                 ) : (
                   <>
-                    <PinnedTeams navigation={navigation} onPinnedTeamIdsChange={onPinnedTeamIdsChange} onScopeChange={choose} pinnedTeamIds={pinnedTeamIds} platform={platform} scope={scope} teams={teams} />
-                    <MoreTeams navigation={navigation} onPinnedTeamIdsChange={onPinnedTeamIdsChange} onScopeChange={choose} pinnedTeamIds={pinnedTeamIds} platform={platform} scope={scope} teams={teams} />
+                    <PinnedTeams navigation={navigation} onPinnedTeamIdsChange={onPinnedTeamIdsChange} onScopeChange={choose} onOpenInNewWindow={openOut} openModifierHint={openModifierHint} pinnedTeamIds={pinnedTeamIds} platform={platform} scope={scope} teams={teams} />
+                    <MoreTeams navigation={navigation} onPinnedTeamIdsChange={onPinnedTeamIdsChange} onScopeChange={choose} onOpenInNewWindow={openOut} openModifierHint={openModifierHint} pinnedTeamIds={pinnedTeamIds} platform={platform} scope={scope} teams={teams} />
                   </>
                 )}
               </div>

@@ -6,6 +6,7 @@ vi.mock('./logging', () => ({
 
 import {
   listTrashTeamPathSchema,
+  newWindowInputSchema,
   restoreNotesInputSchema,
   createFolderInputSchema,
   createNoteInputSchema,
@@ -151,6 +152,19 @@ describe('IPC runtime validation', () => {
     })).toMatchObject({
       appearance: { presetId: 'noctis' },
     });
+  });
+
+  it('validates the workspace a new window boots into', () => {
+    expect(validateIpcInput('app:new-window', newWindowInputSchema, undefined)).toEqual({});
+    expect(validateIpcInput('app:new-window', newWindowInputSchema, {
+      workspace: { type: 'team', label: 'Atlas', teamPath: 'atlas' },
+    })).toEqual({ workspace: { type: 'team', label: 'Atlas', teamPath: 'atlas' } });
+    expect(() => validateIpcInput('app:new-window', newWindowInputSchema, {
+      workspace: { type: 'team', label: 'Atlas' },
+    })).toThrow('must name its team');
+    expect(() => validateIpcInput('app:new-window', newWindowInputSchema, {
+      workspace: { type: 'spaceship', label: 'X' },
+    })).toThrow();
   });
 
   it('rejects unknown editor modes in settings updates', () => {

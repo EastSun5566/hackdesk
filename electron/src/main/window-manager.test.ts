@@ -961,4 +961,24 @@ describe('WindowManager multi-window', () => {
     manager.confirmClose(first as unknown as BrowserWindow);
     expect(listener).toHaveBeenCalledTimes(5);
   });
+
+  it('boots a new window into the requested workspace via its URL', () => {
+    const manager = new WindowManager();
+    const window = getMockWindow(manager.newMainWindow({
+      workspace: { type: 'team', label: 'Atlas', teamPath: 'atlas' },
+    }));
+
+    const calls = window.loadURL.mock.calls as unknown[][];
+    const url = calls[0][0] as string;
+    expect(url.startsWith('hackdesk://renderer/index.html?workspace=')).toBe(true);
+    expect(decodeURIComponent(url)).toContain('"team"');
+    expect(decodeURIComponent(url)).toContain('atlas');
+  });
+
+  it('opens a plain window without a workspace param by default', () => {
+    const manager = new WindowManager();
+    const window = getMockWindow(manager.newMainWindow());
+
+    expect(window.loadURL).toHaveBeenCalledWith('hackdesk://renderer/index.html');
+  });
 });

@@ -521,6 +521,17 @@ export const hackmdRequestOptionsSchema = z.strictObject({ requestId: z.uuid() }
 /** `null` lists personal trash; otherwise a team path segment. */
 export const listTrashTeamPathSchema = z.string().min(1).max(200).nullable();
 
+/** A workspace a new window boots into; a team scope must name its team. */
+export const newWindowInputSchema = z.strictObject({
+  workspace: z.strictObject({
+    type: z.enum(['local', 'personal', 'history', 'team']),
+    label: z.string().trim().min(1).max(200),
+    teamPath: z.string().trim().min(1).max(500).optional(),
+  }).refine((scope) => scope.type !== 'team' || scope.teamPath !== undefined, {
+    message: 'A team workspace must name its team.',
+  }).optional(),
+}).default({});
+
 export const openHackmdEditorInputSchema = z.strictObject({
   publishType: z.enum(['edit', 'view', 'slide', 'book']),
   shortId: z.string(),

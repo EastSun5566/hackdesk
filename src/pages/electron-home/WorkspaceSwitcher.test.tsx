@@ -176,6 +176,57 @@ describe('WorkspaceSwitcher', () => {
     expect(row('History')).toHaveFocus();
   });
 
+  it('opens a workspace in a new window from its hover button', async () => {
+    const props = renderSwitcher({ localVaultConfigured: true, onOpenInNewWindow: vi.fn() });
+    const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Open History in a new window (⌘-click)' }));
+    expect(props.onOpenInNewWindow).toHaveBeenCalledWith({ type: 'history', label: 'History' });
+    expect(props.onScopeChange).not.toHaveBeenCalled();
+  });
+
+  it('opens in a new window on ⌘-click and switches on a plain click', async () => {
+    const plain = renderSwitcher({ localVaultConfigured: true, onOpenInNewWindow: vi.fn() });
+    const first = await screen.findByRole('dialog', { name: 'Workspaces' });
+    fireEvent.click(within(first).getByRole('button', { name: 'Local Vault' }));
+    expect(plain.onScopeChange).toHaveBeenCalledWith({ type: 'local', label: 'Local Vault' });
+    expect(plain.onOpenInNewWindow).not.toHaveBeenCalled();
+
+    cleanup();
+    const mod = renderSwitcher({ localVaultConfigured: true, onOpenInNewWindow: vi.fn() });
+    const second = await screen.findByRole('dialog', { name: 'Workspaces' });
+    fireEvent.click(within(second).getByRole('button', { name: 'Local Vault' }), { metaKey: true });
+    expect(mod.onOpenInNewWindow).toHaveBeenCalledWith({ type: 'local', label: 'Local Vault' });
+    expect(mod.onScopeChange).not.toHaveBeenCalled();
+  });
+
+  it('opens a team in a new window from its row button or ⌘-click', async () => {
+    const viaButton = renderSwitcher({ teams: [team()], pinnedTeamIds: ['team-1'], onOpenInNewWindow: vi.fn() });
+    const first = await screen.findByRole('dialog', { name: 'Workspaces' });
+    const row = within(first).getByRole('button', { name: 'Atlas Team' });
+    fireEvent.focus(row);
+    fireEvent.click(within(first).getByRole('button', { name: /Open Atlas Team in a new window/ }));
+    expect(viaButton.onOpenInNewWindow).toHaveBeenCalledWith({ type: 'team', label: 'Atlas Team', teamPath: 'atlas' });
+    expect(viaButton.onScopeChange).not.toHaveBeenCalled();
+
+    cleanup();
+    const viaModifier = renderSwitcher({ teams: [team()], pinnedTeamIds: ['team-1'], onOpenInNewWindow: vi.fn() });
+    const second = await screen.findByRole('dialog', { name: 'Workspaces' });
+    fireEvent.click(within(second).getByRole('button', { name: 'Atlas Team' }), { metaKey: true });
+    expect(viaModifier.onOpenInNewWindow).toHaveBeenCalledWith({ type: 'team', label: 'Atlas Team', teamPath: 'atlas' });
+    expect(viaModifier.onScopeChange).not.toHaveBeenCalled();
+  });
+
+  it('hides the open-out buttons without a new-window handler', async () => {
+    const props = renderSwitcher({ localVaultConfigured: true, teams: [team()], pinnedTeamIds: ['team-1'] });
+    const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
+
+    expect(within(dialog).queryByRole('button', { name: /in a new window/ })).toBeNull();
+    // Without the handler a ⌘-click is an ordinary switch.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'History' }), { metaKey: true });
+    expect(props.onScopeChange).toHaveBeenCalledWith({ type: 'history', label: 'History' });
+  });
+
   it('finds a team by name when there are many, and opens the first match with Enter', async () => {
     const many = Array.from({ length: 9 }, (_, index) => team({ id: `team-${index}`, name: `Team ${index}`, path: `team-${index}` }));
     const harbor = team({ id: 'harbor', name: 'Harbor Crew', path: 'harbor' });

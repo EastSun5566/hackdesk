@@ -91,6 +91,7 @@ import { EMPTY_FOLDERS, EMPTY_NOTES, getScopeStorageKey } from './electron-home/
 import {
   DEFAULT_WORKSPACE_SCOPE,
   getInitialWorkspaceScope,
+  hasWindowWorkspaceScope,
   useWorkbenchWorkspaceState,
 } from './electron-home/useWorkbenchWorkspaceState';
 import { getWorkspaceNavigationTeams } from './electron-home/workspace-navigation';
@@ -375,7 +376,8 @@ export function Home() {
     }
 
     initialWorkspaceResolvedRef.current = true;
-    if (settings.hasLocalVault && scope.type !== 'local' && initialWorkspaceScope.type === 'personal') {
+    // A window opened onto an explicit workspace keeps it; the local preference is only for fresh boots.
+    if (settings.hasLocalVault && scope.type !== 'local' && initialWorkspaceScope.type === 'personal' && !hasWindowWorkspaceScope()) {
       setWorkspaceScope({ type: 'local', label: 'Local Vault' });
     }
   }, [initialWorkspaceScope.type, scope.type, setWorkspaceScope, settings, usingInitialDrafts]);

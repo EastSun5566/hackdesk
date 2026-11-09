@@ -164,6 +164,7 @@ import {
   noteCommentsQuerySchema,
   noteCommentIdSchema,
   noteVersionsQuerySchema,
+  newWindowInputSchema,
   hackmdRequestOptionsSchema,
   validateIpcInput,
   validateBoolean,
@@ -713,8 +714,8 @@ export function registerIpcHandlers(
     openTextFile(validateIpcInput(ELECTRON_CHANNELS.appOpenTextFile, openTextFileInputSchema, input), windowManager.getTargetWindow())
   ));
   ipcMain.handle(ELECTRON_CHANNELS.appCheckForUpdates, () => checkForElectronUpdates(windowManager.getTargetWindow()));
-  ipcMain.handle(ELECTRON_CHANNELS.appNewWindow, () => {
-    windowManager.newMainWindow();
+  ipcMain.handle(ELECTRON_CHANNELS.appNewWindow, (_event, input: unknown) => {
+    windowManager.newMainWindow(validateIpcInput(ELECTRON_CHANNELS.appNewWindow, newWindowInputSchema, input));
   });
   ipcMain.handle(ELECTRON_CHANNELS.appSetThemeSurface, (_event, input: ThemeSurfaceInput) => {
     const themeSurface = validateIpcInput(ELECTRON_CHANNELS.appSetThemeSurface, themeSurfaceInputSchema, input);

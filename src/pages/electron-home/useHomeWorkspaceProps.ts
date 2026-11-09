@@ -7,12 +7,14 @@ import type {
   DocumentSummary,
   HackDeskElectronAPI,
   ElectronSafeSettings,
+  NewWindowWorkspaceScope,
   NoteSummary,
   TeamSummary,
   UserSummary,
 } from '@/lib/electron-api';
 import type { FolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
 import { defaultSettings } from '@/lib/settings';
+import { toast } from '@/components/ui/toast';
 
 import type { ElectronHomeWorkspaceProps } from './ElectronHomeWorkspace';
 import type { HomeLocalVaultActions } from './useHomeLocalVaultActions';
@@ -227,6 +229,15 @@ export function useHomeWorkspaceProps({
           actions.setTrashOpen(false);
           actions.switchWorkspaceScope(next);
         },
+        onOpenInNewWindow: api?.app.newWindow ? (scope: WorkspaceScope) => {
+          setWorkspaceSwitcherOpen(false);
+          const workspace: NewWindowWorkspaceScope = scope.type === 'team'
+            ? { type: scope.type, label: scope.label, teamPath: scope.teamPath }
+            : { type: scope.type, label: scope.label };
+          void api?.app.newWindow?.({ workspace }).catch((error) => {
+            toast.error(error instanceof Error ? error.message : 'Failed to open a new window.');
+          });
+        } : undefined,
         onOpenSettings: () => setSettingsOpen(true),
         onSignOut: settings?.hasHackmdApiToken
           ? () => mutations.disconnectHackmdMutation.mutate(undefined, { onSuccess: actions.handleHackmdDisconnected })

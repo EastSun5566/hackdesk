@@ -4,6 +4,7 @@ import {
   useContext,
   type ButtonHTMLAttributes,
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
   type Ref,
 } from 'react';
@@ -47,13 +48,13 @@ type EntityRowProps = {
   titleClassName?: string;
   trailingClassName?: string;
   focusTarget?: boolean;
-  contentOnClick?: () => void;
-  contentAriaLabel?: string;
+  contentOnClick?: () => void;  contentAriaLabel?: string;
   contentAriaCurrent?: ButtonHTMLAttributes<HTMLButtonElement>['aria-current'];
   contentFocusTarget?: boolean;
   contentButtonProps?: ButtonHTMLAttributes<HTMLButtonElement>;
   buttonProps?: ButtonHTMLAttributes<HTMLButtonElement>;
-  onClick?: () => void;
+  /** Receives the click event so rows can branch on modifier keys. */
+  onClick?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   ariaLabel?: string;
   ariaCurrent?: ButtonHTMLAttributes<HTMLButtonElement>['aria-current'];
   ariaKeyShortcuts?: string;

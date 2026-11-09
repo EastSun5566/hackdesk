@@ -622,7 +622,8 @@ export type HackDeskElectronAPI = {
     /** The window is asking the user about unsaved changes, so the close request is not stuck. */
     holdClose?: () => Promise<void>;
     checkForUpdates: () => Promise<CheckForUpdatesResult>;
-    newWindow: () => Promise<void>;
+    /** Optional for renderer hot reloads against an older preload. */
+    newWindow?: (input?: NewWindowInput) => Promise<void>;
     setThemeSurface?: (input: ThemeSurfaceInput) => Promise<void>;
     setMenuShortcutsIgnored?: (ignore: boolean) => Promise<void>;
     getWindowPresentationState?: () => Promise<WindowPresentationState>;
@@ -639,6 +640,17 @@ export type HackDeskElectronAPI = {
 export type PresentationDeck = {
   title: string;
   content: string;
+};
+
+/** A workspace a new window boots into. Local always means the active vault. */
+export type NewWindowWorkspaceScope = {
+  type: 'local' | 'personal' | 'history' | 'team';
+  label: string;
+  teamPath?: string;
+};
+
+export type NewWindowInput = {
+  workspace?: NewWindowWorkspaceScope;
 };
 
 export type HackDeskPresentationAPI = {

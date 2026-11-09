@@ -434,6 +434,25 @@ describe('registerIpcHandlers', () => {
     expect(windowManager.getWindowPresentationStateForSender).toHaveBeenCalledWith('sender');
   });
 
+  it('opens a new window with a validated workspace', () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appNewWindow);
+
+    handler?.({}, { workspace: { type: 'team', label: 'Atlas', teamPath: 'atlas' } });
+
+    expect(windowManager.newMainWindow).toHaveBeenCalledWith({
+      workspace: { type: 'team', label: 'Atlas', teamPath: 'atlas' },
+    });
+  });
+
+  it('rejects a new window whose team workspace names no team', () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.appNewWindow);
+
+    expect(() => handler?.({}, { workspace: { type: 'team', label: 'Atlas' } })).toThrow('must name its team');
+    expect(windowManager.newMainWindow).not.toHaveBeenCalled();
+  });
+
   it('waits for the native clipboard write to finish', async () => {
     let finishWrite!: () => void;
     clipboardMock.writeText.mockImplementationOnce(() => new Promise<void>((resolve) => {

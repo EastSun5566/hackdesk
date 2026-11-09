@@ -345,12 +345,12 @@ describe('settings helpers', () => {
     const two = addLocalVault(one, '/tmp/b');
     expect(two.vaults.map((vault) => vault.path)).toEqual(['/tmp/a', '/tmp/b']);
     expect(getActiveLocalVaultPath({ localVault: two })).toBe('/tmp/b');
-    const back = setActiveLocalVault(two, one.activeVaultId!);
+    const back = setActiveLocalVault(two, one.vaults[0].id);
     expect(getActiveLocalVaultPath({ localVault: back })).toBe('/tmp/a');
     // Unknown ids change nothing.
     expect(setActiveLocalVault(two, 'missing')).toBe(two);
     expect(removeLocalVault(two, 'missing')).toBe(two);
-    const forgotten = removeLocalVault(two, two.activeVaultId!);
+    const forgotten = removeLocalVault(two, two.vaults[1].id);
     expect(forgotten.vaults).toHaveLength(1);
     expect(getActiveLocalVaultPath({ localVault: forgotten })).toBe('/tmp/a');
     expect(removeLocalVault(forgotten, forgotten.activeVaultId!)).toEqual(defaultLocalVaultSettings);
