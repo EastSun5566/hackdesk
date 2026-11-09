@@ -90,6 +90,22 @@ export class WindowManager {
     return windows;
   }
 
+  private menuStateListeners = new Set<() => void>();
+
+  /** Rebuild native menus when windows open, close, focus or retitle. */
+  onMenuStateChanged(listener: () => void) {
+    this.menuStateListeners.add(listener);
+    return () => {
+      this.menuStateListeners.delete(listener);
+    };
+  }
+
+  private emitMenuStateChanged() {
+    for (const listener of this.menuStateListeners) {
+      listener();
+    }
+  }
+
   getMainWindowForWebContents(webContents: Electron.WebContents) {
     for (const window of this.mainWindows) {
       if (!window.isDestroyed() && window.webContents === webContents) {
@@ -160,6 +176,19 @@ export class WindowManager {
       this.showAndFocusMainWindow();
     }
 
+    this.dispatchCommandToWindow(window, command);
+  }
+
+  /** Sends a menu command to the window whose menu was clicked, falling back to the focused one. */
+  sendCommandToWindow(command: HackDeskCommandPaletteCommand, sourceWindow?: BrowserWindow | null) {
+    const window = sourceWindow && !sourceWindow.isDestroyed() && this.mainWindows.has(sourceWindow)
+      ? sourceWindow
+      : this.getMainWindow() ?? this.createMainWindow({ showOnReady: true });
+
+    this.dispatchCommandToWindow(window, command);
+  }
+
+  private dispatchCommandToWindow(window: BrowserWindow, command: HackDeskCommandPaletteCommand) {
     if (window.webContents.isLoading()) {
       this.pendingMainWindowCommands.push(command);
       return;
@@ -168,6 +197,19 @@ export class WindowManager {
     if (this.canDispatchMainWindowCommand(command)) {
       window.webContents.send(ELECTRON_CHANNELS.appCommand, command);
     }
+  }
+
+  focusMainWindow(target: BrowserWindow) {
+    if (target.isDestroyed() || !this.mainWindows.has(target)) {
+      return;
+    }
+
+    if (target.isMinimized()) {
+      target.restore();
+    }
+
+    target.show();
+    target.focus();
   }
 
   setThemeSurface(background: string) {
@@ -614,6 +656,7 @@ export class WindowManager {
     });
     this.mainWindows.add(window);
     this.trackMainWindowFocus(window);
+    this.emitMenuStateChanged();
     persistWindowState(window);
     const unresponsiveSampler = createUnresponsiveSampler(window, 'main');
 
@@ -643,12 +686,17 @@ export class WindowManager {
       this.trackMainWindowFocus(window);
     });
 
+    window.on('page-title-updated', () => {
+      this.emitMenuStateChanged();
+    });
+
     window.on('closed', () => {
       this.mainWindows.delete(window);
       this.mainWindowFocusOrder = this.mainWindowFocusOrder.filter((candidate) => candidate !== window);
       this.clearPendingCloseTimeout(window);
       this.pendingCloseByWindow.delete(window);
       this.quickCaptureOpenedFromMain = false;
+      this.emitMenuStateChanged();
       if (this.mainWindows.size === 0 && !this.allowAppQuit) {
         this.setActivationMode('accessory');
       }
@@ -687,6 +735,7 @@ export class WindowManager {
   private trackMainWindowFocus(window: BrowserWindow) {
     this.mainWindowFocusOrder = this.mainWindowFocusOrder.filter((candidate) => candidate !== window);
     this.mainWindowFocusOrder.push(window);
+    this.emitMenuStateChanged();
   }
 
   private flushPendingMainWindowCommands(target?: BrowserWindow) {

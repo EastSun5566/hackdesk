@@ -1,7 +1,7 @@
 import type { ElectronSafeSettings } from '../../../src/lib/electron-api';
-import { app } from 'electron';
+import { app, type BrowserWindow } from 'electron';
 
-import { createApplicationMenu } from './app-menu';
+import { attachWindowMenu, createApplicationMenu, type ApplicationMenuOptions } from './app-menu';
 import { createApplicationTray } from './app-tray';
 import { createAppIcon } from './app-icon';
 import { keepE2EWindowsInBackground } from './e2e-background-windows';
@@ -22,6 +22,7 @@ let tray: Electron.Tray | null = null;
 let disposeIpcHandlers: (() => void) | null = null;
 // Windows must not open before settings are readable; the renderer depends on them.
 let startupComplete = false;
+let latestMenuSettings: Pick<ElectronSafeSettings, 'shortcuts' | 'keyboardNavigation'> | null = null;
 
 const homeOverride = app.commandLine.getSwitchValue('hackdesk-home');
 if (homeOverride) {
@@ -45,25 +46,64 @@ if (!gotLock) {
   });
 }
 
+/**
+ * Rebuilds every native menu from the latest settings and window list. macOS draws one global
+ * menu bar, so it shows the focused window checked; Linux and Windows draw the bar inside each
+ * window, so each window gets its own copy with itself checked.
+ */
+function rebuildMenus() {
+  if (!latestMenuSettings) return;
+  const settings = latestMenuSettings;
+  const baseOptions = {
+    sendCommand: (command, sourceWindow?: BrowserWindow | null) => (
+      windowManager.sendCommandToWindow(command, sourceWindow)
+    ),
+    shortcuts: settings.shortcuts ?? {},
+    closeWindow: (target?: BrowserWindow | null) => windowManager.closeMainWindow(target ?? undefined),
+    newWindow: () => windowManager.newMainWindow(),
+    focusWindow: (target: BrowserWindow) => windowManager.focusMainWindow(target),
+    characterShortcutsEnabled: settings.keyboardNavigation?.characterShortcutsEnabled ?? true,
+  } satisfies Partial<ApplicationMenuOptions>;
+
+  if (process.platform === 'darwin') {
+    const windows = windowManager.getMainWindows().map((window) => ({
+      window,
+      title: window.getTitle(),
+      focused: window.isFocused(),
+    }));
+    createApplicationMenu({ ...baseOptions, windows });
+    return;
+  }
+
+  for (const window of windowManager.getMainWindows()) {
+    if (window.isDestroyed()) continue;
+    const windows = windowManager.getMainWindows().map((candidate) => ({
+      window: candidate,
+      title: candidate.getTitle(),
+      focused: candidate === window,
+    }));
+    attachWindowMenu(window, { ...baseOptions, windows });
+  }
+}
+
+function refreshMenus(settings: Pick<ElectronSafeSettings, 'shortcuts' | 'keyboardNavigation'>) {
+  latestMenuSettings = settings;
+  rebuildMenus();
+}
+
 app.whenReady().then(async () => {
   app.dock?.setIcon(createAppIcon());
   registerRendererProtocol();
-  const createMenu = (settings: Pick<ElectronSafeSettings, 'shortcuts' | 'keyboardNavigation'>) => createApplicationMenu(
-    (command) => windowManager.sendCommandToMainWindow(command),
-    settings.shortcuts ?? {},
-    () => windowManager.closeMainWindow(),
-    settings.keyboardNavigation?.characterShortcutsEnabled ?? true,
-    () => windowManager.newMainWindow(),
-  );
   disposeIpcHandlers = registerIpcHandlers(windowManager, {
-    onSettingsUpdated: (settings) => createMenu(settings),
+    onSettingsUpdated: (settings) => refreshMenus(settings),
   }).dispose;
+  windowManager.onMenuStateChanged(rebuildMenus);
   if (!await ensureReadableSettings()) {
     writeLog('main', 'quit from settings recovery; settings file left unchanged');
     app.quit();
     return;
   }
-  createMenu(await readStoredSettings());
+  refreshMenus(await readStoredSettings());
   windowManager.createMainWindow();
   startupComplete = true;
   if (app.commandLine.hasSwitch('quick-capture')) {

@@ -914,4 +914,51 @@ describe('WindowManager multi-window', () => {
     manager.confirmClose(first as unknown as BrowserWindow);
     expect(first.destroy).not.toHaveBeenCalled();
   });
+
+  it('routes menu commands to the clicked window and falls back to the focused one', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+    second.focus();
+
+    manager.sendCommandToWindow({ type: 'refresh' }, first as unknown as BrowserWindow);
+    expect(first.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCommand, { type: 'refresh' });
+    expect(second.webContents.send).not.toHaveBeenCalledWith(ELECTRON_CHANNELS.appCommand, { type: 'refresh' });
+
+    manager.sendCommandToWindow({ type: 'refresh' }, null);
+    expect(second.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCommand, { type: 'refresh' });
+  });
+
+  it('focuses a window from the Window menu, restoring it when minimized', () => {
+    const manager = new WindowManager();
+    getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+    second.isMinimized.mockReturnValue(true);
+    second.show.mockClear();
+    second.focus.mockClear();
+
+    manager.focusMainWindow(second as unknown as BrowserWindow);
+    expect(second.restore).toHaveBeenCalledOnce();
+    expect(second.show).toHaveBeenCalledOnce();
+    expect(second.focus).toHaveBeenCalledOnce();
+  });
+
+  it('notifies menu listeners on open, focus, title change and close', () => {
+    const manager = new WindowManager();
+    const listener = vi.fn();
+    manager.onMenuStateChanged(listener);
+
+    const first = getMockWindow(manager.createMainWindow());
+    expect(listener).toHaveBeenCalledTimes(2);
+    first.emit('focus');
+    expect(listener).toHaveBeenCalledTimes(3);
+    first.emit('page-title-updated');
+    expect(listener).toHaveBeenCalledTimes(4);
+
+    const unsubscribe = manager.onMenuStateChanged(vi.fn());
+    unsubscribe();
+    emitClose(first);
+    manager.confirmClose(first as unknown as BrowserWindow);
+    expect(listener).toHaveBeenCalledTimes(5);
+  });
 });
