@@ -6,6 +6,7 @@ import { allocateNavigationCodes, collectNavigationTargets, getSettingsNavigatio
 import { hasWorkbenchPopup } from './workbench-keyboard-context';
 
 import { NavigationHintsContext } from './KeyboardNavigationContext';
+import { holdHintsPreference } from './keyboard-feature-preferences';
 type HintState = { scope: HTMLElement | null; context: symbol | null; held: boolean; hints: NavigationHint[]; prefix: string };
 const EMPTY: HintState = { scope: null, context: null, held: false, hints: [], prefix: '' };
 /** How long the primary key is held before hints show, so quick chords such as Cmd+Right never flash them. */
@@ -13,6 +14,7 @@ export const HINT_DELAY_MS = 400;
 
 type NavigationProps = { workspaceKey: string | null; shortcuts?: ShortcutOverrides; platform: string; characterEnabled: boolean; children: ReactNode };
 export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcuts, platform, characterEnabled, children }: NavigationProps) {
+  const holdHintsEnabled = holdHintsPreference.use();
   const codesByWorkspace = useRef(new Map<string, Map<string, string>>());
   const signature = JSON.stringify(configuredShortcuts ?? {});
   const shortcuts = useMemo<ShortcutOverrides>(() => JSON.parse(signature), [signature]);
@@ -20,6 +22,8 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
   const context = useMemo(() => Symbol(contextKey), [contextKey]);
   const [state, setState] = useState<HintState>(EMPTY);
   useEffect(() => {
+    // Switched off in Settings → Shortcuts: holding ⌘ shows nothing.
+    if (!holdHintsEnabled) return;
     const mac = isMacPlatform(platform);
     const primary = mac ? 'Meta' : 'Control';
     let held = false;
@@ -138,7 +142,7 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
       delete document.documentElement.dataset.navigationHints;
       if (frame !== null) cancelAnimationFrame(frame);
     };
-  }, [workspaceKey, shortcuts, platform, characterEnabled, context]);
+  }, [workspaceKey, shortcuts, platform, characterEnabled, context, holdHintsEnabled]);
   const current = state.context === context ? state : EMPTY;
   const visible = current.hints.filter(hint => (!current.prefix || hint.code.startsWith(current.prefix)) && (hint.code || hint.shortcut));
   return <NavigationHintsContext.Provider value={current.held && !current.scope}>
@@ -146,7 +150,7 @@ export function KeyboardNavigation({ workspaceKey, shortcuts: configuredShortcut
     {current.held ? createPortal(<div data-keyboard-navigation-overlay className="pointer-events-none fixed inset-0 z-40" aria-hidden="true">
       {navigationHintPositions(visible.filter(hint => !hint.element.hasAttribute('aria-keyshortcuts')), current.prefix, { width: window.innerWidth, height: window.innerHeight }).map(({ hint, shortcut, left, top, width }) =>
         // The hint takes the width it was placed with, so fonts cannot make it overlap a neighbour.
-        <kbd key={hint.id} data-navigation-hint={hint.id} data-navigation-code={hint.code || undefined} className="absolute left-(--hint-left) top-(--hint-top) flex w-(--hint-width) flex-col items-center whitespace-nowrap rounded border border-border-default bg-background-default font-mono font-semibold text-command-item-title shadow-sm" style={{ '--hint-left': `${left}px`, '--hint-top': `${top}px`, '--hint-width': `${width}px` }}>
+        <kbd key={hint.id} data-navigation-hint={hint.id} data-navigation-code={hint.code || undefined} className="absolute left-(--hint-left) top-(--hint-top) flex w-(--hint-width) flex-col items-center whitespace-nowrap rounded border border-border-default bg-background-default font-semibold text-command-item-title shadow-sm" style={{ '--hint-left': `${left}px`, '--hint-top': `${top}px`, '--hint-width': `${width}px` }}>
           <span className="text-2xs leading-4">{hint.code.toUpperCase()}</span>
           {shortcut ? <span className="text-2xs font-normal leading-3">{shortcut}</span> : null}
         </kbd>)}

@@ -4,7 +4,13 @@ import { Input as InputPrimitive } from '@base-ui/react/input';
 
 import { cn } from '@/lib/utils';
 
-const fieldInputClassName = 'h-10 w-full rounded-md border border-border-default bg-background-muted px-3 text-sm outline-none transition-[border-color,box-shadow] focus:border-focus-ring focus-visible:ring-2 focus-visible:ring-focus-ring/70 data-[invalid]:border-destructive-default data-[invalid]:focus:border-destructive-default data-[invalid]:focus-visible:ring-destructive-default/40';
+const fieldInputClassName = cn(
+  'h-[34px] w-full text-ellipsis rounded border border-border-default bg-transparent px-3 py-1.5 text-sm leading-5 text-text-default outline-none transition-[border-color,box-shadow]',
+  'placeholder:text-text-subtler',
+  'focus:border-border-primary-subtler focus-visible:ring-1 focus-visible:ring-border-primary-subtler',
+  'data-[invalid]:border-destructive-default data-[invalid]:focus:border-destructive-default',
+  'disabled:pointer-events-none disabled:border-element-border-disabled disabled:bg-element-bg-disabled disabled:opacity-65',
+);
 
 const Field = React.forwardRef<
   React.ElementRef<typeof FieldPrimitive.Root>,
@@ -12,7 +18,7 @@ const Field = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <FieldPrimitive.Root
     ref={ref}
-    className={cn('space-y-2 text-sm', className)}
+    className={cn('flex flex-col gap-1.5 text-sm', className)}
     {...props}
   />
 ));
@@ -24,7 +30,7 @@ const FieldLabel = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <FieldPrimitive.Label
     ref={ref}
-    className={cn('font-medium text-text-default', className)}
+    className={cn('text-sm font-semibold leading-5 text-text-default', className)}
     {...props}
   />
 ));
@@ -74,7 +80,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
       render={(
         <textarea
           ref={ref}
-          className={cn(fieldInputClassName, 'min-h-20 py-2', className)}
+          className={cn(fieldInputClassName, 'h-auto min-h-20 py-2', className)}
           {...props}
         />
       )}

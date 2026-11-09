@@ -327,6 +327,7 @@ describe('Electron settings', () => {
           editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
           uiFontSize: 16,
           editorFontSize: 18,
+          fontSmoothing: 'auto',
         },
       },
     });
@@ -340,6 +341,7 @@ describe('Electron settings', () => {
         editorFontStack: '"JetBrains Mono", ui-monospace, monospace',
         uiFontSize: 16,
         editorFontSize: 18,
+        fontSmoothing: 'auto',
       },
     });
     expect(content).toContain('"presetId": "catppuccin"');

@@ -5,29 +5,31 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/field';
 import { Toggle } from '@/components/ui/toggle';
 import { Tooltip } from '@/components/ui/tooltip';
-
-
+import { cn } from '@/lib/utils';
 export function SettingsSection({
   title,
   description,
   help,
+  page = false,
   children,
 }: {
   title: string;
   description?: string;
   help?: ReactNode;
+  /** The section named after its settings page: its title is the page heading, a tier above. */
+  page?: boolean;
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-3">
+    <section className="flex flex-col gap-5">
       <div>
         <div className="flex items-center gap-1.5">
-          <h3 className="text-sm font-semibold text-balance">{title}</h3>
+          <h3 className={cn('font-semibold text-text-emphasize text-balance', page ? 'text-lg leading-7' : 'text-base leading-6')}>{title}</h3>
           {help ? <SettingsHelpTooltip label={title}>{help}</SettingsHelpTooltip> : null}
         </div>
         {description ? <p className="mt-1 text-xs leading-5 text-text-subtle">{description}</p> : null}
       </div>
-      <div className="space-y-3">{children}</div>
+      <div className="flex flex-col gap-5">{children}</div>
     </section>
   );
 }
@@ -46,9 +48,9 @@ export function SettingsRow({
   children: ReactNode;
 }) {
   return (
-    <div className="grid gap-2 text-sm">
+    <div className="grid gap-2 py-2.5 text-sm">
       <div className="flex items-center gap-1.5">
-        <label htmlFor={htmlFor} className="font-medium">{label}</label>
+        <label htmlFor={htmlFor} className="font-semibold leading-5">{label}</label>
         {help ? <SettingsHelpTooltip label={label}>{help}</SettingsHelpTooltip> : null}
       </div>
       {description ? <span className="text-xs leading-5 text-text-subtle">{description}</span> : null}
@@ -67,10 +69,11 @@ function SettingsHelpTooltip({
   return (
     <Tooltip content={children} side="right">
       <Button
+        type="button"
         variant="ghost"
         size="icon-xs"
         aria-label={`About ${label}`}
-        className="relative rounded-full after:absolute after:-inset-2"
+        className="relative after:absolute after:-inset-2"
       >
         <CircleHelp className="h-3.5 w-3.5" aria-hidden="true" />
       </Button>
@@ -91,9 +94,9 @@ export function SettingsSecretInput({
   onVisibleChange: (visible: boolean) => void;
 }) {
   return (
-    <div className="flex overflow-hidden rounded-md border border-border-default bg-background-muted transition-colors focus-within:border-focus-ring">
+    <div className="flex overflow-hidden rounded border border-border-default bg-background-muted transition-colors focus-within:border-border-primary-subtler">
       <Input
-        className="h-10 min-w-0 flex-1 rounded-none border-0 bg-transparent px-3 focus:border-transparent focus-visible:ring-0"
+        className="min-w-0 flex-1 rounded-none border-0 bg-transparent focus:border-transparent focus-visible:ring-0"
         type={visible ? 'text' : 'password'}
         spellCheck={false}
         {...props}
@@ -102,7 +105,7 @@ export function SettingsSecretInput({
         pressed={visible}
         onPressedChange={onVisibleChange}
         aria-label={visible ? 'Hide token' : 'Show token'}
-        className="h-10 rounded-none border-0 border-l border-border-default px-3"
+        className="rounded-none border-0 border-l border-border-default"
         size="sm"
         variant="ghost"
       >

@@ -39,6 +39,7 @@ import {
   HACKMD_NOTE_NOT_FOUND_MESSAGE,
   HACKMD_NOTE_VERSION_NOT_NAMED_MESSAGE,
   HACKMD_NOTE_VERSIONS_UNAVAILABLE_MESSAGE,
+  HACKMD_TEAM_TRASH_FORBIDDEN_MESSAGE,
 } from '../../../src/lib/note-errors';
 import { setTimeout as wait } from 'node:timers/promises';
 
@@ -729,6 +730,11 @@ function rethrowCommentsUnavailable(error: unknown): never {
   throw error;
 }
 
+function rethrowTeamTrashForbidden(error: unknown): never {
+  if ((error as { status?: unknown } | null)?.status === 403) throw new Error(HACKMD_TEAM_TRASH_FORBIDDEN_MESSAGE);
+  throw error;
+}
+
 function rethrowNoteNotFound(error: unknown): never {
   // A 404 confirms the note is gone for this account, unlike a timeout or server error.
   if ((error as { status?: unknown } | null)?.status === 404) throw new Error(HACKMD_NOTE_NOT_FOUND_MESSAGE);
@@ -1165,12 +1171,20 @@ export function createHackmdService(options: HackmdServiceOptions = {}) {
       );
     },
 
-    /** Lists the personal trash. Not cached: the trash only makes sense online. */
-    async listTrash(signal?: AbortSignal): Promise<TrashedNoteSummary[]> {
-      const notes = await requestHackmd<TrashNoteDto[]>('/trash', { signal }, serviceOptions);
-      return getJsonArray(notes)
-        .map((note) => mapTrashedNote(note as TrashNoteDto))
-        .sort((left, right) => (right.deletedAtMillis ?? 0) - (left.deletedAtMillis ?? 0));
+    /** Lists personal or team trash. Not cached: the trash only makes sense online. */
+    async listTrash(teamPath?: string | null, signal?: AbortSignal): Promise<TrashedNoteSummary[]> {
+      const path = teamPath
+        ? `/teams/${encodePathSegment(teamPath)}/trash`
+        : '/trash';
+      try {
+        const notes = await requestHackmd<TrashNoteDto[]>(path, { signal }, serviceOptions);
+        return getJsonArray(notes)
+          .map((note) => mapTrashedNote(note as TrashNoteDto))
+          .sort((left, right) => (right.deletedAtMillis ?? 0) - (left.deletedAtMillis ?? 0));
+      } catch (error) {
+        if (teamPath) rethrowTeamTrashForbidden(error);
+        throw error;
+      }
     },
 
     /** Restores personal notes in one request. HackMD answers 207 when only some succeed. */

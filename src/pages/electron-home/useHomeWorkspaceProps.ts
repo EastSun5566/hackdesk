@@ -1,11 +1,13 @@
 import type { Dispatch, SetStateAction } from 'react';
 
+import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { readComparisonSource } from './read-comparison-source';
 import type { NoteFinderState } from '@/lib/electron-note-finder';
 import type {
   DocumentSummary,
   HackDeskElectronAPI,
   ElectronSafeSettings,
+  NoteSummary,
   TeamSummary,
   UserSummary,
 } from '@/lib/electron-api';
@@ -25,6 +27,8 @@ import type { useNoteWorkspaceTabs } from './useNoteWorkspaceTabs';
 import type { useWorkbenchDocuments } from './useWorkbenchDocuments';
 import type { useWorkbenchFolderCommands } from './useWorkbenchFolderCommands';
 import type { useWorkbenchNavigator } from './useWorkbenchNavigator';
+import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
+
 import type { OpenNoteTarget } from './useNoteLinkOpener';
 
 type HomeStatus = ReturnType<typeof useElectronHomeStatus>;
@@ -52,6 +56,8 @@ type WorkspaceActions = {
   handleExportMarkdown: ElectronHomeWorkspaceProps['documentWorkspace']['onExportMarkdown'];
   handleExportNoteMarkdown: ElectronHomeWorkspaceProps['navigator']['actions']['onExportNoteMarkdown'];
   handleImportMarkdownNote: ElectronHomeWorkspaceProps['navigator']['actions']['onImportMarkdown'];
+  handleCreateNoteFromTemplate: () => void;
+  handleHackmdDisconnected: () => void;
   handleNoteSelect: ElectronHomeWorkspaceProps['navigator']['actions']['onNoteSelect'];
   handleOpenEditor: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenNote'];
   handleOpenExternal: ElectronHomeWorkspaceProps['documentWorkspace']['onOpenExternal'];
@@ -63,6 +69,7 @@ type WorkspaceActions = {
   setTrashOpen: (open: boolean) => void;
   setVersionsOpen: (open: boolean) => void;
   switchWorkspaceScope: (scope: WorkspaceScope) => void;
+  openTrashNote: (note: NoteSummary) => void;
 };
 
 export function useHomeWorkspaceProps({
@@ -109,6 +116,9 @@ export function useHomeWorkspaceProps({
   uploadingTabIds = [],
   workspaceSwitcherOpen,
   setWorkspaceSwitcherOpen,
+  onNewTab,
+  recentNotes,
+  trashOpen,
 }: {
   api?: HackDeskElectronAPI;
   openNoteTarget?: OpenNoteTarget;
@@ -158,6 +168,9 @@ export function useHomeWorkspaceProps({
   uploadingTabIds?: readonly string[];
   workspaceSwitcherOpen: boolean;
   setWorkspaceSwitcherOpen: (open: boolean) => void;
+  onNewTab: () => void;
+  recentNotes: ElectronRecentNote[];
+  trashOpen: boolean;
 }): ElectronHomeWorkspaceProps {
   return {
     titlebar: {
@@ -191,6 +204,7 @@ export function useHomeWorkspaceProps({
         togglePaneZoom: actions.togglePaneZoom,
         equalizePanes: noteWorkspace.equalizePanes,
         toggleNavigator: toggleNavigatorCollapsed,
+        onNewTab,
       },
     },
     navigator: {
@@ -209,10 +223,14 @@ export function useHomeWorkspaceProps({
         onChooseLocalVault: () => {
           void localVaultActions.chooseLocalVault();
         },
-        onScopeChange: actions.switchWorkspaceScope,
+        onScopeChange: (next) => {
+          actions.setTrashOpen(false);
+          actions.switchWorkspaceScope(next);
+        },
         onOpenSettings: () => setSettingsOpen(true),
-        // The trash lives on HackMD, so it is offered only once a token is set.
-        onOpenTrash: settings?.hasHackmdApiToken ? () => actions.setTrashOpen(true) : undefined,
+        onSignOut: settings?.hasHackmdApiToken
+          ? () => mutations.disconnectHackmdMutation.mutate(undefined, { onSuccess: actions.handleHackmdDisconnected })
+          : undefined,
         onPinnedTeamIdsChange: (pinnedTeamIds) => {
           mutations.updateSettingsMutation.mutate({
             title: settings?.title ?? defaultSettings.title,
@@ -234,11 +252,23 @@ export function useHomeWorkspaceProps({
       },
       emptyState: homeStatus.emptyState,
       status: homeStatus.navigatorStatus,
+      trash: settings?.hasHackmdApiToken && (displayScope.type === 'personal' || displayScope.type === 'team') ? {
+        open: trashOpen,
+        onOpenChange: actions.setTrashOpen,
+        onOpenNote: actions.openTrashNote,
+        scope: displayScope,
+      } : undefined,
       actions: {
         onFolderSelect: navigator.handleFolderSelect,
         onFolderToggle: navigator.toggleFolderCollapsed,
         onFolderRevealInFinder: localVaultActions.revealLocalFolder,
-        onNoteSelect: actions.handleNoteSelect,
+        // Opening a note from the sidebar makes its folder the selection, so the tree highlights
+        // one row (the note) and new notes go beside it.
+        onNoteSelect: (note) => {
+          const entry = folderTree.allNotes.find((candidate) => candidate.note.id === note.id);
+          if (entry) navigator.handleFolderSelect(entry.folderPath.at(-1)?.id ?? UNFILED_FOLDER_ID);
+          actions.handleNoteSelect(note);
+        },
         onNoteRevealInFinder: localVaultActions.revealLocalNote,
         onFinderStateChange: actions.setFinderState,
         onRefresh: refreshWorkspace,
@@ -263,6 +293,7 @@ export function useHomeWorkspaceProps({
         onExportNoteMarkdown: actions.handleExportNoteMarkdown,
         onDeleteNote: actions.handleDeleteRequest,
         onImportMarkdown: actions.handleImportMarkdownNote,
+        onCreateFromTemplate: actions.handleCreateNoteFromTemplate,
         onOpenPalette: actions.openPalette,
         onOpenSettings: actions.openHackmdTokenSetup,
       },
@@ -305,13 +336,14 @@ export function useHomeWorkspaceProps({
       canCreateNote: homeStatus.navigatorStatus.canCreate,
       onCreateNote: folderCommands.handleCreateNote,
       onQuickOpen: actions.openQuickOpen,
+      recentNotes,
       onCopyLink: actions.handleCopyNoteLink,
       onCopyMarkdownLink: actions.handleCopyNoteMarkdownLink,
       onExportMarkdown: actions.handleExportMarkdown,
       onReadComparison: (document, signal) => readComparisonSource(api, document, signal, localVaultId),
       onReloadFromDisk: localDocumentRecovery.reloadFromDisk,
       onReloadFromHackmd: remoteDocumentRecovery.reloadFromHackmd,
-      onSave: (tab, input) => {
+      onSave: (tab, input, options) => {
         if (isDraftNoteTab(tab)) {
           actions.saveDraftNote(tab, input);
           return;
@@ -324,6 +356,7 @@ export function useHomeWorkspaceProps({
             input,
             intent: 'content',
             tabId: tab.tabId,
+            successMessage: options?.successMessage,
             submittedDraft: {
               ...noteWorkspace.state.drafts[tab.tabId],
               title: input.title ?? document.title,

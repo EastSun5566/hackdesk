@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { confirmDialog } from '@/components/ConfirmDialogHost';
 import { Meter } from '@base-ui/react/meter';
 import { Download, Loader2 } from 'lucide-react';
 
@@ -75,7 +76,7 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
   const handleEnabledChange = async (enabled: boolean) => {
     if (!settings || !api) return;
     if (enabled) {
-      const { confirmed } = await api.app.confirm({
+      const { confirmed } = await confirmDialog({
         title: 'Turn on dictation?',
         message: 'HackDesk will ask macOS for microphone access the first time you dictate.',
         detail: 'HackDesk listens only while you dictate. Speech is turned into text on this Mac; the audio is never saved or sent anywhere.',
@@ -125,6 +126,7 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
   return (
     <div className="space-y-6">
       <SettingsSection
+        page
         title="Dictation (Experimental)"
         description="Speech stays on this Mac. Audio is not saved."
       >

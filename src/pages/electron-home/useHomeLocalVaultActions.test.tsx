@@ -10,9 +10,14 @@ import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { getLocalVaultSnapshotQueryKey } from './useElectronLocalVault';
 import { useHomeLocalVaultActions } from './useHomeLocalVaultActions';
 
-const { toastErrorMock, toastSuccessMock } = vi.hoisted(() => ({
+const { toastErrorMock, toastSuccessMock, confirmDialogMock } = vi.hoisted(() => ({
   toastErrorMock: vi.fn(),
   toastSuccessMock: vi.fn(),
+  confirmDialogMock: vi.fn(),
+}));
+
+vi.mock('@/components/ConfirmDialogHost', () => ({
+  confirmDialog: confirmDialogMock,
 }));
 
 vi.mock('@/components/ui/toast', () => ({
@@ -50,7 +55,6 @@ function snapshot(overrides: Partial<LocalVaultSnapshot> = {}): LocalVaultSnapsh
 
 function createApi(overrides: {
   choose?: HackDeskElectronAPI['localVault']['choose'];
-  confirm?: HackDeskElectronAPI['app']['confirm'];
   disconnect?: HackDeskElectronAPI['localVault']['disconnect'];
 } = {}): HackDeskElectronAPI {
   return {
@@ -84,7 +88,7 @@ function createApi(overrides: {
     },
     shell: {} as HackDeskElectronAPI['shell'],
     app: {
-      confirm: overrides.confirm ?? vi.fn(async () => ({ confirmed: false })),
+      confirm: vi.fn(async () => ({ confirmed: false })),
       exportDebugLogs: vi.fn(),
       recordFatalRendererError: vi.fn(),
       writeClipboardText: vi.fn(),
@@ -121,6 +125,7 @@ function renderLocalVaultActions(api: HackDeskElectronAPI, queryClient = new Que
 describe('useHomeLocalVaultActions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    confirmDialogMock.mockResolvedValue({ confirmed: false });
   });
 
   it('chooses a local vault, updates cache, and switches to local scope', async () => {
@@ -180,9 +185,9 @@ describe('useHomeLocalVaultActions', () => {
   });
 
   it('forgets the local vault only after confirmation', async () => {
+    confirmDialogMock.mockResolvedValue({ confirmed: true });
     const nextSettings = safeSettings({ localVault: { path: null }, hasLocalVault: false });
     const api = createApi({
-      confirm: vi.fn(async () => ({ confirmed: true })),
       disconnect: vi.fn(async () => nextSettings),
     });
     const queryClient = new QueryClient();
@@ -193,7 +198,7 @@ describe('useHomeLocalVaultActions', () => {
       await result.current.forgetLocalVault();
     });
 
-    expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
+    expect(confirmDialogMock).toHaveBeenCalledWith(expect.objectContaining({
       title: 'Forget Local Vault',
       confirmLabel: 'Forget Vault',
       destructive: true,
@@ -207,9 +212,7 @@ describe('useHomeLocalVaultActions', () => {
   });
 
   it('does not forget the local vault when confirmation is canceled', async () => {
-    const api = createApi({
-      confirm: vi.fn(async () => ({ confirmed: false })),
-    });
+    const api = createApi();
     const { result } = renderLocalVaultActions(api);
 
     await act(async () => {

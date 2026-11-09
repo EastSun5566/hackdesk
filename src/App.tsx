@@ -33,7 +33,7 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider storageKey="theme">
-          <TooltipProvider delayDuration={350} skipDelayDuration={100}>
+          <TooltipProvider delayDuration={200} skipDelayDuration={400}>
             <Routes />
             <Toaster />
           </TooltipProvider>

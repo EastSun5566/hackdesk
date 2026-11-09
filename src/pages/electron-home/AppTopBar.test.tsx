@@ -59,6 +59,7 @@ function renderTopBar(overrides: Partial<Parameters<typeof AppTopBar>[0]> = {}) 
     navigatorPanelId: 'note-navigator-panel',
     tabs: [firstTab, secondTab],
     onToggleNavigator: vi.fn(),
+    onNewTab: vi.fn(),
     ...overrides,
   };
 
@@ -218,8 +219,8 @@ describe('AppTopBar', () => {
       tabs: [],
     });
 
-    const openDocuments = screen.getByRole('navigation', { name: 'Open documents' });
-    expect(openDocuments).toBeEmptyDOMElement();
+    expect(screen.getByRole('navigation', { name: 'Open documents' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New Tab' })).toBeInTheDocument();
   });
 
   it('runs pane actions from the titlebar menu', async () => {

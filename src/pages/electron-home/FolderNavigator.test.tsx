@@ -1,17 +1,30 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { ComponentProps } from 'react';
 
 import { DEFAULT_NOTE_FINDER_STATE } from '@/lib/electron-note-finder';
 import type { FolderPathSummary, NoteSummary } from '@/lib/electron-api';
 import { buildHackmdFolderTree, UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
-  expectDisabledToolbarAction,
   expectMenuReturnsFocus,
-  expectToolbarRovingFocus,
 } from '@/test/accessibility-contracts';
 
 import { FolderNavigator, type FolderNavigatorProps } from './FolderNavigator';
+import { NoteSummaryCard } from './FolderNavigatorRows';
+
+const { treeRender } = vi.hoisted(() => ({ treeRender: vi.fn() }));
+vi.mock('@dnd-kit/core', async (importOriginal) => {
+  const core = await importOriginal<typeof import('@dnd-kit/core')>();
+  return {
+    ...core,
+    DndContext: (props: ComponentProps<typeof core.DndContext>) => {
+      treeRender();
+      return <core.DndContext {...props} />;
+    },
+  };
+});
 
 function folder(input: Partial<FolderPathSummary> & Pick<FolderPathSummary, 'id' | 'name'>): FolderPathSummary {
   return {
@@ -158,10 +171,13 @@ function renderFolderNavigator(overrides: FolderNavigatorPropsOverrides = {}) {
     status: { ...props.status, ...overrides.status },
   };
 
+  // As a wrapper, the query client survives rerender() calls that pass only the navigator.
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = render(
     <TooltipProvider>
       <FolderNavigator {...mergedProps} />
     </TooltipProvider>,
+    { wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider> },
   );
   return { ...view, props: mergedProps };
 }
@@ -183,6 +199,18 @@ function focusTreeRow(container: HTMLElement, rowId: string) {
 }
 
 describe('FolderNavigator', () => {
+  it('keeps the mounted tree out of search keystroke renders', () => {
+    const { props, rerender } = renderFolderNavigator();
+    const renderCount = treeRender.mock.calls.length;
+    expect(renderCount).toBeGreaterThan(0);
+    for (const query of ['n', 'ne', 'nested']) {
+      rerender(
+        <TooltipProvider><FolderNavigator {...props} finderState={{ ...props.finderState, query }} /></TooltipProvider>,
+      );
+    }
+    expect(treeRender).toHaveBeenCalledTimes(renderCount);
+  });
+
   it('moves the highlighted search result from the search box and opens it with Enter', () => {
     const { props } = renderFolderNavigator({ finderState: { ...DEFAULT_NOTE_FINDER_STATE, query: 'note' } });
     const search = screen.getByPlaceholderText('Search notes');
@@ -219,12 +247,10 @@ describe('FolderNavigator', () => {
     expect(screen.getByRole('status', { name: 'Loading notes' })).toHaveAttribute('aria-busy', 'true');
   });
 
-  it('counts notes with the right plural', () => {
-    const { rerender, props } = renderFolderNavigator();
-    expect(screen.getByText('2 notes')).toBeInTheDocument();
-
-    rerender(<FolderNavigator {...props} entries={props.entries.slice(0, 1)} />);
-    expect(screen.getByText('1 note')).toBeInTheDocument();
+  it('leaves the header without a bare note count', () => {
+    renderFolderNavigator();
+    // The tree shows the notes; the header names a count only for search results.
+    expect(screen.queryByText('2 notes')).not.toBeInTheDocument();
   });
 
   it('shows token setup actions when HackMD token is missing', () => {
@@ -303,8 +329,6 @@ describe('FolderNavigator', () => {
     const onFinderStateChange = vi.fn();
     renderFolderNavigator({ actions: { onFinderStateChange } });
 
-    expect(screen.getByRole('toolbar', { name: 'Note navigator actions' })).toBeInTheDocument();
-    expect(screen.getByRole('toolbar', { name: 'Note finder controls' })).toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText('Search notes'), {
       target: { value: 'nested' },
     });
@@ -364,52 +388,115 @@ describe('FolderNavigator', () => {
     fireEvent.keyDown(emptyInput, { key: 'Escape' });
 
     await waitFor(() => {
-      expect(getFocusedTreeRowId()).toBe(`folder:${UNFILED_FOLDER_ID}`);
+      expect(getFocusedTreeRowId()).toBe('workspace:root');
     });
 
     treeView.unmount();
   });
 
-  it('shows tags under tree notes, not the folder they already sit in', () => {
+  it('keeps tree notes to one line; the hover card carries the full title, folder and tags', () => {
     renderFolderNavigator();
 
     const nested = screen.getByRole('treeitem', { name: 'Nested note' });
-    expect(nested).toHaveTextContent('work');
+    expect(nested).not.toHaveTextContent('work');
     expect(nested).not.toHaveTextContent('Projects');
-    // A note with nothing to add gets no second line.
     expect(screen.getByRole('treeitem', { name: 'Loose note' })).not.toHaveTextContent('loose-note');
+
+    const { container } = render(<NoteSummaryCard entry={{
+      note: note({ id: 'card-note', title: 'A long nested note title', tags: ['work'], updatedAtMillis: Date.UTC(2026, 9, 15) }),
+      folderLabel: 'Projects',
+      folderPath: [],
+    }} />);
+    const card = within(container);
+    expect(card.getByText('A long nested note title')).toBeInTheDocument();
+    expect(card.getByText('Projects')).toBeInTheDocument();
+    expect(card.getByText('work')).toBeInTheDocument();
+    expect(card.getByText(/^Edited /)).toBeInTheDocument();
   });
 
-  it('uses roving focus for navigator header actions', async () => {
+  it('keeps the header to the workspace switcher, with no action buttons', () => {
     renderFolderNavigator();
 
-    // Refresh happens when the window regains focus, so the header has no refresh button.
-    await expectToolbarRovingFocus('Note navigator actions', [
-      'Create note',
-      'Navigator actions',
-    ]);
+    // Folder actions are in context menus and the palette is a keyboard path, so nothing else here.
+    expect(screen.queryByRole('toolbar', { name: 'Note navigator actions' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Navigator actions' })).not.toBeInTheDocument();
   });
 
-  it('keeps disabled create action focusable and explainable', async () => {
-    const onCreate = vi.fn();
+  it('creates from the workspace row: New Note at the top level, and the other ways in its context menu', async () => {
+    window.localStorage.clear();
+    const onCreateNoteInside = vi.fn();
+    const onImportMarkdown = vi.fn();
+    renderFolderNavigator({ actions: { onCreateNoteInside, onImportMarkdown } });
+
+    const root = screen.getByRole('treeitem', { name: 'My Notes' }).closest('[data-folder-tree-kind="root"]') as HTMLElement;
+    fireEvent.click(within(root).getByRole('button', { name: 'New Note' }));
+    expect(onCreateNoteInside).toHaveBeenCalledWith(null);
+
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'My Notes' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Import Markdown Note/ }));
+    await vi.waitFor(() => expect(onImportMarkdown).toHaveBeenCalledTimes(1));
+  });
+
+  it('hides New Note where the workspace cannot take notes', () => {
+    window.localStorage.clear();
+    renderFolderNavigator({ status: { canCreate: false } });
+    const root = screen.getByRole('treeitem', { name: 'My Notes' }).closest('[data-folder-tree-kind="root"]') as HTMLElement;
+    expect(within(root).queryByRole('button', { name: 'New Note' })).not.toBeInTheDocument();
+  });
+
+  it('pins Trash above the account row, outside the tree', () => {
+    const onOpenChange = vi.fn();
+    window.hackdeskAPI = {
+      hackmd: { listTrash: vi.fn(async () => []) },
+    } as unknown as NonNullable<typeof window.hackdeskAPI>;
     renderFolderNavigator({
-      actions: { onCreate },
-      status: {
-        canCreate: false,
-      },
+      trash: { open: false, onOpenChange, onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } },
     });
 
-    const createButton = screen.getByRole('button', { name: 'Create note' });
-    fireEvent.mouseOver(createButton);
-    expectDisabledToolbarAction(createButton, onCreate);
-
-    expect(await screen.findByText('Connect HackMD to create notes.')).toBeVisible();
+    const tree = screen.getByTestId('folder-navigator-tree');
+    const trashRow = screen.getByTestId('sidebar-trash-row');
+    expect(tree).not.toContainElement(trashRow);
+    fireEvent.click(within(trashRow).getByRole('button', { name: 'My Trash' }));
+    expect(onOpenChange).toHaveBeenCalledWith(true);
+    delete window.hackdeskAPI;
   });
 
-  it('keeps one View options button beside the search box', async () => {
+  it('shows Trash in place of the tree, with a way back', async () => {
+    const onOpenChange = vi.fn();
+    renderFolderNavigator({
+      trash: { open: true, onOpenChange, onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } },
+    });
+
+    expect(screen.getByText('Trash')).toBeInTheDocument();
+    expect(screen.queryByRole('tree')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to notes' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('keeps search as a header icon that opens across the row, and View options on the workspace row', () => {
     renderFolderNavigator();
 
-    await expectToolbarRovingFocus('Note finder controls', ['View options']);
+    const search = screen.getByPlaceholderText('Search notes');
+    const field = search.closest('label')!;
+    expect(field).not.toHaveAttribute('data-search-open');
+    fireEvent.focus(search);
+    expect(field).toHaveAttribute('data-search-open', 'true');
+    fireEvent.blur(search);
+    expect(field).not.toHaveAttribute('data-search-open');
+
+    // With nothing changed, the one View options button sits on the workspace root row.
+    const root = screen.getByRole('treeitem', { name: 'My Notes' }).closest('[data-folder-tree-kind="root"]')!;
+    expect(within(root as HTMLElement).getByRole('button', { name: 'View options' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'View options' })).toHaveLength(1);
+  });
+
+  it('moves View options and the result count to the list header when the view changes', () => {
+    renderFolderNavigator({ finderState: { ...DEFAULT_NOTE_FINDER_STATE, sortMode: 'title-asc' } });
+
+    expect(screen.queryByRole('treeitem', { name: 'My Notes' })).not.toBeInTheDocument();
+    // Its badge counts what differs from the default (the tooltip says so too).
+    expect(screen.getByRole('button', { name: 'View options' })).toHaveTextContent('1');
+    expect(screen.getByText(/^\d+ results?$/)).toBeInTheDocument();
   });
 
   it('holds scope, sort, permissions and tags in View options, and counts what differs from the default', async () => {
@@ -484,16 +571,22 @@ describe('FolderNavigator', () => {
     expect(onFolderSelect).toHaveBeenCalledWith('projects');
   });
 
-  it('reuses the file and folder icon positions for drag handles', () => {
+  it('keeps folder and note icons in one column, with the arrow in the folder icon slot and no hover grip', () => {
     renderFolderNavigator();
 
+    // The folder's icon slot is its expand/collapse control: the glyph, turning into the arrow on hover.
+    const toggle = screen.getByRole('button', { name: 'Collapse Projects' });
+    expect(toggle.querySelector('[data-folder-glyph]')).toBeInTheDocument();
+    expect(toggle.querySelector('.lucide-chevron-right')).toBeInTheDocument();
+    // Rows drag from anywhere, so hovering shows no grip. The folder's drag button floats beside
+    // its icon for the keyboard and shows only while it has keyboard focus.
     const folderHandle = screen.getByRole('button', { name: 'Drag Projects' });
+    expect(folderHandle.className).toContain('absolute');
+    expect(folderHandle.className).toContain('focus-visible:opacity-100');
+    expect(folderHandle.className).not.toContain('group-hover/entity-row:opacity-100');
     const noteHandle = screen.getByRole('button', { name: 'Drag Nested note' });
-
-    expect(folderHandle.querySelector('[data-folder-glyph]')).toBeInTheDocument();
-    expect(folderHandle.querySelector('.lucide-grip-vertical')).toBeInTheDocument();
     expect(noteHandle.querySelector('.lucide-file-text')).toBeInTheDocument();
-    expect(noteHandle.querySelector('.lucide-grip-vertical')).toBeInTheDocument();
+    expect(noteHandle.querySelector('.lucide-grip-vertical')).not.toBeInTheDocument();
   });
 
   it('shows a compact note date with the full value in its tooltip', () => {
@@ -544,8 +637,11 @@ describe('FolderNavigator', () => {
     const tree = screen.getByRole('tree', { name: 'Folders and notes' });
     const items = within(tree).getAllByRole('treeitem');
     expect(items.filter(item => item.tabIndex === 0)).toHaveLength(1);
+    const workspaceRoot = within(tree).getByRole('treeitem', { name: 'My Notes' });
+    expect(workspaceRoot).toHaveAttribute('aria-level', '1');
+    expect(workspaceRoot).toHaveAttribute('aria-expanded', 'true');
     const projects = within(tree).getByRole('treeitem', { name: 'Projects' });
-    expect(projects).toHaveAttribute('aria-level', '1');
+    expect(projects).toHaveAttribute('aria-level', '2');
     expect(projects).toHaveAttribute('aria-expanded', 'true');
     const owned = projects.getAttribute('aria-owns')!.split(' ').map(id => document.getElementById(id)!);
     expect(owned[0]).toHaveAccessibleName('Collapse Projects');
@@ -553,11 +649,9 @@ describe('FolderNavigator', () => {
     const group = owned[2];
     expect(group).toHaveAttribute('role', 'group');
     const nested = within(group!).getByRole('treeitem', { name: 'Nested note' });
-    expect(nested).toHaveAttribute('aria-level', '2');
+    expect(nested).toHaveAttribute('aria-level', '3');
     expect(nested).not.toHaveAttribute('aria-expanded');
-    const root = within(tree).getByRole('treeitem', { name: /Root/ });
-    expect(root).not.toHaveAttribute('aria-expanded');
-    expect(within(tree).getByRole('treeitem', { name: 'Loose note' })).toHaveAttribute('aria-level', '1');
+    expect(within(tree).getByRole('treeitem', { name: 'Loose note' })).toHaveAttribute('aria-level', '2');
   });
 
   it('returns a hidden child focus to its collapsed parent', () => {
@@ -603,30 +697,37 @@ describe('FolderNavigator', () => {
 
   it('moves focus through visible tree rows with arrow keys and Ctrl+N/P', () => {
     const { container } = renderFolderNavigator();
-    const root = focusTreeRow(container, `folder:${UNFILED_FOLDER_ID}`);
+    const root = focusTreeRow(container, 'workspace:root');
 
     fireEvent.keyDown(root, { key: 'ArrowDown' });
     expect(getFocusedTreeRowId()).toBe('folder:projects');
 
-    fireEvent.keyDown(document.activeElement ?? root, { ctrlKey: true, key: 'n' });
+    const projects = focusTreeRow(container, 'folder:projects');
+    fireEvent.keyDown(projects, { key: 'ArrowDown' });
     expect(getFocusedTreeRowId()).toBe('note:nested-note');
 
-    fireEvent.keyDown(document.activeElement ?? root, { ctrlKey: true, key: 'p' });
-    expect(getFocusedTreeRowId()).toBe('folder:projects');
+    fireEvent.keyDown(document.activeElement ?? projects, { ctrlKey: true, key: 'n' });
+    expect(getFocusedTreeRowId()).toBe('note:loose-note');
 
-    fireEvent.keyDown(document.activeElement ?? root, { key: 'ArrowUp' });
-    expect(getFocusedTreeRowId()).toBe(`folder:${UNFILED_FOLDER_ID}`);
+    fireEvent.keyDown(document.activeElement ?? projects, { ctrlKey: true, key: 'p' });
+    expect(getFocusedTreeRowId()).toBe('note:nested-note');
+
+    fireEvent.keyDown(document.activeElement ?? projects, { key: 'ArrowUp' });
+    expect(getFocusedTreeRowId()).toBe('folder:projects');
   });
 
   it('moves focus to first and last visible tree rows with Home and End', () => {
-    const { container } = renderFolderNavigator();
+    const onOpenChange = vi.fn();
+    const { container } = renderFolderNavigator({
+      trash: { open: false, onOpenChange, onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } },
+    });
     const projects = focusTreeRow(container, 'folder:projects');
 
     fireEvent.keyDown(projects, { key: 'End' });
     expect(getFocusedTreeRowId()).toBe('note:loose-note');
 
     fireEvent.keyDown(document.activeElement ?? projects, { key: 'Home' });
-    expect(getFocusedTreeRowId()).toBe(`folder:${UNFILED_FOLDER_ID}`);
+    expect(getFocusedTreeRowId()).toBe('workspace:root');
   });
 
   it('expands and collapses folders with right and left arrows', () => {
@@ -670,7 +771,7 @@ describe('FolderNavigator', () => {
     const onFolderSelect = vi.fn();
     const onNoteSelect = vi.fn();
     const { container } = renderFolderNavigator({ actions: { onFolderSelect, onNoteSelect } });
-    const root = focusTreeRow(container, `folder:${UNFILED_FOLDER_ID}`);
+    const root = focusTreeRow(container, 'note:loose-note');
 
     fireEvent.keyDown(root, { key: 'p' });
     expect(getFocusedTreeRowId()).toBe('folder:projects');
@@ -685,7 +786,7 @@ describe('FolderNavigator', () => {
     vi.useFakeTimers();
     try {
       const { container } = renderFolderNavigator();
-      const root = focusTreeRow(container, `folder:${UNFILED_FOLDER_ID}`);
+      const root = focusTreeRow(container, 'note:loose-note');
 
       fireEvent.keyDown(root, { key: 'p' });
       expect(getFocusedTreeRowId()).toBe('folder:projects');
@@ -705,11 +806,11 @@ describe('FolderNavigator', () => {
     const { container } = renderFolderNavigator({
       layout: { collapsedFolderIds: new Set(['projects']) },
     });
-    const root = focusTreeRow(container, `folder:${UNFILED_FOLDER_ID}`);
+    const root = focusTreeRow(container, 'note:loose-note');
 
     fireEvent.keyDown(root, { key: 'n' });
 
-    expect(getFocusedTreeRowId()).toBe(`folder:${UNFILED_FOLDER_ID}`);
+    expect(getFocusedTreeRowId()).toBe('note:loose-note');
     expect(container.querySelector('[data-folder-tree-row-id="note:nested-note"]')).not.toBeInTheDocument();
     expect(screen.queryByText('Nested note')).not.toBeInTheDocument();
   });
@@ -762,14 +863,13 @@ describe('FolderNavigator', () => {
     expect(onDeleteNote).toHaveBeenCalledWith(expect.objectContaining({ id: 'nested-note' }));
   });
 
-  it('does not delete with bare Delete or Backspace and does not delete root', () => {
+  it('does not delete with bare Delete or Backspace', () => {
     const onDeleteFolder = vi.fn();
     const onDeleteNote = vi.fn();
     const { container } = renderFolderNavigator({ actions: { onDeleteFolder, onDeleteNote } });
-    const root = focusTreeRow(container, `folder:${UNFILED_FOLDER_ID}`);
+    const projects = focusTreeRow(container, 'folder:projects');
 
-    fireEvent.keyDown(root, { key: 'Backspace', metaKey: true });
-    fireEvent.keyDown(root, { key: 'Delete' });
+    fireEvent.keyDown(projects, { key: 'Delete' });
 
     const nestedNote = focusTreeRow(container, 'note:nested-note');
     fireEvent.keyDown(nestedNote, { key: 'Backspace' });
@@ -791,8 +891,9 @@ describe('FolderNavigator', () => {
       expect(document.activeElement).toBe(screen.getByRole('treeitem', { name: 'Projects' }));
     });
 
-    fireEvent.contextMenu(screen.getByRole('treeitem', { name: /Root/ }));
-    fireEvent.click(await screen.findByText('New Note'));
+    // The space under the tree stands for the top level.
+    fireEvent.contextMenu(screen.getByTestId('tree-top-level'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^New Note/ }));
 
     await waitFor(() => {
       expect(onCreateNoteInside).toHaveBeenCalledWith(null);
@@ -828,5 +929,99 @@ describe('FolderNavigator', () => {
       }));
       expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Nested note' }));
     });
+  });
+
+  it('renders the workspace root with the personal label', () => {
+    renderFolderNavigator({ scope: { type: 'personal', label: 'Ignored' } });
+    expect(within(screen.getByTestId('folder-navigator-tree')).getByRole('treeitem', { name: 'My Notes' })).toBeInTheDocument();
+  });
+
+  it('selects the top level when the workspace root row is clicked', () => {
+    const onFolderSelect = vi.fn();
+    renderFolderNavigator({ actions: { onFolderSelect } });
+    fireEvent.click(screen.getByRole('treeitem', { name: 'My Notes' }));
+    expect(onFolderSelect).toHaveBeenCalledWith(UNFILED_FOLDER_ID);
+  });
+
+  it('collapses the tree, persisting per scope', () => {
+    window.localStorage.clear();
+    const onOpenChange = vi.fn();
+    const { props, rerender } = renderFolderNavigator({
+      trash: { open: false, onOpenChange, onOpenNote: vi.fn(), scope: { type: 'personal', label: 'My Workspace' } },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse My Notes' }));
+    expect(screen.queryByRole('treeitem', { name: 'Projects' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'My Trash' })).toBeInTheDocument();
+
+    rerender(<TooltipProvider><FolderNavigator {...props} /></TooltipProvider>);
+    expect(screen.queryByRole('treeitem', { name: 'Projects' })).not.toBeInTheDocument();
+  });
+
+  it('mounts a folder\'s rows when first opened, then keeps them hidden while it is closed', () => {
+    window.localStorage.clear();
+    const { container, props, rerender } = renderFolderNavigator({ layout: { collapsedFolderIds: new Set(['projects']) } });
+    const nestedRow = () => container.querySelector('[data-folder-tree-row-id="note:nested-note"]');
+    // Never opened: nothing is built for it.
+    expect(nestedRow()).toBeNull();
+
+    const view = (collapsed: boolean) => (
+      <TooltipProvider><FolderNavigator {...props} layout={{ ...props.layout, collapsedFolderIds: new Set(collapsed ? ['projects'] : []) }} /></TooltipProvider>
+    );
+    rerender(view(false));
+    const row = nestedRow();
+    expect(row).not.toBeNull();
+    expect(screen.getByRole('treeitem', { name: 'Nested note' })).toBeVisible();
+
+    rerender(view(true));
+    expect(nestedRow()).toBe(row);
+    expect(row!.closest('[hidden]')).not.toBeNull();
+    expect(screen.queryByRole('treeitem', { name: 'Nested note' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the rows mounted while the root is collapsed, so opening it is cheap', () => {
+    window.localStorage.clear();
+    const { container } = renderFolderNavigator();
+    const row = container.querySelector('[data-folder-tree-row-id="folder:projects"]');
+    expect(row).not.toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse My Notes' }));
+    // Hidden, not unmounted: the same element, out of the accessibility tree and keyboard path.
+    expect(container.querySelector('[data-folder-tree-row-id="folder:projects"]')).toBe(row);
+    expect(row!.closest('[hidden]')).not.toBeNull();
+    expect(screen.queryByRole('treeitem', { name: 'Projects' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand My Notes' }));
+    expect(container.querySelector('[data-folder-tree-row-id="folder:projects"]')).toBe(row);
+    expect(screen.getByRole('treeitem', { name: 'Projects' })).toBeVisible();
+  });
+
+  it('creates a top-level folder from the root hover action and context menu', async () => {
+    const onCreateFolderInside = vi.fn();
+    renderFolderNavigator({ actions: { onCreateFolderInside } });
+    fireEvent.click(screen.getByRole('button', { name: 'New Folder' }));
+    expect(onCreateFolderInside).toHaveBeenCalledWith(null);
+
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'My Notes' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^New Folder/ }));
+    expect(onCreateFolderInside).toHaveBeenCalledTimes(2);
+  });
+
+  it('expands and collapses the root section with arrow keys', () => {
+    const { container } = renderFolderNavigator();
+    const root = focusTreeRow(container, 'workspace:root');
+    fireEvent.keyDown(root, { key: 'ArrowLeft' });
+    expect(screen.queryByRole('treeitem', { name: 'Projects' })).not.toBeInTheDocument();
+    fireEvent.keyDown(root, { key: 'ArrowRight' });
+    expect(screen.getByRole('treeitem', { name: 'Projects' })).toBeInTheDocument();
+  });
+
+  it('omits the workspace root on the history scope', () => {
+    const historyTree = buildHackmdFolderTree([note({ id: 'h1', title: 'Recent' })], []);
+    renderFolderNavigator({
+      scope: { type: 'history', label: 'History' },
+      tree: historyTree,
+      entries: historyTree.allNotes,
+    });
+    expect(screen.queryByRole('treeitem', { name: 'My Notes' })).not.toBeInTheDocument();
   });
 });

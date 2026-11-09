@@ -36,6 +36,7 @@ function createDocumentTabsProps(overrides: Partial<Parameters<typeof DocumentTa
     onReorderTab: vi.fn(),
     onSelectTab: vi.fn(),
     onSplitPane: vi.fn(),
+    onNewTab: vi.fn(),
     paneLayout: { zoomed: false, onSplitDown: vi.fn(), onToggleZoom: vi.fn(), onEqualize: vi.fn() },
     tabs: [
       firstTab,
@@ -65,6 +66,12 @@ function renderDocumentTabs(overrides: Partial<Parameters<typeof DocumentTabs>[0
 }
 
 describe('DocumentTabs', () => {
+  it('renders a new tab button beside the strip', () => {
+    const props = renderDocumentTabs();
+    fireEvent.click(screen.getByRole('button', { name: 'New Tab' }));
+    expect(props.onNewTab).toHaveBeenCalledOnce();
+  });
+
   it('keeps note tabs custom while pane actions use toolbar roving focus', async () => {
     renderDocumentTabs();
 
@@ -93,9 +100,9 @@ describe('DocumentTabs', () => {
     });
 
     const openDocuments = screen.getByRole('navigation', { name: 'Open documents' });
-    expect(openDocuments).toBeEmptyDOMElement();
     expect(within(openDocuments).queryByRole('list')).not.toBeInTheDocument();
     expect(within(openDocuments).queryByRole('tab')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New Tab' })).toBeInTheDocument();
   });
 
   it('names each tab by its title and its sync status unless it is saved', async () => {

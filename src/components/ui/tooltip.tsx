@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip';
 
 import { cn } from '@/lib/utils';
-import { ELEVATED_SURFACE_CLASS, FLOATING_LAYER_CLASS } from './layers';
+import { FLOATING_LAYER_CLASS } from './layers';
 
 type TooltipProviderProps = React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Provider> & {
   delayDuration?: number;
@@ -55,12 +55,12 @@ const TooltipContent = React.forwardRef<
   }
 >(({ className, side, sideOffset = 6, ...props }, ref) => (
   <TooltipPortal>
-    <TooltipPrimitive.Positioner side={side} sideOffset={sideOffset} className={FLOATING_LAYER_CLASS}>
+    {/* Fixed, and kept 8px inside the window, so a card near an edge shifts in instead of overflowing. */}
+    <TooltipPrimitive.Positioner side={side} sideOffset={sideOffset} positionMethod="fixed" collisionPadding={8} className={FLOATING_LAYER_CLASS}>
       <TooltipPrimitive.Popup
         ref={ref}
         className={cn(
-          'max-w-64 rounded-md border border-border-default bg-text-default px-2 py-1 text-xs text-background-default origin-(--transform-origin) ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 motion-reduce:animate-none',
-          ELEVATED_SURFACE_CLASS,
+          'max-w-64 rounded border border-border-default bg-background-raised px-2 py-1 text-xs font-medium leading-4 text-text-default shadow-md origin-(--transform-origin) duration-100 ease-out data-[open]:animate-in data-[open]:fade-in-0 motion-reduce:animate-none',
           className,
         )}
         {...props}

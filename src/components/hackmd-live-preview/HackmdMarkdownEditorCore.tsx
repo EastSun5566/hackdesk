@@ -55,6 +55,9 @@ import { hackmdLinkOpenAffordance } from './preview-links';
 import { hackmdRichPreviewNavigation } from './rich-preview-navigation';
 import { hackmdRichPreviewWidgets } from './rich-preview-widgets';
 import { treeProgressPlugin } from './tree-progress';
+import { editorStatusExtension } from './editor-status-extension';
+import { useSplitStatusLine } from '@/pages/electron-home/split-status-line-preference';
+import { useStatusLineVisible } from '@/pages/electron-home/status-line-preference';
 
 const reservedAppShortcutKeymap = Prec.highest(keymap.of([
   {
@@ -129,6 +132,7 @@ const editorExtensions: Extension[] = [
     closeBrackets: { brackets: ['(', '[', '{', "'", '"', '*', '_', '`'] },
   }),
   treeProgressPlugin,
+  editorStatusExtension,
   hackmdInlinePreview(),
   initialRevealExtension(),
   hackmdRichPreviewNavigation(),
@@ -161,6 +165,7 @@ type EditorRuntime = {
   pendingFocus: boolean;
   value: string;
   editorMode: EditorMode;
+  editorModeStatusHidden: boolean;
   resolvedMode: ResolvedThemeMode;
   localImageContext: LocalImageContext | null;
 };
@@ -195,6 +200,7 @@ function createEditorRuntime(
     pendingFocus: false,
     value,
     editorMode,
+    editorModeStatusHidden: false,
     resolvedMode,
     localImageContext,
   };
@@ -337,6 +343,10 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
     onOpenLink,
   }, ref) {
     const { resolvedMode } = useTheme();
+    // The editor's own mode bar goes only while the split line shows the mode instead.
+    const splitStatusLine = useSplitStatusLine();
+    const statusLineVisible = useStatusLineVisible();
+    const hideEditorModeStatus = splitStatusLine && statusLineVisible;
     const parentRef = useRef<HTMLDivElement | null>(null);
     const onAttachImageRef = useLatestRef(onAttachImage);
     const onChangeRef = useLatestRef(onChange);
@@ -550,7 +560,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
         return cancelRequest;
       }
 
-      if (runtime.appliedEditorMode === editorMode) {
+      if (runtime.appliedEditorMode === editorMode && runtime.editorModeStatusHidden === hideEditorModeStatus) {
         delete view.dom.dataset.editorModeLoading;
         delete view.dom.dataset.editorModeError;
         return cancelRequest;
@@ -566,7 +576,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
       view.dom.dataset.editorModeLoading = 'true';
       delete view.dom.dataset.editorModeError;
 
-      void createEditorModeExtension(editorMode)
+      void createEditorModeExtension(editorMode, hideEditorModeStatus)
         .then((extension) => {
           if (cancelled || runtime.editorModeRequestId !== requestId || runtime.view !== view) {
             return;
@@ -581,6 +591,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
           delete view.dom.dataset.editorModeLoading;
           delete view.dom.dataset.editorModeError;
           runtime.appliedEditorMode = editorMode;
+          runtime.editorModeStatusHidden = hideEditorModeStatus;
         })
         .catch((error: unknown) => {
           if (cancelled || runtime.editorModeRequestId !== requestId || runtime.view !== view) {
@@ -593,7 +604,7 @@ export const HackmdMarkdownEditorCore = forwardRef<MarkdownEditorHandle, Markdow
         });
 
       return cancelRequest;
-    }, [editorMode, runtime]);
+    }, [editorMode, hideEditorModeStatus, runtime]);
 
     useEffect(() => {
       const view = runtime.view;
@@ -713,23 +724,23 @@ let helixModulePromise: Promise<HelixModule> | null = null;
 let emacsModulePromise: Promise<EmacsModule> | null = null;
 let kakouneModulePromise: Promise<KakouneModule> | null = null;
 
-async function createEditorModeExtension(editorMode: LazyEditorMode): Promise<Extension> {
+async function createEditorModeExtension(editorMode: LazyEditorMode, hideBuiltinStatus: boolean): Promise<Extension> {
   switch (editorMode) {
   case 'vim':
-    return loadVimModeExtension();
+    return loadVimModeExtension(hideBuiltinStatus);
   case 'helix':
     return loadHelixModeExtension();
   case 'emacs':
     return loadEmacsModeExtension();
   case 'kakoune':
-    return loadKakouneModeExtension();
+    return loadKakouneModeExtension(hideBuiltinStatus);
   }
 }
 
-async function loadVimModeExtension(): Promise<Extension> {
+async function loadVimModeExtension(hideBuiltinStatus: boolean): Promise<Extension> {
   vimModulePromise ??= import('@replit/codemirror-vim');
   const { vim } = await vimModulePromise;
-  return vim({ status: true });
+  return vim({ status: !hideBuiltinStatus });
 }
 
 async function loadHelixModeExtension(): Promise<Extension> {
@@ -744,7 +755,7 @@ async function loadEmacsModeExtension(): Promise<Extension> {
   return emacs();
 }
 
-async function loadKakouneModeExtension(): Promise<Extension> {
+async function loadKakouneModeExtension(hideBuiltinStatus: boolean): Promise<Extension> {
   kakouneModulePromise ??= import('codemirror-kakoune');
   const { getKakouneState, kakoune, setKakouneModeEffect } = await kakouneModulePromise;
   return [
@@ -760,7 +771,7 @@ async function loadKakouneModeExtension(): Promise<Extension> {
       },
     }])),
     kakoune({ initialMode: 'select' }),
-    createKakouneStatusPanel(getKakouneState),
+    ...(hideBuiltinStatus ? [] : [createKakouneStatusPanel(getKakouneState)]),
   ];
 }
 

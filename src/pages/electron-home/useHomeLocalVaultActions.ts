@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { confirmDialog } from '@/components/ConfirmDialogHost';
 import type { QueryClient } from '@tanstack/react-query';
 
 import { toast } from '@/components/ui/toast';
@@ -82,7 +83,7 @@ export function useHomeLocalVaultActions({
       throw new Error('Electron API is unavailable.');
     }
 
-    const { confirmed } = await api.app.confirm({
+    const { confirmed } = await confirmDialog({
       title: 'Forget Local Vault',
       message: 'Forget this local vault?',
       detail: 'HackDesk will stop opening this folder automatically. Your Markdown files will not be deleted.',

@@ -4,7 +4,8 @@ import type { WorkspaceScope } from './types';
 
 export const NAVIGATOR_COLLAPSED_KEY = 'hackdesk_sidebar_collapsed';
 export const NAVIGATOR_WIDTH_KEY = 'hackdesk_navigator_width';
-export const FOLDER_COLLAPSED_PREFIX = 'hackdesk_folder_collapsed:';
+// Folders start collapsed; the sidebar remembers the ones you open, per workspace.
+export const FOLDER_EXPANDED_PREFIX = 'hackdesk_folder_expanded:';
 export const LAST_WORKSPACE_SCOPE_KEY = 'hackdesk_last_workspace_scope';
 
 export const NAVIGATOR_WIDTH_DEFAULT = 400;

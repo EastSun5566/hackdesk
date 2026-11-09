@@ -1,8 +1,8 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { toast } from '@/components/ui/toast';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { FolderSummary, HackDeskElectronAPI } from '@/lib/electron-api';
+import type { FolderSummary } from '@/lib/electron-api';
 import { buildHackmdFolderTree, UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
 import type { WorkbenchFolderCommandsOptions } from './useWorkbenchFolderCommands';
@@ -231,33 +231,7 @@ describe('useWorkbenchFolderCommands', () => {
     });
   });
 
-  it('uses native confirmation before deleting a folder when available', async () => {
-    const confirm = vi.fn().mockResolvedValue({ confirmed: true });
-    const options = createOptions({
-      api: { app: { confirm } } as unknown as HackDeskElectronAPI,
-    });
-    const { result } = renderHook(() => useWorkbenchFolderCommands(options));
-
-    act(() => {
-      result.current.handleDeleteFolderRequest('folder-a');
-    });
-
-    expect(confirm).toHaveBeenCalledWith({
-      title: 'Delete Folder',
-      message: 'Delete “Folder A”?',
-      detail: 'This deletes the folder from HackMD. Local vault files are not affected. This cannot be undone from HackDesk.',
-      confirmLabel: 'Delete',
-      cancelLabel: 'Cancel',
-      destructive: true,
-    });
-
-    await waitFor(() => {
-      expect(options.deleteFolder).toHaveBeenCalledWith({ folderId: 'folder-a', parentFolderId: null });
-    });
-    expect(options.setDeleteFolderTarget).not.toHaveBeenCalled();
-  });
-
-  it('falls back to the delete folder dialog when native confirmation is unavailable', () => {
+  it('opens the delete folder dialog before deleting a HackMD folder', () => {
     const options = createOptions();
     const { result } = renderHook(() => useWorkbenchFolderCommands(options));
 
@@ -272,29 +246,18 @@ describe('useWorkbenchFolderCommands', () => {
     expect(options.deleteFolder).not.toHaveBeenCalled();
   });
 
-  it('uses system trash copy for native local folder confirmation', async () => {
-    const confirm = vi.fn().mockResolvedValue({ confirmed: false });
-    const options = createOptions({
-      api: { app: { confirm } } as unknown as HackDeskElectronAPI,
-      scopeType: 'local',
-    });
+  it('opens the delete folder dialog for a local folder', () => {
+    const options = createOptions({ scopeType: 'local' });
     const { result } = renderHook(() => useWorkbenchFolderCommands(options));
 
     act(() => {
       result.current.handleDeleteFolderRequest('folder-a');
     });
 
-    expect(confirm).toHaveBeenCalledWith({
-      title: 'Move Folder to Trash',
-      message: 'Move “Folder A”?',
-      detail: 'This moves the local folder to the system trash. Local Markdown files inside the folder move with it.',
-      confirmLabel: 'Move to Trash',
-      cancelLabel: 'Cancel',
-      destructive: true,
-    });
-
-    await waitFor(() => {
-      expect(options.deleteFolder).not.toHaveBeenCalled();
-    });
+    expect(options.setDeleteFolderTarget).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'folder-a',
+      name: 'Folder A',
+    }));
+    expect(options.deleteFolder).not.toHaveBeenCalled();
   });
 });

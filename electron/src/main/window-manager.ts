@@ -11,9 +11,18 @@ import type {
 import { getRendererEntryUrl, getRendererRouteUrl } from './paths';
 import { openExternalUrl } from './url-policy';
 import { getAppIconPath } from './app-icon';
+import { isE2EBackgroundRun } from './e2e-background-windows';
 import { ELECTRON_CHANNELS } from '../shared/channels';
 import { exportDebugLogs, writeLog } from './logging';
 import { isTrustedRendererUrl } from './renderer-url';
+
+/**
+ * The one permission the app's own renderer gets: reading installed font names for the Appearance
+ * font picker. Every other permission, and every other origin, stays denied.
+ */
+export function isGrantedRendererPermission(permission: string, url: string | undefined) {
+  return permission === 'local-fonts' && Boolean(url) && isTrustedRendererUrl(url!);
+}
 import { createUnresponsiveSampler } from './unresponsive-sampler';
 import { persistWindowState, readWindowState } from './window-state';
 
@@ -141,6 +150,16 @@ export class WindowManager {
     } else {
       window.destroy();
     }
+  }
+
+  /**
+   * The window has the close request and is asking the user about unsaved changes. The timeout
+   * guards against a window that never answers, not a person reading the question, so it stops.
+   */
+  holdClose() {
+    if (!this.pendingCloseSource) return;
+    this.clearPendingCloseTimeout();
+    writeLog('main', 'renderer is confirming close with the user');
   }
 
   cancelClose() {
@@ -399,7 +418,8 @@ export class WindowManager {
       ...display.bounds,
       show: false,
       title: deck.title || 'Presentation',
-      fullscreen: true,
+      // Full screen opens a Space of its own; background e2e runs keep it a plain window.
+      fullscreen: !isE2EBackgroundRun(),
       backgroundColor: PRESENTATION_BACKGROUND_COLOR,
       icon: getAppIconPath(),
       webPreferences: {
@@ -606,6 +626,10 @@ export class WindowManager {
     const { session } = window.webContents;
 
     session.setPermissionRequestHandler((webContents, permission, callback, details) => {
+      if (isGrantedRendererPermission(permission, details.requestingUrl)) {
+        callback(true);
+        return;
+      }
       writeLog('security', 'permission request denied', {
         permission,
         requestingUrl: details.requestingUrl,
@@ -615,6 +639,9 @@ export class WindowManager {
     });
 
     session.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+      if (isGrantedRendererPermission(permission, requestingOrigin)) {
+        return true;
+      }
       writeLog('security', 'permission check denied', {
         permission,
         requestingOrigin,

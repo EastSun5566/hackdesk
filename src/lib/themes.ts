@@ -4,11 +4,16 @@ export type ResolvedThemeMode = Exclude<ThemeMode, 'system'>;
 
 export type ThemePresetId = 'hackmd-neo' | 'solarized' | 'catppuccin' | 'dracula' | 'gruvbox' | 'noctis';
 
+/** `antialiased` draws text in grayscale with thin stems, as native macOS apps do; `auto` keeps
+ *  Chromium's default, which thickens stems slightly. */
+export type FontSmoothing = 'antialiased' | 'auto';
+
 export type ThemeTypography = {
   uiFontStack: string;
   editorFontStack: string;
   uiFontSize: number;
   editorFontSize: number;
+  fontSmoothing: FontSmoothing;
 };
 
 export type ThemeSeed = {
@@ -50,11 +55,13 @@ const UNQUOTED_FONT_FAMILY_RE = /^[-\w. ]+$/;
 const QUOTED_FONT_FAMILY_RE = /^(?:"[^"\\\r\n]+"|'[^'\\\r\n]+')$/;
 
 export const DEFAULT_UI_FONT_STACK = 'Inter, system-ui, sans-serif';
-export const DEFAULT_EDITOR_FONT_STACK = '"Source Code Pro", ui-monospace, monospace';
+// Notes are prose, so the editor reads in the UI's proportional face; code keeps a monospace face.
+export const DEFAULT_EDITOR_FONT_STACK = 'Inter, system-ui, sans-serif';
+export const MONO_FONT_STACK = '"JetBrains Mono", "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, monospace';
 export const DEFAULT_UI_FONT_SIZE = 14;
 export const MIN_UI_FONT_SIZE = 12;
 export const MAX_UI_FONT_SIZE = 18;
-export const DEFAULT_EDITOR_FONT_SIZE = 14;
+export const DEFAULT_EDITOR_FONT_SIZE = 15;
 export const MIN_EDITOR_FONT_SIZE = 10;
 export const MAX_EDITOR_FONT_SIZE = 32;
 
@@ -63,6 +70,7 @@ export const defaultThemeTypography: ThemeTypography = {
   editorFontStack: DEFAULT_EDITOR_FONT_STACK,
   uiFontSize: DEFAULT_UI_FONT_SIZE,
   editorFontSize: DEFAULT_EDITOR_FONT_SIZE,
+  fontSmoothing: 'antialiased',
 };
 
 const DEFAULT_SYNTAX_TOKENS: ThemeTokenOverrides = {
@@ -104,9 +112,10 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
     tokens: {
       light: {
         '--text-default': '#3F3F46',
-        '--text-subtle': '#71717A',
+        // A step past zinc-500 so 12px meta text stays above 4.5:1 on the zinc-100 sidebar.
+        '--text-subtle': '#696972',
         '--background-default': '#FDFDFD',
-        '--background-muted': '#FAFAFA',
+        '--background-muted': '#F4F4F5',
         '--background-overlay': 'rgb(0 0 0 / 0.3)',
         '--background-selected': '#ECEBFE',
         '--border-default': '#D4D4D8',
@@ -124,7 +133,7 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
         '--destructive-foreground': '#FFFFFF',
         '--icon-default': '#71717A',
         '--icon-subtle': '#A1A1AA',
-        '--element-bg-hover': '#F4F4F5',
+        '--element-bg-hover': '#E4E4E7',
         '--element-border-hover': '#A1A1AA',
         '--link-text-default': '#564DFF',
         '--link-text-hover': '#2E01A5',
@@ -146,7 +155,7 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
         '--text-subtle': '#A1A1AA',
         '--background-default': '#27272A',
         '--background-muted': '#202022',
-        '--background-overlay': 'rgb(0 0 0 / 0.7)',
+        '--background-overlay': 'rgb(0 0 0 / 0.5)',
         '--background-selected': 'rgb(152 148 249 / 0.22)',
         '--border-default': '#52525B',
         '--border-bold': '#71717A',
@@ -743,6 +752,7 @@ export function normalizeThemeTypography(value: unknown): ThemeTypography {
       MIN_EDITOR_FONT_SIZE,
       MAX_EDITOR_FONT_SIZE,
     ),
+    fontSmoothing: candidate.fontSmoothing === 'auto' ? 'auto' : 'antialiased',
   };
 }
 
@@ -762,18 +772,61 @@ export function serializeThemeTypography(typography: ThemeTypography) {
   return JSON.stringify(normalizeThemeTypography(typography));
 }
 
+// CJK faces tried before any generic family. Left to the generic families, `monospace` resolves
+// to Osaka-Mono on a Mac with Japanese in its language list: an old face with heavy strokes. The
+// system's own text faces come first instead, ordered by the user's preferred languages as native
+// apps order them, so Japanese-first gets Hiragino Sans and Chinese-first gets PingFang.
+export const CJK_FALLBACK_FAMILIES = ['"PingFang TC"', '"PingFang SC"', '"Hiragino Sans"', '"Apple SD Gothic Neo"', '"Noto Sans CJK TC"', '"Microsoft JhengHei"'];
+
+function cjkFamilyForLanguage(language: string) {
+  const [primary, ...rest] = language.toLowerCase().split('-');
+  if (primary === 'ja') return '"Hiragino Sans"';
+  if (primary === 'ko') return '"Apple SD Gothic Neo"';
+  if (primary !== 'zh') return null;
+  if (rest.includes('hk') || rest.includes('mo')) return '"PingFang HK"';
+  if (rest.includes('hant') || rest.includes('tw')) return '"PingFang TC"';
+  return '"PingFang SC"';
+}
+
+/** CJK faces in the order of the user's preferred languages, then the rest of the defaults. */
+export function getCjkFallbackFamilies(languages: readonly string[] = typeof navigator === 'undefined' ? [] : navigator.languages ?? []) {
+  const preferred = languages.flatMap((language) => cjkFamilyForLanguage(language) ?? []);
+  return [...new Set([...preferred, ...CJK_FALLBACK_FAMILIES])];
+}
+// Families that resolve to a locale font: on a Japanese-first Mac, ui-monospace is Osaka-Mono,
+// which would draw Chinese text. CJK faces go before these. The system UI font (system-ui and its
+// aliases) is not here: it has no CJK glyphs, so it draws Latin text and passes CJK down the list.
+// Placing CJK faces before it meant a missing first choice (Inter isn't bundled) left a CJK face
+// drawing every Latin letter.
+const GENERIC_FONT_FAMILIES = new Set([
+  'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'ui-serif', 'ui-sans-serif',
+  'ui-monospace', 'ui-rounded', 'math', 'emoji', 'fangsong',
+]);
+
+/** A stack with CJK faces inserted before its first generic family, unless it names them already. */
+export function withCjkFallback(stack: string, languages?: readonly string[]) {
+  const families = stack.split(',').map((family) => family.trim()).filter(Boolean);
+  if (families.some((family) => /pingfang|hiragino|noto sans cjk|jhenghei|yahei|apple sd gothic/i.test(family))) return stack;
+  const genericIndex = families.findIndex((family) => GENERIC_FONT_FAMILIES.has(family.toLowerCase()));
+  const at = genericIndex === -1 ? families.length : genericIndex;
+  return [...families.slice(0, at), ...getCjkFallbackFamilies(languages), ...families.slice(at)].join(', ');
+}
+
 export function resolveThemeTypography(typography: ThemeTypography): ResolvedHackDeskTheme {
   const normalized = normalizeThemeTypography(typography);
 
   return {
-    '--font-system': normalized.uiFontStack,
-    '--font-sans': normalized.uiFontStack,
-    '--font-editor': normalized.editorFontStack,
-    '--font-mono': normalized.editorFontStack,
+    '--font-system': withCjkFallback(normalized.uiFontStack),
+    '--font-sans': withCjkFallback(normalized.uiFontStack),
+    '--font-editor': withCjkFallback(normalized.editorFontStack),
+    // Code, front matter and the command line stay monospace whatever the editor face is.
+    '--font-mono': withCjkFallback(MONO_FONT_STACK),
     '--font-size-ui': pxToRem(normalized.uiFontSize),
     '--font-size-editor': pxToRem(normalized.editorFontSize),
+    '--font-smoothing': normalized.fontSmoothing,
     '--text-2xs': 'calc(var(--font-size-ui) * 0.7142857143)',
     '--text-xs': 'calc(var(--font-size-ui) * 0.8571428571)',
+    '--text-menu': 'calc(var(--font-size-ui) * 0.9285714286)',
     '--text-sm': 'var(--font-size-ui)',
     '--text-base': 'calc(var(--font-size-ui) * 1.1428571429)',
     '--text-lg': 'calc(var(--font-size-ui) * 1.2857142857)',
@@ -852,7 +905,7 @@ export function resolveHackDeskTheme({
         '--text-subtle': mix(neutral, '#FFFFFF', 72),
         '--background-default': mix(neutral, '#000000', 34),
         '--background-muted': mix(neutral, '#000000', 25),
-        '--background-overlay': 'rgb(0 0 0 / 0.7)',
+        '--background-overlay': 'rgb(0 0 0 / 0.5)',
         '--background-selected': alpha(primary, 0.28),
         '--border-default': alpha(neutral, 0.46),
         '--border-bold': mix(neutral, '#FFFFFF', 54),
@@ -923,6 +976,13 @@ export function resolveHackDeskTheme({
     ...resolveStateActionTokens(contrastTheme, dark),
     ...resolveNativeSurfaceTokens(contrastTheme),
     ...resolveCommandPaletteTokens(contrastTheme),
+    // Quiet structural lines (card outlines, in-panel dividers, tree guides), solid in every theme.
+    '--border-subtle': 'color-mix(in srgb, var(--border-default) 55%, var(--background-default))',
+    // Overlays (dialogs, the palette) sit one step above the editor card. Light mode already gets
+    // that from the scrim and shadow; dark needs a lighter surface to read as raised.
+    '--background-raised': dark ? 'color-mix(in srgb, var(--background-default) 94%, #ffffff)' : 'var(--background-default)',
+    // Row hover: a tint of the text colour, so it shows on the sidebar and the card alike.
+    '--background-hover': 'color-mix(in srgb, var(--text-default) 7%, transparent)',
     ...resolveThemeTypography(typography),
   };
 }
@@ -1043,7 +1103,8 @@ function resolveContrastTokens(theme: ResolvedHackDeskTheme): ResolvedHackDeskTh
 // rather than the uncomposited accent or only the default surface.
 function resolveCommandPaletteTokens(theme: ResolvedHackDeskTheme): ResolvedHackDeskTheme {
   const background = theme['--background-default'];
-  const selectedBackground = compositeThemeColor(theme['--background-selected'], background);
+  // The palette marks its keyboard cursor with the menu highlight, so contrast is checked there.
+  const selectedBackground = compositeThemeColor(theme['--element-bg-hover'] ?? theme['--background-selected'], background);
 
   return {
     '--command-item-title': ensureContrast(theme['--text-default'], background, 4.5),

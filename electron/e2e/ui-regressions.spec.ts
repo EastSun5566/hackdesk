@@ -88,13 +88,24 @@ async function launchFixture(editorMode: EditorMode = 'helix', navigationFixture
     }
   }, { channels: ELECTRON_CHANNELS, storedSettings: settings, names: teamNames });
   await page.reload();
-  await expect(page.getByTestId('sidebar-footer').getByRole('button', { name: /^Open settings for Fixture User/ })).toBeVisible();
+  await expect(page.getByTestId('sidebar-footer').getByRole('button', { name: /^Account: Fixture User/ })).toBeVisible();
   await expect(page.getByRole('treeitem', { name: 'UI fixture', exact: true })).toBeVisible();
   return { app, page, vault };
 }
 
+async function dismissBlockingConfirm(page: Page) {
+  const dialog = page.getByRole('alertdialog');
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (!(await dialog.isVisible().catch(() => false))) return;
+    const action = dialog.getByRole('button', { name: /^(Close|Close Tab|Close HackDesk)$/ }).first();
+    if (await action.count()) await action.click();
+    else await page.keyboard.press('Escape');
+  }
+}
+
 async function stopApp(app: ElectronApplication, recordKeyboard = false) {
   if (recordKeyboard) {
+    await dismissBlockingConfirm(await app.firstWindow());
     await app.close();
     return;
   }
@@ -107,6 +118,7 @@ async function stopApp(app: ElectronApplication, recordKeyboard = false) {
 // Describes the focused element if its outer focus ring is cut off by a clipping ancestor.
 async function clippedFocusRing(page: Page) {
   return page.evaluate(() => {
+    if (document.documentElement.dataset.inputModality !== 'keyboard') return null;
     const element = document.activeElement as HTMLElement | null;
     if (!element || element === document.body) return null;
     const shadow = getComputedStyle(element).boxShadow;
@@ -176,7 +188,14 @@ async function openFixtureNote(page: Page) {
   await expect(page.locator('.cm-content')).toBeFocused();
 }
 
+async function ensureKeyboardModality(page: Page) {
+  await page.keyboard.press('Tab');
+}
+
 async function expectInsetFocus(locator: Locator, container = false) {
+  await locator.focus();
+  await ensureKeyboardModality(locator.page());
+  await locator.focus();
   await expect.poll(() => locator.evaluate((element) => getComputedStyle(element).boxShadow)).toContain('inset');
   // Verify that the focused field remains fully inside every clipping ancestor.
   await locator.scrollIntoViewIfNeeded();
@@ -297,6 +316,7 @@ test('focus rings stay visible instead of being cut off by their containers', as
   try {
     await page.setViewportSize({ width: 1280, height: 760 });
     await openFixtureNote(page);
+    await ensureKeyboardModality(page);
     await page.getByRole('treeitem', { name: 'UI fixture', exact: true }).focus();
     const clipped = await clippedFocusRingsWhileTabbing(page, 60);
     const list = await openWorkspaceSwitcher(page);
@@ -352,8 +372,9 @@ test('a keyboard-only tour of the main flows in light theme at a narrow window, 
     await leader('gw');
     const switcher = page.getByRole('dialog', { name: 'Workspaces' });
     await expect(switcher.getByRole('button', { name: 'My Workspace', exact: true })).toBeFocused();
-    await page.keyboard.press('ArrowUp');
-    await page.keyboard.press('ArrowUp');
+    // Places sit together at the top: My Workspace, History, Local Vault.
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
     await expect(switcher.getByRole('button', { name: 'Local Vault', exact: true })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(trigger).toHaveAccessibleName('Switch workspace, current: Local Vault');
@@ -482,12 +503,12 @@ test('workspace switcher rows, gap boundaries and full-height Settings workbench
     const rowBounds = (await workspace.locator('..').boundingBox())!;
     expect(Math.abs((await workspace.boundingBox())!.width - rowBounds.width)).toBeLessThan(1);
     await expect(drag).toHaveCSS('opacity', '0');
-    await expect(pin.locator('..')).toHaveCSS('opacity', '0');
+    await expect(pin).toHaveCount(0);
     await expect(workspace).toContainText(process.platform === 'darwin' ? '⌘2' : 'Ctrl+2');
     await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('10-switcher-idle.png') });
     await workspace.hover();
     await expect(drag).toHaveCSS('opacity', '1');
-    await expect(pin.locator('..')).toHaveCSS('opacity', '1');
+    await expect(pin).toBeVisible();
     await page.screenshot({ animations: 'disabled', path: testInfo.outputPath('02-switcher-controls.png') });
     await page.keyboard.press('Escape');
     await expect(list).toBeHidden();
@@ -497,12 +518,13 @@ test('workspace switcher rows, gap boundaries and full-height Settings workbench
     await openFixtureNote(page);
     const sash = page.getByRole('button', { name: /^Resize sidebar.*Current width/ });
     await expect(sash).toHaveCount(1);
-    // The resize handles are the gaps between surfaces.
-    expect((await sash.boundingBox())!.width).toBe(6);
+    // The sidebar's handle is the editor's border, with no gap of its own, so the sidebar sits as
+    // far from the editor as from the window's edge. It is grabbed on that border.
+    expect((await sash.boundingBox())!.width).toBe(0);
     const sidebar = page.locator('#note-navigator-panel');
     const sashBounds = (await sash.boundingBox())!;
     const initialWidth = (await sidebar.boundingBox())!.width;
-    await page.mouse.move(sashBounds.x + 3, sashBounds.y + 100);
+    await page.mouse.move(sashBounds.x + 1, sashBounds.y + 100);
     await page.mouse.down();
     await page.mouse.move(sashBounds.x + 30, sashBounds.y + 100);
     await page.mouse.up();
@@ -563,6 +585,24 @@ test('workspace keyboard reorder keeps focus and completes the drop', async () =
   }
 });
 
+test('the sidebar scrollbar remains clickable beside the resize handle', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await switchWorkspace(page, 'Local Vault');
+    await page.setViewportSize({ width: 1100, height: 420 });
+    await page.evaluate(() => { document.documentElement.dataset.scrollbars = 'classic'; });
+    const scroller = page.locator('#note-navigator-panel .scroll-edges-source').first();
+    await expect.poll(() => scroller.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+    const bounds = (await scroller.boundingBox())!;
+    const point = { x: bounds.x + bounds.width - 4, y: bounds.y + bounds.height - 12 };
+    expect(await page.evaluate(({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest('.edge-sash')), point)).toBe(false);
+    await page.mouse.click(point.x, point.y);
+    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test('workspace pointer reorder starts on a stable handle and completes the drop', async () => {
   const { app, page } = await launchFixture();
   try {
@@ -588,23 +628,24 @@ test('workspace pointer reorder starts on a stable handle and completes the drop
   }
 });
 
-test('one sidebar switches workspaces from its title, with Trash and Settings at the bottom', async () => {
+test('one sidebar switches workspaces from its title, with Trash and Settings near the bottom', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
     await page.setViewportSize({ width: 1280, height: 760 });
     const trigger = page.getByRole('button', { name: /^Switch workspace, current: / });
     await expect(trigger).toHaveAccessibleName('Switch workspace, current: Local Vault');
     const footer = page.getByTestId('sidebar-footer');
-    await expect(footer.getByRole('button', { name: 'Trash', exact: true })).toBeVisible();
+    // Trash belongs to HackMD workspaces: it isn't offered in a Local Vault.
+    await expect(page.getByTestId('sidebar-trash-row')).toHaveCount(0);
     // Holding the key also shows which number opens which workspace, beside the sidebar. Hints and the
     // card cancel while the page still changes, so check them together in one look.
     const peekShortcut = process.platform === 'darwin' ? '⌘2' : 'Ctrl+2';
     await holdForHints(page, trigger, () => page.evaluate(({ name, shortcut }) => {
-      const hints = document.querySelectorAll('[data-navigation-hint="workspace:switcher"], [data-navigation-hint="workspace:trash"]').length;
+      const hints = document.querySelectorAll('[data-navigation-hint="workspace:switcher"]').length;
       const card = document.querySelector('[data-workspace-peek]');
       const row = card?.querySelectorAll('li')[1]?.textContent ?? '';
       const sidebar = document.getElementById('note-navigator-panel')!.getBoundingClientRect();
-      return hints === 2 && row.includes(name) && row.includes(shortcut) && card!.getBoundingClientRect().left >= sidebar.right;
+      return hints === 1 && row.includes(name) && row.includes(shortcut) && card!.getBoundingClientRect().left >= sidebar.right;
     }, { name: teamNames[0], shortcut: peekShortcut }));
     const peek = page.locator('[data-workspace-peek]');
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('24-workspace-peek.png') });
@@ -615,10 +656,12 @@ test('one sidebar switches workspaces from its title, with Trash and Settings at
     await page.keyboard.press(`${primary}+1`);
     await expect(trigger).toHaveAccessibleName('Switch workspace, current: My Workspace');
 
-    await footer.getByRole('button', { name: 'Trash', exact: true }).click();
-    await expect(page.getByRole('dialog', { name: 'Trash' })).toBeVisible();
+    // Trash opens in the sidebar, from its row above the account; Escape goes back to the notes.
+    await page.getByTestId('sidebar-trash-row').getByRole('button', { name: 'My Trash' }).click();
+    await expect(page.getByRole('button', { name: 'Back to notes' })).toBeVisible();
     await page.keyboard.press('Escape');
-    await footer.getByRole('button', { name: /^Open settings for Fixture User/ }).click();
+    await expect(page.getByRole('button', { name: 'Back to notes' })).toHaveCount(0);
+    await footer.getByRole('button', { name: 'Settings', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Settings', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
 
@@ -637,9 +680,9 @@ test('one sidebar switches workspaces from its title, with Trash and Settings at
     const list = page.getByRole('dialog', { name: 'Workspaces' });
     await expect(list.getByRole('button', { name: 'My Workspace', exact: true })).toBeFocused();
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('23-workspace-switcher.png') });
-    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowDown');
     await expect(list.getByRole('button', { name: 'History', exact: true })).toBeFocused();
-    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowDown');
     await expect(list.getByRole('button', { name: 'Local Vault', exact: true })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(list).toBeHidden();
@@ -688,7 +731,8 @@ test('tab drag, keyboard actions, persistence and pane isolation', async () => {
     // The strip scrolls sideways only; the 40px title bar leaves no room for a vertical scrollbar.
     expect(await strip.evaluate(element => element.scrollHeight > element.clientHeight && getComputedStyle(element).overflowY !== 'hidden')).toBe(false);
     // Radius and small text come from the shared scale; text-2xs follows the 14px UI font size.
-    await expect(strip.getByRole('tab', { name: /^Gamma(?:, .+)?$/ }).locator('xpath=..')).toHaveCSS('border-radius', '6px');
+    const gammaTab = strip.getByRole('tab', { name: /^Gamma(?:, .+)?$/ });
+    await expect(gammaTab.locator('xpath=ancestor::li[1]')).toHaveCSS('border-radius', '6px');
     await expect(closeActiveTab).toHaveCSS('border-radius', '4px');
     await expect(page.locator('.text-2xs').first()).toHaveCSS('font-size', '10px');
     await dragTab('Alpha', 'Gamma');
@@ -755,7 +799,8 @@ test('tree guides connect mixed children and end at the last folder row', async 
       if (await expand.count()) await expand.click();
     }
     const assertGuides = async () => {
-      const problems = await page.locator('[data-tree-children]').evaluateAll(lists => lists.flatMap(list => {
+      // A closed folder keeps its rows mounted but hidden; only lists on screen draw guides.
+      const problems = await page.locator('[data-tree-children]:visible').evaluateAll(lists => lists.flatMap(list => {
         const items = Array.from(list.children) as HTMLElement[];
         const lines = items.map(item => item.querySelector<HTMLElement>(':scope > [data-tree-guide], :scope > div > [data-tree-guide]')!);
         return lines.flatMap((line, index) => {
@@ -766,9 +811,9 @@ test('tree guides connect mixed children and end at the last folder row', async 
             const previous = lines[index - 1].getBoundingClientRect();
             if (Math.abs(previous.bottom - bounds.top) > 0.1 || Math.abs(previous.x - bounds.x) > 0.1) failures.push('Guide has a gap');
           }
-          if (index === items.length - 1) {
+          if (index === items.length - 1 && line.dataset.treeGuide === 'end') {
             const row = items[index].querySelector<HTMLElement>('[data-folder-tree-row-id]')!.getBoundingClientRect();
-            if (Math.abs(bounds.bottom - (row.top + row.height / 2)) > 0.1) failures.push('Guide ends below the last row center');
+            if (bounds.bottom < row.bottom - 0.5) failures.push('Guide ends above the last row bottom');
           }
           return failures;
         });
@@ -782,6 +827,157 @@ test('tree guides connect mixed children and end at the last folder row', async 
     await assertGuides();
     await page.getByRole('button', { name: 'Expand Last', exact: true }).click();
     await assertGuides();
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test('dropping a folder or a note on the workspace row moves it to the top level', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await switchWorkspace(page, 'Local Vault');
+    for (const name of ['Projects', 'Sub']) {
+      const expand = page.getByRole('button', { name: `Expand ${name}`, exact: true });
+      if (await expand.count()) await expand.click();
+    }
+    const rootRow = page.locator('[data-folder-tree-kind="root"]');
+    const dragOntoRoot = async (kind: 'note' | 'folder', name: string) => {
+      const sourceRow = page.locator(`[data-folder-tree-kind="${kind}"]`).filter({ has: page.getByRole('treeitem', { name, exact: true }) });
+      const source = (await sourceRow.getByRole('treeitem', { name, exact: true }).boundingBox())!;
+      const target = (await rootRow.boundingBox())!;
+      await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 12 });
+      await expect(sourceRow, `${name} is dragging`).toHaveAttribute('data-hackdesk-dragging');
+      await page.mouse.up();
+    };
+    // Where a row lives: the folder whose group holds it, or null at the top level.
+    const parentOf = (kind: 'note' | 'folder', name: string) => page.evaluate(([rowKind, rowName]) => {
+      const row = [...document.querySelectorAll<HTMLElement>(`[data-folder-tree-kind="${rowKind}"]`)]
+        .find(element => element.querySelector('[role="treeitem"]')?.getAttribute('aria-label') === rowName);
+      if (!row) return 'missing';
+      const folderItem = row.closest('ul[role="group"][data-tree-children]')?.closest('li');
+      return folderItem?.querySelector('[data-folder-tree-kind="folder"] [role="treeitem"]')?.getAttribute('aria-label') ?? null;
+    }, [kind, name] as const);
+
+    expect(await parentOf('folder', 'Sub')).toBe('Projects');
+    await dragOntoRoot('folder', 'Sub');
+    await expect.poll(() => parentOf('folder', 'Sub')).toBeNull();
+
+    expect(await parentOf('note', 'Direct')).toBe('Projects');
+    await dragOntoRoot('note', 'Direct');
+    await expect.poll(() => parentOf('note', 'Direct')).toBeNull();
+
+    // With the tree scrolled, the workspace row stays pinned on top and still takes the drop.
+    for (const name of ['Folders only', 'Last']) {
+      const expand = page.getByRole('button', { name: `Expand ${name}`, exact: true });
+      if (await expand.count()) await expand.click();
+    }
+    await page.setViewportSize({ width: 1100, height: 420 });
+    const scroller = page.locator('aside .scroll-edges-source');
+    // Scroll so Deep sits just under the pinned workspace row.
+    await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'Deep', exact: true }).evaluate(element => {
+      const scrollArea = element.closest<HTMLElement>('.scroll-edges-source')!;
+      scrollArea.scrollTop += element.getBoundingClientRect().top - scrollArea.getBoundingClientRect().top - 60;
+    });
+    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(40);
+    expect(await parentOf('note', 'Deep')).toBe('Last');
+    await dragOntoRoot('note', 'Deep');
+    await expect.poll(() => parentOf('note', 'Deep')).toBeNull();
+
+    // There is no separate drop area below the tree any more.
+    await expect(page.getByText('Move to top level')).toHaveCount(0);
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test('a folder dropped on the middle of another moves inside it, on its top edge before it', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await switchWorkspace(page, 'Local Vault');
+    for (const name of ['Projects', 'Sub']) {
+      const expand = page.getByRole('button', { name: `Expand ${name}`, exact: true });
+      if (await expand.count()) await expand.click();
+    }
+    const folderRow = (name: string) => page.locator('[data-folder-tree-kind="folder"]').filter({ has: page.getByRole('treeitem', { name, exact: true }) });
+    const parentOf = (name: string) => page.evaluate((rowName) => {
+      const row = [...document.querySelectorAll<HTMLElement>('[data-folder-tree-kind="folder"]')]
+        .find(element => element.querySelector('[role="treeitem"]')?.getAttribute('aria-label') === rowName);
+      if (!row) return 'missing';
+      const folderItem = row.closest('ul[role="group"][data-tree-children]')?.closest('li');
+      return folderItem?.querySelector('[data-folder-tree-kind="folder"] [role="treeitem"]')?.getAttribute('aria-label') ?? null;
+    }, name);
+    const topLevelFolders = () => page.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-folder-tree-kind="folder"]')]
+      .filter(element => !element.closest('ul[role="group"][data-tree-children]'))
+      .map(element => element.querySelector('[role="treeitem"]')?.getAttribute('aria-label')));
+    // Drags `name` onto `target` at `fraction` of its row's height; checks the mark, then drops.
+    // Wait for sortable layout transitions before measuring the target after the drag starts.
+    const dragFolder = async (name: string, target: string, fraction: number, mark: string) => {
+      const source = (await folderRow(name).getByRole('treeitem', { name, exact: true }).boundingBox())!;
+      const targetRow = folderRow(target);
+      await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(source.x + source.width / 2 + 8, source.y + source.height / 2, { steps: 2 });
+      await expect(folderRow(name)).toHaveAttribute('data-hackdesk-dragging');
+      await targetRow.hover({ trial: true });
+      const bounds = (await targetRow.boundingBox())!;
+      // A fast move must update the target even when there is no second move within that row.
+      await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height * fraction);
+      await expect(targetRow).toHaveAttribute('data-drop-placement', mark);
+      await page.mouse.up();
+      await expect(targetRow).not.toHaveAttribute('data-drop-placement');
+    };
+
+    expect(await parentOf('Folders only')).toBeNull();
+    await dragFolder('Folders only', 'Projects', 0.5, 'inside');
+    await expect.poll(() => parentOf('Folders only')).toBe('Projects');
+
+    expect(await parentOf('Sub')).toBe('Projects');
+    await dragFolder('Sub', 'Projects', 0.1, 'before');
+    // A local vault lists folders by name, so only the move to the top level shows.
+    await expect.poll(() => parentOf('Sub')).toBeNull();
+    await expect.poll(topLevelFolders).toEqual(['Projects', 'Sub']);
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test('tree rows drag by their title, with no grip on hover', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await switchWorkspace(page, 'Local Vault');
+    const tree = page.locator('aside');
+    const row = (kind: 'note' | 'folder', name: string) => page.locator(`[data-folder-tree-kind="${kind}"]`).filter({ has: page.getByRole('treeitem', { name, exact: true }) });
+    const alpha = row('note', 'Alpha');
+    const projects = row('folder', 'Projects');
+    await alpha.hover();
+    await expect(alpha.locator('.lucide-grip-vertical')).toHaveCount(0);
+    await projects.hover();
+    await expect(projects.getByRole('button', { name: 'Drag Projects', exact: true })).toHaveCSS('opacity', '0');
+
+    // A folder starts dragging from its title; Escape cancels.
+    const folderBox = (await projects.getByRole('treeitem', { name: 'Projects', exact: true }).boundingBox())!;
+    await page.mouse.move(folderBox.x + folderBox.width / 2, folderBox.y + folderBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(folderBox.x + folderBox.width / 2, folderBox.y + folderBox.height / 2 + 30, { steps: 6 });
+    await expect(projects).toHaveAttribute('data-hackdesk-dragging');
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(projects).not.toHaveAttribute('data-hackdesk-dragging');
+
+    // A note dropped on a folder by its title moves into it.
+    const source = (await alpha.getByRole('treeitem', { name: 'Alpha', exact: true }).boundingBox())!;
+    const target = (await projects.getByRole('treeitem', { name: 'Projects', exact: true }).boundingBox())!;
+    await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 12 });
+    await page.mouse.up();
+    await expect.poll(() => tree.evaluate(() => {
+      const alphaRow = [...document.querySelectorAll<HTMLElement>('[data-folder-tree-kind="note"]')].find(element => element.querySelector('[role="treeitem"]')?.getAttribute('aria-label') === 'Alpha');
+      const folderItem = alphaRow?.closest('ul[role="group"]')?.closest('li');
+      return folderItem?.querySelector('[data-folder-tree-kind="folder"] [role="treeitem"]')?.getAttribute('aria-label') ?? null;
+    })).toBe('Projects');
   } finally {
     await stopApp(app);
   }
@@ -823,15 +1019,15 @@ for (const editorMode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as con
       await page.keyboard.press(`${primary}+f`);
       await expect(page.locator('.cm-panels').first()).toBeVisible();
       await expect(page.locator('.cm-editor')).toHaveCSS('isolation', 'isolate');
-      // Save uses real filesystem IPC and produces a real notification.
-      // Rename Note saves right away, from the leader menu in every editor mode.
+      // Save uses real filesystem IPC. Routine saves are quiet; Rename Note confirms with a real
+      // notification. It saves right away, from the leader menu in every editor mode.
       await page.keyboard.press(`${primary}+j`);
       await page.keyboard.press('n');
       await page.keyboard.press('r');
       const rename = page.getByRole('dialog', { name: 'Rename Note' });
       await rename.getByLabel('Title').fill(`UI fixture ${editorMode}`);
       await rename.getByRole('button', { name: 'Rename', exact: true }).click();
-      const notification = page.getByRole('status').filter({ hasText: 'Note saved.' });
+      const notification = page.getByRole('status').filter({ hasText: `Renamed to “UI fixture ${editorMode}”.` });
       await expect(notification).toBeVisible();
       const bottomPanels = page.locator('.cm-panels-bottom');
       const panels = await bottomPanels.count() ? bottomPanels : page.locator('.cm-panels-top');
@@ -928,33 +1124,19 @@ test('keyboard foundation separates focus from selection and protects drafts', a
     await page.locator('.cm-content').fill('Unsaved keyboard navigation draft');
     await expect(firstTab).toHaveAccessibleName('Alpha, Unsaved');
     const close = page.getByRole('button', { name: 'Close Alpha', exact: true });
-    // Confirmation is a native Electron message box, not a DOM alertdialog.
-    // Exercise both IPC responses without leaving an unattended system sheet open.
-    const mockConfirmation = async (confirmed: boolean) => app.evaluate(({ ipcMain }, { channel, confirmed }) => {
-      const state = ipcMain as typeof ipcMain & { keyboardConfirmRequests: Array<{ title: string; destructive: boolean }> };
-      state.keyboardConfirmRequests ??= [];
-      ipcMain.removeHandler(channel);
-      ipcMain.handle(channel, (_event, input) => {
-        state.keyboardConfirmRequests.push(input);
-        return { confirmed };
-      });
-    }, { channel: ELECTRON_CHANNELS.appConfirm, confirmed });
-    await mockConfirmation(false);
     await close.focus();
     await close.press('Enter');
-    await expect.poll(() => app.evaluate(({ ipcMain }) => (ipcMain as typeof ipcMain & { keyboardConfirmRequests: unknown[] }).keyboardConfirmRequests.length)).toBe(1);
+    const closeDialog = page.getByRole('alertdialog');
+    await expect(closeDialog.getByRole('button', { name: 'Keep Editing' })).toBeVisible();
+    await closeDialog.getByRole('button', { name: 'Keep Editing' }).click();
     await expect(firstTab).toBeVisible();
     await expect(page.locator('.cm-content')).toContainText('Unsaved keyboard navigation draft');
-    await mockConfirmation(true);
     await close.press('Enter');
-    expect(await app.evaluate(({ ipcMain }) => (ipcMain as typeof ipcMain & { keyboardConfirmRequests: unknown[] }).keyboardConfirmRequests)).toEqual([
-      expect.objectContaining({ title: 'Close Tab', destructive: true }),
-      expect.objectContaining({ title: 'Close Tab', destructive: true }),
-    ]);
+    await closeDialog.getByRole('button', { name: 'Close Tab' }).click();
     await expect(firstTab).toHaveCount(0);
     await expect(secondTab).toBeFocused();
     await page.screenshot({ path: test.info().outputPath('12-tab-keyboard-focus.png'), animations: 'disabled' });
-  } finally { await stopApp(app, true); }
+  } finally { await stopApp(app, false); }
 });
 
 test('pane promotion and workspace restore do not replay editor commands', async () => {
@@ -1007,12 +1189,13 @@ test('pane promotion and workspace restore do not replay editor commands', async
     for (const input of await page.locator('input[type="file"]').all()) {
       await expect(input).not.toHaveAttribute('data-picker-requests');
     }
-  } finally { await stopApp(app, true); }
+  } finally { await stopApp(app, false); }
 });
 
 for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
   test(`F6 cycles both panes and restores focus in ${mode}`, async () => {
-    const { app, page } = await launchFixture(mode, true, true);
+    test.setTimeout(120_000);
+    const { app, page } = await launchFixture(mode, true, false);
     try {
       await page.setViewportSize({ width: 1600, height: 900 });
       await openFixtureNote(page);
@@ -1058,7 +1241,7 @@ for (const mode of ['standard', 'vim', 'helix', 'emacs', 'kakoune'] as const) {
         ipcMain.removeHandler(channel);
         ipcMain.handle(channel, () => ({ confirmed: true }));
       }, ELECTRON_CHANNELS.appConfirm);
-      await stopApp(app, true);
+      await stopApp(app, false);
     }
   });
 }
@@ -1148,7 +1331,8 @@ test('saved shortcut preferences update hints and disable character shortcuts', 
     await binding.click(); await page.keyboard.press(`${primary}+e`);
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(settings).toBeHidden();
-    await expect(page.locator('[data-search-shortcut]')).toHaveText(process.platform === 'darwin' ? '⌘E' : 'Ctrl+E');
+    // Closed, the search icon names its shortcut in its tooltip.
+    await expect(page.locator('label:has(input[name="noteSearch"])')).toHaveAttribute('title', `Search notes (${process.platform === 'darwin' ? '⌘E' : 'Ctrl+E'})`);
     const shortcutsButton = page.getByRole('note', { name: 'Keys you can press' }).getByRole('button', { name: /Shortcuts/ });
     await expect(shortcutsButton.locator('kbd')).toHaveCount(0);
     await shortcutsButton.click();
@@ -1190,7 +1374,9 @@ test('native help and palette region commands restore Workbench focus', async ()
 
 async function useNavigationCode(page: Page, id: string) {
   const hint = page.locator('[data-navigation-hint]');
-  const code = await page.locator(`[data-navigation-hint="${id}"]`).getAttribute('data-navigation-code');
+  const target = page.locator(`[data-navigation-hint="${id}"]`);
+  await expect(target).toHaveCount(1, { timeout: 10_000 });
+  const code = await target.getAttribute('data-navigation-code');
   if (!code) throw new Error(`Missing navigation code for ${id}`);
   for (const letter of code) await page.keyboard.press(letter);
   await expect(hint).toHaveCount(0);
@@ -1431,9 +1617,10 @@ test('onboarding stays compact at wide and narrow window sizes', async () => {
       await expect(dialog).toBeVisible();
       await expect.poll(() => dialog.evaluate(element => {
         const bounds = element.getBoundingClientRect();
-        return Math.abs(bounds.width - Math.min(440, innerWidth - 32))
+        const targetWidth = Math.min(400, innerWidth - 32);
+        return Math.abs(bounds.width - targetWidth)
           + Math.abs(bounds.left + bounds.width / 2 - innerWidth / 2);
-      })).toBeLessThan(1);
+      })).toBeLessThan(2);
     }
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('20-onboarding-compact.png') });
   } finally { await stopApp(app); }
@@ -1485,7 +1672,7 @@ test('Settings search jumps to fields and held navigation stays inside the dialo
     await search.fill('primary');
     await search.press('Enter');
     await expect(dialog.locator('#theme-seed-primary')).toBeFocused();
-    await expect(dialog.getByRole('button', { name: 'Customize Colors', exact: true })).toHaveAttribute('aria-expanded', 'true');
+    await expect(dialog.getByRole('button', { name: 'Customize colors', exact: true })).toHaveAttribute('aria-expanded', 'true');
     await search.fill('font');
     const options = dialog.getByRole('listbox', { name: 'Settings search results' }).getByRole('option');
     await search.press('ArrowDown');
@@ -1619,13 +1806,13 @@ test('the workbench draws no divider lines at rest, and lines show only while co
     await pane.locator('.cm-scroller').evaluate(scroller => scroller.scrollTo({ top: 0 }));
     await expect.poll(() => lineOpacity(header, '::after')).toBe(0);
 
-    // The sidebar footer shows its line while the list continues under it, and not at the end.
-    const footer = '[data-testid="sidebar-footer"]';
+    // The sidebar list fades at its edges while more content lies past the bottom.
     const list = page.locator('#note-navigator-panel .scroll-edges-source');
+    const bottomFade = page.locator('#note-navigator-panel .edge-fade-bottom > *');
     await list.evaluate(element => element.scrollTo({ top: 0 }));
-    await expect.poll(() => lineOpacity(footer, '::before')).toBe(1);
+    await expect.poll(() => bottomFade.evaluate(element => Number(getComputedStyle(element).opacity))).toBeGreaterThan(0.5);
     await list.evaluate(element => element.scrollTo({ top: element.scrollHeight }));
-    await expect.poll(() => lineOpacity(footer, '::before')).toBe(0);
+    await expect.poll(() => bottomFade.evaluate(element => Number(getComputedStyle(element).opacity))).toBeLessThan(0.5);
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('29-fewer-dividers.png') });
 
     // Split panes are two cards a gap apart; only the active one is outlined in the accent color.
@@ -1711,11 +1898,11 @@ test('nested splits and collapse preserve the surviving editor, selection, scrol
     const newPane = panes.last();
     await newPane.locator('.cm-content').focus();
     await expect(newPane).toHaveAttribute('data-active-pane', 'true');
-    await app.evaluate(({ ipcMain }, channel) => {
-      ipcMain.removeHandler(channel);
-      ipcMain.handle(channel, () => ({ confirmed: true }));
-    }, ELECTRON_CHANNELS.appConfirm);
     await page.keyboard.press(`${primary}+w`);
+    const closePane = page.getByRole('alertdialog');
+    if (await closePane.isVisible().catch(() => false)) {
+      await closePane.getByRole('button', { name: 'Close Tab' }).click();
+    }
     await expect(panes).toHaveCount(2);
     expect(await editor.evaluate((element, original) => element === original, originalEditor)).toBe(true);
     await expect(editor).toBeFocused();

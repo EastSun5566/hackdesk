@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { toast } from '@/components/ui/toast';
 
 import {
   Dialog,
@@ -264,7 +263,6 @@ function SettingsDialogContent({
       return;
     }
 
-    toast.success('Theme applied');
     onOpenChange(false);
   };
 
@@ -279,7 +277,8 @@ function SettingsDialogContent({
           className="scroll-edges flex min-h-0 flex-1 flex-col"
         >
           <DialogHeader className="scroll-edge-top relative shrink-0 px-5 py-4">
-            <DialogTitle>Settings</DialogTitle>
+            {/* A window label; the page heading below carries the larger tier. */}
+            <DialogTitle className="text-base font-semibold leading-6">Settings</DialogTitle>
             <DialogDescription className="sr-only">
               HackDesk preferences.
             </DialogDescription>

@@ -1,12 +1,14 @@
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
+export const WORKSPACE_ROOT_FOCUS_ID = 'workspace:root';
+
 export type TreeFocusItem = {
   depth: number;
   folderId?: string;
   hasChildren?: boolean;
   id: string;
-  kind: 'folder' | 'note';
+  kind: 'folder' | 'note' | 'root';
   label: string;
   note?: FolderTreeNote;
   parentFolderId: string | null;
@@ -20,16 +22,12 @@ export function createNoteFocusId(noteId: string) {
   return `note:${noteId}`;
 }
 
-export function getFolderTreeFocusItems(tree: FolderTree, collapsedFolderIds: Set<string>): TreeFocusItem[] {
-  const items: TreeFocusItem[] = [{
-    depth: 0,
-    folderId: UNFILED_FOLDER_ID,
-    hasChildren: false,
-    id: createFolderFocusId(UNFILED_FOLDER_ID),
-    kind: 'folder',
-    label: 'Root',
-    parentFolderId: null,
-  }];
+export function getFolderTreeFocusItems(
+  tree: FolderTree,
+  collapsedFolderIds: Set<string>,
+  depthOffset = 0,
+): TreeFocusItem[] {
+  const items: TreeFocusItem[] = [];
 
   const appendFolder = (node: FolderTreeNode, parentFolderId: string | null, depth: number) => {
     const collapsed = collapsedFolderIds.has(node.id);
@@ -64,18 +62,51 @@ export function getFolderTreeFocusItems(tree: FolderTree, collapsedFolderIds: Se
   };
 
   for (const node of tree.roots) {
-    appendFolder(node, null, 0);
+    appendFolder(node, null, depthOffset);
   }
 
   for (const note of tree.unfiled.notes) {
     items.push({
-      depth: 0,
+      depth: depthOffset,
       id: createNoteFocusId(note.note.id),
       kind: 'note',
       label: note.note.title || 'Untitled',
       note,
       parentFolderId: null,
     });
+  }
+
+  return items;
+}
+
+export function buildFolderNavigatorFocusItems({
+  tree,
+  collapsedFolderIds,
+  showRoot,
+  rootSectionExpanded,
+  rootLabel,
+}: {
+  tree: FolderTree;
+  collapsedFolderIds: Set<string>;
+  showRoot: boolean;
+  rootSectionExpanded: boolean;
+  rootLabel: string;
+}): TreeFocusItem[] {
+  const items: TreeFocusItem[] = [];
+
+  if (showRoot) {
+    items.push({
+      depth: 0,
+      hasChildren: true,
+      id: WORKSPACE_ROOT_FOCUS_ID,
+      kind: 'root',
+      label: rootLabel,
+      parentFolderId: null,
+    });
+  }
+
+  if (!showRoot || rootSectionExpanded) {
+    items.push(...getFolderTreeFocusItems(tree, collapsedFolderIds, showRoot ? 1 : 0));
   }
 
   return items;

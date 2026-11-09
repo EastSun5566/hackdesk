@@ -15,6 +15,7 @@ import {
 } from '@/lib/keyboard-shortcuts';
 
 import { canRunContextShortcut, EDITING_SELECTOR, hasWorkbenchPopup } from './workbench-keyboard-context';
+import { leaderSpacePreference } from './keyboard-feature-preferences';
 
 // Space activates these itself, so it opens the leader menu only elsewhere. Tree items and tabs open
 // with Enter, which leaves Space free there.
@@ -24,6 +25,8 @@ const SPACE_CONTROLS ='button:not([role="treeitem"]):not([role="tab"]), [role="b
 
 function opensLeaderMenu(event: KeyboardEvent, enabled: boolean) {
   if (!enabled || event.key !== ' ' || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return false;
+  // Read at the keypress, so switching it off in Settings applies at once.
+  if (!leaderSpacePreference.read()) return false;
   const target = event.target instanceof Element ? event.target : null;
   return !hasWorkbenchPopup() && !target?.closest(EDITING_SELECTOR) && !target?.closest(SPACE_CONTROLS);
 }

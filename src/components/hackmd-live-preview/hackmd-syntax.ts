@@ -41,9 +41,9 @@ export const hackmdMarkdownHighlightStyle = HighlightStyle.define([
     textDecorationColor: 'color-mix(in oklch, var(--link-text-default) 48%, transparent)',
   },
   {
+    // Upright: CJK faces have no italic, so the browser would slant the glyphs.
     tag: tags.quote,
     color: 'var(--text-subtle)',
-    fontStyle: 'italic',
   },
   {
     tag: tags.monospace,
@@ -52,10 +52,6 @@ export const hackmdMarkdownHighlightStyle = HighlightStyle.define([
   {
     tag: tags.contentSeparator,
     color: 'var(--border-default)',
-  },
-  {
-    tag: tags.list,
-    color: 'var(--text-subtle)',
   },
   {
     tag: tags.meta,

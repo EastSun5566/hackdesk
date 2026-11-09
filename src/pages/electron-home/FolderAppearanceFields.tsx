@@ -124,7 +124,8 @@ export function FolderAppearanceFields({
           />
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="grid grid-cols-2 gap-3 pt-3">
+          {/* items-end: the two inputs share a line even when one label wraps. */}
+          <div className="grid grid-cols-2 items-end gap-3 pt-3">
             <Field>
               <FieldLabel htmlFor={CUSTOM_FOLDER_ICON_ID}>Icon codepoint</FieldLabel>
               <Input

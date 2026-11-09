@@ -186,7 +186,7 @@ vi.mock('./window-state', () => ({
 
 import { app, dialog } from 'electron';
 import { exportDebugLogs } from './logging';
-import { WindowManager } from './window-manager';
+import { isGrantedRendererPermission, WindowManager } from './window-manager';
 
 function getMockWindow(window: unknown) {
   if (!(window instanceof mockState.BrowserWindowMock)) throw new Error('Expected a mocked BrowserWindow');
@@ -204,6 +204,16 @@ function emitClose(window: InstanceType<typeof mockState.BrowserWindowMock>) {
   window.emit('close', event);
   return event;
 }
+
+describe('renderer permissions', () => {
+  it('grants only installed-font access, and only to a trusted renderer', () => {
+    expect(isGrantedRendererPermission('local-fonts', 'hackdesk://renderer')).toBe(true);
+    expect(isGrantedRendererPermission('local-fonts', undefined)).toBe(false);
+    for (const permission of ['notifications', 'media', 'clipboard-read', 'geolocation']) {
+      expect(isGrantedRendererPermission(permission, 'hackdesk://renderer')).toBe(false);
+    }
+  });
+});
 
 describe('WindowManager close intent', () => {
   beforeEach(() => {
@@ -321,6 +331,19 @@ describe('WindowManager close intent', () => {
     await vi.advanceTimersByTimeAsync(15_000);
     expect(mockState.state.writeLog).toHaveBeenCalledWith('main', 'window close dialog failed', error, 'error');
     expect(app.quit).not.toHaveBeenCalled();
+  });
+
+  it('drops the close fallback once the window says it is asking the user', async () => {
+    const { manager, window } = createManagerWithWindow();
+    emitClose(window);
+    await vi.advanceTimersByTimeAsync(5_000);
+    manager.holdClose();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(dialog.showMessageBox).not.toHaveBeenCalled();
+
+    // The answer still settles the original request.
+    manager.confirmClose();
+    expect(window.destroy).toHaveBeenCalled();
   });
 
   it('ignores a late close fallback answer after the original window is destroyed', async () => {

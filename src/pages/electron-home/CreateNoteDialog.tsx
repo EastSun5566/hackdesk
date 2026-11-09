@@ -41,7 +41,7 @@ export function CreateNoteDialog({
       open={state.open}
       onOpenChange={(open) => onStateChange(open ? state : CLOSED_CREATE_NOTE_DIALOG_STATE)}
     >
-      <DialogContent className="max-w-md">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>New Note</DialogTitle>
           <DialogDescription id={CREATE_NOTE_DESCRIPTION_ID} className="sr-only">
@@ -50,7 +50,7 @@ export function CreateNoteDialog({
         </DialogHeader>
         <p
           id={CREATE_NOTE_LOCATION_ID}
-          className="flex min-w-0 items-center gap-2 rounded-md border border-border-default bg-background-muted px-3 py-2 text-xs text-text-subtle"
+          className="flex min-w-0 items-center gap-2 rounded border border-border-default bg-background-muted px-2.5 py-2 text-xs text-text-subtle"
         >
           <span className="shrink-0 font-medium text-text-default">Location</span>
           <span className="min-w-0 truncate">{location}</span>

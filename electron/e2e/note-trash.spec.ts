@@ -85,20 +85,21 @@ test('restores one note from the trash and opens it', async () => {
   const { app, page } = await launchWithTrash();
   try {
     await expect(page.getByRole('treeitem', { name: 'Kept', exact: true })).toBeVisible();
-    await page.getByTestId('sidebar-footer').getByRole('button', { name: 'Trash' }).click();
+    await page.getByTestId('sidebar-trash-row').getByRole('button', { name: 'My Trash' }).click();
 
-    const dialog = page.getByRole('dialog', { name: 'Trash' });
-    const rows = dialog.getByRole('list', { name: 'Deleted notes' }).getByRole('listitem');
+    const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
+    const rows = sidebar.getByRole('list', { name: 'Deleted notes' }).getByRole('listitem');
     await expect(rows).toHaveCount(2);
-    await expect(rows.nth(1)).toContainText('Kept until');
+    await expect(sidebar.getByRole('button', { name: 'Back to notes' })).toBeVisible();
+    await expect(sidebar.getByText('Trash', { exact: true })).toBeVisible();
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('trash.png') });
 
-    await dialog.getByRole('button', { name: 'Restore Roadmap' }).click();
+    await sidebar.getByRole('button', { name: 'Restore Roadmap' }).click();
     await expect(rows).toHaveCount(1);
     await expect(page.getByText('Restored “Roadmap”.')).toBeVisible();
 
     await page.getByRole('button', { name: 'Open', exact: true }).click();
-    await expect(dialog).toHaveCount(0);
+    await expect(sidebar.getByRole('list', { name: 'Deleted notes' })).toHaveCount(0);
     await expect(page.locator('.cm-content')).toContainText('Roadmap body');
     await expect(page.getByRole('treeitem', { name: 'Roadmap', exact: true })).toBeVisible();
     expect((await readFixture(app)).restoreRequests).toEqual([['roadmap']]);
@@ -114,19 +115,20 @@ test('keeps notes HackMD could not restore in a batch', async () => {
       (globalThis as unknown as { trashFixture: Fixture }).trashFixture.failIds.push('meeting');
     });
     await expect(page.getByRole('treeitem', { name: 'Kept', exact: true })).toBeVisible();
-    await page.getByTestId('sidebar-footer').getByRole('button', { name: 'Trash' }).click();
+    await page.getByTestId('sidebar-trash-row').getByRole('button', { name: 'My Trash' }).click();
 
-    const dialog = page.getByRole('dialog', { name: 'Trash' });
-    const rows = dialog.getByRole('list', { name: 'Deleted notes' }).getByRole('listitem');
+    const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
+    const rows = sidebar.getByRole('list', { name: 'Deleted notes' }).getByRole('listitem');
     await expect(rows).toHaveCount(2);
-    await dialog.getByRole('checkbox', { name: 'Select all' }).click();
-    await dialog.getByRole('button', { name: 'Restore 2 Notes' }).click();
+    await rows.nth(0).getByRole('button', { name: 'Roadmap', exact: true }).click({ modifiers: ['Meta'] });
+    await rows.nth(1).getByRole('button', { name: 'Meeting', exact: true }).click({ modifiers: ['Meta'] });
+    await sidebar.getByRole('button', { name: 'Restore', exact: true }).click();
 
     await expect(rows).toHaveCount(1);
     await expect(rows.first()).toContainText('Meeting');
     await expect(rows.first()).toContainText('Already removed or restored.');
     await expect(page.getByText('Restored 1 of 2 notes.')).toBeVisible();
-    await expect(dialog.getByRole('button', { name: 'Restore 1 Note' })).toBeEnabled();
+    await expect(sidebar.getByRole('button', { name: 'Restore Meeting' })).toBeEnabled();
     expect((await readFixture(app)).restoreRequests).toEqual([['roadmap', 'meeting']]);
   } finally {
     app.process().kill('SIGKILL');

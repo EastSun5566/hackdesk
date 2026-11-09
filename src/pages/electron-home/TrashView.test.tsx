@@ -5,7 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from '@/components/ui/toast';
 import type { RestoreTrashResult, TrashedNoteSummary } from '@/lib/electron-api';
 
-import { TrashDialog } from './TrashDialog';
+import { HACKMD_TEAM_TRASH_FORBIDDEN_MESSAGE } from '@/lib/note-errors';
+
+import { TrashNavigatorList } from './TrashView';
+import type { WorkspaceScope } from './types';
+
+const personalScope: WorkspaceScope = { type: 'personal', label: 'My Workspace' };
+const teamScope: WorkspaceScope = { type: 'team', label: 'Demo', teamPath: 'demo-team' };
 
 vi.mock('@/components/ui/toast', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
@@ -29,12 +35,12 @@ function installApi(overrides: Partial<NonNullable<typeof window.hackdeskAPI>['h
   return hackmd;
 }
 
-function renderDialog() {
+function renderTrash(scope: WorkspaceScope = personalScope) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const handlers = { onOpenChange: vi.fn(), onOpenNote: vi.fn() };
   render(
     <QueryClientProvider client={queryClient}>
-      <TrashDialog open {...handlers} />
+      <TrashNavigatorList open scope={scope} {...handlers} />
     </QueryClientProvider>,
   );
   return { ...handlers, queryClient };
@@ -45,7 +51,7 @@ async function findRows() {
   return within(list).getAllByRole('listitem');
 }
 
-describe('TrashDialog', () => {
+describe('TrashNavigatorList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installApi();
@@ -55,23 +61,44 @@ describe('TrashDialog', () => {
   });
 
   it('lists deleted notes with their dates', async () => {
-    renderDialog();
+    renderTrash();
 
     const rows = await findRows();
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveTextContent('Roadmap');
-    expect(rows[0]).toHaveTextContent(/Deleted Oct 15/);
+    expect(within(rows[0]).getByTitle(/^Deleted Oct 15/)).toBeInTheDocument();
     expect(rows[0]).not.toHaveTextContent('Kept until');
     expect(rows[1]).toHaveTextContent('Untitled');
-    expect(rows[1]).toHaveTextContent(/Kept until Nov 11/);
-    expect(screen.getByRole('button', { name: 'Restore Notes' })).toBeDisabled();
+    expect(within(rows[1]).getByTitle(/^Deleted Oct 12/)).toBeInTheDocument();
+    expect(rows[1]).not.toHaveTextContent('Kept until');
   });
 
   it('says when the trash is empty', async () => {
     installApi({ listTrash: vi.fn(async () => []) });
-    renderDialog();
+    renderTrash();
 
-    expect(await screen.findByText('Your trash is empty.')).toBeInTheDocument();
+    expect(await screen.findByText('Trash is empty')).toBeInTheDocument();
+  });
+
+  it('loads team trash for the current workspace', async () => {
+    const listTrash = vi.fn(async () => []);
+    installApi({ listTrash });
+    renderTrash(teamScope);
+
+    await screen.findByText('Trash is empty');
+    expect(listTrash).toHaveBeenCalledWith('demo-team');
+  });
+
+  it('shows a calm message when team trash is admin-only', async () => {
+    installApi({
+      listTrash: vi.fn(async () => {
+        throw new Error(HACKMD_TEAM_TRASH_FORBIDDEN_MESSAGE);
+      }),
+    });
+    renderTrash(teamScope);
+
+    expect(await screen.findByText(HACKMD_TEAM_TRASH_FORBIDDEN_MESSAGE)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
   });
 
   it('retries after a failed load', async () => {
@@ -79,7 +106,7 @@ describe('TrashDialog', () => {
       .mockRejectedValueOnce(new Error("Error invoking remote method 'hackmd:list-trash': Error: Offline"))
       .mockResolvedValueOnce([roadmap]);
     installApi({ listTrash });
-    renderDialog();
+    renderTrash();
 
     expect(await screen.findByText(/Could not load the trash\. Offline/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
@@ -89,7 +116,7 @@ describe('TrashDialog', () => {
 
   it('restores one note, drops it from the list and offers to open it', async () => {
     const hackmd = installApi();
-    const { onOpenNote, onOpenChange } = renderDialog();
+    const { onOpenNote, onOpenChange } = renderTrash();
 
     fireEvent.click(within((await findRows())[0]).getByRole('button', { name: 'Restore Roadmap' }));
 
@@ -104,20 +131,20 @@ describe('TrashDialog', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('selects all, then shows a partial selection as mixed', async () => {
-    renderDialog();
-    await findRows();
-    const selectAll = screen.getByRole('checkbox', { name: 'Select all' });
+  it('multi-selects rows and restores them in a batch', async () => {
+    const hackmd = installApi();
+    renderTrash();
+    const rows = await findRows();
 
-    fireEvent.click(selectAll);
-    expect(screen.getByRole('checkbox', { name: 'Select Roadmap' })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: 'Select Untitled' })).toBeChecked();
+    fireEvent.click(within(rows[0]).getByRole('button', { name: 'Roadmap' }), { metaKey: true });
+    fireEvent.click(within(rows[1]).getByRole('button', { name: 'Untitled' }), { metaKey: true });
     expect(screen.getByText('2 selected')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Restore 2 Notes' })).toBeEnabled();
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Roadmap' }));
-    expect(selectAll).toHaveAttribute('aria-checked', 'mixed');
-    expect(screen.getByRole('button', { name: 'Restore 1 Note' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
+
+    await waitFor(() => expect(screen.queryByRole('listitem')).toBeNull());
+    expect(hackmd.restoreNotes).toHaveBeenCalledWith(['note-1', 'note-2']);
+    expect(toast.success).toHaveBeenCalledWith('Restored 2 notes.');
   });
 
   it('keeps notes HackMD could not restore, with the reason', async () => {
@@ -127,24 +154,23 @@ describe('TrashDialog', () => {
         'note-2': { status: 'failure' as const, reason: 'NOT_FOUND' as const },
       })),
     });
-    renderDialog();
-    await findRows();
+    renderTrash();
+    const rows = await findRows();
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Select all' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Restore 2 Notes' }));
+    fireEvent.click(within(rows[0]).getByRole('button', { name: 'Roadmap' }), { metaKey: true });
+    fireEvent.click(within(rows[1]).getByRole('button', { name: 'Untitled' }), { metaKey: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
 
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
     expect(hackmd.restoreNotes).toHaveBeenCalledWith(['note-1', 'note-2']);
     const remaining = screen.getByRole('listitem');
     expect(remaining).toHaveTextContent('Already removed or restored.');
-    expect(within(remaining).getByRole('checkbox', { name: 'Select Untitled' })).toBeChecked();
-    expect(within(remaining).getByRole('checkbox', { name: 'Select Untitled' })).toHaveAccessibleDescription('Already removed or restored.');
     expect(toast.info).toHaveBeenCalledWith('Restored 1 of 2 notes.');
   });
 
   it('reports a failed request without changing the list', async () => {
     installApi({ restoreNotes: vi.fn(async () => { throw new Error('Unable to reach HackMD.'); }) });
-    renderDialog();
+    renderTrash();
 
     fireEvent.click(within((await findRows())[0]).getByRole('button', { name: 'Restore Roadmap' }));
 

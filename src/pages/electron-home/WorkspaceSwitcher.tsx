@@ -16,7 +16,6 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-  AlertCircle,
   Check,
   ChevronDown,
   ChevronsUpDown,
@@ -27,8 +26,8 @@ import {
   Lock,
   Pin,
   PinOff,
+  Search,
   Settings2,
-  Trash2,
 } from 'lucide-react';
 import { useContext, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
@@ -42,7 +41,7 @@ import { cn } from '@/lib/utils';
 import { EntityRow } from './interaction-primitives';
 import { NavigationHintsContext } from './KeyboardNavigationContext';
 import type { WorkspaceScope } from './types';
-import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS } from './ui';
+import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS, ICON_BUTTON_CLASS } from './ui';
 import {
   getWorkspaceAriaShortcut,
   getWorkspaceNavigationTeams,
@@ -51,6 +50,8 @@ import {
   reorderPinnedWorkspaceTeams,
   unpinWorkspaceTeam,
 } from './workspace-navigation';
+import { ActionMenuShortcut } from './ActionShortcutContext';
+import { ProfileMenu } from './ProfileMenu';
 import { PersonalWorkspaceIcon, TeamWorkspaceIcon } from './WorkspaceIcon';
 
 type WorkspaceUser = Pick<UserSummary, 'name' | 'username' | 'photo'>;
@@ -75,12 +76,14 @@ export type WorkspaceSidebarProps = {
   onScopeChange: (scope: WorkspaceScope) => void;
   onChooseLocalVault: () => void;
   onOpenSettings: () => void;
-  /** Opens the HackMD trash. Leave it out to hide the button. */
-  onOpenTrash?: () => void;
+  /** Removes the HackMD token. Leave it out to hide Sign Out. */
+  onSignOut?: () => void;
   onPinnedTeamIdsChange: (pinnedTeamIds: string[]) => void;
 };
 
 const ROW_SELECTOR = '[data-workspace-row]';
+// With more teams than this, the switcher offers a field to find one by name.
+const TEAM_FILTER_THRESHOLD = 6;
 
 function WorkspaceRow({
   active,
@@ -108,19 +111,18 @@ function WorkspaceRow({
       icon={icon}
       title={label}
       trailing={trailing ?? (active ? <Check aria-hidden="true" className="size-3.5" /> : undefined)}
-      variant="compact"
       onClick={onClick}
       ariaLabel={accessibleLabel ?? label}
       ariaCurrent={active ? 'page' : undefined}
       ariaKeyShortcuts={ariaKeyShortcuts}
-      className={cn('min-h-9 flex-1', className)}
+      className={cn('min-h-8 flex-1 py-1 text-xs', className)}
       trailingClassName="opacity-70"
     />
   );
 }
 
 function ShortcutLabel({ children }: { children: string }) {
-  return <kbd className="font-mono text-2xs text-text-subtle">{children}</kbd>;
+  return <kbd className="text-2xs text-text-subtle">{children}</kbd>;
 }
 
 type TeamRowProps = {
@@ -136,34 +138,44 @@ type TeamRowProps = {
 
 function TeamRow({ dragHandle, active, onPinChange, onScopeChange, platform, pinned, shortcutIndex, team }: TeamRowProps) {
   const isPrivate = team.visibility === 'private';
+  // The pin (and its tooltip) mounts only while the row is pointed at or focused: the switcher
+  // lists every team, and a tooltip per row made opening it noticeably slow.
+  const [showPin, setShowPin] = useState(false);
   return (
-    <div className="group/team-row relative flex min-w-0 items-center">
+    <div
+      className="group/team-row relative flex min-w-0 items-center"
+      onPointerEnter={() => setShowPin(true)}
+      onPointerLeave={() => setShowPin(false)}
+      onFocus={() => setShowPin(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setShowPin(false);
+      }}
+    >
       <WorkspaceRow
         accessibleLabel={isPrivate ? `${team.name}, private` : team.name}
         active={active}
         ariaKeyShortcuts={shortcutIndex ? getWorkspaceAriaShortcut(platform, shortcutIndex) : undefined}
-        icon={<span className={cn('flex items-center gap-1', dragHandle && 'group-hover/team-row:opacity-0 group-focus-within/team-row:opacity-0')}><TeamWorkspaceIcon team={team} testId={`workspace-switcher-team-logo-${team.id}`} /></span>}
+        icon={<span className={cn('flex items-center gap-1', dragHandle && 'group-hover/team-row:opacity-0 group-focus-within/team-row:opacity-0')}><TeamWorkspaceIcon team={team} className="size-4.5" testId={`workspace-switcher-team-logo-${team.id}`} /></span>}
         label={team.name}
+        // The pin takes this spot on hover, so the hints step aside rather than sit under a mask.
         trailing={(
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-1.5 transition-opacity group-hover/team-row:opacity-0 group-focus-within/team-row:opacity-0">
             {isPrivate ? <Lock aria-hidden="true" data-private-team-lock="true" className="size-3.5" /> : null}
             {shortcutIndex ? <ShortcutLabel>{getWorkspaceShortcutLabel(platform, shortcutIndex)}</ShortcutLabel> : null}
           </span>
         )}
         onClick={onScopeChange}
-        className={cn(!active && 'group-hover/team-row:bg-element-bg-hover group-focus-within/team-row:bg-element-bg-hover')}
+        // One hover tint for the whole row, the pin included.
+        className={cn(!active && 'group-hover/team-row:bg-background-hover group-focus-within/team-row:bg-background-hover')}
       />
       {dragHandle}
-      <div className={cn(
-        'pointer-events-none absolute inset-y-1 right-1 flex items-center rounded-md pl-10 opacity-0 group-hover/team-row:pointer-events-auto group-hover/team-row:opacity-100 group-focus-within/team-row:pointer-events-auto group-focus-within/team-row:opacity-100',
-        active ? 'bg-background-selected-solid' : 'bg-element-bg-hover-solid',
-      )}>
+      {showPin ? <div className="pointer-events-none absolute inset-y-0 right-0.5 flex items-center opacity-0 group-hover/team-row:pointer-events-auto group-hover/team-row:opacity-100 group-focus-within/team-row:pointer-events-auto group-focus-within/team-row:opacity-100">
         <Tooltip content={pinned ? `Unpin ${team.name}` : `Pin ${team.name}`} side="right">
-          <Button variant="ghost" size="icon" aria-label={pinned ? `Unpin ${team.name}` : `Pin ${team.name}`} onClick={onPinChange}>
+          <Button variant="ghost" size="icon" className="text-icon-default hover:bg-transparent hover:text-text-emphasize" aria-label={pinned ? `Unpin ${team.name}` : `Pin ${team.name}`} onClick={onPinChange}>
             {pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
           </Button>
         </Tooltip>
-      </div>
+      </div> : null}
     </div>
   );
 }
@@ -283,7 +295,7 @@ function MoreTeams({
         aria-expanded={isOpen}
         aria-controls="workspace-switcher-more"
         onClick={() => setOpen(!isOpen)}
-        className={cn('flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-sm font-medium text-text-subtle hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_INSET_CLASS)}
+        className={cn('flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-xs font-medium text-text-subtle hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_INSET_CLASS)}
       >
         <ChevronDown className={cn('size-4', COLLAPSE_ICON_CLASS, !isOpen && '-rotate-90')} />
         <span>More</span>
@@ -357,14 +369,19 @@ function WorkspacePeek({
   );
 }
 
+/** A glyph in the box workspace avatars use (20px in the header, 18px in the switcher), so every icon has one size. */
+function IconBox({ children, small = false }: { children: ReactNode; small?: boolean }) {
+  return <span className={cn('flex items-center justify-center', small ? 'size-4.5' : 'size-5')}>{children}</span>;
+}
+
 function ScopeIcon({ scope, teams, user }: { scope: WorkspaceScope; teams: TeamSummary[]; user?: WorkspaceUser }) {
   if (scope.type === 'team') {
     const team = teams.find((candidate) => candidate.path === scope.teamPath);
-    if (team) return <TeamWorkspaceIcon team={team} testId="workspace-switcher-current-logo" />;
+    if (team) return <TeamWorkspaceIcon team={team} className="size-5" testId="workspace-switcher-current-logo" />;
   }
-  if (scope.type === 'local') return <HardDrive className="size-4" />;
-  if (scope.type === 'history') return <History className="size-4" />;
-  return <PersonalWorkspaceIcon user={user} testId="workspace-switcher-current-avatar" />;
+  if (scope.type === 'local') return <IconBox><HardDrive className="size-4" /></IconBox>;
+  if (scope.type === 'history') return <IconBox><History className="size-4" /></IconBox>;
+  return <PersonalWorkspaceIcon user={user} className="size-5" testId="workspace-switcher-current-avatar" />;
 }
 
 /**
@@ -383,7 +400,7 @@ export function WorkspaceSwitcher({
   onScopeChange,
   onChooseLocalVault,
   onPinnedTeamIdsChange,
-}: Omit<WorkspaceSidebarProps, 'accountStatus' | 'onOpenSettings' | 'onOpenTrash'>) {
+}: Omit<WorkspaceSidebarProps, 'accountStatus' | 'onOpenSettings' | 'onSignOut'>) {
   const popupRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const hintsHeld = useContext(NavigationHintsContext) === true;
@@ -392,7 +409,29 @@ export function WorkspaceSwitcher({
     onSwitcherOpenChange(false);
     onScopeChange(next);
   };
+  const [teamQuery, setTeamQuery] = useState('');
+  // Each opening starts with the whole list.
+  if (!switcherOpen && teamQuery) setTeamQuery('');
+  const teamFilterRef = useRef<HTMLInputElement | null>(null);
+  const teamListRef = useRef<HTMLDivElement | null>(null);
+  const filteredTeams = useMemo(() => {
+    const query = teamQuery.trim().toLowerCase();
+    if (!query) return [];
+    return teams.filter((team) => team.name.toLowerCase().includes(query) || team.path.toLowerCase().includes(query));
+  }, [teamQuery, teams]);
+
   const moveFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+    // Typing a letter anywhere in the switcher starts finding a team.
+    const filter = teamFilterRef.current;
+    if (filter && event.target !== filter && event.key.length === 1 && /\S/.test(event.key)
+      && !event.metaKey && !event.ctrlKey && !event.altKey && !event.nativeEvent.isComposing) {
+      // The keypress began on a row, so the field never receives it: carry the character over,
+      // or the first letter of every search would be lost.
+      event.preventDefault();
+      setTeamQuery((query) => query + event.key);
+      filter.focus();
+      return;
+    }
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
     const rows = Array.from(popupRef.current?.querySelectorAll<HTMLElement>(ROW_SELECTOR) ?? []);
     const index = rows.indexOf(document.activeElement as HTMLElement);
@@ -407,10 +446,11 @@ export function WorkspaceSwitcher({
         ref={triggerRef}
         data-workspace-navigation-id="switcher"
         aria-label={`Switch workspace, current: ${scope.label}`}
-        className={cn('flex min-w-0 max-w-full items-center gap-2 rounded-md px-1 py-0.5 text-left hover:bg-element-bg-hover', FOCUS_RING_INSET_CLASS)}
+        // The same 32px box and corners as the header's icon buttons beside it.
+        className={cn('-ml-2 flex h-8 min-w-0 max-w-full items-center gap-2 rounded px-1.5 text-left hover:bg-element-bg-hover', FOCUS_RING_INSET_CLASS)}
       >
         <span aria-hidden="true" className="flex shrink-0 text-text-subtle"><ScopeIcon scope={scope} teams={teams} user={user} /></span>
-        <span className="min-w-0 truncate text-base font-semibold text-text-default">{scope.label}</span>
+        <span className="min-w-0 truncate text-sm font-semibold text-text-default">{scope.label}</span>
         <ChevronsUpDown aria-hidden="true" className="size-3.5 shrink-0 text-text-subtle" />
       </PopoverTrigger>
       <PopoverContent
@@ -418,28 +458,34 @@ export function WorkspaceSwitcher({
         aria-label="Workspaces"
         initialFocus={() => popupRef.current?.querySelector<HTMLElement>(`${ROW_SELECTOR}[aria-current="page"]`) ?? popupRef.current?.querySelector<HTMLElement>(ROW_SELECTOR) ?? true}
         onKeyDown={moveFocus}
-        className="w-72 p-1.5"
+        className="w-72 overflow-hidden"
       >
-        <nav aria-label="Workspaces" className="max-h-96 overflow-y-auto">
-          <ul className="list-none space-y-0.5">
+        <nav aria-label="Workspaces" className="flex max-h-128 flex-col">
+          {/* Places stay put above the teams, so History and Local Vault never scroll out of reach
+              however many teams there are. */}
+          <ul className="list-none space-y-0.5 p-1.5">
             <li className="flex">
               <WorkspaceRow
                 active={scope.type === 'personal'}
                 ariaKeyShortcuts={getWorkspaceAriaShortcut(platform, 1)}
-                icon={<PersonalWorkspaceIcon user={user} testId="workspace-switcher-personal-avatar" />}
+                icon={<PersonalWorkspaceIcon user={user} className="size-4.5" testId="workspace-switcher-personal-avatar" />}
                 label="My Workspace"
                 trailing={<ShortcutLabel>{getWorkspaceShortcutLabel(platform, 1)}</ShortcutLabel>}
                 onClick={() => choose({ type: 'personal', label: 'My Workspace' })}
               />
             </li>
-          </ul>
-          <PinnedTeams navigation={navigation} onPinnedTeamIdsChange={onPinnedTeamIdsChange} onScopeChange={choose} pinnedTeamIds={pinnedTeamIds} platform={platform} scope={scope} teams={teams} />
-          <MoreTeams navigation={navigation} onPinnedTeamIdsChange={onPinnedTeamIdsChange} onScopeChange={choose} pinnedTeamIds={pinnedTeamIds} platform={platform} scope={scope} teams={teams} />
-          <ul className="mt-1.5 list-none space-y-0.5 border-t border-border-default pt-1.5">
+            <li className="flex">
+              <WorkspaceRow
+                active={scope.type === 'history'}
+                icon={<IconBox small><History className="size-3.5" /></IconBox>}
+                label="History"
+                onClick={() => choose({ type: 'history', label: 'History' })}
+              />
+            </li>
             <li className="flex">
               <WorkspaceRow
                 active={scope.type === 'local'}
-                icon={localVaultConfigured ? <HardDrive className="size-4" /> : <FolderOpen className="size-4" />}
+                icon={<IconBox small>{localVaultConfigured ? <HardDrive className="size-3.5" /> : <FolderOpen className="size-3.5" />}</IconBox>}
                 label={localVaultConfigured ? 'Local Vault' : 'Open local folder'}
                 trailing={localVaultConfigured ? undefined : <span />}
                 onClick={() => {
@@ -449,15 +495,73 @@ export function WorkspaceSwitcher({
                 }}
               />
             </li>
-            <li className="flex">
-              <WorkspaceRow
-                active={scope.type === 'history'}
-                icon={<History className="size-4" />}
-                label="History"
-                onClick={() => choose({ type: 'history', label: 'History' })}
-              />
-            </li>
           </ul>
+          {teams.length > 0 ? (
+            <div className="flex min-h-0 flex-col border-t border-border-subtle">
+              {teams.length > TEAM_FILTER_THRESHOLD ? (
+                <label className="mx-1.5 mt-1.5 flex h-8 shrink-0 items-center gap-2 rounded-md border border-border-default px-2 focus-within:border-border-primary-subtler">
+                  <Search aria-hidden="true" className="size-3.5 shrink-0 text-icon-default" />
+                  <input
+                    ref={teamFilterRef}
+                    value={teamQuery}
+                    onChange={(event) => setTeamQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.nativeEvent.isComposing) return;
+                      if (event.key === 'Enter' && filteredTeams[0]) {
+                        event.preventDefault();
+                        const team = filteredTeams[0];
+                        choose({ type: 'team', label: team.name, teamPath: team.path });
+                      } else if (event.key === 'ArrowDown') {
+                        event.preventDefault();
+                        teamListRef.current?.querySelector<HTMLElement>(ROW_SELECTOR)?.focus();
+                      } else if (event.key === 'Escape' && teamQuery) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setTeamQuery('');
+                      }
+                    }}
+                    placeholder="Find a team"
+                    aria-label="Find a team"
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="min-w-0 flex-1 bg-transparent text-xs text-text-default outline-none placeholder:text-text-subtle"
+                  />
+                </label>
+              ) : null}
+              {/* The padding belongs to the scrolling list, so rows scroll to the edge instead of
+                  being clipped short of it, and keyboard focus scrolls a row clear of the edge. */}
+              <div ref={teamListRef} className="min-h-0 scroll-py-1.5 overflow-y-auto p-1.5 pt-0">
+                {teamQuery.trim() ? (
+                  filteredTeams.length ? (
+                    <ul aria-label="Matching teams" className="mt-1.5 list-none space-y-0.5">
+                      {filteredTeams.map((team) => {
+                        const pinned = navigation.pinnedTeams.some((candidate) => candidate.id === team.id);
+                        return (
+                          <li key={team.id}>
+                            <TeamRow
+                              active={scope.type === 'team' && scope.teamPath === team.path}
+                              onPinChange={() => onPinnedTeamIdsChange(pinned
+                                ? unpinWorkspaceTeam(teams, pinnedTeamIds, team.id)
+                                : pinWorkspaceTeam(teams, pinnedTeamIds, team.id))}
+                              onScopeChange={() => choose({ type: 'team', label: team.name, teamPath: team.path })}
+                              platform={platform}
+                              pinned={pinned}
+                              team={team}
+                            />
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : <p role="status" className="px-2 py-3 text-xs text-text-subtle">No teams match.</p>
+                ) : (
+                  <>
+                    <PinnedTeams navigation={navigation} onPinnedTeamIdsChange={onPinnedTeamIdsChange} onScopeChange={choose} pinnedTeamIds={pinnedTeamIds} platform={platform} scope={scope} teams={teams} />
+                    <MoreTeams navigation={navigation} onPinnedTeamIdsChange={onPinnedTeamIdsChange} onScopeChange={choose} pinnedTeamIds={pinnedTeamIds} platform={platform} scope={scope} teams={teams} />
+                  </>
+                )}
+              </div>
+            </div>
+          ) : null}
         </nav>
       </PopoverContent>
       {hintsHeld && !switcherOpen ? <WorkspacePeek anchorRef={triggerRef} navigation={navigation} platform={platform} user={user} /> : null}
@@ -465,53 +569,36 @@ export function WorkspaceSwitcher({
   );
 }
 
-function getUserDisplayName(user: WorkspaceUser) {
-  return user.name.trim() || user.username.trim() || 'Settings';
-}
-
-/** The bottom of the sidebar: the account, which opens Settings, and the HackMD trash. */
+/** The bottom of the sidebar: the account hub and Settings. */
 export function SidebarFooter({
   accountStatus,
   user,
   onOpenSettings,
-  onOpenTrash,
-}: Pick<WorkspaceSidebarProps, 'accountStatus' | 'user' | 'onOpenSettings' | 'onOpenTrash'>) {
-  const displayName = user ? getUserDisplayName(user) : 'Settings';
+  onSignOut,
+}: Pick<WorkspaceSidebarProps, 'accountStatus' | 'user' | 'onOpenSettings' | 'onSignOut'>) {
   const hasAccountAttention = Boolean(accountStatus?.activeError);
   const isLoadingAccount = !user && Boolean(accountStatus?.isLoading || accountStatus?.isFetching);
-  const label = user ? `Open settings for ${displayName}` : 'Open settings';
-  const trailing = hasAccountAttention ? (
-    <AlertCircle
-      aria-hidden="true"
-      data-testid="sidebar-account-attention"
-      className={cn('size-3.5', accountStatus?.showingCachedFallback ? 'text-primary-default' : 'text-destructive-default')}
-    />
-  ) : isLoadingAccount ? (
-    <span aria-hidden="true" data-testid="sidebar-account-loading" className="block size-1.5 rounded-full bg-text-subtle opacity-70 motion-safe:animate-pulse" />
-  ) : (
-    <Settings2 className="size-3.5" />
-  );
 
   return (
-    <div data-testid="sidebar-footer" className="scroll-edge-bottom relative flex items-center gap-1 p-1.5">
-      <EntityRow
-        icon={user ? <PersonalWorkspaceIcon user={user} testId="sidebar-footer-avatar" /> : <Settings2 className="size-4" />}
-        title={displayName}
-        subtitle={user ? `@${user.username}` : undefined}
-        trailing={trailing}
-        variant="compact"
-        onClick={onOpenSettings}
-        ariaLabel={hasAccountAttention ? `${label}. HackMD account needs attention` : label}
-        className="min-h-11 min-w-0 flex-1"
-        trailingClassName="text-text-subtle"
+    // No divider: the footer sits in the chrome like the header. Its 32px row ends 1px above the
+    // footer's bottom, where the editor card's border is, so it shares a centre line with the
+    // editor's status bar.
+    <div data-testid="sidebar-footer" className="flex shrink-0 items-center gap-1 px-2 pb-px pt-1.5">
+      <ProfileMenu
+        user={user}
+        needsAttention={hasAccountAttention}
+        attentionTone={accountStatus?.showingCachedFallback ? 'primary' : 'destructive'}
+        loading={isLoadingAccount}
+        onOpenSettings={onOpenSettings}
+        onConnect={onOpenSettings}
+        onSignOut={onSignOut}
       />
-      {onOpenTrash ? (
-        <Tooltip content="Trash" side="top">
-          <Button variant="ghost" size="icon" aria-label="Trash" data-workspace-navigation-id="trash" onClick={onOpenTrash}>
-            <Trash2 aria-hidden="true" className="size-4" />
-          </Button>
-        </Tooltip>
-      ) : null}
+      <Tooltip content={<>Settings <ActionMenuShortcut actionId="open-settings" /></>} side="top">
+        {/* The footer sits on the sidebar's bottom edge, so its rings draw inside the buttons. */}
+        <button type="button" aria-label="Settings" className={cn(ICON_BUTTON_CLASS, 'focus-visible:ring-inset')} onClick={onOpenSettings}>
+          <Settings2 aria-hidden="true" className="size-4" />
+        </button>
+      </Tooltip>
     </div>
   );
 }

@@ -22,6 +22,20 @@ async function stop(app: ElectronApplication) {
   await exited;
 }
 
+// Opens a note from the sidebar search, then clears it. The images are what this spec checks, so it
+// doesn't depend on how the tree shows folders (they start collapsed).
+async function openNote(page: Page, title: string) {
+  const search = page.getByPlaceholder('Search notes');
+  // Right after launch, the workspace's saved search state can still arrive and replace what was
+  // typed; search again until the note opens.
+  await expect(async () => {
+    await search.fill(title);
+    await page.getByRole('list', { name: 'Search results' }).getByRole('button', { name: title, exact: true }).click({ timeout: 2000 });
+  }).toPass({ timeout: 20_000 });
+  await expect(page.locator('.cm-content', { hasText: title }).first()).toBeVisible();
+  await search.fill('');
+}
+
 for (const renderer of ['production', 'development'] as const) {
   test(`local images load safely in the ${renderer} renderer`, async () => {
     const home = await mkdtemp(join(tmpdir(), 'hackdesk-local-images-'));
@@ -59,7 +73,7 @@ for (const renderer of ['production', 'development'] as const) {
       app = await electron.launch({ args: [repoRoot, `--hackdesk-home=${home}`, `--user-data-dir=${join(home, 'user-data')}`], cwd: repoRoot, env });
       const page = await app.firstWindow();
       await page.setViewportSize({ width: 1440, height: 900 });
-      await page.getByRole('treeitem', { name: /Note A/ }).first().click();
+      await openNote(page, 'Note A');
       await loadImage(page, 'Vector', 41);
       await loadImage(page, 'Encoded', 1);
       await loadImage(page, 'Space', 1);
@@ -69,7 +83,7 @@ for (const renderer of ['production', 'development'] as const) {
       // Different notes with the same relative image path must never share their URLs or dimensions.
       await page.getByRole('button', { name: 'Pane actions', exact: true }).click();
       await page.getByRole('menuitem', { name: 'Split Right', exact: true }).click();
-      await page.getByRole('treeitem', { name: /Note B/ }).first().click();
+      await openNote(page, 'Note B');
       await loadImage(page, 'Vector', 41);
       await loadImage(page, 'Other', 73);
       const oldUrl = await page.locator('.cm-hackmd-image-preview img[alt="Vector"]').getAttribute('src');

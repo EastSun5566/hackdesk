@@ -438,7 +438,7 @@ export function CommandPaletteDialog({
           <CommandList className="overscroll-contain">
             <CommandEmpty>{isQuickOpen ? 'No notes, folders, or workspaces found.' : isMoveNote ? 'No folders found.' : 'No commands found.'}</CommandEmpty>
             {!hasQuery && recentResults.length > 0 ? (
-              <CommandGroup heading="Recent Notes">
+              <CommandGroup heading="Recent notes">
                 {recentResults.map((entry) => {
                   const workspaceLabel = entry.teamPath === LOCAL_VAULT_TEAM_PATH
                     ? 'Local Vault'

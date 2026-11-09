@@ -72,17 +72,20 @@ export function getKeyHints(context: KeyHintContext, {
   shortcuts,
   platform,
   characterShortcutsEnabled,
+  leaderSpaceEnabled = true,
 }: {
   actionContext: ElectronActionContext;
   shortcuts: ShortcutOverrides | undefined;
   platform: string;
   characterShortcutsEnabled: boolean;
+  /** Off, the leader is advertised by its shortcut rather than Space. */
+  leaderSpaceEnabled?: boolean;
 }): KeyHint[] {
   return HINTS[context].flatMap((spec): KeyHint[] => {
     if (!('action' in spec)) {
       if (spec.keys !== 'leader') return [spec];
       // Space opens the leader menu where it is not typed; text fields use the leader shortcut.
-      if (characterShortcutsEnabled && SPACE_LEADER_CONTEXTS.has(context)) return [{ keys: 'Space', label: spec.label }];
+      if (characterShortcutsEnabled && leaderSpaceEnabled && SPACE_LEADER_CONTEXTS.has(context)) return [{ keys: 'Space', label: spec.label }];
       const keys = getResolvedActionShortcut('open-leader-menu', shortcuts, platform, characterShortcutsEnabled);
       return keys ? [{ keys: keys.split(', ')[0]!, label: spec.label }] : [];
     }

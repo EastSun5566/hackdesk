@@ -172,9 +172,11 @@ function createDeferred<T>() {
 
 // Query only the navigator; scanning the whole workbench can starve pending query updates.
 function queryNoteRow(name: string) {
+  // Search results show over the tree, which stays mounted (hidden) while searching.
+  const results = screen.queryByLabelText('Search results') ?? screen.queryByLabelText('Recently opened notes');
+  if (results) return within(results).queryByRole('button', { name });
   const tree = screen.queryByTestId('folder-navigator-tree');
-  const rows = tree ?? screen.queryByLabelText('Search results');
-  return rows ? within(rows).queryByRole(tree ? 'treeitem' : 'button', { name }) : null;
+  return tree ? within(tree).queryByRole('treeitem', { name }) : null;
 }
 
 function getNoteRow(name: string) {
@@ -205,9 +207,10 @@ async function openDocumentActions() {
   await screen.findByRole('menuitem', { name: 'Open in HackMD' });
 }
 
-async function openNavigatorActions() {
-  fireEvent.pointerDown(screen.getByRole('button', { name: 'Navigator actions' }));
-  await screen.findByRole('menuitem', { name: 'New Folder' });
+async function openCreateMenu() {
+  // The workspace root row's context menu holds the ways to create.
+  fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'My Notes' }));
+  await screen.findByRole('menuitem', { name: /New Folder/ });
 }
 
 async function openWorkspaceSwitcher() {
@@ -232,9 +235,8 @@ async function expectTeamWorkspaceListed() {
 
 async function openAccountSettings() {
   const avatar = await screen.findByTestId('sidebar-footer-avatar');
-  const button = avatar.closest('button')!;
-  expect(button).toHaveAccessibleName('Open settings for Michael');
-  fireEvent.click(button);
+  expect(avatar.closest('button')).toHaveAccessibleName('Account: Michael');
+  fireEvent.click(within(screen.getByTestId('sidebar-footer')).getByRole('button', { name: 'Settings' }));
 }
 
 async function confirmDisconnectHackmd() {
@@ -243,6 +245,31 @@ async function confirmDisconnectHackmd() {
   fireEvent.click(screen.getByRole('button', { name: 'Disconnect HackMD' }));
   const dialog = screen.getByRole('alertdialog', { name: 'Disconnect HackMD?' });
   fireEvent.click(within(dialog).getByRole('button', { name: 'Disconnect HackMD' }));
+}
+
+async function cancelDeleteNoteDialog() {
+  const dialog = await screen.findByRole('alertdialog', { name: 'Delete Note' });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+}
+
+async function confirmDeleteNoteDialog() {
+  const dialog = await screen.findByRole('alertdialog', { name: 'Delete Note' });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+}
+
+async function confirmDeleteFolderDialog() {
+  const dialog = await screen.findByRole('alertdialog', { name: 'Delete Folder' });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+}
+
+async function acceptAppConfirmDialog(confirmLabel: string) {
+  const dialog = await screen.findByRole('alertdialog');
+  fireEvent.click(within(dialog).getByRole('button', { name: confirmLabel }));
+}
+
+async function cancelAppConfirmDialog(cancelLabel = 'Keep Editing') {
+  const dialog = await screen.findByRole('alertdialog');
+  fireEvent.click(within(dialog).getByRole('button', { name: cancelLabel }));
 }
 
 // Scope, sort, permission and tag filters share the sidebar's View options menu.
@@ -445,7 +472,7 @@ describe('Home native-feel behavior', () => {
     globalThis.document.body.style.pointerEvents = '';
   });
 
-  it('does not delete a note when native confirmation is cancelled', async () => {
+  it('does not delete a note when confirmation is cancelled', async () => {
     const api = createApi();
 
     renderHome(api);
@@ -453,18 +480,14 @@ describe('Home native-feel behavior', () => {
     await findRenderedNoteTitle();
     await openDocumentActions();
     fireEvent.click(screen.getByText('Delete'));
+    await cancelDeleteNoteDialog();
 
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      destructive: true,
-      confirmLabel: 'Delete',
-    })));
     expect(api.hackmd.deleteNote).not.toHaveBeenCalled();
   });
 
-  it('deletes a note after native confirmation succeeds', async () => {
+  it('deletes a note after confirmation succeeds', async () => {
     const api = createApi({
       app: {
-        confirm: vi.fn(async () => ({ confirmed: true })),
         exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
         recordFatalRendererError: vi.fn(async () => undefined),
         onCommand: vi.fn(() => () => undefined),
@@ -476,6 +499,7 @@ describe('Home native-feel behavior', () => {
     await findRenderedNoteTitle();
     await openDocumentActions();
     fireEvent.click(screen.getByText('Delete'));
+    await confirmDeleteNoteDialog();
 
     await waitFor(() => expect(api.hackmd.deleteNote).toHaveBeenCalledWith('note-1'));
   });
@@ -490,7 +514,6 @@ describe('Home native-feel behavior', () => {
     }]));
     const api = createApi({
       app: {
-        confirm: vi.fn(async () => ({ confirmed: true })),
         exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
         recordFatalRendererError: vi.fn(async () => undefined),
         onCommand: vi.fn(() => () => undefined),
@@ -502,6 +525,7 @@ describe('Home native-feel behavior', () => {
     await findRenderedNoteTitle();
     await openDocumentActions();
     fireEvent.click(screen.getByText('Delete'));
+    await confirmDeleteNoteDialog();
 
     await waitFor(() => expect(api.hackmd.deleteNote).toHaveBeenCalledWith('note-1'));
     await waitFor(() => expect(JSON.parse(window.localStorage.getItem(ELECTRON_RECENT_NOTES_STORAGE_KEY) ?? '[]')).toEqual([]));
@@ -513,7 +537,7 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
 
     await findRenderedNoteTitle();
-    fireEvent.click(screen.getByRole('button', { name: 'Open settings for Michael' }));
+    fireEvent.click(within(screen.getByTestId('sidebar-footer')).getByRole('button', { name: 'Settings' }));
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'Escape' });
@@ -620,7 +644,7 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(listTeams).toHaveBeenCalledOnce());
     expect(screen.queryByText('HackMD token expired.')).toBeNull();
     expect(screen.getByTestId('sidebar-account-attention')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open settings. HackMD account needs attention' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Account: Not signed in. HackMD account needs attention' })).toBeInTheDocument();
     expect(listNotes).not.toHaveBeenCalled();
     expect(listFolders).not.toHaveBeenCalled();
     expect(getFolderOrder).not.toHaveBeenCalled();
@@ -738,7 +762,7 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(listNotes).toHaveBeenCalledOnce());
     await waitFor(() => expect(listFolders).toHaveBeenCalledOnce());
     await waitFor(() => expect(getCurrentUser).toHaveBeenCalledOnce());
-    expect(await screen.findByRole('button', { name: 'Open settings for Michael' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Account: Michael' })).toBeInTheDocument();
   });
 
   it('opens a local folder from HackMD onboarding as a secondary path', async () => {
@@ -975,8 +999,8 @@ describe('Home native-feel behavior', () => {
     }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Configure Token' })).toBeInTheDocument());
     expect(queryHackmdOnboardingDialog()).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Open settings for Michael' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open settings' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Account: Michael' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Account: Not signed in' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: `${team.name}, private` })).not.toBeInTheDocument();
     expect(screen.queryByText('TEAMS')).not.toBeInTheDocument();
     expect(queryNoteRow(note.title)).not.toBeInTheDocument();
@@ -1103,11 +1127,10 @@ describe('Home native-feel behavior', () => {
     expect(api.app.confirm).not.toHaveBeenCalled();
   });
 
-  it('cancels the native close request when closing with unsaved changes is rejected', async () => {
+  it('cancels the close request when closing with unsaved changes is rejected', async () => {
     let closeHandler: (() => void) | null = null;
     const api = createApi({
       app: {
-        confirm: vi.fn(async () => ({ confirmed: false })),
         onCloseRequest: vi.fn((handler) => {
           closeHandler = handler;
           return () => undefined;
@@ -1123,21 +1146,16 @@ describe('Home native-feel behavior', () => {
       closeHandler?.();
     });
 
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Close HackDesk',
-      confirmLabel: 'Close',
-      cancelLabel: 'Keep Editing',
-      destructive: false,
-    })));
+    await screen.findByRole('alertdialog', { name: 'Close HackDesk with unsaved changes?' });
+    await cancelAppConfirmDialog('Keep Editing');
     await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
     expect(api.app.confirmClose).not.toHaveBeenCalled();
   });
 
-  it('confirms the native close request after closing with unsaved changes is accepted', async () => {
+  it('confirms the close request after closing with unsaved changes is accepted', async () => {
     let closeHandler: (() => void) | null = null;
     const api = createApi({
       app: {
-        confirm: vi.fn(async () => ({ confirmed: true })),
         onCloseRequest: vi.fn((handler) => {
           closeHandler = handler;
           return () => undefined;
@@ -1153,6 +1171,8 @@ describe('Home native-feel behavior', () => {
       closeHandler?.();
     });
 
+    await screen.findByRole('alertdialog', { name: 'Close HackDesk with unsaved changes?' });
+    await acceptAppConfirmDialog('Close');
     await waitFor(() => expect(api.app.confirmClose).toHaveBeenCalled());
     expect(api.app.cancelClose).not.toHaveBeenCalled();
   });
@@ -1178,7 +1198,6 @@ describe('Home native-feel behavior', () => {
         })),
       },
       app: {
-        confirm: vi.fn(async () => ({ confirmed: false })),
         onCloseRequest: vi.fn((handler) => {
           closeHandler = handler;
           return () => undefined;
@@ -1199,14 +1218,9 @@ describe('Home native-feel behavior', () => {
       closeHandler?.();
     });
 
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Close HackDesk',
-      message: 'Close HackDesk with unsaved changes?',
-      detail: expect.stringContaining('2 notes have unsaved changes'),
-      confirmLabel: 'Close',
-      cancelLabel: 'Keep Editing',
-      destructive: false,
-    })));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Close HackDesk with unsaved changes?' });
+    expect(dialog).toHaveTextContent('2 notes have unsaved changes');
+    await cancelAppConfirmDialog('Keep Editing');
     await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
     expect(api.app.confirmClose).not.toHaveBeenCalled();
   });
@@ -1235,7 +1249,6 @@ describe('Home native-feel behavior', () => {
         }),
       },
       app: {
-        confirm: vi.fn(async () => ({ confirmed: false })),
         onCloseRequest: vi.fn((handler) => {
           closeHandler = handler;
           return () => undefined;
@@ -1255,11 +1268,9 @@ describe('Home native-feel behavior', () => {
       closeHandler?.();
     });
 
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Close HackDesk',
-      detail: expect.stringContaining('1 note has a failed save'),
-      confirmLabel: 'Close',
-    })));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Close HackDesk with unsaved changes?' });
+    expect(dialog).toHaveTextContent('1 note has a failed save');
+    await cancelAppConfirmDialog('Keep Editing');
     await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
     expect(api.app.confirmClose).not.toHaveBeenCalled();
   });
@@ -1302,7 +1313,7 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findRenderedNoteTitle();
-    fireEvent.click(screen.getByRole('button', { name: 'Open settings for Michael' }));
+    fireEvent.click(within(screen.getByTestId('sidebar-footer')).getByRole('button', { name: 'Settings' }));
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
 
     act(() => {
@@ -1323,7 +1334,6 @@ describe('Home native-feel behavior', () => {
         }),
       },
       app: {
-        confirm: vi.fn(async () => ({ confirmed: false })),
         onCloseRequest: vi.fn((handler) => {
           closeHandler = handler;
           return () => undefined;
@@ -1341,14 +1351,9 @@ describe('Home native-feel behavior', () => {
       closeHandler?.();
     });
 
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Close HackDesk',
-      message: 'Close HackDesk with unsaved changes?',
-      detail: expect.stringContaining('1 note has a failed save'),
-      confirmLabel: 'Close',
-      cancelLabel: 'Keep Editing',
-      destructive: false,
-    })));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Close HackDesk with unsaved changes?' });
+    expect(dialog).toHaveTextContent('1 note has a failed save');
+    await cancelAppConfirmDialog('Keep Editing');
     await waitFor(() => expect(api.app.cancelClose).toHaveBeenCalled());
     expect(api.app.confirmClose).not.toHaveBeenCalled();
   });
@@ -1373,7 +1378,8 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
 
     fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
-    fireEvent.click(screen.getByRole('button', { name: 'Create note' }));
+    // ⌘N creates in the selected folder.
+    fireEvent.keyDown(window, { key: 'n', metaKey: true });
     await editNote('# Folder note');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -1809,7 +1815,7 @@ describe('Home native-feel behavior', () => {
     const api = createApi();
     renderHome(api);
     await findRenderedNoteTitle();
-    fireEvent.click(screen.getByRole('button', { name: 'Open settings for Michael' }));
+    fireEvent.click(within(screen.getByTestId('sidebar-footer')).getByRole('button', { name: 'Settings' }));
     fireEvent.change(screen.getByLabelText('Window title'), { target: { value: 'My HackDesk' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(api.settings.update).toHaveBeenCalledWith({ title: 'My HackDesk' }));
@@ -1903,7 +1909,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(await findNoteRow('Design Spec'));
 
     expect(queryRenderedNoteTitle('Product Plan')).not.toBeInTheDocument();
-    expect(screen.getAllByText('Loading note…').length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('status', { name: 'Loading note' }).length).toBeGreaterThan(0);
 
     await act(async () => {
       secondNoteDeferred.resolve({
@@ -2040,11 +2046,7 @@ describe('Home native-feel behavior', () => {
   });
 
   it('keeps a dirty tab open when Cmd+W discard is cancelled', async () => {
-    const api = createApi({
-      app: {
-        confirm: vi.fn(async () => ({ confirmed: false })),
-      },
-    });
+    const api = createApi();
 
     renderHome(api);
     await findRenderedNoteTitle();
@@ -2053,13 +2055,8 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.keyDown(window, { key: 'w', metaKey: true });
 
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Close Tab',
-      message: 'Close “Test note”?',
-      confirmLabel: 'Close Tab',
-      cancelLabel: 'Keep Editing',
-      destructive: true,
-    })));
+    await screen.findByRole('alertdialog', { name: 'Close “Test note”?' });
+    await cancelAppConfirmDialog('Keep Editing');
     expect(screen.getByRole('tab', { name: /^Test note(?:, .+)?$/ })).toBeInTheDocument();
   });
 
@@ -2075,7 +2072,19 @@ describe('Home native-feel behavior', () => {
     expect(screen.getAllByText('Test note').length).toBeGreaterThan(1);
   });
 
-  it('opens a duplicate active note tab with Cmd+T', async () => {
+  it('opens a blank tab with Cmd+T by default', async () => {
+    const api = createApi();
+
+    renderHome(api);
+    await findRenderedNoteTitle();
+    fireEvent.keyDown(window, { key: 't', metaKey: true });
+
+    expect(await screen.findByRole('tab', { name: 'New Tab' })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab', { name: /^Test note(?:, .+)?$/ })).toHaveLength(1);
+  });
+
+  it('opens a duplicate active note tab with Cmd+T when configured', async () => {
+    window.localStorage.setItem('hackdesk_new_tab_opens', 'duplicate');
     const api = createApi();
 
     renderHome(api);
@@ -2409,7 +2418,6 @@ describe('Home native-feel behavior', () => {
         }),
       },
       app: {
-        confirm: vi.fn(async () => ({ confirmed: true })),
         exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
         recordFatalRendererError: vi.fn(async () => undefined),
         onCommand: vi.fn((handler) => {
@@ -2427,6 +2435,7 @@ describe('Home native-feel behavior', () => {
     act(() => {
       commandHandler?.({ type: 'delete-note' });
     });
+    await confirmDeleteNoteDialog();
 
     await waitFor(() => expect(api.hackmd.deleteNote).toHaveBeenCalledWith('note-1'));
     await waitFor(() => expect(screen.queryByRole('tab', { name: /^Test note(?:, .+)?$/ })).not.toBeInTheDocument());
@@ -2616,7 +2625,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
 
-    expect(within(palette).getByText('Recent Notes')).toBeInTheDocument();
+    expect(within(palette).getByText('Recent notes')).toBeInTheDocument();
     expect(within(palette).getByText('Workspaces')).toBeInTheDocument();
     expect(within(palette).getByText('Quick Actions')).toBeInTheDocument();
     expect(within(palette).queryByText('Notes')).not.toBeInTheDocument();
@@ -2656,7 +2665,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
 
     const palette = await screen.findByRole('dialog', { name: 'Command Palette' });
-    const recentGroup = within(palette).getByText('Recent Notes').closest('[cmdk-group]')!;
+    const recentGroup = within(palette).getByText('Recent notes').closest('[cmdk-group]')!;
     fireEvent.click(within(recentGroup as HTMLElement).getByRole('option', { name: /Design Spec/ }));
 
     expect(await findRenderedNoteTitle('Design Spec')).toBeInTheDocument();
@@ -2942,7 +2951,7 @@ describe('Home native-feel behavior', () => {
     expect(window.document.getElementById('note-navigator-panel')).toHaveStyle({ '--panel-width': '0px' });
   });
 
-  it('exposes expanded state when folders are collapsed and expanded', async () => {
+  it('starts folders collapsed and exposes expanded state as they open and close', async () => {
     const api = createApi({
       hackmd: {
         ...createApi().hackmd,
@@ -2953,10 +2962,12 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
 
-    expect(await screen.findByRole('button', { name: 'Collapse Projects' })).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByRole('button', { name: 'Expand Projects' })).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Projects' }));
+    expect(screen.getByRole('button', { name: 'Collapse Projects' })).toHaveAttribute('aria-expanded', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse Projects' }));
-
     expect(screen.getByRole('button', { name: 'Expand Projects' })).toHaveAttribute('aria-expanded', 'false');
   });
 
@@ -3154,8 +3165,8 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findRenderedNoteTitle();
-    await openNavigatorActions();
-    fireEvent.click(screen.getByText('New Folder'));
+    await openCreateMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: /New Folder/ }));
     const dialog = within(await screen.findByRole('dialog', { name: 'New Folder' }));
     fireEvent.change(dialog.getByLabelText('Name'), { target: { value: 'Design' } });
     fireEvent.change(dialog.getByLabelText('Description'), { target: { value: 'Design notes' } });
@@ -3291,8 +3302,8 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove tag filter product' }));
 
-    await screen.findByText('2 notes');
-    expect(getNoteRow('Design Spec')).toBeInTheDocument();
+    await findNoteRow('Design Spec');
+    expect(screen.queryByText('1 result')).not.toBeInTheDocument();
   });
 
   it('filters notes from View options and clears the active tag when clicked again', async () => {
@@ -3319,8 +3330,8 @@ describe('Home native-feel behavior', () => {
 
     fireEvent.click(await findTagOption('product'));
 
-    await screen.findByText('2 notes');
-    expect(getNoteRow('Design Spec')).toBeInTheDocument();
+    await findNoteRow('Design Spec');
+    expect(screen.queryByText('1 result')).not.toBeInTheDocument();
   });
 
   it('shows multi-tag state in filter chips and View options', async () => {
@@ -3388,6 +3399,9 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
     fireEvent.click(within(await openWorkspaceSwitcher()).getByRole('button', { name: 'History' }));
     await findNoteRow('History Product');
+    // History is a flat list, most recent first, not a folder tree.
+    expect(screen.queryByTestId('folder-navigator-tree')).not.toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Recently opened notes' })).toBeInTheDocument();
     await openViewOptions();
     fireEvent.click(await findTagOption('product'));
 
@@ -3408,13 +3422,14 @@ describe('Home native-feel behavior', () => {
       },
     });
 
-    const { container } = renderHome(api);
+    renderHome(api);
     await findNoteRow('Beta');
     await openViewOptions();
     fireEvent.click(await screen.findByText('Title A-Z'));
 
     await waitFor(() => {
-      expect([...container.querySelectorAll('[data-note-id]')].map((row) => row.getAttribute('data-note-id'))).toEqual([
+      // Only the results: the tree stays mounted, hidden, behind them.
+      expect([...screen.getByLabelText('Search results').querySelectorAll('[data-note-id]')].map((row) => row.getAttribute('data-note-id'))).toEqual([
         'note-a',
         'note-b',
       ]);
@@ -3540,7 +3555,7 @@ describe('Home native-feel behavior', () => {
     });
 
     const { container } = renderHome(api);
-    fireEvent.click(await findNoteRow('Root'));
+    fireEvent.click(await screen.findByTestId('tree-top-level'));
     const row = await waitFor(() => {
       const noteRow = container.querySelector('[data-note-id="note-1"]');
       expect(noteRow).toBeTruthy();
@@ -3753,7 +3768,7 @@ describe('Home native-feel behavior', () => {
 
     const { container } = renderHome(api);
     fireEvent.click(await findTeamWorkspace({ timeout: 5_000 }));
-    fireEvent.click(await findNoteRow('Root'));
+    fireEvent.click(await screen.findByTestId('tree-top-level'));
     const row = await waitFor(() => {
       const noteRow = container.querySelector('[data-note-id="note-1"]');
       expect(noteRow).toBeTruthy();
@@ -3910,7 +3925,7 @@ describe('Home native-feel behavior', () => {
     }));
   });
 
-  it('deletes the selected folder after native confirmation succeeds', async () => {
+  it('deletes the selected folder after confirmation succeeds', async () => {
     let commandHandler: ((command: HackDeskCommandPaletteCommand) => void) | null = null;
     const api = createApi({
       hackmd: {
@@ -3920,7 +3935,6 @@ describe('Home native-feel behavior', () => {
         deleteFolder: vi.fn(async () => undefined),
       },
       app: {
-        confirm: vi.fn(async () => ({ confirmed: true })),
         exportDebugLogs: vi.fn(async () => '/tmp/hackdesk-debug'),
         recordFatalRendererError: vi.fn(async () => undefined),
         onCommand: vi.fn((handler) => {
@@ -3935,11 +3949,8 @@ describe('Home native-feel behavior', () => {
     act(() => {
       commandHandler?.({ type: 'delete-folder' });
     });
+    await confirmDeleteFolderDialog();
 
-    await waitFor(() => expect(api.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
-      destructive: true,
-      confirmLabel: 'Delete',
-    })));
     await waitFor(() => expect(api.hackmd.deleteFolder).toHaveBeenCalledWith('folder-1'));
   });
 });

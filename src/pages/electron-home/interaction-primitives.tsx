@@ -1,10 +1,12 @@
 import { ChevronDown, MoreHorizontal } from 'lucide-react';
-import type {
-  ButtonHTMLAttributes,
-  Ref,
-  ReactNode,
+import {
+  forwardRef,
+  useContext,
+  type ButtonHTMLAttributes,
+  type CSSProperties,
+  type ReactNode,
+  type Ref,
 } from 'react';
-import { forwardRef, useContext } from 'react';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Toolbar, ToolbarButton } from '@/components/ui/toolbar';
@@ -37,6 +39,9 @@ type EntityRowProps = {
   active?: boolean;
   disabled?: boolean;
   variant?: EntityRowVariant;
+  /** `quiet` sets a list (the sidebar tree) a step back from the editor: subtle text at normal
+   *  weight and lighter icons, full strength on hover and when selected. */
+  tone?: 'default' | 'quiet';
   className?: string;
   contentClassName?: string;
   titleClassName?: string;
@@ -48,7 +53,6 @@ type EntityRowProps = {
   contentFocusTarget?: boolean;
   contentButtonProps?: ButtonHTMLAttributes<HTMLButtonElement>;
   buttonProps?: ButtonHTMLAttributes<HTMLButtonElement>;
-  selectedIndicator?: boolean;
   onClick?: () => void;
   ariaLabel?: string;
   ariaCurrent?: ButtonHTMLAttributes<HTMLButtonElement>['aria-current'];
@@ -62,7 +66,7 @@ function entityRowClassName({
   disabled,
   variant,
   clickable,
-  selectedIndicator,
+  tone = 'default',
   className,
 }: {
   selected?: boolean;
@@ -70,19 +74,19 @@ function entityRowClassName({
   disabled?: boolean;
   variant: EntityRowVariant;
   clickable: boolean;
-  selectedIndicator?: boolean;
+  tone?: 'default' | 'quiet';
   className?: string;
 }) {
   return cn(
     'group/entity-row relative flex w-full min-w-0 items-center text-left transition duration-150 ease-out motion-reduce:transition-none',
-    variant === 'compact' ? 'gap-2 rounded-md px-2 py-1 text-sm' : 'gap-2.5 rounded-md px-2.5 py-2 text-sm',
+    variant === 'compact' ? 'gap-1.5 rounded px-2 py-1 text-sm leading-5' : 'gap-1.5 rounded px-2.5 py-1.5 text-sm leading-5',
     selected || active
-      ? 'bg-background-selected text-text-default'
-      : 'text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
-    selectedIndicator && 'overflow-hidden',
-    selectedIndicator && selected && 'before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-0.5 before:rounded-full before:bg-primary-default',
+      ? 'bg-background-primary-subtler text-text-emphasize'
+      : tone === 'quiet'
+        ? 'text-text-subtle hover:bg-background-hover hover:text-text-default'
+        : 'text-text-default hover:bg-background-hover hover:text-text-emphasize',
     clickable && FOCUS_RING_INSET_CLASS,
-    disabled && 'pointer-events-none opacity-50',
+    disabled && 'pointer-events-none opacity-65',
     className,
   );
 }
@@ -95,7 +99,6 @@ function EntityRowContent({
   badges,
   trailing,
   menu,
-  variant,
   contentClassName,
   titleClassName,
   trailingClassName,
@@ -104,6 +107,9 @@ function EntityRowContent({
   contentAriaCurrent,
   contentFocusTarget,
   contentButtonProps,
+  selected,
+  active,
+  tone,
 }: Required<Pick<EntityRowProps, 'variant'>> & Pick<EntityRowProps,
   'leadingControls'
   | 'icon'
@@ -120,11 +126,14 @@ function EntityRowContent({
   | 'contentAriaCurrent'
   | 'contentFocusTarget'
   | 'contentButtonProps'
+  | 'selected'
+  | 'active'
+  | 'tone'
 >) {
   const contentBody = (
     <>
       <span className={cn('flex min-w-0 items-center gap-2', titleClassName)}>
-        <span className="min-w-0 truncate font-medium">{title}</span>
+        <span className={cn('min-w-0 truncate', tone === 'quiet' && !(selected || active) ? 'font-normal' : 'font-medium')}>{title}</span>
         {badges ? <span className="shrink-0">{badges}</span> : null}
       </span>
       {subtitle ? (
@@ -137,7 +146,12 @@ function EntityRowContent({
   const iconElement = icon ? (
     <span
       aria-hidden="true"
-      className={cn('shrink-0 text-text-subtle group-hover/entity-row:text-text-default', variant === 'compact' && 'mt-0.5')}
+      className={cn(
+        // A flex box, so the icon centres on the row instead of sitting on the text baseline.
+        'flex shrink-0 items-center group-hover/entity-row:text-text-default',
+        tone === 'quiet' ? 'text-icon-subtle' : 'text-icon-default',
+        (selected || active) && 'text-primary-default',
+      )}
     >
       {icon}
     </span>
@@ -201,6 +215,7 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
   active,
   disabled,
   variant = 'default',
+  tone = 'default',
   className,
   contentClassName,
   titleClassName,
@@ -211,7 +226,6 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
   contentAriaCurrent,
   contentFocusTarget,
   contentButtonProps,
-  selectedIndicator,
   onClick,
   ariaLabel,
   ariaCurrent,
@@ -237,6 +251,9 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
       contentAriaCurrent={contentAriaCurrent}
       contentFocusTarget={contentFocusTarget}
       contentButtonProps={contentButtonProps}
+      selected={selected}
+      active={active}
+      tone={tone}
     />
   );
   const rowClassName = entityRowClassName({
@@ -245,7 +262,7 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
     disabled,
     variant,
     clickable: Boolean(onClick),
-    selectedIndicator,
+    tone,
     className,
   });
 
@@ -295,6 +312,7 @@ export function PanelShell({
   width,
   collapsedWidth,
   className,
+  style,
   children,
 }: {
   id?: string;
@@ -305,6 +323,8 @@ export function PanelShell({
   width?: number;
   collapsedWidth?: number;
   className?: string;
+  /** Extra CSS variables, e.g. widths that a resize handle updates while dragging. */
+  style?: CSSProperties;
   children: ReactNode;
 }) {
   return (
@@ -322,7 +342,7 @@ export function PanelShell({
         PANEL_MOTION_CLASS,
         className,
       )}
-      style={width ? { '--panel-width': `${collapsed && collapsedWidth !== undefined ? collapsedWidth : width}px` } : undefined}
+      style={width ? { ...style, '--panel-width': `${collapsed && collapsedWidth !== undefined ? collapsedWidth : width}px` } as CSSProperties : style}
     >
       {children}
     </Component>
@@ -348,11 +368,12 @@ export function PanelHeader({
 }) {
   return (
     <header className={cn('px-4 py-3', className)}>
+      {/* Actions share the title's line, so they centre on the title rather than on the title and
+          subtitle together. */}
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           {/* A control as the title truncates itself, so its focus ring is not clipped here. */}
           <TitleElement className={cn('text-base font-semibold text-text-default', typeof title === 'string' && 'truncate')}>{title}</TitleElement>
-          {subtitle ? <p className="mt-1 truncate text-xs text-text-subtle">{subtitle}</p> : null}
         </div>
         {actions ? (
           <div className={cn('shrink-0', actionsClassName)}>
@@ -362,6 +383,7 @@ export function PanelHeader({
           </div>
         ) : null}
       </div>
+      {subtitle ? <p className="mt-0.5 truncate text-xs text-text-subtle">{subtitle}</p> : null}
     </header>
   );
 }
@@ -385,7 +407,7 @@ export function ToolbarIconButton({
   const tooltipContent = displayShortcut ? (
     <span className="flex items-center gap-3">
       <span>{tooltip}</span>
-      <kbd className="rounded-sm bg-background-muted px-1.5 py-0.5 font-mono text-2xs leading-none text-text-subtle">
+      <kbd className="rounded-sm bg-background-muted px-1.5 py-0.5 text-2xs leading-none text-text-subtle">
         {displayShortcut}
       </kbd>
     </span>
@@ -549,15 +571,15 @@ export function EmptyState({
 }) {
   return (
     <div className="flex h-full items-center justify-center px-6 text-center">
-      <div className="max-w-72 space-y-2">
+      <div className="max-w-72 flex flex-col gap-2.5">
         {icon ? (
           <div aria-hidden="true" className="mx-auto flex size-8 items-center justify-center text-text-subtle">
             {icon}
           </div>
         ) : null}
-        <h2 className="text-sm font-medium text-text-default text-balance">{title}</h2>
-        {description ? <p className="text-xs leading-5 text-text-subtle">{description}</p> : null}
-        {action ? <div className="pt-2">{action}</div> : null}
+        <h2 className="text-base font-bold text-text-emphasize text-balance">{title}</h2>
+        {description ? <p className="text-sm text-text-subtle">{description}</p> : null}
+        {action ? <div className="pt-0.5">{action}</div> : null}
       </div>
     </div>
   );

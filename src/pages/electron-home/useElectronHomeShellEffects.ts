@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import type { ElectronActionId, HackDeskElectronAPI } from '@/lib/electron-api';
 
 import {
-  FOLDER_COLLAPSED_PREFIX,
+  FOLDER_EXPANDED_PREFIX,
   writeStringArrayStorage,
 } from './ui-preferences';
 
@@ -38,7 +38,7 @@ export function getQuickCaptureDraftError(input: {
 
 export type ElectronHomeShellEffectsOptions = {
   api?: HackDeskElectronAPI;
-  collapsedFolderIds: Set<string>;
+  expandedFolderIds: Set<string>;
   openQuickCaptureDraft: (content: string) => QuickCaptureDraftResult;
   runAction: (actionId: ElectronActionId, options?: { quiet?: boolean }) => unknown;
   scopeStorageKey: string | null;
@@ -46,15 +46,15 @@ export type ElectronHomeShellEffectsOptions = {
 
 export function useElectronHomeShellEffects({
   api,
-  collapsedFolderIds,
+  expandedFolderIds,
   openQuickCaptureDraft,
   runAction,
   scopeStorageKey,
 }: ElectronHomeShellEffectsOptions) {
   useEffect(() => {
     if (!scopeStorageKey) return;
-    writeStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${scopeStorageKey}`, collapsedFolderIds);
-  }, [collapsedFolderIds, scopeStorageKey]);
+    writeStringArrayStorage(`${FOLDER_EXPANDED_PREFIX}${scopeStorageKey}`, expandedFolderIds);
+  }, [expandedFolderIds, scopeStorageKey]);
 
   useEffect(() => {
     return api?.app.onCommand((command) => {

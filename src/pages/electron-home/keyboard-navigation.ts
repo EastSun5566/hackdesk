@@ -110,7 +110,7 @@ export function safeNavigationLetters(platform: string, shortcuts: ShortcutOverr
   return Array.from(ALPHABET).filter(letter => !blocked.has(letter)).join('');
 }
 
-export function allocateNavigationCodes(ids: string[], letters: string, previous: ReadonlyMap<string, string>) {
+export function allocateNavigationCodes(ids: string[], letters: string, previous: ReadonlyMap<string, string>): Map<string, string> | null {
   const assigned = new Map<string, string>();
   if (letters.length < 2) return null;
   const conflicts = (code: string) => Array.from(assigned.values()).some(existing => existing.startsWith(code) || code.startsWith(existing));
@@ -127,7 +127,11 @@ export function allocateNavigationCodes(ids: string[], letters: string, previous
   // Windows and Linux leave few letters free, so long lists may need four.
   let available = codes(2);
   for (let length = 3; length <= 4 && available.length < missing.length; length++) available = codes(length);
-  if (available.length < missing.length) return null;
+  if (available.length < missing.length) {
+    // Keeping last time's codes is a nicety: when they leave too few for the rest (they can take
+    // every short code, blocking all longer ones), start over rather than show no hints at all.
+    return previous.size ? allocateNavigationCodes(ids, letters, new Map()) : null;
+  }
   missing.forEach((id, index) => assigned.set(id, available[index]));
   return assigned;
 }

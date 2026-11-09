@@ -10,6 +10,7 @@ import {
   expectToolbarRovingFocus,
 } from '@/test/accessibility-contracts';
 
+import { TeamNameLookupContext } from './NoteSummaryCard';
 import { DocumentDetail, type DocumentDetailProps } from './DocumentDetail';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { formatDate } from './ui';
@@ -241,6 +242,33 @@ describe('DocumentDetail', () => {
 
     rerenderDocumentDetail({ ...props, layout: { ...props.layout, paneZoom: undefined } });
     expect(screen.queryByRole('button', { name: /Zoom pane|Restore panes/ })).not.toBeInTheDocument();
+  });
+
+  it('names a team workspace in the breadcrumb, falling back to its path', () => {
+    const teamDocument = documentSummary({ teamPath: 'acme', title: 'Plan' });
+    const props = renderDocumentDetail({ documentState: { document: teamDocument, title: 'Plan' } }).props;
+    expect(screen.getByRole('navigation', { name: 'Note location' })).toHaveTextContent('@acme/Plan');
+
+    cleanup();
+    render(
+      <TooltipProvider>
+        <TeamNameLookupContext.Provider value={(teamPath) => (teamPath === 'acme' ? 'Acme Corp' : undefined)}>
+          <DocumentDetail {...props} />
+        </TeamNameLookupContext.Provider>
+      </TooltipProvider>,
+    );
+    expect(screen.getByRole('navigation', { name: 'Note location' })).toHaveTextContent('Acme Corp/Plan');
+  });
+
+  it('shows the final breadcrumb while the note loads, so nothing shifts when it arrives', () => {
+    const summary = documentSummary({ teamPath: 'team', folderPaths: [{ id: 'folder-1', name: 'Specs' }] as DocumentSummary['folderPaths'] });
+    renderDocumentDetail({
+      status: { loading: true },
+      documentState: { selectedNote: { id: summary.id, title: 'Plan' } },
+      folderTree: buildHackmdFolderTree([summary]),
+    });
+    expect(screen.getByRole('navigation', { name: 'Note location' })).toHaveTextContent('@team/Specs/Plan');
+    expect(screen.getByRole('status', { name: 'Loading note' })).toBeInTheDocument();
   });
 
   it('renders loading and empty branches explicitly', () => {

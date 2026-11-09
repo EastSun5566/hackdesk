@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildThemeStyleText,
+  CJK_FALLBACK_FAMILIES,
+  getCjkFallbackFamilies,
   defaultThemeTypography,
   HACKDESK_THEME_PRESETS,
   isSafeFontStack,
@@ -10,6 +12,7 @@ import {
   parseStoredThemeSeed,
   resolveHackDeskTheme,
   serializeThemeSeed,
+  withCjkFallback,
 } from './themes';
 
 function hexToRgb(hex: string) {
@@ -72,7 +75,8 @@ describe('HackDesk themes', () => {
         for (const customSeed of [undefined, { primary: '#FFFFFF' }, { primary: '#000000' }, { neutral: '#123ABC', primary: '#EEDD00' }]) {
           const theme = resolveHackDeskTheme({ presetId: preset.id, mode, customSeed });
           const background = theme['--background-default'];
-          const selected = paintedSurface(theme['--background-selected'], background);
+          // The palette paints its keyboard cursor with the menu highlight.
+          const selected = paintedSurface(theme['--element-bg-hover'], background);
           for (const token of ['--command-item-title', '--command-item-meta', '--command-placeholder', '--command-item-match']) {
             expectContrast(theme[token], background, 4.5, token);
           }
@@ -90,7 +94,7 @@ describe('HackDesk themes', () => {
 
     expect(light['--background-default']).toBe('#FDFDFD');
     expect(light['--text-default']).toBe('#3F3F46');
-    expect(light['--text-subtle']).toBe('#71717A');
+    expect(light['--text-subtle']).toBe('#696972');
     expect(light['--primary-default']).toBe('#564DFF');
     expect(light['--primary-foreground']).toBe('#FFFFFF');
     expect(dark['--background-default']).toBe('#27272A');
@@ -123,7 +127,7 @@ describe('HackDesk themes', () => {
 
         expect(theme['--background-default'], label).not.toBe(base['--background-default']);
         // The dialog scrim follows the seed like the other surfaces.
-        expect(theme['--background-overlay'], label).toBe(mode === 'dark' ? 'rgb(0 0 0 / 0.7)' : 'rgb(0 0 0 / 0.3)');
+        expect(theme['--background-overlay'], label).toBe(mode === 'dark' ? 'rgb(0 0 0 / 0.5)' : 'rgb(0 0 0 / 0.3)');
         // Accent and syntax colors stay the preset's.
         expect(theme['--code-keyword'], label).toBe(base['--code-keyword']);
         expectContrast(theme['--text-default'], theme['--background-default'], 4.5, `${label} text`);
@@ -312,6 +316,27 @@ describe('HackDesk themes', () => {
     expectContrast(theme['--selection-background'], theme['--background-default'], 3, 'adjusted custom selection');
   });
 
+  it('draws text with grayscale smoothing unless the preference turns it off', () => {
+    expect(resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'light' })['--font-smoothing']).toBe('antialiased');
+    const typography = normalizeThemeTypography({ ...defaultThemeTypography, fontSmoothing: 'auto' });
+    expect(resolveHackDeskTheme({ presetId: 'hackmd-neo', mode: 'light', typography })['--font-smoothing']).toBe('auto');
+    expect(normalizeThemeTypography({ ...defaultThemeTypography, fontSmoothing: 'bogus' }).fontSmoothing).toBe('antialiased');
+  });
+
+  it('adds CJK faces after the system UI font and before the first generic family, once', () => {
+    // The system UI font draws Latin when the first choice is missing; CJK still reaches the CJK faces.
+    expect(withCjkFallback('Inter, system-ui, sans-serif', [])).toBe(`Inter, system-ui, ${CJK_FALLBACK_FAMILIES.join(', ')}, sans-serif`);
+    expect(withCjkFallback('"Avenir Next"', [])).toBe(`"Avenir Next", ${CJK_FALLBACK_FAMILIES.join(', ')}`);
+    expect(withCjkFallback('Inter, "PingFang SC", sans-serif', [])).toBe('Inter, "PingFang SC", sans-serif');
+  });
+
+  it('orders CJK faces by the preferred languages, as native apps do', () => {
+    expect(getCjkFallbackFamilies(['ja', 'ja-TW', 'en-TW', 'zh-Hant-TW']).slice(0, 2)).toEqual(['"Hiragino Sans"', '"PingFang TC"']);
+    expect(getCjkFallbackFamilies(['zh-Hans-CN', 'en'])[0]).toBe('"PingFang SC"');
+    expect(getCjkFallbackFamilies(['zh-HK'])[0]).toBe('"PingFang HK"');
+    expect(getCjkFallbackFamilies(['en-US'])).toEqual(CJK_FALLBACK_FAMILIES);
+  });
+
   it('resolves safe font stacks directly', () => {
     const typography = normalizeThemeTypography({
       uiFontStack: 'system-ui, sans-serif',
@@ -323,8 +348,11 @@ describe('HackDesk themes', () => {
 
     expect(theme['--font-system']).toContain('system-ui');
     expect(theme['--font-sans']).toBe(theme['--font-system']);
-    expect(theme['--font-editor']).toBe('"JetBrains Mono", ui-monospace, monospace');
-    expect(theme['--font-mono']).toBe(theme['--font-editor']);
+    // CJK faces come before the generic families, which would pick a locale font (Osaka-Mono for
+    // a Japanese-first Mac) for Chinese text.
+    expect(theme['--font-editor']).toBe(`"JetBrains Mono", ${getCjkFallbackFamilies().join(', ')}, ui-monospace, monospace`);
+    // Code keeps a monospace face whatever face the editor prose uses.
+    expect(theme['--font-mono']).toContain('monospace');
     expect(theme['--font-size-ui']).toBe('1rem');
     expect(theme['--font-size-editor']).toBe('1.25rem');
     expect(theme['--text-sm']).toBe('var(--font-size-ui)');

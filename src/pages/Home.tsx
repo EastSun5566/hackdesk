@@ -1,4 +1,6 @@
 import { KeyboardNavigation } from './electron-home/KeyboardNavigation';
+import { NoteSummaryLookupContext, TeamNameLookupContext } from '@/pages/electron-home/NoteSummaryCard';
+import { ConfirmDialogHost } from '@/components/ConfirmDialogHost';
 import { getElectronAction, getResolvedActionShortcut } from '@/lib/electron-actions';
 import { ActionShortcutContext } from './electron-home/ActionShortcutContext';
 import { KeyboardShortcutsDialog } from './electron-home/KeyboardShortcutsDialog';
@@ -14,10 +16,9 @@ import { useAskNotes } from './electron-home/useAskNotes';
 import { AskNotesDialog } from './electron-home/AskNotesDialog';
 import { toRecentNote } from './electron-home/useNoteLinkOpener';
 import { toast } from '@/components/ui/toast';
-import { TrashDialog } from './electron-home/TrashDialog';
 import type { SettingsTab } from './electron-home/SettingsDialogConfig';
 import type { ElectronFocusZone } from './electron-home/useElectronFocusZones';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SetStateAction } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useTheme } from '@/components/theme-provider';
@@ -30,7 +31,9 @@ import type { QuickOpenFolderResult } from '@/lib/electron-quick-open';
 import { defaultSettings } from '@/lib/settings';
 
 import { ElectronHomeOverlays } from './electron-home/ElectronHomeOverlays';
-import { ElectronHomeWorkspace } from './electron-home/ElectronHomeWorkspace';
+import { ElectronHomeWorkspace, NOTE_NAVIGATOR_PANEL_ID } from './electron-home/ElectronHomeWorkspace';
+import { useSplitStatusLine } from './electron-home/split-status-line-preference';
+import { useStatusLineVisible } from './electron-home/status-line-preference';
 import { useElectronSettings } from './electron-home/useElectronSettings';
 import { useLocalVaultSession } from './electron-home/useLocalVaultSession';
 import { LOCAL_VAULT_TEAM_PATH, toDocumentSummary } from './electron-home/local-vault-adapter';
@@ -83,7 +86,7 @@ import { useWorkbenchTabLifecycle } from './electron-home/useWorkbenchTabLifecyc
 import { useHomeLocalVaultActions } from './electron-home/useHomeLocalVaultActions';
 import { useHomeOverlayProps } from './electron-home/useHomeOverlayProps';
 import { useHomeWorkspaceProps } from './electron-home/useHomeWorkspaceProps';
-import { getSavedTabNoteIdentity, isDraftNoteTab, readNoteWorkspaceLayoutStorage, type OpenNoteTab } from './electron-home/note-workspace';
+import { getSavedTabNoteIdentity, isBlankNoteTab, isDraftNoteTab, readNoteWorkspaceLayoutStorage, type OpenNoteTab } from './electron-home/note-workspace';
 import { EMPTY_FOLDERS, EMPTY_NOTES, getScopeStorageKey } from './electron-home/repository';
 import {
   DEFAULT_WORKSPACE_SCOPE,
@@ -152,11 +155,11 @@ export function Home() {
     manualEmptyWorkspaceRef: selectionRefs.manualEmptyWorkspaceRef,
   });
   const {
-    collapsedFolderIds,
+    expandedFolderIds,
     scope,
     scopeStorageKey,
     selectedFolderId,
-    setCollapsedFolderIds,
+    setExpandedFolderIds,
     setSelectedFolderId,
     setWorkspaceScope: setWorkspaceScopeState,
   } = workspaceState;
@@ -173,6 +176,9 @@ export function Home() {
   const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
   // Hack Mode hides everything but the note. It is not saved, so the app always opens as usual.
   const [hackMode, setHackMode] = useState(false);
+  const splitStatusLine = useSplitStatusLine();
+  const statusLineVisible = useStatusLineVisible();
+  const [sidebarWidth, setSidebarWidth] = useState(0);
   // Hiding the sidebar unmounts the switcher, so it must not come back open. In Hack Mode the
   // sidebar is hidden with everything else, so the key leaves Hack Mode and shows it.
   const toggleSidebar = useCallback(() => {
@@ -187,12 +193,29 @@ export function Home() {
   const noteWorkspace = useNoteWorkspaceTabs(scopeStorageKey, usingInitialDrafts && settingsQuery.data?.shouldShowHackmdOnboarding === true);
   const currentScopeKeyRef = useRef(scopeStorageKey);
   useLayoutEffect(() => { currentScopeKeyRef.current = scopeStorageKey; }, [scopeStorageKey]);
+
+  useEffect(() => {
+    if (!splitStatusLine) return undefined;
+    const panel = document.getElementById(NOTE_NAVIGATOR_PANEL_ID);
+    if (!panel) return undefined;
+    const measure = () => setSidebarWidth(panel.getBoundingClientRect().width);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [splitStatusLine, navigatorCollapsed]);
   const flushWorkspace = noteWorkspace.flush;
   const transferInitialDrafts = noteWorkspace.transferInitialDrafts;
   useLayoutEffect(() => { beforeVaultChange.current = flushWorkspace; }, [flushWorkspace]);
   const activeTab = noteWorkspace.activeTab;
   const { editorRequests, consumeEditorRequest, requestEditorFocus, bumpEditorSearchRequest, bumpAttachImageRequest, bumpAiAssistRequest, bumpDictateRequest, bumpRenameRequest } = useWorkbenchEditorRequests(
-    scopeStorageKey && activeTab ? { scopeKey: scopeStorageKey, paneId: noteWorkspace.state.activePaneId, tabId: activeTab.tabId, documentId: 'noteId' in activeTab ? activeTab.noteId : activeTab.draftId } : null,
+    scopeStorageKey && activeTab ? {
+      scopeKey: scopeStorageKey,
+      paneId: noteWorkspace.state.activePaneId,
+      tabId: activeTab.tabId,
+      documentId: getSavedTabNoteIdentity(activeTab)?.id
+        ?? (isDraftNoteTab(activeTab) ? activeTab.draftId : isBlankNoteTab(activeTab) ? activeTab.tabId : activeTab.noteId),
+    } : null,
   );
   const {
     autoSelectSuppressionRef,
@@ -380,6 +403,31 @@ export function Home() {
     syncOpenNoteSummaries: noteWorkspace.syncNoteSummaries,
     teams,
   });
+  // Tabs show the same hover card as the tree, so they look notes up by ID.
+  const noteSummariesById = useMemo(() => new Map(folderTree.allNotes.map((entry) => [entry.note.id, entry])), [folderTree.allNotes]);
+  const lookupNoteSummary = useCallback((noteId: string) => noteSummariesById.get(noteId), [noteSummariesById]);
+  const teamNamesByPath = useMemo(() => new Map(teams.map((team) => [team.path, team.name])), [teams]);
+  const lookupTeamName = useCallback((teamPath: string) => teamNamesByPath.get(teamPath), [teamNamesByPath]);
+  // Folders start collapsed: the stored set is the folders you opened, and every other folder in
+  // the tree reads as collapsed. Callers keep working in collapsed terms through this adapter.
+  const allFolderIds = useMemo(() => [...folderTree.nodesById.keys()], [folderTree.nodesById]);
+  const collapsedFolderIds = useMemo(
+    () => new Set(allFolderIds.filter((id) => !expandedFolderIds.has(id))),
+    [allFolderIds, expandedFolderIds],
+  );
+  const setCollapsedFolderIds = useCallback((update: SetStateAction<Set<string>>) => {
+    setExpandedFolderIds((currentExpanded) => {
+      const currentCollapsed = new Set(allFolderIds.filter((id) => !currentExpanded.has(id)));
+      const nextCollapsed = typeof update === 'function' ? update(currentCollapsed) : update;
+      if (nextCollapsed === currentCollapsed) return currentExpanded;
+      const next = new Set(currentExpanded);
+      for (const id of allFolderIds) {
+        if (nextCollapsed.has(id)) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+  }, [allFolderIds, setExpandedFolderIds]);
 
   const mutations = useElectronNoteMutations({
     api,
@@ -750,6 +798,7 @@ export function Home() {
     documentContent,
     documentTitle,
     duplicateActiveTab: noteWorkspace.duplicateActiveTab,
+    openBlankTab: noteWorkspace.openBlankTab,
     exportMarkdown: handleExportMarkdown,
     focusNextPane: noteWorkspace.focusNextPane,
     focusPaneToward: noteWorkspace.focusPaneToward,
@@ -911,9 +960,20 @@ export function Home() {
     scope.type,
   ]);
 
+  // Folders start collapsed, so open the ones above the open note: it stays visible in the tree.
+  const selectedNoteFolderIds = useMemo(() => folderTree.allNotes
+    .find((candidate) => candidate.note.id === selectedNote?.id)?.folderPath.map((folder) => folder.id) ?? [],
+  [folderTree.allNotes, selectedNote?.id]);
+  useEffect(() => {
+    if (!selectedNoteFolderIds.length) return;
+    setExpandedFolderIds((current) => (selectedNoteFolderIds.every((id) => current.has(id))
+      ? current
+      : new Set([...current, ...selectedNoteFolderIds])));
+  }, [selectedNoteFolderIds, setExpandedFolderIds]);
+
   useElectronHomeShellEffects({
     api,
-    collapsedFolderIds,
+    expandedFolderIds,
     openQuickCaptureDraft,
     runAction,
     scopeStorageKey,
@@ -1039,6 +1099,8 @@ export function Home() {
       handleExportMarkdown,
       handleExportNoteMarkdown,
       handleImportMarkdownNote,
+      handleCreateNoteFromTemplate: folderCommands.handleCreateNoteFromTemplate,
+      handleHackmdDisconnected,
       handleNoteSelect,
       handleOpenEditor,
       handleOpenExternal,
@@ -1050,6 +1112,7 @@ export function Home() {
       setTrashOpen,
       setVersionsOpen,
       switchWorkspaceScope,
+      openTrashNote: (note) => void requestSelectNote(note, { focusEditor: true }),
     },
     activeFinderState,
     collapsedFolderIds,
@@ -1091,6 +1154,9 @@ export function Home() {
     user,
     workspaceSwitcherOpen,
     setWorkspaceSwitcherOpen,
+    onNewTab: () => runShortcutAction('new-tab'),
+    recentNotes,
+    trashOpen,
   });
   const overlayProps = useHomeOverlayProps({
     actionContext,
@@ -1168,7 +1234,11 @@ export function Home() {
       <KeyboardNavigation workspaceKey={scopeStorageKey} shortcuts={settings?.shortcuts} platform={api.platform} characterEnabled={settings?.keyboardNavigation?.characterShortcutsEnabled ?? true}>
         <div data-hack-mode={hackMode || undefined} className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
           <BookSessionContext.Provider value={bookSession}>
-            <ElectronHomeWorkspace {...workspaceProps} backupNotice={backupNotice} />
+            <TeamNameLookupContext.Provider value={lookupTeamName}>
+            <NoteSummaryLookupContext.Provider value={lookupNoteSummary}>
+              <ElectronHomeWorkspace {...workspaceProps} backupNotice={backupNotice} />
+            </NoteSummaryLookupContext.Provider>
+            </TeamNameLookupContext.Provider>
           </BookSessionContext.Provider>
           {leaderLevel ? (
             <LeaderMenu
@@ -1178,7 +1248,8 @@ export function Home() {
               onRun={id => runPaletteAction(id)}
             />
           ) : null}
-          {settings?.keyboardNavigation?.keyHintsVisible ?? true ? (
+          {/* Appearance → Status line hides it outright; otherwise it shows while there's anything to say. */}
+          {statusLineVisible && ((settings?.keyboardNavigation?.keyHintsVisible ?? true) || splitStatusLine) ? (
             <KeyHintBar
               actionContext={actionContext}
               leader={leaderLevel}
@@ -1186,6 +1257,10 @@ export function Home() {
               platform={api.platform}
               characterShortcutsEnabled={settings?.keyboardNavigation?.characterShortcutsEnabled ?? true}
               onOpenShortcuts={openKeyboardShortcuts}
+              splitStatusLine={splitStatusLine}
+              sidebarWidth={sidebarWidth}
+              navigatorCollapsed={navigatorCollapsed}
+              keyHintsVisible={settings?.keyboardNavigation?.keyHintsVisible ?? true}
             />
           ) : null}
 
@@ -1218,7 +1293,7 @@ export function Home() {
             onChoose={noteTemplates.chooseTemplate}
           />
           <AskNotesDialog askNotes={askNotes} onOpenNote={note => openNoteTarget(toRecentNote(note))} />
-          <TrashDialog open={trashOpen} onOpenChange={setTrashOpen} onOpenNote={(note) => void requestSelectNote(note, { focusEditor: true })} />
+          <ConfirmDialogHost />
           {shortcutHelp ? <KeyboardShortcutsDialog
             open region={shortcutHelp.region} returnFocus={shortcutHelp.target}
             shortcuts={settings?.shortcuts} platform={api.platform}

@@ -164,7 +164,8 @@ describe('useElectronNoteMutations draft save', () => {
       content: '# Capture title\nBody',
     });
     expect(onDraftNoteCreated).toHaveBeenCalledWith('draft-tab-1', created, { title: 'Untitled', content: '# Capture title\nBody' });
-    expect(toast.success).toHaveBeenCalledWith('Note saved.');
+    // The saved note shows in its tab; no toast.
+    expect(toast.success).not.toHaveBeenCalledWith('Note saved.');
   });
 
   it('creates a team HackMD note from a draft', async () => {
@@ -678,7 +679,8 @@ describe('useElectronNoteMutations settings updates', () => {
     expect(options.onSettingsSaved).not.toHaveBeenCalled();
     await act(async () => { first.resolve(savedSettings); await Promise.all([submit, inline]); });
     expect(options.onSettingsSaved).toHaveBeenCalledOnce();
-    expect(toast.success).toHaveBeenCalledExactlyOnceWith('Settings saved.');
+    // Settings closing is the confirmation; no toast.
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it('keeps Settings open and reports a failed submit once', async () => {

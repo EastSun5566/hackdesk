@@ -5,6 +5,7 @@ import { runHackmdRequest } from '@/lib/hackmd-requests';
 import { stripIpcErrorPrefix } from '@/lib/note-errors';
 
 import { getWorkspaceQueryKey } from './repository';
+import type { WorkspaceScope } from './types';
 
 /** The most note ids one restore request carries. A larger selection is sent in batches. */
 const RESTORE_BATCH_SIZE = 100;
@@ -12,6 +13,16 @@ const RESTORE_BATCH_SIZE = 100;
 export const trashKeys = {
   list: ['electron', 'hackmd', 'trash'] as const,
 };
+
+export function trashListQueryKey(teamPath: string | null) {
+  return [...trashKeys.list, teamPath] as const;
+}
+
+export function trashTeamPathForScope(scope: WorkspaceScope): string | null | undefined {
+  if (scope.type === 'personal') return null;
+  if (scope.type === 'team') return scope.teamPath;
+  return undefined;
+}
 
 function requireApi() {
   const api = getHackDeskAPI();
@@ -23,13 +34,13 @@ export function getTrashErrorMessage(error: unknown) {
   return error instanceof Error ? stripIpcErrorPrefix(error.message) : 'Could not load the trash.';
 }
 
-export function useTrashList(enabled: boolean) {
+export function useTrashList(enabled: boolean, teamPath: string | null) {
   return useQuery({
-    queryKey: trashKeys.list,
+    queryKey: trashListQueryKey(teamPath),
     enabled,
     queryFn: ({ signal }) => {
       const hackmd = requireApi();
-      return runHackmdRequest(hackmd, signal, hackmd.listTrash, []);
+      return runHackmdRequest(hackmd, signal, hackmd.listTrash, [teamPath]);
     },
   });
 }
@@ -39,8 +50,10 @@ export function getRestoredIds(result: RestoreTrashResult) {
 }
 
 /** Restores notes and refreshes every list they come back to. */
-export function useRestoreNotes() {
+export function useRestoreNotes(scope: WorkspaceScope) {
   const queryClient = useQueryClient();
+  const teamPath = trashTeamPathForScope(scope);
+  const listKey = teamPath === undefined ? null : trashListQueryKey(teamPath);
   return useMutation({
     mutationFn: async (noteIds: string[]) => {
       const hackmd = requireApi();
@@ -60,14 +73,19 @@ export function useRestoreNotes() {
     onSuccess: (result) => {
       const restored = new Set(getRestoredIds(result));
       if (restored.size === 0) return;
-      queryClient.setQueryData<TrashedNoteSummary[]>(
-        trashKeys.list,
-        (notes) => notes?.filter((note) => !restored.has(note.id)),
-      );
-      void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey({ type: 'personal', label: 'My Workspace' }) });
+      if (listKey) {
+        queryClient.setQueryData<TrashedNoteSummary[]>(
+          listKey,
+          (notes) => notes?.filter((note) => !restored.has(note.id)),
+        );
+      }
+      if (scope.type === 'personal' || scope.type === 'team') {
+        void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey(scope) });
+      }
       void queryClient.invalidateQueries({ queryKey: getWorkspaceQueryKey({ type: 'history', label: 'History' }) });
       for (const noteId of restored) {
-        void queryClient.invalidateQueries({ queryKey: ['electron', 'hackmd', 'note', null, noteId] });
+        const noteTeamPath = scope.type === 'team' ? scope.teamPath : null;
+        void queryClient.invalidateQueries({ queryKey: ['electron', 'hackmd', 'note', noteTeamPath, noteId] });
       }
     },
   });

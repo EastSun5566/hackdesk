@@ -1,8 +1,18 @@
 import * as React from 'react';
+import { Check } from 'lucide-react';
 import { Menu as DropdownMenuPrimitive } from '@base-ui/react/menu';
 
 import { cn } from '@/lib/utils';
-import { ELEVATED_SURFACE_CLASS, FLOATING_LAYER_CLASS } from './layers';
+import {
+  FLOATING_LAYER_CLASS,
+  MENU_ITEM_CLASS,
+  MENU_ITEM_INDICATOR_CLASS,
+  MENU_ITEM_INDICATOR_POSITION_CLASS,
+  MENU_LABEL_CLASS,
+  MENU_POPUP_CLASS,
+  MENU_SEPARATOR_CLASS,
+  MENU_SHORTCUT_CLASS,
+} from './layers';
 
 const DropdownMenu = DropdownMenuPrimitive.Root;
 
@@ -54,8 +64,8 @@ const DropdownMenuContent = React.forwardRef<
       <DropdownMenuPrimitive.Popup
         ref={ref}
         className={cn(
-          'min-w-44 overflow-hidden rounded-md border border-border-default bg-background-default p-1 text-text-default origin-(--transform-origin) ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none',
-          ELEVATED_SURFACE_CLASS,
+          MENU_POPUP_CLASS,
+          'origin-(--transform-origin) ease-out data-[closed]:ease-in data-[open]:animate-in data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:fade-in-0 data-[closed]:zoom-out-95 data-[open]:zoom-in-95 motion-reduce:animate-none',
           className,
         )}
         {...props}
@@ -88,8 +98,8 @@ const DropdownMenuItem = React.forwardRef<
       onClick?.(event);
     }}
     className={cn(
-      'relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors data-[highlighted]:bg-element-bg-hover data-[highlighted]:text-text-default data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
-      destructive && 'text-destructive-default data-[highlighted]:text-destructive-default',
+      MENU_ITEM_CLASS,
+      destructive && 'text-destructive-default data-[highlighted]:text-destructive-default [&_svg]:text-destructive-default',
       className,
     )}
     {...props}
@@ -103,7 +113,7 @@ const DropdownMenuCheckboxItem = React.forwardRef<
     onClick?: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem>['onClick'];
     onSelect?: (event: MenuItemSelectEvent) => void;
   }
->(({ className, onSelect, closeOnClick = false, onClick, ...props }, ref) => (
+>(({ className, children, onSelect, closeOnClick = false, onClick, ...props }, ref) => (
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
     closeOnClick={closeOnClick}
@@ -111,12 +121,14 @@ const DropdownMenuCheckboxItem = React.forwardRef<
       onSelect?.(event);
       onClick?.(event);
     }}
-    className={cn(
-      'relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors data-[highlighted]:bg-element-bg-hover data-[highlighted]:text-text-default data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
-      className,
-    )}
+    className={cn(MENU_ITEM_CLASS, MENU_ITEM_INDICATOR_CLASS, className)}
     {...props}
-  />
+  >
+    {children}
+    <DropdownMenuPrimitive.CheckboxItemIndicator className={cn(MENU_ITEM_INDICATOR_POSITION_CLASS, 'text-primary-default')}>
+      <Check className="h-4 w-4" />
+    </DropdownMenuPrimitive.CheckboxItemIndicator>
+  </DropdownMenuPrimitive.CheckboxItem>
 ));
 DropdownMenuCheckboxItem.displayName = 'DropdownMenuCheckboxItem';
 
@@ -126,7 +138,7 @@ const DropdownMenuLabel = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn('px-2 py-1.5 text-xs font-medium text-text-subtle', className)}
+    className={cn(MENU_LABEL_CLASS, className)}
     {...props}
   />
 ));
@@ -138,11 +150,24 @@ const DropdownMenuSeparator = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DropdownMenuPrimitive.Separator
     ref={ref}
-    className={cn('-mx-1 my-1 h-px bg-border-default', className)}
+    className={cn(MENU_SEPARATOR_CLASS, className)}
     {...props}
   />
 ));
 DropdownMenuSeparator.displayName = 'DropdownMenuSeparator';
+
+function DropdownMenuShortcut({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      className={cn(MENU_SHORTCUT_CLASS, className)}
+      {...props}
+    />
+  );
+}
+DropdownMenuShortcut.displayName = 'DropdownMenuShortcut';
 
 export {
   DropdownMenu,
@@ -151,5 +176,6 @@ export {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 };

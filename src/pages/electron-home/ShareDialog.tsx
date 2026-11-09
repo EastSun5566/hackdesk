@@ -111,7 +111,7 @@ function ShareDialogContent({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 aria-hidden="true" className="h-4 w-4 text-text-subtle" />
@@ -125,47 +125,51 @@ function ShareDialogContent({
         <div className="space-y-4">
           <section aria-labelledby="share-links-heading" className="space-y-2">
             <h3 id="share-links-heading" className="text-sm font-semibold text-text-default">Links</h3>
-            <div className="divide-y divide-border-default overflow-hidden rounded-md border border-border-default">
-              <div className="grid gap-2 px-3 py-2.5 sm:grid-cols-[7rem_minmax(0,1fr)_auto] sm:items-center">
-                <label className="text-sm font-medium text-text-default" htmlFor="share-hackmd-link">
+            <div className="divide-y divide-border-default overflow-hidden rounded border border-border-default">
+              <div className="space-y-1.5 px-3 py-2.5">
+                <label className="block text-sm font-medium text-text-default" htmlFor="share-hackmd-link">
                   HackMD link
                 </label>
-                <Input
-                  id="share-hackmd-link"
-                  readOnly
-                  value={hackmdLink}
-                  className="min-w-0 bg-background-muted sm:h-9"
-                />
-                <Button
-                  variant="secondary"
-                  type="button"
-                  aria-label="Copy HackMD link"
-                  onClick={() => onCopyLink(document)}
-                >
-                  <Copy aria-hidden="true" className="h-4 w-4" />
-                  Copy
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="share-hackmd-link"
+                    readOnly
+                    value={hackmdLink}
+                    className="min-w-0 flex-1 bg-background-muted"
+                  />
+                  <Button
+                    variant="secondary"
+                    type="button"
+                    aria-label="Copy HackMD link"
+                    onClick={() => onCopyLink(document)}
+                  >
+                    <Copy aria-hidden="true" className="h-4 w-4" />
+                    Copy
+                  </Button>
+                </div>
               </div>
 
-              <div className="grid gap-2 px-3 py-2.5 sm:grid-cols-[7rem_minmax(0,1fr)_auto] sm:items-center">
-                <label className="text-sm font-medium text-text-default" htmlFor="share-markdown-link">
+              <div className="space-y-1.5 px-3 py-2.5">
+                <label className="block text-sm font-medium text-text-default" htmlFor="share-markdown-link">
                   Markdown link
                 </label>
-                <Input
-                  id="share-markdown-link"
-                  readOnly
-                  value={markdownLink}
-                  className="min-w-0 bg-background-muted sm:h-9"
-                />
-                <Button
-                  variant="secondary"
-                  type="button"
-                  aria-label="Copy Markdown link"
-                  onClick={() => onCopyMarkdownLink(document)}
-                >
-                  <Copy aria-hidden="true" className="h-4 w-4" />
-                  Copy
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="share-markdown-link"
+                    readOnly
+                    value={markdownLink}
+                    className="min-w-0 flex-1 bg-background-muted"
+                  />
+                  <Button
+                    variant="secondary"
+                    type="button"
+                    aria-label="Copy Markdown link"
+                    onClick={() => onCopyMarkdownLink(document)}
+                  >
+                    <Copy aria-hidden="true" className="h-4 w-4" />
+                    Copy
+                  </Button>
+                </div>
               </div>
             </div>
 

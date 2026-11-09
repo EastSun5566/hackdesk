@@ -156,6 +156,7 @@ const typographySettingsSchema = z.object({
   editorFontStack: customFontStackSchema.default(defaultThemeTypography.editorFontStack),
   uiFontSize: z.number().int().min(MIN_UI_FONT_SIZE).max(MAX_UI_FONT_SIZE).default(DEFAULT_UI_FONT_SIZE),
   editorFontSize: z.number().int().min(MIN_EDITOR_FONT_SIZE).max(MAX_EDITOR_FONT_SIZE).default(DEFAULT_EDITOR_FONT_SIZE),
+  fontSmoothing: z.enum(['antialiased', 'auto']).default(defaultThemeTypography.fontSmoothing),
 }).default(defaultThemeTypography).transform((value): ThemeTypography => normalizeThemeTypography(value));
 const electronActionIds = new Set<ElectronActionId>(ELECTRON_ACTIONS.map((action) => action.id));
 const shortcutConfigSchema = z.string().trim().refine(isValidCustomShortcutConfig, {

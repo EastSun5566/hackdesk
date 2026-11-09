@@ -35,7 +35,9 @@
 
   --color-primary-50: #ecebfe;
   --color-primary-100: #cccafc;
+  --color-primary-200: #b2abfb;
   --color-primary-300: #9894f9;
+  --color-primary-400: #766df8;
   --color-primary-500: #564dff;
   --color-primary-600: #453aff;
   --color-primary-800: #2e01a5;
@@ -65,11 +67,20 @@
   /* Semantic colors */
   --color-text-default: var(--text-default);
   --color-text-subtle: var(--text-subtle);
+  --color-text-subtler: var(--text-subtler);
+  --color-text-emphasize: var(--text-emphasize);
   --color-background-default: var(--background-default);
   --color-background-muted: var(--background-muted);
+  --color-background-subtler: var(--background-subtler);
+  --color-background-primary-subtler: var(--background-primary-subtler);
   --color-background-overlay: var(--background-overlay);
   --color-background-selected: var(--background-selected);
   --color-border-default: var(--border-default);
+  --color-border-subtle: var(--border-subtle);
+  --color-background-hover: var(--background-hover);
+  --color-background-raised: var(--background-raised);
+  --color-border-primary-default: var(--border-primary-default);
+  --color-border-primary-subtler: var(--border-primary-subtler);
   --color-primary-default: var(--primary-default);
   --color-primary-hover: var(--primary-hover);
   --color-primary-soft: var(--primary-soft);
@@ -80,15 +91,30 @@
   --color-warning-default: var(--warning-default);
   --color-warning-soft: var(--warning-soft);
   --color-warning-foreground: var(--warning-foreground);
+  --color-state-success-text: var(--state-success-text);
+  --color-state-success-background: var(--state-success-background);
+  --color-state-success-border: var(--state-success-border);
+  --color-state-danger-text: var(--state-danger-text);
+  --color-state-danger-bg-light: var(--state-danger-bg-light);
+  --color-state-danger-border: var(--state-danger-border);
+  --color-state-warning-text: var(--state-warning-text);
+  --color-state-warning-background: var(--state-warning-background);
+  --color-state-warning-border: var(--state-warning-border);
+  --color-state-warning-default: var(--state-warning-default);
   --color-destructive-default: var(--destructive-default);
   --color-destructive-soft: var(--destructive-soft);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive-hover: var(--destructive-hover);
   --color-icon-default: var(--icon-default);
   --color-icon-subtle: var(--icon-subtle);
+  --color-icon-subtlest: var(--icon-subtlest);
   --color-border-bold: var(--border-bold);
+  --color-element-bg-default: var(--element-bg-default);
   --color-element-bg-hover: var(--element-bg-hover);
+  --color-element-bg-disabled: var(--element-bg-disabled);
+  --color-element-text-disabled: var(--element-text-disabled);
   --color-element-border-hover: var(--element-border-hover);
+  --color-element-border-disabled: var(--element-border-disabled);
   --color-link-text-default: var(--link-text-default);
   --color-link-text-hover: var(--link-text-hover);
   /* Translucent tokens painted onto the default surface, for layers that must be opaque. */
@@ -98,6 +124,10 @@
   /* Type scale below text-xs. The theme rescales it with the UI font size. */
   --text-2xs: 0.625rem;
   --text-2xs--line-height: 1.4;
+  /* Menus, selects, the palette and the workspace switcher: 13px at the default 14px UI, as
+     macOS menus are. The theme rescales it with the UI font size. */
+  --text-menu: 0.8125rem;
+  --text-menu--line-height: 1.25rem;
 }
 
 @layer base {
@@ -115,12 +145,13 @@
   :root.light {
     color-scheme: light;
 
-    --font-system: Inter, system-ui, sans-serif;
+    --font-system: Inter, system-ui, "PingFang TC", "PingFang SC", "Hiragino Sans", "Noto Sans CJK TC", "Microsoft JhengHei", sans-serif;
     --font-sans: var(--font-system);
-    --font-editor: "Source Code Pro", ui-monospace, monospace;
-    --font-mono: var(--font-editor);
+    --font-keys: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-editor: var(--font-system);
+    --font-mono: "JetBrains Mono", "Source Code Pro", "PingFang TC", "PingFang SC", "Hiragino Sans", "Noto Sans CJK TC", "Microsoft JhengHei", ui-monospace, SFMono-Regular, Menlo, monospace;
     --font-size-ui: 0.875rem;
-    --font-size-editor: 0.875rem;
+    --font-size-editor: 0.9375rem;
 
     --hmd-tw-text-default: var(--color-zinc-700);
     --hmd-tw-text-subtle: var(--color-zinc-500);
@@ -138,10 +169,11 @@
     --hmd-tw-background-primary-hover: var(--color-primary-800);
     --hmd-tw-background-primary-disabled: var(--color-primary-300);
     --hmd-tw-background-primary-focus: var(--color-primary-800);
-    --hmd-tw-background-blur: rgb(253 253 253 / 0.72);
+    --hmd-tw-background-blur: rgb(253 253 253 / 0.6);
     --hmd-tw-icon-default: var(--color-zinc-500);
     --hmd-tw-icon-subtle: var(--color-zinc-400);
     --hmd-tw-icon-subtler: var(--color-zinc-300);
+    --hmd-tw-icon-subtlest: var(--color-zinc-200);
     --hmd-tw-icon-disabled: var(--color-zinc-400);
     --hmd-tw-icon-primary: var(--hmd-tw-text-primary);
     --hmd-tw-icon-emphasize: var(--color-zinc-800);
@@ -150,9 +182,9 @@
     --hmd-tw-border-subtle: var(--color-zinc-500);
     --hmd-tw-border-subtler: var(--color-zinc-400);
     --hmd-tw-border-subtlest: var(--color-zinc-200);
-    --hmd-tw-border-primary-focus: var(--color-primary-300);
+    --hmd-tw-border-primary-focus: var(--color-primary-400);
     --hmd-tw-border-primary-default: var(--color-primary-500);
-    --hmd-tw-border-primary-subtler: var(--color-primary-300);
+    --hmd-tw-border-primary-subtler: var(--color-primary-400);
     --hmd-tw-overlay: rgb(0 0 0 / 0.3);
     --hmd-tw-state-info-text: var(--color-sky-600);
     --hmd-tw-state-info-background: var(--color-sky-100);
@@ -161,25 +193,47 @@
     --hmd-tw-state-success-background: var(--color-emerald-75);
     --hmd-tw-state-success-border: var(--color-green-200);
     --hmd-tw-state-success-default: var(--color-green-400);
+    --hmd-tw-state-warning-text: #d97706;
+    --hmd-tw-state-warning-background: var(--color-amber-75);
+    --hmd-tw-state-warning-border: var(--color-amber-300);
+    --hmd-tw-state-warning-default: var(--color-amber-400);
     --hmd-tw-state-danger-text: var(--color-red-500);
     --hmd-tw-state-danger-bg-light: var(--color-red-75);
     --hmd-tw-state-danger-bg-default: var(--color-red-500);
     --hmd-tw-state-danger-bg-hover: var(--color-red-600);
     --hmd-tw-state-danger-border: var(--color-red-300);
     --hmd-tw-state-danger-default: var(--color-red-500);
-    --hmd-tw-element-bg-hover: var(--color-zinc-100);
-    --hmd-tw-element-border-hover: var(--color-zinc-300);
+    --hmd-tw-element-bg-default: var(--color-zinc-100);
+    --hmd-tw-element-bg-hover: var(--color-zinc-200);
+    --hmd-tw-element-bg-disabled: var(--color-zinc-200);
+    --hmd-tw-element-text-disabled: var(--color-zinc-400);
+    --hmd-tw-element-border-hover: var(--color-zinc-500);
+    --hmd-tw-element-border-disabled: var(--color-zinc-400);
     --hmd-tw-link-text-default: var(--color-primary-500);
     --hmd-tw-link-text-hover: var(--color-primary-800);
 
     --text-default: var(--hmd-tw-text-default);
     --text-subtle: var(--hmd-tw-text-subtle);
+    --text-subtler: var(--hmd-tw-text-subtler);
+    --text-emphasize: var(--hmd-tw-text-emphasize);
     --background-default: var(--hmd-tw-background-default);
     --background-muted: var(--hmd-tw-background-subtler);
+    --background-subtler: var(--hmd-tw-background-subtler);
+    --background-primary-subtler: var(--hmd-tw-background-primary-subtler);
     --background-overlay: var(--hmd-tw-overlay);
     --background-selected: var(--hmd-tw-background-selected);
     --border-default: var(--hmd-tw-border-default);
+    /* Quiet structural lines: card outlines, dividers inside panels, tree guides. Derived rather
+       than set per theme so every preset and custom theme gets a solid, consistent colour,
+       instead of components painting border-default at different opacities over different
+       surfaces. */
+    --border-subtle: color-mix(in srgb, var(--border-default) 55%, var(--background-default));
+    /* Row hover: a tint of the text colour, visible on any surface. */
+    --background-hover: color-mix(in srgb, var(--text-default) 7%, transparent);
+    --background-raised: var(--background-default);
     --border-bold: var(--hmd-tw-border-bold);
+    --border-primary-default: var(--hmd-tw-border-primary-default);
+    --border-primary-subtler: var(--hmd-tw-border-primary-subtler);
     --primary-default: var(--hmd-tw-background-primary-default);
     --primary-hover: var(--hmd-tw-background-primary-hover);
     --primary-soft: var(--hmd-tw-background-primary-subtler);
@@ -189,14 +243,29 @@
     --warning-default: var(--color-amber-400);
     --warning-soft: var(--color-amber-75);
     --warning-foreground: var(--color-zinc-950);
+    --state-success-text: var(--hmd-tw-state-success-text);
+    --state-success-background: var(--hmd-tw-state-success-background);
+    --state-success-border: var(--hmd-tw-state-success-border);
+    --state-danger-text: var(--hmd-tw-state-danger-text);
+    --state-danger-bg-light: var(--hmd-tw-state-danger-bg-light);
+    --state-danger-border: var(--hmd-tw-state-danger-border);
+    --state-warning-text: var(--hmd-tw-state-warning-text);
+    --state-warning-background: var(--hmd-tw-state-warning-background);
+    --state-warning-border: var(--hmd-tw-state-warning-border);
+    --state-warning-default: var(--hmd-tw-state-warning-default);
     --destructive-default: var(--hmd-tw-state-danger-default);
     --destructive-soft: var(--hmd-tw-state-danger-bg-light);
     --destructive-foreground: var(--color-zinc-950);
     --destructive-hover: var(--hmd-tw-state-danger-bg-hover);
     --icon-default: var(--hmd-tw-icon-default);
     --icon-subtle: var(--hmd-tw-icon-subtle);
+    --icon-subtlest: var(--hmd-tw-icon-subtlest);
+    --element-bg-default: var(--hmd-tw-element-bg-default);
     --element-bg-hover: var(--hmd-tw-element-bg-hover);
+    --element-bg-disabled: var(--hmd-tw-element-bg-disabled);
+    --element-text-disabled: var(--hmd-tw-element-text-disabled);
     --element-border-hover: var(--hmd-tw-element-border-hover);
+    --element-border-disabled: var(--hmd-tw-element-border-disabled);
     --link-text-default: var(--hmd-tw-link-text-default);
     --link-text-hover: var(--hmd-tw-link-text-hover);
   }
@@ -217,13 +286,14 @@
     --hmd-tw-background-primary-default: var(--color-primary-500);
     --hmd-tw-background-primary-subtler: #2c2a4a;
     --hmd-tw-background-primary-subtle: #302d6a;
-    --hmd-tw-background-primary-hover: var(--color-primary-300);
+    --hmd-tw-background-primary-hover: var(--color-primary-400);
     --hmd-tw-background-primary-disabled: #3932aa;
-    --hmd-tw-background-primary-focus: var(--color-primary-300);
+    --hmd-tw-background-primary-focus: var(--color-primary-400);
     --hmd-tw-background-blur: rgb(39 39 42 / 0.6);
     --hmd-tw-icon-default: var(--color-zinc-300);
     --hmd-tw-icon-subtle: var(--color-zinc-400);
     --hmd-tw-icon-subtler: var(--color-zinc-500);
+    --hmd-tw-icon-subtlest: var(--color-zinc-600);
     --hmd-tw-icon-disabled: var(--color-zinc-500);
     --hmd-tw-icon-primary: var(--hmd-tw-text-primary);
     --hmd-tw-icon-emphasize: var(--color-zinc-100);
@@ -232,9 +302,9 @@
     --hmd-tw-border-subtle: var(--color-zinc-400);
     --hmd-tw-border-subtler: var(--color-zinc-500);
     --hmd-tw-border-subtlest: var(--color-zinc-700);
-    --hmd-tw-border-primary-focus: var(--color-primary-300);
+    --hmd-tw-border-primary-focus: var(--color-primary-400);
     --hmd-tw-border-primary-default: var(--color-primary-300);
-    --hmd-tw-border-primary-subtler: var(--color-primary-300);
+    --hmd-tw-border-primary-subtler: var(--color-primary-400);
     --hmd-tw-overlay: rgb(0 0 0 / 0.7);
     --hmd-tw-state-info-text: var(--color-sky-400);
     --hmd-tw-state-info-background: rgb(56 189 248 / 0.1);
@@ -243,26 +313,90 @@
     --hmd-tw-state-success-background: rgb(109 177 157 / 0.15);
     --hmd-tw-state-success-border: var(--color-emerald-600);
     --hmd-tw-state-success-default: var(--color-green-500);
+    --hmd-tw-state-warning-text: var(--color-amber-400);
+    --hmd-tw-state-warning-background: rgb(251 191 36 / 0.1);
+    --hmd-tw-state-warning-border: var(--color-amber-500);
+    --hmd-tw-state-warning-default: var(--color-amber-500);
     --hmd-tw-state-danger-text: var(--color-red-400);
     --hmd-tw-state-danger-bg-light: rgb(239 68 68 / 0.2);
     --hmd-tw-state-danger-bg-default: var(--color-red-500);
     --hmd-tw-state-danger-bg-hover: var(--color-red-400);
     --hmd-tw-state-danger-border: var(--color-red-400);
     --hmd-tw-state-danger-default: var(--color-red-400);
-    --primary-default: var(--color-primary-300);
-    --primary-foreground: var(--color-zinc-900);
-    --destructive-foreground: var(--color-zinc-950);
-    --hmd-tw-element-bg-hover: var(--color-zinc-750);
+    --hmd-tw-element-bg-default: var(--color-zinc-750);
+    --hmd-tw-element-bg-hover: var(--color-zinc-700);
+    --hmd-tw-element-bg-disabled: var(--color-zinc-750);
+    --hmd-tw-element-text-disabled: var(--color-zinc-500);
     --hmd-tw-element-border-hover: var(--color-zinc-500);
+    --hmd-tw-element-border-disabled: var(--color-zinc-500);
     --hmd-tw-link-text-default: var(--color-primary-300);
     --hmd-tw-link-text-hover: var(--color-primary-100);
+
+    /* HackMD Neo dark keeps a light primary with dark text; hover gets lighter. */
+    --primary-default: var(--color-primary-300);
+    --primary-hover: var(--color-primary-200);
+    --primary-foreground: var(--color-zinc-900);
+    --destructive-foreground: var(--color-zinc-950);
+    --warning-soft: rgb(251 191 36 / 0.1);
   }
 }
 
 @layer base {
+  /* The app shell fills the window and scrolls inside its panels. The page itself never scrolls, so
+     a popup that reaches past the window edge (a hover card near the bottom of the tree) cannot add
+     a window-level scrollbar. */
+  html,
+  body {
+    overflow: hidden;
+  }
+
   html {
     accent-color: var(--primary-default);
-    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    /* Appearance > Font smoothing: grayscale antialiasing by default, as native macOS apps draw
+       text; `auto` keeps Chromium's default, which thickens glyph stems. */
+    -webkit-font-smoothing: var(--font-smoothing, antialiased);
+  }
+
+  /* Classic (mouse) scrollbars: a thin rounded thumb on a clear track, so a scrollbar looks the same
+     on the sidebar and inside the editor card instead of painting a grey gutter stripe. Styling
+     ::-webkit-scrollbar makes every scrollbar classic, so this applies only where the system's are
+     classic already (data-scrollbars, set at startup by applyScrollbarMode): overlay scrollbars keep
+     floating inside the content and never change its width. Standard scrollbar-color would disable
+     this styling, so it is set only for increased contrast below. */
+  :root[data-scrollbars='classic'] ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+    background-color: transparent;
+  }
+
+  :root[data-scrollbars='classic'] ::-webkit-scrollbar-track,
+  :root[data-scrollbars='classic'] ::-webkit-scrollbar-corner {
+    background-color: transparent;
+  }
+
+  :root[data-scrollbars='classic'] ::-webkit-scrollbar-thumb {
+    min-height: 32px;
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    background-clip: padding-box;
+    background-color: color-mix(in srgb, var(--text-default) 24%, transparent);
+  }
+
+  :root[data-scrollbars='classic'] ::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in srgb, var(--text-default) 40%, transparent);
+  }
+
+  /* Classic scrollbars take width; the main lists keep their gutter even while nothing overflows,
+     so expanding or collapsing a folder never shifts the rows sideways. */
+  :root[data-scrollbars='classic'] :where(.scroll-edges-source, .cm-scroller) {
+    scrollbar-gutter: stable;
+  }
+
+  /* Shortcuts use the system UI font (SF Pro on macOS), as the system's own menus do: it draws
+     ⌘ ⇧ ⌥ ⌃ at the letters' size and weight. Mono and most UI fonts lack them, and the fallback
+     (often a CJK font) draws them mismatched. */
+  kbd {
+    font-family: var(--font-keys);
   }
 
   ::selection {
@@ -302,6 +436,83 @@
 
   .app-region-no-drag {
     -webkit-app-region: no-drag;
+  }
+
+  /* A horizontal strip that fades out at an edge with more content past it (data-overflow-start /
+     data-overflow-end). A mask, not a shadow, so it reads the same on light and dark chrome. */
+  .edge-fade-x[data-overflow-start] {
+    mask-image: linear-gradient(to right, transparent, #000 40px);
+  }
+
+  .edge-fade-x[data-overflow-end] {
+    mask-image: linear-gradient(to left, transparent, #000 40px);
+  }
+
+  .edge-fade-x[data-overflow-start][data-overflow-end] {
+    mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+  }
+
+  /* A resize handle that is a surface's border (PanelResizeSash edge): it lays a primary line over
+     the border beside it while hovered, focused or dragged. The line fades out toward both ends and
+     is gone before the surface's rounded corners turn away from it. */
+  .edge-sash::after {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    /* Over the 1px border and 1px inside it: as strong as the old handle line. */
+    right: -2px;
+    width: 2px;
+    /* Clear for the first and last 0.75rem, past the surface's 8px corner radius, then fading in. */
+    background: linear-gradient(
+      to bottom,
+      transparent 0.75rem,
+      var(--primary-default) 3rem,
+      var(--primary-default) calc(100% - 3rem),
+      transparent calc(100% - 0.75rem)
+    );
+    opacity: 0;
+    transition: opacity 150ms ease-out;
+    pointer-events: none;
+  }
+
+  .edge-sash:hover::after,
+  .edge-sash:focus-visible::after,
+  :root[data-panel-resizing] .edge-sash::after {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .edge-sash::after {
+      transition: none;
+    }
+  }
+
+  /* A number field with its own stepper buttons beside it, so the native spin arrows go. */
+  .no-spinner {
+    appearance: textfield;
+  }
+
+  .no-spinner::-webkit-inner-spin-button,
+  .no-spinner::-webkit-outer-spin-button {
+    margin: 0;
+    -webkit-appearance: none;
+  }
+
+  /* Long trees: rows outside the scrolled view skip style, layout and paint (rows are 32px). Opening
+     or closing a big folder otherwise laid out every row in the workspace. */
+  .tree-row-lazy {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 32px;
+  }
+
+  /* Appearance > Indent guides off: the tree draws no guide lines. */
+  :root[data-tree-guides='hidden'] [data-tree-guide] {
+    display: none;
+  }
+
+  /* A font previewed in its own face; the stack comes from --font-preview set on the element. */
+  .font-preview {
+    font-family: var(--font-preview, inherit);
   }
 
   .scrollbar-none {
@@ -378,7 +589,7 @@
     position: absolute;
     inset-inline: 0;
     height: 1px;
-    background-color: var(--border-default);
+    background-color: var(--border-subtle);
     pointer-events: none;
   }
 
@@ -400,6 +611,28 @@
     animation-range: calc(100% - 1rem) 100%;
   }
 
+  /* Fades for a scrolling list, like the tab strip's edge-fade-x: zero-height sticky overlays
+     inside the content, each holding a short gradient in the list's background. Overlays rather than
+     a mask on the scroller, because a mask also fades the scrollbar. They show while more content
+     lies past their edge, through the list's --scroll-edge timeline. */
+  .edge-fade-top > *,
+  .edge-fade-bottom > * {
+    opacity: 0;
+    animation-timeline: --scroll-edge;
+  }
+
+  .edge-fade-top > * {
+    animation: scroll-edge-show linear both;
+    animation-timeline: --scroll-edge;
+    animation-range: 0 2rem;
+  }
+
+  .edge-fade-bottom > * {
+    animation: scroll-edge-hide linear both;
+    animation-timeline: --scroll-edge;
+    animation-range: calc(100% - 2rem) 100%;
+  }
+
   @keyframes scroll-edge-show {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -418,3 +651,16 @@
   max-height: calc(100dvh - 4rem);
 }
 .comparison-text-preview { max-height: 40dvh; }
+
+/* Focus rings are for keyboard use. After a pointer press (data-input-modality, see
+   input-modality.ts) they stay hidden until a key is pressed, including on text fields, which keep
+   their border color change, on wrappers that ring what they contain (focus-within), and on focus
+   the app moves in response to a click. Unlayered and
+   important, so it outranks every focus-visible ring and outline utility. */
+:root[data-input-modality='pointer'] :focus-visible,
+:root[data-input-modality='pointer'] :focus-within {
+  outline: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-inset-ring-shadow: 0 0 #0000 !important;
+}

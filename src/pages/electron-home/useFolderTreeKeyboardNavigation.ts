@@ -6,13 +6,16 @@ import type { NoteSummary } from '@/lib/electron-api';
 import type { FolderTree } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
+import { createFolderTreeFocusStore } from './FolderTreeFocusContext';
+
 import {
+  buildFolderNavigatorFocusItems,
   createFolderFocusId,
   findTypeaheadMatch,
-  getFolderTreeFocusItems,
   getKeyboardFocusRowId,
   normalizeCreateNoteFolderId,
   shouldIgnoreFolderTreeKeydown,
+  WORKSPACE_ROOT_FOCUS_ID,
 } from './folder-tree-focus';
 
 export type FolderTreeKeyboardActions = {
@@ -33,7 +36,13 @@ export type UseFolderTreeKeyboardNavigationOptions = {
   collapsedFolderIds: Set<string>;
   tree: FolderTree;
   treeRef: RefObject<HTMLDivElement | null>;
+  showRoot: boolean;
+  rootSectionExpanded: boolean;
+  rootLabel: string;
+  onRootSectionToggle?: () => void;
 };
+
+const NO_COLLAPSED_FOLDERS = new Set<string>();
 
 export function useFolderTreeKeyboardNavigation({
   treeId,
@@ -42,20 +51,46 @@ export function useFolderTreeKeyboardNavigation({
   collapsedFolderIds,
   tree,
   treeRef,
+  showRoot,
+  rootSectionExpanded,
+  rootLabel,
+  onRootSectionToggle,
 }: UseFolderTreeKeyboardNavigationOptions) {
   const typeaheadBufferRef = useRef('');
   const typeaheadResetTimerRef = useRef<number | null>(null);
   const focusItems = useMemo(
-    () => getFolderTreeFocusItems(tree, collapsedFolderIds),
-    [collapsedFolderIds, tree],
+    () => buildFolderNavigatorFocusItems({
+      tree,
+      collapsedFolderIds,
+      showRoot,
+      rootSectionExpanded,
+      rootLabel,
+    }),
+    [collapsedFolderIds, rootLabel, rootSectionExpanded, showRoot, tree],
   );
   const [focusedId, setFocusedId] = useState(selectedRowId);
-  const itemsById = useMemo(() => new Map(focusItems.map(item => [item.id, item])), [focusItems]);
+  // The tree's tab stop follows the selection: opening a note elsewhere (a tab, the palette) makes
+  // its row the place Tab and Cmd+Shift+E land, not wherever focus last was in the tree.
+  const [previousSelectedRowId, setPreviousSelectedRowId] = useState(selectedRowId);
+  if (previousSelectedRowId !== selectedRowId) {
+    setPreviousSelectedRowId(selectedRowId);
+    if (selectedRowId) setFocusedId(selectedRowId);
+  }
+  // What each row reads: every row of the tree, as if every folder and the root were open. Closing a
+  // folder or the root hides its rows without unmounting them; built from the tree alone, no row's
+  // entry changes on a toggle, so no row re-renders for one.
+  const rowItems = useMemo(
+    () => buildFolderNavigatorFocusItems({ tree, collapsedFolderIds: NO_COLLAPSED_FOLDERS, showRoot, rootSectionExpanded: true, rootLabel }),
+    [rootLabel, showRoot, tree],
+  );
+  const itemsById = useMemo(() => new Map(rowItems.map(item => [item.id, item])), [rowItems]);
+  // What the keyboard can reach: rows under a collapsed root are skipped.
+  const reachableIds = useMemo(() => new Set(focusItems.map(item => item.id)), [focusItems]);
   const previousItemsRef = useRef(focusItems);
   const lastFocusedElementRef = useRef<HTMLElement | null>(null);
-  const effectiveFocusedId = focusedId && itemsById.has(focusedId)
+  const effectiveFocusedId = focusedId && reachableIds.has(focusedId)
     ? focusedId
-    : selectedRowId && itemsById.has(selectedRowId) ? selectedRowId : focusItems[0]?.id ?? null;
+    : selectedRowId && reachableIds.has(selectedRowId) ? selectedRowId : focusItems[0]?.id ?? null;
 
   useEffect(() => () => {
     if (typeaheadResetTimerRef.current !== null) {
@@ -76,7 +111,7 @@ export function useFolderTreeKeyboardNavigation({
   useLayoutEffect(() => {
     const previousItems = previousItemsRef.current;
     previousItemsRef.current = focusItems;
-    if (!focusedId || itemsById.has(focusedId)) return;
+    if (!focusedId || reachableIds.has(focusedId)) return;
 
     const oldIndex = previousItems.findIndex(item => item.id === focusedId);
     const previousItemsById = new Map(previousItems.map(item => [item.id, item]));
@@ -84,7 +119,7 @@ export function useFolderTreeKeyboardNavigation({
     let nextId: string | undefined;
     while (parentId) {
       const parent = createFolderFocusId(parentId);
-      if (itemsById.has(parent)) {
+      if (reachableIds.has(parent)) {
         nextId = parent;
         break;
       }
@@ -92,20 +127,25 @@ export function useFolderTreeKeyboardNavigation({
     }
     nextId ??= focusItems[Math.max(0, Math.min(oldIndex, focusItems.length - 1))]?.id;
     setFocusedId(nextId ?? null);
-    // Recover only a removed tree control's focus, never steal it from a dialog or editor.
+    // Recover only a removed or hidden tree control's focus (a collapsed root keeps its rows mounted
+    // but hidden), never steal it from a dialog or editor.
     const lastElement = lastFocusedElementRef.current;
-    if (nextId && lastElement && !lastElement.isConnected && document.activeElement === document.body) {
+    const lastGone = lastElement && (!lastElement.isConnected || Boolean(lastElement.closest('[hidden]')));
+    if (nextId && lastGone && (document.activeElement === document.body || document.activeElement === lastElement)) {
       focusTreeItem(nextId);
     }
-  }, [focusItems, focusedId, focusTreeItem, itemsById]);
+  }, [focusItems, focusedId, focusTreeItem, reachableIds]);
 
   const onFocus = useCallback((id: string) => {
     setFocusedId(id);
     lastFocusedElementRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   }, []);
-  const focusContext = useMemo(() => ({
-    treeId, focusedId: effectiveFocusedId, selectedId: selectedRowId, items: itemsById, onFocus,
-  }), [treeId, effectiveFocusedId, selectedRowId, itemsById, onFocus]);
+  // Rows read focus through a store (see FolderTreeFocusContext), so the context value stays the
+  // same and only rows whose slice changed re-render.
+  const [focusStore] = useState(() => createFolderTreeFocusStore({ focusedId: effectiveFocusedId, selectedId: selectedRowId, items: itemsById }));
+  focusStore.setState({ focusedId: effectiveFocusedId, selectedId: selectedRowId, items: itemsById });
+  useLayoutEffect(() => focusStore.notify());
+  const focusContext = useMemo(() => ({ treeId, store: focusStore, onFocus }), [treeId, focusStore, onFocus]);
 
   const focusItemAtIndex = useCallback((index: number) => {
     const item = focusItems[Math.max(0, Math.min(index, focusItems.length - 1))];
@@ -244,6 +284,20 @@ export function useFolderTreeKeyboardNavigation({
       return;
     }
 
+    if (!event.ctrlKey && isPlainKey && event.key === 'ArrowRight' && currentItem?.kind === 'root') {
+      event.preventDefault();
+      if (!rootSectionExpanded) {
+        onRootSectionToggle?.();
+        return;
+      }
+
+      const nextItem = focusItems.find((item) => item.id !== WORKSPACE_ROOT_FOCUS_ID);
+      if (nextItem) {
+        focusTreeItem(nextItem.id);
+      }
+      return;
+    }
+
     if (!event.ctrlKey && isPlainKey && event.key === 'ArrowRight' && currentItem?.kind === 'folder') {
       event.preventDefault();
       if (currentItem.folderId && currentItem.folderId !== UNFILED_FOLDER_ID && currentItem.hasChildren && collapsedFolderIds.has(currentItem.folderId)) {
@@ -258,6 +312,14 @@ export function useFolderTreeKeyboardNavigation({
       return;
     }
 
+    if (!event.ctrlKey && isPlainKey && event.key === 'ArrowLeft' && currentItem?.kind === 'root') {
+      event.preventDefault();
+      if (rootSectionExpanded) {
+        onRootSectionToggle?.();
+      }
+      return;
+    }
+
     if (!event.ctrlKey && isPlainKey && event.key === 'ArrowLeft' && currentItem) {
       event.preventDefault();
       if (currentItem.kind === 'folder' && currentItem.folderId && currentItem.folderId !== UNFILED_FOLDER_ID && currentItem.hasChildren && !collapsedFolderIds.has(currentItem.folderId)) {
@@ -267,6 +329,11 @@ export function useFolderTreeKeyboardNavigation({
 
       if (currentItem.parentFolderId) {
         focusTreeItem(createFolderFocusId(currentItem.parentFolderId));
+        return;
+      }
+
+      if (showRoot && currentItem.depth === 1) {
+        focusTreeItem(WORKSPACE_ROOT_FOCUS_ID);
       }
       return;
     }
@@ -281,6 +348,11 @@ export function useFolderTreeKeyboardNavigation({
       }
 
       event.preventDefault();
+      if (currentItem.kind === 'root') {
+        actions.onFolderSelect(UNFILED_FOLDER_ID);
+        return;
+      }
+
       if (currentItem.kind === 'folder' && currentItem.folderId) {
         actions.onFolderSelect(currentItem.folderId);
         return;
@@ -288,7 +360,9 @@ export function useFolderTreeKeyboardNavigation({
 
       if (currentItem.kind === 'note' && currentItem.note) {
         actions.onNoteSelect(currentItem.note.note);
+        return;
       }
+
     }
   }, [
     shortcutContext,
@@ -297,7 +371,10 @@ export function useFolderTreeKeyboardNavigation({
     focusItemAtIndex,
     focusItems,
     focusTreeItem,
+    onRootSectionToggle,
+    rootSectionExpanded,
     runTypeahead,
+    showRoot,
   ]);
 
   useEffect(() => {

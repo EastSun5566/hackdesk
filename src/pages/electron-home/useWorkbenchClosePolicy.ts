@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from 'react';
+import { confirmDialog } from '@/components/ConfirmDialogHost';
 import { toast } from '@/components/ui/toast';
 
 import type {
@@ -25,9 +26,8 @@ export function useWorkbenchClosePolicy({
 }: WorkbenchClosePolicyOptions) {
   // Drafts in any workspace may exist only in memory, so one confirmation covers them all.
   const confirmCloseWithoutBackup = useCallback(async () => {
-    if (!api?.app.confirm) return true;
     try {
-      const { confirmed } = await api.app.confirm({
+      const { confirmed } = await confirmDialog({
         title: 'Close HackDesk',
         message: 'Workspace backup failed. Close anyway?',
         detail: 'Unsaved drafts could not be backed up and will be lost. Copy or export them, or free storage space and retry the backup.',
@@ -61,6 +61,9 @@ export function useWorkbenchClosePolicy({
     }
 
     const allTabs = Object.values(openTabs);
+    // The question may stay open a while: tell the main process the window is answering, so its
+    // unresponsive-window fallback doesn't stack a native alert on the dialog.
+    void api.app.holdClose?.().catch(() => {});
     const confirmed = backupFailed
       ? await confirmCloseWithoutBackup()
       : await confirmCloseUnsafeTabs(allTabs, 'Close HackDesk', 'Close', 'retain');

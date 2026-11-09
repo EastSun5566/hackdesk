@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { confirmDialog } from '@/components/ConfirmDialogHost';
 import { Meter } from '@base-ui/react/meter';
 import { ArrowDown, ArrowUp, Loader2, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 
@@ -281,7 +282,7 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
   const handleEnabledChange = async (id: AiProviderId, enabled: boolean) => {
     if (enabled && api) {
       const title = AI_PROVIDER_TITLES[id];
-      const { confirmed } = await api.app.confirm({
+      const { confirmed } = await confirmDialog({
         title: `Turn on ${title}?`,
         message: `Let HackDesk run the ${AI_PROVIDER_COMMANDS[id]} command signed in on this computer?`,
         detail: `Text you send with AI actions goes to ${PROVIDER_VENDORS[id]} through your own ${title} account and counts toward its usage limits. HackDesk turns off its tools, never reads or stores its keys, and runs it in a private empty folder.`,
@@ -303,6 +304,7 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
   return (
     <div className="space-y-6">
       <SettingsSection
+        page
         title="AI (Experimental)"
         help="Uses your signed-in Codex or Claude CLI."
       >
@@ -391,7 +393,6 @@ function CustomCommandsSection({
   hasProvider: boolean;
   onChange: (commands: AiCustomCommand[]) => void;
 }) {
-  const api = getHackDeskAPI();
   const [editor, setEditor] = useState<CommandEditor | null>(null);
   const full = commands.length >= MAX_AI_CUSTOM_COMMANDS;
 
@@ -413,7 +414,7 @@ function CustomCommandsSection({
   };
 
   const remove = async (command: AiCustomCommand) => {
-    const confirmed = await api?.app.confirm({
+    const confirmed = await confirmDialog({
       title: `Delete "${command.name}"?`,
       message: 'This removes the command from the ⌘K menu.',
       confirmLabel: 'Delete',

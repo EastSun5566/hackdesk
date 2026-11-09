@@ -1,12 +1,16 @@
 import type { ReactNode } from 'react';
-import { ChevronRight, Laptop, Moon, Sun } from 'lucide-react';
+import { ChevronRight, Laptop, Minus, Moon, Plus, Sun } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { FontStackPicker } from '@/components/FontStackPicker';
+import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Field, FieldError, FieldLabel, Input } from '@/components/ui/field';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectLabelValue, SelectTrigger } from '@/components/ui/select';
 import {
+  DEFAULT_EDITOR_FONT_STACK,
+  DEFAULT_UI_FONT_STACK,
   HACKDESK_THEME_PRESETS,
   MAX_EDITOR_FONT_SIZE,
   MAX_UI_FONT_SIZE,
@@ -68,7 +72,7 @@ export function ThemeAppearanceFields({
   return (
     <div className={cn(compact ? 'space-y-4' : 'space-y-6')}>
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">Mode</legend>
+        <legend className="text-sm font-semibold leading-5">Mode</legend>
         <RadioGroup
           value={draftMode}
           onValueChange={(value) => draftActions.changeMode(value as ThemeMode)}
@@ -86,9 +90,9 @@ export function ThemeAppearanceFields({
               className={cn(
                 focusClassName,
                 compact
-                  ? 'inline-flex h-8 w-auto items-center gap-1.5 rounded border-0 bg-transparent px-2.5 text-xs font-medium transition-colors hover:bg-element-bg-hover'
+                  ? 'inline-flex h-7 w-auto items-center gap-1.5 rounded border-0 bg-transparent px-2.5 text-sm font-medium transition-colors hover:bg-element-bg-hover'
                   : 'flex h-auto w-auto flex-col items-center gap-2 rounded-lg border-2 p-4 transition duration-150 ease-out hover:bg-element-bg-hover motion-reduce:transition-none',
-                draftMode === option.id && compact ? 'bg-background-default text-text-default shadow-sm' : null,
+                draftMode === option.id && compact ? 'bg-background-primary-subtler text-primary-default' : null,
                 draftMode === option.id && !compact ? 'border-primary-default bg-primary-soft' : null,
                 draftMode !== option.id && compact ? 'text-text-subtle' : null,
                 draftMode !== option.id && !compact ? 'border-border-default bg-background-default hover:border-primary-default hover:bg-element-bg-hover' : null,
@@ -109,7 +113,7 @@ export function ThemeAppearanceFields({
       </fieldset>
 
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">Preset</legend>
+        <legend className="text-sm font-semibold leading-5">Preset</legend>
         <Select value={draftPresetId} onValueChange={(value) => draftActions.changePreset(value as ThemePresetId)}>
           <SelectTrigger aria-label="Theme preset" className={compact ? 'w-full' : 'max-w-sm'}>
             <SelectLabelValue
@@ -129,38 +133,45 @@ export function ThemeAppearanceFields({
 
       {showTypography ? (
         <fieldset className="space-y-3">
-          <legend className="text-sm font-medium">Typography</legend>
+          <legend className={compact ? 'mb-5 text-base font-semibold leading-6 text-text-emphasize' : 'text-sm font-semibold leading-5'}>Typography</legend>
           <div className="space-y-3">
-            <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-3">
-              <ThemeFontField
-                label="UI font"
-                value={draftTypography.uiFontStack}
-                error={typographyErrors.uiFontStack}
-                onChange={(value) => draftActions.changeTypography('uiFontStack', value)}
-              />
-              <ThemeFontSizeField
-                label="UI font size"
-                value={draftTypography.uiFontSize}
-                min={MIN_UI_FONT_SIZE}
-                max={MAX_UI_FONT_SIZE}
-                error={typographyErrors.uiFontSize}
-                onChange={(value) => draftActions.changeTypography('uiFontSize', value)}
-              />
-            </div>
-            <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-3">
-              <ThemeFontField
-                label="Editor font"
-                value={draftTypography.editorFontStack}
-                error={typographyErrors.editorFontStack}
-                onChange={(value) => draftActions.changeTypography('editorFontStack', value)}
-              />
-              <ThemeFontSizeField
-                label="Editor font size"
-                value={draftTypography.editorFontSize}
-                min={MIN_EDITOR_FONT_SIZE}
-                max={MAX_EDITOR_FONT_SIZE}
-                error={typographyErrors.editorFontSize}
-                onChange={(value) => draftActions.changeTypography('editorFontSize', value)}
+            <ThemeFontField
+              label="UI font"
+              value={draftTypography.uiFontStack}
+              error={typographyErrors.uiFontStack}
+              onChange={(value) => draftActions.changeTypography('uiFontStack', value)}
+              size={{
+                label: 'UI font size',
+                value: draftTypography.uiFontSize,
+                min: MIN_UI_FONT_SIZE,
+                max: MAX_UI_FONT_SIZE,
+                error: typographyErrors.uiFontSize,
+                onChange: (value) => draftActions.changeTypography('uiFontSize', value),
+              }}
+            />
+            <ThemeFontField
+              label="Editor font"
+              value={draftTypography.editorFontStack}
+              error={typographyErrors.editorFontStack}
+              onChange={(value) => draftActions.changeTypography('editorFontStack', value)}
+              size={{
+                label: 'Editor font size',
+                value: draftTypography.editorFontSize,
+                min: MIN_EDITOR_FONT_SIZE,
+                max: MAX_EDITOR_FONT_SIZE,
+                error: typographyErrors.editorFontSize,
+                onChange: (value) => draftActions.changeTypography('editorFontSize', value),
+              }}
+            />
+            <div className="flex items-center justify-between gap-3 pt-1 text-sm">
+              <div className="min-w-0">
+                <label htmlFor="theme-font-smoothing" className="font-semibold leading-5">Smooth text</label>
+                <p className="text-xs leading-5 text-text-subtle">Thinner grayscale text, as in native Mac apps. Off keeps Chromium’s heavier default.</p>
+              </div>
+              <Switch
+                id="theme-font-smoothing"
+                checked={draftTypography.fontSmoothing !== 'auto'}
+                onCheckedChange={(checked) => draftActions.changeTypography('fontSmoothing', checked ? 'antialiased' : 'auto')}
               />
             </div>
           </div>
@@ -168,17 +179,17 @@ export function ThemeAppearanceFields({
       ) : null}
 
       <fieldset className="space-y-2">
-        <legend className={compact ? 'sr-only' : 'text-sm font-medium'}>Custom Seeds</legend>
+        <legend className={compact ? 'sr-only' : 'text-sm font-semibold leading-5'}>Custom Seeds</legend>
         {compact ? (
           <Collapsible defaultOpen={customSeedsDefaultOpen}>
             <CollapsibleTrigger
               className={cn(
-                'flex w-full items-center justify-between rounded-md border border-border-default bg-background-default px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-element-bg-hover',
+                'group -mx-2 flex h-8 items-center gap-1.5 rounded px-2 text-left text-sm font-semibold transition-colors hover:bg-background-hover',
                 focusClassName,
               )}
             >
-              <span>Customize Colors</span>
-              <ChevronRight className="h-4 w-4 text-text-subtle transition-transform duration-150 ease-out group-data-[panel-open]:rotate-90 motion-reduce:transition-none" />
+              <ChevronRight className="h-4 w-4 text-icon-default transition-transform duration-150 ease-out group-data-[panel-open]:rotate-90 motion-reduce:transition-none" />
+              <span>Customize colors</span>
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="grid grid-cols-1 gap-3 pt-2">
@@ -261,72 +272,92 @@ function ThemeSeedFields({
   });
 }
 
+type FontSizeStepperProps = {
+  label: string;
+  value: string;
+  min: number;
+  max: number;
+  error: string | null;
+  onChange: (value: string) => void;
+};
+
+/**
+ * One face and its size on one row. The size needs no label of its own beside the font it sizes,
+ * so it is a compact stepper named for assistive tech only, and nothing can wrap out of line.
+ */
 function ThemeFontField({
   error,
   label,
   onChange,
   value,
+  size,
 }: {
   error: string | null;
   label: string;
   onChange: (value: string) => void;
   value: string;
+  size: FontSizeStepperProps;
 }) {
   const fieldId = `theme-font-${label.toLowerCase().replace(/\W+/g, '-')}`;
   const errorId = `${fieldId}-error`;
+  const sizeErrorId = `${fieldId}-size-error`;
 
   return (
-    <Field invalid={Boolean(error)}>
+    <Field invalid={Boolean(error || size.error)}>
       <FieldLabel htmlFor={fieldId}>{label}</FieldLabel>
-      <Input
-        id={fieldId}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-9 bg-background-default px-2 text-text-default"
-        placeholder={label === 'UI font' ? 'Inter, system-ui, sans-serif' : '"Source Code Pro", ui-monospace, monospace'}
-        autoComplete="off"
-        spellCheck={false}
-        aria-describedby={error ? errorId : undefined}
-      />
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <FontStackPicker
+            id={fieldId}
+            value={value}
+            defaultStack={label === 'UI font' ? DEFAULT_UI_FONT_STACK : DEFAULT_EDITOR_FONT_STACK}
+            invalid={Boolean(error)}
+            describedBy={error ? errorId : undefined}
+            onChange={onChange}
+          />
+        </div>
+        <FontSizeStepper {...size} errorId={size.error ? sizeErrorId : undefined} />
+      </div>
       {error ? <FieldError id={errorId} match={Boolean(error)}>{error}</FieldError> : null}
+      {size.error ? <FieldError id={sizeErrorId} match={Boolean(size.error)}>{size.error}</FieldError> : null}
     </Field>
   );
 }
 
-function ThemeFontSizeField({
-  error,
-  label,
-  max,
-  min,
-  onChange,
-  value,
-}: {
-  error: string | null;
-  label: string;
-  max: number;
-  min: number;
-  onChange: (value: string) => void;
-  value: string;
-}) {
-  const fieldId = `theme-font-size-${label.toLowerCase().replace(/\W+/g, '-')}`;
-  const errorId = `${fieldId}-error`;
+function FontSizeStepper({ label, value, min, max, error, errorId, onChange }: FontSizeStepperProps & { errorId?: string }) {
+  const parsed = Number(value);
+  const step = (delta: number) => {
+    const base = Number.isInteger(parsed) ? parsed : delta > 0 ? min : max;
+    onChange(String(Math.min(max, Math.max(min, base + delta))));
+  };
 
   return (
-    <Field invalid={Boolean(error)}>
-      <FieldLabel htmlFor={fieldId}>{label}</FieldLabel>
-      <Input
-        id={fieldId}
+    <div
+      className={cn(
+        'flex h-8.5 shrink-0 items-center rounded border bg-transparent text-sm text-text-default',
+        error ? 'border-destructive-default' : 'border-border-default',
+      )}
+    >
+      <Button type="button" variant="ghost" size="icon" className="h-full w-7 rounded-r-none" aria-label={`Decrease ${label.toLowerCase()}`} disabled={Number.isInteger(parsed) && parsed <= min} onClick={() => step(-1)}>
+        <Minus aria-hidden="true" className="size-3.5" />
+      </Button>
+      <input
         type="number"
+        inputMode="numeric"
+        aria-label={label}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={errorId}
         value={value}
         min={min}
         max={max}
         step={1}
         onChange={(event) => onChange(event.target.value)}
-        className="h-9 bg-background-default px-2 tabular-nums text-text-default"
+        className="no-spinner h-full w-9 bg-transparent text-center tabular-nums outline-none focus-visible:bg-background-hover"
         autoComplete="off"
-        aria-describedby={error ? errorId : undefined}
       />
-      {error ? <FieldError id={errorId} match={Boolean(error)}>{error}</FieldError> : null}
-    </Field>
+      <Button type="button" variant="ghost" size="icon" className="h-full w-7 rounded-l-none" aria-label={`Increase ${label.toLowerCase()}`} disabled={Number.isInteger(parsed) && parsed >= max} onClick={() => step(1)}>
+        <Plus aria-hidden="true" className="size-3.5" />
+      </Button>
+    </div>
   );
 }

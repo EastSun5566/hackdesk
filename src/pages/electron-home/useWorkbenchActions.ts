@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { confirmDialog } from '@/components/ConfirmDialogHost';
 import { toast } from '@/components/ui/toast';
 
 import type {
@@ -16,6 +17,7 @@ import type { EditorMode } from '@/lib/settings';
 
 import { scrollFocusedRegion } from './workbench-keyboard-context';
 
+import { readNewTabOpens } from './new-tab-preference';
 import { isDraftNoteTab, type NoteWorkspaceState } from './note-workspace';
 import type { WorkspaceScope } from './types';
 import type { PaneDirection } from './pane-layout';
@@ -53,6 +55,7 @@ export type WorkbenchActionHandlers = {
   deleteSelectedFolder: () => void;
   deleteSelectedNote: () => void;
   duplicateActiveTab: () => void;
+  openBlankTab: () => void;
   exportDebugLogs: () => void;
   exportSelectedMarkdown: () => void;
   attachImage: () => void;
@@ -298,8 +301,14 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       if (canStartDraft) {
         handlers.createNote();
       } else if (hasActiveTab) {
-        handlers.duplicateActiveTab();
+        if (readNewTabOpens() === 'empty') {
+          handlers.openBlankTab();
+        } else {
+          handlers.duplicateActiveTab();
+        }
         handlers.focusEditor();
+      } else if (readNewTabOpens() === 'empty') {
+        handlers.openBlankTab();
       } else {
         handlers.openPalette();
       }
@@ -523,7 +532,7 @@ export function exportDebugLogs(api: HackDeskElectronAPI | undefined) {
 export function clearOfflineCopies(api: HackDeskElectronAPI | undefined) {
   const noteIndex = api?.noteIndex;
   if (!api || !noteIndex) return;
-  void api.app.confirm({
+  void confirmDialog({
     title: 'Clear Offline Copies',
     message: 'Clear the HackMD notes kept on this computer?',
     detail: 'They are no longer readable offline or searchable by text until you open them again. Local Vault notes and unsaved edits are not affected.',

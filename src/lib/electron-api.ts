@@ -531,7 +531,7 @@ export type HackDeskElectronAPI = {
     updateTeamNote: (teamPath: string, noteId: string, input: UpdateNoteInput) => Promise<DocumentSummary>;
     deleteNote: (noteId: string) => Promise<void>;
     restoreNote: (noteId: string) => Promise<void>;
-    listTrash: (options?: HackmdRequestOptions) => Promise<TrashedNoteSummary[]>;
+    listTrash: (teamPath: string | null, options?: HackmdRequestOptions) => Promise<TrashedNoteSummary[]>;
     restoreNotes: (noteIds: string[]) => Promise<RestoreTrashResult>;
     listNoteComments: (noteId: string, query: NoteCommentsQuery, options?: HackmdRequestOptions) => Promise<NoteCommentPage>;
     setNoteCommentResolved: (noteId: string, commentId: string, resolved: boolean) => Promise<NoteCommentResolutionResult>;
@@ -618,6 +618,8 @@ export type HackDeskElectronAPI = {
     onCloseRequest: (callback: (request: HackDeskCloseRequest) => void) => () => void;
     confirmClose: () => Promise<void>;
     cancelClose: () => Promise<void>;
+    /** The window is asking the user about unsaved changes, so the close request is not stuck. */
+    holdClose?: () => Promise<void>;
     checkForUpdates: () => Promise<CheckForUpdatesResult>;
     setThemeSurface?: (input: ThemeSurfaceInput) => Promise<void>;
     setMenuShortcutsIgnored?: (ignore: boolean) => Promise<void>;

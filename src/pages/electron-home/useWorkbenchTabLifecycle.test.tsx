@@ -1,5 +1,11 @@
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const confirmDialogMock = vi.hoisted(() => vi.fn());
+
+vi.mock('@/components/ConfirmDialogHost', () => ({
+  confirmDialog: confirmDialogMock,
+}));
 
 import type { HackDeskElectronAPI, NoteSummary } from '@/lib/electron-api';
 import type { FolderTreeNote } from '@/lib/hackmd-folders';
@@ -46,12 +52,12 @@ function createNote(overrides: Partial<NoteSummary> = {}): NoteSummary {
   };
 }
 
-function createApi(confirmed: boolean) {
-  return {
-    app: {
-      confirm: vi.fn(async () => ({ confirmed })),
-    },
-  } as unknown as HackDeskElectronAPI;
+function createApi() {
+  return {} as unknown as HackDeskElectronAPI;
+}
+
+function mockConfirm(confirmed: boolean) {
+  confirmDialogMock.mockResolvedValue({ confirmed });
 }
 
 function createVisibleEntry(note = createNote()): FolderTreeNote {
@@ -73,7 +79,7 @@ function createOptions(overrides: Partial<WorkbenchTabLifecycleOptions> = {}): W
 
   return {
     activePaneId: pane.paneId,
-    api: createApi(true),
+    api: createApi(),
     autoSelectSuppressionRef: { current: null },
     closeOtherTabs: vi.fn(),
     closeTab: vi.fn(),
@@ -96,6 +102,11 @@ function createOptions(overrides: Partial<WorkbenchTabLifecycleOptions> = {}): W
 }
 
 describe('useWorkbenchTabLifecycle', () => {
+  beforeEach(() => {
+    confirmDialogMock.mockReset();
+    mockConfirm(true);
+  });
+
   it('closes a clean tab without confirmation', async () => {
     const options = createOptions();
     const { result } = renderHook(() => useWorkbenchTabLifecycle(options));
@@ -104,13 +115,13 @@ describe('useWorkbenchTabLifecycle', () => {
       expect(await result.current.requestCloseTab('tab-1')).toBe(true);
     });
 
-    expect(options.api?.app.confirm).not.toHaveBeenCalled();
+    expect(confirmDialogMock).not.toHaveBeenCalled();
     expect(options.closeTab).toHaveBeenCalledWith('tab-1');
   });
 
   it('keeps a dirty tab open when close confirmation is canceled', async () => {
+    mockConfirm(false);
     const options = createOptions({
-      api: createApi(false),
       isTabDirty: vi.fn((tab: OpenNoteTab) => tab.tabId === 'tab-1'),
     });
     const { result } = renderHook(() => useWorkbenchTabLifecycle(options));
@@ -119,7 +130,7 @@ describe('useWorkbenchTabLifecycle', () => {
       expect(await result.current.requestCloseTab('tab-1')).toBe(false);
     });
 
-    expect(options.api?.app.confirm).toHaveBeenCalledOnce();
+    expect(confirmDialogMock).toHaveBeenCalledOnce();
     expect(options.closeTab).not.toHaveBeenCalled();
   });
 
@@ -133,13 +144,13 @@ describe('useWorkbenchTabLifecycle', () => {
       expect(await result.current.requestCloseTab('tab-1')).toBe(true);
     });
 
-    expect(options.api?.app.confirm).toHaveBeenCalledOnce();
+    expect(confirmDialogMock).toHaveBeenCalledOnce();
     expect(options.closeTab).toHaveBeenCalledWith('tab-1');
   });
 
   it('includes save failed inactive tabs in close confirmation', async () => {
+    mockConfirm(false);
     const options = createOptions({
-      api: createApi(false),
       getTabSyncState: vi.fn((tab: OpenNoteTab): DocumentSyncState => (tab.tabId === 'tab-2' ? 'save_failed' : 'saved')),
     });
     const { result } = renderHook(() => useWorkbenchTabLifecycle(options));
@@ -148,26 +159,26 @@ describe('useWorkbenchTabLifecycle', () => {
       expect(await result.current.confirmCloseUnsafeTabs(Object.values(options.tabs), 'Close HackDesk', 'Close')).toBe(false);
     });
 
-    expect(options.api?.app.confirm).toHaveBeenCalledOnce();
-    expect(options.api?.app.confirm).toHaveBeenCalledWith(expect.objectContaining({
+    expect(confirmDialogMock).toHaveBeenCalledOnce();
+    expect(confirmDialogMock).toHaveBeenCalledWith(expect.objectContaining({
       detail: '1 note has a failed save. Closing will discard drafts that have not been saved.',
     }));
     expect(options.closeTab).not.toHaveBeenCalled();
   });
 
   it('explains retained drafts for window close while tab close still discards', async () => {
-    const options = createOptions({ api: createApi(true), isTabDirty: () => true });
+    const options = createOptions({ isTabDirty: () => true });
     const { result } = renderHook(() => useWorkbenchTabLifecycle(options));
     await act(async () => {
       await result.current.confirmCloseUnsafeTabs(Object.values(options.tabs), 'Close HackDesk', 'Close', 'retain');
     });
-    expect(options.api?.app.confirm).toHaveBeenLastCalledWith(expect.objectContaining({
+    expect(confirmDialogMock).toHaveBeenLastCalledWith(expect.objectContaining({
       message: 'Close HackDesk with unsaved changes?',
       detail: expect.stringContaining('Closing keeps your unsaved changes as drafts.'),
       destructive: false,
     }));
     await act(async () => { await result.current.requestCloseTab('tab-1'); });
-    expect(options.api?.app.confirm).toHaveBeenLastCalledWith(expect.objectContaining({
+    expect(confirmDialogMock).toHaveBeenLastCalledWith(expect.objectContaining({
       detail: expect.stringContaining('Closing will discard drafts'),
       destructive: true,
     }));
@@ -184,7 +195,7 @@ describe('useWorkbenchTabLifecycle', () => {
       await result.current.requestCloseTabsToRight('pane-1', 'tab-1');
     });
 
-    expect(options.api?.app.confirm).toHaveBeenCalledTimes(2);
+    expect(confirmDialogMock).toHaveBeenCalledTimes(2);
     expect(options.closeOtherTabs).toHaveBeenCalledWith('pane-1', 'tab-1');
     expect(options.closeTabsToRight).toHaveBeenCalledWith('pane-1', 'tab-1');
   });

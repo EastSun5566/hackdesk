@@ -5,7 +5,7 @@ import type { HackDeskElectronAPI } from '@/lib/electron-api';
 
 import { getScopeStorageKey } from './repository';
 import type { WorkspaceScope } from './types';
-import { FOLDER_COLLAPSED_PREFIX, readStringArrayStorage } from './ui-preferences';
+import { FOLDER_EXPANDED_PREFIX, readStringArrayStorage } from './ui-preferences';
 import { getQuickCaptureDraftError, useElectronHomeShellEffects } from './useElectronHomeShellEffects';
 
 function createApiMock() {
@@ -39,18 +39,18 @@ describe('useElectronHomeShellEffects', () => {
     window.localStorage.clear();
   });
 
-  it('persists collapsed folder ids by scope', () => {
+  it('persists expanded folder ids by scope', () => {
     const scope: WorkspaceScope = { type: 'team', label: 'Design', teamPath: 'design' };
     const scopeStorageKey = getScopeStorageKey(scope);
 
     renderHook(() => useElectronHomeShellEffects({
-      collapsedFolderIds: new Set(['folder-a']),
+      expandedFolderIds: new Set(['folder-a']),
       openQuickCaptureDraft: vi.fn(() => ({ accepted: true as const })),
       runAction: vi.fn(),
       scopeStorageKey,
     }));
 
-    expect(readStringArrayStorage(`${FOLDER_COLLAPSED_PREFIX}${scopeStorageKey}`)).toEqual(new Set(['folder-a']));
+    expect(readStringArrayStorage(`${FOLDER_EXPANDED_PREFIX}${scopeStorageKey}`)).toEqual(new Set(['folder-a']));
   });
 
   it('subscribes native Electron commands to action dispatch and cleans up', () => {
@@ -58,7 +58,7 @@ describe('useElectronHomeShellEffects', () => {
     const runAction = vi.fn();
     const { unmount } = renderHook(() => useElectronHomeShellEffects({
       api,
-      collapsedFolderIds: new Set(),
+      expandedFolderIds: new Set(),
       openQuickCaptureDraft: vi.fn(() => ({ accepted: true as const })),
       runAction,
       scopeStorageKey: 'personal',
@@ -85,7 +85,7 @@ describe('useElectronHomeShellEffects', () => {
     const runAction = vi.fn();
     renderHook(() => useElectronHomeShellEffects({
       api,
-      collapsedFolderIds: new Set(),
+      expandedFolderIds: new Set(),
       openQuickCaptureDraft,
       runAction,
       scopeStorageKey: 'personal',
@@ -108,7 +108,7 @@ describe('useElectronHomeShellEffects', () => {
     const openQuickCaptureDraft = vi.fn(() => ({ accepted: true as const }));
     renderHook(() => useElectronHomeShellEffects({
       api,
-      collapsedFolderIds: new Set(),
+      expandedFolderIds: new Set(),
       openQuickCaptureDraft,
       runAction: vi.fn(),
       scopeStorageKey: 'personal',

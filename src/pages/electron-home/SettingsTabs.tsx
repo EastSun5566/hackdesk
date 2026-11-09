@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
+import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/field';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
@@ -28,8 +29,12 @@ export function SettingsTabs({ dialogRef, onNavigate }: {
   }, [search.active, search.results]);
 
   return (
-    <aside aria-label="Settings sidebar" className="flex min-h-0 w-48 shrink-0 self-stretch flex-col gap-3 bg-background-muted/40 p-3">
-      <Input
+    <aside aria-label="Settings sidebar" className="flex min-h-0 w-56 shrink-0 self-stretch flex-col gap-3 p-3">
+      {/* Box edges sit at 12px; glyphs (search icon, tab icons, the dialog title) share the 20px line. */}
+      <div className="relative">
+        <Search aria-hidden="true" className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-icon-default" />
+        <Input
+        className="pl-8"
         autoFocus
         aria-label="Search settings"
         placeholder="Search settings"
@@ -59,7 +64,8 @@ export function SettingsTabs({ dialogRef, onNavigate }: {
             setSearch({ query: '', results: [], active: 0 });
           }
         }}
-      />
+        />
+      </div>
       {showingResults ? (
         <div ref={resultsRef} className="min-h-0 flex-1 overflow-y-auto">
           {search.results.length ? (
@@ -75,8 +81,10 @@ export function SettingsTabs({ dialogRef, onNavigate }: {
                   onPointerDown={event => event.preventDefault()}
                   onClick={() => choose(result)}
                   className={cn(
-                    'flex min-w-0 cursor-default flex-col items-start rounded-md px-3 py-1.5 text-sm text-text-default',
-                    index === search.active ? 'bg-background-selected' : 'hover:bg-element-bg-hover',
+                    'flex min-w-0 cursor-default flex-col items-start rounded px-2 py-1.5 text-sm leading-5 text-text-default',
+                    // The highlighted result is a keyboard cursor, so it uses the menu highlight, as in the palette.
+                    index === search.active ? 'bg-element-bg-hover text-text-emphasize' : 'hover:bg-background-hover',
+                    FOCUS_RING_CLASS,
                   )}
                 >
                   <span className="max-w-full truncate">{result.label}</span>
@@ -96,11 +104,7 @@ export function SettingsTabs({ dialogRef, onNavigate }: {
             <TabsTrigger
               key={tab.id}
               value={tab.id}
-              className={cn(
-                'inline-flex min-h-10 h-auto w-full min-w-0 shrink-0 items-center justify-start gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-element-bg-hover',
-                FOCUS_RING_CLASS,
-                'text-text-subtle data-[active]:bg-background-default data-[active]:text-text-default data-[active]:shadow-sm',
-              )}
+              className="h-auto w-full min-w-0 shrink-0 justify-start whitespace-normal px-2 text-left"
             >
               <span aria-hidden="true">{tab.icon}</span>
               <span className="min-w-0 whitespace-normal text-left leading-snug">{tab.label}</span>

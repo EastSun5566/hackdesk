@@ -66,7 +66,7 @@ export function RenameFolderDialog({
       open={state.open}
       onOpenChange={handleOpenChange}
     >
-      <DialogContent className="max-w-md">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>Edit Folder</DialogTitle>
           <DialogDescription id={EDIT_FOLDER_FORM_DESCRIPTION_ID} className="sr-only">

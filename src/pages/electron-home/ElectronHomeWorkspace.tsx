@@ -11,7 +11,7 @@ import { PanelResizeSash } from './PanelResizeSash';
 import { NAVIGATOR_WIDTH_DEFAULT, NAVIGATOR_WIDTH_MAX, NAVIGATOR_WIDTH_MIN } from './ui-preferences';
 import { WorkspaceBackupNotice, type WorkspaceBackupNoticeProps } from './WorkspaceBackupNotice';
 
-const NOTE_NAVIGATOR_PANEL_ID = 'note-navigator-panel';
+export const NOTE_NAVIGATOR_PANEL_ID = 'note-navigator-panel';
 
 type AppTopBarProps = ComponentProps<typeof AppTopBar>;
 type FolderNavigatorProps = ComponentProps<typeof FolderNavigator>;
@@ -48,6 +48,7 @@ export type ElectronHomeWorkspaceProps = {
       togglePaneZoom: () => void;
       equalizePanes: () => void;
       toggleNavigator: () => void;
+      onNewTab: () => void;
     };
   };
 };
@@ -116,6 +117,7 @@ export function ElectronHomeWorkspace({
         navigatorPanelId={NOTE_NAVIGATOR_PANEL_ID}
         tabs={activeTitlebarTabs}
         onToggleNavigator={titlebar.actions.toggleNavigator}
+        onNewTab={titlebar.actions.onNewTab}
       />
 
       {backupNotice ? <WorkspaceBackupNotice {...backupNotice} /> : null}
@@ -134,6 +136,9 @@ export function ElectronHomeWorkspace({
           defaultValue={NAVIGATOR_WIDTH_DEFAULT}
           disabled={navigatorResize.disabled}
           onChange={navigatorResize.onChange}
+          previewTargetId={NOTE_NAVIGATOR_PANEL_ID}
+          edge
+          previewProperties={['--panel-width', '--sidebar-content-width']}
         />
 
         <DocumentWorkspace {...documentWorkspace} />

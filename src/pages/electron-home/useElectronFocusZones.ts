@@ -54,7 +54,9 @@ export function useElectronFocusZones() {
       const candidates = Array.from(region.querySelectorAll<HTMLElement>(
         '[data-hackdesk-focus-target="true"], [role="treeitem"][tabindex="0"], [role="tab"][tabindex="0"], button, input, textarea, select, [tabindex]:not([tabindex="-1"])',
       )).filter(ownsTarget);
-      const focusTarget = candidates.find(candidate => candidate.matches('[role="treeitem"][tabindex="0"], [role="tab"][tabindex="0"]'))
+      const rovingTreeOrTab = candidates.filter((candidate) => candidate.matches('[role="treeitem"][tabindex="0"], [role="tab"][tabindex="0"]'));
+      const focusTarget = rovingTreeOrTab.find((candidate) => candidate.getAttribute('aria-selected') === 'true')
+        ?? rovingTreeOrTab[0]
         ?? candidates.find(candidate => candidate.dataset.hackdeskFocusTarget === 'true');
       if (!focusTarget && waitForEditor && attempts < 8) {
         attempts += 1;

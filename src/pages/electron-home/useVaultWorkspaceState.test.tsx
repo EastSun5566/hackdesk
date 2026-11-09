@@ -12,7 +12,7 @@ function useFixture(vaultId: string | null) {
   const workspace = useWorkbenchWorkspaceState({ initialWorkspaceScope: { type: 'local', label: 'Local Vault' }, localVaultId: vaultId, manualEmptyWorkspaceRef: { current: false } });
   const tabs = useNoteWorkspaceTabs(workspace.scopeStorageKey);
   const finder = useWorkbenchFinder({ initialScopeStorageKey: workspace.initialScopeStorageKey, scopeStorageKey: workspace.scopeStorageKey, selectedFolderId: workspace.selectedFolderId, setNavigatorCollapsed: () => {} });
-  useElectronHomeShellEffects({ collapsedFolderIds: workspace.collapsedFolderIds, scopeStorageKey: workspace.scopeStorageKey, openQuickCaptureDraft: () => ({ accepted: true }), runAction: () => {} });
+  useElectronHomeShellEffects({ expandedFolderIds: workspace.expandedFolderIds, scopeStorageKey: workspace.scopeStorageKey, openQuickCaptureDraft: () => ({ accepted: true }), runAction: () => {} });
   return { workspace, tabs, finder };
 }
 
@@ -66,7 +66,7 @@ describe('vault workspace isolation', () => {
       result.current.tabs.splitActiveTab();
       result.current.tabs.updateDraft(tabId, { title: 'A', content: 'Last input, before debounce' });
       result.current.finder.setFinderState({ ...DEFAULT_NOTE_FINDER_STATE, query: 'A search' });
-      result.current.workspace.setCollapsedFolderIds(new Set(['A folder']));
+      result.current.workspace.setExpandedFolderIds(new Set(['A folder']));
       result.current.workspace.setSelectedFolderId('A selection');
     });
     const stateA = result.current.tabs.state;
@@ -75,13 +75,13 @@ describe('vault workspace isolation', () => {
     expect(result.current.tabs.state.tabs).toEqual({});
     expect(result.current.finder.activeFinderState.query).toBe('');
     expect(result.current.workspace.selectedFolderId).toBeNull();
-    expect(result.current.workspace.collapsedFolderIds.size).toBe(0);
+    expect(result.current.workspace.expandedFolderIds.size).toBe(0);
     expect(readNoteWorkspaceLayoutStorage(localStorage, 'local:A').drafts[tabId].content).toBe('Last input, before debounce');
     act(() => { result.current.tabs.openRecoverableDraftNote({ content: 'Draft B' }); });
     rerender('A');
     expect(result.current.tabs.state).toEqual(stateA);
     expect(result.current.finder.activeFinderState.query).toBe('A search');
-    expect(result.current.workspace.collapsedFolderIds).toEqual(new Set(['A folder']));
+    expect(result.current.workspace.expandedFolderIds).toEqual(new Set(['A folder']));
     expect(result.current.workspace.selectedFolderId).toBeNull();
     unmount();
     const restarted = renderHook(useFixture, { initialProps: 'A' as string | null });

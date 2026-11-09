@@ -106,12 +106,11 @@ test('a remote image upload finishes in its original tab after switching, and is
     await page.keyboard.press('End');
     await pasteImage(page, 'second.png');
     await expect(editor).toContainText('Uploading image');
-    // Closing a dirty tab asks for confirmation through a native dialog; accept it.
-    await app.evaluate(({ ipcMain }, channel) => {
-      ipcMain.removeHandler(channel);
-      ipcMain.handle(channel, () => ({ confirmed: true }));
-    }, ELECTRON_CHANNELS.appConfirm);
+    // Closing a dirty tab asks for confirmation in the in-app dialog.
     await page.getByRole('button', { name: 'Close Alpha', exact: true }).click();
+    const closeDialog = page.getByRole('alertdialog');
+    await expect(closeDialog.getByRole('button', { name: 'Close Tab' })).toBeVisible();
+    await closeDialog.getByRole('button', { name: 'Close Tab' }).click();
     await expect(page.getByRole('tab', { name: /^Alpha(?:, .+)?$/ })).toHaveCount(0);
     await page.getByRole('tab', { name: /^Beta(?:, .+)?$/ }).click();
     await releaseUpload(app, 'second.png');

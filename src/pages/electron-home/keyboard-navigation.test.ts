@@ -18,6 +18,19 @@ describe('navigation codes', () => {
     expect(next.get('c')).toBe(first.get('c'));
     expect(next.get('new')).not.toBe(next.get('b'));
   });
+  it('starts over when last time\'s codes would leave the new targets none', () => {
+    // Five letters give 25 two-letter codes. If last time used all 25, every longer code starts
+    // with one of them, so two new targets fit only once the old codes are let go.
+    const letters = 'dglui';
+    const old = Array.from({ length: 25 }, (_, index) => `t${index}`);
+    const previous = allocateNavigationCodes(old, letters, new Map())!;
+    expect(previous.size).toBe(25);
+    const next = allocateNavigationCodes([...old, 'new-a', 'new-b'], letters, previous);
+    expect(next).not.toBeNull();
+    const codes = Array.from(next!.values());
+    expect(new Set(codes).size).toBe(27);
+    expect(codes.every((code, index) => codes.every((other, j) => j === index || !other.startsWith(code)))).toBe(true);
+  });
   it('uses three or four letters when needed without changing surviving two-letter codes', () => {
     const prior = new Map([['a','ii']]);
     const result = allocateNavigationCodes(['a',...Array.from({length:5},(_,i)=>String(i))], 'ij', prior)!;

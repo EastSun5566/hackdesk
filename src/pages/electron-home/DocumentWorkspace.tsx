@@ -1,5 +1,5 @@
 import type { EditorRequest } from './useWorkbenchEditorRequests';
-import { FileText } from 'lucide-react';
+import { FileText, Plus, Search } from 'lucide-react';
 import { Fragment, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Group, Panel, Separator, type GroupImperativeHandle, type GroupProps } from 'react-resizable-panels';
@@ -10,13 +10,15 @@ import type {
   PresentationDeck,
   UpdateNoteInput,
 } from '@/lib/electron-api';
+import type { ElectronRecentNote } from '@/lib/electron-recent-notes';
 import type { FolderTree } from '@/lib/hackmd-folders';
 import type { EditorMode } from '@/lib/settings';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 import { DocumentDetail, type DocumentSyncState } from './DocumentDetail';
-import type { NotePane, OpenNoteTab } from './note-workspace';
+import { getSavedTabNoteIdentity, isDraftNoteTab, isBlankNoteTab, type NotePane, type OpenNoteTab } from './note-workspace';
+import { ActionMenuShortcut } from './ActionShortcutContext';
 import { EmptyState } from './interaction-primitives';
 import { layoutNodeId, layoutPaneIds, type PaneLayoutNode } from './pane-layout';
 import { CARD_SURFACE_CLASS, GAP_SASH_CLASS, GAP_SASH_ROW_CLASS } from './ui';
@@ -64,6 +66,69 @@ type PaneHost = {
   scroll: Array<{ element: HTMLElement; top: number; left: number }>;
 };
 
+function BlankTabPage({
+  canCreateNote,
+  onCreateNote,
+  onQuickOpen,
+  onOpenNoteTarget,
+  recentNotes,
+}: {
+  canCreateNote: boolean;
+  onCreateNote: () => void;
+  onQuickOpen: () => void;
+  onOpenNoteTarget?: (note: ElectronRecentNote) => void;
+  recentNotes: ElectronRecentNote[];
+}) {
+  const recent = onOpenNoteTarget ? recentNotes.slice(0, 8) : [];
+  // Like a browser's new-tab page: find something first, make something second, and the notes
+  // you were just in below. Set high rather than centred, so the list grows downward.
+  return (
+    <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6 pb-6 pt-24">
+      <div className="flex w-full max-w-sm flex-col gap-3">
+        <button
+          type="button"
+          onClick={onQuickOpen}
+          className="flex h-9 w-full items-center gap-2 rounded border border-border-default bg-background-default px-3 text-left text-sm text-text-subtle transition-colors hover:border-element-border-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+        >
+          <Search aria-hidden="true" className="size-4 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">Search notes</span>
+          <ActionMenuShortcut actionId="open-quick-open" />
+        </button>
+        {canCreateNote ? (
+          <button
+            type="button"
+            onClick={onCreateNote}
+            className="flex h-8 items-center gap-2 rounded px-3 text-sm text-text-default transition-colors hover:bg-background-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          >
+            <Plus aria-hidden="true" className="size-4 shrink-0 text-icon-default" />
+            <span className="min-w-0 flex-1 truncate text-left">New Note</span>
+            <ActionMenuShortcut actionId="new-note" />
+          </button>
+        ) : null}
+        {recent.length > 0 ? (
+          <nav aria-label="Recently opened notes" className="flex flex-col gap-1 pt-3">
+            <h2 className="px-3 text-xs font-medium text-text-subtle">Recently opened</h2>
+            <ul className="m-0 flex list-none flex-col p-0">
+              {recent.map((note) => (
+                <li key={`${note.teamPath ?? 'personal'}:${note.noteId}`}>
+                  <button
+                    type="button"
+                    onClick={() => onOpenNoteTarget?.(note)}
+                    className="flex h-8 w-full items-center gap-2 rounded px-3 text-left text-sm text-text-default transition-colors hover:bg-background-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  >
+                    <FileText aria-hidden="true" className="size-3.5 shrink-0 text-icon-default" />
+                    <span className="min-w-0 flex-1 truncate">{note.title || 'Untitled'}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function PaneOutlet({ host }: { host: PaneHost }) {
   const workspace = useRef<HTMLElement | null>(null);
   const attach = useCallback((slot: HTMLDivElement | null) => {
@@ -90,8 +155,9 @@ function PaneOutlet({ host }: { host: PaneHost }) {
 export type DocumentPaneView = {
   pane: NotePane;
   activeTab: OpenNoteTab | null;
-  selectedNote: Pick<NoteSummary, 'title'> | null;
+  selectedNote: Pick<NoteSummary, 'title'> & Partial<Pick<NoteSummary, 'id'>> | null;
   document?: DocumentSummary;
+  isBlank: boolean;
   isDraft: boolean;
   title: string;
   content: string;
@@ -163,6 +229,7 @@ export function DocumentWorkspace({
   canCreateNote,
   onCreateNote,
   onQuickOpen,
+  recentNotes = [],
 }: {
   panes: NotePane[];
   /** How the panes are arranged; see pane-layout. */
@@ -198,7 +265,7 @@ export function DocumentWorkspace({
   onReadComparison?: (document: DocumentSummary, signal: AbortSignal) => Promise<{ title: string; content: string }>;
   onReloadFromDisk: (document: DocumentSummary) => void;
   onReloadFromHackmd: (document: DocumentSummary) => void;
-  onSave: (tab: OpenNoteTab, input: UpdateNoteInput) => void;
+  onSave: (tab: OpenNoteTab, input: UpdateNoteInput, options?: { successMessage?: string }) => void;
   onSaveAsCopy: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveSharing: (document: DocumentSummary, input: UpdateNoteInput) => void;
@@ -217,6 +284,7 @@ export function DocumentWorkspace({
   canCreateNote: boolean;
   onCreateNote: () => void;
   onQuickOpen: () => void;
+  recentNotes?: ElectronRecentNote[];
 }) {
   const [paneHosts] = useState(() => new Map<string, PaneHost>());
   const isEmpty = panes.every(pane => pane.tabIds.length === 0);
@@ -264,7 +332,10 @@ export function DocumentWorkspace({
     const isActivePane = pane.paneId === activePaneId;
     const requests = isActivePane ? editorRequests.filter(request => request.scopeKey === scopeKey
       && request.paneId === pane.paneId && request.tabId === view.activeTab?.tabId
-      && request.documentId === (view.activeTab && ('noteId' in view.activeTab ? view.activeTab.noteId : view.activeTab.draftId))) : [];
+      && request.documentId === (view.activeTab && (
+        getSavedTabNoteIdentity(view.activeTab)?.id
+        ?? (isDraftNoteTab(view.activeTab) ? view.activeTab.draftId : isBlankNoteTab(view.activeTab) ? view.activeTab.tabId : view.activeTab.noteId)
+      ))) : [];
     const requestId = (kind: EditorRequest['kind']) => requests.find(request => request.kind === kind)?.id ?? 0;
 
     return (
@@ -285,7 +356,15 @@ export function DocumentWorkspace({
       )}
       onFocusCapture={() => onFocusPane(pane.paneId)}
     >
-      {view.unavailable && view.activeTab && !view.document && !view.isDraft && !view.isLoading ? (
+      {view.isBlank ? (
+        <BlankTabPage
+          canCreateNote={canCreateNote}
+          onCreateNote={onCreateNote}
+          onQuickOpen={onQuickOpen}
+          onOpenNoteTarget={onOpenNoteTarget}
+          recentNotes={recentNotes}
+        />
+      ) : view.unavailable && view.activeTab && !view.document && !view.isDraft && !view.isLoading ? (
         <UnavailableDocumentDetail
           unavailable={view.unavailable}
           title={view.title}
@@ -346,7 +425,7 @@ export function DocumentWorkspace({
             onReloadFromDisk,
             onReloadFromHackmd,
             onOpenAsNewDraft: (title, content) => onOpenAsNewDraft(title, content, pane.paneId),
-            onSave: (input) => view.activeTab && onSave(view.activeTab, input),
+            onSave: (input, options) => view.activeTab && onSave(view.activeTab, input, options),
             onSaveAsCopy,
             onSaveMetadata,
             onSaveSharing,

@@ -169,7 +169,7 @@ export function QuickCapture() {
             aria-describedby={error ? 'quick-capture-error' : undefined}
             value={content}
             placeholder="Write a note…"
-            className="h-auto min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-5 py-4 text-base leading-7 text-text-default caret-primary-default shadow-none outline-none transition-none placeholder:text-text-subtle focus:border-transparent focus-visible:ring-0 data-[invalid]:border-0 data-[invalid]:focus:border-transparent data-[invalid]:focus-visible:ring-0"
+            className="h-auto min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent px-5 py-4 text-sm leading-6 text-text-default caret-primary-default shadow-none outline-none transition-none placeholder:text-text-subtle focus:border-transparent focus-visible:ring-0 data-[invalid]:border-0 data-[invalid]:focus:border-transparent data-[invalid]:focus-visible:ring-0"
             disabled={submitting}
             onChange={(event) => {
               const nextContent = event.currentTarget.value;
@@ -203,14 +203,13 @@ export function QuickCapture() {
             </span>
           ) : null}
           <Button
-            className="h-7 gap-1.5 px-2 text-xs text-text-subtle hover:text-text-default"
-            size="sm"
+            size="xs"
             variant="ghost"
             type="submit"
             disabled={submitting}
           >
             Capture
-            <kbd aria-hidden="true" className="font-sans text-2xs font-normal text-text-subtle">
+            <kbd aria-hidden="true" className="text-2xs font-normal text-text-subtle">
               {isMac ? '⌘↵' : 'Ctrl+Enter'}
             </kbd>
           </Button>

@@ -41,6 +41,7 @@ export type WorkbenchActionHandlersOptions = {
   documentContent: string;
   documentTitle: string;
   duplicateActiveTab: () => void;
+  openBlankTab: () => void;
   exportMarkdown: (note: DocumentSummary, title: string, content: string) => void;
   focusNextPane: () => void;
   focusPaneToward: (direction: PaneDirection) => void;
@@ -119,6 +120,7 @@ export function useWorkbenchActionHandlers({
   documentContent,
   documentTitle,
   duplicateActiveTab,
+  openBlankTab,
   exportMarkdown,
   focusNextPane,
   focusPaneToward,
@@ -209,6 +211,7 @@ export function useWorkbenchActionHandlers({
       }
     },
     duplicateActiveTab,
+    openBlankTab,
     exportDebugLogs: () => exportDebugLogs(api),
     exportSelectedMarkdown: () => {
       if (selectedDocument) {
@@ -380,9 +383,10 @@ export function useWorkbenchActionHandlers({
     deleteNote,
     documentContent,
     documentTitle,
-    duplicateActiveTab,
-    exportMarkdown,
-    focusNextPane,
+  duplicateActiveTab,
+  openBlankTab,
+  exportMarkdown,
+  focusNextPane,
     focusNextTab,
     focusPreviousPane,
     focusPreviousTab,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTheme } from '@/components/theme-provider';
 import {
@@ -104,6 +104,7 @@ function typographyToInputs(typography: ThemeTypography): ThemeTypographyInputs 
     editorFontStack: typography.editorFontStack,
     uiFontSize: String(typography.uiFontSize),
     editorFontSize: String(typography.editorFontSize),
+    fontSmoothing: typography.fontSmoothing,
   };
 }
 
@@ -113,6 +114,7 @@ function getTypographyErrors(typography: ThemeTypographyInputs) {
     editorFontStack: getFontStackError(typography.editorFontStack),
     uiFontSize: getFontSizeError(typography.uiFontSize, MIN_UI_FONT_SIZE, MAX_UI_FONT_SIZE),
     editorFontSize: getFontSizeError(typography.editorFontSize, MIN_EDITOR_FONT_SIZE, MAX_EDITOR_FONT_SIZE),
+    fontSmoothing: null,
   };
 }
 
@@ -136,7 +138,8 @@ function typographyInputsEqual(left: ThemeTypographyInputs, right: ThemeTypograp
   return left.uiFontStack === right.uiFontStack
     && left.editorFontStack === right.editorFontStack
     && left.uiFontSize === right.uiFontSize
-    && left.editorFontSize === right.editorFontSize;
+    && left.editorFontSize === right.editorFontSize
+    && left.fontSmoothing === right.fontSmoothing;
 }
 
 export function useThemeAppearanceDraft({
@@ -180,8 +183,20 @@ export function useThemeAppearanceDraft({
     });
   }, [presetId, savedSeedInputs, savedTypographyInputs, theme]);
 
+  // Typing in a font or colour field previews once the typing pauses: every preview rebuilds the
+  // app-wide theme stylesheet, which made each keystroke there lag. Mode and preset preview at once.
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const previewTimer = useRef<number | undefined>(undefined);
+  const cancelScheduledPreview = () => window.clearTimeout(previewTimer.current);
+  useEffect(() => cancelScheduledPreview, []);
+  const schedulePreview = () => {
+    cancelScheduledPreview();
+    previewTimer.current = window.setTimeout(() => preview({}), 120);
+  };
+
   const preview = (next: Partial<ThemeAppearanceDraft>) => {
-    const nextDraft = { ...draft, ...next };
+    const nextDraft = { ...draftRef.current, ...next };
     const nextTypography = showTypography ? parseTypographyInputs(nextDraft.typography) : typography;
     const nextSeedErrors = getInputErrors(nextDraft.seedInputs);
     if (Object.keys(nextSeedErrors).length > 0 || !nextTypography) {
@@ -209,7 +224,7 @@ export function useThemeAppearanceDraft({
   const changeSeed = (key: keyof ThemeSeed, value: string) => {
     const seedInputs = { ...draft.seedInputs, [key]: value };
     setDraft((current) => ({ ...current, seedInputs }));
-    preview({ seedInputs });
+    schedulePreview();
   };
 
   const changeTypography = (role: keyof ThemeTypographyInputs, value: string) => {
@@ -218,10 +233,13 @@ export function useThemeAppearanceDraft({
       [role]: value,
     };
     setDraft((current) => ({ ...current, typography: nextTypography }));
-    preview({ typography: nextTypography });
+    // A switch flip previews at once; typed values wait for a pause.
+    if (role === 'fontSmoothing') preview({ typography: nextTypography });
+    else schedulePreview();
   };
 
   const apply = () => {
+    cancelScheduledPreview();
     if (hasErrors) {
       return false;
     }
@@ -241,6 +259,7 @@ export function useThemeAppearanceDraft({
   };
 
   const cancel = () => {
+    cancelScheduledPreview();
     cancelPreview();
     setDraft({
       mode: theme,
@@ -251,6 +270,7 @@ export function useThemeAppearanceDraft({
   };
 
   const reset = () => {
+    cancelScheduledPreview();
     const seedInputs = seedToInputs({});
     const nextTypography = showTypography ? defaultThemeTypography : typography;
     setDraft({

@@ -6,7 +6,14 @@ import { defaultSettings, type DictationSettings } from '@/lib/settings';
 
 import { DictationSettingsPanel } from './DictationSettingsPanel';
 
+const confirmDialogMock = vi.hoisted(() => vi.fn());
+
+vi.mock('@/components/ConfirmDialogHost', () => ({
+  confirmDialog: confirmDialogMock,
+}));
+
 function installApi(status: DictationStatus, initial: DictationSettings = defaultSettings.dictation, confirmed = true) {
+  confirmDialogMock.mockResolvedValue({ confirmed });
   let dictation = initial;
   const update = vi.fn(async (input: { dictation: DictationSettings }) => {
     dictation = input.dictation;
@@ -43,7 +50,7 @@ describe('DictationSettingsPanel', () => {
     const { update } = installApi(ready, defaultSettings.dictation, false);
     render(<DictationSettingsPanel active />);
     fireEvent.click(await screen.findByRole('switch', { name: 'Dictate into notes' }));
-    await waitFor(() => expect(window.hackdeskAPI!.app.confirm).toHaveBeenCalled());
+    await waitFor(() => expect(confirmDialogMock).toHaveBeenCalled());
     expect(update).not.toHaveBeenCalled();
   });
 

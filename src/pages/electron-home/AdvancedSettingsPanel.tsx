@@ -17,7 +17,10 @@ import { getHackDeskAPI } from '@/lib/electron-api';
 import { isBetaVersion } from '@/lib/version';
 import { version as packageVersion } from '../../../package.json';
 
+import { Switch } from '@/components/ui/switch';
+
 import { SettingsSection } from './SettingsPrimitives';
+import { setSplitStatusLine, useSplitStatusLine } from './split-status-line-preference';
 
 const RELEASES_URL = 'https://github.com/EastSun5566/hackdesk/releases';
 
@@ -42,6 +45,7 @@ export function AdvancedSettingsPanel({
 }) {
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const splitStatusLine = useSplitStatusLine();
   const resetButtonRef = useRef<HTMLButtonElement>(null);
   const isBeta = isBetaVersion(appVersion);
 
@@ -95,7 +99,7 @@ export function AdvancedSettingsPanel({
   return (
     <div className="space-y-4">
       <SettingsSection title="Version">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-default bg-background-default px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-border-default bg-background-default px-2.5 py-2">
           <div className="flex flex-col gap-0.5">
             <span className="text-sm text-text-subtle">HackDesk v{appVersion}</span>
             {isBeta ? <span className="text-xs text-text-subtle">Unsigned beta · Manual updates</span> : null}
@@ -118,8 +122,18 @@ export function AdvancedSettingsPanel({
         </div>
       </SettingsSection>
 
+      <SettingsSection title="Experimental">
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <div className="min-w-0">
+            <label htmlFor="settings-split-status-line" className="font-semibold leading-5">Split status line</label>
+            <p className="text-xs leading-5 text-text-subtle">Keep sidebar keys under the sidebar and editor status under the editor, instead of swapping the line on focus.</p>
+          </div>
+          <Switch id="settings-split-status-line" checked={splitStatusLine} onCheckedChange={setSplitStatusLine} />
+        </div>
+      </SettingsSection>
+
       <SettingsSection title="Reset">
-        <div className="rounded-md border border-destructive-default/40 bg-background-default p-3">
+        <div className="rounded border border-state-danger-border bg-background-default p-5">
           <Button
             ref={resetButtonRef}
             variant="destructive"

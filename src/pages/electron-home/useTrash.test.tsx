@@ -5,7 +5,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { RestoreTrashResult } from '@/lib/electron-api';
 
-import { useRestoreNotes } from './useTrash';
+import { trashListQueryKey, useRestoreNotes, useTrashList } from './useTrash';
+import type { WorkspaceScope } from './types';
+
+const personalScope: WorkspaceScope = { type: 'personal', label: 'My Workspace' };
 
 const ids = Array.from({ length: 205 }, (_, index) => `note-${index}`);
 
@@ -17,9 +20,38 @@ function renderRestore(restoreNotes: (noteIds: string[]) => Promise<RestoreTrash
   window.hackdeskAPI = { hackmd: { restoreNotes: vi.fn(restoreNotes) } } as unknown as NonNullable<typeof window.hackdeskAPI>;
   const queryClient = new QueryClient();
   const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
-  const { result } = renderHook(useRestoreNotes, { wrapper });
+  const { result } = renderHook(() => useRestoreNotes(personalScope), { wrapper });
   return { result, restoreNotes: window.hackdeskAPI.hackmd.restoreNotes };
 }
+
+describe('useTrashList', () => {
+  afterEach(() => {
+    delete window.hackdeskAPI;
+  });
+
+  it('keeps personal and team trash in separate query keys', () => {
+    window.hackdeskAPI = {
+      hackmd: { listTrash: vi.fn(async () => []) },
+    } as unknown as NonNullable<typeof window.hackdeskAPI>;
+    const queryClient = new QueryClient();
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+
+    const { rerender } = renderHook(
+      ({ teamPath }: { teamPath: string | null }) => useTrashList(true, teamPath),
+      { wrapper, initialProps: { teamPath: null as string | null } },
+    );
+
+    expect(queryClient.getQueryCache().findAll()).toHaveLength(1);
+    expect(queryClient.getQueryCache().findAll()[0]?.queryKey).toEqual(trashListQueryKey(null));
+
+    rerender({ teamPath: 'demo-team' });
+    expect(queryClient.getQueryCache().findAll()).toHaveLength(2);
+    expect(queryClient.getQueryCache().findAll().map((query) => query.queryKey)).toEqual([
+      trashListQueryKey(null),
+      trashListQueryKey('demo-team'),
+    ]);
+  });
+});
 
 describe('useRestoreNotes', () => {
   afterEach(() => {

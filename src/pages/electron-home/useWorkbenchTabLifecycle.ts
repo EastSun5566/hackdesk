@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { confirmDialog } from '@/components/ConfirmDialogHost';
 import type { MutableRefObject } from 'react';
 import { toast } from '@/components/ui/toast';
 
@@ -9,7 +10,7 @@ import type {
 import type { FolderTreeNote } from '@/lib/hackmd-folders';
 
 import type { DocumentSyncState } from './DocumentDetail';
-import type { NotePane, OpenNoteTab } from './note-workspace';
+import { isBlankNoteTab, type NotePane, type OpenNoteTab } from './note-workspace';
 
 export type WorkbenchTabLifecycleOptions = {
   api?: HackDeskElectronAPI;
@@ -54,7 +55,7 @@ export function useWorkbenchTabLifecycle({
 
   const confirmCloseUnsafeTabs = useCallback(async (candidateTabs: OpenNoteTab[], title: string, confirmLabel: string, draftDisposition: 'discard' | 'retain' = 'discard') => {
     const unsafeTabs = getUnsafeTabs(candidateTabs);
-    if (unsafeTabs.length === 0 || !api?.app.confirm) {
+    if (unsafeTabs.length === 0) {
       return true;
     }
 
@@ -67,7 +68,7 @@ export function useWorkbenchTabLifecycle({
     ].filter(Boolean);
 
     try {
-      const { confirmed } = await api.app.confirm({
+      const { confirmed } = await confirmDialog({
         title,
         message: draftDisposition === 'retain'
           ? 'Close HackDesk with unsaved changes?'
@@ -92,7 +93,7 @@ export function useWorkbenchTabLifecycle({
       return false;
     }
 
-    if (!await confirmCloseUnsafeTabs([tab], 'Close Tab', 'Close Tab')) {
+    if (!isBlankNoteTab(tab) && !await confirmCloseUnsafeTabs([tab], 'Close Tab', 'Close Tab')) {
       return false;
     }
 

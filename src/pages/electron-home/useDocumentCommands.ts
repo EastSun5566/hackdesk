@@ -145,29 +145,9 @@ export function useDocumentCommands({
 
   const handleDeleteRequest = useCallback((note: NoteSummary) => {
     const deleteTarget = createDeleteNoteTarget(note);
-    if (!api?.app.confirm) {
-      setDeleteTarget(deleteTarget);
-      return;
-    }
+    // The in-app delete dialog asks, so the question matches the app rather than the system.
+    setDeleteTarget(deleteTarget);
 
-    api.app.confirm({
-      title: 'Delete Note',
-      message: `Delete “${deleteTarget.title || 'Untitled'}”?`,
-      detail: note.teamPath === LOCAL_VAULT_TEAM_PATH
-        ? 'This moves the Markdown file to the system trash.'
-        : note.teamPath
-          ? 'This removes the note from HackMD. This action cannot be undone from HackDesk.'
-          : 'This moves the note to your HackMD trash. You can undo this right after deleting.',
-      confirmLabel: 'Delete',
-      cancelLabel: 'Cancel',
-      destructive: true,
-    }).then(({ confirmed }) => {
-      if (confirmed) {
-        deleteNote(deleteTarget);
-      }
-    }).catch((error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to confirm note deletion.');
-    });
   }, [api, deleteNote, setDeleteTarget]);
 
   const handleOpenEditor = useCallback((note: NoteSummary) => {

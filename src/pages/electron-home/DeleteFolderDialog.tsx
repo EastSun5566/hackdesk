@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import type { FolderTreeNode } from '@/lib/hackmd-folders';
 
-
 export function DeleteFolderDialog({
   folder,
   isDeleting,
@@ -38,9 +37,7 @@ export function DeleteFolderDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel
-            disabled={isDeleting}
-          >
+          <AlertDialogCancel disabled={isDeleting}>
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction

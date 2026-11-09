@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/field';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Toggle } from '@/components/ui/toggle';
 import { ELECTRON_ACTIONS, getResolvedActionShortcut, resolveWorkbenchShortcut } from '@/lib/electron-actions';
@@ -7,8 +8,6 @@ import type { ShortcutOverrides } from '@/lib/keyboard-shortcuts';
 import { displayShortcutConfig } from '@/lib/keyboard-shortcuts';
 import { WIDGET_KEYS } from '@/lib/key-hints';
 import type { ElectronFocusZone } from './useElectronFocusZones';
-import { FOCUS_RING_CLASS } from './ui';
-
 const REGION_NAMES: Record<ElectronFocusZone, string> = { navigator: 'Sidebar', tabs: 'Tabs', editor: 'Editor', inspector: 'Note Details' };
 
 export function KeyboardShortcutsDialog({ open, region, returnFocus, shortcuts, platform, characterShortcutsEnabled, onOpenChange, onCustomize }: {
@@ -41,7 +40,7 @@ export function KeyboardShortcutsDialog({ open, region, returnFocus, shortcuts, 
         <div className="scroll-edge-top relative shrink-0 space-y-3 px-5 pb-3 pt-4">
           <label className="block">
             <span className="sr-only">Search keyboard shortcuts</span>
-            <input ref={searchRef} value={query} onChange={event => setQuery(event.target.value)} placeholder="Search keyboard shortcuts" className={`h-9 w-full rounded-md border border-border-default bg-background-muted px-3 text-sm ${FOCUS_RING_CLASS}`} />
+            <Input ref={searchRef} value={query} onChange={event => setQuery(event.target.value)} placeholder="Search keyboard shortcuts" className="w-full" />
           </label>
           <div className="flex flex-wrap gap-2" role="group" aria-label="Shortcut scope">
             <Toggle pressed={currentOnly} onPressedChange={() => setCurrentOnly(true)}>Current Region: {REGION_NAMES[region]}</Toggle>

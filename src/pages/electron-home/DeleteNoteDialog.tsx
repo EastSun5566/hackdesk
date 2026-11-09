@@ -42,14 +42,12 @@ export function DeleteNoteDialog({
         </AlertDialogHeader>
         {note ? (
           <div className="space-y-5">
-            <div className="rounded-md border border-border-default bg-background-muted px-3 py-2 text-sm">
+            <div className="rounded border border-border-default bg-background-muted px-2.5 py-2 text-sm">
               <p className="truncate font-medium">{note.title || 'Untitled'}</p>
               <p className="mt-1 text-xs text-text-subtle">{note.teamPath ? `@${note.teamPath}` : 'My Workspace'}</p>
             </div>
             <AlertDialogFooter>
-              <AlertDialogCancel
-                disabled={isDeleting}
-              >
+              <AlertDialogCancel disabled={isDeleting}>
                 Cancel
               </AlertDialogCancel>
               <AlertDialogAction

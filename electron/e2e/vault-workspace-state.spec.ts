@@ -90,7 +90,8 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
     await openVaultSettings(page);
     await app.evaluate(({ dialog }) => { dialog.showMessageBox = async () => ({ response: 0, checkboxChecked: false }); });
     await page.getByRole('button', { name: 'Forget Vault', exact: true }).click();
-    await expect(page.getByText('No local vault configured', { exact: true })).toBeVisible();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Forget Vault', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Settings' }).getByText('No local vault configured', { exact: true })).toBeVisible();
     await choose(app, page, vaultA);
     await expect(page.locator('.cm-content').last()).toContainText('Draft A — latest input');
     await app.evaluate(({ BrowserWindow }) => {
@@ -110,6 +111,10 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
     await app.evaluate(({ app: electronApp }) => {
       setImmediate(() => electronApp.quit());
     });
+    const closeHackDesk = page.getByRole('alertdialog');
+    if (await closeHackDesk.isVisible().catch(() => false)) {
+      await closeHackDesk.getByRole('button', { name: 'Close' }).click();
+    }
     await expect.poll(() => appProcess.exitCode).toBe(0);
     ({ app, page, appProcess } = await launch(home));
     await expect(page.locator('.cm-content').last()).toContainText('Draft A — latest input');

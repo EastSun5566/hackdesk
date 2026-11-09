@@ -5,6 +5,7 @@ vi.mock('./logging', () => ({
 }));
 
 import {
+  listTrashTeamPathSchema,
   restoreNotesInputSchema,
   createFolderInputSchema,
   createNoteInputSchema,
@@ -22,6 +23,12 @@ import {
 import { writeLog } from './logging';
 
 describe('IPC runtime validation', () => {
+  it('accepts personal and team trash list paths', () => {
+    expect(listTrashTeamPathSchema.parse(null)).toBeNull();
+    expect(listTrashTeamPathSchema.parse('team-a')).toBe('team-a');
+    expect(listTrashTeamPathSchema.safeParse('').success).toBe(false);
+  });
+
   it('rejects oversized restore batches before validating individual elements', () => {
     const result = restoreNotesInputSchema.safeParse(Array(101).fill(null));
     expect(result.success).toBe(false);

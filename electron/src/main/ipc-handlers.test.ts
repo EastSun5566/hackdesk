@@ -211,6 +211,7 @@ import { clearHackmdCache } from './hackmd-service';
 
 const windowManager = {
   cancelClose: vi.fn(),
+  holdClose: vi.fn(),
   confirmClose: vi.fn(),
   getMainWindow: vi.fn<WindowManager['getMainWindow']>(() => null),
   getTargetWindow: vi.fn(() => null),
@@ -563,17 +564,20 @@ describe('registerIpcHandlers', () => {
     const list = ipcHandlers.get(ELECTRON_CHANNELS.hackmdListTrash);
     const restore = ipcHandlers.get(ELECTRON_CHANNELS.hackmdRestoreNotes);
 
-    list?.({});
+    list?.({}, null);
     restore?.({}, [' note-1 ', 'note-2']);
 
-    expect(hackmdServiceMock.listTrash).toHaveBeenCalledWith();
+    expect(hackmdServiceMock.listTrash).toHaveBeenCalledWith(null);
+    list?.({}, 'team/path');
+    expect(hackmdServiceMock.listTrash).toHaveBeenCalledWith('team/path');
+    expect(() => list?.({}, '')).toThrow();
     expect(hackmdServiceMock.restoreNotes).toHaveBeenCalledWith(['note-1', 'note-2']);
     expect(() => restore?.({}, [])).toThrow();
     expect(() => restore?.({}, ['note-1', ''])).toThrow();
     expect(() => restore?.({}, [1])).toThrow();
     expect(() => restore?.({}, 'note-1')).toThrow();
     expect(() => restore?.({}, Array.from({ length: 101 }, (_, index) => `note-${index}`))).toThrow();
-    expect(() => list?.({}, { requestId: 'invalid' })).toThrow(/Invalid/);
+    expect(() => list?.({}, null, { requestId: 'invalid' })).toThrow(/Invalid/);
   });
 
   it('validates comment reads and resolutions before calling HackMD', () => {

@@ -79,12 +79,12 @@ describe('WorkspaceSwitcher', () => {
     expect(await screen.findByRole('dialog', { name: 'Workspaces' })).toBeVisible();
   });
 
-  it('lists My Workspace, pinned teams, then Local Vault and History, and passes each scope unchanged', async () => {
+  it('lists the places (My Workspace, History, Local Vault) above the teams, and passes each scope unchanged', async () => {
     const atlas = team();
     const props = renderSwitcher({ teams: [atlas], localVaultConfigured: true });
 
     const rows = within(await screen.findByRole('dialog', { name: 'Workspaces' })).getAllByRole('button', { name: /^(My Workspace|Atlas Team|Local Vault|History)$/ });
-    expect(rows.map(row => row.getAttribute('aria-label'))).toEqual(['My Workspace', 'Atlas Team', 'Local Vault', 'History']);
+    expect(rows.map(row => row.getAttribute('aria-label'))).toEqual(['My Workspace', 'History', 'Local Vault', 'Atlas Team']);
 
     fireEvent.click(within(list()).getByRole('button', { name: 'Atlas Team' }));
     expect(props.onScopeChange).toHaveBeenCalledWith({ type: 'team', label: atlas.name, teamPath: atlas.path });
@@ -137,6 +137,8 @@ describe('WorkspaceSwitcher', () => {
 
     expect(within(dialog).queryByRole('button', { name: 'Harbor Team' })).toBeNull();
     fireEvent.click(within(dialog).getByRole('button', { name: 'More' }));
+    // The pin appears while its row is hovered or focused.
+    fireEvent.focus(within(dialog).getByRole('button', { name: 'Harbor Team' }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Pin Harbor Team' }));
     expect(props.onPinnedTeamIdsChange).toHaveBeenCalledWith(['team-1', 'team-2']);
 
@@ -152,6 +154,8 @@ describe('WorkspaceSwitcher', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
 
     expect(within(dialog).getByRole('button', { name: 'Reorder Atlas Team' })).toHaveAttribute('tabindex', '0');
+    expect(within(dialog).queryByRole('button', { name: 'Unpin Atlas Team' })).toBeNull();
+    fireEvent.focus(within(dialog).getByRole('button', { name: 'Atlas Team' }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Unpin Atlas Team' }));
     expect(props.onPinnedTeamIdsChange).toHaveBeenCalledWith(['team-2']);
   });
@@ -163,12 +167,43 @@ describe('WorkspaceSwitcher', () => {
 
     await waitFor(() => expect(row('Atlas Team')).toHaveFocus());
     fireEvent.keyDown(row('Atlas Team'), { key: 'ArrowDown' });
-    expect(row('Local Vault')).toHaveFocus();
-    fireEvent.keyDown(row('Local Vault'), { key: 'ArrowDown' });
-    fireEvent.keyDown(row('History'), { key: 'ArrowDown' });
     expect(row('My Workspace')).toHaveFocus();
-    fireEvent.keyDown(row('My Workspace'), { key: 'ArrowUp' });
+    fireEvent.keyDown(row('My Workspace'), { key: 'ArrowDown' });
     expect(row('History')).toHaveFocus();
+    fireEvent.keyDown(row('History'), { key: 'ArrowDown' });
+    expect(row('Local Vault')).toHaveFocus();
+    fireEvent.keyDown(row('Local Vault'), { key: 'ArrowUp' });
+    expect(row('History')).toHaveFocus();
+  });
+
+  it('finds a team by name when there are many, and opens the first match with Enter', async () => {
+    const many = Array.from({ length: 9 }, (_, index) => team({ id: `team-${index}`, name: `Team ${index}`, path: `team-${index}` }));
+    const harbor = team({ id: 'harbor', name: 'Harbor Crew', path: 'harbor' });
+    const props = renderSwitcher({ teams: [...many, harbor], pinnedTeamIds: ['team-0'] });
+    const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
+
+    const filter = within(dialog).getByRole('textbox', { name: 'Find a team' });
+    fireEvent.change(filter, { target: { value: 'harb' } });
+    const matches = within(dialog).getByRole('list', { name: 'Matching teams' });
+    expect(within(matches).getAllByRole('button', { name: /Crew|Team/ }).map((row) => row.getAttribute('aria-label'))).toEqual(['Harbor Crew']);
+    // History and Local Vault stay in reach while filtering.
+    expect(within(dialog).getByRole('button', { name: 'History' })).toBeInTheDocument();
+
+    fireEvent.keyDown(filter, { key: 'Enter' });
+    expect(props.onScopeChange).toHaveBeenCalledWith({ type: 'team', label: 'Harbor Crew', teamPath: 'harbor' });
+  });
+
+  it('keeps the first letter typed on a row, moving it into the team filter', async () => {
+    const many = Array.from({ length: 9 }, (_, index) => team({ id: `team-${index}`, name: `Team ${index}`, path: `team-${index}` }));
+    renderSwitcher({ teams: many });
+    const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
+    const history = within(dialog).getByRole('button', { name: 'History' });
+    history.focus();
+
+    fireEvent.keyDown(history, { key: 'h' });
+    const filter = within(dialog).getByRole('textbox', { name: 'Find a team' });
+    expect(filter).toHaveFocus();
+    expect(filter).toHaveValue('h');
   });
 });
 
@@ -228,39 +263,25 @@ describe('SidebarFooter', () => {
     return props;
   }
 
-  it('opens Settings from the account', () => {
+  it('keeps the account and Settings as separate buttons', () => {
     const props = renderFooter({ user: user() });
 
     expect(screen.getByText('Demo Writer')).toBeInTheDocument();
-    expect(screen.getByText('@demo')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Account: Demo Writer' })).toHaveAttribute('title', 'Demo Writer @demo');
     expect(screen.getByTestId('sidebar-footer-avatar')).toHaveTextContent('DW');
-    fireEvent.click(screen.getByRole('button', { name: 'Open settings for Demo Writer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(props.onOpenSettings).toHaveBeenCalledOnce();
   });
 
-  it('shows Trash only with a handler', () => {
-    renderFooter();
-    expect(screen.queryByRole('button', { name: 'Trash' })).toBeNull();
-    cleanup();
-
-    const onOpenTrash = vi.fn();
-    renderFooter({ onOpenTrash });
-    const trash = within(screen.getByTestId('sidebar-footer')).getByRole('button', { name: 'Trash' });
-    expect(trash).toHaveAttribute('data-workspace-navigation-id', 'trash');
-    fireEvent.click(trash);
-    expect(onOpenTrash).toHaveBeenCalledOnce();
-  });
-
-  it('shows Settings, a quiet loading dot, or an attention mark without the error text', () => {
+  it('shows a quiet loading dot or an attention mark without the error text', () => {
     renderFooter({ accountStatus: { activeError: null, isFetching: true, isLoading: true, showingCachedFallback: false } });
-    expect(screen.getByText('Settings')).toBeInTheDocument();
+    expect(screen.getByText('Not signed in')).toBeInTheDocument();
     expect(screen.getByTestId('sidebar-account-loading')).toBeInTheDocument();
     cleanup();
 
-    const props = renderFooter({ accountStatus: { activeError: 'HackMD token expired.', isFetching: false, isLoading: false, showingCachedFallback: false } });
+    renderFooter({ accountStatus: { activeError: 'HackMD token expired.', isFetching: false, isLoading: false, showingCachedFallback: false } });
     expect(screen.getByTestId('sidebar-account-attention')).toBeInTheDocument();
     expect(screen.queryByText('HackMD token expired.')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Open settings. HackMD account needs attention' }));
-    expect(props.onOpenSettings).toHaveBeenCalledOnce();
+    expect(screen.getByRole('button', { name: 'Account: Not signed in. HackMD account needs attention' })).toBeInTheDocument();
   });
 });

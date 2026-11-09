@@ -34,7 +34,8 @@ async function launch({ withAi = false } = {}) {
       },
     } : {}),
   }));
-  const env = { ...definedEnvironment(process.env) };
+  // CLI discovery reads a login shell; keep it out of the developer's shell configuration.
+  const env: Record<string, string> = { ...definedEnvironment(process.env), HOME: home, USERPROFILE: home, ZDOTDIR: home };
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.HACKDESK_ELECTRON_DEV_SERVER_URL;
   // Development builds run this stand-in instead of the real helper.

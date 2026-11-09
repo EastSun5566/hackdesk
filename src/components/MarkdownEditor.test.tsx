@@ -663,7 +663,7 @@ describe('MarkdownEditor', () => {
 
     await waitFor(() => expect(codeMirror).toHaveAttribute('data-theme-mode', 'light'));
     expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-ui: 0.875rem');
-    expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-editor: 0.875rem');
+    expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-editor: 0.9375rem');
     expect(editor.querySelector('.cm-editor')).toBe(codeMirror);
     expect(document.activeElement).toBe(content);
     expect(editor.querySelector('.cm-vim-panel')).toHaveTextContent('INSERT');

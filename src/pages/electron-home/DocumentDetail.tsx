@@ -1,4 +1,5 @@
 import { ConflictComparison } from './ConflictComparison';
+import { useTeamNameLookup } from './NoteSummaryCard';
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
@@ -87,7 +88,7 @@ export type DocumentDetailDocumentState = {
     kind: 'disk_changed' | 'remote_changed' | 'save_failed';
     message: string;
   } | null;
-  selectedNote?: Pick<NoteSummary, 'title'> | null;
+  selectedNote?: Pick<NoteSummary, 'title'> & Partial<Pick<NoteSummary, 'id'>> | null;
   syncState: DocumentSyncState;
   title: string;
 };
@@ -139,7 +140,8 @@ export type DocumentDetailActions = {
   onReloadFromHackmd: (document: DocumentSummary) => void;
   /** Opens the draft as a new unsaved note; the original note is left untouched. */
   onOpenAsNewDraft: (title: string, content: string) => void;
-  onSave: (input: UpdateNoteInput) => void;
+  /** `successMessage` confirms a deliberate change (Rename); routine saves show only in the tab. */
+  onSave: (input: UpdateNoteInput, options?: { successMessage?: string }) => void;
   onSaveAsCopy: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveMetadata: (document: DocumentSummary, input: UpdateNoteInput) => void;
   onSaveSharing: (document: DocumentSummary, input: UpdateNoteInput) => void;
@@ -215,15 +217,30 @@ function SyncStateBadge({
 
   // The tab's dot covers routine states; the header speaks up only when the note needs attention.
   const needsAttention = syncStateNeedsAttention(state);
+  // A save that just finished shows a quiet "Saved" for a moment, in place of a toast.
+  const [previousState, setPreviousState] = useState(state);
+  const [justSaved, setJustSaved] = useState(false);
+  if (previousState !== state) {
+    setPreviousState(state);
+    setJustSaved(previousState === 'saving' && state === 'saved');
+  }
+  useEffect(() => {
+    if (!justSaved) return;
+    const timer = window.setTimeout(() => setJustSaved(false), 2000);
+    return () => window.clearTimeout(timer);
+  }, [justSaved]);
 
   return (
     <span
       role="status"
       aria-live="polite"
       aria-atomic="true"
+      data-just-saved={justSaved || undefined}
       className={needsAttention
         ? cn('inline-flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-xs font-medium', className)
-        : 'sr-only'}
+        : justSaved
+          ? 'inline-flex h-7 shrink-0 items-center gap-1 px-1 text-xs text-text-subtle animate-in fade-in-0 motion-reduce:animate-none'
+          : 'sr-only'}
       aria-label={`Sync state: ${DOCUMENT_SYNC_STATE_LABELS[state]}`}
     >
       {icon}
@@ -234,11 +251,46 @@ function SyncStateBadge({
 
 type HeaderPathPart = { label: string; folderIds: string[] };
 
+/** One line: where the note lives, ending in its title, which stays in view as the note scrolls. */
+function DocumentBreadcrumb({
+  path,
+  title,
+  updated,
+  onRevealFolder,
+}: {
+  path: HeaderPathPart[];
+  title: string;
+  updated?: string;
+  onRevealFolder?: (folderIds: string[]) => void;
+}) {
+  return (
+    <nav aria-label="Note location" className="-ml-1 flex min-h-8 min-w-0 items-center gap-1 overflow-hidden text-sm font-normal text-text-subtle" title={updated}>
+      {path.map((part, index) => (
+        <span key={`${part.label}:${index}`} className="contents">
+          {index > 0 ? <span aria-hidden="true" className="shrink-0 text-text-subtle/60">/</span> : null}
+          {/* Folders give way; the title keeps its length up to most of the line. */}
+          {onRevealFolder ? (
+            <button
+              type="button"
+              className={cn('min-w-0 truncate rounded-sm px-1 hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_INSET_CLASS)}
+              onClick={() => onRevealFolder(part.folderIds)}
+            >
+              {part.label}
+            </button>
+          ) : <span className="min-w-0 truncate px-1">{part.label}</span>}
+        </span>
+      ))}
+      {path.length ? <span aria-hidden="true" className="shrink-0 text-text-subtle/60">/</span> : null}
+      <span aria-current="page" className="max-w-4/5 shrink-0 truncate px-1 text-text-default">{title}</span>
+    </nav>
+  );
+}
+
 /**
  * Where the note lives: its workspace, then its folders. Each part carries the folder IDs down to it,
  * so choosing one can show that folder in the sidebar; the workspace has none.
  */
-function getDocumentHeaderPath(document: DocumentSummary, isLocalDocument: boolean): HeaderPathPart[] {
+function getDocumentHeaderPath(document: Pick<NoteSummary, 'description' | 'folderPaths' | 'teamPath'>, isLocalDocument: boolean, teamName?: string): HeaderPathPart[] {
   if (isLocalDocument) {
     // A vault note's description is its path in the vault; each folder's ID is its own path.
     const folders = (document.description ?? '').split('/').slice(0, -1).filter(Boolean);
@@ -251,7 +303,8 @@ function getDocumentHeaderPath(document: DocumentSummary, isLocalDocument: boole
     ];
   }
   return [
-    { label: document.teamPath ? `@${document.teamPath}` : 'My Workspace', folderIds: [] },
+    // The team's name, as the workspace switcher shows it; its path only while teams are loading.
+    { label: document.teamPath ? teamName ?? `@${document.teamPath}` : 'My Workspace', folderIds: [] },
     ...document.folderPaths.map((folder, index) => ({
       label: folder.name,
       folderIds: document.folderPaths.slice(0, index + 1).map(path => path.id),
@@ -275,6 +328,8 @@ export function DocumentDetail({
       <LoadingDocumentDetail
         focusZone={focusZone}
         selectedNote={documentState.selectedNote}
+        summary={documentState.selectedNote?.id ? folderTree.allNotes.find((entry) => entry.note.id === documentState.selectedNote?.id)?.note : undefined}
+        onRevealFolder={actions.onRevealFolder}
       />
     );
   }
@@ -300,10 +355,20 @@ export function DocumentDetail({
 function LoadingDocumentDetail({
   focusZone,
   selectedNote,
+  summary,
+  onRevealFolder,
 }: {
   focusZone?: string;
-  selectedNote?: Pick<NoteSummary, 'title'> | null;
+  selectedNote?: DocumentDetailDocumentState['selectedNote'];
+  /** The note as the sidebar already lists it, with its workspace and folders. */
+  summary?: NoteSummary;
+  onRevealFolder?: (folderIds: string[]) => void;
 }) {
+  // The list already knows where the note lives, so the header shows its final breadcrumb now and
+  // nothing shifts when the content arrives; only the body waits.
+  const lookupTeamName = useTeamNameLookup();
+  const path = summary ? getDocumentHeaderPath(summary, summary.teamPath === LOCAL_VAULT_TEAM_PATH, summary.teamPath ? lookupTeamName(summary.teamPath) : undefined) : [];
+
   return (
     <PanelShell
       focusZone={focusZone}
@@ -311,19 +376,18 @@ function LoadingDocumentDetail({
     >
       {selectedNote ? (
         <PanelHeader
-          className="px-4 py-2.5"
-          title={selectedNote.title || 'Untitled'}
-          subtitle="Loading note…"
+          className="relative px-4 py-2.25"
+          title={<DocumentBreadcrumb path={path} title={selectedNote.title || 'Untitled'} onRevealFolder={onRevealFolder} />}
           titleElement="div"
         />
       ) : null}
       <div role="status" aria-busy="true" aria-label="Loading note" className="flex min-h-0 flex-1 flex-col gap-4 p-6">
-        <div className="h-4 w-2/3 animate-pulse rounded bg-background-selected motion-reduce:animate-none" />
-        <div className="h-4 w-1/2 animate-pulse rounded bg-background-selected motion-reduce:animate-none" />
+        <div className="h-4 w-2/3 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
+        <div className="h-4 w-1/2 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
         <div className="mt-4 space-y-3">
-          <div className="h-3 w-full animate-pulse rounded bg-background-muted motion-reduce:animate-none" />
-          <div className="h-3 w-11/12 animate-pulse rounded bg-background-muted motion-reduce:animate-none" />
-          <div className="h-3 w-4/5 animate-pulse rounded bg-background-muted motion-reduce:animate-none" />
+          <div className="h-3 w-full animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
+          <div className="h-3 w-11/12 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
+          <div className="h-3 w-4/5 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
         </div>
       </div>
     </PanelShell>
@@ -579,7 +643,7 @@ function ActiveDocumentDetail({
         onOpenChange={setRenameOpen}
         onRename={(title) => {
           actions.onTitleChange(title);
-          actions.onSave({ title, content: documentState.content });
+          actions.onSave({ title, content: documentState.content }, { successMessage: `Renamed to “${title.trim() || 'Untitled'}”.` });
           setRenameOpen(false);
         }}
       />
@@ -712,7 +776,9 @@ function DocumentHeader({
     saving: status.saving,
     syncState: documentState.syncState,
   });
-  const path = documentState.document ? getDocumentHeaderPath(documentState.document, isLocalDocument) : [];
+  const lookupTeamName = useTeamNameLookup();
+  const teamPath = documentState.document?.teamPath;
+  const path = documentState.document ? getDocumentHeaderPath(documentState.document, isLocalDocument, teamPath ? lookupTeamName(teamPath) : undefined) : [];
   const title = documentState.isDraft ? 'Unsaved draft' : documentState.title.trim() || documentState.document?.title || 'Untitled';
   const updated = documentState.document ? `Updated ${formatDate(documentState.document.updatedAtMillis)}` : undefined;
   // Routine controls step back until the header is hovered or focused; pending work keeps them in view.
@@ -729,33 +795,13 @@ function DocumentHeader({
   return (
     <PanelHeader
       // Its line shows only once the note scrolls under it; the pane is the scroll-edge scope.
-      className={cn('group/document-header scroll-edge-top relative px-4 py-1.5', HACK_MODE_HIDDEN_CLASS)}
+      className={cn('group/document-header scroll-edge-top relative px-4 py-2.25', HACK_MODE_HIDDEN_CLASS)}
       actionsClassName={revealActions ? undefined : DOCUMENT_ACTIONS_ON_DEMAND_CLASS}
       titleElement="div"
       actionsLabel="Document actions"
       // One line: where the note lives, ending in its title, which stays in view as the note scrolls.
       // Rename Note changes the title.
-      title={(
-        <nav aria-label="Note location" className="flex min-h-8 min-w-0 items-center gap-1 overflow-hidden text-sm font-normal text-text-subtle" title={updated}>
-          {path.map((part, index) => (
-            <span key={`${part.label}:${index}`} className="contents">
-              {index > 0 ? <span aria-hidden="true" className="shrink-0 text-text-subtle/60">/</span> : null}
-              {/* Folders give way; the title keeps its length up to most of the line. */}
-              {actions.onRevealFolder ? (
-                <button
-                  type="button"
-                  className={cn('min-w-0 truncate rounded-sm px-1 hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_INSET_CLASS)}
-                  onClick={() => actions.onRevealFolder?.(part.folderIds)}
-                >
-                  {part.label}
-                </button>
-              ) : <span className="min-w-0 truncate px-1">{part.label}</span>}
-            </span>
-          ))}
-          {path.length ? <span aria-hidden="true" className="shrink-0 text-text-subtle/60">/</span> : null}
-          <span aria-current="page" className="max-w-4/5 shrink-0 truncate px-1 text-text-default">{title}</span>
-        </nav>
-      )}
+      title={<DocumentBreadcrumb path={path} title={title} updated={updated} onRevealFolder={actions.onRevealFolder} />}
       actions={(
         <>
           <SyncStateBadge state={effectiveSyncState} />
@@ -1046,7 +1092,7 @@ function InspectorPanel({
       }}
       className={cn(
         // A card floating over the note, a gap in from the pane's edges.
-        'absolute inset-y-1.5 right-1.5 z-20 w-(--inspector-width) max-w-full overflow-clip rounded-lg border border-border-default/60 bg-background-muted shadow-lg transition duration-200 ease-out motion-reduce:transition-none',
+        'absolute inset-y-1.5 right-1.5 z-20 w-(--inspector-width) max-w-full overflow-clip rounded-lg border border-border-subtle bg-background-muted shadow-lg transition duration-200 ease-out motion-reduce:transition-none',
         inspectorCollapsed && 'pointer-events-none translate-x-full opacity-0 ease-in',
       )}
       style={{ '--inspector-width': `${INSPECTOR_WIDTH_DEFAULT}px` }}

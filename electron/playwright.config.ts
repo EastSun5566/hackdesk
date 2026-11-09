@@ -2,6 +2,11 @@ import { defineConfig } from '@playwright/test';
 import { resolve } from 'node:path';
 
 const isCI = !!process.env.CI;
+// Local runs keep the app's windows invisible, unfocused and out of the Dock (see
+// electron/src/main/e2e-background-windows.ts), so they can run in parallel without taking over
+// the screen or the keyboard. HACKDESK_E2E_FOREGROUND=1 shows them, for watching or debugging.
+const runInBackground = !isCI && process.env.HACKDESK_E2E_FOREGROUND !== '1';
+if (runInBackground) process.env.HACKDESK_E2E_BACKGROUND = '1';
 
 // Pin the Playwright report and test-results dirs to the repo root so the
 // build.yml artifact-upload paths (`playwright-report`, `test-results`) keep
@@ -18,8 +23,10 @@ export default defineConfig({
   // packaged binary. Exclude it here so it only runs from the `package-smoke`
   // job after `pnpm run package:check` produces the binary on the same runner.
   testIgnore: '**/packaged-startup.spec.ts',
-  fullyParallel: false,
-  workers: 1,
+  // Every test launches its own app with its own home directory, so tests can run side by side.
+  // CI stays serial on its small runners; visible local runs too, since windows fight for focus.
+  fullyParallel: runInBackground,
+  workers: runInBackground ? 4 : 1,
   retries: 0,
   // Refuse committed `.only` calls in CI so a forgotten focus on a single
   // test cannot ship under the guise of a full suite. Local runs still

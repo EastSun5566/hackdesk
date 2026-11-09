@@ -1,5 +1,10 @@
 import '@testing-library/jest-dom';
-import { vi } from 'vitest';
+import { afterEach, vi } from 'vitest';
+
+import { resetConfirmDialogs } from '@/components/ConfirmDialogHost';
+
+// In-app confirm requests live in a module queue; an unanswered one must not open in the next test.
+afterEach(() => resetConfirmDialogs());
 
 // Mock ResizeObserver (required by cmdk)
 class ResizeObserverMock {

@@ -66,6 +66,7 @@ export function AppTopBar({
   navigatorPanelId,
   tabs,
   onToggleNavigator,
+  onNewTab,
 }: {
   activeTab: OpenNoteTab | null;
   tabStripId?: string;
@@ -96,6 +97,7 @@ export function AppTopBar({
   navigatorPanelId: string;
   tabs: OpenNoteTab[];
   onToggleNavigator: () => void;
+  onNewTab: () => void;
 }) {
   const [fullScreen, setFullScreen] = useState(false);
 
@@ -179,6 +181,7 @@ export function AppTopBar({
         onSelectTab={onSelectTab}
         onSplitPane={onSplitPane}
         paneLayout={paneLayout}
+        onNewTab={onNewTab}
         tabs={tabs}
       />
     </header>

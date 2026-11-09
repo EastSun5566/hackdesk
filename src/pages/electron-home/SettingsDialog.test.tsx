@@ -192,7 +192,7 @@ describe('SettingsDialog', () => {
     fireEvent.keyDown(search, { key: 'Enter' });
     const field = screen.getByLabelText('Primary', { exact: true });
     await waitFor(() => expect(field).toHaveFocus());
-    expect(screen.getByRole('button', { name: 'Customize Colors' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Customize colors' })).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('finds and focuses a wrapped checkbox label', async () => {
@@ -373,7 +373,8 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Apply Theme' }));
 
     expect(localStorage.getItem(THEME_STORAGE_KEYS.presetId)).toBe('dracula');
-    expect(toastSuccessMock).toHaveBeenCalledWith('Theme applied');
+    // Applying shows in the app itself; no toast.
+    expect(toastSuccessMock).not.toHaveBeenCalled();
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
@@ -426,7 +427,7 @@ describe('SettingsDialog', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
 
-    const trigger = screen.getByRole('button', { name: 'Customize Colors' });
+    const trigger = screen.getByRole('button', { name: 'Customize colors' });
     const primaryInput = screen.getByLabelText('Primary');
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     expect(primaryInput).not.toBeVisible();
@@ -521,10 +522,10 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel Preview' }));
 
     expect(uiFontSize).toHaveValue(14);
-    expect(editorFontSize).toHaveValue(14);
+    expect(editorFontSize).toHaveValue(15);
     await waitFor(() => {
       expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-ui: 0.875rem');
-      expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-editor: 0.875rem');
+      expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-editor: 0.9375rem');
     });
   });
 
