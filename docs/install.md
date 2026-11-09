@@ -25,7 +25,7 @@ Download the v2 beta for your platform. Betas are unsigned and use manual update
 </template>
 <p v-else>No beta download is available in this listing. Check <a :href="data.releasesUrl" target="_blank" rel="noreferrer">GitHub Releases</a>.</p>
 
-These guides cover beta.11. Screenshots use beta.10 demonstration data. Main previews may differ.
+These guides cover beta.12. Screenshots use beta.10 demonstration data. Main previews may differ.
 
 ### macOS
 

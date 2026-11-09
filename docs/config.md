@@ -10,7 +10,9 @@ Use **Search settings** to find a field. For example, search `font` and choose *
 
 ## Change appearance
 
-In **Settings → Appearance**, choose a theme, colors, fonts, and text sizes. Choose **Apply Theme** to keep the preview or **Cancel Preview** to restore the saved appearance.
+In **Settings → Appearance**, choose a theme, colors, fonts, and text sizes. Search the font picker for an installed font. Prose uses a proportional font by default; code stays monospace.
+
+Choose **Apply Theme** to keep the preview or **Cancel Preview** to restore the saved appearance. **Smooth text** controls font smoothing. **Indent guides** and **Status line** take effect immediately.
 
 ![Appearance settings with the HackMD Neo dark preset](/custom-settings.png)
 
@@ -19,6 +21,8 @@ In **Settings → Appearance**, choose a theme, colors, fonts, and text sizes. C
 ## Choose an editor mode
 
 In **Settings → Editor**, choose Standard, Vim, Helix, Emacs, or experimental Kakoune, then **Save**.
+
+Under **New tab opens**, choose **Empty page** or **Duplicate current note**. This preference takes effect immediately.
 
 Editor modes control text editing. [Workbench navigation](./keyboard-navigation.md) uses separate commands.
 
