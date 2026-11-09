@@ -662,7 +662,7 @@ describe('useElectronNoteMutations settings updates', () => {
     expect(queryClient.getQueryState(localKey)?.isInvalidated).toBe(false);
   });
 
-  it('keeps dialog submit feedback when an inline update is queued during Save', async () => {
+  it('keeps Settings open after a successful submit', async () => {
     const savedSettings = { hasHackmdApiToken: true } as ElectronSafeSettings;
     const first = Promise.withResolvers<ElectronSafeSettings>();
     const api = { settings: { update: vi.fn().mockReturnValueOnce(first.promise).mockResolvedValueOnce(savedSettings) } } as unknown as HackDeskElectronAPI;
@@ -678,8 +678,8 @@ describe('useElectronNoteMutations settings updates', () => {
     await waitFor(() => expect(api.settings.update).toHaveBeenCalledOnce());
     expect(options.onSettingsSaved).not.toHaveBeenCalled();
     await act(async () => { first.resolve(savedSettings); await Promise.all([submit, inline]); });
-    expect(options.onSettingsSaved).toHaveBeenCalledOnce();
-    // Settings closing is the confirmation; no toast.
+    // Every change saves at once and Settings stays open; no toast on success.
+    expect(options.onSettingsSaved).not.toHaveBeenCalled();
     expect(toast.success).not.toHaveBeenCalled();
   });
 

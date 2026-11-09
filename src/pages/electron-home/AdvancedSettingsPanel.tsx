@@ -120,7 +120,7 @@ export function AdvancedSettingsPanel({
         />
       </SettingsSection>
 
-      <SettingsSection title="Experimental">
+      <SettingsSection title="Experimental" onRevert={() => setSplitStatusLine(false)} revertLabel="Use the shared status line">
         <SettingsSwitchRow
           id="settings-split-status-line"
           label="Split status line"

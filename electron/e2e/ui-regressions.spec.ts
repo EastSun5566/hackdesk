@@ -1392,10 +1392,11 @@ test('saved shortcut preferences update hints and disable character shortcuts', 
     await filter.fill('Focus Note Finder');
     const binding = settings.getByRole('button', { name: 'Set shortcut for Focus Note Finder', exact: true });
     await binding.click(); await page.keyboard.press(`${primary}+e`);
-    await settings.getByRole('button', { name: 'Save', exact: true }).click();
+    // Shortcuts save at once; closing keeps them.
+    await settings.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(settings).toBeHidden();
     // Closed, the search icon names its shortcut in its tooltip.
-    await expect(page.locator('label:has(input[name="noteSearch"])')).toHaveAttribute('title', `Search notes (${process.platform === 'darwin' ? '⌘E' : 'Ctrl+E'})`);
+    await expect.poll(async () => page.locator('label:has(input[name="noteSearch"])').getAttribute('title')).toBe(`Search notes (${process.platform === 'darwin' ? '⌘E' : 'Ctrl+E'})`);
     const shortcutsButton = page.getByRole('note', { name: 'Keys you can press' }).getByRole('button', { name: /Shortcuts/ });
     await expect(shortcutsButton.locator('kbd')).toHaveCount(0);
     await shortcutsButton.click();
@@ -1652,10 +1653,10 @@ test('navigation codes avoid saved custom shortcuts', async () => {
     await settings.getByPlaceholder('Search shortcuts',{exact:true}).fill('New Note');
     await settings.getByRole('button',{name:'Set shortcut for New Note',exact:true}).click();
     await page.keyboard.press(`${primary}+e`);
-    await settings.getByRole('button',{name:'Save',exact:true}).click();
+    // The override saves at once; closing keeps it.
+    await settings.getByRole('button',{name:'Close',exact:true}).click();
     await expect(settings).toBeHidden(); await note.focus(); await holdPrimary(page);
-    const codes = await page.locator('[data-navigation-code]').evaluateAll(elements=>elements.map(element=>element.getAttribute('data-navigation-code')));
-    expect(codes.every(code=>!code?.includes('e'))).toBe(true);
+    await expect.poll(async () => page.locator('[data-navigation-code]').evaluateAll(elements=>elements.map(element=>element.getAttribute('data-navigation-code'))).then(collected=>collected.every(code=>!code?.includes('e')))).toBe(true);
     await expect(page.locator('[data-navigation-hint="finder"]')).toHaveAttribute('data-navigation-code', /^[a-z]{2,3}$/);
     await page.keyboard.up(primary);
   } finally { await stopApp(app); }
@@ -1727,7 +1728,7 @@ test('Settings search jumps to fields and held navigation stays inside the dialo
     const dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
     const search = dialog.getByRole('combobox', { name: 'Search settings', exact: true });
     await expect(search).toBeFocused();
-    await dialog.getByLabel('Window title').fill('Unsaved fixture title');
+    await dialog.getByLabel('Window title', { exact: true }).fill('Unsaved fixture title');
     await search.fill('editor font');
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('23-settings-search.png') });
     await dialog.getByRole('option', { name: 'Editor font, Appearance', exact: true }).click();
@@ -1747,8 +1748,8 @@ test('Settings search jumps to fields and held navigation stays inside the dialo
     await expect(dialog.getByLabel(third, { exact: true })).toBeFocused();
     await search.fill('window title');
     await search.press('Enter');
-    await expect(dialog.getByLabel('Window title')).toBeFocused();
-    await expect(dialog.getByLabel('Window title')).toHaveValue('Unsaved fixture title');
+    await expect(dialog.getByLabel('Window title', { exact: true })).toBeFocused();
+    await expect(dialog.getByLabel('Window title', { exact: true })).toHaveValue('Unsaved fixture title');
     await holdPrimary(page);
     const hints = page.locator('[data-navigation-hint]');
     await expect(page.locator('[data-navigation-hint="settings:general:settings-title"]')).toBeVisible();
@@ -1757,7 +1758,7 @@ test('Settings search jumps to fields and held navigation stays inside the dialo
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('22-settings-navigation.png') });
     await useNavigationCode(page, 'settings:general:settings-title');
     await page.keyboard.up(primary);
-    await expect(dialog.getByLabel('Window title')).toBeFocused();
+    await expect(dialog.getByLabel('Window title', { exact: true })).toBeFocused();
     await dialog.getByRole('tab', { name: 'Appearance', exact: true }).click();
     await expect(dialog).toHaveAttribute('data-navigation-page', 'appearance');
     const preset = dialog.getByRole('combobox', { name: 'Theme preset' });

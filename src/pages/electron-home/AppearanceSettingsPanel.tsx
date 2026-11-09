@@ -7,26 +7,36 @@ import { setTreeGuides, useTreeGuides } from './tree-guides-preference';
 
 export function AppearanceSettingsPanel({
   controller,
+  onRevertTheme,
+  onRevertSidebar,
+  onRevertWindow,
 }: {
   controller: ThemeAppearanceDraftController;
+  onRevertTheme: () => void;
+  onRevertSidebar: () => void;
+  onRevertWindow: () => void;
 }) {
   const showTreeGuides = useTreeGuides();
   const showStatusLine = useStatusLineVisible();
 
   return (
     <SettingsPage>
-      <SettingsSection title="Theme" description="Changes preview until you apply or cancel.">
+      <SettingsSection
+        title="Theme"
+        description="Every change applies at once."
+        onRevert={onRevertTheme}
+        revertLabel="Reset theme to system mode and the default preset"
+      >
         <ThemeAppearanceFields
           controller={controller}
           density="compact"
-          actions="none"
           customSeedsDefaultOpen={false}
           // Each field is a row of the section's card.
           className="settings-card-rows"
         />
       </SettingsSection>
-      {/* Take effect at once, unlike the theme above: they change no colours to preview. */}
-      <SettingsSection title="Sidebar">
+      {/* Take effect at once, like the theme above. */}
+      <SettingsSection title="Sidebar" onRevert={onRevertSidebar} revertLabel="Show indent guides">
         <SettingsSwitchRow
           id="settings-tree-guides"
           label="Indent guides"
@@ -35,7 +45,7 @@ export function AppearanceSettingsPanel({
           onCheckedChange={setTreeGuides}
         />
       </SettingsSection>
-      <SettingsSection title="Window">
+      <SettingsSection title="Window" onRevert={onRevertWindow} revertLabel="Show the status line">
         <SettingsSwitchRow
           id="settings-status-line"
           label="Status line"

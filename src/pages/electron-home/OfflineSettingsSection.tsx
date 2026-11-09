@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { getAiErrorMessage } from '@/lib/ai';
@@ -14,12 +14,13 @@ function formatBytes(bytes: number) {
 }
 
 /** Whether opened HackMD notes stay on this computer for offline reading and text search. */
-export function OfflineSettingsSection({ active }: { active: boolean }) {
+export function OfflineSettingsSection({ active, resetSignal = 0 }: { active: boolean; resetSignal?: number }) {
   const api = getHackDeskAPI();
   const [settings, setSettings] = useState<OfflineSettings | null>(null);
   const [status, setStatus] = useState<NoteIndexStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const lastResetSignal = useRef(0);
 
   const loadStatus = useCallback(() => {
     void api?.noteIndex?.status().then(setStatus).catch(() => undefined);
@@ -31,9 +32,7 @@ export function OfflineSettingsSection({ active }: { active: boolean }) {
     loadStatus();
   }, [active, api, loadStatus]);
 
-  if (!api?.noteIndex) return null;
-
-  const run = async (work: () => Promise<unknown>) => {
+  const run = useCallback(async (work: () => Promise<unknown>) => {
     setBusy(true);
     setError(null);
     try {
@@ -44,7 +43,24 @@ export function OfflineSettingsSection({ active }: { active: boolean }) {
     } finally {
       setBusy(false);
     }
-  };
+  }, [loadStatus]);
+
+  const revertSection = useCallback(() => {
+    if (!api) return;
+    void run(async () => {
+      const saved = await api.settings.update({ offline: { ...defaultOfflineSettings } });
+      setSettings(saved.offline ?? { ...defaultOfflineSettings });
+    });
+  }, [api, run]);
+
+  // The header Reset button reaches this self-saving section through the page.
+  useEffect(() => {
+    if (!resetSignal || resetSignal === lastResetSignal.current) return;
+    lastResetSignal.current = resetSignal;
+    revertSection();
+  }, [resetSignal, revertSection]);
+
+  if (!api?.noteIndex) return null;
 
   const cached = status?.hackmdNotes ?? 0;
 
@@ -52,6 +68,8 @@ export function OfflineSettingsSection({ active }: { active: boolean }) {
     <SettingsSection
       title="Offline and search"
       description="Only opened HackMD notes are cached."
+      onRevert={revertSection}
+      revertLabel="Keep opened HackMD notes offline"
     >
       {error ? <p role="alert" className="text-sm text-destructive-default">{error}</p> : null}
       <SettingsSwitchRow

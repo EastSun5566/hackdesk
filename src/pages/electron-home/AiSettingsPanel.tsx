@@ -22,7 +22,7 @@ import {
   onAiSettingsChanged,
 } from '@/lib/ai';
 import { getHackDeskAPI } from '@/lib/electron-api';
-import type { AiCustomCommand, AiSettings } from '@/lib/settings';
+import { defaultAiSettings, type AiCustomCommand, type AiSettings } from '@/lib/settings';
 
 import { AiCommandDialog } from './AiCommandDialog';
 import { createAiCustomCommand, updateAiCustomCommands } from './ai-commands';
@@ -219,13 +219,14 @@ function ProviderCard({
   );
 }
 
-export function AiSettingsPanel({ active }: { active: boolean }) {
+export function AiSettingsPanel({ active, resetSignal = 0 }: { active: boolean; resetSignal?: number }) {
   const api = getHackDeskAPI();
   const [aiSettings, setAiSettings] = useState<AiSettings | null>(null);
   const [statuses, setStatuses] = useState<Partial<Record<AiProviderId, AiProviderStatus>>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const checkedRef = useRef(false);
+  const lastResetSignal = useRef(0);
 
   const refresh = useCallback(async (id: AiProviderId) => {
     if (!api?.ai) return;
@@ -295,6 +296,34 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
     updateProvider(id, { enabled }, true);
   };
 
+  const revertProviders = () => {
+    if (!aiSettings) return;
+    void save({ ...aiSettings, providers: defaultAiSettings.providers, defaultProvider: null });
+  };
+
+  const revertEditorSection = () => {
+    if (!aiSettings) return;
+    void save({
+      ...aiSettings,
+      selectionChip: defaultAiSettings.selectionChip,
+      translateLanguage: defaultAiSettings.translateLanguage,
+    });
+  };
+
+  // The header Reset button reaches this self-saving page through its tab.
+  useEffect(() => {
+    if (!resetSignal || resetSignal === lastResetSignal.current) return;
+    lastResetSignal.current = resetSignal;
+    void (async () => {
+      try {
+        await updateAiCustomCommands(() => []);
+      } catch {
+        // Custom commands stay as they are; the slice below still resets.
+      }
+      void save(defaultAiSettings);
+    })();
+  }, [resetSignal, save]);
+
   if (!api?.ai) {
     return <p className="text-sm text-text-subtle">AI providers are available in the HackDesk desktop app.</p>;
   }
@@ -307,6 +336,8 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
       <SettingsSection
         title="Providers"
         description="Uses your signed-in Codex or Claude CLI."
+        onRevert={revertProviders}
+        revertLabel="Turn providers off and clear the default"
       >
         {error ? <p role="alert" className="text-sm text-destructive-default">{error}</p> : null}
         {aiSettings ? AI_PROVIDER_IDS.map(id => (
@@ -329,7 +360,11 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
       </SettingsSection>
 
       {aiSettings && enabledIds.length > 1 ? (
-        <SettingsSection title="Default provider">
+        <SettingsSection
+          title="Default provider"
+          onRevert={() => void save({ ...aiSettings, defaultProvider: null })}
+          revertLabel="Clear the default provider"
+        >
           <Select
             name="settings-ai-default-provider"
             value={aiSettings.defaultProvider ?? enabledIds[0]}
@@ -353,6 +388,8 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
       {aiSettings && enabledIds.length > 0 ? (
         <SettingsSection
           title="In the editor"
+          onRevert={revertEditorSection}
+          revertLabel="Restore editor AI options"
         >
           <div className="flex items-center justify-between gap-3 text-sm">
             <label htmlFor="settings-ai-selection-chip" className="font-medium">Show AI button on selection</label>

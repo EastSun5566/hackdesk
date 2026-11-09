@@ -145,7 +145,7 @@ describe('SettingsDialog', () => {
     expect(search).toHaveValue('');
   });
 
-  it('preserves unsaved input when navigating settings from search', async () => {
+  it('preserves title input while navigating settings from search', async () => {
     const { onSave } = renderSettingsDialog();
     const title = screen.getByLabelText('Window title');
     fireEvent.change(title, { target: { value: 'Unsaved title' } });
@@ -155,7 +155,10 @@ describe('SettingsDialog', () => {
     fireEvent.keyDown(search, { key: 'Enter' });
     await waitFor(() => expect(title).toHaveFocus());
     expect(title).toHaveValue('Unsaved title');
-    expect(onSave).not.toHaveBeenCalled();
+    // Typing schedules the save, which fires while navigating.
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith({ title: 'Unsaved title' });
+    });
   });
 
   it('moves the highlighted result with the arrow keys or Ctrl+N and Ctrl+P while focus stays in the search box', async () => {
@@ -249,35 +252,34 @@ describe('SettingsDialog', () => {
     });
   });
 
-  it('updates footer actions with the active tab without repeating tab descriptions', () => {
+  it('shows a header Reset action on every tab and no save footer', () => {
     renderSettingsDialog();
 
     expect(screen.queryByText('Window title and local app defaults.')).not.toBeInTheDocument();
-    const saveButton = screen.getByRole('button', { name: 'Save' });
-    expect(saveButton).toBeVisible();
-    expect(saveButton).toHaveTextContent('Save');
-    expect(saveButton).not.toHaveAttribute('title');
-    expect(screen.queryByText('Save settings')).not.toBeInTheDocument();
+    // Every page saves at once; the header only offers to reset the page.
+    expect(screen.getByRole('button', { name: 'Reset General settings to defaults' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Apply Theme' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cancel Preview' })).toBeNull();
 
     fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
     expect(screen.queryByText('Theme mode, presets, fonts, and color seeds.')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Apply Theme' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Reset Appearance settings to defaults' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
 
     fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
     expect(screen.queryByText('Manage the local Markdown folder.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reset Local Vault settings to defaults' })).toBeVisible();
     const closeButtons = screen.getAllByRole('button', { name: 'Close' });
     expect(closeButtons.length).toBeGreaterThan(0);
-    expect(screen.queryByRole('button', { name: 'Apply Theme' })).toBeNull();
   });
 
-  it('does not submit settings while the save action is busy', () => {
+  it('does not submit settings while a save is in flight', () => {
     const { onSave } = renderSettingsDialog({ isSaving: true });
-    const saveButton = screen.getByRole('button', { name: 'Saving…' });
 
-    expect(saveButton).toBeDisabled();
-    fireEvent.click(saveButton);
-    fireEvent.submit(saveButton.closest('form')!);
+    expect(screen.getByText('Saving…')).toBeVisible();
+    fireEvent.change(screen.getByLabelText('Window title'), { target: { value: 'Focus Desk' } });
+    fireEvent.submit(screen.getByLabelText('Window title').closest('form')!);
 
     expect(onSave).not.toHaveBeenCalled();
   });
@@ -316,7 +318,6 @@ describe('SettingsDialog', () => {
     expect(screen.getByRole('radio', { name: /Emacs/ })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /Kakoune \(Experimental\)/ })).toBeInTheDocument();
     fireEvent.click(screen.getByText('Kakoune (Experimental)'));
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(onSave).toHaveBeenCalledWith({
       title: 'HackDesk',
@@ -366,64 +367,134 @@ describe('SettingsDialog', () => {
     }));
   });
 
-  it('applies the current appearance draft and closes the dialog', async () => {
-    const { onOpenChange } = renderSettingsDialog();
+  it('resets the current page from the header after confirming', () => {
+    const { onSave } = renderSettingsDialog();
 
-    await previewDraculaTheme();
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Theme' }));
+    fireEvent.change(screen.getByLabelText('Window title'), { target: { value: 'Focus Desk' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset General settings to defaults' }));
 
-    expect(localStorage.getItem(THEME_STORAGE_KEYS.presetId)).toBe('dracula');
-    // Applying shows in the app itself; no toast.
-    expect(toastSuccessMock).not.toHaveBeenCalled();
-    expect(onOpenChange).toHaveBeenCalledWith(false);
+    const dialog = screen.getByRole('alertdialog', { name: 'Reset General settings?' });
+    expect(dialog).toBeVisible();
+    expect(onSave).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog', { name: 'Reset General settings?' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Window title')).toHaveValue('Focus Desk');
+    expect(onSave).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset General settings to defaults' }));
+    fireEvent.click(within(screen.getByRole('alertdialog', { name: 'Reset General settings?' }))
+      .getByRole('button', { name: 'Reset General' }));
+
+    expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk' });
+    expect(screen.getByLabelText('Window title')).toHaveValue('HackDesk');
   });
 
-  it('rolls back an unapplied appearance preview when settings closes', async () => {
-    const { onOpenChange } = renderSettingsDialog();
+  it('resets the appearance page from the header after confirming', async () => {
+    renderSettingsDialog();
 
     await previewDraculaTheme();
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Appearance settings to defaults' }));
+    fireEvent.click(within(screen.getByRole('alertdialog', { name: 'Reset Appearance settings?' }))
+      .getByRole('button', { name: 'Reset Appearance' }));
 
     await waitFor(() => {
       expect(document.documentElement.dataset.themePreset).toBe('hackmd-neo');
       expect(screen.getByLabelText('Theme preset')).toHaveTextContent('HackMD Neo');
     });
-    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('rolls back an unapplied appearance preview when the parent closes settings', async () => {
-    // Saving from another tab closes settings through the parent's open prop, not the dialog's
-    // own close handler; the preview must not outlive the dialog in that path either.
+  it('reverts one editor section without touching the other', () => {
+    const { onSave } = renderSettingsDialog();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Editor/ }));
+    fireEvent.click(screen.getByText('Helix'));
+    expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk', editor: { mode: 'helix' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset editor mode to standard' }));
+    expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk', editor: { mode: 'standard' } });
+    expect(screen.getByRole('radio', { name: /Standard/ })).toBeChecked();
+  });
+
+  it('reverts one shortcut group without touching other overrides', async () => {
+    const { onSave } = renderSettingsDialog();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Shortcuts/ }));
+    const shortcutButton = screen.getByRole('button', { name: 'Set shortcut for Command Palette' });
+    fireEvent.click(shortcutButton);
+    await waitFor(() => expect(shortcutButton).toHaveTextContent('Press keys…'));
+    fireEvent.keyDown(shortcutButton, { key: 'e', metaKey: true });
+    await waitFor(() => expect(shortcutButton).toHaveTextContent('⌘E'));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      shortcuts: { 'open-command-palette': 'mod+e' },
+    }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear custom navigation shortcuts' }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ shortcuts: {} }));
+    expect(screen.getByRole('button', { name: 'Set shortcut for Command Palette' })).toHaveTextContent('⌘K');
+  });
+
+  it('applies appearance changes at once without closing the dialog', async () => {
+    const { onOpenChange } = renderSettingsDialog();
+
+    await previewDraculaTheme();
+
+    expect(localStorage.getItem(THEME_STORAGE_KEYS.presetId)).toBe('dracula');
+    // Applying shows in the app itself; no toast, and settings stays open.
+    expect(toastSuccessMock).not.toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it('never applies an invalid seed, and closing clears it', async () => {
+    const { onOpenChange } = renderSettingsDialog();
+
+    fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
+    const trigger = screen.getByRole('button', { name: 'Customize colors' });
+    fireEvent.click(trigger);
+    const primaryInput = screen.getByLabelText('Primary');
+    fireEvent.change(primaryInput, { target: { value: 'blue' } });
+
+    expect(screen.getByText('Use a 6-digit hex color, for example #5D54E8.')).toBeInTheDocument();
+    expect(localStorage.getItem(THEME_STORAGE_KEYS.presetId)).not.toBe('dracula');
+    expect(document.documentElement.dataset.themePreset).toBe('hackmd-neo');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    // Reopening starts from the saved appearance, not the abandoned input.
+    expect(screen.getByLabelText('Primary')).toHaveValue('');
+  });
+
+  it('keeps the applied appearance when the parent closes settings', async () => {
+    // Appearance applies at once, so closing through the parent's open prop keeps the theme.
     const { rerenderSettingsDialog } = renderSettingsDialog();
 
     await previewDraculaTheme();
     rerenderSettingsDialog({ open: false });
 
     await waitFor(() => {
-      expect(document.documentElement.dataset.themePreset).toBe('hackmd-neo');
+      expect(document.documentElement.dataset.themePreset).toBe('dracula');
     });
-    expect(localStorage.getItem(THEME_STORAGE_KEYS.presetId)).not.toBe('dracula');
+    expect(localStorage.getItem(THEME_STORAGE_KEYS.presetId)).toBe('dracula');
 
-    // Reopening starts from the saved appearance, not the abandoned draft.
+    // Reopening starts from the saved appearance.
     rerenderSettingsDialog({ open: true });
     fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
-    expect(screen.getByLabelText('Theme preset')).toHaveTextContent('HackMD Neo');
-    expect(screen.queryByRole('button', { name: 'Cancel Preview' })).toBeNull();
+    expect(screen.getByLabelText('Theme preset')).toHaveTextContent('Dracula');
   });
 
-  it('rolls back an unapplied appearance preview when settings remounts', async () => {
+  it('keeps the applied appearance when settings remounts', async () => {
     const { rerenderSettingsDialog } = renderSettingsDialog();
 
     await previewDraculaTheme();
     rerenderSettingsDialog({ initialTab: 'editor' });
 
     await waitFor(() => {
-      expect(document.documentElement.dataset.themePreset).toBe('hackmd-neo');
+      expect(document.documentElement.dataset.themePreset).toBe('dracula');
     });
   });
 
-  it('keeps custom seed inputs mounted while collapsed and preserves validation state', () => {
-    const { onOpenChange } = renderSettingsDialog();
+  it('keeps custom seed inputs mounted while collapsed and validates them live', async () => {
+    renderSettingsDialog();
 
     fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
 
@@ -440,13 +511,21 @@ describe('SettingsDialog', () => {
     });
 
     expect(screen.getByText('Use a 6-digit hex color, for example #5D54E8.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Apply Theme' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Theme' }));
-    expect(onOpenChange).not.toHaveBeenCalled();
+    // Invalid input never applies: the theme stays on the saved preset.
+    await waitFor(() => {
+      expect(document.documentElement.dataset.themePreset).toBe('hackmd-neo');
+    });
+
+    fireEvent.change(primaryInput, { target: { value: '#5D54E8' } });
+    await waitFor(() => {
+      expect(JSON.parse(localStorage.getItem(THEME_STORAGE_KEYS.customSeed) ?? '{}')).toMatchObject({
+        primary: '#5D54E8',
+      });
+    });
 
     fireEvent.click(trigger);
     expect(primaryInput).not.toBeVisible();
-    expect(primaryInput).toHaveValue('blue');
+    expect(primaryInput).toHaveValue('#5D54E8');
 
     fireEvent.click(screen.getByRole('tab', { name: /General/ }));
     expect(primaryInput).not.toBeVisible();
@@ -455,24 +534,10 @@ describe('SettingsDialog', () => {
 
     fireEvent.click(trigger);
     expect(primaryInput).toBeVisible();
-    expect(primaryInput).toHaveValue('blue');
-    expect(screen.getByText('Use a 6-digit hex color, for example #5D54E8.')).toBeVisible();
+    expect(primaryInput).toHaveValue('#5D54E8');
   });
 
-  it('cancels an appearance preview from the footer without closing settings', async () => {
-    const { onOpenChange } = renderSettingsDialog();
-
-    await previewDraculaTheme();
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel Preview' }));
-
-    await waitFor(() => {
-      expect(document.documentElement.dataset.themePreset).toBe('hackmd-neo');
-      expect(screen.getByLabelText('Theme preset')).toHaveTextContent('HackMD Neo');
-    });
-    expect(onOpenChange).not.toHaveBeenCalled();
-  });
-
-  it('previews, applies, and persists UI and editor font sizes independently', async () => {
+  it('applies UI and editor font sizes at once', async () => {
     renderSettingsDialog();
 
     fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
@@ -491,15 +556,13 @@ describe('SettingsDialog', () => {
       expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-editor: 1.25rem');
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Theme' }));
-
     expect(JSON.parse(localStorage.getItem(THEME_STORAGE_KEYS.typography) ?? '{}')).toMatchObject({
       uiFontSize: 16,
       editorFontSize: 20,
     });
   });
 
-  it('rejects empty, fractional, and out-of-range font sizes and restores them on cancel', async () => {
+  it('rejects empty, fractional, and out-of-range font sizes without applying them', async () => {
     renderSettingsDialog();
 
     fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
@@ -508,7 +571,6 @@ describe('SettingsDialog', () => {
 
     fireEvent.change(uiFontSize, { target: { value: '' } });
     expect(screen.getByText('Enter a whole number from 12 to 18.')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Apply Theme' })).toBeDisabled();
 
     fireEvent.change(uiFontSize, { target: { value: '14.5' } });
     expect(screen.getByText('Enter a whole number from 12 to 18.')).toBeVisible();
@@ -517,27 +579,48 @@ describe('SettingsDialog', () => {
     fireEvent.change(editorFontSize, { target: { value: '33' } });
     expect(screen.getByText('Enter a whole number from 10 to 32.')).toBeVisible();
 
-    fireEvent.change(editorFontSize, { target: { value: '20' } });
-    expect(screen.getByRole('button', { name: 'Apply Theme' })).toBeEnabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel Preview' }));
-
-    expect(uiFontSize).toHaveValue(14);
-    expect(editorFontSize).toHaveValue(15);
+    // The valid size applied on its own; the invalid one never does.
     await waitFor(() => {
-      expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-ui: 0.875rem');
+      expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-ui: 1rem');
       expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-editor: 0.9375rem');
+    });
+
+    fireEvent.change(editorFontSize, { target: { value: '20' } });
+    await waitFor(() => {
+      expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-ui: 1rem');
+      expect(document.getElementById('hackdesk-theme')?.textContent).toContain('--font-size-editor: 1.25rem');
     });
   });
 
-  it('saves the title from its tab-specific footer action', () => {
+  it('saves the title when committed and after a pause', async () => {
     const { onSave } = renderSettingsDialog();
 
     fireEvent.change(screen.getByLabelText('Window title'), {
       target: { value: 'Focus Desk' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
+    // Enter commits the field at once.
+    fireEvent.submit(screen.getByLabelText('Window title').closest('form')!);
     expect(onSave).toHaveBeenCalledWith({ title: 'Focus Desk' });
+
+    fireEvent.change(screen.getByLabelText('Window title'), {
+      target: { value: 'Paused Desk' },
+    });
+    // Typing alone saves once it pauses.
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith({ title: 'Paused Desk' });
+    });
+  });
+
+  it('never saves an empty title and restores the saved one on blur', () => {
+    const { onSave } = renderSettingsDialog();
+
+    const title = screen.getByLabelText('Window title');
+    fireEvent.change(title, { target: { value: '' } });
+    expect(screen.getByText(/an empty title never saves/i)).toBeVisible();
+    fireEvent.submit(title.closest('form')!);
+    expect(onSave).not.toHaveBeenCalled();
+    fireEvent.blur(title);
+    expect(title).toHaveValue('HackDesk');
   });
 
   it('validates a new HackMD token before saving it', async () => {
@@ -550,7 +633,7 @@ describe('SettingsDialog', () => {
     fireEvent.change(screen.getByLabelText('API Token'), {
       target: { value: ' secret-token ' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Connect HackMD' }));
 
     expect(onValidateToken).toHaveBeenCalledWith('secret-token');
     expect(onSave).not.toHaveBeenCalled();
@@ -581,7 +664,7 @@ describe('SettingsDialog', () => {
     fireEvent.change(screen.getByLabelText('API Token'), {
       target: { value: 'bad-token' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Connect HackMD' }));
 
     await waitFor(() => {
       expect(screen.getByText('Invalid token')).toBeVisible();
@@ -599,7 +682,7 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
     const tokenInput = screen.getByLabelText('API Token');
     fireEvent.change(tokenInput, { target: { value: 'first-token' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Connect HackMD' }));
     fireEvent.change(tokenInput, { target: { value: 'second-token' } });
 
     expect(screen.queryByText('Testing token…')).not.toBeInTheDocument();
@@ -619,7 +702,7 @@ describe('SettingsDialog', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
     fireEvent.change(screen.getByLabelText('API Token'), { target: { value: 'api-token' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Connect HackMD' }));
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
@@ -650,7 +733,7 @@ describe('SettingsDialog', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
     fireEvent.change(screen.getByLabelText('API Token'), { target: { value: 'replacement-token' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save new token' }));
     fireEvent.click(screen.getByRole('button', { name: 'Disconnect HackMD' }));
     fireEvent.click(within(screen.getByRole('alertdialog', { name: 'Disconnect HackMD?' }))
       .getByRole('button', { name: 'Disconnect HackMD' }));
@@ -681,7 +764,7 @@ describe('SettingsDialog', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
 
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save new token' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Test Token' })).not.toBeInTheDocument();
   });
 
@@ -812,22 +895,19 @@ describe('SettingsDialog', () => {
     expect(onForgetLocalVault).toHaveBeenCalledOnce();
   });
 
-  it('saves whether key hints show', () => {
+  it('saves whether key hints show at once', () => {
     const { onSave } = renderSettingsDialog({ initialTab: 'shortcuts' });
     const toggle = screen.getByRole('switch', { name: 'Show key hints' });
     expect(toggle).toBeChecked();
     fireEvent.click(toggle);
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk', shortcuts: {}, keyboardNavigation: { characterShortcutsEnabled: true, keyHintsVisible: false } });
   });
 
-  it('saves character navigation independently and cancels unsaved changes', async () => {
+  it('saves character navigation at once', async () => {
     const { onSave, rerenderSettingsDialog } = renderSettingsDialog({ initialTab: 'shortcuts' });
     const toggle = screen.getByRole('switch', { name: 'Enable ?, / and Space outside text editing' });
     expect(toggle).toBeChecked();
     fireEvent.click(toggle);
-    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk', shortcuts: {}, keyboardNavigation: { characterShortcutsEnabled: false, keyHintsVisible: true } });
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     await act(async () => { rerenderSettingsDialog({ open: false }); });
@@ -850,7 +930,6 @@ describe('SettingsDialog', () => {
     fireEvent.keyDown(shortcutButton, { key: 'e', metaKey: true });
 
     await waitFor(() => expect(shortcutButton).toHaveTextContent('⌘E'));
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(onSave).toHaveBeenCalledWith({
       title: 'HackDesk',
@@ -923,8 +1002,8 @@ describe('SettingsDialog', () => {
     fireEvent.keyDown(shortcutButton, { key: 'p', metaKey: true });
 
     expect(await screen.findByRole('alert')).toHaveTextContent('already assigned to Quick Open');
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
     expect(onSave).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
   });
 
   it('reports when update checks are unavailable outside packaged Electron', () => {

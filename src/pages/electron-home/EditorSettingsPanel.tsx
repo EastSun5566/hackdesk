@@ -1,4 +1,4 @@
-import type { EditorMode } from '@/lib/settings';
+import { defaultSettings, type EditorMode } from '@/lib/settings';
 
 import { SettingsPage, SettingsRadioList, SettingsSection } from './SettingsPrimitives';
 import { setNewTabOpens, useNewTabOpens, type NewTabOpens } from './new-tab-preference';
@@ -26,15 +26,22 @@ const NEW_TAB_OPTIONS: {
 export function EditorSettingsPanel({
   editorMode,
   onEditorModeChange,
+  onRevertMode,
 }: {
   editorMode: EditorMode;
   onEditorModeChange: (mode: EditorMode) => void;
+  onRevertMode: () => void;
 }) {
   const newTabOpens = useNewTabOpens();
 
   return (
     <SettingsPage>
-      <SettingsSection title="Mode" description="How keys move and edit in the editor.">
+      <SettingsSection
+        title="Mode"
+        description="How keys move and edit in the editor."
+        onRevert={onRevertMode}
+        revertLabel={`Reset editor mode to ${defaultSettings.editor.mode}`}
+      >
         <SettingsRadioList
           name="editor-mode"
           legend="Editor mode"
@@ -44,7 +51,11 @@ export function EditorSettingsPanel({
         />
       </SettingsSection>
 
-      <SettingsSection title="New tab opens">
+      <SettingsSection
+        title="New tab opens"
+        onRevert={() => setNewTabOpens('empty')}
+        revertLabel="Reset new tab behavior to open an empty page"
+      >
         <SettingsRadioList
           name="new-tab-opens"
           legend="New tab opens"

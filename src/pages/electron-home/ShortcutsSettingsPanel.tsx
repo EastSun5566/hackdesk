@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 
 import { holdHintsPreference, leaderSpacePreference } from './keyboard-feature-preferences';
 import { SettingsInput, SettingsPage, SettingsSection, SettingsSwitchRow } from './SettingsPrimitives';
+import { defaultSettings } from '@/lib/settings';
 
 const SHORTCUT_LIST_CLASS = 'm-0 flex list-none flex-col divide-y divide-border-subtle p-0';
 const SHORTCUT_ROW_CLASS = 'flex min-w-0 items-center gap-3 py-2 pl-4 pr-2';
@@ -150,6 +151,21 @@ export function ShortcutsSettingsPanel({
     onShortcutsChange(next);
   };
 
+  const revertKeyboardSection = () => {
+    setError(null);
+    onCharacterShortcutsChange(defaultSettings.keyboardNavigation.characterShortcutsEnabled);
+    onKeyHintsVisibleChange(defaultSettings.keyboardNavigation.keyHintsVisible);
+    leaderSpacePreference.set(true);
+    holdHintsPreference.set(true);
+  };
+
+  const revertGroup = (group: ElectronActionCategory) => {
+    setError(null);
+    const ids = new Set(EDITABLE_ACTIONS.filter((action) => action.category === group).map((action) => action.id));
+    const next = Object.fromEntries(Object.entries(shortcuts).filter(([id]) => !ids.has(id as ElectronActionId)));
+    onShortcutsChange(next);
+  };
+
   const handleCaptureKeyDown = (actionId: ElectronActionId, event: React.KeyboardEvent<HTMLButtonElement>) => {
     if (activeActionId !== actionId) {
       return;
@@ -194,7 +210,11 @@ export function ShortcutsSettingsPanel({
 
   return (
     <SettingsPage>
-      <SettingsSection title="Keyboard">
+      <SettingsSection
+        title="Keyboard"
+        onRevert={revertKeyboardSection}
+        revertLabel="Reset keyboard options to defaults"
+      >
         <SettingsSwitchRow
           id="settings-character-shortcuts"
           label="Enable ?, / and Space outside text editing"
@@ -207,7 +227,7 @@ export function ShortcutsSettingsPanel({
           checked={keyHintsVisible}
           onCheckedChange={onKeyHintsVisibleChange}
         />
-        {/* Kept on this computer and applied at once, unlike the options above, which save with the dialog. */}
+        {/* Kept on this computer, like every other setting on this page. */}
         <SettingsSwitchRow
           id="settings-leader-space"
           label="Space opens the leader menu"
@@ -270,7 +290,12 @@ export function ShortcutsSettingsPanel({
         }
 
         return (
-          <SettingsSection key={group} title={GROUP_LABELS[group]}>
+          <SettingsSection
+            key={group}
+            title={GROUP_LABELS[group]}
+            onRevert={() => revertGroup(group)}
+            revertLabel={`Clear custom ${GROUP_LABELS[group].toLowerCase()} shortcuts`}
+          >
             <ul data-settings-flush className={SHORTCUT_LIST_CLASS}>
               {actions.map((action) => {
                 const isActive = activeActionId === action.id;

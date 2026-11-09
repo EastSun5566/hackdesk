@@ -1,5 +1,5 @@
 import type { InputHTMLAttributes, ReactNode } from 'react';
-import { CircleHelp } from 'lucide-react';
+import { CircleHelp, RotateCcw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/field';
@@ -16,18 +16,24 @@ export function SettingsPage({ children }: { children: ReactNode }) {
 /**
  * A titled group of settings: a small heading over a bordered card whose children are its rows
  * (see .settings-card). Rows are ruled off from each other, so they carry no spacing of their own.
+ * A group that owns plain settings values takes `onRevert` to put them back to their defaults.
  */
 export function SettingsSection({
   title,
   description,
   help,
+  onRevert,
+  revertLabel,
   children,
 }: {
   title?: string;
   description?: string;
   help?: ReactNode;
+  onRevert?: () => void;
+  revertLabel?: string;
   children: ReactNode;
 }) {
+  const revertAccessibleLabel = revertLabel ?? (title ? `Reset ${title} to defaults` : 'Reset section to defaults');
   return (
     <section className="flex flex-col gap-2">
       {title ? (
@@ -35,6 +41,21 @@ export function SettingsSection({
           <div className="flex items-center gap-1.5">
             <h3 className="text-sm font-semibold leading-5 text-text-emphasize text-balance">{title}</h3>
             {help ? <SettingsHelpTooltip label={title}>{help}</SettingsHelpTooltip> : null}
+            {onRevert ? (
+              <span className="ml-auto inline-flex shrink-0">
+                <Tooltip content={revertAccessibleLabel} side="top">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={revertAccessibleLabel}
+                    onClick={onRevert}
+                  >
+                    <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />
+                  </Button>
+                </Tooltip>
+              </span>
+            ) : null}
           </div>
           {description ? <p className="text-xs leading-5 text-text-subtle">{description}</p> : null}
         </div>

@@ -27,7 +27,7 @@ export function describeDictationLocale(locale: string) {
 
 type PendingDownload = { locale: string; requestId: string; fraction: number };
 
-export function DictationSettingsPanel({ active }: { active: boolean }) {
+export function DictationSettingsPanel({ active, resetSignal = 0 }: { active: boolean; resetSignal?: number }) {
   const api = getHackDeskAPI();
   const [settings, setSettings] = useState<DictationSettings | null>(null);
   const [status, setStatus] = useState<DictationStatus | null>(null);
@@ -35,6 +35,7 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
   const [download, setDownload] = useState<PendingDownload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const downloadRef = useRef<PendingDownload | null>(null);
+  const lastResetSignal = useRef(0);
 
   const loadStatus = useCallback(async () => {
     if (!api?.dictation) return;
@@ -57,6 +58,26 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
     const pending = downloadRef.current;
     if (pending) void api?.dictation?.cancel(pending.requestId).catch(() => undefined);
   }, [api]);
+
+  const revertSection = useCallback(() => {
+    if (!api) return;
+    void (async () => {
+      try {
+        const saved = await api.settings.update({ dictation: { ...defaultDictationSettings } });
+        setSettings(saved.dictation ?? { ...defaultDictationSettings });
+        notifyDictationSettingsChanged();
+      } catch (saveError) {
+        setError(getAiErrorMessage(saveError));
+      }
+    })();
+  }, [api]);
+
+  // The header Reset button reaches this self-saving page through its tab.
+  useEffect(() => {
+    if (!resetSignal || resetSignal === lastResetSignal.current) return;
+    lastResetSignal.current = resetSignal;
+    revertSection();
+  }, [resetSignal, revertSection]);
 
   const save = async (next: DictationSettings) => {
     if (!api) return;
@@ -128,6 +149,8 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
       <SettingsSection
         title="Speech to text"
         description="Speech stays on this Mac. Audio is not saved."
+        onRevert={revertSection}
+        revertLabel="Turn dictation off and follow the system language"
       >
         {error ? <p role="alert" className="text-sm text-destructive-default">{error}</p> : null}
         {!status || !settings ? (

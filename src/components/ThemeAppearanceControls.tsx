@@ -35,8 +35,6 @@ const themeModeOptions: { id: ThemeMode; label: string; icon: ReactNode }[] = [
 const focusClassName = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default';
 
 type ThemeAppearanceFieldsOptions = {
-  onApplied?: () => void;
-  actions?: 'inline' | 'none';
   density?: 'comfortable' | 'compact';
   customSeedsDefaultOpen?: boolean;
   /** Replaces the default spacing between fields, as when each field is a row of a settings card. */
@@ -56,8 +54,6 @@ const GROUP_LEGEND_COMPACT_CLASS = 'float-left mb-3 w-full text-xs font-semibold
 
 export function ThemeAppearanceFields({
   controller,
-  onApplied,
-  actions = 'inline',
   density = 'comfortable',
   customSeedsDefaultOpen = true,
   className,
@@ -68,16 +64,10 @@ export function ThemeAppearanceFields({
     seedInputs: draftSeedInputs,
     typography: draftTypography,
   } = controller.draft;
-  const { seedErrors: errors, showTypography, status, typographyErrors } = controller;
+  const { seedErrors: errors, showTypography, typographyErrors } = controller;
   const draftActions = controller.actions;
   const presets = HACKDESK_THEME_PRESETS;
   const compact = density === 'compact';
-
-  const handleApply = () => {
-    if (draftActions.apply()) {
-      onApplied?.();
-    }
-  };
 
   return (
     <div className={className ?? (compact ? 'space-y-4' : 'space-y-6')}>
@@ -224,20 +214,6 @@ export function ThemeAppearanceFields({
           </>
         )}
       </fieldset>
-
-      {actions === 'inline' ? (
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-default pt-4">
-          <Button variant="secondary" onClick={draftActions.reset}>
-            Reset Theme
-          </Button>
-          <Button variant="secondary" onClick={draftActions.cancel}>
-            Cancel Preview
-          </Button>
-          <Button variant="primary" onClick={handleApply} disabled={!status.canApply}>
-            Apply Theme
-          </Button>
-        </div>
-      ) : null}
     </div>
   );
 }

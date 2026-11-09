@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -106,6 +106,17 @@ export function HackmdSettingsPanel({
           >
             {tokenTest.message}
           </p>
+          <div className="mt-2">
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={isBusy || tokenTest.status === 'testing' || !token.trim()}
+            >
+              {tokenTest.status === 'testing' ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : null}
+              {tokenTest.status === 'testing' ? 'Testing…' : hasHackmdApiToken ? 'Save new token' : 'Connect HackMD'}
+            </Button>
+          </div>
         </SettingsRow>
       </SettingsSection>
 

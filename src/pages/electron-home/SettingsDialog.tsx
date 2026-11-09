@@ -1,5 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Loader2, RotateCcw } from 'lucide-react';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogClose,
@@ -12,7 +24,7 @@ import { useTheme } from '@/components/theme-provider';
 import { useThemeAppearanceDraft } from '@/components/useThemeAppearanceDraft';
 import type { ElectronSafeSettings, UserSummary } from '@/lib/electron-api';
 import type { LocalVaultSnapshot } from '@/lib/local-vault';
-import { defaultSettings } from '@/lib/settings';
+import { defaultSettings, type EditorMode } from '@/lib/settings';
 
 import { AdvancedSettingsPanel } from './AdvancedSettingsPanel';
 import { AiSettingsPanel } from './AiSettingsPanel';
@@ -27,13 +39,66 @@ import {
   SETTINGS_TABS,
   type SettingsTab,
 } from './SettingsDialogConfig';
-import { SettingsDialogFooter } from './SettingsDialogFooter';
 import { SettingsPage } from './SettingsPrimitives';
 import { SettingsTabs } from './SettingsTabs';
 import type { SettingsSearchResult } from './settings-search';
-import { getShortcutsDraftStatus, ShortcutsSettingsPanel } from './ShortcutsSettingsPanel';
+import { ShortcutsSettingsPanel } from './ShortcutsSettingsPanel';
 import type { SettingsFormInput } from './types';
 import { VaultSettingsPanel } from './VaultSettingsPanel';
+import { holdHintsPreference, leaderSpacePreference } from './keyboard-feature-preferences';
+import { setNewTabOpens } from './new-tab-preference';
+import { setSplitStatusLine } from './split-status-line-preference';
+import { setStatusLineVisible } from './status-line-preference';
+import { setTreeGuides } from './tree-guides-preference';
+
+/** What the header Reset button puts back to defaults, per page. */
+const TAB_RESET_COPY: Record<SettingsTab, { title: string; description: string; confirm: string }> = {
+  general: {
+    title: 'Reset General settings?',
+    description: 'Puts the window title back to its default.',
+    confirm: 'Reset General',
+  },
+  editor: {
+    title: 'Reset Editor settings?',
+    description: 'Puts the editor mode and new-tab behavior back to defaults.',
+    confirm: 'Reset Editor',
+  },
+  shortcuts: {
+    title: 'Reset Shortcuts settings?',
+    description: 'Clears custom shortcuts and puts keyboard options back to defaults.',
+    confirm: 'Reset Shortcuts',
+  },
+  appearance: {
+    title: 'Reset Appearance settings?',
+    description: 'Puts the theme, sidebar guides, and status line back to defaults.',
+    confirm: 'Reset Appearance',
+  },
+  vault: {
+    title: 'Forget the local vault?',
+    description: 'Removes the vault path from Settings. Your files stay where they are.',
+    confirm: 'Forget Vault',
+  },
+  hackmd: {
+    title: 'Reset HackMD settings?',
+    description: 'Signs out of HackMD and clears the token input.',
+    confirm: 'Sign Out',
+  },
+  ai: {
+    title: 'Reset AI settings?',
+    description: 'Turns providers off, clears the default, restores editor options, and deletes custom commands.',
+    confirm: 'Reset AI',
+  },
+  dictation: {
+    title: 'Reset Dictation settings?',
+    description: 'Turns dictation off and follows the system language.',
+    confirm: 'Reset Dictation',
+  },
+  advanced: {
+    title: 'Reset Advanced settings?',
+    description: 'Puts the experimental status line option back to its default.',
+    confirm: 'Reset Advanced',
+  },
+};
 
 type SettingsDialogProps = {
   open: boolean;
@@ -97,10 +162,7 @@ function SettingsDialogContent({
     keyHintsVisible: settings?.keyboardNavigation?.keyHintsVisible ?? true,
   }));
   const appearanceController = useThemeAppearanceDraft({ showTypography: true });
-  // An unapplied appearance preview must not outlive the dialog. The parent can close it directly
-  // (for example after saving from another tab) or remount it, bypassing handleDialogOpenChange;
-  // a leaked preview shows the draft theme for the rest of the session while the saved one returns
-  // on the next launch.
+  // Appearance applies at once now, so closing only clears invalid, unapplied input.
   const cancelAppearanceDraftRef = useRef(appearanceController.actions.cancel);
   useLayoutEffect(() => {
     cancelAppearanceDraftRef.current = appearanceController.actions.cancel;
@@ -110,6 +172,102 @@ function SettingsDialogContent({
   }, [open]);
   useEffect(() => cancelPreview, [cancelPreview]);
   const { editorMode, shortcuts, characterShortcutsEnabled, keyHintsVisible, title, token, tokenTest, tokenVisible } = formState;
+
+  // Every change saves at once; the footer is gone. Text fields debounce so typing saves once it pauses.
+  const titleSaveTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(titleSaveTimer.current), []);
+  const savedTitle = settings?.title ?? defaultSettings.title;
+  const titleForSave = title.trim() || savedTitle;
+  const saveTitle = (next: string, immediate: boolean) => {
+    window.clearTimeout(titleSaveTimer.current);
+    const trimmed = next.trim();
+    if (!trimmed) return;
+    if (immediate) {
+      onSave({ title: trimmed });
+      return;
+    }
+    titleSaveTimer.current = window.setTimeout(() => onSave({ title: trimmed }), 600);
+  };
+  const handleTitleChange = (next: string) => {
+    setFormState((current) => ({ ...current, title: next }));
+    saveTitle(next, false);
+  };
+  const handleTitleBlur = () => {
+    window.clearTimeout(titleSaveTimer.current);
+    // An empty title never saves; leaving the field puts the saved one back.
+    if (!title.trim() && title !== savedTitle) {
+      setFormState((current) => ({ ...current, title: savedTitle }));
+    }
+  };
+  const handleEditorModeChange = (mode: EditorMode) => {
+    setFormState((current) => ({ ...current, editorMode: mode }));
+    onSave({ title: titleForSave, editor: { mode } });
+  };
+  const handleShortcutsChange = (next: typeof shortcuts) => {
+    setFormState((current) => ({ ...current, shortcuts: next }));
+    onSave({
+      title: titleForSave,
+      shortcuts: next,
+      keyboardNavigation: { characterShortcutsEnabled, keyHintsVisible },
+    });
+  };
+  const handleKeyboardNavigationChange = (next: { characterShortcutsEnabled: boolean; keyHintsVisible: boolean }) => {
+    setFormState((current) => ({ ...current, ...next }));
+    onSave({ title: titleForSave, shortcuts, keyboardNavigation: next });
+  };
+
+  // Appearance commits each valid change, so there is no Apply step and no preview to cancel.
+  const { status: appearanceStatus, actions: appearanceActions } = appearanceController;
+  useEffect(() => {
+    if (open && appearanceStatus.hasDraftChanges && appearanceStatus.canApply) {
+      appearanceActions.apply();
+    }
+  }, [open, appearanceStatus, appearanceActions]);
+
+  // A section of a self-saving page resets through the page itself: the bump reaches only its panel.
+  const [resetRequest, setResetRequest] = useState<{ tab: SettingsTab; nonce: number } | null>(null);
+  const [resetConfirmTab, setResetConfirmTab] = useState<SettingsTab | null>(null);
+
+  const handleConfirmTabReset = () => {
+    const tab = resetConfirmTab;
+    if (!tab) return;
+    setResetConfirmTab(null);
+    window.clearTimeout(titleSaveTimer.current);
+    if (tab === 'general') {
+      setFormState((current) => ({ ...current, title: defaultSettings.title }));
+      onSave({ title: defaultSettings.title });
+      setResetRequest({ tab, nonce: Date.now() });
+    } else if (tab === 'editor') {
+      setFormState((current) => ({ ...current, editorMode: defaultSettings.editor.mode }));
+      onSave({ title: titleForSave, editor: { mode: defaultSettings.editor.mode } });
+      setNewTabOpens('empty');
+    } else if (tab === 'shortcuts') {
+      const navigation = { characterShortcutsEnabled: true, keyHintsVisible: true };
+      setFormState((current) => ({ ...current, shortcuts: defaultSettings.shortcuts, ...navigation }));
+      onSave({ title: titleForSave, shortcuts: defaultSettings.shortcuts, keyboardNavigation: navigation });
+      leaderSpacePreference.set(true);
+      holdHintsPreference.set(true);
+    } else if (tab === 'appearance') {
+      appearanceActions.reset();
+      setTreeGuides(true);
+      setStatusLineVisible(true);
+    } else if (tab === 'vault') {
+      void onForgetLocalVault();
+    } else if (tab === 'hackmd') {
+      invalidateTokenValidation();
+      setFormState((current) => ({
+        ...current,
+        token: '',
+        tokenTest: { status: 'idle', message: '' },
+      }));
+      onDisconnectHackmd();
+    } else if (tab === 'ai' || tab === 'dictation') {
+      setResetRequest({ tab, nonce: Date.now() });
+    } else if (tab === 'advanced') {
+      // Reset All lives in the Advanced page itself; the header only covers its switch.
+      setSplitStatusLine(false);
+    }
+  };
 
   useEffect(() => {
     const target = focusRequest?.target;
@@ -136,93 +294,56 @@ function SettingsDialogContent({
 
   const normalizedToken = token.trim();
   const isTestingToken = tokenTest.status === 'testing';
-  const shortcutStatus = getShortcutsDraftStatus(settings?.shortcuts, shortcuts);
-  const keyboardChanged = characterShortcutsEnabled !== (settings?.keyboardNavigation?.characterShortcutsEnabled ?? true)
-    || keyHintsVisible !== (settings?.keyboardNavigation?.keyHintsVisible ?? true);
-  const canSaveSettings = Boolean(title.trim())
-    && (activeTab !== 'hackmd' || Boolean(normalizedToken))
-    && (activeTab !== 'shortcuts' || ((shortcutStatus.hasDraftChanges || keyboardChanged) && !shortcutStatus.error));
 
   const invalidateTokenValidation = () => {
     tokenValidationRequestRef.current += 1;
   };
 
-  const handleSaveSettings = () => {
+  // A pasted token saves only after it validates, so the dialog tests it first.
+  const validateAndSaveToken = () => {
     if (isSaving || isTestingToken) {
       return;
     }
 
-    if (!title.trim()) {
+    if (!normalizedToken) {
       return;
     }
 
-    if (activeTab === 'editor') {
-      onSave({
-        title: title.trim(),
-        editor: { mode: editorMode },
+    const requestId = tokenValidationRequestRef.current + 1;
+    tokenValidationRequestRef.current = requestId;
+    setFormState((current) => ({
+      ...current,
+      tokenTest: { status: 'testing', message: 'Testing token…' },
+    }));
+
+    void onValidateToken(normalizedToken)
+      .then((user) => {
+        if (requestId !== tokenValidationRequestRef.current) {
+          return;
+        }
+
+        setFormState((current) => ({
+          ...current,
+          tokenTest: {
+            status: 'success',
+            message: `Token works for ${user.name} @${user.username}.`,
+          },
+        }));
+        onSave({ title: titleForSave, hackmdApiToken: normalizedToken });
+      })
+      .catch((error: unknown) => {
+        if (requestId !== tokenValidationRequestRef.current) {
+          return;
+        }
+
+        setFormState((current) => ({
+          ...current,
+          tokenTest: {
+            status: 'error',
+            message: error instanceof Error ? error.message : 'Failed to validate token.',
+          },
+        }));
       });
-      return;
-    }
-
-    if (activeTab === 'shortcuts') {
-      if ((!shortcutStatus.hasDraftChanges && !keyboardChanged) || shortcutStatus.error) {
-        return;
-      }
-
-      onSave({
-        title: title.trim(),
-        shortcuts,
-        keyboardNavigation: { characterShortcutsEnabled, keyHintsVisible },
-      });
-      return;
-    }
-
-    if (activeTab === 'hackmd') {
-      if (!normalizedToken) {
-        return;
-      }
-
-      const requestId = tokenValidationRequestRef.current + 1;
-      tokenValidationRequestRef.current = requestId;
-      setFormState((current) => ({
-        ...current,
-        tokenTest: { status: 'testing', message: 'Testing token…' },
-      }));
-
-      void onValidateToken(normalizedToken)
-        .then((user) => {
-          if (requestId !== tokenValidationRequestRef.current) {
-            return;
-          }
-
-          setFormState((current) => ({
-            ...current,
-            tokenTest: {
-              status: 'success',
-              message: `Token works for ${user.name} @${user.username}.`,
-            },
-          }));
-          onSave({ title: title.trim(), hackmdApiToken: normalizedToken });
-        })
-        .catch((error: unknown) => {
-          if (requestId !== tokenValidationRequestRef.current) {
-            return;
-          }
-
-          setFormState((current) => ({
-            ...current,
-            tokenTest: {
-              status: 'error',
-              message: error instanceof Error ? error.message : 'Failed to validate token.',
-            },
-          }));
-        });
-      return;
-    }
-
-    onSave({
-      title: title.trim(),
-    });
   };
 
   const handleResetAllSettings = () => {
@@ -252,22 +373,18 @@ function SettingsDialogContent({
     if (!nextOpen) {
       invalidateTokenValidation();
       appearanceController.actions.cancel();
+      window.clearTimeout(titleSaveTimer.current);
+      setResetConfirmTab(null);
       setFormState((current) => ({
         ...current,
+        // An empty title never saves; closing puts the saved one back.
+        title: current.title.trim() ? current.title : savedTitle,
         shortcuts: settings?.shortcuts ?? defaultSettings.shortcuts,
         characterShortcutsEnabled: settings?.keyboardNavigation?.characterShortcutsEnabled ?? true,
         keyHintsVisible: settings?.keyboardNavigation?.keyHintsVisible ?? true,
       }));
     }
     onOpenChange(nextOpen);
-  };
-
-  const handleApplyTheme = () => {
-    if (!appearanceController.actions.apply()) {
-      return;
-    }
-
-    onOpenChange(false);
   };
 
   return (
@@ -293,9 +410,16 @@ function SettingsDialogContent({
           <form
             className="flex min-h-0 flex-1 flex-col"
             onSubmit={(event) => {
+              // Enter commits the text field on this page: the title, or a pasted token.
               event.preventDefault();
-              if (activeTab === 'general' || activeTab === 'editor' || activeTab === 'shortcuts' || activeTab === 'hackmd') {
-                handleSaveSettings();
+              if (isSaving || isTestingToken) {
+                return;
+              }
+              if (activeTab === 'hackmd') {
+                validateAndSaveToken();
+              } else if (title.trim()) {
+                window.clearTimeout(titleSaveTimer.current);
+                onSave({ title: title.trim() });
               }
             }}
           >
@@ -304,44 +428,77 @@ function SettingsDialogContent({
               <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                 <header className="scroll-edge-top relative flex shrink-0 items-center justify-between gap-3 py-3 pl-8 pr-4">
                   <h2 className="truncate text-lg font-semibold leading-7 text-text-emphasize">{activeTabHeading}</h2>
-                  <DialogClose className="shrink-0" />
+                  <div className="flex shrink-0 items-center gap-1">
+                    {isSaving ? (
+                      <span role="status" className="flex items-center gap-1.5 text-xs text-text-subtle">
+                        <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
+                        Saving…
+                      </span>
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setResetConfirmTab(activeTab)}
+                      aria-label={`Reset ${activeTabHeading} settings to defaults`}
+                    >
+                      <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />
+                      Reset
+                    </Button>
+                    <DialogClose className="shrink-0" />
+                  </div>
                 </header>
                 <TabsContent data-settings-tab="general" value="general" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <SettingsPage>
                     <GeneralSettingsPanel
                       title={title}
-                      onTitleChange={(nextTitle) => setFormState((current) => ({ ...current, title: nextTitle }))}
+                      titleInvalid={!title.trim()}
+                      onTitleChange={handleTitleChange}
+                      onTitleBlur={handleTitleBlur}
+                      onRevertTitle={() => {
+                        setFormState((current) => ({ ...current, title: defaultSettings.title }));
+                        onSave({ title: defaultSettings.title });
+                      }}
                     />
-                    <OfflineSettingsSection active={open && activeTab === 'general'} />
+                    <OfflineSettingsSection
+                      active={open && activeTab === 'general'}
+                      resetSignal={resetRequest?.tab === 'general' ? resetRequest.nonce : 0}
+                    />
                   </SettingsPage>
                 </TabsContent>
 
                 <TabsContent data-settings-tab="editor" value="editor" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <EditorSettingsPanel
                     editorMode={editorMode}
-                    onEditorModeChange={(nextEditorMode) => setFormState((current) => ({
-                      ...current,
-                      editorMode: nextEditorMode,
-                    }))}
+                    onEditorModeChange={handleEditorModeChange}
+                    onRevertMode={() => handleEditorModeChange(defaultSettings.editor.mode)}
                   />
                 </TabsContent>
 
                 <TabsContent data-settings-tab="appearance" value="appearance" keepMounted className={SETTINGS_PANEL_CLASS}>
-                  <AppearanceSettingsPanel controller={appearanceController} />
+                  <AppearanceSettingsPanel
+                    controller={appearanceController}
+                    onRevertTheme={appearanceActions.reset}
+                    onRevertSidebar={() => setTreeGuides(true)}
+                    onRevertWindow={() => setStatusLineVisible(true)}
+                  />
                 </TabsContent>
 
                 <TabsContent data-settings-tab="shortcuts" value="shortcuts" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <ShortcutsSettingsPanel
                     platform={platform}
                     characterShortcutsEnabled={characterShortcutsEnabled}
-                    onCharacterShortcutsChange={value => setFormState(current => ({ ...current, characterShortcutsEnabled: value }))}
+                    onCharacterShortcutsChange={(enabled) => handleKeyboardNavigationChange({
+                      characterShortcutsEnabled: enabled,
+                      keyHintsVisible,
+                    })}
                     keyHintsVisible={keyHintsVisible}
-                    onKeyHintsVisibleChange={value => setFormState(current => ({ ...current, keyHintsVisible: value }))}
+                    onKeyHintsVisibleChange={(visible) => handleKeyboardNavigationChange({
+                      characterShortcutsEnabled,
+                      keyHintsVisible: visible,
+                    })}
                     shortcuts={shortcuts}
-                    onShortcutsChange={(nextShortcuts) => setFormState((current) => ({
-                      ...current,
-                      shortcuts: nextShortcuts,
-                    }))}
+                    onShortcutsChange={handleShortcutsChange}
                   />
                 </TabsContent>
 
@@ -382,25 +539,39 @@ function SettingsDialogContent({
                 </TabsContent>
 
                 <TabsContent data-settings-tab="ai" value="ai" keepMounted className={SETTINGS_PANEL_CLASS}>
-                  <AiSettingsPanel active={open && activeTab === 'ai'} />
+                  <AiSettingsPanel
+                    active={open && activeTab === 'ai'}
+                    resetSignal={resetRequest?.tab === 'ai' ? resetRequest.nonce : 0}
+                  />
                 </TabsContent>
 
                 <TabsContent data-settings-tab="dictation" value="dictation" keepMounted className={SETTINGS_PANEL_CLASS}>
-                  <DictationSettingsPanel active={open && activeTab === 'dictation'} />
+                  <DictationSettingsPanel
+                    active={open && activeTab === 'dictation'}
+                    resetSignal={resetRequest?.tab === 'dictation' ? resetRequest.nonce : 0}
+                  />
                 </TabsContent>
 
                 <TabsContent data-settings-tab="advanced" value="advanced" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <AdvancedSettingsPanel appVersion={appVersion} onResetAllSettings={handleResetAllSettings} />
                 </TabsContent>
-                <SettingsDialogFooter
-                  activeTab={activeTab}
-                  appearanceStatus={appearanceController.status}
-                  canSave={canSaveSettings}
-                  isSaving={isSaving}
-                  isTestingToken={isTestingToken}
-                  onApplyTheme={handleApplyTheme}
-                  onCancelPreview={appearanceController.actions.cancel}
-                />
+                <AlertDialog open={resetConfirmTab !== null} onOpenChange={(nextOpen) => { if (!nextOpen) setResetConfirmTab(null); }}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{resetConfirmTab ? TAB_RESET_COPY[resetConfirmTab].title : ''}</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {resetConfirmTab ? TAB_RESET_COPY[resetConfirmTab].description : ''}
+                        {' '}Your notes and vault files stay unchanged.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction variant="destructive-solid" onClick={handleConfirmTabReset}>
+                        {resetConfirmTab ? TAB_RESET_COPY[resetConfirmTab].confirm : 'Reset'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           </form>
