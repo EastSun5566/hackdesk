@@ -56,6 +56,18 @@ const TREE_ROW_FOCUS_CLASS = 'focus-within:bg-background-primary-subtler focus-w
  * indented item reaches back over its indent and down over the 2px gap below it, so its guide
  * shows and meets the next one: lazy rows (content-visibility) paint only inside their own box.
  */
+/**
+ * Where a folder dragged with the pointer will land, set by FolderNavigator as
+ * data-drop-placement on the target folder's row: inside lights the row up, before and after draw
+ * a line in the gap above or below it.
+ */
+const FOLDER_DROP_MARK_CLASS = cn(
+  'relative',
+  'data-[drop-placement=inside]:*:bg-background-primary-subtler data-[drop-placement=inside]:*:text-text-emphasize',
+  'data-[drop-placement=before]:before:absolute data-[drop-placement=before]:before:inset-x-0 data-[drop-placement=before]:before:-top-0.5 data-[drop-placement=before]:before:h-0.5 data-[drop-placement=before]:before:rounded-full data-[drop-placement=before]:before:bg-primary-default',
+  'data-[drop-placement=after]:after:absolute data-[drop-placement=after]:after:inset-x-0 data-[drop-placement=after]:after:-bottom-0.5 data-[drop-placement=after]:after:h-0.5 data-[drop-placement=after]:after:rounded-full data-[drop-placement=after]:after:bg-primary-default',
+);
+
 export const TREE_CHILDREN_INDENT_CLASS = 'pl-5';
 export function treeItemClassName(indented: boolean, lazy = false) {
   return cn('relative min-w-0', indented && '-mb-0.5 -ml-5 pb-0.5 pl-5', lazy && 'tree-row-lazy');
@@ -481,7 +493,7 @@ function FolderButtonView({
           data-hackdesk-dragging={isDragging || undefined}
           // Pressing anywhere on the row can drag it; it starts after 4px of movement, so clicks stay clicks.
           onPointerDown={disabledDrag ? undefined : pointerDragListener(listeners)}
-          className={cn('min-w-0', (isDragging || active) && 'opacity-40')}
+          className={cn('min-w-0', FOLDER_DROP_MARK_CLASS, (isDragging || active) && 'opacity-40')}
         >
           <EntityRow
             selected={selected}

@@ -12,18 +12,19 @@ import {
   DragOverlay,
   KeyboardSensor,
   PointerSensor,
-  pointerWithin,
   useSensor,
   useSensors,
-  type Collision,
   type CollisionDetection,
   type DragEndEvent,
+  type DragMoveEvent,
   type DragStartEvent,
+  type Modifier,
 } from '@dnd-kit/core';
 import {
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
+  type SortingStrategy,
 } from '@dnd-kit/sortable';
 
 import { Button } from '@/components/ui/button';
@@ -32,9 +33,12 @@ import type { LocalVaultSkippedFile } from '@/lib/local-vault';
 import {
   buildFolderDropOperation,
   flattenFolderTree,
+  getFolderDropPlacement,
+  getPlacedFolderDrop,
   getProjectedFolderDrop,
   ROOT_FOLDER_DROP_ID,
   type FolderDropOperation,
+  type FolderDropPlacement,
 } from '@/lib/hackmd-folder-dnd';
 import {
   buildNoteDropOperation,
@@ -88,25 +92,54 @@ import { TrashNavigatorHeader, TrashNavigatorList, type TrashNavigatorViewProps 
 import { trashTeamPathForScope, useTrashList } from './useTrash';
 
 /**
- * A drop lands on the row under the pointer. The workspace row is checked first, against where it
- * is on screen now: it stays pinned while the tree scrolls under it (dragging toward it scrolls
- * the tree), and dnd-kit moves its remembered position with the scroll. Keyboard drags have no
- * pointer and fall back to the nearest row.
+ * A pointer drop lands on the row under the pointer, found by where each row is on screen now.
+ * dnd-kit's remembered positions go stale during a drag: the dragged folder's contents fold away
+ * as it starts, moving every row below, and the workspace row stays pinned while the tree scrolls
+ * under it. The workspace row is checked first, since rows scroll beneath it. Keyboard drags have
+ * no pointer and step through the nearest rows.
  */
 const treeCollisionDetection: CollisionDetection = (args) => {
   const pointer = args.pointerCoordinates;
-  const root = args.droppableContainers.find((container) => container.id === ROOT_FOLDER_DROP_ID);
-  const rootBounds = pointer ? root?.node.current?.getBoundingClientRect() : undefined;
-  if (pointer && root && rootBounds
-    && pointer.x >= rootBounds.left && pointer.x <= rootBounds.right
-    && pointer.y >= rootBounds.top && pointer.y <= rootBounds.bottom) {
-    return [{ id: root.id }];
+  if (!pointer) {
+    return closestCenter(args).filter((collision) => collision.id !== ROOT_FOLDER_DROP_ID);
   }
-  // Elsewhere the workspace row is never the target: dnd-kit's idea of where it is goes stale.
-  const notRoot = (collisions: Collision[]) => collisions.filter((collision) => collision.id !== ROOT_FOLDER_DROP_ID);
-  const underPointer = notRoot(pointerWithin(args));
-  return underPointer.length > 0 ? underPointer : notRoot(closestCenter(args));
+  const containers = [...args.droppableContainers].sort((left, right) => (
+    Number(right.id === ROOT_FOLDER_DROP_ID) - Number(left.id === ROOT_FOLDER_DROP_ID)
+  ));
+  for (const container of containers) {
+    if (container.disabled) continue;
+    const bounds = container.node.current?.getBoundingClientRect();
+    if (bounds && bounds.height > 0
+      && pointer.x >= bounds.left && pointer.x <= bounds.right
+      && pointer.y >= bounds.top && pointer.y <= bounds.bottom) {
+      return [{ id: container.id }];
+    }
+  }
+  return [];
 };
+
+/**
+ * A pointer drag leaves the other folders in place and marks where the folder would land (see
+ * FolderButton); only keyboard drags slide the rows apart to preview the new order.
+ */
+const POINTER_FOLDER_SORTING: SortingStrategy = () => null;
+
+/**
+ * The drag preview follows the pointer from just below and to the right of it, like a cursor
+ * badge, so the row being dropped on stays in sight with its drop mark. Keyboard drags keep it
+ * over the moving row.
+ */
+const PREVIEW_BESIDE_POINTER: Modifier = ({ transform, activatorEvent, draggingNodeRect }) => {
+  if (!(activatorEvent instanceof PointerEvent) || !draggingNodeRect) return transform;
+  return {
+    ...transform,
+    x: transform.x + activatorEvent.clientX - draggingNodeRect.left + 12,
+    y: transform.y + activatorEvent.clientY - draggingNodeRect.top + 12,
+  };
+};
+const PREVIEW_MODIFIERS = [PREVIEW_BESIDE_POINTER];
+
+type FolderDropIndicator = { overId: string; placement: FolderDropPlacement; row: HTMLElement };
 
 function TrashNavigatorTitleBar({ trash }: { trash: TrashNavigatorViewProps }) {
   const teamPath = trashTeamPathForScope(trash.scope);
@@ -795,6 +828,12 @@ function NavigatorTree({
   const treeRef = useRef<HTMLDivElement | null>(null);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+  const [keyboardFolderDrag, setKeyboardFolderDrag] = useState(false);
+  // Pointer folder drags: where the pointer is, and the row marked as the drop target. Both live
+  // outside React state; the mark is a data attribute, so moving the pointer re-renders nothing.
+  const pointerYRef = useRef<number | null>(null);
+  const stopPointerTrackingRef = useRef<(() => void) | null>(null);
+  const folderDropRef = useRef<FolderDropIndicator | null>(null);
   const visibleFolderItems = useMemo(
     () => flattenFolderTree(tree, layout.collapsedFolderIds),
     [layout.collapsedFolderIds, tree],
@@ -879,6 +918,47 @@ function NavigatorTree({
     target?.focus();
   }, [selectedRowId, treeFocusRequestId]);
 
+  const showFolderDrop = (next: FolderDropIndicator | null) => {
+    const current = folderDropRef.current;
+    if (current?.row === next?.row && current?.placement === next?.placement) return;
+    if (current) delete current.row.dataset.dropPlacement;
+    if (next) next.row.dataset.dropPlacement = next.placement;
+    folderDropRef.current = next;
+  };
+
+  const endPointerFolderDrag = () => {
+    stopPointerTrackingRef.current?.();
+    stopPointerTrackingRef.current = null;
+    pointerYRef.current = null;
+    showFolderDrop(null);
+  };
+
+  // Marks the folder row a pointer drag would drop on, and on which side.
+  const handleDragMove = (event: DragMoveEvent) => {
+    const activeId = String(event.active.id);
+    const overId = event.over ? String(event.over.id) : null;
+    const pointerY = pointerYRef.current;
+    if (pointerY === null || parseNoteDragId(activeId) || !overId || overId === ROOT_FOLDER_DROP_ID) {
+      showFolderDrop(null);
+      return;
+    }
+    const row = treeRef.current?.querySelector<HTMLElement>(`[data-folder-tree-row-id="folder:${CSS.escape(overId)}"]`);
+    const node = tree.nodesById.get(overId);
+    if (!row || !node) {
+      showFolderDrop(null);
+      return;
+    }
+    const bounds = row.getBoundingClientRect();
+    const placement = getFolderDropPlacement({
+      pointerY,
+      top: bounds.top,
+      height: bounds.height,
+      showsChildrenBelow: (node.children.length > 0 || node.notes.length > 0) && !layout.collapsedFolderIds.has(overId),
+    });
+    const valid = getPlacedFolderDrop({ items: visibleFolderItems, activeId, overId, placement });
+    showFolderDrop(valid ? { overId, placement, row } : null);
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     const activeId = String(event.active.id);
     const noteId = parseNoteDragId(activeId);
@@ -890,11 +970,21 @@ function NavigatorTree({
 
     setActiveFolderId(activeId);
     setActiveNoteId(null);
+    const pointerStart = event.activatorEvent instanceof PointerEvent ? event.activatorEvent : null;
+    setKeyboardFolderDrag(!pointerStart);
+    if (pointerStart) {
+      pointerYRef.current = pointerStart.clientY;
+      const track = (moveEvent: PointerEvent) => { pointerYRef.current = moveEvent.clientY; };
+      document.addEventListener('pointermove', track, { passive: true });
+      stopPointerTrackingRef.current = () => document.removeEventListener('pointermove', track);
+    }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const activeId = String(event.active.id);
     const overId = event.over ? String(event.over.id) : null;
+    const pointerFolderDrop = pointerYRef.current === null ? undefined : folderDropRef.current;
+    endPointerFolderDrag();
     setActiveFolderId(null);
     setActiveNoteId(null);
 
@@ -910,12 +1000,22 @@ function NavigatorTree({
       return;
     }
 
-    const projection = getProjectedFolderDrop({
-      items: visibleFolderItems,
-      activeId,
-      overId,
-      dragOffsetX: event.delta.x,
-    });
+    // A pointer drop on a folder row goes where its mark showed: before, after or inside. With
+    // no mark (an invalid target) nothing moves. The workspace row and keyboard drags project the
+    // drop from the drag itself.
+    const placed = pointerFolderDrop !== undefined && overId !== ROOT_FOLDER_DROP_ID;
+    if (placed && pointerFolderDrop?.overId !== overId) {
+      return;
+    }
+    const placement = placed ? pointerFolderDrop?.placement : undefined;
+    const projection = placement
+      ? getPlacedFolderDrop({ items: visibleFolderItems, activeId, overId, placement })
+      : getProjectedFolderDrop({
+        items: visibleFolderItems,
+        activeId,
+        overId,
+        dragOffsetX: event.delta.x,
+      });
     if (!projection) {
       return;
     }
@@ -926,6 +1026,7 @@ function NavigatorTree({
       activeId,
       overId,
       projection,
+      placement,
     });
     if (operation?.changed) {
       actions.onFolderDrop(operation);
@@ -933,6 +1034,7 @@ function NavigatorTree({
   };
 
   const handleDragCancel = () => {
+    endPointerFolderDrag();
     setActiveFolderId(null);
     setActiveNoteId(null);
   };
@@ -1008,12 +1110,13 @@ function NavigatorTree({
       sensors={sensors}
       collisionDetection={treeCollisionDetection}
       onDragStart={handleDragStart}
+      onDragMove={handleDragMove}
       onDragCancel={handleDragCancel}
       onDragEnd={handleDragEnd}
     >
       <SortableContext
         items={sortableFolderIds}
-        strategy={verticalListSortingStrategy}
+        strategy={keyboardFolderDrag ? verticalListSortingStrategy : POINTER_FOLDER_SORTING}
       >
         <div
           ref={treeRef}
@@ -1073,7 +1176,7 @@ function NavigatorTree({
       </SortableContext>
       {/* The preview never takes the pointer: after a drop it animates back over the tree, where
           it would swallow the press that starts the next drag. */}
-      <DragOverlay className="pointer-events-none">
+      <DragOverlay className="pointer-events-none" modifiers={PREVIEW_MODIFIERS}>
         {activeNote ? (
           <NoteDragOverlay entry={activeNote} />
         ) : (

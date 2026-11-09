@@ -134,6 +134,46 @@ export function getProjectedFolderDrop({
   };
 }
 
+/** Where a folder dragged with the pointer lands on another folder's row. */
+export type FolderDropPlacement = 'before' | 'after' | 'inside';
+
+/**
+ * The row's top quarter places the folder before it, the bottom quarter after it, and the middle
+ * moves it inside. An open folder with contents shows them right below its row, so its bottom
+ * edge means inside too.
+ */
+export function getFolderDropPlacement({ pointerY, top, height, showsChildrenBelow }: {
+  pointerY: number;
+  top: number;
+  height: number;
+  showsChildrenBelow: boolean;
+}): FolderDropPlacement {
+  const ratio = height > 0 ? (pointerY - top) / height : 0.5;
+  if (ratio < 0.25) return 'before';
+  if (ratio > 0.75 && !showsChildrenBelow) return 'after';
+  return 'inside';
+}
+
+/**
+ * The projection for a pointer drop of `activeId` on `overId`'s row, or null when the folder
+ * can't go there (onto itself or into its own subfolders).
+ */
+export function getPlacedFolderDrop({ items, activeId, overId, placement }: {
+  items: FlattenedFolderItem[];
+  activeId: string;
+  overId: string;
+  placement: FolderDropPlacement;
+}): FolderDropProjection | null {
+  const overItem = items.find((item) => item.id === overId);
+  if (!overItem || overId === activeId || overItem.ancestorIds.includes(activeId)) {
+    return null;
+  }
+
+  return placement === 'inside'
+    ? { parentId: overItem.id, depth: overItem.depth + 1 }
+    : { parentId: overItem.parentId, depth: overItem.depth };
+}
+
 function buildFolderOrderFromTree(tree: FolderTree): FolderOrder {
   const order: FolderOrder = {
     [ROOT_FOLDER_ORDER_KEY]: tree.roots.map((node) => node.id),
@@ -186,12 +226,15 @@ export function buildFolderDropOperation({
   activeId,
   overId,
   projection,
+  placement,
 }: {
   tree: FolderTree;
   visibleItems: FlattenedFolderItem[];
   activeId: string;
   overId: string;
   projection: FolderDropProjection;
+  /** A pointer drop says which side of the target it lands on; otherwise it follows the drag direction. */
+  placement?: FolderDropPlacement;
 }): FolderDropOperation | null {
   const activeNode = tree.nodesById.get(activeId);
   if (!activeNode || projection.parentId === activeId) {
@@ -218,7 +261,9 @@ export function buildFolderDropOperation({
   const activeIndex = visibleItems.findIndex((item) => item.id === activeId);
   const overIndex = visibleItems.findIndex((item) => item.id === overId);
   const overItem = visibleItems.find((item) => item.id === overId);
-  const afterAnchor = activeIndex >= 0 && overIndex >= 0 && activeIndex < overIndex;
+  const afterAnchor = placement
+    ? placement === 'after'
+    : activeIndex >= 0 && overIndex >= 0 && activeIndex < overIndex;
 
   removeFolderFromOrder(nextOrder, activeId);
   insertFolderIntoOrder(

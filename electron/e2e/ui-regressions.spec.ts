@@ -874,6 +874,55 @@ test('dropping a folder or a note on the workspace row moves it to the top level
   }
 });
 
+test('a folder dropped on the middle of another moves inside it, on its top edge before it', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await switchWorkspace(page, 'Local Vault');
+    for (const name of ['Projects', 'Sub']) {
+      const expand = page.getByRole('button', { name: `Expand ${name}`, exact: true });
+      if (await expand.count()) await expand.click();
+    }
+    const folderRow = (name: string) => page.locator('[data-folder-tree-kind="folder"]').filter({ has: page.getByRole('treeitem', { name, exact: true }) });
+    const parentOf = (name: string) => page.evaluate((rowName) => {
+      const row = [...document.querySelectorAll<HTMLElement>('[data-folder-tree-kind="folder"]')]
+        .find(element => element.querySelector('[role="treeitem"]')?.getAttribute('aria-label') === rowName);
+      if (!row) return 'missing';
+      const folderItem = row.closest('ul[role="group"][data-tree-children]')?.closest('li');
+      return folderItem?.querySelector('[data-folder-tree-kind="folder"] [role="treeitem"]')?.getAttribute('aria-label') ?? null;
+    }, name);
+    const topLevelFolders = () => page.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-folder-tree-kind="folder"]')]
+      .filter(element => !element.closest('ul[role="group"][data-tree-children]'))
+      .map(element => element.querySelector('[role="treeitem"]')?.getAttribute('aria-label')));
+    // Drags `name` onto `target` at `fraction` of its row's height; checks the mark, then drops.
+    // The target is measured once the drag has started: a dragged folder's contents fold away.
+    const dragFolder = async (name: string, target: string, fraction: number, mark: string) => {
+      const source = (await folderRow(name).getByRole('treeitem', { name, exact: true }).boundingBox())!;
+      const targetRow = folderRow(target);
+      await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(source.x + source.width / 2 + 8, source.y + source.height / 2, { steps: 2 });
+      await expect(folderRow(name)).toHaveAttribute('data-hackdesk-dragging');
+      const bounds = (await targetRow.boundingBox())!;
+      await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height * fraction, { steps: 12 });
+      await expect(targetRow).toHaveAttribute('data-drop-placement', mark);
+      await page.mouse.up();
+      await expect(targetRow).not.toHaveAttribute('data-drop-placement');
+    };
+
+    expect(await parentOf('Folders only')).toBeNull();
+    await dragFolder('Folders only', 'Projects', 0.5, 'inside');
+    await expect.poll(() => parentOf('Folders only')).toBe('Projects');
+
+    expect(await parentOf('Sub')).toBe('Projects');
+    await dragFolder('Sub', 'Projects', 0.1, 'before');
+    // A local vault lists folders by name, so only the move to the top level shows.
+    await expect.poll(() => parentOf('Sub')).toBeNull();
+    await expect.poll(topLevelFolders).toEqual(['Projects', 'Sub']);
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test('tree rows drag by their title, with no grip on hover', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {
