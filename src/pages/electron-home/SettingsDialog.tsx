@@ -2,9 +2,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -24,9 +24,11 @@ import { GeneralSettingsPanel } from './GeneralSettingsPanel';
 import { HackmdSettingsPanel, type TokenTestState } from './HackmdSettingsPanel';
 import {
   SETTINGS_PANEL_CLASS,
+  SETTINGS_TABS,
   type SettingsTab,
 } from './SettingsDialogConfig';
 import { SettingsDialogFooter } from './SettingsDialogFooter';
+import { SettingsPage } from './SettingsPrimitives';
 import { SettingsTabs } from './SettingsTabs';
 import type { SettingsSearchResult } from './settings-search';
 import { getShortcutsDraftStatus, ShortcutsSettingsPanel } from './ShortcutsSettingsPanel';
@@ -79,6 +81,8 @@ function SettingsDialogContent({
   const dialogRef = useRef<HTMLDivElement>(null);
   const [focusRequest, setFocusRequest] = useState<{ target: HTMLElement } | null>(null);
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
+  const activeTabConfig = SETTINGS_TABS.find(tab => tab.id === activeTab);
+  const activeTabHeading = activeTabConfig?.heading ?? activeTabConfig?.label;
   const [formState, setFormState] = useState(() => ({
     title: settings?.title ?? 'HackDesk',
     editorMode: settings?.editor?.mode ?? defaultSettings.editor.mode,
@@ -268,7 +272,17 @@ function SettingsDialogContent({
 
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent ref={dialogRef} size="lg" className="overflow-hidden p-0" data-keyboard-navigation-scope="settings" data-navigation-page={activeTab}>
+      <DialogContent
+        ref={dialogRef}
+        size="wide"
+        showCloseButton={false}
+        className="gap-0 overflow-hidden p-0"
+        data-keyboard-navigation-scope="settings"
+        data-navigation-page={activeTab}
+      >
+        {/* Named for screen readers only: the page heading beside the close button says where you are. */}
+        <DialogTitle className="sr-only">Settings</DialogTitle>
+        <DialogDescription className="sr-only">HackDesk preferences.</DialogDescription>
         <Tabs
           orientation="vertical"
           value={activeTab}
@@ -276,14 +290,6 @@ function SettingsDialogContent({
           // The header and footer show their lines only while the page scrolls under them.
           className="scroll-edges flex min-h-0 flex-1 flex-col"
         >
-          <DialogHeader className="scroll-edge-top relative shrink-0 px-5 py-4">
-            {/* A window label; the page heading below carries the larger tier. */}
-            <DialogTitle className="text-base font-semibold leading-6">Settings</DialogTitle>
-            <DialogDescription className="sr-only">
-              HackDesk preferences.
-            </DialogDescription>
-          </DialogHeader>
-
           <form
             className="flex min-h-0 flex-1 flex-col"
             onSubmit={(event) => {
@@ -296,14 +302,18 @@ function SettingsDialogContent({
             <div className="flex min-h-0 flex-1">
               <SettingsTabs dialogRef={dialogRef} onNavigate={navigateToSetting} />
               <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                <header className="scroll-edge-top relative flex shrink-0 items-center justify-between gap-3 py-3 pl-8 pr-4">
+                  <h2 className="truncate text-lg font-semibold leading-7 text-text-emphasize">{activeTabHeading}</h2>
+                  <DialogClose className="shrink-0" />
+                </header>
                 <TabsContent data-settings-tab="general" value="general" keepMounted className={SETTINGS_PANEL_CLASS}>
-                  <GeneralSettingsPanel
-                    title={title}
-                    onTitleChange={(nextTitle) => setFormState((current) => ({ ...current, title: nextTitle }))}
-                  />
-                  <div className="mt-6">
+                  <SettingsPage>
+                    <GeneralSettingsPanel
+                      title={title}
+                      onTitleChange={(nextTitle) => setFormState((current) => ({ ...current, title: nextTitle }))}
+                    />
                     <OfflineSettingsSection active={open && activeTab === 'general'} />
-                  </div>
+                  </SettingsPage>
                 </TabsContent>
 
                 <TabsContent data-settings-tab="editor" value="editor" keepMounted className={SETTINGS_PANEL_CLASS}>
@@ -382,19 +392,17 @@ function SettingsDialogContent({
                 <TabsContent data-settings-tab="advanced" value="advanced" keepMounted className={SETTINGS_PANEL_CLASS}>
                   <AdvancedSettingsPanel appVersion={appVersion} onResetAllSettings={handleResetAllSettings} />
                 </TabsContent>
+                <SettingsDialogFooter
+                  activeTab={activeTab}
+                  appearanceStatus={appearanceController.status}
+                  canSave={canSaveSettings}
+                  isSaving={isSaving}
+                  isTestingToken={isTestingToken}
+                  onApplyTheme={handleApplyTheme}
+                  onCancelPreview={appearanceController.actions.cancel}
+                />
               </div>
             </div>
-
-            <SettingsDialogFooter
-              activeTab={activeTab}
-              appearanceStatus={appearanceController.status}
-              canSave={canSaveSettings}
-              isSaving={isSaving}
-              isTestingToken={isTestingToken}
-              onApplyTheme={handleApplyTheme}
-              onCancelPreview={appearanceController.actions.cancel}
-              onClose={() => handleDialogOpenChange(false)}
-            />
           </form>
         </Tabs>
       </DialogContent>

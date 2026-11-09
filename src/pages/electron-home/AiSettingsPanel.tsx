@@ -26,7 +26,7 @@ import type { AiCustomCommand, AiSettings } from '@/lib/settings';
 
 import { AiCommandDialog } from './AiCommandDialog';
 import { createAiCustomCommand, updateAiCustomCommands } from './ai-commands';
-import { SettingsSection } from './SettingsPrimitives';
+import { SettingsPage, SettingsSection } from './SettingsPrimitives';
 
 const DEFAULT_MODEL_VALUE = '__default__';
 const PROVIDER_VENDORS: Record<AiProviderId, string> = { codex: 'OpenAI', claude: 'Anthropic' };
@@ -117,7 +117,8 @@ function ProviderCard({
   if (settings.model && !modelLabels[settings.model]) modelLabels[settings.model] = settings.model;
 
   return (
-    <div className="rounded-lg border border-border-default">
+    // A row of the Providers card, with its options under a rule of their own.
+    <div data-settings-flush>
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <div className="min-w-0">
           <label htmlFor={switchId} className="text-sm font-semibold">
@@ -137,7 +138,7 @@ function ProviderCard({
       </div>
 
       {settings.enabled || status?.phase === 'not-installed' ? (
-        <div className="space-y-3 border-t border-border-default px-4 py-3">
+        <div className="space-y-3 border-t border-border-subtle px-4 py-3">
           <div className="flex items-start justify-between gap-3 text-sm">
             <div className="min-w-0">
               <p className="text-xs leading-5 text-text-subtle" role={status?.phase === 'failed' ? 'alert' : undefined}>
@@ -302,11 +303,10 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
   const providerLabels = Object.fromEntries(enabledIds.map(id => [id, AI_PROVIDER_TITLES[id]]));
 
   return (
-    <div className="space-y-6">
+    <SettingsPage>
       <SettingsSection
-        page
-        title="AI (Experimental)"
-        help="Uses your signed-in Codex or Claude CLI."
+        title="Providers"
+        description="Uses your signed-in Codex or Claude CLI."
       >
         {error ? <p role="alert" className="text-sm text-destructive-default">{error}</p> : null}
         {aiSettings ? AI_PROVIDER_IDS.map(id => (
@@ -378,7 +378,7 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
           onChange={customCommands => setAiSettings(current => (current ? { ...current, customCommands } : current))}
         />
       ) : null}
-    </div>
+    </SettingsPage>
   );
 }
 
@@ -435,9 +435,9 @@ function CustomCommandsSection({
       description={hasProvider ? undefined : 'Enable an AI provider to run commands.'}
     >
       {commands.length > 0 ? (
-        <ul className="divide-y divide-border-default rounded-lg border border-border-default">
+        <ul data-settings-flush className="m-0 flex list-none flex-col divide-y divide-border-subtle p-0">
           {commands.map((command, index) => (
-            <li key={command.id} className="flex items-start gap-1 px-3 py-2.5">
+            <li key={command.id} className="flex items-start gap-1 py-2.5 pl-4 pr-2">
               <div className="mr-2 min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{command.name}</p>
                 <p className="truncate text-xs text-text-subtle">

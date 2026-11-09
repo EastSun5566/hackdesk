@@ -29,8 +29,8 @@ export function SettingsTabs({ dialogRef, onNavigate }: {
   }, [search.active, search.results]);
 
   return (
-    <aside aria-label="Settings sidebar" className="flex min-h-0 w-56 shrink-0 self-stretch flex-col gap-3 p-3">
-      {/* Box edges sit at 12px; glyphs (search icon, tab icons, the dialog title) share the 20px line. */}
+    <aside aria-label="Settings sidebar" className="flex min-h-0 w-56 shrink-0 self-stretch flex-col gap-3 border-r border-border-default bg-background-muted p-3">
+      {/* Box edges sit at 12px; glyphs (search icon, tab icons) share the 20px line. */}
       <div className="relative">
         <Search aria-hidden="true" className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-icon-default" />
         <Input
@@ -98,7 +98,7 @@ export function SettingsTabs({ dialogRef, onNavigate }: {
         <TabsList
           activateOnFocus
           aria-label="Settings sections"
-          className="flex min-h-0 flex-1 flex-col items-stretch gap-1 overflow-y-auto"
+          className="flex min-h-0 flex-1 flex-col items-stretch gap-0.5 overflow-y-auto"
         >
           {SETTINGS_TABS.map(tab => (
             <TabsTrigger

@@ -13,7 +13,6 @@ export function SettingsDialogFooter({
   isTestingToken,
   onApplyTheme,
   onCancelPreview,
-  onClose,
 }: {
   activeTab: SettingsTab;
   appearanceStatus: ThemeAppearanceDraftController['status'];
@@ -22,12 +21,14 @@ export function SettingsDialogFooter({
   isTestingToken: boolean;
   onApplyTheme: () => void;
   onCancelPreview: () => void;
-  onClose: () => void;
 }) {
   const saveDisabled = isSaving || isTestingToken || !canSave;
+  const saves = activeTab === 'general' || activeTab === 'editor' || activeTab === 'shortcuts' || activeTab === 'hackmd';
+  // Pages that apply at once have nothing to save, so no footer: the header's close button closes.
+  if (!saves && activeTab !== 'appearance') return null;
 
   return (
-    <div className="scroll-edge-bottom relative flex shrink-0 items-center justify-end gap-2 px-5 py-4">
+    <div className="scroll-edge-bottom relative flex shrink-0 items-center justify-end gap-2 px-8 py-3">
       <div className="flex shrink-0 items-center gap-2">
         {activeTab === 'appearance' && appearanceStatus.hasDraftChanges ? (
           <Button
@@ -46,7 +47,7 @@ export function SettingsDialogFooter({
             Apply Theme
           </Button>
         ) : null}
-        {(activeTab === 'general' || activeTab === 'editor' || activeTab === 'shortcuts' || activeTab === 'hackmd') ? (
+        {saves ? (
           <Button
             variant="primary"
             type="submit"
@@ -56,14 +57,6 @@ export function SettingsDialogFooter({
               ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
               : null}
             {isTestingToken ? 'Testing…' : isSaving ? 'Saving…' : 'Save'}
-          </Button>
-        ) : null}
-        {(activeTab === 'advanced' || activeTab === 'vault') ? (
-          <Button
-            variant="secondary"
-            onClick={onClose}
-          >
-            Close
           </Button>
         ) : null}
       </div>

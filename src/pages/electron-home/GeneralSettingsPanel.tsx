@@ -9,7 +9,7 @@ export function GeneralSettingsPanel({
   onTitleChange: (title: string) => void;
 }) {
   return (
-    <SettingsSection page title="General">
+    <SettingsSection title="Window">
       <SettingsRow label="Window title" htmlFor={SETTINGS_TITLE_ID}>
         <SettingsInput
           id={SETTINGS_TITLE_ID}

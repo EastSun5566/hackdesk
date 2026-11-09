@@ -11,7 +11,7 @@ import { notifyDictationSettingsChanged, type DictationStatus } from '@/lib/dict
 import { getHackDeskAPI } from '@/lib/electron-api';
 import { defaultDictationSettings, type DictationSettings } from '@/lib/settings';
 
-import { SettingsSection } from './SettingsPrimitives';
+import { SettingsPage, SettingsSection } from './SettingsPrimitives';
 
 const SYSTEM_LOCALE_VALUE = '__system__';
 
@@ -124,10 +124,9 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
   const needsDownload = Boolean(status?.available && locale && !status.installed.includes(locale));
 
   return (
-    <div className="space-y-6">
+    <SettingsPage>
       <SettingsSection
-        page
-        title="Dictation (Experimental)"
+        title="Speech to text"
         description="Speech stays on this Mac. Audio is not saved."
       >
         {error ? <p role="alert" className="text-sm text-destructive-default">{error}</p> : null}
@@ -136,7 +135,7 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
         ) : !status.available ? (
           <p className="text-sm text-text-subtle">{status.message}</p>
         ) : (
-          <div className="space-y-4">
+          <>
             <div className="flex items-center justify-between gap-3 text-sm">
               <label htmlFor="settings-dictation-enabled" className="font-medium">Dictate into notes</label>
               <Switch
@@ -170,7 +169,7 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
             ) : null}
 
             {settings.enabled && needsDownload && locale ? (
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-border-default px-4 py-3 text-sm">
+              <div className="flex items-center justify-between gap-3 text-sm">
                 <div className="min-w-0">
                   <p className="font-medium">{describeDictationLocale(locale)} needs a one-time download</p>
                 </div>
@@ -191,9 +190,9 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
                 )}
               </div>
             ) : null}
-          </div>
+          </>
         )}
       </SettingsSection>
-    </div>
+    </SettingsPage>
   );
 }

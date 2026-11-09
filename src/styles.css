@@ -452,6 +452,38 @@
     mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
   }
 
+  /* A settings section's card (SettingsCard): each child is a row, padded and ruled off from the
+     one above. A child marked data-settings-flush (or settings-card-rows, below) lays out its own rows (a radio list, a provider
+     with its options) and takes the full width and height of its slot. */
+  .settings-card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-default);
+    border-radius: 0.5rem;
+  }
+
+  .settings-card > *,
+  .settings-card-rows > * {
+    padding: 0.75rem 1rem;
+  }
+
+  .settings-card > * + *,
+  .settings-card-rows > * + * {
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  /* A component that renders several rows under one root (the theme fields) marks the root
+     settings-card-rows: the root takes no padding and its children are the rows. */
+  .settings-card > [data-settings-flush],
+  .settings-card > .settings-card-rows {
+    padding: 0;
+  }
+
+  .settings-card-rows {
+    display: flex;
+    flex-direction: column;
+  }
+
   /* Fades for a scrolling list: zero-height sticky overlays inside the content, each holding a short
      gradient in the list's background. Overlays rather than a mask on the scroller, because a mask
      also fades the scrollbar. Like edge-fade-x they follow the scroller's data-overflow-start /

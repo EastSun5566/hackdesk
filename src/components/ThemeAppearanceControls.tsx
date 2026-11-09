@@ -39,11 +39,20 @@ type ThemeAppearanceFieldsOptions = {
   actions?: 'inline' | 'none';
   density?: 'comfortable' | 'compact';
   customSeedsDefaultOpen?: boolean;
+  /** Replaces the default spacing between fields, as when each field is a row of a settings card. */
+  className?: string;
 };
 
 type ThemeAppearanceFieldsProps = ThemeAppearanceFieldsOptions & {
   controller: ThemeAppearanceDraftController;
 };
+
+const LEGEND_CLASS = 'text-sm font-semibold leading-5';
+// In a settings card, a field's label matches the card's other row labels. Floated, so it lays out
+// as content: a legend otherwise sits in its fieldset's top border, over the card's row rule.
+const LEGEND_COMPACT_CLASS = 'float-left mb-2 w-full text-sm font-medium leading-5';
+// Typography names a group of labelled fields, so it reads as a quieter overline above them.
+const GROUP_LEGEND_COMPACT_CLASS = 'float-left mb-3 w-full text-xs font-semibold uppercase leading-4 tracking-wide text-text-subtle';
 
 export function ThemeAppearanceFields({
   controller,
@@ -51,6 +60,7 @@ export function ThemeAppearanceFields({
   actions = 'inline',
   density = 'comfortable',
   customSeedsDefaultOpen = true,
+  className,
 }: ThemeAppearanceFieldsProps) {
   const {
     mode: draftMode,
@@ -70,9 +80,9 @@ export function ThemeAppearanceFields({
   };
 
   return (
-    <div className={cn(compact ? 'space-y-4' : 'space-y-6')}>
+    <div className={className ?? (compact ? 'space-y-4' : 'space-y-6')}>
       <fieldset className="space-y-2">
-        <legend className="text-sm font-semibold leading-5">Mode</legend>
+        <legend className={compact ? LEGEND_COMPACT_CLASS : LEGEND_CLASS}>Mode</legend>
         <RadioGroup
           value={draftMode}
           onValueChange={(value) => draftActions.changeMode(value as ThemeMode)}
@@ -113,7 +123,7 @@ export function ThemeAppearanceFields({
       </fieldset>
 
       <fieldset className="space-y-2">
-        <legend className="text-sm font-semibold leading-5">Preset</legend>
+        <legend className={compact ? LEGEND_COMPACT_CLASS : LEGEND_CLASS}>Preset</legend>
         <Select value={draftPresetId} onValueChange={(value) => draftActions.changePreset(value as ThemePresetId)}>
           <SelectTrigger aria-label="Theme preset" className={compact ? 'w-full' : 'max-w-sm'}>
             <SelectLabelValue
@@ -133,8 +143,8 @@ export function ThemeAppearanceFields({
 
       {showTypography ? (
         <fieldset className="space-y-3">
-          <legend className={compact ? 'mb-5 text-base font-semibold leading-6 text-text-emphasize' : 'text-sm font-semibold leading-5'}>Typography</legend>
-          <div className="space-y-3">
+          <legend className={compact ? GROUP_LEGEND_COMPACT_CLASS : LEGEND_CLASS}>Typography</legend>
+          <div className="clear-both space-y-3">
             <ThemeFontField
               label="UI font"
               value={draftTypography.uiFontStack}

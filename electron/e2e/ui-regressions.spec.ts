@@ -541,7 +541,7 @@ test('workspace switcher rows, gap boundaries and full-height Settings workbench
     await page.keyboard.press(`${primary}+,`);
     for (const height of [900, 660]) {
       await page.setViewportSize({ width: 1440, height });
-      await expect(page.getByRole('dialog', { name: 'Settings' })).toHaveCSS('height', `${Math.min(760, height - 64)}px`);
+      await expect(page.getByRole('dialog', { name: 'Settings' })).toHaveCSS('height', `${Math.min(640, height - 64)}px`);
       const settingsSidebar = page.getByRole('complementary', { name: 'Settings sidebar' });
       const assertFullHeight = async () => {
         await expect.poll(() => settingsSidebar.evaluate((element) => {
@@ -1324,7 +1324,7 @@ test('saved shortcut preferences update hints and disable character shortcuts', 
     await expect(help).toHaveCount(0);
     await expect(settings).toBeVisible();
     await expect(settings.getByRole('tab', { name: 'Shortcuts', exact: true })).toHaveAttribute('aria-selected', 'true');
-    await settings.getByRole('checkbox', { name: 'Enable ?, / and Space outside text editing' }).uncheck();
+    await settings.getByRole('switch', { name: 'Enable ?, / and Space outside text editing' }).uncheck();
     const filter = settings.getByPlaceholder('Search shortcuts', { exact: true });
     await filter.fill('Focus Note Finder');
     const binding = settings.getByRole('button', { name: 'Set shortcut for Focus Note Finder', exact: true });

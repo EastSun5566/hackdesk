@@ -195,12 +195,12 @@ describe('SettingsDialog', () => {
     expect(screen.getByRole('button', { name: 'Customize colors' })).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('finds and focuses a wrapped checkbox label', async () => {
+  it('finds and focuses a switch by its label', async () => {
     renderSettingsDialog();
     const search = screen.getByLabelText('Search settings');
     fireEvent.change(search, { target: { value: 'outside text editing' } });
     fireEvent.keyDown(search, { key: 'Enter' });
-    const field = screen.getByLabelText('Enable ?, / and Space outside text editing');
+    const field = screen.getByRole('switch', { name: 'Enable ?, / and Space outside text editing' });
     await waitFor(() => expect(field).toHaveFocus());
   });
 
@@ -814,7 +814,7 @@ describe('SettingsDialog', () => {
 
   it('saves whether key hints show', () => {
     const { onSave } = renderSettingsDialog({ initialTab: 'shortcuts' });
-    const toggle = screen.getByRole('checkbox', { name: 'Show key hints' });
+    const toggle = screen.getByRole('switch', { name: 'Show key hints' });
     expect(toggle).toBeChecked();
     fireEvent.click(toggle);
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -823,7 +823,7 @@ describe('SettingsDialog', () => {
 
   it('saves character navigation independently and cancels unsaved changes', async () => {
     const { onSave, rerenderSettingsDialog } = renderSettingsDialog({ initialTab: 'shortcuts' });
-    const toggle = screen.getByRole('checkbox', { name: 'Enable ?, / and Space outside text editing' });
+    const toggle = screen.getByRole('switch', { name: 'Enable ?, / and Space outside text editing' });
     expect(toggle).toBeChecked();
     fireEvent.click(toggle);
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
@@ -832,7 +832,7 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     await act(async () => { rerenderSettingsDialog({ open: false }); });
     await act(async () => { rerenderSettingsDialog({ open: true }); });
-    expect(screen.getByRole('checkbox', { name: 'Enable ?, / and Space outside text editing' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Enable ?, / and Space outside text editing' })).toBeChecked();
   });
 
   it('captures and saves shortcut overrides from the Shortcuts tab', async () => {

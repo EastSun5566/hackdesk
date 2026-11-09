@@ -17,9 +17,8 @@ import { getHackDeskAPI } from '@/lib/electron-api';
 import { isBetaVersion } from '@/lib/version';
 import { version as packageVersion } from '../../../package.json';
 
-import { Switch } from '@/components/ui/switch';
 
-import { SettingsSection } from './SettingsPrimitives';
+import { SettingsPage, SettingsSection, SettingsSwitchRow } from './SettingsPrimitives';
 import { setSplitStatusLine, useSplitStatusLine } from './split-status-line-preference';
 
 const RELEASES_URL = 'https://github.com/EastSun5566/hackdesk/releases';
@@ -97,25 +96,26 @@ export function AdvancedSettingsPanel({
   };
 
   return (
-    <div className="space-y-4">
+    <SettingsPage>
       <SettingsSection title="Version">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-border-default bg-background-default px-2.5 py-2">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm text-text-subtle">HackDesk v{appVersion}</span>
-            {isBeta ? <span className="text-xs text-text-subtle">Unsigned beta · Manual updates</span> : null}
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+          <div className="min-w-0">
+            <p className="font-medium leading-5">HackDesk v{appVersion}</p>
+            {isBeta ? <p className="text-xs leading-5 text-text-subtle">Unsigned beta · Manual updates</p> : null}
           </div>
           {isBeta ? (
-            <Button variant="secondary" onClick={viewReleases}>
-              <ExternalLink aria-hidden="true" className="h-4 w-4" />
+            <Button variant="secondary" size="sm" onClick={viewReleases}>
+              <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
               View Releases
             </Button>
           ) : (
             <Button
               variant="secondary"
+              size="sm"
               onClick={handleCheckForUpdates}
               disabled={isCheckingUpdates}
             >
-              {isCheckingUpdates ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : null}
+              {isCheckingUpdates ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : null}
               {isCheckingUpdates ? 'Checking…' : 'Check for Updates'}
             </Button>
           )}
@@ -123,23 +123,28 @@ export function AdvancedSettingsPanel({
       </SettingsSection>
 
       <SettingsSection title="Experimental">
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <div className="min-w-0">
-            <label htmlFor="settings-split-status-line" className="font-semibold leading-5">Split status line</label>
-            <p className="text-xs leading-5 text-text-subtle">Keep sidebar keys under the sidebar and editor status under the editor, instead of swapping the line on focus.</p>
-          </div>
-          <Switch id="settings-split-status-line" checked={splitStatusLine} onCheckedChange={setSplitStatusLine} />
-        </div>
+        <SettingsSwitchRow
+          id="settings-split-status-line"
+          label="Split status line"
+          description="Keep sidebar keys under the sidebar and editor status under the editor, instead of swapping the line on focus."
+          checked={splitStatusLine}
+          onCheckedChange={setSplitStatusLine}
+        />
       </SettingsSection>
 
       <SettingsSection title="Reset">
-        <div className="rounded border border-state-danger-border bg-background-default p-5">
+        <div className="flex items-center justify-between gap-4 text-sm">
+          <div className="min-w-0">
+            <p className="font-medium leading-5">Reset all settings</p>
+            <p className="text-xs leading-5 text-text-subtle">Puts every preference back to its default and signs out of HackMD.</p>
+          </div>
           <Button
             ref={resetButtonRef}
             variant="destructive"
+            size="sm"
             onClick={() => setIsResetDialogOpen(true)}
           >
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle aria-hidden="true" className="h-3.5 w-3.5" />
             Reset All Settings
           </Button>
         </div>
@@ -167,6 +172,6 @@ export function AdvancedSettingsPanel({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </SettingsPage>
   );
 }

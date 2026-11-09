@@ -21,7 +21,10 @@ import {
 import { cn } from '@/lib/utils';
 
 import { holdHintsPreference, leaderSpacePreference } from './keyboard-feature-preferences';
-import { SettingsInput, SettingsSection } from './SettingsPrimitives';
+import { SettingsInput, SettingsPage, SettingsSection, SettingsSwitchRow } from './SettingsPrimitives';
+
+const SHORTCUT_LIST_CLASS = 'm-0 flex list-none flex-col divide-y divide-border-subtle p-0';
+const SHORTCUT_ROW_CLASS = 'flex min-w-0 items-center gap-3 py-2 pl-4 pr-2';
 
 const EDITABLE_ACTIONS = ELECTRON_ACTIONS;
 const GROUPS: ElectronActionCategory[] = ['create', 'navigation', 'view', 'note', 'folder', 'app'];
@@ -190,109 +193,126 @@ export function ShortcutsSettingsPanel({
   };
 
   return (
-    <SettingsSection page title="Shortcuts">
-      <div className="space-y-4">
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={characterShortcutsEnabled} onChange={event => onCharacterShortcutsChange(event.target.checked)} />Enable ?, / and Space outside text editing</label>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={keyHintsVisible} onChange={event => onKeyHintsVisibleChange(event.target.checked)} />Show key hints</label>
+    <SettingsPage>
+      <SettingsSection title="Keyboard">
+        <SettingsSwitchRow
+          id="settings-character-shortcuts"
+          label="Enable ?, / and Space outside text editing"
+          checked={characterShortcutsEnabled}
+          onCheckedChange={onCharacterShortcutsChange}
+        />
+        <SettingsSwitchRow
+          id="settings-key-hints"
+          label="Show key hints"
+          checked={keyHintsVisible}
+          onCheckedChange={onKeyHintsVisibleChange}
+        />
         {/* Kept on this computer and applied at once, unlike the options above, which save with the dialog. */}
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={leaderSpaceEnabled} onChange={event => leaderSpacePreference.set(event.target.checked)} />Space opens the leader menu</label>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={holdHintsEnabled} onChange={event => holdHintsPreference.set(event.target.checked)} />Hold {isMacPlatform(platform) ? '⌘' : 'Ctrl'} to show navigation hints</label>
-        <div className="relative">
-          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-subtle" />
-          <SettingsInput
-            aria-label="Search shortcuts"
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-            placeholder="Search shortcuts"
-            className="h-10 w-full rounded-md border border-border-default bg-background-muted py-2 pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-text-subtle focus:border-focus-ring"
-            autoComplete="off"
-            spellCheck={false}
-          />
-        </div>
+        <SettingsSwitchRow
+          id="settings-leader-space"
+          label="Space opens the leader menu"
+          checked={leaderSpaceEnabled}
+          onCheckedChange={leaderSpacePreference.set}
+        />
+        <SettingsSwitchRow
+          id="settings-hold-hints"
+          label={`Hold ${isMacPlatform(platform) ? '⌘' : 'Ctrl'} to show navigation hints`}
+          checked={holdHintsEnabled}
+          onCheckedChange={holdHintsPreference.set}
+        />
+      </SettingsSection>
 
-        {error ? (
-          <p role="alert" className="rounded-md border border-destructive-default/60 bg-destructive-default/10 px-3 py-2 text-sm text-destructive-default">
-            {error}
-          </p>
-        ) : null}
-
-        <div className="space-y-5">
-          {showQuickCaptureShortcut ? (
-            <section className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-text-subtle">Global</h4>
-              <ul className="divide-y divide-border-default rounded-lg border border-border-default bg-background-muted/40">
-                <li className="flex min-w-0 items-center gap-3 px-3 py-2.5">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-text-default">Quick Hack</p>
-                  </div>
-                  <span className="inline-flex h-8 min-w-28 items-center justify-center rounded-md border border-border-default bg-background-default px-3 text-xs font-medium text-text-default">
-                    {quickCaptureShortcut}
-                  </span>
-                  <span className={cn(
-                    'w-28 text-right text-xs',
-                    quickCaptureRegistered === false ? 'text-warning-default' : 'text-text-subtle',
-                  )}
-                  >
-                    {quickCaptureStatusLabel}
-                  </span>
-                </li>
-              </ul>
-            </section>
-          ) : null}
-
-          {GROUPS.map((group) => {
-            const actions = filteredActions.filter((action) => action.category === group);
-            if (actions.length === 0) {
-              return null;
-            }
-
-            return (
-              <section key={group} className="space-y-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-text-subtle">{GROUP_LABELS[group]}</h4>
-                <ul className="divide-y divide-border-default rounded-lg border border-border-default bg-background-muted/40">
-                  {actions.map((action) => {
-                    const isActive = activeActionId === action.id;
-                    const displayShortcut = getResolvedActionShortcut(action.id, shortcuts, platform, characterShortcutsEnabled) || (resolveWorkbenchShortcut(action.id, shortcuts, characterShortcutsEnabled) === 'none' ? 'Disabled' : 'Unassigned');
-                    const hasOverride = Object.prototype.hasOwnProperty.call(shortcuts, action.id);
-
-                    return (
-                      <li key={action.id} className="flex min-w-0 items-center gap-3 px-3 py-2.5">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-text-default">{action.label}</p>
-                        </div>
-                        <Button
-                          ref={isActive ? activeButtonRef : undefined}
-                          size="sm"
-                          data-shortcut-action={action.id}
-                          data-shortcut-recording={isActive || undefined}
-                          aria-label={`Set shortcut for ${action.label}`}
-                          onClick={() => {
-                            setError(null);
-                            setActiveActionId(action.id);
-                          }}
-                          onKeyDown={(event) => handleCaptureKeyDown(action.id, event)}
-                          className={cn('min-w-28 px-3', isActive && 'border-focus-ring bg-background-selected')}
-                        >
-                          {isActive ? 'Press keys…' : displayShortcut}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Reset shortcut for ${action.label}`}
-                          disabled={!hasOverride}
-                          onClick={() => resetShortcut(action.id)}
-                        >
-                          <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />
-                        </Button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            );
-          })}
-        </div>
+      <div className="relative">
+        <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-icon-default" />
+        <SettingsInput
+          aria-label="Search shortcuts"
+          value={filter}
+          onChange={(event) => setFilter(event.target.value)}
+          placeholder="Search shortcuts"
+          className="pl-8"
+          autoComplete="off"
+          spellCheck={false}
+        />
       </div>
-    </SettingsSection>
+
+      {error ? (
+        <p role="alert" className="rounded-md border border-destructive-default/60 bg-destructive-default/10 px-3 py-2 text-sm text-destructive-default">
+          {error}
+        </p>
+      ) : null}
+
+      {showQuickCaptureShortcut ? (
+        <SettingsSection title="Global">
+          <ul data-settings-flush className={SHORTCUT_LIST_CLASS}>
+            <li className={SHORTCUT_ROW_CLASS}>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm text-text-default">Quick Hack</p>
+              </div>
+              <span className="inline-flex h-8 min-w-28 items-center justify-center rounded-md border border-border-default bg-background-default px-3 text-xs font-medium text-text-default">
+                {quickCaptureShortcut}
+              </span>
+              <span className={cn(
+                'w-28 text-right text-xs',
+                quickCaptureRegistered === false ? 'text-warning-default' : 'text-text-subtle',
+              )}
+              >
+                {quickCaptureStatusLabel}
+              </span>
+            </li>
+          </ul>
+        </SettingsSection>
+      ) : null}
+
+      {GROUPS.map((group) => {
+        const actions = filteredActions.filter((action) => action.category === group);
+        if (actions.length === 0) {
+          return null;
+        }
+
+        return (
+          <SettingsSection key={group} title={GROUP_LABELS[group]}>
+            <ul data-settings-flush className={SHORTCUT_LIST_CLASS}>
+              {actions.map((action) => {
+                const isActive = activeActionId === action.id;
+                const displayShortcut = getResolvedActionShortcut(action.id, shortcuts, platform, characterShortcutsEnabled) || (resolveWorkbenchShortcut(action.id, shortcuts, characterShortcutsEnabled) === 'none' ? 'Disabled' : 'Unassigned');
+                const hasOverride = Object.prototype.hasOwnProperty.call(shortcuts, action.id);
+
+                return (
+                  <li key={action.id} className={SHORTCUT_ROW_CLASS}>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-text-default">{action.label}</p>
+                    </div>
+                    <Button
+                      ref={isActive ? activeButtonRef : undefined}
+                      size="sm"
+                      data-shortcut-action={action.id}
+                      data-shortcut-recording={isActive || undefined}
+                      aria-label={`Set shortcut for ${action.label}`}
+                      onClick={() => {
+                        setError(null);
+                        setActiveActionId(action.id);
+                      }}
+                      onKeyDown={(event) => handleCaptureKeyDown(action.id, event)}
+                      className={cn('min-w-28 px-3', isActive && 'border-focus-ring bg-background-selected')}
+                    >
+                      {isActive ? 'Press keys…' : displayShortcut}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Reset shortcut for ${action.label}`}
+                      disabled={!hasOverride}
+                      onClick={() => resetShortcut(action.id)}
+                    >
+                      <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          </SettingsSection>
+        );
+      })}
+    </SettingsPage>
   );
 }
