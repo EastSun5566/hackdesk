@@ -1,9 +1,11 @@
 import {
   AlertCircle,
   FileText,
+  History,
   Loader2,
+  Search,
 } from 'lucide-react';
-import { memo, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { memo, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   closestCenter,
   DndContext,
@@ -54,7 +56,7 @@ import { HACK_MODE_HIDDEN_CLASS } from './ui';
 import { EmptyState, PanelHeader, PanelShell } from './interaction-primitives';
 import type { WorkspaceScope } from './types';
 import { CreateNoteButton } from './CreateNoteButton';
-import { NOTE_FINDER_RESULTS_ID, NoteFinderToolbar, type NoteFinderResults } from './FolderNavigatorFinder';
+import { NOTE_FINDER_RESULTS_ID, NoteFilterChips, NoteSearchField, NoteViewOptionsMenu, type NoteFinderResults } from './FolderNavigatorFinder';
 import {
   FolderDragOverlay,
   FolderTreeView,
@@ -63,6 +65,7 @@ import {
   NoteRow,
   TopLevelDropArea,
   SidebarTrashRow,
+  WorkspaceRootScopeIcon,
   WorkspaceRootTreeRow,
 } from './FolderNavigatorRows';
 import { RepositoryNotice } from './RepositoryNotice';
@@ -290,24 +293,54 @@ function ExpandedNavigator({
 
   return (
     <>
-      <NavigatorHeader workspace={workspace} status={status} />
-      <NavigatorFilterBar
-        actions={actions}
-        finderOptions={finderOptions}
-        finderState={finderState}
-        scope={scope}
-        selectedFolderId={selection.selectedFolderId}
+      <NavigatorHeader
+        workspace={workspace}
         status={status}
-        tagIndex={tagIndex}
-        results={results}
-        onEscapeToTree={requestTreeFocus}
+        search={(
+          <NoteSearchField
+            state={finderState}
+            onChange={actions.onFinderStateChange}
+            results={results}
+            onEscapeToTree={requestTreeFocus}
+          />
+        )}
       />
+      <NavigatorFilterBar actions={actions} scope={scope} status={status} />
       {trash?.open ? <TrashNavigatorTitleBar trash={trash} /> : null}
+      {/* A flat list (results, a changed view, or History) has no root row to hold View options,
+          so it gets a header row of its own in the same place. */}
+      {!trash?.open && (isFinderMode || scope.type === 'history') ? (
+        <>
+          {/* Icon and label on the same columns as the root row it stands in for. */}
+          <div className="flex h-8 shrink-0 items-center gap-1.5 px-4 text-sm text-text-subtle">
+            <span aria-hidden="true" className="flex w-3.5 shrink-0 justify-center text-icon-subtle">
+              {finderState.query.trim() ? <Search className="h-3.5 w-3.5" /> : scope.type === 'history' ? <History className="h-3.5 w-3.5" /> : <WorkspaceRootScopeIcon scope={scope} />}
+            </span>
+            <span className="min-w-0 flex-1 truncate">
+              {finderState.query.trim() ? 'Results' : scope.type === 'history' ? 'History' : (workspaceRootLabel(scope) ?? 'Notes')}
+            </span>
+            {results ? (
+              <span className="shrink-0 text-xs tabular-nums">{`${results.count} ${results.count === 1 ? 'result' : 'results'}`}</span>
+            ) : null}
+            <NoteViewOptionsMenu
+              state={finderState}
+              selectedFolderId={selection.selectedFolderId}
+              options={finderOptions}
+              onChange={actions.onFinderStateChange}
+              tags={tagIndex}
+              className="-mr-1.5"
+            />
+          </div>
+          <NoteFilterChips state={finderState} onChange={actions.onFinderStateChange} />
+        </>
+      ) : null}
       <MemoNavigatorContent
         actions={actions}
         emptyState={emptyState}
         entries={entries}
         finderState={finderState}
+        finderOptions={finderOptions}
+        tagIndex={tagIndex}
         isFinderMode={isFinderMode}
         highlightedResultId={results?.activeId}
         layout={layout}
@@ -327,9 +360,12 @@ function ExpandedNavigator({
 function NavigatorHeader({
   status,
   workspace,
+  search,
 }: {
   status: FolderNavigatorStatus;
   workspace: WorkspaceSidebarProps;
+  /** The search field: an icon at the row's end that opens across the row. */
+  search: ReactNode;
 }) {
   // Status sits in the action row, so the header keeps one height: a spinner while the list loads
   // or syncs. The result count shows in the search field, so typing never squeezes the name.
@@ -337,7 +373,12 @@ function NavigatorHeader({
 
   return (
     <PanelHeader
-      title={<WorkspaceSwitcher {...workspace} />}
+      title={(
+        <div className="relative flex min-w-0 items-center gap-1">
+          <div className="min-w-0 flex-1"><WorkspaceSwitcher {...workspace} /></div>
+          {search}
+        </div>
+      )}
       titleElement="div"
       // 12px below, against 8px between search and New Note, so the workspace reads as its own group
       // above the find-and-create group.
@@ -346,9 +387,10 @@ function NavigatorHeader({
       // same 16px edge as the rest of the sidebar.
       actionsClassName="-mr-2"
       actionsLabel="Note navigator actions"
-      // No buttons here. Folder actions live in each folder's context menu; the command palette is
-      // a keyboard path (⌘K); and lists refresh on window focus, a Local Vault watches its folder,
-      // with Shift+Cmd+R by hand. Only the busy spinner shows, while notes load or sync.
+      // Besides search, no buttons here. Folder actions live in each folder's context menu, view
+      // options on the list's header row; the command palette is a keyboard path (⌘K); and lists
+      // refresh on window focus, a Local Vault watches its folder, with Shift+Cmd+R by hand. Only
+      // the busy spinner shows, while notes load or sync.
       actions={busyLabel ? (
         <span role="status" aria-label={busyLabel} title={busyLabel} className="flex size-8 items-center justify-center text-icon-default">
           <Loader2 aria-hidden="true" className="size-3.5 animate-spin motion-reduce:animate-none" />
@@ -360,50 +402,16 @@ function NavigatorHeader({
 
 function NavigatorFilterBar({
   actions,
-  finderOptions,
-  finderState,
   scope,
-  selectedFolderId,
   status,
-  tagIndex,
-  results,
-  onEscapeToTree,
 }: {
   actions: FolderNavigatorActions;
-  finderOptions: ReturnType<typeof getNoteFinderOptions>;
-  finderState: NoteFinderState;
   scope: WorkspaceScope;
-  selectedFolderId: string | null;
   status: FolderNavigatorStatus;
-  tagIndex: ReturnType<typeof buildNoteTagIndex>;
-  results?: NoteFinderResults;
-  onEscapeToTree: () => void;
 }) {
-  const handleTagToggle = (tag: string) => {
-    actions.onFinderStateChange({
-      ...finderState,
-      searchScope: 'workspace',
-      tagFilters: finderState.tagFilters.includes(tag)
-        ? finderState.tagFilters.filter((candidate) => candidate !== tag)
-        : [...finderState.tagFilters, tag],
-    });
-  };
-
   return (
     <div className="space-y-1 px-2 pb-3">
-      <NoteFinderToolbar
-        state={finderState}
-        selectedFolderId={selectedFolderId}
-        options={finderOptions}
-        onChange={actions.onFinderStateChange}
-        results={results}
-        tags={tagIndex}
-        onTagToggle={handleTagToggle}
-        onEscapeToTree={onEscapeToTree}
-      />
-
-      {/* Below search, as on HackMD web: find first, then make. */}
-      <div className="pt-1">
+      <div>
         <CreateNoteButton
           canCreate={status.canCreate && !status.isCreating}
           disabledReason={!status.canCreate ? 'Connect HackMD to create notes.' : status.isCreating ? 'Creating note…' : undefined}
@@ -438,6 +446,8 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   emptyState,
   entries,
   finderState,
+  finderOptions,
+  tagIndex,
   isFinderMode,
   highlightedResultId,
   layout,
@@ -454,6 +464,8 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   emptyState: FolderNavigatorEmptyState;
   entries: FolderTreeNote[];
   finderState: NoteFinderState;
+  finderOptions: ReturnType<typeof getNoteFinderOptions>;
+  tagIndex: ReturnType<typeof buildNoteTagIndex>;
   isFinderMode: boolean;
   highlightedResultId?: string;
   layout: FolderNavigatorLayout;
@@ -526,6 +538,9 @@ const MemoNavigatorContent = memo(function NavigatorContent({
         <div hidden={isFinderMode}>
           <MemoNavigatorTree
             actions={actions}
+            finderState={finderState}
+            finderOptions={finderOptions}
+            tagIndex={tagIndex}
             layout={layout}
             scope={scope}
             selectedFolderForNoteMove={selectedFolderForNoteMove}
@@ -737,6 +752,9 @@ const MemoNavigatorTree = memo(NavigatorTree, arePanelPropsEqual);
 
 function NavigatorTree({
   actions,
+  finderState,
+  finderOptions,
+  tagIndex,
   layout,
   scope,
   selectedFolderForNoteMove,
@@ -746,6 +764,9 @@ function NavigatorTree({
   treeFocusRequestId,
 }: {
   actions: FolderNavigatorActions;
+  finderState: NoteFinderState;
+  finderOptions: ReturnType<typeof getNoteFinderOptions>;
+  tagIndex: ReturnType<typeof buildNoteTagIndex>;
   layout: FolderNavigatorLayout;
   scope: WorkspaceScope;
   selectedFolderForNoteMove: FolderTreeNode | null;
@@ -996,6 +1017,19 @@ function NavigatorTree({
                 onSectionToggle={toggleRootSection}
                 onCreateFolder={() => actions.onCreateFolderInside(null)}
                 onCreateNote={() => actions.onCreateNoteInside(null)}
+                // Sort and filters describe how this workspace's notes are listed, so they live on
+                // its row. Changing one lists the notes flat, under a header that carries them on.
+                viewOptions={({ tabIndex }) => (
+                  <NoteViewOptionsMenu
+                    state={finderState}
+                    selectedFolderId={selection.selectedFolderId}
+                    options={finderOptions}
+                    onChange={actions.onFinderStateChange}
+                    tags={tagIndex}
+                    tabIndex={tabIndex}
+                    treeControl
+                  />
+                )}
               />
             ) : null}
             {/* Under the workspace root, folders and notes sit one level in, like any folder's children.

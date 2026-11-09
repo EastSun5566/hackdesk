@@ -26,8 +26,12 @@ async function stop(app: ElectronApplication) {
 // doesn't depend on how the tree shows folders (they start collapsed).
 async function openNote(page: Page, title: string) {
   const search = page.getByPlaceholder('Search notes');
-  await search.fill(title);
-  await page.getByRole('list', { name: 'Search results' }).getByRole('button', { name: title, exact: true }).click();
+  // Right after launch, the workspace's saved search state can still arrive and replace what was
+  // typed; search again until the note opens.
+  await expect(async () => {
+    await search.fill(title);
+    await page.getByRole('list', { name: 'Search results' }).getByRole('button', { name: title, exact: true }).click({ timeout: 2000 });
+  }).toPass({ timeout: 20_000 });
   await expect(page.locator('.cm-content', { hasText: title }).first()).toBeVisible();
   await search.fill('');
 }

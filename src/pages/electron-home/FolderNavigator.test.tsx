@@ -8,7 +8,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   expectMenuReturnsFocus,
-  expectToolbarRovingFocus,
 } from '@/test/accessibility-contracts';
 
 import { FolderNavigator, type FolderNavigatorProps } from './FolderNavigator';
@@ -305,7 +304,6 @@ describe('FolderNavigator', () => {
     const onFinderStateChange = vi.fn();
     renderFolderNavigator({ actions: { onFinderStateChange } });
 
-    expect(screen.getByRole('toolbar', { name: 'Note finder controls' })).toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText('Search notes'), {
       target: { value: 'nested' },
     });
@@ -463,10 +461,30 @@ describe('FolderNavigator', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('keeps one View options button beside the search box', async () => {
+  it('keeps search as a header icon that opens across the row, and View options on the workspace row', () => {
     renderFolderNavigator();
 
-    await expectToolbarRovingFocus('Note finder controls', ['View options']);
+    const search = screen.getByPlaceholderText('Search notes');
+    const field = search.closest('label')!;
+    expect(field).not.toHaveAttribute('data-search-open');
+    fireEvent.focus(search);
+    expect(field).toHaveAttribute('data-search-open', 'true');
+    fireEvent.blur(search);
+    expect(field).not.toHaveAttribute('data-search-open');
+
+    // With nothing changed, the one View options button sits on the workspace root row.
+    const root = screen.getByRole('treeitem', { name: 'My Notes' }).closest('[data-folder-tree-kind="root"]')!;
+    expect(within(root as HTMLElement).getByRole('button', { name: 'View options' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'View options' })).toHaveLength(1);
+  });
+
+  it('moves View options and the result count to the list header when the view changes', () => {
+    renderFolderNavigator({ finderState: { ...DEFAULT_NOTE_FINDER_STATE, sortMode: 'title-asc' } });
+
+    expect(screen.queryByRole('treeitem', { name: 'My Notes' })).not.toBeInTheDocument();
+    const viewOptions = screen.getByRole('button', { name: 'View options' });
+    expect(viewOptions).toHaveAttribute('title', 'View options · 1 changed');
+    expect(screen.getByText(/^\d+ results?$/)).toBeInTheDocument();
   });
 
   it('holds scope, sort, permissions and tags in View options, and counts what differs from the default', async () => {

@@ -528,7 +528,7 @@ function FolderButtonView({
   );
 }
 
-function WorkspaceRootScopeIcon({ scope }: { scope: WorkspaceScope }) {
+export function WorkspaceRootScopeIcon({ scope }: { scope: WorkspaceScope }) {
   if (scope.type === 'team') return <Users className="h-3.5 w-3.5" />;
   if (scope.type === 'local') return <HardDrive className="h-3.5 w-3.5" />;
   return <Lock className="h-3.5 w-3.5" />;
@@ -548,6 +548,7 @@ export function WorkspaceRootTreeRow({
   onSectionToggle,
   onCreateFolder,
   onCreateNote,
+  viewOptions,
 }: {
   scope: WorkspaceScope;
   label: string;
@@ -558,6 +559,8 @@ export function WorkspaceRootTreeRow({
   onSectionToggle: () => void;
   onCreateFolder: () => void;
   onCreateNote: () => void;
+  /** The workspace's View options menu, beside New Folder; given the row controls' tab stop. */
+  viewOptions?: (control: { tabIndex?: number }) => ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: ROOT_FOLDER_DROP_ROW_ID });
   const treeItemProps = useFolderTreeItem(WORKSPACE_ROOT_FOCUS_ID, selected, sectionExpanded, ['toggle']);
@@ -618,6 +621,8 @@ export function WorkspaceRootTreeRow({
             contentFocusTarget
             contentButtonProps={treeItemProps}
             menu={(
+              <span className="flex items-center">
+              {viewOptions?.({ tabIndex: treeItemProps?.tabIndex })}
               <button
                 type="button"
                 className={cn(
@@ -636,6 +641,7 @@ export function WorkspaceRootTreeRow({
               >
                 <FolderPlus aria-hidden="true" className="size-3.5" />
               </button>
+              </span>
             )}
             className={TREE_ROW_FOCUS_CLASS}
           />

@@ -1161,7 +1161,8 @@ test('saved shortcut preferences update hints and disable character shortcuts', 
     await binding.click(); await page.keyboard.press(`${primary}+e`);
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(settings).toBeHidden();
-    await expect(page.locator('[data-search-shortcut]')).toHaveText(process.platform === 'darwin' ? '⌘E' : 'Ctrl+E');
+    // Closed, the search icon names its shortcut in its tooltip.
+    await expect(page.locator('label:has(input[name="noteSearch"])')).toHaveAttribute('title', `Search notes (${process.platform === 'darwin' ? '⌘E' : 'Ctrl+E'})`);
     const shortcutsButton = page.getByRole('note', { name: 'Keys you can press' }).getByRole('button', { name: /Shortcuts/ });
     await expect(shortcutsButton.locator('kbd')).toHaveCount(0);
     await shortcutsButton.click();
