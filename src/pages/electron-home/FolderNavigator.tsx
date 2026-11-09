@@ -899,6 +899,72 @@ function NavigatorTree({
     setActiveNoteId(null);
   };
 
+  // The rows don't depend on whether the root is open: memoized, toggling it only flips the
+  // group's hidden attribute instead of re-rendering every row.
+  const treeRows = useMemo(() => (
+    <>
+  <FolderTreeView
+    nodes={tree.roots}
+    selectedFolderId={selection.selectedFolderId}
+    selectedNoteId={selection.selectedNoteId}
+    collapsedFolderIds={layout.collapsedFolderIds}
+    activeFolderId={activeFolderId}
+    activeNoteId={activeNoteId}
+    depth={0}
+    onFolderSelect={actions.onFolderSelect}
+    onFolderToggle={actions.onFolderToggle}
+    onCreateFolderInside={actions.onCreateFolderInside}
+    onCreateNoteInside={actions.onCreateNoteInside}
+    onRenameFolder={actions.onRenameFolder}
+    onDeleteFolder={actions.onDeleteFolder}
+    onFolderRevealInFinder={actions.onFolderRevealInFinder}
+    onNoteSelect={actions.onNoteSelect}
+    onNoteOpen={actions.onOpenNote}
+    onNoteCopyLink={actions.onCopyNoteLink}
+    onNoteCopyMarkdownLink={actions.onCopyNoteMarkdownLink}
+    onNoteDuplicate={actions.onDuplicateNote}
+    onNoteExportMarkdown={actions.onExportNoteMarkdown}
+    onNoteDelete={actions.onDeleteNote}
+    onNoteRevealFolder={actions.onRevealNoteFolder}
+    onNoteRevealInFinder={actions.onNoteRevealInFinder}
+    onNoteMoveToSelectedFolder={(entry) => moveNoteToSelectedFolder(entry, selectedFolderForNoteMove, actions.onNoteMove)}
+    selectedFolderForNoteMove={selectedFolderForNoteMove}
+    isMovingNote={status.isMovingNote}
+    isMovingFolder={status.isMovingFolder}
+    topLevelGuides={showRootRow}
+  />
+  {tree.unfiled.notes.map((entry, index) => (
+    <li role="presentation" key={`root:${entry.note.id}`} className="tree-row-lazy relative min-w-0">
+      {showRootRow ? <span aria-hidden="true" data-tree-guide={index === tree.unfiled.notes.length - 1 ? 'end' : 'continuation'} className="pointer-events-none absolute -left-1.5 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
+      <NoteRow
+        entry={entry}
+        selected={entry.note.id === selection.selectedNoteId && (!selection.selectedFolderId || selection.selectedFolderId === UNFILED_FOLDER_ID)}
+        focusTarget={entry.note.id === selection.selectedNoteId}
+        onSelect={actions.onNoteSelect}
+        onOpen={actions.onOpenNote}
+        onCopyLink={actions.onCopyNoteLink}
+        onCopyMarkdownLink={actions.onCopyNoteMarkdownLink}
+        onDuplicate={actions.onDuplicateNote}
+        onExportMarkdown={actions.onExportNoteMarkdown}
+        onDelete={actions.onDeleteNote}
+        onRevealFolder={actions.onRevealNoteFolder}
+        onRevealInFinder={actions.onNoteRevealInFinder}
+        onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}
+        selectedFolder={selectedFolderForNoteMove}
+        draggable
+        disabledDrag={status.isMovingNote}
+        active={activeNoteId === entry.note.id}
+        compact
+      />
+    </li>
+  ))}
+    </>
+  ), [
+    actions, activeFolderId, activeNoteId, layout.collapsedFolderIds, selectedFolderForNoteMove,
+    selection.selectedFolderId, selection.selectedNoteId, showRootRow, status.isMovingFolder,
+    status.isMovingNote, tree,
+  ]);
+
   return (
     <DndContext
       sensors={sensors}
@@ -932,66 +998,17 @@ function NavigatorTree({
                 onCreateNote={() => actions.onCreateNoteInside(null)}
               />
             ) : null}
-            {(!showRootRow || rootSectionExpanded) ? (
-              // Under the workspace root, folders and notes sit one level in, like any folder's children.
-              <ul id={workspaceChildrenGroupId} role="group" className={cn('m-0 grid min-w-0 list-none gap-0.5 p-0', showRootRow && 'relative mt-0.5 pl-5')}>
-                <FolderTreeView
-                  nodes={tree.roots}
-                  selectedFolderId={selection.selectedFolderId}
-                  selectedNoteId={selection.selectedNoteId}
-                  collapsedFolderIds={layout.collapsedFolderIds}
-                  activeFolderId={activeFolderId}
-                  activeNoteId={activeNoteId}
-                  depth={0}
-                  onFolderSelect={actions.onFolderSelect}
-                  onFolderToggle={actions.onFolderToggle}
-                  onCreateFolderInside={actions.onCreateFolderInside}
-                  onCreateNoteInside={actions.onCreateNoteInside}
-                  onRenameFolder={actions.onRenameFolder}
-                  onDeleteFolder={actions.onDeleteFolder}
-                  onFolderRevealInFinder={actions.onFolderRevealInFinder}
-                  onNoteSelect={actions.onNoteSelect}
-                  onNoteOpen={actions.onOpenNote}
-                  onNoteCopyLink={actions.onCopyNoteLink}
-                  onNoteCopyMarkdownLink={actions.onCopyNoteMarkdownLink}
-                  onNoteDuplicate={actions.onDuplicateNote}
-                  onNoteExportMarkdown={actions.onExportNoteMarkdown}
-                  onNoteDelete={actions.onDeleteNote}
-                  onNoteRevealFolder={actions.onRevealNoteFolder}
-                  onNoteRevealInFinder={actions.onNoteRevealInFinder}
-                  onNoteMoveToSelectedFolder={(entry) => moveNoteToSelectedFolder(entry, selectedFolderForNoteMove, actions.onNoteMove)}
-                  selectedFolderForNoteMove={selectedFolderForNoteMove}
-                  isMovingNote={status.isMovingNote}
-                  isMovingFolder={status.isMovingFolder}
-                  topLevelGuides={showRootRow}
-                />
-                {tree.unfiled.notes.map((entry, index) => (
-                  <li role="presentation" key={`root:${entry.note.id}`} className="tree-row-lazy relative min-w-0">
-                    {showRootRow ? <span aria-hidden="true" data-tree-guide={index === tree.unfiled.notes.length - 1 ? 'end' : 'continuation'} className="pointer-events-none absolute -left-1.5 -top-0.5 bottom-0 w-px bg-border-subtle" /> : null}
-                    <NoteRow
-                      entry={entry}
-                      selected={entry.note.id === selection.selectedNoteId && (!selection.selectedFolderId || selection.selectedFolderId === UNFILED_FOLDER_ID)}
-                      focusTarget={entry.note.id === selection.selectedNoteId}
-                      onSelect={actions.onNoteSelect}
-                      onOpen={actions.onOpenNote}
-                      onCopyLink={actions.onCopyNoteLink}
-                      onCopyMarkdownLink={actions.onCopyNoteMarkdownLink}
-                      onDuplicate={actions.onDuplicateNote}
-                      onExportMarkdown={actions.onExportNoteMarkdown}
-                      onDelete={actions.onDeleteNote}
-                      onRevealFolder={actions.onRevealNoteFolder}
-                      onRevealInFinder={actions.onNoteRevealInFinder}
-                      onMoveToSelectedFolder={(noteEntry) => moveNoteToSelectedFolder(noteEntry, selectedFolderForNoteMove, actions.onNoteMove)}
-                      selectedFolder={selectedFolderForNoteMove}
-                      draggable
-                      disabledDrag={status.isMovingNote}
-                      active={activeNoteId === entry.note.id}
-                      compact
-                    />
-                  </li>
-                ))}
+            {/* Under the workspace root, folders and notes sit one level in, like any folder's children.
+                Collapsing the root hides them rather than unmounting them: remounting every row on
+                expand took ~300ms in a large workspace, while hiding is a single style change. */}
+            <ul
+                id={workspaceChildrenGroupId}
+                role="group"
+                hidden={showRootRow && !rootSectionExpanded}
+                className={cn('m-0 grid min-w-0 list-none gap-0.5 p-0', showRootRow && 'relative mt-0.5 pl-5')}
+              >
+                {treeRows}
               </ul>
-            ) : null}
             <TopLevelDropArea
               dragActive={Boolean(activeFolderId || activeNoteId)}
               onSelect={() => actions.onFolderSelect(UNFILED_FOLDER_ID)}

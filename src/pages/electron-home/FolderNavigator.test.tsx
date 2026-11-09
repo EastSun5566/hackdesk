@@ -925,6 +925,23 @@ describe('FolderNavigator', () => {
     expect(screen.queryByRole('treeitem', { name: 'Projects' })).not.toBeInTheDocument();
   });
 
+  it('keeps the rows mounted while the root is collapsed, so opening it is cheap', () => {
+    window.localStorage.clear();
+    const { container } = renderFolderNavigator();
+    const row = container.querySelector('[data-folder-tree-row-id="folder:projects"]');
+    expect(row).not.toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse My Notes' }));
+    // Hidden, not unmounted: the same element, out of the accessibility tree and keyboard path.
+    expect(container.querySelector('[data-folder-tree-row-id="folder:projects"]')).toBe(row);
+    expect(row!.closest('[hidden]')).not.toBeNull();
+    expect(screen.queryByRole('treeitem', { name: 'Projects' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand My Notes' }));
+    expect(container.querySelector('[data-folder-tree-row-id="folder:projects"]')).toBe(row);
+    expect(screen.getByRole('treeitem', { name: 'Projects' })).toBeVisible();
+  });
+
   it('creates a top-level folder from the root hover action and context menu', async () => {
     const onCreateFolderInside = vi.fn();
     renderFolderNavigator({ actions: { onCreateFolderInside } });

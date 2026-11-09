@@ -74,12 +74,20 @@ export function useFolderTreeKeyboardNavigation({
     setPreviousSelectedRowId(selectedRowId);
     if (selectedRowId) setFocusedId(selectedRowId);
   }
-  const itemsById = useMemo(() => new Map(focusItems.map(item => [item.id, item])), [focusItems]);
+  // What each row reads: every row of the tree, open root or not. Collapsing the root hides its rows
+  // without unmounting them, and rows whose entry vanished would all re-render on every toggle.
+  const rowItems = useMemo(
+    () => (rootSectionExpanded ? focusItems : buildFolderNavigatorFocusItems({ tree, collapsedFolderIds, showRoot, rootSectionExpanded: true, rootLabel })),
+    [collapsedFolderIds, focusItems, rootLabel, rootSectionExpanded, showRoot, tree],
+  );
+  const itemsById = useMemo(() => new Map(rowItems.map(item => [item.id, item])), [rowItems]);
+  // What the keyboard can reach: rows under a collapsed root are skipped.
+  const reachableIds = useMemo(() => new Set(focusItems.map(item => item.id)), [focusItems]);
   const previousItemsRef = useRef(focusItems);
   const lastFocusedElementRef = useRef<HTMLElement | null>(null);
-  const effectiveFocusedId = focusedId && itemsById.has(focusedId)
+  const effectiveFocusedId = focusedId && reachableIds.has(focusedId)
     ? focusedId
-    : selectedRowId && itemsById.has(selectedRowId) ? selectedRowId : focusItems[0]?.id ?? null;
+    : selectedRowId && reachableIds.has(selectedRowId) ? selectedRowId : focusItems[0]?.id ?? null;
 
   useEffect(() => () => {
     if (typeaheadResetTimerRef.current !== null) {
@@ -100,7 +108,7 @@ export function useFolderTreeKeyboardNavigation({
   useLayoutEffect(() => {
     const previousItems = previousItemsRef.current;
     previousItemsRef.current = focusItems;
-    if (!focusedId || itemsById.has(focusedId)) return;
+    if (!focusedId || reachableIds.has(focusedId)) return;
 
     const oldIndex = previousItems.findIndex(item => item.id === focusedId);
     const previousItemsById = new Map(previousItems.map(item => [item.id, item]));
@@ -108,7 +116,7 @@ export function useFolderTreeKeyboardNavigation({
     let nextId: string | undefined;
     while (parentId) {
       const parent = createFolderFocusId(parentId);
-      if (itemsById.has(parent)) {
+      if (reachableIds.has(parent)) {
         nextId = parent;
         break;
       }
@@ -116,12 +124,14 @@ export function useFolderTreeKeyboardNavigation({
     }
     nextId ??= focusItems[Math.max(0, Math.min(oldIndex, focusItems.length - 1))]?.id;
     setFocusedId(nextId ?? null);
-    // Recover only a removed tree control's focus, never steal it from a dialog or editor.
+    // Recover only a removed or hidden tree control's focus (a collapsed root keeps its rows mounted
+    // but hidden), never steal it from a dialog or editor.
     const lastElement = lastFocusedElementRef.current;
-    if (nextId && lastElement && !lastElement.isConnected && document.activeElement === document.body) {
+    const lastGone = lastElement && (!lastElement.isConnected || Boolean(lastElement.closest('[hidden]')));
+    if (nextId && lastGone && (document.activeElement === document.body || document.activeElement === lastElement)) {
       focusTreeItem(nextId);
     }
-  }, [focusItems, focusedId, focusTreeItem, itemsById]);
+  }, [focusItems, focusedId, focusTreeItem, reachableIds]);
 
   const onFocus = useCallback((id: string) => {
     setFocusedId(id);
