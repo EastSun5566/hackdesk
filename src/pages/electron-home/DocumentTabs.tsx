@@ -1,6 +1,7 @@
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import { NOTE_CARD_CLASS, NoteSummaryCard, useNoteSummaryLookup } from './NoteSummaryCard';
-import { NoteIcon } from './note-kind';
+import { NoteIcon, NoteKindIcon } from './note-kind';
+import { useBookSessionContext } from './useBookSession';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -85,6 +86,13 @@ function DocumentTab({
   const title = tab.title || 'Untitled';
   const lookupNoteSummary = useNoteSummaryLookup();
   const summary = isDraftNoteTab(tab) || isBlankNoteTab(tab) ? undefined : lookupNoteSummary(tab.noteId);
+  // A tab on the open book or one of its chapters is the book's tab: it turns chapters in place,
+  // and says so with the book's icon and name.
+  const bookSession = useBookSessionContext();
+  const book = bookSession?.book;
+  const bookPosition = book && !isDraftNoteTab(tab) && !isBlankNoteTab(tab)
+    ? bookSession.positionOfNote({ id: tab.noteId, teamPath: tab.teamPath })
+    : null;
   const { isDragging, listeners, setNodeRef, setActivatorNodeRef, transform, transition } = useSortable({ id: tab.tabId });
   const setTabNode = useCallback((element: HTMLLIElement | null) => {
     setNodeRef(element);
@@ -132,7 +140,12 @@ function DocumentTab({
           if (!draggedRef.current || event.detail === 0) onSelect();
         }}
       >
-        <NoteIcon note={summary?.note} noteId={isDraftNoteTab(tab) || isBlankNoteTab(tab) ? undefined : tab.noteId} className="h-3.5 w-3.5" />
+        {bookPosition
+          ? <NoteKindIcon kind="book" className="h-3.5 w-3.5" />
+          : <NoteIcon note={summary?.note} noteId={isDraftNoteTab(tab) || isBlankNoteTab(tab) ? undefined : tab.noteId} className="h-3.5 w-3.5" />}
+        {book && bookPosition && !bookPosition.isBook ? (
+          <span aria-hidden="true" data-tab-book className="max-w-24 shrink truncate text-text-subtle">{book.title} ›</span>
+        ) : null}
         <span data-tab-title className="min-w-0 truncate">{title}</span>
         {!isBlankNoteTab(tab) ? <TabStatusIndicator state={syncState} /> : null}
       </button>

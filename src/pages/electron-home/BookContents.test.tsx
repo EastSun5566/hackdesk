@@ -19,6 +19,8 @@ function Harness({ openChapter }: { openChapter: (index: number) => void }) {
     toggleContents: () => setContentsHidden(hidden => !hidden),
     openChapter,
     positionOf: () => null,
+    positionOfNote: () => null,
+    openContentsPage: vi.fn(),
   };
   return <BookContents session={session} position={{ isBook: true, chapterIndex: null }} />;
 }
@@ -54,6 +56,8 @@ describe('BookPane', () => {
     toggleContents: vi.fn(),
     openChapter: vi.fn(),
     positionOf: (document) => (document?.id === 'book' ? { isBook: true, chapterIndex: null } : null),
+    positionOfNote: () => null,
+    openContentsPage: vi.fn(),
   });
   let mounts = 0;
   function Note() {

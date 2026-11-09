@@ -42,16 +42,35 @@ test('a HackMD book shows its contents and walks through its chapters', async ()
     const page = await app.firstWindow();
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.getByRole('treeitem', { name: /Handbook/ }).first().click();
-    await expect(contents(page).locator('[data-book-chapter]')).toHaveText(['Setup', 'Tools', 'Guide', 'Docs']);
+    await expect(contents(page).locator('[data-book-chapter]')).toHaveText(['Table of contents', 'Setup', 'Tools', 'Guide', 'Docs']);
+    // On the book's own note, editing it edits the contents, and the page says so.
+    await expect(contents(page).getByRole('button', { name: 'Table of contents' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('[data-book-contents-note]')).toBeVisible();
+    const tabs = page.getByRole('tab');
+    const tabCount = await tabs.count();
 
     await contents(page).getByRole('button', { name: 'Setup' }).click();
     await expect(editor(page)).toContainText('Setup body text.');
     await expect(contents(page).getByRole('button', { name: 'Setup' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('[data-book-contents-note]')).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Next chapter: Tools' }).click();
     await expect(editor(page)).toContainText('Tools body text.');
     await page.getByRole('button', { name: 'Next chapter: Guide' }).click();
     await expect(editor(page)).toContainText('Guide body text.');
+    // Chapters turn the book's tab instead of opening tabs of their own; it names the book.
+    await expect(tabs).toHaveCount(tabCount);
+    await expect(page.getByRole('tab', { selected: true }).locator('[data-tab-book]')).toHaveText('Handbook ›');
+    // Back walks the chapters read in that tab.
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await expect(editor(page)).toContainText('Tools body text.');
+    await page.getByRole('button', { name: 'Forward', exact: true }).click();
+    await expect(editor(page)).toContainText('Guide body text.');
+    await contents(page).getByRole('button', { name: 'Table of contents' }).click();
+    await expect(page.locator('[data-book-contents-note]')).toBeVisible();
+    await contents(page).getByRole('button', { name: 'Guide' }).click();
+    await expect(editor(page)).toContainText('Guide body text.');
+    await expect(tabs).toHaveCount(tabCount);
     // Setup and Tools were known locally; only the unlisted Guide was looked up.
     expect((await readFixture(app)).lookups).toEqual(['https://hackmd.io/@fixture/guide']);
     await expect(page.getByRole('button', { name: 'Previous chapter: Tools' })).toBeVisible();

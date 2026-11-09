@@ -232,7 +232,7 @@ export function Home() {
     },
     requestEditorFocus,
     scopeStorageKey,
-    openNoteInWorkspace: noteWorkspace.openNote,
+    openNoteInWorkspace: (note, options) => (options?.inPlace ? noteWorkspace.showNoteInActiveTab(note) : noteWorkspace.openNote(note)),
     selectionRefs,
     trackRecentNote,
   });

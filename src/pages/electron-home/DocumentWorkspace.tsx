@@ -379,7 +379,8 @@ export function DocumentWorkspace({
         />
       ) : (
         <DocumentDetail
-          editorKey={view.activeTab?.tabId ?? `${pane.paneId}:empty`}
+          // With the tab's note: a book's tab turns chapters in place, and each needs its own editor and undo history.
+          editorKey={view.activeTab ? `${view.activeTab.tabId}:${isDraftNoteTab(view.activeTab) || isBlankNoteTab(view.activeTab) ? '' : `${view.activeTab.teamPath ?? ''}:${view.activeTab.noteId}`}` : `${pane.paneId}:empty`}
           editorMode={editorMode}
           folderTree={folderTree}
           documentState={{

@@ -57,6 +57,11 @@ export type NotePane = {
 export type NoteNavigationTarget = {
   paneId: string;
   tabId: string;
+  /**
+   * The note the tab showed then. A tab can change notes in place (a book's tab turning to the next
+   * chapter), so Back and Forward return the tab to this note.
+   */
+  note?: SavedOpenNoteTab;
 };
 
 export type NoteDocumentDraft = {
@@ -183,9 +188,11 @@ export function getPaneActiveTab(state: NoteWorkspaceState, paneId: string) {
 
 export function getActiveNavigationTarget(state: NoteWorkspaceState): NoteNavigationTarget | null {
   const pane = getActivePane(state);
-  return pane?.activeTabId && state.tabs[pane.activeTabId]
-    ? { paneId: pane.paneId, tabId: pane.activeTabId }
-    : null;
+  const tab = pane?.activeTabId ? state.tabs[pane.activeTabId] : null;
+  if (!pane?.activeTabId || !tab) return null;
+  return getSavedTabNoteIdentity(tab)
+    ? { paneId: pane.paneId, tabId: pane.activeTabId, note: tab as SavedOpenNoteTab }
+    : { paneId: pane.paneId, tabId: pane.activeTabId };
 }
 
 export function getVisibleActiveTabs(state: NoteWorkspaceState) {
@@ -382,8 +389,13 @@ function getClosedTabKey(tab: OpenNoteTab) {
   return identity ? getNoteIdentityKey(identity) : `blank:${tab.tabId}`;
 }
 
+function navigationTargetKey(target: NoteNavigationTarget) {
+  const note = target.note ? getSavedTabNoteIdentity(target.note) : null;
+  return `${target.paneId}:${target.tabId}:${note ? getNoteIdentityKey(note) : ''}`;
+}
+
 function navigationTargetEquals(left: NoteNavigationTarget | null, right: NoteNavigationTarget | null) {
-  return Boolean(left && right && left.paneId === right.paneId && left.tabId === right.tabId);
+  return Boolean(left && right && navigationTargetKey(left) === navigationTargetKey(right));
 }
 
 function isValidNavigationTarget(state: Pick<NoteWorkspaceState, 'panes' | 'tabs'>, target: NoteNavigationTarget) {
@@ -396,7 +408,7 @@ function normalizeNavigationStack(state: Pick<NoteWorkspaceState, 'panes' | 'tab
   const targets: NoteNavigationTarget[] = [];
 
   for (const target of stack) {
-    const key = `${target.paneId}:${target.tabId}`;
+    const key = navigationTargetKey(target);
     if (!seen.has(key) && isValidNavigationTarget(state, target)) {
       targets.push(target);
       seen.add(key);
@@ -429,6 +441,21 @@ function withNavigationHistory(previous: NoteWorkspaceState, next: NoteWorkspace
 }
 
 function activateNavigationTarget(state: NoteWorkspaceState, target: NoteNavigationTarget) {
+  // A tab that turned to another note in place goes back to the note it showed, unless it now has
+  // unsaved edits (they belong to the note it shows) or that note is open in another tab.
+  const tab = state.tabs[target.tabId];
+  const shown = getSavedTabNoteIdentity(tab);
+  const wanted = target.note ? getSavedTabNoteIdentity(target.note) : null;
+  if (wanted && shown && !noteIdentityMatches(shown, wanted)) {
+    const elsewhere = getTabByNoteIdentity(state, wanted);
+    if (elsewhere) {
+      const pane = getTabPane(state, elsewhere.tabId);
+      if (pane) return activateNavigationTarget(state, { paneId: pane.paneId, tabId: elsewhere.tabId });
+    }
+    if (!state.drafts[target.tabId] && target.note) {
+      state = { ...state, tabs: { ...state.tabs, [target.tabId]: { ...target.note, tabId: target.tabId } } };
+    }
+  }
   return normalizeState({
     ...state,
     activePaneId: target.paneId,
@@ -484,6 +511,27 @@ export function openNoteTab(state: NoteWorkspaceState, note: NoteSummary, paneId
 
   const tab = createTabFromNote(note);
   const next = insertTabAfterActive(state, pane.paneId, tab);
+  return withNavigationHistory(state, next);
+}
+
+/**
+ * Shows a note in the pane's active tab instead of a new one: how a book's tab turns to a chapter.
+ * Falls back to opening a tab as usual when the active tab has unsaved edits (they belong to its
+ * note), holds no saved note, or the note is already open in another tab (which is then shown).
+ */
+export function openNoteInPlace(state: NoteWorkspaceState, note: NoteSummary, paneId = state.activePaneId) {
+  const pane = state.panes.find((candidate) => candidate.paneId === paneId) ?? getActivePane(state);
+  const tabId = pane.activeTabId;
+  const tab = tabId ? state.tabs[tabId] : null;
+  const shown = getSavedTabNoteIdentity(tab);
+  if (!tabId || !shown || state.drafts[tabId]) return openNoteTab(state, note, pane.paneId);
+  if (noteIdentityMatches(shown, note)) return state;
+  if (getTabByNoteIdentity(state, note)) return openNoteTab(state, note, pane.paneId);
+  const next = normalizeState({
+    ...state,
+    activePaneId: pane.paneId,
+    tabs: { ...state.tabs, [tabId]: createTabFromNote(note, tabId) },
+  });
   return withNavigationHistory(state, next);
 }
 

@@ -19,7 +19,11 @@ export type BookSession = {
   contentsHidden: boolean;
   toggleContents: () => void;
   openChapter: (index: number) => void;
+  /** Turns the book's tab back to the book itself: its table of contents. */
+  openContentsPage: () => void;
   positionOf: (document: DocumentSummary | undefined) => BookPosition | null;
+  /** Where a note known only by ID (a tab) is in the open book, if anywhere. */
+  positionOfNote: (note: { id: string; teamPath: string | null }) => BookPosition | null;
 };
 
 type OpenBook = {
@@ -41,6 +45,9 @@ function documentKey(document: DocumentSummary) {
 }
 
 const recentNoteKey = (note: ElectronRecentNote) => noteKey(note);
+
+/** A note key without its vault: `local:<vault>:<id>` becomes `local::<id>`. */
+const withoutVault = (key: string) => key.replace(/^local:[^:]*:/, 'local::');
 
 /** The chapter in `next` with the same link as `index` in `previous`, counting repeats of that link. */
 function sameOccurrence(previous: Book, index: number, next: Book) {
@@ -120,13 +127,24 @@ export function useBookSession({ document, openNoteTarget, openExternal }: {
       openExternal(target);
       return;
     }
-    void openNoteLink({ target, document: book, openNoteTarget, openExternal }).then((note) => {
+    // A chapter turns the book's tab, rather than opening a tab of its own.
+    const openInBookTab: OpenNoteTarget = (entry) => openNoteTarget(entry, { inPlace: true });
+    void openNoteLink({ target, document: book, openNoteTarget: openInBookTab, openExternal }).then((note) => {
       if (!note) return;
       setState(current => (current?.contents === contents
         ? { ...current, lastChapter: index, chapterNotes: current.chapterNotes.map((known, at) => (at === index ? recentNoteKey(note) : known)) }
         : current));
     });
   }, [openExternal, openNoteTarget, state]);
+
+  const openContentsPage = useCallback(() => {
+    if (!state) return;
+    const { document: book } = state;
+    const vaultId = getLocalImageContext(book)?.vaultId;
+    openNoteTarget(vaultId
+      ? { vaultId, noteId: book.id, teamPath: LOCAL_VAULT_TEAM_PATH, title: book.title, shortId: book.id, lastOpenedAtMillis: Date.now() }
+      : { noteId: book.id, teamPath: book.teamPath, title: book.title, shortId: book.shortId, lastOpenedAtMillis: Date.now() }, { inPlace: true });
+  }, [openNoteTarget, state]);
 
   const positionOf = useCallback((current: DocumentSummary | undefined): BookPosition | null => {
     if (!state || !current) return null;
@@ -135,6 +153,16 @@ export function useBookSession({ document, openNoteTarget, openExternal }: {
     const chapterIndex = state.lastChapter !== null && state.chapterNotes[state.lastChapter] === key
       ? state.lastChapter
       : state.chapterNotes.indexOf(key);
+    return chapterIndex >= 0 ? { isBook: false, chapterIndex } : null;
+  }, [state]);
+
+  const positionOfNote = useCallback((note: { id: string; teamPath: string | null }): BookPosition | null => {
+    if (!state) return null;
+    // Tabs carry no vault ID; a tab's notes all come from the open vault, so the ID and team suffice.
+    const key = withoutVault(noteKey({ noteId: note.id, teamPath: note.teamPath, vaultId: '' }));
+    if (key === withoutVault(documentKey(state.document))) return { isBook: true, chapterIndex: null };
+    const keys = state.chapterNotes.map(known => (known ? withoutVault(known) : null));
+    const chapterIndex = state.lastChapter !== null && keys[state.lastChapter] === key ? state.lastChapter : keys.indexOf(key);
     return chapterIndex >= 0 ? { isBook: false, chapterIndex } : null;
   }, [state]);
 
@@ -156,8 +184,10 @@ export function useBookSession({ document, openNoteTarget, openExternal }: {
     contentsHidden,
     toggleContents,
     openChapter,
+    openContentsPage,
     positionOf,
-  }), [close, contentsHidden, open, openChapter, positionOf, state, toggleContents]);
+    positionOfNote,
+  }), [close, contentsHidden, open, openChapter, openContentsPage, positionOf, positionOfNote, state, toggleContents]);
 }
 
 export const BookSessionContext = createContext<BookSession | null>(null);

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { NoteSummary } from '@/lib/electron-api';
 
 import {
+  openNoteInPlace,
   closeNoteTab,
   closeOtherNoteTabs,
   closeTabsToRight,
@@ -442,7 +443,7 @@ describe('note workspace tabs', () => {
     const selected = selectNoteTab(state, paneId, firstTabId);
 
     expect(getActiveTab(selected)?.title).toBe('A');
-    expect(selected.backStack[0]).toEqual({ paneId, tabId: secondTabId });
+    expect(selected.backStack[0]).toMatchObject({ paneId, tabId: secondTabId });
     expect(selected.forwardStack).toEqual([]);
   });
 
@@ -456,11 +457,11 @@ describe('note workspace tabs', () => {
 
     const back = navigateNoteWorkspace(selectedB, 'back');
     expect(getActiveTab(back)?.title).toBe('A');
-    expect(back.forwardStack[0]).toEqual({ paneId, tabId: secondTabId });
+    expect(back.forwardStack[0]).toMatchObject({ paneId, tabId: secondTabId });
 
     const forward = navigateNoteWorkspace(back, 'forward');
     expect(getActiveTab(forward)?.title).toBe('B');
-    expect(forward.backStack[0]).toEqual({ paneId, tabId: firstTabId });
+    expect(forward.backStack[0]).toMatchObject({ paneId, tabId: firstTabId });
   });
 
   it('clears forward navigation after opening a new note from a back location', () => {
@@ -489,7 +490,7 @@ describe('note workspace tabs', () => {
     expect(closedB.backStack.every((target) => target.tabId !== secondTabId)).toBe(true);
 
     const back = navigateNoteWorkspace(closedB, 'back');
-    expect(getActiveNavigationTarget(back)).toEqual({ paneId, tabId: firstTabId });
+    expect(getActiveNavigationTarget(back)).toMatchObject({ paneId, tabId: firstTabId });
     expect(getActiveTab(back)?.title).toBe('A');
   });
 });
@@ -664,3 +665,50 @@ describe('note workspace panes', () => {
   });
 });
 
+
+describe('openNoteInPlace (a book\'s tab turning chapters)', () => {
+  const book = note({ id: 'book', title: 'Guide' });
+  const alpha = note({ id: 'alpha', title: 'Alpha' });
+  const beta = note({ id: 'beta', title: 'Beta' });
+  const tabNote = (state: ReturnType<typeof createEmptyNoteWorkspaceState>) => {
+    const tab = getActiveTab(state);
+    return tab && 'noteId' in tab ? tab.noteId : null;
+  };
+
+  it('shows the note in the active tab, keeping one tab, and Back and Forward walk the notes it showed', () => {
+    let state = openNoteTab(createEmptyNoteWorkspaceState('scope'), book);
+    const tabId = getActiveTab(state)!.tabId;
+    state = openNoteInPlace(state, alpha);
+    state = openNoteInPlace(state, beta);
+    expect(Object.keys(state.tabs)).toEqual([tabId]);
+    expect(tabNote(state)).toBe('beta');
+
+    state = navigateNoteWorkspace(state, 'back');
+    expect(tabNote(state)).toBe('alpha');
+    state = navigateNoteWorkspace(state, 'back');
+    expect(tabNote(state)).toBe('book');
+    state = navigateNoteWorkspace(state, 'forward');
+    expect(tabNote(state)).toBe('alpha');
+    expect(Object.keys(state.tabs)).toEqual([tabId]);
+  });
+
+  it('opens a new tab instead when the active tab has unsaved edits, which belong to its note', () => {
+    let state = openNoteTab(createEmptyNoteWorkspaceState('scope'), book);
+    const tabId = getActiveTab(state)!.tabId;
+    state = updateNoteTabDraft(state, tabId, { title: 'Guide', content: 'edited' });
+    state = openNoteInPlace(state, alpha);
+    expect(Object.keys(state.tabs)).toHaveLength(2);
+    expect(tabNote(state)).toBe('alpha');
+    expect(state.tabs[tabId]).toEqual(expect.objectContaining({ noteId: 'book' }));
+    expect(state.drafts[tabId]).toEqual(expect.objectContaining({ content: 'edited' }));
+  });
+
+  it('shows the note\'s own tab when it is already open elsewhere', () => {
+    let state = openNoteTab(createEmptyNoteWorkspaceState('scope'), alpha);
+    const alphaTab = getActiveTab(state)!.tabId;
+    state = openNoteTab(state, book);
+    state = openNoteInPlace(state, alpha);
+    expect(getActiveTab(state)!.tabId).toBe(alphaTab);
+    expect(Object.keys(state.tabs)).toHaveLength(2);
+  });
+});

@@ -598,6 +598,16 @@ function ActiveDocumentDetail({
         layout={layout}
         status={status}
       />
+      {openBook?.position.isBook ? (
+        // Editing the book's own note edits its table of contents; say so where the reader types.
+        <p role="note" data-book-contents-note="" className="flex shrink-0 items-center gap-2 border-b border-border-subtle bg-background-muted px-4 py-1.5 text-xs leading-5 text-text-subtle">
+          <BookOpen aria-hidden="true" className="size-3.5 shrink-0 text-icon-subtle" />
+          <span className="min-w-0 truncate">
+            <span className="font-medium text-text-default">Table of contents</span>
+            {' '}· Headings become sections, and bulleted links become chapters.
+          </span>
+        </p>
+      ) : null}
       <DocumentRecoveryBanner
         key={`${documentState.document?.teamPath}:${documentState.document?.id}:${getLocalImageContext(documentState.document)?.vaultId ?? ''}`}
         actions={actions}

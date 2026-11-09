@@ -317,14 +317,14 @@ describe('DocumentWorkspace', () => {
     const { rerender } = render(<DocumentWorkspace {...props} />);
     const firstDetail = screen.getByTestId('document-detail-Left note');
     const firstMountId = firstDetail.getAttribute('data-mount-id');
-    expect(firstDetail).toHaveAttribute('data-editor-key', 'tab-a');
+    expect(firstDetail.getAttribute('data-editor-key')).toMatch(/^tab-a:/);
 
     const secondPane = pane('pane-a', ['tab-a', 'tab-b'], 'tab-b');
     rerender(<DocumentWorkspace {...props} panes={[secondPane]} />);
 
     expect(screen.getByTestId('document-detail-Left note'))
       .toHaveAttribute('data-mount-id', firstMountId);
-    expect(screen.getByTestId('document-detail-Left note')).toHaveAttribute('data-editor-key', 'tab-b');
+    expect(screen.getByTestId('document-detail-Left note').getAttribute('data-editor-key')).toMatch(/^tab-b:/);
   });
 
   it('keeps the document detail mounted for updates within the same tab', () => {

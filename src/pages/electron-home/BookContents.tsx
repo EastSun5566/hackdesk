@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, ExternalLink, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, List, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import { useRef, type KeyboardEvent, type ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -99,6 +99,20 @@ export function BookContents({ session, position }: { session: OpenBookSession; 
         )}
       />
       <div className="scroll-edges-source min-h-0 flex-1 overflow-auto overscroll-contain px-2 py-2" onKeyDown={moveFocus}>
+        {/* The book's own note is its table of contents: editing it edits these chapters. */}
+        <button
+          type="button"
+          data-book-chapter=""
+          aria-current={position.isBook ? 'page' : undefined}
+          className={cn(
+            'mb-1 flex w-full min-w-0 items-center gap-1.5 rounded-sm px-2 py-1 text-left text-sm text-text-default hover:bg-background-selected focus-visible:outline-2 focus-visible:outline-focus-ring',
+            position.isBook && 'bg-background-selected font-medium',
+          )}
+          onClick={session.openContentsPage}
+        >
+          <List aria-hidden="true" className="size-3.5 shrink-0 text-icon-subtle" />
+          <span className="truncate">Table of contents</span>
+        </button>
         {session.book.contents.chapters.length ? (
           <BookTree nodes={session.book.contents.nodes} session={session} current={position.chapterIndex} />
         ) : (

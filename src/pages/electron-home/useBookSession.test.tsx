@@ -69,7 +69,8 @@ describe('useBookSession', () => {
     const { resolveNote } = installApi();
     const { result, openNoteTarget, openExternal } = await setup();
     await act(async () => result.current.openChapter(1));
-    await waitFor(() => expect(openNoteTarget).toHaveBeenCalledWith(expect.objectContaining({ noteId: 'tools-id' })));
+    // A chapter turns the book's tab rather than opening a tab of its own.
+    await waitFor(() => expect(openNoteTarget).toHaveBeenCalledWith(expect.objectContaining({ noteId: 'tools-id' }), { inPlace: true }));
     expect(resolveNote).toHaveBeenCalledOnce();
     expect(result.current.positionOf(TOOLS)).toEqual({ isBook: false, chapterIndex: 1 });
 
