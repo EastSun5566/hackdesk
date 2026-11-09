@@ -25,6 +25,8 @@ import { CARD_SURFACE_CLASS, GAP_SASH_CLASS, GAP_SASH_ROW_CLASS } from './ui';
 import { UnavailableDocumentDetail } from './UnavailableDocumentDetail';
 import { documentPaneId, documentTabId } from './document-tab-ids';
 import type { OpenNoteTarget } from './useNoteLinkOpener';
+import { NoteIcon } from './note-kind';
+import { useNoteSummaryLookup } from './NoteSummaryCard';
 
 function PaneGroup({ layout, id, orientation, ...props }: Omit<GroupProps, 'defaultLayout' | 'groupRef'> & { layout: Record<string, number> }) {
   const groupRef = useRef<GroupImperativeHandle | null>(null);
@@ -80,6 +82,7 @@ function BlankTabPage({
   recentNotes: ElectronRecentNote[];
 }) {
   const recent = onOpenNoteTarget ? recentNotes.slice(0, 8) : [];
+  const lookupNoteSummary = useNoteSummaryLookup();
   // Like a browser's new-tab page: find something first, make something second, and the notes
   // you were just in below. Set high rather than centred, so the list grows downward.
   return (
@@ -116,7 +119,7 @@ function BlankTabPage({
                     onClick={() => onOpenNoteTarget?.(note)}
                     className="flex h-8 w-full items-center gap-2 rounded px-3 text-left text-sm text-text-default transition-colors hover:bg-background-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                   >
-                    <FileText aria-hidden="true" className="size-3.5 shrink-0 text-icon-default" />
+                    <NoteIcon note={lookupNoteSummary(note.noteId)?.note} noteId={note.noteId} className="size-3.5 text-icon-default" />
                     <span className="min-w-0 flex-1 truncate">{note.title || 'Untitled'}</span>
                   </button>
                 </li>

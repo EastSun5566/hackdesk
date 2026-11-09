@@ -1,4 +1,5 @@
 import { ConflictComparison } from './ConflictComparison';
+import { rememberNoteSlideType } from './note-kind';
 import { useTeamNameLookup } from './NoteSummaryCard';
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -431,6 +432,13 @@ function ActiveDocumentDetail({
   const lastHandledRenameRequestRef = useRef(0);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
+  // The open note's front matter decides its icon in the sidebar and tabs, local notes included,
+  // whose list entries carry no text.
+  const openNoteId = documentState.document?.id;
+  const openNoteIsSlide = hasSlideType(documentState.content);
+  useEffect(() => {
+    if (openNoteId) rememberNoteSlideType(openNoteId, openNoteIsSlide);
+  }, [openNoteId, openNoteIsSlide]);
   const renameRequestId = layout.renameRequestId ?? 0;
   useEffect(() => {
     if (renameRequestId <= lastHandledRenameRequestRef.current) return;

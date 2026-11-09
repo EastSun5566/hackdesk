@@ -111,6 +111,7 @@ import { HighlightedText } from './HighlightedText';
 import { SETTINGS_TABS, type SettingsTab } from './SettingsDialogConfig';
 import { PersonalWorkspaceIcon, TeamWorkspaceIcon } from './WorkspaceIcon';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
+import { NoteIcon } from './note-kind';
 
 const COMMAND_ITEM_ICON_CLASS = 'mr-3 text-command-item-meta';
 const COMMAND_ITEM_TITLE_CLASS = 'block truncate font-medium text-command-item-title';
@@ -493,7 +494,7 @@ export function CommandPaletteDialog({
                         closePalette();
                       }}
                     >
-                      <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}><FileText className="h-4 w-4" /></span>
+                      <span aria-hidden="true" className={COMMAND_ITEM_ICON_CLASS}><NoteIcon note={entry.note} className="h-4 w-4" /></span>
                       <span className="min-w-0 flex-1">
                         <span className={COMMAND_ITEM_TITLE_CLASS}><HighlightedText text={entry.note.title || 'Untitled'} query={trimmedSearch} /></span>
                         <span className={COMMAND_ITEM_META_CLASS}><HighlightedText text={metadata} query={trimmedSearch} acronym={false} /></span>

@@ -1,5 +1,6 @@
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import { NOTE_CARD_CLASS, NoteSummaryCard, useNoteSummaryLookup } from './NoteSummaryCard';
+import { NoteIcon } from './note-kind';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -131,7 +132,7 @@ function DocumentTab({
           if (!draggedRef.current || event.detail === 0) onSelect();
         }}
       >
-        <FileText aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+        <NoteIcon note={summary?.note} noteId={isDraftNoteTab(tab) || isBlankNoteTab(tab) ? undefined : tab.noteId} className="h-3.5 w-3.5" />
         <span data-tab-title className="min-w-0 truncate">{title}</span>
         {!isBlankNoteTab(tab) ? <TabStatusIndicator state={syncState} /> : null}
       </button>

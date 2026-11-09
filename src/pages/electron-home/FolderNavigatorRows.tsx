@@ -43,6 +43,7 @@ import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { useRowOverlays } from './row-overlays';
+import { NoteKindIcon, useNoteKind, type NoteKind } from './note-kind';
 import { NoteMatchSnippet } from './NoteMatchSnippet';
 
 import { WORKSPACE_ROOT_FOCUS_ID } from './folder-tree-focus';
@@ -126,6 +127,7 @@ type NoteDragHandleProps = {
   tabIndex?: number;
   disabledDrag: boolean;
   compact: boolean;
+  kind: NoteKind;
   onSelect: () => void;
 };
 
@@ -136,8 +138,8 @@ const NOTE_DRAG_HANDLE_CLASS = cn(
   FOCUS_RING_INSET_CLASS,
 );
 
-function NoteDragHandleGlyphs({ compact }: { compact: boolean }) {
-  return <FileText aria-hidden="true" className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />;
+function NoteDragHandleGlyphs({ compact, kind }: { compact: boolean; kind: NoteKind }) {
+  return <NoteKindIcon kind={kind} className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />;
 }
 
 /**
@@ -161,7 +163,7 @@ function NoteDragHandle({ armed, ...props }: NoteDragHandleProps & { armed: bool
       tabIndex={props.tabIndex}
       aria-disabled={props.disabledDrag || undefined}
     >
-      <NoteDragHandleGlyphs compact={props.compact} />
+      <NoteDragHandleGlyphs compact={props.compact} kind={props.kind} />
     </button>
   );
 }
@@ -174,6 +176,7 @@ function LiveNoteDragHandle({
   tabIndex,
   disabledDrag,
   compact,
+  kind,
   onSelect,
 }: NoteDragHandleProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -215,7 +218,7 @@ function LiveNoteDragHandle({
       tabIndex={tabIndex}
       aria-disabled={disabledDrag || attributes['aria-disabled']}
     >
-      <NoteDragHandleGlyphs compact={compact} />
+      <NoteDragHandleGlyphs compact={compact} kind={kind} />
     </button>
   );
 }
@@ -300,6 +303,7 @@ function NoteRowView({
   const treeItemProps = useFolderTreeItem(rowId, selected, undefined, draggable ? ['drag'] : []);
   const dragControlId = useFolderTreeControlId(rowId, 'drag');
   const canShowInFolder = showInFolderAction && entry.folderPath.length > 0;
+  const kind = useNoteKind(entry.note);
 
   const overlayRef = useRowOverlays(
     () => (
@@ -388,7 +392,7 @@ function NoteRowView({
       <div className="min-w-0">
         <EntityRow
           selected={selected}
-          icon={draggable ? undefined : <FileText className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />}
+          icon={draggable ? undefined : <NoteKindIcon kind={kind} className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />}
           leadingControls={draggable ? (
             <NoteDragHandle
               armed={dragArmed}
@@ -399,6 +403,7 @@ function NoteRowView({
               tabIndex={treeItemProps?.tabIndex}
               disabledDrag={disabledDrag}
               compact={compact}
+              kind={kind}
               onSelect={() => onSelect(entry.note)}
             />
           ) : null}
@@ -858,13 +863,14 @@ export function FolderDragOverlay({ node }: { node: FolderTreeNode | null }) {
 }
 
 export function NoteDragOverlay({ entry }: { entry: FolderTreeNote | null }) {
+  const kind = useNoteKind(entry?.note);
   if (!entry) {
     return null;
   }
 
   return (
     <div className="flex min-h-9 min-w-56 items-center gap-2 rounded-md border border-border-default bg-background-default px-3 py-2 text-sm text-text-default shadow-lg">
-      <FileText aria-hidden="true" className="h-4 w-4 shrink-0 text-text-subtle" />
+      <NoteKindIcon kind={kind} className="h-4 w-4 text-text-subtle" />
       <span className="min-w-0">
         <span className="block truncate font-medium">{entry.note.title || 'Untitled'}</span>
         <span className="block truncate text-xs text-text-subtle">{entry.folderLabel || entry.note.shortId}</span>
