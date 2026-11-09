@@ -56,6 +56,7 @@ import { buildNoteTagIndex } from '@/lib/electron-note-tags';
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { arePanelPropsEqual, useStableCallbacks } from '@/lib/stable-props';
+import { useScrollOverflow } from './useScrollOverflow';
 
 import { applyTreeGuides } from './tree-guides-preference';
 import { cn } from '@/lib/utils';
@@ -540,12 +541,20 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   const trashActive = Boolean(trash?.open);
   // The pinned workspace row (8px of cover plus its 32px row) stays solid; rows fade under it.
   const pinnedRootShown = !trashActive && !isFinderMode && !status.isLoading && scope.type !== 'history' && hasTreeContent;
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
+  const overflow = useScrollOverflow(scroller, 'y');
 
   return (
     // While the workspace row is pinned, rows scrolled into view (keyboard, reveal, hints) stop
     // below it instead of under it: 2.5rem is its 8px cover plus its 32px row.
-    <div className={cn('scroll-edges-source min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2', pinnedRootShown && 'scroll-pt-10')}>
-      {/* Edge fades (see .edge-fade-top in styles.css): zero-height, so they never move the rows. */}
+    <div
+      ref={setScroller}
+      data-overflow-start={overflow.start || undefined}
+      data-overflow-end={overflow.end || undefined}
+      className={cn('scroll-edges-source min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2', pinnedRootShown && 'scroll-pt-10')}
+    >
+      {/* Edge fades (see .edge-fade-top in styles.css): zero-height, so they never move the rows.
+          Each shows only while rows lie past its edge, so a list that fits shows neither. */}
       <div aria-hidden="true" className={cn('edge-fade-top pointer-events-none sticky z-10 -mx-2 h-0', pinnedRootShown ? 'top-8' : '-top-2')}>
         <div className="h-8 bg-linear-to-b from-background-muted to-transparent" />
       </div>

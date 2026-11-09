@@ -22,6 +22,7 @@ import { isBlankNoteTab, isDraftNoteTab, type OpenNoteTab } from './note-workspa
 import { ToolbarDropdownIconTrigger } from './interaction-primitives';
 import { DOCUMENT_SYNC_STATE_LABELS, type DocumentSyncState } from './document-sync-state';
 import { documentPaneId, documentTabId } from './document-tab-ids';
+import { useScrollOverflow } from './useScrollOverflow';
 
 function TabStatusIndicator({ state }: { state: DocumentSyncState }) {
   const label = DOCUMENT_SYNC_STATE_LABELS[state];
@@ -270,26 +271,8 @@ export function DocumentTabs({
   }, [activeTab?.tabId, activeTabIndex]);
 
   // Tabs past either edge fade out there, so a cut-off strip reads as one that continues.
-  const stripRef = useRef<HTMLElement | null>(null);
-  const [overflow, setOverflow] = useState({ start: false, end: false });
-  useEffect(() => {
-    const strip = stripRef.current;
-    if (!strip) return;
-    const update = () => {
-      const start = strip.scrollLeft > 1;
-      const end = strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1;
-      setOverflow((current) => (current.start === start && current.end === end ? current : { start, end }));
-    };
-    update();
-    strip.addEventListener('scroll', update, { passive: true });
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
-    observer?.observe(strip);
-    if (strip.firstElementChild) observer?.observe(strip.firstElementChild);
-    return () => {
-      strip.removeEventListener('scroll', update);
-      observer?.disconnect();
-    };
-  }, [tabs.length]);
+  const [strip, setStrip] = useState<HTMLElement | null>(null);
+  const overflow = useScrollOverflow(strip, 'x');
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={() => { draggedRef.current = true; }} onDragEnd={handleDragEnd}>
@@ -298,7 +281,7 @@ export function DocumentTabs({
             tabs stopped whenever the pointer crossed a gap. It is only as wide as the tabs, so the
             empty title bar after them still drags the window. */}
         <nav
-          ref={stripRef}
+          ref={setStrip}
           aria-label="Open documents"
           data-overflow-start={overflow.start || undefined}
           data-overflow-end={overflow.end || undefined}

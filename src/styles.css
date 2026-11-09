@@ -452,6 +452,22 @@
     mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
   }
 
+  /* Fades for a scrolling list: zero-height sticky overlays inside the content, each holding a short
+     gradient in the list's background. Overlays rather than a mask on the scroller, because a mask
+     also fades the scrollbar. Like edge-fade-x they follow the scroller's data-overflow-start /
+     data-overflow-end (useScrollOverflow), so a list that fits shows neither and the edge it has
+     reached shows none. */
+  .edge-fade-top > *,
+  .edge-fade-bottom > * {
+    opacity: 0;
+    transition: opacity 150ms ease-out;
+  }
+
+  [data-overflow-start] > .edge-fade-top > *,
+  [data-overflow-end] > .edge-fade-bottom > * {
+    opacity: 1;
+  }
+
   /* A resize handle that is a surface's border (PanelResizeSash edge): it lays a primary line over
      the border beside it while hovered, focused or dragged. The line fades out toward both ends and
      is gone before the surface's rounded corners turn away from it. */
@@ -609,28 +625,6 @@
     animation: scroll-edge-hide linear both;
     animation-timeline: --scroll-edge;
     animation-range: calc(100% - 1rem) 100%;
-  }
-
-  /* Fades for a scrolling list, like the tab strip's edge-fade-x: zero-height sticky overlays
-     inside the content, each holding a short gradient in the list's background. Overlays rather than
-     a mask on the scroller, because a mask also fades the scrollbar. They show while more content
-     lies past their edge, through the list's --scroll-edge timeline. */
-  .edge-fade-top > *,
-  .edge-fade-bottom > * {
-    opacity: 0;
-    animation-timeline: --scroll-edge;
-  }
-
-  .edge-fade-top > * {
-    animation: scroll-edge-show linear both;
-    animation-timeline: --scroll-edge;
-    animation-range: 0 2rem;
-  }
-
-  .edge-fade-bottom > * {
-    animation: scroll-edge-hide linear both;
-    animation-timeline: --scroll-edge;
-    animation-range: calc(100% - 2rem) 100%;
   }
 
   @keyframes scroll-edge-show {
