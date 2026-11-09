@@ -4,6 +4,7 @@ import { app } from 'electron';
 import { createApplicationMenu } from './app-menu';
 import { createApplicationTray } from './app-tray';
 import { createAppIcon } from './app-icon';
+import { keepE2EWindowsInBackground } from './e2e-background-windows';
 import { registerQuickCaptureGlobalShortcut, unregisterQuickCaptureGlobalShortcut } from './global-shortcuts';
 import { registerIpcHandlers } from './ipc-handlers';
 import { initCrashReporter, initLogging, writeLog } from './logging';
@@ -13,6 +14,8 @@ import { ensureReadableSettings } from './settings-recovery';
 import { WindowManager } from './window-manager';
 
 const APP_ID = 'me.eastsun.hackdesk';
+
+keepE2EWindowsInBackground();
 
 const windowManager = new WindowManager();
 let tray: Electron.Tray | null = null;

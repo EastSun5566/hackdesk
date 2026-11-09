@@ -9,6 +9,10 @@ import { defaultSettings } from '../../src/lib/settings';
 const repoRoot = resolve(import.meta.dirname, '../..');
 
 test.skip(process.platform !== 'darwin', 'macOS activation policy is required');
+// These tests check real window focus and Dock state, so they run in the foreground and one at
+// a time, even when the rest of a local run is parallel and kept in the background.
+test.describe.configure({ mode: 'default' });
+const FOREGROUND = { HACKDESK_E2E_BACKGROUND: '0' };
 
 async function launchQuickHackFixture() {
   const home = await mkdtemp(join(tmpdir(), 'hackdesk-lifecycle-'));
@@ -30,7 +34,7 @@ async function launchQuickHackFixture() {
     };
     require(${JSON.stringify(join(repoRoot, 'electron/dist/main.cjs'))});
   `);
-  const env: Record<string, string> = { ...definedEnvironment(process.env), HOME: home };
+  const env: Record<string, string> = { ...definedEnvironment(process.env), ...FOREGROUND, HOME: home };
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.HACKDESK_ELECTRON_DEV_SERVER_URL;
   return electron.launch({
@@ -73,7 +77,7 @@ test('Close Window enters background mode, activation restores the app, and Quit
   const app = await electron.launch({
     args: [repoRoot, `--user-data-dir=${join(home, 'user-data')}`, `--hackdesk-home=${home}`],
     cwd: repoRoot,
-    env: { ...process.env, HOME: home },
+    env: { ...process.env, ...FOREGROUND, HOME: home },
   });
   const appProcess = app.process();
 

@@ -38,6 +38,7 @@
     "contract:hackmd:update": "node scripts/hackmd-openapi-verify.ts --update",
     "test": "vitest run electron src scripts docs/.vitepress",
     "test:smoke": "pnpm run build && playwright test --config electron/playwright.config.ts",
+    "test:e2e": "playwright test --config electron/playwright.config.ts",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "release": "pnpm run build && electron-builder --publish always",
