@@ -90,7 +90,7 @@ export type DocumentDetailDocumentState = {
     kind: 'disk_changed' | 'remote_changed' | 'save_failed';
     message: string;
   } | null;
-  selectedNote?: Pick<NoteSummary, 'title'> & Partial<Pick<NoteSummary, 'id'>> | null;
+  selectedNote?: Pick<NoteSummary, 'title'> & Partial<Pick<NoteSummary, 'id' | 'teamPath'>> | null;
   syncState: DocumentSyncState;
   title: string;
 };
@@ -390,6 +390,14 @@ function LoadingDocumentDetail({
   // nothing shifts when the content arrives; only the body waits.
   const lookupTeamName = useTeamNameLookup();
   const path = summary ? getDocumentHeaderPath(summary, summary.teamPath === LOCAL_VAULT_TEAM_PATH, summary.teamPath ? lookupTeamName(summary.teamPath) : undefined) : [];
+  // A chapter loading in the book's tab already shows its book as its place, as it will once loaded.
+  const bookSession = useBookSessionContext();
+  const bookPosition = bookSession?.book && selectedNote?.id
+    ? bookSession.positionOfNote({ id: selectedNote.id, teamPath: selectedNote.teamPath ?? summary?.teamPath ?? null })
+    : null;
+  const chapterOf = bookSession?.book && bookPosition && !bookPosition.isBook
+    ? { title: bookSession.book.title, onOpenContents: bookSession.openContentsPage }
+    : undefined;
 
   return (
     <PanelShell
@@ -399,7 +407,7 @@ function LoadingDocumentDetail({
       {selectedNote ? (
         <PanelHeader
           className="relative px-4 py-2.25"
-          title={<DocumentBreadcrumb path={path} title={selectedNote.title || 'Untitled'} onRevealFolder={onRevealFolder} />}
+          title={<DocumentBreadcrumb path={path} title={selectedNote.title || 'Untitled'} onRevealFolder={onRevealFolder} book={chapterOf} />}
           titleElement="div"
         />
       ) : null}

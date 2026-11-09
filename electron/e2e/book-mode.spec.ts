@@ -48,6 +48,18 @@ test('a HackMD book shows its contents and walks through its chapters', async ()
     await expect(page.locator('[data-book-contents-note]')).toBeVisible();
     const tabs = page.getByRole('tab');
     const tabCount = await tabs.count();
+    // A chapter's breadcrumb is its book from the first frame, while it loads too.
+    await page.evaluate(() => {
+      const state = window as unknown as { folderCrumbForChapter?: string };
+      new MutationObserver(() => {
+        for (const nav of document.querySelectorAll('nav[aria-label="Note location"]')) {
+          const title = nav.querySelector('[aria-current="page"]')?.textContent ?? '';
+          if (['Setup', 'Tools', 'Guide'].includes(title) && !nav.querySelector('[aria-label$="edit table of contents"]')) {
+            state.folderCrumbForChapter ??= title;
+          }
+        }
+      }).observe(document.body, { childList: true, subtree: true, characterData: true });
+    });
 
     await contents(page).getByRole('button', { name: 'Setup' }).click();
     await expect(editor(page)).toContainText('Setup body text.');
@@ -58,6 +70,7 @@ test('a HackMD book shows its contents and walks through its chapters', async ()
     await expect(editor(page)).toContainText('Tools body text.');
     await page.getByRole('button', { name: 'Next chapter: Guide' }).click();
     await expect(editor(page)).toContainText('Guide body text.');
+    expect(await page.evaluate(() => (window as unknown as { folderCrumbForChapter?: string }).folderCrumbForChapter)).toBeUndefined();
     // Chapters turn the book's tab instead of opening tabs of their own; it names the book.
     await expect(tabs).toHaveCount(tabCount);
     await expect(page.getByRole('tab', { selected: true }).locator('[data-tab-book]')).toHaveText('Handbook ›');

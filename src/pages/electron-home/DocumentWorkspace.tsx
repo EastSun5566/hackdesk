@@ -158,7 +158,7 @@ function PaneOutlet({ host }: { host: PaneHost }) {
 export type DocumentPaneView = {
   pane: NotePane;
   activeTab: OpenNoteTab | null;
-  selectedNote: Pick<NoteSummary, 'title'> & Partial<Pick<NoteSummary, 'id'>> | null;
+  selectedNote: Pick<NoteSummary, 'title'> & Partial<Pick<NoteSummary, 'id' | 'teamPath'>> | null;
   document?: DocumentSummary;
   isBlank: boolean;
   isDraft: boolean;
