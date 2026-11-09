@@ -180,7 +180,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/coverage-v8": "4.1.12",
     "@vitest/ui": "4.1.12",
-    "electron": "^44.4.5",
+    "electron": "^44.10.2",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.1",
     "github-actionlint": "^1.7.12",
