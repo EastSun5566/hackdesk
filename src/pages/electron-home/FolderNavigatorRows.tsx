@@ -39,7 +39,7 @@ import { ActionMenuShortcut, useActionShortcut } from './ActionShortcutContext';
 import { EntityRow } from './interaction-primitives';
 import { NOTE_CARD_CLASS, NoteSummaryCard } from './NoteSummaryCard';
 import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS, formatCompactDate, formatDate } from './ui';
-import { ROOT_FOLDER_DROP_ID, ROOT_FOLDER_DROP_ROW_ID } from '@/lib/hackmd-folder-dnd';
+import { ROOT_FOLDER_DROP_ID } from '@/lib/hackmd-folder-dnd';
 import { FolderGlyph } from './FolderNavigatorGlyph';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { NoteMatchSnippet } from './NoteMatchSnippet';
@@ -80,6 +80,13 @@ function areNoteRowPropsEqual(previous: Record<string, unknown>, next: Record<st
 
 type DragListeners = ReturnType<typeof useDraggable>['listeners'];
 
+/**
+ * How a note row starts a pointer drag. `start` is the armed hook's listener. A press that comes
+ * before the row is armed (the tree moved under a still pointer, so it never entered) waits in
+ * `pending` and is handed over as soon as the hook mounts, in the same task.
+ */
+type RowDragStart = { current: { start: PointerEventHandler | null; pending: Parameters<PointerEventHandler>[0] | null } };
+
 /** dnd-kit types its listeners as bare functions; the row takes the pointer one, the handle the key one. */
 function pointerDragListener(listeners: DragListeners) {
   return listeners?.onPointerDown as PointerEventHandler | undefined;
@@ -96,11 +103,11 @@ function keyboardDragListener(listeners: DragListeners) {
  * data attribute.
  *
  * The pointer drags the whole row: the hook hands its pointer listener to the row through
- * `rowPointerDown`. The handle keeps the keyboard drag, so a press never starts two drags.
+ * `rowDrag`. The handle keeps the keyboard drag, so a press never starts two drags.
  */
 type NoteDragHandleProps = {
   noteId: string;
-  rowPointerDown: { current: PointerEventHandler | null };
+  rowDrag: RowDragStart;
   title: string;
   controlId?: string;
   tabIndex?: number;
@@ -148,7 +155,7 @@ function NoteDragHandle({ armed, ...props }: NoteDragHandleProps & { armed: bool
 
 function LiveNoteDragHandle({
   noteId,
-  rowPointerDown,
+  rowDrag,
   title,
   controlId,
   tabIndex,
@@ -166,9 +173,13 @@ function LiveNoteDragHandle({
   }, [isDragging]);
   const onPointerDown = disabledDrag ? undefined : pointerDragListener(listeners);
   useLayoutEffect(() => {
-    rowPointerDown.current = onPointerDown ?? null;
-    return () => { rowPointerDown.current = null; };
-  }, [rowPointerDown, onPointerDown]);
+    const drag = rowDrag.current;
+    drag.start = onPointerDown ?? null;
+    const pending = drag.pending;
+    drag.pending = null;
+    if (pending) onPointerDown?.(pending);
+    return () => { drag.start = null; };
+  }, [rowDrag, onPointerDown]);
 
   return (
     <button
@@ -272,7 +283,7 @@ function NoteRowView({
   const isLocalNote = entry.note.teamPath === LOCAL_VAULT_TEAM_PATH;
   const rowId = `note:${entry.note.id}`;
   const [dragArmed, setDragArmed] = useState(false);
-  const rowPointerDown = useRef<PointerEventHandler | null>(null);
+  const rowDrag: RowDragStart = useRef({ start: null, pending: null });
   const treeItemProps = useFolderTreeItem(rowId, selected, undefined, draggable ? ['drag'] : []);
   const dragControlId = useFolderTreeControlId(rowId, 'drag');
   const canShowInFolder = showInFolderAction && entry.folderPath.length > 0;
@@ -285,7 +296,14 @@ function NoteRowView({
           onPointerEnter={draggable && !dragArmed ? () => setDragArmed(true) : undefined}
           onFocus={draggable && !dragArmed ? () => setDragArmed(true) : undefined}
           // Pressing anywhere on the row can drag it; it starts after 4px of movement, so clicks stay clicks.
-          onPointerDown={draggable ? (event) => rowPointerDown.current?.(event) : undefined}
+          onPointerDown={draggable ? (event) => {
+            if (rowDrag.current.start) {
+              rowDrag.current.start(event);
+            } else if (!dragArmed) {
+              rowDrag.current.pending = event;
+              setDragArmed(true);
+            }
+          } : undefined}
           data-folder-tree-row-id={rowId}
           data-folder-tree-kind="note"
           data-folder-tree-note-id={entry.note.id}
@@ -303,7 +321,7 @@ function NoteRowView({
                   <NoteDragHandle
                     armed={dragArmed}
                     noteId={entry.note.id}
-                    rowPointerDown={rowPointerDown}
+                    rowDrag={rowDrag}
                     title={entry.note.title || 'Untitled'}
                     controlId={dragControlId}
                     tabIndex={treeItemProps?.tabIndex}
@@ -608,7 +626,7 @@ export function WorkspaceRootTreeRow({
   /** The workspace's View options menu, beside New Folder; given the row controls' tab stop. */
   viewOptions?: (control: { tabIndex?: number }) => ReactNode;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: ROOT_FOLDER_DROP_ROW_ID });
+  const { setNodeRef, isOver } = useDroppable({ id: ROOT_FOLDER_DROP_ID });
   const treeItemProps = useFolderTreeItem(WORKSPACE_ROOT_FOCUS_ID, selected, sectionExpanded, ['toggle']);
   const toggleControlId = useFolderTreeControlId(WORKSPACE_ROOT_FOCUS_ID, 'toggle');
 
@@ -775,34 +793,27 @@ export function SidebarTrashRow({
   );
 }
 
-export function TopLevelDropArea({
-  dragActive,
+/**
+ * The blank space below the tree: clicking it selects the top level, and its context menu creates
+ * there. Moving something to the top level is a drop on the workspace row instead.
+ */
+export function TreeBlankArea({
   onSelect,
   onCreateFolder,
   onCreateNote,
 }: {
-  dragActive: boolean;
   onSelect: () => void;
   onCreateFolder: () => void;
   onCreateNote: () => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: ROOT_FOLDER_DROP_ID });
-
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
-          ref={setNodeRef}
           data-testid="tree-top-level"
           onClick={onSelect}
-          className={cn(
-            'mt-0.5 flex min-h-10 flex-1 items-start rounded px-2 py-1.5 text-xs text-text-subtle transition-colors',
-            dragActive && 'border border-dashed border-border-default',
-            dragActive && isOver && 'border-primary-default bg-background-primary-subtler text-text-default',
-          )}
-        >
-          {dragActive ? 'Move to top level' : null}
-        </div>
+          className="mt-0.5 min-h-10 flex-1"
+        />
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onSelect={onCreateNote}>

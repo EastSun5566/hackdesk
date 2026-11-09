@@ -2,12 +2,11 @@ import type { FolderOrder } from './electron-api';
 import type { FolderTree, FolderTreeNode } from './hackmd-folders';
 import { ROOT_FOLDER_ORDER_KEY } from './hackmd-folders';
 
+/** The workspace row: dropping a folder or note on it moves it to the top level. */
 export const ROOT_FOLDER_DROP_ID = '__hackdesk_root_folder_drop__';
-/** Same drop meaning as ROOT_FOLDER_DROP_ID; separate id so two droppables can coexist. */
-export const ROOT_FOLDER_DROP_ROW_ID = '__hackdesk_root_folder_drop_row__';
 
 export function isRootFolderDropTarget(overId: string) {
-  return overId === ROOT_FOLDER_DROP_ID || overId === ROOT_FOLDER_DROP_ROW_ID;
+  return overId === ROOT_FOLDER_DROP_ID;
 }
 const FOLDER_DND_INDENT_WIDTH = 20;
 

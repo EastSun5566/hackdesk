@@ -814,6 +814,66 @@ test('tree guides connect mixed children and end at the last folder row', async 
   }
 });
 
+test('dropping a folder or a note on the workspace row moves it to the top level', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await switchWorkspace(page, 'Local Vault');
+    for (const name of ['Projects', 'Sub']) {
+      const expand = page.getByRole('button', { name: `Expand ${name}`, exact: true });
+      if (await expand.count()) await expand.click();
+    }
+    const rootRow = page.locator('[data-folder-tree-kind="root"]');
+    const dragOntoRoot = async (kind: 'note' | 'folder', name: string) => {
+      const sourceRow = page.locator(`[data-folder-tree-kind="${kind}"]`).filter({ has: page.getByRole('treeitem', { name, exact: true }) });
+      const source = (await sourceRow.getByRole('treeitem', { name, exact: true }).boundingBox())!;
+      const target = (await rootRow.boundingBox())!;
+      await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 12 });
+      await expect(sourceRow, `${name} is dragging`).toHaveAttribute('data-hackdesk-dragging');
+      await page.mouse.up();
+    };
+    // Where a row lives: the folder whose group holds it, or null at the top level.
+    const parentOf = (kind: 'note' | 'folder', name: string) => page.evaluate(([rowKind, rowName]) => {
+      const row = [...document.querySelectorAll<HTMLElement>(`[data-folder-tree-kind="${rowKind}"]`)]
+        .find(element => element.querySelector('[role="treeitem"]')?.getAttribute('aria-label') === rowName);
+      if (!row) return 'missing';
+      const folderItem = row.closest('ul[role="group"][data-tree-children]')?.closest('li');
+      return folderItem?.querySelector('[data-folder-tree-kind="folder"] [role="treeitem"]')?.getAttribute('aria-label') ?? null;
+    }, [kind, name] as const);
+
+    expect(await parentOf('folder', 'Sub')).toBe('Projects');
+    await dragOntoRoot('folder', 'Sub');
+    await expect.poll(() => parentOf('folder', 'Sub')).toBeNull();
+
+    expect(await parentOf('note', 'Direct')).toBe('Projects');
+    await dragOntoRoot('note', 'Direct');
+    await expect.poll(() => parentOf('note', 'Direct')).toBeNull();
+
+    // With the tree scrolled, the workspace row stays pinned on top and still takes the drop.
+    for (const name of ['Folders only', 'Last']) {
+      const expand = page.getByRole('button', { name: `Expand ${name}`, exact: true });
+      if (await expand.count()) await expand.click();
+    }
+    await page.setViewportSize({ width: 1100, height: 420 });
+    const scroller = page.locator('aside .scroll-edges-source');
+    // Scroll so Deep sits just under the pinned workspace row.
+    await page.locator('[data-folder-tree-kind="note"]').getByRole('treeitem', { name: 'Deep', exact: true }).evaluate(element => {
+      const scrollArea = element.closest<HTMLElement>('.scroll-edges-source')!;
+      scrollArea.scrollTop += element.getBoundingClientRect().top - scrollArea.getBoundingClientRect().top - 60;
+    });
+    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(40);
+    expect(await parentOf('note', 'Deep')).toBe('Last');
+    await dragOntoRoot('note', 'Deep');
+    await expect.poll(() => parentOf('note', 'Deep')).toBeNull();
+
+    // There is no separate drop area below the tree any more.
+    await expect(page.getByText('Move to top level')).toHaveCount(0);
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test('tree rows drag by their title, with no grip on hover', async () => {
   const { app, page } = await launchFixture('standard', true);
   try {

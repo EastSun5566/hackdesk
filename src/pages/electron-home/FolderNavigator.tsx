@@ -12,8 +12,11 @@ import {
   DragOverlay,
   KeyboardSensor,
   PointerSensor,
+  pointerWithin,
   useSensor,
   useSensors,
+  type Collision,
+  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
@@ -30,6 +33,7 @@ import {
   buildFolderDropOperation,
   flattenFolderTree,
   getProjectedFolderDrop,
+  ROOT_FOLDER_DROP_ID,
   type FolderDropOperation,
 } from '@/lib/hackmd-folder-dnd';
 import {
@@ -63,7 +67,7 @@ import {
   NoteListSkeleton,
   NoteRow,
   TREE_CHILDREN_INDENT_CLASS,
-  TopLevelDropArea,
+  TreeBlankArea,
   SidebarTrashRow,
   TREE_GUIDE_CLASS,
   treeItemClassName,
@@ -82,6 +86,27 @@ import { SidebarFooter, WorkspaceSwitcher, type WorkspaceSidebarProps } from './
 import type { NoteTextSearch } from './useNoteTextSearch';
 import { TrashNavigatorHeader, TrashNavigatorList, type TrashNavigatorViewProps } from './TrashView';
 import { trashTeamPathForScope, useTrashList } from './useTrash';
+
+/**
+ * A drop lands on the row under the pointer. The workspace row is checked first, against where it
+ * is on screen now: it stays pinned while the tree scrolls under it (dragging toward it scrolls
+ * the tree), and dnd-kit moves its remembered position with the scroll. Keyboard drags have no
+ * pointer and fall back to the nearest row.
+ */
+const treeCollisionDetection: CollisionDetection = (args) => {
+  const pointer = args.pointerCoordinates;
+  const root = args.droppableContainers.find((container) => container.id === ROOT_FOLDER_DROP_ID);
+  const rootBounds = pointer ? root?.node.current?.getBoundingClientRect() : undefined;
+  if (pointer && root && rootBounds
+    && pointer.x >= rootBounds.left && pointer.x <= rootBounds.right
+    && pointer.y >= rootBounds.top && pointer.y <= rootBounds.bottom) {
+    return [{ id: root.id }];
+  }
+  // Elsewhere the workspace row is never the target: dnd-kit's idea of where it is goes stale.
+  const notRoot = (collisions: Collision[]) => collisions.filter((collision) => collision.id !== ROOT_FOLDER_DROP_ID);
+  const underPointer = notRoot(pointerWithin(args));
+  return underPointer.length > 0 ? underPointer : notRoot(closestCenter(args));
+};
 
 function TrashNavigatorTitleBar({ trash }: { trash: TrashNavigatorViewProps }) {
   const teamPath = trashTeamPathForScope(trash.scope);
@@ -981,7 +1006,7 @@ function NavigatorTree({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={treeCollisionDetection}
       onDragStart={handleDragStart}
       onDragCancel={handleDragCancel}
       onDragEnd={handleDragEnd}
@@ -1038,8 +1063,7 @@ function NavigatorTree({
               >
                 {treeRows}
               </ul>
-            <TopLevelDropArea
-              dragActive={Boolean(activeFolderId || activeNoteId)}
+            <TreeBlankArea
               onSelect={() => actions.onFolderSelect(UNFILED_FOLDER_ID)}
               onCreateFolder={() => actions.onCreateFolderInside(null)}
               onCreateNote={() => actions.onCreateNoteInside(null)}
@@ -1047,7 +1071,9 @@ function NavigatorTree({
           </FolderTreeFocusContext.Provider>
         </div>
       </SortableContext>
-      <DragOverlay>
+      {/* The preview never takes the pointer: after a drop it animates back over the tree, where
+          it would swallow the press that starts the next drag. */}
+      <DragOverlay className="pointer-events-none">
         {activeNote ? (
           <NoteDragOverlay entry={activeNote} />
         ) : (
