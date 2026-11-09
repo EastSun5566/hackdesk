@@ -11,6 +11,7 @@ import type {
 import { getRendererEntryUrl, getRendererRouteUrl } from './paths';
 import { openExternalUrl } from './url-policy';
 import { getAppIconPath } from './app-icon';
+import { isE2EBackgroundRun } from './e2e-background-windows';
 import { ELECTRON_CHANNELS } from '../shared/channels';
 import { exportDebugLogs, writeLog } from './logging';
 import { isTrustedRendererUrl } from './renderer-url';
@@ -417,7 +418,8 @@ export class WindowManager {
       ...display.bounds,
       show: false,
       title: deck.title || 'Presentation',
-      fullscreen: true,
+      // Full screen opens a Space of its own; background e2e runs keep it a plain window.
+      fullscreen: !isE2EBackgroundRun(),
       backgroundColor: PRESENTATION_BACKGROUND_COLOR,
       icon: getAppIconPath(),
       webPreferences: {
