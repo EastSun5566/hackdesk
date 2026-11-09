@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useReducer } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useReducer } from 'react';
 import { getHackDeskAPI } from '@/lib/electron-api';
 import { trySetStorageItem } from '@/lib/storage';
 import {
@@ -121,7 +121,7 @@ function themeReducer(state: ThemeState, action: ThemeAction): ThemeState {
   case 'preview':
     return { ...state, preview: { ...(state.preview ?? {}), ...action.preview } };
   case 'cancelPreview':
-    return { ...state, preview: null };
+    return state.preview ? { ...state, preview: null } : state;
   case 'commitPreview':
     return {
       ...state,
@@ -333,6 +333,11 @@ export function ThemeProvider({
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
+  // Stable so callers can cancel from effects without re-running them on every theme change.
+  const cancelPreview = useCallback(() => {
+    dispatch({ type: 'cancelPreview' });
+  }, []);
+
   const value = useMemo(() => {
     const commitAppearance = (appearance: AppearanceSettings) => {
       const normalized = normalizeAppearanceSettings(appearance);
@@ -386,11 +391,9 @@ export function ThemeProvider({
           typography: preview.typography ?? typography,
         });
       },
-      cancelPreview: () => {
-        dispatch({ type: 'cancelPreview' });
-      },
+      cancelPreview,
     };
-  }, [customSeed, presetId, preview, resolvedTheme, storageKey, theme, typography]);
+  }, [cancelPreview, customSeed, presetId, preview, resolvedTheme, storageKey, theme, typography]);
 
   return (
     <ThemeProviderContext.Provider {...props} value={value}>
