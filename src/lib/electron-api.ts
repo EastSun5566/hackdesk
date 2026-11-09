@@ -436,6 +436,7 @@ export type ElectronActionId =
   | 'reveal-vault-in-finder'
   | 'clear-offline-copies'
   | 'new-note-from-template'
+  | 'new-window'
   | 'save-as-template'
   | 'previous-chapter'
   | 'next-chapter'
@@ -621,6 +622,7 @@ export type HackDeskElectronAPI = {
     /** The window is asking the user about unsaved changes, so the close request is not stuck. */
     holdClose?: () => Promise<void>;
     checkForUpdates: () => Promise<CheckForUpdatesResult>;
+    newWindow: () => Promise<void>;
     setThemeSurface?: (input: ThemeSurfaceInput) => Promise<void>;
     setMenuShortcutsIgnored?: (ignore: boolean) => Promise<void>;
     getWindowPresentationState?: () => Promise<WindowPresentationState>;

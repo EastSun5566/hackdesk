@@ -71,6 +71,7 @@ export type WorkbenchActionHandlers = {
   focusPreviousPane: () => void;
   focusPreviousTab: () => void;
   openWorkspaceSwitcher: () => void;
+  openNewWindow: () => void;
   focusWorkspaceSearch: () => void;
   goHistory: () => void;
   showTrash: () => void;
@@ -275,6 +276,9 @@ export function useWorkbenchActions(options: WorkbenchActionsOptions) {
       break;
     case 'open-quick-open':
       handlers.openQuickOpen();
+      break;
+    case 'new-window':
+      handlers.openNewWindow();
       break;
     case 'open-settings':
       handlers.openSettings();

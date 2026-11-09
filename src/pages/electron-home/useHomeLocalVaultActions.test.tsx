@@ -100,6 +100,7 @@ function createApi(overrides: {
       cancelClose: vi.fn(),
       checkForUpdates: vi.fn(),
       setThemeSurface: vi.fn(),
+      newWindow: vi.fn(),
     },
   } as HackDeskElectronAPI;
 }

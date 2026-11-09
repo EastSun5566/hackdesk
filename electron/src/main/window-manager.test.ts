@@ -80,6 +80,7 @@ const mockState = vi.hoisted(() => {
       if (state.loadError) throw state.loadError;
     });
     maximize = vi.fn();
+    setBackgroundColor = vi.fn();
     getBounds = vi.fn(() => ({ x: 0, y: 0, width: 1180, height: 760 }));
     show = vi.fn(() => { this.visibleValue = true; });
     focus = vi.fn(() => {
@@ -188,7 +189,7 @@ vi.mock('./window-state', () => ({
   readWindowState: (fallback: unknown) => ({ bounds: fallback, isMaximized: false }),
 }));
 
-import { app, dialog } from 'electron';
+import { app, dialog, type BrowserWindow } from 'electron';
 import { exportDebugLogs } from './logging';
 import { isGrantedRendererPermission, WindowManager } from './window-manager';
 
@@ -795,5 +796,122 @@ describe('WindowManager close intent', () => {
     expect(window.webContents.send).not.toHaveBeenCalledWith(ELECTRON_CHANNELS.appCommand, expect.objectContaining({
       type: 'quick-capture:create-draft',
     }));
+  });
+});
+
+describe('WindowManager multi-window', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockState.state.lastWindow = null;
+    mockState.state.windows = [];
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
+
+  it('tracks every created main window and keeps the focused one current', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+
+    expect(manager.getMainWindows()).toHaveLength(2);
+    second.focus();
+    expect(manager.getMainWindow()).toBe(second);
+    first.focus();
+    expect(manager.getMainWindow()).toBe(first);
+  });
+
+  it('cascades a new window off the focused one', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    first.getBounds.mockReturnValue({ x: 100, y: 100, width: 1180, height: 760 });
+    const second = getMockWindow(manager.newMainWindow());
+
+    expect(second.options).toEqual(expect.objectContaining({ x: 132, y: 132 }));
+    expect(manager.getMainWindows()).toHaveLength(2);
+  });
+
+  it('closes one window without disturbing the other', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+
+    manager.closeMainWindow(first as unknown as BrowserWindow);
+    expect(first.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCloseRequested, { source: 'window-button' });
+    expect(second.webContents.send).not.toHaveBeenCalledWith(ELECTRON_CHANNELS.appCloseRequested, expect.anything());
+
+    manager.confirmClose(first as unknown as BrowserWindow);
+    expect(first.destroy).toHaveBeenCalledOnce();
+    expect(second.destroy).not.toHaveBeenCalled();
+    expect(manager.getMainWindows()).toHaveLength(1);
+  });
+
+  it('quits only after every window confirms during app quit', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+    const event = { preventDefault: vi.fn(), defaultPrevented: false };
+
+    manager.handleBeforeQuit(event);
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(first.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCloseRequested, { source: 'app-quit' });
+    expect(second.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCloseRequested, { source: 'app-quit' });
+
+    manager.confirmClose(first as unknown as BrowserWindow);
+    expect(app.quit).toHaveBeenCalledOnce();
+  });
+
+  it('trusts IPC senders from any main window', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+
+    for (const window of [first, second]) {
+      expect(manager.isTrustedIpcSender(
+        { sender: window.webContents, senderFrame: window.webContents.mainFrame } as never,
+        ELECTRON_CHANNELS.settingsGet,
+      )).toBe(true);
+      expect(manager.isTrustedIpcSender(
+        { sender: window.webContents, senderFrame: window.webContents.mainFrame } as never,
+        ELECTRON_CHANNELS.appSubmitQuickCapture,
+      )).toBe(false);
+    }
+  });
+
+  it('broadcasts theme and vault events to every main window', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+
+    manager.setThemeSurface('#fff');
+    expect(first.setBackgroundColor).toHaveBeenCalledWith('#fff');
+    expect(second.setBackgroundColor).toHaveBeenCalledWith('#fff');
+    manager.sendToAllMainWindows(ELECTRON_CHANNELS.localVaultDidChange, { snapshot: null });
+    expect(first.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.localVaultDidChange, { snapshot: null });
+    expect(second.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.localVaultDidChange, { snapshot: null });
+  });
+
+  it('reports presentation state for the requesting window', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+    second.isFullScreenValue = true;
+
+    expect(manager.getWindowPresentationStateForSender(first.webContents as never)).toEqual({ fullScreen: false });
+    expect(manager.getWindowPresentationStateForSender(second.webContents as never)).toEqual({ fullScreen: true });
+  });
+
+  it('resolves close-targeted IPC against the sending window', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    getMockWindow(manager.createMainWindow());
+    emitClose(first);
+
+    manager.cancelCloseForSender(first.webContents as never);
+    manager.confirmClose(first as unknown as BrowserWindow);
+    expect(first.destroy).not.toHaveBeenCalled();
   });
 });

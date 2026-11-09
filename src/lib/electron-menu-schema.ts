@@ -35,6 +35,7 @@ export const ELECTRON_MENU_SCHEMA: ElectronMenuSchemaSection[] = [
     label: 'File',
     items: [
       { type: 'action', actionId: 'new-tab' },
+      { type: 'action', actionId: 'new-window' },
       { type: 'action', actionId: 'new-note' },
       { type: 'action', actionId: 'new-note-from-template' },
       { type: 'action', actionId: 'new-folder' },
@@ -121,6 +122,16 @@ export const ELECTRON_MENU_SCHEMA: ElectronMenuSchemaSection[] = [
       { type: 'action', actionId: 'focus-navigator' },
       { type: 'action', actionId: 'focus-editor' },
       { type: 'action', actionId: 'focus-inspector' },
+    ],
+  },
+  {
+    id: 'window',
+    label: 'Window',
+    items: [
+      { type: 'role', role: 'minimize' },
+      { type: 'role', role: 'zoom' },
+      { type: 'separator' },
+      { type: 'role', role: 'front' },
     ],
   },
   {

@@ -13,9 +13,19 @@ function actionMenuItem(
   sendCommand: SendCommand,
   shortcuts: ShortcutOverrides,
   characterShortcutsEnabled: boolean,
+  onNewWindow: () => void,
 ) {
   const action = getElectronAction(actionId);
   const keybinding = resolveWorkbenchShortcut(actionId, shortcuts, characterShortcutsEnabled);
+
+  // A new window must open even when the focused renderer is busy or gone.
+  if (actionId === 'new-window') {
+    return {
+      label: action.label,
+      accelerator: keybinding === 'none' ? undefined : toMenuAccelerator(keybinding, process.platform),
+      click: onNewWindow,
+    };
+  }
 
   const rendererHandled = Boolean(action.keyboardContext || action.rendererShortcut);
   return {
@@ -56,10 +66,11 @@ function schemaItemToMenuItem(
   shortcuts: ShortcutOverrides,
   characterShortcutsEnabled: boolean,
   closeMainWindow: () => void,
+  onNewWindow: () => void,
 ): Electron.MenuItemConstructorOptions {
   switch (item.type) {
   case 'action':
-    return actionMenuItem(item.actionId, sendCommand, shortcuts, characterShortcutsEnabled);
+    return actionMenuItem(item.actionId, sendCommand, shortcuts, characterShortcutsEnabled, onNewWindow);
   case 'role':
     return roleMenuItem(item.role, isMac, closeMainWindow);
   case 'link':
@@ -74,6 +85,7 @@ export function createApplicationMenu(
   shortcuts: ShortcutOverrides,
   closeMainWindow: () => void,
   characterShortcutsEnabled = true,
+  onNewWindow: () => void = () => {},
 ) {
   const isMac = process.platform === 'darwin';
   const template: Electron.MenuItemConstructorOptions[] = [];
@@ -85,7 +97,7 @@ export function createApplicationMenu(
 
     template.push({
       label: section.id === 'app' ? app.getName() : section.label,
-      submenu: section.items.map((item) => schemaItemToMenuItem(item, isMac, sendCommand, shortcuts, characterShortcutsEnabled, closeMainWindow)),
+      submenu: section.items.map((item) => schemaItemToMenuItem(item, isMac, sendCommand, shortcuts, characterShortcutsEnabled, closeMainWindow, onNewWindow)),
     });
   }
 

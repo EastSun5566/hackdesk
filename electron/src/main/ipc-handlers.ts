@@ -175,9 +175,10 @@ import {
 
 export function registerIpcHandlers(
   windowManager: Pick<WindowManager,
-    | 'cancelClose' | 'confirmClose' | 'holdClose' | 'getMainWindow' | 'getTargetWindow'
-    | 'getWindowPresentationState' | 'hideQuickCaptureWindow' | 'isTrustedIpcSender'
-    | 'resolveQuickCaptureSubmission' | 'setMenuShortcutsIgnored' | 'setThemeSurface'
+    | 'cancelClose' | 'cancelCloseForSender' | 'confirmClose' | 'confirmCloseForSender' | 'holdClose' | 'holdCloseForSender'
+    | 'getMainWindow' | 'getMainWindows' | 'getMainWindowForWebContents' | 'getTargetWindow' | 'sendToAllMainWindows'
+    | 'getWindowPresentationState' | 'getWindowPresentationStateForSender' | 'hideQuickCaptureWindow' | 'isTrustedIpcSender'
+    | 'resolveQuickCaptureSubmission' | 'setMenuShortcutsIgnored' | 'setThemeSurface' | 'newMainWindow'
     | 'submitQuickCapture' | 'showPresentationWindow' | 'getPresentationDeck' | 'closePresentationWindow' | 'togglePresentationFullScreen'
   >,
   options: { onSettingsUpdated?: (settings: Awaited<ReturnType<typeof updateStoredSettings>>) => void } = {},
@@ -324,7 +325,7 @@ export function registerIpcHandlers(
     watchedLocalVaultPath = vaultPath;
     localVaultWatcher = watchLocalVault(vaultPath, (snapshot) => {
       void noteIndex.indexVault(snapshot);
-      windowManager.getMainWindow()?.webContents.send(ELECTRON_CHANNELS.localVaultDidChange, {
+      windowManager.sendToAllMainWindows(ELECTRON_CHANNELS.localVaultDidChange, {
         snapshot,
       });
     });
@@ -693,14 +694,14 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.appRecordFatalRendererError, (_event, error: FatalRendererError) => (
     recordFatalRendererError(validateIpcInput(ELECTRON_CHANNELS.appRecordFatalRendererError, fatalRendererErrorSchema, error))
   ));
-  ipcMain.handle(ELECTRON_CHANNELS.appConfirmClose, () => {
-    windowManager.confirmClose();
+  ipcMain.handle(ELECTRON_CHANNELS.appConfirmClose, (event) => {
+    windowManager.confirmCloseForSender(event.sender);
   });
-  ipcMain.handle(ELECTRON_CHANNELS.appCancelClose, () => {
-    windowManager.cancelClose();
+  ipcMain.handle(ELECTRON_CHANNELS.appCancelClose, (event) => {
+    windowManager.cancelCloseForSender(event.sender);
   });
-  ipcMain.handle(ELECTRON_CHANNELS.appHoldClose, () => {
-    windowManager.holdClose();
+  ipcMain.handle(ELECTRON_CHANNELS.appHoldClose, (event) => {
+    windowManager.holdCloseForSender(event.sender);
   });
   ipcMain.handle(ELECTRON_CHANNELS.appWriteClipboardText, (_event, text: string) => (
     clipboard.writeText(validateString(ELECTRON_CHANNELS.appWriteClipboardText, text))
@@ -712,6 +713,9 @@ export function registerIpcHandlers(
     openTextFile(validateIpcInput(ELECTRON_CHANNELS.appOpenTextFile, openTextFileInputSchema, input), windowManager.getTargetWindow())
   ));
   ipcMain.handle(ELECTRON_CHANNELS.appCheckForUpdates, () => checkForElectronUpdates(windowManager.getTargetWindow()));
+  ipcMain.handle(ELECTRON_CHANNELS.appNewWindow, () => {
+    windowManager.newMainWindow();
+  });
   ipcMain.handle(ELECTRON_CHANNELS.appSetThemeSurface, (_event, input: ThemeSurfaceInput) => {
     const themeSurface = validateIpcInput(ELECTRON_CHANNELS.appSetThemeSurface, themeSurfaceInputSchema, input);
     windowManager.setThemeSurface(themeSurface.background);
@@ -721,8 +725,8 @@ export function registerIpcHandlers(
       validateBoolean(ELECTRON_CHANNELS.appSetMenuShortcutsIgnored, ignore),
     );
   });
-  ipcMain.handle(ELECTRON_CHANNELS.appGetWindowPresentationState, () => (
-    windowManager.getWindowPresentationState()
+  ipcMain.handle(ELECTRON_CHANNELS.appGetWindowPresentationState, (event) => (
+    windowManager.getWindowPresentationStateForSender(event.sender)
   ));
   ipcMain.handle(ELECTRON_CHANNELS.appGetQuickCaptureShortcutStatus, () => getQuickCaptureShortcutStatus());
   ipcMain.handle(ELECTRON_CHANNELS.appSubmitQuickCapture, (_event, content: string) => (

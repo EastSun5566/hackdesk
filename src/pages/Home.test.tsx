@@ -445,6 +445,7 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       onCloseRequest: vi.fn(() => () => undefined),
       confirmClose: vi.fn(async () => undefined),
       cancelClose: vi.fn(async () => undefined),
+      newWindow: vi.fn(async () => undefined),
     },
   };
 

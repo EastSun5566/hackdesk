@@ -78,6 +78,7 @@ function createHandlers(overrides: Partial<WorkbenchActionHandlers> = {}): Workb
     focusNextRegion: vi.fn(() => true),
     openPalette: vi.fn(),
     openQuickOpen: vi.fn(),
+    openNewWindow: vi.fn(),
     openSelectedWebEditor: vi.fn(),
     showNoteVersions: vi.fn(),
     openAsBook: vi.fn(),

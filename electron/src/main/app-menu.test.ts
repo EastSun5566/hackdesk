@@ -101,4 +101,16 @@ describe('createApplicationMenu', () => {
 
     vi.restoreAllMocks();
   });
+
+  it('opens a new window directly from the File menu', () => {
+    const sendCommand = vi.fn();
+    const onNewWindow = vi.fn();
+    createApplicationMenu(sendCommand, {}, vi.fn(), true, onNewWindow);
+
+    const item = findMenuItem('New Window');
+    expect(item).toMatchObject({ accelerator: process.platform === 'darwin' ? 'Command+Alt+N' : 'Ctrl+Alt+N' });
+    item?.click?.({} as Electron.MenuItem, undefined, {} as Electron.KeyboardEvent);
+    expect(onNewWindow).toHaveBeenCalledOnce();
+    expect(sendCommand).not.toHaveBeenCalled();
+  });
 });

@@ -211,11 +211,19 @@ import { clearHackmdCache } from './hackmd-service';
 
 const windowManager = {
   cancelClose: vi.fn(),
+  cancelCloseForSender: vi.fn(),
   holdClose: vi.fn(),
+  holdCloseForSender: vi.fn(),
   confirmClose: vi.fn(),
+  confirmCloseForSender: vi.fn(),
   getMainWindow: vi.fn<WindowManager['getMainWindow']>(() => null),
+  getMainWindows: vi.fn(() => []),
+  getMainWindowForWebContents: vi.fn(() => null),
+  sendToAllMainWindows: vi.fn(),
+  newMainWindow: vi.fn(),
   getTargetWindow: vi.fn(() => null),
   getWindowPresentationState: vi.fn(() => ({ fullScreen: true })),
+  getWindowPresentationStateForSender: vi.fn(() => ({ fullScreen: true })),
   hideQuickCaptureWindow: vi.fn(),
   isTrustedIpcSender: vi.fn(() => true),
   resolveQuickCaptureSubmission: vi.fn(),
@@ -418,12 +426,12 @@ describe('registerIpcHandlers', () => {
     });
   });
 
-  it('exposes the main window presentation state', () => {
+  it('exposes the requesting window presentation state', () => {
     registerIpcHandlers(windowManager);
     const handler = ipcHandlers.get(ELECTRON_CHANNELS.appGetWindowPresentationState);
 
-    expect(handler?.({})).toEqual({ fullScreen: true });
-    expect(windowManager.getWindowPresentationState).toHaveBeenCalledOnce();
+    expect(handler?.({ sender: 'sender' })).toEqual({ fullScreen: true });
+    expect(windowManager.getWindowPresentationStateForSender).toHaveBeenCalledWith('sender');
   });
 
   it('waits for the native clipboard write to finish', async () => {
@@ -471,14 +479,12 @@ describe('registerIpcHandlers', () => {
       onChange = callback;
       return { close: vi.fn(), pause: vi.fn(), resume: vi.fn() };
     });
-    const send = vi.fn();
-    windowManager.getMainWindow.mockReturnValue({ webContents: { send } } as unknown as NonNullable<ReturnType<WindowManager['getMainWindow']>>);
     registerIpcHandlers(windowManager);
 
     await ipcHandlers.get(ELECTRON_CHANNELS.localVaultGetSnapshot)?.({});
     onChange?.(localVaultSnapshot);
 
-    expect(send).toHaveBeenCalledWith(ELECTRON_CHANNELS.localVaultDidChange, {
+    expect(windowManager.sendToAllMainWindows).toHaveBeenCalledWith(ELECTRON_CHANNELS.localVaultDidChange, {
       snapshot: localVaultSnapshot,
     });
   });

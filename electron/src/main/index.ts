@@ -53,6 +53,7 @@ app.whenReady().then(async () => {
     settings.shortcuts ?? {},
     () => windowManager.closeMainWindow(),
     settings.keyboardNavigation?.characterShortcutsEnabled ?? true,
+    () => windowManager.newMainWindow(),
   );
   disposeIpcHandlers = registerIpcHandlers(windowManager, {
     onSettingsUpdated: (settings) => createMenu(settings),

@@ -47,7 +47,12 @@ type PendingQuickCaptureSubmission = {
 };
 
 export class WindowManager {
-  private mainWindow: BrowserWindow | null = null;
+  private mainWindows = new Set<BrowserWindow>();
+  private mainWindowFocusOrder: BrowserWindow[] = [];
+  private pendingCloseByWindow = new Map<BrowserWindow, {
+    source: import('../../../src/lib/electron-api').HackDeskCloseRequestSource;
+    timeout: NodeJS.Timeout | null;
+  }>();
   private quickCaptureWindow: BrowserWindow | null = null;
   private presentationWindow: BrowserWindow | null = null;
   private presentationDeck: PresentationDeck | null = null;
@@ -55,8 +60,6 @@ export class WindowManager {
   private recoveryDialogs = new Set<BrowserWindow>();
   private allowAppQuit = false;
   private activationMode: 'regular' | 'accessory' = 'regular';
-  private pendingCloseSource: import('../../../src/lib/electron-api').HackDeskCloseRequestSource | null = null;
-  private pendingCloseTimeout: NodeJS.Timeout | null = null;
   private pendingMainWindowCommands: HackDeskCommandPaletteCommand[] = [];
   private pendingQuickCaptureSubmissions = new Map<string, PendingQuickCaptureSubmission>();
   private quickCaptureOpenedFromMain = false;
@@ -64,7 +67,44 @@ export class WindowManager {
   private quickCapturePresentationTimeout: NodeJS.Timeout | null = null;
 
   getMainWindow() {
-    return this.mainWindow && !this.mainWindow.isDestroyed() ? this.mainWindow : null;
+    const focused = BrowserWindow.getFocusedWindow();
+    if (focused && !focused.isDestroyed() && this.mainWindows.has(focused)) {
+      return focused;
+    }
+    for (let index = this.mainWindowFocusOrder.length - 1; index >= 0; index -= 1) {
+      const window = this.mainWindowFocusOrder[index];
+      if (window && !window.isDestroyed() && this.mainWindows.has(window)) {
+        return window;
+      }
+    }
+    return null;
+  }
+
+  getMainWindows() {
+    const windows: BrowserWindow[] = [];
+    for (const window of this.mainWindows) {
+      if (!window.isDestroyed()) {
+        windows.push(window);
+      }
+    }
+    return windows;
+  }
+
+  getMainWindowForWebContents(webContents: Electron.WebContents) {
+    for (const window of this.mainWindows) {
+      if (!window.isDestroyed() && window.webContents === webContents) {
+        return window;
+      }
+    }
+    return null;
+  }
+
+  sendToAllMainWindows(channel: string, payload: unknown) {
+    for (const window of this.getMainWindows()) {
+      if (!window.webContents.isDestroyed()) {
+        window.webContents.send(channel, payload);
+      }
+    }
   }
 
   getTargetWindow() {
@@ -94,8 +134,19 @@ export class WindowManager {
     this.showAndFocusMainWindow();
   }
 
-  closeMainWindow() {
-    this.getMainWindow()?.close();
+  closeMainWindow(target?: BrowserWindow | null) {
+    (target ?? this.getMainWindow())?.close();
+  }
+
+  /** Opens a fresh main window next to the focused one. Every window runs the same app. */
+  newMainWindow() {
+    const window = this.createMainWindow({ showOnReady: false });
+    window.once('ready-to-show', () => {
+      if (window.isDestroyed()) return;
+      window.show();
+      window.focus();
+    });
+    return window;
   }
 
   sendCommand(command: HackDeskCommandPaletteCommand) {
@@ -120,12 +171,14 @@ export class WindowManager {
   }
 
   setThemeSurface(background: string) {
-    const window = this.getMainWindow();
-    if (!window) {
+    const windows = this.getMainWindows();
+    if (windows.length === 0) {
       return;
     }
 
-    window.setBackgroundColor(background);
+    for (const window of windows) {
+      window.setBackgroundColor(background);
+    }
   }
 
   setMenuShortcutsIgnored(ignore: boolean) {
@@ -136,23 +189,41 @@ export class WindowManager {
     return { fullScreen: this.getMainWindow()?.isFullScreen() ?? false };
   }
 
-  confirmClose() {
-    const window = this.getMainWindow();
-    this.clearPendingCloseTimeout();
+  getWindowPresentationStateForSender(sender: Electron.WebContents) {
+    return { fullScreen: this.getMainWindowForWebContents(sender)?.isFullScreen() ?? false };
+  }
+
+  confirmCloseForSender(sender: Electron.WebContents) {
+    this.confirmClose(this.getMainWindowForWebContents(sender));
+  }
+
+  cancelCloseForSender(sender: Electron.WebContents) {
+    this.cancelClose(this.getMainWindowForWebContents(sender));
+  }
+
+  holdCloseForSender(sender: Electron.WebContents) {
+    this.holdClose(this.getMainWindowForWebContents(sender));
+  }
+
+  confirmClose(target?: BrowserWindow | null) {
+    const window = target ?? this.getMainWindow();
     if (!window) {
       return;
     }
-
-    const source = this.pendingCloseSource;
-    this.pendingCloseSource = null;
-    if (!source) {
+    const pending = this.pendingCloseByWindow.get(window);
+    this.clearPendingCloseTimeout(window);
+    if (!pending) {
       return;
     }
+
+    const source = pending.source;
     writeLog('main', 'renderer confirmed close', { source });
     if (source === 'app-quit') {
+      this.pendingCloseByWindow.delete(window);
       this.allowAppQuit = true;
       app.quit();
     } else {
+      this.pendingCloseByWindow.delete(window);
       window.destroy();
     }
   }
@@ -161,16 +232,19 @@ export class WindowManager {
    * The window has the close request and is asking the user about unsaved changes. The timeout
    * guards against a window that never answers, not a person reading the question, so it stops.
    */
-  holdClose() {
-    if (!this.pendingCloseSource) return;
-    this.clearPendingCloseTimeout();
+  holdClose(target?: BrowserWindow | null) {
+    const window = target ?? this.getMainWindow();
+    if (!window || !this.pendingCloseByWindow.has(window)) return;
+    this.clearPendingCloseTimeout(window);
     writeLog('main', 'renderer is confirming close with the user');
   }
 
-  cancelClose() {
-    this.clearPendingCloseTimeout();
+  cancelClose(target?: BrowserWindow | null) {
+    const window = target ?? this.getMainWindow();
+    if (!window) return;
+    this.clearPendingCloseTimeout(window);
     writeLog('main', 'renderer cancelled window close');
-    this.pendingCloseSource = null;
+    this.pendingCloseByWindow.delete(window);
   }
 
   handleBeforeQuit(event: Electron.Event) {
@@ -178,14 +252,16 @@ export class WindowManager {
       return;
     }
 
-    const window = this.getMainWindow();
-    if (!window) {
+    const windows = this.getMainWindows();
+    if (windows.length === 0) {
       this.allowAppQuit = true;
       return;
     }
 
     event.preventDefault();
-    this.sendCloseRequest('app-quit');
+    for (const window of windows) {
+      this.sendCloseRequest(window, 'app-quit');
+    }
   }
 
   isTrustedIpcSender(event: Electron.IpcMainInvokeEvent, channel: string) {
@@ -198,7 +274,7 @@ export class WindowManager {
     if (event.sender === this.getPresentationWindow()?.webContents) {
       return PRESENTATION_CHANNELS.has(channel);
     }
-    return event.sender === this.getMainWindow()?.webContents
+    return this.getMainWindowForWebContents(event.sender) !== null
       && !QUICK_CAPTURE_CHANNELS.has(channel)
       && !PRESENTATION_CHANNELS.has(channel);
   }
@@ -498,15 +574,25 @@ export class WindowManager {
     const isMac = process.platform === 'darwin';
     const rendererUrl = getRendererEntryUrl();
     const workArea = screen.getPrimaryDisplay().workArea;
-    const fallbackBounds = {
+    const centeredFallback = {
       width: DEFAULT_WINDOW_SIZE.width,
       height: DEFAULT_WINDOW_SIZE.height,
       x: workArea.x + Math.round((workArea.width - DEFAULT_WINDOW_SIZE.width) / 2),
       y: workArea.y + Math.round((workArea.height - DEFAULT_WINDOW_SIZE.height) / 2),
     };
+    // Later windows cascade off the focused one; the first one restores the saved bounds.
+    const anchor = this.getMainWindow();
+    const fallbackBounds = anchor && !anchor.isDestroyed()
+      ? {
+        width: centeredFallback.width,
+        height: centeredFallback.height,
+        x: anchor.getBounds().x + 32,
+        y: anchor.getBounds().y + 32,
+      }
+      : centeredFallback;
     const windowState = readWindowState(fallbackBounds);
 
-    this.mainWindow = new BrowserWindow({
+    const window = new BrowserWindow({
       ...windowState.bounds,
       minWidth: 900,
       minHeight: 620,
@@ -526,12 +612,13 @@ export class WindowManager {
         webviewTag: false,
       },
     });
-    const window = this.mainWindow;
-    persistWindowState(this.mainWindow);
-    const unresponsiveSampler = createUnresponsiveSampler(this.mainWindow, 'main');
+    this.mainWindows.add(window);
+    this.trackMainWindowFocus(window);
+    persistWindowState(window);
+    const unresponsiveSampler = createUnresponsiveSampler(window, 'main');
 
     if (windowState.isMaximized) {
-      this.mainWindow.maximize();
+      window.maximize();
     }
 
     window.once('ready-to-show', () => {
@@ -540,32 +627,36 @@ export class WindowManager {
       }
     });
 
-    this.mainWindow.on('close', (event) => {
-      this.handleCloseRequest(event);
+    window.on('close', (event) => {
+      this.handleCloseRequest(event, window);
     });
 
-    this.mainWindow.on('enter-full-screen', () => {
+    window.on('enter-full-screen', () => {
       this.sendWindowPresentationState(window, true);
     });
 
-    this.mainWindow.on('leave-full-screen', () => {
+    window.on('leave-full-screen', () => {
       this.sendWindowPresentationState(window, false);
     });
 
-    this.mainWindow.on('closed', () => {
-      if (this.mainWindow !== window) return;
-      this.clearPendingCloseTimeout();
-      this.pendingCloseSource = null;
-      this.mainWindow = null;
+    window.on('focus', () => {
+      this.trackMainWindowFocus(window);
+    });
+
+    window.on('closed', () => {
+      this.mainWindows.delete(window);
+      this.mainWindowFocusOrder = this.mainWindowFocusOrder.filter((candidate) => candidate !== window);
+      this.clearPendingCloseTimeout(window);
+      this.pendingCloseByWindow.delete(window);
       this.quickCaptureOpenedFromMain = false;
-      if (!this.allowAppQuit) {
+      if (this.mainWindows.size === 0 && !this.allowAppQuit) {
         this.setActivationMode('accessory');
       }
     });
 
-    this.configureWindowPolicy(this.mainWindow);
+    this.configureWindowPolicy(window);
 
-    this.mainWindow.webContents.on('context-menu', (event, params) => {
+    window.webContents.on('context-menu', (event, params) => {
       if (params.isEditable || params.selectionText.trim()) {
         return;
       }
@@ -573,18 +664,18 @@ export class WindowManager {
       event.preventDefault();
     });
 
-    this.mainWindow.webContents.on('did-finish-load', () => {
-      this.flushPendingMainWindowCommands();
+    window.webContents.on('did-finish-load', () => {
+      this.flushPendingMainWindowCommands(window);
     });
 
     window.webContents.on('render-process-gone', () => unresponsiveSampler.stopAndFlush());
     this.configureWindowRecovery(window, rendererUrl, 'HackDesk');
-    this.mainWindow.on('unresponsive', () => {
+    window.on('unresponsive', () => {
       writeLog('renderer', 'main window became unresponsive', undefined, 'warn');
       unresponsiveSampler.start();
       void this.showRecoveryDialog(window, rendererUrl, 'HackDesk is not responding', 'You can wait, reload the app window, or export debug logs.', true);
     });
-    this.mainWindow.on('responsive', () => {
+    window.on('responsive', () => {
       unresponsiveSampler.stopAndFlush();
       writeLog('renderer', 'main window became responsive');
     });
@@ -593,9 +684,14 @@ export class WindowManager {
     return window;
   }
 
-  private flushPendingMainWindowCommands() {
-    const window = this.getMainWindow();
-    if (!window || this.pendingMainWindowCommands.length === 0) {
+  private trackMainWindowFocus(window: BrowserWindow) {
+    this.mainWindowFocusOrder = this.mainWindowFocusOrder.filter((candidate) => candidate !== window);
+    this.mainWindowFocusOrder.push(window);
+  }
+
+  private flushPendingMainWindowCommands(target?: BrowserWindow) {
+    const window = target ?? this.getMainWindow();
+    if (!window || window.webContents.isDestroyed() || this.pendingMainWindowCommands.length === 0) {
       return;
     }
 
@@ -697,13 +793,12 @@ export class WindowManager {
     });
   }
 
-  private handleCloseRequest(event: Electron.Event) {
+  private handleCloseRequest(event: Electron.Event, window: BrowserWindow) {
     if (this.allowAppQuit) {
       return;
     }
 
-    const window = this.getMainWindow();
-    if (!window) {
+    if (!this.mainWindows.has(window)) {
       return;
     }
 
@@ -713,27 +808,25 @@ export class WindowManager {
 
     event.preventDefault();
     writeLog('main', 'window close requested', { source: 'window-button' });
-    this.sendCloseRequest('window-button');
+    this.sendCloseRequest(window, 'window-button');
   }
 
-  private sendCloseRequest(source: import('../../../src/lib/electron-api').HackDeskCloseRequestSource) {
-    const window = this.getMainWindow();
-    if (!window || window.webContents.isDestroyed()) {
+  private sendCloseRequest(window: BrowserWindow, source: import('../../../src/lib/electron-api').HackDeskCloseRequestSource) {
+    if (window.isDestroyed() || window.webContents.isDestroyed()) {
       return;
     }
-    this.pendingCloseSource = source;
+    this.pendingCloseByWindow.set(window, { source, timeout: null });
     window.webContents.send(ELECTRON_CHANNELS.appCloseRequested, { source });
-    this.startPendingCloseTimeout();
+    this.startPendingCloseTimeout(window, source);
   }
 
-  private startPendingCloseTimeout() {
-    this.clearPendingCloseTimeout();
-    const window = this.getMainWindow();
-    const source = this.pendingCloseSource;
-    if (!window || !source) return;
-    this.pendingCloseTimeout = setTimeout(() => {
-      this.pendingCloseTimeout = null;
-      if (window.isDestroyed() || window !== this.getMainWindow()) return;
+  private startPendingCloseTimeout(window: BrowserWindow, source: import('../../../src/lib/electron-api').HackDeskCloseRequestSource) {
+    this.clearPendingCloseTimeout(window);
+    if (window.isDestroyed() || !this.pendingCloseByWindow.has(window)) return;
+    const timeout = setTimeout(() => {
+      if (window.isDestroyed() || !this.mainWindows.has(window)) return;
+      const current = this.pendingCloseByWindow.get(window);
+      if (!current || current.source !== source) return;
 
       writeLog('main', 'renderer did not respond to close request', undefined, 'warn');
       void dialog.showMessageBox(window, {
@@ -746,21 +839,34 @@ export class WindowManager {
         cancelId: 0,
         noLink: true,
       }).then(({ response }) => {
-        if (window.isDestroyed() || window !== this.getMainWindow() || this.pendingCloseSource !== source) return;
+        if (window.isDestroyed() || !this.mainWindows.has(window)) return;
+        const latest = this.pendingCloseByWindow.get(window);
+        if (!latest || latest.source !== source) return;
         if (response === 1) {
           this.allowAppQuit = true;
           app.quit();
         } else {
-          this.pendingCloseSource = null;
+          this.pendingCloseByWindow.delete(window);
         }
       }).catch(error => writeLog('main', 'window close dialog failed', error, 'error'));
     }, 15_000);
+    this.pendingCloseByWindow.set(window, { source, timeout });
   }
 
-  private clearPendingCloseTimeout() {
-    if (this.pendingCloseTimeout) {
-      clearTimeout(this.pendingCloseTimeout);
-      this.pendingCloseTimeout = null;
+  private clearPendingCloseTimeout(window?: BrowserWindow) {
+    if (window) {
+      const pending = this.pendingCloseByWindow.get(window);
+      if (pending?.timeout) {
+        clearTimeout(pending.timeout);
+        this.pendingCloseByWindow.set(window, { source: pending.source, timeout: null });
+      }
+      return;
+    }
+    for (const [candidate, pending] of this.pendingCloseByWindow) {
+      if (pending.timeout) {
+        clearTimeout(pending.timeout);
+        this.pendingCloseByWindow.set(candidate, { source: pending.source, timeout: null });
+      }
     }
   }
 

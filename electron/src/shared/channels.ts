@@ -96,6 +96,7 @@ export const ELECTRON_CHANNELS = {
   appCheckForUpdates: 'app:check-for-updates',
   appSetThemeSurface: 'app:set-theme-surface',
   appSetMenuShortcutsIgnored: 'app:set-menu-shortcuts-ignored',
+  appNewWindow: 'app:new-window',
   appGetWindowPresentationState: 'app:get-window-presentation-state',
   appWindowPresentationStateChanged: 'app:window-presentation-state-changed',
   appGetQuickCaptureShortcutStatus: 'app:get-quick-capture-shortcut-status',
