@@ -225,6 +225,7 @@ const windowManager = {
   showPresentationWindow: vi.fn(),
   getPresentationDeck: vi.fn(() => ({ title: 'Deck', content: '# One' })),
   closePresentationWindow: vi.fn(),
+  togglePresentationFullScreen: vi.fn(() => true),
 };
 
 describe('registerIpcHandlers', () => {
@@ -668,6 +669,8 @@ describe('registerIpcHandlers', () => {
     expect(ipcHandlers.get(ELECTRON_CHANNELS.appGetPresentation)?.({})).toEqual({ title: 'Deck', content: '# One' });
     ipcHandlers.get(ELECTRON_CHANNELS.appClosePresentation)?.({});
     expect(windowManager.closePresentationWindow).toHaveBeenCalledOnce();
+    expect(ipcHandlers.get(ELECTRON_CHANNELS.appTogglePresentationFullScreen)?.({})).toBe(true);
+    expect(windowManager.togglePresentationFullScreen).toHaveBeenCalledOnce();
   });
 
   it('hides the quick capture window from renderer requests', () => {
