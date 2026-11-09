@@ -5,7 +5,7 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ElectronSafeSettings, HackDeskElectronAPI } from '@/lib/electron-api';
 import type { LocalVaultSnapshot } from '@/lib/local-vault';
-import { defaultSettings } from '@/lib/settings';
+import { defaultSettings, getActiveLocalVaultPath } from '@/lib/settings';
 import { useLocalVaultSession } from './useLocalVaultSession';
 import { useElectronSettings } from './useElectronSettings';
 import { useNoteWorkspaceTabs } from './useNoteWorkspaceTabs';
@@ -13,8 +13,14 @@ import { getLocalVaultDocumentQueryKey, getLocalVaultSnapshotQueryKey, guardLoca
 
 const snapshot = (id: string): LocalVaultSnapshot => ({ vaultId: id, rootPath: `/tmp/${id}`, folders: [], notes: [] });
 const settings = (path: string | null): ElectronSafeSettings => ({
-  ...defaultSettings, localVault: { path }, hasHackmdApiToken: false, hasLocalVault: !!path,
-  hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false }, shouldShowHackmdOnboarding: false,
+  ...defaultSettings,
+  localVault: path
+    ? { vaults: [{ id: `vault-${path}`, path }], activeVaultId: `vault-${path}` }
+    : { vaults: [], activeVaultId: null },
+  hasHackmdApiToken: false,
+  hasLocalVault: !!path,
+  hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+  shouldShowHackmdOnboarding: false,
 });
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -28,7 +34,7 @@ function fixture() {
   const api = {
     settings: { get: vi.fn(async () => settings('/tmp/A')) },
     localVault: {
-      getSnapshot: vi.fn(async () => snapshot(client.getQueryData<ElectronSafeSettings>(['electron', 'settings'])?.localVault.path === '/tmp/B' ? 'B' : 'A')),
+      getSnapshot: vi.fn(async () => snapshot(getActiveLocalVaultPath(client.getQueryData<ElectronSafeSettings>(['electron', 'settings'])) === '/tmp/B' ? 'B' : 'A')),
       choose: vi.fn(async () => ({ canceled: false, settings: settings('/tmp/B'), snapshot: snapshot('B') })),
       disconnect: vi.fn(async () => settings(null)),
       readNote: vi.fn(async () => ({ content: 'A' })),

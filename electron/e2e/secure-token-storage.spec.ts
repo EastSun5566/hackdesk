@@ -23,7 +23,7 @@ test('migrates a legacy credential with the OS provider, or preserves it and rej
   await mkdir(join(home, '.hackdesk'));
   await writeFile(join(vault, 'Local.md'), 'Local notes still work');
   const path = join(home, '.hackdesk', 'settings.json');
-  const original = JSON.stringify({ ...defaultSettings, hackmdApiToken: token, localVault: { path: vault } });
+  const original = JSON.stringify({ ...defaultSettings, hackmdApiToken: token, localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' } });
   await writeFile(path, original);
   let { app, page } = await launch(home);
   try {

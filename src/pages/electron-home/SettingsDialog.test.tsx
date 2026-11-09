@@ -775,7 +775,7 @@ describe('SettingsDialog', () => {
         workspaceNavigation: defaultSettings.workspaceNavigation,
         hasHackmdApiToken: true, hackmdTokenStorageError: 'Unlock your system keyring or reconnect.',
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
-        hasLocalVault: true, localVault: { path: '/tmp/vault' }, onboarding: defaultSettings.onboarding,
+        hasLocalVault: true, localVault: { vaults: [{ id: 'vault-tmp', path: '/tmp/vault' }], activeVaultId: 'vault-tmp' }, onboarding: defaultSettings.onboarding,
         shouldShowHackmdOnboarding: false,
       },
     });
@@ -856,7 +856,7 @@ describe('SettingsDialog', () => {
         hasHackmdApiToken: false,
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
         hasLocalVault: true,
-        localVault: { path: '/Users/michael/Notes' },
+        localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
         onboarding: defaultSettings.onboarding,
         shouldShowHackmdOnboarding: false,
       },

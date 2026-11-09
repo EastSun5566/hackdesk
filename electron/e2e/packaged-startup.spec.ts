@@ -55,7 +55,7 @@ test('packaged binary launches and serves the packaged renderer (#140)', async (
   await mkdir(join(home, '.hackdesk'), { recursive: true });
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
     ...defaultSettings,
-    localVault: { path: vault },
+    localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' },
     onboarding: { hackmdTokenSetupDeferred: true },
   }));
 

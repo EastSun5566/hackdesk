@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ElectronSafeSettings, HackDeskElectronAPI } from '@/lib/electron-api';
 import type { LocalVaultSnapshot } from '@/lib/local-vault';
-import { defaultSettings } from '@/lib/settings';
+import { defaultSettings, getActiveLocalVaultPath } from '@/lib/settings';
 
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { getLocalVaultSnapshotQueryKey } from './useElectronLocalVault';
@@ -36,7 +36,7 @@ function safeSettings(overrides: Partial<ElectronSafeSettings> = {}): ElectronSa
     hasHackmdApiToken: false,
     hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
     hasLocalVault: true,
-    localVault: { path: '/Users/michael/Notes' },
+    localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
     onboarding: defaultSettings.onboarding,
     shouldShowHackmdOnboarding: false,
     ...overrides,
@@ -68,7 +68,7 @@ function createApi(overrides: {
     hackmd: {} as HackDeskElectronAPI['hackmd'],
     localVault: {
       choose: overrides.choose ?? vi.fn(async () => ({ canceled: true })),
-      disconnect: overrides.disconnect ?? vi.fn(async () => safeSettings({ localVault: { path: null }, hasLocalVault: false })),
+      disconnect: overrides.disconnect ?? vi.fn(async () => safeSettings({ localVault: { vaults: [], activeVaultId: null }, hasLocalVault: false })),
       getSnapshot: vi.fn(),
       readNote: vi.fn(),
       createNote: vi.fn(),
@@ -147,7 +147,7 @@ describe('useHomeLocalVaultActions', () => {
 
     expect(api.localVault.choose).toHaveBeenCalledOnce();
     expect(queryClient.getQueryData(['electron', 'settings'])).toBe(nextSettings);
-    expect(queryClient.getQueryData(getLocalVaultSnapshotQueryKey(nextSettings.localVault.path))).toBe(nextSnapshot);
+    expect(queryClient.getQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(nextSettings)))).toBe(nextSnapshot);
     expect(setWorkspaceScope).toHaveBeenCalledWith({ type: 'local', label: 'Local Vault', vaultId: nextSnapshot.vaultId });
   });
 
@@ -187,7 +187,7 @@ describe('useHomeLocalVaultActions', () => {
 
   it('forgets the local vault only after confirmation', async () => {
     confirmDialogMock.mockResolvedValue({ confirmed: true });
-    const nextSettings = safeSettings({ localVault: { path: null }, hasLocalVault: false });
+    const nextSettings = safeSettings({ localVault: { vaults: [], activeVaultId: null }, hasLocalVault: false });
     const api = createApi({
       disconnect: vi.fn(async () => nextSettings),
     });

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ElectronSafeSettings, HackDeskElectronAPI } from '@/lib/electron-api';
+import { getActiveLocalVaultPath } from '@/lib/settings';
 import { getLocalVaultSnapshotQueryKey, guardLocalVaultApi, type VaultAccess } from './local-vault-query';
 import { migrateLocalWorkspaceStorage } from './local-workspace-storage';
 
@@ -11,7 +12,7 @@ export function useLocalVaultSession(
   beforeChange: MutableRefObject<() => void>,
 ) {
   const queryClient = useQueryClient();
-  const path = settings?.localVault.path ?? null;
+  const path = getActiveLocalVaultPath(settings);
   const [changing, setChanging] = useState(false);
   const access = useRef<VaultAccess>({ generation: 0, vaultId: null, changing: false });
   const [context, setContext] = useState({ path, vaultId: null as string | null, generation: 0 });
@@ -83,7 +84,7 @@ export function useLocalVaultSession(
         choose: () => transition(async () => {
           const result = await api.localVault.choose();
           if (!result.canceled && result.settings) {
-            if (result.snapshot) queryClient.setQueryData(getLocalVaultSnapshotQueryKey(result.settings.localVault.path), result.snapshot);
+            if (result.snapshot) queryClient.setQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(result.settings)), result.snapshot);
             queryClient.setQueryData(['electron', 'settings'], result.settings);
           }
           return result;

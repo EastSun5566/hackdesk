@@ -60,7 +60,7 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
   await mkdir(vaultB);
   await writeFile(join(vaultA, 'A folder', 'A note.md'), '# A note\n\nOnly in A.');
   await writeFile(join(vaultB, 'B note.md'), '# B note\n\nOnly in B.');
-  await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({ ...defaultSettings, localVault: { path: vaultA }, onboarding: { hackmdTokenSetupDeferred: true } }));
+  await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({ ...defaultSettings, localVault: { vaults: [{ id: 'vault-a', path: vaultA }], activeVaultId: 'vault-a' }, onboarding: { hackmdTokenSetupDeferred: true } }));
   let { app, page, appProcess } = await launch(home);
   try {
     await expect(page.locator('.cm-content')).toContainText('Only in A.');
@@ -134,7 +134,7 @@ test('Quick Hack rejects capture during a native vault picker and keeps popup te
   const vault = join(home, 'vault');
   await mkdir(join(home, '.hackdesk'), { recursive: true });
   await mkdir(vault);
-  await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({ ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true } }));
+  await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({ ...defaultSettings, localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' }, onboarding: { hackmdTokenSetupDeferred: true } }));
   const { app, page } = await launch(home);
   try {
     await expect(page.getByRole('button', { name: /^Switch workspace, current: / })).toBeVisible();

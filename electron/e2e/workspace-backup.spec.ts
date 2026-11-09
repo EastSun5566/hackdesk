@@ -15,7 +15,7 @@ test('keeps drafts when workspace backup fails, rejects Quick Hack and clears af
   await mkdir(vault, { recursive: true });
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
     ...defaultSettings,
-    localVault: { path: vault },
+    localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' },
   }));
 
   const app = await electron.launch({

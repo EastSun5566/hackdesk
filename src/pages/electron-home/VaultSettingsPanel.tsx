@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toast';
 
 import type { ElectronSafeSettings } from '@/lib/electron-api';
+import { getActiveLocalVaultPath } from '@/lib/settings';
 import type { LocalVaultSnapshot } from '@/lib/local-vault';
 
 import { SettingsPage, SettingsSection } from './SettingsPrimitives';
@@ -39,7 +40,7 @@ export function VaultSettingsPanel({
   onRefreshLocalVault: () => Promise<void>;
 }) {
   const [busyAction, setBusyAction] = useState<'choose' | 'forget' | 'open' | 'refresh' | null>(null);
-  const vaultPath = settings?.localVault.path ?? snapshot?.rootPath ?? null;
+  const vaultPath = getActiveLocalVaultPath(settings) ?? snapshot?.rootPath ?? null;
   const isConfigured = Boolean(vaultPath);
 
   const runVaultAction = (action: NonNullable<typeof busyAction>, callback: () => Promise<unknown>) => {

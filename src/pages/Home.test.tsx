@@ -709,7 +709,7 @@ describe('Home native-feel behavior', () => {
     const updateSettings = vi.fn(async () => createSafeSettings({
       hasHackmdApiToken: true,
       hasLocalVault: true,
-      localVault: { path: '/Users/michael/Notes' },
+      localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
       onboarding: { hackmdTokenSetupDeferred: false },
       shouldShowHackmdOnboarding: false,
     }));
@@ -732,7 +732,7 @@ describe('Home native-feel behavior', () => {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: false,
           hasLocalVault: true,
-          localVault: { path: '/Users/michael/Notes' },
+          localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
           onboarding: { hackmdTokenSetupDeferred: false },
           shouldShowHackmdOnboarding: true,
         })),
@@ -774,7 +774,7 @@ describe('Home native-feel behavior', () => {
       settings: createSafeSettings({
         hasHackmdApiToken: false,
         hasLocalVault: true,
-        localVault: { path: '/Users/michael/Notes' },
+        localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
         onboarding: { hackmdTokenSetupDeferred: false },
         shouldShowHackmdOnboarding: false,
       }),
@@ -903,7 +903,7 @@ describe('Home native-feel behavior', () => {
     const localSettings = createSafeSettings({
       hasHackmdApiToken: true,
       hasLocalVault: true,
-      localVault: { path: '/Users/michael/Notes' },
+      localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
     });
     const updateSettings = vi.fn(async (input) => createSafeSettings({
       ...localSettings,
@@ -1017,7 +1017,7 @@ describe('Home native-feel behavior', () => {
     const updateSettings = vi.fn(async () => createSafeSettings({
       hasHackmdApiToken: false,
       hasLocalVault: true,
-      localVault: { path: '/Users/michael/Notes' },
+      localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
       onboarding: { hackmdTokenSetupDeferred: true },
       shouldShowHackmdOnboarding: false,
     }));
@@ -1025,7 +1025,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasLocalVault: true,
-          localVault: { path: '/Users/michael/Notes' },
+          localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
         })),
         update: updateSettings,
       },
@@ -1741,7 +1741,7 @@ describe('Home native-feel behavior', () => {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: false,
           hasLocalVault: true,
-          localVault: { path: '/tmp/vault' },
+          localVault: { vaults: [{ id: 'vault-tmp', path: '/tmp/vault' }], activeVaultId: 'vault-tmp' },
         })),
       },
       localVault: {
@@ -2756,7 +2756,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasLocalVault: true,
-          localVault: { path: '/tmp/vault' },
+          localVault: { vaults: [{ id: 'vault-tmp', path: '/tmp/vault' }], activeVaultId: 'vault-tmp' },
         })),
       },
       localVault: { getSnapshot, readNote },

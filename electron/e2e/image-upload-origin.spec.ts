@@ -128,7 +128,7 @@ test('a Local Vault image paste writes the attachment and inserts its link', asy
   await mkdir(vault);
   await writeFile(join(vault, 'Original.md'), '# Original\n\nSaved body');
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
-    ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
+    ...defaultSettings, localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' }, onboarding: { hackmdTokenSetupDeferred: true },
   }));
   const { app, page } = await launch(home);
   try {

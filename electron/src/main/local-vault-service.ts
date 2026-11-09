@@ -38,6 +38,7 @@ import type {
 } from '../../../src/lib/local-vault';
 import { LOCAL_NOTE_NOT_FOUND_MESSAGE } from '../../../src/lib/note-errors';
 import type { LocalImageRequest } from '../../../src/lib/local-image';
+import { getActiveLocalVaultPath as getActiveVaultPathFromSettings } from '../../../src/lib/settings';
 import { readStoredSettings } from './settings';
 import { writeLog } from './logging';
 
@@ -419,7 +420,7 @@ function createNoteSummary(
 
 export async function getActiveLocalVaultPath() {
   const settings = await readStoredSettings();
-  return settings.localVault.path?.trim() || null;
+  return getActiveVaultPathFromSettings(settings);
 }
 
 async function assertVaultRootExists(vaultRoot: string) {

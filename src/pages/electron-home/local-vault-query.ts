@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { ElectronSafeSettings, HackDeskElectronAPI } from '@/lib/electron-api';
 import type { LocalDocument, LocalVaultSnapshot } from '@/lib/local-vault';
+import { getActiveLocalVaultPath } from '@/lib/settings';
 
 export function getLocalVaultSnapshotQueryKey(path: string | null = null) {
   return ['electron', 'local-vault', 'snapshot', path] as const;
@@ -12,7 +13,7 @@ export function getLocalVaultDocumentQueryKey(noteId: string, vaultId?: string) 
 
 export function cacheLocalVaultSnapshot(queryClient: QueryClient, snapshot: LocalVaultSnapshot) {
   const settings = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
-  queryClient.setQueryData(getLocalVaultSnapshotQueryKey(settings?.localVault.path ?? null), snapshot);
+  queryClient.setQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(settings)), snapshot);
 }
 
 export async function invalidateMovedLocalVaultDocuments(

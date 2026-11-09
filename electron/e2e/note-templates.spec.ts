@@ -32,7 +32,7 @@ test('Local Vault notes start from a Templates folder, and any note can be saved
   await writeFile(join(vault, 'Templates', 'Meeting.md'), '# Meeting\n\n## Agenda\n\n## Decisions\n');
   await writeFile(join(vault, 'Plan.md'), '# Plan\n\nShip the book reader.\n');
   await writeFile(join(directory, '.hackdesk', 'settings.json'), JSON.stringify({
-    ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
+    ...defaultSettings, localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' }, onboarding: { hackmdTokenSetupDeferred: true },
   }));
   const app = await electron.launch({ args: [repoRoot, `--user-data-dir=${join(directory, 'user-data')}`, `--hackdesk-home=${directory}`], cwd: repoRoot, env: environment() });
   try {

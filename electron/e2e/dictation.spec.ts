@@ -23,7 +23,7 @@ async function launch({ withAi = false } = {}) {
   const claude = withAi ? await createFakeCli('claude') : null;
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
     ...defaultSettings,
-    localVault: { path: vault },
+    localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' },
     onboarding: { hackmdTokenSetupDeferred: true },
     dictation: { enabled: true, locale: 'en-US' },
     ...(claude ? {

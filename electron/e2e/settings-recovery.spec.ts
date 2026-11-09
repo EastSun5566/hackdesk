@@ -68,7 +68,7 @@ test('confirmed reset backs up damaged settings and opens the app with valid def
     const backup = files.find((file) => file.startsWith('settings.json.damaged-'));
     expect(backup).toBeDefined();
     expect(await readFile(join(settingsDir, backup!), 'utf8')).toBe(DAMAGED);
-    expect(JSON.parse(await readFile(join(settingsDir, 'settings.json'), 'utf8'))).toMatchObject({ localVault: { path: null } });
+    expect(JSON.parse(await readFile(join(settingsDir, 'settings.json'), 'utf8'))).toMatchObject({ localVault: { vaults: [], activeVaultId: null } });
   } finally {
     app.process().kill('SIGKILL');
   }

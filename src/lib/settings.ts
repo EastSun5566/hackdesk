@@ -43,8 +43,14 @@ export type OnboardingSettings = {
   hackmdTokenSetupDeferred: boolean;
 };
 
+export type LocalVaultEntry = {
+  id: string;
+  path: string;
+};
+
 export type LocalVaultSettings = {
-  path: string | null;
+  vaults: LocalVaultEntry[];
+  activeVaultId: string | null;
 };
 
 export type EditorMode = 'standard' | 'emacs' | 'vim' | 'helix' | 'kakoune';
@@ -115,7 +121,8 @@ export const defaultOnboardingSettings: OnboardingSettings = {
 };
 
 export const defaultLocalVaultSettings: LocalVaultSettings = {
-  path: null,
+  vaults: [],
+  activeVaultId: null,
 };
 
 export const defaultEditorSettings: EditorSettings = {
@@ -148,6 +155,142 @@ export const defaultDictationSettings: DictationSettings = {
 };
 
 const hexColorSchema = z.string().regex(/^#[\da-fA-F]{6}$/);
+const localVaultSettingsSchema = z.unknown().default(defaultLocalVaultSettings).transform(
+  (value): LocalVaultSettings => normalizeLocalVaultSettings(value),
+);
+
+/** Stable per-vault identity, so renames and moves keep referring to the same vault. */
+export function createLocalVaultId() {
+  try {
+    const id = globalThis.crypto?.randomUUID?.();
+    if (typeof id === 'string' && id.length > 0) {
+      return id;
+    }
+  } catch {
+    // Fall through to the Math.random fallback below.
+  }
+  return `vault-${Date.now().toString(36)}-${Math.floor(Math.random() * 2 ** 32).toString(36)}`;
+}
+
+function normalizeVaultPath(path: unknown) {
+  if (typeof path !== 'string') {
+    return null;
+  }
+  const trimmed = path.trim();
+  return trimmed.length > 0 && trimmed.length <= 4096 ? trimmed : null;
+}
+
+/**
+ * Normalizes any stored value into a vault list, migrating the legacy single-path shape
+ * (`{ path }`) into one active vault. Never throws: garbage becomes the fallback.
+ */
+export function normalizeLocalVaultSettings(value: unknown): LocalVaultSettings {
+  const source = (value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null) ?? {};
+  // Legacy shape from before multi-vault support.
+  const legacyPath = 'path' in source && !('vaults' in source) ? normalizeVaultPath(source.path) : null;
+
+  const seenIds = new Set<string>();
+  const seenPaths = new Set<string>();
+  const vaults: LocalVaultEntry[] = [];
+  const rawVaults = legacyPath !== null ? [{ id: createLocalVaultId(), path: legacyPath }] : source.vaults;
+  if (Array.isArray(rawVaults)) {
+    for (const raw of rawVaults) {
+      if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+        continue;
+      }
+      const path = normalizeVaultPath((raw as Record<string, unknown>).path);
+      const rawId = (raw as Record<string, unknown>).id;
+      const id = typeof rawId === 'string' && rawId.trim().length > 0 && rawId.trim().length <= 200
+        ? rawId.trim()
+        : createLocalVaultId();
+      if (!path || seenIds.has(id)) {
+        continue;
+      }
+      // The same folder opened twice is one vault; the first entry wins.
+      if (seenPaths.has(path)) {
+        continue;
+      }
+      seenIds.add(id);
+      seenPaths.add(path);
+      vaults.push({ id, path });
+      if (vaults.length >= 32) {
+        break;
+      }
+    }
+  }
+
+  if (vaults.length === 0) {
+    return { vaults: [], activeVaultId: null };
+  }
+
+  const rawActive = typeof source.activeVaultId === 'string' ? source.activeVaultId.trim() : null;
+  const activeVaultId = rawActive && seenIds.has(rawActive) ? rawActive : vaults[0].id;
+  return { vaults, activeVaultId };
+}
+
+export function getActiveLocalVault(
+  settings: Pick<AppSettings, 'localVault'> | undefined,
+): LocalVaultEntry | null {
+  if (!settings) {
+    return null;
+  }
+  const active = settings.localVault.vaults.find((vault) => vault.id === settings.localVault.activeVaultId);
+  return active ?? settings.localVault.vaults[0] ?? null;
+}
+
+export function getActiveLocalVaultPath(
+  settings: Pick<AppSettings, 'localVault'> | undefined,
+): string | null {
+  return getActiveLocalVault(settings)?.path ?? null;
+}
+
+/** Adds a folder as a vault and activates it; re-adding an existing folder just activates it. */
+export function addLocalVault(
+  current: LocalVaultSettings,
+  path: string,
+): LocalVaultSettings {
+  const trimmed = path.trim();
+  if (!trimmed) {
+    return current;
+  }
+  const existing = current.vaults.find((vault) => vault.path === trimmed);
+  if (existing) {
+    return { vaults: current.vaults, activeVaultId: existing.id };
+  }
+  const entry = { id: createLocalVaultId(), path: trimmed };
+  return { vaults: [...current.vaults, entry].slice(-32), activeVaultId: entry.id };
+}
+
+export function setActiveLocalVault(
+  current: LocalVaultSettings,
+  id: string,
+): LocalVaultSettings {
+  if (!current.vaults.some((vault) => vault.id === id)) {
+    return current;
+  }
+  return { vaults: current.vaults, activeVaultId: id };
+}
+
+/** Forgets a vault; activating the first remaining one keeps a vault open when possible. */
+export function removeLocalVault(
+  current: LocalVaultSettings,
+  id: string,
+): LocalVaultSettings {
+  const vaults = current.vaults.filter((vault) => vault.id !== id);
+  if (vaults.length === current.vaults.length) {
+    return current;
+  }
+  if (vaults.length === 0) {
+    return { vaults: [], activeVaultId: null };
+  }
+  const activeVaultId = current.activeVaultId === id ? vaults[0].id : current.activeVaultId;
+  return {
+    vaults,
+    activeVaultId: activeVaultId && vaults.some((vault) => vault.id === activeVaultId) ? activeVaultId : vaults[0].id,
+  };
+}
 const customFontStackSchema = z.string().trim().refine((value) => !value || isSafeFontStack(value), {
   message: 'Use comma-separated font family names without CSS functions or declarations.',
 });
@@ -249,9 +392,7 @@ export const settingsSchema = z.object({
   onboarding: z.object({
     hackmdTokenSetupDeferred: z.boolean().default(defaultOnboardingSettings.hackmdTokenSetupDeferred),
   }).default(defaultOnboardingSettings),
-  localVault: z.object({
-    path: z.string().trim().min(1).nullable().default(defaultLocalVaultSettings.path),
-  }).default(defaultLocalVaultSettings),
+  localVault: localVaultSettingsSchema,
   editor: z.object({
     mode: z.enum(['standard', 'emacs', 'vim', 'helix', 'kakoune']).default(defaultEditorSettings.mode),
   }).default(defaultEditorSettings),

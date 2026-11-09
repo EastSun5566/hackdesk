@@ -1,11 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  addLocalVault,
+  defaultLocalVaultSettings,
   defaultSettings,
+  getActiveLocalVaultPath,
   parseSettings,
   parseSettingsOrDefault,
   parseStoredSettings,
+  removeLocalVault,
   serializeSettings,
+  setActiveLocalVault,
   validateSettings,
 } from './settings';
 
@@ -279,24 +284,76 @@ describe('settings helpers', () => {
   });
 
   it('keeps valid stored fields when another field is invalid', () => {
-    expect(parseStoredSettings(JSON.stringify({
+    const stored = parseStoredSettings(JSON.stringify({
       title: 'Workspace',
       hackmdApiToken: 'secret-token',
-      localVault: { path: '/tmp/vault' },
+      localVault: { vaults: [{ id: 'vault-1', path: '/tmp/vault' }], activeVaultId: 'vault-1' },
       editor: { mode: 'nano' },
       shortcuts: {
         'open-command-palette': 'mod+shift+p',
         'removed-action': 'mod+j',
       },
-    }))).toMatchObject({
+    }));
+    expect(stored).toMatchObject({
       title: 'Workspace',
       hackmdApiToken: 'secret-token',
-      localVault: { path: '/tmp/vault' },
+      localVault: { vaults: [{ id: 'vault-1', path: '/tmp/vault' }], activeVaultId: 'vault-1' },
       editor: defaultSettings.editor,
       shortcuts: {
         'open-command-palette': 'mod+shift+p',
       },
     });
+    expect(getActiveLocalVaultPath(stored)).toBe('/tmp/vault');
+  });
+
+  it('migrates a legacy single-path vault into one active vault', () => {
+    const stored = parseStoredSettings(JSON.stringify({ title: 'Workspace', localVault: { path: '/tmp/vault' } }));
+    expect(stored.localVault.vaults).toHaveLength(1);
+    expect(stored.localVault.vaults[0]).toMatchObject({ path: '/tmp/vault' });
+    expect(stored.localVault.activeVaultId).toBe(stored.localVault.vaults[0].id);
+    expect(getActiveLocalVaultPath(stored)).toBe('/tmp/vault');
+    // A legacy empty path means no vault, like before.
+    expect(parseStoredSettings(JSON.stringify({ title: 'Workspace', localVault: { path: '' } })).localVault)
+      .toEqual(defaultLocalVaultSettings);
+  });
+
+  it('repairs damaged vault lists without losing the other vaults', () => {
+    const stored = parseStoredSettings(JSON.stringify({
+      title: 'Workspace',
+      localVault: {
+        vaults: [
+          { id: 'keep', path: '/tmp/keep' },
+          { id: 'keep', path: '/tmp/duplicate-id' },
+          { id: 'second', path: '/tmp/duplicate-id' },
+          { id: '', path: '/tmp/blank-id' },
+          { id: 'no-path', path: '' },
+          'junk',
+        ],
+        activeVaultId: 'missing',
+      },
+    }));
+    expect(stored.localVault.vaults.map((vault) => vault.path)).toEqual(['/tmp/keep', '/tmp/duplicate-id', '/tmp/blank-id']);
+    expect(stored.localVault.activeVaultId).toBe('keep');
+  });
+
+  it('adds, activates and forgets vaults through pure helpers', () => {
+    const one = addLocalVault(defaultLocalVaultSettings, '  /tmp/a  ');
+    expect(one.vaults).toHaveLength(1);
+    expect(getActiveLocalVaultPath({ localVault: one })).toBe('/tmp/a');
+    const same = addLocalVault(one, '/tmp/a');
+    expect(same.vaults).toHaveLength(1);
+    const two = addLocalVault(one, '/tmp/b');
+    expect(two.vaults.map((vault) => vault.path)).toEqual(['/tmp/a', '/tmp/b']);
+    expect(getActiveLocalVaultPath({ localVault: two })).toBe('/tmp/b');
+    const back = setActiveLocalVault(two, one.activeVaultId!);
+    expect(getActiveLocalVaultPath({ localVault: back })).toBe('/tmp/a');
+    // Unknown ids change nothing.
+    expect(setActiveLocalVault(two, 'missing')).toBe(two);
+    expect(removeLocalVault(two, 'missing')).toBe(two);
+    const forgotten = removeLocalVault(two, two.activeVaultId!);
+    expect(forgotten.vaults).toHaveLength(1);
+    expect(getActiveLocalVaultPath({ localVault: forgotten })).toBe('/tmp/a');
+    expect(removeLocalVault(forgotten, forgotten.activeVaultId!)).toEqual(defaultLocalVaultSettings);
   });
 
   it('reports malformed stored JSON instead of replacing it with defaults', () => {
@@ -323,7 +380,8 @@ describe('settings helpers', () => {
     "hackmdTokenSetupDeferred": false
   },
   "localVault": {
-    "path": null
+    "vaults": [],
+    "activeVaultId": null
   },
   "editor": {
     "mode": "standard"

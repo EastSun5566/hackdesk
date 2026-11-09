@@ -22,7 +22,7 @@ test('the palette highlights matches, moves and renames notes, and opens a Setti
   await writeFile(join(vault, 'Plan.md'), '# Plan\n\nShip offline reading first.\n');
   await writeFile(join(vault, 'Archive', 'Old.md'), '# Old\n\nLast year.\n');
   await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
-    ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
+    ...defaultSettings, localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' }, onboarding: { hackmdTokenSetupDeferred: true },
   }));
   const env = { ...definedEnvironment(process.env) };
   delete env.ELECTRON_RUN_AS_NODE;

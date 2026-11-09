@@ -4,6 +4,7 @@ import type { QueryClient } from '@tanstack/react-query';
 
 import { toast } from '@/components/ui/toast';
 import type { HackDeskElectronAPI } from '@/lib/electron-api';
+import { getActiveLocalVaultPath } from '@/lib/settings';
 
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import type { WorkspaceScope } from './types';
@@ -43,7 +44,7 @@ export function useHomeLocalVaultActions({
       queryClient.setQueryData(['electron', 'settings'], result.settings);
     }
     if (result.snapshot) {
-      queryClient.setQueryData(getLocalVaultSnapshotQueryKey(result.settings?.localVault.path ?? null), result.snapshot);
+      queryClient.setQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(result.settings)), result.snapshot);
     }
     setWorkspaceScope({ type: 'local', label: 'Local Vault', vaultId: result.snapshot?.vaultId });
     return true;

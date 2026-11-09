@@ -53,7 +53,7 @@ for (const renderer of ['production', 'development'] as const) {
     await writeFile(join(vault, 'alpha', 'image.svg'), svg(41));
     await writeFile(join(vault, 'beta', 'image.svg'), svg(73));
     await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
-      ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
+      ...defaultSettings, localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' }, onboarding: { hackmdTokenSetupDeferred: true },
     }));
 
     const env = { ...definedEnvironment(process.env) };

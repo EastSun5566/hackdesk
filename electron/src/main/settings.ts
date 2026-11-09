@@ -2,8 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { lstat, mkdir, open, readFile, rename, rm } from 'node:fs/promises';
 
 import {
+  addLocalVault,
   defaultSettings,
+  getActiveLocalVaultPath,
   parseStoredSettings,
+  removeLocalVault,
   serializeSettings,
   validateSettings,
   type AppSettings,
@@ -49,7 +52,7 @@ function toSafeSettings(
   tokenStorageError?: string,
 ): ElectronSafeSettings {
   const hasHackmdApiToken = encryptedToken !== undefined || settings.hackmdApiToken.trim().length > 0;
-  const hasLocalVault = typeof settings.localVault.path === 'string' && settings.localVault.path.trim().length > 0;
+  const hasLocalVault = getActiveLocalVaultPath(settings) !== null;
 
   return {
     title: settings.title,
@@ -315,7 +318,15 @@ async function updateStoredSettingsUnlocked(
     dictation: update.dictation ?? current.dictation,
     offline: update.offline ?? current.offline,
     onboarding: nextOnboarding,
-    localVault: update.localVaultPath !== undefined ? { path: update.localVaultPath } : current.localVault,
+    // Choosing a folder adds it to the vault list and activates it; forgetting removes the
+    // active vault and falls back to the first remaining one.
+    localVault: update.localVaultPath === undefined
+      ? current.localVault
+      : update.localVaultPath === null
+        ? (current.localVault.activeVaultId
+          ? removeLocalVault(current.localVault, current.localVault.activeVaultId)
+          : current.localVault)
+        : addLocalVault(current.localVault, update.localVaultPath),
   });
 
   await writeStoredSettings(next, encryptedToken);

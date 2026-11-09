@@ -17,7 +17,7 @@ for (const theme of ['light', 'dark'] as const) {
     await writeFile(join(home, '.hackdesk', 'settings.json'), JSON.stringify({
       ...defaultSettings,
       appearance: { ...defaultSettings.appearance, theme },
-      localVault: { path: vault },
+      localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' },
       onboarding: { hackmdTokenSetupDeferred: true },
     }));
     const env = { ...definedEnvironment(process.env) };

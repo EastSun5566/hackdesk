@@ -130,7 +130,7 @@ test('any Local Vault note opens as a book', async () => {
   await writeFile(join(vault, 'chapters', 'alpha.md'), '# Alpha\n\nAlpha body text.\n');
   await writeFile(join(vault, 'chapters', 'beta.md'), '# Beta\n\nBeta body text.\n');
   await writeFile(join(directory, '.hackdesk', 'settings.json'), JSON.stringify({
-    ...defaultSettings, localVault: { path: vault }, onboarding: { hackmdTokenSetupDeferred: true },
+    ...defaultSettings, localVault: { vaults: [{ id: 'vault-e2e', path: vault }], activeVaultId: 'vault-e2e' }, onboarding: { hackmdTokenSetupDeferred: true },
   }));
   const app = await electron.launch({ args: [repoRoot, `--user-data-dir=${join(directory, 'user-data')}`, `--hackdesk-home=${directory}`], cwd: repoRoot, env: environment() });
   try {
