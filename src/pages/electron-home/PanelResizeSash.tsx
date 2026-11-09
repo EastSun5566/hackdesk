@@ -6,8 +6,8 @@ import { GAP_SASH_CLASS } from './ui';
 
 // A surface's border, with no line or gap of its own: the border lights up instead. It takes no
 // width, so the panel before it keeps the same inset from the border as from the window's other
-// edge. Its grip reaches 6px back over the panel and 4px over the border.
-const EDGE_SASH_CLASS = 'edge-sash relative w-0 shrink-0 cursor-col-resize border-0 bg-transparent outline-none before:absolute before:inset-y-0 before:-left-1.5 before:-right-1';
+// edge. Its 10px grip extends into the next surface, clear of the sidebar's scrollbar.
+const EDGE_SASH_CLASS = 'edge-sash relative w-0 shrink-0 cursor-col-resize border-0 bg-transparent outline-none before:absolute before:inset-y-0 before:left-0 before:-right-2.5';
 import { clampPanelWidth } from './ui-preferences';
 
 export function PanelResizeSash({

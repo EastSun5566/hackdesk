@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { ComponentProps } from 'react';
 
 import { DEFAULT_NOTE_FINDER_STATE } from '@/lib/electron-note-finder';
 import type { FolderPathSummary, NoteSummary } from '@/lib/electron-api';
@@ -12,6 +13,18 @@ import {
 
 import { FolderNavigator, type FolderNavigatorProps } from './FolderNavigator';
 import { NoteSummaryCard } from './FolderNavigatorRows';
+
+const { treeRender } = vi.hoisted(() => ({ treeRender: vi.fn() }));
+vi.mock('@dnd-kit/core', async (importOriginal) => {
+  const core = await importOriginal<typeof import('@dnd-kit/core')>();
+  return {
+    ...core,
+    DndContext: (props: ComponentProps<typeof core.DndContext>) => {
+      treeRender();
+      return <core.DndContext {...props} />;
+    },
+  };
+});
 
 function folder(input: Partial<FolderPathSummary> & Pick<FolderPathSummary, 'id' | 'name'>): FolderPathSummary {
   return {
@@ -186,6 +199,18 @@ function focusTreeRow(container: HTMLElement, rowId: string) {
 }
 
 describe('FolderNavigator', () => {
+  it('keeps the mounted tree out of search keystroke renders', () => {
+    const { props, rerender } = renderFolderNavigator();
+    const renderCount = treeRender.mock.calls.length;
+    expect(renderCount).toBeGreaterThan(0);
+    for (const query of ['n', 'ne', 'nested']) {
+      rerender(
+        <TooltipProvider><FolderNavigator {...props} finderState={{ ...props.finderState, query }} /></TooltipProvider>,
+      );
+    }
+    expect(treeRender).toHaveBeenCalledTimes(renderCount);
+  });
+
   it('moves the highlighted search result from the search box and opens it with Enter', () => {
     const { props } = renderFolderNavigator({ finderState: { ...DEFAULT_NOTE_FINDER_STATE, query: 'note' } });
     const search = screen.getByPlaceholderText('Search notes');

@@ -585,6 +585,24 @@ test('workspace keyboard reorder keeps focus and completes the drop', async () =
   }
 });
 
+test('the sidebar scrollbar remains clickable beside the resize handle', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await switchWorkspace(page, 'Local Vault');
+    await page.setViewportSize({ width: 1100, height: 420 });
+    await page.evaluate(() => { document.documentElement.dataset.scrollbars = 'classic'; });
+    const scroller = page.locator('#note-navigator-panel .scroll-edges-source').first();
+    await expect.poll(() => scroller.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+    const bounds = (await scroller.boundingBox())!;
+    const point = { x: bounds.x + bounds.width - 4, y: bounds.y + bounds.height - 12 };
+    expect(await page.evaluate(({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest('.edge-sash')), point)).toBe(false);
+    await page.mouse.click(point.x, point.y);
+    await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test('workspace pointer reorder starts on a stable handle and completes the drop', async () => {
   const { app, page } = await launchFixture();
   try {
@@ -894,7 +912,7 @@ test('a folder dropped on the middle of another moves inside it, on its top edge
       .filter(element => !element.closest('ul[role="group"][data-tree-children]'))
       .map(element => element.querySelector('[role="treeitem"]')?.getAttribute('aria-label')));
     // Drags `name` onto `target` at `fraction` of its row's height; checks the mark, then drops.
-    // The target is measured once the drag has started: a dragged folder's contents fold away.
+    // Wait for sortable layout transitions before measuring the target after the drag starts.
     const dragFolder = async (name: string, target: string, fraction: number, mark: string) => {
       const source = (await folderRow(name).getByRole('treeitem', { name, exact: true }).boundingBox())!;
       const targetRow = folderRow(target);
@@ -902,8 +920,10 @@ test('a folder dropped on the middle of another moves inside it, on its top edge
       await page.mouse.down();
       await page.mouse.move(source.x + source.width / 2 + 8, source.y + source.height / 2, { steps: 2 });
       await expect(folderRow(name)).toHaveAttribute('data-hackdesk-dragging');
+      await targetRow.hover({ trial: true });
       const bounds = (await targetRow.boundingBox())!;
-      await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height * fraction, { steps: 12 });
+      // A fast move must update the target even when there is no second move within that row.
+      await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height * fraction);
       await expect(targetRow).toHaveAttribute('data-drop-placement', mark);
       await page.mouse.up();
       await expect(targetRow).not.toHaveAttribute('data-drop-placement');

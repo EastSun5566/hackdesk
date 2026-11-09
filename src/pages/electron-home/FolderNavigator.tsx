@@ -5,7 +5,7 @@ import {
   Loader2,
   Search,
 } from 'lucide-react';
-import { memo, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { createContext, memo, useContext, useEffect, useId, useMemo, useRef, useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react';
 import {
   closestCenter,
   DndContext,
@@ -140,6 +140,14 @@ const PREVIEW_BESIDE_POINTER: Modifier = ({ transform, activatorEvent, draggingN
 const PREVIEW_MODIFIERS = [PREVIEW_BESIDE_POINTER];
 
 type FolderDropIndicator = { overId: string; placement: FolderDropPlacement; row: HTMLElement };
+
+// Search input updates the root menu, not the memoized tree and its drag context.
+const TreeViewOptionsContext = createContext<ComponentProps<typeof NoteViewOptionsMenu> | null>(null);
+
+function TreeViewOptions({ tabIndex }: { tabIndex?: number }) {
+  const props = useContext(TreeViewOptionsContext);
+  return props ? <NoteViewOptionsMenu {...props} tabIndex={tabIndex} treeControl /> : null;
+}
 
 function TrashNavigatorTitleBar({ trash }: { trash: TrashNavigatorViewProps }) {
   const teamPath = trashTeamPathForScope(trash.scope);
@@ -586,19 +594,24 @@ const MemoNavigatorContent = memo(function NavigatorContent({
           when the search clears was the slowest keystroke. */}
       {!trashActive && !status.isLoading && scope.type !== 'history' && hasTreeContent ? (
         <div hidden={isFinderMode}>
-          <MemoNavigatorTree
-            actions={actions}
-            finderState={finderState}
-            finderOptions={finderOptions}
-            tagIndex={tagIndex}
-            layout={layout}
-            scope={scope}
-            selectedFolderForNoteMove={selectedFolderForNoteMove}
-            selection={selection}
-            status={status}
-            tree={tree}
-            treeFocusRequestId={treeFocusRequestId}
-          />
+          <TreeViewOptionsContext.Provider value={{
+            state: finderState,
+            selectedFolderId: selection.selectedFolderId,
+            options: finderOptions,
+            onChange: actions.onFinderStateChange,
+            tags: tagIndex,
+          }}>
+            <MemoNavigatorTree
+              actions={actions}
+              layout={layout}
+              scope={scope}
+              selectedFolderForNoteMove={selectedFolderForNoteMove}
+              selection={selection}
+              status={status}
+              tree={tree}
+              treeFocusRequestId={treeFocusRequestId}
+            />
+          </TreeViewOptionsContext.Provider>
         </div>
       ) : null}
       <div aria-hidden="true" className="edge-fade-bottom pointer-events-none sticky -bottom-2 z-10 -mx-2 h-0">
@@ -802,9 +815,6 @@ const MemoNavigatorTree = memo(NavigatorTree, arePanelPropsEqual);
 
 function NavigatorTree({
   actions,
-  finderState,
-  finderOptions,
-  tagIndex,
   layout,
   scope,
   selectedFolderForNoteMove,
@@ -814,9 +824,6 @@ function NavigatorTree({
   treeFocusRequestId,
 }: {
   actions: FolderNavigatorActions;
-  finderState: NoteFinderState;
-  finderOptions: ReturnType<typeof getNoteFinderOptions>;
-  tagIndex: ReturnType<typeof buildNoteTagIndex>;
   layout: FolderNavigatorLayout;
   scope: WorkspaceScope;
   selectedFolderForNoteMove: FolderTreeNode | null;
@@ -1111,6 +1118,8 @@ function NavigatorTree({
       collisionDetection={treeCollisionDetection}
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
+      // The last move can enter a new row before dnd-kit updates event.over.
+      onDragOver={handleDragMove}
       onDragCancel={handleDragCancel}
       onDragEnd={handleDragEnd}
     >
@@ -1143,15 +1152,7 @@ function NavigatorTree({
                 // Sort and filters describe how this workspace's notes are listed, so they live on
                 // its row. Changing one lists the notes flat, under a header that carries them on.
                 viewOptions={({ tabIndex }) => (
-                  <NoteViewOptionsMenu
-                    state={finderState}
-                    selectedFolderId={selection.selectedFolderId}
-                    options={finderOptions}
-                    onChange={actions.onFinderStateChange}
-                    tags={tagIndex}
-                    tabIndex={tabIndex}
-                    treeControl
-                  />
+                  <TreeViewOptions tabIndex={tabIndex} />
                 )}
               />
             ) : null}
