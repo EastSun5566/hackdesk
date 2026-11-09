@@ -91,7 +91,7 @@ function DocumentTab({
   const bookSession = useBookSessionContext();
   const book = bookSession?.book;
   const bookPosition = book && !isDraftNoteTab(tab) && !isBlankNoteTab(tab)
-    ? bookSession.positionOfNote({ id: tab.noteId, teamPath: tab.teamPath })
+    ? bookSession.positionOfNote({ id: tab.noteId, teamPath: tab.teamPath }, tab.tabId)
     : null;
   const { isDragging, listeners, setNodeRef, setActivatorNodeRef, transform, transition } = useSortable({ id: tab.tabId });
   const setTabNode = useCallback((element: HTMLLIElement | null) => {

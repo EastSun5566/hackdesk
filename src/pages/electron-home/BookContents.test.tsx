@@ -20,6 +20,7 @@ function Harness({ openChapter }: { openChapter: (index: number) => void }) {
     openChapter,
     positionOf: () => null,
     positionOfNote: () => null,
+    tabId: 'book-tab',
     openContentsPage: vi.fn(),
   };
   return <BookContents session={session} position={{ isBook: true, chapterIndex: null }} />;
@@ -42,7 +43,7 @@ describe('BookContents', () => {
     const session = {
       book: { title: 'Guide', contents: parseBook('- [Intro](intro.md)\n') },
       open: vi.fn(), close: vi.fn(), contentsHidden: false, toggleContents: vi.fn(), openChapter: vi.fn(),
-      openContentsPage, positionOf: () => null, positionOfNote: () => null,
+      openContentsPage, positionOf: () => null, positionOfNote: () => null, tabId: 'book-tab',
     };
     const { rerender } = render(<BookContents session={session} position={{ isBook: false, chapterIndex: 0 }} />);
     fireEvent.click(screen.getByRole('button', { name: 'Edit table of contents' }));
@@ -71,6 +72,7 @@ describe('BookPane', () => {
     openChapter: vi.fn(),
     positionOf: (document) => (document?.id === 'book' ? { isBook: true, chapterIndex: null } : null),
     positionOfNote: () => null,
+    tabId: 'book-tab',
     openContentsPage: vi.fn(),
   });
   let mounts = 0;

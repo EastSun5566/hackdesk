@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { PanelHeader, ToolbarIconButton } from './interaction-primitives';
 import type { DocumentSummary } from '@/lib/electron-api';
 
-import { useBookSessionContext, type BookPosition, type BookSession } from './useBookSession';
+import { useBookSessionContext, usePaneTabId, type BookPosition, type BookSession } from './useBookSession';
 
 type OpenBookSession = BookSession & { book: NonNullable<BookSession['book']> };
 
@@ -136,7 +136,8 @@ export function BookContents({ session, position }: { session: OpenBookSession; 
  */
 export function BookPane({ document, loading, children }: { document: DocumentSummary | undefined; loading: boolean; children: ReactNode }) {
   const session = useBookSessionContext();
-  const position = session?.book ? session.positionOf(document) : null;
+  const tabId = usePaneTabId();
+  const position = session?.book ? session.positionOf(document, tabId) : null;
   const shownWhileLoaded = useRef<BookPosition | null>(null);
   if (!loading) shownWhileLoaded.current = position;
   const shown = loading ? shownWhileLoaded.current : position;

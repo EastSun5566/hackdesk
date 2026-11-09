@@ -65,7 +65,7 @@ function createOptions(overrides: Partial<WorkbenchActionHandlersOptions> = {}):
     activePaneTabIds: ['tab-0', 'tab-1', 'tab-2'],
     activeTab: createTab(),
     api: undefined,
-    book: { book: null, open: vi.fn(), close: vi.fn(), contentsHidden: false, toggleContents: vi.fn(), openChapter: vi.fn(), openContentsPage: vi.fn(), positionOf: vi.fn(() => null), positionOfNote: vi.fn(() => null) },
+    book: { book: null, open: vi.fn(), close: vi.fn(), contentsHidden: false, toggleContents: vi.fn(), openChapter: vi.fn(), openContentsPage: vi.fn(), positionOf: vi.fn(() => null), positionOfNote: vi.fn(() => null), tabId: null },
     chooseLocalVault: vi.fn(),
     toggleKeyHints: vi.fn(),
     openLeaderMenu: vi.fn(),

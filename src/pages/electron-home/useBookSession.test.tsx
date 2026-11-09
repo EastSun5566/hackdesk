@@ -38,13 +38,16 @@ function installApi() {
   return { resolveLink, resolveNote };
 }
 
+/** The tab the book opens in. */
+const TAB = 'book-tab';
+
 /** Lets the chapter lookups an opened book starts settle inside `act`. */
 const settle = () => act(async () => {});
 
 async function setup(document: DocumentSummary | undefined = BOOK) {
   const openNoteTarget = vi.fn();
   const openExternal = vi.fn();
-  const hook = renderHook(({ current }) => useBookSession({ document: current, openNoteTarget, openExternal }), { initialProps: { current: document } });
+  const hook = renderHook(({ current }) => useBookSession({ document: current, activeTabId: TAB, openNoteTarget, openExternal }), { initialProps: { current: document } });
   await settle();
   return { ...hook, openNoteTarget, openExternal };
 }
@@ -58,11 +61,15 @@ describe('useBookSession', () => {
     const { resolveLink } = installApi();
     const { result } = await setup();
     expect(result.current.book?.title).toBe('Handbook');
-    expect(result.current.positionOf(BOOK)).toEqual({ isBook: true, chapterIndex: null });
+    expect(result.current.positionOf(BOOK, TAB)).toEqual({ isBook: true, chapterIndex: null });
     // Links relative to hackmd.io are read as hackmd.io addresses; new-tab links are not looked up.
     expect(resolveLink.mock.calls.map(([input]) => input.target)).toEqual(['https://hackmd.io/@me/setup', 'https://hackmd.io/tools-short']);
-    await waitFor(() => expect(result.current.positionOf(SETUP)).toEqual({ isBook: false, chapterIndex: 0 }));
-    expect(result.current.positionOf(TOOLS)).toBeNull();
+    await waitFor(() => expect(result.current.positionOf(SETUP, TAB)).toEqual({ isBook: false, chapterIndex: 0 }));
+    expect(result.current.positionOf(TOOLS, TAB)).toBeNull();
+    // The same notes in any other tab are regular notes.
+    expect(result.current.positionOf(BOOK, 'other-tab')).toBeNull();
+    expect(result.current.positionOfNote({ id: BOOK.id, teamPath: BOOK.teamPath }, 'other-tab')).toBeNull();
+    expect(result.current.positionOfNote({ id: BOOK.id, teamPath: BOOK.teamPath }, TAB)).toEqual({ isBook: true, chapterIndex: null });
   });
 
   it('learns a chapter when opening it asks HackMD, and sends new-tab links to the browser', async () => {
@@ -72,7 +79,7 @@ describe('useBookSession', () => {
     // A chapter turns the book's tab rather than opening a tab of its own.
     await waitFor(() => expect(openNoteTarget).toHaveBeenCalledWith(expect.objectContaining({ noteId: 'tools-id' }), { inPlace: true }));
     expect(resolveNote).toHaveBeenCalledOnce();
-    expect(result.current.positionOf(TOOLS)).toEqual({ isBook: false, chapterIndex: 1 });
+    expect(result.current.positionOf(TOOLS, TAB)).toEqual({ isBook: false, chapterIndex: 1 });
 
     act(() => result.current.openChapter(2));
     expect(openExternal).toHaveBeenCalledWith('https://example.com/docs');
@@ -98,15 +105,15 @@ describe('useBookSession', () => {
       id: 'twice', publishType: 'book', content: '- [Setup](https://hackmd.io/@me/setup)\n- [Setup again](https://hackmd.io/@me/setup)',
     });
     const { result, rerender } = await setup(twice);
-    expect(result.current.positionOf(SETUP)).toEqual({ isBook: false, chapterIndex: 0 });
+    expect(result.current.positionOf(SETUP, TAB)).toEqual({ isBook: false, chapterIndex: 0 });
     await act(async () => result.current.openChapter(1));
     await settle();
-    expect(result.current.positionOf(SETUP)).toEqual({ isBook: false, chapterIndex: 1 });
+    expect(result.current.positionOf(SETUP, TAB)).toEqual({ isBook: false, chapterIndex: 1 });
 
     // Saving the book keeps the mark on the same repeat, even with a chapter added before it.
     rerender({ current: { ...twice, content: `- [Intro](https://example.com/intro) [target=_blank]\n${twice.content}` } });
     await settle();
-    expect(result.current.positionOf(SETUP)).toEqual({ isBook: false, chapterIndex: 2 });
+    expect(result.current.positionOf(SETUP, TAB)).toEqual({ isBook: false, chapterIndex: 2 });
   });
 
   it('reads vault book links as vault paths', () => {

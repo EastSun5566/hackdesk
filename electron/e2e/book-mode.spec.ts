@@ -102,6 +102,19 @@ test('a HackMD book shows its contents and walks through its chapters', async ()
     await contents(page).getByRole('button', { name: /Docs/ }).click();
     await expect.poll(async () => (await readFixture(app)).external).toEqual(['https://example.com/docs']);
 
+    // The book's notes opened from the sidebar are regular notes in regular tabs; the book stays in its own tab.
+    await page.getByRole('treeitem', { name: 'Setup', exact: true }).click();
+    await expect(editor(page)).toContainText('Setup body text.');
+    await expect(contents(page)).toHaveCount(0);
+    await expect(page.getByRole('tab', { selected: true }).locator('[data-tab-book]')).toHaveCount(0);
+    await page.getByRole('treeitem', { name: 'Handbook', exact: true }).click();
+    await expect(contents(page)).toHaveCount(0);
+    await expect(page.locator('[data-book-contents-note]')).toHaveCount(0);
+    await expect(tabs).toHaveCount(tabCount + 2);
+    await page.getByRole('tab', { name: /^Guide/ }).click();
+    await expect(contents(page)).toBeVisible();
+    await expect(page.getByRole('tab', { selected: true }).locator('[data-tab-book]')).toHaveText('Handbook ›');
+
     await contents(page).getByRole('button', { name: 'Close book' }).click();
     await expect(contents(page)).toHaveCount(0);
   } finally {

@@ -21,13 +21,21 @@ export type BookSession = {
   openChapter: (index: number) => void;
   /** Turns the book's tab back to the book itself: its table of contents. */
   openContentsPage: () => void;
-  positionOf: (document: DocumentSummary | undefined) => BookPosition | null;
-  /** Where a note known only by ID (a tab) is in the open book, if anywhere. */
-  positionOfNote: (note: { id: string; teamPath: string | null }) => BookPosition | null;
+  /**
+   * Where the note a tab shows is in the open book. Only the book's own tab reads as the book: the
+   * same note opened anywhere else (the sidebar, a link) is a regular note in a regular tab.
+   */
+  positionOf: (document: DocumentSummary | undefined, tabId: string | null | undefined) => BookPosition | null;
+  /** As positionOf, for a note known only by ID (a tab's). */
+  positionOfNote: (note: { id: string; teamPath: string | null }, tabId: string | null | undefined) => BookPosition | null;
+  /** The tab the book is read in, while a book is open. */
+  tabId: string | null;
 };
 
 type OpenBook = {
   document: DocumentSummary;
+  /** The tab the book was opened in; its chapters turn this tab. */
+  tabId: string | null;
   contents: Book;
   /** The note each chapter opens, once known: from local data, or from opening it. */
   chapterNotes: (string | null)[];
@@ -67,13 +75,19 @@ export function chapterTarget(book: DocumentSummary, target: string) {
  * themselves; any note can be opened as one. Chapters are matched from local data; opening a
  * chapter may ask HackMD once, as any link does.
  */
-export function useBookSession({ document, openNoteTarget, openExternal }: {
+export function useBookSession({ document, activeTabId, openNoteTarget, openExternal }: {
   /** The active document, which opens as a book when HackMD publishes it as one. */
   document: DocumentSummary | undefined;
+  /** The active tab: a book opens in it. */
+  activeTabId: string | null;
   openNoteTarget: OpenNoteTarget;
   openExternal: (url: string) => void;
 }): BookSession {
   const [state, setState] = useState<OpenBook | null>(null);
+  const activeTab = useRef(activeTabId);
+  useEffect(() => {
+    activeTab.current = activeTabId;
+  }, [activeTabId]);
   // HackMD books open when the reader turns to them, so a closed book stays closed while it is shown.
   const shown = useRef<string | null>(null);
 
@@ -84,6 +98,8 @@ export function useBookSession({ document, openNoteTarget, openExternal }: {
       const previous = current && documentKey(current.document) === key ? current : null;
       return {
         document: book,
+        // Reopening the same book (its text changed) keeps its tab.
+        tabId: previous?.tabId ?? activeTab.current,
         contents,
         // Keep what is known about chapters whose links did not change.
         chapterNotes: contents.chapters.map((chapter) => {
@@ -146,8 +162,8 @@ export function useBookSession({ document, openNoteTarget, openExternal }: {
       : { noteId: book.id, teamPath: book.teamPath, title: book.title, shortId: book.shortId, lastOpenedAtMillis: Date.now() }, { inPlace: true });
   }, [openNoteTarget, state]);
 
-  const positionOf = useCallback((current: DocumentSummary | undefined): BookPosition | null => {
-    if (!state || !current) return null;
+  const positionOf = useCallback((current: DocumentSummary | undefined, tabId: string | null | undefined): BookPosition | null => {
+    if (!state || !current || !tabId || tabId !== state.tabId) return null;
     const key = documentKey(current);
     if (key === documentKey(state.document)) return { isBook: true, chapterIndex: null };
     const chapterIndex = state.lastChapter !== null && state.chapterNotes[state.lastChapter] === key
@@ -156,8 +172,8 @@ export function useBookSession({ document, openNoteTarget, openExternal }: {
     return chapterIndex >= 0 ? { isBook: false, chapterIndex } : null;
   }, [state]);
 
-  const positionOfNote = useCallback((note: { id: string; teamPath: string | null }): BookPosition | null => {
-    if (!state) return null;
+  const positionOfNote = useCallback((note: { id: string; teamPath: string | null }, tabId: string | null | undefined): BookPosition | null => {
+    if (!state || !tabId || tabId !== state.tabId) return null;
     // Tabs carry no vault ID; a tab's notes all come from the open vault, so the ID and team suffice.
     const key = withoutVault(noteKey({ noteId: note.id, teamPath: note.teamPath, vaultId: '' }));
     if (key === withoutVault(documentKey(state.document))) return { isBook: true, chapterIndex: null };
@@ -187,9 +203,15 @@ export function useBookSession({ document, openNoteTarget, openExternal }: {
     openContentsPage,
     positionOf,
     positionOfNote,
+    tabId: state?.tabId ?? null,
   }), [close, contentsHidden, open, openChapter, openContentsPage, positionOf, positionOfNote, state, toggleContents]);
 }
 
 export const BookSessionContext = createContext<BookSession | null>(null);
 
 export const useBookSessionContext = () => useContext(BookSessionContext);
+
+/** The tab a document pane shows. Book reading shows only in the book's own tab (see positionOf). */
+export const PaneTabIdContext = createContext<string | null>(null);
+
+export const usePaneTabId = () => useContext(PaneTabIdContext);

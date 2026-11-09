@@ -692,23 +692,30 @@ describe('openNoteInPlace (a book\'s tab turning chapters)', () => {
     expect(Object.keys(state.tabs)).toEqual([tabId]);
   });
 
-  it('opens a new tab instead when the active tab has unsaved edits, which belong to its note', () => {
+  it('moves a note with unsaved edits to its own tab, edits included, and turns the tab', () => {
     let state = openNoteTab(createEmptyNoteWorkspaceState('scope'), book);
     const tabId = getActiveTab(state)!.tabId;
     state = updateNoteTabDraft(state, tabId, { title: 'Guide', content: 'edited' });
     state = openNoteInPlace(state, alpha);
-    expect(Object.keys(state.tabs)).toHaveLength(2);
+    expect(getActiveTab(state)!.tabId).toBe(tabId);
     expect(tabNote(state)).toBe('alpha');
-    expect(state.tabs[tabId]).toEqual(expect.objectContaining({ noteId: 'book' }));
-    expect(state.drafts[tabId]).toEqual(expect.objectContaining({ content: 'edited' }));
+    expect(state.drafts[tabId]).toBeUndefined();
+    const kept = Object.values(state.tabs).find(tab => tab.tabId !== tabId)!;
+    expect(kept).toEqual(expect.objectContaining({ noteId: 'book' }));
+    expect(state.drafts[kept.tabId]).toEqual(expect.objectContaining({ content: 'edited' }));
+    expect(state.panes[0].tabIds).toEqual([tabId, kept.tabId]);
   });
 
-  it('shows the note\'s own tab when it is already open elsewhere', () => {
+  it('takes a note over from another tab, edits included', () => {
     let state = openNoteTab(createEmptyNoteWorkspaceState('scope'), alpha);
     const alphaTab = getActiveTab(state)!.tabId;
+    state = updateNoteTabDraft(state, alphaTab, { title: 'Alpha', content: 'alpha edits' });
     state = openNoteTab(state, book);
+    const bookTab = getActiveTab(state)!.tabId;
     state = openNoteInPlace(state, alpha);
-    expect(getActiveTab(state)!.tabId).toBe(alphaTab);
-    expect(Object.keys(state.tabs)).toHaveLength(2);
+    expect(getActiveTab(state)!.tabId).toBe(bookTab);
+    expect(tabNote(state)).toBe('alpha');
+    expect(Object.keys(state.tabs)).toEqual([bookTab]);
+    expect(state.drafts[bookTab]).toEqual(expect.objectContaining({ content: 'alpha edits' }));
   });
 });

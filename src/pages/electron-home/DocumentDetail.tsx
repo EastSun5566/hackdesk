@@ -62,7 +62,7 @@ import { useAiInline } from './useAiInline';
 import { useDictation } from './useDictation';
 import { useNoteLinkOpener, type OpenNoteTarget } from './useNoteLinkOpener';
 import { BookPane, ChapterNav } from './BookContents';
-import { useBookSessionContext } from './useBookSession';
+import { useBookSessionContext, usePaneTabId } from './useBookSession';
 import { useNoteLinks } from './useNoteLinks';
 import { NoteVersionsDialog } from './NoteVersionsDialog';
 import { RenameNoteDialog } from './RenameNoteDialog';
@@ -392,8 +392,9 @@ function LoadingDocumentDetail({
   const path = summary ? getDocumentHeaderPath(summary, summary.teamPath === LOCAL_VAULT_TEAM_PATH, summary.teamPath ? lookupTeamName(summary.teamPath) : undefined) : [];
   // A chapter loading in the book's tab already shows its book as its place, as it will once loaded.
   const bookSession = useBookSessionContext();
+  const paneTabId = usePaneTabId();
   const bookPosition = bookSession?.book && selectedNote?.id
-    ? bookSession.positionOfNote({ id: selectedNote.id, teamPath: selectedNote.teamPath ?? summary?.teamPath ?? null })
+    ? bookSession.positionOfNote({ id: selectedNote.id, teamPath: selectedNote.teamPath ?? summary?.teamPath ?? null }, paneTabId)
     : null;
   const chapterOf = bookSession?.book && bookPosition && !bookPosition.isBook
     ? { title: bookSession.book.title, onOpenContents: bookSession.openContentsPage }
@@ -606,7 +607,8 @@ function ActiveDocumentDetail({
     : undefined;
 
   const bookSession = useBookSessionContext();
-  const bookPosition = bookSession?.book ? bookSession.positionOf(documentState.document) : null;
+  const paneTabId = usePaneTabId();
+  const bookPosition = bookSession?.book ? bookSession.positionOf(documentState.document, paneTabId) : null;
   const openBook = bookSession?.book && bookPosition ? { session: { ...bookSession, book: bookSession.book }, position: bookPosition } : null;
 
   return (
@@ -826,7 +828,8 @@ function DocumentHeader({
   const teamPath = documentState.document?.teamPath;
   const path = documentState.document ? getDocumentHeaderPath(documentState.document, isLocalDocument, teamPath ? lookupTeamName(teamPath) : undefined) : [];
   const bookSession = useBookSessionContext();
-  const bookPosition = bookSession?.book ? bookSession.positionOf(documentState.document) : null;
+  const paneTabId = usePaneTabId();
+  const bookPosition = bookSession?.book ? bookSession.positionOf(documentState.document, paneTabId) : null;
   const chapterOf = bookSession?.book && bookPosition && !bookPosition.isBook
     ? { title: bookSession.book.title, onOpenContents: bookSession.openContentsPage }
     : undefined;

@@ -516,21 +516,60 @@ export function openNoteTab(state: NoteWorkspaceState, note: NoteSummary, paneId
 
 /**
  * Shows a note in the pane's active tab instead of a new one: how a book's tab turns to a chapter.
- * Falls back to opening a tab as usual when the active tab has unsaved edits (they belong to its
- * note), holds no saved note, or the note is already open in another tab (which is then shown).
+ * Unsaved edits always stay with their note: a note with edits moves to a tab of its own (right
+ * after this one) before this tab turns, and a note already open in another tab is taken over from
+ * it, edits included. A tab holding no saved note opens a tab as usual.
  */
 export function openNoteInPlace(state: NoteWorkspaceState, note: NoteSummary, paneId = state.activePaneId) {
   const pane = state.panes.find((candidate) => candidate.paneId === paneId) ?? getActivePane(state);
   const tabId = pane.activeTabId;
   const tab = tabId ? state.tabs[tabId] : null;
   const shown = getSavedTabNoteIdentity(tab);
-  if (!tabId || !shown || state.drafts[tabId]) return openNoteTab(state, note, pane.paneId);
+  if (!tabId || !tab || !shown) return openNoteTab(state, note, pane.paneId);
   if (noteIdentityMatches(shown, note)) return state;
-  if (getTabByNoteIdentity(state, note)) return openNoteTab(state, note, pane.paneId);
+
+  let tabs = { ...state.tabs };
+  let drafts = { ...state.drafts };
+  let panes = state.panes;
+
+  // The note shown now keeps its edits in a tab of its own, beside this one.
+  const ownDraft = drafts[tabId];
+  if (ownDraft) {
+    const keptTab = { ...tab, tabId: createTabId() };
+    tabs[keptTab.tabId] = keptTab;
+    drafts[keptTab.tabId] = ownDraft;
+    delete drafts[tabId];
+    panes = panes.map((candidate) => candidate.paneId === pane.paneId
+      ? { ...candidate, tabIds: candidate.tabIds.flatMap((id) => (id === tabId ? [id, keptTab.tabId] : [id])) }
+      : candidate);
+  }
+
+  // A note open in another tab moves here, with any edits it has.
+  const other = Object.values(tabs).find((candidate) => candidate.tabId !== tabId && noteIdentityMatches(getSavedTabNoteIdentity(candidate), note));
+  const carriedDraft = other ? drafts[other.tabId] : undefined;
+  if (other) {
+    delete tabs[other.tabId];
+    delete drafts[other.tabId];
+    panes = panes.map((candidate) => {
+      if (!candidate.tabIds.includes(other.tabId)) return candidate;
+      const closedIndex = candidate.tabIds.indexOf(other.tabId);
+      const tabIds = candidate.tabIds.filter((id) => id !== other.tabId);
+      return {
+        ...candidate,
+        tabIds,
+        activeTabId: candidate.activeTabId === other.tabId ? tabIds[Math.min(closedIndex, tabIds.length - 1)] ?? null : candidate.activeTabId,
+      };
+    });
+  }
+
+  tabs = { ...tabs, [tabId]: other ? { ...other, tabId } : createTabFromNote(note, tabId) };
+  if (carriedDraft) drafts = { ...drafts, [tabId]: carriedDraft };
   const next = normalizeState({
     ...state,
+    tabs,
+    drafts,
+    panes: panes.map((candidate) => candidate.paneId === pane.paneId ? { ...candidate, activeTabId: tabId } : candidate),
     activePaneId: pane.paneId,
-    tabs: { ...state.tabs, [tabId]: createTabFromNote(note, tabId) },
   });
   return withNavigationHistory(state, next);
 }
