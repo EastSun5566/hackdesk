@@ -387,7 +387,7 @@ describe('registerIpcHandlers', () => {
 
     expect(settingsMock.readHackmdCliAccessToken).toHaveBeenCalledOnce();
     expect(hackmdServiceMock.validateToken).toHaveBeenCalledWith('cli-token');
-    expect(settingsMock.updateStoredSettings).toHaveBeenCalledWith({ hackmdApiToken: 'cli-token' });
+    expect(settingsMock.updateStoredSettings).toHaveBeenCalledWith({ hackmdApiToken: 'cli-token', hackmdAccountLabel: '@michael' });
     expect(result).toMatchObject({
       settings: {
         hasHackmdApiToken: true,

@@ -379,7 +379,7 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.settingsImportHackmdCliToken, async () => {
     const token = await readHackmdCliAccessToken();
     const user = await validateToken(token);
-    const settings = await updateStoredSettings({ hackmdApiToken: token });
+    const settings = await updateStoredSettings({ hackmdApiToken: token, hackmdAccountLabel: `@${user.username}` });
     clearHackmdCache();
     options.onSettingsUpdated?.(settings);
     return { settings, user };

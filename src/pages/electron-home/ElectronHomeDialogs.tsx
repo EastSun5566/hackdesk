@@ -69,7 +69,7 @@ export type ElectronHomeDialogsProps = {
   onRenameFolder: (folderId: string, input: UpdateFolderInput) => void;
   onRenameFolderStateChange: (state: RenameFolderDialogState) => void;
   onSaveSettings: (input: SettingsFormInput) => void;
-  onSaveToken: (token: string) => Promise<void>;
+  onSaveToken: (token: string, label?: string) => Promise<void>;
   onSettingsOpenChange: (open: boolean) => void;
   onSetupLater: () => Promise<void>;
 };

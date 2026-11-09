@@ -306,7 +306,7 @@ export function useElectronNoteMutations({
     },
     onSuccess: (nextSettings, input) => {
       queryClient.setQueryData(['electron', 'settings'], nextSettings);
-      if (input.hackmdApiToken !== undefined) {
+      if (input.hackmdApiToken !== undefined || input.hackmdActiveAccountId !== undefined || input.hackmdRemoveAccountId !== undefined) {
         if (nextSettings.hasHackmdApiToken) {
           void queryClient.invalidateQueries({ queryKey: ['electron', 'hackmd'] });
         } else {

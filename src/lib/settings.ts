@@ -53,6 +53,16 @@ export type LocalVaultSettings = {
   activeVaultId: string | null;
 };
 
+export type HackmdAccountEntry = {
+  id: string;
+  label: string;
+};
+
+export type HackmdAccountsSettings = {
+  accounts: HackmdAccountEntry[];
+  activeAccountId: string | null;
+};
+
 export type EditorMode = 'standard' | 'emacs' | 'vim' | 'helix' | 'kakoune';
 
 export type EditorSettings = {
@@ -125,6 +135,11 @@ export const defaultLocalVaultSettings: LocalVaultSettings = {
   activeVaultId: null,
 };
 
+export const defaultHackmdAccountsSettings: HackmdAccountsSettings = {
+  accounts: [],
+  activeAccountId: null,
+};
+
 export const defaultEditorSettings: EditorSettings = {
   mode: 'standard',
 };
@@ -155,10 +170,123 @@ export const defaultDictationSettings: DictationSettings = {
 };
 
 const hexColorSchema = z.string().regex(/^#[\da-fA-F]{6}$/);
+const hackmdAccountsSettingsSchema = z.unknown().default(defaultHackmdAccountsSettings).transform(
+  (value): HackmdAccountsSettings => normalizeHackmdAccountsSettings(value),
+);
 const localVaultSettingsSchema = z.unknown().default(defaultLocalVaultSettings).transform(
   (value): LocalVaultSettings => normalizeLocalVaultSettings(value),
 );
 
+/** Stable per-account identity, so switching never confuses one token for another. */
+export function createHackmdAccountId() {
+  try {
+    const id = globalThis.crypto?.randomUUID?.();
+    if (typeof id === 'string' && id.length > 0) {
+      return id;
+    }
+  } catch {
+    // Fall through to the Math.random fallback below.
+  }
+  return `account-${Date.now().toString(36)}-${Math.floor(Math.random() * 2 ** 32).toString(36)}`;
+}
+
+const MAX_HACKMD_ACCOUNTS = 10;
+
+function normalizeAccountLabel(label: unknown) {
+  if (typeof label !== 'string') {
+    return '';
+  }
+  const trimmed = label.trim();
+  return trimmed.length <= 200 ? trimmed : '';
+}
+
+/**
+ * Normalizes any stored value into an account list. Never throws: garbage becomes empty.
+ * Unknown active ids fall back to the first account.
+ */
+export function normalizeHackmdAccountsSettings(value: unknown): HackmdAccountsSettings {
+  const source = (value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null) ?? {};
+
+  const seenIds = new Set<string>();
+  const accounts: HackmdAccountEntry[] = [];
+  if (Array.isArray(source.accounts)) {
+    for (const raw of source.accounts) {
+      if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+        continue;
+      }
+      const rawId = (raw as Record<string, unknown>).id;
+      const id = typeof rawId === 'string' && rawId.trim().length > 0 && rawId.trim().length <= 200
+        ? rawId.trim()
+        : createHackmdAccountId();
+      if (seenIds.has(id)) {
+        continue;
+      }
+      seenIds.add(id);
+      accounts.push({ id, label: normalizeAccountLabel((raw as Record<string, unknown>).label) });
+      if (accounts.length >= MAX_HACKMD_ACCOUNTS) {
+        break;
+      }
+    }
+  }
+
+  if (accounts.length === 0) {
+    return { accounts: [], activeAccountId: null };
+  }
+
+  const rawActive = typeof source.activeAccountId === 'string' ? source.activeAccountId.trim() : null;
+  const activeAccountId = rawActive && seenIds.has(rawActive) ? rawActive : accounts[0].id;
+  return { accounts, activeAccountId };
+}
+
+export function getActiveHackmdAccount(
+  settings: Pick<AppSettings, 'hackmdAccounts'> | undefined,
+): HackmdAccountEntry | null {
+  if (!settings) {
+    return null;
+  }
+  const active = settings.hackmdAccounts.accounts.find((account) => account.id === settings.hackmdAccounts.activeAccountId);
+  return active ?? settings.hackmdAccounts.accounts[0] ?? null;
+}
+
+/** Adds an account and activates it; blank labels stay blank until a username names them. */
+export function addHackmdAccount(
+  current: HackmdAccountsSettings,
+  label: string,
+): HackmdAccountsSettings {
+  const entry = { id: createHackmdAccountId(), label: normalizeAccountLabel(label) };
+  return { accounts: [...current.accounts, entry].slice(-MAX_HACKMD_ACCOUNTS), activeAccountId: entry.id };
+}
+
+export function setActiveHackmdAccount(
+  current: HackmdAccountsSettings,
+  id: string,
+): HackmdAccountsSettings {
+  if (!current.accounts.some((account) => account.id === id)) {
+    return current;
+  }
+  return { accounts: current.accounts, activeAccountId: id };
+}
+
+/** Forgets an account; the first remaining one becomes active when it was the active one. */
+export function removeHackmdAccount(
+  current: HackmdAccountsSettings,
+  id: string,
+): HackmdAccountsSettings {
+  const accounts = current.accounts.filter((account) => account.id !== id);
+  if (accounts.length === current.accounts.length) {
+    return current;
+  }
+  if (accounts.length === 0) {
+    return { accounts: [], activeAccountId: null };
+  }
+  const activeAccountId = current.activeAccountId === id ? accounts[0].id : current.activeAccountId;
+  return {
+    accounts,
+    activeAccountId: activeAccountId && accounts.some((account) => account.id === activeAccountId) ? activeAccountId : accounts[0].id,
+  };
+}
 /** Stable per-vault identity, so renames and moves keep referring to the same vault. */
 export function createLocalVaultId() {
   try {
@@ -388,6 +516,7 @@ export const appearanceSettingsSchema = z.object({
 export const settingsSchema = z.object({
   title: z.string().min(1, 'Title is required').max(50, 'Title too long'),
   hackmdApiToken: z.string().trim().default(''),
+  hackmdAccounts: hackmdAccountsSettingsSchema,
   appearance: appearanceSettingsSchema,
   onboarding: z.object({
     hackmdTokenSetupDeferred: z.boolean().default(defaultOnboardingSettings.hackmdTokenSetupDeferred),
@@ -414,7 +543,7 @@ export type AppSettings = z.infer<typeof settingsSchema>;
 export const defaultSettings: AppSettings = {
   title: DEFAULT_TITLE,
   hackmdApiToken: '',
-  appearance: defaultAppearanceSettings,
+  hackmdAccounts: defaultHackmdAccountsSettings,  appearance: defaultAppearanceSettings,
   onboarding: defaultOnboardingSettings,
   localVault: defaultLocalVaultSettings,
   editor: defaultEditorSettings,
@@ -445,6 +574,7 @@ const storedShortcutSettingsSchema = z.record(z.string(), z.unknown())
 const storedSettingsSchema = z.object({
   title: settingsSchema.shape.title.catch(defaultSettings.title),
   hackmdApiToken: settingsSchema.shape.hackmdApiToken.catch(defaultSettings.hackmdApiToken),
+  hackmdAccounts: settingsSchema.shape.hackmdAccounts.catch(defaultSettings.hackmdAccounts),
   appearance: settingsSchema.shape.appearance.catch(defaultSettings.appearance),
   onboarding: settingsSchema.shape.onboarding.catch(defaultSettings.onboarding),
   localVault: settingsSchema.shape.localVault.catch(defaultSettings.localVault),

@@ -224,6 +224,10 @@ export const settingsUpdateSchema = z.strictObject({
   offline: z.strictObject({
     keepHackmdNotes: z.boolean(),
   }).optional(),
+  hackmdAccountLabel: z.string().trim().min(1).max(200).optional(),
+  hackmdAddAccount: z.boolean().optional(),
+  hackmdActiveAccountId: z.string().trim().min(1).max(200).optional(),
+  hackmdRemoveAccountId: z.string().trim().min(1).max(200).optional(),
 });
 
 export const aiProviderIdInputSchema = aiProviderIdSchema;

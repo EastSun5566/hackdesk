@@ -34,6 +34,7 @@ function safeSettings(overrides: Partial<ElectronSafeSettings> = {}): ElectronSa
     appearance: defaultSettings.appearance,
     editor: defaultSettings.editor,
     hasHackmdApiToken: false,
+    hackmdAccounts: { accounts: [], activeAccountId: null },
     hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
     hasLocalVault: true,
     localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },

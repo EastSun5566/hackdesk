@@ -43,6 +43,10 @@ export type HackmdRequestOptions = { requestId: string };
 
 export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'workspaceNavigation'> & {
   hasHackmdApiToken: boolean;
+  hackmdAccounts: {
+    accounts: HackmdAccountSummary[];
+    activeAccountId: string | null;
+  };
   hackmdTokenStorageError?: string | null;
   hasAppearanceSettings?: boolean;
   hackmdCliConfig: HackmdCliConfigStatus;
@@ -59,6 +63,20 @@ export type ElectronSafeSettings = Pick<AppSettings, 'title' | 'appearance' | 'e
 
 export type ElectronSettingsUpdate = Partial<Pick<AppSettings, 'title' | 'appearance' | 'editor' | 'shortcuts' | 'onboarding' | 'workspaceNavigation' | 'keyboardNavigation' | 'ai' | 'dictation' | 'offline'>> & {
   hackmdApiToken?: string;
+  /** Labels a newly connected account; also renames the active one when replacing its token. */
+  hackmdAccountLabel?: string;
+  /** Connects the token as a new account instead of replacing the active one. */
+  hackmdAddAccount?: boolean;
+  /** Switches the active account; unknown ids keep the current one. */
+  hackmdActiveAccountId?: string;
+  /** Forgets one account and its token. */
+  hackmdRemoveAccountId?: string;
+};
+
+export type HackmdAccountSummary = {
+  id: string;
+  label: string;
+  hasToken: boolean;
 };
 
 export type HackmdCliConfigStatus = {

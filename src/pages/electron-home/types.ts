@@ -45,6 +45,10 @@ export type RenameFolderDialogState = {
 export type SettingsFormInput = {
   title: string;
   hackmdApiToken?: string;
+  hackmdAccountLabel?: string;
+  hackmdAddAccount?: boolean;
+  hackmdActiveAccountId?: string;
+  hackmdRemoveAccountId?: string;
   appearance?: AppearanceSettings;
   editor?: EditorSettings;
   shortcuts?: ShortcutSettings;

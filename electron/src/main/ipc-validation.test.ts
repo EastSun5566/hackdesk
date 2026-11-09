@@ -167,6 +167,21 @@ describe('IPC runtime validation', () => {
     })).toThrow();
   });
 
+  it('accepts account management fields in settings updates', () => {
+    expect(validateIpcInput('settings:update', settingsUpdateSchema, {
+      hackmdApiToken: 'secret',
+      hackmdAccountLabel: '@ada',
+      hackmdAddAccount: true,
+    })).toMatchObject({ hackmdApiToken: 'secret', hackmdAccountLabel: '@ada', hackmdAddAccount: true });
+    expect(validateIpcInput('settings:update', settingsUpdateSchema, {
+      hackmdActiveAccountId: 'account-1',
+      hackmdRemoveAccountId: 'account-2',
+    })).toMatchObject({ hackmdActiveAccountId: 'account-1', hackmdRemoveAccountId: 'account-2' });
+    expect(() => validateIpcInput('settings:update', settingsUpdateSchema, {
+      hackmdActiveAccountId: '',
+    })).toThrow();
+  });
+
   it('rejects unknown editor modes in settings updates', () => {
     expect(() => validateIpcInput('settings:update', settingsUpdateSchema, {
       editor: { mode: 'nano' },

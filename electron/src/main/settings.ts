@@ -2,14 +2,19 @@ import { randomUUID } from 'node:crypto';
 import { lstat, mkdir, open, readFile, rename, rm } from 'node:fs/promises';
 
 import {
+  addHackmdAccount,
   addLocalVault,
   defaultSettings,
+  getActiveHackmdAccount,
   getActiveLocalVaultPath,
   parseStoredSettings,
+  removeHackmdAccount,
   removeLocalVault,
   serializeSettings,
+  setActiveHackmdAccount,
   validateSettings,
   type AppSettings,
+  type HackmdAccountsSettings,
 } from '../../../src/lib/settings';
 import type { ElectronSafeSettings, ElectronSettingsUpdate, HackmdCliConfigStatus } from '../../../src/lib/electron-api';
 import { getHackDeskRootPath, getHackmdCliConfigPath, getSettingsPath } from './paths';
@@ -25,7 +30,8 @@ const legacyTokenStorageError = 'Your saved HackMD token could not be protected.
 type StoredSettingsMetadata = {
   settings: AppSettings;
   hasStoredAppearance: boolean;
-  encryptedToken?: unknown;
+  /** Encrypted tokens by account id. */
+  accountTokens?: Record<string, unknown>;
   tokenStorageError?: string;
 };
 
@@ -48,10 +54,12 @@ function toSafeSettings(
   settings: AppSettings,
   hasStoredAppearance = true,
   hackmdCliConfig: HackmdCliConfigStatus = defaultHackmdCliConfigStatus,
-  encryptedToken?: unknown,
+  accountTokens?: Record<string, unknown>,
   tokenStorageError?: string,
 ): ElectronSafeSettings {
-  const hasHackmdApiToken = encryptedToken !== undefined || settings.hackmdApiToken.trim().length > 0;
+  const activeAccount = getActiveHackmdAccount(settings);
+  const activeBlob = activeAccount ? accountTokens?.[activeAccount.id] : undefined;
+  const hasHackmdApiToken = activeBlob !== undefined || settings.hackmdApiToken.trim().length > 0;
   const hasLocalVault = getActiveLocalVaultPath(settings) !== null;
 
   return {
@@ -65,6 +73,13 @@ function toSafeSettings(
     dictation: settings.dictation,
     offline: settings.offline,
     hasHackmdApiToken,
+    hackmdAccounts: {
+      accounts: settings.hackmdAccounts.accounts.map((account) => ({
+        ...account,
+        hasToken: accountTokens?.[account.id] !== undefined,
+      })),
+      activeAccountId: activeAccount?.id ?? null,
+    },
     hackmdTokenStorageError: tokenStorageError ?? null,
     hasAppearanceSettings: hasStoredAppearance,
     hasLocalVault,
@@ -133,11 +148,36 @@ async function readStoredSettingsWithMetadata(): Promise<StoredSettingsMetadata>
     const content = await readFile(getSettingsPath(), 'utf8');
     const settings = parseStoredSettings(content);
     const parsed: unknown = JSON.parse(content);
-    const hasEncryptedToken = isRecord(parsed) && Object.hasOwn(parsed, 'hackmdApiTokenEncrypted');
+    const accountTokens: Record<string, unknown> = {};
+    if (isRecord(parsed) && isRecord(parsed.hackmdAccountTokensEncrypted)) {
+      Object.assign(accountTokens, parsed.hackmdAccountTokensEncrypted);
+    }
+    // A single-token file from before multi-account support becomes one unnamed account.
+    // An interrupted migration left both shapes: the old token joins as one more account.
+    const legacyBlob = isRecord(parsed) && Object.hasOwn(parsed, 'hackmdApiTokenEncrypted')
+      ? parsed.hackmdApiTokenEncrypted
+      : undefined;
+    let migratedSettings = settings;
+    if (legacyBlob !== undefined) {
+      const previousActive = settings.hackmdAccounts.activeAccountId;
+      const withLegacy = addHackmdAccount(settings.hackmdAccounts, '');
+      const added = withLegacy.accounts.at(-1);
+      if (added) {
+        accountTokens[added.id] = legacyBlob;
+      }
+      migratedSettings = {
+        ...settings,
+        hackmdApiToken: '',
+        // A fresh file activates the migrated token; an interrupted migration keeps its account.
+        hackmdAccounts: previousActive
+          ? setActiveHackmdAccount(withLegacy, previousActive)
+          : withLegacy,
+      };
+    }
     return {
-      settings: hasEncryptedToken ? { ...settings, hackmdApiToken: '' } : settings,
+      settings: migratedSettings,
       hasStoredAppearance: hasAppearanceSettings(content),
-      ...(hasEncryptedToken ? { encryptedToken: parsed.hackmdApiTokenEncrypted } : {}),
+      ...(Object.keys(accountTokens).length > 0 ? { accountTokens } : {}),
     };
   } catch (error) {
     if (isMissingFileError(error)) {
@@ -153,11 +193,19 @@ async function readStoredSettingsWithMetadata(): Promise<StoredSettingsMetadata>
 
 async function readAndMigrateSettings(): Promise<StoredSettingsMetadata> {
   const metadata = await readStoredSettingsWithMetadata();
-  if (metadata.encryptedToken === undefined && metadata.settings.hackmdApiToken) {
+  if (metadata.accountTokens === undefined && metadata.settings.hackmdApiToken) {
     try {
-      const encryptedToken = encryptHackmdToken(metadata.settings.hackmdApiToken);
-      await writeStoredSettings(metadata.settings, encryptedToken);
-      return { ...metadata, settings: { ...metadata.settings, hackmdApiToken: '' }, encryptedToken };
+      const blob = encryptHackmdToken(metadata.settings.hackmdApiToken);
+      let accounts = metadata.settings.hackmdAccounts;
+      let active = getActiveHackmdAccount({ hackmdAccounts: accounts });
+      if (!active) {
+        accounts = addHackmdAccount(accounts, '');
+        active = getActiveHackmdAccount({ hackmdAccounts: accounts });
+      }
+      const accountTokens = active ? { [active.id]: blob } : {};
+      const settings = { ...metadata.settings, hackmdApiToken: '', hackmdAccounts: accounts };
+      await writeStoredSettings(settings, accountTokens);
+      return { ...metadata, settings, accountTokens };
     } catch {
       // Preserve the original file so an unavailable keyring or failed write cannot lose a token.
       return { ...metadata, tokenStorageError: legacyTokenStorageError };
@@ -245,24 +293,28 @@ export function readStoredSettings(): Promise<AppSettings> {
 
 async function safeSettingsFromMetadata(metadata: StoredSettingsMetadata): Promise<ElectronSafeSettings> {
   let tokenStorageError = metadata.tokenStorageError;
-  if (metadata.encryptedToken !== undefined) {
-    try { decryptHackmdToken(metadata.encryptedToken); }
+  const activeAccount = getActiveHackmdAccount(metadata.settings);
+  const activeBlob = activeAccount ? metadata.accountTokens?.[activeAccount.id] : undefined;
+  if (activeBlob !== undefined) {
+    try { decryptHackmdToken(activeBlob); }
     catch (error) { tokenStorageError = error instanceof Error ? error.message : 'Could not unlock the saved HackMD token.'; }
   }
   const hackmdCliConfig = await getHackmdCliConfigStatus();
-  return toSafeSettings(metadata.settings, metadata.hasStoredAppearance, hackmdCliConfig, metadata.encryptedToken, tokenStorageError);
+  return toSafeSettings(metadata.settings, metadata.hasStoredAppearance, hackmdCliConfig, metadata.accountTokens, tokenStorageError);
 }
 
 export function getSafeSettings(): Promise<ElectronSafeSettings> {
   return enqueueSettingsOperation(async () => safeSettingsFromMetadata(await readAndMigrateSettings()));
 }
 
-async function writeStoredSettings(settings: AppSettings, encryptedToken?: unknown) {
+async function writeStoredSettings(settings: AppSettings, accountTokens?: Record<string, unknown>, options?: { legacyPlaintextToken?: string }) {
   const parsed = JSON.parse(serializeSettings({
     ...settings,
-    hackmdApiToken: encryptedToken !== undefined ? '' : settings.hackmdApiToken,
+    hackmdApiToken: options?.legacyPlaintextToken ?? (accountTokens !== undefined ? '' : settings.hackmdApiToken),
   }));
-  if (encryptedToken !== undefined) parsed.hackmdApiTokenEncrypted = encryptedToken;
+  if (accountTokens !== undefined && Object.keys(accountTokens).length > 0) {
+    parsed.hackmdAccountTokensEncrypted = accountTokens;
+  }
   const content = JSON.stringify(parsed, null, 2);
   await mkdir(getHackDeskRootPath(), { recursive: true, mode: 0o700 });
   const settingsPath = getSettingsPath();
@@ -288,19 +340,76 @@ async function updateStoredSettingsUnlocked(
 ): Promise<ElectronSafeSettings> {
   const metadata = await readStoredSettingsWithMetadata();
   const current = metadata.settings;
-  let encryptedToken = metadata.encryptedToken;
+  let nextAccounts: HackmdAccountsSettings = current.hackmdAccounts;
+  let nextTokens: Record<string, unknown> = { ...(metadata.accountTokens ?? {}) };
   let retainedLegacyToken = '';
   let tokenStorageError: string | undefined;
+  const labelUpdate = update.hackmdAccountLabel?.trim().slice(0, 200);
   if (update.hackmdApiToken !== undefined) {
     const token = update.hackmdApiToken.trim();
-    encryptedToken = token ? encryptHackmdToken(token) : undefined;
+    if (!token) {
+      // Disconnecting forgets the active account and falls back to the next one.
+      const active = getActiveHackmdAccount({ hackmdAccounts: nextAccounts });
+      if (active) {
+        nextAccounts = removeHackmdAccount(nextAccounts, active.id);
+        delete nextTokens[active.id];
+      }
+    } else {
+      const blob = encryptHackmdToken(token);
+      let active = getActiveHackmdAccount({ hackmdAccounts: nextAccounts });
+      let activeToken = '';
+      if (active && nextTokens[active.id] !== undefined) {
+        try {
+          activeToken = decryptHackmdToken(nextTokens[active.id]).trim();
+        } catch {
+          // A broken token never matches: the save replaces it.
+        }
+      }
+      if ((update.hackmdAddAccount && activeToken !== token) || !active) {
+        nextAccounts = addHackmdAccount(nextAccounts, labelUpdate ?? '');
+        active = getActiveHackmdAccount({ hackmdAccounts: nextAccounts });
+      } else if (labelUpdate !== undefined && active) {
+        const activeId = active.id;
+        nextAccounts = {
+          accounts: nextAccounts.accounts.map((account) => (
+            account.id === activeId ? { ...account, label: labelUpdate } : account
+          )),
+          activeAccountId: nextAccounts.activeAccountId,
+        };
+      }
+      if (active) {
+        nextTokens[active.id] = blob;
+      }
+    }
   } else if (current.hackmdApiToken) {
+    // A plaintext file from before account migration moves into the active account now.
     try {
-      encryptedToken = encryptHackmdToken(current.hackmdApiToken);
+      const blob = encryptHackmdToken(current.hackmdApiToken);
+      let active = getActiveHackmdAccount({ hackmdAccounts: nextAccounts });
+      if (!active) {
+        nextAccounts = addHackmdAccount(nextAccounts, labelUpdate ?? '');
+        active = getActiveHackmdAccount({ hackmdAccounts: nextAccounts });
+      }
+      if (active) {
+        nextTokens[active.id] = blob;
+      }
     } catch {
       // Only preserve an existing legacy credential; new credentials never fall back to plaintext.
       retainedLegacyToken = current.hackmdApiToken;
       tokenStorageError = legacyTokenStorageError;
+    }
+  }
+  if (update.hackmdActiveAccountId !== undefined) {
+    nextAccounts = setActiveHackmdAccount(nextAccounts, update.hackmdActiveAccountId);
+  }
+  if (update.hackmdRemoveAccountId !== undefined) {
+    nextAccounts = removeHackmdAccount(nextAccounts, update.hackmdRemoveAccountId);
+  }
+  // Blobs without an account are dropped so removed accounts leave nothing behind.
+  const knownAccountIds = new Set(nextAccounts.accounts.map((account) => account.id));
+  for (const id of Object.keys(nextTokens)) {
+    if (!knownAccountIds.has(id)) {
+      delete nextTokens[id];
     }
   }
   const nextOnboarding = update.hackmdApiToken && update.hackmdApiToken.trim()
@@ -309,6 +418,7 @@ async function updateStoredSettingsUnlocked(
   const next = validateSettings({
     title: update.title ?? current.title,
     hackmdApiToken: retainedLegacyToken,
+    hackmdAccounts: nextAccounts,
     appearance: update.appearance ?? current.appearance,
     editor: update.editor ?? current.editor,
     shortcuts: update.shortcuts ?? current.shortcuts,
@@ -329,9 +439,13 @@ async function updateStoredSettingsUnlocked(
         : addLocalVault(current.localVault, update.localVaultPath),
   });
 
-  await writeStoredSettings(next, encryptedToken);
+  await writeStoredSettings(
+    next,
+    nextTokens,
+    retainedLegacyToken ? { legacyPlaintextToken: retainedLegacyToken } : undefined,
+  );
 
-  return safeSettingsFromMetadata({ settings: next, hasStoredAppearance: true, encryptedToken, tokenStorageError });
+  return safeSettingsFromMetadata({ settings: next, hasStoredAppearance: true, accountTokens: nextTokens, tokenStorageError });
 }
 
 export function updateStoredSettings(
@@ -344,7 +458,9 @@ export function readHackmdApiToken(): Promise<string> {
   return enqueueSettingsOperation(async () => {
     const metadata = await readAndMigrateSettings();
     if (metadata.tokenStorageError) throw new Error(metadata.tokenStorageError);
-    const token = metadata.encryptedToken !== undefined ? decryptHackmdToken(metadata.encryptedToken).trim() : '';
+    const active = getActiveHackmdAccount(metadata.settings);
+    const blob = active ? metadata.accountTokens?.[active.id] : undefined;
+    const token = blob !== undefined ? decryptHackmdToken(blob).trim() : '';
 
     if (!token) {
       throw new Error('HackMD API token is not configured. Please add it in Settings.');

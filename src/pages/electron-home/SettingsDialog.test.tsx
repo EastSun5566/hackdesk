@@ -46,6 +46,7 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
     appearance: defaultSettings.appearance,
     editor: defaultSettings.editor,
     hasHackmdApiToken: false,
+    hackmdAccounts: { accounts: [], activeAccountId: null },
     hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
     hasLocalVault: false,
     localVault: defaultSettings.localVault,
@@ -333,6 +334,7 @@ describe('SettingsDialog', () => {
         appearance: defaultSettings.appearance,
         editor: { mode: 'vim' },
         hasHackmdApiToken: false,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
         hasLocalVault: false,
         localVault: defaultSettings.localVault,
@@ -649,6 +651,7 @@ describe('SettingsDialog', () => {
       expect(onSave).toHaveBeenCalledWith({
         title: 'HackDesk',
         hackmdApiToken: 'secret-token',
+        hackmdAccountLabel: '@michael5566',
       });
     });
   });
@@ -722,6 +725,7 @@ describe('SettingsDialog', () => {
         appearance: defaultSettings.appearance,
         editor: defaultSettings.editor,
         hasHackmdApiToken: true,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
         hasLocalVault: false,
         localVault: defaultSettings.localVault,
@@ -754,6 +758,7 @@ describe('SettingsDialog', () => {
         appearance: defaultSettings.appearance,
         editor: defaultSettings.editor,
         hasHackmdApiToken: true,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
         hasLocalVault: false,
         localVault: defaultSettings.localVault,
@@ -774,6 +779,7 @@ describe('SettingsDialog', () => {
         title: 'HackDesk', appearance: defaultSettings.appearance, editor: defaultSettings.editor,
         workspaceNavigation: defaultSettings.workspaceNavigation,
         hasHackmdApiToken: true, hackmdTokenStorageError: 'Unlock your system keyring or reconnect.',
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
         hasLocalVault: true, localVault: { vaults: [{ id: 'vault-tmp', path: '/tmp/vault' }], activeVaultId: 'vault-tmp' }, onboarding: defaultSettings.onboarding,
         shouldShowHackmdOnboarding: false,
@@ -792,6 +798,7 @@ describe('SettingsDialog', () => {
         appearance: defaultSettings.appearance,
         editor: defaultSettings.editor,
         hasHackmdApiToken: true,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
         hasLocalVault: false,
         localVault: defaultSettings.localVault,
@@ -833,6 +840,79 @@ describe('SettingsDialog', () => {
     expect(onDisconnectHackmd).toHaveBeenCalledOnce();
   });
 
+  it('lists connected accounts with switch and forget actions', () => {
+    const { onSave } = renderSettingsDialog({
+      settings: {
+        title: 'HackDesk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
+        appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
+        hasHackmdApiToken: true,
+        hackmdAccounts: {
+          accounts: [
+            { id: 'a1', label: '@ada', hasToken: true },
+            { id: 'g1', label: '@grace', hasToken: true },
+          ],
+          activeAccountId: 'a1',
+        },
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: false,
+        localVault: defaultSettings.localVault,
+        onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: false,
+      },
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+    expect(screen.getByText('@ada')).toBeVisible();
+    expect(screen.getByText('@grace')).toBeVisible();
+    expect(screen.getByText('Active')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch' }));
+    expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk', hackmdActiveAccountId: 'g1' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Forget' }));
+    const confirm = screen.getByRole('alertdialog', { name: 'Forget @grace?' });
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Forget Account' }));
+    expect(onSave).toHaveBeenCalledWith({ title: 'HackDesk', hackmdRemoveAccountId: 'g1' });
+  });
+
+  it('connects another account from the token form without replacing the active one', async () => {
+    const { onSave } = renderSettingsDialog({
+      onValidateToken: vi.fn(async () => validatedUser),
+      settings: {
+        title: 'HackDesk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
+        appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
+        hasHackmdApiToken: true,
+        hackmdAccounts: {
+          accounts: [{ id: 'a1', label: '@ada', hasToken: true }],
+          activeAccountId: 'a1',
+        },
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: false,
+        localVault: defaultSettings.localVault,
+        onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: false,
+      },
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: /HackMD/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Connect another account' }));
+    fireEvent.change(screen.getByLabelText('API Token'), { target: { value: 'second-token' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Connect account' }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith({
+        title: 'HackDesk',
+        hackmdApiToken: 'second-token',
+        hackmdAccountLabel: '@michael5566',
+        hackmdAddAccount: true,
+      });
+    });
+  });
+
   it('does not show Disconnect HackMD without a configured token', () => {
     renderSettingsDialog();
 
@@ -854,6 +934,7 @@ describe('SettingsDialog', () => {
         appearance: defaultSettings.appearance,
         editor: defaultSettings.editor,
         hasHackmdApiToken: false,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
         hasLocalVault: true,
         localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },

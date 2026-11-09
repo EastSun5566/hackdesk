@@ -36,7 +36,8 @@ test('migrates a legacy credential with the OS provider, or preserves it and rej
       const stored = JSON.parse(await readFile(path, 'utf8'));
       expect(stored.hackmdApiToken).toBe('');
       expect(JSON.stringify(stored)).not.toContain(token);
-      expect(await app.evaluate(({ safeStorage }, envelope) => safeStorage.decryptString(Buffer.from(envelope.ciphertext, 'base64')), stored.hackmdApiTokenEncrypted)).toBe(token);
+      const accountId = Object.keys(stored.hackmdAccountTokensEncrypted)[0];
+      expect(await app.evaluate(({ safeStorage }, envelope) => safeStorage.decryptString(Buffer.from(envelope.ciphertext, 'base64')), stored.hackmdAccountTokensEncrypted[accountId])).toBe(token);
       await app.close();
       ({ app, page } = await launch(home));
       await expect(page.locator('.cm-content')).toContainText('Local notes still work');
@@ -44,7 +45,7 @@ test('migrates a legacy credential with the OS provider, or preserves it and rej
       expect(restored).toMatchObject({ hasHackmdApiToken: true, hackmdTokenStorageError: null });
       // A damaged credential must not stop startup or disappear on unrelated settings writes.
       await app.close();
-      stored.hackmdApiTokenEncrypted.ciphertext = 'AA==';
+      stored.hackmdAccountTokensEncrypted[accountId].ciphertext = 'AA==';
       await writeFile(path, JSON.stringify(stored));
       ({ app, page } = await launch(home));
       await expect(page.locator('.cm-content')).toContainText('Local notes still work');
@@ -52,7 +53,7 @@ test('migrates a legacy credential with the OS provider, or preserves it and rej
         hasHackmdApiToken: true, hackmdTokenStorageError: expect.stringContaining('Could not unlock'),
       });
       await page.evaluate(() => window.hackdeskAPI!.settings.update({ title: 'Still local' }));
-      expect(JSON.parse(await readFile(path, 'utf8')).hackmdApiTokenEncrypted).toEqual(stored.hackmdApiTokenEncrypted);
+      expect(JSON.parse(await readFile(path, 'utf8')).hackmdAccountTokensEncrypted).toEqual(stored.hackmdAccountTokensEncrypted);
     } else {
       expect(settings.hackmdTokenStorageError).toContain('could not be protected');
       expect(await readFile(path, 'utf8')).toBe(original);
@@ -70,7 +71,7 @@ test('migrates a legacy credential with the OS provider, or preserves it and rej
     await expect(page.getByRole('alert')).toBeVisible();
     await page.screenshot({ path: test.info().outputPath('credential-storage-error.png') });
     await page.evaluate(() => window.hackdeskAPI!.settings.update({ hackmdApiToken: '' }));
-    expect(JSON.parse(await readFile(path, 'utf8'))).not.toHaveProperty('hackmdApiTokenEncrypted');
+    expect(JSON.parse(await readFile(path, 'utf8'))).not.toHaveProperty('hackmdAccountTokensEncrypted');
   } finally {
     await app.close();
     await rm(home, { recursive: true, force: true });

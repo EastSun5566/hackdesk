@@ -108,12 +108,19 @@ describe('Electron settings', () => {
   });
 
   it('stores only ciphertext with private permissions and restores it without an in-memory token cache', async () => {
-    await updateStoredSettings({ hackmdApiToken: 'private-secret', title: 'Workspace' });
+    await updateStoredSettings({ hackmdApiToken: 'private-secret', title: 'Workspace', hackmdAccountLabel: '@ada' });
     const stored = JSON.parse(await readFile(getSettingsPath(), 'utf8'));
-    expect(stored).toMatchObject({ hackmdApiToken: '', hackmdApiTokenEncrypted: { version: 1, ciphertext: expect.any(String) } });
+    expect(stored.hackmdApiToken).toBe('');
+    expect(stored).not.toHaveProperty('hackmdApiTokenEncrypted');
+    expect(Object.values(stored.hackmdAccountTokensEncrypted)).toEqual([{ version: 1, ciphertext: expect.any(String) }]);
     expect(JSON.stringify(stored)).not.toContain('private-secret');
+    expect(JSON.stringify(stored)).toContain('@ada');
     expect(await readHackmdApiToken()).toBe('private-secret');
     expect(await readStoredSettings()).toMatchObject({ title: 'Workspace', hackmdApiToken: '' });
+    expect(await getSafeSettings()).toMatchObject({
+      hasHackmdApiToken: true,
+      hackmdAccounts: { accounts: [{ label: '@ada', hasToken: true }], activeAccountId: expect.any(String) },
+    });
     expect(await readdir(join(electronMock.homePath, '.hackdesk'))).toEqual(['settings.json']);
     if (process.platform !== 'win32') expect((await stat(getSettingsPath())).mode & 0o777).toBe(0o600);
   });
@@ -162,17 +169,18 @@ describe('Electron settings', () => {
 
   it('preserves encrypted tokens and local settings when the keyring is unavailable, but allows explicit clearing', async () => {
     await updateStoredSettings({ hackmdApiToken: 'saved-secret', localVaultPath: '/tmp/vault' });
-    const encrypted = JSON.parse(await readFile(getSettingsPath(), 'utf8')).hackmdApiTokenEncrypted;
+    const blobs = JSON.parse(await readFile(getSettingsPath(), 'utf8')).hackmdAccountTokensEncrypted;
     electronMock.available = false;
     expect(await readStoredSettings()).toMatchObject({ localVault: { vaults: [{ id: expect.any(String), path: '/tmp/vault' }], activeVaultId: expect.any(String) } });
     expect(await getSafeSettings()).toMatchObject({ hasHackmdApiToken: true, hackmdTokenStorageError: expect.stringContaining('unavailable') });
     await expect(readHackmdApiToken()).rejects.toThrow('unavailable');
     await updateStoredSettings({ title: 'Still local' });
     await expect(updateStoredSettings({ hackmdApiToken: 'new-secret' })).rejects.toThrow('unavailable');
-    expect(JSON.parse(await readFile(getSettingsPath(), 'utf8'))).toMatchObject({ title: 'Still local', hackmdApiTokenEncrypted: encrypted });
+    expect(JSON.parse(await readFile(getSettingsPath(), 'utf8'))).toMatchObject({ title: 'Still local', hackmdAccountTokensEncrypted: blobs });
     await updateStoredSettings({ hackmdApiToken: '' });
     expect((await getSafeSettings()).hasHackmdApiToken).toBe(false);
-    expect(JSON.parse(await readFile(getSettingsPath(), 'utf8'))).not.toHaveProperty('hackmdApiTokenEncrypted');
+    expect((await getSafeSettings()).hackmdAccounts).toEqual({ accounts: [], activeAccountId: null });
+    expect(JSON.parse(await readFile(getSettingsPath(), 'utf8')).hackmdAccountTokensEncrypted ?? {}).toEqual({});
   });
 
   it.each(['basic_text', 'unknown'])('refuses Linux %s storage without storing a new plaintext token', async (backend) => {
@@ -191,11 +199,78 @@ describe('Electron settings', () => {
       await expect(readHackmdApiToken()).rejects.toThrow('Could not unlock');
       expect(await getSafeSettings()).toMatchObject({ hasHackmdApiToken: true, hackmdTokenStorageError: expect.stringContaining('Could not unlock') });
       await updateStoredSettings({ title: 'Updated' });
-      expect(JSON.parse(await readFile(getSettingsPath(), 'utf8')).hackmdApiTokenEncrypted).toEqual(encrypted);
+      // The legacy blob migrates into the account list untouched.
+      expect(Object.values(JSON.parse(await readFile(getSettingsPath(), 'utf8')).hackmdAccountTokensEncrypted)).toEqual([encrypted]);
       await updateStoredSettings({ hackmdApiToken: 'replacement' });
       expect(await readHackmdApiToken()).toBe('replacement');
     },
   );
+
+  it('migrates a legacy encrypted token file into an unnamed account', async () => {
+    const { encryptHackmdToken } = await import('./token-storage');
+    await mkdir(join(electronMock.homePath, '.hackdesk'), { recursive: true });
+    await writeFile(getSettingsPath(), JSON.stringify({ title: 'Workspace', hackmdApiTokenEncrypted: encryptHackmdToken('migrated-secret') }));
+    const settings = await getSafeSettings();
+    expect(settings.hasHackmdApiToken).toBe(true);
+    expect(settings.hackmdTokenStorageError).toBeNull();
+    expect(settings.hackmdAccounts.accounts).toHaveLength(1);
+    expect(settings.hackmdAccounts.accounts[0]).toMatchObject({ label: '', hasToken: true });
+    expect(settings.hackmdAccounts.activeAccountId).toBe(settings.hackmdAccounts.accounts[0].id);
+    expect(await readHackmdApiToken()).toBe('migrated-secret');
+    // The legacy key is gone after the next write.
+    await updateStoredSettings({ title: 'Renamed' });
+    const stored = JSON.parse(await readFile(getSettingsPath(), 'utf8'));
+    expect(stored).not.toHaveProperty('hackmdApiTokenEncrypted');
+    expect(Object.keys(stored.hackmdAccountTokensEncrypted)).toHaveLength(1);
+  });
+
+  it('upserts the active token, adds a second account on request, and switches and forgets', async () => {
+    const first = await updateStoredSettings({ hackmdApiToken: 'token-a', hackmdAccountLabel: '@ada' });
+    const accountA = first.hackmdAccounts.accounts[0].id;
+    expect(first.hackmdAccounts).toMatchObject({ accounts: [{ id: accountA, label: '@ada', hasToken: true }], activeAccountId: accountA });
+    expect(await readHackmdApiToken()).toBe('token-a');
+
+    // Replacing the active token keeps the one account.
+    const replaced = await updateStoredSettings({ hackmdApiToken: 'token-a2', hackmdAccountLabel: '@ada-new' });
+    expect(replaced.hackmdAccounts).toMatchObject({ accounts: [{ id: accountA, label: '@ada-new', hasToken: true }], activeAccountId: accountA });
+    expect(await readHackmdApiToken()).toBe('token-a2');
+
+    // Connecting another account adds and activates it without touching the first token.
+    const second = await updateStoredSettings({ hackmdApiToken: 'token-b', hackmdAccountLabel: '@grace', hackmdAddAccount: true });
+    const accountB = second.hackmdAccounts.activeAccountId;
+    if (accountB === null || accountB === accountA) {
+      throw new Error('expected a second active account');
+    }
+    expect(accountB).not.toBe(accountA);
+    expect(second.hackmdAccounts.accounts).toHaveLength(2);
+    expect(await readHackmdApiToken()).toBe('token-b');
+
+    // Re-saving the active token refreshes its label instead of duplicating the account.
+    const same = await updateStoredSettings({ hackmdApiToken: 'token-b', hackmdAccountLabel: '@grace-hopper', hackmdAddAccount: true });
+    expect(same.hackmdAccounts.accounts).toHaveLength(2);
+    expect(same.hackmdAccounts.activeAccountId).toBe(accountB);
+
+    // Switching reads the other account's token.
+    const switched = await updateStoredSettings({ hackmdActiveAccountId: accountA });
+    expect(switched.hackmdAccounts.activeAccountId).toBe(accountA);
+    expect(await readHackmdApiToken()).toBe('token-a2');
+
+    // Switching to an unknown account keeps the current one.
+    expect((await updateStoredSettings({ hackmdActiveAccountId: 'missing' })).hackmdAccounts.activeAccountId).toBe(accountA);
+
+    // Forgetting the active account falls back to the next one and drops its token.
+    const forgotten = await updateStoredSettings({ hackmdRemoveAccountId: accountA });
+    expect(forgotten.hackmdAccounts).toMatchObject({ accounts: [{ id: accountB, hasToken: true }], activeAccountId: accountB });
+    expect(await readHackmdApiToken()).toBe('token-b');
+    const stored = JSON.parse(await readFile(getSettingsPath(), 'utf8'));
+    expect(Object.keys(stored.hackmdAccountTokensEncrypted)).toEqual([accountB]);
+
+    // Forgetting the last account leaves no accounts behind.
+    const emptied = await updateStoredSettings({ hackmdRemoveAccountId: accountB });
+    expect(emptied.hackmdAccounts).toEqual({ accounts: [], activeAccountId: null });
+    expect(emptied.hasHackmdApiToken).toBe(false);
+    await expect(readHackmdApiToken()).rejects.toThrow('not configured');
+  });
 
   it('encrypts the HackDesk copy of an imported CLI token and leaves the CLI configuration alone', async () => {
     await mkdir(join(electronMock.homePath, '.hackmd'), { recursive: true });

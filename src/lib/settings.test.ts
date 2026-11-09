@@ -1,15 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  addHackmdAccount,
   addLocalVault,
+  defaultHackmdAccountsSettings,
   defaultLocalVaultSettings,
   defaultSettings,
+  getActiveHackmdAccount,
   getActiveLocalVaultPath,
+  normalizeHackmdAccountsSettings,
   parseSettings,
   parseSettingsOrDefault,
   parseStoredSettings,
+  removeHackmdAccount,
   removeLocalVault,
   serializeSettings,
+  setActiveHackmdAccount,
   setActiveLocalVault,
   validateSettings,
 } from './settings';
@@ -25,6 +31,7 @@ describe('settings helpers', () => {
     expect(parseSettings('{"title":"Workspace"}')).toEqual({
       title: 'Workspace',
       hackmdApiToken: '',
+      hackmdAccounts: defaultSettings.hackmdAccounts,
       appearance: defaultSettings.appearance,
       onboarding: defaultSettings.onboarding,
       localVault: defaultSettings.localVault,
@@ -91,6 +98,7 @@ describe('settings helpers', () => {
     expect(parseSettings('{"title":"Workspace","appearance":{"theme":"dark","presetId":"noctis","customSeed":{"primary":"#123ABC"}}}')).toEqual({
       title: 'Workspace',
       hackmdApiToken: '',
+      hackmdAccounts: defaultSettings.hackmdAccounts,
       appearance: {
         theme: 'dark',
         presetId: 'noctis',
@@ -336,6 +344,42 @@ describe('settings helpers', () => {
     expect(stored.localVault.activeVaultId).toBe('keep');
   });
 
+  it('normalizes stored account lists and repairs the active account', () => {
+    expect(normalizeHackmdAccountsSettings({ nope: true })).toEqual(defaultHackmdAccountsSettings);
+    const stored = parseStoredSettings(JSON.stringify({
+      title: 'Workspace',
+      hackmdAccounts: {
+        accounts: [
+          { id: 'one', label: '@ada' },
+          { id: 'two', label: 'second' },
+          { id: '', label: 'blank id' },
+          'junk',
+        ],
+        activeAccountId: 'missing',
+      },
+    }));
+    expect(stored.hackmdAccounts.accounts.map((account) => account.label)).toEqual(['@ada', 'second', 'blank id']);
+    expect(stored.hackmdAccounts.activeAccountId).toBe('one');
+    expect(getActiveHackmdAccount(stored)?.label).toBe('@ada');
+  });
+
+  it('adds, activates and forgets accounts through pure helpers', () => {
+    const one = addHackmdAccount(defaultHackmdAccountsSettings, '@ada');
+    expect(one.accounts).toHaveLength(1);
+    expect(getActiveHackmdAccount({ hackmdAccounts: one })?.label).toBe('@ada');
+    const two = addHackmdAccount(one, '  ');
+    expect(two.accounts.map((account) => account.label)).toEqual(['@ada', '']);
+    expect(getActiveHackmdAccount({ hackmdAccounts: two })?.label).toBe('');
+    const back = setActiveHackmdAccount(two, two.accounts[0].id);
+    expect(getActiveHackmdAccount({ hackmdAccounts: back })?.label).toBe('@ada');
+    expect(setActiveHackmdAccount(two, 'missing')).toBe(two);
+    expect(removeHackmdAccount(two, 'missing')).toBe(two);
+    const forgotten = removeHackmdAccount(two, two.accounts[1].id);
+    expect(forgotten.accounts).toHaveLength(1);
+    expect(getActiveHackmdAccount({ hackmdAccounts: forgotten })?.label).toBe('@ada');
+    expect(removeHackmdAccount(forgotten, forgotten.accounts[0].id)).toEqual(defaultHackmdAccountsSettings);
+  });
+
   it('adds, activates and forgets vaults through pure helpers', () => {
     const one = addLocalVault(defaultLocalVaultSettings, '  /tmp/a  ');
     expect(one.vaults).toHaveLength(1);
@@ -364,6 +408,10 @@ describe('settings helpers', () => {
     expect(serializeSettings({ ...defaultSettings, title: 'Workspace', hackmdApiToken: 'token-123' })).toBe(`{
   "title": "Workspace",
   "hackmdApiToken": "token-123",
+  "hackmdAccounts": {
+    "accounts": [],
+    "activeAccountId": null
+  },
   "appearance": {
     "theme": "system",
     "presetId": "hackmd-neo",

@@ -18,6 +18,7 @@ const settings = (path: string | null): ElectronSafeSettings => ({
     ? { vaults: [{ id: `vault-${path}`, path }], activeVaultId: `vault-${path}` }
     : { vaults: [], activeVaultId: null },
   hasHackmdApiToken: false,
+  hackmdAccounts: { accounts: [], activeAccountId: null },
   hasLocalVault: !!path,
   hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
   shouldShowHackmdOnboarding: false,

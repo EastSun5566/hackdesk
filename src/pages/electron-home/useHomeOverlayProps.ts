@@ -137,10 +137,11 @@ export function useHomeOverlayProps({
       onRenameFolder: (folderId, input) => mutations.renameFolderMutation.mutate({ folderId, input }),
       onRenameFolderStateChange: dialogState.setRenameFolderDialog,
       onSaveSettings: (input) => { void mutations.submitSettings(input); },
-      onSaveToken: async (token) => {
+      onSaveToken: async (token, label) => {
         await mutations.updateSettingsMutation.mutateAsync({
           title: settings?.title ?? 'HackDesk',
           hackmdApiToken: token,
+          ...(label ? { hackmdAccountLabel: label } : {}),
         });
       },
       onSettingsOpenChange: dialogState.setSettingsOpen,

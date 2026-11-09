@@ -305,6 +305,7 @@ function createSafeSettings(overrides: Partial<ElectronSafeSettings> = {}): Elec
     appearance: defaultSettings.appearance,
     editor: defaultSettings.editor,
     hasHackmdApiToken: true,
+    hackmdAccounts: { accounts: [], activeAccountId: null },
     hasAppearanceSettings: true,
     hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
     hasLocalVault: false,
@@ -553,6 +554,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: false,
+          hackmdAccounts: { accounts: [], activeAccountId: null },
           onboarding: { hackmdTokenSetupDeferred: false },
           shouldShowHackmdOnboarding: true,
         })),
@@ -593,6 +595,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: true,
+          hackmdAccounts: { accounts: [], activeAccountId: null },
           hasLocalVault: true,
         })),
       },
@@ -630,6 +633,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: true,
+          hackmdAccounts: { accounts: [], activeAccountId: null },
           hasLocalVault: true,
         })),
       },
@@ -674,6 +678,7 @@ describe('Home native-feel behavior', () => {
   it('defers first-run HackMD onboarding with Setup later', async () => {
     const updateSettings = vi.fn(async () => createSafeSettings({
       hasHackmdApiToken: false,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
       onboarding: { hackmdTokenSetupDeferred: true },
       shouldShowHackmdOnboarding: false,
     }));
@@ -681,6 +686,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: false,
+          hackmdAccounts: { accounts: [], activeAccountId: null },
           onboarding: { hackmdTokenSetupDeferred: false },
           shouldShowHackmdOnboarding: true,
         })),
@@ -711,6 +717,7 @@ describe('Home native-feel behavior', () => {
     }));
     const updateSettings = vi.fn(async () => createSafeSettings({
       hasHackmdApiToken: true,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
       hasLocalVault: true,
       localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
       onboarding: { hackmdTokenSetupDeferred: false },
@@ -734,6 +741,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: false,
+          hackmdAccounts: { accounts: [], activeAccountId: null },
           hasLocalVault: true,
           localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
           onboarding: { hackmdTokenSetupDeferred: false },
@@ -755,6 +763,7 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({
       title: 'HackDesk',
       hackmdApiToken: 'secret-token',
+      hackmdAccountLabel: '@michael',
     }));
     await waitFor(() => {
       expect(queryHackmdOnboardingDialog()).not.toBeInTheDocument();
@@ -776,6 +785,7 @@ describe('Home native-feel behavior', () => {
       snapshot,
       settings: createSafeSettings({
         hasHackmdApiToken: false,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         hasLocalVault: true,
         localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
         onboarding: { hackmdTokenSetupDeferred: false },
@@ -786,6 +796,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: false,
+          hackmdAccounts: { accounts: [], activeAccountId: null },
           onboarding: { hackmdTokenSetupDeferred: false },
           shouldShowHackmdOnboarding: true,
         })),
@@ -817,6 +828,7 @@ describe('Home native-feel behavior', () => {
     const importHackmdCliToken = vi.fn(async () => ({
       settings: createSafeSettings({
         hasHackmdApiToken: true,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
         onboarding: { hackmdTokenSetupDeferred: false },
         shouldShowHackmdOnboarding: false,
       }),
@@ -834,6 +846,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: false,
+          hackmdAccounts: { accounts: [], activeAccountId: null },
           hackmdCliConfig: { hasAccessToken: true, hasCustomEndpoint: false },
           onboarding: { hackmdTokenSetupDeferred: false },
           shouldShowHackmdOnboarding: true,
@@ -868,6 +881,7 @@ describe('Home native-feel behavior', () => {
     }));
     const updateSettings = vi.fn(async () => createSafeSettings({
       hasHackmdApiToken: true,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
       onboarding: { hackmdTokenSetupDeferred: false },
       shouldShowHackmdOnboarding: false,
     }));
@@ -875,6 +889,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: false,
+          hackmdAccounts: { accounts: [], activeAccountId: null },
           onboarding: { hackmdTokenSetupDeferred: true },
           shouldShowHackmdOnboarding: false,
         })),
@@ -895,6 +910,7 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({
       title: 'HackDesk',
       hackmdApiToken: 'configured-token',
+      hackmdAccountLabel: '@michael',
     }));
     await waitFor(() => {
       expect(queryHackmdOnboardingDialog()).not.toBeInTheDocument();
@@ -908,6 +924,7 @@ describe('Home native-feel behavior', () => {
   it('does not switch workspace when saving a token from Settings', async () => {
     const localSettings = createSafeSettings({
       hasHackmdApiToken: true,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
       hasLocalVault: true,
       localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
     });
@@ -960,6 +977,7 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({
       title: 'HackDesk',
       hackmdApiToken: 'settings-token',
+      hackmdAccountLabel: '@michael',
     }));
     expect(validateToken.mock.invocationCallOrder[0]).toBeLessThan(updateSettings.mock.invocationCallOrder[0]);
     await waitFor(() => expect(getCurrentUser).toHaveBeenCalledTimes(2));
@@ -972,6 +990,7 @@ describe('Home native-feel behavior', () => {
   it('disconnects HackMD, clears remote account data, and stays in My Workspace without reopening onboarding', async () => {
     const updateSettings = vi.fn(async () => createSafeSettings({
       hasHackmdApiToken: false,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
       onboarding: { hackmdTokenSetupDeferred: true },
       shouldShowHackmdOnboarding: false,
     }));
@@ -1022,6 +1041,7 @@ describe('Home native-feel behavior', () => {
     window.localStorage.setItem(LAST_WORKSPACE_SCOPE_KEY, JSON.stringify({ type: 'history', label: 'History' }));
     const updateSettings = vi.fn(async () => createSafeSettings({
       hasHackmdApiToken: false,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
       hasLocalVault: true,
       localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
       onboarding: { hackmdTokenSetupDeferred: true },
@@ -1074,6 +1094,7 @@ describe('Home native-feel behavior', () => {
   it('clears cached HackMD account data when Reset All removes the token', async () => {
     const updateSettings = vi.fn(async () => createSafeSettings({
       hasHackmdApiToken: false,
+      hackmdAccounts: { accounts: [], activeAccountId: null },
       shouldShowHackmdOnboarding: true,
     }));
     const api = createApi({
@@ -1746,6 +1767,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasHackmdApiToken: false,
+          hackmdAccounts: { accounts: [], activeAccountId: null },
           hasLocalVault: true,
           localVault: { vaults: [{ id: 'vault-tmp', path: '/tmp/vault' }], activeVaultId: 'vault-tmp' },
         })),
