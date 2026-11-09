@@ -176,7 +176,7 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
                 {download?.locale === locale ? (
                   <Meter.Root value={Math.round(download.fraction * 100)} aria-label={`Downloading ${describeDictationLocale(locale)}`} className="flex items-center gap-3">
                     <Meter.Track className="h-1.5 w-24 overflow-hidden rounded-full bg-background-selected">
-                      <Meter.Indicator className="h-full rounded-full bg-primary-default" />
+                      <Meter.Indicator className="h-full rounded-full bg-primary-solid" />
                     </Meter.Track>
                     <span className="w-10 text-right text-xs tabular-nums text-text-subtle">{Math.round(download.fraction * 100)}%</span>
                   </Meter.Root>

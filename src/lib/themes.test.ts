@@ -97,11 +97,17 @@ describe('HackDesk themes', () => {
     expect(light['--text-subtle']).toBe('#696972');
     expect(light['--primary-default']).toBe('#564DFF');
     expect(light['--primary-foreground']).toBe('#FFFFFF');
+    expect(light['--primary-solid']).toBe('#564DFF');
+    expect(light['--primary-solid-foreground']).toBe('#FFFFFF');
     expect(dark['--background-default']).toBe('#27272A');
     expect(dark['--text-default']).toBe('#D4D4D8');
     expect(dark['--text-subtle']).toBe('#A1A1AA');
     expect(dark['--primary-default']).toBe('#9894F9');
     expect(dark['--primary-foreground']).toBe('#18181B');
+    // Fills stay saturated with white text while the accent lightens for text.
+    expect(dark['--primary-solid']).toBe('#5E56FE');
+    expect(dark['--primary-solid-hover']).toBe('#665FFE');
+    expect(dark['--primary-solid-foreground']).toBe('#FFFFFF');
   });
 
   it('keeps HackMD Neo subtle text and code readable on muted and code surfaces', () => {
@@ -187,6 +193,8 @@ describe('HackDesk themes', () => {
         const background = theme['--background-default'];
 
         expectContrast(theme['--primary-foreground'], theme['--primary-default'], 4.5, `${label} primary foreground`);
+        expectContrast(theme['--primary-solid-foreground'], theme['--primary-solid'], 4.5, `${label} primary solid foreground`);
+        expectContrast(theme['--primary-solid'], theme['--background-default'], 3, `${label} primary solid`);
         expectContrast(theme['--selection-foreground'], theme['--selection-background'], 4.5, `${label} selection foreground`);
         // The editor paints selections as 24% of the primary color behind the text.
         const editorSelection = mixHex(background, theme['--primary-default'], 0.24);
@@ -216,6 +224,8 @@ describe('HackDesk themes', () => {
         expectContrast(theme['--text-default'], theme['--background-default'], 4.5, `${preset.id} ${mode} text`);
         expectContrast(theme['--text-subtle'], theme['--background-default'], 4.5, `${preset.id} ${mode} subtle text`);
         expectContrast(theme['--primary-default'], theme['--background-default'], 3, `${preset.id} ${mode} primary`);
+        expectContrast(theme['--primary-solid'], theme['--background-default'], 3, `${preset.id} ${mode} primary solid`);
+        expectContrast(theme['--primary-solid-hover'], theme['--background-default'], 3, `${preset.id} ${mode} primary solid hover`);
         expectContrast(theme['--focus-ring'], theme['--background-default'], 3, `${preset.id} ${mode} focus`);
         expectContrast(theme['--border-bold'], theme['--background-default'], 3, `${preset.id} ${mode} border`);
         expectContrast(theme['--selection-background'], theme['--background-default'], 3, `${preset.id} ${mode} selection`);

@@ -13,9 +13,9 @@ const buttonDisabledFilledClassName = 'data-[disabled]:pointer-events-none data-
 
 const buttonVariantClassNames = {
   primary: cn(
-    'border border-primary-default bg-primary-default text-primary-foreground',
-    'hover:border-primary-hover hover:bg-primary-hover',
-    'data-[disabled]:border-primary-default data-[disabled]:bg-primary-default data-[disabled]:text-primary-foreground',
+    'border border-primary-solid bg-primary-solid text-primary-solid-foreground',
+    'hover:border-primary-solid-hover hover:bg-primary-solid-hover',
+    'data-[disabled]:border-primary-solid data-[disabled]:bg-primary-solid data-[disabled]:text-primary-solid-foreground',
   ),
   'outline-primary': cn(
     'border border-primary-default bg-transparent text-primary-default',
@@ -34,9 +34,9 @@ const buttonVariantClassNames = {
     'hover:bg-destructive-soft',
   ),
   'destructive-solid': cn(
-    'border border-destructive-default bg-destructive-default text-white',
+    'border border-destructive-default bg-destructive-default text-destructive-foreground',
     'hover:border-destructive-hover hover:bg-destructive-hover',
-    'data-[disabled]:border-destructive-default data-[disabled]:bg-destructive-default data-[disabled]:text-white',
+    'data-[disabled]:border-destructive-default data-[disabled]:bg-destructive-default data-[disabled]:text-destructive-foreground',
   ),
   warning: cn(
     'border border-warning-default bg-warning-default text-warning-foreground',

@@ -163,6 +163,10 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
         '--primary-hover': '#B2ABFB',
         '--primary-soft': 'rgb(152 148 249 / 0.16)',
         '--primary-foreground': '#18181B',
+        // Saturated button/checkbox fills with white text; the accent above stays light for text.
+        '--primary-solid': '#5E56FE',
+        '--primary-solid-hover': '#665FFE',
+        '--primary-solid-foreground': '#FFFFFF',
         '--success-default': '#59C335',
         '--success-soft': 'rgb(89 195 53 / 0.16)',
         '--warning-default': '#FBBF24',
@@ -252,6 +256,9 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
         '--primary-hover': '#58C8BD',
         '--primary-soft': 'rgb(42 161 152 / 0.18)',
         '--primary-foreground': '#002B36',
+        '--primary-solid': '#2AA198',
+        '--primary-solid-hover': '#3FAAA2',
+        '--primary-solid-foreground': '#000000',
         '--success-default': '#859900',
         '--success-soft': 'rgb(133 153 0 / 0.18)',
         '--warning-default': '#CB4B16',
@@ -351,6 +358,9 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
         '--primary-hover': '#DDBDFF',
         '--primary-soft': 'rgb(203 166 247 / 0.17)',
         '--primary-foreground': '#1E1E2E',
+        '--primary-solid': '#8839EF',
+        '--primary-solid-hover': '#944DF1',
+        '--primary-solid-foreground': '#FFFFFF',
         '--success-default': '#A6E3A1',
         '--success-soft': 'rgb(166 227 161 / 0.16)',
         '--warning-default': '#F9E2AF',
@@ -450,6 +460,10 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
         '--primary-hover': '#D6BCFF',
         '--primary-soft': 'rgb(189 147 249 / 0.18)',
         '--primary-foreground': '#282A36',
+        // Hover lightens for affordance; white text dips just under 4.5:1 there, the resting fill passes.
+        '--primary-solid': '#815CD6',
+        '--primary-solid-hover': '#8764D8',
+        '--primary-solid-foreground': '#FFFFFF',
         '--success-default': '#50FA7B',
         '--success-soft': 'rgb(80 250 123 / 0.16)',
         '--warning-default': '#FFB86C',
@@ -549,6 +563,9 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
         '--primary-hover': '#A7C7BB',
         '--primary-soft': 'rgb(131 165 152 / 0.18)',
         '--primary-foreground': '#282828',
+        '--primary-solid': '#458588',
+        '--primary-solid-hover': '#589194',
+        '--primary-solid-foreground': '#000000',
         '--success-default': '#B8BB26',
         '--success-soft': 'rgb(184 187 38 / 0.16)',
         '--warning-default': '#FABD2F',
@@ -648,6 +665,9 @@ export const HACKDESK_THEME_PRESETS: ThemePreset[] = [
         '--primary-hover': '#85EFFF',
         '--primary-soft': 'rgb(64 212 231 / 0.16)',
         '--primary-foreground': '#0F1415',
+        '--primary-solid': '#0099AD',
+        '--primary-solid-hover': '#1AA3B5',
+        '--primary-solid-foreground': '#000000',
         '--success-default': '#49E9A6',
         '--success-soft': 'rgb(73 233 166 / 0.16)',
         '--warning-default': '#E69533',
@@ -913,6 +933,11 @@ export function resolveHackDeskTheme({
         '--primary-hover': mix(primary, '#FFFFFF', 74),
         '--primary-soft': alpha(primary, 0.18),
         '--primary-foreground': contrastText(primary),
+        // Custom seeds paint fills with the seed color itself; presets override this with a
+        // hand-tuned solid that stays saturated while the accent lightens for text.
+        '--primary-solid': primary,
+        '--primary-solid-hover': mix(primary, '#FFFFFF', 74),
+        '--primary-solid-foreground': contrastText(primary),
         '--success-default': success,
         '--success-soft': alpha(success, 0.18),
         '--warning-default': warning,
@@ -940,6 +965,10 @@ export function resolveHackDeskTheme({
         '--primary-hover': mix(primary, '#000000', 76),
         '--primary-soft': mix(primary, '#FFFFFF', 14),
         '--primary-foreground': contrastText(primary),
+        // Light mode fills are the brand color, so the solid tracks the default.
+        '--primary-solid': primary,
+        '--primary-solid-hover': mix(primary, '#000000', 76),
+        '--primary-solid-foreground': contrastText(primary),
         '--success-default': success,
         '--success-soft': mix(success, '#FFFFFF', 16),
         '--warning-default': warning,
@@ -1044,6 +1073,9 @@ function buildAccentTokenOverrides(seed: ThemeSeed, dark: boolean): ThemeTokenOv
         '--primary-hover': mix(primary, '#FFFFFF', 74),
         '--primary-soft': alpha(primary, 0.18),
         '--primary-foreground': contrastText(primary),
+        '--primary-solid': primary,
+        '--primary-solid-hover': mix(primary, '#FFFFFF', 74),
+        '--primary-solid-foreground': contrastText(primary),
         '--success-default': success,
         '--success-soft': alpha(success, 0.18),
         '--warning-default': warning,
@@ -1060,6 +1092,9 @@ function buildAccentTokenOverrides(seed: ThemeSeed, dark: boolean): ThemeTokenOv
         '--primary-hover': mix(primary, '#000000', 76),
         '--primary-soft': mix(primary, '#FFFFFF', 14),
         '--primary-foreground': contrastText(primary),
+        '--primary-solid': primary,
+        '--primary-solid-hover': mix(primary, '#000000', 76),
+        '--primary-solid-foreground': contrastText(primary),
         '--success-default': success,
         '--success-soft': mix(success, '#FFFFFF', 16),
         '--warning-default': warning,
@@ -1086,6 +1121,9 @@ function resolveContrastTokens(theme: ResolvedHackDeskTheme): ResolvedHackDeskTh
   const primary = ensureContrast(theme['--primary-default'], background, 3);
   const borderBold = ensureContrast(theme['--border-bold'], background, 3);
   const primaryHover = ensureContrast(theme['--primary-hover'], background, 3);
+  // Fills carry the same 3:1 boundary promise as the accent, with a readable label.
+  const primarySolid = ensureContrast(theme['--primary-solid'], background, 3);
+  const primarySolidHover = ensureContrast(theme['--primary-solid-hover'], background, 3);
 
   return {
     ...theme,
@@ -1094,6 +1132,9 @@ function resolveContrastTokens(theme: ResolvedHackDeskTheme): ResolvedHackDeskTh
     '--primary-default': primary,
     '--primary-hover': primaryHover,
     '--primary-foreground': readableText(primary, theme['--primary-foreground']),
+    '--primary-solid': primarySolid,
+    '--primary-solid-hover': primarySolidHover,
+    '--primary-solid-foreground': readableText(primarySolid, theme['--primary-solid-foreground']),
     '--border-bold': borderBold,
     '--focus-ring': primary,
   };

@@ -70,7 +70,7 @@ function UsageRow({ window }: { window: AiUsageWindow }) {
       </div>
       <Meter.Root value={left} aria-label={`${formatWindow(window.windowMinutes)} remaining`} className="flex items-center gap-3">
         <Meter.Track className="h-1.5 w-32 overflow-hidden rounded-full bg-background-selected">
-          <Meter.Indicator className="h-full rounded-full bg-primary-default" />
+          <Meter.Indicator className="h-full rounded-full bg-primary-solid" />
         </Meter.Track>
         <span className="w-16 text-right text-xs tabular-nums text-text-subtle">{left}% left</span>
       </Meter.Root>

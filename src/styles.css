@@ -85,6 +85,11 @@
   --color-primary-hover: var(--primary-hover);
   --color-primary-soft: var(--primary-soft);
   --color-primary-foreground: var(--primary-foreground);
+  /* Saturated fills (buttons, checkboxes, switches) that stay brand-colored in dark mode,
+     where --primary-default lightens into a readable text accent. */
+  --color-primary-solid: var(--primary-solid);
+  --color-primary-solid-hover: var(--primary-solid-hover);
+  --color-primary-solid-foreground: var(--primary-solid-foreground);
   --color-focus-ring: var(--focus-ring);
   --color-success-default: var(--success-default);
   --color-success-soft: var(--success-soft);
@@ -238,6 +243,10 @@
     --primary-hover: var(--hmd-tw-background-primary-hover);
     --primary-soft: var(--hmd-tw-background-primary-subtler);
     --primary-foreground: var(--color-white);
+    /* Light mode fills are the brand color, so the solid is the default. */
+    --primary-solid: var(--primary-default);
+    --primary-solid-hover: var(--primary-hover);
+    --primary-solid-foreground: var(--primary-foreground);
     --success-default: var(--hmd-tw-state-success-default);
     --success-soft: var(--hmd-tw-state-success-background);
     --warning-default: var(--color-amber-400);
@@ -336,6 +345,10 @@
     --primary-default: var(--color-primary-300);
     --primary-hover: var(--color-primary-200);
     --primary-foreground: var(--color-zinc-900);
+    /* Fills stay saturated with white text, so a primary button reads as brand, not light. */
+    --primary-solid: #5e56fe;
+    --primary-solid-hover: #665ffe;
+    --primary-solid-foreground: #ffffff;
     --destructive-foreground: var(--color-zinc-950);
     --warning-soft: rgb(251 191 36 / 0.1);
   }
