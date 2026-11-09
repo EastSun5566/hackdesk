@@ -96,22 +96,3 @@ const Button = React.forwardRef<
 Button.displayName = 'Button';
 
 export { Button };
-
-/**
- * Joins buttons into one control, such as a split button: inner corners go square, and each
- * button after the first is set off by a faint rule in its own text colour.
- */
-export function ButtonGroup({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
-  return (
-    <div
-      role="group"
-      className={cn(
-        // Matched by button type, not position: an open menu inserts focus-guard spans beside its
-        // trigger, which would otherwise round the trigger's inner corners while it's open.
-        'flex min-w-0 [&>button:not(:first-of-type)]:rounded-l-none [&>button:not(:last-of-type)]:rounded-r-none [&>button:not(:first-of-type)]:border-l-current/25',
-        className,
-      )}
-      {...props}
-    />
-  );
-}

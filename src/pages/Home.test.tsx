@@ -208,7 +208,8 @@ async function openDocumentActions() {
 }
 
 async function openCreateMenu() {
-  fireEvent.pointerDown(screen.getByRole('button', { name: 'More ways to create' }));
+  // The workspace root row's context menu holds the ways to create.
+  fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'My Notes' }));
   await screen.findByRole('menuitem', { name: /New Folder/ });
 }
 
@@ -1377,7 +1378,8 @@ describe('Home native-feel behavior', () => {
     renderHome(api);
 
     fireEvent.click((await screen.findAllByText('Projects'))[0].closest('button')!);
-    fireEvent.click(within(screen.getByRole('group', { name: 'Create' })).getByRole('button', { name: /New Note/ }));
+    // ⌘N creates in the selected folder.
+    fireEvent.keyDown(window, { key: 'n', metaKey: true });
     await editNote('# Folder note');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 

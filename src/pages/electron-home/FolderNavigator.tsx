@@ -55,7 +55,6 @@ import { HACK_MODE_HIDDEN_CLASS } from './ui';
 
 import { EmptyState, PanelHeader, PanelShell } from './interaction-primitives';
 import type { WorkspaceScope } from './types';
-import { CreateNoteButton } from './CreateNoteButton';
 import { NOTE_FINDER_RESULTS_ID, NoteFilterChips, NoteSearchField, NoteViewOptionsMenu, type NoteFinderResults } from './FolderNavigatorFinder';
 import {
   FolderDragOverlay,
@@ -376,6 +375,14 @@ function NavigatorHeader({
       title={(
         <div className="relative flex min-w-0 items-center gap-1">
           <div className="min-w-0 flex-1"><WorkspaceSwitcher {...workspace} /></div>
+          {/* A fixed slot beside search, so the spinner never moves anything when it appears. */}
+          <span className="flex size-6 shrink-0 items-center justify-center text-icon-subtle">
+            {busyLabel ? (
+              <span role="status" aria-label={busyLabel} title={busyLabel}>
+                <Loader2 aria-hidden="true" className="size-3.5 animate-spin motion-reduce:animate-none" />
+              </span>
+            ) : null}
+          </span>
           {search}
         </div>
       )}
@@ -385,17 +392,9 @@ function NavigatorHeader({
       className="px-4 pb-3 pt-2.5"
       // Icon buttons carry 8px of padding, so pulling them out by 8px puts their glyphs on the
       // same 16px edge as the rest of the sidebar.
-      actionsClassName="-mr-2"
-      actionsLabel="Note navigator actions"
-      // Besides search, no buttons here. Folder actions live in each folder's context menu, view
-      // options on the list's header row; the command palette is a keyboard path (⌘K); and lists
-      // refresh on window focus, a Local Vault watches its folder, with Shift+Cmd+R by hand. Only
-      // the busy spinner shows, while notes load or sync.
-      actions={busyLabel ? (
-        <span role="status" aria-label={busyLabel} title={busyLabel} className="flex size-8 items-center justify-center text-icon-default">
-          <Loader2 aria-hidden="true" className="size-3.5 animate-spin motion-reduce:animate-none" />
-        </span>
-      ) : undefined}
+      // No action buttons: search, and the sync spinner beside it, are in the title row. Folder
+      // actions live in each folder's context menu, creating and view options on the workspace row,
+      // the command palette is a keyboard path (⌘K), and lists refresh on window focus.
     />
   );
 }
@@ -410,18 +409,8 @@ function NavigatorFilterBar({
   status: FolderNavigatorStatus;
 }) {
   return (
-    <div className="space-y-1 px-2 pb-3">
-      <div>
-        <CreateNoteButton
-          canCreate={status.canCreate && !status.isCreating}
-          disabledReason={!status.canCreate ? 'Connect HackMD to create notes.' : status.isCreating ? 'Creating note…' : undefined}
-          onCreate={actions.onCreate}
-          onCreateFromTemplate={actions.onCreateFromTemplate}
-          onImportMarkdown={actions.onImportMarkdown}
-          onCreateFolder={actions.onCreateFolder}
-        />
-      </div>
-
+    // Only notices live here now; with none, it takes no space.
+    <div className="space-y-1 px-2 pb-2 empty:hidden">
       {scope.type !== 'local' && !status.hasToken ? (
         <Button
           size="sm"
@@ -1017,6 +1006,9 @@ function NavigatorTree({
                 onSectionToggle={toggleRootSection}
                 onCreateFolder={() => actions.onCreateFolderInside(null)}
                 onCreateNote={() => actions.onCreateNoteInside(null)}
+                canCreate={status.canCreate && !status.isCreating}
+                onCreateFromTemplate={actions.onCreateFromTemplate}
+                onImportMarkdown={actions.onImportMarkdown}
                 // Sort and filters describe how this workspace's notes are listed, so they live on
                 // its row. Changing one lists the notes flat, under a header that carries them on.
                 viewOptions={({ tabIndex }) => (

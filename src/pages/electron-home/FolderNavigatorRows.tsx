@@ -9,8 +9,11 @@ import {
   FolderPlus,
   GripVertical,
   HardDrive,
+  LayoutTemplate,
   Lock,
+  Plus,
   Trash2,
+  Upload,
   Users,
 } from 'lucide-react';
 import { memo, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
@@ -32,6 +35,7 @@ import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { TooltipContent, TooltipRoot, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
+import { ActionMenuShortcut } from './ActionShortcutContext';
 import { EntityRow } from './interaction-primitives';
 import { NOTE_CARD_CLASS, NoteSummaryCard } from './NoteSummaryCard';
 import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS, formatCompactDate, formatDate } from './ui';
@@ -548,6 +552,9 @@ export function WorkspaceRootTreeRow({
   onSectionToggle,
   onCreateFolder,
   onCreateNote,
+  canCreate = true,
+  onCreateFromTemplate,
+  onImportMarkdown,
   viewOptions,
 }: {
   scope: WorkspaceScope;
@@ -559,6 +566,10 @@ export function WorkspaceRootTreeRow({
   onSectionToggle: () => void;
   onCreateFolder: () => void;
   onCreateNote: () => void;
+  /** Off where this workspace can't take new notes: the create actions hide. */
+  canCreate?: boolean;
+  onCreateFromTemplate?: () => void;
+  onImportMarkdown?: () => void;
   /** The workspace's View options menu, beside New Folder; given the row controls' tab stop. */
   viewOptions?: (control: { tabIndex?: number }) => ReactNode;
 }) {
@@ -641,6 +652,26 @@ export function WorkspaceRootTreeRow({
               >
                 <FolderPlus aria-hidden="true" className="size-3.5" />
               </button>
+              {canCreate ? (
+                // Creating lives here, quietly, rather than as a full-width button; ⌘N still works
+                // anywhere, and the row's context menu has the other ways to create.
+                <button
+                  type="button"
+                  className={cn(
+                    'flex size-7 items-center justify-center rounded text-icon-subtle hover:text-text-default',
+                    FOCUS_RING_INSET_CLASS,
+                  )}
+                  aria-label="New Note"
+                  data-folder-tree-ignore-keyboard="true"
+                  tabIndex={treeItemProps?.tabIndex}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onCreateNote();
+                  }}
+                >
+                  <Plus aria-hidden="true" className="size-3.5" />
+                </button>
+              ) : null}
               </span>
             )}
             className={TREE_ROW_FOCUS_CLASS}
@@ -648,11 +679,25 @@ export function WorkspaceRootTreeRow({
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem onSelect={onCreateNote}>
+        <ContextMenuItem disabled={!canCreate} onSelect={onCreateNote}>
           <FileText aria-hidden="true" className="h-4 w-4" />
           New Note
+          <ActionMenuShortcut actionId="new-note" />
         </ContextMenuItem>
-        <ContextMenuItem onSelect={onCreateFolder}>
+        {onCreateFromTemplate ? (
+          <ContextMenuItem disabled={!canCreate} onSelect={onCreateFromTemplate}>
+            <LayoutTemplate aria-hidden="true" className="h-4 w-4" />
+            New Note from Template…
+          </ContextMenuItem>
+        ) : null}
+        {onImportMarkdown ? (
+          <ContextMenuItem disabled={!canCreate} onSelect={onImportMarkdown}>
+            <Upload aria-hidden="true" className="h-4 w-4" />
+            Import Markdown Note…
+          </ContextMenuItem>
+        ) : null}
+        <ContextMenuSeparator />
+        <ContextMenuItem disabled={!canCreate} onSelect={onCreateFolder}>
           <FolderPlus aria-hidden="true" className="h-4 w-4" />
           New Folder
         </ContextMenuItem>

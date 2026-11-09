@@ -397,39 +397,26 @@ describe('FolderNavigator', () => {
     expect(screen.queryByRole('button', { name: 'Navigator actions' })).not.toBeInTheDocument();
   });
 
-  it('creates a note from the split button, and offers the other ways to create in its menu', async () => {
-    const onCreate = vi.fn();
-    const onCreateFolder = vi.fn();
-    renderFolderNavigator({ actions: { onCreate, onCreateFolder } });
+  it('creates from the workspace row: New Note at the top level, and the other ways in its context menu', async () => {
+    window.localStorage.clear();
+    const onCreateNoteInside = vi.fn();
+    const onImportMarkdown = vi.fn();
+    renderFolderNavigator({ actions: { onCreateNoteInside, onImportMarkdown } });
 
-    const group = within(screen.getByRole('group', { name: 'Create' }));
-    fireEvent.click(group.getByRole('button', { name: /New Note/ }));
-    expect(onCreate).toHaveBeenCalledTimes(1);
+    const root = screen.getByRole('treeitem', { name: 'My Notes' }).closest('[data-folder-tree-kind="root"]') as HTMLElement;
+    fireEvent.click(within(root).getByRole('button', { name: 'New Note' }));
+    expect(onCreateNoteInside).toHaveBeenCalledWith(null);
 
-    fireEvent.pointerDown(group.getByRole('button', { name: 'More ways to create' }));
-    expect(await screen.findByRole('menuitem', { name: /Import Markdown Note/ })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('menuitem', { name: /New Folder/ }));
-    await vi.waitFor(() => expect(onCreateFolder).toHaveBeenCalledTimes(1));
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'My Notes' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Import Markdown Note/ }));
+    await vi.waitFor(() => expect(onImportMarkdown).toHaveBeenCalledTimes(1));
   });
 
-  it('keeps disabled create action focusable and explainable', async () => {
-    const onCreate = vi.fn();
-    renderFolderNavigator({
-      actions: { onCreate },
-      status: {
-        canCreate: false,
-      },
-    });
-
-    const createButton = within(screen.getByRole('group', { name: 'Create' })).getByRole('button', { name: /New Note/ });
-    expect(createButton).toHaveAttribute('aria-disabled', 'true');
-    createButton.focus();
-    fireEvent.click(createButton);
-    expect(createButton).toHaveFocus();
-    expect(onCreate).not.toHaveBeenCalled();
-    fireEvent.mouseOver(createButton);
-
-    expect(await screen.findByText('Connect HackMD to create notes.')).toBeVisible();
+  it('hides New Note where the workspace cannot take notes', () => {
+    window.localStorage.clear();
+    renderFolderNavigator({ status: { canCreate: false } });
+    const root = screen.getByRole('treeitem', { name: 'My Notes' }).closest('[data-folder-tree-kind="root"]') as HTMLElement;
+    expect(within(root).queryByRole('button', { name: 'New Note' })).not.toBeInTheDocument();
   });
 
   it('pins Trash above the account row, outside the tree', () => {
