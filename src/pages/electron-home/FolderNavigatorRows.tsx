@@ -32,10 +32,10 @@ import type { NoteSummary } from '@/lib/electron-api';
 import { buildNoteDragId, getNoteCurrentFolderId } from '@/lib/hackmd-note-dnd';
 import type { FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
-import { TooltipContent, TooltipRoot, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipRoot, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
-import { ActionMenuShortcut } from './ActionShortcutContext';
+import { ActionMenuShortcut, useActionShortcut } from './ActionShortcutContext';
 import { EntityRow } from './interaction-primitives';
 import { NOTE_CARD_CLASS, NoteSummaryCard } from './NoteSummaryCard';
 import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS, formatCompactDate, formatDate } from './ui';
@@ -532,6 +532,11 @@ function FolderButtonView({
   );
 }
 
+function NewNoteTooltip() {
+  const shortcut = useActionShortcut('new-note');
+  return <span className="inline-flex items-center gap-2">New Note{shortcut ? <kbd className="text-text-subtle">{shortcut}</kbd> : null}</span>;
+}
+
 export function WorkspaceRootScopeIcon({ scope }: { scope: WorkspaceScope }) {
   if (scope.type === 'team') return <Users className="h-3.5 w-3.5" />;
   if (scope.type === 'local') return <HardDrive className="h-3.5 w-3.5" />;
@@ -634,6 +639,7 @@ export function WorkspaceRootTreeRow({
             menu={(
               <span className="flex items-center">
               {viewOptions?.({ tabIndex: treeItemProps?.tabIndex })}
+              <Tooltip content="New Folder">
               <button
                 type="button"
                 className={cn(
@@ -652,9 +658,11 @@ export function WorkspaceRootTreeRow({
               >
                 <FolderPlus aria-hidden="true" className="size-3.5" />
               </button>
+              </Tooltip>
+              {/* Creating lives here, quietly, rather than as a full-width button; ⌘N still works
+                  anywhere, and the row's context menu has the other ways to create. */}
               {canCreate ? (
-                // Creating lives here, quietly, rather than as a full-width button; ⌘N still works
-                // anywhere, and the row's context menu has the other ways to create.
+                <Tooltip content={<NewNoteTooltip />}>
                 <button
                   type="button"
                   className={cn(
@@ -671,6 +679,7 @@ export function WorkspaceRootTreeRow({
                 >
                   <Plus aria-hidden="true" className="size-3.5" />
                 </button>
+                </Tooltip>
               ) : null}
               </span>
             )}

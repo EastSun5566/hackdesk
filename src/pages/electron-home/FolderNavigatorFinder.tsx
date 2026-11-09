@@ -8,6 +8,7 @@ import {
 import { useState, type KeyboardEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { TooltipContent, TooltipRoot, TooltipTrigger } from '@/components/ui/tooltip';
 import type { NotePermissionRole } from '@/lib/electron-api';
 import {
   clearNoteFinderFilters,
@@ -251,28 +252,36 @@ export function NoteViewOptionsMenu({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="View options"
-          tabIndex={tabIndex}
-          data-folder-tree-ignore-keyboard={treeControl || undefined}
-          title={viewOptionCount ? `View options · ${viewOptionCount} changed` : 'View options'}
-          className={cn(
-            'relative flex size-7 items-center justify-center rounded text-icon-subtle hover:text-text-default',
-            FOCUS_RING_INSET_CLASS,
-            viewOptionCount && 'bg-background-selected text-text-default',
-            className,
+      <TooltipRoot>
+        <TooltipTrigger
+          render={(
+            <DropdownMenuTrigger
+              render={(
+                <button
+                  type="button"
+                  aria-label="View options"
+                  tabIndex={tabIndex}
+                  data-folder-tree-ignore-keyboard={treeControl || undefined}
+                  className={cn(
+                    'relative flex size-7 items-center justify-center rounded text-icon-subtle hover:text-text-default',
+                    FOCUS_RING_INSET_CLASS,
+                    viewOptionCount && 'bg-background-selected text-text-default',
+                    className,
+                  )}
+                />
+              )}
+            >
+              <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
+              {viewOptionCount ? (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-default px-1 text-2xs leading-none text-primary-foreground">
+                  {viewOptionCount}
+                </span>
+              ) : null}
+            </DropdownMenuTrigger>
           )}
-        >
-          <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
-          {viewOptionCount ? (
-            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-default px-1 text-2xs leading-none text-primary-foreground">
-              {viewOptionCount}
-            </span>
-          ) : null}
-        </button>
-      </DropdownMenuTrigger>
+        />
+        <TooltipContent side="bottom">{viewOptionCount ? `View options · ${viewOptionCount} changed` : 'View options'}</TooltipContent>
+      </TooltipRoot>
       <DropdownMenuContent align="end" className="max-h-96 min-w-56 overflow-auto">
         <DropdownMenuLabel>Search In</DropdownMenuLabel>
         <DropdownMenuItem onSelect={() => updateState({ searchScope: 'workspace' })}>

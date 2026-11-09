@@ -469,8 +469,8 @@ describe('FolderNavigator', () => {
     renderFolderNavigator({ finderState: { ...DEFAULT_NOTE_FINDER_STATE, sortMode: 'title-asc' } });
 
     expect(screen.queryByRole('treeitem', { name: 'My Notes' })).not.toBeInTheDocument();
-    const viewOptions = screen.getByRole('button', { name: 'View options' });
-    expect(viewOptions).toHaveAttribute('title', 'View options · 1 changed');
+    // Its badge counts what differs from the default (the tooltip says so too).
+    expect(screen.getByRole('button', { name: 'View options' })).toHaveTextContent('1');
     expect(screen.getByText(/^\d+ results?$/)).toBeInTheDocument();
   });
 
