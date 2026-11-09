@@ -1060,17 +1060,21 @@ export function FolderTreeView({
   );
 }
 
+// Title widths for the placeholder rows, uneven like real titles.
+const SKELETON_TITLE_WIDTHS = ['w-3/4', 'w-1/2', 'w-4/5', 'w-2/5', 'w-2/3', 'w-3/5', 'w-3/4', 'w-1/2'];
+const SKELETON_BAR_CLASS = 'animate-pulse rounded-sm bg-background-hover motion-reduce:animate-none';
+
+/** Placeholder rows shaped like the tree's compact note rows: icon, one-line title, trailing date. */
 export function NoteListSkeleton() {
   return (
-    <div role="status" aria-busy="true" aria-label="Loading notes" className="space-y-2 px-2 py-3">
-      {Array.from({ length: 8 }).map((_, index) => (
-        <div key={index} className="flex items-center gap-3 rounded-md px-2 py-2">
-          <div className="size-4 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="h-3 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
-            <div className="h-2 w-1/2 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
+    <div role="status" aria-busy="true" aria-label="Loading notes" className="grid min-w-0 gap-0.5">
+      {SKELETON_TITLE_WIDTHS.map((width, index) => (
+        <div key={index} aria-hidden="true" className="flex h-7 min-w-0 items-center gap-2 px-2">
+          <div className={cn('size-3.5 shrink-0', SKELETON_BAR_CLASS)} />
+          <div className="min-w-0 flex-1">
+            <div className={cn('h-2.5', width, SKELETON_BAR_CLASS)} />
           </div>
-          <div className="h-3 w-14 animate-pulse rounded bg-background-hover motion-reduce:animate-none" />
+          <div className={cn('note-row-date h-2 w-8 shrink-0', SKELETON_BAR_CLASS)} />
         </div>
       ))}
     </div>
