@@ -293,8 +293,8 @@ function FolderNavigatorPanel({
         {/* Pinned above the account row rather than at the end of the tree, so a long workspace
             never pushes it out of reach. Search hides it with the tree. */}
         {trash && (scope.type === 'personal' || scope.type === 'team') && !isNoteFinderActive(finderState) ? (
-          // A rule like the web sidebar's, separating it from the list scrolling above.
-          <div className="mx-2 shrink-0 border-t border-border-subtle pt-1">
+          // No rule: the list above fades out at its edge while it scrolls, which separates enough.
+          <div className="mx-2 shrink-0 pt-1">
             <SidebarTrashRow
               label={trashNavigatorRowLabel(scope)}
               selected={Boolean(trash.open)}
