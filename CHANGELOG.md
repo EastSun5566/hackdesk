@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.0.0-beta.12](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.11...v2.0.0-beta.12) (2026-11-09)
+
+### Workbench
+
+* Refresh the sidebar, Settings, menus and account controls with HackMD-style surfaces and compact rows.
+* Drag folder rows to move them inside another folder or before or after it. Browse personal and team Trash in the sidebar.
+* Open an empty New Tab page, or choose Duplicate current note in Settings → Editor.
+* Reduce sidebar work while typing, searching and resizing.
+
+### Appearance and fixes
+
+* Use a proportional font for prose, keep code monospace, and choose installed fonts in Settings. Improve CJK fallbacks and add Smooth text.
+* Keep wide content inside its editor pane and cancel appearance previews when Settings closes from outside.
+* Keep resize handles clear of the sidebar scrollbar and update folder drop targets during fast drags.
+
+### Beta notes
+
+* Beta installers remain unsigned. Automatic updates remain disabled. Download beta.12 manually and close the previous version before opening it.
+* Folders start collapsed. Earlier folder expansion preferences are not carried over. Empty New Tab pages are not restored after restart; note tabs and recoverable drafts are retained.
+* Chinese IME behavior in Helix and Kakoune still needs manual verification. Kakoune remains experimental.
+* Versions before beta.10 cannot restore newer workspace layouts, including tabs and unsaved drafts. Back up app data before downgrading.
+
 ## [2.0.0-beta.11](https://github.com/EastSun5566/hackdesk/compare/v2.0.0-beta.10...v2.0.0-beta.11) (2026-11-05)
 
 ### Start writing
