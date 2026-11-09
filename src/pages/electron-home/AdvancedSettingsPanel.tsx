@@ -18,7 +18,7 @@ import { isBetaVersion } from '@/lib/version';
 import { version as packageVersion } from '../../../package.json';
 
 
-import { SettingsPage, SettingsSection, SettingsSwitchRow } from './SettingsPrimitives';
+import { SettingsActionRow, SettingsPage, SettingsSection, SettingsSwitchRow } from './SettingsPrimitives';
 import { setSplitStatusLine, useSplitStatusLine } from './split-status-line-preference';
 
 const RELEASES_URL = 'https://github.com/EastSun5566/hackdesk/releases';
@@ -98,12 +98,10 @@ export function AdvancedSettingsPanel({
   return (
     <SettingsPage>
       <SettingsSection title="Version">
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <div className="min-w-0">
-            <p className="font-medium leading-5">HackDesk v{appVersion}</p>
-            {isBeta ? <p className="text-xs leading-5 text-text-subtle">Unsigned beta · Manual updates</p> : null}
-          </div>
-          {isBeta ? (
+        <SettingsActionRow
+          label={`HackDesk v${appVersion}`}
+          description={isBeta ? 'Unsigned beta · Manual updates' : undefined}
+          action={isBeta ? (
             <Button variant="secondary" size="sm" onClick={viewReleases}>
               <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
               View Releases
@@ -119,7 +117,7 @@ export function AdvancedSettingsPanel({
               {isCheckingUpdates ? 'Checking…' : 'Check for Updates'}
             </Button>
           )}
-        </div>
+        />
       </SettingsSection>
 
       <SettingsSection title="Experimental">
@@ -133,21 +131,21 @@ export function AdvancedSettingsPanel({
       </SettingsSection>
 
       <SettingsSection title="Reset">
-        <div className="flex items-center justify-between gap-4 text-sm">
-          <div className="min-w-0">
-            <p className="font-medium leading-5">Reset all settings</p>
-            <p className="text-xs leading-5 text-text-subtle">Puts every preference back to its default and signs out of HackMD.</p>
-          </div>
-          <Button
-            ref={resetButtonRef}
-            variant="destructive"
-            size="sm"
-            onClick={() => setIsResetDialogOpen(true)}
-          >
-            <AlertCircle aria-hidden="true" className="h-3.5 w-3.5" />
-            Reset All Settings
-          </Button>
-        </div>
+        <SettingsActionRow
+          label="Reset all settings"
+          description="Puts every preference back to its default and signs out of HackMD."
+          action={(
+            <Button
+              ref={resetButtonRef}
+              variant="destructive"
+              size="sm"
+              onClick={() => setIsResetDialogOpen(true)}
+            >
+              <AlertCircle aria-hidden="true" className="h-3.5 w-3.5" />
+              Reset All Settings
+            </Button>
+          )}
+        />
       </SettingsSection>
 
       <AlertDialog open={isResetDialogOpen} onOpenChange={handleResetDialogOpenChange}>

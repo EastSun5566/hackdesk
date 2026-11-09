@@ -72,6 +72,32 @@ export function SettingsRow({
   );
 }
 
+/**
+ * A setting with an action at the row's end. The action keeps its natural width, so a long
+ * description wraps instead of squeezing the button's label onto two lines.
+ */
+export function SettingsActionRow({
+  label,
+  description,
+  descriptionRole,
+  action,
+}: {
+  label: ReactNode;
+  description?: ReactNode;
+  descriptionRole?: 'status';
+  action: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 text-sm">
+      <div className="min-w-0">
+        <p className="font-medium leading-5">{label}</p>
+        {description ? <p className="text-xs leading-5 text-text-subtle" role={descriptionRole}>{description}</p> : null}
+      </div>
+      <div className="flex shrink-0 items-center">{action}</div>
+    </div>
+  );
+}
+
 /** An on/off setting: its label and description, with the switch at the row's end. */
 export function SettingsSwitchRow({
   id,
@@ -94,7 +120,9 @@ export function SettingsSwitchRow({
         <label htmlFor={id} className="font-medium leading-5">{label}</label>
         {description ? <p className="text-xs leading-5 text-text-subtle">{description}</p> : null}
       </div>
-      <Switch id={id} checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
+      <div className="flex shrink-0">
+        <Switch id={id} checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
+      </div>
     </div>
   );
 }
