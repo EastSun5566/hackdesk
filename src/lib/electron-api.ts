@@ -1,8 +1,12 @@
 import type {
   ChooseLocalVaultResult,
+  LocalDirectoryBrowseResult,
   LocalDocument,
   LocalVaultAttachmentMutationResult,
   LocalVaultChangeEvent,
+  LocalVaultChoosePathInput,
+  LocalVaultCreateDirectoryInput,
+  LocalVaultCreateDirectoryResult,
   LocalVaultCreateFolderInput,
   LocalVaultCreateNoteInput,
   LocalVaultDocumentMutationResult,
@@ -586,6 +590,11 @@ export type HackDeskElectronAPI = {
   };
   localVault: {
     choose: () => Promise<ChooseLocalVaultResult>;
+    /** Lists folders for the in-app picker; no path starts at the home folder. */
+    browse: (path?: string) => Promise<LocalDirectoryBrowseResult>;
+    /** Chooses a vault from the in-app picker without the native dialog. */
+    choosePath: (input: LocalVaultChoosePathInput) => Promise<ChooseLocalVaultResult>;
+    createDirectory: (input: LocalVaultCreateDirectoryInput) => Promise<LocalVaultCreateDirectoryResult>;
     disconnect: () => Promise<ElectronSafeSettings>;
     getSnapshot: () => Promise<LocalVaultSnapshot | null>;
     readNote: (noteId: string) => Promise<LocalDocument>;

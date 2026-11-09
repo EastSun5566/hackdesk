@@ -10,6 +10,8 @@ export function useLocalVaultSession(
   api: HackDeskElectronAPI | undefined,
   settings: ElectronSafeSettings | undefined,
   beforeChange: MutableRefObject<() => void>,
+  /** Opens the in-app folder picker; falls back to the native dialog when absent. */
+  pickFolder?: (startPath?: string | null) => Promise<string | null>,
 ) {
   const queryClient = useQueryClient();
   const path = getActiveLocalVaultPath(settings);
@@ -82,6 +84,20 @@ export function useLocalVaultSession(
       localVault: {
         ...guarded.localVault,
         choose: () => transition(async () => {
+          if (pickFolder) {
+            // Start where the current vault is, so changing vaults is one step.
+            const current = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
+            const path = await pickFolder(getActiveLocalVaultPath(current) ?? undefined);
+            if (!path) {
+              return { canceled: true };
+            }
+            const picked = await api.localVault.choosePath({ path });
+            if (picked.settings) {
+              queryClient.setQueryData(['electron', 'settings'], picked.settings);
+            }
+            if (picked.snapshot) queryClient.setQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(picked.settings)), picked.snapshot);
+            return picked;
+          }
           const result = await api.localVault.choose();
           if (!result.canceled && result.settings) {
             if (result.snapshot) queryClient.setQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(result.settings)), result.snapshot);
@@ -96,7 +112,7 @@ export function useLocalVaultSession(
         }),
       },
     };
-  }, [api, beforeChange, queryClient, generation, vaultId, changing]);
+  }, [api, beforeChange, pickFolder, queryClient, generation, vaultId, changing]);
 
   const error = migration.vaultId === loaded?.vaultId ? migration.error : null;
   return {

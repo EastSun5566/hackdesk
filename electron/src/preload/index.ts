@@ -29,7 +29,11 @@ import type {
   WindowPresentationState,
 } from '../../../src/lib/electron-api';
 import type {
+  LocalDirectoryBrowseResult,
   LocalVaultChangeEvent,
+  LocalVaultChoosePathInput,
+  LocalVaultCreateDirectoryInput,
+  LocalVaultCreateDirectoryResult,
   LocalVaultCreateFolderInput,
   LocalVaultCreateNoteInput,
   LocalVaultImportAttachmentInput,
@@ -197,6 +201,13 @@ const api: HackDeskElectronAPI = {
   },
   localVault: {
     choose: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultChoose),
+    browse: (path?: string) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultBrowse, { path }) as Promise<LocalDirectoryBrowseResult>
+    ),
+    choosePath: (input: LocalVaultChoosePathInput) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultChoosePath, input),
+    createDirectory: (input: LocalVaultCreateDirectoryInput) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultCreateDirectory, input) as Promise<LocalVaultCreateDirectoryResult>
+    ),
     disconnect: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultDisconnect),
     getSnapshot: () => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultGetSnapshot),
     readNote: (noteId: string) => ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultReadNote, noteId),

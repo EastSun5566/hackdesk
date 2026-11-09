@@ -87,6 +87,9 @@ const localVaultFolderMutationResult = vi.hoisted(() => ({
 }));
 const localVaultServiceMock = vi.hoisted(() => ({
   readLocalVaultNotesForIndex: vi.fn(async () => []),
+  browseLocalDirectories: vi.fn(async () => ({ path: '/tmp', parent: '/', home: '/tmp', entries: [] })),
+  createLocalDirectory: vi.fn(async () => ({ path: '/tmp/new' })),
+  resolveLocalDirectory: vi.fn(async (path: string) => path),
   createLocalFolder: vi.fn(),
   createLocalNote: vi.fn(async () => localVaultMutationResult),
   getActiveLocalVaultSnapshot: vi.fn(async () => localVaultSnapshot),
@@ -506,6 +509,43 @@ describe('registerIpcHandlers', () => {
     expect(windowManager.sendToAllMainWindows).toHaveBeenCalledWith(ELECTRON_CHANNELS.localVaultDidChange, {
       snapshot: localVaultSnapshot,
     });
+  });
+
+  it('chooses a vault from an in-app picker path after resolving it', async () => {
+    localVaultServiceMock.resolveLocalDirectory.mockResolvedValueOnce('/tmp/picked');
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultChoosePath);
+
+    expect(await handler?.({}, { path: '/tmp/picked' })).toMatchObject({ canceled: false });
+
+    expect(localVaultServiceMock.resolveLocalDirectory).toHaveBeenCalledWith('/tmp/picked');
+    expect(localVaultServiceMock.scanLocalVault).toHaveBeenCalledWith('/tmp/picked');
+    expect(settingsMock.updateStoredSettings).toHaveBeenCalledWith({ localVaultPath: '/tmp/picked' });
+    expect(localVaultServiceMock.watchLocalVault).toHaveBeenCalled();
+  });
+
+  it('rejects a picker path that is not a folder', async () => {
+    localVaultServiceMock.resolveLocalDirectory.mockRejectedValueOnce(new Error('That path is not a folder.'));
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultChoosePath);
+
+    await expect(handler?.({}, { path: '/tmp/note.md' })).rejects.toThrow('not a folder');
+    expect(localVaultServiceMock.scanLocalVault).not.toHaveBeenCalled();
+  });
+
+  it('browses folders and creates one from the in-app picker', async () => {
+    registerIpcHandlers(windowManager);
+
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultBrowse)?.({}, { path: '/tmp' });
+    expect(localVaultServiceMock.browseLocalDirectories).toHaveBeenCalledWith('/tmp');
+
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultBrowse)?.({}, undefined);
+    expect(localVaultServiceMock.browseLocalDirectories).toHaveBeenCalledWith(undefined);
+
+    await ipcHandlers.get(ELECTRON_CHANNELS.localVaultCreateDirectory)?.({}, { parentPath: '/tmp', name: 'New' });
+    expect(localVaultServiceMock.createLocalDirectory).toHaveBeenCalledWith('/tmp', 'New');
+
+    expect(() => ipcHandlers.get(ELECTRON_CHANNELS.localVaultCreateDirectory)?.({}, { parentPath: '/tmp', name: '' })).toThrow();
   });
 
   it('returns complete local folder mutation results over IPC', async () => {

@@ -48,6 +48,32 @@ export type ChooseLocalVaultResult = {
   snapshot?: LocalVaultSnapshot;
 };
 
+export type LocalDirectoryEntry = {
+  name: string;
+  path: string;
+  hasSubdirectories: boolean;
+};
+
+export type LocalDirectoryBrowseResult = {
+  path: string;
+  parent: string | null;
+  home: string;
+  entries: LocalDirectoryEntry[];
+};
+
+export type LocalVaultChoosePathInput = {
+  path: string;
+};
+
+export type LocalVaultCreateDirectoryInput = {
+  parentPath: string;
+  name: string;
+};
+
+export type LocalVaultCreateDirectoryResult = {
+  path: string;
+};
+
 export type LocalVaultWriteInput = {
   noteId: string;
   title?: string;

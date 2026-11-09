@@ -420,6 +420,9 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       trashFolder: vi.fn(),
       revealFolder: vi.fn(async () => undefined),
       revealRoot: vi.fn(async () => undefined),
+      browse: vi.fn(async () => ({ path: '/tmp', parent: '/', home: '/tmp', entries: [] })),
+      choosePath: vi.fn(async () => ({ canceled: true })),
+      createDirectory: vi.fn(async () => ({ path: '/tmp/new' })),
       onDidChange: vi.fn(() => () => undefined),
     },
     shell: {
@@ -768,7 +771,7 @@ describe('Home native-feel behavior', () => {
 
   it('opens a local folder from HackMD onboarding as a secondary path', async () => {
     const snapshot: LocalVaultSnapshot = { vaultId: 'first-vault', rootPath: '/Users/michael/Notes', notes: [], folders: [] };
-    const chooseLocalVault = vi.fn(async () => ({
+    const choosePath = vi.fn(async () => ({
       canceled: false,
       snapshot,
       settings: createSafeSettings({
@@ -788,7 +791,7 @@ describe('Home native-feel behavior', () => {
         })),
       },
       localVault: {
-        choose: chooseLocalVault,
+        choosePath,
       },
     });
 
@@ -796,7 +799,10 @@ describe('Home native-feel behavior', () => {
     const onboardingDialog = await openHackmdOnboardingDialog();
     fireEvent.click(within(onboardingDialog).getByRole('button', { name: 'Open local folder' }));
 
-    await waitFor(() => expect(chooseLocalVault).toHaveBeenCalledOnce());
+    // The in-app picker opens instead of the native dialog; choosing confirms the vault.
+    const picker = await screen.findByRole('dialog', { name: 'Choose a Vault Folder' });
+    fireEvent.click(within(picker).getByRole('button', { name: /Choose “tmp”/ }));
+    await waitFor(() => expect(choosePath).toHaveBeenCalledOnce());
     await waitFor(() => {
       expect(queryHackmdOnboardingDialog()).not.toBeInTheDocument();
     });

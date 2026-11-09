@@ -90,12 +90,15 @@ import { createDictationService, locateSpeechHelper } from './dictation/dictatio
 import { createNoteIndexService } from './note-index/note-index-service';
 import { getHackDeskRootPath } from './paths';
 import {
+  browseLocalDirectories,
+  createLocalDirectory,
   createLocalFolder,
   createLocalNote,
   getActiveLocalVaultSnapshot,
   importLocalVaultAttachment,
   readLocalNote,
   readLocalVaultNotesForIndex,
+  resolveLocalDirectory,
   revealLocalVaultFolder,
   revealLocalVaultNote,
   revealLocalVaultRoot,
@@ -145,6 +148,9 @@ import {
   localVaultTrashFolderInputSchema,
   localVaultTrashNoteInputSchema,
   localVaultWriteInputSchema,
+  localVaultBrowseInputSchema,
+  localVaultChoosePathInputSchema,
+  localVaultCreateDirectoryInputSchema,
   openHackmdEditorInputSchema,
   openTextFileInputSchema,
   presentationDeckSchema,
@@ -378,6 +384,15 @@ export function registerIpcHandlers(
     options.onSettingsUpdated?.(settings);
     return { settings, user };
   });
+  /** Scans a vault folder, activates it and starts watching it. Shared by both pickers. */
+  const chooseScannedVaultPath = async (rootPath: string) => {
+    const snapshot = await scanLocalVault(rootPath);
+    const settings = await updateStoredSettings({ localVaultPath: rootPath });
+    options.onSettingsUpdated?.(settings);
+    ensureLocalVaultWatcher(snapshot.rootPath);
+    void noteIndex.indexVault(snapshot);
+    return { canceled: false, settings, snapshot };
+  };
   ipcMain.handle(ELECTRON_CHANNELS.localVaultChoose, async () => {
     const targetWindow = windowManager.getTargetWindow();
     const result = targetWindow
@@ -394,13 +409,23 @@ export function registerIpcHandlers(
       return { canceled: true };
     }
 
-    const rootPath = result.filePaths[0];
-    const snapshot = await scanLocalVault(rootPath);
-    const settings = await updateStoredSettings({ localVaultPath: rootPath });
-    options.onSettingsUpdated?.(settings);
-    ensureLocalVaultWatcher(snapshot.rootPath);
-    void noteIndex.indexVault(snapshot);
-    return { canceled: false, settings, snapshot };
+    return chooseScannedVaultPath(result.filePaths[0]);
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultChoosePath, async (_event, input: unknown) => {
+    const { path } = validateIpcInput(ELECTRON_CHANNELS.localVaultChoosePath, localVaultChoosePathInputSchema, input);
+    return chooseScannedVaultPath(await resolveLocalDirectory(path));
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultBrowse, (_event, input: unknown) => {
+    const { path } = validateIpcInput(ELECTRON_CHANNELS.localVaultBrowse, localVaultBrowseInputSchema, input);
+    return browseLocalDirectories(path);
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultCreateDirectory, (_event, input: unknown) => {
+    const validated = validateIpcInput(
+      ELECTRON_CHANNELS.localVaultCreateDirectory,
+      localVaultCreateDirectoryInputSchema,
+      input,
+    );
+    return createLocalDirectory(validated.parentPath, validated.name);
   });
   ipcMain.handle(ELECTRON_CHANNELS.localVaultDisconnect, async () => {
     closeLocalVaultWatcher(true);

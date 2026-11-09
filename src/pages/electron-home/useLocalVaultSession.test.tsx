@@ -28,14 +28,22 @@ function deferred<T>() {
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
   return { promise, resolve, reject };
 }
-function fixture() {
+function fixture(pickFolder?: () => Promise<string | null>) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const changed = vi.fn();
   const api = {
     settings: { get: vi.fn(async () => settings('/tmp/A')) },
     localVault: {
-      getSnapshot: vi.fn(async () => snapshot(getActiveLocalVaultPath(client.getQueryData<ElectronSafeSettings>(['electron', 'settings'])) === '/tmp/B' ? 'B' : 'A')),
+      getSnapshot: vi.fn(async () => {
+        const path = getActiveLocalVaultPath(client.getQueryData<ElectronSafeSettings>(['electron', 'settings']));
+        return snapshot(path ? path.split('/').at(-1) ?? 'A' : 'A');
+      }),
       choose: vi.fn(async () => ({ canceled: false, settings: settings('/tmp/B'), snapshot: snapshot('B') })),
+      choosePath: vi.fn(async ({ path }: { path: string }) => ({
+        canceled: false as const,
+        settings: settings(path),
+        snapshot: snapshot(path.split('/').at(-1) ?? path),
+      })),
       disconnect: vi.fn(async () => settings(null)),
       readNote: vi.fn(async () => ({ content: 'A' })),
       onDidChange: vi.fn((callback) => { changed.mockImplementation(callback); return () => {}; }),
@@ -45,7 +53,7 @@ function fixture() {
   function useFixture() {
     const beforeChange = useRef(() => {});
     const currentSettings = useElectronSettings(api);
-    const session = useLocalVaultSession(api, currentSettings.data, beforeChange);
+    const session = useLocalVaultSession(api, currentSettings.data, beforeChange, pickFolder);
     const tabs = useNoteWorkspaceTabs(session.vaultId ? `local:${session.vaultId}` : null);
     const flush = tabs.flush;
     useLayoutEffect(() => { beforeChange.current = flush; }, [flush]);
@@ -124,8 +132,34 @@ describe('Local Vault session', () => {
     expect(localStorage.getItem('hackdesk_note_workspace:local:A')).toBeNull();
   });
 
-  it('ignores an old snapshot that arrives after switching to another vault', async () => {
-    const f = fixture();
+  it('chooses a vault from the in-app picker without the native dialog', async () => {
+    const f = fixture(() => Promise.resolve('/tmp/C'));
+    await waitFor(() => expect(f.result.current.session.vaultId).toBe('A'));
+
+    await act(async () => {
+      await f.result.current.session.api!.localVault.choose();
+    });
+
+    expect(f.api.localVault.choose).not.toHaveBeenCalled();
+    expect(f.api.localVault.choosePath).toHaveBeenCalledWith({ path: '/tmp/C' });
+    await waitFor(() => expect(f.result.current.session.vaultId).toBe('C'));
+    expect(f.client.getQueryData(getLocalVaultSnapshotQueryKey('/tmp/C'))).toEqual(snapshot('C'));
+  });
+
+  it('keeps the vault when the in-app picker is cancelled', async () => {
+    const f = fixture(() => Promise.resolve(null));
+    await waitFor(() => expect(f.result.current.session.vaultId).toBe('A'));
+
+    await act(async () => {
+      await f.result.current.session.api!.localVault.choose();
+    });
+
+    expect(f.api.localVault.choose).not.toHaveBeenCalled();
+    expect(f.api.localVault.choosePath).not.toHaveBeenCalled();
+    expect(f.result.current.session.vaultId).toBe('A');
+  });
+
+  it('ignores an old snapshot that arrives after switching to another vault', async () => {    const f = fixture();
     const oldScan = deferred<LocalVaultSnapshot>();
     vi.mocked(f.api.localVault.getSnapshot).mockReturnValueOnce(oldScan.promise);
     await waitFor(() => expect(f.api.localVault.getSnapshot).toHaveBeenCalledOnce());

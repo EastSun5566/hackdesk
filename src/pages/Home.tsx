@@ -44,6 +44,7 @@ import { useElectronHomeCommandPalette } from './electron-home/useElectronHomeCo
 import { useElectronHomeModel } from './electron-home/useElectronHomeModel';
 import { useElectronHomeRecentNotes } from './electron-home/useElectronHomeRecentNotes';
 import { useElectronHomeRefresh } from './electron-home/useElectronHomeRefresh';
+import { useFolderPicker } from './electron-home/FolderPickerDialog';
 import { useElectronLocalVault } from './electron-home/useElectronLocalVault';
 import {
   useElectronHomeSelection,
@@ -109,7 +110,8 @@ export function Home() {
   const [destinationOpen, setDestinationOpen] = useState(false);
   const pendingInitialSave = useRef<string | null>(null);
   const beforeVaultChange = useRef<() => void>(() => {});
-  const vaultSession = useLocalVaultSession(rawApi, settingsQuery.data, beforeVaultChange);
+  const folderPicker = useFolderPicker(rawApi);
+  const vaultSession = useLocalVaultSession(rawApi, settingsQuery.data, beforeVaultChange, folderPicker.pickFolder);
   const api = vaultSession.api;
   const initialWorkspaceScope = useMemo(() => getInitialWorkspaceScope(), []);
   const { recentNotes, removeRecentNoteEntry, trackRecentNote, syncLocalRecentNotes } = useElectronHomeRecentNotes(window.localStorage, vaultSession.vaultId);
@@ -1301,6 +1303,7 @@ export function Home() {
             onChoose={noteTemplates.chooseTemplate}
           />
           <AskNotesDialog askNotes={askNotes} onOpenNote={note => openNoteTarget(toRecentNote(note))} />
+          {folderPicker.dialog}
           <ConfirmDialogHost />
           {shortcutHelp ? <KeyboardShortcutsDialog
             open region={shortcutHelp.region} returnFocus={shortcutHelp.target}

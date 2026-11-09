@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { definedEnvironment } from './fixtures/environment';
+import { cancelFolderPicker, chooseFolderInPicker } from './fixtures/folder-picker';
 import { ELECTRON_CHANNELS } from '../src/shared/channels';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
@@ -55,14 +56,15 @@ test('starts without setup, preserves drafts through cancel/restart, and saves o
     await page.keyboard.press('Escape');
     await expect(page.locator('.cm-content')).toBeFocused();
     await expect(page.locator('.cm-content')).toContainText('Latest first input');
-    await app.evaluate(({ dialog }) => { dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] }); });
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await page.getByRole('button', { name: 'Local Vault', exact: true }).click();
+    await cancelFolderPicker(page);
     await expect(page.locator('.cm-content')).toBeFocused();
     expect(await readdir(vault)).toEqual([]);
-    await app.evaluate(({ dialog }, folder) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [folder] }); }, vault);
+    
     await page.keyboard.press(`${primary}+s`);
     await page.getByRole('button', { name: 'Local Vault', exact: true }).click();
+    await chooseFolderInPicker(page, 'vault');
     await expect.poll(async () => (await readdir(vault)).filter(name => name.endsWith('.md'))).toHaveLength(1);
     const file = (await readdir(vault)).find(name => name.endsWith('.md'))!;
     expect(await readFile(join(vault, file), 'utf8')).toContain('Latest first input');

@@ -373,6 +373,21 @@ export const localVaultRevealFolderInputSchema = z.strictObject({
   relativePath: nonEmptyStringSchema,
 });
 
+const absolutePathSchema = z.string().trim().min(1).max(4096);
+
+export const localVaultBrowseInputSchema = z.strictObject({
+  path: absolutePathSchema.optional(),
+}).default({});
+
+export const localVaultChoosePathInputSchema = z.strictObject({
+  path: absolutePathSchema,
+});
+
+export const localVaultCreateDirectoryInputSchema = z.strictObject({
+  parentPath: absolutePathSchema,
+  name: z.string().trim().min(1).max(255),
+});
+
 export const createNoteInputSchema = z.strictObject({
   title: optionalStringSchema,
   description: optionalStringSchema,

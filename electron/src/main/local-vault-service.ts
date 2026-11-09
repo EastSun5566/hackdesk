@@ -12,9 +12,21 @@ import {
   stat,
   writeFile,
 } from 'node:fs/promises';
-import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import {
+  basename,
+  dirname,
+  extname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from 'node:path';
+import { homedir } from 'node:os';
 
 import type {
+  LocalDirectoryBrowseResult,
+  LocalDirectoryEntry,
   LocalDocument,
   LocalFolder,
   LocalVaultAttachmentMutationResult,
@@ -557,6 +569,126 @@ export async function scanLocalVault(vaultRoot: string): Promise<LocalVaultSnaps
   await assertVaultRootExists(configuredRoot);
   const resolvedRoot = await realpath(configuredRoot);
   return enqueueVaultOperation(resolvedRoot, () => scanLocalVaultUnlocked(resolvedRoot));
+}
+
+const MAX_BROWSE_ENTRIES = 1000;
+
+/** Resolves a picker path to a real directory, following symlinks like the native dialog does. */
+export async function resolveLocalDirectory(inputPath: string): Promise<string> {
+  const trimmed = inputPath.trim();
+  if (!trimmed || !isAbsolute(trimmed)) {
+    throw new Error('Choose an absolute folder path.');
+  }
+  const target = resolve(trimmed);
+  let itemStat;
+  try {
+    itemStat = await stat(target);
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      throw new Error('That folder no longer exists.');
+    }
+    throw new Error('That folder cannot be opened.');
+  }
+  if (!itemStat.isDirectory()) {
+    throw new Error('That path is not a folder.');
+  }
+  return realpath(target);
+}
+
+async function hasVisibleSubdirectory(directory: string): Promise<boolean> {
+  try {
+    const children = await readdir(directory, { withFileTypes: true });
+    for (const child of children) {
+      if (child.isDirectory()) {
+        return true;
+      }
+      if (child.isSymbolicLink()) {
+        try {
+          if ((await stat(join(directory, child.name))).isDirectory()) {
+            return true;
+          }
+        } catch {
+          continue;
+        }
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Lists the folders inside `inputPath` (the home folder by default) for the in-app folder picker.
+ * Read-only: unreadable entries are left out rather than failing the whole listing.
+ */
+export async function browseLocalDirectories(inputPath?: string | null): Promise<LocalDirectoryBrowseResult> {
+  const home = homedir();
+  const canonical = await resolveLocalDirectory(inputPath?.trim() ? inputPath : home);
+  let dirents;
+  try {
+    dirents = await readdir(canonical, { withFileTypes: true });
+  } catch {
+    throw new Error('That folder cannot be opened.');
+  }
+
+  const candidates = dirents.slice(0, MAX_BROWSE_ENTRIES);
+  const entries = await mapScanItems(candidates, async (dirent): Promise<LocalDirectoryEntry | null> => {
+    if (!dirent.isDirectory() && !dirent.isSymbolicLink()) {
+      return null;
+    }
+    const path = join(canonical, dirent.name);
+    try {
+      if (!(await stat(path)).isDirectory()) {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+    return { name: dirent.name, path, hasSubdirectories: await hasVisibleSubdirectory(path) };
+  });
+
+  const listed = entries.filter((entry): entry is LocalDirectoryEntry => entry !== null);
+  listed.sort((left, right) => {
+    // Dotted folders sort after visible ones, like the native picker.
+    const leftHidden = left.name.startsWith('.') ? 1 : 0;
+    const rightHidden = right.name.startsWith('.') ? 1 : 0;
+    return leftHidden - rightHidden || left.name.localeCompare(right.name, undefined, { sensitivity: 'base' });
+  });
+
+  return {
+    path: canonical,
+    parent: dirname(canonical) === canonical ? null : dirname(canonical),
+    home,
+    entries: listed,
+  };
+}
+
+const MAX_DIRECTORY_NAME_LENGTH = 255;
+
+function sanitizeDirectoryName(input: string) {
+  const name = input.trim();
+  if (!name || name === '.' || name === '..' || name.length > MAX_DIRECTORY_NAME_LENGTH
+    || name.includes('/') || name.includes('\\') || name.includes('\0') || IGNORED_DIRS.has(name)) {
+    throw new Error(`Folder name "${input.trim() || input}" cannot be used here.`);
+  }
+  return name;
+}
+
+/** Creates one folder inside an existing directory for the in-app folder picker. */
+export async function createLocalDirectory(parentPath: string, name: string): Promise<{ path: string }> {
+  const parent = await resolveLocalDirectory(parentPath);
+  const folderName = sanitizeDirectoryName(name);
+  const path = join(parent, folderName);
+  try {
+    await mkdir(path, { recursive: false });
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'EEXIST') {
+      throw new Error('A folder with that name already exists.');
+    }
+    throw new Error('That folder could not be created.');
+  }
+  return { path };
 }
 
 export async function revealLocalVaultRoot(openPath: OpenPath) {
