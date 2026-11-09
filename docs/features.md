@@ -19,7 +19,7 @@ Open the workspace switcher at the top of the sidebar:
 - **Local Vault** opens your selected Markdown folder.
 - **History** shows recent HackMD browsing activity.
 
-Settings and account controls are at the bottom of the sidebar. HackMD workspaces also show **My Trash** or **Team Trash** there. Press **Cmd+B** on macOS or **Ctrl+B** on Windows/Linux to hide or show the sidebar.
+Settings and account controls are at the bottom of the sidebar. HackMD workspaces show **My Trash** or **Team Trash** just above the account controls. Press **Cmd+B** on macOS or **Ctrl+B** on Windows/Linux to hide or show the sidebar.
 
 Switching Local Vaults restores each vault's own tabs and recoverable drafts. Files are not uploaded to HackMD.
 
