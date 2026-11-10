@@ -793,7 +793,8 @@ export type AppSettings = z.infer<typeof settingsSchema>;
 export const defaultSettings: AppSettings = {
   title: DEFAULT_TITLE,
   hackmdApiToken: '',
-  hackmdAccounts: defaultHackmdAccountsSettings,  appearance: defaultAppearanceSettings,
+  hackmdAccounts: defaultHackmdAccountsSettings,
+  appearance: defaultAppearanceSettings,
   onboarding: defaultOnboardingSettings,
   localVault: defaultLocalVaultSettings,
   editor: defaultEditorSettings,

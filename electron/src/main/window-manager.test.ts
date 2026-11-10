@@ -635,6 +635,24 @@ describe('WindowManager close intent', () => {
     expect(mockState.state.appHide).not.toHaveBeenCalled();
   });
 
+  it('returns to the window Quick Hack opened from, even after another window closes', () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+    const manager = new WindowManager();
+    const other = getMockWindow(manager.createMainWindow());
+    const opener = getMockWindow(manager.createMainWindow());
+    opener.focus();
+    manager.showQuickCaptureWindow();
+    other.destroy();
+    opener.show.mockClear();
+    opener.focus.mockClear();
+
+    manager.hideQuickCaptureWindow();
+
+    expect(opener.show).toHaveBeenCalledOnce();
+    expect(opener.focus).toHaveBeenCalledOnce();
+    expect(mockState.state.appHide).not.toHaveBeenCalled();
+  });
+
   it('keeps quick capture recoverable while quit is still unconfirmed', () => {
     const { manager } = createManagerWithWindow();
     const captureWindow = getMockWindow(manager.showQuickCaptureWindow());
@@ -882,7 +900,37 @@ describe('WindowManager multi-window', () => {
     expect(first.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCloseRequested, { source: 'app-quit' });
     expect(second.webContents.send).toHaveBeenCalledWith(ELECTRON_CHANNELS.appCloseRequested, { source: 'app-quit' });
 
+    // A clean window answers at once; the app must wait for the window still asking.
     manager.confirmClose(first as unknown as BrowserWindow);
+    expect(app.quit).not.toHaveBeenCalled();
+    manager.confirmClose(second as unknown as BrowserWindow);
+    expect(app.quit).toHaveBeenCalledOnce();
+  });
+
+  it('stops the app quit when any window keeps its unsaved changes', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+    manager.handleBeforeQuit({ preventDefault: vi.fn(), defaultPrevented: false });
+
+    manager.confirmClose(first as unknown as BrowserWindow);
+    manager.cancelClose(second as unknown as BrowserWindow);
+    expect(app.quit).not.toHaveBeenCalled();
+    // A late answer from a window after the quit stopped changes nothing.
+    manager.confirmClose(second as unknown as BrowserWindow);
+    expect(app.quit).not.toHaveBeenCalled();
+    expect(first.destroy).not.toHaveBeenCalled();
+    expect(second.destroy).not.toHaveBeenCalled();
+  });
+
+  it('finishes the app quit when the last window it waited for goes away', () => {
+    const manager = new WindowManager();
+    const first = getMockWindow(manager.createMainWindow());
+    const second = getMockWindow(manager.createMainWindow());
+    manager.handleBeforeQuit({ preventDefault: vi.fn(), defaultPrevented: false });
+
+    manager.confirmClose(first as unknown as BrowserWindow);
+    second.destroy();
     expect(app.quit).toHaveBeenCalledOnce();
   });
 

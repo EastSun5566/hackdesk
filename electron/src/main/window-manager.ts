@@ -65,7 +65,8 @@ export class WindowManager {
   private activationMode: 'regular' | 'accessory' = 'regular';
   private pendingMainWindowCommands: HackDeskCommandPaletteCommand[] = [];
   private pendingQuickCaptureSubmissions = new Map<string, PendingQuickCaptureSubmission>();
-  private quickCaptureOpenedFromMain = false;
+  /** The main window that had focus when Quick Hack opened; dismissing Quick Hack returns to it. */
+  private quickCaptureOpener: BrowserWindow | null = null;
   private quickCapturePresentationInProgress = false;
   private quickCapturePresentationTimeout: NodeJS.Timeout | null = null;
 
@@ -268,12 +269,41 @@ export class WindowManager {
     const source = pending.source;
     writeLog('main', 'renderer confirmed close', { source });
     if (source === 'app-quit') {
-      this.pendingCloseByWindow.delete(window);
-      this.allowAppQuit = true;
-      app.quit();
+      this.confirmAppQuitForWindow(window);
     } else {
       this.pendingCloseByWindow.delete(window);
       window.destroy();
+    }
+  }
+
+  /**
+   * One window has answered an app quit. The app quits once no other window is still asking
+   * about its unsaved changes; a clean window answers at once, so quitting on the first answer
+   * would close a window whose question is still open.
+   */
+  private confirmAppQuitForWindow(window: BrowserWindow) {
+    this.pendingCloseByWindow.delete(window);
+    if (this.hasPendingAppQuit()) {
+      writeLog('main', 'waiting for other windows to confirm app quit');
+      return;
+    }
+    this.allowAppQuit = true;
+    app.quit();
+  }
+
+  private hasPendingAppQuit() {
+    for (const [candidate, pending] of this.pendingCloseByWindow) {
+      if (pending.source === 'app-quit' && !candidate.isDestroyed() && this.mainWindows.has(candidate)) return true;
+    }
+    return false;
+  }
+
+  /** A window kept its unsaved changes: the whole app quit stops, and later answers are ignored. */
+  private abandonAppQuit() {
+    for (const [candidate, pending] of [...this.pendingCloseByWindow]) {
+      if (pending.source !== 'app-quit') continue;
+      this.clearPendingCloseTimeout(candidate);
+      this.pendingCloseByWindow.delete(candidate);
     }
   }
 
@@ -293,7 +323,11 @@ export class WindowManager {
     if (!window) return;
     this.clearPendingCloseTimeout(window);
     writeLog('main', 'renderer cancelled window close');
-    this.pendingCloseByWindow.delete(window);
+    if (this.pendingCloseByWindow.get(window)?.source === 'app-quit') {
+      this.abandonAppQuit();
+    } else {
+      this.pendingCloseByWindow.delete(window);
+    }
   }
 
   handleBeforeQuit(event: Electron.Event) {
@@ -369,14 +403,14 @@ export class WindowManager {
     }
 
     const mainWindow = this.getMainWindow();
-    this.quickCaptureOpenedFromMain = mainWindow?.isFocused() ?? false;
+    this.quickCaptureOpener = mainWindow?.isFocused() ? mainWindow : null;
     this.beginQuickCapturePresentation();
     if (process.platform === 'darwin') {
-      if (!this.quickCaptureOpenedFromMain) {
+      if (!this.quickCaptureOpener) {
         mainWindow?.hide();
       }
       app.show();
-      if (!this.quickCaptureOpenedFromMain) {
+      if (!this.quickCaptureOpener) {
         mainWindow?.hide();
       }
     }
@@ -471,8 +505,12 @@ export class WindowManager {
       return;
     }
 
-    if (this.quickCaptureOpenedFromMain) {
-      this.showAndFocusMainWindow();
+    const opener = this.quickCaptureOpener;
+    if (opener && !opener.isDestroyed() && this.mainWindows.has(opener)) {
+      this.setActivationMode('regular');
+      if (opener.isMinimized()) opener.restore();
+      opener.show();
+      opener.focus();
       return;
     }
 
@@ -705,9 +743,17 @@ export class WindowManager {
       this.mainWindows.delete(window);
       this.mainWindowFocusOrder = this.mainWindowFocusOrder.filter((candidate) => candidate !== window);
       this.clearPendingCloseTimeout(window);
+      const wasAskingToQuit = this.pendingCloseByWindow.get(window)?.source === 'app-quit';
       this.pendingCloseByWindow.delete(window);
-      this.quickCaptureOpenedFromMain = false;
+      // Only the window Quick Hack opened from forgets it; closing another window changes nothing.
+      if (this.quickCaptureOpener === window) this.quickCaptureOpener = null;
       this.emitMenuStateChanged();
+      // The last window an app quit waited for went away without answering: the others agreed.
+      if (wasAskingToQuit && !this.allowAppQuit && !this.hasPendingAppQuit()) {
+        this.allowAppQuit = true;
+        app.quit();
+        return;
+      }
       if (this.mainWindows.size === 0 && !this.allowAppQuit) {
         this.setActivationMode('accessory');
       }
@@ -903,8 +949,16 @@ export class WindowManager {
         const latest = this.pendingCloseByWindow.get(window);
         if (!latest || latest.source !== source) return;
         if (response === 1) {
-          this.allowAppQuit = true;
-          app.quit();
+          // Discard this window's changes only: an app quit still waits for the other windows,
+          // and a window's own close button closes just that window.
+          if (source === 'app-quit') {
+            this.confirmAppQuitForWindow(window);
+          } else {
+            this.pendingCloseByWindow.delete(window);
+            window.destroy();
+          }
+        } else if (source === 'app-quit') {
+          this.abandonAppQuit();
         } else {
           this.pendingCloseByWindow.delete(window);
         }

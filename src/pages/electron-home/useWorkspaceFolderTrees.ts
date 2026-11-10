@@ -36,13 +36,15 @@ export function useWorkspaceFolderTrees({
 }): WorkspaceFolderTree[] {
   const queryClient = useQueryClient();
   const showHidden = useShowHiddenFiles();
-  // Folder caches are keyed by stored id; a snapshot carries its manifest id, which differs. The
-  // session snapshot always belongs to the stored active folder, so it is cached under that id.
+  // Folder caches are keyed by stored id; a snapshot carries its manifest id, which differs. While a
+  // folder of the set opens, the session snapshot and the stored active id can name different
+  // folders, so the snapshot is cached under the id only when its root is that folder's path.
+  const activePath = activeVaultId ? vaults.find((vault) => vault.id === activeVaultId)?.path ?? null : null;
   useEffect(() => {
-    if (enabled && activeSnapshot && activeVaultId) {
+    if (enabled && activeSnapshot && activeVaultId && activeSnapshot.rootPath === activePath) {
       queryClient.setQueryData(getLocalVaultVaultSnapshotQueryKey(activeVaultId), activeSnapshot);
     }
-  }, [activeSnapshot, activeVaultId, enabled, queryClient]);
+  }, [activePath, activeSnapshot, activeVaultId, enabled, queryClient]);
 
   const folders = useMemo(
     () => vaultIds

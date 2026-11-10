@@ -58,9 +58,19 @@ export function useLocalVaultSession(
     networkMode: 'always',
     queryFn: async ({ signal }) => {
       const generation = access.current.generation;
-      const snapshot = await api?.localVault.getSnapshot() ?? null;
+      let snapshot = await api?.localVault.getSnapshot() ?? null;
       signal.throwIfAborted();
       if (generation !== access.current.generation) throw new Error('The active Local Vault changed during loading.');
+      // While another folder of the set opens, the main process can still answer with the folder it
+      // had open. That snapshot belongs to another key: read this folder's own instead.
+      if (snapshot && path && snapshot.rootPath !== path) {
+        const settings = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
+        const folder = settings?.localVault.vaults.find((vault) => vault.path === path);
+        if (!api || !folder) throw new Error('The active Local Vault changed during loading.');
+        snapshot = await api.localVault.getVaultSnapshot({ vaultId: folder.id });
+        signal.throwIfAborted();
+        if (snapshot.rootPath !== path) throw new Error('The active Local Vault changed during loading.');
+      }
       return snapshot;
     },
     enabled: !!api && !!path && !changing,
@@ -94,7 +104,8 @@ export function useLocalVaultSession(
       if (access.current.generation !== generation || access.current.changing) return;
       if (!next) return;
       // Another folder's event refreshes only that folder's cache; it never selects the folder.
-      if (next.vaultId !== access.current.vaultId) {
+      // The path check covers the moment a folder of the set opens, before its id is known here.
+      if (next.vaultId !== access.current.vaultId || next.rootPath !== path) {
         cacheLocalVaultSnapshot(queryClient, next);
         return;
       }
@@ -102,6 +113,7 @@ export function useLocalVaultSession(
     });
   }, [api, path, changing, vaultId, queryClient]);
 
+  const focusSequence = useRef(0);
   const sessionApi = useMemo(() => {
     if (!api) return undefined;
     const guarded = guardLocalVaultApi(api, () => access.current, { generation, transitions, vaultId, changing });
@@ -196,9 +208,10 @@ export function useLocalVaultSession(
           if (!current || !target || !workspace?.vaultIds.includes(vaultId)) {
             throw new Error('That folder is not in the open workspace.');
           }
+          const sequence = ++focusSequence.current;
           // Show the folder from what the sidebar already holds, then let the scan confirm it.
           const cached = queryClient.getQueryData<LocalVaultSnapshot>(getLocalVaultVaultSnapshotQueryKey(vaultId));
-          if (cached) queryClient.setQueryData(getLocalVaultSnapshotQueryKey(target.path), cached);
+          if (cached?.rootPath === target.path) queryClient.setQueryData(getLocalVaultSnapshotQueryKey(target.path), cached);
           queryClient.setQueryData<ElectronSafeSettings>(['electron', 'settings'], {
             ...current,
             localVault: { ...current.localVault, activeVaultId: vaultId },
@@ -214,9 +227,14 @@ export function useLocalVaultSession(
             } : result.settings);
             return result;
           } catch (error) {
-            queryClient.setQueryData<ElectronSafeSettings>(['electron', 'settings'], (latest) => latest && latest.localVault.activeVaultId === vaultId ? {
-              ...latest, localVault: { ...latest.localVault, activeVaultId: current.localVault.activeVaultId },
-            } : latest);
+            // A later focus owns the optimistic folder now; only the latest one may put it back. What
+            // it puts back may itself be optimistic, so the main process's settings then confirm it.
+            if (sequence === focusSequence.current) {
+              queryClient.setQueryData<ElectronSafeSettings>(['electron', 'settings'], (latest) => latest && latest.localVault.activeVaultId === vaultId ? {
+                ...latest, localVault: { ...latest.localVault, activeVaultId: current.localVault.activeVaultId },
+              } : latest);
+              void queryClient.invalidateQueries({ queryKey: ['electron', 'settings'], exact: true });
+            }
             throw error;
           }
         },

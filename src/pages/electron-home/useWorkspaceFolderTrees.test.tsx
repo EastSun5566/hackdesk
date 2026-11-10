@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { HackDeskElectronAPI } from '@/lib/electron-api';
 import type { LocalVaultSnapshot } from '@/lib/local-vault';
 
+import { getLocalVaultVaultSnapshotQueryKey } from './local-vault-query';
 import { useWorkspaceFolderTrees } from './useWorkspaceFolderTrees';
 
 function createClient() {
@@ -40,6 +41,28 @@ function apiWithSnapshot(getVaultSnapshot = vi.fn(async () => snapshot)) {
 }
 
 describe('useWorkspaceFolderTrees', () => {
+  it("caches the open folder's snapshot only under the folder it came from", () => {
+    const client = createClient();
+    // While B opens, the stored active id already names B but the session still holds A's scan.
+    const folderA: LocalVaultSnapshot = { ...snapshot, vaultId: 'snapshot-a', rootPath: '/Users/michael/A' };
+    renderHook(
+      () => useWorkspaceFolderTrees({
+        api: apiWithSnapshot(),
+        activeSnapshot: folderA,
+        activeVaultId: 'vault-b',
+        enabled: true,
+        vaultIds: ['vault-a', 'vault-b'],
+        vaults: [
+          { id: 'vault-a', path: '/Users/michael/A' },
+          { id: 'vault-b', path: '/Users/michael/B' },
+        ],
+      }),
+      { wrapper: wrapper(client) },
+    );
+
+    expect(client.getQueryData(getLocalVaultVaultSnapshotQueryKey('vault-b'))).toBeUndefined();
+  });
+
   it('loads every other folder in the set and builds its tree', async () => {
     const getVaultSnapshot = vi.fn(async () => snapshot);
     const { result } = renderHook(
