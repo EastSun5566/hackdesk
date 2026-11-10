@@ -28,9 +28,12 @@ export function cacheLocalVaultSnapshot(queryClient: QueryClient, snapshot: Loca
     }
   }
   const settings = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
-  const activeKey = getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(settings));
+  const activePath = getActiveLocalVaultPath(settings);
+  const activeKey = getLocalVaultSnapshotQueryKey(activePath);
   const active = queryClient.getQueryData<LocalVaultSnapshot | null>(activeKey);
-  if ((!active && getActiveLocalVaultPath(settings) === snapshot.rootPath) || active?.vaultId === snapshot.vaultId) {
+  // An unknown active path (settings not loaded yet) can't contradict the snapshot, and mutations
+  // only run against the active vault; a known path must match before the snapshot may land here.
+  if ((!active && (activePath === null || activePath === snapshot.rootPath)) || active?.vaultId === snapshot.vaultId) {
     queryClient.setQueryData(activeKey, snapshot);
   }
 }
