@@ -8,13 +8,14 @@ import {
 import type { FolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
 
 import type { WorkspaceScope } from './types';
+import type { RevealNoteOptions } from './useWorkbenchNavigator';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 
 export type PendingRecentNoteRestoreOptions = {
   isWorkspaceFetching: boolean;
   isWorkspaceLoading: boolean;
   removeRecentNoteEntry: (noteId: string, teamPath: string | null) => void;
-  revealNoteEntry: (entry: FolderTreeNote) => Promise<boolean>;
+  revealNoteEntry: (entry: FolderTreeNote, options?: RevealNoteOptions) => Promise<boolean>;
   scope: WorkspaceScope;
   tree: FolderTree;
 };

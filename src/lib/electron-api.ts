@@ -642,6 +642,10 @@ export type PresentationDeck = {
 export type HackDeskPresentationAPI = {
   getDeck: () => Promise<PresentationDeck | null>;
   close: () => Promise<void>;
+  /** Puts the slides in or out of full screen; resolves to whether they are now full screen. */
+  toggleFullScreen: () => Promise<boolean>;
+  /** Called when the slides enter or leave full screen, by the button, F, Escape or the window's own control. */
+  onFullScreenChange: (listener: (fullScreen: boolean) => void) => () => void;
 };
 
 export type HackDeskQuickCaptureAPI = {

@@ -13,8 +13,8 @@ const Checkbox = React.forwardRef<
     ref={ref}
     indeterminate={indeterminate}
     className={cn(
-      'inline-flex size-4 shrink-0 cursor-default items-center justify-center rounded border border-border-default bg-background-default text-primary-foreground transition-colors',
-      'data-[checked]:border-primary-default data-[checked]:bg-primary-default data-[indeterminate]:border-primary-default data-[indeterminate]:bg-primary-default',
+      'inline-flex size-4 shrink-0 cursor-default items-center justify-center rounded border border-border-default bg-background-default text-primary-solid-foreground transition-colors',
+      'data-[checked]:border-primary-solid data-[checked]:bg-primary-solid data-[indeterminate]:border-primary-solid data-[indeterminate]:bg-primary-solid',
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background-default',
       className,

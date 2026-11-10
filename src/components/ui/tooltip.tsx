@@ -52,11 +52,13 @@ const TooltipContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Popup> & {
     side?: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Positioner>['side'];
     sideOffset?: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Positioner>['sideOffset'];
+    /** The element it points at, for a tooltip opened without a trigger (a list's shared hover card). */
+    anchor?: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Positioner>['anchor'];
   }
->(({ className, side, sideOffset = 6, ...props }, ref) => (
+>(({ className, side, sideOffset = 6, anchor, ...props }, ref) => (
   <TooltipPortal>
     {/* Fixed, and kept 8px inside the window, so a card near an edge shifts in instead of overflowing. */}
-    <TooltipPrimitive.Positioner side={side} sideOffset={sideOffset} positionMethod="fixed" collisionPadding={8} className={FLOATING_LAYER_CLASS}>
+    <TooltipPrimitive.Positioner side={side} sideOffset={sideOffset} anchor={anchor} positionMethod="fixed" collisionPadding={8} className={FLOATING_LAYER_CLASS}>
       <TooltipPrimitive.Popup
         ref={ref}
         className={cn(

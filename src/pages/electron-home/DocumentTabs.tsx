@@ -1,5 +1,7 @@
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import { NOTE_CARD_CLASS, NoteSummaryCard, useNoteSummaryLookup } from './NoteSummaryCard';
+import { NoteIcon, NoteKindIcon } from './note-kind';
+import { useBookSessionContext } from './useBookSession';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -22,6 +24,7 @@ import { isBlankNoteTab, isDraftNoteTab, type OpenNoteTab } from './note-workspa
 import { ToolbarDropdownIconTrigger } from './interaction-primitives';
 import { DOCUMENT_SYNC_STATE_LABELS, type DocumentSyncState } from './document-sync-state';
 import { documentPaneId, documentTabId } from './document-tab-ids';
+import { useScrollOverflow } from './useScrollOverflow';
 
 function TabStatusIndicator({ state }: { state: DocumentSyncState }) {
   const label = DOCUMENT_SYNC_STATE_LABELS[state];
@@ -83,6 +86,13 @@ function DocumentTab({
   const title = tab.title || 'Untitled';
   const lookupNoteSummary = useNoteSummaryLookup();
   const summary = isDraftNoteTab(tab) || isBlankNoteTab(tab) ? undefined : lookupNoteSummary(tab.noteId);
+  // A tab on the open book or one of its chapters is the book's tab: it turns chapters in place,
+  // and says so with the book's icon and name.
+  const bookSession = useBookSessionContext();
+  const book = bookSession?.book;
+  const bookPosition = book && !isDraftNoteTab(tab) && !isBlankNoteTab(tab)
+    ? bookSession.positionOfNote({ id: tab.noteId, teamPath: tab.teamPath }, tab.tabId)
+    : null;
   const { isDragging, listeners, setNodeRef, setActivatorNodeRef, transform, transition } = useSortable({ id: tab.tabId });
   const setTabNode = useCallback((element: HTMLLIElement | null) => {
     setNodeRef(element);
@@ -130,7 +140,12 @@ function DocumentTab({
           if (!draggedRef.current || event.detail === 0) onSelect();
         }}
       >
-        <FileText aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+        {bookPosition
+          ? <NoteKindIcon kind="book" className="h-3.5 w-3.5" />
+          : <NoteIcon note={summary?.note} noteId={isDraftNoteTab(tab) || isBlankNoteTab(tab) ? undefined : tab.noteId} className="h-3.5 w-3.5" />}
+        {book && bookPosition && !bookPosition.isBook ? (
+          <span aria-hidden="true" data-tab-book className="max-w-24 shrink truncate text-text-subtle">{book.title} ›</span>
+        ) : null}
         <span data-tab-title className="min-w-0 truncate">{title}</span>
         {!isBlankNoteTab(tab) ? <TabStatusIndicator state={syncState} /> : null}
       </button>
@@ -270,26 +285,8 @@ export function DocumentTabs({
   }, [activeTab?.tabId, activeTabIndex]);
 
   // Tabs past either edge fade out there, so a cut-off strip reads as one that continues.
-  const stripRef = useRef<HTMLElement | null>(null);
-  const [overflow, setOverflow] = useState({ start: false, end: false });
-  useEffect(() => {
-    const strip = stripRef.current;
-    if (!strip) return;
-    const update = () => {
-      const start = strip.scrollLeft > 1;
-      const end = strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1;
-      setOverflow((current) => (current.start === start && current.end === end ? current : { start, end }));
-    };
-    update();
-    strip.addEventListener('scroll', update, { passive: true });
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
-    observer?.observe(strip);
-    if (strip.firstElementChild) observer?.observe(strip.firstElementChild);
-    return () => {
-      strip.removeEventListener('scroll', update);
-      observer?.disconnect();
-    };
-  }, [tabs.length]);
+  const [strip, setStrip] = useState<HTMLElement | null>(null);
+  const overflow = useScrollOverflow(strip, 'x');
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={() => { draggedRef.current = true; }} onDragEnd={handleDragEnd}>
@@ -298,7 +295,7 @@ export function DocumentTabs({
             tabs stopped whenever the pointer crossed a gap. It is only as wide as the tabs, so the
             empty title bar after them still drags the window. */}
         <nav
-          ref={stripRef}
+          ref={setStrip}
           aria-label="Open documents"
           data-overflow-start={overflow.start || undefined}
           data-overflow-end={overflow.end || undefined}

@@ -4,6 +4,7 @@ import 'katex/dist/katex.min.css';
 
 import Reveal from 'reveal.js';
 import RevealHighlight from 'reveal.js/plugin/highlight';
+import { Maximize2, Minimize2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { parseSlides, type SlideTheme } from '@/lib/slides';
@@ -29,14 +30,42 @@ const THEME_STYLES: Record<SlideTheme, () => Promise<{ default: string }>> = {
 };
 
 const ESCAPE_KEY = 27;
+const F_KEY = 70;
+/** The full screen button shows while the pointer moves, then fades so it never sits on a talk. */
+const CONTROLS_IDLE_MS = 2000;
 
 /** Drops `@import`s of web fonts, which the app does not load; the theme falls back to system fonts. */
 const withoutRemoteImports = (css: string) => css.replace(/@import\s*(?:url\()?\s*["']?https?:[^;]*;/g, '');
 
-/** The presentation window: the note it was opened with, as reveal.js slides. Esc closes it. */
+/**
+ * The presentation window: the note it was opened with, as reveal.js slides, filling the window it
+ * opened in. The button in the corner, or F, puts it full screen. Esc leaves full screen, then closes.
+ */
 export default function Presentation() {
   const hostRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fullScreen, setFullScreen] = useState(false);
+  const fullScreenRef = useRef(false);
+  const [controlsShown, setControlsShown] = useState(true);
+
+  useEffect(() => window.hackdeskPresentationAPI?.onFullScreenChange((next) => {
+    fullScreenRef.current = next;
+    setFullScreen(next);
+  }), []);
+
+  useEffect(() => {
+    let timer = window.setTimeout(() => setControlsShown(false), CONTROLS_IDLE_MS);
+    const show = () => {
+      setControlsShown(true);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setControlsShown(false), CONTROLS_IDLE_MS);
+    };
+    window.addEventListener('pointermove', show);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('pointermove', show);
+    };
+  }, []);
 
   useEffect(() => {
     const api = window.hackdeskPresentationAPI;
@@ -75,7 +104,13 @@ export default function Presentation() {
         // The window's own route is the URL hash, so reveal.js must never write to it.
         hash: false,
         history: false,
-        keyboard: { ...keyboard, [ESCAPE_KEY]: () => void api.close() },
+        keyboard: {
+          ...keyboard,
+          // Esc steps back: out of full screen first, then out of the presentation.
+          [ESCAPE_KEY]: () => void (fullScreenRef.current ? api.toggleFullScreen() : api.close()),
+          // reveal.js's own F asks the page for full screen; this one is the window's, like the button.
+          [F_KEY]: () => void api.toggleFullScreen(),
+        },
         plugins: [RevealHighlight],
       });
       await reveal.initialize();
@@ -105,6 +140,22 @@ export default function Presentation() {
         <p role="alert" className="flex h-full items-center justify-center p-8 text-center text-lg text-white">{error}</p>
       ) : null}
       <div ref={hostRef} hidden={Boolean(error)} className="size-full" />
+      {error ? null : (
+        <button
+          type="button"
+          onClick={(event) => {
+            // A clicked button keeps focus, and Space would press it again instead of moving on a slide.
+            if (event.detail > 0) event.currentTarget.blur();
+            void window.hackdeskPresentationAPI?.toggleFullScreen();
+          }}
+          aria-label={fullScreen ? 'Exit Full Screen' : 'Full Screen'}
+          title={fullScreen ? 'Exit Full Screen (F)' : 'Full Screen (F)'}
+          data-shown={controlsShown || undefined}
+          className="fixed right-3 top-3 z-50 flex size-9 items-center justify-center rounded-md bg-black/50 text-white opacity-0 transition-opacity duration-200 hover:bg-black/70 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white data-shown:opacity-100 motion-reduce:transition-none"
+        >
+          {fullScreen ? <Minimize2 aria-hidden="true" className="size-4" /> : <Maximize2 aria-hidden="true" className="size-4" />}
+        </button>
+      )}
     </div>
   );
 }

@@ -10,7 +10,10 @@ import { getHackmdNoteUrl } from '@/lib/electron-note-links';
 
 import { getLocalImageContext, LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 
-export type OpenNoteTarget = (target: ElectronRecentNote) => void;
+export type OpenNoteTarget = (target: ElectronRecentNote, options?: OpenNoteTargetOptions) => void;
+
+/** `inPlace` shows the note in the active tab instead of a new one, as a book's tab turns chapters. */
+export type OpenNoteTargetOptions = { inPlace?: boolean };
 
 /** What a link in `document` is resolved against; null for a draft that has no identity yet. */
 export function getNoteLinkSource(document: DocumentSummary | undefined): NoteLinkSource | null {

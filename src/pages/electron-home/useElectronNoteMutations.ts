@@ -319,8 +319,8 @@ export function useElectronNoteMutations({
 
   const submitSettings = async (input: SettingsFormInput) => {
     try {
+      // Settings saves at once and stays open; only failures surface.
       await updateSettingsMutation.mutateAsync(input);
-      onSettingsSaved();
     } catch {
       // The mutation reports persistence errors and leaves Settings open.
     }

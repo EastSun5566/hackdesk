@@ -25,6 +25,7 @@ import {
   navigateNoteWorkspace,
   noteIdentityMatches,
   openDraftNoteTab,
+  openNoteInPlace,
   openNoteTab,
   readNoteWorkspaceLayoutStorage,
   reopenLastClosedTab,
@@ -152,6 +153,11 @@ export function useNoteWorkspaceTabs(scopeKey: string | null, initializeDraft = 
 
   const openNote = useCallback((note: NoteSummary, paneId?: string) => {
     updateWorkspace(scopeKey, (current) => openNoteTab(current, note, paneId));
+  }, [scopeKey, updateWorkspace]);
+
+  /** Shows the note in the active tab rather than a new one, as a book's tab turns chapters. */
+  const showNoteInActiveTab = useCallback((note: NoteSummary) => {
+    updateWorkspace(scopeKey, (current) => openNoteInPlace(current, note));
   }, [scopeKey, updateWorkspace]);
 
   const openDraftNote = useCallback((options?: string | OpenDraftNoteOptions) => {
@@ -315,6 +321,7 @@ export function useNoteWorkspaceTabs(scopeKey: string | null, initializeDraft = 
     activeTab,
     visibleActiveTabs,
     openNote,
+    showNoteInActiveTab,
     openDraftNote,
     openRecoverableDraftNote,
     materializeDraftNote,

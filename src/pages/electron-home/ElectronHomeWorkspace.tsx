@@ -1,7 +1,6 @@
 import type { ComponentProps } from 'react';
 
 import { MAX_NOTE_PANES } from '@/lib/electron-actions';
-import { cn } from '@/lib/utils';
 
 import { AppTopBar } from './AppTopBar';
 import { DocumentWorkspace, type DocumentPaneView } from './DocumentWorkspace';
@@ -123,10 +122,9 @@ export function ElectronHomeWorkspace({
       {backupNotice ? <WorkspaceBackupNotice {...backupNotice} /> : null}
 
       {/* Notes sit on cards a gap in from the window; the sidebar's resize handle is the gap beside it. */}
-      <main className={cn(
-        'flex min-h-0 min-w-0 flex-1 pr-1.5 pb-1.5 [[data-hack-mode]_&]:p-0',
-        navigatorResize.disabled && 'pl-1.5',
-      )}>
+      {/* The gap left of the card while the sidebar is collapsed is the sidebar's own margin, so it
+          grows as the sidebar narrows instead of shoving the sidebar aside the moment it starts. */}
+      <main className="flex min-h-0 min-w-0 flex-1 pr-1.5 pb-1.5 [[data-hack-mode]_&]:p-0">
         <FolderNavigator id={NOTE_NAVIGATOR_PANEL_ID} {...navigator} />
         <PanelResizeSash
           label="Resize sidebar"

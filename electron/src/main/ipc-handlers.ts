@@ -178,7 +178,7 @@ export function registerIpcHandlers(
     | 'cancelClose' | 'confirmClose' | 'holdClose' | 'getMainWindow' | 'getTargetWindow'
     | 'getWindowPresentationState' | 'hideQuickCaptureWindow' | 'isTrustedIpcSender'
     | 'resolveQuickCaptureSubmission' | 'setMenuShortcutsIgnored' | 'setThemeSurface'
-    | 'submitQuickCapture' | 'showPresentationWindow' | 'getPresentationDeck' | 'closePresentationWindow'
+    | 'submitQuickCapture' | 'showPresentationWindow' | 'getPresentationDeck' | 'closePresentationWindow' | 'togglePresentationFullScreen'
   >,
   options: { onSettingsUpdated?: (settings: Awaited<ReturnType<typeof updateStoredSettings>>) => void } = {},
 ) {
@@ -749,6 +749,7 @@ export function registerIpcHandlers(
   ipcMain.handle(ELECTRON_CHANNELS.appClosePresentation, () => {
     windowManager.closePresentationWindow();
   });
+  ipcMain.handle(ELECTRON_CHANNELS.appTogglePresentationFullScreen, () => windowManager.togglePresentationFullScreen());
   ipcMain.handle(ELECTRON_CHANNELS.appConfirm, async (_event, options: ConfirmDialogOptions) => {
     const validatedOptions = validateIpcInput(ELECTRON_CHANNELS.appConfirm, confirmDialogOptionsSchema, options);
     const confirmLabel = validatedOptions.confirmLabel ?? 'OK';

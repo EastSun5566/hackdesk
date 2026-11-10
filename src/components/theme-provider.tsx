@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useReducer } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useReducer, useRef } from 'react';
 import { getHackDeskAPI } from '@/lib/electron-api';
 import { trySetStorageItem } from '@/lib/storage';
 import {
@@ -290,13 +290,18 @@ export function ThemeProvider({
     });
   }, [effectiveCustomSeed, effectivePresetId, effectiveTypography, preview, resolvedTheme]);
 
+  // A settings read that started before a local commit may resolve after it with older
+  // values; the commit always wins, so a stale read never overwrites freshly saved state.
+  const commitEpochRef = useRef(0);
+
   // Sync theme when another window or settings backend changes the committed appearance.
   useEffect(() => {
     let cancelled = false;
     const syncTheme = () => {
+      const epoch = commitEpochRef.current;
       void readPersistedAppearance(storageKey, defaultTheme)
         .then((appearance) => {
-          if (cancelled) {
+          if (cancelled || commitEpochRef.current !== epoch) {
             return;
           }
 
@@ -340,6 +345,7 @@ export function ThemeProvider({
 
   const value = useMemo(() => {
     const commitAppearance = (appearance: AppearanceSettings) => {
+      commitEpochRef.current += 1;
       const normalized = normalizeAppearanceSettings(appearance);
       writePersistedAppearance(storageKey, normalized);
       dispatch({

@@ -56,6 +56,8 @@ import { buildNoteTagIndex } from '@/lib/electron-note-tags';
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { arePanelPropsEqual, useStableCallbacks } from '@/lib/stable-props';
+import { useScrollOverflow } from './useScrollOverflow';
+import { RowOverlayHost } from './row-overlays';
 
 import { applyTreeGuides } from './tree-guides-preference';
 import { cn } from '@/lib/utils';
@@ -277,13 +279,15 @@ function FolderNavigatorPanel({
       collapsed={layout.collapsed}
       width={layout.width}
       collapsedWidth={0}
-      className={cn('note-navigator bg-background-muted', HACK_MODE_HIDDEN_CLASS)}
+      className={cn('bg-background-muted', layout.collapsed && 'mr-1.5', HACK_MODE_HIDDEN_CLASS)}
       // On the panel, not the content, so the resize handle can update both widths while dragging.
       style={{ '--sidebar-content-width': `${layout.width}px` } as CSSProperties}
     >
       {/* Stays mounted at its full width while collapsed, so the panel clips it as the width
-          animates instead of reflowing it every frame. */}
-      <div className="scroll-edges flex min-h-0 w-(--sidebar-content-width) flex-1 shrink-0 flex-col">
+          animates instead of reflowing it every frame. Held to the panel's right edge, it slides out
+          to the left with that edge rather than sitting still under the note card. The width queries
+          (note-navigator) read this full width, so rows never change mid-animation. */}
+      <div className="note-navigator scroll-edges flex min-h-0 w-(--sidebar-content-width) flex-1 shrink-0 flex-col self-end">
         <ExpandedNavigator
           actions={actions}
           emptyState={emptyState}
@@ -540,84 +544,96 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   const trashActive = Boolean(trash?.open);
   // The pinned workspace row (8px of cover plus its 32px row) stays solid; rows fade under it.
   const pinnedRootShown = !trashActive && !isFinderMode && !status.isLoading && scope.type !== 'history' && hasTreeContent;
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
+  const overflow = useScrollOverflow(scroller, 'y');
 
   return (
-    // While the workspace row is pinned, rows scrolled into view (keyboard, reveal, hints) stop
-    // below it instead of under it: 2.5rem is its 8px cover plus its 32px row.
-    <div className={cn('scroll-edges-source min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2', pinnedRootShown && 'scroll-pt-10')}>
-      {/* Edge fades (see .edge-fade-top in styles.css): zero-height, so they never move the rows. */}
-      <div aria-hidden="true" className={cn('edge-fade-top pointer-events-none sticky z-10 -mx-2 h-0', pinnedRootShown ? 'top-8' : '-top-2')}>
-        <div className="h-8 bg-linear-to-b from-background-muted to-transparent" />
-      </div>
-      {trashActive && trash ? (
-        <TrashNavigatorList
-          open={trash.open}
-          onOpenChange={trash.onOpenChange}
-          onOpenNote={trash.onOpenNote}
-          scope={trash.scope}
-        />
-      ) : status.isLoading ? (
-        <NoteListSkeleton />
-      ) : entries.length === 0 && (!hasTreeContent || isFinderMode) ? (
-        <EmptyState
-          icon={<FileText aria-hidden="true" className="h-7 w-7" />}
-          title={emptyState.title}
-          description={emptyState.description}
-          action={(
-            <NavigatorEmptyAction
-              actions={actions}
-              finderState={finderState}
-              isFinderMode={isFinderMode}
-              scope={scope}
-              status={status}
-            />
-          )}
-        />
-      ) : isFinderMode ? (
-        <FinderResultList
-          actions={actions}
-          entries={entries}
-          highlightedResultId={highlightedResultId}
-          selectedFolderForNoteMove={selectedFolderForNoteMove}
-          selectedNoteId={selection.selectedNoteId}
-          textSearch={finderState.query.trim() ? textSearch : undefined}
-        />
-      ) : scope.type === 'history' ? (
-        <HistoryList
-          actions={actions}
-          entries={tree.allNotes}
-          selectedFolderForNoteMove={selectedFolderForNoteMove}
-          selectedNoteId={selection.selectedNoteId}
-        />
-      ) : null}
-      {/* The tree stays mounted (hidden) while search results show: rebuilding hundreds of rows
-          when the search clears was the slowest keystroke. */}
-      {!trashActive && !status.isLoading && scope.type !== 'history' && hasTreeContent ? (
-        <div hidden={isFinderMode}>
-          <TreeViewOptionsContext.Provider value={{
-            state: finderState,
-            selectedFolderId: selection.selectedFolderId,
-            options: finderOptions,
-            onChange: actions.onFinderStateChange,
-            tags: tagIndex,
-          }}>
-            <MemoNavigatorTree
-              actions={actions}
-              layout={layout}
-              scope={scope}
-              selectedFolderForNoteMove={selectedFolderForNoteMove}
-              selection={selection}
-              status={status}
-              tree={tree}
-              treeFocusRequestId={treeFocusRequestId}
-            />
-          </TreeViewOptionsContext.Provider>
+    // One context menu and one hover card for every row in the list (see row-overlays.tsx).
+    // Around the scroller, not inside it, so the scroller's children stay the rows' real boxes.
+    <RowOverlayHost>
+      {/* While the workspace row is pinned, rows scrolled into view (keyboard, reveal, hints) stop
+          below it instead of under it: 2.5rem is its 8px cover plus its 32px row. */}
+      <div
+        ref={setScroller}
+        data-overflow-start={overflow.start || undefined}
+        data-overflow-end={overflow.end || undefined}
+        className={cn('scroll-edges-source min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2', pinnedRootShown && 'scroll-pt-10')}
+      >
+        {/* Edge fades (see .edge-fade-top in styles.css): zero-height, so they never move the rows.
+            Each shows only while rows lie past its edge, so a list that fits shows neither. */}
+        <div aria-hidden="true" className={cn('edge-fade-top pointer-events-none sticky z-10 -mx-2 h-0', pinnedRootShown ? 'top-8' : '-top-2')}>
+          <div className="h-8 bg-linear-to-b from-background-muted to-transparent" />
         </div>
-      ) : null}
-      <div aria-hidden="true" className="edge-fade-bottom pointer-events-none sticky -bottom-2 z-10 -mx-2 h-0">
-        <div className="absolute inset-x-0 bottom-0 h-8 bg-linear-to-t from-background-muted to-transparent" />
+        {trashActive && trash ? (
+          <TrashNavigatorList
+            open={trash.open}
+            onOpenChange={trash.onOpenChange}
+            onOpenNote={trash.onOpenNote}
+            scope={trash.scope}
+          />
+        ) : status.isLoading ? (
+          <NoteListSkeleton />
+        ) : entries.length === 0 && (!hasTreeContent || isFinderMode) ? (
+          <EmptyState
+            icon={<FileText aria-hidden="true" className="h-7 w-7" />}
+            title={emptyState.title}
+            description={emptyState.description}
+            action={(
+              <NavigatorEmptyAction
+                actions={actions}
+                finderState={finderState}
+                isFinderMode={isFinderMode}
+                scope={scope}
+                status={status}
+              />
+            )}
+          />
+        ) : isFinderMode ? (
+          <FinderResultList
+            actions={actions}
+            entries={entries}
+            highlightedResultId={highlightedResultId}
+            selectedFolderForNoteMove={selectedFolderForNoteMove}
+            selectedNoteId={selection.selectedNoteId}
+            textSearch={finderState.query.trim() ? textSearch : undefined}
+          />
+        ) : scope.type === 'history' ? (
+          <HistoryList
+            actions={actions}
+            entries={tree.allNotes}
+            selectedFolderForNoteMove={selectedFolderForNoteMove}
+            selectedNoteId={selection.selectedNoteId}
+          />
+        ) : null}
+        {/* The tree stays mounted (hidden) while search results show: rebuilding hundreds of rows
+            when the search clears was the slowest keystroke. */}
+        {!trashActive && !status.isLoading && scope.type !== 'history' && hasTreeContent ? (
+          <div hidden={isFinderMode}>
+            <TreeViewOptionsContext.Provider value={{
+              state: finderState,
+              selectedFolderId: selection.selectedFolderId,
+              options: finderOptions,
+              onChange: actions.onFinderStateChange,
+              tags: tagIndex,
+            }}>
+              <MemoNavigatorTree
+                actions={actions}
+                layout={layout}
+                scope={scope}
+                selectedFolderForNoteMove={selectedFolderForNoteMove}
+                selection={selection}
+                status={status}
+                tree={tree}
+                treeFocusRequestId={treeFocusRequestId}
+              />
+            </TreeViewOptionsContext.Provider>
+          </div>
+        ) : null}
+        <div aria-hidden="true" className="edge-fade-bottom pointer-events-none sticky -bottom-2 z-10 -mx-2 h-0">
+          <div className="absolute inset-x-0 bottom-0 h-8 bg-linear-to-t from-background-muted to-transparent" />
+        </div>
       </div>
-    </div>
+    </RowOverlayHost>
   );
 }, arePanelPropsEqual);
 

@@ -126,7 +126,7 @@ describe('useElectronHomeCommandPalette', () => {
       result.current.commandPaletteProps.onSelectRecentNote(recent());
     });
 
-    expect(options.revealNoteEntry).toHaveBeenCalledWith(options.tree.allNotes[0]);
+    expect(options.revealNoteEntry).toHaveBeenCalledWith(options.tree.allNotes[0], undefined);
     expect(options.removeRecentNoteEntry).not.toHaveBeenCalled();
   });
 
@@ -191,7 +191,13 @@ describe('useElectronHomeCommandPalette', () => {
     );
     expect(options.setWorkspaceScope).not.toHaveBeenCalled();
 
+    // A link (or a book chapter) keeps a hidden sidebar hidden; Quick Open shows where the note is.
     act(() => result.current.openNoteTarget(recent()));
-    expect(options.revealNoteEntry).toHaveBeenCalledWith(expect.objectContaining({ note: expect.objectContaining({ id: 'note-1' }) }));
+    expect(options.revealNoteEntry).toHaveBeenLastCalledWith(
+      expect.objectContaining({ note: expect.objectContaining({ id: 'note-1' }) }),
+      { expandNavigator: false },
+    );
+    act(() => result.current.commandPaletteProps.onSelectRecentNote(recent()));
+    expect(options.revealNoteEntry).toHaveBeenLastCalledWith(expect.objectContaining({ note: expect.objectContaining({ id: 'note-1' }) }), undefined);
   });
 });

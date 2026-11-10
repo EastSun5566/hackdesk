@@ -369,7 +369,7 @@ export function useWorkbenchDocuments({
     return {
       pane,
       activeTab: tab,
-      selectedNote: tab ? { id: identity?.id, title: getTabTitle(tab) } : null,
+      selectedNote: tab ? { id: identity?.id, teamPath: identity?.teamPath, title: getTabTitle(tab) } : null,
       document: documentValue,
       isBlank: Boolean(tab && isBlankNoteTab(tab)),
       isDraft: Boolean(tab && isDraftNoteTab(tab)),

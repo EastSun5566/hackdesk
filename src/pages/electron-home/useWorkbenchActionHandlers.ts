@@ -279,7 +279,7 @@ export function useWorkbenchActionHandlers({
       if (activeTab) void api?.app.openPresentation?.({ title: documentTitle, content: documentContent });
     },
     openAdjacentChapter: (step) => {
-      const position = book.positionOf(selectedDocument);
+      const position = book.positionOf(selectedDocument, activeTab?.tabId);
       if (!position) {
         toast.info('Open a book and one of its chapters first.');
         return;

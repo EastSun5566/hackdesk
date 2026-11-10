@@ -85,6 +85,11 @@
   --color-primary-hover: var(--primary-hover);
   --color-primary-soft: var(--primary-soft);
   --color-primary-foreground: var(--primary-foreground);
+  /* Saturated fills (buttons, checkboxes, switches) that stay brand-colored in dark mode,
+     where --primary-default lightens into a readable text accent. */
+  --color-primary-solid: var(--primary-solid);
+  --color-primary-solid-hover: var(--primary-solid-hover);
+  --color-primary-solid-foreground: var(--primary-solid-foreground);
   --color-focus-ring: var(--focus-ring);
   --color-success-default: var(--success-default);
   --color-success-soft: var(--success-soft);
@@ -238,6 +243,10 @@
     --primary-hover: var(--hmd-tw-background-primary-hover);
     --primary-soft: var(--hmd-tw-background-primary-subtler);
     --primary-foreground: var(--color-white);
+    /* Light mode fills are the brand color, so the solid is the default. */
+    --primary-solid: var(--primary-default);
+    --primary-solid-hover: var(--primary-hover);
+    --primary-solid-foreground: var(--primary-foreground);
     --success-default: var(--hmd-tw-state-success-default);
     --success-soft: var(--hmd-tw-state-success-background);
     --warning-default: var(--color-amber-400);
@@ -336,6 +345,10 @@
     --primary-default: var(--color-primary-300);
     --primary-hover: var(--color-primary-200);
     --primary-foreground: var(--color-zinc-900);
+    /* Fills stay saturated with white text, so a primary button reads as brand, not light. */
+    --primary-solid: #5e56fe;
+    --primary-solid-hover: #665ffe;
+    --primary-solid-foreground: #ffffff;
     --destructive-foreground: var(--color-zinc-950);
     --warning-soft: rgb(251 191 36 / 0.1);
   }
@@ -450,6 +463,54 @@
 
   .edge-fade-x[data-overflow-start][data-overflow-end] {
     mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+  }
+
+  /* A settings section's card (SettingsCard): each child is a row, padded and ruled off from the
+     one above. A child marked data-settings-flush (or settings-card-rows, below) lays out its own rows (a radio list, a provider
+     with its options) and takes the full width and height of its slot. */
+  .settings-card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-default);
+    border-radius: 0.5rem;
+  }
+
+  .settings-card > *,
+  .settings-card-rows > * {
+    padding: 0.75rem 1rem;
+  }
+
+  .settings-card > * + *,
+  .settings-card-rows > * + * {
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  /* A component that renders several rows under one root (the theme fields) marks the root
+     settings-card-rows: the root takes no padding and its children are the rows. */
+  .settings-card > [data-settings-flush],
+  .settings-card > .settings-card-rows {
+    padding: 0;
+  }
+
+  .settings-card-rows {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Fades for a scrolling list: zero-height sticky overlays inside the content, each holding a short
+     gradient in the list's background. Overlays rather than a mask on the scroller, because a mask
+     also fades the scrollbar. Like edge-fade-x they follow the scroller's data-overflow-start /
+     data-overflow-end (useScrollOverflow), so a list that fits shows neither and the edge it has
+     reached shows none. */
+  .edge-fade-top > *,
+  .edge-fade-bottom > * {
+    opacity: 0;
+    transition: opacity 150ms ease-out;
+  }
+
+  [data-overflow-start] > .edge-fade-top > *,
+  [data-overflow-end] > .edge-fade-bottom > * {
+    opacity: 1;
   }
 
   /* A resize handle that is a surface's border (PanelResizeSash edge): it lays a primary line over
@@ -609,28 +670,6 @@
     animation: scroll-edge-hide linear both;
     animation-timeline: --scroll-edge;
     animation-range: calc(100% - 1rem) 100%;
-  }
-
-  /* Fades for a scrolling list, like the tab strip's edge-fade-x: zero-height sticky overlays
-     inside the content, each holding a short gradient in the list's background. Overlays rather than
-     a mask on the scroller, because a mask also fades the scrollbar. They show while more content
-     lies past their edge, through the list's --scroll-edge timeline. */
-  .edge-fade-top > *,
-  .edge-fade-bottom > * {
-    opacity: 0;
-    animation-timeline: --scroll-edge;
-  }
-
-  .edge-fade-top > * {
-    animation: scroll-edge-show linear both;
-    animation-timeline: --scroll-edge;
-    animation-range: 0 2rem;
-  }
-
-  .edge-fade-bottom > * {
-    animation: scroll-edge-hide linear both;
-    animation-timeline: --scroll-edge;
-    animation-range: calc(100% - 2rem) 100%;
   }
 
   @keyframes scroll-edge-show {

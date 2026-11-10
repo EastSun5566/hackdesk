@@ -174,12 +174,25 @@ export function useThemeAppearanceDraft({
     || !seedInputsEqual(draft.seedInputs, savedSeedInputs)
     || (showTypography && !typographyInputsEqual(draft.typography, savedTypographyInputs));
 
+  // The saved theme is the source of truth, but a resync with identical values must not
+  // replace the draft object: the replacement can land between a field edit and its save and
+  // silently drop the edit.
   useEffect(() => {
-    setDraft({
-      mode: theme,
-      presetId,
-      seedInputs: savedSeedInputs,
-      typography: savedTypographyInputs,
+    setDraft((current) => {
+      if (
+        current.mode === theme
+        && current.presetId === presetId
+        && seedInputsEqual(current.seedInputs, savedSeedInputs)
+        && typographyInputsEqual(current.typography, savedTypographyInputs)
+      ) {
+        return current;
+      }
+      return {
+        mode: theme,
+        presetId,
+        seedInputs: savedSeedInputs,
+        typography: savedTypographyInputs,
+      };
     });
   }, [presetId, savedSeedInputs, savedTypographyInputs, theme]);
 
