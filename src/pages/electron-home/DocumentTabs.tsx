@@ -1,5 +1,5 @@
 import { ActionMenuShortcut } from './ActionShortcutContext';
-import { NOTE_CARD_CLASS, NoteSummaryCard, useNoteSummaryLookup } from './NoteSummaryCard';
+import { useNoteSummaryLookup } from './NoteSummaryCard';
 import { NoteIcon, NoteKindIcon } from './note-kind';
 import { useBookSessionContext } from './useBookSession';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
@@ -113,15 +113,14 @@ function DocumentTab({
       ref={setTabNode}
       style={{ transform: CSS.Transform.toString(transform ? { ...transform, y: 0 } : null), transition }}
       className={cn(
-        'group/tab app-region-no-drag relative flex h-8 min-w-0 max-w-56 shrink-0 items-center gap-2 rounded-md border px-2 text-sm transition-colors duration-150 motion-reduce:transition-none',
+        'group/tab app-region-no-drag relative flex h-8 min-w-40 max-w-56 shrink-0 items-center gap-2 rounded-md border px-2 text-sm transition-colors duration-150 motion-reduce:transition-none',
         isDragging && 'z-10 opacity-70',
         selected
           ? 'border-border-subtle bg-background-default text-text-default'
           : 'border-transparent bg-transparent text-text-subtle hover:bg-element-bg-hover hover:text-text-default',
       )}
     >
-      {/* Hovering a tab for a moment opens the note's card beneath it: the full title (tabs
-          truncate), then its folder, tags and edited date when the sidebar knows the note. */}
+      {/* The full title remains available when the tab truncates it. */}
       <TooltipRoot>
         <TooltipTrigger delay={300} render={<span className="flex min-w-0 flex-1" />}>
       <button
@@ -160,14 +159,7 @@ function DocumentTab({
         {!isBlankNoteTab(tab) ? <TabStatusIndicator state={syncState} /> : null}
       </button>
         </TooltipTrigger>
-        <TooltipContent side="bottom" sideOffset={8} className={NOTE_CARD_CLASS}>
-          {summary ? <NoteSummaryCard entry={{ ...summary, note: { ...summary.note, title } }} /> : (
-            <div className="space-y-1.5">
-              <p className="font-medium text-text-emphasize text-pretty">{title}</p>
-              <p className="text-xs text-text-subtle">{isBlankNoteTab(tab) ? 'New tab page' : isDraftNoteTab(tab) ? 'Unsaved draft' : DOCUMENT_SYNC_STATE_LABELS[syncState]}</p>
-            </div>
-          )}
-        </TooltipContent>
+        <TooltipContent side="bottom" sideOffset={8}>{title}</TooltipContent>
       </TooltipRoot>
       <Button
         variant="ghost"
