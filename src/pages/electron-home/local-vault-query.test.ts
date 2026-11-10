@@ -94,4 +94,18 @@ describe('cacheLocalVaultSnapshot', () => {
     cacheLocalVaultSnapshot(client, reopened);
     expect(client.getQueryData(getLocalVaultSnapshotQueryKey('/a'))).toEqual(reopened);
   });
+
+  it('caches a mutation result while settings are not loaded, and protects that slot from another vault', () => {
+    const client = new QueryClient();
+    // Mutations only run against the active vault, so with no settings cached yet the result
+    // still belongs under the default active key.
+    const saved = { ...snapshot('Note.md'), scannedAtMillis: 2 };
+    cacheLocalVaultSnapshot(client, saved);
+    expect(client.getQueryData(getLocalVaultSnapshotQueryKey(null))).toEqual(saved);
+
+    // Once the slot is occupied, a snapshot of another vault cannot displace it.
+    const stranger = { vaultId: 'B', rootPath: '/b', notes: [], folders: [] } satisfies LocalVaultSnapshot;
+    cacheLocalVaultSnapshot(client, stranger);
+    expect(client.getQueryData(getLocalVaultSnapshotQueryKey(null))).toEqual(saved);
+  });
 });
