@@ -2976,14 +2976,9 @@ describe('Home native-feel behavior', () => {
     fireEvent.click(await within(palette).findByRole('option', { name: /^Go to History/ }));
 
     await waitFor(() => expect(api.hackmd.listHistory).toHaveBeenCalledWith(40));
-    expect(await screen.findByText('No history yet')).toBeInTheDocument();
-
-    fireEvent.keyDown(window, { key: 'k', metaKey: true });
-    const historyPalette = await screen.findByRole('dialog', { name: 'Command Palette' });
-    fireEvent.change(within(historyPalette).getByPlaceholderText('Search notes, folders, and commands…'), { target: { value: 'new note' } });
-
-    // New Note and New Note from Template both need a writable workspace.
-    expect(await within(historyPalette).findAllByText('Choose My Workspace or a team first.')).toHaveLength(2);
+    expect(await screen.findByText('No matching recent notes')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Switch workspace, current: My Workspace' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Back to notes' })).toBeInTheDocument();
   });
 
   it('restores the last active history workspace on startup', async () => {
@@ -3481,7 +3476,8 @@ describe('Home native-feel behavior', () => {
     });
 
     renderHome(api);
-    fireEvent.click(within(await openWorkspaceSwitcher()).getByRole('button', { name: 'History' }));
+    await findRenderedNoteTitle();
+    fireEvent.click(await screen.findByRole('button', { name: 'History' }));
     await findNoteRow('History Product');
     // History is a flat list, most recent first, not a folder tree.
     expect(screen.queryByTestId('folder-navigator-tree')).not.toBeInTheDocument();
@@ -3489,9 +3485,8 @@ describe('Home native-feel behavior', () => {
     await openViewOptions();
     fireEvent.click(await findTagOption('product'));
 
-    await screen.findByText('1 result');
+    await waitFor(() => expect(queryNoteRow('History Design')).not.toBeInTheDocument());
     expect(getNoteRow('History Product')).toBeInTheDocument();
-    expect(queryNoteRow('History Design')).not.toBeInTheDocument();
   });
 
   it('sorts finder results by title', async () => {
@@ -3620,7 +3615,8 @@ describe('Home native-feel behavior', () => {
       return noteRow as HTMLElement;
     });
     fireEvent.contextMenu(row);
-    fireEvent.click(await screen.findByText('Move to Selected Folder'));
+    fireEvent.click(await screen.findByText('Move to…'));
+    fireEvent.click(await screen.findByRole('option', { name: /Projects/ }));
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
       parentFolderId: 'folder-1',
@@ -3646,7 +3642,8 @@ describe('Home native-feel behavior', () => {
       return noteRow as HTMLElement;
     });
     fireEvent.contextMenu(row);
-    fireEvent.click(await screen.findByText('Move to Selected Folder'));
+    fireEvent.click(await screen.findByText('Move to…'));
+    fireEvent.click(await screen.findByRole('option', { name: /Root/ }));
 
     await waitFor(() => expect(api.hackmd.updateNote).toHaveBeenCalledWith('note-1', {
       parentFolderId: null,
@@ -3806,7 +3803,8 @@ describe('Home native-feel behavior', () => {
       return noteRow as HTMLElement;
     });
     fireEvent.contextMenu(row);
-    fireEvent.click(await screen.findByText('Move to Selected Folder'));
+    fireEvent.click(await screen.findByText('Move to…'));
+    fireEvent.click(await screen.findByRole('option', { name: /Projects/ }));
 
     await waitFor(() => expect(api.hackmd.updateTeamNote).toHaveBeenCalledWith('team-workspace', 'note-1', {
       parentFolderId: 'folder-1',
@@ -3859,7 +3857,8 @@ describe('Home native-feel behavior', () => {
       return noteRow as HTMLElement;
     });
     fireEvent.contextMenu(row);
-    fireEvent.click(await screen.findByText('Move to Selected Folder'));
+    fireEvent.click(await screen.findByText('Move to…'));
+    fireEvent.click(await screen.findByRole('option', { name: /Root/ }));
 
     await waitFor(() => expect(api.hackmd.updateTeamNote).toHaveBeenCalledWith('team-workspace', 'note-1', {
       parentFolderId: null,
