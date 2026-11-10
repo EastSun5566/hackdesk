@@ -4,12 +4,13 @@ import type { MutableRefObject } from 'react';
 import type { NoteSummary } from '@/lib/electron-api';
 
 import { getSavedTabNoteIdentity, type NoteIdentity, type OpenNoteTab } from './note-workspace';
+import type { InPlaceTarget } from './useNoteLinkOpener';
 
 export type ElectronHomeSelectNoteOptions = {
   focusEditor?: boolean;
   trackRecent?: boolean;
-  /** Show it in the active tab instead of a new one, as a book's tab turns chapters. */
-  inPlace?: boolean;
+  /** Show it in an open tab instead of a new one, as a book's tab turns chapters. */
+  inPlace?: InPlaceTarget;
 };
 
 export type ElectronHomeSelectionOptions = {
@@ -18,7 +19,7 @@ export type ElectronHomeSelectionOptions = {
   getNotePaneId?: (note: NoteSummary) => string | undefined;
   activeTab: OpenNoteTab | null;
   requestEditorFocus: () => void;
-  openNoteInWorkspace: (note: NoteSummary, options?: { inPlace?: boolean }) => void;
+  openNoteInWorkspace: (note: NoteSummary, options?: { inPlace?: InPlaceTarget }) => void;
   selectionRefs: ElectronHomeSelectionRefs;
   trackRecentNote: (note: NoteSummary) => void;
 };

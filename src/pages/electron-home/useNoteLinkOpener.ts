@@ -12,8 +12,14 @@ import { getLocalImageContext, LOCAL_VAULT_TEAM_PATH } from './local-vault-adapt
 
 export type OpenNoteTarget = (target: ElectronRecentNote, options?: OpenNoteTargetOptions) => void;
 
-/** `inPlace` shows the note in the active tab instead of a new one, as a book's tab turns chapters. */
-export type OpenNoteTargetOptions = { inPlace?: boolean };
+/**
+ * Shows a note in an open tab instead of a new one, as a book's tab turns chapters. `true` turns
+ * the active tab; `{ tabId }` turns the tab named when the request started, since resolving a
+ * link can take a round trip and the reader may switch tabs meanwhile.
+ */
+export type InPlaceTarget = boolean | { tabId: string };
+
+export type OpenNoteTargetOptions = { inPlace?: InPlaceTarget };
 
 /** What a link in `document` is resolved against; null for a draft that has no identity yet. */
 export function getNoteLinkSource(document: DocumentSummary | undefined): NoteLinkSource | null {

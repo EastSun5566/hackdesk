@@ -5,7 +5,7 @@ import { recentNoteMatches, type ElectronRecentNote } from '@/lib/electron-recen
 import type { FolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
 
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
-import type { OpenNoteTargetOptions } from './useNoteLinkOpener';
+import type { InPlaceTarget, OpenNoteTargetOptions } from './useNoteLinkOpener';
 import type { RevealNoteOptions } from './useWorkbenchNavigator';
 import type { CommandPaletteState, WorkspaceScope } from './types';
 import { usePendingRecentNoteRestore } from './usePendingRecentNoteRestore';
@@ -22,7 +22,7 @@ export type ElectronHomeCommandPaletteOptions = {
   palette: CommandPaletteState;
   recentNotes: ElectronRecentNote[];
   removeRecentNoteEntry: (noteId: string, teamPath: string | null) => void;
-  requestSelectNote: (note: NoteSummary, options?: { focusEditor?: boolean; trackRecent?: boolean; inPlace?: boolean }) => Promise<boolean>;
+  requestSelectNote: (note: NoteSummary, options?: { focusEditor?: boolean; trackRecent?: boolean; inPlace?: InPlaceTarget }) => Promise<boolean>;
   revealFolderIds: (folderIds: string[]) => void;
   revealNoteEntry: (entry: FolderTreeNote, options?: RevealNoteOptions) => Promise<boolean>;
   scope: WorkspaceScope;
