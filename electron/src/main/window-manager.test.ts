@@ -509,7 +509,7 @@ describe('WindowManager close intent', () => {
       webPreferences: expect.objectContaining({ preload: expect.stringContaining('presentation-preload.cjs'), sandbox: true, contextIsolation: true }),
     }));
     expect(presentation.options).not.toHaveProperty('fullscreen');
-    expect(manager.getPresentationDeck()).toEqual({ title: 'Deck', content: '# One' });
+    expect(manager.getPresentationDeck()).toEqual({ title: 'Deck', content: '# One', fullScreen: false });
 
     expect(manager.showPresentationWindow({ title: 'Deck', content: '# Two' })).toBe(presentation);
     expect(presentation.webContents.reload).toHaveBeenCalledOnce();
@@ -533,6 +533,17 @@ describe('WindowManager close intent', () => {
     expect(manager.togglePresentationFullScreen()).toBe(false);
     expect(presentation.setFullScreen).toHaveBeenLastCalledWith(false);
     expect(presentation.webContents.send).toHaveBeenLastCalledWith(ELECTRON_CHANNELS.appPresentationFullScreenChanged, { fullScreen: false });
+  });
+
+  it('starts slides presented again in a full-screen window as full screen', () => {
+    const { manager } = createManagerWithWindow();
+    const presentation = getMockWindow(manager.showPresentationWindow({ title: 'Deck', content: '# One' }));
+    manager.togglePresentationFullScreen();
+    expect(presentation.isFullScreen()).toBe(true);
+
+    manager.showPresentationWindow({ title: 'Deck', content: '# Two' });
+    expect(presentation.webContents.reload).toHaveBeenCalledOnce();
+    expect(manager.getPresentationDeck()).toEqual({ title: 'Deck', content: '# Two', fullScreen: true });
   });
 
   it('steps back out of full screen when asked again before the window has switched', () => {

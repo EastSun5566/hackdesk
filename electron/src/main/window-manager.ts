@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type {
   HackDeskCommandPaletteCommand,
   PresentationDeck,
+  PresentedDeck,
   QuickCaptureSubmissionAck,
   QuickCaptureSubmitResult,
 } from '../../../src/lib/electron-api';
@@ -416,6 +417,8 @@ export class WindowManager {
     this.presentationDeck = deck;
     const existingWindow = this.getPresentationWindow();
     if (existingWindow) {
+      // The reloaded slides start from the window as it is, full screen or not.
+      this.presentationFullScreen = existingWindow.isFullScreen();
       existingWindow.webContents.reload();
       existingWindow.focus();
       return existingWindow;
@@ -487,8 +490,8 @@ export class WindowManager {
     return next;
   }
 
-  getPresentationDeck() {
-    return this.presentationDeck;
+  getPresentationDeck(): PresentedDeck | null {
+    return this.presentationDeck ? { ...this.presentationDeck, fullScreen: this.presentationFullScreen } : null;
   }
 
   closePresentationWindow() {

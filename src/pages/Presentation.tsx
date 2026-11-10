@@ -101,6 +101,9 @@ export default function Presentation() {
         setError('Nothing to present. Choose Present on a note to start.');
         return;
       }
+      // Presenting again reloads these slides in a window that may already be full screen.
+      fullScreenRef.current = deck.fullScreen;
+      setFullScreen(deck.fullScreen);
 
       const slides = parseSlides(deck.content);
       document.title = slides.title ?? deck.title ?? 'Presentation';
