@@ -46,6 +46,8 @@ function fixture(pickFolder?: () => Promise<string | null>) {
         snapshot: snapshot(path.split('/').at(-1) ?? path),
       })),
       disconnect: vi.fn(async () => settings(null)),
+      activate: vi.fn(async () => ({ settings: settings('/tmp/B'), snapshot: snapshot('B') })),
+      forget: vi.fn(async () => ({ settings: settings(null), snapshot: null })),
       readNote: vi.fn(async () => ({ content: 'A' })),
       onDidChange: vi.fn((callback) => { changed.mockImplementation(callback); return () => {}; }),
     },

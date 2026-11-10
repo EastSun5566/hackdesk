@@ -79,6 +79,20 @@ describe('useElectronHomeModel', () => {
     });
   });
 
+  it('resolves the local display label from the active vault path', () => {
+    const { result } = renderHook(() => useElectronHomeModel({
+      currentFolders: [],
+      currentNotes: [],
+      scope: { type: 'local', label: 'Local Vault', vaultId: 'vault-notes' },
+      localVaultPath: '/Users/michael/Notes',
+      selectedFolderId: null,
+      syncOpenNoteSummaries: vi.fn(),
+      teams: [],
+    }));
+
+    expect(result.current.displayScope).toEqual({ type: 'local', label: 'Notes', vaultId: 'vault-notes' });
+  });
+
   it('builds the folder tree and syncs open note summaries', async () => {
     const projectFolder = folder({ id: 'project', name: 'Project' });
     const notes = [

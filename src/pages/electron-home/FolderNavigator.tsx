@@ -227,6 +227,8 @@ export type FolderNavigatorProps = {
   id: string;
   layout: FolderNavigatorLayout;
   scope: WorkspaceScope;
+  /** The active vault's folder name; the root row shows it instead of the generic scope label. */
+  vaultFolderName?: string | null;
   selection: FolderNavigatorSelection;
   status: FolderNavigatorStatus;
   /** Notes whose text matched the finder query, with snippets. */
@@ -263,6 +265,7 @@ function FolderNavigatorPanel({
   id,
   layout,
   scope,
+  vaultFolderName,
   selection,
   status,
   textSearch,
@@ -295,6 +298,7 @@ function FolderNavigatorPanel({
           finderState={finderState}
           layout={layout}
           scope={scope}
+          vaultFolderName={vaultFolderName}
           selection={selection}
           status={status}
           textSearch={textSearch}
@@ -327,6 +331,7 @@ function ExpandedNavigator({
   finderState,
   layout,
   scope,
+  vaultFolderName,
   selection,
   status,
   textSearch,
@@ -389,7 +394,7 @@ function ExpandedNavigator({
               {finderState.query.trim() ? <Search className="h-3.5 w-3.5" /> : scope.type === 'history' ? <History className="h-3.5 w-3.5" /> : <WorkspaceRootScopeIcon scope={scope} />}
             </span>
             <span className="min-w-0 flex-1 truncate">
-              {finderState.query.trim() ? 'Results' : scope.type === 'history' ? 'History' : (workspaceRootLabel(scope) ?? 'Notes')}
+              {finderState.query.trim() ? 'Results' : scope.type === 'history' ? 'History' : (workspaceRootLabel(scope, vaultFolderName) ?? 'Notes')}
             </span>
             {results ? (
               <span className="shrink-0 text-xs tabular-nums">{`${results.count} ${results.count === 1 ? 'result' : 'results'}`}</span>
@@ -419,6 +424,7 @@ function ExpandedNavigator({
         selectedFolderForNoteMove={selectedFolderForNoteMove}
         selection={selection}
         scope={scope}
+        vaultFolderName={vaultFolderName}
         status={status}
         textSearch={textSearch}
         tree={tree}
@@ -516,6 +522,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   selectedFolderForNoteMove,
   selection,
   scope,
+  vaultFolderName,
   status,
   textSearch,
   tree,
@@ -534,6 +541,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   selectedFolderForNoteMove: FolderTreeNode | null;
   selection: FolderNavigatorSelection;
   scope: WorkspaceScope;
+  vaultFolderName?: string | null;
   status: FolderNavigatorStatus;
   textSearch?: NoteTextSearch;
   tree: FolderTree;
@@ -620,6 +628,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
                 actions={actions}
                 layout={layout}
                 scope={scope}
+                vaultFolderName={vaultFolderName}
                 selectedFolderForNoteMove={selectedFolderForNoteMove}
                 selection={selection}
                 status={status}
@@ -833,6 +842,7 @@ function NavigatorTree({
   actions,
   layout,
   scope,
+  vaultFolderName,
   selectedFolderForNoteMove,
   selection,
   status,
@@ -842,6 +852,7 @@ function NavigatorTree({
   actions: FolderNavigatorActions;
   layout: FolderNavigatorLayout;
   scope: WorkspaceScope;
+  vaultFolderName?: string | null;
   selectedFolderForNoteMove: FolderTreeNode | null;
   selection: FolderNavigatorSelection;
   status: FolderNavigatorStatus;
@@ -874,7 +885,7 @@ function NavigatorTree({
     : null;
   const treeId = useId();
   const workspaceChildrenGroupId = `${treeId}-workspace-children`;
-  const rootLabel = workspaceRootLabel(scope) ?? 'My Notes';
+  const rootLabel = workspaceRootLabel(scope, vaultFolderName) ?? 'My Notes';
   const showRootRow = scope.type !== 'history';
   const scopeStorageKey = getScopeStorageKey(scope);
   const [rootSectionExpanded, setRootSectionExpanded] = useState(() => (

@@ -36,6 +36,7 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
   const onChooseLocalVault = props.onChooseLocalVault ?? vi.fn(async () => undefined);
   const onDisconnectHackmd = props.onDisconnectHackmd ?? vi.fn();
   const onForgetLocalVault = props.onForgetLocalVault ?? vi.fn(async () => undefined);
+  const onSwitchLocalVault = props.onSwitchLocalVault ?? vi.fn(async () => undefined);
   const onOpenLocalVault = props.onOpenLocalVault ?? vi.fn(async () => undefined);
   const onRefreshLocalVault = props.onRefreshLocalVault ?? vi.fn(async () => undefined);
   const onSave = props.onSave ?? vi.fn();
@@ -63,6 +64,7 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
         onChooseLocalVault={onChooseLocalVault}
         onDisconnectHackmd={onDisconnectHackmd}
         onForgetLocalVault={onForgetLocalVault}
+        onSwitchLocalVault={onSwitchLocalVault}
         onOpenLocalVault={onOpenLocalVault}
         onRefreshLocalVault={onRefreshLocalVault}
         onOpenChange={onOpenChange}
@@ -79,6 +81,7 @@ function renderSettingsDialog(props: Partial<Parameters<typeof SettingsDialog>[0
     onChooseLocalVault,
     onDisconnectHackmd,
     onForgetLocalVault,
+    onSwitchLocalVault,
     onOpenLocalVault,
     onRefreshLocalVault,
     onOpenChange,
@@ -921,12 +924,13 @@ describe('SettingsDialog', () => {
     expect(screen.queryByRole('button', { name: 'Disconnect HackMD' })).not.toBeInTheDocument();
   });
 
-  it('shows local vault details and runs vault actions', () => {
+  it('shows local vault details and runs vault actions', async () => {
     const {
       onChooseLocalVault,
       onForgetLocalVault,
       onOpenLocalVault,
       onRefreshLocalVault,
+      onSwitchLocalVault,
     } = renderSettingsDialog({
       settings: {
         title: 'HackDesk',
@@ -937,7 +941,7 @@ describe('SettingsDialog', () => {
         hackmdAccounts: { accounts: [], activeAccountId: null },
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
         hasLocalVault: true,
-        localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
+        localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/MyVault' }], activeVaultId: 'vault-notes' },
         onboarding: defaultSettings.onboarding,
         shouldShowHackmdOnboarding: false,
       },
@@ -955,25 +959,60 @@ describe('SettingsDialog', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
 
-    expect(screen.getByText('/Users/michael/Notes')).toBeInTheDocument();
-    expect(screen.getByText('Notes')).toBeInTheDocument();
+    expect(screen.getByText('/Users/michael/MyVault')).toBeInTheDocument();
+    expect(screen.getByText('MyVault')).toBeInTheDocument();
+    expect(screen.getAllByText('Notes').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Folders').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('2')).toBeInTheDocument();
-    expect(screen.getByText('Folders')).toBeInTheDocument();
     expect(screen.getByText('1')).toBeInTheDocument();
+    expect(screen.getByText('Active')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open in Finder' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Refresh Vault' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Change Vault' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Forget Vault' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Add Folder' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Forget' })).toBeVisible();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open in Finder' }));
+    await waitFor(() => expect(onOpenLocalVault).toHaveBeenCalledOnce());
     fireEvent.click(screen.getByRole('button', { name: 'Refresh Vault' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Change Vault' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Forget Vault' }));
+    await waitFor(() => expect(onRefreshLocalVault).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole('button', { name: 'Add Folder' }));
+    await waitFor(() => expect(onChooseLocalVault).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole('button', { name: 'Forget' }));
+    await waitFor(() => expect(onForgetLocalVault).toHaveBeenCalledWith('vault-notes'));
 
     expect(onOpenLocalVault).toHaveBeenCalledOnce();
     expect(onRefreshLocalVault).toHaveBeenCalledOnce();
     expect(onChooseLocalVault).toHaveBeenCalledOnce();
-    expect(onForgetLocalVault).toHaveBeenCalledOnce();
+    expect(onForgetLocalVault).toHaveBeenCalledWith('vault-notes');
+    expect(onSwitchLocalVault).not.toHaveBeenCalled();
+  });
+
+  it('switches between vaults from the folders list', () => {
+    const { onSwitchLocalVault } = renderSettingsDialog({
+      settings: {
+        title: 'HackDesk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
+        appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
+        hasHackmdApiToken: false,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: true,
+        localVault: { vaults: [{ id: 'vault-a', path: '/Users/michael/A' }, { id: 'vault-b', path: '/Users/michael/B' }], activeVaultId: 'vault-a' },
+        onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: false,
+      },
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
+
+    expect(screen.getByText('A')).toBeInTheDocument();
+    expect(screen.getByText('B')).toBeInTheDocument();
+    expect(screen.getByText('Active')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch' }));
+
+    expect(onSwitchLocalVault).toHaveBeenCalledWith('vault-b');
   });
 
   it('saves whether key hints show at once', () => {

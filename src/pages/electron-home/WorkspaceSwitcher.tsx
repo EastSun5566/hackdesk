@@ -40,6 +40,7 @@ import type { TeamSummary, UserSummary } from '@/lib/electron-api';
 import { cn } from '@/lib/utils';
 
 import { EntityRow } from './interaction-primitives';
+import { localVaultFolderName } from './workspace-root-labels';
 import { NavigationHintsContext } from './KeyboardNavigationContext';
 import type { WorkspaceScope } from './types';
 import { COLLAPSE_ICON_CLASS, FOCUS_RING_INSET_CLASS, ICON_BUTTON_CLASS } from './ui';
@@ -69,12 +70,14 @@ export type WorkspaceSidebarProps = {
   user?: WorkspaceUser;
   teams: TeamSummary[];
   accountStatus?: WorkspaceAccountStatus;
-  localVaultConfigured: boolean;
+  /** Every known vault folder; the switcher lists each one to switch between them. */
+  localVaults: { id: string; path: string }[];
   platform: string;
   pinnedTeamIds: string[] | null;
   switcherOpen: boolean;
   onSwitcherOpenChange: (open: boolean) => void;
   onScopeChange: (scope: WorkspaceScope) => void;
+  onSwitchLocalVault: (vaultId: string) => void;
   onChooseLocalVault: () => void;
   /** Opens a workspace in a new window. Leave it out to hide the open-out buttons. */
   onOpenInNewWindow?: (scope: WorkspaceScope) => void;
@@ -469,12 +472,13 @@ export function WorkspaceSwitcher({
   scope,
   user,
   teams,
-  localVaultConfigured,
+  localVaults,
   platform,
   pinnedTeamIds,
   switcherOpen,
   onSwitcherOpenChange,
   onScopeChange,
+  onSwitchLocalVault,
   onChooseLocalVault,
   onOpenInNewWindow,
   onPinnedTeamIdsChange,
@@ -545,7 +549,7 @@ export function WorkspaceSwitcher({
         className="w-72 overflow-hidden"
       >
         <nav aria-label="Workspaces" className="flex max-h-128 flex-col">
-          {/* Places stay put above the teams, so History and Local Vault never scroll out of reach
+          {/* Places stay put above the teams, so History and the vault folders never scroll out of reach
               however many teams there are. */}
           <ul className="list-none space-y-0.5 p-1.5">
             <li className="flex">
@@ -570,21 +574,41 @@ export function WorkspaceSwitcher({
                 openModifierHint={openModifierHint}
               />
             </li>
-            <li className="flex">
-              <WorkspaceRow
-                active={scope.type === 'local'}
-                icon={<IconBox small>{localVaultConfigured ? <HardDrive className="size-3.5" /> : <FolderOpen className="size-3.5" />}</IconBox>}
-                label={localVaultConfigured ? 'Local Vault' : 'Open local folder'}
-                trailing={localVaultConfigured ? undefined : <span />}
-                onClick={() => {
-                  if (localVaultConfigured) { choose({ type: 'local', label: 'Local Vault' }); return; }
-                  onSwitcherOpenChange(false);
-                  onChooseLocalVault();
-                }}
-                onOpenInNewWindow={localVaultConfigured && openOut ? () => openOut({ type: 'local', label: 'Local Vault' }) : undefined}
-                openModifierHint={openModifierHint}
-              />
-            </li>
+            {localVaults.length > 0 ? localVaults.map((vault) => {
+              const folderName = localVaultFolderName(vault.path);
+              const active = scope.type === 'local' && scope.vaultId === vault.id;
+              return (
+                <li key={vault.id} className="flex">
+                  <WorkspaceRow
+                    active={active}
+                    icon={<IconBox small><HardDrive className="size-3.5" /></IconBox>}
+                    label={folderName}
+                    trailing={undefined}
+                    onClick={() => {
+                      onSwitcherOpenChange(false);
+                      onSwitchLocalVault(vault.id);
+                    }}
+                    onOpenInNewWindow={openOut ? () => openOut({ type: 'local', label: folderName, vaultId: vault.id }) : undefined}
+                    openModifierHint={openModifierHint}
+                  />
+                </li>
+              );
+            }) : (
+              <li className="flex">
+                <WorkspaceRow
+                  active={false}
+                  icon={<IconBox small><FolderOpen className="size-3.5" /></IconBox>}
+                  label="Open local folder"
+                  trailing={<span />}
+                  onClick={() => {
+                    onSwitcherOpenChange(false);
+                    onChooseLocalVault();
+                  }}
+                  onOpenInNewWindow={undefined}
+                  openModifierHint={openModifierHint}
+                />
+              </li>
+            )}
           </ul>
           {teams.length > 0 ? (
             <div className="flex min-h-0 flex-col border-t border-border-subtle">

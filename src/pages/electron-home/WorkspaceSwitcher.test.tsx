@@ -48,10 +48,11 @@ function renderSwitcher(overrides: Partial<SwitcherProps> = {}, initiallyOpen = 
     scope: { type: 'personal', label: 'My Workspace' },
     user: undefined,
     teams: [],
-    localVaultConfigured: false,
+    localVaults: [],
     platform: 'darwin',
     pinnedTeamIds: null,
     onChooseLocalVault: vi.fn(),
+    onSwitchLocalVault: vi.fn(),
     onScopeChange: vi.fn(),
     onOpenSettings: vi.fn(),
     onPinnedTeamIdsChange: vi.fn(),
@@ -79,24 +80,39 @@ describe('WorkspaceSwitcher', () => {
     expect(await screen.findByRole('dialog', { name: 'Workspaces' })).toBeVisible();
   });
 
-  it('lists the places (My Workspace, History, Local Vault) above the teams, and passes each scope unchanged', async () => {
+  it('lists the places (My Workspace, History, vault folders) above the teams, and passes each scope unchanged', async () => {
     const atlas = team();
-    const props = renderSwitcher({ teams: [atlas], localVaultConfigured: true });
+    const props = renderSwitcher({ teams: [atlas], localVaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }] });
 
-    const rows = within(await screen.findByRole('dialog', { name: 'Workspaces' })).getAllByRole('button', { name: /^(My Workspace|Atlas Team|Local Vault|History)$/ });
-    expect(rows.map(row => row.getAttribute('aria-label'))).toEqual(['My Workspace', 'History', 'Local Vault', 'Atlas Team']);
+    const rows = within(await screen.findByRole('dialog', { name: 'Workspaces' })).getAllByRole('button', { name: /^(My Workspace|Atlas Team|Notes|History)$/ });
+    expect(rows.map(row => row.getAttribute('aria-label'))).toEqual(['My Workspace', 'History', 'Notes', 'Atlas Team']);
 
     fireEvent.click(within(list()).getByRole('button', { name: 'Atlas Team' }));
     expect(props.onScopeChange).toHaveBeenCalledWith({ type: 'team', label: atlas.name, teamPath: atlas.path });
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Workspaces' })).toBeNull());
   });
 
+  it('switches vaults from their rows and marks the active one', async () => {
+    const props = renderSwitcher({
+      scope: { type: 'local', label: 'Notes', vaultId: 'vault-notes' },
+      localVaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }, { id: 'vault-b', path: '/Users/michael/B' }],
+    });
+    const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
+
+    expect(within(dialog).getByRole('button', { name: 'Notes' })).toHaveAttribute('aria-current', 'page');
+    expect(within(dialog).getByRole('button', { name: 'B' })).not.toHaveAttribute('aria-current', 'page');
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'B' }));
+    expect(props.onSwitchLocalVault).toHaveBeenCalledWith('vault-b');
+    expect(props.onScopeChange).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Workspaces' })).toBeNull());
+  });
+
   it.each([
     ['My Workspace', { type: 'personal', label: 'My Workspace' }],
-    ['Local Vault', { type: 'local', label: 'Local Vault' }],
     ['History', { type: 'history', label: 'History' }],
   ] as const)('switches to %s', async (name, scope) => {
-    const props = renderSwitcher({ scope: { type: 'team', label: 'Atlas Team', teamPath: 'atlas' }, teams: [team()], localVaultConfigured: true });
+    const props = renderSwitcher({ scope: { type: 'team', label: 'Atlas Team', teamPath: 'atlas' }, teams: [team()], localVaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }] });
     fireEvent.click(within(await screen.findByRole('dialog', { name: 'Workspaces' })).getByRole('button', { name }));
     expect(props.onScopeChange).toHaveBeenCalledWith(scope);
   });
@@ -109,7 +125,7 @@ describe('WorkspaceSwitcher', () => {
   });
 
   it('marks only the current workspace, and labels the workspace shortcuts', async () => {
-    renderSwitcher({ scope: { type: 'history', label: 'History' }, teams: [team()], localVaultConfigured: true });
+    renderSwitcher({ scope: { type: 'history', label: 'History' }, teams: [team()], localVaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }] });
     const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
 
     expect(within(dialog).getByRole('button', { name: 'History' })).toHaveAttribute('aria-current', 'page');
@@ -161,7 +177,7 @@ describe('WorkspaceSwitcher', () => {
   });
 
   it('starts on the current workspace and moves between rows with the arrow keys', async () => {
-    renderSwitcher({ scope: { type: 'team', label: 'Atlas Team', teamPath: 'atlas' }, teams: [team()], localVaultConfigured: true });
+    renderSwitcher({ scope: { type: 'team', label: 'Atlas Team', teamPath: 'atlas' }, teams: [team()], localVaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }] });
     const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
     const row = (name: string) => within(dialog).getByRole('button', { name });
 
@@ -171,13 +187,13 @@ describe('WorkspaceSwitcher', () => {
     fireEvent.keyDown(row('My Workspace'), { key: 'ArrowDown' });
     expect(row('History')).toHaveFocus();
     fireEvent.keyDown(row('History'), { key: 'ArrowDown' });
-    expect(row('Local Vault')).toHaveFocus();
-    fireEvent.keyDown(row('Local Vault'), { key: 'ArrowUp' });
+    expect(row('Notes')).toHaveFocus();
+    fireEvent.keyDown(row('Notes'), { key: 'ArrowUp' });
     expect(row('History')).toHaveFocus();
   });
 
   it('opens a workspace in a new window from its hover button', async () => {
-    const props = renderSwitcher({ localVaultConfigured: true, onOpenInNewWindow: vi.fn() });
+    const props = renderSwitcher({ onOpenInNewWindow: vi.fn() });
     const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Open History in a new window (⌘-click)' }));
@@ -185,18 +201,20 @@ describe('WorkspaceSwitcher', () => {
     expect(props.onScopeChange).not.toHaveBeenCalled();
   });
 
-  it('opens in a new window on ⌘-click and switches on a plain click', async () => {
-    const plain = renderSwitcher({ localVaultConfigured: true, onOpenInNewWindow: vi.fn() });
+  it('opens a vault in a new window on ⌘-click and switches on a plain click', async () => {
+    const plain = renderSwitcher({ localVaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], onOpenInNewWindow: vi.fn() });
     const first = await screen.findByRole('dialog', { name: 'Workspaces' });
-    fireEvent.click(within(first).getByRole('button', { name: 'Local Vault' }));
-    expect(plain.onScopeChange).toHaveBeenCalledWith({ type: 'local', label: 'Local Vault' });
+    fireEvent.click(within(first).getByRole('button', { name: 'Notes' }));
+    expect(plain.onSwitchLocalVault).toHaveBeenCalledWith('vault-notes');
+    expect(plain.onScopeChange).not.toHaveBeenCalled();
     expect(plain.onOpenInNewWindow).not.toHaveBeenCalled();
 
     cleanup();
-    const mod = renderSwitcher({ localVaultConfigured: true, onOpenInNewWindow: vi.fn() });
+    const mod = renderSwitcher({ localVaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], onOpenInNewWindow: vi.fn() });
     const second = await screen.findByRole('dialog', { name: 'Workspaces' });
-    fireEvent.click(within(second).getByRole('button', { name: 'Local Vault' }), { metaKey: true });
-    expect(mod.onOpenInNewWindow).toHaveBeenCalledWith({ type: 'local', label: 'Local Vault' });
+    fireEvent.click(within(second).getByRole('button', { name: 'Notes' }), { metaKey: true });
+    expect(mod.onOpenInNewWindow).toHaveBeenCalledWith({ type: 'local', label: 'Notes', vaultId: 'vault-notes' });
+    expect(mod.onSwitchLocalVault).not.toHaveBeenCalled();
     expect(mod.onScopeChange).not.toHaveBeenCalled();
   });
 
@@ -218,7 +236,7 @@ describe('WorkspaceSwitcher', () => {
   });
 
   it('hides the open-out buttons without a new-window handler', async () => {
-    const props = renderSwitcher({ localVaultConfigured: true, teams: [team()], pinnedTeamIds: ['team-1'] });
+    const props = renderSwitcher({ localVaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], teams: [team()], pinnedTeamIds: ['team-1'] });
     const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
 
     expect(within(dialog).queryByRole('button', { name: /in a new window/ })).toBeNull();
@@ -267,12 +285,13 @@ describe('WorkspaceSwitcher while the primary key is held', () => {
           <WorkspaceSwitcher
             scope={{ type: 'personal', label: 'My Workspace' }}
             teams={teams}
-            localVaultConfigured
+            localVaults={[]}
             platform="darwin"
             pinnedTeamIds={null}
             switcherOpen={open}
             onSwitcherOpenChange={vi.fn()}
             onScopeChange={vi.fn()}
+            onSwitchLocalVault={vi.fn()}
             onChooseLocalVault={vi.fn()}
             onPinnedTeamIdsChange={vi.fn()}
           />

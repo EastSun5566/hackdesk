@@ -2,12 +2,15 @@ import type {
   ChooseLocalVaultResult,
   LocalDirectoryBrowseResult,
   LocalDocument,
+  LocalVaultActivateResult,
   LocalVaultAttachmentMutationResult,
   LocalVaultChangeEvent,
   LocalVaultChoosePathInput,
   LocalVaultCreateDirectoryInput,
   LocalVaultCreateDirectoryResult,
   LocalVaultCreateFolderInput,
+  LocalVaultForgetResult,
+  LocalVaultVaultIdInput,
   LocalVaultCreateNoteInput,
   LocalVaultDocumentMutationResult,
   LocalVaultFolderMutationResult,
@@ -612,6 +615,10 @@ export type HackDeskElectronAPI = {
     browse: (path?: string) => Promise<LocalDirectoryBrowseResult>;
     /** Chooses a vault from the in-app picker without the native dialog. */
     choosePath: (input: LocalVaultChoosePathInput) => Promise<ChooseLocalVaultResult>;
+    /** Switches the active vault, returning the new settings and snapshot. */
+    activate: (input: LocalVaultVaultIdInput) => Promise<LocalVaultActivateResult>;
+    /** Forgets one vault, falling back when it was active. */
+    forget: (input: LocalVaultVaultIdInput) => Promise<LocalVaultForgetResult>;
     createDirectory: (input: LocalVaultCreateDirectoryInput) => Promise<LocalVaultCreateDirectoryResult>;
     disconnect: () => Promise<ElectronSafeSettings>;
     getSnapshot: () => Promise<LocalVaultSnapshot | null>;
@@ -669,11 +676,12 @@ export type PresentationDeck = {
   content: string;
 };
 
-/** A workspace a new window boots into. Local always means the active vault. */
+/** A workspace a new window boots into. A local scope may name a vault to activate; without one it means the active vault. */
 export type NewWindowWorkspaceScope = {
   type: 'local' | 'personal' | 'history' | 'team';
   label: string;
   teamPath?: string;
+  vaultId?: string;
 };
 
 export type NewWindowInput = {

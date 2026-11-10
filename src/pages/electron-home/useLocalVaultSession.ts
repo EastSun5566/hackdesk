@@ -2,9 +2,22 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ElectronSafeSettings, HackDeskElectronAPI } from '@/lib/electron-api';
+import type { LocalVaultActivateResult, LocalVaultForgetResult } from '@/lib/local-vault';
 import { getActiveLocalVaultPath } from '@/lib/settings';
 import { getLocalVaultSnapshotQueryKey, guardLocalVaultApi, type VaultAccess } from './local-vault-query';
 import { migrateLocalWorkspaceStorage } from './local-workspace-storage';
+
+/**
+ * The workspace session API: the raw Electron API with vault-changing writes
+ * routed through the change transition (like choose/disconnect), so concurrent
+ * vault reads are cancelled instead of racing the switch.
+ */
+export type LocalVaultSessionApi = Omit<HackDeskElectronAPI, 'localVault'> & {
+  localVault: HackDeskElectronAPI['localVault'] & {
+    switchVault: (vaultId: string) => Promise<LocalVaultActivateResult>;
+    forgetVault: (vaultId: string) => Promise<LocalVaultForgetResult>;
+  };
+};
 
 export function useLocalVaultSession(
   api: HackDeskElectronAPI | undefined,
@@ -109,6 +122,24 @@ export function useLocalVaultSession(
           const next = await api.localVault.disconnect();
           queryClient.setQueryData(['electron', 'settings'], next);
           return next;
+        }),
+        switchVault: (vaultId: string) => transition(async () => {
+          const result = await api.localVault.activate({ vaultId });
+          queryClient.setQueryData(['electron', 'settings'], result.settings);
+          if (result.snapshot) {
+            queryClient.setQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(result.settings)), result.snapshot);
+          }
+          return result;
+        }),
+        forgetVault: (vaultId: string) => transition(async () => {
+          const result = await api.localVault.forget({ vaultId });
+          queryClient.setQueryData(['electron', 'settings'], result.settings);
+          if (result.snapshot) {
+            queryClient.setQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(result.settings)), result.snapshot);
+          } else {
+            queryClient.setQueryData(getLocalVaultSnapshotQueryKey(), null);
+          }
+          return result;
         }),
       },
     };

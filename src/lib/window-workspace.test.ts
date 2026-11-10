@@ -19,6 +19,17 @@ describe('window workspace scope', () => {
     expect(decodeWindowWorkspaceScope(encodeWindowWorkspaceScope(scope))).toEqual(scope);
   });
 
+  it('round-trips a local scope that names its vault', () => {
+    const scope: WindowWorkspaceScope = { type: 'local', label: 'Notes', vaultId: 'vault-notes' };
+    expect(decodeWindowWorkspaceScope(encodeWindowWorkspaceScope(scope))).toEqual(scope);
+  });
+
+  it('rejects vault ids on non-local scopes', () => {
+    expect(decodeWindowWorkspaceScope(encodeURIComponent(JSON.stringify({ type: 'team', label: 'A', teamPath: 'a', vaultId: 'v' })))).toBeNull();
+    expect(decodeWindowWorkspaceScope(encodeURIComponent(JSON.stringify({ type: 'personal', label: 'P', vaultId: 'v' })))).toBeNull();
+    expect(() => encodeWindowWorkspaceScope({ type: 'history', label: 'H', vaultId: 'v' })).toThrow('invalid workspace scope');
+  });
+
   it('rejects scopes that name no workspace', () => {
     expect(decodeWindowWorkspaceScope(null)).toBeNull();
     expect(decodeWindowWorkspaceScope('')).toBeNull();

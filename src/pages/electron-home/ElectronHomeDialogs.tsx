@@ -62,7 +62,8 @@ export type ElectronHomeDialogsProps = {
   onDeleteNote: (note: DocumentSummary) => void;
   onDeleteNoteCancel: () => void;
   onImportHackmdCliToken: () => Promise<ImportHackmdCliTokenResult>;
-  onForgetLocalVault: () => Promise<void>;
+  onForgetLocalVault: (vaultId?: string) => Promise<void>;
+  onSwitchLocalVault: (vaultId: string) => Promise<void>;
   onOpenLocalVault: () => Promise<void>;
   onOnboardingOpenChange: (open: boolean) => void;
   onRefreshLocalVault: () => Promise<void>;
@@ -103,6 +104,7 @@ export function ElectronHomeDialogs({
   onDeleteNoteCancel,
   onImportHackmdCliToken,
   onForgetLocalVault,
+  onSwitchLocalVault,
   onOpenLocalVault,
   onOnboardingOpenChange,
   onRefreshLocalVault,
@@ -134,6 +136,7 @@ export function ElectronHomeDialogs({
         onChooseLocalVault={onChooseLocalVault}
         onDisconnectHackmd={onDisconnectHackmd}
         onForgetLocalVault={onForgetLocalVault}
+        onSwitchLocalVault={onSwitchLocalVault}
         onOpenLocalVault={onOpenLocalVault}
         onRefreshLocalVault={onRefreshLocalVault}
         onOpenChange={onSettingsOpenChange}

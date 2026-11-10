@@ -13,7 +13,8 @@ import type {
   UserSummary,
 } from '@/lib/electron-api';
 import type { FolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
-import { defaultSettings } from '@/lib/settings';
+import { defaultSettings, getActiveLocalVaultPath } from '@/lib/settings';
+import { localVaultFolderName } from './workspace-root-labels';
 import { toast } from '@/components/ui/toast';
 
 import type { ElectronHomeWorkspaceProps } from './ElectronHomeWorkspace';
@@ -91,7 +92,6 @@ export function useHomeWorkspaceProps({
   folderCommands,
   folderTree,
   getTabSyncState,
-  hasConfiguredLocalVault,
   homeStatus,
   inspectorCollapsed,
   localDocumentRecovery,
@@ -140,7 +140,6 @@ export function useHomeWorkspaceProps({
   folderCommands: WorkbenchFolderCommands;
   folderTree: FolderTree;
   getTabSyncState: ElectronHomeWorkspaceProps['titlebar']['getTabSyncState'];
-  hasConfiguredLocalVault: boolean;
   homeStatus: HomeStatus;
   inspectorCollapsed: boolean;
   localDocumentRecovery: LocalDocumentRecovery;
@@ -212,6 +211,10 @@ export function useHomeWorkspaceProps({
     navigator: {
       scope: displayScope,
       tree: folderTree,
+      vaultFolderName: (() => {
+        const activePath = settings ? getActiveLocalVaultPath(settings) : null;
+        return activePath ? localVaultFolderName(activePath) : null;
+      })(),
       workspace: {
         scope: displayScope,
         user,
@@ -219,7 +222,6 @@ export function useHomeWorkspaceProps({
         platform: window.hackdeskAPI?.platform ?? window.navigator.platform,
         pinnedTeamIds: settings?.workspaceNavigation?.pinnedTeamIds ?? null,
         accountStatus: homeStatus.accountStatus,
-        localVaultConfigured: hasConfiguredLocalVault,
         switcherOpen: workspaceSwitcherOpen,
         onSwitcherOpenChange: setWorkspaceSwitcherOpen,
         onChooseLocalVault: () => {
@@ -229,11 +231,20 @@ export function useHomeWorkspaceProps({
           actions.setTrashOpen(false);
           actions.switchWorkspaceScope(next);
         },
+        localVaults: settings?.localVault.vaults ?? [],
+        onSwitchLocalVault: (vaultId: string) => {
+          setWorkspaceSwitcherOpen(false);
+          void localVaultActions.switchLocalVault(vaultId).catch((error) => {
+            toast.error(error instanceof Error ? error.message : 'Failed to switch local vault.');
+          });
+        },
         onOpenInNewWindow: api?.app.newWindow ? (scope: WorkspaceScope) => {
           setWorkspaceSwitcherOpen(false);
           const workspace: NewWindowWorkspaceScope = scope.type === 'team'
             ? { type: scope.type, label: scope.label, teamPath: scope.teamPath }
-            : { type: scope.type, label: scope.label };
+            : scope.type === 'local'
+              ? { type: scope.type, label: scope.label, vaultId: scope.vaultId }
+              : { type: scope.type, label: scope.label };
           void api?.app.newWindow?.({ workspace }).catch((error) => {
             toast.error(error instanceof Error ? error.message : 'Failed to open a new window.');
           });

@@ -120,6 +120,7 @@ function createProps(overrides: Partial<ElectronHomeDialogsProps> = {}): Electro
     onDisconnectHackmd: vi.fn(),
     onOnboardingConnected: vi.fn(),
     onForgetLocalVault: vi.fn(async () => undefined),
+    onSwitchLocalVault: vi.fn(async () => undefined),
     onImportHackmdCliToken: vi.fn(async () => ({
       settings: {
         title: 'HackDesk',

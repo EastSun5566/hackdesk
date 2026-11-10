@@ -13,6 +13,7 @@ import { recentNoteTargetsScope } from './usePendingRecentNoteRestore';
 
 export type WorkbenchQuickOpenOptions = {
   localVaultId?: string | null;
+  onSwitchLocalVault?: (vaultId: string) => void;
   expandNavigator: () => void;
   focusNavigator: () => void;
   isWorkspaceFetching: boolean;
@@ -31,6 +32,7 @@ export type WorkbenchQuickOpenOptions = {
 
 export function useWorkbenchQuickOpen({
   localVaultId,
+  onSwitchLocalVault,
   expandNavigator,
   focusNavigator,
   isWorkspaceFetching,
@@ -115,13 +117,18 @@ export function useWorkbenchQuickOpen({
     } else if (workspace.type === 'history') {
       setWorkspaceScope({ type: 'history', label: workspace.label });
     } else if (workspace.type === 'local') {
-      setWorkspaceScope({ type: 'local', label: workspace.label });
+      // Another vault activates first; it sets the scope itself once ready.
+      if (workspace.vaultId !== localVaultId && onSwitchLocalVault) {
+        onSwitchLocalVault(workspace.vaultId);
+      } else {
+        setWorkspaceScope({ type: 'local', label: workspace.label, vaultId: workspace.vaultId });
+      }
     } else {
       setWorkspaceScope({ type: 'team', label: workspace.label, teamPath: workspace.teamPath });
     }
 
     focusNavigator();
-  }, [clearPendingRecentNote, focusNavigator, setWorkspaceScope]);
+  }, [clearPendingRecentNote, focusNavigator, localVaultId, onSwitchLocalVault, setWorkspaceScope]);
 
   const handleQuickOpenFolder = useCallback((folder: QuickOpenFolderResult) => {
     expandNavigator();

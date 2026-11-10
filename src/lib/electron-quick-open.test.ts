@@ -185,13 +185,22 @@ describe('electron quick open', () => {
   });
 
   it('lists and searches workspace switcher results', () => {
-    expect(getQuickOpenWorkspaceResults([team], '').map((entry) => entry.id)).toEqual([
+    const vaults = [
+      { id: 'vault-notes', path: '/Users/michael/Notes' },
+      { id: 'vault-b', path: '/Users/michael/B' },
+    ];
+    expect(getQuickOpenWorkspaceResults([team], '', undefined, vaults).map((entry) => entry.id)).toEqual([
       'personal',
       'history',
+      'local:vault-notes',
+      'local:vault-b',
       'team:team-workspace',
     ]);
     expect(getQuickOpenWorkspaceResults([team], 'history').map((entry) => entry.id)).toEqual(['history']);
     expect(getQuickOpenWorkspaceResults([team], 'team-workspace').map((entry) => entry.id)).toEqual(['team:team-workspace']);
+    const notes = getQuickOpenWorkspaceResults([team], 'notes', undefined, vaults);
+    expect(notes.map((entry) => entry.id)).toEqual(['local:vault-notes', 'personal', 'history']);
+    expect(notes[0]).toMatchObject({ type: 'local', label: 'Notes', vaultId: 'vault-notes' });
   });
 
   it('filters actions by label, description, and keywords', () => {

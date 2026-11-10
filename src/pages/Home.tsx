@@ -1,5 +1,5 @@
 import { KeyboardNavigation } from './electron-home/KeyboardNavigation';
-import { NoteSummaryLookupContext, TeamNameLookupContext } from '@/pages/electron-home/NoteSummaryCard';
+import { LocalVaultNameContext, NoteSummaryLookupContext, TeamNameLookupContext } from '@/pages/electron-home/NoteSummaryCard';
 import { ConfirmDialogHost } from '@/components/ConfirmDialogHost';
 import { getElectronAction, getResolvedActionShortcut } from '@/lib/electron-actions';
 import { ActionShortcutContext } from './electron-home/ActionShortcutContext';
@@ -28,7 +28,7 @@ import type { ElectronSafeSettings, FolderSummary } from '@/lib/electron-api';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { getNoteCurrentFolderId } from '@/lib/hackmd-note-dnd';
 import type { QuickOpenFolderResult } from '@/lib/electron-quick-open';
-import { defaultSettings } from '@/lib/settings';
+import { defaultSettings, getActiveLocalVaultPath } from '@/lib/settings';
 
 import { ElectronHomeOverlays } from './electron-home/ElectronHomeOverlays';
 import { ElectronHomeWorkspace, NOTE_NAVIGATOR_PANEL_ID } from './electron-home/ElectronHomeWorkspace';
@@ -85,6 +85,7 @@ import { useWorkbenchPanelState } from './electron-home/useWorkbenchPanelState';
 import { useWorkbenchShortcuts } from './electron-home/useWorkbenchShortcuts';
 import { useWorkbenchTabLifecycle } from './electron-home/useWorkbenchTabLifecycle';
 import { useHomeLocalVaultActions } from './electron-home/useHomeLocalVaultActions';
+import { localVaultFolderName } from './electron-home/workspace-root-labels';
 import { useHomeOverlayProps } from './electron-home/useHomeOverlayProps';
 import { useHomeWorkspaceProps } from './electron-home/useHomeWorkspaceProps';
 import { getSavedTabNoteIdentity, isBlankNoteTab, isDraftNoteTab, readNoteWorkspaceLayoutStorage, type OpenNoteTab } from './electron-home/note-workspace';
@@ -367,10 +368,17 @@ export function Home() {
   const hasConfiguredLocalVault = settings?.hasLocalVault === true;
   const canUseCurrentWorkspace = !usingInitialDrafts && (scope.type === 'local' ? !!vaultSession.snapshot && !vaultSession.isChanging : hasToken);
   const handleHackmdDisconnected = useCallback(() => {
-    setWorkspaceScope(hasConfiguredLocalVault
-      ? { type: 'local', label: 'Local Vault' }
-      : DEFAULT_WORKSPACE_SCOPE);
-  }, [hasConfiguredLocalVault, setWorkspaceScope]);
+    if (settings?.hasLocalVault) {
+      const activePath = getActiveLocalVaultPath(settings);
+      setWorkspaceScope({
+        type: 'local',
+        label: activePath ? localVaultFolderName(activePath) : 'Local Vault',
+        vaultId: settings.localVault.activeVaultId ?? undefined,
+      });
+      return;
+    }
+    setWorkspaceScope(DEFAULT_WORKSPACE_SCOPE);
+  }, [settings, setWorkspaceScope]);
 
   useEffect(() => {
     if (settings === undefined || usingInitialDrafts || initialWorkspaceResolvedRef.current) {
@@ -380,14 +388,27 @@ export function Home() {
     initialWorkspaceResolvedRef.current = true;
     // A window opened onto an explicit workspace keeps it; the local preference is only for fresh boots.
     if (settings.hasLocalVault && scope.type !== 'local' && initialWorkspaceScope.type === 'personal' && !hasWindowWorkspaceScope()) {
-      setWorkspaceScope({ type: 'local', label: 'Local Vault' });
+      const activePath = getActiveLocalVaultPath(settings);
+      setWorkspaceScope({
+        type: 'local',
+        label: activePath ? localVaultFolderName(activePath) : 'Local Vault',
+        vaultId: settings.localVault.activeVaultId ?? undefined,
+      });
     }
-  }, [initialWorkspaceScope.type, scope.type, setWorkspaceScope, settings, usingInitialDrafts]);
+    // A new window opened onto another vault activates it so the window shows what it was opened onto.
+    if (settings.hasLocalVault && initialWorkspaceScope.type === 'local' && initialWorkspaceScope.vaultId
+      && initialWorkspaceScope.vaultId !== settings.localVault.activeVaultId && !vaultSession.isChanging) {
+      void localVaultActions.switchLocalVault(initialWorkspaceScope.vaultId).catch((error) => {
+        toast.error(error instanceof Error ? error.message : 'Failed to open the vault in a new window.');
+      });
+    }
+  }, [initialWorkspaceScope, scope.type, setWorkspaceScope, settings, usingInitialDrafts, vaultSession.isChanging]);
 
   useEffect(() => {
     if (!usingInitialDrafts || vaultSession.isChanging) return;
+    const activePath = settings ? getActiveLocalVaultPath(settings) : null;
     const target: WorkspaceScope | null = settings?.hasLocalVault
-      ? vaultSession.vaultId ? { type: 'local', label: 'Local Vault', vaultId: vaultSession.vaultId } : null
+      ? vaultSession.vaultId ? { type: 'local', label: activePath ? localVaultFolderName(activePath) : 'Local Vault', vaultId: vaultSession.vaultId } : null
       : hasToken ? DEFAULT_WORKSPACE_SCOPE : null;
     if (!target) return;
     try { setWorkspaceScope(target); }
@@ -403,6 +424,7 @@ export function Home() {
     currentFolders,
     currentNotes,
     scope,
+    localVaultPath: settingsQuery.data ? getActiveLocalVaultPath(settingsQuery.data) : null,
     selectedFolderId,
     syncOpenNoteSummaries: noteWorkspace.syncNoteSummaries,
     teams,
@@ -714,6 +736,12 @@ export function Home() {
     switchWorkspaceScope,
   } = useElectronHomeCommandPalette({
     localVaultId: vaultSession.vaultId,
+    localVaults: settingsQuery.data?.localVault.vaults ?? [],
+    onSwitchLocalVault: (vaultId: string) => {
+      void localVaultActions.switchLocalVault(vaultId).catch((error) => {
+        toast.error(error instanceof Error ? error.message : 'Failed to switch local vault.');
+      });
+    },
     displayScope,
     expandNavigator,
     focusNavigator: () => focusZone('navigator'),
@@ -1134,7 +1162,6 @@ export function Home() {
     folderCommands,
     folderTree,
     getTabSyncState,
-    hasConfiguredLocalVault,
     homeStatus,
     inspectorCollapsed,
     localDocumentRecovery,
@@ -1181,7 +1208,6 @@ export function Home() {
     },
     commandPaletteUtilities: {
       hasHackmdApiToken: settings?.hasHackmdApiToken === true,
-      hasLocalVault: hasConfiguredLocalVault,
       onConnectHackmd: openHackmdTokenSetup,
       onMoveNoteToFolder: moveSelectedNoteToFolder,
       onOpenSettingsTab: openSettingsTab,
@@ -1219,7 +1245,8 @@ export function Home() {
         if (hasToken) setWorkspaceScope(DEFAULT_WORKSPACE_SCOPE);
         else setOnboardingOpen(true);
       } else if (settings?.hasLocalVault && vaultSession.vaultId && !vaultSession.isChanging) {
-        setWorkspaceScope({ type: 'local', label: 'Local Vault', vaultId: vaultSession.vaultId });
+        const activePath = getActiveLocalVaultPath(settings);
+        setWorkspaceScope({ type: 'local', label: activePath ? localVaultFolderName(activePath) : 'Local Vault', vaultId: vaultSession.vaultId });
       } else if (!await localVaultActions.chooseLocalVault()) {
         pendingInitialSave.current = null;
         requestEditorFocus();
@@ -1245,9 +1272,14 @@ export function Home() {
         <div data-hack-mode={hackMode || undefined} className="app-chrome flex h-dvh flex-col overflow-hidden bg-background-muted text-text-default">
           <BookSessionContext.Provider value={bookSession}>
             <TeamNameLookupContext.Provider value={lookupTeamName}>
+            <LocalVaultNameContext.Provider value={(() => {
+              const activePath = settings ? getActiveLocalVaultPath(settings) : null;
+              return activePath ? localVaultFolderName(activePath) : null;
+            })()}>
             <NoteSummaryLookupContext.Provider value={lookupNoteSummary}>
               <ElectronHomeWorkspace {...workspaceProps} backupNotice={backupNotice} />
             </NoteSummaryLookupContext.Provider>
+            </LocalVaultNameContext.Provider>
             </TeamNameLookupContext.Provider>
           </BookSessionContext.Provider>
           {leaderLevel ? (

@@ -304,7 +304,7 @@ export function CommandPaletteDialog({
   selectedNoteId,
   selectedFolderId,
   hasHackmdApiToken,
-  hasLocalVault,
+  localVaults = [],
   themeMode,
   themePresetId,
   themePresets,
@@ -334,7 +334,7 @@ export function CommandPaletteDialog({
   selectedNoteId: string | null;
   selectedFolderId: string | null;
   hasHackmdApiToken: boolean;
-  hasLocalVault: boolean;
+  localVaults?: { id: string; path: string }[];
   themeMode: ThemeMode;
   themePresetId: ThemePresetId;
   themePresets: ThemePreset[];
@@ -377,7 +377,7 @@ export function CommandPaletteDialog({
     [folderSearch, isMoveNote, state.search],
   );
   const recentResults = state.open && !isMoveNote ? getQuickOpenRecentNoteResults(recentNotes, state.search) : [];
-  const workspaceResults = state.open && !isMoveNote ? getQuickOpenWorkspaceResults(teams, state.search, undefined, hasLocalVault) : [];
+  const workspaceResults = state.open && !isMoveNote ? getQuickOpenWorkspaceResults(teams, state.search, undefined, localVaults) : [];
   const actionResults = state.open && isCommands
     ? getQuickOpenActionResults(getCommandPaletteActions(), state.search, undefined, (action) => getActionLabel(action, context))
     : [];
@@ -480,7 +480,7 @@ export function CommandPaletteDialog({
                     ? 'History'
                     : scope.type === 'team'
                       ? scope.label
-                      : scope.type === 'local' ? 'Local Vault' : 'My Workspace';
+                      : scope.type === 'local' ? scope.label : 'My Workspace';
                   const metadata = [
                     workspaceLabel,
                     context.scopeType === 'history' ? null : entry.folderLabel || 'Root',

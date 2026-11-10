@@ -46,7 +46,9 @@ export function getInitialWorkspaceScope(): WorkspaceScope {
       return { type: 'team', label: scoped.label, teamPath: scoped.teamPath };
     }
     if (scoped && scoped.type !== 'team') {
-      return { type: scoped.type, label: scoped.label };
+      return scoped.type === 'local' && scoped.vaultId
+        ? { type: scoped.type, label: scoped.label, vaultId: scoped.vaultId }
+        : { type: scoped.type, label: scoped.label };
     }
   }
   return readWorkspaceScopeStorage(LAST_WORKSPACE_SCOPE_KEY, DEFAULT_WORKSPACE_SCOPE);

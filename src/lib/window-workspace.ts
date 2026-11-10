@@ -1,12 +1,14 @@
 /**
  * The workspace a new window boots into, carried in its entry URL
  * (`#/electron?workspace=...`) so the first render already shows it.
- * No vault id travels here: a local scope always means the active vault.
+ * A local scope may name a vault; the new window activates it on boot.
+ * Without a vault id, a local scope means the active vault.
  */
 export type WindowWorkspaceScope = {
   type: 'local' | 'personal' | 'history' | 'team';
   label: string;
   teamPath?: string;
+  vaultId?: string;
 };
 
 export const WINDOW_WORKSPACE_PARAM = 'workspace';
@@ -17,7 +19,7 @@ function cleanScope(value: unknown): WindowWorkspaceScope | null {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return null;
   }
-  const { type, label, teamPath } = value as Record<string, unknown>;
+  const { type, label, teamPath, vaultId } = value as Record<string, unknown>;
   if (typeof type !== 'string' || !SCOPE_TYPES.has(type) || typeof label !== 'string' || !label.trim() || label.trim().length > 200) {
     return null;
   }
@@ -25,12 +27,19 @@ function cleanScope(value: unknown): WindowWorkspaceScope | null {
     if (typeof teamPath !== 'string' || !teamPath.trim() || teamPath.trim().length > 500) {
       return null;
     }
-    return { type: 'team', label: label.trim(), teamPath: teamPath.trim() };
+    return vaultId === undefined
+      ? { type: 'team', label: label.trim(), teamPath: teamPath.trim() }
+      : null;
   }
   if (teamPath !== undefined) {
     return null;
   }
-  return { type: type as WindowWorkspaceScope['type'], label: label.trim() };
+  if (vaultId !== undefined && (type !== 'local' || typeof vaultId !== 'string' || !vaultId.trim() || vaultId.trim().length > 200)) {
+    return null;
+  }
+  return vaultId === undefined
+    ? { type: type as WindowWorkspaceScope['type'], label: label.trim() }
+    : { type: type as WindowWorkspaceScope['type'], label: label.trim(), vaultId: vaultId.trim() };
 }
 
 export function encodeWindowWorkspaceScope(scope: WindowWorkspaceScope): string {

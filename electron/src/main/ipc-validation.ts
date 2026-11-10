@@ -387,6 +387,10 @@ export const localVaultChoosePathInputSchema = z.strictObject({
   path: absolutePathSchema,
 });
 
+export const localVaultVaultIdInputSchema = z.strictObject({
+  vaultId: nonEmptyStringSchema,
+});
+
 export const localVaultCreateDirectoryInputSchema = z.strictObject({
   parentPath: absolutePathSchema,
   name: z.string().trim().min(1).max(255),
@@ -540,14 +544,17 @@ export const hackmdRequestOptionsSchema = z.strictObject({ requestId: z.uuid() }
 /** `null` lists personal trash; otherwise a team path segment. */
 export const listTrashTeamPathSchema = z.string().min(1).max(200).nullable();
 
-/** A workspace a new window boots into; a team scope must name its team. */
+/** A workspace a new window boots into; a team scope must name its team, and only a local scope may name a vault. */
 export const newWindowInputSchema = z.strictObject({
   workspace: z.strictObject({
     type: z.enum(['local', 'personal', 'history', 'team']),
     label: z.string().trim().min(1).max(200),
     teamPath: z.string().trim().min(1).max(500).optional(),
+    vaultId: z.string().trim().min(1).max(200).optional(),
   }).refine((scope) => scope.type !== 'team' || scope.teamPath !== undefined, {
     message: 'A team workspace must name its team.',
+  }).refine((scope) => scope.vaultId === undefined || scope.type === 'local', {
+    message: 'Only a local workspace may name a vault.',
   }).optional(),
 }).default({});
 

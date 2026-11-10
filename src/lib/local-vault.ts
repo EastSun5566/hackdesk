@@ -65,6 +65,20 @@ export type LocalVaultChoosePathInput = {
   path: string;
 };
 
+export type LocalVaultVaultIdInput = {
+  vaultId: string;
+};
+
+export type LocalVaultActivateResult = {
+  settings: import('./electron-api').ElectronSafeSettings;
+  snapshot: LocalVaultSnapshot | null;
+};
+
+export type LocalVaultForgetResult = {
+  settings: import('./electron-api').ElectronSafeSettings;
+  snapshot: LocalVaultSnapshot | null;
+};
+
 export type LocalVaultCreateDirectoryInput = {
   parentPath: string;
   name: string;

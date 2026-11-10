@@ -112,7 +112,8 @@ type SettingsDialogProps = {
   onDisconnectHackmd: () => void;
   onOpenChange: (open: boolean) => void;
   onChooseLocalVault: () => Promise<void | boolean>;
-  onForgetLocalVault: () => Promise<void>;
+  onForgetLocalVault: (vaultId?: string) => Promise<void>;
+  onSwitchLocalVault: (vaultId: string) => Promise<void>;
   onOpenLocalVault: () => Promise<void>;
   onRefreshLocalVault: () => Promise<void>;
   onSave: (input: SettingsFormInput) => void;
@@ -135,6 +136,7 @@ function SettingsDialogContent({
   onDisconnectHackmd,
   onChooseLocalVault,
   onForgetLocalVault,
+  onSwitchLocalVault,
   onOpenLocalVault,
   onRefreshLocalVault,
   onOpenChange,
@@ -511,8 +513,9 @@ function SettingsDialogContent({
                     error={localVaultError}
                     settings={settings}
                     snapshot={localVaultSnapshot}
-                    onChooseLocalVault={onChooseLocalVault}
+                    onAddVault={onChooseLocalVault}
                     onForgetLocalVault={onForgetLocalVault}
+                    onSwitchLocalVault={onSwitchLocalVault}
                     onOpenLocalVault={onOpenLocalVault}
                     onRefreshLocalVault={onRefreshLocalVault}
                   />

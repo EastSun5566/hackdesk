@@ -13,7 +13,6 @@ type WorkbenchActions = ReturnType<typeof useWorkbenchActions>;
 type CommandPaletteInjectedProps =
   | 'context'
   | 'hasHackmdApiToken'
-  | 'hasLocalVault'
   | 'onConnectHackmd'
   | 'onMoveNoteToFolder'
   | 'onOpenSettingsTab'
@@ -57,7 +56,6 @@ export function useHomeOverlayProps({
   commandPaletteUtilities: Pick<
     ElectronHomeOverlaysProps['commandPalette'],
     | 'hasHackmdApiToken'
-    | 'hasLocalVault'
     | 'onConnectHackmd'
     | 'onMoveNoteToFolder'
     | 'onOpenSettingsTab'
@@ -130,6 +128,7 @@ export function useHomeOverlayProps({
       onDeleteNoteCancel: () => dialogState.setDeleteTarget(null),
       onImportHackmdCliToken: () => mutations.importHackmdCliTokenMutation.mutateAsync(),
       onForgetLocalVault: localVaultActions.forgetLocalVault,
+      onSwitchLocalVault: localVaultActions.switchLocalVault,
       onOpenLocalVault: localVaultActions.openLocalVault,
       onOnboardingConnected,
       onOnboardingOpenChange: setOnboardingOpen,

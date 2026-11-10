@@ -85,6 +85,7 @@ import {
   setHackmdDurableFallback,
 } from './hackmd-service';
 import { getSafeSettings, readHackmdCliAccessToken, readStoredSettings, updateStoredSettings } from './settings';
+import { getActiveLocalVaultPath } from '../../../src/lib/settings';
 import { createAiService } from './ai/ai-service';
 import { createDictationService, locateSpeechHelper } from './dictation/dictation-service';
 import { createNoteIndexService } from './note-index/note-index-service';
@@ -146,6 +147,7 @@ import {
   localVaultRevealFolderInputSchema,
   localVaultRevealNoteInputSchema,
   localVaultTrashFolderInputSchema,
+  localVaultVaultIdInputSchema,
   localVaultTrashNoteInputSchema,
   localVaultWriteInputSchema,
   localVaultBrowseInputSchema,
@@ -433,6 +435,34 @@ export function registerIpcHandlers(
     const settings = await updateStoredSettings({ localVaultPath: null });
     options.onSettingsUpdated?.(settings);
     return settings;
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultActivate, async (_event, input: unknown) => {
+    const { vaultId } = validateIpcInput(ELECTRON_CHANNELS.localVaultActivate, localVaultVaultIdInputSchema, input);
+    const settings = await updateStoredSettings({ localVaultActivateId: vaultId });
+    options.onSettingsUpdated?.(settings);
+    const snapshot = await getActiveLocalVaultSnapshot();
+    if (snapshot) {
+      ensureLocalVaultWatcher(snapshot.rootPath);
+      void noteIndex.indexVault(snapshot);
+    }
+    return { settings, snapshot };
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultForget, async (_event, input: unknown) => {
+    const { vaultId } = validateIpcInput(ELECTRON_CHANNELS.localVaultForget, localVaultVaultIdInputSchema, input);
+    const before = getActiveLocalVaultPath(await readStoredSettings());
+    const settings = await updateStoredSettings({ localVaultRemoveId: vaultId });
+    options.onSettingsUpdated?.(settings);
+    const after = getActiveLocalVaultPath(settings);
+    if (before && before !== after) {
+      closeLocalVaultWatcher(true);
+      void noteIndex.forgetVaults();
+    }
+    const snapshot = await getActiveLocalVaultSnapshot();
+    if (snapshot) {
+      ensureLocalVaultWatcher(snapshot.rootPath);
+      void noteIndex.indexVault(snapshot);
+    }
+    return { settings, snapshot };
   });
   ipcMain.handle(ELECTRON_CHANNELS.localVaultGetSnapshot, async () => {
     const snapshot = await getActiveLocalVaultSnapshot();

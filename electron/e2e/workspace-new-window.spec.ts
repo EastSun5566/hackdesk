@@ -67,7 +67,7 @@ test('opens History in a new window with a modifier-click', async () => {
     expect(second.url()).toContain('workspace=');
     await expect(second.getByRole('button', { name: 'Switch workspace, current: History' })).toBeVisible();
     // The first window stays where it was.
-    await expect(page.getByRole('button', { name: /^Switch workspace, current: Local Vault/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Switch workspace, current: vault/ })).toBeVisible();
   } finally { if (appProcess.exitCode === null) await stop(app); }
 });
 

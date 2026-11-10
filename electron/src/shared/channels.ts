@@ -5,6 +5,8 @@ export const ELECTRON_CHANNELS = {
   localVaultChoose: 'local-vault:choose',
   localVaultBrowse: 'local-vault:browse',
   localVaultChoosePath: 'local-vault:choose-path',
+  localVaultActivate: 'local-vault:activate',
+  localVaultForget: 'local-vault:forget',
   localVaultCreateDirectory: 'local-vault:create-directory',
   localVaultDisconnect: 'local-vault:disconnect',
   localVaultGetSnapshot: 'local-vault:get-snapshot',

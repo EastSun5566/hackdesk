@@ -132,7 +132,7 @@ function renderPalette(overrides: Partial<CommandPaletteDialogProps> = {}) {
     selectedFolderId: 'folder-alpha',
     selectedNoteId: 'exact',
     hasHackmdApiToken: true,
-    hasLocalVault: true,
+    localVaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }],
     platform: 'darwin',
     state: { mode: 'commands', open: true, search: '' },
     teams: [team],
@@ -217,7 +217,7 @@ describe('CommandPaletteDialog', () => {
   });
 
   it('shows a contextual home without duplicating recent notes', () => {
-    renderPalette();
+    renderPalette({ localVaults: [] });
 
     const input = screen.getByRole('combobox', { name: 'Search notes, folders, and commands' });
     expect(input).toHaveAttribute('placeholder', 'Search notes, folders, and commands…');
@@ -470,19 +470,19 @@ describe('CommandPaletteDialog', () => {
     expect(screen.getByRole('option', { name: /Change Local Vault…/ })).toBeVisible();
   });
 
-  it('switches to a configured Local Vault from Workspaces', () => {
+  it('switches to a configured vault from Workspaces', () => {
     const onSelectWorkspace = vi.fn();
-    renderPalette({ onSelectWorkspace, state: { mode: 'commands', open: true, search: 'vault' } });
+    renderPalette({ onSelectWorkspace, state: { mode: 'commands', open: true, search: 'notes' } });
 
     const workspaces = screen.getByRole('group', { name: 'Workspaces' });
-    fireEvent.click(within(workspaces).getByRole('option', { name: /^Local Vault/ }));
+    fireEvent.click(within(workspaces).getByRole('option', { name: 'Notes' }));
 
-    expect(onSelectWorkspace).toHaveBeenCalledWith(expect.objectContaining({ type: 'local' }));
+    expect(onSelectWorkspace).toHaveBeenCalledWith(expect.objectContaining({ type: 'local', vaultId: 'vault-notes' }));
   });
 
-  it('leaves the Local Vault out of Workspaces until one is set', () => {
-    renderPalette({ hasLocalVault: false, state: { mode: 'quick-open', open: true, search: 'vault' } });
-    expect(screen.queryByRole('option', { name: /^Local Vault/ })).not.toBeInTheDocument();
+  it('leaves vaults out of Workspaces until one is set', () => {
+    renderPalette({ localVaults: [], state: { mode: 'quick-open', open: true, search: 'vault' } });
+    expect(screen.queryByRole('option', { name: 'Notes' })).not.toBeInTheDocument();
   });
 
   it('tolerates typos in action commands', () => {
@@ -491,8 +491,8 @@ describe('CommandPaletteDialog', () => {
   });
 
   it('tolerates adjacent transpositions in workspace names', () => {
-    renderPalette({ state: { mode: 'commands', open: true, search: 'vualt' } });
-    expect(screen.getByRole('option', { name: /^Local Vault/ })).toBeVisible();
+    renderPalette({ localVaults: [{ id: 'vault-main', path: '/Users/michael/Vault' }], state: { mode: 'commands', open: true, search: 'vualt' } });
+    expect(screen.getByRole('option', { name: /^Vault/ })).toBeVisible();
   });
 
   it('runs note link and sharing actions, which explain when they do not apply', () => {

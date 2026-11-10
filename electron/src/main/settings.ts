@@ -12,6 +12,7 @@ import {
   removeLocalVault,
   serializeSettings,
   setActiveHackmdAccount,
+  setActiveLocalVault,
   validateSettings,
   type AppSettings,
   type HackmdAccountsSettings,
@@ -336,7 +337,13 @@ async function writeStoredSettings(settings: AppSettings, accountTokens?: Record
 }
 
 async function updateStoredSettingsUnlocked(
-  update: ElectronSettingsUpdate & { localVaultPath?: string | null },
+  update: ElectronSettingsUpdate & {
+    localVaultPath?: string | null;
+    /** Switches the active vault; unknown ids keep the current one. */
+    localVaultActivateId?: string;
+    /** Forgets one vault, falling back when it was active. */
+    localVaultRemoveId?: string;
+  },
 ): Promise<ElectronSafeSettings> {
   const metadata = await readStoredSettingsWithMetadata();
   const current = metadata.settings;
@@ -412,6 +419,18 @@ async function updateStoredSettingsUnlocked(
       delete nextTokens[id];
     }
   }
+  // Choosing a folder adds it to the vault list and activates it; forgetting removes the
+  // given vault and activates the first remaining one when it was the active one.
+  let nextVaults = current.localVault;
+  if (update.localVaultRemoveId !== undefined) {
+    nextVaults = removeLocalVault(nextVaults, update.localVaultRemoveId);
+  } else if (update.localVaultActivateId !== undefined) {
+    nextVaults = setActiveLocalVault(nextVaults, update.localVaultActivateId);
+  } else if (update.localVaultPath !== undefined) {
+    nextVaults = update.localVaultPath === null
+      ? (nextVaults.activeVaultId ? removeLocalVault(nextVaults, nextVaults.activeVaultId) : nextVaults)
+      : addLocalVault(nextVaults, update.localVaultPath);
+  }
   const nextOnboarding = update.hackmdApiToken && update.hackmdApiToken.trim()
     ? { ...current.onboarding, hackmdTokenSetupDeferred: false }
     : update.onboarding ?? current.onboarding;
@@ -430,13 +449,7 @@ async function updateStoredSettingsUnlocked(
     onboarding: nextOnboarding,
     // Choosing a folder adds it to the vault list and activates it; forgetting removes the
     // active vault and falls back to the first remaining one.
-    localVault: update.localVaultPath === undefined
-      ? current.localVault
-      : update.localVaultPath === null
-        ? (current.localVault.activeVaultId
-          ? removeLocalVault(current.localVault, current.localVault.activeVaultId)
-          : current.localVault)
-        : addLocalVault(current.localVault, update.localVaultPath),
+    localVault: nextVaults,
   });
 
   await writeStoredSettings(
@@ -449,7 +462,11 @@ async function updateStoredSettingsUnlocked(
 }
 
 export function updateStoredSettings(
-  update: ElectronSettingsUpdate & { localVaultPath?: string | null },
+  update: ElectronSettingsUpdate & {
+    localVaultPath?: string | null;
+    localVaultActivateId?: string;
+    localVaultRemoveId?: string;
+  },
 ): Promise<ElectronSafeSettings> {
   return enqueueSettingsOperation(() => updateStoredSettingsUnlocked(update));
 }

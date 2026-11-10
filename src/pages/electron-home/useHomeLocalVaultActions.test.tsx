@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ElectronSafeSettings, HackDeskElectronAPI } from '@/lib/electron-api';
+import type { LocalVaultSessionApi } from './useLocalVaultSession';
 import type { LocalVaultSnapshot } from '@/lib/local-vault';
 import { defaultSettings, getActiveLocalVaultPath } from '@/lib/settings';
 
@@ -57,7 +58,7 @@ function snapshot(overrides: Partial<LocalVaultSnapshot> = {}): LocalVaultSnapsh
 function createApi(overrides: {
   choose?: HackDeskElectronAPI['localVault']['choose'];
   disconnect?: HackDeskElectronAPI['localVault']['disconnect'];
-} = {}): HackDeskElectronAPI {
+} = {}): LocalVaultSessionApi {
   return {
     getRuntimeEnvironment: () => 'electron',
     platform: 'darwin',
@@ -70,6 +71,10 @@ function createApi(overrides: {
     localVault: {
       choose: overrides.choose ?? vi.fn(async () => ({ canceled: true })),
       disconnect: overrides.disconnect ?? vi.fn(async () => safeSettings({ localVault: { vaults: [], activeVaultId: null }, hasLocalVault: false })),
+      activate: vi.fn(async () => ({ settings: safeSettings(), snapshot: snapshot() })),
+      forget: vi.fn(async () => ({ settings: safeSettings({ localVault: { vaults: [], activeVaultId: null }, hasLocalVault: false }), snapshot: null })),
+      switchVault: vi.fn(async () => ({ settings: safeSettings(), snapshot: snapshot() })),
+      forgetVault: vi.fn(async () => ({ settings: safeSettings({ localVault: { vaults: [], activeVaultId: null }, hasLocalVault: false }), snapshot: null })),
       getSnapshot: vi.fn(),
       readNote: vi.fn(),
       createNote: vi.fn(),
@@ -106,10 +111,10 @@ function createApi(overrides: {
       setThemeSurface: vi.fn(),
       newWindow: vi.fn(),
     },
-  } as HackDeskElectronAPI;
+  } as unknown as LocalVaultSessionApi;
 }
 
-function renderLocalVaultActions(api: HackDeskElectronAPI, queryClient = new QueryClient()) {
+function renderLocalVaultActions(api: LocalVaultSessionApi, queryClient = new QueryClient()) {
   const setWorkspaceScope = vi.fn();
   const refetchLocalVault = vi.fn(async () => undefined);
   const result = renderHook(() => useHomeLocalVaultActions({
@@ -152,7 +157,7 @@ describe('useHomeLocalVaultActions', () => {
     expect(api.localVault.choose).toHaveBeenCalledOnce();
     expect(queryClient.getQueryData(['electron', 'settings'])).toBe(nextSettings);
     expect(queryClient.getQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(nextSettings)))).toBe(nextSnapshot);
-    expect(setWorkspaceScope).toHaveBeenCalledWith({ type: 'local', label: 'Local Vault', vaultId: nextSnapshot.vaultId });
+    expect(setWorkspaceScope).toHaveBeenCalledWith({ type: 'local', label: 'Notes', vaultId: nextSnapshot.vaultId });
   });
 
   it('does not switch scope when local vault choosing is canceled', async () => {
@@ -211,6 +216,41 @@ describe('useHomeLocalVaultActions', () => {
     expect(api.localVault.disconnect).toHaveBeenCalledOnce();
     expect(queryClient.getQueryData(['electron', 'settings'])).toBe(nextSettings);
     expect(queryClient.getQueryData(getLocalVaultSnapshotQueryKey())).toBeNull();
+    expect(toastSuccessMock).toHaveBeenCalledWith('Local vault forgotten.', {
+      description: 'Markdown files were not deleted.',
+    });
+  });
+
+  it('switches to another vault and updates the scope', async () => {
+    const api = createApi();
+    const queryClient = new QueryClient();
+    const { result, setWorkspaceScope } = renderLocalVaultActions(api, queryClient);
+
+    await act(async () => {
+      await result.current.switchLocalVault('vault-notes');
+    });
+
+    expect(api.localVault.switchVault).toHaveBeenCalledWith('vault-notes');
+    expect(setWorkspaceScope).toHaveBeenCalledWith({ type: 'local', label: 'Notes', vaultId: 'vault-1' });
+  });
+
+  it('forgets a single vault by id after confirmation', async () => {
+    confirmDialogMock.mockResolvedValue({ confirmed: true });
+    const api = createApi();
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(['electron', 'settings'], safeSettings());
+    const { result, setWorkspaceScope } = renderLocalVaultActions(api, queryClient);
+
+    await act(async () => {
+      await result.current.forgetLocalVault('vault-notes');
+    });
+
+    expect(confirmDialogMock).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Forget Local Vault',
+    }));
+    expect(api.localVault.forgetVault).toHaveBeenCalledWith('vault-notes');
+    // Forgetting the active vault re-scopes onto the fallback (here: none left).
+    expect(setWorkspaceScope).toHaveBeenCalledWith({ type: 'local', label: 'Local Vault', vaultId: undefined });
     expect(toastSuccessMock).toHaveBeenCalledWith('Local vault forgotten.', {
       description: 'Markdown files were not deleted.',
     });

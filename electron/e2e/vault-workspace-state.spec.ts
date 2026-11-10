@@ -44,7 +44,7 @@ async function choose(page: Page, path: string | null, homeBase: string) {
   // The in-app picker opens instead of the native dialog. Real IPC, settings, scan and vault
   // identity are exercised; only the native dialog is replaced. The picker starts at the
   // current vault, so climb to the shared parent before descending into the target.
-  await page.getByRole('button', { name: 'Change Vault', exact: true }).click();
+  await page.getByRole('button', { name: 'Add Folder', exact: true }).click();
   if (!path) {
     await cancelFolderPicker(page);
     return;
@@ -94,12 +94,15 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
     await expect(page.getByRole('button', { name: 'Expand A folder', exact: true })).toBeVisible();
     await openVaultSettings(page);
     await app.evaluate(({ dialog }) => { dialog.showMessageBox = async () => ({ response: 0, checkboxChecked: false }); });
-    await page.getByRole('button', { name: 'Forget Vault', exact: true }).click();
+    const settingsDialog = page.getByRole('dialog', { name: 'Settings' });
+    await settingsDialog.locator('li', { hasText: vaultA }).getByRole('button', { name: 'Forget', exact: true }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Forget Vault', exact: true }).click();
     // Forgetting the active vault falls back to the other known vault; forgetting again empties the list.
+    // The fallback briefly keeps the old panes while the new vault loads, then settles on its tabs.
+    await expect(page.locator('[data-active-pane]')).toHaveCount(1);
     await expect(page.locator('.cm-content')).toContainText('Draft B');
     await openVaultSettings(page);
-    await page.getByRole('button', { name: 'Forget Vault', exact: true }).click();
+    await settingsDialog.locator('li', { hasText: vaultB }).getByRole('button', { name: 'Forget', exact: true }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Forget Vault', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Settings' }).getByText('No local vault configured', { exact: true })).toBeVisible();
     await choose(page, vaultA, basename(home));
@@ -134,6 +137,15 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
     await openVaultSettings(page);
     await choose(page, vaultB, basename(home));
     await expect(page.locator('.cm-content')).toContainText('Draft B');
+    // The workspace switcher lists each vault by folder name and switches between them.
+    await page.getByRole('button', { name: /^Switch workspace, current: / }).click();
+    await page.getByRole('dialog', { name: 'Workspaces' }).getByRole('button', { name: 'A', exact: true }).click();
+    await expect(page.locator('.cm-content').first()).toContainText('Only in A.');
+    await expect(page.getByRole('button', { name: /^Switch workspace, current: A/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Switch workspace, current: A/ })).toBeVisible();
+    await openVaultSettings(page);
+    await choose(page, vaultB, basename(home));
+    await expect(page.locator('.cm-content')).toContainText('Draft B');
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((window) => window.webContents.getURL().includes('#/electron'))?.show());
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('vault-B-restored.png') });
   } finally { if (appProcess.exitCode === null) await stop(app); }
@@ -149,7 +161,7 @@ test('Quick Hack rejects capture during the in-app folder picker and keeps popup
   try {
     await expect(page.getByRole('button', { name: /^Switch workspace, current: / })).toBeVisible();
     await openVaultSettings(page);
-    await page.getByRole('button', { name: 'Change Vault', exact: true }).click();
+    await page.getByRole('button', { name: 'Add Folder', exact: true }).click();
     const picker = page.getByRole('dialog', { name: 'Choose a Vault Folder' });
     await expect(picker).toBeVisible();
     const popup = app.windows().find((candidate) => candidate.url().includes('#/quick-capture'))!;

@@ -402,6 +402,8 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
     },
     localVault: {
       choose: vi.fn(async () => ({ canceled: true })),
+      activate: vi.fn(async () => ({ settings: createSafeSettings(), snapshot: null })),
+      forget: vi.fn(async () => ({ settings: createSafeSettings(), snapshot: null })),
       disconnect: vi.fn(async () => createSafeSettings()),
       getSnapshot: vi.fn(async () => null),
       readNote: vi.fn(),
@@ -452,6 +454,10 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       newWindow: vi.fn(async () => undefined),
     },
   };
+
+  const sessionLocalVault = base.localVault as unknown as Record<string, unknown>;
+  sessionLocalVault.switchVault ??= vi.fn(async () => ({ settings: createSafeSettings(), snapshot: null }));
+  sessionLocalVault.forgetVault ??= vi.fn(async () => ({ settings: createSafeSettings(), snapshot: null }));
 
   return {
     ...base,
@@ -819,7 +825,7 @@ describe('Home native-feel behavior', () => {
     });
     expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({
       type: 'local',
-      label: 'Local Vault',
+      label: 'Notes',
       vaultId: 'first-vault',
     });
   });
@@ -1067,7 +1073,8 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => {
       expect(JSON.parse(window.localStorage.getItem(LAST_WORKSPACE_SCOPE_KEY) ?? '{}')).toEqual({
         type: 'local',
-        label: 'Local Vault',
+        label: 'Notes',
+        vaultId: 'vault-notes',
       });
     });
     expect(queryHackmdOnboardingDialog()).not.toBeInTheDocument();
