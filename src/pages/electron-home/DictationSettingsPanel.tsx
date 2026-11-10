@@ -11,7 +11,7 @@ import { notifyDictationSettingsChanged, type DictationStatus } from '@/lib/dict
 import { getHackDeskAPI } from '@/lib/electron-api';
 import { defaultDictationSettings, type DictationSettings } from '@/lib/settings';
 
-import { SettingsSection } from './SettingsPrimitives';
+import { SettingsPage, SettingsSection } from './SettingsPrimitives';
 
 const SYSTEM_LOCALE_VALUE = '__system__';
 
@@ -27,7 +27,7 @@ export function describeDictationLocale(locale: string) {
 
 type PendingDownload = { locale: string; requestId: string; fraction: number };
 
-export function DictationSettingsPanel({ active }: { active: boolean }) {
+export function DictationSettingsPanel({ active, resetSignal = 0 }: { active: boolean; resetSignal?: number }) {
   const api = getHackDeskAPI();
   const [settings, setSettings] = useState<DictationSettings | null>(null);
   const [status, setStatus] = useState<DictationStatus | null>(null);
@@ -35,6 +35,7 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
   const [download, setDownload] = useState<PendingDownload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const downloadRef = useRef<PendingDownload | null>(null);
+  const lastResetSignal = useRef(0);
 
   const loadStatus = useCallback(async () => {
     if (!api?.dictation) return;
@@ -57,6 +58,26 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
     const pending = downloadRef.current;
     if (pending) void api?.dictation?.cancel(pending.requestId).catch(() => undefined);
   }, [api]);
+
+  const revertSection = useCallback(() => {
+    if (!api) return;
+    void (async () => {
+      try {
+        const saved = await api.settings.update({ dictation: { ...defaultDictationSettings } });
+        setSettings(saved.dictation ?? { ...defaultDictationSettings });
+        notifyDictationSettingsChanged();
+      } catch (saveError) {
+        setError(getAiErrorMessage(saveError));
+      }
+    })();
+  }, [api]);
+
+  // The header Reset button reaches this self-saving page through its tab.
+  useEffect(() => {
+    if (!resetSignal || resetSignal === lastResetSignal.current) return;
+    lastResetSignal.current = resetSignal;
+    revertSection();
+  }, [resetSignal, revertSection]);
 
   const save = async (next: DictationSettings) => {
     if (!api) return;
@@ -124,11 +145,12 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
   const needsDownload = Boolean(status?.available && locale && !status.installed.includes(locale));
 
   return (
-    <div className="space-y-6">
+    <SettingsPage>
       <SettingsSection
-        page
-        title="Dictation (Experimental)"
+        title="Speech to text"
         description="Speech stays on this Mac. Audio is not saved."
+        onRevert={revertSection}
+        revertLabel="Turn dictation off and follow the system language"
       >
         {error ? <p role="alert" className="text-sm text-destructive-default">{error}</p> : null}
         {!status || !settings ? (
@@ -136,7 +158,7 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
         ) : !status.available ? (
           <p className="text-sm text-text-subtle">{status.message}</p>
         ) : (
-          <div className="space-y-4">
+          <>
             <div className="flex items-center justify-between gap-3 text-sm">
               <label htmlFor="settings-dictation-enabled" className="font-medium">Dictate into notes</label>
               <Switch
@@ -170,14 +192,14 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
             ) : null}
 
             {settings.enabled && needsDownload && locale ? (
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-border-default px-4 py-3 text-sm">
+              <div className="flex items-center justify-between gap-3 text-sm">
                 <div className="min-w-0">
                   <p className="font-medium">{describeDictationLocale(locale)} needs a one-time download</p>
                 </div>
                 {download?.locale === locale ? (
                   <Meter.Root value={Math.round(download.fraction * 100)} aria-label={`Downloading ${describeDictationLocale(locale)}`} className="flex items-center gap-3">
                     <Meter.Track className="h-1.5 w-24 overflow-hidden rounded-full bg-background-selected">
-                      <Meter.Indicator className="h-full rounded-full bg-primary-default" />
+                      <Meter.Indicator className="h-full rounded-full bg-primary-solid" />
                     </Meter.Track>
                     <span className="w-10 text-right text-xs tabular-nums text-text-subtle">{Math.round(download.fraction * 100)}%</span>
                   </Meter.Root>
@@ -191,9 +213,9 @@ export function DictationSettingsPanel({ active }: { active: boolean }) {
                 )}
               </div>
             ) : null}
-          </div>
+          </>
         )}
       </SettingsSection>
-    </div>
+    </SettingsPage>
   );
 }

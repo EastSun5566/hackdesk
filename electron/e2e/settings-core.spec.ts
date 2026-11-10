@@ -18,31 +18,30 @@ test('@core theme, editor mode and a shortcut changed in Settings are saved and 
   let { page } = first;
   await expect(page.getByRole('treeitem', { name: /^Note/ })).toBeVisible();
 
+  // Settings save each change as it is made and stay open.
   let settings = await openSettings(page, 'Appearance');
   await settings.getByRole('radio', { name: 'Dark', exact: true }).click();
-  // Apply Theme and Save each close Settings.
-  await settings.getByRole('button', { name: 'Apply Theme' }).click();
-  await expect(settings).toBeHidden();
   await expect(page.locator('html')).toHaveClass(/\bdark\b/);
 
-  settings = await openSettings(page, 'Editor');
+  await settings.getByRole('tab', { name: 'Editor', exact: true }).click();
   await settings.getByRole('radio', { name: 'Vim', exact: true }).click();
-  await settings.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(settings).toBeHidden();
+  // Once the mode is saved, Settings is still on the page the change was made on.
+  await expect.poll(async () => (await first.readSettings()).editor).toMatchObject({ mode: 'vim' });
+  await expect(settings.getByRole('tab', { name: 'Editor', exact: true })).toHaveAttribute('aria-selected', 'true');
 
-  settings = await openSettings(page, 'Shortcuts');
+  await settings.getByRole('tab', { name: 'Shortcuts', exact: true }).click();
   await settings.getByRole('button', { name: 'Set shortcut for New Note', exact: true }).click();
   await page.keyboard.press(`${primary}+Alt+M`);
   await expect(settings.getByRole('button', { name: 'Set shortcut for New Note', exact: true })).toContainText(/Alt\+M|⌥⌘M/);
-  await settings.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(settings).toBeHidden();
 
   // Saved through the real settings IPC, validation and atomic write.
-  expect(await first.readSettings()).toMatchObject({
+  await expect.poll(() => first.readSettings()).toMatchObject({
     appearance: expect.objectContaining({ theme: 'dark' }),
     editor: expect.objectContaining({ mode: 'vim' }),
     shortcuts: expect.objectContaining({ 'new-note': 'mod+alt+m' }),
   });
+  await page.keyboard.press('Escape');
+  await expect(settings).toBeHidden();
 
   ({ page } = await first.restart());
   await expect(page.getByRole('treeitem', { name: /^Note/ })).toBeVisible();

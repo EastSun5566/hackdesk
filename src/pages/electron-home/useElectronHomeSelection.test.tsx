@@ -87,8 +87,8 @@ describe('useElectronHomeSelection', () => {
       await result.current.requestSelectNote(untrackedNote, { trackRecent: false });
     });
 
-    expect(openNoteInWorkspace).toHaveBeenCalledWith(selectedNote);
-    expect(openNoteInWorkspace).toHaveBeenCalledWith(untrackedNote);
+    expect(openNoteInWorkspace).toHaveBeenCalledWith(selectedNote, { inPlace: undefined });
+    expect(openNoteInWorkspace).toHaveBeenCalledWith(untrackedNote, { inPlace: undefined });
     expect(trackRecentNote).toHaveBeenCalledTimes(1);
     expect(trackRecentNote).toHaveBeenCalledWith(selectedNote);
   });

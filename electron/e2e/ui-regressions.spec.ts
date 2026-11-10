@@ -541,7 +541,7 @@ test('workspace switcher rows, gap boundaries and full-height Settings workbench
     await page.keyboard.press(`${primary}+,`);
     for (const height of [900, 660]) {
       await page.setViewportSize({ width: 1440, height });
-      await expect(page.getByRole('dialog', { name: 'Settings' })).toHaveCSS('height', `${Math.min(760, height - 64)}px`);
+      await expect(page.getByRole('dialog', { name: 'Settings' })).toHaveCSS('height', `${Math.min(640, height - 64)}px`);
       const settingsSidebar = page.getByRole('complementary', { name: 'Settings sidebar' });
       const assertFullHeight = async () => {
         await expect.poll(() => settingsSidebar.evaluate((element) => {
@@ -827,6 +827,89 @@ test('tree guides connect mixed children and end at the last folder row', async 
     await assertGuides();
     await page.getByRole('button', { name: 'Expand Last', exact: true }).click();
     await assertGuides();
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test('collapsing the sidebar slides its content out to the left without nudging the sidebar', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    // Slowed, so a frame mid-collapse can be measured.
+    await page.addStyleTag({ content: '#note-navigator-panel { transition-duration: 1500ms !important; }' });
+    const measure = () => page.evaluate(() => {
+      const panel = document.getElementById('note-navigator-panel')!.getBoundingClientRect();
+      const row = document.querySelector('#note-navigator-panel [data-folder-tree-row-id]')!.getBoundingClientRect();
+      const card = document.querySelector('section[data-document-pane-id]')!.getBoundingClientRect();
+      return { panelX: panel.x, panelRight: panel.right, rowRight: row.right, cardX: card.x };
+    });
+    const before = await measure();
+    await page.getByRole('button', { name: 'Collapse sidebar' }).click();
+    await page.waitForTimeout(500);
+    const during = await measure();
+    expect(during.panelX).toBe(before.panelX);
+    expect(during.panelRight).toBeLessThan(before.panelRight);
+    // The content keeps its place against the sidebar's right edge, so it slides out with it.
+    expect(during.panelRight - during.rowRight).toBeCloseTo(before.panelRight - before.rowRight, 0);
+    await expect.poll(async () => (await measure()).cardX).toBe(6);
+  } finally {
+    await stopApp(app);
+  }
+});
+
+test('rows share one hover card and one context menu, and the workspace row keeps its own', async () => {
+  const { app, page } = await launchFixture('standard', true);
+  try {
+    await switchWorkspace(page, 'Local Vault');
+    const card = page.locator('[data-row-card]');
+    // A note row's card follows the pointer from row to row.
+    await page.getByRole('treeitem', { name: 'Alpha', exact: true }).hover();
+    await expect(card).toContainText('Alpha');
+    await page.getByRole('treeitem', { name: 'Beta', exact: true }).hover();
+    await expect(card).toContainText('Beta');
+    await expect(card).not.toContainText('Alpha');
+    // The card stays while the pointer is on it, and goes once the pointer leaves both.
+    await card.hover();
+    // Staying open has no event to wait for: give a close, and its exit transition, time to happen.
+    await page.waitForTimeout(500);
+    await expect(card).toHaveAttribute('data-open', '');
+    await expect(card).toContainText('Beta');
+    await page.mouse.move(0, 0);
+    await expect(card).toHaveCount(0);
+
+    // Each row's menu is its own, and Escape returns to the row it opened from.
+    const alpha = page.getByRole('treeitem', { name: 'Alpha', exact: true });
+    await alpha.click({ button: 'right' });
+    await expect(card).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: 'Duplicate Note' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect(alpha).toBeFocused();
+
+    await page.getByRole('treeitem', { name: 'Projects', exact: true }).click({ button: 'right' });
+    await expect(page.getByRole('menuitem', { name: 'New Note Inside' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Duplicate Note' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+
+    // The workspace row's menu is its own, not a row menu on top of it.
+    await page.getByRole('treeitem', { name: 'Local Vault', exact: true }).click({ button: 'right' });
+    await expect(page.getByRole('menuitem', { name: 'New Folder' })).toBeVisible();
+    await expect(page.getByRole('menu')).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+
+    // Keyboard focus shows a note row's card as hovering does, and it follows the arrow keys.
+    await page.mouse.move(0, 0);
+    await alpha.focus();
+    // The tree tracks the focused row in state; arrow keys move from it once it has caught up.
+    await expect(alpha).toHaveAttribute('tabindex', '0');
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('treeitem', { name: 'Beta', exact: true })).toBeFocused();
+    await expect(card).toContainText('Beta');
+    // Leaving the list puts the card away.
+    await page.keyboard.press('F6');
+    await expect(card).toHaveCount(0);
   } finally {
     await stopApp(app);
   }
@@ -1324,15 +1407,16 @@ test('saved shortcut preferences update hints and disable character shortcuts', 
     await expect(help).toHaveCount(0);
     await expect(settings).toBeVisible();
     await expect(settings.getByRole('tab', { name: 'Shortcuts', exact: true })).toHaveAttribute('aria-selected', 'true');
-    await settings.getByRole('checkbox', { name: 'Enable ?, / and Space outside text editing' }).uncheck();
+    await settings.getByRole('switch', { name: 'Enable ?, / and Space outside text editing' }).uncheck();
     const filter = settings.getByPlaceholder('Search shortcuts', { exact: true });
     await filter.fill('Focus Note Finder');
     const binding = settings.getByRole('button', { name: 'Set shortcut for Focus Note Finder', exact: true });
     await binding.click(); await page.keyboard.press(`${primary}+e`);
-    await settings.getByRole('button', { name: 'Save', exact: true }).click();
+    // Shortcuts save at once; closing keeps them.
+    await settings.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(settings).toBeHidden();
     // Closed, the search icon names its shortcut in its tooltip.
-    await expect(page.locator('label:has(input[name="noteSearch"])')).toHaveAttribute('title', `Search notes (${process.platform === 'darwin' ? '⌘E' : 'Ctrl+E'})`);
+    await expect.poll(async () => page.locator('label:has(input[name="noteSearch"])').getAttribute('title')).toBe(`Search notes (${process.platform === 'darwin' ? '⌘E' : 'Ctrl+E'})`);
     const shortcutsButton = page.getByRole('note', { name: 'Keys you can press' }).getByRole('button', { name: /Shortcuts/ });
     await expect(shortcutsButton.locator('kbd')).toHaveCount(0);
     await shortcutsButton.click();
@@ -1589,10 +1673,10 @@ test('navigation codes avoid saved custom shortcuts', async () => {
     await settings.getByPlaceholder('Search shortcuts',{exact:true}).fill('New Note');
     await settings.getByRole('button',{name:'Set shortcut for New Note',exact:true}).click();
     await page.keyboard.press(`${primary}+e`);
-    await settings.getByRole('button',{name:'Save',exact:true}).click();
+    // The override saves at once; closing keeps it.
+    await settings.getByRole('button',{name:'Close',exact:true}).click();
     await expect(settings).toBeHidden(); await note.focus(); await holdPrimary(page);
-    const codes = await page.locator('[data-navigation-code]').evaluateAll(elements=>elements.map(element=>element.getAttribute('data-navigation-code')));
-    expect(codes.every(code=>!code?.includes('e'))).toBe(true);
+    await expect.poll(async () => page.locator('[data-navigation-code]').evaluateAll(elements=>elements.map(element=>element.getAttribute('data-navigation-code'))).then(collected=>collected.every(code=>!code?.includes('e')))).toBe(true);
     await expect(page.locator('[data-navigation-hint="finder"]')).toHaveAttribute('data-navigation-code', /^[a-z]{2,3}$/);
     await page.keyboard.up(primary);
   } finally { await stopApp(app); }
@@ -1664,7 +1748,7 @@ test('Settings search jumps to fields and held navigation stays inside the dialo
     const dialog = page.getByRole('dialog', { name: 'Settings', exact: true });
     const search = dialog.getByRole('combobox', { name: 'Search settings', exact: true });
     await expect(search).toBeFocused();
-    await dialog.getByLabel('Window title').fill('Unsaved fixture title');
+    await dialog.getByLabel('Window title', { exact: true }).fill('Unsaved fixture title');
     await search.fill('editor font');
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('23-settings-search.png') });
     await dialog.getByRole('option', { name: 'Editor font, Appearance', exact: true }).click();
@@ -1684,8 +1768,8 @@ test('Settings search jumps to fields and held navigation stays inside the dialo
     await expect(dialog.getByLabel(third, { exact: true })).toBeFocused();
     await search.fill('window title');
     await search.press('Enter');
-    await expect(dialog.getByLabel('Window title')).toBeFocused();
-    await expect(dialog.getByLabel('Window title')).toHaveValue('Unsaved fixture title');
+    await expect(dialog.getByLabel('Window title', { exact: true })).toBeFocused();
+    await expect(dialog.getByLabel('Window title', { exact: true })).toHaveValue('Unsaved fixture title');
     await holdPrimary(page);
     const hints = page.locator('[data-navigation-hint]');
     await expect(page.locator('[data-navigation-hint="settings:general:settings-title"]')).toBeVisible();
@@ -1694,7 +1778,7 @@ test('Settings search jumps to fields and held navigation stays inside the dialo
     await page.screenshot({ animations: 'disabled', path: test.info().outputPath('22-settings-navigation.png') });
     await useNavigationCode(page, 'settings:general:settings-title');
     await page.keyboard.up(primary);
-    await expect(dialog.getByLabel('Window title')).toBeFocused();
+    await expect(dialog.getByLabel('Window title', { exact: true })).toBeFocused();
     await dialog.getByRole('tab', { name: 'Appearance', exact: true }).click();
     await expect(dialog).toHaveAttribute('data-navigation-page', 'appearance');
     const preset = dialog.getByRole('combobox', { name: 'Theme preset' });

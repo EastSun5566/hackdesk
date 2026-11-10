@@ -1,4 +1,5 @@
 import { ConflictComparison } from './ConflictComparison';
+import { rememberNoteSlideType } from './note-kind';
 import { useTeamNameLookup } from './NoteSummaryCard';
 import { ActionMenuShortcut } from './ActionShortcutContext';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -41,6 +42,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { Tooltip } from '@/components/ui/tooltip';
 import type {
   DocumentSummary,
   NoteComment,
@@ -59,8 +61,8 @@ import { LocalNoteInspector, NoteInspector } from './NoteInspector';
 import { useAiInline } from './useAiInline';
 import { useDictation } from './useDictation';
 import { useNoteLinkOpener, type OpenNoteTarget } from './useNoteLinkOpener';
-import { BookContents, ChapterNav } from './BookContents';
-import { useBookSessionContext } from './useBookSession';
+import { BookPane, ChapterNav } from './BookContents';
+import { useBookSessionContext, usePaneTabId } from './useBookSession';
 import { useNoteLinks } from './useNoteLinks';
 import { NoteVersionsDialog } from './NoteVersionsDialog';
 import { RenameNoteDialog } from './RenameNoteDialog';
@@ -88,7 +90,7 @@ export type DocumentDetailDocumentState = {
     kind: 'disk_changed' | 'remote_changed' | 'save_failed';
     message: string;
   } | null;
-  selectedNote?: Pick<NoteSummary, 'title'> & Partial<Pick<NoteSummary, 'id'>> | null;
+  selectedNote?: Pick<NoteSummary, 'title'> & Partial<Pick<NoteSummary, 'id' | 'teamPath'>> | null;
   syncState: DocumentSyncState;
   title: string;
 };
@@ -257,12 +259,34 @@ function DocumentBreadcrumb({
   title,
   updated,
   onRevealFolder,
+  book,
 }: {
   path: HeaderPathPart[];
   title: string;
   updated?: string;
   onRevealFolder?: (folderIds: string[]) => void;
+  /** A chapter's place is its book, not its folder: the book's name, back to its table of contents. */
+  book?: { title: string; onOpenContents: () => void };
 }) {
+  if (book) {
+    return (
+      <nav aria-label="Note location" className="-ml-1 flex min-h-8 min-w-0 items-center gap-1 overflow-hidden text-sm font-normal text-text-subtle" title={updated}>
+        <Tooltip content="Edit table of contents">
+          <button
+            type="button"
+            className={cn('flex min-w-0 items-center gap-1.5 rounded-sm px-1 hover:bg-element-bg-hover hover:text-text-default', FOCUS_RING_INSET_CLASS)}
+            aria-label={`${book.title}, edit table of contents`}
+            onClick={book.onOpenContents}
+          >
+            <BookOpen aria-hidden="true" className="size-3.5 shrink-0" />
+            <span className="truncate">{book.title}</span>
+          </button>
+        </Tooltip>
+        <span aria-hidden="true" className="shrink-0 text-text-subtle/60">/</span>
+        <span aria-current="page" className="max-w-4/5 shrink-0 truncate px-1 text-text-default">{title}</span>
+      </nav>
+    );
+  }
   return (
     <nav aria-label="Note location" className="-ml-1 flex min-h-8 min-w-0 items-center gap-1 overflow-hidden text-sm font-normal text-text-subtle" title={updated}>
       {path.map((part, index) => (
@@ -323,32 +347,30 @@ export function DocumentDetail({
 }: DocumentDetailProps) {
   const focusZone = layout.focusZone === undefined ? 'editor' : layout.focusZone ?? undefined;
 
-  if (status.loading) {
-    return (
-      <LoadingDocumentDetail
-        focusZone={focusZone}
-        selectedNote={documentState.selectedNote}
-        summary={documentState.selectedNote?.id ? folderTree.allNotes.find((entry) => entry.note.id === documentState.selectedNote?.id)?.note : undefined}
-        onRevealFolder={actions.onRevealFolder}
-      />
-    );
-  }
-
-  if (!documentState.document && !documentState.isDraft) {
-    return <EmptyDocumentDetail />;
-  }
-
   return (
-    <ActiveDocumentDetail
-      actions={actions}
-      documentState={documentState}
-      editorKey={editorKey}
-      editorMode={editorMode}
-      focusZone={focusZone}
-      folderTree={folderTree}
-      layout={layout}
-      status={status}
-    />
+    <BookPane document={documentState.document} loading={status.loading}>
+      {status.loading ? (
+        <LoadingDocumentDetail
+          focusZone={focusZone}
+          selectedNote={documentState.selectedNote}
+          summary={documentState.selectedNote?.id ? folderTree.allNotes.find((entry) => entry.note.id === documentState.selectedNote?.id)?.note : undefined}
+          onRevealFolder={actions.onRevealFolder}
+        />
+      ) : !documentState.document && !documentState.isDraft ? (
+        <EmptyDocumentDetail />
+      ) : (
+        <ActiveDocumentDetail
+          actions={actions}
+          documentState={documentState}
+          editorKey={editorKey}
+          editorMode={editorMode}
+          focusZone={focusZone}
+          folderTree={folderTree}
+          layout={layout}
+          status={status}
+        />
+      )}
+    </BookPane>
   );
 }
 
@@ -368,6 +390,15 @@ function LoadingDocumentDetail({
   // nothing shifts when the content arrives; only the body waits.
   const lookupTeamName = useTeamNameLookup();
   const path = summary ? getDocumentHeaderPath(summary, summary.teamPath === LOCAL_VAULT_TEAM_PATH, summary.teamPath ? lookupTeamName(summary.teamPath) : undefined) : [];
+  // A chapter loading in the book's tab already shows its book as its place, as it will once loaded.
+  const bookSession = useBookSessionContext();
+  const paneTabId = usePaneTabId();
+  const bookPosition = bookSession?.book && selectedNote?.id
+    ? bookSession.positionOfNote({ id: selectedNote.id, teamPath: selectedNote.teamPath ?? summary?.teamPath ?? null }, paneTabId)
+    : null;
+  const chapterOf = bookSession?.book && bookPosition && !bookPosition.isBook
+    ? { title: bookSession.book.title, onOpenContents: bookSession.openContentsPage }
+    : undefined;
 
   return (
     <PanelShell
@@ -377,7 +408,7 @@ function LoadingDocumentDetail({
       {selectedNote ? (
         <PanelHeader
           className="relative px-4 py-2.25"
-          title={<DocumentBreadcrumb path={path} title={selectedNote.title || 'Untitled'} onRevealFolder={onRevealFolder} />}
+          title={<DocumentBreadcrumb path={path} title={selectedNote.title || 'Untitled'} onRevealFolder={onRevealFolder} book={chapterOf} />}
           titleElement="div"
         />
       ) : null}
@@ -431,6 +462,13 @@ function ActiveDocumentDetail({
   const lastHandledRenameRequestRef = useRef(0);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
+  // The open note's front matter decides its icon in the sidebar and tabs, local notes included,
+  // whose list entries carry no text.
+  const openNoteId = documentState.document?.id;
+  const openNoteIsSlide = hasSlideType(documentState.content);
+  useEffect(() => {
+    if (openNoteId) rememberNoteSlideType(openNoteId, openNoteIsSlide);
+  }, [openNoteId, openNoteIsSlide]);
   const renameRequestId = layout.renameRequestId ?? 0;
   useEffect(() => {
     if (renameRequestId <= lastHandledRenameRequestRef.current) return;
@@ -569,7 +607,8 @@ function ActiveDocumentDetail({
     : undefined;
 
   const bookSession = useBookSessionContext();
-  const bookPosition = bookSession?.book ? bookSession.positionOf(documentState.document) : null;
+  const paneTabId = usePaneTabId();
+  const bookPosition = bookSession?.book ? bookSession.positionOf(documentState.document, paneTabId) : null;
   const openBook = bookSession?.book && bookPosition ? { session: { ...bookSession, book: bookSession.book }, position: bookPosition } : null;
 
   return (
@@ -592,6 +631,16 @@ function ActiveDocumentDetail({
         layout={layout}
         status={status}
       />
+      {openBook?.position.isBook ? (
+        // Editing the book's own note edits its table of contents; say so where the reader types.
+        <p role="note" data-book-contents-note="" className="flex shrink-0 items-center gap-2 border-b border-border-subtle bg-background-muted px-4 py-1.5 text-xs leading-5 text-text-subtle">
+          <BookOpen aria-hidden="true" className="size-3.5 shrink-0 text-icon-subtle" />
+          <span className="min-w-0 truncate">
+            <span className="font-medium text-text-default">Table of contents</span>
+            {' '}· Headings become sections, and bulleted links become chapters.
+          </span>
+        </p>
+      ) : null}
       <DocumentRecoveryBanner
         key={`${documentState.document?.teamPath}:${documentState.document?.id}:${getLocalImageContext(documentState.document)?.vaultId ?? ''}`}
         actions={actions}
@@ -601,7 +650,6 @@ function ActiveDocumentDetail({
       {/* Clip, not hide: Note Details slides in from past the right edge and takes focus at once, and a
           hidden overflow would scroll sideways to show it, shifting the whole note. */}
       <div className="relative flex min-h-0 flex-1 overflow-clip">
-        {openBook ? <BookContents {...openBook} /> : null}
         <DocumentBody
           key={editorKey}
           localImageContext={getLocalImageContext(documentState.document)}
@@ -779,6 +827,12 @@ function DocumentHeader({
   const lookupTeamName = useTeamNameLookup();
   const teamPath = documentState.document?.teamPath;
   const path = documentState.document ? getDocumentHeaderPath(documentState.document, isLocalDocument, teamPath ? lookupTeamName(teamPath) : undefined) : [];
+  const bookSession = useBookSessionContext();
+  const paneTabId = usePaneTabId();
+  const bookPosition = bookSession?.book ? bookSession.positionOf(documentState.document, paneTabId) : null;
+  const chapterOf = bookSession?.book && bookPosition && !bookPosition.isBook
+    ? { title: bookSession.book.title, onOpenContents: bookSession.openContentsPage }
+    : undefined;
   const title = documentState.isDraft ? 'Unsaved draft' : documentState.title.trim() || documentState.document?.title || 'Untitled';
   const updated = documentState.document ? `Updated ${formatDate(documentState.document.updatedAtMillis)}` : undefined;
   // Routine controls step back until the header is hovered or focused; pending work keeps them in view.
@@ -801,7 +855,7 @@ function DocumentHeader({
       actionsLabel="Document actions"
       // One line: where the note lives, ending in its title, which stays in view as the note scrolls.
       // Rename Note changes the title.
-      title={<DocumentBreadcrumb path={path} title={title} updated={updated} onRevealFolder={actions.onRevealFolder} />}
+      title={<DocumentBreadcrumb path={path} title={title} updated={updated} onRevealFolder={actions.onRevealFolder} book={chapterOf} />}
       actions={(
         <>
           <SyncStateBadge state={effectiveSyncState} />
@@ -812,7 +866,7 @@ function DocumentHeader({
             onClick={() => actions.onSave({ title: documentState.title, content: documentState.content })}
             label="Save"
             tooltip={saveTooltip}
-            className={noteDirty ? 'bg-primary-default text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground' : undefined}
+            className={noteDirty ? 'bg-primary-solid text-primary-solid-foreground hover:bg-primary-solid-hover hover:text-primary-solid-foreground' : undefined}
           >
             {status.saving ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : <Save aria-hidden="true" className="h-4 w-4" />}
           </ToolbarIconButton>

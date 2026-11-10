@@ -223,8 +223,9 @@ const windowManager = {
   setThemeSurface: vi.fn(),
   submitQuickCapture: vi.fn(async () => ({ accepted: true as const })),
   showPresentationWindow: vi.fn(),
-  getPresentationDeck: vi.fn(() => ({ title: 'Deck', content: '# One' })),
+  getPresentationDeck: vi.fn(() => ({ title: 'Deck', content: '# One', fullScreen: false })),
   closePresentationWindow: vi.fn(),
+  togglePresentationFullScreen: vi.fn(() => true),
 };
 
 describe('registerIpcHandlers', () => {
@@ -665,9 +666,11 @@ describe('registerIpcHandlers', () => {
     ipcHandlers.get(ELECTRON_CHANNELS.appOpenPresentation)?.({}, { title: 'Deck', content: '# One' });
     expect(windowManager.showPresentationWindow).toHaveBeenCalledWith({ title: 'Deck', content: '# One' });
     expect(() => ipcHandlers.get(ELECTRON_CHANNELS.appOpenPresentation)?.({}, { title: 'Deck' })).toThrow(/Invalid app:open-presentation payload/);
-    expect(ipcHandlers.get(ELECTRON_CHANNELS.appGetPresentation)?.({})).toEqual({ title: 'Deck', content: '# One' });
+    expect(ipcHandlers.get(ELECTRON_CHANNELS.appGetPresentation)?.({})).toEqual({ title: 'Deck', content: '# One', fullScreen: false });
     ipcHandlers.get(ELECTRON_CHANNELS.appClosePresentation)?.({});
     expect(windowManager.closePresentationWindow).toHaveBeenCalledOnce();
+    expect(ipcHandlers.get(ELECTRON_CHANNELS.appTogglePresentationFullScreen)?.({})).toBe(true);
+    expect(windowManager.togglePresentationFullScreen).toHaveBeenCalledOnce();
   });
 
   it('hides the quick capture window from renderer requests', () => {

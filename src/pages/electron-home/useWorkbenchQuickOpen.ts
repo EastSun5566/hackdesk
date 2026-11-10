@@ -7,6 +7,7 @@ import type { TeamSummary } from '@/lib/electron-api';
 import type { FolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
 
 import type { WorkspaceScope } from './types';
+import type { RevealNoteOptions } from './useWorkbenchNavigator';
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { recentNoteTargetsScope } from './usePendingRecentNoteRestore';
 
@@ -20,7 +21,7 @@ export type WorkbenchQuickOpenOptions = {
   queuePendingRecentNote: (note: ElectronRecentNote) => void;
   removeRecentNoteEntry: (noteId: string, teamPath: string | null) => void;
   revealFolderIds: (folderIds: string[]) => void;
-  revealNoteEntry: (entry: FolderTreeNote) => Promise<boolean>;
+  revealNoteEntry: (entry: FolderTreeNote, options?: RevealNoteOptions) => Promise<boolean>;
   scope: WorkspaceScope;
   setSelectedFolderId: (folderId: string | null) => void;
   setWorkspaceScope: (scope: WorkspaceScope) => void;
@@ -49,7 +50,7 @@ export function useWorkbenchQuickOpen({
     void revealNoteEntry(entry);
   }, [revealNoteEntry]);
 
-  const handleQuickOpenRecentNote = useCallback((entry: ElectronRecentNote) => {
+  const handleQuickOpenRecentNote = useCallback((entry: ElectronRecentNote, options?: RevealNoteOptions) => {
     if (entry.teamPath === LOCAL_VAULT_TEAM_PATH && (!localVaultId || entry.vaultId !== localVaultId)) return;
     const loadedEntry = tree.allNotes.find((candidate) => (
       recentNoteMatches(candidate.note, entry)
@@ -57,7 +58,7 @@ export function useWorkbenchQuickOpen({
 
     if (loadedEntry) {
       clearPendingRecentNote();
-      void revealNoteEntry(loadedEntry);
+      void revealNoteEntry(loadedEntry, options);
       return;
     }
 

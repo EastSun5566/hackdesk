@@ -52,7 +52,7 @@ describe('DeleteFolderDialog', () => {
 
     const deleteButton = within(dialog).getByRole('button', { name: 'Delete' });
     expect(deleteButton).toHaveClass('bg-destructive-default');
-    expect(deleteButton).toHaveClass('text-white');
+    expect(deleteButton).toHaveClass('text-destructive-foreground');
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(onCancel).toHaveBeenCalledOnce();

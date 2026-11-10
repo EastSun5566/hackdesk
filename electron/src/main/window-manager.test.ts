@@ -92,6 +92,10 @@ const mockState = vi.hoisted(() => {
     isMinimized = vi.fn(() => false);
     isFullScreenValue = false;
     isFullScreen = vi.fn(() => this.isFullScreenValue);
+    setFullScreen = vi.fn((fullScreen: boolean) => {
+      this.isFullScreenValue = fullScreen;
+      this.emit(fullScreen ? 'enter-full-screen' : 'leave-full-screen');
+    });
     isDestroyed = vi.fn(() => this.isDestroyedValue);
     isLoadingValue = false;
     options: unknown;
@@ -492,18 +496,20 @@ describe('WindowManager close intent', () => {
     expect(mockState.state.windows).toHaveLength(2);
   });
 
-  it('presents a deck full screen on the main window display, and shows a new deck in the same window', () => {
+  it('presents a deck in a window over the main one, and shows a new deck in the same window', () => {
     const { manager, window } = createManagerWithWindow();
 
     const presentation = getMockWindow(manager.showPresentationWindow({ title: 'Deck', content: '# One' }));
     expect(presentation.loadURL).toHaveBeenCalledWith('hackdesk://renderer/index.html#/present');
     expect(presentation.options).toEqual(expect.objectContaining({
-      x: 1440,
-      width: 1920,
-      fullscreen: true,
+      x: 0,
+      y: 0,
+      width: 1180,
+      height: 760,
       webPreferences: expect.objectContaining({ preload: expect.stringContaining('presentation-preload.cjs'), sandbox: true, contextIsolation: true }),
     }));
-    expect(manager.getPresentationDeck()).toEqual({ title: 'Deck', content: '# One' });
+    expect(presentation.options).not.toHaveProperty('fullscreen');
+    expect(manager.getPresentationDeck()).toEqual({ title: 'Deck', content: '# One', fullScreen: false });
 
     expect(manager.showPresentationWindow({ title: 'Deck', content: '# Two' })).toBe(presentation);
     expect(presentation.webContents.reload).toHaveBeenCalledOnce();
@@ -513,6 +519,42 @@ describe('WindowManager close intent', () => {
     expect(manager.getPresentationWindow()).toBeNull();
     expect(manager.getPresentationDeck()).toBeNull();
     expect(window.focus).toHaveBeenCalled();
+  });
+
+  it('puts the slides in and out of full screen only when asked, and tells them', () => {
+    const { manager } = createManagerWithWindow();
+    expect(manager.togglePresentationFullScreen()).toBe(false);
+
+    const presentation = getMockWindow(manager.showPresentationWindow({ title: 'Deck', content: '# One' }));
+    expect(presentation.setFullScreen).not.toHaveBeenCalled();
+    expect(manager.togglePresentationFullScreen()).toBe(true);
+    expect(presentation.setFullScreen).toHaveBeenLastCalledWith(true);
+    expect(presentation.webContents.send).toHaveBeenLastCalledWith(ELECTRON_CHANNELS.appPresentationFullScreenChanged, { fullScreen: true });
+    expect(manager.togglePresentationFullScreen()).toBe(false);
+    expect(presentation.setFullScreen).toHaveBeenLastCalledWith(false);
+    expect(presentation.webContents.send).toHaveBeenLastCalledWith(ELECTRON_CHANNELS.appPresentationFullScreenChanged, { fullScreen: false });
+  });
+
+  it('starts slides presented again in a full-screen window as full screen', () => {
+    const { manager } = createManagerWithWindow();
+    const presentation = getMockWindow(manager.showPresentationWindow({ title: 'Deck', content: '# One' }));
+    manager.togglePresentationFullScreen();
+    expect(presentation.isFullScreen()).toBe(true);
+
+    manager.showPresentationWindow({ title: 'Deck', content: '# Two' });
+    expect(presentation.webContents.reload).toHaveBeenCalledOnce();
+    expect(manager.getPresentationDeck()).toEqual({ title: 'Deck', content: '# Two', fullScreen: true });
+  });
+
+  it('steps back out of full screen when asked again before the window has switched', () => {
+    const { manager } = createManagerWithWindow();
+    const presentation = getMockWindow(manager.showPresentationWindow({ title: 'Deck', content: '# One' }));
+    // The window switches (and reports it) later, as macOS does after its animation.
+    presentation.setFullScreen.mockImplementation(() => undefined);
+
+    expect(manager.togglePresentationFullScreen()).toBe(true);
+    expect(manager.togglePresentationFullScreen()).toBe(false);
+    expect(presentation.setFullScreen.mock.calls).toEqual([[true], [false]]);
   });
 
   it('lets each window call only its own IPC channels', () => {
@@ -525,11 +567,16 @@ describe('WindowManager close intent', () => {
       ELECTRON_CHANNELS.appSubmitQuickCapture,
       ELECTRON_CHANNELS.appGetPresentation,
       ELECTRON_CHANNELS.appClosePresentation,
+      ELECTRON_CHANNELS.appTogglePresentationFullScreen,
     ].filter(channel => manager.isTrustedIpcSender({ sender: from.webContents, senderFrame: from.webContents.mainFrame } as never, channel));
 
     expect(allowed(window)).toEqual([ELECTRON_CHANNELS.settingsGet, ELECTRON_CHANNELS.appOpenPresentation]);
     expect(allowed(capture)).toEqual([ELECTRON_CHANNELS.appSubmitQuickCapture]);
-    expect(allowed(presentation)).toEqual([ELECTRON_CHANNELS.appGetPresentation, ELECTRON_CHANNELS.appClosePresentation]);
+    expect(allowed(presentation)).toEqual([
+      ELECTRON_CHANNELS.appGetPresentation,
+      ELECTRON_CHANNELS.appClosePresentation,
+      ELECTRON_CHANNELS.appTogglePresentationFullScreen,
+    ]);
   });
 
   it('keeps main hidden across external quick capture dismissal and reopening on macOS', () => {

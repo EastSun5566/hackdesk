@@ -15,6 +15,17 @@ import {
   getFolderNoteEntries,
   getFolderPathLabel,
 } from './ui';
+import type { InPlaceTarget } from './useNoteLinkOpener';
+
+/**
+ * How a note is revealed. Quick Open shows where the note lives, opening a hidden sidebar; links
+ * and book chapters open the note where the reader is, and only mark its place in the tree.
+ */
+export type RevealNoteOptions = {
+  expandNavigator?: boolean;
+  /** Show it in an open tab instead of a new one, as a book's tab turns chapters. */
+  inPlace?: InPlaceTarget;
+};
 
 export type WorkbenchNavigatorOptions = {
   canUseHackmd: boolean;
@@ -23,7 +34,7 @@ export type WorkbenchNavigatorOptions = {
   finderActive: boolean;
   focusNavigator: () => void;
   moveNote: (operation: Pick<NoteDropOperation, 'note' | 'targetFolderId'>) => void;
-  requestSelectNote: (note: FolderTreeNote['note'], options?: { focusEditor?: boolean; trackRecent?: boolean }) => Promise<boolean>;
+  requestSelectNote: (note: FolderTreeNote['note'], options?: { focusEditor?: boolean; trackRecent?: boolean; inPlace?: InPlaceTarget }) => Promise<boolean>;
   scopeType: WorkspaceScope['type'];
   selectedFolderId: string | null;
   setCollapsedFolderIds: Dispatch<SetStateAction<Set<string>>>;
@@ -116,17 +127,18 @@ export function useWorkbenchNavigator({
     }
   }, [setCollapsedFolderIds, setSelectedFolderId]);
 
-  const revealNoteEntry = useCallback(async (entry: FolderTreeNote) => {
+  const revealNoteEntry = useCallback(async (entry: FolderTreeNote, options: RevealNoteOptions = {}) => {
     const folderIds = entry.folderPath.map((folder) => folder.id);
     const leafFolderId = folderIds.at(-1) ?? UNFILED_FOLDER_ID;
     if (!await requestSelectNote(entry.note, {
       focusEditor: true,
       trackRecent: true,
+      inPlace: options.inPlace,
     })) {
       return false;
     }
 
-    expandNavigator();
+    if (options.expandNavigator ?? true) expandNavigator();
     revealFolderIds(folderIds);
     setSelectedFolderId(leafFolderId);
     return true;

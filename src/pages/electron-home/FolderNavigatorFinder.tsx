@@ -273,7 +273,7 @@ export function NoteViewOptionsMenu({
             >
               <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
               {viewOptionCount ? (
-                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-default px-1 text-2xs leading-none text-primary-foreground">
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-solid px-1 text-2xs leading-none text-primary-solid-foreground">
                   {viewOptionCount}
                 </span>
               ) : null}

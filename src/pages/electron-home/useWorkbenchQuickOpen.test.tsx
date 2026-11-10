@@ -110,7 +110,7 @@ describe('useWorkbenchQuickOpen', () => {
     result.current.handleQuickOpenRecentNote(recent());
 
     expect(options.clearPendingRecentNote).toHaveBeenCalledOnce();
-    expect(options.revealNoteEntry).toHaveBeenCalledWith(options.tree.allNotes[0]);
+    expect(options.revealNoteEntry).toHaveBeenCalledWith(options.tree.allNotes[0], undefined);
     expect(options.removeRecentNoteEntry).not.toHaveBeenCalled();
   });
 

@@ -48,7 +48,7 @@ const DECK = [
   '',
 ].join('\n');
 
-test('a note is presented full screen as slides, unsaved changes included', async () => {
+test('a note is presented as slides over the app window, full screen on request, unsaved changes included', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'hackdesk-slides-'));
   const vault = join(directory, 'vault');
   await mkdir(join(directory, '.hackdesk'), { recursive: true });
@@ -99,6 +99,26 @@ test('a note is presented full screen as slides, unsaved changes included', asyn
     await presentation.keyboard.press('ArrowDown');
     await expect(presentation.locator('section.present h2').last()).toHaveText('Agenda details');
     await expect(presentation).toHaveURL(/#\/present$/);
+
+    // The slides open over the app's window, not full screen; full screen is the button or F.
+    const windows = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()
+      .map(window => ({ title: window.getTitle(), bounds: window.getBounds(), fullScreen: window.isFullScreen() })));
+    const presented = windows.find(window => window.title === 'Synthetic deck');
+    const main = windows.find(window => window.title !== 'Synthetic deck');
+    expect(presented?.fullScreen).toBe(false);
+    expect(presented?.bounds).toEqual(main?.bounds);
+    const fullScreenButton = presentation.getByRole('button', { name: 'Full Screen', exact: true });
+    await fullScreenButton.click();
+    await expect(presentation.getByRole('button', { name: 'Exit Full Screen' })).toBeVisible();
+    await expect(presentation.getByRole('button', { name: 'Exit Full Screen' })).not.toBeFocused();
+    await presentation.keyboard.press('f');
+    await expect(fullScreenButton).toBeAttached();
+    await presentation.keyboard.press('f');
+    await expect(presentation.getByRole('button', { name: 'Exit Full Screen' })).toBeAttached();
+    // Esc leaves full screen first, and closes only from the window.
+    await presentation.keyboard.press('Escape');
+    await expect(fullScreenButton).toBeAttached();
+    expect(presentation.isClosed()).toBe(false);
 
     const closed = presentation.waitForEvent('close');
     // The window closes while the key press is still being delivered.

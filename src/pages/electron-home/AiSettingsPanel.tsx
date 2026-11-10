@@ -22,11 +22,11 @@ import {
   onAiSettingsChanged,
 } from '@/lib/ai';
 import { getHackDeskAPI } from '@/lib/electron-api';
-import type { AiCustomCommand, AiSettings } from '@/lib/settings';
+import { defaultAiSettings, type AiCustomCommand, type AiSettings } from '@/lib/settings';
 
 import { AiCommandDialog } from './AiCommandDialog';
 import { createAiCustomCommand, updateAiCustomCommands } from './ai-commands';
-import { SettingsSection } from './SettingsPrimitives';
+import { SettingsPage, SettingsSection } from './SettingsPrimitives';
 
 const DEFAULT_MODEL_VALUE = '__default__';
 const PROVIDER_VENDORS: Record<AiProviderId, string> = { codex: 'OpenAI', claude: 'Anthropic' };
@@ -70,7 +70,7 @@ function UsageRow({ window }: { window: AiUsageWindow }) {
       </div>
       <Meter.Root value={left} aria-label={`${formatWindow(window.windowMinutes)} remaining`} className="flex items-center gap-3">
         <Meter.Track className="h-1.5 w-32 overflow-hidden rounded-full bg-background-selected">
-          <Meter.Indicator className="h-full rounded-full bg-primary-default" />
+          <Meter.Indicator className="h-full rounded-full bg-primary-solid" />
         </Meter.Track>
         <span className="w-16 text-right text-xs tabular-nums text-text-subtle">{left}% left</span>
       </Meter.Root>
@@ -117,7 +117,8 @@ function ProviderCard({
   if (settings.model && !modelLabels[settings.model]) modelLabels[settings.model] = settings.model;
 
   return (
-    <div className="rounded-lg border border-border-default">
+    // A row of the Providers card, with its options under a rule of their own.
+    <div data-settings-flush>
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <div className="min-w-0">
           <label htmlFor={switchId} className="text-sm font-semibold">
@@ -137,7 +138,7 @@ function ProviderCard({
       </div>
 
       {settings.enabled || status?.phase === 'not-installed' ? (
-        <div className="space-y-3 border-t border-border-default px-4 py-3">
+        <div className="space-y-3 border-t border-border-subtle px-4 py-3">
           <div className="flex items-start justify-between gap-3 text-sm">
             <div className="min-w-0">
               <p className="text-xs leading-5 text-text-subtle" role={status?.phase === 'failed' ? 'alert' : undefined}>
@@ -218,13 +219,14 @@ function ProviderCard({
   );
 }
 
-export function AiSettingsPanel({ active }: { active: boolean }) {
+export function AiSettingsPanel({ active, resetSignal = 0 }: { active: boolean; resetSignal?: number }) {
   const api = getHackDeskAPI();
   const [aiSettings, setAiSettings] = useState<AiSettings | null>(null);
   const [statuses, setStatuses] = useState<Partial<Record<AiProviderId, AiProviderStatus>>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const checkedRef = useRef(false);
+  const lastResetSignal = useRef(0);
 
   const refresh = useCallback(async (id: AiProviderId) => {
     if (!api?.ai) return;
@@ -294,6 +296,34 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
     updateProvider(id, { enabled }, true);
   };
 
+  const revertProviders = () => {
+    if (!aiSettings) return;
+    void save({ ...aiSettings, providers: defaultAiSettings.providers, defaultProvider: null });
+  };
+
+  const revertEditorSection = () => {
+    if (!aiSettings) return;
+    void save({
+      ...aiSettings,
+      selectionChip: defaultAiSettings.selectionChip,
+      translateLanguage: defaultAiSettings.translateLanguage,
+    });
+  };
+
+  // The header Reset button reaches this self-saving page through its tab.
+  useEffect(() => {
+    if (!resetSignal || resetSignal === lastResetSignal.current) return;
+    lastResetSignal.current = resetSignal;
+    void (async () => {
+      try {
+        await updateAiCustomCommands(() => []);
+      } catch {
+        // Custom commands stay as they are; the slice below still resets.
+      }
+      void save(defaultAiSettings);
+    })();
+  }, [resetSignal, save]);
+
   if (!api?.ai) {
     return <p className="text-sm text-text-subtle">AI providers are available in the HackDesk desktop app.</p>;
   }
@@ -302,11 +332,12 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
   const providerLabels = Object.fromEntries(enabledIds.map(id => [id, AI_PROVIDER_TITLES[id]]));
 
   return (
-    <div className="space-y-6">
+    <SettingsPage>
       <SettingsSection
-        page
-        title="AI (Experimental)"
-        help="Uses your signed-in Codex or Claude CLI."
+        title="Providers"
+        description="Uses your signed-in Codex or Claude CLI."
+        onRevert={revertProviders}
+        revertLabel="Turn providers off and clear the default"
       >
         {error ? <p role="alert" className="text-sm text-destructive-default">{error}</p> : null}
         {aiSettings ? AI_PROVIDER_IDS.map(id => (
@@ -329,7 +360,11 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
       </SettingsSection>
 
       {aiSettings && enabledIds.length > 1 ? (
-        <SettingsSection title="Default provider">
+        <SettingsSection
+          title="Default provider"
+          onRevert={() => void save({ ...aiSettings, defaultProvider: null })}
+          revertLabel="Clear the default provider"
+        >
           <Select
             name="settings-ai-default-provider"
             value={aiSettings.defaultProvider ?? enabledIds[0]}
@@ -353,6 +388,8 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
       {aiSettings && enabledIds.length > 0 ? (
         <SettingsSection
           title="In the editor"
+          onRevert={revertEditorSection}
+          revertLabel="Restore editor AI options"
         >
           <div className="flex items-center justify-between gap-3 text-sm">
             <label htmlFor="settings-ai-selection-chip" className="font-medium">Show AI button on selection</label>
@@ -378,7 +415,7 @@ export function AiSettingsPanel({ active }: { active: boolean }) {
           onChange={customCommands => setAiSettings(current => (current ? { ...current, customCommands } : current))}
         />
       ) : null}
-    </div>
+    </SettingsPage>
   );
 }
 
@@ -435,9 +472,9 @@ function CustomCommandsSection({
       description={hasProvider ? undefined : 'Enable an AI provider to run commands.'}
     >
       {commands.length > 0 ? (
-        <ul className="divide-y divide-border-default rounded-lg border border-border-default">
+        <ul data-settings-flush className="m-0 flex list-none flex-col divide-y divide-border-subtle p-0">
           {commands.map((command, index) => (
-            <li key={command.id} className="flex items-start gap-1 px-3 py-2.5">
+            <li key={command.id} className="flex items-start gap-1 py-2.5 pl-4 pr-2">
               <div className="mr-2 min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{command.name}</p>
                 <p className="truncate text-xs text-text-subtle">

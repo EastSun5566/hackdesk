@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -63,13 +63,14 @@ export function HackmdSettingsPanel({
 
   return (
     <>
-      <SettingsSection page title="HackMD">
+      <SettingsSection title="Account">
         {tokenStorageError ? <p role="alert" className="text-sm text-destructive-default">{tokenStorageError}</p> : null}
         {hasHackmdApiToken ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="inline-flex w-fit items-center rounded-full border border-success-default/30 bg-success-soft px-2 py-1 text-xs font-medium text-success-default">
-              Token saved
-            </p>
+            <div className="flex min-w-0 items-center gap-2 text-sm">
+              <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-success-default" />
+              <p className="font-medium leading-5">Token saved</p>
+            </div>
             <Button
               ref={disconnectButtonRef}
               variant="destructive"
@@ -94,17 +95,29 @@ export function HackmdSettingsPanel({
             aria-describedby={SETTINGS_TOKEN_STATUS_ID}
             aria-invalid={tokenTest.status === 'error'}
           />
+          <p
+            id={SETTINGS_TOKEN_STATUS_ID}
+            aria-live="polite"
+            className={cn(
+              // Empty, it takes back the row's gap, so the row has no blank line under the field.
+              'text-xs leading-5 empty:-mt-2',
+              tokenTest.status === 'error' ? 'text-destructive-default' : 'text-text-subtle',
+            )}
+          >
+            {tokenTest.message}
+          </p>
+          <div className="mt-2">
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={isBusy || tokenTest.status === 'testing' || !token.trim()}
+            >
+              {tokenTest.status === 'testing' ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> : null}
+              {tokenTest.status === 'testing' ? 'Testing…' : hasHackmdApiToken ? 'Save new token' : 'Connect HackMD'}
+            </Button>
+          </div>
         </SettingsRow>
-        <p
-          id={SETTINGS_TOKEN_STATUS_ID}
-          aria-live="polite"
-          className={cn(
-            'min-h-5 text-xs',
-            tokenTest.status === 'error' ? 'text-destructive-default' : 'text-text-subtle',
-          )}
-        >
-          {tokenTest.message}
-        </p>
       </SettingsSection>
 
       <AlertDialog open={disconnectDialogOpen} onOpenChange={handleDisconnectDialogOpenChange}>

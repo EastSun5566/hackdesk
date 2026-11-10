@@ -105,4 +105,6 @@ export const ELECTRON_CHANNELS = {
   appOpenPresentation: 'app:open-presentation',
   appGetPresentation: 'app:get-presentation',
   appClosePresentation: 'app:close-presentation',
+  appTogglePresentationFullScreen: 'app:toggle-presentation-full-screen',
+  appPresentationFullScreenChanged: 'app:presentation-full-screen-changed',
 } as const;

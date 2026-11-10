@@ -25,6 +25,9 @@ import { CARD_SURFACE_CLASS, GAP_SASH_CLASS, GAP_SASH_ROW_CLASS } from './ui';
 import { UnavailableDocumentDetail } from './UnavailableDocumentDetail';
 import { documentPaneId, documentTabId } from './document-tab-ids';
 import type { OpenNoteTarget } from './useNoteLinkOpener';
+import { NoteIcon } from './note-kind';
+import { PaneTabIdContext } from './useBookSession';
+import { useNoteSummaryLookup } from './NoteSummaryCard';
 
 function PaneGroup({ layout, id, orientation, ...props }: Omit<GroupProps, 'defaultLayout' | 'groupRef'> & { layout: Record<string, number> }) {
   const groupRef = useRef<GroupImperativeHandle | null>(null);
@@ -80,6 +83,7 @@ function BlankTabPage({
   recentNotes: ElectronRecentNote[];
 }) {
   const recent = onOpenNoteTarget ? recentNotes.slice(0, 8) : [];
+  const lookupNoteSummary = useNoteSummaryLookup();
   // Like a browser's new-tab page: find something first, make something second, and the notes
   // you were just in below. Set high rather than centred, so the list grows downward.
   return (
@@ -116,7 +120,7 @@ function BlankTabPage({
                     onClick={() => onOpenNoteTarget?.(note)}
                     className="flex h-8 w-full items-center gap-2 rounded px-3 text-left text-sm text-text-default transition-colors hover:bg-background-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                   >
-                    <FileText aria-hidden="true" className="size-3.5 shrink-0 text-icon-default" />
+                    <NoteIcon note={lookupNoteSummary(note.noteId)?.note} noteId={note.noteId} className="size-3.5 text-icon-default" />
                     <span className="min-w-0 flex-1 truncate">{note.title || 'Untitled'}</span>
                   </button>
                 </li>
@@ -155,7 +159,7 @@ function PaneOutlet({ host }: { host: PaneHost }) {
 export type DocumentPaneView = {
   pane: NotePane;
   activeTab: OpenNoteTab | null;
-  selectedNote: Pick<NoteSummary, 'title'> & Partial<Pick<NoteSummary, 'id'>> | null;
+  selectedNote: Pick<NoteSummary, 'title'> & Partial<Pick<NoteSummary, 'id' | 'teamPath'>> | null;
   document?: DocumentSummary;
   isBlank: boolean;
   isDraft: boolean;
@@ -375,70 +379,74 @@ export function DocumentWorkspace({
           onRetry={() => view.activeTab && onRetryLoad(view.activeTab)}
         />
       ) : (
-        <DocumentDetail
-          editorKey={view.activeTab?.tabId ?? `${pane.paneId}:empty`}
-          editorMode={editorMode}
-          folderTree={folderTree}
-          documentState={{
-            selectedNote: view.selectedNote,
-            document: view.document,
-            isDraft: view.isDraft,
-            title: view.title,
-            content: view.content,
-            recovery: view.recovery,
-            syncState: view.syncState,
-          }}
-          layout={{
-            focusZone: 'editor',
-            inspectorPanelId: `note-inspector-panel-${pane.paneId}`,
-            focusRequestId: requestId('focus'),
-            searchRequestId: requestId('search'),
-            attachImageRequestId: requestId('attach-image'),
-            renameRequestId: requestId('rename'),
-            aiAssistRequestId: requestId('ai-assist'),
-            dictateRequestId: requestId('dictate'),
-            onRequestHandled: onEditorRequestHandled,
-            shareOpen: isActivePane && shareOpen,
-            versionsOpen: isActivePane && versionsOpen,
-            inspectorCollapsed: !isActivePane || isInspectorCollapsed,
-            paneZoom: panes.length > 1 ? { zoomed: zoomedPaneId === pane.paneId, onToggle: onTogglePaneZoom } : undefined,
-          }}
-          status={{
-            loading: view.isLoading,
-            saving: view.isSaving,
-            savingMetadata: view.isSavingMetadata,
-            uploadingImage: view.isUploadingImage,
-            deleting: view.isDeleting,
-          }}
-          actions={{
-            onOpenEditor,
-            onOpenExternal,
-            onOpenNoteTarget,
-            onRevealFolder,
-            onSaveAsTemplate,
-            onPresent,
-            onRevealInFinder,
-            onCopyLink,
-            onCopyMarkdownLink,
-            onExportMarkdown,
-            onReadComparison,
-            onReloadFromDisk,
-            onReloadFromHackmd,
-            onOpenAsNewDraft: (title, content) => onOpenAsNewDraft(title, content, pane.paneId),
-            onSave: (input, options) => view.activeTab && onSave(view.activeTab, input, options),
-            onSaveAsCopy,
-            onSaveMetadata,
-            onSaveSharing,
-            onAttachImage: (file, placeholder) => (view.activeTab ? onAttachImage(view.activeTab, file, placeholder) : Promise.resolve()),
-            onCancelImageUpload: onCancelImageUpload && (() => view.activeTab && onCancelImageUpload(view.activeTab)),
-            onDelete,
-            onTitleChange: (title) => view.activeTab && onTitleChange(view.activeTab, title),
-            onContentChange: (content) => view.activeTab && onContentChange(view.activeTab, content),
-            onToggleInspector,
-            onShareOpenChange,
-            onVersionsOpenChange,
-          }}
-        />
+        // Book reading shows in the book's own tab only; this pane says which tab it shows.
+        <PaneTabIdContext.Provider value={view.activeTab?.tabId ?? null}>
+          <DocumentDetail
+            // With the tab's note: a book's tab turns chapters in place, and each needs its own editor and undo history.
+            editorKey={view.activeTab ? `${view.activeTab.tabId}:${isDraftNoteTab(view.activeTab) || isBlankNoteTab(view.activeTab) ? '' : `${view.activeTab.teamPath ?? ''}:${view.activeTab.noteId}`}` : `${pane.paneId}:empty`}
+            editorMode={editorMode}
+            folderTree={folderTree}
+            documentState={{
+              selectedNote: view.selectedNote,
+              document: view.document,
+              isDraft: view.isDraft,
+              title: view.title,
+              content: view.content,
+              recovery: view.recovery,
+              syncState: view.syncState,
+            }}
+            layout={{
+              focusZone: 'editor',
+              inspectorPanelId: `note-inspector-panel-${pane.paneId}`,
+              focusRequestId: requestId('focus'),
+              searchRequestId: requestId('search'),
+              attachImageRequestId: requestId('attach-image'),
+              renameRequestId: requestId('rename'),
+              aiAssistRequestId: requestId('ai-assist'),
+              dictateRequestId: requestId('dictate'),
+              onRequestHandled: onEditorRequestHandled,
+              shareOpen: isActivePane && shareOpen,
+              versionsOpen: isActivePane && versionsOpen,
+              inspectorCollapsed: !isActivePane || isInspectorCollapsed,
+              paneZoom: panes.length > 1 ? { zoomed: zoomedPaneId === pane.paneId, onToggle: onTogglePaneZoom } : undefined,
+            }}
+            status={{
+              loading: view.isLoading,
+              saving: view.isSaving,
+              savingMetadata: view.isSavingMetadata,
+              uploadingImage: view.isUploadingImage,
+              deleting: view.isDeleting,
+            }}
+            actions={{
+              onOpenEditor,
+              onOpenExternal,
+              onOpenNoteTarget,
+              onRevealFolder,
+              onSaveAsTemplate,
+              onPresent,
+              onRevealInFinder,
+              onCopyLink,
+              onCopyMarkdownLink,
+              onExportMarkdown,
+              onReadComparison,
+              onReloadFromDisk,
+              onReloadFromHackmd,
+              onOpenAsNewDraft: (title, content) => onOpenAsNewDraft(title, content, pane.paneId),
+              onSave: (input, options) => view.activeTab && onSave(view.activeTab, input, options),
+              onSaveAsCopy,
+              onSaveMetadata,
+              onSaveSharing,
+              onAttachImage: (file, placeholder) => (view.activeTab ? onAttachImage(view.activeTab, file, placeholder) : Promise.resolve()),
+              onCancelImageUpload: onCancelImageUpload && (() => view.activeTab && onCancelImageUpload(view.activeTab)),
+              onDelete,
+              onTitleChange: (title) => view.activeTab && onTitleChange(view.activeTab, title),
+              onContentChange: (content) => view.activeTab && onContentChange(view.activeTab, content),
+              onToggleInspector,
+              onShareOpenChange,
+              onVersionsOpenChange,
+            }}
+          />
+        </PaneTabIdContext.Provider>
       )}
     </section>
     );

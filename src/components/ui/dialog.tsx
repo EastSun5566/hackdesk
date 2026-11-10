@@ -53,8 +53,10 @@ const dialogSizeClassNames = {
   sm: 'w-[min(400px,calc(100dvw-2rem))] max-w-[400px]',
   // Searchable lists that grow up to a fixed height and then scroll.
   md: 'flex max-h-[min(760px,calc(100dvh-4rem))] w-[min(720px,calc(100dvw-3rem))] max-w-180 flex-col',
-  // Fixed-height layouts with their own scroll regions, such as Settings.
+  // Fixed-height layouts with their own scroll regions.
   lg: 'flex h-[min(760px,calc(100dvh-4rem))] w-[min(820px,calc(100dvw-3rem))] max-w-205 flex-col',
+  // A landscape window with a sidebar beside its pages, such as Settings: 3:2, like a desktop window.
+  wide: 'flex h-[min(640px,calc(100dvh-4rem))] w-[min(960px,calc(100dvw-3rem))] max-w-240 flex-col',
   // Wide, scrolling content such as side-by-side comparisons.
   xl: 'max-h-[calc(100dvh-4rem)] max-w-4xl overflow-y-auto',
 } as const;

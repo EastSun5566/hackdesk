@@ -6,7 +6,7 @@ import { toast } from '@/components/ui/toast';
 import type { ElectronSafeSettings } from '@/lib/electron-api';
 import type { LocalVaultSnapshot } from '@/lib/local-vault';
 
-import { SettingsSection } from './SettingsPrimitives';
+import { SettingsPage, SettingsSection } from './SettingsPrimitives';
 
 const LOCAL_VAULT_SCANNED_AT_FORMATTER = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
@@ -52,14 +52,12 @@ export function VaultSettingsPanel({
   };
 
   return (
-    <div className="space-y-4">
-      <SettingsSection page title="Local Vault">
-        <div className="rounded border border-border-default bg-background-default p-5">
-          <div className="space-y-1">
-            <p className="break-all font-mono text-sm text-text-default">
-              {vaultPath ?? 'No local vault configured'}
-            </p>
-          </div>
+    <SettingsPage>
+      <SettingsSection title="Location">
+        <div>
+          <p className="break-all font-mono text-sm text-text-default">
+            {vaultPath ?? 'No local vault configured'}
+          </p>
           {error ? (
             <div className="mt-3 flex gap-2 rounded border border-state-danger-border bg-state-danger-bg-light px-2.5 py-2 text-sm text-state-danger-text">
               <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
@@ -67,15 +65,14 @@ export function VaultSettingsPanel({
             </div>
           ) : null}
         </div>
-
-        <div className="grid gap-2 text-sm sm:grid-cols-3">
+        <dl className="grid grid-cols-3 gap-4 text-sm">
           <VaultStat label="Notes" value={snapshot ? String(snapshot.notes.length) : '—'} />
           <VaultStat label="Folders" value={snapshot ? String(snapshot.folders.length) : '—'} />
           <VaultStat label="Last scanned" value={formatScannedAt(snapshot)} />
-        </div>
+        </dl>
       </SettingsSection>
 
-      <SettingsSection title="Vault actions">
+      <SettingsSection title="Actions">
         <div className="flex flex-wrap gap-2">
           <SettingsActionButton
             busy={busyAction === 'open'}
@@ -111,7 +108,7 @@ export function VaultSettingsPanel({
           </SettingsActionButton>
         </div>
       </SettingsSection>
-    </div>
+    </SettingsPage>
   );
 }
 
@@ -123,9 +120,9 @@ function VaultStat({
   value: string;
 }) {
   return (
-    <div className="rounded-md border border-border-default bg-background-default px-3 py-2">
-      <p className="text-xs text-text-subtle">{label}</p>
-      <p className="mt-1 text-sm font-medium text-text-default">{value}</p>
+    <div className="min-w-0">
+      <dt className="text-xs leading-5 text-text-subtle">{label}</dt>
+      <dd className="truncate font-medium tabular-nums leading-5 text-text-default">{value}</dd>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type {
   HackDeskCommandPaletteCommand,
   PresentationDeck,
+  PresentedDeck,
   QuickCaptureSubmissionAck,
   QuickCaptureSubmitResult,
 } from '../../../src/lib/electron-api';
@@ -35,7 +36,11 @@ const QUICK_CAPTURE_SUBMISSION_TIMEOUT_MS = 15_000;
 
 // Channels only the Quick Hack and presentation windows may call; the main window may call the rest.
 const QUICK_CAPTURE_CHANNELS = new Set<string>([ELECTRON_CHANNELS.appSubmitQuickCapture, ELECTRON_CHANNELS.appHideQuickCapture]);
-const PRESENTATION_CHANNELS = new Set<string>([ELECTRON_CHANNELS.appGetPresentation, ELECTRON_CHANNELS.appClosePresentation]);
+const PRESENTATION_CHANNELS = new Set<string>([
+  ELECTRON_CHANNELS.appGetPresentation,
+  ELECTRON_CHANNELS.appClosePresentation,
+  ELECTRON_CHANNELS.appTogglePresentationFullScreen,
+]);
 
 type PendingQuickCaptureSubmission = {
   resolve: (result: QuickCaptureSubmitResult) => void;
@@ -47,6 +52,7 @@ export class WindowManager {
   private quickCaptureWindow: BrowserWindow | null = null;
   private presentationWindow: BrowserWindow | null = null;
   private presentationDeck: PresentationDeck | null = null;
+  private presentationFullScreen = false;
   private recoveryDialogs = new Set<BrowserWindow>();
   private allowAppQuit = false;
   private activationMode: 'regular' | 'accessory' = 'regular';
@@ -402,24 +408,31 @@ export class WindowManager {
     pending.resolve({ accepted: true });
   }
 
-  /** Presents a note full screen, on the main window's display. Presenting again shows the new deck. */
+  /**
+   * Presents a note in a window over the main one, the same size and place, so the slides fill the
+   * app's window without taking over the screen. Full screen is the slides' own button (or F).
+   * Presenting again shows the new deck.
+   */
   showPresentationWindow(deck: PresentationDeck) {
     this.presentationDeck = deck;
     const existingWindow = this.getPresentationWindow();
     if (existingWindow) {
+      // The reloaded slides start from the window as it is, full screen or not.
+      this.presentationFullScreen = existingWindow.isFullScreen();
       existingWindow.webContents.reload();
       existingWindow.focus();
       return existingWindow;
     }
 
     const mainWindow = this.getMainWindow();
-    const display = mainWindow ? screen.getDisplayMatching(mainWindow.getBounds()) : screen.getPrimaryDisplay();
+    // A main window in full screen has no place to cover; the presentation fills its display's work area instead.
+    const bounds = mainWindow && !mainWindow.isFullScreen() && !mainWindow.isMinimized()
+      ? mainWindow.getBounds()
+      : (mainWindow ? screen.getDisplayMatching(mainWindow.getBounds()) : screen.getPrimaryDisplay()).workArea;
     const window = new BrowserWindow({
-      ...display.bounds,
+      ...bounds,
       show: false,
       title: deck.title || 'Presentation',
-      // Full screen opens a Space of its own; background e2e runs keep it a plain window.
-      fullscreen: !isE2EBackgroundRun(),
       backgroundColor: PRESENTATION_BACKGROUND_COLOR,
       icon: getAppIconPath(),
       webPreferences: {
@@ -431,10 +444,18 @@ export class WindowManager {
       },
     });
     this.presentationWindow = window;
+    this.presentationFullScreen = false;
     this.configureWindowPolicy(window);
     const rendererUrl = getRendererRouteUrl('/present');
     this.configureWindowRecovery(window, rendererUrl, 'Presentation');
 
+    const reportFullScreen = (fullScreen: boolean) => {
+      if (this.presentationWindow !== window || window.isDestroyed()) return;
+      this.presentationFullScreen = fullScreen;
+      window.webContents.send(ELECTRON_CHANNELS.appPresentationFullScreenChanged, { fullScreen });
+    };
+    window.on('enter-full-screen', () => reportFullScreen(true));
+    window.on('leave-full-screen', () => reportFullScreen(false));
     window.once('ready-to-show', () => {
       if (window.isDestroyed()) return;
       window.show();
@@ -451,8 +472,26 @@ export class WindowManager {
     return window;
   }
 
-  getPresentationDeck() {
-    return this.presentationDeck;
+  /** Puts the slides in or out of full screen; returns whether they are now full screen. */
+  togglePresentationFullScreen() {
+    const window = this.getPresentationWindow();
+    if (!window) return false;
+    const next = !this.presentationFullScreen;
+    // The window's events confirm the switch later; the state asked for decides the next toggle,
+    // so F or Esc pressed again before they arrive still steps the right way.
+    this.presentationFullScreen = next;
+    if (isE2EBackgroundRun()) {
+      // Full screen opens a Space of its own and takes over the screen; background e2e runs only
+      // report the change, so the slides' button and keys can still be checked.
+      window.webContents.send(ELECTRON_CHANNELS.appPresentationFullScreenChanged, { fullScreen: next });
+      return next;
+    }
+    window.setFullScreen(next);
+    return next;
+  }
+
+  getPresentationDeck(): PresentedDeck | null {
+    return this.presentationDeck ? { ...this.presentationDeck, fullScreen: this.presentationFullScreen } : null;
   }
 
   closePresentationWindow() {

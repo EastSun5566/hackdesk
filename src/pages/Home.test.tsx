@@ -947,7 +947,7 @@ describe('Home native-feel behavior', () => {
     fireEvent.change(screen.getByLabelText('API Token'), {
       target: { value: 'settings-token' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save new token' }));
 
     await waitFor(() => expect(validateToken).toHaveBeenCalledWith('settings-token'));
     await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({
@@ -1098,7 +1098,8 @@ describe('Home native-feel behavior', () => {
     await waitFor(() => expect(updateSettings).toHaveBeenCalledWith(expect.objectContaining({
       hackmdApiToken: '',
     })));
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument());
+    // Resetting keeps Settings open on the cleared defaults.
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument());
     expect(queryHackmdOnboardingDialog()).not.toBeInTheDocument();
     expect(screen.queryByText('Michael')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: `${team.name}, private` })).not.toBeInTheDocument();
@@ -1811,14 +1812,16 @@ describe('Home native-feel behavior', () => {
     expect(screen.getByText('No unsaved note changes.')).toBeInTheDocument();
   });
 
-  it('saves Settings and closes the dialog without refreshing unrelated HackMD data', async () => {
+  it('saves Settings without closing the dialog and without refreshing unrelated HackMD data', async () => {
     const api = createApi();
     renderHome(api);
     await findRenderedNoteTitle();
     fireEvent.click(within(screen.getByTestId('sidebar-footer')).getByRole('button', { name: 'Settings' }));
     fireEvent.change(screen.getByLabelText('Window title'), { target: { value: 'My HackDesk' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(api.settings.update).toHaveBeenCalledWith({ title: 'My HackDesk' }));
+    // Every change saves at once; Settings stays open.
+    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument());
     expect(api.hackmd.listNotes).toHaveBeenCalledOnce();
     expect(api.hackmd.getCurrentUser).toHaveBeenCalledOnce();
