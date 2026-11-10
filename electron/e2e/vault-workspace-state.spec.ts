@@ -105,7 +105,7 @@ test('two real vaults preserve tabs, dual panes, draft input, finder and folders
     await openVaultSettings(page);
     await settingsDialog.locator('li', { hasText: vaultB }).getByRole('button', { name: 'Forget', exact: true }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Forget Vault', exact: true }).click();
-    await expect(page.getByRole('dialog', { name: 'Settings' }).getByText('No local vault configured', { exact: true })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Settings' }).getByText('No folders added yet.', { exact: true })).toBeVisible();
     await choose(page, vaultA, basename(home));
     await expect(page.locator('.cm-content').last()).toContainText('Draft A — latest input');
     await app.evaluate(({ BrowserWindow }) => {

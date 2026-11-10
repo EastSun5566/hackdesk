@@ -111,7 +111,8 @@ for (const renderer of ['production', 'development'] as const) {
       await page.getByRole('tab', { name: 'Vault', exact: true }).click();
       await page.getByRole('button', { name: 'Add Folder', exact: true }).click();
       await chooseFolderInPicker(page, 'next-vault', basename(home));
-      await expect(page.getByRole('dialog', { name: 'Settings' }).getByText(nextVault, { exact: true })).toBeVisible();
+      // The added folder is listed (and, being the open one, also shown above the list).
+      await expect(page.getByRole('dialog', { name: 'Settings' }).getByRole('list').getByText(nextVault, { exact: true })).toBeVisible();
       await page.keyboard.press('Escape');
       await page.getByRole('treeitem', { name: /Next/ }).first().click();
       await loadImage(page, 'Next', 1);

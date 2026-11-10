@@ -57,15 +57,16 @@ async function openSwitcher(page: Page) {
   return page.getByRole('dialog', { name: 'Workspaces' });
 }
 
-test('opens History in a new window with a modifier-click', async () => {
+// History now lives in the sidebar rather than the switcher, so a switcher row stands in for it.
+test('opens a workspace in a new window with a modifier-click', async () => {
   const { app, page, appProcess } = await launchWithVault();
   try {
     const dialog = await openSwitcher(page);
-    await dialog.getByRole('button', { name: 'History', exact: true }).click({ modifiers: [primary] });
+    await dialog.getByRole('button', { name: 'My Workspace', exact: true }).click({ modifiers: [primary] });
 
     const second = await waitForSecondWindow(app);
     expect(second.url()).toContain('workspace=');
-    await expect(second.getByRole('button', { name: 'Switch workspace, current: History' })).toBeVisible();
+    await expect(second.getByRole('button', { name: 'Switch workspace, current: My Workspace' })).toBeVisible();
     // The first window stays where it was.
     await expect(page.getByRole('button', { name: /^Switch workspace, current: vault/ })).toBeVisible();
   } finally { if (appProcess.exitCode === null) await stop(app); }
