@@ -129,6 +129,13 @@ export function useHomeOverlayProps({
       onImportHackmdCliToken: () => mutations.importHackmdCliTokenMutation.mutateAsync(),
       onForgetLocalVault: localVaultActions.forgetLocalVault,
       onSwitchLocalVault: localVaultActions.switchLocalVault,
+      localWorkspaceActions: {
+        create: localVaultActions.createLocalWorkspace,
+        rename: localVaultActions.renameLocalWorkspace,
+        remove: localVaultActions.deleteLocalWorkspace,
+        activate: localVaultActions.activateLocalWorkspace,
+        setVaults: localVaultActions.setLocalWorkspaceFolders,
+      },
       onOpenLocalVault: localVaultActions.openLocalVault,
       onOnboardingConnected,
       onOnboardingOpenChange: setOnboardingOpen,

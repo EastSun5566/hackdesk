@@ -92,6 +92,23 @@ describe('WorkspaceSwitcher', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Workspaces' })).toBeNull());
   });
 
+  it('lists named working sets and opens one from its row', async () => {
+    const props = renderSwitcher({
+      scope: { type: 'local', label: 'Work', vaultId: 'vault-a' },
+      localVaults: [{ id: 'vault-a', path: '/Users/michael/A' }, { id: 'vault-b', path: '/Users/michael/B' }],
+      localWorkspaces: [{ id: 'workspace-work', name: 'Work' }],
+      activeLocalWorkspaceId: 'workspace-work',
+      onActivateLocalWorkspace: vi.fn(),
+    });
+    const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
+
+    const row = within(dialog).getByRole('button', { name: 'Work' });
+    expect(row).toHaveAttribute('aria-current', 'page');
+    fireEvent.click(row);
+    expect(props.onActivateLocalWorkspace).toHaveBeenCalledWith('workspace-work');
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Workspaces' })).toBeNull());
+  });
+
   it('switches vaults from their rows and marks the active one', async () => {
     const props = renderSwitcher({
       scope: { type: 'local', label: 'Notes', vaultId: 'vault-notes' },

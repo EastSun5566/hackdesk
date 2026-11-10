@@ -391,6 +391,18 @@ export const localVaultVaultIdInputSchema = z.strictObject({
   vaultId: nonEmptyStringSchema,
 });
 
+const localWorkspaceNameSchema = z.string().trim().min(1).max(200);
+const localWorkspaceVaultIdsSchema = z.array(nonEmptyStringSchema).max(32);
+
+/** One edit to a named working set; folders stay in the vault list either way. */
+export const localVaultWorkspaceInputSchema = z.discriminatedUnion('type', [
+  z.strictObject({ type: z.literal('create'), name: localWorkspaceNameSchema, vaultIds: localWorkspaceVaultIdsSchema }),
+  z.strictObject({ type: z.literal('rename'), id: nonEmptyStringSchema, name: localWorkspaceNameSchema }),
+  z.strictObject({ type: z.literal('delete'), id: nonEmptyStringSchema }),
+  z.strictObject({ type: z.literal('activate'), id: nonEmptyStringSchema.nullable() }),
+  z.strictObject({ type: z.literal('setVaults'), id: nonEmptyStringSchema, vaultIds: localWorkspaceVaultIdsSchema }),
+]);
+
 export const localVaultCreateDirectoryInputSchema = z.strictObject({
   parentPath: absolutePathSchema,
   name: z.string().trim().min(1).max(255),

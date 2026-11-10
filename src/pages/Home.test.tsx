@@ -404,6 +404,7 @@ function createApi(overrides: HackDeskElectronAPIOverrides = {}): HackDeskElectr
       choose: vi.fn(async () => ({ canceled: true })),
       activate: vi.fn(async () => ({ settings: createSafeSettings(), snapshot: null })),
       forget: vi.fn(async () => ({ settings: createSafeSettings(), snapshot: null })),
+      updateWorkspace: vi.fn(async () => ({ settings: createSafeSettings(), snapshot: null })),
       disconnect: vi.fn(async () => createSafeSettings()),
       getSnapshot: vi.fn(async () => null),
       readNote: vi.fn(),
@@ -725,7 +726,7 @@ describe('Home native-feel behavior', () => {
       hasHackmdApiToken: true,
       hackmdAccounts: { accounts: [], activeAccountId: null },
       hasLocalVault: true,
-      localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
+      localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes', workspaces: [], activeWorkspaceId: null },
       onboarding: { hackmdTokenSetupDeferred: false },
       shouldShowHackmdOnboarding: false,
     }));
@@ -749,7 +750,7 @@ describe('Home native-feel behavior', () => {
           hasHackmdApiToken: false,
           hackmdAccounts: { accounts: [], activeAccountId: null },
           hasLocalVault: true,
-          localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
+          localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes', workspaces: [], activeWorkspaceId: null },
           onboarding: { hackmdTokenSetupDeferred: false },
           shouldShowHackmdOnboarding: true,
         })),
@@ -793,7 +794,7 @@ describe('Home native-feel behavior', () => {
         hasHackmdApiToken: false,
         hackmdAccounts: { accounts: [], activeAccountId: null },
         hasLocalVault: true,
-        localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
+        localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes', workspaces: [], activeWorkspaceId: null },
         onboarding: { hackmdTokenSetupDeferred: false },
         shouldShowHackmdOnboarding: false,
       }),
@@ -932,7 +933,7 @@ describe('Home native-feel behavior', () => {
       hasHackmdApiToken: true,
       hackmdAccounts: { accounts: [], activeAccountId: null },
       hasLocalVault: true,
-      localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
+      localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes', workspaces: [], activeWorkspaceId: null },
     });
     const updateSettings = vi.fn(async (input) => createSafeSettings({
       ...localSettings,
@@ -1049,7 +1050,7 @@ describe('Home native-feel behavior', () => {
       hasHackmdApiToken: false,
       hackmdAccounts: { accounts: [], activeAccountId: null },
       hasLocalVault: true,
-      localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
+      localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes', workspaces: [], activeWorkspaceId: null },
       onboarding: { hackmdTokenSetupDeferred: true },
       shouldShowHackmdOnboarding: false,
     }));
@@ -1057,7 +1058,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasLocalVault: true,
-          localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes' },
+          localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }], activeVaultId: 'vault-notes', workspaces: [], activeWorkspaceId: null },
         })),
         update: updateSettings,
       },
@@ -1776,7 +1777,7 @@ describe('Home native-feel behavior', () => {
           hasHackmdApiToken: false,
           hackmdAccounts: { accounts: [], activeAccountId: null },
           hasLocalVault: true,
-          localVault: { vaults: [{ id: 'vault-tmp', path: '/tmp/vault' }], activeVaultId: 'vault-tmp' },
+          localVault: { vaults: [{ id: 'vault-tmp', path: '/tmp/vault' }], activeVaultId: 'vault-tmp', workspaces: [], activeWorkspaceId: null },
         })),
       },
       localVault: {
@@ -2791,7 +2792,7 @@ describe('Home native-feel behavior', () => {
       settings: {
         get: vi.fn(async () => createSafeSettings({
           hasLocalVault: true,
-          localVault: { vaults: [{ id: 'vault-tmp', path: '/tmp/vault' }], activeVaultId: 'vault-tmp' },
+          localVault: { vaults: [{ id: 'vault-tmp', path: '/tmp/vault' }], activeVaultId: 'vault-tmp', workspaces: [], activeWorkspaceId: null },
         })),
       },
       localVault: { getSnapshot, readNote },

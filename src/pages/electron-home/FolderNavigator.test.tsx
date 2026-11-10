@@ -62,12 +62,13 @@ function note(input: Partial<NoteSummary> & Pick<NoteSummary, 'id' | 'title'>): 
   };
 }
 
-type FolderNavigatorPropsOverrides = Partial<Omit<FolderNavigatorProps, 'actions' | 'emptyState' | 'layout' | 'selection' | 'status'>> & {
+type FolderNavigatorPropsOverrides = Partial<Omit<FolderNavigatorProps, 'actions' | 'emptyState' | 'layout' | 'selection' | 'status' | 'workspace'>> & {
   actions?: Partial<FolderNavigatorProps['actions']>;
   emptyState?: Partial<FolderNavigatorProps['emptyState']>;
   layout?: Partial<FolderNavigatorProps['layout']>;
   selection?: Partial<FolderNavigatorProps['selection']>;
   status?: Partial<FolderNavigatorProps['status']>;
+  workspace?: Partial<FolderNavigatorProps['workspace']>;
 };
 
 function renderFolderNavigator(overrides: FolderNavigatorPropsOverrides = {}) {
@@ -170,6 +171,7 @@ function renderFolderNavigator(overrides: FolderNavigatorPropsOverrides = {}) {
     layout: { ...props.layout, ...overrides.layout },
     selection: { ...props.selection, ...overrides.selection },
     status: { ...props.status, ...overrides.status },
+    workspace: { ...props.workspace, ...overrides.workspace },
   };
 
   // As a wrapper, the query client survives rerender() calls that pass only the navigator.
@@ -240,6 +242,22 @@ describe('FolderNavigator', () => {
     search.focus();
     fireEvent.keyDown(search, { key: 'ArrowDown' });
     await waitFor(() => expect(document.activeElement).toHaveAttribute('role', 'treeitem'));
+  });
+
+  it('names the root after the working set and lists its other folders as roots', () => {
+    const onSwitchLocalVault = vi.fn();
+    renderFolderNavigator({
+      scope: { type: 'local', label: 'Work', vaultId: 'vault-a' },
+      localWorkspaceName: 'Work',
+      vaultFolderName: 'A',
+      workspaceVaults: [{ id: 'vault-b', label: 'B', path: '/tmp/B' }],
+      workspace: { onSwitchLocalVault },
+    });
+
+    expect(screen.getByRole('button', { name: 'Collapse Work' })).toBeVisible();
+    const sibling = screen.getByRole('button', { name: 'Open B' });
+    fireEvent.click(sibling);
+    expect(onSwitchLocalVault).toHaveBeenCalledWith('vault-b');
   });
 
   it('renders loading skeleton while notes load', () => {

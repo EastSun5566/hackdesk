@@ -24,6 +24,7 @@ import {
   GripVertical,
   HardDrive,
   History,
+  Layers,
   Lock,
   Pin,
   PinOff,
@@ -72,6 +73,10 @@ export type WorkspaceSidebarProps = {
   accountStatus?: WorkspaceAccountStatus;
   /** Every known vault folder; the switcher lists each one to switch between them. */
   localVaults: { id: string; path: string }[];
+  /** Named working sets; a row opens the set and one of its folders. */
+  localWorkspaces?: { id: string; name: string }[];
+  activeLocalWorkspaceId?: string | null;
+  onActivateLocalWorkspace?: (id: string | null) => void;
   platform: string;
   pinnedTeamIds: string[] | null;
   switcherOpen: boolean;
@@ -473,6 +478,9 @@ export function WorkspaceSwitcher({
   user,
   teams,
   localVaults,
+  localWorkspaces = [],
+  activeLocalWorkspaceId = null,
+  onActivateLocalWorkspace,
   platform,
   pinnedTeamIds,
   switcherOpen,
@@ -574,6 +582,24 @@ export function WorkspaceSwitcher({
                 openModifierHint={openModifierHint}
               />
             </li>
+            {localWorkspaces.map((workspace) => {
+              const active = scope.type === 'local' && workspace.id === activeLocalWorkspaceId;
+              return (
+                <li key={`workspace:${workspace.id}`} className="flex">
+                  <WorkspaceRow
+                    active={active}
+                    icon={<IconBox small><Layers className="size-3.5" /></IconBox>}
+                    label={workspace.name}
+                    trailing={<span />}
+                    onClick={() => {
+                      onSwitcherOpenChange(false);
+                      onActivateLocalWorkspace?.(workspace.id);
+                    }}
+                    openModifierHint={openModifierHint}
+                  />
+                </li>
+              );
+            })}
             {localVaults.length > 0 ? localVaults.map((vault) => {
               const folderName = localVaultFolderName(vault.path);
               const active = scope.type === 'local' && scope.vaultId === vault.id;

@@ -4,10 +4,15 @@ import type { WorkspaceScope } from './types';
  * The sidebar root shows the vault's folder name instead of the generic
  * workspace label, so two vaults are told apart at a glance.
  */
-export function workspaceRootLabel(scope: WorkspaceScope, localFolderName?: string | null) {
+export function workspaceRootLabel(
+  scope: WorkspaceScope,
+  localFolderName?: string | null,
+  localWorkspaceName?: string | null,
+) {
   if (scope.type === 'history') return null;
   if (scope.type === 'personal') return 'My Notes';
-  if (scope.type === 'local' && localFolderName) return localFolderName;
+  // A named working set is the root; its folders are the rows beneath it.
+  if (scope.type === 'local') return localWorkspaceName || localFolderName || scope.label;
   return scope.label;
 }
 

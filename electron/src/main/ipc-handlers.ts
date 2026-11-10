@@ -148,6 +148,7 @@ import {
   localVaultRevealNoteInputSchema,
   localVaultTrashFolderInputSchema,
   localVaultVaultIdInputSchema,
+  localVaultWorkspaceInputSchema,
   localVaultTrashNoteInputSchema,
   localVaultWriteInputSchema,
   localVaultBrowseInputSchema,
@@ -454,6 +455,23 @@ export function registerIpcHandlers(
     options.onSettingsUpdated?.(settings);
     const after = getActiveLocalVaultPath(settings);
     if (before && before !== after) {
+      closeLocalVaultWatcher(true);
+      void noteIndex.forgetVaults();
+    }
+    const snapshot = await getActiveLocalVaultSnapshot();
+    if (snapshot) {
+      ensureLocalVaultWatcher(snapshot.rootPath);
+      void noteIndex.indexVault(snapshot);
+    }
+    return { settings, snapshot };
+  });
+  ipcMain.handle(ELECTRON_CHANNELS.localVaultWorkspace, async (_event, input: unknown) => {
+    const mutation = validateIpcInput(ELECTRON_CHANNELS.localVaultWorkspace, localVaultWorkspaceInputSchema, input);
+    const before = getActiveLocalVaultPath(await readStoredSettings());
+    const settings = await updateStoredSettings({ localWorkspace: mutation });
+    options.onSettingsUpdated?.(settings);
+    const after = getActiveLocalVaultPath(settings);
+    if (before !== after) {
       closeLocalVaultWatcher(true);
       void noteIndex.forgetVaults();
     }

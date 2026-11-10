@@ -479,6 +479,26 @@ describe('registerIpcHandlers', () => {
     expect(settled).toBe(true);
   });
 
+  it('applies a local workspace edit and returns the active snapshot', async () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultWorkspace);
+
+    const result = await handler?.({}, { type: 'create', name: 'Work', vaultIds: ['vault-a'] });
+
+    expect(settingsMock.updateStoredSettings).toHaveBeenCalledWith({
+      localWorkspace: { type: 'create', name: 'Work', vaultIds: ['vault-a'] },
+    });
+    expect(result).toMatchObject({ snapshot: localVaultSnapshot });
+  });
+
+  it('rejects a local workspace edit that names no valid action', async () => {
+    registerIpcHandlers(windowManager);
+    const handler = ipcHandlers.get(ELECTRON_CHANNELS.localVaultWorkspace);
+
+    await expect(handler?.({}, { type: 'explode' })).rejects.toThrow();
+    expect(settingsMock.updateStoredSettings).not.toHaveBeenCalled();
+  });
+
   it('keeps one local vault watcher for repeated snapshot requests', async () => {
     const close = vi.fn();
     localVaultServiceMock.watchLocalVault.mockReturnValue({ close, pause: vi.fn(), resume: vi.fn() });

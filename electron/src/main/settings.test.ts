@@ -375,8 +375,55 @@ describe('Electron settings', () => {
     expect(afterForget.hasLocalVault).toBe(true);
 
     const emptied = await updateStoredSettings({ localVaultPath: null });
-    expect(emptied.localVault).toEqual({ vaults: [], activeVaultId: null });
+    expect(emptied.localVault).toEqual({ vaults: [], activeVaultId: null, workspaces: [], activeWorkspaceId: null });
     expect(emptied.hasLocalVault).toBe(false);
+  });
+
+  it('persists named workspaces and opens one as it is created', async () => {
+    const first = await updateStoredSettings({ localVaultPath: '/tmp/vault-a' });
+    await updateStoredSettings({ localVaultPath: '/tmp/vault-b' });
+    const vaultA = first.localVault.vaults[0].id;
+
+    const created = await updateStoredSettings({
+      localWorkspace: { type: 'create', name: '  Work  ', vaultIds: [vaultA] },
+    });
+    expect(created.localVault.workspaces).toMatchObject([{ name: 'Work', vaultIds: [vaultA] }]);
+    // Creating opens the set, and with it one of its folders.
+    expect(created.localVault.activeWorkspaceId).toBe(created.localVault.workspaces[0].id);
+    expect(created.localVault.activeVaultId).toBe(vaultA);
+
+    const renamed = await updateStoredSettings({
+      localWorkspace: { type: 'rename', id: created.localVault.workspaces[0].id, name: 'Studio' },
+    });
+    expect(renamed.localVault.workspaces[0].name).toBe('Studio');
+
+    const widened = await updateStoredSettings({
+      localWorkspace: { type: 'setVaults', id: created.localVault.workspaces[0].id, vaultIds: [vaultA, created.localVault.vaults[1].id] },
+    });
+    expect(widened.localVault.workspaces[0].vaultIds).toHaveLength(2);
+
+    const closed = await updateStoredSettings({ localWorkspace: { type: 'activate', id: null } });
+    expect(closed.localVault.activeWorkspaceId).toBeNull();
+
+    const reopened = await updateStoredSettings({ localWorkspace: { type: 'activate', id: created.localVault.workspaces[0].id } });
+    expect(reopened.localVault.activeWorkspaceId).toBe(created.localVault.workspaces[0].id);
+
+    const deleted = await updateStoredSettings({ localWorkspace: { type: 'delete', id: created.localVault.workspaces[0].id } });
+    expect(deleted.localVault.workspaces).toEqual([]);
+    expect(deleted.localVault.activeWorkspaceId).toBeNull();
+    // The folders stay known and openable after their set is gone.
+    expect(deleted.localVault.vaults).toHaveLength(2);
+    expect(await readStoredSettings()).toMatchObject({
+      localVault: { workspaces: [], activeWorkspaceId: null },
+    });
+  });
+
+  it('rejects an unknown workspace mutation without touching settings', async () => {
+    await updateStoredSettings({ localVaultPath: '/tmp/vault-a' });
+    const before = await readStoredSettings();
+    const after = await updateStoredSettings({ localWorkspace: { type: 'rename', id: 'missing', name: 'X' } });
+    expect(after.localVault.workspaces).toEqual([]);
+    expect(after.localVault.vaults).toEqual(before.localVault.vaults);
   });
 
   it.each(['emacs', 'kakoune'] as const)('persists and returns the %s editor mode', async (mode) => {

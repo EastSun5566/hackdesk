@@ -69,6 +69,19 @@ export type LocalVaultVaultIdInput = {
   vaultId: string;
 };
 
+/** Edits a named working set of vault folders; folders themselves stay in the vault list. */
+export type LocalWorkspaceMutation =
+  | { type: 'create'; name: string; vaultIds: string[] }
+  | { type: 'rename'; id: string; name: string }
+  | { type: 'delete'; id: string }
+  | { type: 'activate'; id: string | null }
+  | { type: 'setVaults'; id: string; vaultIds: string[] };
+
+export type LocalWorkspaceMutationResult = {
+  settings: import('./electron-api').ElectronSafeSettings;
+  snapshot: LocalVaultSnapshot | null;
+};
+
 export type LocalVaultActivateResult = {
   settings: import('./electron-api').ElectronSafeSettings;
   snapshot: LocalVaultSnapshot | null;

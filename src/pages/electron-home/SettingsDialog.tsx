@@ -44,7 +44,7 @@ import { SettingsTabs } from './SettingsTabs';
 import type { SettingsSearchResult } from './settings-search';
 import { ShortcutsSettingsPanel } from './ShortcutsSettingsPanel';
 import type { SettingsFormInput } from './types';
-import { VaultSettingsPanel } from './VaultSettingsPanel';
+import { VaultSettingsPanel, type LocalWorkspaceSettingsActions } from './VaultSettingsPanel';
 import { holdHintsPreference, leaderSpacePreference } from './keyboard-feature-preferences';
 import { setNewTabOpens } from './new-tab-preference';
 import { setSplitStatusLine } from './split-status-line-preference';
@@ -114,6 +114,7 @@ type SettingsDialogProps = {
   onChooseLocalVault: () => Promise<void | boolean>;
   onForgetLocalVault: (vaultId?: string) => Promise<void>;
   onSwitchLocalVault: (vaultId: string) => Promise<void>;
+  localWorkspaceActions?: LocalWorkspaceSettingsActions;
   onOpenLocalVault: () => Promise<void>;
   onRefreshLocalVault: () => Promise<void>;
   onSave: (input: SettingsFormInput) => void;
@@ -137,6 +138,7 @@ function SettingsDialogContent({
   onChooseLocalVault,
   onForgetLocalVault,
   onSwitchLocalVault,
+  localWorkspaceActions,
   onOpenLocalVault,
   onRefreshLocalVault,
   onOpenChange,
@@ -516,6 +518,7 @@ function SettingsDialogContent({
                     onAddVault={onChooseLocalVault}
                     onForgetLocalVault={onForgetLocalVault}
                     onSwitchLocalVault={onSwitchLocalVault}
+                    workspaceActions={localWorkspaceActions}
                     onOpenLocalVault={onOpenLocalVault}
                     onRefreshLocalVault={onRefreshLocalVault}
                   />

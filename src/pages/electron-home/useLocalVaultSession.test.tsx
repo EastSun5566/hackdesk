@@ -15,8 +15,8 @@ const snapshot = (id: string): LocalVaultSnapshot => ({ vaultId: id, rootPath: `
 const settings = (path: string | null): ElectronSafeSettings => ({
   ...defaultSettings,
   localVault: path
-    ? { vaults: [{ id: `vault-${path}`, path }], activeVaultId: `vault-${path}` }
-    : { vaults: [], activeVaultId: null },
+    ? { vaults: [{ id: `vault-${path}`, path }], activeVaultId: `vault-${path}`, workspaces: [], activeWorkspaceId: null }
+    : { vaults: [], activeVaultId: null, workspaces: [], activeWorkspaceId: null },
   hasHackmdApiToken: false,
   hackmdAccounts: { accounts: [], activeAccountId: null },
   hasLocalVault: !!path,

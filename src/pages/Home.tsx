@@ -28,7 +28,7 @@ import type { ElectronSafeSettings, FolderSummary } from '@/lib/electron-api';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { getNoteCurrentFolderId } from '@/lib/hackmd-note-dnd';
 import type { QuickOpenFolderResult } from '@/lib/electron-quick-open';
-import { defaultSettings, getActiveLocalVaultPath } from '@/lib/settings';
+import { defaultSettings, getActiveLocalVaultPath, getActiveLocalWorkspace } from '@/lib/settings';
 
 import { ElectronHomeOverlays } from './electron-home/ElectronHomeOverlays';
 import { ElectronHomeWorkspace, NOTE_NAVIGATOR_PANEL_ID } from './electron-home/ElectronHomeWorkspace';
@@ -346,6 +346,7 @@ export function Home() {
   const localVaultActions = useHomeLocalVaultActions({
     api,
     queryClient,
+    scopeType: scope.type,
     refetchLocalVault: async () => {
       if (vaultSession.isChanging) throw new Error('Local Vault is still loading. Try again when it is ready.');
       await localVault.snapshotQuery.refetch();
@@ -425,6 +426,11 @@ export function Home() {
     currentNotes,
     scope,
     localVaultPath: settingsQuery.data ? getActiveLocalVaultPath(settingsQuery.data) : null,
+    localWorkspaceName: (() => {
+      const workspace = getActiveLocalWorkspace(settingsQuery.data);
+      const activeVaultId = settingsQuery.data?.localVault.activeVaultId;
+      return workspace && activeVaultId && workspace.vaultIds.includes(activeVaultId) ? workspace.name : null;
+    })(),
     selectedFolderId,
     syncOpenNoteSummaries: noteWorkspace.syncNoteSummaries,
     teams,

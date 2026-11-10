@@ -18,6 +18,7 @@ import { CreateNoteDialog } from './CreateNoteDialog';
 import { DeleteFolderDialog } from './DeleteFolderDialog';
 import { DeleteNoteDialog } from './DeleteNoteDialog';
 import { HackmdOnboardingDialog } from './HackmdOnboardingDialog';
+import type { LocalWorkspaceSettingsActions } from './VaultSettingsPanel';
 import { RenameFolderDialog } from './RenameFolderDialog';
 import { SettingsDialog } from './SettingsDialog';
 import type {
@@ -64,6 +65,7 @@ export type ElectronHomeDialogsProps = {
   onImportHackmdCliToken: () => Promise<ImportHackmdCliTokenResult>;
   onForgetLocalVault: (vaultId?: string) => Promise<void>;
   onSwitchLocalVault: (vaultId: string) => Promise<void>;
+  localWorkspaceActions?: LocalWorkspaceSettingsActions;
   onOpenLocalVault: () => Promise<void>;
   onOnboardingOpenChange: (open: boolean) => void;
   onRefreshLocalVault: () => Promise<void>;
@@ -105,6 +107,7 @@ export function ElectronHomeDialogs({
   onImportHackmdCliToken,
   onForgetLocalVault,
   onSwitchLocalVault,
+  localWorkspaceActions,
   onOpenLocalVault,
   onOnboardingOpenChange,
   onRefreshLocalVault,
@@ -137,6 +140,7 @@ export function ElectronHomeDialogs({
         onDisconnectHackmd={onDisconnectHackmd}
         onForgetLocalVault={onForgetLocalVault}
         onSwitchLocalVault={onSwitchLocalVault}
+        localWorkspaceActions={localWorkspaceActions}
         onOpenLocalVault={onOpenLocalVault}
         onRefreshLocalVault={onRefreshLocalVault}
         onOpenChange={onSettingsOpenChange}

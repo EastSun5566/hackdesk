@@ -37,6 +37,8 @@ import type {
   LocalVaultCreateDirectoryResult,
   LocalVaultCreateFolderInput,
   LocalVaultForgetResult,
+  LocalWorkspaceMutation,
+  LocalWorkspaceMutationResult,
   LocalVaultCreateNoteInput,
   LocalVaultImportAttachmentInput,
   LocalVaultMoveFolderInput,
@@ -213,6 +215,9 @@ const api: HackDeskElectronAPI = {
     ),
     forget: (input: LocalVaultVaultIdInput) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultForget, input) as Promise<LocalVaultForgetResult>
+    ),
+    updateWorkspace: (mutation: LocalWorkspaceMutation) => (
+      ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultWorkspace, mutation) as Promise<LocalWorkspaceMutationResult>
     ),
     createDirectory: (input: LocalVaultCreateDirectoryInput) => (
       ipcRenderer.invoke(ELECTRON_CHANNELS.localVaultCreateDirectory, input) as Promise<LocalVaultCreateDirectoryResult>

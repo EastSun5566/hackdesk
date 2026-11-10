@@ -79,6 +79,7 @@ import {
   treeItemClassName,
   WorkspaceRootScopeIcon,
   WorkspaceRootTreeRow,
+  WorkspaceSiblingVaultRow,
 } from './FolderNavigatorRows';
 import { RepositoryNotice } from './RepositoryNotice';
 import { SkippedFilesNotice } from './SkippedFilesNotice';
@@ -229,6 +230,10 @@ export type FolderNavigatorProps = {
   scope: WorkspaceScope;
   /** The active vault's folder name; the root row shows it instead of the generic scope label. */
   vaultFolderName?: string | null;
+  /** The open named working set, whose name becomes the root row. */
+  localWorkspaceName?: string | null;
+  /** Folders in the working set that are not open; their rows switch to them. */
+  workspaceVaults?: { id: string; label: string; path: string }[];
   selection: FolderNavigatorSelection;
   status: FolderNavigatorStatus;
   /** Notes whose text matched the finder query, with snippets. */
@@ -266,6 +271,8 @@ function FolderNavigatorPanel({
   layout,
   scope,
   vaultFolderName,
+  localWorkspaceName,
+  workspaceVaults,
   selection,
   status,
   textSearch,
@@ -299,6 +306,8 @@ function FolderNavigatorPanel({
           layout={layout}
           scope={scope}
           vaultFolderName={vaultFolderName}
+          localWorkspaceName={localWorkspaceName}
+          workspaceVaults={workspaceVaults}
           selection={selection}
           status={status}
           textSearch={textSearch}
@@ -332,6 +341,8 @@ function ExpandedNavigator({
   layout,
   scope,
   vaultFolderName,
+  localWorkspaceName,
+  workspaceVaults,
   selection,
   status,
   textSearch,
@@ -425,6 +436,9 @@ function ExpandedNavigator({
         selection={selection}
         scope={scope}
         vaultFolderName={vaultFolderName}
+        localWorkspaceName={localWorkspaceName}
+        onSwitchLocalVault={workspace.onSwitchLocalVault}
+        workspaceVaults={workspaceVaults}
         status={status}
         textSearch={textSearch}
         tree={tree}
@@ -523,6 +537,9 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   selection,
   scope,
   vaultFolderName,
+  localWorkspaceName,
+  onSwitchLocalVault,
+  workspaceVaults,
   status,
   textSearch,
   tree,
@@ -542,6 +559,9 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   selection: FolderNavigatorSelection;
   scope: WorkspaceScope;
   vaultFolderName?: string | null;
+  localWorkspaceName?: string | null;
+  onSwitchLocalVault?: (vaultId: string) => void;
+  workspaceVaults?: { id: string; label: string; path: string }[];
   status: FolderNavigatorStatus;
   textSearch?: NoteTextSearch;
   tree: FolderTree;
@@ -629,6 +649,9 @@ const MemoNavigatorContent = memo(function NavigatorContent({
                 layout={layout}
                 scope={scope}
                 vaultFolderName={vaultFolderName}
+                localWorkspaceName={localWorkspaceName}
+                onSwitchLocalVault={onSwitchLocalVault}
+                workspaceVaults={workspaceVaults}
                 selectedFolderForNoteMove={selectedFolderForNoteMove}
                 selection={selection}
                 status={status}
@@ -843,6 +866,9 @@ function NavigatorTree({
   layout,
   scope,
   vaultFolderName,
+  localWorkspaceName,
+  onSwitchLocalVault,
+  workspaceVaults,
   selectedFolderForNoteMove,
   selection,
   status,
@@ -853,6 +879,9 @@ function NavigatorTree({
   layout: FolderNavigatorLayout;
   scope: WorkspaceScope;
   vaultFolderName?: string | null;
+  localWorkspaceName?: string | null;
+  onSwitchLocalVault?: (vaultId: string) => void;
+  workspaceVaults?: { id: string; label: string; path: string }[];
   selectedFolderForNoteMove: FolderTreeNode | null;
   selection: FolderNavigatorSelection;
   status: FolderNavigatorStatus;
@@ -885,7 +914,7 @@ function NavigatorTree({
     : null;
   const treeId = useId();
   const workspaceChildrenGroupId = `${treeId}-workspace-children`;
-  const rootLabel = workspaceRootLabel(scope, vaultFolderName) ?? 'My Notes';
+  const rootLabel = workspaceRootLabel(scope, vaultFolderName, localWorkspaceName) ?? 'My Notes';
   const showRootRow = scope.type !== 'history';
   const scopeStorageKey = getScopeStorageKey(scope);
   const [rootSectionExpanded, setRootSectionExpanded] = useState(() => (
@@ -1135,8 +1164,8 @@ function NavigatorTree({
     </>
   ), [
     actions, activeFolderId, activeNoteId, layout.collapsedFolderIds, selectedFolderForNoteMove,
-    selection.selectedFolderId, selection.selectedNoteId, showRootRow, status.isMovingFolder,
-    status.isMovingNote, tree,
+    onSwitchLocalVault, selection.selectedFolderId, selection.selectedNoteId, showRootRow, status.isMovingFolder,
+    status.isMovingNote, tree, workspaceVaults,
   ]);
 
   return (
@@ -1192,6 +1221,18 @@ function NavigatorTree({
                 hidden={showRootRow && !rootSectionExpanded}
                 className={cn('m-0 grid min-w-0 list-none gap-0.5 p-0', showRootRow && cn('relative mt-0.5', TREE_CHILDREN_INDENT_CLASS))}
               >
+                {workspaceVaults?.length ? (
+                  <li role="presentation" className="grid min-w-0 gap-0.5">
+                    {workspaceVaults.map((vault) => (
+                      <WorkspaceSiblingVaultRow
+                        key={vault.id}
+                        label={vault.label}
+                        path={vault.path}
+                        onOpen={() => onSwitchLocalVault?.(vault.id)}
+                      />
+                    ))}
+                  </li>
+                ) : null}
                 {treeRows}
               </ul>
             <TreeBlankArea

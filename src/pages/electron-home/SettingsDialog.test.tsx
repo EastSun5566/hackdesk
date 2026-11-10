@@ -784,7 +784,7 @@ describe('SettingsDialog', () => {
         hasHackmdApiToken: true, hackmdTokenStorageError: 'Unlock your system keyring or reconnect.',
         hackmdAccounts: { accounts: [], activeAccountId: null },
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
-        hasLocalVault: true, localVault: { vaults: [{ id: 'vault-tmp', path: '/tmp/vault' }], activeVaultId: 'vault-tmp' }, onboarding: defaultSettings.onboarding,
+        hasLocalVault: true, localVault: { vaults: [{ id: 'vault-tmp', path: '/tmp/vault' }], activeVaultId: 'vault-tmp', workspaces: [], activeWorkspaceId: null }, onboarding: defaultSettings.onboarding,
         shouldShowHackmdOnboarding: false,
       },
     });
@@ -941,7 +941,7 @@ describe('SettingsDialog', () => {
         hackmdAccounts: { accounts: [], activeAccountId: null },
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
         hasLocalVault: true,
-        localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/MyVault' }], activeVaultId: 'vault-notes' },
+        localVault: { vaults: [{ id: 'vault-notes', path: '/Users/michael/MyVault' }], activeVaultId: 'vault-notes', workspaces: [], activeWorkspaceId: null },
         onboarding: defaultSettings.onboarding,
         shouldShowHackmdOnboarding: false,
       },
@@ -987,6 +987,58 @@ describe('SettingsDialog', () => {
     expect(onSwitchLocalVault).not.toHaveBeenCalled();
   });
 
+  it('creates, edits, opens and deletes named workspaces', async () => {
+    const localWorkspaceActions = {
+      create: vi.fn(async () => undefined),
+      rename: vi.fn(async () => undefined),
+      remove: vi.fn(async () => undefined),
+      activate: vi.fn(async () => undefined),
+      setVaults: vi.fn(async () => undefined),
+    };
+    renderSettingsDialog({
+      localWorkspaceActions,
+      settings: {
+        title: 'HackDesk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
+        appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
+        hasHackmdApiToken: false,
+        hackmdAccounts: { accounts: [], activeAccountId: null },
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: true,
+        localVault: {
+          vaults: [{ id: 'vault-a', path: '/Users/michael/A' }, { id: 'vault-b', path: '/Users/michael/B' }],
+          activeVaultId: 'vault-a',
+          workspaces: [{ id: 'workspace-work', name: 'Work', vaultIds: ['vault-a'] }],
+          activeWorkspaceId: 'workspace-work',
+        },
+        onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: false,
+      },
+    });
+    fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
+
+    expect(screen.getByText('Work')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Close workspace Work' }));
+    await waitFor(() => expect(localWorkspaceActions.activate).toHaveBeenCalledWith(null));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit workspace Work' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Studio' } });
+    fireEvent.click(within(screen.getByText('Work').closest('li') as HTMLElement).getByLabelText('B'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save workspace Work' }));
+    await waitFor(() => expect(localWorkspaceActions.rename).toHaveBeenCalledWith('workspace-work', 'Studio'));
+    await waitFor(() => expect(localWorkspaceActions.setVaults).toHaveBeenCalledWith('workspace-work', ['vault-a', 'vault-b']));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete workspace Work' }));
+    await waitFor(() => expect(localWorkspaceActions.remove).toHaveBeenCalledWith('workspace-work'));
+
+    const newForm = screen.getByRole('group', { name: 'Create a workspace' });
+    fireEvent.change(within(newForm).getByLabelText('New workspace'), { target: { value: 'Reading' } });
+    fireEvent.click(within(newForm).getByLabelText('A'));
+    fireEvent.click(screen.getByRole('button', { name: 'Create workspace' }));
+    await waitFor(() => expect(localWorkspaceActions.create).toHaveBeenCalledWith('Reading', ['vault-a']));
+  });
+
   it('switches between vaults from the folders list', () => {
     const { onSwitchLocalVault } = renderSettingsDialog({
       settings: {
@@ -998,7 +1050,7 @@ describe('SettingsDialog', () => {
         hackmdAccounts: { accounts: [], activeAccountId: null },
         hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
         hasLocalVault: true,
-        localVault: { vaults: [{ id: 'vault-a', path: '/Users/michael/A' }, { id: 'vault-b', path: '/Users/michael/B' }], activeVaultId: 'vault-a' },
+        localVault: { vaults: [{ id: 'vault-a', path: '/Users/michael/A' }, { id: 'vault-b', path: '/Users/michael/B' }], activeVaultId: 'vault-a', workspaces: [], activeWorkspaceId: null },
         onboarding: defaultSettings.onboarding,
         shouldShowHackmdOnboarding: false,
       },

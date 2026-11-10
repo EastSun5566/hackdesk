@@ -2,8 +2,13 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ElectronSafeSettings, HackDeskElectronAPI } from '@/lib/electron-api';
-import type { LocalVaultActivateResult, LocalVaultForgetResult } from '@/lib/local-vault';
-import { getActiveLocalVaultPath } from '@/lib/settings';
+import type {
+  LocalVaultActivateResult,
+  LocalVaultForgetResult,
+  LocalWorkspaceMutation,
+  LocalWorkspaceMutationResult,
+} from '@/lib/local-vault';
+import { getActiveLocalVaultPath, getActiveLocalWorkspace } from '@/lib/settings';
 import { getLocalVaultSnapshotQueryKey, guardLocalVaultApi, type VaultAccess } from './local-vault-query';
 import { migrateLocalWorkspaceStorage } from './local-workspace-storage';
 
@@ -16,6 +21,7 @@ export type LocalVaultSessionApi = Omit<HackDeskElectronAPI, 'localVault'> & {
   localVault: HackDeskElectronAPI['localVault'] & {
     switchVault: (vaultId: string) => Promise<LocalVaultActivateResult>;
     forgetVault: (vaultId: string) => Promise<LocalVaultForgetResult>;
+    updateWorkspace: (mutation: LocalWorkspaceMutation) => Promise<LocalWorkspaceMutationResult>;
   };
 };
 
@@ -124,7 +130,23 @@ export function useLocalVaultSession(
           return next;
         }),
         switchVault: (vaultId: string) => transition(async () => {
+          // Opening a folder outside the working set leaves the set, so the sidebar never shows
+          // roots the open folder does not belong to.
+          const current = queryClient.getQueryData<ElectronSafeSettings>(['electron', 'settings']);
+          const workspace = getActiveLocalWorkspace(current);
+          if (workspace && !workspace.vaultIds.includes(vaultId)) {
+            const cleared = await api.localVault.updateWorkspace({ type: 'activate', id: null });
+            queryClient.setQueryData(['electron', 'settings'], cleared.settings);
+          }
           const result = await api.localVault.activate({ vaultId });
+          queryClient.setQueryData(['electron', 'settings'], result.settings);
+          if (result.snapshot) {
+            queryClient.setQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(result.settings)), result.snapshot);
+          }
+          return result;
+        }),
+        updateWorkspace: (mutation: LocalWorkspaceMutation) => transition(async () => {
+          const result = await api.localVault.updateWorkspace(mutation);
           queryClient.setQueryData(['electron', 'settings'], result.settings);
           if (result.snapshot) {
             queryClient.setQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(result.settings)), result.snapshot);

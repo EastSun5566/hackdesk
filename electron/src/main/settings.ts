@@ -4,19 +4,26 @@ import { lstat, mkdir, open, readFile, rename, rm } from 'node:fs/promises';
 import {
   addHackmdAccount,
   addLocalVault,
+  createLocalWorkspace,
   defaultSettings,
   getActiveHackmdAccount,
   getActiveLocalVaultPath,
   parseStoredSettings,
   removeHackmdAccount,
   removeLocalVault,
+  removeLocalWorkspace,
+  renameLocalWorkspace,
   serializeSettings,
   setActiveHackmdAccount,
   setActiveLocalVault,
+  setActiveLocalWorkspace,
+  setLocalWorkspaceVaults,
   validateSettings,
   type AppSettings,
   type HackmdAccountsSettings,
+  type LocalVaultSettings,
 } from '../../../src/lib/settings';
+import type { LocalWorkspaceMutation } from '../../../src/lib/local-vault';
 import type { ElectronSafeSettings, ElectronSettingsUpdate, HackmdCliConfigStatus } from '../../../src/lib/electron-api';
 import { getHackDeskRootPath, getHackmdCliConfigPath, getSettingsPath } from './paths';
 import { decryptHackmdToken, encryptHackmdToken } from './token-storage';
@@ -343,6 +350,8 @@ async function updateStoredSettingsUnlocked(
     localVaultActivateId?: string;
     /** Forgets one vault, falling back when it was active. */
     localVaultRemoveId?: string;
+    /** Creates, renames, deletes, activates or re-scopes a named working set. */
+    localWorkspace?: LocalWorkspaceMutation;
   },
 ): Promise<ElectronSafeSettings> {
   const metadata = await readStoredSettingsWithMetadata();
@@ -422,7 +431,9 @@ async function updateStoredSettingsUnlocked(
   // Choosing a folder adds it to the vault list and activates it; forgetting removes the
   // given vault and activates the first remaining one when it was the active one.
   let nextVaults = current.localVault;
-  if (update.localVaultRemoveId !== undefined) {
+  if (update.localWorkspace !== undefined) {
+    nextVaults = applyLocalWorkspaceMutation(nextVaults, update.localWorkspace);
+  } else if (update.localVaultRemoveId !== undefined) {
     nextVaults = removeLocalVault(nextVaults, update.localVaultRemoveId);
   } else if (update.localVaultActivateId !== undefined) {
     nextVaults = setActiveLocalVault(nextVaults, update.localVaultActivateId);
@@ -461,11 +472,53 @@ async function updateStoredSettingsUnlocked(
   return safeSettingsFromMetadata({ settings: next, hasStoredAppearance: true, accountTokens: nextTokens, tokenStorageError });
 }
 
+/**
+ * Applies one working-set edit. Activating a set also opens one of its folders, so the window
+ * never shows a workspace whose active vault sits outside it.
+ */
+/** Opens a working set, moving the open folder into it so the sidebar never leads with an outsider. */
+function openLocalWorkspace(current: LocalVaultSettings, id: string | null): LocalVaultSettings {
+  const next = setActiveLocalWorkspace(current, id);
+  const workspace = next.workspaces.find((candidate) => candidate.id === next.activeWorkspaceId);
+  if (!workspace || (next.activeVaultId && workspace.vaultIds.includes(next.activeVaultId))) {
+    return next;
+  }
+  return setActiveLocalVault(next, workspace.vaultIds[0]);
+}
+
+export function applyLocalWorkspaceMutation(
+  current: LocalVaultSettings,
+  mutation: LocalWorkspaceMutation,
+): LocalVaultSettings {
+  switch (mutation.type) {
+    case 'create': {
+      const created = createLocalWorkspace(current, mutation.name, mutation.vaultIds);
+      if (created === current) {
+        return current;
+      }
+      // Creating a workspace opens it, so the new roots are what the sidebar shows next.
+      const workspace = created.workspaces.at(-1);
+      return workspace ? openLocalWorkspace(created, workspace.id) : created;
+    }
+    case 'rename':
+      return renameLocalWorkspace(current, mutation.id, mutation.name);
+    case 'delete':
+      return removeLocalWorkspace(current, mutation.id);
+    case 'setVaults':
+      return setLocalWorkspaceVaults(current, mutation.id, mutation.vaultIds);
+    case 'activate':
+      return openLocalWorkspace(current, mutation.id);
+    default:
+      return current;
+  }
+}
+
 export function updateStoredSettings(
   update: ElectronSettingsUpdate & {
     localVaultPath?: string | null;
     localVaultActivateId?: string;
     localVaultRemoveId?: string;
+    localWorkspace?: LocalWorkspaceMutation;
   },
 ): Promise<ElectronSafeSettings> {
   return enqueueSettingsOperation(() => updateStoredSettingsUnlocked(update));

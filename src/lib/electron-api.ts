@@ -25,6 +25,8 @@ import type {
   LocalVaultTrashFolderInput,
   LocalVaultTrashNoteInput,
   LocalVaultWriteInput,
+  LocalWorkspaceMutation,
+  LocalWorkspaceMutationResult,
 } from './local-vault';
 import type { AiProviderId, AiProviderStatus, AiTurnInput, AskNotesInput } from './ai';
 import type { DictationEvent, DictationInstallInput, DictationStartInput, DictationStatus } from './dictation';
@@ -619,6 +621,8 @@ export type HackDeskElectronAPI = {
     activate: (input: LocalVaultVaultIdInput) => Promise<LocalVaultActivateResult>;
     /** Forgets one vault, falling back when it was active. */
     forget: (input: LocalVaultVaultIdInput) => Promise<LocalVaultForgetResult>;
+    /** Creates, renames, deletes, activates or re-scopes a named working set of folders. */
+    updateWorkspace: (mutation: LocalWorkspaceMutation) => Promise<LocalWorkspaceMutationResult>;
     createDirectory: (input: LocalVaultCreateDirectoryInput) => Promise<LocalVaultCreateDirectoryResult>;
     disconnect: () => Promise<ElectronSafeSettings>;
     getSnapshot: () => Promise<LocalVaultSnapshot | null>;

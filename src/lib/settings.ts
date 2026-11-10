@@ -48,9 +48,19 @@ export type LocalVaultEntry = {
   path: string;
 };
 
+/** A named working set: the folders one Local workspace shows as its roots. */
+export type LocalWorkspaceEntry = {
+  id: string;
+  name: string;
+  vaultIds: string[];
+};
+
 export type LocalVaultSettings = {
   vaults: LocalVaultEntry[];
   activeVaultId: string | null;
+  /** Named working sets of vault folders; empty keeps the single-vault behavior. */
+  workspaces: LocalWorkspaceEntry[];
+  activeWorkspaceId: string | null;
 };
 
 export type HackmdAccountEntry = {
@@ -133,6 +143,8 @@ export const defaultOnboardingSettings: OnboardingSettings = {
 export const defaultLocalVaultSettings: LocalVaultSettings = {
   vaults: [],
   activeVaultId: null,
+  workspaces: [],
+  activeWorkspaceId: null,
 };
 
 export const defaultHackmdAccountsSettings: HackmdAccountsSettings = {
@@ -350,28 +362,128 @@ export function normalizeLocalVaultSettings(value: unknown): LocalVaultSettings 
   }
 
   if (vaults.length === 0) {
-    return { vaults: [], activeVaultId: null };
+    return { vaults: [], activeVaultId: null, workspaces: [], activeWorkspaceId: null };
   }
 
   const rawActive = typeof source.activeVaultId === 'string' ? source.activeVaultId.trim() : null;
   const activeVaultId = rawActive && seenIds.has(rawActive) ? rawActive : vaults[0].id;
-  return { vaults, activeVaultId };
+  const { workspaces, activeWorkspaceId } = normalizeLocalWorkspaces(source, seenIds);
+  return { vaults, activeVaultId, workspaces, activeWorkspaceId };
+}
+
+const MAX_LOCAL_WORKSPACES = 32;
+
+function normalizeWorkspaceName(name: unknown) {
+  if (typeof name !== 'string') {
+    return null;
+  }
+  const trimmed = name.trim();
+  return trimmed.length > 0 && trimmed.length <= 200 ? trimmed : null;
+}
+
+/** Keeps only known vault ids, in order, without duplicates, capped so a damaged file stays bounded. */
+function normalizeWorkspaceVaultIds(value: unknown, knownVaultIds: Set<string>) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const ids: string[] = [];
+  for (const raw of value) {
+    if (typeof raw !== 'string') {
+      continue;
+    }
+    const id = raw.trim();
+    if (!knownVaultIds.has(id) || ids.includes(id)) {
+      continue;
+    }
+    ids.push(id);
+    if (ids.length >= 32) {
+      break;
+    }
+  }
+  return ids;
+}
+
+/**
+ * Workspaces name a working set of known vault folders. A workspace that lost all its folders is
+ * dropped, and an active id that no longer exists falls back to no workspace (single-vault mode).
+ */
+function normalizeLocalWorkspaces(source: Record<string, unknown>, knownVaultIds: Set<string>) {
+  const seen = new Set<string>();
+  const workspaces: LocalWorkspaceEntry[] = [];
+  if (Array.isArray(source.workspaces)) {
+    for (const raw of source.workspaces) {
+      if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+        continue;
+      }
+      const entry = raw as Record<string, unknown>;
+      const vaultIds = normalizeWorkspaceVaultIds(entry.vaultIds, knownVaultIds);
+      if (vaultIds.length === 0) {
+        continue;
+      }
+      const rawId = entry.id;
+      const id = typeof rawId === 'string' && rawId.trim().length > 0 && rawId.trim().length <= 200
+        ? rawId.trim()
+        : createLocalWorkspaceId();
+      if (seen.has(id)) {
+        continue;
+      }
+      seen.add(id);
+      workspaces.push({ id, name: normalizeWorkspaceName(entry.name) ?? 'Local workspace', vaultIds });
+      if (workspaces.length >= MAX_LOCAL_WORKSPACES) {
+        break;
+      }
+    }
+  }
+
+  const rawActive = typeof source.activeWorkspaceId === 'string' ? source.activeWorkspaceId.trim() : null;
+  const activeWorkspaceId = rawActive && seen.has(rawActive) ? rawActive : null;
+  return { workspaces, activeWorkspaceId };
+}
+
+/** Stable per-workspace identity, so renaming and reordering keep the same working set. */
+export function createLocalWorkspaceId() {
+  return createLocalVaultId().replace(/^vault-/, 'workspace-');
 }
 
 export function getActiveLocalVault(
   settings: Pick<AppSettings, 'localVault'> | undefined,
 ): LocalVaultEntry | null {
-  if (!settings) {
+  const localVault = settings?.localVault;
+  if (!localVault) {
     return null;
   }
-  const active = settings.localVault.vaults.find((vault) => vault.id === settings.localVault.activeVaultId);
-  return active ?? settings.localVault.vaults[0] ?? null;
+  const active = localVault.vaults.find((vault) => vault.id === localVault.activeVaultId);
+  return active ?? localVault.vaults[0] ?? null;
 }
 
 export function getActiveLocalVaultPath(
   settings: Pick<AppSettings, 'localVault'> | undefined,
 ): string | null {
   return getActiveLocalVault(settings)?.path ?? null;
+}
+
+/** The named working set the sidebar groups folders under, when one is active. */
+export function getActiveLocalWorkspace(
+  settings: Pick<AppSettings, 'localVault'> | undefined,
+): LocalWorkspaceEntry | null {
+  const localVault = settings?.localVault;
+  if (!localVault) {
+    return null;
+  }
+  return localVault.workspaces.find((workspace) => workspace.id === localVault.activeWorkspaceId) ?? null;
+}
+
+/** The vault folders an active workspace shows as roots, active vault included. */
+export function getLocalWorkspaceVaults(
+  settings: Pick<AppSettings, 'localVault'> | undefined,
+): LocalVaultEntry[] {
+  const workspace = getActiveLocalWorkspace(settings);
+  if (!settings?.localVault || !workspace) {
+    return [];
+  }
+  return workspace.vaultIds
+    .map((id) => settings.localVault.vaults.find((vault) => vault.id === id))
+    .filter((vault): vault is LocalVaultEntry => Boolean(vault));
 }
 
 /** Adds a folder as a vault and activates it; re-adding an existing folder just activates it. */
@@ -385,10 +497,19 @@ export function addLocalVault(
   }
   const existing = current.vaults.find((vault) => vault.path === trimmed);
   if (existing) {
-    return { vaults: current.vaults, activeVaultId: existing.id };
+    return { ...current, activeVaultId: existing.id };
   }
   const entry = { id: createLocalVaultId(), path: trimmed };
-  return { vaults: [...current.vaults, entry].slice(-32), activeVaultId: entry.id };
+  const vaults = [...current.vaults, entry].slice(-32);
+  // Adding a folder while a workspace is open extends that working set.
+  const workspaces = current.activeWorkspaceId
+    ? current.workspaces.map((workspace) => (
+      workspace.id === current.activeWorkspaceId
+        ? { ...workspace, vaultIds: [...workspace.vaultIds, entry.id].slice(-32) }
+        : workspace
+    ))
+    : current.workspaces;
+  return { ...current, vaults, workspaces, activeVaultId: entry.id };
 }
 
 export function setActiveLocalVault(
@@ -398,7 +519,7 @@ export function setActiveLocalVault(
   if (!current.vaults.some((vault) => vault.id === id)) {
     return current;
   }
-  return { vaults: current.vaults, activeVaultId: id };
+  return { ...current, activeVaultId: id };
 }
 
 /** Forgets a vault; activating the first remaining one keeps a vault open when possible. */
@@ -411,12 +532,114 @@ export function removeLocalVault(
     return current;
   }
   if (vaults.length === 0) {
-    return { vaults: [], activeVaultId: null };
+    return { ...current, vaults: [], activeVaultId: null, workspaces: [], activeWorkspaceId: null };
   }
   const activeVaultId = current.activeVaultId === id ? vaults[0].id : current.activeVaultId;
+  // A forgotten folder leaves every working set that held it; a set left empty disappears.
+  const workspaces = current.workspaces
+    .map((workspace) => (
+      workspace.vaultIds.includes(id)
+        ? { ...workspace, vaultIds: workspace.vaultIds.filter((vaultId) => vaultId !== id) }
+        : workspace
+    ))
+    .filter((workspace) => workspace.vaultIds.length > 0);
+  const activeWorkspaceId = workspaces.some((workspace) => workspace.id === current.activeWorkspaceId)
+    ? current.activeWorkspaceId
+    : null;
   return {
+    ...current,
     vaults,
+    workspaces,
+    activeWorkspaceId,
     activeVaultId: activeVaultId && vaults.some((vault) => vault.id === activeVaultId) ? activeVaultId : vaults[0].id,
+  };
+}
+
+/** Creates a named working set of known folders; empty or unknown-only sets change nothing. */
+export function createLocalWorkspace(
+  current: LocalVaultSettings,
+  name: string,
+  vaultIds: string[],
+): LocalVaultSettings {
+  const known = new Set(current.vaults.map((vault) => vault.id));
+  const ids = [...new Set(vaultIds.filter((id) => known.has(id)))];
+  if (ids.length === 0) {
+    return current;
+  }
+  const workspace: LocalWorkspaceEntry = {
+    id: createLocalWorkspaceId(),
+    name: normalizeWorkspaceName(name) ?? 'Local workspace',
+    vaultIds: ids.slice(0, 32),
+  };
+  return { ...current, workspaces: [...current.workspaces, workspace].slice(-MAX_LOCAL_WORKSPACES) };
+}
+
+export function renameLocalWorkspace(
+  current: LocalVaultSettings,
+  id: string,
+  name: string,
+): LocalVaultSettings {
+  const normalized = normalizeWorkspaceName(name);
+  if (!normalized || !current.workspaces.some((workspace) => workspace.id === id)) {
+    return current;
+  }
+  return {
+    ...current,
+    workspaces: current.workspaces.map((workspace) => (
+      workspace.id === id ? { ...workspace, name: normalized } : workspace
+    )),
+  };
+}
+
+/** Deletes a working set; the folders themselves stay known and openable. */
+export function removeLocalWorkspace(current: LocalVaultSettings, id: string): LocalVaultSettings {
+  const workspaces = current.workspaces.filter((workspace) => workspace.id !== id);
+  if (workspaces.length === current.workspaces.length) {
+    return current;
+  }
+  return {
+    ...current,
+    workspaces,
+    activeWorkspaceId: current.activeWorkspaceId === id ? null : current.activeWorkspaceId,
+  };
+}
+
+/** Activates a named working set; null returns to the single-vault view. */
+export function setActiveLocalWorkspace(
+  current: LocalVaultSettings,
+  id: string | null,
+): LocalVaultSettings {
+  if (id === null) {
+    return current.activeWorkspaceId === null ? current : { ...current, activeWorkspaceId: null };
+  }
+  return current.workspaces.some((workspace) => workspace.id === id)
+    ? { ...current, activeWorkspaceId: id }
+    : current;
+}
+
+/**
+ * Replaces a working set's folders. An empty list deletes the set: a workspace with no roots has
+ * nothing to show, and forgetting its last folder is the same gesture as removing it.
+ */
+export function setLocalWorkspaceVaults(
+  current: LocalVaultSettings,
+  id: string,
+  vaultIds: string[],
+): LocalVaultSettings {
+  const workspace = current.workspaces.find((candidate) => candidate.id === id);
+  if (!workspace) {
+    return current;
+  }
+  const known = new Set(current.vaults.map((vault) => vault.id));
+  const ids = [...new Set(vaultIds.filter((vaultId) => known.has(vaultId)))].slice(0, 32);
+  if (ids.length === 0) {
+    return removeLocalWorkspace(current, id);
+  }
+  return {
+    ...current,
+    workspaces: current.workspaces.map((candidate) => (
+      candidate.id === id ? { ...candidate, vaultIds: ids } : candidate
+    )),
   };
 }
 const customFontStackSchema = z.string().trim().refine((value) => !value || isSafeFontStack(value), {

@@ -12,6 +12,8 @@ export type ElectronHomeModelOptions = {
   currentNotes: NoteSummary[];
   scope: WorkspaceScope;
   localVaultPath?: string | null;
+  /** The active named working set, when the open vault belongs to one. */
+  localWorkspaceName?: string | null;
   selectedFolderId: string | null;
   syncOpenNoteSummaries: (notes: NoteSummary[]) => void;
   teams: TeamSummary[];
@@ -23,15 +25,16 @@ export function useElectronHomeModel({
   currentNotes,
   scope,
   localVaultPath,
+  localWorkspaceName,
   selectedFolderId,
   syncOpenNoteSummaries,
   teams,
 }: ElectronHomeModelOptions) {
   const displayScope = useMemo<WorkspaceScope>(() => {
-    if (scope.type === 'local' && localVaultPath) {
-      const folderName = localVaultFolderName(localVaultPath);
-      return folderName !== scope.label
-        ? { type: 'local', label: folderName, vaultId: scope.vaultId }
+    if (scope.type === 'local' && (localVaultPath || localWorkspaceName)) {
+      const label = localWorkspaceName || (localVaultPath ? localVaultFolderName(localVaultPath) : scope.label);
+      return label !== scope.label
+        ? { type: 'local', label, vaultId: scope.vaultId }
         : scope;
     }
 
@@ -43,7 +46,7 @@ export function useElectronHomeModel({
     return team && team.name !== scope.label
       ? { type: 'team', label: team.name, teamPath: team.path }
       : scope;
-  }, [scope, teams, localVaultPath]);
+  }, [scope, teams, localVaultPath, localWorkspaceName]);
 
   const folderTree = useMemo(
     () => buildHackmdFolderTree(currentNotes, currentFolders, currentFolderOrder),

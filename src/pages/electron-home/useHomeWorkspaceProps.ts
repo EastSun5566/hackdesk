@@ -13,7 +13,7 @@ import type {
   UserSummary,
 } from '@/lib/electron-api';
 import type { FolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
-import { defaultSettings, getActiveLocalVaultPath } from '@/lib/settings';
+import { defaultSettings, getActiveLocalVaultPath, getActiveLocalWorkspace } from '@/lib/settings';
 import { localVaultFolderName } from './workspace-root-labels';
 import { toast } from '@/components/ui/toast';
 
@@ -173,6 +173,25 @@ export function useHomeWorkspaceProps({
   recentNotes: ElectronRecentNote[];
   trashOpen: boolean;
 }): ElectronHomeWorkspaceProps {
+  const localVaultPathName = (() => {
+    const activePath = settings ? getActiveLocalVaultPath(settings) : null;
+    return activePath ? localVaultFolderName(activePath) : null;
+  })();
+  const activeLocalWorkspace = getActiveLocalWorkspace(settings);
+  const localWorkspaceName = activeLocalWorkspace && settings?.localVault.activeVaultId
+    && activeLocalWorkspace.vaultIds.includes(settings.localVault.activeVaultId)
+    ? activeLocalWorkspace.name
+    : null;
+  const workspaceVaults = activeLocalWorkspace && localWorkspaceName
+    ? activeLocalWorkspace.vaultIds
+      .filter((vaultId) => vaultId !== settings?.localVault.activeVaultId)
+      .map((vaultId) => {
+        const vault = settings?.localVault.vaults.find((candidate) => candidate.id === vaultId);
+        return vault ? { id: vault.id, label: localVaultFolderName(vault.path), path: vault.path } : null;
+      })
+      .filter((vault): vault is { id: string; label: string; path: string } => vault !== null)
+    : [];
+
   return {
     titlebar: {
       getPaneTabs: documents.getPaneTabs,
@@ -211,10 +230,9 @@ export function useHomeWorkspaceProps({
     navigator: {
       scope: displayScope,
       tree: folderTree,
-      vaultFolderName: (() => {
-        const activePath = settings ? getActiveLocalVaultPath(settings) : null;
-        return activePath ? localVaultFolderName(activePath) : null;
-      })(),
+      vaultFolderName: localVaultPathName,
+      localWorkspaceName,
+      workspaceVaults,
       workspace: {
         scope: displayScope,
         user,
@@ -232,6 +250,14 @@ export function useHomeWorkspaceProps({
           actions.switchWorkspaceScope(next);
         },
         localVaults: settings?.localVault.vaults ?? [],
+        localWorkspaces: settings?.localVault.workspaces.map(({ id, name }) => ({ id, name })) ?? [],
+        activeLocalWorkspaceId: settings?.localVault.activeWorkspaceId ?? null,
+        onActivateLocalWorkspace: (workspaceId: string | null) => {
+          setWorkspaceSwitcherOpen(false);
+          void localVaultActions.activateLocalWorkspace(workspaceId).catch((error) => {
+            toast.error(error instanceof Error ? error.message : 'Failed to open the local workspace.');
+          });
+        },
         onSwitchLocalVault: (vaultId: string) => {
           setWorkspaceSwitcherOpen(false);
           void localVaultActions.switchLocalVault(vaultId).catch((error) => {

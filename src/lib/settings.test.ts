@@ -3,6 +3,14 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   addHackmdAccount,
   addLocalVault,
+  createLocalWorkspace,
+  getActiveLocalWorkspace,
+  getLocalWorkspaceVaults,
+  normalizeLocalVaultSettings,
+  removeLocalWorkspace,
+  renameLocalWorkspace,
+  setActiveLocalWorkspace,
+  setLocalWorkspaceVaults,
   defaultHackmdAccountsSettings,
   defaultLocalVaultSettings,
   defaultSettings,
@@ -400,6 +408,79 @@ describe('settings helpers', () => {
     expect(removeLocalVault(forgotten, forgotten.activeVaultId!)).toEqual(defaultLocalVaultSettings);
   });
 
+  it('groups known folders into named workspaces', () => {
+    const two = addLocalVault(addLocalVault(defaultLocalVaultSettings, '/tmp/a'), '/tmp/b');
+    const [a, b] = two.vaults;
+    const created = createLocalWorkspace(two, '  Work  ', [a.id, b.id, 'missing', a.id]);
+    expect(created.workspaces).toHaveLength(1);
+    expect(created.workspaces[0]).toMatchObject({ name: 'Work', vaultIds: [a.id, b.id] });
+    // A blank name falls back, and a set with no known folders changes nothing.
+    expect(createLocalWorkspace(two, '   ', [a.id]).workspaces[0].name).toBe('Local workspace');
+    expect(createLocalWorkspace(two, 'Empty', ['missing'])).toBe(two);
+
+    const activated = setActiveLocalWorkspace(created, created.workspaces[0].id);
+    expect(getActiveLocalWorkspace({ localVault: activated })?.name).toBe('Work');
+    expect(getLocalWorkspaceVaults({ localVault: activated }).map((vault) => vault.path)).toEqual(['/tmp/a', '/tmp/b']);
+    expect(setActiveLocalWorkspace(created, 'missing')).toBe(created);
+    expect(setActiveLocalWorkspace(activated, null).activeWorkspaceId).toBeNull();
+
+    const renamed = renameLocalWorkspace(activated, created.workspaces[0].id, 'Studio');
+    expect(renamed.workspaces[0].name).toBe('Studio');
+    expect(renameLocalWorkspace(activated, created.workspaces[0].id, '  ')).toBe(activated);
+
+    const narrowed = setLocalWorkspaceVaults(renamed, renamed.workspaces[0].id, [b.id]);
+    expect(narrowed.workspaces[0].vaultIds).toEqual([b.id]);
+    // Removing the last folder removes the set, and with it the active workspace.
+    const emptied = setLocalWorkspaceVaults(narrowed, narrowed.workspaces[0].id, []);
+    expect(emptied.workspaces).toEqual([]);
+    expect(emptied.activeWorkspaceId).toBeNull();
+
+    const deleted = removeLocalWorkspace(activated, created.workspaces[0].id);
+    expect(deleted.workspaces).toEqual([]);
+    expect(deleted.activeWorkspaceId).toBeNull();
+    expect(removeLocalWorkspace(activated, 'missing')).toBe(activated);
+  });
+
+  it('extends the active workspace when a folder is added and drops it when forgotten', () => {
+    const one = addLocalVault(defaultLocalVaultSettings, '/tmp/a');
+    const created = createLocalWorkspace(one, 'Work', [one.vaults[0].id]);
+    const withWorkspace = setActiveLocalWorkspace(created, created.workspaces[0].id);
+    const grown = addLocalVault(withWorkspace, '/tmp/b');
+    expect(grown.workspaces[0].vaultIds).toEqual(grown.vaults.map((vault) => vault.id));
+    expect(grown.activeVaultId).toBe(grown.vaults[1].id);
+
+    const shrunk = removeLocalVault(grown, grown.vaults[1].id);
+    expect(shrunk.workspaces[0].vaultIds).toEqual([grown.vaults[0].id]);
+    const gone = removeLocalVault(shrunk, shrunk.vaults[0].id);
+    expect(gone.workspaces).toEqual([]);
+    expect(gone.activeWorkspaceId).toBeNull();
+  });
+
+  it('normalizes damaged workspaces instead of failing the whole section', () => {
+    const normalized = normalizeLocalVaultSettings({
+      vaults: [{ id: 'v1', path: '/tmp/a' }, { id: 'v2', path: '/tmp/b' }],
+      activeVaultId: 'v2',
+      workspaces: [
+        { id: 'w1', name: '  Work  ', vaultIds: ['v1', 'v1', 'ghost', 4] },
+        { id: 'w2', name: '', vaultIds: [] },
+        { id: 'w1', name: 'Duplicate', vaultIds: ['v2'] },
+        { id: 'w3', vaultIds: ['v2'] },
+        'nope',
+      ],
+      activeWorkspaceId: 'w3',
+    });
+    expect(normalized.workspaces).toEqual([
+      { id: 'w1', name: 'Work', vaultIds: ['v1'] },
+      { id: 'w3', name: 'Local workspace', vaultIds: ['v2'] },
+    ]);
+    expect(normalized.activeWorkspaceId).toBe('w3');
+    // An active id that no longer exists falls back to the single-vault view.
+    expect(normalizeLocalVaultSettings({
+      vaults: [{ id: 'v1', path: '/tmp/a' }],
+      activeWorkspaceId: 'missing',
+    }).activeWorkspaceId).toBeNull();
+  });
+
   it('reports malformed stored JSON instead of replacing it with defaults', () => {
     expect(() => parseStoredSettings('{')).toThrow('Invalid JSON format');
   });
@@ -429,7 +510,9 @@ describe('settings helpers', () => {
   },
   "localVault": {
     "vaults": [],
-    "activeVaultId": null
+    "activeVaultId": null,
+    "workspaces": [],
+    "activeWorkspaceId": null
   },
   "editor": {
     "mode": "standard"

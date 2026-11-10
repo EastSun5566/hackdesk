@@ -612,6 +612,26 @@ export function WorkspaceRootScopeIcon({ scope }: { scope: WorkspaceScope }) {
 }
 
 /**
+ * A folder in the open working set that is not showing its notes: the row opens it, so a named
+ * workspace lists its roots without scanning every one at once.
+ */
+export function WorkspaceSiblingVaultRow({ label, path, onOpen }: { label: string; path: string; onOpen: () => void }) {
+  return (
+    <EntityRow
+      variant="compact"
+      tone="quiet"
+      icon={<HardDrive aria-hidden="true" className="h-3.5 w-3.5" />}
+      title={label}
+      titleAttribute={path}
+      contentAriaLabel={`Open ${label}`}
+      contentOnClick={onOpen}
+      contentFocusTarget
+      className={TREE_ROW_FOCUS_CLASS}
+    />
+  );
+}
+
+/**
  * Pinned workspace header row: collapse hides the folder tree; the row is also a top-level drop
  * target while dragging.
  */
