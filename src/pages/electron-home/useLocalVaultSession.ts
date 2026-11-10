@@ -221,10 +221,14 @@ export function useLocalVaultSession(
             if (result.snapshot) {
               queryClient.setQueryData(getLocalVaultSnapshotQueryKey(getActiveLocalVaultPath(result.settings)), result.snapshot);
             }
-            queryClient.setQueryData<ElectronSafeSettings>(['electron', 'settings'], (latest) => latest ? {
-              ...latest,
-              localVault: { ...latest.localVault, activeVaultId: latest.localVault.activeVaultId === vaultId ? result.settings.localVault.activeVaultId : latest.localVault.activeVaultId },
-            } : result.settings);
+            // The latest focus says which folder the main process opened, even when a settings refetch
+            // replaced the optimistic id meanwhile; an older one leaves the cache to the newer focus.
+            if (sequence === focusSequence.current) {
+              queryClient.setQueryData<ElectronSafeSettings>(['electron', 'settings'], (latest) => latest ? {
+                ...latest,
+                localVault: { ...latest.localVault, activeVaultId: result.settings.localVault.activeVaultId },
+              } : result.settings);
+            }
             return result;
           } catch (error) {
             // A later focus owns the optimistic folder now; only the latest one may put it back. What
