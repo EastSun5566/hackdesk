@@ -120,7 +120,14 @@ type SettingsDialogProps = {
 };
 
 export function SettingsDialog(props: SettingsDialogProps) {
-  return <SettingsDialogContent key={`${props.initialTab ?? 'general'}:${props.settings?.title ?? 'HackDesk'}:${props.settings?.editor?.mode ?? 'standard'}`} {...props} />;
+  // The form starts from the saved settings, so a change made elsewhere remounts it. While Settings
+  // is open, its own saves change those settings too, and remounting then would drop focus, the
+  // search and the page in use, so that part of the key only follows changes made while it is
+  // closed. Opening it on a given page always does.
+  const saved = `${props.settings?.title ?? 'HackDesk'}:${props.settings?.editor?.mode ?? 'standard'}`;
+  const [formSource, setFormSource] = useState(saved);
+  if (!props.open && formSource !== saved) setFormSource(saved);
+  return <SettingsDialogContent key={`${props.initialTab ?? 'general'}:${formSource}`} {...props} />;
 }
 
 function SettingsDialogContent({

@@ -25,6 +25,9 @@ test('@core theme, editor mode and a shortcut changed in Settings are saved and 
 
   await settings.getByRole('tab', { name: 'Editor', exact: true }).click();
   await settings.getByRole('radio', { name: 'Vim', exact: true }).click();
+  // Once the mode is saved, Settings is still on the page the change was made on.
+  await expect.poll(async () => (await first.readSettings()).editor).toMatchObject({ mode: 'vim' });
+  await expect(settings.getByRole('tab', { name: 'Editor', exact: true })).toHaveAttribute('aria-selected', 'true');
 
   await settings.getByRole('tab', { name: 'Shortcuts', exact: true }).click();
   await settings.getByRole('button', { name: 'Set shortcut for New Note', exact: true }).click();

@@ -623,6 +623,41 @@ describe('SettingsDialog', () => {
     expect(title).toHaveValue('HackDesk');
   });
 
+  it('keeps its page, search and focus when its own saves change the settings', () => {
+    const settings = {
+      title: 'HackDesk',
+      workspaceNavigation: defaultSettings.workspaceNavigation,
+      appearance: defaultSettings.appearance,
+      editor: defaultSettings.editor,
+      hasHackmdApiToken: false,
+      hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+      hasLocalVault: false,
+      localVault: defaultSettings.localVault,
+      onboarding: defaultSettings.onboarding,
+      shouldShowHackmdOnboarding: true,
+    };
+    const { rerenderSettingsDialog } = renderSettingsDialog({ settings });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Editor' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Vim' }));
+    // The saved mode comes back as new settings while Settings is still open.
+    rerenderSettingsDialog({ settings: { ...settings, editor: { ...settings.editor, mode: 'vim' } } });
+    expect(screen.getByRole('tab', { name: 'Editor' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('radio', { name: 'Vim' })).toBeChecked();
+
+    const search = screen.getByRole('combobox', { name: 'Search settings' });
+    fireEvent.change(search, { target: { value: 'editor font' } });
+    search.focus();
+    const savedTitle = { ...settings, title: 'Saved Desk', editor: { ...settings.editor, mode: 'vim' as const } };
+    rerenderSettingsDialog({ settings: savedTitle });
+    expect(screen.getByRole('combobox', { name: 'Search settings' })).toHaveValue('editor font');
+    expect(screen.getByRole('combobox', { name: 'Search settings' })).toHaveFocus();
+
+    // Asking for a page still opens it.
+    rerenderSettingsDialog({ settings: savedTitle, initialTab: 'shortcuts' });
+    expect(screen.getByRole('tab', { name: 'Shortcuts' })).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('saves a title still waiting for its debounce when the field loses focus', () => {
     const { onSave } = renderSettingsDialog();
 
