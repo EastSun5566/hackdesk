@@ -70,7 +70,12 @@ export function useFolderTreeKeyboardNavigation({
 }: UseFolderTreeKeyboardNavigationOptions) {
   const typeaheadBufferRef = useRef('');
   const typeaheadResetTimerRef = useRef<number | null>(null);
-  const groupingOption = tagGrouping ? { collapsed: tagGrouping.collapsed, groups: tagGrouping.groups } : null;
+  // The caller's object is already stable across renders; keeping this derivation stable too lets
+  // the focus-item memos below skip rebuilds while the sidebar resizes.
+  const groupingOption = useMemo(
+    () => tagGrouping ? { collapsed: tagGrouping.collapsed, groups: tagGrouping.groups } : null,
+    [tagGrouping],
+  );
   const focusItems = useMemo(
     () => buildFolderNavigatorFocusItems({
       tree,
