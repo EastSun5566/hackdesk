@@ -27,6 +27,11 @@ export type SavedOpenNoteTab = {
   shortId: string | null;
   updatedAtMillis: number | null;
   localRevision?: LocalRevision;
+  /**
+   * A preview tab, shown in italics: the next note opened from the sidebar takes its place. It
+   * stays once its note is edited or the tab is double-clicked.
+   */
+  preview?: boolean;
 };
 
 export type DraftOpenNoteTab = {
@@ -512,6 +517,43 @@ export function openNoteTab(state: NoteWorkspaceState, note: NoteSummary, paneId
   const tab = createTabFromNote(note);
   const next = insertTabAfterActive(state, pane.paneId, tab);
   return withNavigationHistory(state, next);
+}
+
+export function isPreviewNoteTab(tab: OpenNoteTab | undefined | null): tab is SavedOpenNoteTab {
+  return Boolean(tab && !isDraftNoteTab(tab) && !isBlankNoteTab(tab) && tab.preview);
+}
+
+/**
+ * Opens a note from the sidebar in the pane's preview tab, replacing the note that tab showed, so
+ * browsing does not leave a tab behind for every note looked at. A note already open in any tab is
+ * shown there instead, and a preview tab holding unsaved edits is never replaced.
+ */
+export function openNotePreview(state: NoteWorkspaceState, note: NoteSummary, paneId = state.activePaneId) {
+  if (getTabByNoteIdentity(state, note)) return openNoteTab(state, note, paneId);
+  const pane = state.panes.find((candidate) => candidate.paneId === paneId) ?? getActivePane(state);
+  const previewTabId = pane.tabIds.find((id) => isPreviewNoteTab(state.tabs[id]) && !state.drafts[id]);
+  const tab: SavedOpenNoteTab = { ...createTabFromNote(note, previewTabId), preview: true };
+  if (previewTabId) {
+    const next = normalizeState({
+      ...state,
+      tabs: { ...state.tabs, [previewTabId]: tab },
+      panes: state.panes.map((candidate) => candidate.paneId === pane.paneId ? { ...candidate, activeTabId: previewTabId } : candidate),
+      activePaneId: pane.paneId,
+    });
+    return withNavigationHistory(state, next);
+  }
+  const replaced = replaceActiveBlankTab(state, pane.paneId, tab);
+  if (replaced) return withNavigationHistory(state, replaced);
+  return withNavigationHistory(state, insertTabAfterActive(state, pane.paneId, tab));
+}
+
+/** Keeps a preview tab open: it stops being the one the next sidebar pick replaces. */
+export function keepNoteTab(state: NoteWorkspaceState, tabId: string) {
+  const tab = state.tabs[tabId];
+  if (!isPreviewNoteTab(tab)) return state;
+  const kept: SavedOpenNoteTab = { ...tab };
+  delete kept.preview;
+  return { ...state, tabs: { ...state.tabs, [tabId]: kept } };
 }
 
 /**
@@ -1005,13 +1047,16 @@ export function updateNoteTabDraft(state: NoteWorkspaceState, tabId: string, dra
     return state;
   }
 
-  return {
+  // Changing a preview tab's note keeps the tab; a draft equal to what was saved changes nothing.
+  const edited = draft.content !== draft.baseContent || draft.title !== draft.baseTitle;
+  const next = {
     ...state,
     drafts: {
       ...state.drafts,
       [tabId]: draft,
     },
   };
+  return edited ? keepNoteTab(next, tabId) : next;
 }
 
 export type SavedNoteDocument = { title: string; content: string; baseRevision?: LocalRevision | null };

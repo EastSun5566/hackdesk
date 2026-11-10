@@ -288,11 +288,19 @@ export const EntityRow = forwardRef<HTMLElement, EntityRowProps>(function Entity
   }
 
   return (
+    // The whole row lights up on hover, so the whole row answers a click: a press on its padding or
+    // the gaps beside its controls acts like one on its content. Keyboard users reach the content
+    // button itself, so this is only for the pointer.
     <div
       ref={ref as Ref<HTMLDivElement>}
       aria-label={ariaLabel}
       title={titleAttribute}
       className={rowClassName}
+      onClick={contentOnClick ? (event) => {
+        if (event.target !== event.currentTarget) return;
+        event.currentTarget.querySelector<HTMLElement>('[data-folder-tree-primary="true"]')?.focus({ preventScroll: true });
+        contentOnClick();
+      } : undefined}
     >
       {contextMenu ? (
         <>

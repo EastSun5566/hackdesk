@@ -25,7 +25,10 @@ import {
   navigateNoteWorkspace,
   noteIdentityMatches,
   openDraftNoteTab,
+  getTabByNoteIdentity,
+  keepNoteTab,
   openNoteInPlace,
+  openNotePreview,
   openNoteTab,
   readNoteWorkspaceLayoutStorage,
   reopenLastClosedTab,
@@ -153,6 +156,24 @@ export function useNoteWorkspaceTabs(scopeKey: string | null, initializeDraft = 
 
   const openNote = useCallback((note: NoteSummary, paneId?: string) => {
     updateWorkspace(scopeKey, (current) => openNoteTab(current, note, paneId));
+  }, [scopeKey, updateWorkspace]);
+
+  /** Opens a note from the sidebar in the pane's preview tab (see openNotePreview). */
+  const openNoteAsPreview = useCallback((note: NoteSummary, paneId?: string) => {
+    updateWorkspace(scopeKey, (current) => openNotePreview(current, note, paneId));
+  }, [scopeKey, updateWorkspace]);
+
+  /** Keeps a preview tab open, as double-clicking it does. */
+  const keepTab = useCallback((tabId: string) => {
+    updateWorkspace(scopeKey, (current) => keepNoteTab(current, tabId));
+  }, [scopeKey, updateWorkspace]);
+
+  /** Keeps the tab showing a note, as double-clicking the note in the sidebar does. */
+  const keepNote = useCallback((note: NoteIdentity) => {
+    updateWorkspace(scopeKey, (current) => {
+      const tab = getTabByNoteIdentity(current, note);
+      return tab ? keepNoteTab(current, tab.tabId) : current;
+    });
   }, [scopeKey, updateWorkspace]);
 
   /** Shows the note in the active tab rather than a new one, as a book's tab turns chapters. */
@@ -321,6 +342,9 @@ export function useNoteWorkspaceTabs(scopeKey: string | null, initializeDraft = 
     activeTab,
     visibleActiveTabs,
     openNote,
+    openNoteAsPreview,
+    keepTab,
+    keepNote,
     showNoteInActiveTab,
     openDraftNote,
     openRecoverableDraftNote,

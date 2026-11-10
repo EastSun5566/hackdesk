@@ -10,6 +10,8 @@ export type ElectronHomeSelectNoteOptions = {
   trackRecent?: boolean;
   /** Show it in the active tab instead of a new one, as a book's tab turns chapters. */
   inPlace?: boolean;
+  /** Open it in the pane's preview tab, which the next sidebar pick replaces. */
+  preview?: boolean;
 };
 
 export type ElectronHomeSelectionOptions = {
@@ -18,7 +20,9 @@ export type ElectronHomeSelectionOptions = {
   getNotePaneId?: (note: NoteSummary) => string | undefined;
   activeTab: OpenNoteTab | null;
   requestEditorFocus: () => void;
-  openNoteInWorkspace: (note: NoteSummary, options?: { inPlace?: boolean }) => void;
+  openNoteInWorkspace: (note: NoteSummary, options?: { inPlace?: boolean; preview?: boolean }) => void;
+  /** Keeps the tab showing a note, so the next sidebar pick does not replace it. */
+  keepNoteInWorkspace?: (note: NoteIdentity) => void;
   selectionRefs: ElectronHomeSelectionRefs;
   trackRecentNote: (note: NoteSummary) => void;
 };
@@ -45,6 +49,7 @@ export function useElectronHomeSelection({
   requestEditorFocus,
   scopeStorageKey,
   openNoteInWorkspace,
+  keepNoteInWorkspace,
   selectionRefs,
   trackRecentNote,
 }: ElectronHomeSelectionOptions) {
@@ -78,7 +83,7 @@ export function useElectronHomeSelection({
   ) => {
     autoSelectSuppressionRef.current = null;
     manualEmptyWorkspaceRef.current = false;
-    openNoteInWorkspace(note, { inPlace: options.inPlace });
+    openNoteInWorkspace(note, { inPlace: options.inPlace, preview: options.preview });
     if (options.trackRecent ?? true) {
       trackRecentNote(note);
     }
@@ -91,12 +96,18 @@ export function useElectronHomeSelection({
     return true;
   }, [activePaneId, getNotePaneId, autoSelectSuppressionRef, manualEmptyWorkspaceRef, openNoteInWorkspace, scopeStorageKey, trackRecentNote]);
 
+  // A click in the sidebar previews the note; a double-click keeps its tab.
   const handleNoteSelect = useCallback((note: NoteSummary) => {
-    void requestSelectNote(note, { focusEditor: true, trackRecent: true });
+    void requestSelectNote(note, { focusEditor: true, trackRecent: true, preview: true });
   }, [requestSelectNote]);
+
+  const handleNoteKeep = useCallback((note: NoteSummary) => {
+    void requestSelectNote(note, { focusEditor: true, trackRecent: true }).then(() => keepNoteInWorkspace?.(note));
+  }, [keepNoteInWorkspace, requestSelectNote]);
 
   return {
     autoSelectSuppressionRef,
+    handleNoteKeep,
     handleNoteSelect,
     manualEmptyWorkspaceRef,
     requestSelectNote,

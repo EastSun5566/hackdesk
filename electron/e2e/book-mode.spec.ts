@@ -107,6 +107,10 @@ test('a HackMD book shows its contents and walks through its chapters', async ()
     await expect(editor(page)).toContainText('Setup body text.');
     await expect(contents(page)).toHaveCount(0);
     await expect(page.getByRole('tab', { selected: true }).locator('[data-tab-book]')).toHaveCount(0);
+    // A sidebar pick is a preview tab; double-clicking the note keeps it before the next pick.
+    await expect(page.getByRole('tab', { selected: true })).toHaveAccessibleName(/^Setup, preview/);
+    await page.getByRole('treeitem', { name: 'Setup', exact: true }).dblclick();
+    await expect(page.getByRole('tab', { selected: true })).toHaveAccessibleName(/^Setup(?!, preview)/);
     await page.getByRole('treeitem', { name: 'Handbook', exact: true }).click();
     await expect(contents(page)).toHaveCount(0);
     await expect(page.locator('[data-book-contents-note]')).toHaveCount(0);

@@ -41,6 +41,7 @@ export type ElectronHomeWorkspaceProps = {
       requestCloseTab: (tabId: string) => Promise<unknown>;
       requestCloseTabsToRight: (paneId: string, tabId: string) => Promise<unknown>;
       selectTab: (paneId: string, tabId: string) => void;
+      keepTab: (tabId: string) => void;
       reorderTab: (paneId: string, tabId: string, overTabId: string) => void;
       splitActiveTab: () => void;
       splitActivePaneDown: () => void;
@@ -99,6 +100,7 @@ export function ElectronHomeWorkspace({
             titlebar.actions.selectTab(activeTitlebarPane.paneId, tabId);
           }
         }}
+        onKeepTab={titlebar.actions.keepTab}
         onSplitPane={titlebar.actions.splitActiveTab}
         paneLayout={{
           zoomed: Boolean(titlebar.state.zoomedPaneId),

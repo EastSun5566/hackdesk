@@ -234,6 +234,7 @@ export function Home() {
   );
   const {
     autoSelectSuppressionRef,
+    handleNoteKeep,
     handleNoteSelect,
     manualEmptyWorkspaceRef,
     requestSelectNote,
@@ -247,7 +248,10 @@ export function Home() {
     },
     requestEditorFocus,
     scopeStorageKey,
-    openNoteInWorkspace: (note, options) => (options?.inPlace ? noteWorkspace.showNoteInActiveTab(note) : noteWorkspace.openNote(note)),
+    openNoteInWorkspace: (note, options) => (options?.inPlace
+      ? noteWorkspace.showNoteInActiveTab(note)
+      : options?.preview ? noteWorkspace.openNoteAsPreview(note) : noteWorkspace.openNote(note)),
+    keepNoteInWorkspace: noteWorkspace.keepNote,
     selectionRefs,
     trackRecentNote,
   });
@@ -1188,6 +1192,7 @@ export function Home() {
       handleImportMarkdownNote,
       handleCreateNoteFromTemplate: folderCommands.handleCreateNoteFromTemplate,
       handleHackmdDisconnected,
+      handleNoteKeep,
       handleNoteSelect,
       handleOpenEditor,
       handleOpenExternal,

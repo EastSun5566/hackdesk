@@ -224,6 +224,8 @@ export type FolderNavigatorActions = {
   onImportMarkdown: () => void;
   onNoteMove: (operation: NoteDropOperation) => void;
   onNoteSelect: (note: NoteSummary) => void;
+  /** Opens a note in a tab that stays: what double-clicking it in the sidebar does. */
+  onNoteKeep?: (note: NoteSummary) => void;
   onNoteRevealInFinder: (note: NoteSummary) => void;
   onOpenNote: (note: NoteSummary) => void;
   /** Moves the selection into another folder in the open working set, switching it in first. */
@@ -617,6 +619,17 @@ const MemoNavigatorContent = memo(function NavigatorContent({
           below it instead of under it: 2.5rem is its 8px cover plus its 32px row. */}
       <div
         ref={setScroller}
+        // One listener for every note row (tree, search results and the other folders of a set): a
+        // click previews the note, a double-click keeps its tab.
+        onDoubleClick={actions.onNoteKeep ? (event) => {
+          const target = event.target instanceof Element ? event.target : null;
+          const row = target?.closest<HTMLElement>('[data-folder-tree-note-id], [data-workspace-note-id]');
+          if (!row) return;
+          const noteId = row.dataset.folderTreeNoteId ?? row.dataset.workspaceNoteId;
+          const entry = tree.allNotes.find((candidate) => candidate.note.id === noteId)
+            ?? workspaceFolders?.flatMap((folder) => folder.tree.allNotes).find((candidate) => candidate.note.id === noteId);
+          if (entry) actions.onNoteKeep?.(entry.note);
+        } : undefined}
         data-overflow-start={overflow.start || undefined}
         data-overflow-end={overflow.end || undefined}
         className={cn('scroll-edges-source min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-2', pinnedRootShown && 'scroll-pt-10')}

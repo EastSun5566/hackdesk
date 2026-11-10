@@ -161,6 +161,7 @@ function createProps(overrides: Partial<ElectronHomeWorkspaceProps> = {}): Elect
         requestCloseTab: vi.fn().mockResolvedValue(undefined),
         requestCloseTabsToRight: vi.fn().mockResolvedValue(undefined),
         selectTab: vi.fn(),
+        keepTab: vi.fn(),
         splitActiveTab: noop,
         splitActivePaneDown: noop,
         togglePaneZoom: noop,

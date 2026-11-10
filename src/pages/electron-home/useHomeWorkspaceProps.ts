@@ -72,6 +72,7 @@ type WorkspaceActions = {
   handleCreateNoteFromTemplate: () => void;
   handleHackmdDisconnected: () => void;
   handleNoteSelect: ElectronHomeWorkspaceProps['navigator']['actions']['onNoteSelect'];
+  handleNoteKeep: NonNullable<ElectronHomeWorkspaceProps['navigator']['actions']['onNoteKeep']>;
   handleOpenEditor: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenNote'];
   handleOpenExternal: ElectronHomeWorkspaceProps['documentWorkspace']['onOpenExternal'];
   openHackmdTokenSetup: ElectronHomeWorkspaceProps['navigator']['actions']['onOpenSettings'];
@@ -306,6 +307,7 @@ export function useHomeWorkspaceProps({
         requestCloseTab: tabLifecycle.requestCloseTab,
         requestCloseTabsToRight: tabLifecycle.requestCloseTabsToRight,
         selectTab: noteWorkspace.selectTab,
+        keepTab: noteWorkspace.keepTab,
         reorderTab: noteWorkspace.reorderTab,
         splitActiveTab: noteWorkspace.splitActiveTab,
         splitActivePaneDown: noteWorkspace.splitActivePaneDown,
@@ -401,6 +403,7 @@ export function useHomeWorkspaceProps({
         onFolderRevealInFinder: localVaultActions.revealLocalFolder,
         // Opening a note from the sidebar makes its folder the selection, so the tree highlights
         // one row (the note) and new notes go beside it.
+        onNoteKeep: actions.handleNoteKeep,
         onNoteSelect: (note) => {
           const entry = folderTree.allNotes.find((candidate) => candidate.note.id === note.id);
           if (entry) navigator.handleFolderSelect(entry.folderPath.at(-1)?.id ?? UNFILED_FOLDER_ID);

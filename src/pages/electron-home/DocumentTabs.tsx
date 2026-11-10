@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-import { isBlankNoteTab, isDraftNoteTab, type OpenNoteTab } from './note-workspace';
+import { isBlankNoteTab, isDraftNoteTab, isPreviewNoteTab, type OpenNoteTab } from './note-workspace';
 import { ToolbarDropdownIconTrigger } from './interaction-primitives';
 import { DOCUMENT_SYNC_STATE_LABELS, type DocumentSyncState } from './document-sync-state';
 import { documentPaneId, documentTabId } from './document-tab-ids';
@@ -66,6 +66,7 @@ function DocumentTab({
   draggedRef,
   onSelect,
   onClose,
+  onKeep,
   focused,
   paneId,
   onFocus,
@@ -78,12 +79,16 @@ function DocumentTab({
   draggedRef: MutableRefObject<boolean>;
   onSelect: () => void;
   onClose: () => void;
+  /** Keeps a preview tab open; double-clicking the tab asks for it. */
+  onKeep?: () => void;
   focused: boolean;
   paneId?: string;
   onFocus: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void;
 }) {
   const title = tab.title || 'Untitled';
+  // A preview tab is replaced by the next note opened from the sidebar; italics say so.
+  const preview = isPreviewNoteTab(tab);
   const lookupNoteSummary = useNoteSummaryLookup();
   const summary = isDraftNoteTab(tab) || isBlankNoteTab(tab) ? undefined : lookupNoteSummary(tab.noteId);
   // A tab on the open book or one of its chapters is the book's tab: it turns chapters in place,
@@ -127,7 +132,11 @@ function DocumentTab({
         tabIndex={focused ? 0 : -1}
         aria-selected={selected}
         aria-controls={paneId ? documentPaneId(paneId) : undefined}
-        aria-label={isBlankNoteTab(tab) || syncState === 'saved' ? title : `${title}, ${DOCUMENT_SYNC_STATE_LABELS[syncState]}`}
+        aria-label={[
+          title,
+          preview ? 'preview' : null,
+          isBlankNoteTab(tab) || syncState === 'saved' ? null : DOCUMENT_SYNC_STATE_LABELS[syncState],
+        ].filter(Boolean).join(', ')}
         className="app-region-no-drag flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
         ref={setActivatorNodeRef}
         {...listeners}
@@ -139,6 +148,7 @@ function DocumentTab({
         onClick={(event) => {
           if (!draggedRef.current || event.detail === 0) onSelect();
         }}
+        onDoubleClick={preview ? () => onKeep?.() : undefined}
       >
         {bookPosition
           ? <NoteKindIcon kind="book" className="h-3.5 w-3.5" />
@@ -146,7 +156,7 @@ function DocumentTab({
         {book && bookPosition && !bookPosition.isBook ? (
           <span aria-hidden="true" data-tab-book className="max-w-24 shrink truncate text-text-subtle">{book.title} ›</span>
         ) : null}
-        <span data-tab-title className="min-w-0 truncate">{title}</span>
+        <span data-tab-title data-tab-preview={preview || undefined} className={cn('min-w-0 truncate', preview && 'italic')}>{title}</span>
         {!isBlankNoteTab(tab) ? <TabStatusIndicator state={syncState} /> : null}
       </button>
         </TooltipTrigger>
@@ -200,6 +210,7 @@ export function DocumentTabs({
   onReopenLastClosedTab,
   onReorderTab,
   onSelectTab,
+  onKeepTab,
   onSplitPane,
   onNewTab,
   paneLayout,
@@ -219,6 +230,8 @@ export function DocumentTabs({
   onReopenLastClosedTab: () => void;
   onReorderTab: (tabId: string, overTabId: string) => void;
   onSelectTab: (tabId: string) => void;
+  /** Keeps a preview tab open (see isPreviewNoteTab). */
+  onKeepTab?: (tabId: string) => void;
   /** Splitting down, zoom and equal sizes for the pane layout. */
   paneLayout: PaneLayoutMenuActions;
   onSplitPane: () => void;
@@ -322,6 +335,7 @@ export function DocumentTabs({
                       activeTabRef={activeTab?.tabId === tab.tabId ? activeTabRef : undefined}
                       onSelect={() => onSelectTab(tab.tabId)}
                       onClose={() => onCloseTab(tab.tabId)}
+                      onKeep={onKeepTab ? () => onKeepTab(tab.tabId) : undefined}
                     />
                   ))}
                 </ul>

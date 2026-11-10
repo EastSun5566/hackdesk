@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 import type { NoteSummary } from '@/lib/electron-api';
 
 import {
+  isPreviewNoteTab,
+  keepNoteTab,
+  openNotePreview,
   openNoteInPlace,
   closeNoteTab,
   closeOtherNoteTabs,
@@ -717,5 +720,56 @@ describe('openNoteInPlace (a book\'s tab turning chapters)', () => {
     expect(tabNote(state)).toBe('alpha');
     expect(Object.keys(state.tabs)).toEqual([bookTab]);
     expect(state.drafts[bookTab]).toEqual(expect.objectContaining({ content: 'alpha edits' }));
+  });
+});
+
+describe('preview tabs', () => {
+  const titles = (state: ReturnType<typeof createEmptyNoteWorkspaceState>) => getActivePaneTitles(state);
+  function getActivePaneTitles(state: ReturnType<typeof createEmptyNoteWorkspaceState>) {
+    const pane = state.panes.find((candidate) => candidate.paneId === state.activePaneId)!;
+    return pane.tabIds.map((tabId) => {
+      const tab = state.tabs[tabId];
+      return `${tab.title}${isPreviewNoteTab(tab) ? ' (preview)' : ''}`;
+    });
+  }
+
+  it('replaces the preview tab with each note opened from the sidebar', () => {
+    let state = openNoteTab(createEmptyNoteWorkspaceState('personal'), note({ id: 'a', title: 'A' }));
+    state = openNotePreview(state, note({ id: 'b', title: 'B' }));
+    expect(titles(state)).toEqual(['A', 'B (preview)']);
+    const previewTabId = getActiveTab(state)!.tabId;
+
+    state = openNotePreview(state, note({ id: 'c', title: 'C' }));
+    expect(titles(state)).toEqual(['A', 'C (preview)']);
+    // The same tab turns, so its place in the strip is kept.
+    expect(getActiveTab(state)!.tabId).toBe(previewTabId);
+
+    // A note already open is shown where it is, and the preview stays as it was.
+    state = openNotePreview(state, note({ id: 'a', title: 'A' }));
+    expect(titles(state)).toEqual(['A', 'C (preview)']);
+    expect(getActiveTab(state)!.title).toBe('A');
+  });
+
+  it('keeps a preview tab once it is double-clicked or its note is edited', () => {
+    let state = openNotePreview(createEmptyNoteWorkspaceState('personal'), note({ id: 'a', title: 'A' }));
+    state = keepNoteTab(state, getActiveTab(state)!.tabId);
+    state = openNotePreview(state, note({ id: 'b', title: 'B' }));
+    expect(titles(state)).toEqual(['A', 'B (preview)']);
+
+    const bTabId = getActiveTab(state)!.tabId;
+    // A draft equal to what was saved is not an edit.
+    state = updateNoteTabDraft(state, bTabId, { title: 'B', content: 'same', baseTitle: 'B', baseContent: 'same' });
+    expect(titles(state)).toEqual(['A', 'B (preview)']);
+    state = updateNoteTabDraft(state, bTabId, { title: 'B', content: 'changed', baseTitle: 'B', baseContent: 'same' });
+    expect(titles(state)).toEqual(['A', 'B']);
+
+    state = openNotePreview(state, note({ id: 'c', title: 'C' }));
+    expect(titles(state)).toEqual(['A', 'B', 'C (preview)']);
+  });
+
+  it('keeps the preview flag through a save and restore of the layout', () => {
+    const state = openNotePreview(createEmptyNoteWorkspaceState('personal'), note({ id: 'a', title: 'A' }));
+    const restored = hydrateNoteWorkspaceLayout('personal', JSON.parse(JSON.stringify(toPersistedNoteWorkspaceLayout(state))));
+    expect(titles(restored)).toEqual(['A (preview)']);
   });
 });

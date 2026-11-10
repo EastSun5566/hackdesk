@@ -849,6 +849,7 @@ function PreviewNodes({
       {notes.map((entry) => (
         <li
           key={`note:${entry.note.id}`}
+          data-workspace-note-id={entry.note.id}
           className="grid min-w-0 gap-0.5 pl-(--preview-indent)"
           style={{ '--preview-indent': `${depth * 12}px` } as CSSProperties}
         >

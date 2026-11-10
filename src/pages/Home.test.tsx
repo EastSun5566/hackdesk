@@ -2136,6 +2136,43 @@ describe('Home native-feel behavior', () => {
     expect(await screen.findAllByRole('tab', { name: /^Test note(?:, .+)?$/ })).toHaveLength(2);
   });
 
+  it('previews notes picked in the sidebar in one tab until one is kept', async () => {
+    const notes = [
+      { ...note, id: 'note-a', title: 'Alpha', shortId: 'alpha', updatedAtMillis: 3000 },
+      { ...note, id: 'note-b', title: 'Beta', shortId: 'beta', updatedAtMillis: 2000 },
+      { ...note, id: 'note-c', title: 'Gamma', shortId: 'gamma', updatedAtMillis: 1000 },
+    ];
+    const api = createApi({
+      hackmd: {
+        ...createApi().hackmd,
+        listNotes: vi.fn(async () => ({ source: 'remote' as const, data: notes })),
+        getNote: vi.fn(async (noteId: string) => ({
+          source: 'remote' as const,
+          data: { ...document, id: noteId, title: notes.find((candidate) => candidate.id === noteId)!.title, content: `# ${noteId}` },
+        })),
+      },
+    });
+    const tabNames = () => screen.getAllByRole('tab').map((tab) => tab.getAttribute('aria-label'));
+
+    renderHome(api);
+    await findRenderedNoteTitle('Alpha');
+    fireEvent.click(await findNoteRow('Beta'));
+    await findRenderedNoteTitle('Beta');
+    // The note shown on launch is a tab of its own; a sidebar pick is a preview.
+    await waitFor(() => expect(tabNames()).toEqual(['Alpha', 'Beta, preview']));
+    fireEvent.click(await findNoteRow('Gamma'));
+    await findRenderedNoteTitle('Gamma');
+    // Gamma took Beta's preview tab instead of opening another.
+    await waitFor(() => expect(tabNames()).toEqual(['Alpha', 'Gamma, preview']));
+
+    // Double-clicking the note in the sidebar keeps its tab; the next pick opens a new preview.
+    fireEvent.doubleClick(await findNoteRow('Gamma'));
+    await waitFor(() => expect(tabNames()).toEqual(['Alpha', 'Gamma']));
+    fireEvent.click(await findNoteRow('Beta'));
+    await findRenderedNoteTitle('Beta');
+    await waitFor(() => expect(tabNames()).toEqual(['Alpha', 'Gamma', 'Beta, preview']));
+  });
+
   it('focuses note tabs with next and previous shortcuts', async () => {
     const notes = [
       { ...note, id: 'note-a', title: 'Alpha', shortId: 'alpha', updatedAtMillis: 3000 },
@@ -2160,9 +2197,15 @@ describe('Home native-feel behavior', () => {
 
     renderHome(api);
     await findRenderedNoteTitle('Alpha');
-    fireEvent.click(await findNoteRow('Beta'));
+    // A click only previews a note; double-clicking keeps each in a tab of its own.
+    const keep = async (title: string) => {
+      const row = await findNoteRow(title);
+      fireEvent.click(row);
+      fireEvent.doubleClick(row);
+    };
+    await keep('Beta');
     await findRenderedNoteTitle('Beta');
-    fireEvent.click(await findNoteRow('Gamma'));
+    await keep('Gamma');
     await findRenderedNoteTitle('Gamma');
 
     fireEvent.keyDown(window, { key: 'ArrowRight', metaKey: true, altKey: true });

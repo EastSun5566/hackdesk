@@ -58,6 +58,7 @@ export function AppTopBar({
   onReopenLastClosedTab,
   onReorderTab,
   onSelectTab,
+  onKeepTab,
   onSplitPane,
   paneLayout,
   paneActions,
@@ -85,6 +86,8 @@ export function AppTopBar({
   onReopenLastClosedTab: () => void;
   onReorderTab: (tabId: string, overTabId: string) => void;
   onSelectTab: (tabId: string) => void;
+  /** Keeps a preview tab open. */
+  onKeepTab?: (tabId: string) => void;
   onSplitPane: () => void;
   paneLayout: PaneLayoutMenuActions;
   paneActions: {
@@ -179,6 +182,7 @@ export function AppTopBar({
         onReopenLastClosedTab={onReopenLastClosedTab}
         onReorderTab={onReorderTab}
         onSelectTab={onSelectTab}
+        onKeepTab={onKeepTab}
         onSplitPane={onSplitPane}
         paneLayout={paneLayout}
         onNewTab={onNewTab}

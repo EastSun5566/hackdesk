@@ -79,7 +79,8 @@ test('a named local workspace groups folders under one root and survives a resta
     await expect(page.getByRole('button', { name: 'B note', exact: true })).toBeVisible();
     await expect(page.locator('.cm-content')).toContainText('Only in A.');
     // B's note opens straight into the set's tabs: A's tab stays, and B's folder becomes the open one.
-    await page.getByRole('button', { name: 'B note', exact: true }).click();
+    // Pressed on the row's padding, outside its label: the whole row opens the note.
+    await page.getByRole('button', { name: 'B note', exact: true }).locator('..').click({ position: { x: 2, y: 2 } });
     await expect(page.locator('.cm-content')).toContainText('Only in B.');
     await expect(page.getByRole('tab', { name: /A note/ })).toHaveCount(1);
     await expect(page.getByRole('tab', { name: /B note/ })).toHaveCount(1);
