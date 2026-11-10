@@ -444,9 +444,10 @@ export function Home() {
         vaultId: settings.localVault.activeVaultId ?? undefined,
       });
     }
-    // A new window opened onto another vault activates it so the window shows what it was opened onto.
-    // Only a window URL names a stored vault id; the saved last scope holds a snapshot id, which never
-    // equals a stored one, so trusting it re-opened the folder (and left its workspace) on every launch.
+    // A new window opened onto another vault or a named workspace activates it so the window shows
+    // what it was opened onto. Only a window URL names a stored vault or workspace id; the saved
+    // last scope holds a snapshot id, which never equals a stored one, so trusting it re-opened the
+    // folder (and left its workspace) on every launch.
     const openedOnto = initialWorkspaceScope.type === 'local' && hasWindowWorkspaceScope()
       ? initialWorkspaceScope.vaultId
       : undefined;
@@ -455,6 +456,16 @@ export function Home() {
       && openedOnto !== settings.localVault.activeVaultId && !vaultSession.isChanging) {
       void localVaultActions.switchLocalVault(openedOnto).catch((error) => {
         toast.error(error instanceof Error ? error.message : 'Failed to open the vault in a new window.');
+      });
+    }
+    const openedWorkspaceId = initialWorkspaceScope.type === 'local' && hasWindowWorkspaceScope()
+      ? initialWorkspaceScope.workspaceId
+      : undefined;
+    if (settings.hasLocalVault && openedWorkspaceId
+      && settings.localVault.workspaces.some((workspace) => workspace.id === openedWorkspaceId)
+      && openedWorkspaceId !== settings.localVault.activeWorkspaceId && !vaultSession.isChanging) {
+      void localVaultActions.activateLocalWorkspace(openedWorkspaceId).catch((error) => {
+        toast.error(error instanceof Error ? error.message : 'Failed to open the workspace in a new window.');
       });
     }
   }, [initialWorkspaceScope, scope.type, setWorkspaceScope, settings, usingInitialDrafts, vaultSession.isChanging]);
@@ -1232,9 +1243,11 @@ export function Home() {
         void (async () => {
           const owner = snapshotForLocalNote(note);
           if (note.teamPath === LOCAL_VAULT_TEAM_PATH && !owner) throw new Error('The local vault is no longer available.');
+          // A rename writes only the title: a HackMD note renames straight from its summary, while
+          // a local write needs the file's content and revision, so only that fetches the document.
           const result = note.teamPath === LOCAL_VAULT_TEAM_PATH && owner
             ? toDocumentSummary(await api.localVault.readNote(note.id), owner)
-            : await api.hackmd.getNote(note.id, note.teamPath ?? null).then((value) => { if (value.source === 'error') throw new Error(value.error); return value.data; });
+            : note;
           mutations.updateNoteMutation.mutate({ note: result, input: { title: name }, intent: 'metadata' });
         })().catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to rename note.'));
       },

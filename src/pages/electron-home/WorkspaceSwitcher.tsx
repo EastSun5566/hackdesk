@@ -623,6 +623,7 @@ export function WorkspaceSwitcher({
                             onSwitcherOpenChange(false);
                             onActivateLocalWorkspace?.(workspace.id);
                           }}
+                          onOpenInNewWindow={openOut ? () => openOut({ type: 'local', label: workspace.name, workspaceId: workspace.id }) : undefined}
                           openModifierHint={openModifierHint}
                         />
                         </div>

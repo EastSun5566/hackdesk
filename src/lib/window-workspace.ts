@@ -1,14 +1,15 @@
 /**
  * The workspace a new window boots into, carried in its entry URL
  * (`#/electron?workspace=...`) so the first render already shows it.
- * A local scope may name a vault; the new window activates it on boot.
- * Without a vault id, a local scope means the active vault.
+ * A local scope may name a vault or a named workspace; the new window
+ * activates it on boot. Without either, a local scope means the active vault.
  */
 export type WindowWorkspaceScope = {
   type: 'local' | 'personal' | 'history' | 'team';
   label: string;
   teamPath?: string;
   vaultId?: string;
+  workspaceId?: string;
 };
 
 export const WINDOW_WORKSPACE_PARAM = 'workspace';
@@ -19,7 +20,7 @@ function cleanScope(value: unknown): WindowWorkspaceScope | null {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return null;
   }
-  const { type, label, teamPath, vaultId } = value as Record<string, unknown>;
+  const { type, label, teamPath, vaultId, workspaceId } = value as Record<string, unknown>;
   if (typeof type !== 'string' || !SCOPE_TYPES.has(type) || typeof label !== 'string' || !label.trim() || label.trim().length > 200) {
     return null;
   }
@@ -27,7 +28,7 @@ function cleanScope(value: unknown): WindowWorkspaceScope | null {
     if (typeof teamPath !== 'string' || !teamPath.trim() || teamPath.trim().length > 500) {
       return null;
     }
-    return vaultId === undefined
+    return vaultId === undefined && workspaceId === undefined
       ? { type: 'team', label: label.trim(), teamPath: teamPath.trim() }
       : null;
   }
@@ -37,9 +38,13 @@ function cleanScope(value: unknown): WindowWorkspaceScope | null {
   if (vaultId !== undefined && (type !== 'local' || typeof vaultId !== 'string' || !vaultId.trim() || vaultId.trim().length > 200)) {
     return null;
   }
-  return vaultId === undefined
-    ? { type: type as WindowWorkspaceScope['type'], label: label.trim() }
-    : { type: type as WindowWorkspaceScope['type'], label: label.trim(), vaultId: vaultId.trim() };
+  if (workspaceId !== undefined && (type !== 'local' || typeof workspaceId !== 'string' || !workspaceId.trim() || workspaceId.trim().length > 200)) {
+    return null;
+  }
+  const cleaned: WindowWorkspaceScope = { type: type as WindowWorkspaceScope['type'], label: label.trim() };
+  if (vaultId !== undefined) cleaned.vaultId = vaultId.trim();
+  if (workspaceId !== undefined) cleaned.workspaceId = workspaceId.trim();
+  return cleaned;
 }
 
 export function encodeWindowWorkspaceScope(scope: WindowWorkspaceScope): string {

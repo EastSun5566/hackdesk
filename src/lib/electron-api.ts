@@ -682,12 +682,13 @@ export type PresentationDeck = {
   content: string;
 };
 
-/** A workspace a new window boots into. A local scope may name a vault to activate; without one it means the active vault. */
+/** A workspace a new window boots into. A local scope may name a vault or a named workspace to activate; without either it means the active vault. */
 export type NewWindowWorkspaceScope = {
   type: 'local' | 'personal' | 'history' | 'team';
   label: string;
   teamPath?: string;
   vaultId?: string;
+  workspaceId?: string;
 };
 
 export type NewWindowInput = {
