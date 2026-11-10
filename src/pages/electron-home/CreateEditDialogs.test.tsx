@@ -47,6 +47,13 @@ describe('create and edit dialogs', () => {
     expect(createButton.querySelector('svg')).toHaveClass('motion-reduce:animate-none');
   });
 
+  it('opens the location selector from the New Note dialog', () => {
+    const onChooseLocation = vi.fn();
+    render(<CreateNoteDialog state={{ open: true, title: 'Draft note' }} scopeLabel="My Workspace" folderLabel="Projects" isCreating={false} onStateChange={vi.fn()} onCreate={vi.fn()} onChooseLocation={onChooseLocation} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Change location, current: My Workspace / Projects' }));
+    expect(onChooseLocation).toHaveBeenCalledOnce();
+  });
+
   it('keeps New Folder payload semantics while reducing visible copy', () => {
     const onCreate = vi.fn();
 

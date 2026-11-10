@@ -61,10 +61,9 @@ describe('FolderPickerDialog', () => {
     renderDialog();
     expect(await screen.findByRole('option', { name: 'Notes' })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Filter folders' }), { target: { value: 'notes' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter folders' }), { target: { value: 'notes' } });
     expect(screen.queryByRole('option', { name: 'Projects' })).toBeNull();
-    const listbox = screen.getByRole('listbox', { name: 'Folders' });
-    fireEvent.keyDown(listbox, { key: 'Enter' });
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'Filter folders' }), { key: 'Enter' });
     expect(await screen.findByRole('option', { name: 'Parent folder' })).toBeInTheDocument();
   });
 
@@ -72,7 +71,7 @@ describe('FolderPickerDialog', () => {
     renderDialog();
     expect(await screen.findByRole('option', { name: 'Notes' })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Filter folders' }), { target: { value: 'zzz' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter folders' }), { target: { value: 'zzz' } });
     expect(await screen.findByRole('status')).toHaveTextContent('No folders match.');
   });
 
@@ -99,7 +98,19 @@ describe('FolderPickerDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
     await waitFor(() => expect(electronApi.localVault.createDirectory).toHaveBeenCalledWith({ parentPath: '/home/user', name: 'Fresh' }));
-    expect(screen.getByRole('textbox', { name: 'Filter folders' })).toHaveValue('Fresh');
+    expect(screen.getByRole('combobox', { name: 'Filter folders' })).toHaveValue('Fresh');
+  });
+
+  it('navigates and adds a highlighted folder directly from the filter', async () => {
+    const onChoose = vi.fn();
+    renderDialog({ onChoose });
+    await screen.findByRole('option', { name: 'Notes' });
+    const filter = screen.getByRole('combobox', { name: 'Filter folders' });
+    fireEvent.keyDown(filter, { key: 'ArrowDown' });
+    expect(screen.getByRole('option', { name: 'Notes' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.keyDown(filter, { key: 'Enter', metaKey: true });
+    expect(onChoose).toHaveBeenCalledOnce();
+    expect(onChoose).toHaveBeenCalledWith('/home/user/Notes');
   });
 
   it('reports a browse failure with a retry', async () => {

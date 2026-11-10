@@ -16,7 +16,7 @@ export type WorkspaceScope =
 
 export type CommandPaletteState = {
   /** move-note lists folders for the selected note instead of searching. */
-  mode: 'commands' | 'quick-open' | 'move-note';
+  mode: 'commands' | 'quick-open' | 'move-note' | 'move-folder' | 'choose-note-folder';
   open: boolean;
   search: string;
 };

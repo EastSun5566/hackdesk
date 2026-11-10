@@ -9,6 +9,7 @@ import { adaptLocalVaultSnapshot } from './local-vault-adapter';
 import { getLocalVaultVaultSnapshotQueryKey } from './local-vault-query';
 import type { WorkspaceFolderTree } from './FolderNavigator';
 import { localVaultFolderName } from './workspace-root-labels';
+import { useShowHiddenFiles } from './hidden-files-preference';
 
 const EMPTY_TREE: FolderTree = buildHackmdFolderTree([], []);
 
@@ -34,6 +35,7 @@ export function useWorkspaceFolderTrees({
   vaults: { id: string; path: string }[];
 }): WorkspaceFolderTree[] {
   const queryClient = useQueryClient();
+  const showHidden = useShowHiddenFiles();
   // Folder caches are keyed by stored id; a snapshot carries its manifest id, which differs. The
   // session snapshot always belongs to the stored active folder, so it is cached under that id.
   useEffect(() => {
@@ -75,7 +77,7 @@ export function useWorkspaceFolderTrees({
     const active = vault.id === activeVaultId;
     const result = resultsRef.current[index];
     const snapshot = active ? null : result?.data ?? null;
-    const { folders: snapshotFolders, notes } = adaptLocalVaultSnapshot(snapshot);
+    const { folders: snapshotFolders, notes } = adaptLocalVaultSnapshot(snapshot, showHidden);
     return {
       id: vault.id,
       label: localVaultFolderName(vault.path),
@@ -88,5 +90,5 @@ export function useWorkspaceFolderTrees({
       // A failed refresh keeps the last good tree instead of replacing it with an error.
       error: !active && !snapshot && result?.error instanceof Error ? result.error.message : null,
     };
-  }), [activeSnapshot?.vaultId, activeVaultId, folders, resultsSignature]);
+  }), [activeSnapshot?.vaultId, activeVaultId, folders, resultsSignature, showHidden]);
 }

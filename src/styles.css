@@ -513,6 +513,15 @@
     opacity: 1;
   }
 
+  .workspace-root-row:has([aria-label="View options"][aria-expanded="true"]) {
+    background-color: var(--background-hover);
+    color: var(--text-default);
+  }
+
+  .workspace-root-row:has([aria-label="View options"][aria-expanded="true"]) .entity-row-menu {
+    opacity: 1;
+  }
+
   /* A resize handle that is a surface's border (PanelResizeSash edge): it lays a primary line over
      the border beside it while hovered, focused or dragged. The line fades out toward both ends and
      is gone before the surface's rounded corners turn away from it. */

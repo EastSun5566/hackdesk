@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
+import { useShowHiddenFiles } from './hidden-files-preference';
 
 import type { DocumentSummary, HackDeskElectronAPI, RepositoryValue } from '@/lib/electron-api';
 import type { LocalVaultSnapshot } from '@/lib/local-vault';
@@ -45,6 +46,7 @@ export function useElectronLocalVault({
   selectedNote: NoteIdentity | null;
 }) {
   const queryClient = useQueryClient();
+  const showHidden = useShowHiddenFiles();
   const previousSnapshot = useRef<LocalVaultSnapshot | null>(null);
   useEffect(() => {
     const previous = previousSnapshot.current;
@@ -74,7 +76,7 @@ export function useElectronLocalVault({
     (note: NoteIdentity) => snapshotByNoteId.get(note.id) ?? snapshot,
     [snapshot, snapshotByNoteId],
   );
-  const { folders, notes } = useMemo(() => adaptLocalVaultSnapshot(snapshot), [snapshot]);
+  const { folders, notes } = useMemo(() => adaptLocalVaultSnapshot(snapshot, showHidden), [snapshot, showHidden]);
   const selectedDocumentNotes = useMemo(() => {
     const input = [...(activeDocumentNotes ?? [])];
     if (selectedNote && isLocalNoteIdentity(selectedNote)) {

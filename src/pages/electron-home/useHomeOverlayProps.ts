@@ -38,6 +38,7 @@ export function useHomeOverlayProps({
   localVaultSnapshot,
   mutations,
   onHackmdDisconnected,
+  onChooseNoteLocation,
   onboardingOpen,
   runAction,
   selectedFolderLabel,
@@ -67,6 +68,7 @@ export function useHomeOverlayProps({
   localVaultSnapshot: ElectronHomeOverlaysProps['dialogs']['localVaultSnapshot'];
   mutations: NoteMutations;
   onHackmdDisconnected: () => void;
+  onChooseNoteLocation?: () => void;
   onboardingOpen: boolean;
   runAction: WorkbenchActions['runAction'];
   selectedFolderLabel: string | null;
@@ -112,6 +114,7 @@ export function useHomeOverlayProps({
       onCreateFolder: (input) => mutations.createFolderMutation.mutate(input),
       onCreateFolderStateChange: dialogState.setCreateFolderDialog,
       onCreateNote: (title) => mutations.createNoteMutation.mutate(title),
+      onChooseNoteLocation,
       onCreateNoteStateChange: dialogState.setCreateDialog,
       onChooseLocalVault: localVaultActions.chooseLocalVault,
       onDisconnectHackmd: () => {

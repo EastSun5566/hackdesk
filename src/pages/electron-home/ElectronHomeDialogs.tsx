@@ -54,6 +54,7 @@ export type ElectronHomeDialogsProps = {
   onCreateFolder: (input: CreateFolderInput) => void;
   onCreateFolderStateChange: (state: CreateFolderDialogState) => void;
   onCreateNote: (title: string) => void;
+  onChooseNoteLocation?: () => void;
   onCreateNoteStateChange: (state: CreateNoteDialogState) => void;
   onChooseLocalVault: () => Promise<void | boolean>;
   onDisconnectHackmd: () => void;
@@ -96,6 +97,7 @@ export function ElectronHomeDialogs({
   onCreateFolder,
   onCreateFolderStateChange,
   onCreateNote,
+  onChooseNoteLocation,
   onCreateNoteStateChange,
   onChooseLocalVault,
   onDisconnectHackmd,
@@ -172,6 +174,7 @@ export function ElectronHomeDialogs({
         isCreating={status.creatingNote}
         onStateChange={onCreateNoteStateChange}
         onCreate={onCreateNote}
+        onChooseLocation={onChooseNoteLocation}
       />
 
       <CreateFolderDialog

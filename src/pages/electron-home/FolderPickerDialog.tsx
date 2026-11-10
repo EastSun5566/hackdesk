@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { CornerUpLeft, FolderOpen, FolderPlus, Home, Loader2, Search } from 'lucide-react';
 import {
   Dialog,
@@ -51,6 +51,7 @@ export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onCho
   const generation = useRef(0);
   const listRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLInputElement>(null);
+  const listId = useId();
 
   const browse = useCallback(async (path?: string | null) => {
     if (!api) {
@@ -133,6 +134,7 @@ export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onCho
   }, [descend, entries, goUp, showUpRow]);
 
   const onListKeyDown = (event: React.KeyboardEvent) => {
+    if (loading || error || !listing) return;
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       if (rowCount === 0) {
@@ -145,9 +147,8 @@ export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onCho
       activateRow(clampedHighlight);
     } else if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
-      if (listing) {
-        onChoose(listing.path);
-      }
+      const selected = entries[showUpRow ? clampedHighlight - 1 : clampedHighlight];
+      onChoose(selected?.path ?? listing.path);
     } else if ((event.key === 'Backspace' || event.key === 'ArrowLeft') && !creating) {
       event.preventDefault();
       goUp();
@@ -164,6 +165,7 @@ export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onCho
       await api.localVault.createDirectory({ parentPath: listing.path, name });
       await browse(listing.path);
       setFilter(name);
+      window.requestAnimationFrame(() => filterRef.current?.focus());
       toast.success('Folder created.', { description: name });
     } catch (requestError) {
       toast.error(requestError instanceof Error ? requestError.message : 'That folder could not be created.');
@@ -176,11 +178,17 @@ export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onCho
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="md">
+        <DialogContent size="md" onKeyDown={(event) => {
+          if (!event.defaultPrevented && event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !creating && listing && !loading && !error) {
+            event.preventDefault();
+            const selected = entries[showUpRow ? clampedHighlight - 1 : clampedHighlight];
+            onChoose(selected?.path ?? listing.path);
+          }
+        }}>
         <DialogHeader>
           <DialogTitle>Choose a Vault Folder</DialogTitle>
           <DialogDescription>
-            Pick the folder of Markdown files to use as a vault. Type to filter, Enter opens a folder.
+            Browse to a folder of Markdown files. Enter opens a folder; ⌘ Enter adds the highlighted folder.
           </DialogDescription>
         </DialogHeader>
         <div className="flex min-w-0 items-center gap-1.5">
@@ -193,7 +201,7 @@ export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onCho
           >
             <Home aria-hidden="true" className="size-4" />
           </Button>
-          <nav aria-label="Current folder" className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto rounded border border-border-default bg-background-muted px-1.5 py-1 text-xs">
+          <nav aria-label="Current folder" className="flex h-8 min-w-0 flex-1 items-center gap-0.5 overflow-x-auto rounded border border-border-default bg-background-muted px-1.5 py-1 text-xs">
             {crumbs.map((crumb, index) => (
               <span key={crumb} className="flex shrink-0 items-center gap-0.5">
                 {index > 0 ? <span aria-hidden="true" className="text-text-subtle">/</span> : null}
@@ -223,6 +231,17 @@ export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onCho
             }}
             placeholder="Filter folders…"
             aria-label="Filter folders"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls={listId}
+            aria-activedescendant={!loading && !error && rowCount ? `${listId}-row-${clampedHighlight}` : undefined}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter'
+                || (event.key === 'Backspace' && !filter)) {
+                onListKeyDown(event);
+                if (event.defaultPrevented) event.stopPropagation();
+              }
+            }}
             autoComplete="off"
             spellCheck={false}
             className="pl-8"
@@ -230,11 +249,13 @@ export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onCho
         </div>
         <div
           ref={listRef}
+          id={listId}
           role="listbox"
           aria-label="Folders"
           tabIndex={0}
           onKeyDown={onListKeyDown}
-          className="max-h-64 min-h-32 overflow-y-auto rounded border border-border-default outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          aria-activedescendant={!loading && !error && rowCount ? `${listId}-row-${clampedHighlight}` : undefined}
+          className="h-64 overflow-y-auto rounded border border-border-default outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
         >
           {loading && !listing ? (
             <p role="status" className="flex items-center gap-2 px-3 py-6 text-sm text-text-subtle">
@@ -259,6 +280,8 @@ export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onCho
                   <button
                     type="button"
                     role="option"
+                    id={`${listId}-row-0`}
+                    tabIndex={-1}
                     aria-selected={clampedHighlight === 0}
                     data-highlighted={clampedHighlight === 0 || undefined}
                     onClick={goUp}
@@ -281,6 +304,8 @@ export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onCho
                     <button
                       type="button"
                       role="option"
+                      id={`${listId}-row-${row}`}
+                      tabIndex={-1}
                       aria-selected={highlighted}
                       data-highlighted={highlighted || undefined}
                       onClick={() => descend(entry.path)}
@@ -302,7 +327,7 @@ export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onCho
         </div>
         {creating ? (
           <form
-            className="flex items-center gap-1.5"
+            className="flex h-9 items-center gap-1.5"
             onSubmit={(event) => {
               event.preventDefault();
               void createFolder();
@@ -326,7 +351,7 @@ export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onCho
             </Button>
           </form>
         ) : (
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex h-9 items-center justify-between gap-2">
             <Button
               variant="secondary"
               size="sm"
@@ -336,14 +361,14 @@ export function FolderPickerDialog({ api, open, initialPath, onOpenChange, onCho
               <FolderPlus aria-hidden="true" className="size-3.5" />
               New Folder
             </Button>
-            <p className="text-xs text-text-subtle">↑↓ move · Enter opens · ⌫ goes up · ⌘↵ chooses</p>
+            <p className="text-xs text-text-subtle">↑↓ move · Enter opens · ⌫ goes up · ⌘↵ adds</p>
           </div>
         )}
         <DialogFooter>
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button variant="primary" disabled={!listing || loading} onClick={() => listing && onChoose(listing.path)}>
+          <Button variant="primary" disabled={!listing || loading || !!error} onClick={() => listing && onChoose(listing.path)}>
             Choose {listing ? `“${currentName(listing.path)}”` : 'Folder'}
           </Button>
         </DialogFooter>

@@ -69,6 +69,7 @@ import type { WorkspaceScope } from './types';
 import { NOTE_FINDER_RESULTS_ID, NoteFilterChips, NoteSearchField, NoteViewOptionsMenu, type NoteFinderResults } from './FolderNavigatorFinder';
 import {
   FolderDragOverlay,
+  RowOperationsContext,
   FolderTreeView,
   NoteDragOverlay,
   NoteListSkeleton,
@@ -220,6 +221,8 @@ export type FolderNavigatorActions = {
   onFolderDrop: (operation: FolderDropOperation) => void;
   onFolderSelect: (folderId: string | null) => void;
   onFolderToggle: (folderId: string) => void;
+  onExpandAllFolders?: () => void;
+  onCollapseAllFolders?: () => void;
   onFolderRevealInFinder: (folderId: string) => void;
   onImportMarkdown: () => void;
   onNoteMove: (operation: NoteDropOperation) => void;
@@ -239,6 +242,10 @@ export type FolderNavigatorActions = {
   onRefresh: () => void;
   onRevealNoteFolder: (entry: FolderTreeNote) => void;
   onRenameFolder: (folderId: string) => void;
+  onRenameNoteInline?: (note: NoteSummary, name: string) => void;
+  onRenameFolderInline?: (folderId: string, name: string) => void;
+  onMoveNoteRequest?: (note: NoteSummary) => void;
+  onMoveFolderRequest?: (folderId: string) => void;
 };
 
 export type WorkspaceFolderTree = {
@@ -334,7 +341,7 @@ function FolderNavigatorPanel({
           to the left with that edge rather than sitting still under the note card. The width queries
           (note-navigator) read this full width, so rows never change mid-animation. */}
       <div className="note-navigator scroll-edges flex min-h-0 w-(--sidebar-content-width) flex-1 shrink-0 flex-col self-end">
-        <ExpandedNavigator
+        <RowOperationsContext.Provider value={{ renameNote: actions.onRenameNoteInline, renameFolder: actions.onRenameFolderInline, moveNote: actions.onMoveNoteRequest, moveFolder: actions.onMoveFolderRequest }}><ExpandedNavigator
           actions={actions}
           emptyState={emptyState}
           entries={entries}
@@ -350,7 +357,7 @@ function FolderNavigatorPanel({
           tree={tree}
           trash={trash}
           workspace={workspace}
-        />
+        /></RowOperationsContext.Provider>
         {/* Pinned above the account row rather than at the end of the tree, so a long workspace
             never pushes it out of reach. Search hides it with the tree. */}
         {trash && (scope.type === 'personal' || scope.type === 'team') && !isNoteFinderActive(finderState) ? (
@@ -433,7 +440,7 @@ function ExpandedNavigator({
       {trash?.open ? <TrashNavigatorTitleBar trash={trash} /> : null}
       {/* A flat list (results, a changed view, or History) has no root row to hold View options,
           so it gets a header row of its own in the same place. */}
-      {!trash?.open && (isFinderMode || scope.type === 'history') ? (
+      {!trash?.open && (isFinderMode || scope.type === 'history' || (scope.type === 'local' && tree.roots.length === 0 && tree.unfiled.notes.length === 0 && !workspaceFolders?.some((folder) => folder.tree.roots.length || folder.tree.allNotes.length))) ? (
         <>
           {/* Icon and label on the same columns as the root row it stands in for. */}
           <div className="flex h-8 shrink-0 items-center gap-1.5 px-4 text-sm text-text-subtle">
@@ -452,6 +459,7 @@ function ExpandedNavigator({
               options={finderOptions}
               onChange={actions.onFinderStateChange}
               tags={tagIndex}
+              showLocalOptions={scope.type === 'local'}
               className="-mr-1.5"
             />
           </div>
@@ -603,7 +611,8 @@ const MemoNavigatorContent = memo(function NavigatorContent({
   trash?: TrashNavigatorViewProps;
   treeFocusRequestId: number;
 }) {
-  const hasTreeContent = tree.roots.length > 0 || tree.unfiled.notes.length > 0;
+  const hasTreeContent = tree.roots.length > 0 || tree.unfiled.notes.length > 0
+    || Boolean(workspaceFolders?.some((folder) => folder.tree.roots.length || folder.tree.allNotes.length));
   const trashActive = Boolean(trash?.open);
   // The pinned workspace row (8px of cover plus its 32px row) stays solid; rows fade under it.
   const pinnedRootShown = !trashActive && !isFinderMode && !status.isLoading && scope.type !== 'history' && hasTreeContent;
@@ -689,6 +698,7 @@ const MemoNavigatorContent = memo(function NavigatorContent({
               options: finderOptions,
               onChange: actions.onFinderStateChange,
               tags: tagIndex,
+              showLocalOptions: scope.type === 'local',
             }}>
               <MemoNavigatorTree
                 actions={actions}
@@ -971,6 +981,7 @@ function NavigatorTree({
   ));
   // Every folder in the open set has its own section; collapse is per folder, not per workspace.
   const [collapsedWorkspaceFolderIds, setCollapsedWorkspaceFolderIds] = useState<Set<string>>(new Set());
+  const [expandCommand, setExpandCommand] = useState<{ sequence: number; expanded: boolean }>();
   const [workspaceFolderKey, setWorkspaceFolderKey] = useState(activeLocalWorkspaceId ?? null);
   if (workspaceFolderKey !== (activeLocalWorkspaceId ?? null)) {
     setWorkspaceFolderKey(activeLocalWorkspaceId ?? null);
@@ -999,6 +1010,18 @@ function NavigatorTree({
       folder.active ? { ...folder, label: vaultFolderName ?? folder.label, tree } : folder
     ));
   }, [showWorkspaceFolders, tree, vaultFolderName, workspaceFolders]);
+  const allExpanded = rootSectionExpanded && collapsedWorkspaceFolderIds.size === 0
+    && [...tree.nodesById.values()].every((node) => (!node.children.length && !node.notes.length) || !layout.collapsedFolderIds.has(node.id))
+    && (!showWorkspaceFolders || workspaceFolderSections.every((section) => section.active || section.tree.nodesById.size === 0 || expandCommand?.expanded));
+  const toggleAll = () => {
+    const expanded = !allExpanded;
+    setRootSectionExpanded(true);
+    if (scopeStorageKey) writeRootSectionExpanded(scopeStorageKey, true);
+    setCollapsedWorkspaceFolderIds(new Set(expanded ? [] : workspaceFolderSections.map((section) => section.id)));
+    if (expanded) actions.onExpandAllFolders?.();
+    else actions.onCollapseAllFolders?.();
+    setExpandCommand((previous) => ({ sequence: (previous?.sequence ?? 0) + 1, expanded }));
+  };
   const [activeWorkspaceFolderId, setActiveWorkspaceFolderId] = useState<string | null>(null);
   const [workspaceFolderDrop, setWorkspaceFolderDrop] = useState<{ overId: string; placement: 'before' | 'after' } | null>(null);
   const reorderWorkspaceFolders = actions.onReorderWorkspaceFolders;
@@ -1345,6 +1368,8 @@ function NavigatorTree({
                 dragActive={Boolean(activeFolderId || activeNoteId)}
                 onSelectTopLevel={() => actions.onFolderSelect(UNFILED_FOLDER_ID)}
                 onSectionToggle={toggleRootSection}
+                onToggleAll={actions.onExpandAllFolders && actions.onCollapseAllFolders ? toggleAll : undefined}
+                allExpanded={allExpanded}
                 onCreateFolder={() => actions.onCreateFolderInside(null)}
                 onCreateNote={() => actions.onCreateNoteInside(null)}
                 canCreate={status.canCreate && !status.isCreating}
@@ -1393,6 +1418,7 @@ function NavigatorTree({
                     >
                       {section.active ? treeRows : (
                         <WorkspaceFolderPreview
+                          expandCommand={expandCommand}
                           expandedStorageKey={section.snapshotVaultId
                             ? `${FOLDER_EXPANDED_PREFIX}${getScopeStorageKey({ type: 'local', label: section.label, vaultId: section.snapshotVaultId })}`
                             : null}

@@ -5,6 +5,7 @@ import { recentNoteMatches, type ElectronRecentNote } from '@/lib/electron-recen
 import type { FolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
 
 import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
+import { readFocusEditorOnOpen } from './note-focus-preference';
 import type { OpenNoteTargetOptions } from './useNoteLinkOpener';
 import type { RevealNoteOptions } from './useWorkbenchNavigator';
 import type { CommandPaletteState, WorkspaceScope } from './types';
@@ -126,7 +127,7 @@ export function useElectronHomeCommandPalette({
       handleQuickOpenRecentNote(entry, { expandNavigator: false, inPlace: options.inPlace });
       return;
     }
-    void requestSelectNote(linkedNoteSummary(entry), { focusEditor: true, trackRecent: true, inPlace: options.inPlace });
+    void requestSelectNote(linkedNoteSummary(entry), { focusEditor: readFocusEditorOnOpen(), trackRecent: true, inPlace: options.inPlace });
   }, [handleQuickOpenRecentNote, requestSelectNote, tree.allNotes]);
 
   return {

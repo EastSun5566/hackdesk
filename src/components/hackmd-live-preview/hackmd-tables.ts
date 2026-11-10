@@ -19,7 +19,7 @@ import {
   type DecorationSet,
 } from '@codemirror/view';
 
-import { getActiveLines } from './hfm-decoration-ranges';
+import { getActiveLines, revealInitialSelection } from './hfm-decoration-ranges';
 import {
   findClosestElement,
   getSafeExternalLink,
@@ -777,7 +777,7 @@ function tableField(onOpenLinkRef: OpenLinkRef): Extension {
     create: (state) => buildTableWidgets(state, onOpenLinkRef),
     update(decorations, transaction) {
       for (const effect of transaction.effects) {
-        if (effect.is(treeGrowthEffect)) {
+        if (effect.is(treeGrowthEffect) || effect.is(revealInitialSelection)) {
           return buildTableWidgets(transaction.state, onOpenLinkRef);
         }
       }

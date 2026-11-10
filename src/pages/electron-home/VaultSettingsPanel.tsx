@@ -116,7 +116,7 @@ export function VaultSettingsPanel({
   return (
     <SettingsPage>
       {isConfigured ? (
-        <SettingsSection title="Open folder">
+        <SettingsSection title="Currently open">
           <div className={ROW_CLASS}>
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
@@ -156,9 +156,45 @@ export function VaultSettingsPanel({
       ) : null}
 
       <SettingsSection
+        title="Workspaces"
+        description="Group related folders under one name and open them together in the sidebar. A folder can also be opened on its own or belong to more than one workspace."
+      >
+        {workspaces.length > 0 ? (
+          <ul data-settings-flush className="m-0 flex list-none flex-col divide-y divide-border-subtle p-0">
+            {workspaces.map((workspace) => (
+              <WorkspaceRow
+                key={workspace.id}
+                workspace={workspace}
+                vaults={vaults}
+                active={workspace.id === activeWorkspaceId}
+                busyAction={busyAction}
+                onRun={runVaultAction}
+                actions={workspaceActions}
+              />
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-text-subtle">
+            {vaults.length > 0
+              ? 'No workspaces yet. Group a few folders to keep a project in one place.'
+              : 'Add a folder first, then group folders into a workspace.'}
+          </p>
+        )}
+        {workspaceActions && vaults.length > 0 ? (
+          <div>
+            <NewWorkspaceForm
+              vaults={vaults}
+              busy={busyAction !== null}
+              onCreate={(name, vaultIds) => runVaultAction('workspace:create', () => workspaceActions.create(name, vaultIds))}
+            />
+          </div>
+        ) : null}
+      </SettingsSection>
+
+      <SettingsSection
         title="Folders"
         description={isConfigured
-          ? 'Every folder HackDesk can open. One folder is open at a time; each keeps its own tabs and drafts.'
+          ? 'Folders are stored on your device. Open one on its own or add it to a workspace; your files stay in their original location.'
           : 'Add a Markdown folder to read and write notes locally.'}
       >
         {vaults.length > 0 ? (
@@ -207,7 +243,7 @@ export function VaultSettingsPanel({
             })}
           </ul>
         ) : (
-          <p className="text-sm text-text-subtle">No local vault configured</p>
+          <p className="text-sm text-text-subtle">No folders added yet.</p>
         )}
         <div>
           <Button
@@ -220,42 +256,6 @@ export function VaultSettingsPanel({
             Add Folder
           </Button>
         </div>
-      </SettingsSection>
-
-      <SettingsSection
-        title="Workspaces"
-        description="A workspace is a named set of folders. Its folders sit under one sidebar root, and you can jump between them without leaving the set."
-      >
-        {workspaces.length > 0 ? (
-          <ul data-settings-flush className="m-0 flex list-none flex-col divide-y divide-border-subtle p-0">
-            {workspaces.map((workspace) => (
-              <WorkspaceRow
-                key={workspace.id}
-                workspace={workspace}
-                vaults={vaults}
-                active={workspace.id === activeWorkspaceId}
-                busyAction={busyAction}
-                onRun={runVaultAction}
-                actions={workspaceActions}
-              />
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-text-subtle">
-            {vaults.length > 0
-              ? 'No workspaces yet. Group a few folders to keep a project in one place.'
-              : 'Add a folder first, then group folders into a workspace.'}
-          </p>
-        )}
-        {workspaceActions && vaults.length > 0 ? (
-          <div>
-            <NewWorkspaceForm
-              vaults={vaults}
-              busy={busyAction !== null}
-              onCreate={(name, vaultIds) => runVaultAction('workspace:create', () => workspaceActions.create(name, vaultIds))}
-            />
-          </div>
-        ) : null}
       </SettingsSection>
     </SettingsPage>
   );

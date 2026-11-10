@@ -84,6 +84,10 @@ type WorkspaceActions = {
   setVersionsOpen: (open: boolean) => void;
   switchWorkspaceScope: (scope: WorkspaceScope) => void;
   openTrashNote: (note: NoteSummary) => void;
+  renameNoteInline: (note: NoteSummary, name: string) => void;
+  moveNoteRequest: (note: NoteSummary) => void;
+  moveFolderRequest: (folderId: string) => void;
+  chooseNewNoteLocation: (folderId: string | null) => void;
 };
 
 export function useHomeWorkspaceProps({
@@ -400,6 +404,8 @@ export function useHomeWorkspaceProps({
       actions: {
         onFolderSelect: navigator.handleFolderSelect,
         onFolderToggle: navigator.toggleFolderCollapsed,
+        onExpandAllFolders: navigator.expandAllFolders,
+        onCollapseAllFolders: navigator.collapseAllFolders,
         onFolderRevealInFinder: localVaultActions.revealLocalFolder,
         // Opening a note from the sidebar makes its folder the selection, so the tree highlights
         // one row (the note) and new notes go beside it.
@@ -412,14 +418,18 @@ export function useHomeWorkspaceProps({
         onNoteRevealInFinder: localVaultActions.revealLocalNote,
         onFinderStateChange: actions.setFinderState,
         onRefresh: refreshWorkspace,
-        onCreate: folderCommands.handleCreateNote,
+        onCreate: () => actions.chooseNewNoteLocation(selectedFolderId),
         onCreateFolder: folderCommands.handleCreateFolder,
         onCreateFolderInside: folderCommands.handleCreateFolderInside,
-        onCreateNoteInside: folderCommands.handleCreateNoteInside,
+        onCreateNoteInside: actions.chooseNewNoteLocation,
         onChooseLocalVault: () => {
           void localVaultActions.chooseLocalVault();
         },
         onRenameFolder: folderCommands.handleRenameFolder,
+        onRenameNoteInline: actions.renameNoteInline,
+        onRenameFolderInline: (folderId, name) => mutations.renameFolderMutation.mutate({ folderId, input: { name } }),
+        onMoveNoteRequest: actions.moveNoteRequest,
+        onMoveFolderRequest: actions.moveFolderRequest,
         onDeleteFolder: folderCommands.handleDeleteFolderRequest,
         onFolderDrop: folderCommands.handleFolderDrop,
         onNoteMove: navigator.handleNoteMove,

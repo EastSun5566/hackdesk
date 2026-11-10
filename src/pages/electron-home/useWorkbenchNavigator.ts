@@ -10,6 +10,7 @@ import type { FolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 
 import type { WorkspaceScope } from './types';
+import { readFocusEditorOnOpen } from './note-focus-preference';
 import type { NoteTextSearch } from './useNoteTextSearch';
 import {
   getFolderNoteEntries,
@@ -113,7 +114,8 @@ export function useWorkbenchNavigator({
   const handleFolderSelect = useCallback((folderId: string | null) => {
     setSelectedFolderId(folderId);
 
-    if (folderId && folderId !== UNFILED_FOLDER_ID) {
+    const folder = folderId ? tree.nodesById.get(folderId) : undefined;
+    if (folderId && folderId !== UNFILED_FOLDER_ID && folder && (folder.children.length > 0 || folder.notes.length > 0)) {
       setCollapsedFolderIds((current) => {
         if (!current.has(folderId)) {
           return current;
@@ -124,13 +126,13 @@ export function useWorkbenchNavigator({
         return next;
       });
     }
-  }, [setCollapsedFolderIds, setSelectedFolderId]);
+  }, [setCollapsedFolderIds, setSelectedFolderId, tree]);
 
   const revealNoteEntry = useCallback(async (entry: FolderTreeNote, options: RevealNoteOptions = {}) => {
     const folderIds = entry.folderPath.map((folder) => folder.id);
     const leafFolderId = folderIds.at(-1) ?? UNFILED_FOLDER_ID;
     if (!await requestSelectNote(entry.note, {
-      focusEditor: true,
+      focusEditor: readFocusEditorOnOpen(),
       trackRecent: true,
       inPlace: options.inPlace,
     })) {
@@ -179,6 +181,8 @@ export function useWorkbenchNavigator({
     selectedParentFolderId,
     textSearch,
     toggleFolderCollapsed,
+    expandAllFolders: () => setCollapsedFolderIds(new Set()),
+    collapseAllFolders: () => setCollapsedFolderIds(new Set(tree.nodesById.keys())),
     visibleEntries,
   };
 }

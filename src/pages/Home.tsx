@@ -24,7 +24,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/components/theme-provider';
 import { getDesktopAPI } from '@/lib/desktop-api';
 import { DEFAULT_NOTE_FINDER_STATE } from '@/lib/electron-note-finder';
-import type { ElectronSafeSettings, FolderSummary } from '@/lib/electron-api';
+import type { ElectronSafeSettings, FolderSummary,NoteSummary } from '@/lib/electron-api';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
 import { getNoteCurrentFolderId } from '@/lib/hackmd-note-dnd';
 import type { QuickOpenFolderResult } from '@/lib/electron-quick-open';
@@ -114,6 +114,7 @@ export function Home() {
   if (setupMissing && !initialDraftsPending) setInitialDraftsPending(true);
   const [destinationOpen, setDestinationOpen] = useState(false);
   const pendingInitialSave = useRef<string | null>(null);
+  const folderPickerAction = useRef<{ type: 'note'; note: NoteSummary } | { type: 'folder'; id: string } | { type: 'create'; title: string } | null>(null);
   const beforeVaultChange = useRef<() => void>(() => {});
   const folderPicker = useFolderPicker(rawApi);
   const vaultSession = useLocalVaultSession(rawApi, settingsQuery.data, beforeVaultChange, folderPicker.pickFolder);
@@ -142,6 +143,12 @@ export function Home() {
     setTrashOpen,
     setVersionsOpen,
   } = dialogState;
+  useEffect(() => {
+    if (palette.open) return;
+    const action = folderPickerAction.current;
+    folderPickerAction.current = null;
+    if (action?.type === 'create') setCreateDialog({ open: true, title: action.title });
+  }, [palette.open, setCreateDialog]);
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('general');
   const setSettingsOpen = useCallback((open: boolean) => {
     if (open) setSettingsInitialTab('general');
@@ -859,7 +866,7 @@ export function Home() {
     copyNoteLink: handleCopyNoteLink,
     copyNoteMarkdownLink: handleCopyNoteMarkdownLink,
     duplicateNote: handleDuplicateNote,
-    openMoveNotePicker: () => setPalette({ mode: 'move-note', open: true, search: '' }),
+    openMoveNotePicker: () => { folderPickerAction.current = null; setPalette({ mode: 'move-note', open: true, search: '' }); },
     openShare: () => setShareOpen(true),
     reorderTab: noteWorkspace.reorderTab,
     revealLocalNote: localVaultActions.revealLocalNote,
@@ -1077,14 +1084,24 @@ export function Home() {
   }, [setSettingsOpenState]);
   const { handleNoteMove } = workbenchNavigator;
   const moveSelectedNoteToFolder = useCallback((folder: QuickOpenFolderResult) => {
-    const entry = folderTree.allNotes.find(candidate => candidate.note.id === selectedNote?.id);
+    const action = folderPickerAction.current;
+    const targetFolderId = folder.id === UNFILED_FOLDER_ID ? null : folder.id;
+    if (action?.type === 'create') { setSelectedFolderId(targetFolderId ?? UNFILED_FOLDER_ID); return; }
+    folderPickerAction.current = null;
+    if (action?.type === 'folder') {
+      const node = folderTree.nodesById.get(action.id);
+      const destination = targetFolderId ? folderTree.nodesById.get(targetFolderId) : null;
+      if (!node || targetFolderId === node.id || destination?.folderPath.some((part) => part.id === node.id)) { toast.error('Choose a folder outside the folder being moved.'); return; }
+      if (node.parentId !== targetFolderId) mutations.moveFolderMutation.mutate({ folderId: node.id, parentFolderId: targetFolderId, order: {}, parentChanged: true, orderChanged: false, changed: true });
+      return;
+    }
+    const entry = folderTree.allNotes.find(candidate => candidate.note.id === (action?.type === 'note' ? action.note.id : selectedNote?.id));
     if (!entry) {
       toast.info('Select a note in this workspace first.');
       return;
     }
-    const targetFolderId = folder.id === UNFILED_FOLDER_ID ? null : folder.id;
     handleNoteMove({ note: entry, targetFolderId, changed: getNoteCurrentFolderId(entry) !== targetFolderId });
-  }, [folderTree.allNotes, handleNoteMove, selectedNote?.id]);
+  }, [folderCommands, folderTree, handleNoteMove, mutations.moveFolderMutation, selectedNote?.id]);
 
   const workspaceNavigation = useMemo(() => getWorkspaceNavigationTeams(
     teams,
@@ -1205,6 +1222,22 @@ export function Home() {
       setVersionsOpen,
       switchWorkspaceScope,
       openTrashNote: (note) => void requestSelectNote(note, { focusEditor: true }),
+      renameNoteInline: (note, name) => {
+        if (!api) return;
+        void (async () => {
+          const owner = snapshotForLocalNote(note);
+          if (note.teamPath === LOCAL_VAULT_TEAM_PATH && !owner) throw new Error('The local vault is no longer available.');
+          const result = note.teamPath === LOCAL_VAULT_TEAM_PATH && owner
+            ? toDocumentSummary(await api.localVault.readNote(note.id), owner)
+            : await api.hackmd.getNote(note.id, note.teamPath ?? null).then((value) => { if (value.source === 'error') throw new Error(value.error); return value.data; });
+          mutations.updateNoteMutation.mutate({ note: result, input: { title: name }, intent: 'metadata' });
+        })().catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to rename note.'));
+      },
+      moveNoteRequest: (note) => { folderPickerAction.current = { type: 'note', note }; setPalette({ mode: 'move-note', open: true, search: '' }); },
+      moveFolderRequest: (id) => { folderPickerAction.current = { type: 'folder', id }; setPalette({ mode: 'move-folder', open: true, search: '' }); },
+      chooseNewNoteLocation: (folderId) => {
+        folderCommands.handleCreateNoteInside(folderId);
+      },
     },
     activeFinderState,
     collapsedFolderIds,
@@ -1252,7 +1285,17 @@ export function Home() {
   const overlayProps = useHomeOverlayProps({
     actionContext,
     api,
-    commandPaletteProps,
+    commandPaletteProps: {
+      ...commandPaletteProps,
+      onStateChange: (next) => {
+        if (!next.open && folderPickerAction.current?.type === 'create') {
+          const { title } = folderPickerAction.current;
+          folderPickerAction.current = null;
+          setCreateDialog({ open: true, title });
+        }
+        setPalette(next);
+      },
+    },
     commandPaletteTheme: {
       themeMode: theme,
       themePresetId: presetId,
@@ -1275,6 +1318,11 @@ export function Home() {
     localVaultSnapshot: localVault.snapshot,
     mutations,
     onHackmdDisconnected: handleHackmdDisconnected,
+    onChooseNoteLocation: () => {
+      folderPickerAction.current = { type: 'create', title: dialogState.createDialog.title };
+      setCreateDialog({ ...dialogState.createDialog, open: false });
+      setPalette({ mode: 'choose-note-folder', open: true, search: '' });
+    },
     onboardingOpen,
     runAction: runPaletteAction,
     selectedFolderLabel,

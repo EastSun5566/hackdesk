@@ -4,6 +4,7 @@ import type { MutableRefObject } from 'react';
 import type { NoteSummary } from '@/lib/electron-api';
 
 import { getSavedTabNoteIdentity, type NoteIdentity, type OpenNoteTab } from './note-workspace';
+import { readFocusEditorOnOpen } from './note-focus-preference';
 
 export type ElectronHomeSelectNoteOptions = {
   focusEditor?: boolean;
@@ -88,6 +89,7 @@ export function useElectronHomeSelection({
       trackRecentNote(note);
     }
 
+    pendingFocusRef.current = null;
     if (options.focusEditor) {
       pendingFocusRef.current = { scopeKey: scopeStorageKey, paneId: getNotePaneId?.(note) ?? activePaneId, note: { id: note.id, teamPath: note.teamPath } };
       setSelectionRequestId(id => id + 1);
@@ -98,11 +100,13 @@ export function useElectronHomeSelection({
 
   // A click in the sidebar previews the note; a double-click keeps its tab.
   const handleNoteSelect = useCallback((note: NoteSummary) => {
-    void requestSelectNote(note, { focusEditor: true, trackRecent: true, preview: true });
-  }, [requestSelectNote]);
+    const alreadySelected = selectedNote?.id === note.id && selectedNote.teamPath === note.teamPath;
+    void requestSelectNote(note, { focusEditor: readFocusEditorOnOpen(), trackRecent: true, preview: !alreadySelected })
+      .then(() => { if (alreadySelected) keepNoteInWorkspace?.(note); });
+  }, [keepNoteInWorkspace, requestSelectNote, selectedNote]);
 
   const handleNoteKeep = useCallback((note: NoteSummary) => {
-    void requestSelectNote(note, { focusEditor: true, trackRecent: true }).then(() => keepNoteInWorkspace?.(note));
+    void requestSelectNote(note, { focusEditor: readFocusEditorOnOpen(), trackRecent: true }).then(() => keepNoteInWorkspace?.(note));
   }, [keepNoteInWorkspace, requestSelectNote]);
 
   return {

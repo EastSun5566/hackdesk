@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { NoteSummary } from '@/lib/electron-api';
 
 import type { OpenNoteTab, SavedOpenNoteTab } from './note-workspace';
+import { setFocusEditorOnOpen } from './note-focus-preference';
 import {
   useElectronHomeSelection,
   useElectronHomeSelectionRefs,
@@ -47,6 +48,30 @@ function tab(input: Partial<SavedOpenNoteTab> & Pick<SavedOpenNoteTab, 'noteId' 
 }
 
 describe('useElectronHomeSelection', () => {
+  it('keeps an already selected preview and respects the focus preference', async () => {
+    const openNoteInWorkspace = vi.fn();
+    const keepNoteInWorkspace = vi.fn();
+    const requestEditorFocus = vi.fn();
+    const selected = note({ id: 'note-a', title: 'Alpha' });
+    setFocusEditorOnOpen(false);
+    try {
+      const { result } = renderHook(() => {
+        const selectionRefs = useElectronHomeSelectionRefs();
+        return useElectronHomeSelection({
+          activePaneId: 'pane-a', activeTab: tab({ noteId: 'note-a', title: 'Alpha' }),
+          requestEditorFocus, openNoteInWorkspace, keepNoteInWorkspace, selectionRefs,
+          trackRecentNote: vi.fn(),
+        });
+      });
+      await act(async () => { result.current.handleNoteSelect(selected); });
+      expect(keepNoteInWorkspace).toHaveBeenCalledWith(selected);
+      expect(openNoteInWorkspace).toHaveBeenCalledWith(selected, { inPlace: undefined, preview: false });
+      expect(requestEditorFocus).not.toHaveBeenCalled();
+    } finally {
+      setFocusEditorOnOpen(true);
+    }
+  });
+
   it('derives selected note from the active tab', () => {
     const openNoteInWorkspace = vi.fn();
     const trackRecentNote = vi.fn();

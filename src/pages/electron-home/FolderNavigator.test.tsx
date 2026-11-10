@@ -639,6 +639,31 @@ describe('FolderNavigator', () => {
     expect(screen.getAllByRole('button', { name: 'View options' })).toHaveLength(1);
   });
 
+  it('uses one root control to expand or collapse all folders', () => {
+    const onExpandAllFolders = vi.fn();
+    const onCollapseAllFolders = vi.fn();
+    const { props, rerender } = renderFolderNavigator({
+      actions: { onExpandAllFolders, onCollapseAllFolders },
+      layout: { collapsedFolderIds: new Set(['projects']) },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Expand all folders' }));
+    expect(onExpandAllFolders).toHaveBeenCalledOnce();
+    rerender(<TooltipProvider><FolderNavigator {...props} layout={{ ...props.layout, collapsedFolderIds: new Set() }} /></TooltipProvider>);
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse all folders' }));
+    expect(onCollapseAllFolders).toHaveBeenCalledOnce();
+  });
+
+  it('offers hidden files in local View options', async () => {
+    window.localStorage.removeItem('hackdesk_show_hidden_files');
+    renderFolderNavigator({ scope: { type: 'local', label: 'Vault' } });
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'View options' }));
+    const item = await screen.findByRole('menuitemcheckbox', { name: 'Show hidden files and folders' });
+    expect(item).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(item);
+    expect(window.localStorage.getItem('hackdesk_show_hidden_files')).toBe('true');
+    window.localStorage.removeItem('hackdesk_show_hidden_files');
+  });
+
   it('moves View options and the result count to the list header when the view changes', () => {
     renderFolderNavigator({ finderState: { ...DEFAULT_NOTE_FINDER_STATE, sortMode: 'title-asc' } });
 
@@ -821,7 +846,7 @@ describe('FolderNavigator', () => {
       const row = node.closest('[data-folder-tree-row-id]')!;
       const stops = Array.from(row.querySelectorAll<HTMLElement>('[tabindex="0"]'));
       expect(stops[0]).toBe(node);
-      expect(stops.at(-1)).toHaveAccessibleName(`Drag ${name}`);
+      expect(stops.some((stop) => stop.getAttribute('aria-label') === `Drag ${name}`)).toBe(true);
     }
   });
 
@@ -1047,6 +1072,36 @@ describe('FolderNavigator', () => {
     await waitFor(() => {
       expect(onCreateNoteInside).toHaveBeenCalledWith(null);
     });
+  });
+
+  it('renames a folder inline and opens its move picker from the row menu', async () => {
+    const onRenameFolderInline = vi.fn();
+    const onMoveFolderRequest = vi.fn();
+    renderFolderNavigator({ actions: { onRenameFolderInline, onMoveFolderRequest } });
+    fireEvent.click(screen.getByRole('button', { name: 'Folder actions for Projects' }));
+    fireEvent.click(await screen.findByText('Rename'));
+    const input = await screen.findByRole('textbox', { name: 'Rename folder' });
+    fireEvent.change(input, { target: { value: 'Renamed' } });
+    fireEvent.submit(input.closest('form')!);
+    expect(onRenameFolderInline).toHaveBeenCalledWith('projects', 'Renamed');
+    fireEvent.click(screen.getByRole('button', { name: 'Folder actions for Projects' }));
+    fireEvent.click(await screen.findByText('Move to…'));
+    await waitFor(() => expect(onMoveFolderRequest).toHaveBeenCalledWith('projects'));
+  });
+
+  it('renames and moves a note from its row menu', async () => {
+    const onRenameNoteInline = vi.fn();
+    const onMoveNoteRequest = vi.fn();
+    renderFolderNavigator({ actions: { onRenameNoteInline, onMoveNoteRequest } });
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'Loose note' }));
+    fireEvent.click(await screen.findByText('Rename'));
+    const input = await screen.findByRole('textbox', { name: 'Rename note' });
+    fireEvent.change(input, { target: { value: 'Updated note' } });
+    fireEvent.submit(input.closest('form')!);
+    expect(onRenameNoteInline).toHaveBeenCalledWith(expect.objectContaining({ id: 'loose-note' }), 'Updated note');
+    fireEvent.contextMenu(screen.getByRole('treeitem', { name: 'Loose note' }));
+    fireEvent.click(await screen.findByText('Move to…'));
+    await waitFor(() => expect(onMoveNoteRequest).toHaveBeenCalledWith(expect.objectContaining({ id: 'loose-note' })));
   });
 
   it('does not show folder reveal actions for notes already rendered in the folder tree', async () => {

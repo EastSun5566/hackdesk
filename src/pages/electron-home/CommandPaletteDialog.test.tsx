@@ -581,6 +581,11 @@ describe('CommandPaletteDialog', () => {
     expect(onSelectFolder).not.toHaveBeenCalled();
   });
 
+  it('preselects the clicked folder when choosing a new note location', async () => {
+    renderPalette({ selectedFolderId: 'folder-alpha', state: { mode: 'choose-note-folder', open: true, search: '' } });
+    await waitFor(() => expect(screen.getByRole('option', { name: /Alpha Folder/ })).toHaveAttribute('aria-selected', 'true'));
+  });
+
   it('keeps keyboard selection, action shortcuts, and close reset behavior', async () => {
     const onRunAction = vi.fn();
     const onStateChange = vi.fn();
