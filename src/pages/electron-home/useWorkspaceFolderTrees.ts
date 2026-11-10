@@ -21,6 +21,7 @@ const EMPTY_TREE: FolderTree = buildHackmdFolderTree([], []);
 export function useWorkspaceFolderTrees({
   api,
   activeSnapshot,
+  activeSnapshotPath,
   activeVaultId,
   enabled,
   vaultIds,
@@ -29,6 +30,8 @@ export function useWorkspaceFolderTrees({
   api: HackDeskElectronAPI | undefined;
   /** The open folder's snapshot; cached so the folder shows at once when another one opens. */
   activeSnapshot: LocalVaultSnapshot | null;
+  /** The stored path of the folder the session snapshot belongs to. */
+  activeSnapshotPath: string | null;
   activeVaultId: string | null;
   enabled: boolean;
   vaultIds: string[];
@@ -38,13 +41,14 @@ export function useWorkspaceFolderTrees({
   const showHidden = useShowHiddenFiles();
   // Folder caches are keyed by stored id; a snapshot carries its manifest id, which differs. While a
   // folder of the set opens, the session snapshot and the stored active id can name different
-  // folders, so the snapshot is cached under the id only when its root is that folder's path.
+  // folders, so the snapshot is cached under the id only when the session reports it for that
+  // folder's stored path (a snapshot's own root is the resolved path, which can differ).
   const activePath = activeVaultId ? vaults.find((vault) => vault.id === activeVaultId)?.path ?? null : null;
   useEffect(() => {
-    if (enabled && activeSnapshot && activeVaultId && activeSnapshot.rootPath === activePath) {
+    if (enabled && activeSnapshot && activeVaultId && activePath && activeSnapshotPath === activePath) {
       queryClient.setQueryData(getLocalVaultVaultSnapshotQueryKey(activeVaultId), activeSnapshot);
     }
-  }, [activePath, activeSnapshot, activeVaultId, enabled, queryClient]);
+  }, [activePath, activeSnapshot, activeSnapshotPath, activeVaultId, enabled, queryClient]);
 
   const folders = useMemo(
     () => vaultIds

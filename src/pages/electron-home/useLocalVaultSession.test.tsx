@@ -202,26 +202,38 @@ describe('Local Vault session', () => {
     return next;
   }
 
+  it('loads a folder whose scan reports its resolved path, not the stored one', async () => {
+    const f = fixture();
+    // macOS resolves /tmp to /private/tmp; the main process reports the resolved root.
+    vi.mocked(f.api.localVault.getSnapshot).mockImplementation(async () => ({ ...snapshot('A'), rootPath: '/private/tmp/A' }));
+    await waitFor(() => expect(f.result.current.session.vaultId).toBe('A'));
+    expect(f.result.current.session.snapshotPath).toBe('/tmp/A');
+  });
+
   it('never files the folder the main process still has open under the folder being opened', async () => {
     const f = fixture();
     await waitFor(() => expect(f.result.current.session.vaultId).toBe('A'));
     openWorkingSet(f);
     // The main process answers with A until the focus lands; B was never scanned in this window.
-    vi.mocked(f.api.localVault.getSnapshot).mockImplementation(async () => snapshot('A'));
-    vi.mocked(f.api.localVault.getVaultSnapshot).mockImplementation(async () => snapshot('B'));
+    let mainFolder = 'A';
+    vi.mocked(f.api.localVault.getSnapshot).mockImplementation(async () => snapshot(mainFolder));
     const scan = deferred<Awaited<ReturnType<HackDeskElectronAPI['localVault']['activate']>>>();
     vi.mocked(f.api.localVault.activate).mockReturnValueOnce(scan.promise);
     let focusing!: Promise<unknown>;
     act(() => { focusing = f.result.current.session.api!.localVault.focusVault('vault-/tmp/B'); });
 
-    await waitFor(() => expect(f.result.current.session.vaultId).toBe('B'));
-    expect(f.client.getQueryData(getLocalVaultSnapshotQueryKey('/tmp/B'))).toEqual(snapshot('B'));
+    // A read of B's key waits for the focus instead of taking A's answer.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(f.client.getQueryData(getLocalVaultSnapshotQueryKey('/tmp/B'))).toBeUndefined();
     // A watcher event from A during the focus refreshes A, never B's key.
     act(() => { f.changed({ snapshot: snapshot('A') }); });
-    expect(f.client.getQueryData(getLocalVaultSnapshotQueryKey('/tmp/B'))).toEqual(snapshot('B'));
+    expect(f.client.getQueryData(getLocalVaultSnapshotQueryKey('/tmp/B'))).toBeUndefined();
 
-    scan.resolve({ settings: f.client.getQueryData<ElectronSafeSettings>(['electron', 'settings'])!, snapshot: snapshot('B') });
-    await act(async () => { await focusing; });
+    mainFolder = 'B';
+    const opened = { ...f.client.getQueryData<ElectronSafeSettings>(['electron', 'settings'])! };
+    await act(async () => { scan.resolve({ settings: opened, snapshot: snapshot('B') }); await focusing; });
+    await waitFor(() => expect(f.result.current.session.vaultId).toBe('B'));
+    expect(f.client.getQueryData(getLocalVaultSnapshotQueryKey('/tmp/B'))).toEqual(snapshot('B'));
   });
 
   it('leaves the folder the main process has open after overlapping focuses both fail', async () => {

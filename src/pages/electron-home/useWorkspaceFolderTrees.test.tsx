@@ -49,6 +49,7 @@ describe('useWorkspaceFolderTrees', () => {
       () => useWorkspaceFolderTrees({
         api: apiWithSnapshot(),
         activeSnapshot: folderA,
+        activeSnapshotPath: '/Users/michael/A',
         activeVaultId: 'vault-b',
         enabled: true,
         vaultIds: ['vault-a', 'vault-b'],
@@ -63,12 +64,36 @@ describe('useWorkspaceFolderTrees', () => {
     expect(client.getQueryData(getLocalVaultVaultSnapshotQueryKey('vault-b'))).toBeUndefined();
   });
 
+  it('caches the open folder under its stored path even when the scan reports the resolved one', () => {
+    const client = createClient();
+    // macOS resolves /var to /private/var; Windows can resolve short names and letter case.
+    const resolved: LocalVaultSnapshot = { ...snapshot, rootPath: '/private/var/B' };
+    renderHook(
+      () => useWorkspaceFolderTrees({
+        api: apiWithSnapshot(),
+        activeSnapshot: resolved,
+        activeSnapshotPath: '/var/B',
+        activeVaultId: 'vault-b',
+        enabled: true,
+        vaultIds: ['vault-a', 'vault-b'],
+        vaults: [
+          { id: 'vault-a', path: '/var/A' },
+          { id: 'vault-b', path: '/var/B' },
+        ],
+      }),
+      { wrapper: wrapper(client) },
+    );
+
+    expect(client.getQueryData(getLocalVaultVaultSnapshotQueryKey('vault-b'))).toEqual(resolved);
+  });
+
   it('loads every other folder in the set and builds its tree', async () => {
     const getVaultSnapshot = vi.fn(async () => snapshot);
     const { result } = renderHook(
       () => useWorkspaceFolderTrees({
         api: apiWithSnapshot(getVaultSnapshot),
         activeSnapshot: null,
+        activeSnapshotPath: null,
         activeVaultId: 'vault-a',
         enabled: true,
         vaultIds: ['vault-a', 'vault-b'],
@@ -104,6 +129,7 @@ describe('useWorkspaceFolderTrees', () => {
       ({ activeVaultId, activeSnapshot }: { activeVaultId: string; activeSnapshot: LocalVaultSnapshot | null }) => useWorkspaceFolderTrees({
         api: apiWithSnapshot(getVaultSnapshot),
         activeSnapshot,
+        activeSnapshotPath: activeSnapshot ? vaults.find((vault) => vault.id === activeVaultId)!.path : null,
         activeVaultId,
         enabled: true,
         vaultIds: ['vault-a', 'vault-b'],
@@ -132,6 +158,7 @@ describe('useWorkspaceFolderTrees', () => {
       () => useWorkspaceFolderTrees({
         api: apiWithSnapshot(getVaultSnapshot),
         activeSnapshot: null,
+        activeSnapshotPath: null,
         activeVaultId: 'vault-a',
         enabled: false,
         vaultIds: ['vault-a', 'vault-b'],

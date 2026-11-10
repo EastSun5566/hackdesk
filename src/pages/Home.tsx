@@ -375,6 +375,7 @@ export function Home() {
   const workspaceFolders = useWorkspaceFolderTrees({
     api,
     activeSnapshot: vaultSession.snapshot,
+    activeSnapshotPath: vaultSession.snapshotPath,
     activeVaultId: settingsQuery.data?.localVault.activeVaultId ?? null,
     enabled: !!localWorkspaceId && scope.type === 'local',
     vaultIds: localWorkspaceId && scope.type === 'local' ? openLocalWorkspace?.vaultIds ?? [] : EMPTY_VAULT_IDS,
