@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ElectronSafeSettings, HackDeskElectronAPI } from '@/lib/electron-api';
@@ -80,9 +80,17 @@ function fixture(pickFolder?: () => Promise<string | null>) {
   }
   return { api, client, changed, ...renderHook(useFixture, { wrapper }) };
 }
-afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); localStorage.clear(); onlineManager.setOnline(true); vi.restoreAllMocks(); });
 
 describe('Local Vault session', () => {
+  it('loads settings and the vault while offline', async () => {
+    onlineManager.setOnline(false);
+    const f = fixture();
+    await waitFor(() => expect(f.result.current.session.vaultId).toBe('A'));
+    expect(f.api.settings.get).toHaveBeenCalled();
+    expect(f.api.localVault.getSnapshot).toHaveBeenCalled();
+  });
+
   it('waits for snapshot identity and rejects operations before it is ready', async () => {
     const f = fixture();
     expect(f.result.current.session.vaultId).toBeNull();

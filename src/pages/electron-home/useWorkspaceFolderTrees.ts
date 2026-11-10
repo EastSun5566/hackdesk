@@ -51,6 +51,7 @@ export function useWorkspaceFolderTrees({
   const results = useQueries({
     queries: folders.map((vault) => ({
       queryKey: getLocalVaultVaultSnapshotQueryKey(vault.id),
+      networkMode: 'always' as const,
       queryFn: async (): Promise<LocalVaultSnapshot> => {
         if (!api) throw new Error('Electron API is unavailable.');
         return api.localVault.getVaultSnapshot({ vaultId: vault.id });

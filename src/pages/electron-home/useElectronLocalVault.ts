@@ -100,6 +100,7 @@ export function useElectronLocalVault({
     queries: selectedDocumentNotes.map((note) => ({
       // Keyed by the folder that holds the note, so opening another folder of the set keeps it.
       queryKey: getLocalVaultDocumentQueryKey(note.id, ownerOf(note)?.vaultId),
+      networkMode: 'always' as const,
       queryFn: async ({ signal }) => {
         if (!api) {
           throw new Error('Electron API is unavailable.');

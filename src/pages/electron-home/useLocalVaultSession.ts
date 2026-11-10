@@ -54,6 +54,7 @@ export function useLocalVaultSession(
   const [context, setContext] = useState({ path, vaultId: null as string | null, generation: 0 });
   const snapshotQuery = useQuery({
     queryKey: getLocalVaultSnapshotQueryKey(path),
+    networkMode: 'always',
     queryFn: async ({ signal }) => {
       const generation = access.current.generation;
       const snapshot = await api?.localVault.getSnapshot() ?? null;

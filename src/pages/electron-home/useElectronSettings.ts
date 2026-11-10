@@ -4,6 +4,7 @@ import type { HackDeskElectronAPI } from '@/lib/electron-api';
 export function useElectronSettings(api?: HackDeskElectronAPI) {
   return useQuery({
     queryKey: ['electron', 'settings'],
+    networkMode: 'always',
     queryFn: () => api?.settings.get(),
     enabled: !!api,
   });
