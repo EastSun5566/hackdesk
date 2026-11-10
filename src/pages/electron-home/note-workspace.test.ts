@@ -719,6 +719,20 @@ describe('openNoteInPlace (a book\'s tab turning chapters)', () => {
     expect(state.drafts[bookTab]).toEqual(expect.objectContaining({ content: 'alpha edits' }));
   });
 
+  it('keeps Back available when the tab stays put to keep its edits', () => {
+    let state = openNoteTab(createEmptyNoteWorkspaceState('scope'), book);
+    const tabId = getActiveTab(state)!.tabId;
+    state = openNoteInPlace(state, alpha);
+    state = updateNoteTabDraft(state, tabId, { title: 'Alpha', content: 'alpha edits' });
+    const before = state;
+
+    // Back would turn the tab to the book, but its edits belong to Alpha, so it stays.
+    state = navigateNoteWorkspace(state, 'back');
+    expect(tabNote(state)).toBe('alpha');
+    expect(state).toBe(before);
+    expect(state.backStack).toHaveLength(1);
+  });
+
   it('turns the tab it was asked for, even after another tab became active', () => {
     const other = note({ id: 'other', title: 'Other' });
     let state = openNoteTab(createEmptyNoteWorkspaceState('scope'), book);

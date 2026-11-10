@@ -485,6 +485,8 @@ export function navigateNoteWorkspace(state: NoteWorkspaceState, direction: 'bac
   }
 
   const next = activateNavigationTarget(state, target);
+  // The tab kept the note it shows (it has unsaved edits there): nothing moved, so history stays.
+  if (navigationTargetEquals(getActiveNavigationTarget(next), currentTarget)) return state;
   return {
     ...next,
     backStack: direction === 'back' ? remainingStack : pushNavigationTarget(destinationStack, currentTarget),
