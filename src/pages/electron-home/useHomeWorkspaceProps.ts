@@ -13,7 +13,7 @@ import type {
   UserSummary,
 } from '@/lib/electron-api';
 import type { FolderTree, FolderTreeNote } from '@/lib/hackmd-folders';
-import { defaultSettings, getActiveLocalVaultPath, getActiveLocalWorkspace } from '@/lib/settings';
+import { defaultSettings, getActiveLocalVaultPath, getActiveLocalWorkspace, getLocalWorkspaces } from '@/lib/settings';
 import { localVaultFolderName } from './workspace-root-labels';
 import { toast } from '@/components/ui/toast';
 
@@ -250,7 +250,8 @@ export function useHomeWorkspaceProps({
           actions.switchWorkspaceScope(next);
         },
         localVaults: settings?.localVault.vaults ?? [],
-        localWorkspaces: settings?.localVault.workspaces.map(({ id, name }) => ({ id, name })) ?? [],
+        localWorkspaces: getLocalWorkspaces(settings).map(({ id, name, vaultIds }) => ({ id, name, vaultIds })),
+        activeLocalVaultId: settings?.localVault.activeVaultId ?? null,
         activeLocalWorkspaceId: settings?.localVault.activeWorkspaceId ?? null,
         onActivateLocalWorkspace: (workspaceId: string | null) => {
           setWorkspaceSwitcherOpen(false);

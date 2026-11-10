@@ -959,13 +959,13 @@ describe('SettingsDialog', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
 
-    expect(screen.getByText('/Users/michael/MyVault')).toBeInTheDocument();
-    expect(screen.getByText('MyVault')).toBeInTheDocument();
+    expect(screen.getAllByText('/Users/michael/MyVault').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('MyVault').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Notes').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Folders').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByText('1')).toBeInTheDocument();
-    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(screen.getByText('Open')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open in Finder' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Refresh Vault' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Add Folder' })).toBeVisible();
@@ -1018,13 +1018,14 @@ describe('SettingsDialog', () => {
     });
     fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
 
-    expect(screen.getByText('Work')).toBeVisible();
+    const workspaceRow = () => screen.getByRole('button', { name: 'Edit workspace Work' }).closest('li') as HTMLElement;
+    expect(within(workspaceRow()).getByText('Work')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Close workspace Work' }));
     await waitFor(() => expect(localWorkspaceActions.activate).toHaveBeenCalledWith(null));
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit workspace Work' }));
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Studio' } });
-    fireEvent.click(within(screen.getByText('Work').closest('li') as HTMLElement).getByLabelText('B'));
+    fireEvent.click(within(workspaceRow()).getByLabelText('B'));
     fireEvent.click(screen.getByRole('button', { name: 'Save workspace Work' }));
     await waitFor(() => expect(localWorkspaceActions.rename).toHaveBeenCalledWith('workspace-work', 'Studio'));
     await waitFor(() => expect(localWorkspaceActions.setVaults).toHaveBeenCalledWith('workspace-work', ['vault-a', 'vault-b']));
@@ -1032,8 +1033,10 @@ describe('SettingsDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete workspace Work' }));
     await waitFor(() => expect(localWorkspaceActions.remove).toHaveBeenCalledWith('workspace-work'));
 
+    // The create form stays folded away until asked for.
+    fireEvent.click(screen.getByRole('button', { name: 'New workspace' }));
     const newForm = screen.getByRole('group', { name: 'Create a workspace' });
-    fireEvent.change(within(newForm).getByLabelText('New workspace'), { target: { value: 'Reading' } });
+    fireEvent.change(within(newForm).getByLabelText('Workspace name'), { target: { value: 'Reading' } });
     fireEvent.click(within(newForm).getByLabelText('A'));
     fireEvent.click(screen.getByRole('button', { name: 'Create workspace' }));
     await waitFor(() => expect(localWorkspaceActions.create).toHaveBeenCalledWith('Reading', ['vault-a']));
@@ -1058,9 +1061,9 @@ describe('SettingsDialog', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /Vault/ }));
 
-    expect(screen.getByText('A')).toBeInTheDocument();
-    expect(screen.getByText('B')).toBeInTheDocument();
-    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(screen.getAllByText('A').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('B').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Open')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Switch' }));
 

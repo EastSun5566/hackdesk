@@ -1195,6 +1195,7 @@ function NavigatorTree({
               <WorkspaceRootTreeRow
                 scope={scope}
                 label={rootLabel}
+                detail={localWorkspaceName ? vaultFolderName : null}
                 selected={rootSelected}
                 sectionExpanded={rootSectionExpanded}
                 dragActive={Boolean(activeFolderId || activeNoteId)}

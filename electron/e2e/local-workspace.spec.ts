@@ -59,12 +59,14 @@ test('a named local workspace groups folders under one root and survives a resta
     await expect(page.getByRole('button', { name: 'Collapse A', exact: true })).toBeVisible();
 
     await openVaultSettings(page);
+    // The create form stays folded away until asked for.
+    await page.getByRole('button', { name: 'New workspace', exact: true }).click();
     const form = page.getByRole('group', { name: 'Create a workspace' });
-    await form.getByLabel('New workspace', { exact: true }).fill('Work');
+    await form.getByLabel('Workspace name', { exact: true }).fill('Work');
     await form.getByLabel('A', { exact: true }).check();
     await form.getByLabel('B', { exact: true }).check();
     await page.getByRole('button', { name: 'Create workspace', exact: true }).click();
-    await expect(page.getByRole('dialog', { name: 'Settings' }).getByText('Work', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Edit workspace Work', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
 
     // The root takes the workspace name, and the other folder sits beside it as a root row.

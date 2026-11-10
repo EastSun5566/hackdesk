@@ -49,6 +49,7 @@ function renderSwitcher(overrides: Partial<SwitcherProps> = {}, initiallyOpen = 
     user: undefined,
     teams: [],
     localVaults: [],
+    activeLocalVaultId: null,
     platform: 'darwin',
     pinnedTeamIds: null,
     onChooseLocalVault: vi.fn(),
@@ -96,7 +97,7 @@ describe('WorkspaceSwitcher', () => {
     const props = renderSwitcher({
       scope: { type: 'local', label: 'Work', vaultId: 'vault-a' },
       localVaults: [{ id: 'vault-a', path: '/Users/michael/A' }, { id: 'vault-b', path: '/Users/michael/B' }],
-      localWorkspaces: [{ id: 'workspace-work', name: 'Work' }],
+      localWorkspaces: [{ id: 'workspace-work', name: 'Work', vaultIds: ['vault-a', 'vault-b'] }],
       activeLocalWorkspaceId: 'workspace-work',
       onActivateLocalWorkspace: vi.fn(),
     });
@@ -109,10 +110,56 @@ describe('WorkspaceSwitcher', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Workspaces' })).toBeNull());
   });
 
+  it('lists the open set\'s folders beneath it and hides them from the loose folders', async () => {
+    const props = renderSwitcher({
+      scope: { type: 'local', label: 'Work', vaultId: 'vault-a' },
+      localVaults: [{ id: 'vault-a', path: '/Users/michael/A' }, { id: 'vault-c', path: '/Users/michael/C' }],
+      localWorkspaces: [{ id: 'workspace-work', name: 'Work', vaultIds: ['vault-a', 'vault-b'] }],
+      activeLocalVaultId: 'vault-a',
+      activeLocalWorkspaceId: 'workspace-work',
+      onActivateLocalWorkspace: vi.fn(),
+    });
+    const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
+
+    expect(within(dialog).getByRole('button', { name: 'Work' })).toHaveAttribute('aria-current', 'page');
+    // The open folder inside the set, and a folder the set does not hold.
+    expect(within(dialog).getByRole('button', { name: 'A' })).toHaveAttribute('aria-current', 'page');
+    expect(within(dialog).getByRole('button', { name: 'C' })).not.toHaveAttribute('aria-current', 'page');
+    // A folder inside the set is not repeated as a loose folder.
+    expect(within(dialog).getAllByRole('button', { name: 'A' })).toHaveLength(1);
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'C' }));
+    expect(props.onSwitchLocalVault).toHaveBeenCalledWith('vault-c');
+  });
+
+  it('marks the open folder by its stored id, even though the scope carries the snapshot id', async () => {
+    renderSwitcher({
+      // The effective scope names the vault's snapshot, while the folder list names the stored entry.
+      scope: { type: 'local', label: 'Notes', vaultId: 'snapshot-uuid' },
+      activeLocalVaultId: 'vault-notes',
+      localVaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }, { id: 'vault-b', path: '/Users/michael/B' }],
+    });
+    const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
+
+    expect(within(dialog).getByRole('button', { name: 'Notes' })).toHaveAttribute('aria-current', 'page');
+    expect(within(dialog).getByRole('button', { name: 'B' })).not.toHaveAttribute('aria-current', 'page');
+  });
+
+  it('offers to add a folder from the local section', async () => {
+    const props = renderSwitcher({
+      localVaults: [{ id: 'vault-a', path: '/Users/michael/A' }],
+    });
+    const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add local folder' }));
+    expect(props.onChooseLocalVault).toHaveBeenCalledOnce();
+  });
+
   it('switches vaults from their rows and marks the active one', async () => {
     const props = renderSwitcher({
       scope: { type: 'local', label: 'Notes', vaultId: 'vault-notes' },
       localVaults: [{ id: 'vault-notes', path: '/Users/michael/Notes' }, { id: 'vault-b', path: '/Users/michael/B' }],
+      activeLocalVaultId: 'vault-notes',
     });
     const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
 

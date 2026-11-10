@@ -445,44 +445,59 @@ export function createLocalWorkspaceId() {
   return createLocalVaultId().replace(/^vault-/, 'workspace-');
 }
 
+/**
+ * Settings shaped by an older main process may carry only part of the local-vault section during a
+ * renderer reload, so every read treats a missing list as empty instead of trusting the type.
+ */
+type LocalVaultLike = { localVault?: Partial<LocalVaultSettings> } | undefined;
+
+function localVaultVaults(settings: LocalVaultLike): LocalVaultEntry[] {
+  const vaults = settings?.localVault?.vaults;
+  return Array.isArray(vaults) ? vaults : [];
+}
+
+function localWorkspaceEntries(localVault: Partial<LocalVaultSettings> | undefined): LocalWorkspaceEntry[] {
+  const workspaces = localVault?.workspaces;
+  return Array.isArray(workspaces) ? workspaces : [];
+}
+
+/** The named working sets, tolerating an older main process that does not send them. */
+export function getLocalWorkspaces(settings: LocalVaultLike): LocalWorkspaceEntry[] {
+  return localWorkspaceEntries(settings?.localVault);
+}
+
 export function getActiveLocalVault(
-  settings: Pick<AppSettings, 'localVault'> | undefined,
+  settings: LocalVaultLike,
 ): LocalVaultEntry | null {
-  const localVault = settings?.localVault;
-  if (!localVault) {
-    return null;
-  }
-  const active = localVault.vaults.find((vault) => vault.id === localVault.activeVaultId);
-  return active ?? localVault.vaults[0] ?? null;
+  const vaults = localVaultVaults(settings);
+  const active = vaults.find((vault) => vault.id === settings?.localVault?.activeVaultId);
+  return active ?? vaults[0] ?? null;
 }
 
 export function getActiveLocalVaultPath(
-  settings: Pick<AppSettings, 'localVault'> | undefined,
+  settings: LocalVaultLike,
 ): string | null {
   return getActiveLocalVault(settings)?.path ?? null;
 }
 
 /** The named working set the sidebar groups folders under, when one is active. */
 export function getActiveLocalWorkspace(
-  settings: Pick<AppSettings, 'localVault'> | undefined,
+  settings: LocalVaultLike,
 ): LocalWorkspaceEntry | null {
-  const localVault = settings?.localVault;
-  if (!localVault) {
-    return null;
-  }
-  return localVault.workspaces.find((workspace) => workspace.id === localVault.activeWorkspaceId) ?? null;
+  const workspaces = getLocalWorkspaces(settings);
+  return workspaces.find((workspace) => workspace.id === settings?.localVault?.activeWorkspaceId) ?? null;
 }
 
 /** The vault folders an active workspace shows as roots, active vault included. */
 export function getLocalWorkspaceVaults(
-  settings: Pick<AppSettings, 'localVault'> | undefined,
+  settings: LocalVaultLike,
 ): LocalVaultEntry[] {
   const workspace = getActiveLocalWorkspace(settings);
-  if (!settings?.localVault || !workspace) {
+  if (!workspace) {
     return [];
   }
   return workspace.vaultIds
-    .map((id) => settings.localVault.vaults.find((vault) => vault.id === id))
+    .map((id) => localVaultVaults(settings).find((vault) => vault.id === id))
     .filter((vault): vault is LocalVaultEntry => Boolean(vault));
 }
 
@@ -502,13 +517,14 @@ export function addLocalVault(
   const entry = { id: createLocalVaultId(), path: trimmed };
   const vaults = [...current.vaults, entry].slice(-32);
   // Adding a folder while a workspace is open extends that working set.
+  const existingWorkspaces = localWorkspaceEntries(current);
   const workspaces = current.activeWorkspaceId
-    ? current.workspaces.map((workspace) => (
+    ? existingWorkspaces.map((workspace) => (
       workspace.id === current.activeWorkspaceId
         ? { ...workspace, vaultIds: [...workspace.vaultIds, entry.id].slice(-32) }
         : workspace
     ))
-    : current.workspaces;
+    : existingWorkspaces;
   return { ...current, vaults, workspaces, activeVaultId: entry.id };
 }
 
@@ -536,7 +552,7 @@ export function removeLocalVault(
   }
   const activeVaultId = current.activeVaultId === id ? vaults[0].id : current.activeVaultId;
   // A forgotten folder leaves every working set that held it; a set left empty disappears.
-  const workspaces = current.workspaces
+  const workspaces = localWorkspaceEntries(current)
     .map((workspace) => (
       workspace.vaultIds.includes(id)
         ? { ...workspace, vaultIds: workspace.vaultIds.filter((vaultId) => vaultId !== id) }
@@ -571,7 +587,7 @@ export function createLocalWorkspace(
     name: normalizeWorkspaceName(name) ?? 'Local workspace',
     vaultIds: ids.slice(0, 32),
   };
-  return { ...current, workspaces: [...current.workspaces, workspace].slice(-MAX_LOCAL_WORKSPACES) };
+  return { ...current, workspaces: [...localWorkspaceEntries(current), workspace].slice(-MAX_LOCAL_WORKSPACES) };
 }
 
 export function renameLocalWorkspace(
@@ -580,12 +596,12 @@ export function renameLocalWorkspace(
   name: string,
 ): LocalVaultSettings {
   const normalized = normalizeWorkspaceName(name);
-  if (!normalized || !current.workspaces.some((workspace) => workspace.id === id)) {
+  if (!normalized || !localWorkspaceEntries(current).some((workspace) => workspace.id === id)) {
     return current;
   }
   return {
     ...current,
-    workspaces: current.workspaces.map((workspace) => (
+    workspaces: localWorkspaceEntries(current).map((workspace) => (
       workspace.id === id ? { ...workspace, name: normalized } : workspace
     )),
   };
@@ -593,8 +609,9 @@ export function renameLocalWorkspace(
 
 /** Deletes a working set; the folders themselves stay known and openable. */
 export function removeLocalWorkspace(current: LocalVaultSettings, id: string): LocalVaultSettings {
-  const workspaces = current.workspaces.filter((workspace) => workspace.id !== id);
-  if (workspaces.length === current.workspaces.length) {
+  const existing = localWorkspaceEntries(current);
+  const workspaces = existing.filter((workspace) => workspace.id !== id);
+  if (workspaces.length === existing.length) {
     return current;
   }
   return {
@@ -612,7 +629,7 @@ export function setActiveLocalWorkspace(
   if (id === null) {
     return current.activeWorkspaceId === null ? current : { ...current, activeWorkspaceId: null };
   }
-  return current.workspaces.some((workspace) => workspace.id === id)
+  return localWorkspaceEntries(current).some((workspace) => workspace.id === id)
     ? { ...current, activeWorkspaceId: id }
     : current;
 }
@@ -626,7 +643,7 @@ export function setLocalWorkspaceVaults(
   id: string,
   vaultIds: string[],
 ): LocalVaultSettings {
-  const workspace = current.workspaces.find((candidate) => candidate.id === id);
+  const workspace = localWorkspaceEntries(current).find((candidate) => candidate.id === id);
   if (!workspace) {
     return current;
   }
@@ -637,7 +654,7 @@ export function setLocalWorkspaceVaults(
   }
   return {
     ...current,
-    workspaces: current.workspaces.map((candidate) => (
+    workspaces: localWorkspaceEntries(current).map((candidate) => (
       candidate.id === id ? { ...candidate, vaultIds: ids } : candidate
     )),
   };

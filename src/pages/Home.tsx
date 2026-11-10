@@ -742,6 +742,7 @@ export function Home() {
     switchWorkspaceScope,
   } = useElectronHomeCommandPalette({
     localVaultId: vaultSession.vaultId,
+    localVaultEntryId: settingsQuery.data?.localVault.activeVaultId ?? null,
     localVaults: settingsQuery.data?.localVault.vaults ?? [],
     onSwitchLocalVault: (vaultId: string) => {
       void localVaultActions.switchLocalVault(vaultId).catch((error) => {

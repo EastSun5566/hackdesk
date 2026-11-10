@@ -12,7 +12,10 @@ import { LOCAL_VAULT_TEAM_PATH } from './local-vault-adapter';
 import { recentNoteTargetsScope } from './usePendingRecentNoteRestore';
 
 export type WorkbenchQuickOpenOptions = {
+  /** The open vault's snapshot id, which recent local notes carry. */
   localVaultId?: string | null;
+  /** The open vault's stored id, which workspace results name. */
+  localVaultEntryId?: string | null;
   onSwitchLocalVault?: (vaultId: string) => void;
   expandNavigator: () => void;
   focusNavigator: () => void;
@@ -32,6 +35,7 @@ export type WorkbenchQuickOpenOptions = {
 
 export function useWorkbenchQuickOpen({
   localVaultId,
+  localVaultEntryId,
   onSwitchLocalVault,
   expandNavigator,
   focusNavigator,
@@ -118,7 +122,7 @@ export function useWorkbenchQuickOpen({
       setWorkspaceScope({ type: 'history', label: workspace.label });
     } else if (workspace.type === 'local') {
       // Another vault activates first; it sets the scope itself once ready.
-      if (workspace.vaultId !== localVaultId && onSwitchLocalVault) {
+      if (workspace.vaultId !== localVaultEntryId && onSwitchLocalVault) {
         onSwitchLocalVault(workspace.vaultId);
       } else {
         setWorkspaceScope({ type: 'local', label: workspace.label, vaultId: workspace.vaultId });
@@ -128,7 +132,7 @@ export function useWorkbenchQuickOpen({
     }
 
     focusNavigator();
-  }, [clearPendingRecentNote, focusNavigator, localVaultId, onSwitchLocalVault, setWorkspaceScope]);
+  }, [clearPendingRecentNote, focusNavigator, localVaultEntryId, onSwitchLocalVault, setWorkspaceScope]);
 
   const handleQuickOpenFolder = useCallback((folder: QuickOpenFolderResult) => {
     expandNavigator();

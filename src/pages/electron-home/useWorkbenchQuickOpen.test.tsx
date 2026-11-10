@@ -73,6 +73,7 @@ function createOptions(overrides: Partial<WorkbenchQuickOpenOptions> = {}): Work
 
   return {
     localVaultId: 'vault-a',
+    localVaultEntryId: 'vault-a',
     expandNavigator: vi.fn(),
     focusNavigator: vi.fn(),
     isWorkspaceFetching: false,

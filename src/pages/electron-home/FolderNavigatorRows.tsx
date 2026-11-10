@@ -620,9 +620,16 @@ export function WorkspaceSiblingVaultRow({ label, path, onOpen }: { label: strin
     <EntityRow
       variant="compact"
       tone="quiet"
-      icon={<HardDrive aria-hidden="true" className="h-3.5 w-3.5" />}
+      // The icon takes the folder rows' arrow slot, so every row in the set lines up.
+      leadingControls={(
+        <span className="-mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center text-icon-subtle">
+          <HardDrive aria-hidden="true" className="h-3.5 w-3.5" />
+        </span>
+      )}
       title={label}
       titleAttribute={path}
+      trailing={<ChevronRight aria-hidden="true" className="size-3.5" />}
+      trailingClassName="text-icon-subtle"
       contentAriaLabel={`Open ${label}`}
       contentOnClick={onOpen}
       contentFocusTarget
@@ -638,6 +645,8 @@ export function WorkspaceSiblingVaultRow({ label, path, onOpen }: { label: strin
 export function WorkspaceRootTreeRow({
   scope,
   label,
+  /** The open folder inside a named working set, shown beside the set's name. */
+  detail,
   selected,
   sectionExpanded,
   dragActive,
@@ -652,6 +661,7 @@ export function WorkspaceRootTreeRow({
 }: {
   scope: WorkspaceScope;
   label: string;
+  detail?: string | null;
   selected: boolean;
   sectionExpanded: boolean;
   dragActive: boolean;
@@ -715,7 +725,12 @@ export function WorkspaceRootTreeRow({
                 />
               </button>
             )}
-            title={label}
+            title={detail ? (
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate">{label}</span>
+                <span aria-hidden="true" className="truncate text-xs font-normal text-text-subtle">{detail}</span>
+              </span>
+            ) : label}
             contentAriaLabel={label}
             contentOnClick={() => {
               onSelectTopLevel();

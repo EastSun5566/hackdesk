@@ -13,6 +13,7 @@ import { useWorkbenchQuickOpen } from './useWorkbenchQuickOpen';
 
 export type ElectronHomeCommandPaletteOptions = {
   localVaultId?: string | null;
+  localVaultEntryId?: string | null;
   localVaults?: { id: string; path: string }[];
   onSwitchLocalVault?: (vaultId: string) => void;
   displayScope: WorkspaceScope;
@@ -39,6 +40,7 @@ export type ElectronHomeCommandPaletteOptions = {
 
 export function useElectronHomeCommandPalette({
   localVaultId,
+  localVaultEntryId,
   localVaults,
   onSwitchLocalVault,
   displayScope,
@@ -96,6 +98,7 @@ export function useElectronHomeCommandPalette({
     handleQuickOpenWorkspace,
   } = useWorkbenchQuickOpen({
     localVaultId,
+    localVaultEntryId,
     onSwitchLocalVault,
     expandNavigator,
     focusNavigator,

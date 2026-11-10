@@ -50,7 +50,8 @@ async function choose(page: Page, path: string | null, homeBase: string) {
     return;
   }
   await chooseFolderInPicker(page, basename(path), homeBase);
-  await expect(page.getByRole('dialog', { name: 'Settings' }).getByText(path, { exact: true })).toBeVisible();
+  // The open folder card and the folder list both name the path.
+  await expect(page.getByRole('dialog', { name: 'Settings' }).getByText(path, { exact: true }).first()).toBeVisible();
   await page.keyboard.press('Escape');
 }
 
