@@ -24,6 +24,23 @@ describe('window workspace scope', () => {
     expect(decodeWindowWorkspaceScope(encodeWindowWorkspaceScope(scope))).toEqual(scope);
   });
 
+  it('round-trips a local scope that names a workspace', () => {
+    const scope: WindowWorkspaceScope = { type: 'local', label: 'Writing Set', workspaceId: 'workspace-writing' };
+    expect(decodeWindowWorkspaceScope(encodeWindowWorkspaceScope(scope))).toEqual(scope);
+    expect(decodeWindowWorkspaceScope(encodeWindowWorkspaceScope({
+      type: 'local',
+      label: 'Writing Set',
+      vaultId: 'vault-notes',
+      workspaceId: 'workspace-writing',
+    }))).toEqual({ type: 'local', label: 'Writing Set', vaultId: 'vault-notes', workspaceId: 'workspace-writing' });
+  });
+
+  it('rejects workspace ids on non-local scopes', () => {
+    expect(decodeWindowWorkspaceScope(encodeURIComponent(JSON.stringify({ type: 'team', label: 'A', teamPath: 'a', workspaceId: 'ws' })))).toBeNull();
+    expect(decodeWindowWorkspaceScope(encodeURIComponent(JSON.stringify({ type: 'personal', label: 'P', workspaceId: 'ws' })))).toBeNull();
+    expect(() => encodeWindowWorkspaceScope({ type: 'history', label: 'H', workspaceId: 'ws' })).toThrow('invalid workspace scope');
+  });
+
   it('rejects vault ids on non-local scopes', () => {
     expect(decodeWindowWorkspaceScope(encodeURIComponent(JSON.stringify({ type: 'team', label: 'A', teamPath: 'a', vaultId: 'v' })))).toBeNull();
     expect(decodeWindowWorkspaceScope(encodeURIComponent(JSON.stringify({ type: 'personal', label: 'P', vaultId: 'v' })))).toBeNull();

@@ -110,6 +110,19 @@ describe('WorkspaceSwitcher', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Workspaces' })).toBeNull());
   });
 
+  it('opens a named working set in a new window', async () => {
+    const props = renderSwitcher({
+      localVaults: [{ id: 'vault-a', path: '/Users/michael/A' }],
+      localWorkspaces: [{ id: 'workspace-work', name: 'Work', vaultIds: ['vault-a'] }],
+      onActivateLocalWorkspace: vi.fn(),
+      onOpenInNewWindow: vi.fn(),
+    });
+    const dialog = await screen.findByRole('dialog', { name: 'Workspaces' });
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /^Open Work in a new window/ }));
+    expect(props.onOpenInNewWindow).toHaveBeenCalledWith({ type: 'local', label: 'Work', workspaceId: 'workspace-work' });
+  });
+
   it('lists a working set by name without expanding its folders', async () => {
     const props = renderSwitcher({
       scope: { type: 'local', label: 'Work', vaultId: 'vault-a' },

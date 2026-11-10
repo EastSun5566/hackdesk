@@ -402,7 +402,7 @@ export function useHomeWorkspaceProps({
           const workspace: NewWindowWorkspaceScope = scope.type === 'team'
             ? { type: scope.type, label: scope.label, teamPath: scope.teamPath }
             : scope.type === 'local'
-              ? { type: scope.type, label: scope.label, vaultId: scope.vaultId }
+              ? { type: scope.type, label: scope.label, vaultId: scope.vaultId, workspaceId: scope.workspaceId }
               : { type: scope.type, label: scope.label };
           void api?.app.newWindow?.({ workspace }).catch((error) => {
             toast.error(error instanceof Error ? error.message : 'Failed to open a new window.');
