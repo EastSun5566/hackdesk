@@ -623,6 +623,53 @@ describe('SettingsDialog', () => {
     expect(title).toHaveValue('HackDesk');
   });
 
+  it('saves a title still waiting for its debounce when the field loses focus', () => {
+    const { onSave } = renderSettingsDialog();
+
+    const title = screen.getByLabelText('Window title');
+    fireEvent.change(title, { target: { value: ' Quick Desk ' } });
+    expect(onSave).not.toHaveBeenCalled();
+    fireEvent.blur(title);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith({ title: 'Quick Desk' });
+  });
+
+  it('saves a title still waiting for its debounce when Settings closes', () => {
+    const { onOpenChange, onSave } = renderSettingsDialog();
+
+    fireEvent.change(screen.getByLabelText('Window title'), { target: { value: 'Closing Desk' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onSave).toHaveBeenCalledWith({ title: 'Closing Desk' });
+  });
+
+  it('does not save a typed title over a revert that followed it', async () => {
+    const { onSave } = renderSettingsDialog({
+      settings: {
+        title: 'Custom Desk',
+        workspaceNavigation: defaultSettings.workspaceNavigation,
+        appearance: defaultSettings.appearance,
+        editor: defaultSettings.editor,
+        hasHackmdApiToken: false,
+        hackmdCliConfig: { hasAccessToken: false, hasCustomEndpoint: false },
+        hasLocalVault: false,
+        localVault: defaultSettings.localVault,
+        onboarding: defaultSettings.onboarding,
+        shouldShowHackmdOnboarding: true,
+      },
+    });
+
+    const title = screen.getByLabelText('Window title');
+    fireEvent.change(title, { target: { value: 'Typed Desk' } });
+    fireEvent.click(screen.getByRole('button', { name: `Reset window title to ${defaultSettings.title}` }));
+    fireEvent.blur(title);
+    await new Promise((resolve) => setTimeout(resolve, 700));
+
+    expect(onSave).toHaveBeenCalledWith({ title: defaultSettings.title });
+    expect(onSave).not.toHaveBeenCalledWith({ title: 'Typed Desk' });
+  });
+
   it('validates a new HackMD token before saving it', async () => {
     const validation = createDeferred<typeof validatedUser>();
     const { onSave, onValidateToken } = renderSettingsDialog({

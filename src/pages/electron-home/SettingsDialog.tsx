@@ -175,25 +175,46 @@ function SettingsDialogContent({
 
   // Every change saves at once; the footer is gone. Text fields debounce so typing saves once it pauses.
   const titleSaveTimer = useRef<number | undefined>(undefined);
-  useEffect(() => () => window.clearTimeout(titleSaveTimer.current), []);
+  // The typed title still waiting for its debounce, so leaving the field or closing can save it.
+  const pendingTitle = useRef<string | null>(null);
+  const onSaveRef = useRef(onSave);
+  useLayoutEffect(() => {
+    onSaveRef.current = onSave;
+  });
+  const cancelTitleSave = () => {
+    window.clearTimeout(titleSaveTimer.current);
+    pendingTitle.current = null;
+  };
+  const flushTitleSave = () => {
+    const pending = pendingTitle.current;
+    cancelTitleSave();
+    if (pending) onSaveRef.current({ title: pending });
+  };
+  useEffect(() => () => {
+    const pending = pendingTitle.current;
+    window.clearTimeout(titleSaveTimer.current);
+    if (pending) onSaveRef.current({ title: pending });
+  }, []);
   const savedTitle = settings?.title ?? defaultSettings.title;
   const titleForSave = title.trim() || savedTitle;
   const saveTitle = (next: string, immediate: boolean) => {
-    window.clearTimeout(titleSaveTimer.current);
+    cancelTitleSave();
     const trimmed = next.trim();
     if (!trimmed) return;
     if (immediate) {
       onSave({ title: trimmed });
       return;
     }
-    titleSaveTimer.current = window.setTimeout(() => onSave({ title: trimmed }), 600);
+    pendingTitle.current = trimmed;
+    titleSaveTimer.current = window.setTimeout(flushTitleSave, 600);
   };
   const handleTitleChange = (next: string) => {
     setFormState((current) => ({ ...current, title: next }));
     saveTitle(next, false);
   };
   const handleTitleBlur = () => {
-    window.clearTimeout(titleSaveTimer.current);
+    // Leaving the field saves a title still waiting for its debounce.
+    flushTitleSave();
     // An empty title never saves; leaving the field puts the saved one back.
     if (!title.trim() && title !== savedTitle) {
       setFormState((current) => ({ ...current, title: savedTitle }));
@@ -232,7 +253,8 @@ function SettingsDialogContent({
     const tab = resetConfirmTab;
     if (!tab) return;
     setResetConfirmTab(null);
-    window.clearTimeout(titleSaveTimer.current);
+    // A typed title still waiting to save must not land after the reset.
+    cancelTitleSave();
     if (tab === 'general') {
       setFormState((current) => ({ ...current, title: defaultSettings.title }));
       onSave({ title: defaultSettings.title });
@@ -373,7 +395,8 @@ function SettingsDialogContent({
     if (!nextOpen) {
       invalidateTokenValidation();
       appearanceController.actions.cancel();
-      window.clearTimeout(titleSaveTimer.current);
+      // Closing saves a title still waiting for its debounce instead of dropping it.
+      flushTitleSave();
       setResetConfirmTab(null);
       setFormState((current) => ({
         ...current,
@@ -418,7 +441,7 @@ function SettingsDialogContent({
               if (activeTab === 'hackmd') {
                 validateAndSaveToken();
               } else if (title.trim()) {
-                window.clearTimeout(titleSaveTimer.current);
+                cancelTitleSave();
                 onSave({ title: title.trim() });
               }
             }}
@@ -456,6 +479,7 @@ function SettingsDialogContent({
                       onTitleChange={handleTitleChange}
                       onTitleBlur={handleTitleBlur}
                       onRevertTitle={() => {
+                        cancelTitleSave();
                         setFormState((current) => ({ ...current, title: defaultSettings.title }));
                         onSave({ title: defaultSettings.title });
                       }}
