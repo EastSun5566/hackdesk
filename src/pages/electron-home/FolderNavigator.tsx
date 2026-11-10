@@ -516,9 +516,8 @@ function NavigatorHeader({
         </div>
       )}
       titleElement="div"
-      // 12px below, against 8px between search and New Note, so the workspace reads as its own group
-      // above the find-and-create group.
-      className="px-4 pb-3 pt-2.5"
+      // Keep a little separation between the workspace and the controls below it.
+      className="px-4 pb-0.5 pt-2.5"
       // Icon buttons carry 8px of padding, so pulling them out by 8px puts their glyphs on the
       // same 16px edge as the rest of the sidebar.
       // No action buttons: search, and the sync spinner beside it, are in the title row. Folder

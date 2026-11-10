@@ -520,16 +520,16 @@
     content: '';
     position: absolute;
     inset-block: 0;
-    /* Over the 1px border and 1px inside it: as strong as the old handle line. */
-    right: -2px;
-    width: 2px;
-    /* Clear for the first and last 0.75rem, past the surface's 8px corner radius, then fading in. */
+    /* Overlay the surface's 1px border. */
+    right: -1px;
+    width: 1px;
+    /* Leave both ends clear, then fade toward the middle. */
     background: linear-gradient(
       to bottom,
-      transparent 0.75rem,
+      transparent 1.5rem,
       var(--primary-default) 3rem,
       var(--primary-default) calc(100% - 3rem),
-      transparent calc(100% - 0.75rem)
+      transparent calc(100% - 1.5rem)
     );
     opacity: 0;
     transition: opacity 150ms ease-out;
