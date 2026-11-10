@@ -38,23 +38,6 @@ const GROUP_LABELS: Record<ElectronActionCategory, string> = {
   view: 'View',
 };
 
-export type ShortcutsDraftStatus = {
-  error: string | null;
-  hasDraftChanges: boolean;
-};
-
-export function getShortcutsDraftStatus(
-  saved: ShortcutOverrides | undefined,
-  draft: ShortcutOverrides,
-): ShortcutsDraftStatus {
-  const error = Object.entries(draft).find(([, value]) => typeof value === 'string' && !isValidCustomShortcutConfig(value));
-
-  return {
-    error: error ? 'Fix invalid shortcuts before saving.' : null,
-    hasDraftChanges: JSON.stringify(saved ?? {}) !== JSON.stringify(draft),
-  };
-}
-
 export function ShortcutsSettingsPanel({
   platform,
   shortcuts,
