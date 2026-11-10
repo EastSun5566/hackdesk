@@ -869,6 +869,14 @@ test('rows share one hover card and one context menu, and the workspace row keep
     await page.getByRole('treeitem', { name: 'Beta', exact: true }).hover();
     await expect(card).toContainText('Beta');
     await expect(card).not.toContainText('Alpha');
+    // The card stays while the pointer is on it, and goes once the pointer leaves both.
+    await card.hover();
+    // Staying open has no event to wait for: give a close, and its exit transition, time to happen.
+    await page.waitForTimeout(500);
+    await expect(card).toHaveAttribute('data-open', '');
+    await expect(card).toContainText('Beta');
+    await page.mouse.move(0, 0);
+    await expect(card).toHaveCount(0);
 
     // Each row's menu is its own, and Escape returns to the row it opened from.
     const alpha = page.getByRole('treeitem', { name: 'Alpha', exact: true });
@@ -894,6 +902,8 @@ test('rows share one hover card and one context menu, and the workspace row keep
     // Keyboard focus shows a note row's card as hovering does, and it follows the arrow keys.
     await page.mouse.move(0, 0);
     await alpha.focus();
+    // The tree tracks the focused row in state; arrow keys move from it once it has caught up.
+    await expect(alpha).toHaveAttribute('tabindex', '0');
     await page.keyboard.press('ArrowDown');
     await expect(page.getByRole('treeitem', { name: 'Beta', exact: true })).toBeFocused();
     await expect(card).toContainText('Beta');

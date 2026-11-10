@@ -175,9 +175,27 @@ export function RowOverlayHost({ children }: { children: ReactNode }) {
   const handlePointerOut = (event: ReactPointerEvent<HTMLElement>) => {
     const next = event.relatedTarget;
     if (next instanceof Node && event.currentTarget.contains(next)) return;
+    // The card is portaled outside the list; moving onto it keeps it open, as a tooltip's card stays.
+    if (next instanceof Element && next.closest('[data-row-card]')) return;
     hoveredRow.current = null;
     closeCard();
   };
+
+  const handleCardPointerLeave = (event: ReactPointerEvent<HTMLElement>) => {
+    const next = event.relatedTarget;
+    // Back onto its row: the row's own pointer events decide.
+    if (next instanceof Node && card.anchor?.contains(next)) return;
+    hoveredRow.current = null;
+    closeCard();
+  };
+
+  // A card whose row was replaced would be placed at the window's corner; put it away instead.
+  useLayoutEffect(() => {
+    if (card.open && card.anchor && !card.anchor.isConnected) {
+      hoveredRow.current = null;
+      closeCard();
+    }
+  });
 
   return (
     <RowOverlayRegistryContext.Provider value={registry}>
@@ -206,7 +224,14 @@ export function RowOverlayHost({ children }: { children: ReactNode }) {
       </Menu.Root>
       <TooltipRoot open={card.open} onOpenChange={(open) => { if (!open) closeCard(); }}>
         {card.card ? (
-          <TooltipContent anchor={card.anchor} side="right" sideOffset={10} className={NOTE_CARD_CLASS} data-row-card="">
+          <TooltipContent
+            anchor={card.anchor}
+            side="right"
+            sideOffset={10}
+            className={NOTE_CARD_CLASS}
+            data-row-card=""
+            onPointerLeave={handleCardPointerLeave}
+          >
             {card.card()}
           </TooltipContent>
         ) : null}
