@@ -998,6 +998,11 @@ export function WorkspaceRootTreeRow({
   viewOptions?: (control: { tabIndex?: number }) => ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: ROOT_FOLDER_DROP_ID });
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const setRowRef = useCallback((node: HTMLDivElement | null) => {
+    rowRef.current = node;
+    setNodeRef(node);
+  }, [setNodeRef]);
   const treeItemProps = useFolderTreeItem(WORKSPACE_ROOT_FOCUS_ID, selected, sectionExpanded, ['toggle']);
   const toggleControlId = useFolderTreeControlId(WORKSPACE_ROOT_FOCUS_ID, 'toggle');
 
@@ -1005,7 +1010,7 @@ export function WorkspaceRootTreeRow({
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
-          ref={setNodeRef}
+          ref={setRowRef}
           data-folder-tree-row-id={WORKSPACE_ROOT_FOCUS_ID}
           data-folder-tree-kind="root"
           // Sticks to the scroll area's very top, covering its 8px padding too, so rows scrolling
@@ -1115,7 +1120,13 @@ export function WorkspaceRootTreeRow({
           />
         </div>
       </ContextMenuTrigger>
-      <ContextMenuContent>
+      {/* The trigger is the row's wrapper, which can't take focus: Escape returns to the row itself,
+          as a note row's menu does; a click elsewhere keeps focus there. */}
+      <ContextMenuContent
+        finalFocus={(closeType) => (closeType === 'keyboard'
+          ? rowRef.current?.querySelector<HTMLElement>('[data-folder-tree-primary="true"]') ?? false
+          : false)}
+      >
         <ContextMenuItem disabled={!canCreate} onSelect={onCreateNote}>
           <FileText aria-hidden="true" className="h-4 w-4" />
           New Note

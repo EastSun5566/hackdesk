@@ -927,11 +927,14 @@ test('rows share one hover card and one context menu, and the workspace row keep
     await page.keyboard.press('Escape');
 
     // The workspace row's menu is its own, not a row menu on top of it.
-    await page.getByRole('treeitem', { name: 'Files', exact: true }).click({ button: 'right' });
+    const filesRow = page.getByRole('treeitem', { name: 'Files', exact: true });
+    await filesRow.click({ button: 'right' });
     await expect(page.getByRole('menuitem', { name: 'New Folder' })).toBeVisible();
     await expect(page.getByRole('menu')).toHaveCount(1);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('menu')).toHaveCount(0);
+    // Focus returns to the row after the menu closes; wait for it so it cannot land after the next focus.
+    await expect(filesRow).toBeFocused();
 
     // Keyboard focus shows a note row's card as hovering does, and it follows the arrow keys.
     await page.mouse.move(0, 0);
@@ -1183,7 +1186,9 @@ test('keyboard foundation separates focus from selection and protects drafts', a
     const tree = page.getByRole('tree', { name: 'Folders and notes' });
     const alpha = tree.getByRole('treeitem', { name: 'Alpha', exact: true });
     const beta = tree.getByRole('treeitem', { name: 'Beta', exact: true });
-    await alpha.click();
+    // Keep Alpha's tab: a single pick opens a preview tab that the next pick would replace.
+    await alpha.dblclick();
+    await expect(page.getByRole('tab', { name: 'Alpha', exact: true })).toBeVisible();
     await beta.focus();
     await expect(page.locator('.cm-content')).toContainText('# Alpha');
     await beta.press('Enter');
