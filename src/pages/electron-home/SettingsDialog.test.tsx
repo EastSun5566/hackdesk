@@ -658,6 +658,14 @@ describe('SettingsDialog', () => {
     expect(screen.getByRole('tab', { name: 'Shortcuts' })).toHaveAttribute('aria-selected', 'true');
   });
 
+  it('commits the title with Enter only on the page that has it', () => {
+    const { onSave } = renderSettingsDialog();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Shortcuts' }));
+    fireEvent.submit(screen.getByRole('tab', { name: 'Shortcuts' }).closest('form')!);
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
   it('saves a title still waiting for its debounce when the field loses focus', () => {
     const { onSave } = renderSettingsDialog();
 

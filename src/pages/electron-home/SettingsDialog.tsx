@@ -447,7 +447,7 @@ function SettingsDialogContent({
               }
               if (activeTab === 'hackmd') {
                 validateAndSaveToken();
-              } else if (title.trim()) {
+              } else if (activeTab === 'general' && title.trim()) {
                 cancelTitleSave();
                 onSave({ title: title.trim() });
               }
