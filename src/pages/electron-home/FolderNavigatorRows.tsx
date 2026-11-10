@@ -17,6 +17,7 @@ import {
   MoreVertical,
   Lock,
   Plus,
+  Tag,
   Trash2,
   Upload,
   Users,
@@ -36,6 +37,7 @@ import {
 import type { NoteSummary } from '@/lib/electron-api';
 import { buildNoteDragId } from '@/lib/hackmd-note-dnd';
 import type { FolderTree, FolderTreeNode, FolderTreeNote } from '@/lib/hackmd-folders';
+import { createTagGroupFocusId } from '@/lib/electron-tag-groups';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -1245,6 +1247,65 @@ export function NoteDragOverlay({ entry }: { entry: FolderTreeNote | null }) {
 }
 
 /**
+ * A first-tag group over the tree's root notes. It opens like a folder but can't be selected:
+ * pressing it toggles its children. Groups start expanded, so collapse stores the exception,
+ * not every other group.
+ */
+export function TagGroupRow({
+  tag,
+  label,
+  expanded,
+  count,
+  onToggle,
+}: {
+  /** The group's first tag; '' is the trailing "Untagged" group. */
+  tag: string;
+  label: string;
+  expanded: boolean;
+  count: number;
+  onToggle: () => void;
+}) {
+  const groupId = createTagGroupFocusId(tag);
+  const treeItemProps = useFolderTreeItem(groupId, false, expanded, ['toggle']);
+  const toggleControlId = useFolderTreeControlId(groupId, 'toggle');
+  return (
+    <div data-folder-tree-row-id={groupId} data-folder-tree-kind="tag-group" className="min-w-0">
+      <EntityRow
+        variant="compact"
+        tone="quiet"
+        leadingControls={(
+          <button
+            type="button"
+            id={toggleControlId}
+            aria-label={`${expanded ? 'Collapse' : 'Expand'} ${label}`}
+            aria-expanded={expanded}
+            tabIndex={treeItemProps?.tabIndex}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggle();
+            }}
+            className={cn(
+              '-mx-0.75 -my-2 flex h-10 w-5 shrink-0 items-center justify-center rounded text-icon-subtle group-hover/entity-row:text-icon-default hover:text-text-default',
+              FOCUS_RING_INSET_CLASS,
+            )}
+          >
+            <ChevronRight aria-hidden="true" className={cn('size-3.5', COLLAPSE_ICON_CLASS, expanded && 'rotate-90')} />
+          </button>
+        )}
+        icon={<Tag aria-hidden="true" className="size-3.5" />}
+        title={label}
+        contentOnClick={onToggle}
+        contentAriaLabel={`${label} group`}
+        contentFocusTarget
+        contentButtonProps={treeItemProps}
+        trailing={<span className="tabular-nums">{count}</span>}
+        className={TREE_ROW_FOCUS_CLASS}
+      />
+    </div>
+  );
+}
+
+/**
  * A folder's contents mount the first time it opens, then stay mounted (hidden) when it closes:
  * reopening is a style change rather than rebuilding every row. Folders never opened cost nothing.
  */
@@ -1253,6 +1314,8 @@ function KeepMountedOnceOpen({ open, children }: { open: boolean; children: Reac
   if (open && !opened) setOpened(true);
   return opened ? <div hidden={!open} className="contents">{children}</div> : null;
 }
+
+export { KeepMountedOnceOpen };
 
 export function FolderTreeView({
   nodes,

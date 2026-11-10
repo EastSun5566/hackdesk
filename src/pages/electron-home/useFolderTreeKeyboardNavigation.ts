@@ -5,6 +5,7 @@ import { useContext, useCallback, useEffect, useLayoutEffect, useMemo, useRef, u
 import type { NoteSummary } from '@/lib/electron-api';
 import type { FolderTree } from '@/lib/hackmd-folders';
 import { UNFILED_FOLDER_ID } from '@/lib/hackmd-folders';
+import type { TagGroup as FolderTreeTagGroup } from '@/lib/electron-tag-groups';
 
 import { createFolderTreeFocusStore } from './FolderTreeFocusContext';
 
@@ -29,6 +30,13 @@ export type FolderTreeKeyboardActions = {
   onRenameFolder: (folderId: string) => void;
 };
 
+/** What the tree's keyboard knows about first-tag grouping of its root notes. */
+export type FolderTreeKeyboardTagGrouping = {
+  collapsed: Set<string>;
+  groups: FolderTreeTagGroup[];
+  onToggle: (tag: string) => void;
+} | null;
+
 export type UseFolderTreeKeyboardNavigationOptions = {
   treeId: string;
   selectedRowId: string | null;
@@ -40,9 +48,12 @@ export type UseFolderTreeKeyboardNavigationOptions = {
   rootSectionExpanded: boolean;
   rootLabel: string;
   onRootSectionToggle?: () => void;
+  /** Active when root notes group by first tag; absent keeps them flat. */
+  tagGrouping?: FolderTreeKeyboardTagGrouping;
 };
 
 const NO_COLLAPSED_FOLDERS = new Set<string>();
+const NO_COLLAPSED_TAG_GROUPS = new Set<string>();
 
 export function useFolderTreeKeyboardNavigation({
   treeId,
@@ -55,9 +66,11 @@ export function useFolderTreeKeyboardNavigation({
   rootSectionExpanded,
   rootLabel,
   onRootSectionToggle,
+  tagGrouping = null,
 }: UseFolderTreeKeyboardNavigationOptions) {
   const typeaheadBufferRef = useRef('');
   const typeaheadResetTimerRef = useRef<number | null>(null);
+  const groupingOption = tagGrouping ? { collapsed: tagGrouping.collapsed, groups: tagGrouping.groups } : null;
   const focusItems = useMemo(
     () => buildFolderNavigatorFocusItems({
       tree,
@@ -65,8 +78,9 @@ export function useFolderTreeKeyboardNavigation({
       showRoot,
       rootSectionExpanded,
       rootLabel,
+      grouping: groupingOption,
     }),
-    [collapsedFolderIds, rootLabel, rootSectionExpanded, showRoot, tree],
+    [collapsedFolderIds, groupingOption, rootLabel, rootSectionExpanded, showRoot, tree],
   );
   const [focusedId, setFocusedId] = useState(selectedRowId);
   // The tree's tab stop follows the selection: opening a note elsewhere (a tab, the palette) makes
@@ -80,8 +94,16 @@ export function useFolderTreeKeyboardNavigation({
   // folder or the root hides its rows without unmounting them; built from the tree alone, no row's
   // entry changes on a toggle, so no row re-renders for one.
   const rowItems = useMemo(
-    () => buildFolderNavigatorFocusItems({ tree, collapsedFolderIds: NO_COLLAPSED_FOLDERS, showRoot, rootSectionExpanded: true, rootLabel }),
-    [rootLabel, showRoot, tree],
+    () => buildFolderNavigatorFocusItems({
+      tree,
+      collapsedFolderIds: NO_COLLAPSED_FOLDERS,
+      showRoot,
+      rootSectionExpanded: true,
+      rootLabel,
+      // Row data assumes every group open, like every folder open: collapsing hides rows.
+      grouping: groupingOption ? { collapsed: NO_COLLAPSED_TAG_GROUPS, groups: groupingOption.groups } : null,
+    }),
+    [groupingOption, rootLabel, showRoot, tree],
   );
   const itemsById = useMemo(() => new Map(rowItems.map(item => [item.id, item])), [rowItems]);
   // What the keyboard can reach: rows under a collapsed root are skipped.
@@ -298,6 +320,20 @@ export function useFolderTreeKeyboardNavigation({
       return;
     }
 
+    if (!event.ctrlKey && isPlainKey && event.key === 'ArrowRight' && currentItem?.kind === 'tag-group') {
+      event.preventDefault();
+      if (tagGrouping && currentItem.groupTag !== undefined && currentItem.hasChildren && tagGrouping.collapsed.has(currentItem.groupTag)) {
+        tagGrouping.onToggle(currentItem.groupTag);
+        return;
+      }
+
+      const nextItem = focusItems.find((item) => item.parentFolderId === currentItem.id);
+      if (nextItem) {
+        focusTreeItem(nextItem.id);
+      }
+      return;
+    }
+
     if (!event.ctrlKey && isPlainKey && event.key === 'ArrowRight' && currentItem?.kind === 'folder') {
       event.preventDefault();
       if (currentItem.folderId && currentItem.folderId !== UNFILED_FOLDER_ID && currentItem.hasChildren && collapsedFolderIds.has(currentItem.folderId)) {
@@ -320,6 +356,19 @@ export function useFolderTreeKeyboardNavigation({
       return;
     }
 
+    if (!event.ctrlKey && isPlainKey && event.key === 'ArrowLeft' && currentItem?.kind === 'tag-group') {
+      event.preventDefault();
+      if (tagGrouping && currentItem.groupTag !== undefined && !tagGrouping.collapsed.has(currentItem.groupTag)) {
+        tagGrouping.onToggle(currentItem.groupTag);
+        return;
+      }
+
+      if (showRoot && currentItem.depth === 1) {
+        focusTreeItem(WORKSPACE_ROOT_FOCUS_ID);
+      }
+      return;
+    }
+
     if (!event.ctrlKey && isPlainKey && event.key === 'ArrowLeft' && currentItem) {
       event.preventDefault();
       if (currentItem.kind === 'folder' && currentItem.folderId && currentItem.folderId !== UNFILED_FOLDER_ID && currentItem.hasChildren && !collapsedFolderIds.has(currentItem.folderId)) {
@@ -328,7 +377,9 @@ export function useFolderTreeKeyboardNavigation({
       }
 
       if (currentItem.parentFolderId) {
-        focusTreeItem(createFolderFocusId(currentItem.parentFolderId));
+        // Notes under a tag group mention the group by its focus id already; folder children mean
+        // a folder id, which needs the focus-id prefix.
+        focusTreeItem(currentItem.parentFolderId.startsWith('tag:') ? currentItem.parentFolderId : createFolderFocusId(currentItem.parentFolderId));
         return;
       }
 
@@ -358,6 +409,12 @@ export function useFolderTreeKeyboardNavigation({
         return;
       }
 
+      // A tag group can't be selected; Enter toggles it, like pressing the chevron.
+      if (currentItem.kind === 'tag-group' && currentItem.groupTag !== undefined && tagGrouping) {
+        tagGrouping.onToggle(currentItem.groupTag);
+        return;
+      }
+
       if (currentItem.kind === 'note' && currentItem.note) {
         actions.onNoteSelect(currentItem.note.note);
         return;
@@ -375,6 +432,7 @@ export function useFolderTreeKeyboardNavigation({
     rootSectionExpanded,
     runTypeahead,
     showRoot,
+    tagGrouping,
   ]);
 
   useEffect(() => {

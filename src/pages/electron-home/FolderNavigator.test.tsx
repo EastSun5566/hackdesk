@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ComponentProps } from 'react';
 
 import { DEFAULT_NOTE_FINDER_STATE } from '@/lib/electron-note-finder';
@@ -1267,5 +1267,116 @@ describe('FolderNavigator', () => {
     expect(screen.queryByRole('treeitem', { name: 'My Notes' })).not.toBeInTheDocument();
     expect(screen.getByText('Recent notes')).toBeVisible();
     expect(screen.getByRole('button', { name: 'History' })).toHaveAttribute('aria-current', 'page');
+  });
+});
+
+describe('FolderNavigator tag groups', () => {
+  const TAG_GROUPING_KEYS = ['hackdesk_tag_grouping', 'hackdesk_tag_grouping_order', 'hackdesk_tag_grouping_collapsed'];
+
+  beforeEach(() => {
+    for (const key of TAG_GROUPING_KEYS) window.localStorage.removeItem(key);
+  });
+
+  afterAll(() => {
+    for (const key of TAG_GROUPING_KEYS) window.localStorage.removeItem(key);
+  });
+
+  function renderTagGroupedNavigator(orderKey: 'a-z' | 'updated-desc' | 'updated-asc' = 'a-z') {
+    // Root notes only: every note is folder-less, how the pre-folder view shows them.
+    const notes = [
+      note({ id: 'work-oldest', tags: ['work'], title: 'Work Oldest', updatedAtMillis: 1_700_000_000_000 }),
+      note({ id: 'work-newest', tags: ['work'], title: 'Work Newest', updatedAtMillis: 1_700_000_900_000 }),
+      note({ id: 'daily', tags: [], title: 'Daily Log' }),
+      note({ id: 'personal', tags: ['personal'], title: 'Personal Note', updatedAtMillis: 1_700_000_500_000 }),
+    ];
+    const tree = buildHackmdFolderTree(notes, []);
+    window.localStorage.setItem('hackdesk_tag_grouping', 'true');
+    window.localStorage.setItem('hackdesk_tag_grouping_order', orderKey);
+    const view = renderFolderNavigator({ tree, entries: tree.allNotes });
+    return { ...view, tree };
+  }
+
+  it('keeps the flat root notes until the view option turns grouping on', () => {
+    renderFolderNavigator();
+
+    expect(screen.queryByRole('treeitem', { name: 'Untagged' })).not.toBeInTheDocument();
+    expect(screen.getByRole('treeitem', { name: 'Loose note' })).toBeVisible();
+  });
+
+  it('groups root notes under first tags, all expanded by default', () => {
+    const { container } = renderTagGroupedNavigator();
+
+    const groupRows = [...container.querySelectorAll('[data-folder-tree-kind="tag-group"]')];
+    expect(groupRows.map((row) => row.getAttribute('data-folder-tree-row-id'))).toEqual([
+      'tag:personal',
+      'tag:__untagged__',
+      'tag:work',
+    ]);
+    // Default expanded: the notes sit visible under each group.
+    expect(screen.getByRole('treeitem', { name: 'Personal Note' })).toBeVisible();
+    expect(screen.getByRole('treeitem', { name: 'Work Newest' })).toBeVisible();
+    expect(screen.getByRole('treeitem', { name: 'Daily Log' })).toBeVisible();
+    const untagged = screen.getByRole('treeitem', { name: 'Untagged group' }).closest('[data-folder-tree-row-id]') as HTMLElement;
+    expect(within(untagged).getByText('1')).toBeInTheDocument();
+  });
+
+  it('orders the groups by their newest note with the updated-time order', () => {
+    const { container } = renderTagGroupedNavigator('updated-desc');
+
+    const groupRows = [...container.querySelectorAll('[data-folder-tree-kind="tag-group"]')];
+    expect(groupRows.map((row) => row.getAttribute('data-folder-tree-row-id'))).toEqual([
+      'tag:work',
+      'tag:personal',
+      'tag:__untagged__',
+    ]);
+  });
+
+  it('collapses one group without touching its siblings, and remembers it across views', () => {
+    const view = renderTagGroupedNavigator();
+    fireEvent.click(screen.getByRole('treeitem', { name: 'work group' }));
+
+    expect(screen.queryByRole('treeitem', { name: 'Work Newest' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('treeitem', { name: 'Work Oldest' })).not.toBeInTheDocument();
+    expect(screen.getByRole('treeitem', { name: 'Personal Note' })).toBeVisible();
+    expect(screen.getByRole('treeitem', { name: 'work group' })).toHaveAttribute('aria-expanded', 'false');
+    expect(window.localStorage.getItem('hackdesk_tag_grouping_collapsed')).toContain('work');
+
+    // A fresh view opens in the same state: the collapsed group stays shut, others stay expanded.
+    view.unmount();
+    renderTagGroupedNavigator();
+    expect(screen.queryByRole('treeitem', { name: 'Work Newest' })).not.toBeInTheDocument();
+    expect(screen.getByRole('treeitem', { name: 'Personal Note' })).toBeVisible();
+  });
+
+  it('toggles grouping from the tree View options and offers the tag order there', async () => {
+    renderFolderNavigator();
+    const trigger = screen.getByRole('button', { name: 'View options' });
+    fireEvent.pointerDown(trigger);
+    const menu = await screen.findByRole('menu');
+    expect(menu).toHaveTextContent('Group by Tag');
+
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Group notes by first tag' }));
+    expect(window.localStorage.getItem('hackdesk_tag_grouping')).toBe('true');
+    // Only folder-less notes group; the loose untagged note lands in the Untagged group.
+    expect(await screen.findByRole('treeitem', { name: 'Untagged group' })).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.keyDown(menu, { key: 'Escape' });
+  });
+
+  it('keeps the flat finder list in charge while grouping, so the tree option reaches it on return', async () => {
+    renderTagGroupedNavigator('updated-desc');
+    // The order choice persists with the option; the flat list itself never changes shape.
+    expect(window.localStorage.getItem('hackdesk_tag_grouping_order')).toBe('updated-desc');
+    expect(screen.getByRole('treeitem', { name: 'Work Newest' })).toBeVisible();
+  });
+
+  it('expands and collapses tag groups with arrow keys', () => {
+    const { container } = renderTagGroupedNavigator();
+    const group = focusTreeRow(container, 'tag:work');
+
+    fireEvent.keyDown(group, { key: 'ArrowLeft' });
+    expect(screen.queryByRole('treeitem', { name: 'Work Newest' })).not.toBeInTheDocument();
+    fireEvent.keyDown(group, { key: 'ArrowRight' });
+    expect(screen.getByRole('treeitem', { name: 'Work Newest' })).toBeVisible();
   });
 });
