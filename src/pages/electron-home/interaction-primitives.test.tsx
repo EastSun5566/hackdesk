@@ -44,3 +44,22 @@ describe('EntityRow', () => {
     expect(open).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('EntityRow title weight', () => {
+  const titleClasses = (props: { selected?: boolean; active?: boolean; tone?: 'default' | 'quiet' }) => {
+    const { getByText, unmount } = render(<EntityRow title="Plan" {...props} />);
+    const classes = getByText('Plan').className;
+    unmount();
+    return classes;
+  };
+
+  it('keeps a sidebar row at one weight when it is selected, so the row does not shift (#330)', () => {
+    const resting = titleClasses({ tone: 'quiet' });
+    expect(resting).toContain('font-normal');
+    expect(titleClasses({ tone: 'quiet', selected: true })).toBe(resting);
+    expect(titleClasses({ tone: 'quiet', active: true })).toBe(resting);
+    // Other rows keep their medium weight, selected or not.
+    expect(titleClasses({})).toContain('font-medium');
+    expect(titleClasses({ selected: true })).toBe(titleClasses({}));
+  });
+});

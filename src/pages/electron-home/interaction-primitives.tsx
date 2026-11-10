@@ -134,7 +134,9 @@ function EntityRowContent({
   const contentBody = (
     <>
       <span className={cn('flex min-w-0 items-center gap-2', titleClassName)}>
-        <span className={cn('min-w-0 truncate', tone === 'quiet' && !(selected || active) ? 'font-normal' : 'font-medium')}>{title}</span>
+        {/* A quiet row (the sidebar tree) keeps one weight: selection shows in colour and background,
+            since a bolder title is wider and would shift and re-truncate the row (#330). */}
+        <span className={cn('min-w-0 truncate', tone === 'quiet' ? 'font-normal' : 'font-medium')}>{title}</span>
         {badges ? <span className="shrink-0">{badges}</span> : null}
       </span>
       {subtitle ? (
